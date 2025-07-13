@@ -1,7 +1,9 @@
 import { Inter, Poppins } from "next/font/google";
 import Footer from "../components/layout/Footer";
 import Header from "../components/layout/Header";
-import PageTransition from "../components/layout/PageTransition";
+import { SpeedInsights } from "@vercel/speed-insights/next"
+import { Analytics } from "@vercel/analytics/next"
+
 import "./globals.css";
 
 const inter = Inter({
@@ -61,6 +63,8 @@ export default function RootLayout({ children }) {
           <main className="flex-1 w-full">
             {/* <PageTransition>{children}</PageTransition> */}
             {children}
+            <Analytics/>
+            <SpeedInsights/>
           </main>
           <Footer />
         </div>
