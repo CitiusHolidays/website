@@ -65,9 +65,11 @@ export default function HomeContent() {
           muted
           loop
           playsInline
+          poster="/gallery/bgfooter.png"
           className="object-cover object-center absolute inset-0 w-full h-full brightness-75 bg-brand-dark"
         >
           <source src="/hero.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
         </video>
         <div className="relative z-10 px-4 max-w-3xl">
           <motion.h1
