@@ -100,4 +100,4 @@ Deploy easily on [Vercel](https://vercel.com/new?utm_medium=default-template&fil
 
 ---
 
-© Citius Holidays. All rights reserved.
+© Citius Holidays. All rights reserved. 
