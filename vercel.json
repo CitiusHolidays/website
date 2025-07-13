@@ -1,0 +1,11 @@
+{
+    "headers": [
+        {
+            "source": "/(.*\\.mp4)",
+            "headers": [
+                { "key": "Accept-Ranges", "value": "bytes" },
+                { "key": "Content-Type", "value": "video/mp4" }
+            ]
+        }
+    ]
+}
