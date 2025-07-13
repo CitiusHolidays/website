@@ -1,23 +1,35 @@
 {
-  "name": "citius-travel-website",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
-  },
-  "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "next": "15.3.5"
-  },
-  "devDependencies": {
-    "@tailwindcss/postcss": "^4",
-    "tailwindcss": "^4",
-    "eslint": "^9",
-    "eslint-config-next": "15.3.5",
-    "@eslint/eslintrc": "^3"
-  }
+	"name": "citius-travel-website",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"dev": "next dev --turbopack",
+		"build": "next build",
+		"start": "next start",
+		"lint": "next lint"
+	},
+	"dependencies": {
+		"@phosphor-icons/react": "^2.1.10",
+		"@react-email/components": "^0.2.0",
+		"@react-email/render": "^1.1.3",
+		"@sanity/image-url": "^1.1.0",
+		"lucide-react": "^0.525.0",
+		"motion": "^12.23.3",
+		"motion-plus": "^1.4.1",
+		"next": "15.3.5",
+		"next-sanity": "^9.12.0",
+		"nodemailer": "^7.0.5",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
+		"react-email": "^4.1.1",
+		"react-hook-form": "^7.60.0",
+		"validator": "^13.15.15"
+	},
+	"devDependencies": {
+		"@eslint/eslintrc": "^3",
+		"@tailwindcss/postcss": "^4.1.11",
+		"eslint": "^9",
+		"eslint-config-next": "15.3.5",
+		"tailwindcss": "^4.1.11"
+	}
 }
