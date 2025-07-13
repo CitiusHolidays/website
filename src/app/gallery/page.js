@@ -17,7 +17,9 @@ const GALLERY_QUERY = `*[_type == "gallery"][0]{
   }
 }`;
 
+const options = { next: { revalidate: 30 } };
+
 export default async function GalleryPage() {
-  const data = await client.fetch(GALLERY_QUERY);
+  const data = await client.fetch(GALLERY_QUERY, {}, options);
   return <GalleryPageClient images={data?.images || []} />;
 }
