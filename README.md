@@ -1,4 +1,4 @@
-# Citius Travel Website 
+# Citius Travel Website  
 
 A modern travel agency website for Citius Holidays, built with Next.js. This project showcases curated travel experiences, MICE (Meetings, Incentives, Conferences, Exhibitions) services, a blog, gallery, and more. It is designed for high performance, beautiful UI, and easy content management.
 
