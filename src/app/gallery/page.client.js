@@ -16,7 +16,7 @@ export default function GalleryPageClient({ images }) {
           poster="/gallery/bgfooter.png"
           className="absolute inset-0 w-full h-full object-cover bg-brand-dark object-center brightness-75"
         >
-          <source src="https://ajbypwkggaueuocc.public.blob.vercel-storage.com/sunset.mp4" type="video/mp4" />
+          <source src="/gallery/sunset.mp4" type="video/mp4" />
         </video>
         <div className="relative z-10 max-w-3xl px-4">
           <motion.h1
