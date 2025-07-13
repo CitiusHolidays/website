@@ -13,6 +13,7 @@ export default function GalleryPageClient({ images }) {
           muted
           loop
           playsInline
+          poster="/gallery/bgfooter.png"
           className="absolute inset-0 w-full h-full object-cover bg-brand-dark object-center brightness-75"
         >
           <source src="/gallery/sunset.mp4" type="video/mp4" />
