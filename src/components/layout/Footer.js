@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { createLucideIcon, Facebook, Instagram, Linkedin } from "lucide-react";
 import Image from "next/image";
@@ -7,7 +7,7 @@ import { motion } from "motion/react";
 
 import Logo from "@/static/logos/logo.png";
 import IATA from "@/static/partners/iata.png";
-import IncredibleIndia from "@/static/partners/incredibleindia.png";
+import IncredibleIndia from "@/static/partners/incredibleindiafooter.png";
 
 const XIcon = createLucideIcon("X", [
   [
@@ -84,14 +84,18 @@ export default function Footer() {
             className="mb-2"
           />
           <p className="text-sm text-citius-orange">We Inspire to Travel</p>
-          <div className="flex flex-col px-8 mx-auto gap-4 mt-4">
-            <Image src={IATA} alt="IATA Logo" width={60} height={60} />
-            <Image
-              src={IncredibleIndia}
-              alt="Incredible India Logo"
-              width={60}
-              height={60}
-            />
+          <div className="flex flex-col mx-auto mt-4">
+            <div className="px-8">
+              <Image src={IATA} alt="IATA Logo" width={60} height={60} />
+            </div>
+            <div className="px-3">
+              <Image
+                src={IncredibleIndia}
+                alt="Incredible India Logo"
+                width={100}
+                height={100}
+              />
+            </div>
           </div>
         </motion.div>
 

@@ -7,13 +7,17 @@ import Acer from "@/static/clients/acer.png";
 import Adani from "@/static/clients/adani.png";
 import Aditya from "@/static/clients/aditya.png";
 import Allegis from "@/static/clients/allegis.png";
+import Ambuja from "@/static/clients/ambuja.png";
 import Berger from "@/static/clients/berger.png";
 import CooperVision from "@/static/clients/coopervision.png";
 import GEHealthcare from "@/static/clients/gehealthcare.png";
 import Godrej from "@/static/clients/godrej.png";
+import Gunnebo from "@/static/clients/gunnebo.png";
 import HDFCBank from "@/static/clients/hdfc.png";
 import Hiranandani from "@/static/clients/hiranandani.png";
+import Iffco from "@/static/clients/iffco.png";
 import Linen from "@/static/clients/linenclub.png";
+import Manking from "@/static/clients/manking.png";
 import Merck from "@/static/clients/merck.png";
 import Philips from "@/static/clients/philips.png";
 import SBIGeneral from "@/static/clients/sbigeneral.png";
@@ -22,6 +26,7 @@ import Signify from "@/static/clients/signify.png";
 import Tineta from "@/static/clients/tineta.png";
 import Titan from "@/static/clients/titan.png";
 import Volvo from "@/static/clients/volvo.png";
+import Wockhardt from "@/static/clients/wockhardt.png";
 import YesBank from "@/static/clients/yesbank.png";
 import { cn } from "../../utils/cn";
 
@@ -67,13 +72,17 @@ const clients = [
   { src: Adani, alt: "Adani" },
   { src: Aditya, alt: "Aditya Birla" },
   { src: Allegis, alt: "Allegis" },
+  { src: Ambuja, alt: "Ambuja" },
   { src: Berger, alt: "Berger" },
   { src: CooperVision, alt: "Cooper Vision" },
   { src: GEHealthcare, alt: "GE Healthcare" },
   { src: Godrej, alt: "Godrej" },
+  { src: Gunnebo, alt: "Gunnebo" },
   { src: HDFCBank, alt: "HDFC Bank" },
   { src: Hiranandani, alt: "Hiranandani" },
+  { src: Iffco, alt: "Iffco" },
   { src: Linen, alt: "Linen Club" },
+  { src: Manking, alt: "Manking" },
   { src: Merck, alt: "Merck" },
   { src: Philips, alt: "Philips" },
   { src: SBIGeneral, alt: "SBI General" },
@@ -82,6 +91,7 @@ const clients = [
   { src: Tineta, alt: "Tineta" },
   { src: Titan, alt: "Titan" },
   { src: Volvo, alt: "Volvo" },
+  { src: Wockhardt, alt: "Wockhardt" },
   { src: YesBank, alt: "Yes Bank" },
 ];
 

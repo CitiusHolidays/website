@@ -12,16 +12,16 @@ import AnimatedSection from "../../components/layout/AnimatedSection";
 
 const values = [
   {
-    title: "Excellence",
-    description:
-      "We strive to exceed expectations with detail, finesse, and thoughtful planning.",
-    icon: <Plane />,
-  },
-  {
     title: "Integrity",
     description:
       "We operate with transparency, trust, and respect in every interaction.",
     icon: <Globe />,
+  },
+  {
+    title: "Excellence",
+    description:
+      "We strive to exceed expectations with detail, finesse, and thoughtful planning.",
+    icon: <Plane />,
   },
   {
     title: "Innovation",
