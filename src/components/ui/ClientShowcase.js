@@ -6,13 +6,20 @@ import { Ticker } from "motion-plus/react";
 import Acer from "@/static/clients/acer.png";
 import Adani from "@/static/clients/adani.png";
 import Aditya from "@/static/clients/aditya.png";
+import Allegis from "@/static/clients/allegis.png";
+import Berger from "@/static/clients/berger.png";
 import CooperVision from "@/static/clients/coopervision.png";
 import GEHealthcare from "@/static/clients/gehealthcare.png";
 import Godrej from "@/static/clients/godrej.png";
 import HDFCBank from "@/static/clients/hdfc.png";
+import Hiranandani from "@/static/clients/hiranandani.png";
+import Linen from "@/static/clients/linenclub.png";
 import Merck from "@/static/clients/merck.png";
 import Philips from "@/static/clients/philips.png";
 import SBIGeneral from "@/static/clients/sbigeneral.png";
+import Sequent from "@/static/clients/sequent.png";
+import Signify from "@/static/clients/signify.png";
+import Tineta from "@/static/clients/tineta.png";
 import Titan from "@/static/clients/titan.png";
 import Volvo from "@/static/clients/volvo.png";
 import YesBank from "@/static/clients/yesbank.png";
@@ -59,13 +66,20 @@ const clients = [
   { src: Acer, alt: "Acer" },
   { src: Adani, alt: "Adani" },
   { src: Aditya, alt: "Aditya Birla" },
+  { src: Allegis, alt: "Allegis" },
+  { src: Berger, alt: "Berger" },
   { src: CooperVision, alt: "Cooper Vision" },
   { src: GEHealthcare, alt: "GE Healthcare" },
   { src: Godrej, alt: "Godrej" },
   { src: HDFCBank, alt: "HDFC Bank" },
+  { src: Hiranandani, alt: "Hiranandani" },
+  { src: Linen, alt: "Linen Club" },
   { src: Merck, alt: "Merck" },
   { src: Philips, alt: "Philips" },
   { src: SBIGeneral, alt: "SBI General" },
+  { src: Sequent, alt: "Sequent" },
+  { src: Signify, alt: "Signify" },
+  { src: Tineta, alt: "Tineta" },
   { src: Titan, alt: "Titan" },
   { src: Volvo, alt: "Volvo" },
   { src: YesBank, alt: "Yes Bank" },
@@ -82,13 +96,13 @@ export default function ClientShowcase({ className }) {
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, delay: 0.2 }}
       viewport={{ once: true, amount: 0.2 }}
-      className={cn("py-12 bg-white", className)}
+      className={cn("py-12 bg-brand-light", className)}
     >
-      <h2 className="mb-8 text-2xl font-semibold text-center text-brand-dark">
+      <h2 className="mb-8 text-2xl font-semibold text-center text-citius-blue">
         Trusted by Industry Leaders
       </h2>
       <Ticker
-        duration={40}
+        velocity={65}
         items={items}
         style={{
           display: "flex",

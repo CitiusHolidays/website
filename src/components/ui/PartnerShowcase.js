@@ -152,13 +152,13 @@ export default function PartnerShowcase({ className }) {
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, delay: 0.2 }}
       viewport={{ once: true, amount: 0.2 }}
-      className={cn("py-12 bg-white", className)}
+      className={cn("py-12 bg-brand-light", className)}
     >
       <h2 className="text-center text-2xl font-semibold text-brand-dark mb-8">
         Our Global Hospitality, Tourism, and Airline Partners
       </h2>
       <Ticker
-        duration={80}
+        velocity={65}
         items={items}
         style={{
           display: "flex",

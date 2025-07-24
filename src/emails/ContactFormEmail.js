@@ -203,7 +203,7 @@ export const ContactFormEmail = ({ name, email, subject, message }) => {
                 })}
               </Text>
               <div>
-                <Text className="text-white/50 pb-5 text-xs m-0">
+                <Text className="text-brand-light/50 pb-5 text-xs m-0">
                   This email was automatically generated from your website&apos;s
                   contact form.
                 </Text>

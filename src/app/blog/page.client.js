@@ -20,7 +20,7 @@ export default function BlogPageClient({ posts }) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="text-5xl md:text-6xl font-bold text-brand-dark font-heading mb-4"
+          className="text-5xl md:text-6xl font-bold text-citius-blue font-heading mb-4"
         >
           Latest Posts
         </motion.h1>
@@ -60,7 +60,7 @@ export default function BlogPageClient({ posts }) {
                   href={`/blog/${post.slug.current}`}
                   className="block h-full"
                 >
-                  <div className="aspect-[4/3] overflow-hidden rounded-t-2xl relative bg-gray-100 w-full">
+                  <div className="aspect-[4/3] overflow-hidden rounded-t-2xl relative bg-brand-light w-full">
                     {postImageUrl ? (
                       <Image
                         src={postImageUrl}
@@ -91,7 +91,7 @@ export default function BlogPageClient({ posts }) {
                     )}
 
                     <div className="absolute top-4 left-4 z-10">
-                      <span className="inline-flex items-center justify-center w-8 h-8 bg-white/90 backdrop-blur-sm text-citius-orange text-sm font-bold rounded-full border border-citius-orange/20 shadow-sm">
+                      <span className="inline-flex items-center justify-center w-8 h-8 bg-brand-light/90 backdrop-blur-sm text-citius-orange text-sm font-bold rounded-full border border-citius-orange/20 shadow-sm">
                         {String(index + 1).padStart(2, "0")}
                       </span>
                     </div>

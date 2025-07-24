@@ -49,14 +49,14 @@ export default function AwardsShowcase({ className }) {
       viewport={{ once: true, amount: 0.2 }}
       variants={containerVariants}
     >
-      <h2 className="justify-center items-center mb-8 text-2xl font-semibold text-center text-brand-dark">
+      <h2 className="justify-center items-center mb-8 text-2xl font-semibold text-center text-citius-blue">
         Recognized for Excellence
       </h2>
       <div className="grid gap-8 px-4 mx-auto max-w-6xl sm:grid-cols-2">
         {awards.map(({ title, year, Icon }) => (
           <motion.div
             key={title}
-            className="p-6 text-center bg-white rounded-lg border shadow-sm transition border-brand-border hover:shadow-md"
+            className="p-6 text-center bg-brand-light rounded-lg border shadow-sm transition border-brand-border hover:shadow-md"
             variants={itemVariants}
             whileHover={{ scale: 1.05, y: -5 }}
           >

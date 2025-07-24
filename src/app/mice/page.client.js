@@ -63,7 +63,7 @@ export default function MicePageClient({ images }) {
       </section>
 
       <AnimatedSection>
-        <section className="px-4 py-16 mx-auto max-w-3xl text-center bg-white">
+        <section className="px-4 py-16 mx-auto max-w-3xl text-center">
           <p className="text-lg text-brand-muted">
             For over <strong>15 glorious years</strong>, Citius has delivered
             world-class Meetings, Incentives, Conferences, and Exhibitions. Our
@@ -75,7 +75,7 @@ export default function MicePageClient({ images }) {
 
       <AnimatedSection>
         <section className="px-4 py-16 text-center bg-[url('/gallery/bgmice.png')] bg-cover bg-center">
-          <h2 className="mb-8 text-3xl font-semibold text-brand-dark">
+          <h2 className="mb-8 text-3xl font-semibold text-citius-blue">
             Successfully Executed MICE Programs Across the Globe
           </h2>
           <motion.div
@@ -97,7 +97,7 @@ export default function MicePageClient({ images }) {
 
       <AnimatedSection>
         <section className="px-4 py-16 bg-white">
-          <h2 className="mb-12 text-3xl font-semibold text-center text-brand-dark">
+          <h2 className="mb-12 text-3xl font-semibold text-center text-citius-blue">
             Our Commitment
           </h2>
           <motion.div
@@ -128,7 +128,7 @@ export default function MicePageClient({ images }) {
 
       <AnimatedSection>
         <section className="px-4 py-8 bg-brand-light">
-          <h2 className="mb-8 text-3xl font-semibold text-center text-brand-dark">
+          <h2 className="mb-8 text-3xl font-semibold text-center text-citius-blue">
             A Glimpse Into Our Events
           </h2>
           <GalleryGridSmall images={images} className="mx-auto max-w-6xl" />
@@ -137,7 +137,7 @@ export default function MicePageClient({ images }) {
 
       <AnimatedSection className="flex justify-center pb-8">
         <Link href="/gallery">
-          <button type="button" className="px-6 py-3 mx-auto font-semibold text-white rounded-md shadow bg-citius-orange hover:brightness-110">
+          <button type="button" className="px-6 py-3 mx-auto font-semibold text-brand-light rounded-md shadow bg-citius-orange hover:brightness-110">
             View More
           </button>
         </Link>

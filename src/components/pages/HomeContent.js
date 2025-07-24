@@ -10,6 +10,7 @@ import ClientShowcase from "../ui/ClientShowcase";
 import PartnerShowcase from "../ui/PartnerShowcase";
 import SectionHeading from "../ui/SectionHeading";
 import ServiceCard from "../ui/ServiceCard";
+import TrendingDestinations from "../ui/TrendingDestinations";
 import UspElement from "../ui/UspElement";
 
 const services = [
@@ -59,7 +60,7 @@ const stats = [
 export default function HomeContent() {
   return (
     <>
-      <section className="relative h-[70vh] flex items-center justify-center text-center overflow-hidden">
+      <section className="relative h-[90vh] flex items-center justify-center text-center overflow-hidden">
         <video
           autoPlay
           muted
@@ -114,6 +115,10 @@ export default function HomeContent() {
       </AnimatedSection>
 
       <AnimatedSection>
+        <TrendingDestinations />
+      </AnimatedSection>
+
+      <AnimatedSection>
         <ClientShowcase />
       </AnimatedSection>
 
@@ -152,7 +157,7 @@ export default function HomeContent() {
         </h2>
         <Link
           href="/contact"
-          className="inline-block px-8 py-4 font-semibold text-white rounded-md shadow bg-citius-orange hover:brightness-110"
+          className="inline-block px-8 py-4 font-semibold text-brand-light rounded-md shadow bg-citius-orange hover:brightness-110"
         >
           Reach Us for a Proposal
         </Link>

@@ -177,7 +177,7 @@ export default function PostPageClient({ post }) {
                       width="64"
                       height="64"
                     />
-                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
+                    <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-brand-light"></div>
                   </div>
                 )}
                 <div>
@@ -275,7 +275,7 @@ export default function PostPageClient({ post }) {
             </div>
             <Link
               href="/blog"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-citius-blue to-citius-blue/90 text-white rounded-xl hover:from-citius-blue/90 hover:to-citius-blue transition-all duration-300 font-semibold shadow-lg hover:shadow-xl hover:scale-105"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-citius-blue to-citius-blue/90 text-brand-light rounded-xl hover:from-citius-blue/90 hover:to-citius-blue transition-all duration-300 font-semibold shadow-lg hover:shadow-xl hover:scale-105"
             >
               ← Back to all posts
             </Link>

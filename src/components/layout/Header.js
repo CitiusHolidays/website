@@ -69,12 +69,12 @@ export default function Header() {
       initial={{ opacity: 0, y: -100 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: "easeInOut" }}
-      className={`fixed top-0 z-50 w-full transition-colors duration-100
-        ${isOpen ? "bg-white shadow text-brand-dark" : ""}
-        ${!isOpen && scrolled ? "backdrop-blur-lg bg-white/95 text-brand-dark shadow-sm" : ""}
-        ${!isOpen && !scrolled ? "bg-transparent text-brand-dark hover:bg-brand-dark/60 hover:text-brand-light" : ""}
-        lg:${scrolled ? "backdrop-blur-lg bg-white/95 text-brand-dark shadow-sm" : "bg-transparent text-brand-dark hover:bg-brand-dark/60 hover:text-brand-light"}
-      `}
+      className={`fixed top-0 z-50 w-full transition-colors duration-300
+      ${isOpen ? "bg-brand-light shadow text-brand-dark" : ""}
+      ${!isOpen && scrolled ? "backdrop-blur-lg bg-brand-dark/50 text-brand-light shadow-sm" : ""}
+      ${!isOpen && !scrolled ? "bg-brand-light/95 text-brand-dark" : ""}
+      lg:${scrolled ? "backdrop-blur-lg bg-brand-dark/50 text-brand-light shadow-sm" : "bg-brand-light/95 text-brand-dark"}
+    `}
     >
       <div className="flex justify-between items-center px-4 mx-auto max-w-7xl h-16 sm:px-6 lg:px-8">
         <Link href="/" className="flex gap-2 items-center">
@@ -106,7 +106,7 @@ export default function Header() {
           onClick={() => setIsOpen(true)}
           aria-label="Open menu"
         >
-          <Menu className="w-6 h-6" />
+          <Menu className={`w-6 h-6 ${scrolled ? "text-white/95" : "text-brand-dark"}`} />
         </button>
       </div>
 

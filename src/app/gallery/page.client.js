@@ -23,7 +23,7 @@ export default function GalleryPageClient({ images }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="text-4xl md:text-5xl font-bold text-white mb-4"
+            className="text-4xl md:text-5xl font-bold text-brand-light mb-4"
           >
             Gallery
           </motion.h1>

@@ -37,7 +37,7 @@ export default function ContactPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="text-4xl md:text-5xl font-bold text-brand-dark mb-4"
+            className="text-4xl md:text-5xl font-bold text-citius-blue mb-4"
           >
             Get in Touch
           </motion.h1>
@@ -70,7 +70,7 @@ export default function ContactPage() {
               viewport={{ once: true, amount: 0.2 }}
               transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
             >
-              <h2 className="text-2xl font-semibold text-brand-dark mb-6">
+              <h2 className="text-2xl font-semibold text-citius-blue mb-6">
                 Our Offices
               </h2>
               <motion.div

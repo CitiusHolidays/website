@@ -33,7 +33,7 @@ export default function TeamMember({ member, index }) {
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="w-32 h-32 bg-white/20 rounded-full flex items-center justify-center">
-              <span className="text-4xl font-bold text-white">
+              <span className="text-4xl font-bold text-brand-light">
                 {member.name.split(' ').map(n => n[0]).join('')}
               </span>
             </div>
@@ -43,7 +43,9 @@ export default function TeamMember({ member, index }) {
       
       <div className="p-6">
         <motion.h3 
-          className="text-xl font-bold text-brand-dark mb-1"
+          className={`${
+            member.name.length > 16 ? "text-lg" : "text-xl"
+          } font-bold text-brand-dark mb-1`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: index * 0.1 + 0.3 }}

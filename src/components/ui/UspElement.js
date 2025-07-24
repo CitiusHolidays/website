@@ -8,7 +8,7 @@ export default function UspElement({ title, description, className }) {
       whileHover={{ scale: 1.03, y: -5 }}
       transition={{ duration: 0.3, ease: "easeOut" }}
       className={cn(
-        "flex gap-4 items-start p-6 bg-white rounded-lg border shadow-md transition-all duration-300 border-brand-border/50 hover:shadow-xl hover:border-citius-orange",
+        "flex gap-4 items-start p-6 bg-brand-light rounded-lg border shadow-md transition-all duration-300 border-brand-border/50 hover:shadow-xl hover:border-citius-orange",
         className
       )}
     >

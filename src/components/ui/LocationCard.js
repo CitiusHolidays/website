@@ -8,7 +8,7 @@ export default function LocationCard({ city, address, phone, mapUrl, index }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="bg-white rounded-lg border border-brand-border p-6 shadow-sm hover:shadow-md transition-all duration-200"
+      className="bg-brand-light rounded-lg border border-brand-border p-6 shadow-sm hover:shadow-md transition-all duration-200"
     >
       <h3 className="text-xl font-bold text-brand-dark mb-4">{city}</h3>
 

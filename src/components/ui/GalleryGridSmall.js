@@ -11,7 +11,7 @@ export default function GalleryGridSmall({ images = [], className }) {
       {images.slice(0, 6).map((item, idx) => (
         <div
           key={item.asset?._id || item._key || idx}
-          className="aspect-[4/3] overflow-hidden rounded-lg group relative bg-gray-100"
+          className="aspect-[4/3] overflow-hidden rounded-lg group relative bg-brand-light"
         >
           <Image
             src={item.asset?.url || ""}

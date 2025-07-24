@@ -20,7 +20,7 @@ export default function ServicesPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="text-4xl md:text-5xl font-extrabold text-brand-dark mb-4"
+          className="text-4xl md:text-5xl font-extrabold text-citius-blue mb-4"
         >
           A Spectrum of World-Class Services
         </motion.h1>

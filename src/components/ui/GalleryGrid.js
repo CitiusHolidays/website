@@ -79,7 +79,7 @@ export default function GalleryGrid({ images = [], className }) {
               setDirection(0);
               setSelectedIndex(index);
             }}
-            className="aspect-[4/3] overflow-hidden rounded-lg group relative bg-gray-100 w-full cursor-pointer"
+            className="aspect-[4/3] overflow-hidden rounded-lg group relative bg-brand-light w-full cursor-pointer"
             variants={{
               hidden: { opacity: 0, y: 20 },
               show: { opacity: 1, y: 0 },
@@ -106,7 +106,7 @@ export default function GalleryGrid({ images = [], className }) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+              className="absolute inset-0 bg-brand-dark/80 backdrop-blur-sm"
             />
 
             <div

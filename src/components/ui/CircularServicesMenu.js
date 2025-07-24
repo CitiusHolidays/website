@@ -282,7 +282,7 @@ export default function CircularServicesMenu() {
           >
             <button
               type="button"
-              className="w-12 h-12 md:w-16 md:h-16 lg:w-18 lg:h-18 bg-white rounded-full shadow-lg border-2 border-citius-orange flex items-center justify-center cursor-pointer group focus:outline-none focus:ring-4 focus:ring-citius-orange/30"
+              className="w-12 h-12 md:w-16 md:h-16 lg:w-18 lg:h-18 bg-brand-light rounded-full shadow-lg border-2 border-citius-orange flex items-center justify-center cursor-pointer group focus:outline-none focus:ring-4 focus:ring-citius-orange/30"
               tabIndex={0}
               aria-label={`Maps to ${service.title} service`}
             >

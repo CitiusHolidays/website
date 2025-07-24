@@ -48,7 +48,7 @@ const Badge = ({ state, isSubmitting }) => {
         <motion.div
             ref={badgeRef}
             style={{ ...styles.badge, gap: state === "idle" ? 0 : 8 }}
-            className="bg-citius-orange text-white"
+            className="bg-citius-orange text-brand-light"
         >
             <Icon state={state} />
             <Label state={state} />
