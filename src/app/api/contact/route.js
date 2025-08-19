@@ -1,63 +1,44 @@
-import { render } from "@react-email/render";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
-import validator from "validator";
+import { render } from "@react-email/render";
 import ContactFormEmail from "@/emails/ContactFormEmail";
 
-const rateLimitStore = new Map();
-
 export async function POST(request) {
-  const ip = request.ip ?? "127.0.0.1";
-  const limit = 1; // 1 request
-  const windowMs = 2 * 60 * 1000; // 2 minutes
-
-  const now = Date.now();
-  const userRequests = rateLimitStore.get(ip) || [];
-
-  const requestsInWindow = userRequests.filter((ts) => now - ts < windowMs);
-
-  if (requestsInWindow.length >= limit) {
-    return new Response("You have reached your request limit.", {
-      status: 429,
-    });
-  }
-
-  requestsInWindow.push(now);
-  rateLimitStore.set(ip, requestsInWindow);
-
   const { name, email, subject, message } = await request.json();
 
-  // Validate and sanitize the input
-  if (!name || !email || !subject || !message) {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     return NextResponse.json(
-      { error: "All fields are required." },
+      { error: "Email service not configured." },
+      { status: 500 }
+    );
+  }
+
+  const trimmedName = (name || "").toString().trim();
+  const trimmedEmail = (email || "").toString().trim();
+  const trimmedSubject = (subject || "").toString().trim().slice(0, 120);
+  const trimmedMessage = (message || "").toString().trim();
+
+  if (!trimmedName || !trimmedEmail || !trimmedMessage) {
+    return NextResponse.json(
+      { error: "Please provide name, email, and message." },
       { status: 400 }
     );
   }
 
-  if (!validator.isEmail(email)) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmedEmail)) {
     return NextResponse.json(
-      { error: "Invalid email address." },
+      { error: "Please provide a valid email address." },
       { status: 400 }
     );
   }
 
-  const sanitizedData = {
-    name: validator.escape(name),
-    email: validator.normalizeEmail(email),
-    subject: validator.escape(subject),
-    message: validator.escape(message),
-  };
-
-  // const transport = nodemailer.createTransport({
-  //   host: "smtp.office365.com",
-  //   port: 587,
-  //   secure: false,
-  //   auth: {
-  //     user: process.env.EMAIL_USER,
-  //     pass: process.env.EMAIL_PASS, // Your Outlook password or App Password
-  //   },
-  // });
+  if (trimmedMessage.length > 5000) {
+    return NextResponse.json(
+      { error: "Message is too long." },
+      { status: 400 }
+    );
+  }
 
   const transport = nodemailer.createTransport({
     service: "gmail",
@@ -69,17 +50,17 @@ export async function POST(request) {
 
   const emailHtml = await render(
     <ContactFormEmail
-      name={sanitizedData.name}
-      email={sanitizedData.email}
-      subject={sanitizedData.subject}
-      message={sanitizedData.message}
+      name={trimmedName}
+      email={trimmedEmail}
+      subject={trimmedSubject || "Contact Form Message"}
+      message={trimmedMessage}
     />
   );
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
-    to: process.env.EMAIL_USER, // Email where you want to receive messages
-    subject: `Contact Form Submission: ${sanitizedData.subject}`,
+    to: process.env.EMAIL_USER,
+    subject: `Contact Form Submission: ${trimmedSubject || "Contact Form Message"}`,
     html: emailHtml,
   };
 
@@ -90,6 +71,7 @@ export async function POST(request) {
       { status: 200 }
     );
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error(err);
+    return NextResponse.json({ error: "Failed to send email. Please try again." }, { status: 500 });
   }
 }
