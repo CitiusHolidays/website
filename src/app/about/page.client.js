@@ -149,7 +149,7 @@ export default function AboutPage() {
                 </p>
 
                 <p className="text-brand-dark leading-relaxed">
-                  On 28th June 2023, we lost Arpan far too soon. His vision,
+                  On 16th June 2023, we lost Arpan far too soon. His vision,
                   leadership, and love for travel continue to guide us every
                   day.
                 </p>
