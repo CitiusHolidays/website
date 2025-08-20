@@ -5,6 +5,7 @@ import {
   FileText,
   Mail,
   MessageSquare,
+  Phone,
   User,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -23,6 +24,7 @@ export default function ModernContactForm() {
     defaultValues: {
       name: "",
       email: "",
+      phone: "",
       subject: "",
       message: "",
     },
@@ -111,6 +113,17 @@ export default function ModernContactForm() {
       pattern: {
         value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
         message: "Invalid email address",
+      },
+    },
+    {
+      name: "phone",
+      label: "Phone Number",
+      type: "tel",
+      icon: Phone,
+      required: false,
+      pattern: {
+        value: /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/,
+        message: "Please enter a valid phone number (e.g., +1 555-123-4567)",
       },
     },
     {

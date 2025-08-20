@@ -13,7 +13,7 @@ import {
   Text,
 } from "@react-email/components";
 
-export const ContactFormEmail = ({ name, email, subject, message }) => {
+export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
   const previewText = `New message from ${name} via your website`;
 
   return (
@@ -122,6 +122,36 @@ export const ContactFormEmail = ({ name, email, subject, message }) => {
                       </Column>
                     </Row>
                   </div>
+
+                  {phone && (
+                    <div className="pl-4">
+                      <Row>
+                        <Column
+                          style={{ width: "56px", verticalAlign: "middle" }}
+                        >
+                          <div className="w-10 h-10 bg-citius-orange/10 rounded-lg text-center">
+                            <Text className="text-lg m-0 leading-10">📞</Text>
+                          </div>
+                        </Column>
+                        <Column style={{ verticalAlign: "middle" }}>
+                          <Text
+                            className="text-sm font-medium text-brand-muted"
+                            style={{ margin: "0 0 2px 0" }}
+                          >
+                            Phone Number
+                          </Text>
+                          <Text style={{ margin: 0 }}>
+                            <a
+                              href={`tel:${phone}`}
+                              className="text-citius-orange font-semibold text-base hover:underline"
+                            >
+                              {phone}
+                            </a>
+                          </Text>
+                        </Column>
+                      </Row>
+                    </div>
+                  )}
 
                   <div className="pl-4">
                     <Row>
