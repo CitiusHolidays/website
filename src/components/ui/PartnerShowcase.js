@@ -37,6 +37,7 @@ import Oberoi from "@/static/partners/oberoi.png";
 import PolishAirlines from "@/static/partners/polishairlines.png";
 import Qatar from "@/static/partners/qatar.png";
 import Radisson from "@/static/partners/radisson.png";
+import Safilo from "@/static/partners/safilo.png";
 import Seychelles from "@/static/partners/seychelles.png";
 import Singapore from "@/static/partners/singapore.png";
 import SingaporeAirlines from "@/static/partners/singaporeairlines.png";
@@ -88,6 +89,7 @@ const partners = [
   { src: PolishAirlines, alt: "Polish Airlines" },
   { src: Qatar, alt: "Qatar" },
   { src: Radisson, alt: "Radisson" },
+  { src: Safilo, alt: "Safilo" },
   { src: Seychelles, alt: "Seychelles" },
   { src: Singapore, alt: "Singapore" },
   { src: SingaporeAirlines, alt: "Singapore Airlines" },

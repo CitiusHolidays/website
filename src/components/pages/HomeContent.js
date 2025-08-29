@@ -13,6 +13,18 @@ import ServiceCard from "../ui/ServiceCard";
 import TrendingDestinations from "../ui/TrendingDestinations";
 import UspElement from "../ui/UspElement";
 
+import CapeTown from "@/static/places/capetown.png";
+import Georgia from "@/static/places/georgia.png";
+import Japan from "@/static/places/japan.png";
+import Portugal from "@/static/places/portugal.png";
+import Vietnam from "@/static/places/vietnam.png";
+
+import Goa from "@/static/places/goa.png";
+import Jaipur from "@/static/places/jaipur.png";
+import Bengaluru from "@/static/places/bengaluru.png";
+import Kochi from "@/static/places/kochi.png";
+import Mussoorie from "@/static/places/mussoorie.png";
+
 const services = [
   {
     title: "MICE",
@@ -53,8 +65,94 @@ const usps = [
 const stats = [
   { value: 15, label: "Glorious Years" },
   { value: 75, label: "Destinations Served" },
-  { value: 51, label: "Esteemed Partners" },
-  { value: 96541, label: "Passengers Travelled" }
+  { value: 52, label: "Esteemed Partners" },
+  { value: 99768, label: "Passengers Travelled" }
+];
+
+const internationalDestinations = [
+  {
+    rank: 1,
+    name: "Vietnam",
+    description:
+      "Vietnam is rapidly emerging as a top MICE destination, offering a blend of modern convention centers, vibrant cities like Ho Chi Minh and Hanoi, and breathtaking natural backdrops such as Ha Long Bay. Its excellent hospitality, value for money, and unique cultural experiences make it ideal for meetings, incentives, conferences, and exhibitions.",
+    image: Vietnam,
+    percentage: 100,
+  },
+  {
+    rank: 2,
+    name: "Georgia",
+    description:
+      "Georgia captivates MICE travelers with its mix of European charm and Eurasian hospitality. Tbilisi and Batumi feature state-of-the-art venues, while the country's scenic mountains and renowned wine regions provide memorable incentive experiences. Visa-friendly policies and a growing infrastructure make Georgia a rising star for corporate events.",
+    image: Georgia,
+    percentage: 95,
+  },
+  {
+    rank: 3,
+    name: "Japan",
+    description:
+      "Japan seamlessly combines tradition and innovation, making it a premier MICE destination. Tokyo, Osaka, and Kyoto offer world-class facilities, efficient transport, and impeccable service. Delegates can enjoy unique cultural immersions, from tea ceremonies to cherry blossom viewing, ensuring unforgettable business and incentive trips.",
+    image: Japan,
+    percentage: 90,
+  },
+  {
+    rank: 4,
+    name: "Cape Town, South Africa",
+    description:
+      "Cape Town stands out for its stunning landscapes, iconic Table Mountain, and vibrant waterfront. The city boasts modern convention centers, luxury accommodations, and diverse adventure options for incentives. Its rich history, excellent cuisine, and warm climate make it a favorite for international MICE events.",
+    image: CapeTown,
+    percentage: 85,
+  },
+  {
+    rank: 5,
+    name: "Portugal",
+    description:
+      "Portugal offers a perfect mix of historic charm and contemporary amenities for MICE groups. Lisbon and Porto feature top-tier venues, while the country's beautiful coastline and renowned gastronomy enhance incentive programs. Portugal's accessibility, safety, and welcoming atmosphere make it a sought-after destination for business events.",
+    image: Portugal,
+    percentage: 80,
+  },
+];
+
+const domesticDestinations = [
+  {
+    rank: 1,
+    name: "Goa",
+    description:
+      "A beachside MICE favorite where upscale resorts pair world-class conference facilities with seamless work–leisure balance, from waterfront ballrooms to breakout spaces amid palms. Incentive add‑ons span water sports, yoga by the sea, and vibrant nightlife, supported by active government focus on expanding MICE-ready infrastructure and connectivity.", // [2][5][1]
+    image: Goa,
+    percentage: 100,
+  },
+  {
+    rank: 2,
+    name: "Jaipur",
+    description:
+      "A heritage-rich MICE hub that combines royal venues for gala dinners with large-scale, integrated precincts such as JECC and the adjoining convention hotel for seamless stay‑meet‑network experiences. Strong air/road access and Rajasthan’s culture, crafts, and cuisine elevate team-building and incentive programs with memorable, sense-of-place moments.", // [6][10]
+    image: Jaipur,
+    percentage: 95,
+  },
+  {
+    rank: 3,
+    name: "Bengaluru",
+    description:
+      "India’s tech capital offers a deep venue ecosystem anchored by the Bangalore International Exhibition Centre, delivering expansive, purpose-built halls and conferencing for high-impact conventions. Metro and air connectivity, modern hotels, and diverse dining scenes make it ideal for summits, product launches, and innovation-led corporate gatherings.", // [7][11]
+    image: Bengaluru,
+    percentage: 90,
+  },
+  {
+    rank: 4,
+    name: "Kochi",
+    description:
+      "A backwater-framed city where island convention hotels and modern venues host high-profile business gatherings, underscored by Kerala’s dedicated push to grow weddings and MICE. Historic quarters, coastal cuisine, and houseboat experiences provide distinctive incentive options alongside an emerging city-level MICE initiative.", // [12][14][17][19]
+    image: Kochi,
+    percentage: 85,
+  },
+  {
+    rank: 5,
+    name: "Mussoorie",
+    description:
+      "A Himalayan hill-station retreat suited to leadership offsites and rewards, with heritage properties offering elegant halls, lawns, and salons for meetings and celebrations. Cool mountain air, colonial promenades, and forest trails add restorative incentive possibilities around compact, premium event footprints.", // [18]
+    image: Mussoorie,
+    percentage: 80,
+  },
 ];
 
 export default function HomeContent() {
@@ -115,7 +213,10 @@ export default function HomeContent() {
       </AnimatedSection>
 
       <AnimatedSection>
-        <TrendingDestinations />
+        <TrendingDestinations
+          internationalDestinations={internationalDestinations}
+          domesticDestinations={domesticDestinations}
+        />
       </AnimatedSection>
 
       <AnimatedSection>
