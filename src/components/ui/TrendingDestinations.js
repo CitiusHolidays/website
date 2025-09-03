@@ -5,11 +5,6 @@ import Image from "next/image";
 import { useState } from "react";
 import { ChevronDown, MapPin, Star } from "lucide-react";
 
-import CapeTown from "@/static/places/capetown.png";
-import Georgia from "@/static/places/georgia.png";
-import Japan from "@/static/places/japan.png";
-import Portugal from "@/static/places/portugal.png";
-import Vietnam from "@/static/places/vietnam.png";
 
 function DestinationCard({ destination, index }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -24,6 +19,7 @@ function DestinationCard({ destination, index }) {
       viewport={{ once: true }}
       transition={{ duration: 0.6, delay: index * 0.1 }}
       whileHover={{ y: -4 }}
+      style={{ willChange: "transform" }}
     >
       <div className="relative h-56 overflow-hidden">
         <Image
@@ -63,11 +59,13 @@ function DestinationCard({ destination, index }) {
 
         <div className="flex-1">
           <motion.div
+            id={`description-${destination.name}-${index}`}
             animate={{
               height: isExpanded || !isLong ? "auto" : collapsedHeight,
             }}
             className="overflow-hidden relative"
             transition={{ duration: 0.3, ease: "easeInOut" }}
+            style={{ willChange: "height" }}
           >
             <p className="text-sm text-brand-muted leading-relaxed">
               {destination.description}
@@ -81,11 +79,15 @@ function DestinationCard({ destination, index }) {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="button"
+              aria-expanded={isExpanded}
+              aria-controls={`description-${destination.name}-${index}`}
+              aria-label={isExpanded ? "Show less description" : "Show more description"}
             >
               <span>{isExpanded ? "Show Less" : "Read More"}</span>
               <motion.div
                 animate={{ rotate: isExpanded ? 180 : 0 }}
                 transition={{ duration: 0.2 }}
+                aria-hidden="true"
               >
                 <ChevronDown className="w-4 h-4" />
               </motion.div>

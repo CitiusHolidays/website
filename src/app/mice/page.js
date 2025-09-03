@@ -17,8 +17,10 @@ const MICE_QUERY = `*[_type == "gallery"][0]{
   }
 }`;
 
+const options = { next: { revalidate: 30 } };
+
 export default async function MicePage() {
-  const data = await client.fetch(MICE_QUERY);
+  const data = await client.fetch(MICE_QUERY, {}, options);
   return <MicePageClient images={data?.images || []} />;
 }
 

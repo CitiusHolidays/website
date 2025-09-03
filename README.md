@@ -61,7 +61,22 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 
    Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-3. **Build for production:**
+3. **Set up environment variables:**
+   Create a `.env.local` file in the root directory with:
+   ```env
+   # Sanity Configuration (required)
+   NEXT_PUBLIC_SANITY_PROJECT_ID=your_sanity_project_id
+   NEXT_PUBLIC_SANITY_DATASET=production
+
+   # Email Configuration (required for contact form)
+   EMAIL_USER=your_email@gmail.com
+   EMAIL_PASS=your_app_password
+
+   # Optional: Enable Sanity preview mode for draft content
+   # SANITY_PREVIEW=true
+   ```
+
+4. **Build for production:**
    ```bash
    npm run build
    npm start

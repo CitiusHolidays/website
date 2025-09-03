@@ -80,10 +80,10 @@ export default function GalleryGrid({ images = [], className }) {
               setSelectedIndex(index);
             }}
             className="aspect-[4/3] overflow-hidden rounded-lg group relative bg-brand-light w-full cursor-pointer"
-            variants={{
-              hidden: { opacity: 0, y: 20 },
-              show: { opacity: 1, y: 0 },
-            }}
+            // variants={{
+            //   hidden: { opacity: 0, y: 20 },
+            //   show: { opacity: 1, y: 0 },
+            // }}
           >
             <Image
               src={item.asset?.url || ""}

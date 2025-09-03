@@ -61,7 +61,6 @@ export default function RootLayout({ children }) {
         <div className="min-h-screen flex flex-col">
           <Header />
           <main className="flex-1 w-full">
-            {/* <PageTransition>{children}</PageTransition> */}
             {children}
             <Analytics/>
             <SpeedInsights/>

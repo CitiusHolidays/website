@@ -41,7 +41,7 @@ export default function GalleryPageClient({ images }) {
       {/* <AnimatedSection className="py-16 bg-white px-4"> */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
-          whileInView={{ opacity: 1, scale: 1 }}
+          animate={{ opacity: 1, scale: 1 }}
           viewport={{ once: true, amount: 0.1 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
           className="py-16 bg-white px-4"
