@@ -42,3 +42,59 @@ body {
 .font-heading {
   font-family: var(--font-heading), sans-serif;
 }
+
+.formatted-content h1,
+.formatted-content h2,
+.formatted-content h3,
+.formatted-content h4,
+.formatted-content h5,
+.formatted-content h6 {
+  font-weight: bold;
+  color: #111827;
+  margin: 2px 0 1px 0;
+  line-height: 1;
+}
+
+.formatted-content h3 {
+  font-size: 1rem;
+  margin: 6px 0 2px 0;
+}
+
+.formatted-content p {
+  margin: 0 0 0px 0;
+  line-height: 1.2;
+}
+
+.formatted-content ul,
+.formatted-content ol {
+  margin: 0px 0;
+  padding-left: 6px;
+}
+
+.formatted-content li {
+  margin: 0px 0;
+  line-height: 1.2;
+  list-style: none;
+  position: relative;
+  padding-left: 1px;
+}
+
+.formatted-content li::before {
+  content: "•";
+  color: #6b7280;
+  font-weight: bold;
+  position: absolute;
+  left: -10px;
+  top: 1px;
+}
+
+.formatted-content strong,
+.formatted-content b {
+  font-weight: 600;
+}
+
+.formatted-content br {
+  display: block;
+  margin: 0px 0;
+  content: "";
+}

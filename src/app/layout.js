@@ -1,6 +1,7 @@
 import { Inter, Poppins } from "next/font/google";
 import Footer from "../components/layout/Footer";
 import Header from "../components/layout/Header";
+import Chatbot from "../components/ui/Chatbot";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Analytics } from "@vercel/analytics/next"
 
@@ -66,6 +67,7 @@ export default function RootLayout({ children }) {
             <SpeedInsights/>
           </main>
           <Footer />
+          <Chatbot />
         </div>
       </body>
     </html>
