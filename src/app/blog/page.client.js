@@ -15,7 +15,7 @@ const urlFor = (source) =>
 export default function BlogPageClient({ posts }) {
   return (
     <>
-      <div className="bg-slate-800 h-19" />
+      <div className="bg-[#0B1026] h-19" />
       <div className="min-h-screen bg-[url('/gallery/bgfooter.png')] bg-cover bg-center">
         <main className="container mx-auto max-w-6xl pt-20 p-8">
           <div className="mb-12 text-center">

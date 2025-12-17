@@ -102,6 +102,8 @@ export default function PostPageClient({ post }) {
   const authorImageUrl = post.author?.image ? urlFor(post.author.image).url() : null
 
   return (
+    <>
+    <div className="bg-[#0B1026] h-19" />
     <main className="container mx-auto min-h-screen max-w-4xl pt-22 p-8">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -283,5 +285,6 @@ export default function PostPageClient({ post }) {
         </motion.footer>
       </motion.article>
     </main>
+    </>
   )
 }
