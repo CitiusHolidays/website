@@ -30,7 +30,7 @@ export async function POST(req) {
     }));
 
     const result = streamText({
-      model: openrouter.chat('openai/gpt-oss-20b:free'),
+      model: openrouter.chat('nvidia/nemotron-3-nano-30b-a3b:free'),
       messages: convertedMessages,
       // Add system message for travel context
       system: systemPrompt,
