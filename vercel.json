@@ -8,5 +8,6 @@
             ]
         }
     ],
-    "bunVersion": "1.x"
+    "bunVersion": "1.x",
+    "regions": ["bom1"]
 }
