@@ -302,11 +302,12 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
             <motion.div variants={itemVariants} className="group">
               <div className="flex items-center justify-between mb-1.5 ml-1">
                 <label className="block text-sm font-medium text-[#0f172a]">Password</label>
-                {mode === 'signin' && (
+                {/* //TODO: Add forgot password link */}
+                {/* {mode === 'signin' && (
                   <Link href="/auth/forgot-password" className="text-sm text-[#d4af37] hover:text-[#b5952f] transition-colors">
                     Forgot password?
                   </Link>
-                )}
+                )} */}
               </div>
               <div className="relative">
                 <input
