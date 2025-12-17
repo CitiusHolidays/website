@@ -9,6 +9,7 @@ import {
   Plane,
   ShieldCheck,
   Star,
+  Sun,
   Trophy,
   Users,
 } from "lucide-react";
@@ -76,6 +77,12 @@ const services = [
     icon: Plane,
     description: "Dedicated travel desks for large corporate events.",
     path: "/services",
+  },
+  {
+    title: "Spiritual Trails",
+    icon: Sun,
+    description: "Sacred journeys to spiritual destinations worldwide.",
+    path: "/pilgrimage",
   },
 ];
 

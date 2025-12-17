@@ -46,8 +46,11 @@ const quickLinks = [
   { href: "/about", label: "About Us" },
   { href: "/services", label: "Services" },
   { href: "/mice", label: "MICE" },
+  { href: "/pilgrimage", label: "Spiritual Trails" },
   { href: "/gallery", label: "Gallery" },
+  { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
+  { href: "/policies", label: "Legal & Policies" },
 ];
 
 const footerVariants = {
@@ -173,6 +176,22 @@ export default function Footer() {
       <div className="bg-brand-dark/20 py-4">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center text-sm text-brand-muted">
           <p>© {new Date().getFullYear()} Citius. All Rights Reserved.</p>
+          <div className="flex gap-4 sm:gap-6 mt-2 sm:mt-0">
+            <Link 
+              href="/policies" 
+              target="_blank" 
+              className="hover:text-citius-orange transition-colors"
+            >
+              Terms & Conditions
+            </Link>
+            <Link 
+              href="/policies" 
+              target="_blank" 
+              className="hover:text-citius-orange transition-colors"
+            >
+              Billing Policy
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

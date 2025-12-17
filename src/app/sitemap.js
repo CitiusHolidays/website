@@ -15,7 +15,7 @@ export default async function sitemap() {
     url: `${baseUrl}/blog/${post.slug}`,
     lastModified: post._updatedAt,
     changeFrequency: "daily",
-    priority: 0.7,
+    priority: 0.5,
   }));
 
   const staticUrls = [
@@ -29,36 +29,48 @@ export default async function sitemap() {
       url: `${baseUrl}/about`,
       lastModified: new Date(),
       changeFrequency: "monthly",
-      priority: 0.8,
+      priority: 0.5,
     },
     {
-      url: `${baseUrl}/services`,
+      url: `${baseUrl}/account`,
       lastModified: new Date(),
       changeFrequency: "monthly",
-      priority: 0.8,
+      priority: 0.5,
     },
     {
-      url: `${baseUrl}/mice`,
+      url: `${baseUrl}/contact`,
       lastModified: new Date(),
       changeFrequency: "monthly",
-      priority: 0.8,
+      priority: 0.5,
     },
     {
       url: `${baseUrl}/gallery`,
       lastModified: new Date(),
       changeFrequency: "monthly",
-      priority: 0.8,
+      priority: 0.5,
     },
     {
-      url: `${baseUrl}/blog`,
+      url: `${baseUrl}/mice`,
       lastModified: new Date(),
       changeFrequency: "monthly",
-      priority: 0.8,
+      priority: 0.5,
     },
     {
-      url: `${baseUrl}/contact`,
+      url: `${baseUrl}/pilgrimage`,
       lastModified: new Date(),
-      changeFrequency: "yearly",
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    {
+      url: `${baseUrl}/policies`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/services`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
       priority: 0.5,
     },
   ];

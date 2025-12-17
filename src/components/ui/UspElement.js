@@ -1,26 +1,23 @@
-import { Star } from "lucide-react";
-import { cn } from "../../utils/cn";
-import { motion } from "motion/react";
+"use client";
 
-export default function UspElement({ title, description, className }) {
+import { motion } from "motion/react";
+import { CheckCircle2 } from "lucide-react";
+
+export default function UspElement({ title }) {
   return (
     <motion.div
-      whileHover={{ scale: 1.03, y: -5 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
-      className={cn(
-        "flex gap-4 items-start p-6 bg-brand-light rounded-lg border shadow-md transition-all duration-300 border-brand-border/50 hover:shadow-xl hover:border-citius-orange",
-        className
-      )}
+      initial={{ opacity: 0, x: -20 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true }}
+      whileHover={{ x: 10 }}
+      className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all duration-300 group"
     >
-      <motion.div whileHover={{ rotate: 360, scale: 1.2 }} transition={{ duration: 0.5 }}>
-        <Star className="w-7 h-7 text-citius-orange" />
-      </motion.div>
-      <div className="text-left">
-        <h4 className="mb-1 text-lg font-semibold text-brand-dark">{title}</h4>
-        {description && (
-          <p className="text-sm text-brand-muted">{description}</p>
-        )}
+      <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-500 transition-colors duration-300">
+        <CheckCircle2 className="w-5 h-5 text-blue-600 group-hover:text-white transition-colors duration-300" />
       </div>
+      <span className="font-medium text-brand-dark group-hover:text-blue-900 transition-colors">
+        {title}
+      </span>
     </motion.div>
   );
 }

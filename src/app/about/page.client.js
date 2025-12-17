@@ -65,9 +65,9 @@ export const generateMetadata = () => ({
 export default function AboutPage() {
   return (
     <>
-      <section className="relative h-[60vh] flex items-center justify-center bg-brand-light text-center overflow-hidden">
+      <section className="relative h-[60vh] flex items-center justify-center bg-[#0B1026] text-center overflow-hidden">
         <motion.div
-          className="absolute inset-0"
+          className="absolute inset-0 mt-3"
           initial={{ scale: 1.1, opacity: 0.8 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 1.5, ease: "easeOut" }}

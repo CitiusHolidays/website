@@ -22,11 +22,11 @@ const poppins = Poppins({
 export const metadata = {
   metadataBase: new URL("https://www.citiusholidays.com"),
   title: {
-    default: "Citius Travel - Your Trusted Travel Partner",
+    default: "Citius Travel - Bespoke Journeys & Luxury Escapes",
     template: `%s | Citius Travel`,
   },
   description:
-    "Citius Travel offers bespoke travel experiences, from luxury getaways to adventurous expeditions. Discover your next journey with us.",
+    "Experience the extraordinary. Citius Travel curates bespoke luxury getaways and adventurous expeditions designed for the discerning traveler.",
   openGraph: {
     title: "Citius Travel - Your Trusted Travel Partner",
     description:

@@ -7,5 +7,6 @@
                 { "key": "Content-Type", "value": "video/mp4" }
             ]
         }
-    ]
+    ],
+    "bunVersion": "1.x"
 }

@@ -210,14 +210,14 @@ export default function Chatbot() {
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ ease: easeInOut }}
-          className="fixed bottom-6 right-6 z-50 bg-citius-orange hover:bg-citius-orange/90 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group"
+          className="fixed bottom-6 right-6 z-50 animate-bounce bg-green-600 hover:bg-green-600/90 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group hover:scale-115"
           onClick={toggleChat}
         >
           <MessageCircle
             size={24}
             className="group-hover:rotate-12 transition-transform duration-300"
           />
-          {/* <span className="absolute top-0 right-0 w-3 h-3 bg-green-500 rounded-full animate-pulse" /> */}
+          {/* <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full animate-pulse" /> */}
         </motion.button>
       )}
 
@@ -239,16 +239,16 @@ export default function Chatbot() {
             }}
             className="fixed bottom-6 right-6 z-50 w-[400px] bg-white rounded-2xl shadow-2xl border border-brand-border/50 overflow-hidden backdrop-blur-sm flex flex-col origin-bottom-right"
           >
-            <div className="flex items-center justify-between px-4 py-3 bg-citius-orange text-white flex-shrink-0">
+            <div className="flex items-center justify-between px-4 py-3 bg-green-600 text-white flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
                     <Sparkles size={16} className="text-white" />
                   </div>
-                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-citius-orange-400 rounded-full border-2 border-citius-orange" />
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-green-600" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-sm">Citius Travel Assistance (CTS)</h3>
+                  <h3 className="font-semibold text-sm">Travel Assistant</h3>
                   <p className="text-xs text-white/90">Online</p>
                 </div>
               </div>
@@ -337,20 +337,20 @@ export default function Chatbot() {
                             <button
                               onClick={() =>
                                 setInput(
-                                  "What are the best destinations for luxury for 2025?"
+                                  "What are the best destinations for summer?"
                                 )
                               }
                               className="w-full text-left px-4 py-3 bg-white hover:bg-gray-50 border border-brand-border rounded-xl text-sm text-brand-dark transition-colors"
                             >
-                              ✈️ Best luxury destinations
+                              ✈️ Best summer destinations
                             </button>
                             <button
                               onClick={() =>
-                                setInput("What are the best MICE Destinations?")
+                                setInput("How do I plan a budget trip?")
                               }
                               className="w-full text-left px-4 py-3 bg-white hover:bg-gray-50 border border-brand-border rounded-xl text-sm text-brand-dark transition-colors"
                             >
-                              🗺️ MICE Destinations
+                              💰 Budget travel tips
                             </button>
                             <button
                               onClick={() =>
@@ -377,7 +377,7 @@ export default function Chatbot() {
                               <div
                                 className={`max-w-[96%] px-4 py-3 rounded-2xl ${
                                   message.role === "user"
-                                    ? "bg-citius-orange text-white rounded-br-md shadow-sm ml-auto"
+                                    ? "bg-green-600 text-white rounded-br-md shadow-sm ml-auto"
                                     : "bg-gray-100 text-gray-800 border border-gray-200 rounded-bl-md shadow-sm mr-auto"
                                 }`}
                               >
@@ -466,7 +466,7 @@ export default function Chatbot() {
                         disabled={isLoading || !input.trim()}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="bg-citius-orange hover:bg-citius-orange/90 text-white p-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-sm hover:shadow-md self-end"
+                        className="bg-green-600 hover:bg-green-600/90 text-white p-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-sm hover:shadow-md self-end"
                       >
                         <Send size={18} />
                       </motion.button>

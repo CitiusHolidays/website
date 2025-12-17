@@ -11,10 +11,10 @@
   --color-citius-green: #8dc63f;
   --color-citius-lime: #b5d43a;
 
-  --color-brand-dark: #111827;
-  --color-brand-muted: #6b7280;
-  --color-brand-light: #f9fafb;
-  --color-brand-border: #e5e7eb;
+  --color-brand-dark: #0f172a; /* Deeper navy/slate */
+  --color-brand-muted: #64748b;
+  --color-brand-light: #f8fafc;
+  --color-brand-border: #e2e8f0;
 
   --font-sans: var(--font-inter);
   --font-heading: var(--font-poppins);

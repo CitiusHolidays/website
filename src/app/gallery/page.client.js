@@ -44,7 +44,7 @@ export default function GalleryPageClient({ images }) {
           animate={{ opacity: 1, scale: 1 }}
           viewport={{ once: true, amount: 0.1 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
-          className="py-16 bg-white px-4"
+          className="py-16 bg-[url('/gallery/bgfooter.png')] bg-center px-4"
         >
           <GalleryGrid images={images} className="max-w-6xl mx-auto" />
         </motion.div>
