@@ -6,7 +6,7 @@ import { ArrowRight, CreditCard, FileText, Shield, Mail, Phone, MapPin } from "l
 
 const billingPolicy = {
   title: "Billing & Payment Policy",
-  lastUpdated: "January 2025",
+  lastUpdated: "November 2025",
   content: [
     {
       heading: "1. General Policy",
