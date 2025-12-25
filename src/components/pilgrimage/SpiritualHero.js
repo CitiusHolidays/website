@@ -41,16 +41,18 @@ export default function SpiritualHero() {
     return () => clearInterval(timer);
   }, []);
 
+  const transitionConfig = { duration: 1.5, ease: [0.4, 0, 0.2, 1] };
+
   return (
     <section className="relative h-screen min-h-[700px] w-full overflow-hidden bg-brand-dark">
       {/* Background Slideshow */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence initial={false}>
         <motion.div
-          key={currentIndex}
+          key={`img-${currentIndex}`}
           initial={{ opacity: 0, scale: 1.1 }}
           animate={{ opacity: 0.6, scale: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 2, ease: "easeOut" }}
+          transition={transitionConfig}
           className="absolute inset-0 z-0"
         >
           <Image
@@ -70,13 +72,13 @@ export default function SpiritualHero() {
       {/* Content */}
       <div className="relative z-20 flex h-full items-center justify-center px-6">
         <div className="max-w-4xl text-center">
-          <AnimatePresence mode="wait">
+          <AnimatePresence mode="popLayout" initial={false}>
             <motion.div
-              key={currentIndex}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -30 }}
-              transition={{ duration: 1, ease: "easeOut" }}
+              key={`text-${currentIndex}`}
+              initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, y: -30, filter: "blur(10px)" }}
+              transition={transitionConfig}
             >
               <motion.span 
                 initial={{ opacity: 0, letterSpacing: "0.2em" }}
@@ -90,7 +92,7 @@ export default function SpiritualHero() {
                 {images[currentIndex].title}
               </h1>
               
-              <p className="font-sans text-xl italic text-white/80 md:text-3xl">
+              <p className="font-sans text-xl italic text-white/80 md:text-3xl px-4">
                 {images[currentIndex].subtitle}
               </p>
             </motion.div>

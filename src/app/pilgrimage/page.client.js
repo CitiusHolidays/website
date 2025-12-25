@@ -16,7 +16,7 @@ export default function PilgrimagePageClient({ images }) {
       <SpiritualHero />
 
       {/* Introduction */}
-      <section className="relative py-32 overflow-hidden">
+      <section className="relative py-16 md:py-32 overflow-hidden">
         {/* Subtle background texture/pattern */}
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
         
@@ -25,18 +25,18 @@ export default function PilgrimagePageClient({ images }) {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="mb-16"
+            className="mb-8 md:mb-16"
           >
-            <span className="font-heading text-citius-orange text-sm tracking-[0.3em] uppercase mb-4 block">Our Philosophy</span>
-            <h2 className="font-heading text-4xl md:text-5xl text-brand-dark mb-8 leading-tight">
-              Begin Your Journey with the <br/>
+            <span className="font-heading text-citius-orange text-xs md:text-sm tracking-[0.3em] uppercase mb-4 block">Our Philosophy</span>
+            <h2 className="font-heading text-3xl md:text-5xl text-brand-dark mb-6 md:mb-8 leading-tight">
+              Begin Your Journey with the <br className="hidden md:block" />
               <span className="text-citius-blue italic">Sacred Mansarovar Yatra</span>
             </h2>
-            <div className="w-24 h-px bg-citius-orange/30 mx-auto mb-12" />
+            <div className="w-16 md:w-24 h-px bg-citius-orange/30 mx-auto mb-8 md:mb-12" />
           </motion.div>
 
-          <div className="grid lg:grid-cols-2 gap-16 items-center text-left">
-            <div className="space-y-8 font-sans text-2xl text-brand-muted leading-relaxed">
+          <div className="grid lg:grid-cols-2 gap-8 md:gap-16 items-center text-left">
+            <div className="space-y-6 md:space-y-8 font-sans text-xl md:text-3xl text-brand-muted leading-relaxed">
               <p>
                 At Citius, we believe a spiritual journey is more than just visiting a temple — it’s an experience that brings families closer, creates inner calm, and leaves you with a sense of purpose.
               </p>
@@ -45,7 +45,7 @@ export default function PilgrimagePageClient({ images }) {
               </p>
             </div>
             
-            <div className="grid gap-6">
+            <div className="grid gap-4 md:gap-6">
               {[
                 { title: "Mindfully Designed", desc: "Customised to your family’s beliefs, comfort, and pace.", icon: Heart },
                 { title: "Deeply Meaningful", desc: "Moments that matter — rituals, walks, insights.", icon: Sunrise },
@@ -57,14 +57,14 @@ export default function PilgrimagePageClient({ images }) {
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
-                  className="flex gap-6 p-8 bg-white rounded-2xl shadow-sm border border-brand-light hover:shadow-md transition-shadow group"
+                  className="flex gap-4 md:gap-6 p-6 md:p-8 bg-white rounded-2xl shadow-sm border border-brand-light hover:shadow-md transition-shadow group"
                 >
-                  <div className="shrink-0 w-14 h-14 rounded-full bg-brand-light flex items-center justify-center group-hover:bg-citius-orange/10 transition-colors">
-                    <item.icon className="w-6 h-6 text-citius-orange" />
+                  <div className="shrink-0 w-12 h-12 md:w-14 md:h-14 rounded-full bg-brand-light flex items-center justify-center group-hover:bg-citius-orange/10 transition-colors">
+                    <item.icon className="w-5 h-5 md:w-6 md:h-6 text-citius-orange" />
                   </div>
                   <div>
-                    <h3 className="font-heading text-lg font-semibold text-citius-blue mb-2">{item.title}</h3>
-                    <p className="text-sm text-brand-muted leading-relaxed">{item.desc}</p>
+                    <h3 className="font-heading text-lg md:text-xl font-semibold text-citius-blue mb-1 md:mb-2">{item.title}</h3>
+                    <p className="text-sm md:text-base text-brand-muted leading-relaxed">{item.desc}</p>
                   </div>
                 </motion.div>
               ))}
@@ -84,14 +84,14 @@ export default function PilgrimagePageClient({ images }) {
         ))}
       </div>
 
-      <AnimatedSection className="py-32 px-4 bg-brand-dark text-white">
+      <AnimatedSection className="py-16 md:py-32 px-4 bg-brand-dark text-white">
         <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
-            <div className="text-left">
-              <span className="font-heading text-citius-orange text-sm tracking-[0.3em] uppercase mb-4 block">Visual Stories</span>
-              <h2 className="font-heading text-4xl md:text-5xl leading-tight">Glimpses of <br/>the Sacred</h2>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 md:mb-16 gap-6 md:gap-8 text-center md:text-left">
+            <div className="w-full">
+              <span className="font-heading text-citius-orange text-xs md:text-sm tracking-[0.3em] uppercase mb-4 block">Visual Stories</span>
+              <h2 className="font-heading text-3xl md:text-5xl leading-tight">Glimpses of <br className="hidden md:block" />the Sacred</h2>
             </div>
-            <p className="font-sans text-xl text-white/60 max-w-md text-left md:text-right">
+            <p className="font-sans text-lg md:text-xl text-white/60 max-w-md mx-auto md:mx-0">
               Capturing moments of devotion, stillness, and the raw beauty of the spiritual landscape.
             </p>
           </div>

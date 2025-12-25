@@ -15,7 +15,7 @@ const TabButton = ({ active, onClick, label, icon: Icon }) => (
   <button
     onClick={onClick}
     className={cn(
-      "flex items-center gap-2 px-8 py-3 text-sm font-heading tracking-widest transition-all rounded-full border uppercase",
+      "flex items-center gap-3 px-6 py-3 md:px-8 md:py-3 text-xs md:text-sm font-heading tracking-widest transition-all rounded-full border uppercase w-full max-w-[300px] md:w-auto justify-center",
       active 
         ? "bg-citius-blue text-white border-citius-blue shadow-lg scale-105" 
         : "bg-white text-brand-muted border-gray-200 hover:border-citius-blue/30 hover:text-citius-blue"
@@ -34,14 +34,14 @@ export default function TrailSection({ trail, className }) {
   const { title, subtitle, overview, itinerary, details, info } = trail;
 
   return (
-    <section className={cn("py-32", className)}>
+    <section className={cn("py-16 md:py-32", className)}>
       <div className="container mx-auto px-4">
-        <div className="text-center mb-16">
+        <div className="text-center mb-12 md:mb-16">
           <motion.h2 
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="font-heading text-3xl md:text-5xl text-citius-blue mb-6"
+            className="font-heading text-2xl md:text-5xl text-citius-blue mb-4 md:mb-6"
           >
             {title}
           </motion.h2>
@@ -50,15 +50,15 @@ export default function TrailSection({ trail, className }) {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="font-sans text-xl md:text-2xl text-brand-muted max-w-2xl mx-auto italic"
+            className="font-sans text-lg md:text-2xl text-brand-muted max-w-2xl mx-auto italic leading-relaxed"
           >
             {subtitle}
           </motion.p>
-          <div className="w-16 h-1 bg-citius-orange mx-auto mt-8 rounded-full" />
+          <div className="w-12 md:w-16 h-1 bg-citius-orange mx-auto mt-6 md:mt-8 rounded-full" />
         </div>
 
         {/* Tabs Navigation */}
-        <div className="flex flex-wrap justify-center gap-4 mb-16">
+        <div className="flex flex-col md:flex-row items-center md:justify-center gap-3 md:gap-4 mb-12 md:mb-16">
           <TabButton active={activeTab === "overview"} onClick={() => setActiveTab("overview")} label="Overview" icon={Star} />
           <TabButton active={activeTab === "itinerary"} onClick={() => setActiveTab("itinerary")} label="Itinerary" icon={Map} />
           <TabButton active={activeTab === "details"} onClick={() => setActiveTab("details")} label="Trip Details" icon={FileText} />
@@ -66,9 +66,9 @@ export default function TrailSection({ trail, className }) {
         </div>
 
         {/* Tab Content */}
-        <div className="max-w-6xl mx-auto bg-white rounded-[2rem] shadow-xl shadow-brand-dark/5 border border-brand-light p-8 md:p-16 min-h-[500px] relative overflow-hidden">
+        <div className="max-w-6xl mx-auto bg-white rounded-3xl md:rounded-[2rem] shadow-xl shadow-brand-dark/5 border border-brand-light p-6 md:p-16 min-h-[400px] md:min-h-[500px] relative overflow-hidden">
           {/* Subtle decoration */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-citius-orange/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none" />
+          <div className="absolute top-0 right-0 w-32 md:w-64 h-32 md:h-64 bg-citius-orange/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none" />
           
           <AnimatePresence mode="wait">
             
@@ -78,40 +78,40 @@ export default function TrailSection({ trail, className }) {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
-                className="space-y-12"
+                className="space-y-8 md:space-y-12"
               >
-                <div className="grid lg:grid-cols-5 gap-16 items-start">
+                <div className="grid lg:grid-cols-5 gap-8 md:gap-16 items-start">
                   <div className="lg:col-span-3">
-                    <h3 className="font-heading text-2xl text-citius-blue mb-8">{overview.title}</h3>
-                    <div className="space-y-6 font-sans text-2xl text-brand-muted leading-relaxed">
+                    <h3 className="font-heading text-xl md:text-2xl text-citius-blue mb-6 md:mb-8">{overview.title}</h3>
+                    <div className="space-y-4 md:space-y-6 font-sans text-lg md:text-2xl text-brand-muted leading-relaxed">
                       {overview.intro.map((paragraph, idx) => (
                         <p key={idx}>{paragraph}</p>
                       ))}
                       {overview.quote && (
-                        <blockquote className="relative p-8 border-l-2 border-citius-orange bg-brand-light/30 italic my-10 text-2xl">
-                          <span className="absolute -top-4 -left-2 text-6xl text-citius-orange/20 font-serif">“</span>
+                        <blockquote className="relative p-6 md:p-8 border-l-2 border-citius-orange bg-brand-light/30 italic my-8 md:my-10 text-xl md:text-2xl">
+                          <span className="absolute -top-4 -left-2 text-4xl md:text-6xl text-citius-orange/20 font-serif">“</span>
                           {overview.quote}
                         </blockquote>
                       )}
                     </div>
                   </div>
-                  <div className="lg:col-span-2 bg-brand-dark rounded-2xl p-10 text-white shadow-2xl">
-                    <h4 className="font-heading text-xl text-citius-orange mb-8 flex items-center gap-3">
-                      <Users className="w-6 h-6" /> The Citius Promise
+                  <div className="lg:col-span-2 bg-brand-dark rounded-2xl p-8 md:p-10 text-white shadow-2xl">
+                    <h4 className="font-heading text-lg md:text-xl text-citius-orange mb-6 md:mb-8 flex items-center gap-3">
+                      <Users className="w-5 h-5 md:w-6 md:h-6" /> The Citius Promise
                     </h4>
-                    <ul className="space-y-6">
+                    <ul className="space-y-4 md:space-y-6">
                       {overview.promise.map((item, i) => (
-                        <li key={i} className="flex items-start gap-4 group">
-                          <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center shrink-0 mt-1 group-hover:bg-citius-orange/20 transition-colors">
-                            <CheckCircle className="w-4 h-4 text-citius-orange" />
+                        <li key={i} className="flex items-start gap-3 md:gap-4 group">
+                          <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-white/10 flex items-center justify-center shrink-0 mt-1 group-hover:bg-citius-orange/20 transition-colors">
+                            <CheckCircle className="w-3 h-3 md:w-4 md:h-4 text-citius-orange" />
                           </div>
-                          <span className="font-sans text-sm text-white/80 leading-relaxed">{item}</span>
+                          <span className="font-sans text-sm md:text-base text-white/80 leading-relaxed">{item}</span>
                         </li>
                       ))}
                     </ul>
                     {overview.closing && (
-                      <div className="mt-10 pt-10 border-t border-white/10 text-center">
-                        <p className="font-sans text-xl italic text-citius-orange whitespace-pre-line">{overview.closing}</p>
+                      <div className="mt-8 md:mt-10 pt-8 md:pt-10 border-t border-white/10 text-center">
+                        <p className="font-sans text-xl md:text-2xl italic text-citius-orange whitespace-pre-line">{overview.closing}</p>
                       </div>
                     )}
                   </div>
@@ -143,7 +143,7 @@ export default function TrailSection({ trail, className }) {
                         </div>
                       </div>
                       <h4 className="font-heading text-lg text-citius-blue mb-4 leading-tight group-hover:text-citius-orange transition-colors">{item.title}</h4>
-                      <p className="font-sans text-sm text-brand-muted leading-relaxed">{item.desc}</p>
+                      <p className="font-sans text-base text-brand-muted leading-relaxed">{item.desc}</p>
                     </motion.div>
                   ))}
                 </div>
@@ -165,7 +165,7 @@ export default function TrailSection({ trail, className }) {
                   </h4>
                   <ul className="space-y-5">
                     {details.inclusions.map((item, i) => (
-                      <li key={i} className="flex items-start gap-4 font-sans text-sm text-gray-700">
+                      <li key={i} className="flex items-start gap-4 font-sans text-base text-gray-700">
                         <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2 shrink-0 shadow-sm shadow-green-200" />
                         {item}
                       </li>
@@ -180,7 +180,7 @@ export default function TrailSection({ trail, className }) {
                   </h4>
                   <ul className="space-y-5">
                     {details.exclusions.map((item, i) => (
-                      <li key={i} className="flex items-start gap-4 font-sans text-sm text-gray-700">
+                      <li key={i} className="flex items-start gap-4 font-sans text-base text-gray-700">
                         <span className="w-1.5 h-1.5 bg-red-400 rounded-full mt-2 shrink-0 shadow-sm shadow-red-200" />
                         {item}
                       </li>
@@ -197,7 +197,7 @@ export default function TrailSection({ trail, className }) {
                     {details.accommodation.map((item, i) => (
                       <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-brand-light hover:shadow-md transition-shadow">
                         <p className="font-heading text-[10px] font-bold text-citius-orange uppercase tracking-[0.2em] mb-2">{item.type}</p>
-                        <p className="font-sans text-sm text-brand-dark font-medium leading-relaxed">{item.desc}</p>
+                        <p className="font-sans text-base text-brand-dark font-medium leading-relaxed">{item.desc}</p>
                       </div>
                     ))}
                   </div>
@@ -221,7 +221,7 @@ export default function TrailSection({ trail, className }) {
                         </h4>
                         <ul className="grid sm:grid-cols-2 gap-4">
                           {info.eligibility.map((item, i) => (
-                            <li key={i} className="flex items-start gap-3 p-4 bg-brand-light/50 rounded-xl font-sans text-xs text-brand-muted">
+                            <li key={i} className="flex items-start gap-3 p-4 bg-brand-light/50 rounded-xl font-sans text-sm text-brand-muted">
                               <div className="w-1.5 h-1.5 bg-citius-orange rounded-full mt-1.5 shrink-0" />
                               {item}
                             </li>
@@ -234,7 +234,7 @@ export default function TrailSection({ trail, className }) {
                           <Shield className="w-6 h-6 text-citius-orange" /> Medical Support
                         </h4>
                         <div className="p-6 bg-blue-50/30 rounded-2xl border border-blue-100/50">
-                          <p className="font-sans text-sm text-brand-muted leading-relaxed">{info.medical}</p>
+                          <p className="font-sans text-base text-brand-muted leading-relaxed">{info.medical}</p>
                         </div>
                       </div>
                     </div>
@@ -245,7 +245,7 @@ export default function TrailSection({ trail, className }) {
                           <Coffee className="w-6 h-6 text-citius-orange" /> Food & Essentials
                         </h4>
                         <div className="p-6 bg-orange-50/30 rounded-2xl border border-orange-100/50">
-                          <p className="font-sans text-sm text-brand-muted leading-relaxed">
+                          <p className="font-sans text-base text-brand-muted leading-relaxed">
                             {info.food}
                           </p>
                         </div>
@@ -258,11 +258,11 @@ export default function TrailSection({ trail, className }) {
                         <div className="grid gap-4">
                           <div className="p-6 bg-brand-dark rounded-2xl text-white shadow-xl">
                             <p className="font-heading text-xs text-citius-orange tracking-widest uppercase mb-2">Travel Documents</p>
-                            <p className="font-sans text-sm text-white/80">{info.visa.title.replace('Visa: ', '')}</p>
+                            <p className="font-sans text-base text-white/80">{info.visa.title.replace('Visa: ', '')}</p>
                           </div>
                           <div className="p-6 bg-white rounded-2xl border border-brand-light shadow-sm">
                             <p className="font-heading text-[10px] text-brand-muted tracking-widest uppercase mb-2">Digital Connection</p>
-                            <p className="font-sans text-sm text-brand-dark font-medium">{info.visa.connectivity.replace('Connectivity: ', '')}</p>
+                            <p className="font-sans text-base text-brand-dark font-medium">{info.visa.connectivity.replace('Connectivity: ', '')}</p>
                           </div>
                         </div>
                       </div>
