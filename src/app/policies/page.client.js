@@ -317,7 +317,7 @@ export default function PolicyContent() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="text-4xl md:text-6xl font-[family-name:var(--font-playfair)] mb-6"
+            className="text-4xl md:text-6xl font-heading mb-6"
           >
             Legal & Policies
           </motion.h1>
@@ -325,7 +325,7 @@ export default function PolicyContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-gray-400 max-w-xl mx-auto font-[family-name:var(--font-cormorant)] text-xl"
+            className="text-gray-400 max-w-xl mx-auto font-sans text-xl"
           >
             Transparency and trust are at the heart of our journeys. Please review our policies carefully.
           </motion.p>
@@ -364,7 +364,7 @@ export default function PolicyContent() {
 
       {/* Content Area */}
       <main className="max-w-3xl mx-auto px-6 py-16">
-        <div className="font-[family-name:var(--font-cormorant)] text-lg">
+        <div className="font-sans text-lg">
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, x: 20 }}
@@ -375,7 +375,7 @@ export default function PolicyContent() {
             {activeTab === "billing" ? (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-8 mb-8">
-                  <h2 className="text-3xl font-[family-name:var(--font-playfair)] text-brand-dark mb-2">
+                  <h2 className="text-3xl font-heading text-brand-dark mb-2">
                     {billingPolicy.title}
                   </h2>
                   <p className="text-sm text-gray-500 font-sans tracking-widest uppercase">
@@ -389,7 +389,7 @@ export default function PolicyContent() {
             ) : (
               <div className="space-y-8">
                  <div className="border-b border-gray-200 pb-8 mb-8">
-                  <h2 className="text-3xl font-[family-name:var(--font-playfair)] text-brand-dark mb-2">
+                  <h2 className="text-3xl font-heading text-brand-dark mb-2">
                     {termsPolicy.title}
                   </h2>
                    <p className="text-sm text-gray-500 font-sans tracking-widest uppercase mb-6">
@@ -412,7 +412,7 @@ export default function PolicyContent() {
       <section className="bg-brand-dark py-16 px-6 mt-12">
         <div className="max-w-4xl mx-auto text-center">
           <Shield className="w-12 h-12 text-citius-orange mx-auto mb-6" />
-          <h2 className="text-2xl md:text-3xl font-[family-name:var(--font-playfair)] text-white mb-4">
+          <h2 className="text-2xl md:text-3xl font-heading text-white mb-4">
             Have questions about our policies?
           </h2>
           <p className="text-gray-400 mb-8 max-w-lg mx-auto">

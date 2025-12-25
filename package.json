@@ -30,7 +30,7 @@
 		"lucide-react": "^0.525.0",
 		"motion": "^12.23.3",
 		"motion-plus": "^1.5.1",
-		"next": "16.0.10",
+		"next": "16.1.1",
 		"next-sanity": "^11.6.10",
 		"nodemailer": "^7.0.5",
 		"postgres": "^3.4.5",

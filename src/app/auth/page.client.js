@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from "next/link"
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
-import { Cormorant_Garamond, Montserrat } from 'next/font/google';
 import { 
   ArrowRight, 
   Mail, 
@@ -144,7 +143,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
               <Compass className="w-6 h-6 text-[#d4af37]" />
               <span className="text-sm uppercase tracking-[0.2em] text-[#d4af37]">Citius Travel</span>
             </div>
-            <h1 className="font-[family-name:var(--font-cormorant)] text-5xl lg:text-6xl leading-[1.1] font-medium tracking-tight mt-6">
+            <h1 className="font-heading text-5xl lg:text-6xl leading-[1.1] font-medium tracking-tight mt-6">
               The Journey <br/>
               <span className="italic text-[#d4af37]">Within</span> Begins <br/>
               Here.
@@ -162,7 +161,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-[family-name:var(--font-cormorant)] text-lg font-medium text-white mb-1">Curated Pilgrimages</h3>
+                <h3 className="font-heading text-lg font-medium text-white mb-1">Curated Pilgrimages</h3>
                 <p className="text-white/60 text-sm font-light leading-relaxed">
                   Discover destinations that speak to your soul, from the peaks of Kailash to the temples of Kyoto.
                 </p>
@@ -174,7 +173,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
                 <MapIcon className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-[family-name:var(--font-cormorant)] text-lg font-medium text-white mb-1">Seamless Exploration</h3>
+                <h3 className="font-heading text-lg font-medium text-white mb-1">Seamless Exploration</h3>
                 <p className="text-white/60 text-sm font-light leading-relaxed">
                   Let us handle the details while you focus on the experience. Expert guides, luxury stays, peace of mind.
                 </p>
@@ -207,11 +206,11 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
               <Compass className="w-6 h-6 text-[#0B1026]" />
               <span className="text-sm uppercase tracking-[0.2em] text-[#0B1026]">Citius Travel</span>
             </div>
-            <h1 className="font-[family-name:var(--font-cormorant)] text-4xl text-[#0B1026]">Welcome</h1>
+            <h1 className="font-heading text-4xl text-[#0B1026]">Welcome</h1>
           </div>
 
           <motion.div variants={itemVariants} className="mb-8">
-            <h2 className="font-[family-name:var(--font-cormorant)] text-4xl md:text-5xl text-[#0B1026] mb-3">
+            <h2 className="font-heading text-4xl md:text-5xl text-[#0B1026] mb-3">
               {mode === 'signin' ? 'Welcome Back' : 'Join the Circle'}
             </h2>
             <p className="text-[#0B1026]/60 font-light text-lg">
