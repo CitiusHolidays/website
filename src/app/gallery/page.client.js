@@ -13,7 +13,7 @@ export default function GalleryPageClient({ images }) {
           muted
           loop
           playsInline
-          poster="/gallery/bgfooter.png"
+          poster="/gallery/bgfooter.webp"
           className="absolute inset-0 w-full h-full object-cover bg-brand-dark object-center brightness-75"
         >
           <source src="/gallery/sunset.mp4" type="video/mp4" />
@@ -44,7 +44,7 @@ export default function GalleryPageClient({ images }) {
           animate={{ opacity: 1, scale: 1 }}
           viewport={{ once: true, amount: 0.1 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
-          className="py-16 bg-[url('/gallery/bgfooter.png')] bg-center px-4"
+          className="py-16 bg-[url('/gallery/bgfooter.webp')] bg-center px-4"
         >
           <GalleryGrid images={images} className="max-w-6xl mx-auto" />
         </motion.div>

@@ -6,11 +6,11 @@ import { motion } from "motion/react";
 import AnimatedSection from "../../components/layout/AnimatedSection";
 import ValuesCard from "../../components/ui/ValuesCard";
 import TeamMember from "../../components/ui/TeamMember";
-import kushmesh from "@/static/team/kushmesh.png";
-import divyanshu from "@/static/team/divyanshu.png";
-import olyvia from "@/static/team/olyvia.png";
-import arpan from "@/static/team/arpan.png";
-import rosy from "@/static/team/rosy.png";
+import kushmesh from "@/static/team/kushmesh.webp";
+import divyanshu from "@/static/team/divyanshu.webp";
+import olyvia from "@/static/team/olyvia.webp";
+import arpan from "@/static/team/arpan.webp";
+import rosy from "@/static/team/rosy.webp";
 
 const teamMembers = [
   {
@@ -73,7 +73,7 @@ export default function AboutPage() {
           transition={{ duration: 1.5, ease: "easeOut" }}
         >
           <Image
-            src="/gallery/aboutus.png"
+            src="/gallery/aboutus.webp"
             alt="About Citius"
             fill
             priority
@@ -103,7 +103,7 @@ export default function AboutPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.8, ease: "easeOut" }}
-              className="bg-white rounded-2xl bg-[url('/gallery/bgaboutus.png')] shadow-lg border border-brand-border p-8 md:p-12"
+              className="bg-white rounded-2xl bg-[url('/gallery/bgaboutus.webp')] shadow-lg border border-brand-border p-8 md:p-12"
             >
               <div className="flex flex-col items-center mb-6">
                 <div className="relative mb-4">

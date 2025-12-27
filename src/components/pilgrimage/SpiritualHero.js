@@ -6,25 +6,25 @@ import Image from "next/image";
 
 const images = [
   {
-    src: "/gallery/spiritual/yoga-silhouette.png",
+    src: "/gallery/spiritual/yoga-silhouette.webp",
     alt: "Inner Peace",
     title: "Seek Stillness",
     subtitle: "A journey of silent transformation"
   },
   {
-    src: "/gallery/spiritual/varanasi-sunset.png",
+    src: "/gallery/spiritual/varanasi-sunset.webp",
     alt: "Varanasi Sunset",
     title: "Divine Connection",
     subtitle: "Where the soul meets the sacred"
   },
   {
-    src: "/gallery/spiritual/scriptures.png",
+    src: "/gallery/spiritual/scriptures.webp",
     alt: "Ancient Wisdom",
     title: "Timeless Wisdom",
     subtitle: "Echoes of the eternal"
   },
   {
-    src: "/gallery/spiritual/damru-hand.png",
+    src: "/gallery/spiritual/damru-hand.webp",
     alt: "Shiva's Drum",
     title: "Cosmic Rhythm",
     subtitle: "The dance of creation and dissolution"

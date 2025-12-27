@@ -5,9 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "motion/react";
 
-import Logo from "@/static/logos/logo.png";
-import IATA from "@/static/partners/iata.png";
-import IncredibleIndia from "@/static/partners/incredibleindiafooter.png";
+import Logo from "@/static/logos/logo.webp";
+import IATA from "@/static/partners/iata.webp";
+import IncredibleIndia from "@/static/partners/incredibleindiafooter.webp";
 
 const XIcon = createLucideIcon("X", [
   [
@@ -70,7 +70,7 @@ const itemVariants = {
 
 export default function Footer() {
   return (
-    <footer className="bg-brand-dark bg-[url('/gallery/bgfooter.png')] bg-cover bg-center text-brand-light">
+    <footer className="bg-brand-dark bg-[url('/gallery/bgfooter.webp')] bg-cover bg-center text-brand-light">
       <motion.div
         className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-12"
         variants={footerVariants}
@@ -103,7 +103,7 @@ export default function Footer() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <h4 className="text-lg font-semibold mb-4">Our Offices</h4>
+          <h3 className="text-lg font-semibold mb-4">Our Offices</h3>
           <ul className="space-y-4 text-sm">
             {offices.map((office) => (
               <li key={office.city}>
@@ -118,7 +118,7 @@ export default function Footer() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
+          <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
           <ul className="space-y-2 text-sm">
             {quickLinks.map((link) => (
               <motion.li key={link.href} whileHover={{ x: 5 }}>
@@ -131,7 +131,7 @@ export default function Footer() {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <h4 className="text-lg font-semibold mb-2">Follow Us</h4>
+          <h3 className="text-lg font-semibold mb-2">Follow Us</h3>
           <div className="flex gap-4">
             <motion.div whileHover={{ y: -3 }}>
               <Link

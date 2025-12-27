@@ -18,6 +18,7 @@ function DestinationCard({ destination, index }) {
         src={destination.image || "/placeholder.svg"}
         alt={destination.name}
         fill
+        sizes="(max-width: 768px) 85vw, 400px"
         className="object-cover transition-transform duration-700 group-hover:scale-110"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-90 group-hover:opacity-100 transition-opacity" />

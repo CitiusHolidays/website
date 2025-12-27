@@ -14,16 +14,16 @@ import ServiceCard from "../ui/ServiceCard";
 import TrendingDestinations from "../ui/TrendingDestinations";
 import UspElement from "../ui/UspElement";
 
-import Bali from "@/static/places/bali.png";
-import Colombo from "@/static/places/colombo.png";
-import Dubai from "@/static/places/dubai.png";
-import Georgia from "@/static/places/georgia.png";
-import Goa from "@/static/places/goa.png";
-import Jaipur from "@/static/places/jaipur.png";
-import Kochi from "@/static/places/kochi.png";
-import Kolkata from "@/static/places/kolkata.png";
-import Langkawi from "@/static/places/langkawi.png";
-import Puri from "@/static/places/puri.png";
+import Bali from "@/static/places/bali.webp";
+import Colombo from "@/static/places/colombo.webp";
+import Dubai from "@/static/places/dubai.webp";
+import Georgia from "@/static/places/georgia.webp";
+import Goa from "@/static/places/goa.webp";
+import Jaipur from "@/static/places/jaipur.webp";
+import Kochi from "@/static/places/kochi.webp";
+import Kolkata from "@/static/places/kolkata.webp";
+import Langkawi from "@/static/places/langkawi.webp";
+import Puri from "@/static/places/puri.webp";
 
 const services = [
   {
@@ -183,7 +183,7 @@ export default function HomeContent() {
             muted
             loop
             playsInline
-            poster="/gallery/bgfooter.png"
+            poster="/gallery/bgfooter.webp"
             className="object-cover object-center w-full h-full brightness-[0.65]"
           >
             <source src="/hero.mp4" type="video/mp4" />
@@ -203,17 +203,14 @@ export default function HomeContent() {
             Premium Travel Partners
           </motion.div>
 
-          <motion.h1
+          <h1
             className="font-heading font-semibold text-4xl md:text-6xl lg:text-7xl text-white leading-[1.1] tracking-tight mb-8 drop-shadow-2xl"
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
           >
             Your next great journey <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-white italic">
               starts here.
             </span>
-          </motion.h1>
+          </h1>
 
           <motion.p
             className="mb-10 text-lg md:text-xl text-slate-200 max-w-2xl mx-auto leading-relaxed font-light"
@@ -269,9 +266,9 @@ export default function HomeContent() {
       <AnimatedSection className="relative py-24 bg-white z-20 -mt-10 rounded-t-[3rem] border-t border-brand-border/50 shadow-[0_-20px_40px_rgba(0,0,0,0.02)]">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent opacity-50"></div>
         <div className="text-center mb-16">
-          <h3 className="text-citius-blue font-medium uppercase tracking-widest text-sm mb-2">
+          <p className="text-citius-blue font-medium uppercase tracking-widest text-sm mb-2">
             Our Impact
-          </h3>
+          </p>
           <h2 className="font-heading text-4xl font-semibold text-brand-dark">
             A Legacy of Excellence
           </h2>
@@ -344,7 +341,7 @@ export default function HomeContent() {
           </div>
           <div className="relative h-[500px] rounded-3xl overflow-hidden shadow-2xl group">
             <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/40 to-transparent z-10"></div>
-            <div className="absolute inset-0 bg-[url('/gallery/aboutus.png')] bg-cover bg-center transition-transform duration-700 group-hover:scale-105" />
+            <div className="absolute inset-0 bg-[url('/gallery/aboutus.webp')] bg-cover bg-center transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute bottom-0 left-0 right-0 p-8 z-20 bg-gradient-to-t from-black/80 to-transparent">
               <div className="text-white font-heading text-2xl italic">
                 &quot;Travel is the only thing you buy that makes you

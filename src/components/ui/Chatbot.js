@@ -212,6 +212,7 @@ export default function Chatbot() {
           transition={{ ease: easeInOut }}
           className="fixed bottom-6 right-6 z-50 animate-bounce bg-green-600 hover:bg-green-600/90 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group hover:scale-115"
           onClick={toggleChat}
+          aria-label="Open chat assistant"
         >
           <MessageCircle
             size={24}

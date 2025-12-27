@@ -16,7 +16,7 @@ export default function BlogPageClient({ posts }) {
   return (
     <>
       <div className="bg-[#0B1026] h-19" />
-      <div className="min-h-screen bg-[url('/gallery/bgfooter.png')] bg-cover bg-center">
+      <div className="min-h-screen bg-[url('/gallery/bgfooter.webp')] bg-cover bg-center">
         <main className="container mx-auto max-w-6xl pt-20 p-8">
           <div className="mb-12 text-center">
             <motion.h1

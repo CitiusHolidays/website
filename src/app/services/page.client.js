@@ -15,7 +15,7 @@ export default function ServicesPage() {
     <>
       <div className="bg-[#0B1026] h-19"/>
       {/* <AnimatedSection className="relative py-20 px-4 bg-gradient-to-b from-brand-light via-white to-white overflow-hidden"> */}
-      <AnimatedSection className="relative py-20 px-4 bg-[url('/gallery/bgfooter.png')] bg-cover bg-center overflow-hidden">
+      <AnimatedSection className="relative py-20 px-4 bg-[url('/gallery/bgfooter.webp')] bg-cover bg-center overflow-hidden">
         <div className="pointer-events-none absolute -top-20 -left-20 h-72 w-72 rounded-full bg-citius-blue/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 -right-20 h-96 w-96 rounded-full bg-citius-orange/20 blur-3xl" />
 

@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { useSession, logout } from "@/lib/auth-client";
 
-import Logo from "@/static/logos/logo.png";
+import Logo from "@/static/logos/logo.webp";
 
 const navLinks = [
   { href: "/", label: "Home" },

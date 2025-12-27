@@ -309,7 +309,7 @@ export default function PolicyContent() {
 
       {/* Header */}
       <header className="relative bg-brand-dark text-white pt-32 pb-20 px-6 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/gallery/bgaboutus.png')] bg-cover bg-center opacity-20 mix-blend-overlay" />
+        <div className="absolute inset-0 bg-[url('/gallery/bgaboutus.webp')] bg-cover bg-center opacity-20 mix-blend-overlay" />
         <div className="absolute inset-0 bg-gradient-to-b from-brand-dark/0 via-brand-dark/50 to-brand-dark" />
         
         <div className="max-w-4xl mx-auto relative z-10 text-center">

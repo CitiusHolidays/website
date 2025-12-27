@@ -35,7 +35,7 @@ export const metadata = {
     siteName: "Citius Travel",
     images: [
       {
-        url: "/gallery/aboutus.png",
+        url: "/gallery/aboutus.webp",
         width: 1200,
         height: 630,
         alt: "Citius Travel",
@@ -49,13 +49,17 @@ export const metadata = {
     title: "Citius Travel - Your Trusted Travel Partner",
     description:
       "Citius Travel offers bespoke travel experiences, from luxury getaways to adventurous expeditions. Discover your next journey with us.",
-    images: ["/gallery/aboutus.png"],
+    images: ["/gallery/aboutus.webp"],
   },
 };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${poppins.variable} font-heading`}>
+      <head>
+        <link rel="preconnect" href="https://grainy-gradients.vercel.app" />
+        <link rel="dns-prefetch" href="https://grainy-gradients.vercel.app" />
+      </head>
       <body
         className={`${inter.variable} font-sans bg-brand-light text-brand-dark`}
       >

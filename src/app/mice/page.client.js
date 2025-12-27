@@ -7,7 +7,7 @@ import Link from "next/link";
 import AnimatedSection from "../../components/layout/AnimatedSection";
 import GalleryGridSmall from "../../components/ui/GalleryGridSmall";
 
-import WorldMap from "../../static/worldmap.png";
+import WorldMap from "../../static/worldmap.webp";
 
 export const generateMetadata = () => ({
   title: "Expert MICE Services & Corporate Event Planning | Citius",
@@ -45,7 +45,7 @@ export default function MicePageClient({ images }) {
           transition={{ duration: 1.5, ease: "easeOut" }}
         >
           <Image
-            src="/gallery/mice.png"
+            src="/gallery/mice.webp"
             alt="Corporate conference"
             fill
             priority
@@ -74,7 +74,7 @@ export default function MicePageClient({ images }) {
       </AnimatedSection>
 
       <AnimatedSection>
-        <section className="px-4 py-16 text-center bg-[url('/gallery/bgmice.png')] bg-cover bg-center">
+        <section className="px-4 py-16 text-center bg-[url('/gallery/bgmice.webp')] bg-cover bg-center">
           <h2 className="mb-8 text-3xl font-semibold text-citius-blue">
             Successfully Executed MICE Programs Across the Globe
           </h2>

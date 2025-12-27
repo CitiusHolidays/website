@@ -234,7 +234,7 @@ export default function CircularServicesMenu() {
         <div className="flex flex-col items-center justify-center h-auto">
           <div className="flex items-center justify-center mb-1">
             <Image
-              src="/gallery/logo.png"
+              src="/gallery/logo.webp"
               alt="Citius Logo"
               width={60}
               height={60}

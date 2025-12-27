@@ -32,7 +32,7 @@ export default function ContactPage() {
   return (
     <>
     <div className="bg-[#0B1026] h-19" />
-    <AnimatedSection className="py-16 bg-[url('/gallery/bgfooter.png')] bg-center px-4">
+    <AnimatedSection className="py-16 bg-[url('/gallery/bgfooter.webp')] bg-center px-4">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-16">
           <motion.h1
