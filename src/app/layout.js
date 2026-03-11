@@ -1,9 +1,11 @@
 import { Inter, Poppins } from "next/font/google";
 import Footer from "../components/layout/Footer";
 import Header from "../components/layout/Header";
-import Chatbot from "../components/ui/Chatbot";
+import DeferredChatbot from "../components/ui/DeferredChatbot";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Analytics } from "@vercel/analytics/next"
+import { ConvexClientProvider } from "@/components/providers/ConvexClientProvider";
+import { getToken } from "@/lib/auth-server";
 
 import "./globals.css";
 
@@ -53,26 +55,26 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const initialToken = await getToken().catch(() => null);
+
   return (
     <html lang="en" className={`${poppins.variable} font-heading`}>
-      <head>
-        <link rel="preconnect" href="https://grainy-gradients.vercel.app" />
-        <link rel="dns-prefetch" href="https://grainy-gradients.vercel.app" />
-      </head>
       <body
         className={`${inter.variable} font-sans bg-brand-light text-brand-dark`}
       >
-        <div className="min-h-screen flex flex-col">
-          <Header />
-          <main className="flex-1 w-full">
-            {children}
-            <Analytics/>
-            <SpeedInsights/>
-          </main>
-          <Footer />
-          <Chatbot />
-        </div>
+        <ConvexClientProvider initialToken={initialToken}>
+          <div className="min-h-screen flex flex-col">
+            <Header />
+            <main className="flex-1 w-full">
+              {children}
+              <Analytics/>
+              <SpeedInsights/>
+            </main>
+            <Footer />
+            <DeferredChatbot />
+          </div>
+        </ConvexClientProvider>
       </body>
     </html>
   );

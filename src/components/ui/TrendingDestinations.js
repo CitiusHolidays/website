@@ -1,9 +1,13 @@
 "use client";
 
-import { motion, useScroll, useTransform } from "motion/react";
+import { motion } from "motion/react";
 import Image from "next/image";
-import { useRef, useState } from "react";
-import { ChevronDown, MapPin, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { MapPin } from "lucide-react";
+import {
+  domesticDestinations as defaultDomesticDestinations,
+  internationalDestinations as defaultInternationalDestinations,
+} from "@/data/trendingDestinations";
 
 function DestinationCard({ destination, index }) {
   return (
@@ -54,8 +58,8 @@ function DestinationCard({ destination, index }) {
 }
 
 export default function TrendingDestinations({
-  internationalDestinations = [],
-  domesticDestinations = []
+  internationalDestinations = defaultInternationalDestinations,
+  domesticDestinations = defaultDomesticDestinations,
 }) {
   const [activeTab, setActiveTab] = useState("international");
   const destinations = activeTab === "international" ? internationalDestinations : domesticDestinations;

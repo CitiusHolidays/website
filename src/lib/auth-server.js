@@ -1,105 +1,152 @@
-/**
- * Server-side Auth Utilities
- * 
- * Use these functions in Server Components and API routes
- * to check authentication status and get user data.
- */
+import { convexBetterAuthNextJs } from "@convex-dev/better-auth/nextjs";
+import { fetchAction, fetchMutation, fetchQuery } from "convex/nextjs";
+import { anyApi } from "convex/server";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
-import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { auth } from './auth';
+const convexUrl =
+  process.env.NEXT_PUBLIC_CONVEX_URL ?? "http://127.0.0.1:3210";
+const convexSiteUrl =
+  process.env.NEXT_PUBLIC_CONVEX_SITE_URL ??
+  process.env.NEXT_PUBLIC_CONVEX_URL ??
+  "http://127.0.0.1:3211";
 
-/**
- * Get the current session on the server side
- * 
- * @returns {Promise<{user: Object, session: Object} | null>}
- */
-export async function getServerSession() {
-  try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    return session;
-  } catch (error) {
-    console.error('Error getting server session:', error);
+const betterAuth = convexBetterAuthNextJs({
+  convexUrl,
+  convexSiteUrl,
+});
+
+export const {
+  handler,
+  preloadAuthQuery,
+} = betterAuth;
+
+const inferProtocol = (host, forwardedProto) => {
+  if (forwardedProto) {
+    return forwardedProto;
+  }
+  if (!host) {
+    return "https";
+  }
+  return host.includes("localhost") || host.startsWith("127.0.0.1")
+    ? "http"
+    : "https";
+};
+
+const getRequestToken = async () => {
+  const requestHeaders = await headers();
+  const host =
+    requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const protocol = inferProtocol(
+    host,
+    requestHeaders.get("x-forwarded-proto"),
+  );
+  if (!host) {
     return null;
   }
+
+  const tokenResponse = await fetch(`${protocol}://${host}/api/auth/convex/token`, {
+    method: "GET",
+    headers: {
+      cookie: requestHeaders.get("cookie") ?? "",
+      accept: "application/json",
+    },
+    cache: "no-store",
+  }).catch(() => null);
+
+  if (!tokenResponse?.ok) {
+    return null;
+  }
+
+  const data = await tokenResponse.json().catch(() => null);
+  return typeof data?.token === "string" && data.token.length > 0
+    ? data.token
+    : null;
+};
+
+export async function getToken() {
+  return await getRequestToken();
 }
 
-/**
- * Get the current user from the session
- * 
- * @returns {Promise<Object | null>} The user object or null if not authenticated
- */
-export async function getServerUser() {
-  const session = await getServerSession();
-  return session?.user || null;
-}
-
-/**
- * Check if the user is authenticated
- * 
- * @returns {Promise<boolean>}
- */
 export async function isAuthenticated() {
-  const session = await getServerSession();
-  return !!session?.user;
+  return !!(await getRequestToken());
 }
 
-/**
- * Require authentication for a page/route
- * Redirects to login page if not authenticated
- * 
- * @param {string} callbackUrl - URL to redirect back to after login (optional)
- * @returns {Promise<{user: Object, session: Object}>} The session data
- */
+export async function fetchAuthQuery(query, args = {}) {
+  const token = await getRequestToken();
+  return await fetchQuery(query, args, {
+    token: token ?? undefined,
+    url: convexUrl,
+  });
+}
+
+export async function fetchAuthMutation(mutation, args = {}) {
+  const token = await getRequestToken();
+  return await fetchMutation(mutation, args, {
+    token: token ?? undefined,
+    url: convexUrl,
+  });
+}
+
+export async function fetchAuthAction(action, args = {}) {
+  const token = await getRequestToken();
+  return await fetchAction(action, args, {
+    token: token ?? undefined,
+    url: convexUrl,
+  });
+}
+
+export async function getServerUser() {
+  return await fetchAuthQuery(anyApi.auth.getCurrentUser, {});
+}
+
+export async function getServerSession() {
+  const user = await getServerUser();
+  if (!user) {
+    return null;
+  }
+  return { user, session: { user } };
+}
+
+const getLoginUrl = (callbackUrl) =>
+  callbackUrl ? `/auth?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/auth";
+
 export async function requireAuth(callbackUrl) {
-  const session = await getServerSession();
-  
-  if (!session?.user) {
-    const loginUrl = callbackUrl 
-      ? `/auth?callbackUrl=${encodeURIComponent(callbackUrl)}`
-      : '/auth';
+  const loginUrl = getLoginUrl(callbackUrl);
+  // Only redirect for true unauthenticated states.
+  // Let other errors bubble so we don't trap users in a login loop.
+  const user = await getServerUser();
+  if (!user) {
     redirect(loginUrl);
   }
-  
-  return session;
+
+  return { user, session: { user } };
 }
 
-/**
- * Require that the user is NOT authenticated
- * Useful for login/signup pages that should redirect logged-in users
- * 
- * @param {string} redirectTo - URL to redirect to if authenticated (default: '/')
- */
-export async function requireGuest(redirectTo = '/') {
-  const session = await getServerSession();
-  
-  if (session?.user) {
-    redirect(redirectTo);
+export async function requireGuest(redirectTo = "/") {
+  // Try to get the user - if we succeed, they're authenticated so redirect
+  try {
+    const user = await getServerUser();
+    if (user) {
+      redirect(redirectTo);
+    }
+  } catch {
+    // Not authenticated, which is what we want for requireGuest
   }
 }
 
-/**
- * Get user data for use in layouts/headers
- * Returns null if not authenticated (doesn't throw or redirect)
- * 
- * @returns {Promise<{id: string, email: string, name: string, image?: string} | null>}
- */
 export async function getUserForLayout() {
-  try {
-    const session = await getServerSession();
-    if (!session?.user) return null;
-    
-    return {
-      id: session.user.id,
-      email: session.user.email,
-      name: session.user.name,
-      image: session.user.image,
-    };
-  } catch {
+  const user = await getServerUser();
+  if (!user) {
     return null;
   }
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    image: user.image,
+  };
 }
 
 

@@ -7,10 +7,9 @@
  */
 
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { bookings, trips } from '@/lib/db/schema';
+import { anyApi } from 'convex/server';
 import { verifyPaymentSignature } from '@/lib/razorpay';
-import { eq, sql } from 'drizzle-orm';
+import { fetchAuthMutation } from '@/lib/auth-server';
 
 export async function POST(request) {
   try {
@@ -45,13 +44,9 @@ export async function POST(request) {
 
       // Update booking status to failed
       if (booking_id) {
-        await db
-          .update(bookings)
-          .set({ 
-            status: 'failed',
-            updatedAt: new Date(),
-          })
-          .where(eq(bookings.id, booking_id));
+        await fetchAuthMutation(anyApi.bookings.markBookingFailedById, {
+          bookingId: booking_id,
+        });
       }
 
       return NextResponse.json(
@@ -60,64 +55,37 @@ export async function POST(request) {
       );
     }
 
-    // Find the booking by Razorpay order ID
-    const [booking] = await db
-      .select()
-      .from(bookings)
-      .where(eq(bookings.razorpayOrderId, razorpay_order_id))
-      .limit(1);
+    const confirmed = await fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, {
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+    });
 
-    if (!booking) {
+    if (!confirmed?.success) {
       return NextResponse.json(
         { error: 'Booking not found for this order' },
         { status: 404 }
       );
     }
 
-    // Check if already confirmed (idempotency)
-    if (booking.status === 'confirmed') {
+    if (confirmed.alreadyConfirmed) {
       return NextResponse.json({
         success: true,
         message: 'Payment already confirmed',
         booking: {
-          id: booking.id,
-          status: booking.status,
+          id: confirmed.booking?.id,
+          status: confirmed.booking?.status,
         },
       });
     }
-
-    // Update booking to confirmed
-    const [updatedBooking] = await db
-      .update(bookings)
-      .set({
-        status: 'confirmed',
-        razorpayPaymentId: razorpay_payment_id,
-        razorpaySignature: razorpay_signature,
-        confirmedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(bookings.id, booking.id))
-      .returning();
-
-    // Decrement available seats for the trip
-    await db
-      .update(trips)
-      .set({
-        availableSeats: sql`${trips.availableSeats} - ${booking.travelers}`,
-        updatedAt: new Date(),
-      })
-      .where(eq(trips.id, booking.tripId));
-
-    // TODO: Send confirmation email to user
-    // await sendBookingConfirmationEmail(booking);
 
     return NextResponse.json({
       success: true,
       message: 'Payment verified and booking confirmed',
       booking: {
-        id: updatedBooking.id,
-        status: updatedBooking.status,
-        confirmedAt: updatedBooking.confirmedAt,
+        id: confirmed.booking?.id,
+        status: confirmed.booking?.status,
+        confirmedAt: confirmed.booking?.confirmedAt,
       },
     });
 

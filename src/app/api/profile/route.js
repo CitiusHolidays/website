@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
-import { headers } from 'next/headers';
-import { auth } from '@/lib/auth';
-import { updateUserProfile } from '@/lib/db/queries';
+import { anyApi } from 'convex/server';
+import { fetchAuthMutation, fetchAuthQuery } from '@/lib/auth-server';
 
 const phoneRegex = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
 
 export async function PUT(request) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+    const sessionUser = await fetchAuthQuery(anyApi.auth.getCurrentUser, {});
 
-    if (!session?.user?.id) {
+    if (!sessionUser?.id) {
       return NextResponse.json(
         { error: 'You must be signed in to update your profile.' },
         { status: 401 }
@@ -53,9 +50,9 @@ export async function PUT(request) {
       );
     }
 
-    const updated = await updateUserProfile(session.user.id, {
+    const updated = await fetchAuthMutation(anyApi.userProfiles.updateMyProfile, {
       name: trimmedName,
-      phoneNumber: trimmedPhone || null,
+      phoneNumber: trimmedPhone || '',
     });
 
     if (!updated) {

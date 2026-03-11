@@ -165,7 +165,7 @@ export default function AccountClient({ user, bookings = [] }) {
            <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-[#1a2c4e] via-[#0B1026] to-[#050814] opacity-80"></div>
           <div className="absolute top-[-20%] right-[-10%] w-[600px] h-[600px] rounded-full bg-[#d4af37] opacity-5 blur-[120px]"></div>
           <div className="absolute bottom-[-10%] left-[10%] w-[400px] h-[400px] rounded-full bg-[#1e293b] opacity-20 blur-3xl"></div>
-          <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
+          <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay bg-[url('/noise.svg')]"></div>
         </div>
 
         <div className="container mx-auto px-6 relative z-10">

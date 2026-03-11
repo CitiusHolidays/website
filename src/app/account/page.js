@@ -1,8 +1,14 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
-import { getUserBookings } from "@/lib/db/queries";
+import { unstable_noStore } from "next/cache";
+import { anyApi } from "convex/server";
+import {
+  fetchAuthMutation,
+  fetchAuthQuery,
+  requireAuth,
+} from "@/lib/auth-server";
 import AccountClient from "./page.client.js";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "My Account | Citius Travel",
@@ -10,17 +16,20 @@ export const metadata = {
 };
 
 export default async function AccountPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  // Prevent caching - auth state should be checked fresh each request
+  unstable_noStore();
 
-  if (!session) {
-    redirect("/auth");
-  }
+  // Use requireAuth to ensure user is authenticated
+  // This will redirect to /auth if not logged in
+  const { user } = await requireAuth("/account");
 
-  const bookings = await getUserBookings(session.user.id);
+  // Ensure profile exists in Convex
+  await fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {});
 
-  return <AccountClient user={session.user} bookings={bookings} />;
+  // Fetch bookings
+  const bookings = await fetchAuthQuery(anyApi.bookings.getMyBookings, {});
+
+  return <AccountClient user={user} bookings={bookings} />;
 }
 
 

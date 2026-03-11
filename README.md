@@ -21,6 +21,9 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 - [React 19](https://react.dev/)
 - [Tailwind CSS 4](https://tailwindcss.com/)
 - [Sanity.io](https://www.sanity.io/) (headless CMS)
+- [Convex](https://www.convex.dev/) (database + backend functions)
+- [Better Auth](https://www.better-auth.com/) (authentication)
+- [Razorpay](https://razorpay.com/) (payments)
 - [Nodemailer](https://nodemailer.com/) (contact form email)
 - [Lucide React](https://lucide.dev/) (icons)
 - [Motion](https://motion.dev/) & [Motion Plus](https://motion.dev/plus) (animations)
@@ -34,6 +37,8 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 - `src/sanity/` — Sanity client configuration
 - `src/static/` — Static images, videos, and assets
 - `src/utils/` — Utility functions
+- `convex/` — Convex schema, auth component, and backend functions
+- `scripts/migrations/` — Postgres-to-Convex migration scripts
 
 ## ⚡ Getting Started
 
@@ -64,6 +69,12 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 3. **Set up environment variables:**
    Create a `.env.local` file in the root directory with:
    ```env
+   # Convex (required)
+   NEXT_PUBLIC_CONVEX_URL=...
+   NEXT_PUBLIC_CONVEX_SITE_URL=...
+   NEXT_PUBLIC_SITE_URL=http://localhost:3000
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+
    # Sanity Configuration (required)
    NEXT_PUBLIC_SANITY_PROJECT_ID=your_sanity_project_id
    NEXT_PUBLIC_SANITY_DATASET=production
@@ -71,6 +82,9 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
    # Email Configuration (required for contact form)
    EMAIL_USER=your_email@gmail.com
    EMAIL_PASS=your_app_password
+
+   # Optional local migration source database
+   # DATABASE_URL=postgresql://...
 
    # Optional: Enable Sanity preview mode for draft content
    # SANITY_PREVIEW=true
@@ -88,6 +102,11 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 - `build` — Build the app for production
 - `start` — Start the production server
 - `lint` — Run ESLint
+- `convex:dev` — Run Convex locally and generate API artifacts
+- `auth:schema:generate` — Generate BetterAuth Convex schema file
+- `migrate:export` — Export legacy Postgres data to JSON
+- `migrate:import` — Import exported data into Convex
+- `migrate:verify` — Run parity checks between Postgres and Convex
 
 ## 📝 Content Management (Sanity.io)
 - Blog posts, gallery images, and some content are managed via [Sanity.io](https://www.sanity.io/).
@@ -108,6 +127,8 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Sanity Documentation](https://www.sanity.io/docs)
 - [Tailwind CSS Docs](https://tailwindcss.com/docs)
+- [Convex Documentation](https://docs.convex.dev/)
+- [Better Auth Convex Integration](https://www.better-auth.com/docs/integrations/convex)
 
 ## 🚀 Deploy
 

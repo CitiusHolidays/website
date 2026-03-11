@@ -129,7 +129,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
           <div className="absolute top-[20%] right-[-10%] w-[400px] h-[400px] rounded-full bg-[#d4af37] opacity-5 blur-[100px]"></div>
           
           {/* Subtle noise texture overlay */}
-          <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"></div>
+          <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay bg-[url('/noise.svg')]"></div>
         </div>
 
         {/* Content */}
@@ -349,7 +349,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
               className="w-full bg-[#0B1026] text-white font-medium text-lg py-4 rounded-xl shadow-lg shadow-[#0B1026]/20 hover:shadow-xl hover:shadow-[#0B1026]/30 transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden group"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 group-hover:opacity-90 transition-opacity" />
-              <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay" />
+              <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-10 mix-blend-overlay" />
               <span className="relative z-10">{isLoading ? 'Processing...' : (mode === 'signin' ? 'Sign In' : 'Create Account')}</span>
               {!isLoading && <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />}
             </motion.button>

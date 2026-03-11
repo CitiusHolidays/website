@@ -7,24 +7,24 @@
  */
 
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { trips, bookings, users } from '@/lib/db/schema';
+import { anyApi } from 'convex/server';
 import { createOrder, razorpayKeyId } from '@/lib/razorpay';
-import { eq, and } from 'drizzle-orm';
+import { fetchAuthMutation, fetchAuthQuery } from '@/lib/auth-server';
 import { randomUUID } from 'crypto';
 
 export async function POST(request) {
   try {
     // Parse request body
     const body = await request.json();
-    const { 
-      tripId, 
-      userId, 
-      travelers = 1, 
+    const {
+      tripId,
+      travelers = 1,
       currency = 'INR',
       travelerDetails = [],
-      notes = '' 
+      notes = ''
     } = body;
+
+    const normalizedCurrency = currency === 'USD' ? 'USD' : 'INR';
 
     // Validate required fields
     if (!tripId) {
@@ -34,9 +34,10 @@ export async function POST(request) {
       );
     }
 
-    if (!userId) {
+    const currentUser = await fetchAuthQuery(anyApi.auth.getCurrentUser, {});
+    if (!currentUser?.id) {
       return NextResponse.json(
-        { error: 'User ID is required. Please log in to continue.' },
+        { error: 'You must be logged in to continue.' },
         { status: 401 }
       );
     }
@@ -48,48 +49,15 @@ export async function POST(request) {
       );
     }
 
-    // Verify user exists
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId))
-      .limit(1);
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found. Please log in again.' },
-        { status: 404 }
-      );
-    }
-
-    // Fetch trip details
-    const [trip] = await db
-      .select()
-      .from(trips)
-      .where(and(
-        eq(trips.id, tripId),
-        eq(trips.isActive, 1)
-      ))
-      .limit(1);
-
-    if (!trip) {
-      return NextResponse.json(
-        { error: 'Trip not found or is no longer available' },
-        { status: 404 }
-      );
-    }
-
-    // Check seat availability
-    if (trip.availableSeats < travelers) {
-      return NextResponse.json(
-        { error: `Only ${trip.availableSeats} seats available for this trip` },
-        { status: 400 }
-      );
-    }
+    await fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {});
+    const checkout = await fetchAuthQuery(anyApi.bookings.prepareCheckout, {
+      tripIdentifier: tripId,
+      travelers,
+      currency: normalizedCurrency,
+    });
 
     // Calculate total amount based on currency
-    const pricePerPerson = currency === 'INR' ? trip.priceInr : trip.priceUsd;
-    const totalAmount = pricePerPerson * travelers;
+    const totalAmount = checkout.totalAmount;
 
     // Generate unique receipt ID for this order
     const receiptId = `rcpt_${randomUUID().replace(/-/g, '').substring(0, 16)}`;
@@ -97,32 +65,25 @@ export async function POST(request) {
     // Create Razorpay order
     const razorpayOrder = await createOrder({
       amount: totalAmount,
-      currency,
+      currency: normalizedCurrency,
       receipt: receiptId,
       notes: {
-        tripId,
-        tripName: trip.name,
-        userId,
-        userEmail: user.email,
+        tripId: checkout.trip.id,
+        tripName: checkout.trip.name,
+        userId: currentUser.id,
+        userEmail: checkout.user.email,
         travelers: travelers.toString(),
       },
     });
 
-    // Create pending booking in database
-    const [booking] = await db
-      .insert(bookings)
-      .values({
-        userId,
-        tripId,
-        status: 'pending',
-        razorpayOrderId: razorpayOrder.id,
-        totalAmount,
-        currency,
-        travelers,
-        travelerDetails: travelerDetails.length > 0 ? travelerDetails : null,
-        notes: notes || null,
-      })
-      .returning();
+    const booking = await fetchAuthMutation(anyApi.bookings.createPendingBooking, {
+      tripIdentifier: tripId,
+      travelers,
+      currency: normalizedCurrency,
+      razorpayOrderId: razorpayOrder.id,
+      travelerDetails: travelerDetails.length > 0 ? travelerDetails : null,
+      notes: notes || '',
+    });
 
     // Return order details for frontend Razorpay Checkout
     return NextResponse.json({
@@ -134,24 +95,24 @@ export async function POST(request) {
         receipt: razorpayOrder.receipt,
       },
       booking: {
-        id: booking.id,
-        status: booking.status,
+        id: booking.booking.id,
+        status: booking.booking.status,
       },
       // Razorpay checkout configuration
       razorpay: {
         key: razorpayKeyId,
         orderId: razorpayOrder.id,
         amount: totalAmount,
-        currency,
+        currency: normalizedCurrency,
         name: 'Spiritual Trails',
-        description: `${trip.name} - ${travelers} traveler(s)`,
+        description: `${checkout.trip.name} - ${travelers} traveler(s)`,
         prefill: {
-          name: user.name,
-          email: user.email,
-          contact: user.phoneNumber || '',
+          name: checkout.user.name,
+          email: checkout.user.email,
+          contact: checkout.user.phoneNumber || '',
         },
         notes: {
-          bookingId: booking.id,
+          bookingId: booking.booking.id,
           tripId,
         },
         theme: {
@@ -162,7 +123,28 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Create order error:', error);
-    
+
+    if (error?.message?.includes('Trip not found')) {
+      return NextResponse.json(
+        { error: 'Trip not found or is no longer available' },
+        { status: 404 }
+      );
+    }
+
+    if (error?.message?.includes('Only')) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+
+    if (error?.message?.includes('UNAUTHORIZED')) {
+      return NextResponse.json(
+        { error: 'You must be logged in to continue.' },
+        { status: 401 }
+      );
+    }
+
     // Handle specific error types
     if (error.message?.includes('Razorpay')) {
       return NextResponse.json(

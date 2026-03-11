@@ -1,9 +1,6 @@
-"use client";
-
 import { createLucideIcon, Facebook, Instagram, Linkedin } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "motion/react";
 
 import Logo from "@/static/logos/logo.webp";
 import IATA from "@/static/partners/iata.webp";
@@ -53,32 +50,11 @@ const quickLinks = [
   { href: "/policies", label: "Legal & Policies" },
 ];
 
-const footerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.2,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { ease: "easeOut" } },
-};
-
 export default function Footer() {
   return (
     <footer className="bg-brand-dark bg-[url('/gallery/bgfooter.webp')] bg-cover bg-center text-brand-light">
-      <motion.div
-        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-12"
-        variants={footerVariants}
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, amount: 0.2 }}
-      >
-        <motion.div variants={itemVariants}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-12">
+        <div>
           <Image
             src={Logo}
             alt="Citius Logo"
@@ -100,9 +76,9 @@ export default function Footer() {
               />
             </div>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.div variants={itemVariants}>
+        <div>
           <h3 className="text-lg font-semibold mb-4">Our Offices</h3>
           <ul className="space-y-4 text-sm">
             {offices.map((office) => (
@@ -115,25 +91,28 @@ export default function Footer() {
               </li>
             ))}
           </ul>
-        </motion.div>
+        </div>
 
-        <motion.div variants={itemVariants}>
+        <div>
           <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
           <ul className="space-y-2 text-sm">
             {quickLinks.map((link) => (
-              <motion.li key={link.href} whileHover={{ x: 5 }}>
-                <Link href={link.href} className="hover:text-brand-light">
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  className="inline-block hover:text-brand-light transition-transform duration-200 hover:translate-x-1"
+                >
                   {link.label}
                 </Link>
-              </motion.li>
+              </li>
             ))}
           </ul>
-        </motion.div>
+        </div>
 
-        <motion.div variants={itemVariants}>
+        <div>
           <h3 className="text-lg font-semibold mb-2">Follow Us</h3>
           <div className="flex gap-4">
-            <motion.div whileHover={{ y: -3 }}>
+            <div className="transition-transform duration-200 hover:-translate-y-0.5">
               <Link
                 href="https://www.instagram.com/citius_holidays/?hl=en"
                 aria-label="Instagram"
@@ -141,8 +120,8 @@ export default function Footer() {
               >
                 <Instagram className="w-6 h-6" />
               </Link>
-            </motion.div>
-            <motion.div whileHover={{ y: -3 }}>
+            </div>
+            <div className="transition-transform duration-200 hover:-translate-y-0.5">
               <Link
                 href="https://x.com/citiusholidays"
                 aria-label="Twitter"
@@ -150,8 +129,8 @@ export default function Footer() {
               >
                 <XIcon className="w-6 h-6" />
               </Link>
-            </motion.div>
-            <motion.div whileHover={{ y: -3 }}>
+            </div>
+            <div className="transition-transform duration-200 hover:-translate-y-0.5">
               <Link
                 href="https://www.facebook.com/citiusholidays"
                 aria-label="Facebook"
@@ -159,8 +138,8 @@ export default function Footer() {
               >
                 <Facebook className="w-6 h-6" />
               </Link>
-            </motion.div>
-            <motion.div whileHover={{ y: -3 }}>
+            </div>
+            <div className="transition-transform duration-200 hover:-translate-y-0.5">
               <Link
                 href="https://linkedin.com/company/citius-holidays"
                 aria-label="LinkedIn"
@@ -168,10 +147,10 @@ export default function Footer() {
               >
                 <Linkedin className="w-6 h-6" />
               </Link>
-            </motion.div>
+            </div>
           </div>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
 
       <div className="bg-brand-dark/20 py-4">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center text-sm text-brand-muted">

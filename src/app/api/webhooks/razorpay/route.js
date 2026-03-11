@@ -13,10 +13,9 @@
  */
 
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { bookings, trips } from '@/lib/db/schema';
+import { anyApi } from 'convex/server';
 import { verifyWebhookSignature } from '@/lib/razorpay';
-import { eq, sql } from 'drizzle-orm';
+import { fetchAuthMutation } from '@/lib/auth-server';
 
 // Disable body parsing - we need the raw body for signature verification
 export const runtime = 'nodejs';
@@ -112,14 +111,10 @@ async function handlePaymentAuthorized(payment) {
 
   console.log(`Payment authorized: ${payment.id} for order ${payment.order_id}`);
   
-  // Update booking to show payment is in progress
-  await db
-    .update(bookings)
-    .set({
-      razorpayPaymentId: payment.id,
-      updatedAt: new Date(),
-    })
-    .where(eq(bookings.razorpayOrderId, payment.order_id));
+  await fetchAuthMutation(anyApi.bookings.recordPaymentAuthorized, {
+    orderId: payment.order_id,
+    paymentId: payment.id,
+  });
 }
 
 /**
@@ -130,45 +125,22 @@ async function handlePaymentCaptured(payment) {
 
   console.log(`Payment captured: ${payment.id} for order ${payment.order_id}`);
 
-  // Find the booking
-  const [booking] = await db
-    .select()
-    .from(bookings)
-    .where(eq(bookings.razorpayOrderId, payment.order_id))
-    .limit(1);
+  const result = await fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, {
+    orderId: payment.order_id,
+    paymentId: payment.id,
+  });
 
-  if (!booking) {
+  if (!result?.success) {
     console.error(`Booking not found for order: ${payment.order_id}`);
     return;
   }
 
-  // Skip if already confirmed (idempotency)
-  if (booking.status === 'confirmed') {
-    console.log(`Booking ${booking.id} already confirmed, skipping`);
+  if (result.alreadyConfirmed) {
+    console.log(`Booking already confirmed for order: ${payment.order_id}`);
     return;
   }
 
-  // Update booking to confirmed
-  await db
-    .update(bookings)
-    .set({
-      status: 'confirmed',
-      razorpayPaymentId: payment.id,
-      confirmedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(bookings.id, booking.id));
-
-  // Decrement available seats
-  await db
-    .update(trips)
-    .set({
-      availableSeats: sql`${trips.availableSeats} - ${booking.travelers}`,
-      updatedAt: new Date(),
-    })
-    .where(eq(trips.id, booking.tripId));
-
-  console.log(`Booking ${booking.id} confirmed via webhook`);
+  console.log(`Booking ${result.booking?.id} confirmed via webhook`);
 
   // TODO: Send confirmation email
   // await sendBookingConfirmationEmail(booking);
@@ -183,15 +155,10 @@ async function handlePaymentFailed(payment) {
   console.log(`Payment failed: ${payment.id} for order ${payment.order_id}`);
   console.log(`Failure reason: ${payment.error_description || 'Unknown'}`);
 
-  // Update booking status to failed
-  await db
-    .update(bookings)
-    .set({
-      status: 'failed',
-      razorpayPaymentId: payment.id,
-      updatedAt: new Date(),
-    })
-    .where(eq(bookings.razorpayOrderId, payment.order_id));
+  await fetchAuthMutation(anyApi.bookings.markPaymentFailedByOrderId, {
+    orderId: payment.order_id,
+    paymentId: payment.id,
+  });
 }
 
 /**
@@ -202,14 +169,9 @@ async function handleRefundCreated(refund) {
 
   console.log(`Refund created: ${refund.id} for payment ${refund.payment_id}`);
 
-  // Update booking status to refunded
-  await db
-    .update(bookings)
-    .set({
-      status: 'refunded',
-      updatedAt: new Date(),
-    })
-    .where(eq(bookings.razorpayPaymentId, refund.payment_id));
+  await fetchAuthMutation(anyApi.bookings.markRefundedByPaymentId, {
+    paymentId: refund.payment_id,
+  });
 }
 
 
