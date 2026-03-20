@@ -48,3 +48,6 @@ convex/_generated
 .convex
 docs
 scripts
+# next-agents-md
+.next-docs/
+AGENTS.md
