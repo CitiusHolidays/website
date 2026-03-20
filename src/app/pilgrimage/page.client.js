@@ -6,14 +6,16 @@ import Image from "next/image";
 import Link from "next/link";
 import AnimatedSection from "../../components/layout/AnimatedSection";
 import GalleryGridSmall from "../../components/ui/GalleryGridSmall";
-import TrailSection from "../../components/pilgrimage/TrailSection";
 import SpiritualHero from "../../components/pilgrimage/SpiritualHero";
+import SpiritualTrailsHub from "../../components/pilgrimage/SpiritualTrailsHub";
 import TestimonialsSection from "../../components/pilgrimage/TestimonialsSection";
 import SacredSitesVisual from "../../components/pilgrimage/SacredSitesVisual";
 import JourneyComparison from "../../components/pilgrimage/JourneyComparison";
-import { trails } from "../../data/trails";
+import { getTrailsForHub, groupTrailsForHub } from "../../data/trails";
 
 export default function PilgrimagePageClient({ images }) {
+  const hubGroups = groupTrailsForHub(getTrailsForHub());
+
   return (
     <div className="bg-white">
       {/* Hero Section */}
@@ -39,8 +41,8 @@ export default function PilgrimagePageClient({ images }) {
               <span className="text-citius-blue italic">Mansarovar Collection</span>
             </h2>
             <p className="font-sans text-lg md:text-xl text-brand-muted max-w-3xl mx-auto leading-relaxed">
-              Two sacred paths to the abode of Lord Shiva. Choose the journey that aligns with your spirit — 
-              the complete 14-day Himalayan expedition or the divine aerial darshan experience.
+              Flagship yatra and aerial darshan — plus specialised routes and programmes opening soon.
+              Explore every trail below for galleries, dates, pricing, and booking.
             </p>
             <div className="w-16 md:w-24 h-px bg-citius-orange/30 mx-auto mt-6 md:mt-10" />
           </motion.div>
@@ -120,17 +122,7 @@ export default function PilgrimagePageClient({ images }) {
         <JourneyComparison />
       </div>
 
-      {/* Package A: 14-Day Yatra */}
-      <TrailSection 
-        trail={trails[0]} 
-        isAlternate={false}
-      />
-
-      {/* Package B: Aerial Darshan */}
-      <TrailSection 
-        trail={trails[1]} 
-        isAlternate={true}
-      />
+      <SpiritualTrailsHub groups={hubGroups} />
 
       {/* Sacred Sites Visual */}
       <SacredSitesVisual />

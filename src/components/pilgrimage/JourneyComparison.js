@@ -1,9 +1,15 @@
 "use client";
 
 import { motion } from "motion/react";
-import { 
-  Clock, Mountain, Users, CheckCircle, 
-  Plane, Footprints, ArrowRight
+import Link from "next/link";
+import {
+  Clock,
+  Mountain,
+  Users,
+  CheckCircle,
+  Plane,
+  Footprints,
+  ArrowRight
 } from "lucide-react";
 import { cn } from "../../utils/cn";
 
@@ -128,12 +134,12 @@ export default function JourneyComparison({ className }) {
             <p className="text-white/80 text-xs mb-3">Complete pilgrimage with Kora</p>
             <div className="flex items-center justify-between">
               <span className="text-xl font-bold">INR 2.65L</span>
-              <a
-                href="#package-14day"
+              <Link
+                href="/pilgrimage/kailash-mansarovar-14day"
                 className="bg-white text-citius-blue px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1"
               >
                 Details <ArrowRight className="w-3 h-3" />
-              </a>
+              </Link>
             </div>
           </motion.div>
 
@@ -148,12 +154,12 @@ export default function JourneyComparison({ className }) {
             <p className="text-white/80 text-xs mb-3">Divine darshan without trek</p>
             <div className="flex items-center justify-between">
               <span className="text-xl font-bold">INR 49,500</span>
-              <a
-                href="#package-aerial"
+              <Link
+                href="/pilgrimage/kailash-aerial-3day"
                 className="bg-white text-citius-orange px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1"
               >
                 Details <ArrowRight className="w-3 h-3" />
-              </a>
+              </Link>
             </div>
           </motion.div>
         </div>

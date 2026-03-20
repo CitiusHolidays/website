@@ -20,7 +20,7 @@ const journeys = [
     badge: "14-Day Expedition",
     subtitle: "A Sacred Himalayan Expedition of Inner Transformation",
     images: [
-      { src: "/gallery/spiritual/kailash-peak.webp", alt: "Mount Kailash" },
+      { src: "/gallery/spiritual/grp-with-mt-kailash.webp", alt: "Mount Kailash with yatris" },
       { src: "/gallery/spiritual/mansarovar-lake.webp", alt: "Lake Mansarovar" },
       { src: "/gallery/spiritual/kora-path.webp", alt: "Kailash Kora" },
       { src: "/gallery/spiritual/drolma-la.webp", alt: "Drolma La Pass" }
@@ -40,10 +40,10 @@ const journeys = [
     badge: "2N/3D Aerial Tour",
     subtitle: "Divine Blessings Without the Trek — For Senior Yatris & All Seekers",
     images: [
-      { src: "/gallery/spiritual/aerial-view.webp", alt: "Aerial Kailash" },
-      { src: "/gallery/spiritual/flight-window.webp", alt: "Flight Darshan" },
-      { src: "/gallery/spiritual/mansarovar-aerial.webp", alt: "Lake from Sky" },
-      { src: "/gallery/spiritual/himalayan-range.webp", alt: "Himalayan Range" }
+      { src: "/gallery/spiritual/aerial-view.webp", alt: "Darshan with Mount Kailash" },
+      { src: "/gallery/spiritual/welcome-kathmandu.webp", alt: "Kathmandu — journey begins" },
+      { src: "/gallery/spiritual/mansarovar-lake.webp", alt: "Lake Mansarovar from the yatra" },
+      { src: "/gallery/spiritual/nyalam.webp", alt: "Tibetan plateau & Himalaya" }
     ],
     quickFacts: [
       { icon: Clock, label: "Duration", value: "2N/3D" },

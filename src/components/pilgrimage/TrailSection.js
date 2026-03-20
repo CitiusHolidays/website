@@ -1,15 +1,36 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
-import { 
-  Map, Heart, Shield, Users, CheckCircle, 
-  AlertCircle, Mountain, Coffee, FileText, 
-  MapPin, Star, Sparkles, Clock, Calendar,
-  ArrowRight, IndianRupee, Info
+import {
+  Map,
+  Heart,
+  Shield,
+  Users,
+  CheckCircle,
+  AlertCircle,
+  Mountain,
+  Coffee,
+  FileText,
+  MapPin,
+  Star,
+  Sparkles,
+  Clock,
+  Calendar,
+  ArrowRight,
+  IndianRupee,
+  Info,
+  Camera,
+  MessageSquare,
+  Video,
+  BookOpen,
+  ExternalLink,
+  Quote
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "../../utils/cn";
+import { getTrailTestimonials, toYoutubeEmbedUrl } from "../../data/trails";
 
 const TabButton = ({ active, onClick, label, icon: Icon }) => (
   <button
@@ -191,7 +212,7 @@ function ItineraryTab({ itinerary, hasAltitude }) {
 }
 
 function PricingTab({ trail }) {
-  const isAerial = trail.id === "kailash-aerial-3day";
+  const isTieredPricing = Array.isArray(trail.pricing?.tiers);
 
   return (
     <motion.div
@@ -202,7 +223,7 @@ function PricingTab({ trail }) {
     >
       {/* Price Display */}
       <div className="text-center mb-8">
-        {isAerial ? (
+        {isTieredPricing ? (
           <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
             {trail.pricing.tiers.map((tier) => (
               <div
@@ -235,8 +256,8 @@ function PricingTab({ trail }) {
           </div>
         )}
 
-        {/* Add-on for Aerial */}
-        {isAerial && trail.pricing.addOn && (
+        {/* Add-on for tiered (e.g. aerial) packages */}
+        {isTieredPricing && trail.pricing.addOn && (
           <div className="mt-6 bg-citius-orange/5 rounded-xl p-4 max-w-md mx-auto border border-citius-orange/20">
             <div className="flex items-center gap-2 mb-1">
               <Sparkles className="w-4 h-4 text-citius-orange" />
@@ -302,8 +323,8 @@ function PricingTab({ trail }) {
         </div>
       </div>
 
-      {/* Transport Info for Aerial */}
-      {isAerial && trail.details.transport && (
+      {/* Transport Info (e.g. aerial packages) */}
+      {trail.layoutVariant === "aerial" && trail.details.transport && (
         <div className="bg-blue-50/50 rounded-2xl p-6 border border-blue-100">
           <h4 className="font-heading text-lg text-citius-blue mb-4 flex items-center gap-2">
             <Users className="w-5 h-5 text-citius-orange" />
@@ -335,7 +356,8 @@ function PricingTab({ trail }) {
   );
 }
 
-function InfoTab({ info, isAerial }) {
+function InfoTab({ info, layoutVariant }) {
+  const isAerialLayout = layoutVariant === "aerial";
   return (
     <motion.div
       initial={{ opacity: 0, scale: 1.02 }}
@@ -407,8 +429,8 @@ function InfoTab({ info, isAerial }) {
             <p className="text-sm text-brand-muted">{info.bestTime}</p>
           </div>
 
-          {/* Border Info for Aerial */}
-          {isAerial && info.borderInfo && (
+          {/* Border Info (aerial / border-heavy trips) */}
+          {isAerialLayout && info.borderInfo && (
             <div className="bg-citius-orange/5 rounded-xl p-5 border border-citius-orange/10">
               <h4 className="font-heading text-base text-citius-orange mb-2 flex items-center gap-2">
                 <Info className="w-4 h-4" />
@@ -419,8 +441,8 @@ function InfoTab({ info, isAerial }) {
             </div>
           )}
 
-          {/* Meal Info for Aerial */}
-          {isAerial && info.mealPlan && (
+          {/* Meal Info */}
+          {isAerialLayout && info.mealPlan && (
             <div className="bg-emerald-50/50 rounded-xl p-5 border border-emerald-100">
               <h4 className="font-heading text-base text-emerald-700 mb-2 flex items-center gap-2">
                 <Coffee className="w-4 h-4" />
@@ -467,73 +489,334 @@ function InfoTab({ info, isAerial }) {
   );
 }
 
-export default function TrailSection({ trail, className, isAlternate }) {
+function DeparturesBlock({ departures }) {
+  if (!departures?.batches?.length) return null;
+  return (
+    <div className="mt-8 rounded-2xl border border-citius-blue/15 bg-citius-blue/5 p-6 md:p-8">
+      <h4 className="font-heading text-lg text-citius-blue mb-4 flex items-center gap-2">
+        <Calendar className="w-5 h-5 text-citius-orange" />
+        Departure dates
+      </h4>
+      <div className="space-y-6">
+        {departures.batches.map((batch, i) => (
+          <div key={i}>
+            <p className="text-sm font-semibold text-brand-dark">{batch.name}</p>
+            <ul className="mt-2 space-y-2">
+              {batch.dates.map((d, j) => (
+                <li key={j} className="text-sm text-brand-muted flex gap-2 items-start">
+                  <span className="text-citius-orange shrink-0">•</span>
+                  <span>{d}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GalleryTab({ gallery }) {
+  if (!gallery?.length) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      className="columns-2 md:columns-3 gap-4 space-y-4"
+    >
+      {gallery.map((img, idx) => (
+        <div
+          key={idx}
+          className="break-inside-avoid rounded-xl overflow-hidden border border-brand-light shadow-sm bg-brand-light/30"
+        >
+          <Image
+            src={img.src}
+            alt={img.alt || "Yatra photo"}
+            width={720}
+            height={480}
+            className="w-full h-auto object-cover"
+            sizes="(max-width: 768px) 50vw, 33vw"
+          />
+        </div>
+      ))}
+    </motion.div>
+  );
+}
+
+function BookingTab({ options }) {
+  if (!options?.length) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      className="grid sm:grid-cols-2 gap-4 md:gap-6"
+    >
+      {options.map((opt, i) => {
+        const isExternal = opt.href.startsWith("http");
+        const className =
+          "group flex flex-col rounded-2xl border border-brand-light bg-white p-6 shadow-sm transition-all hover:border-citius-orange/40 hover:shadow-md";
+        const inner = (
+          <>
+            <span className="font-heading text-citius-blue text-lg mb-2 flex items-center gap-2">
+              {opt.label}
+              <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-60 transition-opacity" />
+            </span>
+            {opt.note && <p className="text-sm text-brand-muted leading-relaxed">{opt.note}</p>}
+            <span className="mt-4 text-sm font-medium text-citius-orange">Continue →</span>
+          </>
+        );
+        if (isExternal) {
+          return (
+            <a key={i} href={opt.href} className={className} target="_blank" rel="noopener noreferrer">
+              {inner}
+            </a>
+          );
+        }
+        return (
+          <Link key={i} href={opt.href} className={className}>
+            {inner}
+          </Link>
+        );
+      })}
+    </motion.div>
+  );
+}
+
+function ReviewsTab({ testimonials }) {
+  if (!testimonials?.length) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      className="grid md:grid-cols-2 gap-6"
+    >
+      {testimonials.map((t) => (
+        <div
+          key={t.id}
+          className="rounded-2xl border border-brand-light bg-linear-to-br from-white to-brand-light/40 p-6"
+        >
+          <div className="flex gap-1 mb-3">
+            {Array.from({ length: t.rating || 5 }).map((_, i) => (
+              <Star key={i} className="w-4 h-4 fill-citius-orange text-citius-orange" />
+            ))}
+          </div>
+          <p className="text-sm text-brand-dark/90 leading-relaxed italic">&ldquo;{t.quote}&rdquo;</p>
+          <p className="mt-4 text-sm font-heading text-citius-blue">{t.name}</p>
+          <p className="text-xs text-brand-muted">
+            {t.location}
+            {t.journey ? ` · ${t.journey}` : ""}
+          </p>
+        </div>
+      ))}
+    </motion.div>
+  );
+}
+
+function MediaTab({ media }) {
+  const embed = media?.videoUrl ? toYoutubeEmbedUrl(media.videoUrl) : null;
+  const hasAr = Boolean(media?.arUrl);
+  if (!embed && !hasAr) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      className="space-y-8"
+    >
+      {embed && (
+        <div>
+          <h4 className="font-heading text-lg text-citius-blue mb-4 flex items-center gap-2">
+            <Video className="w-5 h-5 text-citius-orange" />
+            Trip film
+          </h4>
+          <div className="relative aspect-video rounded-2xl overflow-hidden border border-brand-light bg-brand-dark shadow-lg">
+            <iframe
+              title="Trail video"
+              src={embed}
+              className="absolute inset-0 w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
+      {hasAr && (
+        <div className="rounded-2xl border border-citius-orange/20 bg-citius-orange/5 p-6">
+          <h4 className="font-heading text-lg text-citius-orange mb-2">AR experience</h4>
+          <p className="text-sm text-brand-muted mb-4">
+            Open the immersive view on a compatible device (link opens in a new tab).
+          </p>
+          <a
+            href={media.arUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-citius-orange text-white text-sm font-heading tracking-wider hover:brightness-110 transition-all"
+          >
+            Launch AR
+            <ExternalLink className="w-4 h-4" />
+          </a>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+function BlogsTab({ posts }) {
+  if (!posts?.length) return null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      className="space-y-4"
+    >
+      <p className="text-sm text-brand-muted mb-4">
+        Stories and updates from Citius — hand-picked for this journey.
+      </p>
+      <ul className="space-y-3">
+        {posts.map((post) => (
+          <li key={post.slug}>
+            <Link
+              href={`/blog/${post.slug}`}
+              className="flex items-center justify-between gap-4 rounded-xl border border-brand-light bg-white px-5 py-4 hover:border-citius-blue/30 hover:shadow-sm transition-all"
+            >
+              <span className="font-heading text-citius-blue">{post.title}</span>
+              <ArrowRight className="w-4 h-4 text-citius-orange shrink-0" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </motion.div>
+  );
+}
+
+export default function TrailSection({
+  trail,
+  className,
+  isAlternate,
+  relatedBlogPosts = [],
+  embedded = false
+}) {
   const [activeTab, setActiveTab] = useState("overview");
-  
+
   if (!trail) return null;
 
-  const { id, title, subtitle, tagline, positioning, overview, highlights, itinerary, details, info } = trail;
-  const isAerial = id === "kailash-aerial-3day";
+  const {
+    title,
+    subtitle,
+    tagline,
+    positioning,
+    overview,
+    highlights,
+    itinerary,
+    details,
+    info,
+    layoutVariant = "trek",
+    status,
+    gallery = [],
+    bookingOptions = [],
+    media
+  } = trail;
+
+  const isAerial = layoutVariant === "aerial";
+  const isComingSoon = status === "comingSoon";
+  const hasGallery = gallery.length > 0;
+  const hasHighlights = highlights && highlights.length > 0;
+  const hasItinerary = itinerary && itinerary.length > 0;
+  const hasPricing = Boolean(details);
+  const hasInfo = Boolean(info);
+  const hasBooking = bookingOptions.length > 0;
+  const reviewsList =
+    trail.testimonials?.length > 0 ? trail.testimonials : getTrailTestimonials(trail);
+  const hasReviews = reviewsList.length > 0;
+  const hasMedia =
+    Boolean(media?.videoUrl && toYoutubeEmbedUrl(media.videoUrl)) || Boolean(media?.arUrl);
+  const hasBlogs = relatedBlogPosts.length > 0;
+
+  const legacySectionId = isAerial ? "package-aerial" : "package-14day";
 
   return (
-    <section 
-      id={isAerial ? "package-aerial" : "package-14day"}
+    <section
+      id={trail.slug ? `trail-${trail.slug}` : legacySectionId}
       className={cn(
-        "py-16 md:py-32 scroll-mt-20",
-        isAlternate ? "bg-[#f8f5f2]" : "bg-white",
+        embedded
+          ? "py-6 md:py-12 scroll-mt-20 bg-white"
+          : cn(
+              "py-16 md:py-32 scroll-mt-20",
+              isAlternate ? "bg-[#f8f5f2]" : "bg-white"
+            ),
         className
       )}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-10 md:mb-16">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            {tagline && (
-              <span className="inline-block bg-citius-orange/10 text-citius-orange text-xs font-medium tracking-wider uppercase px-3 py-1.5 rounded-full mb-4">
-                {tagline}
-              </span>
-            )}
-            <h2 className="font-heading text-2xl md:text-4xl lg:text-5xl text-citius-blue mb-3 md:mb-4 leading-tight">
-              {title}
-            </h2>
-            <p className="font-sans text-lg md:text-xl text-brand-muted max-w-2xl mx-auto italic leading-relaxed">
-              {subtitle}
-            </p>
-            {positioning && (
-              <p className="font-sans text-sm md:text-base text-brand-muted/80 max-w-xl mx-auto mt-3">
-                {positioning}
-              </p>
-            )}
-            <div className="w-12 md:w-16 h-1 bg-citius-orange mx-auto mt-6 md:mt-8 rounded-full" />
-          </motion.div>
-        </div>
-
-        {/* Quick Facts Bar */}
-        {trail.quickFacts && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="flex flex-wrap justify-center gap-3 md:gap-6 mb-10 md:mb-14"
-          >
-            {Object.entries(trail.quickFacts).map(([key, value]) => (
-              <div
-                key={key}
-                className="bg-white rounded-xl px-4 py-2.5 shadow-sm border border-brand-light"
+        {!embedded && (
+          <>
+            <div className="text-center mb-10 md:mb-16">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
               >
-                <span className="text-[10px] md:text-xs text-brand-muted uppercase tracking-wider block">
-                  {key.replace(/([A-Z])/g, " $1").trim()}
-                </span>
-                <span className="text-sm md:text-base font-heading text-citius-blue font-medium">
-                  {value}
-                </span>
-              </div>
-            ))}
-          </motion.div>
+                <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+                  {isComingSoon && (
+                    <span className="inline-block bg-amber-100 text-amber-900 text-xs font-medium tracking-wider uppercase px-3 py-1.5 rounded-full border border-amber-200">
+                      Coming soon
+                    </span>
+                  )}
+                  {tagline && (
+                    <span className="inline-block bg-citius-orange/10 text-citius-orange text-xs font-medium tracking-wider uppercase px-3 py-1.5 rounded-full">
+                      {tagline}
+                    </span>
+                  )}
+                </div>
+                <h2 className="font-heading text-2xl md:text-4xl lg:text-5xl text-citius-blue mb-3 md:mb-4 leading-tight">
+                  {title}
+                </h2>
+                <p className="font-sans text-lg md:text-xl text-brand-muted max-w-2xl mx-auto italic leading-relaxed">
+                  {subtitle}
+                </p>
+                {positioning && (
+                  <p className="font-sans text-sm md:text-base text-brand-muted/80 max-w-xl mx-auto mt-3">
+                    {positioning}
+                  </p>
+                )}
+                <div className="w-12 md:w-16 h-1 bg-citius-orange mx-auto mt-6 md:mt-8 rounded-full" />
+              </motion.div>
+            </div>
+
+            {trail.quickFacts && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="flex flex-wrap justify-center gap-3 md:gap-6 mb-10 md:mb-14"
+              >
+                {Object.entries(trail.quickFacts).map(([key, value]) => (
+                  <div
+                    key={key}
+                    className="bg-white rounded-xl px-4 py-2.5 shadow-sm border border-brand-light"
+                  >
+                    <span className="text-[10px] md:text-xs text-brand-muted uppercase tracking-wider block">
+                      {key.replace(/([A-Z])/g, " $1").trim()}
+                    </span>
+                    <span className="text-sm md:text-base font-heading text-citius-blue font-medium">
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </motion.div>
+            )}
+          </>
+        )}
+
+        {embedded && isComingSoon && (
+          <p className="text-center text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-full py-2 px-4 mb-8 max-w-xl mx-auto">
+            This programme is not yet open for booking — explore the overview and register your interest below.
+          </p>
         )}
 
         {/* Tabs Navigation */}
@@ -544,7 +827,15 @@ export default function TrailSection({ trail, className, isAlternate }) {
             label="Overview"
             icon={Star}
           />
-          {highlights && (
+          {hasGallery && (
+            <TabButton
+              active={activeTab === "gallery"}
+              onClick={() => setActiveTab("gallery")}
+              label="Gallery"
+              icon={Camera}
+            />
+          )}
+          {hasHighlights && (
             <TabButton
               active={activeTab === "highlights"}
               onClick={() => setActiveTab("highlights")}
@@ -552,24 +843,62 @@ export default function TrailSection({ trail, className, isAlternate }) {
               icon={Sparkles}
             />
           )}
-          <TabButton
-            active={activeTab === "itinerary"}
-            onClick={() => setActiveTab("itinerary")}
-            label="Itinerary"
-            icon={Map}
-          />
-          <TabButton
-            active={activeTab === "pricing"}
-            onClick={() => setActiveTab("pricing")}
-            label="Pricing & Details"
-            icon={FileText}
-          />
-          <TabButton
-            active={activeTab === "info"}
-            onClick={() => setActiveTab("info")}
-            label="Important Info"
-            icon={Info}
-          />
+          {hasItinerary && (
+            <TabButton
+              active={activeTab === "itinerary"}
+              onClick={() => setActiveTab("itinerary")}
+              label="Itinerary"
+              icon={Map}
+            />
+          )}
+          {hasPricing && (
+            <TabButton
+              active={activeTab === "pricing"}
+              onClick={() => setActiveTab("pricing")}
+              label="Pricing & Details"
+              icon={FileText}
+            />
+          )}
+          {hasInfo && (
+            <TabButton
+              active={activeTab === "info"}
+              onClick={() => setActiveTab("info")}
+              label="Important Info"
+              icon={Info}
+            />
+          )}
+          {hasBooking && (
+            <TabButton
+              active={activeTab === "booking"}
+              onClick={() => setActiveTab("booking")}
+              label="Booking"
+              icon={MessageSquare}
+            />
+          )}
+          {hasReviews && (
+            <TabButton
+              active={activeTab === "reviews"}
+              onClick={() => setActiveTab("reviews")}
+              label="Reviews"
+              icon={Quote}
+            />
+          )}
+          {hasMedia && (
+            <TabButton
+              active={activeTab === "media"}
+              onClick={() => setActiveTab("media")}
+              label="Video / AR"
+              icon={Video}
+            />
+          )}
+          {hasBlogs && (
+            <TabButton
+              active={activeTab === "blogs"}
+              onClick={() => setActiveTab("blogs")}
+              label="Blogs"
+              icon={BookOpen}
+            />
+          )}
         </div>
 
         {/* Tab Content */}
@@ -586,13 +915,18 @@ export default function TrailSection({ trail, className, isAlternate }) {
                 exit={{ opacity: 0, x: 20 }}
                 className="space-y-6 md:space-y-8"
               >
-                <div className="grid lg:grid-cols-5 gap-6 md:gap-12 items-start">
-                  <div className="lg:col-span-3">
+                <div
+                  className={cn(
+                    "grid gap-6 md:gap-12 items-start",
+                    overview.promise?.length ? "lg:grid-cols-5" : "lg:grid-cols-1"
+                  )}
+                >
+                  <div className={overview.promise?.length ? "lg:col-span-3" : ""}>
                     <h3 className="font-heading text-xl md:text-2xl text-citius-blue mb-4 md:mb-6">
                       {overview.title}
                     </h3>
                     <div className="space-y-3 md:space-y-4 font-sans text-base md:text-lg text-brand-muted leading-relaxed">
-                      {overview.intro.map((paragraph, idx) => (
+                      {(overview.intro || []).map((paragraph, idx) => (
                         <p key={idx}>{paragraph}</p>
                       ))}
                       {overview.quote && (
@@ -602,30 +936,33 @@ export default function TrailSection({ trail, className, isAlternate }) {
                         </blockquote>
                       )}
                     </div>
+                    <DeparturesBlock departures={trail.departures} />
                   </div>
-                  <div className="lg:col-span-2 bg-brand-dark rounded-2xl p-6 md:p-8 text-white shadow-xl">
-                    <h4 className="font-heading text-lg md:text-xl text-citius-orange mb-4 md:mb-6 flex items-center gap-2">
-                      <Users className="w-5 h-5" />
-                      The Citius Promise
-                    </h4>
-                    <ul className="space-y-3 md:space-y-4">
-                      {overview.promise.map((item, i) => (
-                        <li key={i} className="flex items-start gap-3 group">
-                          <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-citius-orange/20 transition-colors">
-                            <CheckCircle className="w-3 h-3 text-citius-orange" />
-                          </div>
-                          <span className="font-sans text-sm text-white/80 leading-relaxed">{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    {overview.closing && (
-                      <div className="mt-6 md:mt-8 pt-6 border-t border-white/10 text-center">
-                        <p className="font-sans text-lg md:text-xl italic text-citius-orange whitespace-pre-line">
-                          {overview.closing}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  {overview.promise?.length > 0 && (
+                    <div className="lg:col-span-2 bg-brand-dark rounded-2xl p-6 md:p-8 text-white shadow-xl">
+                      <h4 className="font-heading text-lg md:text-xl text-citius-orange mb-4 md:mb-6 flex items-center gap-2">
+                        <Users className="w-5 h-5" />
+                        The Citius Promise
+                      </h4>
+                      <ul className="space-y-3 md:space-y-4">
+                        {overview.promise.map((item, i) => (
+                          <li key={i} className="flex items-start gap-3 group">
+                            <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-citius-orange/20 transition-colors">
+                              <CheckCircle className="w-3 h-3 text-citius-orange" />
+                            </div>
+                            <span className="font-sans text-sm text-white/80 leading-relaxed">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {overview.closing && (
+                        <div className="mt-6 md:mt-8 pt-6 border-t border-white/10 text-center">
+                          <p className="font-sans text-lg md:text-xl italic text-citius-orange whitespace-pre-line">
+                            {overview.closing}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -646,7 +983,27 @@ export default function TrailSection({ trail, className, isAlternate }) {
             )}
 
             {activeTab === "info" && info && (
-              <InfoTab info={info} isAerial={isAerial} />
+              <InfoTab info={info} layoutVariant={layoutVariant} />
+            )}
+
+            {activeTab === "gallery" && hasGallery && (
+              <GalleryTab gallery={gallery} />
+            )}
+
+            {activeTab === "booking" && hasBooking && (
+              <BookingTab options={bookingOptions} />
+            )}
+
+            {activeTab === "reviews" && hasReviews && (
+              <ReviewsTab testimonials={reviewsList} />
+            )}
+
+            {activeTab === "media" && hasMedia && (
+              <MediaTab media={media} />
+            )}
+
+            {activeTab === "blogs" && hasBlogs && (
+              <BlogsTab posts={relatedBlogPosts} />
             )}
           </AnimatePresence>
         </div>

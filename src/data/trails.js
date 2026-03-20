@@ -1,10 +1,19 @@
 export const trails = [
   {
     id: "kailash-mansarovar-14day",
+    slug: "kailash-mansarovar-14day",
+    status: "published",
+    layoutVariant: "trek",
+    group: "kailash-mansarovar",
+    groupLabel: "Kailash Mansarovar",
     title: "Kailash Mansarovar Yatra 2026",
     subtitle: "A Sacred Himalayan Expedition of Inner Transformation",
     tagline: "Ex-Kathmandu | 14 Days | Max Altitude 5,650m",
     positioning: "For those seeking the complete pilgrimage experience — the physical journey that mirrors the inner transformation.",
+    heroBackground: {
+      src: "/gallery/spiritual/grp-with-mt-kailash.webp",
+      alt: "Yatris with Mount Kailash on the high plateau"
+    },
     quickFacts: {
       duration: "14 Days",
       route: "Ex-Kathmandu",
@@ -264,14 +273,53 @@ export const trails = [
         "Do not consume alcohol during the yatra",
         "Respect local customs and sacred sites"
       ]
-    }
+    },
+    departures: {
+      batches: [
+        {
+          name: "Summer 2026",
+          dates: [
+            "June — September 2026 (multiple batches)",
+            "Exact departure dates on request — early registration recommended"
+          ]
+        }
+      ]
+    },
+    gallery: [
+      { src: "/gallery/spiritual/pashupatinath.webp", alt: "Pashupatinath Temple, Kathmandu" },
+      { src: "/gallery/spiritual/kathmandu-to-kodari.webp", alt: "Road to the Nepal–Tibet border" },
+      { src: "/gallery/spiritual/nyalam.webp", alt: "Nyalam, first Tibetan town" },
+      { src: "/gallery/spiritual/acclimatization-saga.webp", alt: "Acclimatization day in Saga" },
+      { src: "/gallery/spiritual/mansarovar-lake.webp", alt: "Lake Mansarovar" },
+      { src: "/gallery/spiritual/drolma-la.webp", alt: "Drolma La Pass" },
+      { src: "/gallery/spiritual/drolma-pass.webp", alt: "Drolma Pass" },
+      { src: "/gallery/spiritual/grp-with-mt-kailash.webp", alt: "Yatris with Mount Kailash" },
+      { src: "/gallery/spiritual/aerial-view.webp", alt: "Mount Kailash — darshan with the group" },
+      { src: "/gallery/spiritual/welcome-kathmandu.webp", alt: "Welcome to Kathmandu" },
+      { src: "/gallery/spiritual/yam-dwar.webp", alt: "Yam Dwar" }
+    ],
+    bookingOptions: [
+      { label: "Request detailed brochure", href: "/contact", note: "Dates, inclusions, and registration steps" },
+      { label: "Contact yatra desk", href: "/contact", note: "We respond within one business day" }
+    ],
+    testimonialIds: [1, 3],
+    relatedBlogSlugs: []
   },
   {
     id: "kailash-aerial-3day",
+    slug: "kailash-aerial-3day",
+    status: "published",
+    layoutVariant: "aerial",
+    group: "aerial-programs",
+    groupLabel: "Aerial & senior-friendly",
     title: "Kailash Mansarovar Aerial View Tour",
     subtitle: "A Sacred Himalayan Expedition of Inner Transformation — Minimal Effort, Maximum Blessings",
     tagline: "Ex-Lucknow | 2N/3D | Aerial Altitude 32,000 ft",
     positioning: "For senior yatris, solo seekers, women travelers, and those seeking divine darshan without physical exertion.",
+    heroBackground: {
+      src: "/gallery/spiritual/aerial-view.webp",
+      alt: "Darshan with Mount Kailash"
+    },
     quickFacts: {
       duration: "2 Nights / 3 Days",
       route: "Lucknow → Nepalgunj → Aerial Darshan → Return",
@@ -438,7 +486,285 @@ export const trails = [
       mealPlan: "Pure vegetarian Indian cuisine prepared without onion and garlic. Jain meals available on request.",
       groupSize: "Minimum 25 passengers required to operate the charter. Groups may be combined to meet minimum requirement.",
       addOnInfo: "Optional 1-night Bardiya National Park wildlife safari available at INR 22,900 + GST. Includes jungle safari, accommodation, and meals."
-    }
+    },
+    departures: {
+      batches: [
+        {
+          name: "Charter season 2026",
+          dates: [
+            "June — September 2026 (subject to weather and permits)",
+            "Minimum 25 passengers per charter — join a waitlist early"
+          ]
+        }
+      ]
+    },
+    gallery: [
+      { src: "/gallery/spiritual/aerial-view.webp", alt: "Darshan with Mount Kailash" },
+      { src: "/gallery/spiritual/mansarovar-lake.webp", alt: "Lake Mansarovar" },
+      { src: "/gallery/spiritual/grp-with-mt-kailash.webp", alt: "Sacred peak darshan" }
+    ],
+    bookingOptions: [
+      { label: "Register interest", href: "/contact", note: "Window seats and batch preferences" },
+      { label: "Ask about Deluxe vs Luxury", href: "/contact", note: "Nepalgunj hotel tiers" }
+    ],
+    testimonialIds: [2, 4],
+    relatedBlogSlugs: []
+  },
+  {
+    id: "kora-north-trail",
+    slug: "kora-north-trail",
+    status: "comingSoon",
+    layoutVariant: "trek",
+    group: "kora-routes",
+    groupLabel: "Kora routes",
+    title: "North Trail",
+    subtitle: "Focused on the north face experience — itinerary launching soon.",
+    tagline: "Coming soon | 2026",
+    positioning: "For devotees drawn to the north aspect of the sacred circuit. Full logistics and dates are being finalised.",
+    heroBackground: {
+      src: "/gallery/spiritual/mansarovar-lake.webp",
+      alt: "Lake Mansarovar beneath the sacred range"
+    },
+    quickFacts: {
+      duration: "To be announced",
+      route: "Kailash region",
+      maxAltitude: "TBC",
+      bestTime: "June – September",
+      difficulty: "TBC",
+      groupSize: "TBC"
+    },
+    overview: {
+      title: "Register your interest",
+      intro: [
+        "We are preparing a dedicated North Trail experience alongside our flagship Kailash Mansarovar programmes. Share your contact details and we will notify you when departures and pricing are published.",
+        "Until then, the complete 14-day Kailash Mansarovar Yatra remains our primary overland pilgrimage with full Kora."
+      ],
+      promise: [
+        "Priority notification when this trail opens for booking",
+        "The same Citius safety and spiritual curation standards"
+      ]
+    },
+    highlights: null,
+    itinerary: null,
+    details: null,
+    info: null,
+    departures: null,
+    gallery: [],
+    bookingOptions: [
+      { label: "Express interest", href: "/contact", note: "Mention North Trail in your message" }
+    ],
+    testimonialIds: [],
+    relatedBlogSlugs: []
+  },
+  {
+    id: "kora-east-trail",
+    slug: "kora-east-trail",
+    status: "comingSoon",
+    layoutVariant: "trek",
+    group: "kora-routes",
+    groupLabel: "Kora routes",
+    title: "East Trail",
+    subtitle: "Eastern approach — details coming soon.",
+    tagline: "Coming soon | 2026",
+    positioning: "A future offering for yatris seeking an eastern emphasis along the sacred landscape.",
+    heroBackground: {
+      src: "/gallery/spiritual/kora-path.webp",
+      alt: "Kailash kora path"
+    },
+    quickFacts: {
+      duration: "To be announced",
+      route: "Kailash region",
+      maxAltitude: "TBC",
+      bestTime: "June – September",
+      difficulty: "TBC",
+      groupSize: "TBC"
+    },
+    overview: {
+      title: "Register your interest",
+      intro: [
+        "The East Trail is in planning. Leave your details with our team to receive the brochure as soon as it is available."
+      ],
+      promise: ["Early access to dates and pricing", "Guidance on fitness and documentation"]
+    },
+    highlights: null,
+    itinerary: null,
+    details: null,
+    info: null,
+    departures: null,
+    gallery: [],
+    bookingOptions: [
+      { label: "Express interest", href: "/contact", note: "Mention East Trail" }
+    ],
+    testimonialIds: [],
+    relatedBlogSlugs: []
+  },
+  {
+    id: "kora-west-trail",
+    slug: "kora-west-trail",
+    status: "comingSoon",
+    layoutVariant: "trek",
+    group: "kora-routes",
+    groupLabel: "Kora routes",
+    title: "West Trail",
+    subtitle: "Western emphasis — itinerary in development.",
+    tagline: "Coming soon | 2026",
+    positioning: "Designed for seekers who resonate with the western arc of the journey — more information soon.",
+    heroBackground: {
+      src: "/gallery/spiritual/drolma-la.webp",
+      alt: "Drolma La Pass high on the kora"
+    },
+    quickFacts: {
+      duration: "To be announced",
+      route: "Kailash region",
+      maxAltitude: "TBC",
+      bestTime: "June – September",
+      difficulty: "TBC",
+      groupSize: "TBC"
+    },
+    overview: {
+      title: "Register your interest",
+      intro: [
+        "We are curating the West Trail with our Himalayan partners. Contact us to join the priority list."
+      ],
+      promise: ["Notification when bookings open", "Compatibility check with the 14-day yatra"]
+    },
+    highlights: null,
+    itinerary: null,
+    details: null,
+    info: null,
+    departures: null,
+    gallery: [],
+    bookingOptions: [
+      { label: "Express interest", href: "/contact", note: "Mention West Trail" }
+    ],
+    testimonialIds: [],
+    relatedBlogSlugs: []
+  },
+  {
+    id: "kora-south-trail",
+    slug: "kora-south-trail",
+    status: "comingSoon",
+    layoutVariant: "trek",
+    group: "kora-routes",
+    groupLabel: "Kora routes",
+    title: "South Trail",
+    subtitle: "Southern route focus — launching soon.",
+    tagline: "Coming soon | 2026",
+    positioning: "A future specialised option complementing our main Mansarovar offering.",
+    heroBackground: {
+      src: "/gallery/spiritual/yam-dwar.webp",
+      alt: "Yam Dwar on the sacred circuit"
+    },
+    quickFacts: {
+      duration: "To be announced",
+      route: "Kailash region",
+      maxAltitude: "TBC",
+      bestTime: "June – September",
+      difficulty: "TBC",
+      groupSize: "TBC"
+    },
+    overview: {
+      title: "Register your interest",
+      intro: [
+        "The South Trail programme is not yet open for booking. Reach out to be notified first."
+      ],
+      promise: ["Updates on itinerary and inclusions", "Dedicated yatra consultant"]
+    },
+    highlights: null,
+    itinerary: null,
+    details: null,
+    info: null,
+    departures: null,
+    gallery: [],
+    bookingOptions: [
+      { label: "Express interest", href: "/contact", note: "Mention South Trail" }
+    ],
+    testimonialIds: [],
+    relatedBlogSlugs: []
+  },
+  {
+    id: "sacred-festivals",
+    slug: "sacred-festivals",
+    status: "comingSoon",
+    layoutVariant: "trek",
+    group: "special-programs",
+    groupLabel: "Special programs",
+    title: "Sacred Festivals",
+    subtitle: "Timed journeys aligned with auspicious dates — programmes under design.",
+    tagline: "Coming soon | 2026",
+    positioning: "For pilgrims who wish to travel during festival windows with curated rituals and community.",
+    heroBackground: {
+      src: "/gallery/spiritual/pashupatinath.webp",
+      alt: "Pashupatinath Temple, Kathmandu"
+    },
+    quickFacts: {
+      duration: "To be announced",
+      route: "Himalaya / Kailash region",
+      maxAltitude: "TBC",
+      bestTime: "Festival calendar TBC",
+      difficulty: "TBC",
+      groupSize: "TBC"
+    },
+    overview: {
+      title: "Register your interest",
+      intro: [
+        "We are designing festival-aligned departures with additional ritual support and storytelling. Tell us which occasions matter most to you."
+      ],
+      promise: ["Festival calendar when confirmed", "Small-group options where possible"]
+    },
+    highlights: null,
+    itinerary: null,
+    details: null,
+    info: null,
+    departures: null,
+    gallery: [],
+    bookingOptions: [
+      { label: "Express interest", href: "/contact", note: "Mention Sacred Festivals" }
+    ],
+    testimonialIds: [],
+    relatedBlogSlugs: []
+  },
+  {
+    id: "corporate-retreat",
+    slug: "corporate-retreat",
+    status: "comingSoon",
+    layoutVariant: "trek",
+    group: "special-programs",
+    groupLabel: "Special programs",
+    title: "Corporate Retreat",
+    subtitle: "Leadership and team journeys with spiritual depth — bespoke planning.",
+    tagline: "Coming soon | Enquire",
+    positioning: "Private batches, MICE-friendly logistics, and discretion for organisations seeking meaning beyond the boardroom.",
+    heroBackground: {
+      src: "/gallery/spiritual/welcome-kathmandu.webp",
+      alt: "Kathmandu — gateway to the Himalaya"
+    },
+    quickFacts: {
+      duration: "Custom",
+      route: "On request",
+      maxAltitude: "TBC",
+      bestTime: "Year-round enquiry",
+      difficulty: "Tailored",
+      groupSize: "Private groups"
+    },
+    overview: {
+      title: "Start a conversation",
+      intro: [
+        "Corporate and institutional groups can work with Citius for customised spiritual retreats, including Kailash-region programmes where permits allow. Share your headcount, window, and objectives."
+      ],
+      promise: ["Dedicated account liaison", "Alignment with compliance and duty of care"]
+    },
+    highlights: null,
+    itinerary: null,
+    details: null,
+    info: null,
+    departures: null,
+    gallery: [],
+    bookingOptions: [
+      { label: "Corporate enquiry", href: "/contact", note: "We will schedule a discovery call" }
+    ],
+    testimonialIds: [],
+    relatedBlogSlugs: []
   }
 ];
 
@@ -527,3 +853,65 @@ export const sacredSites = [
     description: "Yama Dwar, the 'Gate of Yama' (the God of Death), marks the symbolic start of the inner journey. Here, yatris ritually 'die' to their old selves before beginning the Parikrama. Beyond this gate, the external world fades and the inner journey intensifies."
   }
 ];
+
+/** Hub section order (trails grouped under these ids via `trail.group`) */
+export const trailGroupOrder = [
+  { id: "kailash-mansarovar", label: "Kailash Mansarovar" },
+  { id: "aerial-programs", label: "Aerial & senior-friendly" },
+  { id: "kora-routes", label: "Kora routes" },
+  { id: "special-programs", label: "Special programs" }
+];
+
+export function getTrailBySlug(slug) {
+  if (!slug) return null;
+  return trails.find((t) => t.slug === slug) ?? null;
+}
+
+export function getTrailsForHub() {
+  return trails.filter((t) => t.status === "published" || t.status === "comingSoon");
+}
+
+export function getTrailSlugsForStaticParams() {
+  return getTrailsForHub().map((t) => ({ slug: t.slug }));
+}
+
+export function getTrailTestimonials(trail) {
+  if (!trail?.testimonialIds?.length) return [];
+  return kailashTestimonials.filter((x) => trail.testimonialIds.includes(x.id));
+}
+
+export function groupTrailsForHub(trailList) {
+  const map = new Map();
+  for (const g of trailGroupOrder) {
+    map.set(g.id, { id: g.id, label: g.label, trails: [] });
+  }
+  for (const t of trailList) {
+    const entry = map.get(t.group);
+    if (entry) entry.trails.push(t);
+  }
+  return trailGroupOrder.map((g) => map.get(g.id)).filter((g) => g.trails.length > 0);
+}
+
+/**
+ * YouTube watch/share URLs → embed URL for iframes.
+ */
+export function toYoutubeEmbedUrl(url) {
+  if (!url || typeof url !== "string") return null;
+  const u = url.trim();
+  if (!u) return null;
+  if (u.includes("youtube.com/embed/")) return u.split("?")[0];
+  try {
+    const parsed = new URL(u);
+    if (parsed.hostname.includes("youtu.be")) {
+      const id = parsed.pathname.replace(/^\//, "").split("/")[0];
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    if (parsed.hostname.includes("youtube.com")) {
+      const v = parsed.searchParams.get("v");
+      if (v) return `https://www.youtube.com/embed/${v}`;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
