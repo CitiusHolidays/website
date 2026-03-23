@@ -36,6 +36,10 @@ yarn-error.log*
 .cursor/*
 .vscode/*
 
+# worktrees
+.worktrees/
+worktrees/
+
 # vercel
 .vercel
 
