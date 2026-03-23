@@ -11,8 +11,8 @@ export const trails = [
     tagline: "Ex-Kathmandu | 14 Days | Max Altitude 5,650m",
     positioning: "For those seeking the complete pilgrimage experience — the physical journey that mirrors the inner transformation.",
     heroBackground: {
-      src: "/gallery/spiritual/grp-with-mt-kailash.webp",
-      alt: "Yatris with Mount Kailash on the high plateau"
+      src: "/gallery/spiritual/golden-kailash.webp",
+      alt: "Mount Kailash — sacred peak at dawn"
     },
     quickFacts: {
       duration: "14 Days",
@@ -219,8 +219,8 @@ export const trails = [
         altitude: "4,600m",
         trek: "8km trek",
         image: {
-          src: "/gallery/spiritual/kora-path.webp",
-          alt: "Kailash Kora path"
+          src: "/gallery/spiritual/joy-after-kora.webp",
+          alt: "Yatris after completing the Kailash Kora"
         }
       },
       {
@@ -262,8 +262,8 @@ export const trails = [
       }
     ],
     itineraryTimelineImage: {
-      placeholder: true,
-      caption: "Journey map / highlights — add your image here when ready."
+      src: "/gallery/spiritual/golden-kailash.webp",
+      alt: "Mount Kailash and the Tibetan plateau — the heart of the yatra"
     },
     registrationAndPolicy: {
       bookingFormNote:
@@ -385,16 +385,23 @@ export const trails = [
     },
     gallery: [
       { src: "/gallery/spiritual/pashupatinath.webp", alt: "Pashupatinath Temple, Kathmandu" },
-      { src: "/gallery/spiritual/kathmandu-to-kodari.webp", alt: "Road to the Nepal–Tibet border" },
+      //{ src: "/gallery/spiritual/kathmandu-to-kodari.webp", alt: "Road to the Nepal–Tibet border" },
       { src: "/gallery/spiritual/nyalam.webp", alt: "Nyalam, first Tibetan town" },
       { src: "/gallery/spiritual/acclimatization-saga.webp", alt: "Acclimatization day in Saga" },
       { src: "/gallery/spiritual/mansarovar-lake.webp", alt: "Lake Mansarovar" },
       { src: "/gallery/spiritual/drolma-la.webp", alt: "Drolma La Pass" },
       { src: "/gallery/spiritual/drolma-pass.webp", alt: "Drolma Pass" },
+      { src: "/gallery/spiritual/gaurikunda.webp", alt: "Gauri Kund near Drolma La" },
       { src: "/gallery/spiritual/grp-with-mt-kailash.webp", alt: "Yatris with Mount Kailash" },
+      { src: "/gallery/spiritual/golden-kailash.webp", alt: "Mount Kailash" },
+      { src: "/gallery/spiritual/full-moon-kailash.webp", alt: "Moonrise over the sacred landscape" },
+      { src: "/gallery/spiritual/nature-kora.webp", alt: "Kora path through high-country terrain" },
       { src: "/gallery/spiritual/aerial-view.webp", alt: "Mount Kailash — darshan with the group" },
       { src: "/gallery/spiritual/welcome-kathmandu.webp", alt: "Welcome to Kathmandu" },
-      { src: "/gallery/spiritual/yam-dwar.webp", alt: "Yam Dwar" }
+      { src: "/gallery/spiritual/yam-dwar.webp", alt: "Yam Dwar" },
+      { src: "/gallery/spiritual/kora-group.webp", alt: "Group on the Kailash Kora" },
+      { src: "/gallery/spiritual/kora-path.webp", alt: "Kora path" },
+      { src: "/gallery/spiritual/joy-after-kora.webp", alt: "After the Kora" }
     ],
     bookingOptions: [
       { label: "Request detailed brochure", href: "/contact", note: "Dates, inclusions, and registration steps" },
@@ -498,8 +505,8 @@ export const trails = [
         meals: "Lunch, Dinner",
         transport: "Innova (4-5 pax per vehicle)",
         image: {
-          src: "/gallery/spiritual/welcome-kathmandu.webp",
-          alt: "Journey begins — gateway to the yatra"
+          src: "/gallery/spiritual/bageshwari-temple.webp",
+          alt: "Bageshwari Temple, Nepalgunj"
         }
       },
       {
@@ -609,9 +616,12 @@ export const trails = [
       ]
     },
     gallery: [
+      { src: "/gallery/spiritual/bageshwari-temple.webp", alt: "Bageshwari Temple, Nepalgunj" },
       { src: "/gallery/spiritual/aerial-view.webp", alt: "Darshan with Mount Kailash" },
       { src: "/gallery/spiritual/mansarovar-lake.webp", alt: "Lake Mansarovar" },
-      { src: "/gallery/spiritual/grp-with-mt-kailash.webp", alt: "Sacred peak darshan" }
+      { src: "/gallery/spiritual/grp-with-mt-kailash.webp", alt: "Sacred peak darshan" },
+      { src: "/gallery/spiritual/golden-kailash.webp", alt: "Mount Kailash" },
+      { src: "/gallery/spiritual/full-moon-kailash.webp", alt: "Moon over the Himalaya" }
     ],
     bookingOptions: [
       { label: "Register interest", href: "/contact", note: "Window seats and batch preferences" },
@@ -920,7 +930,11 @@ export const sacredSites = [
     location: "Kathmandu, Nepal",
     elevation: "1,400m",
     significance: "One of the most sacred Shiva temples, the journey begins here with blessings for the yatra ahead.",
-    description: "The Pashupatinath Temple complex, located on the banks of the Bagmati River, is the oldest Hindu temple in Kathmandu. For Kailash yatris, this is the spiritual commencement point — seeking Lord Shiva's blessings before embarking on the journey to his abode."
+    description: "The Pashupatinath Temple complex, located on the banks of the Bagmati River, is the oldest Hindu temple in Kathmandu. For Kailash yatris, this is the spiritual commencement point — seeking Lord Shiva's blessings before embarking on the journey to his abode.",
+    image: {
+      src: "/gallery/spiritual/pashupatinath.webp",
+      alt: "Pashupatinath Temple, Kathmandu"
+    }
   },
   {
     id: "mansarovar",
@@ -928,7 +942,11 @@ export const sacredSites = [
     location: "Tibet",
     elevation: "4,590m",
     significance: "The highest freshwater lake in the world, believed to be the mind of Brahma. A dip here is said to cleanse lifetimes of karma.",
-    description: "At 4,590 meters, Lake Mansarovar is a jewel of turquoise waters set against the barren Tibetan plateau. Pilgrims perform parikrama, take the sacred bath, and collect holy water. The stillness of the lake reflects the stillness one seeks within."
+    description: "At 4,590 meters, Lake Mansarovar is a jewel of turquoise waters set against the barren Tibetan plateau. Pilgrims perform parikrama, take the sacred bath, and collect holy water. The stillness of the lake reflects the stillness one seeks within.",
+    image: {
+      src: "/gallery/spiritual/mansarovar-lake.webp",
+      alt: "Lake Mansarovar beneath the Himalaya"
+    }
   },
   {
     id: "kailash",
@@ -936,7 +954,11 @@ export const sacredSites = [
     location: "Tibet",
     elevation: "6,638m (peak)",
     significance: "The abode of Lord Shiva, untouched by human climbers, circumambulated by devotees for millennia seeking liberation.",
-    description: "Rising 6,638 meters into the Tibetan sky, Mount Kailash is sacred to four religions — Hinduism, Buddhism, Jainism, and Bon. No human has ever summited this peak; it remains a sacred space accessible only through the 53-kilometer kora (circumambulation)."
+    description: "Rising 6,638 meters into the Tibetan sky, Mount Kailash is sacred to four religions — Hinduism, Buddhism, Jainism, and Bon. No human has ever summited this peak; it remains a sacred space accessible only through the 53-kilometer kora (circumambulation).",
+    image: {
+      src: "/gallery/spiritual/golden-kailash.webp",
+      alt: "Mount Kailash — sacred peak"
+    }
   },
   {
     id: "drolmala",
@@ -944,7 +966,11 @@ export const sacredSites = [
     location: "En route Kailash Kora",
     elevation: "5,650m",
     significance: "The highest point of the Kora, where yatris leave behind prayers, burdens, and ego at the seat of the Goddess.",
-    description: "At 5,650 meters, Drolma La (Goddess Tara Pass) is both the physical and spiritual climax of the Kora. Here, yatris leave offerings, prayers tied to stones, and symbolically release their burdens. The descent past Gaurikunda marks spiritual rebirth."
+    description: "At 5,650 meters, Drolma La (Goddess Tara Pass) is both the physical and spiritual climax of the Kora. Here, yatris leave offerings, prayers tied to stones, and symbolically release their burdens. The descent past Gaurikunda marks spiritual rebirth.",
+    image: {
+      src: "/gallery/spiritual/drolma-la.webp",
+      alt: "Drolma La Pass on the Kailash Kora"
+    }
   },
   {
     id: "gaurikunda",
@@ -952,7 +978,11 @@ export const sacredSites = [
     location: "Below Drolma La",
     elevation: "5,400m",
     significance: "The frozen lake associated with Goddess Parvati, representing the divine feminine energy of transformation.",
-    description: "Gaurikunda, the lake of Goddess Parvati (Gauri), lies frozen near Drolma La. It represents the divine feminine — the Shakti that complements Shiva's consciousness. Yatris pause here to honor the feminine principle before completing the descent."
+    description: "Gaurikunda, the lake of Goddess Parvati (Gauri), lies frozen near Drolma La. It represents the divine feminine — the Shakti that complements Shiva's consciousness. Yatris pause here to honor the feminine principle before completing the descent.",
+    image: {
+      src: "/gallery/spiritual/gaurikunda.webp",
+      alt: "Gauri Kund near Drolma La"
+    }
   },
   {
     id: "yamadwar",
@@ -960,7 +990,11 @@ export const sacredSites = [
     location: "Kailash Kora Start",
     elevation: "4,700m",
     significance: "The Gate of the God of Death — symbolically leaving behind the ego before beginning the sacred circumambulation.",
-    description: "Yama Dwar, the 'Gate of Yama' (the God of Death), marks the symbolic start of the inner journey. Here, yatris ritually 'die' to their old selves before beginning the Parikrama. Beyond this gate, the external world fades and the inner journey intensifies."
+    description: "Yama Dwar, the 'Gate of Yama' (the God of Death), marks the symbolic start of the inner journey. Here, yatris ritually 'die' to their old selves before beginning the Parikrama. Beyond this gate, the external world fades and the inner journey intensifies.",
+    image: {
+      src: "/gallery/spiritual/yam-dwar.webp",
+      alt: "Yama Dwar — gateway to the Kailash Kora"
+    }
   }
 ];
 

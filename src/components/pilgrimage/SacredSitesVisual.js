@@ -1,12 +1,14 @@
 "use client";
 
 import { motion } from "motion/react";
+import Image from "next/image";
 import { Mountain, MapPin, Sparkles } from "lucide-react";
 import { sacredSites } from "../../data/trails";
 import { cn } from "../../utils/cn";
 
 function SacredSiteCard({ site, index }) {
   const isEven = index % 2 === 0;
+  const img = site.image;
 
   return (
     <motion.div
@@ -24,19 +26,30 @@ function SacredSiteCard({ site, index }) {
         !isEven && "md:direction-rtl"
       )}>
         {/* Image Section */}
-        <div className="relative h-64 md:h-80 lg:h-96 overflow-hidden">
-          {/* Placeholder Gradient */}
-          <div className={cn(
-            "absolute inset-0 bg-gradient-to-br flex items-center justify-center",
-            index % 3 === 0 && "from-citius-blue/20 via-citius-orange/10 to-citius-blue/30",
-            index % 3 === 1 && "from-citius-orange/20 via-amber-100/30 to-citius-orange/20",
-            index % 3 === 2 && "from-emerald-100/40 via-citius-blue/10 to-teal-100/30"
-          )}>
-            <div className="text-center p-6">
-              <Mountain className="w-12 h-12 md:w-16 md:h-16 text-citius-blue/30 mx-auto mb-3" />
-              <p className="font-heading text-citius-blue/50 text-sm">{site.name}</p>
+        <div className="relative h-64 md:h-80 lg:h-96 overflow-hidden bg-brand-light">
+          {img?.src ? (
+            <Image
+              src={img.src}
+              alt={img.alt || site.name}
+              fill
+              className="object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+              sizes="(max-width: 768px) 100vw, 50vw"
+            />
+          ) : (
+            <div
+              className={cn(
+                "absolute inset-0 bg-gradient-to-br flex items-center justify-center",
+                index % 3 === 0 && "from-citius-blue/20 via-citius-orange/10 to-citius-blue/30",
+                index % 3 === 1 && "from-citius-orange/20 via-amber-100/30 to-citius-orange/20",
+                index % 3 === 2 && "from-emerald-100/40 via-citius-blue/10 to-teal-100/30"
+              )}
+            >
+              <div className="text-center p-6">
+                <Mountain className="w-12 h-12 md:w-16 md:h-16 text-citius-blue/30 mx-auto mb-3" />
+                <p className="font-heading text-citius-blue/50 text-sm">{site.name}</p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-brand-dark/60 via-transparent to-transparent" />
