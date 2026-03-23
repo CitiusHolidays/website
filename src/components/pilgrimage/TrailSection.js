@@ -95,7 +95,37 @@ function HighlightsTab({ highlights }) {
   );
 }
 
-function ItineraryTab({ itinerary, hasAltitude }) {
+/** Per-day image: use `image.src` or a dashed placeholder (`image.caption` optional). */
+function DayItineraryImage({ item, dayLabel }) {
+  const image = item.image;
+  if (image?.src) {
+    return (
+      <div className="relative aspect-16/10 w-full overflow-hidden rounded-xl border border-brand-light bg-brand-light/20 shadow-inner">
+        <Image
+          src={image.src}
+          alt={image.alt || `${dayLabel} — ${item.title || "Itinerary"}`}
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 360px"
+        />
+      </div>
+    );
+  }
+
+  const caption = image?.caption || `Add a photo for ${dayLabel}`;
+
+  return (
+    <div className="relative flex aspect-16/10 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-citius-orange/25 bg-linear-to-br from-brand-light/80 to-brand-light/40 px-3 text-center shadow-inner">
+      <Camera className="mb-2 h-8 w-8 text-citius-orange/45" aria-hidden />
+      <p className="text-xs font-heading leading-snug text-brand-muted">{caption}</p>
+    </div>
+  );
+}
+
+function ItineraryTab({ itinerary, itineraryTimelineImage }) {
+  const hasImage = itineraryTimelineImage?.src;
+  const showPlaceholder = itineraryTimelineImage?.placeholder && !hasImage;
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -111,6 +141,29 @@ function ItineraryTab({ itinerary, hasAltitude }) {
           Scroll to explore each day
         </span>
       </div>
+
+      {(hasImage || showPlaceholder) && (
+        <div className="mb-8 rounded-2xl overflow-hidden border border-brand-light bg-brand-light/30 shadow-inner">
+          {hasImage ? (
+            <div className="relative aspect-21/9 w-full md:aspect-2.4/1">
+              <Image
+                src={itineraryTimelineImage.src}
+                alt={itineraryTimelineImage.alt || "Journey visual"}
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 72rem"
+              />
+            </div>
+          ) : (
+            <div className="relative aspect-21/9 w-full md:aspect-2.4/1 flex flex-col items-center justify-center bg-linear-to-br from-brand-light/80 to-brand-light/40 border-2 border-dashed border-citius-orange/25">
+              <Camera className="w-10 h-10 text-citius-orange/50 mb-2" />
+              <p className="text-sm font-heading text-brand-muted px-4 text-center">
+                {itineraryTimelineImage.caption || "Image placeholder — add your photo here."}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Timeline */}
       <div className="relative">
@@ -132,82 +185,151 @@ function ItineraryTab({ itinerary, hasAltitude }) {
                 <div className="w-1.5 h-1.5 rounded-full bg-citius-orange" />
               </div>
 
-              {/* Day Card */}
-              <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-6 shadow-sm border border-brand-light hover:shadow-md hover:border-citius-orange/20 transition-all">
-                <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
-                  <span className="font-heading text-xs font-bold text-citius-orange tracking-widest uppercase bg-citius-orange/10 px-2.5 py-1 rounded-full">
-                    {item.day}
-                  </span>
-                  {item.altitude && (
-                    <span className="text-xs text-brand-muted flex items-center gap-1 bg-brand-light px-2 py-1 rounded-full">
-                      <Mountain className="w-3 h-3" />
-                      {item.altitude}
-                    </span>
-                  )}
-                  {item.trek && (
-                    <span className="text-xs text-citius-blue flex items-center gap-1 bg-citius-blue/10 px-2 py-1 rounded-full">
-                      <MapPin className="w-3 h-3" />
-                      {item.trek}
-                    </span>
-                  )}
-                  {item.flight && (
-                    <span className="text-xs text-citius-orange flex items-center gap-1 bg-citius-orange/10 px-2 py-1 rounded-full">
-                      <Clock className="w-3 h-3" />
-                      {item.flight}
-                    </span>
-                  )}
+              {/* Day Card — image + details */}
+              <div className="rounded-xl border border-brand-light bg-white shadow-sm transition-all hover:border-citius-orange/20 hover:shadow-md md:rounded-2xl">
+                <div className="flex flex-col gap-4 p-4 md:grid md:grid-cols-5 md:gap-6 md:p-6">
+                  <div className="md:col-span-2">
+                    <DayItineraryImage item={item} dayLabel={item.day || `Day ${idx + 1}`} />
+                  </div>
+                  <div className="min-w-0 md:col-span-3">
+                    <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                      <span className="rounded-full bg-citius-orange/10 px-2.5 py-1 font-heading text-xs font-bold uppercase tracking-widest text-citius-orange">
+                        {item.day}
+                      </span>
+                      {item.altitude && (
+                        <span className="flex items-center gap-1 rounded-full bg-brand-light px-2 py-1 text-xs text-brand-muted">
+                          <Mountain className="h-3 w-3" />
+                          {item.altitude}
+                        </span>
+                      )}
+                      {item.trek && (
+                        <span className="flex items-center gap-1 rounded-full bg-citius-blue/10 px-2 py-1 text-xs text-citius-blue">
+                          <MapPin className="h-3 w-3" />
+                          {item.trek}
+                        </span>
+                      )}
+                      {item.flight && (
+                        <span className="flex items-center gap-1 rounded-full bg-citius-orange/10 px-2 py-1 text-xs text-citius-orange">
+                          <Clock className="h-3 w-3" />
+                          {item.flight}
+                        </span>
+                      )}
+                    </div>
+
+                    <h4 className="mb-2 font-heading text-base leading-tight text-citius-blue md:text-lg">
+                      {item.title}
+                    </h4>
+                    <p className="mb-3 font-sans text-sm leading-relaxed text-brand-muted">
+                      {item.desc}
+                    </p>
+
+                    {item.highlights && (
+                      <div className="mb-3 flex flex-wrap gap-1.5">
+                        {item.highlights.map((highlight, hidx) => (
+                          <span
+                            key={hidx}
+                            className="rounded-full bg-citius-blue/5 px-2 py-1 text-[10px] text-citius-blue/80 md:text-xs"
+                          >
+                            {highlight}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {(item.accommodation || item.meals || item.transport) && (
+                      <div className="flex flex-wrap gap-3 border-t border-brand-light pt-3 text-xs text-brand-muted">
+                        {item.accommodation && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {item.accommodation}
+                          </span>
+                        )}
+                        {item.meals && (
+                          <span className="flex items-center gap-1">
+                            <Coffee className="h-3 w-3" />
+                            {item.meals}
+                          </span>
+                        )}
+                        {item.transport && (
+                          <span className="flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {item.transport}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-
-                <h4 className="font-heading text-base md:text-lg text-citius-blue mb-2 leading-tight">
-                  {item.title}
-                </h4>
-                <p className="font-sans text-sm text-brand-muted leading-relaxed mb-3">
-                  {item.desc}
-                </p>
-
-                {/* Highlights Tags */}
-                {item.highlights && (
-                  <div className="flex flex-wrap gap-1.5 mb-3">
-                    {item.highlights.map((highlight, hidx) => (
-                      <span
-                        key={hidx}
-                        className="text-[10px] md:text-xs text-citius-blue/80 bg-citius-blue/5 px-2 py-1 rounded-full"
-                      >
-                        {highlight}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Accommodation & Meals */}
-                {(item.accommodation || item.meals) && (
-                  <div className="flex flex-wrap gap-3 text-xs text-brand-muted pt-3 border-t border-brand-light">
-                    {item.accommodation && (
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3" />
-                        {item.accommodation}
-                      </span>
-                    )}
-                    {item.meals && (
-                      <span className="flex items-center gap-1">
-                        <Coffee className="w-3 h-3" />
-                        {item.meals}
-                      </span>
-                    )}
-                    {item.transport && (
-                      <span className="flex items-center gap-1">
-                        <Users className="w-3 h-3" />
-                        {item.transport}
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
             </motion.div>
           ))}
         </div>
       </div>
     </motion.div>
+  );
+}
+
+function RegistrationAndPolicySection({ policy }) {
+  if (!policy) return null;
+  return (
+    <div className="mt-10 md:mt-14 space-y-8 text-left">
+      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-6 md:p-8">
+        <h4 className="font-heading text-lg text-emerald-900 mb-3 flex items-center gap-2">
+          <FileText className="w-5 h-5 text-emerald-700" />
+          Registration
+        </h4>
+        {policy.bookingFormNote && (
+          <p className="text-sm text-brand-muted mb-4 leading-relaxed">{policy.bookingFormNote}</p>
+        )}
+        {policy.registrationSteps?.length > 0 && (
+          <ol className="list-decimal list-inside space-y-2 text-sm text-brand-dark/90">
+            {policy.registrationSteps.map((step, i) => (
+              <li key={i} className="leading-relaxed pl-1">
+                {step}
+              </li>
+            ))}
+          </ol>
+        )}
+        {policy.fitnessCertificate && (
+          <p className="mt-4 text-sm text-brand-muted border-t border-emerald-200/60 pt-4 leading-relaxed">
+            <strong className="text-brand-dark">Fitness certificate:</strong> {policy.fitnessCertificate}
+          </p>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-6 md:p-8">
+        <h4 className="font-heading text-lg text-amber-900 mb-3 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-amber-700" />
+          Cancellation &amp; limitations
+        </h4>
+        {policy.cancellationDisclaimer?.length > 0 && (
+          <ul className="space-y-2 text-sm text-brand-muted mb-6">
+            {policy.cancellationDisclaimer.map((line, i) => (
+              <li key={i} className="flex gap-2 leading-relaxed">
+                <span className="text-amber-600 shrink-0">•</span>
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {policy.refundTiers?.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-xs font-heading uppercase tracking-wider text-brand-dark">Refund policy</p>
+            <ul className="space-y-3">
+              {policy.refundTiers.map((tier, i) => (
+                <li
+                  key={i}
+                  className="rounded-xl border border-amber-200/80 bg-white/80 px-4 py-3 text-sm"
+                >
+                  <span className="font-semibold text-brand-dark">{tier.window}</span>
+                  <span className="text-brand-muted"> — {tier.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -929,6 +1051,13 @@ export default function TrailSection({
                       {(overview.intro || []).map((paragraph, idx) => (
                         <p key={idx}>{paragraph}</p>
                       ))}
+                      {overview.privateGroupNote && (
+                        <div className="rounded-2xl border border-citius-blue/15 bg-citius-blue/5 p-5 md:p-6 my-4 md:my-6">
+                          <p className="text-sm md:text-base text-brand-dark leading-relaxed">
+                            {overview.privateGroupNote}
+                          </p>
+                        </div>
+                      )}
                       {overview.quote && (
                         <blockquote className="relative p-4 md:p-6 border-l-2 border-citius-orange bg-brand-light/30 italic my-6 md:my-8 text-lg md:text-xl">
                           <span className="absolute -top-3 -left-1 text-4xl md:text-5xl text-citius-orange/20 font-serif">&ldquo;</span>
@@ -964,6 +1093,7 @@ export default function TrailSection({
                     </div>
                   )}
                 </div>
+                <RegistrationAndPolicySection policy={trail.registrationAndPolicy} />
               </motion.div>
             )}
 
@@ -972,9 +1102,9 @@ export default function TrailSection({
             )}
 
             {activeTab === "itinerary" && itinerary && (
-              <ItineraryTab 
-                itinerary={itinerary} 
-                hasAltitude={!isAerial}
+              <ItineraryTab
+                itinerary={itinerary}
+                itineraryTimelineImage={trail.itineraryTimelineImage}
               />
             )}
 

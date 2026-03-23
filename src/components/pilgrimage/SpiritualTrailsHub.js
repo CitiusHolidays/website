@@ -36,7 +36,12 @@ export default function SpiritualTrailsHub({ groups }) {
                 </div>
                 <h3 className="font-heading text-xl md:text-2xl text-citius-blue">{group.label}</h3>
               </div>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              <div
+                className={cn(
+                  "grid gap-4 md:gap-6",
+                  group.trails.length <= 2 ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"
+                )}
+              >
                 {group.trails.map((trail, idx) => (
                   <motion.div
                     key={trail.slug}

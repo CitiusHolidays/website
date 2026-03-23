@@ -33,6 +33,8 @@ export const trails = [
         "For a true pilgrim, this journey is not about achievement — it is about dissolution. The mountains invite surrender, the vastness melts the ego, and every step becomes a movement toward inner silence.",
         "The 14-day Kailash Mansarovar Yatra is our most sacred offering. Beginning from Kathmandu, you'll traverse the Himalayas into Tibet, circumambulate the abode of Lord Shiva, and bathe in the pristine waters of Lake Mansarovar. This is not merely a trek; it is a transformational passage."
       ],
+      privateGroupNote:
+        "For a group of 22 guests, we can curate a private, closed-group experience exclusively for your family and friends. Write or call us for more information.",
       quote: "At Kailash, the mountain does not judge. It simply reflects who you truly are.",
       promise: [
         "Spiritually curated 14-day itinerary with Himalayan support team",
@@ -77,153 +79,249 @@ export const trails = [
       }
     ],
     itinerary: [
-      { 
-        day: "Day 1", 
-        title: "Arrival in Kathmandu", 
+      {
+        day: "Day 1",
+        title: "Arrival in Kathmandu",
         desc: "Welcome to the spiritual capital. Airport transfer to hotel, evening orientation with yatra leader, and group dinner. Rest and preparation.",
         highlights: ["Airport pickup", "Hotel check-in", "Orientation session"],
         accommodation: "4-star hotel in Kathmandu",
-        meals: "Dinner"
+        meals: "Dinner",
+        image: {
+          src: "/gallery/spiritual/welcome-kathmandu.webp",
+          alt: "Kathmandu — arrival and welcome"
+        }
       },
-      { 
-        day: "Day 2", 
-        title: "Pashupatinath Darshan & Preparation", 
+      {
+        day: "Day 2",
+        title: "Pashupatinath Darshan & Preparation",
         desc: "Early morning visit to Pashupatinath Temple for sacred darshan and blessings. Afternoon briefing on altitude acclimatization, packing check, and documentation.",
         highlights: ["Pashupatinath Temple visit", "Sacred rituals", "Yatra briefing"],
         accommodation: "Kathmandu",
-        meals: "Breakfast, Lunch, Dinner"
+        meals: "Breakfast, Lunch, Dinner",
+        image: {
+          src: "/gallery/spiritual/pashupatinath.webp",
+          alt: "Pashupatinath Temple, Kathmandu"
+        }
       },
-      { 
-        day: "Day 3", 
-        title: "Kathmandu to Kodari (Border)", 
+      {
+        day: "Day 3",
+        title: "Kathmandu to Kodari (Border)",
         desc: "Scenic drive through the Himalayan foothills to Kodari, the Nepal-Tibet border town. Final night in Nepal.",
         highlights: ["Himalayan drive", "Border town arrival"],
         accommodation: "Guesthouse in Kodari",
         meals: "All meals",
-        altitude: "2,500m"
+        altitude: "2,500m",
+        image: {
+          src: "/gallery/spiritual/kathmandu-to-kodari.webp",
+          alt: "Road toward the Nepal–Tibet border"
+        }
       },
-      { 
-        day: "Day 4", 
-        title: "Kodari to Nyalam (Tibet Entry)", 
+      {
+        day: "Day 4",
+        title: "Kodari to Nyalam (Tibet Entry)",
         desc: "Cross into Tibet. Immigration formalities and drive to Nyalam, the first Tibetan town. Begin altitude acclimatization.",
         highlights: ["Border crossing", "Tibet entry", "First views of Tibetan plateau"],
         accommodation: "Guesthouse in Nyalam",
         meals: "All meals",
-        altitude: "3,750m"
+        altitude: "3,750m",
+        image: {
+          src: "/gallery/spiritual/nyalam.webp",
+          alt: "Nyalam — first Tibetan town"
+        }
       },
-      { 
-        day: "Day 5", 
-        title: "Nyalam to Saga", 
+      {
+        day: "Day 5",
+        title: "Nyalam to Saga",
         desc: "Drive through the vast Tibetan plateau with panoramic Himalayan views. En route, witness the changing landscape as we gain altitude.",
         highlights: ["Tibetan plateau landscapes", "Himalayan panoramas", "Wildlife spotting"],
         accommodation: "Guesthouse in Saga",
         meals: "All meals",
-        altitude: "4,600m"
+        altitude: "4,600m",
+        image: {
+          src: "/gallery/spiritual/acclimatization-saga.webp",
+          alt: "Tibetan plateau en route to Saga"
+        }
       },
-      { 
-        day: "Day 6", 
-        title: "Acclimatization Day in Saga", 
+      {
+        day: "Day 6",
+        title: "Acclimatization Day in Saga",
         desc: "Rest day for altitude adjustment. Light walks, meditation sessions, and yatra leader discussions on the spiritual significance of the journey.",
         highlights: ["Rest & acclimatization", "Meditation sessions", "Spiritual discourse"],
         accommodation: "Saga",
         meals: "All meals",
-        altitude: "4,600m"
+        altitude: "4,600m",
+        image: {
+          src: "/gallery/spiritual/acclimatization-saga.webp",
+          alt: "Acclimatization day in Saga"
+        }
       },
-      { 
-        day: "Day 7", 
-        title: "Saga to Lake Mansarovar to Darchen", 
+      {
+        day: "Day 7",
+        title: "Saga to Lake Mansarovar to Darchen",
         desc: "The most awaited day. Drive to the sacred Lake Mansarovar for holy dip and puja. Circumambulate part of the lake, then proceed to Darchen, base for Kailash Kora.",
         highlights: ["First view of Lake Mansarovar", "Holy dip (optional)", "Sacred rituals", "Drive to Darchen"],
         accommodation: "Guesthouse in Darchen",
         meals: "All meals",
-        altitude: "4,670m"
+        altitude: "4,670m",
+        image: {
+          src: "/gallery/spiritual/mansarovar-lake.webp",
+          alt: "Lake Mansarovar"
+        }
       },
-      { 
-        day: "Day 8", 
-        title: "Darchen — Rest & Rituals", 
+      {
+        day: "Day 8",
+        title: "Darchen — Rest & Rituals",
         desc: "Rest day in Darchen. Optional visit to Asthapad and Nandi Parvat for darshan. Final preparations for the Kora.",
         highlights: ["Rest day", "Nandi Parvat darshan", "Asthapad visit (optional)", "Kora preparation"],
         accommodation: "Darchen",
         meals: "All meals",
-        altitude: "4,670m"
+        altitude: "4,670m",
+        image: {
+          src: "/gallery/spiritual/grp-with-mt-kailash.webp",
+          alt: "Mount Kailash from the plateau near Darchen"
+        }
       },
-      { 
-        day: "Day 9", 
-        title: "Kora Day 1: Darchen to Dirapuk", 
+      {
+        day: "Day 9",
+        title: "Kora Day 1: Darchen to Dirapuk",
         desc: "Begin the sacred Kora. Drive to Yama Dwar, then trek to Dirapuk. First close views of Mount Kailash's North Face — a sight that leaves yatris transformed.",
         highlights: ["Yama Dwar (Gate of the God of Death)", "Trek begins", "North Face darshan"],
         accommodation: "Dirapuk guesthouse/tents",
         meals: "All meals",
         altitude: "4,900m",
-        trek: "12km trek"
+        trek: "12km trek",
+        image: {
+          src: "/gallery/spiritual/yam-dwar.webp",
+          alt: "Yama Dwar — start of the Kora"
+        }
       },
-      { 
-        day: "Day 10", 
-        title: "Kora Day 2: Dirapuk to Juthulpuk via Drolma La", 
+      {
+        day: "Day 10",
+        title: "Kora Day 2: Dirapuk to Juthulpuk via Drolma La",
         desc: "The most challenging and rewarding day. Cross Drolma La Pass (5,650m), visit Gaurikunda, and descend to Juthulpuk. This is where transformation happens.",
         highlights: ["Drolma La Pass (5,650m)", "Gaurikunda", "Descent to Juthulpuk"],
         accommodation: "Juthulpuk guesthouse/tents",
         meals: "All meals",
         altitude: "5,650m (max) → 4,760m",
-        trek: "22km trek (hardest day)"
+        trek: "22km trek (hardest day)",
+        image: {
+          src: "/gallery/spiritual/drolma-la.webp",
+          alt: "Drolma La Pass"
+        }
       },
-      { 
-        day: "Day 11", 
-        title: "Kora Day 3: Juthulpuk to Darchen to Saga", 
+      {
+        day: "Day 11",
+        title: "Kora Day 3: Juthulpuk to Darchen to Saga",
         desc: "Complete the Kora with a gentle trek back to Darchen. Drive back to Saga, celebrating the completion of the sacred circumambulation.",
         highlights: ["Kora completion", "Certificate ceremony", "Return to Saga"],
         accommodation: "Saga",
         meals: "All meals",
         altitude: "4,600m",
-        trek: "8km trek"
+        trek: "8km trek",
+        image: {
+          src: "/gallery/spiritual/kora-path.webp",
+          alt: "Kailash Kora path"
+        }
       },
-      { 
-        day: "Day 12", 
-        title: "Saga to Nyalam", 
+      {
+        day: "Day 12",
+        title: "Saga to Nyalam",
         desc: "Begin the return journey, driving back through the Tibetan plateau. Reflection time and group sharing of experiences.",
         highlights: ["Return drive", "Group sharing", "Reflection"],
         accommodation: "Nyalam",
         meals: "All meals",
-        altitude: "3,750m"
+        altitude: "3,750m",
+        image: {
+          src: "/gallery/spiritual/nyalam.webp",
+          alt: "Return leg through Nyalam"
+        }
       },
-      { 
-        day: "Day 13", 
-        title: "Nyalam to Kathmandu", 
+      {
+        day: "Day 13",
+        title: "Nyalam to Kathmandu",
         desc: "Cross back into Nepal and drive to Kathmandu. Evening celebratory dinner and closing ceremony with certificates.",
         highlights: ["Return to Nepal", "Border crossing", "Closing ceremony"],
         accommodation: "Kathmandu",
-        meals: "All meals"
+        meals: "All meals",
+        image: {
+          src: "/gallery/spiritual/pashupatinath.webp",
+          alt: "Back in Kathmandu — closing celebrations"
+        }
       },
-      { 
-        day: "Day 14", 
-        title: "Departure from Kathmandu", 
+      {
+        day: "Day 14",
+        title: "Departure from Kathmandu",
         desc: "After breakfast, airport transfer for your onward journey. Carry the blessings of Kailash with you forever.",
         highlights: ["Breakfast", "Airport transfer"],
         accommodation: "N/A",
-        meals: "Breakfast"
+        meals: "Breakfast",
+        image: {
+          src: "/gallery/spiritual/welcome-kathmandu.webp",
+          alt: "Departure from Kathmandu"
+        }
       }
     ],
+    itineraryTimelineImage: {
+      placeholder: true,
+      caption: "Journey map / highlights — add your image here when ready."
+    },
+    registrationAndPolicy: {
+      bookingFormNote:
+        "Registration requires the Kailash Yatra booking form (we will provide the link or document when you enquire).",
+      registrationSteps: [
+        "Fill out the Kailash Yatra booking form.",
+        "Submit a scanned colour copy of your passport.",
+        "Pay the applicable fee as advised by our team.",
+        "Attach a copy of identity proof — Indian passport holders should use a valid Indian passport; include two recent photographs with your submission.",
+        "Submit the completed form together with the supporting proof."
+      ],
+      fitnessCertificate:
+        "One month before the yatra, submit a physical fitness certificate from any MBBS doctor. The certificate must not be more than one month old from the yatra departure date.",
+      cancellationDisclaimer: [
+        "We are not responsible for cancellation arising from industrial disputes, technical failure of transport, loss of earnings, late arrivals, or force majeure.",
+        "We are not responsible for regulations or restrictions by Tibetan or Chinese authorities, or for any matter beyond our control."
+      ],
+      refundTiers: [
+        {
+          window: "45–180 days before departure",
+          detail: "Full payment is refunded except the deposit."
+        },
+        {
+          window: "30–45 days before departure",
+          detail: "75% of payment is returned except the deposit."
+        },
+        {
+          window: "Within one month of the trip",
+          detail: "No refund."
+        }
+      ]
+    },
     details: {
       inclusions: [
-        "Accommodation: Hotels in Kathmandu, guesthouses and tented camps in Tibet",
-        "All pure vegetarian meals (breakfast, lunch, dinner) throughout the yatra",
-        "Surface transport: Jeep/SUV in Nepal and Tibet as per itinerary",
-        "English/Hindi speaking experienced yatra guide",
-        "Citius support team throughout the journey",
-        "All permits, entry fees, and Tibet Travel Permit",
-        "Oxygen cylinders and basic first-aid medical support",
-        "Porter/yak support for group equipment (not personal)",
-        "Yatra completion certificate"
+        "Visa and yatra permit support as per programme",
+        "Pure vegetarian meals throughout the yatra",
+        "Accommodation as per itinerary",
+        "Transportation as per itinerary",
+        "Experienced guide and crew team",
+        "Gifts (as per Citius programme)",
+        "Down jacket for the yatra",
+        "Oxygen cylinder for emergency use",
+        "Priest services at Lake Mansarovar"
       ],
       exclusions: [
-        "International/Domestic flights to/from Kathmandu",
-        "Nepal and Tibet visa/entry permit fees",
-        "Pony/Yak hire for personal use during Parikrama (available at extra cost)",
-        "Personal expenses: shopping, laundry, phone calls, tips",
-        "Travel insurance and emergency evacuation costs",
-        "Extra meals or beverages beyond specified",
-        "Any costs arising from unforeseen circumstances (delays, weather, political)",
-        "GST and TCS as applicable"
+        "Any personal expense",
+        "Airfare or rail fare, or any other expenses from home location to Kathmandu airport",
+        "Porter expenses at Kailash parikrama",
+        "Any insurance",
+        "Any medical expenses",
+        "GST and TCS",
+        "Any donation or tip to guide, sherpa, driver, cook, porter, priest, or any crew member",
+        "Extra days’ accommodation in Kathmandu, Nepalgunj, Simikot, Hilsa, or Purang due to bad weather or flight cancellation",
+        "Visa splitting charges and transportation charges if someone leaves early from Tibet",
+        "Any evacuation, rescue, or additional charges or closures due to natural calamities or unforeseen circumstances",
+        "Extra baggage charges on flights during the yatra",
+        "Any price increase by CPSC (China Pilgrimage Service Company) or authorities",
+        "Anything not listed under inclusions"
       ],
       accommodation: [
         { type: "Kathmandu", desc: "4-star hotels with modern amenities" },
@@ -310,8 +408,8 @@ export const trails = [
     slug: "kailash-aerial-3day",
     status: "published",
     layoutVariant: "aerial",
-    group: "aerial-programs",
-    groupLabel: "Aerial & senior-friendly",
+    group: "kailash-mansarovar",
+    groupLabel: "Kailash Mansarovar",
     title: "Kailash Mansarovar Aerial View Tour",
     subtitle: "A Sacred Himalayan Expedition of Inner Transformation — Minimal Effort, Maximum Blessings",
     tagline: "Ex-Lucknow | 2N/3D | Aerial Altitude 32,000 ft",
@@ -391,33 +489,45 @@ export const trails = [
       }
     ],
     itinerary: [
-      { 
-        day: "Day 1", 
-        title: "Lucknow to Nepalgunj | The Journey Begins", 
+      {
+        day: "Day 1",
+        title: "Lucknow to Nepalgunj | The Journey Begins",
         desc: "Morning departure from Lucknow in comfortable Innova vehicles. Scenic 4-5 hour drive through the Terai region to the India-Nepal border at Rupaidiha. Cross into Nepal and reach Nepalgunj. Hotel check-in, followed by lunch. Evening visit to sacred Bageshwari Temple for pooja and hawan ceremony. Pre-yatra briefing and preparation.",
         highlights: ["Lucknow pickup", "Scenic Terai drive", "Border crossing at Rupaidiha", "Hotel check-in", "Bageshwari Temple visit", "Pooja & Hawan ceremony"],
         accommodation: "Hotel in Nepalgunj (4-star/5-star as per package)",
         meals: "Lunch, Dinner",
-        transport: "Innova (4-5 pax per vehicle)"
+        transport: "Innova (4-5 pax per vehicle)",
+        image: {
+          src: "/gallery/spiritual/welcome-kathmandu.webp",
+          alt: "Journey begins — gateway to the yatra"
+        }
       },
-      { 
-        day: "Day 2", 
-        title: "Aerial Darshan Day | The Sacred Flight", 
+      {
+        day: "Day 2",
+        title: "Aerial Darshan Day | The Sacred Flight",
         desc: "Early morning transfer to Nepalgunj airport. Board chartered aircraft for the exclusive aerial yatra. Fly over the Himalayas with guaranteed window seats for all yatris. Witness breathtaking aerial views of Mount Kailash and Lake Mansarovar. The 1.5-hour flight includes multiple passes for darshan. Return to Nepalgunj airport, transfer to hotel. Afternoon at leisure. Evening tea/coffee and group sharing.",
         highlights: ["Airport transfer", "Chartered flight boarding", "Aerial views of Himalayas", "Mount Kailash darshan", "Lake Mansarovar views", "Return to Nepalgunj"],
         accommodation: "Nepalgunj",
         meals: "Breakfast, Lunch, Dinner",
         flight: "Chartered aerial yatra (approx. 1.5 hours)",
-        altitude: "32,000 ft"
+        altitude: "32,000 ft",
+        image: {
+          src: "/gallery/spiritual/aerial-view.webp",
+          alt: "Aerial darshan — Kailash and Mansarovar"
+        }
       },
-      { 
-        day: "Day 3", 
-        title: "Nepalgunj to Lucknow | Return with Blessings", 
+      {
+        day: "Day 3",
+        title: "Nepalgunj to Lucknow | Return with Blessings",
         desc: "After breakfast, check-out from hotel. Drive back to Lucknow via Rupaidiha border. Assisted border crossing. Drop-off at Lucknow airport or designated locations. Carry the divine blessings of Kailash with you.",
         highlights: ["Breakfast", "Check-out", "Border crossing", "Return drive to Lucknow", "Airport drop-off"],
         accommodation: "N/A",
         meals: "Breakfast",
-        transport: "Innova to Lucknow"
+        transport: "Innova to Lucknow",
+        image: {
+          src: "/gallery/spiritual/mansarovar-lake.webp",
+          alt: "Carry the blessings home"
+        }
       }
     ],
     details: {
@@ -856,8 +966,7 @@ export const sacredSites = [
 
 /** Hub section order (trails grouped under these ids via `trail.group`) */
 export const trailGroupOrder = [
-  { id: "kailash-mansarovar", label: "Kailash Mansarovar" },
-  { id: "aerial-programs", label: "Aerial & senior-friendly" },
+  { id: "kailash-mansarovar", label: "Kailash Mansarovar 2026" },
   { id: "kora-routes", label: "Kora routes" },
   { id: "special-programs", label: "Special programs" }
 ];

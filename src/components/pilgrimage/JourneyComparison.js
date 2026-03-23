@@ -124,62 +124,76 @@ export default function JourneyComparison({ className }) {
         {/* Mobile Cards */}
         <div className="md:hidden space-y-4 mb-8">
           {/* 14-Day Card */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="bg-linear-to-br from-citius-blue to-citius-blue/90 rounded-2xl p-5 text-white"
+          <Link
+            href="/pilgrimage/kailash-mansarovar-14day"
+            className="block bg-linear-to-br from-citius-blue to-citius-blue/90 rounded-2xl p-5 text-white shadow-md hover:brightness-110 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citius-blue"
           >
-            <h3 className="font-heading text-lg mb-1">14-Day Yatra</h3>
-            <p className="text-white/80 text-xs mb-3">Complete pilgrimage with Kora</p>
-            <div className="flex items-center justify-between">
-              <span className="text-xl font-bold">INR 2.65L</span>
-              <Link
-                href="/pilgrimage/kailash-mansarovar-14day"
-                className="bg-white text-citius-blue px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1"
-              >
-                Details <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-          </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <h3 className="font-heading text-lg mb-1">14-Day Yatra</h3>
+              <p className="text-white/80 text-xs mb-3">Complete pilgrimage with Kora — tap for full page</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xl font-bold">INR 2.65L</span>
+                <span className="bg-white text-citius-blue px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1">
+                  Open trail <ArrowRight className="w-3 h-3" />
+                </span>
+              </div>
+            </motion.div>
+          </Link>
 
           {/* Aerial Card */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="bg-linear-to-br from-citius-orange to-citius-orange/90 rounded-2xl p-5 text-white"
+          <Link
+            href="/pilgrimage/kailash-aerial-3day"
+            className="block bg-linear-to-br from-citius-orange to-citius-orange/90 rounded-2xl p-5 text-white shadow-md hover:brightness-110 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citius-orange"
           >
-            <h3 className="font-heading text-lg mb-1">2N/3D Aerial</h3>
-            <p className="text-white/80 text-xs mb-3">Divine darshan without trek</p>
-            <div className="flex items-center justify-between">
-              <span className="text-xl font-bold">INR 49,500</span>
-              <Link
-                href="/pilgrimage/kailash-aerial-3day"
-                className="bg-white text-citius-orange px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1"
-              >
-                Details <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-          </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+            >
+              <h3 className="font-heading text-lg mb-1">2N/3D Aerial</h3>
+              <p className="text-white/80 text-xs mb-3">Divine darshan without trek — tap for full page</p>
+              <div className="flex items-center justify-between">
+                <span className="text-xl font-bold">INR 49,500</span>
+                <span className="bg-white text-citius-orange px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1">
+                  Open trail <ArrowRight className="w-3 h-3" />
+                </span>
+              </div>
+            </motion.div>
+          </Link>
         </div>
 
         {/* Desktop Comparison Table */}
         <div className="hidden md:block">
-          {/* Table Header */}
+          {/* Table Header — full-card links to trail detail pages */}
           <div className="grid grid-cols-12 gap-4 mb-4">
             <div className="col-span-3" />
             <div className="col-span-4 text-center">
-              <div className="bg-citius-blue text-white px-6 py-4 rounded-xl shadow-md">
+              <Link
+                href="/pilgrimage/kailash-mansarovar-14day"
+                className="block bg-citius-blue text-white px-6 py-4 rounded-xl shadow-md hover:brightness-110 hover:shadow-lg transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
                 <h3 className="font-heading text-lg font-semibold">14-Day Yatra</h3>
                 <p className="text-sm text-white/80 mt-1">The Complete Journey</p>
-              </div>
+                <span className="mt-2 inline-flex items-center justify-center gap-1 text-xs font-medium text-white/90">
+                  View full itinerary <ArrowRight className="w-3.5 h-3.5" />
+                </span>
+              </Link>
             </div>
             <div className="col-span-4 text-center">
-              <div className="bg-citius-orange text-white px-6 py-4 rounded-xl shadow-md">
+              <Link
+                href="/pilgrimage/kailash-aerial-3day"
+                className="block bg-citius-orange text-white px-6 py-4 rounded-xl shadow-md hover:brightness-110 hover:shadow-lg transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
                 <h3 className="font-heading text-lg font-semibold">2N/3D Aerial</h3>
                 <p className="text-sm text-white/80 mt-1">Sky Path Darshan</p>
-              </div>
+                <span className="mt-2 inline-flex items-center justify-center gap-1 text-xs font-medium text-white/90">
+                  View full itinerary <ArrowRight className="w-3.5 h-3.5" />
+                </span>
+              </Link>
             </div>
           </div>
 
