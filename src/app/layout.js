@@ -59,14 +59,18 @@ export default async function RootLayout({ children }) {
   const initialToken = await getToken().catch(() => null);
 
   return (
-    <html lang="en" className={`${poppins.variable} font-heading`}>
+    <html
+      lang="en"
+      className={`${poppins.variable} font-heading`}
+      suppressHydrationWarning
+    >
       <body
         className={`${inter.variable} font-sans bg-brand-light text-brand-dark`}
       >
         <ConvexClientProvider initialToken={initialToken}>
-          <div className="min-h-screen flex flex-col">
+          <div className="min-h-screen flex flex-col relative">
             <Header />
-            <main className="flex-1 w-full">
+            <main className="relative flex-1 w-full min-h-0">
               {children}
               <Analytics/>
               <SpeedInsights/>

@@ -1,4 +1,5 @@
 import { client } from "@/sanity/client";
+import { sanityFetchOptions } from "@/sanity/fetchOptions";
 import PilgrimagePageClient from "./page.client";
 
 export const generateMetadata = () => ({
@@ -17,9 +18,7 @@ const GALLERY_QUERY = `*[_type == "spiritualtrails"][0]{
   }
 }`;
 
-const options = { next: { revalidate: 30 } };
-
 export default async function PilgrimagePage() {
-  const data = await client.fetch(GALLERY_QUERY, {}, options);
+  const data = await client.fetch(GALLERY_QUERY, {}, sanityFetchOptions.spiritual);
   return <PilgrimagePageClient images={data?.images || []} />;
 }

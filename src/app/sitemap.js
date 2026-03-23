@@ -1,4 +1,5 @@
 import { client } from "@/sanity/client";
+import { sanityFetchOptions } from "@/sanity/fetchOptions";
 import { groq } from "next-sanity";
 
 export default async function sitemap() {
@@ -9,7 +10,7 @@ export default async function sitemap() {
     "slug": slug.current,
     _updatedAt
   }`;
-  const posts = await client.fetch(postsQuery);
+  const posts = await client.fetch(postsQuery, {}, sanityFetchOptions.sitemap);
 
   const postUrls = posts.map((post) => ({
     url: `${baseUrl}/blog/${post.slug}`,

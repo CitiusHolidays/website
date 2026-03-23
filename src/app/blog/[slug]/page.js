@@ -1,4 +1,5 @@
 import { client } from "@/sanity/client";
+import { sanityFetchOptions } from "@/sanity/fetchOptions";
 import PostPageClient from "./page.client";
 import { notFound } from "next/navigation";
 import imageUrlBuilder from "@sanity/image-url";
@@ -33,11 +34,9 @@ const POST_QUERY = `*[_type == "post" && slug.current == $slug][0]{
   }
 }`;
 
-const options = { next: { revalidate: 30 } };
-
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const post = await client.fetch(POST_QUERY, { slug }, options);
+  const post = await client.fetch(POST_QUERY, { slug }, sanityFetchOptions.blogPost);
 
   if (!post) {
     return {
@@ -87,7 +86,7 @@ export async function generateMetadata({ params }) {
 
 export default async function PostPage({ params }) {
   const { slug } = await params;
-  const post = await client.fetch(POST_QUERY, { slug }, options);
+  const post = await client.fetch(POST_QUERY, { slug }, sanityFetchOptions.blogPost);
 
   if (!post) {
     notFound();

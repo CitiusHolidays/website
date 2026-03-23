@@ -7,6 +7,7 @@
 		"build": "bun --bun next build",
 		"start": "bun --bun next start",
 		"lint": "next lint",
+		"perf:hero-baseline": "node bin/perf-hero-baseline.mjs",
 		"convex:dev": "bunx convex dev",
 		"convex:codegen": "bunx convex codegen",
 		"auth:schema:generate": "bunx @better-auth/cli generate --config ./convex/betterAuth/auth.ts --output ./convex/betterAuth/schema.ts",

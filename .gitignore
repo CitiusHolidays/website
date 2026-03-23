@@ -36,6 +36,10 @@ yarn-error.log*
 .cursor/*
 .vscode/*
 
+# worktrees
+.worktrees/
+worktrees/
+
 # vercel
 .vercel
 
@@ -48,6 +52,9 @@ convex/_generated
 .convex
 docs
 scripts
-# next-agents-md
-.next-docs/
-AGENTS.md
+
+Agents.md
+.next-docs/*
+public/gallery/spiritual/newimages/*
+
+bin/*
