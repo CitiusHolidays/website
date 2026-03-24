@@ -1,6 +1,6 @@
 import sharp from 'sharp';
 import { readdir, stat, mkdir } from 'fs/promises';
-import { join, basename, dirname, extname } from 'path';
+import { join, basename, dirname, extname, resolve } from 'path';
 
 const TARGET_DIRS = ['./public', './src/static'];
 const QUALITY = 80;
@@ -61,7 +61,17 @@ async function walk(dir) {
 }
 
 async function run() {
+  const fileArgs = process.argv.slice(2).filter((a) => !a.startsWith('-'));
   console.log('Starting full image optimization...\n');
+
+  if (fileArgs.length > 0) {
+    for (const rel of fileArgs) {
+      await optimizeImage(resolve(rel));
+    }
+    console.log('\nImage optimization complete!');
+    return;
+  }
+
   for (const dir of TARGET_DIRS) {
     try {
       await walk(dir);

@@ -1,53 +1,53 @@
-import Bali from "@/static/places/bali.webp";
-import Colombo from "@/static/places/colombo.webp";
-import Dubai from "@/static/places/dubai.webp";
-import Georgia from "@/static/places/georgia.webp";
+import Bangalore from "@/static/places/bangalore.webp";
 import Goa from "@/static/places/goa.webp";
-import Jaipur from "@/static/places/jaipur.webp";
-import Kochi from "@/static/places/kochi.webp";
-import Kolkata from "@/static/places/kolkata.webp";
-import Langkawi from "@/static/places/langkawi.webp";
-import Puri from "@/static/places/puri.webp";
+import Japan from "@/static/places/japan.webp";
+import Kashmir from "@/static/places/kashmir.webp";
+import KualaLumpur from "@/static/places/kuala-lumpur.webp";
+import Mussoorie from "@/static/places/mussoorie.webp";
+import Phuket from "@/static/places/phuket.webp";
+import Shillong from "@/static/places/shillong.webp";
+import SriLanka from "@/static/places/sri-lanka.webp";
+import Vietnam from "@/static/places/vietnam.webp";
 
 export const internationalDestinations = [
   {
     rank: 1,
-    name: "Dubai",
+    name: "Japan",
     description:
-      "Dubai emerges as a premier MICE destination with its futuristic skyline, world-class convention centers like Dubai World Trade Centre, and luxury resorts. From incentive trips to the Burj Khalifa to grand exhibitions, Dubai offers unparalleled hospitality, connectivity, and innovative event spaces.",
-    image: Dubai,
+      "Japan pairs bullet-train connectivity with world-class venues in Tokyo, Osaka, and Kyoto. From hybrid-ready convention halls to refined incentive experiences—temple gardens, kaiseki dining, and seasonal festivals—it is a standout for high-profile conferences and executive retreats.",
+    image: Japan,
     percentage: 100,
   },
   {
     rank: 2,
-    name: "Colombo",
+    name: "Vietnam (Phu Quoc & Da Nang)",
     description:
-      "Colombo blends urban sophistication with Sri Lankan charm, featuring modern venues like the BMICH and proximity to pristine beaches. Ideal for conferences and incentives, it provides cost-effective solutions, rich cultural experiences, and excellent infrastructure for international business events.",
-    image: Colombo,
+      "Phu Quoc’s island resorts and Da Nang’s beachfront hotels deliver strong MICE capacity with direct flights and growing luxury inventory. Expect incentive-friendly beaches, golf, and vibrant dining—ideal for teams that want tropical energy with improving event infrastructure.",
+    image: Vietnam,
     percentage: 95,
   },
   {
     rank: 3,
-    name: "Langkawi",
+    name: "Sri Lanka",
     description:
-      "Langkawi's lush rainforests and crystal-clear waters make it a tropical paradise for MICE retreats. With eco-friendly resorts and adventure activities, it's perfect for team-building incentives and relaxed meetings, offering a serene escape with modern facilities.",
-    image: Langkawi,
+      "Sri Lanka blends Colombo’s convention hotels with tea-country escapes and coastal incentives. Favourable seasonality, warm hospitality, and diverse backdrops—from heritage sites to wildlife—make it compelling for conferences that extend into curated pre- and post-event journeys.",
+    image: SriLanka,
     percentage: 90,
   },
   {
     rank: 4,
-    name: "Georgia",
+    name: "Phuket",
     description:
-      "Georgia captivates MICE travelers with its mix of European charm and Eurasian hospitality. Tbilisi and Batumi feature state-of-the-art venues, while the country's scenic mountains and renowned wine regions provide memorable incentive experiences. Visa-friendly policies and a growing infrastructure make Georgia a rising star for corporate events.",
-    image: Georgia,
+      "Phuket remains a proven incentives hub: integrated resorts, large ballrooms, and island-hopping add-ons. It works well for sales kick-offs and reward trips where beach time, wellness, and nightlife are part of the programme design.",
+    image: Phuket,
     percentage: 85,
   },
   {
     rank: 5,
-    name: "Bali",
+    name: "Kuala Lumpur",
     description:
-      "Bali captivates with its spiritual serenity and vibrant culture, boasting high-end resorts and convention centers in areas like Nusa Dua. Perfect for wellness-focused incentives and creative conferences, it combines luxury, natural beauty, and Balinese hospitality.",
-    image: Bali,
+      "KL pairs the Petronas-era skyline with efficient international access and strong-value five-star inventory. Convention-adjacent hotels, multicultural dining, and easy side trips to highlands or cultural districts keep programmes flexible for diverse delegate profiles.",
+    image: KualaLumpur,
     percentage: 80,
   },
 ];
@@ -55,42 +55,42 @@ export const internationalDestinations = [
 export const domesticDestinations = [
   {
     rank: 1,
-    name: "Jaipur",
+    name: "Goa",
     description:
-      "A heritage-rich MICE hub that combines royal venues for gala dinners with large-scale, integrated precincts such as JECC and the adjoining convention hotel for seamless stay-meet-network experiences.",
-    image: Jaipur,
+      "A beachside MICE favourite where upscale resorts pair world-class conference facilities with seamless work–leisure balance, from waterfront ballrooms to breakout spaces amid palms. Incentive add-ons span water sports, yoga by the sea, and vibrant nightlife.",
+    image: Goa,
     percentage: 100,
   },
   {
     rank: 2,
-    name: "Kolkata",
+    name: "Mussoorie",
     description:
-      "Kolkata, the cultural capital, offers heritage venues and modern convention centers for diverse MICE events. From literary festivals to business summits, it provides intellectual stimulation, culinary delights, and colonial architecture for memorable corporate gatherings.",
-    image: Kolkata,
+      "Mussoorie offers cool-climate offsites above the Doon Valley—heritage hotels, ridge-line views, and nature walks that suit leadership retreats and compact strategy meets without the heat of the plains.",
+    image: Mussoorie,
     percentage: 95,
   },
   {
     rank: 3,
-    name: "Goa",
+    name: "Bangalore",
     description:
-      "A beachside MICE favorite where upscale resorts pair world-class conference facilities with seamless work-leisure balance, from waterfront ballrooms to breakout spaces amid palms. Incentive add-ons span water sports, yoga by the sea, and vibrant nightlife.",
-    image: Goa,
+      "India’s tech capital delivers scale: large convention hotels, startup energy, and reliable connectivity for product launches, hack weeks, and enterprise summits—with strong F&B and after-hours culture for delegate networking.",
+    image: Bangalore,
     percentage: 90,
   },
   {
     rank: 4,
-    name: "Puri",
+    name: "Kashmir",
     description:
-      "Puri's sacred beaches and Jagannath Temple backdrop create a unique setting for spiritual and cultural MICE experiences. With beach resorts and convention facilities, it's ideal for wellness retreats and incentive programs blending devotion and relaxation.",
-    image: Puri,
+      "Kashmir elevates incentives with lakeside stays, houseboat experiences, and alpine scenery—ideal for premium small groups and brand storytelling where the setting is as memorable as the agenda.",
+    image: Kashmir,
     percentage: 85,
   },
   {
     rank: 5,
-    name: "Cochin",
+    name: "Shillong",
     description:
-      "A backwater-framed city where island convention hotels and modern venues host high-profile business gatherings, underscored by Kerala's dedicated push to grow weddings and MICE.",
-    image: Kochi,
+      "Shillong’s rolling hills and mild weather suit creative offsites and cultural immersion across the Northeast—think music, local crafts, and outdoor team moments with a distinctly different Indian landscape.",
+    image: Shillong,
     percentage: 80,
   },
 ];
