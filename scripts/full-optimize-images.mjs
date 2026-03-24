@@ -3,7 +3,7 @@ import { readdir, stat, mkdir } from 'fs/promises';
 import { join, basename, dirname, extname, resolve } from 'path';
 
 const TARGET_DIRS = ['./public', './src/static'];
-const QUALITY = 95;
+const QUALITY = 100;
 const MAX_WIDTH = 1920;
 
 async function optimizeImage(inputPath) {
