@@ -22,8 +22,12 @@ function DestinationCard({ destination, index }) {
         src={destination.image || "/placeholder.svg"}
         alt={destination.name}
         fill
-        sizes="(max-width: 768px) 85vw, 400px"
-        className="object-cover transition-transform duration-700 group-hover:scale-110"
+        // Wider than the 400px card: object-cover on landscape photos is height-limited
+        // (500px tall); a width-only sizes hint made Next serve ~400px-wide assets whose
+        // short side was upscaled — soft / “zoomed” look. Hint ~2× the long edge for cover + DPR.
+        sizes="(max-width: 768px) 85vw, 1000px"
+        quality={90}
+        className="object-cover transition-transform duration-700 group-hover:scale-105"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-90 group-hover:opacity-100 transition-opacity" />
 
