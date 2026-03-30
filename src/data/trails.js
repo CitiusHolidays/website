@@ -138,8 +138,8 @@ export const trails = [
         meals: "All meals",
         altitude: "4,600m",
         image: {
-          src: "/gallery/spiritual/acclimatization-saga.webp",
-          alt: "Tibetan plateau en route to Saga"
+          src: "/gallery/spiritual/nyalam-to-saga.webp",
+          alt: "Tibetan plateau en route from Nyalam to Saga"
         }
       },
       {
@@ -232,8 +232,8 @@ export const trails = [
         meals: "All meals",
         altitude: "3,750m",
         image: {
-          src: "/gallery/spiritual/nyalam.webp",
-          alt: "Return leg through Nyalam"
+          src: "/gallery/spiritual/saga-to-nyalam.webp",
+          alt: "Return drive from Saga toward Nyalam"
         }
       },
       {
@@ -244,8 +244,8 @@ export const trails = [
         accommodation: "Kathmandu",
         meals: "All meals",
         image: {
-          src: "/gallery/spiritual/pashupatinath.webp",
-          alt: "Back in Kathmandu — closing celebrations"
+          src: "/gallery/spiritual/kathmandu-return-day13-16x10.webp",
+          alt: "Return to Nepal — yatra group in the mountains; closing ceremony with certificates in Kathmandu"
         }
       },
       {
@@ -420,10 +420,11 @@ export const trails = [
     title: "Kailash Mansarovar Aerial View Tour",
     subtitle: "A Sacred Himalayan Expedition of Inner Transformation — Minimal Effort, Maximum Blessings",
     tagline: "Ex-Lucknow | 2N/3D | Aerial Altitude 32,000 ft",
-    positioning: "For senior yatris, solo seekers, women travelers, and those seeking divine darshan without physical exertion.",
+    positioning:
+      "For senior yatris, solo seekers, women travellers, and families — elderly-friendly arrangements, thoughtful support, and divine darshan without strenuous trekking.",
     heroBackground: {
-      src: "/gallery/spiritual/aerial-view.webp",
-      alt: "Darshan with Mount Kailash"
+      src: "/gallery/spiritual/aerial-charter-shree-kailash-lake.webp",
+      alt: "Shree Airlines charter — aerial darshan of Mount Kailash and Lake Mansarovar"
     },
     quickFacts: {
       duration: "2 Nights / 3 Days",
@@ -448,8 +449,9 @@ export const trails = [
     overview: {
       title: "The Sky Path to Kailash",
       intro: [
-        "Not everyone can trek through high altitudes and harsh terrain. But the call of Kailash is universal. Our Aerial Darshan Tour is designed for those who seek the blessings of Mount Kailash and Lake Mansarovar without the physical demands of the traditional yatra.",
-        "This 2-night, 3-day journey takes you from Lucknow to Nepalgunj, where you'll board a chartered flight for an exclusive aerial circumambulation of the sacred peak. With guaranteed window seats, every yatri gets uninterrupted views of the abode of Lord Shiva."
+        "Not everyone can trek through high altitudes and harsh terrain. But the call of Kailash is universal. Our Aerial Darshan programme is for those who seek the blessings of Mount Kailash and Lake Mansarovar without the physical demands of the traditional yatra.",
+        "This 2-night, 3-day journey begins in Lucknow and unfolds through Nepalgunj, where you board a chartered flight for an exclusive aerial view of Lake Mansarovar and Mount Kailash. Guaranteed window seats give every yatri uninterrupted darshan of the abode of Lord Shiva.",
+        "Many yatris who experience aerial darshan go on to join our full 14-day Mansarovar yatra — when you are ready to stand at the holy lake and complete the kora by foot."
       ],
       quote: "The mountain sees all who come with devotion — whether by foot or by wing.",
       promise: [
@@ -479,7 +481,8 @@ export const trails = [
       {
         title: "Mount Kailash Aerial Darshan",
         location: "From 32,000 ft",
-        description: "See the sacred peak in its full glory — the abode of Lord Shiva, untouched by human feet, as only the divine can witness.",
+        description:
+          "Southern and eastern faces of the sacred peak, with a sweeping Himalayan panorama — including peaks such as Api, Saipal, and Nampha — from the comfort of your window seat.",
         significance: "Shiva's abode"
       },
       {
@@ -498,42 +501,61 @@ export const trails = [
     itinerary: [
       {
         day: "Day 1",
-        title: "Lucknow to Nepalgunj | The Journey Begins",
-        desc: "Morning departure from Lucknow in comfortable Innova vehicles. Scenic 4-5 hour drive through the Terai region to the India-Nepal border at Rupaidiha. Cross into Nepal and reach Nepalgunj. Hotel check-in, followed by lunch. Evening visit to sacred Bageshwari Temple for pooja and hawan ceremony. Pre-yatra briefing and preparation.",
-        highlights: ["Lucknow pickup", "Scenic Terai drive", "Border crossing at Rupaidiha", "Hotel check-in", "Bageshwari Temple visit", "Pooja & Hawan ceremony"],
+        title: "Ex Lucknow | Road to Nepalgunj",
+        desc: "Pickup from your hotel or designated point in Lucknow, then a scenic 4–5 hour drive to Nepalgunj via the India–Nepal border at Rupaidiha. Lunch at the hotel after check-in. Visit sacred Bageshwari Temple for a group hawan and pooja led by our Pandit ji. Evening briefing on the flight schedule and spiritual significance, followed by dinner and overnight at your premium Nepalgunj hotel.",
+        highlights: [
+          "Lucknow pickup",
+          "Road journey to Nepalgunj (4–5 hours)",
+          "Lunch at hotel",
+          "Bageshwari Temple — pooja & hawan",
+          "Evening briefing",
+          "Dinner & overnight — Nepalgunj"
+        ],
         accommodation: "Hotel in Nepalgunj (4-star/5-star as per package)",
         meals: "Lunch, Dinner",
         transport: "Innova (4-5 pax per vehicle)",
         image: {
-          src: "/gallery/spiritual/bageshwari-temple.webp",
-          alt: "Bageshwari Temple, Nepalgunj"
+          src: "/gallery/spiritual/aerial-itinerary-day1-soaltee-group.webp",
+          alt: "Day 1 — welcome and group at the Nepalgunj hotel"
         }
       },
       {
         day: "Day 2",
-        title: "Aerial Darshan Day | The Sacred Flight",
-        desc: "Early morning transfer to Nepalgunj airport. Board chartered aircraft for the exclusive aerial yatra. Fly over the Himalayas with guaranteed window seats for all yatris. Witness breathtaking aerial views of Mount Kailash and Lake Mansarovar. The 1.5-hour flight includes multiple passes for darshan. Return to Nepalgunj airport, transfer to hotel. Afternoon at leisure. Evening tea/coffee and group sharing.",
-        highlights: ["Airport transfer", "Chartered flight boarding", "Aerial views of Himalayas", "Mount Kailash darshan", "Lake Mansarovar views", "Return to Nepalgunj"],
+        title: "Kailash Aerial Darshan | The Sacred Flight",
+        desc: "After breakfast, early transfer to Nepalgunj airport to board the specialised charter for Mount Kailash Aerial Darshan. Every yatri has a guaranteed window seat. On board, share in a divine atmosphere — Shiv Chalisa, bhajans, and mantras with Pandit ji. Witness the sacred peak (including the southern and rare eastern aspects), holy Lake Mansarovar, and a wide Himalayan panorama with peaks such as Api, Saipal, and Nampha. Return to Nepalgunj; evening at leisure for rest or quiet reflection. Dinner and overnight at the hotel.",
+        highlights: [
+          "Airport transfer after breakfast",
+          "Chartered aerial darshan flight",
+          "Guaranteed window seat",
+          "Kailash & Mansarovar from the air",
+          "Chanting & bhajans on board",
+          "Return to Nepalgunj — restful evening",
+          "Dinner & overnight — Nepalgunj"
+        ],
         accommodation: "Nepalgunj",
         meals: "Breakfast, Lunch, Dinner",
         flight: "Chartered aerial yatra (approx. 1.5 hours)",
         altitude: "32,000 ft",
         image: {
-          src: "/gallery/spiritual/aerial-view.webp",
-          alt: "Aerial darshan — Kailash and Mansarovar"
+          src: "/gallery/spiritual/aerial-day2-kailash-flight.webp",
+          alt: "Aerial darshan — Mount Kailash and the charter journey"
         }
       },
       {
         day: "Day 3",
-        title: "Nepalgunj to Lucknow | Return with Blessings",
-        desc: "After breakfast, check-out from hotel. Drive back to Lucknow via Rupaidiha border. Assisted border crossing. Drop-off at Lucknow airport or designated locations. Carry the divine blessings of Kailash with you.",
-        highlights: ["Breakfast", "Check-out", "Border crossing", "Return drive to Lucknow", "Airport drop-off"],
+        title: "Mission Complete | Return to Lucknow",
+        desc: "A relaxed breakfast at the hotel, then checkout and the drive back to Lucknow (about 4–5 hours) — a good time to reflect and share darshan with fellow yatris. On arrival in Lucknow we drop you at your home, the airport, or the railway station, carrying the blessings of Kailash with you.",
+        highlights: [
+          "Breakfast at hotel",
+          "Checkout & drive to Lucknow (4–5 hours)",
+          "Drop-off — residence, airport, or railway station"
+        ],
         accommodation: "N/A",
         meals: "Breakfast",
         transport: "Innova to Lucknow",
         image: {
-          src: "/gallery/spiritual/mansarovar-lake.webp",
-          alt: "Carry the blessings home"
+          src: "/gallery/spiritual/aerial-itinerary-day3-tarmac-group.webp",
+          alt: "Day 3 — yatris with certificates after the charter, Nepalgunj airport"
         }
       }
     ],
@@ -616,12 +638,10 @@ export const trails = [
       ]
     },
     gallery: [
-      { src: "/gallery/spiritual/bageshwari-temple.webp", alt: "Bageshwari Temple, Nepalgunj" },
-      { src: "/gallery/spiritual/aerial-view.webp", alt: "Darshan with Mount Kailash" },
-      { src: "/gallery/spiritual/mansarovar-lake.webp", alt: "Lake Mansarovar" },
-      { src: "/gallery/spiritual/grp-with-mt-kailash.webp", alt: "Sacred peak darshan" },
-      { src: "/gallery/spiritual/golden-kailash.webp", alt: "Mount Kailash" },
-      { src: "/gallery/spiritual/full-moon-kailash.webp", alt: "Moon over the Himalaya" }
+      {
+        src: "/gallery/spiritual/aerial-view.webp",
+        alt: "Sacred Himalaya — view from the aerial darshan route"
+      }
     ],
     bookingOptions: [
       { label: "Register interest", href: "/contact", note: "Window seats and batch preferences" },

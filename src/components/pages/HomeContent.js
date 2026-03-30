@@ -183,9 +183,21 @@ export default function HomeContent() {
             muted
             loop
             playsInline
-            poster="/gallery/bgfooter.webp"
+            preload="auto"
+            poster="/gallery/hero-poster.webp"
             className="object-cover object-center w-full h-full brightness-[0.65]"
           >
+            <source
+              src="/hero-sm.mp4"
+              type="video/mp4"
+              media="(max-width: 768px)"
+            />
+            <source
+              src="/hero-sm.webm"
+              type="video/webm"
+              media="(max-width: 768px)"
+            />
+            <source src="/hero.webm" type="video/webm" />
             <source src="/hero.mp4" type="video/mp4" />
           </video>
           {/* Atmospheric Overlays */}

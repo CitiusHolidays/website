@@ -99,6 +99,27 @@ function HighlightsTab({ highlights }) {
 function DayItineraryImage({ item, dayLabel }) {
   const image = item.image;
   if (image?.src) {
+    const intrinsic =
+      typeof image.width === "number" &&
+      typeof image.height === "number" &&
+      image.width > 0 &&
+      image.height > 0;
+
+    if (intrinsic) {
+      return (
+        <div className="relative w-full overflow-hidden rounded-xl border border-brand-light bg-brand-light/20 shadow-inner">
+          <Image
+            src={image.src}
+            alt={image.alt || `${dayLabel} — ${item.title || "Itinerary"}`}
+            width={image.width}
+            height={image.height}
+            className="h-auto w-full"
+            sizes="(max-width: 768px) 100vw, 360px"
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="relative aspect-16/10 w-full overflow-hidden rounded-xl border border-brand-light bg-brand-light/20 shadow-inner">
         <Image
@@ -106,6 +127,11 @@ function DayItineraryImage({ item, dayLabel }) {
           alt={image.alt || `${dayLabel} — ${item.title || "Itinerary"}`}
           fill
           className="object-cover"
+          style={
+            image.objectPosition
+              ? { objectPosition: image.objectPosition }
+              : undefined
+          }
           sizes="(max-width: 768px) 100vw, 360px"
         />
       </div>
