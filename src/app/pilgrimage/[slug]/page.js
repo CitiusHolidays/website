@@ -9,7 +9,36 @@ const RELATED_BLOGS = groq`*[_type == "post" && slug.current in $slugs]{
   title
 }`;
 
+const TRAIL_CMS_GALLERY = groq`*[_type == "spiritualTrailGallery" && trailSlug == $slug][0]{
+  images[]{
+    alt,
+    asset->{ url }
+  }
+}`;
+
 const fetchOptions = { next: { revalidate: 30 } };
+
+function normalizeCmsGalleryRows(rows) {
+  if (!rows?.length) return [];
+  return rows
+    .map((row) => ({
+      src: row?.asset?.url || "",
+      alt: row?.alt || ""
+    }))
+    .filter((row) => row.src);
+}
+
+function mergeTrailGalleries(cms, staticGallery) {
+  const seen = new Set();
+  const out = [];
+  for (const img of [...cms, ...(staticGallery || [])]) {
+    if (!img?.src) continue;
+    if (seen.has(img.src)) continue;
+    seen.add(img.src);
+    out.push(img);
+  }
+  return out;
+}
 
 export function generateStaticParams() {
   return getTrailSlugsForStaticParams();
@@ -43,5 +72,12 @@ export default async function PilgrimageTrailPage({ params }) {
     );
   }
 
-  return <PilgrimageTrailPageClient trail={trail} relatedBlogPosts={relatedBlogPosts || []} />;
+  const cmsDoc = await client.fetch(TRAIL_CMS_GALLERY, { slug }, fetchOptions);
+  const cmsGallery = normalizeCmsGalleryRows(cmsDoc?.images);
+  const gallery = mergeTrailGalleries(cmsGallery, trail.gallery);
+  const trailWithGallery = { ...trail, gallery };
+
+  return (
+    <PilgrimageTrailPageClient trail={trailWithGallery} relatedBlogPosts={relatedBlogPosts || []} />
+  );
 }

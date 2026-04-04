@@ -538,7 +538,7 @@ export const trails = [
         altitude: "32,000 ft",
         image: {
           src: "/gallery/spiritual/aerial-day2-kailash-flight.webp",
-          alt: "Aerial darshan — Mount Kailash and the charter journey"
+          alt: "Charter flight over the snow-covered valley toward sunlit Mount Kailash"
         }
       },
       {
