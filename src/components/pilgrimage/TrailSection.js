@@ -19,7 +19,6 @@ import {
   Clock,
   Calendar,
   ArrowRight,
-  IndianRupee,
   Info,
   Camera,
   MessageSquare,
@@ -359,9 +358,7 @@ function RegistrationAndPolicySection({ policy }) {
   );
 }
 
-function PricingTab({ trail }) {
-  const isTieredPricing = Array.isArray(trail.pricing?.tiers);
-
+function PackageDetailsTab({ trail }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -369,55 +366,6 @@ function PricingTab({ trail }) {
       exit={{ opacity: 0, y: -20 }}
       className="space-y-8"
     >
-      {/* Price Display */}
-      <div className="text-center mb-8">
-        {isTieredPricing ? (
-          <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
-            {trail.pricing.tiers.map((tier) => (
-              <div
-                key={tier.name}
-                className="bg-white rounded-2xl p-6 border-2 border-brand-light hover:border-citius-orange/50 transition-all"
-              >
-                <span className="text-xs uppercase tracking-wider text-brand-muted mb-2 block">
-                  {tier.name} Package
-                </span>
-                <div className="flex items-baseline justify-center gap-1">
-                  <IndianRupee className="w-5 h-5 text-citius-blue" />
-                  <span className="font-heading text-3xl text-citius-blue font-bold">
-                    {tier.price.replace("INR ", "")}
-                  </span>
-                </div>
-                <p className="text-xs text-brand-muted mt-2">{tier.description}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-linear-to-br from-citius-blue to-citius-blue/90 rounded-3xl p-8 text-white max-w-md mx-auto">
-            <span className="text-sm text-white/80 uppercase tracking-wider mb-2 block">
-              Starting From
-            </span>
-            <div className="flex items-baseline justify-center gap-2">
-              <span className="text-2xl">{trail.pricing.basePrice}</span>
-            </div>
-            <p className="text-sm text-white/70 mt-2">{trail.pricing.note}</p>
-            <p className="text-xs text-white/50 mt-1">{trail.pricing.nriPrice}</p>
-          </div>
-        )}
-
-        {/* Add-on for tiered (e.g. aerial) packages */}
-        {isTieredPricing && trail.pricing.addOn && (
-          <div className="mt-6 bg-citius-orange/5 rounded-xl p-4 max-w-md mx-auto border border-citius-orange/20">
-            <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="w-4 h-4 text-citius-orange" />
-              <span className="text-sm font-medium text-citius-orange">Optional Add-On</span>
-            </div>
-            <p className="font-heading text-brand-dark">{trail.pricing.addOn.name}</p>
-            <p className="text-xs text-brand-muted">{trail.pricing.addOn.description}</p>
-            <p className="text-sm font-semibold text-citius-blue mt-1">{trail.pricing.addOn.price}</p>
-          </div>
-        )}
-      </div>
-
       {/* Inclusions & Exclusions */}
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Inclusions */}
@@ -874,7 +822,7 @@ export default function TrailSection({
   const hasGallery = gallery.length > 0;
   const hasHighlights = highlights && highlights.length > 0;
   const hasItinerary = itinerary && itinerary.length > 0;
-  const hasPricing = Boolean(details);
+  const hasPackageDetails = Boolean(details);
   const hasInfo = Boolean(info);
   const hasBooking = bookingOptions.length > 0;
   const reviewsList =
@@ -999,11 +947,11 @@ export default function TrailSection({
               icon={Map}
             />
           )}
-          {hasPricing && (
+          {hasPackageDetails && (
             <TabButton
-              active={activeTab === "pricing"}
-              onClick={() => setActiveTab("pricing")}
-              label="Pricing & Details"
+              active={activeTab === "details"}
+              onClick={() => setActiveTab("details")}
+              label="Package details"
               icon={FileText}
             />
           )}
@@ -1134,8 +1082,8 @@ export default function TrailSection({
               />
             )}
 
-            {activeTab === "pricing" && details && (
-              <PricingTab trail={trail} />
+            {activeTab === "details" && details && (
+              <PackageDetailsTab trail={trail} />
             )}
 
             {activeTab === "info" && info && (

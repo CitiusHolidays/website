@@ -135,8 +135,7 @@ export default function JourneyComparison({ className }) {
             >
               <h3 className="font-heading text-lg mb-1">14-Day Yatra</h3>
               <p className="text-white/80 text-xs mb-3">Complete pilgrimage with Kora — tap for full page</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xl font-bold">INR 2.65L</span>
+              <div className="flex items-center justify-end">
                 <span className="bg-white text-citius-blue px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1">
                   Open trail <ArrowRight className="w-3 h-3" />
                 </span>
@@ -156,8 +155,7 @@ export default function JourneyComparison({ className }) {
             >
               <h3 className="font-heading text-lg mb-1">2N/3D Aerial</h3>
               <p className="text-white/80 text-xs mb-3">Divine darshan without trek — tap for full page</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xl font-bold">INR 49,500</span>
+              <div className="flex items-center justify-end">
                 <span className="bg-white text-citius-orange px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1">
                   Open trail <ArrowRight className="w-3 h-3" />
                 </span>
@@ -238,7 +236,7 @@ export default function JourneyComparison({ className }) {
               </li>
             </ul>
             <div className="mt-4 pt-4 border-t border-citius-blue/20">
-              <p className="text-citius-blue font-semibold text-sm">Starting at INR 2.65 Lakh + GST</p>
+              <p className="text-citius-blue font-semibold text-sm">Contact us for current rates and availability</p>
             </div>
           </div>
 
@@ -267,7 +265,7 @@ export default function JourneyComparison({ className }) {
               </li>
             </ul>
             <div className="mt-4 pt-4 border-t border-citius-orange/20">
-              <p className="text-citius-orange font-semibold text-sm">Starting at INR 49,500 + GST</p>
+              <p className="text-citius-orange font-semibold text-sm">Contact us for current rates and availability</p>
             </div>
           </div>
         </motion.div>

@@ -42,7 +42,7 @@ export default function PilgrimagePageClient({ images }) {
             </h2>
             <p className="font-sans text-lg md:text-xl text-brand-muted max-w-3xl mx-auto leading-relaxed">
               Flagship yatra and aerial darshan — plus specialised routes and programmes opening soon.
-              Explore every trail below for galleries, dates, pricing, and booking.
+              Explore every trail below for galleries, dates, inclusions, and booking.
             </p>
             <div className="w-16 md:w-24 h-px bg-citius-orange/30 mx-auto mt-6 md:mt-10" />
           </motion.div>

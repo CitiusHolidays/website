@@ -22,11 +22,6 @@ export const trails = [
       difficulty: "Moderate to Challenging",
       groupSize: "15-25 Yatris"
     },
-    pricing: {
-      basePrice: "INR 2.65 Lakh",
-      note: "+ GST + TCS (Indian Nationals)",
-      nriPrice: "Contact for NRI/OCI pricing"
-    },
     overview: {
       title: "A Journey Beyond Travel",
       intro: [
@@ -434,18 +429,6 @@ export const trails = [
       difficulty: "Easy (No trekking)",
       groupSize: "Minimum 25 pax required"
     },
-    pricing: {
-      tiers: [
-        { name: "Deluxe", price: "INR 49,500", description: "4-star equivalent hotel in Nepalgunj" },
-        { name: "Luxury", price: "INR 52,500", description: "5-star equivalent hotel in Nepalgunj" }
-      ],
-      note: "+ GST as applicable",
-      addOn: {
-        name: "Bardiya National Park Safari",
-        price: "INR 22,900 + GST",
-        description: "1-night wildlife safari add-on experience"
-      }
-    },
     overview: {
       title: "The Sky Path to Kailash",
       intro: [
@@ -581,7 +564,7 @@ export const trails = [
         "Rescue/evacuation costs and travel insurance",
         "Medical expenses beyond basic first-aid",
         "Personal clothing and accessories",
-        "Bardiya National Park add-on (available at INR 22,900 + GST)",
+        "Bardiya National Park add-on (available separately — ask our team)",
         "Anything not specifically mentioned in inclusions"
       ],
       accommodation: [
@@ -624,7 +607,8 @@ export const trails = [
       },
       mealPlan: "Pure vegetarian Indian cuisine prepared without onion and garlic. Jain meals available on request.",
       groupSize: "Minimum 25 passengers required to operate the charter. Groups may be combined to meet minimum requirement.",
-      addOnInfo: "Optional 1-night Bardiya National Park wildlife safari available at INR 22,900 + GST. Includes jungle safari, accommodation, and meals."
+      addOnInfo:
+        "Optional 1-night Bardiya National Park wildlife safari may be available — ask our team for details. Includes jungle safari, accommodation, and meals when offered."
     },
     departures: {
       batches: [
@@ -676,7 +660,7 @@ export const trails = [
     overview: {
       title: "Register your interest",
       intro: [
-        "We are preparing a dedicated North Trail experience alongside our flagship Kailash Mansarovar programmes. Share your contact details and we will notify you when departures and pricing are published.",
+        "We are preparing a dedicated North Trail experience alongside our flagship Kailash Mansarovar programmes. Share your contact details and we will notify you when departures are published.",
         "Until then, the complete 14-day Kailash Mansarovar Yatra remains our primary overland pilgrimage with full Kora."
       ],
       promise: [
@@ -724,7 +708,7 @@ export const trails = [
       intro: [
         "The East Trail is in planning. Leave your details with our team to receive the brochure as soon as it is available."
       ],
-      promise: ["Early access to dates and pricing", "Guidance on fitness and documentation"]
+      promise: ["Early access to dates and brochure", "Guidance on fitness and documentation"]
     },
     highlights: null,
     itinerary: null,
