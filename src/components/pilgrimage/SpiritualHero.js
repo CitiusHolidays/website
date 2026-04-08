@@ -80,18 +80,18 @@ export default function SpiritualHero() {
               exit={{ opacity: 0, y: -30, filter: "blur(10px)" }}
               transition={transitionConfig}
             >
-              <motion.span 
+              <motion.span
                 initial={{ opacity: 0, letterSpacing: "0.2em" }}
                 animate={{ opacity: 1, letterSpacing: "0.5em" }}
                 className="mb-4 block text-xs font-medium uppercase tracking-[0.5em] text-citius-orange md:text-sm"
               >
                 Citius Spiritual Trails
               </motion.span>
-              
+
               <h1 className="font-heading mb-6 text-5xl font-bold tracking-tight text-white md:text-8xl">
                 {images[currentIndex].title}
               </h1>
-              
+
               <p className="font-sans text-xl italic text-white/80 md:text-3xl px-4">
                 {images[currentIndex].subtitle}
               </p>
@@ -117,6 +117,7 @@ export default function SpiritualHero() {
         {images.map((_, idx) => (
           <button
             key={idx}
+            type="button"
             onClick={() => setCurrentIndex(idx)}
             className={`h-1 transition-all duration-500 ${
               idx === currentIndex ? "w-12 bg-citius-orange" : "w-4 bg-white/20 hover:bg-white/40"

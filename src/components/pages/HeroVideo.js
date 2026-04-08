@@ -13,7 +13,7 @@ export default function HeroVideo({ className }) {
       loop
       playsInline
       preload="auto"
-      poster="/gallery/bgfooter.webp"
+      poster="/gallery/hero-poster.webp"
       className={className}
       aria-hidden
     >

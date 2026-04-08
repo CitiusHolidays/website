@@ -9,17 +9,90 @@ import { useEffect, useState, useRef } from "react";
 import { useSession, logout } from "@/lib/auth-client";
 
 import Logo from "@/static/logos/logo.webp";
+import { getTrailsForHub } from "@/data/trails";
 
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
   { href: "/services", label: "Services" },
   { href: "/mice", label: "MICE" },
-  { href: "/pilgrimage", label: "Spiritual Trails" },
   { href: "/gallery", label: "Gallery" },
   { href: "/blog", label: "Blog" },
   { href: "/contact", label: "Contact" },
 ];
+
+function SpiritualTrailsDropdown({ isScrolled, pathname }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const trails = getTrailsForHub();
+  const isActive = pathname?.startsWith("/pilgrimage");
+
+  useEffect(() => {
+    const close = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`relative px-4 py-2 text-sm font-medium transition-colors duration-200 flex items-center gap-1 rounded-full group overflow-hidden ${
+          isScrolled ? "text-slate-300 hover:text-white" : "text-white hover:text-white"
+        }`}
+      >
+        <span className="relative z-10 flex items-center gap-1">
+          Spiritual Trails
+          <ChevronDown size={14} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+        </span>
+        <motion.div
+          className={`absolute inset-0 bg-white/10 rounded-full transition-opacity duration-200 pointer-events-none ${
+            isActive || open ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          }`}
+          layoutId="navHover"
+        />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-0 top-full mt-2 w-72 py-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-[min(70vh,420px)] overflow-y-auto"
+          >
+            <Link
+              href="/pilgrimage"
+              onClick={() => setOpen(false)}
+              className="block px-4 py-2.5 text-sm text-gray-900 hover:bg-gray-50 font-heading font-medium tracking-wide"
+            >
+              All trails overview
+            </Link>
+            <div className="border-t border-gray-100 my-1" />
+            {trails.map((t) => (
+              <Link
+                key={t.slug}
+                href={`/pilgrimage/${t.slug}`}
+                onClick={() => setOpen(false)}
+                className="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
+              >
+                <span className="line-clamp-2">{t.title}</span>
+                {t.status === "comingSoon" && (
+                  <span className="text-[10px] uppercase tracking-wider text-amber-700">Coming soon</span>
+                )}
+              </Link>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default function Header() {
   const pathname = usePathname();
@@ -106,7 +179,25 @@ export default function Header() {
 
           {/* Desktop Nav */}
           <nav className="hidden lg:flex items-center gap-1">
-            {navLinks.map((link) => (
+            {navLinks.slice(0, 4).map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`relative px-4 py-2 text-sm font-medium transition-colors duration-200 group overflow-hidden rounded-full ${
+                  isScrolled
+                    ? "text-slate-300 hover:text-white"
+                    : "text-white hover:text-white"
+                }`}
+              >
+                <span className="relative z-10">{link.label}</span>
+                <motion.div
+                  className="absolute inset-0 bg-white/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  layoutId="navHover"
+                />
+              </Link>
+            ))}
+            <SpiritualTrailsDropdown isScrolled={isScrolled} pathname={pathname} />
+            {navLinks.slice(4).map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -271,8 +362,8 @@ export default function Header() {
               <X size={32} />
             </button>
 
-            <nav className="flex flex-col items-center gap-8">
-              {navLinks.map((link, i) => (
+            <nav className="flex flex-col items-center gap-6 max-h-[65vh] overflow-y-auto px-4 w-full">
+              {navLinks.slice(0, 4).map((link, i) => (
                 <motion.div
                   key={link.href}
                   initial={{ opacity: 0, y: 20 }}
@@ -282,7 +373,51 @@ export default function Header() {
                   <Link
                     href={link.href}
                     onClick={() => setIsOpen(false)}
-                    className="text-4xl font-heading font-light text-white hover:text-blue-400 transition-colors"
+                    className="text-4xl font-heading font-light text-white hover:text-blue-400 transition-colors block text-center"
+                  >
+                    {link.label}
+                  </Link>
+                </motion.div>
+              ))}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.45 }}
+                className="flex flex-col items-center gap-3 w-full border-y border-white/10 py-6"
+              >
+                <span className="text-xs uppercase tracking-[0.25em] text-white/40">Spiritual Trails</span>
+                <Link
+                  href="/pilgrimage"
+                  onClick={() => setIsOpen(false)}
+                  className="text-2xl font-heading font-light text-white hover:text-blue-400 transition-colors"
+                >
+                  Overview
+                </Link>
+                <div className="flex flex-col items-center gap-2 mt-1">
+                  {getTrailsForHub().map((t) => (
+                    <Link
+                      key={t.slug}
+                      href={`/pilgrimage/${t.slug}`}
+                      onClick={() => setIsOpen(false)}
+                      className="text-base text-white/80 hover:text-blue-300 transition-colors text-center max-w-xs"
+                    >
+                      {t.title}
+                      {t.status === "comingSoon" ? " · soon" : ""}
+                    </Link>
+                  ))}
+                </div>
+              </motion.div>
+              {navLinks.slice(4).map((link, i) => (
+                <motion.div
+                  key={link.href}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.55 + i * 0.08 }}
+                >
+                  <Link
+                    href={link.href}
+                    onClick={() => setIsOpen(false)}
+                    className="text-4xl font-heading font-light text-white hover:text-blue-400 transition-colors block text-center"
                   >
                     {link.label}
                   </Link>

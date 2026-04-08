@@ -1,6 +1,7 @@
 import { client } from "@/sanity/client";
 import { sanityFetchOptions } from "@/sanity/fetchOptions";
 import { groq } from "next-sanity";
+import { getTrailSlugsForStaticParams } from "@/data/trails";
 
 export default async function sitemap() {
   const baseUrl = "https://www.citiusholidays.com";
@@ -17,6 +18,13 @@ export default async function sitemap() {
     lastModified: post._updatedAt,
     changeFrequency: "daily",
     priority: 0.5,
+  }));
+
+  const spiritualTrailUrls = getTrailSlugsForStaticParams().map(({ slug }) => ({
+    url: `${baseUrl}/pilgrimage/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: "monthly",
+    priority: 0.55,
   }));
 
   const staticUrls = [
@@ -76,5 +84,5 @@ export default async function sitemap() {
     },
   ];
 
-  return [...staticUrls, ...postUrls];
+  return [...staticUrls, ...spiritualTrailUrls, ...postUrls];
 }

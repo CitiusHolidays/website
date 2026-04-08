@@ -9,6 +9,7 @@
 		"lint": "next lint",
 		"perf:hero-baseline": "node bin/perf-hero-baseline.mjs",
 		"optimize-images": "node scripts/full-optimize-images.mjs",
+		"encode:hero": "powershell -ExecutionPolicy Bypass -File ./bin/encode-hero.ps1",
 		"convex:dev": "bunx convex dev",
 		"convex:codegen": "bunx convex codegen",
 		"auth:schema:generate": "bunx @better-auth/cli generate --config ./convex/betterAuth/auth.ts --output ./convex/betterAuth/schema.ts",
