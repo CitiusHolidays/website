@@ -5,6 +5,9 @@ const nextConfig = {
 		optimizePackageImports: ["lucide-react"],
 	},
 	images: {
+		// Omitted `quality` is handled as 75 internally, then snapped to the nearest
+		// value below — excluding 75 makes the effective default ~85 site-wide.
+		qualities: [85, 90, 95, 100],
 		remotePatterns: [
 			{
 				protocol: "https",
