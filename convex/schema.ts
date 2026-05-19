@@ -48,6 +48,22 @@ const salesStatus = v.union(
   v.literal("Order Lost"),
 );
 
+const leadStage = v.union(
+  v.literal("Inquiry"),
+  v.literal("Proposal"),
+  v.literal("Negotiation"),
+  v.literal("Confirmation"),
+  v.literal("Closed"),
+);
+
+const querySource = v.union(
+  v.literal("Website"),
+  v.literal("WhatsApp"),
+  v.literal("Email"),
+  v.literal("Manual"),
+  v.literal("Referral"),
+);
+
 const contractingStatus = v.union(
   v.literal("Query Received"),
   v.literal("Proposal in progress"),
@@ -119,6 +135,21 @@ const guestType = v.union(
   v.literal("Employee"),
   v.literal("Client"),
   v.literal("VIP"),
+);
+
+const expenseCurrency = v.union(
+  v.literal("INR"),
+  v.literal("USD"),
+  v.literal("AED"),
+  v.literal("EUR"),
+  v.literal("THB"),
+  v.literal("SGD"),
+);
+
+const approvalStatus = v.union(
+  v.literal("Pending"),
+  v.literal("Approved"),
+  v.literal("Rejected"),
 );
 
 export default defineSchema({
@@ -201,6 +232,10 @@ export default defineSchema({
     name: v.string(),
     roles: v.array(staffRole),
     officeId: v.optional(v.id("offices")),
+    department: v.optional(v.string()),
+    function: v.optional(v.string()),
+    mobile: v.optional(v.string()),
+    location: v.optional(v.string()),
     active: v.boolean(),
     invitedBy: v.optional(v.string()),
     lastSeenAt: v.optional(v.number()),
@@ -234,6 +269,7 @@ export default defineSchema({
     clientId: v.optional(v.id("clients")),
     clientName: v.string(),
     contactPerson: v.optional(v.string()),
+    contactMobile: v.optional(v.string()),
     destination: v.optional(v.string()),
     paxCount: v.number(),
     travelStartDate: v.optional(v.string()),
@@ -241,7 +277,10 @@ export default defineSchema({
     queryType,
     travelType,
     salesStatus,
+    leadStage: v.optional(leadStage),
     contractingStatus,
+    budgetAmount: v.optional(v.number()),
+    source: v.optional(querySource),
     lostReason: v.optional(lostReason),
     lostReasonOther: v.optional(v.string()),
     salesOwnerId: v.optional(v.string()),
@@ -250,6 +289,7 @@ export default defineSchema({
     contractingOwnerName: v.optional(v.string()),
     notes: v.optional(v.string()),
     confirmedAt: v.optional(v.number()),
+    submittedToContractingAt: v.optional(v.number()),
     createdBy: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -422,6 +462,9 @@ export default defineSchema({
     travellerId: v.optional(v.id("travellers")),
     pnrId: v.optional(v.id("pnrs")),
     ticketNumber: v.optional(v.string()),
+    ticketType: v.optional(
+      v.union(v.literal("FIT Ticket"), v.literal("Group Ticket")),
+    ),
     ticketStatus,
     paymentType,
     cabinClass: v.optional(v.string()),
@@ -622,6 +665,13 @@ export default defineSchema({
     jobCardId: v.id("jobCards"),
     tourManagerName: v.optional(v.string()),
     category: v.string(),
+    expenseDate: v.optional(v.string()),
+    particulars: v.optional(v.string()),
+    currency: v.optional(expenseCurrency),
+    cardAmount: v.optional(v.number()),
+    cashAmount: v.optional(v.number()),
+    epayAmount: v.optional(v.number()),
+    submittedForApprovalAt: v.optional(v.number()),
     amount: v.number(),
     paidBy: v.string(),
     proofAttachmentId: v.optional(v.id("attachments")),
@@ -642,6 +692,27 @@ export default defineSchema({
   })
     .index("by_jobCardId", ["jobCardId"])
     .index("by_approvalStatus", ["approvalStatus"]),
+
+  approvalRequests: defineTable({
+    requestCode: v.string(),
+    type: v.string(),
+    entityType: v.string(),
+    entityId: v.string(),
+    requestedBy: v.string(),
+    requestedByName: v.optional(v.string()),
+    summary: v.string(),
+    amount: v.optional(v.number()),
+    status: approvalStatus,
+    decidedBy: v.optional(v.string()),
+    decidedByName: v.optional(v.string()),
+    decidedAt: v.optional(v.number()),
+    decisionNote: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_entity", ["entityType", "entityId"])
+    .index("by_type_status", ["type", "status"]),
 
   attachments: defineTable({
     entityType: v.string(),

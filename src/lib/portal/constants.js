@@ -41,6 +41,9 @@ export const PORTAL_PERMISSIONS = {
   VIEW_EXPENSES: "view:expenses",
   MANAGE_EXPENSES: "manage:expenses",
   APPROVE_EXPENSES: "approve:expenses",
+  VIEW_TEAM: "view:team",
+  VIEW_APPROVALS: "view:approvals",
+  VIEW_REPORTS: "view:reports",
   VIEW_ACTIVITY: "view:activity",
   VIEW_SENSITIVE_TRAVELLER_DATA: "view:sensitiveTravellerData",
 };
@@ -62,6 +65,10 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_TOUR_MANAGERS,
     P.VIEW_FINANCE,
     P.VIEW_EXPENSES,
+    P.APPROVE_EXPENSES,
+    P.VIEW_TEAM,
+    P.VIEW_APPROVALS,
+    P.VIEW_REPORTS,
     P.VIEW_ACTIVITY,
     P.VIEW_SENSITIVE_TRAVELLER_DATA,
   ],
@@ -71,6 +78,12 @@ export const ROLE_PERMISSIONS = {
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
     P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.VIEW_VISA,
+    P.VIEW_TICKETING,
+    P.VIEW_TOUR_MANAGERS,
+    P.VIEW_OPERATIONS,
+    P.VIEW_TEAM,
     P.VIEW_ACTIVITY,
   ],
   Sales: [
@@ -79,6 +92,12 @@ export const ROLE_PERMISSIONS = {
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
     P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.VIEW_VISA,
+    P.VIEW_TICKETING,
+    P.VIEW_TOUR_MANAGERS,
+    P.VIEW_OPERATIONS,
+    P.VIEW_TEAM,
   ],
   "Contracting Head": [
     P.VIEW_DASHBOARD,
@@ -88,6 +107,12 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_PROPOSALS,
     P.MANAGE_PROPOSALS,
     P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.VIEW_VISA,
+    P.VIEW_TICKETING,
+    P.VIEW_TOUR_MANAGERS,
+    P.VIEW_OPERATIONS,
+    P.VIEW_TEAM,
     P.VIEW_ACTIVITY,
   ],
   Contracting: [
@@ -98,18 +123,30 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_PROPOSALS,
     P.MANAGE_PROPOSALS,
     P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.VIEW_VISA,
+    P.VIEW_TICKETING,
+    P.VIEW_TOUR_MANAGERS,
+    P.VIEW_OPERATIONS,
+    P.VIEW_TEAM,
   ],
   Accounts: [
     P.VIEW_DASHBOARD,
     P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
     P.VIEW_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.MANAGE_JOB_CARDS,
     P.VIEW_FINANCE,
     P.MANAGE_FINANCE,
+    P.VIEW_TEAM,
+    P.VIEW_REPORTS,
   ],
   "Operations Head": [
     P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
+    P.VIEW_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.MANAGE_JOB_CARDS,
     P.VIEW_TRAVELLERS,
@@ -121,11 +158,17 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_TOUR_MANAGERS,
     P.MANAGE_TOUR_MANAGERS,
     P.VIEW_TICKETING,
+    P.VIEW_EXPENSES,
+    P.VIEW_FINANCE,
+    P.VIEW_TEAM,
     P.VIEW_ACTIVITY,
     P.VIEW_SENSITIVE_TRAVELLER_DATA,
   ],
   Operations: [
     P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
+    P.VIEW_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.VIEW_TRAVELLERS,
     P.MANAGE_TRAVELLERS,
@@ -135,23 +178,33 @@ export const ROLE_PERMISSIONS = {
     P.MANAGE_OPERATIONS,
     P.VIEW_TOUR_MANAGERS,
     P.VIEW_TICKETING,
+    P.VIEW_EXPENSES,
+    P.VIEW_TEAM,
   ],
   "Head of Ticketing": [
     P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
+    P.VIEW_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.VIEW_TRAVELLERS,
     P.VIEW_TICKETING,
     P.MANAGE_TICKETING,
     P.VIEW_TOUR_MANAGERS,
+    P.VIEW_TEAM,
     P.VIEW_ACTIVITY,
   ],
   Ticketing: [
     P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
+    P.VIEW_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.VIEW_TRAVELLERS,
     P.VIEW_TICKETING,
     P.MANAGE_TICKETING,
     P.VIEW_TOUR_MANAGERS,
+    P.VIEW_TEAM,
   ],
   "Tour Manager": [
     P.VIEW_DASHBOARD,
@@ -162,19 +215,32 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_TOUR_MANAGERS,
     P.VIEW_EXPENSES,
     P.MANAGE_EXPENSES,
+    P.VIEW_TEAM,
   ],
   Finance: [
     P.VIEW_DASHBOARD,
     P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
     P.VIEW_PROPOSALS,
     P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.VIEW_VISA,
+    P.VIEW_TICKETING,
+    P.VIEW_OPERATIONS,
+    P.VIEW_TOUR_MANAGERS,
     P.VIEW_FINANCE,
     P.MANAGE_FINANCE,
     P.VIEW_EXPENSES,
     P.APPROVE_EXPENSES,
+    P.VIEW_TEAM,
+    P.VIEW_APPROVALS,
+    P.VIEW_REPORTS,
     P.VIEW_ACTIVITY,
   ],
 };
+
+export const TICKET_TYPES = ["FIT Ticket", "Group Ticket"];
+export const CABIN_CLASSES = ["Economy", "Premium Economy", "Business"];
 
 export const PORTAL_NAV_GROUPS = [
   {
@@ -184,7 +250,7 @@ export const PORTAL_NAV_GROUPS = [
   {
     label: "Enquiries",
     items: [
-      { href: "/portal/queries", label: "All Queries", page: "queries", permission: P.VIEW_QUERIES },
+      { href: "/portal/queries", label: "All Sales Queries", page: "queries", permission: P.VIEW_QUERIES },
       { href: "/portal/pipeline", label: "Pipeline View", page: "pipeline", permission: P.VIEW_QUERIES },
       { href: "/portal/contracting", label: "Contracting", page: "contracting", permission: P.VIEW_CONTRACTING },
     ],
@@ -218,6 +284,14 @@ export const PORTAL_NAV_GROUPS = [
     items: [
       { href: "/portal/finance", label: "Finance", page: "finance", permission: P.VIEW_FINANCE },
       { href: "/portal/expenses", label: "Expenses", page: "expenses", permission: P.VIEW_EXPENSES },
+      { href: "/portal/approvals", label: "Approvals", page: "approvals", permission: P.VIEW_APPROVALS },
+      { href: "/portal/reports", label: "Reports", page: "reports", permission: P.VIEW_REPORTS },
+    ],
+  },
+  {
+    label: "Admin",
+    items: [
+      { href: "/portal/team", label: "Team Directory", page: "team", permission: P.VIEW_TEAM },
     ],
   },
   {
@@ -248,6 +322,10 @@ export const SALES_STATUSES = [
   "Order Confirmed",
   "Order Lost",
 ];
+
+export const LEAD_STAGES = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Closed"];
+
+export const QUERY_SOURCES = ["Website", "WhatsApp", "Email", "Manual", "Referral"];
 
 export const CONTRACTING_STATUSES = [
   "Query Received",
@@ -289,6 +367,8 @@ export const ROOM_TYPES = ["SGL", "Twin", "DBL", "Child with Bed", "Family Room"
 export const FOOD_PREFERENCES = ["Veg", "Non-Veg", "Jain", "Vegan"];
 export const CALLING_STATUSES = ["Pending", "Done", "No response"];
 export const GUEST_TYPES = ["Employee", "Client", "VIP"];
+export const EXPENSE_HEADS = ["F&B", "Transport", "Hotel", "Activity", "Visa", "Tips", "Miscellaneous"];
+export const EXPENSE_CURRENCIES = ["INR", "USD", "AED", "EUR", "THB", "SGD"];
 
 export const PAYMENT_TERMS_BY_QUERY_TYPE = {
   MICE: { minAdvancePercent: 70, maxAdvancePercent: 90 },
@@ -309,3 +389,5 @@ export const PIPELINE_STAGES = [
   "Order Confirmed",
   "Order Lost",
 ];
+
+export const SALES_PIPELINE_STAGES = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Closed"];

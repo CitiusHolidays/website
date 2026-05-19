@@ -35,6 +35,22 @@ const salesStatusValidator = v.union(
   v.literal("Order Lost"),
 );
 
+const leadStageValidator = v.union(
+  v.literal("Inquiry"),
+  v.literal("Proposal"),
+  v.literal("Negotiation"),
+  v.literal("Confirmation"),
+  v.literal("Closed"),
+);
+
+const querySourceValidator = v.union(
+  v.literal("Website"),
+  v.literal("WhatsApp"),
+  v.literal("Email"),
+  v.literal("Manual"),
+  v.literal("Referral"),
+);
+
 const contractingStatusValidator = v.union(
   v.literal("Query Received"),
   v.literal("Proposal in progress"),
@@ -68,12 +84,15 @@ export const create = mutation({
   args: {
     clientName: v.string(),
     contactPerson: v.optional(v.string()),
+    contactMobile: v.optional(v.string()),
     destination: v.optional(v.string()),
     paxCount: v.number(),
     travelStartDate: v.optional(v.string()),
     travelEndDate: v.optional(v.string()),
     queryType: queryTypeValidator,
     travelType: travelTypeValidator,
+    budgetAmount: v.optional(v.number()),
+    source: v.optional(querySourceValidator),
     salesOwnerName: v.optional(v.string()),
     notes: v.optional(v.string()),
   },
@@ -91,6 +110,7 @@ export const create = mutation({
     const clientId = await ctx.db.insert("clients", {
       name: args.clientName.trim(),
       contactPerson: args.contactPerson?.trim() || "",
+      phone: args.contactMobile?.trim() || "",
       createdAt: now,
       updatedAt: now,
     });
@@ -99,6 +119,7 @@ export const create = mutation({
       clientId,
       clientName: args.clientName.trim(),
       contactPerson: args.contactPerson?.trim() || "",
+      contactMobile: args.contactMobile?.trim() || "",
       destination: args.destination?.trim() || "",
       paxCount: args.paxCount,
       travelStartDate: args.travelStartDate || "",
@@ -106,7 +127,10 @@ export const create = mutation({
       queryType: args.queryType,
       travelType: args.travelType,
       salesStatus: "Proposal in discussion",
+      leadStage: "Inquiry",
       contractingStatus: "Query Received",
+      budgetAmount: Math.max(args.budgetAmount ?? 0, 0),
+      source: args.source ?? "Manual",
       salesOwnerId: access.authUserId,
       salesOwnerName: args.salesOwnerName?.trim() || access.name,
       notes: args.notes?.trim() || "",
@@ -174,10 +198,53 @@ export const assignContracting = mutation({
   },
 });
 
+export const submitToContracting = mutation({
+  args: {
+    queryId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES);
+    const queryId = ctx.db.normalizeId("queries", args.queryId);
+    if (!queryId) {
+      throw new ConvexError("Invalid query id");
+    }
+    const current = await ctx.db.get(queryId);
+    if (!current) {
+      throw new ConvexError("Query not found");
+    }
+    const now = Date.now();
+    await ctx.db.patch(queryId, {
+      contractingStatus: "Query Received",
+      leadStage: current.leadStage === "Inquiry" ? "Proposal" : current.leadStage,
+      submittedToContractingAt: now,
+      updatedAt: now,
+    });
+    await createActivity(ctx, access, {
+      entityType: "query",
+      entityId: queryId,
+      action: "submitted_to_contracting",
+      message: `${current.queryCode} submitted to Contracting`,
+    });
+    await notifyRoles(ctx, [
+      "Contracting",
+      "Contracting Head",
+      "Operations Head",
+      "Directors",
+    ], {
+      title: "Query submitted to Contracting",
+      body: `${current.queryCode} is ready for assignment and proposal work.`,
+      entityType: "query",
+      entityId: queryId,
+    });
+    return { id: queryId };
+  },
+});
+
 export const updateStatus = mutation({
   args: {
     queryId: v.string(),
     salesStatus: v.optional(salesStatusValidator),
+    leadStage: v.optional(leadStageValidator),
     contractingStatus: v.optional(contractingStatusValidator),
     lostReason: v.optional(lostReasonValidator),
     lostReasonOther: v.optional(v.string()),
@@ -203,20 +270,27 @@ export const updateStatus = mutation({
       patch.salesStatus = args.salesStatus;
       if (args.salesStatus === "Order Confirmed") {
         patch.contractingStatus = "Order Confirmed";
+        patch.leadStage = "Confirmation";
         patch.confirmedAt = Date.now();
       }
       if (args.salesStatus === "Order Lost") {
         patch.contractingStatus = "Order Lost";
+        patch.leadStage = "Closed";
       }
+    }
+    if (args.leadStage) {
+      patch.leadStage = args.leadStage;
     }
     if (args.contractingStatus) {
       patch.contractingStatus = args.contractingStatus;
       if (args.contractingStatus === "Order Confirmed") {
         patch.salesStatus = "Order Confirmed";
+        patch.leadStage = "Confirmation";
         patch.confirmedAt = Date.now();
       }
       if (args.contractingStatus === "Order Lost") {
         patch.salesStatus = "Order Lost";
+        patch.leadStage = "Closed";
       }
     }
     if (args.lostReason) {

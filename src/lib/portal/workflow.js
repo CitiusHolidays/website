@@ -2,6 +2,7 @@ import {
   CONTRACTING_STATUSES,
   PAYMENT_TERMS_BY_QUERY_TYPE,
   PIPELINE_STAGES,
+  SALES_PIPELINE_STAGES,
   TICKET_STATUSES,
   VISA_STATUSES,
 } from "./constants";
@@ -30,6 +31,35 @@ export function getPipelineBuckets(queries = []) {
   const buckets = Object.fromEntries(PIPELINE_STAGES.map((stage) => [stage, []]));
   for (const query of queries) {
     const stage = getPipelineStage(query);
+    buckets[stage] = buckets[stage] || [];
+    buckets[stage].push(query);
+  }
+  return buckets;
+}
+
+export function getSalesPipelineStage(query) {
+  if (query?.leadStage) {
+    return query.leadStage;
+  }
+  if (query?.salesStatus === "Order Lost" || query?.contractingStatus === "Order Lost") {
+    return "Closed";
+  }
+  if (query?.salesStatus === "Order Confirmed" || query?.contractingStatus === "Order Confirmed") {
+    return "Confirmation";
+  }
+  if (query?.contractingStatus === "Proposal sent") {
+    return "Proposal";
+  }
+  if (["Proposal in progress", "Change in destination"].includes(query?.contractingStatus)) {
+    return "Negotiation";
+  }
+  return "Inquiry";
+}
+
+export function getSalesPipelineBuckets(queries = []) {
+  const buckets = Object.fromEntries(SALES_PIPELINE_STAGES.map((stage) => [stage, []]));
+  for (const query of queries) {
+    const stage = getSalesPipelineStage(query);
     buckets[stage] = buckets[stage] || [];
     buckets[stage].push(query);
   }

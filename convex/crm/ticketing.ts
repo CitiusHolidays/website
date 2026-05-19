@@ -32,6 +32,11 @@ const foodPreferenceValidator = v.union(
   v.literal("Vegan"),
 );
 
+const ticketTypeValidator = v.union(
+  v.literal("FIT Ticket"),
+  v.literal("Group Ticket"),
+);
+
 const publicPnr = (pnr: any, job: any) => ({
   id: pnr._id,
   jobCardId: pnr.jobCardId,
@@ -59,6 +64,7 @@ const publicTicket = (ticket: any, traveller: any, pnr: any, job: any) => ({
   pnrId: ticket.pnrId ?? null,
   pnrCode: pnr?.pnrCode ?? "",
   ticketNumber: ticket.ticketNumber ?? "",
+  ticketType: ticket.ticketType ?? "",
   ticketStatus: ticket.ticketStatus,
   paymentType: ticket.paymentType,
   cabinClass: ticket.cabinClass ?? "",
@@ -175,6 +181,7 @@ export const createTicket = mutation({
     travellerId: v.optional(v.string()),
     pnrId: v.optional(v.string()),
     ticketNumber: v.optional(v.string()),
+    ticketType: v.optional(ticketTypeValidator),
     ticketStatus: ticketStatusValidator,
     paymentType: paymentTypeValidator,
     cabinClass: v.optional(v.string()),
@@ -202,6 +209,7 @@ export const createTicket = mutation({
       travellerId: travellerId ?? undefined,
       pnrId: pnrId ?? undefined,
       ticketNumber: args.ticketNumber?.trim() || "",
+      ticketType: args.ticketType,
       ticketStatus: args.ticketStatus,
       paymentType: args.paymentType,
       cabinClass: args.cabinClass?.trim() || "Economy",

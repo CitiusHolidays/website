@@ -5,6 +5,7 @@ import {
   PERMISSIONS,
   getPortalAccess,
   normalizeEmail,
+  requireAnyPermission,
   requireStaff,
 } from "./lib";
 
@@ -37,9 +38,40 @@ export const listStaff = query({
         email: staff.email,
         name: staff.name,
         roles: staff.roles,
+        department: staff.department ?? "",
+        function: staff.function ?? "",
+        mobile: staff.mobile ?? "",
+        location: staff.location ?? "",
         active: staff.active,
         createdAt: new Date(staff.createdAt).toISOString(),
         updatedAt: new Date(staff.updatedAt).toISOString(),
+      }));
+  },
+});
+
+export const listDirectory = query({
+  args: {},
+  handler: async (ctx) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.VIEW_TEAM,
+      PERMISSIONS.VIEW_CONTRACTING,
+    ]);
+    const offices = await ctx.db.query("offices").collect();
+    const officeNames = new Map(offices.map((office) => [office._id, office.name]));
+    const rows = await ctx.db.query("staffUsers").collect();
+    return rows
+      .filter((staff) => staff.active)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((staff) => ({
+        id: staff._id,
+        email: staff.email,
+        name: staff.name,
+        roles: staff.roles,
+        department: staff.department ?? staff.roles[0] ?? "",
+        function: staff.function ?? staff.roles.join(", "),
+        mobile: staff.mobile ?? "",
+        location: staff.location ?? (staff.officeId ? officeNames.get(staff.officeId) : "") ?? "",
+        isCurrentUser: normalizeEmail(staff.email) === normalizeEmail(access.email),
       }));
   },
 });
@@ -50,6 +82,10 @@ export const upsertStaff = mutation({
     email: v.string(),
     name: v.string(),
     roles: v.array(v.string()),
+    department: v.optional(v.string()),
+    function: v.optional(v.string()),
+    mobile: v.optional(v.string()),
+    location: v.optional(v.string()),
     active: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -83,6 +119,10 @@ export const upsertStaff = mutation({
         emailNormalized,
         name: args.name.trim(),
         roles: roles as any,
+        department: args.department?.trim() || "",
+        function: args.function?.trim() || "",
+        mobile: args.mobile?.trim() || "",
+        location: args.location?.trim() || "",
         active: args.active,
         updatedAt: now,
       });
@@ -94,6 +134,10 @@ export const upsertStaff = mutation({
       await ctx.db.patch(existingByEmail._id, {
         name: args.name.trim(),
         roles: roles as any,
+        department: args.department?.trim() || "",
+        function: args.function?.trim() || "",
+        mobile: args.mobile?.trim() || "",
+        location: args.location?.trim() || "",
         active: args.active,
         updatedAt: now,
       });
@@ -105,6 +149,10 @@ export const upsertStaff = mutation({
       emailNormalized,
       name: args.name.trim(),
       roles: roles as any,
+      department: args.department?.trim() || "",
+      function: args.function?.trim() || "",
+      mobile: args.mobile?.trim() || "",
+      location: args.location?.trim() || "",
       active: args.active,
       invitedBy: access.authUserId,
       createdAt: now,

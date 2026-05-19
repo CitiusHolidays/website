@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useScroll, useTransform } from "motion/react";
 import { Menu, X, ArrowRight, User, LogOut, ChevronDown, BriefcaseBusiness } from "lucide-react";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -109,9 +109,10 @@ export default function Header() {
   // Get session data
   const { data: session, isPending } = useSession();
   const user = session?.user;
+  const { isAuthenticated } = useConvexAuth();
   const portalAccess = useQuery(
     api.crm.staff.getMyPortalAccess,
-    user ? {} : "skip",
+    isAuthenticated ? {} : "skip",
   );
   const canAccessPortal = Boolean(portalAccess?.allowed);
 

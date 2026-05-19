@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import {
   CheckCircle2,
   CircleDollarSign,
@@ -22,29 +22,35 @@ import {
   Users,
 } from "lucide-react";
 import {
+  CABIN_CLASSES,
   CALLING_STATUSES,
   CONTRACTING_STATUSES,
+  EXPENSE_CURRENCIES,
+  EXPENSE_HEADS,
   FOOD_PREFERENCES,
   GUEST_TYPES,
+  LEAD_STAGES,
   LOST_REASONS,
   PAYMENT_TYPES,
   PORTAL_PERMISSIONS,
   PORTAL_ROLES,
+  QUERY_SOURCES,
   QUERY_TYPES,
   ROOM_TYPES,
   SALES_STATUSES,
   TICKET_STATUSES,
+  TICKET_TYPES,
   TRAVEL_TYPES,
   VISA_STATUSES,
 } from "@/lib/portal/constants";
-import { getPipelineBuckets } from "@/lib/portal/workflow";
+import { getPipelineBuckets, getSalesPipelineBuckets } from "@/lib/portal/workflow";
 import { api } from "@convex/_generated/api";
 
 const P = PORTAL_PERMISSIONS;
 
 const VIEW_META = {
   dashboard: { title: "Dashboard", subtitle: "Live overview across active enquiries, jobs, tickets, visas, and payments.", permission: P.VIEW_DASHBOARD },
-  queries: { title: "All Queries", subtitle: "Manage incoming MICE, group travel, FIT, B2B, cement, and spiritual enquiries.", permission: P.VIEW_QUERIES },
+  queries: { title: "All Sales Queries", subtitle: "Manage incoming MICE, group travel, FIT, B2B, cement, and spiritual enquiries.", permission: P.VIEW_QUERIES },
   pipeline: { title: "Pipeline View", subtitle: "Track query movement from contracting to confirmed or lost.", permission: P.VIEW_QUERIES },
   proposals: { title: "Proposals", subtitle: "Create, cost, and send proposals linked to active queries.", permission: P.VIEW_PROPOSALS },
   contracting: { title: "Contracting Dashboard", subtitle: "Assign contracting owners and move proposals through contracting statuses.", permission: P.VIEW_CONTRACTING },
@@ -60,6 +66,9 @@ const VIEW_META = {
   "tour-managers": { title: "Tour Managers", subtitle: "TM assignment, calling status, availability, and active tour visibility.", permission: P.VIEW_TOUR_MANAGERS },
   finance: { title: "Finance", subtitle: "Fund projections, invoices, received amounts, balances, and closure status.", permission: P.VIEW_FINANCE },
   expenses: { title: "Expense Management", subtitle: "Tour-wise expenses, approval, and reimbursement tracking.", permission: P.VIEW_EXPENSES },
+  approvals: { title: "Approvals", subtitle: "Unified approval queue for expenses and finance handoffs.", permission: P.VIEW_APPROVALS },
+  reports: { title: "Reports", subtitle: "Revenue, headcount, and conversion snapshots for leadership review.", permission: P.VIEW_REPORTS },
+  team: { title: "Team Directory", subtitle: "Read-only staff directory by department, role, and location.", permission: P.VIEW_TEAM },
   activity: { title: "Notifications / Activity Log", subtitle: "Audit trail for CRM status changes and workflow triggers.", permission: P.VIEW_ACTIVITY },
   settings: { title: "Settings / Dropdown Management", subtitle: "Staff allowlist and workflow dropdown reference values.", permission: P.MANAGE_STAFF },
 };
@@ -67,12 +76,16 @@ const VIEW_META = {
 const INITIAL_FORM = {
   clientName: "",
   contactPerson: "",
+  contactMobile: "",
   destination: "",
   paxCount: "1",
   travelStartDate: "",
   travelEndDate: "",
   queryType: "MICE",
   travelType: "International Travel",
+  budgetAmount: "",
+  source: "Manual",
+  leadStage: "Inquiry",
   salesOwnerName: "",
   notes: "",
   queryId: "",
@@ -91,6 +104,8 @@ const INITIAL_FORM = {
   jobCardId: "",
   fullName: "",
   travelHub: "",
+  travelDate: "",
+  guestCompanions: "",
   foodPreference: "Veg",
   guestType: "Employee",
   paymentType: "Company Paid",
@@ -98,6 +113,10 @@ const INITIAL_FORM = {
   visaRequired: "Yes",
   passportStatus: "Pending",
   hotelAllocation: "",
+  domesticTravelRequired: "No",
+  biometricAppointmentDate: "",
+  extensionOfTour: "No",
+  arrivingEarly: "No",
   visaRecordId: "",
   visaStatus: "Checklist Shared",
   appointmentDate: "",
@@ -109,6 +128,7 @@ const INITIAL_FORM = {
   travellerId: "",
   pnrId: "",
   ticketNumber: "",
+  ticketType: "FIT Ticket",
   ticketStatus: "Issued",
   cabinClass: "Economy",
   seatPreference: "",
@@ -128,8 +148,18 @@ const INITIAL_FORM = {
   receivedAmount: "",
   dueDate: "",
   category: "",
+  expenseDate: "",
+  particulars: "",
+  currency: "INR",
+  cardAmount: "",
+  cashAmount: "",
+  epayAmount: "",
   amount: "",
   paidBy: "",
+  department: "",
+  staffFunction: "",
+  mobile: "",
+  location: "",
 };
 
 export default function PortalWorkspace({ view = "dashboard" }) {
@@ -138,32 +168,43 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [pipelineMode, setPipelineMode] = useState("sales");
 
-  const access = useQuery(api.crm.staff.getMyPortalAccess, {});
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
+  const access = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
   const has = (permission) => Boolean(access?.permissions?.includes(permission));
   const meta = VIEW_META[view] || VIEW_META.dashboard;
   const allowed = access?.allowed && has(meta.permission);
+  const canFetch = isAuthenticated && access?.allowed;
 
-  const summary = useQuery(api.crm.dashboard.getPortalSummary, allowed && view === "dashboard" ? {} : "skip");
-  const queries = useQuery(api.crm.queries.list, access?.allowed && has(P.VIEW_QUERIES) ? {} : "skip");
-  const proposals = useQuery(api.crm.proposals.list, access?.allowed && has(P.VIEW_PROPOSALS) ? {} : "skip");
-  const jobCards = useQuery(api.crm.jobCards.list, access?.allowed && has(P.VIEW_JOB_CARDS) ? {} : "skip");
-  const travellers = useQuery(api.crm.travellers.list, access?.allowed && has(P.VIEW_TRAVELLERS) ? {} : "skip");
-  const visas = useQuery(api.crm.visa.list, access?.allowed && has(P.VIEW_VISA) ? {} : "skip");
-  const ticketDashboard = useQuery(api.crm.ticketing.dashboard, access?.allowed && has(P.VIEW_TICKETING) ? {} : "skip");
-  const pnrs = useQuery(api.crm.ticketing.listPnrs, access?.allowed && has(P.VIEW_TICKETING) ? {} : "skip");
-  const tickets = useQuery(api.crm.ticketing.listTickets, access?.allowed && has(P.VIEW_TICKETING) ? {} : "skip");
-  const seats = useQuery(api.crm.ticketing.listSeatAllocations, access?.allowed && has(P.VIEW_TICKETING) ? {} : "skip");
-  const hotels = useQuery(api.crm.ops.listHotels, access?.allowed && has(P.VIEW_OPERATIONS) ? {} : "skip");
-  const tourManagers = useQuery(api.crm.ops.listTourManagers, access?.allowed && has(P.VIEW_TOUR_MANAGERS) ? {} : "skip");
-  const invoices = useQuery(api.crm.finance.listInvoices, access?.allowed && has(P.VIEW_FINANCE) ? {} : "skip");
-  const expenses = useQuery(api.crm.finance.listExpenses, access?.allowed && has(P.VIEW_EXPENSES) ? {} : "skip");
-  const activity = useQuery(api.crm.activity.listActivity, access?.allowed && has(P.VIEW_ACTIVITY) ? { limit: 80 } : "skip");
-  const notifications = useQuery(api.crm.activity.listNotifications, access?.allowed ? { limit: 80 } : "skip");
-  const dropdowns = useQuery(api.crm.settings.listDropdowns, access?.allowed && view === "settings" ? {} : "skip");
-  const staff = useQuery(api.crm.staff.listStaff, access?.allowed && has(P.MANAGE_STAFF) ? {} : "skip");
+  const summary = useQuery(api.crm.dashboard.getPortalSummary, canFetch && allowed && view === "dashboard" ? {} : "skip");
+  const queries = useQuery(api.crm.queries.list, canFetch && has(P.VIEW_QUERIES) ? {} : "skip");
+  const proposals = useQuery(api.crm.proposals.list, canFetch && has(P.VIEW_PROPOSALS) ? {} : "skip");
+  const jobCards = useQuery(api.crm.jobCards.list, canFetch && has(P.VIEW_JOB_CARDS) ? {} : "skip");
+  const travellers = useQuery(api.crm.travellers.list, canFetch && has(P.VIEW_TRAVELLERS) ? {} : "skip");
+  const visas = useQuery(api.crm.visa.list, canFetch && has(P.VIEW_VISA) ? {} : "skip");
+  const ticketDashboard = useQuery(api.crm.ticketing.dashboard, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
+  const pnrs = useQuery(api.crm.ticketing.listPnrs, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
+  const tickets = useQuery(api.crm.ticketing.listTickets, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
+  const seats = useQuery(api.crm.ticketing.listSeatAllocations, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
+  const hotels = useQuery(api.crm.ops.listHotels, canFetch && has(P.VIEW_OPERATIONS) ? {} : "skip");
+  const tourManagers = useQuery(api.crm.ops.listTourManagers, canFetch && has(P.VIEW_TOUR_MANAGERS) ? {} : "skip");
+  const invoices = useQuery(api.crm.finance.listInvoices, canFetch && has(P.VIEW_FINANCE) ? {} : "skip");
+  const expenses = useQuery(api.crm.finance.listExpenses, canFetch && has(P.VIEW_EXPENSES) ? {} : "skip");
+  const financeOverview = useQuery(api.crm.finance.getFinanceOverview, canFetch && has(P.VIEW_FINANCE) && view === "finance" ? {} : "skip");
+  const approvals = useQuery(api.crm.approvals.list, canFetch && has(P.VIEW_APPROVALS) ? {} : "skip");
+  const reports = useQuery(api.crm.reports.overview, canFetch && has(P.VIEW_REPORTS) && view === "reports" ? {} : "skip");
+  const team = useQuery(
+    api.crm.staff.listDirectory,
+    canFetch && (has(P.VIEW_TEAM) || view === "contracting") ? {} : "skip",
+  );
+  const activity = useQuery(api.crm.activity.listActivity, canFetch && has(P.VIEW_ACTIVITY) ? { limit: 80 } : "skip");
+  const notifications = useQuery(api.crm.activity.listNotifications, canFetch ? { limit: 80 } : "skip");
+  const dropdowns = useQuery(api.crm.settings.listDropdowns, canFetch && view === "settings" ? {} : "skip");
+  const staff = useQuery(api.crm.staff.listStaff, canFetch && has(P.MANAGE_STAFF) ? {} : "skip");
 
   const createQuery = useMutation(api.crm.queries.create);
+  const submitToContracting = useMutation(api.crm.queries.submitToContracting);
   const assignContracting = useMutation(api.crm.queries.assignContracting);
   const updateQueryStatus = useMutation(api.crm.queries.updateStatus);
   const createProposal = useMutation(api.crm.proposals.create);
@@ -171,6 +212,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const createJobCard = useMutation(api.crm.jobCards.createFromQuery);
   const updateJobStatus = useMutation(api.crm.jobCards.updateStatus);
   const createTraveller = useMutation(api.crm.travellers.create);
+  const updateCallingStatus = useMutation(api.crm.travellers.updateCallingStatus);
   const updateVisa = useMutation(api.crm.visa.updateStatus);
   const createPnr = useMutation(api.crm.ticketing.createPnr);
   const createTicket = useMutation(api.crm.ticketing.createTicket);
@@ -179,6 +221,8 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const createTourManager = useMutation(api.crm.ops.createTourManager);
   const createInvoice = useMutation(api.crm.finance.createInvoice);
   const createExpense = useMutation(api.crm.finance.createExpense);
+  const submitExpenseForApproval = useMutation(api.crm.finance.submitExpenseForApproval);
+  const decideApproval = useMutation(api.crm.approvals.decide);
   const upsertStaff = useMutation(api.crm.staff.upsertStaff);
   const removeQuery = useMutation(api.crm.queries.remove);
   const removeProposal = useMutation(api.crm.proposals.remove);
@@ -199,8 +243,12 @@ export default function PortalWorkspace({ view = "dashboard" }) {
     () => filterRows(queries || [], search, ["queryCode", "clientName", "destination", "queryType"]),
     [queries, search],
   );
+  const filteredTeam = useMemo(
+    () => filterRows(team || [], search, ["name", "email", "department", "function", "location"]),
+    [team, search],
+  );
 
-  if (access === undefined) {
+  if (isAuthLoading || !isAuthenticated || access === undefined) {
     return <LoadingPanel />;
   }
 
@@ -246,12 +294,15 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         await createQuery({
           clientName: form.clientName,
           contactPerson: form.contactPerson,
+          contactMobile: form.contactMobile,
           destination: form.destination,
           paxCount: toNumber(form.paxCount, 1),
           travelStartDate: form.travelStartDate,
           travelEndDate: form.travelEndDate,
           queryType: form.queryType,
           travelType: form.travelType,
+          budgetAmount: toNumber(form.budgetAmount, 0),
+          source: form.source,
           salesOwnerName: form.salesOwnerName,
           notes: form.notes,
         });
@@ -263,6 +314,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         await updateQueryStatus({
           queryId: form.queryId,
           salesStatus: form.salesStatus,
+          leadStage: form.leadStage,
           contractingStatus: form.contractingStatus,
           lostReason: form.salesStatus === "Order Lost" || form.contractingStatus === "Order Lost" ? form.lostReason : undefined,
         });
@@ -299,6 +351,12 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           paymentType: form.paymentType,
           roomType: form.roomType,
           visaRequired: form.visaRequired === "Yes",
+          domesticTravelRequired: form.domesticTravelRequired === "Yes",
+          biometricAppointmentDate: form.biometricAppointmentDate,
+          travelDate: form.travelDate,
+          guestCompanions: form.guestCompanions,
+          extensionOfTour: form.extensionOfTour === "Yes",
+          arrivingEarly: form.arrivingEarly === "Yes",
           passportStatus: form.passportStatus,
           hotelAllocation: form.hotelAllocation,
           specialRequests: form.notes,
@@ -328,6 +386,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           travellerId: form.travellerId || undefined,
           pnrId: form.pnrId || undefined,
           ticketNumber: form.ticketNumber,
+          ticketType: form.ticketType,
           ticketStatus: form.ticketStatus,
           paymentType: form.paymentType,
           cabinClass: form.cabinClass,
@@ -380,7 +439,13 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           jobCardId: form.jobCardId,
           tourManagerName: form.tourManagerName,
           category: form.category,
-          amount: toNumber(form.amount, 0),
+          expenseDate: form.expenseDate,
+          particulars: form.particulars,
+          currency: form.currency,
+          cardAmount: toNumber(form.cardAmount, 0),
+          cashAmount: toNumber(form.cashAmount, 0),
+          epayAmount: toNumber(form.epayAmount, 0),
+          amount: toNumber(form.amount, toNumber(form.cardAmount, 0) + toNumber(form.cashAmount, 0) + toNumber(form.epayAmount, 0)),
           paidBy: form.paidBy,
           notes: form.notes,
         });
@@ -391,6 +456,10 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           email: form.staffEmail,
           name: form.staffName,
           roles: form.staffRoles,
+          department: form.department,
+          function: form.staffFunction,
+          mobile: form.mobile,
+          location: form.location,
           active: Boolean(form.staffActive),
         });
       }
@@ -422,11 +491,11 @@ export default function PortalWorkspace({ view = "dashboard" }) {
 
       {view === "dashboard" && <DashboardView summary={summary} />}
       {view === "queries" && (
-        <QueriesView rows={filteredQueries} openModal={openModal} has={has} deleteItem={deleteItem} removeQuery={removeQuery} />
+        <QueriesView rows={filteredQueries} openModal={openModal} has={has} deleteItem={deleteItem} removeQuery={removeQuery} submitToContracting={submitToContracting} />
       )}
-      {view === "pipeline" && <PipelineView rows={queries || []} />}
+      {view === "pipeline" && <PipelineView rows={queries || []} mode={pipelineMode} setMode={setPipelineMode} />}
       {view === "contracting" && (
-        <ContractingView rows={filteredQueries} openModal={openModal} has={has} deleteItem={deleteItem} removeQuery={removeQuery} />
+        <ContractingView rows={filteredQueries} team={team || []} openModal={openModal} has={has} deleteItem={deleteItem} removeQuery={removeQuery} />
       )}
       {view === "proposals" && (
         <ProposalsView
@@ -450,9 +519,12 @@ export default function PortalWorkspace({ view = "dashboard" }) {
       {view === "seat-allocation" && <SeatView rows={seats || []} has={has} deleteItem={deleteItem} removeSeatAllocation={removeSeatAllocation} />}
       {view === "tickets" && <TicketsView rows={tickets || []} has={has} deleteItem={deleteItem} removeTicket={removeTicket} />}
       {view === "hotels" && <HotelsView rows={hotels || []} has={has} deleteItem={deleteItem} removeHotel={removeHotel} />}
-      {view === "tour-managers" && <TourManagersView rows={tourManagers || []} has={has} deleteItem={deleteItem} removeTourManager={removeTourManager} />}
-      {view === "finance" && <FinanceView rows={invoices || []} has={has} deleteItem={deleteItem} removeInvoice={removeInvoice} />}
-      {view === "expenses" && <ExpensesView rows={expenses || []} has={has} deleteItem={deleteItem} removeExpense={removeExpense} />}
+      {view === "tour-managers" && <TourManagersView rows={tourManagers || []} travellers={travellers || []} has={has} deleteItem={deleteItem} removeTourManager={removeTourManager} updateCallingStatus={updateCallingStatus} />}
+      {view === "finance" && <FinanceView rows={invoices || []} overview={financeOverview} has={has} deleteItem={deleteItem} removeInvoice={removeInvoice} />}
+      {view === "expenses" && <ExpensesView rows={expenses || []} has={has} deleteItem={deleteItem} removeExpense={removeExpense} submitExpenseForApproval={submitExpenseForApproval} />}
+      {view === "approvals" && <ApprovalsView rows={approvals || []} has={has} decideApproval={decideApproval} />}
+      {view === "reports" && <ReportsView report={reports} />}
+      {view === "team" && <TeamView rows={filteredTeam} />}
       {view === "activity" && (
         <ActivityView activity={activity || []} notifications={notifications || []} deleteItem={deleteItem} removeNotification={removeNotification} />
       )}
@@ -460,7 +532,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         <SettingsView staff={staff || []} dropdowns={dropdowns || {}} openModal={openModal} deleteItem={deleteItem} removeStaff={removeStaff} />
       )}
 
-      <EntityModal modal={modal} form={form} updateForm={updateForm} submit={submit} close={() => setModal(null)} error={error} isSaving={isSaving} queries={queries || []} jobCards={jobCards || []} travellers={travellers || []} visas={visas || []} pnrs={pnrs || []} />
+      <EntityModal modal={modal} form={form} updateForm={updateForm} submit={submit} close={() => setModal(null)} error={error} isSaving={isSaving} queries={queries || []} jobCards={jobCards || []} travellers={travellers || []} visas={visas || []} pnrs={pnrs || []} team={team || []} />
     </div>
   );
 }
@@ -535,7 +607,9 @@ function DashboardView({ summary }) {
     ["Tickets Issued", summary.metrics.ticketsIssued, Ticket],
     ["Tickets Pending", summary.metrics.ticketsPending, Plane],
     ["Visa Pending", summary.metrics.visaPending, ShieldCheck],
-    ["Payment Pending", summary.metrics.paymentPending, CircleDollarSign],
+    ["Outstanding", money(summary.metrics.outstandingAmount), CircleDollarSign],
+    ["Pending Approvals", summary.metrics.pendingApprovals, CheckCircle2],
+    ["Revenue Pipeline", money(summary.metrics.revenuePipeline), CircleDollarSign],
   ];
   return (
     <div className="space-y-8">
@@ -599,11 +673,45 @@ function DashboardView({ summary }) {
           <Progress label="Payment received" value={summary.progress.payment.percent} />
         </div>
       </Panel>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <Panel title="Upcoming departures">
+          {(summary.upcomingDepartures || []).length === 0 ? <EmptyState label="No upcoming departures." /> : (
+            <DataTable compact rows={summary.upcomingDepartures} empty="No upcoming departures." columns={[
+              ["JC", (row) => row.jobCode],
+              ["Client", (row) => strong(row.clientName)],
+              ["Date", (row) => row.travelStartDate],
+              ["Pax", (row) => row.pax],
+              ["TM", (row) => row.tourManagerName || "-"],
+              ["Readiness", (row) => <Badge label={row.readiness} tone={statusTone(row.readiness)} />],
+            ]} />
+          )}
+        </Panel>
+        <Panel title="My team">
+          {(summary.myTeam || []).length === 0 ? <EmptyState label="No matching team members." /> : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {summary.myTeam.map((member) => (
+                <div key={member.id} className="rounded-xl border border-brand-border bg-brand-light p-4">
+                  <div className="text-sm font-semibold text-brand-dark">{member.name}</div>
+                  <div className="mt-1 text-xs text-brand-muted">{member.function || member.department}</div>
+                  <div className="mt-1 text-xs text-brand-muted">{member.location || member.email}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+      </div>
+      <Panel title="Department workflow">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {(summary.departmentWorkflow || []).map((item) => (
+            <Progress key={item.label} label={`${item.label}: ${typeof item.value === "number" ? item.value.toLocaleString("en-IN") : item.value}`} value={item.percent} />
+          ))}
+        </div>
+      </Panel>
     </div>
   );
 }
 
-function QueriesView({ rows, openModal, has, deleteItem, removeQuery }) {
+function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToContracting }) {
   return (
     <DataTable
       rows={rows}
@@ -613,12 +721,17 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery }) {
         ["Client", (row) => strong(row.clientName)],
         ["Destination", (row) => row.destination || "TBD"],
         ["Pax", (row) => row.paxCount],
+        ["Budget", (row) => money(row.budgetAmount)],
+        ["Stage", (row) => <Badge label={row.leadStage || "Inquiry"} tone={statusTone(row.leadStage)} />],
         ["Type", (row) => <Badge label={row.queryType} tone="blue" />],
         ["Sales", (row) => row.salesOwnerName || "-"],
-        ["Status", (row) => <Badge label={row.salesStatus} tone={statusTone(row.salesStatus)} />],
+        ["Source", (row) => row.source || "-"],
         ["Action", (row) => has(P.MANAGE_QUERIES) && (
           <div className="flex flex-wrap gap-2">
-            <button className="portal-small-btn" onClick={() => openModal("queryStatus", { queryId: row.id, salesStatus: row.salesStatus, contractingStatus: row.contractingStatus })}>
+            <button className="portal-small-btn" onClick={() => submitToContracting({ queryId: row.id })}>
+              Submit
+            </button>
+            <button className="portal-small-btn" onClick={() => openModal("queryStatus", { queryId: row.id, salesStatus: row.salesStatus, leadStage: row.leadStage || "Inquiry", contractingStatus: row.contractingStatus })}>
               Update
             </button>
             <DeleteButton label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />
@@ -629,8 +742,42 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery }) {
   );
 }
 
-function ContractingView({ rows, openModal, has, deleteItem, removeQuery }) {
+function ContractingView({ rows, team, openModal, has, deleteItem, removeQuery }) {
+  const contractingTeam = team.filter((member) =>
+    member.roles.some((role) => ["Contracting", "Contracting Head"].includes(role)),
+  );
+  const teamRows = contractingTeam.map((member) => ({
+    id: member.id,
+    name: member.name,
+    email: member.email,
+    location: member.location || "-",
+    activeQueries: rows.filter(
+      (query) =>
+        query.contractingOwnerName === member.name &&
+        !["Order Confirmed", "Order Lost"].includes(query.contractingStatus),
+    ).length,
+  }));
+
   return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className="space-y-5"
+    >
+      <Panel title="Contracting team">
+        <DataTable
+          compact
+          rows={teamRows}
+          empty="No contracting staff in the directory yet."
+          columns={[
+            ["Name", (row) => strong(row.name)],
+            ["Email", (row) => row.email],
+            ["Location", (row) => row.location],
+            ["Active queries", (row) => row.activeQueries],
+          ]}
+        />
+      </Panel>
     <DataTable
       rows={rows}
       empty="No contracting queries yet."
@@ -644,43 +791,64 @@ function ContractingView({ rows, openModal, has, deleteItem, removeQuery }) {
         ["Action", (row) => has(P.MANAGE_CONTRACTING) && (
           <div className="flex gap-2">
             <button className="portal-small-btn" onClick={() => openModal("assignContracting", { queryId: row.id })}>Assign</button>
-            <button className="portal-small-btn" onClick={() => openModal("queryStatus", { queryId: row.id, salesStatus: row.salesStatus, contractingStatus: row.contractingStatus })}>Status</button>
+            <button className="portal-small-btn" onClick={() => openModal("queryStatus", { queryId: row.id, salesStatus: row.salesStatus, leadStage: row.leadStage || "Inquiry", contractingStatus: row.contractingStatus })}>Status</button>
             <DeleteButton label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />
           </div>
         )],
       ]}
     />
+    </motion.div>
   );
 }
 
-function PipelineView({ rows }) {
-  const buckets = getPipelineBuckets(rows);
+function PipelineView({ rows, mode, setMode }) {
+  const buckets = mode === "sales" ? getSalesPipelineBuckets(rows) : getPipelineBuckets(rows);
   return (
-    <div className="grid grid-flow-dense gap-4 sm:grid-cols-2 xl:grid-cols-6">
-      {Object.entries(buckets).map(([stage, items], index) => (
-        <motion.div
-          key={stage}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.05, duration: 0.35 }}
-          className="min-h-36 rounded-2xl border border-brand-border bg-white p-4 shadow-sm"
-        >
-          <div className="mb-3 flex items-center justify-between font-heading text-sm font-semibold text-citius-blue">
-            {stage}
-            <span className="grid h-7 w-7 place-items-center rounded-full bg-citius-orange text-xs font-bold text-white">
-              {items.length}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {items.map((item) => (
-              <div key={item.id} className="rounded-xl border border-brand-border bg-brand-light p-3">
-                <div className="text-sm font-semibold text-brand-dark">{item.clientName}</div>
-                <div className="mt-1 text-xs text-brand-muted">{item.queryCode} - {item.paxCount} pax</div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      ))}
+    <div className="space-y-4">
+      <div className="inline-flex rounded-full border border-brand-border bg-white p-1 shadow-sm">
+        {[
+          ["sales", "Sales pipeline"],
+          ["contracting", "Contracting pipeline"],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setMode(value)}
+            className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+              mode === value ? "bg-citius-blue text-white" : "text-brand-muted hover:text-citius-blue"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-flow-dense gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {Object.entries(buckets).map(([stage, items], index) => (
+          <motion.div
+            key={stage}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05, duration: 0.35 }}
+            className="min-h-36 rounded-2xl border border-brand-border bg-white p-4 shadow-sm"
+          >
+            <div className="mb-3 flex items-center justify-between font-heading text-sm font-semibold text-citius-blue">
+              {stage}
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-citius-orange text-xs font-bold text-white">
+                {items.length}
+              </span>
+            </div>
+            <div className="space-y-2">
+              {items.map((item) => (
+                <div key={item.id} className="rounded-xl border border-brand-border bg-brand-light p-3">
+                  <div className="text-sm font-semibold text-brand-dark">{item.clientName}</div>
+                  <div className="mt-1 text-xs text-brand-muted">{item.queryCode} - {item.destination || "TBD"} - {item.paxCount} pax</div>
+                  <div className="mt-1 text-xs text-brand-muted">{item.salesOwnerName || "Unassigned"}</div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -716,22 +884,44 @@ function ProposalsView({ rows, markProposalSent, has, deleteItem, removeProposal
 function AccountsJobCardView({ rows, openModal }) {
   const confirmed = rows.filter((row) => row.salesStatus === "Order Confirmed" || row.contractingStatus === "Order Confirmed");
   return (
-    <DataTable
-      rows={confirmed}
-      empty="No confirmed orders waiting for Job Card creation."
-      columns={[
-        ["Query", (row) => row.queryCode],
-        ["Client", (row) => strong(row.clientName)],
-        ["Destination", (row) => row.destination || "TBD"],
-        ["Pax", (row) => row.paxCount],
-        ["Payment Terms", (row) => paymentTermLabel(row.queryType)],
-        ["Action", (row) => (
-          <button className="portal-small-btn" onClick={() => openModal("jobCard", { queryId: row.id, clientName: row.clientName, destination: row.destination, confirmedPax: String(row.paxCount), travelStartDate: row.travelStartDate, travelEndDate: row.travelEndDate })}>
-            Open JC
-          </button>
-        )],
-      ]}
-    />
+    <div className="space-y-5">
+      <Panel title="Payment terms reference">
+        <DataTable
+          compact
+          rows={[
+            { id: "mice", type: "MICE / MICE Bidding", advance: "70-90%", balance: "10-30%", notify: "Sales, Contracting, Operations, Finance" },
+            { id: "cement", type: "Cement", advance: "70-90%", balance: "10-30%", notify: "Sales, Contracting, Operations, Finance" },
+            { id: "cement-bid", type: "Cement Bidding", advance: "70-100%", balance: "0-30%", notify: "Sales, Contracting, Operations, Finance" },
+            { id: "fit", type: "FIT / Family Group", advance: "90-100%", balance: "0-10%", notify: "Sales, Contracting, Operations, Finance" },
+            { id: "b2b", type: "B2B", advance: "80-100%", balance: "0-20%", notify: "Sales, Contracting, Finance" },
+            { id: "spiritual", type: "Spiritual", advance: "Per plan", balance: "-", notify: "Sales, Operations, Finance" },
+          ]}
+          empty="No payment terms configured."
+          columns={[
+            ["Type", (row) => strong(row.type)],
+            ["Advance", (row) => row.advance],
+            ["Balance", (row) => row.balance],
+            ["Notification", (row) => row.notify],
+          ]}
+        />
+      </Panel>
+      <DataTable
+        rows={confirmed}
+        empty="No confirmed orders waiting for Job Card creation."
+        columns={[
+          ["Query", (row) => row.queryCode],
+          ["Client", (row) => strong(row.clientName)],
+          ["Destination", (row) => row.destination || "TBD"],
+          ["Pax", (row) => row.paxCount],
+          ["Payment Terms", (row) => paymentTermLabel(row.queryType)],
+          ["Action", (row) => (
+            <button className="portal-small-btn" onClick={() => openModal("jobCard", { queryId: row.id, clientName: row.clientName, destination: row.destination, confirmedPax: String(row.paxCount), travelStartDate: row.travelStartDate, travelEndDate: row.travelEndDate })}>
+              Open JC
+            </button>
+          )],
+        ]}
+      />
+    </div>
   );
 }
 
@@ -847,6 +1037,7 @@ function TicketsView({ rows, has, deleteItem, removeTicket }) {
       ["Ticket", (row) => row.ticketNumber || "-"],
       ["Traveller", (row) => strong(row.travellerName || "Unassigned")],
       ["Job", (row) => row.jobCode],
+      ["Type", (row) => row.ticketType || "-"],
       ["PNR", (row) => row.pnrCode || "-"],
       ["Class", (row) => row.cabinClass || "Economy"],
       ["Seat", (row) => row.seatNumber || row.seatPreference || "-"],
@@ -884,46 +1075,186 @@ function HotelsView({ rows, has, deleteItem, removeHotel }) {
   );
 }
 
-function TourManagersView({ rows, has, deleteItem, removeTourManager }) {
+function TourManagersView({ rows, travellers, has, deleteItem, removeTourManager, updateCallingStatus }) {
   return (
-    <DataTable rows={rows} empty="No Tour Managers yet." columns={[
-      ["Name", (row) => strong(row.name)],
-      ["Current Tour", (row) => row.currentTour || "Available"],
-      ["Job", (row) => row.jobCode || "-"],
-      ["Calling", (row) => row.callingStatus],
-      ["Available", (row) => row.availabilityDate || "-"],
-      ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-      ["Action", (row) => has(P.MANAGE_TOUR_MANAGERS) && <DeleteButton label={row.name} onClick={() => deleteItem(row.name, removeTourManager, { tourManagerId: row.id })} />],
-    ]} />
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Total Pax" value={travellers.length} Icon={Users} />
+        <StatCard label="Onboarded" value={travellers.filter((row) => row.fullName && row.travelHub && row.foodPreference).length} Icon={CheckCircle2} />
+        <StatCard label="Docs Pending" value={travellers.filter((row) => !["Approved", "Not Required"].includes(row.visaStatus) || row.ticketStatus !== "Issued").length} Icon={ShieldCheck} />
+      </div>
+      <Panel title="Calling status board">
+        <DataTable compact rows={travellers} empty="No travellers to call yet." columns={[
+          ["Guest", (row) => strong(row.fullName)],
+          ["Job", (row) => row.jobCode],
+          ["Hub", (row) => row.travelHub || "-"],
+          ["Type", (row) => row.guestType],
+          ["Cancellation", (row) => row.cancellation || row.lastMinuteDrop ? <Badge label="Flagged" tone="red" /> : "-"],
+          ["Calling", (row) => <Badge label={row.callingStatus} tone={statusTone(row.callingStatus)} />],
+          ["Action", (row) => has(P.MANAGE_TOUR_MANAGERS) && (
+            <div className="flex flex-wrap gap-2">
+              {CALLING_STATUSES.map((status) => (
+                <button key={status} type="button" className="portal-small-btn" onClick={() => updateCallingStatus({ travellerId: row.id, callingStatus: status })}>
+                  {status}
+                </button>
+              ))}
+            </div>
+          )],
+        ]} />
+      </Panel>
+      <DataTable rows={rows} empty="No Tour Managers yet." columns={[
+        ["Name", (row) => strong(row.name)],
+        ["Current Tour", (row) => row.currentTour || "Available"],
+        ["Job", (row) => row.jobCode || "-"],
+        ["Calling", (row) => row.callingStatus],
+        ["Available", (row) => row.availabilityDate || "-"],
+        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+        ["Action", (row) => has(P.MANAGE_TOUR_MANAGERS) && <DeleteButton label={row.name} onClick={() => deleteItem(row.name, removeTourManager, { tourManagerId: row.id })} />],
+      ]} />
+    </div>
   );
 }
 
-function FinanceView({ rows, has, deleteItem, removeInvoice }) {
+function FinanceView({ rows, overview, has, deleteItem, removeInvoice }) {
   return (
-    <DataTable rows={rows} empty="No invoices yet." columns={[
-      ["Invoice", (row) => strong(row.invoiceNumber)],
-      ["Job", (row) => row.jobCode],
-      ["Client", (row) => row.clientName],
-      ["Expected", (row) => money(row.expectedAmount)],
-      ["Received", (row) => money(row.receivedAmount)],
-      ["Balance", (row) => money(row.balanceAmount)],
-      ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-      ["Action", (row) => has(P.MANAGE_FINANCE) && <DeleteButton label={row.invoiceNumber} onClick={() => deleteItem(row.invoiceNumber, removeInvoice, { invoiceId: row.id })} />],
-    ]} />
+    <div className="space-y-5">
+      {overview && (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <StatCard label="Total Revenue" value={money(overview.summary.totalRevenue)} Icon={CircleDollarSign} />
+            <StatCard label="Client Outstanding" value={money(overview.summary.clientOutstanding)} Icon={FileText} />
+            <StatCard label="Approved Expenses" value={money(overview.summary.approvedExpenses)} Icon={ClipboardList} />
+          </div>
+          {overview.fundProjections && (
+            <Panel title="Fund projections">
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35 }}
+                className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+              >
+                <StatCard label="Expected collections" value={money(overview.fundProjections.expectedCollections)} Icon={CircleDollarSign} />
+                <StatCard label="Advance pipeline" value={money(overview.fundProjections.advancePipeline)} Icon={ClipboardList} />
+                <StatCard label="Pending reimbursements" value={money(overview.fundProjections.pendingReimbursements)} Icon={RefreshCw} />
+                <StatCard label="Expense approvals due" value={money(overview.fundProjections.pendingExpenseApprovals)} Icon={CheckCircle2} />
+              </motion.div>
+            </Panel>
+          )}
+          <Panel title="Tour-wise P&L">
+            <DataTable compact rows={overview.pnl} empty="No Job Cards available." columns={[
+              ["JC", (row) => row.jobCode],
+              ["Group", (row) => row.clientName],
+              ["Revenue", (row) => money(row.revenue)],
+              ["Expense", (row) => money(row.expense)],
+              ["Profit", (row) => money(row.profit)],
+              ["Margin", (row) => `${row.marginPercent}%`],
+            ]} />
+          </Panel>
+          <Panel title="Outstanding payments">
+            <DataTable compact rows={overview.outstanding} empty="No outstanding balances." columns={[
+              ["Client", (row) => strong(row.clientName)],
+              ["JC", (row) => row.jobCode],
+              ["Due", (row) => money(row.dueAmount)],
+              ["Due Date", (row) => row.dueDate || "-"],
+              ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+            ]} />
+          </Panel>
+        </>
+      )}
+      <DataTable rows={rows} empty="No invoices yet." columns={[
+        ["Invoice", (row) => strong(row.invoiceNumber)],
+        ["Job", (row) => row.jobCode],
+        ["Client", (row) => row.clientName],
+        ["Expected", (row) => money(row.expectedAmount)],
+        ["Received", (row) => money(row.receivedAmount)],
+        ["Balance", (row) => money(row.balanceAmount)],
+        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+        ["Action", (row) => has(P.MANAGE_FINANCE) && <DeleteButton label={row.invoiceNumber} onClick={() => deleteItem(row.invoiceNumber, removeInvoice, { invoiceId: row.id })} />],
+      ]} />
+    </div>
   );
 }
 
-function ExpensesView({ rows, has, deleteItem, removeExpense }) {
+function ExpensesView({ rows, has, deleteItem, removeExpense, submitExpenseForApproval }) {
   return (
     <DataTable rows={rows} empty="No expenses yet." columns={[
       ["Job", (row) => row.jobCode],
+      ["Date", (row) => row.expenseDate || "-"],
       ["Category", (row) => strong(row.category)],
+      ["Particulars", (row) => row.particulars || "-"],
+      ["Currency", (row) => row.currency],
       ["Amount", (row) => money(row.amount)],
+      ["Split", (row) => `Card ${money(row.cardAmount)} / Cash ${money(row.cashAmount)} / E-Pay ${money(row.epayAmount)}`],
       ["Paid By", (row) => row.paidBy],
       ["Approval", (row) => <Badge label={row.approvalStatus} tone={statusTone(row.approvalStatus)} />],
       ["Reimbursement", (row) => row.reimbursementStatus],
-      ["Notes", (row) => row.notes || "-"],
-      ["Action", (row) => has(P.MANAGE_EXPENSES) && <DeleteButton label={`${row.category} expense`} onClick={() => deleteItem(`${row.category} expense`, removeExpense, { expenseId: row.id })} />],
+      ["Action", (row) => has(P.MANAGE_EXPENSES) && (
+        <div className="flex flex-wrap gap-2">
+          <button className="portal-small-btn" onClick={() => submitExpenseForApproval({ expenseId: row.id })}>
+            Submit
+          </button>
+          <DeleteButton label={`${row.category} expense`} onClick={() => deleteItem(`${row.category} expense`, removeExpense, { expenseId: row.id })} />
+        </div>
+      )],
+    ]} />
+  );
+}
+
+function ApprovalsView({ rows, has, decideApproval }) {
+  return (
+    <DataTable rows={rows} empty="No approvals in the queue." columns={[
+      ["Code", (row) => strong(row.requestCode)],
+      ["Type", (row) => <Badge label={row.type} tone="blue" />],
+      ["Requested By", (row) => row.requestedByName],
+      ["Summary", (row) => row.summary],
+      ["Amount", (row) => money(row.amount)],
+      ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+      ["Action", (row) => has(P.APPROVE_EXPENSES) && row.status === "Pending" && (
+        <div className="flex flex-wrap gap-2">
+          <button className="portal-small-btn" onClick={() => decideApproval({ approvalId: row.id, status: "Approved" })}>Approve</button>
+          <button className="portal-danger-btn" onClick={() => decideApproval({ approvalId: row.id, status: "Rejected" })}>Reject</button>
+        </div>
+      )],
+    ]} />
+  );
+}
+
+function ReportsView({ report }) {
+  if (!report) return <LoadingPanel />;
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Pipeline Budget" value={money(report.summary.totalPipelineBudget)} Icon={CircleDollarSign} />
+        <StatCard label="Confirmed Revenue" value={money(report.summary.confirmedRevenue)} Icon={CheckCircle2} />
+        <StatCard label="Confirmed / Lost" value={`${report.summary.confirmedQueries}/${report.summary.lostQueries}`} Icon={ClipboardList} />
+      </div>
+      <Panel title="Revenue by query type">
+        <DataTable compact rows={report.revenueByType.map((row) => ({ ...row, id: row.queryType }))} empty="No query revenue yet." columns={[
+          ["Type", (row) => strong(row.queryType)],
+          ["Pipeline Budget", (row) => money(row.revenue)],
+          ["Queries", (row) => row.count],
+        ]} />
+      </Panel>
+      <Panel title="Location-wise headcount">
+        <DataTable compact rows={report.locationHeadcount} empty="No staff locations yet." columns={[
+          ["Location", (row) => strong(row.location)],
+          ["Headcount", (row) => row.count],
+        ]} />
+      </Panel>
+    </div>
+  );
+}
+
+function TeamView({ rows }) {
+  return (
+    <DataTable rows={rows} empty="No active staff records." columns={[
+      ["Name", (row) => <span className={row.isCurrentUser ? "font-semibold text-citius-blue" : "font-semibold"}>{row.name}</span>],
+      ["Email", (row) => row.email],
+      ["Mobile", (row) => row.mobile || "-"],
+      ["Department", (row) => row.department || "-"],
+      ["Function", (row) => row.function || "-"],
+      ["Location", (row) => row.location || "-"],
+      ["Access", (row) => row.roles.join(", ")],
     ]} />
   );
 }
@@ -962,11 +1293,14 @@ function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff }) 
         <DataTable rows={staff} empty="No staff records yet." columns={[
           ["Name", (row) => strong(row.name)],
           ["Email", (row) => row.email],
+          ["Department", (row) => row.department || "-"],
+          ["Function", (row) => row.function || "-"],
+          ["Location", (row) => row.location || "-"],
           ["Roles", (row) => row.roles.join(", ")],
           ["Active", (row) => <Badge label={row.active ? "Active" : "Inactive"} tone={row.active ? "green" : "red"} />],
           ["Action", (row) => (
             <div className="flex flex-wrap gap-2">
-              <button className="portal-small-btn" onClick={() => openModal("staff", { staffId: row.id, staffName: row.name, staffEmail: row.email, staffRoles: row.roles, staffActive: row.active })}>
+              <button className="portal-small-btn" onClick={() => openModal("staff", { staffId: row.id, staffName: row.name, staffEmail: row.email, staffRoles: row.roles, department: row.department, staffFunction: row.function, mobile: row.mobile, location: row.location, staffActive: row.active })}>
                 Edit
               </button>
               <DeleteButton label={row.email} onClick={() => deleteItem(row.email, removeStaff, { staffId: row.id })} />
@@ -990,7 +1324,7 @@ function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff }) 
   );
 }
 
-function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, queries, jobCards, travellers, visas, pnrs }) {
+function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, queries, jobCards, travellers, visas, pnrs, team }) {
   const title = modal
     ? {
         query: "New Query / Enquiry",
@@ -1039,13 +1373,16 @@ function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, 
             {modal === "query" && <>
               <Input label="Client / Company" value={form.clientName} onChange={(v) => updateForm("clientName", v)} required />
               <Input label="Contact Person" value={form.contactPerson} onChange={(v) => updateForm("contactPerson", v)} />
+              <Input label="Mobile" value={form.contactMobile} onChange={(v) => updateForm("contactMobile", v)} />
               <Input label="No. of Pax" type="number" value={form.paxCount} onChange={(v) => updateForm("paxCount", v)} />
               <Input label="Destination" value={form.destination} onChange={(v) => updateForm("destination", v)} />
               <Input label="Travel Date From" type="date" value={form.travelStartDate} onChange={(v) => updateForm("travelStartDate", v)} />
               <Input label="Travel Date To" type="date" value={form.travelEndDate} onChange={(v) => updateForm("travelEndDate", v)} />
               <Select label="Query Type" value={form.queryType} options={QUERY_TYPES} onChange={(v) => updateForm("queryType", v)} />
               <Select label="Travel Type" value={form.travelType} options={TRAVEL_TYPES} onChange={(v) => updateForm("travelType", v)} />
-              <Input label="Sales Rep" value={form.salesOwnerName} onChange={(v) => updateForm("salesOwnerName", v)} />
+              <Input label="Budget INR" type="number" value={form.budgetAmount} onChange={(v) => updateForm("budgetAmount", v)} />
+              <Select label="Source" value={form.source} options={QUERY_SOURCES} onChange={(v) => updateForm("source", v)} />
+              <Select label="Sales Rep" value={form.salesOwnerName} options={[{ value: "", label: "Current user" }, ...team.filter((member) => member.roles.some((role) => ["Sales", "Sales Head"].includes(role))).map((member) => ({ value: member.name, label: member.name }))]} onChange={(v) => updateForm("salesOwnerName", v)} />
               <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
             </>}
             {modal === "assignContracting" && <>
@@ -1054,6 +1391,7 @@ function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, 
             </>}
             {modal === "queryStatus" && <>
               <Select label="Sales Status" value={form.salesStatus} options={SALES_STATUSES} onChange={(v) => updateForm("salesStatus", v)} />
+              <Select label="Lead Stage" value={form.leadStage} options={LEAD_STAGES} onChange={(v) => updateForm("leadStage", v)} />
               <Select label="Contracting Status" value={form.contractingStatus} options={CONTRACTING_STATUSES} onChange={(v) => updateForm("contractingStatus", v)} />
               <Select label="Lost Reason" value={form.lostReason} options={LOST_REASONS} onChange={(v) => updateForm("lostReason", v)} />
             </>}
@@ -1077,13 +1415,20 @@ function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, 
               <Select label="Job Card" value={form.jobCardId} options={jobCards.map((j) => ({ value: j.id, label: `${j.jobCode} - ${j.clientName}` }))} onChange={(v) => updateForm("jobCardId", v)} required />
               <Input label="Full Name" value={form.fullName} onChange={(v) => updateForm("fullName", v)} required />
               <Input label="Travel Hub" value={form.travelHub} onChange={(v) => updateForm("travelHub", v)} />
+              <Input label="Travel Date" type="date" value={form.travelDate} onChange={(v) => updateForm("travelDate", v)} />
+              <Input label="Guests travelling with" value={form.guestCompanions} onChange={(v) => updateForm("guestCompanions", v)} placeholder="Spouse, children, friends..." />
               <Select label="Food Preference" value={form.foodPreference} options={FOOD_PREFERENCES} onChange={(v) => updateForm("foodPreference", v)} />
               <Select label="Guest Type" value={form.guestType} options={GUEST_TYPES} onChange={(v) => updateForm("guestType", v)} />
               <Select label="Payment Type" value={form.paymentType} options={PAYMENT_TYPES} onChange={(v) => updateForm("paymentType", v)} />
               <Select label="Room Type" value={form.roomType} options={ROOM_TYPES} onChange={(v) => updateForm("roomType", v)} />
               <Select label="Visa Required" value={form.visaRequired} options={["Yes", "No"]} onChange={(v) => updateForm("visaRequired", v)} />
+              <Select label="Domestic Travel Required" value={form.domesticTravelRequired} options={["Yes", "No"]} onChange={(v) => updateForm("domesticTravelRequired", v)} />
+              <Input label="Biometric Date" type="date" value={form.biometricAppointmentDate} onChange={(v) => updateForm("biometricAppointmentDate", v)} />
+              <Select label="Extension of Tour" value={form.extensionOfTour} options={["No", "Yes"]} onChange={(v) => updateForm("extensionOfTour", v)} />
+              <Select label="Arriving Early" value={form.arrivingEarly} options={["No", "Yes"]} onChange={(v) => updateForm("arrivingEarly", v)} />
               <Input label="Passport Status" value={form.passportStatus} onChange={(v) => updateForm("passportStatus", v)} />
               <Input label="Hotel Allocation" value={form.hotelAllocation} onChange={(v) => updateForm("hotelAllocation", v)} />
+              <Textarea label="Special Requests" value={form.notes} onChange={(v) => updateForm("notes", v)} />
             </>}
             {modal === "visa" && <>
               <Select label="Visa Record" value={form.visaRecordId} options={visas.map((v) => ({ value: v.id, label: `${v.travellerName} - ${v.jobCode}` }))} onChange={(v) => updateForm("visaRecordId", v)} required />
@@ -1104,9 +1449,10 @@ function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, 
               <Select label="Traveller" value={form.travellerId} options={[{ value: "", label: "Unassigned" }, ...travellers.map((t) => ({ value: t.id, label: `${t.fullName} - ${t.jobCode}` }))]} onChange={(v) => updateForm("travellerId", v)} />
               <Select label="PNR" value={form.pnrId} options={[{ value: "", label: "No PNR" }, ...pnrs.map((p) => ({ value: p.id, label: `${p.pnrCode} - ${p.route}` }))]} onChange={(v) => updateForm("pnrId", v)} />
               <Input label="Ticket Number" value={form.ticketNumber} onChange={(v) => updateForm("ticketNumber", v)} />
+              <Select label="Ticket Type" value={form.ticketType} options={TICKET_TYPES} onChange={(v) => updateForm("ticketType", v)} />
               <Select label="Ticket Status" value={form.ticketStatus} options={TICKET_STATUSES} onChange={(v) => updateForm("ticketStatus", v)} />
               <Select label="Payment Type" value={form.paymentType} options={PAYMENT_TYPES} onChange={(v) => updateForm("paymentType", v)} />
-              <Input label="Cabin Class" value={form.cabinClass} onChange={(v) => updateForm("cabinClass", v)} />
+              <Select label="Cabin Class" value={form.cabinClass} options={CABIN_CLASSES} onChange={(v) => updateForm("cabinClass", v)} />
               <Select label="Meal Preference" value={form.foodPreference} options={FOOD_PREFERENCES} onChange={(v) => updateForm("foodPreference", v)} />
               <Input label="Seat Preference" value={form.seatPreference} onChange={(v) => updateForm("seatPreference", v)} />
               <Input label="Seat Number" value={form.seatNumber} onChange={(v) => updateForm("seatNumber", v)} />
@@ -1145,14 +1491,23 @@ function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, 
             {modal === "expense" && <>
               <Select label="Job Card" value={form.jobCardId} options={jobCards.map((j) => ({ value: j.id, label: `${j.jobCode} - ${j.clientName}` }))} onChange={(v) => updateForm("jobCardId", v)} required />
               <Input label="Tour Manager" value={form.tourManagerName} onChange={(v) => updateForm("tourManagerName", v)} />
-              <Input label="Category" value={form.category} onChange={(v) => updateForm("category", v)} required />
-              <Input label="Amount" type="number" value={form.amount} onChange={(v) => updateForm("amount", v)} />
+              <Input label="Expense Date" type="date" value={form.expenseDate} onChange={(v) => updateForm("expenseDate", v)} />
+              <Select label="Expense Head" value={form.category} options={EXPENSE_HEADS} onChange={(v) => updateForm("category", v)} required />
+              <Select label="Currency" value={form.currency} options={EXPENSE_CURRENCIES} onChange={(v) => updateForm("currency", v)} />
+              <Input label="Card Amount" type="number" value={form.cardAmount} onChange={(v) => updateForm("cardAmount", v)} />
+              <Input label="Cash Amount" type="number" value={form.cashAmount} onChange={(v) => updateForm("cashAmount", v)} />
+              <Input label="E-Pay Amount" type="number" value={form.epayAmount} onChange={(v) => updateForm("epayAmount", v)} />
+              <Input label="Total Amount" type="number" value={form.amount} onChange={(v) => updateForm("amount", v)} />
               <Input label="Paid By" value={form.paidBy} onChange={(v) => updateForm("paidBy", v)} required />
-              <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
+              <Textarea label="Particulars" value={form.particulars} onChange={(v) => updateForm("particulars", v)} />
             </>}
             {modal === "staff" && <>
               <Input label="Name" value={form.staffName} onChange={(v) => updateForm("staffName", v)} required />
               <Input label="Email" type="email" value={form.staffEmail} onChange={(v) => updateForm("staffEmail", v)} required />
+              <Input label="Mobile" value={form.mobile} onChange={(v) => updateForm("mobile", v)} />
+              <Input label="Department" value={form.department} onChange={(v) => updateForm("department", v)} />
+              <Input label="Function" value={form.staffFunction} onChange={(v) => updateForm("staffFunction", v)} />
+              <Input label="Location" value={form.location} onChange={(v) => updateForm("location", v)} />
               <MultiSelect label="Roles" value={form.staffRoles} options={PORTAL_ROLES} onChange={(v) => updateForm("staffRoles", v)} />
               <Select label="Active" value={form.staffActive ? "Active" : "Inactive"} options={["Active", "Inactive"]} onChange={(v) => updateForm("staffActive", v === "Active")} />
             </>}
@@ -1419,10 +1774,10 @@ function paymentTermLabel(queryType) {
 }
 
 function statusTone(status) {
-  if (["Issued", "Approved", "Paid", "Active", "Available", "Done", "Order Confirmed", "Sent", "Assigned"].includes(status)) return "green";
-  if (["Pending Issue", "Pending", "Awaiting", "Part Paid", "Proposal in progress", "Proposal in discussion", "Open", "Held"].includes(status)) return "amber";
-  if (["Cancelled", "Rejected", "Order Lost", "Overdue", "Inactive", "Blocked"].includes(status)) return "red";
-  if (["Reissue Required", "Name Change Required", "Re-applied"].includes(status)) return "purple";
+  if (["Issued", "Approved", "Paid", "Active", "Available", "Done", "Order Confirmed", "Sent", "Assigned", "Confirmation", "Ready"].includes(status)) return "green";
+  if (["Pending Issue", "Pending", "Awaiting", "Part Paid", "Proposal in progress", "Proposal in discussion", "Open", "Held", "Inquiry", "Proposal", "Ticketing", "Docs pending"].includes(status)) return "amber";
+  if (["Cancelled", "Rejected", "Order Lost", "Overdue", "Inactive", "Blocked", "Closed"].includes(status)) return "red";
+  if (["Reissue Required", "Name Change Required", "Re-applied", "Negotiation"].includes(status)) return "purple";
   return "blue";
 }
 

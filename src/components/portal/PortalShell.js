@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useQuery } from "convex/react";
+import { useConvexAuth, useQuery } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Bell,
@@ -14,7 +14,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { logout, useSession } from "@/lib/auth-client";
+import { logout } from "@/lib/auth-client";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
 import { api } from "@convex/_generated/api";
 import Logo from "@/static/logos/logo.webp";
@@ -23,11 +23,10 @@ export default function PortalShell({ access, user, children }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const { data: session } = useSession();
-  const canLoadNotifications = Boolean(access?.allowed && session?.user);
+  const { isAuthenticated } = useConvexAuth();
   const notifications = useQuery(
     api.crm.activity.listNotifications,
-    canLoadNotifications ? { limit: 8 } : "skip",
+    isAuthenticated && access?.allowed ? { limit: 8 } : "skip",
   );
   const navGroups = useMemo(() => getAccessibleNavGroups(access), [access]);
   const unreadCount = (notifications || []).filter((item) => !item.readAt).length;
