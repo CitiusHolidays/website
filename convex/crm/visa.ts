@@ -1,0 +1,136 @@
+import { ConvexError, v } from "convex/values";
+import { mutation, query } from "../_generated/server";
+import { PERMISSIONS, createActivity, deleteEntityNotifications, requireStaff } from "./lib";
+
+const visaStatusValidator = v.union(
+  v.literal("Not Required"),
+  v.literal("Not Started"),
+  v.literal("Checklist Shared"),
+  v.literal("Documents Pending"),
+  v.literal("Documents Verified"),
+  v.literal("Appointment Scheduled"),
+  v.literal("Submitted"),
+  v.literal("Awaiting"),
+  v.literal("Approved"),
+  v.literal("Rejected"),
+  v.literal("Re-applied"),
+);
+
+const publicVisa = (record: any, traveller: any, job: any) => ({
+  id: record._id,
+  travellerId: record.travellerId,
+  jobCardId: record.jobCardId,
+  jobCode: job?.jobCode ?? "",
+  clientName: job?.clientName ?? "",
+  travellerName: traveller?.fullName ?? "",
+  travelHub: traveller?.travelHub ?? "",
+  status: record.status,
+  appointmentDate: record.appointmentDate ?? traveller?.biometricAppointmentDate ?? "",
+  checklistSharedAt: record.checklistSharedAt
+    ? new Date(record.checklistSharedAt).toISOString()
+    : null,
+  submittedAt: record.submittedAt ? new Date(record.submittedAt).toISOString() : null,
+  approvedAt: record.approvedAt ? new Date(record.approvedAt).toISOString() : null,
+  rejectedAt: record.rejectedAt ? new Date(record.rejectedAt).toISOString() : null,
+  notes: record.notes ?? "",
+  updatedAt: new Date(record.updatedAt).toISOString(),
+});
+
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
+    const rows = await ctx.db.query("visaRecords").collect();
+    const result = [];
+    for (const record of rows.sort((a, b) => b.updatedAt - a.updatedAt)) {
+      const traveller = await ctx.db.get(record.travellerId);
+      const job = await ctx.db.get(record.jobCardId);
+      result.push(publicVisa(record, traveller, job));
+    }
+    return result;
+  },
+});
+
+export const updateStatus = mutation({
+  args: {
+    visaRecordId: v.string(),
+    status: visaStatusValidator,
+    appointmentDate: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_VISA);
+    const visaRecordId = ctx.db.normalizeId("visaRecords", args.visaRecordId);
+    if (!visaRecordId) {
+      throw new ConvexError("Invalid visa record id");
+    }
+    const record = await ctx.db.get(visaRecordId);
+    if (!record) {
+      throw new ConvexError("Visa record not found");
+    }
+    const now = Date.now();
+    const patch: Record<string, unknown> = {
+      status: args.status,
+      appointmentDate: args.appointmentDate || record.appointmentDate || "",
+      notes: args.notes?.trim() || record.notes || "",
+      updatedBy: access.authUserId ?? "unknown",
+      updatedAt: now,
+    };
+    if (args.status === "Checklist Shared") {
+      patch.checklistSharedAt = now;
+    }
+    if (args.status === "Submitted") {
+      patch.submittedAt = now;
+    }
+    if (args.status === "Approved") {
+      patch.approvedAt = now;
+    }
+    if (args.status === "Rejected") {
+      patch.rejectedAt = now;
+    }
+
+    await ctx.db.patch(visaRecordId, patch);
+    await ctx.db.patch(record.travellerId, {
+      visaStatus: args.status,
+      biometricAppointmentDate: args.appointmentDate || "",
+      updatedAt: now,
+    });
+    await createActivity(ctx, access, {
+      entityType: "visaRecord",
+      entityId: visaRecordId,
+      action: "status_updated",
+      message: `Visa status set to ${args.status}`,
+    });
+    return { id: visaRecordId };
+  },
+});
+
+export const remove = mutation({
+  args: {
+    visaRecordId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_VISA);
+    const visaRecordId = ctx.db.normalizeId("visaRecords", args.visaRecordId);
+    if (!visaRecordId) {
+      throw new ConvexError("Invalid visa record id");
+    }
+    const record = await ctx.db.get(visaRecordId);
+    if (!record) {
+      throw new ConvexError("Visa record not found");
+    }
+    await ctx.db.patch(record.travellerId, {
+      visaStatus: "Not Started",
+      updatedAt: Date.now(),
+    });
+    await createActivity(ctx, access, {
+      entityType: "visaRecord",
+      entityId: visaRecordId,
+      action: "deleted",
+      message: "Visa record deleted",
+    });
+    await deleteEntityNotifications(ctx, "visaRecord", visaRecordId);
+    await ctx.db.delete(visaRecordId);
+    return { id: visaRecordId };
+  },
+});

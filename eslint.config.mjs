@@ -1,8 +1,15 @@
 import nextConfig from "eslint-config-next";
 
-export default [
+const eslintConfig = [
   ...nextConfig,
   {
-    ignores: ["convex/_generated/**"],
+    ignores: [
+      "convex/_generated/**",
+      "convex/betterAuth/_generated/**",
+      "citius-blog/dist/**",
+      "citius-blog/.next/**",
+    ],
   },
 ];
+
+export default eslintConfig;

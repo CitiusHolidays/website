@@ -3,19 +3,12 @@
 import { motion, useInView } from "motion/react";
 import { AnimateNumber } from "motion-plus/react";
 import { cn } from "../../utils/cn";
-import { useRef, useState, useEffect } from "react";
+import { useRef } from "react";
 
 export default function AnimatedCounter({ value, label, className }) {
-  const [displayValue, setDisplayValue] = useState(0);
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, amount: 0.4 });
-
-  // Animate from 0 to value when in view
-  useEffect(() => {
-    if (isInView) {
-      setDisplayValue(value);
-    }
-  }, [isInView, value]);
+  const displayValue = isInView ? value : 0;
 
   return (
     <motion.div
