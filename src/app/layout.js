@@ -1,10 +1,6 @@
 import { Inter, Poppins } from "next/font/google";
-import Footer from "../components/layout/Footer";
-import Header from "../components/layout/Header";
-import DeferredChatbot from "../components/ui/DeferredChatbot";
-import { SpeedInsights } from "@vercel/speed-insights/next"
-import { Analytics } from "@vercel/analytics/next"
 import { ConvexClientProvider } from "@/components/providers/ConvexClientProvider";
+import AppChrome from "@/components/layout/AppChrome";
 import { getToken } from "@/lib/auth-server";
 
 import "./globals.css";
@@ -68,16 +64,7 @@ export default async function RootLayout({ children }) {
         className={`${inter.variable} font-sans bg-brand-light text-brand-dark`}
       >
         <ConvexClientProvider initialToken={initialToken}>
-          <div className="min-h-screen flex flex-col relative">
-            <Header />
-            <main className="relative flex-1 w-full min-h-0">
-              {children}
-              <Analytics/>
-              <SpeedInsights/>
-            </main>
-            <Footer />
-            <DeferredChatbot />
-          </div>
+          <AppChrome>{children}</AppChrome>
         </ConvexClientProvider>
       </body>
     </html>

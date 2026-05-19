@@ -4,9 +4,10 @@
 	"private": true,
 	"scripts": {
 		"dev": "bun --bun next dev --turbopack",
-		"build": "bun --bun next build",
+		"build": "bunx convex codegen && bun --bun next build",
 		"start": "bun --bun next start",
-		"lint": "next lint",
+		"lint": "eslint .",
+		"test": "bun test",
 		"perf:hero-baseline": "node bin/perf-hero-baseline.mjs",
 		"optimize-images": "node scripts/full-optimize-images.mjs",
 		"encode:hero": "powershell -ExecutionPolicy Bypass -File ./bin/encode-hero.ps1",
@@ -46,7 +47,7 @@
 		"@eslint/eslintrc": "^3.3.5",
 		"@tailwindcss/postcss": "^4.2.2",
 		"babel-plugin-react-compiler": "^1.0.0",
-		"eslint": "^10.1.0",
+		"eslint": "^9.39.1",
 		"eslint-config-next": "16.0.10",
 		"postgres": "^3.4.8",
 		"tailwindcss": "^4.2.2"

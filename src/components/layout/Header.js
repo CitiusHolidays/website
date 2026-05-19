@@ -1,12 +1,14 @@
 "use client";
 
 import { AnimatePresence, motion, useScroll, useTransform } from "motion/react";
-import { Menu, X, ArrowRight, User, LogOut, ChevronDown } from "lucide-react";
+import { Menu, X, ArrowRight, User, LogOut, ChevronDown, BriefcaseBusiness } from "lucide-react";
+import { useQuery } from "convex/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { useSession, logout } from "@/lib/auth-client";
+import { api } from "@convex/_generated/api";
 
 import Logo from "@/static/logos/logo.webp";
 import { getTrailsForHub } from "@/data/trails";
@@ -107,6 +109,11 @@ export default function Header() {
   // Get session data
   const { data: session, isPending } = useSession();
   const user = session?.user;
+  const portalAccess = useQuery(
+    api.crm.staff.getMyPortalAccess,
+    user ? {} : "skip",
+  );
+  const canAccessPortal = Boolean(portalAccess?.allowed);
 
   useTransform(scrollY, [0, 100], [0, 1]);
 
@@ -285,6 +292,16 @@ export default function Header() {
 
                       {/* Menu Items */}
                       <div className="py-1">
+                        {canAccessPortal && (
+                          <Link
+                            href="/portal"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <BriefcaseBusiness size={16} />
+                            Portal
+                          </Link>
+                        )}
                         <Link
                           href="/account"
                           onClick={() => setUserMenuOpen(false)}
@@ -454,6 +471,15 @@ export default function Header() {
                       {user.name?.split(" ")[0]}
                     </span>
                   </div>
+                  {canAccessPortal && (
+                    <Link
+                      href="/portal"
+                      onClick={() => setIsOpen(false)}
+                      className="text-lg text-white hover:text-blue-300 transition-colors"
+                    >
+                      Portal
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       handleLogout();

@@ -156,31 +156,34 @@ export default function CircularServicesMenu() {
 
   // Calculate line position from center to hovered/tapped service
   useEffect(() => {
-    if (!selectedService) {
-      setLinePos(null);
-      return;
-    }
-    const idx = servicePositions.findIndex(s => s.title === selectedService.title);
-    if (idx === -1 || !containerRef.current || !serviceRefs.current[idx]) {
-      setLinePos(null);
-      return;
-    }
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const serviceRect = serviceRefs.current[idx].getBoundingClientRect();
-    // Get the button inside the service div for more accurate center
-    const button = serviceRefs.current[idx].querySelector('button');
-    let serviceX, serviceY;
-    if (button) {
-      const buttonRect = button.getBoundingClientRect();
-      serviceX = buttonRect.left + buttonRect.width / 2 - containerRect.left;
-      serviceY = buttonRect.top + buttonRect.height / 2 - containerRect.top;
-    } else {
-      serviceX = serviceRect.left + serviceRect.width / 2 - containerRect.left;
-      serviceY = serviceRect.top + serviceRect.height / 2 - containerRect.top;
-    }
-    const centerX = containerRect.width / 2;
-    const centerY = containerRect.height / 2;
-    setLinePos({ x1: centerX, y1: centerY, x2: serviceX, y2: serviceY });
+    const frame = requestAnimationFrame(() => {
+      if (!selectedService) {
+        setLinePos(null);
+        return;
+      }
+      const idx = servicePositions.findIndex(s => s.title === selectedService.title);
+      if (idx === -1 || !containerRef.current || !serviceRefs.current[idx]) {
+        setLinePos(null);
+        return;
+      }
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const serviceRect = serviceRefs.current[idx].getBoundingClientRect();
+      // Get the button inside the service div for more accurate center
+      const button = serviceRefs.current[idx].querySelector('button');
+      let serviceX, serviceY;
+      if (button) {
+        const buttonRect = button.getBoundingClientRect();
+        serviceX = buttonRect.left + buttonRect.width / 2 - containerRect.left;
+        serviceY = buttonRect.top + buttonRect.height / 2 - containerRect.top;
+      } else {
+        serviceX = serviceRect.left + serviceRect.width / 2 - containerRect.left;
+        serviceY = serviceRect.top + serviceRect.height / 2 - containerRect.top;
+      }
+      const centerX = containerRect.width / 2;
+      const centerY = containerRect.height / 2;
+      setLinePos({ x1: centerX, y1: centerY, x2: serviceX, y2: serviceY });
+    });
+    return () => cancelAnimationFrame(frame);
   }, [selectedService, servicePositions]);
 
   const handleServiceInteraction = (service, idx) => {
