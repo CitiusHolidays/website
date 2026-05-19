@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { logout, useSession } from "@/lib/auth-client";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
-import { api } from "../../../convex/_generated/api";
+import { api } from "@convex/_generated/api";
 import Logo from "@/static/logos/logo.webp";
 
 export default function PortalShell({ access, user, children }) {

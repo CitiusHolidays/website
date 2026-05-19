@@ -8,7 +8,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { useSession, logout } from "@/lib/auth-client";
-import { api } from "../../../convex/_generated/api";
+import { api } from "@convex/_generated/api";
 
 import Logo from "@/static/logos/logo.webp";
 import { getTrailsForHub } from "@/data/trails";

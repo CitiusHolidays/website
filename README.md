@@ -96,6 +96,8 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
    npm start
    ```
 
+   The build runs `convex codegen` first to create `convex/_generated/` (that folder is gitignored). On Vercel, set a **Convex deploy key** as `CONVEX_DEPLOY_KEY` in project environment variables (Convex dashboard → Project Settings → Deploy Key).
+
 ## 📜 Available Scripts
 
 - `dev` — Start the development server

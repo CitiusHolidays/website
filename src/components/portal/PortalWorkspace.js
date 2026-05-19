@@ -38,7 +38,7 @@ import {
   VISA_STATUSES,
 } from "@/lib/portal/constants";
 import { getPipelineBuckets } from "@/lib/portal/workflow";
-import { api } from "../../../convex/_generated/api";
+import { api } from "@convex/_generated/api";
 
 const P = PORTAL_PERMISSIONS;
 
