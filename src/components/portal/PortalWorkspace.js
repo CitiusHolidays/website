@@ -277,7 +277,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const attachQueryFile = useAction(api.crm.queryAttachmentActions.attachFile);
   const getQueryAttachmentUrl = useAction(api.crm.queryAttachmentActions.getDownloadUrl);
   const removeQueryAttachment = useAction(api.crm.queryAttachmentActions.removeAttachment);
-  const adminSendResetEmail = useAction(api.crm.staffAction.adminSendResetEmail);
+  const startStaffOnboarding = useAction(api.crm.staffAction.startStaffOnboarding);
   const travellersWithoutVisa = useQuery(
     api.crm.visa.listTravellersWithoutVisa,
     canFetch && has(P.VIEW_VISA) && (modal === "visa_create" || view === "visa") ? {} : "skip"
@@ -848,7 +848,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         <ActivityView activity={activity || []} notifications={notifications || []} deleteItem={deleteItem} removeNotification={removeNotification} />
       )}
       {view === "settings" && (
-        <SettingsView staff={staff || []} dropdowns={dropdowns || {}} openModal={openModal} deleteItem={deleteItem} removeStaff={removeStaff} adminSendResetEmail={adminSendResetEmail} />
+        <SettingsView staff={staff || []} dropdowns={dropdowns || {}} openModal={openModal} deleteItem={deleteItem} removeStaff={removeStaff} startStaffOnboarding={startStaffOnboarding} />
       )}
 
       <EntityModal
@@ -2284,19 +2284,19 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
   );
 }
 
-function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff, adminSendResetEmail }) {
-  const [resetSending, setResetSending] = useState({});
+function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff, startStaffOnboarding }) {
+  const [onboardingSending, setOnboardingSending] = useState({});
 
-  const handleSendReset = async (row) => {
-    setResetSending((prev) => ({ ...prev, [row.id]: true }));
+  const handleSendOnboarding = async (row) => {
+    setOnboardingSending((prev) => ({ ...prev, [row.id]: true }));
     try {
-      await adminSendResetEmail({ email: row.email, name: row.name });
-      alert(`Password-reset email sent to ${row.name} (${row.email}) successfully!`);
+      const result = await startStaffOnboarding({ staffId: row.id });
+      alert(result?.message || `Onboarding email sent to ${row.email}.`);
     } catch (err) {
       console.error(err);
-      alert(err?.data || err?.message || "Failed to send password-reset email.");
+      alert(err?.data || err?.message || "Failed to send onboarding email.");
     } finally {
-      setResetSending((prev) => ({ ...prev, [row.id]: false }));
+      setOnboardingSending((prev) => ({ ...prev, [row.id]: false }));
     }
   };
 
@@ -2310,6 +2310,24 @@ function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff, ad
           ["Function", (row) => row.function || "-"],
           ["Location", (row) => row.location || "-"],
           ["Roles", (row) => row.roles.join(", ")],
+          ["Onboarding", (row) => (
+            <Badge
+              label={
+                row.onboardingStatus === "ready"
+                  ? "Ready"
+                  : row.onboardingStatus === "pending"
+                    ? "Pending"
+                    : "Not started"
+              }
+              tone={
+                row.onboardingStatus === "ready"
+                  ? "green"
+                  : row.onboardingStatus === "pending"
+                    ? "blue"
+                    : "gray"
+              }
+            />
+          )],
           ["Active", (row) => <Badge label={row.active ? "Active" : "Inactive"} tone={row.active ? "green" : "red"} />],
           ["Action", (row) => (
             <div className="flex flex-wrap gap-2">
@@ -2318,10 +2336,10 @@ function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff, ad
               </button>
               <button
                 className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
-                onClick={() => handleSendReset(row)}
-                disabled={resetSending[row.id]}
+                onClick={() => handleSendOnboarding(row)}
+                disabled={onboardingSending[row.id]}
               >
-                {resetSending[row.id] ? "Sending..." : "Send Reset"}
+                {onboardingSending[row.id] ? "Sending..." : "Send onboarding"}
               </button>
               <DeleteButton label={row.email} onClick={() => deleteItem(row.email, removeStaff, { staffId: row.id })} />
             </div>

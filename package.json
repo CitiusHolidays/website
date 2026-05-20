@@ -16,7 +16,9 @@
 		"auth:schema:generate": "bunx @better-auth/cli generate --config ./convex/betterAuth/auth.ts --output ./convex/betterAuth/schema.ts",
 		"migrate:export": "node ./scripts/migrations/export-postgres-to-json.mjs",
 		"migrate:import": "node ./scripts/migrations/import-json-to-convex.mjs",
-		"migrate:verify": "node ./scripts/migrations/verify-parity.mjs"
+		"migrate:verify": "node ./scripts/migrations/verify-parity.mjs",
+		"import:staff": "node ./scripts/import-staff-from-xlsx.mjs",
+		"import:staff:prod": "node ./scripts/import-staff-from-xlsx.mjs --apply --prod"
 	},
 	"dependencies": {
 		"@convex-dev/better-auth": "^0.11.3",

@@ -44,6 +44,13 @@ export const listStaff = query({
         mobile: staff.mobile ?? "",
         location: staff.location ?? "",
         active: staff.active,
+        authLinked: Boolean(staff.authUserId),
+        pendingOnboarding: Boolean(staff.pendingPasswordSetup),
+        onboardingStatus: !staff.authUserId
+          ? "not_started"
+          : staff.pendingPasswordSetup
+            ? "pending"
+            : "ready",
         createdAt: new Date(staff.createdAt).toISOString(),
         updatedAt: new Date(staff.updatedAt).toISOString(),
       }));
@@ -201,6 +208,37 @@ export const linkAuthUserId = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.staffId, {
       authUserId: args.authUserId,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const getStaffForOnboarding = internalQuery({
+  args: {
+    staffId: v.id("staffUsers"),
+  },
+  handler: async (ctx, args) => {
+    const staff = await ctx.db.get(args.staffId);
+    if (!staff) {
+      return null;
+    }
+    return {
+      staffId: staff._id,
+      email: staff.email,
+      name: staff.name,
+      authUserId: staff.authUserId,
+      pendingPasswordSetup: staff.pendingPasswordSetup ?? false,
+    };
+  },
+});
+
+export const markPendingOnboarding = internalMutation({
+  args: {
+    staffId: v.id("staffUsers"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.staffId, {
+      pendingPasswordSetup: true,
       updatedAt: Date.now(),
     });
   },
