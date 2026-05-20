@@ -5,6 +5,7 @@ import {
   createActivity,
   deleteEntityNotifications,
   requireAnyPermission,
+  requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
 
@@ -73,6 +74,53 @@ export const createHotel = mutation({
   },
 });
 
+export const updateHotel = mutation({
+  args: {
+    hotelId: v.string(),
+    name: v.optional(v.string()),
+    city: v.optional(v.string()),
+    checkInDate: v.optional(v.string()),
+    checkOutDate: v.optional(v.string()),
+    earlyCheckIn: v.optional(v.boolean()),
+    lateCheckout: v.optional(v.boolean()),
+    specialInstructions: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_OPERATIONS);
+    const hotelId = ctx.db.normalizeId("hotels", args.hotelId);
+    if (!hotelId) {
+      throw new ConvexError("Invalid hotel id");
+    }
+    const hotel = await ctx.db.get(hotelId);
+    if (!hotel) {
+      throw new ConvexError("Hotel not found");
+    }
+    if (args.name !== undefined && !args.name.trim()) {
+      throw new ConvexError("Hotel name is required");
+    }
+
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.name !== undefined) patch.name = args.name.trim();
+    if (args.city !== undefined) patch.city = args.city.trim();
+    if (args.checkInDate !== undefined) patch.checkInDate = args.checkInDate;
+    if (args.checkOutDate !== undefined) patch.checkOutDate = args.checkOutDate;
+    if (args.earlyCheckIn !== undefined) patch.earlyCheckIn = args.earlyCheckIn;
+    if (args.lateCheckout !== undefined) patch.lateCheckout = args.lateCheckout;
+    if (args.specialInstructions !== undefined) {
+      patch.specialInstructions = args.specialInstructions.trim();
+    }
+
+    await ctx.db.patch(hotelId, patch);
+    await createActivity(ctx, access, {
+      entityType: "hotel",
+      entityId: hotelId,
+      action: "updated",
+      message: `${(args.name ?? hotel.name).trim()} hotel updated`,
+    });
+    return { id: hotelId };
+  },
+});
+
 export const removeHotel = mutation({
   args: {
     hotelId: v.string(),
@@ -129,6 +177,7 @@ export const listTourManagers = query({
 export const createTourManager = mutation({
   args: {
     jobCardId: v.optional(v.string()),
+    staffId: v.optional(v.string()),
     name: v.string(),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
@@ -136,17 +185,33 @@ export const createTourManager = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.MANAGE_TOUR_MANAGERS,
-      PERMISSIONS.MANAGE_OPERATIONS,
-    ]);
+    const access = await requireHeadOrAdmin(ctx, ["Operations Head"]);
+    let name = args.name.trim();
+    let email = args.email?.trim() || "";
+    let phone = args.phone?.trim() || "";
+    if (args.staffId) {
+      const staffId = ctx.db.normalizeId("staffUsers", args.staffId);
+      if (!staffId) {
+        throw new ConvexError("Invalid staff id");
+      }
+      const staff = await ctx.db.get(staffId);
+      if (!staff?.active) {
+        throw new ConvexError("Staff member not found");
+      }
+      if (!staff.roles.includes("Tour Manager")) {
+        throw new ConvexError("Selected staff member is not a tour manager");
+      }
+      name = staff.name.trim();
+      email = staff.email || email;
+      phone = staff.mobile || phone;
+    }
     const jobCardId = args.jobCardId ? ctx.db.normalizeId("jobCards", args.jobCardId) : null;
     const now = Date.now();
     const id = await ctx.db.insert("tourManagerAssignments", {
       jobCardId: jobCardId ?? undefined,
-      name: args.name.trim(),
-      email: args.email?.trim() || "",
-      phone: args.phone?.trim() || "",
+      name,
+      email,
+      phone,
       status: jobCardId ? "Assigned" : "Available",
       languages: [],
       callingStatus: "Pending",
@@ -159,7 +224,7 @@ export const createTourManager = mutation({
     if (jobCardId) {
       await ctx.db.patch(jobCardId, {
         tourManagerId: id,
-        tourManagerName: args.name.trim(),
+        tourManagerName: name,
         updatedAt: now,
       });
     }
@@ -167,7 +232,95 @@ export const createTourManager = mutation({
       entityType: "tourManager",
       entityId: id,
       action: "created",
-      message: `${args.name.trim()} added as Tour Manager`,
+      message: `${name} added as Tour Manager`,
+    });
+    return { id };
+  },
+});
+
+export const updateTourManager = mutation({
+  args: {
+    tourManagerId: v.string(),
+    jobCardId: v.optional(v.string()),
+    name: v.optional(v.string()),
+    email: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    availabilityDate: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    languages: v.optional(v.array(v.string())),
+    callingStatus: v.optional(
+      v.union(v.literal("Pending"), v.literal("Done"), v.literal("No response")),
+    ),
+    status: v.optional(
+      v.union(v.literal("Available"), v.literal("Assigned"), v.literal("Inactive")),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireHeadOrAdmin(ctx, ["Operations Head"]);
+    const id = ctx.db.normalizeId("tourManagerAssignments", args.tourManagerId);
+    if (!id) {
+      throw new ConvexError("Invalid Tour Manager id");
+    }
+    const tourManager = await ctx.db.get(id);
+    if (!tourManager) {
+      throw new ConvexError("Tour Manager not found");
+    }
+    if (args.name !== undefined && !args.name.trim()) {
+      throw new ConvexError("Tour manager name is required");
+    }
+
+    const now = Date.now();
+    const patch: Record<string, unknown> = { updatedAt: now };
+    if (args.name !== undefined) patch.name = args.name.trim();
+    if (args.email !== undefined) patch.email = args.email.trim();
+    if (args.phone !== undefined) patch.phone = args.phone.trim();
+    if (args.availabilityDate !== undefined) patch.availabilityDate = args.availabilityDate;
+    if (args.notes !== undefined) patch.notes = args.notes.trim();
+    if (args.languages !== undefined) patch.languages = args.languages;
+    if (args.callingStatus !== undefined) patch.callingStatus = args.callingStatus;
+    if (args.status !== undefined) patch.status = args.status;
+
+    let jobCardId = tourManager.jobCardId;
+    if (args.jobCardId !== undefined) {
+      const nextJobCardId = args.jobCardId
+        ? ctx.db.normalizeId("jobCards", args.jobCardId)
+        : undefined;
+      if (args.jobCardId && !nextJobCardId) {
+        throw new ConvexError("Invalid Job Card id");
+      }
+      jobCardId = nextJobCardId ?? undefined;
+      patch.jobCardId = nextJobCardId ?? undefined;
+      if (!patch.status) {
+        patch.status = nextJobCardId ? "Assigned" : "Available";
+      }
+    }
+
+    const name = (args.name ?? tourManager.name).trim();
+    await ctx.db.patch(id, patch);
+
+    if (tourManager.jobCardId && tourManager.jobCardId !== jobCardId) {
+      const previousJob = await ctx.db.get(tourManager.jobCardId);
+      if (previousJob?.tourManagerId === id) {
+        await ctx.db.patch(tourManager.jobCardId, {
+          tourManagerId: undefined,
+          tourManagerName: "",
+          updatedAt: now,
+        });
+      }
+    }
+    if (jobCardId) {
+      await ctx.db.patch(jobCardId, {
+        tourManagerId: id,
+        tourManagerName: name,
+        updatedAt: now,
+      });
+    }
+
+    await createActivity(ctx, access, {
+      entityType: "tourManager",
+      entityId: id,
+      action: "updated",
+      message: `${name} tour manager updated`,
     });
     return { id };
   },
@@ -178,10 +331,7 @@ export const removeTourManager = mutation({
     tourManagerId: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.MANAGE_TOUR_MANAGERS,
-      PERMISSIONS.MANAGE_OPERATIONS,
-    ]);
+    const access = await requireHeadOrAdmin(ctx, ["Operations Head"]);
     const id = ctx.db.normalizeId("tourManagerAssignments", args.tourManagerId);
     if (!id) {
       throw new ConvexError("Invalid Tour Manager id");

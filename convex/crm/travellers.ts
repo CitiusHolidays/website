@@ -172,6 +172,110 @@ export const create = mutation({
   },
 });
 
+export const update = mutation({
+  args: {
+    travellerId: v.string(),
+    fullName: v.optional(v.string()),
+    travelHub: v.optional(v.string()),
+    foodPreference: v.optional(foodPreferenceValidator),
+    guestType: v.optional(guestTypeValidator),
+    paymentType: v.optional(paymentTypeValidator),
+    roomType: v.optional(roomTypeValidator),
+    visaRequired: v.optional(v.boolean()),
+    domesticTravelRequired: v.optional(v.boolean()),
+    biometricAppointmentDate: v.optional(v.string()),
+    travelDate: v.optional(v.string()),
+    extensionOfTour: v.optional(v.boolean()),
+    arrivingEarly: v.optional(v.boolean()),
+    guestCompanions: v.optional(v.string()),
+    specialRequests: v.optional(v.string()),
+    passportStatus: v.optional(v.string()),
+    hotelAllocation: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TRAVELLERS);
+    const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
+    if (!travellerId) {
+      throw new ConvexError("Invalid traveller id");
+    }
+    const traveller = await ctx.db.get(travellerId);
+    if (!traveller) {
+      throw new ConvexError("Traveller not found");
+    }
+    if (args.fullName !== undefined && !args.fullName.trim()) {
+      throw new ConvexError("Traveller name is required");
+    }
+
+    const now = Date.now();
+    const patch: Record<string, unknown> = { updatedAt: now };
+    if (args.fullName !== undefined) patch.fullName = args.fullName.trim();
+    if (args.travelHub !== undefined) patch.travelHub = args.travelHub.trim();
+    if (args.foodPreference !== undefined) patch.foodPreference = args.foodPreference;
+    if (args.guestType !== undefined) patch.guestType = args.guestType;
+    if (args.paymentType !== undefined) patch.paymentType = args.paymentType;
+    if (args.roomType !== undefined) patch.roomType = args.roomType;
+    if (args.visaRequired !== undefined) {
+      patch.visaRequired = args.visaRequired;
+      patch.visaStatus = args.visaRequired
+        ? traveller.visaStatus === "Not Required"
+          ? "Not Started"
+          : traveller.visaStatus
+        : "Not Required";
+    }
+    if (args.domesticTravelRequired !== undefined) {
+      patch.domesticTravelRequired = args.domesticTravelRequired;
+    }
+    if (args.biometricAppointmentDate !== undefined) {
+      patch.biometricAppointmentDate = args.biometricAppointmentDate;
+    }
+    if (args.travelDate !== undefined) patch.travelDate = args.travelDate;
+    if (args.extensionOfTour !== undefined) patch.extensionOfTour = args.extensionOfTour;
+    if (args.arrivingEarly !== undefined) patch.arrivingEarly = args.arrivingEarly;
+    if (args.guestCompanions !== undefined) {
+      patch.guestCompanions = args.guestCompanions.trim();
+    }
+    if (args.specialRequests !== undefined) {
+      patch.specialRequests = args.specialRequests.trim();
+    }
+    if (args.passportStatus !== undefined) {
+      patch.passportStatus = args.passportStatus.trim();
+    }
+    if (args.hotelAllocation !== undefined) {
+      patch.hotelAllocation = args.hotelAllocation.trim();
+    }
+
+    await ctx.db.patch(travellerId, patch);
+
+    if (args.visaRequired !== undefined || args.biometricAppointmentDate !== undefined) {
+      const visaRecord = await ctx.db
+        .query("visaRecords")
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+        .unique();
+      if (visaRecord) {
+        const visaPatch: Record<string, unknown> = {
+          updatedBy: access.authUserId ?? "unknown",
+          updatedAt: now,
+        };
+        if (args.visaRequired !== undefined) {
+          visaPatch.status = patch.visaStatus as string;
+        }
+        if (args.biometricAppointmentDate !== undefined) {
+          visaPatch.appointmentDate = args.biometricAppointmentDate;
+        }
+        await ctx.db.patch(visaRecord._id, visaPatch);
+      }
+    }
+
+    await createActivity(ctx, access, {
+      entityType: "traveller",
+      entityId: travellerId,
+      action: "updated",
+      message: `${(args.fullName ?? traveller.fullName).trim()} updated`,
+    });
+    return { id: travellerId };
+  },
+});
+
 export const updateCallingStatus = mutation({
   args: {
     travellerId: v.string(),

@@ -105,6 +105,67 @@ export const updateStatus = mutation({
   },
 });
 
+export const updateRecord = mutation({
+  args: {
+    visaRecordId: v.string(),
+    status: v.optional(visaStatusValidator),
+    appointmentDate: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_VISA);
+    const visaRecordId = ctx.db.normalizeId("visaRecords", args.visaRecordId);
+    if (!visaRecordId) {
+      throw new ConvexError("Invalid visa record id");
+    }
+    const record = await ctx.db.get(visaRecordId);
+    if (!record) {
+      throw new ConvexError("Visa record not found");
+    }
+
+    const now = Date.now();
+    const nextStatus = args.status ?? record.status;
+    const patch: Record<string, unknown> = {
+      updatedBy: access.authUserId ?? "unknown",
+      updatedAt: now,
+    };
+    if (args.status !== undefined) patch.status = args.status;
+    if (args.appointmentDate !== undefined) {
+      patch.appointmentDate = args.appointmentDate;
+    }
+    if (args.notes !== undefined) patch.notes = args.notes.trim();
+
+    if (args.status === "Checklist Shared" && !record.checklistSharedAt) {
+      patch.checklistSharedAt = now;
+    }
+    if (args.status === "Submitted" && !record.submittedAt) {
+      patch.submittedAt = now;
+    }
+    if (args.status === "Approved" && !record.approvedAt) {
+      patch.approvedAt = now;
+    }
+    if (args.status === "Rejected" && !record.rejectedAt) {
+      patch.rejectedAt = now;
+    }
+
+    await ctx.db.patch(visaRecordId, patch);
+    await ctx.db.patch(record.travellerId, {
+      visaStatus: nextStatus,
+      ...(args.appointmentDate !== undefined
+        ? { biometricAppointmentDate: args.appointmentDate }
+        : {}),
+      updatedAt: now,
+    });
+    await createActivity(ctx, access, {
+      entityType: "visaRecord",
+      entityId: visaRecordId,
+      action: "updated",
+      message: `Visa record updated${args.status ? ` (${args.status})` : ""}`,
+    });
+    return { id: visaRecordId };
+  },
+});
+
 export const remove = mutation({
   args: {
     visaRecordId: v.string(),

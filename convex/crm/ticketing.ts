@@ -6,6 +6,7 @@ import {
   deleteEntityNotifications,
   notifyRoles,
   requireAnyPermission,
+  requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
 
@@ -95,6 +96,8 @@ export const dashboard = query({
       attention,
       cancelled: tickets.filter((ticket) => ticket.ticketStatus === "Cancelled").length,
       refunded: tickets.filter((ticket) => ticket.ticketStatus === "Refunded").length,
+      fitTickets: tickets.filter((ticket) => ticket.ticketType === "FIT Ticket").length,
+      groupTickets: tickets.filter((ticket) => ticket.ticketType === "Group Ticket").length,
       pnrCount: pnrs.length,
       totalSeats: pnrs.reduce((sum, pnr) => sum + pnr.totalSeats, 0),
       issuedSeats: pnrs.reduce((sum, pnr) => sum + pnr.issuedSeats, 0),
@@ -156,6 +159,52 @@ export const createPnr = mutation({
       message: `${args.pnrCode.trim().toUpperCase()} added to ${job.jobCode}`,
     });
     return { id };
+  },
+});
+
+export const updatePnr = mutation({
+  args: {
+    pnrId: v.string(),
+    pnrCode: v.optional(v.string()),
+    airline: v.optional(v.string()),
+    route: v.optional(v.string()),
+    fareType: v.optional(v.string()),
+    totalSeats: v.optional(v.number()),
+    status: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
+    const pnrId = ctx.db.normalizeId("pnrs", args.pnrId);
+    if (!pnrId) {
+      throw new ConvexError("Invalid PNR id");
+    }
+    const pnr = await ctx.db.get(pnrId);
+    if (!pnr) {
+      throw new ConvexError("PNR not found");
+    }
+    if (args.pnrCode !== undefined && !args.pnrCode.trim()) {
+      throw new ConvexError("PNR code is required");
+    }
+    if (args.totalSeats !== undefined && args.totalSeats < 0) {
+      throw new ConvexError("Total seats cannot be negative");
+    }
+
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.pnrCode !== undefined) patch.pnrCode = args.pnrCode.trim().toUpperCase();
+    if (args.airline !== undefined) patch.airline = args.airline.trim();
+    if (args.route !== undefined) patch.route = args.route.trim();
+    if (args.fareType !== undefined) patch.fareType = args.fareType.trim();
+    if (args.totalSeats !== undefined) patch.totalSeats = args.totalSeats;
+    if (args.status !== undefined) patch.status = args.status.trim();
+
+    await ctx.db.patch(pnrId, patch);
+    await createActivity(ctx, access, {
+      entityType: "pnr",
+      entityId: pnrId,
+      action: "updated",
+      message: `${(args.pnrCode ?? pnr.pnrCode).trim().toUpperCase()} updated`,
+    });
+    return { id: pnrId };
   },
 });
 
@@ -255,6 +304,121 @@ export const createTicket = mutation({
       });
     }
     return { id };
+  },
+});
+
+export const updateTicket = mutation({
+  args: {
+    ticketId: v.string(),
+    travellerId: v.optional(v.string()),
+    pnrId: v.optional(v.string()),
+    ticketNumber: v.optional(v.string()),
+    ticketType: v.optional(ticketTypeValidator),
+    ticketStatus: v.optional(ticketStatusValidator),
+    paymentType: v.optional(paymentTypeValidator),
+    cabinClass: v.optional(v.string()),
+    mealPreference: v.optional(foodPreferenceValidator),
+    seatPreference: v.optional(v.string()),
+    seatNumber: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
+    const ticketId = ctx.db.normalizeId("tickets", args.ticketId);
+    if (!ticketId) {
+      throw new ConvexError("Invalid ticket id");
+    }
+    const ticket = await ctx.db.get(ticketId);
+    if (!ticket) {
+      throw new ConvexError("Ticket not found");
+    }
+
+    const travellerId = args.travellerId
+      ? ctx.db.normalizeId("travellers", args.travellerId)
+      : args.travellerId === ""
+        ? null
+        : undefined;
+    if (args.travellerId && !travellerId) {
+      throw new ConvexError("Invalid traveller id");
+    }
+    const pnrId = args.pnrId
+      ? ctx.db.normalizeId("pnrs", args.pnrId)
+      : args.pnrId === ""
+        ? null
+        : undefined;
+    if (args.pnrId && !pnrId) {
+      throw new ConvexError("Invalid PNR id");
+    }
+
+    const now = Date.now();
+    const nextStatus = args.ticketStatus ?? ticket.ticketStatus;
+    const patch: Record<string, unknown> = { updatedAt: now };
+    if (travellerId !== undefined) patch.travellerId = travellerId ?? undefined;
+    if (pnrId !== undefined) patch.pnrId = pnrId ?? undefined;
+    if (args.ticketNumber !== undefined) patch.ticketNumber = args.ticketNumber.trim();
+    if (args.ticketType !== undefined) patch.ticketType = args.ticketType;
+    if (args.ticketStatus !== undefined) patch.ticketStatus = args.ticketStatus;
+    if (args.paymentType !== undefined) patch.paymentType = args.paymentType;
+    if (args.cabinClass !== undefined) patch.cabinClass = args.cabinClass.trim();
+    if (args.mealPreference !== undefined) patch.mealPreference = args.mealPreference;
+    if (args.seatPreference !== undefined) patch.seatPreference = args.seatPreference.trim();
+    if (args.seatNumber !== undefined) patch.seatNumber = args.seatNumber.trim();
+
+    const effectivePnrId = (pnrId !== undefined ? pnrId : ticket.pnrId) ?? null;
+    const wasIssued = ticket.ticketStatus === "Issued";
+    const willBeIssued = nextStatus === "Issued";
+
+    await ctx.db.patch(ticketId, patch);
+
+    const linkedTravellerId =
+      travellerId !== undefined ? travellerId : ticket.travellerId;
+    if (linkedTravellerId) {
+      await ctx.db.patch(linkedTravellerId, {
+        ticketStatus: nextStatus,
+        updatedAt: now,
+      });
+    }
+
+    if (effectivePnrId && wasIssued !== willBeIssued) {
+      const pnr = await ctx.db.get(effectivePnrId);
+      if (pnr) {
+        const delta = willBeIssued ? 1 : -1;
+        await ctx.db.patch(effectivePnrId, {
+          issuedSeats: Math.max((pnr.issuedSeats ?? 0) + delta, 0),
+          updatedAt: now,
+        });
+      }
+    }
+    if (ticket.pnrId && ticket.pnrId !== effectivePnrId && wasIssued) {
+      const oldPnr = await ctx.db.get(ticket.pnrId);
+      if (oldPnr) {
+        await ctx.db.patch(ticket.pnrId, {
+          issuedSeats: Math.max((oldPnr.issuedSeats ?? 0) - 1, 0),
+          updatedAt: now,
+        });
+      }
+    }
+
+    await createActivity(ctx, access, {
+      entityType: "ticket",
+      entityId: ticketId,
+      action: "updated",
+      message: `Ticket ${ticket.ticketNumber || ticketId} updated`,
+    });
+    if (
+      args.ticketStatus &&
+      ["Name Change Required", "Reissue Required"].includes(args.ticketStatus)
+    ) {
+      const job = await ctx.db.get(ticket.jobCardId);
+      if (job) {
+        await notifyRoles(ctx, ["Operations", "Operations Head"], {
+          title: "Ticketing action needed",
+          body: `A ticket in ${job.jobCode} needs ${args.ticketStatus.toLowerCase()}.`,
+          entityType: "ticket",
+          entityId: ticketId,
+        });
+      }
+    }
+    return { id: ticketId };
   },
 });
 
@@ -419,6 +583,90 @@ export const saveSeatAllocation = mutation({
   },
 });
 
+export const updateSeatAllocation = mutation({
+  args: {
+    seatAllocationId: v.string(),
+    travellerId: v.optional(v.string()),
+    pnrId: v.optional(v.string()),
+    seatNumber: v.optional(v.string()),
+    status: v.optional(
+      v.union(
+        v.literal("Available"),
+        v.literal("Held"),
+        v.literal("Assigned"),
+        v.literal("Blocked"),
+      ),
+    ),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
+    const id = ctx.db.normalizeId("seatAllocations", args.seatAllocationId);
+    if (!id) {
+      throw new ConvexError("Invalid seat allocation id");
+    }
+    const seat = await ctx.db.get(id);
+    if (!seat) {
+      throw new ConvexError("Seat allocation not found");
+    }
+    if (args.seatNumber !== undefined && !args.seatNumber.trim()) {
+      throw new ConvexError("Seat number is required");
+    }
+
+    const travellerId = args.travellerId
+      ? ctx.db.normalizeId("travellers", args.travellerId)
+      : args.travellerId === ""
+        ? null
+        : undefined;
+    if (args.travellerId && !travellerId) {
+      throw new ConvexError("Invalid traveller id");
+    }
+    const pnrId = args.pnrId
+      ? ctx.db.normalizeId("pnrs", args.pnrId)
+      : args.pnrId === ""
+        ? null
+        : undefined;
+    if (args.pnrId && !pnrId) {
+      throw new ConvexError("Invalid PNR id");
+    }
+
+    const now = Date.now();
+    const nextSeatNumber = args.seatNumber?.trim().toUpperCase() ?? seat.seatNumber;
+    const nextStatus = args.status ?? seat.status;
+    const patch: Record<string, unknown> = { updatedAt: now };
+    if (travellerId !== undefined) patch.travellerId = travellerId ?? undefined;
+    if (pnrId !== undefined) patch.pnrId = pnrId ?? undefined;
+    if (args.seatNumber !== undefined) patch.seatNumber = nextSeatNumber;
+    if (args.status !== undefined) patch.status = args.status;
+    if (args.notes !== undefined) patch.notes = args.notes.trim();
+
+    await ctx.db.patch(id, patch);
+
+    const linkedTravellerId =
+      travellerId !== undefined ? travellerId : seat.travellerId;
+    if (linkedTravellerId && nextStatus === "Assigned") {
+      const tickets = await ctx.db
+        .query("tickets")
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", linkedTravellerId))
+        .collect();
+      for (const ticket of tickets) {
+        await ctx.db.patch(ticket._id, {
+          seatNumber: nextSeatNumber,
+          updatedAt: now,
+        });
+      }
+    }
+
+    await createActivity(ctx, access, {
+      entityType: "seatAllocation",
+      entityId: id,
+      action: "updated",
+      message: `Seat ${nextSeatNumber} updated`,
+    });
+    return { id };
+  },
+});
+
 export const removePnr = mutation({
   args: {
     pnrId: v.string(),
@@ -464,6 +712,51 @@ export const removePnr = mutation({
     await deleteEntityNotifications(ctx, "pnr", pnrId);
     await ctx.db.delete(pnrId);
     return { id: pnrId };
+  },
+});
+
+export const assignTicketingOwner = mutation({
+  args: {
+    jobCardId: v.string(),
+    staffId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireHeadOrAdmin(ctx, ["Head of Ticketing"]);
+    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!jobCardId) {
+      throw new ConvexError("Invalid Job Card id");
+    }
+    const staffId = ctx.db.normalizeId("staffUsers", args.staffId);
+    if (!staffId) {
+      throw new ConvexError("Invalid staff id");
+    }
+    const staff = await ctx.db.get(staffId);
+    if (!staff?.active) {
+      throw new ConvexError("Staff member not found");
+    }
+    const isTicketingTeam = staff.roles.some((role) =>
+      ["Ticketing", "Head of Ticketing"].includes(role),
+    );
+    if (!isTicketingTeam) {
+      throw new ConvexError("Selected staff member is not on the ticketing team");
+    }
+    const job = await ctx.db.get(jobCardId);
+    if (!job) {
+      throw new ConvexError("Job Card not found");
+    }
+    const ownerName = staff.name.trim();
+    await ctx.db.patch(jobCardId, {
+      ticketingOwnerId: staffId,
+      ticketingOwnerName: ownerName,
+      updatedAt: Date.now(),
+    });
+    await createActivity(ctx, access, {
+      entityType: "jobCard",
+      entityId: jobCardId,
+      action: "assigned_ticketing",
+      message: `${job.jobCode} assigned to ${ownerName} (Ticketing)`,
+    });
+    return { id: jobCardId };
   },
 });
 

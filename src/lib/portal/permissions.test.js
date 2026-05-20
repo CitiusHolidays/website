@@ -69,6 +69,13 @@ describe("portal permissions", () => {
     expect(canAccessPage(access, "settings")).toBe(true);
   });
 
+  test("activity log nav is admin-only", () => {
+    expect(pagesForRoles(["Admin"])).toContain("activity");
+    expect(pagesForRoles(["Sales Head"])).not.toContain("activity");
+    expect(pagesForRoles(["Finance"])).not.toContain("activity");
+    expect(pagesForRoles(["Operations Head"])).not.toContain("activity");
+  });
+
   for (const [role, { allowed, denied }] of Object.entries(roleExpectations)) {
     test(`${role} nav matches Activity Flow / portal-crm-spec`, () => {
       const pages = pagesForRoles([role]);

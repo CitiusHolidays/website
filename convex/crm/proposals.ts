@@ -86,6 +86,65 @@ export const create = mutation({
   },
 });
 
+export const update = mutation({
+  args: {
+    proposalId: v.string(),
+    queryId: v.optional(v.string()),
+    clientName: v.optional(v.string()),
+    preparedBy: v.optional(v.string()),
+    landCostPerPax: v.optional(v.number()),
+    airfarePerPax: v.optional(v.number()),
+    itinerarySummary: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_PROPOSALS);
+    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
+    if (!proposalId) {
+      throw new ConvexError("Invalid proposal id");
+    }
+    const proposal = await ctx.db.get(proposalId);
+    if (!proposal) {
+      throw new ConvexError("Proposal not found");
+    }
+
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.queryId !== undefined) {
+      const queryId = args.queryId
+        ? ctx.db.normalizeId("queries", args.queryId)
+        : null;
+      if (args.queryId && !queryId) {
+        throw new ConvexError("Invalid query id");
+      }
+      if (queryId) {
+        const linkedQuery = await ctx.db.get(queryId);
+        if (!linkedQuery) {
+          throw new ConvexError("Linked query not found");
+        }
+        patch.queryId = queryId;
+        patch.clientName = linkedQuery.clientName;
+      } else {
+        patch.queryId = undefined;
+      }
+    }
+    if (args.clientName !== undefined) patch.clientName = args.clientName.trim();
+    if (args.preparedBy !== undefined) patch.preparedBy = args.preparedBy.trim();
+    if (args.landCostPerPax !== undefined) patch.landCostPerPax = args.landCostPerPax;
+    if (args.airfarePerPax !== undefined) patch.airfarePerPax = args.airfarePerPax;
+    if (args.itinerarySummary !== undefined) {
+      patch.itinerarySummary = args.itinerarySummary.trim();
+    }
+
+    await ctx.db.patch(proposalId, patch);
+    await createActivity(ctx, access, {
+      entityType: "proposal",
+      entityId: proposalId,
+      action: "updated",
+      message: `${proposal.proposalCode} updated`,
+    });
+    return { id: proposalId };
+  },
+});
+
 export const markSent = mutation({
   args: {
     proposalId: v.string(),

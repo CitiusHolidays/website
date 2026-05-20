@@ -9,6 +9,7 @@ import {
   paymentTermsFor,
   publicJobCard,
   requireAnyPermission,
+  requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
 
@@ -110,6 +111,56 @@ export const createFromQuery = mutation({
   },
 });
 
+export const update = mutation({
+  args: {
+    jobCardId: v.string(),
+    clientName: v.optional(v.string()),
+    destination: v.optional(v.string()),
+    confirmedPax: v.optional(v.number()),
+    roomCount: v.optional(v.number()),
+    travelStartDate: v.optional(v.string()),
+    travelEndDate: v.optional(v.string()),
+    tourManagerName: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.MANAGE_JOB_CARDS,
+      PERMISSIONS.MANAGE_OPERATIONS,
+    ]);
+    const id = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!id) {
+      throw new ConvexError("Invalid Job Card id");
+    }
+    const job = await ctx.db.get(id);
+    if (!job) {
+      throw new ConvexError("Job Card not found");
+    }
+    if (args.confirmedPax !== undefined && args.confirmedPax < 1) {
+      throw new ConvexError("Confirmed pax must be greater than zero");
+    }
+
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.clientName !== undefined) patch.clientName = args.clientName.trim();
+    if (args.destination !== undefined) patch.destination = args.destination.trim();
+    if (args.confirmedPax !== undefined) patch.confirmedPax = args.confirmedPax;
+    if (args.roomCount !== undefined) patch.roomCount = args.roomCount;
+    if (args.travelStartDate !== undefined) patch.travelStartDate = args.travelStartDate;
+    if (args.travelEndDate !== undefined) patch.travelEndDate = args.travelEndDate;
+    if (args.tourManagerName !== undefined) {
+      patch.tourManagerName = args.tourManagerName.trim();
+    }
+
+    await ctx.db.patch(id, patch);
+    await createActivity(ctx, access, {
+      entityType: "jobCard",
+      entityId: id,
+      action: "updated",
+      message: `${job.jobCode} updated`,
+    });
+    return { id };
+  },
+});
+
 export const updateChecklist = mutation({
   args: {
     jobCardId: v.string(),
@@ -176,6 +227,51 @@ export const updateStatus = mutation({
       message: `${job.jobCode} moved to ${args.status}`,
     });
     return { id };
+  },
+});
+
+export const assignOperationsOwner = mutation({
+  args: {
+    jobCardId: v.string(),
+    staffId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireHeadOrAdmin(ctx, ["Operations Head"]);
+    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!jobCardId) {
+      throw new ConvexError("Invalid Job Card id");
+    }
+    const staffId = ctx.db.normalizeId("staffUsers", args.staffId);
+    if (!staffId) {
+      throw new ConvexError("Invalid staff id");
+    }
+    const staff = await ctx.db.get(staffId);
+    if (!staff?.active) {
+      throw new ConvexError("Staff member not found");
+    }
+    const isOpsTeam = staff.roles.some((role) =>
+      ["Operations", "Operations Head"].includes(role),
+    );
+    if (!isOpsTeam) {
+      throw new ConvexError("Selected staff member is not on the operations team");
+    }
+    const job = await ctx.db.get(jobCardId);
+    if (!job) {
+      throw new ConvexError("Job Card not found");
+    }
+    const ownerName = staff.name.trim();
+    await ctx.db.patch(jobCardId, {
+      operationsOwnerId: staffId,
+      operationsOwnerName: ownerName,
+      updatedAt: Date.now(),
+    });
+    await createActivity(ctx, access, {
+      entityType: "jobCard",
+      entityId: jobCardId,
+      action: "assigned_operations",
+      message: `${job.jobCode} assigned to ${ownerName} (Operations)`,
+    });
+    return { id: jobCardId };
   },
 });
 

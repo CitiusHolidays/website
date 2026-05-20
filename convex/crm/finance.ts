@@ -87,6 +87,59 @@ export const createInvoice = mutation({
   },
 });
 
+export const updateInvoice = mutation({
+  args: {
+    invoiceId: v.string(),
+    invoiceNumber: v.optional(v.string()),
+    expectedAmount: v.optional(v.number()),
+    receivedAmount: v.optional(v.number()),
+    dueDate: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_FINANCE);
+    const invoiceId = ctx.db.normalizeId("invoices", args.invoiceId);
+    if (!invoiceId) {
+      throw new ConvexError("Invalid invoice id");
+    }
+    const invoice = await ctx.db.get(invoiceId);
+    if (!invoice) {
+      throw new ConvexError("Invoice not found");
+    }
+    if (args.invoiceNumber !== undefined && !args.invoiceNumber.trim()) {
+      throw new ConvexError("Invoice number is required");
+    }
+
+    const expectedAmount = args.expectedAmount ?? invoice.expectedAmount;
+    const receivedAmount = args.receivedAmount ?? invoice.receivedAmount;
+    const balanceAmount = Math.max(expectedAmount - receivedAmount, 0);
+    const patch: Record<string, unknown> = {
+      expectedAmount,
+      receivedAmount,
+      balanceAmount,
+      status:
+        balanceAmount === 0
+          ? "Paid"
+          : receivedAmount > 0
+            ? "Part Paid"
+            : invoice.status === "Draft"
+              ? "Draft"
+              : "Generated",
+      updatedAt: Date.now(),
+    };
+    if (args.invoiceNumber !== undefined) patch.invoiceNumber = args.invoiceNumber.trim();
+    if (args.dueDate !== undefined) patch.dueDate = args.dueDate;
+
+    await ctx.db.patch(invoiceId, patch);
+    await createActivity(ctx, access, {
+      entityType: "invoice",
+      entityId: invoiceId,
+      action: "updated",
+      message: `${(args.invoiceNumber ?? invoice.invoiceNumber).trim()} invoice updated`,
+    });
+    return { id: invoiceId };
+  },
+});
+
 export const removeInvoice = mutation({
   args: {
     invoiceId: v.string(),
@@ -198,6 +251,83 @@ export const createExpense = mutation({
       entityId: id,
       action: "created",
       message: `${args.category.trim()} expense submitted`,
+    });
+    return { id };
+  },
+});
+
+export const updateExpense = mutation({
+  args: {
+    expenseId: v.string(),
+    tourManagerName: v.optional(v.string()),
+    category: v.optional(v.string()),
+    expenseDate: v.optional(v.string()),
+    particulars: v.optional(v.string()),
+    currency: v.optional(expenseCurrencyValidator),
+    cardAmount: v.optional(v.number()),
+    cashAmount: v.optional(v.number()),
+    epayAmount: v.optional(v.number()),
+    amount: v.optional(v.number()),
+    paidBy: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_EXPENSES);
+    const id = ctx.db.normalizeId("expenseEntries", args.expenseId);
+    if (!id) {
+      throw new ConvexError("Invalid expense id");
+    }
+    const expense = await ctx.db.get(id);
+    if (!expense) {
+      throw new ConvexError("Expense not found");
+    }
+    if (expense.approvalStatus === "Approved") {
+      throw new ConvexError("Approved expenses cannot be edited");
+    }
+
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.tourManagerName !== undefined) {
+      patch.tourManagerName = args.tourManagerName.trim();
+    }
+    if (args.category !== undefined) {
+      if (!args.category.trim()) {
+        throw new ConvexError("Category is required");
+      }
+      patch.category = args.category.trim();
+    }
+    if (args.expenseDate !== undefined) patch.expenseDate = args.expenseDate;
+    if (args.particulars !== undefined) patch.particulars = args.particulars.trim();
+    if (args.currency !== undefined) patch.currency = args.currency;
+    if (args.cardAmount !== undefined) patch.cardAmount = args.cardAmount;
+    if (args.cashAmount !== undefined) patch.cashAmount = args.cashAmount;
+    if (args.epayAmount !== undefined) patch.epayAmount = args.epayAmount;
+    if (args.paidBy !== undefined) {
+      if (!args.paidBy.trim()) {
+        throw new ConvexError("Paid by is required");
+      }
+      patch.paidBy = args.paidBy.trim();
+    }
+    if (args.notes !== undefined) patch.notes = args.notes.trim();
+
+    if (
+      args.amount !== undefined ||
+      args.cardAmount !== undefined ||
+      args.cashAmount !== undefined ||
+      args.epayAmount !== undefined
+    ) {
+      const cardAmount = args.cardAmount ?? expense.cardAmount ?? 0;
+      const cashAmount = args.cashAmount ?? expense.cashAmount ?? 0;
+      const epayAmount = args.epayAmount ?? expense.epayAmount ?? 0;
+      const splitTotal = cardAmount + cashAmount + epayAmount;
+      patch.amount = args.amount ?? splitTotal;
+    }
+
+    await ctx.db.patch(id, patch);
+    await createActivity(ctx, access, {
+      entityType: "expense",
+      entityId: id,
+      action: "updated",
+      message: `${(args.category ?? expense.category).trim()} expense updated`,
     });
     return { id };
   },

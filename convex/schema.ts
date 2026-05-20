@@ -150,6 +150,7 @@ const approvalStatus = v.union(
   v.literal("Pending"),
   v.literal("Approved"),
   v.literal("Rejected"),
+  v.literal("Needs Info"),
 );
 
 export default defineSchema({
@@ -359,6 +360,8 @@ export default defineSchema({
     paymentTerms: v.optional(v.any()),
     operationsOwnerId: v.optional(v.string()),
     operationsOwnerName: v.optional(v.string()),
+    ticketingOwnerId: v.optional(v.string()),
+    ticketingOwnerName: v.optional(v.string()),
     tourManagerId: v.optional(v.id("tourManagerAssignments")),
     tourManagerName: v.optional(v.string()),
     status: v.union(
@@ -784,6 +787,7 @@ export default defineSchema({
     endDate: v.string(),
     reason: v.string(),
     status: v.string(), // "Pending", "Approved", "Rejected"
+    decisionNote: v.optional(v.string()),
     createdBy: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),

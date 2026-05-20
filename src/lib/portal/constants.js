@@ -46,6 +46,7 @@ export const PORTAL_PERMISSIONS = {
   VIEW_REPORTS: "view:reports",
   VIEW_ACTIVITY: "view:activity",
   VIEW_SENSITIVE_TRAVELLER_DATA: "view:sensitiveTravellerData",
+  REQUEST_LEAVE: "request:leave",
 };
 
 const P = PORTAL_PERMISSIONS;
@@ -69,7 +70,6 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_TEAM,
     P.VIEW_APPROVALS,
     P.VIEW_REPORTS,
-    P.VIEW_ACTIVITY,
     P.VIEW_SENSITIVE_TRAVELLER_DATA,
   ],
   "Sales Head": [
@@ -78,7 +78,6 @@ export const ROLE_PERMISSIONS = {
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
     P.VIEW_TEAM,
-    P.VIEW_ACTIVITY,
   ],
   Sales: [
     P.VIEW_DASHBOARD,
@@ -96,7 +95,6 @@ export const ROLE_PERMISSIONS = {
     P.MANAGE_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.VIEW_TEAM,
-    P.VIEW_ACTIVITY,
   ],
   Contracting: [
     P.VIEW_DASHBOARD,
@@ -137,7 +135,6 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_EXPENSES,
     P.VIEW_FINANCE,
     P.VIEW_TEAM,
-    P.VIEW_ACTIVITY,
     P.VIEW_SENSITIVE_TRAVELLER_DATA,
   ],
   Operations: [
@@ -162,7 +159,6 @@ export const ROLE_PERMISSIONS = {
     P.MANAGE_TICKETING,
     P.VIEW_TOUR_MANAGERS,
     P.VIEW_TEAM,
-    P.VIEW_ACTIVITY,
   ],
   Ticketing: [
     P.VIEW_DASHBOARD,
@@ -194,7 +190,6 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_TEAM,
     P.VIEW_APPROVALS,
     P.VIEW_REPORTS,
-    P.VIEW_ACTIVITY,
   ],
 };
 
@@ -233,7 +228,7 @@ export const PORTAL_NAV_GROUPS = [
       { href: "/portal/accounts/job-cards", label: "Accounts / JC", page: "accounts-job-cards", permission: P.MANAGE_JOB_CARDS },
       { href: "/portal/job-cards", label: "Job Cards", page: "job-cards", permission: P.VIEW_JOB_CARDS },
       { href: "/portal/travellers", label: "Traveller Master", page: "travellers", permission: P.VIEW_TRAVELLERS },
-      { href: "/portal/visa", label: "Visa Tracker", page: "visa", permission: P.VIEW_VISA },
+      { href: "/portal/visa", label: "Passport/Visa Tracker", page: "visa", permission: P.VIEW_VISA },
       { href: "/portal/hotels", label: "Hotel / Rooming", page: "hotels", permission: P.VIEW_OPERATIONS },
       { href: "/portal/tour-managers", label: "Tour Managers", page: "tour-managers", permission: P.VIEW_TOUR_MANAGERS },
     ],

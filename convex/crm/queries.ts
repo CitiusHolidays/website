@@ -10,6 +10,7 @@ import {
   notifyRoles,
   publicQuery,
   requireAnyPermission,
+  requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
 import { publicQueryAttachment } from "./queryAttachments";
@@ -173,16 +174,25 @@ export const create = mutation({
   },
 });
 
-export const assignContracting = mutation({
+export const update = mutation({
   args: {
     queryId: v.string(),
-    ownerName: v.string(),
+    clientName: v.optional(v.string()),
+    contactPerson: v.optional(v.string()),
+    contactMobile: v.optional(v.string()),
+    destination: v.optional(v.string()),
+    paxCount: v.optional(v.number()),
+    travelStartDate: v.optional(v.string()),
+    travelEndDate: v.optional(v.string()),
+    queryType: v.optional(queryTypeValidator),
+    travelType: v.optional(travelTypeValidator),
+    budgetAmount: v.optional(v.number()),
+    source: v.optional(querySourceValidator),
+    salesOwnerName: v.optional(v.string()),
+    notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.MANAGE_QUERIES,
-      PERMISSIONS.MANAGE_CONTRACTING,
-    ]);
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES);
     const queryId = ctx.db.normalizeId("queries", args.queryId);
     if (!queryId) {
       throw new ConvexError("Invalid query id");
@@ -191,15 +201,80 @@ export const assignContracting = mutation({
     if (!current) {
       throw new ConvexError("Query not found");
     }
+    if (args.clientName !== undefined && !args.clientName.trim()) {
+      throw new ConvexError("Client name is required");
+    }
+    if (args.paxCount !== undefined && args.paxCount < 1) {
+      throw new ConvexError("Pax count must be greater than zero");
+    }
+
+    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    if (args.clientName !== undefined) patch.clientName = args.clientName.trim();
+    if (args.contactPerson !== undefined) patch.contactPerson = args.contactPerson.trim();
+    if (args.contactMobile !== undefined) patch.contactMobile = args.contactMobile.trim();
+    if (args.destination !== undefined) patch.destination = args.destination.trim();
+    if (args.paxCount !== undefined) patch.paxCount = args.paxCount;
+    if (args.travelStartDate !== undefined) patch.travelStartDate = args.travelStartDate;
+    if (args.travelEndDate !== undefined) patch.travelEndDate = args.travelEndDate;
+    if (args.queryType !== undefined) patch.queryType = args.queryType;
+    if (args.travelType !== undefined) patch.travelType = args.travelType;
+    if (args.budgetAmount !== undefined) patch.budgetAmount = Math.max(args.budgetAmount, 0);
+    if (args.source !== undefined) patch.source = args.source;
+    if (args.salesOwnerName !== undefined) patch.salesOwnerName = args.salesOwnerName.trim();
+    if (args.notes !== undefined) patch.notes = args.notes.trim();
+
+    await ctx.db.patch(queryId, patch);
+    await createActivity(ctx, access, {
+      entityType: "query",
+      entityId: queryId,
+      action: "updated",
+      message: `${current.queryCode} updated`,
+    });
+    return { id: queryId };
+  },
+});
+
+export const assignContracting = mutation({
+  args: {
+    queryId: v.string(),
+    staffId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireHeadOrAdmin(ctx, ["Contracting Head"]);
+    const queryId = ctx.db.normalizeId("queries", args.queryId);
+    if (!queryId) {
+      throw new ConvexError("Invalid query id");
+    }
+    const staffId = ctx.db.normalizeId("staffUsers", args.staffId);
+    if (!staffId) {
+      throw new ConvexError("Invalid staff id");
+    }
+    const staff = await ctx.db.get(staffId);
+    if (!staff?.active) {
+      throw new ConvexError("Staff member not found");
+    }
+    const isContractingTeam = staff.roles.some((role) =>
+      ["Contracting", "Contracting Head"].includes(role),
+    );
+    if (!isContractingTeam) {
+      throw new ConvexError("Selected staff member is not on the contracting team");
+    }
+    const current = await ctx.db.get(queryId);
+    if (!current) {
+      throw new ConvexError("Query not found");
+    }
+    const ownerName = staff.name.trim();
     const now = Date.now();
     await ctx.db.patch(queryId, {
-      contractingOwnerName: args.ownerName.trim(),
+      contractingOwnerId: staffId,
+      contractingOwnerName: ownerName,
       contractingStatus: "Query Received",
       updatedAt: now,
     });
     await ctx.db.insert("contractingAssignments", {
       queryId,
-      ownerName: args.ownerName.trim(),
+      ownerId: staffId,
+      ownerName,
       status: "Query Received",
       createdBy: access.authUserId ?? "unknown",
       createdAt: now,
@@ -209,7 +284,7 @@ export const assignContracting = mutation({
       entityType: "query",
       entityId: queryId,
       action: "assigned_contracting",
-      message: `${current.queryCode} assigned to ${args.ownerName.trim()}`,
+      message: `${current.queryCode} assigned to ${ownerName}`,
     });
     return { id: queryId };
   },

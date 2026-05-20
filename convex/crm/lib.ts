@@ -34,6 +34,7 @@ export const PERMISSIONS = {
   VIEW_REPORTS: "view:reports",
   VIEW_ACTIVITY: "view:activity",
   VIEW_SENSITIVE_TRAVELLER_DATA: "view:sensitiveTravellerData",
+  REQUEST_LEAVE: "request:leave",
 };
 
 export const ALL_ROLES = [
@@ -73,7 +74,6 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_TEAM,
     P.VIEW_APPROVALS,
     P.VIEW_REPORTS,
-    P.VIEW_ACTIVITY,
     P.VIEW_SENSITIVE_TRAVELLER_DATA,
   ],
   "Sales Head": [
@@ -82,7 +82,6 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
     P.VIEW_TEAM,
-    P.VIEW_ACTIVITY,
   ],
   Sales: [
     P.VIEW_DASHBOARD,
@@ -100,7 +99,6 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.MANAGE_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.VIEW_TEAM,
-    P.VIEW_ACTIVITY,
   ],
   Contracting: [
     P.VIEW_DASHBOARD,
@@ -141,7 +139,6 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_EXPENSES,
     P.VIEW_FINANCE,
     P.VIEW_TEAM,
-    P.VIEW_ACTIVITY,
     P.VIEW_SENSITIVE_TRAVELLER_DATA,
   ],
   Operations: [
@@ -166,7 +163,6 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.MANAGE_TICKETING,
     P.VIEW_TOUR_MANAGERS,
     P.VIEW_TEAM,
-    P.VIEW_ACTIVITY,
   ],
   Ticketing: [
     P.VIEW_DASHBOARD,
@@ -198,7 +194,6 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_TEAM,
     P.VIEW_APPROVALS,
     P.VIEW_REPORTS,
-    P.VIEW_ACTIVITY,
   ],
 };
 
@@ -223,6 +218,9 @@ export function getRolePermissions(roles: string[]) {
     for (const permission of ROLE_PERMISSIONS[role] ?? []) {
       permissions.add(permission);
     }
+  }
+  if (roles.length > 0) {
+    permissions.add(P.REQUEST_LEAVE);
   }
   return Array.from(permissions).sort();
 }
@@ -326,6 +324,28 @@ export async function requireAnyPermission(
 ) {
   const access = await requireStaff(ctx);
   if (!permissions.some((permission) => access.permissions.includes(permission))) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  return access;
+}
+
+export function hasRole(access: PortalAccess, role: string) {
+  return access.roles.includes(role);
+}
+
+export function isAdmin(access: PortalAccess) {
+  return hasRole(access, "Admin");
+}
+
+export async function requireHeadOrAdmin(
+  ctx: QueryCtx | MutationCtx,
+  headRoles: string[],
+) {
+  const access = await requireStaff(ctx);
+  if (isAdmin(access)) {
+    return access;
+  }
+  if (!headRoles.some((role) => hasRole(access, role))) {
     throw new ConvexError("FORBIDDEN");
   }
   return access;
@@ -482,6 +502,7 @@ export function publicJobCard(job: any) {
     queryType: job.queryType ?? "",
     paymentTerms: job.paymentTerms ?? null,
     operationsOwnerName: job.operationsOwnerName ?? "",
+    ticketingOwnerName: job.ticketingOwnerName ?? "",
     tourManagerName: job.tourManagerName ?? "",
     status: job.status,
     preDepartureChecklist: job.preDepartureChecklist ?? null,
