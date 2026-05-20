@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery, useAction } from "convex/react";
 import {
   CheckCircle2,
   CircleDollarSign,
@@ -84,7 +84,7 @@ const INITIAL_FORM = {
   queryType: "MICE",
   travelType: "International Travel",
   budgetAmount: "",
-  source: "Manual",
+  source: "Client",
   leadStage: "Inquiry",
   salesOwnerName: "",
   notes: "",
@@ -157,6 +157,10 @@ const INITIAL_FORM = {
   amount: "",
   paidBy: "",
   department: "",
+  startDate: "",
+  endDate: "",
+  reason: "",
+  status: "Approved",
   staffFunction: "",
   mobile: "",
   location: "",
@@ -199,6 +203,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
     canFetch && (has(P.VIEW_TEAM) || view === "contracting") ? {} : "skip",
   );
   const activity = useQuery(api.crm.activity.listActivity, canFetch && has(P.VIEW_ACTIVITY) ? { limit: 80 } : "skip");
+  const leaves = useQuery(api.crm.leave.list, canFetch && has(P.VIEW_TEAM) ? {} : "skip");
   const notifications = useQuery(api.crm.activity.listNotifications, canFetch ? { limit: 80 } : "skip");
   const dropdowns = useQuery(api.crm.settings.listDropdowns, canFetch && view === "settings" ? {} : "skip");
   const staff = useQuery(api.crm.staff.listStaff, canFetch && has(P.MANAGE_STAFF) ? {} : "skip");
@@ -214,6 +219,18 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const createTraveller = useMutation(api.crm.travellers.create);
   const updateCallingStatus = useMutation(api.crm.travellers.updateCallingStatus);
   const updateVisa = useMutation(api.crm.visa.updateStatus);
+  const createVisa = useMutation(api.crm.visa.create);
+  const createLeave = useMutation(api.crm.leave.create);
+  const removeLeave = useMutation(api.crm.leave.remove);
+  const generateUploadUrl = useAction(api.crm.passportActions.generateUploadUrl);
+  const encryptAndStorePassport = useAction(api.crm.passportActions.encryptAndStorePassport);
+  const getPassportDocument = useAction(api.crm.passportActions.getPassportDocument);
+  const removePassport = useAction(api.crm.passportActions.removePassport);
+  const adminSendResetEmail = useAction(api.crm.staffAction.adminSendResetEmail);
+  const travellersWithoutVisa = useQuery(
+    api.crm.visa.listTravellersWithoutVisa,
+    canFetch && has(P.VIEW_VISA) && (modal === "visa_create" || view === "visa") ? {} : "skip"
+  );
   const createPnr = useMutation(api.crm.ticketing.createPnr);
   const createTicket = useMutation(api.crm.ticketing.createTicket);
   const saveSeat = useMutation(api.crm.ticketing.saveSeatAllocation);
@@ -370,6 +387,12 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           notes: form.notes,
         });
       }
+      if (modal === "visa_create") {
+        await createVisa({
+          travellerId: form.travellerId,
+          status: form.visaStatus,
+        });
+      }
       if (modal === "pnr") {
         await createPnr({
           jobCardId: form.jobCardId,
@@ -463,6 +486,15 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           active: Boolean(form.staffActive),
         });
       }
+      if (modal === "leave_create") {
+        await createLeave({
+          staffId: form.staffId,
+          startDate: form.startDate,
+          endDate: form.endDate,
+          reason: form.reason,
+          status: form.status || "Approved",
+        });
+      }
       setModal(null);
       setForm(INITIAL_FORM);
     } catch (err) {
@@ -513,7 +545,20 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         <JobCardsView rows={jobCards || []} updateJobStatus={updateJobStatus} has={has} deleteItem={deleteItem} removeJobCard={removeJobCard} />
       )}
       {view === "travellers" && <TravellersView rows={travellers || []} has={has} deleteItem={deleteItem} removeTraveller={removeTraveller} />}
-      {view === "visa" && <VisaView rows={visas || []} openModal={openModal} has={has} deleteItem={deleteItem} removeVisa={removeVisa} />}
+      {view === "visa" && (
+        <VisaView
+          rows={visas || []}
+          travellers={travellers || []}
+          openModal={openModal}
+          has={has}
+          deleteItem={deleteItem}
+          removeVisa={removeVisa}
+          generateUploadUrl={generateUploadUrl}
+          encryptAndStorePassport={encryptAndStorePassport}
+          getPassportDocument={getPassportDocument}
+          removePassport={removePassport}
+        />
+      )}
       {view === "ticketing" && <TicketDashboardView summary={ticketDashboard} tickets={tickets || []} has={has} deleteItem={deleteItem} removeTicket={removeTicket} />}
       {view === "flights" && <PnrView rows={pnrs || []} has={has} deleteItem={deleteItem} removePnr={removePnr} />}
       {view === "seat-allocation" && <SeatView rows={seats || []} has={has} deleteItem={deleteItem} removeSeatAllocation={removeSeatAllocation} />}
@@ -525,14 +570,17 @@ export default function PortalWorkspace({ view = "dashboard" }) {
       {view === "approvals" && <ApprovalsView rows={approvals || []} has={has} decideApproval={decideApproval} />}
       {view === "reports" && <ReportsView report={reports} />}
       {view === "team" && <TeamView rows={filteredTeam} />}
+      {view === "employees-on-leave" && (
+        <LeaveView rows={leaves || []} staff={staff || team || []} openModal={openModal} has={has} deleteItem={deleteItem} removeLeave={removeLeave} />
+      )}
       {view === "activity" && (
         <ActivityView activity={activity || []} notifications={notifications || []} deleteItem={deleteItem} removeNotification={removeNotification} />
       )}
       {view === "settings" && (
-        <SettingsView staff={staff || []} dropdowns={dropdowns || {}} openModal={openModal} deleteItem={deleteItem} removeStaff={removeStaff} />
+        <SettingsView staff={staff || []} dropdowns={dropdowns || {}} openModal={openModal} deleteItem={deleteItem} removeStaff={removeStaff} adminSendResetEmail={adminSendResetEmail} />
       )}
 
-      <EntityModal modal={modal} form={form} updateForm={updateForm} submit={submit} close={() => setModal(null)} error={error} isSaving={isSaving} queries={queries || []} jobCards={jobCards || []} travellers={travellers || []} visas={visas || []} pnrs={pnrs || []} team={team || []} />
+      <EntityModal modal={modal} form={form} updateForm={updateForm} submit={submit} close={() => setModal(null)} error={error} isSaving={isSaving} queries={queries || []} jobCards={jobCards || []} travellers={travellers || []} visas={visas || []} pnrs={pnrs || []} team={team || []} travellersWithoutVisa={travellersWithoutVisa || []} />
     </div>
   );
 }
@@ -545,7 +593,7 @@ function renderHeaderAction(view, openModal, has) {
     "accounts-job-cards": has(P.MANAGE_JOB_CARDS) && ["jobCard", "Open Job Card"],
     "job-cards": has(P.MANAGE_JOB_CARDS) && ["jobCard", "Open Job Card"],
     travellers: has(P.MANAGE_TRAVELLERS) && ["traveller", "Add Traveller"],
-    visa: has(P.MANAGE_VISA) && ["visa", "Update Visa"],
+    visa: has(P.MANAGE_VISA) && ["visa_create", "Create Visa"],
     flights: has(P.MANAGE_TICKETING) && ["pnr", "Add PNR"],
     tickets: has(P.MANAGE_TICKETING) && ["ticket", "Issue Ticket"],
     "seat-allocation": has(P.MANAGE_TICKETING) && ["seat", "Save Seat"],
@@ -554,6 +602,7 @@ function renderHeaderAction(view, openModal, has) {
     finance: has(P.MANAGE_FINANCE) && ["invoice", "Generate Invoice"],
     expenses: has(P.MANAGE_EXPENSES) && ["expense", "Add Expense"],
     settings: has(P.MANAGE_STAFF) && ["staff", "Add Staff"],
+    "employees-on-leave": has(P.MANAGE_STAFF) && ["leave_create", "Record Leave"],
   };
   const action = actions[view];
   if (!action) return null;
@@ -1030,22 +1079,347 @@ function TravellersView({ rows, has, deleteItem, removeTraveller }) {
   );
 }
 
-function VisaView({ rows, openModal, has, deleteItem, removeVisa }) {
+function VisaView({
+  rows,
+  travellers,
+  openModal,
+  has,
+  deleteItem,
+  removeVisa,
+  generateUploadUrl,
+  encryptAndStorePassport,
+  getPassportDocument,
+  removePassport,
+}) {
+  const [activeTab, setActiveTab] = useState("visas"); // "visas" or "passports"
+  const [uploadTraveller, setUploadTraveller] = useState(null); // traveller object if uploading passport
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [passportForm, setPassportForm] = useState({
+    number: "",
+    expiryDate: "",
+    nationality: "",
+    dateOfBirth: "",
+  });
+  const [viewingTravellerId, setViewingTravellerId] = useState(null); // spinner state for view
+
+  const handleUpload = async (e) => {
+    e.preventDefault();
+    if (!uploadTraveller) return;
+    const fileInput = document.getElementById("passport-file-input");
+    const file = fileInput?.files?.[0];
+    if (!file) {
+      setUploadError("Please select a passport scan file.");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError("");
+    try {
+      const uploadUrl = await generateUploadUrl({});
+      const uploadRes = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!uploadRes.ok) {
+        throw new Error("Failed to upload file to storage server.");
+      }
+      const { storageId } = await uploadRes.json();
+
+      await encryptAndStorePassport({
+        travellerId: uploadTraveller.id,
+        tempStorageId: storageId,
+        fileName: file.name,
+        mimeType: file.type,
+        number: passportForm.number || undefined,
+        expiryDate: passportForm.expiryDate || undefined,
+        nationality: passportForm.nationality || undefined,
+        dateOfBirth: passportForm.dateOfBirth || undefined,
+      });
+
+      setUploadTraveller(null);
+      setPassportForm({ number: "", expiryDate: "", nationality: "", dateOfBirth: "" });
+      alert("Passport scan uploaded and encrypted successfully!");
+    } catch (err) {
+      console.error(err);
+      setUploadError(err?.message || "Failed to upload passport. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleView = async (travellerId) => {
+    setViewingTravellerId(travellerId);
+    try {
+      const res = await getPassportDocument({ travellerId });
+      if (res && res.success && res.dataUrl) {
+        const win = window.open();
+        if (win) {
+          win.document.write(`<iframe src="${res.dataUrl}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+        } else {
+          const link = document.createElement("a");
+          link.href = res.dataUrl;
+          link.download = res.fileName || "passport.pdf";
+          link.click();
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err?.data || err?.message || "Unable to decrypt passport scan.");
+    } finally {
+      setViewingTravellerId(null);
+    }
+  };
+
+  const handleDeletePassport = async (travellerName, travellerId) => {
+    if (!window.confirm(`Delete passport scan for ${travellerName}? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      await removePassport({ travellerId });
+      alert("Passport scan deleted successfully.");
+    } catch (err) {
+      console.error(err);
+      alert(err?.message || "Failed to delete passport scan.");
+    }
+  };
+
   return (
-    <DataTable rows={rows} empty="No visa records yet." columns={[
-      ["Traveller", (row) => strong(row.travellerName)],
-      ["Job", (row) => row.jobCode],
-      ["Hub", (row) => row.travelHub || "-"],
-      ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-      ["Appointment", (row) => row.appointmentDate || "-"],
-      ["Notes", (row) => row.notes || "-"],
-      ["Action", (row) => has(P.MANAGE_VISA) && (
-        <div className="flex flex-wrap gap-2">
-          <button className="portal-small-btn" onClick={() => openModal("visa", { visaRecordId: row.id, visaStatus: row.status, appointmentDate: row.appointmentDate })}>Update</button>
-          <DeleteButton label={`${row.travellerName} visa`} onClick={() => deleteItem(`${row.travellerName} visa`, removeVisa, { visaRecordId: row.id })} />
+    <div className="space-y-6">
+      {/* Tab Navigation */}
+      <div className="flex border-b border-brand-border">
+        <button
+          onClick={() => setActiveTab("visas")}
+          className={`px-4 py-2 font-heading font-medium border-b-2 transition-colors ${
+            activeTab === "visas"
+              ? "border-citius-blue text-citius-blue"
+              : "border-transparent text-brand-muted hover:text-brand-dark"
+          }`}
+        >
+          Visa Tracking
+        </button>
+        <button
+          onClick={() => setActiveTab("passports")}
+          className={`px-4 py-2 font-heading font-medium border-b-2 transition-colors ${
+            activeTab === "passports"
+              ? "border-citius-blue text-citius-blue"
+              : "border-transparent text-brand-muted hover:text-brand-dark"
+          }`}
+        >
+          Passport Documents
+        </button>
+      </div>
+
+      {activeTab === "visas" && (
+        <DataTable
+          rows={rows}
+          empty="No visa records yet."
+          columns={[
+            ["Traveller", (row) => strong(row.travellerName)],
+            ["Job", (row) => row.jobCode],
+            ["Hub", (row) => row.travelHub || "-"],
+            ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+            ["Appointment", (row) => row.appointmentDate || "-"],
+            ["Notes", (row) => row.notes || "-"],
+            ["Action", (row) => has(P.MANAGE_VISA) && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="portal-small-btn"
+                  onClick={() => openModal("visa", {
+                    visaRecordId: row.id,
+                    visaStatus: row.status,
+                    appointmentDate: row.appointmentDate,
+                    notes: row.notes,
+                  })}
+                >
+                  Update
+                </button>
+                <DeleteButton label={`${row.travellerName} visa`} onClick={() => deleteItem(`${row.travellerName} visa`, removeVisa, { visaRecordId: row.id })} />
+              </div>
+            )],
+          ]}
+        />
+      )}
+
+      {activeTab === "passports" && (
+        <DataTable
+          rows={travellers}
+          empty="No travellers on record."
+          columns={[
+            ["Traveller", (row) => strong(row.fullName)],
+            ["Job Code", (row) => row.jobCode],
+            ["Client", (row) => row.clientName],
+            ["Passport Scan Status", (row) => (
+              <Badge
+                label={row.passportStatus || "Pending"}
+                tone={row.passportStatus === "Received" ? "green" : "orange"}
+              />
+            )],
+            ["Action", (row) => (
+              <div className="flex flex-wrap gap-2">
+                {row.passportStatus === "Received" ? (
+                  <>
+                    <button
+                      className="portal-small-btn inline-flex items-center gap-1 bg-citius-blue text-white hover:bg-citius-blue/90"
+                      onClick={() => handleView(row.id)}
+                      disabled={viewingTravellerId !== null}
+                    >
+                      {viewingTravellerId === row.id ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Decrypting...
+                        </>
+                      ) : (
+                        "Decrypt & View"
+                      )}
+                    </button>
+                    {has(P.MANAGE_VISA) && (
+                      <button
+                        className="portal-small-btn border-red-200 text-red-600 hover:bg-red-50"
+                        onClick={() => handleDeletePassport(row.fullName, row.id)}
+                      >
+                        Delete Document
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  has(P.MANAGE_VISA) && (
+                    <button
+                      className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
+                      onClick={() => setUploadTraveller(row)}
+                    >
+                      Upload Passport Scan
+                    </button>
+                  )
+                )}
+              </div>
+            )],
+          ]}
+        />
+      )}
+
+      {/* Local Passport Upload Modal */}
+      {uploadTraveller && (
+        <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <form
+            onSubmit={handleUpload}
+            className="w-full max-w-lg rounded-2xl border border-brand-border bg-white shadow-2xl p-6 space-y-4"
+          >
+            <div className="flex items-center justify-between border-b border-brand-border pb-3">
+              <h3 className="font-heading text-lg font-semibold text-citius-blue">
+                Upload & Encrypt Passport: {uploadTraveller.fullName}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setUploadTraveller(null)}
+                className="text-brand-muted hover:text-brand-dark"
+              >
+                Close
+              </button>
+            </div>
+
+            {uploadError && (
+              <div className="rounded-md bg-red-50 p-3 text-sm text-red-600 border border-red-100">
+                {uploadError}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-brand-dark mb-1">
+                  Passport Scan File (PDF, JPEG, PNG - Max 10MB) *
+                </label>
+                <input
+                  type="file"
+                  id="passport-file-input"
+                  required
+                  accept=".pdf,.jpg,.jpeg,.png"
+                  className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark mb-1">
+                    Passport Number
+                  </label>
+                  <input
+                    type="text"
+                    value={passportForm.number}
+                    onChange={(e) => setPassportForm({ ...passportForm, number: e.target.value })}
+                    placeholder="e.g. Z1234567"
+                    className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark mb-1">
+                    Expiry Date
+                  </label>
+                  <input
+                    type="date"
+                    value={passportForm.expiryDate}
+                    onChange={(e) => setPassportForm({ ...passportForm, expiryDate: e.target.value })}
+                    className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark mb-1">
+                    Nationality
+                  </label>
+                  <input
+                    type="text"
+                    value={passportForm.nationality}
+                    onChange={(e) => setPassportForm({ ...passportForm, nationality: e.target.value })}
+                    placeholder="e.g. Indian"
+                    className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-brand-dark mb-1">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    value={passportForm.dateOfBirth}
+                    onChange={(e) => setPassportForm({ ...passportForm, dateOfBirth: e.target.value })}
+                    className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-brand-border pt-4">
+              <button
+                type="button"
+                onClick={() => setUploadTraveller(null)}
+                className="portal-small-btn border-brand-border text-brand-dark"
+                disabled={isUploading}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="portal-small-btn bg-citius-blue text-white hover:bg-citius-blue/90 flex items-center gap-1"
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Encrypting & Saving...
+                  </>
+                ) : (
+                  "Encrypt & Upload"
+                )}
+              </button>
+            </div>
+          </form>
         </div>
-      )],
-    ]} />
+      )}
+    </div>
   );
 }
 
@@ -1335,7 +1709,81 @@ function ActivityView({ activity, notifications, deleteItem, removeNotification 
   );
 }
 
-function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff }) {
+function LeaveView({ rows, staff, openModal, has, deleteItem, removeLeave }) {
+  const activeCount = rows.filter(r => {
+    const today = new Date().toISOString().split('T')[0];
+    return r.startDate <= today && r.endDate >= today && r.status === "Approved";
+  }).length;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="p-5 bg-brand-surface rounded-xl border border-brand-border flex items-center space-x-4 shadow-sm">
+          <div className="p-3 bg-[#d4af37]/10 text-[#d4af37] rounded-lg">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-brand-text">{rows.length}</div>
+            <div className="text-sm text-brand-muted">Total Leaves Recorded</div>
+          </div>
+        </div>
+        <div className="p-5 bg-brand-surface rounded-xl border border-brand-border flex items-center space-x-4 shadow-sm">
+          <div className="p-3 bg-green-500/10 text-green-500 rounded-lg">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-brand-text">{activeCount}</div>
+            <div className="text-sm text-brand-muted">Active Today</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-brand-surface rounded-xl border border-brand-border overflow-hidden shadow-sm">
+        <DataTable rows={rows} empty="No leave records yet." columns={[
+          ["Employee Name", (row) => strong(row.staffName)],
+          ["Department", (row) => <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-brand-border text-brand-text">{row.department}</span>],
+          ["Start Date", (row) => row.startDate],
+          ["End Date", (row) => row.endDate],
+          ["Reason", (row) => row.reason || "-"],
+          ["Status", (row) => {
+            const isApproved = row.status === "Approved";
+            return (
+              <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${
+                isApproved ? "bg-green-500/10 text-green-500" : "bg-[#d4af37]/10 text-[#d4af37]"
+              }`}>
+                {row.status}
+              </span>
+            );
+          }],
+          ["Action", (row) => has(P.MANAGE_STAFF) && (
+            <DeleteButton label={`leave for ${row.staffName}`} onClick={() => deleteItem(`leave for ${row.staffName}`, removeLeave, { leaveId: row.id })} />
+          )],
+        ]} />
+      </div>
+    </div>
+  );
+}
+
+function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff, adminSendResetEmail }) {
+  const [resetSending, setResetSending] = useState({});
+
+  const handleSendReset = async (row) => {
+    setResetSending((prev) => ({ ...prev, [row.id]: true }));
+    try {
+      await adminSendResetEmail({ email: row.email, name: row.name });
+      alert(`Password-reset email sent to ${row.name} (${row.email}) successfully!`);
+    } catch (err) {
+      console.error(err);
+      alert(err?.data || err?.message || "Failed to send password-reset email.");
+    } finally {
+      setResetSending((prev) => ({ ...prev, [row.id]: false }));
+    }
+  };
+
   return (
     <div className="space-y-5">
       <Panel title="Staff allowlist">
@@ -1351,6 +1799,13 @@ function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff }) 
             <div className="flex flex-wrap gap-2">
               <button className="portal-small-btn" onClick={() => openModal("staff", { staffId: row.id, staffName: row.name, staffEmail: row.email, staffRoles: row.roles, department: row.department, staffFunction: row.function, mobile: row.mobile, location: row.location, staffActive: row.active })}>
                 Edit
+              </button>
+              <button
+                className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
+                onClick={() => handleSendReset(row)}
+                disabled={resetSending[row.id]}
+              >
+                {resetSending[row.id] ? "Sending..." : "Send Reset"}
               </button>
               <DeleteButton label={row.email} onClick={() => deleteItem(row.email, removeStaff, { staffId: row.id })} />
             </div>
@@ -1373,7 +1828,7 @@ function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff }) 
   );
 }
 
-function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, queries, jobCards, travellers, visas, pnrs, team }) {
+function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, queries, jobCards, travellers, visas, pnrs, team, travellersWithoutVisa }) {
   const title = modal
     ? {
         query: "New Query / Enquiry",
@@ -1383,6 +1838,7 @@ function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, 
         jobCard: "Open Job Card",
         traveller: "Add Traveller",
         visa: "Update Visa Status",
+        visa_create: "Create Visa Record",
         pnr: "Add PNR",
         ticket: "Issue Ticket",
         seat: "Save Seat Allocation",
@@ -1391,6 +1847,7 @@ function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, 
         invoice: "Generate Invoice",
         expense: "Add Expense",
         staff: "Staff Allowlist Entry",
+        leave_create: "Record Employee Leave",
       }[modal]
     : "";
 
@@ -1485,6 +1942,10 @@ function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, 
               <Input label="Appointment Date" type="date" value={form.appointmentDate} onChange={(v) => updateForm("appointmentDate", v)} />
               <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
             </>}
+            {modal === "visa_create" && <>
+              <Select label="Traveller" value={form.travellerId} options={[{ value: "", label: "Select Traveller" }, ...travellersWithoutVisa.map((t) => ({ value: t.id, label: `${t.fullName} (${t.jobCode} - ${t.clientName})` }))]} onChange={(v) => updateForm("travellerId", v)} required />
+              <Select label="Visa Status" value={form.visaStatus} options={VISA_STATUSES} onChange={(v) => updateForm("visaStatus", v)} />
+            </>}
             {modal === "pnr" && <>
               <Select label="Job Card" value={form.jobCardId} options={jobCards.map((j) => ({ value: j.id, label: `${j.jobCode} - ${j.clientName}` }))} onChange={(v) => updateForm("jobCardId", v)} required />
               <Input label="PNR" value={form.pnrCode} onChange={(v) => updateForm("pnrCode", v)} required />
@@ -1559,6 +2020,13 @@ function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, 
               <Input label="Location" value={form.location} onChange={(v) => updateForm("location", v)} />
               <MultiSelect label="Roles" value={form.staffRoles} options={PORTAL_ROLES} onChange={(v) => updateForm("staffRoles", v)} />
               <Select label="Active" value={form.staffActive ? "Active" : "Inactive"} options={["Active", "Inactive"]} onChange={(v) => updateForm("staffActive", v === "Active")} />
+            </>}
+            {modal === "leave_create" && <>
+              <Select label="Employee" value={form.staffId} options={team.map((t) => ({ value: t.id, label: `${t.name} (${t.department || "General"})` }))} onChange={(v) => updateForm("staffId", v)} required />
+              <Input label="Start Date" type="date" value={form.startDate} onChange={(v) => updateForm("startDate", v)} required />
+              <Input label="End Date" type="date" value={form.endDate} onChange={(v) => updateForm("endDate", v)} required />
+              <Input label="Reason for Leave" value={form.reason} onChange={(v) => updateForm("reason", v)} required placeholder="e.g. Annual Leave, Medical, Personal" />
+              <Select label="Status" value={form.status || "Approved"} options={["Approved", "Pending", "Rejected"]} onChange={(v) => updateForm("status", v)} />
             </>}
           </div>
         </div>

@@ -300,7 +300,7 @@ export default function Header() {
                             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                           >
                             <BriefcaseBusiness size={16} />
-                            Portal
+                            Employee Portal
                           </Link>
                         )}
                         <Link
@@ -478,7 +478,7 @@ export default function Header() {
                       onClick={() => setIsOpen(false)}
                       className="text-lg text-white hover:text-blue-300 transition-colors"
                     >
-                      Portal
+                      Employee Portal
                     </Link>
                   )}
                   <button

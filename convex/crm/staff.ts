@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { mutation, query, internalMutation } from "../_generated/server";
+import { internal } from "../_generated/api";
 import {
   ALL_ROLES,
   PERMISSIONS,
@@ -159,6 +160,12 @@ export const upsertStaff = mutation({
       updatedAt: now,
     });
 
+    await ctx.scheduler.runAfter(0, internal.crm.staffAction.provisionStaffUser, {
+      staffId: id,
+      email: args.email.trim(),
+      name: args.name.trim(),
+    });
+
     return { id };
   },
 });
@@ -182,5 +189,18 @@ export const removeStaff = mutation({
     }
     await ctx.db.delete(staffId);
     return { id: staffId };
+  },
+});
+
+export const linkAuthUserId = internalMutation({
+  args: {
+    staffId: v.id("staffUsers"),
+    authUserId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.staffId, {
+      authUserId: args.authUserId,
+      updatedAt: Date.now(),
+    });
   },
 });

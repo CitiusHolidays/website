@@ -251,6 +251,7 @@ export const PORTAL_NAV_GROUPS = [
     label: "Admin",
     items: [
       { href: "/portal/team", label: "Team Directory", page: "team", permission: P.VIEW_TEAM },
+      { href: "/portal/employees-on-leave", label: "Employees on Leave", page: "employees-on-leave", permission: P.VIEW_TEAM },
     ],
   },
   {
@@ -284,7 +285,7 @@ export const SALES_STATUSES = [
 
 export const LEAD_STAGES = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Closed"];
 
-export const QUERY_SOURCES = ["Website", "WhatsApp", "Email", "Manual", "Referral"];
+export const QUERY_SOURCES = ["Website", "WhatsApp", "Email", "Client", "Referral"];
 
 export const CONTRACTING_STATUSES = [
   "Query Received",

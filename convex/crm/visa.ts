@@ -134,3 +134,78 @@ export const remove = mutation({
     return { id: visaRecordId };
   },
 });
+
+export const create = mutation({
+  args: {
+    travellerId: v.string(),
+    status: v.optional(visaStatusValidator),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_VISA);
+    const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
+    if (!travellerId) {
+      throw new ConvexError("Invalid traveller id");
+    }
+    const traveller = await ctx.db.get(travellerId);
+    if (!traveller) {
+      throw new ConvexError("Traveller not found");
+    }
+
+    const existing = await ctx.db
+      .query("visaRecords")
+      .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+      .unique();
+    if (existing) {
+      throw new ConvexError("Visa record already exists for this traveller");
+    }
+
+    const now = Date.now();
+    const status = args.status || "Not Started";
+    const recordId = await ctx.db.insert("visaRecords", {
+      travellerId,
+      jobCardId: traveller.jobCardId,
+      status,
+      updatedBy: access.authUserId ?? "unknown",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await ctx.db.patch(travellerId, {
+      visaStatus: status,
+      updatedAt: now,
+    });
+
+    await createActivity(ctx, access, {
+      entityType: "visaRecord",
+      entityId: recordId,
+      action: "created",
+      message: `Visa tracking record created for ${traveller.fullName}`,
+    });
+
+    return { id: recordId };
+  },
+});
+
+export const listTravellersWithoutVisa = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
+    const allTravellers = await ctx.db.query("travellers").collect();
+    const allVisaRecords = await ctx.db.query("visaRecords").collect();
+    const travellerIdsWithVisa = new Set(allVisaRecords.map((r) => r.travellerId.toString()));
+
+    const result = [];
+    for (const traveller of allTravellers) {
+      if (traveller.visaRequired && !travellerIdsWithVisa.has(traveller._id.toString())) {
+        const job = await ctx.db.get(traveller.jobCardId);
+        result.push({
+          id: traveller._id,
+          fullName: traveller.fullName,
+          jobCode: job?.jobCode ?? "",
+          clientName: job?.clientName ?? "",
+        });
+      }
+    }
+    return result;
+  },
+});

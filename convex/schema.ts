@@ -60,7 +60,7 @@ const querySource = v.union(
   v.literal("Website"),
   v.literal("WhatsApp"),
   v.literal("Email"),
-  v.literal("Manual"),
+  v.literal("Client"),
   v.literal("Referral"),
 );
 
@@ -402,6 +402,9 @@ export default defineSchema({
     encryptedPayload: v.string(),
     lastFour: v.optional(v.string()),
     status: v.optional(v.string()),
+    storageId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
+    mimeType: v.optional(v.string()),
     createdBy: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -763,4 +766,17 @@ export default defineSchema({
   })
     .index("by_category", ["category"])
     .index("by_category_value", ["category", "value"]),
+
+  staffLeaveRecords: defineTable({
+    staffId: v.id("staffUsers"),
+    startDate: v.string(),
+    endDate: v.string(),
+    reason: v.string(),
+    status: v.string(), // "Pending", "Approved", "Rejected"
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_staffId", ["staffId"])
+    .index("by_startDate", ["startDate"]),
 });

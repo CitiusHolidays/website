@@ -8,6 +8,7 @@ const eslintConfig = [
       "convex/betterAuth/_generated/**",
       "citius-blog/dist/**",
       "citius-blog/.next/**",
+      "tools/**",
     ],
   },
 ];

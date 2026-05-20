@@ -24,7 +24,7 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 - [Convex](https://www.convex.dev/) (database + backend functions)
 - [Better Auth](https://www.better-auth.com/) (authentication)
 - [Razorpay](https://razorpay.com/) (payments)
-- [Nodemailer](https://nodemailer.com/) (contact form email)
+- [Resend](https://resend.com/) (transactional email service for auth and contact forms)
 - [Lucide React](https://lucide.dev/) (icons)
 - [Motion](https://motion.dev/) & [Motion Plus](https://motion.dev/plus) (animations)
 - [React Hook Form](https://react-hook-form.com/) (forms)
@@ -79,9 +79,12 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
    NEXT_PUBLIC_SANITY_PROJECT_ID=your_sanity_project_id
    NEXT_PUBLIC_SANITY_DATASET=production
 
-   # Email Configuration (required for contact form)
-   EMAIL_USER=your_email@gmail.com
-   EMAIL_PASS=your_app_password
+   # Email (Resend — verify citiusholidays.com; contact → info@citius.in is set in code)
+   RESEND_API_KEY=re_your_api_key
+   SITE_URL=http://localhost:3000
+
+   # Encryption Configuration (required for sensitive passport scans)
+   ENCRYPTION_KEY=your-32-byte-hex-encryption-key-here
 
    # Optional local migration source database
    # DATABASE_URL=postgresql://...

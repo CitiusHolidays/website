@@ -243,3 +243,20 @@ export const getStats = query({
     };
   },
 });
+
+export const fixQuerySourceManual = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("queries").collect();
+    let updated = 0;
+
+    for (const row of rows) {
+      if ((row.source as string | undefined) === "Manual") {
+        await ctx.db.patch(row._id, { source: "Client" });
+        updated += 1;
+      }
+    }
+
+    return { updated, total: rows.length };
+  },
+});

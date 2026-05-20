@@ -47,7 +47,7 @@ const querySourceValidator = v.union(
   v.literal("Website"),
   v.literal("WhatsApp"),
   v.literal("Email"),
-  v.literal("Manual"),
+  v.literal("Client"),
   v.literal("Referral"),
 );
 
@@ -130,7 +130,7 @@ export const create = mutation({
       leadStage: "Inquiry",
       contractingStatus: "Query Received",
       budgetAmount: Math.max(args.budgetAmount ?? 0, 0),
-      source: args.source ?? "Manual",
+      source: args.source ?? "Client",
       salesOwnerId: access.authUserId,
       salesOwnerName: args.salesOwnerName?.trim() || access.name,
       notes: args.notes?.trim() || "",

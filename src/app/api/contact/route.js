@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
 import { render } from "@react-email/render";
 import ContactFormEmail from "@/emails/ContactFormEmail";
+import { sendEmail } from "@/lib/email/send";
+import { CONTACT_EMAIL_FROM, CONTACT_EMAIL_TO } from "@/lib/email/config";
 
 export async function POST(request) {
   const { name, email, phone, subject, message } = await request.json();
 
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+  if (!process.env.RESEND_API_KEY) {
     return NextResponse.json(
       { error: "Email service not configured." },
       { status: 500 }
@@ -52,14 +53,6 @@ export async function POST(request) {
     );
   }
 
-  const transport = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
   const emailHtml = await render(
     <ContactFormEmail
       name={trimmedName}
@@ -70,15 +63,14 @@ export async function POST(request) {
     />
   );
 
-  const mailOptions = {
-    from: process.env.EMAIL_USER,
-    to: process.env.EMAIL_USER,
-    subject: `Contact Form Submission: ${trimmedSubject || "Contact Form Message"}`,
-    html: emailHtml,
-  };
-
   try {
-    await transport.sendMail(mailOptions);
+    await sendEmail({
+      from: CONTACT_EMAIL_FROM,
+      to: CONTACT_EMAIL_TO,
+      subject: `Contact Form Submission: ${trimmedSubject || "Contact Form Message"}`,
+      html: emailHtml,
+      replyTo: trimmedEmail,
+    });
     return NextResponse.json(
       { message: "Email sent successfully!" },
       { status: 200 }
