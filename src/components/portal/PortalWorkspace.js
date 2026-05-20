@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useConvexAuth, useMutation, useQuery, useAction } from "convex/react";
 import {
@@ -168,6 +168,30 @@ const INITIAL_FORM = {
   location: "",
 };
 
+const JOB_CARD_MODALS = new Set([
+  "traveller",
+  "pnr",
+  "ticket",
+  "seat",
+  "hotel",
+  "invoice",
+  "expense",
+]);
+
+function jobCardSelectOptions(jobCards, { required = false, allowUnassigned = false } = {}) {
+  const options = jobCards.map((job) => ({
+    value: job.id,
+    label: `${job.jobCode} - ${job.clientName}`,
+  }));
+  if (allowUnassigned) {
+    return [{ value: "", label: "Unassigned" }, ...options];
+  }
+  if (required) {
+    return [{ value: "", label: "Select job card…" }, ...options];
+  }
+  return options;
+}
+
 export default function PortalWorkspace({ view = "dashboard" }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
@@ -272,6 +296,15 @@ export default function PortalWorkspace({ view = "dashboard" }) {
     [team, search],
   );
 
+  useEffect(() => {
+    if (!modal || !JOB_CARD_MODALS.has(modal) || jobCards?.length !== 1) {
+      return;
+    }
+    setForm((current) =>
+      current.jobCardId ? current : { ...current, jobCardId: jobCards[0].id },
+    );
+  }, [modal, jobCards]);
+
   if (isAuthLoading || !isAuthenticated || access === undefined) {
     return <LoadingPanel />;
   }
@@ -289,7 +322,11 @@ export default function PortalWorkspace({ view = "dashboard" }) {
 
   const openModal = (type, initial = {}) => {
     setError("");
-    setForm({ ...INITIAL_FORM, ...initial });
+    const next = { ...INITIAL_FORM, ...initial };
+    if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {
+      next.jobCardId = jobCards[0].id;
+    }
+    setForm(next);
     setModal(type);
     if (type !== "query") {
       setPendingQueryFiles([]);
@@ -324,6 +361,10 @@ export default function PortalWorkspace({ view = "dashboard" }) {
     setIsSaving(true);
     setError("");
     try {
+      if (JOB_CARD_MODALS.has(modal) && !form.jobCardId?.trim()) {
+        setError("Please select a job card.");
+        return;
+      }
       if (modal === "query") {
         const created = await createQuery({
           clientName: form.clientName,
@@ -886,7 +927,7 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToCo
         ["Action", (row) => has(P.MANAGE_QUERIES) && (
           <motion.div className="flex flex-wrap gap-2">
             <button type="button" className="portal-small-btn" onClick={() => openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })}>
-              Files
+              Reference Itinerary
             </button>
             <button type="button" className="portal-small-btn" onClick={() => submitToContracting({ queryId: row.id })}>
               Submit
@@ -2023,7 +2064,7 @@ function EntityModal({
               <Input label="Tour Manager" value={form.tourManagerName} onChange={(v) => updateForm("tourManagerName", v)} />
             </>}
             {modal === "traveller" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCards.map((j) => ({ value: j.id, label: `${j.jobCode} - ${j.clientName}` }))} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
               <Input label="Full Name" value={form.fullName} onChange={(v) => updateForm("fullName", v)} required />
               <Input label="Travel Hub" value={form.travelHub} onChange={(v) => updateForm("travelHub", v)} />
               <Input label="Travel Date" type="date" value={form.travelDate} onChange={(v) => updateForm("travelDate", v)} />
@@ -2052,7 +2093,7 @@ function EntityModal({
               <Select label="Visa Status" value={form.visaStatus} options={VISA_STATUSES} onChange={(v) => updateForm("visaStatus", v)} />
             </>}
             {modal === "pnr" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCards.map((j) => ({ value: j.id, label: `${j.jobCode} - ${j.clientName}` }))} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
               <Input label="PNR" value={form.pnrCode} onChange={(v) => updateForm("pnrCode", v)} required />
               <Input label="Airline" value={form.airline} onChange={(v) => updateForm("airline", v)} />
               <Input label="Route" value={form.route} onChange={(v) => updateForm("route", v)} />
@@ -2060,7 +2101,7 @@ function EntityModal({
               <Input label="Total Seats" type="number" value={form.totalSeats} onChange={(v) => updateForm("totalSeats", v)} />
             </>}
             {modal === "ticket" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCards.map((j) => ({ value: j.id, label: `${j.jobCode} - ${j.clientName}` }))} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
               <Select label="Traveller" value={form.travellerId} options={[{ value: "", label: "Unassigned" }, ...travellers.map((t) => ({ value: t.id, label: `${t.fullName} - ${t.jobCode}` }))]} onChange={(v) => updateForm("travellerId", v)} />
               <Select label="PNR" value={form.pnrId} options={[{ value: "", label: "No PNR" }, ...pnrs.map((p) => ({ value: p.id, label: `${p.pnrCode} - ${p.route}` }))]} onChange={(v) => updateForm("pnrId", v)} />
               <Input label="Ticket Number" value={form.ticketNumber} onChange={(v) => updateForm("ticketNumber", v)} />
@@ -2073,7 +2114,7 @@ function EntityModal({
               <Input label="Seat Number" value={form.seatNumber} onChange={(v) => updateForm("seatNumber", v)} />
             </>}
             {modal === "seat" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCards.map((j) => ({ value: j.id, label: `${j.jobCode} - ${j.clientName}` }))} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
               <Select label="Traveller" value={form.travellerId} options={[{ value: "", label: "Unassigned" }, ...travellers.map((t) => ({ value: t.id, label: `${t.fullName} - ${t.jobCode}` }))]} onChange={(v) => updateForm("travellerId", v)} />
               <Select label="PNR" value={form.pnrId} options={[{ value: "", label: "No PNR" }, ...pnrs.map((p) => ({ value: p.id, label: `${p.pnrCode} - ${p.route}` }))]} onChange={(v) => updateForm("pnrId", v)} />
               <Input label="Seat Number" value={form.seatNumber} onChange={(v) => updateForm("seatNumber", v)} required />
@@ -2081,7 +2122,7 @@ function EntityModal({
               <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
             </>}
             {modal === "hotel" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCards.map((j) => ({ value: j.id, label: `${j.jobCode} - ${j.clientName}` }))} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
               <Input label="Hotel Name" value={form.hotelName} onChange={(v) => updateForm("hotelName", v)} required />
               <Input label="City" value={form.city} onChange={(v) => updateForm("city", v)} />
               <Input label="Check-in" type="date" value={form.checkInDate} onChange={(v) => updateForm("checkInDate", v)} />
@@ -2089,7 +2130,7 @@ function EntityModal({
               <Textarea label="Special Instructions" value={form.notes} onChange={(v) => updateForm("notes", v)} />
             </>}
             {modal === "tourManager" && <>
-              <Select label="Job Card" value={form.jobCardId} options={[{ value: "", label: "Unassigned" }, ...jobCards.map((j) => ({ value: j.id, label: `${j.jobCode} - ${j.clientName}` }))]} onChange={(v) => updateForm("jobCardId", v)} />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { allowUnassigned: true })} onChange={(v) => updateForm("jobCardId", v)} />
               <Input label="Tour Manager Name" value={form.tourManagerName} onChange={(v) => updateForm("tourManagerName", v)} required />
               <Input label="Email" value={form.staffEmail} onChange={(v) => updateForm("staffEmail", v)} />
               <Input label="Phone" value={form.paidBy} onChange={(v) => updateForm("paidBy", v)} />
@@ -2097,14 +2138,14 @@ function EntityModal({
               <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
             </>}
             {modal === "invoice" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCards.map((j) => ({ value: j.id, label: `${j.jobCode} - ${j.clientName}` }))} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
               <Input label="Invoice Number" value={form.invoiceNumber} onChange={(v) => updateForm("invoiceNumber", v)} required />
               <Input label="Expected Amount" type="number" value={form.expectedAmount} onChange={(v) => updateForm("expectedAmount", v)} />
               <Input label="Received Amount" type="number" value={form.receivedAmount} onChange={(v) => updateForm("receivedAmount", v)} />
               <Input label="Due Date" type="date" value={form.dueDate} onChange={(v) => updateForm("dueDate", v)} />
             </>}
             {modal === "expense" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCards.map((j) => ({ value: j.id, label: `${j.jobCode} - ${j.clientName}` }))} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
               <Input label="Tour Manager" value={form.tourManagerName} onChange={(v) => updateForm("tourManagerName", v)} />
               <Input label="Expense Date" type="date" value={form.expenseDate} onChange={(v) => updateForm("expenseDate", v)} />
               <Select label="Expense Head" value={form.category} options={EXPENSE_HEADS} onChange={(v) => updateForm("category", v)} required />
@@ -2572,7 +2613,7 @@ function QueryAttachmentsPanel({
       {canManage && (
         <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
           <label htmlFor="query-attachment-upload" className="mb-2 block text-sm font-medium text-brand-text">
-            Upload files
+            Upload Reference Itinerary
           </label>
           <input
             id="query-attachment-upload"

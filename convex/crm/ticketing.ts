@@ -191,6 +191,9 @@ export const createTicket = mutation({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
+    if (!args.jobCardId.trim()) {
+      throw new ConvexError("Job card is required");
+    }
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     const travellerId = args.travellerId
       ? ctx.db.normalizeId("travellers", args.travellerId)
