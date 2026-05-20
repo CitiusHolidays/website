@@ -17,7 +17,8 @@ import {
   Moon
 } from 'lucide-react';
 import { signInWithEmail, signUpWithEmail, signInWithGoogle } from '@/lib/auth-client';
-
+import citiusLogo from '@/static/logos/logo.webp';
+import Image from 'next/image';
 export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '/', error }) {
   const router = useRouter();
   const [mode, setMode] = useState(initialMode === 'signup' ? 'signup' : 'signin');
@@ -140,12 +141,12 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
              transition={{ delay: 0.4 }}
           >
             <div className="flex items-center gap-3 mb-2">
-              <Compass className="w-6 h-6 text-[#d4af37]" />
-              <span className="text-sm uppercase tracking-[0.2em] text-[#d4af37]">Citius Holidays</span>
+              <Image src={citiusLogo} alt="Citius Holidays" width={100} height={100} />
+              <span className="text-sm uppercase tracking-[0.2em] text-citius-orange">Citius Holidays</span>
             </div>
             <h1 className="font-heading text-5xl lg:text-6xl leading-[1.1] font-medium tracking-tight mt-6">
               The Journey <br/>
-              <span className="italic text-[#d4af37]">Within</span> Begins <br/>
+              <span className="italic text-citius-orange">Within</span> Begins <br/>
               Here.
             </h1>
           </motion.div>
@@ -176,6 +177,18 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
                 <h3 className="font-heading text-lg font-medium text-white mb-1">Seamless Exploration</h3>
                 <p className="text-white/60 text-sm font-light leading-relaxed">
                   Let us handle the details while you focus on the experience. Expert guides, luxury stays, peace of mind.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
+              <div className="p-2 rounded-lg bg-[#d4af37]/20 text-[#d4af37]">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-heading text-lg font-medium text-white mb-1">Sales CRM</h3>
+                <p className="text-white/60 text-sm font-light leading-relaxed">
+                  Access your sales CRM to manage your enquiries, proposals, and job cards.
                 </p>
               </div>
             </div>
