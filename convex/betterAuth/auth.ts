@@ -3,6 +3,7 @@ import { convex } from "@convex-dev/better-auth/plugins";
 import {
   type GenericCtx,
   requireActionCtx,
+  requireRunMutationCtx,
 } from "@convex-dev/better-auth/utils";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { api, components, internal } from "../_generated/api";
@@ -110,8 +111,12 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         }
       },
       afterEmailVerification: async (user) => {
+        if (!user.email) {
+          return;
+        }
         try {
-          await requireActionCtx(ctx).runAction(
+          await requireRunMutationCtx(ctx).scheduler.runAfter(
+            0,
             internal.crm.staffAction.sendPasswordSetupAfterVerification,
             { email: user.email },
           );

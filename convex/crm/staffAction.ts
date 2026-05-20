@@ -2,11 +2,12 @@
 
 import { v } from "convex/values";
 import { internalAction, action, type ActionCtx } from "../_generated/server";
-import { api, internal } from "../_generated/api";
+import { api, components, internal } from "../_generated/api";
 import { ConvexError } from "convex/values";
-import { createAuth } from "../betterAuth/auth";
+import { authComponent, createAuth } from "../betterAuth/auth";
 import crypto from "crypto";
 import type { Id } from "../_generated/dataModel";
+import { normalizeEmail } from "./lib";
 
 function getSiteUrl() {
   return (
@@ -49,6 +50,40 @@ async function sendVerificationEmail(
     body: { email, callbackURL },
   });
   return { sent: Boolean(result?.status ?? true), reason: "verification" as const };
+}
+
+async function findAuthUserByEmail(ctx: ActionCtx, email: string) {
+  const emailNormalized = normalizeEmail(email);
+  for (const candidate of [emailNormalized, email.trim()]) {
+    const authUser = await ctx.runQuery(components.betterAuth.adapter.findOne, {
+      model: "user",
+      where: [{ field: "email", value: candidate }],
+    });
+    if (authUser && typeof authUser === "object" && "_id" in authUser) {
+      return authUser as { _id: string; emailVerified?: boolean };
+    }
+  }
+  return null;
+}
+
+async function ensureStaffAuthLink(
+  ctx: ActionCtx,
+  staffId: Id<"staffUsers">,
+  email: string,
+  authUserId?: string,
+) {
+  if (authUserId) {
+    return authUserId;
+  }
+  const authUser = await findAuthUserByEmail(ctx, email);
+  if (!authUser?._id) {
+    return undefined;
+  }
+  await ctx.runMutation(internal.crm.staff.linkAuthUserId, {
+    staffId,
+    authUserId: authUser._id,
+  });
+  return authUser._id;
 }
 
 async function sendPasswordSetupEmail(
@@ -104,6 +139,22 @@ async function provisionStaffCore(
     return { ok: true, step: "verification_sent" };
   } catch (err) {
     if (isExistingUserError(err)) {
+      await ctx.runMutation(internal.crm.staff.markPendingOnboarding, {
+        staffId: args.staffId,
+      });
+      await ensureStaffAuthLink(ctx, args.staffId, args.email);
+
+      const authUser = await findAuthUserByEmail(ctx, args.email);
+      if (authUser?.emailVerified) {
+        const passwordSent = await sendPasswordSetupEmail(auth, args.email);
+        if (passwordSent) {
+          await ctx.runMutation(internal.crm.staff.clearPendingPasswordSetup, {
+            staffId: args.staffId,
+          });
+          return { ok: true, step: "password_setup_sent" };
+        }
+      }
+
       const verification = await sendVerificationEmail(auth, args.email);
       if (verification.sent) {
         return { ok: true, step: "verification_sent" };
@@ -140,14 +191,16 @@ export const sendPasswordSetupAfterVerification = internalAction({
       email: args.email,
     });
     if (!staff) {
-      return { sent: false };
+      return { sent: false, reason: "staff_not_pending" as const };
     }
+
+    await ensureStaffAuthLink(ctx, staff.staffId, staff.email, staff.authUserId);
 
     const auth = createAuth(ctx);
     const sent = await sendPasswordSetupEmail(auth, args.email);
     if (!sent) {
       console.error("Failed to send staff password setup email for", args.email);
-      return { sent: false };
+      return { sent: false, reason: "email_send_failed" as const };
     }
 
     await ctx.runMutation(internal.crm.staff.clearPendingPasswordSetup, {
@@ -199,6 +252,36 @@ export const startStaffOnboarding = action({
     });
 
     const auth = createAuth(ctx);
+    const linkedAuthUserId = await ensureStaffAuthLink(
+      ctx,
+      staff.staffId,
+      staff.email,
+      staff.authUserId,
+    );
+
+    let emailVerified = false;
+    if (linkedAuthUserId) {
+      const authUser = await authComponent.getAnyUserById(ctx, linkedAuthUserId);
+      emailVerified = Boolean(authUser?.emailVerified);
+    } else {
+      const authUser = await findAuthUserByEmail(ctx, staff.email);
+      emailVerified = Boolean(authUser?.emailVerified);
+    }
+
+    if (emailVerified) {
+      const passwordSent = await sendPasswordSetupEmail(auth, staff.email);
+      if (!passwordSent) {
+        throw new ConvexError("Failed to send password setup email");
+      }
+      await ctx.runMutation(internal.crm.staff.clearPendingPasswordSetup, {
+        staffId: staff.staffId,
+      });
+      return {
+        step: "password_setup_sent",
+        message: "Password setup email sent.",
+      };
+    }
+
     const verification = await sendVerificationEmail(auth, staff.email);
     if (verification.sent) {
       return {
@@ -212,6 +295,10 @@ export const startStaffOnboarding = action({
     if (!passwordSent) {
       throw new ConvexError("Failed to send onboarding email");
     }
+
+    await ctx.runMutation(internal.crm.staff.clearPendingPasswordSetup, {
+      staffId: staff.staffId,
+    });
 
     return {
       step: "password_setup_sent",

@@ -254,12 +254,14 @@ export const getStaffPendingPasswordSetup = internalQuery({
       .query("staffUsers")
       .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
       .unique();
-    if (!staff?.pendingPasswordSetup) {
+    if (!staff || staff.pendingPasswordSetup === false) {
       return null;
     }
     return {
       staffId: staff._id,
-      pendingPasswordSetup: staff.pendingPasswordSetup,
+      email: staff.email,
+      authUserId: staff.authUserId,
+      pendingPasswordSetup: staff.pendingPasswordSetup ?? true,
     };
   },
 });
