@@ -4,7 +4,7 @@ import AuthPageClient from "./page.client";
 
 export const metadata = {
   title: 'Sign In',
-  description: 'Sign in to your Citius Travel account to manage your bookings and explore spiritual trails.',
+  description: 'Sign in to your Citius Holidays account to manage your bookings and explore spiritual trails.',
 };
 
 export default async function AuthPage({ searchParams }) {

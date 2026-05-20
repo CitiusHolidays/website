@@ -83,6 +83,10 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
    RESEND_API_KEY=re_your_api_key
    SITE_URL=http://localhost:3000
 
+   # Contact form bot protection (Cloudflare Turnstile — free at dash.cloudflare.com)
+   NEXT_PUBLIC_TURNSTILE_SITE_KEY=your_turnstile_site_key
+   TURNSTILE_SECRET_KEY=your_turnstile_secret_key
+
    # Encryption Configuration (required for sensitive passport scans)
    ENCRYPTION_KEY=your-32-byte-hex-encryption-key-here
 

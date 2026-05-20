@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { motion } from 'motion/react';
-import { Compass, Mail, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Mail, ArrowRight, ArrowLeft } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
+import AuthRecoveryLayout from '@/components/auth/AuthRecoveryLayout';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -27,7 +27,8 @@ export default function ForgotPasswordPage() {
       } else {
         setStatus({
           type: 'success',
-          message: 'Reset link sent! Please check your inbox for instructions to reset your password.',
+          message:
+            'Reset link sent! Please check your inbox for instructions to reset your password.',
         });
       }
     } catch (err) {
@@ -38,79 +39,70 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#060814] flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Background elements */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,#1e295d,transparent_50%)] opacity-30" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,#08201a,transparent_50%)] opacity-40" />
-      <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.03] mix-blend-overlay pointer-events-none" />
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-white border border-[#e2e8f0]/10 rounded-2xl shadow-2xl p-8 relative z-10"
-      >
-        <div className="flex flex-col items-center mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Compass className="w-8 h-8 text-[#0B1026]" />
-            <span className="text-sm font-semibold uppercase tracking-[0.2em] text-[#0B1026]">Citius Travel</span>
-          </div>
-          <h2 className="font-heading text-3xl font-semibold text-[#0B1026] text-center mt-4">Reset Password</h2>
-          <p className="text-[#0B1026]/60 text-sm font-light text-center mt-2">
-            Enter your email address and we&apos;ll send you a link to choose a new password.
-          </p>
+    <AuthRecoveryLayout
+      panelHeading={
+        <>
+          Account <span className="italic text-[#d4af37]">recovery</span>
+        </>
+      }
+      panelSubtext="We&apos;ll email you a secure link to set a new password for your Citius Holidays account."
+      formTitle="Reset password"
+      formDescription="Enter your email and we'll send you a link to choose a new password."
+    >
+      {status.message ? (
+        <div
+          className={`mb-6 rounded-xl border p-4 text-sm ${
+            status.type === 'success'
+              ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+              : 'border-red-100 bg-red-50 text-red-600'
+          }`}
+        >
+          {status.message}
         </div>
+      ) : null}
 
-        {status.message && (
-          <div
-            className={`p-4 rounded-xl text-sm mb-6 border ${
-              status.type === 'success'
-                ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
-                : 'bg-red-50 border-red-100 text-red-600'
-            }`}
-          >
-            {status.message}
-          </div>
-        )}
-
-        {status.type !== 'success' && (
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-[#0f172a] mb-1.5 ml-1">Email Address</label>
-              <div className="relative">
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full bg-white border border-[#e2e8f0] text-[#0f172a] text-lg px-4 py-3.5 pl-11 rounded-xl focus:ring-2 focus:ring-[#d4af37]/20 focus:border-[#d4af37] outline-none transition-all duration-200"
-                />
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94a3b8]" />
-              </div>
+      {status.type !== 'success' ? (
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="group">
+            <label className="mb-1.5 ml-1 block text-sm font-medium text-[#0f172a]">
+              Email address
+            </label>
+            <div className="relative">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full rounded-xl border border-[#e2e8f0] bg-white py-3.5 pl-11 pr-4 text-lg text-[#0f172a] outline-none transition-all duration-200 placeholder:font-light placeholder:text-[#94a3b8] focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20"
+              />
+              <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-[#d4af37]" />
             </div>
+          </div>
 
-            <button
-              disabled={isLoading}
-              type="submit"
-              className="w-full bg-[#0B1026] text-white font-medium text-lg py-4 rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden group"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 group-hover:opacity-90 transition-opacity" />
-              <span className="relative z-10">{isLoading ? 'Sending...' : 'Send Reset Link'}</span>
-              {!isLoading && <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />}
-            </button>
-          </form>
-        )}
-
-        <div className="mt-8 text-center">
-          <Link
-            href="/auth"
-            className="inline-flex items-center gap-2 text-sm font-medium text-[#d4af37] hover:text-[#b5952f] transition-colors"
+          <button
+            disabled={isLoading}
+            type="submit"
+            className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#0B1026] py-4 text-lg font-medium text-white shadow-lg shadow-[#0B1026]/20 transition-all duration-300 hover:shadow-xl hover:shadow-[#0B1026]/30"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Sign In
-          </Link>
-        </div>
-      </motion.div>
-    </div>
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 transition-opacity group-hover:opacity-90" />
+            <span className="relative z-10">{isLoading ? 'Sending...' : 'Send reset link'}</span>
+            {!isLoading ? (
+              <ArrowRight className="relative z-10 h-5 w-5 transition-transform group-hover:translate-x-1" />
+            ) : null}
+          </button>
+        </form>
+      ) : null}
+
+      <div className="mt-8 text-center">
+        <Link
+          href="/auth"
+          className="inline-flex items-center gap-2 text-sm font-medium text-[#d4af37] transition-colors hover:text-[#b5952f]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to sign in
+        </Link>
+      </div>
+    </AuthRecoveryLayout>
   );
 }

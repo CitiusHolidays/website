@@ -8,9 +8,12 @@ import {
   Phone,
   User,
 } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import AnimatedSubmitButton from "./AnimatedSubmitButton";
+import TurnstileWidget from "./TurnstileWidget";
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
 export default function ModernContactForm() {
   const {
@@ -27,14 +30,24 @@ export default function ModernContactForm() {
       phone: "",
       subject: "",
       message: "",
+      company: "",
     },
   });
   const [submissionStatus, setSubmissionStatus] = useState(null);
   const [focusedField, setFocusedField] = useState(null);
   const [buttonState, setButtonState] = useState("idle");
-  
-  // Ref for the textarea element for auto-sizing
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const formLoadedAtRef = useRef(Date.now());
+
   const messageRef = useRef(null);
+
+  const handleTurnstileVerify = useCallback((token) => {
+    setTurnstileToken(token);
+  }, []);
+
+  const handleTurnstileExpire = useCallback(() => {
+    setTurnstileToken("");
+  }, []);
 
   const watchedValues = watch();
   
@@ -69,17 +82,33 @@ export default function ModernContactForm() {
   }, [isSubmitting, submissionStatus]);
 
   const onSubmit = async (data) => {
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setSubmissionStatus({
+        status: "error",
+        message: "Please complete the security check before sending.",
+      });
+      return;
+    }
+
     try {
+      const { company: _honeypot, ...fields } = data;
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...fields,
+          company: _honeypot,
+          formLoadedAt: formLoadedAtRef.current,
+          turnstileToken: turnstileToken || undefined,
+        }),
       });
 
       if (response.ok) {
         setSubmissionStatus("success");
+        setTurnstileToken("");
+        formLoadedAtRef.current = Date.now();
         reset();
       } else {
         const errorData = await response.json();
@@ -147,7 +176,22 @@ export default function ModernContactForm() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+        {/* Honeypot — hidden from users; bots often fill every field */}
+        <div
+          className="absolute -left-[9999px] h-0 w-0 overflow-hidden opacity-0"
+          aria-hidden="true"
+        >
+          <label htmlFor="company">Company</label>
+          <input
+            type="text"
+            id="company"
+            tabIndex={-1}
+            autoComplete="off"
+            {...register("company")}
+          />
+        </div>
+
         {inputFields.map((field) => (
           <div key={field.name} className="relative">
             <motion.div
@@ -274,6 +318,15 @@ export default function ModernContactForm() {
             </p>
           )}
         </div>
+
+        {TURNSTILE_SITE_KEY ? (
+          <TurnstileWidget
+            siteKey={TURNSTILE_SITE_KEY}
+            onVerify={handleTurnstileVerify}
+            onExpire={handleTurnstileExpire}
+            onError={handleTurnstileExpire}
+          />
+        ) : null}
 
         <AnimatedSubmitButton state={buttonState} isSubmitting={isSubmitting} />
       </form>

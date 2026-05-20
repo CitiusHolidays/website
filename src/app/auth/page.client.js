@@ -141,7 +141,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
           >
             <div className="flex items-center gap-3 mb-2">
               <Compass className="w-6 h-6 text-[#d4af37]" />
-              <span className="text-sm uppercase tracking-[0.2em] text-[#d4af37]">Citius Travel</span>
+              <span className="text-sm uppercase tracking-[0.2em] text-[#d4af37]">Citius Holidays</span>
             </div>
             <h1 className="font-heading text-5xl lg:text-6xl leading-[1.1] font-medium tracking-tight mt-6">
               The Journey <br/>
@@ -187,7 +187,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
              transition={{ delay: 0.8 }}
              className="text-xs text-white/30 font-light"
           >
-            © {new Date().getFullYear()} Citius Travel. All rights reserved.
+            © {new Date().getFullYear()} Citius Holidays. All rights reserved.
           </motion.div>
         </div>
       </motion.div>
@@ -204,7 +204,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
           <div className="md:hidden mb-8 text-center">
              <div className="flex items-center justify-center gap-2 mb-4">
               <Compass className="w-6 h-6 text-[#0B1026]" />
-              <span className="text-sm uppercase tracking-[0.2em] text-[#0B1026]">Citius Travel</span>
+              <span className="text-sm uppercase tracking-[0.2em] text-[#0B1026]">Citius Holidays</span>
             </div>
             <h1 className="font-heading text-4xl text-[#0B1026]">Welcome</h1>
           </div>

@@ -3,9 +3,70 @@ import { render } from "@react-email/render";
 import ContactFormEmail from "@/emails/ContactFormEmail";
 import { sendEmail } from "@/lib/email/send";
 import { CONTACT_EMAIL_FROM, CONTACT_EMAIL_TO } from "@/lib/email/config";
+import { checkContactRateLimit } from "@/lib/contact/rate-limit";
+import {
+  detectSpamContent,
+  getClientIp,
+  isAllowedSiteOrigin,
+  isHoneypotTripped,
+  validateFormTiming,
+} from "@/lib/contact/spam-guard";
+import { isTurnstileConfigured, verifyTurnstileToken } from "@/lib/contact/turnstile";
+
+function rejectSpam() {
+  return NextResponse.json(
+    { error: "Unable to send your message. Please try again later." },
+    { status: 400 }
+  );
+}
 
 export async function POST(request) {
-  const { name, email, phone, subject, message } = await request.json();
+  if (!isAllowedSiteOrigin(request)) {
+    return rejectSpam();
+  }
+
+  const clientIp = getClientIp(request);
+  const rateLimit = checkContactRateLimit(clientIp);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many submissions. Please wait a few minutes and try again." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSec) },
+      }
+    );
+  }
+
+  const body = await request.json();
+  const {
+    name,
+    email,
+    phone,
+    subject,
+    message,
+    company,
+    formLoadedAt,
+    turnstileToken,
+  } = body;
+
+  if (isHoneypotTripped(company)) {
+    return rejectSpam();
+  }
+
+  const timing = validateFormTiming(formLoadedAt);
+  if (!timing.ok) {
+    return rejectSpam();
+  }
+
+  if (isTurnstileConfigured()) {
+    const captcha = await verifyTurnstileToken(turnstileToken, clientIp);
+    if (!captcha.ok) {
+      return NextResponse.json(
+        { error: "Security verification failed. Please refresh and try again." },
+        { status: 400 }
+      );
+    }
+  }
 
   if (!process.env.RESEND_API_KEY) {
     return NextResponse.json(
@@ -35,9 +96,9 @@ export async function POST(request) {
     );
   }
 
-  // Phone number validation (optional field, but if provided must be valid international format)
   if (trimmedPhone) {
-    const phoneRegex = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
+    const phoneRegex =
+      /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
     if (!phoneRegex.test(trimmedPhone)) {
       return NextResponse.json(
         { error: "Please provide a valid phone number (e.g., +1 555-123-4567)." },
@@ -51,6 +112,17 @@ export async function POST(request) {
       { error: "Message is too long." },
       { status: 400 }
     );
+  }
+
+  const spamCheck = detectSpamContent({
+    name: trimmedName,
+    email: trimmedEmail,
+    subject: trimmedSubject,
+    message: trimmedMessage,
+  });
+  if (spamCheck.spam) {
+    console.info("[contact] Blocked spam submission:", spamCheck.reason, clientIp);
+    return rejectSpam();
   }
 
   const emailHtml = await render(
@@ -77,6 +149,9 @@ export async function POST(request) {
     );
   } catch (err) {
     console.error(err);
-    return NextResponse.json({ error: "Failed to send email. Please try again." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to send email. Please try again." },
+      { status: 500 }
+    );
   }
 }

@@ -8,6 +8,7 @@ import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { api, components } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
+import { buildAuthEmailHtml, AUTH_EMAIL_BRAND } from "../lib/authEmailHtml";
 import schema from "./schema";
 
 const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
@@ -50,7 +51,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
   }
 
   return {
-    appName: "Citius Travel",
+    appName: AUTH_EMAIL_BRAND,
     baseURL,
     secret,
     database: authComponent.adapter(ctx),
@@ -62,21 +63,21 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         const resetUrl = token
           ? `${baseURL}/auth/reset-password?token=${token}`
           : url;
-        const html = `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-            <h2 style="color: #0c1b33; margin-top: 0;">Reset Your Password</h2>
-            <p>Hi ${user.name || "there"},</p>
-            <p>We received a request to reset your password for your Citius Travel account. Please click the button below to choose a new password:</p>
-            <p style="margin: 24px 0;">
-              <a href="${resetUrl}" style="background-color: #0c1b33; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Reset Password</a>
-            </p>
-            <p style="color: #64748b; font-size: 14px;">If you did not request a password reset, you can safely ignore this email.</p>
-          </div>
-        `;
+        const html = buildAuthEmailHtml({
+          greetingName: user.name || "there",
+          headline: "Reset your password",
+          bodyParagraphs: [
+            `We received a request to reset your password for your ${AUTH_EMAIL_BRAND} account. Click the button below to choose a new password.`,
+          ],
+          ctaHref: resetUrl,
+          ctaLabel: "Reset password",
+          footerNote:
+            "If you did not request a password reset, you can safely ignore this email.",
+        });
         try {
           await requireActionCtx(ctx).runAction(api.email.sendEmail, {
             to: user.email,
-            subject: "Reset your Citius Travel password",
+            subject: `Reset your ${AUTH_EMAIL_BRAND} password`,
             html,
           });
         } catch (err) {
@@ -87,21 +88,21 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     emailVerification: {
       sendOnSignUp: true,
       sendVerificationEmail: async ({ user, url, token }) => {
-        const html = `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background-color: #ffffff;">
-            <h2 style="color: #0c1b33; margin-top: 0;">Verify Your Email Address</h2>
-            <p>Hi ${user.name || "there"},</p>
-            <p>Thank you for signing up with Citius Travel. Please click the button below to verify your email address:</p>
-            <p style="margin: 24px 0;">
-              <a href="${url}" style="background-color: #0c1b33; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Verify Email</a>
-            </p>
-            <p style="color: #64748b; font-size: 14px;">If you did not sign up for an account, you can safely ignore this email.</p>
-          </div>
-        `;
+        const html = buildAuthEmailHtml({
+          greetingName: user.name || "there",
+          headline: "Verify your email",
+          bodyParagraphs: [
+            `Thank you for signing up with ${AUTH_EMAIL_BRAND}. Click the button below to verify your email address and activate your account.`,
+          ],
+          ctaHref: url,
+          ctaLabel: "Verify email",
+          footerNote:
+            "If you did not sign up for an account, you can safely ignore this email.",
+        });
         try {
           await requireActionCtx(ctx).runAction(api.email.sendEmail, {
             to: user.email,
-            subject: "Verify your Citius Travel account",
+            subject: `Verify your ${AUTH_EMAIL_BRAND} account`,
             html,
           });
         } catch (err) {
