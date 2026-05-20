@@ -238,6 +238,7 @@ export default defineSchema({
     location: v.optional(v.string()),
     active: v.boolean(),
     invitedBy: v.optional(v.string()),
+    pendingPasswordSetup: v.optional(v.boolean()),
     lastSeenAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -298,6 +299,16 @@ export default defineSchema({
     .index("by_salesStatus", ["salesStatus"])
     .index("by_contractingStatus", ["contractingStatus"])
     .index("by_queryType_createdAt", ["queryType", "createdAt"]),
+
+  queryAttachments: defineTable({
+    queryId: v.id("queries"),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    mimeType: v.string(),
+    fileSize: v.number(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  }).index("by_queryId", ["queryId"]),
 
   proposals: defineTable({
     proposalCode: v.string(),

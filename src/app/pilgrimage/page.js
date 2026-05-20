@@ -4,7 +4,7 @@ import { getTrailsForHub } from "@/data/trails";
 import PilgrimagePageClient from "./page.client";
 
 export const generateMetadata = () => ({
-  title: "Spiritual Trails - Kailash Mansarovar Yatra | Citius Travel",
+  title: "Spiritual Trails - Kailash Mansarovar Yatra | Citius Holidays",
   description:
     "Begin your journey with the Sacred Mansarovar Yatra. Citius Spiritual Trails offers curated pilgrimage experiences for solace, divine connection, and inner transformation.",
 });

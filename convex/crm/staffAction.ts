@@ -7,6 +7,14 @@ import { ConvexError } from "convex/values";
 import { createAuth } from "../betterAuth/auth";
 import crypto from "crypto";
 
+function getSiteUrl() {
+  return (
+    process.env.SITE_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "http://localhost:3000"
+  );
+}
+
 export const provisionStaffUser = internalAction({
   args: {
     staffId: v.id("staffUsers"),
@@ -16,14 +24,16 @@ export const provisionStaffUser = internalAction({
   handler: async (ctx, args) => {
     const auth = createAuth(ctx);
     const tempPassword = crypto.randomUUID() + "A1!";
+    const siteUrl = getSiteUrl();
+    const callbackURL = `${siteUrl}/auth/email-verified`;
 
     try {
-      // 1. Pre-create user in Better Auth
       const result = await auth.api.signUpEmail({
         body: {
           email: args.email,
           password: tempPassword,
           name: args.name,
+          callbackURL,
         },
       });
 
@@ -33,26 +43,47 @@ export const provisionStaffUser = internalAction({
 
       const authUserId = result.user.id;
 
-      // 2. Link the authUserId to our staffUsers row
       await ctx.runMutation(internal.crm.staff.linkAuthUserId, {
         staffId: args.staffId,
         authUserId,
       });
-
-      // 3. Send password setup email via Better Auth reset flow
-      const siteUrl =
-        process.env.SITE_URL ||
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        "http://localhost:3000";
-      await auth.api.requestPasswordReset({
-        body: {
-          email: args.email,
-          redirectTo: `${siteUrl}/auth/reset-password`,
-        },
-      });
     } catch (err: any) {
       console.error("Staff provision error:", err);
     }
+  },
+});
+
+export const sendPasswordSetupAfterVerification = internalAction({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const staff = await ctx.runQuery(internal.crm.staff.getStaffPendingPasswordSetup, {
+      email: args.email,
+    });
+    if (!staff) {
+      return { sent: false };
+    }
+
+    const auth = createAuth(ctx);
+    const siteUrl = getSiteUrl();
+    const resetResult = await auth.api.requestPasswordReset({
+      body: {
+        email: args.email,
+        redirectTo: `${siteUrl}/auth/reset-password`,
+      },
+    });
+
+    if (!resetResult?.status) {
+      console.error("Failed to send staff password setup email for", args.email);
+      return { sent: false };
+    }
+
+    await ctx.runMutation(internal.crm.staff.clearPendingPasswordSetup, {
+      staffId: staff.staffId,
+    });
+
+    return { sent: true };
   },
 });
 
@@ -68,10 +99,7 @@ export const adminSendResetEmail = action({
     }
 
     const auth = createAuth(ctx);
-    const siteUrl =
-      process.env.SITE_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      "http://localhost:3000";
+    const siteUrl = getSiteUrl();
     const resetResult = await auth.api.requestPasswordReset({
       body: {
         email: args.email,

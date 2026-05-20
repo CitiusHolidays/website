@@ -20,23 +20,23 @@ const poppins = Poppins({
 export const metadata = {
   metadataBase: new URL("https://www.citiusholidays.com"),
   title: {
-    default: "Citius Travel - Bespoke Journeys & Luxury Escapes",
-    template: `%s | Citius Travel`,
+    default: "Citius Holidays - Bespoke Journeys & Luxury Escapes",
+    template: `%s | Citius Holidays`,
   },
   description:
-    "Experience the extraordinary. Citius Travel curates bespoke luxury getaways and adventurous expeditions designed for the discerning traveler.",
+    "Experience the extraordinary. Citius Holidays curates bespoke luxury getaways and adventurous expeditions designed for the discerning traveler.",
   openGraph: {
-    title: "Citius Travel - Your Trusted Travel Partner",
+    title: "Citius Holidays - Your Trusted Travel Partner",
     description:
-      "Citius Travel offers bespoke travel experiences, from luxury getaways to adventurous expeditions. Discover your next journey with us.",
+      "Citius Holidays offers bespoke travel experiences, from luxury getaways to adventurous expeditions. Discover your next journey with us.",
     url: "https://www.citiusholidays.com",
-    siteName: "Citius Travel",
+    siteName: "Citius Holidays",
     images: [
       {
         url: "/gallery/aboutus.webp",
         width: 1200,
         height: 630,
-        alt: "Citius Travel",
+        alt: "Citius Holidays",
       },
     ],
     locale: "en_US",
@@ -44,9 +44,9 @@ export const metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Citius Travel - Your Trusted Travel Partner",
+    title: "Citius Holidays - Your Trusted Travel Partner",
     description:
-      "Citius Travel offers bespoke travel experiences, from luxury getaways to adventurous expeditions. Discover your next journey with us.",
+      "Citius Holidays offers bespoke travel experiences, from luxury getaways to adventurous expeditions. Discover your next journey with us.",
     images: ["/gallery/aboutus.webp"],
   },
 };

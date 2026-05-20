@@ -11,7 +11,7 @@ import AccountClient from "./page.client.js";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "My Account | Citius Travel",
+  title: "My Account | Citius Holidays",
   description: "Manage your bookings and profile settings.",
 };
 

@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { internal } from "../_generated/api";
 import {
   PERMISSIONS,
   createActivity,
@@ -11,6 +12,7 @@ import {
   requireAnyPermission,
   requireStaff,
 } from "./lib";
+import { publicQueryAttachment } from "./queryAttachments";
 
 const queryTypeValidator = v.union(
   v.literal("MICE"),
@@ -76,7 +78,22 @@ export const list = query({
       PERMISSIONS.VIEW_JOB_CARDS,
     ]);
     const rows = await ctx.db.query("queries").collect();
-    return rows.sort((a, b) => b.createdAt - a.createdAt).map(publicQuery);
+    const attachments = await ctx.db.query("queryAttachments").collect();
+    const attachmentsByQuery = new Map<string, typeof attachments>();
+    for (const attachment of attachments) {
+      const key = attachment.queryId;
+      const bucket = attachmentsByQuery.get(key) ?? [];
+      bucket.push(attachment);
+      attachmentsByQuery.set(key, bucket);
+    }
+    return rows
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((row) => ({
+        ...publicQuery(row),
+        attachments: (attachmentsByQuery.get(row._id) ?? [])
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .map(publicQueryAttachment),
+      }));
   },
 });
 
@@ -365,6 +382,18 @@ export const remove = mutation({
       .collect();
     for (const jobCard of jobCards) {
       await deleteJobCardCascade(ctx, jobCard._id);
+    }
+
+    const { storageIds } = await ctx.runMutation(
+      internal.crm.queryAttachments.deleteAllForQuery,
+      { queryId },
+    );
+    for (const storageId of storageIds) {
+      try {
+        await ctx.storage.delete(storageId);
+      } catch (err) {
+        console.error("Failed to delete query attachment file:", err);
+      }
     }
 
     await createActivity(ctx, access, {

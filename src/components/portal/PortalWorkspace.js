@@ -8,6 +8,7 @@ import {
   CircleDollarSign,
   ClipboardList,
   FileText,
+  Paperclip,
   Hotel,
   Loader2,
   Plane,
@@ -88,6 +89,7 @@ const INITIAL_FORM = {
   leadStage: "Inquiry",
   salesOwnerName: "",
   notes: "",
+  queryCode: "",
   queryId: "",
   proposalId: "",
   preparedBy: "",
@@ -169,6 +171,7 @@ const INITIAL_FORM = {
 export default function PortalWorkspace({ view = "dashboard" }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
+  const [pendingQueryFiles, setPendingQueryFiles] = useState([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -226,6 +229,10 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const encryptAndStorePassport = useAction(api.crm.passportActions.encryptAndStorePassport);
   const getPassportDocument = useAction(api.crm.passportActions.getPassportDocument);
   const removePassport = useAction(api.crm.passportActions.removePassport);
+  const generateQueryUploadUrl = useAction(api.crm.queryAttachmentActions.generateUploadUrl);
+  const attachQueryFile = useAction(api.crm.queryAttachmentActions.attachFile);
+  const getQueryAttachmentUrl = useAction(api.crm.queryAttachmentActions.getDownloadUrl);
+  const removeQueryAttachment = useAction(api.crm.queryAttachmentActions.removeAttachment);
   const adminSendResetEmail = useAction(api.crm.staffAction.adminSendResetEmail);
   const travellersWithoutVisa = useQuery(
     api.crm.visa.listTravellersWithoutVisa,
@@ -284,6 +291,16 @@ export default function PortalWorkspace({ view = "dashboard" }) {
     setError("");
     setForm({ ...INITIAL_FORM, ...initial });
     setModal(type);
+    if (type !== "query") {
+      setPendingQueryFiles([]);
+    }
+  };
+
+  const closeModal = () => {
+    setModal(null);
+    setForm(INITIAL_FORM);
+    setPendingQueryFiles([]);
+    setError("");
   };
 
   const updateForm = (field, value) => {
@@ -308,7 +325,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
     setError("");
     try {
       if (modal === "query") {
-        await createQuery({
+        const created = await createQuery({
           clientName: form.clientName,
           contactPerson: form.contactPerson,
           contactMobile: form.contactMobile,
@@ -323,6 +340,14 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           salesOwnerName: form.salesOwnerName,
           notes: form.notes,
         });
+        if (pendingQueryFiles.length > 0) {
+          await uploadQueryFiles({
+            queryId: created.id,
+            files: pendingQueryFiles,
+            generateUploadUrl: generateQueryUploadUrl,
+            attachQueryFile,
+          });
+        }
       }
       if (modal === "assignContracting") {
         await assignContracting({ queryId: form.queryId, ownerName: form.ownerName });
@@ -474,7 +499,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         });
       }
       if (modal === "staff") {
-        await upsertStaff({
+        const result = await upsertStaff({
           staffId: form.staffId || undefined,
           email: form.staffEmail,
           name: form.staffName,
@@ -485,6 +510,11 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           location: form.location,
           active: Boolean(form.staffActive),
         });
+        if (result?.created) {
+          alert(
+            `Staff added. A verification email was sent to ${form.staffEmail}. They must verify their email before receiving a password setup link.`,
+          );
+        }
       }
       if (modal === "leave_create") {
         await createLeave({
@@ -495,8 +525,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           status: form.status || "Approved",
         });
       }
-      setModal(null);
-      setForm(INITIAL_FORM);
+      closeModal();
     } catch (err) {
       setError(err?.data || err?.message || "Unable to save. Check required fields and permissions.");
     } finally {
@@ -523,7 +552,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
 
       {view === "dashboard" && <DashboardView summary={summary} has={has} />}
       {view === "queries" && (
-        <QueriesView rows={filteredQueries} openModal={openModal} has={has} deleteItem={deleteItem} removeQuery={removeQuery} submitToContracting={submitToContracting} />
+        <QueriesView rows={filteredQueries} openModal={openModal} has={has} deleteItem={deleteItem} removeQuery={removeQuery} submitToContracting={submitToContracting} getQueryAttachmentUrl={getQueryAttachmentUrl} />
       )}
       {view === "pipeline" && <PipelineView rows={queries || []} mode={pipelineMode} setMode={setPipelineMode} />}
       {view === "contracting" && (
@@ -580,7 +609,29 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         <SettingsView staff={staff || []} dropdowns={dropdowns || {}} openModal={openModal} deleteItem={deleteItem} removeStaff={removeStaff} adminSendResetEmail={adminSendResetEmail} />
       )}
 
-      <EntityModal modal={modal} form={form} updateForm={updateForm} submit={submit} close={() => setModal(null)} error={error} isSaving={isSaving} queries={queries || []} jobCards={jobCards || []} travellers={travellers || []} visas={visas || []} pnrs={pnrs || []} team={team || []} travellersWithoutVisa={travellersWithoutVisa || []} />
+      <EntityModal
+        modal={modal}
+        form={form}
+        updateForm={updateForm}
+        submit={submit}
+        close={closeModal}
+        error={error}
+        isSaving={isSaving}
+        queries={queries || []}
+        jobCards={jobCards || []}
+        travellers={travellers || []}
+        visas={visas || []}
+        pnrs={pnrs || []}
+        team={team || []}
+        travellersWithoutVisa={travellersWithoutVisa || []}
+        pendingQueryFiles={pendingQueryFiles}
+        setPendingQueryFiles={setPendingQueryFiles}
+        generateQueryUploadUrl={generateQueryUploadUrl}
+        attachQueryFile={attachQueryFile}
+        getQueryAttachmentUrl={getQueryAttachmentUrl}
+        removeQueryAttachment={removeQueryAttachment}
+        has={has}
+      />
     </div>
   );
 }
@@ -809,7 +860,7 @@ function DashboardView({ summary, has }) {
   );
 }
 
-function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToContracting }) {
+function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToContracting, getQueryAttachmentUrl }) {
   return (
     <DataTable
       rows={rows}
@@ -822,18 +873,29 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToCo
         ["Budget", (row) => money(row.budgetAmount)],
         ["Stage", (row) => <Badge label={row.leadStage || "Inquiry"} tone={statusTone(row.leadStage)} />],
         ["Type", (row) => <Badge label={row.queryType} tone="blue" />],
+        ["Files", (row) => (
+          <QueryAttachmentSummary
+            attachments={row.attachments || []}
+            canManage={has(P.MANAGE_QUERIES)}
+            onManage={() => openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })}
+            getQueryAttachmentUrl={getQueryAttachmentUrl}
+          />
+        )],
         ["Sales", (row) => row.salesOwnerName || "-"],
         ["Source", (row) => row.source || "-"],
         ["Action", (row) => has(P.MANAGE_QUERIES) && (
-          <div className="flex flex-wrap gap-2">
-            <button className="portal-small-btn" onClick={() => submitToContracting({ queryId: row.id })}>
+          <motion.div className="flex flex-wrap gap-2">
+            <button type="button" className="portal-small-btn" onClick={() => openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })}>
+              Files
+            </button>
+            <button type="button" className="portal-small-btn" onClick={() => submitToContracting({ queryId: row.id })}>
               Submit
             </button>
-            <button className="portal-small-btn" onClick={() => openModal("queryStatus", { queryId: row.id, salesStatus: row.salesStatus, leadStage: row.leadStage || "Inquiry", contractingStatus: row.contractingStatus })}>
+            <button type="button" className="portal-small-btn" onClick={() => openModal("queryStatus", { queryId: row.id, salesStatus: row.salesStatus, leadStage: row.leadStage || "Inquiry", contractingStatus: row.contractingStatus })}>
               Update
             </button>
             <DeleteButton label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />
-          </div>
+          </motion.div>
         )],
       ]}
     />
@@ -1828,10 +1890,33 @@ function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff, ad
   );
 }
 
-function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, queries, jobCards, travellers, visas, pnrs, team, travellersWithoutVisa }) {
+function EntityModal({
+  modal,
+  form,
+  updateForm,
+  submit,
+  close,
+  error,
+  isSaving,
+  queries,
+  jobCards,
+  travellers,
+  visas,
+  pnrs,
+  team,
+  travellersWithoutVisa,
+  pendingQueryFiles,
+  setPendingQueryFiles,
+  generateQueryUploadUrl,
+  attachQueryFile,
+  getQueryAttachmentUrl,
+  removeQueryAttachment,
+  has,
+}) {
   const title = modal
     ? {
         query: "New Query / Enquiry",
+        queryAttachments: `Attachments — ${form.queryCode || "Query"}`,
         assignContracting: "Assign Contracting Owner",
         queryStatus: "Update Query Status",
         proposal: "Create Proposal",
@@ -1890,7 +1975,27 @@ function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, 
               <Select label="Source" value={form.source} options={QUERY_SOURCES} onChange={(v) => updateForm("source", v)} />
               <Select label="Sales Rep" value={form.salesOwnerName} options={[{ value: "", label: "Current user" }, ...team.filter((member) => member.roles.some((role) => ["Sales", "Sales Head"].includes(role))).map((member) => ({ value: member.name, label: member.name }))]} onChange={(v) => updateForm("salesOwnerName", v)} />
               <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
+              <div className="md:col-span-2">
+                <QueryFilePicker
+                  files={pendingQueryFiles}
+                  onChange={setPendingQueryFiles}
+                  inputId="new-query-files"
+                />
+              </div>
             </>}
+            {modal === "queryAttachments" && (
+              <div className="md:col-span-2">
+                <QueryAttachmentsPanel
+                  queryId={form.queryId}
+                  attachments={(queries.find((q) => q.id === form.queryId)?.attachments) || []}
+                  canManage={has(P.MANAGE_QUERIES)}
+                  generateQueryUploadUrl={generateQueryUploadUrl}
+                  attachQueryFile={attachQueryFile}
+                  getQueryAttachmentUrl={getQueryAttachmentUrl}
+                  removeQueryAttachment={removeQueryAttachment}
+                />
+              </div>
+            )}
             {modal === "assignContracting" && <>
               <Select label="Query" value={form.queryId} options={queries.map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` }))} onChange={(v) => updateForm("queryId", v)} required />
               <Input label="Contracting Owner" value={form.ownerName} onChange={(v) => updateForm("ownerName", v)} required />
@@ -2031,11 +2136,15 @@ function EntityModal({ modal, form, updateForm, submit, close, error, isSaving, 
           </div>
         </div>
         <div className="flex justify-end gap-3 border-t border-brand-border px-5 py-4">
-          <button type="button" onClick={close} className="portal-outline-btn">Cancel</button>
-          <button type="submit" disabled={isSaving} className="portal-primary-btn disabled:opacity-60">
-            {isSaving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
-            Save
+          <button type="button" onClick={close} className="portal-outline-btn">
+            {modal === "queryAttachments" ? "Close" : "Cancel"}
           </button>
+          {modal !== "queryAttachments" && (
+            <button type="submit" disabled={isSaving} className="portal-primary-btn disabled:opacity-60">
+              {isSaving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+              Save
+            </button>
+          )}
         </div>
           </motion.form>
         </motion.div>
@@ -2280,6 +2389,247 @@ function formatDate(value) {
 
 function money(value) {
   return `INR ${Number(value || 0).toLocaleString("en-IN")}`;
+}
+
+const MAX_QUERY_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+const QUERY_ATTACHMENT_ACCEPT =
+  ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.webp,.gif";
+
+async function uploadQueryFiles({ queryId, files, generateUploadUrl, attachQueryFile }) {
+  for (const file of files) {
+    if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
+      throw new Error(`${file.name} exceeds the 15 MB limit.`);
+    }
+    const uploadUrl = await generateUploadUrl({});
+    const uploadRes = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+    if (!uploadRes.ok) {
+      throw new Error(`Failed to upload ${file.name}.`);
+    }
+    const { storageId } = await uploadRes.json();
+    await attachQueryFile({
+      queryId,
+      storageId,
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      fileSize: file.size,
+    });
+  }
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function openQueryAttachment(attachmentId, getQueryAttachmentUrl) {
+  const { url, fileName } = await getQueryAttachmentUrl({ attachmentId });
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+function QueryAttachmentSummary({ attachments, canManage, onManage, getQueryAttachmentUrl }) {
+  if (!attachments.length) {
+    return canManage ? (
+      <button type="button" className="portal-small-btn" onClick={onManage}>
+        Add files
+      </button>
+    ) : (
+      <span className="text-xs text-brand-muted">—</span>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {attachments.slice(0, 2).map((file) => (
+        <button
+          key={file.id}
+          type="button"
+          className="inline-flex max-w-[180px] items-center gap-1 truncate text-left text-xs font-medium text-citius-blue hover:underline"
+          onClick={() => openQueryAttachment(file.id, getQueryAttachmentUrl).catch((err) => {
+            alert(err?.data || err?.message || "Unable to open file.");
+          })}
+        >
+          <Paperclip size={12} className="shrink-0" />
+          <span className="truncate">{file.fileName}</span>
+        </button>
+      ))}
+      {attachments.length > 2 && (
+        <span className="text-[11px] text-brand-muted">+{attachments.length - 2} more</span>
+      )}
+      {canManage && (
+        <button type="button" className="portal-small-btn mt-1 w-fit" onClick={onManage}>
+          Manage
+        </button>
+      )}
+    </div>
+  );
+}
+
+function QueryFilePicker({ files, onChange, inputId }) {
+  return (
+    <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
+      <label htmlFor={inputId} className="mb-2 block text-sm font-medium text-brand-text">
+        Attachments
+      </label>
+      <p className="mb-3 text-xs text-brand-muted">
+        PDF, Office documents, images, or text files up to 15 MB each.
+      </p>
+      <input
+        id={inputId}
+        type="file"
+        multiple
+        accept={QUERY_ATTACHMENT_ACCEPT}
+        className="block w-full text-sm text-brand-text file:mr-3 file:rounded-full file:border-0 file:bg-citius-blue file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-citius-blue/90"
+        onChange={(event) => {
+          const picked = Array.from(event.target.files || []);
+          if (!picked.length) return;
+          onChange([...files, ...picked]);
+          event.target.value = "";
+        }}
+      />
+      {files.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {files.map((file, index) => (
+            <li
+              key={`${file.name}-${file.size}-${index}`}
+              className="flex items-center justify-between gap-3 rounded-lg border border-brand-border bg-white px-3 py-2 text-sm"
+            >
+              <div className="min-w-0">
+                <div className="truncate font-medium text-brand-text">{file.name}</div>
+                <div className="text-xs text-brand-muted">{formatFileSize(file.size)}</div>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 text-xs font-semibold text-red-600 hover:underline"
+                onClick={() => onChange(files.filter((_, i) => i !== index))}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function QueryAttachmentsPanel({
+  queryId,
+  attachments,
+  canManage,
+  generateQueryUploadUrl,
+  attachQueryFile,
+  getQueryAttachmentUrl,
+  removeQueryAttachment,
+}) {
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  const handleUpload = async (event) => {
+    const picked = Array.from(event.target.files || []);
+    event.target.value = "";
+    if (!picked.length || !queryId) return;
+
+    setIsUploading(true);
+    setUploadError("");
+    try {
+      await uploadQueryFiles({
+        queryId,
+        files: picked,
+        generateUploadUrl: generateQueryUploadUrl,
+        attachQueryFile,
+      });
+    } catch (err) {
+      setUploadError(err?.data || err?.message || "Upload failed.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemove = async (attachment) => {
+    if (!window.confirm(`Remove ${attachment.fileName}?`)) return;
+    try {
+      await removeQueryAttachment({ attachmentId: attachment.id });
+    } catch (err) {
+      alert(err?.data || err?.message || "Unable to remove file.");
+    }
+  };
+
+  return (
+    <motion.div className="space-y-4">
+      {canManage && (
+        <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
+          <label htmlFor="query-attachment-upload" className="mb-2 block text-sm font-medium text-brand-text">
+            Upload files
+          </label>
+          <input
+            id="query-attachment-upload"
+            type="file"
+            multiple
+            accept={QUERY_ATTACHMENT_ACCEPT}
+            disabled={isUploading}
+            className="block w-full text-sm text-brand-text file:mr-3 file:rounded-full file:border-0 file:bg-citius-orange file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
+            onChange={handleUpload}
+          />
+          {isUploading && (
+            <p className="mt-2 flex items-center gap-2 text-sm text-brand-muted">
+              <Loader2 className="animate-spin" size={14} />
+              Uploading…
+            </p>
+          )}
+          {uploadError && <p className="mt-2 text-sm text-red-600">{uploadError}</p>}
+        </div>
+      )}
+
+      {attachments.length === 0 ? (
+        <p className="text-sm text-brand-muted">No files attached yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {attachments.map((file) => (
+            <li
+              key={file.id}
+              className="flex items-center justify-between gap-3 rounded-xl border border-brand-border bg-white px-4 py-3"
+            >
+              <div className="min-w-0">
+                <div className="truncate font-medium text-brand-text">{file.fileName}</div>
+                <div className="text-xs text-brand-muted">
+                  {formatFileSize(file.fileSize)} · {formatDate(file.createdAt)}
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  className="portal-small-btn"
+                  onClick={() => openQueryAttachment(file.id, getQueryAttachmentUrl).catch((err) => {
+                    alert(err?.data || err?.message || "Unable to open file.");
+                  })}
+                >
+                  Open
+                </button>
+                {canManage && (
+                  <button type="button" className="portal-small-btn text-red-600" onClick={() => handleRemove(file)}>
+                    Remove
+                  </button>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </motion.div>
+  );
 }
 
 function paymentTermLabel(queryType) {

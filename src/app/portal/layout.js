@@ -7,7 +7,7 @@ import { fetchAuthQuery, requireAuth } from "@/lib/auth-server";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "TravelCRM Portal | Citius Travel",
+  title: "TravelCRM Portal | Citius Holidays",
   description: "Internal Citius Holidays CRM portal.",
 };
 

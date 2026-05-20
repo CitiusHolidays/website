@@ -48,10 +48,10 @@ export async function generateMetadata({ params }) {
   const { slug } = await params;
   const trail = getTrailBySlug(slug);
   if (!trail) {
-    return { title: "Trail | Citius Travel" };
+    return { title: "Trail | Citius Holidays" };
   }
   return {
-    title: `${trail.title} | Spiritual Trails | Citius Travel`,
+    title: `${trail.title} | Spiritual Trails | Citius Holidays`,
     description: trail.subtitle || trail.positioning || "Citius Spiritual Trails — curated Kailash Mansarovar journeys."
   };
 }

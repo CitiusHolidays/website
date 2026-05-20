@@ -40,7 +40,7 @@ export async function generateMetadata({ params }) {
 
   if (!post) {
     return {
-      title: 'Post Not Found | Citius Travel'
+      title: 'Post Not Found | Citius Holidays'
     };
   }
 
@@ -48,15 +48,15 @@ export async function generateMetadata({ params }) {
   const excerpt = post.excerpt || (post.body?.[0]?.children?.[0]?.text || '').substring(0, 160);
 
   return {
-    title: `${post.title} | Citius Travel Blog`,
+    title: `${post.title} | Citius Holidays Blog`,
     description: excerpt,
     keywords: post.categories?.map(cat => cat.title).join(', '),
-    authors: [{ name: post.author?.name || 'Citius Travel' }],
+    authors: [{ name: post.author?.name || 'Citius Holidays' }],
     openGraph: {
       title: post.title,
       description: excerpt,
       url: `https://www.citiusholidays.com/blog/${slug}`,
-      siteName: 'Citius Travel',
+      siteName: 'Citius Holidays',
       images: imageUrl ? [
         {
           url: imageUrl,
@@ -69,7 +69,7 @@ export async function generateMetadata({ params }) {
       type: 'article',
       publishedTime: post.publishedAt,
       modifiedTime: post._updatedAt,
-      authors: [post.author?.name || 'Citius Travel'],
+      authors: [post.author?.name || 'Citius Holidays'],
       tags: post.categories?.map(cat => cat.title),
     },
     twitter: {

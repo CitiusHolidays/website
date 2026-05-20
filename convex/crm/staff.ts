@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query, internalMutation } from "../_generated/server";
+import { mutation, query, internalMutation, internalQuery } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
   ALL_ROLES,
@@ -128,7 +128,7 @@ export const upsertStaff = mutation({
         updatedAt: now,
       });
 
-      return { id: normalizedStaffId };
+      return { id: normalizedStaffId, created: false };
     }
 
     if (existingByEmail) {
@@ -142,7 +142,7 @@ export const upsertStaff = mutation({
         active: args.active,
         updatedAt: now,
       });
-      return { id: existingByEmail._id };
+      return { id: existingByEmail._id, created: false };
     }
 
     const id = await ctx.db.insert("staffUsers", {
@@ -156,6 +156,7 @@ export const upsertStaff = mutation({
       location: args.location?.trim() || "",
       active: args.active,
       invitedBy: access.authUserId,
+      pendingPasswordSetup: true,
       createdAt: now,
       updatedAt: now,
     });
@@ -166,7 +167,7 @@ export const upsertStaff = mutation({
       name: args.name.trim(),
     });
 
-    return { id };
+    return { id, created: true };
   },
 });
 
@@ -200,6 +201,38 @@ export const linkAuthUserId = internalMutation({
   handler: async (ctx, args) => {
     await ctx.db.patch(args.staffId, {
       authUserId: args.authUserId,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const getStaffPendingPasswordSetup = internalQuery({
+  args: {
+    email: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const emailNormalized = normalizeEmail(args.email);
+    const staff = await ctx.db
+      .query("staffUsers")
+      .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
+      .unique();
+    if (!staff?.pendingPasswordSetup) {
+      return null;
+    }
+    return {
+      staffId: staff._id,
+      pendingPasswordSetup: staff.pendingPasswordSetup,
+    };
+  },
+});
+
+export const clearPendingPasswordSetup = internalMutation({
+  args: {
+    staffId: v.id("staffUsers"),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.staffId, {
+      pendingPasswordSetup: false,
       updatedAt: Date.now(),
     });
   },

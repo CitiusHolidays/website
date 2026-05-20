@@ -5,7 +5,7 @@ import {
   requireActionCtx,
 } from "@convex-dev/better-auth/utils";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
-import { api, components } from "../_generated/api";
+import { api, components, internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
 import { buildAuthEmailHtml, AUTH_EMAIL_BRAND } from "../lib/authEmailHtml";
@@ -107,6 +107,16 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           });
         } catch (err) {
           console.error("Failed to send verification email:", err);
+        }
+      },
+      afterEmailVerification: async (user) => {
+        try {
+          await requireActionCtx(ctx).runAction(
+            internal.crm.staffAction.sendPasswordSetupAfterVerification,
+            { email: user.email },
+          );
+        } catch (err) {
+          console.error("Failed to queue staff password setup after verification:", err);
         }
       },
     },
