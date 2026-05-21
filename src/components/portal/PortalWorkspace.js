@@ -31,6 +31,7 @@ import {
   FOOD_PREFERENCES,
   GUEST_TYPES,
   LEAD_STAGES,
+  LEAVE_TYPES,
   LOST_REASONS,
   PAYMENT_TYPES,
   PORTAL_PERMISSIONS,
@@ -44,7 +45,7 @@ import {
   TRAVEL_TYPES,
   VISA_STATUSES,
 } from "@/lib/portal/constants";
-import { getPipelineBuckets, getSalesPipelineBuckets } from "@/lib/portal/workflow";
+import { getExpenseSplitTotal, getPipelineBuckets, getSalesPipelineBuckets } from "@/lib/portal/workflow";
 import {
   canAssignContracting,
   canAssignOperations,
@@ -77,7 +78,7 @@ const VIEW_META = {
   approvals: { title: "Approvals", subtitle: "Unified approval queue for expenses and finance handoffs.", permission: P.VIEW_APPROVALS },
   reports: { title: "Reports", subtitle: "Revenue, headcount, and conversion snapshots for leadership review.", permission: P.VIEW_REPORTS },
   team: { title: "Team Directory", subtitle: "Read-only staff directory by department, role, and location.", permission: P.VIEW_TEAM },
-  "employees-on-leave": { title: "Employees on Leave", subtitle: "Leave requests, approvals, and team availability.", permission: P.VIEW_TEAM },
+  "employees-on-leave": { title: "Employees on Leave", subtitle: "Leave requests, approvals, and team availability.", permission: P.VIEW_LEAVE },
   activity: { title: "Notifications / Activity Log", subtitle: "Audit trail for CRM status changes and workflow triggers.", permission: P.VIEW_ACTIVITY },
   settings: { title: "Settings / Dropdown Management", subtitle: "Staff allowlist and workflow dropdown reference values.", permission: P.MANAGE_STAFF },
 };
@@ -103,6 +104,8 @@ const INITIAL_FORM = {
   preparedBy: "",
   landCostPerPax: "",
   airfarePerPax: "",
+  sellingPrice: "",
+  costPrice: "",
   itinerarySummary: "",
   ownerName: "",
   salesStatus: "Proposal in discussion",
@@ -167,6 +170,7 @@ const INITIAL_FORM = {
   amount: "",
   paidBy: "",
   department: "",
+  leaveType: "Casual",
   startDate: "",
   endDate: "",
   reason: "",
@@ -208,6 +212,8 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
   const [pendingQueryFiles, setPendingQueryFiles] = useState([]);
+  const [pendingProposalFiles, setPendingProposalFiles] = useState([]);
+  const [pendingExpenseProofFiles, setPendingExpenseProofFiles] = useState([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -221,8 +227,8 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const canFetch = isAuthenticated && access?.allowed;
 
   const summary = useQuery(api.crm.dashboard.getPortalSummary, canFetch && allowed && view === "dashboard" ? {} : "skip");
-  const queries = useQuery(api.crm.queries.list, canFetch && has(P.VIEW_QUERIES) ? {} : "skip");
-  const proposals = useQuery(api.crm.proposals.list, canFetch && has(P.VIEW_PROPOSALS) ? {} : "skip");
+  const queries = useQuery(api.crm.queries.list, canFetch && (has(P.VIEW_QUERIES) || has(P.VIEW_CONTRACTING) || has(P.VIEW_JOB_CARDS)) ? {} : "skip");
+  const proposals = useQuery(api.crm.proposals.list, canFetch && (has(P.VIEW_PROPOSALS) || has(P.MANAGE_JOB_CARDS)) ? {} : "skip");
   const jobCards = useQuery(api.crm.jobCards.list, canFetch && has(P.VIEW_JOB_CARDS) ? {} : "skip");
   const travellers = useQuery(api.crm.travellers.list, canFetch && has(P.VIEW_TRAVELLERS) ? {} : "skip");
   const visas = useQuery(api.crm.visa.list, canFetch && has(P.VIEW_VISA) ? {} : "skip");
@@ -239,10 +245,10 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const reports = useQuery(api.crm.reports.overview, canFetch && has(P.VIEW_REPORTS) && view === "reports" ? {} : "skip");
   const team = useQuery(
     api.crm.staff.listDirectory,
-    canFetch && (has(P.VIEW_TEAM) || view === "contracting") ? {} : "skip",
+    canFetch && has(P.VIEW_TEAM) ? {} : "skip",
   );
   const activity = useQuery(api.crm.activity.listActivity, canFetch && has(P.VIEW_ACTIVITY) ? { limit: 80 } : "skip");
-  const leaves = useQuery(api.crm.leave.list, canFetch && has(P.VIEW_TEAM) ? {} : "skip");
+  const leaves = useQuery(api.crm.leave.list, canFetch && has(P.VIEW_LEAVE) ? {} : "skip");
   const notifications = useQuery(api.crm.activity.listNotifications, canFetch ? { limit: 80 } : "skip");
   const dropdowns = useQuery(api.crm.settings.listDropdowns, canFetch && view === "settings" ? {} : "skip");
   const staff = useQuery(api.crm.staff.listStaff, canFetch && has(P.MANAGE_STAFF) ? {} : "skip");
@@ -251,6 +257,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const updateQuery = useMutation(api.crm.queries.update);
   const submitToContracting = useMutation(api.crm.queries.submitToContracting);
   const assignContracting = useMutation(api.crm.queries.assignContracting);
+  const assignContractingOwner = useMutation(api.crm.jobCards.assignContractingOwner);
   const assignOperationsOwner = useMutation(api.crm.jobCards.assignOperationsOwner);
   const assignTicketingOwner = useMutation(api.crm.ticketing.assignTicketingOwner);
   const updateQueryStatus = useMutation(api.crm.queries.updateStatus);
@@ -277,6 +284,14 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const attachQueryFile = useAction(api.crm.queryAttachmentActions.attachFile);
   const getQueryAttachmentUrl = useAction(api.crm.queryAttachmentActions.getDownloadUrl);
   const removeQueryAttachment = useAction(api.crm.queryAttachmentActions.removeAttachment);
+  const generateProposalUploadUrl = useAction(api.crm.proposalAttachmentActions.generateUploadUrl);
+  const attachProposalFile = useAction(api.crm.proposalAttachmentActions.attachFile);
+  const getProposalAttachmentUrl = useAction(api.crm.proposalAttachmentActions.getDownloadUrl);
+  const removeProposalAttachment = useAction(api.crm.proposalAttachmentActions.removeAttachment);
+  const generateExpenseUploadUrl = useAction(api.crm.expenseAttachmentActions.generateUploadUrl);
+  const attachExpenseProof = useAction(api.crm.expenseAttachmentActions.attachProof);
+  const getExpenseAttachmentUrl = useAction(api.crm.expenseAttachmentActions.getDownloadUrl);
+  const removeExpenseProof = useAction(api.crm.expenseAttachmentActions.removeProof);
   const startStaffOnboarding = useAction(api.crm.staffAction.startStaffOnboarding);
   const travellersWithoutVisa = useQuery(
     api.crm.visa.listTravellersWithoutVisa,
@@ -351,20 +366,38 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const openModal = (type, initial = {}) => {
     setError("");
     const next = { ...INITIAL_FORM, ...initial };
+    if (next.queryId && (type === "jobCard" || type === "proposal")) {
+      const linkedQuery = (queries || []).find((query) => query.id === next.queryId);
+      if (linkedQuery) {
+        next.clientName = next.clientName || linkedQuery.clientName;
+        next.destination = next.destination || linkedQuery.destination || "";
+        next.confirmedPax = next.confirmedPax || String(linkedQuery.paxCount || 1);
+        next.travelStartDate = next.travelStartDate || linkedQuery.travelStartDate || "";
+        next.travelEndDate = next.travelEndDate || linkedQuery.travelEndDate || "";
+      }
+      if (type === "jobCard" && !next.proposalId) {
+        const linkedProposal = (proposals || [])
+          .filter((proposal) => proposal.queryId === next.queryId)
+          .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
+        next.proposalId = linkedProposal?.id || "";
+      }
+    }
     if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {
       next.jobCardId = jobCards[0].id;
     }
     setForm(next);
     setModal(type);
-    if (type !== "query") {
-      setPendingQueryFiles([]);
-    }
+    if (type !== "query") setPendingQueryFiles([]);
+    if (type !== "proposal") setPendingProposalFiles([]);
+    if (type !== "expense") setPendingExpenseProofFiles([]);
   };
 
   const closeModal = () => {
     setModal(null);
     setForm(INITIAL_FORM);
     setPendingQueryFiles([]);
+    setPendingProposalFiles([]);
+    setPendingExpenseProofFiles([]);
     setError("");
   };
 
@@ -440,6 +473,9 @@ export default function PortalWorkspace({ view = "dashboard" }) {
       if (modal === "assignContracting") {
         await assignContracting({ queryId: form.queryId, staffId: form.staffId });
       }
+      if (modal === "assignContractingOwner") {
+        await assignContractingOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
+      }
       if (modal === "assignOperationsOwner") {
         await assignOperationsOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
       }
@@ -447,33 +483,48 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         await assignTicketingOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
       }
       if (modal === "queryStatus") {
-        await updateQueryStatus({
-          queryId: form.queryId,
-          salesStatus: form.salesStatus,
-          leadStage: form.leadStage,
-          contractingStatus: form.contractingStatus,
-          lostReason: form.salesStatus === "Order Lost" || form.contractingStatus === "Order Lost" ? form.lostReason : undefined,
-        });
+        const payload = { queryId: form.queryId };
+        if (has(P.MANAGE_QUERIES)) {
+          payload.salesStatus = form.salesStatus;
+          payload.leadStage = form.leadStage;
+          payload.lostReason = form.salesStatus === "Order Lost" ? form.lostReason : undefined;
+        }
+        if (has(P.MANAGE_CONTRACTING) && !has(P.MANAGE_QUERIES)) {
+          payload.contractingStatus = form.contractingStatus;
+        }
+        if (has(P.MANAGE_CONTRACTING) && has(P.MANAGE_QUERIES)) {
+          payload.contractingStatus = form.contractingStatus;
+        }
+        await updateQueryStatus(payload);
       }
       if (modal === "proposal") {
+        let proposalResult = null;
+        const proposalPayload = {
+          queryId: form.queryId || undefined,
+          clientName: form.clientName,
+          preparedBy: form.preparedBy,
+          landCostPerPax: toNumber(form.landCostPerPax, 0),
+          airfarePerPax: toNumber(form.airfarePerPax, 0),
+          sellingPrice: toNumber(form.sellingPrice, 0),
+          costPrice: toNumber(form.costPrice, 0),
+          itinerarySummary: form.itinerarySummary,
+        };
         if (form.entityId) {
-          await updateProposal({
+          proposalResult = await updateProposal({
             proposalId: form.entityId,
-            queryId: form.queryId || undefined,
-            clientName: form.clientName,
-            preparedBy: form.preparedBy,
-            landCostPerPax: toNumber(form.landCostPerPax, 0),
-            airfarePerPax: toNumber(form.airfarePerPax, 0),
-            itinerarySummary: form.itinerarySummary,
+            ...proposalPayload,
           });
         } else {
-          await createProposal({
-            queryId: form.queryId || undefined,
-            clientName: form.clientName,
-            preparedBy: form.preparedBy,
-            landCostPerPax: toNumber(form.landCostPerPax, 0),
-            airfarePerPax: toNumber(form.airfarePerPax, 0),
-            itinerarySummary: form.itinerarySummary,
+          proposalResult = await createProposal(proposalPayload);
+        }
+        const proposalId = form.entityId || proposalResult?.id;
+        if (proposalId && pendingProposalFiles.length > 0) {
+          await uploadEntityFiles({
+            entityId: proposalId,
+            idField: "proposalId",
+            files: pendingProposalFiles,
+            generateUploadUrl: generateProposalUploadUrl,
+            attachFile: attachProposalFile,
           });
         }
       }
@@ -491,7 +542,8 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           });
         } else {
           await createJobCard({
-            queryId: form.queryId || undefined,
+            queryId: form.queryId,
+            proposalId: form.proposalId || undefined,
             clientName: form.clientName,
             destination: form.destination,
             confirmedPax: toNumber(form.confirmedPax, 1),
@@ -667,6 +719,11 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         }
       }
       if (modal === "expense") {
+        const expenseTotal = getExpenseSplitTotal({
+          cardAmount: form.cardAmount,
+          cashAmount: form.cashAmount,
+          epayAmount: form.epayAmount,
+        });
         const expensePayload = {
           tourManagerName: form.tourManagerName,
           category: form.category,
@@ -676,14 +733,24 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           cardAmount: toNumber(form.cardAmount, 0),
           cashAmount: toNumber(form.cashAmount, 0),
           epayAmount: toNumber(form.epayAmount, 0),
-          amount: toNumber(form.amount, toNumber(form.cardAmount, 0) + toNumber(form.cashAmount, 0) + toNumber(form.epayAmount, 0)),
+          amount: expenseTotal,
           paidBy: form.paidBy,
           notes: form.notes,
         };
+        let expenseResult = null;
         if (form.entityId) {
-          await updateExpense({ expenseId: form.entityId, ...expensePayload });
+          expenseResult = await updateExpense({ expenseId: form.entityId, ...expensePayload });
         } else {
-          await createExpense({ jobCardId: form.jobCardId, ...expensePayload });
+          expenseResult = await createExpense({ jobCardId: form.jobCardId, ...expensePayload });
+        }
+        const expenseId = form.entityId || expenseResult?.id;
+        if (expenseId && pendingExpenseProofFiles.length > 0) {
+          await uploadExpenseProofFiles({
+            expenseId,
+            files: pendingExpenseProofFiles.slice(0, 1),
+            generateUploadUrl: generateExpenseUploadUrl,
+            attachExpenseProof,
+          });
         }
       }
       if (modal === "staff") {
@@ -706,17 +773,18 @@ export default function PortalWorkspace({ view = "dashboard" }) {
       }
       if (modal === "leave_create") {
         const leavePayload = {
+          leaveType: form.leaveType,
           startDate: form.startDate,
           endDate: form.endDate,
           reason: form.reason,
         };
         if (form.entityId) {
           await updateLeave({ leaveId: form.entityId, ...leavePayload });
-        } else if (has(P.MANAGE_STAFF)) {
+        } else if (has(P.MANAGE_LEAVE)) {
           await createLeave({
             staffId: form.staffId,
             ...leavePayload,
-            status: form.status || "Approved",
+            status: form.status || "Pending",
           });
         } else {
           await createLeave(leavePayload);
@@ -760,7 +828,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
       )}
       {view === "pipeline" && <PipelineView rows={queries || []} mode={pipelineMode} setMode={setPipelineMode} />}
       {view === "contracting" && (
-        <ContractingView rows={filteredQueries} team={team || []} openModal={openModal} has={has} canAssign={canAssignContracting(access)} deleteItem={deleteItem} removeQuery={removeQuery} />
+        <ContractingView rows={filteredQueries} team={team || []} openModal={openModal} has={has} canAssign={canAssignContracting(access)} />
       )}
       {view === "proposals" && (
         <ProposalsView
@@ -770,10 +838,11 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           has={has}
           deleteItem={deleteItem}
           removeProposal={removeProposal}
+          getProposalAttachmentUrl={getProposalAttachmentUrl}
         />
       )}
       {view === "accounts-job-cards" && (
-        <AccountsJobCardView rows={queries || []} openModal={openModal} />
+        <AccountsJobCardView rows={queries || []} jobCards={jobCards || []} openModal={openModal} />
       )}
       {view === "job-cards" && (
         <JobCardsView
@@ -819,7 +888,18 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         />
       )}
       {view === "finance" && <FinanceView rows={invoices || []} overview={financeOverview} openModal={openModal} has={has} deleteItem={deleteItem} removeInvoice={removeInvoice} />}
-      {view === "expenses" && <ExpensesView rows={expenses || []} openModal={openModal} has={has} deleteItem={deleteItem} removeExpense={removeExpense} submitExpenseForApproval={submitExpenseForApproval} />}
+      {view === "expenses" && (
+        <ExpensesView
+          rows={expenses || []}
+          openModal={openModal}
+          has={has}
+          deleteItem={deleteItem}
+          removeExpense={removeExpense}
+          submitExpenseForApproval={submitExpenseForApproval}
+          getExpenseAttachmentUrl={getExpenseAttachmentUrl}
+          removeExpenseProof={removeExpenseProof}
+        />
+      )}
       {view === "approvals" && (
         <ApprovalsView
           rows={approvals || []}
@@ -860,6 +940,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         error={error}
         isSaving={isSaving}
         queries={queries || []}
+        proposals={proposals || []}
         jobCards={jobCards || []}
         travellers={travellers || []}
         visas={visas || []}
@@ -868,10 +949,20 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         travellersWithoutVisa={travellersWithoutVisa || []}
         pendingQueryFiles={pendingQueryFiles}
         setPendingQueryFiles={setPendingQueryFiles}
+        pendingProposalFiles={pendingProposalFiles}
+        setPendingProposalFiles={setPendingProposalFiles}
+        pendingExpenseProofFiles={pendingExpenseProofFiles}
+        setPendingExpenseProofFiles={setPendingExpenseProofFiles}
         generateQueryUploadUrl={generateQueryUploadUrl}
         attachQueryFile={attachQueryFile}
         getQueryAttachmentUrl={getQueryAttachmentUrl}
         removeQueryAttachment={removeQueryAttachment}
+        generateProposalUploadUrl={generateProposalUploadUrl}
+        attachProposalFile={attachProposalFile}
+        getProposalAttachmentUrl={getProposalAttachmentUrl}
+        removeProposalAttachment={removeProposalAttachment}
+        getExpenseAttachmentUrl={getExpenseAttachmentUrl}
+        removeExpenseProof={removeExpenseProof}
         has={has}
         access={access}
       />
@@ -884,10 +975,7 @@ function renderHeaderAction(view, openModal, has, access) {
     queries: has(P.MANAGE_QUERIES) && ["query", "New Query"],
     contracting: canAssignContracting(access) && ["assignContracting", "Assign Contracting"],
     proposals: has(P.MANAGE_PROPOSALS) && ["proposal", "New Proposal"],
-    "accounts-job-cards": has(P.MANAGE_JOB_CARDS) && ["jobCard", "Open Job Card"],
-    "job-cards": has(P.MANAGE_JOB_CARDS) && ["jobCard", "Open Job Card"],
     travellers: has(P.MANAGE_TRAVELLERS) && ["traveller", "Add Traveller"],
-    visa: has(P.MANAGE_VISA) && ["visa_create", "Create Visa"],
     flights: has(P.MANAGE_TICKETING) && ["pnr", "Add PNR"],
     tickets: has(P.MANAGE_TICKETING) && ["ticket", "Issue Ticket"],
     "seat-allocation": has(P.MANAGE_TICKETING) && ["seat", "Save Seat"],
@@ -895,7 +983,7 @@ function renderHeaderAction(view, openModal, has, access) {
     "tour-managers": canAssignTourManagers(access) && ["tourManager", "Add Tour Manager"],
     expenses: has(P.MANAGE_EXPENSES) && ["expense", "Add Expense"],
     settings: has(P.MANAGE_STAFF) && ["staff", "Add Staff"],
-    "employees-on-leave": has(P.REQUEST_LEAVE) && ["leave_create", has(P.MANAGE_STAFF) ? "Record Leave" : "Request Leave"],
+    "employees-on-leave": (has(P.REQUEST_LEAVE) || has(P.MANAGE_LEAVE)) && ["leave_create", has(P.MANAGE_LEAVE) ? "Record Leave" : "Request Leave"],
   };
   const action = actions[view];
   if (!action) return null;
@@ -1162,7 +1250,7 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToCo
   );
 }
 
-function ContractingView({ rows, team, openModal, has, canAssign, deleteItem, removeQuery }) {
+function ContractingView({ rows, team, openModal, has, canAssign }) {
   const contractingTeam = team.filter((member) =>
     member.roles.some((role) => ["Contracting", "Contracting Head"].includes(role)),
   );
@@ -1185,19 +1273,21 @@ function ContractingView({ rows, team, openModal, has, canAssign, deleteItem, re
       transition={{ duration: 0.35 }}
       className="space-y-5"
     >
-      <Panel title="Contracting team">
-        <DataTable
-          compact
-          rows={teamRows}
-          empty="No contracting staff in the directory yet."
-          columns={[
-            ["Name", (row) => strong(row.name)],
-            ["Email", (row) => row.email],
-            ["Location", (row) => row.location],
-            ["Active queries", (row) => row.activeQueries],
-          ]}
-        />
-      </Panel>
+      {canAssign && (
+        <Panel title="Contracting team">
+          <DataTable
+            compact
+            rows={teamRows}
+            empty="No contracting staff in the directory yet."
+            columns={[
+              ["Name", (row) => strong(row.name)],
+              ["Email", (row) => row.email],
+              ["Location", (row) => row.location],
+              ["Active queries", (row) => row.activeQueries],
+            ]}
+          />
+        </Panel>
+      )}
     <DataTable
       rows={rows}
       empty="No contracting queries yet."
@@ -1214,10 +1304,7 @@ function ContractingView({ rows, team, openModal, has, canAssign, deleteItem, re
               <button className="portal-small-btn" onClick={() => openModal("assignContracting", { queryId: row.id })}>Assign</button>
             )}
             {has(P.MANAGE_CONTRACTING) && (
-              <>
-                <button className="portal-small-btn" onClick={() => openModal("queryStatus", { queryId: row.id, salesStatus: row.salesStatus, leadStage: row.leadStage || "Inquiry", contractingStatus: row.contractingStatus })}>Status</button>
-                <DeleteButton label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />
-              </>
+              <button className="portal-small-btn" onClick={() => openModal("queryStatus", { queryId: row.id, salesStatus: row.salesStatus, leadStage: row.leadStage || "Inquiry", contractingStatus: row.contractingStatus })}>Status</button>
             )}
           </div>
         )],
@@ -1279,7 +1366,7 @@ function PipelineView({ rows, mode, setMode }) {
   );
 }
 
-function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, removeProposal }) {
+function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, removeProposal, getProposalAttachmentUrl }) {
   return (
     <DataTable
       rows={rows}
@@ -1291,6 +1378,16 @@ function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, rem
         ["Prepared By", (row) => row.preparedBy],
         ["Land/Pax", (row) => money(row.landCostPerPax)],
         ["Airfare/Pax", (row) => money(row.airfarePerPax)],
+        ["Selling", (row) => money(row.sellingPrice)],
+        ["Cost", (row) => money(row.costPrice)],
+        ["Files", (row) => (
+          <QueryAttachmentSummary
+            attachments={row.attachments || []}
+            canManage={has(P.MANAGE_PROPOSALS)}
+            onManage={() => openModal("proposalAttachments", { proposalId: row.id, queryCode: row.proposalCode })}
+            getQueryAttachmentUrl={getProposalAttachmentUrl}
+          />
+        )],
         ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
         ["Action", (row) => has(P.MANAGE_PROPOSALS) && (
           <div className="flex flex-wrap gap-2">
@@ -1307,6 +1404,8 @@ function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, rem
                 preparedBy: row.preparedBy,
                 landCostPerPax: String(row.landCostPerPax ?? ""),
                 airfarePerPax: String(row.airfarePerPax ?? ""),
+                sellingPrice: String(row.sellingPrice ?? ""),
+                costPrice: String(row.costPrice ?? ""),
                 itinerarySummary: row.itinerarySummary || "",
               })}
             />
@@ -1318,8 +1417,9 @@ function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, rem
   );
 }
 
-function AccountsJobCardView({ rows, openModal }) {
+function AccountsJobCardView({ rows, jobCards, openModal }) {
   const confirmed = rows.filter((row) => row.salesStatus === "Order Confirmed" || row.contractingStatus === "Order Confirmed");
+  const jobByQuery = new Map(jobCards.filter((job) => job.queryId).map((job) => [job.queryId, job]));
   return (
     <div className="space-y-5">
       <Panel title="Payment terms reference">
@@ -1351,11 +1451,21 @@ function AccountsJobCardView({ rows, openModal }) {
           ["Destination", (row) => row.destination || "TBD"],
           ["Pax", (row) => row.paxCount],
           ["Payment Terms", (row) => paymentTermLabel(row.queryType)],
-          ["Action", (row) => (
-            <button className="portal-small-btn" onClick={() => openModal("jobCard", { queryId: row.id, clientName: row.clientName, destination: row.destination, confirmedPax: String(row.paxCount), travelStartDate: row.travelStartDate, travelEndDate: row.travelEndDate })}>
-              Open JC
-            </button>
-          )],
+          ["Job Card", (row) => {
+            const linkedJob = jobByQuery.get(row.id);
+            return linkedJob ? <Badge label={linkedJob.jobCode} tone="green" /> : <Badge label="Not opened" tone="orange" />;
+          }],
+          ["Action", (row) => {
+            const linkedJob = jobByQuery.get(row.id);
+            if (linkedJob) {
+              return <span className="text-xs font-semibold text-brand-muted">Linked to {linkedJob.jobCode}</span>;
+            }
+            return (
+              <button className="portal-small-btn" onClick={() => openModal("jobCard", { queryId: row.id, clientName: row.clientName, destination: row.destination, confirmedPax: String(row.paxCount), travelStartDate: row.travelStartDate, travelEndDate: row.travelEndDate })}>
+                Open JC
+              </button>
+            );
+          }],
         ]}
       />
     </div>
@@ -1363,6 +1473,7 @@ function AccountsJobCardView({ rows, openModal }) {
 }
 
 function JobCardsView({ rows, updateJobStatus, openModal, has, access, deleteItem, removeJobCard }) {
+  const showAssignContracting = canAssignContracting(access) || canAssignOperations(access);
   const showAssignOps = canAssignOperations(access);
   const showAssignTicketing = canAssignTicketing(access);
   return (
@@ -1386,11 +1497,17 @@ function JobCardsView({ rows, updateJobStatus, openModal, has, access, deleteIte
           <div className="space-y-3 p-5 text-sm">
             <div className="flex justify-between"><span>Confirmed pax</span><strong>{job.confirmedPax}</strong></div>
             <div className="flex justify-between"><span>Rooms</span><strong>{job.roomCount || "-"}</strong></div>
+            <div className="flex justify-between"><span>Query</span><strong>{job.queryId ? "Linked" : "-"}</strong></div>
+            <div className="flex justify-between"><span>Proposal</span><strong>{job.proposalId ? "Linked" : "-"}</strong></div>
+            <div className="flex justify-between"><span>Contracting Owner</span><strong>{job.contractingOwnerName || "Unassigned"}</strong></div>
             <div className="flex justify-between"><span>Ops Owner</span><strong>{job.operationsOwnerName || "Unassigned"}</strong></div>
             <div className="flex justify-between"><span>Ticketing Owner</span><strong>{job.ticketingOwnerName || "Unassigned"}</strong></div>
             <div className="flex justify-between"><span>Tour Manager</span><strong>{job.tourManagerName || "Unassigned"}</strong></div>
             <div className="text-xs text-brand-muted">{job.paymentTerms?.label || "Payment terms pending"}</div>
             <div className="flex flex-wrap gap-2">
+              {showAssignContracting && (
+                <button className="portal-small-btn" onClick={() => openModal("assignContractingOwner", { jobCardId: job.id })}>Assign Contracting</button>
+              )}
               {showAssignOps && (
                 <button className="portal-small-btn" onClick={() => openModal("assignOperationsOwner", { jobCardId: job.id })}>Assign Ops</button>
               )}
@@ -1403,6 +1520,7 @@ function JobCardsView({ rows, updateJobStatus, openModal, has, access, deleteIte
                     onClick={() => openModal("jobCard", {
                       entityId: job.id,
                       queryId: job.queryId || "",
+                      proposalId: job.proposalId || "",
                       clientName: job.clientName,
                       confirmedPax: String(job.confirmedPax),
                       roomCount: String(job.roomCount || ""),
@@ -1602,35 +1720,45 @@ function VisaView({
       </div>
 
       {activeTab === "visas" && (
-        <DataTable
-          rows={rows}
-          empty="No visa records yet."
-          columns={[
-            ["Traveller", (row) => strong(row.travellerName)],
-            ["Job", (row) => row.jobCode],
-            ["Hub", (row) => row.travelHub || "-"],
-            ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-            ["Appointment", (row) => row.appointmentDate || "-"],
-            ["Notes", (row) => row.notes || "-"],
-            ["Action", (row) => has(P.MANAGE_VISA) && (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  className="portal-small-btn"
-                  onClick={() => openModal("visa", {
-                    entityId: row.id,
-                    visaRecordId: row.id,
-                    visaStatus: row.status,
-                    appointmentDate: row.appointmentDate,
-                    notes: row.notes,
-                  })}
-                >
-                  Edit
-                </button>
-                <DeleteButton label={`${row.travellerName} visa`} onClick={() => deleteItem(`${row.travellerName} visa`, removeVisa, { visaRecordId: row.id })} />
-              </div>
-            )],
-          ]}
-        />
+        <div className="space-y-4">
+          {has(P.MANAGE_VISA) && (
+            <div className="flex justify-end">
+              <button className="portal-primary-btn" onClick={() => openModal("visa_create")}>
+                <Plus size={16} />
+                Create Visa Record
+              </button>
+            </div>
+          )}
+          <DataTable
+            rows={rows}
+            empty="No visa records yet."
+            columns={[
+              ["Traveller", (row) => strong(row.travellerName)],
+              ["Job", (row) => row.jobCode],
+              ["Hub", (row) => row.travelHub || "-"],
+              ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+              ["Appointment", (row) => row.appointmentDate || "-"],
+              ["Notes", (row) => row.notes || "-"],
+              ["Action", (row) => has(P.MANAGE_VISA) && (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="portal-small-btn"
+                    onClick={() => openModal("visa", {
+                      entityId: row.id,
+                      visaRecordId: row.id,
+                      visaStatus: row.status,
+                      appointmentDate: row.appointmentDate,
+                      notes: row.notes,
+                    })}
+                  >
+                    Edit
+                  </button>
+                  <DeleteButton label={`${row.travellerName} visa`} onClick={() => deleteItem(`${row.travellerName} visa`, removeVisa, { visaRecordId: row.id })} />
+                </div>
+              )],
+            ]}
+          />
+        </div>
       )}
 
       {activeTab === "passports" && (
@@ -2085,7 +2213,16 @@ function FinanceView({ rows, overview, openModal, has, deleteItem, removeInvoice
   );
 }
 
-function ExpensesView({ rows, openModal, has, deleteItem, removeExpense, submitExpenseForApproval }) {
+function ExpensesView({
+  rows,
+  openModal,
+  has,
+  deleteItem,
+  removeExpense,
+  submitExpenseForApproval,
+  getExpenseAttachmentUrl,
+  removeExpenseProof,
+}) {
   return (
     <DataTable rows={rows} empty="No expenses yet." columns={[
       ["Job", (row) => row.jobCode],
@@ -2096,6 +2233,14 @@ function ExpensesView({ rows, openModal, has, deleteItem, removeExpense, submitE
       ["Amount", (row) => money(row.amount)],
       ["Split", (row) => `Card ${money(row.cardAmount)} / Cash ${money(row.cashAmount)} / E-Pay ${money(row.epayAmount)}`],
       ["Paid By", (row) => row.paidBy],
+      ["Proof", (row) => row.proofAttachment ? (
+        <button
+          className="portal-small-btn"
+          onClick={() => openQueryAttachment(row.proofAttachment.id, getExpenseAttachmentUrl)}
+        >
+          {row.proofAttachment.fileName}
+        </button>
+      ) : "-"],
       ["Approval", (row) => <Badge label={row.approvalStatus} tone={statusTone(row.approvalStatus)} />],
       ["Reimbursement", (row) => row.reimbursementStatus],
       ["Action", (row) => has(P.MANAGE_EXPENSES) && (
@@ -2122,6 +2267,16 @@ function ExpensesView({ rows, openModal, has, deleteItem, removeExpense, submitE
           <button className="portal-small-btn" onClick={() => submitExpenseForApproval({ expenseId: row.id })}>
             Submit
           </button>
+          {row.proofAttachment && (
+            <button
+              className="portal-small-btn"
+              onClick={() => removeExpenseProof({ attachmentId: row.proofAttachment.id }).catch((err) => {
+                alert(err?.data || err?.message || "Unable to remove proof.");
+              })}
+            >
+              Remove Proof
+            </button>
+          )}
           <DeleteButton label={`${row.category} expense`} onClick={() => deleteItem(`${row.category} expense`, removeExpense, { expenseId: row.id })} />
         </div>
       )],
@@ -2230,7 +2385,8 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
   const pendingCount = rows.filter((r) => r.status === "Pending").length;
   const rejectedCount = rows.filter((r) => r.status === "Rejected").length;
   const upcomingCount = rows.filter((r) => r.status === "Approved" && r.startDate > today).length;
-  const isAdmin = has(P.MANAGE_STAFF);
+  const canManageLeave = has(P.MANAGE_LEAVE);
+  const canApproveLeave = has(P.APPROVE_LEAVE);
 
   return (
     <div className="space-y-6">
@@ -2246,24 +2402,28 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
         <DataTable rows={rows} empty="No leave records yet." columns={[
           ["Employee Name", (row) => strong(row.staffName)],
           ["Department", (row) => <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-brand-border text-brand-text">{row.department}</span>],
+          ["Leave Type", (row) => <Badge label={row.leaveType || "Casual"} tone="blue" />],
           ["Start Date", (row) => row.startDate],
           ["End Date", (row) => row.endDate],
           ["Reason", (row) => row.reason || "-"],
+          ["Head Review", (row) => <Badge label={row.headReviewStatus || row.status || "Pending"} tone={statusTone(row.headReviewStatus || row.status)} />],
+          ["HR Review", (row) => <Badge label={row.hrReviewStatus || row.status || "Pending"} tone={statusTone(row.hrReviewStatus || row.status)} />],
           ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
           ["Action", (row) => (
             <div className="flex flex-wrap gap-2">
-              {isAdmin && row.status === "Pending" && (
+              {canApproveLeave && row.status === "Pending" && (
                 <>
                   <button className="portal-small-btn" onClick={() => decideLeave({ leaveId: row.id, status: "Approved" })}>Approve</button>
                   <button className="portal-danger-btn" onClick={() => decideLeave({ leaveId: row.id, status: "Rejected" })}>Reject</button>
                 </>
               )}
-              {(isAdmin || (access?.staffId === row.staffId && row.status === "Pending")) && (
+              {(canManageLeave || (access?.staffId === row.staffId && row.status === "Pending")) && (
                 <button
                   className="portal-small-btn"
                   onClick={() => openModal("leave_create", {
                     entityId: row.id,
                     staffId: row.staffId,
+                    leaveType: row.leaveType || "Casual",
                     startDate: row.startDate,
                     endDate: row.endDate,
                     reason: row.reason,
@@ -2273,7 +2433,7 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
                   Edit
                 </button>
               )}
-              {isAdmin && (
+              {canManageLeave && (
                 <DeleteButton label={`leave for ${row.staffName}`} onClick={() => deleteItem(`leave for ${row.staffName}`, removeLeave, { leaveId: row.id })} />
               )}
             </div>
@@ -2298,6 +2458,11 @@ function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff, st
     } finally {
       setOnboardingSending((prev) => ({ ...prev, [row.id]: false }));
     }
+  };
+  const onboardingActionLabel = (row) => {
+    if (row.onboardingStatus === "ready") return "Send password reset";
+    if (row.onboardingStatus === "pending") return "Resend verification";
+    return "Send verification";
   };
 
   return (
@@ -2339,7 +2504,7 @@ function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff, st
                 onClick={() => handleSendOnboarding(row)}
                 disabled={onboardingSending[row.id]}
               >
-                {onboardingSending[row.id] ? "Sending..." : "Send onboarding"}
+                {onboardingSending[row.id] ? "Sending..." : onboardingActionLabel(row)}
               </button>
               <DeleteButton label={row.email} onClick={() => deleteItem(row.email, removeStaff, { staffId: row.id })} />
             </div>
@@ -2371,6 +2536,7 @@ function EntityModal({
   error,
   isSaving,
   queries,
+  proposals,
   jobCards,
   travellers,
   visas,
@@ -2379,10 +2545,20 @@ function EntityModal({
   travellersWithoutVisa,
   pendingQueryFiles,
   setPendingQueryFiles,
+  pendingProposalFiles,
+  setPendingProposalFiles,
+  pendingExpenseProofFiles,
+  setPendingExpenseProofFiles,
   generateQueryUploadUrl,
   attachQueryFile,
   getQueryAttachmentUrl,
   removeQueryAttachment,
+  generateProposalUploadUrl,
+  attachProposalFile,
+  getProposalAttachmentUrl,
+  removeProposalAttachment,
+  getExpenseAttachmentUrl,
+  removeExpenseProof,
   has,
   access,
 }) {
@@ -2402,11 +2578,36 @@ function EntityModal({
     }
   };
 
+  const handleProposalQuerySelect = (queryId) => {
+    updateForm("queryId", queryId);
+    const linkedQuery = queries.find((query) => query.id === queryId);
+    if (linkedQuery) {
+      updateForm("clientName", linkedQuery.clientName);
+    }
+  };
+
+  const handleJobQuerySelect = (queryId) => {
+    updateForm("queryId", queryId);
+    const linkedQuery = queries.find((query) => query.id === queryId);
+    if (!linkedQuery) return;
+    updateForm("clientName", linkedQuery.clientName);
+    updateForm("destination", linkedQuery.destination || "");
+    updateForm("confirmedPax", String(linkedQuery.paxCount || 1));
+    updateForm("travelStartDate", linkedQuery.travelStartDate || "");
+    updateForm("travelEndDate", linkedQuery.travelEndDate || "");
+    const linkedProposal = proposals
+      .filter((proposal) => proposal.queryId === queryId)
+      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
+    updateForm("proposalId", linkedProposal?.id || "");
+  };
+
   const title = modal
     ? {
         query: form.entityId ? "Edit Query" : "New Query / Enquiry",
         queryAttachments: `Attachments — ${form.queryCode || "Query"}`,
+        proposalAttachments: `Proposal Files — ${form.queryCode || "Proposal"}`,
         assignContracting: "Assign Contracting Owner",
+        assignContractingOwner: "Assign Contracting Job Owner",
         assignOperationsOwner: "Assign Operations Owner",
         assignTicketingOwner: "Assign Ticketing Owner",
         queryStatus: "Update Query Status",
@@ -2423,7 +2624,7 @@ function EntityModal({
         invoice: form.entityId ? "Edit Invoice" : "Generate Invoice",
         expense: form.entityId ? "Edit Expense" : "Add Expense",
         staff: "Staff Allowlist Entry",
-        leave_create: form.entityId ? "Edit Leave" : has(P.MANAGE_STAFF) ? "Record Employee Leave" : "Request Leave",
+        leave_create: form.entityId ? "Edit Leave" : has(P.MANAGE_LEAVE) ? "Record Employee Leave" : "Request Leave",
         approvalDecide: form.approvalStatus === "Needs Info" ? "Request More Details" : "Reject Approval",
       }[modal]
     : "";
@@ -2488,8 +2689,27 @@ function EntityModal({
                 />
               </div>
             )}
+            {modal === "proposalAttachments" && (
+              <div className="md:col-span-2">
+                <QueryAttachmentsPanel
+                  entityId={form.proposalId}
+                  idField="proposalId"
+                  attachments={(proposals.find((proposal) => proposal.id === form.proposalId)?.attachments) || []}
+                  canManage={has(P.MANAGE_PROPOSALS)}
+                  uploadLabel="Upload Proposal File"
+                  generateQueryUploadUrl={generateProposalUploadUrl}
+                  attachQueryFile={attachProposalFile}
+                  getQueryAttachmentUrl={getProposalAttachmentUrl}
+                  removeQueryAttachment={removeProposalAttachment}
+                />
+              </div>
+            )}
             {modal === "assignContracting" && <>
               <Select label="Query" value={form.queryId} options={queries.map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` }))} onChange={(v) => updateForm("queryId", v)} required />
+              <Select label="Contracting Owner" value={form.staffId} options={[{ value: "", label: "Select team member…" }, ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label }))]} onChange={(v) => updateForm("staffId", v)} required />
+            </>}
+            {modal === "assignContractingOwner" && <>
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
               <Select label="Contracting Owner" value={form.staffId} options={[{ value: "", label: "Select team member…" }, ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label }))]} onChange={(v) => updateForm("staffId", v)} required />
             </>}
             {modal === "assignOperationsOwner" && <>
@@ -2514,21 +2734,42 @@ function EntityModal({
               </div>
             </>}
             {modal === "queryStatus" && <>
-              <Select label="Sales Status" value={form.salesStatus} options={SALES_STATUSES} onChange={(v) => updateForm("salesStatus", v)} />
-              <Select label="Lead Stage" value={form.leadStage} options={LEAD_STAGES} onChange={(v) => updateForm("leadStage", v)} />
-              <Select label="Contracting Status" value={form.contractingStatus} options={CONTRACTING_STATUSES} onChange={(v) => updateForm("contractingStatus", v)} />
-              <Select label="Lost Reason" value={form.lostReason} options={LOST_REASONS} onChange={(v) => updateForm("lostReason", v)} />
+              {has(P.MANAGE_QUERIES) && (
+                <>
+                  <Select label="Sales Status" value={form.salesStatus} options={SALES_STATUSES} onChange={(v) => updateForm("salesStatus", v)} />
+                  <Select label="Lead Stage" value={form.leadStage} options={LEAD_STAGES} onChange={(v) => updateForm("leadStage", v)} />
+                  <Select label="Lost Reason" value={form.lostReason} options={LOST_REASONS} onChange={(v) => updateForm("lostReason", v)} />
+                </>
+              )}
+              {has(P.MANAGE_CONTRACTING) && (
+                <Select
+                  label="Contracting Status"
+                  value={form.contractingStatus}
+                  options={has(P.MANAGE_QUERIES) ? CONTRACTING_STATUSES : CONTRACTING_STATUSES.filter((status) => !["Order Confirmed", "Order Lost"].includes(status))}
+                  onChange={(v) => updateForm("contractingStatus", v)}
+                />
+              )}
             </>}
             {modal === "proposal" && <>
-              <Select label="Linked Query" value={form.queryId} options={[{ value: "", label: "Unlinked" }, ...queries.map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` }))]} onChange={(v) => updateForm("queryId", v)} />
+              <Select label="Linked Query" value={form.queryId} options={[{ value: "", label: "Unlinked" }, ...queries.map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` }))]} onChange={handleProposalQuerySelect} />
               <Input label="Client Name" value={form.clientName} onChange={(v) => updateForm("clientName", v)} />
               <Input label="Prepared By" value={form.preparedBy} onChange={(v) => updateForm("preparedBy", v)} />
               <Input label="Land Cost/Pax" type="number" value={form.landCostPerPax} onChange={(v) => updateForm("landCostPerPax", v)} />
               <Input label="Airfare/Pax" type="number" value={form.airfarePerPax} onChange={(v) => updateForm("airfarePerPax", v)} />
+              <Input label="Selling Price" type="number" value={form.sellingPrice} onChange={(v) => updateForm("sellingPrice", v)} />
+              <Input label="Cost Price" type="number" value={form.costPrice} onChange={(v) => updateForm("costPrice", v)} />
               <Textarea label="Itinerary Summary" value={form.itinerarySummary} onChange={(v) => updateForm("itinerarySummary", v)} />
+              <div className="md:col-span-2">
+                <QueryFilePicker
+                  files={pendingProposalFiles}
+                  onChange={setPendingProposalFiles}
+                  inputId="proposal-files"
+                />
+              </div>
             </>}
             {modal === "jobCard" && <>
-              <Select label="Confirmed Query" value={form.queryId} options={[{ value: "", label: "Direct Job" }, ...queries.filter((q) => q.salesStatus === "Order Confirmed" || q.contractingStatus === "Order Confirmed").map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` }))]} onChange={(v) => updateForm("queryId", v)} />
+              <Select label="Confirmed Query" value={form.queryId} options={[{ value: "", label: "Select confirmed query…" }, ...queries.filter((q) => q.salesStatus === "Order Confirmed" || q.contractingStatus === "Order Confirmed").map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` }))]} onChange={handleJobQuerySelect} required={!form.entityId} />
+              <Select label="Linked Proposal" value={form.proposalId} options={[{ value: "", label: "Select proposal…" }, ...proposals.filter((proposal) => !form.queryId || proposal.queryId === form.queryId).map((proposal) => ({ value: proposal.id, label: `${proposal.proposalCode} - ${proposal.status}` }))]} onChange={(v) => updateForm("proposalId", v)} required={!form.entityId} />
               <Input label="Client" value={form.clientName} onChange={(v) => updateForm("clientName", v)} />
               <Input label="Confirmed Pax" type="number" value={form.confirmedPax} onChange={(v) => updateForm("confirmedPax", v)} />
               <Input label="Room Count" type="number" value={form.roomCount} onChange={(v) => updateForm("roomCount", v)} />
@@ -2627,9 +2868,25 @@ function EntityModal({
               <Input label="Card Amount" type="number" value={form.cardAmount} onChange={(v) => updateForm("cardAmount", v)} />
               <Input label="Cash Amount" type="number" value={form.cashAmount} onChange={(v) => updateForm("cashAmount", v)} />
               <Input label="E-Pay Amount" type="number" value={form.epayAmount} onChange={(v) => updateForm("epayAmount", v)} />
-              <Input label="Total Amount" type="number" value={form.amount} onChange={(v) => updateForm("amount", v)} />
+              <div className="rounded-xl border border-brand-border bg-brand-light px-3 py-2">
+                <span className="mb-1 block text-xs font-semibold text-brand-muted">Total Amount</span>
+                <div className="text-sm font-semibold text-brand-text">
+                  {money(getExpenseSplitTotal({
+                    cardAmount: form.cardAmount,
+                    cashAmount: form.cashAmount,
+                    epayAmount: form.epayAmount,
+                  }))}
+                </div>
+              </div>
               <Input label="Paid By" value={form.paidBy} onChange={(v) => updateForm("paidBy", v)} required />
               <Textarea label="Particulars" value={form.particulars} onChange={(v) => updateForm("particulars", v)} />
+              <div className="md:col-span-2">
+                <QueryFilePicker
+                  files={pendingExpenseProofFiles}
+                  onChange={(files) => setPendingExpenseProofFiles(files.slice(-1))}
+                  inputId="expense-proof-files"
+                />
+              </div>
             </>}
             {modal === "staff" && <>
               <Input label="Name" value={form.staffName} onChange={(v) => updateForm("staffName", v)} required />
@@ -2642,13 +2899,14 @@ function EntityModal({
               <Select label="Active" value={form.staffActive ? "Active" : "Inactive"} options={["Active", "Inactive"]} onChange={(v) => updateForm("staffActive", v === "Active")} />
             </>}
             {modal === "leave_create" && <>
-              {has(P.MANAGE_STAFF) && (
+              {has(P.MANAGE_LEAVE) && (
                 <Select label="Employee" value={form.staffId} options={team.map((t) => ({ value: t.id, label: `${t.name} (${t.department || "General"})` }))} onChange={(v) => updateForm("staffId", v)} required={!form.entityId} />
               )}
+              <Select label="Leave Type" value={form.leaveType} options={LEAVE_TYPES} onChange={(v) => updateForm("leaveType", v)} />
               <Input label="Start Date" type="date" value={form.startDate} onChange={(v) => updateForm("startDate", v)} required />
               <Input label="End Date" type="date" value={form.endDate} onChange={(v) => updateForm("endDate", v)} required />
               <Input label="Reason for Leave" value={form.reason} onChange={(v) => updateForm("reason", v)} required placeholder="e.g. Annual Leave, Medical, Personal" />
-              {has(P.MANAGE_STAFF) && !form.entityId && (
+              {has(P.MANAGE_LEAVE) && !form.entityId && (
                 <Select label="Status" value={form.status || "Pending"} options={["Approved", "Pending", "Rejected"]} onChange={(v) => updateForm("status", v)} />
               )}
             </>}
@@ -2659,9 +2917,9 @@ function EntityModal({
         </div>
         <div className="flex justify-end gap-3 border-t border-brand-border px-5 py-4">
           <button type="button" onClick={close} className="portal-outline-btn">
-            {modal === "queryAttachments" ? "Close" : "Cancel"}
+            {["queryAttachments", "proposalAttachments"].includes(modal) ? "Close" : "Cancel"}
           </button>
-          {modal !== "queryAttachments" && (
+          {!["queryAttachments", "proposalAttachments"].includes(modal) && (
             <button type="submit" disabled={isSaving} className="portal-primary-btn disabled:opacity-60">
               {isSaving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
               Save
@@ -2950,6 +3208,43 @@ async function uploadQueryFiles({ queryId, files, generateUploadUrl, attachQuery
   }
 }
 
+async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, attachFile }) {
+  for (const file of files) {
+    if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
+      throw new Error(`${file.name} exceeds the 15 MB limit.`);
+    }
+    const uploadUrl = await generateUploadUrl({});
+    const uploadRes = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+    if (!uploadRes.ok) {
+      throw new Error(`Failed to upload ${file.name}.`);
+    }
+    const { storageId } = await uploadRes.json();
+    await attachFile({
+      [idField]: entityId,
+      storageId,
+      fileName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      fileSize: file.size,
+    });
+  }
+}
+
+async function uploadExpenseProofFiles({ expenseId, files, generateUploadUrl, attachExpenseProof }) {
+  for (const file of files) {
+    await uploadEntityFiles({
+      entityId: expenseId,
+      idField: "expenseId",
+      files: [file],
+      generateUploadUrl,
+      attachFile: attachExpenseProof,
+    });
+  }
+}
+
 function formatFileSize(bytes) {
   if (!bytes) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
@@ -3057,8 +3352,11 @@ function QueryFilePicker({ files, onChange, inputId }) {
 
 function QueryAttachmentsPanel({
   queryId,
+  entityId,
+  idField = "queryId",
   attachments,
   canManage,
+  uploadLabel = "Upload Reference Itinerary",
   generateQueryUploadUrl,
   attachQueryFile,
   getQueryAttachmentUrl,
@@ -3070,16 +3368,18 @@ function QueryAttachmentsPanel({
   const handleUpload = async (event) => {
     const picked = Array.from(event.target.files || []);
     event.target.value = "";
-    if (!picked.length || !queryId) return;
+    const targetId = entityId || queryId;
+    if (!picked.length || !targetId) return;
 
     setIsUploading(true);
     setUploadError("");
     try {
-      await uploadQueryFiles({
-        queryId,
+      await uploadEntityFiles({
+        entityId: targetId,
+        idField,
         files: picked,
         generateUploadUrl: generateQueryUploadUrl,
-        attachQueryFile,
+        attachFile: attachQueryFile,
       });
     } catch (err) {
       setUploadError(err?.data || err?.message || "Upload failed.");
@@ -3102,7 +3402,7 @@ function QueryAttachmentsPanel({
       {canManage && (
         <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
           <label htmlFor="query-attachment-upload" className="mb-2 block text-sm font-medium text-brand-text">
-            Upload Reference Itinerary
+            {uploadLabel}
           </label>
           <input
             id="query-attachment-upload"

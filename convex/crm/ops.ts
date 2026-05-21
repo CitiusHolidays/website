@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import {
   PERMISSIONS,
+  canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
   requireAnyPermission,
@@ -9,14 +10,24 @@ import {
   requireStaff,
 } from "./lib";
 
+async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
+  const job = await ctx.db.get(jobCardId);
+  const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+  if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+    return null;
+  }
+  return job;
+}
+
 export const listHotels = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_OPERATIONS);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_OPERATIONS);
     const rows = await ctx.db.query("hotels").collect();
     const result = [];
     for (const hotel of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-      const job = await ctx.db.get(hotel.jobCardId);
+      const job = await getVisibleJob(ctx, access, hotel.jobCardId);
+      if (!job) continue;
       result.push({
         id: hotel._id,
         jobCardId: hotel.jobCardId,
@@ -49,6 +60,10 @@ export const createHotel = mutation({
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
+    }
+    const job = await getVisibleJob(ctx, access, jobCardId);
+    if (!job) {
+      throw new ConvexError("Job Card not found or not assigned to you");
     }
     const now = Date.now();
     const id = await ctx.db.insert("hotels", {
@@ -95,6 +110,10 @@ export const updateHotel = mutation({
     if (!hotel) {
       throw new ConvexError("Hotel not found");
     }
+    const job = await getVisibleJob(ctx, access, hotel.jobCardId);
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
+    }
     if (args.name !== undefined && !args.name.trim()) {
       throw new ConvexError("Hotel name is required");
     }
@@ -135,6 +154,10 @@ export const removeHotel = mutation({
     if (!hotel) {
       throw new ConvexError("Hotel not found");
     }
+    const job = await getVisibleJob(ctx, access, hotel.jobCardId);
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
+    }
     await createActivity(ctx, access, {
       entityType: "hotel",
       entityId: hotelId,
@@ -150,11 +173,12 @@ export const removeHotel = mutation({
 export const listTourManagers = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_TOUR_MANAGERS);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TOUR_MANAGERS);
     const rows = await ctx.db.query("tourManagerAssignments").collect();
     const result = [];
     for (const row of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-      const job = row.jobCardId ? await ctx.db.get(row.jobCardId) : null;
+      const job = row.jobCardId ? await getVisibleJob(ctx, access, row.jobCardId) : null;
+      if (row.jobCardId && !job) continue;
       result.push({
         id: row._id,
         jobCardId: row.jobCardId ?? null,
@@ -206,6 +230,12 @@ export const createTourManager = mutation({
       phone = staff.mobile || phone;
     }
     const jobCardId = args.jobCardId ? ctx.db.normalizeId("jobCards", args.jobCardId) : null;
+    if (args.jobCardId && !jobCardId) {
+      throw new ConvexError("Invalid Job Card id");
+    }
+    if (jobCardId && !(await getVisibleJob(ctx, access, jobCardId))) {
+      throw new ConvexError("Job Card not found or not assigned to you");
+    }
     const now = Date.now();
     const id = await ctx.db.insert("tourManagerAssignments", {
       jobCardId: jobCardId ?? undefined,
@@ -265,6 +295,9 @@ export const updateTourManager = mutation({
     if (!tourManager) {
       throw new ConvexError("Tour Manager not found");
     }
+    if (tourManager.jobCardId && !(await getVisibleJob(ctx, access, tourManager.jobCardId))) {
+      throw new ConvexError("FORBIDDEN");
+    }
     if (args.name !== undefined && !args.name.trim()) {
       throw new ConvexError("Tour manager name is required");
     }
@@ -287,6 +320,9 @@ export const updateTourManager = mutation({
         : undefined;
       if (args.jobCardId && !nextJobCardId) {
         throw new ConvexError("Invalid Job Card id");
+      }
+      if (nextJobCardId && !(await getVisibleJob(ctx, access, nextJobCardId))) {
+        throw new ConvexError("Job Card not found or not assigned to you");
       }
       jobCardId = nextJobCardId ?? undefined;
       patch.jobCardId = nextJobCardId ?? undefined;
@@ -339,6 +375,9 @@ export const removeTourManager = mutation({
     const tourManager = await ctx.db.get(id);
     if (!tourManager) {
       throw new ConvexError("Tour Manager not found");
+    }
+    if (tourManager.jobCardId && !(await getVisibleJob(ctx, access, tourManager.jobCardId))) {
+      throw new ConvexError("FORBIDDEN");
     }
     if (tourManager.jobCardId) {
       const job = await ctx.db.get(tourManager.jobCardId);

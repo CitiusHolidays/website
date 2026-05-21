@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import {
   PERMISSIONS,
+  canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
   notifyRoles,
@@ -76,15 +77,32 @@ const publicTicket = (ticket: any, traveller: any, pnr: any, job: any) => ({
   updatedAt: new Date(ticket.updatedAt).toISOString(),
 });
 
+async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
+  const job = await ctx.db.get(jobCardId);
+  const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+  if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+    return null;
+  }
+  return job;
+}
+
 export const dashboard = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
     const tickets = await ctx.db.query("tickets").collect();
     const pnrs = await ctx.db.query("pnrs").collect();
-    const issued = tickets.filter((ticket) => ticket.ticketStatus === "Issued").length;
-    const pending = tickets.filter((ticket) => ticket.ticketStatus === "Pending Issue").length;
-    const attention = tickets.filter((ticket) =>
+    const visibleTickets = [];
+    for (const ticket of tickets) {
+      if (await getVisibleJob(ctx, access, ticket.jobCardId)) visibleTickets.push(ticket);
+    }
+    const visiblePnrs = [];
+    for (const pnr of pnrs) {
+      if (await getVisibleJob(ctx, access, pnr.jobCardId)) visiblePnrs.push(pnr);
+    }
+    const issued = visibleTickets.filter((ticket) => ticket.ticketStatus === "Issued").length;
+    const pending = visibleTickets.filter((ticket) => ticket.ticketStatus === "Pending Issue").length;
+    const attention = visibleTickets.filter((ticket) =>
       ["Name Change Required", "Reissue Required", "Refund Pending"].includes(
         ticket.ticketStatus,
       ),
@@ -94,13 +112,13 @@ export const dashboard = query({
       issued,
       pending,
       attention,
-      cancelled: tickets.filter((ticket) => ticket.ticketStatus === "Cancelled").length,
-      refunded: tickets.filter((ticket) => ticket.ticketStatus === "Refunded").length,
-      fitTickets: tickets.filter((ticket) => ticket.ticketType === "FIT Ticket").length,
-      groupTickets: tickets.filter((ticket) => ticket.ticketType === "Group Ticket").length,
-      pnrCount: pnrs.length,
-      totalSeats: pnrs.reduce((sum, pnr) => sum + pnr.totalSeats, 0),
-      issuedSeats: pnrs.reduce((sum, pnr) => sum + pnr.issuedSeats, 0),
+      cancelled: visibleTickets.filter((ticket) => ticket.ticketStatus === "Cancelled").length,
+      refunded: visibleTickets.filter((ticket) => ticket.ticketStatus === "Refunded").length,
+      fitTickets: visibleTickets.filter((ticket) => ticket.ticketType === "FIT Ticket").length,
+      groupTickets: visibleTickets.filter((ticket) => ticket.ticketType === "Group Ticket").length,
+      pnrCount: visiblePnrs.length,
+      totalSeats: visiblePnrs.reduce((sum, pnr) => sum + pnr.totalSeats, 0),
+      issuedSeats: visiblePnrs.reduce((sum, pnr) => sum + pnr.issuedSeats, 0),
     };
   },
 });
@@ -108,11 +126,12 @@ export const dashboard = query({
 export const listPnrs = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
     const rows = await ctx.db.query("pnrs").collect();
     const result = [];
     for (const pnr of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-      const job = await ctx.db.get(pnr.jobCardId);
+      const job = await getVisibleJob(ctx, access, pnr.jobCardId);
+      if (!job) continue;
       result.push(publicPnr(pnr, job));
     }
     return result;
@@ -134,9 +153,9 @@ export const createPnr = mutation({
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
     }
-    const job = await ctx.db.get(jobCardId);
+    const job = await getVisibleJob(ctx, access, jobCardId);
     if (!job) {
-      throw new ConvexError("Job Card not found");
+      throw new ConvexError("Job Card not found or not assigned to you");
     }
     const now = Date.now();
     const id = await ctx.db.insert("pnrs", {
@@ -182,6 +201,10 @@ export const updatePnr = mutation({
     if (!pnr) {
       throw new ConvexError("PNR not found");
     }
+    const job = await getVisibleJob(ctx, access, pnr.jobCardId);
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
+    }
     if (args.pnrCode !== undefined && !args.pnrCode.trim()) {
       throw new ConvexError("PNR code is required");
     }
@@ -211,13 +234,14 @@ export const updatePnr = mutation({
 export const listTickets = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
     const rows = await ctx.db.query("tickets").collect();
     const result = [];
     for (const ticket of rows.sort((a, b) => b.createdAt - a.createdAt)) {
       const traveller = ticket.travellerId ? await ctx.db.get(ticket.travellerId) : null;
       const pnr = ticket.pnrId ? await ctx.db.get(ticket.pnrId) : null;
-      const job = await ctx.db.get(ticket.jobCardId);
+      const job = await getVisibleJob(ctx, access, ticket.jobCardId);
+      if (!job) continue;
       result.push(publicTicket(ticket, traveller, pnr, job));
     }
     return result;
@@ -251,9 +275,9 @@ export const createTicket = mutation({
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
     }
-    const job = await ctx.db.get(jobCardId);
+    const job = await getVisibleJob(ctx, access, jobCardId);
     if (!job) {
-      throw new ConvexError("Job Card not found");
+      throw new ConvexError("Job Card not found or not assigned to you");
     }
     const now = Date.now();
     const id = await ctx.db.insert("tickets", {
@@ -330,6 +354,10 @@ export const updateTicket = mutation({
     const ticket = await ctx.db.get(ticketId);
     if (!ticket) {
       throw new ConvexError("Ticket not found");
+    }
+    const job = await getVisibleJob(ctx, access, ticket.jobCardId);
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
     }
 
     const travellerId = args.travellerId
@@ -437,6 +465,10 @@ export const updateTicketStatus = mutation({
     if (!ticket) {
       throw new ConvexError("Ticket not found");
     }
+    const job = await getVisibleJob(ctx, access, ticket.jobCardId);
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const now = Date.now();
     await ctx.db.patch(ticketId, {
       ticketStatus: args.ticketStatus,
@@ -472,6 +504,10 @@ export const removeTicket = mutation({
     if (!ticket) {
       throw new ConvexError("Ticket not found");
     }
+    const job = await getVisibleJob(ctx, access, ticket.jobCardId);
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
+    }
     if (ticket.pnrId && ticket.ticketStatus === "Issued") {
       const pnr = await ctx.db.get(ticket.pnrId);
       if (pnr) {
@@ -502,12 +538,13 @@ export const removeTicket = mutation({
 export const listSeatAllocations = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
     const rows = await ctx.db.query("seatAllocations").collect();
     const result = [];
     for (const seat of rows.sort((a, b) => a.seatNumber.localeCompare(b.seatNumber))) {
       const traveller = seat.travellerId ? await ctx.db.get(seat.travellerId) : null;
-      const job = await ctx.db.get(seat.jobCardId);
+      const job = await getVisibleJob(ctx, access, seat.jobCardId);
+      if (!job) continue;
       result.push({
         id: seat._id,
         jobCardId: seat.jobCardId,
@@ -548,6 +585,10 @@ export const saveSeatAllocation = mutation({
     const pnrId = args.pnrId ? ctx.db.normalizeId("pnrs", args.pnrId) : null;
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
+    }
+    const job = await getVisibleJob(ctx, access, jobCardId);
+    if (!job) {
+      throw new ConvexError("Job Card not found or not assigned to you");
     }
     const now = Date.now();
     const id = await ctx.db.insert("seatAllocations", {
@@ -608,6 +649,10 @@ export const updateSeatAllocation = mutation({
     const seat = await ctx.db.get(id);
     if (!seat) {
       throw new ConvexError("Seat allocation not found");
+    }
+    const job = await getVisibleJob(ctx, access, seat.jobCardId);
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
     }
     if (args.seatNumber !== undefined && !args.seatNumber.trim()) {
       throw new ConvexError("Seat number is required");
@@ -681,6 +726,10 @@ export const removePnr = mutation({
     if (!pnr) {
       throw new ConvexError("PNR not found");
     }
+    const job = await getVisibleJob(ctx, access, pnr.jobCardId);
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const tickets = await ctx.db
       .query("tickets")
       .withIndex("by_pnrId", (q) => q.eq("pnrId", pnrId))
@@ -744,6 +793,10 @@ export const assignTicketingOwner = mutation({
     if (!job) {
       throw new ConvexError("Job Card not found");
     }
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const ownerName = staff.name.trim();
     await ctx.db.patch(jobCardId, {
       ticketingOwnerId: staffId,
@@ -773,6 +826,10 @@ export const removeSeatAllocation = mutation({
     const seat = await ctx.db.get(id);
     if (!seat) {
       throw new ConvexError("Seat allocation not found");
+    }
+    const job = await getVisibleJob(ctx, access, seat.jobCardId);
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
     }
     await createActivity(ctx, access, {
       entityType: "seatAllocation",

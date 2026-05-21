@@ -1,47 +1,47 @@
 {
   "Sales": {
-    "allowed": ["dashboard", "queries", "pipeline", "proposals", "team", "employees-on-leave"],
-    "denied": ["contracting", "ticketing", "finance", "job-cards", "travellers", "settings", "activity"]
+    "allowed": ["dashboard", "queries", "pipeline", "proposals", "employees-on-leave"],
+    "denied": ["contracting", "ticketing", "finance", "job-cards", "travellers", "settings", "activity", "team"]
   },
   "Sales Head": {
     "allowed": ["dashboard", "queries", "pipeline", "proposals", "team", "employees-on-leave"],
     "denied": ["contracting", "ticketing", "finance", "settings", "activity"]
   },
   "Contracting": {
-    "allowed": ["dashboard", "queries", "pipeline", "contracting", "proposals", "job-cards", "team", "employees-on-leave"],
-    "denied": ["ticketing", "finance", "settings", "activity"]
+    "allowed": ["dashboard", "queries", "pipeline", "contracting", "proposals", "job-cards", "employees-on-leave"],
+    "denied": ["ticketing", "finance", "settings", "activity", "team"]
   },
   "Contracting Head": {
     "allowed": ["dashboard", "queries", "contracting", "proposals", "job-cards", "team", "employees-on-leave"],
     "denied": ["ticketing", "finance", "settings", "activity"]
   },
   "Accounts": {
-    "allowed": ["dashboard", "accounts-job-cards", "job-cards", "finance", "reports", "team", "employees-on-leave"],
-    "denied": ["queries", "contracting", "ticketing", "settings", "activity"]
+    "allowed": ["dashboard", "accounts-job-cards", "job-cards", "finance", "reports", "employees-on-leave"],
+    "denied": ["queries", "contracting", "ticketing", "settings", "activity", "team"]
   },
   "Operations": {
-    "allowed": ["dashboard", "job-cards", "travellers", "visa", "hotels", "tour-managers", "ticketing", "flights", "expenses", "team", "employees-on-leave"],
-    "denied": ["queries", "contracting", "finance", "settings", "activity"]
+    "allowed": ["dashboard", "job-cards", "travellers", "visa", "hotels", "tour-managers", "ticketing", "flights", "expenses", "employees-on-leave"],
+    "denied": ["queries", "contracting", "finance", "settings", "activity", "team"]
   },
   "Operations Head": {
     "allowed": ["dashboard", "queries", "contracting", "proposals", "job-cards", "travellers", "visa", "hotels", "ticketing", "tour-managers", "expenses", "finance", "team", "employees-on-leave"],
     "denied": ["settings", "activity"]
   },
   "Ticketing": {
-    "allowed": ["dashboard", "job-cards", "travellers", "ticketing", "flights", "tickets", "seat-allocation", "tour-managers", "team", "employees-on-leave"],
-    "denied": ["queries", "contracting", "finance", "settings", "activity"]
+    "allowed": ["dashboard", "job-cards", "travellers", "ticketing", "flights", "tickets", "seat-allocation", "tour-managers", "employees-on-leave"],
+    "denied": ["queries", "contracting", "finance", "settings", "activity", "team"]
   },
   "Head of Ticketing": {
     "allowed": ["dashboard", "job-cards", "travellers", "ticketing", "flights", "tour-managers", "team", "employees-on-leave"],
     "denied": ["queries", "contracting", "finance", "settings", "activity"]
   },
   "Tour Manager": {
-    "allowed": ["dashboard", "job-cards", "travellers", "visa", "ticketing", "tour-managers", "expenses", "team", "employees-on-leave"],
-    "denied": ["queries", "contracting", "finance", "settings", "activity"]
+    "allowed": ["dashboard", "job-cards", "travellers", "visa", "ticketing", "tour-managers", "expenses", "employees-on-leave"],
+    "denied": ["queries", "contracting", "finance", "settings", "activity", "team"]
   },
   "Finance": {
-    "allowed": ["dashboard", "job-cards", "finance", "expenses", "approvals", "reports", "team", "employees-on-leave"],
-    "denied": ["queries", "contracting", "ticketing", "settings", "activity"]
+    "allowed": ["dashboard", "job-cards", "finance", "expenses", "approvals", "reports", "employees-on-leave"],
+    "denied": ["queries", "contracting", "ticketing", "settings", "activity", "team"]
   },
   "Directors": {
     "allowed": ["dashboard", "queries", "contracting", "proposals", "job-cards", "travellers", "finance", "approvals", "reports", "team", "employees-on-leave"],
@@ -50,5 +50,9 @@
   "Admin": {
     "allowed": ["dashboard", "queries", "settings", "finance", "ticketing", "employees-on-leave", "activity"],
     "denied": []
+  },
+  "HR": {
+    "allowed": ["dashboard", "team", "employees-on-leave", "approvals"],
+    "denied": ["settings", "activity", "queries", "contracting", "ticketing"]
   }
 }

@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { PERMISSIONS, requireAnyPermission } from "./lib";
+import { PERMISSIONS, canSeeQueryRecord, requireAnyPermission } from "./lib";
 
 export function publicQueryAttachment(row: {
   _id: Id<"queryAttachments">;
@@ -24,12 +24,16 @@ export const listForQuery = query({
     queryId: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireAnyPermission(ctx, [
+    const access = await requireAnyPermission(ctx, [
       PERMISSIONS.VIEW_QUERIES,
       PERMISSIONS.VIEW_CONTRACTING,
     ]);
     const queryId = ctx.db.normalizeId("queries", args.queryId);
     if (!queryId) {
+      return [];
+    }
+    const query = await ctx.db.get(queryId);
+    if (!query || !canSeeQueryRecord(access, query)) {
       return [];
     }
     const rows = await ctx.db
@@ -47,7 +51,7 @@ export const getAttachmentRecord = query({
     attachmentId: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireAnyPermission(ctx, [
+    const access = await requireAnyPermission(ctx, [
       PERMISSIONS.VIEW_QUERIES,
       PERMISSIONS.VIEW_CONTRACTING,
     ]);
@@ -57,6 +61,10 @@ export const getAttachmentRecord = query({
     }
     const row = await ctx.db.get(attachmentId);
     if (!row) {
+      return null;
+    }
+    const query = await ctx.db.get(row.queryId);
+    if (!query || !canSeeQueryRecord(access, query)) {
       return null;
     }
     return {

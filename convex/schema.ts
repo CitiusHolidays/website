@@ -23,6 +23,7 @@ const staffRole = v.union(
   v.literal("Head of Ticketing"),
   v.literal("Tour Manager"),
   v.literal("Finance"),
+  v.literal("HR"),
 );
 
 const queryType = v.union(
@@ -151,6 +152,19 @@ const approvalStatus = v.union(
   v.literal("Approved"),
   v.literal("Rejected"),
   v.literal("Needs Info"),
+);
+
+const leaveType = v.union(
+  v.literal("Casual"),
+  v.literal("Sick"),
+  v.literal("Privilege"),
+  v.literal("Leave Without Pay"),
+);
+
+const reviewStatus = v.union(
+  v.literal("Pending"),
+  v.literal("Approved"),
+  v.literal("Rejected"),
 );
 
 export default defineSchema({
@@ -299,6 +313,9 @@ export default defineSchema({
     .index("by_queryCode", ["queryCode"])
     .index("by_salesStatus", ["salesStatus"])
     .index("by_contractingStatus", ["contractingStatus"])
+    .index("by_createdBy", ["createdBy"])
+    .index("by_salesOwnerId", ["salesOwnerId"])
+    .index("by_contractingOwnerId", ["contractingOwnerId"])
     .index("by_queryType_createdAt", ["queryType", "createdAt"]),
 
   queryAttachments: defineTable({
@@ -318,6 +335,9 @@ export default defineSchema({
     preparedBy: v.string(),
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
+    sellingPrice: v.optional(v.number()),
+    costPrice: v.optional(v.number()),
+    pricingEnteredAt: v.optional(v.number()),
     itinerarySummary: v.optional(v.string()),
     status: v.union(
       v.literal("Draft"),
@@ -331,7 +351,18 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_queryId", ["queryId"])
+    .index("by_createdBy", ["createdBy"])
     .index("by_status", ["status"]),
+
+  proposalAttachments: defineTable({
+    proposalId: v.id("proposals"),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    mimeType: v.string(),
+    fileSize: v.number(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  }).index("by_proposalId", ["proposalId"]),
 
   contractingAssignments: defineTable({
     queryId: v.id("queries"),
@@ -358,6 +389,8 @@ export default defineSchema({
     travelEndDate: v.optional(v.string()),
     queryType: v.optional(queryType),
     paymentTerms: v.optional(v.any()),
+    contractingOwnerId: v.optional(v.string()),
+    contractingOwnerName: v.optional(v.string()),
     operationsOwnerId: v.optional(v.string()),
     operationsOwnerName: v.optional(v.string()),
     ticketingOwnerId: v.optional(v.string()),
@@ -378,6 +411,11 @@ export default defineSchema({
   })
     .index("by_jobCode", ["jobCode"])
     .index("by_queryId", ["queryId"])
+    .index("by_proposalId", ["proposalId"])
+    .index("by_createdBy", ["createdBy"])
+    .index("by_contractingOwnerId", ["contractingOwnerId"])
+    .index("by_operationsOwnerId", ["operationsOwnerId"])
+    .index("by_ticketingOwnerId", ["ticketingOwnerId"])
     .index("by_status", ["status"]),
 
   travellers: defineTable({
@@ -783,15 +821,29 @@ export default defineSchema({
 
   staffLeaveRecords: defineTable({
     staffId: v.id("staffUsers"),
+    leaveType: v.optional(leaveType),
     startDate: v.string(),
     endDate: v.string(),
     reason: v.string(),
-    status: v.string(), // "Pending", "Approved", "Rejected"
+    status: reviewStatus,
+    headReviewStatus: v.optional(reviewStatus),
+    headReviewerRole: v.optional(staffRole),
+    headReviewedBy: v.optional(v.string()),
+    headReviewedByName: v.optional(v.string()),
+    headReviewedAt: v.optional(v.number()),
+    headDecisionNote: v.optional(v.string()),
+    hrReviewStatus: v.optional(reviewStatus),
+    hrReviewedBy: v.optional(v.string()),
+    hrReviewedByName: v.optional(v.string()),
+    hrReviewedAt: v.optional(v.number()),
     decisionNote: v.optional(v.string()),
     createdBy: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_staffId", ["staffId"])
+    .index("by_status", ["status"])
+    .index("by_headReviewStatus", ["headReviewStatus"])
+    .index("by_hrReviewStatus", ["hrReviewStatus"])
     .index("by_startDate", ["startDate"]),
 });

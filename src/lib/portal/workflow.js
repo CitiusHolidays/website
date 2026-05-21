@@ -85,3 +85,11 @@ export function isValidVisaStatus(status) {
 export function isValidTicketStatus(status) {
   return TICKET_STATUSES.includes(status);
 }
+
+export function getExpenseSplitTotal({ cardAmount = 0, cashAmount = 0, epayAmount = 0 } = {}) {
+  const parts = [cardAmount, cashAmount, epayAmount].map((value) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  });
+  return parts.reduce((sum, value) => sum + value, 0);
+}

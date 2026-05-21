@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import {
   PERMISSIONS,
+  canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
   nextCode,
@@ -19,14 +20,32 @@ const expenseCurrencyValidator = v.union(
   v.literal("SGD"),
 );
 
+async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
+  const job = await ctx.db.get(jobCardId);
+  const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+  if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+    return null;
+  }
+  return job;
+}
+
+function splitTotal(input: {
+  cardAmount?: number;
+  cashAmount?: number;
+  epayAmount?: number;
+}) {
+  return (input.cardAmount ?? 0) + (input.cashAmount ?? 0) + (input.epayAmount ?? 0);
+}
+
 export const listInvoices = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
     const rows = await ctx.db.query("invoices").collect();
     const result = [];
     for (const invoice of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-      const job = await ctx.db.get(invoice.jobCardId);
+      const job = await getVisibleJob(ctx, access, invoice.jobCardId);
+      if (!job) continue;
       result.push({
         id: invoice._id,
         jobCardId: invoice.jobCardId,
@@ -60,6 +79,9 @@ export const createInvoice = mutation({
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
+    }
+    if (!(await getVisibleJob(ctx, access, jobCardId))) {
+      throw new ConvexError("Job Card not found or not assigned to you");
     }
     const now = Date.now();
     const receivedAmount = args.receivedAmount ?? 0;
@@ -104,6 +126,9 @@ export const updateInvoice = mutation({
     const invoice = await ctx.db.get(invoiceId);
     if (!invoice) {
       throw new ConvexError("Invoice not found");
+    }
+    if (!(await getVisibleJob(ctx, access, invoice.jobCardId))) {
+      throw new ConvexError("FORBIDDEN");
     }
     if (args.invoiceNumber !== undefined && !args.invoiceNumber.trim()) {
       throw new ConvexError("Invoice number is required");
@@ -154,6 +179,9 @@ export const removeInvoice = mutation({
     if (!invoice) {
       throw new ConvexError("Invoice not found");
     }
+    if (!(await getVisibleJob(ctx, access, invoice.jobCardId))) {
+      throw new ConvexError("FORBIDDEN");
+    }
     await createActivity(ctx, access, {
       entityType: "invoice",
       entityId: invoiceId,
@@ -169,11 +197,15 @@ export const removeInvoice = mutation({
 export const listExpenses = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_EXPENSES);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_EXPENSES);
     const rows = await ctx.db.query("expenseEntries").collect();
     const result = [];
     for (const expense of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-      const job = await ctx.db.get(expense.jobCardId);
+      const job = await getVisibleJob(ctx, access, expense.jobCardId);
+      if (!job) continue;
+      const proofAttachment = expense.proofAttachmentId
+        ? await ctx.db.get(expense.proofAttachmentId)
+        : null;
       result.push({
         id: expense._id,
         jobCardId: expense.jobCardId,
@@ -189,6 +221,14 @@ export const listExpenses = query({
         epayAmount: expense.epayAmount ?? 0,
         amount: expense.amount,
         paidBy: expense.paidBy,
+        proofAttachment: proofAttachment
+          ? {
+              id: proofAttachment._id,
+              fileName: proofAttachment.fileName,
+              mimeType: proofAttachment.mimeType ?? "",
+              createdAt: new Date(proofAttachment.createdAt).toISOString(),
+            }
+          : null,
         approvalStatus: expense.approvalStatus,
         reimbursementStatus: expense.reimbursementStatus,
         notes: expense.notes ?? "",
@@ -223,10 +263,15 @@ export const createExpense = mutation({
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
     }
+    if (!(await getVisibleJob(ctx, access, jobCardId))) {
+      throw new ConvexError("Job Card not found or not assigned to you");
+    }
     const now = Date.now();
-    const splitTotal =
-      (args.cardAmount ?? 0) + (args.cashAmount ?? 0) + (args.epayAmount ?? 0);
-    const amount = args.amount ?? splitTotal;
+    const hasSplit =
+      args.cardAmount !== undefined ||
+      args.cashAmount !== undefined ||
+      args.epayAmount !== undefined;
+    const amount = hasSplit ? splitTotal(args) : (args.amount ?? 0);
     const id = await ctx.db.insert("expenseEntries", {
       jobCardId,
       tourManagerName: args.tourManagerName?.trim() || access.name,
@@ -281,6 +326,9 @@ export const updateExpense = mutation({
     if (!expense) {
       throw new ConvexError("Expense not found");
     }
+    if (!(await getVisibleJob(ctx, access, expense.jobCardId))) {
+      throw new ConvexError("FORBIDDEN");
+    }
     if (expense.approvalStatus === "Approved") {
       throw new ConvexError("Approved expenses cannot be edited");
     }
@@ -318,8 +366,13 @@ export const updateExpense = mutation({
       const cardAmount = args.cardAmount ?? expense.cardAmount ?? 0;
       const cashAmount = args.cashAmount ?? expense.cashAmount ?? 0;
       const epayAmount = args.epayAmount ?? expense.epayAmount ?? 0;
-      const splitTotal = cardAmount + cashAmount + epayAmount;
-      patch.amount = args.amount ?? splitTotal;
+      const nextSplitTotal = cardAmount + cashAmount + epayAmount;
+      patch.amount =
+        args.cardAmount !== undefined ||
+        args.cashAmount !== undefined ||
+        args.epayAmount !== undefined
+          ? nextSplitTotal
+          : args.amount;
     }
 
     await ctx.db.patch(id, patch);
@@ -336,14 +389,24 @@ export const updateExpense = mutation({
 export const getFinanceOverview = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
     const invoices = await ctx.db.query("invoices").collect();
     const expenses = await ctx.db.query("expenseEntries").collect();
-    const jobCards = await ctx.db.query("jobCards").collect();
+    const allJobCards = await ctx.db.query("jobCards").collect();
+    const jobCards: any[] = [];
+    for (const job of allJobCards) {
+      const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+      if (canSeeJobCardRecord(access, job, linkedQuery)) {
+        jobCards.push(job);
+      }
+    }
+    const visibleJobIds = new Set(jobCards.map((job) => job._id));
+    const visibleInvoices = invoices.filter((invoice) => visibleJobIds.has(invoice.jobCardId));
+    const visibleExpenses = expenses.filter((expense) => visibleJobIds.has(expense.jobCardId));
     const rows = [];
     for (const job of jobCards.sort((a, b) => b.createdAt - a.createdAt)) {
-      const jobInvoices = invoices.filter((invoice) => invoice.jobCardId === job._id);
-      const jobExpenses = expenses.filter((expense) => expense.jobCardId === job._id && expense.approvalStatus === "Approved");
+      const jobInvoices = visibleInvoices.filter((invoice) => invoice.jobCardId === job._id);
+      const jobExpenses = visibleExpenses.filter((expense) => expense.jobCardId === job._id && expense.approvalStatus === "Approved");
       const revenue = jobInvoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
       const expenseTotal = jobExpenses.reduce((sum, expense) => sum + expense.amount, 0);
       const profit = revenue - expenseTotal;
@@ -358,24 +421,24 @@ export const getFinanceOverview = query({
       });
     }
     const today = new Date().toISOString().slice(0, 10);
-    const pendingReimbursements = expenses
+    const pendingReimbursements = visibleExpenses
       .filter(
         (expense) =>
           expense.approvalStatus === "Approved" &&
           expense.reimbursementStatus === "Pending",
       )
       .reduce((sum, expense) => sum + (expense.amount ?? 0), 0);
-    const pendingExpenseApprovals = expenses
+    const pendingExpenseApprovals = visibleExpenses
       .filter((expense) => expense.approvalStatus === "Pending")
       .reduce((sum, expense) => sum + (expense.amount ?? 0), 0);
-    const expectedCollections = invoices.reduce(
+    const expectedCollections = visibleInvoices.reduce(
       (sum, invoice) => sum + Math.max(invoice.balanceAmount ?? 0, 0),
       0,
     );
     const advancePipeline = jobCards
       .filter((job) => job.status !== "Closed")
       .reduce((sum, job) => {
-        const jobInvoices = invoices.filter((invoice) => invoice.jobCardId === job._id);
+        const jobInvoices = visibleInvoices.filter((invoice) => invoice.jobCardId === job._id);
         const revenue = jobInvoices.reduce(
           (total, invoice) => total + invoice.expectedAmount,
           0,
@@ -393,7 +456,7 @@ export const getFinanceOverview = query({
         pendingExpenseApprovals,
       },
       pnl: rows,
-      outstanding: invoices
+      outstanding: visibleInvoices
         .filter((invoice) => invoice.balanceAmount > 0)
         .map((invoice) => {
           const job = jobCards.find((item) => item._id === invoice.jobCardId);
@@ -407,9 +470,9 @@ export const getFinanceOverview = query({
           };
         }),
       summary: {
-        totalRevenue: invoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0),
-        clientOutstanding: invoices.reduce((sum, invoice) => sum + invoice.balanceAmount, 0),
-        approvedExpenses: expenses
+        totalRevenue: visibleInvoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0),
+        clientOutstanding: visibleInvoices.reduce((sum, invoice) => sum + invoice.balanceAmount, 0),
+        approvedExpenses: visibleExpenses
           .filter((expense) => expense.approvalStatus === "Approved")
           .reduce((sum, expense) => sum + expense.amount, 0),
       },
@@ -430,6 +493,9 @@ export const submitExpenseForApproval = mutation({
     const expense = await ctx.db.get(expenseId);
     if (!expense) {
       throw new ConvexError("Expense not found");
+    }
+    if (!(await getVisibleJob(ctx, access, expense.jobCardId))) {
+      throw new ConvexError("FORBIDDEN");
     }
     const existing = await ctx.db
       .query("approvalRequests")
@@ -498,6 +564,13 @@ export const updateExpenseStatus = mutation({
     if (!id) {
       throw new ConvexError("Invalid expense id");
     }
+    const expense = await ctx.db.get(id);
+    if (!expense) {
+      throw new ConvexError("Expense not found");
+    }
+    if (!(await getVisibleJob(ctx, access, expense.jobCardId))) {
+      throw new ConvexError("FORBIDDEN");
+    }
     await ctx.db.patch(id, {
       approvalStatus: args.approvalStatus,
       reimbursementStatus: args.reimbursementStatus,
@@ -547,12 +620,28 @@ export const removeExpense = mutation({
     if (!expense) {
       throw new ConvexError("Expense not found");
     }
+    if (!(await getVisibleJob(ctx, access, expense.jobCardId))) {
+      throw new ConvexError("FORBIDDEN");
+    }
     await createActivity(ctx, access, {
       entityType: "expense",
       entityId: id,
       action: "deleted",
       message: `${expense.category} expense deleted`,
     });
+    if (expense.proofAttachmentId) {
+      const proof = await ctx.db.get(expense.proofAttachmentId);
+      if (proof?.storageId) {
+        try {
+          await ctx.storage.delete(proof.storageId);
+        } catch (err) {
+          console.error("Failed to delete expense proof from storage:", err);
+        }
+      }
+      if (proof) {
+        await ctx.db.delete(proof._id);
+      }
+    }
     await deleteEntityNotifications(ctx, "expense", id);
     await ctx.db.delete(id);
     return { id };

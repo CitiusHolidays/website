@@ -30,6 +30,9 @@ export const PERMISSIONS = {
   MANAGE_EXPENSES: "manage:expenses",
   APPROVE_EXPENSES: "approve:expenses",
   VIEW_TEAM: "view:team",
+  VIEW_LEAVE: "view:leave",
+  MANAGE_LEAVE: "manage:leave",
+  APPROVE_LEAVE: "approve:leave",
   VIEW_APPROVALS: "view:approvals",
   VIEW_REPORTS: "view:reports",
   VIEW_ACTIVITY: "view:activity",
@@ -51,6 +54,7 @@ export const ALL_ROLES = [
   "Head of Ticketing",
   "Tour Manager",
   "Finance",
+  "HR",
 ] as const;
 
 const P = PERMISSIONS;
@@ -72,6 +76,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_EXPENSES,
     P.APPROVE_EXPENSES,
     P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
     P.VIEW_APPROVALS,
     P.VIEW_REPORTS,
     P.VIEW_SENSITIVE_TRAVELLER_DATA,
@@ -82,13 +88,15 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
     P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
   ],
   Sales: [
     P.VIEW_DASHBOARD,
     P.VIEW_QUERIES,
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
   ],
   "Contracting Head": [
     P.VIEW_DASHBOARD,
@@ -99,6 +107,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.MANAGE_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
   ],
   Contracting: [
     P.VIEW_DASHBOARD,
@@ -108,7 +118,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_PROPOSALS,
     P.MANAGE_PROPOSALS,
     P.VIEW_JOB_CARDS,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
   ],
   Accounts: [
     P.VIEW_DASHBOARD,
@@ -117,7 +127,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_FINANCE,
     P.MANAGE_FINANCE,
     P.VIEW_EXPENSES,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
     P.VIEW_REPORTS,
   ],
   "Operations Head": [
@@ -139,6 +149,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_EXPENSES,
     P.VIEW_FINANCE,
     P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
     P.VIEW_SENSITIVE_TRAVELLER_DATA,
   ],
   Operations: [
@@ -153,7 +165,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_TOUR_MANAGERS,
     P.VIEW_TICKETING,
     P.VIEW_EXPENSES,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
   ],
   "Head of Ticketing": [
     P.VIEW_DASHBOARD,
@@ -163,6 +175,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.MANAGE_TICKETING,
     P.VIEW_TOUR_MANAGERS,
     P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
   ],
   Ticketing: [
     P.VIEW_DASHBOARD,
@@ -171,7 +185,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_TICKETING,
     P.MANAGE_TICKETING,
     P.VIEW_TOUR_MANAGERS,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
   ],
   "Tour Manager": [
     P.VIEW_DASHBOARD,
@@ -182,7 +196,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_TOUR_MANAGERS,
     P.VIEW_EXPENSES,
     P.MANAGE_EXPENSES,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
   ],
   Finance: [
     P.VIEW_DASHBOARD,
@@ -191,9 +205,17 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.MANAGE_FINANCE,
     P.VIEW_EXPENSES,
     P.APPROVE_EXPENSES,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
     P.VIEW_APPROVALS,
     P.VIEW_REPORTS,
+  ],
+  HR: [
+    P.VIEW_DASHBOARD,
+    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.MANAGE_LEAVE,
+    P.APPROVE_LEAVE,
+    P.VIEW_APPROVALS,
   ],
 };
 
@@ -337,12 +359,121 @@ export function isAdmin(access: PortalAccess) {
   return hasRole(access, "Admin");
 }
 
+export function isDirectorOrAdmin(access: PortalAccess) {
+  return isAdmin(access) || hasRole(access, "Directors");
+}
+
+export const HEAD_ROLES = [
+  "Sales Head",
+  "Contracting Head",
+  "Operations Head",
+  "Head of Ticketing",
+  "HR",
+] as const;
+
+export function isHead(access: PortalAccess) {
+  return HEAD_ROLES.some((role) => hasRole(access, role));
+}
+
+export function canSeeAllPortalRecords(access: PortalAccess) {
+  return isDirectorOrAdmin(access);
+}
+
+export function canSeeDepartmentRecords(access: PortalAccess, headRoles: string[] = []) {
+  return canSeeAllPortalRecords(access) || headRoles.some((role) => hasRole(access, role));
+}
+
+export function ownsAuthRecord(access: PortalAccess, ownerId?: string | null) {
+  return Boolean(ownerId && access.authUserId && ownerId === access.authUserId);
+}
+
+export function ownsStaffRecord(access: PortalAccess, ownerId?: string | null) {
+  return Boolean(ownerId && access.staffId && ownerId === access.staffId);
+}
+
+export function ownsNamedRecord(access: PortalAccess, ownerName?: string | null) {
+  return Boolean(ownerName && ownerName.trim().toLowerCase() === access.name.trim().toLowerCase());
+}
+
+export function canSeeQueryRecord(access: PortalAccess, query: any) {
+  if (canSeeDepartmentRecords(access, ["Sales Head", "Contracting Head", "Operations Head"])) {
+    return true;
+  }
+  if (
+    (hasRole(access, "Accounts") || hasRole(access, "Finance")) &&
+    (query.salesStatus === "Order Confirmed" || query.contractingStatus === "Order Confirmed")
+  ) {
+    return true;
+  }
+  return (
+    ownsAuthRecord(access, query.createdBy) ||
+    ownsAuthRecord(access, query.salesOwnerId) ||
+    ownsStaffRecord(access, query.contractingOwnerId) ||
+    ownsNamedRecord(access, query.salesOwnerName) ||
+    ownsNamedRecord(access, query.contractingOwnerName)
+  );
+}
+
+export function canSeeProposalRecord(access: PortalAccess, proposal: any, linkedQuery?: any) {
+  if (canSeeDepartmentRecords(access, ["Sales Head", "Contracting Head", "Operations Head"])) {
+    return true;
+  }
+  return (
+    ownsAuthRecord(access, proposal.createdBy) ||
+    ownsNamedRecord(access, proposal.preparedBy) ||
+    (linkedQuery ? canSeeQueryRecord(access, linkedQuery) : false)
+  );
+}
+
+export function canSeeJobCardRecord(access: PortalAccess, job: any, linkedQuery?: any) {
+  if (
+    canSeeDepartmentRecords(access, [
+      "Contracting Head",
+      "Operations Head",
+      "Head of Ticketing",
+    ]) ||
+    hasRole(access, "Accounts") ||
+    hasRole(access, "Finance")
+  ) {
+    return true;
+  }
+  return (
+    ownsAuthRecord(access, job.createdBy) ||
+    ownsStaffRecord(access, job.contractingOwnerId) ||
+    ownsStaffRecord(access, job.operationsOwnerId) ||
+    ownsStaffRecord(access, job.ticketingOwnerId) ||
+    ownsNamedRecord(access, job.contractingOwnerName) ||
+    ownsNamedRecord(access, job.operationsOwnerName) ||
+    ownsNamedRecord(access, job.ticketingOwnerName) ||
+    ownsNamedRecord(access, job.tourManagerName) ||
+    (linkedQuery ? canSeeQueryRecord(access, linkedQuery) : false)
+  );
+}
+
+export function getHeadReviewerRolesForStaff(staff: { roles?: string[]; department?: string }) {
+  const roles = new Set(staff.roles ?? []);
+  const department = (staff.department ?? "").toLowerCase();
+  const reviewerRoles: string[] = [];
+  if (roles.has("Sales") || department.includes("sales")) reviewerRoles.push("Sales Head");
+  if (roles.has("Contracting") || department.includes("contracting")) reviewerRoles.push("Contracting Head");
+  if (
+    roles.has("Operations") ||
+    roles.has("Tour Manager") ||
+    department.includes("operation") ||
+    department.includes("tour")
+  ) {
+    reviewerRoles.push("Operations Head");
+  }
+  if (roles.has("Ticketing") || department.includes("ticket")) reviewerRoles.push("Head of Ticketing");
+  return Array.from(new Set(reviewerRoles.length > 0 ? reviewerRoles : ["HR"]));
+}
+
 export async function requireHeadOrAdmin(
   ctx: QueryCtx | MutationCtx,
   headRoles: string[],
 ) {
   const access = await requireStaff(ctx);
-  if (isAdmin(access)) {
+  if (isDirectorOrAdmin(access)) {
     return access;
   }
   if (!headRoles.some((role) => hasRole(access, role))) {
@@ -441,6 +572,19 @@ async function deleteRowsByJobCard(
     .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
     .collect();
   for (const row of rows) {
+    if (entityType === "expense" && row.proofAttachmentId) {
+      const attachment = (await ctx.db.get(row.proofAttachmentId)) as any;
+      if (attachment) {
+        if (attachment.storageId) {
+          try {
+            await ctx.storage.delete(attachment.storageId);
+          } catch (err) {
+            console.error("Failed to delete expense proof from storage:", err);
+          }
+        }
+        await ctx.db.delete(attachment._id);
+      }
+    }
     await deleteEntityNotifications(ctx, entityType, row._id);
     await ctx.db.delete(row._id);
   }
@@ -493,6 +637,7 @@ export function publicJobCard(job: any) {
     id: job._id,
     jobCode: job.jobCode,
     queryId: job.queryId ?? null,
+    proposalId: job.proposalId ?? null,
     clientName: job.clientName,
     destination: job.destination ?? "",
     confirmedPax: job.confirmedPax,
@@ -501,6 +646,7 @@ export function publicJobCard(job: any) {
     travelEndDate: job.travelEndDate ?? "",
     queryType: job.queryType ?? "",
     paymentTerms: job.paymentTerms ?? null,
+    contractingOwnerName: job.contractingOwnerName ?? "",
     operationsOwnerName: job.operationsOwnerName ?? "",
     ticketingOwnerName: job.ticketingOwnerName ?? "",
     tourManagerName: job.tourManagerName ?? "",
