@@ -60,10 +60,7 @@ export const listStaff = query({
 export const listDirectory = query({
   args: {},
   handler: async (ctx) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.VIEW_TEAM,
-      PERMISSIONS.VIEW_CONTRACTING,
-    ]);
+    const access = await requireAnyPermission(ctx, [PERMISSIONS.VIEW_TEAM]);
     const offices = await ctx.db.query("offices").collect();
     const officeNames = new Map(offices.map((office) => [office._id, office.name]));
     const rows = await ctx.db.query("staffUsers").collect();

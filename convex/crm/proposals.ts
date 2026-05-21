@@ -1,7 +1,10 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { internal } from "../_generated/api";
 import {
   PERMISSIONS,
+  canSeeProposalRecord,
+  canSeeQueryRecord,
   createActivity,
   deleteEntityNotifications,
   nextCode,
@@ -10,8 +13,9 @@ import {
   requireAnyPermission,
   requireStaff,
 } from "./lib";
+import { publicProposalAttachment } from "./proposalAttachments";
 
-const publicProposal = (proposal: any, linkedQuery: any) => ({
+const publicProposal = (proposal: any, linkedQuery: any, attachments: any[] = []) => ({
   id: proposal._id,
   proposalCode: proposal.proposalCode,
   queryId: proposal.queryId ?? null,
@@ -20,8 +24,16 @@ const publicProposal = (proposal: any, linkedQuery: any) => ({
   preparedBy: proposal.preparedBy,
   landCostPerPax: proposal.landCostPerPax ?? 0,
   airfarePerPax: proposal.airfarePerPax ?? 0,
+  sellingPrice: proposal.sellingPrice ?? 0,
+  costPrice: proposal.costPrice ?? 0,
+  pricingEnteredAt: proposal.pricingEnteredAt
+    ? new Date(proposal.pricingEnteredAt).toISOString()
+    : null,
   itinerarySummary: proposal.itinerarySummary ?? "",
   status: proposal.status,
+  attachments: attachments
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map(publicProposalAttachment),
   sentAt: proposal.sentAt ? new Date(proposal.sentAt).toISOString() : null,
   createdAt: new Date(proposal.createdAt).toISOString(),
   updatedAt: new Date(proposal.updatedAt).toISOString(),
@@ -30,12 +42,28 @@ const publicProposal = (proposal: any, linkedQuery: any) => ({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_PROPOSALS);
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.VIEW_PROPOSALS,
+      PERMISSIONS.MANAGE_JOB_CARDS,
+    ]);
     const rows = await ctx.db.query("proposals").collect();
+    const attachments = await ctx.db.query("proposalAttachments").collect();
+    const attachmentsByProposal = new Map<string, typeof attachments>();
+    for (const attachment of attachments) {
+      const key = attachment.proposalId;
+      const bucket = attachmentsByProposal.get(key) ?? [];
+      bucket.push(attachment);
+      attachmentsByProposal.set(key, bucket);
+    }
     const result = [];
     for (const proposal of rows.sort((a, b) => b.createdAt - a.createdAt)) {
       const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
-      result.push(publicProposal(proposal, linkedQuery));
+      if (!canSeeProposalRecord(access, proposal, linkedQuery)) {
+        continue;
+      }
+      result.push(
+        publicProposal(proposal, linkedQuery, attachmentsByProposal.get(proposal._id) ?? []),
+      );
     }
     return result;
   },
@@ -48,6 +76,8 @@ export const create = mutation({
     preparedBy: v.string(),
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
+    sellingPrice: v.optional(v.number()),
+    costPrice: v.optional(v.number()),
     itinerarySummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -57,8 +87,13 @@ export const create = mutation({
     if (args.queryId && !linkedQuery) {
       throw new ConvexError("Linked query not found");
     }
+    if (linkedQuery && !canSeeQueryRecord(access, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
+    }
 
     const now = Date.now();
+    const hasPricing =
+      args.sellingPrice !== undefined || args.costPrice !== undefined;
     const proposalCode = await nextCode(ctx, "proposals", "P");
     const clientName = linkedQuery?.clientName || args.clientName?.trim() || "Unlinked client";
     const id = await ctx.db.insert("proposals", {
@@ -68,6 +103,9 @@ export const create = mutation({
       preparedBy: args.preparedBy.trim() || access.name,
       landCostPerPax: args.landCostPerPax ?? 0,
       airfarePerPax: args.airfarePerPax ?? 0,
+      sellingPrice: Math.max(args.sellingPrice ?? 0, 0),
+      costPrice: Math.max(args.costPrice ?? 0, 0),
+      pricingEnteredAt: hasPricing ? now : undefined,
       itinerarySummary: args.itinerarySummary?.trim() || "",
       status: "Draft",
       createdBy: access.authUserId ?? "unknown",
@@ -94,6 +132,8 @@ export const update = mutation({
     preparedBy: v.optional(v.string()),
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
+    sellingPrice: v.optional(v.number()),
+    costPrice: v.optional(v.number()),
     itinerarySummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -105,6 +145,10 @@ export const update = mutation({
     const proposal = await ctx.db.get(proposalId);
     if (!proposal) {
       throw new ConvexError("Proposal not found");
+    }
+    const currentLinkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
+    if (!canSeeProposalRecord(access, proposal, currentLinkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
     }
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
@@ -120,6 +164,9 @@ export const update = mutation({
         if (!linkedQuery) {
           throw new ConvexError("Linked query not found");
         }
+        if (!canSeeQueryRecord(access, linkedQuery)) {
+          throw new ConvexError("FORBIDDEN");
+        }
         patch.queryId = queryId;
         patch.clientName = linkedQuery.clientName;
       } else {
@@ -130,6 +177,14 @@ export const update = mutation({
     if (args.preparedBy !== undefined) patch.preparedBy = args.preparedBy.trim();
     if (args.landCostPerPax !== undefined) patch.landCostPerPax = args.landCostPerPax;
     if (args.airfarePerPax !== undefined) patch.airfarePerPax = args.airfarePerPax;
+    if (args.sellingPrice !== undefined) {
+      patch.sellingPrice = Math.max(args.sellingPrice, 0);
+      patch.pricingEnteredAt = Date.now();
+    }
+    if (args.costPrice !== undefined) {
+      patch.costPrice = Math.max(args.costPrice, 0);
+      patch.pricingEnteredAt = Date.now();
+    }
     if (args.itinerarySummary !== undefined) {
       patch.itinerarySummary = args.itinerarySummary.trim();
     }
@@ -161,6 +216,10 @@ export const markSent = mutation({
     const proposal = await ctx.db.get(proposalId);
     if (!proposal) {
       throw new ConvexError("Proposal not found");
+    }
+    const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
+    if (!canSeeProposalRecord(access, proposal, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
     }
     const now = Date.now();
     await ctx.db.patch(proposalId, {
@@ -203,6 +262,21 @@ export const remove = mutation({
     const proposal = await ctx.db.get(proposalId);
     if (!proposal) {
       throw new ConvexError("Proposal not found");
+    }
+    const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
+    if (!canSeeProposalRecord(access, proposal, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const { storageIds } = await ctx.runMutation(
+      internal.crm.proposalAttachments.deleteAllForProposal,
+      { proposalId },
+    );
+    for (const storageId of storageIds) {
+      try {
+        await ctx.storage.delete(storageId);
+      } catch (err) {
+        console.error("Failed to delete proposal attachment file:", err);
+      }
     }
     await createActivity(ctx, access, {
       entityType: "proposal",

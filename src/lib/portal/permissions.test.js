@@ -56,9 +56,29 @@ describe("portal permissions", () => {
     const pages = pagesForRoles(["Sales"]);
 
     expect(pages).toEqual(
-      expect.arrayContaining(["dashboard", "queries", "pipeline", "proposals", "team"]),
+      expect.arrayContaining(["dashboard", "queries", "pipeline", "proposals", "employees-on-leave"]),
     );
-    expect(pages).not.toEqual(expect.arrayContaining(["finance", "ticketing", "contracting", "job-cards"]));
+    expect(pages).not.toEqual(expect.arrayContaining(["finance", "ticketing", "contracting", "job-cards", "team"]));
+  });
+
+  test("hr can manage leave without staff settings access", () => {
+    const permissions = getPermissionsForRoles(["HR"]);
+    const pages = pagesForRoles(["HR"]);
+
+    expect(permissions).toContain(PORTAL_PERMISSIONS.VIEW_LEAVE);
+    expect(permissions).toContain(PORTAL_PERMISSIONS.APPROVE_LEAVE);
+    expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_LEAVE);
+    expect(permissions).not.toContain(PORTAL_PERMISSIONS.MANAGE_STAFF);
+    expect(pages).toEqual(expect.arrayContaining(["dashboard", "employees-on-leave"]));
+    expect(pages).not.toContain("settings");
+  });
+
+  test("team directory is limited to admin directors hr and heads", () => {
+    expect(pagesForRoles(["Sales"])).not.toContain("team");
+    expect(pagesForRoles(["Contracting"])).not.toContain("team");
+    expect(pagesForRoles(["Contracting Head"])).toContain("team");
+    expect(pagesForRoles(["HR"])).toContain("team");
+    expect(pagesForRoles(["Admin"])).toContain("team");
   });
 
   test("admin can access settings", () => {

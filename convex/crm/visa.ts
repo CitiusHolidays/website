@@ -1,6 +1,12 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import { PERMISSIONS, createActivity, deleteEntityNotifications, requireStaff } from "./lib";
+import {
+  PERMISSIONS,
+  canSeeJobCardRecord,
+  createActivity,
+  deleteEntityNotifications,
+  requireStaff,
+} from "./lib";
 
 const visaStatusValidator = v.union(
   v.literal("Not Required"),
@@ -39,12 +45,16 @@ const publicVisa = (record: any, traveller: any, job: any) => ({
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
     const rows = await ctx.db.query("visaRecords").collect();
     const result = [];
     for (const record of rows.sort((a, b) => b.updatedAt - a.updatedAt)) {
       const traveller = await ctx.db.get(record.travellerId);
       const job = await ctx.db.get(record.jobCardId);
+      const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+      if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+        continue;
+      }
       result.push(publicVisa(record, traveller, job));
     }
     return result;
@@ -67,6 +77,11 @@ export const updateStatus = mutation({
     const record = await ctx.db.get(visaRecordId);
     if (!record) {
       throw new ConvexError("Visa record not found");
+    }
+    const job = await ctx.db.get(record.jobCardId);
+    const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
     }
     const now = Date.now();
     const patch: Record<string, unknown> = {
@@ -121,6 +136,11 @@ export const updateRecord = mutation({
     const record = await ctx.db.get(visaRecordId);
     if (!record) {
       throw new ConvexError("Visa record not found");
+    }
+    const job = await ctx.db.get(record.jobCardId);
+    const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
     }
 
     const now = Date.now();
@@ -180,6 +200,11 @@ export const remove = mutation({
     if (!record) {
       throw new ConvexError("Visa record not found");
     }
+    const job = await ctx.db.get(record.jobCardId);
+    const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
+    }
     await ctx.db.patch(record.travellerId, {
       visaStatus: "Not Started",
       updatedAt: Date.now(),
@@ -210,6 +235,11 @@ export const create = mutation({
     const traveller = await ctx.db.get(travellerId);
     if (!traveller) {
       throw new ConvexError("Traveller not found");
+    }
+    const job = await ctx.db.get(traveller.jobCardId);
+    const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
     }
 
     const existing = await ctx.db
@@ -250,7 +280,7 @@ export const create = mutation({
 export const listTravellersWithoutVisa = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
     const allTravellers = await ctx.db.query("travellers").collect();
     const allVisaRecords = await ctx.db.query("visaRecords").collect();
     const travellerIdsWithVisa = new Set(allVisaRecords.map((r) => r.travellerId.toString()));
@@ -259,6 +289,10 @@ export const listTravellersWithoutVisa = query({
     for (const traveller of allTravellers) {
       if (traveller.visaRequired && !travellerIdsWithVisa.has(traveller._id.toString())) {
         const job = await ctx.db.get(traveller.jobCardId);
+        const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+        if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+          continue;
+        }
         result.push({
           id: traveller._id,
           fullName: traveller.fullName,

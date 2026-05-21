@@ -3,9 +3,12 @@ import { mutation, query } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
   PERMISSIONS,
+  canSeeQueryRecord,
   createActivity,
   deleteEntityNotifications,
   deleteJobCardCascade,
+  hasRole,
+  isDirectorOrAdmin,
   nextCode,
   notifyRoles,
   publicQuery,
@@ -73,7 +76,7 @@ const lostReasonValidator = v.union(
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    await requireAnyPermission(ctx, [
+    const access = await requireAnyPermission(ctx, [
       PERMISSIONS.VIEW_QUERIES,
       PERMISSIONS.VIEW_CONTRACTING,
       PERMISSIONS.VIEW_JOB_CARDS,
@@ -88,6 +91,7 @@ export const list = query({
       attachmentsByQuery.set(key, bucket);
     }
     return rows
+      .filter((row) => canSeeQueryRecord(access, row))
       .sort((a, b) => b.createdAt - a.createdAt)
       .map((row) => ({
         ...publicQuery(row),
@@ -201,6 +205,9 @@ export const update = mutation({
     if (!current) {
       throw new ConvexError("Query not found");
     }
+    if (!canSeeQueryRecord(access, current)) {
+      throw new ConvexError("FORBIDDEN");
+    }
     if (args.clientName !== undefined && !args.clientName.trim()) {
       throw new ConvexError("Client name is required");
     }
@@ -240,7 +247,7 @@ export const assignContracting = mutation({
     staffId: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await requireHeadOrAdmin(ctx, ["Contracting Head"]);
+    const access = await requireHeadOrAdmin(ctx, ["Contracting Head", "Operations Head"]);
     const queryId = ctx.db.normalizeId("queries", args.queryId);
     if (!queryId) {
       throw new ConvexError("Invalid query id");
@@ -262,6 +269,9 @@ export const assignContracting = mutation({
     const current = await ctx.db.get(queryId);
     if (!current) {
       throw new ConvexError("Query not found");
+    }
+    if (!canSeeQueryRecord(access, current)) {
+      throw new ConvexError("FORBIDDEN");
     }
     const ownerName = staff.name.trim();
     const now = Date.now();
@@ -303,6 +313,9 @@ export const submitToContracting = mutation({
     const current = await ctx.db.get(queryId);
     if (!current) {
       throw new ConvexError("Query not found");
+    }
+    if (!canSeeQueryRecord(access, current)) {
+      throw new ConvexError("FORBIDDEN");
     }
     const now = Date.now();
     await ctx.db.patch(queryId, {
@@ -353,6 +366,24 @@ export const updateStatus = mutation({
     const current = await ctx.db.get(queryId);
     if (!current) {
       throw new ConvexError("Query not found");
+    }
+    if (!canSeeQueryRecord(access, current)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+
+    const canSetSalesOutcome =
+      isDirectorOrAdmin(access) ||
+      hasRole(access, "Sales") ||
+      hasRole(access, "Sales Head") ||
+      access.permissions.includes(PERMISSIONS.MANAGE_QUERIES);
+    const salesOutcomeRequested =
+      args.salesStatus !== undefined ||
+      args.leadStage !== undefined ||
+      args.lostReason !== undefined ||
+      args.contractingStatus === "Order Confirmed" ||
+      args.contractingStatus === "Order Lost";
+    if (salesOutcomeRequested && !canSetSalesOutcome) {
+      throw new ConvexError("Only Sales can confirm or lose an order");
     }
 
     const patch: Record<string, unknown> = {
@@ -407,7 +438,13 @@ export const updateStatus = mutation({
     });
 
     if (isConfirmed) {
-      await notifyRoles(ctx, ["Accounts", "Operations Head", "Finance"], {
+      await notifyRoles(ctx, [
+        "Accounts",
+        "Contracting",
+        "Contracting Head",
+        "Operations Head",
+        "Finance",
+      ], {
         title: "Order confirmed",
         body: `${current.queryCode} is confirmed. Accounts should open a Job Card.`,
         entityType: "query",
@@ -433,12 +470,26 @@ export const remove = mutation({
     if (!current) {
       throw new ConvexError("Query not found");
     }
+    if (!canSeeQueryRecord(access, current)) {
+      throw new ConvexError("FORBIDDEN");
+    }
 
     const proposals = await ctx.db
       .query("proposals")
       .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
       .collect();
     for (const proposal of proposals) {
+      const { storageIds } = await ctx.runMutation(
+        internal.crm.proposalAttachments.deleteAllForProposal,
+        { proposalId: proposal._id },
+      );
+      for (const storageId of storageIds) {
+        try {
+          await ctx.storage.delete(storageId);
+        } catch (err) {
+          console.error("Failed to delete proposal attachment file:", err);
+        }
+      }
       await deleteEntityNotifications(ctx, "proposal", proposal._id);
       await ctx.db.delete(proposal._id);
     }

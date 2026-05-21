@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import {
   PERMISSIONS,
+  canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
   requireAnyPermission,
@@ -70,7 +71,7 @@ export const list = query({
     jobCardId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
     const normalizedJobCardId = args.jobCardId
       ? ctx.db.normalizeId("jobCards", args.jobCardId)
       : null;
@@ -83,6 +84,10 @@ export const list = query({
     const result = [];
     for (const traveller of rows.sort((a, b) => b.createdAt - a.createdAt)) {
       const job = await ctx.db.get(traveller.jobCardId);
+      const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+      if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+        continue;
+      }
       result.push(publicTraveller(traveller, job));
     }
     return result;
@@ -118,6 +123,10 @@ export const create = mutation({
     const job = await ctx.db.get(jobCardId);
     if (!job) {
       throw new ConvexError("Job Card not found");
+    }
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
     }
     if (!args.fullName.trim()) {
       throw new ConvexError("Traveller name is required");
@@ -201,6 +210,11 @@ export const update = mutation({
     const traveller = await ctx.db.get(travellerId);
     if (!traveller) {
       throw new ConvexError("Traveller not found");
+    }
+    const job = await ctx.db.get(traveller.jobCardId);
+    const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
     }
     if (args.fullName !== undefined && !args.fullName.trim()) {
       throw new ConvexError("Traveller name is required");
@@ -294,6 +308,15 @@ export const updateCallingStatus = mutation({
     if (!travellerId) {
       throw new ConvexError("Invalid traveller id");
     }
+    const traveller = await ctx.db.get(travellerId);
+    if (!traveller) {
+      throw new ConvexError("Traveller not found");
+    }
+    const job = await ctx.db.get(traveller.jobCardId);
+    const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
+    }
     await ctx.db.patch(travellerId, {
       callingStatus: args.callingStatus,
       updatedAt: Date.now(),
@@ -321,6 +344,11 @@ export const remove = mutation({
     const traveller = await ctx.db.get(travellerId);
     if (!traveller) {
       throw new ConvexError("Traveller not found");
+    }
+    const job = await ctx.db.get(traveller.jobCardId);
+    const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
     }
 
     const passportDetails = await ctx.db

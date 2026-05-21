@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  getExpenseSplitTotal,
   getPaymentTermForQueryType,
   getPipelineBuckets,
   getPipelineStage,
@@ -44,5 +45,10 @@ describe("portal workflow helpers", () => {
     expect(isVisaComplete("Approved")).toBe(true);
     expect(isValidTicketStatus("Issued")).toBe(true);
     expect(isTicketComplete("Issued")).toBe(true);
+  });
+
+  test("computes expense total from card cash and e-pay amounts", () => {
+    expect(getExpenseSplitTotal({ cardAmount: "1000", cashAmount: "250", epayAmount: "99.5" })).toBe(1349.5);
+    expect(getExpenseSplitTotal({ cardAmount: "", cashAmount: null, epayAmount: undefined })).toBe(0);
   });
 });

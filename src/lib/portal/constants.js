@@ -12,6 +12,7 @@ export const PORTAL_ROLES = [
   "Head of Ticketing",
   "Tour Manager",
   "Finance",
+  "HR",
 ];
 
 export const PORTAL_PERMISSIONS = {
@@ -42,6 +43,9 @@ export const PORTAL_PERMISSIONS = {
   MANAGE_EXPENSES: "manage:expenses",
   APPROVE_EXPENSES: "approve:expenses",
   VIEW_TEAM: "view:team",
+  VIEW_LEAVE: "view:leave",
+  MANAGE_LEAVE: "manage:leave",
+  APPROVE_LEAVE: "approve:leave",
   VIEW_APPROVALS: "view:approvals",
   VIEW_REPORTS: "view:reports",
   VIEW_ACTIVITY: "view:activity",
@@ -68,6 +72,8 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_EXPENSES,
     P.APPROVE_EXPENSES,
     P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
     P.VIEW_APPROVALS,
     P.VIEW_REPORTS,
     P.VIEW_SENSITIVE_TRAVELLER_DATA,
@@ -78,13 +84,15 @@ export const ROLE_PERMISSIONS = {
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
     P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
   ],
   Sales: [
     P.VIEW_DASHBOARD,
     P.VIEW_QUERIES,
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
   ],
   "Contracting Head": [
     P.VIEW_DASHBOARD,
@@ -95,6 +103,8 @@ export const ROLE_PERMISSIONS = {
     P.MANAGE_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
   ],
   Contracting: [
     P.VIEW_DASHBOARD,
@@ -104,7 +114,7 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_PROPOSALS,
     P.MANAGE_PROPOSALS,
     P.VIEW_JOB_CARDS,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
   ],
   Accounts: [
     P.VIEW_DASHBOARD,
@@ -113,7 +123,7 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_FINANCE,
     P.MANAGE_FINANCE,
     P.VIEW_EXPENSES,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
     P.VIEW_REPORTS,
   ],
   "Operations Head": [
@@ -135,6 +145,8 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_EXPENSES,
     P.VIEW_FINANCE,
     P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
     P.VIEW_SENSITIVE_TRAVELLER_DATA,
   ],
   Operations: [
@@ -149,7 +161,7 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_TOUR_MANAGERS,
     P.VIEW_TICKETING,
     P.VIEW_EXPENSES,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
   ],
   "Head of Ticketing": [
     P.VIEW_DASHBOARD,
@@ -159,6 +171,8 @@ export const ROLE_PERMISSIONS = {
     P.MANAGE_TICKETING,
     P.VIEW_TOUR_MANAGERS,
     P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
   ],
   Ticketing: [
     P.VIEW_DASHBOARD,
@@ -167,7 +181,7 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_TICKETING,
     P.MANAGE_TICKETING,
     P.VIEW_TOUR_MANAGERS,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
   ],
   "Tour Manager": [
     P.VIEW_DASHBOARD,
@@ -178,7 +192,7 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_TOUR_MANAGERS,
     P.VIEW_EXPENSES,
     P.MANAGE_EXPENSES,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
   ],
   Finance: [
     P.VIEW_DASHBOARD,
@@ -187,9 +201,17 @@ export const ROLE_PERMISSIONS = {
     P.MANAGE_FINANCE,
     P.VIEW_EXPENSES,
     P.APPROVE_EXPENSES,
-    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
     P.VIEW_APPROVALS,
     P.VIEW_REPORTS,
+  ],
+  HR: [
+    P.VIEW_DASHBOARD,
+    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.MANAGE_LEAVE,
+    P.APPROVE_LEAVE,
+    P.VIEW_APPROVALS,
   ],
 };
 
@@ -214,6 +236,13 @@ export const PORTAL_NAV_GROUPS = [
     items: [{ href: "/portal/proposals", label: "Proposals", page: "proposals", permission: P.VIEW_PROPOSALS }],
   },
   {
+    label: "Job Cards",
+    items: [
+      { href: "/portal/accounts/job-cards", label: "Accounts / JC", page: "accounts-job-cards", permission: P.MANAGE_JOB_CARDS },
+      { href: "/portal/job-cards", label: "Job Cards", page: "job-cards", permission: P.VIEW_JOB_CARDS },
+    ],
+  },
+  {
     label: "Ticketing",
     items: [
       { href: "/portal/ticketing", label: "Ticket Dashboard", page: "ticketing", permission: P.VIEW_TICKETING },
@@ -225,8 +254,6 @@ export const PORTAL_NAV_GROUPS = [
   {
     label: "Operations",
     items: [
-      { href: "/portal/accounts/job-cards", label: "Accounts / JC", page: "accounts-job-cards", permission: P.MANAGE_JOB_CARDS },
-      { href: "/portal/job-cards", label: "Job Cards", page: "job-cards", permission: P.VIEW_JOB_CARDS },
       { href: "/portal/travellers", label: "Traveller Master", page: "travellers", permission: P.VIEW_TRAVELLERS },
       { href: "/portal/visa", label: "Passport/Visa Tracker", page: "visa", permission: P.VIEW_VISA },
       { href: "/portal/hotels", label: "Hotel / Rooming", page: "hotels", permission: P.VIEW_OPERATIONS },
@@ -246,7 +273,7 @@ export const PORTAL_NAV_GROUPS = [
     label: "Admin",
     items: [
       { href: "/portal/team", label: "Team Directory", page: "team", permission: P.VIEW_TEAM },
-      { href: "/portal/employees-on-leave", label: "Employees on Leave", page: "employees-on-leave", permission: P.VIEW_TEAM },
+      { href: "/portal/employees-on-leave", label: "Employees on Leave", page: "employees-on-leave", permission: P.VIEW_LEAVE },
     ],
   },
   {
@@ -324,6 +351,7 @@ export const CALLING_STATUSES = ["Pending", "Done", "No response"];
 export const GUEST_TYPES = ["Employee", "Client", "VIP"];
 export const EXPENSE_HEADS = ["F&B", "Transport", "Hotel", "Activity", "Visa", "Tips", "Miscellaneous"];
 export const EXPENSE_CURRENCIES = ["INR", "USD", "AED", "EUR", "THB", "SGD"];
+export const LEAVE_TYPES = ["Casual", "Sick", "Privilege", "Leave Without Pay"];
 
 export const PAYMENT_TERMS_BY_QUERY_TYPE = {
   MICE: { minAdvancePercent: 70, maxAdvancePercent: 90 },
