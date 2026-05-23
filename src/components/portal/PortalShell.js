@@ -82,10 +82,10 @@ export default function PortalShell({ access, user, children }) {
             <div className="flex items-center gap-5 rounded-full border border-brand-border bg-brand-light/70 py-1.5 pl-5 pr-1.5 md:gap-6 md:pl-6">
               <div className="hidden min-w-0 md:block">
                 <div className="truncate text-sm font-semibold text-brand-dark">
-                  {user?.name || access.name}
+                  {access.name || user?.name}
                 </div>
                 <div className="truncate text-[11px] text-brand-muted">
-                  {user?.email || access.email}
+                  {access.email || user?.email}
                 </div>
               </div>
 

@@ -207,6 +207,7 @@ export const ROLE_PERMISSIONS = {
   ],
   HR: [
     P.VIEW_DASHBOARD,
+    P.MANAGE_STAFF,
     P.VIEW_TEAM,
     P.VIEW_LEAVE,
     P.MANAGE_LEAVE,
@@ -255,7 +256,8 @@ export const PORTAL_NAV_GROUPS = [
     label: "Operations",
     items: [
       { href: "/portal/travellers", label: "Traveller Master", page: "travellers", permission: P.VIEW_TRAVELLERS },
-      { href: "/portal/visa", label: "Passport/Visa Tracker", page: "visa", permission: P.VIEW_VISA },
+      { href: "/portal/passport", label: "Passport Documents", page: "passport", permission: P.VIEW_VISA },
+      { href: "/portal/visa", label: "Visa Tracking", page: "visa", permission: P.VIEW_VISA },
       { href: "/portal/hotels", label: "Hotel / Rooming", page: "hotels", permission: P.VIEW_OPERATIONS },
       { href: "/portal/tour-managers", label: "Tour Managers", page: "tour-managers", permission: P.VIEW_TOUR_MANAGERS },
     ],

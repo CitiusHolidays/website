@@ -76,7 +76,7 @@ export const listDirectory = query({
         function: staff.function ?? staff.roles.join(", "),
         mobile: staff.mobile ?? "",
         location: staff.location ?? (staff.officeId ? officeNames.get(staff.officeId) : "") ?? "",
-        isCurrentUser: normalizeEmail(staff.email) === normalizeEmail(access.email),
+        isCurrentUser: access.staffId ? staff._id === access.staffId : normalizeEmail(staff.email) === normalizeEmail(access.email),
       }));
   },
 });

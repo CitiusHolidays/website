@@ -281,6 +281,17 @@ export const assignContracting = mutation({
       contractingStatus: "Query Received",
       updatedAt: now,
     });
+    const jobCards = await ctx.db
+      .query("jobCards")
+      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
+      .collect();
+    for (const jobCard of jobCards) {
+      await ctx.db.patch(jobCard._id, {
+        contractingOwnerId: staffId,
+        contractingOwnerName: ownerName,
+        updatedAt: now,
+      });
+    }
     await ctx.db.insert("contractingAssignments", {
       queryId,
       ownerId: staffId,
@@ -353,6 +364,9 @@ export const updateStatus = mutation({
     contractingStatus: v.optional(contractingStatusValidator),
     lostReason: v.optional(lostReasonValidator),
     lostReasonOther: v.optional(v.string()),
+    contractingLandCost: v.optional(v.number()),
+    contractingAirlinesCost: v.optional(v.number()),
+    contractingVisaCost: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const access = await requireAnyPermission(ctx, [
@@ -419,6 +433,15 @@ export const updateStatus = mutation({
     if (args.lostReason) {
       patch.lostReason = args.lostReason;
       patch.lostReasonOther = args.lostReasonOther?.trim() || "";
+    }
+    if (args.contractingLandCost !== undefined) {
+      patch.contractingLandCost = Math.max(args.contractingLandCost, 0);
+    }
+    if (args.contractingAirlinesCost !== undefined) {
+      patch.contractingAirlinesCost = Math.max(args.contractingAirlinesCost, 0);
+    }
+    if (args.contractingVisaCost !== undefined) {
+      patch.contractingVisaCost = Math.max(args.contractingVisaCost, 0);
     }
 
     await ctx.db.patch(queryId, patch);

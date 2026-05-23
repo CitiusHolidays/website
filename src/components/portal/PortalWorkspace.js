@@ -66,7 +66,8 @@ const VIEW_META = {
   "accounts-job-cards": { title: "Accounts / Job Card Creation", subtitle: "Create Job Card numbers only after order confirmation.", permission: P.MANAGE_JOB_CARDS },
   "job-cards": { title: "Job Cards", subtitle: "Operational file control, progress, and pre-departure checklist status.", permission: P.VIEW_JOB_CARDS },
   travellers: { title: "Traveller Master Sheet", subtitle: "Guest details, hubs, food preferences, rooming, visa, ticket, and TM calling status.", permission: P.VIEW_TRAVELLERS },
-  visa: { title: "Passport/Visa Tracker", subtitle: "Checklist, appointments, submission, approval, rejection, and re-application tracking.", permission: P.VIEW_VISA },
+  passport: { title: "Passport Documents", subtitle: "Upload, encrypt, and manage traveller passport scans.", permission: P.VIEW_VISA },
+  visa: { title: "Visa Tracking", subtitle: "Checklist, appointments, submission, approval, rejection, and re-application tracking.", permission: P.VIEW_VISA },
   ticketing: { title: "Ticket Dashboard", subtitle: "Ticket status summary across active Job Cards.", permission: P.VIEW_TICKETING },
   flights: { title: "Flights & PNR", subtitle: "Manage PNRs, routes, fare types, group seats, and airline records.", permission: P.VIEW_TICKETING },
   "seat-allocation": { title: "Seat Allocation", subtitle: "Manual stored seat assignments, holds, and blocks.", permission: P.VIEW_TICKETING },
@@ -111,6 +112,9 @@ const INITIAL_FORM = {
   salesStatus: "Proposal in discussion",
   contractingStatus: "Proposal in progress",
   lostReason: "Price",
+  contractingLandCost: "",
+  contractingAirlinesCost: "",
+  contractingVisaCost: "",
   confirmedPax: "1",
   roomCount: "",
   tourManagerName: "",
@@ -487,13 +491,22 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         if (has(P.MANAGE_QUERIES)) {
           payload.salesStatus = form.salesStatus;
           payload.leadStage = form.leadStage;
-          payload.lostReason = form.salesStatus === "Order Lost" ? form.lostReason : undefined;
+          payload.lostReason =
+            form.salesStatus === "Order Lost" || form.contractingStatus === "Order Lost"
+              ? form.lostReason
+              : undefined;
         }
         if (has(P.MANAGE_CONTRACTING) && !has(P.MANAGE_QUERIES)) {
           payload.contractingStatus = form.contractingStatus;
+          payload.lostReason = form.contractingStatus === "Order Lost" ? form.lostReason : undefined;
         }
         if (has(P.MANAGE_CONTRACTING) && has(P.MANAGE_QUERIES)) {
           payload.contractingStatus = form.contractingStatus;
+        }
+        if (has(P.MANAGE_CONTRACTING)) {
+          payload.contractingLandCost = toNumber(form.contractingLandCost, 0);
+          payload.contractingAirlinesCost = toNumber(form.contractingAirlinesCost, 0);
+          payload.contractingVisaCost = toNumber(form.contractingVisaCost, 0);
         }
         await updateQueryStatus(payload);
       }
@@ -856,18 +869,23 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         />
       )}
       {view === "travellers" && <TravellersView rows={travellers || []} openModal={openModal} has={has} deleteItem={deleteItem} removeTraveller={removeTraveller} />}
-      {view === "visa" && (
-        <VisaView
-          rows={visas || []}
+      {view === "passport" && (
+        <PassportDocumentsView
           travellers={travellers || []}
-          openModal={openModal}
           has={has}
-          deleteItem={deleteItem}
-          removeVisa={removeVisa}
           generateUploadUrl={generateUploadUrl}
           encryptAndStorePassport={encryptAndStorePassport}
           getPassportDocument={getPassportDocument}
           removePassport={removePassport}
+        />
+      )}
+      {view === "visa" && (
+        <VisaTrackingView
+          rows={visas || []}
+          openModal={openModal}
+          has={has}
+          deleteItem={deleteItem}
+          removeVisa={removeVisa}
         />
       )}
       {view === "ticketing" && <TicketDashboardView summary={ticketDashboard} tickets={tickets || []} openModal={openModal} has={has} deleteItem={deleteItem} removeTicket={removeTicket} />}
@@ -1212,6 +1230,7 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToCo
           />
         )],
         ["Sales", (row) => row.salesOwnerName || "-"],
+        ["Notes", (row) => notesPreview(row.notes)],
         ["Source", (row) => row.source || "-"],
         ["Action", (row) => has(P.MANAGE_QUERIES) && (
           <motion.div className="flex flex-wrap gap-2">
@@ -1297,14 +1316,32 @@ function ContractingView({ rows, team, openModal, has, canAssign }) {
         ["Client", (row) => strong(row.clientName)],
         ["Sales Owner", (row) => row.salesOwnerName || "-"],
         ["Contracting Owner", (row) => row.contractingOwnerName || "Unassigned"],
+        ["Notes", (row) => notesPreview(row.notes)],
         ["Status", (row) => <Badge label={row.contractingStatus} tone={statusTone(row.contractingStatus)} />],
+        ["Total Cost", (row) => money(contractingTotalCost(row))],
+        ["Approx. Margin", (row) => {
+          const margin = contractingMargin(row);
+          return margin.budget > 0 ? `${money(margin.amount)} (${margin.percent}%)` : "-";
+        }],
         ["Action", (row) => (
           <div className="flex gap-2">
             {canAssign && (
               <button className="portal-small-btn" onClick={() => openModal("assignContracting", { queryId: row.id })}>Assign</button>
             )}
             {has(P.MANAGE_CONTRACTING) && (
-              <button className="portal-small-btn" onClick={() => openModal("queryStatus", { queryId: row.id, salesStatus: row.salesStatus, leadStage: row.leadStage || "Inquiry", contractingStatus: row.contractingStatus })}>Status</button>
+              <>
+                <button className="portal-small-btn" onClick={() => openModal("queryStatus", {
+                  queryId: row.id,
+                  salesStatus: row.salesStatus,
+                  leadStage: row.leadStage || "Inquiry",
+                  contractingStatus: row.contractingStatus,
+                  budgetAmount: String(row.budgetAmount || ""),
+                  contractingLandCost: String(row.contractingLandCost ?? ""),
+                  contractingAirlinesCost: String(row.contractingAirlinesCost ?? ""),
+                  contractingVisaCost: String(row.contractingVisaCost ?? ""),
+                })}>Status</button>
+                <DeleteButton label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />
+              </>
             )}
           </div>
         )],
@@ -1587,20 +1624,49 @@ function TravellersView({ rows, openModal, has, deleteItem, removeTraveller }) {
   );
 }
 
-function VisaView({
-  rows,
+function VisaTrackingView({ rows, openModal, has, deleteItem, removeVisa }) {
+  return (
+    <DataTable
+      rows={rows}
+      empty="No visa records yet."
+      columns={[
+        ["Traveller", (row) => strong(row.travellerName)],
+        ["Job", (row) => row.jobCode],
+        ["Hub", (row) => row.travelHub || "-"],
+        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+        ["Appointment", (row) => row.appointmentDate || "-"],
+        ["Notes", (row) => row.notes || "-"],
+        ["Action", (row) => has(P.MANAGE_VISA) && (
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="portal-small-btn"
+              onClick={() => openModal("visa", {
+                entityId: row.id,
+                visaRecordId: row.id,
+                visaStatus: row.status,
+                appointmentDate: row.appointmentDate,
+                notes: row.notes,
+              })}
+            >
+              Edit
+            </button>
+            <DeleteButton label={`${row.travellerName} visa`} onClick={() => deleteItem(`${row.travellerName} visa`, removeVisa, { visaRecordId: row.id })} />
+          </div>
+        )],
+      ]}
+    />
+  );
+}
+
+function PassportDocumentsView({
   travellers,
-  openModal,
   has,
-  deleteItem,
-  removeVisa,
   generateUploadUrl,
   encryptAndStorePassport,
   getPassportDocument,
   removePassport,
 }) {
-  const [activeTab, setActiveTab] = useState("passports"); // "visas" or "passports"
-  const [uploadTraveller, setUploadTraveller] = useState(null); // traveller object if uploading passport
+  const [uploadTraveller, setUploadTraveller] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [passportForm, setPassportForm] = useState({
@@ -1801,21 +1867,30 @@ function VisaView({
                         Delete Document
                       </button>
                     )}
-                  </>
-                ) : (
-                  has(P.MANAGE_VISA) && (
+                  </button>
+                  {has(P.MANAGE_VISA) && (
                     <button
-                      className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
-                      onClick={() => setUploadTraveller(row)}
+                      className="portal-small-btn border-red-200 text-red-600 hover:bg-red-50"
+                      onClick={() => handleDeletePassport(row.fullName, row.id)}
                     >
-                      Upload Passport Scan
+                      Delete Document
                     </button>
-                  )
-                )}
-              </div>
-            )],
-          ]}
-        />
+                  )}
+                </>
+              ) : (
+                has(P.MANAGE_VISA) && (
+                  <button
+                    className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
+                    onClick={() => setUploadTraveller(row)}
+                  >
+                    Upload Passport Scan
+                  </button>
+                )
+              )}
+            </div>
+          )],
+        ]}
+      />
       )}
 
       {/* Local Passport Upload Modal */}
@@ -2749,6 +2824,16 @@ function EntityModal({
                   onChange={(v) => updateForm("contractingStatus", v)}
                 />
               )}
+              {has(P.MANAGE_CONTRACTING) && (
+                <Select label="Lost Reason" value={form.lostReason} options={LOST_REASONS} onChange={(v) => updateForm("lostReason", v)} />
+              )}
+              {has(P.MANAGE_CONTRACTING) && (
+                <ContractingCostFields
+                  form={form}
+                  updateForm={updateForm}
+                  budgetAmount={form.budgetAmount}
+                />
+              )}
             </>}
             {modal === "proposal" && <>
               <Select label="Linked Query" value={form.queryId} options={[{ value: "", label: "Unlinked" }, ...queries.map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` }))]} onChange={handleProposalQuerySelect} />
@@ -3177,6 +3262,61 @@ function formatDate(value) {
 
 function money(value) {
   return `INR ${Number(value || 0).toLocaleString("en-IN")}`;
+}
+
+function notesPreview(value) {
+  const text = String(value || "").trim();
+  if (!text) return "-";
+  const short = text.length > 72 ? `${text.slice(0, 72)}…` : text;
+  return <span className="block max-w-[220px] truncate text-xs text-brand-muted" title={text}>{short}</span>;
+}
+
+function contractingTotalCost(rowOrForm) {
+  return (
+    Number(rowOrForm?.contractingLandCost || 0)
+    + Number(rowOrForm?.contractingAirlinesCost || 0)
+    + Number(rowOrForm?.contractingVisaCost || 0)
+  );
+}
+
+function contractingMargin(rowOrForm) {
+  const budget = Number(rowOrForm?.budgetAmount || 0);
+  const totalCost = contractingTotalCost(rowOrForm);
+  const amount = budget - totalCost;
+  const percent = budget > 0 ? Math.round((amount / budget) * 100) : 0;
+  return { budget, totalCost, amount, percent };
+}
+
+function ContractingCostFields({ form, updateForm, budgetAmount }) {
+  const margin = contractingMargin({
+    budgetAmount: budgetAmount ?? form.budgetAmount,
+    contractingLandCost: form.contractingLandCost,
+    contractingAirlinesCost: form.contractingAirlinesCost,
+    contractingVisaCost: form.contractingVisaCost,
+  });
+
+  return (
+    <>
+      <div className="md:col-span-2 rounded-xl border border-brand-border bg-brand-light/60 p-4">
+        <div className="mb-3 font-heading text-sm font-semibold text-citius-blue">Contracting cost & margin</div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Input label="Land Cost (INR)" type="number" value={form.contractingLandCost} onChange={(v) => updateForm("contractingLandCost", v)} />
+          <Input label="Airlines Cost (INR)" type="number" value={form.contractingAirlinesCost} onChange={(v) => updateForm("contractingAirlinesCost", v)} />
+          <Input label="Visa Cost (INR)" type="number" value={form.contractingVisaCost} onChange={(v) => updateForm("contractingVisaCost", v)} />
+          <div className="rounded-lg border border-brand-border bg-white px-3 py-2 text-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Total cost</div>
+            <div className="mt-1 font-semibold text-brand-dark">{money(margin.totalCost)}</div>
+          </div>
+          <div className="md:col-span-2 rounded-lg border border-brand-border bg-white px-3 py-2 text-sm">
+            <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Approximate margin</div>
+            <div className="mt-1 font-semibold text-brand-dark">
+              {margin.budget > 0 ? `${money(margin.amount)} (${margin.percent}% of query budget)` : "Add a query budget to calculate margin"}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }
 
 const MAX_QUERY_ATTACHMENT_BYTES = 15 * 1024 * 1024;

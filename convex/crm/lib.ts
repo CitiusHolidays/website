@@ -211,6 +211,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   HR: [
     P.VIEW_DASHBOARD,
+    P.MANAGE_STAFF,
     P.VIEW_TEAM,
     P.VIEW_LEAVE,
     P.MANAGE_LEAVE,
@@ -270,6 +271,34 @@ function isBootstrapAdmin(email: string) {
   return getBootstrapAdminEmails().includes(normalizeEmail(email));
 }
 
+async function resolveActiveStaff(
+  ctx: QueryCtx | MutationCtx,
+  identity: { subject: string; email?: string | null; name?: string | null },
+) {
+  if (identity.subject) {
+    const byAuth = await ctx.db
+      .query("staffUsers")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", identity.subject))
+      .unique();
+    if (byAuth?.active) {
+      return byAuth;
+    }
+  }
+
+  const email = normalizeEmail(identity.email);
+  if (email) {
+    const byEmail = await ctx.db
+      .query("staffUsers")
+      .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", email))
+      .unique();
+    if (byEmail?.active) {
+      return byEmail;
+    }
+  }
+
+  return null;
+}
+
 export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<PortalAccess> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
@@ -284,12 +313,9 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
   }
 
   const email = normalizeEmail(identity.email);
-  const staff = await ctx.db
-    .query("staffUsers")
-    .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", email))
-    .unique();
+  const staff = await resolveActiveStaff(ctx, identity);
 
-  if (staff?.active) {
+  if (staff) {
     const permissions = getRolePermissions(staff.roles);
     return {
       allowed: true,
@@ -528,13 +554,39 @@ export async function notifyRoles(
   }
 }
 
+const CODE_FIELD_BY_TABLE: Record<string, string> = {
+  jobCards: "jobCode",
+  queries: "queryCode",
+  proposals: "proposalCode",
+  approvalRequests: "requestCode",
+};
+
 export async function nextCode(
   ctx: QueryCtx | MutationCtx,
   tableName: any,
   prefix: string,
 ) {
-  const count = (await ctx.db.query(tableName).collect()).length + 1;
-  return `${prefix}-${String(count).padStart(4, "0")}`;
+  const codeField = CODE_FIELD_BY_TABLE[tableName];
+  const rows = await ctx.db.query(tableName).collect();
+  const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`^${escapedPrefix}-(\\d+)$`);
+  let max = 0;
+
+  for (const row of rows) {
+    const code =
+      codeField && typeof (row as Record<string, unknown>)[codeField] === "string"
+        ? ((row as Record<string, unknown>)[codeField] as string)
+        : null;
+    if (!code) {
+      continue;
+    }
+    const match = code.match(pattern);
+    if (match) {
+      max = Math.max(max, Number.parseInt(match[1], 10));
+    }
+  }
+
+  return `${prefix}-${String(max + 1).padStart(4, "0")}`;
 }
 
 export function paymentTermsFor(queryType: string) {
@@ -682,6 +734,9 @@ export function publicQuery(query: any) {
       ? new Date(query.submittedToContractingAt).toISOString()
       : null,
     notes: query.notes ?? "",
+    contractingLandCost: query.contractingLandCost ?? 0,
+    contractingAirlinesCost: query.contractingAirlinesCost ?? 0,
+    contractingVisaCost: query.contractingVisaCost ?? 0,
     confirmedAt: query.confirmedAt ? new Date(query.confirmedAt).toISOString() : null,
     createdAt: new Date(query.createdAt).toISOString(),
     updatedAt: new Date(query.updatedAt).toISOString(),
