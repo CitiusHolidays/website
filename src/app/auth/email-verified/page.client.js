@@ -38,7 +38,7 @@ export default function EmailVerifiedPageClient() {
               <div>
                 <p className="text-sm font-medium text-[#0B1026]">Check your inbox</p>
                 <p className="mt-1 text-sm font-light leading-relaxed text-[#64748b]">
-                  Open the password setup email from {BRAND_NAME}, then sign in to the staff portal once your
+                  Open the password setup email from {BRAND_NAME}, then sign in to Citius Connect once your
                   password is set.
                 </p>
               </div>
@@ -47,11 +47,11 @@ export default function EmailVerifiedPageClient() {
         </motion.div>
 
         <Link
-          href="/auth"
+          href="/auth/connect"
           className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#0B1026] px-4 py-4 text-lg font-medium text-white shadow-lg shadow-[#0B1026]/20 transition-all duration-300 hover:shadow-xl hover:shadow-[#0B1026]/30"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 transition-opacity group-hover:opacity-90" />
-          <span className="relative z-10">Go to sign in</span>
+          <span className="relative z-10">Go to Citius Connect</span>
           <ArrowRight className="relative z-10 h-5 w-5 transition-transform group-hover:translate-x-1" />
         </Link>
       </div>

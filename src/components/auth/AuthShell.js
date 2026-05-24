@@ -75,7 +75,7 @@ export default function AuthShell({ title, description, children }) {
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-heading mb-1 text-lg font-medium text-white">Staff Portal</h3>
+                <h3 className="font-heading mb-1 text-lg font-medium text-white">Citius Connect</h3>
                 <p className="text-sm font-light leading-relaxed text-white/60">
                   Access the {BRAND_NAME} CRM to manage enquiries, proposals, and job cards.
                 </p>

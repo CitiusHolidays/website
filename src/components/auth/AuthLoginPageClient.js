@@ -1,34 +1,45 @@
 'use client';
 
 import { useState } from 'react';
-import Link from "next/link"
+import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  ArrowRight, 
-  Mail, 
-  Lock, 
-  Eye, 
-  EyeOff, 
-  User, 
-  Sparkles, 
-  Compass, 
+import {
+  ArrowRight,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  User,
+  Sparkles,
+  Compass,
   Map as MapIcon,
-  Moon
 } from 'lucide-react';
 import { signInWithEmail, signUpWithEmail, signInWithGoogle } from '@/lib/auth-client';
+import { getAuthVariant } from '@/lib/auth-sign-in-targets';
 import { useMutation } from 'convex/react';
 import { api } from '@convex/_generated/api';
 import citiusLogo from '@/static/logos/logo.webp';
 import Image from 'next/image';
-export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '/', error }) {
+
+const HIGHLIGHT_ICONS = [Sparkles, MapIcon, Sparkles];
+
+export default function AuthLoginPageClient({
+  variantId = 'guest',
+  initialMode = 'signin',
+  error,
+}) {
+  const variant = getAuthVariant(variantId);
+  const copy = variant.copy;
   const router = useRouter();
   const syncAuthIdentity = useMutation(api.authSync.syncMyAuthIdentity);
-  const [mode, setMode] = useState(initialMode === 'signup' ? 'signup' : 'signin');
+  const [mode, setMode] = useState(
+    !variant.allowSignup ? 'signin' : initialMode === 'signup' ? 'signup' : 'signin',
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState(error || '');
-  
+
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -37,6 +48,9 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
   const [isVerificationSent, setIsVerificationSent] = useState(false);
 
   const toggleMode = () => {
+    if (!variant.allowSignup) {
+      return;
+    }
     setMode(mode === 'signin' ? 'signup' : 'signin');
     setFormError('');
   };
@@ -44,7 +58,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
@@ -59,7 +73,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
           email: formData.email,
           password: formData.password,
         });
-        
+
         if (result?.error) {
           setFormError(result.error.message || 'Failed to sign in');
         } else {
@@ -68,7 +82,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
           } catch (syncError) {
             console.error('Failed to sync auth identity after sign in:', syncError);
           }
-          router.push(callbackUrl);
+          router.push(variant.href);
           router.refresh();
         }
       } else {
@@ -77,7 +91,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
           password: formData.password,
           name: formData.name,
         });
-        
+
         if (result?.error) {
           const message = result.error.message || 'Failed to sign up';
           if (/already|exists|duplicate/i.test(message)) {
@@ -101,150 +115,136 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
-      await signInWithGoogle(callbackUrl);
+      await signInWithGoogle(variant.href);
     } catch (err) {
       setFormError('Failed to initialize Google sign in');
       setIsLoading(false);
     }
   };
 
-  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: { 
+    visible: {
       opacity: 1,
-      transition: { 
+      transition: {
         staggerChildren: 0.1,
-        delayChildren: 0.2
-      }
-    }
+        delayChildren: 0.2,
+      },
+    },
   };
 
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
-    visible: { 
-      y: 0, 
+    visible: {
+      y: 0,
       opacity: 1,
-      transition: { type: 'spring', stiffness: 100, damping: 10 }
-    }
+      transition: { type: 'spring', stiffness: 100, damping: 10 },
+    },
   };
 
+  const heroLines = copy.heroLines ?? [];
+
   return (
-    <div className={`min-h-screen w-full flex flex-col md:flex-row bg-[#FDFBF7]`}>
-      {/* Left Side - The Atmosphere (Hidden on mobile, or reduced) */}
-      <motion.div 
+    <div className="min-h-screen w-full flex flex-col md:flex-row bg-[#FDFBF7]">
+      <motion.div
         className="relative hidden md:flex w-full md:w-1/2 lg:w-5/12 bg-[#0B1026] text-[#FDFBF7] overflow-hidden flex-col justify-between p-12"
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
       >
-        {/* Abstract Background Elements */}
         <div className="absolute inset-0 z-0">
           <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-[#1a2c4e] via-[#0B1026] to-[#050814] opacity-80"></div>
           <div className="absolute bottom-[-20%] left-[-20%] w-[800px] h-[800px] rounded-full bg-[#1e293b] opacity-10 blur-3xl"></div>
           <div className="absolute top-[20%] right-[-10%] w-[400px] h-[400px] rounded-full bg-[#d4af37] opacity-5 blur-[100px]"></div>
-          
-          {/* Subtle noise texture overlay */}
           <div className="absolute inset-0 opacity-[0.03] mix-blend-overlay bg-[url('/noise.svg')]"></div>
         </div>
 
-        {/* Content */}
         <div className="relative z-10 h-full flex flex-col justify-between">
           <motion.div
-             initial={{ opacity: 0, y: 20 }}
-             animate={{ opacity: 1, y: 0 }}
-             transition={{ delay: 0.4 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
           >
             <div className="flex items-center gap-3 mb-2">
               <Image src={citiusLogo} alt="Citius Holidays" width={100} height={100} />
-              <span className="text-sm uppercase tracking-[0.2em] text-citius-orange">Citius Holidays</span>
+              <span className="text-sm uppercase tracking-[0.2em] text-citius-orange">{copy.brandLabel}</span>
             </div>
             <h1 className="font-heading text-5xl lg:text-6xl leading-[1.1] font-medium tracking-tight mt-6">
-              The Journey <br/>
-              <span className="italic text-citius-orange">Within</span> Begins <br/>
-              Here.
+              {heroLines.map((line, index) => (
+                <span key={index}>
+                  {typeof line === "string" ? (
+                    line
+                  ) : (
+                    <>
+                      <span className="italic text-citius-orange">{line.highlight}</span>
+                      {line.rest}
+                    </>
+                  )}
+                  {index < heroLines.length - 1 && <br />}
+                </span>
+              ))}
             </h1>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             className="space-y-8"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
           >
-            <div className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
-              <div className="p-2 rounded-lg bg-[#d4af37]/20 text-[#d4af37]">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-heading text-lg font-medium text-white mb-1">Curated Pilgrimages</h3>
-                <p className="text-white/60 text-sm font-light leading-relaxed">
-                  Discover destinations that speak to your soul, from the peaks of Kailash to the temples of Kyoto.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
-              <div className="p-2 rounded-lg bg-[#d4af37]/20 text-[#d4af37]">
-                <MapIcon className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-heading text-lg font-medium text-white mb-1">Seamless Exploration</h3>
-                <p className="text-white/60 text-sm font-light leading-relaxed">
-                  Let us handle the details while you focus on the experience. Expert guides, luxury stays, peace of mind.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm">
-              <div className="p-2 rounded-lg bg-[#d4af37]/20 text-[#d4af37]">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-heading text-lg font-medium text-white mb-1">Sales CRM</h3>
-                <p className="text-white/60 text-sm font-light leading-relaxed">
-                  Access your sales CRM to manage your enquiries, proposals, and job cards.
-                </p>
-              </div>
-            </div>
+            {copy.highlights.map((highlight, index) => {
+              const Icon = HIGHLIGHT_ICONS[index] ?? Sparkles;
+              return (
+                <div
+                  key={highlight.title}
+                  className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/10 backdrop-blur-sm"
+                >
+                  <div className="p-2 rounded-lg bg-[#d4af37]/20 text-[#d4af37]">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-heading text-lg font-medium text-white mb-1">{highlight.title}</h3>
+                    <p className="text-white/60 text-sm font-light leading-relaxed">
+                      {highlight.description}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </motion.div>
 
           <motion.div
-             initial={{ opacity: 0 }}
-             animate={{ opacity: 1 }}
-             transition={{ delay: 0.8 }}
-             className="text-xs text-white/30 font-light"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8 }}
+            className="text-xs text-white/30 font-light"
           >
             © {new Date().getFullYear()} Citius Holidays. All rights reserved.
           </motion.div>
         </div>
       </motion.div>
 
-      {/* Right Side - The Form */}
       <div className="w-full md:w-1/2 lg:w-7/12 flex items-center justify-center p-6 md:p-12 relative">
-        <motion.div 
+        <motion.div
           className="w-full max-w-md"
           initial="hidden"
           animate="visible"
           variants={containerVariants}
         >
-          {/* Mobile Header (visible only on small screens) */}
           <div className="md:hidden mb-8 text-center">
-             <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="flex items-center justify-center gap-2 mb-4">
               <Compass className="w-6 h-6 text-[#0B1026]" />
-              <span className="text-sm uppercase tracking-[0.2em] text-[#0B1026]">Citius Holidays</span>
+              <span className="text-sm uppercase tracking-[0.2em] text-[#0B1026]">{copy.brandLabel}</span>
             </div>
-            <h1 className="font-heading text-4xl text-[#0B1026]">Welcome</h1>
+            <h1 className="font-heading text-4xl text-[#0B1026]">{copy.mobileTitle}</h1>
           </div>
 
           <motion.div variants={itemVariants} className="mb-8">
             <h2 className="font-heading text-4xl md:text-5xl text-[#0B1026] mb-3">
-              {mode === 'signin' ? 'Welcome Back' : 'Join the Circle'}
+              {mode === 'signin' ? copy.signInTitle : copy.signUpTitle}
             </h2>
             <p className="text-[#0B1026]/60 font-light text-lg">
-              {mode === 'signin' 
-                ? 'Enter your details to access your journey.' 
-                : 'Begin your spiritual travel experience today.'}
+              {mode === 'signin' ? copy.signInSubtitle : copy.signUpSubtitle}
             </p>
           </motion.div>
 
@@ -276,9 +276,9 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
             </button>
 
             <div className="relative flex items-center py-2">
-              <div className="flex-grow border-t border-[#e2e8f0]"></div>
-              <span className="flex-shrink-0 mx-4 text-[#94a3b8] text-sm font-light uppercase tracking-wider">Or continue with</span>
-              <div className="flex-grow border-t border-[#e2e8f0]"></div>
+              <div className="grow border-t border-[#e2e8f0]"></div>
+              <span className="shrink-0 mx-4 text-[#94a3b8] text-sm font-light uppercase tracking-wider">Or continue with</span>
+              <div className="grow border-t border-[#e2e8f0]"></div>
             </div>
           </motion.div>
 
@@ -307,7 +307,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
             <>
               <form onSubmit={handleSubmit} className="space-y-5">
                 <AnimatePresence mode="wait">
-                  {mode === 'signup' && (
+                  {mode === 'signup' && variant.allowSignup && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -380,7 +380,7 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
                 </motion.div>
 
                 {formError && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm flex items-center gap-2"
@@ -400,23 +400,27 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 group-hover:opacity-90 transition-opacity" />
                   <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-10 mix-blend-overlay" />
-                  <span className="relative z-10">{isLoading ? 'Processing...' : (mode === 'signin' ? 'Sign In' : 'Create Account')}</span>
+                  <span className="relative z-10">
+                    {isLoading ? 'Processing...' : (mode === 'signin' ? copy.submitSignIn : copy.submitSignUp)}
+                  </span>
                   {!isLoading && <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />}
                 </motion.button>
               </form>
 
-              <motion.div variants={itemVariants} className="mt-8 text-center">
-                <p className="text-[#64748b]">
-                  {mode === 'signin' ? "Don't have an account?" : "Already have an account?"}
-                  <button
-                    onClick={toggleMode}
-                    className="ml-2 font-medium text-[#d4af37] hover:text-[#b5952f] transition-colors relative group"
-                  >
-                    {mode === 'signin' ? 'Sign up' : 'Sign in'}
-                    <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-[#d4af37] transition-all group-hover:w-full" />
-                  </button>
-                </p>
-              </motion.div>
+              {variant.allowSignup && (
+                <motion.div variants={itemVariants} className="mt-8 text-center">
+                  <p className="text-[#64748b]">
+                    {mode === 'signin' ? "Don't have an account?" : "Already have an account?"}
+                    <button
+                      onClick={toggleMode}
+                      className="ml-2 font-medium text-[#d4af37] hover:text-[#b5952f] transition-colors relative group"
+                    >
+                      {mode === 'signin' ? 'Sign up' : 'Sign in'}
+                      <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-[#d4af37] transition-all group-hover:w-full" />
+                    </button>
+                  </p>
+                </motion.div>
+              )}
             </>
           )}
         </motion.div>
@@ -424,7 +428,3 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
     </div>
   );
 }
-
-
-
-

@@ -89,7 +89,7 @@ export default function PortalShell({ access, user, children }) {
               />
               <span className="hidden h-5 w-px bg-brand-border sm:block" />
               <span className="hidden font-heading text-sm font-semibold tracking-wide text-citius-blue sm:inline">
-                Staff Portal
+                Citius Connect
               </span>
             </Link>
             <span className="hidden rounded-full bg-citius-orange px-3 py-1 text-[11px] font-semibold text-white md:inline-flex">

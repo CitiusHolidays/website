@@ -53,7 +53,7 @@ function ResetPasswordForm() {
           message: 'Password reset successful! You can now log in with your new password.',
         });
         setTimeout(() => {
-          router.push('/auth');
+          router.push('/auth/guest');
         }, 3000);
       }
     } catch (err) {
@@ -135,7 +135,7 @@ function ResetPasswordForm() {
       ) : (
         <div className="text-center">
           <Link
-            href="/auth"
+            href="/auth/guest"
             className="text-sm font-medium text-[#d4af37] transition-colors hover:text-[#b5952f]"
           >
             Redirecting to sign in...

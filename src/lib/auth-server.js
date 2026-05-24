@@ -3,6 +3,7 @@ import { fetchAction, fetchMutation, fetchQuery } from "convex/nextjs";
 import { anyApi } from "convex/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { getLoginUrlForCallback } from "@/lib/auth-sign-in-targets";
 
 const convexUrl =
   process.env.NEXT_PUBLIC_CONVEX_URL ?? "http://127.0.0.1:3210";
@@ -108,8 +109,7 @@ export async function getServerSession() {
   return { user, session: { user } };
 }
 
-const getLoginUrl = (callbackUrl) =>
-  callbackUrl ? `/auth?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/auth";
+const getLoginUrl = (callbackUrl) => getLoginUrlForCallback(callbackUrl || "/account");
 
 export async function requireAuth(callbackUrl) {
   const loginUrl = getLoginUrl(callbackUrl);

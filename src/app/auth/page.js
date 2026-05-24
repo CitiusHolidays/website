@@ -1,27 +1,5 @@
-import { redirect } from "next/navigation";
-import { getServerUser } from "@/lib/auth-server";
-import AuthPageClient from "./page.client";
+import { createLegacyAuthRedirect } from "@/lib/auth-login-pages";
 
-export const metadata = {
-  title: 'Sign In',
-  description: 'Sign in to your Citius Holidays account to manage your bookings and explore spiritual trails.',
-};
-
-export default async function AuthPage({ searchParams }) {
-  const params = await searchParams;
-  const callbackUrl = params?.callbackUrl || "/";
-  const user = await getServerUser().catch(() => null);
-
-  if (user) {
-    redirect(callbackUrl);
-  }
-
-  const error = params?.error;
-  const mode = params?.mode || "signin";
-
-  return <AuthPageClient initialMode={mode} callbackUrl={callbackUrl} error={error} />;
+export default function AuthPage({ searchParams }) {
+  return createLegacyAuthRedirect({ searchParams });
 }
-
-
-
-
