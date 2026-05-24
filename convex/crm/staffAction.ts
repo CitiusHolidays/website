@@ -60,30 +60,44 @@ async function findAuthUserByEmail(ctx: ActionCtx, email: string) {
       where: [{ field: "email", value: candidate }],
     });
     if (authUser && typeof authUser === "object" && "_id" in authUser) {
-      return authUser as { _id: string; emailVerified?: boolean };
+      return authUser as { _id: string; emailVerified?: boolean; email?: string };
     }
   }
   return null;
+}
+
+async function resolveCanonicalAuthUserId(
+  ctx: ActionCtx,
+  email: string,
+  fallbackId?: string,
+) {
+  const authUser = await findAuthUserByEmail(ctx, email);
+  if (authUser?._id) {
+    return String(authUser._id);
+  }
+  return fallbackId;
 }
 
 async function ensureStaffAuthLink(
   ctx: ActionCtx,
   staffId: Id<"staffUsers">,
   email: string,
+  name: string,
   authUserId?: string,
 ) {
-  if (authUserId) {
-    return authUserId;
-  }
-  const authUser = await findAuthUserByEmail(ctx, email);
-  if (!authUser?._id) {
+  const canonicalAuthUserId =
+    (await resolveCanonicalAuthUserId(ctx, email, authUserId)) ?? authUserId;
+  if (!canonicalAuthUserId) {
     return undefined;
   }
+
   await ctx.runMutation(internal.crm.staff.linkAuthUserId, {
     staffId,
-    authUserId: authUser._id,
+    authUserId: canonicalAuthUserId,
+    email,
+    name,
   });
-  return authUser._id;
+  return canonicalAuthUserId;
 }
 
 async function sendPasswordSetupEmail(
@@ -127,9 +141,20 @@ async function provisionStaffCore(
       return { ok: false, step: "error", message: "Failed to create auth user" };
     }
 
+    const authUserId = await resolveCanonicalAuthUserId(
+      ctx,
+      args.email,
+      result.user.id,
+    );
+    if (!authUserId) {
+      return { ok: false, step: "error", message: "Failed to resolve auth user" };
+    }
+
     await ctx.runMutation(internal.crm.staff.linkAuthUserId, {
       staffId: args.staffId,
-      authUserId: result.user.id,
+      authUserId,
+      email: args.email,
+      name: args.name,
     });
 
     await ctx.runMutation(internal.crm.staff.markPendingOnboarding, {
@@ -142,7 +167,7 @@ async function provisionStaffCore(
       await ctx.runMutation(internal.crm.staff.markPendingOnboarding, {
         staffId: args.staffId,
       });
-      await ensureStaffAuthLink(ctx, args.staffId, args.email);
+      await ensureStaffAuthLink(ctx, args.staffId, args.email, args.name);
 
       const authUser = await findAuthUserByEmail(ctx, args.email);
       if (authUser?.emailVerified) {
@@ -194,7 +219,13 @@ export const sendPasswordSetupAfterVerification = internalAction({
       return { sent: false, reason: "staff_not_pending" as const };
     }
 
-    await ensureStaffAuthLink(ctx, staff.staffId, staff.email, staff.authUserId);
+    await ensureStaffAuthLink(
+      ctx,
+      staff.staffId,
+      staff.email,
+      staff.name,
+      staff.authUserId,
+    );
 
     const auth = createAuth(ctx);
     const sent = await sendPasswordSetupEmail(auth, args.email);
@@ -256,6 +287,7 @@ export const startStaffOnboarding = action({
       ctx,
       staff.staffId,
       staff.email,
+      staff.name,
       staff.authUserId,
     );
 

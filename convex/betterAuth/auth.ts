@@ -146,6 +146,56 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       accountLinking: {
         enabled: true,
         trustedProviders: googleClientId ? ["google"] : [],
+        allowDifferentEmails: false,
+      },
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            if (!user.email) {
+              return;
+            }
+            try {
+              await requireRunMutationCtx(ctx).scheduler.runAfter(
+                0,
+                internal.authSync.syncFromIdentity,
+                {
+                  authUserId: user.id,
+                  email: user.email,
+                  name: user.name,
+                  image: user.image ?? undefined,
+                },
+              );
+            } catch (err) {
+              console.error("Failed to queue auth sync after user create:", err);
+            }
+          },
+        },
+      },
+      session: {
+        create: {
+          after: async (session) => {
+            try {
+              const authUser = await authComponent.getAnyUserById(ctx, session.userId);
+              if (!authUser?.email) {
+                return;
+              }
+              await requireRunMutationCtx(ctx).scheduler.runAfter(
+                0,
+                internal.authSync.syncFromIdentity,
+                {
+                  authUserId: session.userId,
+                  email: authUser.email,
+                  name: authUser.name,
+                  image: authUser.image ?? undefined,
+                },
+              );
+            } catch (err) {
+              console.error("Failed to queue auth sync after session create:", err);
+            }
+          },
+        },
       },
     },
     rateLimit: {

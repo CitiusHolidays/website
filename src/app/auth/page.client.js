@@ -17,10 +17,13 @@ import {
   Moon
 } from 'lucide-react';
 import { signInWithEmail, signUpWithEmail, signInWithGoogle } from '@/lib/auth-client';
+import { useMutation } from 'convex/react';
+import { api } from '@convex/_generated/api';
 import citiusLogo from '@/static/logos/logo.webp';
 import Image from 'next/image';
 export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '/', error }) {
   const router = useRouter();
+  const syncAuthIdentity = useMutation(api.authSync.syncMyAuthIdentity);
   const [mode, setMode] = useState(initialMode === 'signup' ? 'signup' : 'signin');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -60,6 +63,11 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
         if (result?.error) {
           setFormError(result.error.message || 'Failed to sign in');
         } else {
+          try {
+            await syncAuthIdentity({});
+          } catch (syncError) {
+            console.error('Failed to sync auth identity after sign in:', syncError);
+          }
           router.push(callbackUrl);
           router.refresh();
         }
@@ -71,7 +79,14 @@ export default function AuthPageClient({ initialMode = 'signin', callbackUrl = '
         });
         
         if (result?.error) {
-          setFormError(result.error.message || 'Failed to sign up');
+          const message = result.error.message || 'Failed to sign up';
+          if (/already|exists|duplicate/i.test(message)) {
+            setFormError(
+              'An account with this email already exists. Use Forgot password to set your password, or sign in with Google if you used it before.',
+            );
+          } else {
+            setFormError(message);
+          }
         } else {
           setIsVerificationSent(true);
         }

@@ -3,6 +3,7 @@ import { mutation, query } from "./_generated/server";
 import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import type { UserIdentity } from "convex/server";
+import { syncAuthRecords } from "./lib/authSync";
 
 const now = () => Date.now();
 const getIdentityImage = (identity: UserIdentity) =>
@@ -43,24 +44,19 @@ export const ensureMyProfile = mutation({
   args: {},
   handler: async (ctx) => {
     const identity = await getIdentityOrThrow(ctx);
-    const existing = await getProfileByAuthUserId(ctx, identity.subject);
+    await syncAuthRecords(ctx, {
+      authUserId: identity.subject,
+      email: identity.email ?? "",
+      name: identity.name ?? undefined,
+      image: getIdentityImage(identity) || undefined,
+    });
 
+    const existing = await getProfileByAuthUserId(ctx, identity.subject);
     if (existing) {
       return toApiUser(existing, identity);
     }
 
     const createdAt = now();
-    await ctx.db.insert("userProfiles", {
-      authUserId: identity.subject,
-      email: identity.email ?? "",
-      name: identity.name ?? "Traveler",
-      phoneNumber: "",
-      passportDetailsEncrypted: "",
-      image: getIdentityImage(identity),
-      createdAt,
-      updatedAt: createdAt,
-    });
-
     return {
       id: identity.subject,
       email: identity.email ?? "",
@@ -98,17 +94,20 @@ export const updateMyProfile = mutation({
     const updatedAt = now();
 
     if (!current) {
-      const createdAt = updatedAt;
-      await ctx.db.insert("userProfiles", {
+      await syncAuthRecords(ctx, {
         authUserId: identity.subject,
         email: identity.email ?? "",
         name: args.name,
-        phoneNumber: args.phoneNumber ?? "",
-        passportDetailsEncrypted: "",
-        image: getIdentityImage(identity),
-        createdAt,
-        updatedAt,
+        image: getIdentityImage(identity) || undefined,
       });
+      const created = await getProfileByAuthUserId(ctx, identity.subject);
+      if (created) {
+        await ctx.db.patch(created._id, {
+          name: args.name,
+          phoneNumber: args.phoneNumber ?? "",
+          updatedAt,
+        });
+      }
       return {
         id: identity.subject,
         email: identity.email ?? "",
@@ -116,7 +115,7 @@ export const updateMyProfile = mutation({
         phoneNumber: args.phoneNumber ?? "",
         image: getIdentityImage(identity) || null,
         passportDetailsEncrypted: "",
-        createdAt: new Date(createdAt).toISOString(),
+        createdAt: new Date(updatedAt).toISOString(),
         updatedAt: new Date(updatedAt).toISOString(),
       };
     }

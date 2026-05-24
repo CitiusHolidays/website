@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query, internalMutation, internalQuery } from "../_generated/server";
 import { internal } from "../_generated/api";
+import { syncAuthRecords } from "../lib/authSync";
 import {
   ALL_ROLES,
   PERMISSIONS,
@@ -201,11 +202,24 @@ export const linkAuthUserId = internalMutation({
   args: {
     staffId: v.id("staffUsers"),
     authUserId: v.string(),
+    email: v.optional(v.string()),
+    name: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const staff = await ctx.db.get(args.staffId);
+    if (!staff) {
+      return;
+    }
+
     await ctx.db.patch(args.staffId, {
       authUserId: args.authUserId,
       updatedAt: Date.now(),
+    });
+
+    await syncAuthRecords(ctx, {
+      authUserId: args.authUserId,
+      email: args.email ?? staff.email,
+      name: args.name ?? staff.name,
     });
   },
 });
@@ -257,6 +271,7 @@ export const getStaffPendingPasswordSetup = internalQuery({
     return {
       staffId: staff._id,
       email: staff.email,
+      name: staff.name,
       authUserId: staff.authUserId,
       pendingPasswordSetup: staff.pendingPasswordSetup ?? true,
     };
