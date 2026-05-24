@@ -2,10 +2,12 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import {
   PERMISSIONS,
+  canActAsLeaveHeadReviewer,
+  canHeadReview,
   createActivity,
   getHeadReviewerRolesForStaff,
-  hasRole,
-  isDirectorOrAdmin,
+  getLeaveApprovalActions,
+  isHrReviewer,
   notifyRoles,
   requireAnyPermission,
   requireStaff,
@@ -23,18 +25,6 @@ const leaveTypeValidator = v.union(
   v.literal("Privilege"),
   v.literal("Leave Without Pay"),
 );
-
-function isHrReviewer(access: any) {
-  return (
-    isDirectorOrAdmin(access) ||
-    hasRole(access, "HR") ||
-    access.permissions.includes(PERMISSIONS.MANAGE_LEAVE)
-  );
-}
-
-function canHeadReview(access: any, reviewerRole: string) {
-  return isDirectorOrAdmin(access) || hasRole(access, reviewerRole);
-}
 
 function canSeeLeave(access: any, leave: any, staff: any) {
   if (isHrReviewer(access)) {
@@ -79,6 +69,7 @@ export const list = query({
         hrReviewStatus: leave.hrReviewStatus ?? "Pending",
         hrReviewedByName: leave.hrReviewedByName ?? "",
         decisionNote: leave.decisionNote ?? "",
+        ...getLeaveApprovalActions(access, leave, staff),
         createdAt: new Date(leave.createdAt).toISOString(),
       });
     }
@@ -197,15 +188,32 @@ export const decide = mutation({
     const reviewerRole =
       leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR";
     const headStatus = leave.headReviewStatus ?? "Pending";
+    const hrStatus = leave.hrReviewStatus ?? "Pending";
+    const overallStatus = leave.status ?? "Pending";
     const note = args.decisionNote?.trim() || "";
 
+    if (overallStatus !== "Pending") {
+      throw new ConvexError("This leave request has already been decided");
+    }
+
+    const actions = getLeaveApprovalActions(access, leave, staff);
     const patch: Record<string, unknown> = { updatedAt: now };
     let stage = "hr_reviewed";
 
     if (headStatus !== "Approved") {
-      if (!canHeadReview(access, reviewerRole) && !isHrReviewer(access)) {
+      if (args.status === "Approved" && !actions.canApproveHead) {
+        throw new ConvexError("Department head approval is required before HR review");
+      }
+      if (args.status === "Rejected" && !actions.canReject) {
         throw new ConvexError("FORBIDDEN");
       }
+      if (!canActAsLeaveHeadReviewer(access, reviewerRole)) {
+        throw new ConvexError("FORBIDDEN");
+      }
+      if (headStatus !== "Pending") {
+        throw new ConvexError("Head review has already been completed");
+      }
+
       stage = "head_reviewed";
       patch.headReviewStatus = args.status;
       patch.headReviewedBy = access.authUserId;
@@ -216,7 +224,7 @@ export const decide = mutation({
         patch.status = "Rejected";
         patch.hrReviewStatus = "Rejected";
         patch.decisionNote = note;
-      } else if (isHrReviewer(access) && reviewerRole === "HR") {
+      } else if (reviewerRole === "HR") {
         patch.status = "Approved";
         patch.hrReviewStatus = "Approved";
         patch.hrReviewedBy = access.authUserId;
@@ -228,8 +236,11 @@ export const decide = mutation({
         patch.hrReviewStatus = "Pending";
       }
     } else {
-      if (!isHrReviewer(access)) {
+      if (!actions.canApproveHr && !actions.canReject) {
         throw new ConvexError("HR final approval is required");
+      }
+      if (hrStatus !== "Pending") {
+        throw new ConvexError("HR review has already been completed");
       }
       patch.hrReviewStatus = args.status;
       patch.hrReviewedBy = access.authUserId;

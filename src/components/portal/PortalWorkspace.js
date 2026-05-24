@@ -115,6 +115,7 @@ const INITIAL_FORM = {
   contractingLandCost: "",
   contractingAirlinesCost: "",
   contractingVisaCost: "",
+  approxMargin: "",
   confirmedPax: "1",
   roomCount: "",
   tourManagerName: "",
@@ -426,6 +427,10 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const attachProposalFile = useAction(api.crm.proposalAttachmentActions.attachFile);
   const getProposalAttachmentUrl = useAction(api.crm.proposalAttachmentActions.getDownloadUrl);
   const removeProposalAttachment = useAction(api.crm.proposalAttachmentActions.removeAttachment);
+  const generateFinalizedPdfUploadUrl = useAction(api.crm.proposalAttachmentActions.generateFinalizedPdfUploadUrl);
+  const attachFinalizedPdf = useAction(api.crm.proposalAttachmentActions.attachFinalizedPdf);
+  const getFinalizedPdfUrl = useAction(api.crm.proposalAttachmentActions.getFinalizedPdfUrl);
+  const removeFinalizedPdf = useAction(api.crm.proposalAttachmentActions.removeFinalizedPdf);
   const generateExpenseUploadUrl = useAction(api.crm.expenseAttachmentActions.generateUploadUrl);
   const attachExpenseProof = useAction(api.crm.expenseAttachmentActions.attachProof);
   const getExpenseAttachmentUrl = useAction(api.crm.expenseAttachmentActions.getDownloadUrl);
@@ -661,6 +666,16 @@ export default function PortalWorkspace({ view = "dashboard" }) {
             form.salesStatus === "Order Lost" || form.contractingStatus === "Order Lost"
               ? form.lostReason
               : undefined;
+          const confirmingNow = form.salesStatus === "Order Confirmed";
+          const queryRow = (queries || []).find((query) => query.id === form.queryId);
+          const alreadyConfirmed =
+            queryRow?.salesStatus === "Order Confirmed" ||
+            queryRow?.contractingStatus === "Order Confirmed";
+          if (confirmingNow || alreadyConfirmed) {
+            if (form.approxMargin !== "") {
+              payload.approxMargin = toNumber(form.approxMargin, 0);
+            }
+          }
         }
         if (has(P.MANAGE_CONTRACTING) && !has(P.MANAGE_QUERIES)) {
           payload.contractingStatus = form.contractingStatus;
@@ -1018,6 +1033,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
           deleteItem={deleteItem}
           removeProposal={removeProposal}
           getProposalAttachmentUrl={getProposalAttachmentUrl}
+          getFinalizedPdfUrl={getFinalizedPdfUrl}
         />
       )}
       {view === "accounts-job-cards" && (
@@ -1146,6 +1162,10 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         attachProposalFile={attachProposalFile}
         getProposalAttachmentUrl={getProposalAttachmentUrl}
         removeProposalAttachment={removeProposalAttachment}
+        generateFinalizedPdfUploadUrl={generateFinalizedPdfUploadUrl}
+        attachFinalizedPdf={attachFinalizedPdf}
+        getFinalizedPdfUrl={getFinalizedPdfUrl}
+        removeFinalizedPdf={removeFinalizedPdf}
         getExpenseAttachmentUrl={getExpenseAttachmentUrl}
         removeExpenseProof={removeExpenseProof}
         has={has}
@@ -1386,6 +1406,11 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToCo
         ["Destination", (row) => row.destination || "TBD"],
         ["Pax", (row) => row.paxCount],
         ["Budget", (row) => money(row.budgetAmount)],
+        ["Approx. Margin", (row) => (
+          isQueryConfirmed(row)
+            ? row.approxMargin != null ? money(row.approxMargin) : "-"
+            : "-"
+        )],
         ["Stage", (row) => <Badge label={row.leadStage || "Inquiry"} tone={statusTone(row.leadStage)} />],
         ["Type", (row) => <Badge label={row.queryType} tone="blue" />],
         ["Files", (row) => (
@@ -1425,7 +1450,13 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToCo
             <button type="button" className="portal-small-btn" onClick={() => submitToContracting({ queryId: row.id })}>
               Submit
             </button>
-            <button type="button" className="portal-small-btn" onClick={() => openModal("queryStatus", { queryId: row.id, salesStatus: row.salesStatus, leadStage: row.leadStage || "Inquiry", contractingStatus: row.contractingStatus })}>
+            <button type="button" className="portal-small-btn" onClick={() => openModal("queryStatus", {
+              queryId: row.id,
+              salesStatus: row.salesStatus,
+              leadStage: row.leadStage || "Inquiry",
+              contractingStatus: row.contractingStatus,
+              approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
+            })}>
               Update
             </button>
             <DeleteButton label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />
@@ -1486,10 +1517,11 @@ function ContractingView({ rows, team, openModal, has, canAssign }) {
         ["Notes", (row) => notesPreview(row.notes)],
         ["Status", (row) => <Badge label={row.contractingStatus} tone={statusTone(row.contractingStatus)} />],
         ["Total Cost", (row) => money(contractingTotalCost(row))],
-        ["Approx. Margin", (row) => {
-          const margin = contractingMargin(row);
-          return margin.budget > 0 ? `${money(margin.amount)} (${margin.percent}%)` : "-";
-        }],
+        ["Approx. Margin", (row) => (
+          isQueryConfirmed(row)
+            ? row.approxMargin != null ? money(row.approxMargin) : "-"
+            : "-"
+        )],
         ["Action", (row) => (
           <div className="flex gap-2">
             {canAssign && (
@@ -1506,6 +1538,7 @@ function ContractingView({ rows, team, openModal, has, canAssign }) {
                   contractingLandCost: String(row.contractingLandCost ?? ""),
                   contractingAirlinesCost: String(row.contractingAirlinesCost ?? ""),
                   contractingVisaCost: String(row.contractingVisaCost ?? ""),
+                  approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
                 })}>Status</button>
                 <DeleteButton label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />
               </>
@@ -1570,7 +1603,10 @@ function PipelineView({ rows, mode, setMode }) {
   );
 }
 
-function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, removeProposal, getProposalAttachmentUrl }) {
+function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, removeProposal, getProposalAttachmentUrl, getFinalizedPdfUrl }) {
+  const canSend = has(P.SEND_PROPOSALS) || has(P.MANAGE_PROPOSALS);
+  const canManage = has(P.MANAGE_PROPOSALS);
+
   return (
     <DataTable
       rows={rows}
@@ -1584,36 +1620,51 @@ function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, rem
         ["Airfare/Pax", (row) => money(row.airfarePerPax)],
         ["Selling", (row) => money(row.sellingPrice)],
         ["Cost", (row) => money(row.costPrice)],
-        ["Files", (row) => (
-          <QueryAttachmentSummary
-            attachments={row.attachments || []}
-            canManage={has(P.MANAGE_PROPOSALS)}
-            onManage={() => openModal("proposalAttachments", { proposalId: row.id, queryCode: row.proposalCode })}
-            getQueryAttachmentUrl={getProposalAttachmentUrl}
+        ["Finalized PDF", (row) => (
+          <FinalizedProposalPdfSummary
+            finalizedPdf={row.finalizedPdf}
+            canSend={canSend}
+            onManage={() => openModal("proposalFinalizedPdf", { proposalId: row.id, queryCode: row.proposalCode })}
+            onDownload={() => openFinalizedProposalPdf(row.id, getFinalizedPdfUrl)}
           />
         )],
+        ...(canManage ? [[
+          "Working Files",
+          (row) => (
+            <QueryAttachmentSummary
+              attachments={row.attachments || []}
+              canManage={canManage}
+              onManage={() => openModal("proposalAttachments", { proposalId: row.id, queryCode: row.proposalCode })}
+              getQueryAttachmentUrl={getProposalAttachmentUrl}
+            />
+          ),
+        ]] : []),
         ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-        ["Action", (row) => has(P.MANAGE_PROPOSALS) && (
+        ["Action", (row) => (canSend || canManage) && (
           <div className="flex flex-wrap gap-2">
-            {row.status !== "Sent" && (
+            {canSend && row.status !== "Sent" && (
               <button className="portal-small-btn" onClick={() => markProposalSent({ proposalId: row.id })}>
-                <Send size={13} /> Send
+                <Send size={13} /> Mark Sent
               </button>
             )}
-            <EditButton
-              onClick={() => openModal("proposal", {
-                entityId: row.id,
-                queryId: row.queryId || "",
-                clientName: row.clientName,
-                preparedBy: row.preparedBy,
-                landCostPerPax: String(row.landCostPerPax ?? ""),
-                airfarePerPax: String(row.airfarePerPax ?? ""),
-                sellingPrice: String(row.sellingPrice ?? ""),
-                costPrice: String(row.costPrice ?? ""),
-                itinerarySummary: row.itinerarySummary || "",
-              })}
-            />
-            <DeleteButton label={row.proposalCode} onClick={() => deleteItem(row.proposalCode, removeProposal, { proposalId: row.id })} />
+            {canManage && (
+              <EditButton
+                onClick={() => openModal("proposal", {
+                  entityId: row.id,
+                  queryId: row.queryId || "",
+                  clientName: row.clientName,
+                  preparedBy: row.preparedBy,
+                  landCostPerPax: String(row.landCostPerPax ?? ""),
+                  airfarePerPax: String(row.airfarePerPax ?? ""),
+                  sellingPrice: String(row.sellingPrice ?? ""),
+                  costPrice: String(row.costPrice ?? ""),
+                  itinerarySummary: row.itinerarySummary || "",
+                })}
+              />
+            )}
+            {canManage && (
+              <DeleteButton label={row.proposalCode} onClick={() => deleteItem(row.proposalCode, removeProposal, { proposalId: row.id })} />
+            )}
           </div>
         )],
       ]}
@@ -2586,6 +2637,12 @@ function TeamView({ rows }) {
 }
 
 function ActivityView({ activity, notifications, deleteItem, removeNotification }) {
+  const markAllNotificationsRead = useMutation(api.crm.activity.markAllNotificationsRead);
+
+  useEffect(() => {
+    markAllNotificationsRead({}).catch(() => {});
+  }, [markAllNotificationsRead]);
+
   return (
     <div className="grid gap-5 xl:grid-cols-2">
       <Panel title="Activity log">
@@ -2619,7 +2676,19 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
   const rejectedCount = rows.filter((r) => r.status === "Rejected").length;
   const upcomingCount = rows.filter((r) => r.status === "Approved" && r.startDate > today).length;
   const canManageLeave = has(P.MANAGE_LEAVE);
-  const canApproveLeave = has(P.APPROVE_LEAVE);
+  const [decidingLeaveId, setDecidingLeaveId] = useState(null);
+
+  const handleLeaveDecision = async (leaveId, status) => {
+    if (decidingLeaveId) {
+      return;
+    }
+    setDecidingLeaveId(leaveId);
+    try {
+      await decideLeave({ leaveId, status });
+    } finally {
+      setDecidingLeaveId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -2644,11 +2713,36 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
           ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
           ["Action", (row) => (
             <div className="flex flex-wrap gap-2">
-              {canApproveLeave && row.status === "Pending" && (
-                <>
-                  <button className="portal-small-btn" onClick={() => decideLeave({ leaveId: row.id, status: "Approved" })}>Approve</button>
-                  <button className="portal-danger-btn" onClick={() => decideLeave({ leaveId: row.id, status: "Rejected" })}>Reject</button>
-                </>
+              {row.canApproveHead && (
+                <button
+                  className="portal-small-btn"
+                  disabled={decidingLeaveId === row.id}
+                  onClick={() => handleLeaveDecision(row.id, "Approved")}
+                >
+                  {decidingLeaveId === row.id
+                    ? "Saving..."
+                    : row.headReviewerRole === "HR"
+                      ? "Approve"
+                      : "Approve (Head)"}
+                </button>
+              )}
+              {row.canApproveHr && (
+                <button
+                  className="portal-small-btn"
+                  disabled={decidingLeaveId === row.id}
+                  onClick={() => handleLeaveDecision(row.id, "Approved")}
+                >
+                  {decidingLeaveId === row.id ? "Saving..." : "Approve (HR)"}
+                </button>
+              )}
+              {row.canReject && (
+                <button
+                  className="portal-danger-btn"
+                  disabled={decidingLeaveId === row.id}
+                  onClick={() => handleLeaveDecision(row.id, "Rejected")}
+                >
+                  Reject
+                </button>
               )}
               {(canManageLeave || (access?.staffId === row.staffId && row.status === "Pending")) && (
                 <button
@@ -2791,6 +2885,10 @@ function EntityModal({
   attachProposalFile,
   getProposalAttachmentUrl,
   removeProposalAttachment,
+  generateFinalizedPdfUploadUrl,
+  attachFinalizedPdf,
+  getFinalizedPdfUrl,
+  removeFinalizedPdf,
   getExpenseAttachmentUrl,
   removeExpenseProof,
   has,
@@ -2885,7 +2983,8 @@ function EntityModal({
     ? {
         query: form.entityId ? "Edit Query" : "New Query / Enquiry",
         queryAttachments: `Attachments — ${form.queryCode || "Query"}`,
-        proposalAttachments: `Proposal Files — ${form.queryCode || "Proposal"}`,
+        proposalAttachments: `Working Files — ${form.queryCode || "Proposal"}`,
+        proposalFinalizedPdf: `Finalized Proposal PDF — ${form.queryCode || "Proposal"}`,
         assignContracting: "Assign Contracting Owner",
         assignContractingOwner: "Assign Contracting Job Owner",
         assignOperationsOwner: "Assign Operations Owner",
@@ -2976,11 +3075,24 @@ function EntityModal({
                   idField="proposalId"
                   attachments={(proposals.find((proposal) => proposal.id === form.proposalId)?.attachments) || []}
                   canManage={has(P.MANAGE_PROPOSALS)}
-                  uploadLabel="Upload Proposal File"
+                  uploadLabel="Upload Working File"
                   generateQueryUploadUrl={generateProposalUploadUrl}
                   attachQueryFile={attachProposalFile}
                   getQueryAttachmentUrl={getProposalAttachmentUrl}
                   removeQueryAttachment={removeProposalAttachment}
+                />
+              </div>
+            )}
+            {modal === "proposalFinalizedPdf" && (
+              <div className="md:col-span-2">
+                <FinalizedProposalPdfPanel
+                  proposalId={form.proposalId}
+                  finalizedPdf={(proposals.find((proposal) => proposal.id === form.proposalId)?.finalizedPdf) || null}
+                  canSend={has(P.SEND_PROPOSALS) || has(P.MANAGE_PROPOSALS)}
+                  generateFinalizedPdfUploadUrl={generateFinalizedPdfUploadUrl}
+                  attachFinalizedPdf={attachFinalizedPdf}
+                  getFinalizedPdfUrl={getFinalizedPdfUrl}
+                  removeFinalizedPdf={removeFinalizedPdf}
                 />
               </div>
             )}
@@ -3019,6 +3131,15 @@ function EntityModal({
                   <Select label="Sales Status" value={form.salesStatus} options={SALES_STATUSES} onChange={(v) => updateForm("salesStatus", v)} />
                   <Select label="Lead Stage" value={form.leadStage} options={LEAD_STAGES} onChange={(v) => updateForm("leadStage", v)} />
                   <Select label="Lost Reason" value={form.lostReason} options={LOST_REASONS} onChange={(v) => updateForm("lostReason", v)} />
+                  {(form.salesStatus === "Order Confirmed" || isQueryConfirmed(form)) && (
+                    <Input
+                      label="Approx. Margin (INR)"
+                      type="number"
+                      value={form.approxMargin}
+                      onChange={(v) => updateForm("approxMargin", v)}
+                      placeholder="Enter margin after confirmation"
+                    />
+                  )}
                 </>
               )}
               {has(P.MANAGE_CONTRACTING) && (
@@ -3036,7 +3157,6 @@ function EntityModal({
                 <ContractingCostFields
                   form={form}
                   updateForm={updateForm}
-                  budgetAmount={form.budgetAmount}
                 />
               )}
             </>}
@@ -3207,9 +3327,9 @@ function EntityModal({
         </div>
         <div className="flex justify-end gap-3 border-t border-brand-border px-5 py-4">
           <button type="button" onClick={close} className="portal-outline-btn">
-            {["queryAttachments", "proposalAttachments"].includes(modal) ? "Close" : "Cancel"}
+            {["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(modal) ? "Close" : "Cancel"}
           </button>
-          {!["queryAttachments", "proposalAttachments"].includes(modal) && (
+          {!["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(modal) && (
             <button type="submit" disabled={isSaving} className="portal-primary-btn disabled:opacity-60">
               {isSaving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
               Save
@@ -3484,39 +3604,27 @@ function contractingTotalCost(rowOrForm) {
   );
 }
 
-function contractingMargin(rowOrForm) {
-  const budget = Number(rowOrForm?.budgetAmount || 0);
-  const totalCost = contractingTotalCost(rowOrForm);
-  const amount = budget - totalCost;
-  const percent = budget > 0 ? Math.round((amount / budget) * 100) : 0;
-  return { budget, totalCost, amount, percent };
+function isQueryConfirmed(rowOrForm) {
+  return (
+    rowOrForm?.salesStatus === "Order Confirmed" ||
+    rowOrForm?.contractingStatus === "Order Confirmed"
+  );
 }
 
-function ContractingCostFields({ form, updateForm, budgetAmount }) {
-  const margin = contractingMargin({
-    budgetAmount: budgetAmount ?? form.budgetAmount,
-    contractingLandCost: form.contractingLandCost,
-    contractingAirlinesCost: form.contractingAirlinesCost,
-    contractingVisaCost: form.contractingVisaCost,
-  });
+function ContractingCostFields({ form, updateForm }) {
+  const totalCost = contractingTotalCost(form);
 
   return (
     <>
       <div className="md:col-span-2 rounded-xl border border-brand-border bg-brand-light/60 p-4">
-        <div className="mb-3 font-heading text-sm font-semibold text-citius-blue">Contracting cost & margin</div>
+        <div className="mb-3 font-heading text-sm font-semibold text-citius-blue">Contracting cost</div>
         <div className="grid gap-3 md:grid-cols-2">
           <Input label="Land Cost (INR)" type="number" value={form.contractingLandCost} onChange={(v) => updateForm("contractingLandCost", v)} />
           <Input label="Airlines Cost (INR)" type="number" value={form.contractingAirlinesCost} onChange={(v) => updateForm("contractingAirlinesCost", v)} />
           <Input label="Visa Cost (INR)" type="number" value={form.contractingVisaCost} onChange={(v) => updateForm("contractingVisaCost", v)} />
           <div className="rounded-lg border border-brand-border bg-white px-3 py-2 text-sm">
             <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Total cost</div>
-            <div className="mt-1 font-semibold text-brand-dark">{money(margin.totalCost)}</div>
-          </div>
-          <div className="md:col-span-2 rounded-lg border border-brand-border bg-white px-3 py-2 text-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Approximate margin</div>
-            <div className="mt-1 font-semibold text-brand-dark">
-              {margin.budget > 0 ? `${money(margin.amount)} (${margin.percent}% of query budget)` : "Add a query budget to calculate margin"}
-            </div>
+            <div className="mt-1 font-semibold text-brand-dark">{money(totalCost)}</div>
           </div>
         </div>
       </div>
@@ -3607,6 +3715,175 @@ async function openQueryAttachment(attachmentId, getQueryAttachmentUrl) {
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+async function openFinalizedProposalPdf(proposalId, getFinalizedPdfUrl) {
+  const result = await getFinalizedPdfUrl({ proposalId });
+  if (!result) {
+    throw new Error("No finalized proposal PDF uploaded yet.");
+  }
+  const link = document.createElement("a");
+  link.href = result.url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.download = result.fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, onDownload }) {
+  if (!finalizedPdf) {
+    return canSend ? (
+      <button type="button" className="portal-small-btn" onClick={onManage}>
+        Upload PDF
+      </button>
+    ) : (
+      <span className="text-xs text-brand-muted">Not uploaded</span>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        type="button"
+        className="inline-flex max-w-[180px] items-center gap-1 truncate text-left text-xs font-medium text-citius-blue hover:underline"
+        onClick={() => onDownload().catch((err) => {
+          alert(err?.data || err?.message || "Unable to open file.");
+        })}
+      >
+        <FileText size={12} className="shrink-0" />
+        <span className="truncate">{finalizedPdf.fileName}</span>
+      </button>
+      {finalizedPdf.uploadedAt && (
+        <span className="text-[11px] text-brand-muted">{formatDate(finalizedPdf.uploadedAt)}</span>
+      )}
+      {canSend && (
+        <button type="button" className="portal-small-btn mt-1 w-fit" onClick={onManage}>
+          Replace PDF
+        </button>
+      )}
+    </div>
+  );
+}
+
+function FinalizedProposalPdfPanel({
+  proposalId,
+  finalizedPdf,
+  canSend,
+  generateFinalizedPdfUploadUrl,
+  attachFinalizedPdf,
+  getFinalizedPdfUrl,
+  removeFinalizedPdf,
+}) {
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  const handleUpload = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !proposalId) return;
+
+    if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
+      setUploadError(`${file.name} exceeds the 15 MB limit.`);
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError("");
+    try {
+      const uploadUrl = await generateFinalizedPdfUploadUrl({});
+      const uploadRes = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/pdf" },
+        body: file,
+      });
+      if (!uploadRes.ok) {
+        throw new Error(`Failed to upload ${file.name}.`);
+      }
+      const { storageId } = await uploadRes.json();
+      await attachFinalizedPdf({
+        proposalId,
+        storageId,
+        fileName: file.name,
+        mimeType: file.type || "application/pdf",
+        fileSize: file.size,
+      });
+    } catch (err) {
+      setUploadError(err?.data || err?.message || "Upload failed.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!window.confirm("Remove the finalized proposal PDF?")) return;
+    try {
+      await removeFinalizedPdf({ proposalId });
+    } catch (err) {
+      alert(err?.data || err?.message || "Unable to remove file.");
+    }
+  };
+
+  return (
+    <motion.div className="space-y-4">
+      <p className="text-sm text-brand-muted">
+        Upload the client-ready proposal PDF here. Sales can download it and send it to the client, then mark the proposal as sent.
+      </p>
+      {canSend && (
+        <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
+          <label htmlFor="finalized-proposal-pdf-upload" className="mb-2 block text-sm font-medium text-brand-text">
+            {finalizedPdf ? "Replace Finalized Proposal PDF" : "Upload Finalized Proposal PDF"}
+          </label>
+          <p className="mb-3 text-xs text-brand-muted">PDF only, up to 15 MB.</p>
+          <input
+            id="finalized-proposal-pdf-upload"
+            type="file"
+            accept=".pdf,application/pdf"
+            disabled={isUploading}
+            className="block w-full text-sm text-brand-text file:mr-3 file:rounded-full file:border-0 file:bg-citius-orange file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
+            onChange={handleUpload}
+          />
+          {isUploading && (
+            <p className="mt-2 flex items-center gap-2 text-sm text-brand-muted">
+              <Loader2 className="animate-spin" size={14} />
+              Uploading…
+            </p>
+          )}
+          {uploadError && <p className="mt-2 text-sm text-red-600">{uploadError}</p>}
+        </div>
+      )}
+
+      {!finalizedPdf ? (
+        <p className="text-sm text-brand-muted">No finalized proposal PDF uploaded yet.</p>
+      ) : (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-brand-border bg-white px-4 py-3">
+          <div className="min-w-0">
+            <div className="truncate font-medium text-brand-text">{finalizedPdf.fileName}</div>
+            {finalizedPdf.uploadedAt && (
+              <div className="text-xs text-brand-muted">Uploaded {formatDate(finalizedPdf.uploadedAt)}</div>
+            )}
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              className="portal-small-btn"
+              onClick={() => openFinalizedProposalPdf(proposalId, getFinalizedPdfUrl).catch((err) => {
+                alert(err?.data || err?.message || "Unable to open file.");
+              })}
+            >
+              Download
+            </button>
+            {canSend && (
+              <button type="button" className="portal-danger-btn" onClick={handleRemove}>
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
 }
 
 function QueryAttachmentSummary({ attachments, canManage, onManage, getQueryAttachmentUrl }) {

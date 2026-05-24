@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useConvexAuth, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   Bell,
@@ -28,8 +28,18 @@ export default function PortalShell({ access, user, children }) {
     api.crm.activity.listNotifications,
     isAuthenticated && access?.allowed ? { limit: 8 } : "skip",
   );
+  const markAllNotificationsRead = useMutation(api.crm.activity.markAllNotificationsRead);
   const navGroups = useMemo(() => getAccessibleNavGroups(access), [access]);
   const unreadCount = (notifications || []).filter((item) => !item.readAt).length;
+
+  const toggleNotifications = () => {
+    setNotificationsOpen((open) => {
+      if (!open) {
+        markAllNotificationsRead({}).catch(() => {});
+      }
+      return !open;
+    });
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -92,7 +102,7 @@ export default function PortalShell({ access, user, children }) {
               <div className="relative shrink-0">
                 <button
                   type="button"
-                  onClick={() => setNotificationsOpen((open) => !open)}
+                  onClick={toggleNotifications}
                   className="relative grid h-9 w-9 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition hover:text-citius-blue"
                   aria-label="Open notifications"
                 >

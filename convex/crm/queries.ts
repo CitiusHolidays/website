@@ -367,6 +367,7 @@ export const updateStatus = mutation({
     contractingLandCost: v.optional(v.number()),
     contractingAirlinesCost: v.optional(v.number()),
     contractingVisaCost: v.optional(v.number()),
+    approxMargin: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const access = await requireAnyPermission(ctx, [
@@ -442,6 +443,22 @@ export const updateStatus = mutation({
     }
     if (args.contractingVisaCost !== undefined) {
       patch.contractingVisaCost = Math.max(args.contractingVisaCost, 0);
+    }
+
+    const willBeConfirmed =
+      args.salesStatus === "Order Confirmed" ||
+      args.contractingStatus === "Order Confirmed" ||
+      current.salesStatus === "Order Confirmed" ||
+      current.contractingStatus === "Order Confirmed";
+
+    if (args.approxMargin !== undefined) {
+      if (!willBeConfirmed) {
+        throw new ConvexError("Approximate margin can only be entered after the query is confirmed");
+      }
+      if (!access.permissions.includes(PERMISSIONS.MANAGE_QUERIES)) {
+        throw new ConvexError("Only Sales can enter approximate margin");
+      }
+      patch.approxMargin = Math.max(args.approxMargin, 0);
     }
 
     await ctx.db.patch(queryId, patch);

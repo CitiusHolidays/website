@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
   PERMISSIONS,
@@ -14,6 +14,16 @@ import {
   requireStaff,
 } from "./lib";
 import { publicProposalAttachment } from "./proposalAttachments";
+
+const publicFinalizedPdf = (proposal: any) =>
+  proposal.finalizedPdfStorageId
+    ? {
+        fileName: proposal.finalizedPdfFileName ?? "proposal.pdf",
+        uploadedAt: proposal.finalizedPdfUploadedAt
+          ? new Date(proposal.finalizedPdfUploadedAt).toISOString()
+          : null,
+      }
+    : null;
 
 const publicProposal = (proposal: any, linkedQuery: any, attachments: any[] = []) => ({
   id: proposal._id,
@@ -34,6 +44,7 @@ const publicProposal = (proposal: any, linkedQuery: any, attachments: any[] = []
   attachments: attachments
     .sort((a, b) => b.createdAt - a.createdAt)
     .map(publicProposalAttachment),
+  finalizedPdf: publicFinalizedPdf(proposal),
   sentAt: proposal.sentAt ? new Date(proposal.sentAt).toISOString() : null,
   createdAt: new Date(proposal.createdAt).toISOString(),
   updatedAt: new Date(proposal.updatedAt).toISOString(),
@@ -208,6 +219,7 @@ export const markSent = mutation({
     const access = await requireAnyPermission(ctx, [
       PERMISSIONS.MANAGE_PROPOSALS,
       PERMISSIONS.MANAGE_CONTRACTING,
+      PERMISSIONS.SEND_PROPOSALS,
     ]);
     const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
     if (!proposalId) {
@@ -271,6 +283,9 @@ export const remove = mutation({
       internal.crm.proposalAttachments.deleteAllForProposal,
       { proposalId },
     );
+    if (proposal.finalizedPdfStorageId) {
+      storageIds.push(proposal.finalizedPdfStorageId);
+    }
     for (const storageId of storageIds) {
       try {
         await ctx.storage.delete(storageId);
@@ -287,5 +302,80 @@ export const remove = mutation({
     await deleteEntityNotifications(ctx, "proposal", proposalId);
     await ctx.db.delete(proposalId);
     return { id: proposalId };
+  },
+});
+
+export const saveFinalizedPdf = internalMutation({
+  args: {
+    proposalId: v.id("proposals"),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    uploadedBy: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const proposal = await ctx.db.get(args.proposalId);
+    if (!proposal) {
+      throw new ConvexError("Proposal not found");
+    }
+    const now = Date.now();
+    const previousStorageId = proposal.finalizedPdfStorageId;
+    await ctx.db.patch(args.proposalId, {
+      finalizedPdfStorageId: args.storageId,
+      finalizedPdfFileName: args.fileName.trim() || "proposal.pdf",
+      finalizedPdfUploadedAt: now,
+      finalizedPdfUploadedBy: args.uploadedBy,
+      updatedAt: now,
+    });
+    return { previousStorageId: previousStorageId ?? null };
+  },
+});
+
+export const clearFinalizedPdf = internalMutation({
+  args: {
+    proposalId: v.id("proposals"),
+  },
+  handler: async (ctx, args) => {
+    const proposal = await ctx.db.get(args.proposalId);
+    if (!proposal) {
+      throw new ConvexError("Proposal not found");
+    }
+    const previousStorageId = proposal.finalizedPdfStorageId ?? null;
+    await ctx.db.patch(args.proposalId, {
+      finalizedPdfStorageId: undefined,
+      finalizedPdfFileName: undefined,
+      finalizedPdfUploadedAt: undefined,
+      finalizedPdfUploadedBy: undefined,
+      updatedAt: Date.now(),
+    });
+    return { previousStorageId };
+  },
+});
+
+export const getFinalizedPdfRecord = query({
+  args: {
+    proposalId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
+    if (!proposalId) {
+      return null;
+    }
+    const proposal = await ctx.db.get(proposalId);
+    if (!proposal || !proposal.finalizedPdfStorageId) {
+      return null;
+    }
+    const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.VIEW_PROPOSALS,
+      PERMISSIONS.MANAGE_JOB_CARDS,
+    ]);
+    if (!canSeeProposalRecord(access, proposal, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    return {
+      proposalId,
+      storageId: proposal.finalizedPdfStorageId,
+      fileName: proposal.finalizedPdfFileName ?? "proposal.pdf",
+    };
   },
 });

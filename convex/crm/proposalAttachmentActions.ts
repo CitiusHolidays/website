@@ -32,6 +32,18 @@ function canManageProposalFiles(access: any) {
   );
 }
 
+function canSendProposalFiles(access: any) {
+  return (
+    access?.allowed &&
+    (canManageProposalFiles(access) ||
+      access.permissions.includes(PERMISSIONS.SEND_PROPOSALS))
+  );
+}
+
+function isPdfMimeType(mimeType: string) {
+  return mimeType.trim().toLowerCase().startsWith("application/pdf");
+}
+
 export const generateUploadUrl = action({
   args: {},
   handler: async (ctx) => {
@@ -176,6 +188,158 @@ export const removeAttachment = action({
         await ctx.storage.delete(storageId);
       } catch (err) {
         console.error("Failed to delete proposal attachment from storage:", err);
+      }
+    }
+
+    return { success: true };
+  },
+});
+
+export const generateFinalizedPdfUploadUrl = action({
+  args: {},
+  handler: async (ctx) => {
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    if (!canSendProposalFiles(access)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const attachFinalizedPdf = action({
+  args: {
+    proposalId: v.string(),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    mimeType: v.string(),
+    fileSize: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    if (!canSendProposalFiles(access)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+
+    await ctx.runQuery(api.crm.proposalAttachments.verifyProposalAccess, {
+      proposalId: args.proposalId,
+    });
+
+    const normalizedProposalId = await ctx.runMutation(
+      internal.crm.proposalAttachments.resolveProposalId,
+      { proposalId: args.proposalId },
+    );
+
+    if (!isPdfMimeType(args.mimeType)) {
+      try {
+        await ctx.storage.delete(args.storageId);
+      } catch {
+        // ignore cleanup errors
+      }
+      throw new ConvexError("Only PDF files can be uploaded as the finalized proposal.");
+    }
+
+    if (args.fileSize < 1 || args.fileSize > MAX_FILE_BYTES) {
+      try {
+        await ctx.storage.delete(args.storageId);
+      } catch {
+        // ignore cleanup errors
+      }
+      throw new ConvexError("The PDF must be between 1 byte and 15 MB.");
+    }
+
+    const blob = await ctx.storage.get(args.storageId);
+    if (!blob) {
+      throw new ConvexError("Uploaded file not found in storage");
+    }
+
+    const { previousStorageId } = await ctx.runMutation(
+      internal.crm.proposals.saveFinalizedPdf,
+      {
+        proposalId: normalizedProposalId,
+        storageId: args.storageId,
+        fileName: args.fileName.trim() || "proposal.pdf",
+        uploadedBy: access.authUserId || "unknown",
+      },
+    );
+
+    if (previousStorageId) {
+      try {
+        await ctx.storage.delete(previousStorageId);
+      } catch (err) {
+        console.error("Failed to delete previous finalized proposal PDF:", err);
+      }
+    }
+
+    return { success: true };
+  },
+});
+
+export const getFinalizedPdfUrl = action({
+  args: {
+    proposalId: v.string(),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ url: string; fileName: string } | null> => {
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    const canView =
+      access?.allowed &&
+      (access.permissions.includes(PERMISSIONS.VIEW_PROPOSALS) ||
+        access.permissions.includes(PERMISSIONS.VIEW_CONTRACTING) ||
+        access.permissions.includes(PERMISSIONS.VIEW_QUERIES));
+    if (!canView) {
+      throw new ConvexError("FORBIDDEN");
+    }
+
+    const record = await ctx.runQuery(api.crm.proposals.getFinalizedPdfRecord, {
+      proposalId: args.proposalId,
+    });
+    if (!record) {
+      return null;
+    }
+
+    const url: string | null = await ctx.storage.getUrl(record.storageId);
+    if (!url) {
+      throw new ConvexError("File is no longer available");
+    }
+
+    return {
+      url,
+      fileName: record.fileName,
+    };
+  },
+});
+
+export const removeFinalizedPdf = action({
+  args: {
+    proposalId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    if (!canSendProposalFiles(access)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+
+    await ctx.runQuery(api.crm.proposalAttachments.verifyProposalAccess, {
+      proposalId: args.proposalId,
+    });
+
+    const normalizedProposalId = await ctx.runMutation(
+      internal.crm.proposalAttachments.resolveProposalId,
+      { proposalId: args.proposalId },
+    );
+
+    const { previousStorageId } = await ctx.runMutation(
+      internal.crm.proposals.clearFinalizedPdf,
+      { proposalId: normalizedProposalId },
+    );
+
+    if (previousStorageId) {
+      try {
+        await ctx.storage.delete(previousStorageId);
+      } catch (err) {
+        console.error("Failed to delete finalized proposal PDF from storage:", err);
       }
     }
 

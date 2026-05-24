@@ -12,6 +12,7 @@ export const PERMISSIONS = {
   MANAGE_CONTRACTING: "manage:contracting",
   VIEW_PROPOSALS: "view:proposals",
   MANAGE_PROPOSALS: "manage:proposals",
+  SEND_PROPOSALS: "send:proposals",
   VIEW_JOB_CARDS: "view:jobCards",
   MANAGE_JOB_CARDS: "manage:jobCards",
   VIEW_TRAVELLERS: "view:travellers",
@@ -87,6 +88,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_QUERIES,
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
+    P.SEND_PROPOSALS,
     P.VIEW_TEAM,
     P.VIEW_LEAVE,
     P.APPROVE_LEAVE,
@@ -96,6 +98,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_QUERIES,
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
+    P.SEND_PROPOSALS,
     P.VIEW_LEAVE,
   ],
   "Contracting Head": [
@@ -494,6 +497,70 @@ export function getHeadReviewerRolesForStaff(staff: { roles?: string[]; departme
   return Array.from(new Set(reviewerRoles.length > 0 ? reviewerRoles : ["HR"]));
 }
 
+export function isHrReviewer(access: PortalAccess) {
+  return (
+    isDirectorOrAdmin(access) ||
+    hasRole(access, "HR") ||
+    access.permissions.includes(PERMISSIONS.MANAGE_LEAVE)
+  );
+}
+
+export function canHeadReview(access: PortalAccess, reviewerRole: string) {
+  return isDirectorOrAdmin(access) || hasRole(access, reviewerRole);
+}
+
+export function canActAsLeaveHeadReviewer(
+  access: PortalAccess,
+  reviewerRole: string,
+) {
+  if (reviewerRole === "HR") {
+    return isHrReviewer(access);
+  }
+  return canHeadReview(access, reviewerRole);
+}
+
+export function getLeaveApprovalActions(
+  access: PortalAccess,
+  leave: {
+    status?: string;
+    headReviewStatus?: string;
+    hrReviewStatus?: string;
+    headReviewerRole?: string;
+  },
+  staff: { roles?: string[]; department?: string },
+) {
+  const status = leave.status ?? "Pending";
+  const headStatus = leave.headReviewStatus ?? "Pending";
+  const hrStatus = leave.hrReviewStatus ?? "Pending";
+  const reviewerRole =
+    leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR";
+
+  if (status !== "Pending") {
+    return { canApproveHead: false, canApproveHr: false, canReject: false };
+  }
+
+  const canHead = canActAsLeaveHeadReviewer(access, reviewerRole);
+  const canHr = isHrReviewer(access);
+
+  if (headStatus === "Pending") {
+    return {
+      canApproveHead: canHead,
+      canApproveHr: false,
+      canReject: canHead,
+    };
+  }
+
+  if (headStatus === "Approved" && hrStatus === "Pending") {
+    return {
+      canApproveHead: false,
+      canApproveHr: canHr,
+      canReject: canHr,
+    };
+  }
+
+  return { canApproveHead: false, canApproveHr: false, canReject: false };
+}
+
 export async function requireHeadOrAdmin(
   ctx: QueryCtx | MutationCtx,
   headRoles: string[],
@@ -758,6 +825,7 @@ export function publicQuery(query: any) {
     contractingLandCost: query.contractingLandCost ?? 0,
     contractingAirlinesCost: query.contractingAirlinesCost ?? 0,
     contractingVisaCost: query.contractingVisaCost ?? 0,
+    approxMargin: query.approxMargin ?? null,
     confirmedAt: query.confirmedAt ? new Date(query.confirmedAt).toISOString() : null,
     createdAt: new Date(query.createdAt).toISOString(),
     updatedAt: new Date(query.updatedAt).toISOString(),

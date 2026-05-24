@@ -25,6 +25,7 @@ export const PORTAL_PERMISSIONS = {
   MANAGE_CONTRACTING: "manage:contracting",
   VIEW_PROPOSALS: "view:proposals",
   MANAGE_PROPOSALS: "manage:proposals",
+  SEND_PROPOSALS: "send:proposals",
   VIEW_JOB_CARDS: "view:jobCards",
   MANAGE_JOB_CARDS: "manage:jobCards",
   VIEW_TRAVELLERS: "view:travellers",
@@ -83,6 +84,7 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_QUERIES,
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
+    P.SEND_PROPOSALS,
     P.VIEW_TEAM,
     P.VIEW_LEAVE,
     P.APPROVE_LEAVE,
@@ -92,6 +94,7 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_QUERIES,
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
+    P.SEND_PROPOSALS,
     P.VIEW_LEAVE,
   ],
   "Contracting Head": [

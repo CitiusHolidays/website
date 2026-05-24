@@ -69,6 +69,36 @@ export const markNotificationRead = mutation({
   },
 });
 
+export const markAllNotificationsRead = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const access = await requireStaff(ctx);
+    const rows = await ctx.db.query("notifications").collect();
+    const roleSet = new Set(access.roles);
+    const now = Date.now();
+    let marked = 0;
+
+    for (const notification of rows) {
+      if (notification.readAt) {
+        continue;
+      }
+      if (
+        notification.recipientUserId &&
+        notification.recipientUserId !== access.authUserId
+      ) {
+        continue;
+      }
+      if (notification.recipientRole && !roleSet.has(notification.recipientRole)) {
+        continue;
+      }
+      await ctx.db.patch(notification._id, { readAt: now });
+      marked += 1;
+    }
+
+    return { marked };
+  },
+});
+
 export const removeNotification = mutation({
   args: {
     notificationId: v.string(),
