@@ -597,6 +597,10 @@ export async function createActivity(
   });
 }
 
+function notificationEntityId(entityId?: string | Id<any>) {
+  return entityId != null ? String(entityId) : undefined;
+}
+
 export async function notifyRoles(
   ctx: MutationCtx,
   roles: string[],
@@ -604,19 +608,67 @@ export async function notifyRoles(
     title: string;
     body: string;
     entityType?: string;
-    entityId?: string;
+    entityId?: string | Id<any>;
   },
 ) {
   const createdAt = Date.now();
+  const entityId = notificationEntityId(input.entityId);
   for (const role of roles) {
     await ctx.db.insert("notifications", {
       recipientRole: role as any,
       title: input.title,
       body: input.body,
       entityType: input.entityType,
-      entityId: input.entityId,
+      entityId,
       createdAt,
     });
+  }
+}
+
+export async function notifyStaffMatching(
+  ctx: MutationCtx,
+  shouldNotify: (staff: { roles: string[]; active: boolean; authUserId?: string }) => boolean,
+  input: {
+    title: string;
+    body: string;
+    entityType?: string;
+    entityId?: string | Id<any>;
+  },
+) {
+  const createdAt = Date.now();
+  const entityId = notificationEntityId(input.entityId);
+  const staffRows = await ctx.db.query("staffUsers").collect();
+  const notifiedUserIds = new Set<string>();
+
+  for (const member of staffRows) {
+    if (!member.active || !shouldNotify(member)) {
+      continue;
+    }
+    if (member.authUserId) {
+      if (notifiedUserIds.has(member.authUserId)) {
+        continue;
+      }
+      notifiedUserIds.add(member.authUserId);
+      await ctx.db.insert("notifications", {
+        recipientUserId: member.authUserId,
+        title: input.title,
+        body: input.body,
+        entityType: input.entityType,
+        entityId,
+        createdAt,
+      });
+      continue;
+    }
+    for (const role of member.roles) {
+      await ctx.db.insert("notifications", {
+        recipientRole: role as any,
+        title: input.title,
+        body: input.body,
+        entityType: input.entityType,
+        entityId,
+        createdAt,
+      });
+    }
   }
 }
 

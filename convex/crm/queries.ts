@@ -13,6 +13,7 @@ import {
   isDirectorOrAdmin,
   nextCode,
   notifyRoles,
+  notifyStaffMatching,
   publicQuery,
   requireAnyPermission,
   requireHeadOrAdmin,
@@ -467,30 +468,38 @@ export const updateStatus = mutation({
 
     await ctx.db.patch(queryId, patch);
 
-    const isConfirmed =
-      args.salesStatus === "Order Confirmed" ||
-      args.contractingStatus === "Order Confirmed";
+    const wasConfirmed =
+      current.salesStatus === "Order Confirmed" ||
+      current.contractingStatus === "Order Confirmed";
+    const isNewlyConfirmed =
+      !wasConfirmed &&
+      (args.salesStatus === "Order Confirmed" ||
+        args.contractingStatus === "Order Confirmed");
     const isLost =
       args.salesStatus === "Order Lost" || args.contractingStatus === "Order Lost";
 
     await createActivity(ctx, access, {
       entityType: "query",
       entityId: queryId,
-      action: isConfirmed ? "confirmed" : isLost ? "lost" : "status_updated",
+      action: isNewlyConfirmed ? "confirmed" : isLost ? "lost" : "status_updated",
       message: `${current.queryCode} status updated`,
       metadata: patch,
     });
 
-    if (isConfirmed) {
-      await notifyRoles(ctx, [
-        "Accounts",
-        "Contracting",
-        "Contracting Head",
-        "Operations Head",
-        "Finance",
-      ], {
+    if (isNewlyConfirmed) {
+      await notifyStaffMatching(
+        ctx,
+        (staff) => staff.roles.includes("Accounts"),
+        {
+          title: "Order confirmed",
+          body: `${current.queryCode} is confirmed. Open a Job Card in Accounts / JC.`,
+          entityType: "query",
+          entityId: queryId,
+        },
+      );
+      await notifyRoles(ctx, ["Contracting Head", "Operations Head", "Finance"], {
         title: "Order confirmed",
-        body: `${current.queryCode} is confirmed. Accounts should open a Job Card.`,
+        body: `${current.queryCode} has been confirmed by Sales.`,
         entityType: "query",
         entityId: queryId,
       });

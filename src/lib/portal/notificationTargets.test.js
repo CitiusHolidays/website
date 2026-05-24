@@ -29,6 +29,11 @@ describe("notificationTargets", () => {
       entityId: "job123",
       title: "Job Card opened",
     })).toBe("/portal/job-cards?open=jobCard&id=job123");
+    expect(getNotificationHref({
+      entityType: "jobCard",
+      entityId: "job123",
+      title: "Job Card created",
+    })).toBe("/portal/job-cards?open=jobCard&id=job123");
   });
 
   test("resolves approval deep links to expense modal data", () => {

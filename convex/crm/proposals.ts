@@ -25,6 +25,17 @@ const publicFinalizedPdf = (proposal: any) =>
       }
     : null;
 
+function computeProposalCostPrice(
+  landCostPerPax: number,
+  airfarePerPax: number,
+  paxCount: number,
+) {
+  const pax = Math.max(paxCount, 1);
+  return (
+    (Math.max(landCostPerPax, 0) + Math.max(airfarePerPax, 0)) * pax
+  );
+}
+
 const publicProposal = (proposal: any, linkedQuery: any, attachments: any[] = []) => ({
   id: proposal._id,
   proposalCode: proposal.proposalCode,
@@ -84,11 +95,9 @@ export const create = mutation({
   args: {
     queryId: v.optional(v.string()),
     clientName: v.optional(v.string()),
-    preparedBy: v.string(),
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
     sellingPrice: v.optional(v.number()),
-    costPrice: v.optional(v.number()),
     itinerarySummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -103,19 +112,26 @@ export const create = mutation({
     }
 
     const now = Date.now();
+    const landCostPerPax = args.landCostPerPax ?? 0;
+    const airfarePerPax = args.airfarePerPax ?? 0;
+    const costPrice = computeProposalCostPrice(
+      landCostPerPax,
+      airfarePerPax,
+      linkedQuery?.paxCount ?? 1,
+    );
     const hasPricing =
-      args.sellingPrice !== undefined || args.costPrice !== undefined;
+      args.sellingPrice !== undefined || landCostPerPax > 0 || airfarePerPax > 0;
     const proposalCode = await nextCode(ctx, "proposals", "P");
     const clientName = linkedQuery?.clientName || args.clientName?.trim() || "Unlinked client";
     const id = await ctx.db.insert("proposals", {
       proposalCode,
       queryId: queryId ?? undefined,
       clientName,
-      preparedBy: args.preparedBy.trim() || access.name,
-      landCostPerPax: args.landCostPerPax ?? 0,
-      airfarePerPax: args.airfarePerPax ?? 0,
+      preparedBy: access.name,
+      landCostPerPax,
+      airfarePerPax,
       sellingPrice: Math.max(args.sellingPrice ?? 0, 0),
-      costPrice: Math.max(args.costPrice ?? 0, 0),
+      costPrice,
       pricingEnteredAt: hasPricing ? now : undefined,
       itinerarySummary: args.itinerarySummary?.trim() || "",
       status: "Draft",
@@ -140,11 +156,9 @@ export const update = mutation({
     proposalId: v.string(),
     queryId: v.optional(v.string()),
     clientName: v.optional(v.string()),
-    preparedBy: v.optional(v.string()),
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
     sellingPrice: v.optional(v.number()),
-    costPrice: v.optional(v.number()),
     itinerarySummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -163,6 +177,7 @@ export const update = mutation({
     }
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    let linkedQuery = currentLinkedQuery;
     if (args.queryId !== undefined) {
       const queryId = args.queryId
         ? ctx.db.normalizeId("queries", args.queryId)
@@ -171,7 +186,7 @@ export const update = mutation({
         throw new ConvexError("Invalid query id");
       }
       if (queryId) {
-        const linkedQuery = await ctx.db.get(queryId);
+        linkedQuery = await ctx.db.get(queryId);
         if (!linkedQuery) {
           throw new ConvexError("Linked query not found");
         }
@@ -182,22 +197,31 @@ export const update = mutation({
         patch.clientName = linkedQuery.clientName;
       } else {
         patch.queryId = undefined;
+        linkedQuery = null;
       }
     }
     if (args.clientName !== undefined) patch.clientName = args.clientName.trim();
-    if (args.preparedBy !== undefined) patch.preparedBy = args.preparedBy.trim();
     if (args.landCostPerPax !== undefined) patch.landCostPerPax = args.landCostPerPax;
     if (args.airfarePerPax !== undefined) patch.airfarePerPax = args.airfarePerPax;
     if (args.sellingPrice !== undefined) {
       patch.sellingPrice = Math.max(args.sellingPrice, 0);
       patch.pricingEnteredAt = Date.now();
     }
-    if (args.costPrice !== undefined) {
-      patch.costPrice = Math.max(args.costPrice, 0);
-      patch.pricingEnteredAt = Date.now();
-    }
     if (args.itinerarySummary !== undefined) {
       patch.itinerarySummary = args.itinerarySummary.trim();
+    }
+
+    const landCostPerPax =
+      (patch.landCostPerPax as number | undefined) ?? proposal.landCostPerPax ?? 0;
+    const airfarePerPax =
+      (patch.airfarePerPax as number | undefined) ?? proposal.airfarePerPax ?? 0;
+    if (args.landCostPerPax !== undefined || args.airfarePerPax !== undefined) {
+      patch.costPrice = computeProposalCostPrice(
+        landCostPerPax,
+        airfarePerPax,
+        linkedQuery?.paxCount ?? 1,
+      );
+      patch.pricingEnteredAt = Date.now();
     }
 
     await ctx.db.patch(proposalId, patch);

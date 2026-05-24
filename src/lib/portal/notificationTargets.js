@@ -180,11 +180,10 @@ export function buildModalInitial(modal, { entityId, queryId }, collections) {
         entityId: row.id,
         queryId: row.queryId || "",
         clientName: row.clientName,
-        preparedBy: row.preparedBy,
         landCostPerPax: String(row.landCostPerPax ?? ""),
         airfarePerPax: String(row.airfarePerPax ?? ""),
         sellingPrice: String(row.sellingPrice ?? ""),
-        costPrice: String(row.costPrice ?? ""),
+        paxCount: String(row.query?.paxCount ?? 1),
         itinerarySummary: row.itinerarySummary || "",
       };
     }

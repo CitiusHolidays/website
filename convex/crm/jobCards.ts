@@ -8,6 +8,7 @@ import {
   deleteJobCardCascade,
   nextCode,
   notifyRoles,
+  notifyStaffMatching,
   paymentTermsFor,
   publicJobCard,
   requireAnyPermission,
@@ -152,16 +153,19 @@ export const createFromQuery = mutation({
       action: "created",
       message: `${jobCode} opened for ${linkedQuery?.clientName || args.clientName || "client"}`,
     });
-    await notifyRoles(ctx, [
-      "Sales",
-      "Sales Head",
-      "Contracting",
-      "Contracting Head",
-      "Operations Head",
-      "Ticketing",
-      "Head of Ticketing",
-      "Finance",
-    ], {
+    await notifyStaffMatching(
+      ctx,
+      (staff) =>
+        staff.roles.includes("Contracting Head") ||
+        staff.roles.includes("Operations Head"),
+      {
+        title: "Job Card created",
+        body: `${jobCode} has been created for ${linkedQuery?.clientName || args.clientName || "client"}.`,
+        entityType: "jobCard",
+        entityId: id,
+      },
+    );
+    await notifyRoles(ctx, ["Sales", "Sales Head", "Finance"], {
       title: "Job Card opened",
       body: `${jobCode} has been created and is ready for operations.`,
       entityType: "jobCard",

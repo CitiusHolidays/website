@@ -109,7 +109,6 @@ const INITIAL_FORM = {
   queryCode: "",
   queryId: "",
   proposalId: "",
-  preparedBy: "",
   landCostPerPax: "",
   airfarePerPax: "",
   sellingPrice: "",
@@ -791,11 +790,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         const proposalPayload = {
           queryId: form.queryId || undefined,
           clientName: form.clientName,
-          preparedBy: form.preparedBy,
           landCostPerPax: toNumber(form.landCostPerPax, 0),
           airfarePerPax: toNumber(form.airfarePerPax, 0),
           sellingPrice: toNumber(form.sellingPrice, 0),
-          costPrice: toNumber(form.costPrice, 0),
           itinerarySummary: form.itinerarySummary,
         };
         if (form.entityId) {
@@ -1117,7 +1114,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "pipeline" && <PipelineView rows={queries || []} mode={pipelineMode} setMode={setPipelineMode} />}
       {view === "contracting" && (
-        <ContractingView rows={filteredQueries} team={team || []} openModal={openModal} has={has} canAssign={canAssignContracting(access)} />
+        <ContractingView rows={filteredQueries} proposals={proposals || []} team={team || []} openModal={openModal} has={has} canAssign={canAssignContracting(access)} />
       )}
       {view === "proposals" && (
         <ProposalsView
@@ -1568,7 +1565,22 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToCo
   );
 }
 
-function ContractingView({ rows, team, openModal, has, canAssign }) {
+function ContractingView({ rows, proposals, team, openModal, has, canAssign }) {
+  const proposalsByQueryId = useMemo(() => {
+    const map = new Map();
+    for (const proposal of proposals) {
+      if (!proposal.queryId) continue;
+      const existing = map.get(proposal.queryId);
+      if (
+        !existing ||
+        new Date(proposal.updatedAt).getTime() > new Date(existing.updatedAt).getTime()
+      ) {
+        map.set(proposal.queryId, proposal);
+      }
+    }
+    return map;
+  }, [proposals]);
+
   const contractingTeam = team.filter((member) =>
     member.roles.some((role) => ["Contracting", "Contracting Head"].includes(role)),
   );
@@ -1617,7 +1629,28 @@ function ContractingView({ rows, team, openModal, has, canAssign }) {
         ["Contracting Owner", (row) => row.contractingOwnerName || "Unassigned"],
         ["Notes", (row) => notesPreview(row.notes)],
         ["Status", (row) => <Badge label={row.contractingStatus} tone={statusTone(row.contractingStatus)} />],
-        ["Total Cost", (row) => money(contractingTotalCost(row))],
+        ["Proposal Cost", (row) => {
+          const proposal = proposalsByQueryId.get(row.id);
+          if (!proposal) return "-";
+          return (
+            <button
+              type="button"
+              className="font-semibold text-citius-blue underline-offset-2 hover:underline"
+              onClick={() => openModal("proposal", {
+                entityId: proposal.id,
+                queryId: proposal.queryId || "",
+                clientName: proposal.clientName,
+                landCostPerPax: String(proposal.landCostPerPax ?? ""),
+                airfarePerPax: String(proposal.airfarePerPax ?? ""),
+                sellingPrice: String(proposal.sellingPrice ?? ""),
+                paxCount: String(proposal.query?.paxCount ?? row.paxCount ?? 1),
+                itinerarySummary: proposal.itinerarySummary || "",
+              })}
+            >
+              {money(proposal.costPrice)} ({proposal.proposalCode})
+            </button>
+          );
+        }],
         ["Approx. Margin", (row) => (
           isQueryConfirmed(row)
             ? row.approxMargin != null ? money(row.approxMargin) : "-"
@@ -1716,11 +1749,10 @@ function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, rem
         ["Proposal", (row) => row.proposalCode],
         ["Client", (row) => strong(row.clientName)],
         ["Linked Query", (row) => row.query?.queryCode || "-"],
-        ["Prepared By", (row) => row.preparedBy],
         ["Land/Pax", (row) => money(row.landCostPerPax)],
         ["Airfare/Pax", (row) => money(row.airfarePerPax)],
+        ["Total Cost", (row) => money(row.costPrice)],
         ["Selling", (row) => money(row.sellingPrice)],
-        ["Cost", (row) => money(row.costPrice)],
         ["Finalized PDF", (row) => (
           <FinalizedProposalPdfSummary
             finalizedPdf={row.finalizedPdf}
@@ -1755,11 +1787,10 @@ function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, rem
                   entityId: row.id,
                   queryId: row.queryId || "",
                   clientName: row.clientName,
-                  preparedBy: row.preparedBy,
                   landCostPerPax: String(row.landCostPerPax ?? ""),
                   airfarePerPax: String(row.airfarePerPax ?? ""),
                   sellingPrice: String(row.sellingPrice ?? ""),
-                  costPrice: String(row.costPrice ?? ""),
+                  paxCount: String(row.query?.paxCount ?? 1),
                   itinerarySummary: row.itinerarySummary || "",
                 })}
               />
@@ -3289,11 +3320,18 @@ function EntityModal({
             {modal === "proposal" && <>
               <Select label="Linked Query" value={form.queryId} options={[{ value: "", label: "Unlinked" }, ...queries.map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` }))]} onChange={handleProposalQuerySelect} />
               <Input label="Client Name" value={form.clientName} onChange={(v) => updateForm("clientName", v)} />
-              <Input label="Prepared By" value={form.preparedBy} onChange={(v) => updateForm("preparedBy", v)} />
               <Input label="Land Cost/Pax" type="number" value={form.landCostPerPax} onChange={(v) => updateForm("landCostPerPax", v)} />
               <Input label="Airfare/Pax" type="number" value={form.airfarePerPax} onChange={(v) => updateForm("airfarePerPax", v)} />
               <Input label="Selling Price" type="number" value={form.sellingPrice} onChange={(v) => updateForm("sellingPrice", v)} />
-              <Input label="Cost Price" type="number" value={form.costPrice} onChange={(v) => updateForm("costPrice", v)} />
+              <div className="rounded-lg border border-brand-border bg-brand-light/60 px-3 py-2 text-sm">
+                <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Total cost</div>
+                <div className="mt-1 font-semibold text-brand-dark">
+                  {money(proposalTotalCost(form.landCostPerPax, form.airfarePerPax, form.paxCount))}
+                </div>
+                <div className="mt-1 text-xs text-brand-muted">
+                  Auto-calculated from land + airfare × {Math.max(Number(form.paxCount) || 1, 1)} pax
+                </div>
+              </div>
               <Textarea label="Itinerary Summary" value={form.itinerarySummary} onChange={(v) => updateForm("itinerarySummary", v)} />
               <div className="md:col-span-2">
                 <QueryFilePicker
@@ -3769,6 +3807,13 @@ function contractingTotalCost(rowOrForm) {
     Number(rowOrForm?.contractingLandCost || 0)
     + Number(rowOrForm?.contractingAirlinesCost || 0)
     + Number(rowOrForm?.contractingVisaCost || 0)
+  );
+}
+
+function proposalTotalCost(landCostPerPax, airfarePerPax, paxCount) {
+  const pax = Math.max(Number(paxCount) || 1, 1);
+  return (
+    (Math.max(Number(landCostPerPax) || 0, 0) + Math.max(Number(airfarePerPax) || 0, 0)) * pax
   );
 }
 
