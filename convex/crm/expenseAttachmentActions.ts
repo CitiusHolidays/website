@@ -31,6 +31,24 @@ function canManageExpenseFiles(access: any) {
   );
 }
 
+async function buildDownloadFile(ctx: any, record: {
+  storageId: string;
+  fileName: string;
+  mimeType: string;
+}) {
+  const blob = await ctx.storage.get(record.storageId);
+  if (!blob) {
+    throw new ConvexError("File is no longer available");
+  }
+
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  return {
+    bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    fileName: record.fileName,
+    mimeType: record.mimeType,
+  };
+}
+
 export const generateUploadUrl = action({
   args: {},
   handler: async (ctx) => {
@@ -114,7 +132,7 @@ export const getDownloadUrl = action({
   handler: async (
     ctx,
     args,
-  ): Promise<{ url: string; fileName: string; mimeType: string }> => {
+  ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     if (!access?.allowed || !access.permissions.includes(PERMISSIONS.VIEW_EXPENSES)) {
       throw new ConvexError("FORBIDDEN");
@@ -128,16 +146,32 @@ export const getDownloadUrl = action({
       throw new ConvexError("Attachment not found");
     }
 
-    const url = await ctx.storage.getUrl(record.storageId);
-    if (!url) {
-      throw new ConvexError("File is no longer available");
+    return await buildDownloadFile(ctx, record);
+  },
+});
+
+export const getDownloadFile = action({
+  args: {
+    attachmentId: v.string(),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    if (!access?.allowed || !access.permissions.includes(PERMISSIONS.VIEW_EXPENSES)) {
+      throw new ConvexError("FORBIDDEN");
     }
 
-    return {
-      url,
-      fileName: record.fileName,
-      mimeType: record.mimeType,
-    };
+    const record = await ctx.runQuery(
+      api.crm.expenseAttachments.getAttachmentRecord,
+      { attachmentId: args.attachmentId },
+    );
+    if (!record?.storageId) {
+      throw new ConvexError("Attachment not found");
+    }
+
+    return await buildDownloadFile(ctx, record);
   },
 });
 

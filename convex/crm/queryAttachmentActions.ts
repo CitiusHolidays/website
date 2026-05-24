@@ -24,6 +24,24 @@ function isAllowedMimeType(mimeType: string) {
   return ALLOWED_MIME_PREFIXES.some((prefix) => normalized.startsWith(prefix));
 }
 
+async function buildDownloadFile(ctx: any, record: {
+  storageId: string;
+  fileName: string;
+  mimeType: string;
+}) {
+  const blob = await ctx.storage.get(record.storageId);
+  if (!blob) {
+    throw new ConvexError("File is no longer available");
+  }
+
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  return {
+    bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    fileName: record.fileName,
+    mimeType: record.mimeType,
+  };
+}
+
 export const generateUploadUrl = action({
   args: {},
   handler: async (ctx) => {
@@ -98,7 +116,7 @@ export const getDownloadUrl = action({
   handler: async (
     ctx,
     args,
-  ): Promise<{ url: string; fileName: string; mimeType: string }> => {
+  ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     const canView =
       access?.allowed &&
@@ -119,16 +137,39 @@ export const getDownloadUrl = action({
       throw new ConvexError("Attachment not found");
     }
 
-    const url: string | null = await ctx.storage.getUrl(record.storageId);
-    if (!url) {
-      throw new ConvexError("File is no longer available");
+    return await buildDownloadFile(ctx, record);
+  },
+});
+
+export const getDownloadFile = action({
+  args: {
+    attachmentId: v.string(),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    const canView =
+      access?.allowed &&
+      (access.permissions.includes(PERMISSIONS.VIEW_QUERIES) ||
+        access.permissions.includes(PERMISSIONS.VIEW_CONTRACTING));
+    if (!canView) {
+      throw new ConvexError("FORBIDDEN");
     }
 
-    return {
-      url,
-      fileName: record.fileName,
-      mimeType: record.mimeType,
-    };
+    const record: {
+      storageId: string;
+      fileName: string;
+      mimeType: string;
+    } | null = await ctx.runQuery(api.crm.queryAttachments.getAttachmentRecord, {
+      attachmentId: args.attachmentId,
+    });
+    if (!record) {
+      throw new ConvexError("Attachment not found");
+    }
+
+    return await buildDownloadFile(ctx, record);
   },
 });
 

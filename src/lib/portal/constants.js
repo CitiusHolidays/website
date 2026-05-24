@@ -210,7 +210,6 @@ export const ROLE_PERMISSIONS = {
   ],
   HR: [
     P.VIEW_DASHBOARD,
-    P.MANAGE_STAFF,
     P.VIEW_TEAM,
     P.VIEW_LEAVE,
     P.MANAGE_LEAVE,

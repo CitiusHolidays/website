@@ -21,6 +21,9 @@ export async function POST(request) {
       booking_id 
     } = body;
 
+    // TODO(payment-security): when Razorpay webhook/server secrets are ready, move
+    // payment status mutations behind a server-only secret or internal action.
+
     // Validate required fields
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json(
@@ -42,12 +45,7 @@ export async function POST(request) {
         paymentId: razorpay_payment_id,
       });
 
-      // Update booking status to failed
-      if (booking_id) {
-        await fetchAuthMutation(anyApi.bookings.markBookingFailedById, {
-          bookingId: booking_id,
-        });
-      }
+      void booking_id;
 
       return NextResponse.json(
         { error: 'Payment verification failed. Please contact support.' },
@@ -97,10 +95,6 @@ export async function POST(request) {
     );
   }
 }
-
-
-
-
 
 
 

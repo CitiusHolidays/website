@@ -44,6 +44,24 @@ function isPdfMimeType(mimeType: string) {
   return mimeType.trim().toLowerCase().startsWith("application/pdf");
 }
 
+async function buildDownloadFile(ctx: any, record: {
+  storageId: string;
+  fileName: string;
+  mimeType?: string;
+}) {
+  const blob = await ctx.storage.get(record.storageId);
+  if (!blob) {
+    throw new ConvexError("File is no longer available");
+  }
+
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  return {
+    bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    fileName: record.fileName,
+    mimeType: record.mimeType ?? "application/octet-stream",
+  };
+}
+
 export const generateUploadUrl = action({
   args: {},
   handler: async (ctx) => {
@@ -123,7 +141,7 @@ export const getDownloadUrl = action({
   handler: async (
     ctx,
     args,
-  ): Promise<{ url: string; fileName: string; mimeType: string }> => {
+  ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     const canView =
       access?.allowed &&
@@ -145,16 +163,40 @@ export const getDownloadUrl = action({
       throw new ConvexError("Attachment not found");
     }
 
-    const url: string | null = await ctx.storage.getUrl(record.storageId);
-    if (!url) {
-      throw new ConvexError("File is no longer available");
+    return await buildDownloadFile(ctx, record);
+  },
+});
+
+export const getDownloadFile = action({
+  args: {
+    attachmentId: v.string(),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    const canView =
+      access?.allowed &&
+      (access.permissions.includes(PERMISSIONS.VIEW_PROPOSALS) ||
+        access.permissions.includes(PERMISSIONS.VIEW_CONTRACTING) ||
+        access.permissions.includes(PERMISSIONS.VIEW_QUERIES));
+    if (!canView) {
+      throw new ConvexError("FORBIDDEN");
     }
 
-    return {
-      url,
-      fileName: record.fileName,
-      mimeType: record.mimeType,
-    };
+    const record: {
+      storageId: string;
+      fileName: string;
+      mimeType: string;
+    } | null = await ctx.runQuery(api.crm.proposalAttachments.getAttachmentRecord, {
+      attachmentId: args.attachmentId,
+    });
+    if (!record) {
+      throw new ConvexError("Attachment not found");
+    }
+
+    return await buildDownloadFile(ctx, record);
   },
 });
 
@@ -281,7 +323,7 @@ export const getFinalizedPdfUrl = action({
   handler: async (
     ctx,
     args,
-  ): Promise<{ url: string; fileName: string } | null> => {
+  ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string } | null> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     const canView =
       access?.allowed &&
@@ -299,15 +341,44 @@ export const getFinalizedPdfUrl = action({
       return null;
     }
 
-    const url: string | null = await ctx.storage.getUrl(record.storageId);
-    if (!url) {
-      throw new ConvexError("File is no longer available");
+    return await buildDownloadFile(ctx, {
+      storageId: record.storageId,
+      fileName: record.fileName,
+      mimeType: "application/pdf",
+    });
+  },
+});
+
+export const getFinalizedPdfFile = action({
+  args: {
+    proposalId: v.string(),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string } | null> => {
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    const canView =
+      access?.allowed &&
+      (access.permissions.includes(PERMISSIONS.VIEW_PROPOSALS) ||
+        access.permissions.includes(PERMISSIONS.VIEW_CONTRACTING) ||
+        access.permissions.includes(PERMISSIONS.VIEW_QUERIES));
+    if (!canView) {
+      throw new ConvexError("FORBIDDEN");
     }
 
-    return {
-      url,
+    const record = await ctx.runQuery(api.crm.proposals.getFinalizedPdfRecord, {
+      proposalId: args.proposalId,
+    });
+    if (!record) {
+      return null;
+    }
+
+    return await buildDownloadFile(ctx, {
+      storageId: record.storageId,
       fileName: record.fileName,
-    };
+      mimeType: "application/pdf",
+    });
   },
 });
 

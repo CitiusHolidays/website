@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import { ConvexError } from "convex/values";
 
 const toApiTrip = (trip: Doc<"trips">) => ({
   id: trip._id,
@@ -24,6 +25,13 @@ const toApiTrip = (trip: Doc<"trips">) => ({
   updatedAt: new Date(trip.updatedAt).toISOString(),
   legacyTripId: trip.legacyTripId ?? null,
 });
+
+const assertTripMutationSecret = (secret: string) => {
+  const expected = process.env.MIGRATION_SECRET;
+  if (!expected || secret !== expected) {
+    throw new ConvexError("UNAUTHORIZED");
+  }
+};
 
 export const getActiveTrips = query({
   args: {},
@@ -50,6 +58,7 @@ export const getTripBySlug = query({
 
 export const createTrip = mutation({
   args: {
+    secret: v.string(),
     name: v.string(),
     slug: v.string(),
     description: v.optional(v.string()),
@@ -68,6 +77,7 @@ export const createTrip = mutation({
     legacyTripId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    assertTripMutationSecret(args.secret);
     const timestamp = Date.now();
     const tripId = await ctx.db.insert("trips", {
       name: args.name,

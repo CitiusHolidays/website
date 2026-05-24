@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { useConvexAuth, useMutation, useQuery, useAction } from "convex/react";
 import {
@@ -53,6 +54,12 @@ import {
   canAssignTourManagers,
   teamSelectOptions,
 } from "@/lib/portal/permissions";
+import {
+  buildModalInitial,
+  getNotificationHref,
+  isDeepLinkDataReady,
+  resolveDeepLink,
+} from "@/lib/portal/notificationTargets";
 import { api } from "@convex/_generated/api";
 
 const P = PORTAL_PERMISSIONS;
@@ -347,7 +354,15 @@ function reconcileLinkedSelections(form, travellers, pnrs) {
   return patch;
 }
 
-export default function PortalWorkspace({ view = "dashboard" }) {
+export default function PortalWorkspace(props) {
+  return (
+    <Suspense fallback={<LoadingPanel />}>
+      <PortalWorkspaceInner {...props} />
+    </Suspense>
+  );
+}
+
+function PortalWorkspaceInner({ view = "dashboard" }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
   const [pendingQueryFiles, setPendingQueryFiles] = useState([]);
@@ -357,6 +372,11 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [pipelineMode, setPipelineMode] = useState("sales");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const deepLinkOpen = searchParams.get("open");
+  const deepLinkHandledRef = useRef("");
 
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const access = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
@@ -378,7 +398,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const hotels = useQuery(api.crm.ops.listHotels, canFetch && has(P.VIEW_OPERATIONS) ? {} : "skip");
   const tourManagers = useQuery(api.crm.ops.listTourManagers, canFetch && has(P.VIEW_TOUR_MANAGERS) ? {} : "skip");
   const invoices = useQuery(api.crm.finance.listInvoices, canFetch && has(P.VIEW_FINANCE) ? {} : "skip");
-  const expenses = useQuery(api.crm.finance.listExpenses, canFetch && has(P.VIEW_EXPENSES) ? {} : "skip");
+  const expenses = useQuery(api.crm.finance.listExpenses, canFetch && (has(P.VIEW_EXPENSES) || deepLinkOpen === "approval") ? {} : "skip");
   const financeOverview = useQuery(api.crm.finance.getFinanceOverview, canFetch && has(P.VIEW_FINANCE) && view === "finance" ? {} : "skip");
   const approvals = useQuery(api.crm.approvals.list, canFetch && has(P.VIEW_APPROVALS) ? {} : "skip");
   const reports = useQuery(api.crm.reports.overview, canFetch && has(P.VIEW_REPORTS) && view === "reports" ? {} : "skip");
@@ -472,6 +492,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
   const removeExpense = useMutation(api.crm.finance.removeExpense);
   const removeStaff = useMutation(api.crm.staff.removeStaff);
   const removeNotification = useMutation(api.crm.activity.removeNotification);
+  const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
 
   const filteredQueries = useMemo(
     () => filterRows(queries || [], search, ["queryCode", "clientName", "destination", "queryType"]),
@@ -496,22 +517,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
     });
   }, [modal, jobCards]);
 
-  if (isAuthLoading || !isAuthenticated || access === undefined) {
-    return <LoadingPanel />;
-  }
-
-  if (!allowed) {
-    return (
-      <div className="rounded-2xl border border-brand-border bg-white p-8 shadow-sm">
-        <div className="font-heading text-xl font-semibold text-citius-blue">No access to this portal page</div>
-        <p className="mt-2 text-sm text-brand-muted">
-          Your account is signed in, but your staff role does not include this module.
-        </p>
-      </div>
-    );
-  }
-
-  const openModal = (type, initial = {}) => {
+  const openModal = useCallback((type, initial = {}) => {
     setError("");
     const next = { ...INITIAL_FORM, ...initial };
     if (next.queryId && (type === "jobCard" || type === "proposal")) {
@@ -561,16 +567,105 @@ export default function PortalWorkspace({ view = "dashboard" }) {
     if (type !== "query") setPendingQueryFiles([]);
     if (type !== "proposal") setPendingProposalFiles([]);
     if (type !== "expense") setPendingExpenseProofFiles([]);
-  };
+  }, [queries, proposals, jobCards, travellers, travellersWithoutVisa, pnrs, visas]);
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     setModal(null);
     setForm(INITIAL_FORM);
     setPendingQueryFiles([]);
     setPendingProposalFiles([]);
     setPendingExpenseProofFiles([]);
     setError("");
-  };
+    if (searchParams.get("open") || searchParams.get("queryId")) {
+      router.replace(pathname);
+    }
+  }, [pathname, router, searchParams]);
+
+  const deepLinkCollections = useMemo(
+    () => ({
+      queries,
+      proposals,
+      jobCards,
+      tickets,
+      leaves,
+      expenses,
+      approvals,
+    }),
+    [queries, proposals, jobCards, tickets, leaves, expenses, approvals],
+  );
+
+  useEffect(() => {
+    const open = searchParams.get("open");
+    const id = searchParams.get("id");
+    const queryId = searchParams.get("queryId");
+    if (!open) {
+      deepLinkHandledRef.current = "";
+      return;
+    }
+    if (!allowed || !canFetch) {
+      return;
+    }
+
+    const signature = `${open}:${id || ""}:${queryId || ""}`;
+    if (deepLinkHandledRef.current === signature) {
+      return;
+    }
+
+    const resolved = resolveDeepLink({ open, id, queryId }, deepLinkCollections);
+    if (resolved.status === "none" || resolved.status === "loading") {
+      return;
+    }
+
+    if (resolved.status === "missing") {
+      deepLinkHandledRef.current = signature;
+      setError("The linked record could not be found. It may have been deleted.");
+      router.replace(pathname);
+      return;
+    }
+
+    if (!isDeepLinkDataReady(resolved.modal, deepLinkCollections)) {
+      return;
+    }
+
+    const initial = buildModalInitial(
+      resolved.modal,
+      { entityId: resolved.entityId, queryId: resolved.queryId },
+      deepLinkCollections,
+    );
+    if (!initial) {
+      deepLinkHandledRef.current = signature;
+      setError("The linked record could not be found. It may have been deleted.");
+      router.replace(pathname);
+      return;
+    }
+
+    deepLinkHandledRef.current = signature;
+    openModal(resolved.modal, initial);
+    router.replace(pathname);
+  }, [
+    allowed,
+    canFetch,
+    deepLinkCollections,
+    openModal,
+    pathname,
+    router,
+    searchParams,
+  ]);
+
+  if (isAuthLoading || !isAuthenticated || access === undefined) {
+    return <LoadingPanel />;
+  }
+
+  if (!allowed) {
+    return (
+      <div className="rounded-2xl border border-brand-border bg-white p-8 shadow-sm">
+        <div className="font-heading text-xl font-semibold text-citius-blue">No access to this portal page</div>
+        <p className="mt-2 text-sm text-brand-muted">
+          Your account is signed in, but your staff role does not include this module.
+        </p>
+      </div>
+    );
+  }
 
   const updateForm = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -1125,7 +1220,13 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         />
       )}
       {view === "activity" && (
-        <ActivityView activity={activity || []} notifications={notifications || []} deleteItem={deleteItem} removeNotification={removeNotification} />
+        <ActivityView
+          activity={activity || []}
+          notifications={notifications || []}
+          deleteItem={deleteItem}
+          removeNotification={removeNotification}
+          markNotificationRead={markNotificationRead}
+        />
       )}
       {view === "settings" && (
         <SettingsView staff={staff || []} dropdowns={dropdowns || {}} openModal={openModal} deleteItem={deleteItem} removeStaff={removeStaff} startStaffOnboarding={startStaffOnboarding} />
@@ -1636,6 +1737,7 @@ function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, rem
               canManage={canManage}
               onManage={() => openModal("proposalAttachments", { proposalId: row.id, queryCode: row.proposalCode })}
               getQueryAttachmentUrl={getProposalAttachmentUrl}
+              attachmentKind="proposal"
             />
           ),
         ]] : []),
@@ -1924,6 +2026,7 @@ function PassportDocumentsView({
         tempStorageId: storageId,
         fileName: file.name,
         mimeType: file.type,
+        fileSize: file.size,
         number: passportForm.number || undefined,
         expiryDate: passportForm.expiryDate || undefined,
         nationality: passportForm.nationality || undefined,
@@ -1944,18 +2047,8 @@ function PassportDocumentsView({
   const handleView = async (travellerId) => {
     setViewingTravellerId(travellerId);
     try {
-      const res = await getPassportDocument({ travellerId });
-      if (res && res.success && res.dataUrl) {
-        const win = window.open();
-        if (win) {
-          win.document.write(`<iframe src="${res.dataUrl}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
-        } else {
-          const link = document.createElement("a");
-          link.href = res.dataUrl;
-          link.download = res.fileName || "passport.pdf";
-          link.click();
-        }
-      }
+      void getPassportDocument;
+      openPortalFile(`/api/portal/files/passport/${encodeURIComponent(travellerId)}`);
     } catch (err) {
       console.error(err);
       alert(err?.data || err?.message || "Unable to decrypt passport scan.");
@@ -2520,7 +2613,7 @@ function ExpensesView({
       ["Proof", (row) => row.proofAttachment ? (
         <button
           className="portal-small-btn"
-          onClick={() => openQueryAttachment(row.proofAttachment.id, getExpenseAttachmentUrl)}
+          onClick={() => openQueryAttachment(row.proofAttachment.id, getExpenseAttachmentUrl, "expense")}
         >
           {row.proofAttachment.fileName}
         </button>
@@ -2636,12 +2729,20 @@ function TeamView({ rows }) {
   );
 }
 
-function ActivityView({ activity, notifications, deleteItem, removeNotification }) {
-  const markAllNotificationsRead = useMutation(api.crm.activity.markAllNotificationsRead);
+function ActivityView({ activity, notifications, deleteItem, removeNotification, markNotificationRead }) {
+  const router = useRouter();
 
-  useEffect(() => {
-    markAllNotificationsRead({}).catch(() => {});
-  }, [markAllNotificationsRead]);
+  const handleNotificationClick = async (item) => {
+    markNotificationRead({ notificationId: item.id }).catch(() => {});
+    const href = getNotificationHref({
+      entityType: item.entityType,
+      entityId: item.entityId,
+      title: item.title,
+    });
+    if (item.entityType && item.entityId) {
+      router.push(href);
+    }
+  };
 
   return (
     <div className="grid gap-5 xl:grid-cols-2">
@@ -2652,13 +2753,37 @@ function ActivityView({ activity, notifications, deleteItem, removeNotification 
         {notifications.length === 0 ? <EmptyState label="No notifications yet." /> : (
           <div className="space-y-3">
             {notifications.map((item) => (
-              <div key={item.id} className="rounded-md border border-brand-border bg-brand-light p-3">
+              <div
+                key={item.id}
+                className={`rounded-md border border-brand-border bg-brand-light p-3 ${
+                  item.entityType && item.entityId ? "cursor-pointer transition hover:bg-white" : ""
+                }`}
+                role={item.entityType && item.entityId ? "button" : undefined}
+                tabIndex={item.entityType && item.entityId ? 0 : undefined}
+                onClick={() => {
+                  if (item.entityType && item.entityId) {
+                    handleNotificationClick(item);
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if ((event.key === "Enter" || event.key === " ") && item.entityType && item.entityId) {
+                    event.preventDefault();
+                    handleNotificationClick(item);
+                  }
+                }}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="text-sm font-semibold">{item.title}: {item.body}</div>
                     <div className="mt-1 text-xs text-brand-muted">{item.readAt ? "Read" : "Unread"} - {formatDate(item.createdAt)}</div>
                   </div>
-                  <DeleteButton label={item.title} onClick={() => deleteItem(item.title, removeNotification, { notificationId: item.id })} />
+                  <DeleteButton
+                    label={item.title}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      deleteItem(item.title, removeNotification, { notificationId: item.id });
+                    }}
+                  />
                 </div>
               </div>
             ))}
@@ -3079,6 +3204,7 @@ function EntityModal({
                   generateQueryUploadUrl={generateProposalUploadUrl}
                   attachQueryFile={attachProposalFile}
                   getQueryAttachmentUrl={getProposalAttachmentUrl}
+                  attachmentKind="proposal"
                   removeQueryAttachment={removeProposalAttachment}
                 />
               </div>
@@ -3747,31 +3873,29 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function openQueryAttachment(attachmentId, getQueryAttachmentUrl) {
-  const { url, fileName } = await getQueryAttachmentUrl({ attachmentId });
-  const link = document.createElement("a");
-  link.href = url;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+function openPortalFile(url) {
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (!opened) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+}
+
+async function openQueryAttachment(attachmentId, getQueryAttachmentUrl, kind = "query") {
+  void getQueryAttachmentUrl;
+  const routeKind =
+    kind === "proposal" ? "proposal" : kind === "expense" ? "expense" : "query";
+  openPortalFile(`/api/portal/files/${routeKind}/${encodeURIComponent(attachmentId)}`);
 }
 
 async function openFinalizedProposalPdf(proposalId, getFinalizedPdfUrl) {
-  const result = await getFinalizedPdfUrl({ proposalId });
-  if (!result) {
-    throw new Error("No finalized proposal PDF uploaded yet.");
-  }
-  const link = document.createElement("a");
-  link.href = result.url;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.download = result.fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+  void getFinalizedPdfUrl;
+  openPortalFile(`/api/portal/files/proposal-finalized/${encodeURIComponent(proposalId)}`);
 }
 
 function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, onDownload }) {
@@ -3928,7 +4052,7 @@ function FinalizedProposalPdfPanel({
   );
 }
 
-function QueryAttachmentSummary({ attachments, canManage, onManage, getQueryAttachmentUrl }) {
+function QueryAttachmentSummary({ attachments, canManage, onManage, getQueryAttachmentUrl, attachmentKind = "query" }) {
   if (!attachments.length) {
     return canManage ? (
       <button type="button" className="portal-small-btn" onClick={onManage}>
@@ -3946,7 +4070,7 @@ function QueryAttachmentSummary({ attachments, canManage, onManage, getQueryAtta
           key={file.id}
           type="button"
           className="inline-flex max-w-[180px] items-center gap-1 truncate text-left text-xs font-medium text-citius-blue hover:underline"
-          onClick={() => openQueryAttachment(file.id, getQueryAttachmentUrl).catch((err) => {
+          onClick={() => openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch((err) => {
             alert(err?.data || err?.message || "Unable to open file.");
           })}
         >
@@ -4024,6 +4148,7 @@ function QueryAttachmentsPanel({
   generateQueryUploadUrl,
   attachQueryFile,
   getQueryAttachmentUrl,
+  attachmentKind = "query",
   removeQueryAttachment,
 }) {
   const [isUploading, setIsUploading] = useState(false);
@@ -4106,7 +4231,7 @@ function QueryAttachmentsPanel({
                 <button
                   type="button"
                   className="portal-small-btn"
-                  onClick={() => openQueryAttachment(file.id, getQueryAttachmentUrl).catch((err) => {
+                  onClick={() => openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch((err) => {
                     alert(err?.data || err?.message || "Unable to open file.");
                   })}
                 >

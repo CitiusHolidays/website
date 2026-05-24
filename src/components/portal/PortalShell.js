@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { AnimatePresence, motion } from "motion/react";
 import {
@@ -16,11 +16,13 @@ import {
 } from "lucide-react";
 import { logout } from "@/lib/auth-client";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
+import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { api } from "@convex/_generated/api";
 import Logo from "@/static/logos/logo.webp";
 
 export default function PortalShell({ access, user, children }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { isAuthenticated } = useConvexAuth();
@@ -28,17 +30,24 @@ export default function PortalShell({ access, user, children }) {
     api.crm.activity.listNotifications,
     isAuthenticated && access?.allowed ? { limit: 8 } : "skip",
   );
-  const markAllNotificationsRead = useMutation(api.crm.activity.markAllNotificationsRead);
+  const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
   const navGroups = useMemo(() => getAccessibleNavGroups(access), [access]);
   const unreadCount = (notifications || []).filter((item) => !item.readAt).length;
 
   const toggleNotifications = () => {
-    setNotificationsOpen((open) => {
-      if (!open) {
-        markAllNotificationsRead({}).catch(() => {});
-      }
-      return !open;
-    });
+    setNotificationsOpen((open) => !open);
+  };
+
+  const handleNotificationClick = async (item) => {
+    markNotificationRead({ notificationId: item.id }).catch(() => {});
+    setNotificationsOpen(false);
+    if (item.entityType && item.entityId) {
+      router.push(getNotificationHref({
+        entityType: item.entityType,
+        entityId: item.entityId,
+        title: item.title,
+      }));
+    }
   };
 
   const handleLogout = async () => {
@@ -139,9 +148,11 @@ export default function PortalShell({ access, user, children }) {
                           </div>
                         ) : (
                           notifications.map((item) => (
-                            <div
+                            <button
                               key={item.id}
-                              className="border-b border-brand-border px-4 py-3 last:border-b-0"
+                              type="button"
+                              onClick={() => handleNotificationClick(item)}
+                              className="w-full border-b border-brand-border px-4 py-3 text-left transition last:border-b-0 hover:bg-brand-light"
                             >
                               <div className="flex gap-2">
                                 <Circle
@@ -159,9 +170,18 @@ export default function PortalShell({ access, user, children }) {
                                   </div>
                                 </div>
                               </div>
-                            </div>
+                            </button>
                           ))
                         )}
+                      </div>
+                      <div className="border-t border-brand-border px-4 py-3">
+                        <Link
+                          href="/portal/activity"
+                          onClick={() => setNotificationsOpen(false)}
+                          className="text-xs font-semibold text-citius-blue transition hover:text-citius-orange"
+                        >
+                          View all notifications
+                        </Link>
                       </div>
                     </motion.div>
                   )}

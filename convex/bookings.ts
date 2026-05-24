@@ -242,6 +242,7 @@ export const markBookingFailedById = mutation({
     bookingId: v.string(),
   },
   handler: async (ctx, args) => {
+    // TODO(payment-security): restrict server-only payment status mutations once Razorpay webhook secrets are configured.
     const normalizedBookingId = ctx.db.normalizeId("bookings", args.bookingId);
     if (!normalizedBookingId) {
       return null;
@@ -271,6 +272,7 @@ export const confirmBookingByOrderId = mutation({
     signature: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // TODO(payment-security): restrict server-only payment status mutations once Razorpay webhook secrets are configured.
     const booking = await getBookingByOrderId(ctx, args.orderId);
     if (!booking) {
       return {
@@ -324,6 +326,7 @@ export const recordPaymentAuthorized = mutation({
     paymentId: v.string(),
   },
   handler: async (ctx, args) => {
+    // TODO(payment-security): restrict server-only payment status mutations once Razorpay webhook secrets are configured.
     const booking = await getBookingByOrderId(ctx, args.orderId);
     if (!booking) {
       return null;
@@ -344,6 +347,7 @@ export const markPaymentFailedByOrderId = mutation({
     paymentId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // TODO(payment-security): restrict server-only payment status mutations once Razorpay webhook secrets are configured.
     const booking = await getBookingByOrderId(ctx, args.orderId);
     if (!booking) {
       return null;
@@ -364,6 +368,7 @@ export const markRefundedByPaymentId = mutation({
     paymentId: v.string(),
   },
   handler: async (ctx, args) => {
+    // TODO(payment-security): restrict server-only payment status mutations once Razorpay webhook secrets are configured.
     const booking = await getBookingByPaymentId(ctx, args.paymentId);
     if (!booking) {
       return null;
