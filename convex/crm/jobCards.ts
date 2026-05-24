@@ -4,6 +4,7 @@ import {
   PERMISSIONS,
   canSeeJobCardRecord,
   createActivity,
+  creatorInitials,
   deleteJobCardCascade,
   nextCode,
   notifyRoles,
@@ -119,7 +120,9 @@ export const createFromQuery = mutation({
     }
 
     const now = Date.now();
-    const jobCode = await nextCode(ctx, "jobCards", "JC");
+    const jobCode = await nextCode(ctx, "jobCards", "JC", {
+      suffix: creatorInitials(access.name),
+    });
     const queryType = linkedQuery?.queryType;
     const id = await ctx.db.insert("jobCards", {
       jobCode,

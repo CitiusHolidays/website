@@ -212,6 +212,140 @@ function jobCardSelectOptions(jobCards, { required = false, allowUnassigned = fa
   return options;
 }
 
+function linkedTravellerOptions(travellers, jobCardId) {
+  const rows = jobCardId ? travellers.filter((traveller) => traveller.jobCardId === jobCardId) : travellers;
+  return [
+    { value: "", label: jobCardId ? "Unassigned" : "Select job card first…" },
+    ...rows.map((traveller) => ({
+      value: traveller.id,
+      label: `${traveller.fullName} - ${traveller.jobCode}`,
+    })),
+  ];
+}
+
+function linkedPnrOptions(pnrs, jobCardId) {
+  const rows = jobCardId ? pnrs.filter((pnr) => pnr.jobCardId === jobCardId) : pnrs;
+  return [
+    { value: "", label: jobCardId ? "No PNR" : "Select job card first…" },
+    ...rows.map((pnr) => ({
+      value: pnr.id,
+      label: `${pnr.pnrCode} - ${pnr.route}`,
+    })),
+  ];
+}
+
+function applyJobCardLink(form, job, modal, { onlyEmpty = false } = {}) {
+  if (!job) return {};
+
+  const patch = { jobCardId: job.id };
+  const set = (field, value) => {
+    if (value === undefined || value === null || value === "") return;
+    if (onlyEmpty && form[field]) return;
+    patch[field] = value;
+  };
+
+  if (modal === "traveller") {
+    set("travelDate", job.travelStartDate);
+  }
+  if (modal === "hotel") {
+    set("checkInDate", job.travelStartDate);
+    set("checkOutDate", job.travelEndDate);
+    set("city", job.destination);
+  }
+  if (modal === "expense" || modal === "tourManager") {
+    set("tourManagerName", job.tourManagerName);
+  }
+
+  return patch;
+}
+
+function applyTravellerLink(form, traveller, modal, { onlyEmpty = false } = {}) {
+  if (!traveller) return { travellerId: "" };
+
+  const patch = { travellerId: traveller.id };
+  const set = (field, value) => {
+    if (value === undefined || value === null || value === "") return;
+    if (onlyEmpty && form[field]) return;
+    patch[field] = value;
+  };
+
+  if (traveller.jobCardId) {
+    set("jobCardId", traveller.jobCardId);
+  }
+  if (modal === "ticket") {
+    set("paymentType", traveller.paymentType);
+    set("foodPreference", traveller.foodPreference);
+  }
+
+  return patch;
+}
+
+function applyPnrLink(form, pnr, modal, { onlyEmpty = false } = {}) {
+  if (!pnr) return { pnrId: "" };
+
+  const patch = { pnrId: pnr.id };
+  if (pnr.jobCardId && (!onlyEmpty || !form.jobCardId)) {
+    patch.jobCardId = pnr.jobCardId;
+  }
+  return patch;
+}
+
+function applyQueryLink(form, query, { onlyEmpty = false } = {}) {
+  if (!query?.id) return {};
+
+  const patch = { queryId: query.id };
+  const set = (field, value) => {
+    if (value === undefined || value === null || value === "") return;
+    if (onlyEmpty && form[field]) return;
+    patch[field] = value;
+  };
+
+  set("clientName", query.clientName);
+  set("destination", query.destination || "");
+  set("confirmedPax", String(query.paxCount || 1));
+  set("travelStartDate", query.travelStartDate || "");
+  set("travelEndDate", query.travelEndDate || "");
+  set("paxCount", String(query.paxCount || 1));
+  set("budgetAmount", query.budgetAmount ? String(query.budgetAmount) : "");
+  return patch;
+}
+
+function applyVisaRecordLink(form, visa, { onlyEmpty = false } = {}) {
+  if (!visa?.id) return {};
+
+  const patch = { visaRecordId: visa.id };
+  const set = (field, value) => {
+    if (value === undefined || value === null || value === "") return;
+    if (onlyEmpty && form[field]) return;
+    patch[field] = value;
+  };
+
+  set("visaStatus", visa.status);
+  set("appointmentDate", visa.appointmentDate || "");
+  set("notes", visa.notes || "");
+  return patch;
+}
+
+function reconcileLinkedSelections(form, travellers, pnrs) {
+  const patch = {};
+
+  if (form.travellerId) {
+    const traveller = travellers.find((entry) => entry.id === form.travellerId);
+    if (!traveller || (form.jobCardId && traveller.jobCardId !== form.jobCardId)) {
+      patch.travellerId = "";
+    }
+  }
+
+  if (form.pnrId) {
+    const pnr = pnrs.find((entry) => entry.id === form.pnrId);
+    if (!pnr || (form.jobCardId && pnr.jobCardId !== form.jobCardId)) {
+      patch.pnrId = "";
+    }
+  }
+
+  return patch;
+}
+
 export default function PortalWorkspace({ view = "dashboard" }) {
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
@@ -347,9 +481,14 @@ export default function PortalWorkspace({ view = "dashboard" }) {
     if (!modal || !JOB_CARD_MODALS.has(modal) || jobCards?.length !== 1) {
       return;
     }
-    setForm((current) =>
-      current.jobCardId ? current : { ...current, jobCardId: jobCards[0].id },
-    );
+    setForm((current) => {
+      if (current.jobCardId) return current;
+      const job = jobCards[0];
+      return {
+        ...current,
+        ...applyJobCardLink(current, job, modal, { onlyEmpty: true }),
+      };
+    });
   }, [modal, jobCards]);
 
   if (isAuthLoading || !isAuthenticated || access === undefined) {
@@ -373,11 +512,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
     if (next.queryId && (type === "jobCard" || type === "proposal")) {
       const linkedQuery = (queries || []).find((query) => query.id === next.queryId);
       if (linkedQuery) {
-        next.clientName = next.clientName || linkedQuery.clientName;
-        next.destination = next.destination || linkedQuery.destination || "";
-        next.confirmedPax = next.confirmedPax || String(linkedQuery.paxCount || 1);
-        next.travelStartDate = next.travelStartDate || linkedQuery.travelStartDate || "";
-        next.travelEndDate = next.travelEndDate || linkedQuery.travelEndDate || "";
+        Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
       }
       if (type === "jobCard" && !next.proposalId) {
         const linkedProposal = (proposals || [])
@@ -387,8 +522,35 @@ export default function PortalWorkspace({ view = "dashboard" }) {
       }
     }
     if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {
-      next.jobCardId = jobCards[0].id;
+      Object.assign(next, applyJobCardLink(next, jobCards[0], type, { onlyEmpty: true }));
     }
+    if (JOB_CARD_MODALS.has(type) && next.jobCardId) {
+      const linkedJob = (jobCards || []).find((job) => job.id === next.jobCardId);
+      if (linkedJob) {
+        Object.assign(next, applyJobCardLink(next, linkedJob, type, { onlyEmpty: true }));
+      }
+    }
+    if (next.travellerId && ["ticket", "seat", "visa_create"].includes(type)) {
+      const linkedTraveller =
+        (travellers || []).find((traveller) => traveller.id === next.travellerId) ||
+        (travellersWithoutVisa || []).find((traveller) => traveller.id === next.travellerId);
+      if (linkedTraveller) {
+        Object.assign(next, applyTravellerLink(next, linkedTraveller, type, { onlyEmpty: true }));
+      }
+    }
+    if (next.pnrId && ["ticket", "seat"].includes(type)) {
+      const linkedPnr = (pnrs || []).find((pnr) => pnr.id === next.pnrId);
+      if (linkedPnr) {
+        Object.assign(next, applyPnrLink(next, linkedPnr, type, { onlyEmpty: true }));
+      }
+    }
+    if (next.visaRecordId && type === "visa") {
+      const linkedVisa = (visas || []).find((visa) => visa.id === next.visaRecordId);
+      if (linkedVisa) {
+        Object.assign(next, applyVisaRecordLink(next, linkedVisa, { onlyEmpty: true }));
+      }
+    }
+    Object.assign(next, reconcileLinkedSelections(next, travellers || [], pnrs || []));
     setForm(next);
     setModal(type);
     if (type !== "query") setPendingQueryFiles([]);
@@ -407,6 +569,10 @@ export default function PortalWorkspace({ view = "dashboard" }) {
 
   const updateForm = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const patchForm = (patch) => {
+    setForm((current) => ({ ...current, ...patch }));
   };
 
   const deleteItem = async (label, mutation, args) => {
@@ -953,6 +1119,7 @@ export default function PortalWorkspace({ view = "dashboard" }) {
         modal={modal}
         form={form}
         updateForm={updateForm}
+        patchForm={patchForm}
         submit={submit}
         close={closeModal}
         error={error}
@@ -2597,6 +2764,7 @@ function EntityModal({
   modal,
   form,
   updateForm,
+  patchForm,
   submit,
   close,
   error,
@@ -2632,6 +2800,8 @@ function EntityModal({
   const operationsTeamOptions = teamSelectOptions(team, ["Operations", "Operations Head"]);
   const ticketingTeamOptions = teamSelectOptions(team, ["Ticketing", "Head of Ticketing"]);
   const tourManagerOptions = teamSelectOptions(team, ["Tour Manager"]);
+  const travellerOptions = linkedTravellerOptions(travellers, form.jobCardId);
+  const pnrOptions = linkedPnrOptions(pnrs, form.jobCardId);
 
   const handleStaffSelect = (field, staffId) => {
     updateForm(field, staffId);
@@ -2645,26 +2815,70 @@ function EntityModal({
   };
 
   const handleProposalQuerySelect = (queryId) => {
-    updateForm("queryId", queryId);
-    const linkedQuery = queries.find((query) => query.id === queryId);
-    if (linkedQuery) {
-      updateForm("clientName", linkedQuery.clientName);
+    if (!queryId) {
+      patchForm({ queryId: "" });
+      return;
     }
+    const linkedQuery = queries.find((query) => query.id === queryId);
+    patchForm(applyQueryLink(form, linkedQuery));
   };
 
   const handleJobQuerySelect = (queryId) => {
-    updateForm("queryId", queryId);
+    if (!queryId) {
+      patchForm({ queryId: "", proposalId: "" });
+      return;
+    }
     const linkedQuery = queries.find((query) => query.id === queryId);
-    if (!linkedQuery) return;
-    updateForm("clientName", linkedQuery.clientName);
-    updateForm("destination", linkedQuery.destination || "");
-    updateForm("confirmedPax", String(linkedQuery.paxCount || 1));
-    updateForm("travelStartDate", linkedQuery.travelStartDate || "");
-    updateForm("travelEndDate", linkedQuery.travelEndDate || "");
+    const patch = applyQueryLink(form, linkedQuery);
     const linkedProposal = proposals
       .filter((proposal) => proposal.queryId === queryId)
       .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
-    updateForm("proposalId", linkedProposal?.id || "");
+    patch.proposalId = linkedProposal?.id || "";
+    patchForm(patch);
+  };
+
+  const handleJobCardSelect = (jobCardId) => {
+    const linkedJob = jobCards.find((job) => job.id === jobCardId);
+    const patch = linkedJob
+      ? applyJobCardLink({ ...form, jobCardId }, linkedJob, modal)
+      : { jobCardId: jobCardId || "" };
+    patchForm({
+      ...patch,
+      ...reconcileLinkedSelections({ ...form, ...patch }, travellers, pnrs),
+    });
+  };
+
+  const handleTravellerSelect = (travellerId) => {
+    const linkedTraveller =
+      travellers.find((traveller) => traveller.id === travellerId) ||
+      travellersWithoutVisa.find((traveller) => traveller.id === travellerId);
+    const patch = applyTravellerLink(form, linkedTraveller, modal);
+    if (linkedTraveller?.jobCardId) {
+      const linkedJob = jobCards.find((job) => job.id === linkedTraveller.jobCardId);
+      Object.assign(patch, applyJobCardLink({ ...form, ...patch }, linkedJob, modal));
+    }
+    patchForm({
+      ...patch,
+      ...reconcileLinkedSelections({ ...form, ...patch }, travellers, pnrs),
+    });
+  };
+
+  const handlePnrSelect = (pnrId) => {
+    const linkedPnr = pnrs.find((pnr) => pnr.id === pnrId);
+    const patch = applyPnrLink(form, linkedPnr, modal);
+    if (linkedPnr?.jobCardId) {
+      const linkedJob = jobCards.find((job) => job.id === linkedPnr.jobCardId);
+      Object.assign(patch, applyJobCardLink({ ...form, ...patch }, linkedJob, modal));
+    }
+    patchForm({
+      ...patch,
+      ...reconcileLinkedSelections({ ...form, ...patch }, travellers, pnrs),
+    });
+  };
+
+  const handleVisaRecordSelect = (visaRecordId) => {
+    const linkedVisa = visas.find((visa) => visa.id === visaRecordId);
+    patchForm(linkedVisa ? applyVisaRecordLink(form, linkedVisa) : { visaRecordId: visaRecordId || "" });
   };
 
   const title = modal
@@ -2775,15 +2989,15 @@ function EntityModal({
               <Select label="Contracting Owner" value={form.staffId} options={[{ value: "", label: "Select team member…" }, ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label }))]} onChange={(v) => updateForm("staffId", v)} required />
             </>}
             {modal === "assignContractingOwner" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
               <Select label="Contracting Owner" value={form.staffId} options={[{ value: "", label: "Select team member…" }, ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label }))]} onChange={(v) => updateForm("staffId", v)} required />
             </>}
             {modal === "assignOperationsOwner" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
               <Select label="Operations Owner" value={form.staffId} options={[{ value: "", label: "Select team member…" }, ...operationsTeamOptions.map((o) => ({ value: o.value, label: o.label }))]} onChange={(v) => updateForm("staffId", v)} required />
             </>}
             {modal === "assignTicketingOwner" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
               <div className="md:col-span-2 flex flex-wrap items-end gap-3">
                 <div className="min-w-[240px] flex-1">
                   <Select label="Ticketing Owner" value={form.staffId} options={[{ value: "", label: "Select team member…" }, ...ticketingTeamOptions.map((o) => ({ value: o.value, label: o.label }))]} onChange={(v) => updateForm("staffId", v)} required />
@@ -2855,7 +3069,7 @@ function EntityModal({
               <Input label="Tour Manager" value={form.tourManagerName} onChange={(v) => updateForm("tourManagerName", v)} />
             </>}
             {modal === "traveller" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
               <Input label="Full Name" value={form.fullName} onChange={(v) => updateForm("fullName", v)} required />
               <Input label="Travel Hub" value={form.travelHub} onChange={(v) => updateForm("travelHub", v)} />
               <Input label="Travel Date" type="date" value={form.travelDate} onChange={(v) => updateForm("travelDate", v)} />
@@ -2874,17 +3088,17 @@ function EntityModal({
               <Textarea label="Special Requests" value={form.notes} onChange={(v) => updateForm("notes", v)} />
             </>}
             {modal === "visa" && <>
-              <Select label="Visa Record" value={form.visaRecordId} options={visas.map((v) => ({ value: v.id, label: `${v.travellerName} - ${v.jobCode}` }))} onChange={(v) => updateForm("visaRecordId", v)} required />
+              <Select label="Visa Record" value={form.visaRecordId} options={visas.map((v) => ({ value: v.id, label: `${v.travellerName} - ${v.jobCode}` }))} onChange={handleVisaRecordSelect} required />
               <Select label="Visa Status" value={form.visaStatus} options={VISA_STATUSES} onChange={(v) => updateForm("visaStatus", v)} />
               <Input label="Appointment Date" type="date" value={form.appointmentDate} onChange={(v) => updateForm("appointmentDate", v)} />
               <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
             </>}
             {modal === "visa_create" && <>
-              <Select label="Traveller" value={form.travellerId} options={[{ value: "", label: "Select Traveller" }, ...travellersWithoutVisa.map((t) => ({ value: t.id, label: `${t.fullName} (${t.jobCode} - ${t.clientName})` }))]} onChange={(v) => updateForm("travellerId", v)} required />
+              <Select label="Traveller" value={form.travellerId} options={[{ value: "", label: "Select Traveller" }, ...travellersWithoutVisa.map((t) => ({ value: t.id, label: `${t.fullName} (${t.jobCode} - ${t.clientName})` }))]} onChange={handleTravellerSelect} required />
               <Select label="Visa Status" value={form.visaStatus} options={VISA_STATUSES} onChange={(v) => updateForm("visaStatus", v)} />
             </>}
             {modal === "pnr" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
               <Input label="PNR" value={form.pnrCode} onChange={(v) => updateForm("pnrCode", v)} required />
               <Input label="Airline" value={form.airline} onChange={(v) => updateForm("airline", v)} />
               <Input label="Route" value={form.route} onChange={(v) => updateForm("route", v)} />
@@ -2892,9 +3106,9 @@ function EntityModal({
               <Input label="Total Seats" type="number" value={form.totalSeats} onChange={(v) => updateForm("totalSeats", v)} />
             </>}
             {modal === "ticket" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
-              <Select label="Traveller" value={form.travellerId} options={[{ value: "", label: "Unassigned" }, ...travellers.map((t) => ({ value: t.id, label: `${t.fullName} - ${t.jobCode}` }))]} onChange={(v) => updateForm("travellerId", v)} />
-              <Select label="PNR" value={form.pnrId} options={[{ value: "", label: "No PNR" }, ...pnrs.map((p) => ({ value: p.id, label: `${p.pnrCode} - ${p.route}` }))]} onChange={(v) => updateForm("pnrId", v)} />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
+              <Select label="Traveller" value={form.travellerId} options={travellerOptions} onChange={handleTravellerSelect} />
+              <Select label="PNR" value={form.pnrId} options={pnrOptions} onChange={handlePnrSelect} />
               <Input label="Ticket Number" value={form.ticketNumber} onChange={(v) => updateForm("ticketNumber", v)} />
               <Select label="Ticket Type" value={form.ticketType} options={TICKET_TYPES} onChange={(v) => updateForm("ticketType", v)} />
               <Select label="Ticket Status" value={form.ticketStatus} options={TICKET_STATUSES} onChange={(v) => updateForm("ticketStatus", v)} />
@@ -2905,15 +3119,15 @@ function EntityModal({
               <Input label="Seat Number" value={form.seatNumber} onChange={(v) => updateForm("seatNumber", v)} />
             </>}
             {modal === "seat" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
-              <Select label="Traveller" value={form.travellerId} options={[{ value: "", label: "Unassigned" }, ...travellers.map((t) => ({ value: t.id, label: `${t.fullName} - ${t.jobCode}` }))]} onChange={(v) => updateForm("travellerId", v)} />
-              <Select label="PNR" value={form.pnrId} options={[{ value: "", label: "No PNR" }, ...pnrs.map((p) => ({ value: p.id, label: `${p.pnrCode} - ${p.route}` }))]} onChange={(v) => updateForm("pnrId", v)} />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
+              <Select label="Traveller" value={form.travellerId} options={travellerOptions} onChange={handleTravellerSelect} />
+              <Select label="PNR" value={form.pnrId} options={pnrOptions} onChange={handlePnrSelect} />
               <Input label="Seat Number" value={form.seatNumber} onChange={(v) => updateForm("seatNumber", v)} required />
               <Select label="Status" value={form.seatStatus} options={["Available", "Held", "Assigned", "Blocked"]} onChange={(v) => updateForm("seatStatus", v)} />
               <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
             </>}
             {modal === "hotel" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
               <Input label="Hotel Name" value={form.hotelName} onChange={(v) => updateForm("hotelName", v)} required />
               <Input label="City" value={form.city} onChange={(v) => updateForm("city", v)} />
               <Input label="Check-in" type="date" value={form.checkInDate} onChange={(v) => updateForm("checkInDate", v)} />
@@ -2921,7 +3135,7 @@ function EntityModal({
               <Textarea label="Special Instructions" value={form.notes} onChange={(v) => updateForm("notes", v)} />
             </>}
             {modal === "tourManager" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { allowUnassigned: true })} onChange={(v) => updateForm("jobCardId", v)} />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { allowUnassigned: true })} onChange={handleJobCardSelect} />
               <Select label="Tour Manager" value={form.staffId} options={[{ value: "", label: "Select tour manager…" }, ...tourManagerOptions.map((o) => ({ value: o.value, label: o.label }))]} onChange={(v) => handleStaffSelect("staffId", v)} required />
               <Input label="Email" value={form.staffEmail} onChange={(v) => updateForm("staffEmail", v)} />
               <Input label="Phone" value={form.paidBy} onChange={(v) => updateForm("paidBy", v)} />
@@ -2929,14 +3143,14 @@ function EntityModal({
               <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
             </>}
             {modal === "invoice" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
               <Input label="Invoice Number" value={form.invoiceNumber} onChange={(v) => updateForm("invoiceNumber", v)} required />
               <Input label="Expected Amount" type="number" value={form.expectedAmount} onChange={(v) => updateForm("expectedAmount", v)} />
               <Input label="Received Amount" type="number" value={form.receivedAmount} onChange={(v) => updateForm("receivedAmount", v)} />
               <Input label="Due Date" type="date" value={form.dueDate} onChange={(v) => updateForm("dueDate", v)} />
             </>}
             {modal === "expense" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={(v) => updateForm("jobCardId", v)} required />
+              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
               <Input label="Tour Manager" value={form.tourManagerName} onChange={(v) => updateForm("tourManagerName", v)} />
               <Input label="Expense Date" type="date" value={form.expenseDate} onChange={(v) => updateForm("expenseDate", v)} />
               <Select label="Expense Head" value={form.category} options={EXPENSE_HEADS} onChange={(v) => updateForm("category", v)} required />

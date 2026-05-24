@@ -561,15 +561,35 @@ const CODE_FIELD_BY_TABLE: Record<string, string> = {
   approvalRequests: "requestCode",
 };
 
+export function creatorInitials(name: string) {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.replace(/[^A-Za-z]/g, ""))
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase().padEnd(2, "X");
+  }
+  return "XX";
+}
+
 export async function nextCode(
   ctx: QueryCtx | MutationCtx,
   tableName: any,
   prefix: string,
+  options?: { suffix?: string },
 ) {
   const codeField = CODE_FIELD_BY_TABLE[tableName];
   const rows = await ctx.db.query(tableName).collect();
   const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(`^${escapedPrefix}-(\\d+)$`);
+  const suffix = options?.suffix?.trim().toUpperCase().replace(/[^A-Z]/g, "");
+  const pattern = suffix
+    ? new RegExp(`^${escapedPrefix}-(\\d+)(?:-[A-Z]{1,4})?$`)
+    : new RegExp(`^${escapedPrefix}-(\\d+)$`);
   let max = 0;
 
   for (const row of rows) {
@@ -586,7 +606,8 @@ export async function nextCode(
     }
   }
 
-  return `${prefix}-${String(max + 1).padStart(4, "0")}`;
+  const baseCode = `${prefix}-${String(max + 1).padStart(4, "0")}`;
+  return suffix ? `${baseCode}-${suffix}` : baseCode;
 }
 
 export function paymentTermsFor(queryType: string) {
