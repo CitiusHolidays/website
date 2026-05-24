@@ -42,7 +42,7 @@ export function getSalesPipelineStage(query) {
     return query.leadStage;
   }
   if (query?.salesStatus === "Order Lost" || query?.contractingStatus === "Order Lost") {
-    return "Closed";
+    return "Lost";
   }
   if (query?.salesStatus === "Order Confirmed" || query?.contractingStatus === "Order Confirmed") {
     return "Confirmation";

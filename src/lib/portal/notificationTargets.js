@@ -44,6 +44,11 @@ export function getNotificationHref({ entityType, entityId, title }) {
         params.set("id", entityId);
         return `/portal/job-cards?${params}`;
       }
+      if (title === "Assign ticketing owner") {
+        params.set("open", "assignTicketingOwner");
+        params.set("id", entityId);
+        return `/portal/job-cards?${params}`;
+      }
       params.set("open", "jobCard");
       params.set("id", entityId);
       return `/portal/job-cards?${params}`;
@@ -128,6 +133,7 @@ export function getDeepLinkCollectionKeys(modal) {
       return ["queries", "jobCards", "proposals"];
     case "assignContractingOwner":
     case "assignOperationsOwner":
+    case "assignTicketingOwner":
       return ["jobCards"];
     case "proposal":
       return ["proposals"];
@@ -232,7 +238,8 @@ export function buildModalInitial(modal, { entityId, queryId }, collections) {
       };
     }
     case "assignContractingOwner":
-    case "assignOperationsOwner": {
+    case "assignOperationsOwner":
+    case "assignTicketingOwner": {
       const row = collections.jobCards?.find((entry) => entry.id === entityId);
       if (!row) return null;
       return { jobCardId: row.id };

@@ -155,7 +155,8 @@ export const createFromQuery = mutation({
     });
     await notifyStaffMatching(
       ctx,
-      (staff) => staff.roles.includes("Contracting Head"),
+      (staff) =>
+        staff.roles.some((role) => ["Contracting", "Contracting Head"].includes(role)),
       {
         title: "Assign contracting owner",
         body: `${jobCode} has been created. Assign a contracting owner for this Job Card.`,
@@ -166,7 +167,8 @@ export const createFromQuery = mutation({
     );
     await notifyStaffMatching(
       ctx,
-      (staff) => staff.roles.includes("Operations Head"),
+      (staff) =>
+        staff.roles.some((role) => ["Operations", "Operations Head"].includes(role)),
       {
         title: "Assign operations owner",
         body: `${jobCode} has been created. Assign an operations owner for this Job Card.`,
@@ -174,6 +176,18 @@ export const createFromQuery = mutation({
         entityId: id,
       },
       { fallbackRoles: ["Operations Head"] },
+    );
+    await notifyStaffMatching(
+      ctx,
+      (staff) =>
+        staff.roles.some((role) => ["Ticketing", "Head of Ticketing"].includes(role)),
+      {
+        title: "Assign ticketing owner",
+        body: `${jobCode} has been created. Assign a ticketing owner for this Job Card.`,
+        entityType: "jobCard",
+        entityId: id,
+      },
+      { fallbackRoles: ["Head of Ticketing"] },
     );
     await notifyRoles(ctx, ["Sales", "Sales Head", "Finance"], {
       title: "Job Card opened",

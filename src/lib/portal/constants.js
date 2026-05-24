@@ -309,7 +309,7 @@ export const SALES_STATUSES = [
   "Order Lost",
 ];
 
-export const LEAD_STAGES = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Closed"];
+export const LEAD_STAGES = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Lost"];
 
 export const QUERY_SOURCES = ["Website", "WhatsApp", "Email", "Client", "Referral"];
 
@@ -377,4 +377,4 @@ export const PIPELINE_STAGES = [
   "Order Lost",
 ];
 
-export const SALES_PIPELINE_STAGES = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Closed"];
+export const SALES_PIPELINE_STAGES = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Lost"];

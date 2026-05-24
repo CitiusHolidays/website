@@ -260,3 +260,20 @@ export const fixQuerySourceManual = mutation({
     return { updated, total: rows.length };
   },
 });
+
+export const migrateLeadStageClosedToLost = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("queries").collect();
+    let updated = 0;
+
+    for (const row of rows) {
+      if (row.leadStage === "Closed") {
+        await ctx.db.patch(row._id, { leadStage: "Lost" });
+        updated += 1;
+      }
+    }
+
+    return { updated, total: rows.length };
+  },
+});

@@ -49,6 +49,7 @@ const leadStageValidator = v.union(
   v.literal("Proposal"),
   v.literal("Negotiation"),
   v.literal("Confirmation"),
+  v.literal("Lost"),
   v.literal("Closed"),
 );
 
@@ -418,7 +419,7 @@ export const updateStatus = mutation({
       }
       if (args.salesStatus === "Order Lost") {
         patch.contractingStatus = "Order Lost";
-        patch.leadStage = "Closed";
+        patch.leadStage = "Lost";
       }
     }
     if (args.leadStage) {
@@ -433,7 +434,7 @@ export const updateStatus = mutation({
       }
       if (args.contractingStatus === "Order Lost") {
         patch.salesStatus = "Order Lost";
-        patch.leadStage = "Closed";
+        patch.leadStage = "Lost";
       }
     }
     if (args.lostReason) {

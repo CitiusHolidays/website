@@ -54,6 +54,7 @@ const leadStage = v.union(
   v.literal("Proposal"),
   v.literal("Negotiation"),
   v.literal("Confirmation"),
+  v.literal("Lost"),
   v.literal("Closed"),
 );
 

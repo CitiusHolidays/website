@@ -44,6 +44,11 @@ describe("notificationTargets", () => {
       entityId: "job123",
       title: "Assign operations owner",
     })).toBe("/portal/job-cards?open=assignOperationsOwner&id=job123");
+    expect(getNotificationHref({
+      entityType: "jobCard",
+      entityId: "job123",
+      title: "Assign ticketing owner",
+    })).toBe("/portal/job-cards?open=assignTicketingOwner&id=job123");
   });
 
   test("resolves approval deep links to expense modal data", () => {

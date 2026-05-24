@@ -446,6 +446,14 @@ export function canSeeProposalRecord(access: PortalAccess, proposal: any, linked
   if (canSeeDepartmentRecords(access, ["Sales Head", "Contracting Head", "Operations Head"])) {
     return true;
   }
+  if (
+    hasRole(access, "Accounts") &&
+    linkedQuery &&
+    (linkedQuery.salesStatus === "Order Confirmed" ||
+      linkedQuery.contractingStatus === "Order Confirmed")
+  ) {
+    return true;
+  }
   return (
     ownsAuthRecord(access, proposal.createdBy) ||
     ownsNamedRecord(access, proposal.preparedBy) ||
@@ -914,7 +922,8 @@ export function publicQuery(query: any) {
     contractingOwnerName: query.contractingOwnerName ?? "",
     contactMobile: query.contactMobile ?? "",
     budgetAmount: query.budgetAmount ?? 0,
-    leadStage: query.leadStage ?? "",
+    leadStage:
+      query.leadStage === "Closed" ? "Lost" : query.leadStage ?? "",
     source: query.source ?? "",
     submittedToContractingAt: query.submittedToContractingAt
       ? new Date(query.submittedToContractingAt).toISOString()

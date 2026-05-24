@@ -4307,7 +4307,7 @@ function paymentTermLabel(queryType) {
 function statusTone(status) {
   if (["Issued", "Approved", "Paid", "Active", "Available", "Done", "Order Confirmed", "Sent", "Assigned", "Confirmation", "Ready"].includes(status)) return "green";
   if (["Pending Issue", "Pending", "Awaiting", "Part Paid", "Proposal in progress", "Proposal in discussion", "Open", "Held", "Inquiry", "Proposal", "Ticketing", "Docs pending"].includes(status)) return "amber";
-  if (["Cancelled", "Rejected", "Order Lost", "Overdue", "Inactive", "Blocked", "Closed"].includes(status)) return "red";
+  if (["Cancelled", "Rejected", "Order Lost", "Lost", "Overdue", "Inactive", "Blocked", "Closed"].includes(status)) return "red";
   if (["Reissue Required", "Name Change Required", "Re-applied", "Negotiation"].includes(status)) return "purple";
   return "blue";
 }
