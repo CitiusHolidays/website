@@ -1867,16 +1867,7 @@ function PassportDocumentsView({
                         Delete Document
                       </button>
                     )}
-                  </button>
-                  {has(P.MANAGE_VISA) && (
-                    <button
-                      className="portal-small-btn border-red-200 text-red-600 hover:bg-red-50"
-                      onClick={() => handleDeletePassport(row.fullName, row.id)}
-                    >
-                      Delete Document
-                    </button>
-                  )}
-                </>
+                  </>
               ) : (
                 has(P.MANAGE_VISA) && (
                   <button
