@@ -634,6 +634,9 @@ export async function notifyStaffMatching(
     entityType?: string;
     entityId?: string | Id<any>;
   },
+  options?: {
+    fallbackRoles?: string[];
+  },
 ) {
   const createdAt = Date.now();
   const entityId = notificationEntityId(input.entityId);
@@ -660,6 +663,26 @@ export async function notifyStaffMatching(
       continue;
     }
     for (const role of member.roles) {
+      await ctx.db.insert("notifications", {
+        recipientRole: role as any,
+        title: input.title,
+        body: input.body,
+        entityType: input.entityType,
+        entityId,
+        createdAt,
+      });
+    }
+  }
+
+  for (const role of options?.fallbackRoles ?? []) {
+    const hasLinkedStaff = staffRows.some(
+      (member) =>
+        member.active &&
+        member.authUserId &&
+        member.roles.includes(role as any) &&
+        shouldNotify(member),
+    );
+    if (!hasLinkedStaff) {
       await ctx.db.insert("notifications", {
         recipientRole: role as any,
         title: input.title,

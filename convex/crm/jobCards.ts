@@ -155,15 +155,25 @@ export const createFromQuery = mutation({
     });
     await notifyStaffMatching(
       ctx,
-      (staff) =>
-        staff.roles.includes("Contracting Head") ||
-        staff.roles.includes("Operations Head"),
+      (staff) => staff.roles.includes("Contracting Head"),
       {
-        title: "Job Card created",
-        body: `${jobCode} has been created for ${linkedQuery?.clientName || args.clientName || "client"}.`,
+        title: "Assign contracting owner",
+        body: `${jobCode} has been created. Assign a contracting owner for this Job Card.`,
         entityType: "jobCard",
         entityId: id,
       },
+      { fallbackRoles: ["Contracting Head"] },
+    );
+    await notifyStaffMatching(
+      ctx,
+      (staff) => staff.roles.includes("Operations Head"),
+      {
+        title: "Assign operations owner",
+        body: `${jobCode} has been created. Assign an operations owner for this Job Card.`,
+        entityType: "jobCard",
+        entityId: id,
+      },
+      { fallbackRoles: ["Operations Head"] },
     );
     await notifyRoles(ctx, ["Sales", "Sales Head", "Finance"], {
       title: "Job Card opened",

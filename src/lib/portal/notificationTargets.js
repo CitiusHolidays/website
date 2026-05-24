@@ -17,6 +17,9 @@ export function getNotificationHref({ entityType, entityId, title }) {
         params.set("queryId", entityId);
         return `/portal/accounts/job-cards?${params}`;
       }
+      if (title === "Order confirmed — assign owners") {
+        return "/portal/job-cards";
+      }
       if (CONTRACTING_QUERY_TITLES.has(title)) {
         params.set("open", "queryStatus");
         params.set("id", entityId);
@@ -31,6 +34,16 @@ export function getNotificationHref({ entityType, entityId, title }) {
       params.set("id", entityId);
       return `/portal/proposals?${params}`;
     case "jobCard":
+      if (title === "Assign contracting owner") {
+        params.set("open", "assignContractingOwner");
+        params.set("id", entityId);
+        return `/portal/job-cards?${params}`;
+      }
+      if (title === "Assign operations owner") {
+        params.set("open", "assignOperationsOwner");
+        params.set("id", entityId);
+        return `/portal/job-cards?${params}`;
+      }
       params.set("open", "jobCard");
       params.set("id", entityId);
       return `/portal/job-cards?${params}`;
@@ -113,6 +126,9 @@ export function getDeepLinkCollectionKeys(modal) {
       return ["queries"];
     case "jobCard":
       return ["queries", "jobCards", "proposals"];
+    case "assignContractingOwner":
+    case "assignOperationsOwner":
+      return ["jobCards"];
     case "proposal":
       return ["proposals"];
     case "ticket":
@@ -214,6 +230,12 @@ export function buildModalInitial(modal, { entityId, queryId }, collections) {
         travelEndDate: row.travelEndDate,
         tourManagerName: row.tourManagerName,
       };
+    }
+    case "assignContractingOwner":
+    case "assignOperationsOwner": {
+      const row = collections.jobCards?.find((entry) => entry.id === entityId);
+      if (!row) return null;
+      return { jobCardId: row.id };
     }
     case "ticket": {
       const row = collections.tickets?.find((entry) => entry.id === entityId);

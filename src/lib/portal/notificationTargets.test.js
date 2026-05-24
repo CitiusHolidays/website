@@ -21,6 +21,11 @@ describe("notificationTargets", () => {
       entityId: "query123",
       title: "Order confirmed",
     })).toBe("/portal/accounts/job-cards?open=jobCard&queryId=query123");
+    expect(getNotificationHref({
+      entityType: "query",
+      entityId: "query123",
+      title: "Order confirmed — assign owners",
+    })).toBe("/portal/job-cards");
   });
 
   test("maps job card notifications to job card modal", () => {
@@ -32,8 +37,13 @@ describe("notificationTargets", () => {
     expect(getNotificationHref({
       entityType: "jobCard",
       entityId: "job123",
-      title: "Job Card created",
-    })).toBe("/portal/job-cards?open=jobCard&id=job123");
+      title: "Assign contracting owner",
+    })).toBe("/portal/job-cards?open=assignContractingOwner&id=job123");
+    expect(getNotificationHref({
+      entityType: "jobCard",
+      entityId: "job123",
+      title: "Assign operations owner",
+    })).toBe("/portal/job-cards?open=assignOperationsOwner&id=job123");
   });
 
   test("resolves approval deep links to expense modal data", () => {

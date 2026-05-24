@@ -496,8 +496,22 @@ export const updateStatus = mutation({
           entityType: "query",
           entityId: queryId,
         },
+        { fallbackRoles: ["Accounts"] },
       );
-      await notifyRoles(ctx, ["Contracting Head", "Operations Head", "Finance"], {
+      await notifyStaffMatching(
+        ctx,
+        (staff) =>
+          staff.roles.includes("Contracting Head") ||
+          staff.roles.includes("Operations Head"),
+        {
+          title: "Order confirmed — assign owners",
+          body: `${current.queryCode} is confirmed. Assign contracting and operations owners once Accounts opens the Job Card.`,
+          entityType: "query",
+          entityId: queryId,
+        },
+        { fallbackRoles: ["Contracting Head", "Operations Head"] },
+      );
+      await notifyRoles(ctx, ["Finance"], {
         title: "Order confirmed",
         body: `${current.queryCode} has been confirmed by Sales.`,
         entityType: "query",
