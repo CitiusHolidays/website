@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   CircleDollarSign,
   ClipboardList,
+  Download,
   FileText,
   Paperclip,
   Hotel,
@@ -21,6 +22,7 @@ import {
   ShieldCheck,
   Ticket,
   Trash2,
+  Upload,
   Users,
 } from "lucide-react";
 import {
@@ -61,6 +63,15 @@ import {
   resolveDeepLink,
 } from "@/lib/portal/notificationTargets";
 import { api } from "@convex/_generated/api";
+import {
+  parseFlightWorkbookFile,
+  parsePassengerWorkbookFile,
+} from "@/lib/portal/spreadsheetImports";
+import {
+  buildFlightWorkbook,
+  buildPassengerWorkbook,
+  downloadWorkbook,
+} from "@/lib/portal/spreadsheetExports";
 
 const P = PORTAL_PERMISSIONS;
 
@@ -394,6 +405,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const pnrs = useQuery(api.crm.ticketing.listPnrs, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
   const tickets = useQuery(api.crm.ticketing.listTickets, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
   const seats = useQuery(api.crm.ticketing.listSeatAllocations, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
+  const flightItinerary = useQuery(api.crm.imports.listFlightItinerary, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
   const hotels = useQuery(api.crm.ops.listHotels, canFetch && has(P.VIEW_OPERATIONS) ? {} : "skip");
   const tourManagers = useQuery(api.crm.ops.listTourManagers, canFetch && has(P.VIEW_TOUR_MANAGERS) ? {} : "skip");
   const invoices = useQuery(api.crm.finance.listInvoices, canFetch && has(P.VIEW_FINANCE) ? {} : "skip");
@@ -461,6 +473,10 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   );
   const createPnr = useMutation(api.crm.ticketing.createPnr);
   const updatePnr = useMutation(api.crm.ticketing.updatePnr);
+  const previewPassengerImport = useAction(api.crm.importActions.previewPassengerImport);
+  const commitPassengerImport = useAction(api.crm.importActions.commitPassengerImport);
+  const getPassengerExportRows = useAction(api.crm.importActions.getPassengerExportRows);
+  const commitFlightImport = useMutation(api.crm.imports.commitFlightImport);
   const createTicket = useMutation(api.crm.ticketing.createTicket);
   const updateTicket = useMutation(api.crm.ticketing.updateTicket);
   const saveSeat = useMutation(api.crm.ticketing.saveSeatAllocation);
@@ -1146,7 +1162,11 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       {view === "passport" && (
         <PassportDocumentsView
           travellers={travellers || []}
+          rows={visas || []}
           has={has}
+          openModal={openModal}
+          deleteItem={deleteItem}
+          removeVisa={removeVisa}
           generateUploadUrl={generateUploadUrl}
           encryptAndStorePassport={encryptAndStorePassport}
           getPassportDocument={getPassportDocument}
@@ -1163,7 +1183,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         />
       )}
       {view === "ticketing" && <TicketDashboardView summary={ticketDashboard} tickets={tickets || []} openModal={openModal} has={has} deleteItem={deleteItem} removeTicket={removeTicket} />}
-      {view === "flights" && <PnrView rows={pnrs || []} openModal={openModal} has={has} deleteItem={deleteItem} removePnr={removePnr} />}
+      {view === "flights" && <PnrView rows={pnrs || []} itinerary={flightItinerary || []} openModal={openModal} has={has} deleteItem={deleteItem} removePnr={removePnr} />}
       {view === "seat-allocation" && <SeatView rows={seats || []} openModal={openModal} has={has} deleteItem={deleteItem} removeSeatAllocation={removeSeatAllocation} />}
       {view === "tickets" && <TicketsView rows={tickets || []} openModal={openModal} has={has} deleteItem={deleteItem} removeTicket={removeTicket} />}
       {view === "hotels" && <HotelsView rows={hotels || []} openModal={openModal} has={has} deleteItem={deleteItem} removeHotel={removeHotel} />}
@@ -1230,7 +1250,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
 
       <EntityModal
-        modal={modal}
+        modal={["passengerImport", "flightImport", "passengerExport", "flightExport"].includes(modal) ? null : modal}
         form={form}
         updateForm={updateForm}
         patchForm={patchForm}
@@ -1269,17 +1289,77 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         has={has}
         access={access}
       />
+      <PassengerImportModal
+        open={modal === "passengerImport"}
+        close={closeModal}
+        jobCards={jobCards || []}
+        previewPassengerImport={previewPassengerImport}
+        commitPassengerImport={commitPassengerImport}
+      />
+      <FlightImportModal
+        open={modal === "flightImport"}
+        close={closeModal}
+        jobCards={jobCards || []}
+        itinerary={flightItinerary || []}
+        commitFlightImport={commitFlightImport}
+      />
+      <PassengerExportModal
+        open={modal === "passengerExport"}
+        close={closeModal}
+        jobCards={jobCards || []}
+        getPassengerExportRows={getPassengerExportRows}
+      />
+      <FlightExportModal
+        open={modal === "flightExport"}
+        close={closeModal}
+        jobCards={jobCards || []}
+        itinerary={flightItinerary || []}
+      />
     </div>
   );
 }
 
 function renderHeaderAction(view, openModal, has, access) {
+  if (view === "travellers" && has(P.MANAGE_TRAVELLERS)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => openModal("passengerExport")} className="portal-small-btn bg-white">
+          <Download size={16} />
+          Export Passengers
+        </button>
+        <button type="button" onClick={() => openModal("passengerImport")} className="portal-small-btn bg-white">
+          <Upload size={16} />
+          Import Passengers
+        </button>
+        <button type="button" onClick={() => openModal("traveller")} className="portal-primary-btn">
+          <Plus size={16} />
+          Add Traveller
+        </button>
+      </div>
+    );
+  }
+  if (view === "flights" && has(P.MANAGE_TICKETING)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => openModal("flightExport")} className="portal-small-btn bg-white">
+          <Download size={16} />
+          Export Flights
+        </button>
+        <button type="button" onClick={() => openModal("flightImport")} className="portal-small-btn bg-white">
+          <Upload size={16} />
+          Import Flights
+        </button>
+        <button type="button" onClick={() => openModal("pnr")} className="portal-primary-btn">
+          <Plus size={16} />
+          Add PNR
+        </button>
+      </div>
+    );
+  }
   const actions = {
     queries: has(P.MANAGE_QUERIES) && ["query", "New Query"],
     contracting: canAssignContracting(access) && ["assignContracting", "Assign Contracting"],
     proposals: has(P.MANAGE_PROPOSALS) && ["proposal", "New Proposal"],
-    travellers: has(P.MANAGE_TRAVELLERS) && ["traveller", "Add Traveller"],
-    flights: has(P.MANAGE_TICKETING) && ["pnr", "Add PNR"],
     tickets: has(P.MANAGE_TICKETING) && ["ticket", "Issue Ticket"],
     "seat-allocation": has(P.MANAGE_TICKETING) && ["seat", "Save Seat"],
     hotels: has(P.MANAGE_OPERATIONS) && ["hotel", "Add Hotel"],
@@ -2011,12 +2091,17 @@ function VisaTrackingView({ rows, openModal, has, deleteItem, removeVisa }) {
 
 function PassportDocumentsView({
   travellers,
+  rows,
   has,
+  openModal,
+  deleteItem,
+  removeVisa,
   generateUploadUrl,
   encryptAndStorePassport,
   getPassportDocument,
   removePassport,
 }) {
+  const [activeTab, setActiveTab] = useState("passports");
   const [uploadTraveller, setUploadTraveller] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -2368,33 +2453,89 @@ function TicketDashboardView({ summary, tickets, openModal, has, deleteItem, rem
   );
 }
 
-function PnrView({ rows, openModal, has, deleteItem, removePnr }) {
+function PnrView({ rows, itinerary, openModal, has, deleteItem, removePnr }) {
   return (
-    <DataTable rows={rows} empty="No PNRs yet." columns={[
-      ["PNR", (row) => <span className="font-mono font-bold tracking-[0.14em] text-citius-blue">{row.pnrCode}</span>],
-      ["Job", (row) => row.jobCode],
-      ["Client", (row) => row.clientName],
-      ["Airline", (row) => row.airline],
-      ["Route", (row) => row.route],
-      ["Fare", (row) => row.fareType || "-"],
-      ["Seats", (row) => `${row.issuedSeats}/${row.totalSeats}`],
-      ["Action", (row) => has(P.MANAGE_TICKETING) && (
-        <div className="flex flex-wrap gap-2">
-          <EditButton
-            onClick={() => openModal("pnr", {
-              entityId: row.id,
-              jobCardId: row.jobCardId,
-              pnrCode: row.pnrCode,
-              airline: row.airline,
-              route: row.route,
-              fareType: row.fareType,
-              totalSeats: String(row.totalSeats),
-            })}
-          />
-          <DeleteButton label={row.pnrCode} onClick={() => deleteItem(row.pnrCode, removePnr, { pnrId: row.id })} />
+    <div className="space-y-5">
+      <Panel title="Flight Itinerary">
+        <FlightItineraryList rows={itinerary} />
+      </Panel>
+      <Panel title="PNR Records">
+        <DataTable rows={rows} empty="No PNRs yet." columns={[
+          ["PNR", (row) => <span className="font-mono font-bold tracking-[0.14em] text-citius-blue">{row.pnrCode}</span>],
+          ["Job", (row) => row.jobCode],
+          ["Client", (row) => row.clientName],
+          ["Airline", (row) => row.airline],
+          ["Route", (row) => row.route],
+          ["Fare", (row) => row.fareType || "-"],
+          ["Seats", (row) => `${row.issuedSeats}/${row.totalSeats}`],
+          ["Action", (row) => has(P.MANAGE_TICKETING) && (
+            <div className="flex flex-wrap gap-2">
+              <EditButton
+                onClick={() => openModal("pnr", {
+                  entityId: row.id,
+                  jobCardId: row.jobCardId,
+                  pnrCode: row.pnrCode,
+                  airline: row.airline,
+                  route: row.route,
+                  fareType: row.fareType,
+                  totalSeats: String(row.totalSeats),
+                })}
+              />
+              <DeleteButton label={row.pnrCode} onClick={() => deleteItem(row.pnrCode, removePnr, { pnrId: row.id })} />
+            </div>
+          )],
+        ]} />
+      </Panel>
+    </div>
+  );
+}
+
+function FlightItineraryList({ rows }) {
+  if (!rows) return <LoadingPanel />;
+  if (rows.length === 0) return <EmptyState label="No flight itinerary imported yet." />;
+  return (
+    <div className="space-y-4">
+      {rows.map((group) => (
+        <div key={group.id} className="rounded-lg border border-brand-border bg-brand-light/30">
+          <div className="flex flex-col gap-1 border-b border-brand-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="font-semibold text-citius-blue">{group.name}</div>
+              <div className="text-xs text-brand-muted">{group.jobCode} - {group.clientName}</div>
+            </div>
+            <div className="text-sm font-medium text-brand-dark">{group.route}</div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse">
+              <thead>
+                <tr className="text-left text-xs font-semibold text-citius-blue/80">
+                  <th className="px-4 py-2">Date</th>
+                  <th className="px-4 py-2">Flight</th>
+                  <th className="px-4 py-2">Depart</th>
+                  <th className="px-4 py-2">Arrive</th>
+                  <th className="px-4 py-2">Duration</th>
+                  <th className="px-4 py-2">Transit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.segments.map((segment) => (
+                  <tr key={segment.id} className="border-t border-brand-border text-sm">
+                    <td className="px-4 py-2">{segment.dateLabel}</td>
+                    <td className="px-4 py-2">
+                      <span className="font-medium">{segment.airline}</span>
+                      <span className="ml-2 font-mono text-xs text-brand-muted">{segment.flightNumber}</span>
+                    </td>
+                    <td className="px-4 py-2">{segment.departTime || "-"} {segment.origin}</td>
+                    <td className="px-4 py-2">{segment.arriveTime || "-"} {segment.destination}</td>
+                    <td className="px-4 py-2">{segment.duration || "-"}</td>
+                    <td className="px-4 py-2">{segment.transit || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      )],
-    ]} />
+      ))}
+    </div>
   );
 }
 
@@ -3006,6 +3147,602 @@ function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff, st
           ))}
         </div>
       </Panel>
+    </div>
+  );
+}
+
+function toPassengerImportInput(row) {
+  return {
+    id: row.id,
+    sourceSheet: row.sourceSheet,
+    sourceRowNumber: row.sourceRowNumber,
+    importKey: row.importKey,
+    fullName: row.fullName,
+    travelHub: row.travelHub,
+    foodPreference: row.foodPreference,
+    guestType: row.guestType,
+    paymentType: row.paymentType,
+    roomType: row.roomType,
+    visaRequired: row.visaRequired,
+    domesticTravelRequired: row.domesticTravelRequired,
+    passportStatus: row.passportStatus,
+    specialRequests: row.specialRequests,
+    sourceDealerCode: row.sourceDealerCode,
+    sourceDealerName: row.sourceDealerName,
+    sourceDescription: row.sourceDescription,
+    sourceSoName: row.sourceSoName,
+    sourceRsoName: row.sourceRsoName,
+    sourceGroup: row.sourceGroup,
+    gender: row.gender,
+    contactNo: row.contactNo,
+    passport: {
+      number: row.passport?.number,
+      dateOfBirth: row.passport?.dateOfBirth,
+      issueDate: row.passport?.issueDate,
+      expiryDate: row.passport?.expiryDate,
+      nationality: row.passport?.nationality,
+    },
+  };
+}
+
+function PassengerImportModal({ open, close, jobCards, previewPassengerImport, commitPassengerImport }) {
+  const [jobCardId, setJobCardId] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [parsed, setParsed] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [isParsing, setIsParsing] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const rows = useMemo(() => parsed?.rows || [], [parsed]);
+  const importRows = useMemo(() => rows.map(toPassengerImportInput), [rows]);
+  const skipped = parsed?.skipped || [];
+  const errors = parsed?.errors || [];
+  const previewRows = useMemo(() => preview?.rows || [], [preview]);
+  const previewById = useMemo(() => new Map(previewRows.map((row) => [row.id, row])), [previewRows]);
+  const createCount = previewRows.filter((row) => row.action === "create").length;
+  const updateCount = previewRows.filter((row) => row.action === "update").length;
+
+  const reset = useCallback(() => {
+    setJobCardId("");
+    setFileName("");
+    setParsed(null);
+    setPreview(null);
+    setError("");
+    setIsParsing(false);
+    setIsPreviewing(false);
+    setIsSaving(false);
+  }, []);
+
+  const closeAndReset = useCallback(() => {
+    reset();
+    close();
+  }, [close, reset]);
+
+  useEffect(() => {
+    if (!open) reset();
+  }, [open, reset]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function runPreview() {
+      if (!open || !jobCardId || importRows.length === 0) {
+        setPreview(null);
+        return;
+      }
+      setIsPreviewing(true);
+      setError("");
+      try {
+        const result = await previewPassengerImport({ jobCardId, rows: importRows });
+        if (!cancelled) setPreview(result);
+      } catch (err) {
+        if (!cancelled) {
+          setPreview(null);
+          setError(err?.data || err?.message || "Unable to preview passenger import.");
+        }
+      } finally {
+        if (!cancelled) setIsPreviewing(false);
+      }
+    }
+    runPreview();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, jobCardId, importRows, previewPassengerImport]);
+
+  const handleFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    setParsed(null);
+    setPreview(null);
+    setError("");
+    setIsParsing(true);
+    try {
+      setParsed(await parsePassengerWorkbookFile(file));
+    } catch (err) {
+      setError(err?.message || "Unable to read passenger spreadsheet.");
+    } finally {
+      setIsParsing(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleCommit = async () => {
+    if (!jobCardId || rows.length === 0) return;
+    setIsSaving(true);
+    setError("");
+    try {
+      const result = await commitPassengerImport({ jobCardId, rows: importRows });
+      alert(`Passenger import complete. Created ${result.created}, updated ${result.updated}.`);
+      closeAndReset();
+    } catch (err) {
+      setError(err?.data || err?.message || "Passenger import failed.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <ImportModalShell open={open} close={closeAndReset} title="Import Passengers">
+      <div className="space-y-4">
+        <Select label="Job Card" value={jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={setJobCardId} required />
+        <ImportFileInput label="Passenger spreadsheet" fileName={fileName} accept=".xlsx,.xls" onChange={handleFile} />
+        <ImportSummary
+          isBusy={isParsing || isPreviewing}
+          totals={[
+            ["Ready", rows.length],
+            ["Create", preview ? createCount : "-"],
+            ["Update", preview ? updateCount : "-"],
+            ["Skipped", skipped.length],
+            ["Errors", errors.length],
+          ]}
+        />
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {errors.length > 0 && <ImportIssueList title="Rows needing correction" rows={errors} />}
+        {skipped.length > 0 && <ImportIssueList title="Skipped rows" rows={skipped.slice(0, 8)} />}
+        {rows.length > 0 && (
+          <DataTable
+            compact
+            rows={rows.slice(0, 25).map((row) => ({
+              ...row,
+              action: previewById.get(row.id)?.action || (isPreviewing ? "checking" : "upsert"),
+            }))}
+            empty="No confirmed passengers found."
+            columns={[
+              ["Action", (row) => <Badge label={row.action} tone={row.action === "update" ? "blue" : row.action === "create" ? "green" : "orange"} />],
+              ["Passenger", (row) => strong(row.fullName)],
+              ["Hub", (row) => row.travelHub || "-"],
+              ["Food", (row) => row.foodPreference],
+              ["Passport", (row) => row.passport?.number ? `****${row.passport.number.slice(-4)}` : "Pending"],
+              ["Source", (row) => `${row.sourceSheet} row ${row.sourceRowNumber}`],
+            ]}
+          />
+        )}
+        <div className="flex justify-end gap-2">
+          <button type="button" className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70" onClick={closeAndReset}>Cancel</button>
+          <button type="button" className="portal-primary-btn disabled:opacity-60" disabled={!jobCardId || rows.length === 0 || isPreviewing || isSaving} onClick={handleCommit}>
+            {isSaving ? "Uploading..." : "Upload Passengers"}
+          </button>
+        </div>
+      </div>
+    </ImportModalShell>
+  );
+}
+
+function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImport }) {
+  const [jobCardId, setJobCardId] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [parsed, setParsed] = useState(null);
+  const [isParsing, setIsParsing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const groups = parsed?.groups || [];
+  const errors = parsed?.errors || [];
+  const existingSegmentKeys = new Set(
+    (itinerary || [])
+      .filter((group) => !jobCardId || group.jobCardId === jobCardId)
+      .flatMap((group) => group.segments || [])
+      .map((segment) => segment.importKey)
+      .filter(Boolean),
+  );
+  const segmentCount = groups.reduce((sum, group) => sum + group.segments.length, 0);
+  const updateCount = groups.reduce(
+    (sum, group) => sum + group.segments.filter((segment) => existingSegmentKeys.has(segment.importKey)).length,
+    0,
+  );
+
+  const reset = useCallback(() => {
+    setJobCardId("");
+    setFileName("");
+    setParsed(null);
+    setError("");
+    setIsParsing(false);
+    setIsSaving(false);
+  }, []);
+
+  const closeAndReset = useCallback(() => {
+    reset();
+    close();
+  }, [close, reset]);
+
+  useEffect(() => {
+    if (!open) reset();
+  }, [open, reset]);
+
+  const handleFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    setParsed(null);
+    setError("");
+    setIsParsing(true);
+    try {
+      setParsed(await parseFlightWorkbookFile(file));
+    } catch (err) {
+      setError(err?.message || "Unable to read flight spreadsheet.");
+    } finally {
+      setIsParsing(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleCommit = async () => {
+    if (!jobCardId || groups.length === 0) return;
+    setIsSaving(true);
+    setError("");
+    try {
+      const result = await commitFlightImport({ jobCardId, groups });
+      alert(`Flight import complete. Created ${result.createdSegments}, updated ${result.updatedSegments} segments.`);
+      closeAndReset();
+    } catch (err) {
+      setError(err?.data || err?.message || "Flight import failed.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <ImportModalShell open={open} close={closeAndReset} title="Import Flights">
+      <div className="space-y-4">
+        <Select label="Job Card" value={jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={setJobCardId} required />
+        <ImportFileInput label="Flight spreadsheet" fileName={fileName} accept=".xlsx,.xls" onChange={handleFile} />
+        <ImportSummary
+          isBusy={isParsing}
+          totals={[
+            ["Groups", groups.length],
+            ["Segments", segmentCount],
+            ["Create", segmentCount - updateCount],
+            ["Update", updateCount],
+            ["Errors", errors.length],
+          ]}
+        />
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {errors.length > 0 && <ImportIssueList title="Rows needing correction" rows={errors} />}
+        {groups.length > 0 && (
+          <div className="space-y-3">
+            {groups.slice(0, 8).map((group) => (
+              <div key={group.id} className="rounded-lg border border-brand-border bg-white">
+                <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
+                  <div className="font-semibold text-citius-blue">{group.name}</div>
+                  <div className="text-xs text-brand-muted">{group.segments.length} segment{group.segments.length === 1 ? "" : "s"}</div>
+                </div>
+                <DataTable
+                  compact
+                  rows={group.segments.map((segment) => ({
+                    ...segment,
+                    action: existingSegmentKeys.has(segment.importKey) ? "update" : "create",
+                  }))}
+                  empty="No segments in this group."
+                  columns={[
+                    ["Action", (row) => <Badge label={row.action} tone={row.action === "update" ? "blue" : "green"} />],
+                    ["Date", (row) => row.dateLabel],
+                    ["Flight", (row) => `${row.airline} ${row.flightNumber}`],
+                    ["Depart", (row) => `${row.departTime || "-"} ${row.origin}`],
+                    ["Arrive", (row) => `${row.arriveTime || "-"} ${row.destination}`],
+                    ["Transit", (row) => row.transit || "-"],
+                  ]}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex justify-end gap-2">
+          <button type="button" className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70" onClick={closeAndReset}>Cancel</button>
+          <button type="button" className="portal-primary-btn disabled:opacity-60" disabled={!jobCardId || groups.length === 0 || isSaving} onClick={handleCommit}>
+            {isSaving ? "Uploading..." : "Upload Flights"}
+          </button>
+        </div>
+      </div>
+    </ImportModalShell>
+  );
+}
+
+function PassengerExportModal({ open, close, jobCards, getPassengerExportRows }) {
+  const [jobCardId, setJobCardId] = useState("");
+  const [exportData, setExportData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [error, setError] = useState("");
+
+  const reset = useCallback(() => {
+    setJobCardId("");
+    setExportData(null);
+    setError("");
+    setIsLoading(false);
+    setIsExporting(false);
+  }, []);
+
+  const closeAndReset = useCallback(() => {
+    reset();
+    close();
+  }, [close, reset]);
+
+  useEffect(() => {
+    if (!open) reset();
+  }, [open, reset]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadExportPreview() {
+      if (!open || !jobCardId) {
+        setExportData(null);
+        return;
+      }
+      setIsLoading(true);
+      setError("");
+      try {
+        const result = await getPassengerExportRows({ jobCardId });
+        if (!cancelled) setExportData(result);
+      } catch (err) {
+        if (!cancelled) {
+          setExportData(null);
+          setError(err?.data || err?.message || "Unable to load passengers for export.");
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+    loadExportPreview();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, jobCardId, getPassengerExportRows]);
+
+  const handleExport = async () => {
+    if (!exportData?.rows?.length) return;
+    setIsExporting(true);
+    setError("");
+    try {
+      const workbook = buildPassengerWorkbook(exportData.rows, { sheetName: exportData.jobCode });
+      downloadWorkbook(workbook, `${exportData.jobCode}-passengers.xlsx`);
+      closeAndReset();
+    } catch (err) {
+      setError(err?.message || "Passenger export failed.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const rows = exportData?.rows || [];
+
+  return (
+    <ImportModalShell
+      open={open}
+      close={closeAndReset}
+      title="Export Passengers"
+      subtitle="Select a job card to download a passenger spreadsheet compatible with the import template."
+    >
+      <div className="space-y-4">
+        <Select label="Job Card" value={jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={setJobCardId} required />
+        <ImportSummary
+          isBusy={isLoading}
+          totals={[
+            ["Passengers", jobCardId ? (isLoading ? "-" : rows.length) : "-"],
+            ["Confirmed", rows.filter((row) => row.willingToGo === "CONFIRMED").length],
+            ["Unable", rows.filter((row) => row.willingToGo !== "CONFIRMED").length],
+            ["Job", exportData?.jobCode || "-"],
+            ["Client", exportData?.clientName || "-"],
+          ]}
+        />
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {jobCardId && !isLoading && rows.length === 0 && (
+          <div className="rounded-lg border border-brand-border bg-brand-light/40 px-4 py-3 text-sm text-brand-muted">
+            No passengers found for this job card.
+          </div>
+        )}
+        {rows.length > 0 && (
+          <DataTable
+            compact
+            rows={rows.slice(0, 25)}
+            empty="No passengers to export."
+            columns={[
+              ["Passenger", (row) => strong(row.fullName)],
+              ["Status", (row) => row.willingToGo],
+              ["Hub", (row) => row.travelHub || "-"],
+              ["Food", (row) => row.foodPreference],
+              ["Passport", (row) => row.passport?.number ? `****${row.passport.number.slice(-4)}` : "Pending"],
+            ]}
+          />
+        )}
+        <div className="flex justify-end gap-2">
+          <button type="button" className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70" onClick={closeAndReset}>Cancel</button>
+          <button type="button" className="portal-primary-btn disabled:opacity-60" disabled={!jobCardId || isLoading || rows.length === 0 || isExporting} onClick={handleExport}>
+            {isExporting ? "Exporting..." : "Download Spreadsheet"}
+          </button>
+        </div>
+      </div>
+    </ImportModalShell>
+  );
+}
+
+function FlightExportModal({ open, close, jobCards, itinerary }) {
+  const [jobCardId, setJobCardId] = useState("");
+  const [error, setError] = useState("");
+
+  const selectedJob = useMemo(
+    () => jobCards.find((job) => job.id === jobCardId) || null,
+    [jobCards, jobCardId],
+  );
+  const groups = useMemo(
+    () => (itinerary || []).filter((group) => group.jobCardId === jobCardId),
+    [itinerary, jobCardId],
+  );
+  const segmentCount = groups.reduce((sum, group) => sum + (group.segments?.length || 0), 0);
+
+  const reset = useCallback(() => {
+    setJobCardId("");
+    setError("");
+  }, []);
+
+  const closeAndReset = useCallback(() => {
+    reset();
+    close();
+  }, [close, reset]);
+
+  useEffect(() => {
+    if (!open) reset();
+  }, [open, reset]);
+
+  const handleExport = () => {
+    if (!selectedJob || groups.length === 0) return;
+    setError("");
+    try {
+      const workbook = buildFlightWorkbook(groups, { defaultSheetName: selectedJob.jobCode });
+      downloadWorkbook(workbook, `${selectedJob.jobCode}-flights.xlsx`);
+      closeAndReset();
+    } catch (err) {
+      setError(err?.message || "Flight export failed.");
+    }
+  };
+
+  return (
+    <ImportModalShell
+      open={open}
+      close={closeAndReset}
+      title="Export Flights"
+      subtitle="Select a job card to download a flight itinerary spreadsheet compatible with the import template."
+    >
+      <div className="space-y-4">
+        <Select label="Job Card" value={jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={setJobCardId} required />
+        <ImportSummary
+          isBusy={false}
+          totals={[
+            ["Groups", jobCardId ? groups.length : "-"],
+            ["Segments", jobCardId ? segmentCount : "-"],
+            ["Job", selectedJob?.jobCode || "-"],
+            ["Client", selectedJob?.clientName || "-"],
+            ["Sheets", jobCardId ? new Set(groups.map((group) => group.sourceSheet || selectedJob.jobCode)).size : "-"],
+          ]}
+        />
+        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {jobCardId && groups.length === 0 && (
+          <div className="rounded-lg border border-brand-border bg-brand-light/40 px-4 py-3 text-sm text-brand-muted">
+            No flight itinerary found for this job card.
+          </div>
+        )}
+        {groups.length > 0 && (
+          <div className="space-y-3">
+            {groups.slice(0, 8).map((group) => (
+              <div key={group.id} className="rounded-lg border border-brand-border bg-white">
+                <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
+                  <div className="font-semibold text-citius-blue">{group.name}</div>
+                  <div className="text-xs text-brand-muted">{group.segments.length} segment{group.segments.length === 1 ? "" : "s"}</div>
+                </div>
+                <DataTable
+                  compact
+                  rows={group.segments}
+                  empty="No segments in this group."
+                  columns={[
+                    ["Date", (row) => row.dateLabel],
+                    ["Flight", (row) => `${row.airline} ${row.flightNumber}`],
+                    ["Depart", (row) => `${row.departTime || "-"} ${row.origin}`],
+                    ["Arrive", (row) => `${row.arriveTime || "-"} ${row.destination}`],
+                  ]}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="flex justify-end gap-2">
+          <button type="button" className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70" onClick={closeAndReset}>Cancel</button>
+          <button type="button" className="portal-primary-btn disabled:opacity-60" disabled={!jobCardId || groups.length === 0} onClick={handleExport}>
+            Download Spreadsheet
+          </button>
+        </div>
+      </div>
+    </ImportModalShell>
+  );
+}
+
+function ImportModalShell({ open, close, title, subtitle = "Upload a spreadsheet, review the parsed rows, then commit the import.", children }) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-citius-blue/35 p-4 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 18 }}
+            className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-brand-border bg-white p-5 shadow-2xl md:p-6"
+          >
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-heading text-2xl font-semibold text-citius-blue">{title}</h2>
+                <p className="mt-1 text-sm text-brand-muted">{subtitle}</p>
+              </div>
+              <button type="button" className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70" onClick={close}>
+                Close
+              </button>
+            </div>
+            {children}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function ImportFileInput({ label, fileName, accept, onChange }) {
+  return (
+    <label className="block rounded-lg border border-dashed border-brand-border bg-brand-light/40 p-4">
+      <span className="text-sm font-semibold text-citius-blue">{label}</span>
+      <input type="file" accept={accept} onChange={onChange} className="mt-2 block w-full text-sm text-brand-dark file:mr-3 file:rounded-md file:border-0 file:bg-citius-blue file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white" />
+      {fileName && <span className="mt-2 block text-xs text-brand-muted">{fileName}</span>}
+    </label>
+  );
+}
+
+function ImportSummary({ isBusy, totals }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-5">
+      {totals.map(([label, value]) => (
+        <div key={label} className="rounded-lg border border-brand-border bg-white px-4 py-3">
+          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-muted">{label}</div>
+          <div className="mt-1 text-2xl font-semibold text-citius-blue">{isBusy && value === "-" ? "..." : value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ImportIssueList({ title, rows }) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+      <div className="text-sm font-semibold text-amber-900">{title}</div>
+      <div className="mt-2 space-y-1 text-sm text-amber-800">
+        {rows.map((row) => (
+          <div key={row.id}>{row.sourceSheet} row {row.sourceRowNumber}: {row.message || row.reason}</div>
+        ))}
+      </div>
     </div>
   );
 }

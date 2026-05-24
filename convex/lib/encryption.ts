@@ -83,6 +83,7 @@ export interface PassportDetailsPayload {
   expiryDate: string;
   nationality: string;
   dateOfBirth: string;
+  issueDate?: string;
 }
 
 export function encryptPassportDetails(passportDetails: PassportDetailsPayload): string {
@@ -97,10 +98,11 @@ export function encryptPassportDetails(passportDetails: PassportDetailsPayload):
     expiryDate: passportDetails.expiryDate,
     nationality: passportDetails.nationality,
     dateOfBirth: passportDetails.dateOfBirth,
+    issueDate: passportDetails.issueDate ?? "",
     encryptedAt: new Date().toISOString(),
   });
 }
 
-export function decryptPassportDetails(encryptedDetails: string): PassportDetailsPayload & { encryptedAt: string } {
+export function decryptPassportDetails(encryptedDetails: string): PassportDetailsPayload & { encryptedAt: string; issueDate?: string } {
   return decrypt(encryptedDetails, true);
 }

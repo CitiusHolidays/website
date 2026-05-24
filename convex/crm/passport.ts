@@ -40,6 +40,7 @@ export const savePassportMetadata = internalMutation({
     fileName: v.string(),
     mimeType: v.string(),
     createdBy: v.string(),
+    passportNumberHash: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
@@ -60,6 +61,7 @@ export const savePassportMetadata = internalMutation({
         storageId: args.storageId,
         fileName: args.fileName,
         mimeType: args.mimeType,
+        passportNumberHash: args.passportNumberHash,
         status: "Received",
         updatedAt: now,
       });
@@ -71,6 +73,55 @@ export const savePassportMetadata = internalMutation({
         storageId: args.storageId,
         fileName: args.fileName,
         mimeType: args.mimeType,
+        passportNumberHash: args.passportNumberHash,
+        status: "Received",
+        createdBy: args.createdBy,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    await ctx.db.patch(travellerId, {
+      passportStatus: "Received",
+      updatedAt: now,
+    });
+  },
+});
+
+export const savePassportDetailsOnly = internalMutation({
+  args: {
+    travellerId: v.string(),
+    encryptedPayload: v.string(),
+    lastFour: v.optional(v.string()),
+    passportNumberHash: v.optional(v.string()),
+    createdBy: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
+    if (!travellerId) {
+      throw new Error("Invalid traveller id");
+    }
+
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("passportDetails")
+      .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        encryptedPayload: args.encryptedPayload,
+        lastFour: args.lastFour,
+        passportNumberHash: args.passportNumberHash,
+        status: "Received",
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("passportDetails", {
+        travellerId,
+        encryptedPayload: args.encryptedPayload,
+        lastFour: args.lastFour,
+        passportNumberHash: args.passportNumberHash,
         status: "Received",
         createdBy: args.createdBy,
         createdAt: now,

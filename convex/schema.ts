@@ -450,11 +450,24 @@ export default defineSchema({
     cancellation: v.optional(v.boolean()),
     lastMinuteDrop: v.optional(v.boolean()),
     hotelAllocation: v.optional(v.string()),
+    gender: v.optional(v.string()),
+    contactNo: v.optional(v.string()),
+    importSource: v.optional(v.string()),
+    importKey: v.optional(v.string()),
+    sourceSheet: v.optional(v.string()),
+    sourceRowNumber: v.optional(v.number()),
+    sourceDealerCode: v.optional(v.string()),
+    sourceDealerName: v.optional(v.string()),
+    sourceDescription: v.optional(v.string()),
+    sourceSoName: v.optional(v.string()),
+    sourceRsoName: v.optional(v.string()),
+    sourceGroup: v.optional(v.string()),
     createdBy: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_jobCardId", ["jobCardId"])
+    .index("by_jobCardId_importKey", ["jobCardId", "importKey"])
     .index("by_visaStatus", ["visaStatus"])
     .index("by_ticketStatus", ["ticketStatus"]),
 
@@ -466,10 +479,13 @@ export default defineSchema({
     storageId: v.optional(v.id("_storage")),
     fileName: v.optional(v.string()),
     mimeType: v.optional(v.string()),
+    passportNumberHash: v.optional(v.string()),
     createdBy: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_travellerId", ["travellerId"]),
+  })
+    .index("by_travellerId", ["travellerId"])
+    .index("by_passportNumberHash", ["passportNumberHash"]),
 
   visaRecords: defineTable({
     travellerId: v.id("travellers"),
@@ -499,10 +515,40 @@ export default defineSchema({
     arrivalDate: v.optional(v.string()),
     ticketingType: v.optional(v.string()),
     totalSeats: v.number(),
+    importKey: v.optional(v.string()),
+    sourceSheet: v.optional(v.string()),
+    sourceGroupIndex: v.optional(v.number()),
     createdBy: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_jobCardId", ["jobCardId"]),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_jobCardId_importKey", ["jobCardId", "importKey"]),
+
+  flightSegments: defineTable({
+    jobCardId: v.id("jobCards"),
+    flightGroupId: v.id("flightGroups"),
+    importKey: v.string(),
+    sourceSheet: v.string(),
+    sourceRowNumber: v.optional(v.number()),
+    sourceGroupIndex: v.number(),
+    segmentIndex: v.number(),
+    dateLabel: v.string(),
+    airline: v.string(),
+    flightNumber: v.string(),
+    departTime: v.optional(v.string()),
+    origin: v.string(),
+    arriveTime: v.optional(v.string()),
+    destination: v.string(),
+    duration: v.optional(v.string()),
+    transit: v.optional(v.string()),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_flightGroupId", ["flightGroupId"])
+    .index("by_jobCardId_importKey", ["jobCardId", "importKey"]),
 
   pnrs: defineTable({
     jobCardId: v.id("jobCards"),
