@@ -628,6 +628,30 @@ const CODE_FIELD_BY_TABLE: Record<string, string> = {
   approvalRequests: "requestCode",
 };
 
+export const MAX_QUERY_NOTES_WORDS = 30;
+
+export function countWords(value: string | undefined | null) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) {
+    return 0;
+  }
+  return trimmed.split(/\s+/).length;
+}
+
+export function assertMaxWordCount(
+  value: string | undefined,
+  maxWords: number,
+  fieldLabel: string,
+) {
+  if (value === undefined) {
+    return;
+  }
+  const wordCount = countWords(value);
+  if (wordCount > maxWords) {
+    throw new ConvexError(`${fieldLabel} must be ${maxWords} words or fewer`);
+  }
+}
+
 export function creatorInitials(name: string) {
   const parts = name
     .trim()

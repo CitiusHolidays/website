@@ -2,7 +2,9 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { internal } from "../_generated/api";
 import {
+  MAX_QUERY_NOTES_WORDS,
   PERMISSIONS,
+  assertMaxWordCount,
   canSeeQueryRecord,
   createActivity,
   deleteEntityNotifications,
@@ -126,6 +128,7 @@ export const create = mutation({
     if (args.paxCount < 1) {
       throw new ConvexError("Pax count must be greater than zero");
     }
+    assertMaxWordCount(args.notes, MAX_QUERY_NOTES_WORDS, "Notes");
 
     const now = Date.now();
     const queryCode = await nextCode(ctx, "queries", "Q");
@@ -214,6 +217,7 @@ export const update = mutation({
     if (args.paxCount !== undefined && args.paxCount < 1) {
       throw new ConvexError("Pax count must be greater than zero");
     }
+    assertMaxWordCount(args.notes, MAX_QUERY_NOTES_WORDS, "Notes");
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.clientName !== undefined) patch.clientName = args.clientName.trim();

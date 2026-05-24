@@ -3046,7 +3046,7 @@ function EntityModal({
               <Input label="Budget INR" type="number" value={form.budgetAmount} onChange={(v) => updateForm("budgetAmount", v)} />
               <Select label="Source" value={form.source} options={QUERY_SOURCES} onChange={(v) => updateForm("source", v)} />
               <Select label="Sales Rep" value={form.salesOwnerName} options={[{ value: "", label: "Current user" }, ...team.filter((member) => member.roles.some((role) => ["Sales", "Sales Head"].includes(role))).map((member) => ({ value: member.name, label: member.name }))]} onChange={(v) => updateForm("salesOwnerName", v)} />
-              <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
+              <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} maxWords={MAX_QUERY_NOTES_WORDS} />
               <div className="md:col-span-2">
                 <QueryFilePicker
                   files={pendingQueryFiles}
@@ -3523,11 +3523,25 @@ function MultiSelect({ label, value, options, onChange }) {
   );
 }
 
-function Textarea({ label, value, onChange }) {
+function Textarea({ label, value, onChange, maxWords }) {
+  const wordCount = countWords(value);
+  const handleChange = (event) => {
+    let next = event.target.value;
+    if (maxWords) {
+      next = truncateToMaxWords(next, maxWords);
+    }
+    onChange(next);
+  };
+
   return (
     <label className="block md:col-span-2">
       <span className="mb-1 block text-xs font-semibold text-brand-muted">{label}</span>
-      <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={4} className="w-full rounded-xl border border-brand-border bg-brand-light px-3 py-2 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10" />
+      <textarea value={value} onChange={handleChange} rows={4} className="w-full rounded-xl border border-brand-border bg-brand-light px-3 py-2 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10" />
+      {maxWords ? (
+        <span className={`mt-1 block text-xs ${wordCount >= maxWords ? "text-amber-700" : "text-brand-muted"}`}>
+          {wordCount}/{maxWords} words
+        </span>
+      ) : null}
     </label>
   );
 }
@@ -3589,11 +3603,39 @@ function money(value) {
   return `INR ${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
-function notesPreview(value) {
+const MAX_QUERY_NOTES_WORDS = 30;
+
+function countWords(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).length;
+}
+
+function truncateToMaxWords(value, maxWords) {
+  const words = String(value || "").trim().split(/\s+/).filter(Boolean);
+  if (words.length <= maxWords) {
+    return value;
+  }
+  return words.slice(0, maxWords).join(" ");
+}
+
+function formatNotesPreview(value, maxWords = MAX_QUERY_NOTES_WORDS) {
   const text = String(value || "").trim();
   if (!text) return "-";
-  const short = text.length > 72 ? `${text.slice(0, 72)}…` : text;
-  return <span className="block max-w-[220px] truncate text-xs text-brand-muted" title={text}>{short}</span>;
+  const words = text.split(/\s+/).filter(Boolean);
+  const display = words.length > maxWords ? `${words.slice(0, maxWords).join(" ")}…` : text;
+  return (
+    <span
+      className="block max-w-[220px] whitespace-normal break-words text-xs leading-snug text-brand-muted"
+      title={text}
+    >
+      {display}
+    </span>
+  );
+}
+
+function notesPreview(value) {
+  return formatNotesPreview(value);
 }
 
 function contractingTotalCost(rowOrForm) {
