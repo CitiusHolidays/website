@@ -27,6 +27,8 @@ const isActiveQuery = (query: { salesStatus: string }) =>
 const isConfirmedQuery = (query: { salesStatus: string }) =>
   query.salesStatus === "Order Confirmed";
 
+const isClosedQuery = (query: { salesStatus: string }) => query.salesStatus === "Order Lost";
+
 function countQueriesByType<T extends { queryType: string }>(records: T[]) {
   return QUERY_TYPES.map((type) => ({
     type,
@@ -68,6 +70,7 @@ export const getPortalSummary = query({
     const revenuePipeline = invoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
     const activeQueryRecords = queries.filter(isActiveQuery);
     const confirmedQueryRecords = queries.filter(isConfirmedQuery);
+    const closedQueryRecords = queries.filter(isClosedQuery);
 
     return {
       metrics: {
@@ -90,6 +93,7 @@ export const getPortalSummary = query({
       },
       queriesByType: countQueriesByType(activeQueryRecords),
       confirmedQueriesByType: countQueriesByType(confirmedQueryRecords),
+      closedQueriesByType: countQueriesByType(closedQueryRecords),
       departmentWorkflow: [
         {
           label: "Sales open leads",
