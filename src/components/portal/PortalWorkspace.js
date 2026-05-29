@@ -1469,7 +1469,7 @@ function PageHeader({ title, subtitle, children, search, setSearch, period, setP
                 </option>
               ))}
             </select>
-            {/* <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted/60" size={16} /> */}
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted/60" size={16} />
           </label>
         )}
         <label className="relative">
