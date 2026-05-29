@@ -109,7 +109,7 @@ export default function PortalShell({ access, user, children }) {
               <Menu size={20} />
             </button>
             <Link href="/portal" className="flex items-center gap-3">
-              <Image
+              {/* <Image
                 src={Logo}
                 alt="Citius Holidays"
                 width={110}
@@ -117,8 +117,8 @@ export default function PortalShell({ access, user, children }) {
                 className="h-8 w-auto"
                 priority
               />
-              <span className="hidden h-5 w-px bg-brand-border sm:block" />
-              <span className="hidden font-heading text-sm font-semibold tracking-wide text-citius-blue sm:inline">
+              <span className="hidden h-5 w-px bg-brand-border sm:block" /> */}
+              <span className="hidden font-heading text-lg font-semibold tracking-wide text-citius-blue sm:inline">
                 Citius Connect
               </span>
             </Link>
