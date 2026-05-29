@@ -36,7 +36,7 @@ const guestTypeValidator = v.union(
   v.literal("VIP"),
 );
 
-const publicTraveller = (traveller: any, job: any) => ({
+const publicTraveller = (traveller: any, job: any, hasPassportScan = false) => ({
   id: traveller._id,
   jobCardId: traveller.jobCardId,
   jobCode: job?.jobCode ?? "",
@@ -56,6 +56,7 @@ const publicTraveller = (traveller: any, job: any) => ({
   guestCompanions: traveller.guestCompanions ?? "",
   specialRequests: traveller.specialRequests ?? "",
   passportStatus: traveller.passportStatus ?? "",
+  hasPassportScan,
   ticketStatus: traveller.ticketStatus,
   visaStatus: traveller.visaStatus,
   callingStatus: traveller.callingStatus,
@@ -81,6 +82,12 @@ export const list = query({
           .withIndex("by_jobCardId", (q) => q.eq("jobCardId", normalizedJobCardId))
           .collect()
       : await ctx.db.query("travellers").collect();
+    const passportRows = await ctx.db.query("passportDetails").collect();
+    const passportScanByTraveller = new Map(
+      passportRows
+        .filter((row) => Boolean(row.storageId))
+        .map((row) => [String(row.travellerId), true]),
+    );
     const result = [];
     for (const traveller of rows.sort((a, b) => b.createdAt - a.createdAt)) {
       const job = await ctx.db.get(traveller.jobCardId);
@@ -88,7 +95,13 @@ export const list = query({
       if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
         continue;
       }
-      result.push(publicTraveller(traveller, job));
+      result.push(
+        publicTraveller(
+          traveller,
+          job,
+          passportScanByTraveller.has(String(traveller._id)),
+        ),
+      );
     }
     return result;
   },

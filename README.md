@@ -88,7 +88,9 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
    TURNSTILE_SECRET_KEY=your_turnstile_secret_key
 
    # Encryption Configuration (required for sensitive passport scans)
-   ENCRYPTION_KEY=your-32-byte-hex-encryption-key-here
+   # Generate: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+   # Set in Convex too: npx convex env set ENCRYPTION_KEY <same-base64-value>
+   ENCRYPTION_KEY=your-32-byte-base64-encryption-key-here
 
    # Optional local migration source database
    # DATABASE_URL=postgresql://...

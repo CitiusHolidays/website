@@ -229,7 +229,7 @@ export default function Chatbot() {
             animate={{
               scale: 1,
               opacity: 1,
-              height: isMinimized ? "80px" : "650px"
+              height: isMinimized ? "80px" : "min(650px, 85dvh)"
             }}
             exit={{ scale: 0, opacity: 0 }}
             transition={{
@@ -238,7 +238,7 @@ export default function Chatbot() {
               damping: 25,
               height: { duration: 0.4, ease: easeInOut }
             }}
-            className="fixed bottom-6 right-6 z-50 w-[400px] bg-white rounded-2xl shadow-2xl border border-brand-border/50 overflow-hidden backdrop-blur-sm flex flex-col origin-bottom-right"
+            className="fixed bottom-4 right-4 left-4 z-50 flex w-auto max-w-[400px] flex-col overflow-hidden rounded-2xl border border-brand-border/50 bg-white shadow-2xl backdrop-blur-sm origin-bottom-right sm:bottom-6 sm:left-auto sm:right-6 sm:w-[400px]"
           >
             <div className="flex items-center justify-between px-4 py-3 bg-green-600 text-white flex-shrink-0">
               <div className="flex items-center gap-3">

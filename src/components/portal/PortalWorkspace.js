@@ -13,6 +13,7 @@ import {
   Paperclip,
   Hotel,
   Loader2,
+  MoreHorizontal,
   Plane,
   Plus,
   RefreshCw,
@@ -1130,7 +1131,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "pipeline" && <PipelineView rows={queries || []} mode={pipelineMode} setMode={setPipelineMode} />}
       {view === "contracting" && (
-        <ContractingView rows={filteredQueries} proposals={proposals || []} team={team || []} openModal={openModal} has={has} canAssign={canAssignContracting(access)} />
+        <ContractingView rows={filteredQueries} proposals={proposals || []} team={team || []} openModal={openModal} has={has} canAssign={canAssignContracting(access)} deleteItem={deleteItem} removeQuery={removeQuery} />
       )}
       {view === "proposals" && (
         <ProposalsView
@@ -1574,13 +1575,122 @@ function DashboardView({ summary, has }) {
 }
 
 function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToContracting, getQueryAttachmentUrl }) {
+  const renderQueryActions = (row) => has(P.MANAGE_QUERIES) && (
+    <>
+      <button type="button" className="portal-small-btn" onClick={() => openModal("query", {
+        entityId: row.id,
+        clientName: row.clientName,
+        contactPerson: row.contactPerson,
+        contactMobile: row.contactMobile,
+        destination: row.destination,
+        paxCount: String(row.paxCount),
+        travelStartDate: row.travelStartDate,
+        travelEndDate: row.travelEndDate,
+        queryType: row.queryType,
+        travelType: row.travelType,
+        budgetAmount: String(row.budgetAmount || ""),
+        source: row.source,
+        salesOwnerName: row.salesOwnerName,
+        notes: row.notes,
+      })}>
+        Edit
+      </button>
+      <button type="button" className="portal-small-btn" onClick={() => openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })}>
+        Reference Itinerary
+      </button>
+      <button type="button" className="portal-small-btn" onClick={() => submitToContracting({ queryId: row.id })}>
+        Submit
+      </button>
+      <button type="button" className="portal-small-btn" onClick={() => openModal("queryStatus", {
+        queryId: row.id,
+        salesStatus: row.salesStatus,
+        leadStage: row.leadStage || "Inquiry",
+        contractingStatus: row.contractingStatus,
+        approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
+      })}>
+        Update
+      </button>
+      <DeleteButton label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />
+    </>
+  );
+
   return (
     <DataTable
       rows={rows}
       empty="No queries yet."
+      mobileCardRender={(row) => (
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="font-semibold text-brand-dark">{row.queryCode}</div>
+              <div className="text-sm text-brand-muted">{row.clientName}</div>
+            </div>
+            <Badge label={row.leadStage || "Inquiry"} tone={statusTone(row.leadStage)} />
+          </div>
+          <LifecycleDates
+            compact
+            items={[
+              { label: "Created", value: row.createdAt },
+              { label: "Submitted", value: row.submittedToContractingAt },
+              { label: "Confirmed", value: row.confirmedAt },
+            ]}
+          />
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div><span className="text-brand-muted">Destination</span><div className="font-medium">{row.destination || "TBD"}</div></div>
+            <div><span className="text-brand-muted">Pax</span><div className="font-medium">{row.paxCount}</div></div>
+            <div><span className="text-brand-muted">Budget</span><div className="font-medium">{money(row.budgetAmount)}</div></div>
+            <div><span className="text-brand-muted">Sales</span><div className="font-medium">{row.salesOwnerName || "-"}</div></div>
+          </div>
+          {has(P.MANAGE_QUERIES) && (
+            <QueryRowActions
+              primaryAction={(
+                <button type="button" className="portal-small-btn" onClick={() => openModal("query", {
+                  entityId: row.id,
+                  clientName: row.clientName,
+                  contactPerson: row.contactPerson,
+                  contactMobile: row.contactMobile,
+                  destination: row.destination,
+                  paxCount: String(row.paxCount),
+                  travelStartDate: row.travelStartDate,
+                  travelEndDate: row.travelEndDate,
+                  queryType: row.queryType,
+                  travelType: row.travelType,
+                  budgetAmount: String(row.budgetAmount || ""),
+                  source: row.source,
+                  salesOwnerName: row.salesOwnerName,
+                  notes: row.notes,
+                })}>
+                  Edit
+                </button>
+              )}
+              overflowActions={[
+                <button key="ref" type="button" className="portal-small-btn w-full" onClick={() => openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })}>
+                  Reference Itinerary
+                </button>,
+                <button key="submit" type="button" className="portal-small-btn w-full" onClick={() => submitToContracting({ queryId: row.id })}>
+                  Submit
+                </button>,
+                <button key="update" type="button" className="portal-small-btn w-full" onClick={() => openModal("queryStatus", {
+                  queryId: row.id,
+                  salesStatus: row.salesStatus,
+                  leadStage: row.leadStage || "Inquiry",
+                  contractingStatus: row.contractingStatus,
+                  approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
+                })}>
+                  Update
+                </button>,
+                <DeleteButton key="delete" label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />,
+              ]}
+            />
+          )}
+        </div>
+      )}
       columns={[
         ["Query ID", (row) => row.queryCode],
         ["Client", (row) => strong(row.clientName)],
+        ["Created", (row) => <span className="text-xs text-brand-muted">{formatDate(row.createdAt)}</span>],
+        ["Submitted", (row) => <span className="text-xs text-brand-muted">{formatDate(row.submittedToContractingAt)}</span>],
+        ["Confirmed", (row) => <span className="text-xs text-brand-muted">{formatDate(row.confirmedAt)}</span>],
         ["Destination", (row) => row.destination || "TBD"],
         ["Pax", (row) => row.paxCount],
         ["Budget", (row) => money(row.budgetAmount)],
@@ -1603,41 +1713,8 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToCo
         ["Notes", (row) => notesPreview(row.notes)],
         ["Source", (row) => row.source || "-"],
         ["Action", (row) => has(P.MANAGE_QUERIES) && (
-          <motion.div className="flex flex-wrap gap-2">
-            <button type="button" className="portal-small-btn" onClick={() => openModal("query", {
-              entityId: row.id,
-              clientName: row.clientName,
-              contactPerson: row.contactPerson,
-              contactMobile: row.contactMobile,
-              destination: row.destination,
-              paxCount: String(row.paxCount),
-              travelStartDate: row.travelStartDate,
-              travelEndDate: row.travelEndDate,
-              queryType: row.queryType,
-              travelType: row.travelType,
-              budgetAmount: String(row.budgetAmount || ""),
-              source: row.source,
-              salesOwnerName: row.salesOwnerName,
-              notes: row.notes,
-            })}>
-              Edit
-            </button>
-            <button type="button" className="portal-small-btn" onClick={() => openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })}>
-              Reference Itinerary
-            </button>
-            <button type="button" className="portal-small-btn" onClick={() => submitToContracting({ queryId: row.id })}>
-              Submit
-            </button>
-            <button type="button" className="portal-small-btn" onClick={() => openModal("queryStatus", {
-              queryId: row.id,
-              salesStatus: row.salesStatus,
-              leadStage: row.leadStage || "Inquiry",
-              contractingStatus: row.contractingStatus,
-              approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
-            })}>
-              Update
-            </button>
-            <DeleteButton label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />
+          <motion.div className="hidden flex-wrap gap-2 md:flex">
+            {renderQueryActions(row)}
           </motion.div>
         )],
       ]}
@@ -1645,7 +1722,7 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToCo
   );
 }
 
-function ContractingView({ rows, proposals, team, openModal, has, canAssign }) {
+function ContractingView({ rows, proposals, team, openModal, has, canAssign, deleteItem, removeQuery }) {
   const proposalsByQueryId = useMemo(() => {
     const map = new Map();
     for (const proposal of proposals) {
@@ -1702,9 +1779,10 @@ function ContractingView({ rows, proposals, team, openModal, has, canAssign }) {
       rows={rows}
       empty="No contracting queries yet."
       columns={[
-        ["Received", (row) => formatDate(row.createdAt)],
+        ["Received", (row) => <span className="text-xs text-brand-muted">{formatDate(row.submittedToContractingAt || row.createdAt)}</span>],
         ["Query", (row) => row.queryCode],
         ["Client", (row) => strong(row.clientName)],
+        ["Confirmed", (row) => <span className="text-xs text-brand-muted">{formatDate(row.confirmedAt)}</span>],
         ["Sales Owner", (row) => row.salesOwnerName || "-"],
         ["Contracting Owner", (row) => row.contractingOwnerName || "Unassigned"],
         ["Notes", (row) => notesPreview(row.notes)],
@@ -1825,9 +1903,33 @@ function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, rem
     <DataTable
       rows={rows}
       empty="No proposals yet."
+      mobileCardRender={(row) => (
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="font-semibold text-brand-dark">{row.proposalCode}</div>
+              <div className="text-sm text-brand-muted">{row.clientName}</div>
+            </div>
+            <Badge label={row.status} tone={statusTone(row.status)} />
+          </div>
+          <LifecycleDates
+            compact
+            items={[
+              { label: "Created", value: row.createdAt },
+              { label: "Sent", value: row.sentAt },
+            ]}
+          />
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div><span className="text-brand-muted">Query</span><div className="font-medium">{row.query?.queryCode || "-"}</div></div>
+            <div><span className="text-brand-muted">Total</span><div className="font-medium">{money(row.costPrice)}</div></div>
+          </div>
+        </div>
+      )}
       columns={[
         ["Proposal", (row) => row.proposalCode],
         ["Client", (row) => strong(row.clientName)],
+        ["Created", (row) => <span className="text-xs text-brand-muted">{formatDate(row.createdAt)}</span>],
+        ["Sent", (row) => <span className="text-xs text-brand-muted">{formatDate(row.sentAt)}</span>],
         ["Linked Query", (row) => row.query?.queryCode || "-"],
         ["Land/Pax", (row) => money(row.landCostPerPax)],
         ["Airfare/Pax", (row) => money(row.airfarePerPax)],
@@ -1916,12 +2018,18 @@ function AccountsJobCardView({ rows, jobCards, openModal }) {
         columns={[
           ["Query", (row) => row.queryCode],
           ["Client", (row) => strong(row.clientName)],
+          ["Confirmed", (row) => <span className="text-xs text-brand-muted">{formatDate(row.confirmedAt)}</span>],
           ["Destination", (row) => row.destination || "TBD"],
           ["Pax", (row) => row.paxCount],
           ["Payment Terms", (row) => paymentTermLabel(row.queryType)],
           ["Job Card", (row) => {
             const linkedJob = jobByQuery.get(row.id);
-            return linkedJob ? <Badge label={linkedJob.jobCode} tone="green" /> : <Badge label="Not opened" tone="orange" />;
+            return linkedJob ? (
+              <div>
+                <Badge label={linkedJob.jobCode} tone="green" />
+                <div className="mt-1 text-xs text-brand-muted">Opened {formatDate(linkedJob.createdAt)}</div>
+              </div>
+            ) : <Badge label="Not opened" tone="orange" />;
           }],
           ["Action", (row) => {
             const linkedJob = jobByQuery.get(row.id);
@@ -1959,6 +2067,7 @@ function JobCardsView({ rows, updateJobStatus, openModal, has, access, deleteIte
             <div>
               <div className="font-semibold text-brand-dark">{job.clientName}</div>
               <div className="text-xs text-brand-muted">{job.jobCode} - {job.destination || "Destination pending"}</div>
+              <div className="mt-1 text-xs text-brand-muted">Opened {formatDate(job.createdAt)}</div>
             </div>
             <Badge label={job.status} tone={statusTone(job.status)} />
           </div>
@@ -2113,6 +2222,23 @@ function PassportDocumentsView({
   });
   const [viewingTravellerId, setViewingTravellerId] = useState(null); // spinner state for view
 
+  const MAX_PASSPORT_FILE_BYTES = 15 * 1024 * 1024;
+
+  const inferPassportMimeType = (file) => {
+    if (file.type?.trim()) {
+      return file.type.trim().toLowerCase();
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const byExtension = {
+      pdf: "application/pdf",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+    };
+    return byExtension[extension] ?? "";
+  };
+
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!uploadTraveller) return;
@@ -2122,6 +2248,15 @@ function PassportDocumentsView({
       setUploadError("Please select a passport scan file.");
       return;
     }
+    if (file.size > MAX_PASSPORT_FILE_BYTES) {
+      setUploadError("Passport scans must be 15 MB or smaller.");
+      return;
+    }
+    const mimeType = inferPassportMimeType(file);
+    if (!mimeType) {
+      setUploadError("Passport scans must be PDF, JPEG, PNG, or WebP files.");
+      return;
+    }
 
     setIsUploading(true);
     setUploadError("");
@@ -2129,7 +2264,7 @@ function PassportDocumentsView({
       const uploadUrl = await generateUploadUrl({});
       const uploadRes = await fetch(uploadUrl, {
         method: "POST",
-        headers: { "Content-Type": file.type },
+        headers: { "Content-Type": mimeType },
         body: file,
       });
       if (!uploadRes.ok) {
@@ -2141,7 +2276,7 @@ function PassportDocumentsView({
         travellerId: uploadTraveller.id,
         tempStorageId: storageId,
         fileName: file.name,
-        mimeType: file.type,
+        mimeType,
         fileSize: file.size,
         number: passportForm.number || undefined,
         expiryDate: passportForm.expiryDate || undefined,
@@ -2154,7 +2289,7 @@ function PassportDocumentsView({
       alert("Passport scan uploaded and encrypted successfully!");
     } catch (err) {
       console.error(err);
-      setUploadError(err?.message || "Failed to upload passport. Please try again.");
+      setUploadError(formatConvexError(err, "Failed to upload passport. Please try again."));
     } finally {
       setIsUploading(false);
     }
@@ -2270,7 +2405,7 @@ function PassportDocumentsView({
             )],
             ["Action", (row) => (
               <div className="flex flex-wrap gap-2">
-                {row.passportStatus === "Received" ? (
+                {row.hasPassportScan ? (
                   <>
                     <button
                       className="portal-small-btn inline-flex items-center gap-1 bg-citius-blue text-white hover:bg-citius-blue/90"
@@ -2295,18 +2430,18 @@ function PassportDocumentsView({
                       </button>
                     )}
                   </>
-              ) : (
-                has(P.MANAGE_VISA) && (
-                  <button
-                    className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
-                    onClick={() => setUploadTraveller(row)}
-                  >
-                    Upload Passport Scan
-                  </button>
-                )
-              )}
-            </div>
-          )],
+                ) : (
+                  has(P.MANAGE_VISA) && (
+                    <button
+                      className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
+                      onClick={() => setUploadTraveller(row)}
+                    >
+                      {row.passportStatus === "Received" ? "Upload Scan" : "Upload Passport Scan"}
+                    </button>
+                  )
+                )}
+              </div>
+            )],
         ]}
       />
       )}
@@ -2340,18 +2475,18 @@ function PassportDocumentsView({
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-brand-dark mb-1">
-                  Passport Scan File (PDF, JPEG, PNG - Max 10MB) *
+                  Passport Scan File (PDF, JPEG, PNG, WebP — max 15 MB) *
                 </label>
                 <input
                   type="file"
                   id="passport-file-input"
                   required
-                  accept=".pdf,.jpg,.jpeg,.png"
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
                   className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium text-brand-dark mb-1">
                     Passport Number
@@ -2377,7 +2512,7 @@ function PassportDocumentsView({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="block text-xs font-medium text-brand-dark mb-1">
                     Nationality
@@ -3722,7 +3857,7 @@ function ImportFileInput({ label, fileName, accept, onChange }) {
 
 function ImportSummary({ isBusy, totals }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-5">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
       {totals.map(([label, value]) => (
         <div key={label} className="rounded-lg border border-brand-border bg-white px-4 py-3">
           <div className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-muted">{label}</div>
@@ -3901,6 +4036,10 @@ function EntityModal({
       }[modal]
     : "";
 
+  const lifecycleQuery = queries?.find((entry) => entry.id === (form.entityId || form.queryId));
+  const lifecycleProposal = proposals?.find((entry) => entry.id === form.entityId);
+  const lifecycleJobCard = jobCards?.find((entry) => entry.id === form.entityId);
+
   return (
     <AnimatePresence>
       {modal && (
@@ -3925,6 +4064,32 @@ function EntityModal({
         </div>
         <div className="max-h-[calc(90vh-130px)] overflow-y-auto p-5">
           {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+          {(modal === "query" || modal === "queryStatus") && lifecycleQuery && (
+            <LifecycleDates
+              items={[
+                { label: "Created", value: lifecycleQuery.createdAt },
+                { label: "Submitted to Contracting", value: lifecycleQuery.submittedToContractingAt },
+                { label: "Confirmed", value: lifecycleQuery.confirmedAt },
+              ]}
+            />
+          )}
+          {modal === "proposal" && lifecycleProposal && (
+            <LifecycleDates
+              items={[
+                { label: "Created", value: lifecycleProposal.createdAt },
+                { label: "Sent", value: lifecycleProposal.sentAt },
+                { label: "Finalized PDF", value: lifecycleProposal.finalizedPdf?.uploadedAt },
+              ]}
+            />
+          )}
+          {modal === "jobCard" && lifecycleJobCard && (
+            <LifecycleDates
+              items={[
+                { label: "Opened", value: lifecycleJobCard.createdAt },
+                { label: "Last updated", value: lifecycleJobCard.updatedAt },
+              ]}
+            />
+          )}
           <div className="grid gap-4 md:grid-cols-2">
             {modal === "query" && <>
               <Input label="Client / Company" value={form.clientName} onChange={(v) => updateForm("clientName", v)} required />
@@ -4244,7 +4409,7 @@ function EntityModal({
   );
 }
 
-function DataTable({ rows, columns, empty, compact = false }) {
+function DataTable({ rows, columns, empty, compact = false, mobileCardRender }) {
   if (!rows) return <LoadingPanel />;
   if (rows.length === 0) return <EmptyState label={empty} />;
   return (
@@ -4254,7 +4419,22 @@ function DataTable({ rows, columns, empty, compact = false }) {
       transition={{ duration: 0.35 }}
       className="overflow-hidden rounded-2xl border border-brand-border bg-white shadow-sm"
     >
-      <div className="overflow-x-auto">
+      {mobileCardRender && (
+        <div className="divide-y divide-brand-border md:hidden">
+          {rows.map((row, rowIndex) => (
+            <motion.div
+              key={row.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: Math.min(rowIndex * 0.02, 0.2) }}
+              className="p-4"
+            >
+              {mobileCardRender(row)}
+            </motion.div>
+          ))}
+        </div>
+      )}
+      <div className={`overflow-x-auto ${mobileCardRender ? "hidden md:block" : ""}`}>
         <table className="min-w-full border-collapse">
           <thead className="bg-brand-light/80">
             <tr>
@@ -4498,6 +4678,77 @@ function toNumber(value, fallback) {
 function formatDate(value) {
   if (!value) return "-";
   return new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function formatConvexError(error, fallback) {
+  if (!error) return fallback;
+  if (typeof error.data === "string" && error.data.trim()) {
+    return error.data;
+  }
+  if (error.message && !/server error called by client/i.test(error.message)) {
+    return error.message;
+  }
+  return fallback;
+}
+
+function LifecycleDates({ items, compact = false }) {
+  const visible = (items || []).filter((item) => item.value);
+  if (visible.length === 0) return null;
+  return (
+    <div className={compact ? "" : "mb-4 rounded-lg border border-brand-border bg-brand-light/50 px-4 py-3"}>
+      <div className={`flex flex-wrap gap-x-4 gap-y-1 ${compact ? "text-xs text-brand-muted" : "text-xs text-brand-muted"}`}>
+        {visible.map((item) => (
+          <span key={item.label}>
+            <span className="font-semibold text-brand-dark">{item.label}:</span>{" "}
+            {formatDate(item.value)}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QueryRowActions({ primaryAction, overflowActions = [] }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="flex items-center gap-2 md:hidden">
+      {primaryAction}
+      {overflowActions.length > 0 && (
+        <div className="relative">
+          <button
+            type="button"
+            className="portal-small-btn inline-flex items-center gap-1"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            aria-label="More actions"
+          >
+            <MoreHorizontal size={14} />
+            More
+          </button>
+          {open && (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-40 cursor-default bg-transparent"
+                aria-label="Close actions menu"
+                onClick={() => setOpen(false)}
+              />
+              <div className="absolute right-0 z-50 mt-2 min-w-[180px] rounded-xl border border-brand-border bg-white p-2 shadow-lg">
+                <div className="flex flex-col gap-2">
+                  {overflowActions.map((action, index) => (
+                    <div key={index} onClick={() => setOpen(false)}>
+                      {action}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function money(value) {

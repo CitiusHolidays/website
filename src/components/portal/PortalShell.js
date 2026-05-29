@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   Bell,
   ChevronDown,
+  ChevronRight,
   Circle,
   LogOut,
   Menu,
@@ -20,6 +21,30 @@ import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { api } from "@convex/_generated/api";
 import Logo from "@/static/logos/logo.webp";
 
+const NAV_EXPANDED_STORAGE_KEY = "portal-nav-expanded-groups";
+const NAV_SHORTCUTS_STORAGE_KEY = "portal-nav-expanded-shortcuts";
+
+function readStoredSet(key) {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function writeStoredSet(key, valueSet) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify([...valueSet]));
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export default function PortalShell({ access, user, children }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -29,6 +54,10 @@ export default function PortalShell({ access, user, children }) {
   const notifications = useQuery(
     api.crm.activity.listNotifications,
     isAuthenticated && access?.allowed ? { limit: 8 } : "skip",
+  );
+  const navShortcuts = useQuery(
+    api.crm.navShortcuts.list,
+    isAuthenticated && access?.allowed ? {} : "skip",
   );
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
   const navGroups = useMemo(() => getAccessibleNavGroups(access), [access]);
@@ -92,7 +121,7 @@ export default function PortalShell({ access, user, children }) {
                 Citius Connect
               </span>
             </Link>
-            <span className="hidden rounded-full bg-citius-orange px-3 py-1 text-[11px] font-semibold text-white md:inline-flex">
+            <span className="inline-flex max-w-[120px] truncate rounded-full bg-citius-orange px-2 py-1 text-[10px] font-semibold text-white sm:max-w-none sm:px-3 sm:text-[11px] md:inline-flex">
               {access.roles?.join(" / ") || "Staff"}
             </span>
           </div>
@@ -128,62 +157,70 @@ export default function PortalShell({ access, user, children }) {
                 </button>
                 <AnimatePresence>
                   {notificationsOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 mt-3 w-80 overflow-hidden rounded-2xl border border-brand-border bg-white text-brand-dark shadow-xl"
-                    >
-                      <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
-                        <div className="font-heading text-sm font-semibold text-citius-blue">
-                          Notifications
-                        </div>
-                        <ChevronDown size={16} className="text-brand-muted" />
-                      </div>
-                      <div className="max-h-80 overflow-y-auto">
-                        {(notifications || []).length === 0 ? (
-                          <div className="px-4 py-6 text-sm text-brand-muted">
-                            No notifications yet.
+                    <>
+                      <button
+                        type="button"
+                        className="fixed inset-0 z-40 cursor-default bg-transparent"
+                        aria-label="Close notifications"
+                        onClick={() => setNotificationsOpen(false)}
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 z-50 mt-3 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-brand-border bg-white text-brand-dark shadow-xl"
+                      >
+                        <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
+                          <div className="font-heading text-sm font-semibold text-citius-blue">
+                            Notifications
                           </div>
-                        ) : (
-                          notifications.map((item) => (
-                            <button
-                              key={item.id}
-                              type="button"
-                              onClick={() => handleNotificationClick(item)}
-                              className="w-full border-b border-brand-border px-4 py-3 text-left transition last:border-b-0 hover:bg-brand-light"
-                            >
-                              <div className="flex gap-2">
-                                <Circle
-                                  size={8}
-                                  className={
-                                    item.readAt
-                                      ? "mt-1.5 text-brand-muted/50"
-                                      : "mt-1.5 fill-citius-orange text-citius-orange"
-                                  }
-                                />
-                                <div>
-                                  <div className="text-sm font-semibold">{item.title}</div>
-                                  <div className="mt-1 text-xs leading-5 text-brand-muted">
-                                    {item.body}
+                          <ChevronDown size={16} className="text-brand-muted" />
+                        </div>
+                        <div className="max-h-80 overflow-y-auto">
+                          {(notifications || []).length === 0 ? (
+                            <div className="px-4 py-6 text-sm text-brand-muted">
+                              No notifications yet.
+                            </div>
+                          ) : (
+                            notifications.map((item) => (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => handleNotificationClick(item)}
+                                className="w-full border-b border-brand-border px-4 py-3 text-left transition last:border-b-0 hover:bg-brand-light"
+                              >
+                                <div className="flex gap-2">
+                                  <Circle
+                                    size={8}
+                                    className={
+                                      item.readAt
+                                        ? "mt-1.5 text-brand-muted/50"
+                                        : "mt-1.5 fill-citius-orange text-citius-orange"
+                                    }
+                                  />
+                                  <div>
+                                    <div className="text-sm font-semibold">{item.title}</div>
+                                    <div className="mt-1 text-xs leading-5 text-brand-muted">
+                                      {item.body}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                      <div className="border-t border-brand-border px-4 py-3">
-                        <Link
-                          href="/portal/activity"
-                          onClick={() => setNotificationsOpen(false)}
-                          className="text-xs font-semibold text-citius-blue transition hover:text-citius-orange"
-                        >
-                          View all notifications
-                        </Link>
-                      </div>
-                    </motion.div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                        <div className="border-t border-brand-border px-4 py-3">
+                          <Link
+                            href="/portal/activity"
+                            onClick={() => setNotificationsOpen(false)}
+                            className="text-xs font-semibold text-citius-blue transition hover:text-citius-orange"
+                          >
+                            View all notifications
+                          </Link>
+                        </div>
+                      </motion.div>
+                    </>
                   )}
                 </AnimatePresence>
               </div>
@@ -213,7 +250,11 @@ export default function PortalShell({ access, user, children }) {
 
       <div className="flex min-h-[calc(100vh-64px)]">
         <aside className="hidden w-64 shrink-0 border-r border-brand-border bg-white/80 backdrop-blur-sm lg:block">
-          <PortalNav navGroups={navGroups} pathname={pathname} />
+          <PortalNav
+            navGroups={navGroups}
+            pathname={pathname}
+            navShortcuts={navShortcuts}
+          />
         </aside>
 
         <AnimatePresence>
@@ -249,6 +290,7 @@ export default function PortalShell({ access, user, children }) {
                 <PortalNav
                   navGroups={navGroups}
                   pathname={pathname}
+                  navShortcuts={navShortcuts}
                   onNavigate={() => setSidebarOpen(false)}
                 />
               </motion.aside>
@@ -270,45 +312,164 @@ export default function PortalShell({ access, user, children }) {
   );
 }
 
-function PortalNav({ navGroups, pathname, onNavigate }) {
+function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
+  const [expandedGroups, setExpandedGroups] = useState(() => readStoredSet(NAV_EXPANDED_STORAGE_KEY));
+  const [expandedShortcuts, setExpandedShortcuts] = useState(() => readStoredSet(NAV_SHORTCUTS_STORAGE_KEY));
+
+  const isGroupActive = useCallback((group) => {
+    return group.items.some((item) => (
+      item.href === "/portal"
+        ? pathname === "/portal"
+        : pathname?.startsWith(item.href)
+    ));
+  }, [pathname]);
+
+  const isGroupExpanded = useCallback((group) => {
+    if (group.items.length <= 1) return true;
+    return expandedGroups.has(group.label) || isGroupActive(group);
+  }, [expandedGroups, isGroupActive]);
+
+  useEffect(() => {
+    writeStoredSet(NAV_EXPANDED_STORAGE_KEY, expandedGroups);
+  }, [expandedGroups]);
+
+  useEffect(() => {
+    writeStoredSet(NAV_SHORTCUTS_STORAGE_KEY, expandedShortcuts);
+  }, [expandedShortcuts]);
+
+  const toggleGroup = (label) => {
+    setExpandedGroups((current) => {
+      const next = new Set(current);
+      if (next.has(label)) {
+        next.delete(label);
+      } else {
+        next.add(label);
+      }
+      return next;
+    });
+  };
+
+  const toggleShortcuts = (href) => {
+    setExpandedShortcuts((current) => {
+      const next = new Set(current);
+      if (next.has(href)) {
+        next.delete(href);
+      } else {
+        next.add(href);
+      }
+      return next;
+    });
+  };
+
   return (
     <nav className="sticky top-16 h-[calc(100vh-64px)] overflow-y-auto px-3 py-5">
-      {navGroups.map((group, groupIndex) => (
-        <div key={group.label} className={groupIndex > 0 ? "mt-6" : ""}>
-          <div className="px-3 pb-2 font-heading text-xs font-semibold text-citius-blue/70">
-            {group.label}
+      {navGroups.map((group, groupIndex) => {
+        const collapsible = group.items.length > 1;
+        const groupExpanded = isGroupExpanded(group);
+
+        return (
+          <div key={group.label} className={groupIndex > 0 ? "mt-6" : ""}>
+            {collapsible ? (
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.label)}
+                className="flex w-full items-center justify-between rounded-lg px-3 pb-2 text-left font-heading text-xs font-semibold text-citius-blue/70 transition hover:text-citius-blue"
+                aria-expanded={groupExpanded}
+              >
+                <span>{group.label}</span>
+                <ChevronRight
+                  size={14}
+                  className={`transition-transform ${groupExpanded ? "rotate-90" : ""}`}
+                />
+              </button>
+            ) : (
+              <div className="px-3 pb-2 font-heading text-xs font-semibold text-citius-blue/70">
+                {group.label}
+              </div>
+            )}
+
+            {groupExpanded && (
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const active =
+                    item.href === "/portal"
+                      ? pathname === "/portal"
+                      : pathname?.startsWith(item.href);
+                  const shortcuts = item.shortcutKey
+                    ? navShortcuts?.[item.shortcutKey] ?? []
+                    : [];
+                  const hasShortcuts = shortcuts.length > 0;
+                  const shortcutsExpanded = expandedShortcuts.has(item.href) || active;
+
+                  return (
+                    <div key={item.href}>
+                      <div className="flex items-stretch gap-0.5">
+                        <Link
+                          href={item.href}
+                          onClick={onNavigate}
+                          className={`relative flex min-h-11 flex-1 items-center rounded-xl px-3 py-2.5 text-sm transition ${
+                            active
+                              ? "bg-citius-blue/10 font-semibold text-citius-blue"
+                              : "text-brand-muted hover:bg-brand-light hover:text-brand-dark"
+                          }`}
+                        >
+                          {active && (
+                            <motion.span
+                              layoutId="portalNavActive"
+                              className="absolute inset-y-1 left-0 w-1 rounded-full bg-citius-orange"
+                              transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                            />
+                          )}
+                          <span className="pl-2">{item.label}</span>
+                        </Link>
+                        {hasShortcuts && (
+                          <button
+                            type="button"
+                            onClick={() => toggleShortcuts(item.href)}
+                            className={`grid min-h-11 min-w-11 place-items-center rounded-xl text-brand-muted transition hover:bg-brand-light hover:text-citius-blue ${
+                              shortcutsExpanded ? "bg-brand-light text-citius-blue" : ""
+                            }`}
+                            aria-expanded={shortcutsExpanded}
+                            aria-label={`Show recent ${item.label}`}
+                          >
+                            <ChevronDown
+                              size={16}
+                              className={`transition-transform ${shortcutsExpanded ? "rotate-180" : ""}`}
+                            />
+                          </button>
+                        )}
+                      </div>
+
+                      {hasShortcuts && shortcutsExpanded && (
+                        <div className="ml-3 mt-0.5 space-y-0.5 border-l border-brand-border pl-2">
+                          {shortcuts.map((shortcut) => (
+                            <Link
+                              key={shortcut.id}
+                              href={shortcut.href}
+                              onClick={onNavigate}
+                              className="block min-h-11 rounded-lg px-2 py-2 text-xs leading-snug text-brand-muted transition hover:bg-brand-light hover:text-brand-dark"
+                              title={shortcut.label}
+                            >
+                              <span className="line-clamp-2">{shortcut.label}</span>
+                            </Link>
+                          ))}
+                          <Link
+                            href={item.href}
+                            onClick={onNavigate}
+                            className="block min-h-11 rounded-lg px-2 py-2 text-xs font-semibold text-citius-blue transition hover:text-citius-orange"
+                          >
+                            View all
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <div className="space-y-0.5">
-            {group.items.map((item) => {
-              const active =
-                item.href === "/portal"
-                  ? pathname === "/portal"
-                  : pathname?.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onNavigate}
-                  className={`relative flex items-center rounded-xl px-3 py-2.5 text-sm transition ${
-                    active
-                      ? "bg-citius-blue/10 font-semibold text-citius-blue"
-                      : "text-brand-muted hover:bg-brand-light hover:text-brand-dark"
-                  }`}
-                >
-                  {active && (
-                    <motion.span
-                      layoutId="portalNavActive"
-                      className="absolute inset-y-1 left-0 w-1 rounded-full bg-citius-orange"
-                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                    />
-                  )}
-                  <span className="pl-2">{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }

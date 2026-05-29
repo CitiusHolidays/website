@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internalMutation, query } from "../_generated/server";
 import { PERMISSIONS, requireStaff } from "./lib";
 
@@ -45,7 +45,7 @@ export const savePassportMetadata = internalMutation({
   handler: async (ctx, args) => {
     const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
     if (!travellerId) {
-      throw new Error("Invalid traveller id");
+      throw new ConvexError("Invalid traveller id");
     }
 
     const now = Date.now();
@@ -99,7 +99,7 @@ export const savePassportDetailsOnly = internalMutation({
   handler: async (ctx, args) => {
     const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
     if (!travellerId) {
-      throw new Error("Invalid traveller id");
+      throw new ConvexError("Invalid traveller id");
     }
 
     const now = Date.now();

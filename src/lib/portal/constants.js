@@ -229,20 +229,20 @@ export const PORTAL_NAV_GROUPS = [
   {
     label: "Enquiries",
     items: [
-      { href: "/portal/queries", label: "All Sales Queries", page: "queries", permission: P.VIEW_QUERIES },
+      { href: "/portal/queries", label: "All Sales Queries", page: "queries", permission: P.VIEW_QUERIES, shortcutKey: "queries" },
       { href: "/portal/pipeline", label: "Pipeline View", page: "pipeline", permission: P.VIEW_QUERIES },
       { href: "/portal/contracting", label: "Contracting", page: "contracting", permission: P.VIEW_CONTRACTING },
     ],
   },
   {
     label: "Proposals",
-    items: [{ href: "/portal/proposals", label: "Proposals", page: "proposals", permission: P.VIEW_PROPOSALS }],
+    items: [{ href: "/portal/proposals", label: "Proposals", page: "proposals", permission: P.VIEW_PROPOSALS, shortcutKey: "proposals" }],
   },
   {
     label: "Job Cards",
     items: [
       { href: "/portal/accounts/job-cards", label: "Accounts / JC", page: "accounts-job-cards", permission: P.MANAGE_JOB_CARDS },
-      { href: "/portal/job-cards", label: "Job Cards", page: "job-cards", permission: P.VIEW_JOB_CARDS },
+      { href: "/portal/job-cards", label: "Job Cards", page: "job-cards", permission: P.VIEW_JOB_CARDS, shortcutKey: "jobCards" },
     ],
   },
   {
@@ -251,7 +251,7 @@ export const PORTAL_NAV_GROUPS = [
       { href: "/portal/ticketing", label: "Ticket Dashboard", page: "ticketing", permission: P.VIEW_TICKETING },
       { href: "/portal/flights", label: "Flights & PNR", page: "flights", permission: P.VIEW_TICKETING },
       { href: "/portal/seat-allocation", label: "Seat Allocation", page: "seat-allocation", permission: P.VIEW_TICKETING },
-      { href: "/portal/tickets", label: "All Tickets", page: "tickets", permission: P.VIEW_TICKETING },
+      { href: "/portal/tickets", label: "All Tickets", page: "tickets", permission: P.VIEW_TICKETING, shortcutKey: "tickets" },
     ],
   },
   {

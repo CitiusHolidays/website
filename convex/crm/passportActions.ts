@@ -20,6 +20,36 @@ function isAllowedPassportMimeType(mimeType: string) {
   return ALLOWED_PASSPORT_MIME_TYPES.has(mimeType.trim().toLowerCase());
 }
 
+function inferPassportMimeType(fileName: string, mimeType: string) {
+  const normalized = mimeType.trim().toLowerCase();
+  if (normalized) {
+    return normalized;
+  }
+  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+  const byExtension: Record<string, string> = {
+    pdf: "application/pdf",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+  };
+  return byExtension[extension] ?? "";
+}
+
+function encryptPassportPayload(buffer: Buffer) {
+  try {
+    return encryptBuffer(buffer);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Encryption failed";
+    if (message.includes("ENCRYPTION_KEY")) {
+      throw new ConvexError(
+        "Encryption is not configured. Ask an admin to set ENCRYPTION_KEY in the Convex deployment.",
+      );
+    }
+    throw new ConvexError(`Failed to encrypt passport scan: ${message}`);
+  }
+}
+
 export const generateUploadUrl = action({
   args: {},
   handler: async (ctx) => {
@@ -62,7 +92,8 @@ export const encryptAndStorePassport = action({
       }
     };
 
-    if (!isAllowedPassportMimeType(args.mimeType)) {
+    const resolvedMimeType = inferPassportMimeType(args.fileName, args.mimeType);
+    if (!isAllowedPassportMimeType(resolvedMimeType)) {
       await cleanupTempUpload();
       throw new ConvexError("Passport scans must be PDF, JPEG, PNG, or WebP files.");
     }
@@ -74,7 +105,7 @@ export const encryptAndStorePassport = action({
     }
 
     const fileBytes = new Uint8Array(await fileBlob.arrayBuffer());
-    const encryptedBuffer = encryptBuffer(Buffer.from(fileBytes));
+    const encryptedBuffer = encryptPassportPayload(Buffer.from(fileBytes));
     const encryptedStorageId = await ctx.storage.store(
       new Blob([new Uint8Array(encryptedBuffer)]),
     );
@@ -122,7 +153,7 @@ export const encryptAndStorePassport = action({
       encryptedPayload,
       lastFour: lastFour || undefined,
       fileName: args.fileName,
-      mimeType: args.mimeType,
+      mimeType: resolvedMimeType,
       createdBy: access.authUserId || "unknown",
     });
 

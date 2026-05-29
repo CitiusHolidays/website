@@ -180,7 +180,7 @@ export default function AccountClient({ user, bookings = [] }) {
                 <Compass className="w-5 h-5" />
                 <span className="text-xs font-medium uppercase tracking-[0.2em]">Traveler Profile</span>
               </div>
-              <h1 className="font-heading text-5xl md:text-7xl font-medium tracking-tight leading-none mb-2">
+              <h1 className="font-heading text-3xl sm:text-5xl md:text-7xl font-medium tracking-tight leading-none mb-2">
                 Hello, <span className="italic text-[#d4af37]">{user.name?.split(' ')[0] || 'Traveler'}</span>
               </h1>
               <p className="text-white/60 font-light max-w-lg">
@@ -188,12 +188,12 @@ export default function AccountClient({ user, bookings = [] }) {
               </p>
             </div>
 
-            <div className="flex gap-4">
-               <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 min-w-[140px]">
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:gap-4">
+               <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 sm:min-w-[140px]">
                  <span className="block text-2xl font-heading text-white">{upcomingBookings.length}</span>
                  <span className="text-xs text-white/50 uppercase tracking-wider">Upcoming</span>
                </div>
-               <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 min-w-[140px]">
+               <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 sm:min-w-[140px]">
                  <span className="block text-2xl font-heading text-white">{pastBookings.length}</span>
                  <span className="text-xs text-white/50 uppercase tracking-wider">Past Trips</span>
                </div>
