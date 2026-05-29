@@ -1528,12 +1528,17 @@ function DashboardView({ summary, has }) {
     has(P.VIEW_OPERATIONS) ||
     has(P.VIEW_FINANCE);
 
+  const emptyQueryTypeCounts = () => QUERY_TYPES.map((type) => ({ type, count: 0 }));
   const queryTypeCounts = has(P.VIEW_QUERIES)
-    ? (summary.queriesByType?.length
-        ? summary.queriesByType
-        : QUERY_TYPES.map((type) => ({ type, count: 0 })))
+    ? (summary.queriesByType?.length ? summary.queriesByType : emptyQueryTypeCounts())
+    : [];
+  const confirmedQueryTypeCounts = has(P.VIEW_QUERIES)
+    ? (summary.confirmedQueriesByType?.length
+        ? summary.confirmedQueriesByType
+        : emptyQueryTypeCounts())
     : [];
   const activeQueryTotal = queryTypeCounts.reduce((sum, item) => sum + item.count, 0);
+  const confirmedQueryTotal = confirmedQueryTypeCounts.reduce((sum, item) => sum + item.count, 0);
 
   return (
     <div className="space-y-8">
@@ -1547,18 +1552,41 @@ function DashboardView({ summary, has }) {
           </div>
         </section>
       )}
-      {queryTypeCounts.length > 0 && (
-        <section className="space-y-3">
-          <DashboardSectionHeading
-            title="Active queries by type"
-            detail={`${activeQueryTotal.toLocaleString("en-IN")} open enquiries in this period`}
-          />
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4">
-            {queryTypeCounts.map((item, index) => (
-              <QueryTypeTile key={item.type} type={item.type} count={item.count} index={index} />
-            ))}
-          </div>
-        </section>
+      {(queryTypeCounts.length > 0 || confirmedQueryTypeCounts.length > 0) && (
+        <div className="grid gap-6 xl:grid-cols-2">
+          {queryTypeCounts.length > 0 && (
+            <section className="space-y-3">
+              <DashboardSectionHeading
+                title="Active queries by type"
+                detail={`${activeQueryTotal.toLocaleString("en-IN")} open enquiries in this period`}
+              />
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
+                {queryTypeCounts.map((item, index) => (
+                  <QueryTypeTile key={`active-${item.type}`} type={item.type} count={item.count} index={index} />
+                ))}
+              </div>
+            </section>
+          )}
+          {confirmedQueryTypeCounts.length > 0 && (
+            <section className="space-y-3">
+              <DashboardSectionHeading
+                title="Confirmed queries by type"
+                detail={`${confirmedQueryTotal.toLocaleString("en-IN")} order confirmed in this period`}
+              />
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
+                {confirmedQueryTypeCounts.map((item, index) => (
+                  <QueryTypeTile
+                    key={`confirmed-${item.type}`}
+                    type={item.type}
+                    count={item.count}
+                    index={index}
+                    variant="confirmed"
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
       )}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -4608,7 +4636,7 @@ function DashboardSectionHeading({ title, detail }) {
   );
 }
 
-function QueryTypeTile({ type, count, index = 0 }) {
+function QueryTypeTile({ type, count, index = 0, variant = "active" }) {
   const tone =
     type.includes("Cement")
       ? "from-stone-500/10 to-stone-500/5 border-stone-200"
@@ -4617,6 +4645,7 @@ function QueryTypeTile({ type, count, index = 0 }) {
         : type === "FIT" || type === "Family Group"
           ? "from-emerald-500/12 to-emerald-500/5 border-emerald-200"
           : "from-citius-orange/12 to-citius-orange/5 border-citius-orange/20";
+  const valueTone = variant === "confirmed" ? "text-emerald-700" : "text-citius-blue";
 
   return (
     <motion.div
@@ -4624,10 +4653,12 @@ function QueryTypeTile({ type, count, index = 0 }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -2 }}
-      className={`rounded-xl border bg-linear-to-br p-4 shadow-sm transition-shadow hover:shadow-md ${tone}`}
+      className={`rounded-xl border bg-linear-to-br p-4 shadow-sm transition-shadow hover:shadow-md ${tone} ${
+        variant === "confirmed" ? "ring-1 ring-emerald-500/15" : ""
+      }`}
     >
       <div className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">{type}</div>
-      <div className="mt-2 font-heading text-2xl font-semibold tabular-nums text-citius-blue">{count}</div>
+      <div className={`mt-2 font-heading text-2xl font-semibold tabular-nums ${valueTone}`}>{count}</div>
     </motion.div>
   );
 }

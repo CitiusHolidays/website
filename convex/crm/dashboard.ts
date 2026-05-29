@@ -24,6 +24,16 @@ const QUERY_TYPES = [
 const isActiveQuery = (query: { salesStatus: string }) =>
   query.salesStatus !== "Order Confirmed" && query.salesStatus !== "Order Lost";
 
+const isConfirmedQuery = (query: { salesStatus: string }) =>
+  query.salesStatus === "Order Confirmed";
+
+function countQueriesByType<T extends { queryType: string }>(records: T[]) {
+  return QUERY_TYPES.map((type) => ({
+    type,
+    count: records.filter((query) => query.queryType === type).length,
+  }));
+}
+
 export const getPortalSummary = query({
   args: {
     period: v.optional(portalPeriodValidator),
@@ -57,13 +67,13 @@ export const getPortalSummary = query({
     const nowDate = new Date().toISOString().slice(0, 10);
     const revenuePipeline = invoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
     const activeQueryRecords = queries.filter(isActiveQuery);
+    const confirmedQueryRecords = queries.filter(isConfirmedQuery);
 
     return {
       metrics: {
         activeQueries: activeQueryRecords.length,
         proposalsSent: proposals.filter((proposal) => proposal.status === "Sent").length,
-        confirmedJobs: queries.filter((query) => query.salesStatus === "Order Confirmed")
-          .length,
+        confirmedJobs: confirmedQueryRecords.length,
         jobCardsOpen: activeJobs.length,
         ticketsIssued,
         ticketsPending: tickets.filter((ticket) => ticket.ticketStatus === "Pending Issue")
@@ -78,10 +88,8 @@ export const getPortalSummary = query({
         pendingApprovals: approvals.filter((approval) => approval.status === "Pending").length,
         revenuePipeline,
       },
-      queriesByType: QUERY_TYPES.map((type) => ({
-        type,
-        count: activeQueryRecords.filter((query) => query.queryType === type).length,
-      })),
+      queriesByType: countQueriesByType(activeQueryRecords),
+      confirmedQueriesByType: countQueriesByType(confirmedQueryRecords),
       departmentWorkflow: [
         {
           label: "Sales open leads",
