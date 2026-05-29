@@ -10,6 +10,20 @@ import {
 
 const percent = (done: number, total: number) => (total > 0 ? Math.round((done / total) * 100) : 0);
 
+const QUERY_TYPES = [
+  "MICE",
+  "MICE Bidding",
+  "Cement",
+  "Cement Bidding",
+  "FIT",
+  "Family Group",
+  "B2B",
+  "Spiritual",
+] as const;
+
+const isActiveQuery = (query: { salesStatus: string }) =>
+  query.salesStatus !== "Order Confirmed" && query.salesStatus !== "Order Lost";
+
 export const getPortalSummary = query({
   args: {
     period: v.optional(portalPeriodValidator),
@@ -42,13 +56,11 @@ export const getPortalSummary = query({
     const outstandingAmount = invoices.reduce((sum, invoice) => sum + Math.max(invoice.balanceAmount ?? 0, 0), 0);
     const nowDate = new Date().toISOString().slice(0, 10);
     const revenuePipeline = invoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
+    const activeQueryRecords = queries.filter(isActiveQuery);
 
     return {
       metrics: {
-        activeQueries: queries.filter(
-          (item) =>
-            item.salesStatus !== "Order Confirmed" && item.salesStatus !== "Order Lost",
-        ).length,
+        activeQueries: activeQueryRecords.length,
         proposalsSent: proposals.filter((proposal) => proposal.status === "Sent").length,
         confirmedJobs: queries.filter((query) => query.salesStatus === "Order Confirmed")
           .length,
@@ -66,6 +78,10 @@ export const getPortalSummary = query({
         pendingApprovals: approvals.filter((approval) => approval.status === "Pending").length,
         revenuePipeline,
       },
+      queriesByType: QUERY_TYPES.map((type) => ({
+        type,
+        count: activeQueryRecords.filter((query) => query.queryType === type).length,
+      })),
       departmentWorkflow: [
         {
           label: "Sales open leads",

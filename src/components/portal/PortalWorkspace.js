@@ -1528,14 +1528,37 @@ function DashboardView({ summary, has }) {
     has(P.VIEW_OPERATIONS) ||
     has(P.VIEW_FINANCE);
 
+  const queryTypeCounts = has(P.VIEW_QUERIES)
+    ? (summary.queriesByType?.length
+        ? summary.queriesByType
+        : QUERY_TYPES.map((type) => ({ type, count: 0 })))
+    : [];
+  const activeQueryTotal = queryTypeCounts.reduce((sum, item) => sum + item.count, 0);
+
   return (
     <div className="space-y-8">
       {metrics.length > 0 && (
-        <div className="grid grid-flow-dense gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {metrics.map(({ label, value, Icon }, index) => (
-            <StatCard key={label} label={label} value={value} Icon={Icon} index={index} featured={index === 0} />
-          ))}
-        </div>
+        <section className="space-y-3">
+          <DashboardSectionHeading title="Overview" />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {metrics.map(({ label, value, Icon }, index) => (
+              <StatCard key={label} label={label} value={value} Icon={Icon} index={index} />
+            ))}
+          </div>
+        </section>
+      )}
+      {queryTypeCounts.length > 0 && (
+        <section className="space-y-3">
+          <DashboardSectionHeading
+            title="Active queries by type"
+            detail={`${activeQueryTotal.toLocaleString("en-IN")} open enquiries in this period`}
+          />
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4">
+            {queryTypeCounts.map((item, index) => (
+              <QueryTypeTile key={item.type} type={item.type} count={item.count} index={index} />
+            ))}
+          </div>
+        </section>
       )}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
@@ -4576,6 +4599,39 @@ function Panel({ title, children }) {
   );
 }
 
+function DashboardSectionHeading({ title, detail }) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-2">
+      <h3 className="font-heading text-sm font-semibold tracking-wide text-brand-dark">{title}</h3>
+      {detail ? <p className="text-xs text-brand-muted">{detail}</p> : null}
+    </div>
+  );
+}
+
+function QueryTypeTile({ type, count, index = 0 }) {
+  const tone =
+    type.includes("Cement")
+      ? "from-stone-500/10 to-stone-500/5 border-stone-200"
+      : type.startsWith("MICE")
+        ? "from-citius-blue/12 to-citius-blue/5 border-citius-blue/15"
+        : type === "FIT" || type === "Family Group"
+          ? "from-emerald-500/12 to-emerald-500/5 border-emerald-200"
+          : "from-citius-orange/12 to-citius-orange/5 border-citius-orange/20";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.03, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -2 }}
+      className={`rounded-xl border bg-linear-to-br p-4 shadow-sm transition-shadow hover:shadow-md ${tone}`}
+    >
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">{type}</div>
+      <div className="mt-2 font-heading text-2xl font-semibold tabular-nums text-citius-blue">{count}</div>
+    </motion.div>
+  );
+}
+
 function StatCard({ label, value, Icon, index = 0, featured = false }) {
   return (
     <motion.div
@@ -4593,7 +4649,7 @@ function StatCard({ label, value, Icon, index = 0, featured = false }) {
           <Icon size={18} className={featured ? "text-citius-orange" : "text-citius-orange"} />
         </div>
       </div>
-      <div className={`mt-3 font-heading text-3xl font-semibold ${featured ? "text-white" : "text-citius-blue"}`}>
+      <div className={`mt-3 font-heading text-3xl font-semibold tabular-nums ${featured ? "text-white" : "text-citius-blue"}`}>
         {value}
       </div>
     </motion.div>
