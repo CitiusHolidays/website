@@ -183,3 +183,14 @@ body {
 .portal-danger-btn:active {
   transform: translateY(1px);
 }
+
+.portal-period-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: none;
+}
+
+.portal-period-select::-ms-expand {
+  display: none;
+}

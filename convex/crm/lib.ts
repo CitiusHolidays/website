@@ -1,4 +1,4 @@
-import { ConvexError } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
@@ -937,4 +937,48 @@ export function publicQuery(query: any) {
     createdAt: new Date(query.createdAt).toISOString(),
     updatedAt: new Date(query.updatedAt).toISOString(),
   };
+}
+
+export const portalPeriodValidator = v.union(
+  v.literal("all"),
+  v.literal("week"),
+  v.literal("month"),
+  v.literal("3months"),
+  v.literal("6months"),
+  v.literal("year"),
+);
+
+export type PortalPeriod =
+  | "all"
+  | "week"
+  | "month"
+  | "3months"
+  | "6months"
+  | "year";
+
+const PERIOD_MS: Record<Exclude<PortalPeriod, "all">, number> = {
+  week: 7 * 24 * 60 * 60 * 1000,
+  month: 30 * 24 * 60 * 60 * 1000,
+  "3months": 90 * 24 * 60 * 60 * 1000,
+  "6months": 180 * 24 * 60 * 60 * 1000,
+  year: 365 * 24 * 60 * 60 * 1000,
+};
+
+export function resolvePortalPeriodRange(period: PortalPeriod = "all") {
+  if (period === "all") return null;
+  const windowMs = PERIOD_MS[period];
+  if (!windowMs) return null;
+  const untilMs = Date.now();
+  return { sinceMs: untilMs - windowMs, untilMs };
+}
+
+export function filterRecordsByCreatedAt<T extends { createdAt: number }>(
+  records: T[],
+  period: PortalPeriod = "all",
+) {
+  const range = resolvePortalPeriodRange(period);
+  if (!range) return records;
+  return records.filter(
+    (record) => record.createdAt >= range.sinceMs && record.createdAt <= range.untilMs,
+  );
 }

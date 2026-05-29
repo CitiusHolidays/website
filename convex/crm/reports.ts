@@ -1,12 +1,22 @@
+import { v } from "convex/values";
 import { query } from "../_generated/server";
-import { PERMISSIONS, requireStaff } from "./lib";
+import {
+  PERMISSIONS,
+  filterRecordsByCreatedAt,
+  portalPeriodValidator,
+  requireStaff,
+  type PortalPeriod,
+} from "./lib";
 
 export const overview = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    period: v.optional(portalPeriodValidator),
+  },
+  handler: async (ctx, args) => {
     await requireStaff(ctx, PERMISSIONS.VIEW_REPORTS);
-    const queries = await ctx.db.query("queries").collect();
-    const invoices = await ctx.db.query("invoices").collect();
+    const period = (args.period ?? "all") as PortalPeriod;
+    const queries = filterRecordsByCreatedAt(await ctx.db.query("queries").collect(), period);
+    const invoices = filterRecordsByCreatedAt(await ctx.db.query("invoices").collect(), period);
     const staff = await ctx.db.query("staffUsers").collect();
     const offices = await ctx.db.query("offices").collect();
     const officeNames = new Map(offices.map((office) => [office._id, office.name]));

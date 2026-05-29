@@ -1,23 +1,32 @@
+import { v } from "convex/values";
 import { query } from "../_generated/server";
-import { PERMISSIONS, requireStaff } from "./lib";
+import {
+  PERMISSIONS,
+  filterRecordsByCreatedAt,
+  portalPeriodValidator,
+  requireStaff,
+  type PortalPeriod,
+} from "./lib";
 
 const percent = (done: number, total: number) => (total > 0 ? Math.round((done / total) * 100) : 0);
 
 export const getPortalSummary = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    period: v.optional(portalPeriodValidator),
+  },
+  handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
-    const queries = await ctx.db.query("queries").collect();
-    const proposals = await ctx.db.query("proposals").collect();
-    const jobCards = await ctx.db.query("jobCards").collect();
-    const travellers = await ctx.db.query("travellers").collect();
-    const tickets = await ctx.db.query("tickets").collect();
-    const visas = await ctx.db.query("visaRecords").collect();
-    const invoices = await ctx.db.query("invoices").collect();
-    const expenses = await ctx.db.query("expenseEntries").collect();
-    const approvals = await ctx.db.query("approvalRequests").collect();
+    const period = (args.period ?? "all") as PortalPeriod;
+    const queries = filterRecordsByCreatedAt(await ctx.db.query("queries").collect(), period);
+    const proposals = filterRecordsByCreatedAt(await ctx.db.query("proposals").collect(), period);
+    const jobCards = filterRecordsByCreatedAt(await ctx.db.query("jobCards").collect(), period);
+    const travellers = filterRecordsByCreatedAt(await ctx.db.query("travellers").collect(), period);
+    const tickets = filterRecordsByCreatedAt(await ctx.db.query("tickets").collect(), period);
+    const visas = filterRecordsByCreatedAt(await ctx.db.query("visaRecords").collect(), period);
+    const invoices = filterRecordsByCreatedAt(await ctx.db.query("invoices").collect(), period);
+    const approvals = filterRecordsByCreatedAt(await ctx.db.query("approvalRequests").collect(), period);
     const staff = await ctx.db.query("staffUsers").collect();
-    const activities = await ctx.db.query("activityLogs").collect();
+    const activities = filterRecordsByCreatedAt(await ctx.db.query("activityLogs").collect(), period);
 
     const activeJobs = jobCards.filter((job) => job.status !== "Closed");
     const ticketsIssued = tickets.filter((ticket) => ticket.ticketStatus === "Issued").length;
@@ -32,12 +41,7 @@ export const getPortalSummary = query({
     const receivedPayment = invoices.reduce((sum, invoice) => sum + invoice.receivedAmount, 0);
     const outstandingAmount = invoices.reduce((sum, invoice) => sum + Math.max(invoice.balanceAmount ?? 0, 0), 0);
     const nowDate = new Date().toISOString().slice(0, 10);
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
-    const revenuePipeline = invoices
-      .filter((invoice) => invoice.createdAt >= monthStart.getTime())
-      .reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
+    const revenuePipeline = invoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
 
     return {
       metrics: {

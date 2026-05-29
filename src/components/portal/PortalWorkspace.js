@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useConvexAuth, useMutation, useQuery, useAction } from "convex/react";
 import {
   CheckCircle2,
+  ChevronDown,
   CircleDollarSign,
   ClipboardList,
   Download,
@@ -73,6 +74,10 @@ import {
   buildPassengerWorkbook,
   downloadWorkbook,
 } from "@/lib/portal/spreadsheetExports";
+import {
+  filterByPeriod,
+  PORTAL_PERIOD_OPTIONS,
+} from "@/lib/portal/periodFilter";
 
 const P = PORTAL_PERMISSIONS;
 
@@ -380,6 +385,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const [pendingProposalFiles, setPendingProposalFiles] = useState([]);
   const [pendingExpenseProofFiles, setPendingExpenseProofFiles] = useState([]);
   const [search, setSearch] = useState("");
+  const [period, setPeriod] = useState("all");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [pipelineMode, setPipelineMode] = useState("sales");
@@ -396,13 +402,13 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const allowed = access?.allowed && has(meta.permission);
   const canFetch = isAuthenticated && access?.allowed;
 
-  const summary = useQuery(api.crm.dashboard.getPortalSummary, canFetch && allowed && view === "dashboard" ? {} : "skip");
+  const summary = useQuery(api.crm.dashboard.getPortalSummary, canFetch && allowed && view === "dashboard" ? { period } : "skip");
   const queries = useQuery(api.crm.queries.list, canFetch && (has(P.VIEW_QUERIES) || has(P.VIEW_CONTRACTING) || has(P.VIEW_JOB_CARDS)) ? {} : "skip");
   const proposals = useQuery(api.crm.proposals.list, canFetch && (has(P.VIEW_PROPOSALS) || has(P.MANAGE_JOB_CARDS)) ? {} : "skip");
   const jobCards = useQuery(api.crm.jobCards.list, canFetch && has(P.VIEW_JOB_CARDS) ? {} : "skip");
   const travellers = useQuery(api.crm.travellers.list, canFetch && has(P.VIEW_TRAVELLERS) ? {} : "skip");
   const visas = useQuery(api.crm.visa.list, canFetch && has(P.VIEW_VISA) ? {} : "skip");
-  const ticketDashboard = useQuery(api.crm.ticketing.dashboard, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
+  const ticketDashboard = useQuery(api.crm.ticketing.dashboard, canFetch && has(P.VIEW_TICKETING) ? { period } : "skip");
   const pnrs = useQuery(api.crm.ticketing.listPnrs, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
   const tickets = useQuery(api.crm.ticketing.listTickets, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
   const seats = useQuery(api.crm.ticketing.listSeatAllocations, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
@@ -411,9 +417,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const tourManagers = useQuery(api.crm.ops.listTourManagers, canFetch && has(P.VIEW_TOUR_MANAGERS) ? {} : "skip");
   const invoices = useQuery(api.crm.finance.listInvoices, canFetch && has(P.VIEW_FINANCE) ? {} : "skip");
   const expenses = useQuery(api.crm.finance.listExpenses, canFetch && (has(P.VIEW_EXPENSES) || deepLinkOpen === "approval") ? {} : "skip");
-  const financeOverview = useQuery(api.crm.finance.getFinanceOverview, canFetch && has(P.VIEW_FINANCE) && view === "finance" ? {} : "skip");
+  const financeOverview = useQuery(api.crm.finance.getFinanceOverview, canFetch && has(P.VIEW_FINANCE) && view === "finance" ? { period } : "skip");
   const approvals = useQuery(api.crm.approvals.list, canFetch && has(P.VIEW_APPROVALS) ? {} : "skip");
-  const reports = useQuery(api.crm.reports.overview, canFetch && has(P.VIEW_REPORTS) && view === "reports" ? {} : "skip");
+  const reports = useQuery(api.crm.reports.overview, canFetch && has(P.VIEW_REPORTS) && view === "reports" ? { period } : "skip");
   const team = useQuery(
     api.crm.staff.listDirectory,
     canFetch && has(P.VIEW_TEAM) ? {} : "skip",
@@ -510,9 +516,58 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const removeNotification = useMutation(api.crm.activity.removeNotification);
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
 
+  const periodFiltered = useMemo(
+    () => ({
+      queries: filterByPeriod(queries || [], period, "createdAt"),
+      proposals: filterByPeriod(proposals || [], period, "createdAt"),
+      jobCards: filterByPeriod(jobCards || [], period, "createdAt"),
+      travellers: filterByPeriod(travellers || [], period, "createdAt"),
+      visas: filterByPeriod(visas || [], period, "createdAt"),
+      pnrs: filterByPeriod(pnrs || [], period, "createdAt"),
+      tickets: filterByPeriod(tickets || [], period, "createdAt"),
+      seats: filterByPeriod(seats || [], period, "createdAt"),
+      flightItinerary: filterByPeriod(flightItinerary || [], period, "departureDate"),
+      hotels: filterByPeriod(hotels || [], period, "createdAt"),
+      tourManagers: filterByPeriod(tourManagers || [], period, "createdAt"),
+      invoices: filterByPeriod(invoices || [], period, "createdAt"),
+      expenses: filterByPeriod(
+        (expenses || []).map((row) => ({
+          ...row,
+          periodDate: row.expenseDate || row.createdAt,
+        })),
+        period,
+        "periodDate",
+      ),
+      approvals: filterByPeriod(approvals || [], period, "createdAt"),
+      leaves: filterByPeriod(leaves || [], period, "createdAt"),
+      activity: filterByPeriod(activity || [], period, "createdAt"),
+      notifications: filterByPeriod(notifications || [], period, "createdAt"),
+    }),
+    [
+      queries,
+      proposals,
+      jobCards,
+      travellers,
+      visas,
+      pnrs,
+      tickets,
+      seats,
+      flightItinerary,
+      hotels,
+      tourManagers,
+      invoices,
+      expenses,
+      approvals,
+      leaves,
+      activity,
+      notifications,
+      period,
+    ],
+  );
+
   const filteredQueries = useMemo(
-    () => filterRows(queries || [], search, ["queryCode", "clientName", "destination", "queryType"]),
-    [queries, search],
+    () => filterRows(periodFiltered.queries, search, ["queryCode", "clientName", "destination", "queryType"]),
+    [periodFiltered.queries, search],
   );
   const filteredTeam = useMemo(
     () => filterRows(team || [], search, ["name", "email", "department", "function", "location"]),
@@ -1115,6 +1170,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         subtitle={meta.subtitle}
         search={search}
         setSearch={setSearch}
+        period={period}
+        setPeriod={setPeriod}
+        showPeriodFilter={view !== "settings"}
       >
         {renderHeaderAction(view, openModal, has, access)}
       </PageHeader>
@@ -1129,13 +1187,13 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       {view === "queries" && (
         <QueriesView rows={filteredQueries} openModal={openModal} has={has} deleteItem={deleteItem} removeQuery={removeQuery} submitToContracting={submitToContracting} getQueryAttachmentUrl={getQueryAttachmentUrl} />
       )}
-      {view === "pipeline" && <PipelineView rows={queries || []} mode={pipelineMode} setMode={setPipelineMode} />}
+      {view === "pipeline" && <PipelineView rows={periodFiltered.queries} mode={pipelineMode} setMode={setPipelineMode} />}
       {view === "contracting" && (
-        <ContractingView rows={filteredQueries} proposals={proposals || []} team={team || []} openModal={openModal} has={has} canAssign={canAssignContracting(access)} deleteItem={deleteItem} removeQuery={removeQuery} />
+        <ContractingView rows={filteredQueries} proposals={periodFiltered.proposals} team={team || []} openModal={openModal} has={has} canAssign={canAssignContracting(access)} deleteItem={deleteItem} removeQuery={removeQuery} />
       )}
       {view === "proposals" && (
         <ProposalsView
-          rows={proposals || []}
+          rows={periodFiltered.proposals}
           markProposalSent={markProposalSent}
           openModal={openModal}
           has={has}
@@ -1146,11 +1204,11 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         />
       )}
       {view === "accounts-job-cards" && (
-        <AccountsJobCardView rows={queries || []} jobCards={jobCards || []} openModal={openModal} />
+        <AccountsJobCardView rows={periodFiltered.queries} jobCards={periodFiltered.jobCards} openModal={openModal} />
       )}
       {view === "job-cards" && (
         <JobCardsView
-          rows={jobCards || []}
+          rows={periodFiltered.jobCards}
           updateJobStatus={updateJobStatus}
           openModal={openModal}
           has={has}
@@ -1159,11 +1217,11 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           removeJobCard={removeJobCard}
         />
       )}
-      {view === "travellers" && <TravellersView rows={travellers || []} openModal={openModal} has={has} deleteItem={deleteItem} removeTraveller={removeTraveller} />}
+      {view === "travellers" && <TravellersView rows={periodFiltered.travellers} openModal={openModal} has={has} deleteItem={deleteItem} removeTraveller={removeTraveller} />}
       {view === "passport" && (
         <PassportDocumentsView
-          travellers={travellers || []}
-          rows={visas || []}
+          travellers={periodFiltered.travellers}
+          rows={periodFiltered.visas}
           has={has}
           openModal={openModal}
           deleteItem={deleteItem}
@@ -1176,22 +1234,22 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "visa" && (
         <VisaTrackingView
-          rows={visas || []}
+          rows={periodFiltered.visas}
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
           removeVisa={removeVisa}
         />
       )}
-      {view === "ticketing" && <TicketDashboardView summary={ticketDashboard} tickets={tickets || []} openModal={openModal} has={has} deleteItem={deleteItem} removeTicket={removeTicket} />}
-      {view === "flights" && <PnrView rows={pnrs || []} itinerary={flightItinerary || []} openModal={openModal} has={has} deleteItem={deleteItem} removePnr={removePnr} />}
-      {view === "seat-allocation" && <SeatView rows={seats || []} openModal={openModal} has={has} deleteItem={deleteItem} removeSeatAllocation={removeSeatAllocation} />}
-      {view === "tickets" && <TicketsView rows={tickets || []} openModal={openModal} has={has} deleteItem={deleteItem} removeTicket={removeTicket} />}
-      {view === "hotels" && <HotelsView rows={hotels || []} openModal={openModal} has={has} deleteItem={deleteItem} removeHotel={removeHotel} />}
+      {view === "ticketing" && <TicketDashboardView summary={ticketDashboard} tickets={periodFiltered.tickets} openModal={openModal} has={has} deleteItem={deleteItem} removeTicket={removeTicket} />}
+      {view === "flights" && <PnrView rows={periodFiltered.pnrs} itinerary={periodFiltered.flightItinerary} openModal={openModal} has={has} deleteItem={deleteItem} removePnr={removePnr} />}
+      {view === "seat-allocation" && <SeatView rows={periodFiltered.seats} openModal={openModal} has={has} deleteItem={deleteItem} removeSeatAllocation={removeSeatAllocation} />}
+      {view === "tickets" && <TicketsView rows={periodFiltered.tickets} openModal={openModal} has={has} deleteItem={deleteItem} removeTicket={removeTicket} />}
+      {view === "hotels" && <HotelsView rows={periodFiltered.hotels} openModal={openModal} has={has} deleteItem={deleteItem} removeHotel={removeHotel} />}
       {view === "tour-managers" && (
         <TourManagersView
-          rows={tourManagers || []}
-          travellers={travellers || []}
+          rows={periodFiltered.tourManagers}
+          travellers={periodFiltered.travellers}
           openModal={openModal}
           has={has}
           canAssign={canAssignTourManagers(access)}
@@ -1200,10 +1258,10 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           updateCallingStatus={updateCallingStatus}
         />
       )}
-      {view === "finance" && <FinanceView rows={invoices || []} overview={financeOverview} openModal={openModal} has={has} deleteItem={deleteItem} removeInvoice={removeInvoice} />}
+      {view === "finance" && <FinanceView rows={periodFiltered.invoices} overview={financeOverview} openModal={openModal} has={has} deleteItem={deleteItem} removeInvoice={removeInvoice} />}
       {view === "expenses" && (
         <ExpensesView
-          rows={expenses || []}
+          rows={periodFiltered.expenses}
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
@@ -1215,7 +1273,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "approvals" && (
         <ApprovalsView
-          rows={approvals || []}
+          rows={periodFiltered.approvals}
           has={has}
           openModal={openModal}
           decideApproval={decideApproval}
@@ -1227,7 +1285,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       {view === "team" && <TeamView rows={filteredTeam} />}
       {view === "employees-on-leave" && (
         <LeaveView
-          rows={leaves || []}
+          rows={periodFiltered.leaves}
           staff={staff || team || []}
           access={access}
           openModal={openModal}
@@ -1239,8 +1297,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "activity" && (
         <ActivityView
-          activity={activity || []}
-          notifications={notifications || []}
+          activity={periodFiltered.activity}
+          notifications={periodFiltered.notifications}
           deleteItem={deleteItem}
           removeNotification={removeNotification}
           markNotificationRead={markNotificationRead}
@@ -1379,7 +1437,7 @@ function renderHeaderAction(view, openModal, has, access) {
   );
 }
 
-function PageHeader({ title, subtitle, children, search, setSearch }) {
+function PageHeader({ title, subtitle, children, search, setSearch, period, setPeriod, showPeriodFilter = true }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -1395,7 +1453,25 @@ function PageHeader({ title, subtitle, children, search, setSearch }) {
           {subtitle}
         </p>
       </div>
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+        {showPeriodFilter && (
+          <label className="relative">
+            <span className="sr-only">Time period</span>
+            <select
+              value={period}
+              onChange={(event) => setPeriod(event.target.value)}
+              className="portal-period-select h-11 w-full appearance-none rounded-full border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-44"
+              aria-label="Filter by time period"
+            >
+              {PORTAL_PERIOD_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            {/* <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted/60" size={16} /> */}
+          </label>
+        )}
         <label className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted/60" size={16} />
           <input

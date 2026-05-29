@@ -5,10 +5,13 @@ import {
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
+  filterRecordsByCreatedAt,
   nextCode,
   notifyRoles,
+  portalPeriodValidator,
   requireAnyPermission,
   requireStaff,
+  type PortalPeriod,
 } from "./lib";
 
 const expenseCurrencyValidator = v.union(
@@ -387,12 +390,15 @@ export const updateExpense = mutation({
 });
 
 export const getFinanceOverview = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    period: v.optional(portalPeriodValidator),
+  },
+  handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
-    const invoices = await ctx.db.query("invoices").collect();
-    const expenses = await ctx.db.query("expenseEntries").collect();
-    const allJobCards = await ctx.db.query("jobCards").collect();
+    const period = (args.period ?? "all") as PortalPeriod;
+    const invoices = filterRecordsByCreatedAt(await ctx.db.query("invoices").collect(), period);
+    const expenses = filterRecordsByCreatedAt(await ctx.db.query("expenseEntries").collect(), period);
+    const allJobCards = filterRecordsByCreatedAt(await ctx.db.query("jobCards").collect(), period);
     const jobCards: any[] = [];
     for (const job of allJobCards) {
       const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;

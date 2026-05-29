@@ -39,6 +39,7 @@ const publicVisa = (record: any, traveller: any, job: any) => ({
   approvedAt: record.approvedAt ? new Date(record.approvedAt).toISOString() : null,
   rejectedAt: record.rejectedAt ? new Date(record.rejectedAt).toISOString() : null,
   notes: record.notes ?? "",
+  createdAt: new Date(record.createdAt).toISOString(),
   updatedAt: new Date(record.updatedAt).toISOString(),
 });
 

@@ -40,6 +40,7 @@ export const listHotels = query({
         earlyCheckIn: hotel.earlyCheckIn ?? false,
         lateCheckout: hotel.lateCheckout ?? false,
         specialInstructions: hotel.specialInstructions ?? "",
+        createdAt: new Date(hotel.createdAt).toISOString(),
       });
     }
     return result;
@@ -192,6 +193,7 @@ export const listTourManagers = query({
         callingStatus: row.callingStatus,
         availabilityDate: row.availabilityDate ?? "",
         notes: row.notes ?? "",
+        createdAt: new Date(row.createdAt).toISOString(),
       });
     }
     return result;

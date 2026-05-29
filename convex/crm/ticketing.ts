@@ -5,10 +5,13 @@ import {
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
+  filterRecordsByCreatedAt,
   notifyRoles,
+  portalPeriodValidator,
   requireAnyPermission,
   requireHeadOrAdmin,
   requireStaff,
+  type PortalPeriod,
 } from "./lib";
 
 const ticketStatusValidator = v.union(
@@ -87,11 +90,14 @@ async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
 }
 
 export const dashboard = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    period: v.optional(portalPeriodValidator),
+  },
+  handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
-    const tickets = await ctx.db.query("tickets").collect();
-    const pnrs = await ctx.db.query("pnrs").collect();
+    const period = (args.period ?? "all") as PortalPeriod;
+    const tickets = filterRecordsByCreatedAt(await ctx.db.query("tickets").collect(), period);
+    const pnrs = filterRecordsByCreatedAt(await ctx.db.query("pnrs").collect(), period);
     const visibleTickets = [];
     for (const ticket of tickets) {
       if (await getVisibleJob(ctx, access, ticket.jobCardId)) visibleTickets.push(ticket);
@@ -556,6 +562,7 @@ export const listSeatAllocations = query({
         seatNumber: seat.seatNumber,
         status: seat.status,
         notes: seat.notes ?? "",
+        createdAt: new Date(seat.createdAt).toISOString(),
       });
     }
     return result;
