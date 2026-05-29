@@ -1549,7 +1549,7 @@ function DashboardView({ summary, has }) {
       {metrics.length > 0 && (
         <section className="space-y-3">
           <DashboardSectionHeading title="Overview" />
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
             {metrics.map(({ label, value, Icon }, index) => (
               <StatCard key={label} label={label} value={value} Icon={Icon} index={index} />
             ))}
@@ -4704,7 +4704,7 @@ function StatCard({ label, value, Icon, index = 0, featured = false }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -4, scale: 1.01 }}
-      className={`group overflow-hidden rounded-2xl border border-brand-border bg-white p-5 shadow-sm transition-shadow hover:border-citius-orange/30 hover:shadow-lg ${
+      className={`group w-48 overflow-hidden rounded-2xl border border-brand-border bg-white p-5 shadow-sm transition-shadow hover:border-citius-orange/30 hover:shadow-lg ${
         featured ? "sm:col-span-2 bg-linear-to-br from-citius-blue to-citius-blue/90 text-white" : ""
       }`}
     >
