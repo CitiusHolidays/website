@@ -1595,7 +1595,7 @@ function DashboardView({ summary, has }) {
           {closedQueryTypeCounts.length > 0 && (
             <section className="space-y-3">
               <DashboardSectionHeading
-                title="Closed queries by type"
+                title="Lost queries by type"
                 detail={`${closedQueryTotal.toLocaleString("en-IN")} order lost in this period`}
               />
               <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
