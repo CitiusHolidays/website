@@ -23,6 +23,7 @@ import Logo from "@/static/logos/logo.webp";
 
 const NAV_EXPANDED_STORAGE_KEY = "portal-nav-expanded-groups";
 const NAV_SHORTCUTS_STORAGE_KEY = "portal-nav-expanded-shortcuts";
+const NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY = "portal-nav-collapsed-shortcuts";
 
 function readStoredSet(key) {
   if (typeof window === "undefined") return new Set();
@@ -315,6 +316,7 @@ export default function PortalShell({ access, user, children }) {
 function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
   const [expandedGroups, setExpandedGroups] = useState(() => readStoredSet(NAV_EXPANDED_STORAGE_KEY));
   const [expandedShortcuts, setExpandedShortcuts] = useState(() => readStoredSet(NAV_SHORTCUTS_STORAGE_KEY));
+  const [collapsedShortcuts, setCollapsedShortcuts] = useState(() => readStoredSet(NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY));
 
   const isGroupActive = useCallback((group) => {
     return group.items.some((item) => (
@@ -337,6 +339,17 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
     writeStoredSet(NAV_SHORTCUTS_STORAGE_KEY, expandedShortcuts);
   }, [expandedShortcuts]);
 
+  useEffect(() => {
+    writeStoredSet(NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY, collapsedShortcuts);
+  }, [collapsedShortcuts]);
+
+  const isShortcutsExpanded = useCallback((itemHref, active) => {
+    if (collapsedShortcuts.has(itemHref)) {
+      return false;
+    }
+    return expandedShortcuts.has(itemHref) || active;
+  }, [collapsedShortcuts, expandedShortcuts]);
+
   const toggleGroup = (label) => {
     setExpandedGroups((current) => {
       const next = new Set(current);
@@ -349,16 +362,22 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
     });
   };
 
-  const toggleShortcuts = (href) => {
-    setExpandedShortcuts((current) => {
-      const next = new Set(current);
-      if (next.has(href)) {
+  const toggleShortcuts = (href, currentlyExpanded) => {
+    if (currentlyExpanded) {
+      setCollapsedShortcuts((current) => new Set(current).add(href));
+      setExpandedShortcuts((current) => {
+        const next = new Set(current);
         next.delete(href);
-      } else {
-        next.add(href);
-      }
+        return next;
+      });
+      return;
+    }
+    setCollapsedShortcuts((current) => {
+      const next = new Set(current);
+      next.delete(href);
       return next;
     });
+    setExpandedShortcuts((current) => new Set(current).add(href));
   };
 
   return (
@@ -399,7 +418,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
                     ? navShortcuts?.[item.shortcutKey] ?? []
                     : [];
                   const hasShortcuts = shortcuts.length > 0;
-                  const shortcutsExpanded = expandedShortcuts.has(item.href) || active;
+                  const shortcutsExpanded = isShortcutsExpanded(item.href, active);
 
                   return (
                     <div key={item.href}>
@@ -425,12 +444,12 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
                         {hasShortcuts && (
                           <button
                             type="button"
-                            onClick={() => toggleShortcuts(item.href)}
+                            onClick={() => toggleShortcuts(item.href, shortcutsExpanded)}
                             className={`grid min-h-11 min-w-11 place-items-center rounded-xl text-brand-muted transition hover:bg-brand-light hover:text-citius-blue ${
                               shortcutsExpanded ? "bg-brand-light text-citius-blue" : ""
                             }`}
                             aria-expanded={shortcutsExpanded}
-                            aria-label={`Show recent ${item.label}`}
+                            aria-label={shortcutsExpanded ? `Hide recent ${item.label}` : `Show recent ${item.label}`}
                           >
                             <ChevronDown
                               size={16}
