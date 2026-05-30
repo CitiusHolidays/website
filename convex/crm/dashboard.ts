@@ -1,8 +1,11 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import {
+  applyCementPortalScope,
+  CEMENT_QUERY_TYPES,
   filterRecordsByCreatedAt,
   PERMISSIONS,
+  shouldApplyCementScope,
   type PortalPeriod,
   portalPeriodValidator,
   requireStaff,
@@ -29,8 +32,11 @@ const isConfirmedQuery = (query: { salesStatus: string }) =>
 
 const isClosedQuery = (query: { salesStatus: string }) => query.salesStatus === "Order Lost";
 
-function countQueriesByType<T extends { queryType: string }>(records: T[]) {
-  return QUERY_TYPES.map((type) => ({
+function countQueriesByType<T extends { queryType: string }>(
+  records: T[],
+  types: readonly string[] = QUERY_TYPES,
+) {
+  return types.map((type) => ({
     type,
     count: records.filter((query) => query.queryType === type).length,
   }));
@@ -43,13 +49,13 @@ export const getPortalSummary = query({
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
     const period = (args.period ?? "all") as PortalPeriod;
-    const queries = filterRecordsByCreatedAt(await ctx.db.query("queries").collect(), period);
-    const proposals = filterRecordsByCreatedAt(await ctx.db.query("proposals").collect(), period);
-    const jobCards = filterRecordsByCreatedAt(await ctx.db.query("jobCards").collect(), period);
-    const travellers = filterRecordsByCreatedAt(await ctx.db.query("travellers").collect(), period);
-    const tickets = filterRecordsByCreatedAt(await ctx.db.query("tickets").collect(), period);
-    const visas = filterRecordsByCreatedAt(await ctx.db.query("visaRecords").collect(), period);
-    const invoices = filterRecordsByCreatedAt(await ctx.db.query("invoices").collect(), period);
+    let queries = filterRecordsByCreatedAt(await ctx.db.query("queries").collect(), period);
+    let proposals = filterRecordsByCreatedAt(await ctx.db.query("proposals").collect(), period);
+    let jobCards = filterRecordsByCreatedAt(await ctx.db.query("jobCards").collect(), period);
+    let travellers = filterRecordsByCreatedAt(await ctx.db.query("travellers").collect(), period);
+    let tickets = filterRecordsByCreatedAt(await ctx.db.query("tickets").collect(), period);
+    let visas = filterRecordsByCreatedAt(await ctx.db.query("visaRecords").collect(), period);
+    let invoices = filterRecordsByCreatedAt(await ctx.db.query("invoices").collect(), period);
     const approvals = filterRecordsByCreatedAt(
       await ctx.db.query("approvalRequests").collect(),
       period,
@@ -59,6 +65,27 @@ export const getPortalSummary = query({
       await ctx.db.query("activityLogs").collect(),
       period,
     );
+
+    const scopedRecords = applyCementPortalScope(access, {
+      queries,
+      proposals,
+      jobCards,
+      travellers,
+      tickets,
+      visas,
+      invoices,
+    });
+    queries = scopedRecords.queries;
+    proposals = scopedRecords.proposals;
+    jobCards = scopedRecords.jobCards;
+    travellers = scopedRecords.travellers;
+    tickets = scopedRecords.tickets;
+    visas = scopedRecords.visas;
+    invoices = scopedRecords.invoices;
+
+    const queryTypesForCounts = shouldApplyCementScope(access)
+      ? [...CEMENT_QUERY_TYPES]
+      : QUERY_TYPES;
 
     const activeJobs = jobCards.filter((job) => job.status !== "Closed");
     const ticketsIssued = tickets.filter((ticket) => ticket.ticketStatus === "Issued").length;
@@ -99,9 +126,9 @@ export const getPortalSummary = query({
         pendingApprovals: approvals.filter((approval) => approval.status === "Pending").length,
         revenuePipeline,
       },
-      queriesByType: countQueriesByType(activeQueryRecords),
-      confirmedQueriesByType: countQueriesByType(confirmedQueryRecords),
-      closedQueriesByType: countQueriesByType(closedQueryRecords),
+      queriesByType: countQueriesByType(activeQueryRecords, queryTypesForCounts),
+      confirmedQueriesByType: countQueriesByType(confirmedQueryRecords, queryTypesForCounts),
+      closedQueriesByType: countQueriesByType(closedQueryRecords, queryTypesForCounts),
       departmentWorkflow: [
         {
           label: "Sales open leads",

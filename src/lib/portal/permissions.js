@@ -1,4 +1,4 @@
-import { PORTAL_NAV_GROUPS, PORTAL_PERMISSIONS, ROLE_PERMISSIONS } from "./constants";
+import { PORTAL_NAV_GROUPS, PORTAL_PERMISSIONS, ROLE_PERMISSIONS, CEMENT_QUERY_TYPES, CEMENT_ROLES, QUERY_TYPES } from "./constants";
 
 export function normalizeEmail(email) {
   return String(email || "")
@@ -81,4 +81,18 @@ export function teamSelectOptions(team = [], roles = []) {
     label: member.name,
     member,
   }));
+}
+
+export function isCementScopedUser(access) {
+  if (!access?.roles?.length) {
+    return false;
+  }
+  if (isAdmin(access) || hasRole(access, "Directors")) {
+    return false;
+  }
+  return access.roles.some((role) => CEMENT_ROLES.includes(role));
+}
+
+export function getQueryTypeOptions(access) {
+  return isCementScopedUser(access) ? CEMENT_QUERY_TYPES : QUERY_TYPES;
 }

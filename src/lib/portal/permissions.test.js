@@ -7,6 +7,8 @@ import {
   canAccessPage,
   getAccessibleNavGroups,
   getPermissionsForRoles,
+  getQueryTypeOptions,
+  isCementScopedUser,
   normalizeEmail,
 } from "./permissions";
 
@@ -102,6 +104,15 @@ describe("portal permissions", () => {
     expect(pagesForRoles(["Sales Head"])).not.toContain("activity");
     expect(pagesForRoles(["Finance"])).not.toContain("activity");
     expect(pagesForRoles(["Operations Head"])).not.toContain("activity");
+  });
+
+  test("cement roles only get cement query type options", () => {
+    const cementAccess = { roles: ["Sales Cement"], permissions: getPermissionsForRoles(["Sales Cement"]) };
+    expect(isCementScopedUser(cementAccess)).toBe(true);
+    expect(getQueryTypeOptions(cementAccess)).toEqual(["Cement", "Cement Bidding"]);
+    expect(isCementScopedUser({ roles: ["Admin"], permissions: getPermissionsForRoles(["Admin"]) })).toBe(
+      false,
+    );
   });
 
   for (const [role, { allowed, denied }] of Object.entries(roleExpectations)) {

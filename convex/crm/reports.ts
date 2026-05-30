@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import {
+  applyCementPortalScope,
+  canSeeQueryRecord,
   filterRecordsByCreatedAt,
   PERMISSIONS,
   type PortalPeriod,
@@ -13,10 +15,29 @@ export const overview = query({
     period: v.optional(portalPeriodValidator),
   },
   handler: async (ctx, args) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_REPORTS);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_REPORTS);
     const period = (args.period ?? "all") as PortalPeriod;
-    const queries = filterRecordsByCreatedAt(await ctx.db.query("queries").collect(), period);
-    const invoices = filterRecordsByCreatedAt(await ctx.db.query("invoices").collect(), period);
+    let queries = filterRecordsByCreatedAt(await ctx.db.query("queries").collect(), period);
+    let invoices = filterRecordsByCreatedAt(await ctx.db.query("invoices").collect(), period);
+    const jobCards = filterRecordsByCreatedAt(await ctx.db.query("jobCards").collect(), period);
+    const travellers = filterRecordsByCreatedAt(await ctx.db.query("travellers").collect(), period);
+    const tickets = filterRecordsByCreatedAt(await ctx.db.query("tickets").collect(), period);
+    const visas = filterRecordsByCreatedAt(await ctx.db.query("visaRecords").collect(), period);
+    const proposals = filterRecordsByCreatedAt(await ctx.db.query("proposals").collect(), period);
+
+    const scopedRecords = applyCementPortalScope(access, {
+      queries,
+      proposals,
+      jobCards,
+      travellers,
+      tickets,
+      visas,
+      invoices,
+    });
+    queries = scopedRecords.queries;
+    invoices = scopedRecords.invoices;
+
+    queries = queries.filter((row) => canSeeQueryRecord(access, row));
     const staff = await ctx.db.query("staffUsers").collect();
     const offices = await ctx.db.query("offices").collect();
     const officeNames = new Map(offices.map((office) => [office._id, office.name]));

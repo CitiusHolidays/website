@@ -455,6 +455,15 @@ export const QUERY_TYPES = [
   "Spiritual",
 ];
 
+export const CEMENT_ROLES = [
+  "Contracting Cement",
+  "Operations Cement",
+  "Sales Cement",
+  "Director Cement",
+];
+
+export const CEMENT_QUERY_TYPES = ["Cement", "Cement Bidding"];
+
 export const TRAVEL_TYPES = ["Domestic Travel", "International Travel"];
 
 export const SALES_STATUSES = [

@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import {
   canSeeJobCardRecord,
+  canSeeQueryRecord,
   createActivity,
   creatorInitials,
   deleteJobCardCascade,
@@ -110,6 +111,9 @@ export const createFromQuery = mutation({
     const linkedQuery = queryId ? await ctx.db.get(queryId) : null;
     if (!queryId || !linkedQuery) {
       throw new ConvexError("Linked query not found");
+    }
+    if (!canSeeQueryRecord(access, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
     }
     if (
       linkedQuery &&

@@ -43,7 +43,6 @@ import {
   PORTAL_PERMISSIONS,
   PORTAL_ROLES,
   QUERY_SOURCES,
-  QUERY_TYPES,
   ROOM_TYPES,
   SALES_STATUSES,
   TICKET_STATUSES,
@@ -63,6 +62,8 @@ import {
   canAssignOperations,
   canAssignTicketing,
   canAssignTourManagers,
+  getQueryTypeOptions,
+  isCementScopedUser,
   teamSelectOptions,
 } from "@/lib/portal/permissions";
 import {
@@ -833,13 +834,16 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         }
       }
       Object.assign(next, reconcileLinkedSelections(next, travellers || [], pnrs || []));
+      if (type === "query" && !initial.queryType && isCementScopedUser(access)) {
+        next.queryType = "Cement";
+      }
       setForm(next);
       setModal(type);
       if (type !== "query") setPendingQueryFiles([]);
       if (type !== "proposal") setPendingProposalFiles([]);
       if (type !== "expense") setPendingExpenseProofFiles([]);
     },
-    [queries, proposals, jobCards, travellers, travellersWithoutVisa, pnrs, visas],
+    [queries, proposals, jobCards, travellers, travellersWithoutVisa, pnrs, visas, access],
   );
 
   const closeModal = useCallback(() => {
@@ -1385,7 +1389,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         </div>
       )}
 
-      {view === "dashboard" && <DashboardView summary={summary} has={has} />}
+      {view === "dashboard" && <DashboardView summary={summary} has={has} access={access} />}
       {view === "queries" && (
         <QueriesView
           rows={filteredQueries}
@@ -1958,8 +1962,9 @@ function PageHeader({
   );
 }
 
-function DashboardView({ summary, has }) {
+function DashboardView({ summary, has, access }) {
   if (!summary) return <LoadingPanel />;
+  const queryTypeOptions = getQueryTypeOptions(access);
 
   const metrics = [
     {
@@ -2049,7 +2054,7 @@ function DashboardView({ summary, has }) {
     has(P.VIEW_OPERATIONS) ||
     has(P.VIEW_FINANCE);
 
-  const emptyQueryTypeCounts = () => QUERY_TYPES.map((type) => ({ type, count: 0 }));
+  const emptyQueryTypeCounts = () => queryTypeOptions.map((type) => ({ type, count: 0 }));
   const queryTypeCounts = has(P.VIEW_QUERIES)
     ? summary.queriesByType?.length
       ? summary.queriesByType
@@ -2634,7 +2639,7 @@ function ContractingView({
               <span className="text-xs text-brand-muted">{formatDate(row.confirmedAt)}</span>
             ),
           ],
-          ["Sales Owner", (row) => row.salesOwnerName || "-"],
+          ["Sales SPOC", (row) => row.salesOwnerName || "-"],
           ["Contracting SPOC", (row) => row.contractingOwnerName || "Unassigned"],
           ["Notes", (row) => notesPreview(row.notes)],
           [
@@ -5845,7 +5850,7 @@ function EntityModal({
                     <Select
                       label="Query Type"
                       value={form.queryType}
-                      options={QUERY_TYPES}
+                      options={getQueryTypeOptions(access)}
                       onChange={(v) => updateForm("queryType", v)}
                     />
                     <Select

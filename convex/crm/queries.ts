@@ -2,8 +2,10 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { mutation, query } from "../_generated/server";
 import {
+  assertCementQueryTypeAllowed,
   assertMaxWordCount,
   canSeeQueryRecord,
+  contractingNotifyRolesForQueryType,
   createActivity,
   deleteEntityNotifications,
   deleteJobCardCascade,
@@ -131,6 +133,7 @@ export const create = mutation({
       throw new ConvexError("Pax count must be greater than zero");
     }
     assertMaxWordCount(args.notes, MAX_QUERY_NOTES_WORDS, "Notes");
+    assertCementQueryTypeAllowed(access, args.queryType);
 
     const now = Date.now();
     const queryCode = await nextCode(ctx, "queries", "Q");
@@ -172,7 +175,7 @@ export const create = mutation({
       action: "created",
       message: `${queryCode} created for ${args.clientName.trim()}`,
     });
-    await notifyRoles(ctx, ["Contracting", "Contracting Head"], {
+    await notifyRoles(ctx, contractingNotifyRolesForQueryType(args.queryType), {
       title: "New query received",
       body: `${queryCode} is ready for contracting review.`,
       entityType: "query",
@@ -220,6 +223,9 @@ export const update = mutation({
       throw new ConvexError("Pax count must be greater than zero");
     }
     assertMaxWordCount(args.notes, MAX_QUERY_NOTES_WORDS, "Notes");
+    if (args.queryType !== undefined) {
+      assertCementQueryTypeAllowed(access, args.queryType);
+    }
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.clientName !== undefined) patch.clientName = args.clientName.trim();

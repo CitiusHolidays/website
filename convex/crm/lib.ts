@@ -444,6 +444,15 @@ export function isDirectorOrAdmin(access: PortalAccess) {
   return isAdmin(access) || hasRole(access, "Directors");
 }
 
+export const CEMENT_ROLES = [
+  "Contracting Cement",
+  "Operations Cement",
+  "Sales Cement",
+  "Director Cement",
+] as const;
+
+export const CEMENT_QUERY_TYPES = ["Cement", "Cement Bidding"] as const;
+
 export const HEAD_ROLES = [
   "Sales Head",
   "Contracting Head",
@@ -476,15 +485,52 @@ export function ownsNamedRecord(access: PortalAccess, ownerName?: string | null)
   return Boolean(ownerName && ownerName.trim().toLowerCase() === access.name.trim().toLowerCase());
 }
 
-export function canSeeQueryRecord(access: PortalAccess, query: any) {
-  if (canSeeDepartmentRecords(access, ["Sales Head", "Contracting Head", "Operations Head"])) {
-    return true;
+export function hasCementRole(access: PortalAccess) {
+  return CEMENT_ROLES.some((role) => hasRole(access, role));
+}
+
+export function isCementQueryType(queryType?: string | null) {
+  return CEMENT_QUERY_TYPES.includes(String(queryType ?? "") as (typeof CEMENT_QUERY_TYPES)[number]);
+}
+
+export function shouldApplyCementScope(access: PortalAccess) {
+  return hasCementRole(access) && !isDirectorOrAdmin(access);
+}
+
+export function canSeeAllCementRecords(access: PortalAccess) {
+  return shouldApplyCementScope(access) && hasRole(access, "Director Cement");
+}
+
+export function assertCementQueryTypeAllowed(access: PortalAccess, queryType: string) {
+  if (shouldApplyCementScope(access) && !isCementQueryType(queryType)) {
+    throw new ConvexError("Cement roles can only work with Cement query types");
   }
-  if (
-    (hasRole(access, "Accounts") || hasRole(access, "Finance")) &&
-    (query.salesStatus === "Order Confirmed" || query.contractingStatus === "Order Confirmed")
-  ) {
-    return true;
+}
+
+export function contractingNotifyRolesForQueryType(queryType: string) {
+  return isCementQueryType(queryType)
+    ? ["Contracting", "Contracting Head", "Contracting Cement"]
+    : ["Contracting", "Contracting Head"];
+}
+
+export function canSeeQueryRecord(access: PortalAccess, query: any) {
+  if (shouldApplyCementScope(access)) {
+    if (!isCementQueryType(query.queryType)) {
+      return false;
+    }
+    if (canSeeAllCementRecords(access)) {
+      return true;
+    }
+  } else {
+    if (canSeeDepartmentRecords(access, ["Sales Head", "Contracting Head", "Operations Head"])) {
+      return true;
+    }
+    if (
+      (hasRole(access, "Accounts") || hasRole(access, "Finance")) &&
+      (query.salesStatus === "Order Confirmed" || query.contractingStatus === "Order Confirmed")
+    ) {
+      return true;
+    }
   }
   return (
     ownsAuthRecord(access, query.createdBy) ||
@@ -496,16 +542,25 @@ export function canSeeQueryRecord(access: PortalAccess, query: any) {
 }
 
 export function canSeeProposalRecord(access: PortalAccess, proposal: any, linkedQuery?: any) {
-  if (canSeeDepartmentRecords(access, ["Sales Head", "Contracting Head", "Operations Head"])) {
-    return true;
-  }
-  if (
-    hasRole(access, "Accounts") &&
-    linkedQuery &&
-    (linkedQuery.salesStatus === "Order Confirmed" ||
-      linkedQuery.contractingStatus === "Order Confirmed")
-  ) {
-    return true;
+  if (shouldApplyCementScope(access)) {
+    if (!linkedQuery || !isCementQueryType(linkedQuery.queryType)) {
+      return false;
+    }
+    if (canSeeAllCementRecords(access)) {
+      return true;
+    }
+  } else {
+    if (canSeeDepartmentRecords(access, ["Sales Head", "Contracting Head", "Operations Head"])) {
+      return true;
+    }
+    if (
+      hasRole(access, "Accounts") &&
+      linkedQuery &&
+      (linkedQuery.salesStatus === "Order Confirmed" ||
+        linkedQuery.contractingStatus === "Order Confirmed")
+    ) {
+      return true;
+    }
   }
   return (
     ownsAuthRecord(access, proposal.createdBy) ||
@@ -515,7 +570,15 @@ export function canSeeProposalRecord(access: PortalAccess, proposal: any, linked
 }
 
 export function canSeeJobCardRecord(access: PortalAccess, job: any, linkedQuery?: any) {
-  if (
+  const queryType = linkedQuery?.queryType ?? job.queryType ?? "";
+  if (shouldApplyCementScope(access)) {
+    if (!isCementQueryType(queryType)) {
+      return false;
+    }
+    if (canSeeAllCementRecords(access)) {
+      return true;
+    }
+  } else if (
     canSeeDepartmentRecords(access, ["Contracting Head", "Operations Head", "Head of Ticketing"]) ||
     hasRole(access, "Accounts") ||
     hasRole(access, "Finance")
@@ -533,6 +596,47 @@ export function canSeeJobCardRecord(access: PortalAccess, job: any, linkedQuery?
     ownsNamedRecord(access, job.tourManagerName) ||
     (linkedQuery ? canSeeQueryRecord(access, linkedQuery) : false)
   );
+}
+
+export function applyCementPortalScope(
+  access: PortalAccess,
+  records: {
+    queries: any[];
+    proposals: any[];
+    jobCards: any[];
+    travellers: any[];
+    tickets: any[];
+    visas: any[];
+    invoices: any[];
+  },
+) {
+  if (!shouldApplyCementScope(access)) {
+    return records;
+  }
+
+  const queryById = new Map(records.queries.map((query) => [query._id, query]));
+  const visibleQueries = records.queries.filter((query) => canSeeQueryRecord(access, query));
+  const visibleJobCards = records.jobCards.filter((job) => {
+    const linkedQuery = job.queryId ? queryById.get(job.queryId) : undefined;
+    return canSeeJobCardRecord(access, job, linkedQuery);
+  });
+  const visibleJobIds = new Set(visibleJobCards.map((job) => job._id));
+  const visibleProposals = records.proposals.filter((proposal) => {
+    const linkedQuery = proposal.queryId ? queryById.get(proposal.queryId) : undefined;
+    return canSeeProposalRecord(access, proposal, linkedQuery);
+  });
+
+  return {
+    queries: visibleQueries,
+    proposals: visibleProposals,
+    jobCards: visibleJobCards,
+    travellers: records.travellers.filter((traveller) => visibleJobIds.has(traveller.jobCardId)),
+    tickets: records.tickets.filter((ticket) => visibleJobIds.has(ticket.jobCardId)),
+    visas: records.visas.filter((visa) => visibleJobIds.has(visa.jobCardId)),
+    invoices: records.invoices.filter(
+      (invoice) => !invoice.jobCardId || visibleJobIds.has(invoice.jobCardId),
+    ),
+  };
 }
 
 export function getHeadReviewerRolesForStaff(staff: { roles?: string[]; department?: string }) {
