@@ -35,6 +35,28 @@ export const FLIGHT_EXPORT_HEADER = [
   "Transit",
 ];
 
+export const TRAVELLER_MASTER_EXPORT_HEADERS = [
+  "S.No",
+  "Branch ",
+  "Branch Code",
+  "Dealer Name",
+  "Gender",
+  "SURNAME",
+  "GIVEN NAME",
+  "Passport Number",
+  "Passport Issue date",
+  "Passport expiry date",
+  "Date of Birth As per passport",
+  "Place of Issue",
+  "Contact Number",
+  "Email id",
+  "Base Location",
+  "Food Preference",
+  "Hub",
+  "Airlines",
+  "",
+];
+
 export const ROOMING_EXPORT_HEADERS = [
   "Sl.no.",
   "Dealer Name",
@@ -164,6 +186,10 @@ export async function parsePassengerWorkbookFile(file) {
 
 export async function parseFlightWorkbookFile(file) {
   return parseFlightWorkbook(workbookFromArrayBuffer(await file.arrayBuffer()));
+}
+
+export async function parseTravellerMasterWorkbookFile(file) {
+  return parseTravellerMasterWorkbook(workbookFromArrayBuffer(await file.arrayBuffer()));
 }
 
 export async function parseRoomingWorkbookFile(file) {
@@ -392,7 +418,11 @@ function templateRowBase({ row, headers, sheetName, sourceRowNumber, importKind 
     passportStatus: validForTravel === false ? "Pending" : passportNumber ? "Received" : "Pending",
     specialRequests: remarks,
     hotelAllocation: importKind === "rooming" ? roomType : "",
+    sourceDealerCode: clean(getByHeader(row, headers, ["Branch Code", "Code", "Dealer Code"])),
     sourceDealerName: clean(getByHeader(row, headers, ["Dealer Name", "Name"])),
+    sourceDescription: clean(getByHeader(row, headers, ["Branch", "Branch "])),
+    sourceSoName: clean(getByHeader(row, headers, ["Base Location", "Base"])),
+    sourceRsoName: clean(getByHeader(row, headers, ["Airlines", "Airline"])),
     gender: clean(getByHeader(row, headers, ["Gender"])),
     contactNo,
     passport: {
@@ -477,6 +507,14 @@ export function parseRoomingWorkbook(workbook) {
     importKind: "rooming",
     preferredSheetNames: ["Rooming"],
     requiredHeaders: ["SURNAME", "GIVEN NAME", "ROOMING Category"],
+  });
+}
+
+export function parseTravellerMasterWorkbook(workbook) {
+  return parseTemplateWorkbook(workbook, {
+    importKind: "traveller",
+    preferredSheetNames: ["Master list"],
+    requiredHeaders: ["SURNAME", "GIVEN NAME", "Dealer Name"],
   });
 }
 

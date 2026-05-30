@@ -6,6 +6,7 @@ import {
   parsePassengerWorkbook,
   parsePassportWorkbook,
   parseRoomingWorkbook,
+  parseTravellerMasterWorkbook,
   parseVisaWorkbook,
 } from "./spreadsheetImports";
 
@@ -150,6 +151,73 @@ describe("passenger spreadsheet imports", () => {
 });
 
 describe("master-list sheet imports", () => {
+  test("parses traveller master rows from the master list sheet", () => {
+    const workbook = workbookFromSheets({
+      "Master list": [
+        [
+          "S.No",
+          "Branch ",
+          "Branch Code",
+          "Dealer Name",
+          "Gender",
+          "SURNAME",
+          "GIVEN NAME",
+          "Passport Number",
+          "Passport Issue date",
+          "Passport expiry date",
+          "Date of Birth As per passport",
+          "Place of Issue",
+          "Contact Number",
+          "Email id",
+          "Base Location",
+          "Food Preference",
+          "Hub",
+          "Airlines",
+        ],
+        [
+          1,
+          "Mumbai",
+          "MUM",
+          "AGGARWAL APPLIANCES",
+          "MALE",
+          "GARG",
+          "SANJAY",
+          "Z4619953",
+          "2018-03-23",
+          "2028-03-22",
+          "1967-06-12",
+          "Mumbai",
+          "9836184644",
+          "sanjay@example.com",
+          "Mumbai",
+          "NON VEG",
+          "BOM",
+          "Kenya Airlines",
+        ],
+      ],
+    });
+
+    const result = parseTravellerMasterWorkbook(workbook);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({
+      importKind: "traveller",
+      fullName: "GARG SANJAY",
+      travelHub: "BOM",
+      foodPreference: "Non-Veg",
+      sourceDealerCode: "MUM",
+      sourceDealerName: "AGGARWAL APPLIANCES",
+      sourceDescription: "Mumbai",
+      sourceSoName: "Mumbai",
+      sourceRsoName: "Kenya Airlines",
+    });
+    expect(result.rows[0].passport).toMatchObject({
+      number: "Z4619953",
+      issueDate: "2018-03-23",
+      expiryDate: "2028-03-22",
+      dateOfBirth: "1967-06-12",
+    });
+  });
+
   test("parses rooming rows from the rooming sheet", () => {
     const workbook = workbookFromSheets({
       Rooming: [

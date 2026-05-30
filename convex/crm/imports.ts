@@ -12,6 +12,7 @@ const foodPreferenceValidator = v.union(
 
 const importKindValidator = v.union(
   v.literal("passenger"),
+  v.literal("traveller"),
   v.literal("rooming"),
   v.literal("passport"),
   v.literal("visa"),
@@ -208,7 +209,7 @@ function travellerPatchForImport(row: any, job: any, now: number) {
 
   includeSourceFields();
 
-  if (importKind === "passenger") {
+  if (importKind === "passenger" || importKind === "traveller") {
     patch.travelHub = row.travelHub?.trim() || "";
     patch.foodPreference = row.foodPreference;
     patch.guestType = row.guestType;
@@ -437,11 +438,19 @@ export const commitPassengerImportRows = internalMutation({
       }
     }
 
+    const importedKind = args.rows[0]?.importKind ?? "passenger";
+    const importedLabel =
+      importedKind === "passenger"
+        ? "passengers"
+        : importedKind === "traveller"
+          ? "travellers"
+          : `${importedKind} rows`;
+
     await createActivity(ctx, args.access, {
       entityType: "traveller",
       entityId: jobCardId,
       action: "imported",
-      message: `${created + updated} passengers imported for ${job.jobCode}`,
+      message: `${created + updated} ${importedLabel} imported for ${job.jobCode}`,
     });
 
     return { created, updated, total: args.rows.length };
@@ -647,6 +656,7 @@ export const logPassengerExport = internalMutation({
   args: {
     jobCardId: v.string(),
     rowCount: v.number(),
+    exportKind: v.optional(importKindValidator),
     access: v.any(),
   },
   handler: async (ctx, args) => {
@@ -655,11 +665,19 @@ export const logPassengerExport = internalMutation({
     const job = await ctx.db.get(jobCardId);
     if (!job) return;
 
+    const exportedKind = args.exportKind ?? "passenger";
+    const exportedLabel =
+      exportedKind === "passenger"
+        ? "passengers"
+        : exportedKind === "traveller"
+          ? "travellers"
+          : `${exportedKind} rows`;
+
     await createActivity(ctx, args.access, {
       entityType: "traveller",
       entityId: jobCardId,
       action: "exported",
-      message: `${args.rowCount} passengers exported for ${job.jobCode}`,
+      message: `${args.rowCount} ${exportedLabel} exported for ${job.jobCode}`,
     });
   },
 });

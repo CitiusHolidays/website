@@ -12,7 +12,13 @@ const passengerImportRowInput = v.object({
   sourceRowNumber: v.number(),
   sourceStatus: v.optional(v.string()),
   importKind: v.optional(
-    v.union(v.literal("passenger"), v.literal("rooming"), v.literal("passport"), v.literal("visa")),
+    v.union(
+      v.literal("passenger"),
+      v.literal("traveller"),
+      v.literal("rooming"),
+      v.literal("passport"),
+      v.literal("visa"),
+    ),
   ),
   importKey: v.string(),
   fullName: v.string(),
@@ -75,6 +81,14 @@ const passengerImportRowInput = v.object({
   }),
 });
 
+const exportKindValidator = v.union(
+  v.literal("passenger"),
+  v.literal("traveller"),
+  v.literal("rooming"),
+  v.literal("passport"),
+  v.literal("visa"),
+);
+
 function clean(value?: string) {
   return String(value ?? "").trim();
 }
@@ -108,24 +122,77 @@ function preparePassengerRows(rows: Array<any>) {
   });
 }
 
-async function requirePassengerImportAccess(ctx: any) {
+function hasPermission(access: any, permission: string) {
+  return access?.permissions?.includes(permission);
+}
+
+function hasAllPermissions(access: any, permissions: string[]) {
+  return permissions.every((permission) => hasPermission(access, permission));
+}
+
+async function requireImportAccess(ctx: any, rows: Array<any>) {
   const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-  if (
-    !access?.allowed ||
-    !access.permissions.includes(PERMISSIONS.MANAGE_TRAVELLERS) ||
-    !access.permissions.includes(PERMISSIONS.MANAGE_VISA)
-  ) {
+  if (!access?.allowed) {
     throw new ConvexError("FORBIDDEN");
+  }
+
+  const kinds = new Set(rows.map((row) => row.importKind ?? "passenger"));
+  for (const kind of kinds) {
+    if (
+      kind === "passenger" &&
+      !(
+        hasPermission(access, PERMISSIONS.MANAGE_TICKETING) ||
+        hasAllPermissions(access, [PERMISSIONS.MANAGE_TRAVELLERS, PERMISSIONS.MANAGE_VISA])
+      )
+    ) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    if (
+      kind === "traveller" &&
+      !hasAllPermissions(access, [PERMISSIONS.MANAGE_TRAVELLERS, PERMISSIONS.MANAGE_VISA])
+    ) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    if (kind === "rooming" && !hasPermission(access, PERMISSIONS.MANAGE_OPERATIONS)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    if (
+      (kind === "passport" || kind === "visa") &&
+      !hasPermission(access, PERMISSIONS.MANAGE_VISA)
+    ) {
+      throw new ConvexError("FORBIDDEN");
+    }
   }
   return access;
 }
 
-async function requirePassengerExportAccess(ctx: any) {
+async function requireExportAccess(ctx: any, exportKind: string) {
   const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+  if (!access?.allowed) {
+    throw new ConvexError("FORBIDDEN");
+  }
+
   if (
-    !access?.allowed ||
-    !access.permissions.includes(PERMISSIONS.VIEW_TRAVELLERS) ||
-    !access.permissions.includes(PERMISSIONS.VIEW_VISA)
+    exportKind === "passenger" &&
+    !(
+      hasPermission(access, PERMISSIONS.VIEW_TICKETING) ||
+      hasAllPermissions(access, [PERMISSIONS.VIEW_TRAVELLERS, PERMISSIONS.VIEW_VISA])
+    )
+  ) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  if (
+    exportKind === "traveller" &&
+    !hasAllPermissions(access, [PERMISSIONS.VIEW_TRAVELLERS, PERMISSIONS.VIEW_VISA])
+  ) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  if (exportKind === "rooming" && !hasPermission(access, PERMISSIONS.VIEW_OPERATIONS)) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  if (
+    (exportKind === "passport" || exportKind === "visa") &&
+    !hasPermission(access, PERMISSIONS.VIEW_VISA)
   ) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -193,7 +260,7 @@ export const previewPassengerImport = action({
     rows: v.array(passengerImportRowInput),
   },
   handler: async (ctx, args): Promise<any> => {
-    const access = await requirePassengerImportAccess(ctx);
+    const access = await requireImportAccess(ctx, args.rows);
     const preparedRows = preparePassengerRows(args.rows);
     return await ctx.runQuery(internal.crm.imports.previewPassengerImportRows, {
       jobCardId: args.jobCardId,
@@ -209,7 +276,7 @@ export const commitPassengerImport = action({
     rows: v.array(passengerImportRowInput),
   },
   handler: async (ctx, args): Promise<any> => {
-    const access = await requirePassengerImportAccess(ctx);
+    const access = await requireImportAccess(ctx, args.rows);
     const preparedRows = preparePassengerRows(args.rows);
     return await ctx.runMutation(internal.crm.imports.commitPassengerImportRows, {
       jobCardId: args.jobCardId,
@@ -222,9 +289,10 @@ export const commitPassengerImport = action({
 export const getPassengerExportRows = action({
   args: {
     jobCardId: v.string(),
+    exportKind: v.optional(exportKindValidator),
   },
   handler: async (ctx, args): Promise<any> => {
-    const access = await requirePassengerExportAccess(ctx);
+    const access = await requireExportAccess(ctx, args.exportKind ?? "passenger");
     const source = await ctx.runQuery(internal.crm.imports.getPassengerExportSource, {
       jobCardId: args.jobCardId,
       access,
@@ -234,6 +302,7 @@ export const getPassengerExportRows = action({
     await ctx.runMutation(internal.crm.imports.logPassengerExport, {
       jobCardId: args.jobCardId,
       rowCount: rows.length,
+      exportKind: args.exportKind ?? "passenger",
       access,
     });
 

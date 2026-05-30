@@ -4,6 +4,7 @@ import {
   buildPassengerWorkbook,
   buildPassportWorkbook,
   buildRoomingWorkbook,
+  buildTravellerMasterWorkbook,
   buildVisaWorkbook,
   formatFoodPreferenceForExport,
 } from "./spreadsheetExports";
@@ -12,6 +13,7 @@ import {
   parsePassengerWorkbook,
   parsePassportWorkbook,
   parseRoomingWorkbook,
+  parseTravellerMasterWorkbook,
   parseVisaWorkbook,
 } from "./spreadsheetImports";
 
@@ -80,6 +82,10 @@ describe("master-list sheet exports", () => {
   const row = {
     fullName: "GARG SANJAY",
     sourceDealerName: "AGGARWAL APPLIANCES",
+    sourceDealerCode: "MUM",
+    sourceDescription: "Mumbai",
+    sourceSoName: "Mumbai",
+    sourceRsoName: "Kenya Airlines",
     gender: "MALE",
     roomType: "Twin",
     hotelAllocation: "Twin",
@@ -99,6 +105,20 @@ describe("master-list sheet exports", () => {
       notes: "Stamped",
     },
   };
+
+  test("builds a traveller master workbook that the master-list parser reads", () => {
+    const parsed = parseTravellerMasterWorkbook(buildTravellerMasterWorkbook([row]));
+    expect(parsed.rows[0]).toMatchObject({
+      importKind: "traveller",
+      fullName: "GARG SANJAY",
+      sourceDealerCode: "MUM",
+      sourceDealerName: "AGGARWAL APPLIANCES",
+      sourceDescription: "Mumbai",
+      sourceSoName: "Mumbai",
+      sourceRsoName: "Kenya Airlines",
+      travelHub: "KOLKATA",
+    });
+  });
 
   test("builds a rooming workbook that the rooming parser reads", () => {
     const parsed = parseRoomingWorkbook(buildRoomingWorkbook([row]));

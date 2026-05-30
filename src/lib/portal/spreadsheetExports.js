@@ -4,6 +4,7 @@ import {
   PASSENGER_EXPORT_HEADERS,
   PASSPORT_EXPORT_HEADERS,
   ROOMING_EXPORT_HEADERS,
+  TRAVELLER_MASTER_EXPORT_HEADERS,
   VISA_EXPORT_HEADERS,
 } from "./spreadsheetImports";
 
@@ -134,6 +135,31 @@ function roomingRowToArray(row, index) {
   ];
 }
 
+function travellerMasterRowToArray(row, index) {
+  const base = templateBase(row);
+  return [
+    index + 1,
+    row.sourceDescription || "",
+    row.sourceDealerCode || "",
+    base.dealerName,
+    base.gender,
+    base.surname,
+    base.givenName,
+    base.passport.number || "",
+    base.passport.issueDate || "",
+    base.passport.expiryDate || "",
+    base.passport.dateOfBirth || "",
+    "",
+    base.contactNo,
+    "",
+    row.sourceSoName || "",
+    formatFoodPreferenceForExport(row.foodPreference),
+    row.travelHub || "",
+    row.sourceRsoName || "",
+    "",
+  ];
+}
+
 function passportRowToArray(row, index) {
   const base = templateBase(row);
   return [
@@ -183,6 +209,17 @@ function visaRowToArray(row, index) {
 export function buildPassengerWorkbook(rows, { sheetName = "Passengers" } = {}) {
   const workbook = XLSX.utils.book_new();
   const sheetRows = [[], PASSENGER_EXPORT_HEADERS, ...rows.map(passengerRowToArray)];
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet(sheetRows),
+    sanitizeSheetName(sheetName),
+  );
+  return workbook;
+}
+
+export function buildTravellerMasterWorkbook(rows, { sheetName = "Master list" } = {}) {
+  const workbook = XLSX.utils.book_new();
+  const sheetRows = [TRAVELLER_MASTER_EXPORT_HEADERS, ...rows.map(travellerMasterRowToArray)];
   XLSX.utils.book_append_sheet(
     workbook,
     XLSX.utils.aoa_to_sheet(sheetRows),

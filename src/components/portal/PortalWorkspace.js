@@ -71,6 +71,7 @@ import {
   buildPassengerWorkbook,
   buildPassportWorkbook,
   buildRoomingWorkbook,
+  buildTravellerMasterWorkbook,
   buildVisaWorkbook,
   downloadWorkbook,
 } from "@/lib/portal/spreadsheetExports";
@@ -79,6 +80,7 @@ import {
   parsePassengerWorkbookFile,
   parsePassportWorkbookFile,
   parseRoomingWorkbookFile,
+  parseTravellerMasterWorkbookFile,
   parseVisaWorkbookFile,
 } from "@/lib/portal/spreadsheetImports";
 import {
@@ -93,6 +95,8 @@ const SPREADSHEET_MODALS = [
   "flightImport",
   "passengerExport",
   "flightExport",
+  "travellerImport",
+  "travellerExport",
   "roomingImport",
   "roomingExport",
   "passportImport",
@@ -1646,6 +1650,23 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         jobCards={jobCards || []}
         previewPassengerImport={previewPassengerImport}
         commitPassengerImport={commitPassengerImport}
+        title="Import Ticketing Passenger List"
+        fileLabel="Ticketing passenger spreadsheet"
+        successLabel="Ticketing passenger import complete"
+        uploadLabel="Upload Ticketing List"
+      />
+      <PassengerImportModal
+        open={modal === "travellerImport"}
+        close={closeModal}
+        jobCards={jobCards || []}
+        previewPassengerImport={previewPassengerImport}
+        commitPassengerImport={commitPassengerImport}
+        title="Import Traveller Master"
+        fileLabel="Traveller master spreadsheet"
+        parseWorkbookFile={parseTravellerMasterWorkbookFile}
+        emptyLabel="No traveller master rows found."
+        successLabel="Traveller master import complete"
+        uploadLabel="Upload Traveller Master"
       />
       <PassengerImportModal
         open={modal === "roomingImport"}
@@ -1698,6 +1719,22 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         close={closeModal}
         jobCards={jobCards || []}
         getPassengerExportRows={getPassengerExportRows}
+        title="Export Ticketing Passenger List"
+        subtitle="Select a job card to download the ticketing passenger spreadsheet."
+        filenameSuffix="ticketing-passengers"
+        exportKind="passenger"
+      />
+      <PassengerExportModal
+        open={modal === "travellerExport"}
+        close={closeModal}
+        jobCards={jobCards || []}
+        getPassengerExportRows={getPassengerExportRows}
+        title="Export Traveller Master"
+        subtitle="Select a job card to download the Master list sheet in the traveller master format."
+        buildWorkbook={buildTravellerMasterWorkbook}
+        filenameSuffix="traveller-master"
+        sheetName="Master list"
+        exportKind="traveller"
       />
       <PassengerExportModal
         open={modal === "roomingExport"}
@@ -1709,6 +1746,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         buildWorkbook={buildRoomingWorkbook}
         filenameSuffix="rooming"
         sheetName="Rooming"
+        exportKind="rooming"
       />
       <PassengerExportModal
         open={modal === "passportExport"}
@@ -1720,6 +1758,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         buildWorkbook={buildPassportWorkbook}
         filenameSuffix="passport"
         sheetName="Passport"
+        exportKind="passport"
       />
       <PassengerExportModal
         open={modal === "visaExport"}
@@ -1731,6 +1770,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         buildWorkbook={buildVisaWorkbook}
         filenameSuffix="visa"
         sheetName="Visa"
+        exportKind="visa"
       />
       <FlightExportModal
         open={modal === "flightExport"}
@@ -1744,6 +1784,32 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
 
 function renderHeaderAction(view, openModal, has, access) {
   if (view === "travellers" && has(P.MANAGE_TRAVELLERS)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => openModal("travellerExport")}
+          className="portal-small-btn bg-white"
+        >
+          <Download size={16} />
+          Export Traveller Master
+        </button>
+        <button
+          type="button"
+          onClick={() => openModal("travellerImport")}
+          className="portal-small-btn bg-white"
+        >
+          <Upload size={16} />
+          Import Traveller Master
+        </button>
+        <button type="button" onClick={() => openModal("traveller")} className="portal-primary-btn">
+          <Plus size={16} />
+          Add Traveller
+        </button>
+      </div>
+    );
+  }
+  if (view === "ticketing" && has(P.MANAGE_TICKETING)) {
     return (
       <div className="flex flex-wrap gap-2">
         <button
@@ -1762,9 +1828,9 @@ function renderHeaderAction(view, openModal, has, access) {
           <Upload size={16} />
           Import Passengers
         </button>
-        <button type="button" onClick={() => openModal("traveller")} className="portal-primary-btn">
+        <button type="button" onClick={() => openModal("ticket")} className="portal-primary-btn">
           <Plus size={16} />
-          Add Traveller
+          Issue Ticket
         </button>
       </div>
     );
@@ -5211,6 +5277,7 @@ function PassengerExportModal({
   buildWorkbook = buildPassengerWorkbook,
   filenameSuffix = "passengers",
   sheetName,
+  exportKind = "passenger",
 }) {
   const [jobCardId, setJobCardId] = useState("");
   const [exportData, setExportData] = useState(null);
@@ -5245,7 +5312,7 @@ function PassengerExportModal({
       setIsLoading(true);
       setError("");
       try {
-        const result = await getPassengerExportRows({ jobCardId });
+        const result = await getPassengerExportRows({ jobCardId, exportKind });
         if (!cancelled) setExportData(result);
       } catch (err) {
         if (!cancelled) {
@@ -5260,7 +5327,7 @@ function PassengerExportModal({
     return () => {
       cancelled = true;
     };
-  }, [open, jobCardId, getPassengerExportRows]);
+  }, [open, jobCardId, exportKind, getPassengerExportRows]);
 
   const handleExport = async () => {
     if (!exportData?.rows?.length) return;
