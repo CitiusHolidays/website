@@ -1,43 +1,43 @@
-'use client';
+"use client";
 
-import { Suspense, useState } from 'react';
-import Link from 'next/link';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { Lock, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
-import { authClient } from '@/lib/auth-client';
-import AuthRecoveryLayout from '@/components/auth/AuthRecoveryLayout';
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Lock } from "lucide-react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
+import AuthRecoveryLayout from "@/components/auth/AuthRecoveryLayout";
+import { authClient } from "@/lib/auth-client";
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const token = searchParams.get('token');
+  const token = searchParams.get("token");
 
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState({ type: '', message: '' });
+  const [status, setStatus] = useState({ type: "", message: "" });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!token) {
       setStatus({
-        type: 'error',
-        message: 'Reset token is missing or invalid. Please request a new link.',
+        type: "error",
+        message: "Reset token is missing or invalid. Please request a new link.",
       });
       return;
     }
     if (password !== confirmPassword) {
-      setStatus({ type: 'error', message: 'Passwords do not match.' });
+      setStatus({ type: "error", message: "Passwords do not match." });
       return;
     }
     if (password.length < 8) {
-      setStatus({ type: 'error', message: 'Password must be at least 8 characters.' });
+      setStatus({ type: "error", message: "Password must be at least 8 characters." });
       return;
     }
 
     setIsLoading(true);
-    setStatus({ type: '', message: '' });
+    setStatus({ type: "", message: "" });
 
     try {
       const { error } = await authClient.resetPassword({
@@ -46,18 +46,18 @@ function ResetPasswordForm() {
       });
 
       if (error) {
-        setStatus({ type: 'error', message: error.message || 'Failed to reset password.' });
+        setStatus({ type: "error", message: error.message || "Failed to reset password." });
       } else {
         setStatus({
-          type: 'success',
-          message: 'Password reset successful! You can now log in with your new password.',
+          type: "success",
+          message: "Password reset successful! You can now log in with your new password.",
         });
         setTimeout(() => {
-          router.push('/auth/guest');
+          router.push("/auth/guest");
         }, 3000);
       }
     } catch (err) {
-      setStatus({ type: 'error', message: err.message || 'An unexpected error occurred.' });
+      setStatus({ type: "error", message: err.message || "An unexpected error occurred." });
     } finally {
       setIsLoading(false);
     }
@@ -68,24 +68,28 @@ function ResetPasswordForm() {
       {status.message ? (
         <div
           className={`mb-6 rounded-xl border p-4 text-sm ${
-            status.type === 'success'
-              ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
-              : 'border-red-100 bg-red-50 text-red-600'
+            status.type === "success"
+              ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+              : "border-red-100 bg-red-50 text-red-600"
           }`}
         >
           {status.message}
         </div>
       ) : null}
 
-      {status.type !== 'success' ? (
+      {status.type !== "success" ? (
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="group">
-            <label className="mb-1.5 ml-1 block text-sm font-medium text-[#0f172a]">
+            <label
+              htmlFor="reset-password"
+              className="mb-1.5 ml-1 block text-sm font-medium text-[#0f172a]"
+            >
               New password
             </label>
             <div className="relative">
               <input
-                type={showPassword ? 'text' : 'password'}
+                id="reset-password"
+                type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -104,12 +108,16 @@ function ResetPasswordForm() {
           </div>
 
           <div className="group">
-            <label className="mb-1.5 ml-1 block text-sm font-medium text-[#0f172a]">
+            <label
+              htmlFor="reset-confirm-password"
+              className="mb-1.5 ml-1 block text-sm font-medium text-[#0f172a]"
+            >
               Confirm new password
             </label>
             <div className="relative">
               <input
-                type={showPassword ? 'text' : 'password'}
+                id="reset-confirm-password"
+                type={showPassword ? "text" : "password"}
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -126,7 +134,7 @@ function ResetPasswordForm() {
             className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#0B1026] py-4 text-lg font-medium text-white shadow-lg shadow-[#0B1026]/20 transition-all duration-300 hover:shadow-xl hover:shadow-[#0B1026]/30"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 transition-opacity group-hover:opacity-90" />
-            <span className="relative z-10">{isLoading ? 'Saving...' : 'Set password'}</span>
+            <span className="relative z-10">{isLoading ? "Saving..." : "Set password"}</span>
             {!isLoading ? (
               <ArrowRight className="relative z-10 h-5 w-5 transition-transform group-hover:translate-x-1" />
             ) : null}
@@ -143,7 +151,7 @@ function ResetPasswordForm() {
         </div>
       )}
 
-      {status.type !== 'success' ? (
+      {status.type !== "success" ? (
         <div className="mt-8 text-center">
           <Link
             href="/auth/forgot-password"

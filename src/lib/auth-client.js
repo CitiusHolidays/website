@@ -2,9 +2,7 @@ import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
 const baseURL =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  process.env.NEXT_PUBLIC_APP_URL ??
-  "http://localhost:3000";
+  process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -54,14 +52,3 @@ export async function isAuthenticated() {
   const session = await getCurrentSession();
   return !!session?.user;
 }
-
-
-
-
-
-
-
-
-
-
-

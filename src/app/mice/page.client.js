@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { motion } from "motion/react";
 import { Briefcase, PiggyBank, ThumbsUp, Users } from "lucide-react";
+import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import AnimatedSection from "../../components/layout/AnimatedSection";
@@ -32,7 +32,7 @@ const commitments = [
     title: "24/7 On-ground Support",
     Icon: Briefcase,
   },
-]; 
+];
 
 export default function MicePageClient({ images }) {
   return (
@@ -65,10 +65,9 @@ export default function MicePageClient({ images }) {
       <AnimatedSection>
         <section className="px-4 py-16 mx-auto max-w-3xl text-center">
           <p className="text-lg text-brand-muted">
-            For over <strong>15 glorious years</strong>, Citius has delivered
-            world-class Meetings, Incentives, Conferences, and Exhibitions. Our
-            team is empowered by quality training, rich travel exposure, and an
-            unwavering commitment to guest engagement.
+            For over <strong>15 glorious years</strong>, Citius has delivered world-class Meetings,
+            Incentives, Conferences, and Exhibitions. Our team is empowered by quality training,
+            rich travel exposure, and an unwavering commitment to guest engagement.
           </p>
         </section>
       </AnimatedSection>
@@ -84,13 +83,7 @@ export default function MicePageClient({ images }) {
             viewport={{ once: true, amount: 0.2 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
           >
-            <Image
-              src={WorldMap}
-              alt="World map"
-              width={800}
-              height={400}
-              className="mx-auto"
-            />
+            <Image src={WorldMap} alt="World map" width={800} height={400} className="mx-auto" />
           </motion.div>
         </section>
       </AnimatedSection>
@@ -137,7 +130,10 @@ export default function MicePageClient({ images }) {
 
       <AnimatedSection className="flex justify-center pb-8">
         <Link href="/gallery">
-          <button type="button" className="px-6 py-3 mx-auto font-semibold text-brand-light rounded-md shadow bg-citius-orange hover:brightness-110">
+          <button
+            type="button"
+            className="px-6 py-3 mx-auto font-semibold text-brand-light rounded-md shadow bg-citius-orange hover:brightness-110"
+          >
             View More
           </button>
         </Link>

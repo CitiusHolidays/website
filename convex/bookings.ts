@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import type { QueryCtx, MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 
 const VALID_CURRENCIES = new Set(["INR", "USD"]);
 
@@ -75,9 +75,7 @@ const toApiBooking = (booking: Doc<"bookings">) => ({
   travelers: booking.travelers,
   travelerDetails: booking.travelerDetails ?? null,
   notes: booking.notes ?? null,
-  confirmedAt: booking.confirmedAt
-    ? new Date(booking.confirmedAt).toISOString()
-    : null,
+  confirmedAt: booking.confirmedAt ? new Date(booking.confirmedAt).toISOString() : null,
   createdAt: new Date(booking.createdAt).toISOString(),
   updatedAt: new Date(booking.updatedAt).toISOString(),
 });
@@ -109,9 +107,7 @@ const getBookingByOrderId = async (ctx: QueryCtx | MutationCtx, orderId: string)
 const getBookingByPaymentId = async (ctx: QueryCtx | MutationCtx, paymentId: string) => {
   const rows = await ctx.db
     .query("bookings")
-    .withIndex("by_razorpayPaymentId", (q) =>
-      q.eq("razorpayPaymentId", paymentId),
-    )
+    .withIndex("by_razorpayPaymentId", (q) => q.eq("razorpayPaymentId", paymentId))
     .take(1);
   return rows[0] ?? null;
 };
@@ -135,8 +131,7 @@ export const prepareCheckout = query({
     }
 
     const profile = await getUserProfile(ctx, identity.subject);
-    const pricePerPerson =
-      args.currency === "INR" ? trip.priceInr : trip.priceUsd;
+    const pricePerPerson = args.currency === "INR" ? trip.priceInr : trip.priceUsd;
 
     return {
       user: {
@@ -175,8 +170,7 @@ export const createPendingBooking = mutation({
       throw new ConvexError(`Only ${trip.availableSeats} seats available`);
     }
 
-    const pricePerPerson =
-      args.currency === "INR" ? trip.priceInr : trip.priceUsd;
+    const pricePerPerson = args.currency === "INR" ? trip.priceInr : trip.priceUsd;
     const totalAmount = pricePerPerson * args.travelers;
     const timestamp = Date.now();
 

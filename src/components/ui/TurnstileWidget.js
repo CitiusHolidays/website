@@ -13,12 +13,7 @@ const SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js";
  *   onError?: () => void;
  * }} props
  */
-export default function TurnstileWidget({
-  siteKey,
-  onVerify,
-  onExpire,
-  onError,
-}) {
+export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }) {
   const containerRef = useRef(null);
   const widgetIdRef = useRef(null);
   const callbacksRef = useRef({ onVerify, onExpire, onError });
@@ -95,10 +90,9 @@ export default function TurnstileWidget({
   }
 
   return (
-    <div
+    <fieldset
       ref={containerRef}
-      className="min-h-[65px] flex justify-center"
-      role="group"
+      className="min-h-[65px] flex justify-center border-0 p-0 m-0 min-w-0"
       aria-label="Security check"
     />
   );

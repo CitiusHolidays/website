@@ -12,9 +12,12 @@ export default function DeferredChatbot() {
 
   useEffect(() => {
     if ("requestIdleCallback" in window) {
-      const idleId = window.requestIdleCallback(() => {
-        setIsReady(true);
-      }, { timeout: 4000 });
+      const idleId = window.requestIdleCallback(
+        () => {
+          setIsReady(true);
+        },
+        { timeout: 4000 },
+      );
 
       return () => window.cancelIdleCallback(idleId);
     }

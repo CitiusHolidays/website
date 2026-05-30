@@ -1,17 +1,17 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import {
-  PERMISSIONS,
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
   filterRecordsByCreatedAt,
   notifyRoles,
+  PERMISSIONS,
+  type PortalPeriod,
   portalPeriodValidator,
   requireAnyPermission,
   requireHeadOrAdmin,
   requireStaff,
-  type PortalPeriod,
 } from "./lib";
 
 const ticketStatusValidator = v.union(
@@ -37,10 +37,7 @@ const foodPreferenceValidator = v.union(
   v.literal("Vegan"),
 );
 
-const ticketTypeValidator = v.union(
-  v.literal("FIT Ticket"),
-  v.literal("Group Ticket"),
-);
+const ticketTypeValidator = v.union(v.literal("FIT Ticket"), v.literal("Group Ticket"));
 
 const publicPnr = (pnr: any, job: any) => ({
   id: pnr._id,
@@ -107,11 +104,11 @@ export const dashboard = query({
       if (await getVisibleJob(ctx, access, pnr.jobCardId)) visiblePnrs.push(pnr);
     }
     const issued = visibleTickets.filter((ticket) => ticket.ticketStatus === "Issued").length;
-    const pending = visibleTickets.filter((ticket) => ticket.ticketStatus === "Pending Issue").length;
+    const pending = visibleTickets.filter(
+      (ticket) => ticket.ticketStatus === "Pending Issue",
+    ).length;
     const attention = visibleTickets.filter((ticket) =>
-      ["Name Change Required", "Reissue Required", "Refund Pending"].includes(
-        ticket.ticketStatus,
-      ),
+      ["Name Change Required", "Reissue Required", "Refund Pending"].includes(ticket.ticketStatus),
     ).length;
 
     return {
@@ -403,8 +400,7 @@ export const updateTicket = mutation({
 
     await ctx.db.patch(ticketId, patch);
 
-    const linkedTravellerId =
-      travellerId !== undefined ? travellerId : ticket.travellerId;
+    const linkedTravellerId = travellerId !== undefined ? travellerId : ticket.travellerId;
     if (linkedTravellerId) {
       await ctx.db.patch(linkedTravellerId, {
         ticketStatus: nextStatus,
@@ -694,8 +690,7 @@ export const updateSeatAllocation = mutation({
 
     await ctx.db.patch(id, patch);
 
-    const linkedTravellerId =
-      travellerId !== undefined ? travellerId : seat.travellerId;
+    const linkedTravellerId = travellerId !== undefined ? travellerId : seat.travellerId;
     if (linkedTravellerId && nextStatus === "Assigned") {
       const tickets = await ctx.db
         .query("tickets")

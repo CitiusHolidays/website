@@ -24,6 +24,10 @@ const staffRole = v.union(
   v.literal("Tour Manager"),
   v.literal("Finance"),
   v.literal("HR"),
+  v.literal("Contracting Cement"),
+  v.literal("Operations Cement"),
+  v.literal("Sales Cement"),
+  v.literal("Director Cement"),
 );
 
 const queryType = v.union(
@@ -37,10 +41,7 @@ const queryType = v.union(
   v.literal("Spiritual"),
 );
 
-const travelType = v.union(
-  v.literal("Domestic Travel"),
-  v.literal("International Travel"),
-);
+const travelType = v.union(v.literal("Domestic Travel"), v.literal("International Travel"));
 
 const salesStatus = v.union(
   v.literal("Proposal in discussion"),
@@ -127,17 +128,9 @@ const foodPreference = v.union(
   v.literal("Vegan"),
 );
 
-const callingStatus = v.union(
-  v.literal("Pending"),
-  v.literal("Done"),
-  v.literal("No response"),
-);
+const callingStatus = v.union(v.literal("Pending"), v.literal("Done"), v.literal("No response"));
 
-const guestType = v.union(
-  v.literal("Employee"),
-  v.literal("Client"),
-  v.literal("VIP"),
-);
+const guestType = v.union(v.literal("Employee"), v.literal("Client"), v.literal("VIP"));
 
 const expenseCurrency = v.union(
   v.literal("INR"),
@@ -162,11 +155,7 @@ const leaveType = v.union(
   v.literal("Leave Without Pay"),
 );
 
-const reviewStatus = v.union(
-  v.literal("Pending"),
-  v.literal("Approved"),
-  v.literal("Rejected"),
-);
+const reviewStatus = v.union(v.literal("Pending"), v.literal("Approved"), v.literal("Rejected"));
 
 export default defineSchema({
   userProfiles: defineTable({
@@ -179,6 +168,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     legacyUserId: v.optional(v.string()),
+    sacredBharatLeaderboardOptOut: v.optional(v.boolean()),
   })
     .index("by_authUserId", ["authUserId"])
     .index("by_email", ["email"]),
@@ -343,6 +333,7 @@ export default defineSchema({
     sellingPrice: v.optional(v.number()),
     costPrice: v.optional(v.number()),
     pricingEnteredAt: v.optional(v.number()),
+    taxRate: v.optional(v.union(v.literal(5), v.literal(18))),
     itinerarySummary: v.optional(v.string()),
     status: v.union(
       v.literal("Draft"),
@@ -572,9 +563,7 @@ export default defineSchema({
     travellerId: v.optional(v.id("travellers")),
     pnrId: v.optional(v.id("pnrs")),
     ticketNumber: v.optional(v.string()),
-    ticketType: v.optional(
-      v.union(v.literal("FIT Ticket"), v.literal("Group Ticket")),
-    ),
+    ticketType: v.optional(v.union(v.literal("FIT Ticket"), v.literal("Group Ticket"))),
     ticketStatus,
     paymentType,
     cabinClass: v.optional(v.string()),
@@ -772,7 +761,7 @@ export default defineSchema({
   }).index("by_jobCardId", ["jobCardId"]),
 
   expenseEntries: defineTable({
-    jobCardId: v.id("jobCards"),
+    jobCardId: v.optional(v.id("jobCards")),
     tourManagerName: v.optional(v.string()),
     category: v.string(),
     expenseDate: v.optional(v.string()),
@@ -785,11 +774,7 @@ export default defineSchema({
     amount: v.number(),
     paidBy: v.string(),
     proofAttachmentId: v.optional(v.id("attachments")),
-    approvalStatus: v.union(
-      v.literal("Pending"),
-      v.literal("Approved"),
-      v.literal("Rejected"),
-    ),
+    approvalStatus: v.union(v.literal("Pending"), v.literal("Approved"), v.literal("Rejected")),
     reimbursementStatus: v.union(
       v.literal("Not Submitted"),
       v.literal("Pending"),
@@ -901,4 +886,21 @@ export default defineSchema({
     .index("by_headReviewStatus", ["headReviewStatus"])
     .index("by_hrReviewStatus", ["hrReviewStatus"])
     .index("by_startDate", ["startDate"]),
+
+  sacredBharatVisits: defineTable({
+    authUserId: v.string(),
+    templeId: v.string(),
+    visitedAt: v.number(),
+  })
+    .index("by_authUserId", ["authUserId"])
+    .index("by_authUserId_templeId", ["authUserId", "templeId"]),
+
+  sacredBharatWishlist: defineTable({
+    authUserId: v.string(),
+    itemType: v.union(v.literal("temple"), v.literal("trail")),
+    itemId: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_authUserId", ["authUserId"])
+    .index("by_authUserId_item", ["authUserId", "itemType", "itemId"]),
 });

@@ -1,9 +1,9 @@
 import { query } from "../_generated/server";
 import {
-  PERMISSIONS,
   canSeeJobCardRecord,
   canSeeProposalRecord,
   canSeeQueryRecord,
+  PERMISSIONS,
   requireStaff,
 } from "./lib";
 

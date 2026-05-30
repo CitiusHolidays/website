@@ -1,7 +1,9 @@
 import { PORTAL_NAV_GROUPS, PORTAL_PERMISSIONS, ROLE_PERMISSIONS } from "./constants";
 
 export function normalizeEmail(email) {
-  return String(email || "").trim().toLowerCase();
+  return String(email || "")
+    .trim()
+    .toLowerCase();
 }
 
 export function getPermissionsForRoles(roles = []) {
@@ -70,9 +72,7 @@ export function canAssignTourManagers(access) {
 }
 
 export function filterTeamByRoles(team = [], roles = []) {
-  return team.filter((member) =>
-    member.roles?.some((role) => roles.includes(role)),
-  );
+  return team.filter((member) => member.roles?.some((role) => roles.includes(role)));
 }
 
 export function teamSelectOptions(team = [], roles = []) {

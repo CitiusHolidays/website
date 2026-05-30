@@ -5,24 +5,21 @@ import {
   requireActionCtx,
   requireRunMutationCtx,
 } from "@convex-dev/better-auth/utils";
-import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { api, components, internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
-import { buildAuthEmailHtml, AUTH_EMAIL_BRAND } from "../lib/authEmailHtml";
+import { AUTH_EMAIL_BRAND, buildAuthEmailHtml } from "../lib/authEmailHtml";
 import schema from "./schema";
 
 const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
 const TWENTY_FOUR_HOURS_IN_SECONDS = 24 * 60 * 60;
 const FIVE_MINUTES_IN_SECONDS = 5 * 60;
 
-export const authComponent = createClient<DataModel, typeof schema>(
-  components.betterAuth,
-  {
-    local: { schema },
-    verbose: false,
-  },
-);
+export const authComponent = createClient<DataModel, typeof schema>(components.betterAuth, {
+  local: { schema },
+  verbose: false,
+});
 
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
   const baseURL =
@@ -61,9 +58,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       minPasswordLength: 8,
       requireEmailVerification: true,
       sendResetPassword: async ({ user, url, token }) => {
-        const resetUrl = token
-          ? `${baseURL}/auth/reset-password?token=${token}`
-          : url;
+        const resetUrl = token ? `${baseURL}/auth/reset-password?token=${token}` : url;
         const html = buildAuthEmailHtml({
           greetingName: user.name || "there",
           headline: "Reset your password",
@@ -72,8 +67,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           ],
           ctaHref: resetUrl,
           ctaLabel: "Reset password",
-          footerNote:
-            "If you did not request a password reset, you can safely ignore this email.",
+          footerNote: "If you did not request a password reset, you can safely ignore this email.",
         });
         try {
           await requireActionCtx(ctx).runAction(api.email.sendEmail, {
@@ -97,8 +91,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           ],
           ctaHref: url,
           ctaLabel: "Verify email",
-          footerNote:
-            "If you did not sign up for an account, you can safely ignore this email.",
+          footerNote: "If you did not sign up for an account, you can safely ignore this email.",
         });
         try {
           await requireActionCtx(ctx).runAction(api.email.sendEmail, {

@@ -17,16 +17,8 @@ export default function HeroVideo({ className }) {
       className={className}
       aria-hidden
     >
-      <source
-        src="/hero-sm.webm"
-        type="video/webm"
-        media="(max-width: 768px)"
-      />
-      <source
-        src="/hero-sm.mp4"
-        type="video/mp4"
-        media="(max-width: 768px)"
-      />
+      <source src="/hero-sm.webm" type="video/webm" media="(max-width: 768px)" />
+      <source src="/hero-sm.mp4" type="video/mp4" media="(max-width: 768px)" />
       <source src="/hero.webm" type="video/webm" />
       <source src="/hero.mp4" type="video/mp4" />
     </video>

@@ -1,16 +1,16 @@
 "use client";
 
-import { PlaneTakeoffIcon, Sparkle, Telescope, Heart } from "lucide-react";
-import Image from "next/image";
+import { Heart, PlaneTakeoffIcon, Sparkle, Telescope } from "lucide-react";
 import { motion } from "motion/react";
-import AnimatedSection from "../../components/layout/AnimatedSection";
-import ValuesCard from "../../components/ui/ValuesCard";
-import TeamMember from "../../components/ui/TeamMember";
-import kushmesh from "@/static/team/kushmesh.webp";
-import divyanshu from "@/static/team/divyanshu.webp";
-import olyvia from "@/static/team/olyvia.webp";
+import Image from "next/image";
 import arpan from "@/static/team/arpan.webp";
+import divyanshu from "@/static/team/divyanshu.webp";
+import kushmesh from "@/static/team/kushmesh.webp";
+import olyvia from "@/static/team/olyvia.webp";
 import rosy from "@/static/team/rosy.webp";
+import AnimatedSection from "../../components/layout/AnimatedSection";
+import TeamMember from "../../components/ui/TeamMember";
+import ValuesCard from "../../components/ui/ValuesCard";
 
 const teamMembers = [
   {
@@ -84,13 +84,10 @@ export default function AboutPage() {
 
       <section className="px-4 pt-16 text-center bg-brand-light">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="mb-4 text-3xl font-semibold text-citius-blue">
-            Our Team
-          </h2>
+          <h2 className="mb-4 text-3xl font-semibold text-citius-blue">Our Team</h2>
           <p className="mx-auto mb-12 max-w-3xl text-brand-muted">
-            Our greatest strength lies in our people. A passionate team
-            committed to guest engagement, armed with deep industry knowledge
-            and global exposure.
+            Our greatest strength lies in our people. A passionate team committed to guest
+            engagement, armed with deep industry knowledge and global exposure.
           </p>
         </div>
       </section>
@@ -135,39 +132,32 @@ export default function AboutPage() {
 
               <div className="prose max-w-none text-left space-y-4">
                 <p className="text-brand-dark leading-relaxed">
-                  Arpan Mitra was not just the founder of Citius Holidays — he
-                  was its heart and soul. Leaving behind a successful career at
-                  Mahindra & Mahindra, he courageously followed his passion to
-                  build a travel company driven by purpose, values, and
+                  Arpan Mitra was not just the founder of Citius Holidays — he was its heart and
+                  soul. Leaving behind a successful career at Mahindra & Mahindra, he courageously
+                  followed his passion to build a travel company driven by purpose, values, and
                   meaningful experiences.
                 </p>
 
                 <p className="text-brand-dark leading-relaxed">
-                  What started as a solo dream soon became a shared mission, as
-                  Arpan&apos;s childhood friends joined him to shape a workplace
-                  where ideas thrived and people mattered.
+                  What started as a solo dream soon became a shared mission, as Arpan&apos;s
+                  childhood friends joined him to shape a workplace where ideas thrived and people
+                  mattered.
                 </p>
 
                 <p className="text-brand-dark leading-relaxed">
-                  On 16th June 2023, we lost Arpan far too soon. His vision,
-                  leadership, and love for travel continue to guide us every
-                  day.
+                  On 16th June 2023, we lost Arpan far too soon. His vision, leadership, and love
+                  for travel continue to guide us every day.
                 </p>
 
                 <p className="text-brand-dark leading-relaxed">
-                  He may be gone, but his legacy lives on — in the journeys we
-                  craft, the culture he built, and the passion he inspired in
-                  all of us.
+                  He may be gone, but his legacy lives on — in the journeys we craft, the culture he
+                  built, and the passion he inspired in all of us.
                 </p>
               </div>
 
               <div className="mt-8 pt-6 border-t border-brand-border">
-                <p className="text-brand-dark font-semibold text-lg mb-2">
-                  Forever in our hearts.
-                </p>
-                <p className="text-brand-muted italic">
-                  - Team Citius Holidays
-                </p>
+                <p className="text-brand-dark font-semibold text-lg mb-2">Forever in our hearts.</p>
+                <p className="text-brand-muted italic">- Team Citius Holidays</p>
               </div>
             </motion.div>
           </div>
@@ -177,13 +167,10 @@ export default function AboutPage() {
       <AnimatedSection>
         <section className="px-4 pt-16 pb-8 text-center bg-brand-light">
           <div className="max-w-4xl mx-auto text-center">
-            <h3 className="mb-4 text-2xl font-semibold text-citius-blue">
-              Our Directors
-            </h3>
+            <h3 className="mb-4 text-2xl font-semibold text-citius-blue">Our Directors</h3>
             <p className="mx-auto mb-12 max-w-3xl text-brand-muted">
-              Our Directors are the driving force behind Citius Holidays. They
-              are the ones who make the decisions that shape the company&apos;s
-              future.
+              Our Directors are the driving force behind Citius Holidays. They are the ones who make
+              the decisions that shape the company&apos;s future.
             </p>
           </div>
         </section>
@@ -193,12 +180,7 @@ export default function AboutPage() {
         <section className="px-4 pb-16 text-center bg-brand-light">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
             {teamMembers.map((member, i) => (
-              <TeamMember
-                key={member.name}
-                member={member}
-                image={member.image}
-                index={i}
-              />
+              <TeamMember key={member.name} member={member} image={member.image} index={i} />
             ))}
           </div>
         </section>
@@ -207,9 +189,7 @@ export default function AboutPage() {
       <AnimatedSection>
         <section className="px-4 pt-16 text-center bg-brand-light">
           <div className="max-w-4xl mx-auto text-center">
-            <h2 className="mb-4 text-3xl font-semibold text-citius-blue">
-              Our Beliefs
-            </h2>
+            <h2 className="mb-4 text-3xl font-semibold text-citius-blue">Our Beliefs</h2>
           </div>
         </section>
         <section className="overflow-hidden relative px-4 pb-14 bg-brand-light via-brand-light/40">
@@ -223,65 +203,48 @@ export default function AboutPage() {
               whileInView="show"
               viewport={{ once: true, amount: 0.2 }}
             >
-              <motion.li
-                className="relative group"
-                variants={timelineItemVariants}
-              >
+              <motion.li className="relative group" variants={timelineItemVariants}>
                 <span className="flex absolute top-6 -left-9 justify-center items-center w-6 h-6 text-white rounded-full ring-4 ring-white shadow-md bg-citius-blue">
                   <PlaneTakeoffIcon className="w-3 h-3" />
                 </span>
                 <div className="p-6 rounded-xl border shadow-sm transition bg-white/60 border-brand-border group-hover:shadow-lg">
-                  <h3 className="mb-2 text-2xl font-semibold text-brand-dark">
-                    Our Goal
-                  </h3>
+                  <h3 className="mb-2 text-2xl font-semibold text-brand-dark">Our Goal</h3>
                   <p className="leading-relaxed text-brand-muted">
-                    To positively shape the future of the travel industry by
-                    creating standout experiences, building strong, trusted
-                    partnerships, and contributing to the advancement of the
-                    MICE travel ecosystem — with every trip we design.
+                    To positively shape the future of the travel industry by creating standout
+                    experiences, building strong, trusted partnerships, and contributing to the
+                    advancement of the MICE travel ecosystem — with every trip we design.
                   </p>
                 </div>
               </motion.li>
 
-              <motion.li
-                className="relative group"
-                variants={timelineItemVariants}
-              >
+              <motion.li className="relative group" variants={timelineItemVariants}>
                 <span className="flex absolute top-6 -left-9 justify-center items-center w-6 h-6 text-white rounded-full ring-4 ring-white shadow-md bg-citius-orange">
                   <Telescope className="w-3 h-3" />
                 </span>
                 <div className="p-6 rounded-xl border shadow-sm transition bg-white/60 border-brand-border group-hover:shadow-lg">
-                  <h3 className="mb-2 text-2xl font-semibold text-brand-dark">
-                    Our Vision
-                  </h3>
+                  <h3 className="mb-2 text-2xl font-semibold text-brand-dark">Our Vision</h3>
                   <p className="leading-relaxed text-brand-muted">
-                    To be recognized as a trusted industry leader in MICE travel
-                    — known for our expertise, consistency, and excellence. We
-                    aim to deliver world-class experiences that are seamless,
-                    impactful, and profitable for our clients and partners.
+                    To be recognized as a trusted industry leader in MICE travel — known for our
+                    expertise, consistency, and excellence. We aim to deliver world-class
+                    experiences that are seamless, impactful, and profitable for our clients and
+                    partners.
                   </p>
                 </div>
               </motion.li>
 
-              <motion.li
-                className="relative group"
-                variants={timelineItemVariants}
-              >
+              <motion.li className="relative group" variants={timelineItemVariants}>
                 <span className="flex absolute top-6 -left-9 justify-center items-center w-6 h-6 text-white rounded-full ring-4 ring-white shadow-md bg-citius-lime">
                   <Sparkle className="w-3 h-3" />
                 </span>
                 <div className="p-6 rounded-xl border shadow-sm transition bg-white/60 border-brand-border group-hover:shadow-lg">
-                  <h3 className="mb-2 text-2xl font-semibold text-brand-dark">
-                    Our Mission
-                  </h3>
+                  <h3 className="mb-2 text-2xl font-semibold text-brand-dark">Our Mission</h3>
                   <p className="leading-relaxed text-brand-muted">
-                    At Citius Holidays, we believe travel is more than just
-                    movement — it&apos;s connection, inspiration, and growth.
-                    Our mission is to deliver thoughtfully curated MICE journeys
-                    that combine creativity, precision, and care. We empower
-                    organizations to celebrate achievements, strengthen
-                    relationships, and unlock potential through experiences that
-                    are smooth, meaningful, and truly unforgettable.
+                    At Citius Holidays, we believe travel is more than just movement — it&apos;s
+                    connection, inspiration, and growth. Our mission is to deliver thoughtfully
+                    curated MICE journeys that combine creativity, precision, and care. We empower
+                    organizations to celebrate achievements, strengthen relationships, and unlock
+                    potential through experiences that are smooth, meaningful, and truly
+                    unforgettable.
                   </p>
                 </div>
               </motion.li>

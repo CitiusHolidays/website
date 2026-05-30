@@ -1,7 +1,4 @@
-const CONTRACTING_QUERY_TITLES = new Set([
-  "New query received",
-  "Query submitted to Contracting",
-]);
+const CONTRACTING_QUERY_TITLES = new Set(["New query received", "Query submitted to Contracting"]);
 
 export function getNotificationHref({ entityType, entityId, title }) {
   if (!entityType || !entityId) {
@@ -34,7 +31,7 @@ export function getNotificationHref({ entityType, entityId, title }) {
       params.set("id", entityId);
       return `/portal/proposals?${params}`;
     case "jobCard":
-      if (title === "Assign contracting owner") {
+      if (title === "Assign contracting SPOC" || title === "Assign contracting owner") {
         params.set("open", "assignContractingOwner");
         params.set("id", entityId);
         return `/portal/job-cards?${params}`;

@@ -1,9 +1,7 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "../_generated/server";
 import { internal } from "../_generated/api";
+import { mutation, query } from "../_generated/server";
 import {
-  MAX_QUERY_NOTES_WORDS,
-  PERMISSIONS,
   assertMaxWordCount,
   canSeeQueryRecord,
   createActivity,
@@ -11,9 +9,11 @@ import {
   deleteJobCardCascade,
   hasRole,
   isDirectorOrAdmin,
+  MAX_QUERY_NOTES_WORDS,
   nextCode,
   notifyRoles,
   notifyStaffMatching,
+  PERMISSIONS,
   publicQuery,
   requireAnyPermission,
   requireHeadOrAdmin,
@@ -347,12 +347,7 @@ export const submitToContracting = mutation({
       action: "submitted_to_contracting",
       message: `${current.queryCode} submitted to Contracting`,
     });
-    await notifyRoles(ctx, [
-      "Contracting",
-      "Contracting Head",
-      "Operations Head",
-      "Directors",
-    ], {
+    await notifyRoles(ctx, ["Contracting", "Contracting Head", "Operations Head", "Directors"], {
       title: "Query submitted to Contracting",
       body: `${current.queryCode} is ready for assignment and proposal work.`,
       entityType: "query",
@@ -407,6 +402,10 @@ export const updateStatus = mutation({
       throw new ConvexError("Only Sales can confirm or lose an order");
     }
 
+    if (args.contractingStatus === "Order Lost") {
+      throw new ConvexError("Only Sales can mark an order as lost");
+    }
+
     const patch: Record<string, unknown> = {
       updatedAt: Date.now(),
     };
@@ -432,10 +431,6 @@ export const updateStatus = mutation({
         patch.leadStage = "Confirmation";
         patch.confirmedAt = Date.now();
       }
-      if (args.contractingStatus === "Order Lost") {
-        patch.salesStatus = "Order Lost";
-        patch.leadStage = "Lost";
-      }
     }
     if (args.lostReason) {
       patch.lostReason = args.lostReason;
@@ -459,7 +454,9 @@ export const updateStatus = mutation({
 
     if (args.approxMargin !== undefined) {
       if (!willBeConfirmed) {
-        throw new ConvexError("Approximate margin can only be entered after the query is confirmed");
+        throw new ConvexError(
+          "Approximate margin can only be entered after the query is confirmed",
+        );
       }
       if (!access.permissions.includes(PERMISSIONS.MANAGE_QUERIES)) {
         throw new ConvexError("Only Sales can enter approximate margin");
@@ -470,14 +467,11 @@ export const updateStatus = mutation({
     await ctx.db.patch(queryId, patch);
 
     const wasConfirmed =
-      current.salesStatus === "Order Confirmed" ||
-      current.contractingStatus === "Order Confirmed";
+      current.salesStatus === "Order Confirmed" || current.contractingStatus === "Order Confirmed";
     const isNewlyConfirmed =
       !wasConfirmed &&
-      (args.salesStatus === "Order Confirmed" ||
-        args.contractingStatus === "Order Confirmed");
-    const isLost =
-      args.salesStatus === "Order Lost" || args.contractingStatus === "Order Lost";
+      (args.salesStatus === "Order Confirmed" || args.contractingStatus === "Order Confirmed");
+    const isLost = args.salesStatus === "Order Lost";
 
     await createActivity(ctx, access, {
       entityType: "query",
@@ -502,8 +496,7 @@ export const updateStatus = mutation({
       await notifyStaffMatching(
         ctx,
         (staff) =>
-          staff.roles.includes("Contracting Head") ||
-          staff.roles.includes("Operations Head"),
+          staff.roles.includes("Contracting Head") || staff.roles.includes("Operations Head"),
         {
           title: "Order confirmed — assign owners",
           body: `${current.queryCode} is confirmed. Assign contracting and operations owners once Accounts opens the Job Card.`,
@@ -578,10 +571,9 @@ export const remove = mutation({
       await deleteJobCardCascade(ctx, jobCard._id);
     }
 
-    const { storageIds } = await ctx.runMutation(
-      internal.crm.queryAttachments.deleteAllForQuery,
-      { queryId },
-    );
+    const { storageIds } = await ctx.runMutation(internal.crm.queryAttachments.deleteAllForQuery, {
+      queryId,
+    });
     for (const storageId of storageIds) {
       try {
         await ctx.storage.delete(storageId);

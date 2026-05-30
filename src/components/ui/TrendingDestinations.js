@@ -1,9 +1,9 @@
 "use client";
 
+import { MapPin } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
 import { useState } from "react";
-import { MapPin } from "lucide-react";
 import {
   domesticDestinations as defaultDomesticDestinations,
   internationalDestinations as defaultInternationalDestinations,
@@ -37,18 +37,16 @@ function DestinationCard({ destination, index }) {
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 p-8 transform transition-transform duration-500 translate-y-4 group-hover:translate-y-0">
-        <h3 className="text-4xl font-heading font-bold text-white mb-2">
-          {destination.name}
-        </h3>
+        <h3 className="text-4xl font-heading font-bold text-white mb-2">{destination.name}</h3>
         <div className="flex items-center gap-2 mb-4 text-white/80 text-sm">
-           <MapPin size={16} />
-           <span>{destination.percentage}% Popularity Score</span>
+          <MapPin size={16} />
+          <span>{destination.percentage}% Popularity Score</span>
         </div>
-        
+
         <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-500">
           <div className="overflow-hidden">
             <p className="text-slate-300 text-sm mb-6 opacity-0 group-hover:opacity-100 transition-opacity duration-500 delay-100">
-                {destination.description}
+              {destination.description}
             </p>
           </div>
         </div>
@@ -66,7 +64,8 @@ export default function TrendingDestinations({
   domesticDestinations = defaultDomesticDestinations,
 }) {
   const [activeTab, setActiveTab] = useState("international");
-  const destinations = activeTab === "international" ? internationalDestinations : domesticDestinations;
+  const destinations =
+    activeTab === "international" ? internationalDestinations : domesticDestinations;
 
   return (
     <div className="py-24 relative overflow-hidden">
@@ -74,60 +73,55 @@ export default function TrendingDestinations({
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-100/50 rounded-full blur-[120px] -z-10"></div>
 
       <div className="max-w-7xl mx-auto px-4 mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
-         <div>
-            <motion.h2 
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                className="text-4xl md:text-5xl font-heading font-bold text-brand-dark mb-4"
-            >
-                Trending Now
-            </motion.h2>
-            <p className="text-lg text-brand-muted max-w-md">
-              Discover the most sought-after destinations for meetings, incentives, conferences, and exhibitions
-            </p>
-         </div>
+        <div>
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            className="text-4xl md:text-5xl font-heading font-bold text-brand-dark mb-4"
+          >
+            Trending Now
+          </motion.h2>
+          <p className="text-lg text-brand-muted max-w-md">
+            Discover the most sought-after destinations for meetings, incentives, conferences, and
+            exhibitions
+          </p>
+        </div>
 
-         <div className="flex p-1 bg-slate-100 rounded-full">
-            <button
-                onClick={() => setActiveTab("international")}
-                className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
-                    activeTab === "international" 
-                    ? "bg-white text-brand-dark shadow-sm" 
-                    : "text-brand-muted hover:text-brand-dark"
-                }`}
-            >
-                International
-            </button>
-            <button
-                onClick={() => setActiveTab("domestic")}
-                className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
-                    activeTab === "domestic" 
-                    ? "bg-white text-brand-dark shadow-sm" 
-                    : "text-brand-muted hover:text-brand-dark"
-                }`}
-            >
-                Domestic
-            </button>
-         </div>
+        <div className="flex p-1 bg-slate-100 rounded-full">
+          <button
+            onClick={() => setActiveTab("international")}
+            className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
+              activeTab === "international"
+                ? "bg-white text-brand-dark shadow-sm"
+                : "text-brand-muted hover:text-brand-dark"
+            }`}
+          >
+            International
+          </button>
+          <button
+            onClick={() => setActiveTab("domestic")}
+            className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
+              activeTab === "domestic"
+                ? "bg-white text-brand-dark shadow-sm"
+                : "text-brand-muted hover:text-brand-dark"
+            }`}
+          >
+            Domestic
+          </button>
+        </div>
       </div>
 
       {/* Horizontal Scroll Container */}
       <div className="overflow-x-auto pb-8 scrollbar-hide pl-4 md:pl-18">
-         <div className="flex gap-6 w-max pr-4 md:pr-10">
-            {destinations.length > 0 ? (
-                destinations.map((destination, index) => (
-                    <DestinationCard
-                        key={destination.name}
-                        destination={destination}
-                        index={index}
-                    />
-                ))
-            ) : (
-                <div className="w-full py-20 text-center text-brand-muted">
-                    Coming Soon...
-                </div>
-            )}
-         </div>
+        <div className="flex gap-6 w-max pr-4 md:pr-10">
+          {destinations.length > 0 ? (
+            destinations.map((destination, index) => (
+              <DestinationCard key={destination.name} destination={destination} index={index} />
+            ))
+          ) : (
+            <div className="w-full py-20 text-center text-brand-muted">Coming Soon...</div>
+          )}
+        </div>
       </div>
     </div>
   );

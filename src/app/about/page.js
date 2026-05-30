@@ -1,6 +1,5 @@
 import AboutPageClient from "./page.client";
 
-
 export const generateMetadata = () => ({
   title: "About Citius | 15 Years of Travel Excellence",
   description:
@@ -8,7 +7,5 @@ export const generateMetadata = () => ({
 });
 
 export default function AboutPage() {
-  return (
-    <AboutPageClient />
-  );
+  return <AboutPageClient />;
 }

@@ -5,8 +5,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getLoginUrlForCallback } from "@/lib/auth-sign-in-targets";
 
-const convexUrl =
-  process.env.NEXT_PUBLIC_CONVEX_URL ?? "http://127.0.0.1:3210";
+const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? "http://127.0.0.1:3210";
 const convexSiteUrl =
   process.env.NEXT_PUBLIC_CONVEX_SITE_URL ??
   process.env.NEXT_PUBLIC_CONVEX_URL ??
@@ -17,10 +16,7 @@ const betterAuth = convexBetterAuthNextJs({
   convexSiteUrl,
 });
 
-export const {
-  handler,
-  preloadAuthQuery,
-} = betterAuth;
+export const { handler, preloadAuthQuery } = betterAuth;
 
 const inferProtocol = (host, forwardedProto) => {
   if (forwardedProto) {
@@ -29,19 +25,13 @@ const inferProtocol = (host, forwardedProto) => {
   if (!host) {
     return "https";
   }
-  return host.includes("localhost") || host.startsWith("127.0.0.1")
-    ? "http"
-    : "https";
+  return host.includes("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
 };
 
 const getRequestToken = async () => {
   const requestHeaders = await headers();
-  const host =
-    requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const protocol = inferProtocol(
-    host,
-    requestHeaders.get("x-forwarded-proto"),
-  );
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
+  const protocol = inferProtocol(host, requestHeaders.get("x-forwarded-proto"));
   if (!host) {
     return null;
   }
@@ -60,9 +50,7 @@ const getRequestToken = async () => {
   }
 
   const data = await tokenResponse.json().catch(() => null);
-  return typeof data?.token === "string" && data.token.length > 0
-    ? data.token
-    : null;
+  return typeof data?.token === "string" && data.token.length > 0 ? data.token : null;
 };
 
 export async function getToken() {
@@ -148,7 +136,3 @@ export async function getUserForLayout() {
     image: user.image,
   };
 }
-
-
-
-

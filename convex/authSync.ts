@@ -1,7 +1,7 @@
-import { ConvexError, v } from "convex/values";
-import { internalMutation, mutation } from "./_generated/server";
-import type { MutationCtx } from "./_generated/server";
 import type { UserIdentity } from "convex/server";
+import { ConvexError, v } from "convex/values";
+import type { MutationCtx } from "./_generated/server";
+import { internalMutation, mutation } from "./_generated/server";
 import { normalizeEmail } from "./crm/lib";
 import { syncAuthRecords } from "./lib/authSync";
 
@@ -72,9 +72,7 @@ export const repairAuthLinks = mutation({
       if (!staff.authUserId) {
         continue;
       }
-      const profileByAuth = profiles.find(
-        (profile) => profile.authUserId === staff.authUserId,
-      );
+      const profileByAuth = profiles.find((profile) => profile.authUserId === staff.authUserId);
       if (profileByAuth) {
         continue;
       }
@@ -115,8 +113,7 @@ export const repairAuthLinks = mutation({
       }
 
       const keeper =
-        bucket.find((profile) => profile.authUserId === canonicalAuthUserId) ??
-        bucket[0];
+        bucket.find((profile) => profile.authUserId === canonicalAuthUserId) ?? bucket[0];
       if (!keeper) {
         continue;
       }

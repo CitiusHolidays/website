@@ -1,5 +1,11 @@
 import * as XLSX from "xlsx";
-import { FLIGHT_EXPORT_HEADER, PASSENGER_EXPORT_HEADERS } from "./spreadsheetImports";
+import {
+  FLIGHT_EXPORT_HEADER,
+  PASSENGER_EXPORT_HEADERS,
+  PASSPORT_EXPORT_HEADERS,
+  ROOMING_EXPORT_HEADERS,
+  VISA_EXPORT_HEADERS,
+} from "./spreadsheetImports";
 
 function sanitizeSheetName(name, fallback = "Sheet1") {
   const cleaned = String(name ?? "")
@@ -48,9 +54,168 @@ function passengerRowToArray(row) {
   ];
 }
 
+function splitTemplateName(fullName) {
+  const parts = String(fullName ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length <= 1) {
+    return { surname: "", givenName: parts[0] || "" };
+  }
+  return {
+    surname: parts[0],
+    givenName: parts.slice(1).join(" "),
+  };
+}
+
+function roomTypeForTemplate(value) {
+  switch (value) {
+    case "SGL":
+      return "SINGLE";
+    case "DBL":
+      return "DOUBLE";
+    case "Child with Bed":
+      return "Child with Bed";
+    case "Family Room":
+      return "FAMILY ROOM";
+    default:
+      return "TWIN";
+  }
+}
+
+function paymentTypeForTemplate(value) {
+  switch (value) {
+    case "Self Paid":
+      return "Self Paid";
+    case "Upgraded Self Paid":
+      return "Upgraded Self Paid";
+    default:
+      return "Company Paid";
+  }
+}
+
+function templateBase(row) {
+  const passport = row.passport || {};
+  const name = splitTemplateName(row.fullName);
+  return {
+    passport,
+    surname: name.surname,
+    givenName: name.givenName,
+    dealerName: row.sourceDealerName || "",
+    gender: row.gender || "",
+    passportValid: passport.number && passport.expiryDate ? "Yes" : "",
+    remarks: row.specialRequests || "",
+    contactNo: row.contactNo || "",
+  };
+}
+
+function roomingRowToArray(row, index) {
+  const base = templateBase(row);
+  return [
+    index + 1,
+    base.dealerName,
+    base.gender,
+    base.surname,
+    base.givenName,
+    roomTypeForTemplate(row.roomType),
+    row.hotelAllocation || base.remarks,
+    base.passport.number || "",
+    base.passport.issueDate || "",
+    base.passport.expiryDate || "",
+    base.passport.dateOfBirth || "",
+    "",
+    base.contactNo,
+    "",
+    formatFoodPreferenceForExport(row.foodPreference),
+    row.travelHub || "",
+    "",
+    "",
+    "",
+  ];
+}
+
+function passportRowToArray(row, index) {
+  const base = templateBase(row);
+  return [
+    index + 1,
+    base.dealerName,
+    base.gender,
+    base.surname,
+    base.givenName,
+    base.passport.number || "",
+    base.passport.issueDate || "",
+    base.passport.expiryDate || "",
+    base.passportValid,
+    base.passport.dateOfBirth || "",
+    "",
+    base.remarks,
+    base.contactNo,
+  ];
+}
+
+function visaRowToArray(row, index) {
+  const base = templateBase(row);
+  const visa = row.visa || {};
+  return [
+    index + 1,
+    base.dealerName,
+    base.gender,
+    base.surname,
+    base.givenName,
+    base.passport.number || "",
+    base.passport.issueDate || "",
+    base.passport.expiryDate || "",
+    base.passportValid,
+    base.passport.dateOfBirth || "",
+    "",
+    base.remarks,
+    base.contactNo,
+    visa.appointmentDate ? "Yes" : "",
+    visa.appointmentDate || "",
+    "",
+    visa.status || row.visaStatus || "",
+    paymentTypeForTemplate(row.paymentType),
+    "",
+    visa.notes || "",
+  ];
+}
+
 export function buildPassengerWorkbook(rows, { sheetName = "Passengers" } = {}) {
   const workbook = XLSX.utils.book_new();
   const sheetRows = [[], PASSENGER_EXPORT_HEADERS, ...rows.map(passengerRowToArray)];
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet(sheetRows),
+    sanitizeSheetName(sheetName),
+  );
+  return workbook;
+}
+
+export function buildRoomingWorkbook(rows, { sheetName = "Rooming" } = {}) {
+  const workbook = XLSX.utils.book_new();
+  const sheetRows = [ROOMING_EXPORT_HEADERS, ...rows.map(roomingRowToArray)];
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet(sheetRows),
+    sanitizeSheetName(sheetName),
+  );
+  return workbook;
+}
+
+export function buildPassportWorkbook(rows, { sheetName = "Passport" } = {}) {
+  const workbook = XLSX.utils.book_new();
+  const sheetRows = [PASSPORT_EXPORT_HEADERS, ...rows.map(passportRowToArray)];
+  XLSX.utils.book_append_sheet(
+    workbook,
+    XLSX.utils.aoa_to_sheet(sheetRows),
+    sanitizeSheetName(sheetName),
+  );
+  return workbook;
+}
+
+export function buildVisaWorkbook(rows, { sheetName = "Visa" } = {}) {
+  const workbook = XLSX.utils.book_new();
+  const sheetRows = [VISA_EXPORT_HEADERS, ...rows.map(visaRowToArray)];
   XLSX.utils.book_append_sheet(
     workbook,
     XLSX.utils.aoa_to_sheet(sheetRows),
@@ -122,11 +287,7 @@ export function buildFlightWorkbook(groups, { defaultSheetName = "Flights" } = {
       sheetRows.push(flightHeaderRow());
     }
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.aoa_to_sheet(sheetRows),
-      sheetName,
-    );
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(sheetRows), sheetName);
   }
 
   return workbook;

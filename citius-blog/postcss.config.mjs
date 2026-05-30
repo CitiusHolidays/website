@@ -3,5 +3,5 @@
  * load the root Next.js Tailwind v4 config, which breaks here.
  */
 export default {
-	plugins: [],
+  plugins: [],
 };

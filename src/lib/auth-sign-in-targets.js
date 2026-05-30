@@ -19,11 +19,7 @@ export const AUTH_LOGIN_VARIANTS = {
       signUpSubtitle: "Create an account to book journeys and manage your travel profile.",
       submitSignIn: "Sign In",
       submitSignUp: "Create Account",
-      heroLines: [
-        "The Journey",
-        { highlight: "Within", rest: " Begins" },
-        "Here.",
-      ],
+      heroLines: ["The Journey", { highlight: "Within", rest: " Begins" }, "Here."],
       highlights: [
         {
           title: "Curated Pilgrimages",
@@ -63,16 +59,11 @@ export const AUTH_LOGIN_VARIANTS = {
       signUpSubtitle: "Staff accounts are provisioned by your administrator.",
       submitSignIn: "Sign In to Connect",
       submitSignUp: "Create Account",
-      heroLines: [
-        "Your Team",
-        { highlight: "Workspace", rest: " Starts" },
-        "Here.",
-      ],
+      heroLines: ["Your Team", { highlight: "Workspace", rest: " Starts" }, "Here."],
       highlights: [
         {
           title: "Sales CRM",
-          description:
-            "Manage enquiries, proposals, and job cards from one connected workspace.",
+          description: "Manage enquiries, proposals, and job cards from one connected workspace.",
         },
         {
           title: "Operations Hub",
@@ -107,15 +98,11 @@ export const AUTH_LOGIN_VARIANTS = {
       signUpSubtitle: "Vendor accounts are provisioned by Citius Holidays.",
       submitSignIn: "Sign In",
       submitSignUp: "Create Account",
-      heroLines: [
-        { highlight: "Partner", rest: " Services" },
-        "Managed Here.",
-      ],
+      heroLines: [{ highlight: "Partner", rest: " Services" }, "Managed Here."],
       highlights: [
         {
           title: "Supplier Profile",
-          description:
-            "Keep compliance documents and contact details up to date in one place.",
+          description: "Keep compliance documents and contact details up to date in one place.",
         },
         {
           title: "Service Requests",
@@ -124,8 +111,7 @@ export const AUTH_LOGIN_VARIANTS = {
         },
         {
           title: "Invoices & Payments",
-          description:
-            "Track invoice status and payment updates as the vendor portal expands.",
+          description: "Track invoice status and payment updates as the vendor portal expands.",
         },
       ],
     },

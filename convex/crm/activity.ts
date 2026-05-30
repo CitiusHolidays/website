@@ -46,9 +46,7 @@ export const listNotifications = query({
         body: notification.body,
         entityType: notification.entityType ?? "",
         entityId: notification.entityId ?? "",
-        readAt: notification.readAt
-          ? new Date(notification.readAt).toISOString()
-          : null,
+        readAt: notification.readAt ? new Date(notification.readAt).toISOString() : null,
         createdAt: new Date(notification.createdAt).toISOString(),
       }));
   },
@@ -82,10 +80,7 @@ export const markAllNotificationsRead = mutation({
       if (notification.readAt) {
         continue;
       }
-      if (
-        notification.recipientUserId &&
-        notification.recipientUserId !== access.authUserId
-      ) {
+      if (notification.recipientUserId && notification.recipientUserId !== access.authUserId) {
         continue;
       }
       if (notification.recipientRole && !roleSet.has(notification.recipientRole)) {

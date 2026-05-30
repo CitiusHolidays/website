@@ -1,16 +1,14 @@
 "use client";
 
-import { motion } from "motion/react";
 import imageUrlBuilder from "@sanity/image-url";
+import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { client } from "@/sanity/client";
 
 const { projectId, dataset } = client.config();
 const urlFor = (source) =>
-  projectId && dataset
-    ? imageUrlBuilder({ projectId, dataset }).image(source)
-    : null;
+  projectId && dataset ? imageUrlBuilder({ projectId, dataset }).image(source) : null;
 
 export default function BlogPageClient({ posts }) {
   return (
@@ -47,9 +45,7 @@ export default function BlogPageClient({ posts }) {
               }}
             >
               {posts.map((post, index) => {
-                const postImageUrl = post.mainImage
-                  ? urlFor(post.mainImage).url()
-                  : null;
+                const postImageUrl = post.mainImage ? urlFor(post.mainImage).url() : null;
                 return (
                   <motion.article
                     key={post._id}
@@ -59,10 +55,7 @@ export default function BlogPageClient({ posts }) {
                       show: { opacity: 1, y: 0 },
                     }}
                   >
-                    <Link
-                      href={`/blog/${post.slug.current}`}
-                      className="block h-full"
-                    >
+                    <Link href={`/blog/${post.slug.current}`} className="block h-full">
                       <div className="aspect-[4/3] overflow-hidden rounded-t-2xl relative bg-brand-light w-full">
                         {postImageUrl ? (
                           <Image
@@ -106,14 +99,11 @@ export default function BlogPageClient({ posts }) {
                             dateTime={post.publishedAt}
                             className="text-sm text-brand-muted font-medium"
                           >
-                            {new Date(post.publishedAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              }
-                            )}
+                            {new Date(post.publishedAt).toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
                           </time>
                         </div>
 

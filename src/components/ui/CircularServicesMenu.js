@@ -1,5 +1,4 @@
 "use client";
-import { AnimatePresence, motion } from "motion/react";
 import {
   Briefcase,
   FileBadge,
@@ -13,6 +12,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -161,7 +161,7 @@ export default function CircularServicesMenu() {
         setLinePos(null);
         return;
       }
-      const idx = servicePositions.findIndex(s => s.title === selectedService.title);
+      const idx = servicePositions.findIndex((s) => s.title === selectedService.title);
       if (idx === -1 || !containerRef.current || !serviceRefs.current[idx]) {
         setLinePos(null);
         return;
@@ -169,7 +169,7 @@ export default function CircularServicesMenu() {
       const containerRect = containerRef.current.getBoundingClientRect();
       const serviceRect = serviceRefs.current[idx].getBoundingClientRect();
       // Get the button inside the service div for more accurate center
-      const button = serviceRefs.current[idx].querySelector('button');
+      const button = serviceRefs.current[idx].querySelector("button");
       let serviceX, serviceY;
       if (button) {
         const buttonRect = button.getBoundingClientRect();
@@ -201,7 +201,10 @@ export default function CircularServicesMenu() {
   };
 
   return (
-    <div ref={containerRef} className="relative w-full h-[400px] md:h-[520px] lg:h-[600px] flex items-center justify-center">
+    <div
+      ref={containerRef}
+      className="relative w-full h-[400px] md:h-[520px] lg:h-[600px] flex items-center justify-center"
+    >
       {/* Animated line from center to hovered/tapped service */}
       <AnimatePresence>
         {linePos && (
@@ -260,9 +263,7 @@ export default function CircularServicesMenu() {
               </h3>
               <p className="text-xs text-brand-muted leading-tight px-1">
                 {selectedService?.description ||
-                  (isMobile
-                    ? "Tap a service to learn more"
-                    : "Hover over a service to learn more")}
+                  (isMobile ? "Tap a service to learn more" : "Hover over a service to learn more")}
               </p>
             </motion.div>
           </AnimatePresence>
@@ -278,7 +279,7 @@ export default function CircularServicesMenu() {
         {servicePositions.map((service, idx) => (
           <motion.div
             key={service.title}
-            ref={el => (serviceRefs.current[idx] = el)}
+            ref={(el) => (serviceRefs.current[idx] = el)}
             className="absolute z-10 flex flex-col items-center"
             style={{
               left: "50%",

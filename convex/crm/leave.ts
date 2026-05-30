@@ -1,7 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import {
-  PERMISSIONS,
   canActAsLeaveHeadReviewer,
   canHeadReview,
   createActivity,
@@ -9,6 +8,7 @@ import {
   getLeaveApprovalActions,
   isHrReviewer,
   notifyRoles,
+  PERMISSIONS,
   requireAnyPermission,
   requireStaff,
 } from "./lib";
@@ -33,8 +33,7 @@ function canSeeLeave(access: any, leave: any, staff: any) {
   if (access.staffId && leave.staffId === access.staffId) {
     return true;
   }
-  const reviewerRole =
-    leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR";
+  const reviewerRole = leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR";
   return canHeadReview(access, reviewerRole);
 }
 
@@ -62,8 +61,7 @@ export const list = query({
         reason: leave.reason,
         status: leave.status ?? "Pending",
         headReviewStatus: leave.headReviewStatus ?? "Pending",
-        headReviewerRole:
-          leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR",
+        headReviewerRole: leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR",
         headReviewedByName: leave.headReviewedByName ?? "",
         headDecisionNote: leave.headDecisionNote ?? "",
         hrReviewStatus: leave.hrReviewStatus ?? "Pending",
@@ -112,8 +110,7 @@ export const create = mutation({
     const now = Date.now();
     const reviewerRoles = getHeadReviewerRolesForStaff(staff);
     const headReviewerRole = reviewerRoles[0] ?? "HR";
-    const directApproval =
-      canRecordForOthers && args.status && args.status !== "Pending";
+    const directApproval = canRecordForOthers && args.status && args.status !== "Pending";
     const status = directApproval ? args.status! : "Pending";
 
     const id = await ctx.db.insert("staffLeaveRecords", {
@@ -185,8 +182,7 @@ export const decide = mutation({
     }
 
     const now = Date.now();
-    const reviewerRole =
-      leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR";
+    const reviewerRole = leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR";
     const headStatus = leave.headReviewStatus ?? "Pending";
     const hrStatus = leave.hrReviewStatus ?? "Pending";
     const overallStatus = leave.status ?? "Pending";

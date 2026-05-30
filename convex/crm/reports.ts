@@ -1,11 +1,11 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import {
-  PERMISSIONS,
   filterRecordsByCreatedAt,
+  PERMISSIONS,
+  type PortalPeriod,
   portalPeriodValidator,
   requireStaff,
-  type PortalPeriod,
 } from "./lib";
 
 export const overview = query({
@@ -36,7 +36,9 @@ export const overview = query({
     const locationHeadcount = new Map<string, number>();
     for (const member of staff.filter((item) => item.active)) {
       const location =
-        member.location || (member.officeId ? officeNames.get(member.officeId) : "") || "Unassigned";
+        member.location ||
+        (member.officeId ? officeNames.get(member.officeId) : "") ||
+        "Unassigned";
       locationHeadcount.set(location, (locationHeadcount.get(location) ?? 0) + 1);
     }
 

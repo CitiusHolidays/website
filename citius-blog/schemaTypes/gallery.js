@@ -1,26 +1,26 @@
 export default {
-  name: 'gallery',
-  type: 'document',
-  title: 'Gallery',
+  name: "gallery",
+  type: "document",
+  title: "Gallery",
   fields: [
     {
-      name: 'images',
-      type: 'array',
-      title: 'Images',
+      name: "images",
+      type: "array",
+      title: "Images",
       of: [
         {
-          type: 'image',
+          type: "image",
           options: { hotspot: true },
           fields: [
             {
-              name: 'alt',
-              type: 'string',
-              title: 'Alternative text',
+              name: "alt",
+              type: "string",
+              title: "Alternative text",
             },
           ],
         },
       ],
-      options: { layout: 'grid' },
+      options: { layout: "grid" },
     },
   ],
 };

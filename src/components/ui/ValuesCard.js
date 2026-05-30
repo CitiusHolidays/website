@@ -1,32 +1,20 @@
-import {
-  BookOpen,
-  Globe,
-  Handshake,
-  Heart,
-  Plane,
-  Sparkle,
-  TreePine,
-  Users,
-} from "lucide-react";
+import { BookOpen, Globe, Handshake, Heart, Plane, Sparkle, TreePine, Users } from "lucide-react";
 import AnimatedSection from "../../components/layout/AnimatedSection";
 
 const values = [
   {
     title: "Integrity",
-    description:
-      "We operate with transparency, trust, and respect in every interaction.",
+    description: "We operate with transparency, trust, and respect in every interaction.",
     icon: <Globe />,
   },
   {
     title: "Excellence",
-    description:
-      "We strive to exceed expectations with detail, finesse, and thoughtful planning.",
+    description: "We strive to exceed expectations with detail, finesse, and thoughtful planning.",
     icon: <Plane />,
   },
   {
     title: "Innovation",
-    description:
-      "We use fresh thinking and smart tools to craft bold, modern travel solutions.",
+    description: "We use fresh thinking and smart tools to craft bold, modern travel solutions.",
     icon: <Sparkle />,
   },
   {
@@ -37,8 +25,7 @@ const values = [
   },
   {
     title: "Sustainability",
-    description:
-      "We travel responsibly — respecting communities, culture, and the environment.",
+    description: "We travel responsibly — respecting communities, culture, and the environment.",
     icon: <TreePine />,
   },
   {
@@ -48,14 +35,12 @@ const values = [
   },
   {
     title: "Women's Inclusiveness",
-    description:
-      "We champion equal opportunities, leadership, and voices at every level.",
+    description: "We champion equal opportunities, leadership, and voices at every level.",
     icon: <Heart />,
   },
   {
     title: "Impact",
-    description:
-      "We design experiences that leave lasting impressions — not just itineraries.",
+    description: "We design experiences that leave lasting impressions — not just itineraries.",
     icon: <Users />,
   },
 ];
@@ -64,9 +49,7 @@ export default function ValuesCard() {
   return (
     <AnimatedSection>
       <section className="px-4 py-16 bg-brand-light">
-        <h2 className="mb-12 text-3xl font-bold text-center text-citius-blue">
-          Our Values
-        </h2>
+        <h2 className="mb-12 text-3xl font-bold text-center text-citius-blue">Our Values</h2>
         <div className="grid grid-cols-1 gap-8 mx-auto max-w-6xl sm:grid-cols-2 lg:grid-cols-4">
           {values.map((value) => (
             <div
@@ -78,12 +61,8 @@ export default function ValuesCard() {
                 <div className="inline-flex justify-center items-center mb-4 w-10 h-10 text-brand-light rounded-full bg-citius-blue">
                   {value.icon}
                 </div>
-                <h3 className="mb-2 text-xl font-semibold text-brand-dark">
-                  {value.title}
-                </h3>
-                <p className="text-sm leading-relaxed text-brand-muted">
-                  {value.description}
-                </p>
+                <h3 className="mb-2 text-xl font-semibold text-brand-dark">{value.title}</h3>
+                <p className="text-sm leading-relaxed text-brand-muted">{value.description}</p>
               </div>
             </div>
           ))}

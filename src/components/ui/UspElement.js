@@ -1,7 +1,7 @@
 "use client";
 
-import { motion } from "motion/react";
 import { CheckCircle2 } from "lucide-react";
+import { motion } from "motion/react";
 
 export default function UspElement({ title }) {
   return (

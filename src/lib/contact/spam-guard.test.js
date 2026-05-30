@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
   detectSpamContent,
   isHoneypotTripped,
-  validateFormTiming,
   MIN_FORM_SECONDS,
+  validateFormTiming,
 } from "./spam-guard.js";
 
 describe("isHoneypotTripped", () => {

@@ -21,9 +21,7 @@ export function portalFileResponse(file, options = {}) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
-  const body = file.bytes
-    ? Buffer.from(file.bytes)
-    : Buffer.from(file.base64, "base64");
+  const body = file.bytes ? Buffer.from(file.bytes) : Buffer.from(file.base64, "base64");
   const mimeType = file.mimeType || DEFAULT_MIME_TYPE;
 
   return new NextResponse(body, {

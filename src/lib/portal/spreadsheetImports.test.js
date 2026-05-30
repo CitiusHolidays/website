@@ -4,6 +4,9 @@ import {
   normalizeFoodPreference,
   parseFlightWorkbook,
   parsePassengerWorkbook,
+  parsePassportWorkbook,
+  parseRoomingWorkbook,
+  parseVisaWorkbook,
 } from "./spreadsheetImports";
 
 function workbookFromSheets(sheets) {
@@ -116,7 +119,13 @@ describe("passenger spreadsheet imports", () => {
   });
 
   test("deduplicates repeated passenger rows within one workbook", () => {
-    const header = ["WILLING TO GO ", "Name As per Govt. ID Proof", "Date of Birth", "Passport no ", "Meal Preference"];
+    const header = [
+      "WILLING TO GO ",
+      "Name As per Govt. ID Proof",
+      "Date of Birth",
+      "Passport no ",
+      "Meal Preference",
+    ];
     const duplicate = ["CONFIRMED", "PRADIP SEN", "1967-06-12", "Z4619953", "VEG"];
     const workbook = workbookFromSheets({
       Sheet5: [header, duplicate],
@@ -140,17 +149,242 @@ describe("passenger spreadsheet imports", () => {
   });
 });
 
+describe("master-list sheet imports", () => {
+  test("parses rooming rows from the rooming sheet", () => {
+    const workbook = workbookFromSheets({
+      Rooming: [
+        [
+          "Sl.no.",
+          "Dealer Name",
+          "Gender",
+          "SURNAME",
+          "GIVEN NAME",
+          "ROOMING Category",
+          "REMARKS",
+          "Passport Number",
+          "Passport Issue date",
+          "Passport expiry date",
+          "Date of Birth As per passport",
+          "Place of Issue",
+          "Contact Number",
+          "Email id",
+          "Meal",
+          "Hub",
+        ],
+        [
+          1,
+          "AGGARWAL APPLIANCES",
+          "MALE",
+          "GARG",
+          "SANJAY",
+          "TWIN",
+          "ADJACENT ROOMS",
+          "Z4619953",
+          "2018-03-23",
+          "2028-03-22",
+          "1967-06-12",
+          "",
+          "9836184644",
+          "",
+          "NON VEG",
+          "KOLKATA",
+        ],
+      ],
+    });
+
+    const result = parseRoomingWorkbook(workbook);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({
+      importKind: "rooming",
+      fullName: "GARG SANJAY",
+      roomType: "Twin",
+      hotelAllocation: "Twin",
+      specialRequests: "ADJACENT ROOMS",
+      foodPreference: "Non-Veg",
+      travelHub: "KOLKATA",
+    });
+  });
+
+  test("parses passport rows from the passport sheet", () => {
+    const workbook = workbookFromSheets({
+      Passport: [
+        [
+          "Sl.no.",
+          "Dealer Name",
+          "Gender",
+          "SURNAME",
+          "GIVEN NAME",
+          "Passport Number",
+          "Passport Issue date",
+          "Passport expiry date",
+          "PP Valid for Travel Yes /No",
+          "Date of Birth As per passport",
+          "Place of Issue",
+          "REMARKS:  Expiry PP / Under Renewal",
+          "Contact Number",
+        ],
+        [
+          1,
+          "AGGARWAL APPLIANCES",
+          "MALE",
+          "GARG",
+          "SANJAY",
+          "Z4619953",
+          "2018-03-23",
+          "2028-03-22",
+          "Yes",
+          "1967-06-12",
+          "Mumbai",
+          "",
+          "9836184644",
+        ],
+      ],
+    });
+
+    const result = parsePassportWorkbook(workbook);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({
+      importKind: "passport",
+      fullName: "GARG SANJAY",
+      passportStatus: "Received",
+    });
+    expect(result.rows[0].passport).toMatchObject({
+      number: "Z4619953",
+      issueDate: "2018-03-23",
+      expiryDate: "2028-03-22",
+      dateOfBirth: "1967-06-12",
+    });
+  });
+
+  test("parses visa rows from the visa sheet", () => {
+    const workbook = workbookFromSheets({
+      Visa: [
+        [
+          "Sl.no.",
+          "Dealer Name",
+          "Gender",
+          "SURNAME",
+          "GIVEN NAME",
+          "Passport Number",
+          "Passport Issue date",
+          "Passport expiry date",
+          "PP Valid for Travel Yes /No",
+          "Date of Birth As per passport",
+          "Place of Issue",
+          "REMARKS:  Expiry PP / Under Renewal",
+          "Contact Number",
+          "Biometric Required",
+          "Date of Appointmemt ",
+          "VFS Center ",
+          "Status Of Visa ",
+          "Company paid/ Self Paid",
+          "Amount",
+          "Remarks ",
+        ],
+        [
+          1,
+          "AGGARWAL APPLIANCES",
+          "MALE",
+          "GARG",
+          "SANJAY",
+          "Z4619953",
+          "2018-03-23",
+          "2028-03-22",
+          "Yes",
+          "1967-06-12",
+          "Mumbai",
+          "",
+          "9836184644",
+          "Yes",
+          "2026-06-18",
+          "Delhi",
+          "Approved",
+          "Self Paid",
+          1000,
+          "Stamped",
+        ],
+      ],
+    });
+
+    const result = parseVisaWorkbook(workbook);
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({
+      importKind: "visa",
+      fullName: "GARG SANJAY",
+      visaStatus: "Approved",
+      paymentType: "Self Paid",
+      biometricAppointmentDate: "2026-06-18",
+      visaNotes: "Stamped",
+    });
+  });
+});
+
 describe("flight spreadsheet imports", () => {
   test("parses repeated flight blocks into itinerary groups", () => {
     const workbook = workbookFromSheets({
       BOM: [
         [],
-        ["", "Date", "Airline", "Flight No", "Depart", "from", "Arrive", "at", "Duration", "Transit"],
-        ["", "Thu 1 Oct", "Kenya Airlines", 203, "02:40:00", "Mumbai", "06:25:00", "Nairobi", "6h 15m", "-"],
-        ["", "Sun 4 Oct", "Kenya Airlines", 202, "16:45:00", "Nairobi", "01:40:00", "Mumbai", "6h 25m", "-"],
+        [
+          "",
+          "Date",
+          "Airline",
+          "Flight No",
+          "Depart",
+          "from",
+          "Arrive",
+          "at",
+          "Duration",
+          "Transit",
+        ],
+        [
+          "",
+          "Thu 1 Oct",
+          "Kenya Airlines",
+          203,
+          "02:40:00",
+          "Mumbai",
+          "06:25:00",
+          "Nairobi",
+          "6h 15m",
+          "-",
+        ],
+        [
+          "",
+          "Sun 4 Oct",
+          "Kenya Airlines",
+          202,
+          "16:45:00",
+          "Nairobi",
+          "01:40:00",
+          "Mumbai",
+          "6h 25m",
+          "-",
+        ],
         [],
-        ["", "Date", "Airline", "Flight No", "Depart", "from", "Arrive", "at", "Duration", "Transit"],
-        ["", "Thu 1 Oct", "Kenya Airlines", 205, "06:45:00", "Mumbai", "10:30:00", "Nairobi", "6h 15m", "-"],
+        [
+          "",
+          "Date",
+          "Airline",
+          "Flight No",
+          "Depart",
+          "from",
+          "Arrive",
+          "at",
+          "Duration",
+          "Transit",
+        ],
+        [
+          "",
+          "Thu 1 Oct",
+          "Kenya Airlines",
+          205,
+          "06:45:00",
+          "Mumbai",
+          "10:30:00",
+          "Nairobi",
+          "6h 15m",
+          "-",
+        ],
       ],
     });
 
@@ -170,8 +404,30 @@ describe("flight spreadsheet imports", () => {
   test("reports flight rows missing flight numbers", () => {
     const workbook = workbookFromSheets({
       DEL: [
-        ["", "Date", "Airline", "Flight No", "Depart", "from", "Arrive", "at", "Duration", "Transit"],
-        ["", "Thu 1 Oct", "Ethiopian Airlines", "", "02:30:00", "Delhi", "06:30:00", "Addis Ababa", "6h 30m", "4h 15m"],
+        [
+          "",
+          "Date",
+          "Airline",
+          "Flight No",
+          "Depart",
+          "from",
+          "Arrive",
+          "at",
+          "Duration",
+          "Transit",
+        ],
+        [
+          "",
+          "Thu 1 Oct",
+          "Ethiopian Airlines",
+          "",
+          "02:30:00",
+          "Delhi",
+          "06:30:00",
+          "Addis Ababa",
+          "6h 30m",
+          "4h 15m",
+        ],
       ],
     });
     const result = parseFlightWorkbook(workbook);

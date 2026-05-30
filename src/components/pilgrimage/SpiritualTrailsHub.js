@@ -1,8 +1,8 @@
 "use client";
 
+import { ArrowRight, Compass } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import { ArrowRight, Compass } from "lucide-react";
 import { cn } from "../../utils/cn";
 
 export default function SpiritualTrailsHub({ groups }) {
@@ -22,8 +22,8 @@ export default function SpiritualTrailsHub({ groups }) {
             Sacred <span className="text-citius-blue italic">journeys</span>
           </h2>
           <p className="font-sans text-base md:text-lg text-brand-muted max-w-2xl mx-auto leading-relaxed">
-            Choose a path below for full itineraries, galleries, departure windows, and booking options.
-            Flagship 2026 programmes are open; specialised routes are opening soon.
+            Choose a path below for full itineraries, galleries, departure windows, and booking
+            options. Flagship 2026 programmes are open; specialised routes are opening soon.
           </p>
         </motion.div>
 
@@ -39,7 +39,7 @@ export default function SpiritualTrailsHub({ groups }) {
               <div
                 className={cn(
                   "grid gap-4 md:gap-6",
-                  group.trails.length <= 2 ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"
+                  group.trails.length <= 2 ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3",
                 )}
               >
                 {group.trails.map((trail, idx) => (
@@ -55,7 +55,7 @@ export default function SpiritualTrailsHub({ groups }) {
                       className={cn(
                         "group flex flex-col h-full rounded-2xl border p-6 md:p-7 transition-all duration-300",
                         "border-brand-light bg-linear-to-br from-white to-brand-light/30",
-                        "hover:border-citius-orange/35 hover:shadow-lg hover:-translate-y-0.5"
+                        "hover:border-citius-orange/35 hover:shadow-lg hover:-translate-y-0.5",
                       )}
                     >
                       <div className="flex flex-wrap items-center gap-2 mb-3">

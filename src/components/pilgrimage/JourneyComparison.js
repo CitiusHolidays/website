@@ -1,16 +1,8 @@
 "use client";
 
+import { ArrowRight, CheckCircle, Clock, Footprints, Mountain, Plane, Users } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
-import {
-  Clock,
-  Mountain,
-  Users,
-  CheckCircle,
-  Plane,
-  Footprints,
-  ArrowRight
-} from "lucide-react";
 import { cn } from "../../utils/cn";
 
 const comparisonData = [
@@ -20,7 +12,7 @@ const comparisonData = [
     yatra: "14 Days",
     aerial: "2N/3D",
     yatraDesc: "Complete immersion",
-    aerialDesc: "Weekend retreat"
+    aerialDesc: "Weekend retreat",
   },
   {
     icon: Mountain,
@@ -28,7 +20,7 @@ const comparisonData = [
     yatra: "5,650m (trek)",
     aerial: "32,000 ft (flight)",
     yatraDesc: "Physical challenge",
-    aerialDesc: "Comfortable altitude"
+    aerialDesc: "Comfortable altitude",
   },
   {
     icon: Footprints,
@@ -36,7 +28,7 @@ const comparisonData = [
     yatra: "High - Trekking",
     aerial: "Minimal - Road & air",
     yatraDesc: "3 days of Kora",
-    aerialDesc: "No walking required"
+    aerialDesc: "No walking required",
   },
   {
     icon: Users,
@@ -44,7 +36,7 @@ const comparisonData = [
     yatra: "Adventurers, seekers",
     aerial: "Seniors, families, busy professionals",
     yatraDesc: "Ages 15-70, fit",
-    aerialDesc: "All ages welcome"
+    aerialDesc: "All ages welcome",
   },
   {
     icon: Plane,
@@ -52,8 +44,8 @@ const comparisonData = [
     yatra: "Full Kora + Lake dip",
     aerial: "Aerial darshan + Temple",
     yatraDesc: "Complete pilgrimage",
-    aerialDesc: "Divine sight from sky"
-  }
+    aerialDesc: "Divine sight from sky",
+  },
 ];
 
 function ComparisonRow({ item, index }) {
@@ -80,9 +72,7 @@ function ComparisonRow({ item, index }) {
         <p className="font-heading text-sm md:text-base text-citius-blue font-semibold mb-1">
           {item.yatra}
         </p>
-        <p className="text-xs md:text-sm text-brand-muted">
-          {item.yatraDesc}
-        </p>
+        <p className="text-xs md:text-sm text-brand-muted">{item.yatraDesc}</p>
       </div>
 
       {/* Aerial Darshan */}
@@ -90,9 +80,7 @@ function ComparisonRow({ item, index }) {
         <p className="font-heading text-sm md:text-base text-citius-orange font-semibold mb-1">
           {item.aerial}
         </p>
-        <p className="text-xs md:text-sm text-brand-muted">
-          {item.aerialDesc}
-        </p>
+        <p className="text-xs md:text-sm text-brand-muted">{item.aerialDesc}</p>
       </div>
     </motion.div>
   );
@@ -116,8 +104,8 @@ export default function JourneyComparison({ className }) {
             Two Ways to <span className="text-citius-blue italic">Kailash</span>
           </h2>
           <p className="font-sans text-base md:text-lg text-brand-muted max-w-2xl mx-auto leading-relaxed">
-            Whether you seek the complete pilgrimage experience or divine darshan without physical exertion, 
-            both paths lead to the same blessings.
+            Whether you seek the complete pilgrimage experience or divine darshan without physical
+            exertion, both paths lead to the same blessings.
           </p>
         </motion.div>
 
@@ -134,7 +122,9 @@ export default function JourneyComparison({ className }) {
               viewport={{ once: true }}
             >
               <h3 className="font-heading text-lg mb-1">14-Day Yatra</h3>
-              <p className="text-white/80 text-xs mb-3">Complete pilgrimage with Kora — tap for full page</p>
+              <p className="text-white/80 text-xs mb-3">
+                Complete pilgrimage with Kora — tap for full page
+              </p>
               <div className="flex items-center justify-end">
                 <span className="bg-white text-citius-blue px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1">
                   Open trail <ArrowRight className="w-3 h-3" />
@@ -154,7 +144,9 @@ export default function JourneyComparison({ className }) {
               viewport={{ once: true }}
             >
               <h3 className="font-heading text-lg mb-1">2N/3D Aerial</h3>
-              <p className="text-white/80 text-xs mb-3">Divine darshan without trek — tap for full page</p>
+              <p className="text-white/80 text-xs mb-3">
+                Divine darshan without trek — tap for full page
+              </p>
               <div className="flex items-center justify-end">
                 <span className="bg-white text-citius-orange px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1">
                   Open trail <ArrowRight className="w-3 h-3" />
@@ -236,7 +228,9 @@ export default function JourneyComparison({ className }) {
               </li>
             </ul>
             <div className="mt-4 pt-4 border-t border-citius-blue/20">
-              <p className="text-citius-blue font-semibold text-sm">Contact us for current rates and availability</p>
+              <p className="text-citius-blue font-semibold text-sm">
+                Contact us for current rates and availability
+              </p>
             </div>
           </div>
 
@@ -265,7 +259,9 @@ export default function JourneyComparison({ className }) {
               </li>
             </ul>
             <div className="mt-4 pt-4 border-t border-citius-orange/20">
-              <p className="text-citius-orange font-semibold text-sm">Contact us for current rates and availability</p>
+              <p className="text-citius-orange font-semibold text-sm">
+                Contact us for current rates and availability
+              </p>
             </div>
           </div>
         </motion.div>

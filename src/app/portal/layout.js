@@ -2,7 +2,7 @@ import { anyApi } from "convex/server";
 import { unstable_noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import PortalShell from "@/components/portal/PortalShell";
-import { fetchAuthQuery, fetchAuthMutation, requireAuth } from "@/lib/auth-server";
+import { fetchAuthMutation, fetchAuthQuery, requireAuth } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 

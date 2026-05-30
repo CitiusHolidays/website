@@ -9,8 +9,7 @@ export type AuthSyncInput = {
   image?: string;
 };
 
-const getIdentityImage = (image?: string) =>
-  typeof image === "string" ? image : "";
+const getIdentityImage = (image?: string) => (typeof image === "string" ? image : "");
 
 async function findStaffByEmail(ctx: MutationCtx, emailNormalized: string) {
   return await ctx.db
@@ -28,15 +27,10 @@ async function findProfileByAuthUserId(ctx: MutationCtx, authUserId: string) {
 
 async function findProfilesByEmail(ctx: MutationCtx, emailNormalized: string) {
   const profiles = await ctx.db.query("userProfiles").collect();
-  return profiles.filter(
-    (profile) => normalizeEmail(profile.email) === emailNormalized,
-  );
+  return profiles.filter((profile) => normalizeEmail(profile.email) === emailNormalized);
 }
 
-function pickProfileName(
-  preferred: string | undefined,
-  existing: Doc<"userProfiles"> | undefined,
-) {
+function pickProfileName(preferred: string | undefined, existing: Doc<"userProfiles"> | undefined) {
   const trimmed = preferred?.trim();
   if (trimmed) {
     return trimmed;
@@ -70,12 +64,8 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
   }
 
   const profileByAuth = await findProfileByAuthUserId(ctx, authUserId);
-  const matchingProfiles = emailNormalized
-    ? await findProfilesByEmail(ctx, emailNormalized)
-    : [];
-  const orphanedProfile = matchingProfiles.find(
-    (profile) => profile.authUserId !== authUserId,
-  );
+  const matchingProfiles = emailNormalized ? await findProfilesByEmail(ctx, emailNormalized) : [];
+  const orphanedProfile = matchingProfiles.find((profile) => profile.authUserId !== authUserId);
 
   if (profileByAuth) {
     const patch: Partial<Doc<"userProfiles">> = { updatedAt: now };

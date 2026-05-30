@@ -71,9 +71,7 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
                 <div className="space-y-4">
                   <div className="pl-4">
                     <Row>
-                      <Column
-                        style={{ width: "56px", verticalAlign: "middle" }}
-                      >
+                      <Column style={{ width: "56px", verticalAlign: "middle" }}>
                         <div className="w-10 h-10 bg-citius-orange/10 rounded-lg text-center">
                           <Text className="text-lg m-0 leading-10">👤</Text>
                         </div>
@@ -97,9 +95,7 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
 
                   <div className="pl-4">
                     <Row>
-                      <Column
-                        style={{ width: "56px", verticalAlign: "middle" }}
-                      >
+                      <Column style={{ width: "56px", verticalAlign: "middle" }}>
                         <div className="w-10 h-10 bg-citius-orange/10 rounded-lg text-center">
                           <Text className="text-lg m-0 leading-10">📧</Text>
                         </div>
@@ -126,9 +122,7 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
                   {phone && (
                     <div className="pl-4">
                       <Row>
-                        <Column
-                          style={{ width: "56px", verticalAlign: "middle" }}
-                        >
+                        <Column style={{ width: "56px", verticalAlign: "middle" }}>
                           <div className="w-10 h-10 bg-citius-orange/10 rounded-lg text-center">
                             <Text className="text-lg m-0 leading-10">📞</Text>
                           </div>
@@ -155,9 +149,7 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
 
                   <div className="pl-4">
                     <Row>
-                      <Column
-                        style={{ width: "56px", verticalAlign: "middle" }}
-                      >
+                      <Column style={{ width: "56px", verticalAlign: "middle" }}>
                         <div className="w-10 h-10 bg-citius-orange/10 rounded-lg text-center">
                           <Text className="text-lg m-0 leading-10">📋</Text>
                         </div>
@@ -234,8 +226,7 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
               </Text>
               <div>
                 <Text className="text-brand-light/50 pb-5 text-xs m-0">
-                  This email was automatically generated from your website&apos;s
-                  contact form.
+                  This email was automatically generated from your website&apos;s contact form.
                 </Text>
               </div>
             </Section>

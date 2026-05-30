@@ -1,8 +1,8 @@
 "use node";
 
 import { ConvexError, v } from "convex/values";
-import { action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
+import { action } from "../_generated/server";
 import { PERMISSIONS } from "./lib";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
@@ -35,8 +35,7 @@ function canManageProposalFiles(access: any) {
 function canSendProposalFiles(access: any) {
   return (
     access?.allowed &&
-    (canManageProposalFiles(access) ||
-      access.permissions.includes(PERMISSIONS.SEND_PROPOSALS))
+    (canManageProposalFiles(access) || access.permissions.includes(PERMISSIONS.SEND_PROPOSALS))
   );
 }
 
@@ -44,11 +43,14 @@ function isPdfMimeType(mimeType: string) {
   return mimeType.trim().toLowerCase().startsWith("application/pdf");
 }
 
-async function buildDownloadFile(ctx: any, record: {
-  storageId: string;
-  fileName: string;
-  mimeType?: string;
-}) {
+async function buildDownloadFile(
+  ctx: any,
+  record: {
+    storageId: string;
+    fileName: string;
+    mimeType?: string;
+  },
+) {
   const blob = await ctx.storage.get(record.storageId);
   if (!blob) {
     throw new ConvexError("File is no longer available");
@@ -210,10 +212,9 @@ export const removeAttachment = action({
       throw new ConvexError("FORBIDDEN");
     }
 
-    const record = await ctx.runQuery(
-      api.crm.proposalAttachments.getAttachmentRecord,
-      { attachmentId: args.attachmentId },
-    );
+    const record = await ctx.runQuery(api.crm.proposalAttachments.getAttachmentRecord, {
+      attachmentId: args.attachmentId,
+    });
     if (!record) {
       throw new ConvexError("Attachment not found");
     }
@@ -294,15 +295,12 @@ export const attachFinalizedPdf = action({
       throw new ConvexError("Uploaded file not found in storage");
     }
 
-    const { previousStorageId } = await ctx.runMutation(
-      internal.crm.proposals.saveFinalizedPdf,
-      {
-        proposalId: normalizedProposalId,
-        storageId: args.storageId,
-        fileName: args.fileName.trim() || "proposal.pdf",
-        uploadedBy: access.authUserId || "unknown",
-      },
-    );
+    const { previousStorageId } = await ctx.runMutation(internal.crm.proposals.saveFinalizedPdf, {
+      proposalId: normalizedProposalId,
+      storageId: args.storageId,
+      fileName: args.fileName.trim() || "proposal.pdf",
+      uploadedBy: access.authUserId || "unknown",
+    });
 
     if (previousStorageId) {
       try {
@@ -401,10 +399,9 @@ export const removeFinalizedPdf = action({
       { proposalId: args.proposalId },
     );
 
-    const { previousStorageId } = await ctx.runMutation(
-      internal.crm.proposals.clearFinalizedPdf,
-      { proposalId: normalizedProposalId },
-    );
+    const { previousStorageId } = await ctx.runMutation(internal.crm.proposals.clearFinalizedPdf, {
+      proposalId: normalizedProposalId,
+    });
 
     if (previousStorageId) {
       try {

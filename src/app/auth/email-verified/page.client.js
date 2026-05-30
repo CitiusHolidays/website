@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { motion } from 'motion/react';
-import { ArrowRight, Mail, ShieldCheck } from 'lucide-react';
-import AuthShell, { BRAND_NAME } from '@/components/auth/AuthShell';
+import { ArrowRight, Mail, ShieldCheck } from "lucide-react";
+import { motion } from "motion/react";
+import Link from "next/link";
+import AuthShell, { BRAND_NAME } from "@/components/auth/AuthShell";
 
 export default function EmailVerifiedPageClient() {
   return (
@@ -15,20 +15,22 @@ export default function EmailVerifiedPageClient() {
         <motion.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 120, damping: 16 }}
+          transition={{ type: "spring", stiffness: 120, damping: 16 }}
           className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm"
         >
           <div className="border-b border-emerald-100 bg-emerald-50/80 px-6 py-5 text-center">
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-500/25">
               <ShieldCheck className="h-7 w-7" strokeWidth={2.25} />
             </div>
-            <h3 className="font-heading text-2xl font-medium text-emerald-900">You&apos;re verified</h3>
+            <h3 className="font-heading text-2xl font-medium text-emerald-900">
+              You&apos;re verified
+            </h3>
           </div>
 
           <div className="space-y-4 px-6 py-5">
             <p className="text-sm leading-relaxed text-[#0B1026]/70">
-              Your email address is confirmed for {BRAND_NAME}. We&apos;ve sent a separate email with a link to set
-              your password.
+              Your email address is confirmed for {BRAND_NAME}. We&apos;ve sent a separate email
+              with a link to set your password.
             </p>
 
             <div className="flex items-start gap-3 rounded-xl border border-[#e2e8f0] bg-[#FDFBF7] p-4">
@@ -38,8 +40,8 @@ export default function EmailVerifiedPageClient() {
               <div>
                 <p className="text-sm font-medium text-[#0B1026]">Check your inbox</p>
                 <p className="mt-1 text-sm font-light leading-relaxed text-[#64748b]">
-                  Open the password setup email from {BRAND_NAME}, then sign in to Citius Connect once your
-                  password is set.
+                  Open the password setup email from {BRAND_NAME}, then sign in to Citius Connect
+                  once your password is set.
                 </p>
               </div>
             </div>

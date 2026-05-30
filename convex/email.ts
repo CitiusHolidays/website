@@ -1,8 +1,8 @@
 "use node";
 
 import { v } from "convex/values";
-import { action } from "./_generated/server";
 import { Resend } from "resend";
+import { action } from "./_generated/server";
 import { AUTH_EMAIL_FROM } from "./lib/emailConfig";
 
 export const sendEmail = action({

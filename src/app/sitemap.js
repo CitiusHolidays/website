@@ -1,7 +1,7 @@
-import { client } from "@/sanity/client";
-import { sanityFetchOptions } from "@/sanity/fetchOptions";
 import { groq } from "next-sanity";
 import { getTrailSlugsForStaticParams } from "@/data/trails";
+import { client } from "@/sanity/client";
+import { sanityFetchOptions } from "@/sanity/fetchOptions";
 
 export default async function sitemap() {
   const baseUrl = "https://www.citiusholidays.com";

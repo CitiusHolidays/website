@@ -1,12 +1,9 @@
 import { redirect } from "next/navigation";
+import AuthLoginPageClient from "@/components/auth/AuthLoginPageClient";
 import { getServerUser } from "@/lib/auth-server";
 import { getAuthVariant, getAuthVariantFromCallbackUrl } from "@/lib/auth-sign-in-targets";
-import AuthLoginPageClient from "@/components/auth/AuthLoginPageClient";
 
-export async function createAuthLoginPage({
-  variantId,
-  searchParams,
-}) {
+export async function createAuthLoginPage({ variantId, searchParams }) {
   const params = await searchParams;
   const variant = getAuthVariant(variantId);
   const user = await getServerUser().catch(() => null);
@@ -18,13 +15,7 @@ export async function createAuthLoginPage({
   const error = params?.error;
   const mode = params?.mode || "signin";
 
-  return (
-    <AuthLoginPageClient
-      variantId={variantId}
-      initialMode={mode}
-      error={error}
-    />
-  );
+  return <AuthLoginPageClient variantId={variantId} initialMode={mode} error={error} />;
 }
 
 export async function createLegacyAuthRedirect({ searchParams }) {

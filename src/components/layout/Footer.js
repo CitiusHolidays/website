@@ -75,8 +75,7 @@ const offices = [
   },
   {
     city: "Kolkata",
-    address:
-      "207, The Chambers, 1865 Rajdanga\nMain Road Kolkata, West\nBengal 700107",
+    address: "207, The Chambers, 1865 Rajdanga\nMain Road Kolkata, West\nBengal 700107",
     phone: "+91 98310 82929",
   },
 ];
@@ -98,25 +97,14 @@ export default function Footer() {
     <footer className="bg-brand-dark bg-[url('/gallery/bgfooter.webp')] bg-cover bg-center text-brand-light">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-12">
         <div>
-          <Image
-            src={Logo}
-            alt="Citius Logo"
-            width={140}
-            height={48}
-            className="mb-2"
-          />
+          <Image src={Logo} alt="Citius Logo" width={140} height={48} className="mb-2" />
           <p className="text-sm text-citius-orange">We Inspire to Travel</p>
           <div className="flex flex-col mx-auto mt-4">
             <div className="px-8">
               <Image src={IATA} alt="IATA Logo" width={60} height={60} />
             </div>
             <div className="px-3">
-              <Image
-                src={IncredibleIndia}
-                alt="Incredible India Logo"
-                width={100}
-                height={100}
-              />
+              <Image src={IncredibleIndia} alt="Incredible India Logo" width={100} height={100} />
             </div>
           </div>
         </div>
@@ -127,9 +115,7 @@ export default function Footer() {
             {offices.map((office) => (
               <li key={office.city}>
                 <p className="font-medium text-brand-light">{office.city}</p>
-                <p className="text-brand-muted whitespace-pre-line">
-                  {office.address}
-                </p>
+                <p className="text-brand-muted whitespace-pre-line">{office.address}</p>
                 <p className="text-brand-muted">{office.phone}</p>
               </li>
             ))}
@@ -199,16 +185,16 @@ export default function Footer() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center text-sm text-brand-muted">
           <p>© {new Date().getFullYear()} Citius. All Rights Reserved.</p>
           <div className="flex gap-4 sm:gap-6 mt-2 sm:mt-0">
-            <Link 
-              href="/policies" 
-              target="_blank" 
+            <Link
+              href="/policies"
+              target="_blank"
               className="hover:text-citius-orange transition-colors"
             >
               Terms & Conditions
             </Link>
-            <Link 
-              href="/policies" 
-              target="_blank" 
+            <Link
+              href="/policies"
+              target="_blank"
               className="hover:text-citius-orange transition-colors"
             >
               Billing Policy

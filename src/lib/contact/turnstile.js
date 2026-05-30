@@ -10,9 +10,7 @@ export async function verifyTurnstileToken(token, remoteip) {
 
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
-      console.warn(
-        "[contact] TURNSTILE_SECRET_KEY is not set; CAPTCHA verification skipped."
-      );
+      console.warn("[contact] TURNSTILE_SECRET_KEY is not set; CAPTCHA verification skipped.");
     }
     return { ok: true };
   }
@@ -30,14 +28,11 @@ export async function verifyTurnstileToken(token, remoteip) {
       body.set("remoteip", remoteip);
     }
 
-    const response = await fetch(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-      }
-    );
+    const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body,
+    });
 
     const result = await response.json();
 
@@ -57,8 +52,5 @@ export async function verifyTurnstileToken(token, remoteip) {
 }
 
 export function isTurnstileConfigured() {
-  return Boolean(
-    process.env.TURNSTILE_SECRET_KEY &&
-      process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
-  );
+  return Boolean(process.env.TURNSTILE_SECRET_KEY && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 }

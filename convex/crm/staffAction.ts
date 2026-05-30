@@ -1,20 +1,15 @@
 "use node";
 
-import { v } from "convex/values";
-import { internalAction, action, type ActionCtx } from "../_generated/server";
-import { api, components, internal } from "../_generated/api";
-import { ConvexError } from "convex/values";
-import { authComponent, createAuth } from "../betterAuth/auth";
+import { ConvexError, v } from "convex/values";
 import crypto from "crypto";
+import { api, components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { type ActionCtx, action, internalAction } from "../_generated/server";
+import { authComponent, createAuth } from "../betterAuth/auth";
 import { normalizeEmail } from "./lib";
 
 function getSiteUrl() {
-  return (
-    process.env.SITE_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000"
-  );
+  return process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 }
 
 function isExistingUserError(err: unknown) {
@@ -25,17 +20,10 @@ function isExistingUserError(err: unknown) {
         ? String((err as { message?: string }).message)
         : String(err);
   const lower = message.toLowerCase();
-  return (
-    lower.includes("already") ||
-    lower.includes("exists") ||
-    lower.includes("duplicate")
-  );
+  return lower.includes("already") || lower.includes("exists") || lower.includes("duplicate");
 }
 
-async function sendVerificationEmail(
-  auth: ReturnType<typeof createAuth>,
-  email: string,
-) {
+async function sendVerificationEmail(auth: ReturnType<typeof createAuth>, email: string) {
   const siteUrl = getSiteUrl();
   const callbackURL = `${siteUrl}/auth/email-verified`;
   const api = auth.api as {
@@ -66,11 +54,7 @@ async function findAuthUserByEmail(ctx: ActionCtx, email: string) {
   return null;
 }
 
-async function resolveCanonicalAuthUserId(
-  ctx: ActionCtx,
-  email: string,
-  fallbackId?: string,
-) {
+async function resolveCanonicalAuthUserId(ctx: ActionCtx, email: string, fallbackId?: string) {
   const authUser = await findAuthUserByEmail(ctx, email);
   if (authUser?._id) {
     return String(authUser._id);
@@ -100,10 +84,7 @@ async function ensureStaffAuthLink(
   return canonicalAuthUserId;
 }
 
-async function sendPasswordSetupEmail(
-  auth: ReturnType<typeof createAuth>,
-  email: string,
-) {
+async function sendPasswordSetupEmail(auth: ReturnType<typeof createAuth>, email: string) {
   const siteUrl = getSiteUrl();
   const resetResult = await auth.api.requestPasswordReset({
     body: {
@@ -141,11 +122,7 @@ async function provisionStaffCore(
       return { ok: false, step: "error", message: "Failed to create auth user" };
     }
 
-    const authUserId = await resolveCanonicalAuthUserId(
-      ctx,
-      args.email,
-      result.user.id,
-    );
+    const authUserId = await resolveCanonicalAuthUserId(ctx, args.email, result.user.id);
     if (!authUserId) {
       return { ok: false, step: "error", message: "Failed to resolve auth user" };
     }
@@ -219,13 +196,7 @@ export const sendPasswordSetupAfterVerification = internalAction({
       return { sent: false, reason: "staff_not_pending" as const };
     }
 
-    await ensureStaffAuthLink(
-      ctx,
-      staff.staffId,
-      staff.email,
-      staff.name,
-      staff.authUserId,
-    );
+    await ensureStaffAuthLink(ctx, staff.staffId, staff.email, staff.name, staff.authUserId);
 
     const auth = createAuth(ctx);
     const sent = await sendPasswordSetupEmail(auth, args.email);

@@ -1,8 +1,6 @@
-import { NextResponse } from "next/server";
 import { render } from "@react-email/render";
+import { NextResponse } from "next/server";
 import ContactFormEmail from "@/emails/ContactFormEmail";
-import { sendEmail } from "@/lib/email/send";
-import { CONTACT_EMAIL_FROM, CONTACT_EMAIL_TO } from "@/lib/email/config";
 import { checkContactRateLimit } from "@/lib/contact/rate-limit";
 import {
   detectSpamContent,
@@ -12,11 +10,13 @@ import {
   validateFormTiming,
 } from "@/lib/contact/spam-guard";
 import { isTurnstileConfigured, verifyTurnstileToken } from "@/lib/contact/turnstile";
+import { CONTACT_EMAIL_FROM, CONTACT_EMAIL_TO } from "@/lib/email/config";
+import { sendEmail } from "@/lib/email/send";
 
 function rejectSpam() {
   return NextResponse.json(
     { error: "Unable to send your message. Please try again later." },
-    { status: 400 }
+    { status: 400 },
   );
 }
 
@@ -33,21 +33,12 @@ export async function POST(request) {
       {
         status: 429,
         headers: { "Retry-After": String(rateLimit.retryAfterSec) },
-      }
+      },
     );
   }
 
   const body = await request.json();
-  const {
-    name,
-    email,
-    phone,
-    subject,
-    message,
-    company,
-    formLoadedAt,
-    turnstileToken,
-  } = body;
+  const { name, email, phone, subject, message, company, formLoadedAt, turnstileToken } = body;
 
   if (isHoneypotTripped(company)) {
     return rejectSpam();
@@ -63,16 +54,13 @@ export async function POST(request) {
     if (!captcha.ok) {
       return NextResponse.json(
         { error: "Security verification failed. Please refresh and try again." },
-        { status: 400 }
+        { status: 400 },
       );
     }
   }
 
   if (!process.env.RESEND_API_KEY) {
-    return NextResponse.json(
-      { error: "Email service not configured." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Email service not configured." }, { status: 500 });
   }
 
   const trimmedName = (name || "").toString().trim();
@@ -84,34 +72,27 @@ export async function POST(request) {
   if (!trimmedName || !trimmedEmail || !trimmedMessage) {
     return NextResponse.json(
       { error: "Please provide name, email, and message." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(trimmedEmail)) {
-    return NextResponse.json(
-      { error: "Please provide a valid email address." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Please provide a valid email address." }, { status: 400 });
   }
 
   if (trimmedPhone) {
-    const phoneRegex =
-      /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
+    const phoneRegex = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
     if (!phoneRegex.test(trimmedPhone)) {
       return NextResponse.json(
         { error: "Please provide a valid phone number (e.g., +1 555-123-4567)." },
-        { status: 400 }
+        { status: 400 },
       );
     }
   }
 
   if (trimmedMessage.length > 5000) {
-    return NextResponse.json(
-      { error: "Message is too long." },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Message is too long." }, { status: 400 });
   }
 
   const spamCheck = detectSpamContent({
@@ -132,7 +113,7 @@ export async function POST(request) {
       phone={trimmedPhone}
       subject={trimmedSubject || "Contact Form Message"}
       message={trimmedMessage}
-    />
+    />,
   );
 
   try {
@@ -143,15 +124,9 @@ export async function POST(request) {
       html: emailHtml,
       replyTo: trimmedEmail,
     });
-    return NextResponse.json(
-      { message: "Email sent successfully!" },
-      { status: 200 }
-    );
+    return NextResponse.json({ message: "Email sent successfully!" }, { status: 200 });
   } catch (err) {
     console.error(err);
-    return NextResponse.json(
-      { error: "Failed to send email. Please try again." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to send email. Please try again." }, { status: 500 });
   }
 }

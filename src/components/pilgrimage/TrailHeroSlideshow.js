@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { motion, AnimatePresence } from "motion/react";
 import { ArrowLeft } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 const FALLBACK_HERO = {
   src: "/gallery/spiritual/mansarovar-lake.webp",
-  alt: "Lake Mansarovar"
+  alt: "Lake Mansarovar",
 };
 
 function buildSlides(trail) {
@@ -120,7 +120,9 @@ export default function TrailHeroSlideshow({ trail }) {
               {trail.subtitle}
             </p>
             {trail.positioning && (
-              <p className="mt-4 text-sm md:text-base text-white/80 max-w-2xl line-clamp-3">{trail.positioning}</p>
+              <p className="mt-4 text-sm md:text-base text-white/80 max-w-2xl line-clamp-3">
+                {trail.positioning}
+              </p>
             )}
           </motion.div>
 

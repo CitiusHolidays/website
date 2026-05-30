@@ -1,34 +1,34 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 
 const images = [
   {
     src: "/gallery/spiritual/yoga-silhouette.webp",
     alt: "Inner Peace",
     title: "Seek Stillness",
-    subtitle: "A journey of silent transformation"
+    subtitle: "A journey of silent transformation",
   },
   {
     src: "/gallery/spiritual/varanasi-sunset.webp",
     alt: "Varanasi Sunset",
     title: "Divine Connection",
-    subtitle: "Where the soul meets the sacred"
+    subtitle: "Where the soul meets the sacred",
   },
   {
     src: "/gallery/spiritual/scriptures.webp",
     alt: "Ancient Wisdom",
     title: "Timeless Wisdom",
-    subtitle: "Echoes of the eternal"
+    subtitle: "Echoes of the eternal",
   },
   {
     src: "/gallery/spiritual/damru-hand.webp",
     alt: "Shiva's Drum",
     title: "Cosmic Rhythm",
-    subtitle: "The dance of creation and dissolution"
-  }
+    subtitle: "The dance of creation and dissolution",
+  },
 ];
 
 export default function SpiritualHero() {

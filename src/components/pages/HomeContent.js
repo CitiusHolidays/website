@@ -1,19 +1,9 @@
 "use client";
 
+import { ArrowRight, Briefcase, Globe, MapPinned, Trophy } from "lucide-react";
 import { motion, useScroll, useTransform } from "motion/react";
-import { Briefcase, Globe, MapPinned, Trophy, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { useRef } from "react";
-import AnimatedSection from "../layout/AnimatedSection";
-import AnimatedCounter from "../ui/AnimatedCounter";
-import AwardsShowcase from "../ui/AwardsShowcase";
-import ClientShowcase from "../ui/ClientShowcase";
-import PartnerShowcase from "../ui/PartnerShowcase";
-import SectionHeading from "../ui/SectionHeading";
-import ServiceCard from "../ui/ServiceCard";
-import TrendingDestinations from "../ui/TrendingDestinations";
-import UspElement from "../ui/UspElement";
-
 import Bali from "@/static/places/bali.webp";
 import Colombo from "@/static/places/colombo.webp";
 import Dubai from "@/static/places/dubai.webp";
@@ -24,19 +14,26 @@ import Kochi from "@/static/places/kochi.webp";
 import Kolkata from "@/static/places/kolkata.webp";
 import Langkawi from "@/static/places/langkawi.webp";
 import Puri from "@/static/places/puri.webp";
+import AnimatedSection from "../layout/AnimatedSection";
+import AnimatedCounter from "../ui/AnimatedCounter";
+import AwardsShowcase from "../ui/AwardsShowcase";
+import ClientShowcase from "../ui/ClientShowcase";
+import PartnerShowcase from "../ui/PartnerShowcase";
+import SectionHeading from "../ui/SectionHeading";
+import ServiceCard from "../ui/ServiceCard";
+import TrendingDestinations from "../ui/TrendingDestinations";
+import UspElement from "../ui/UspElement";
 
 const services = [
   {
     title: "MICE Excellence",
     icon: Briefcase,
-    description:
-      "End-to-end management for Meetings, Incentives, Conferences & Exhibitions.",
+    description: "End-to-end management for Meetings, Incentives, Conferences & Exhibitions.",
   },
   {
     title: "Global Voyages",
     icon: Globe,
-    description:
-      "Curated global itineraries for corporate & leisure travelers.",
+    description: "Curated global itineraries for corporate & leisure travelers.",
   },
   {
     title: "Domestic Gems",
@@ -46,8 +43,7 @@ const services = [
   {
     title: "Elite Sports",
     icon: Trophy,
-    description:
-      "Access to the world's premier sporting spectacles with VIP hospitality.",
+    description: "Access to the world's premier sporting spectacles with VIP hospitality.",
   },
 ];
 
@@ -168,16 +164,10 @@ export default function HomeContent() {
   const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   return (
-    <div
-      ref={containerRef}
-      className="relative w-full overflow-hidden bg-brand-light"
-    >
+    <div ref={containerRef} className="relative w-full overflow-hidden bg-brand-light">
       {/* HERO SECTION */}
       <section className="relative h-screen min-h-[700px] flex items-center justify-center text-center overflow-hidden">
-        <motion.div
-          style={{ y, opacity }}
-          className="absolute inset-0 w-full h-full"
-        >
+        <motion.div style={{ y, opacity }} className="absolute inset-0 w-full h-full">
           <video
             autoPlay
             muted
@@ -187,16 +177,8 @@ export default function HomeContent() {
             poster="/gallery/hero-poster.webp"
             className="object-cover object-center w-full h-full brightness-[0.65]"
           >
-            <source
-              src="/hero-sm.mp4"
-              type="video/mp4"
-              media="(max-width: 768px)"
-            />
-            <source
-              src="/hero-sm.webm"
-              type="video/webm"
-              media="(max-width: 768px)"
-            />
+            <source src="/hero-sm.mp4" type="video/mp4" media="(max-width: 768px)" />
+            <source src="/hero-sm.webm" type="video/webm" media="(max-width: 768px)" />
             <source src="/hero.webm" type="video/webm" />
             <source src="/hero.mp4" type="video/mp4" />
           </video>
@@ -215,9 +197,7 @@ export default function HomeContent() {
             Premium Travel Partners
           </motion.div>
 
-          <h1
-            className="font-heading font-semibold text-4xl md:text-6xl lg:text-7xl text-white leading-[1.1] tracking-tight mb-8 drop-shadow-2xl"
-          >
+          <h1 className="font-heading font-semibold text-4xl md:text-6xl lg:text-7xl text-white leading-[1.1] tracking-tight mb-8 drop-shadow-2xl">
             Your next great journey <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-white italic">
               starts here.
@@ -245,10 +225,7 @@ export default function HomeContent() {
             >
               <span className="relative z-10 flex items-center gap-2">
                 Plan Your Trip{" "}
-                <ArrowRight
-                  size={16}
-                  className="group-hover:translate-x-1 transition-transform"
-                />
+                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
               </span>
               <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-white opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
             </Link>
@@ -311,8 +288,7 @@ export default function HomeContent() {
               Curated Services
             </h2>
             <p className="text-slate-400 max-w-2xl mx-auto text-lg font-light">
-              Experience tailored solutions designed for the modern traveler and
-              corporate entity.
+              Experience tailored solutions designed for the modern traveler and corporate entity.
             </p>
           </div>
 
@@ -341,9 +317,8 @@ export default function HomeContent() {
               Why Choose Citius?
             </h2>
             <p className="text-brand-muted text-lg mb-8 leading-relaxed">
-              We create journeys with purpose, precision, and passion —
-              delivering seamless, memorable travel experiences every single
-              time
+              We create journeys with purpose, precision, and passion — delivering seamless,
+              memorable travel experiences every single time
             </p>
             <div className="grid grid-cols-2 gap-4">
               {usps.map((usp) => (
@@ -356,8 +331,7 @@ export default function HomeContent() {
             <div className="absolute inset-0 bg-[url('/gallery/aboutus.webp')] bg-cover bg-center transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute bottom-0 left-0 right-0 p-8 z-20 bg-gradient-to-t from-black/80 to-transparent">
               <div className="text-white font-heading text-2xl italic">
-                &quot;Travel is the only thing you buy that makes you
-                richer.&quot;
+                &quot;Travel is the only thing you buy that makes you richer.&quot;
               </div>
             </div>
           </div>
@@ -382,8 +356,7 @@ export default function HomeContent() {
             </span>
           </h2>
           <p className="text-blue-100 text-lg mb-10 max-w-xl mx-auto">
-            Let our experts craft a personalized itinerary that exceeds your
-            expectations.
+            Let our experts craft a personalized itinerary that exceeds your expectations.
           </p>
           <Link
             href="/contact"

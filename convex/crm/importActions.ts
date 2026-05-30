@@ -1,16 +1,19 @@
 "use node";
 
 import { ConvexError, v } from "convex/values";
-import { action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
-import { PERMISSIONS } from "./lib";
+import { action } from "../_generated/server";
 import { decryptPassportDetails, encryptPassportDetails, hash } from "../lib/encryption";
+import { PERMISSIONS } from "./lib";
 
 const passengerImportRowInput = v.object({
   id: v.string(),
   sourceSheet: v.string(),
   sourceRowNumber: v.number(),
   sourceStatus: v.optional(v.string()),
+  importKind: v.optional(
+    v.union(v.literal("passenger"), v.literal("rooming"), v.literal("passport"), v.literal("visa")),
+  ),
   importKey: v.string(),
   fullName: v.string(),
   travelHub: v.optional(v.string()),
@@ -45,6 +48,24 @@ const passengerImportRowInput = v.object({
   sourceGroup: v.optional(v.string()),
   gender: v.optional(v.string()),
   contactNo: v.optional(v.string()),
+  hotelAllocation: v.optional(v.string()),
+  visaStatus: v.optional(
+    v.union(
+      v.literal("Not Required"),
+      v.literal("Not Started"),
+      v.literal("Checklist Shared"),
+      v.literal("Documents Pending"),
+      v.literal("Documents Verified"),
+      v.literal("Appointment Scheduled"),
+      v.literal("Submitted"),
+      v.literal("Awaiting"),
+      v.literal("Approved"),
+      v.literal("Rejected"),
+      v.literal("Re-applied"),
+    ),
+  ),
+  biometricAppointmentDate: v.optional(v.string()),
+  visaNotes: v.optional(v.string()),
   passport: v.object({
     number: v.optional(v.string()),
     dateOfBirth: v.optional(v.string()),
@@ -142,6 +163,11 @@ function mapPassengerExportRow(row: any) {
     fullName: row.fullName,
     travelHub: row.travelHub,
     foodPreference: row.foodPreference,
+    paymentType: row.paymentType,
+    roomType: row.roomType,
+    visaRequired: row.visaRequired,
+    visaStatus: row.visaStatus,
+    hotelAllocation: row.hotelAllocation,
     gender: row.gender,
     contactNo: row.contactNo,
     specialRequests: row.specialRequests,
@@ -153,6 +179,11 @@ function mapPassengerExportRow(row: any) {
     sourceGroup: row.sourceGroup,
     willingToGo: row.cancellation || row.lastMinuteDrop ? "UNABLE TO GO" : "CONFIRMED",
     passport,
+    visa: row.visa ?? {
+      status: row.visaStatus,
+      appointmentDate: "",
+      notes: "",
+    },
   };
 }
 

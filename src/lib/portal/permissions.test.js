@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { PORTAL_PERMISSIONS } from "./constants";
 import {
   canAccessPage,
@@ -56,9 +56,17 @@ describe("portal permissions", () => {
     const pages = pagesForRoles(["Sales"]);
 
     expect(pages).toEqual(
-      expect.arrayContaining(["dashboard", "queries", "pipeline", "proposals", "employees-on-leave"]),
+      expect.arrayContaining([
+        "dashboard",
+        "queries",
+        "pipeline",
+        "proposals",
+        "employees-on-leave",
+      ]),
     );
-    expect(pages).not.toEqual(expect.arrayContaining(["finance", "ticketing", "contracting", "job-cards", "team"]));
+    expect(pages).not.toEqual(
+      expect.arrayContaining(["finance", "ticketing", "contracting", "job-cards", "team"]),
+    );
   });
 
   test("hr can manage leave without staff settings access", () => {

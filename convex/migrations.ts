@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import { mutation, query } from "./_generated/server";
 
 const toTimestamp = (value: unknown, fallback = Date.now()) => {
   if (!value) {
@@ -61,9 +61,7 @@ export const importUsers = mutation({
         name: row.name ?? "Traveler",
         phoneNumber: row.phone_number ?? row.phoneNumber ?? "",
         passportDetailsEncrypted:
-          row.passport_details_encrypted ??
-          row.passportDetailsEncrypted ??
-          "",
+          row.passport_details_encrypted ?? row.passportDetailsEncrypted ?? "",
         image: row.image ?? "",
         createdAt: toTimestamp(row.created_at ?? row.createdAt),
         updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
@@ -171,9 +169,7 @@ export const importBookings = mutation({
 
       const existing = await ctx.db
         .query("bookings")
-        .withIndex("by_legacyBookingId", (q) =>
-          q.eq("legacyBookingId", legacyBookingId),
-        )
+        .withIndex("by_legacyBookingId", (q) => q.eq("legacyBookingId", legacyBookingId))
         .unique();
 
       const payload = {
@@ -181,10 +177,8 @@ export const importBookings = mutation({
         tripId: trip._id,
         status: normalizeBookingStatus(row.status),
         razorpayOrderId: row.razorpay_order_id ?? row.razorpayOrderId ?? "",
-        razorpayPaymentId:
-          row.razorpay_payment_id ?? row.razorpayPaymentId ?? "",
-        razorpaySignature:
-          row.razorpay_signature ?? row.razorpaySignature ?? "",
+        razorpayPaymentId: row.razorpay_payment_id ?? row.razorpayPaymentId ?? "",
+        razorpaySignature: row.razorpay_signature ?? row.razorpaySignature ?? "",
         totalAmount: Number(row.total_amount ?? row.totalAmount ?? 0),
         currency: row.currency ?? "INR",
         travelers: Number(row.travelers ?? 1),
@@ -192,9 +186,7 @@ export const importBookings = mutation({
         notes: row.notes ?? "",
         createdAt: toTimestamp(row.created_at ?? row.createdAt),
         updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
-        confirmedAt: row.confirmed_at
-          ? toTimestamp(row.confirmed_at)
-          : undefined,
+        confirmedAt: row.confirmed_at ? toTimestamp(row.confirmed_at) : undefined,
         legacyBookingId,
       };
 

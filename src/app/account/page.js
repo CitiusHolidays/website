@@ -1,11 +1,7 @@
-import { redirect } from "next/navigation";
-import { unstable_noStore } from "next/cache";
 import { anyApi } from "convex/server";
-import {
-  fetchAuthMutation,
-  fetchAuthQuery,
-  requireAuth,
-} from "@/lib/auth-server";
+import { unstable_noStore } from "next/cache";
+import { redirect } from "next/navigation";
+import { fetchAuthMutation, fetchAuthQuery, requireAuth } from "@/lib/auth-server";
 import AccountClient from "./page.client.js";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +27,3 @@ export default async function AccountPage() {
 
   return <AccountClient user={user} bookings={bookings} />;
 }
-
-
-
-

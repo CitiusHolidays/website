@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { groq } from "next-sanity";
-import { client } from "@/sanity/client";
 import { getTrailBySlug, getTrailSlugsForStaticParams } from "@/data/trails";
+import { client } from "@/sanity/client";
 import PilgrimageTrailPageClient from "./page.client";
 
 const RELATED_BLOGS = groq`*[_type == "post" && slug.current in $slugs]{
@@ -23,7 +23,7 @@ function normalizeCmsGalleryRows(rows) {
   return rows
     .map((row) => ({
       src: row?.asset?.url || "",
-      alt: row?.alt || ""
+      alt: row?.alt || "",
     }))
     .filter((row) => row.src);
 }
@@ -52,7 +52,10 @@ export async function generateMetadata({ params }) {
   }
   return {
     title: `${trail.title} | Spiritual Trails | Citius Holidays`,
-    description: trail.subtitle || trail.positioning || "Citius Spiritual Trails — curated Kailash Mansarovar journeys."
+    description:
+      trail.subtitle ||
+      trail.positioning ||
+      "Citius Spiritual Trails — curated Kailash Mansarovar journeys.",
   };
 }
 
@@ -68,7 +71,7 @@ export default async function PilgrimageTrailPage({ params }) {
     relatedBlogPosts = await client.fetch(
       RELATED_BLOGS,
       { slugs: trail.relatedBlogSlugs },
-      fetchOptions
+      fetchOptions,
     );
   }
 

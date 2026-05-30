@@ -1,7 +1,7 @@
 "use client";
 
-import { motion } from "motion/react";
 import { Quote, Star } from "lucide-react";
+import { motion } from "motion/react";
 import { kailashTestimonials } from "../../data/trails";
 import { cn } from "../../utils/cn";
 
@@ -23,7 +23,10 @@ function TestimonialCard({ testimonial, index }) {
         {/* Rating */}
         <div className="flex gap-1 mb-4 md:mb-6 ml-4">
           {[...Array(testimonial.rating)].map((_, i) => (
-            <Star key={i} className="w-3.5 h-3.5 md:w-4 md:h-4 fill-citius-orange text-citius-orange" />
+            <Star
+              key={i}
+              className="w-3.5 h-3.5 md:w-4 md:h-4 fill-citius-orange text-citius-orange"
+            />
           ))}
         </div>
 
@@ -37,7 +40,11 @@ function TestimonialCard({ testimonial, index }) {
           {/* Avatar Placeholder */}
           <div className="w-11 h-11 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-citius-blue to-citius-blue/70 flex items-center justify-center shrink-0">
             <span className="font-heading text-white font-semibold text-base md:text-lg">
-              {testimonial.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+              {testimonial.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")
+                .slice(0, 2)}
             </span>
           </div>
 
@@ -45,12 +52,8 @@ function TestimonialCard({ testimonial, index }) {
             <p className="font-heading text-sm md:text-base font-semibold text-citius-blue truncate">
               {testimonial.name}
             </p>
-            <p className="text-xs md:text-sm text-brand-muted">
-              {testimonial.location}
-            </p>
-            <p className="text-xs text-citius-orange/80 mt-0.5">
-              {testimonial.journey}
-            </p>
+            <p className="text-xs md:text-sm text-brand-muted">{testimonial.location}</p>
+            <p className="text-xs text-citius-orange/80 mt-0.5">{testimonial.journey}</p>
           </div>
         </div>
 
@@ -79,7 +82,8 @@ export default function TestimonialsSection({ className }) {
             Voices from the <span className="text-citius-blue italic">Sacred Path</span>
           </h2>
           <p className="font-sans text-base md:text-xl text-brand-muted max-w-2xl mx-auto leading-relaxed">
-            Hear from yatris who have experienced the transformation. Their journeys inspire our commitment to excellence.
+            Hear from yatris who have experienced the transformation. Their journeys inspire our
+            commitment to excellence.
           </p>
           <div className="w-16 md:w-24 h-px bg-citius-orange/30 mx-auto mt-6 md:mt-8" />
         </motion.div>
@@ -87,11 +91,7 @@ export default function TestimonialsSection({ className }) {
         {/* Testimonials Grid */}
         <div className="grid md:grid-cols-2 gap-6 md:gap-8">
           {kailashTestimonials.map((testimonial, index) => (
-            <TestimonialCard
-              key={testimonial.id}
-              testimonial={testimonial}
-              index={index}
-            />
+            <TestimonialCard key={testimonial.id} testimonial={testimonial} index={index} />
           ))}
         </div>
 

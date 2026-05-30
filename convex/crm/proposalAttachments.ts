@@ -1,11 +1,7 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import {
-  PERMISSIONS,
-  canSeeProposalRecord,
-  requireAnyPermission,
-} from "./lib";
+import { internalMutation, query } from "../_generated/server";
+import { canSeeProposalRecord, PERMISSIONS, requireAnyPermission } from "./lib";
 
 export function publicProposalAttachment(row: {
   _id: Id<"proposalAttachments">;
@@ -54,9 +50,7 @@ export const listForProposal = query({
       .query("proposalAttachments")
       .withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId))
       .collect();
-    return rows
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .map(publicProposalAttachment);
+    return rows.sort((a, b) => b.createdAt - a.createdAt).map(publicProposalAttachment);
   },
 });
 
@@ -79,10 +73,7 @@ export const getAttachmentRecord = query({
     attachmentId: v.string(),
   },
   handler: async (ctx, args) => {
-    const attachmentId = ctx.db.normalizeId(
-      "proposalAttachments",
-      args.attachmentId,
-    );
+    const attachmentId = ctx.db.normalizeId("proposalAttachments", args.attachmentId);
     if (!attachmentId) {
       return null;
     }

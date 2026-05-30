@@ -1,18 +1,17 @@
 "use client";
 
-import { AnimatePresence, motion, useScroll, useTransform } from "motion/react";
-import { Menu, X, ArrowRight, User, LogOut, ChevronDown, BriefcaseBusiness } from "lucide-react";
-import { getSignInAuthUrl, VISIBLE_SIGN_IN_TARGETS } from "@/lib/auth-sign-in-targets";
+import { api } from "@convex/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
+import { ArrowRight, BriefcaseBusiness, ChevronDown, LogOut, Menu, User, X } from "lucide-react";
+import { AnimatePresence, motion, useScroll, useTransform } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
-import { useSession, logout } from "@/lib/auth-client";
-import { api } from "@convex/_generated/api";
-
-import Logo from "@/static/logos/logo.webp";
+import { useEffect, useRef, useState } from "react";
 import { getTrailsForHub } from "@/data/trails";
+import { logout, useSession } from "@/lib/auth-client";
+import { getSignInAuthUrl, VISIBLE_SIGN_IN_TARGETS } from "@/lib/auth-sign-in-targets";
+import Logo from "@/static/logos/logo.webp";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -144,7 +143,10 @@ function SpiritualTrailsDropdown({ isScrolled, pathname }) {
       >
         <span className="relative z-10 flex items-center gap-1">
           Spiritual Trails
-          <ChevronDown size={14} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+          <ChevronDown
+            size={14}
+            className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+          />
         </span>
         <motion.div
           className={`absolute inset-0 bg-white/10 rounded-full transition-opacity duration-200 pointer-events-none ${
@@ -179,7 +181,9 @@ function SpiritualTrailsDropdown({ isScrolled, pathname }) {
               >
                 <span className="line-clamp-2">{t.title}</span>
                 {t.status === "comingSoon" && (
-                  <span className="text-[10px] uppercase tracking-wider text-amber-700">Coming soon</span>
+                  <span className="text-[10px] uppercase tracking-wider text-amber-700">
+                    Coming soon
+                  </span>
                 )}
               </Link>
             ))}
@@ -192,7 +196,7 @@ function SpiritualTrailsDropdown({ isScrolled, pathname }) {
 
 export default function Header() {
   const pathname = usePathname();
-  const isAuthPage = pathname?.startsWith('/auth');
+  const isAuthPage = pathname?.startsWith("/auth");
 
   const [isOpen, setIsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -204,10 +208,7 @@ export default function Header() {
   const { data: session, isPending } = useSession();
   const user = session?.user;
   const { isAuthenticated } = useConvexAuth();
-  const portalAccess = useQuery(
-    api.crm.staff.getMyPortalAccess,
-    isAuthenticated ? {} : "skip",
-  );
+  const portalAccess = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
   const canAccessPortal = Boolean(portalAccess?.allowed);
 
   useTransform(scrollY, [0, 100], [0, 1]);
@@ -259,10 +260,7 @@ export default function Header() {
           layout="position"
         >
           {/* Logo */}
-          <Link
-            href="/"
-            className="relative z-10 flex items-center gap-2 group"
-          >
+          <Link href="/" className="relative z-10 flex items-center gap-2 group">
             <div
               className={`relative transition-all duration-300 ${isScrolled ? "scale-90" : "scale-100"}`}
             >
@@ -286,9 +284,7 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 className={`relative px-4 py-2 text-sm font-medium transition-colors duration-200 group overflow-hidden rounded-full ${
-                  isScrolled
-                    ? "text-slate-300 hover:text-white"
-                    : "text-white hover:text-white"
+                  isScrolled ? "text-slate-300 hover:text-white" : "text-white hover:text-white"
                 }`}
               >
                 <span className="relative z-10">{link.label}</span>
@@ -304,9 +300,7 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 className={`relative px-4 py-2 text-sm font-medium transition-colors duration-200 group overflow-hidden rounded-full ${
-                  isScrolled
-                    ? "text-slate-300 hover:text-white"
-                    : "text-white hover:text-white"
+                  isScrolled ? "text-slate-300 hover:text-white" : "text-white hover:text-white"
                 }`}
               >
                 <span className="relative z-10">{link.label}</span>
@@ -377,12 +371,8 @@ export default function Header() {
                     >
                       {/* User Info */}
                       <div className="px-4 py-3 border-b border-gray-100">
-                        <p className="text-sm font-semibold text-gray-900 truncate">
-                          {user.name}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">
-                          {user.email}
-                        </p>
+                        <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
                       </div>
 
                       {/* Menu Items */}
@@ -436,9 +426,7 @@ export default function Header() {
             <button
               onClick={() => setIsOpen(true)}
               className={`lg:hidden p-2 rounded-full transition-colors ${
-                isScrolled
-                  ? "text-white hover:bg-white/10"
-                  : "text-white hover:bg-white/10"
+                isScrolled ? "text-white hover:bg-white/10" : "text-white hover:bg-white/10"
               }`}
             >
               <Menu size={24} />
@@ -486,7 +474,9 @@ export default function Header() {
                 transition={{ delay: 0.45 }}
                 className="flex flex-col items-center gap-3 w-full border-y border-white/10 py-6"
               >
-                <span className="text-xs uppercase tracking-[0.25em] text-white/40">Spiritual Trails</span>
+                <span className="text-xs uppercase tracking-[0.25em] text-white/40">
+                  Spiritual Trails
+                </span>
                 <Link
                   href="/pilgrimage"
                   onClick={() => setIsOpen(false)}
@@ -551,9 +541,7 @@ export default function Header() {
                         </span>
                       </div>
                     )}
-                    <span className="text-white font-medium">
-                      {user.name?.split(" ")[0]}
-                    </span>
+                    <span className="text-white font-medium">{user.name?.split(" ")[0]}</span>
                   </div>
                   {canAccessPortal && (
                     <Link

@@ -1,7 +1,7 @@
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { streamText } from 'ai';
-import { systemPrompt } from './sysprompt';
-import { getClientIp, isAllowedSiteOrigin } from '@/lib/contact/spam-guard';
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { streamText } from "ai";
+import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
+import { systemPrompt } from "./sysprompt";
 
 export const maxDuration = 60;
 
@@ -43,65 +43,68 @@ function checkChatRateLimit(key) {
 
 // Initialize OpenRouter with the API key from environment variables
 const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY || '',
+  apiKey: process.env.OPENROUTER_API_KEY || "",
 });
 
 export async function POST(req) {
   try {
     if (!isAllowedSiteOrigin(req)) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
       });
     }
 
     const clientIp = getClientIp(req);
     const rateLimit = checkChatRateLimit(clientIp);
     if (!rateLimit.allowed) {
-      return new Response(JSON.stringify({ error: 'Too many chat requests. Please try again shortly.' }), {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'Retry-After': String(rateLimit.retryAfterSec),
+      return new Response(
+        JSON.stringify({ error: "Too many chat requests. Please try again shortly." }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(rateLimit.retryAfterSec),
+          },
         },
-      });
+      );
     }
 
-    const contentLength = Number(req.headers.get('content-length') || 0);
+    const contentLength = Number(req.headers.get("content-length") || 0);
     if (contentLength > MAX_CHAT_BODY_BYTES) {
-      return new Response(JSON.stringify({ error: 'Chat request is too large.' }), {
+      return new Response(JSON.stringify({ error: "Chat request is too large." }), {
         status: 413,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
       });
     }
 
     if (!process.env.OPENROUTER_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: 'Chat service is not configured.' }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
+      return new Response(JSON.stringify({ error: "Chat service is not configured." }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const { messages } = await req.json();
     if (!Array.isArray(messages) || messages.length > MAX_CHAT_MESSAGES) {
-      return new Response(JSON.stringify({ error: 'Invalid chat request.' }), {
+      return new Response(JSON.stringify({ error: "Invalid chat request." }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { "Content-Type": "application/json" },
       });
     }
 
     // Convert messages to the format expected by the AI SDK
     const convertedMessages = messages.map((msg) => {
-      const role = msg.role === 'assistant' || msg.role === 'user' ? msg.role : 'user';
-      const content = String(msg.parts?.[0]?.text || msg.content || '').slice(0, MAX_CHAT_MESSAGE_CHARS);
+      const role = msg.role === "assistant" || msg.role === "user" ? msg.role : "user";
+      const content = String(msg.parts?.[0]?.text || msg.content || "").slice(
+        0,
+        MAX_CHAT_MESSAGE_CHARS,
+      );
       return { role, content };
     });
 
     const result = streamText({
-      model: openrouter.chat('nvidia/nemotron-3-nano-30b-a3b:free'),
+      model: openrouter.chat("nvidia/nemotron-3-nano-30b-a3b:free"),
       messages: convertedMessages,
       // Add system message for travel context
       system: systemPrompt,
@@ -109,13 +112,10 @@ export async function POST(req) {
 
     return result.toTextStreamResponse();
   } catch (error) {
-    console.error('Chat API error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Failed to process chat request' }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
+    console.error("Chat API error:", error);
+    return new Response(JSON.stringify({ error: "Failed to process chat request" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }

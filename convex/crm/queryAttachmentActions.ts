@@ -1,8 +1,8 @@
 "use node";
 
 import { ConvexError, v } from "convex/values";
-import { action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
+import { action } from "../_generated/server";
 import { PERMISSIONS } from "./lib";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
@@ -24,11 +24,14 @@ function isAllowedMimeType(mimeType: string) {
   return ALLOWED_MIME_PREFIXES.some((prefix) => normalized.startsWith(prefix));
 }
 
-async function buildDownloadFile(ctx: any, record: {
-  storageId: string;
-  fileName: string;
-  mimeType: string;
-}) {
+async function buildDownloadFile(
+  ctx: any,
+  record: {
+    storageId: string;
+    fileName: string;
+    mimeType: string;
+  },
+) {
   const blob = await ctx.storage.get(record.storageId);
   if (!blob) {
     throw new ConvexError("File is no longer available");

@@ -10,11 +10,6 @@ export const generateMetadata = () => ({
 });
 
 export default async function MicePage() {
-  const data = await client.fetch(
-    GALLERY_DOCUMENT_QUERY,
-    {},
-    sanityFetchOptions.gallery,
-  );
+  const data = await client.fetch(GALLERY_DOCUMENT_QUERY, {}, sanityFetchOptions.gallery);
   return <MicePageClient images={data?.images || []} />;
 }
-

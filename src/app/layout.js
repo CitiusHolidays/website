@@ -1,6 +1,6 @@
 import { Inter, Poppins } from "next/font/google";
-import { ConvexClientProvider } from "@/components/providers/ConvexClientProvider";
 import AppChrome from "@/components/layout/AppChrome";
+import { ConvexClientProvider } from "@/components/providers/ConvexClientProvider";
 import { getToken } from "@/lib/auth-server";
 
 import "./globals.css";
@@ -55,14 +55,8 @@ export default async function RootLayout({ children }) {
   const initialToken = await getToken().catch(() => null);
 
   return (
-    <html
-      lang="en"
-      className={`${poppins.variable} font-heading`}
-      suppressHydrationWarning
-    >
-      <body
-        className={`${inter.variable} font-sans bg-brand-light text-brand-dark`}
-      >
+    <html lang="en" className={`${poppins.variable} font-heading`} suppressHydrationWarning>
+      <body className={`${inter.variable} font-sans bg-brand-light text-brand-dark`}>
         <ConvexClientProvider initialToken={initialToken}>
           <AppChrome>{children}</AppChrome>
         </ConvexClientProvider>

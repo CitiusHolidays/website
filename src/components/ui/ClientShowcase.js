@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from "motion/react";
-import Image from "next/image";
 import { Ticker } from "motion-plus/react";
+import Image from "next/image";
 import Acer from "@/static/clients/acer.webp";
 import Adani from "@/static/clients/adani.webp";
 import Aditya from "@/static/clients/aditya.webp";

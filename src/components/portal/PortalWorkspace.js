@@ -1,9 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AnimatePresence, motion } from "motion/react";
-import { useConvexAuth, useMutation, useQuery, useAction } from "convex/react";
+import { api } from "@convex/_generated/api";
+import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
 import {
   CheckCircle2,
   ChevronDown,
@@ -11,10 +9,10 @@ import {
   ClipboardList,
   Download,
   FileText,
-  Paperclip,
   Hotel,
   Loader2,
   MoreHorizontal,
+  Paperclip,
   Plane,
   Plus,
   RefreshCw,
@@ -27,10 +25,13 @@ import {
   Upload,
   Users,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CABIN_CLASSES,
   CALLING_STATUSES,
-  CONTRACTING_STATUSES,
+  CONTRACTING_STATUS_SELECT_OPTIONS,
   EXPENSE_CURRENCIES,
   EXPENSE_HEADS,
   FOOD_PREFERENCES,
@@ -41,6 +42,7 @@ import {
   PAYMENT_TYPES,
   PORTAL_PERMISSIONS,
   PORTAL_ROLES,
+  PROPOSAL_TAX_RATES,
   QUERY_SOURCES,
   QUERY_TYPES,
   ROOM_TYPES,
@@ -50,7 +52,13 @@ import {
   TRAVEL_TYPES,
   VISA_STATUSES,
 } from "@/lib/portal/constants";
-import { getExpenseSplitTotal, getPipelineBuckets, getSalesPipelineBuckets } from "@/lib/portal/workflow";
+import {
+  buildModalInitial,
+  getNotificationHref,
+  isDeepLinkDataReady,
+  resolveDeepLink,
+} from "@/lib/portal/notificationTargets";
+import { filterByPeriod, PORTAL_PERIOD_OPTIONS } from "@/lib/portal/periodFilter";
 import {
   canAssignContracting,
   canAssignOperations,
@@ -59,53 +67,163 @@ import {
   teamSelectOptions,
 } from "@/lib/portal/permissions";
 import {
-  buildModalInitial,
-  getNotificationHref,
-  isDeepLinkDataReady,
-  resolveDeepLink,
-} from "@/lib/portal/notificationTargets";
-import { api } from "@convex/_generated/api";
-import {
-  parseFlightWorkbookFile,
-  parsePassengerWorkbookFile,
-} from "@/lib/portal/spreadsheetImports";
-import {
   buildFlightWorkbook,
   buildPassengerWorkbook,
+  buildPassportWorkbook,
+  buildRoomingWorkbook,
+  buildVisaWorkbook,
   downloadWorkbook,
 } from "@/lib/portal/spreadsheetExports";
 import {
-  filterByPeriod,
-  PORTAL_PERIOD_OPTIONS,
-} from "@/lib/portal/periodFilter";
+  parseFlightWorkbookFile,
+  parsePassengerWorkbookFile,
+  parsePassportWorkbookFile,
+  parseRoomingWorkbookFile,
+  parseVisaWorkbookFile,
+} from "@/lib/portal/spreadsheetImports";
+import {
+  getExpenseSplitTotal,
+  getPipelineBuckets,
+  getSalesPipelineBuckets,
+} from "@/lib/portal/workflow";
 
 const P = PORTAL_PERMISSIONS;
+const SPREADSHEET_MODALS = [
+  "passengerImport",
+  "flightImport",
+  "passengerExport",
+  "flightExport",
+  "roomingImport",
+  "roomingExport",
+  "passportImport",
+  "passportExport",
+  "visaImport",
+  "visaExport",
+];
 
 const VIEW_META = {
-  dashboard: { title: "Dashboard", subtitle: "Live overview across active enquiries, jobs, tickets, visas, and payments.", permission: P.VIEW_DASHBOARD },
-  queries: { title: "All Sales Queries", subtitle: "Manage incoming MICE, group travel, FIT, B2B, cement, and spiritual enquiries.", permission: P.VIEW_QUERIES },
-  pipeline: { title: "Pipeline View", subtitle: "Track query movement from contracting to confirmed or lost.", permission: P.VIEW_QUERIES },
-  proposals: { title: "Proposals", subtitle: "Create, cost, and send proposals linked to active queries.", permission: P.VIEW_PROPOSALS },
-  contracting: { title: "Contracting Dashboard", subtitle: "Assign contracting owners and move proposals through contracting statuses.", permission: P.VIEW_CONTRACTING },
-  "accounts-job-cards": { title: "Accounts / Job Card Creation", subtitle: "Create Job Card numbers only after order confirmation.", permission: P.MANAGE_JOB_CARDS },
-  "job-cards": { title: "Job Cards", subtitle: "Operational file control, progress, and pre-departure checklist status.", permission: P.VIEW_JOB_CARDS },
-  travellers: { title: "Traveller Master Sheet", subtitle: "Guest details, hubs, food preferences, rooming, visa, ticket, and TM calling status.", permission: P.VIEW_TRAVELLERS },
-  passport: { title: "Passport Documents", subtitle: "Upload, encrypt, and manage traveller passport scans.", permission: P.VIEW_VISA },
-  visa: { title: "Visa Tracking", subtitle: "Checklist, appointments, submission, approval, rejection, and re-application tracking.", permission: P.VIEW_VISA },
-  ticketing: { title: "Ticket Dashboard", subtitle: "Ticket status summary across active Job Cards.", permission: P.VIEW_TICKETING },
-  flights: { title: "Flights & PNR", subtitle: "Manage PNRs, routes, fare types, group seats, and airline records.", permission: P.VIEW_TICKETING },
-  "seat-allocation": { title: "Seat Allocation", subtitle: "Manual stored seat assignments, holds, and blocks.", permission: P.VIEW_TICKETING },
-  tickets: { title: "All Tickets", subtitle: "Issue, reissue, cancellation, name correction, and refund tracking.", permission: P.VIEW_TICKETING },
-  hotels: { title: "Hotel / Rooming List", subtitle: "Hotel arrangements, rooming, special instructions, and ground planning.", permission: P.VIEW_OPERATIONS },
-  "tour-managers": { title: "Tour Managers", subtitle: "TM assignment, calling status, availability, and active tour visibility.", permission: P.VIEW_TOUR_MANAGERS },
-  finance: { title: "Finance", subtitle: "Fund projections, invoices, received amounts, balances, and closure status.", permission: P.VIEW_FINANCE },
-  expenses: { title: "Expense Management", subtitle: "Tour-wise expenses, approval, and reimbursement tracking.", permission: P.VIEW_EXPENSES },
-  approvals: { title: "Approvals", subtitle: "Unified approval queue for expenses and finance handoffs.", permission: P.VIEW_APPROVALS },
-  reports: { title: "Reports", subtitle: "Revenue, headcount, and conversion snapshots for leadership review.", permission: P.VIEW_REPORTS },
-  team: { title: "Team Directory", subtitle: "Read-only staff directory by department, role, and location.", permission: P.VIEW_TEAM },
-  "employees-on-leave": { title: "Employees on Leave", subtitle: "Leave requests, approvals, and team availability.", permission: P.VIEW_LEAVE },
-  activity: { title: "Notifications / Activity Log", subtitle: "Audit trail for CRM status changes and workflow triggers.", permission: P.VIEW_ACTIVITY },
-  settings: { title: "Settings / Dropdown Management", subtitle: "Staff allowlist and workflow dropdown reference values.", permission: P.MANAGE_STAFF },
+  dashboard: {
+    title: "Dashboard",
+    subtitle: "Live overview across active enquiries, jobs, tickets, visas, and payments.",
+    permission: P.VIEW_DASHBOARD,
+  },
+  queries: {
+    title: "All Sales Queries",
+    subtitle: "Manage incoming MICE, group travel, FIT, B2B, cement, and spiritual enquiries.",
+    permission: P.VIEW_QUERIES,
+  },
+  pipeline: {
+    title: "Pipeline View",
+    subtitle: "Track query movement from contracting to confirmed or lost.",
+    permission: P.VIEW_QUERIES,
+  },
+  proposals: {
+    title: "Proposals",
+    subtitle: "Create, cost, and send proposals linked to active queries.",
+    permission: P.VIEW_PROPOSALS,
+  },
+  contracting: {
+    title: "Contracting Dashboard",
+    subtitle: "Assign contracting SPOCs and move proposals through contracting statuses.",
+    permission: P.VIEW_CONTRACTING,
+  },
+  "accounts-job-cards": {
+    title: "Accounts / Job Card Creation",
+    subtitle: "Create Job Card numbers only after order confirmation.",
+    permission: P.MANAGE_JOB_CARDS,
+  },
+  "job-cards": {
+    title: "Job Cards",
+    subtitle: "Operational file control, progress, and pre-departure checklist status.",
+    permission: P.VIEW_JOB_CARDS,
+  },
+  travellers: {
+    title: "Traveller Master Sheet",
+    subtitle:
+      "Guest details, hubs, food preferences, rooming, visa, ticket, and TM calling status.",
+    permission: P.VIEW_TRAVELLERS,
+  },
+  passport: {
+    title: "Passport Documents",
+    subtitle: "Upload, encrypt, and manage traveller passport scans.",
+    permission: P.VIEW_VISA,
+  },
+  visa: {
+    title: "Visa Tracking",
+    subtitle:
+      "Checklist, appointments, submission, approval, rejection, and re-application tracking.",
+    permission: P.VIEW_VISA,
+  },
+  ticketing: {
+    title: "Ticket Dashboard",
+    subtitle: "Ticket status summary across active Job Cards.",
+    permission: P.VIEW_TICKETING,
+  },
+  flights: {
+    title: "Flights & PNR",
+    subtitle: "Manage PNRs, routes, fare types, group seats, and airline records.",
+    permission: P.VIEW_TICKETING,
+  },
+  "seat-allocation": {
+    title: "Seat Allocation",
+    subtitle: "Manual stored seat assignments, holds, and blocks.",
+    permission: P.VIEW_TICKETING,
+  },
+  tickets: {
+    title: "All Tickets",
+    subtitle: "Issue, reissue, cancellation, name correction, and refund tracking.",
+    permission: P.VIEW_TICKETING,
+  },
+  hotels: {
+    title: "Hotel / Rooming List",
+    subtitle: "Hotel arrangements, rooming, special instructions, and ground planning.",
+    permission: P.VIEW_OPERATIONS,
+  },
+  "tour-managers": {
+    title: "Tour Managers",
+    subtitle: "TM assignment, calling status, availability, and active tour visibility.",
+    permission: P.VIEW_TOUR_MANAGERS,
+  },
+  finance: {
+    title: "Finance",
+    subtitle: "Fund projections, invoices, received amounts, balances, and closure status.",
+    permission: P.VIEW_FINANCE,
+  },
+  expenses: {
+    title: "Expense Management",
+    subtitle: "Tour-wise expenses, approval, and reimbursement tracking.",
+    permission: P.VIEW_EXPENSES,
+  },
+  approvals: {
+    title: "Approvals",
+    subtitle: "Unified approval queue for expenses and finance handoffs.",
+    permission: P.VIEW_APPROVALS,
+  },
+  reports: {
+    title: "Reports",
+    subtitle: "Revenue, headcount, and conversion snapshots for leadership review.",
+    permission: P.VIEW_REPORTS,
+  },
+  team: {
+    title: "Team Directory",
+    subtitle: "Read-only staff directory by department, role, and location.",
+    permission: P.VIEW_TEAM,
+  },
+  "employees-on-leave": {
+    title: "Employees on Leave",
+    subtitle: "Leave requests, approvals, and team availability.",
+    permission: P.VIEW_LEAVE,
+  },
+  activity: {
+    title: "Notifications / Activity Log",
+    subtitle: "Audit trail for CRM status changes and workflow triggers.",
+    permission: P.VIEW_ACTIVITY,
+  },
+  settings: {
+    title: "Settings / Dropdown Management",
+    subtitle: "Staff allowlist and workflow dropdown reference values.",
+    permission: P.MANAGE_STAFF,
+  },
 };
 
 const INITIAL_FORM = {
@@ -130,6 +248,8 @@ const INITIAL_FORM = {
   airfarePerPax: "",
   sellingPrice: "",
   costPrice: "",
+  taxRate: "",
+  expenseType: "jobCard",
   itinerarySummary: "",
   ownerName: "",
   salesStatus: "Proposal in discussion",
@@ -237,7 +357,9 @@ function jobCardSelectOptions(jobCards, { required = false, allowUnassigned = fa
 }
 
 function linkedTravellerOptions(travellers, jobCardId) {
-  const rows = jobCardId ? travellers.filter((traveller) => traveller.jobCardId === jobCardId) : travellers;
+  const rows = jobCardId
+    ? travellers.filter((traveller) => traveller.jobCardId === jobCardId)
+    : travellers;
   return [
     { value: "", label: jobCardId ? "Unassigned" : "Select job card first…" },
     ...rows.map((traveller) => ({
@@ -402,32 +524,85 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const allowed = access?.allowed && has(meta.permission);
   const canFetch = isAuthenticated && access?.allowed;
 
-  const summary = useQuery(api.crm.dashboard.getPortalSummary, canFetch && allowed && view === "dashboard" ? { period } : "skip");
-  const queries = useQuery(api.crm.queries.list, canFetch && (has(P.VIEW_QUERIES) || has(P.VIEW_CONTRACTING) || has(P.VIEW_JOB_CARDS)) ? {} : "skip");
-  const proposals = useQuery(api.crm.proposals.list, canFetch && (has(P.VIEW_PROPOSALS) || has(P.MANAGE_JOB_CARDS)) ? {} : "skip");
-  const jobCards = useQuery(api.crm.jobCards.list, canFetch && has(P.VIEW_JOB_CARDS) ? {} : "skip");
-  const travellers = useQuery(api.crm.travellers.list, canFetch && has(P.VIEW_TRAVELLERS) ? {} : "skip");
-  const visas = useQuery(api.crm.visa.list, canFetch && has(P.VIEW_VISA) ? {} : "skip");
-  const ticketDashboard = useQuery(api.crm.ticketing.dashboard, canFetch && has(P.VIEW_TICKETING) ? { period } : "skip");
-  const pnrs = useQuery(api.crm.ticketing.listPnrs, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
-  const tickets = useQuery(api.crm.ticketing.listTickets, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
-  const seats = useQuery(api.crm.ticketing.listSeatAllocations, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
-  const flightItinerary = useQuery(api.crm.imports.listFlightItinerary, canFetch && has(P.VIEW_TICKETING) ? {} : "skip");
-  const hotels = useQuery(api.crm.ops.listHotels, canFetch && has(P.VIEW_OPERATIONS) ? {} : "skip");
-  const tourManagers = useQuery(api.crm.ops.listTourManagers, canFetch && has(P.VIEW_TOUR_MANAGERS) ? {} : "skip");
-  const invoices = useQuery(api.crm.finance.listInvoices, canFetch && has(P.VIEW_FINANCE) ? {} : "skip");
-  const expenses = useQuery(api.crm.finance.listExpenses, canFetch && (has(P.VIEW_EXPENSES) || deepLinkOpen === "approval") ? {} : "skip");
-  const financeOverview = useQuery(api.crm.finance.getFinanceOverview, canFetch && has(P.VIEW_FINANCE) && view === "finance" ? { period } : "skip");
-  const approvals = useQuery(api.crm.approvals.list, canFetch && has(P.VIEW_APPROVALS) ? {} : "skip");
-  const reports = useQuery(api.crm.reports.overview, canFetch && has(P.VIEW_REPORTS) && view === "reports" ? { period } : "skip");
-  const team = useQuery(
-    api.crm.staff.listDirectory,
-    canFetch && has(P.VIEW_TEAM) ? {} : "skip",
+  const summary = useQuery(
+    api.crm.dashboard.getPortalSummary,
+    canFetch && allowed && view === "dashboard" ? { period } : "skip",
   );
-  const activity = useQuery(api.crm.activity.listActivity, canFetch && has(P.VIEW_ACTIVITY) ? { limit: 80 } : "skip");
+  const queries = useQuery(
+    api.crm.queries.list,
+    canFetch && (has(P.VIEW_QUERIES) || has(P.VIEW_CONTRACTING) || has(P.VIEW_JOB_CARDS))
+      ? {}
+      : "skip",
+  );
+  const proposals = useQuery(
+    api.crm.proposals.list,
+    canFetch && (has(P.VIEW_PROPOSALS) || has(P.MANAGE_JOB_CARDS)) ? {} : "skip",
+  );
+  const jobCards = useQuery(api.crm.jobCards.list, canFetch && has(P.VIEW_JOB_CARDS) ? {} : "skip");
+  const travellers = useQuery(
+    api.crm.travellers.list,
+    canFetch && has(P.VIEW_TRAVELLERS) ? {} : "skip",
+  );
+  const visas = useQuery(api.crm.visa.list, canFetch && has(P.VIEW_VISA) ? {} : "skip");
+  const ticketDashboard = useQuery(
+    api.crm.ticketing.dashboard,
+    canFetch && has(P.VIEW_TICKETING) ? { period } : "skip",
+  );
+  const pnrs = useQuery(
+    api.crm.ticketing.listPnrs,
+    canFetch && has(P.VIEW_TICKETING) ? {} : "skip",
+  );
+  const tickets = useQuery(
+    api.crm.ticketing.listTickets,
+    canFetch && has(P.VIEW_TICKETING) ? {} : "skip",
+  );
+  const seats = useQuery(
+    api.crm.ticketing.listSeatAllocations,
+    canFetch && has(P.VIEW_TICKETING) ? {} : "skip",
+  );
+  const flightItinerary = useQuery(
+    api.crm.imports.listFlightItinerary,
+    canFetch && has(P.VIEW_TICKETING) ? {} : "skip",
+  );
+  const hotels = useQuery(api.crm.ops.listHotels, canFetch && has(P.VIEW_OPERATIONS) ? {} : "skip");
+  const tourManagers = useQuery(
+    api.crm.ops.listTourManagers,
+    canFetch && has(P.VIEW_TOUR_MANAGERS) ? {} : "skip",
+  );
+  const invoices = useQuery(
+    api.crm.finance.listInvoices,
+    canFetch && has(P.VIEW_FINANCE) ? {} : "skip",
+  );
+  const expenses = useQuery(
+    api.crm.finance.listExpenses,
+    canFetch && (has(P.VIEW_EXPENSES) || deepLinkOpen === "approval") ? {} : "skip",
+  );
+  const financeOverview = useQuery(
+    api.crm.finance.getFinanceOverview,
+    canFetch && has(P.VIEW_FINANCE) && view === "finance" ? { period } : "skip",
+  );
+  const approvals = useQuery(
+    api.crm.approvals.list,
+    canFetch && has(P.VIEW_APPROVALS) ? {} : "skip",
+  );
+  const reports = useQuery(
+    api.crm.reports.overview,
+    canFetch && has(P.VIEW_REPORTS) && view === "reports" ? { period } : "skip",
+  );
+  const team = useQuery(api.crm.staff.listDirectory, canFetch && has(P.VIEW_TEAM) ? {} : "skip");
+  const activity = useQuery(
+    api.crm.activity.listActivity,
+    canFetch && has(P.VIEW_ACTIVITY) ? { limit: 80 } : "skip",
+  );
   const leaves = useQuery(api.crm.leave.list, canFetch && has(P.VIEW_LEAVE) ? {} : "skip");
-  const notifications = useQuery(api.crm.activity.listNotifications, canFetch ? { limit: 80 } : "skip");
-  const dropdowns = useQuery(api.crm.settings.listDropdowns, canFetch && view === "settings" ? {} : "skip");
+  const notifications = useQuery(
+    api.crm.activity.listNotifications,
+    canFetch ? { limit: 80 } : "skip",
+  );
+  const dropdowns = useQuery(
+    api.crm.settings.listDropdowns,
+    canFetch && view === "settings" ? {} : "skip",
+  );
   const staff = useQuery(api.crm.staff.listStaff, canFetch && has(P.MANAGE_STAFF) ? {} : "skip");
 
   const createQuery = useMutation(api.crm.queries.create);
@@ -465,7 +640,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const attachProposalFile = useAction(api.crm.proposalAttachmentActions.attachFile);
   const getProposalAttachmentUrl = useAction(api.crm.proposalAttachmentActions.getDownloadUrl);
   const removeProposalAttachment = useAction(api.crm.proposalAttachmentActions.removeAttachment);
-  const generateFinalizedPdfUploadUrl = useAction(api.crm.proposalAttachmentActions.generateFinalizedPdfUploadUrl);
+  const generateFinalizedPdfUploadUrl = useAction(
+    api.crm.proposalAttachmentActions.generateFinalizedPdfUploadUrl,
+  );
   const attachFinalizedPdf = useAction(api.crm.proposalAttachmentActions.attachFinalizedPdf);
   const getFinalizedPdfUrl = useAction(api.crm.proposalAttachmentActions.getFinalizedPdfUrl);
   const removeFinalizedPdf = useAction(api.crm.proposalAttachmentActions.removeFinalizedPdf);
@@ -476,7 +653,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const startStaffOnboarding = useAction(api.crm.staffAction.startStaffOnboarding);
   const travellersWithoutVisa = useQuery(
     api.crm.visa.listTravellersWithoutVisa,
-    canFetch && has(P.VIEW_VISA) && (modal === "visa_create" || view === "visa") ? {} : "skip"
+    canFetch && has(P.VIEW_VISA) && (modal === "visa_create" || view === "visa") ? {} : "skip",
   );
   const createPnr = useMutation(api.crm.ticketing.createPnr);
   const updatePnr = useMutation(api.crm.ticketing.updatePnr);
@@ -566,7 +743,13 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   );
 
   const filteredQueries = useMemo(
-    () => filterRows(periodFiltered.queries, search, ["queryCode", "clientName", "destination", "queryType"]),
+    () =>
+      filterRows(periodFiltered.queries, search, [
+        "queryCode",
+        "clientName",
+        "destination",
+        "queryType",
+      ]),
     [periodFiltered.queries, search],
   );
   const filteredTeam = useMemo(
@@ -588,57 +771,60 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     });
   }, [modal, jobCards]);
 
-  const openModal = useCallback((type, initial = {}) => {
-    setError("");
-    const next = { ...INITIAL_FORM, ...initial };
-    if (next.queryId && (type === "jobCard" || type === "proposal")) {
-      const linkedQuery = (queries || []).find((query) => query.id === next.queryId);
-      if (linkedQuery) {
-        Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
+  const openModal = useCallback(
+    (type, initial = {}) => {
+      setError("");
+      const next = { ...INITIAL_FORM, ...initial };
+      if (next.queryId && (type === "jobCard" || type === "proposal")) {
+        const linkedQuery = (queries || []).find((query) => query.id === next.queryId);
+        if (linkedQuery) {
+          Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
+        }
+        if (type === "jobCard" && !next.proposalId) {
+          const linkedProposal = (proposals || [])
+            .filter((proposal) => proposal.queryId === next.queryId)
+            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
+          next.proposalId = linkedProposal?.id || "";
+        }
       }
-      if (type === "jobCard" && !next.proposalId) {
-        const linkedProposal = (proposals || [])
-          .filter((proposal) => proposal.queryId === next.queryId)
-          .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
-        next.proposalId = linkedProposal?.id || "";
+      if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {
+        Object.assign(next, applyJobCardLink(next, jobCards[0], type, { onlyEmpty: true }));
       }
-    }
-    if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {
-      Object.assign(next, applyJobCardLink(next, jobCards[0], type, { onlyEmpty: true }));
-    }
-    if (JOB_CARD_MODALS.has(type) && next.jobCardId) {
-      const linkedJob = (jobCards || []).find((job) => job.id === next.jobCardId);
-      if (linkedJob) {
-        Object.assign(next, applyJobCardLink(next, linkedJob, type, { onlyEmpty: true }));
+      if (JOB_CARD_MODALS.has(type) && next.jobCardId) {
+        const linkedJob = (jobCards || []).find((job) => job.id === next.jobCardId);
+        if (linkedJob) {
+          Object.assign(next, applyJobCardLink(next, linkedJob, type, { onlyEmpty: true }));
+        }
       }
-    }
-    if (next.travellerId && ["ticket", "seat", "visa_create"].includes(type)) {
-      const linkedTraveller =
-        (travellers || []).find((traveller) => traveller.id === next.travellerId) ||
-        (travellersWithoutVisa || []).find((traveller) => traveller.id === next.travellerId);
-      if (linkedTraveller) {
-        Object.assign(next, applyTravellerLink(next, linkedTraveller, type, { onlyEmpty: true }));
+      if (next.travellerId && ["ticket", "seat", "visa_create"].includes(type)) {
+        const linkedTraveller =
+          (travellers || []).find((traveller) => traveller.id === next.travellerId) ||
+          (travellersWithoutVisa || []).find((traveller) => traveller.id === next.travellerId);
+        if (linkedTraveller) {
+          Object.assign(next, applyTravellerLink(next, linkedTraveller, type, { onlyEmpty: true }));
+        }
       }
-    }
-    if (next.pnrId && ["ticket", "seat"].includes(type)) {
-      const linkedPnr = (pnrs || []).find((pnr) => pnr.id === next.pnrId);
-      if (linkedPnr) {
-        Object.assign(next, applyPnrLink(next, linkedPnr, type, { onlyEmpty: true }));
+      if (next.pnrId && ["ticket", "seat"].includes(type)) {
+        const linkedPnr = (pnrs || []).find((pnr) => pnr.id === next.pnrId);
+        if (linkedPnr) {
+          Object.assign(next, applyPnrLink(next, linkedPnr, type, { onlyEmpty: true }));
+        }
       }
-    }
-    if (next.visaRecordId && type === "visa") {
-      const linkedVisa = (visas || []).find((visa) => visa.id === next.visaRecordId);
-      if (linkedVisa) {
-        Object.assign(next, applyVisaRecordLink(next, linkedVisa, { onlyEmpty: true }));
+      if (next.visaRecordId && type === "visa") {
+        const linkedVisa = (visas || []).find((visa) => visa.id === next.visaRecordId);
+        if (linkedVisa) {
+          Object.assign(next, applyVisaRecordLink(next, linkedVisa, { onlyEmpty: true }));
+        }
       }
-    }
-    Object.assign(next, reconcileLinkedSelections(next, travellers || [], pnrs || []));
-    setForm(next);
-    setModal(type);
-    if (type !== "query") setPendingQueryFiles([]);
-    if (type !== "proposal") setPendingProposalFiles([]);
-    if (type !== "expense") setPendingExpenseProofFiles([]);
-  }, [queries, proposals, jobCards, travellers, travellersWithoutVisa, pnrs, visas]);
+      Object.assign(next, reconcileLinkedSelections(next, travellers || [], pnrs || []));
+      setForm(next);
+      setModal(type);
+      if (type !== "query") setPendingQueryFiles([]);
+      if (type !== "proposal") setPendingProposalFiles([]);
+      if (type !== "expense") setPendingExpenseProofFiles([]);
+    },
+    [queries, proposals, jobCards, travellers, travellersWithoutVisa, pnrs, visas],
+  );
 
   const closeModal = useCallback(() => {
     setModal(null);
@@ -713,15 +899,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     deepLinkHandledRef.current = signature;
     openModal(resolved.modal, initial);
     router.replace(pathname);
-  }, [
-    allowed,
-    canFetch,
-    deepLinkCollections,
-    openModal,
-    pathname,
-    router,
-    searchParams,
-  ]);
+  }, [allowed, canFetch, deepLinkCollections, openModal, pathname, router, searchParams]);
 
   if (isAuthLoading || !isAuthenticated || access === undefined) {
     return <LoadingPanel />;
@@ -730,7 +908,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   if (!allowed) {
     return (
       <div className="rounded-2xl border border-brand-border bg-white p-8 shadow-sm">
-        <div className="font-heading text-xl font-semibold text-citius-blue">No access to this portal page</div>
+        <div className="font-heading text-xl font-semibold text-citius-blue">
+          No access to this portal page
+        </div>
         <p className="mt-2 text-sm text-brand-muted">
           Your account is signed in, but your staff role does not include this module.
         </p>
@@ -786,29 +966,29 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
             notes: form.notes,
           });
         } else {
-        const created = await createQuery({
-          clientName: form.clientName,
-          contactPerson: form.contactPerson,
-          contactMobile: form.contactMobile,
-          destination: form.destination,
-          paxCount: toNumber(form.paxCount, 1),
-          travelStartDate: form.travelStartDate,
-          travelEndDate: form.travelEndDate,
-          queryType: form.queryType,
-          travelType: form.travelType,
-          budgetAmount: toNumber(form.budgetAmount, 0),
-          source: form.source,
-          salesOwnerName: form.salesOwnerName,
-          notes: form.notes,
-        });
-        if (pendingQueryFiles.length > 0) {
-          await uploadQueryFiles({
-            queryId: created.id,
-            files: pendingQueryFiles,
-            generateUploadUrl: generateQueryUploadUrl,
-            attachQueryFile,
+          const created = await createQuery({
+            clientName: form.clientName,
+            contactPerson: form.contactPerson,
+            contactMobile: form.contactMobile,
+            destination: form.destination,
+            paxCount: toNumber(form.paxCount, 1),
+            travelStartDate: form.travelStartDate,
+            travelEndDate: form.travelEndDate,
+            queryType: form.queryType,
+            travelType: form.travelType,
+            budgetAmount: toNumber(form.budgetAmount, 0),
+            source: form.source,
+            salesOwnerName: form.salesOwnerName,
+            notes: form.notes,
           });
-        }
+          if (pendingQueryFiles.length > 0) {
+            await uploadQueryFiles({
+              queryId: created.id,
+              files: pendingQueryFiles,
+              generateUploadUrl: generateQueryUploadUrl,
+              attachQueryFile,
+            });
+          }
         }
       }
       if (modal === "assignContracting") {
@@ -828,10 +1008,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         if (has(P.MANAGE_QUERIES)) {
           payload.salesStatus = form.salesStatus;
           payload.leadStage = form.leadStage;
-          payload.lostReason =
-            form.salesStatus === "Order Lost" || form.contractingStatus === "Order Lost"
-              ? form.lostReason
-              : undefined;
+          payload.lostReason = form.salesStatus === "Order Lost" ? form.lostReason : undefined;
           const confirmingNow = form.salesStatus === "Order Confirmed";
           const queryRow = (queries || []).find((query) => query.id === form.queryId);
           const alreadyConfirmed =
@@ -845,7 +1022,6 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         }
         if (has(P.MANAGE_CONTRACTING) && !has(P.MANAGE_QUERIES)) {
           payload.contractingStatus = form.contractingStatus;
-          payload.lostReason = form.contractingStatus === "Order Lost" ? form.lostReason : undefined;
         }
         if (has(P.MANAGE_CONTRACTING) && has(P.MANAGE_QUERIES)) {
           payload.contractingStatus = form.contractingStatus;
@@ -865,6 +1041,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           landCostPerPax: toNumber(form.landCostPerPax, 0),
           airfarePerPax: toNumber(form.airfarePerPax, 0),
           sellingPrice: toNumber(form.sellingPrice, 0),
+          taxRate: form.taxRate ? Number(form.taxRate) : undefined,
           itinerarySummary: form.itinerarySummary,
         };
         if (form.entityId) {
@@ -1099,7 +1276,10 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         if (form.entityId) {
           expenseResult = await updateExpense({ expenseId: form.entityId, ...expensePayload });
         } else {
-          expenseResult = await createExpense({ jobCardId: form.jobCardId, ...expensePayload });
+          expenseResult = await createExpense({
+            jobCardId: form.expenseType === "jobCard" ? form.jobCardId : undefined,
+            ...expensePayload,
+          });
         }
         const expenseId = form.entityId || expenseResult?.id;
         if (expenseId && pendingExpenseProofFiles.length > 0) {
@@ -1157,7 +1337,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       }
       closeModal();
     } catch (err) {
-      setError(err?.data || err?.message || "Unable to save. Check required fields and permissions.");
+      setError(
+        err?.data || err?.message || "Unable to save. Check required fields and permissions.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -1185,11 +1367,30 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
 
       {view === "dashboard" && <DashboardView summary={summary} has={has} />}
       {view === "queries" && (
-        <QueriesView rows={filteredQueries} openModal={openModal} has={has} deleteItem={deleteItem} removeQuery={removeQuery} submitToContracting={submitToContracting} getQueryAttachmentUrl={getQueryAttachmentUrl} />
+        <QueriesView
+          rows={filteredQueries}
+          openModal={openModal}
+          has={has}
+          deleteItem={deleteItem}
+          removeQuery={removeQuery}
+          submitToContracting={submitToContracting}
+          getQueryAttachmentUrl={getQueryAttachmentUrl}
+        />
       )}
-      {view === "pipeline" && <PipelineView rows={periodFiltered.queries} mode={pipelineMode} setMode={setPipelineMode} />}
+      {view === "pipeline" && (
+        <PipelineView rows={periodFiltered.queries} mode={pipelineMode} setMode={setPipelineMode} />
+      )}
       {view === "contracting" && (
-        <ContractingView rows={filteredQueries} proposals={periodFiltered.proposals} team={team || []} openModal={openModal} has={has} canAssign={canAssignContracting(access)} deleteItem={deleteItem} removeQuery={removeQuery} />
+        <ContractingView
+          rows={filteredQueries}
+          proposals={periodFiltered.proposals}
+          team={team || []}
+          openModal={openModal}
+          has={has}
+          canAssign={canAssignContracting(access)}
+          deleteItem={deleteItem}
+          removeQuery={removeQuery}
+        />
       )}
       {view === "proposals" && (
         <ProposalsView
@@ -1204,7 +1405,11 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         />
       )}
       {view === "accounts-job-cards" && (
-        <AccountsJobCardView rows={periodFiltered.queries} jobCards={periodFiltered.jobCards} openModal={openModal} />
+        <AccountsJobCardView
+          rows={periodFiltered.queries}
+          jobCards={periodFiltered.jobCards}
+          openModal={openModal}
+        />
       )}
       {view === "job-cards" && (
         <JobCardsView
@@ -1217,15 +1422,19 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           removeJobCard={removeJobCard}
         />
       )}
-      {view === "travellers" && <TravellersView rows={periodFiltered.travellers} openModal={openModal} has={has} deleteItem={deleteItem} removeTraveller={removeTraveller} />}
+      {view === "travellers" && (
+        <TravellersView
+          rows={periodFiltered.travellers}
+          openModal={openModal}
+          has={has}
+          deleteItem={deleteItem}
+          removeTraveller={removeTraveller}
+        />
+      )}
       {view === "passport" && (
         <PassportDocumentsView
           travellers={periodFiltered.travellers}
-          rows={periodFiltered.visas}
           has={has}
-          openModal={openModal}
-          deleteItem={deleteItem}
-          removeVisa={removeVisa}
           generateUploadUrl={generateUploadUrl}
           encryptAndStorePassport={encryptAndStorePassport}
           getPassportDocument={getPassportDocument}
@@ -1241,11 +1450,53 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           removeVisa={removeVisa}
         />
       )}
-      {view === "ticketing" && <TicketDashboardView summary={ticketDashboard} tickets={periodFiltered.tickets} openModal={openModal} has={has} deleteItem={deleteItem} removeTicket={removeTicket} />}
-      {view === "flights" && <PnrView rows={periodFiltered.pnrs} itinerary={periodFiltered.flightItinerary} openModal={openModal} has={has} deleteItem={deleteItem} removePnr={removePnr} />}
-      {view === "seat-allocation" && <SeatView rows={periodFiltered.seats} openModal={openModal} has={has} deleteItem={deleteItem} removeSeatAllocation={removeSeatAllocation} />}
-      {view === "tickets" && <TicketsView rows={periodFiltered.tickets} openModal={openModal} has={has} deleteItem={deleteItem} removeTicket={removeTicket} />}
-      {view === "hotels" && <HotelsView rows={periodFiltered.hotels} openModal={openModal} has={has} deleteItem={deleteItem} removeHotel={removeHotel} />}
+      {view === "ticketing" && (
+        <TicketDashboardView
+          summary={ticketDashboard}
+          tickets={periodFiltered.tickets}
+          openModal={openModal}
+          has={has}
+          deleteItem={deleteItem}
+          removeTicket={removeTicket}
+        />
+      )}
+      {view === "flights" && (
+        <PnrView
+          rows={periodFiltered.pnrs}
+          itinerary={periodFiltered.flightItinerary}
+          openModal={openModal}
+          has={has}
+          deleteItem={deleteItem}
+          removePnr={removePnr}
+        />
+      )}
+      {view === "seat-allocation" && (
+        <SeatView
+          rows={periodFiltered.seats}
+          openModal={openModal}
+          has={has}
+          deleteItem={deleteItem}
+          removeSeatAllocation={removeSeatAllocation}
+        />
+      )}
+      {view === "tickets" && (
+        <TicketsView
+          rows={periodFiltered.tickets}
+          openModal={openModal}
+          has={has}
+          deleteItem={deleteItem}
+          removeTicket={removeTicket}
+        />
+      )}
+      {view === "hotels" && (
+        <HotelsView
+          rows={periodFiltered.hotels}
+          openModal={openModal}
+          has={has}
+          deleteItem={deleteItem}
+          removeHotel={removeHotel}
+        />
+      )}
       {view === "tour-managers" && (
         <TourManagersView
           rows={periodFiltered.tourManagers}
@@ -1258,7 +1509,16 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           updateCallingStatus={updateCallingStatus}
         />
       )}
-      {view === "finance" && <FinanceView rows={periodFiltered.invoices} overview={financeOverview} openModal={openModal} has={has} deleteItem={deleteItem} removeInvoice={removeInvoice} />}
+      {view === "finance" && (
+        <FinanceView
+          rows={periodFiltered.invoices}
+          overview={financeOverview}
+          openModal={openModal}
+          has={has}
+          deleteItem={deleteItem}
+          removeInvoice={removeInvoice}
+        />
+      )}
       {view === "expenses" && (
         <ExpensesView
           rows={periodFiltered.expenses}
@@ -1305,11 +1565,18 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         />
       )}
       {view === "settings" && (
-        <SettingsView staff={staff || []} dropdowns={dropdowns || {}} openModal={openModal} deleteItem={deleteItem} removeStaff={removeStaff} startStaffOnboarding={startStaffOnboarding} />
+        <SettingsView
+          staff={staff || []}
+          dropdowns={dropdowns || {}}
+          openModal={openModal}
+          deleteItem={deleteItem}
+          removeStaff={removeStaff}
+          startStaffOnboarding={startStaffOnboarding}
+        />
       )}
 
       <EntityModal
-        modal={["passengerImport", "flightImport", "passengerExport", "flightExport"].includes(modal) ? null : modal}
+        modal={SPREADSHEET_MODALS.includes(modal) ? null : modal}
         form={form}
         updateForm={updateForm}
         patchForm={patchForm}
@@ -1355,6 +1622,45 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         previewPassengerImport={previewPassengerImport}
         commitPassengerImport={commitPassengerImport}
       />
+      <PassengerImportModal
+        open={modal === "roomingImport"}
+        close={closeModal}
+        jobCards={jobCards || []}
+        previewPassengerImport={previewPassengerImport}
+        commitPassengerImport={commitPassengerImport}
+        title="Import Rooming List"
+        fileLabel="Rooming spreadsheet"
+        parseWorkbookFile={parseRoomingWorkbookFile}
+        emptyLabel="No rooming rows found."
+        successLabel="Rooming import complete"
+        uploadLabel="Upload Rooming"
+      />
+      <PassengerImportModal
+        open={modal === "passportImport"}
+        close={closeModal}
+        jobCards={jobCards || []}
+        previewPassengerImport={previewPassengerImport}
+        commitPassengerImport={commitPassengerImport}
+        title="Import Passport List"
+        fileLabel="Passport spreadsheet"
+        parseWorkbookFile={parsePassportWorkbookFile}
+        emptyLabel="No passport rows found."
+        successLabel="Passport import complete"
+        uploadLabel="Upload Passports"
+      />
+      <PassengerImportModal
+        open={modal === "visaImport"}
+        close={closeModal}
+        jobCards={jobCards || []}
+        previewPassengerImport={previewPassengerImport}
+        commitPassengerImport={commitPassengerImport}
+        title="Import Visa List"
+        fileLabel="Visa spreadsheet"
+        parseWorkbookFile={parseVisaWorkbookFile}
+        emptyLabel="No visa rows found."
+        successLabel="Visa import complete"
+        uploadLabel="Upload Visa Rows"
+      />
       <FlightImportModal
         open={modal === "flightImport"}
         close={closeModal}
@@ -1367,6 +1673,39 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         close={closeModal}
         jobCards={jobCards || []}
         getPassengerExportRows={getPassengerExportRows}
+      />
+      <PassengerExportModal
+        open={modal === "roomingExport"}
+        close={closeModal}
+        jobCards={jobCards || []}
+        getPassengerExportRows={getPassengerExportRows}
+        title="Export Rooming List"
+        subtitle="Select a job card to download the Rooming sheet in the master-list format."
+        buildWorkbook={buildRoomingWorkbook}
+        filenameSuffix="rooming"
+        sheetName="Rooming"
+      />
+      <PassengerExportModal
+        open={modal === "passportExport"}
+        close={closeModal}
+        jobCards={jobCards || []}
+        getPassengerExportRows={getPassengerExportRows}
+        title="Export Passport List"
+        subtitle="Select a job card to download the Passport sheet in the master-list format."
+        buildWorkbook={buildPassportWorkbook}
+        filenameSuffix="passport"
+        sheetName="Passport"
+      />
+      <PassengerExportModal
+        open={modal === "visaExport"}
+        close={closeModal}
+        jobCards={jobCards || []}
+        getPassengerExportRows={getPassengerExportRows}
+        title="Export Visa List"
+        subtitle="Select a job card to download the Visa sheet in the master-list format."
+        buildWorkbook={buildVisaWorkbook}
+        filenameSuffix="visa"
+        sheetName="Visa"
       />
       <FlightExportModal
         open={modal === "flightExport"}
@@ -1382,11 +1721,19 @@ function renderHeaderAction(view, openModal, has, access) {
   if (view === "travellers" && has(P.MANAGE_TRAVELLERS)) {
     return (
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => openModal("passengerExport")} className="portal-small-btn bg-white">
+        <button
+          type="button"
+          onClick={() => openModal("passengerExport")}
+          className="portal-small-btn bg-white"
+        >
           <Download size={16} />
           Export Passengers
         </button>
-        <button type="button" onClick={() => openModal("passengerImport")} className="portal-small-btn bg-white">
+        <button
+          type="button"
+          onClick={() => openModal("passengerImport")}
+          className="portal-small-btn bg-white"
+        >
           <Upload size={16} />
           Import Passengers
         </button>
@@ -1400,11 +1747,19 @@ function renderHeaderAction(view, openModal, has, access) {
   if (view === "flights" && has(P.MANAGE_TICKETING)) {
     return (
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => openModal("flightExport")} className="portal-small-btn bg-white">
+        <button
+          type="button"
+          onClick={() => openModal("flightExport")}
+          className="portal-small-btn bg-white"
+        >
           <Download size={16} />
           Export Flights
         </button>
-        <button type="button" onClick={() => openModal("flightImport")} className="portal-small-btn bg-white">
+        <button
+          type="button"
+          onClick={() => openModal("flightImport")}
+          className="portal-small-btn bg-white"
+        >
           <Upload size={16} />
           Import Flights
         </button>
@@ -1415,17 +1770,97 @@ function renderHeaderAction(view, openModal, has, access) {
       </div>
     );
   }
+  if (view === "hotels" && has(P.MANAGE_OPERATIONS)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => openModal("roomingExport")}
+          className="portal-small-btn bg-white"
+        >
+          <Download size={16} />
+          Export Rooming
+        </button>
+        <button
+          type="button"
+          onClick={() => openModal("roomingImport")}
+          className="portal-small-btn bg-white"
+        >
+          <Upload size={16} />
+          Import Rooming
+        </button>
+        <button type="button" onClick={() => openModal("hotel")} className="portal-primary-btn">
+          <Plus size={16} />
+          Add Hotel
+        </button>
+      </div>
+    );
+  }
+  if (view === "passport" && has(P.MANAGE_VISA)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => openModal("passportExport")}
+          className="portal-small-btn bg-white"
+        >
+          <Download size={16} />
+          Export Passport
+        </button>
+        <button
+          type="button"
+          onClick={() => openModal("passportImport")}
+          className="portal-small-btn bg-white"
+        >
+          <Upload size={16} />
+          Import Passport
+        </button>
+      </div>
+    );
+  }
+  if (view === "visa" && has(P.MANAGE_VISA)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => openModal("visaExport")}
+          className="portal-small-btn bg-white"
+        >
+          <Download size={16} />
+          Export Visa
+        </button>
+        <button
+          type="button"
+          onClick={() => openModal("visaImport")}
+          className="portal-small-btn bg-white"
+        >
+          <Upload size={16} />
+          Import Visa
+        </button>
+        <button
+          type="button"
+          onClick={() => openModal("visa_create")}
+          className="portal-primary-btn"
+        >
+          <Plus size={16} />
+          Create Visa Record
+        </button>
+      </div>
+    );
+  }
   const actions = {
     queries: has(P.MANAGE_QUERIES) && ["query", "New Query"],
     contracting: canAssignContracting(access) && ["assignContracting", "Assign Contracting"],
     proposals: has(P.MANAGE_PROPOSALS) && ["proposal", "New Proposal"],
     tickets: has(P.MANAGE_TICKETING) && ["ticket", "Issue Ticket"],
     "seat-allocation": has(P.MANAGE_TICKETING) && ["seat", "Save Seat"],
-    hotels: has(P.MANAGE_OPERATIONS) && ["hotel", "Add Hotel"],
     "tour-managers": canAssignTourManagers(access) && ["tourManager", "Add Tour Manager"],
     expenses: has(P.MANAGE_EXPENSES) && ["expense", "Add Expense"],
     settings: has(P.MANAGE_STAFF) && ["staff", "Add Staff"],
-    "employees-on-leave": (has(P.REQUEST_LEAVE) || has(P.MANAGE_LEAVE)) && ["leave_create", has(P.MANAGE_LEAVE) ? "Record Leave" : "Request Leave"],
+    "employees-on-leave": (has(P.REQUEST_LEAVE) || has(P.MANAGE_LEAVE)) && [
+      "leave_create",
+      has(P.MANAGE_LEAVE) ? "Record Leave" : "Request Leave",
+    ],
   };
   const action = actions[view];
   if (!action) return null;
@@ -1437,7 +1872,16 @@ function renderHeaderAction(view, openModal, has, access) {
   );
 }
 
-function PageHeader({ title, subtitle, children, search, setSearch, period, setPeriod, showPeriodFilter = true }) {
+function PageHeader({
+  title,
+  subtitle,
+  children,
+  search,
+  setSearch,
+  period,
+  setPeriod,
+  showPeriodFilter = true,
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -1469,11 +1913,17 @@ function PageHeader({ title, subtitle, children, search, setSearch, period, setP
                 </option>
               ))}
             </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted/60" size={16} />
+            <ChevronDown
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
+              size={16}
+            />
           </label>
         )}
         <label className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted/60" size={16} />
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
+            size={16}
+          />
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -1491,16 +1941,66 @@ function DashboardView({ summary, has }) {
   if (!summary) return <LoadingPanel />;
 
   const metrics = [
-    { label: "Active Queries", value: summary.metrics.activeQueries, Icon: ClipboardList, permission: P.VIEW_QUERIES },
-    { label: "Proposals Sent", value: summary.metrics.proposalsSent, Icon: FileText, permission: P.VIEW_PROPOSALS },
-    { label: "Confirmed Jobs", value: summary.metrics.confirmedJobs, Icon: CheckCircle2, permission: P.VIEW_QUERIES },
-    { label: "Open Job Cards", value: summary.metrics.jobCardsOpen, Icon: BriefcaseIcon, permission: P.VIEW_JOB_CARDS },
-    { label: "Tickets Issued", value: summary.metrics.ticketsIssued, Icon: Ticket, permission: P.VIEW_TICKETING },
-    { label: "Tickets Pending", value: summary.metrics.ticketsPending, Icon: Plane, permission: P.VIEW_TICKETING },
-    { label: "Visa Pending", value: summary.metrics.visaPending, Icon: ShieldCheck, permission: P.VIEW_VISA },
-    { label: "Outstanding", value: money(summary.metrics.outstandingAmount), Icon: CircleDollarSign, permission: P.VIEW_FINANCE },
-    { label: "Pending Approvals", value: summary.metrics.pendingApprovals, Icon: CheckCircle2, permission: P.VIEW_APPROVALS },
-    { label: "Revenue Pipeline", value: money(summary.metrics.revenuePipeline), Icon: CircleDollarSign, permission: P.VIEW_FINANCE },
+    {
+      label: "Active Queries",
+      value: summary.metrics.activeQueries,
+      Icon: ClipboardList,
+      permission: P.VIEW_QUERIES,
+    },
+    {
+      label: "Proposals Sent",
+      value: summary.metrics.proposalsSent,
+      Icon: FileText,
+      permission: P.VIEW_PROPOSALS,
+    },
+    {
+      label: "Confirmed Jobs",
+      value: summary.metrics.confirmedJobs,
+      Icon: CheckCircle2,
+      permission: P.VIEW_QUERIES,
+    },
+    {
+      label: "Open Job Cards",
+      value: summary.metrics.jobCardsOpen,
+      Icon: BriefcaseIcon,
+      permission: P.VIEW_JOB_CARDS,
+    },
+    {
+      label: "Tickets Issued",
+      value: summary.metrics.ticketsIssued,
+      Icon: Ticket,
+      permission: P.VIEW_TICKETING,
+    },
+    {
+      label: "Tickets Pending",
+      value: summary.metrics.ticketsPending,
+      Icon: Plane,
+      permission: P.VIEW_TICKETING,
+    },
+    {
+      label: "Visa Pending",
+      value: summary.metrics.visaPending,
+      Icon: ShieldCheck,
+      permission: P.VIEW_VISA,
+    },
+    {
+      label: "Outstanding",
+      value: money(summary.metrics.outstandingAmount),
+      Icon: CircleDollarSign,
+      permission: P.VIEW_FINANCE,
+    },
+    {
+      label: "Pending Approvals",
+      value: summary.metrics.pendingApprovals,
+      Icon: CheckCircle2,
+      permission: P.VIEW_APPROVALS,
+    },
+    {
+      label: "Revenue Pipeline",
+      value: money(summary.metrics.revenuePipeline),
+      Icon: CircleDollarSign,
+      permission: P.VIEW_FINANCE,
+    },
   ].filter((metric) => has(metric.permission));
 
   const departmentWorkflow = (summary.departmentWorkflow || []).filter((item) => {
@@ -1530,15 +2030,19 @@ function DashboardView({ summary, has }) {
 
   const emptyQueryTypeCounts = () => QUERY_TYPES.map((type) => ({ type, count: 0 }));
   const queryTypeCounts = has(P.VIEW_QUERIES)
-    ? (summary.queriesByType?.length ? summary.queriesByType : emptyQueryTypeCounts())
+    ? summary.queriesByType?.length
+      ? summary.queriesByType
+      : emptyQueryTypeCounts()
     : [];
   const confirmedQueryTypeCounts = has(P.VIEW_QUERIES)
-    ? (summary.confirmedQueriesByType?.length
-        ? summary.confirmedQueriesByType
-        : emptyQueryTypeCounts())
+    ? summary.confirmedQueriesByType?.length
+      ? summary.confirmedQueriesByType
+      : emptyQueryTypeCounts()
     : [];
   const closedQueryTypeCounts = has(P.VIEW_QUERIES)
-    ? (summary.closedQueriesByType?.length ? summary.closedQueriesByType : emptyQueryTypeCounts())
+    ? summary.closedQueriesByType?.length
+      ? summary.closedQueriesByType
+      : emptyQueryTypeCounts()
     : [];
   const activeQueryTotal = queryTypeCounts.reduce((sum, item) => sum + item.count, 0);
   const confirmedQueryTotal = confirmedQueryTypeCounts.reduce((sum, item) => sum + item.count, 0);
@@ -1568,7 +2072,12 @@ function DashboardView({ summary, has }) {
               />
               <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
                 {queryTypeCounts.map((item, index) => (
-                  <QueryTypeTile key={`active-${item.type}`} type={item.type} count={item.count} index={index} />
+                  <QueryTypeTile
+                    key={`active-${item.type}`}
+                    type={item.type}
+                    count={item.count}
+                    index={index}
+                  />
                 ))}
               </div>
             </section>
@@ -1621,7 +2130,9 @@ function DashboardView({ summary, has }) {
       >
         {has(P.VIEW_JOB_CARDS) && (
           <Panel title="Active tours">
-            {(summary.activeTours || []).length === 0 ? <EmptyState label="No active tours yet." /> : (
+            {(summary.activeTours || []).length === 0 ? (
+              <EmptyState label="No active tours yet." />
+            ) : (
               <div className="space-y-4">
                 {summary.activeTours.map((tour, index) => (
                   <motion.div
@@ -1634,8 +2145,12 @@ function DashboardView({ summary, has }) {
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <div className="text-sm font-semibold text-brand-dark">{tour.jobCode} - {tour.clientName}</div>
-                        <div className="text-xs text-brand-muted">{tour.destination || "Destination pending"} - {tour.pax} pax</div>
+                        <div className="text-sm font-semibold text-brand-dark">
+                          {tour.jobCode} - {tour.clientName}
+                        </div>
+                        <div className="text-xs text-brand-muted">
+                          {tour.destination || "Destination pending"} - {tour.pax} pax
+                        </div>
                       </div>
                       <Badge label={tour.status} tone="blue" />
                     </div>
@@ -1648,7 +2163,9 @@ function DashboardView({ summary, has }) {
           </Panel>
         )}
         <Panel title="Urgent actions">
-          {urgentActions.length === 0 ? <EmptyState label="No urgent actions." /> : (
+          {urgentActions.length === 0 ? (
+            <EmptyState label="No urgent actions." />
+          ) : (
             <div className="space-y-3">
               {urgentActions.map((item, index) => (
                 <motion.div
@@ -1669,11 +2186,24 @@ function DashboardView({ summary, has }) {
       {showOpsProgress && (
         <Panel title="Overall progress">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {has(P.VIEW_TICKETING) && <Progress label="Tickets issued / total pax" value={summary.progress.tickets.percent} />}
-            {has(P.VIEW_VISA) && <Progress label="Visa approved / total pax" value={summary.progress.visas.percent} />}
-            {has(P.VIEW_TRAVELLERS) && <Progress label="Guest data completed" value={summary.progress.guestData.percent} />}
-            {has(P.VIEW_OPERATIONS) && <Progress label="Rooming completed" value={summary.progress.rooming.percent} />}
-            {has(P.VIEW_FINANCE) && <Progress label="Payment received" value={summary.progress.payment.percent} />}
+            {has(P.VIEW_TICKETING) && (
+              <Progress
+                label="Tickets issued / total pax"
+                value={summary.progress.tickets.percent}
+              />
+            )}
+            {has(P.VIEW_VISA) && (
+              <Progress label="Visa approved / total pax" value={summary.progress.visas.percent} />
+            )}
+            {has(P.VIEW_TRAVELLERS) && (
+              <Progress label="Guest data completed" value={summary.progress.guestData.percent} />
+            )}
+            {has(P.VIEW_OPERATIONS) && (
+              <Progress label="Rooming completed" value={summary.progress.rooming.percent} />
+            )}
+            {has(P.VIEW_FINANCE) && (
+              <Progress label="Payment received" value={summary.progress.payment.percent} />
+            )}
           </div>
         </Panel>
       )}
@@ -1685,27 +2215,46 @@ function DashboardView({ summary, has }) {
       >
         {has(P.VIEW_JOB_CARDS) && (
           <Panel title="Upcoming departures">
-            {(summary.upcomingDepartures || []).length === 0 ? <EmptyState label="No upcoming departures." /> : (
-              <DataTable compact rows={summary.upcomingDepartures} empty="No upcoming departures." columns={[
-                ["JC", (row) => row.jobCode],
-                ["Client", (row) => strong(row.clientName)],
-                ["Date", (row) => row.travelStartDate],
-                ["Pax", (row) => row.pax],
-                ["TM", (row) => row.tourManagerName || "-"],
-                ["Readiness", (row) => <Badge label={row.readiness} tone={statusTone(row.readiness)} />],
-              ]} />
+            {(summary.upcomingDepartures || []).length === 0 ? (
+              <EmptyState label="No upcoming departures." />
+            ) : (
+              <DataTable
+                compact
+                rows={summary.upcomingDepartures}
+                empty="No upcoming departures."
+                columns={[
+                  ["JC", (row) => row.jobCode],
+                  ["Client", (row) => strong(row.clientName)],
+                  ["Date", (row) => row.travelStartDate],
+                  ["Pax", (row) => row.pax],
+                  ["TM", (row) => row.tourManagerName || "-"],
+                  [
+                    "Readiness",
+                    (row) => <Badge label={row.readiness} tone={statusTone(row.readiness)} />,
+                  ],
+                ]}
+              />
             )}
           </Panel>
         )}
         {has(P.VIEW_TEAM) && (
           <Panel title="My team">
-            {(summary.myTeam || []).length === 0 ? <EmptyState label="No matching team members." /> : (
+            {(summary.myTeam || []).length === 0 ? (
+              <EmptyState label="No matching team members." />
+            ) : (
               <div className="grid gap-3 sm:grid-cols-2">
                 {summary.myTeam.map((member) => (
-                  <div key={member.id} className="rounded-xl border border-brand-border bg-brand-light p-4">
+                  <div
+                    key={member.id}
+                    className="rounded-xl border border-brand-border bg-brand-light p-4"
+                  >
                     <div className="text-sm font-semibold text-brand-dark">{member.name}</div>
-                    <div className="mt-1 text-xs text-brand-muted">{member.function || member.department}</div>
-                    <div className="mt-1 text-xs text-brand-muted">{member.location || member.email}</div>
+                    <div className="mt-1 text-xs text-brand-muted">
+                      {member.function || member.department}
+                    </div>
+                    <div className="mt-1 text-xs text-brand-muted">
+                      {member.location || member.email}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1717,7 +2266,11 @@ function DashboardView({ summary, has }) {
         <Panel title="Department workflow">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             {departmentWorkflow.map((item) => (
-              <Progress key={item.label} label={`${item.label}: ${typeof item.value === "number" ? item.value.toLocaleString("en-IN") : item.value}`} value={item.percent} />
+              <Progress
+                key={item.label}
+                label={`${item.label}: ${typeof item.value === "number" ? item.value.toLocaleString("en-IN") : item.value}`}
+                value={item.percent}
+              />
             ))}
           </div>
         </Panel>
@@ -1726,45 +2279,79 @@ function DashboardView({ summary, has }) {
   );
 }
 
-function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToContracting, getQueryAttachmentUrl }) {
-  const renderQueryActions = (row) => has(P.MANAGE_QUERIES) && (
-    <>
-      <button type="button" className="portal-small-btn" onClick={() => openModal("query", {
-        entityId: row.id,
-        clientName: row.clientName,
-        contactPerson: row.contactPerson,
-        contactMobile: row.contactMobile,
-        destination: row.destination,
-        paxCount: String(row.paxCount),
-        travelStartDate: row.travelStartDate,
-        travelEndDate: row.travelEndDate,
-        queryType: row.queryType,
-        travelType: row.travelType,
-        budgetAmount: String(row.budgetAmount || ""),
-        source: row.source,
-        salesOwnerName: row.salesOwnerName,
-        notes: row.notes,
-      })}>
-        Edit
-      </button>
-      <button type="button" className="portal-small-btn" onClick={() => openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })}>
-        Reference Itinerary
-      </button>
-      <button type="button" className="portal-small-btn" onClick={() => submitToContracting({ queryId: row.id })}>
-        Submit
-      </button>
-      <button type="button" className="portal-small-btn" onClick={() => openModal("queryStatus", {
-        queryId: row.id,
-        salesStatus: row.salesStatus,
-        leadStage: row.leadStage || "Inquiry",
-        contractingStatus: row.contractingStatus,
-        approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
-      })}>
-        Update
-      </button>
-      <DeleteButton label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />
-    </>
-  );
+function QueriesView({
+  rows,
+  openModal,
+  has,
+  deleteItem,
+  removeQuery,
+  submitToContracting,
+  getQueryAttachmentUrl,
+}) {
+  const renderQueryActions = (row) =>
+    has(P.MANAGE_QUERIES) && (
+      <>
+        <button
+          type="button"
+          className="portal-small-btn"
+          onClick={() =>
+            openModal("query", {
+              entityId: row.id,
+              clientName: row.clientName,
+              contactPerson: row.contactPerson,
+              contactMobile: row.contactMobile,
+              destination: row.destination,
+              paxCount: String(row.paxCount),
+              travelStartDate: row.travelStartDate,
+              travelEndDate: row.travelEndDate,
+              queryType: row.queryType,
+              travelType: row.travelType,
+              budgetAmount: String(row.budgetAmount || ""),
+              source: row.source,
+              salesOwnerName: row.salesOwnerName,
+              notes: row.notes,
+            })
+          }
+        >
+          Edit
+        </button>
+        <button
+          type="button"
+          className="portal-small-btn"
+          onClick={() =>
+            openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })
+          }
+        >
+          Reference Itinerary
+        </button>
+        <button
+          type="button"
+          className="portal-small-btn"
+          onClick={() => submitToContracting({ queryId: row.id })}
+        >
+          Submit
+        </button>
+        <button
+          type="button"
+          className="portal-small-btn"
+          onClick={() =>
+            openModal("queryStatus", {
+              queryId: row.id,
+              salesStatus: row.salesStatus,
+              leadStage: row.leadStage || "Inquiry",
+              contractingStatus: row.contractingStatus,
+              approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
+            })
+          }
+        >
+          Update
+        </button>
+        <DeleteButton
+          label={row.queryCode}
+          onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })}
+        />
+      </>
+    );
 
   return (
     <DataTable
@@ -1788,50 +2375,91 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToCo
             ]}
           />
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <div><span className="text-brand-muted">Destination</span><div className="font-medium">{row.destination || "TBD"}</div></div>
-            <div><span className="text-brand-muted">Pax</span><div className="font-medium">{row.paxCount}</div></div>
-            <div><span className="text-brand-muted">Budget</span><div className="font-medium">{money(row.budgetAmount)}</div></div>
-            <div><span className="text-brand-muted">Sales</span><div className="font-medium">{row.salesOwnerName || "-"}</div></div>
+            <div>
+              <span className="text-brand-muted">Destination</span>
+              <div className="font-medium">{row.destination || "TBD"}</div>
+            </div>
+            <div>
+              <span className="text-brand-muted">Pax</span>
+              <div className="font-medium">{row.paxCount}</div>
+            </div>
+            <div>
+              <span className="text-brand-muted">Budget</span>
+              <div className="font-medium">{money(row.budgetAmount)}</div>
+            </div>
+            <div>
+              <span className="text-brand-muted">Sales</span>
+              <div className="font-medium">{row.salesOwnerName || "-"}</div>
+            </div>
           </div>
           {has(P.MANAGE_QUERIES) && (
             <QueryRowActions
-              primaryAction={(
-                <button type="button" className="portal-small-btn" onClick={() => openModal("query", {
-                  entityId: row.id,
-                  clientName: row.clientName,
-                  contactPerson: row.contactPerson,
-                  contactMobile: row.contactMobile,
-                  destination: row.destination,
-                  paxCount: String(row.paxCount),
-                  travelStartDate: row.travelStartDate,
-                  travelEndDate: row.travelEndDate,
-                  queryType: row.queryType,
-                  travelType: row.travelType,
-                  budgetAmount: String(row.budgetAmount || ""),
-                  source: row.source,
-                  salesOwnerName: row.salesOwnerName,
-                  notes: row.notes,
-                })}>
+              primaryAction={
+                <button
+                  type="button"
+                  className="portal-small-btn"
+                  onClick={() =>
+                    openModal("query", {
+                      entityId: row.id,
+                      clientName: row.clientName,
+                      contactPerson: row.contactPerson,
+                      contactMobile: row.contactMobile,
+                      destination: row.destination,
+                      paxCount: String(row.paxCount),
+                      travelStartDate: row.travelStartDate,
+                      travelEndDate: row.travelEndDate,
+                      queryType: row.queryType,
+                      travelType: row.travelType,
+                      budgetAmount: String(row.budgetAmount || ""),
+                      source: row.source,
+                      salesOwnerName: row.salesOwnerName,
+                      notes: row.notes,
+                    })
+                  }
+                >
                   Edit
                 </button>
-              )}
+              }
               overflowActions={[
-                <button key="ref" type="button" className="portal-small-btn w-full" onClick={() => openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })}>
+                <button
+                  key="ref"
+                  type="button"
+                  className="portal-small-btn w-full"
+                  onClick={() =>
+                    openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })
+                  }
+                >
                   Reference Itinerary
                 </button>,
-                <button key="submit" type="button" className="portal-small-btn w-full" onClick={() => submitToContracting({ queryId: row.id })}>
+                <button
+                  key="submit"
+                  type="button"
+                  className="portal-small-btn w-full"
+                  onClick={() => submitToContracting({ queryId: row.id })}
+                >
                   Submit
                 </button>,
-                <button key="update" type="button" className="portal-small-btn w-full" onClick={() => openModal("queryStatus", {
-                  queryId: row.id,
-                  salesStatus: row.salesStatus,
-                  leadStage: row.leadStage || "Inquiry",
-                  contractingStatus: row.contractingStatus,
-                  approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
-                })}>
+                <button
+                  key="update"
+                  type="button"
+                  className="portal-small-btn w-full"
+                  onClick={() =>
+                    openModal("queryStatus", {
+                      queryId: row.id,
+                      salesStatus: row.salesStatus,
+                      leadStage: row.leadStage || "Inquiry",
+                      contractingStatus: row.contractingStatus,
+                      approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
+                    })
+                  }
+                >
                   Update
                 </button>,
-                <DeleteButton key="delete" label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />,
+                <DeleteButton
+                  key="delete"
+                  label={row.queryCode}
+                  onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })}
+                />,
               ]}
             />
           )}
@@ -1840,41 +2468,79 @@ function QueriesView({ rows, openModal, has, deleteItem, removeQuery, submitToCo
       columns={[
         ["Query ID", (row) => row.queryCode],
         ["Client", (row) => strong(row.clientName)],
-        ["Created", (row) => <span className="text-xs text-brand-muted">{formatDate(row.createdAt)}</span>],
-        ["Submitted", (row) => <span className="text-xs text-brand-muted">{formatDate(row.submittedToContractingAt)}</span>],
-        ["Confirmed", (row) => <span className="text-xs text-brand-muted">{formatDate(row.confirmedAt)}</span>],
+        [
+          "Created",
+          (row) => <span className="text-xs text-brand-muted">{formatDate(row.createdAt)}</span>,
+        ],
+        [
+          "Submitted",
+          (row) => (
+            <span className="text-xs text-brand-muted">
+              {formatDate(row.submittedToContractingAt)}
+            </span>
+          ),
+        ],
+        [
+          "Confirmed",
+          (row) => <span className="text-xs text-brand-muted">{formatDate(row.confirmedAt)}</span>,
+        ],
         ["Destination", (row) => row.destination || "TBD"],
         ["Pax", (row) => row.paxCount],
         ["Budget", (row) => money(row.budgetAmount)],
-        ["Approx. Margin", (row) => (
-          isQueryConfirmed(row)
-            ? row.approxMargin != null ? money(row.approxMargin) : "-"
-            : "-"
-        )],
-        ["Stage", (row) => <Badge label={row.leadStage || "Inquiry"} tone={statusTone(row.leadStage)} />],
+        [
+          "Approx. Margin",
+          (row) =>
+            isQueryConfirmed(row)
+              ? row.approxMargin != null
+                ? money(row.approxMargin)
+                : "-"
+              : "-",
+        ],
+        [
+          "Stage",
+          (row) => <Badge label={row.leadStage || "Inquiry"} tone={statusTone(row.leadStage)} />,
+        ],
         ["Type", (row) => <Badge label={row.queryType} tone="blue" />],
-        ["Files", (row) => (
-          <QueryAttachmentSummary
-            attachments={row.attachments || []}
-            canManage={has(P.MANAGE_QUERIES)}
-            onManage={() => openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })}
-            getQueryAttachmentUrl={getQueryAttachmentUrl}
-          />
-        )],
+        [
+          "Files",
+          (row) => (
+            <QueryAttachmentSummary
+              attachments={row.attachments || []}
+              canManage={has(P.MANAGE_QUERIES)}
+              onManage={() =>
+                openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })
+              }
+              getQueryAttachmentUrl={getQueryAttachmentUrl}
+            />
+          ),
+        ],
         ["Sales", (row) => row.salesOwnerName || "-"],
         ["Notes", (row) => notesPreview(row.notes)],
         ["Source", (row) => row.source || "-"],
-        ["Action", (row) => has(P.MANAGE_QUERIES) && (
-          <motion.div className="hidden flex-wrap gap-2 md:flex">
-            {renderQueryActions(row)}
-          </motion.div>
-        )],
+        [
+          "Action",
+          (row) =>
+            has(P.MANAGE_QUERIES) && (
+              <motion.div className="hidden flex-wrap gap-2 md:flex">
+                {renderQueryActions(row)}
+              </motion.div>
+            ),
+        ],
       ]}
     />
   );
 }
 
-function ContractingView({ rows, proposals, team, openModal, has, canAssign, deleteItem, removeQuery }) {
+function ContractingView({
+  rows,
+  proposals,
+  team,
+  openModal,
+  has,
+  canAssign,
+  deleteItem,
+  removeQuery,
+}) {
   const proposalsByQueryId = useMemo(() => {
     const map = new Map();
     for (const proposal of proposals) {
@@ -1927,70 +2593,115 @@ function ContractingView({ rows, proposals, team, openModal, has, canAssign, del
           />
         </Panel>
       )}
-    <DataTable
-      rows={rows}
-      empty="No contracting queries yet."
-      columns={[
-        ["Received", (row) => <span className="text-xs text-brand-muted">{formatDate(row.submittedToContractingAt || row.createdAt)}</span>],
-        ["Query", (row) => row.queryCode],
-        ["Client", (row) => strong(row.clientName)],
-        ["Confirmed", (row) => <span className="text-xs text-brand-muted">{formatDate(row.confirmedAt)}</span>],
-        ["Sales Owner", (row) => row.salesOwnerName || "-"],
-        ["Contracting Owner", (row) => row.contractingOwnerName || "Unassigned"],
-        ["Notes", (row) => notesPreview(row.notes)],
-        ["Status", (row) => <Badge label={row.contractingStatus} tone={statusTone(row.contractingStatus)} />],
-        ["Proposal Cost", (row) => {
-          const proposal = proposalsByQueryId.get(row.id);
-          if (!proposal) return "-";
-          return (
-            <button
-              type="button"
-              className="font-semibold text-citius-blue underline-offset-2 hover:underline"
-              onClick={() => openModal("proposal", {
-                entityId: proposal.id,
-                queryId: proposal.queryId || "",
-                clientName: proposal.clientName,
-                landCostPerPax: String(proposal.landCostPerPax ?? ""),
-                airfarePerPax: String(proposal.airfarePerPax ?? ""),
-                sellingPrice: String(proposal.sellingPrice ?? ""),
-                paxCount: String(proposal.query?.paxCount ?? row.paxCount ?? 1),
-                itinerarySummary: proposal.itinerarySummary || "",
-              })}
-            >
-              {money(proposal.costPrice)} ({proposal.proposalCode})
-            </button>
-          );
-        }],
-        ["Approx. Margin", (row) => (
-          isQueryConfirmed(row)
-            ? row.approxMargin != null ? money(row.approxMargin) : "-"
-            : "-"
-        )],
-        ["Action", (row) => (
-          <div className="flex gap-2">
-            {canAssign && (
-              <button className="portal-small-btn" onClick={() => openModal("assignContracting", { queryId: row.id })}>Assign</button>
-            )}
-            {has(P.MANAGE_CONTRACTING) && (
-              <>
-                <button className="portal-small-btn" onClick={() => openModal("queryStatus", {
-                  queryId: row.id,
-                  salesStatus: row.salesStatus,
-                  leadStage: row.leadStage || "Inquiry",
-                  contractingStatus: row.contractingStatus,
-                  budgetAmount: String(row.budgetAmount || ""),
-                  contractingLandCost: String(row.contractingLandCost ?? ""),
-                  contractingAirlinesCost: String(row.contractingAirlinesCost ?? ""),
-                  contractingVisaCost: String(row.contractingVisaCost ?? ""),
-                  approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
-                })}>Status</button>
-                <DeleteButton label={row.queryCode} onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })} />
-              </>
-            )}
-          </div>
-        )],
-      ]}
-    />
+      <DataTable
+        rows={rows}
+        empty="No contracting queries yet."
+        columns={[
+          [
+            "Received",
+            (row) => (
+              <span className="text-xs text-brand-muted">
+                {formatDate(row.submittedToContractingAt || row.createdAt)}
+              </span>
+            ),
+          ],
+          ["Query", (row) => row.queryCode],
+          ["Client", (row) => strong(row.clientName)],
+          [
+            "Confirmed",
+            (row) => (
+              <span className="text-xs text-brand-muted">{formatDate(row.confirmedAt)}</span>
+            ),
+          ],
+          ["Sales Owner", (row) => row.salesOwnerName || "-"],
+          ["Contracting SPOC", (row) => row.contractingOwnerName || "Unassigned"],
+          ["Notes", (row) => notesPreview(row.notes)],
+          [
+            "Status",
+            (row) => (
+              <Badge label={row.contractingStatus} tone={statusTone(row.contractingStatus)} />
+            ),
+          ],
+          [
+            "Proposal Cost",
+            (row) => {
+              const proposal = proposalsByQueryId.get(row.id);
+              if (!proposal) return "-";
+              return (
+                <button
+                  type="button"
+                  className="font-semibold text-citius-blue underline-offset-2 hover:underline"
+                  onClick={() =>
+                    openModal("proposal", {
+                      entityId: proposal.id,
+                      queryId: proposal.queryId || "",
+                      clientName: proposal.clientName,
+                      landCostPerPax: String(proposal.landCostPerPax ?? ""),
+                      airfarePerPax: String(proposal.airfarePerPax ?? ""),
+                      sellingPrice: String(proposal.sellingPrice ?? ""),
+                      paxCount: String(proposal.query?.paxCount ?? row.paxCount ?? 1),
+                      taxRate: proposal.taxRate ? String(proposal.taxRate) : "",
+                      itinerarySummary: proposal.itinerarySummary || "",
+                    })
+                  }
+                >
+                  {money(proposal.costPrice)}/pax ({proposal.proposalCode})
+                </button>
+              );
+            },
+          ],
+          [
+            "Approx. Margin",
+            (row) =>
+              isQueryConfirmed(row)
+                ? row.approxMargin != null
+                  ? money(row.approxMargin)
+                  : "-"
+                : "-",
+          ],
+          [
+            "Action",
+            (row) => (
+              <div className="flex gap-2">
+                {canAssign && (
+                  <button
+                    className="portal-small-btn"
+                    onClick={() => openModal("assignContracting", { queryId: row.id })}
+                  >
+                    Assign
+                  </button>
+                )}
+                {has(P.MANAGE_CONTRACTING) && (
+                  <>
+                    <button
+                      className="portal-small-btn"
+                      onClick={() =>
+                        openModal("queryStatus", {
+                          queryId: row.id,
+                          salesStatus: row.salesStatus,
+                          leadStage: row.leadStage || "Inquiry",
+                          contractingStatus: row.contractingStatus,
+                          budgetAmount: String(row.budgetAmount || ""),
+                          contractingLandCost: String(row.contractingLandCost ?? ""),
+                          contractingAirlinesCost: String(row.contractingAirlinesCost ?? ""),
+                          contractingVisaCost: String(row.contractingVisaCost ?? ""),
+                          approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
+                        })
+                      }
+                    >
+                      Status
+                    </button>
+                    <DeleteButton
+                      label={row.queryCode}
+                      onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })}
+                    />
+                  </>
+                )}
+              </div>
+            ),
+          ],
+        ]}
+      />
     </motion.div>
   );
 }
@@ -2009,7 +2720,9 @@ function PipelineView({ rows, mode, setMode }) {
             type="button"
             onClick={() => setMode(value)}
             className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
-              mode === value ? "bg-citius-blue text-white" : "text-brand-muted hover:text-citius-blue"
+              mode === value
+                ? "bg-citius-blue text-white"
+                : "text-brand-muted hover:text-citius-blue"
             }`}
           >
             {label}
@@ -2033,10 +2746,17 @@ function PipelineView({ rows, mode, setMode }) {
             </div>
             <div className="space-y-2">
               {items.map((item) => (
-                <div key={item.id} className="rounded-xl border border-brand-border bg-brand-light p-3">
+                <div
+                  key={item.id}
+                  className="rounded-xl border border-brand-border bg-brand-light p-3"
+                >
                   <div className="text-sm font-semibold text-brand-dark">{item.clientName}</div>
-                  <div className="mt-1 text-xs text-brand-muted">{item.queryCode} - {item.destination || "TBD"} - {item.paxCount} pax</div>
-                  <div className="mt-1 text-xs text-brand-muted">{item.salesOwnerName || "Unassigned"}</div>
+                  <div className="mt-1 text-xs text-brand-muted">
+                    {item.queryCode} - {item.destination || "TBD"} - {item.paxCount} pax
+                  </div>
+                  <div className="mt-1 text-xs text-brand-muted">
+                    {item.salesOwnerName || "Unassigned"}
+                  </div>
                 </div>
               ))}
             </div>
@@ -2047,7 +2767,16 @@ function PipelineView({ rows, mode, setMode }) {
   );
 }
 
-function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, removeProposal, getProposalAttachmentUrl, getFinalizedPdfUrl }) {
+function ProposalsView({
+  rows,
+  markProposalSent,
+  openModal,
+  has,
+  deleteItem,
+  removeProposal,
+  getProposalAttachmentUrl,
+  getFinalizedPdfUrl,
+}) {
   const canSend = has(P.SEND_PROPOSALS) || has(P.MANAGE_PROPOSALS);
   const canManage = has(P.MANAGE_PROPOSALS);
 
@@ -2072,88 +2801,173 @@ function ProposalsView({ rows, markProposalSent, openModal, has, deleteItem, rem
             ]}
           />
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <div><span className="text-brand-muted">Query</span><div className="font-medium">{row.query?.queryCode || "-"}</div></div>
-            <div><span className="text-brand-muted">Total</span><div className="font-medium">{money(row.costPrice)}</div></div>
+            <div>
+              <span className="text-brand-muted">Query</span>
+              <div className="font-medium">{row.query?.queryCode || "-"}</div>
+            </div>
+            <div>
+              <span className="text-brand-muted">CP/Pax</span>
+              <div className="font-medium">{money(row.costPrice)}</div>
+            </div>
           </div>
         </div>
       )}
       columns={[
         ["Proposal", (row) => row.proposalCode],
         ["Client", (row) => strong(row.clientName)],
-        ["Created", (row) => <span className="text-xs text-brand-muted">{formatDate(row.createdAt)}</span>],
-        ["Sent", (row) => <span className="text-xs text-brand-muted">{formatDate(row.sentAt)}</span>],
+        [
+          "Created",
+          (row) => <span className="text-xs text-brand-muted">{formatDate(row.createdAt)}</span>,
+        ],
+        [
+          "Sent",
+          (row) => <span className="text-xs text-brand-muted">{formatDate(row.sentAt)}</span>,
+        ],
         ["Linked Query", (row) => row.query?.queryCode || "-"],
         ["Land/Pax", (row) => money(row.landCostPerPax)],
         ["Airfare/Pax", (row) => money(row.airfarePerPax)],
-        ["Total Cost", (row) => money(row.costPrice)],
+        ["CP/Pax", (row) => money(row.costPrice)],
+        ["Tax", (row) => (row.taxRate ? `${row.taxRate}%` : "-")],
         ["Selling", (row) => money(row.sellingPrice)],
-        ["Finalized PDF", (row) => (
-          <FinalizedProposalPdfSummary
-            finalizedPdf={row.finalizedPdf}
-            canSend={canSend}
-            onManage={() => openModal("proposalFinalizedPdf", { proposalId: row.id, queryCode: row.proposalCode })}
-            onDownload={() => openFinalizedProposalPdf(row.id, getFinalizedPdfUrl)}
-          />
-        )],
-        ...(canManage ? [[
-          "Working Files",
+        [
+          "Finalized PDF",
           (row) => (
-            <QueryAttachmentSummary
-              attachments={row.attachments || []}
-              canManage={canManage}
-              onManage={() => openModal("proposalAttachments", { proposalId: row.id, queryCode: row.proposalCode })}
-              getQueryAttachmentUrl={getProposalAttachmentUrl}
-              attachmentKind="proposal"
+            <FinalizedProposalPdfSummary
+              finalizedPdf={row.finalizedPdf}
+              canSend={canSend}
+              onManage={() =>
+                openModal("proposalFinalizedPdf", {
+                  proposalId: row.id,
+                  queryCode: row.proposalCode,
+                })
+              }
+              onDownload={() => openFinalizedProposalPdf(row.id, getFinalizedPdfUrl)}
             />
           ),
-        ]] : []),
+        ],
+        ...(canManage
+          ? [
+              [
+                "Working Files",
+                (row) => (
+                  <QueryAttachmentSummary
+                    attachments={row.attachments || []}
+                    canManage={canManage}
+                    onManage={() =>
+                      openModal("proposalAttachments", {
+                        proposalId: row.id,
+                        queryCode: row.proposalCode,
+                      })
+                    }
+                    getQueryAttachmentUrl={getProposalAttachmentUrl}
+                    attachmentKind="proposal"
+                  />
+                ),
+              ],
+            ]
+          : []),
         ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-        ["Action", (row) => (canSend || canManage) && (
-          <div className="flex flex-wrap gap-2">
-            {canSend && row.status !== "Sent" && (
-              <button className="portal-small-btn" onClick={() => markProposalSent({ proposalId: row.id })}>
-                <Send size={13} /> Mark Sent
-              </button>
-            )}
-            {canManage && (
-              <EditButton
-                onClick={() => openModal("proposal", {
-                  entityId: row.id,
-                  queryId: row.queryId || "",
-                  clientName: row.clientName,
-                  landCostPerPax: String(row.landCostPerPax ?? ""),
-                  airfarePerPax: String(row.airfarePerPax ?? ""),
-                  sellingPrice: String(row.sellingPrice ?? ""),
-                  paxCount: String(row.query?.paxCount ?? 1),
-                  itinerarySummary: row.itinerarySummary || "",
-                })}
-              />
-            )}
-            {canManage && (
-              <DeleteButton label={row.proposalCode} onClick={() => deleteItem(row.proposalCode, removeProposal, { proposalId: row.id })} />
-            )}
-          </div>
-        )],
+        [
+          "Action",
+          (row) =>
+            (canSend || canManage) && (
+              <div className="flex flex-wrap gap-2">
+                {canSend && row.status !== "Sent" && (
+                  <button
+                    className="portal-small-btn"
+                    onClick={() => markProposalSent({ proposalId: row.id })}
+                  >
+                    <Send size={13} /> Mark Sent
+                  </button>
+                )}
+                {canManage && (
+                  <EditButton
+                    onClick={() =>
+                      openModal("proposal", {
+                        entityId: row.id,
+                        queryId: row.queryId || "",
+                        clientName: row.clientName,
+                        landCostPerPax: String(row.landCostPerPax ?? ""),
+                        airfarePerPax: String(row.airfarePerPax ?? ""),
+                        sellingPrice: String(row.sellingPrice ?? ""),
+                        paxCount: String(row.query?.paxCount ?? 1),
+                        taxRate: row.taxRate ? String(row.taxRate) : "",
+                        itinerarySummary: row.itinerarySummary || "",
+                      })
+                    }
+                  />
+                )}
+                {canManage && (
+                  <DeleteButton
+                    label={row.proposalCode}
+                    onClick={() =>
+                      deleteItem(row.proposalCode, removeProposal, { proposalId: row.id })
+                    }
+                  />
+                )}
+              </div>
+            ),
+        ],
       ]}
     />
   );
 }
 
 function AccountsJobCardView({ rows, jobCards, openModal }) {
-  const confirmed = rows.filter((row) => row.salesStatus === "Order Confirmed" || row.contractingStatus === "Order Confirmed");
-  const jobByQuery = new Map(jobCards.filter((job) => job.queryId).map((job) => [job.queryId, job]));
+  const confirmed = rows.filter(
+    (row) => row.salesStatus === "Order Confirmed" || row.contractingStatus === "Order Confirmed",
+  );
+  const jobByQuery = new Map(
+    jobCards.filter((job) => job.queryId).map((job) => [job.queryId, job]),
+  );
   return (
     <div className="space-y-5">
       <Panel title="Payment terms reference">
         <DataTable
           compact
           rows={[
-            { id: "mice", type: "MICE / MICE Bidding", advance: "70-90%", balance: "10-30%", notify: "Sales, Contracting, Operations, Finance" },
-            { id: "cement", type: "Cement", advance: "70-90%", balance: "10-30%", notify: "Sales, Contracting, Operations, Finance" },
-            { id: "cement-bid", type: "Cement Bidding", advance: "70-100%", balance: "0-30%", notify: "Sales, Contracting, Operations, Finance" },
-            { id: "fit", type: "FIT / Family Group", advance: "90-100%", balance: "0-10%", notify: "Sales, Contracting, Operations, Finance" },
-            { id: "b2b", type: "B2B", advance: "80-100%", balance: "0-20%", notify: "Sales, Contracting, Finance" },
-            { id: "spiritual", type: "Spiritual", advance: "Per plan", balance: "-", notify: "Sales, Operations, Finance" },
+            {
+              id: "mice",
+              type: "MICE / MICE Bidding",
+              advance: "70-90%",
+              balance: "10-30%",
+              notify: "Sales, Contracting, Operations, Finance",
+            },
+            {
+              id: "cement",
+              type: "Cement",
+              advance: "70-90%",
+              balance: "10-30%",
+              notify: "Sales, Contracting, Operations, Finance",
+            },
+            {
+              id: "cement-bid",
+              type: "Cement Bidding",
+              advance: "70-100%",
+              balance: "0-30%",
+              notify: "Sales, Contracting, Operations, Finance",
+            },
+            {
+              id: "fit",
+              type: "FIT / Family Group",
+              advance: "90-100%",
+              balance: "0-10%",
+              notify: "Sales, Contracting, Operations, Finance",
+            },
+            {
+              id: "b2b",
+              type: "B2B",
+              advance: "80-100%",
+              balance: "0-20%",
+              notify: "Sales, Contracting, Finance",
+            },
+            {
+              id: "spiritual",
+              type: "Spiritual",
+              advance: "Per plan",
+              balance: "-",
+              notify: "Sales, Operations, Finance",
+            },
           ]}
           empty="No payment terms configured."
           columns={[
@@ -2170,149 +2984,263 @@ function AccountsJobCardView({ rows, jobCards, openModal }) {
         columns={[
           ["Query", (row) => row.queryCode],
           ["Client", (row) => strong(row.clientName)],
-          ["Confirmed", (row) => <span className="text-xs text-brand-muted">{formatDate(row.confirmedAt)}</span>],
+          [
+            "Confirmed",
+            (row) => (
+              <span className="text-xs text-brand-muted">{formatDate(row.confirmedAt)}</span>
+            ),
+          ],
           ["Destination", (row) => row.destination || "TBD"],
           ["Pax", (row) => row.paxCount],
           ["Payment Terms", (row) => paymentTermLabel(row.queryType)],
-          ["Job Card", (row) => {
-            const linkedJob = jobByQuery.get(row.id);
-            return linkedJob ? (
-              <div>
-                <Badge label={linkedJob.jobCode} tone="green" />
-                <div className="mt-1 text-xs text-brand-muted">Opened {formatDate(linkedJob.createdAt)}</div>
-              </div>
-            ) : <Badge label="Not opened" tone="orange" />;
-          }],
-          ["Action", (row) => {
-            const linkedJob = jobByQuery.get(row.id);
-            if (linkedJob) {
-              return <span className="text-xs font-semibold text-brand-muted">Linked to {linkedJob.jobCode}</span>;
-            }
-            return (
-              <button className="portal-small-btn" onClick={() => openModal("jobCard", { queryId: row.id, clientName: row.clientName, destination: row.destination, confirmedPax: String(row.paxCount), travelStartDate: row.travelStartDate, travelEndDate: row.travelEndDate })}>
-                Open JC
-              </button>
-            );
-          }],
+          [
+            "Job Card",
+            (row) => {
+              const linkedJob = jobByQuery.get(row.id);
+              return linkedJob ? (
+                <div>
+                  <Badge label={linkedJob.jobCode} tone="green" />
+                  <div className="mt-1 text-xs text-brand-muted">
+                    Opened {formatDate(linkedJob.createdAt)}
+                  </div>
+                </div>
+              ) : (
+                <Badge label="Not opened" tone="orange" />
+              );
+            },
+          ],
+          [
+            "Action",
+            (row) => {
+              const linkedJob = jobByQuery.get(row.id);
+              if (linkedJob) {
+                return (
+                  <span className="text-xs font-semibold text-brand-muted">
+                    Linked to {linkedJob.jobCode}
+                  </span>
+                );
+              }
+              return (
+                <button
+                  className="portal-small-btn"
+                  onClick={() =>
+                    openModal("jobCard", {
+                      queryId: row.id,
+                      clientName: row.clientName,
+                      destination: row.destination,
+                      confirmedPax: String(row.paxCount),
+                      travelStartDate: row.travelStartDate,
+                      travelEndDate: row.travelEndDate,
+                    })
+                  }
+                >
+                  Open JC
+                </button>
+              );
+            },
+          ],
         ]}
       />
     </div>
   );
 }
 
-function JobCardsView({ rows, updateJobStatus, openModal, has, access, deleteItem, removeJobCard }) {
+function JobCardsView({
+  rows,
+  updateJobStatus,
+  openModal,
+  has,
+  access,
+  deleteItem,
+  removeJobCard,
+}) {
   const showAssignContracting = canAssignContracting(access) || canAssignOperations(access);
   const showAssignOps = canAssignOperations(access);
   const showAssignTicketing = canAssignTicketing(access);
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {rows.length === 0 ? <EmptyState label="No Job Cards yet." /> : rows.map((job, index) => (
-        <motion.div
-          key={job.id}
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.05 }}
-          whileHover={{ y: -4 }}
-          className="overflow-hidden rounded-2xl border border-brand-border bg-white shadow-sm transition-shadow hover:shadow-lg"
-        >
-          <div className="flex items-center justify-between border-b border-brand-border px-5 py-4">
-            <div>
-              <div className="font-semibold text-brand-dark">{job.clientName}</div>
-              <div className="text-xs text-brand-muted">{job.jobCode} - {job.destination || "Destination pending"}</div>
-              <div className="mt-1 text-xs text-brand-muted">Opened {formatDate(job.createdAt)}</div>
+      {rows.length === 0 ? (
+        <EmptyState label="No Job Cards yet." />
+      ) : (
+        rows.map((job, index) => (
+          <motion.div
+            key={job.id}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05 }}
+            whileHover={{ y: -4 }}
+            className="overflow-hidden rounded-2xl border border-brand-border bg-white shadow-sm transition-shadow hover:shadow-lg"
+          >
+            <div className="flex items-center justify-between border-b border-brand-border px-5 py-4">
+              <div>
+                <div className="font-semibold text-brand-dark">{job.clientName}</div>
+                <div className="text-xs text-brand-muted">
+                  {job.jobCode} - {job.destination || "Destination pending"}
+                </div>
+                <div className="mt-1 text-xs text-brand-muted">
+                  Opened {formatDate(job.createdAt)}
+                </div>
+              </div>
+              <Badge label={job.status} tone={statusTone(job.status)} />
             </div>
-            <Badge label={job.status} tone={statusTone(job.status)} />
-          </div>
-          <div className="space-y-3 p-5 text-sm">
-            <div className="flex justify-between"><span>Confirmed pax</span><strong>{job.confirmedPax}</strong></div>
-            <div className="flex justify-between"><span>Rooms</span><strong>{job.roomCount || "-"}</strong></div>
-            <div className="flex justify-between"><span>Query</span><strong>{job.queryId ? "Linked" : "-"}</strong></div>
-            <div className="flex justify-between"><span>Proposal</span><strong>{job.proposalId ? "Linked" : "-"}</strong></div>
-            <div className="flex justify-between"><span>Contracting Owner</span><strong>{job.contractingOwnerName || "Unassigned"}</strong></div>
-            <div className="flex justify-between"><span>Ops Owner</span><strong>{job.operationsOwnerName || "Unassigned"}</strong></div>
-            <div className="flex justify-between"><span>Ticketing Owner</span><strong>{job.ticketingOwnerName || "Unassigned"}</strong></div>
-            <div className="flex justify-between"><span>Tour Manager</span><strong>{job.tourManagerName || "Unassigned"}</strong></div>
-            <div className="text-xs text-brand-muted">{job.paymentTerms?.label || "Payment terms pending"}</div>
-            <div className="flex flex-wrap gap-2">
-              {showAssignContracting && (
-                <button className="portal-small-btn" onClick={() => openModal("assignContractingOwner", { jobCardId: job.id })}>Assign Contracting</button>
-              )}
-              {showAssignOps && (
-                <button className="portal-small-btn" onClick={() => openModal("assignOperationsOwner", { jobCardId: job.id })}>Assign Ops</button>
-              )}
-              {showAssignTicketing && (
-                <button className="portal-small-btn" onClick={() => openModal("assignTicketingOwner", { jobCardId: job.id })}>Assign Ticketing</button>
-              )}
-              {has(P.MANAGE_JOB_CARDS) && (
-                <>
-                  <EditButton
-                    onClick={() => openModal("jobCard", {
-                      entityId: job.id,
-                      queryId: job.queryId || "",
-                      proposalId: job.proposalId || "",
-                      clientName: job.clientName,
-                      confirmedPax: String(job.confirmedPax),
-                      roomCount: String(job.roomCount || ""),
-                      destination: job.destination,
-                      travelStartDate: job.travelStartDate,
-                      travelEndDate: job.travelEndDate,
-                      tourManagerName: job.tourManagerName,
-                    })}
-                  />
-                  <button className="portal-small-btn" onClick={() => updateJobStatus({ jobCardId: job.id, status: job.status === "Open" ? "In Operations" : "Ready for Departure" })}>
-                    <RefreshCw size={13} /> Advance Status
+            <div className="space-y-3 p-5 text-sm">
+              <div className="flex justify-between">
+                <span>Confirmed pax</span>
+                <strong>{job.confirmedPax}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Rooms</span>
+                <strong>{job.roomCount || "-"}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Query</span>
+                <strong>{job.queryId ? "Linked" : "-"}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Proposal</span>
+                <strong>{job.proposalId ? "Linked" : "-"}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Contracting SPOC</span>
+                <strong>{job.contractingOwnerName || "Unassigned"}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Ops Owner</span>
+                <strong>{job.operationsOwnerName || "Unassigned"}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Ticketing Owner</span>
+                <strong>{job.ticketingOwnerName || "Unassigned"}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Tour Manager</span>
+                <strong>{job.tourManagerName || "Unassigned"}</strong>
+              </div>
+              <div className="text-xs text-brand-muted">
+                {job.paymentTerms?.label || "Payment terms pending"}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {showAssignContracting && (
+                  <button
+                    className="portal-small-btn"
+                    onClick={() => openModal("assignContractingOwner", { jobCardId: job.id })}
+                  >
+                    Assign Contracting
                   </button>
-                  <DeleteButton label={job.jobCode} onClick={() => deleteItem(job.jobCode, removeJobCard, { jobCardId: job.id })} />
-                </>
-              )}
+                )}
+                {showAssignOps && (
+                  <button
+                    className="portal-small-btn"
+                    onClick={() => openModal("assignOperationsOwner", { jobCardId: job.id })}
+                  >
+                    Assign Ops
+                  </button>
+                )}
+                {showAssignTicketing && (
+                  <button
+                    className="portal-small-btn"
+                    onClick={() => openModal("assignTicketingOwner", { jobCardId: job.id })}
+                  >
+                    Assign Ticketing
+                  </button>
+                )}
+                {has(P.MANAGE_JOB_CARDS) && (
+                  <>
+                    <EditButton
+                      onClick={() =>
+                        openModal("jobCard", {
+                          entityId: job.id,
+                          queryId: job.queryId || "",
+                          proposalId: job.proposalId || "",
+                          clientName: job.clientName,
+                          confirmedPax: String(job.confirmedPax),
+                          roomCount: String(job.roomCount || ""),
+                          destination: job.destination,
+                          travelStartDate: job.travelStartDate,
+                          travelEndDate: job.travelEndDate,
+                          tourManagerName: job.tourManagerName,
+                        })
+                      }
+                    />
+                    <button
+                      className="portal-small-btn"
+                      onClick={() =>
+                        updateJobStatus({
+                          jobCardId: job.id,
+                          status: job.status === "Open" ? "In Operations" : "Ready for Departure",
+                        })
+                      }
+                    >
+                      <RefreshCw size={13} /> Advance Status
+                    </button>
+                    <DeleteButton
+                      label={job.jobCode}
+                      onClick={() => deleteItem(job.jobCode, removeJobCard, { jobCardId: job.id })}
+                    />
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        </motion.div>
-      ))}
+          </motion.div>
+        ))
+      )}
     </div>
   );
 }
 
 function TravellersView({ rows, openModal, has, deleteItem, removeTraveller }) {
   return (
-    <DataTable rows={rows} empty="No travellers yet." columns={[
-      ["Name", (row) => strong(row.fullName)],
-      ["Job", (row) => row.jobCode],
-      ["Hub", (row) => row.travelHub || "-"],
-      ["Room", (row) => <Badge label={row.roomType} tone="blue" />],
-      ["Food", (row) => <Badge label={row.foodPreference} tone="green" />],
-      ["Passport", (row) => row.passportStatus || "Pending"],
-      ["Ticket", (row) => <Badge label={row.ticketStatus} tone={statusTone(row.ticketStatus)} />],
-      ["Visa", (row) => <Badge label={row.visaStatus} tone={statusTone(row.visaStatus)} />],
-      ["TM Call", (row) => row.callingStatus],
-      ["Action", (row) => has(P.MANAGE_TRAVELLERS) && (
-        <div className="flex flex-wrap gap-2">
-          <EditButton
-            onClick={() => openModal("traveller", {
-              entityId: row.id,
-              jobCardId: row.jobCardId,
-              fullName: row.fullName,
-              travelHub: row.travelHub,
-              travelDate: row.travelDate,
-              guestCompanions: row.guestCompanions,
-              foodPreference: row.foodPreference,
-              guestType: row.guestType,
-              paymentType: row.paymentType,
-              roomType: row.roomType,
-              visaRequired: row.visaRequired ? "Yes" : "No",
-              domesticTravelRequired: row.domesticTravelRequired ? "Yes" : "No",
-              biometricAppointmentDate: row.biometricAppointmentDate,
-              extensionOfTour: row.extensionOfTour ? "Yes" : "No",
-              arrivingEarly: row.arrivingEarly ? "Yes" : "No",
-              passportStatus: row.passportStatus,
-              hotelAllocation: row.hotelAllocation,
-              notes: row.specialRequests || "",
-            })}
-          />
-          <DeleteButton label={row.fullName} onClick={() => deleteItem(row.fullName, removeTraveller, { travellerId: row.id })} />
-        </div>
-      )],
-    ]} />
+    <DataTable
+      rows={rows}
+      empty="No travellers yet."
+      columns={[
+        ["Name", (row) => strong(row.fullName)],
+        ["Job", (row) => row.jobCode],
+        ["Hub", (row) => row.travelHub || "-"],
+        ["Room", (row) => <Badge label={row.roomType} tone="blue" />],
+        ["Food", (row) => <Badge label={row.foodPreference} tone="green" />],
+        ["Passport", (row) => row.passportStatus || "Pending"],
+        ["Ticket", (row) => <Badge label={row.ticketStatus} tone={statusTone(row.ticketStatus)} />],
+        ["Visa", (row) => <Badge label={row.visaStatus} tone={statusTone(row.visaStatus)} />],
+        ["TM Call", (row) => row.callingStatus],
+        [
+          "Action",
+          (row) =>
+            has(P.MANAGE_TRAVELLERS) && (
+              <div className="flex flex-wrap gap-2">
+                <EditButton
+                  onClick={() =>
+                    openModal("traveller", {
+                      entityId: row.id,
+                      jobCardId: row.jobCardId,
+                      fullName: row.fullName,
+                      travelHub: row.travelHub,
+                      travelDate: row.travelDate,
+                      guestCompanions: row.guestCompanions,
+                      foodPreference: row.foodPreference,
+                      guestType: row.guestType,
+                      paymentType: row.paymentType,
+                      roomType: row.roomType,
+                      visaRequired: row.visaRequired ? "Yes" : "No",
+                      domesticTravelRequired: row.domesticTravelRequired ? "Yes" : "No",
+                      biometricAppointmentDate: row.biometricAppointmentDate,
+                      extensionOfTour: row.extensionOfTour ? "Yes" : "No",
+                      arrivingEarly: row.arrivingEarly ? "Yes" : "No",
+                      passportStatus: row.passportStatus,
+                      hotelAllocation: row.hotelAllocation,
+                      notes: row.specialRequests || "",
+                    })
+                  }
+                />
+                <DeleteButton
+                  label={row.fullName}
+                  onClick={() => deleteItem(row.fullName, removeTraveller, { travellerId: row.id })}
+                />
+              </div>
+            ),
+        ],
+      ]}
+    />
   );
 }
 
@@ -2328,23 +3256,34 @@ function VisaTrackingView({ rows, openModal, has, deleteItem, removeVisa }) {
         ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
         ["Appointment", (row) => row.appointmentDate || "-"],
         ["Notes", (row) => row.notes || "-"],
-        ["Action", (row) => has(P.MANAGE_VISA) && (
-          <div className="flex flex-wrap gap-2">
-            <button
-              className="portal-small-btn"
-              onClick={() => openModal("visa", {
-                entityId: row.id,
-                visaRecordId: row.id,
-                visaStatus: row.status,
-                appointmentDate: row.appointmentDate,
-                notes: row.notes,
-              })}
-            >
-              Edit
-            </button>
-            <DeleteButton label={`${row.travellerName} visa`} onClick={() => deleteItem(`${row.travellerName} visa`, removeVisa, { visaRecordId: row.id })} />
-          </div>
-        )],
+        [
+          "Action",
+          (row) =>
+            has(P.MANAGE_VISA) && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="portal-small-btn"
+                  onClick={() =>
+                    openModal("visa", {
+                      entityId: row.id,
+                      visaRecordId: row.id,
+                      visaStatus: row.status,
+                      appointmentDate: row.appointmentDate,
+                      notes: row.notes,
+                    })
+                  }
+                >
+                  Edit
+                </button>
+                <DeleteButton
+                  label={`${row.travellerName} visa`}
+                  onClick={() =>
+                    deleteItem(`${row.travellerName} visa`, removeVisa, { visaRecordId: row.id })
+                  }
+                />
+              </div>
+            ),
+        ],
       ]}
     />
   );
@@ -2352,17 +3291,12 @@ function VisaTrackingView({ rows, openModal, has, deleteItem, removeVisa }) {
 
 function PassportDocumentsView({
   travellers,
-  rows,
   has,
-  openModal,
-  deleteItem,
-  removeVisa,
   generateUploadUrl,
   encryptAndStorePassport,
   getPassportDocument,
   removePassport,
 }) {
-  const [activeTab, setActiveTab] = useState("passports");
   const [uploadTraveller, setUploadTraveller] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -2475,87 +3409,25 @@ function PassportDocumentsView({
 
   return (
     <div className="space-y-6">
-      {/* Tab Navigation */}
-      <div className="flex border-b border-brand-border">
-        <button
-          onClick={() => setActiveTab("passports")}
-          className={`px-4 py-2 font-heading font-medium border-b-2 transition-colors ${
-            activeTab === "passports"
-              ? "border-citius-blue text-citius-blue"
-              : "border-transparent text-brand-muted hover:text-brand-dark"
-          }`}
-        >
-          Passport Documents
-        </button>
-        <button
-          onClick={() => setActiveTab("visas")}
-          className={`px-4 py-2 font-heading font-medium border-b-2 transition-colors ${
-            activeTab === "visas"
-              ? "border-citius-blue text-citius-blue"
-              : "border-transparent text-brand-muted hover:text-brand-dark"
-          }`}
-        >
-          Visa Tracking
-        </button>
-      </div>
-
-      {activeTab === "visas" && (
-        <div className="space-y-4">
-          {has(P.MANAGE_VISA) && (
-            <div className="flex justify-end">
-              <button className="portal-primary-btn" onClick={() => openModal("visa_create")}>
-                <Plus size={16} />
-                Create Visa Record
-              </button>
-            </div>
-          )}
-          <DataTable
-            rows={rows}
-            empty="No visa records yet."
-            columns={[
-              ["Traveller", (row) => strong(row.travellerName)],
-              ["Job", (row) => row.jobCode],
-              ["Hub", (row) => row.travelHub || "-"],
-              ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-              ["Appointment", (row) => row.appointmentDate || "-"],
-              ["Notes", (row) => row.notes || "-"],
-              ["Action", (row) => has(P.MANAGE_VISA) && (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className="portal-small-btn"
-                    onClick={() => openModal("visa", {
-                      entityId: row.id,
-                      visaRecordId: row.id,
-                      visaStatus: row.status,
-                      appointmentDate: row.appointmentDate,
-                      notes: row.notes,
-                    })}
-                  >
-                    Edit
-                  </button>
-                  <DeleteButton label={`${row.travellerName} visa`} onClick={() => deleteItem(`${row.travellerName} visa`, removeVisa, { visaRecordId: row.id })} />
-                </div>
-              )],
-            ]}
-          />
-        </div>
-      )}
-
-      {activeTab === "passports" && (
-        <DataTable
-          rows={travellers}
-          empty="No travellers on record."
-          columns={[
-            ["Traveller", (row) => strong(row.fullName)],
-            ["Job Code", (row) => row.jobCode],
-            ["Client", (row) => row.clientName],
-            ["Passport Scan Status", (row) => (
+      <DataTable
+        rows={travellers}
+        empty="No travellers on record."
+        columns={[
+          ["Traveller", (row) => strong(row.fullName)],
+          ["Job Code", (row) => row.jobCode],
+          ["Client", (row) => row.clientName],
+          [
+            "Passport Scan Status",
+            (row) => (
               <Badge
                 label={row.passportStatus || "Pending"}
                 tone={row.passportStatus === "Received" ? "green" : "orange"}
               />
-            )],
-            ["Action", (row) => (
+            ),
+          ],
+          [
+            "Action",
+            (row) => (
               <div className="flex flex-wrap gap-2">
                 {row.hasPassportScan ? (
                   <>
@@ -2593,10 +3465,10 @@ function PassportDocumentsView({
                   )
                 )}
               </div>
-            )],
+            ),
+          ],
         ]}
       />
-      )}
 
       {/* Local Passport Upload Modal */}
       {uploadTraveller && (
@@ -2626,7 +3498,10 @@ function PassportDocumentsView({
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-brand-dark mb-1">
+                <label
+                  htmlFor="passport-file-input"
+                  className="block text-xs font-medium text-brand-dark mb-1"
+                >
                   Passport Scan File (PDF, JPEG, PNG, WebP — max 15 MB) *
                 </label>
                 <input
@@ -2640,10 +3515,14 @@ function PassportDocumentsView({
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-medium text-brand-dark mb-1">
+                  <label
+                    htmlFor="passport-number"
+                    className="block text-xs font-medium text-brand-dark mb-1"
+                  >
                     Passport Number
                   </label>
                   <input
+                    id="passport-number"
                     type="text"
                     value={passportForm.number}
                     onChange={(e) => setPassportForm({ ...passportForm, number: e.target.value })}
@@ -2652,13 +3531,19 @@ function PassportDocumentsView({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-brand-dark mb-1">
+                  <label
+                    htmlFor="passport-expiry"
+                    className="block text-xs font-medium text-brand-dark mb-1"
+                  >
                     Expiry Date
                   </label>
                   <input
+                    id="passport-expiry"
                     type="date"
                     value={passportForm.expiryDate}
-                    onChange={(e) => setPassportForm({ ...passportForm, expiryDate: e.target.value })}
+                    onChange={(e) =>
+                      setPassportForm({ ...passportForm, expiryDate: e.target.value })
+                    }
                     className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
                   />
                 </div>
@@ -2666,25 +3551,37 @@ function PassportDocumentsView({
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-medium text-brand-dark mb-1">
+                  <label
+                    htmlFor="passport-nationality"
+                    className="block text-xs font-medium text-brand-dark mb-1"
+                  >
                     Nationality
                   </label>
                   <input
+                    id="passport-nationality"
                     type="text"
                     value={passportForm.nationality}
-                    onChange={(e) => setPassportForm({ ...passportForm, nationality: e.target.value })}
+                    onChange={(e) =>
+                      setPassportForm({ ...passportForm, nationality: e.target.value })
+                    }
                     placeholder="e.g. Indian"
                     className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-brand-dark mb-1">
+                  <label
+                    htmlFor="passport-dob"
+                    className="block text-xs font-medium text-brand-dark mb-1"
+                  >
                     Date of Birth
                   </label>
                   <input
+                    id="passport-dob"
                     type="date"
                     value={passportForm.dateOfBirth}
-                    onChange={(e) => setPassportForm({ ...passportForm, dateOfBirth: e.target.value })}
+                    onChange={(e) =>
+                      setPassportForm({ ...passportForm, dateOfBirth: e.target.value })
+                    }
                     className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
                   />
                 </div>
@@ -2733,9 +3630,19 @@ function TicketDashboardView({ summary, tickets, openModal, has, deleteItem, rem
         <StatCard label="FIT Tickets" value={summary.fitTickets ?? 0} Icon={Ticket} />
         <StatCard label="Group Tickets" value={summary.groupTickets ?? 0} Icon={Users} />
         <StatCard label="PNRs" value={summary.pnrCount} Icon={FileText} />
-        <StatCard label="Issued Seats" value={`${summary.issuedSeats}/${summary.totalSeats}`} Icon={Users} />
+        <StatCard
+          label="Issued Seats"
+          value={`${summary.issuedSeats}/${summary.totalSeats}`}
+          Icon={Users}
+        />
       </div>
-      <TicketsView rows={tickets.slice(0, 8)} openModal={openModal} has={has} deleteItem={deleteItem} removeTicket={removeTicket} />
+      <TicketsView
+        rows={tickets.slice(0, 8)}
+        openModal={openModal}
+        has={has}
+        deleteItem={deleteItem}
+        removeTicket={removeTicket}
+      />
     </div>
   );
 }
@@ -2747,31 +3654,51 @@ function PnrView({ rows, itinerary, openModal, has, deleteItem, removePnr }) {
         <FlightItineraryList rows={itinerary} />
       </Panel>
       <Panel title="PNR Records">
-        <DataTable rows={rows} empty="No PNRs yet." columns={[
-          ["PNR", (row) => <span className="font-mono font-bold tracking-[0.14em] text-citius-blue">{row.pnrCode}</span>],
-          ["Job", (row) => row.jobCode],
-          ["Client", (row) => row.clientName],
-          ["Airline", (row) => row.airline],
-          ["Route", (row) => row.route],
-          ["Fare", (row) => row.fareType || "-"],
-          ["Seats", (row) => `${row.issuedSeats}/${row.totalSeats}`],
-          ["Action", (row) => has(P.MANAGE_TICKETING) && (
-            <div className="flex flex-wrap gap-2">
-              <EditButton
-                onClick={() => openModal("pnr", {
-                  entityId: row.id,
-                  jobCardId: row.jobCardId,
-                  pnrCode: row.pnrCode,
-                  airline: row.airline,
-                  route: row.route,
-                  fareType: row.fareType,
-                  totalSeats: String(row.totalSeats),
-                })}
-              />
-              <DeleteButton label={row.pnrCode} onClick={() => deleteItem(row.pnrCode, removePnr, { pnrId: row.id })} />
-            </div>
-          )],
-        ]} />
+        <DataTable
+          rows={rows}
+          empty="No PNRs yet."
+          columns={[
+            [
+              "PNR",
+              (row) => (
+                <span className="font-mono font-bold tracking-[0.14em] text-citius-blue">
+                  {row.pnrCode}
+                </span>
+              ),
+            ],
+            ["Job", (row) => row.jobCode],
+            ["Client", (row) => row.clientName],
+            ["Airline", (row) => row.airline],
+            ["Route", (row) => row.route],
+            ["Fare", (row) => row.fareType || "-"],
+            ["Seats", (row) => `${row.issuedSeats}/${row.totalSeats}`],
+            [
+              "Action",
+              (row) =>
+                has(P.MANAGE_TICKETING) && (
+                  <div className="flex flex-wrap gap-2">
+                    <EditButton
+                      onClick={() =>
+                        openModal("pnr", {
+                          entityId: row.id,
+                          jobCardId: row.jobCardId,
+                          pnrCode: row.pnrCode,
+                          airline: row.airline,
+                          route: row.route,
+                          fareType: row.fareType,
+                          totalSeats: String(row.totalSeats),
+                        })
+                      }
+                    />
+                    <DeleteButton
+                      label={row.pnrCode}
+                      onClick={() => deleteItem(row.pnrCode, removePnr, { pnrId: row.id })}
+                    />
+                  </div>
+                ),
+            ],
+          ]}
+        />
       </Panel>
     </div>
   );
@@ -2787,7 +3714,9 @@ function FlightItineraryList({ rows }) {
           <div className="flex flex-col gap-1 border-b border-brand-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="font-semibold text-citius-blue">{group.name}</div>
-              <div className="text-xs text-brand-muted">{group.jobCode} - {group.clientName}</div>
+              <div className="text-xs text-brand-muted">
+                {group.jobCode} - {group.clientName}
+              </div>
             </div>
             <div className="text-sm font-medium text-brand-dark">{group.route}</div>
           </div>
@@ -2809,10 +3738,16 @@ function FlightItineraryList({ rows }) {
                     <td className="px-4 py-2">{segment.dateLabel}</td>
                     <td className="px-4 py-2">
                       <span className="font-medium">{segment.airline}</span>
-                      <span className="ml-2 font-mono text-xs text-brand-muted">{segment.flightNumber}</span>
+                      <span className="ml-2 font-mono text-xs text-brand-muted">
+                        {segment.flightNumber}
+                      </span>
                     </td>
-                    <td className="px-4 py-2">{segment.departTime || "-"} {segment.origin}</td>
-                    <td className="px-4 py-2">{segment.arriveTime || "-"} {segment.destination}</td>
+                    <td className="px-4 py-2">
+                      {segment.departTime || "-"} {segment.origin}
+                    </td>
+                    <td className="px-4 py-2">
+                      {segment.arriveTime || "-"} {segment.destination}
+                    </td>
                     <td className="px-4 py-2">{segment.duration || "-"}</td>
                     <td className="px-4 py-2">{segment.transit || "-"}</td>
                   </tr>
@@ -2828,149 +3763,257 @@ function FlightItineraryList({ rows }) {
 
 function TicketsView({ rows, openModal, has, deleteItem, removeTicket }) {
   return (
-    <DataTable rows={rows} empty="No tickets yet." columns={[
-      ["Ticket", (row) => row.ticketNumber || "-"],
-      ["Traveller", (row) => strong(row.travellerName || "Unassigned")],
-      ["Job", (row) => row.jobCode],
-      ["Type", (row) => row.ticketType || "-"],
-      ["PNR", (row) => row.pnrCode || "-"],
-      ["Class", (row) => row.cabinClass || "Economy"],
-      ["Seat", (row) => row.seatNumber || row.seatPreference || "-"],
-      ["Status", (row) => <Badge label={row.ticketStatus} tone={statusTone(row.ticketStatus)} />],
-      ["Action", (row) => has(P.MANAGE_TICKETING) && (
-        <div className="flex flex-wrap gap-2">
-          <EditButton
-            onClick={() => openModal("ticket", {
-              entityId: row.id,
-              jobCardId: row.jobCardId,
-              travellerId: row.travellerId || "",
-              pnrId: row.pnrId || "",
-              ticketNumber: row.ticketNumber,
-              ticketType: row.ticketType,
-              ticketStatus: row.ticketStatus,
-              paymentType: row.paymentType,
-              cabinClass: row.cabinClass,
-              foodPreference: row.mealPreference,
-              seatPreference: row.seatPreference,
-              seatNumber: row.seatNumber,
-            })}
-          />
-          <DeleteButton label={row.ticketNumber || "ticket"} onClick={() => deleteItem(row.ticketNumber || "ticket", removeTicket, { ticketId: row.id })} />
-        </div>
-      )],
-    ]} />
+    <DataTable
+      rows={rows}
+      empty="No tickets yet."
+      columns={[
+        ["Ticket", (row) => row.ticketNumber || "-"],
+        ["Traveller", (row) => strong(row.travellerName || "Unassigned")],
+        ["Job", (row) => row.jobCode],
+        ["Type", (row) => row.ticketType || "-"],
+        ["PNR", (row) => row.pnrCode || "-"],
+        ["Class", (row) => row.cabinClass || "Economy"],
+        ["Seat", (row) => row.seatNumber || row.seatPreference || "-"],
+        ["Status", (row) => <Badge label={row.ticketStatus} tone={statusTone(row.ticketStatus)} />],
+        [
+          "Action",
+          (row) =>
+            has(P.MANAGE_TICKETING) && (
+              <div className="flex flex-wrap gap-2">
+                <EditButton
+                  onClick={() =>
+                    openModal("ticket", {
+                      entityId: row.id,
+                      jobCardId: row.jobCardId,
+                      travellerId: row.travellerId || "",
+                      pnrId: row.pnrId || "",
+                      ticketNumber: row.ticketNumber,
+                      ticketType: row.ticketType,
+                      ticketStatus: row.ticketStatus,
+                      paymentType: row.paymentType,
+                      cabinClass: row.cabinClass,
+                      foodPreference: row.mealPreference,
+                      seatPreference: row.seatPreference,
+                      seatNumber: row.seatNumber,
+                    })
+                  }
+                />
+                <DeleteButton
+                  label={row.ticketNumber || "ticket"}
+                  onClick={() =>
+                    deleteItem(row.ticketNumber || "ticket", removeTicket, { ticketId: row.id })
+                  }
+                />
+              </div>
+            ),
+        ],
+      ]}
+    />
   );
 }
 
 function SeatView({ rows, openModal, has, deleteItem, removeSeatAllocation }) {
   return (
-    <DataTable rows={rows} empty="No stored seat allocations yet." columns={[
-      ["Seat", (row) => <span className="font-mono font-bold">{row.seatNumber}</span>],
-      ["Traveller", (row) => row.travellerName || "Unassigned"],
-      ["Job", (row) => row.jobCode],
-      ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-      ["Notes", (row) => row.notes || "-"],
-      ["Action", (row) => has(P.MANAGE_TICKETING) && (
-        <div className="flex flex-wrap gap-2">
-          <EditButton
-            onClick={() => openModal("seat", {
-              entityId: row.id,
-              jobCardId: row.jobCardId,
-              travellerId: row.travellerId || "",
-              pnrId: row.pnrId || "",
-              seatNumber: row.seatNumber,
-              seatStatus: row.status,
-              notes: row.notes,
-            })}
-          />
-          <DeleteButton label={`seat ${row.seatNumber}`} onClick={() => deleteItem(`seat ${row.seatNumber}`, removeSeatAllocation, { seatAllocationId: row.id })} />
-        </div>
-      )],
-    ]} />
+    <DataTable
+      rows={rows}
+      empty="No stored seat allocations yet."
+      columns={[
+        ["Seat", (row) => <span className="font-mono font-bold">{row.seatNumber}</span>],
+        ["Traveller", (row) => row.travellerName || "Unassigned"],
+        ["Job", (row) => row.jobCode],
+        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+        ["Notes", (row) => row.notes || "-"],
+        [
+          "Action",
+          (row) =>
+            has(P.MANAGE_TICKETING) && (
+              <div className="flex flex-wrap gap-2">
+                <EditButton
+                  onClick={() =>
+                    openModal("seat", {
+                      entityId: row.id,
+                      jobCardId: row.jobCardId,
+                      travellerId: row.travellerId || "",
+                      pnrId: row.pnrId || "",
+                      seatNumber: row.seatNumber,
+                      seatStatus: row.status,
+                      notes: row.notes,
+                    })
+                  }
+                />
+                <DeleteButton
+                  label={`seat ${row.seatNumber}`}
+                  onClick={() =>
+                    deleteItem(`seat ${row.seatNumber}`, removeSeatAllocation, {
+                      seatAllocationId: row.id,
+                    })
+                  }
+                />
+              </div>
+            ),
+        ],
+      ]}
+    />
   );
 }
 
 function HotelsView({ rows, openModal, has, deleteItem, removeHotel }) {
   return (
-    <DataTable rows={rows} empty="No hotel records yet." columns={[
-      ["Hotel", (row) => strong(row.name)],
-      ["Job", (row) => row.jobCode],
-      ["Client", (row) => row.clientName],
-      ["City", (row) => row.city || "-"],
-      ["Check-in", (row) => row.checkInDate || "-"],
-      ["Check-out", (row) => row.checkOutDate || "-"],
-      ["Instructions", (row) => row.specialInstructions || "-"],
-      ["Action", (row) => has(P.MANAGE_OPERATIONS) && (
-        <div className="flex flex-wrap gap-2">
-          <EditButton
-            onClick={() => openModal("hotel", {
-              entityId: row.id,
-              jobCardId: row.jobCardId,
-              hotelName: row.name,
-              city: row.city,
-              checkInDate: row.checkInDate,
-              checkOutDate: row.checkOutDate,
-              notes: row.specialInstructions,
-            })}
-          />
-          <DeleteButton label={row.name} onClick={() => deleteItem(row.name, removeHotel, { hotelId: row.id })} />
-        </div>
-      )],
-    ]} />
+    <DataTable
+      rows={rows}
+      empty="No hotel records yet."
+      columns={[
+        ["Hotel", (row) => strong(row.name)],
+        ["Job", (row) => row.jobCode],
+        ["Client", (row) => row.clientName],
+        ["City", (row) => row.city || "-"],
+        ["Check-in", (row) => row.checkInDate || "-"],
+        ["Check-out", (row) => row.checkOutDate || "-"],
+        ["Instructions", (row) => row.specialInstructions || "-"],
+        [
+          "Action",
+          (row) =>
+            has(P.MANAGE_OPERATIONS) && (
+              <div className="flex flex-wrap gap-2">
+                <EditButton
+                  onClick={() =>
+                    openModal("hotel", {
+                      entityId: row.id,
+                      jobCardId: row.jobCardId,
+                      hotelName: row.name,
+                      city: row.city,
+                      checkInDate: row.checkInDate,
+                      checkOutDate: row.checkOutDate,
+                      notes: row.specialInstructions,
+                    })
+                  }
+                />
+                <DeleteButton
+                  label={row.name}
+                  onClick={() => deleteItem(row.name, removeHotel, { hotelId: row.id })}
+                />
+              </div>
+            ),
+        ],
+      ]}
+    />
   );
 }
 
-function TourManagersView({ rows, travellers, openModal, has, canAssign, deleteItem, removeTourManager, updateCallingStatus }) {
+function TourManagersView({
+  rows,
+  travellers,
+  openModal,
+  has,
+  canAssign,
+  deleteItem,
+  removeTourManager,
+  updateCallingStatus,
+}) {
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Total Pax" value={travellers.length} Icon={Users} />
-        <StatCard label="Onboarded" value={travellers.filter((row) => row.fullName && row.travelHub && row.foodPreference).length} Icon={CheckCircle2} />
-        <StatCard label="Docs Pending" value={travellers.filter((row) => !["Approved", "Not Required"].includes(row.visaStatus) || row.ticketStatus !== "Issued").length} Icon={ShieldCheck} />
+        <StatCard
+          label="Onboarded"
+          value={
+            travellers.filter((row) => row.fullName && row.travelHub && row.foodPreference).length
+          }
+          Icon={CheckCircle2}
+        />
+        <StatCard
+          label="Docs Pending"
+          value={
+            travellers.filter(
+              (row) =>
+                !["Approved", "Not Required"].includes(row.visaStatus) ||
+                row.ticketStatus !== "Issued",
+            ).length
+          }
+          Icon={ShieldCheck}
+        />
       </div>
       <Panel title="Calling status board">
-        <DataTable compact rows={travellers} empty="No travellers to call yet." columns={[
-          ["Guest", (row) => strong(row.fullName)],
-          ["Job", (row) => row.jobCode],
-          ["Hub", (row) => row.travelHub || "-"],
-          ["Type", (row) => row.guestType],
-          ["Cancellation", (row) => row.cancellation || row.lastMinuteDrop ? <Badge label="Flagged" tone="red" /> : "-"],
-          ["Calling", (row) => <Badge label={row.callingStatus} tone={statusTone(row.callingStatus)} />],
-          ["Action", (row) => has(P.MANAGE_TOUR_MANAGERS) && (
-            <div className="flex flex-wrap gap-2">
-              {CALLING_STATUSES.map((status) => (
-                <button key={status} type="button" className="portal-small-btn" onClick={() => updateCallingStatus({ travellerId: row.id, callingStatus: status })}>
-                  {status}
-                </button>
-              ))}
-            </div>
-          )],
-        ]} />
+        <DataTable
+          compact
+          rows={travellers}
+          empty="No travellers to call yet."
+          columns={[
+            ["Guest", (row) => strong(row.fullName)],
+            ["Job", (row) => row.jobCode],
+            ["Hub", (row) => row.travelHub || "-"],
+            ["Type", (row) => row.guestType],
+            [
+              "Cancellation",
+              (row) =>
+                row.cancellation || row.lastMinuteDrop ? <Badge label="Flagged" tone="red" /> : "-",
+            ],
+            [
+              "Calling",
+              (row) => <Badge label={row.callingStatus} tone={statusTone(row.callingStatus)} />,
+            ],
+            [
+              "Action",
+              (row) =>
+                has(P.MANAGE_TOUR_MANAGERS) && (
+                  <div className="flex flex-wrap gap-2">
+                    {CALLING_STATUSES.map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        className="portal-small-btn"
+                        onClick={() =>
+                          updateCallingStatus({ travellerId: row.id, callingStatus: status })
+                        }
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                ),
+            ],
+          ]}
+        />
       </Panel>
-      <DataTable rows={rows} empty="No Tour Managers yet." columns={[
-        ["Name", (row) => strong(row.name)],
-        ["Current Tour", (row) => row.currentTour || "Available"],
-        ["Job", (row) => row.jobCode || "-"],
-        ["Calling", (row) => row.callingStatus],
-        ["Available", (row) => row.availabilityDate || "-"],
-        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-        ["Action", (row) => canAssign && (
-          <div className="flex flex-wrap gap-2">
-            <EditButton
-              onClick={() => openModal("tourManager", {
-                entityId: row.id,
-                jobCardId: row.jobCardId || "",
-                tourManagerName: row.name,
-                staffEmail: row.email,
-                paidBy: row.phone,
-                travelStartDate: row.availabilityDate,
-                notes: row.notes,
-              })}
-            />
-            <DeleteButton label={row.name} onClick={() => deleteItem(row.name, removeTourManager, { tourManagerId: row.id })} />
-          </div>
-        )],
-      ]} />
+      <DataTable
+        rows={rows}
+        empty="No Tour Managers yet."
+        columns={[
+          ["Name", (row) => strong(row.name)],
+          ["Current Tour", (row) => row.currentTour || "Available"],
+          ["Job", (row) => row.jobCode || "-"],
+          ["Calling", (row) => row.callingStatus],
+          ["Available", (row) => row.availabilityDate || "-"],
+          ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+          [
+            "Action",
+            (row) =>
+              canAssign && (
+                <div className="flex flex-wrap gap-2">
+                  <EditButton
+                    onClick={() =>
+                      openModal("tourManager", {
+                        entityId: row.id,
+                        jobCardId: row.jobCardId || "",
+                        tourManagerName: row.name,
+                        staffEmail: row.email,
+                        paidBy: row.phone,
+                        travelStartDate: row.availabilityDate,
+                        notes: row.notes,
+                      })
+                    }
+                  />
+                  <DeleteButton
+                    label={row.name}
+                    onClick={() =>
+                      deleteItem(row.name, removeTourManager, { tourManagerId: row.id })
+                    }
+                  />
+                </div>
+              ),
+          ],
+        ]}
+      />
     </div>
   );
 }
@@ -2981,9 +4024,21 @@ function FinanceView({ rows, overview, openModal, has, deleteItem, removeInvoice
       {overview && (
         <>
           <div className="grid gap-4 sm:grid-cols-3">
-            <StatCard label="Total Revenue" value={money(overview.summary.totalRevenue)} Icon={CircleDollarSign} />
-            <StatCard label="Client Outstanding" value={money(overview.summary.clientOutstanding)} Icon={FileText} />
-            <StatCard label="Approved Expenses" value={money(overview.summary.approvedExpenses)} Icon={ClipboardList} />
+            <StatCard
+              label="Total Revenue"
+              value={money(overview.summary.totalRevenue)}
+              Icon={CircleDollarSign}
+            />
+            <StatCard
+              label="Client Outstanding"
+              value={money(overview.summary.clientOutstanding)}
+              Icon={FileText}
+            />
+            <StatCard
+              label="Approved Expenses"
+              value={money(overview.summary.approvedExpenses)}
+              Icon={ClipboardList}
+            />
           </div>
           {overview.fundProjections && (
             <Panel title="Fund projections">
@@ -2993,58 +4048,99 @@ function FinanceView({ rows, overview, openModal, has, deleteItem, removeInvoice
                 transition={{ duration: 0.35 }}
                 className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
               >
-                <StatCard label="Expected collections" value={money(overview.fundProjections.expectedCollections)} Icon={CircleDollarSign} />
-                <StatCard label="Advance pipeline" value={money(overview.fundProjections.advancePipeline)} Icon={ClipboardList} />
-                <StatCard label="Pending reimbursements" value={money(overview.fundProjections.pendingReimbursements)} Icon={RefreshCw} />
-                <StatCard label="Expense approvals due" value={money(overview.fundProjections.pendingExpenseApprovals)} Icon={CheckCircle2} />
+                <StatCard
+                  label="Expected collections"
+                  value={money(overview.fundProjections.expectedCollections)}
+                  Icon={CircleDollarSign}
+                />
+                <StatCard
+                  label="Advance pipeline"
+                  value={money(overview.fundProjections.advancePipeline)}
+                  Icon={ClipboardList}
+                />
+                <StatCard
+                  label="Pending reimbursements"
+                  value={money(overview.fundProjections.pendingReimbursements)}
+                  Icon={RefreshCw}
+                />
+                <StatCard
+                  label="Expense approvals due"
+                  value={money(overview.fundProjections.pendingExpenseApprovals)}
+                  Icon={CheckCircle2}
+                />
               </motion.div>
             </Panel>
           )}
           <Panel title="Tour-wise P&L">
-            <DataTable compact rows={overview.pnl} empty="No Job Cards available." columns={[
-              ["JC", (row) => row.jobCode],
-              ["Group", (row) => row.clientName],
-              ["Revenue", (row) => money(row.revenue)],
-              ["Expense", (row) => money(row.expense)],
-              ["Profit", (row) => money(row.profit)],
-              ["Margin", (row) => `${row.marginPercent}%`],
-            ]} />
+            <DataTable
+              compact
+              rows={overview.pnl}
+              empty="No Job Cards available."
+              columns={[
+                ["JC", (row) => row.jobCode],
+                ["Group", (row) => row.clientName],
+                ["Revenue", (row) => money(row.revenue)],
+                ["Expense", (row) => money(row.expense)],
+                ["Profit", (row) => money(row.profit)],
+                ["Margin", (row) => `${row.marginPercent}%`],
+              ]}
+            />
           </Panel>
           <Panel title="Outstanding payments">
-            <DataTable compact rows={overview.outstanding} empty="No outstanding balances." columns={[
-              ["Client", (row) => strong(row.clientName)],
-              ["JC", (row) => row.jobCode],
-              ["Due", (row) => money(row.dueAmount)],
-              ["Due Date", (row) => row.dueDate || "-"],
-              ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-            ]} />
+            <DataTable
+              compact
+              rows={overview.outstanding}
+              empty="No outstanding balances."
+              columns={[
+                ["Client", (row) => strong(row.clientName)],
+                ["JC", (row) => row.jobCode],
+                ["Due", (row) => money(row.dueAmount)],
+                ["Due Date", (row) => row.dueDate || "-"],
+                ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+              ]}
+            />
           </Panel>
         </>
       )}
-      <DataTable rows={rows} empty="No invoices yet." columns={[
-        ["Invoice", (row) => strong(row.invoiceNumber)],
-        ["Job", (row) => row.jobCode],
-        ["Client", (row) => row.clientName],
-        ["Expected", (row) => money(row.expectedAmount)],
-        ["Received", (row) => money(row.receivedAmount)],
-        ["Balance", (row) => money(row.balanceAmount)],
-        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-        ["Action", (row) => has(P.MANAGE_FINANCE) && (
-          <div className="flex flex-wrap gap-2">
-            <EditButton
-              onClick={() => openModal("invoice", {
-                entityId: row.id,
-                jobCardId: row.jobCardId,
-                invoiceNumber: row.invoiceNumber,
-                expectedAmount: String(row.expectedAmount),
-                receivedAmount: String(row.receivedAmount),
-                dueDate: row.dueDate,
-              })}
-            />
-            <DeleteButton label={row.invoiceNumber} onClick={() => deleteItem(row.invoiceNumber, removeInvoice, { invoiceId: row.id })} />
-          </div>
-        )],
-      ]} />
+      <DataTable
+        rows={rows}
+        empty="No invoices yet."
+        columns={[
+          ["Invoice", (row) => strong(row.invoiceNumber)],
+          ["Job", (row) => row.jobCode],
+          ["Client", (row) => row.clientName],
+          ["Expected", (row) => money(row.expectedAmount)],
+          ["Received", (row) => money(row.receivedAmount)],
+          ["Balance", (row) => money(row.balanceAmount)],
+          ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+          [
+            "Action",
+            (row) =>
+              has(P.MANAGE_FINANCE) && (
+                <div className="flex flex-wrap gap-2">
+                  <EditButton
+                    onClick={() =>
+                      openModal("invoice", {
+                        entityId: row.id,
+                        jobCardId: row.jobCardId,
+                        invoiceNumber: row.invoiceNumber,
+                        expectedAmount: String(row.expectedAmount),
+                        receivedAmount: String(row.receivedAmount),
+                        dueDate: row.dueDate,
+                      })
+                    }
+                  />
+                  <DeleteButton
+                    label={row.invoiceNumber}
+                    onClick={() =>
+                      deleteItem(row.invoiceNumber, removeInvoice, { invoiceId: row.id })
+                    }
+                  />
+                </div>
+              ),
+          ],
+        ]}
+      />
     </div>
   );
 }
@@ -3060,91 +4156,167 @@ function ExpensesView({
   removeExpenseProof,
 }) {
   return (
-    <DataTable rows={rows} empty="No expenses yet." columns={[
-      ["Job", (row) => row.jobCode],
-      ["Date", (row) => row.expenseDate || "-"],
-      ["Category", (row) => strong(row.category)],
-      ["Particulars", (row) => row.particulars || "-"],
-      ["Currency", (row) => row.currency],
-      ["Amount", (row) => money(row.amount)],
-      ["Split", (row) => `Card ${money(row.cardAmount)} / Cash ${money(row.cashAmount)} / E-Pay ${money(row.epayAmount)}`],
-      ["Paid By", (row) => row.paidBy],
-      ["Proof", (row) => row.proofAttachment ? (
-        <button
-          className="portal-small-btn"
-          onClick={() => openQueryAttachment(row.proofAttachment.id, getExpenseAttachmentUrl, "expense")}
-        >
-          {row.proofAttachment.fileName}
-        </button>
-      ) : "-"],
-      ["Approval", (row) => <Badge label={row.approvalStatus} tone={statusTone(row.approvalStatus)} />],
-      ["Reimbursement", (row) => row.reimbursementStatus],
-      ["Action", (row) => has(P.MANAGE_EXPENSES) && (
-        <div className="flex flex-wrap gap-2">
-          {row.approvalStatus !== "Approved" && (
-            <EditButton
-              onClick={() => openModal("expense", {
-                entityId: row.id,
-                jobCardId: row.jobCardId,
-                tourManagerName: row.tourManagerName,
-                category: row.category,
-                expenseDate: row.expenseDate,
-                particulars: row.particulars,
-                currency: row.currency,
-                cardAmount: String(row.cardAmount),
-                cashAmount: String(row.cashAmount),
-                epayAmount: String(row.epayAmount),
-                amount: String(row.amount),
-                paidBy: row.paidBy,
-                notes: row.notes,
-              })}
-            />
-          )}
-          <button className="portal-small-btn" onClick={() => submitExpenseForApproval({ expenseId: row.id })}>
-            Submit
-          </button>
-          {row.proofAttachment && (
-            <button
-              className="portal-small-btn"
-              onClick={() => removeExpenseProof({ attachmentId: row.proofAttachment.id }).catch((err) => {
-                alert(err?.data || err?.message || "Unable to remove proof.");
-              })}
-            >
-              Remove Proof
-            </button>
-          )}
-          <DeleteButton label={`${row.category} expense`} onClick={() => deleteItem(`${row.category} expense`, removeExpense, { expenseId: row.id })} />
-        </div>
-      )],
-    ]} />
+    <DataTable
+      rows={rows}
+      empty="No expenses yet."
+      columns={[
+        ["Job", (row) => row.jobCode],
+        ["Date", (row) => row.expenseDate || "-"],
+        ["Category", (row) => strong(row.category)],
+        ["Particulars", (row) => row.particulars || "-"],
+        ["Currency", (row) => row.currency],
+        ["Amount", (row) => money(row.amount)],
+        [
+          "Split",
+          (row) =>
+            `Card ${money(row.cardAmount)} / Cash ${money(row.cashAmount)} / E-Pay ${money(row.epayAmount)}`,
+        ],
+        ["Paid By", (row) => row.paidBy],
+        [
+          "Proof",
+          (row) =>
+            row.proofAttachment ? (
+              <button
+                className="portal-small-btn"
+                onClick={() =>
+                  openQueryAttachment(row.proofAttachment.id, getExpenseAttachmentUrl, "expense")
+                }
+              >
+                {row.proofAttachment.fileName}
+              </button>
+            ) : (
+              "-"
+            ),
+        ],
+        [
+          "Approval",
+          (row) => <Badge label={row.approvalStatus} tone={statusTone(row.approvalStatus)} />,
+        ],
+        ["Reimbursement", (row) => row.reimbursementStatus],
+        [
+          "Action",
+          (row) =>
+            has(P.MANAGE_EXPENSES) && (
+              <div className="flex flex-wrap gap-2">
+                {row.approvalStatus !== "Approved" && (
+                  <EditButton
+                    onClick={() =>
+                      openModal("expense", {
+                        entityId: row.id,
+                        expenseType: row.jobCardId ? "jobCard" : "office",
+                        jobCardId: row.jobCardId || "",
+                        tourManagerName: row.tourManagerName,
+                        category: row.category,
+                        expenseDate: row.expenseDate,
+                        particulars: row.particulars,
+                        currency: row.currency,
+                        cardAmount: String(row.cardAmount),
+                        cashAmount: String(row.cashAmount),
+                        epayAmount: String(row.epayAmount),
+                        amount: String(row.amount),
+                        paidBy: row.paidBy,
+                        notes: row.notes,
+                      })
+                    }
+                  />
+                )}
+                <button
+                  className="portal-small-btn"
+                  onClick={() => submitExpenseForApproval({ expenseId: row.id })}
+                >
+                  Submit
+                </button>
+                {row.proofAttachment && (
+                  <button
+                    className="portal-small-btn"
+                    onClick={() =>
+                      removeExpenseProof({ attachmentId: row.proofAttachment.id }).catch((err) => {
+                        alert(err?.data || err?.message || "Unable to remove proof.");
+                      })
+                    }
+                  >
+                    Remove Proof
+                  </button>
+                )}
+                <DeleteButton
+                  label={`${row.category} expense`}
+                  onClick={() =>
+                    deleteItem(`${row.category} expense`, removeExpense, { expenseId: row.id })
+                  }
+                />
+              </div>
+            ),
+        ],
+      ]}
+    />
   );
 }
 
 function ApprovalsView({ rows, has, openModal, decideApproval, deleteItem, removeApproval }) {
   return (
-    <DataTable rows={rows} empty="No approvals in the queue." columns={[
-      ["Code", (row) => strong(row.requestCode)],
-      ["Type", (row) => <Badge label={row.type} tone="blue" />],
-      ["Requested By", (row) => row.requestedByName],
-      ["Summary", (row) => row.summary],
-      ["Amount", (row) => money(row.amount)],
-      ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-      ["Note", (row) => row.decisionNote || "-"],
-      ["Action", (row) => has(P.APPROVE_EXPENSES) && (
-        <div className="flex flex-wrap gap-2">
-          {row.status === "Pending" && (
-            <>
-              <button className="portal-small-btn" onClick={() => decideApproval({ approvalId: row.id, status: "Approved" })}>Approve</button>
-              <button className="portal-small-btn" onClick={() => openModal("approvalDecide", { approvalId: row.id, approvalStatus: "Needs Info", decisionNote: "" })}>Request Details</button>
-              <button className="portal-danger-btn" onClick={() => openModal("approvalDecide", { approvalId: row.id, approvalStatus: "Rejected", decisionNote: "" })}>Reject</button>
-            </>
-          )}
-          {row.status !== "Pending" && (
-            <DeleteButton label={row.requestCode} onClick={() => deleteItem(row.requestCode, removeApproval, { approvalId: row.id })} />
-          )}
-        </div>
-      )],
-    ]} />
+    <DataTable
+      rows={rows}
+      empty="No approvals in the queue."
+      columns={[
+        ["Code", (row) => strong(row.requestCode)],
+        ["Type", (row) => <Badge label={row.type} tone="blue" />],
+        ["Requested By", (row) => row.requestedByName],
+        ["Summary", (row) => row.summary],
+        ["Amount", (row) => money(row.amount)],
+        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+        ["Note", (row) => row.decisionNote || "-"],
+        [
+          "Action",
+          (row) =>
+            has(P.APPROVE_EXPENSES) && (
+              <div className="flex flex-wrap gap-2">
+                {row.status === "Pending" && (
+                  <>
+                    <button
+                      className="portal-small-btn"
+                      onClick={() => decideApproval({ approvalId: row.id, status: "Approved" })}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      className="portal-small-btn"
+                      onClick={() =>
+                        openModal("approvalDecide", {
+                          approvalId: row.id,
+                          approvalStatus: "Needs Info",
+                          decisionNote: "",
+                        })
+                      }
+                    >
+                      Request Details
+                    </button>
+                    <button
+                      className="portal-danger-btn"
+                      onClick={() =>
+                        openModal("approvalDecide", {
+                          approvalId: row.id,
+                          approvalStatus: "Rejected",
+                          decisionNote: "",
+                        })
+                      }
+                    >
+                      Reject
+                    </button>
+                  </>
+                )}
+                {row.status !== "Pending" && (
+                  <DeleteButton
+                    label={row.requestCode}
+                    onClick={() =>
+                      deleteItem(row.requestCode, removeApproval, { approvalId: row.id })
+                    }
+                  />
+                )}
+              </div>
+            ),
+        ],
+      ]}
+    />
   );
 }
 
@@ -3153,22 +4325,44 @@ function ReportsView({ report }) {
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Pipeline Budget" value={money(report.summary.totalPipelineBudget)} Icon={CircleDollarSign} />
-        <StatCard label="Confirmed Revenue" value={money(report.summary.confirmedRevenue)} Icon={CheckCircle2} />
-        <StatCard label="Confirmed / Lost" value={`${report.summary.confirmedQueries}/${report.summary.lostQueries}`} Icon={ClipboardList} />
+        <StatCard
+          label="Pipeline Budget"
+          value={money(report.summary.totalPipelineBudget)}
+          Icon={CircleDollarSign}
+        />
+        <StatCard
+          label="Confirmed Revenue"
+          value={money(report.summary.confirmedRevenue)}
+          Icon={CheckCircle2}
+        />
+        <StatCard
+          label="Confirmed / Lost"
+          value={`${report.summary.confirmedQueries}/${report.summary.lostQueries}`}
+          Icon={ClipboardList}
+        />
       </div>
       <Panel title="Revenue by query type">
-        <DataTable compact rows={report.revenueByType.map((row) => ({ ...row, id: row.queryType }))} empty="No query revenue yet." columns={[
-          ["Type", (row) => strong(row.queryType)],
-          ["Pipeline Budget", (row) => money(row.revenue)],
-          ["Queries", (row) => row.count],
-        ]} />
+        <DataTable
+          compact
+          rows={report.revenueByType.map((row) => ({ ...row, id: row.queryType }))}
+          empty="No query revenue yet."
+          columns={[
+            ["Type", (row) => strong(row.queryType)],
+            ["Pipeline Budget", (row) => money(row.revenue)],
+            ["Queries", (row) => row.count],
+          ]}
+        />
       </Panel>
       <Panel title="Location-wise headcount">
-        <DataTable compact rows={report.locationHeadcount} empty="No staff locations yet." columns={[
-          ["Location", (row) => strong(row.location)],
-          ["Headcount", (row) => row.count],
-        ]} />
+        <DataTable
+          compact
+          rows={report.locationHeadcount}
+          empty="No staff locations yet."
+          columns={[
+            ["Location", (row) => strong(row.location)],
+            ["Headcount", (row) => row.count],
+          ]}
+        />
       </Panel>
     </div>
   );
@@ -3176,19 +4370,38 @@ function ReportsView({ report }) {
 
 function TeamView({ rows }) {
   return (
-    <DataTable rows={rows} empty="No active staff records." columns={[
-      ["Name", (row) => <span className={row.isCurrentUser ? "font-semibold text-citius-blue" : "font-semibold"}>{row.name}</span>],
-      ["Email", (row) => row.email],
-      ["Mobile", (row) => row.mobile || "-"],
-      ["Department", (row) => row.department || "-"],
-      ["Function", (row) => row.function || "-"],
-      ["Location", (row) => row.location || "-"],
-      ["Access", (row) => row.roles.join(", ")],
-    ]} />
+    <DataTable
+      rows={rows}
+      empty="No active staff records."
+      columns={[
+        [
+          "Name",
+          (row) => (
+            <span
+              className={row.isCurrentUser ? "font-semibold text-citius-blue" : "font-semibold"}
+            >
+              {row.name}
+            </span>
+          ),
+        ],
+        ["Email", (row) => row.email],
+        ["Mobile", (row) => row.mobile || "-"],
+        ["Department", (row) => row.department || "-"],
+        ["Function", (row) => row.function || "-"],
+        ["Location", (row) => row.location || "-"],
+        ["Access", (row) => row.roles.join(", ")],
+      ]}
+    />
   );
 }
 
-function ActivityView({ activity, notifications, deleteItem, removeNotification, markNotificationRead }) {
+function ActivityView({
+  activity,
+  notifications,
+  deleteItem,
+  removeNotification,
+  markNotificationRead,
+}) {
   const router = useRouter();
 
   const handleNotificationClick = async (item) => {
@@ -3209,43 +4422,54 @@ function ActivityView({ activity, notifications, deleteItem, removeNotification,
         <Timeline rows={activity} />
       </Panel>
       <Panel title="Notifications">
-        {notifications.length === 0 ? <EmptyState label="No notifications yet." /> : (
+        {notifications.length === 0 ? (
+          <EmptyState label="No notifications yet." />
+        ) : (
           <div className="space-y-3">
-            {notifications.map((item) => (
-              <div
-                key={item.id}
-                className={`rounded-md border border-brand-border bg-brand-light p-3 ${
-                  item.entityType && item.entityId ? "cursor-pointer transition hover:bg-white" : ""
-                }`}
-                role={item.entityType && item.entityId ? "button" : undefined}
-                tabIndex={item.entityType && item.entityId ? 0 : undefined}
-                onClick={() => {
-                  if (item.entityType && item.entityId) {
-                    handleNotificationClick(item);
-                  }
-                }}
-                onKeyDown={(event) => {
-                  if ((event.key === "Enter" || event.key === " ") && item.entityType && item.entityId) {
-                    event.preventDefault();
-                    handleNotificationClick(item);
-                  }
-                }}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold">{item.title}: {item.body}</div>
-                    <div className="mt-1 text-xs text-brand-muted">{item.readAt ? "Read" : "Unread"} - {formatDate(item.createdAt)}</div>
+            {notifications.map((item) => {
+              const isInteractive = Boolean(item.entityType && item.entityId);
+              const itemClassName = `rounded-md border border-brand-border bg-brand-light p-3 ${
+                isInteractive ? "cursor-pointer transition hover:bg-white" : ""
+              }`;
+
+              return (
+                <div
+                  key={item.id}
+                  className={itemClassName}
+                  {...(isInteractive
+                    ? {
+                        role: "button",
+                        tabIndex: 0,
+                        onClick: () => handleNotificationClick(item),
+                        onKeyDown: (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleNotificationClick(item);
+                          }
+                        },
+                      }
+                    : {})}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold">
+                        {item.title}: {item.body}
+                      </div>
+                      <div className="mt-1 text-xs text-brand-muted">
+                        {item.readAt ? "Read" : "Unread"} - {formatDate(item.createdAt)}
+                      </div>
+                    </div>
+                    <DeleteButton
+                      label={item.title}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        deleteItem(item.title, removeNotification, { notificationId: item.id });
+                      }}
+                    />
                   </div>
-                  <DeleteButton
-                    label={item.title}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      deleteItem(item.title, removeNotification, { notificationId: item.id });
-                    }}
-                  />
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Panel>
@@ -3255,7 +4479,9 @@ function ActivityView({ activity, notifications, deleteItem, removeNotification,
 
 function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeave, decideLeave }) {
   const today = new Date().toISOString().split("T")[0];
-  const activeCount = rows.filter((r) => r.startDate <= today && r.endDate >= today && r.status === "Approved").length;
+  const activeCount = rows.filter(
+    (r) => r.startDate <= today && r.endDate >= today && r.status === "Approved",
+  ).length;
   const pendingCount = rows.filter((r) => r.status === "Pending").length;
   const rejectedCount = rows.filter((r) => r.status === "Rejected").length;
   const upcomingCount = rows.filter((r) => r.status === "Approved" && r.startDate > today).length;
@@ -3285,77 +4511,122 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
       </div>
 
       <div className="bg-brand-surface rounded-xl border border-brand-border overflow-hidden shadow-sm">
-        <DataTable rows={rows} empty="No leave records yet." columns={[
-          ["Employee Name", (row) => strong(row.staffName)],
-          ["Department", (row) => <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-brand-border text-brand-text">{row.department}</span>],
-          ["Leave Type", (row) => <Badge label={row.leaveType || "Casual"} tone="blue" />],
-          ["Start Date", (row) => row.startDate],
-          ["End Date", (row) => row.endDate],
-          ["Reason", (row) => row.reason || "-"],
-          ["Head Review", (row) => <Badge label={row.headReviewStatus || row.status || "Pending"} tone={statusTone(row.headReviewStatus || row.status)} />],
-          ["HR Review", (row) => <Badge label={row.hrReviewStatus || row.status || "Pending"} tone={statusTone(row.hrReviewStatus || row.status)} />],
-          ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-          ["Action", (row) => (
-            <div className="flex flex-wrap gap-2">
-              {row.canApproveHead && (
-                <button
-                  className="portal-small-btn"
-                  disabled={decidingLeaveId === row.id}
-                  onClick={() => handleLeaveDecision(row.id, "Approved")}
-                >
-                  {decidingLeaveId === row.id
-                    ? "Saving..."
-                    : row.headReviewerRole === "HR"
-                      ? "Approve"
-                      : "Approve (Head)"}
-                </button>
-              )}
-              {row.canApproveHr && (
-                <button
-                  className="portal-small-btn"
-                  disabled={decidingLeaveId === row.id}
-                  onClick={() => handleLeaveDecision(row.id, "Approved")}
-                >
-                  {decidingLeaveId === row.id ? "Saving..." : "Approve (HR)"}
-                </button>
-              )}
-              {row.canReject && (
-                <button
-                  className="portal-danger-btn"
-                  disabled={decidingLeaveId === row.id}
-                  onClick={() => handleLeaveDecision(row.id, "Rejected")}
-                >
-                  Reject
-                </button>
-              )}
-              {(canManageLeave || (access?.staffId === row.staffId && row.status === "Pending")) && (
-                <button
-                  className="portal-small-btn"
-                  onClick={() => openModal("leave_create", {
-                    entityId: row.id,
-                    staffId: row.staffId,
-                    leaveType: row.leaveType || "Casual",
-                    startDate: row.startDate,
-                    endDate: row.endDate,
-                    reason: row.reason,
-                    status: row.status,
-                  })}
-                >
-                  Edit
-                </button>
-              )}
-              {canManageLeave && (
-                <DeleteButton label={`leave for ${row.staffName}`} onClick={() => deleteItem(`leave for ${row.staffName}`, removeLeave, { leaveId: row.id })} />
-              )}
-            </div>
-          )],
-        ]} />
+        <DataTable
+          rows={rows}
+          empty="No leave records yet."
+          columns={[
+            ["Employee Name", (row) => strong(row.staffName)],
+            [
+              "Department",
+              (row) => (
+                <span className="px-2.5 py-1 text-xs font-medium rounded-full bg-brand-border text-brand-text">
+                  {row.department}
+                </span>
+              ),
+            ],
+            ["Leave Type", (row) => <Badge label={row.leaveType || "Casual"} tone="blue" />],
+            ["Start Date", (row) => row.startDate],
+            ["End Date", (row) => row.endDate],
+            ["Reason", (row) => row.reason || "-"],
+            [
+              "Head Review",
+              (row) => (
+                <Badge
+                  label={row.headReviewStatus || row.status || "Pending"}
+                  tone={statusTone(row.headReviewStatus || row.status)}
+                />
+              ),
+            ],
+            [
+              "HR Review",
+              (row) => (
+                <Badge
+                  label={row.hrReviewStatus || row.status || "Pending"}
+                  tone={statusTone(row.hrReviewStatus || row.status)}
+                />
+              ),
+            ],
+            ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+            [
+              "Action",
+              (row) => (
+                <div className="flex flex-wrap gap-2">
+                  {row.canApproveHead && (
+                    <button
+                      className="portal-small-btn"
+                      disabled={decidingLeaveId === row.id}
+                      onClick={() => handleLeaveDecision(row.id, "Approved")}
+                    >
+                      {decidingLeaveId === row.id
+                        ? "Saving..."
+                        : row.headReviewerRole === "HR"
+                          ? "Approve"
+                          : "Approve (Head)"}
+                    </button>
+                  )}
+                  {row.canApproveHr && (
+                    <button
+                      className="portal-small-btn"
+                      disabled={decidingLeaveId === row.id}
+                      onClick={() => handleLeaveDecision(row.id, "Approved")}
+                    >
+                      {decidingLeaveId === row.id ? "Saving..." : "Approve (HR)"}
+                    </button>
+                  )}
+                  {row.canReject && (
+                    <button
+                      className="portal-danger-btn"
+                      disabled={decidingLeaveId === row.id}
+                      onClick={() => handleLeaveDecision(row.id, "Rejected")}
+                    >
+                      Reject
+                    </button>
+                  )}
+                  {(canManageLeave ||
+                    (access?.staffId === row.staffId && row.status === "Pending")) && (
+                    <button
+                      className="portal-small-btn"
+                      onClick={() =>
+                        openModal("leave_create", {
+                          entityId: row.id,
+                          staffId: row.staffId,
+                          leaveType: row.leaveType || "Casual",
+                          startDate: row.startDate,
+                          endDate: row.endDate,
+                          reason: row.reason,
+                          status: row.status,
+                        })
+                      }
+                    >
+                      Edit
+                    </button>
+                  )}
+                  {canManageLeave && (
+                    <DeleteButton
+                      label={`leave for ${row.staffName}`}
+                      onClick={() =>
+                        deleteItem(`leave for ${row.staffName}`, removeLeave, { leaveId: row.id })
+                      }
+                    />
+                  )}
+                </div>
+              ),
+            ],
+          ]}
+        />
       </div>
     </div>
   );
 }
 
-function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff, startStaffOnboarding }) {
+function SettingsView({
+  staff,
+  dropdowns,
+  openModal,
+  deleteItem,
+  removeStaff,
+  startStaffOnboarding,
+}) {
   const [onboardingSending, setOnboardingSending] = useState({});
 
   const handleSendOnboarding = async (row) => {
@@ -3379,56 +4650,98 @@ function SettingsView({ staff, dropdowns, openModal, deleteItem, removeStaff, st
   return (
     <div className="space-y-5">
       <Panel title="Staff allowlist">
-        <DataTable rows={staff} empty="No staff records yet." columns={[
-          ["Name", (row) => strong(row.name)],
-          ["Email", (row) => row.email],
-          ["Department", (row) => row.department || "-"],
-          ["Function", (row) => row.function || "-"],
-          ["Location", (row) => row.location || "-"],
-          ["Roles", (row) => row.roles.join(", ")],
-          ["Onboarding", (row) => (
-            <Badge
-              label={
-                row.onboardingStatus === "ready"
-                  ? "Ready"
-                  : row.onboardingStatus === "pending"
-                    ? "Pending"
-                    : "Not started"
-              }
-              tone={
-                row.onboardingStatus === "ready"
-                  ? "green"
-                  : row.onboardingStatus === "pending"
-                    ? "blue"
-                    : "gray"
-              }
-            />
-          )],
-          ["Active", (row) => <Badge label={row.active ? "Active" : "Inactive"} tone={row.active ? "green" : "red"} />],
-          ["Action", (row) => (
-            <div className="flex flex-wrap gap-2">
-              <button className="portal-small-btn" onClick={() => openModal("staff", { staffId: row.id, staffName: row.name, staffEmail: row.email, staffRoles: row.roles, department: row.department, staffFunction: row.function, mobile: row.mobile, location: row.location, staffActive: row.active })}>
-                Edit
-              </button>
-              <button
-                className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
-                onClick={() => handleSendOnboarding(row)}
-                disabled={onboardingSending[row.id]}
-              >
-                {onboardingSending[row.id] ? "Sending..." : onboardingActionLabel(row)}
-              </button>
-              <DeleteButton label={row.email} onClick={() => deleteItem(row.email, removeStaff, { staffId: row.id })} />
-            </div>
-          )],
-        ]} compact />
+        <DataTable
+          rows={staff}
+          empty="No staff records yet."
+          columns={[
+            ["Name", (row) => strong(row.name)],
+            ["Email", (row) => row.email],
+            ["Department", (row) => row.department || "-"],
+            ["Function", (row) => row.function || "-"],
+            ["Location", (row) => row.location || "-"],
+            ["Roles", (row) => row.roles.join(", ")],
+            [
+              "Onboarding",
+              (row) => (
+                <Badge
+                  label={
+                    row.onboardingStatus === "ready"
+                      ? "Ready"
+                      : row.onboardingStatus === "pending"
+                        ? "Pending"
+                        : "Not started"
+                  }
+                  tone={
+                    row.onboardingStatus === "ready"
+                      ? "green"
+                      : row.onboardingStatus === "pending"
+                        ? "blue"
+                        : "gray"
+                  }
+                />
+              ),
+            ],
+            [
+              "Active",
+              (row) => (
+                <Badge
+                  label={row.active ? "Active" : "Inactive"}
+                  tone={row.active ? "green" : "red"}
+                />
+              ),
+            ],
+            [
+              "Action",
+              (row) => (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="portal-small-btn"
+                    onClick={() =>
+                      openModal("staff", {
+                        staffId: row.id,
+                        staffName: row.name,
+                        staffEmail: row.email,
+                        staffRoles: row.roles,
+                        department: row.department,
+                        staffFunction: row.function,
+                        mobile: row.mobile,
+                        location: row.location,
+                        staffActive: row.active,
+                      })
+                    }
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
+                    onClick={() => handleSendOnboarding(row)}
+                    disabled={onboardingSending[row.id]}
+                  >
+                    {onboardingSending[row.id] ? "Sending..." : onboardingActionLabel(row)}
+                  </button>
+                  <DeleteButton
+                    label={row.email}
+                    onClick={() => deleteItem(row.email, removeStaff, { staffId: row.id })}
+                  />
+                </div>
+              ),
+            ],
+          ]}
+          compact
+        />
       </Panel>
       <Panel title="Workflow dropdowns">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {Object.entries(dropdowns).map(([category, values]) => (
-            <div key={category} className="rounded-md border border-brand-border bg-brand-light p-4">
+            <div
+              key={category}
+              className="rounded-md border border-brand-border bg-brand-light p-4"
+            >
               <div className="mb-2 text-sm font-semibold capitalize">{category}</div>
               <div className="flex flex-wrap gap-2">
-                {values.map((value) => <Badge key={value} label={value} tone="gray" />)}
+                {values.map((value) => (
+                  <Badge key={value} label={value} tone="gray" />
+                ))}
               </div>
             </div>
           ))}
@@ -3443,6 +4756,7 @@ function toPassengerImportInput(row) {
     id: row.id,
     sourceSheet: row.sourceSheet,
     sourceRowNumber: row.sourceRowNumber,
+    importKind: row.importKind,
     importKey: row.importKey,
     fullName: row.fullName,
     travelHub: row.travelHub,
@@ -3462,6 +4776,10 @@ function toPassengerImportInput(row) {
     sourceGroup: row.sourceGroup,
     gender: row.gender,
     contactNo: row.contactNo,
+    hotelAllocation: row.hotelAllocation,
+    visaStatus: row.visaStatus || undefined,
+    biometricAppointmentDate: row.biometricAppointmentDate,
+    visaNotes: row.visaNotes,
     passport: {
       number: row.passport?.number,
       dateOfBirth: row.passport?.dateOfBirth,
@@ -3472,7 +4790,19 @@ function toPassengerImportInput(row) {
   };
 }
 
-function PassengerImportModal({ open, close, jobCards, previewPassengerImport, commitPassengerImport }) {
+function PassengerImportModal({
+  open,
+  close,
+  jobCards,
+  previewPassengerImport,
+  commitPassengerImport,
+  title = "Import Passengers",
+  fileLabel = "Passenger spreadsheet",
+  parseWorkbookFile = parsePassengerWorkbookFile,
+  emptyLabel = "No confirmed passengers found.",
+  successLabel = "Passenger import complete",
+  uploadLabel = "Upload Passengers",
+}) {
   const [jobCardId, setJobCardId] = useState("");
   const [fileName, setFileName] = useState("");
   const [parsed, setParsed] = useState(null);
@@ -3487,7 +4817,10 @@ function PassengerImportModal({ open, close, jobCards, previewPassengerImport, c
   const skipped = parsed?.skipped || [];
   const errors = parsed?.errors || [];
   const previewRows = useMemo(() => preview?.rows || [], [preview]);
-  const previewById = useMemo(() => new Map(previewRows.map((row) => [row.id, row])), [previewRows]);
+  const previewById = useMemo(
+    () => new Map(previewRows.map((row) => [row.id, row])),
+    [previewRows],
+  );
   const createCount = previewRows.filter((row) => row.action === "create").length;
   const updateCount = previewRows.filter((row) => row.action === "update").length;
 
@@ -3547,9 +4880,9 @@ function PassengerImportModal({ open, close, jobCards, previewPassengerImport, c
     setError("");
     setIsParsing(true);
     try {
-      setParsed(await parsePassengerWorkbookFile(file));
+      setParsed(await parseWorkbookFile(file));
     } catch (err) {
-      setError(err?.message || "Unable to read passenger spreadsheet.");
+      setError(err?.message || "Unable to read spreadsheet.");
     } finally {
       setIsParsing(false);
       event.target.value = "";
@@ -3562,20 +4895,31 @@ function PassengerImportModal({ open, close, jobCards, previewPassengerImport, c
     setError("");
     try {
       const result = await commitPassengerImport({ jobCardId, rows: importRows });
-      alert(`Passenger import complete. Created ${result.created}, updated ${result.updated}.`);
+      alert(`${successLabel}. Created ${result.created}, updated ${result.updated}.`);
       closeAndReset();
     } catch (err) {
-      setError(err?.data || err?.message || "Passenger import failed.");
+      setError(err?.data || err?.message || "Import failed.");
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <ImportModalShell open={open} close={closeAndReset} title="Import Passengers">
+    <ImportModalShell open={open} close={closeAndReset} title={title}>
       <div className="space-y-4">
-        <Select label="Job Card" value={jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={setJobCardId} required />
-        <ImportFileInput label="Passenger spreadsheet" fileName={fileName} accept=".xlsx,.xls" onChange={handleFile} />
+        <Select
+          label="Job Card"
+          value={jobCardId}
+          options={jobCardSelectOptions(jobCards, { required: true })}
+          onChange={setJobCardId}
+          required
+        />
+        <ImportFileInput
+          label={fileLabel}
+          fileName={fileName}
+          accept=".xlsx,.xls"
+          onChange={handleFile}
+        />
         <ImportSummary
           isBusy={isParsing || isPreviewing}
           totals={[
@@ -3586,7 +4930,11 @@ function PassengerImportModal({ open, close, jobCards, previewPassengerImport, c
             ["Errors", errors.length],
           ]}
         />
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
         {errors.length > 0 && <ImportIssueList title="Rows needing correction" rows={errors} />}
         {skipped.length > 0 && <ImportIssueList title="Skipped rows" rows={skipped.slice(0, 8)} />}
         {rows.length > 0 && (
@@ -3596,21 +4944,51 @@ function PassengerImportModal({ open, close, jobCards, previewPassengerImport, c
               ...row,
               action: previewById.get(row.id)?.action || (isPreviewing ? "checking" : "upsert"),
             }))}
-            empty="No confirmed passengers found."
+            empty={emptyLabel}
             columns={[
-              ["Action", (row) => <Badge label={row.action} tone={row.action === "update" ? "blue" : row.action === "create" ? "green" : "orange"} />],
+              [
+                "Action",
+                (row) => (
+                  <Badge
+                    label={row.action}
+                    tone={
+                      row.action === "update"
+                        ? "blue"
+                        : row.action === "create"
+                          ? "green"
+                          : "orange"
+                    }
+                  />
+                ),
+              ],
               ["Passenger", (row) => strong(row.fullName)],
               ["Hub", (row) => row.travelHub || "-"],
-              ["Food", (row) => row.foodPreference],
-              ["Passport", (row) => row.passport?.number ? `****${row.passport.number.slice(-4)}` : "Pending"],
+              ["Room", (row) => row.roomType || "-"],
+              ["Visa", (row) => row.visaStatus || (row.visaRequired ? "Required" : "Not Required")],
+              [
+                "Passport",
+                (row) =>
+                  row.passport?.number ? `****${row.passport.number.slice(-4)}` : "Pending",
+              ],
               ["Source", (row) => `${row.sourceSheet} row ${row.sourceRowNumber}`],
             ]}
           />
         )}
         <div className="flex justify-end gap-2">
-          <button type="button" className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70" onClick={closeAndReset}>Cancel</button>
-          <button type="button" className="portal-primary-btn disabled:opacity-60" disabled={!jobCardId || rows.length === 0 || isPreviewing || isSaving} onClick={handleCommit}>
-            {isSaving ? "Uploading..." : "Upload Passengers"}
+          <button
+            type="button"
+            className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
+            onClick={closeAndReset}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="portal-primary-btn disabled:opacity-60"
+            disabled={!jobCardId || rows.length === 0 || isPreviewing || isSaving}
+            onClick={handleCommit}
+          >
+            {isSaving ? "Uploading..." : uploadLabel}
           </button>
         </div>
       </div>
@@ -3637,7 +5015,8 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
   );
   const segmentCount = groups.reduce((sum, group) => sum + group.segments.length, 0);
   const updateCount = groups.reduce(
-    (sum, group) => sum + group.segments.filter((segment) => existingSegmentKeys.has(segment.importKey)).length,
+    (sum, group) =>
+      sum + group.segments.filter((segment) => existingSegmentKeys.has(segment.importKey)).length,
     0,
   );
 
@@ -3682,7 +5061,9 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
     setError("");
     try {
       const result = await commitFlightImport({ jobCardId, groups });
-      alert(`Flight import complete. Created ${result.createdSegments}, updated ${result.updatedSegments} segments.`);
+      alert(
+        `Flight import complete. Created ${result.createdSegments}, updated ${result.updatedSegments} segments.`,
+      );
       closeAndReset();
     } catch (err) {
       setError(err?.data || err?.message || "Flight import failed.");
@@ -3694,8 +5075,19 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
   return (
     <ImportModalShell open={open} close={closeAndReset} title="Import Flights">
       <div className="space-y-4">
-        <Select label="Job Card" value={jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={setJobCardId} required />
-        <ImportFileInput label="Flight spreadsheet" fileName={fileName} accept=".xlsx,.xls" onChange={handleFile} />
+        <Select
+          label="Job Card"
+          value={jobCardId}
+          options={jobCardSelectOptions(jobCards, { required: true })}
+          onChange={setJobCardId}
+          required
+        />
+        <ImportFileInput
+          label="Flight spreadsheet"
+          fileName={fileName}
+          accept=".xlsx,.xls"
+          onChange={handleFile}
+        />
         <ImportSummary
           isBusy={isParsing}
           totals={[
@@ -3706,7 +5098,11 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
             ["Errors", errors.length],
           ]}
         />
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
         {errors.length > 0 && <ImportIssueList title="Rows needing correction" rows={errors} />}
         {groups.length > 0 && (
           <div className="space-y-3">
@@ -3714,7 +5110,9 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
               <div key={group.id} className="rounded-lg border border-brand-border bg-white">
                 <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
                   <div className="font-semibold text-citius-blue">{group.name}</div>
-                  <div className="text-xs text-brand-muted">{group.segments.length} segment{group.segments.length === 1 ? "" : "s"}</div>
+                  <div className="text-xs text-brand-muted">
+                    {group.segments.length} segment{group.segments.length === 1 ? "" : "s"}
+                  </div>
                 </div>
                 <DataTable
                   compact
@@ -3724,7 +5122,15 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
                   }))}
                   empty="No segments in this group."
                   columns={[
-                    ["Action", (row) => <Badge label={row.action} tone={row.action === "update" ? "blue" : "green"} />],
+                    [
+                      "Action",
+                      (row) => (
+                        <Badge
+                          label={row.action}
+                          tone={row.action === "update" ? "blue" : "green"}
+                        />
+                      ),
+                    ],
                     ["Date", (row) => row.dateLabel],
                     ["Flight", (row) => `${row.airline} ${row.flightNumber}`],
                     ["Depart", (row) => `${row.departTime || "-"} ${row.origin}`],
@@ -3737,8 +5143,19 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
           </div>
         )}
         <div className="flex justify-end gap-2">
-          <button type="button" className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70" onClick={closeAndReset}>Cancel</button>
-          <button type="button" className="portal-primary-btn disabled:opacity-60" disabled={!jobCardId || groups.length === 0 || isSaving} onClick={handleCommit}>
+          <button
+            type="button"
+            className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
+            onClick={closeAndReset}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="portal-primary-btn disabled:opacity-60"
+            disabled={!jobCardId || groups.length === 0 || isSaving}
+            onClick={handleCommit}
+          >
             {isSaving ? "Uploading..." : "Upload Flights"}
           </button>
         </div>
@@ -3747,7 +5164,17 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
   );
 }
 
-function PassengerExportModal({ open, close, jobCards, getPassengerExportRows }) {
+function PassengerExportModal({
+  open,
+  close,
+  jobCards,
+  getPassengerExportRows,
+  title = "Export Passengers",
+  subtitle = "Select a job card to download a passenger spreadsheet compatible with the import template.",
+  buildWorkbook = buildPassengerWorkbook,
+  filenameSuffix = "passengers",
+  sheetName,
+}) {
   const [jobCardId, setJobCardId] = useState("");
   const [exportData, setExportData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -3803,8 +5230,10 @@ function PassengerExportModal({ open, close, jobCards, getPassengerExportRows })
     setIsExporting(true);
     setError("");
     try {
-      const workbook = buildPassengerWorkbook(exportData.rows, { sheetName: exportData.jobCode });
-      downloadWorkbook(workbook, `${exportData.jobCode}-passengers.xlsx`);
+      const workbook = buildWorkbook(exportData.rows, {
+        sheetName: sheetName || exportData.jobCode,
+      });
+      downloadWorkbook(workbook, `${exportData.jobCode}-${filenameSuffix}.xlsx`);
       closeAndReset();
     } catch (err) {
       setError(err?.message || "Passenger export failed.");
@@ -3816,14 +5245,15 @@ function PassengerExportModal({ open, close, jobCards, getPassengerExportRows })
   const rows = exportData?.rows || [];
 
   return (
-    <ImportModalShell
-      open={open}
-      close={closeAndReset}
-      title="Export Passengers"
-      subtitle="Select a job card to download a passenger spreadsheet compatible with the import template."
-    >
+    <ImportModalShell open={open} close={closeAndReset} title={title} subtitle={subtitle}>
       <div className="space-y-4">
-        <Select label="Job Card" value={jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={setJobCardId} required />
+        <Select
+          label="Job Card"
+          value={jobCardId}
+          options={jobCardSelectOptions(jobCards, { required: true })}
+          onChange={setJobCardId}
+          required
+        />
         <ImportSummary
           isBusy={isLoading}
           totals={[
@@ -3834,7 +5264,11 @@ function PassengerExportModal({ open, close, jobCards, getPassengerExportRows })
             ["Client", exportData?.clientName || "-"],
           ]}
         />
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
         {jobCardId && !isLoading && rows.length === 0 && (
           <div className="rounded-lg border border-brand-border bg-brand-light/40 px-4 py-3 text-sm text-brand-muted">
             No passengers found for this job card.
@@ -3850,13 +5284,28 @@ function PassengerExportModal({ open, close, jobCards, getPassengerExportRows })
               ["Status", (row) => row.willingToGo],
               ["Hub", (row) => row.travelHub || "-"],
               ["Food", (row) => row.foodPreference],
-              ["Passport", (row) => row.passport?.number ? `****${row.passport.number.slice(-4)}` : "Pending"],
+              [
+                "Passport",
+                (row) =>
+                  row.passport?.number ? `****${row.passport.number.slice(-4)}` : "Pending",
+              ],
             ]}
           />
         )}
         <div className="flex justify-end gap-2">
-          <button type="button" className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70" onClick={closeAndReset}>Cancel</button>
-          <button type="button" className="portal-primary-btn disabled:opacity-60" disabled={!jobCardId || isLoading || rows.length === 0 || isExporting} onClick={handleExport}>
+          <button
+            type="button"
+            className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
+            onClick={closeAndReset}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="portal-primary-btn disabled:opacity-60"
+            disabled={!jobCardId || isLoading || rows.length === 0 || isExporting}
+            onClick={handleExport}
+          >
             {isExporting ? "Exporting..." : "Download Spreadsheet"}
           </button>
         </div>
@@ -3913,7 +5362,13 @@ function FlightExportModal({ open, close, jobCards, itinerary }) {
       subtitle="Select a job card to download a flight itinerary spreadsheet compatible with the import template."
     >
       <div className="space-y-4">
-        <Select label="Job Card" value={jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={setJobCardId} required />
+        <Select
+          label="Job Card"
+          value={jobCardId}
+          options={jobCardSelectOptions(jobCards, { required: true })}
+          onChange={setJobCardId}
+          required
+        />
         <ImportSummary
           isBusy={false}
           totals={[
@@ -3921,10 +5376,19 @@ function FlightExportModal({ open, close, jobCards, itinerary }) {
             ["Segments", jobCardId ? segmentCount : "-"],
             ["Job", selectedJob?.jobCode || "-"],
             ["Client", selectedJob?.clientName || "-"],
-            ["Sheets", jobCardId ? new Set(groups.map((group) => group.sourceSheet || selectedJob.jobCode)).size : "-"],
+            [
+              "Sheets",
+              jobCardId
+                ? new Set(groups.map((group) => group.sourceSheet || selectedJob.jobCode)).size
+                : "-",
+            ],
           ]}
         />
-        {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
         {jobCardId && groups.length === 0 && (
           <div className="rounded-lg border border-brand-border bg-brand-light/40 px-4 py-3 text-sm text-brand-muted">
             No flight itinerary found for this job card.
@@ -3936,7 +5400,9 @@ function FlightExportModal({ open, close, jobCards, itinerary }) {
               <div key={group.id} className="rounded-lg border border-brand-border bg-white">
                 <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
                   <div className="font-semibold text-citius-blue">{group.name}</div>
-                  <div className="text-xs text-brand-muted">{group.segments.length} segment{group.segments.length === 1 ? "" : "s"}</div>
+                  <div className="text-xs text-brand-muted">
+                    {group.segments.length} segment{group.segments.length === 1 ? "" : "s"}
+                  </div>
                 </div>
                 <DataTable
                   compact
@@ -3954,8 +5420,19 @@ function FlightExportModal({ open, close, jobCards, itinerary }) {
           </div>
         )}
         <div className="flex justify-end gap-2">
-          <button type="button" className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70" onClick={closeAndReset}>Cancel</button>
-          <button type="button" className="portal-primary-btn disabled:opacity-60" disabled={!jobCardId || groups.length === 0} onClick={handleExport}>
+          <button
+            type="button"
+            className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
+            onClick={closeAndReset}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="portal-primary-btn disabled:opacity-60"
+            disabled={!jobCardId || groups.length === 0}
+            onClick={handleExport}
+          >
             Download Spreadsheet
           </button>
         </div>
@@ -3964,7 +5441,13 @@ function FlightExportModal({ open, close, jobCards, itinerary }) {
   );
 }
 
-function ImportModalShell({ open, close, title, subtitle = "Upload a spreadsheet, review the parsed rows, then commit the import.", children }) {
+function ImportModalShell({
+  open,
+  close,
+  title,
+  subtitle = "Upload a spreadsheet, review the parsed rows, then commit the import.",
+  children,
+}) {
   return (
     <AnimatePresence>
       {open && (
@@ -3985,7 +5468,11 @@ function ImportModalShell({ open, close, title, subtitle = "Upload a spreadsheet
                 <h2 className="font-heading text-2xl font-semibold text-citius-blue">{title}</h2>
                 <p className="mt-1 text-sm text-brand-muted">{subtitle}</p>
               </div>
-              <button type="button" className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70" onClick={close}>
+              <button
+                type="button"
+                className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
+                onClick={close}
+              >
                 Close
               </button>
             </div>
@@ -4001,7 +5488,12 @@ function ImportFileInput({ label, fileName, accept, onChange }) {
   return (
     <label className="block rounded-lg border border-dashed border-brand-border bg-brand-light/40 p-4">
       <span className="text-sm font-semibold text-citius-blue">{label}</span>
-      <input type="file" accept={accept} onChange={onChange} className="mt-2 block w-full text-sm text-brand-dark file:mr-3 file:rounded-md file:border-0 file:bg-citius-blue file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white" />
+      <input
+        type="file"
+        accept={accept}
+        onChange={onChange}
+        className="mt-2 block w-full text-sm text-brand-dark file:mr-3 file:rounded-md file:border-0 file:bg-citius-blue file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
+      />
       {fileName && <span className="mt-2 block text-xs text-brand-muted">{fileName}</span>}
     </label>
   );
@@ -4012,8 +5504,12 @@ function ImportSummary({ isBusy, totals }) {
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
       {totals.map(([label, value]) => (
         <div key={label} className="rounded-lg border border-brand-border bg-white px-4 py-3">
-          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-muted">{label}</div>
-          <div className="mt-1 text-2xl font-semibold text-citius-blue">{isBusy && value === "-" ? "..." : value}</div>
+          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-muted">
+            {label}
+          </div>
+          <div className="mt-1 text-2xl font-semibold text-citius-blue">
+            {isBusy && value === "-" ? "..." : value}
+          </div>
         </div>
       ))}
     </div>
@@ -4027,7 +5523,9 @@ function ImportIssueList({ title, rows }) {
       <div className="text-sm font-semibold text-amber-900">{title}</div>
       <div className="mt-2 space-y-1 text-sm text-amber-800">
         {rows.map((row) => (
-          <div key={row.id}>{row.sourceSheet} row {row.sourceRowNumber}: {row.message || row.reason}</div>
+          <div key={row.id}>
+            {row.sourceSheet} row {row.sourceRowNumber}: {row.message || row.reason}
+          </div>
         ))}
       </div>
     </div>
@@ -4074,8 +5572,16 @@ function EntityModal({
   has,
   access,
 }) {
-  const contractingTeamOptions = teamSelectOptions(team, ["Contracting", "Contracting Head"]);
-  const operationsTeamOptions = teamSelectOptions(team, ["Operations", "Operations Head"]);
+  const contractingTeamOptions = teamSelectOptions(team, [
+    "Contracting",
+    "Contracting Head",
+    "Contracting Cement",
+  ]);
+  const operationsTeamOptions = teamSelectOptions(team, [
+    "Operations",
+    "Operations Head",
+    "Operations Cement",
+  ]);
   const ticketingTeamOptions = teamSelectOptions(team, ["Ticketing", "Head of Ticketing"]);
   const tourManagerOptions = teamSelectOptions(team, ["Tour Manager"]);
   const travellerOptions = linkedTravellerOptions(travellers, form.jobCardId);
@@ -4156,7 +5662,9 @@ function EntityModal({
 
   const handleVisaRecordSelect = (visaRecordId) => {
     const linkedVisa = visas.find((visa) => visa.id === visaRecordId);
-    patchForm(linkedVisa ? applyVisaRecordLink(form, linkedVisa) : { visaRecordId: visaRecordId || "" });
+    patchForm(
+      linkedVisa ? applyVisaRecordLink(form, linkedVisa) : { visaRecordId: visaRecordId || "" },
+    );
   };
 
   const title = modal
@@ -4165,8 +5673,8 @@ function EntityModal({
         queryAttachments: `Attachments — ${form.queryCode || "Query"}`,
         proposalAttachments: `Working Files — ${form.queryCode || "Proposal"}`,
         proposalFinalizedPdf: `Finalized Proposal PDF — ${form.queryCode || "Proposal"}`,
-        assignContracting: "Assign Contracting Owner",
-        assignContractingOwner: "Assign Contracting Job Owner",
+        assignContracting: "Assign Contracting SPOC",
+        assignContractingOwner: "Assign Contracting SPOC",
         assignOperationsOwner: "Assign Operations Owner",
         assignTicketingOwner: "Assign Ticketing Owner",
         queryStatus: "Update Query Status",
@@ -4183,8 +5691,13 @@ function EntityModal({
         invoice: form.entityId ? "Edit Invoice" : "Generate Invoice",
         expense: form.entityId ? "Edit Expense" : "Add Expense",
         staff: "Staff Allowlist Entry",
-        leave_create: form.entityId ? "Edit Leave" : has(P.MANAGE_LEAVE) ? "Record Employee Leave" : "Request Leave",
-        approvalDecide: form.approvalStatus === "Needs Info" ? "Request More Details" : "Reject Approval",
+        leave_create: form.entityId
+          ? "Edit Leave"
+          : has(P.MANAGE_LEAVE)
+            ? "Record Employee Leave"
+            : "Request Leave",
+        approvalDecide:
+          form.approvalStatus === "Needs Info" ? "Request More Details" : "Reject Approval",
       }[modal]
     : "";
 
@@ -4210,350 +5723,1141 @@ function EntityModal({
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl"
           >
-        <div className="flex items-center justify-between border-b border-brand-border px-5 py-4">
-          <div className="font-heading text-lg font-semibold text-citius-blue">{title}</div>
-          <button type="button" onClick={close} className="rounded-full p-2 text-brand-muted hover:bg-brand-light">Close</button>
-        </div>
-        <div className="max-h-[calc(90vh-130px)] overflow-y-auto p-5">
-          {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
-          {(modal === "query" || modal === "queryStatus") && lifecycleQuery && (
-            <LifecycleDates
-              items={[
-                { label: "Created", value: lifecycleQuery.createdAt },
-                { label: "Submitted to Contracting", value: lifecycleQuery.submittedToContractingAt },
-                { label: "Confirmed", value: lifecycleQuery.confirmedAt },
-              ]}
-            />
-          )}
-          {modal === "proposal" && lifecycleProposal && (
-            <LifecycleDates
-              items={[
-                { label: "Created", value: lifecycleProposal.createdAt },
-                { label: "Sent", value: lifecycleProposal.sentAt },
-                { label: "Finalized PDF", value: lifecycleProposal.finalizedPdf?.uploadedAt },
-              ]}
-            />
-          )}
-          {modal === "jobCard" && lifecycleJobCard && (
-            <LifecycleDates
-              items={[
-                { label: "Opened", value: lifecycleJobCard.createdAt },
-                { label: "Last updated", value: lifecycleJobCard.updatedAt },
-              ]}
-            />
-          )}
-          <div className="grid gap-4 md:grid-cols-2">
-            {modal === "query" && <>
-              <Input label="Client / Company" value={form.clientName} onChange={(v) => updateForm("clientName", v)} required />
-              <Input label="Contact Person" value={form.contactPerson} onChange={(v) => updateForm("contactPerson", v)} />
-              <Input label="Mobile" value={form.contactMobile} onChange={(v) => updateForm("contactMobile", v)} />
-              <Input label="No. of Pax" type="number" value={form.paxCount} onChange={(v) => updateForm("paxCount", v)} />
-              <Input label="Destination" value={form.destination} onChange={(v) => updateForm("destination", v)} />
-              <Input label="Travel Date From" type="date" value={form.travelStartDate} onChange={(v) => updateForm("travelStartDate", v)} />
-              <Input label="Travel Date To" type="date" value={form.travelEndDate} onChange={(v) => updateForm("travelEndDate", v)} />
-              <Select label="Query Type" value={form.queryType} options={QUERY_TYPES} onChange={(v) => updateForm("queryType", v)} />
-              <Select label="Travel Type" value={form.travelType} options={TRAVEL_TYPES} onChange={(v) => updateForm("travelType", v)} />
-              <Input label="Budget INR" type="number" value={form.budgetAmount} onChange={(v) => updateForm("budgetAmount", v)} />
-              <Select label="Source" value={form.source} options={QUERY_SOURCES} onChange={(v) => updateForm("source", v)} />
-              <Select label="Sales Rep" value={form.salesOwnerName} options={[{ value: "", label: "Current user" }, ...team.filter((member) => member.roles.some((role) => ["Sales", "Sales Head"].includes(role))).map((member) => ({ value: member.name, label: member.name }))]} onChange={(v) => updateForm("salesOwnerName", v)} />
-              <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} maxWords={MAX_QUERY_NOTES_WORDS} />
-              <div className="md:col-span-2">
-                <QueryFilePicker
-                  files={pendingQueryFiles}
-                  onChange={setPendingQueryFiles}
-                  inputId="new-query-files"
-                />
-              </div>
-            </>}
-            {modal === "queryAttachments" && (
-              <div className="md:col-span-2">
-                <QueryAttachmentsPanel
-                  queryId={form.queryId}
-                  attachments={(queries.find((q) => q.id === form.queryId)?.attachments) || []}
-                  canManage={has(P.MANAGE_QUERIES)}
-                  generateQueryUploadUrl={generateQueryUploadUrl}
-                  attachQueryFile={attachQueryFile}
-                  getQueryAttachmentUrl={getQueryAttachmentUrl}
-                  removeQueryAttachment={removeQueryAttachment}
-                />
-              </div>
-            )}
-            {modal === "proposalAttachments" && (
-              <div className="md:col-span-2">
-                <QueryAttachmentsPanel
-                  entityId={form.proposalId}
-                  idField="proposalId"
-                  attachments={(proposals.find((proposal) => proposal.id === form.proposalId)?.attachments) || []}
-                  canManage={has(P.MANAGE_PROPOSALS)}
-                  uploadLabel="Upload Working File"
-                  generateQueryUploadUrl={generateProposalUploadUrl}
-                  attachQueryFile={attachProposalFile}
-                  getQueryAttachmentUrl={getProposalAttachmentUrl}
-                  attachmentKind="proposal"
-                  removeQueryAttachment={removeProposalAttachment}
-                />
-              </div>
-            )}
-            {modal === "proposalFinalizedPdf" && (
-              <div className="md:col-span-2">
-                <FinalizedProposalPdfPanel
-                  proposalId={form.proposalId}
-                  finalizedPdf={(proposals.find((proposal) => proposal.id === form.proposalId)?.finalizedPdf) || null}
-                  canSend={has(P.SEND_PROPOSALS) || has(P.MANAGE_PROPOSALS)}
-                  generateFinalizedPdfUploadUrl={generateFinalizedPdfUploadUrl}
-                  attachFinalizedPdf={attachFinalizedPdf}
-                  getFinalizedPdfUrl={getFinalizedPdfUrl}
-                  removeFinalizedPdf={removeFinalizedPdf}
-                />
-              </div>
-            )}
-            {modal === "assignContracting" && <>
-              <Select label="Query" value={form.queryId} options={queries.map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` }))} onChange={(v) => updateForm("queryId", v)} required />
-              <Select label="Contracting Owner" value={form.staffId} options={[{ value: "", label: "Select team member…" }, ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label }))]} onChange={(v) => updateForm("staffId", v)} required />
-            </>}
-            {modal === "assignContractingOwner" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
-              <Select label="Contracting Owner" value={form.staffId} options={[{ value: "", label: "Select team member…" }, ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label }))]} onChange={(v) => updateForm("staffId", v)} required />
-            </>}
-            {modal === "assignOperationsOwner" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
-              <Select label="Operations Owner" value={form.staffId} options={[{ value: "", label: "Select team member…" }, ...operationsTeamOptions.map((o) => ({ value: o.value, label: o.label }))]} onChange={(v) => updateForm("staffId", v)} required />
-            </>}
-            {modal === "assignTicketingOwner" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
-              <div className="md:col-span-2 flex flex-wrap items-end gap-3">
-                <div className="min-w-[240px] flex-1">
-                  <Select label="Ticketing Owner" value={form.staffId} options={[{ value: "", label: "Select team member…" }, ...ticketingTeamOptions.map((o) => ({ value: o.value, label: o.label }))]} onChange={(v) => updateForm("staffId", v)} required />
+            <div className="flex items-center justify-between border-b border-brand-border px-5 py-4">
+              <div className="font-heading text-lg font-semibold text-citius-blue">{title}</div>
+              <button
+                type="button"
+                onClick={close}
+                className="rounded-full p-2 text-brand-muted hover:bg-brand-light"
+              >
+                Close
+              </button>
+            </div>
+            <div className="max-h-[calc(90vh-130px)] overflow-y-auto p-5">
+              {error && (
+                <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
                 </div>
-                {canAssignTicketing(access) && access?.staffId && (
-                  <button
-                    type="button"
-                    className="portal-outline-btn mb-1"
-                    onClick={() => updateForm("staffId", access.staffId)}
-                  >
-                    Assign to me
-                  </button>
+              )}
+              {(modal === "query" || modal === "queryStatus") && lifecycleQuery && (
+                <LifecycleDates
+                  items={[
+                    { label: "Created", value: lifecycleQuery.createdAt },
+                    {
+                      label: "Submitted to Contracting",
+                      value: lifecycleQuery.submittedToContractingAt,
+                    },
+                    { label: "Confirmed", value: lifecycleQuery.confirmedAt },
+                  ]}
+                />
+              )}
+              {modal === "proposal" && lifecycleProposal && (
+                <LifecycleDates
+                  items={[
+                    { label: "Created", value: lifecycleProposal.createdAt },
+                    { label: "Sent", value: lifecycleProposal.sentAt },
+                    { label: "Finalized PDF", value: lifecycleProposal.finalizedPdf?.uploadedAt },
+                  ]}
+                />
+              )}
+              {modal === "jobCard" && lifecycleJobCard && (
+                <LifecycleDates
+                  items={[
+                    { label: "Opened", value: lifecycleJobCard.createdAt },
+                    { label: "Last updated", value: lifecycleJobCard.updatedAt },
+                  ]}
+                />
+              )}
+              <div className="grid gap-4 md:grid-cols-2">
+                {modal === "query" && (
+                  <>
+                    <Input
+                      label="Client / Company"
+                      value={form.clientName}
+                      onChange={(v) => updateForm("clientName", v)}
+                      required
+                    />
+                    <Input
+                      label="Contact Person"
+                      value={form.contactPerson}
+                      onChange={(v) => updateForm("contactPerson", v)}
+                    />
+                    <Input
+                      label="Mobile"
+                      value={form.contactMobile}
+                      onChange={(v) => updateForm("contactMobile", v)}
+                    />
+                    <Input
+                      label="No. of Pax"
+                      type="number"
+                      value={form.paxCount}
+                      onChange={(v) => updateForm("paxCount", v)}
+                    />
+                    <Input
+                      label="Destination"
+                      value={form.destination}
+                      onChange={(v) => updateForm("destination", v)}
+                    />
+                    <Input
+                      label="Travel Date From"
+                      type="date"
+                      value={form.travelStartDate}
+                      onChange={(v) => updateForm("travelStartDate", v)}
+                    />
+                    <Input
+                      label="Travel Date To"
+                      type="date"
+                      value={form.travelEndDate}
+                      onChange={(v) => updateForm("travelEndDate", v)}
+                    />
+                    <Select
+                      label="Query Type"
+                      value={form.queryType}
+                      options={QUERY_TYPES}
+                      onChange={(v) => updateForm("queryType", v)}
+                    />
+                    <Select
+                      label="Travel Type"
+                      value={form.travelType}
+                      options={TRAVEL_TYPES}
+                      onChange={(v) => updateForm("travelType", v)}
+                    />
+                    <Input
+                      label="Budget INR"
+                      type="number"
+                      value={form.budgetAmount}
+                      onChange={(v) => updateForm("budgetAmount", v)}
+                    />
+                    <Select
+                      label="Source"
+                      value={form.source}
+                      options={QUERY_SOURCES}
+                      onChange={(v) => updateForm("source", v)}
+                    />
+                    <Select
+                      label="Sales Rep"
+                      value={form.salesOwnerName}
+                      options={[
+                        { value: "", label: "Current user" },
+                        ...team
+                          .filter((member) =>
+                            member.roles.some((role) => ["Sales", "Sales Head"].includes(role)),
+                          )
+                          .map((member) => ({ value: member.name, label: member.name })),
+                      ]}
+                      onChange={(v) => updateForm("salesOwnerName", v)}
+                    />
+                    <Textarea
+                      label="Notes"
+                      value={form.notes}
+                      onChange={(v) => updateForm("notes", v)}
+                      maxWords={MAX_QUERY_NOTES_WORDS}
+                    />
+                    <div className="md:col-span-2">
+                      <QueryFilePicker
+                        files={pendingQueryFiles}
+                        onChange={setPendingQueryFiles}
+                        inputId="new-query-files"
+                      />
+                    </div>
+                  </>
+                )}
+                {modal === "queryAttachments" && (
+                  <div className="md:col-span-2">
+                    <QueryAttachmentsPanel
+                      queryId={form.queryId}
+                      attachments={queries.find((q) => q.id === form.queryId)?.attachments || []}
+                      canManage={has(P.MANAGE_QUERIES)}
+                      generateQueryUploadUrl={generateQueryUploadUrl}
+                      attachQueryFile={attachQueryFile}
+                      getQueryAttachmentUrl={getQueryAttachmentUrl}
+                      removeQueryAttachment={removeQueryAttachment}
+                    />
+                  </div>
+                )}
+                {modal === "proposalAttachments" && (
+                  <div className="md:col-span-2">
+                    <QueryAttachmentsPanel
+                      entityId={form.proposalId}
+                      idField="proposalId"
+                      attachments={
+                        proposals.find((proposal) => proposal.id === form.proposalId)
+                          ?.attachments || []
+                      }
+                      canManage={has(P.MANAGE_PROPOSALS)}
+                      uploadLabel="Upload Working File"
+                      generateQueryUploadUrl={generateProposalUploadUrl}
+                      attachQueryFile={attachProposalFile}
+                      getQueryAttachmentUrl={getProposalAttachmentUrl}
+                      attachmentKind="proposal"
+                      removeQueryAttachment={removeProposalAttachment}
+                    />
+                  </div>
+                )}
+                {modal === "proposalFinalizedPdf" && (
+                  <div className="md:col-span-2">
+                    <FinalizedProposalPdfPanel
+                      proposalId={form.proposalId}
+                      finalizedPdf={
+                        proposals.find((proposal) => proposal.id === form.proposalId)
+                          ?.finalizedPdf || null
+                      }
+                      canSend={has(P.SEND_PROPOSALS) || has(P.MANAGE_PROPOSALS)}
+                      generateFinalizedPdfUploadUrl={generateFinalizedPdfUploadUrl}
+                      attachFinalizedPdf={attachFinalizedPdf}
+                      getFinalizedPdfUrl={getFinalizedPdfUrl}
+                      removeFinalizedPdf={removeFinalizedPdf}
+                    />
+                  </div>
+                )}
+                {modal === "assignContracting" && (
+                  <>
+                    <Select
+                      label="Query"
+                      value={form.queryId}
+                      options={queries.map((q) => ({
+                        value: q.id,
+                        label: `${q.queryCode} - ${q.clientName}`,
+                      }))}
+                      onChange={(v) => updateForm("queryId", v)}
+                      required
+                    />
+                    <Select
+                      label="Contracting SPOC"
+                      value={form.staffId}
+                      options={[
+                        { value: "", label: "Select team member…" },
+                        ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label })),
+                      ]}
+                      onChange={(v) => updateForm("staffId", v)}
+                      required
+                    />
+                  </>
+                )}
+                {modal === "assignContractingOwner" && (
+                  <>
+                    <Select
+                      label="Job Card"
+                      value={form.jobCardId}
+                      options={jobCardSelectOptions(jobCards, { required: true })}
+                      onChange={handleJobCardSelect}
+                      required
+                    />
+                    <Select
+                      label="Contracting SPOC"
+                      value={form.staffId}
+                      options={[
+                        { value: "", label: "Select team member…" },
+                        ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label })),
+                      ]}
+                      onChange={(v) => updateForm("staffId", v)}
+                      required
+                    />
+                  </>
+                )}
+                {modal === "assignOperationsOwner" && (
+                  <>
+                    <Select
+                      label="Job Card"
+                      value={form.jobCardId}
+                      options={jobCardSelectOptions(jobCards, { required: true })}
+                      onChange={handleJobCardSelect}
+                      required
+                    />
+                    <Select
+                      label="Operations Owner"
+                      value={form.staffId}
+                      options={[
+                        { value: "", label: "Select team member…" },
+                        ...operationsTeamOptions.map((o) => ({ value: o.value, label: o.label })),
+                      ]}
+                      onChange={(v) => updateForm("staffId", v)}
+                      required
+                    />
+                  </>
+                )}
+                {modal === "assignTicketingOwner" && (
+                  <>
+                    <Select
+                      label="Job Card"
+                      value={form.jobCardId}
+                      options={jobCardSelectOptions(jobCards, { required: true })}
+                      onChange={handleJobCardSelect}
+                      required
+                    />
+                    <div className="md:col-span-2 flex flex-wrap items-end gap-3">
+                      <div className="min-w-[240px] flex-1">
+                        <Select
+                          label="Ticketing Owner"
+                          value={form.staffId}
+                          options={[
+                            { value: "", label: "Select team member…" },
+                            ...ticketingTeamOptions.map((o) => ({
+                              value: o.value,
+                              label: o.label,
+                            })),
+                          ]}
+                          onChange={(v) => updateForm("staffId", v)}
+                          required
+                        />
+                      </div>
+                      {canAssignTicketing(access) && access?.staffId && (
+                        <button
+                          type="button"
+                          className="portal-outline-btn mb-1"
+                          onClick={() => updateForm("staffId", access.staffId)}
+                        >
+                          Assign to me
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+                {modal === "queryStatus" && (
+                  <>
+                    {has(P.MANAGE_QUERIES) && (
+                      <>
+                        <Select
+                          label="Sales Status"
+                          value={form.salesStatus}
+                          options={SALES_STATUSES}
+                          onChange={(v) => updateForm("salesStatus", v)}
+                        />
+                        <Select
+                          label="Lead Stage"
+                          value={form.leadStage}
+                          options={LEAD_STAGES}
+                          onChange={(v) => updateForm("leadStage", v)}
+                        />
+                        <Select
+                          label="Lost Reason"
+                          value={form.lostReason}
+                          options={LOST_REASONS}
+                          onChange={(v) => updateForm("lostReason", v)}
+                        />
+                        {(form.salesStatus === "Order Confirmed" || isQueryConfirmed(form)) && (
+                          <Input
+                            label="Approx. Margin (INR)"
+                            type="number"
+                            value={form.approxMargin}
+                            onChange={(v) => updateForm("approxMargin", v)}
+                            placeholder="Enter margin after confirmation"
+                          />
+                        )}
+                      </>
+                    )}
+                    {has(P.MANAGE_CONTRACTING) && (
+                      <Select
+                        label="Contracting Status"
+                        value={form.contractingStatus}
+                        options={CONTRACTING_STATUS_SELECT_OPTIONS}
+                        onChange={(v) => updateForm("contractingStatus", v)}
+                      />
+                    )}
+                    {has(P.MANAGE_CONTRACTING) && (
+                      <ContractingCostFields form={form} updateForm={updateForm} />
+                    )}
+                  </>
+                )}
+                {modal === "proposal" && (
+                  <>
+                    <Select
+                      label="Linked Query"
+                      value={form.queryId}
+                      options={[
+                        { value: "", label: "Unlinked" },
+                        ...queries.map((q) => ({
+                          value: q.id,
+                          label: `${q.queryCode} - ${q.clientName}`,
+                        })),
+                      ]}
+                      onChange={handleProposalQuerySelect}
+                    />
+                    <Input
+                      label="Client Name"
+                      value={form.clientName}
+                      onChange={(v) => updateForm("clientName", v)}
+                    />
+                    <Input
+                      label="Land Cost/Pax"
+                      type="number"
+                      value={form.landCostPerPax}
+                      onChange={(v) => updateForm("landCostPerPax", v)}
+                    />
+                    <Input
+                      label="Airfare/Pax"
+                      type="number"
+                      value={form.airfarePerPax}
+                      onChange={(v) => updateForm("airfarePerPax", v)}
+                    />
+                    <Input
+                      label="Selling Price"
+                      type="number"
+                      value={form.sellingPrice}
+                      onChange={(v) => updateForm("sellingPrice", v)}
+                    />
+                    <Select
+                      label="Tax"
+                      value={form.taxRate}
+                      options={[
+                        { value: "", label: "None" },
+                        ...PROPOSAL_TAX_RATES.map((rate) => ({
+                          value: String(rate),
+                          label: `${rate}%`,
+                        })),
+                      ]}
+                      onChange={(v) => updateForm("taxRate", v)}
+                    />
+                    <div className="rounded-lg border border-brand-border bg-brand-light/60 px-3 py-2 text-sm">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+                        Cost Price (CP) per person
+                      </div>
+                      <div className="mt-1 font-semibold text-brand-dark">
+                        {money(proposalCostPerPax(form.landCostPerPax, form.airfarePerPax))}
+                      </div>
+                      <div className="mt-1 text-xs text-brand-muted">
+                        Trip total:{" "}
+                        {money(
+                          proposalCostPerPax(form.landCostPerPax, form.airfarePerPax) *
+                            Math.max(Number(form.paxCount) || 1, 1),
+                        )}{" "}
+                        ({Math.max(Number(form.paxCount) || 1, 1)} pax)
+                      </div>
+                    </div>
+                    <Textarea
+                      label="Itinerary Summary"
+                      value={form.itinerarySummary}
+                      onChange={(v) => updateForm("itinerarySummary", v)}
+                    />
+                    <div className="md:col-span-2">
+                      <QueryFilePicker
+                        files={pendingProposalFiles}
+                        onChange={setPendingProposalFiles}
+                        inputId="proposal-files"
+                      />
+                    </div>
+                  </>
+                )}
+                {modal === "jobCard" && (
+                  <>
+                    <Select
+                      label="Confirmed Query"
+                      value={form.queryId}
+                      options={[
+                        { value: "", label: "Select confirmed query…" },
+                        ...queries
+                          .filter(
+                            (q) =>
+                              q.salesStatus === "Order Confirmed" ||
+                              q.contractingStatus === "Order Confirmed",
+                          )
+                          .map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` })),
+                      ]}
+                      onChange={handleJobQuerySelect}
+                      required={!form.entityId}
+                    />
+                    <Select
+                      label="Linked Proposal"
+                      value={form.proposalId}
+                      options={[
+                        { value: "", label: "Select proposal…" },
+                        ...proposals
+                          .filter((proposal) => !form.queryId || proposal.queryId === form.queryId)
+                          .map((proposal) => ({
+                            value: proposal.id,
+                            label: `${proposal.proposalCode} - ${proposal.status}`,
+                          })),
+                      ]}
+                      onChange={(v) => updateForm("proposalId", v)}
+                      required={!form.entityId}
+                    />
+                    <Input
+                      label="Client"
+                      value={form.clientName}
+                      onChange={(v) => updateForm("clientName", v)}
+                    />
+                    <Input
+                      label="Confirmed Pax"
+                      type="number"
+                      value={form.confirmedPax}
+                      onChange={(v) => updateForm("confirmedPax", v)}
+                    />
+                    <Input
+                      label="Room Count"
+                      type="number"
+                      value={form.roomCount}
+                      onChange={(v) => updateForm("roomCount", v)}
+                    />
+                    <Input
+                      label="Destination"
+                      value={form.destination}
+                      onChange={(v) => updateForm("destination", v)}
+                    />
+                    <Input
+                      label="Travel Start"
+                      type="date"
+                      value={form.travelStartDate}
+                      onChange={(v) => updateForm("travelStartDate", v)}
+                    />
+                    <Input
+                      label="Travel End"
+                      type="date"
+                      value={form.travelEndDate}
+                      onChange={(v) => updateForm("travelEndDate", v)}
+                    />
+                    <Input
+                      label="Tour Manager"
+                      value={form.tourManagerName}
+                      onChange={(v) => updateForm("tourManagerName", v)}
+                    />
+                  </>
+                )}
+                {modal === "traveller" && (
+                  <>
+                    <Select
+                      label="Job Card"
+                      value={form.jobCardId}
+                      options={jobCardSelectOptions(jobCards, { required: true })}
+                      onChange={handleJobCardSelect}
+                      required
+                    />
+                    <Input
+                      label="Full Name"
+                      value={form.fullName}
+                      onChange={(v) => updateForm("fullName", v)}
+                      required
+                    />
+                    <Input
+                      label="Travel Hub"
+                      value={form.travelHub}
+                      onChange={(v) => updateForm("travelHub", v)}
+                    />
+                    <Input
+                      label="Travel Date"
+                      type="date"
+                      value={form.travelDate}
+                      onChange={(v) => updateForm("travelDate", v)}
+                    />
+                    <Input
+                      label="Guests travelling with"
+                      value={form.guestCompanions}
+                      onChange={(v) => updateForm("guestCompanions", v)}
+                      placeholder="Spouse, children, friends..."
+                    />
+                    <Select
+                      label="Food Preference"
+                      value={form.foodPreference}
+                      options={FOOD_PREFERENCES}
+                      onChange={(v) => updateForm("foodPreference", v)}
+                    />
+                    <Select
+                      label="Guest Type"
+                      value={form.guestType}
+                      options={GUEST_TYPES}
+                      onChange={(v) => updateForm("guestType", v)}
+                    />
+                    <Select
+                      label="Payment Type"
+                      value={form.paymentType}
+                      options={PAYMENT_TYPES}
+                      onChange={(v) => updateForm("paymentType", v)}
+                    />
+                    <Select
+                      label="Room Type"
+                      value={form.roomType}
+                      options={ROOM_TYPES}
+                      onChange={(v) => updateForm("roomType", v)}
+                    />
+                    <Select
+                      label="Visa Required"
+                      value={form.visaRequired}
+                      options={["Yes", "No"]}
+                      onChange={(v) => updateForm("visaRequired", v)}
+                    />
+                    <Select
+                      label="Domestic Travel Required"
+                      value={form.domesticTravelRequired}
+                      options={["Yes", "No"]}
+                      onChange={(v) => updateForm("domesticTravelRequired", v)}
+                    />
+                    <Input
+                      label="Biometric Date"
+                      type="date"
+                      value={form.biometricAppointmentDate}
+                      onChange={(v) => updateForm("biometricAppointmentDate", v)}
+                    />
+                    <Select
+                      label="Extension of Tour"
+                      value={form.extensionOfTour}
+                      options={["No", "Yes"]}
+                      onChange={(v) => updateForm("extensionOfTour", v)}
+                    />
+                    <Select
+                      label="Arriving Early"
+                      value={form.arrivingEarly}
+                      options={["No", "Yes"]}
+                      onChange={(v) => updateForm("arrivingEarly", v)}
+                    />
+                    <Input
+                      label="Passport Status"
+                      value={form.passportStatus}
+                      onChange={(v) => updateForm("passportStatus", v)}
+                    />
+                    <Input
+                      label="Hotel Allocation"
+                      value={form.hotelAllocation}
+                      onChange={(v) => updateForm("hotelAllocation", v)}
+                    />
+                    <Textarea
+                      label="Special Requests"
+                      value={form.notes}
+                      onChange={(v) => updateForm("notes", v)}
+                    />
+                  </>
+                )}
+                {modal === "visa" && (
+                  <>
+                    <Select
+                      label="Visa Record"
+                      value={form.visaRecordId}
+                      options={visas.map((v) => ({
+                        value: v.id,
+                        label: `${v.travellerName} - ${v.jobCode}`,
+                      }))}
+                      onChange={handleVisaRecordSelect}
+                      required
+                    />
+                    <Select
+                      label="Visa Status"
+                      value={form.visaStatus}
+                      options={VISA_STATUSES}
+                      onChange={(v) => updateForm("visaStatus", v)}
+                    />
+                    <Input
+                      label="Appointment Date"
+                      type="date"
+                      value={form.appointmentDate}
+                      onChange={(v) => updateForm("appointmentDate", v)}
+                    />
+                    <Textarea
+                      label="Notes"
+                      value={form.notes}
+                      onChange={(v) => updateForm("notes", v)}
+                    />
+                  </>
+                )}
+                {modal === "visa_create" && (
+                  <>
+                    <Select
+                      label="Traveller"
+                      value={form.travellerId}
+                      options={[
+                        { value: "", label: "Select Traveller" },
+                        ...travellersWithoutVisa.map((t) => ({
+                          value: t.id,
+                          label: `${t.fullName} (${t.jobCode} - ${t.clientName})`,
+                        })),
+                      ]}
+                      onChange={handleTravellerSelect}
+                      required
+                    />
+                    <Select
+                      label="Visa Status"
+                      value={form.visaStatus}
+                      options={VISA_STATUSES}
+                      onChange={(v) => updateForm("visaStatus", v)}
+                    />
+                  </>
+                )}
+                {modal === "pnr" && (
+                  <>
+                    <Select
+                      label="Job Card"
+                      value={form.jobCardId}
+                      options={jobCardSelectOptions(jobCards, { required: true })}
+                      onChange={handleJobCardSelect}
+                      required
+                    />
+                    <Input
+                      label="PNR"
+                      value={form.pnrCode}
+                      onChange={(v) => updateForm("pnrCode", v)}
+                      required
+                    />
+                    <Input
+                      label="Airline"
+                      value={form.airline}
+                      onChange={(v) => updateForm("airline", v)}
+                    />
+                    <Input
+                      label="Route"
+                      value={form.route}
+                      onChange={(v) => updateForm("route", v)}
+                    />
+                    <Input
+                      label="Fare Type"
+                      value={form.fareType}
+                      onChange={(v) => updateForm("fareType", v)}
+                    />
+                    <Input
+                      label="Total Seats"
+                      type="number"
+                      value={form.totalSeats}
+                      onChange={(v) => updateForm("totalSeats", v)}
+                    />
+                  </>
+                )}
+                {modal === "ticket" && (
+                  <>
+                    <Select
+                      label="Job Card"
+                      value={form.jobCardId}
+                      options={jobCardSelectOptions(jobCards, { required: true })}
+                      onChange={handleJobCardSelect}
+                      required
+                    />
+                    <Select
+                      label="Traveller"
+                      value={form.travellerId}
+                      options={travellerOptions}
+                      onChange={handleTravellerSelect}
+                    />
+                    <Select
+                      label="PNR"
+                      value={form.pnrId}
+                      options={pnrOptions}
+                      onChange={handlePnrSelect}
+                    />
+                    <Input
+                      label="Ticket Number"
+                      value={form.ticketNumber}
+                      onChange={(v) => updateForm("ticketNumber", v)}
+                    />
+                    <Select
+                      label="Ticket Type"
+                      value={form.ticketType}
+                      options={TICKET_TYPES}
+                      onChange={(v) => updateForm("ticketType", v)}
+                    />
+                    <Select
+                      label="Ticket Status"
+                      value={form.ticketStatus}
+                      options={TICKET_STATUSES}
+                      onChange={(v) => updateForm("ticketStatus", v)}
+                    />
+                    <Select
+                      label="Payment Type"
+                      value={form.paymentType}
+                      options={PAYMENT_TYPES}
+                      onChange={(v) => updateForm("paymentType", v)}
+                    />
+                    <Select
+                      label="Cabin Class"
+                      value={form.cabinClass}
+                      options={CABIN_CLASSES}
+                      onChange={(v) => updateForm("cabinClass", v)}
+                    />
+                    <Select
+                      label="Meal Preference"
+                      value={form.foodPreference}
+                      options={FOOD_PREFERENCES}
+                      onChange={(v) => updateForm("foodPreference", v)}
+                    />
+                    <Input
+                      label="Seat Preference"
+                      value={form.seatPreference}
+                      onChange={(v) => updateForm("seatPreference", v)}
+                    />
+                    <Input
+                      label="Seat Number"
+                      value={form.seatNumber}
+                      onChange={(v) => updateForm("seatNumber", v)}
+                    />
+                  </>
+                )}
+                {modal === "seat" && (
+                  <>
+                    <Select
+                      label="Job Card"
+                      value={form.jobCardId}
+                      options={jobCardSelectOptions(jobCards, { required: true })}
+                      onChange={handleJobCardSelect}
+                      required
+                    />
+                    <Select
+                      label="Traveller"
+                      value={form.travellerId}
+                      options={travellerOptions}
+                      onChange={handleTravellerSelect}
+                    />
+                    <Select
+                      label="PNR"
+                      value={form.pnrId}
+                      options={pnrOptions}
+                      onChange={handlePnrSelect}
+                    />
+                    <Input
+                      label="Seat Number"
+                      value={form.seatNumber}
+                      onChange={(v) => updateForm("seatNumber", v)}
+                      required
+                    />
+                    <Select
+                      label="Status"
+                      value={form.seatStatus}
+                      options={["Available", "Held", "Assigned", "Blocked"]}
+                      onChange={(v) => updateForm("seatStatus", v)}
+                    />
+                    <Textarea
+                      label="Notes"
+                      value={form.notes}
+                      onChange={(v) => updateForm("notes", v)}
+                    />
+                  </>
+                )}
+                {modal === "hotel" && (
+                  <>
+                    <Select
+                      label="Job Card"
+                      value={form.jobCardId}
+                      options={jobCardSelectOptions(jobCards, { required: true })}
+                      onChange={handleJobCardSelect}
+                      required
+                    />
+                    <Input
+                      label="Hotel Name"
+                      value={form.hotelName}
+                      onChange={(v) => updateForm("hotelName", v)}
+                      required
+                    />
+                    <Input label="City" value={form.city} onChange={(v) => updateForm("city", v)} />
+                    <Input
+                      label="Check-in"
+                      type="date"
+                      value={form.checkInDate}
+                      onChange={(v) => updateForm("checkInDate", v)}
+                    />
+                    <Input
+                      label="Check-out"
+                      type="date"
+                      value={form.checkOutDate}
+                      onChange={(v) => updateForm("checkOutDate", v)}
+                    />
+                    <Textarea
+                      label="Special Instructions"
+                      value={form.notes}
+                      onChange={(v) => updateForm("notes", v)}
+                    />
+                  </>
+                )}
+                {modal === "tourManager" && (
+                  <>
+                    <Select
+                      label="Job Card"
+                      value={form.jobCardId}
+                      options={jobCardSelectOptions(jobCards, { allowUnassigned: true })}
+                      onChange={handleJobCardSelect}
+                    />
+                    <Select
+                      label="Tour Manager"
+                      value={form.staffId}
+                      options={[
+                        { value: "", label: "Select tour manager…" },
+                        ...tourManagerOptions.map((o) => ({ value: o.value, label: o.label })),
+                      ]}
+                      onChange={(v) => handleStaffSelect("staffId", v)}
+                      required
+                    />
+                    <Input
+                      label="Email"
+                      value={form.staffEmail}
+                      onChange={(v) => updateForm("staffEmail", v)}
+                    />
+                    <Input
+                      label="Phone"
+                      value={form.paidBy}
+                      onChange={(v) => updateForm("paidBy", v)}
+                    />
+                    <Input
+                      label="Available Date"
+                      type="date"
+                      value={form.travelStartDate}
+                      onChange={(v) => updateForm("travelStartDate", v)}
+                    />
+                    <Textarea
+                      label="Notes"
+                      value={form.notes}
+                      onChange={(v) => updateForm("notes", v)}
+                    />
+                  </>
+                )}
+                {modal === "invoice" && (
+                  <>
+                    <Select
+                      label="Job Card"
+                      value={form.jobCardId}
+                      options={jobCardSelectOptions(jobCards, { required: true })}
+                      onChange={handleJobCardSelect}
+                      required
+                    />
+                    <Input
+                      label="Invoice Number"
+                      value={form.invoiceNumber}
+                      onChange={(v) => updateForm("invoiceNumber", v)}
+                      required
+                    />
+                    <Input
+                      label="Expected Amount"
+                      type="number"
+                      value={form.expectedAmount}
+                      onChange={(v) => updateForm("expectedAmount", v)}
+                    />
+                    <Input
+                      label="Received Amount"
+                      type="number"
+                      value={form.receivedAmount}
+                      onChange={(v) => updateForm("receivedAmount", v)}
+                    />
+                    <Input
+                      label="Due Date"
+                      type="date"
+                      value={form.dueDate}
+                      onChange={(v) => updateForm("dueDate", v)}
+                    />
+                  </>
+                )}
+                {modal === "expense" && (
+                  <>
+                    <Select
+                      label="Expense Type"
+                      value={form.expenseType}
+                      options={[
+                        { value: "jobCard", label: "Job Card" },
+                        { value: "office", label: "Office / General" },
+                      ]}
+                      onChange={(v) => updateForm("expenseType", v)}
+                    />
+                    {form.expenseType === "jobCard" && (
+                      <Select
+                        label="Job Card"
+                        value={form.jobCardId}
+                        options={jobCardSelectOptions(jobCards, { required: true })}
+                        onChange={handleJobCardSelect}
+                        required
+                      />
+                    )}
+                    <Input
+                      label="Tour Manager"
+                      value={form.tourManagerName}
+                      onChange={(v) => updateForm("tourManagerName", v)}
+                    />
+                    <Input
+                      label="Expense Date"
+                      type="date"
+                      value={form.expenseDate}
+                      onChange={(v) => updateForm("expenseDate", v)}
+                    />
+                    <Select
+                      label="Expense Head"
+                      value={form.category}
+                      options={EXPENSE_HEADS}
+                      onChange={(v) => updateForm("category", v)}
+                      required
+                    />
+                    <Select
+                      label="Currency"
+                      value={form.currency}
+                      options={EXPENSE_CURRENCIES}
+                      onChange={(v) => updateForm("currency", v)}
+                    />
+                    <Input
+                      label="Card Amount"
+                      type="number"
+                      value={form.cardAmount}
+                      onChange={(v) => updateForm("cardAmount", v)}
+                    />
+                    <Input
+                      label="Cash Amount"
+                      type="number"
+                      value={form.cashAmount}
+                      onChange={(v) => updateForm("cashAmount", v)}
+                    />
+                    <Input
+                      label="E-Pay Amount"
+                      type="number"
+                      value={form.epayAmount}
+                      onChange={(v) => updateForm("epayAmount", v)}
+                    />
+                    <div className="rounded-xl border border-brand-border bg-brand-light px-3 py-2">
+                      <span className="mb-1 block text-xs font-semibold text-brand-muted">
+                        Total Amount
+                      </span>
+                      <div className="text-sm font-semibold text-brand-text">
+                        {money(
+                          getExpenseSplitTotal({
+                            cardAmount: form.cardAmount,
+                            cashAmount: form.cashAmount,
+                            epayAmount: form.epayAmount,
+                          }),
+                        )}
+                      </div>
+                    </div>
+                    <Input
+                      label="Paid By"
+                      value={form.paidBy}
+                      onChange={(v) => updateForm("paidBy", v)}
+                      required
+                    />
+                    <Textarea
+                      label="Particulars"
+                      value={form.particulars}
+                      onChange={(v) => updateForm("particulars", v)}
+                    />
+                    <div className="md:col-span-2">
+                      <QueryFilePicker
+                        files={pendingExpenseProofFiles}
+                        onChange={(files) => setPendingExpenseProofFiles(files.slice(-1))}
+                        inputId="expense-proof-files"
+                      />
+                    </div>
+                  </>
+                )}
+                {modal === "staff" && (
+                  <>
+                    <Input
+                      label="Name"
+                      value={form.staffName}
+                      onChange={(v) => updateForm("staffName", v)}
+                      required
+                    />
+                    <Input
+                      label="Email"
+                      type="email"
+                      value={form.staffEmail}
+                      onChange={(v) => updateForm("staffEmail", v)}
+                      required
+                    />
+                    <Input
+                      label="Mobile"
+                      value={form.mobile}
+                      onChange={(v) => updateForm("mobile", v)}
+                    />
+                    <Input
+                      label="Department"
+                      value={form.department}
+                      onChange={(v) => updateForm("department", v)}
+                    />
+                    <Input
+                      label="Function"
+                      value={form.staffFunction}
+                      onChange={(v) => updateForm("staffFunction", v)}
+                    />
+                    <Input
+                      label="Location"
+                      value={form.location}
+                      onChange={(v) => updateForm("location", v)}
+                    />
+                    <MultiSelect
+                      label="Roles"
+                      value={form.staffRoles}
+                      options={PORTAL_ROLES}
+                      onChange={(v) => updateForm("staffRoles", v)}
+                    />
+                    <Select
+                      label="Active"
+                      value={form.staffActive ? "Active" : "Inactive"}
+                      options={["Active", "Inactive"]}
+                      onChange={(v) => updateForm("staffActive", v === "Active")}
+                    />
+                  </>
+                )}
+                {modal === "leave_create" && (
+                  <>
+                    {has(P.MANAGE_LEAVE) && (
+                      <Select
+                        label="Employee"
+                        value={form.staffId}
+                        options={team.map((t) => ({
+                          value: t.id,
+                          label: `${t.name} (${t.department || "General"})`,
+                        }))}
+                        onChange={(v) => updateForm("staffId", v)}
+                        required={!form.entityId}
+                      />
+                    )}
+                    <Select
+                      label="Leave Type"
+                      value={form.leaveType}
+                      options={LEAVE_TYPES}
+                      onChange={(v) => updateForm("leaveType", v)}
+                    />
+                    <Input
+                      label="Start Date"
+                      type="date"
+                      value={form.startDate}
+                      onChange={(v) => updateForm("startDate", v)}
+                      required
+                    />
+                    <Input
+                      label="End Date"
+                      type="date"
+                      value={form.endDate}
+                      onChange={(v) => updateForm("endDate", v)}
+                      required
+                    />
+                    <Input
+                      label="Reason for Leave"
+                      value={form.reason}
+                      onChange={(v) => updateForm("reason", v)}
+                      required
+                      placeholder="e.g. Annual Leave, Medical, Personal"
+                    />
+                    {has(P.MANAGE_LEAVE) && !form.entityId && (
+                      <Select
+                        label="Status"
+                        value={form.status || "Pending"}
+                        options={["Approved", "Pending", "Rejected"]}
+                        onChange={(v) => updateForm("status", v)}
+                      />
+                    )}
+                  </>
+                )}
+                {modal === "approvalDecide" && (
+                  <>
+                    <Textarea
+                      label="Decision Note"
+                      value={form.decisionNote}
+                      onChange={(v) => updateForm("decisionNote", v)}
+                      required
+                      placeholder="Explain what details are needed or why this is rejected"
+                    />
+                  </>
                 )}
               </div>
-            </>}
-            {modal === "queryStatus" && <>
-              {has(P.MANAGE_QUERIES) && (
-                <>
-                  <Select label="Sales Status" value={form.salesStatus} options={SALES_STATUSES} onChange={(v) => updateForm("salesStatus", v)} />
-                  <Select label="Lead Stage" value={form.leadStage} options={LEAD_STAGES} onChange={(v) => updateForm("leadStage", v)} />
-                  <Select label="Lost Reason" value={form.lostReason} options={LOST_REASONS} onChange={(v) => updateForm("lostReason", v)} />
-                  {(form.salesStatus === "Order Confirmed" || isQueryConfirmed(form)) && (
-                    <Input
-                      label="Approx. Margin (INR)"
-                      type="number"
-                      value={form.approxMargin}
-                      onChange={(v) => updateForm("approxMargin", v)}
-                      placeholder="Enter margin after confirmation"
-                    />
+            </div>
+            <div className="flex justify-end gap-3 border-t border-brand-border px-5 py-4">
+              <button type="button" onClick={close} className="portal-outline-btn">
+                {["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(modal)
+                  ? "Close"
+                  : "Cancel"}
+              </button>
+              {!["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(
+                modal,
+              ) && (
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="portal-primary-btn disabled:opacity-60"
+                >
+                  {isSaving ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : (
+                    <CheckCircle2 size={16} />
                   )}
-                </>
+                  Save
+                </button>
               )}
-              {has(P.MANAGE_CONTRACTING) && (
-                <Select
-                  label="Contracting Status"
-                  value={form.contractingStatus}
-                  options={has(P.MANAGE_QUERIES) ? CONTRACTING_STATUSES : CONTRACTING_STATUSES.filter((status) => !["Order Confirmed", "Order Lost"].includes(status))}
-                  onChange={(v) => updateForm("contractingStatus", v)}
-                />
-              )}
-              {has(P.MANAGE_CONTRACTING) && (
-                <Select label="Lost Reason" value={form.lostReason} options={LOST_REASONS} onChange={(v) => updateForm("lostReason", v)} />
-              )}
-              {has(P.MANAGE_CONTRACTING) && (
-                <ContractingCostFields
-                  form={form}
-                  updateForm={updateForm}
-                />
-              )}
-            </>}
-            {modal === "proposal" && <>
-              <Select label="Linked Query" value={form.queryId} options={[{ value: "", label: "Unlinked" }, ...queries.map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` }))]} onChange={handleProposalQuerySelect} />
-              <Input label="Client Name" value={form.clientName} onChange={(v) => updateForm("clientName", v)} />
-              <Input label="Land Cost/Pax" type="number" value={form.landCostPerPax} onChange={(v) => updateForm("landCostPerPax", v)} />
-              <Input label="Airfare/Pax" type="number" value={form.airfarePerPax} onChange={(v) => updateForm("airfarePerPax", v)} />
-              <Input label="Selling Price" type="number" value={form.sellingPrice} onChange={(v) => updateForm("sellingPrice", v)} />
-              <div className="rounded-lg border border-brand-border bg-brand-light/60 px-3 py-2 text-sm">
-                <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Total cost</div>
-                <div className="mt-1 font-semibold text-brand-dark">
-                  {money(proposalTotalCost(form.landCostPerPax, form.airfarePerPax, form.paxCount))}
-                </div>
-                <div className="mt-1 text-xs text-brand-muted">
-                  Auto-calculated from land + airfare × {Math.max(Number(form.paxCount) || 1, 1)} pax
-                </div>
-              </div>
-              <Textarea label="Itinerary Summary" value={form.itinerarySummary} onChange={(v) => updateForm("itinerarySummary", v)} />
-              <div className="md:col-span-2">
-                <QueryFilePicker
-                  files={pendingProposalFiles}
-                  onChange={setPendingProposalFiles}
-                  inputId="proposal-files"
-                />
-              </div>
-            </>}
-            {modal === "jobCard" && <>
-              <Select label="Confirmed Query" value={form.queryId} options={[{ value: "", label: "Select confirmed query…" }, ...queries.filter((q) => q.salesStatus === "Order Confirmed" || q.contractingStatus === "Order Confirmed").map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` }))]} onChange={handleJobQuerySelect} required={!form.entityId} />
-              <Select label="Linked Proposal" value={form.proposalId} options={[{ value: "", label: "Select proposal…" }, ...proposals.filter((proposal) => !form.queryId || proposal.queryId === form.queryId).map((proposal) => ({ value: proposal.id, label: `${proposal.proposalCode} - ${proposal.status}` }))]} onChange={(v) => updateForm("proposalId", v)} required={!form.entityId} />
-              <Input label="Client" value={form.clientName} onChange={(v) => updateForm("clientName", v)} />
-              <Input label="Confirmed Pax" type="number" value={form.confirmedPax} onChange={(v) => updateForm("confirmedPax", v)} />
-              <Input label="Room Count" type="number" value={form.roomCount} onChange={(v) => updateForm("roomCount", v)} />
-              <Input label="Destination" value={form.destination} onChange={(v) => updateForm("destination", v)} />
-              <Input label="Travel Start" type="date" value={form.travelStartDate} onChange={(v) => updateForm("travelStartDate", v)} />
-              <Input label="Travel End" type="date" value={form.travelEndDate} onChange={(v) => updateForm("travelEndDate", v)} />
-              <Input label="Tour Manager" value={form.tourManagerName} onChange={(v) => updateForm("tourManagerName", v)} />
-            </>}
-            {modal === "traveller" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
-              <Input label="Full Name" value={form.fullName} onChange={(v) => updateForm("fullName", v)} required />
-              <Input label="Travel Hub" value={form.travelHub} onChange={(v) => updateForm("travelHub", v)} />
-              <Input label="Travel Date" type="date" value={form.travelDate} onChange={(v) => updateForm("travelDate", v)} />
-              <Input label="Guests travelling with" value={form.guestCompanions} onChange={(v) => updateForm("guestCompanions", v)} placeholder="Spouse, children, friends..." />
-              <Select label="Food Preference" value={form.foodPreference} options={FOOD_PREFERENCES} onChange={(v) => updateForm("foodPreference", v)} />
-              <Select label="Guest Type" value={form.guestType} options={GUEST_TYPES} onChange={(v) => updateForm("guestType", v)} />
-              <Select label="Payment Type" value={form.paymentType} options={PAYMENT_TYPES} onChange={(v) => updateForm("paymentType", v)} />
-              <Select label="Room Type" value={form.roomType} options={ROOM_TYPES} onChange={(v) => updateForm("roomType", v)} />
-              <Select label="Visa Required" value={form.visaRequired} options={["Yes", "No"]} onChange={(v) => updateForm("visaRequired", v)} />
-              <Select label="Domestic Travel Required" value={form.domesticTravelRequired} options={["Yes", "No"]} onChange={(v) => updateForm("domesticTravelRequired", v)} />
-              <Input label="Biometric Date" type="date" value={form.biometricAppointmentDate} onChange={(v) => updateForm("biometricAppointmentDate", v)} />
-              <Select label="Extension of Tour" value={form.extensionOfTour} options={["No", "Yes"]} onChange={(v) => updateForm("extensionOfTour", v)} />
-              <Select label="Arriving Early" value={form.arrivingEarly} options={["No", "Yes"]} onChange={(v) => updateForm("arrivingEarly", v)} />
-              <Input label="Passport Status" value={form.passportStatus} onChange={(v) => updateForm("passportStatus", v)} />
-              <Input label="Hotel Allocation" value={form.hotelAllocation} onChange={(v) => updateForm("hotelAllocation", v)} />
-              <Textarea label="Special Requests" value={form.notes} onChange={(v) => updateForm("notes", v)} />
-            </>}
-            {modal === "visa" && <>
-              <Select label="Visa Record" value={form.visaRecordId} options={visas.map((v) => ({ value: v.id, label: `${v.travellerName} - ${v.jobCode}` }))} onChange={handleVisaRecordSelect} required />
-              <Select label="Visa Status" value={form.visaStatus} options={VISA_STATUSES} onChange={(v) => updateForm("visaStatus", v)} />
-              <Input label="Appointment Date" type="date" value={form.appointmentDate} onChange={(v) => updateForm("appointmentDate", v)} />
-              <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
-            </>}
-            {modal === "visa_create" && <>
-              <Select label="Traveller" value={form.travellerId} options={[{ value: "", label: "Select Traveller" }, ...travellersWithoutVisa.map((t) => ({ value: t.id, label: `${t.fullName} (${t.jobCode} - ${t.clientName})` }))]} onChange={handleTravellerSelect} required />
-              <Select label="Visa Status" value={form.visaStatus} options={VISA_STATUSES} onChange={(v) => updateForm("visaStatus", v)} />
-            </>}
-            {modal === "pnr" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
-              <Input label="PNR" value={form.pnrCode} onChange={(v) => updateForm("pnrCode", v)} required />
-              <Input label="Airline" value={form.airline} onChange={(v) => updateForm("airline", v)} />
-              <Input label="Route" value={form.route} onChange={(v) => updateForm("route", v)} />
-              <Input label="Fare Type" value={form.fareType} onChange={(v) => updateForm("fareType", v)} />
-              <Input label="Total Seats" type="number" value={form.totalSeats} onChange={(v) => updateForm("totalSeats", v)} />
-            </>}
-            {modal === "ticket" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
-              <Select label="Traveller" value={form.travellerId} options={travellerOptions} onChange={handleTravellerSelect} />
-              <Select label="PNR" value={form.pnrId} options={pnrOptions} onChange={handlePnrSelect} />
-              <Input label="Ticket Number" value={form.ticketNumber} onChange={(v) => updateForm("ticketNumber", v)} />
-              <Select label="Ticket Type" value={form.ticketType} options={TICKET_TYPES} onChange={(v) => updateForm("ticketType", v)} />
-              <Select label="Ticket Status" value={form.ticketStatus} options={TICKET_STATUSES} onChange={(v) => updateForm("ticketStatus", v)} />
-              <Select label="Payment Type" value={form.paymentType} options={PAYMENT_TYPES} onChange={(v) => updateForm("paymentType", v)} />
-              <Select label="Cabin Class" value={form.cabinClass} options={CABIN_CLASSES} onChange={(v) => updateForm("cabinClass", v)} />
-              <Select label="Meal Preference" value={form.foodPreference} options={FOOD_PREFERENCES} onChange={(v) => updateForm("foodPreference", v)} />
-              <Input label="Seat Preference" value={form.seatPreference} onChange={(v) => updateForm("seatPreference", v)} />
-              <Input label="Seat Number" value={form.seatNumber} onChange={(v) => updateForm("seatNumber", v)} />
-            </>}
-            {modal === "seat" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
-              <Select label="Traveller" value={form.travellerId} options={travellerOptions} onChange={handleTravellerSelect} />
-              <Select label="PNR" value={form.pnrId} options={pnrOptions} onChange={handlePnrSelect} />
-              <Input label="Seat Number" value={form.seatNumber} onChange={(v) => updateForm("seatNumber", v)} required />
-              <Select label="Status" value={form.seatStatus} options={["Available", "Held", "Assigned", "Blocked"]} onChange={(v) => updateForm("seatStatus", v)} />
-              <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
-            </>}
-            {modal === "hotel" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
-              <Input label="Hotel Name" value={form.hotelName} onChange={(v) => updateForm("hotelName", v)} required />
-              <Input label="City" value={form.city} onChange={(v) => updateForm("city", v)} />
-              <Input label="Check-in" type="date" value={form.checkInDate} onChange={(v) => updateForm("checkInDate", v)} />
-              <Input label="Check-out" type="date" value={form.checkOutDate} onChange={(v) => updateForm("checkOutDate", v)} />
-              <Textarea label="Special Instructions" value={form.notes} onChange={(v) => updateForm("notes", v)} />
-            </>}
-            {modal === "tourManager" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { allowUnassigned: true })} onChange={handleJobCardSelect} />
-              <Select label="Tour Manager" value={form.staffId} options={[{ value: "", label: "Select tour manager…" }, ...tourManagerOptions.map((o) => ({ value: o.value, label: o.label }))]} onChange={(v) => handleStaffSelect("staffId", v)} required />
-              <Input label="Email" value={form.staffEmail} onChange={(v) => updateForm("staffEmail", v)} />
-              <Input label="Phone" value={form.paidBy} onChange={(v) => updateForm("paidBy", v)} />
-              <Input label="Available Date" type="date" value={form.travelStartDate} onChange={(v) => updateForm("travelStartDate", v)} />
-              <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
-            </>}
-            {modal === "invoice" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
-              <Input label="Invoice Number" value={form.invoiceNumber} onChange={(v) => updateForm("invoiceNumber", v)} required />
-              <Input label="Expected Amount" type="number" value={form.expectedAmount} onChange={(v) => updateForm("expectedAmount", v)} />
-              <Input label="Received Amount" type="number" value={form.receivedAmount} onChange={(v) => updateForm("receivedAmount", v)} />
-              <Input label="Due Date" type="date" value={form.dueDate} onChange={(v) => updateForm("dueDate", v)} />
-            </>}
-            {modal === "expense" && <>
-              <Select label="Job Card" value={form.jobCardId} options={jobCardSelectOptions(jobCards, { required: true })} onChange={handleJobCardSelect} required />
-              <Input label="Tour Manager" value={form.tourManagerName} onChange={(v) => updateForm("tourManagerName", v)} />
-              <Input label="Expense Date" type="date" value={form.expenseDate} onChange={(v) => updateForm("expenseDate", v)} />
-              <Select label="Expense Head" value={form.category} options={EXPENSE_HEADS} onChange={(v) => updateForm("category", v)} required />
-              <Select label="Currency" value={form.currency} options={EXPENSE_CURRENCIES} onChange={(v) => updateForm("currency", v)} />
-              <Input label="Card Amount" type="number" value={form.cardAmount} onChange={(v) => updateForm("cardAmount", v)} />
-              <Input label="Cash Amount" type="number" value={form.cashAmount} onChange={(v) => updateForm("cashAmount", v)} />
-              <Input label="E-Pay Amount" type="number" value={form.epayAmount} onChange={(v) => updateForm("epayAmount", v)} />
-              <div className="rounded-xl border border-brand-border bg-brand-light px-3 py-2">
-                <span className="mb-1 block text-xs font-semibold text-brand-muted">Total Amount</span>
-                <div className="text-sm font-semibold text-brand-text">
-                  {money(getExpenseSplitTotal({
-                    cardAmount: form.cardAmount,
-                    cashAmount: form.cashAmount,
-                    epayAmount: form.epayAmount,
-                  }))}
-                </div>
-              </div>
-              <Input label="Paid By" value={form.paidBy} onChange={(v) => updateForm("paidBy", v)} required />
-              <Textarea label="Particulars" value={form.particulars} onChange={(v) => updateForm("particulars", v)} />
-              <div className="md:col-span-2">
-                <QueryFilePicker
-                  files={pendingExpenseProofFiles}
-                  onChange={(files) => setPendingExpenseProofFiles(files.slice(-1))}
-                  inputId="expense-proof-files"
-                />
-              </div>
-            </>}
-            {modal === "staff" && <>
-              <Input label="Name" value={form.staffName} onChange={(v) => updateForm("staffName", v)} required />
-              <Input label="Email" type="email" value={form.staffEmail} onChange={(v) => updateForm("staffEmail", v)} required />
-              <Input label="Mobile" value={form.mobile} onChange={(v) => updateForm("mobile", v)} />
-              <Input label="Department" value={form.department} onChange={(v) => updateForm("department", v)} />
-              <Input label="Function" value={form.staffFunction} onChange={(v) => updateForm("staffFunction", v)} />
-              <Input label="Location" value={form.location} onChange={(v) => updateForm("location", v)} />
-              <MultiSelect label="Roles" value={form.staffRoles} options={PORTAL_ROLES} onChange={(v) => updateForm("staffRoles", v)} />
-              <Select label="Active" value={form.staffActive ? "Active" : "Inactive"} options={["Active", "Inactive"]} onChange={(v) => updateForm("staffActive", v === "Active")} />
-            </>}
-            {modal === "leave_create" && <>
-              {has(P.MANAGE_LEAVE) && (
-                <Select label="Employee" value={form.staffId} options={team.map((t) => ({ value: t.id, label: `${t.name} (${t.department || "General"})` }))} onChange={(v) => updateForm("staffId", v)} required={!form.entityId} />
-              )}
-              <Select label="Leave Type" value={form.leaveType} options={LEAVE_TYPES} onChange={(v) => updateForm("leaveType", v)} />
-              <Input label="Start Date" type="date" value={form.startDate} onChange={(v) => updateForm("startDate", v)} required />
-              <Input label="End Date" type="date" value={form.endDate} onChange={(v) => updateForm("endDate", v)} required />
-              <Input label="Reason for Leave" value={form.reason} onChange={(v) => updateForm("reason", v)} required placeholder="e.g. Annual Leave, Medical, Personal" />
-              {has(P.MANAGE_LEAVE) && !form.entityId && (
-                <Select label="Status" value={form.status || "Pending"} options={["Approved", "Pending", "Rejected"]} onChange={(v) => updateForm("status", v)} />
-              )}
-            </>}
-            {modal === "approvalDecide" && <>
-              <Textarea label="Decision Note" value={form.decisionNote} onChange={(v) => updateForm("decisionNote", v)} required placeholder="Explain what details are needed or why this is rejected" />
-            </>}
-          </div>
-        </div>
-        <div className="flex justify-end gap-3 border-t border-brand-border px-5 py-4">
-          <button type="button" onClick={close} className="portal-outline-btn">
-            {["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(modal) ? "Close" : "Cancel"}
-          </button>
-          {!["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(modal) && (
-            <button type="submit" disabled={isSaving} className="portal-primary-btn disabled:opacity-60">
-              {isSaving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
-              Save
-            </button>
-          )}
-        </div>
+            </div>
           </motion.form>
         </motion.div>
       )}
@@ -4591,7 +6895,10 @@ function DataTable({ rows, columns, empty, compact = false, mobileCardRender }) 
           <thead className="bg-brand-light/80">
             <tr>
               {columns.map(([label]) => (
-                <th key={label} className="border-b border-brand-border px-4 py-3 text-left text-xs font-semibold text-citius-blue/80">
+                <th
+                  key={label}
+                  className="border-b border-brand-border px-4 py-3 text-left text-xs font-semibold text-citius-blue/80"
+                >
                   {label}
                 </th>
               ))}
@@ -4607,7 +6914,10 @@ function DataTable({ rows, columns, empty, compact = false, mobileCardRender }) 
                 className="transition-colors hover:bg-citius-blue/[0.03]"
               >
                 {columns.map(([label, render]) => (
-                  <td key={label} className={`border-b border-brand-border px-4 ${compact ? "py-2" : "py-3"} text-sm text-brand-dark last:border-b-0`}>
+                  <td
+                    key={label}
+                    className={`border-b border-brand-border px-4 ${compact ? "py-2" : "py-3"} text-sm text-brand-dark last:border-b-0`}
+                  >
                     {render(row) || "-"}
                   </td>
                 ))}
@@ -4630,7 +6940,12 @@ function EditButton({ onClick, label = "Edit" }) {
 
 function DeleteButton({ label, onClick }) {
   return (
-    <button type="button" className="portal-danger-btn" onClick={onClick} aria-label={`Delete ${label}`}>
+    <button
+      type="button"
+      className="portal-danger-btn"
+      onClick={onClick}
+      aria-label={`Delete ${label}`}
+    >
       <Trash2 size={13} />
       Delete
     </button>
@@ -4646,7 +6961,9 @@ function Panel({ title, children }) {
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       className="rounded-2xl border border-brand-border bg-white p-5 shadow-sm md:p-6"
     >
-      <h2 className="mb-4 font-heading text-lg font-semibold text-citius-blue md:text-xl">{title}</h2>
+      <h2 className="mb-4 font-heading text-lg font-semibold text-citius-blue md:text-xl">
+        {title}
+      </h2>
       {children}
     </motion.section>
   );
@@ -4662,14 +6979,13 @@ function DashboardSectionHeading({ title, detail }) {
 }
 
 function QueryTypeTile({ type, count, index = 0, variant = "active" }) {
-  const tone =
-    type.includes("Cement")
-      ? "from-stone-500/10 to-stone-500/5 border-stone-200"
-      : type.startsWith("MICE")
-        ? "from-citius-blue/12 to-citius-blue/5 border-citius-blue/15"
-        : type === "FIT" || type === "Family Group"
-          ? "from-emerald-500/12 to-emerald-500/5 border-emerald-200"
-          : "from-citius-orange/12 to-citius-orange/5 border-citius-orange/20";
+  const tone = type.includes("Cement")
+    ? "from-stone-500/10 to-stone-500/5 border-stone-200"
+    : type.startsWith("MICE")
+      ? "from-citius-blue/12 to-citius-blue/5 border-citius-blue/15"
+      : type === "FIT" || type === "Family Group"
+        ? "from-emerald-500/12 to-emerald-500/5 border-emerald-200"
+        : "from-citius-orange/12 to-citius-orange/5 border-citius-orange/20";
   const valueTone =
     variant === "confirmed"
       ? "text-emerald-700"
@@ -4691,8 +7007,12 @@ function QueryTypeTile({ type, count, index = 0, variant = "active" }) {
       whileHover={{ y: -2 }}
       className={`rounded-xl border bg-linear-to-br p-4 shadow-sm transition-shadow hover:shadow-md ${tone} ${ringTone}`}
     >
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">{type}</div>
-      <div className={`mt-2 font-heading text-2xl font-semibold tabular-nums ${valueTone}`}>{count}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
+        {type}
+      </div>
+      <div className={`mt-2 font-heading text-2xl font-semibold tabular-nums ${valueTone}`}>
+        {count}
+      </div>
     </motion.div>
   );
 }
@@ -4705,16 +7025,22 @@ function StatCard({ label, value, Icon, index = 0, featured = false }) {
       transition={{ delay: index * 0.05, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
       whileHover={{ y: -4, scale: 1.01 }}
       className={`group w-48 overflow-hidden rounded-2xl border border-brand-border bg-white p-5 shadow-sm transition-shadow hover:border-citius-orange/30 hover:shadow-lg ${
-        featured ? "sm:col-span-2 bg-linear-to-br from-citius-blue to-citius-blue/90 text-white" : ""
+        featured
+          ? "sm:col-span-2 bg-linear-to-br from-citius-blue to-citius-blue/90 text-white"
+          : ""
       }`}
     >
       <div className="flex items-center justify-between">
-        <div className={`text-xs font-semibold ${featured ? "text-white/80" : "text-brand-muted"}`}>{label}</div>
+        <div className={`text-xs font-semibold ${featured ? "text-white/80" : "text-brand-muted"}`}>
+          {label}
+        </div>
         <div className={`rounded-full p-2 ${featured ? "bg-white/15" : "bg-citius-orange/10"}`}>
           <Icon size={18} className={featured ? "text-citius-orange" : "text-citius-orange"} />
         </div>
       </div>
-      <div className={`mt-3 font-heading text-3xl font-semibold tabular-nums ${featured ? "text-white" : "text-citius-blue"}`}>
+      <div
+        className={`mt-3 font-heading text-3xl font-semibold tabular-nums ${featured ? "text-white" : "text-citius-blue"}`}
+      >
         {value}
       </div>
     </motion.div>
@@ -4747,7 +7073,9 @@ function Timeline({ rows }) {
       {rows.map((row) => (
         <div key={row.id} className="rounded-md border border-brand-border bg-brand-light p-3">
           <div className="text-sm font-semibold">{row.message}</div>
-          <div className="mt-1 text-xs text-brand-muted">{row.actorName} - {formatDate(row.createdAt)}</div>
+          <div className="mt-1 text-xs text-brand-muted">
+            {row.actorName} - {formatDate(row.createdAt)}
+          </div>
         </div>
       ))}
     </div>
@@ -4758,18 +7086,35 @@ function Input({ label, value, onChange, type = "text", required = false }) {
   return (
     <label className="block">
       <span className="mb-1 block text-xs font-semibold text-brand-muted">{label}</span>
-      <input type={type} required={required} value={value} onChange={(event) => onChange(event.target.value)} className="h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10" />
+      <input
+        type={type}
+        required={required}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
+      />
     </label>
   );
 }
 
 function Select({ label, value, options, onChange, required = false }) {
-  const normalized = options.map((option) => typeof option === "string" ? { value: option, label: option } : option);
+  const normalized = options.map((option) =>
+    typeof option === "string" ? { value: option, label: option } : option,
+  );
   return (
     <label className="block">
       <span className="mb-1 block text-xs font-semibold text-brand-muted">{label}</span>
-      <select required={required} value={value} onChange={(event) => onChange(event.target.value)} className="h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10">
-        {normalized.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      <select
+        required={required}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
+      >
+        {normalized.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
       </select>
     </label>
   );
@@ -4782,7 +7127,10 @@ function MultiSelect({ label, value, options, onChange }) {
       <span className="mb-2 block text-xs font-semibold text-brand-muted">{label}</span>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {options.map((option) => (
-          <label key={option} className="flex items-center gap-2 rounded-md border border-brand-border bg-brand-light px-3 py-2 text-sm">
+          <label
+            key={option}
+            className="flex items-center gap-2 rounded-md border border-brand-border bg-brand-light px-3 py-2 text-sm"
+          >
             <input
               type="checkbox"
               checked={selected.has(option)}
@@ -4814,9 +7162,16 @@ function Textarea({ label, value, onChange, maxWords }) {
   return (
     <label className="block md:col-span-2">
       <span className="mb-1 block text-xs font-semibold text-brand-muted">{label}</span>
-      <textarea value={value} onChange={handleChange} rows={4} className="w-full rounded-xl border border-brand-border bg-brand-light px-3 py-2 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10" />
+      <textarea
+        value={value}
+        onChange={handleChange}
+        rows={4}
+        className="w-full rounded-xl border border-brand-border bg-brand-light px-3 py-2 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
+      />
       {maxWords ? (
-        <span className={`mt-1 block text-xs ${wordCount >= maxWords ? "text-amber-700" : "text-brand-muted"}`}>
+        <span
+          className={`mt-1 block text-xs ${wordCount >= maxWords ? "text-amber-700" : "text-brand-muted"}`}
+        >
           {wordCount}/{maxWords} words
         </span>
       ) : null}
@@ -4833,7 +7188,13 @@ function Badge({ label, tone = "gray" }) {
     purple: "bg-violet-50 text-violet-700",
     gray: "bg-brand-light text-brand-muted",
   };
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${tones[tone] || tones.gray}`}>{label}</span>;
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${tones[tone] || tones.gray}`}
+    >
+      {label}
+    </span>
+  );
 }
 
 function EmptyState({ label }) {
@@ -4863,7 +7224,11 @@ function filterRows(rows, search, keys) {
   const term = search.trim().toLowerCase();
   if (!term) return rows;
   return rows.filter((row) =>
-    keys.some((key) => String(row[key] || "").toLowerCase().includes(term)),
+    keys.some((key) =>
+      String(row[key] || "")
+        .toLowerCase()
+        .includes(term),
+    ),
   );
 }
 
@@ -4874,7 +7239,11 @@ function toNumber(value, fallback) {
 
 function formatDate(value) {
   if (!value) return "-";
-  return new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(value).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function formatConvexError(error, fallback) {
@@ -4892,8 +7261,14 @@ function LifecycleDates({ items, compact = false }) {
   const visible = (items || []).filter((item) => item.value);
   if (visible.length === 0) return null;
   return (
-    <div className={compact ? "" : "mb-4 rounded-lg border border-brand-border bg-brand-light/50 px-4 py-3"}>
-      <div className={`flex flex-wrap gap-x-4 gap-y-1 ${compact ? "text-xs text-brand-muted" : "text-xs text-brand-muted"}`}>
+    <div
+      className={
+        compact ? "" : "mb-4 rounded-lg border border-brand-border bg-brand-light/50 px-4 py-3"
+      }
+    >
+      <div
+        className={`flex flex-wrap gap-x-4 gap-y-1 ${compact ? "text-xs text-brand-muted" : "text-xs text-brand-muted"}`}
+      >
         {visible.map((item) => (
           <span key={item.label}>
             <span className="font-semibold text-brand-dark">{item.label}:</span>{" "}
@@ -4932,9 +7307,9 @@ function QueryRowActions({ primaryAction, overflowActions = [] }) {
                 onClick={() => setOpen(false)}
               />
               <div className="absolute right-0 z-50 mt-2 min-w-[180px] rounded-xl border border-brand-border bg-white p-2 shadow-lg">
-                <div className="flex flex-col gap-2">
+                <div role="menu" className="flex flex-col gap-2" onClick={() => setOpen(false)}>
                   {overflowActions.map((action, index) => (
-                    <div key={index} onClick={() => setOpen(false)}>
+                    <div key={index} role="none">
                       {action}
                     </div>
                   ))}
@@ -4961,7 +7336,10 @@ function countWords(value) {
 }
 
 function truncateToMaxWords(value, maxWords) {
-  const words = String(value || "").trim().split(/\s+/).filter(Boolean);
+  const words = String(value || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
   if (words.length <= maxWords) {
     return value;
   }
@@ -4989,17 +7367,14 @@ function notesPreview(value) {
 
 function contractingTotalCost(rowOrForm) {
   return (
-    Number(rowOrForm?.contractingLandCost || 0)
-    + Number(rowOrForm?.contractingAirlinesCost || 0)
-    + Number(rowOrForm?.contractingVisaCost || 0)
+    Number(rowOrForm?.contractingLandCost || 0) +
+    Number(rowOrForm?.contractingAirlinesCost || 0) +
+    Number(rowOrForm?.contractingVisaCost || 0)
   );
 }
 
-function proposalTotalCost(landCostPerPax, airfarePerPax, paxCount) {
-  const pax = Math.max(Number(paxCount) || 1, 1);
-  return (
-    (Math.max(Number(landCostPerPax) || 0, 0) + Math.max(Number(airfarePerPax) || 0, 0)) * pax
-  );
+function proposalCostPerPax(landCostPerPax, airfarePerPax) {
+  return Math.max(Number(landCostPerPax) || 0, 0) + Math.max(Number(airfarePerPax) || 0, 0);
 }
 
 function isQueryConfirmed(rowOrForm) {
@@ -5015,13 +7390,32 @@ function ContractingCostFields({ form, updateForm }) {
   return (
     <>
       <div className="md:col-span-2 rounded-xl border border-brand-border bg-brand-light/60 p-4">
-        <div className="mb-3 font-heading text-sm font-semibold text-citius-blue">Contracting cost</div>
+        <div className="mb-3 font-heading text-sm font-semibold text-citius-blue">
+          Contracting cost
+        </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <Input label="Land Cost (INR)" type="number" value={form.contractingLandCost} onChange={(v) => updateForm("contractingLandCost", v)} />
-          <Input label="Airlines Cost (INR)" type="number" value={form.contractingAirlinesCost} onChange={(v) => updateForm("contractingAirlinesCost", v)} />
-          <Input label="Visa Cost (INR)" type="number" value={form.contractingVisaCost} onChange={(v) => updateForm("contractingVisaCost", v)} />
+          <Input
+            label="Land Cost (INR)"
+            type="number"
+            value={form.contractingLandCost}
+            onChange={(v) => updateForm("contractingLandCost", v)}
+          />
+          <Input
+            label="Airlines Cost (INR)"
+            type="number"
+            value={form.contractingAirlinesCost}
+            onChange={(v) => updateForm("contractingAirlinesCost", v)}
+          />
+          <Input
+            label="Visa Cost (INR)"
+            type="number"
+            value={form.contractingVisaCost}
+            onChange={(v) => updateForm("contractingVisaCost", v)}
+          />
           <div className="rounded-lg border border-brand-border bg-white px-3 py-2 text-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Total cost</div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+              Total cost
+            </div>
             <div className="mt-1 font-semibold text-brand-dark">{money(totalCost)}</div>
           </div>
         </div>
@@ -5084,7 +7478,12 @@ async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, 
   }
 }
 
-async function uploadExpenseProofFiles({ expenseId, files, generateUploadUrl, attachExpenseProof }) {
+async function uploadExpenseProofFiles({
+  expenseId,
+  files,
+  generateUploadUrl,
+  attachExpenseProof,
+}) {
   for (const file of files) {
     await uploadEntityFiles({
       entityId: expenseId,
@@ -5118,8 +7517,7 @@ function openPortalFile(url) {
 
 async function openQueryAttachment(attachmentId, getQueryAttachmentUrl, kind = "query") {
   void getQueryAttachmentUrl;
-  const routeKind =
-    kind === "proposal" ? "proposal" : kind === "expense" ? "expense" : "query";
+  const routeKind = kind === "proposal" ? "proposal" : kind === "expense" ? "expense" : "query";
   openPortalFile(`/api/portal/files/${routeKind}/${encodeURIComponent(attachmentId)}`);
 }
 
@@ -5144,9 +7542,11 @@ function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, onDownlo
       <button
         type="button"
         className="inline-flex max-w-[180px] items-center gap-1 truncate text-left text-xs font-medium text-citius-blue hover:underline"
-        onClick={() => onDownload().catch((err) => {
-          alert(err?.data || err?.message || "Unable to open file.");
-        })}
+        onClick={() =>
+          onDownload().catch((err) => {
+            alert(err?.data || err?.message || "Unable to open file.");
+          })
+        }
       >
         <FileText size={12} className="shrink-0" />
         <span className="truncate">{finalizedPdf.fileName}</span>
@@ -5224,11 +7624,15 @@ function FinalizedProposalPdfPanel({
   return (
     <motion.div className="space-y-4">
       <p className="text-sm text-brand-muted">
-        Upload the client-ready proposal PDF here. Sales can download it and send it to the client, then mark the proposal as sent.
+        Upload the client-ready proposal PDF here. Sales can download it and send it to the client,
+        then mark the proposal as sent.
       </p>
       {canSend && (
         <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
-          <label htmlFor="finalized-proposal-pdf-upload" className="mb-2 block text-sm font-medium text-brand-text">
+          <label
+            htmlFor="finalized-proposal-pdf-upload"
+            className="mb-2 block text-sm font-medium text-brand-text"
+          >
             {finalizedPdf ? "Replace Finalized Proposal PDF" : "Upload Finalized Proposal PDF"}
           </label>
           <p className="mb-3 text-xs text-brand-muted">PDF only, up to 15 MB.</p>
@@ -5257,16 +7661,20 @@ function FinalizedProposalPdfPanel({
           <div className="min-w-0">
             <div className="truncate font-medium text-brand-text">{finalizedPdf.fileName}</div>
             {finalizedPdf.uploadedAt && (
-              <div className="text-xs text-brand-muted">Uploaded {formatDate(finalizedPdf.uploadedAt)}</div>
+              <div className="text-xs text-brand-muted">
+                Uploaded {formatDate(finalizedPdf.uploadedAt)}
+              </div>
             )}
           </div>
           <div className="flex shrink-0 gap-2">
             <button
               type="button"
               className="portal-small-btn"
-              onClick={() => openFinalizedProposalPdf(proposalId, getFinalizedPdfUrl).catch((err) => {
-                alert(err?.data || err?.message || "Unable to open file.");
-              })}
+              onClick={() =>
+                openFinalizedProposalPdf(proposalId, getFinalizedPdfUrl).catch((err) => {
+                  alert(err?.data || err?.message || "Unable to open file.");
+                })
+              }
             >
               Download
             </button>
@@ -5282,7 +7690,13 @@ function FinalizedProposalPdfPanel({
   );
 }
 
-function QueryAttachmentSummary({ attachments, canManage, onManage, getQueryAttachmentUrl, attachmentKind = "query" }) {
+function QueryAttachmentSummary({
+  attachments,
+  canManage,
+  onManage,
+  getQueryAttachmentUrl,
+  attachmentKind = "query",
+}) {
   if (!attachments.length) {
     return canManage ? (
       <button type="button" className="portal-small-btn" onClick={onManage}>
@@ -5300,9 +7714,11 @@ function QueryAttachmentSummary({ attachments, canManage, onManage, getQueryAtta
           key={file.id}
           type="button"
           className="inline-flex max-w-[180px] items-center gap-1 truncate text-left text-xs font-medium text-citius-blue hover:underline"
-          onClick={() => openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch((err) => {
-            alert(err?.data || err?.message || "Unable to open file.");
-          })}
+          onClick={() =>
+            openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch((err) => {
+              alert(err?.data || err?.message || "Unable to open file.");
+            })
+          }
         >
           <Paperclip size={12} className="shrink-0" />
           <span className="truncate">{file.fileName}</span>
@@ -5420,7 +7836,10 @@ function QueryAttachmentsPanel({
     <motion.div className="space-y-4">
       {canManage && (
         <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
-          <label htmlFor="query-attachment-upload" className="mb-2 block text-sm font-medium text-brand-text">
+          <label
+            htmlFor="query-attachment-upload"
+            className="mb-2 block text-sm font-medium text-brand-text"
+          >
             {uploadLabel}
           </label>
           <input
@@ -5461,14 +7880,22 @@ function QueryAttachmentsPanel({
                 <button
                   type="button"
                   className="portal-small-btn"
-                  onClick={() => openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch((err) => {
-                    alert(err?.data || err?.message || "Unable to open file.");
-                  })}
+                  onClick={() =>
+                    openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch(
+                      (err) => {
+                        alert(err?.data || err?.message || "Unable to open file.");
+                      },
+                    )
+                  }
                 >
                   Open
                 </button>
                 {canManage && (
-                  <button type="button" className="portal-small-btn text-red-600" onClick={() => handleRemove(file)}>
+                  <button
+                    type="button"
+                    className="portal-small-btn text-red-600"
+                    onClick={() => handleRemove(file)}
+                  >
                     Remove
                   </button>
                 )}
@@ -5490,10 +7917,54 @@ function paymentTermLabel(queryType) {
 }
 
 function statusTone(status) {
-  if (["Issued", "Approved", "Paid", "Active", "Available", "Done", "Order Confirmed", "Sent", "Assigned", "Confirmation", "Ready"].includes(status)) return "green";
-  if (["Pending Issue", "Pending", "Awaiting", "Part Paid", "Proposal in progress", "Proposal in discussion", "Open", "Held", "Inquiry", "Proposal", "Ticketing", "Docs pending"].includes(status)) return "amber";
-  if (["Cancelled", "Rejected", "Order Lost", "Lost", "Overdue", "Inactive", "Blocked", "Closed"].includes(status)) return "red";
-  if (["Reissue Required", "Name Change Required", "Re-applied", "Negotiation"].includes(status)) return "purple";
+  if (
+    [
+      "Issued",
+      "Approved",
+      "Paid",
+      "Active",
+      "Available",
+      "Done",
+      "Order Confirmed",
+      "Sent",
+      "Assigned",
+      "Confirmation",
+      "Ready",
+    ].includes(status)
+  )
+    return "green";
+  if (
+    [
+      "Pending Issue",
+      "Pending",
+      "Awaiting",
+      "Part Paid",
+      "Proposal in progress",
+      "Proposal in discussion",
+      "Open",
+      "Held",
+      "Inquiry",
+      "Proposal",
+      "Ticketing",
+      "Docs pending",
+    ].includes(status)
+  )
+    return "amber";
+  if (
+    [
+      "Cancelled",
+      "Rejected",
+      "Order Lost",
+      "Lost",
+      "Overdue",
+      "Inactive",
+      "Blocked",
+      "Closed",
+    ].includes(status)
+  )
+    return "red";
+  if (["Reissue Required", "Name Change Required", "Re-applied", "Negotiation"].includes(status))
+    return "purple";
   return "blue";
 }
 

@@ -14,12 +14,8 @@ export const getCurrentUser = query({
       .unique();
 
     const nowIso = new Date().toISOString();
-    const createdAtIso = profile?.createdAt
-      ? new Date(profile.createdAt).toISOString()
-      : nowIso;
-    const updatedAtIso = profile?.updatedAt
-      ? new Date(profile.updatedAt).toISOString()
-      : nowIso;
+    const createdAtIso = profile?.createdAt ? new Date(profile.createdAt).toISOString() : nowIso;
+    const updatedAtIso = profile?.updatedAt ? new Date(profile.updatedAt).toISOString() : nowIso;
 
     return {
       id: identity.subject,

@@ -4,9 +4,7 @@ import Image from "next/image";
 
 export default function GalleryGridSmall({ images = [], className }) {
   return (
-    <div
-      className={`grid gap-6 sm:grid-cols-2 md:grid-cols-3 ${className || ""}`}
-    >
+    <div className={`grid gap-6 sm:grid-cols-2 md:grid-cols-3 ${className || ""}`}>
       {/* Map only first 6 images */}
       {images.slice(0, 6).map((item, idx) => (
         <div

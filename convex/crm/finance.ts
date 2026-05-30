@@ -1,17 +1,18 @@
 import { ConvexError, v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import {
-  PERMISSIONS,
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
   filterRecordsByCreatedAt,
   nextCode,
   notifyRoles,
+  PERMISSIONS,
+  type PortalPeriod,
   portalPeriodValidator,
   requireAnyPermission,
   requireStaff,
-  type PortalPeriod,
 } from "./lib";
 
 const expenseCurrencyValidator = v.union(
@@ -32,11 +33,7 @@ async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
   return job;
 }
 
-function splitTotal(input: {
-  cardAmount?: number;
-  cashAmount?: number;
-  epayAmount?: number;
-}) {
+function splitTotal(input: { cardAmount?: number; cashAmount?: number; epayAmount?: number }) {
   return (input.cardAmount ?? 0) + (input.cashAmount ?? 0) + (input.epayAmount ?? 0);
 }
 
@@ -60,9 +57,7 @@ export const listInvoices = query({
         balanceAmount: invoice.balanceAmount,
         status: invoice.status,
         dueDate: invoice.dueDate ?? "",
-        generatedAt: invoice.generatedAt
-          ? new Date(invoice.generatedAt).toISOString()
-          : null,
+        generatedAt: invoice.generatedAt ? new Date(invoice.generatedAt).toISOString() : null,
       });
     }
     return result;
@@ -197,6 +192,15 @@ export const removeInvoice = mutation({
   },
 });
 
+async function assertExpenseAccess(ctx: any, access: any, expense: { jobCardId?: any }) {
+  if (!expense.jobCardId) {
+    return;
+  }
+  if (!(await getVisibleJob(ctx, access, expense.jobCardId))) {
+    throw new ConvexError("FORBIDDEN");
+  }
+}
+
 export const listExpenses = query({
   args: {},
   handler: async (ctx) => {
@@ -204,15 +208,18 @@ export const listExpenses = query({
     const rows = await ctx.db.query("expenseEntries").collect();
     const result = [];
     for (const expense of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-      const job = await getVisibleJob(ctx, access, expense.jobCardId);
-      if (!job) continue;
+      let job = null;
+      if (expense.jobCardId) {
+        job = await getVisibleJob(ctx, access, expense.jobCardId);
+        if (!job) continue;
+      }
       const proofAttachment = expense.proofAttachmentId
         ? await ctx.db.get(expense.proofAttachmentId)
         : null;
       result.push({
         id: expense._id,
-        jobCardId: expense.jobCardId,
-        jobCode: job?.jobCode ?? "",
+        jobCardId: expense.jobCardId ?? null,
+        jobCode: job?.jobCode ?? "Office",
         clientName: job?.clientName ?? "",
         tourManagerName: expense.tourManagerName ?? "",
         category: expense.category,
@@ -247,7 +254,7 @@ export const listExpenses = query({
 
 export const createExpense = mutation({
   args: {
-    jobCardId: v.string(),
+    jobCardId: v.optional(v.string()),
     tourManagerName: v.optional(v.string()),
     category: v.string(),
     expenseDate: v.optional(v.string()),
@@ -262,12 +269,15 @@ export const createExpense = mutation({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_EXPENSES);
-    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
-    if (!jobCardId) {
-      throw new ConvexError("Invalid Job Card id");
-    }
-    if (!(await getVisibleJob(ctx, access, jobCardId))) {
-      throw new ConvexError("Job Card not found or not assigned to you");
+    let jobCardId: Id<"jobCards"> | null | undefined;
+    if (args.jobCardId) {
+      jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+      if (!jobCardId) {
+        throw new ConvexError("Invalid Job Card id");
+      }
+      if (!(await getVisibleJob(ctx, access, jobCardId))) {
+        throw new ConvexError("Job Card not found or not assigned to you");
+      }
     }
     const now = Date.now();
     const hasSplit =
@@ -276,7 +286,7 @@ export const createExpense = mutation({
       args.epayAmount !== undefined;
     const amount = hasSplit ? splitTotal(args) : (args.amount ?? 0);
     const id = await ctx.db.insert("expenseEntries", {
-      jobCardId,
+      jobCardId: jobCardId ?? undefined,
       tourManagerName: args.tourManagerName?.trim() || access.name,
       category: args.category.trim(),
       expenseDate: args.expenseDate || new Date(now).toISOString().slice(0, 10),
@@ -329,9 +339,7 @@ export const updateExpense = mutation({
     if (!expense) {
       throw new ConvexError("Expense not found");
     }
-    if (!(await getVisibleJob(ctx, access, expense.jobCardId))) {
-      throw new ConvexError("FORBIDDEN");
-    }
+    await assertExpenseAccess(ctx, access, expense);
     if (expense.approvalStatus === "Approved") {
       throw new ConvexError("Approved expenses cannot be edited");
     }
@@ -397,7 +405,10 @@ export const getFinanceOverview = query({
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
     const period = (args.period ?? "all") as PortalPeriod;
     const invoices = filterRecordsByCreatedAt(await ctx.db.query("invoices").collect(), period);
-    const expenses = filterRecordsByCreatedAt(await ctx.db.query("expenseEntries").collect(), period);
+    const expenses = filterRecordsByCreatedAt(
+      await ctx.db.query("expenseEntries").collect(),
+      period,
+    );
     const allJobCards = filterRecordsByCreatedAt(await ctx.db.query("jobCards").collect(), period);
     const jobCards: any[] = [];
     for (const job of allJobCards) {
@@ -408,11 +419,15 @@ export const getFinanceOverview = query({
     }
     const visibleJobIds = new Set(jobCards.map((job) => job._id));
     const visibleInvoices = invoices.filter((invoice) => visibleJobIds.has(invoice.jobCardId));
-    const visibleExpenses = expenses.filter((expense) => visibleJobIds.has(expense.jobCardId));
+    const visibleExpenses = expenses.filter((expense) =>
+      expense.jobCardId ? visibleJobIds.has(expense.jobCardId) : true,
+    );
     const rows = [];
     for (const job of jobCards.sort((a, b) => b.createdAt - a.createdAt)) {
       const jobInvoices = visibleInvoices.filter((invoice) => invoice.jobCardId === job._id);
-      const jobExpenses = visibleExpenses.filter((expense) => expense.jobCardId === job._id && expense.approvalStatus === "Approved");
+      const jobExpenses = visibleExpenses.filter(
+        (expense) => expense.jobCardId === job._id && expense.approvalStatus === "Approved",
+      );
       const revenue = jobInvoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
       const expenseTotal = jobExpenses.reduce((sum, expense) => sum + expense.amount, 0);
       const profit = revenue - expenseTotal;
@@ -430,8 +445,7 @@ export const getFinanceOverview = query({
     const pendingReimbursements = visibleExpenses
       .filter(
         (expense) =>
-          expense.approvalStatus === "Approved" &&
-          expense.reimbursementStatus === "Pending",
+          expense.approvalStatus === "Approved" && expense.reimbursementStatus === "Pending",
       )
       .reduce((sum, expense) => sum + (expense.amount ?? 0), 0);
     const pendingExpenseApprovals = visibleExpenses
@@ -445,10 +459,7 @@ export const getFinanceOverview = query({
       .filter((job) => job.status !== "Closed")
       .reduce((sum, job) => {
         const jobInvoices = visibleInvoices.filter((invoice) => invoice.jobCardId === job._id);
-        const revenue = jobInvoices.reduce(
-          (total, invoice) => total + invoice.expectedAmount,
-          0,
-        );
+        const revenue = jobInvoices.reduce((total, invoice) => total + invoice.expectedAmount, 0);
         const terms = job.paymentTerms as { minAdvancePercent?: number } | null;
         const advancePercent = terms?.minAdvancePercent ?? 70;
         return sum + Math.round((revenue * advancePercent) / 100);
@@ -472,7 +483,12 @@ export const getFinanceOverview = query({
             jobCode: job?.jobCode ?? "",
             dueAmount: invoice.balanceAmount,
             dueDate: invoice.dueDate ?? "",
-            status: invoice.dueDate && invoice.dueDate < today ? "Overdue" : invoice.dueDate === today ? "Upcoming" : "Future",
+            status:
+              invoice.dueDate && invoice.dueDate < today
+                ? "Overdue"
+                : invoice.dueDate === today
+                  ? "Upcoming"
+                  : "Future",
           };
         }),
       summary: {
@@ -500,9 +516,7 @@ export const submitExpenseForApproval = mutation({
     if (!expense) {
       throw new ConvexError("Expense not found");
     }
-    if (!(await getVisibleJob(ctx, access, expense.jobCardId))) {
-      throw new ConvexError("FORBIDDEN");
-    }
+    await assertExpenseAccess(ctx, access, expense);
     const existing = await ctx.db
       .query("approvalRequests")
       .withIndex("by_entity", (q) => q.eq("entityType", "expense").eq("entityId", expenseId))
@@ -550,11 +564,7 @@ export const submitExpenseForApproval = mutation({
 export const updateExpenseStatus = mutation({
   args: {
     expenseId: v.string(),
-    approvalStatus: v.union(
-      v.literal("Pending"),
-      v.literal("Approved"),
-      v.literal("Rejected"),
-    ),
+    approvalStatus: v.union(v.literal("Pending"), v.literal("Approved"), v.literal("Rejected")),
     reimbursementStatus: v.union(
       v.literal("Not Submitted"),
       v.literal("Pending"),
@@ -574,9 +584,7 @@ export const updateExpenseStatus = mutation({
     if (!expense) {
       throw new ConvexError("Expense not found");
     }
-    if (!(await getVisibleJob(ctx, access, expense.jobCardId))) {
-      throw new ConvexError("FORBIDDEN");
-    }
+    await assertExpenseAccess(ctx, access, expense);
     await ctx.db.patch(id, {
       approvalStatus: args.approvalStatus,
       reimbursementStatus: args.reimbursementStatus,
@@ -626,9 +634,7 @@ export const removeExpense = mutation({
     if (!expense) {
       throw new ConvexError("Expense not found");
     }
-    if (!(await getVisibleJob(ctx, access, expense.jobCardId))) {
-      throw new ConvexError("FORBIDDEN");
-    }
+    await assertExpenseAccess(ctx, access, expense);
     await createActivity(ctx, access, {
       entityType: "expense",
       entityId: id,

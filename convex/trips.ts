@@ -1,7 +1,6 @@
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { ConvexError } from "convex/values";
+import { mutation, query } from "./_generated/server";
 
 const toApiTrip = (trip: Doc<"trips">) => ({
   id: trip._id,

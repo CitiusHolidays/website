@@ -56,6 +56,10 @@ export const ALL_ROLES = [
   "Tour Manager",
   "Finance",
   "HR",
+  "Contracting Cement",
+  "Operations Cement",
+  "Sales Cement",
+  "Director Cement",
 ] as const;
 
 const P = PERMISSIONS;
@@ -220,6 +224,59 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.APPROVE_LEAVE,
     P.VIEW_APPROVALS,
   ],
+  "Contracting Cement": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
+    P.MANAGE_CONTRACTING,
+    P.VIEW_PROPOSALS,
+    P.MANAGE_PROPOSALS,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_LEAVE,
+  ],
+  "Operations Cement": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.MANAGE_TRAVELLERS,
+    P.VIEW_VISA,
+    P.MANAGE_VISA,
+    P.VIEW_OPERATIONS,
+    P.MANAGE_OPERATIONS,
+    P.VIEW_TOUR_MANAGERS,
+    P.VIEW_TICKETING,
+    P.VIEW_EXPENSES,
+    P.VIEW_LEAVE,
+  ],
+  "Sales Cement": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.MANAGE_QUERIES,
+    P.VIEW_PROPOSALS,
+    P.SEND_PROPOSALS,
+    P.VIEW_LEAVE,
+  ],
+  "Director Cement": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
+    P.VIEW_PROPOSALS,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.VIEW_VISA,
+    P.VIEW_TICKETING,
+    P.VIEW_OPERATIONS,
+    P.VIEW_TOUR_MANAGERS,
+    P.VIEW_FINANCE,
+    P.VIEW_EXPENSES,
+    P.APPROVE_EXPENSES,
+    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
+    P.VIEW_APPROVALS,
+    P.VIEW_REPORTS,
+    P.VIEW_SENSITIVE_TRAVELLER_DATA,
+  ],
 };
 
 export const PAYMENT_TERMS: Record<string, { min: number; max: number }> = {
@@ -234,7 +291,9 @@ export const PAYMENT_TERMS: Record<string, { min: number; max: number }> = {
 };
 
 export function normalizeEmail(email?: string | null) {
-  return String(email ?? "").trim().toLowerCase();
+  return String(email ?? "")
+    .trim()
+    .toLowerCase();
 }
 
 export function getRolePermissions(roles: string[]) {
@@ -354,10 +413,7 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
   };
 }
 
-export async function requireStaff(
-  ctx: QueryCtx | MutationCtx,
-  permission?: string,
-) {
+export async function requireStaff(ctx: QueryCtx | MutationCtx, permission?: string) {
   const access = await getPortalAccess(ctx);
   if (!access.allowed) {
     throw new ConvexError("FORBIDDEN");
@@ -368,10 +424,7 @@ export async function requireStaff(
   return access;
 }
 
-export async function requireAnyPermission(
-  ctx: QueryCtx | MutationCtx,
-  permissions: string[],
-) {
+export async function requireAnyPermission(ctx: QueryCtx | MutationCtx, permissions: string[]) {
   const access = await requireStaff(ctx);
   if (!permissions.some((permission) => access.permissions.includes(permission))) {
     throw new ConvexError("FORBIDDEN");
@@ -463,11 +516,7 @@ export function canSeeProposalRecord(access: PortalAccess, proposal: any, linked
 
 export function canSeeJobCardRecord(access: PortalAccess, job: any, linkedQuery?: any) {
   if (
-    canSeeDepartmentRecords(access, [
-      "Contracting Head",
-      "Operations Head",
-      "Head of Ticketing",
-    ]) ||
+    canSeeDepartmentRecords(access, ["Contracting Head", "Operations Head", "Head of Ticketing"]) ||
     hasRole(access, "Accounts") ||
     hasRole(access, "Finance")
   ) {
@@ -491,7 +540,8 @@ export function getHeadReviewerRolesForStaff(staff: { roles?: string[]; departme
   const department = (staff.department ?? "").toLowerCase();
   const reviewerRoles: string[] = [];
   if (roles.has("Sales") || department.includes("sales")) reviewerRoles.push("Sales Head");
-  if (roles.has("Contracting") || department.includes("contracting")) reviewerRoles.push("Contracting Head");
+  if (roles.has("Contracting") || department.includes("contracting"))
+    reviewerRoles.push("Contracting Head");
   if (
     roles.has("Operations") ||
     roles.has("Tour Manager") ||
@@ -500,7 +550,8 @@ export function getHeadReviewerRolesForStaff(staff: { roles?: string[]; departme
   ) {
     reviewerRoles.push("Operations Head");
   }
-  if (roles.has("Ticketing") || department.includes("ticket")) reviewerRoles.push("Head of Ticketing");
+  if (roles.has("Ticketing") || department.includes("ticket"))
+    reviewerRoles.push("Head of Ticketing");
   return Array.from(new Set(reviewerRoles.length > 0 ? reviewerRoles : ["HR"]));
 }
 
@@ -516,10 +567,7 @@ export function canHeadReview(access: PortalAccess, reviewerRole: string) {
   return isDirectorOrAdmin(access) || hasRole(access, reviewerRole);
 }
 
-export function canActAsLeaveHeadReviewer(
-  access: PortalAccess,
-  reviewerRole: string,
-) {
+export function canActAsLeaveHeadReviewer(access: PortalAccess, reviewerRole: string) {
   if (reviewerRole === "HR") {
     return isHrReviewer(access);
   }
@@ -539,8 +587,7 @@ export function getLeaveApprovalActions(
   const status = leave.status ?? "Pending";
   const headStatus = leave.headReviewStatus ?? "Pending";
   const hrStatus = leave.hrReviewStatus ?? "Pending";
-  const reviewerRole =
-    leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR";
+  const reviewerRole = leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR";
 
   if (status !== "Pending") {
     return { canApproveHead: false, canApproveHr: false, canReject: false };
@@ -568,10 +615,7 @@ export function getLeaveApprovalActions(
   return { canApproveHead: false, canApproveHr: false, canReject: false };
 }
 
-export async function requireHeadOrAdmin(
-  ctx: QueryCtx | MutationCtx,
-  headRoles: string[],
-) {
+export async function requireHeadOrAdmin(ctx: QueryCtx | MutationCtx, headRoles: string[]) {
   const access = await requireStaff(ctx);
   if (isDirectorOrAdmin(access)) {
     return access;
@@ -759,7 +803,10 @@ export async function nextCode(
   const codeField = CODE_FIELD_BY_TABLE[tableName];
   const rows = await ctx.db.query(tableName).collect();
   const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const suffix = options?.suffix?.trim().toUpperCase().replace(/[^A-Z]/g, "");
+  const suffix = options?.suffix
+    ?.trim()
+    .toUpperCase()
+    .replace(/[^A-Z]/g, "");
   const pattern = suffix
     ? new RegExp(`^${escapedPrefix}-(\\d+)(?:-[A-Z]{1,4})?$`)
     : new RegExp(`^${escapedPrefix}-(\\d+)$`);
@@ -789,9 +836,7 @@ export function paymentTermsFor(queryType: string) {
     minAdvancePercent: terms.min,
     maxAdvancePercent: terms.max,
     label:
-      terms.min === terms.max
-        ? `${terms.min}% advance`
-        : `${terms.min}%-${terms.max}% advance`,
+      terms.min === terms.max ? `${terms.min}% advance` : `${terms.min}%-${terms.max}% advance`,
   };
 }
 
@@ -922,8 +967,7 @@ export function publicQuery(query: any) {
     contractingOwnerName: query.contractingOwnerName ?? "",
     contactMobile: query.contactMobile ?? "",
     budgetAmount: query.budgetAmount ?? 0,
-    leadStage:
-      query.leadStage === "Closed" ? "Lost" : query.leadStage ?? "",
+    leadStage: query.leadStage === "Closed" ? "Lost" : (query.leadStage ?? ""),
     source: query.source ?? "",
     submittedToContractingAt: query.submittedToContractingAt
       ? new Date(query.submittedToContractingAt).toISOString()
@@ -948,13 +992,7 @@ export const portalPeriodValidator = v.union(
   v.literal("year"),
 );
 
-export type PortalPeriod =
-  | "all"
-  | "week"
-  | "month"
-  | "3months"
-  | "6months"
-  | "year";
+export type PortalPeriod = "all" | "week" | "month" | "3months" | "6months" | "year";
 
 const PERIOD_MS: Record<Exclude<PortalPeriod, "all">, number> = {
   week: 7 * 24 * 60 * 60 * 1000,

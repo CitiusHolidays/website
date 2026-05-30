@@ -1,13 +1,13 @@
 {
-    "headers": [
-        {
-            "source": "/(.*\\.mp4)",
-            "headers": [
-                { "key": "Accept-Ranges", "value": "bytes" },
-                { "key": "Content-Type", "value": "video/mp4" }
-            ]
-        }
-    ],
-    "bunVersion": "1.x",
-    "regions": ["bom1"]
+  "headers": [
+    {
+      "source": "/(.*\\.mp4)",
+      "headers": [
+        { "key": "Accept-Ranges", "value": "bytes" },
+        { "key": "Content-Type", "value": "video/mp4" }
+      ]
+    }
+  ],
+  "bunVersion": "1.x",
+  "regions": ["bom1"]
 }

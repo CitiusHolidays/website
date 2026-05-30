@@ -2,8 +2,8 @@
 
 import { motion, useInView } from "motion/react";
 import { AnimateNumber } from "motion-plus/react";
-import { cn } from "../../utils/cn";
 import { useRef } from "react";
+import { cn } from "../../utils/cn";
 
 export default function AnimatedCounter({ value, label, className }) {
   const ref = useRef(null);
@@ -11,26 +11,25 @@ export default function AnimatedCounter({ value, label, className }) {
   const displayValue = isInView ? value : 0;
 
   return (
-    <motion.div
-      ref={ref}
-      className={cn("text-center", className)}
-    >
+    <motion.div ref={ref} className={cn("text-center", className)}>
       {/* Screen reader accessible version */}
-      <span className="sr-only">{displayValue}+ {label}</span>
-      
+      <span className="sr-only">
+        {displayValue}+ {label}
+      </span>
+
       {/* Visual animated version - hidden from screen readers */}
-      <span 
+      <span
         className="text-3xl md:text-4xl font-bold text-citius-orange mb-2 inline-flex items-baseline"
         aria-hidden="true"
       >
-        <AnimateNumber
-          transition={{ type: "spring", stiffness: 50, damping: 20 }}
-        >
+        <AnimateNumber transition={{ type: "spring", stiffness: 50, damping: 20 }}>
           {displayValue}
         </AnimateNumber>
         <span className="ml-1 align-baseline text-2xl md:text-3xl font-bold">+</span>
       </span>
-      <p className="text-brand-dark font-medium" aria-hidden="true">{label}</p>
+      <p className="text-brand-dark font-medium" aria-hidden="true">
+        {label}
+      </p>
     </motion.div>
   );
 }

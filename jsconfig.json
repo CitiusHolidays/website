@@ -1,8 +1,8 @@
 {
-	"compilerOptions": {
-		"paths": {
-			"@/*": ["./src/*"],
-			"@convex/*": ["./convex/*"]
-		}
-	}
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "@convex/*": ["./convex/*"]
+    }
+  }
 }

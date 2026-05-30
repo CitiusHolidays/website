@@ -1,11 +1,11 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import {
-  PERMISSIONS,
   filterRecordsByCreatedAt,
+  PERMISSIONS,
+  type PortalPeriod,
   portalPeriodValidator,
   requireStaff,
-  type PortalPeriod,
 } from "./lib";
 
 const percent = (done: number, total: number) => (total > 0 ? Math.round((done / total) * 100) : 0);
@@ -50,9 +50,15 @@ export const getPortalSummary = query({
     const tickets = filterRecordsByCreatedAt(await ctx.db.query("tickets").collect(), period);
     const visas = filterRecordsByCreatedAt(await ctx.db.query("visaRecords").collect(), period);
     const invoices = filterRecordsByCreatedAt(await ctx.db.query("invoices").collect(), period);
-    const approvals = filterRecordsByCreatedAt(await ctx.db.query("approvalRequests").collect(), period);
+    const approvals = filterRecordsByCreatedAt(
+      await ctx.db.query("approvalRequests").collect(),
+      period,
+    );
     const staff = await ctx.db.query("staffUsers").collect();
-    const activities = filterRecordsByCreatedAt(await ctx.db.query("activityLogs").collect(), period);
+    const activities = filterRecordsByCreatedAt(
+      await ctx.db.query("activityLogs").collect(),
+      period,
+    );
 
     const activeJobs = jobCards.filter((job) => job.status !== "Closed");
     const ticketsIssued = tickets.filter((ticket) => ticket.ticketStatus === "Issued").length;
@@ -65,7 +71,10 @@ export const getPortalSummary = query({
     ).length;
     const expectedPayment = invoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
     const receivedPayment = invoices.reduce((sum, invoice) => sum + invoice.receivedAmount, 0);
-    const outstandingAmount = invoices.reduce((sum, invoice) => sum + Math.max(invoice.balanceAmount ?? 0, 0), 0);
+    const outstandingAmount = invoices.reduce(
+      (sum, invoice) => sum + Math.max(invoice.balanceAmount ?? 0, 0),
+      0,
+    );
     const nowDate = new Date().toISOString().slice(0, 10);
     const revenuePipeline = invoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
     const activeQueryRecords = queries.filter(isActiveQuery);
@@ -79,8 +88,7 @@ export const getPortalSummary = query({
         confirmedJobs: confirmedQueryRecords.length,
         jobCardsOpen: activeJobs.length,
         ticketsIssued,
-        ticketsPending: tickets.filter((ticket) => ticket.ticketStatus === "Pending Issue")
-          .length,
+        ticketsPending: tickets.filter((ticket) => ticket.ticketStatus === "Pending Issue").length,
         visaPending: visas.filter((visa) =>
           ["Not Started", "Checklist Shared", "Documents Pending", "Awaiting"].includes(
             visa.status,
@@ -97,13 +105,27 @@ export const getPortalSummary = query({
       departmentWorkflow: [
         {
           label: "Sales open leads",
-          value: queries.filter((query) => !["Order Confirmed", "Order Lost"].includes(query.salesStatus)).length,
-          percent: percent(queries.filter((query) => !["Order Confirmed", "Order Lost"].includes(query.salesStatus)).length, Math.max(queries.length, 1)),
+          value: queries.filter(
+            (query) => !["Order Confirmed", "Order Lost"].includes(query.salesStatus),
+          ).length,
+          percent: percent(
+            queries.filter(
+              (query) => !["Order Confirmed", "Order Lost"].includes(query.salesStatus),
+            ).length,
+            Math.max(queries.length, 1),
+          ),
         },
         {
           label: "Contracting in progress",
-          value: queries.filter((query) => ["Query Received", "Proposal in progress"].includes(query.contractingStatus)).length,
-          percent: percent(queries.filter((query) => ["Query Received", "Proposal in progress"].includes(query.contractingStatus)).length, Math.max(queries.length, 1)),
+          value: queries.filter((query) =>
+            ["Query Received", "Proposal in progress"].includes(query.contractingStatus),
+          ).length,
+          percent: percent(
+            queries.filter((query) =>
+              ["Query Received", "Proposal in progress"].includes(query.contractingStatus),
+            ).length,
+            Math.max(queries.length, 1),
+          ),
         },
         {
           label: "Ops active groups",
@@ -122,7 +144,9 @@ export const getPortalSummary = query({
         },
       ],
       myTeam: staff
-        .filter((member) => member.active && member.roles.some((role) => access.roles.includes(role)))
+        .filter(
+          (member) => member.active && member.roles.some((role) => access.roles.includes(role)),
+        )
         .slice(0, 6)
         .map((member) => ({
           id: member._id,
@@ -133,11 +157,31 @@ export const getPortalSummary = query({
           location: member.location ?? "",
         })),
       progress: {
-        tickets: { done: ticketsIssued, total: travellers.length, percent: percent(ticketsIssued, travellers.length) },
-        visas: { done: visaApproved, total: travellers.length, percent: percent(visaApproved, travellers.length) },
-        guestData: { done: guestDataDone, total: travellers.length, percent: percent(guestDataDone, travellers.length) },
-        rooming: { done: roomingDone, total: travellers.length, percent: percent(roomingDone, travellers.length) },
-        payment: { done: receivedPayment, total: expectedPayment, percent: percent(receivedPayment, expectedPayment) },
+        tickets: {
+          done: ticketsIssued,
+          total: travellers.length,
+          percent: percent(ticketsIssued, travellers.length),
+        },
+        visas: {
+          done: visaApproved,
+          total: travellers.length,
+          percent: percent(visaApproved, travellers.length),
+        },
+        guestData: {
+          done: guestDataDone,
+          total: travellers.length,
+          percent: percent(guestDataDone, travellers.length),
+        },
+        rooming: {
+          done: roomingDone,
+          total: travellers.length,
+          percent: percent(roomingDone, travellers.length),
+        },
+        payment: {
+          done: receivedPayment,
+          total: expectedPayment,
+          percent: percent(receivedPayment, expectedPayment),
+        },
       },
       urgentActions: [
         ...approvals
@@ -148,7 +192,9 @@ export const getPortalSummary = query({
             type: "approvals",
           })),
         ...invoices
-          .filter((invoice) => invoice.balanceAmount > 0 && invoice.dueDate && invoice.dueDate < nowDate)
+          .filter(
+            (invoice) => invoice.balanceAmount > 0 && invoice.dueDate && invoice.dueDate < nowDate,
+          )
           .map((invoice) => ({
             id: invoice._id,
             label: `${invoice.invoiceNumber} has overdue balance`,
@@ -199,8 +245,16 @@ export const getPortalSummary = query({
         .slice(0, 6)
         .map((job) => {
           const jobTravellers = travellers.filter((traveller) => traveller.jobCardId === job._id);
-          const ticketProgress = percent(jobTravellers.filter((traveller) => traveller.ticketStatus === "Issued").length, jobTravellers.length);
-          const visaProgress = percent(jobTravellers.filter((traveller) => ["Approved", "Not Required"].includes(traveller.visaStatus)).length, jobTravellers.length);
+          const ticketProgress = percent(
+            jobTravellers.filter((traveller) => traveller.ticketStatus === "Issued").length,
+            jobTravellers.length,
+          );
+          const visaProgress = percent(
+            jobTravellers.filter((traveller) =>
+              ["Approved", "Not Required"].includes(traveller.visaStatus),
+            ).length,
+            jobTravellers.length,
+          );
           return {
             id: job._id,
             jobCode: job.jobCode,

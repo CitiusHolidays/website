@@ -1,9 +1,9 @@
 "use client";
 
+import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, ArrowRight, X } from "lucide-react";
 import { cn } from "../../utils/cn";
 
 const variants = {
@@ -60,10 +60,7 @@ export default function GalleryGrid({ images = [], className }) {
   return (
     <>
       <motion.div
-        className={cn(
-          "grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3",
-          className
-        )}
+        className={cn("grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3", className)}
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, amount: 0.1 }}
@@ -89,9 +86,7 @@ export default function GalleryGrid({ images = [], className }) {
               src={item.asset?.url || ""}
               alt={item.alt || ""}
               fill
-              className={cn(
-                "object-cover transition-transform duration-300 group-hover:scale-105"
-              )}
+              className={cn("object-cover transition-transform duration-300 group-hover:scale-105")}
               sizes="(max-width: 768px) 50vw, 33vw"
             />
           </motion.div>
@@ -101,28 +96,34 @@ export default function GalleryGrid({ images = [], className }) {
       <AnimatePresence>
         {selectedIndex !== null && images[selectedIndex] && (
           <div className="fixed inset-0 z-50">
-            <motion.div
+            <motion.button
+              type="button"
+              aria-label="Close gallery"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="absolute inset-0 bg-brand-dark/80 backdrop-blur-sm"
+              className="absolute inset-0 border-0 bg-brand-dark/80 backdrop-blur-sm p-0 cursor-default"
+              onClick={close}
             />
 
-            <div
-              className="absolute inset-0 flex items-center justify-center p-4"
-              onClick={close}
-            >
+            <div className="absolute inset-0 flex items-center justify-center p-4">
               <motion.button
                 aria-label="Previous Image"
-                onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handlePrev();
+                }}
                 className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 text-white z-10 hover:bg-white/20 p-2 rounded-full transition-colors"
               >
                 <ArrowLeft className="w-8 h-8" />
               </motion.button>
               <motion.button
                 aria-label="Next Image"
-                onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleNext();
+                }}
                 className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 text-white z-10 hover:bg-white/20 p-2 rounded-full transition-colors"
               >
                 <ArrowRight className="w-8 h-8" />

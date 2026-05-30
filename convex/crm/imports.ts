@@ -1,12 +1,7 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import {
-  PERMISSIONS,
-  canSeeJobCardRecord,
-  createActivity,
-  requireStaff,
-} from "./lib";
+import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
+import { canSeeJobCardRecord, createActivity, PERMISSIONS, requireStaff } from "./lib";
 
 const foodPreferenceValidator = v.union(
   v.literal("Veg"),
@@ -15,10 +10,32 @@ const foodPreferenceValidator = v.union(
   v.literal("Vegan"),
 );
 
+const importKindValidator = v.union(
+  v.literal("passenger"),
+  v.literal("rooming"),
+  v.literal("passport"),
+  v.literal("visa"),
+);
+
+const visaStatusValidator = v.union(
+  v.literal("Not Required"),
+  v.literal("Not Started"),
+  v.literal("Checklist Shared"),
+  v.literal("Documents Pending"),
+  v.literal("Documents Verified"),
+  v.literal("Appointment Scheduled"),
+  v.literal("Submitted"),
+  v.literal("Awaiting"),
+  v.literal("Approved"),
+  v.literal("Rejected"),
+  v.literal("Re-applied"),
+);
+
 const passengerImportRow = v.object({
   id: v.string(),
   sourceSheet: v.string(),
   sourceRowNumber: v.number(),
+  importKind: v.optional(importKindValidator),
   importKey: v.string(),
   fullName: v.string(),
   travelHub: v.optional(v.string()),
@@ -48,6 +65,10 @@ const passengerImportRow = v.object({
   sourceGroup: v.optional(v.string()),
   gender: v.optional(v.string()),
   contactNo: v.optional(v.string()),
+  hotelAllocation: v.optional(v.string()),
+  visaStatus: v.optional(visaStatusValidator),
+  biometricAppointmentDate: v.optional(v.string()),
+  visaNotes: v.optional(v.string()),
   passportNumberHash: v.optional(v.string()),
   encryptedPassportPayload: v.optional(v.string()),
   passportLastFour: v.optional(v.string()),
@@ -105,12 +126,17 @@ function summarizeGroup(group: {
 }) {
   const first = group.segments[0];
   const last = group.segments[group.segments.length - 1] ?? first;
-  const airlines = Array.from(new Set(group.segments.map((segment) => segment.airline).filter(Boolean)));
+  const airlines = Array.from(
+    new Set(group.segments.map((segment) => segment.airline).filter(Boolean)),
+  );
   return {
     name: `${group.sourceSheet} itinerary ${group.groupIndex + 1}`,
     route: [first?.origin, last?.destination].filter(Boolean).join(" - "),
     airline: airlines.length === 1 ? airlines[0] : airlines.join(" / "),
-    flightNumber: group.segments.map((segment) => segment.flightNumber).filter(Boolean).join(" / "),
+    flightNumber: group.segments
+      .map((segment) => segment.flightNumber)
+      .filter(Boolean)
+      .join(" / "),
     departureDate: first?.dateLabel ?? "",
     arrivalDate: last?.dateLabel ?? "",
   };
@@ -147,7 +173,122 @@ async function findTravellerMatch(ctx: any, jobCardId: Id<"jobCards">, row: any)
     .query("travellers")
     .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
     .collect();
-  return sameJob.find((traveller: any) => traveller.fullName.trim().toLowerCase() === normalizedName) ?? null;
+  return (
+    sameJob.find((traveller: any) => traveller.fullName.trim().toLowerCase() === normalizedName) ??
+    null
+  );
+}
+
+function includeText(value: string | undefined) {
+  return value !== undefined && value.trim() !== "";
+}
+
+function travellerPatchForImport(row: any, job: any, now: number) {
+  const importKind = row.importKind ?? "passenger";
+  const patch: Record<string, unknown> = {
+    jobCardId: job._id,
+    fullName: row.fullName.trim(),
+    importSource: `${importKind}-spreadsheet`,
+    importKey: row.importKey,
+    sourceSheet: row.sourceSheet,
+    sourceRowNumber: row.sourceRowNumber,
+    updatedAt: now,
+  };
+
+  const includeSourceFields = () => {
+    patch.sourceDealerCode = row.sourceDealerCode?.trim() || "";
+    patch.sourceDealerName = row.sourceDealerName?.trim() || "";
+    patch.sourceDescription = row.sourceDescription?.trim() || "";
+    patch.sourceSoName = row.sourceSoName?.trim() || "";
+    patch.sourceRsoName = row.sourceRsoName?.trim() || "";
+    patch.sourceGroup = row.sourceGroup?.trim() || "";
+    patch.gender = row.gender?.trim() || "";
+    patch.contactNo = row.contactNo?.trim() || "";
+  };
+
+  includeSourceFields();
+
+  if (importKind === "passenger") {
+    patch.travelHub = row.travelHub?.trim() || "";
+    patch.foodPreference = row.foodPreference;
+    patch.guestType = row.guestType;
+    patch.paymentType = row.paymentType;
+    patch.roomType = row.roomType;
+    patch.visaRequired = row.visaRequired;
+    patch.domesticTravelRequired = row.domesticTravelRequired ?? false;
+    patch.passportStatus = row.passportStatus?.trim() || "Pending";
+    patch.specialRequests = row.specialRequests?.trim() || "";
+    return patch;
+  }
+
+  if (importKind === "rooming") {
+    patch.roomType = row.roomType;
+    if (includeText(row.travelHub)) patch.travelHub = row.travelHub.trim();
+    if (includeText(row.specialRequests)) patch.specialRequests = row.specialRequests.trim();
+    if (includeText(row.hotelAllocation)) patch.hotelAllocation = row.hotelAllocation.trim();
+    if (includeText(row.passportStatus)) patch.passportStatus = row.passportStatus.trim();
+    return patch;
+  }
+
+  if (importKind === "passport") {
+    if (includeText(row.passportStatus)) patch.passportStatus = row.passportStatus.trim();
+    return patch;
+  }
+
+  if (importKind === "visa") {
+    patch.visaRequired = row.visaStatus ? row.visaStatus !== "Not Required" : row.visaRequired;
+    patch.visaStatus = row.visaStatus || (row.visaRequired ? "Not Started" : "Not Required");
+    if (includeText(row.biometricAppointmentDate)) {
+      patch.biometricAppointmentDate = row.biometricAppointmentDate.trim();
+    }
+    if (includeText(row.paymentType)) patch.paymentType = row.paymentType;
+    if (includeText(row.passportStatus)) patch.passportStatus = row.passportStatus.trim();
+  }
+
+  return patch;
+}
+
+function travellerCreateDefaults(row: any, job: any, access: any, now: number) {
+  const visaStatus = row.visaStatus || (row.visaRequired ? "Not Started" : "Not Required");
+  return {
+    jobCardId: job._id,
+    fullName: row.fullName.trim(),
+    travelHub: row.travelHub?.trim() || "",
+    foodPreference: row.foodPreference,
+    guestType: row.guestType,
+    paymentType: row.paymentType,
+    roomType: row.roomType,
+    visaRequired: row.visaStatus ? row.visaStatus !== "Not Required" : row.visaRequired,
+    domesticTravelRequired: row.domesticTravelRequired ?? false,
+    passportStatus: row.passportStatus?.trim() || "Pending",
+    specialRequests: row.specialRequests?.trim() || "",
+    hotelAllocation: row.hotelAllocation?.trim() || "",
+    gender: row.gender?.trim() || "",
+    contactNo: row.contactNo?.trim() || "",
+    importSource: `${row.importKind ?? "passenger"}-spreadsheet`,
+    importKey: row.importKey,
+    sourceSheet: row.sourceSheet,
+    sourceRowNumber: row.sourceRowNumber,
+    sourceDealerCode: row.sourceDealerCode?.trim() || "",
+    sourceDealerName: row.sourceDealerName?.trim() || "",
+    sourceDescription: row.sourceDescription?.trim() || "",
+    sourceSoName: row.sourceSoName?.trim() || "",
+    sourceRsoName: row.sourceRsoName?.trim() || "",
+    sourceGroup: row.sourceGroup?.trim() || "",
+    biometricAppointmentDate: row.biometricAppointmentDate?.trim() || "",
+    travelDate: job.travelStartDate ?? "",
+    extensionOfTour: false,
+    arrivingEarly: false,
+    guestCompanions: "",
+    ticketStatus: "Pending Issue" as const,
+    visaStatus,
+    callingStatus: "Pending" as const,
+    cancellation: false,
+    lastMinuteDrop: false,
+    createdBy: access.authUserId ?? "unknown",
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 export const previewPassengerImportRows = internalQuery({
@@ -194,87 +335,73 @@ export const commitPassengerImportRows = internalMutation({
 
     for (const row of args.rows) {
       const match = await findTravellerMatch(ctx, jobCardId, row);
-      const visaStatus = row.visaRequired ? "Not Started" : "Not Required";
-      const travellerPatch = {
-        jobCardId,
-        fullName: row.fullName.trim(),
-        travelHub: row.travelHub?.trim() || "",
-        foodPreference: row.foodPreference,
-        guestType: row.guestType,
-        paymentType: row.paymentType,
-        roomType: row.roomType,
-        visaRequired: row.visaRequired,
-        domesticTravelRequired: row.domesticTravelRequired ?? false,
-        passportStatus: row.passportStatus?.trim() || "Pending",
-        specialRequests: row.specialRequests?.trim() || "",
-        gender: row.gender?.trim() || "",
-        contactNo: row.contactNo?.trim() || "",
-        importSource: "passenger-spreadsheet",
-        importKey: row.importKey,
-        sourceSheet: row.sourceSheet,
-        sourceRowNumber: row.sourceRowNumber,
-        sourceDealerCode: row.sourceDealerCode?.trim() || "",
-        sourceDealerName: row.sourceDealerName?.trim() || "",
-        sourceDescription: row.sourceDescription?.trim() || "",
-        sourceSoName: row.sourceSoName?.trim() || "",
-        sourceRsoName: row.sourceRsoName?.trim() || "",
-        sourceGroup: row.sourceGroup?.trim() || "",
-        updatedAt: now,
-      };
+      const importKind = row.importKind ?? "passenger";
+      const travellerPatch = travellerPatchForImport(row, job, now);
 
       let travellerId: Id<"travellers">;
+      let isNewTraveller = false;
       if (match) {
-        await ctx.db.patch(match._id, {
-          ...travellerPatch,
-          visaStatus:
+        const patch = { ...travellerPatch };
+        if (importKind === "passenger") {
+          patch.visaStatus =
             row.visaRequired && match.visaStatus === "Not Required"
               ? "Not Started"
               : row.visaRequired
                 ? match.visaStatus
-                : "Not Required",
-        });
+                : "Not Required";
+        }
+        await ctx.db.patch(match._id, patch);
         travellerId = match._id;
         updated += 1;
       } else {
-        travellerId = await ctx.db.insert("travellers", {
-          ...travellerPatch,
-          biometricAppointmentDate: "",
-          travelDate: job.travelStartDate ?? "",
-          extensionOfTour: false,
-          arrivingEarly: false,
-          guestCompanions: "",
-          hotelAllocation: "",
-          ticketStatus: "Pending Issue",
-          visaStatus,
-          callingStatus: "Pending",
-          cancellation: false,
-          lastMinuteDrop: false,
-          createdBy: args.access.authUserId ?? "unknown",
-          createdAt: now,
-        });
+        travellerId = await ctx.db.insert(
+          "travellers",
+          travellerCreateDefaults(row, job, args.access, now),
+        );
+        isNewTraveller = true;
         created += 1;
       }
 
-      const visaRecords = await ctx.db
-        .query("visaRecords")
-        .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
-        .collect();
-      if (visaRecords.length === 0) {
-        await ctx.db.insert("visaRecords", {
-          travellerId,
-          jobCardId,
-          status: row.visaRequired ? "Not Started" : "Not Required",
-          updatedBy: args.access.authUserId ?? "unknown",
-          createdAt: now,
-          updatedAt: now,
-        });
-      } else {
-        for (const visaRecord of visaRecords) {
-          await ctx.db.patch(visaRecord._id, {
-            status: row.visaRequired ? visaRecord.status === "Not Required" ? "Not Started" : visaRecord.status : "Not Required",
+      if (isNewTraveller || importKind === "passenger" || importKind === "visa") {
+        const nextVisaStatus =
+          row.visaStatus || (row.visaRequired ? "Not Started" : "Not Required");
+        const visaRecords = await ctx.db
+          .query("visaRecords")
+          .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
+          .collect();
+        if (visaRecords.length === 0) {
+          await ctx.db.insert("visaRecords", {
+            travellerId,
+            jobCardId,
+            status: nextVisaStatus,
+            appointmentDate: row.biometricAppointmentDate?.trim() || "",
+            notes: row.visaNotes?.trim() || "",
             updatedBy: args.access.authUserId ?? "unknown",
+            createdAt: now,
             updatedAt: now,
           });
+        } else {
+          for (const visaRecord of visaRecords) {
+            const status =
+              importKind === "visa"
+                ? nextVisaStatus
+                : row.visaRequired
+                  ? visaRecord.status === "Not Required"
+                    ? "Not Started"
+                    : visaRecord.status
+                  : "Not Required";
+            await ctx.db.patch(visaRecord._id, {
+              status,
+              ...(importKind === "visa" && row.biometricAppointmentDate !== undefined
+                ? { appointmentDate: row.biometricAppointmentDate?.trim() || "" }
+                : {}),
+              ...(importKind === "visa" && row.visaNotes !== undefined
+                ? { notes: row.visaNotes?.trim() || "" }
+                : {}),
+              updatedBy: args.access.authUserId ?? "unknown",
+              updatedAt: now,
+            });
+          }
         }
       }
 
@@ -391,7 +518,9 @@ export const commitFlightImport = mutation({
       }
 
       for (const segment of group.segments) {
-        const existingSegment = existingSegments.find((entry) => entry.importKey === segment.importKey);
+        const existingSegment = existingSegments.find(
+          (entry) => entry.importKey === segment.importKey,
+        );
         const segmentPatch = {
           jobCardId,
           flightGroupId,
@@ -465,12 +594,21 @@ export const getPassengerExportSource = internalQuery({
         .query("passportDetails")
         .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
         .unique();
+      const visaRecord = await ctx.db
+        .query("visaRecords")
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
+        .unique();
 
       rows.push({
         travellerId: traveller._id,
         fullName: traveller.fullName,
         travelHub: traveller.travelHub ?? "",
         foodPreference: traveller.foodPreference,
+        paymentType: traveller.paymentType,
+        roomType: traveller.roomType,
+        visaRequired: traveller.visaRequired,
+        visaStatus: traveller.visaStatus,
+        hotelAllocation: traveller.hotelAllocation ?? "",
         gender: traveller.gender ?? "",
         contactNo: traveller.contactNo ?? "",
         specialRequests: traveller.specialRequests ?? "",
@@ -483,6 +621,17 @@ export const getPassengerExportSource = internalQuery({
         cancellation: traveller.cancellation ?? false,
         lastMinuteDrop: traveller.lastMinuteDrop ?? false,
         encryptedPassportPayload: passport?.encryptedPayload ?? "",
+        visa: visaRecord
+          ? {
+              status: visaRecord.status,
+              appointmentDate: visaRecord.appointmentDate ?? "",
+              notes: visaRecord.notes ?? "",
+            }
+          : {
+              status: traveller.visaStatus,
+              appointmentDate: traveller.biometricAppointmentDate ?? "",
+              notes: "",
+            },
       });
     }
 

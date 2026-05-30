@@ -1,8 +1,8 @@
 "use client";
 
+import { MapPin, Mountain, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
-import { Mountain, MapPin, Sparkles } from "lucide-react";
 import { sacredSites } from "../../data/trails";
 import { cn } from "../../utils/cn";
 
@@ -18,13 +18,10 @@ function SacredSiteCard({ site, index }) {
       transition={{ duration: 0.7, delay: index * 0.1, ease: "easeOut" }}
       className={cn(
         "group relative overflow-hidden rounded-2xl md:rounded-3xl bg-white shadow-xl shadow-brand-dark/5 border border-brand-light/50",
-        "hover:shadow-2xl hover:shadow-brand-dark/10 transition-all duration-500"
+        "hover:shadow-2xl hover:shadow-brand-dark/10 transition-all duration-500",
       )}
     >
-      <div className={cn(
-        "grid md:grid-cols-2 gap-0",
-        !isEven && "md:direction-rtl"
-      )}>
+      <div className={cn("grid md:grid-cols-2 gap-0", !isEven && "md:direction-rtl")}>
         {/* Image Section */}
         <div className="relative h-64 md:h-80 lg:h-96 overflow-hidden bg-brand-light">
           {img?.src ? (
@@ -41,7 +38,7 @@ function SacredSiteCard({ site, index }) {
                 "absolute inset-0 bg-gradient-to-br flex items-center justify-center",
                 index % 3 === 0 && "from-citius-blue/20 via-citius-orange/10 to-citius-blue/30",
                 index % 3 === 1 && "from-citius-orange/20 via-amber-100/30 to-citius-orange/20",
-                index % 3 === 2 && "from-emerald-100/40 via-citius-blue/10 to-teal-100/30"
+                index % 3 === 2 && "from-emerald-100/40 via-citius-blue/10 to-teal-100/30",
               )}
             >
               <div className="text-center p-6">
@@ -79,10 +76,12 @@ function SacredSiteCard({ site, index }) {
         </div>
 
         {/* Content Section */}
-        <div className={cn(
-          "p-6 md:p-8 lg:p-10 flex flex-col justify-center",
-          !isEven && "md:order-first"
-        )}>
+        <div
+          className={cn(
+            "p-6 md:p-8 lg:p-10 flex flex-col justify-center",
+            !isEven && "md:order-first",
+          )}
+        >
           <div className="mb-4">
             <span className="inline-block px-3 py-1 bg-citius-orange/10 text-citius-orange text-xs font-medium rounded-full mb-3">
               {site.significance}
@@ -130,7 +129,8 @@ export default function SacredSitesVisual({ className }) {
             The Path of <span className="text-citius-blue italic">Transformation</span>
           </h2>
           <p className="font-sans text-base md:text-xl text-brand-muted max-w-2xl mx-auto leading-relaxed">
-            Each sacred site along the yatra holds profound spiritual significance. Understanding their meaning deepens the journey.
+            Each sacred site along the yatra holds profound spiritual significance. Understanding
+            their meaning deepens the journey.
           </p>
           <div className="w-16 md:w-24 h-px bg-citius-orange/30 mx-auto mt-6 md:mt-8" />
         </motion.div>
@@ -152,7 +152,8 @@ export default function SacredSitesVisual({ className }) {
         >
           <div className="inline-block bg-brand-dark/5 rounded-2xl px-6 py-4 md:px-8 md:py-5">
             <p className="font-sans text-sm md:text-base text-brand-muted italic">
-              &ldquo;The mountain does not call those who are ready. It calls those who are willing to be transformed.&rdquo;
+              &ldquo;The mountain does not call those who are ready. It calls those who are willing
+              to be transformed.&rdquo;
             </p>
           </div>
         </motion.div>

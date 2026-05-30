@@ -1,9 +1,9 @@
 "use client";
 
+import { ArrowLeft, Building2, LogOut, Package } from "lucide-react";
+import { motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "motion/react";
-import { Building2, LogOut, ArrowLeft, Package } from "lucide-react";
 import { logout } from "@/lib/auth-client";
 import citiusLogo from "@/static/logos/logo.webp";
 
@@ -20,7 +20,9 @@ export default function VendorPageClient({ user }) {
           <Link href="/" className="flex items-center gap-3">
             <Image src={citiusLogo} alt="Citius Holidays" width={72} height={72} />
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-citius-orange">Citius Holidays</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-citius-orange">
+                Citius Holidays
+              </p>
               <p className="font-heading text-lg text-[#0B1026]">Vendor Portal</p>
             </div>
           </Link>
@@ -82,9 +84,7 @@ export default function VendorPageClient({ user }) {
               <ArrowLeft size={16} />
               Back to website
             </Link>
-            <p className="text-sm text-[#94a3b8]">
-              Signed in as {user?.email}
-            </p>
+            <p className="text-sm text-[#94a3b8]">Signed in as {user?.email}</p>
           </div>
         </motion.div>
       </main>

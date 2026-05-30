@@ -1,8 +1,8 @@
-import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
-import type { QueryCtx, MutationCtx } from "./_generated/server";
-import type { Doc } from "./_generated/dataModel";
 import type { UserIdentity } from "convex/server";
+import { ConvexError, v } from "convex/values";
+import type { Doc } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { syncAuthRecords } from "./lib/authSync";
 
 const now = () => Date.now();

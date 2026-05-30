@@ -1,14 +1,14 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, mutation, query } from "../_generated/server";
 import { internal } from "../_generated/api";
+import { internalMutation, mutation, query } from "../_generated/server";
 import {
-  PERMISSIONS,
   canSeeProposalRecord,
   canSeeQueryRecord,
   createActivity,
   deleteEntityNotifications,
   nextCode,
   notifyRoles,
+  PERMISSIONS,
   publicQuery,
   requireAnyPermission,
   requireStaff,
@@ -25,15 +25,8 @@ const publicFinalizedPdf = (proposal: any) =>
       }
     : null;
 
-function computeProposalCostPrice(
-  landCostPerPax: number,
-  airfarePerPax: number,
-  paxCount: number,
-) {
-  const pax = Math.max(paxCount, 1);
-  return (
-    (Math.max(landCostPerPax, 0) + Math.max(airfarePerPax, 0)) * pax
-  );
+function computeProposalCostPrice(landCostPerPax: number, airfarePerPax: number) {
+  return Math.max(landCostPerPax, 0) + Math.max(airfarePerPax, 0);
 }
 
 const publicProposal = (proposal: any, linkedQuery: any, attachments: any[] = []) => ({
@@ -47,14 +40,13 @@ const publicProposal = (proposal: any, linkedQuery: any, attachments: any[] = []
   airfarePerPax: proposal.airfarePerPax ?? 0,
   sellingPrice: proposal.sellingPrice ?? 0,
   costPrice: proposal.costPrice ?? 0,
+  taxRate: proposal.taxRate ?? null,
   pricingEnteredAt: proposal.pricingEnteredAt
     ? new Date(proposal.pricingEnteredAt).toISOString()
     : null,
   itinerarySummary: proposal.itinerarySummary ?? "",
   status: proposal.status,
-  attachments: attachments
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .map(publicProposalAttachment),
+  attachments: attachments.sort((a, b) => b.createdAt - a.createdAt).map(publicProposalAttachment),
   finalizedPdf: publicFinalizedPdf(proposal),
   sentAt: proposal.sentAt ? new Date(proposal.sentAt).toISOString() : null,
   createdAt: new Date(proposal.createdAt).toISOString(),
@@ -98,6 +90,7 @@ export const create = mutation({
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
     sellingPrice: v.optional(v.number()),
+    taxRate: v.optional(v.union(v.literal(5), v.literal(18))),
     itinerarySummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -114,13 +107,8 @@ export const create = mutation({
     const now = Date.now();
     const landCostPerPax = args.landCostPerPax ?? 0;
     const airfarePerPax = args.airfarePerPax ?? 0;
-    const costPrice = computeProposalCostPrice(
-      landCostPerPax,
-      airfarePerPax,
-      linkedQuery?.paxCount ?? 1,
-    );
-    const hasPricing =
-      args.sellingPrice !== undefined || landCostPerPax > 0 || airfarePerPax > 0;
+    const costPrice = computeProposalCostPrice(landCostPerPax, airfarePerPax);
+    const hasPricing = args.sellingPrice !== undefined || landCostPerPax > 0 || airfarePerPax > 0;
     const proposalCode = await nextCode(ctx, "proposals", "P");
     const clientName = linkedQuery?.clientName || args.clientName?.trim() || "Unlinked client";
     const id = await ctx.db.insert("proposals", {
@@ -132,6 +120,7 @@ export const create = mutation({
       airfarePerPax,
       sellingPrice: Math.max(args.sellingPrice ?? 0, 0),
       costPrice,
+      taxRate: args.taxRate,
       pricingEnteredAt: hasPricing ? now : undefined,
       itinerarySummary: args.itinerarySummary?.trim() || "",
       status: "Draft",
@@ -159,6 +148,7 @@ export const update = mutation({
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
     sellingPrice: v.optional(v.number()),
+    taxRate: v.optional(v.union(v.literal(5), v.literal(18))),
     itinerarySummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -179,9 +169,7 @@ export const update = mutation({
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     let linkedQuery = currentLinkedQuery;
     if (args.queryId !== undefined) {
-      const queryId = args.queryId
-        ? ctx.db.normalizeId("queries", args.queryId)
-        : null;
+      const queryId = args.queryId ? ctx.db.normalizeId("queries", args.queryId) : null;
       if (args.queryId && !queryId) {
         throw new ConvexError("Invalid query id");
       }
@@ -210,17 +198,16 @@ export const update = mutation({
     if (args.itinerarySummary !== undefined) {
       patch.itinerarySummary = args.itinerarySummary.trim();
     }
+    if (args.taxRate !== undefined) {
+      patch.taxRate = args.taxRate;
+    }
 
     const landCostPerPax =
       (patch.landCostPerPax as number | undefined) ?? proposal.landCostPerPax ?? 0;
     const airfarePerPax =
       (patch.airfarePerPax as number | undefined) ?? proposal.airfarePerPax ?? 0;
     if (args.landCostPerPax !== undefined || args.airfarePerPax !== undefined) {
-      patch.costPrice = computeProposalCostPrice(
-        landCostPerPax,
-        airfarePerPax,
-        linkedQuery?.paxCount ?? 1,
-      );
+      patch.costPrice = computeProposalCostPrice(landCostPerPax, airfarePerPax);
       patch.pricingEnteredAt = Date.now();
     }
 

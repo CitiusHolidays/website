@@ -8,10 +8,12 @@ import {
 } from "./constants";
 
 export function getPaymentTermForQueryType(queryType) {
-  return PAYMENT_TERMS_BY_QUERY_TYPE[queryType] || {
-    minAdvancePercent: 70,
-    maxAdvancePercent: 100,
-  };
+  return (
+    PAYMENT_TERMS_BY_QUERY_TYPE[queryType] || {
+      minAdvancePercent: 70,
+      maxAdvancePercent: 100,
+    }
+  );
 }
 
 export function getPipelineStage(query) {

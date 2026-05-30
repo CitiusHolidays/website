@@ -8,11 +8,7 @@ const POSTS_QUERY = `*[
 ]|order(publishedAt desc)[0...12]{_id, title, slug, publishedAt, mainImage}`;
 
 export default async function IndexPage() {
-  const posts = await client.fetch(
-    POSTS_QUERY,
-    {},
-    sanityFetchOptions.blogIndex,
-  );
+  const posts = await client.fetch(POSTS_QUERY, {}, sanityFetchOptions.blogIndex);
 
   return <BlogPageClient posts={posts} />;
 }

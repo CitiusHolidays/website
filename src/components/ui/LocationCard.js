@@ -1,6 +1,6 @@
 "use client";
-import { motion } from "motion/react";
 import { MapPin, Phone } from "lucide-react";
+import { motion } from "motion/react";
 
 export default function LocationCard({ city, address, phone, mapUrl, index }) {
   return (

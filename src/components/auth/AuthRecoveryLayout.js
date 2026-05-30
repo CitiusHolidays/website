@@ -1,7 +1,7 @@
 "use client";
 
+import { Compass, Map as MapIcon, Shield, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
-import { Compass, Sparkles, Shield, Map as MapIcon } from "lucide-react";
 
 export const BRAND_NAME = "Citius Holidays";
 
@@ -42,7 +42,9 @@ export default function AuthRecoveryLayout({
           >
             <div className="mb-2 flex items-center gap-3">
               <Compass className="h-6 w-6 text-[#d4af37]" />
-              <span className="text-sm uppercase tracking-[0.2em] text-[#d4af37]">{BRAND_NAME}</span>
+              <span className="text-sm uppercase tracking-[0.2em] text-[#d4af37]">
+                {BRAND_NAME}
+              </span>
             </div>
             <h1 className="font-heading mt-6 text-5xl font-medium leading-[1.1] tracking-tight lg:text-6xl">
               {panelHeading}
@@ -77,9 +79,12 @@ export default function AuthRecoveryLayout({
                 <Sparkles className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-heading mb-1 text-lg font-medium text-white">Curated journeys</h3>
+                <h3 className="font-heading mb-1 text-lg font-medium text-white">
+                  Curated journeys
+                </h3>
                 <p className="text-sm font-light leading-relaxed text-white/60">
-                  Pilgrimages and bespoke travel, crafted by the {BRAND_NAME} team you already trust.
+                  Pilgrimages and bespoke travel, crafted by the {BRAND_NAME} team you already
+                  trust.
                 </p>
               </div>
             </div>
@@ -89,7 +94,9 @@ export default function AuthRecoveryLayout({
                 <MapIcon className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="font-heading mb-1 text-lg font-medium text-white">Seamless support</h3>
+                <h3 className="font-heading mb-1 text-lg font-medium text-white">
+                  Seamless support
+                </h3>
                 <p className="text-sm font-light leading-relaxed text-white/60">
                   Questions about your trip or account? Our team is only a message away.
                 </p>

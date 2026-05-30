@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  filterByPeriod,
-  isInPeriod,
-  parseRowDate,
-  resolvePeriodRange,
-} from "./periodFilter.js";
+import { filterByPeriod, isInPeriod, parseRowDate, resolvePeriodRange } from "./periodFilter.js";
 
 describe("periodFilter", () => {
   it("returns null range for all time", () => {
@@ -13,9 +8,7 @@ describe("periodFilter", () => {
 
   it("parses ISO and date-only values", () => {
     expect(parseRowDate("2026-01-15")).toBe(new Date("2026-01-15T00:00:00").getTime());
-    expect(parseRowDate("2026-01-15T10:00:00.000Z")).toBe(
-      Date.parse("2026-01-15T10:00:00.000Z"),
-    );
+    expect(parseRowDate("2026-01-15T10:00:00.000Z")).toBe(Date.parse("2026-01-15T10:00:00.000Z"));
   });
 
   it("filters rows by createdAt within the selected period", () => {

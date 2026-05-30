@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from "motion/react";
-import Image from "next/image";
 import { Ticker } from "motion-plus/react";
+import Image from "next/image";
 import AbuDhabi from "@/static/partners/abudhabi.webp";
 import Accor from "@/static/partners/accor.webp";
 import AirIndia from "@/static/partners/airindia.webp";
@@ -144,9 +144,7 @@ function PartnerBox({ src, alt }) {
 }
 
 export default function PartnerShowcase({ className }) {
-  const items = partners.map((logo, idx) => (
-    <PartnerBox key={idx} src={logo.src} alt={logo.alt} />
-  ));
+  const items = partners.map((logo, idx) => <PartnerBox key={idx} src={logo.src} alt={logo.alt} />);
 
   return (
     <motion.section

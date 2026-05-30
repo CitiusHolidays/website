@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { motion } from "motion/react";
 import AnimatedSection from "../../components/layout/AnimatedSection";
@@ -33,21 +33,20 @@ export default function GalleryPageClient({ images }) {
             transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
             className="text-lg md:text-xl text-brand-light"
           >
-            Browse memorable moments and events curated by Citius across the
-            globe.
+            Browse memorable moments and events curated by Citius across the globe.
           </motion.p>
         </div>
       </section>
       {/* <AnimatedSection className="py-16 bg-white px-4"> */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          viewport={{ once: true, amount: 0.1 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="py-16 bg-[url('/gallery/bgfooter.webp')] bg-center px-4"
-        >
-          <GalleryGrid images={images} className="max-w-6xl mx-auto" />
-        </motion.div>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true, amount: 0.1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="py-16 bg-[url('/gallery/bgfooter.webp')] bg-center px-4"
+      >
+        <GalleryGrid images={images} className="max-w-6xl mx-auto" />
+      </motion.div>
       {/* </AnimatedSection> */}
     </>
   );

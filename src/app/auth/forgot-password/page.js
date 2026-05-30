@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { Mail, ArrowRight, ArrowLeft } from 'lucide-react';
-import { authClient } from '@/lib/auth-client';
-import AuthRecoveryLayout from '@/components/auth/AuthRecoveryLayout';
+import { ArrowLeft, ArrowRight, Mail } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import AuthRecoveryLayout from "@/components/auth/AuthRecoveryLayout";
+import { authClient } from "@/lib/auth-client";
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState({ type: '', message: '' });
+  const [status, setStatus] = useState({ type: "", message: "" });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setStatus({ type: '', message: '' });
+    setStatus({ type: "", message: "" });
 
     try {
       const { error } = await authClient.forgetPassword({
@@ -23,16 +23,16 @@ export default function ForgotPasswordPage() {
       });
 
       if (error) {
-        setStatus({ type: 'error', message: error.message || 'Failed to send reset link.' });
+        setStatus({ type: "error", message: error.message || "Failed to send reset link." });
       } else {
         setStatus({
-          type: 'success',
+          type: "success",
           message:
-            'Reset link sent! Please check your inbox for instructions to reset your password.',
+            "Reset link sent! Please check your inbox for instructions to reset your password.",
         });
       }
     } catch (err) {
-      setStatus({ type: 'error', message: err.message || 'An unexpected error occurred.' });
+      setStatus({ type: "error", message: err.message || "An unexpected error occurred." });
     } finally {
       setIsLoading(false);
     }
@@ -52,23 +52,27 @@ export default function ForgotPasswordPage() {
       {status.message ? (
         <div
           className={`mb-6 rounded-xl border p-4 text-sm ${
-            status.type === 'success'
-              ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
-              : 'border-red-100 bg-red-50 text-red-600'
+            status.type === "success"
+              ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+              : "border-red-100 bg-red-50 text-red-600"
           }`}
         >
           {status.message}
         </div>
       ) : null}
 
-      {status.type !== 'success' ? (
+      {status.type !== "success" ? (
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="group">
-            <label className="mb-1.5 ml-1 block text-sm font-medium text-[#0f172a]">
+            <label
+              htmlFor="forgot-email"
+              className="mb-1.5 ml-1 block text-sm font-medium text-[#0f172a]"
+            >
               Email address
             </label>
             <div className="relative">
               <input
+                id="forgot-email"
                 type="email"
                 required
                 value={email}
@@ -86,7 +90,7 @@ export default function ForgotPasswordPage() {
             className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#0B1026] py-4 text-lg font-medium text-white shadow-lg shadow-[#0B1026]/20 transition-all duration-300 hover:shadow-xl hover:shadow-[#0B1026]/30"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 transition-opacity group-hover:opacity-90" />
-            <span className="relative z-10">{isLoading ? 'Sending...' : 'Send reset link'}</span>
+            <span className="relative z-10">{isLoading ? "Sending..." : "Send reset link"}</span>
             {!isLoading ? (
               <ArrowRight className="relative z-10 h-5 w-5 transition-transform group-hover:translate-x-1" />
             ) : null}

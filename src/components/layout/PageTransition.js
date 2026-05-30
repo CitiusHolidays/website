@@ -17,7 +17,7 @@ export default function PageTransition({ children }) {
           duration: 0.5,
           ease: [0.22, 1, 0.36, 1],
           opacity: { duration: 0.3 },
-          y: { duration: 0.4 }
+          y: { duration: 0.4 },
         }}
         style={{ willChange: "transform, opacity" }}
       >

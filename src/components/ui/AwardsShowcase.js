@@ -1,6 +1,6 @@
 import { Award, Medal, Ribbon, Star, Trophy } from "lucide-react";
-import { cn } from "../../utils/cn";
 import { motion } from "motion/react";
+import { cn } from "../../utils/cn";
 
 const awards = [
   {
@@ -43,10 +43,7 @@ const itemVariants = {
 export default function AwardsShowcase({ className }) {
   return (
     <motion.section
-      className={cn(
-        "py-20 bg-gradient-to-br from-citius-blue to-brand-dark text-white",
-        className
-      )}
+      className={cn("py-20 bg-gradient-to-br from-citius-blue to-brand-dark text-white", className)}
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, amount: 0.2 }}
@@ -59,12 +56,10 @@ export default function AwardsShowcase({ className }) {
           transition={{ duration: 0.6 }}
           className="mb-12"
         >
-          <h2 className="text-3xl font-bold md:text-4xl mb-4">
-            Recognized for Excellence
-          </h2>
+          <h2 className="text-3xl font-bold md:text-4xl mb-4">Recognized for Excellence</h2>
           <p className="text-brand-light/80 max-w-2xl mx-auto text-lg">
-            Our commitment to quality and service has been acknowledged by
-            industry leaders worldwide.
+            Our commitment to quality and service has been acknowledged by industry leaders
+            worldwide.
           </p>
         </motion.div>
 
@@ -82,9 +77,7 @@ export default function AwardsShowcase({ className }) {
               >
                 <Icon className="w-10 h-10 text-citius-orange" />
               </motion.div>
-              <h3 className="mb-2 text-lg font-bold text-brand-dark leading-tight">
-                {title}
-              </h3>
+              <h3 className="mb-2 text-lg font-bold text-brand-dark leading-tight">{title}</h3>
               <p className="text-sm font-medium text-brand-muted">{year}</p>
             </motion.div>
           ))}

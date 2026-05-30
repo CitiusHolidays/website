@@ -1,44 +1,44 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
-import { motion, AnimatePresence } from "motion/react";
 import {
-  Map,
-  Heart,
-  Shield,
-  Users,
-  CheckCircle,
   AlertCircle,
-  Mountain,
-  Coffee,
-  FileText,
-  MapPin,
-  Star,
-  Sparkles,
-  Clock,
-  Calendar,
   ArrowRight,
-  Info,
-  Camera,
-  MessageSquare,
-  Video,
   BookOpen,
+  Calendar,
+  Camera,
+  CheckCircle,
+  Clock,
+  Coffee,
   ExternalLink,
-  Quote
+  FileText,
+  Heart,
+  Info,
+  Map as MapIcon,
+  MapPin,
+  MessageSquare,
+  Mountain,
+  Quote,
+  Shield,
+  Sparkles,
+  Star,
+  Users,
+  Video,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import Image from "next/image";
 import Link from "next/link";
-import { cn } from "../../utils/cn";
+import { useState } from "react";
 import { getTrailTestimonials, toYoutubeEmbedUrl } from "../../data/trails";
+import { cn } from "../../utils/cn";
 
 const TabButton = ({ active, onClick, label, icon: Icon }) => (
   <button
     onClick={onClick}
     className={cn(
       "flex items-center gap-2 px-4 py-2.5 md:px-6 md:py-3 text-xs md:text-sm font-heading tracking-wider transition-all rounded-full border uppercase whitespace-nowrap",
-      active 
-        ? "bg-citius-blue text-white border-citius-blue shadow-lg scale-105" 
-        : "bg-white text-brand-muted border-gray-200 hover:border-citius-blue/30 hover:text-citius-blue"
+      active
+        ? "bg-citius-blue text-white border-citius-blue shadow-lg scale-105"
+        : "bg-white text-brand-muted border-gray-200 hover:border-citius-blue/30 hover:text-citius-blue",
     )}
   >
     {Icon && <Icon className="w-3.5 h-3.5 md:w-4 md:h-4" />}
@@ -57,7 +57,7 @@ function HighlightsTab({ highlights }) {
       <h3 className="font-heading text-xl md:text-2xl text-citius-blue text-center mb-8">
         Sacred Sites Along the Journey
       </h3>
-      
+
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {highlights.map((site, idx) => (
           <motion.div
@@ -84,9 +84,7 @@ function HighlightsTab({ highlights }) {
               <MapPin className="w-3 h-3" />
               {site.location}
             </p>
-            <p className="text-sm text-brand-dark/80 leading-relaxed">
-              {site.description}
-            </p>
+            <p className="text-sm text-brand-dark/80 leading-relaxed">{site.description}</p>
           </motion.div>
         ))}
       </div>
@@ -126,11 +124,7 @@ function DayItineraryImage({ item, dayLabel }) {
           alt={image.alt || `${dayLabel} — ${item.title || "Itinerary"}`}
           fill
           className="object-cover"
-          style={
-            image.objectPosition
-              ? { objectPosition: image.objectPosition }
-              : undefined
-          }
+          style={image.objectPosition ? { objectPosition: image.objectPosition } : undefined}
           sizes="(max-width: 768px) 100vw, 360px"
         />
       </div>
@@ -317,7 +311,8 @@ function RegistrationAndPolicySection({ policy }) {
         )}
         {policy.fitnessCertificate && (
           <p className="mt-4 text-sm text-brand-muted border-t border-emerald-200/60 pt-4 leading-relaxed">
-            <strong className="text-brand-dark">Fitness certificate:</strong> {policy.fitnessCertificate}
+            <strong className="text-brand-dark">Fitness certificate:</strong>{" "}
+            {policy.fitnessCertificate}
           </p>
         )}
       </div>
@@ -339,7 +334,9 @@ function RegistrationAndPolicySection({ policy }) {
         )}
         {policy.refundTiers?.length > 0 && (
           <div className="space-y-3">
-            <p className="text-xs font-heading uppercase tracking-wider text-brand-dark">Refund policy</p>
+            <p className="text-xs font-heading uppercase tracking-wider text-brand-dark">
+              Refund policy
+            </p>
             <ul className="space-y-3">
               {policy.refundTiers.map((tier, i) => (
                 <li
@@ -427,9 +424,16 @@ function PackageDetailsTab({ trail }) {
             Transport Details
           </h4>
           <div className="space-y-2 text-sm text-brand-muted">
-            <p><strong className="text-brand-dark">Surface:</strong> {trail.details.transport.surface}</p>
-            <p><strong className="text-brand-dark">Flight:</strong> {trail.details.transport.flight}</p>
-            <p><strong className="text-brand-dark">Border:</strong> {trail.details.transport.border}</p>
+            <p>
+              <strong className="text-brand-dark">Surface:</strong>{" "}
+              {trail.details.transport.surface}
+            </p>
+            <p>
+              <strong className="text-brand-dark">Flight:</strong> {trail.details.transport.flight}
+            </p>
+            <p>
+              <strong className="text-brand-dark">Border:</strong> {trail.details.transport.border}
+            </p>
           </div>
         </div>
       )}
@@ -442,9 +446,16 @@ function PackageDetailsTab({ trail }) {
             Medical Support
           </h4>
           <div className="space-y-2 text-sm text-brand-muted">
-            <p><strong className="text-brand-dark">Support:</strong> {trail.details.medical.support}</p>
-            <p><strong className="text-brand-dark">Checkup:</strong> {trail.details.medical.checkup}</p>
-            <p><strong className="text-brand-dark">Emergency:</strong> {trail.details.medical.emergency}</p>
+            <p>
+              <strong className="text-brand-dark">Support:</strong> {trail.details.medical.support}
+            </p>
+            <p>
+              <strong className="text-brand-dark">Checkup:</strong> {trail.details.medical.checkup}
+            </p>
+            <p>
+              <strong className="text-brand-dark">Emergency:</strong>{" "}
+              {trail.details.medical.emergency}
+            </p>
           </div>
         </div>
       )}
@@ -471,7 +482,10 @@ function InfoTab({ info, layoutVariant }) {
             </h4>
             <ul className="space-y-2">
               {info.eligibility.map((item, i) => (
-                <li key={i} className="flex items-start gap-3 p-3 bg-brand-light/50 rounded-lg text-sm text-brand-muted">
+                <li
+                  key={i}
+                  className="flex items-start gap-3 p-3 bg-brand-light/50 rounded-lg text-sm text-brand-muted"
+                >
                   <div className="w-1.5 h-1.5 bg-citius-orange rounded-full mt-1.5 shrink-0" />
                   {item}
                 </li>
@@ -487,7 +501,10 @@ function InfoTab({ info, layoutVariant }) {
               </h4>
               <ul className="space-y-2">
                 {info.medicalRequirements.map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 p-3 bg-blue-50/50 rounded-lg text-sm text-brand-muted">
+                  <li
+                    key={i}
+                    className="flex items-start gap-3 p-3 bg-blue-50/50 rounded-lg text-sm text-brand-muted"
+                  >
                     <div className="w-1.5 h-1.5 bg-citius-blue rounded-full mt-1.5 shrink-0" />
                     {item}
                   </li>
@@ -507,7 +524,10 @@ function InfoTab({ info, layoutVariant }) {
               </h4>
               <ul className="space-y-2">
                 {info.whatToPack.map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 p-3 bg-orange-50/50 rounded-lg text-sm text-brand-muted">
+                  <li
+                    key={i}
+                    className="flex items-start gap-3 p-3 bg-orange-50/50 rounded-lg text-sm text-brand-muted"
+                  >
                     <div className="w-1.5 h-1.5 bg-citius-orange rounded-full mt-1.5 shrink-0" />
                     {item}
                   </li>
@@ -572,11 +592,15 @@ function InfoTab({ info, layoutVariant }) {
       {info.visa && (
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="bg-brand-dark rounded-xl p-5 text-white">
-            <p className="text-xs text-citius-orange uppercase tracking-wider mb-2">Travel Documents</p>
+            <p className="text-xs text-citius-orange uppercase tracking-wider mb-2">
+              Travel Documents
+            </p>
             <p className="text-sm text-white/80">{info.visa.title}</p>
           </div>
           <div className="bg-white rounded-xl p-5 border border-brand-light">
-            <p className="text-[10px] text-brand-muted uppercase tracking-wider mb-2">Digital Connection</p>
+            <p className="text-[10px] text-brand-muted uppercase tracking-wider mb-2">
+              Digital Connection
+            </p>
             <p className="text-sm text-brand-dark">{info.visa.connectivity}</p>
           </div>
         </div>
@@ -665,7 +689,13 @@ function BookingTab({ options }) {
         );
         if (isExternal) {
           return (
-            <a key={i} href={opt.href} className={className} target="_blank" rel="noopener noreferrer">
+            <a
+              key={i}
+              href={opt.href}
+              className={className}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               {inner}
             </a>
           );
@@ -699,7 +729,9 @@ function ReviewsTab({ testimonials }) {
               <Star key={i} className="w-4 h-4 fill-citius-orange text-citius-orange" />
             ))}
           </div>
-          <p className="text-sm text-brand-dark/90 leading-relaxed italic">&ldquo;{t.quote}&rdquo;</p>
+          <p className="text-sm text-brand-dark/90 leading-relaxed italic">
+            &ldquo;{t.quote}&rdquo;
+          </p>
           <p className="mt-4 text-sm font-heading text-citius-blue">{t.name}</p>
           <p className="text-xs text-brand-muted">
             {t.location}
@@ -794,7 +826,7 @@ export default function TrailSection({
   className,
   isAlternate,
   relatedBlogPosts = [],
-  embedded = false
+  embedded = false,
 }) {
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -814,7 +846,7 @@ export default function TrailSection({
     status,
     gallery = [],
     bookingOptions = [],
-    media
+    media,
   } = trail;
 
   const isAerial = layoutVariant === "aerial";
@@ -840,11 +872,8 @@ export default function TrailSection({
       className={cn(
         embedded
           ? "py-6 md:py-12 scroll-mt-20 bg-white"
-          : cn(
-              "py-16 md:py-32 scroll-mt-20",
-              isAlternate ? "bg-[#f8f5f2]" : "bg-white"
-            ),
-        className
+          : cn("py-16 md:py-32 scroll-mt-20", isAlternate ? "bg-[#f8f5f2]" : "bg-white"),
+        className,
       )}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -911,7 +940,8 @@ export default function TrailSection({
 
         {embedded && isComingSoon && (
           <p className="text-center text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-full py-2 px-4 mb-8 max-w-xl mx-auto">
-            This programme is not yet open for booking — explore the overview and register your interest below.
+            This programme is not yet open for booking — explore the overview and register your
+            interest below.
           </p>
         )}
 
@@ -944,7 +974,7 @@ export default function TrailSection({
               active={activeTab === "itinerary"}
               onClick={() => setActiveTab("itinerary")}
               label="Itinerary"
-              icon={Map}
+              icon={MapIcon}
             />
           )}
           {hasPackageDetails && (
@@ -1001,7 +1031,7 @@ export default function TrailSection({
         <div className="bg-white rounded-2xl md:rounded-3xl shadow-xl shadow-brand-dark/5 border border-brand-light p-5 md:p-10 lg:p-14 min-h-[400px] relative overflow-hidden">
           {/* Subtle decoration */}
           <div className="absolute top-0 right-0 w-48 md:w-64 h-48 md:h-64 bg-citius-orange/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl pointer-events-none" />
-          
+
           <AnimatePresence mode="wait">
             {activeTab === "overview" && overview && (
               <motion.div
@@ -1014,7 +1044,7 @@ export default function TrailSection({
                 <div
                   className={cn(
                     "grid gap-6 md:gap-12 items-start",
-                    overview.promise?.length ? "lg:grid-cols-5" : "lg:grid-cols-1"
+                    overview.promise?.length ? "lg:grid-cols-5" : "lg:grid-cols-1",
                   )}
                 >
                   <div className={overview.promise?.length ? "lg:col-span-3" : ""}>
@@ -1034,7 +1064,9 @@ export default function TrailSection({
                       )}
                       {overview.quote && (
                         <blockquote className="relative p-4 md:p-6 border-l-2 border-citius-orange bg-brand-light/30 italic my-6 md:my-8 text-lg md:text-xl">
-                          <span className="absolute -top-3 -left-1 text-4xl md:text-5xl text-citius-orange/20 font-serif">&ldquo;</span>
+                          <span className="absolute -top-3 -left-1 text-4xl md:text-5xl text-citius-orange/20 font-serif">
+                            &ldquo;
+                          </span>
                           {overview.quote}
                         </blockquote>
                       )}
@@ -1053,7 +1085,9 @@ export default function TrailSection({
                             <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-citius-orange/20 transition-colors">
                               <CheckCircle className="w-3 h-3 text-citius-orange" />
                             </div>
-                            <span className="font-sans text-sm text-white/80 leading-relaxed">{item}</span>
+                            <span className="font-sans text-sm text-white/80 leading-relaxed">
+                              {item}
+                            </span>
                           </li>
                         ))}
                       </ul>
@@ -1071,9 +1105,7 @@ export default function TrailSection({
               </motion.div>
             )}
 
-            {activeTab === "highlights" && highlights && (
-              <HighlightsTab highlights={highlights} />
-            )}
+            {activeTab === "highlights" && highlights && <HighlightsTab highlights={highlights} />}
 
             {activeTab === "itinerary" && itinerary && (
               <ItineraryTab
@@ -1082,38 +1114,24 @@ export default function TrailSection({
               />
             )}
 
-            {activeTab === "details" && details && (
-              <PackageDetailsTab trail={trail} />
-            )}
+            {activeTab === "details" && details && <PackageDetailsTab trail={trail} />}
 
-            {activeTab === "info" && info && (
-              <InfoTab info={info} layoutVariant={layoutVariant} />
-            )}
+            {activeTab === "info" && info && <InfoTab info={info} layoutVariant={layoutVariant} />}
 
-            {activeTab === "gallery" && hasGallery && (
-              <GalleryTab gallery={gallery} />
-            )}
+            {activeTab === "gallery" && hasGallery && <GalleryTab gallery={gallery} />}
 
-            {activeTab === "booking" && hasBooking && (
-              <BookingTab options={bookingOptions} />
-            )}
+            {activeTab === "booking" && hasBooking && <BookingTab options={bookingOptions} />}
 
-            {activeTab === "reviews" && hasReviews && (
-              <ReviewsTab testimonials={reviewsList} />
-            )}
+            {activeTab === "reviews" && hasReviews && <ReviewsTab testimonials={reviewsList} />}
 
-            {activeTab === "media" && hasMedia && (
-              <MediaTab media={media} />
-            )}
+            {activeTab === "media" && hasMedia && <MediaTab media={media} />}
 
-            {activeTab === "blogs" && hasBlogs && (
-              <BlogsTab posts={relatedBlogPosts} />
-            )}
+            {activeTab === "blogs" && hasBlogs && <BlogsTab posts={relatedBlogPosts} />}
           </AnimatePresence>
         </div>
-        
+
         {/* CTA Section */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -1123,18 +1141,17 @@ export default function TrailSection({
             {/* Decorative circles */}
             <div className="absolute -top-20 -right-20 w-40 h-40 bg-citius-orange/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-1000" />
             <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-citius-blue/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-1000" />
-            
+
             <div className="relative z-10">
               <h3 className="font-heading text-2xl md:text-3xl text-white mb-3 italic">
                 Ready for <span className="text-citius-orange">Transformation?</span>
               </h3>
               <p className="font-sans text-base md:text-lg text-white/60 mb-6 max-w-xl mx-auto">
-                {isAerial 
+                {isAerial
                   ? "Limited seats per charter. Book early for preferred dates."
-                  : "Multiple departure batches June–September 2026. Early registration recommended."
-                }
+                  : "Multiple departure batches June–September 2026. Early registration recommended."}
               </p>
-              <Link 
+              <Link
                 href="/contact"
                 className="inline-flex items-center gap-2 px-8 md:px-10 py-3.5 md:py-4 bg-citius-orange text-white font-heading tracking-wider text-sm rounded-full shadow-xl shadow-citius-orange/20 hover:shadow-citius-orange/40 hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0 transition-all duration-300"
               >

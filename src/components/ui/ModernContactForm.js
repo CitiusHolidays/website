@@ -1,14 +1,7 @@
 "use client";
+import { AlertCircle, FileText, Mail, MessageSquare, Phone, User } from "lucide-react";
 import { motion } from "motion/react";
-import {
-  AlertCircle,
-  FileText,
-  Mail,
-  MessageSquare,
-  Phone,
-  User,
-} from "lucide-react";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import AnimatedSubmitButton from "./AnimatedSubmitButton";
 import TurnstileWidget from "./TurnstileWidget";
@@ -50,9 +43,11 @@ export default function ModernContactForm() {
   }, []);
 
   const watchedValues = watch();
-  
+
   // Destructure the ref and other props from register for the message field
-  const { ref: messageFormRef, ...messageRegisterProps } = register("message", { required: "Message cannot be empty." });
+  const { ref: messageFormRef, ...messageRegisterProps } = register("message", {
+    required: "Message cannot be empty.",
+  });
 
   const handleMessageInput = (e) => {
     const textarea = e.target;
@@ -167,12 +162,10 @@ export default function ModernContactForm() {
   return (
     <div className="w-full max-w-md mx-auto">
       <div className="mb-8">
-        <h2 className="text-3xl font-bold text-blue-900 mb-2">
-          Let&apos;s Start a Conversation
-        </h2>
+        <h2 className="text-3xl font-bold text-blue-900 mb-2">Let&apos;s Start a Conversation</h2>
         <p className="text-gray-600">
-          Tell us about your travel or event needs, and we&apos;ll craft the
-          perfect solution for you.
+          Tell us about your travel or event needs, and we&apos;ll craft the perfect solution for
+          you.
         </p>
       </div>
 
@@ -197,10 +190,7 @@ export default function ModernContactForm() {
             <motion.div
               className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10"
               animate={{
-                scale:
-                  focusedField === field.name || watchedValues[field.name]
-                    ? 0.8
-                    : 1,
+                scale: focusedField === field.name || watchedValues[field.name] ? 0.8 : 1,
               }}
               transition={{ duration: 0.2 }}
             >
@@ -221,15 +211,12 @@ export default function ModernContactForm() {
                   focusedField === field.name || watchedValues[field.name]
                     ? -8 // Adjusted for better positioning
                     : 0,
-                scale:
-                  focusedField === field.name || watchedValues[field.name]
-                    ? 0.85
-                    : 1,
+                scale: focusedField === field.name || watchedValues[field.name] ? 0.85 : 1,
                 color: errors[field.name]
                   ? "#EF4444" // red-500
                   : focusedField === field.name
-                  ? "#F58220" // Example: orange-500
-                  : "#6B7280", // gray-500
+                    ? "#F58220" // Example: orange-500
+                    : "#6B7280", // gray-500
               }}
               transition={{ duration: 0.2 }}
             >
@@ -264,8 +251,7 @@ export default function ModernContactForm() {
           <motion.div
             className="absolute left-4 top-5 z-10"
             animate={{
-              scale:
-                focusedField === "message" || watchedValues.message ? 0.8 : 1,
+              scale: focusedField === "message" || watchedValues.message ? 0.8 : 1,
             }}
             transition={{ duration: 0.2 }}
           >
@@ -280,19 +266,18 @@ export default function ModernContactForm() {
             animate={{
               y: focusedField === "message" || watchedValues.message ? -40 : 0,
               x: focusedField === "message" || watchedValues.message ? -8 : 0,
-              scale:
-                focusedField === "message" || watchedValues.message ? 0.85 : 1,
+              scale: focusedField === "message" || watchedValues.message ? 0.85 : 1,
               color: errors.message
                 ? "#EF4444"
                 : focusedField === "message"
-                ? "#F58220"
-                : "#6B7280",
+                  ? "#F58220"
+                  : "#6B7280",
             }}
             transition={{ duration: 0.2 }}
           >
             Message
           </motion.label>
-          
+
           <textarea
             id="message"
             {...messageRegisterProps} // Use the rest of the props from register

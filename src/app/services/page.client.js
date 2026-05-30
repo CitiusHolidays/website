@@ -13,7 +13,7 @@ export const generateMetadata = () => ({
 export default function ServicesPage() {
   return (
     <>
-      <div className="bg-[#0B1026] h-19"/>
+      <div className="bg-[#0B1026] h-19" />
       {/* <AnimatedSection className="relative py-20 px-4 bg-gradient-to-b from-brand-light via-white to-white overflow-hidden"> */}
       <AnimatedSection className="relative py-20 px-4 bg-[url('/gallery/bgfooter.webp')] bg-cover bg-center overflow-hidden">
         <div className="pointer-events-none absolute -top-20 -left-20 h-72 w-72 rounded-full bg-citius-blue/20 blur-3xl" />
@@ -34,9 +34,8 @@ export default function ServicesPage() {
             transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
             className="text-brand-muted max-w-2xl mx-auto"
           >
-            Discover our comprehensive suite of services crafted to make every
-            journey and event effortless, memorable, and aligned with your
-            business goals.
+            Discover our comprehensive suite of services crafted to make every journey and event
+            effortless, memorable, and aligned with your business goals.
           </motion.p>
         </div>
 

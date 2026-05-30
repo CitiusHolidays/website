@@ -1,8 +1,8 @@
 "use node";
 
 import { ConvexError, v } from "convex/values";
-import { action } from "../_generated/server";
 import { api, internal } from "../_generated/api";
+import { action } from "../_generated/server";
 import { PERMISSIONS } from "./lib";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
@@ -18,8 +18,7 @@ const ALLOWED_MIME_PREFIXES = [
 function isAllowedMimeType(mimeType: string) {
   const normalized = mimeType.trim().toLowerCase();
   return Boolean(
-    normalized &&
-      ALLOWED_MIME_PREFIXES.some((prefix) => normalized.startsWith(prefix)),
+    normalized && ALLOWED_MIME_PREFIXES.some((prefix) => normalized.startsWith(prefix)),
   );
 }
 
@@ -31,11 +30,14 @@ function canManageExpenseFiles(access: any) {
   );
 }
 
-async function buildDownloadFile(ctx: any, record: {
-  storageId: string;
-  fileName: string;
-  mimeType: string;
-}) {
+async function buildDownloadFile(
+  ctx: any,
+  record: {
+    storageId: string;
+    fileName: string;
+    mimeType: string;
+  },
+) {
   const blob = await ctx.storage.get(record.storageId);
   if (!blob) {
     throw new ConvexError("File is no longer available");
@@ -74,10 +76,9 @@ export const attachProof = action({
       throw new ConvexError("FORBIDDEN");
     }
 
-    const { id: expenseId } = await ctx.runQuery(
-      api.crm.expenseAttachments.verifyExpenseAccess,
-      { expenseId: args.expenseId },
-    );
+    const { id: expenseId } = await ctx.runQuery(api.crm.expenseAttachments.verifyExpenseAccess, {
+      expenseId: args.expenseId,
+    });
 
     if (!isAllowedMimeType(args.mimeType)) {
       try {
@@ -138,10 +139,9 @@ export const getDownloadUrl = action({
       throw new ConvexError("FORBIDDEN");
     }
 
-    const record = await ctx.runQuery(
-      api.crm.expenseAttachments.getAttachmentRecord,
-      { attachmentId: args.attachmentId },
-    );
+    const record = await ctx.runQuery(api.crm.expenseAttachments.getAttachmentRecord, {
+      attachmentId: args.attachmentId,
+    });
     if (!record?.storageId) {
       throw new ConvexError("Attachment not found");
     }
@@ -163,10 +163,9 @@ export const getDownloadFile = action({
       throw new ConvexError("FORBIDDEN");
     }
 
-    const record = await ctx.runQuery(
-      api.crm.expenseAttachments.getAttachmentRecord,
-      { attachmentId: args.attachmentId },
-    );
+    const record = await ctx.runQuery(api.crm.expenseAttachments.getAttachmentRecord, {
+      attachmentId: args.attachmentId,
+    });
     if (!record?.storageId) {
       throw new ConvexError("Attachment not found");
     }
@@ -185,10 +184,9 @@ export const removeProof = action({
       throw new ConvexError("FORBIDDEN");
     }
 
-    const record = await ctx.runQuery(
-      api.crm.expenseAttachments.getAttachmentRecord,
-      { attachmentId: args.attachmentId },
-    );
+    const record = await ctx.runQuery(api.crm.expenseAttachments.getAttachmentRecord, {
+      attachmentId: args.attachmentId,
+    });
     if (!record) {
       throw new ConvexError("Attachment not found");
     }

@@ -1,11 +1,7 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import {
-  PERMISSIONS,
-  canSeeJobCardRecord,
-  requireAnyPermission,
-} from "./lib";
+import { internalMutation, query } from "../_generated/server";
+import { canSeeJobCardRecord, PERMISSIONS, requireAnyPermission } from "./lib";
 
 async function requireVisibleExpense(ctx: any, expenseId: Id<"expenseEntries">) {
   const access = await requireAnyPermission(ctx, [
@@ -17,12 +13,15 @@ async function requireVisibleExpense(ctx: any, expenseId: Id<"expenseEntries">) 
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
-  const job = await ctx.db.get(expense.jobCardId);
-  const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
-  if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
-    throw new ConvexError("FORBIDDEN");
+  if (expense.jobCardId) {
+    const job = await ctx.db.get(expense.jobCardId);
+    const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    return { expense, job };
   }
-  return { expense, job };
+  return { expense, job: null };
 }
 
 export const verifyExpenseAccess = query({

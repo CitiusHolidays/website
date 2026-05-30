@@ -5,7 +5,7 @@ describe("portal file responses", () => {
   test("streams private no-store files with safe download headers", async () => {
     const response = portalFileResponse({
       base64: Buffer.from("passport bytes").toString("base64"),
-      fileName: "passport\"\r\nscan.pdf",
+      fileName: 'passport"\r\nscan.pdf',
       mimeType: "application/pdf",
     });
 

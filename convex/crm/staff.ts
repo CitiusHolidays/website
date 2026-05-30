@@ -1,12 +1,12 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query, internalMutation, internalQuery } from "../_generated/server";
 import { internal } from "../_generated/api";
+import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
 import { syncAuthRecords } from "../lib/authSync";
 import {
   ALL_ROLES,
-  PERMISSIONS,
   getPortalAccess,
   normalizeEmail,
+  PERMISSIONS,
   requireAnyPermission,
   requireStaff,
 } from "./lib";
@@ -77,7 +77,9 @@ export const listDirectory = query({
         function: staff.function ?? staff.roles.join(", "),
         mobile: staff.mobile ?? "",
         location: staff.location ?? (staff.officeId ? officeNames.get(staff.officeId) : "") ?? "",
-        isCurrentUser: access.staffId ? staff._id === access.staffId : normalizeEmail(staff.email) === normalizeEmail(access.email),
+        isCurrentUser: access.staffId
+          ? staff._id === access.staffId
+          : normalizeEmail(staff.email) === normalizeEmail(access.email),
       }));
   },
 });
@@ -107,9 +109,7 @@ export const upsertStaff = mutation({
       .query("staffUsers")
       .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
       .unique();
-    const normalizedStaffId = args.staffId
-      ? ctx.db.normalizeId("staffUsers", args.staffId)
-      : null;
+    const normalizedStaffId = args.staffId ? ctx.db.normalizeId("staffUsers", args.staffId) : null;
 
     if (normalizedStaffId) {
       const current = await ctx.db.get(normalizedStaffId);

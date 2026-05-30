@@ -1,12 +1,12 @@
 /**
  * Razorpay Client Helper
- * 
+ *
  * Initializes and exports the Razorpay SDK client for use in API routes.
  * Razorpay is the standard payment gateway for UPI, Netbanking, and Cards in India.
  */
 
-import Razorpay from 'razorpay';
-import crypto from 'crypto';
+import crypto from "crypto";
+import Razorpay from "razorpay";
 
 // Validate environment variables
 const keyId = process.env.RAZORPAY_KEY_ID;
@@ -14,8 +14,8 @@ const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
 if (!keyId || !keySecret) {
   console.warn(
-    'Razorpay credentials not configured. ' +
-    'Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env.local'
+    "Razorpay credentials not configured. " +
+      "Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env.local",
   );
 }
 
@@ -26,7 +26,7 @@ let razorpayInstance = null;
 export function getRazorpay() {
   if (!razorpayInstance) {
     if (!keyId || !keySecret) {
-      throw new Error('Razorpay credentials not configured');
+      throw new Error("Razorpay credentials not configured");
     }
     razorpayInstance = new Razorpay({
       key_id: keyId,
@@ -38,7 +38,7 @@ export function getRazorpay() {
 
 /**
  * Create a Razorpay order for payment
- * 
+ *
  * @param {Object} options
  * @param {number} options.amount - Amount in smallest currency unit (paise for INR)
  * @param {string} options.currency - Currency code ('INR' or 'USD')
@@ -46,9 +46,9 @@ export function getRazorpay() {
  * @param {Object} options.notes - Additional metadata
  * @returns {Promise<Object>} Razorpay order object
  */
-export async function createOrder({ amount, currency = 'INR', receipt, notes = {} }) {
+export async function createOrder({ amount, currency = "INR", receipt, notes = {} }) {
   const razorpay = getRazorpay();
-  
+
   const options = {
     amount, // Amount in paise (smallest currency unit)
     currency,
@@ -61,7 +61,7 @@ export async function createOrder({ amount, currency = 'INR', receipt, notes = {
     const order = await razorpay.orders.create(options);
     return order;
   } catch (error) {
-    console.error('Razorpay order creation failed:', error);
+    console.error("Razorpay order creation failed:", error);
     throw new Error(`Failed to create Razorpay order: ${error.message}`);
   }
 }
@@ -69,7 +69,7 @@ export async function createOrder({ amount, currency = 'INR', receipt, notes = {
 /**
  * Verify Razorpay payment signature
  * This is critical for security - always verify before confirming a booking
- * 
+ *
  * @param {Object} params
  * @param {string} params.orderId - Razorpay order ID
  * @param {string} params.paymentId - Razorpay payment ID
@@ -78,17 +78,14 @@ export async function createOrder({ amount, currency = 'INR', receipt, notes = {
  */
 export function verifyPaymentSignature({ orderId, paymentId, signature }) {
   if (!keySecret) {
-    throw new Error('Razorpay key secret not configured');
+    throw new Error("Razorpay key secret not configured");
   }
 
   // Razorpay signature verification formula:
   // signature = HMAC-SHA256(orderId + "|" + paymentId, secret)
-  const body = orderId + '|' + paymentId;
-  
-  const expectedSignature = crypto
-    .createHmac('sha256', keySecret)
-    .update(body)
-    .digest('hex');
+  const body = orderId + "|" + paymentId;
+
+  const expectedSignature = crypto.createHmac("sha256", keySecret).update(body).digest("hex");
 
   return expectedSignature === signature;
 }
@@ -96,7 +93,7 @@ export function verifyPaymentSignature({ orderId, paymentId, signature }) {
 /**
  * Verify Razorpay webhook signature
  * Used to validate incoming webhook requests
- * 
+ *
  * @param {string} body - Raw request body as string
  * @param {string} signature - X-Razorpay-Signature header value
  * @param {string} webhookSecret - Webhook secret from Razorpay dashboard
@@ -104,20 +101,17 @@ export function verifyPaymentSignature({ orderId, paymentId, signature }) {
  */
 export function verifyWebhookSignature(body, signature, webhookSecret) {
   if (!webhookSecret) {
-    throw new Error('Webhook secret not provided');
+    throw new Error("Webhook secret not provided");
   }
 
-  const expectedSignature = crypto
-    .createHmac('sha256', webhookSecret)
-    .update(body)
-    .digest('hex');
+  const expectedSignature = crypto.createHmac("sha256", webhookSecret).update(body).digest("hex");
 
   return expectedSignature === signature;
 }
 
 /**
  * Fetch order details from Razorpay
- * 
+ *
  * @param {string} orderId - Razorpay order ID
  * @returns {Promise<Object>} Order details
  */
@@ -128,7 +122,7 @@ export async function fetchOrder(orderId) {
 
 /**
  * Fetch payment details from Razorpay
- * 
+ *
  * @param {string} paymentId - Razorpay payment ID
  * @returns {Promise<Object>} Payment details
  */
@@ -139,7 +133,7 @@ export async function fetchPayment(paymentId) {
 
 /**
  * Initiate a refund for a payment
- * 
+ *
  * @param {string} paymentId - Razorpay payment ID
  * @param {number} amount - Amount to refund (optional, full refund if not specified)
  * @returns {Promise<Object>} Refund details
@@ -152,14 +146,3 @@ export async function createRefund(paymentId, amount = null) {
 
 // Export the key ID for frontend use (this is safe to expose)
 export const razorpayKeyId = keyId;
-
-
-
-
-
-
-
-
-
-
-

@@ -9,7 +9,9 @@ const AUTH_TAG_LENGTH = 16; // 128 bits
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) {
-    throw new Error("ENCRYPTION_KEY environment variable is not configured. Base64 string required.");
+    throw new Error(
+      "ENCRYPTION_KEY environment variable is not configured. Base64 string required.",
+    );
   }
   return Buffer.from(key, "base64");
 }
@@ -87,7 +89,12 @@ export interface PassportDetailsPayload {
 }
 
 export function encryptPassportDetails(passportDetails: PassportDetailsPayload): string {
-  const required: Array<keyof PassportDetailsPayload> = ["number", "expiryDate", "nationality", "dateOfBirth"];
+  const required: Array<keyof PassportDetailsPayload> = [
+    "number",
+    "expiryDate",
+    "nationality",
+    "dateOfBirth",
+  ];
   for (const field of required) {
     if (!passportDetails[field]) {
       throw new Error(`Passport ${field} is required`);
@@ -103,6 +110,8 @@ export function encryptPassportDetails(passportDetails: PassportDetailsPayload):
   });
 }
 
-export function decryptPassportDetails(encryptedDetails: string): PassportDetailsPayload & { encryptedAt: string; issueDate?: string } {
+export function decryptPassportDetails(
+  encryptedDetails: string,
+): PassportDetailsPayload & { encryptedAt: string; issueDate?: string } {
   return decrypt(encryptedDetails, true);
 }

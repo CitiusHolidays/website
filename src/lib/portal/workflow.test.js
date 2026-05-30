@@ -48,7 +48,11 @@ describe("portal workflow helpers", () => {
   });
 
   test("computes expense total from card cash and e-pay amounts", () => {
-    expect(getExpenseSplitTotal({ cardAmount: "1000", cashAmount: "250", epayAmount: "99.5" })).toBe(1349.5);
-    expect(getExpenseSplitTotal({ cardAmount: "", cashAmount: null, epayAmount: undefined })).toBe(0);
+    expect(
+      getExpenseSplitTotal({ cardAmount: "1000", cashAmount: "250", epayAmount: "99.5" }),
+    ).toBe(1349.5);
+    expect(getExpenseSplitTotal({ cardAmount: "", cashAmount: null, epayAmount: undefined })).toBe(
+      0,
+    );
   });
 });

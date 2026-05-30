@@ -1,6 +1,6 @@
+import { getTrailsForHub } from "@/data/trails";
 import { client } from "@/sanity/client";
 import { sanityFetchOptions } from "@/sanity/fetchOptions";
-import { getTrailsForHub } from "@/data/trails";
 import PilgrimagePageClient from "./page.client";
 
 export const generateMetadata = () => ({
@@ -47,20 +47,14 @@ function mergeSpiritualTrailImages(data) {
     return i === -1 ? slugOrder.length : i;
   };
 
-  const docs = [...(data?.perTrail || [])].sort(
-    (a, b) => rank(a?.trailSlug) - rank(b?.trailSlug)
-  );
+  const docs = [...(data?.perTrail || [])].sort((a, b) => rank(a?.trailSlug) - rank(b?.trailSlug));
   const fromTrails = docs.flatMap((doc) => doc?.images?.filter(Boolean) || []);
   const legacy = data?.legacy?.filter(Boolean) || [];
   return dedupeImagesByAssetId([...fromTrails, ...legacy]);
 }
 
 export default async function PilgrimagePage() {
-  const data = await client.fetch(
-    GALLERY_QUERY,
-    {},
-    sanityFetchOptions.spiritual
-  );
+  const data = await client.fetch(GALLERY_QUERY, {}, sanityFetchOptions.spiritual);
   const images = mergeSpiritualTrailImages(data);
   return <PilgrimagePageClient images={images} />;
 }

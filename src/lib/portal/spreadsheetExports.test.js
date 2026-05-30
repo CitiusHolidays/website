@@ -2,9 +2,18 @@ import { describe, expect, test } from "bun:test";
 import {
   buildFlightWorkbook,
   buildPassengerWorkbook,
+  buildPassportWorkbook,
+  buildRoomingWorkbook,
+  buildVisaWorkbook,
   formatFoodPreferenceForExport,
 } from "./spreadsheetExports";
-import { parseFlightWorkbook, parsePassengerWorkbook } from "./spreadsheetImports";
+import {
+  parseFlightWorkbook,
+  parsePassengerWorkbook,
+  parsePassportWorkbook,
+  parseRoomingWorkbook,
+  parseVisaWorkbook,
+} from "./spreadsheetImports";
 
 describe("passenger spreadsheet exports", () => {
   test("builds a workbook that round-trips through the import parser", () => {
@@ -64,6 +73,63 @@ describe("passenger spreadsheet exports", () => {
     expect(formatFoodPreferenceForExport("Jain")).toBe("JAIN");
     expect(formatFoodPreferenceForExport("Vegan")).toBe("VEGAN");
     expect(formatFoodPreferenceForExport("Veg")).toBe("VEG");
+  });
+});
+
+describe("master-list sheet exports", () => {
+  const row = {
+    fullName: "GARG SANJAY",
+    sourceDealerName: "AGGARWAL APPLIANCES",
+    gender: "MALE",
+    roomType: "Twin",
+    hotelAllocation: "Twin",
+    foodPreference: "Non-Veg",
+    travelHub: "KOLKATA",
+    contactNo: "9836184644",
+    paymentType: "Self Paid",
+    passport: {
+      number: "Z4619953",
+      dateOfBirth: "1967-06-12",
+      issueDate: "2018-03-23",
+      expiryDate: "2028-03-22",
+    },
+    visa: {
+      status: "Approved",
+      appointmentDate: "2026-06-18",
+      notes: "Stamped",
+    },
+  };
+
+  test("builds a rooming workbook that the rooming parser reads", () => {
+    const parsed = parseRoomingWorkbook(buildRoomingWorkbook([row]));
+    expect(parsed.rows[0]).toMatchObject({
+      importKind: "rooming",
+      fullName: "GARG SANJAY",
+      roomType: "Twin",
+      foodPreference: "Non-Veg",
+    });
+  });
+
+  test("builds a passport workbook that the passport parser reads", () => {
+    const parsed = parsePassportWorkbook(buildPassportWorkbook([row]));
+    expect(parsed.rows[0]).toMatchObject({
+      importKind: "passport",
+      fullName: "GARG SANJAY",
+      passportStatus: "Received",
+    });
+    expect(parsed.rows[0].passport.number).toBe("Z4619953");
+  });
+
+  test("builds a visa workbook that the visa parser reads", () => {
+    const parsed = parseVisaWorkbook(buildVisaWorkbook([row]));
+    expect(parsed.rows[0]).toMatchObject({
+      importKind: "visa",
+      fullName: "GARG SANJAY",
+      visaStatus: "Approved",
+      paymentType: "Self Paid",
+      biometricAppointmentDate: "2026-06-18",
+      visaNotes: "Stamped",
+    });
   });
 });
 

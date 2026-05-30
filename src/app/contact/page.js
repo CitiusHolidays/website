@@ -7,7 +7,5 @@ export const generateMetadata = () => ({
 });
 
 export default function ContactPage() {
-  return (
-    <ContactPageClient />
-  );
+  return <ContactPageClient />;
 }

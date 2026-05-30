@@ -35,24 +35,89 @@ export const FLIGHT_EXPORT_HEADER = [
   "Transit",
 ];
 
-const PASSENGER_REQUIRED_HEADERS = [
-  "Name As per Govt. ID Proof",
-  "WILLING TO GO",
+export const ROOMING_EXPORT_HEADERS = [
+  "Sl.no.",
+  "Dealer Name",
+  "Gender",
+  "SURNAME",
+  "GIVEN NAME",
+  "ROOMING Category",
+  "REMARKS",
+  "Passport Number",
+  "Passport Issue date",
+  "Passport expiry date",
+  "Date of Birth As per passport",
+  "Place of Issue",
+  "Contact Number",
+  "Email id",
+  "Meal",
+  "Hub",
+  "Airlines International",
+  "Airlines Domestic ",
+  "",
 ];
+
+export const PASSPORT_EXPORT_HEADERS = [
+  "Sl.no.",
+  "Dealer Name",
+  "Gender",
+  "SURNAME",
+  "GIVEN NAME",
+  "Passport Number",
+  "Passport Issue date",
+  "Passport expiry date",
+  "PP Valid for Travel Yes /No",
+  "Date of Birth As per passport",
+  "Place of Issue",
+  "REMARKS:  Expiry PP / Under Renewal",
+  "Contact Number",
+];
+
+export const VISA_EXPORT_HEADERS = [
+  "Sl.no.",
+  "Dealer Name",
+  "Gender",
+  "SURNAME",
+  "GIVEN NAME",
+  "Passport Number",
+  "Passport Issue date",
+  "Passport expiry date",
+  "PP Valid for Travel Yes /No",
+  "Date of Birth As per passport",
+  "Place of Issue",
+  "REMARKS:  Expiry PP / Under Renewal",
+  "Contact Number",
+  "Biometric Required",
+  "Date of Appointmemt ",
+  "VFS Center ",
+  "Status Of Visa ",
+  "Company paid/ Self Paid",
+  "Amount",
+  "Remarks ",
+];
+
+const PASSENGER_REQUIRED_HEADERS = ["Name As per Govt. ID Proof", "WILLING TO GO"];
 
 function clean(value) {
   if (value instanceof Date) {
     return formatDateObject(value);
   }
-  return String(value ?? "").replace(/\s+/g, " ").trim();
+  return String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function headerKey(value) {
-  return clean(value).toLowerCase().replace(/[^a-z0-9]+/g, "");
+  return clean(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
 }
 
 function normalizedKey(value) {
-  return clean(value).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return clean(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function rowToHeaderMap(row) {
@@ -101,6 +166,18 @@ export async function parseFlightWorkbookFile(file) {
   return parseFlightWorkbook(workbookFromArrayBuffer(await file.arrayBuffer()));
 }
 
+export async function parseRoomingWorkbookFile(file) {
+  return parseRoomingWorkbook(workbookFromArrayBuffer(await file.arrayBuffer()));
+}
+
+export async function parsePassportWorkbookFile(file) {
+  return parsePassportWorkbook(workbookFromArrayBuffer(await file.arrayBuffer()));
+}
+
+export async function parseVisaWorkbookFile(file) {
+  return parseVisaWorkbook(workbookFromArrayBuffer(await file.arrayBuffer()));
+}
+
 function formatDateObject(value) {
   return [
     String(value.getFullYear()).padStart(4, "0"),
@@ -116,6 +193,43 @@ export function normalizeFoodPreference(value) {
   if (key.includes("jain")) return "Jain";
   if (key.includes("vegan")) return "Vegan";
   return "Veg";
+}
+
+export function normalizeRoomType(value, fallback = "Twin") {
+  const key = headerKey(value);
+  if (!key) return fallback;
+  if (key.includes("single") || key === "sgl") return "SGL";
+  if (key.includes("double") || key === "dbl") return "DBL";
+  if (key.includes("child")) return "Child with Bed";
+  if (key.includes("family") || key.includes("triple")) return "Family Room";
+  if (key.includes("twin")) return "Twin";
+  return fallback;
+}
+
+export function normalizePaymentType(value, fallback = "Company Paid") {
+  const key = headerKey(value);
+  if (!key) return fallback;
+  if (key.includes("upgrade")) return "Upgraded Self Paid";
+  if (key.includes("self")) return "Self Paid";
+  if (key.includes("company")) return "Company Paid";
+  return fallback;
+}
+
+export function normalizeVisaStatus(value) {
+  const key = headerKey(value);
+  if (!key) return "";
+  if (key.includes("notrequired")) return "Not Required";
+  if (key.includes("checklist")) return "Checklist Shared";
+  if (key.includes("documentpending") || key.includes("docpending")) return "Documents Pending";
+  if (key.includes("documentverified") || key.includes("docverified")) return "Documents Verified";
+  if (key.includes("appointment")) return "Appointment Scheduled";
+  if (key.includes("submitted")) return "Submitted";
+  if (key.includes("awaiting")) return "Awaiting";
+  if (key.includes("approved")) return "Approved";
+  if (key.includes("rejected")) return "Rejected";
+  if (key.includes("reapplied") || key.includes("reapply")) return "Re-applied";
+  if (key.includes("notstarted") || key.includes("pending")) return "Not Started";
+  return "";
 }
 
 export function normalizeImportedDate(value) {
@@ -180,6 +294,208 @@ function hasPassengerHeaders(row) {
   return PASSENGER_REQUIRED_HEADERS.every((header) => headers.includes(headerKey(header)));
 }
 
+function fullNameFromTemplateRow(row, headers) {
+  const fullName = clean(
+    getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"]),
+  );
+  if (fullName) return fullName;
+  return [
+    clean(getByHeader(row, headers, ["SURNAME", "Surname", "Last Name"])),
+    clean(getByHeader(row, headers, ["GIVEN NAME", "Given Name", "First Name"])),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function isPassportValidForTravel(value) {
+  const key = headerKey(value);
+  if (!key) return null;
+  if (
+    key === "no" ||
+    key === "n" ||
+    key.includes("invalid") ||
+    key.includes("renewal") ||
+    key.includes("expired")
+  )
+    return false;
+  if (key === "yes" || key === "y" || key.includes("valid")) return true;
+  return null;
+}
+
+function templateImportKey({ fullName, dateOfBirth, contactNo, passportNumber }) {
+  if (passportNumber) return `passport:${passportNumber.toUpperCase()}`;
+  return passengerImportKey({ fullName, dateOfBirth, contactNo });
+}
+
+function templateRowBase({ row, headers, sheetName, sourceRowNumber, importKind }) {
+  const fullName = fullNameFromTemplateRow(row, headers);
+  const dateOfBirth = normalizeImportedDate(
+    getByHeader(row, headers, ["Date of Birth As per passport", "Date of Birth", "DOB"]),
+  );
+  const contactNo = clean(
+    getByHeader(row, headers, ["Contact Number", "Contact No.", "Contact No", "Mobile", "Phone"]),
+  );
+  const passportNumber = clean(
+    getByHeader(row, headers, ["Passport Number", "Passport no", "Passport No.", "Passport no "]),
+  );
+  const passportIssueDate = normalizeImportedDate(
+    getByHeader(row, headers, [
+      "Passport Issue date",
+      "Passport Issus date",
+      "Passport Issue Date",
+    ]),
+  );
+  const passportExpiryDate = normalizeImportedDate(
+    getByHeader(row, headers, [
+      "Passport expiry date",
+      "Passport Exp",
+      "Passport Expiry",
+      "Passport Expiry Date",
+    ]),
+  );
+  const validForTravel = isPassportValidForTravel(
+    getByHeader(row, headers, ["PP Valid for Travel Yes /No", "PP Valid for Travel Yes/No"]),
+  );
+  const remarks = clean(
+    getByHeader(row, headers, [
+      "REMARKS",
+      "Remarks",
+      "REMARKS:  Expiry PP / Under Renewal",
+      "Remarks ",
+    ]),
+  );
+  const roomType = normalizeRoomType(
+    getByHeader(row, headers, ["ROOMING Category", "Rooming Category", "Room Type"]),
+  );
+  const visaStatus = normalizeVisaStatus(
+    getByHeader(row, headers, ["Status Of Visa", "Visa Status", "Status"]),
+  );
+
+  return {
+    id: `${sheetName}:${sourceRowNumber}`,
+    sourceSheet: sheetName,
+    sourceRowNumber,
+    importKind,
+    importKey: templateImportKey({ fullName, dateOfBirth, contactNo, passportNumber }),
+    fullName,
+    travelHub: clean(getByHeader(row, headers, ["Hub", "Travel Hub"])),
+    foodPreference: normalizeFoodPreference(
+      getByHeader(row, headers, ["Meal", "Meal Preference", "Food Preference"]),
+    ),
+    guestType: "Client",
+    paymentType: normalizePaymentType(
+      getByHeader(row, headers, ["Company paid/ Self Paid", "Payment Type"]),
+    ),
+    roomType,
+    visaRequired: visaStatus ? visaStatus !== "Not Required" : true,
+    domesticTravelRequired: false,
+    passportStatus: validForTravel === false ? "Pending" : passportNumber ? "Received" : "Pending",
+    specialRequests: remarks,
+    hotelAllocation: importKind === "rooming" ? roomType : "",
+    sourceDealerName: clean(getByHeader(row, headers, ["Dealer Name", "Name"])),
+    gender: clean(getByHeader(row, headers, ["Gender"])),
+    contactNo,
+    passport: {
+      number: passportNumber,
+      dateOfBirth,
+      issueDate: passportIssueDate,
+      expiryDate: passportExpiryDate,
+      nationality: "UNKNOWN",
+    },
+    visaStatus: visaStatus || undefined,
+    biometricAppointmentDate: normalizeImportedDate(
+      getByHeader(row, headers, [
+        "Date of Appointmemt ",
+        "Date of Appointment",
+        "Appointment Date",
+      ]),
+    ),
+    visaNotes: clean(getByHeader(row, headers, ["Remarks ", "Visa Remarks", "Notes"])),
+  };
+}
+
+function hasTemplateHeaders(row, requiredHeaders) {
+  const headers = row.map(headerKey);
+  return requiredHeaders.every((header) => headers.includes(headerKey(header)));
+}
+
+function parseTemplateWorkbook(workbook, { importKind, preferredSheetNames, requiredHeaders }) {
+  const rows = [];
+  const skipped = [];
+  const errors = [];
+  const seenPassengerKeys = new Set();
+  const preferred = new Set(preferredSheetNames.map(headerKey));
+  const matchingSheetNames = workbook.SheetNames.filter((sheetName) =>
+    preferred.has(headerKey(sheetName)),
+  );
+  const sheetNames = matchingSheetNames.length > 0 ? matchingSheetNames : workbook.SheetNames;
+
+  for (const sheetName of sheetNames) {
+    const rawRows = sheetRows(workbook.Sheets[sheetName]);
+    const headerIndex = rawRows.findIndex((row) => hasTemplateHeaders(row, requiredHeaders));
+    if (headerIndex < 0) continue;
+
+    const headers = rowToHeaderMap(rawRows[headerIndex]);
+    rawRows.slice(headerIndex + 1).forEach((row, offset) => {
+      const sourceRowNumber = headerIndex + offset + 2;
+      if (!hasAnyValue(row)) return;
+      const parsed = templateRowBase({ row, headers, sheetName, sourceRowNumber, importKind });
+      if (!parsed.fullName) {
+        errors.push({
+          id: parsed.id,
+          sourceSheet: sheetName,
+          sourceRowNumber,
+          message: "Row is missing SURNAME/GIVEN NAME or passenger name.",
+        });
+        return;
+      }
+
+      const duplicateKey = parsed.passport.number
+        ? `passport:${parsed.passport.number.toUpperCase()}`
+        : `row:${parsed.importKey}`;
+      if (seenPassengerKeys.has(duplicateKey)) {
+        skipped.push({
+          id: parsed.id,
+          sourceSheet: sheetName,
+          sourceRowNumber,
+          fullName: parsed.fullName,
+          status: "Duplicate",
+          reason: "Duplicate passenger row already included in this upload.",
+        });
+        return;
+      }
+      seenPassengerKeys.add(duplicateKey);
+      rows.push(parsed);
+    });
+  }
+
+  return { rows, skipped, errors };
+}
+
+export function parseRoomingWorkbook(workbook) {
+  return parseTemplateWorkbook(workbook, {
+    importKind: "rooming",
+    preferredSheetNames: ["Rooming"],
+    requiredHeaders: ["SURNAME", "GIVEN NAME", "ROOMING Category"],
+  });
+}
+
+export function parsePassportWorkbook(workbook) {
+  return parseTemplateWorkbook(workbook, {
+    importKind: "passport",
+    preferredSheetNames: ["Passport"],
+    requiredHeaders: ["SURNAME", "GIVEN NAME", "Passport Number"],
+  });
+}
+
+export function parseVisaWorkbook(workbook) {
+  return parseTemplateWorkbook(workbook, {
+    importKind: "visa",
+    preferredSheetNames: ["Visa"],
+    requiredHeaders: ["SURNAME", "GIVEN NAME", "Status Of Visa"],
+  });
+}
+
 export function parsePassengerWorkbook(workbook) {
   const rows = [];
   const skipped = [];
@@ -195,7 +511,9 @@ export function parsePassengerWorkbook(workbook) {
     rawRows.slice(headerIndex + 1).forEach((row, offset) => {
       const sourceRowNumber = headerIndex + offset + 2;
       const status = clean(getByHeader(row, headers, ["WILLING TO GO", "Status"])).toUpperCase();
-      const fullName = clean(getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"]));
+      const fullName = clean(
+        getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"]),
+      );
       const sourceRef = `${sheetName}:${sourceRowNumber}`;
 
       if (!fullName && !status) return;
@@ -220,14 +538,35 @@ export function parsePassengerWorkbook(workbook) {
         return;
       }
 
-      const dateOfBirth = normalizeImportedDate(getByHeader(row, headers, ["Date of Birth", "DOB"]));
-      const contactNo = clean(getByHeader(row, headers, ["Contact No.", "Contact No", "Mobile", "Phone"]));
-      const passportNumber = clean(getByHeader(row, headers, ["Passport no", "Passport no ", "Passport No.", "Passport Number"]));
-      const passportExpiryDate = normalizeImportedDate(getByHeader(row, headers, ["Passport Exp", "Passport Expiry", "Passport Expiry Date"]));
-      const passportIssueDate = normalizeImportedDate(getByHeader(row, headers, ["Passport Issus date", "Passport Issue Date", "Passport Issued Date"]));
+      const dateOfBirth = normalizeImportedDate(
+        getByHeader(row, headers, ["Date of Birth", "DOB"]),
+      );
+      const contactNo = clean(
+        getByHeader(row, headers, ["Contact No.", "Contact No", "Mobile", "Phone"]),
+      );
+      const passportNumber = clean(
+        getByHeader(row, headers, [
+          "Passport no",
+          "Passport no ",
+          "Passport No.",
+          "Passport Number",
+        ]),
+      );
+      const passportExpiryDate = normalizeImportedDate(
+        getByHeader(row, headers, ["Passport Exp", "Passport Expiry", "Passport Expiry Date"]),
+      );
+      const passportIssueDate = normalizeImportedDate(
+        getByHeader(row, headers, [
+          "Passport Issus date",
+          "Passport Issue Date",
+          "Passport Issued Date",
+        ]),
+      );
 
       const importKey = passengerImportKey({ fullName, dateOfBirth, contactNo });
-      const duplicateKey = passportNumber ? `passport:${passportNumber.toUpperCase()}` : `row:${importKey}`;
+      const duplicateKey = passportNumber
+        ? `passport:${passportNumber.toUpperCase()}`
+        : `row:${importKey}`;
       if (seenPassengerKeys.has(duplicateKey)) {
         skipped.push({
           id: sourceRef,
@@ -245,10 +584,13 @@ export function parsePassengerWorkbook(workbook) {
         id: sourceRef,
         sourceSheet: sheetName,
         sourceRowNumber,
+        importKind: "passenger",
         importKey,
         fullName,
         travelHub: clean(getByHeader(row, headers, ["Boarding Airport", "Travel Hub"])),
-        foodPreference: normalizeFoodPreference(getByHeader(row, headers, ["Meal Preference", "Food Preference"])),
+        foodPreference: normalizeFoodPreference(
+          getByHeader(row, headers, ["Meal Preference", "Food Preference"]),
+        ),
         guestType: "Client",
         paymentType: "Company Paid",
         roomType: "Twin",
@@ -279,7 +621,9 @@ export function parsePassengerWorkbook(workbook) {
 }
 
 function isFlightHeaderSlice(row, startIndex) {
-  return FLIGHT_EXPORT_HEADER.every((header, offset) => headerKey(row[startIndex + offset]) === headerKey(header));
+  return FLIGHT_EXPORT_HEADER.every(
+    (header, offset) => headerKey(row[startIndex + offset]) === headerKey(header),
+  );
 }
 
 function findFlightHeaderStart(row) {

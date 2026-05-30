@@ -1,32 +1,32 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from "next/link";
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'motion/react';
+import { api } from "@convex/_generated/api";
+import { useMutation } from "convex/react";
 import {
   ArrowRight,
-  Mail,
-  Lock,
+  Compass,
   Eye,
   EyeOff,
-  User,
-  Sparkles,
-  Compass,
+  Lock,
+  Mail,
   Map as MapIcon,
-} from 'lucide-react';
-import { signInWithEmail, signUpWithEmail, signInWithGoogle } from '@/lib/auth-client';
-import { getAuthVariant } from '@/lib/auth-sign-in-targets';
-import { useMutation } from 'convex/react';
-import { api } from '@convex/_generated/api';
-import citiusLogo from '@/static/logos/logo.webp';
-import Image from 'next/image';
+  Sparkles,
+  User,
+} from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-client";
+import { getAuthVariant } from "@/lib/auth-sign-in-targets";
+import citiusLogo from "@/static/logos/logo.webp";
 
 const HIGHLIGHT_ICONS = [Sparkles, MapIcon, Sparkles];
 
 export default function AuthLoginPageClient({
-  variantId = 'guest',
-  initialMode = 'signin',
+  variantId = "guest",
+  initialMode = "signin",
   error,
 }) {
   const variant = getAuthVariant(variantId);
@@ -34,16 +34,16 @@ export default function AuthLoginPageClient({
   const router = useRouter();
   const syncAuthIdentity = useMutation(api.authSync.syncMyAuthIdentity);
   const [mode, setMode] = useState(
-    !variant.allowSignup ? 'signin' : initialMode === 'signup' ? 'signup' : 'signin',
+    !variant.allowSignup ? "signin" : initialMode === "signup" ? "signup" : "signin",
   );
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [formError, setFormError] = useState(error || '');
+  const [formError, setFormError] = useState(error || "");
 
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    name: '',
+    email: "",
+    password: "",
+    name: "",
   });
   const [isVerificationSent, setIsVerificationSent] = useState(false);
 
@@ -51,8 +51,8 @@ export default function AuthLoginPageClient({
     if (!variant.allowSignup) {
       return;
     }
-    setMode(mode === 'signin' ? 'signup' : 'signin');
-    setFormError('');
+    setMode(mode === "signin" ? "signup" : "signin");
+    setFormError("");
   };
 
   const handleInputChange = (e) => {
@@ -65,22 +65,22 @@ export default function AuthLoginPageClient({
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setFormError('');
+    setFormError("");
 
     try {
-      if (mode === 'signin') {
+      if (mode === "signin") {
         const result = await signInWithEmail({
           email: formData.email,
           password: formData.password,
         });
 
         if (result?.error) {
-          setFormError(result.error.message || 'Failed to sign in');
+          setFormError(result.error.message || "Failed to sign in");
         } else {
           try {
             await syncAuthIdentity({});
           } catch (syncError) {
-            console.error('Failed to sync auth identity after sign in:', syncError);
+            console.error("Failed to sync auth identity after sign in:", syncError);
           }
           router.push(variant.href);
           router.refresh();
@@ -93,10 +93,10 @@ export default function AuthLoginPageClient({
         });
 
         if (result?.error) {
-          const message = result.error.message || 'Failed to sign up';
+          const message = result.error.message || "Failed to sign up";
           if (/already|exists|duplicate/i.test(message)) {
             setFormError(
-              'An account with this email already exists. Use Forgot password to set your password, or sign in with Google if you used it before.',
+              "An account with this email already exists. Use Forgot password to set your password, or sign in with Google if you used it before.",
             );
           } else {
             setFormError(message);
@@ -106,7 +106,7 @@ export default function AuthLoginPageClient({
         }
       }
     } catch (err) {
-      setFormError(err.message || 'An unexpected error occurred');
+      setFormError(err.message || "An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +117,7 @@ export default function AuthLoginPageClient({
     try {
       await signInWithGoogle(variant.href);
     } catch (err) {
-      setFormError('Failed to initialize Google sign in');
+      setFormError("Failed to initialize Google sign in");
       setIsLoading(false);
     }
   };
@@ -138,7 +138,7 @@ export default function AuthLoginPageClient({
     visible: {
       y: 0,
       opacity: 1,
-      transition: { type: 'spring', stiffness: 100, damping: 10 },
+      transition: { type: "spring", stiffness: 100, damping: 10 },
     },
   };
 
@@ -167,7 +167,9 @@ export default function AuthLoginPageClient({
           >
             <div className="flex items-center gap-3 mb-2">
               <Image src={citiusLogo} alt="Citius Holidays" width={100} height={100} />
-              <span className="text-sm uppercase tracking-[0.2em] text-citius-orange">{copy.brandLabel}</span>
+              <span className="text-sm uppercase tracking-[0.2em] text-citius-orange">
+                {copy.brandLabel}
+              </span>
             </div>
             <h1 className="font-heading text-5xl lg:text-6xl leading-[1.1] font-medium tracking-tight mt-6">
               {heroLines.map((line, index) => (
@@ -203,7 +205,9 @@ export default function AuthLoginPageClient({
                     <Icon className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-heading text-lg font-medium text-white mb-1">{highlight.title}</h3>
+                    <h3 className="font-heading text-lg font-medium text-white mb-1">
+                      {highlight.title}
+                    </h3>
                     <p className="text-white/60 text-sm font-light leading-relaxed">
                       {highlight.description}
                     </p>
@@ -234,17 +238,19 @@ export default function AuthLoginPageClient({
           <div className="md:hidden mb-8 text-center">
             <div className="flex items-center justify-center gap-2 mb-4">
               <Compass className="w-6 h-6 text-[#0B1026]" />
-              <span className="text-sm uppercase tracking-[0.2em] text-[#0B1026]">{copy.brandLabel}</span>
+              <span className="text-sm uppercase tracking-[0.2em] text-[#0B1026]">
+                {copy.brandLabel}
+              </span>
             </div>
             <h1 className="font-heading text-4xl text-[#0B1026]">{copy.mobileTitle}</h1>
           </div>
 
           <motion.div variants={itemVariants} className="mb-8">
             <h2 className="font-heading text-4xl md:text-5xl text-[#0B1026] mb-3">
-              {mode === 'signin' ? copy.signInTitle : copy.signUpTitle}
+              {mode === "signin" ? copy.signInTitle : copy.signUpTitle}
             </h2>
             <p className="text-[#0B1026]/60 font-light text-lg">
-              {mode === 'signin' ? copy.signInSubtitle : copy.signUpSubtitle}
+              {mode === "signin" ? copy.signInSubtitle : copy.signUpSubtitle}
             </p>
           </motion.div>
 
@@ -254,7 +260,10 @@ export default function AuthLoginPageClient({
               disabled={isLoading}
               className="w-full flex items-center justify-center gap-3 bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] hover:border-[#cbd5e1] text-[#0f172a] p-4 rounded-xl transition-all duration-300 group shadow-sm hover:shadow-md"
             >
-              <svg className="w-5 h-5 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+              <svg
+                className="w-5 h-5 transition-transform group-hover:scale-110"
+                viewBox="0 0 24 24"
+              >
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                   fill="#4285F4"
@@ -277,7 +286,9 @@ export default function AuthLoginPageClient({
 
             <div className="relative flex items-center py-2">
               <div className="grow border-t border-[#e2e8f0]"></div>
-              <span className="shrink-0 mx-4 text-[#94a3b8] text-sm font-light uppercase tracking-wider">Or continue with</span>
+              <span className="shrink-0 mx-4 text-[#94a3b8] text-sm font-light uppercase tracking-wider">
+                Or continue with
+              </span>
               <div className="grow border-t border-[#e2e8f0]"></div>
             </div>
           </motion.div>
@@ -288,10 +299,16 @@ export default function AuthLoginPageClient({
               animate={{ opacity: 1, scale: 1 }}
               className="bg-emerald-50 border border-green-100 rounded-2xl p-6 text-center space-y-4"
             >
-              <div className="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto text-2xl font-bold">✓</div>
-              <h3 className="font-heading text-2xl font-medium text-emerald-900">Check Your Email</h3>
+              <div className="w-12 h-12 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+                ✓
+              </div>
+              <h3 className="font-heading text-2xl font-medium text-emerald-900">
+                Check Your Email
+              </h3>
               <p className="text-emerald-700 text-sm leading-relaxed font-light">
-                We&apos;ve sent a verification link to <strong className="font-medium text-emerald-900">{formData.email}</strong>. Please click the link in the email to verify and activate your account.
+                We&apos;ve sent a verification link to{" "}
+                <strong className="font-medium text-emerald-900">{formData.email}</strong>. Please
+                click the link in the email to verify and activate your account.
               </p>
               <button
                 onClick={() => {
@@ -307,20 +324,26 @@ export default function AuthLoginPageClient({
             <>
               <form onSubmit={handleSubmit} className="space-y-5">
                 <AnimatePresence mode="wait">
-                  {mode === 'signup' && variant.allowSignup && (
+                  {mode === "signup" && variant.allowSignup && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
+                      animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.2 }}
                     >
                       <div className="group">
-                        <label className="block text-sm font-medium text-[#0f172a] mb-1.5 ml-1">Full Name</label>
+                        <label
+                          htmlFor="auth-name"
+                          className="block text-sm font-medium text-[#0f172a] mb-1.5 ml-1"
+                        >
+                          Full Name
+                        </label>
                         <div className="relative">
                           <input
+                            id="auth-name"
                             type="text"
                             name="name"
-                            required={mode === 'signup'}
+                            required={mode === "signup"}
                             value={formData.name}
                             onChange={handleInputChange}
                             className="w-full bg-white border border-[#e2e8f0] text-[#0f172a] text-lg px-4 py-3.5 pl-11 rounded-xl focus:ring-2 focus:ring-[#d4af37]/20 focus:border-[#d4af37] outline-none transition-all duration-200 placeholder:text-[#94a3b8] placeholder:font-light"
@@ -334,9 +357,15 @@ export default function AuthLoginPageClient({
                 </AnimatePresence>
 
                 <motion.div variants={itemVariants} className="group">
-                  <label className="block text-sm font-medium text-[#0f172a] mb-1.5 ml-1">Email Address</label>
+                  <label
+                    htmlFor="auth-email"
+                    className="block text-sm font-medium text-[#0f172a] mb-1.5 ml-1"
+                  >
+                    Email Address
+                  </label>
                   <div className="relative">
                     <input
+                      id="auth-email"
                       type="email"
                       name="email"
                       required
@@ -351,15 +380,24 @@ export default function AuthLoginPageClient({
 
                 <motion.div variants={itemVariants} className="group">
                   <div className="flex items-center justify-between mb-1.5 ml-1">
-                    <label className="block text-sm font-medium text-[#0f172a]">Password</label>
-                    {mode === 'signin' && (
-                      <Link href="/auth/forgot-password" className="text-sm text-[#d4af37] hover:text-[#b5952f] transition-colors">
+                    <label
+                      htmlFor="auth-password"
+                      className="block text-sm font-medium text-[#0f172a]"
+                    >
+                      Password
+                    </label>
+                    {mode === "signin" && (
+                      <Link
+                        href="/auth/forgot-password"
+                        className="text-sm text-[#d4af37] hover:text-[#b5952f] transition-colors"
+                      >
                         Forgot password?
                       </Link>
                     )}
                   </div>
                   <div className="relative">
                     <input
+                      id="auth-password"
                       type={showPassword ? "text" : "password"}
                       name="password"
                       required
@@ -401,21 +439,27 @@ export default function AuthLoginPageClient({
                   <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 group-hover:opacity-90 transition-opacity" />
                   <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-10 mix-blend-overlay" />
                   <span className="relative z-10">
-                    {isLoading ? 'Processing...' : (mode === 'signin' ? copy.submitSignIn : copy.submitSignUp)}
+                    {isLoading
+                      ? "Processing..."
+                      : mode === "signin"
+                        ? copy.submitSignIn
+                        : copy.submitSignUp}
                   </span>
-                  {!isLoading && <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />}
+                  {!isLoading && (
+                    <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
+                  )}
                 </motion.button>
               </form>
 
               {variant.allowSignup && (
                 <motion.div variants={itemVariants} className="mt-8 text-center">
                   <p className="text-[#64748b]">
-                    {mode === 'signin' ? "Don't have an account?" : "Already have an account?"}
+                    {mode === "signin" ? "Don't have an account?" : "Already have an account?"}
                     <button
                       onClick={toggleMode}
                       className="ml-2 font-medium text-[#d4af37] hover:text-[#b5952f] transition-colors relative group"
                     >
-                      {mode === 'signin' ? 'Sign up' : 'Sign in'}
+                      {mode === "signin" ? "Sign up" : "Sign in"}
                       <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-[#d4af37] transition-all group-hover:w-full" />
                     </button>
                   </p>

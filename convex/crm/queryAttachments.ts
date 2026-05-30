@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, query } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { PERMISSIONS, canSeeQueryRecord, requireAnyPermission } from "./lib";
+import { internalMutation, query } from "../_generated/server";
+import { canSeeQueryRecord, PERMISSIONS, requireAnyPermission } from "./lib";
 
 export function publicQueryAttachment(row: {
   _id: Id<"queryAttachments">;
@@ -40,9 +40,7 @@ export const listForQuery = query({
       .query("queryAttachments")
       .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
       .collect();
-    return rows
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .map(publicQueryAttachment);
+    return rows.sort((a, b) => b.createdAt - a.createdAt).map(publicQueryAttachment);
   },
 });
 

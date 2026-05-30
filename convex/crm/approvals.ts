@@ -1,11 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import {
-  PERMISSIONS,
-  createActivity,
-  requireAnyPermission,
-  requireStaff,
-} from "./lib";
+import { createActivity, PERMISSIONS, requireAnyPermission, requireStaff } from "./lib";
 
 const decisionValidator = v.union(
   v.literal("Approved"),
@@ -53,7 +48,10 @@ export const decide = mutation({
       PERMISSIONS.APPROVE_EXPENSES,
       PERMISSIONS.MANAGE_FINANCE,
     ]);
-    if ((args.status === "Rejected" || args.status === "Needs Info") && !args.decisionNote?.trim()) {
+    if (
+      (args.status === "Rejected" || args.status === "Needs Info") &&
+      !args.decisionNote?.trim()
+    ) {
       throw new ConvexError("A decision note is required when rejecting or requesting details");
     }
     const approvalId = ctx.db.normalizeId("approvalRequests", args.approvalId);

@@ -1,12 +1,11 @@
 "use node";
 
-import { v } from "convex/values";
-import { action } from "../_generated/server";
+import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { ConvexError } from "convex/values";
+import { action } from "../_generated/server";
+import { decryptBuffer, encryptBuffer, encryptPassportDetails } from "../lib/encryption";
 import { PERMISSIONS } from "./lib";
-import { encryptBuffer, decryptBuffer, encryptPassportDetails } from "../lib/encryption";
 
 const MAX_PASSPORT_FILE_BYTES = 15 * 1024 * 1024;
 const ALLOWED_PASSPORT_MIME_TYPES = new Set([
@@ -106,9 +105,7 @@ export const encryptAndStorePassport = action({
 
     const fileBytes = new Uint8Array(await fileBlob.arrayBuffer());
     const encryptedBuffer = encryptPassportPayload(Buffer.from(fileBytes));
-    const encryptedStorageId = await ctx.storage.store(
-      new Blob([new Uint8Array(encryptedBuffer)]),
-    );
+    const encryptedStorageId = await ctx.storage.store(new Blob([new Uint8Array(encryptedBuffer)]));
 
     let encryptedPayload = "";
     let lastFour = "";
@@ -173,12 +170,9 @@ async function readPassportFile(ctx: any, travellerId: string) {
     throw new ConvexError("FORBIDDEN");
   }
 
-  const existing: PassportMetadata = await ctx.runQuery(
-    api.crm.passport.getPassportMetadata,
-    {
-      travellerId,
-    },
-  );
+  const existing: PassportMetadata = await ctx.runQuery(api.crm.passport.getPassportMetadata, {
+    travellerId,
+  });
 
   if (!existing || !existing.storageId) {
     throw new ConvexError("Passport document not found for this traveller");

@@ -1,10 +1,10 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import {
-  PERMISSIONS,
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
+  PERMISSIONS,
   requireAnyPermission,
   requireStaff,
 } from "./lib";
@@ -30,11 +30,7 @@ const paymentTypeValidator = v.union(
   v.literal("Upgraded Self Paid"),
 );
 
-const guestTypeValidator = v.union(
-  v.literal("Employee"),
-  v.literal("Client"),
-  v.literal("VIP"),
-);
+const guestTypeValidator = v.union(v.literal("Employee"), v.literal("Client"), v.literal("VIP"));
 
 const publicTraveller = (traveller: any, job: any, hasPassportScan = false) => ({
   id: traveller._id,
@@ -96,11 +92,7 @@ export const list = query({
         continue;
       }
       result.push(
-        publicTraveller(
-          traveller,
-          job,
-          passportScanByTraveller.has(String(traveller._id)),
-        ),
+        publicTraveller(traveller, job, passportScanByTraveller.has(String(traveller._id))),
       );
     }
     return result;
@@ -306,11 +298,7 @@ export const update = mutation({
 export const updateCallingStatus = mutation({
   args: {
     travellerId: v.string(),
-    callingStatus: v.union(
-      v.literal("Pending"),
-      v.literal("Done"),
-      v.literal("No response"),
-    ),
+    callingStatus: v.union(v.literal("Pending"), v.literal("Done"), v.literal("No response")),
   },
   handler: async (ctx, args) => {
     const access = await requireAnyPermission(ctx, [

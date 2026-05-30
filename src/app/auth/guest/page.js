@@ -1,5 +1,5 @@
-import { getAuthVariant } from "@/lib/auth-sign-in-targets";
 import { createAuthLoginPage } from "@/lib/auth-login-pages";
+import { getAuthVariant } from "@/lib/auth-sign-in-targets";
 
 const variant = getAuthVariant("guest");
 

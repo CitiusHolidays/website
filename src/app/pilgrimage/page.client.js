@@ -1,16 +1,16 @@
 "use client";
 
+import { ArrowRight, Heart, Phone, Shield, Sparkles, Sunrise } from "lucide-react";
 import { motion } from "motion/react";
-import { Heart, Shield, Sunrise, Sparkles, ArrowRight, Phone } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import AnimatedSection from "../../components/layout/AnimatedSection";
-import GalleryGridSmall from "../../components/ui/GalleryGridSmall";
+import JourneyComparison from "../../components/pilgrimage/JourneyComparison";
+import SacredSitesVisual from "../../components/pilgrimage/SacredSitesVisual";
 import SpiritualHero from "../../components/pilgrimage/SpiritualHero";
 import SpiritualTrailsHub from "../../components/pilgrimage/SpiritualTrailsHub";
 import TestimonialsSection from "../../components/pilgrimage/TestimonialsSection";
-import SacredSitesVisual from "../../components/pilgrimage/SacredSitesVisual";
-import JourneyComparison from "../../components/pilgrimage/JourneyComparison";
+import GalleryGridSmall from "../../components/ui/GalleryGridSmall";
 import { getTrailsForHub, groupTrailsForHub } from "../../data/trails";
 
 export default function PilgrimagePageClient({ images }) {
@@ -25,7 +25,7 @@ export default function PilgrimagePageClient({ images }) {
       <section className="relative py-16 md:py-32 overflow-hidden bg-[#fdfcfb]">
         {/* Subtle background texture */}
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
-        
+
         <AnimatedSection className="px-4 max-w-6xl mx-auto text-center relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -41,62 +41,64 @@ export default function PilgrimagePageClient({ images }) {
               <span className="text-citius-blue italic">Mansarovar Collection</span>
             </h2>
             <p className="font-sans text-lg md:text-xl text-brand-muted max-w-3xl mx-auto leading-relaxed">
-              Flagship yatra and aerial darshan — plus specialised routes and programmes opening soon.
-              Explore every trail below for galleries, dates, inclusions, and booking.
+              Flagship yatra and aerial darshan — plus specialised routes and programmes opening
+              soon. Explore every trail below for galleries, dates, inclusions, and booking.
             </p>
             <div className="w-16 md:w-24 h-px bg-citius-orange/30 mx-auto mt-6 md:mt-10" />
           </motion.div>
 
           <div className="grid lg:grid-cols-2 gap-8 md:gap-16 items-start text-left">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               className="space-y-5 md:space-y-6 font-sans text-lg md:text-xl text-brand-muted leading-relaxed"
             >
               <p>
-                For centuries, the Kailash Mansarovar Yatra has drawn seekers from across the world. 
-                The mountain stands as a silent witness to the human quest for transcendence — 
-                untouched by climbers, unmarked by human ambition, yet profoundly transformative 
-                to all who approach it with devotion.
+                For centuries, the Kailash Mansarovar Yatra has drawn seekers from across the world.
+                The mountain stands as a silent witness to the human quest for transcendence —
+                untouched by climbers, unmarked by human ambition, yet profoundly transformative to
+                all who approach it with devotion.
               </p>
               <p>
-                <strong className="text-brand-dark font-semibold">Citius Spiritual Trails</strong> offers 
-                two carefully crafted journeys for 2026. Whether you seek the complete pilgrimage experience 
-                or divine darshan without physical exertion, both paths lead to the same blessings.
+                <strong className="text-brand-dark font-semibold">Citius Spiritual Trails</strong>{" "}
+                offers two carefully crafted journeys for 2026. Whether you seek the complete
+                pilgrimage experience or divine darshan without physical exertion, both paths lead
+                to the same blessings.
               </p>
               <div className="pt-4">
                 <p className="font-heading text-citius-blue italic text-xl">
-                  &ldquo;The mountain does not judge your path. It only reflects your devotion.&rdquo;
+                  &ldquo;The mountain does not judge your path. It only reflects your
+                  devotion.&rdquo;
                 </p>
               </div>
             </motion.div>
-            
+
             <div className="grid gap-4 md:gap-5">
               {[
-                { 
-                  title: "Spiritually Curated", 
-                  desc: "Every ritual, every stop, every moment designed for inner transformation.", 
-                  icon: Sparkles 
+                {
+                  title: "Spiritually Curated",
+                  desc: "Every ritual, every stop, every moment designed for inner transformation.",
+                  icon: Sparkles,
                 },
-                { 
-                  title: "Safety First", 
-                  desc: "Experienced guides, medical support, and acclimatization protocols at every step.", 
-                  icon: Shield 
+                {
+                  title: "Safety First",
+                  desc: "Experienced guides, medical support, and acclimatization protocols at every step.",
+                  icon: Shield,
                 },
-                { 
-                  title: "Comfort & Care", 
-                  desc: "Quality accommodation, pure vegetarian meals, and seamless logistics.", 
-                  icon: Heart 
+                {
+                  title: "Comfort & Care",
+                  desc: "Quality accommodation, pure vegetarian meals, and seamless logistics.",
+                  icon: Heart,
                 },
-                { 
-                  title: "Sacred Stories", 
-                  desc: "Immersive storytelling that brings the spiritual significance alive.", 
-                  icon: Sunrise 
+                {
+                  title: "Sacred Stories",
+                  desc: "Immersive storytelling that brings the spiritual significance alive.",
+                  icon: Sunrise,
                 },
               ].map((item, idx) => (
-                <motion.div 
-                  key={idx} 
+                <motion.div
+                  key={idx}
                   initial={{ opacity: 0, x: 20 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
@@ -107,8 +109,12 @@ export default function PilgrimagePageClient({ images }) {
                     <item.icon className="w-5 h-5 md:w-6 md:h-6 text-citius-orange" />
                   </div>
                   <div>
-                    <h3 className="font-heading text-base md:text-lg font-semibold text-citius-blue mb-1">{item.title}</h3>
-                    <p className="text-sm md:text-base text-brand-muted leading-relaxed">{item.desc}</p>
+                    <h3 className="font-heading text-base md:text-lg font-semibold text-citius-blue mb-1">
+                      {item.title}
+                    </h3>
+                    <p className="text-sm md:text-base text-brand-muted leading-relaxed">
+                      {item.desc}
+                    </p>
                   </div>
                 </motion.div>
               ))}
@@ -153,20 +159,20 @@ export default function PilgrimagePageClient({ images }) {
                 title: "15+ Years Experience",
                 desc: "Conducting sacred journeys with deep understanding of both logistics and spiritual significance.",
                 stat: "1000+",
-                statLabel: "Yatris served"
+                statLabel: "Yatris served",
               },
               {
                 title: "Safety Excellence",
                 desc: "Emergency protocols, medical support, oxygen cylinders, and trained guides at every altitude.",
                 stat: "100%",
-                statLabel: "Safety record"
+                statLabel: "Safety record",
               },
               {
                 title: "Sacred Authenticity",
                 desc: "Every ritual performed traditionally. Every site approached with reverence and understanding.",
                 stat: "14",
-                statLabel: "Days of transformation"
-              }
+                statLabel: "Days of transformation",
+              },
             ].map((item, idx) => (
               <motion.div
                 key={idx}
@@ -177,10 +183,16 @@ export default function PilgrimagePageClient({ images }) {
                 className="text-center p-6 md:p-8 bg-brand-light/50 rounded-2xl border border-brand-light hover:border-citius-orange/30 transition-all"
               >
                 <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-citius-blue/10 flex items-center justify-center">
-                  <span className="font-heading text-2xl text-citius-blue font-bold">{item.stat}</span>
+                  <span className="font-heading text-2xl text-citius-blue font-bold">
+                    {item.stat}
+                  </span>
                 </div>
-                <p className="text-xs text-brand-muted uppercase tracking-wider mb-2">{item.statLabel}</p>
-                <h3 className="font-heading text-lg md:text-xl text-citius-blue mb-2">{item.title}</h3>
+                <p className="text-xs text-brand-muted uppercase tracking-wider mb-2">
+                  {item.statLabel}
+                </p>
+                <h3 className="font-heading text-lg md:text-xl text-citius-blue mb-2">
+                  {item.title}
+                </h3>
                 <p className="text-sm text-brand-muted leading-relaxed">{item.desc}</p>
               </motion.div>
             ))}
@@ -202,7 +214,8 @@ export default function PilgrimagePageClient({ images }) {
               </h2>
             </div>
             <p className="font-sans text-base md:text-lg text-white/60 max-w-md mx-auto md:mx-0">
-              Capturing moments of devotion, stillness, and the raw beauty of the spiritual landscape.
+              Capturing moments of devotion, stillness, and the raw beauty of the spiritual
+              landscape.
             </p>
           </div>
           <div className="gallery-light">
@@ -230,11 +243,11 @@ export default function PilgrimagePageClient({ images }) {
               Begin Your Sacred Journey
             </h2>
             <p className="font-sans text-base md:text-lg text-brand-muted mb-8 max-w-xl mx-auto">
-              Speak with our yatra specialists to understand which journey suits you best. 
+              Speak with our yatra specialists to understand which journey suits you best.
               We&apos;re here to guide you every step of the way.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link 
+              <Link
                 href="/contact"
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-citius-orange text-white font-heading tracking-wider text-sm rounded-full shadow-xl shadow-citius-orange/20 hover:shadow-citius-orange/40 hover:-translate-y-0.5 transition-all duration-300"
               >
@@ -258,13 +271,13 @@ export default function PilgrimagePageClient({ images }) {
 
       {/* Sticky Mobile CTA */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-brand-light shadow-lg p-3 md:hidden z-50 flex gap-3 px-4">
-        <a 
+        <a
           href="tel:+91XXXXXXXXXX"
           className="flex-1 py-3 bg-brand-dark text-white text-sm font-medium rounded-full text-center"
         >
           Call Now
         </a>
-        <Link 
+        <Link
           href="/contact"
           className="flex-1 py-3 bg-citius-orange text-white text-sm font-medium rounded-full text-center"
         >

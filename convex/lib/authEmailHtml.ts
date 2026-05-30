@@ -21,7 +21,9 @@ export function buildAuthEmailHtml({
   ctaLabel,
   footerNote,
 }: AuthEmailOptions): string {
-  const bodyHtml = bodyParagraphs.map((p) => `<p style="margin: 0 0 16px; color: #334155; line-height: 1.6;">${p}</p>`).join("");
+  const bodyHtml = bodyParagraphs
+    .map((p) => `<p style="margin: 0 0 16px; color: #334155; line-height: 1.6;">${p}</p>`)
+    .join("");
 
   return `
 <!DOCTYPE html>

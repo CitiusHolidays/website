@@ -1,6 +1,6 @@
 "use client";
 
-import { Briefcase, Globe, MapPinned, Trophy, ArrowRight } from "lucide-react";
+import { ArrowRight, Briefcase, Globe, MapPinned, Trophy } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import AnimatedSection from "../layout/AnimatedSection";
@@ -32,14 +32,12 @@ const services = [
   {
     title: "MICE Excellence",
     icon: Briefcase,
-    description:
-      "End-to-end management for Meetings, Incentives, Conferences & Exhibitions.",
+    description: "End-to-end management for Meetings, Incentives, Conferences & Exhibitions.",
   },
   {
     title: "Global Voyages",
     icon: Globe,
-    description:
-      "Curated global itineraries for corporate & leisure travelers.",
+    description: "Curated global itineraries for corporate & leisure travelers.",
   },
   {
     title: "Domestic Gems",
@@ -49,8 +47,7 @@ const services = [
   {
     title: "Elite Sports",
     icon: Trophy,
-    description:
-      "Access to the world's premier sporting spectacles with VIP hospitality.",
+    description: "Access to the world's premier sporting spectacles with VIP hospitality.",
   },
 ];
 
@@ -107,8 +104,7 @@ export default function HomeMainClient() {
               Curated Services
             </h2>
             <p className="text-slate-400 max-w-2xl mx-auto text-lg font-light">
-              Experience tailored solutions designed for the modern traveler and
-              corporate entity.
+              Experience tailored solutions designed for the modern traveler and corporate entity.
             </p>
           </div>
 
@@ -135,9 +131,8 @@ export default function HomeMainClient() {
               Why Choose Citius?
             </h2>
             <p className="text-brand-muted text-lg mb-8 leading-relaxed">
-              We create journeys with purpose, precision, and passion —
-              delivering seamless, memorable travel experiences every single
-              time
+              We create journeys with purpose, precision, and passion — delivering seamless,
+              memorable travel experiences every single time
             </p>
             <div className="grid grid-cols-2 gap-4">
               {usps.map((usp) => (
@@ -150,8 +145,7 @@ export default function HomeMainClient() {
             <div className="absolute inset-0 bg-[url('/gallery/aboutus.webp')] bg-cover bg-center transition-transform duration-700 group-hover:scale-105" />
             <div className="absolute bottom-0 left-0 right-0 p-8 z-20 bg-gradient-to-t from-black/80 to-transparent">
               <div className="text-white font-heading text-2xl italic">
-                &quot;Travel is the only thing you buy that makes you
-                richer.&quot;
+                &quot;Travel is the only thing you buy that makes you richer.&quot;
               </div>
             </div>
           </div>
@@ -175,8 +169,7 @@ export default function HomeMainClient() {
             </span>
           </h2>
           <p className="text-blue-100 text-lg mb-10 max-w-xl mx-auto">
-            Let our experts craft a personalized itinerary that exceeds your
-            expectations.
+            Let our experts craft a personalized itinerary that exceeds your expectations.
           </p>
           <Link
             href="/contact"

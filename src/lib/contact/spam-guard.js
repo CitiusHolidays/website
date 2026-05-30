@@ -47,9 +47,7 @@ export function isAllowedSiteOrigin(request) {
   }
 
   const siteUrl =
-    process.env.SITE_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL;
+    process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
 
   if (!siteUrl) {
     return true;

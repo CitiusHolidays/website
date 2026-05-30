@@ -1,6 +1,6 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 import { PERMISSIONS, requireStaff } from "./lib";
 
 const DROPDOWNS: Record<string, string[]> = {
@@ -14,19 +14,13 @@ const DROPDOWNS: Record<string, string[]> = {
     "B2B",
     "Spiritual",
   ],
-  salesStatus: [
-    "Proposal in discussion",
-    "Change in destination",
-    "Order Confirmed",
-    "Order Lost",
-  ],
+  salesStatus: ["Proposal in discussion", "Change in destination", "Order Confirmed", "Order Lost"],
   contractingStatus: [
     "Query Received",
     "Proposal in progress",
     "Proposal sent",
     "Change in destination",
     "Order Confirmed",
-    "Order Lost",
   ],
   lostReason: ["Price", "Competition", "Not travelling", "Other"],
   travelType: ["Domestic Travel", "International Travel"],
@@ -59,11 +53,7 @@ const DROPDOWNS: Record<string, string[]> = {
   guestType: ["Employee", "Client", "VIP"],
 };
 
-const PRESET_TABLES = [
-  "roleDefinitions",
-  "dropdownOptions",
-  "paymentTerms",
-] as const;
+const PRESET_TABLES = ["roleDefinitions", "dropdownOptions", "paymentTerms"] as const;
 
 async function deletePresetRows(ctx: MutationCtx) {
   const deleted: Record<string, number> = {};

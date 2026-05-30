@@ -1,24 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { AnimatePresence, motion } from "motion/react";
-import {
-  Bell,
-  ChevronDown,
-  ChevronRight,
-  Circle,
-  LogOut,
-  Menu,
-  X,
-} from "lucide-react";
-import { logout } from "@/lib/auth-client";
-import { getAccessibleNavGroups } from "@/lib/portal/permissions";
-import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { api } from "@convex/_generated/api";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { Bell, ChevronDown, ChevronRight, Circle, LogOut, Menu, X } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { logout } from "@/lib/auth-client";
+import { getNotificationHref } from "@/lib/portal/notificationTargets";
+import { getAccessibleNavGroups } from "@/lib/portal/permissions";
 import Logo from "@/static/logos/logo.webp";
 
 const NAV_EXPANDED_STORAGE_KEY = "portal-nav-expanded-groups";
@@ -72,11 +64,13 @@ export default function PortalShell({ access, user, children }) {
     markNotificationRead({ notificationId: item.id }).catch(() => {});
     setNotificationsOpen(false);
     if (item.entityType && item.entityId) {
-      router.push(getNotificationHref({
-        entityType: item.entityType,
-        entityId: item.entityId,
-        title: item.title,
-      }));
+      router.push(
+        getNotificationHref({
+          entityType: item.entityType,
+          entityId: item.entityId,
+          title: item.title,
+        }),
+      );
     }
   };
 
@@ -251,11 +245,7 @@ export default function PortalShell({ access, user, children }) {
 
       <div className="flex min-h-[calc(100vh-64px)]">
         <aside className="hidden w-64 shrink-0 border-r border-brand-border bg-white/80 backdrop-blur-sm lg:block">
-          <PortalNav
-            navGroups={navGroups}
-            pathname={pathname}
-            navShortcuts={navShortcuts}
-          />
+          <PortalNav navGroups={navGroups} pathname={pathname} navShortcuts={navShortcuts} />
         </aside>
 
         <AnimatePresence>
@@ -314,22 +304,32 @@ export default function PortalShell({ access, user, children }) {
 }
 
 function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
-  const [expandedGroups, setExpandedGroups] = useState(() => readStoredSet(NAV_EXPANDED_STORAGE_KEY));
-  const [expandedShortcuts, setExpandedShortcuts] = useState(() => readStoredSet(NAV_SHORTCUTS_STORAGE_KEY));
-  const [collapsedShortcuts, setCollapsedShortcuts] = useState(() => readStoredSet(NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY));
+  const [expandedGroups, setExpandedGroups] = useState(() =>
+    readStoredSet(NAV_EXPANDED_STORAGE_KEY),
+  );
+  const [expandedShortcuts, setExpandedShortcuts] = useState(() =>
+    readStoredSet(NAV_SHORTCUTS_STORAGE_KEY),
+  );
+  const [collapsedShortcuts, setCollapsedShortcuts] = useState(() =>
+    readStoredSet(NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY),
+  );
 
-  const isGroupActive = useCallback((group) => {
-    return group.items.some((item) => (
-      item.href === "/portal"
-        ? pathname === "/portal"
-        : pathname?.startsWith(item.href)
-    ));
-  }, [pathname]);
+  const isGroupActive = useCallback(
+    (group) => {
+      return group.items.some((item) =>
+        item.href === "/portal" ? pathname === "/portal" : pathname?.startsWith(item.href),
+      );
+    },
+    [pathname],
+  );
 
-  const isGroupExpanded = useCallback((group) => {
-    if (group.items.length <= 1) return true;
-    return expandedGroups.has(group.label) || isGroupActive(group);
-  }, [expandedGroups, isGroupActive]);
+  const isGroupExpanded = useCallback(
+    (group) => {
+      if (group.items.length <= 1) return true;
+      return expandedGroups.has(group.label) || isGroupActive(group);
+    },
+    [expandedGroups, isGroupActive],
+  );
 
   useEffect(() => {
     writeStoredSet(NAV_EXPANDED_STORAGE_KEY, expandedGroups);
@@ -343,12 +343,15 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
     writeStoredSet(NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY, collapsedShortcuts);
   }, [collapsedShortcuts]);
 
-  const isShortcutsExpanded = useCallback((itemHref, active) => {
-    if (collapsedShortcuts.has(itemHref)) {
-      return false;
-    }
-    return expandedShortcuts.has(itemHref) || active;
-  }, [collapsedShortcuts, expandedShortcuts]);
+  const isShortcutsExpanded = useCallback(
+    (itemHref, active) => {
+      if (collapsedShortcuts.has(itemHref)) {
+        return false;
+      }
+      return expandedShortcuts.has(itemHref) || active;
+    },
+    [collapsedShortcuts, expandedShortcuts],
+  );
 
   const toggleGroup = (label) => {
     setExpandedGroups((current) => {
@@ -415,7 +418,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
                       ? pathname === "/portal"
                       : pathname?.startsWith(item.href);
                   const shortcuts = item.shortcutKey
-                    ? navShortcuts?.[item.shortcutKey] ?? []
+                    ? (navShortcuts?.[item.shortcutKey] ?? [])
                     : [];
                   const hasShortcuts = shortcuts.length > 0;
                   const shortcutsExpanded = isShortcutsExpanded(item.href, active);
@@ -449,7 +452,11 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
                               shortcutsExpanded ? "bg-brand-light text-citius-blue" : ""
                             }`}
                             aria-expanded={shortcutsExpanded}
-                            aria-label={shortcutsExpanded ? `Hide recent ${item.label}` : `Show recent ${item.label}`}
+                            aria-label={
+                              shortcutsExpanded
+                                ? `Hide recent ${item.label}`
+                                : `Show recent ${item.label}`
+                            }
                           >
                             <ChevronDown
                               size={16}
