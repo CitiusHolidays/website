@@ -333,7 +333,7 @@ export default defineSchema({
     sellingPrice: v.optional(v.number()),
     costPrice: v.optional(v.number()),
     pricingEnteredAt: v.optional(v.number()),
-    taxRate: v.optional(v.union(v.literal(5), v.literal(18))),
+    taxRate: v.optional(v.number()),
     itinerarySummary: v.optional(v.string()),
     status: v.union(
       v.literal("Draft"),

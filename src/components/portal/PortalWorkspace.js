@@ -42,7 +42,6 @@ import {
   PAYMENT_TYPES,
   PORTAL_PERMISSIONS,
   PORTAL_ROLES,
-  PROPOSAL_TAX_RATES,
   QUERY_SOURCES,
   QUERY_TYPES,
   ROOM_TYPES,
@@ -756,6 +755,23 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     () => filterRows(team || [], search, ["name", "email", "department", "function", "location"]),
     [team, search],
   );
+  const filteredStaff = useMemo(() => {
+    if (!staff) return staff;
+    return filterRows(staff, search, [
+      "name",
+      "email",
+      "department",
+      "function",
+      "location",
+      "mobile",
+      "roles",
+      "onboardingStatus",
+    ]);
+  }, [staff, search]);
+
+  useEffect(() => {
+    setSearch("");
+  }, [view]);
 
   useEffect(() => {
     if (!modal || !JOB_CARD_MODALS.has(modal) || jobCards?.length !== 1) {
@@ -1041,7 +1057,11 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           landCostPerPax: toNumber(form.landCostPerPax, 0),
           airfarePerPax: toNumber(form.airfarePerPax, 0),
           sellingPrice: toNumber(form.sellingPrice, 0),
-          taxRate: form.taxRate ? Number(form.taxRate) : undefined,
+          ...(form.taxRate !== ""
+            ? { taxRate: toNumber(form.taxRate, 0) }
+            : form.entityId
+              ? { taxRate: null }
+              : {}),
           itinerarySummary: form.itinerarySummary,
         };
         if (form.entityId) {
@@ -1566,8 +1586,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "settings" && (
         <SettingsView
-          staff={staff || []}
+          staff={filteredStaff}
           dropdowns={dropdowns || {}}
+          search={search}
           openModal={openModal}
           deleteItem={deleteItem}
           removeStaff={removeStaff}
@@ -2640,7 +2661,7 @@ function ContractingView({
                       airfarePerPax: String(proposal.airfarePerPax ?? ""),
                       sellingPrice: String(proposal.sellingPrice ?? ""),
                       paxCount: String(proposal.query?.paxCount ?? row.paxCount ?? 1),
-                      taxRate: proposal.taxRate ? String(proposal.taxRate) : "",
+                      taxRate: proposal.taxRate != null ? String(proposal.taxRate) : "",
                       itinerarySummary: proposal.itinerarySummary || "",
                     })
                   }
@@ -2827,7 +2848,7 @@ function ProposalsView({
         ["Land/Pax", (row) => money(row.landCostPerPax)],
         ["Airfare/Pax", (row) => money(row.airfarePerPax)],
         ["CP/Pax", (row) => money(row.costPrice)],
-        ["Tax", (row) => (row.taxRate ? `${row.taxRate}%` : "-")],
+        ["Tax", (row) => (row.taxRate != null ? `${row.taxRate}%` : "-")],
         ["Selling", (row) => money(row.sellingPrice)],
         [
           "Finalized PDF",
@@ -2891,7 +2912,7 @@ function ProposalsView({
                         airfarePerPax: String(row.airfarePerPax ?? ""),
                         sellingPrice: String(row.sellingPrice ?? ""),
                         paxCount: String(row.query?.paxCount ?? 1),
-                        taxRate: row.taxRate ? String(row.taxRate) : "",
+                        taxRate: row.taxRate != null ? String(row.taxRate) : "",
                         itinerarySummary: row.itinerarySummary || "",
                       })
                     }
@@ -4622,12 +4643,19 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
 function SettingsView({
   staff,
   dropdowns,
+  search,
   openModal,
   deleteItem,
   removeStaff,
   startStaffOnboarding,
 }) {
   const [onboardingSending, setOnboardingSending] = useState({});
+
+  const searchTerm = search.trim();
+  const visibleDropdowns = useMemo(
+    () => filterDropdowns(dropdowns, search),
+    [dropdowns, search],
+  );
 
   const handleSendOnboarding = async (row) => {
     setOnboardingSending((prev) => ({ ...prev, [row.id]: true }));
@@ -4652,7 +4680,7 @@ function SettingsView({
       <Panel title="Staff allowlist">
         <DataTable
           rows={staff}
-          empty="No staff records yet."
+          empty={searchTerm ? "No staff match your search." : "No staff records yet."}
           columns={[
             ["Name", (row) => strong(row.name)],
             ["Email", (row) => row.email],
@@ -4731,8 +4759,11 @@ function SettingsView({
         />
       </Panel>
       <Panel title="Workflow dropdowns">
+        {searchTerm && Object.keys(visibleDropdowns).length === 0 ? (
+          <EmptyState label="No workflow dropdown values match your search." />
+        ) : (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {Object.entries(dropdowns).map(([category, values]) => (
+          {Object.entries(visibleDropdowns).map(([category, values]) => (
             <div
               key={category}
               className="rounded-md border border-brand-border bg-brand-light p-4"
@@ -4746,6 +4777,7 @@ function SettingsView({
             </div>
           ))}
         </div>
+        )}
       </Panel>
     </div>
   );
@@ -6096,17 +6128,14 @@ function EntityModal({
                       value={form.sellingPrice}
                       onChange={(v) => updateForm("sellingPrice", v)}
                     />
-                    <Select
-                      label="Tax"
+                    <Input
+                      label="Tax (%)"
+                      type="number"
                       value={form.taxRate}
-                      options={[
-                        { value: "", label: "None" },
-                        ...PROPOSAL_TAX_RATES.map((rate) => ({
-                          value: String(rate),
-                          label: `${rate}%`,
-                        })),
-                      ]}
                       onChange={(v) => updateForm("taxRate", v)}
+                      placeholder="e.g. 5, 18, or custom"
+                      min="0"
+                      step="0.01"
                     />
                     <div className="rounded-lg border border-brand-border bg-brand-light/60 px-3 py-2 text-sm">
                       <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
@@ -7082,7 +7111,7 @@ function Timeline({ rows }) {
   );
 }
 
-function Input({ label, value, onChange, type = "text", required = false }) {
+function Input({ label, value, onChange, type = "text", required = false, placeholder, ...rest }) {
   return (
     <label className="block">
       <span className="mb-1 block text-xs font-semibold text-brand-muted">{label}</span>
@@ -7090,8 +7119,10 @@ function Input({ label, value, onChange, type = "text", required = false }) {
         type={type}
         required={required}
         value={value}
+        placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         className="h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
+        {...rest}
       />
     </label>
   );
@@ -7224,12 +7255,30 @@ function filterRows(rows, search, keys) {
   const term = search.trim().toLowerCase();
   if (!term) return rows;
   return rows.filter((row) =>
-    keys.some((key) =>
-      String(row[key] || "")
+    keys.some((key) => {
+      const value = row[key];
+      if (Array.isArray(value)) {
+        return value.join(", ").toLowerCase().includes(term);
+      }
+      return String(value ?? "")
         .toLowerCase()
-        .includes(term),
-    ),
+        .includes(term);
+    }),
   );
+}
+
+function filterDropdowns(dropdowns, search) {
+  const term = search.trim().toLowerCase();
+  if (!term) return dropdowns;
+  const filtered = {};
+  for (const [category, values] of Object.entries(dropdowns)) {
+    const categoryMatches = category.toLowerCase().includes(term);
+    const matchedValues = values.filter((value) => value.toLowerCase().includes(term));
+    if (categoryMatches || matchedValues.length > 0) {
+      filtered[category] = categoryMatches ? values : matchedValues;
+    }
+  }
+  return filtered;
 }
 
 function toNumber(value, fallback) {

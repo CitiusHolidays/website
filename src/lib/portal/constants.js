@@ -275,8 +275,6 @@ export const ROLE_PERMISSIONS = {
   ],
 };
 
-export const PROPOSAL_TAX_RATES = [5, 18];
-
 export const TICKET_TYPES = ["FIT Ticket", "Group Ticket"];
 export const CABIN_CLASSES = ["Economy", "Premium Economy", "Business"];
 

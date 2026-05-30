@@ -29,6 +29,13 @@ function computeProposalCostPrice(landCostPerPax: number, airfarePerPax: number)
   return Math.max(landCostPerPax, 0) + Math.max(airfarePerPax, 0);
 }
 
+function normalizeTaxRate(value: number) {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new ConvexError("Tax rate must be a non-negative number");
+  }
+  return value;
+}
+
 const publicProposal = (proposal: any, linkedQuery: any, attachments: any[] = []) => ({
   id: proposal._id,
   proposalCode: proposal.proposalCode,
@@ -90,7 +97,7 @@ export const create = mutation({
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
     sellingPrice: v.optional(v.number()),
-    taxRate: v.optional(v.union(v.literal(5), v.literal(18))),
+    taxRate: v.optional(v.number()),
     itinerarySummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -120,7 +127,7 @@ export const create = mutation({
       airfarePerPax,
       sellingPrice: Math.max(args.sellingPrice ?? 0, 0),
       costPrice,
-      taxRate: args.taxRate,
+      taxRate: args.taxRate !== undefined ? normalizeTaxRate(args.taxRate) : undefined,
       pricingEnteredAt: hasPricing ? now : undefined,
       itinerarySummary: args.itinerarySummary?.trim() || "",
       status: "Draft",
@@ -148,7 +155,7 @@ export const update = mutation({
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
     sellingPrice: v.optional(v.number()),
-    taxRate: v.optional(v.union(v.literal(5), v.literal(18))),
+    taxRate: v.optional(v.union(v.number(), v.null())),
     itinerarySummary: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -198,8 +205,10 @@ export const update = mutation({
     if (args.itinerarySummary !== undefined) {
       patch.itinerarySummary = args.itinerarySummary.trim();
     }
-    if (args.taxRate !== undefined) {
-      patch.taxRate = args.taxRate;
+    if (args.taxRate === null) {
+      patch.taxRate = undefined;
+    } else if (args.taxRate !== undefined) {
+      patch.taxRate = normalizeTaxRate(args.taxRate);
     }
 
     const landCostPerPax =
