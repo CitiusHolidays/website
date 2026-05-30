@@ -11,7 +11,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { logout } from "@/lib/auth-client";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
-import Logo from "@/static/logos/logo.webp";
+import {
+  CITIUS_CONNECT_LOGO_HEIGHT,
+  CITIUS_CONNECT_LOGO_WIDTH,
+} from "@/lib/citiusConnectLogo";
+import ConnectLogo from "@/static/logos/citiusconnect.png";
 
 const NAV_EXPANDED_STORAGE_KEY = "portal-nav-expanded-groups";
 const NAV_SHORTCUTS_STORAGE_KEY = "portal-nav-expanded-shortcuts";
@@ -103,18 +107,14 @@ export default function PortalShell({ access, user, children }) {
               <Menu size={20} />
             </button>
             <Link href="/portal" className="flex items-center gap-3">
-              {/* <Image
-                src={Logo}
-                alt="Citius Holidays"
-                width={110}
-                height={36}
-                className="h-8 w-auto"
+              <Image
+                src={ConnectLogo}
+                alt="Citius Connect"
+                width={CITIUS_CONNECT_LOGO_WIDTH}
+                height={CITIUS_CONNECT_LOGO_HEIGHT}
+                className="h-9 w-auto sm:h-10"
                 priority
               />
-              <span className="hidden h-5 w-px bg-brand-border sm:block" /> */}
-              <span className="hidden font-heading text-lg font-semibold tracking-wide text-citius-blue sm:inline">
-                Citius Connect
-              </span>
             </Link>
             <span className="inline-flex max-w-[120px] truncate rounded-full bg-citius-orange px-2 py-1 text-[10px] font-semibold text-white sm:max-w-none sm:px-3 sm:text-[11px] md:inline-flex">
               {access.roles?.join(" / ") || "Staff"}

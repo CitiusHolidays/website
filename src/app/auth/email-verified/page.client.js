@@ -4,12 +4,16 @@ import { ArrowRight, Mail, ShieldCheck } from "lucide-react";
 import { motion } from "motion/react";
 import Link from "next/link";
 import AuthShell, { BRAND_NAME } from "@/components/auth/AuthShell";
+import citiusConnectLogo from "@/static/logos/citiusconnect.png";
 
 export default function EmailVerifiedPageClient() {
   return (
     <AuthShell
       title="Email verified"
       description={`Your ${BRAND_NAME} account is one step away from secure access.`}
+      logo={citiusConnectLogo}
+      logoAlt="Citius Connect"
+      showBrandLabel={false}
     >
       <div className="space-y-6">
         <motion.div

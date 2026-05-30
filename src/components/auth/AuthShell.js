@@ -3,11 +3,30 @@
 import { Map as MapIcon, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import Image from "next/image";
+import {
+  CITIUS_CONNECT_LOGO_HEIGHT,
+  CITIUS_CONNECT_LOGO_WIDTH,
+} from "@/lib/citiusConnectLogo";
 import citiusLogo from "@/static/logos/logo.webp";
 
 export const BRAND_NAME = "Citius Holidays";
 
-export default function AuthShell({ title, description, children }) {
+export default function AuthShell({
+  title,
+  description,
+  children,
+  logo = citiusLogo,
+  logoAlt = BRAND_NAME,
+  showBrandLabel = true,
+  logoWidth = 100,
+  logoHeight = 100,
+}) {
+  const logoDimensions = showBrandLabel
+    ? { width: logoWidth, height: logoHeight }
+    : {
+        width: CITIUS_CONNECT_LOGO_WIDTH,
+        height: CITIUS_CONNECT_LOGO_HEIGHT,
+      };
   return (
     <div className="flex min-h-screen w-full flex-col bg-[#FDFBF7] md:flex-row">
       <motion.aside
@@ -33,10 +52,18 @@ export default function AuthShell({ title, description, children }) {
             transition={{ delay: 0.4 }}
           >
             <div className="mb-2 flex items-center gap-3">
-              <Image src={citiusLogo} alt={BRAND_NAME} width={100} height={100} />
-              <span className="text-sm uppercase tracking-[0.2em] text-citius-orange">
-                {BRAND_NAME}
-              </span>
+              <Image
+                src={logo}
+                alt={logoAlt}
+                width={logoDimensions.width}
+                height={logoDimensions.height}
+                className={showBrandLabel ? "h-14 w-auto" : "h-12 w-auto max-w-[220px]"}
+              />
+              {showBrandLabel ? (
+                <span className="text-sm uppercase tracking-[0.2em] text-citius-orange">
+                  {BRAND_NAME}
+                </span>
+              ) : null}
             </div>
             <h1 className="font-heading mt-6 text-5xl font-medium leading-[1.1] tracking-tight lg:text-6xl">
               The Journey <br />
@@ -113,27 +140,24 @@ export default function AuthShell({ title, description, children }) {
           transition={{ duration: 0.5 }}
         >
           <div className="mb-8 text-center md:hidden">
-            <div className="mb-4 flex items-center justify-center gap-2">
+            <div className="mb-4 flex items-center justify-center">
               <Image
-                src={citiusLogo}
-                alt={BRAND_NAME}
-                width={36}
-                height={36}
-                className="h-9 w-auto"
+                src={logo}
+                alt={logoAlt}
+                width={logoDimensions.width}
+                height={logoDimensions.height}
+                className={showBrandLabel ? "h-10 w-auto" : "h-10 w-auto max-w-[180px]"}
               />
-              <span className="text-sm uppercase tracking-[0.2em] text-[#0B1026]">
-                {BRAND_NAME}
-              </span>
             </div>
           </div>
 
           <div className="mb-6 hidden items-center gap-3 md:flex">
             <Image
-              src={citiusLogo}
-              alt={BRAND_NAME}
-              width={40}
-              height={40}
-              className="h-10 w-auto"
+              src={logo}
+              alt={logoAlt}
+              width={logoDimensions.width}
+              height={logoDimensions.height}
+              className={showBrandLabel ? "h-10 w-auto" : "h-10 w-auto max-w-[180px]"}
             />
           </div>
 

@@ -20,6 +20,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-client";
 import { getAuthVariant } from "@/lib/auth-sign-in-targets";
+import {
+  CITIUS_CONNECT_LOGO_HEIGHT,
+  CITIUS_CONNECT_LOGO_WIDTH,
+} from "@/lib/citiusConnectLogo";
+import citiusConnectLogo from "@/static/logos/citiusconnect.png";
 import citiusLogo from "@/static/logos/logo.webp";
 
 const HIGHLIGHT_ICONS = [Sparkles, MapIcon, Sparkles];
@@ -31,6 +36,9 @@ export default function AuthLoginPageClient({
 }) {
   const variant = getAuthVariant(variantId);
   const copy = variant.copy;
+  const isConnect = variantId === "employee";
+  const brandLogo = isConnect ? citiusConnectLogo : citiusLogo;
+  const brandLogoAlt = isConnect ? "Citius Connect" : "Citius Holidays";
   const router = useRouter();
   const syncAuthIdentity = useMutation(api.authSync.syncMyAuthIdentity);
   const [mode, setMode] = useState(
@@ -166,10 +174,18 @@ export default function AuthLoginPageClient({
             transition={{ delay: 0.4 }}
           >
             <div className="flex items-center gap-3 mb-2">
-              <Image src={citiusLogo} alt="Citius Holidays" width={100} height={100} />
-              <span className="text-sm uppercase tracking-[0.2em] text-citius-orange">
-                {copy.brandLabel}
-              </span>
+              <Image
+                src={brandLogo}
+                alt={brandLogoAlt}
+                width={isConnect ? CITIUS_CONNECT_LOGO_WIDTH : 100}
+                height={isConnect ? CITIUS_CONNECT_LOGO_HEIGHT : 100}
+                className={isConnect ? "h-12 w-auto max-w-[220px]" : "h-14 w-auto"}
+              />
+              {!isConnect ? (
+                <span className="text-sm uppercase tracking-[0.2em] text-citius-orange">
+                  {copy.brandLabel}
+                </span>
+              ) : null}
             </div>
             <h1 className="font-heading text-5xl lg:text-6xl leading-[1.1] font-medium tracking-tight mt-6">
               {heroLines.map((line, index) => (
@@ -236,13 +252,27 @@ export default function AuthLoginPageClient({
           variants={containerVariants}
         >
           <div className="md:hidden mb-8 text-center">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Compass className="w-6 h-6 text-[#0B1026]" />
-              <span className="text-sm uppercase tracking-[0.2em] text-[#0B1026]">
-                {copy.brandLabel}
-              </span>
+            <div className="mb-4 flex items-center justify-center">
+              {isConnect ? (
+                <Image
+                  src={brandLogo}
+                  alt={brandLogoAlt}
+                  width={CITIUS_CONNECT_LOGO_WIDTH}
+                  height={CITIUS_CONNECT_LOGO_HEIGHT}
+                  className="h-11 w-auto max-w-[200px]"
+                />
+              ) : (
+                <div className="flex items-center justify-center gap-2">
+                  <Compass className="h-6 w-6 text-[#0B1026]" />
+                  <span className="text-sm uppercase tracking-[0.2em] text-[#0B1026]">
+                    {copy.brandLabel}
+                  </span>
+                </div>
+              )}
             </div>
-            <h1 className="font-heading text-4xl text-[#0B1026]">{copy.mobileTitle}</h1>
+            {!isConnect ? (
+              <h1 className="font-heading text-4xl text-[#0B1026]">{copy.mobileTitle}</h1>
+            ) : null}
           </div>
 
           <motion.div variants={itemVariants} className="mb-8">
