@@ -44,16 +44,16 @@ export const decide = mutation({
     decisionNote: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.APPROVE_EXPENSES,
-      PERMISSIONS.MANAGE_FINANCE,
-    ]);
     if (
       (args.status === "Rejected" || args.status === "Needs Info") &&
       !args.decisionNote?.trim()
     ) {
       throw new ConvexError("A decision note is required when rejecting or requesting details");
     }
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.APPROVE_EXPENSES,
+      PERMISSIONS.MANAGE_FINANCE,
+    ]);
     const approvalId = ctx.db.normalizeId("approvalRequests", args.approvalId);
     if (!approvalId) {
       throw new ConvexError("Invalid approval id");

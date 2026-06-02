@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import AnimatedSection from "../../components/layout/AnimatedSection";
 import LocationCard from "../../components/ui/LocationCard";
 import ModernContactForm from "../../components/ui/ModernContactForm";
@@ -97,6 +97,7 @@ export default function ContactPage() {
                           width="100%"
                           height="200"
                           loading="lazy"
+                          sandbox="allow-scripts allow-popups allow-presentation"
                           className="w-full h-[200px] border-0"
                           style={{ minHeight: 180 }}
                           allowFullScreen=""

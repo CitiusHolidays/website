@@ -20,7 +20,7 @@ export default function SacredBharatPageClient() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <GuestSaveBanner />
           <p className="font-sans text-xs text-brand-muted text-center max-w-2xl mx-auto">
-            Visits are self-declared on an honor system — a personal record of your spiritual
+            Visits are self-declared on an honor system , a personal record of your spiritual
             journey, not verified darshan proof.
           </p>
         </div>

@@ -1,92 +1,191 @@
 "use client";
+"use no memo";
 import { AlertCircle, FileText, Mail, MessageSquare, Phone, User } from "lucide-react";
-import { motion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { m as motion } from "motion/react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import AnimatedSubmitButton from "./AnimatedSubmitButton";
 import TurnstileWidget from "./TurnstileWidget";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
+const EMPTY_FORM_VALUES = {
+  name: "",
+  email: "",
+  phone: "",
+  subject: "",
+  message: "",
+  company: "",
+};
+
+const INPUT_FIELDS = [
+  {
+    name: "name",
+    label: "Full Name",
+    type: "text",
+    icon: User,
+    required: "Full name is required.",
+  },
+  {
+    name: "email",
+    label: "Email Address",
+    type: "email",
+    icon: Mail,
+    required: "A valid email is required.",
+    pattern: {
+      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+      message: "Invalid email address",
+    },
+  },
+  {
+    name: "phone",
+    label: "Phone Number",
+    type: "tel",
+    required: false,
+    icon: Phone,
+    pattern: {
+      value: /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/,
+      message: "Please enter a valid phone number (e.g., +1 555-123-4567)",
+    },
+  },
+  {
+    name: "subject",
+    label: "Subject",
+    type: "text",
+    icon: FileText,
+    required: "Subject is required.",
+  },
+];
+
+function resizeMessageInput(event) {
+  const textarea = event.target;
+  textarea.style.height = "auto";
+  textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+function validateContactForm(values) {
+  const nextErrors = {};
+
+  for (const field of INPUT_FIELDS) {
+    const value = values[field.name]?.trim() || "";
+    if (field.required && !value) {
+      nextErrors[field.name] = field.required;
+    } else if (field.pattern && value && !field.pattern.value.test(value)) {
+      nextErrors[field.name] = field.pattern.message;
+    }
+  }
+
+  if (!values.message.trim()) {
+    nextErrors.message = "Message cannot be empty.";
+  }
+
+  return nextErrors;
+}
+
+const INITIAL_FORM_STATE = {
+  formValues: EMPTY_FORM_VALUES,
+  errors: {},
+  focusedField: null,
+  buttonState: "idle",
+};
+
+function contactFormReducer(state, action) {
+  switch (action.type) {
+    case "SET_FIELD": {
+      const nextErrors = { ...state.errors };
+      delete nextErrors[action.name];
+      return {
+        ...state,
+        formValues: { ...state.formValues, [action.name]: action.value },
+        errors: nextErrors,
+      };
+    }
+    case "SET_FOCUSED":
+      return { ...state, focusedField: action.field };
+    case "SET_ERRORS":
+      return {
+        ...state,
+        errors: action.errors,
+        buttonState: action.buttonState ?? state.buttonState,
+      };
+    case "SET_BUTTON":
+      return { ...state, buttonState: action.buttonState };
+    case "SUBMIT_SUCCESS":
+      return {
+        formValues: EMPTY_FORM_VALUES,
+        errors: {},
+        focusedField: state.focusedField,
+        buttonState: "success",
+      };
+    case "SUBMIT_ERROR":
+      return {
+        ...state,
+        errors: action.errors,
+        buttonState: "error",
+      };
+    default:
+      return state;
+  }
+}
 
 export default function ModernContactForm() {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    reset,
-    watch,
-  } = useForm({
-    // It's good practice to set default values
-    defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      subject: "",
-      message: "",
-      company: "",
-    },
-  });
-  const [submissionStatus, setSubmissionStatus] = useState(null);
-  const [focusedField, setFocusedField] = useState(null);
-  const [buttonState, setButtonState] = useState("idle");
-  const [turnstileToken, setTurnstileToken] = useState("");
-  const formLoadedAtRef = useRef(Date.now());
+  "use no memo";
+
+  const [{ formValues, errors, focusedField, buttonState }, dispatch] = useReducer(
+    contactFormReducer,
+    INITIAL_FORM_STATE,
+  );
+  const turnstileTokenRef = useRef("");
+  const [initialFormLoadedAt] = useState(() => Date.now());
+  const formLoadedAtRef = useRef(initialFormLoadedAt);
 
   const messageRef = useRef(null);
 
-  const handleTurnstileVerify = useCallback((token) => {
-    setTurnstileToken(token);
-  }, []);
+  const handleTurnstileVerify = (token) => {
+    turnstileTokenRef.current = token;
+  };
 
-  const handleTurnstileExpire = useCallback(() => {
-    setTurnstileToken("");
-  }, []);
+  const handleTurnstileExpire = () => {
+    turnstileTokenRef.current = "";
+  };
 
-  const watchedValues = watch();
-
-  // Destructure the ref and other props from register for the message field
-  const { ref: messageFormRef, ...messageRegisterProps } = register("message", {
-    required: "Message cannot be empty.",
-  });
-
-  const handleMessageInput = (e) => {
-    const textarea = e.target;
-    textarea.style.height = "auto";
-    textarea.style.height = textarea.scrollHeight + "px";
+  const updateFormValue = (event) => {
+    const { name, value } = event.target;
+    dispatch({ type: "SET_FIELD", name, value });
   };
 
   useEffect(() => {
     if (messageRef.current) {
       messageRef.current.style.height = "auto";
-      messageRef.current.style.height = messageRef.current.scrollHeight + "px";
+      messageRef.current.style.height = `${messageRef.current.scrollHeight}px`;
     }
   }, []);
 
-  useEffect(() => {
-    if (isSubmitting) {
-      setButtonState("processing");
-    } else if (submissionStatus === "success") {
-      setButtonState("success");
-      setTimeout(() => setButtonState("idle"), 2000);
-    } else if (submissionStatus?.status === "error") {
-      setButtonState("error");
-      setTimeout(() => setButtonState("idle"), 3000);
-    } else {
-      setButtonState("idle");
-    }
-  }, [isSubmitting, submissionStatus]);
-
-  const onSubmit = async (data) => {
-    if (TURNSTILE_SITE_KEY && !turnstileToken) {
-      setSubmissionStatus({
-        status: "error",
-        message: "Please complete the security check before sending.",
+  const onSubmit = async (event) => {
+    event.preventDefault();
+    const validationErrors = validateContactForm(formValues);
+    if (Object.keys(validationErrors).length > 0) {
+      dispatch({
+        type: "SET_ERRORS",
+        errors: validationErrors,
+        buttonState: "error",
       });
+      setTimeout(() => dispatch({ type: "SET_BUTTON", buttonState: "idle" }), 3000);
       return;
     }
 
+    const turnstileToken = turnstileTokenRef.current;
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      dispatch({
+        type: "SET_ERRORS",
+        errors: { turnstile: "Please complete the security check before sending." },
+        buttonState: "error",
+      });
+      setTimeout(() => dispatch({ type: "SET_BUTTON", buttonState: "idle" }), 3000);
+      return;
+    }
+
+    dispatch({ type: "SET_BUTTON", buttonState: "processing" });
     try {
-      const { company: _honeypot, ...fields } = data;
+      const { company, ...fields } = formValues;
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: {
@@ -94,70 +193,35 @@ export default function ModernContactForm() {
         },
         body: JSON.stringify({
           ...fields,
-          company: _honeypot,
+          company,
           formLoadedAt: formLoadedAtRef.current,
           turnstileToken: turnstileToken || undefined,
         }),
       });
 
       if (response.ok) {
-        setSubmissionStatus("success");
-        setTurnstileToken("");
+        dispatch({ type: "SUBMIT_SUCCESS" });
+        turnstileTokenRef.current = "";
         formLoadedAtRef.current = Date.now();
-        reset();
+        setTimeout(() => dispatch({ type: "SET_BUTTON", buttonState: "idle" }), 2000);
       } else {
         const errorData = await response.json();
-        setSubmissionStatus({
-          status: "error",
-          message: errorData.error || "Something went wrong.",
+        dispatch({
+          type: "SET_ERRORS",
+          errors: { form: errorData.error || "Something went wrong." },
         });
+        dispatch({ type: "SET_BUTTON", buttonState: "error" });
+        setTimeout(() => dispatch({ type: "SET_BUTTON", buttonState: "idle" }), 3000);
       }
     } catch (error) {
-      setSubmissionStatus({
-        status: "error",
-        message: error.message || "Something went wrong.",
+      dispatch({
+        type: "SET_ERRORS",
+        errors: { form: error.message || "Something went wrong." },
       });
+      dispatch({ type: "SET_BUTTON", buttonState: "error" });
+      setTimeout(() => dispatch({ type: "SET_BUTTON", buttonState: "idle" }), 3000);
     }
   };
-
-  const inputFields = [
-    {
-      name: "name",
-      label: "Full Name",
-      type: "text",
-      icon: User,
-      required: "Full name is required.",
-    },
-    {
-      name: "email",
-      label: "Email Address",
-      type: "email",
-      icon: Mail,
-      required: "A valid email is required.",
-      pattern: {
-        value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-        message: "Invalid email address",
-      },
-    },
-    {
-      name: "phone",
-      label: "Phone Number",
-      type: "tel",
-      icon: Phone,
-      required: false,
-      pattern: {
-        value: /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/,
-        message: "Please enter a valid phone number (e.g., +1 555-123-4567)",
-      },
-    },
-    {
-      name: "subject",
-      label: "Subject",
-      type: "text",
-      icon: FileText,
-      required: "Subject is required.",
-    },
-  ];
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -169,10 +233,10 @@ export default function ModernContactForm() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+      <form onSubmit={onSubmit} className="space-y-6" noValidate>
         {/* Honeypot — hidden from users; bots often fill every field */}
         <div
-          className="absolute -left-[9999px] h-0 w-0 overflow-hidden opacity-0"
+          className="absolute -left-[9999px] size-0 overflow-hidden opacity-0"
           aria-hidden="true"
         >
           <label htmlFor="company">Company</label>
@@ -181,21 +245,23 @@ export default function ModernContactForm() {
             id="company"
             tabIndex={-1}
             autoComplete="off"
-            {...register("company")}
+            name="company"
+            value={formValues.company}
+            onChange={updateFormValue}
           />
         </div>
 
-        {inputFields.map((field) => (
+        {INPUT_FIELDS.map((field) => (
           <div key={field.name} className="relative">
             <motion.div
               className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10"
               animate={{
-                scale: focusedField === field.name || watchedValues[field.name] ? 0.8 : 1,
+                scale: focusedField === field.name || formValues[field.name] ? 0.8 : 1,
               }}
               transition={{ duration: 0.2 }}
             >
               <field.icon
-                className={`w-5 h-5 ${errors[field.name] ? "text-red-500" : "text-gray-400"}`}
+                className={`size-5 ${errors[field.name] ? "text-red-500" : "text-gray-400"}`}
               />
             </motion.div>
 
@@ -204,14 +270,14 @@ export default function ModernContactForm() {
               className="absolute left-12 top-1/2 transform -translate-y-1/2 text-gray-500 transition-all duration-200 pointer-events-none"
               animate={{
                 y:
-                  focusedField === field.name || watchedValues[field.name]
+                  focusedField === field.name || formValues[field.name]
                     ? -40 // Adjusted for better positioning
                     : 0,
                 x:
-                  focusedField === field.name || watchedValues[field.name]
+                  focusedField === field.name || formValues[field.name]
                     ? -8 // Adjusted for better positioning
                     : 0,
-                scale: focusedField === field.name || watchedValues[field.name] ? 0.85 : 1,
+                scale: focusedField === field.name || formValues[field.name] ? 0.85 : 1,
                 color: errors[field.name]
                   ? "#EF4444" // red-500
                   : focusedField === field.name
@@ -226,22 +292,22 @@ export default function ModernContactForm() {
             <input
               type={field.type}
               id={field.name}
-              {...register(field.name, {
-                required: field.required,
-                pattern: field.pattern,
-              })}
-              onFocus={() => setFocusedField(field.name)}
-              onBlur={() => setFocusedField(null)}
+              name={field.name}
+              value={formValues[field.name]}
+              onChange={updateFormValue}
+              onFocus={() => dispatch({ type: "SET_FOCUSED", field: field.name })}
+              onBlur={() => dispatch({ type: "SET_FOCUSED", field: null })}
               className={`w-full px-12 py-4 text-gray-800 bg-white border-2 rounded-lg focus:outline-none transition-all duration-200 ${
                 errors[field.name]
                   ? "border-red-500 focus:border-red-500"
                   : "border-gray-300 focus:border-orange-500"
               }`}
               aria-invalid={errors[field.name] ? "true" : "false"}
+              aria-label={field.label}
             />
             {errors[field.name] && (
               <p className="text-red-500 text-sm mt-1 ml-1 flex items-center gap-1">
-                <AlertCircle size={14} /> {errors[field.name].message}
+                <AlertCircle size={14} /> {errors[field.name]}
               </p>
             )}
           </div>
@@ -251,12 +317,12 @@ export default function ModernContactForm() {
           <motion.div
             className="absolute left-4 top-5 z-10"
             animate={{
-              scale: focusedField === "message" || watchedValues.message ? 0.8 : 1,
+              scale: focusedField === "message" || formValues.message ? 0.8 : 1,
             }}
             transition={{ duration: 0.2 }}
           >
             <MessageSquare
-              className={`w-5 h-5 ${errors.message ? "text-red-500" : "text-gray-400"}`}
+              className={`size-5 ${errors.message ? "text-red-500" : "text-gray-400"}`}
             />
           </motion.div>
 
@@ -264,9 +330,9 @@ export default function ModernContactForm() {
             htmlFor="message"
             className="absolute left-12 top-5 text-gray-500 transition-all duration-200 pointer-events-none"
             animate={{
-              y: focusedField === "message" || watchedValues.message ? -40 : 0,
-              x: focusedField === "message" || watchedValues.message ? -8 : 0,
-              scale: focusedField === "message" || watchedValues.message ? 0.85 : 1,
+              y: focusedField === "message" || formValues.message ? -40 : 0,
+              x: focusedField === "message" || formValues.message ? -8 : 0,
+              scale: focusedField === "message" || formValues.message ? 0.85 : 1,
               color: errors.message
                 ? "#EF4444"
                 : focusedField === "message"
@@ -280,15 +346,13 @@ export default function ModernContactForm() {
 
           <textarea
             id="message"
-            {...messageRegisterProps} // Use the rest of the props from register
-            ref={(e) => {
-              // This callback assigns the element to both refs
-              messageFormRef(e); // The ref from React Hook Form
-              messageRef.current = e; // Your local ref for auto-sizing
-            }}
-            onFocus={() => setFocusedField("message")}
-            onBlur={() => setFocusedField(null)}
-            onInput={handleMessageInput}
+            ref={messageRef}
+            name="message"
+            value={formValues.message}
+            onChange={updateFormValue}
+            onFocus={() => dispatch({ type: "SET_FOCUSED", field: "message" })}
+            onBlur={() => dispatch({ type: "SET_FOCUSED", field: null })}
+            onInput={resizeMessageInput}
             rows={4}
             className={`w-full px-12 py-4 text-gray-800 bg-white border-2 rounded-lg focus:outline-none transition-all duration-200 resize-none ${
               errors.message
@@ -296,13 +360,20 @@ export default function ModernContactForm() {
                 : "border-gray-300 focus:border-orange-500"
             }`}
             aria-invalid={errors.message ? "true" : "false"}
+            aria-label="Message"
           />
           {errors.message && (
             <p className="text-red-500 text-sm mt-1 ml-1 flex items-center gap-1">
-              <AlertCircle size={14} /> {errors.message.message}
+              <AlertCircle size={14} /> {errors.message}
             </p>
           )}
         </div>
+
+        {(errors.form || errors.turnstile) && (
+          <p className="text-red-500 text-sm mt-1 ml-1 flex items-center gap-1">
+            <AlertCircle size={14} /> {errors.form || errors.turnstile}
+          </p>
+        )}
 
         {TURNSTILE_SITE_KEY ? (
           <TurnstileWidget
@@ -313,7 +384,7 @@ export default function ModernContactForm() {
           />
         ) : null}
 
-        <AnimatedSubmitButton state={buttonState} isSubmitting={isSubmitting} />
+        <AnimatedSubmitButton state={buttonState} isSubmitting={buttonState === "processing"} />
       </form>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext } from "react";
+import { createContext, use } from "react";
 import { useSacredBharat } from "@/lib/sacredBharat/useSacredBharat";
 
 const SacredBharatContext = createContext(null);
@@ -11,7 +11,7 @@ export function SacredBharatProvider({ children }) {
 }
 
 export function useSacredBharatContext() {
-  const ctx = useContext(SacredBharatContext);
+  const ctx = use(SacredBharatContext);
   if (!ctx) {
     throw new Error("useSacredBharatContext must be used within SacredBharatProvider");
   }

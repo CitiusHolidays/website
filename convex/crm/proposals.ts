@@ -25,8 +25,12 @@ const publicFinalizedPdf = (proposal: any) =>
       }
     : null;
 
-function computeProposalCostPrice(landCostPerPax: number, airfarePerPax: number) {
-  return Math.max(landCostPerPax, 0) + Math.max(airfarePerPax, 0);
+function computeProposalCostPrice(
+  landCostPerPax: number,
+  airfarePerPax: number,
+  visaCostPerPax = 0,
+) {
+  return Math.max(landCostPerPax, 0) + Math.max(airfarePerPax, 0) + Math.max(visaCostPerPax, 0);
 }
 
 function normalizeTaxRate(value: number) {
@@ -45,6 +49,7 @@ const publicProposal = (proposal: any, linkedQuery: any, attachments: any[] = []
   preparedBy: proposal.preparedBy,
   landCostPerPax: proposal.landCostPerPax ?? 0,
   airfarePerPax: proposal.airfarePerPax ?? 0,
+  visaCostPerPax: proposal.visaCostPerPax ?? 0,
   sellingPrice: proposal.sellingPrice ?? 0,
   costPrice: proposal.costPrice ?? 0,
   taxRate: proposal.taxRate ?? null,
@@ -63,12 +68,11 @@ const publicProposal = (proposal: any, linkedQuery: any, attachments: any[] = []
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.VIEW_PROPOSALS,
-      PERMISSIONS.MANAGE_JOB_CARDS,
+    const [access, rows, attachments] = await Promise.all([
+      requireAnyPermission(ctx, [PERMISSIONS.VIEW_PROPOSALS, PERMISSIONS.MANAGE_JOB_CARDS]),
+      ctx.db.query("proposals").collect(),
+      ctx.db.query("proposalAttachments").collect(),
     ]);
-    const rows = await ctx.db.query("proposals").collect();
-    const attachments = await ctx.db.query("proposalAttachments").collect();
     const attachmentsByProposal = new Map<string, typeof attachments>();
     for (const attachment of attachments) {
       const key = attachment.proposalId;
@@ -76,17 +80,24 @@ export const list = query({
       bucket.push(attachment);
       attachmentsByProposal.set(key, bucket);
     }
-    const result = [];
-    for (const proposal of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-      const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
-      if (!canSeeProposalRecord(access, proposal, linkedQuery)) {
-        continue;
-      }
-      result.push(
-        publicProposal(proposal, linkedQuery, attachmentsByProposal.get(proposal._id) ?? []),
-      );
-    }
-    return result;
+    const result = await Promise.all(
+      rows
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .map(async (proposal) => {
+          const linkedQuery = await (proposal.queryId
+            ? ctx.db.get(proposal.queryId)
+            : Promise.resolve(null));
+          if (!canSeeProposalRecord(access, proposal, linkedQuery)) {
+            return null;
+          }
+          return publicProposal(
+            proposal,
+            linkedQuery,
+            attachmentsByProposal.get(proposal._id) ?? [],
+          );
+        }),
+    );
+    return result.filter(Boolean);
   },
 });
 
@@ -96,6 +107,7 @@ export const create = mutation({
     clientName: v.optional(v.string()),
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
+    visaCostPerPax: v.optional(v.number()),
     sellingPrice: v.optional(v.number()),
     taxRate: v.optional(v.number()),
     itinerarySummary: v.optional(v.string()),
@@ -114,8 +126,13 @@ export const create = mutation({
     const now = Date.now();
     const landCostPerPax = args.landCostPerPax ?? 0;
     const airfarePerPax = args.airfarePerPax ?? 0;
-    const costPrice = computeProposalCostPrice(landCostPerPax, airfarePerPax);
-    const hasPricing = args.sellingPrice !== undefined || landCostPerPax > 0 || airfarePerPax > 0;
+    const visaCostPerPax = args.visaCostPerPax ?? 0;
+    const costPrice = computeProposalCostPrice(landCostPerPax, airfarePerPax, visaCostPerPax);
+    const hasPricing =
+      args.sellingPrice !== undefined ||
+      landCostPerPax > 0 ||
+      airfarePerPax > 0 ||
+      visaCostPerPax > 0;
     const proposalCode = await nextCode(ctx, "proposals", "P");
     const clientName = linkedQuery?.clientName || args.clientName?.trim() || "Unlinked client";
     const id = await ctx.db.insert("proposals", {
@@ -125,6 +142,7 @@ export const create = mutation({
       preparedBy: access.name,
       landCostPerPax,
       airfarePerPax,
+      visaCostPerPax,
       sellingPrice: Math.max(args.sellingPrice ?? 0, 0),
       costPrice,
       taxRate: args.taxRate !== undefined ? normalizeTaxRate(args.taxRate) : undefined,
@@ -154,6 +172,7 @@ export const update = mutation({
     clientName: v.optional(v.string()),
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
+    visaCostPerPax: v.optional(v.number()),
     sellingPrice: v.optional(v.number()),
     taxRate: v.optional(v.union(v.number(), v.null())),
     itinerarySummary: v.optional(v.string()),
@@ -198,6 +217,7 @@ export const update = mutation({
     if (args.clientName !== undefined) patch.clientName = args.clientName.trim();
     if (args.landCostPerPax !== undefined) patch.landCostPerPax = args.landCostPerPax;
     if (args.airfarePerPax !== undefined) patch.airfarePerPax = args.airfarePerPax;
+    if (args.visaCostPerPax !== undefined) patch.visaCostPerPax = args.visaCostPerPax;
     if (args.sellingPrice !== undefined) {
       patch.sellingPrice = Math.max(args.sellingPrice, 0);
       patch.pricingEnteredAt = Date.now();
@@ -215,8 +235,14 @@ export const update = mutation({
       (patch.landCostPerPax as number | undefined) ?? proposal.landCostPerPax ?? 0;
     const airfarePerPax =
       (patch.airfarePerPax as number | undefined) ?? proposal.airfarePerPax ?? 0;
-    if (args.landCostPerPax !== undefined || args.airfarePerPax !== undefined) {
-      patch.costPrice = computeProposalCostPrice(landCostPerPax, airfarePerPax);
+    const visaCostPerPax =
+      (patch.visaCostPerPax as number | undefined) ?? proposal.visaCostPerPax ?? 0;
+    if (
+      args.landCostPerPax !== undefined ||
+      args.airfarePerPax !== undefined ||
+      args.visaCostPerPax !== undefined
+    ) {
+      patch.costPrice = computeProposalCostPrice(landCostPerPax, airfarePerPax, visaCostPerPax);
       patch.pricingEnteredAt = Date.now();
     }
 
@@ -306,21 +332,25 @@ export const remove = mutation({
     if (proposal.finalizedPdfStorageId) {
       storageIds.push(proposal.finalizedPdfStorageId);
     }
-    for (const storageId of storageIds) {
-      try {
-        await ctx.storage.delete(storageId);
-      } catch (err) {
-        console.error("Failed to delete proposal attachment file:", err);
-      }
-    }
-    await createActivity(ctx, access, {
-      entityType: "proposal",
-      entityId: proposalId,
-      action: "deleted",
-      message: `${proposal.proposalCode} deleted`,
-    });
-    await deleteEntityNotifications(ctx, "proposal", proposalId);
-    await ctx.db.delete(proposalId);
+    await Promise.all(
+      storageIds.map(async (storageId) => {
+        try {
+          await ctx.storage.delete(storageId);
+        } catch (err) {
+          console.error("Failed to delete proposal attachment file:", err);
+        }
+      }),
+    );
+    await Promise.all([
+      createActivity(ctx, access, {
+        entityType: "proposal",
+        entityId: proposalId,
+        action: "deleted",
+        message: `${proposal.proposalCode} deleted`,
+      }),
+      deleteEntityNotifications(ctx, "proposal", proposalId),
+      ctx.db.delete(proposalId),
+    ]);
     return { id: proposalId };
   },
 });
@@ -381,7 +411,7 @@ export const getFinalizedPdfRecord = query({
       return null;
     }
     const proposal = await ctx.db.get(proposalId);
-    if (!proposal || !proposal.finalizedPdfStorageId) {
+    if (!proposal?.finalizedPdfStorageId) {
       return null;
     }
     const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;

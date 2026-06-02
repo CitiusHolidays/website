@@ -1,15 +1,15 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m as motion } from "motion/react";
 import Image from "next/image";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 const FALLBACK_HERO = {
   src: "/gallery/spiritual/mansarovar-lake.webp",
   alt: "Lake Mansarovar",
 };
+
+const transitionConfig = { duration: 1.2, ease: [0.4, 0, 0.2, 1] };
 
 function buildSlides(trail) {
   const seen = new Set();
@@ -39,7 +39,7 @@ function buildSlides(trail) {
 }
 
 export default function TrailHeroSlideshow({ trail }) {
-  const slides = useMemo(() => buildSlides(trail), [trail]);
+  const slides = buildSlides(trail);
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
@@ -51,8 +51,6 @@ export default function TrailHeroSlideshow({ trail }) {
   }, [slides.length]);
 
   const current = slides[index] ?? slides[0];
-  const transitionConfig = { duration: 1.2, ease: [0.4, 0, 0.2, 1] };
-
   return (
     <section className="relative h-screen min-h-[700px] w-full overflow-hidden bg-brand-dark">
       <AnimatePresence initial={false} mode="sync">
@@ -91,7 +89,7 @@ export default function TrailHeroSlideshow({ trail }) {
             href="/pilgrimage#all-trails"
             className="inline-flex items-center gap-2 text-sm text-white/85 hover:text-white transition-colors font-medium drop-shadow-sm"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <ArrowLeft className="size-4" />
             All spiritual trails
           </Link>
         </motion.div> */}

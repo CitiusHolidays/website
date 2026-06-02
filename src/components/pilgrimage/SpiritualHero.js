@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m as motion } from "motion/react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
@@ -31,6 +31,8 @@ const images = [
   },
 ];
 
+const transitionConfig = { duration: 1.5, ease: [0.4, 0, 0.2, 1] };
+
 export default function SpiritualHero() {
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -40,8 +42,6 @@ export default function SpiritualHero() {
     }, 6000);
     return () => clearInterval(timer);
   }, []);
-
-  const transitionConfig = { duration: 1.5, ease: [0.4, 0, 0.2, 1] };
 
   return (
     <section className="relative h-screen min-h-[700px] w-full overflow-hidden bg-brand-dark">
@@ -59,6 +59,7 @@ export default function SpiritualHero() {
             src={images[currentIndex].src}
             alt={images[currentIndex].alt}
             fill
+            sizes="100vw"
             className="object-cover"
             priority
           />
@@ -114,9 +115,9 @@ export default function SpiritualHero() {
 
       {/* Navigation Indicators */}
       <div className="absolute bottom-12 right-12 z-20 flex gap-3">
-        {images.map((_, idx) => (
+        {images.map((image, idx) => (
           <button
-            key={idx}
+            key={image.src}
             type="button"
             onClick={() => setCurrentIndex(idx)}
             className={`h-1 transition-all duration-500 ${

@@ -131,7 +131,7 @@ export default function HomeMainClient() {
               Why Choose Citius?
             </h2>
             <p className="text-brand-muted text-lg mb-8 leading-relaxed">
-              We create journeys with purpose, precision, and passion — delivering seamless,
+              We create journeys with purpose, precision, and passion , delivering seamless,
               memorable travel experiences every single time
             </p>
             <div className="grid grid-cols-2 gap-4">
@@ -164,9 +164,7 @@ export default function HomeMainClient() {
         <div className="relative z-20 max-w-3xl mx-auto px-4">
           <h2 className="mb-8 text-4xl md:text-5xl font-heading font-bold leading-tight">
             Ready for your next <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-emerald-200">
-              extraordinary journey?
-            </span>
+            <span className="text-emerald-100">extraordinary journey?</span>
           </h2>
           <p className="text-blue-100 text-lg mb-10 max-w-xl mx-auto">
             Let our experts craft a personalized itinerary that exceeds your expectations.

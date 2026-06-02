@@ -123,7 +123,7 @@ export const prepareCheckout = query({
     ensureValidCheckoutArgs(args.travelers, args.currency);
 
     const trip = await resolveTrip(ctx, args.tripIdentifier);
-    if (!trip || !trip.isActive) {
+    if (!trip?.isActive) {
       throw new ConvexError("Trip not found or inactive");
     }
     if (trip.availableSeats < args.travelers) {
@@ -163,7 +163,7 @@ export const createPendingBooking = mutation({
     ensureValidCheckoutArgs(args.travelers, args.currency);
 
     const trip = await resolveTrip(ctx, args.tripIdentifier);
-    if (!trip || !trip.isActive) {
+    if (!trip?.isActive) {
       throw new ConvexError("Trip not found or inactive");
     }
     if (trip.availableSeats < args.travelers) {
@@ -215,19 +215,17 @@ export const getMyBookings = query({
       .order("desc")
       .collect();
 
-    const result = [];
-    for (const booking of rows) {
-      const trip = await ctx.db.get(booking.tripId);
-      if (!trip) {
-        continue;
-      }
-      result.push({
-        booking: toApiBooking(booking),
-        trip: toApiTrip(trip),
-      });
-    }
-
-    return result;
+    const trips = await Promise.all(rows.map((booking) => ctx.db.get(booking.tripId)));
+    return rows.flatMap((booking, index) => {
+      const trip = trips[index];
+      if (!trip) return [];
+      return [
+        {
+          booking: toApiBooking(booking),
+          trip: toApiTrip(trip),
+        },
+      ];
+    });
   },
 });
 
@@ -292,18 +290,19 @@ export const confirmBookingByOrderId = mutation({
     }
 
     const timestamp = Date.now();
-    await ctx.db.patch(booking._id, {
-      status: "confirmed",
-      razorpayPaymentId: args.paymentId,
-      razorpaySignature: args.signature,
-      confirmedAt: timestamp,
-      updatedAt: timestamp,
-    });
-
-    await ctx.db.patch(trip._id, {
-      availableSeats: trip.availableSeats - booking.travelers,
-      updatedAt: timestamp,
-    });
+    await Promise.all([
+      ctx.db.patch(booking._id, {
+        status: "confirmed",
+        razorpayPaymentId: args.paymentId,
+        razorpaySignature: args.signature,
+        confirmedAt: timestamp,
+        updatedAt: timestamp,
+      }),
+      ctx.db.patch(trip._id, {
+        availableSeats: trip.availableSeats - booking.travelers,
+        updatedAt: timestamp,
+      }),
+    ]);
 
     const updated = await ctx.db.get(booking._id);
     return {

@@ -1,7 +1,7 @@
 "use client";
 
 import { MapPin } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Image from "next/image";
 import { useState } from "react";
 import {
@@ -70,7 +70,7 @@ export default function TrendingDestinations({
   return (
     <div className="py-24 relative overflow-hidden">
       {/* Background Decoration */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-100/50 rounded-full blur-[120px] -z-10"></div>
+      <div className="absolute top-0 right-0 size-[500px] bg-blue-100/50 rounded-full blur-[120px] -z-10"></div>
 
       <div className="max-w-7xl mx-auto px-4 mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
@@ -89,6 +89,7 @@ export default function TrendingDestinations({
 
         <div className="flex p-1 bg-slate-100 rounded-full">
           <button
+            type="button"
             onClick={() => setActiveTab("international")}
             className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
               activeTab === "international"
@@ -99,6 +100,7 @@ export default function TrendingDestinations({
             International
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab("domestic")}
             className={`px-6 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
               activeTab === "domestic"
@@ -119,7 +121,7 @@ export default function TrendingDestinations({
               <DestinationCard key={destination.name} destination={destination} index={index} />
             ))
           ) : (
-            <div className="w-full py-20 text-center text-brand-muted">Coming Soon...</div>
+            <div className="w-full py-20 text-center text-brand-muted">Coming Soon…</div>
           )}
         </div>
       </div>

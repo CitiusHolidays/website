@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, CheckCircle, Clock, Footprints, Mountain, Plane, Users } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Link from "next/link";
 import { cn } from "../../utils/cn";
 
@@ -59,8 +59,8 @@ function ComparisonRow({ item, index }) {
     >
       {/* Feature Label */}
       <div className="md:col-span-3 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-citius-blue/10 flex items-center justify-center shrink-0">
-          <item.icon className="w-5 h-5 text-citius-blue" />
+        <div className="size-10 rounded-full bg-citius-blue/10 flex items-center justify-center shrink-0">
+          <item.icon className="size-5 text-citius-blue" />
         </div>
         <span className="font-heading text-sm md:text-base text-brand-dark font-medium">
           {item.label}
@@ -123,11 +123,11 @@ export default function JourneyComparison({ className }) {
             >
               <h3 className="font-heading text-lg mb-1">14-Day Yatra</h3>
               <p className="text-white/80 text-xs mb-3">
-                Complete pilgrimage with Kora — tap for full page
+                Complete pilgrimage with Kora , tap for full page
               </p>
               <div className="flex items-center justify-end">
                 <span className="bg-white text-citius-blue px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1">
-                  Open trail <ArrowRight className="w-3 h-3" />
+                  Open trail <ArrowRight className="size-3" />
                 </span>
               </div>
             </motion.div>
@@ -145,11 +145,11 @@ export default function JourneyComparison({ className }) {
             >
               <h3 className="font-heading text-lg mb-1">2N/3D Aerial</h3>
               <p className="text-white/80 text-xs mb-3">
-                Divine darshan without trek — tap for full page
+                Divine darshan without trek , tap for full page
               </p>
               <div className="flex items-center justify-end">
                 <span className="bg-white text-citius-orange px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1">
-                  Open trail <ArrowRight className="w-3 h-3" />
+                  Open trail <ArrowRight className="size-3" />
                 </span>
               </div>
             </motion.div>
@@ -169,7 +169,7 @@ export default function JourneyComparison({ className }) {
                 <h3 className="font-heading text-lg font-semibold">14-Day Yatra</h3>
                 <p className="text-sm text-white/80 mt-1">The Complete Journey</p>
                 <span className="mt-2 inline-flex items-center justify-center gap-1 text-xs font-medium text-white/90">
-                  View full itinerary <ArrowRight className="w-3.5 h-3.5" />
+                  View full itinerary <ArrowRight className="size-3.5" />
                 </span>
               </Link>
             </div>
@@ -181,7 +181,7 @@ export default function JourneyComparison({ className }) {
                 <h3 className="font-heading text-lg font-semibold">2N/3D Aerial</h3>
                 <p className="text-sm text-white/80 mt-1">Sky Path Darshan</p>
                 <span className="mt-2 inline-flex items-center justify-center gap-1 text-xs font-medium text-white/90">
-                  View full itinerary <ArrowRight className="w-3.5 h-3.5" />
+                  View full itinerary <ArrowRight className="size-3.5" />
                 </span>
               </Link>
             </div>
@@ -206,24 +206,24 @@ export default function JourneyComparison({ className }) {
           {/* 14-Day Highlights */}
           <div className="bg-citius-blue/5 rounded-2xl p-5 md:p-6 border border-citius-blue/10">
             <h4 className="font-heading text-citius-blue text-base md:text-lg mb-4 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5" />
+              <CheckCircle className="size-5" />
               14-Day Yatra Includes
             </h4>
             <ul className="space-y-2 text-sm text-brand-dark/80">
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-citius-blue rounded-full mt-2 shrink-0" />
+                <span className="size-1.5 bg-citius-blue rounded-full mt-2 shrink-0" />
                 Complete 53km Kora (circumambulation)
               </li>
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-citius-blue rounded-full mt-2 shrink-0" />
+                <span className="size-1.5 bg-citius-blue rounded-full mt-2 shrink-0" />
                 Holy dip in Lake Mansarovar
               </li>
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-citius-blue rounded-full mt-2 shrink-0" />
+                <span className="size-1.5 bg-citius-blue rounded-full mt-2 shrink-0" />
                 Pashupatinath Temple darshan
               </li>
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-citius-blue rounded-full mt-2 shrink-0" />
+                <span className="size-1.5 bg-citius-blue rounded-full mt-2 shrink-0" />
                 Drolma La Pass crossing (5,650m)
               </li>
             </ul>
@@ -237,24 +237,24 @@ export default function JourneyComparison({ className }) {
           {/* Aerial Highlights */}
           <div className="bg-citius-orange/5 rounded-2xl p-5 md:p-6 border border-citius-orange/10">
             <h4 className="font-heading text-citius-orange text-base md:text-lg mb-4 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5" />
+              <CheckCircle className="size-5" />
               Aerial Darshan Includes
             </h4>
             <ul className="space-y-2 text-sm text-brand-dark/80">
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-citius-orange rounded-full mt-2 shrink-0" />
+                <span className="size-1.5 bg-citius-orange rounded-full mt-2 shrink-0" />
                 Chartered flight with window seat guarantee
               </li>
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-citius-orange rounded-full mt-2 shrink-0" />
+                <span className="size-1.5 bg-citius-orange rounded-full mt-2 shrink-0" />
                 Aerial views of Kailash & Mansarovar
               </li>
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-citius-orange rounded-full mt-2 shrink-0" />
+                <span className="size-1.5 bg-citius-orange rounded-full mt-2 shrink-0" />
                 Bageshwari Temple pooja & hawan
               </li>
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 bg-citius-orange rounded-full mt-2 shrink-0" />
+                <span className="size-1.5 bg-citius-orange rounded-full mt-2 shrink-0" />
                 Lucknow-Nepalgunj transport in Innova
               </li>
             </ul>

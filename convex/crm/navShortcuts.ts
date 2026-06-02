@@ -75,66 +75,75 @@ export const list = query({
 
     if (access.permissions.includes(PERMISSIONS.VIEW_PROPOSALS)) {
       const rows = await ctx.db.query("proposals").collect();
-      const shortcuts: Shortcut[] = [];
-      for (const proposal of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-        if (shortcuts.length >= LIMIT) break;
-        const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
-        if (!canSeeProposalRecord(access, proposal, linkedQuery ?? undefined)) {
-          continue;
-        }
-        const eventDate = proposal.sentAt ?? proposal.createdAt;
-        const dateLabel = formatShortcutDate(eventDate);
-        const prefix = proposal.sentAt ? "Sent " : "";
-        shortcuts.push({
-          id: proposal._id,
-          label: `${proposal.proposalCode} · ${proposal.clientName}${dateLabel ? ` · ${prefix}${dateLabel}` : ""}`,
-          href: proposalHref(proposal._id),
-          dateLabel,
-        });
-      }
-      result.proposals = shortcuts;
+      const shortcuts = await Promise.all(
+        rows
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .map(async (proposal) => {
+            const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
+            if (!canSeeProposalRecord(access, proposal, linkedQuery ?? undefined)) {
+              return null;
+            }
+            const eventDate = proposal.sentAt ?? proposal.createdAt;
+            const dateLabel = formatShortcutDate(eventDate);
+            const prefix = proposal.sentAt ? "Sent " : "";
+            return {
+              id: proposal._id,
+              label: `${proposal.proposalCode} · ${proposal.clientName}${dateLabel ? ` · ${prefix}${dateLabel}` : ""}`,
+              href: proposalHref(proposal._id),
+              dateLabel,
+            };
+          }),
+      );
+      result.proposals = shortcuts.filter(Boolean).slice(0, LIMIT) as Shortcut[];
     }
 
     if (access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS)) {
       const rows = await ctx.db.query("jobCards").collect();
-      const shortcuts: Shortcut[] = [];
-      for (const job of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-        if (shortcuts.length >= LIMIT) break;
-        const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
-        if (!canSeeJobCardRecord(access, job, linkedQuery ?? undefined)) {
-          continue;
-        }
-        const dateLabel = formatShortcutDate(job.createdAt);
-        shortcuts.push({
-          id: job._id,
-          label: `${job.jobCode}${dateLabel ? ` · ${dateLabel}` : ""}`,
-          href: jobCardHref(job._id),
-          dateLabel,
-        });
-      }
-      result.jobCards = shortcuts;
+      const shortcuts = await Promise.all(
+        rows
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .map(async (job) => {
+            const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+            if (!canSeeJobCardRecord(access, job, linkedQuery ?? undefined)) {
+              return null;
+            }
+            const dateLabel = formatShortcutDate(job.createdAt);
+            return {
+              id: job._id,
+              label: `${job.jobCode}${dateLabel ? ` · ${dateLabel}` : ""}`,
+              href: jobCardHref(job._id),
+              dateLabel,
+            };
+          }),
+      );
+      result.jobCards = shortcuts.filter(Boolean).slice(0, LIMIT) as Shortcut[];
     }
 
     if (access.permissions.includes(PERMISSIONS.VIEW_TICKETING)) {
       const rows = await ctx.db.query("tickets").collect();
-      const shortcuts: Shortcut[] = [];
-      for (const ticket of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-        if (shortcuts.length >= LIMIT) break;
-        const job = await ctx.db.get(ticket.jobCardId);
-        const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
-        if (!job || !canSeeJobCardRecord(access, job, linkedQuery ?? undefined)) {
-          continue;
-        }
-        const dateLabel = formatShortcutDate(ticket.createdAt);
-        const ticketLabel = ticket.ticketNumber?.trim() || "Ticket";
-        shortcuts.push({
-          id: ticket._id,
-          label: `${ticketLabel} · ${job.jobCode}${dateLabel ? ` · ${dateLabel}` : ""}`,
-          href: ticketHref(ticket._id),
-          dateLabel,
-        });
-      }
-      result.tickets = shortcuts;
+      const shortcuts = await Promise.all(
+        rows
+          .sort((a, b) => b.createdAt - a.createdAt)
+          .map(async (ticket) => {
+            const job = await ctx.db.get(ticket.jobCardId);
+            if (!job) {
+              return null;
+            }
+            const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+            if (!canSeeJobCardRecord(access, job, linkedQuery ?? undefined)) {
+              return null;
+            }
+            const dateLabel = formatShortcutDate(ticket.createdAt);
+            const ticketLabel = ticket.ticketNumber?.trim() || "Ticket";
+            return {
+              id: ticket._id,
+              label: `${ticketLabel} · ${job.jobCode}${dateLabel ? ` · ${dateLabel}` : ""}`,
+              href: ticketHref(ticket._id),
+              dateLabel,
+            };
+          }),
+      );
+      result.tickets = shortcuts.filter(Boolean).slice(0, LIMIT) as Shortcut[];
     }
 
     return result;

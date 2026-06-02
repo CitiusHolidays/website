@@ -6,6 +6,7 @@ import {
   createActivity,
   getHeadReviewerRolesForStaff,
   getLeaveApprovalActions,
+  isDefined,
   isHrReviewer,
   notifyRoles,
   PERMISSIONS,
@@ -40,39 +41,43 @@ function canSeeLeave(access: any, leave: any, staff: any) {
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const access = await requireStaff(ctx, PERMISSIONS.VIEW_LEAVE);
-    const leaves = await ctx.db.query("staffLeaveRecords").collect();
+    const [access, leaves] = await Promise.all([
+      requireStaff(ctx, PERMISSIONS.VIEW_LEAVE),
+      ctx.db.query("staffLeaveRecords").collect(),
+    ]);
 
-    const result = [];
-    for (const leave of leaves) {
-      const staff = await ctx.db.get(leave.staffId);
-      if (!staff || !canSeeLeave(access, leave, staff)) {
-        continue;
-      }
-      result.push({
-        id: leave._id,
-        staffId: leave.staffId,
-        staffName: staff.name,
-        staffEmail: staff.email,
-        department: staff.department || "General",
-        leaveType: leave.leaveType ?? "Casual",
-        startDate: leave.startDate,
-        endDate: leave.endDate,
-        reason: leave.reason,
-        status: leave.status ?? "Pending",
-        headReviewStatus: leave.headReviewStatus ?? "Pending",
-        headReviewerRole: leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR",
-        headReviewedByName: leave.headReviewedByName ?? "",
-        headDecisionNote: leave.headDecisionNote ?? "",
-        hrReviewStatus: leave.hrReviewStatus ?? "Pending",
-        hrReviewedByName: leave.hrReviewedByName ?? "",
-        decisionNote: leave.decisionNote ?? "",
-        ...getLeaveApprovalActions(access, leave, staff),
-        createdAt: new Date(leave.createdAt).toISOString(),
-      });
-    }
+    const result = await Promise.all(
+      leaves.map(async (leave) => {
+        const staff = await ctx.db.get(leave.staffId);
+        if (!staff || !canSeeLeave(access, leave, staff)) {
+          return null;
+        }
+        return {
+          id: leave._id,
+          staffId: leave.staffId,
+          staffName: staff.name,
+          staffEmail: staff.email,
+          department: staff.department || "General",
+          leaveType: leave.leaveType ?? "Casual",
+          startDate: leave.startDate,
+          endDate: leave.endDate,
+          reason: leave.reason,
+          status: leave.status ?? "Pending",
+          headReviewStatus: leave.headReviewStatus ?? "Pending",
+          headReviewerRole:
+            leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR",
+          headReviewedByName: leave.headReviewedByName ?? "",
+          headDecisionNote: leave.headDecisionNote ?? "",
+          hrReviewStatus: leave.hrReviewStatus ?? "Pending",
+          hrReviewedByName: leave.hrReviewedByName ?? "",
+          decisionNote: leave.decisionNote ?? "",
+          ...getLeaveApprovalActions(access, leave, staff),
+          createdAt: new Date(leave.createdAt).toISOString(),
+        };
+      }),
+    );
 
-    return result.sort((a, b) => b.startDate.localeCompare(a.startDate));
+    return result.filter(isDefined).sort((a, b) => b.startDate.localeCompare(a.startDate));
   },
 });
 
@@ -329,9 +334,7 @@ export const remove = mutation({
       throw new ConvexError("Leave record not found");
     }
 
-    const staff = await ctx.db.get(leave.staffId);
-
-    await ctx.db.delete(leaveId);
+    const [staff] = await Promise.all([ctx.db.get(leave.staffId), ctx.db.delete(leaveId)]);
 
     await createActivity(ctx, access, {
       entityType: "leave",

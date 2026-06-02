@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Link from "next/link";
 import LevelBadge from "./LevelBadge";
 import { useSacredBharatContext } from "./SacredBharatProvider";
@@ -35,7 +35,7 @@ export default function SacredBharatHero() {
           </h1>
           <p className="font-sans text-base md:text-lg text-white/75 max-w-2xl leading-relaxed mb-8">
             Mark temples visited, complete spiritual trails, earn badges, and build your digital
-            pilgrimage legacy — free to track, sign in to save and compare with fellow yatris.
+            pilgrimage legacy , free to track, sign in to save and compare with fellow yatris.
           </p>
           <div className="flex flex-wrap items-center gap-4">
             {!isLoading && <LevelBadge level={progress.level} score={progress.score} size="lg" />}

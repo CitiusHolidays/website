@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useInView } from "motion/react";
+import { m as motion, useInView } from "motion/react";
 import { AnimateNumber } from "motion-plus/react";
 import { useRef } from "react";
 import { cn } from "../../utils/cn";

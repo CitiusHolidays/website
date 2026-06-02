@@ -65,15 +65,6 @@ export const attachFile = action({
     fileSize: v.number(),
   },
   handler: async (ctx, args) => {
-    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!access?.allowed || !access.permissions.includes(PERMISSIONS.MANAGE_QUERIES)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-
-    const normalizedQueryId = await ctx.runMutation(internal.crm.queryAttachments.resolveQueryId, {
-      queryId: args.queryId,
-    });
-
     if (!isAllowedMimeType(args.mimeType)) {
       try {
         await ctx.storage.delete(args.storageId);
@@ -94,7 +85,17 @@ export const attachFile = action({
       throw new ConvexError("Each file must be between 1 byte and 15 MB.");
     }
 
-    const blob = await ctx.storage.get(args.storageId);
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    if (!access?.allowed || !access.permissions.includes(PERMISSIONS.MANAGE_QUERIES)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+
+    const [normalizedQueryId, blob] = await Promise.all([
+      ctx.runMutation(internal.crm.queryAttachments.resolveQueryId, {
+        queryId: args.queryId,
+      }),
+      ctx.storage.get(args.storageId),
+    ]);
     if (!blob) {
       throw new ConvexError("Uploaded file not found in storage");
     }

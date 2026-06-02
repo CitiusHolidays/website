@@ -1,47 +1,24 @@
 "use client";
 
-import { AnimatePresence, animate, motion, Transition, useTime, useTransform } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, m as motion, useTime, useTransform } from "motion/react";
 
-const Badge = ({ state, isSubmitting }) => {
-  const badgeRef = useRef(null);
-
-  useEffect(() => {
-    if (!badgeRef.current) return;
-
-    if (state === "error") {
-      animate(
-        badgeRef.current,
-        { x: [0, -6, 6, -6, 0] },
-        {
-          duration: 0.3,
-          ease: "easeInOut",
-          times: [0, 0.25, 0.5, 0.75, 1],
-          repeat: 0,
-          delay: 0.1,
-        },
-      );
-    } else if (state === "success") {
-      animate(
-        badgeRef.current,
-        {
-          scale: [1, 1.2, 1],
-        },
-        {
-          duration: 0.3,
-          ease: "easeInOut",
-          times: [0, 0.5, 1],
-          repeat: 0,
-        },
-      );
-    }
-  }, [state]);
-
+const Badge = ({ state }) => {
   return (
     <motion.div
-      ref={badgeRef}
       style={{ ...styles.badge, gap: state === "idle" ? 0 : 8 }}
       className="bg-citius-orange text-brand-light"
+      animate={
+        state === "error"
+          ? { x: [0, -6, 6, -6, 0], scale: 1 }
+          : state === "success"
+            ? { x: 0, scale: [1, 1.2, 1] }
+            : { x: 0, scale: 1 }
+      }
+      transition={{
+        duration: 0.3,
+        ease: "easeInOut",
+        times: state === "error" ? [0, 0.25, 0.5, 0.75, 1] : undefined,
+      }}
     >
       <Icon state={state} />
       <Label state={state} />
@@ -50,11 +27,11 @@ const Badge = ({ state, isSubmitting }) => {
 };
 
 const Icon = ({ state }) => {
-  let IconComponent = <></>;
+  let IconComponent = null;
 
   switch (state) {
     case "idle":
-      IconComponent = <></>;
+      IconComponent = null;
       break;
     case "processing":
       IconComponent = <Loader />;
@@ -155,48 +132,21 @@ const secondLineAnimation = {
 };
 
 const Label = ({ state }) => {
-  const [labelWidth, setLabelWidth] = useState(0);
-  const measureRef = useRef(null);
-
-  useEffect(() => {
-    if (measureRef.current) {
-      const { width } = measureRef.current.getBoundingClientRect();
-      setLabelWidth(width);
-    }
-  }, [state]);
-
   return (
-    <>
-      <div
-        ref={measureRef}
-        style={{
-          position: "absolute",
-          visibility: "hidden",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {STATES[state]}
-      </div>
-      <motion.span
-        layout
-        style={{ position: "relative" }}
-        animate={{ width: labelWidth }}
-        transition={SPRING_CONFIG}
-      >
-        <AnimatePresence mode="sync" initial={false}>
-          <motion.div
-            key={state}
-            style={{ textWrap: "nowrap" }}
-            initial={{ y: -20, opacity: 0, filter: "blur(10px)", position: "absolute" }}
-            animate={{ y: 0, opacity: 1, filter: "blur(0px)", position: "relative" }}
-            exit={{ y: 20, opacity: 0, filter: "blur(10px)", position: "absolute" }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-          >
-            {STATES[state]}
-          </motion.div>
-        </AnimatePresence>
-      </motion.span>
-    </>
+    <motion.span layout style={{ position: "relative" }} transition={SPRING_CONFIG}>
+      <AnimatePresence mode="sync" initial={false}>
+        <motion.div
+          key={state}
+          style={{ textWrap: "nowrap" }}
+          initial={{ y: -20, opacity: 0, filter: "blur(10px)", position: "absolute" }}
+          animate={{ y: 0, opacity: 1, filter: "blur(0px)", position: "relative" }}
+          exit={{ y: 20, opacity: 0, filter: "blur(10px)", position: "absolute" }}
+          transition={{ duration: 0.2, ease: "easeInOut" }}
+        >
+          {STATES[state]}
+        </motion.div>
+      </AnimatePresence>
+    </motion.span>
   );
 };
 
@@ -227,7 +177,7 @@ const styles = {
 
 const STATES = {
   idle: "Send Message",
-  processing: "Sending...",
+  processing: "Sending…",
   success: "Sent!",
   error: "Failed! Try again",
 };

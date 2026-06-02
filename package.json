@@ -20,7 +20,8 @@
     "migrate:import": "node ./scripts/migrations/import-json-to-convex.mjs",
     "migrate:verify": "node ./scripts/migrations/verify-parity.mjs",
     "import:staff": "node ./scripts/import-staff-from-xlsx.mjs",
-    "import:staff:prod": "node ./scripts/import-staff-from-xlsx.mjs --apply --prod"
+    "import:staff:prod": "node ./scripts/import-staff-from-xlsx.mjs --apply --prod",
+    "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
     "@convex-dev/better-auth": "^0.12.2",
@@ -43,16 +44,13 @@
     "razorpay": "^2.9.6",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "react-hook-form": "^7.76.1",
     "resend": "^6.12.4",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@better-auth/cli": "^1.4.21",
     "@biomejs/biome": "^2.4.16",
     "@tailwindcss/postcss": "^4.3.0",
     "babel-plugin-react-compiler": "^1.0.0",
-    "postgres": "^3.4.9",
     "tailwindcss": "^4.3.0"
   }
 }

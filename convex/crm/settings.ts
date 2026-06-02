@@ -58,13 +58,13 @@ const PRESET_TABLES = ["roleDefinitions", "dropdownOptions", "paymentTerms"] as 
 async function deletePresetRows(ctx: MutationCtx) {
   const deleted: Record<string, number> = {};
 
-  for (const table of PRESET_TABLES) {
-    const rows = await ctx.db.query(table).collect();
-    for (const row of rows) {
-      await ctx.db.delete(row._id);
-    }
-    deleted[table] = rows.length;
-  }
+  await Promise.all(
+    PRESET_TABLES.map(async (table) => {
+      const rows = await ctx.db.query(table).collect();
+      await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+      deleted[table] = rows.length;
+    }),
+  );
 
   return { deleted };
 }

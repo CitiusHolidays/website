@@ -15,7 +15,6 @@ const SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js";
  */
 export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }) {
   const containerRef = useRef(null);
-  const widgetIdRef = useRef(null);
   const callbacksRef = useRef({ onVerify, onExpire, onError });
 
   useEffect(() => {
@@ -27,21 +26,24 @@ export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }
       return undefined;
     }
 
+    const container = containerRef.current;
+    let renderedWidgetId = null;
+
     const renderWidget = () => {
-      if (!containerRef.current || !window.turnstile) {
+      if (!container || !window.turnstile) {
         return;
       }
 
-      if (widgetIdRef.current != null) {
+      if (renderedWidgetId != null) {
         try {
-          window.turnstile.remove(widgetIdRef.current);
+          window.turnstile.remove(renderedWidgetId);
         } catch {
           /* widget may already be gone */
         }
-        widgetIdRef.current = null;
+        renderedWidgetId = null;
       }
 
-      widgetIdRef.current = window.turnstile.render(containerRef.current, {
+      renderedWidgetId = window.turnstile.render(container, {
         sitekey: siteKey,
         theme: "light",
         callback: (token) => callbacksRef.current.onVerify?.(token),
@@ -50,37 +52,37 @@ export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }
       });
     };
 
-    const ensureScript = () => {
-      if (window.turnstile) {
-        renderWidget();
-        return;
-      }
+    let loadTarget = null;
 
+    if (window.turnstile) {
+      renderWidget();
+    } else {
       const existing = document.getElementById(SCRIPT_ID);
       if (existing) {
-        existing.addEventListener("load", renderWidget, { once: true });
-        return;
+        loadTarget = existing;
+        loadTarget.addEventListener("load", renderWidget, { once: true });
+      } else {
+        const script = document.createElement("script");
+        script.id = SCRIPT_ID;
+        script.src = SCRIPT_SRC;
+        script.async = true;
+        script.defer = true;
+        loadTarget = script;
+        loadTarget.addEventListener("load", renderWidget, { once: true });
+        document.head.appendChild(script);
       }
-
-      const script = document.createElement("script");
-      script.id = SCRIPT_ID;
-      script.src = SCRIPT_SRC;
-      script.async = true;
-      script.defer = true;
-      script.addEventListener("load", renderWidget, { once: true });
-      document.head.appendChild(script);
-    };
-
-    ensureScript();
+    }
 
     return () => {
-      if (widgetIdRef.current != null && window.turnstile) {
+      if (loadTarget) {
+        loadTarget.removeEventListener("load", renderWidget);
+      }
+      if (renderedWidgetId != null && window.turnstile) {
         try {
-          window.turnstile.remove(widgetIdRef.current);
+          window.turnstile.remove(renderedWidgetId);
         } catch {
           /* ignore */
         }
-        widgetIdRef.current = null;
       }
     };
   }, [siteKey]);

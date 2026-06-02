@@ -1,7 +1,7 @@
-import { LEVELS, POINTS_PER_TEMPLE } from "@/data/sacredBharat/levels";
-import { REGIONS } from "@/data/sacredBharat/regions";
-import { TEMPLE_BY_ID, TEMPLES } from "@/data/sacredBharat/temples";
-import { TRAILS } from "@/data/sacredBharat/trails";
+import { LEVELS, POINTS_PER_TEMPLE } from "../../data/sacredBharat/levels.js";
+import { REGIONS } from "../../data/sacredBharat/regions.js";
+import { TEMPLE_BY_ID, TEMPLES } from "../../data/sacredBharat/temples.js";
+import { TRAILS } from "../../data/sacredBharat/trails.js";
 
 /**
  * @param {string[] | Set<string>} templeIds
@@ -37,7 +37,7 @@ export function isTrailComplete(trail, visitedSet) {
  * @param {import('@/data/sacredBharat/trails').TRAILS[number]} trail
  * @param {Set<string>} visitedSet
  */
-export function getTrailProgress(trail, visitedSet) {
+function getTrailProgress(trail, visitedSet) {
   if (trail.type === "region") {
     const completedRegions = REGIONS.filter((region) =>
       TEMPLES.some((t) => t.region === region && visitedSet.has(t.id)),
@@ -109,13 +109,16 @@ export function computeProgress(templeIds) {
     };
   });
 
-  const badges = trails
-    .filter((t) => t.complete)
-    .map((t) => ({
-      badgeId: t.badgeId,
-      badgeName: t.badgeName,
-      trailSlug: t.slug,
-    }));
+  const badges = trails.reduce((items, t) => {
+    if (t.complete) {
+      items.push({
+        badgeId: t.badgeId,
+        badgeName: t.badgeName,
+        trailSlug: t.slug,
+      });
+    }
+    return items;
+  }, []);
 
   const completedTrailCount = trails.filter((t) => t.complete).length;
 
@@ -143,5 +146,5 @@ export function visitsToTempleIds(visits) {
  * @param {{ templeId: string, visitedAt: number }[]} visits
  */
 export function sortVisitsChronologically(visits) {
-  return [...visits].sort((a, b) => b.visitedAt - a.visitedAt);
+  return visits.toSorted((a, b) => b.visitedAt - a.visitedAt);
 }

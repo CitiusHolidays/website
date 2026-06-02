@@ -1,7 +1,7 @@
 "use client";
 
 import { Quote, Star } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import { kailashTestimonials } from "../../data/trails";
 import { cn } from "../../utils/cn";
 
@@ -16,16 +16,16 @@ function TestimonialCard({ testimonial, index }) {
     >
       <div className="relative bg-white rounded-2xl md:rounded-3xl p-6 md:p-10 shadow-lg shadow-brand-dark/5 border border-brand-light/50 hover:shadow-xl hover:shadow-brand-dark/10 hover:border-citius-orange/20 transition-all duration-500 h-full flex flex-col">
         {/* Quote Icon */}
-        <div className="absolute -top-4 -left-2 md:-top-5 md:-left-3 w-10 h-10 md:w-12 md:h-12 bg-citius-orange rounded-full flex items-center justify-center shadow-lg">
-          <Quote className="w-4 h-4 md:w-5 md:h-5 text-white" />
+        <div className="absolute -top-4 -left-2 md:-top-5 md:-left-3 size-10 md:w-12 md:h-12 bg-citius-orange rounded-full flex items-center justify-center shadow-lg">
+          <Quote className="size-4 md:w-5 md:h-5 text-white" />
         </div>
 
         {/* Rating */}
         <div className="flex gap-1 mb-4 md:mb-6 ml-4">
-          {[...Array(testimonial.rating)].map((_, i) => (
+          {Array.from({ length: testimonial.rating }, (_, i) => `star-${i + 1}`).map((starKey) => (
             <Star
-              key={i}
-              className="w-3.5 h-3.5 md:w-4 md:h-4 fill-citius-orange text-citius-orange"
+              key={starKey}
+              className="size-3.5 md:w-4 md:h-4 fill-citius-orange text-citius-orange"
             />
           ))}
         </div>
@@ -38,7 +38,7 @@ function TestimonialCard({ testimonial, index }) {
         {/* Author Info */}
         <div className="flex items-center gap-3 md:gap-4 pt-4 md:pt-6 border-t border-brand-light">
           {/* Avatar Placeholder */}
-          <div className="w-11 h-11 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-citius-blue to-citius-blue/70 flex items-center justify-center shrink-0">
+          <div className="size-11 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-citius-blue to-citius-blue/70 flex items-center justify-center shrink-0">
             <span className="font-heading text-white font-semibold text-base md:text-lg">
               {testimonial.name
                 .split(" ")

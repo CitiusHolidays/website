@@ -24,6 +24,10 @@ const SPAM_KEYWORDS = [
 ];
 
 const URL_PATTERN = /https?:\/\/|www\./gi;
+const SPAM_KEYWORD_PATTERN = new RegExp(
+  SPAM_KEYWORDS.map((keyword) => keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
+  "i",
+);
 
 /**
  * @param {Request} request
@@ -111,10 +115,8 @@ export function isHoneypotTripped(honeypot) {
 export function detectSpamContent({ name, email, subject, message }) {
   const combined = `${name} ${email} ${subject} ${message}`.toLowerCase();
 
-  for (const keyword of SPAM_KEYWORDS) {
-    if (combined.includes(keyword)) {
-      return { spam: true, reason: "keyword" };
-    }
+  if (SPAM_KEYWORD_PATTERN.test(combined)) {
+    return { spam: true, reason: "keyword" };
   }
 
   const urlMatches = message.match(URL_PATTERN) || [];

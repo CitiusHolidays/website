@@ -330,6 +330,7 @@ export default defineSchema({
     preparedBy: v.string(),
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
+    visaCostPerPax: v.optional(v.number()),
     sellingPrice: v.optional(v.number()),
     costPrice: v.optional(v.number()),
     pricingEnteredAt: v.optional(v.number()),

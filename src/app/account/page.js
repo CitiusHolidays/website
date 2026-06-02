@@ -1,6 +1,5 @@
 import { anyApi } from "convex/server";
 import { unstable_noStore } from "next/cache";
-import { redirect } from "next/navigation";
 import { fetchAuthMutation, fetchAuthQuery, requireAuth } from "@/lib/auth-server";
 import AccountClient from "./page.client.js";
 
@@ -17,13 +16,12 @@ export default async function AccountPage() {
 
   // Use requireAuth to ensure user is authenticated
   // This will redirect to /auth if not logged in
-  const { user } = await requireAuth("/account");
+  return requireAuth("/account").then(async ({ user }) => {
+    const [, bookings] = await Promise.all([
+      fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}),
+      fetchAuthQuery(anyApi.bookings.getMyBookings, {}),
+    ]);
 
-  // Ensure profile exists in Convex
-  await fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {});
-
-  // Fetch bookings
-  const bookings = await fetchAuthQuery(anyApi.bookings.getMyBookings, {});
-
-  return <AccountClient user={user} bookings={bookings} />;
+    return <AccountClient user={user} bookings={bookings} />;
+  });
 }

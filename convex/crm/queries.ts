@@ -82,13 +82,15 @@ const lostReasonValidator = v.union(
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.VIEW_QUERIES,
-      PERMISSIONS.VIEW_CONTRACTING,
-      PERMISSIONS.VIEW_JOB_CARDS,
+    const [access, rows, attachments] = await Promise.all([
+      requireAnyPermission(ctx, [
+        PERMISSIONS.VIEW_QUERIES,
+        PERMISSIONS.VIEW_CONTRACTING,
+        PERMISSIONS.VIEW_JOB_CARDS,
+      ]),
+      ctx.db.query("queries").collect(),
+      ctx.db.query("queryAttachments").collect(),
     ]);
-    const rows = await ctx.db.query("queries").collect();
-    const attachments = await ctx.db.query("queryAttachments").collect();
     const attachmentsByQuery = new Map<string, typeof attachments>();
     for (const attachment of attachments) {
       const key = attachment.queryId;
@@ -125,7 +127,6 @@ export const create = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES);
     if (!args.clientName.trim()) {
       throw new ConvexError("Client name is required");
     }
@@ -133,17 +134,22 @@ export const create = mutation({
       throw new ConvexError("Pax count must be greater than zero");
     }
     assertMaxWordCount(args.notes, MAX_QUERY_NOTES_WORDS, "Notes");
-    assertCementQueryTypeAllowed(access, args.queryType);
 
     const now = Date.now();
-    const queryCode = await nextCode(ctx, "queries", "Q");
-    const clientId = await ctx.db.insert("clients", {
-      name: args.clientName.trim(),
-      contactPerson: args.contactPerson?.trim() || "",
-      phone: args.contactMobile?.trim() || "",
-      createdAt: now,
-      updatedAt: now,
-    });
+    const [access, [queryCode, clientId]] = await Promise.all([
+      requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES),
+      Promise.all([
+        nextCode(ctx, "queries", "Q"),
+        ctx.db.insert("clients", {
+          name: args.clientName.trim(),
+          contactPerson: args.contactPerson?.trim() || "",
+          phone: args.contactMobile?.trim() || "",
+          createdAt: now,
+          updatedAt: now,
+        }),
+      ]),
+    ]);
+    assertCementQueryTypeAllowed(access, args.queryType);
     const id = await ctx.db.insert("queries", {
       queryCode,
       clientId,
@@ -169,18 +175,20 @@ export const create = mutation({
       updatedAt: now,
     });
 
-    await createActivity(ctx, access, {
-      entityType: "query",
-      entityId: id,
-      action: "created",
-      message: `${queryCode} created for ${args.clientName.trim()}`,
-    });
-    await notifyRoles(ctx, contractingNotifyRolesForQueryType(args.queryType), {
-      title: "New query received",
-      body: `${queryCode} is ready for contracting review.`,
-      entityType: "query",
-      entityId: id,
-    });
+    await Promise.all([
+      createActivity(ctx, access, {
+        entityType: "query",
+        entityId: id,
+        action: "created",
+        message: `${queryCode} created for ${args.clientName.trim()}`,
+      }),
+      notifyRoles(ctx, contractingNotifyRolesForQueryType(args.queryType), {
+        title: "New query received",
+        body: `${queryCode} is ready for contracting review.`,
+        entityType: "query",
+        entityId: id,
+      }),
+    ]);
 
     return { id, queryCode };
   },
@@ -297,22 +305,24 @@ export const assignContracting = mutation({
       .query("jobCards")
       .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
       .collect();
-    for (const jobCard of jobCards) {
-      await ctx.db.patch(jobCard._id, {
-        contractingOwnerId: staffId,
-        contractingOwnerName: ownerName,
+    await Promise.all([
+      ...jobCards.map((jobCard) =>
+        ctx.db.patch(jobCard._id, {
+          contractingOwnerId: staffId,
+          contractingOwnerName: ownerName,
+          updatedAt: now,
+        }),
+      ),
+      ctx.db.insert("contractingAssignments", {
+        queryId,
+        ownerId: staffId,
+        ownerName,
+        status: "Query Received",
+        createdBy: access.authUserId ?? "unknown",
+        createdAt: now,
         updatedAt: now,
-      });
-    }
-    await ctx.db.insert("contractingAssignments", {
-      queryId,
-      ownerId: staffId,
-      ownerName,
-      status: "Query Received",
-      createdBy: access.authUserId ?? "unknown",
-      createdAt: now,
-      updatedAt: now,
-    });
+      }),
+    ]);
     await createActivity(ctx, access, {
       entityType: "query",
       entityId: queryId,
@@ -347,18 +357,20 @@ export const submitToContracting = mutation({
       submittedToContractingAt: now,
       updatedAt: now,
     });
-    await createActivity(ctx, access, {
-      entityType: "query",
-      entityId: queryId,
-      action: "submitted_to_contracting",
-      message: `${current.queryCode} submitted to Contracting`,
-    });
-    await notifyRoles(ctx, ["Contracting", "Contracting Head", "Operations Head", "Directors"], {
-      title: "Query submitted to Contracting",
-      body: `${current.queryCode} is ready for assignment and proposal work.`,
-      entityType: "query",
-      entityId: queryId,
-    });
+    await Promise.all([
+      createActivity(ctx, access, {
+        entityType: "query",
+        entityId: queryId,
+        action: "submitted_to_contracting",
+        message: `${current.queryCode} submitted to Contracting`,
+      }),
+      notifyRoles(ctx, ["Contracting", "Contracting Head", "Operations Head", "Directors"], {
+        title: "Query submitted to Contracting",
+        body: `${current.queryCode} is ready for assignment and proposal work.`,
+        entityType: "query",
+        entityId: queryId,
+      }),
+    ]);
     return { id: queryId };
   },
 });
@@ -479,45 +491,48 @@ export const updateStatus = mutation({
       (args.salesStatus === "Order Confirmed" || args.contractingStatus === "Order Confirmed");
     const isLost = args.salesStatus === "Order Lost";
 
-    await createActivity(ctx, access, {
-      entityType: "query",
-      entityId: queryId,
-      action: isNewlyConfirmed ? "confirmed" : isLost ? "lost" : "status_updated",
-      message: `${current.queryCode} status updated`,
-      metadata: patch,
-    });
-
-    if (isNewlyConfirmed) {
-      await notifyStaffMatching(
-        ctx,
-        (staff) => staff.roles.includes("Accounts"),
-        {
-          title: "Order confirmed",
-          body: `${current.queryCode} is confirmed. Open a Job Card in Accounts / JC.`,
-          entityType: "query",
-          entityId: queryId,
-        },
-        { fallbackRoles: ["Accounts"] },
-      );
-      await notifyStaffMatching(
-        ctx,
-        (staff) =>
-          staff.roles.includes("Contracting Head") || staff.roles.includes("Operations Head"),
-        {
-          title: "Order confirmed — assign owners",
-          body: `${current.queryCode} is confirmed. Assign contracting and operations owners once Accounts opens the Job Card.`,
-          entityType: "query",
-          entityId: queryId,
-        },
-        { fallbackRoles: ["Contracting Head", "Operations Head"] },
-      );
-      await notifyRoles(ctx, ["Finance"], {
-        title: "Order confirmed",
-        body: `${current.queryCode} has been confirmed by Sales.`,
+    await Promise.all([
+      createActivity(ctx, access, {
         entityType: "query",
         entityId: queryId,
-      });
-    }
+        action: isNewlyConfirmed ? "confirmed" : isLost ? "lost" : "status_updated",
+        message: `${current.queryCode} status updated`,
+        metadata: patch,
+      }),
+      ...(isNewlyConfirmed
+        ? [
+            notifyStaffMatching(
+              ctx,
+              (staff) => staff.roles.includes("Accounts"),
+              {
+                title: "Order confirmed",
+                body: `${current.queryCode} is confirmed. Open a Job Card in Accounts / JC.`,
+                entityType: "query",
+                entityId: queryId,
+              },
+              { fallbackRoles: ["Accounts"] },
+            ),
+            notifyStaffMatching(
+              ctx,
+              (staff) =>
+                staff.roles.includes("Contracting Head") || staff.roles.includes("Operations Head"),
+              {
+                title: "Order confirmed — assign owners",
+                body: `${current.queryCode} is confirmed. Assign contracting and operations owners once Accounts opens the Job Card.`,
+                entityType: "query",
+                entityId: queryId,
+              },
+              { fallbackRoles: ["Contracting Head", "Operations Head"] },
+            ),
+            notifyRoles(ctx, ["Finance"], {
+              title: "Order confirmed",
+              body: `${current.queryCode} has been confirmed by Sales.`,
+              entityType: "query",
+              entityId: queryId,
+            }),
+          ]
+        : []),
+    ]);
 
     return { id: queryId };
   },
@@ -545,57 +560,59 @@ export const remove = mutation({
       .query("proposals")
       .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
       .collect();
-    for (const proposal of proposals) {
-      const { storageIds } = await ctx.runMutation(
-        internal.crm.proposalAttachments.deleteAllForProposal,
-        { proposalId: proposal._id },
-      );
-      for (const storageId of storageIds) {
-        try {
-          await ctx.storage.delete(storageId);
-        } catch (err) {
-          console.error("Failed to delete proposal attachment file:", err);
-        }
-      }
-      await deleteEntityNotifications(ctx, "proposal", proposal._id);
-      await ctx.db.delete(proposal._id);
-    }
+    await Promise.all(
+      proposals.map(async (proposal) => {
+        const { storageIds } = await ctx.runMutation(
+          internal.crm.proposalAttachments.deleteAllForProposal,
+          { proposalId: proposal._id },
+        );
+        await Promise.all([
+          ...storageIds.map((storageId) =>
+            ctx.storage.delete(storageId).catch((err) => {
+              console.error("Failed to delete proposal attachment file:", err);
+            }),
+          ),
+          deleteEntityNotifications(ctx, "proposal", proposal._id),
+          ctx.db.delete(proposal._id),
+        ]);
+      }),
+    );
 
     const assignments = await ctx.db
       .query("contractingAssignments")
       .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
       .collect();
-    for (const assignment of assignments) {
-      await ctx.db.delete(assignment._id);
-    }
+    await Promise.all(assignments.map((assignment) => ctx.db.delete(assignment._id)));
 
     const jobCards = await ctx.db
       .query("jobCards")
       .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
       .collect();
-    for (const jobCard of jobCards) {
-      await deleteJobCardCascade(ctx, jobCard._id);
-    }
+    await Promise.all(jobCards.map((jobCard) => deleteJobCardCascade(ctx, jobCard._id)));
 
     const { storageIds } = await ctx.runMutation(internal.crm.queryAttachments.deleteAllForQuery, {
       queryId,
     });
-    for (const storageId of storageIds) {
-      try {
-        await ctx.storage.delete(storageId);
-      } catch (err) {
-        console.error("Failed to delete query attachment file:", err);
-      }
-    }
+    await Promise.all(
+      storageIds.map(async (storageId) => {
+        try {
+          await ctx.storage.delete(storageId);
+        } catch (err) {
+          console.error("Failed to delete query attachment file:", err);
+        }
+      }),
+    );
 
-    await createActivity(ctx, access, {
-      entityType: "query",
-      entityId: queryId,
-      action: "deleted",
-      message: `${current.queryCode} deleted`,
-    });
-    await deleteEntityNotifications(ctx, "query", queryId);
-    await ctx.db.delete(queryId);
+    await Promise.all([
+      createActivity(ctx, access, {
+        entityType: "query",
+        entityId: queryId,
+        action: "deleted",
+        message: `${current.queryCode} deleted`,
+      }),
+      deleteEntityNotifications(ctx, "query", queryId),
+      ctx.db.delete(queryId),
+    ]);
     return { id: queryId };
   },
 });

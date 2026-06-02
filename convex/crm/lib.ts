@@ -2,6 +2,10 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
+export function isDefined<T>(value: T | null | undefined | false): value is T {
+  return value != null && value !== false;
+}
+
 export const PERMISSIONS = {
   VIEW_DASHBOARD: "view:dashboard",
   MANAGE_STAFF: "manage:staff",
@@ -322,10 +326,10 @@ export type PortalAccess = {
 };
 
 function getBootstrapAdminEmails() {
-  return (process.env.PORTAL_BOOTSTRAP_ADMINS ?? "")
-    .split(",")
-    .map((email) => normalizeEmail(email))
-    .filter(Boolean);
+  return (process.env.PORTAL_BOOTSTRAP_ADMINS ?? "").split(",").flatMap((email) => {
+    const normalized = normalizeEmail(email);
+    return normalized ? [normalized] : [];
+  });
 }
 
 function isBootstrapAdmin(email: string) {
@@ -490,7 +494,9 @@ export function hasCementRole(access: PortalAccess) {
 }
 
 export function isCementQueryType(queryType?: string | null) {
-  return CEMENT_QUERY_TYPES.includes(String(queryType ?? "") as (typeof CEMENT_QUERY_TYPES)[number]);
+  return CEMENT_QUERY_TYPES.includes(
+    String(queryType ?? "") as (typeof CEMENT_QUERY_TYPES)[number],
+  );
 }
 
 export function shouldApplyCementScope(access: PortalAccess) {
@@ -769,16 +775,18 @@ export async function notifyRoles(
 ) {
   const createdAt = Date.now();
   const entityId = notificationEntityId(input.entityId);
-  for (const role of roles) {
-    await ctx.db.insert("notifications", {
-      recipientRole: role as any,
-      title: input.title,
-      body: input.body,
-      entityType: input.entityType,
-      entityId,
-      createdAt,
-    });
-  }
+  await Promise.all(
+    roles.map((role) =>
+      ctx.db.insert("notifications", {
+        recipientRole: role as any,
+        title: input.title,
+        body: input.body,
+        entityType: input.entityType,
+        entityId,
+        createdAt,
+      }),
+    ),
+  );
 }
 
 export async function notifyStaffMatching(
@@ -798,57 +806,62 @@ export async function notifyStaffMatching(
   const entityId = notificationEntityId(input.entityId);
   const staffRows = await ctx.db.query("staffUsers").collect();
   const notifiedUserIds = new Set<string>();
+  const linkedStaffRoles = new Set<string>();
+  const notificationWrites = [];
 
   for (const member of staffRows) {
     if (!member.active || !shouldNotify(member)) {
       continue;
     }
     if (member.authUserId) {
+      for (const role of member.roles) {
+        linkedStaffRoles.add(role);
+      }
       if (notifiedUserIds.has(member.authUserId)) {
         continue;
       }
       notifiedUserIds.add(member.authUserId);
-      await ctx.db.insert("notifications", {
-        recipientUserId: member.authUserId,
-        title: input.title,
-        body: input.body,
-        entityType: input.entityType,
-        entityId,
-        createdAt,
-      });
+      notificationWrites.push(
+        ctx.db.insert("notifications", {
+          recipientUserId: member.authUserId,
+          title: input.title,
+          body: input.body,
+          entityType: input.entityType,
+          entityId,
+          createdAt,
+        }),
+      );
       continue;
     }
     for (const role of member.roles) {
-      await ctx.db.insert("notifications", {
-        recipientRole: role as any,
-        title: input.title,
-        body: input.body,
-        entityType: input.entityType,
-        entityId,
-        createdAt,
-      });
+      notificationWrites.push(
+        ctx.db.insert("notifications", {
+          recipientRole: role as any,
+          title: input.title,
+          body: input.body,
+          entityType: input.entityType,
+          entityId,
+          createdAt,
+        }),
+      );
     }
   }
 
   for (const role of options?.fallbackRoles ?? []) {
-    const hasLinkedStaff = staffRows.some(
-      (member) =>
-        member.active &&
-        member.authUserId &&
-        member.roles.includes(role as any) &&
-        shouldNotify(member),
-    );
-    if (!hasLinkedStaff) {
-      await ctx.db.insert("notifications", {
-        recipientRole: role as any,
-        title: input.title,
-        body: input.body,
-        entityType: input.entityType,
-        entityId,
-        createdAt,
-      });
+    if (!linkedStaffRoles.has(role)) {
+      notificationWrites.push(
+        ctx.db.insert("notifications", {
+          recipientRole: role as any,
+          title: input.title,
+          body: input.body,
+          entityType: input.entityType,
+          entityId,
+          createdAt,
+        }),
+      );
     }
   }
+  await Promise.all(notificationWrites);
 }
 
 const CODE_FIELD_BY_TABLE: Record<string, string> = {
@@ -886,8 +899,10 @@ export function creatorInitials(name: string) {
   const parts = name
     .trim()
     .split(/\s+/)
-    .map((part) => part.replace(/[^A-Za-z]/g, ""))
-    .filter(Boolean);
+    .flatMap((part) => {
+      const cleaned = part.replace(/[^A-Za-z]/g, "");
+      return cleaned ? [cleaned] : [];
+    });
 
   if (parts.length >= 2) {
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
@@ -950,11 +965,13 @@ export async function deleteEntityNotifications(
   entityId: string,
 ) {
   const notifications = await ctx.db.query("notifications").collect();
-  for (const notification of notifications) {
-    if (notification.entityType === entityType && notification.entityId === entityId) {
-      await ctx.db.delete(notification._id);
-    }
-  }
+  await Promise.all(
+    notifications.flatMap((notification) =>
+      notification.entityType === entityType && notification.entityId === entityId
+        ? [ctx.db.delete(notification._id)]
+        : [],
+    ),
+  );
 }
 
 async function deleteRowsByJobCard(
@@ -966,23 +983,25 @@ async function deleteRowsByJobCard(
   const rows = await (ctx.db.query as any)(tableName)
     .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
     .collect();
-  for (const row of rows) {
-    if (entityType === "expense" && row.proofAttachmentId) {
-      const attachment = (await ctx.db.get(row.proofAttachmentId)) as any;
-      if (attachment) {
-        if (attachment.storageId) {
-          try {
-            await ctx.storage.delete(attachment.storageId);
-          } catch (err) {
-            console.error("Failed to delete expense proof from storage:", err);
+  await Promise.all(
+    rows.map(async (row: any) => {
+      if (entityType === "expense" && row.proofAttachmentId) {
+        const attachment = (await ctx.db.get(row.proofAttachmentId)) as any;
+        if (attachment) {
+          if (attachment.storageId) {
+            try {
+              await ctx.storage.delete(attachment.storageId);
+            } catch (err) {
+              console.error("Failed to delete expense proof from storage:", err);
+            }
           }
+          await ctx.db.delete(attachment._id);
         }
-        await ctx.db.delete(attachment._id);
       }
-    }
-    await deleteEntityNotifications(ctx, entityType, row._id);
-    await ctx.db.delete(row._id);
-  }
+      await deleteEntityNotifications(ctx, entityType, row._id);
+      await ctx.db.delete(row._id);
+    }),
+  );
 }
 
 export async function deleteJobCardCascade(ctx: MutationCtx, jobCardId: Id<"jobCards">) {
@@ -990,41 +1009,49 @@ export async function deleteJobCardCascade(ctx: MutationCtx, jobCardId: Id<"jobC
     .query("travellers")
     .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
     .collect();
-  for (const traveller of travellers) {
-    const passportDetails = await ctx.db
-      .query("passportDetails")
-      .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-      .collect();
-    for (const row of passportDetails) await ctx.db.delete(row._id);
+  await Promise.all(
+    travellers.map(async (traveller) => {
+      const [passportDetails, mealPreferences] = await Promise.all([
+        ctx.db
+          .query("passportDetails")
+          .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
+          .collect(),
+        ctx.db
+          .query("mealPreferences")
+          .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
+          .collect(),
+      ]);
+      await Promise.all([
+        ...passportDetails.map((row) => ctx.db.delete(row._id)),
+        ...mealPreferences.map((row) => ctx.db.delete(row._id)),
+        deleteEntityNotifications(ctx, "traveller", traveller._id),
+        ctx.db.delete(traveller._id),
+      ]);
+    }),
+  );
 
-    const mealPreferences = await ctx.db
-      .query("mealPreferences")
-      .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-      .collect();
-    for (const row of mealPreferences) await ctx.db.delete(row._id);
+  await Promise.all([
+    deleteRowsByJobCard(ctx, "visaRecords", "visaRecord", jobCardId),
+    deleteRowsByJobCard(ctx, "flightGroups", "flightGroup", jobCardId),
+    deleteRowsByJobCard(ctx, "pnrs", "pnr", jobCardId),
+    deleteRowsByJobCard(ctx, "tickets", "ticket", jobCardId),
+    deleteRowsByJobCard(ctx, "seatAllocations", "seatAllocation", jobCardId),
+    deleteRowsByJobCard(ctx, "hotels", "hotel", jobCardId),
+    deleteRowsByJobCard(ctx, "roomingListEntries", "roomingListEntry", jobCardId),
+    deleteRowsByJobCard(ctx, "tourManagerAssignments", "tourManager", jobCardId),
+    deleteRowsByJobCard(ctx, "vendors", "vendor", jobCardId),
+    deleteRowsByJobCard(ctx, "itineraries", "itinerary", jobCardId),
+    deleteRowsByJobCard(ctx, "eventFlows", "eventFlow", jobCardId),
+    deleteRowsByJobCard(ctx, "checklistTasks", "checklistTask", jobCardId),
+    deleteRowsByJobCard(ctx, "invoices", "invoice", jobCardId),
+    deleteRowsByJobCard(ctx, "additionalServices", "additionalService", jobCardId),
+    deleteRowsByJobCard(ctx, "expenseEntries", "expense", jobCardId),
+  ]);
 
-    await deleteEntityNotifications(ctx, "traveller", traveller._id);
-    await ctx.db.delete(traveller._id);
-  }
-
-  await deleteRowsByJobCard(ctx, "visaRecords", "visaRecord", jobCardId);
-  await deleteRowsByJobCard(ctx, "flightGroups", "flightGroup", jobCardId);
-  await deleteRowsByJobCard(ctx, "pnrs", "pnr", jobCardId);
-  await deleteRowsByJobCard(ctx, "tickets", "ticket", jobCardId);
-  await deleteRowsByJobCard(ctx, "seatAllocations", "seatAllocation", jobCardId);
-  await deleteRowsByJobCard(ctx, "hotels", "hotel", jobCardId);
-  await deleteRowsByJobCard(ctx, "roomingListEntries", "roomingListEntry", jobCardId);
-  await deleteRowsByJobCard(ctx, "tourManagerAssignments", "tourManager", jobCardId);
-  await deleteRowsByJobCard(ctx, "vendors", "vendor", jobCardId);
-  await deleteRowsByJobCard(ctx, "itineraries", "itinerary", jobCardId);
-  await deleteRowsByJobCard(ctx, "eventFlows", "eventFlow", jobCardId);
-  await deleteRowsByJobCard(ctx, "checklistTasks", "checklistTask", jobCardId);
-  await deleteRowsByJobCard(ctx, "invoices", "invoice", jobCardId);
-  await deleteRowsByJobCard(ctx, "additionalServices", "additionalService", jobCardId);
-  await deleteRowsByJobCard(ctx, "expenseEntries", "expense", jobCardId);
-
-  await deleteEntityNotifications(ctx, "jobCard", jobCardId);
-  await ctx.db.delete(jobCardId);
+  await Promise.all([
+    deleteEntityNotifications(ctx, "jobCard", jobCardId),
+    ctx.db.delete(jobCardId),
+  ]);
 }
 
 export function publicJobCard(job: any) {

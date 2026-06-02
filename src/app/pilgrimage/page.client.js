@@ -1,8 +1,7 @@
 "use client";
 
 import { ArrowRight, Heart, Phone, Shield, Sparkles, Sunrise } from "lucide-react";
-import { motion } from "motion/react";
-import Image from "next/image";
+import { m as motion } from "motion/react";
 import Link from "next/link";
 import AnimatedSection from "../../components/layout/AnimatedSection";
 import JourneyComparison from "../../components/pilgrimage/JourneyComparison";
@@ -41,7 +40,7 @@ export default function PilgrimagePageClient({ images }) {
               <span className="text-citius-blue italic">Mansarovar Collection</span>
             </h2>
             <p className="font-sans text-lg md:text-xl text-brand-muted max-w-3xl mx-auto leading-relaxed">
-              Flagship yatra and aerial darshan — plus specialised routes and programmes opening
+              Flagship yatra and aerial darshan , plus specialised routes and programmes opening
               soon. Explore every trail below for galleries, dates, inclusions, and booking.
             </p>
             <div className="w-16 md:w-24 h-px bg-citius-orange/30 mx-auto mt-6 md:mt-10" />
@@ -56,7 +55,7 @@ export default function PilgrimagePageClient({ images }) {
             >
               <p>
                 For centuries, the Kailash Mansarovar Yatra has drawn seekers from across the world.
-                The mountain stands as a silent witness to the human quest for transcendence —
+                The mountain stands as a silent witness to the human quest for transcendence ,
                 untouched by climbers, unmarked by human ambition, yet profoundly transformative to
                 all who approach it with devotion.
               </p>
@@ -98,15 +97,15 @@ export default function PilgrimagePageClient({ images }) {
                 },
               ].map((item, idx) => (
                 <motion.div
-                  key={idx}
+                  key={item.title}
                   initial={{ opacity: 0, x: 20 }}
                   whileInView={{ opacity: 1, x: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
                   className="flex gap-4 md:gap-5 p-5 md:p-6 bg-white rounded-2xl shadow-sm border border-brand-light hover:shadow-md hover:border-citius-orange/20 transition-all group"
                 >
-                  <div className="shrink-0 w-11 h-11 md:w-12 md:h-12 rounded-full bg-brand-light flex items-center justify-center group-hover:bg-citius-orange/10 transition-colors">
-                    <item.icon className="w-5 h-5 md:w-6 md:h-6 text-citius-orange" />
+                  <div className="shrink-0 size-11 md:w-12 md:h-12 rounded-full bg-brand-light flex items-center justify-center group-hover:bg-citius-orange/10 transition-colors">
+                    <item.icon className="size-5 md:w-6 md:h-6 text-citius-orange" />
                   </div>
                   <div>
                     <h3 className="font-heading text-base md:text-lg font-semibold text-citius-blue mb-1">
@@ -175,14 +174,14 @@ export default function PilgrimagePageClient({ images }) {
               },
             ].map((item, idx) => (
               <motion.div
-                key={idx}
+                key={item.title}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: idx * 0.1 }}
                 className="text-center p-6 md:p-8 bg-brand-light/50 rounded-2xl border border-brand-light hover:border-citius-orange/30 transition-all"
               >
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-citius-blue/10 flex items-center justify-center">
+                <div className="size-16 mx-auto mb-4 rounded-full bg-citius-blue/10 flex items-center justify-center">
                   <span className="font-heading text-2xl text-citius-blue font-bold">
                     {item.stat}
                   </span>
@@ -236,8 +235,8 @@ export default function PilgrimagePageClient({ images }) {
             viewport={{ once: true }}
             className="bg-white rounded-3xl p-8 md:p-12 shadow-2xl shadow-brand-dark/10 border border-brand-light"
           >
-            <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-citius-orange/10 flex items-center justify-center">
-              <Phone className="w-7 h-7 text-citius-orange" />
+            <div className="size-16 mx-auto mb-6 rounded-full bg-citius-orange/10 flex items-center justify-center">
+              <Phone className="size-7 text-citius-orange" />
             </div>
             <h2 className="font-heading text-2xl md:text-4xl text-brand-dark mb-4">
               Begin Your Sacred Journey
@@ -252,13 +251,13 @@ export default function PilgrimagePageClient({ images }) {
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-citius-orange text-white font-heading tracking-wider text-sm rounded-full shadow-xl shadow-citius-orange/20 hover:shadow-citius-orange/40 hover:-translate-y-0.5 transition-all duration-300"
               >
                 Request Detailed Brochure
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="size-4" />
               </Link>
               {/* <a 
                 href="tel:+91XXXXXXXXXX"
                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-brand-dark text-white font-heading tracking-wider text-sm rounded-full hover:bg-brand-dark/90 transition-all duration-300"
               >
-                <Phone className="w-4 h-4" />
+                <Phone className="size-4" />
                 Call Our Team
               </a> */}
             </div>

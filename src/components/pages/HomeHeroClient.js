@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { motion, useScroll, useTransform } from "motion/react";
+import { m as motion, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 import { useRef } from "react";
 import HeroVideo from "./HeroVideo";
@@ -21,11 +21,8 @@ export default function HomeHeroClient() {
       ref={heroRef}
       className="relative h-screen min-h-[700px] flex items-center justify-center text-center overflow-hidden"
     >
-      <motion.div
-        style={{ y, opacity, willChange: "transform, opacity" }}
-        className="absolute inset-0 w-full h-full"
-      >
-        <HeroVideo className="object-cover object-center w-full h-full brightness-[0.65]" />
+      <motion.div style={{ y, opacity }} className="absolute inset-0 size-full">
+        <HeroVideo className="object-cover object-center size-full brightness-[0.65]" />
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/60" />
         <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-30 mix-blend-overlay" />
       </motion.div>
@@ -42,9 +39,7 @@ export default function HomeHeroClient() {
 
         <h1 className="font-heading font-semibold text-4xl md:text-6xl lg:text-7xl text-white leading-[1.1] tracking-tight mb-8 drop-shadow-2xl">
           Your next great journey <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-white italic">
-            starts here.
-          </span>
+          <span className="text-blue-100 italic">starts here.</span>
         </h1>
 
         <motion.p

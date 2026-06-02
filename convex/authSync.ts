@@ -50,14 +50,19 @@ export const repairAuthLinks = mutation({
       throw new ConvexError("Invalid migration secret");
     }
 
-    const staffRows = await ctx.db.query("staffUsers").collect();
-    const profiles = await ctx.db.query("userProfiles").collect();
+    const [staffRows, profiles] = await Promise.all([
+      ctx.db.query("staffUsers").collect(),
+      ctx.db.query("userProfiles").collect(),
+    ]);
     const now = Date.now();
     let staffRelinked = 0;
     let profilesRelinked = 0;
     let duplicatesRemoved = 0;
 
     const profilesByEmail = new Map<string, typeof profiles>();
+    const profilesByAuthUserId = new Map<string, (typeof profiles)[number]>();
+    const firstProfileWithAuthByEmail = new Map<string, (typeof profiles)[number]>();
+    const profileByEmailAndAuth = new Map<string, (typeof profiles)[number]>();
     for (const profile of profiles) {
       const key = normalizeEmail(profile.email);
       if (!key) {
@@ -66,38 +71,62 @@ export const repairAuthLinks = mutation({
       const bucket = profilesByEmail.get(key) ?? [];
       bucket.push(profile);
       profilesByEmail.set(key, bucket);
+      if (profile.authUserId) {
+        profilesByAuthUserId.set(profile.authUserId, profile);
+        firstProfileWithAuthByEmail.set(key, firstProfileWithAuthByEmail.get(key) ?? profile);
+        profileByEmailAndAuth.set(`${key}:${profile.authUserId}`, profile);
+      }
     }
 
+    const orphanProfilePatches = [];
     for (const staff of staffRows) {
       if (!staff.authUserId) {
         continue;
       }
-      const profileByAuth = profiles.find((profile) => profile.authUserId === staff.authUserId);
+      const profileByAuth = profilesByAuthUserId.get(staff.authUserId);
       if (profileByAuth) {
         continue;
       }
 
       const emailKey = staff.emailNormalized || normalizeEmail(staff.email);
       const bucket = profilesByEmail.get(emailKey) ?? [];
-      const orphan = bucket.find((profile) => profile.authUserId !== staff.authUserId);
+      let orphan: (typeof profiles)[number] | undefined;
+      for (const profile of bucket) {
+        if (profile.authUserId !== staff.authUserId) {
+          orphan = profile;
+          break;
+        }
+      }
       if (!orphan) {
         continue;
       }
 
-      await ctx.db.patch(orphan._id, {
-        authUserId: staff.authUserId,
-        email: staff.email,
-        name: staff.name || orphan.name,
-        updatedAt: now,
+      orphanProfilePatches.push({
+        id: orphan._id,
+        patch: {
+          authUserId: staff.authUserId,
+          email: staff.email,
+          name: staff.name || orphan.name,
+          updatedAt: now,
+        },
       });
-      profilesRelinked += 1;
     }
+    await Promise.all(orphanProfilePatches.map(({ id, patch }) => ctx.db.patch(id, patch)));
+    profilesRelinked += orphanProfilePatches.length;
 
+    const processedEmailKeys = new Set<string>();
+    const keeperPatches = [];
+    const duplicateProfileIds = [];
+    const staffPatches = [];
     for (const staff of staffRows) {
       const emailKey = staff.emailNormalized || normalizeEmail(staff.email);
       if (!emailKey) {
         continue;
       }
+      if (processedEmailKeys.has(emailKey)) {
+        continue;
+      }
+      processedEmailKeys.add(emailKey);
 
       const bucket = profilesByEmail.get(emailKey) ?? [];
       if (bucket.length <= 1) {
@@ -106,22 +135,24 @@ export const repairAuthLinks = mutation({
 
       const canonicalAuthUserId =
         staff.authUserId ??
-        bucket.find((profile) => profile.authUserId)?.authUserId ??
+        firstProfileWithAuthByEmail.get(emailKey)?.authUserId ??
         bucket[0]?.authUserId;
       if (!canonicalAuthUserId) {
         continue;
       }
 
-      const keeper =
-        bucket.find((profile) => profile.authUserId === canonicalAuthUserId) ?? bucket[0];
+      const keeper = profileByEmailAndAuth.get(`${emailKey}:${canonicalAuthUserId}`) ?? bucket[0];
       if (!keeper) {
         continue;
       }
 
       if (keeper.authUserId !== canonicalAuthUserId) {
-        await ctx.db.patch(keeper._id, {
-          authUserId: canonicalAuthUserId,
-          updatedAt: now,
+        keeperPatches.push({
+          id: keeper._id,
+          patch: {
+            authUserId: canonicalAuthUserId,
+            updatedAt: now,
+          },
         });
         profilesRelinked += 1;
       }
@@ -130,18 +161,26 @@ export const repairAuthLinks = mutation({
         if (profile._id === keeper._id) {
           continue;
         }
-        await ctx.db.delete(profile._id);
+        duplicateProfileIds.push(profile._id);
         duplicatesRemoved += 1;
       }
 
       if (staff.authUserId !== canonicalAuthUserId) {
-        await ctx.db.patch(staff._id, {
-          authUserId: canonicalAuthUserId,
-          updatedAt: now,
+        staffPatches.push({
+          id: staff._id,
+          patch: {
+            authUserId: canonicalAuthUserId,
+            updatedAt: now,
+          },
         });
         staffRelinked += 1;
       }
     }
+    await Promise.all([
+      ...keeperPatches.map(({ id, patch }) => ctx.db.patch(id, patch)),
+      ...duplicateProfileIds.map((id) => ctx.db.delete(id)),
+      ...staffPatches.map(({ id, patch }) => ctx.db.patch(id, patch)),
+    ]);
 
     return {
       staffRelinked,

@@ -5,45 +5,49 @@ import {
   createActivity,
   deleteEntityNotifications,
   PERMISSIONS,
-  requireAnyPermission,
   requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
 
 async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
   const job = await ctx.db.get(jobCardId);
-  const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
-  if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+  if (!job) {
     return null;
   }
-  return job;
+  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  return canSeeJobCardRecord(access, job, linkedQuery) ? job : null;
 }
 
 export const listHotels = query({
   args: {},
   handler: async (ctx) => {
-    const access = await requireStaff(ctx, PERMISSIONS.VIEW_OPERATIONS);
-    const rows = await ctx.db.query("hotels").collect();
-    const result = [];
-    for (const hotel of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-      const job = await getVisibleJob(ctx, access, hotel.jobCardId);
-      if (!job) continue;
-      result.push({
-        id: hotel._id,
-        jobCardId: hotel.jobCardId,
-        jobCode: job?.jobCode ?? "",
-        clientName: job?.clientName ?? "",
-        name: hotel.name,
-        city: hotel.city ?? "",
-        checkInDate: hotel.checkInDate ?? "",
-        checkOutDate: hotel.checkOutDate ?? "",
-        earlyCheckIn: hotel.earlyCheckIn ?? false,
-        lateCheckout: hotel.lateCheckout ?? false,
-        specialInstructions: hotel.specialInstructions ?? "",
-        createdAt: new Date(hotel.createdAt).toISOString(),
-      });
-    }
-    return result;
+    const [access, rows] = await Promise.all([
+      requireStaff(ctx, PERMISSIONS.VIEW_OPERATIONS),
+      ctx.db.query("hotels").collect(),
+    ]);
+    const result = await Promise.all(
+      rows
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .map(async (hotel) => {
+          const job = await getVisibleJob(ctx, access, hotel.jobCardId);
+          if (!job) return null;
+          return {
+            id: hotel._id,
+            jobCardId: hotel.jobCardId,
+            jobCode: job?.jobCode ?? "",
+            clientName: job?.clientName ?? "",
+            name: hotel.name,
+            city: hotel.city ?? "",
+            checkInDate: hotel.checkInDate ?? "",
+            checkOutDate: hotel.checkOutDate ?? "",
+            earlyCheckIn: hotel.earlyCheckIn ?? false,
+            lateCheckout: hotel.lateCheckout ?? false,
+            specialInstructions: hotel.specialInstructions ?? "",
+            createdAt: new Date(hotel.createdAt).toISOString(),
+          };
+        }),
+    );
+    return result.filter(Boolean);
   },
 });
 
@@ -159,14 +163,16 @@ export const removeHotel = mutation({
     if (!job) {
       throw new ConvexError("FORBIDDEN");
     }
-    await createActivity(ctx, access, {
-      entityType: "hotel",
-      entityId: hotelId,
-      action: "deleted",
-      message: `${hotel.name} hotel deleted`,
-    });
-    await deleteEntityNotifications(ctx, "hotel", hotelId);
-    await ctx.db.delete(hotelId);
+    await Promise.all([
+      createActivity(ctx, access, {
+        entityType: "hotel",
+        entityId: hotelId,
+        action: "deleted",
+        message: `${hotel.name} hotel deleted`,
+      }),
+      deleteEntityNotifications(ctx, "hotel", hotelId),
+      ctx.db.delete(hotelId),
+    ]);
     return { id: hotelId };
   },
 });
@@ -174,29 +180,34 @@ export const removeHotel = mutation({
 export const listTourManagers = query({
   args: {},
   handler: async (ctx) => {
-    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TOUR_MANAGERS);
-    const rows = await ctx.db.query("tourManagerAssignments").collect();
-    const result = [];
-    for (const row of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-      const job = row.jobCardId ? await getVisibleJob(ctx, access, row.jobCardId) : null;
-      if (row.jobCardId && !job) continue;
-      result.push({
-        id: row._id,
-        jobCardId: row.jobCardId ?? null,
-        jobCode: job?.jobCode ?? "",
-        currentTour: job?.clientName ?? "",
-        name: row.name,
-        email: row.email ?? "",
-        phone: row.phone ?? "",
-        status: row.status,
-        languages: row.languages ?? [],
-        callingStatus: row.callingStatus,
-        availabilityDate: row.availabilityDate ?? "",
-        notes: row.notes ?? "",
-        createdAt: new Date(row.createdAt).toISOString(),
-      });
-    }
-    return result;
+    const [access, rows] = await Promise.all([
+      requireStaff(ctx, PERMISSIONS.VIEW_TOUR_MANAGERS),
+      ctx.db.query("tourManagerAssignments").collect(),
+    ]);
+    const result = await Promise.all(
+      rows
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .map(async (row) => {
+          const job = row.jobCardId ? await getVisibleJob(ctx, access, row.jobCardId) : null;
+          if (row.jobCardId && !job) return null;
+          return {
+            id: row._id,
+            jobCardId: row.jobCardId ?? null,
+            jobCode: job?.jobCode ?? "",
+            currentTour: job?.clientName ?? "",
+            name: row.name,
+            email: row.email ?? "",
+            phone: row.phone ?? "",
+            status: row.status,
+            languages: row.languages ?? [],
+            callingStatus: row.callingStatus,
+            availabilityDate: row.availabilityDate ?? "",
+            notes: row.notes ?? "",
+            createdAt: new Date(row.createdAt).toISOString(),
+          };
+        }),
+    );
+    return result.filter(Boolean);
   },
 });
 
@@ -391,14 +402,16 @@ export const removeTourManager = mutation({
         });
       }
     }
-    await createActivity(ctx, access, {
-      entityType: "tourManager",
-      entityId: id,
-      action: "deleted",
-      message: `${tourManager.name} deleted`,
-    });
-    await deleteEntityNotifications(ctx, "tourManager", id);
-    await ctx.db.delete(id);
+    await Promise.all([
+      createActivity(ctx, access, {
+        entityType: "tourManager",
+        entityId: id,
+        action: "deleted",
+        message: `${tourManager.name} deleted`,
+      }),
+      deleteEntityNotifications(ctx, "tourManager", id),
+      ctx.db.delete(id),
+    ]);
     return { id };
   },
 });

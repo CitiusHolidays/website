@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ExternalLink, Heart } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Link from "next/link";
 import GuestSaveBanner from "@/components/sacredBharat/GuestSaveBanner";
 import LevelBadge from "@/components/sacredBharat/LevelBadge";
@@ -27,7 +27,7 @@ export default function TrailDetailClient({ trail }) {
             href="/sacred-bharat"
             className="inline-flex items-center gap-2 text-sm text-white/70 hover:text-white mb-8"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
             Sacred Bharat
           </Link>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
@@ -73,7 +73,7 @@ export default function TrailDetailClient({ trail }) {
                 : "border-brand-light text-brand-muted hover:border-citius-blue",
             )}
           >
-            <Heart className={cn("h-4 w-4", wishlisted && "fill-current")} />
+            <Heart className={cn("size-4", wishlisted && "fill-current")} />
             {wishlisted ? "On wishlist" : "Plan future journey"}
           </button>
           <Link
@@ -81,15 +81,15 @@ export default function TrailDetailClient({ trail }) {
             className="inline-flex items-center gap-2 rounded-full bg-citius-blue px-4 py-2 text-sm font-medium text-white hover:bg-citius-blue/90"
           >
             Plan with Citius
-            <ExternalLink className="h-4 w-4" />
+            <ExternalLink className="size-4" />
           </Link>
         </div>
 
         {isRegionTrail ? (
           <div className="space-y-8">
             <p className="font-sans text-brand-muted">
-              Visit at least one sacred site in each region of Bharat — North, South, East, and West
-              — to complete this trail.
+              Visit at least one sacred site in each region of Bharat , North, South, East, and West
+              to complete this trail.
             </p>
             {REGIONS.map((region) => (
               <div key={region}>
@@ -97,7 +97,9 @@ export default function TrailDetailClient({ trail }) {
                   {REGION_LABELS[region]}
                 </h2>
                 <TempleChecklist
-                  templeIds={TEMPLES.filter((t) => t.region === region).map((t) => t.id)}
+                  templeIds={TEMPLES.flatMap((temple) =>
+                    temple.region === region ? [temple.id] : [],
+                  )}
                 />
               </div>
             ))}

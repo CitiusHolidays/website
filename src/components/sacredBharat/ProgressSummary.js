@@ -55,7 +55,7 @@ export default function ProgressSummary() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon }) => (
           <div key={label} className="rounded-2xl border border-brand-light bg-white p-5 shadow-sm">
-            <Icon className="h-5 w-5 text-citius-orange mb-3" />
+            <Icon className="size-5 text-citius-orange mb-3" />
             <p className="font-heading text-2xl text-brand-dark tabular-nums">{value}</p>
             <p className="font-sans text-sm text-brand-muted mt-1">{label}</p>
           </div>

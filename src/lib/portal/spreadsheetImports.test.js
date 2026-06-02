@@ -148,6 +148,76 @@ describe("passenger spreadsheet imports", () => {
     expect(result.rows).toHaveLength(0);
     expect(result.errors[0].message).toContain("missing");
   });
+
+  test("imports ticketing template rows without a willing-to-go column", () => {
+    const workbook = workbookFromSheets({
+      Sheet1: [
+        [
+          "NO",
+          "",
+          "SURNAME",
+          "Name As per Govt. ID Proof",
+          "Gender",
+          "Passport no ",
+          "Date of Birth",
+          "Passport Issus date",
+          "Passport Exp",
+          "Meal Preference",
+          "Contact No.",
+          "International fare",
+          "International PNR",
+          "VENDOR",
+          "Domestic ticket",
+          "Domestic PNR",
+          "VENDOR",
+        ],
+        [
+          1,
+          "MS",
+          "AGARWAL",
+          "ANSHIKA",
+          "FEMALE",
+          "AK429734",
+          "1987-07-26",
+          "2026-02-12",
+          "2036-02-11",
+          "VEG",
+          9932929359,
+          55168,
+          "ICQULJ",
+          "LAXMINARAYAN",
+          15281,
+          "7V3C5J",
+          "TBO",
+        ],
+      ],
+    });
+
+    const result = parsePassengerWorkbook(workbook);
+    expect(result.rows).toHaveLength(1);
+    expect(result.skipped).toHaveLength(0);
+    expect(result.rows[0]).toMatchObject({
+      fullName: "ANSHIKA AGARWAL",
+      gender: "FEMALE",
+      contactNo: "9932929359",
+      domesticTravelRequired: true,
+      passportStatus: "Received",
+      ticketing: {
+        internationalFare: "55168",
+        internationalPnr: "ICQULJ",
+        internationalVendor: "LAXMINARAYAN",
+        domesticTicket: "15281",
+        domesticPnr: "7V3C5J",
+        domesticVendor: "TBO",
+      },
+    });
+    expect(result.rows[0].passport).toMatchObject({
+      number: "AK429734",
+      dateOfBirth: "1987-07-26",
+      issueDate: "2026-02-12",
+      expiryDate: "2036-02-11",
+    });
+  });
 });
 
 describe("master-list sheet imports", () => {

@@ -1,4 +1,11 @@
-import { PORTAL_NAV_GROUPS, PORTAL_PERMISSIONS, ROLE_PERMISSIONS, CEMENT_QUERY_TYPES, CEMENT_ROLES, QUERY_TYPES } from "./constants";
+import {
+  CEMENT_QUERY_TYPES,
+  CEMENT_ROLES,
+  PORTAL_NAV_GROUPS,
+  PORTAL_PERMISSIONS,
+  QUERY_TYPES,
+  ROLE_PERMISSIONS,
+} from "./constants";
 
 export function normalizeEmail(email) {
   return String(email || "")
@@ -27,10 +34,10 @@ export function hasPermission(access, permission) {
 }
 
 export function getAccessibleNavGroups(access) {
-  return PORTAL_NAV_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => hasPermission(access, item.permission)),
-  })).filter((group) => group.items.length > 0);
+  return PORTAL_NAV_GROUPS.flatMap((group) => {
+    const items = group.items.filter((item) => hasPermission(access, item.permission));
+    return items.length > 0 ? [{ ...group, items }] : [];
+  });
 }
 
 export function canAccessPage(access, page) {

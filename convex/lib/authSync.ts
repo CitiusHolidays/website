@@ -84,12 +84,11 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
       await ctx.db.patch(profileByAuth._id, patch);
     }
 
-    for (const duplicate of matchingProfiles) {
-      if (duplicate._id === profileByAuth._id) {
-        continue;
-      }
-      await ctx.db.delete(duplicate._id);
-    }
+    await Promise.all(
+      matchingProfiles.flatMap((duplicate) =>
+        duplicate._id !== profileByAuth._id ? [ctx.db.delete(duplicate._id)] : [],
+      ),
+    );
 
     return { linkedStaff, profileId: profileByAuth._id };
   }
@@ -103,12 +102,11 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
       updatedAt: now,
     });
 
-    for (const duplicate of matchingProfiles) {
-      if (duplicate._id === orphanedProfile._id) {
-        continue;
-      }
-      await ctx.db.delete(duplicate._id);
-    }
+    await Promise.all(
+      matchingProfiles.flatMap((duplicate) =>
+        duplicate._id !== orphanedProfile._id ? [ctx.db.delete(duplicate._id)] : [],
+      ),
+    );
 
     return { linkedStaff, profileId: orphanedProfile._id };
   }

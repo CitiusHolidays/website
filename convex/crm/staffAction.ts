@@ -1,7 +1,7 @@
 "use node";
 
+import crypto from "node:crypto";
 import { ConvexError, v } from "convex/values";
-import crypto from "crypto";
 import { api, components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { type ActionCtx, action, internalAction } from "../_generated/server";
@@ -42,11 +42,16 @@ async function sendVerificationEmail(auth: ReturnType<typeof createAuth>, email:
 
 async function findAuthUserByEmail(ctx: ActionCtx, email: string) {
   const emailNormalized = normalizeEmail(email);
-  for (const candidate of [emailNormalized, email.trim()]) {
-    const authUser = await ctx.runQuery(components.betterAuth.adapter.findOne, {
-      model: "user",
-      where: [{ field: "email", value: candidate }],
-    });
+  const candidates = [emailNormalized, email.trim()];
+  const authUsers = await Promise.all(
+    candidates.map((candidate) =>
+      ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "user",
+        where: [{ field: "email", value: candidate }],
+      }),
+    ),
+  );
+  for (const authUser of authUsers) {
     if (authUser && typeof authUser === "object" && "_id" in authUser) {
       return authUser as { _id: string; emailVerified?: boolean; email?: string };
     }
@@ -104,7 +109,7 @@ async function provisionStaffCore(
   args: { staffId: Id<"staffUsers">; email: string; name: string },
 ): Promise<ProvisionResult> {
   const auth = createAuth(ctx);
-  const tempPassword = crypto.randomUUID() + "A1!";
+  const tempPassword = `${crypto.randomUUID()}A1!`;
   const siteUrl = getSiteUrl();
   const callbackURL = `${siteUrl}/auth/email-verified`;
 
@@ -141,12 +146,13 @@ async function provisionStaffCore(
     return { ok: true, step: "verification_sent" };
   } catch (err) {
     if (isExistingUserError(err)) {
-      await ctx.runMutation(internal.crm.staff.markPendingOnboarding, {
-        staffId: args.staffId,
-      });
-      await ensureStaffAuthLink(ctx, args.staffId, args.email, args.name);
-
-      const authUser = await findAuthUserByEmail(ctx, args.email);
+      const [, , authUser] = await Promise.all([
+        ctx.runMutation(internal.crm.staff.markPendingOnboarding, {
+          staffId: args.staffId,
+        }),
+        ensureStaffAuthLink(ctx, args.staffId, args.email, args.name),
+        findAuthUserByEmail(ctx, args.email),
+      ]);
       if (authUser?.emailVerified) {
         const passwordSent = await sendPasswordSetupEmail(auth, args.email);
         if (passwordSent) {

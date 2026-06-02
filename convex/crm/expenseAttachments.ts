@@ -4,19 +4,24 @@ import { internalMutation, query } from "../_generated/server";
 import { canSeeJobCardRecord, PERMISSIONS, requireAnyPermission } from "./lib";
 
 async function requireVisibleExpense(ctx: any, expenseId: Id<"expenseEntries">) {
-  const access = await requireAnyPermission(ctx, [
-    PERMISSIONS.VIEW_EXPENSES,
-    PERMISSIONS.MANAGE_EXPENSES,
-    PERMISSIONS.MANAGE_FINANCE,
+  const [access, expense] = await Promise.all([
+    requireAnyPermission(ctx, [
+      PERMISSIONS.VIEW_EXPENSES,
+      PERMISSIONS.MANAGE_EXPENSES,
+      PERMISSIONS.MANAGE_FINANCE,
+    ]),
+    ctx.db.get(expenseId),
   ]);
-  const expense = await ctx.db.get(expenseId);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
   if (expense.jobCardId) {
     const job = await ctx.db.get(expense.jobCardId);
-    const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
-    if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
     return { expense, job };
@@ -48,7 +53,7 @@ export const getAttachmentRecord = query({
       return null;
     }
     const row = await ctx.db.get(attachmentId);
-    if (!row || row.entityType !== "expense") {
+    if (row?.entityType !== "expense") {
       return null;
     }
     const expenseId = ctx.db.normalizeId("expenseEntries", row.entityId);
@@ -110,7 +115,7 @@ export const deleteExpenseProof = internalMutation({
   },
   handler: async (ctx, args) => {
     const row = await ctx.db.get(args.attachmentId);
-    if (!row || row.entityType !== "expense") {
+    if (row?.entityType !== "expense") {
       return { storageId: null as string | null };
     }
     const expenseId = ctx.db.normalizeId("expenseEntries", row.entityId);

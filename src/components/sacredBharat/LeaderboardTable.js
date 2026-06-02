@@ -28,7 +28,7 @@ export default function LeaderboardTable({ limit = 50 }) {
   if (!entries?.length) {
     return (
       <p className="font-sans text-brand-muted text-center py-8">
-        Be the first yatri on the leaderboard — mark a temple and sign in to save.
+        Be the first yatri on the leaderboard , mark a temple and sign in to save.
       </p>
     );
   }
@@ -38,7 +38,7 @@ export default function LeaderboardTable({ limit = 50 }) {
       {myRank && (
         <div className="rounded-2xl border border-citius-blue/25 bg-citius-blue/5 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-citius-orange" />
+            <Trophy className="size-5 text-citius-orange" />
             <span className="font-heading text-brand-dark">Your rank</span>
           </div>
           <p className="font-sans text-sm text-brand-muted">

@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, CheckCircle2 } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Link from "next/link";
 import { TRAILS } from "@/data/sacredBharat/trails";
 import { cn } from "@/utils/cn";
@@ -52,7 +52,7 @@ export default function TrailCardGrid() {
                     <span className="text-2xl" aria-hidden>
                       {trail.emoji}
                     </span>
-                    {complete && <CheckCircle2 className="h-5 w-5 text-citius-orange shrink-0" />}
+                    {complete && <CheckCircle2 className="size-5 text-citius-orange shrink-0" />}
                   </div>
                   <h3 className="font-heading text-lg text-brand-dark group-hover:text-citius-blue transition-colors">
                     {trail.title}
@@ -73,7 +73,7 @@ export default function TrailCardGrid() {
                   </div>
                   <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-citius-blue">
                     View trail
-                    <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                    <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform" />
                   </span>
                 </Link>
               </motion.div>

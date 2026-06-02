@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 
-export default function GalleryGridSmall({ images = [], className }) {
+const EMPTY_IMAGES = [];
+
+export default function GalleryGridSmall({ images = EMPTY_IMAGES, className }) {
   return (
     <div className={`grid gap-6 sm:grid-cols-2 md:grid-cols-3 ${className || ""}`}>
       {/* Map only first 6 images */}
@@ -15,6 +17,7 @@ export default function GalleryGridSmall({ images = [], className }) {
             src={item.asset?.url || ""}
             alt={item.alt || ""}
             fill
+            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         </div>

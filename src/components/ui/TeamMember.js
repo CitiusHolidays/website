@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m as motion } from "motion/react";
 import Image from "next/image";
 import { useState } from "react";
 
@@ -24,10 +24,16 @@ export default function TeamMember({ member, index }) {
     >
       <div className="relative h-80 bg-gradient-to-br from-citius-blue to-citius-orange">
         {member.image ? (
-          <Image src={member.image} alt={member.name} fill className="object-cover object-center" />
+          <Image
+            src={member.image}
+            alt={member.name}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            className="object-cover object-center"
+          />
         ) : (
           <div className="flex items-center justify-center h-full">
-            <div className="w-32 h-32 bg-white/20 rounded-full flex items-center justify-center">
+            <div className="size-32 bg-white/20 rounded-full flex items-center justify-center">
               <span className="text-4xl font-bold text-brand-light">
                 {member.name
                   .split(" ")
@@ -77,7 +83,7 @@ export default function TeamMember({ member, index }) {
             >
               <span>{isExpanded ? "Show Less" : "Read More"}</span>
               <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.3 }}>
-                <ChevronDown className="w-4 h-4" />
+                <ChevronDown className="size-4" />
               </motion.div>
             </motion.button>
           )}
@@ -94,7 +100,7 @@ export default function TeamMember({ member, index }) {
             >
               <p className="text-sm italic text-brand-muted">&quot;{member.quote}&quot;</p>
               {member.quoteAuthor && (
-                <p className="text-xs text-brand-muted mt-1">— {member.quoteAuthor}</p>
+                <p className="text-xs text-brand-muted mt-1">- {member.quoteAuthor}</p>
               )}
             </motion.div>
           )}

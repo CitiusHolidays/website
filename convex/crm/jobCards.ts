@@ -72,17 +72,22 @@ const DEFAULT_CHECKLIST = [
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const access = await requireStaff(ctx, PERMISSIONS.VIEW_JOB_CARDS);
-    const rows = await ctx.db.query("jobCards").collect();
-    const result = [];
-    for (const job of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-      const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
-      if (!canSeeJobCardRecord(access, job, linkedQuery)) {
-        continue;
-      }
-      result.push(publicJobCard(job));
-    }
-    return result;
+    const [access, rows] = await Promise.all([
+      requireStaff(ctx, PERMISSIONS.VIEW_JOB_CARDS),
+      ctx.db.query("jobCards").collect(),
+    ]);
+    const result = await Promise.all(
+      rows
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .map(async (job) => {
+          const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+          if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+            return null;
+          }
+          return publicJobCard(job);
+        }),
+    );
+    return result.filter(Boolean);
   },
 });
 
@@ -99,7 +104,6 @@ export const createFromQuery = mutation({
     tourManagerName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_JOB_CARDS);
     if (args.confirmedPax < 1) {
       throw new ConvexError("Confirmed pax must be greater than zero");
     }
@@ -108,7 +112,10 @@ export const createFromQuery = mutation({
       throw new ConvexError("Select a confirmed query before opening a Job Card");
     }
     const queryId = ctx.db.normalizeId("queries", args.queryId);
-    const linkedQuery = queryId ? await ctx.db.get(queryId) : null;
+    const [access, linkedQuery] = await Promise.all([
+      requireStaff(ctx, PERMISSIONS.MANAGE_JOB_CARDS),
+      queryId ? ctx.db.get(queryId) : null,
+    ]);
     if (!queryId || !linkedQuery) {
       throw new ConvexError("Linked query not found");
     }
@@ -187,51 +194,53 @@ export const createFromQuery = mutation({
       updatedAt: now,
     });
 
-    await createActivity(ctx, access, {
-      entityType: "jobCard",
-      entityId: id,
-      action: "created",
-      message: `${jobCode} opened for ${linkedQuery?.clientName || args.clientName || "client"}`,
-    });
-    await notifyStaffMatching(
-      ctx,
-      (staff) => staff.roles.some((role) => ["Contracting", "Contracting Head"].includes(role)),
-      {
-        title: "Assign contracting SPOC",
-        body: `${jobCode} has been created. Assign a contracting SPOC for this Job Card.`,
+    await Promise.all([
+      createActivity(ctx, access, {
         entityType: "jobCard",
         entityId: id,
-      },
-      { fallbackRoles: ["Contracting Head"] },
-    );
-    await notifyStaffMatching(
-      ctx,
-      (staff) => staff.roles.some((role) => ["Operations", "Operations Head"].includes(role)),
-      {
-        title: "Assign operations owner",
-        body: `${jobCode} has been created. Assign an operations owner for this Job Card.`,
+        action: "created",
+        message: `${jobCode} opened for ${linkedQuery?.clientName || args.clientName || "client"}`,
+      }),
+      notifyStaffMatching(
+        ctx,
+        (staff) => staff.roles.some((role) => ["Contracting", "Contracting Head"].includes(role)),
+        {
+          title: "Assign contracting SPOC",
+          body: `${jobCode} has been created. Assign a contracting SPOC for this Job Card.`,
+          entityType: "jobCard",
+          entityId: id,
+        },
+        { fallbackRoles: ["Contracting Head"] },
+      ),
+      notifyStaffMatching(
+        ctx,
+        (staff) => staff.roles.some((role) => ["Operations", "Operations Head"].includes(role)),
+        {
+          title: "Assign operations owner",
+          body: `${jobCode} has been created. Assign an operations owner for this Job Card.`,
+          entityType: "jobCard",
+          entityId: id,
+        },
+        { fallbackRoles: ["Operations Head"] },
+      ),
+      notifyStaffMatching(
+        ctx,
+        (staff) => staff.roles.some((role) => ["Ticketing", "Head of Ticketing"].includes(role)),
+        {
+          title: "Assign ticketing owner",
+          body: `${jobCode} has been created. Assign a ticketing owner for this Job Card.`,
+          entityType: "jobCard",
+          entityId: id,
+        },
+        { fallbackRoles: ["Head of Ticketing"] },
+      ),
+      notifyRoles(ctx, ["Sales", "Sales Head", "Finance"], {
+        title: "Job Card opened",
+        body: `${jobCode} has been created and is ready for operations.`,
         entityType: "jobCard",
         entityId: id,
-      },
-      { fallbackRoles: ["Operations Head"] },
-    );
-    await notifyStaffMatching(
-      ctx,
-      (staff) => staff.roles.some((role) => ["Ticketing", "Head of Ticketing"].includes(role)),
-      {
-        title: "Assign ticketing owner",
-        body: `${jobCode} has been created. Assign a ticketing owner for this Job Card.`,
-        entityType: "jobCard",
-        entityId: id,
-      },
-      { fallbackRoles: ["Head of Ticketing"] },
-    );
-    await notifyRoles(ctx, ["Sales", "Sales Head", "Finance"], {
-      title: "Job Card opened",
-      body: `${jobCode} has been created and is ready for operations.`,
-      entityType: "jobCard",
-      entityId: id,
-    });
+      }),
+    ]);
 
     return { id, jobCode };
   },

@@ -15,6 +15,7 @@ export default function HeroVideo({ className }) {
       preload="auto"
       poster="/gallery/hero-poster.webp"
       className={className}
+      tabIndex={-1}
       aria-hidden
     >
       <source src="/hero-sm.webm" type="video/webm" media="(max-width: 768px)" />

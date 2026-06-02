@@ -3,18 +3,15 @@
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { Bell, ChevronDown, ChevronRight, Circle, LogOut, Menu, X } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m as motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { logout } from "@/lib/auth-client";
+import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
-import {
-  CITIUS_CONNECT_LOGO_HEIGHT,
-  CITIUS_CONNECT_LOGO_WIDTH,
-} from "@/lib/citiusConnectLogo";
 import ConnectLogo from "@/static/logos/citiusconnect.png";
 
 const NAV_EXPANDED_STORAGE_KEY = "portal-nav-expanded-groups";
@@ -42,6 +39,11 @@ function writeStoredSet(key, valueSet) {
   }
 }
 
+const handleLogout = async () => {
+  await logout();
+  window.location.href = "/";
+};
+
 export default function PortalShell({ access, user, children }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -57,7 +59,7 @@ export default function PortalShell({ access, user, children }) {
     isAuthenticated && access?.allowed ? {} : "skip",
   );
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
-  const navGroups = useMemo(() => getAccessibleNavGroups(access), [access]);
+  const navGroups = getAccessibleNavGroups(access);
   const unreadCount = (notifications || []).filter((item) => !item.readAt).length;
 
   const toggleNotifications = () => {
@@ -76,11 +78,6 @@ export default function PortalShell({ access, user, children }) {
         }),
       );
     }
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    window.location.href = "/";
   };
 
   return (
@@ -136,13 +133,13 @@ export default function PortalShell({ access, user, children }) {
                 <button
                   type="button"
                   onClick={toggleNotifications}
-                  className="relative grid h-9 w-9 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition hover:text-citius-blue"
+                  className="relative grid size-9 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition hover:text-citius-blue"
                   aria-label="Open notifications"
                 >
                   <Bell size={17} />
                   {unreadCount > 0 && (
                     <motion.span
-                      initial={{ scale: 0 }}
+                      initial={{ scale: 0.95, opacity: 0 }}
                       animate={{ scale: 1 }}
                       className="absolute -right-1 -top-1 min-w-5 rounded-full bg-citius-orange px-1.5 text-center text-[10px] font-bold leading-5 text-white"
                     >
@@ -314,22 +311,16 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
     readStoredSet(NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY),
   );
 
-  const isGroupActive = useCallback(
-    (group) => {
-      return group.items.some((item) =>
-        item.href === "/portal" ? pathname === "/portal" : pathname?.startsWith(item.href),
-      );
-    },
-    [pathname],
-  );
+  const isGroupActive = (group) => {
+    return group.items.some((item) =>
+      item.href === "/portal" ? pathname === "/portal" : pathname?.startsWith(item.href),
+    );
+  };
 
-  const isGroupExpanded = useCallback(
-    (group) => {
-      if (group.items.length <= 1) return true;
-      return expandedGroups.has(group.label) || isGroupActive(group);
-    },
-    [expandedGroups, isGroupActive],
-  );
+  const isGroupExpanded = (group) => {
+    if (group.items.length <= 1) return true;
+    return expandedGroups.has(group.label) || isGroupActive(group);
+  };
 
   useEffect(() => {
     writeStoredSet(NAV_EXPANDED_STORAGE_KEY, expandedGroups);
@@ -343,15 +334,12 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
     writeStoredSet(NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY, collapsedShortcuts);
   }, [collapsedShortcuts]);
 
-  const isShortcutsExpanded = useCallback(
-    (itemHref, active) => {
-      if (collapsedShortcuts.has(itemHref)) {
-        return false;
-      }
-      return expandedShortcuts.has(itemHref) || active;
-    },
-    [collapsedShortcuts, expandedShortcuts],
-  );
+  const isShortcutsExpanded = (itemHref, active) => {
+    if (collapsedShortcuts.has(itemHref)) {
+      return false;
+    }
+    return expandedShortcuts.has(itemHref) || active;
+  };
 
   const toggleGroup = (label) => {
     setExpandedGroups((current) => {
@@ -473,7 +461,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
                               key={shortcut.id}
                               href={shortcut.href}
                               onClick={onNavigate}
-                              className="block min-h-11 rounded-lg px-2 py-2 text-xs leading-snug text-brand-muted transition hover:bg-brand-light hover:text-brand-dark"
+                              className="block min-h-11 rounded-lg p-2 text-xs leading-snug text-brand-muted transition hover:bg-brand-light hover:text-brand-dark"
                               title={shortcut.label}
                             >
                               <span className="line-clamp-2">{shortcut.label}</span>
@@ -482,7 +470,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
                           <Link
                             href={item.href}
                             onClick={onNavigate}
-                            className="block min-h-11 rounded-lg px-2 py-2 text-xs font-semibold text-citius-blue transition hover:text-citius-orange"
+                            className="block min-h-11 rounded-lg p-2 text-xs font-semibold text-citius-blue transition hover:text-citius-orange"
                           >
                             View all
                           </Link>

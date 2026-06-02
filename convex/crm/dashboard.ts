@@ -5,10 +5,10 @@ import {
   CEMENT_QUERY_TYPES,
   filterRecordsByCreatedAt,
   PERMISSIONS,
-  shouldApplyCementScope,
   type PortalPeriod,
   portalPeriodValidator,
   requireStaff,
+  shouldApplyCementScope,
 } from "./lib";
 
 const percent = (done: number, total: number) => (total > 0 ? Math.round((done / total) * 100) : 0);
@@ -40,6 +40,75 @@ function countQueriesByType<T extends { queryType: string }>(
     type,
     count: records.filter((query) => query.queryType === type).length,
   }));
+}
+
+function buildUrgentActions({
+  approvals,
+  invoices,
+  queries,
+  jobCards,
+  tickets,
+  nowDate,
+}: {
+  approvals: Array<{ _id: string; status: string; requestCode: string; summary: string }>;
+  invoices: Array<{
+    _id: string;
+    invoiceNumber: string;
+    balanceAmount: number;
+    dueDate?: string;
+  }>;
+  queries: Array<{ _id: string; salesStatus: string; queryCode: string }>;
+  jobCards: Array<{ queryId?: string }>;
+  tickets: Array<{ _id: string; ticketNumber?: string; ticketStatus: string }>;
+  nowDate: string;
+}) {
+  const actions = [];
+  const queryIdsWithJobCards = new Set(
+    jobCards.flatMap((job) => (job.queryId ? [job.queryId] : [])),
+  );
+  const ticketStatusesNeedingAttention = new Set([
+    "Name Change Required",
+    "Reissue Required",
+    "Refund Pending",
+  ]);
+
+  for (const approval of approvals) {
+    if (approval.status !== "Pending") continue;
+    actions.push({
+      id: approval._id,
+      label: `${approval.requestCode} approval pending: ${approval.summary}`,
+      type: "approvals",
+    });
+  }
+
+  for (const invoice of invoices) {
+    if (!(invoice.balanceAmount > 0 && invoice.dueDate && invoice.dueDate < nowDate)) continue;
+    actions.push({
+      id: invoice._id,
+      label: `${invoice.invoiceNumber} has overdue balance`,
+      type: "finance",
+    });
+  }
+
+  for (const query of queries) {
+    if (query.salesStatus !== "Order Confirmed" || queryIdsWithJobCards.has(query._id)) continue;
+    actions.push({
+      id: query._id,
+      label: `${query.queryCode} needs Job Card creation`,
+      type: "accounts",
+    });
+  }
+
+  for (const ticket of tickets) {
+    if (!ticketStatusesNeedingAttention.has(ticket.ticketStatus)) continue;
+    actions.push({
+      id: ticket._id,
+      label: `Ticket ${ticket.ticketNumber || ticket._id} needs attention`,
+      type: "ticketing",
+    });
+  }
+
+  return actions.slice(0, 8);
 }
 
 export const getPortalSummary = query({
@@ -210,43 +279,14 @@ export const getPortalSummary = query({
           percent: percent(receivedPayment, expectedPayment),
         },
       },
-      urgentActions: [
-        ...approvals
-          .filter((approval) => approval.status === "Pending")
-          .map((approval) => ({
-            id: approval._id,
-            label: `${approval.requestCode} approval pending: ${approval.summary}`,
-            type: "approvals",
-          })),
-        ...invoices
-          .filter(
-            (invoice) => invoice.balanceAmount > 0 && invoice.dueDate && invoice.dueDate < nowDate,
-          )
-          .map((invoice) => ({
-            id: invoice._id,
-            label: `${invoice.invoiceNumber} has overdue balance`,
-            type: "finance",
-          })),
-        ...queries
-          .filter((query) => query.salesStatus === "Order Confirmed")
-          .filter((query) => !jobCards.some((job) => job.queryId === query._id))
-          .map((query) => ({
-            id: query._id,
-            label: `${query.queryCode} needs Job Card creation`,
-            type: "accounts",
-          })),
-        ...tickets
-          .filter((ticket) =>
-            ["Name Change Required", "Reissue Required", "Refund Pending"].includes(
-              ticket.ticketStatus,
-            ),
-          )
-          .map((ticket) => ({
-            id: ticket._id,
-            label: `Ticket ${ticket.ticketNumber || ticket._id} needs attention`,
-            type: "ticketing",
-          })),
-      ].slice(0, 8),
+      urgentActions: buildUrgentActions({
+        approvals,
+        invoices,
+        queries,
+        jobCards,
+        tickets,
+        nowDate,
+      }),
       activeTours: activeJobs.slice(0, 6).map((job) => {
         const jobTravellers = travellers.filter((traveller) => traveller.jobCardId === job._id);
         const jobTicketsIssued = jobTravellers.filter(

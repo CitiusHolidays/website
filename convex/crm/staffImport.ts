@@ -49,99 +49,90 @@ async function importStaffRows(
   const dryRun = args.dryRun ?? false;
   const provisionAuth = args.provisionAuth ?? false;
   const now = Date.now();
-  const results: Array<{
-    email: string;
-    name: string;
-    roles: string[];
-    action: "created" | "updated" | "skipped" | "error";
-    message?: string;
-  }> = [];
-
-  for (const row of args.employees) {
-    const emailNormalized = normalizeEmail(row.email);
-    if (!emailNormalized || !emailNormalized.includes("@")) {
-      results.push({
-        email: row.email,
-        name: row.name,
-        roles: row.roles,
-        action: "skipped",
-        message: "Invalid email",
-      });
-      continue;
-    }
-
-    try {
-      const roles = sanitizeRoles(row.roles);
-      const existing = await ctx.db
-        .query("staffUsers")
-        .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
-        .unique();
-
-      if (dryRun) {
-        results.push({
+  const results = await Promise.all(
+    args.employees.map(async (row) => {
+      const emailNormalized = normalizeEmail(row.email);
+      if (!emailNormalized || !/@/.test(emailNormalized)) {
+        return {
           email: row.email,
           name: row.name,
-          roles,
-          action: existing ? "updated" : "created",
-        });
-        continue;
+          roles: row.roles,
+          action: "skipped" as const,
+          message: "Invalid email",
+        };
       }
 
-      const payload = {
-        email: row.email.trim(),
-        emailNormalized,
-        name: row.name.trim(),
-        roles: roles as (typeof ALL_ROLES)[number][],
-        department: row.department?.trim() || "",
-        function: row.function?.trim() || "",
-        mobile: row.mobile?.trim() || "",
-        location: row.location?.trim() || "",
-        active: true,
-        updatedAt: now,
-      };
+      try {
+        const roles = sanitizeRoles(row.roles);
+        const existing = await ctx.db
+          .query("staffUsers")
+          .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
+          .unique();
 
-      if (existing) {
-        await ctx.db.patch(existing._id, payload);
-        results.push({
-          email: row.email,
-          name: row.name,
-          roles,
-          action: "updated",
-        });
-        continue;
-      }
+        if (dryRun) {
+          return {
+            email: row.email,
+            name: row.name,
+            roles,
+            action: existing ? ("updated" as const) : ("created" as const),
+          };
+        }
 
-      const id = await ctx.db.insert("staffUsers", {
-        ...payload,
-        invitedBy: "bulk-import",
-        pendingPasswordSetup: true,
-        createdAt: now,
-      });
-
-      if (provisionAuth) {
-        await ctx.scheduler.runAfter(0, internal.crm.staffAction.provisionStaffUser, {
-          staffId: id,
+        const payload = {
           email: row.email.trim(),
+          emailNormalized,
           name: row.name.trim(),
-        });
-      }
+          roles: roles as (typeof ALL_ROLES)[number][],
+          department: row.department?.trim() || "",
+          function: row.function?.trim() || "",
+          mobile: row.mobile?.trim() || "",
+          location: row.location?.trim() || "",
+          active: true,
+          updatedAt: now,
+        };
 
-      results.push({
-        email: row.email,
-        name: row.name,
-        roles,
-        action: "created",
-      });
-    } catch (error) {
-      results.push({
-        email: row.email,
-        name: row.name,
-        roles: row.roles,
-        action: "error",
-        message: error instanceof Error ? error.message : "Import failed",
-      });
-    }
-  }
+        if (existing) {
+          await ctx.db.patch(existing._id, payload);
+          return {
+            email: row.email,
+            name: row.name,
+            roles,
+            action: "updated" as const,
+          };
+        }
+
+        const id = await ctx.db.insert("staffUsers", {
+          ...payload,
+          invitedBy: "bulk-import",
+          pendingPasswordSetup: true,
+          createdAt: now,
+        });
+
+        if (provisionAuth) {
+          await ctx.scheduler.runAfter(0, internal.crm.staffAction.provisionStaffUser, {
+            staffId: id,
+            email: row.email.trim(),
+            name: row.name.trim(),
+          });
+        }
+
+        return {
+          email: row.email,
+          name: row.name,
+          roles,
+          action: "created" as const,
+        };
+      } catch (error) {
+        return {
+          email: row.email,
+          name: row.name,
+          roles: row.roles,
+          action: "error" as const,
+          message: error instanceof Error ? error.message : "Import failed",
+        };
+      }
+    }),
+  );
 
   const summary = {
     created: results.filter((row) => row.action === "created").length,

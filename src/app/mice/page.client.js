@@ -1,19 +1,13 @@
 "use client";
 
 import { Briefcase, PiggyBank, ThumbsUp, Users } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import AnimatedSection from "../../components/layout/AnimatedSection";
 import GalleryGridSmall from "../../components/ui/GalleryGridSmall";
 
 import WorldMap from "../../static/worldmap.webp";
-
-export const generateMetadata = () => ({
-  title: "Expert MICE Services & Corporate Event Planning | Citius",
-  description:
-    "Citius specializes in planning and executing flawless Meetings, Incentives, Conferences, and Exhibitions (MICE) worldwide. Contact us for a proposal.",
-});
 
 const commitments = [
   {
@@ -48,6 +42,7 @@ export default function MicePageClient({ images }) {
             src="/gallery/mice.webp"
             alt="Corporate conference"
             fill
+            sizes="100vw"
             priority
             className="object-cover object-center pt-16 brightness-75"
           />
@@ -111,7 +106,7 @@ export default function MicePageClient({ images }) {
                   show: { opacity: 1, y: 0 },
                 }}
               >
-                <Icon className="mx-auto mb-4 w-10 h-10 text-citius-orange" />
+                <Icon className="mx-auto mb-4 size-10 text-citius-orange" />
                 <p className="font-medium text-brand-dark">{title}</p>
               </motion.div>
             ))}

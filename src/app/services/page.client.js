@@ -1,14 +1,8 @@
 "use client";
 
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import AnimatedSection from "../../components/layout/AnimatedSection";
 import CircularServicesMenu from "../../components/ui/CircularServicesMenu";
-
-export const generateMetadata = () => ({
-  title: "Services | Citius Holidays Management",
-  description:
-    "Explore the comprehensive suite of travel and event services offered by Citius, from MICE and VISA assistance to branding and sporting events.",
-});
 
 export default function ServicesPage() {
   return (
@@ -16,8 +10,8 @@ export default function ServicesPage() {
       <div className="bg-[#0B1026] h-19" />
       {/* <AnimatedSection className="relative py-20 px-4 bg-gradient-to-b from-brand-light via-white to-white overflow-hidden"> */}
       <AnimatedSection className="relative py-20 px-4 bg-[url('/gallery/bgfooter.webp')] bg-cover bg-center overflow-hidden">
-        <div className="pointer-events-none absolute -top-20 -left-20 h-72 w-72 rounded-full bg-citius-blue/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 -right-20 h-96 w-96 rounded-full bg-citius-orange/20 blur-3xl" />
+        <div className="pointer-events-none absolute -top-20 -left-20 size-72 rounded-full bg-citius-blue/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -right-20 size-96 rounded-full bg-citius-orange/20 blur-3xl" />
 
         <div className="relative max-w-4xl mx-auto text-center mb-16">
           <motion.h1

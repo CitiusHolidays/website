@@ -41,43 +41,46 @@ export const importUsers = mutation({
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
-    let imported = 0;
-    let updated = 0;
+    const results = await Promise.all(
+      args.rows.map(async (row) => {
+        const authUserId = row.id ?? row.user_id ?? row.userId;
+        if (!authUserId) {
+          return "skipped";
+        }
 
-    for (const row of args.rows) {
-      const authUserId = row.id ?? row.user_id ?? row.userId;
-      if (!authUserId) {
-        continue;
-      }
+        const existing = await ctx.db
+          .query("userProfiles")
+          .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+          .unique();
 
-      const existing = await ctx.db
-        .query("userProfiles")
-        .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
-        .unique();
+        const payload = {
+          authUserId,
+          email: row.email ?? "",
+          name: row.name ?? "Traveler",
+          phoneNumber: row.phone_number ?? row.phoneNumber ?? "",
+          passportDetailsEncrypted:
+            row.passport_details_encrypted ?? row.passportDetailsEncrypted ?? "",
+          image: row.image ?? "",
+          createdAt: toTimestamp(row.created_at ?? row.createdAt),
+          updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
+          legacyUserId: authUserId,
+        };
 
-      const payload = {
-        authUserId,
-        email: row.email ?? "",
-        name: row.name ?? "Traveler",
-        phoneNumber: row.phone_number ?? row.phoneNumber ?? "",
-        passportDetailsEncrypted:
-          row.passport_details_encrypted ?? row.passportDetailsEncrypted ?? "",
-        image: row.image ?? "",
-        createdAt: toTimestamp(row.created_at ?? row.createdAt),
-        updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
-        legacyUserId: authUserId,
-      };
+        if (existing) {
+          await ctx.db.patch(existing._id, payload);
+          return "updated";
+        } else {
+          await ctx.db.insert("userProfiles", payload);
+          return "imported";
+        }
+      }),
+    );
 
-      if (existing) {
-        await ctx.db.patch(existing._id, payload);
-        updated += 1;
-      } else {
-        await ctx.db.insert("userProfiles", payload);
-        imported += 1;
-      }
-    }
-
-    return { imported, updated, total: args.rows.length };
+    return {
+      imported: results.filter((result) => result === "imported").length,
+      updated: results.filter((result) => result === "updated").length,
+      total: args.rows.length,
+    };
   },
 });
 
@@ -88,53 +91,56 @@ export const importTrips = mutation({
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
-    let imported = 0;
-    let updated = 0;
+    const results = await Promise.all(
+      args.rows.map(async (row) => {
+        const legacyTripId = row.id ?? row.trip_id ?? row.tripId;
+        if (!legacyTripId) {
+          return "skipped";
+        }
 
-    for (const row of args.rows) {
-      const legacyTripId = row.id ?? row.trip_id ?? row.tripId;
-      if (!legacyTripId) {
-        continue;
-      }
+        const existing = await ctx.db
+          .query("trips")
+          .withIndex("by_legacyTripId", (q) => q.eq("legacyTripId", legacyTripId))
+          .unique();
 
-      const existing = await ctx.db
-        .query("trips")
-        .withIndex("by_legacyTripId", (q) => q.eq("legacyTripId", legacyTripId))
-        .unique();
+        const isActiveRaw = row.is_active ?? row.isActive ?? 1;
+        const payload = {
+          name: row.name ?? "",
+          slug: row.slug ?? "",
+          description: row.description ?? "",
+          startDate: row.start_date ?? row.startDate ?? "",
+          endDate: row.end_date ?? row.endDate ?? "",
+          totalSeats: Number(row.total_seats ?? row.totalSeats ?? 0),
+          availableSeats: Number(row.available_seats ?? row.availableSeats ?? 0),
+          priceInr: Number(row.price_inr ?? row.priceInr ?? 0),
+          priceUsd: Number(row.price_usd ?? row.priceUsd ?? 0),
+          difficulty: row.difficulty ?? "",
+          itinerary: row.itinerary ?? [],
+          inclusions: row.inclusions ?? [],
+          exclusions: row.exclusions ?? [],
+          coverImage: row.cover_image ?? row.coverImage ?? "",
+          gallery: row.gallery ?? [],
+          isActive: Number(isActiveRaw) === 1 || isActiveRaw === true,
+          createdAt: toTimestamp(row.created_at ?? row.createdAt),
+          updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
+          legacyTripId,
+        };
 
-      const isActiveRaw = row.is_active ?? row.isActive ?? 1;
-      const payload = {
-        name: row.name ?? "",
-        slug: row.slug ?? "",
-        description: row.description ?? "",
-        startDate: row.start_date ?? row.startDate ?? "",
-        endDate: row.end_date ?? row.endDate ?? "",
-        totalSeats: Number(row.total_seats ?? row.totalSeats ?? 0),
-        availableSeats: Number(row.available_seats ?? row.availableSeats ?? 0),
-        priceInr: Number(row.price_inr ?? row.priceInr ?? 0),
-        priceUsd: Number(row.price_usd ?? row.priceUsd ?? 0),
-        difficulty: row.difficulty ?? "",
-        itinerary: row.itinerary ?? [],
-        inclusions: row.inclusions ?? [],
-        exclusions: row.exclusions ?? [],
-        coverImage: row.cover_image ?? row.coverImage ?? "",
-        gallery: row.gallery ?? [],
-        isActive: Number(isActiveRaw) === 1 || isActiveRaw === true,
-        createdAt: toTimestamp(row.created_at ?? row.createdAt),
-        updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
-        legacyTripId,
-      };
+        if (existing) {
+          await ctx.db.patch(existing._id, payload);
+          return "updated";
+        } else {
+          await ctx.db.insert("trips", payload);
+          return "imported";
+        }
+      }),
+    );
 
-      if (existing) {
-        await ctx.db.patch(existing._id, payload);
-        updated += 1;
-      } else {
-        await ctx.db.insert("trips", payload);
-        imported += 1;
-      }
-    }
-
-    return { imported, updated, total: args.rows.length };
+    return {
+      imported: results.filter((result) => result === "imported").length,
+      updated: results.filter((result) => result === "updated").length,
+      total: args.rows.length,
+    };
   },
 });
 
@@ -145,70 +151,73 @@ export const importBookings = mutation({
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
-    let imported = 0;
-    let updated = 0;
-    let skipped = 0;
+    const results = await Promise.all(
+      args.rows.map(async (row) => {
+        const legacyBookingId = row.id ?? row.booking_id ?? row.bookingId;
+        if (!legacyBookingId) {
+          return "skipped";
+        }
 
-    for (const row of args.rows) {
-      const legacyBookingId = row.id ?? row.booking_id ?? row.bookingId;
-      if (!legacyBookingId) {
-        skipped += 1;
-        continue;
-      }
+        const legacyTripId = row.trip_id ?? row.tripId;
+        const trip = await ctx.db
+          .query("trips")
+          .withIndex("by_legacyTripId", (q) => q.eq("legacyTripId", legacyTripId))
+          .unique();
 
-      const legacyTripId = row.trip_id ?? row.tripId;
-      const trip = await ctx.db
-        .query("trips")
-        .withIndex("by_legacyTripId", (q) => q.eq("legacyTripId", legacyTripId))
-        .unique();
+        if (!trip) {
+          return "skipped";
+        }
 
-      if (!trip) {
-        skipped += 1;
-        continue;
-      }
+        const existing = await ctx.db
+          .query("bookings")
+          .withIndex("by_legacyBookingId", (q) => q.eq("legacyBookingId", legacyBookingId))
+          .unique();
 
-      const existing = await ctx.db
-        .query("bookings")
-        .withIndex("by_legacyBookingId", (q) => q.eq("legacyBookingId", legacyBookingId))
-        .unique();
+        const payload = {
+          userId: row.user_id ?? row.userId ?? "",
+          tripId: trip._id,
+          status: normalizeBookingStatus(row.status),
+          razorpayOrderId: row.razorpay_order_id ?? row.razorpayOrderId ?? "",
+          razorpayPaymentId: row.razorpay_payment_id ?? row.razorpayPaymentId ?? "",
+          razorpaySignature: row.razorpay_signature ?? row.razorpaySignature ?? "",
+          totalAmount: Number(row.total_amount ?? row.totalAmount ?? 0),
+          currency: row.currency ?? "INR",
+          travelers: Number(row.travelers ?? 1),
+          travelerDetails: row.traveler_details ?? row.travelerDetails ?? null,
+          notes: row.notes ?? "",
+          createdAt: toTimestamp(row.created_at ?? row.createdAt),
+          updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
+          confirmedAt: row.confirmed_at ? toTimestamp(row.confirmed_at) : undefined,
+          legacyBookingId,
+        };
 
-      const payload = {
-        userId: row.user_id ?? row.userId ?? "",
-        tripId: trip._id,
-        status: normalizeBookingStatus(row.status),
-        razorpayOrderId: row.razorpay_order_id ?? row.razorpayOrderId ?? "",
-        razorpayPaymentId: row.razorpay_payment_id ?? row.razorpayPaymentId ?? "",
-        razorpaySignature: row.razorpay_signature ?? row.razorpaySignature ?? "",
-        totalAmount: Number(row.total_amount ?? row.totalAmount ?? 0),
-        currency: row.currency ?? "INR",
-        travelers: Number(row.travelers ?? 1),
-        travelerDetails: row.traveler_details ?? row.travelerDetails ?? null,
-        notes: row.notes ?? "",
-        createdAt: toTimestamp(row.created_at ?? row.createdAt),
-        updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
-        confirmedAt: row.confirmed_at ? toTimestamp(row.confirmed_at) : undefined,
-        legacyBookingId,
-      };
+        if (existing) {
+          await ctx.db.patch(existing._id, payload);
+          return "updated";
+        } else {
+          await ctx.db.insert("bookings", payload);
+          return "imported";
+        }
+      }),
+    );
 
-      if (existing) {
-        await ctx.db.patch(existing._id, payload);
-        updated += 1;
-      } else {
-        await ctx.db.insert("bookings", payload);
-        imported += 1;
-      }
-    }
-
-    return { imported, updated, skipped, total: args.rows.length };
+    return {
+      imported: results.filter((result) => result === "imported").length,
+      updated: results.filter((result) => result === "updated").length,
+      skipped: results.filter((result) => result === "skipped").length,
+      total: args.rows.length,
+    };
   },
 });
 
 export const getStats = query({
   args: {},
   handler: async (ctx) => {
-    const users = await ctx.db.query("userProfiles").collect();
-    const trips = await ctx.db.query("trips").collect();
-    const bookings = await ctx.db.query("bookings").collect();
+    const [users, trips, bookings] = await Promise.all([
+      ctx.db.query("userProfiles").collect(),
+      ctx.db.query("trips").collect(),
+      ctx.db.query("bookings").collect(),
+    ]);
 
     const bookingsByStatus = bookings.reduce<Record<string, number>>((acc, booking) => {
       const key = booking.status;
@@ -240,16 +249,10 @@ export const fixQuerySourceManual = mutation({
   args: {},
   handler: async (ctx) => {
     const rows = await ctx.db.query("queries").collect();
-    let updated = 0;
+    const rowsToUpdate = rows.filter((row) => (row.source as string | undefined) === "Manual");
+    await Promise.all(rowsToUpdate.map((row) => ctx.db.patch(row._id, { source: "Client" })));
 
-    for (const row of rows) {
-      if ((row.source as string | undefined) === "Manual") {
-        await ctx.db.patch(row._id, { source: "Client" });
-        updated += 1;
-      }
-    }
-
-    return { updated, total: rows.length };
+    return { updated: rowsToUpdate.length, total: rows.length };
   },
 });
 
@@ -257,15 +260,9 @@ export const migrateLeadStageClosedToLost = mutation({
   args: {},
   handler: async (ctx) => {
     const rows = await ctx.db.query("queries").collect();
-    let updated = 0;
+    const rowsToUpdate = rows.filter((row) => row.leadStage === "Closed");
+    await Promise.all(rowsToUpdate.map((row) => ctx.db.patch(row._id, { leadStage: "Lost" })));
 
-    for (const row of rows) {
-      if (row.leadStage === "Closed") {
-        await ctx.db.patch(row._id, { leadStage: "Lost" });
-        updated += 1;
-      }
-    }
-
-    return { updated, total: rows.length };
+    return { updated: rowsToUpdate.length, total: rows.length };
   },
 });

@@ -15,15 +15,33 @@ export const overview = query({
     period: v.optional(portalPeriodValidator),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx, PERMISSIONS.VIEW_REPORTS);
     const period = (args.period ?? "all") as PortalPeriod;
-    let queries = filterRecordsByCreatedAt(await ctx.db.query("queries").collect(), period);
-    let invoices = filterRecordsByCreatedAt(await ctx.db.query("invoices").collect(), period);
-    const jobCards = filterRecordsByCreatedAt(await ctx.db.query("jobCards").collect(), period);
-    const travellers = filterRecordsByCreatedAt(await ctx.db.query("travellers").collect(), period);
-    const tickets = filterRecordsByCreatedAt(await ctx.db.query("tickets").collect(), period);
-    const visas = filterRecordsByCreatedAt(await ctx.db.query("visaRecords").collect(), period);
-    const proposals = filterRecordsByCreatedAt(await ctx.db.query("proposals").collect(), period);
+    const [
+      access,
+      queryRows,
+      invoiceRows,
+      jobCardRows,
+      travellerRows,
+      ticketRows,
+      visaRows,
+      proposalRows,
+    ] = await Promise.all([
+      requireStaff(ctx, PERMISSIONS.VIEW_REPORTS),
+      ctx.db.query("queries").collect(),
+      ctx.db.query("invoices").collect(),
+      ctx.db.query("jobCards").collect(),
+      ctx.db.query("travellers").collect(),
+      ctx.db.query("tickets").collect(),
+      ctx.db.query("visaRecords").collect(),
+      ctx.db.query("proposals").collect(),
+    ]);
+    let queries = filterRecordsByCreatedAt(queryRows, period);
+    let invoices = filterRecordsByCreatedAt(invoiceRows, period);
+    const jobCards = filterRecordsByCreatedAt(jobCardRows, period);
+    const travellers = filterRecordsByCreatedAt(travellerRows, period);
+    const tickets = filterRecordsByCreatedAt(ticketRows, period);
+    const visas = filterRecordsByCreatedAt(visaRows, period);
+    const proposals = filterRecordsByCreatedAt(proposalRows, period);
 
     const scopedRecords = applyCementPortalScope(access, {
       queries,
@@ -38,8 +56,10 @@ export const overview = query({
     invoices = scopedRecords.invoices;
 
     queries = queries.filter((row) => canSeeQueryRecord(access, row));
-    const staff = await ctx.db.query("staffUsers").collect();
-    const offices = await ctx.db.query("offices").collect();
+    const [staff, offices] = await Promise.all([
+      ctx.db.query("staffUsers").collect(),
+      ctx.db.query("offices").collect(),
+    ]);
     const officeNames = new Map(offices.map((office) => [office._id, office.name]));
 
     const revenueByType = new Map<string, { queryType: string; revenue: number; count: number }>();

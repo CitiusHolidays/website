@@ -7,6 +7,11 @@ const POSTS_QUERY = `*[
    && defined(slug.current)
 ]|order(publishedAt desc)[0...12]{_id, title, slug, publishedAt, mainImage}`;
 
+export const metadata = {
+  title: "Blog",
+  description: "Travel insights, pilgrimage guides, and stories from Citius Holidays.",
+};
+
 export default async function IndexPage() {
   const posts = await client.fetch(POSTS_QUERY, {}, sanityFetchOptions.blogIndex);
 

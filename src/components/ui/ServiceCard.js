@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import { cn } from "../../utils/cn";
 
 export default function ServiceCard({ title, icon: Icon, description, className, ...props }) {
@@ -20,13 +20,13 @@ export default function ServiceCard({ title, icon: Icon, description, className,
       {...props}
     >
       {/* Gradient Blob on Hover */}
-      <div className="absolute -right-10 -top-10 w-32 h-32 bg-blue-500/30 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700 opacity-0 group-hover:opacity-100"></div>
+      <div className="absolute -right-10 -top-10 size-32 bg-blue-500/30 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700 opacity-0 group-hover:opacity-100"></div>
 
       <div className="relative z-10 flex flex-col h-full">
         <div className="flex justify-between items-start mb-6">
           <div className="p-3 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 group-hover:scale-110 transition-transform duration-300">
             {Icon && (
-              <Icon className="w-8 h-8 text-blue-300 group-hover:text-white transition-colors duration-300" />
+              <Icon className="size-8 text-blue-300 group-hover:text-white transition-colors duration-300" />
             )}
           </div>
           <ArrowUpRight

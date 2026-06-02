@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, Compass } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Link from "next/link";
 import { cn } from "../../utils/cn";
 
@@ -31,8 +31,8 @@ export default function SpiritualTrailsHub({ groups }) {
           {groups.map((group) => (
             <div key={group.id}>
               <div className="flex items-center gap-3 mb-6 md:mb-8">
-                <div className="w-10 h-10 rounded-full bg-citius-blue/10 flex items-center justify-center">
-                  <Compass className="w-5 h-5 text-citius-blue" />
+                <div className="size-10 rounded-full bg-citius-blue/10 flex items-center justify-center">
+                  <Compass className="size-5 text-citius-blue" />
                 </div>
                 <h3 className="font-heading text-xl md:text-2xl text-citius-blue">{group.label}</h3>
               </div>
@@ -78,7 +78,7 @@ export default function SpiritualTrailsHub({ groups }) {
                       </p>
                       <span className="mt-5 inline-flex items-center gap-2 text-sm font-heading text-citius-orange tracking-wide">
                         View trail
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                        <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform" />
                       </span>
                     </Link>
                   </motion.div>

@@ -141,11 +141,8 @@ export const deleteAllForQuery = internalMutation({
       .query("queryAttachments")
       .withIndex("by_queryId", (q) => q.eq("queryId", args.queryId))
       .collect();
-    const storageIds: Id<"_storage">[] = [];
-    for (const row of rows) {
-      storageIds.push(row.storageId);
-      await ctx.db.delete(row._id);
-    }
+    const storageIds = rows.map((row) => row.storageId);
+    await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
     return { storageIds };
   },
 });

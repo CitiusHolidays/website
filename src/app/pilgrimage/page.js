@@ -47,7 +47,7 @@ function mergeSpiritualTrailImages(data) {
     return i === -1 ? slugOrder.length : i;
   };
 
-  const docs = [...(data?.perTrail || [])].sort((a, b) => rank(a?.trailSlug) - rank(b?.trailSlug));
+  const docs = (data?.perTrail || []).toSorted((a, b) => rank(a?.trailSlug) - rank(b?.trailSlug));
   const fromTrails = docs.flatMap((doc) => doc?.images?.filter(Boolean) || []);
   const legacy = data?.legacy?.filter(Boolean) || [];
   return dedupeImagesByAssetId([...fromTrails, ...legacy]);

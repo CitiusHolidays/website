@@ -12,10 +12,9 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m as motion } from "motion/react";
 import Image from "next/image";
-import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const services = [
   {
@@ -116,78 +115,78 @@ const itemVariants = {
   }),
 };
 
+function getServiceLayout() {
+  if (typeof window === "undefined") {
+    return { isMobile: false, radius: 200 };
+  }
+  const width = window.innerWidth;
+  return {
+    isMobile: width < 768,
+    radius: width < 500 ? 180 : width < 768 ? 200 : width < 1024 ? 240 : 280,
+  };
+}
+
 export default function CircularServicesMenu() {
   const [selectedService, setSelectedService] = useState(null);
-  const [radius, setRadius] = useState(200);
-  const [isMobile, setIsMobile] = useState(false);
+  const [layout, setLayout] = useState(getServiceLayout);
   const containerRef = useRef(null);
   const serviceRefs = useRef([]);
   const [linePos, setLinePos] = useState(null);
 
   useEffect(() => {
     function handleResize() {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      if (window.innerWidth < 500) setRadius(180);
-      else if (window.innerWidth < 768) setRadius(200);
-      else if (window.innerWidth < 1024) setRadius(240);
-      else setRadius(280);
+      setLayout(getServiceLayout());
     }
-    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const servicePositions = useMemo(() => {
-    const totalServices = services.length;
-    const angleStep = (2 * Math.PI) / totalServices;
-    return services.map((service, index) => {
-      const angle = index * angleStep - Math.PI / 2; // Start from top
-      const x = Math.cos(angle) * radius;
-      const y = Math.sin(angle) * radius;
-      return {
-        ...service,
-        x,
-        y,
-        angle,
-      };
-    });
-  }, [radius]);
+  const totalServices = services.length;
+  const angleStep = (2 * Math.PI) / totalServices;
+  const servicePositions = services.map((service, index) => {
+    const angle = index * angleStep - Math.PI / 2; // Start from top
+    const x = Math.cos(angle) * layout.radius;
+    const y = Math.sin(angle) * layout.radius;
+    return {
+      ...service,
+      x,
+      y,
+      angle,
+    };
+  });
 
   // Calculate line position from center to hovered/tapped service
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      if (!selectedService) {
-        setLinePos(null);
-        return;
+      let nextLinePos = null;
+      if (selectedService) {
+        const idx = servicePositions.findIndex((s) => s.title === selectedService.title);
+        if (idx !== -1 && containerRef.current && serviceRefs.current[idx]) {
+          const containerRect = containerRef.current.getBoundingClientRect();
+          const serviceRect = serviceRefs.current[idx].getBoundingClientRect();
+          const button = serviceRefs.current[idx].querySelector("button");
+          let serviceX;
+          let serviceY;
+          if (button) {
+            const buttonRect = button.getBoundingClientRect();
+            serviceX = buttonRect.left + buttonRect.width / 2 - containerRect.left;
+            serviceY = buttonRect.top + buttonRect.height / 2 - containerRect.top;
+          } else {
+            serviceX = serviceRect.left + serviceRect.width / 2 - containerRect.left;
+            serviceY = serviceRect.top + serviceRect.height / 2 - containerRect.top;
+          }
+          const centerX = containerRect.width / 2;
+          const centerY = containerRect.height / 2;
+          nextLinePos = { x1: centerX, y1: centerY, x2: serviceX, y2: serviceY };
+        }
       }
-      const idx = servicePositions.findIndex((s) => s.title === selectedService.title);
-      if (idx === -1 || !containerRef.current || !serviceRefs.current[idx]) {
-        setLinePos(null);
-        return;
-      }
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const serviceRect = serviceRefs.current[idx].getBoundingClientRect();
-      // Get the button inside the service div for more accurate center
-      const button = serviceRefs.current[idx].querySelector("button");
-      let serviceX, serviceY;
-      if (button) {
-        const buttonRect = button.getBoundingClientRect();
-        serviceX = buttonRect.left + buttonRect.width / 2 - containerRect.left;
-        serviceY = buttonRect.top + buttonRect.height / 2 - containerRect.top;
-      } else {
-        serviceX = serviceRect.left + serviceRect.width / 2 - containerRect.left;
-        serviceY = serviceRect.top + serviceRect.height / 2 - containerRect.top;
-      }
-      const centerX = containerRect.width / 2;
-      const centerY = containerRect.height / 2;
-      setLinePos({ x1: centerX, y1: centerY, x2: serviceX, y2: serviceY });
+      setLinePos(nextLinePos);
     });
     return () => cancelAnimationFrame(frame);
   }, [selectedService, servicePositions]);
 
-  const handleServiceInteraction = (service, idx) => {
-    if (isMobile) {
+  const handleServiceInteraction = (service) => {
+    if (layout.isMobile) {
       setSelectedService(selectedService?.title === service.title ? null : service);
     } else {
       setSelectedService(service);
@@ -195,7 +194,7 @@ export default function CircularServicesMenu() {
   };
 
   const handleServiceLeave = () => {
-    if (!isMobile) {
+    if (!layout.isMobile) {
       setSelectedService(null);
     }
   };
@@ -209,7 +208,7 @@ export default function CircularServicesMenu() {
       <AnimatePresence>
         {linePos && (
           <motion.svg
-            className="absolute top-0 left-0 w-full h-full pointer-events-none z-10"
+            className="absolute top-0 left-0 size-full pointer-events-none z-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -232,7 +231,7 @@ export default function CircularServicesMenu() {
         )}
       </AnimatePresence>
       <motion.div
-        className="relative z-20 w-32 h-32 md:w-52 md:h-52 pb-8 bg-white rounded-full shadow-2xl border-4 border-citius-blue flex flex-col items-center justify-center px-3"
+        className="relative z-20 size-32 md:w-52 md:h-52 pb-8 bg-white rounded-full shadow-2xl border-4 border-citius-blue flex flex-col items-center justify-center px-3"
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
@@ -244,7 +243,7 @@ export default function CircularServicesMenu() {
               alt="Citius Logo"
               width={60}
               height={60}
-              className="mx-auto w-12 h-12 md:w-20 md:h-20 object-contain"
+              className="mx-auto size-12 md:w-20 md:h-20 object-contain"
               style={{ objectFit: "contain" }}
               priority
             />
@@ -263,7 +262,9 @@ export default function CircularServicesMenu() {
               </h3>
               <p className="text-xs text-brand-muted leading-tight px-1">
                 {selectedService?.description ||
-                  (isMobile ? "Tap a service to learn more" : "Hover over a service to learn more")}
+                  (layout.isMobile
+                    ? "Tap a service to learn more"
+                    : "Hover over a service to learn more")}
               </p>
             </motion.div>
           </AnimatePresence>
@@ -287,17 +288,17 @@ export default function CircularServicesMenu() {
             }}
             variants={itemVariants}
             custom={service}
-            onHoverStart={() => !isMobile && handleServiceInteraction(service, idx)}
+            onHoverStart={() => !layout.isMobile && handleServiceInteraction(service)}
             onHoverEnd={handleServiceLeave}
-            onClick={() => isMobile && handleServiceInteraction(service, idx)}
+            onClick={() => layout.isMobile && handleServiceInteraction(service)}
           >
             <button
               type="button"
-              className="w-12 h-12 md:w-16 md:h-16 lg:w-18 lg:h-18 bg-brand-light rounded-full shadow-lg border-2 border-citius-orange flex items-center justify-center cursor-pointer group focus:outline-none focus:ring-4 focus:ring-citius-orange/30"
+              className="size-12 md:w-16 md:h-16 lg:w-18 lg:h-18 bg-brand-light rounded-full shadow-lg border-2 border-citius-orange flex items-center justify-center cursor-pointer group focus:outline-none focus:ring-4 focus:ring-citius-orange/30"
               tabIndex={0}
               aria-label={`Maps to ${service.title} service`}
             >
-              <service.icon className="w-6 h-6 md:w-8 md:h-8 lg:w-9 lg:h-9 text-citius-blue group-hover:text-citius-orange transition-colors duration-200" />
+              <service.icon className="size-6 md:w-8 md:h-8 lg:w-9 lg:h-9 text-citius-blue group-hover:text-citius-orange transition-colors duration-200" />
             </button>
             <span
               className="mt-2 text-xs md:text-sm lg:text-base text-brand-dark font-medium text-center max-w-[80px] md:max-w-[100px] leading-tight select-none"

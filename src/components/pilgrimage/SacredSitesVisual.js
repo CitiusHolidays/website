@@ -1,7 +1,7 @@
 "use client";
 
 import { MapPin, Mountain, Sparkles } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Image from "next/image";
 import { sacredSites } from "../../data/trails";
 import { cn } from "../../utils/cn";
@@ -42,7 +42,7 @@ function SacredSiteCard({ site, index }) {
               )}
             >
               <div className="text-center p-6">
-                <Mountain className="w-12 h-12 md:w-16 md:h-16 text-citius-blue/30 mx-auto mb-3" />
+                <Mountain className="size-12 md:w-16 md:h-16 text-citius-blue/30 mx-auto mb-3" />
                 <p className="font-heading text-citius-blue/50 text-sm">{site.name}</p>
               </div>
             </div>
@@ -53,7 +53,7 @@ function SacredSiteCard({ site, index }) {
 
           {/* Location Badge */}
           <div className="absolute top-4 left-4 flex items-center gap-2 bg-white/95 backdrop-blur-sm px-3 py-2 rounded-full shadow-lg">
-            <MapPin className="w-3.5 h-3.5 text-citius-orange" />
+            <MapPin className="size-3.5 text-citius-orange" />
             <span className="text-xs font-medium text-brand-dark">{site.location}</span>
           </div>
 
@@ -69,7 +69,7 @@ function SacredSiteCard({ site, index }) {
             className="absolute inset-0 bg-citius-blue/10 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500"
           >
             <div className="text-center">
-              <Sparkles className="w-8 h-8 text-citius-orange mx-auto mb-2" />
+              <Sparkles className="size-8 text-citius-orange mx-auto mb-2" />
               <p className="text-white font-heading text-sm">Sacred Site</p>
             </div>
           </motion.div>
@@ -90,7 +90,7 @@ function SacredSiteCard({ site, index }) {
               {site.name}
             </h3>
             <p className="text-sm text-brand-muted flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5" />
+              <MapPin className="size-3.5" />
               {site.location} • {site.elevation}
             </p>
           </div>
@@ -102,7 +102,7 @@ function SacredSiteCard({ site, index }) {
           {/* Decorative Line */}
           <div className="mt-6 md:mt-8 flex items-center gap-3">
             <div className="h-px flex-grow bg-gradient-to-r from-citius-orange/30 to-transparent" />
-            <Sparkles className="w-4 h-4 text-citius-orange/50" />
+            <Sparkles className="size-4 text-citius-orange/50" />
             <div className="h-px flex-grow bg-gradient-to-l from-citius-orange/30 to-transparent" />
           </div>
         </div>

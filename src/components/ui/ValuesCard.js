@@ -58,7 +58,7 @@ export default function ValuesCard() {
             >
               <div className="absolute inset-0 bg-gradient-to-r from-citius-orange to-citius-blue opacity-0 group-hover:opacity-20 transition-opacity duration-500 transform-gpu group-hover:scale-150 blur-2xl"></div>
               <div className="relative z-10">
-                <div className="inline-flex justify-center items-center mb-4 w-10 h-10 text-brand-light rounded-full bg-citius-blue">
+                <div className="inline-flex justify-center items-center mb-4 size-10 text-brand-light rounded-full bg-citius-blue">
                   {value.icon}
                 </div>
                 <h3 className="mb-2 text-xl font-semibold text-brand-dark">{value.title}</h3>

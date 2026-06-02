@@ -1,26 +1,23 @@
 import * as XLSX from "xlsx";
 
 export const PASSENGER_EXPORT_HEADERS = [
-  "Opco",
-  "Code",
-  "Name",
-  "Description",
-  "SO Name",
-  "RSO Name",
-  "Pax",
-  "Destination",
-  "WILLING TO GO ",
-  "Boarding Airport",
+  "NO",
+  "",
+  "SURNAME",
   "Name As per Govt. ID Proof",
   "Gender",
-  "Date of Birth",
   "Passport no ",
+  "Date of Birth",
   "Passport Issus date",
   "Passport Exp",
   "Meal Preference",
   "Contact No.",
-  "REMARKS",
-  "GROUP",
+  "International fare",
+  "International PNR",
+  "VENDOR",
+  "Domestic ticket",
+  "Domestic PNR",
+  "VENDOR",
 ];
 
 export const FLIGHT_EXPORT_HEADER = [
@@ -119,6 +116,11 @@ export const VISA_EXPORT_HEADERS = [
 ];
 
 const PASSENGER_REQUIRED_HEADERS = ["Name As per Govt. ID Proof", "WILLING TO GO"];
+const TICKETING_TEMPLATE_REQUIRED_HEADERS = [
+  "SURNAME",
+  "Name As per Govt. ID Proof",
+  "Passport no ",
+];
 
 function clean(value) {
   if (value instanceof Date) {
@@ -316,8 +318,17 @@ function passengerImportKey({ fullName, dateOfBirth, contactNo }) {
 }
 
 function hasPassengerHeaders(row) {
+  return hasOldPassengerHeaders(row) || hasTicketingTemplateHeaders(row);
+}
+
+function hasOldPassengerHeaders(row) {
   const headers = row.map(headerKey);
   return PASSENGER_REQUIRED_HEADERS.every((header) => headers.includes(headerKey(header)));
+}
+
+function hasTicketingTemplateHeaders(row) {
+  const headers = row.map(headerKey);
+  return TICKETING_TEMPLATE_REQUIRED_HEADERS.every((header) => headers.includes(headerKey(header)));
 }
 
 function fullNameFromTemplateRow(row, headers) {
@@ -331,6 +342,32 @@ function fullNameFromTemplateRow(row, headers) {
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function passengerFullName(row, headers) {
+  const name = clean(
+    getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"]),
+  );
+  const surname = clean(getByHeader(row, headers, ["SURNAME", "Surname", "Last Name"]));
+  const hasTicketingNameParts = Boolean(surname && name && headers.has(headerKey("SURNAME")));
+  if (hasTicketingNameParts) return [name, surname].filter(Boolean).join(" ");
+  return name || surname;
+}
+
+function adjacentCellByHeader(row, headers, header, offset = 1) {
+  const index = headers.get(headerKey(header));
+  return index === undefined ? "" : row[index + offset];
+}
+
+function passengerTicketingFromRow(row, headers) {
+  return {
+    internationalFare: clean(getByHeader(row, headers, ["International fare"])),
+    internationalPnr: clean(getByHeader(row, headers, ["International PNR"])),
+    internationalVendor: clean(adjacentCellByHeader(row, headers, "International PNR")),
+    domesticTicket: clean(getByHeader(row, headers, ["Domestic ticket", "Domestic Ticket"])),
+    domesticPnr: clean(getByHeader(row, headers, ["Domestic PNR"])),
+    domesticVendor: clean(adjacentCellByHeader(row, headers, "Domestic PNR")),
+  };
 }
 
 function isPassportValidForTravel(value) {
@@ -449,6 +486,15 @@ function hasTemplateHeaders(row, requiredHeaders) {
   return requiredHeaders.every((header) => headers.includes(headerKey(header)));
 }
 
+function findRowIndex(rows, predicate) {
+  for (let index = 0; index < rows.length; index += 1) {
+    if (predicate(rows[index])) {
+      return index;
+    }
+  }
+  return -1;
+}
+
 function parseTemplateWorkbook(workbook, { importKind, preferredSheetNames, requiredHeaders }) {
   const rows = [];
   const skipped = [];
@@ -462,7 +508,7 @@ function parseTemplateWorkbook(workbook, { importKind, preferredSheetNames, requ
 
   for (const sheetName of sheetNames) {
     const rawRows = sheetRows(workbook.Sheets[sheetName]);
-    const headerIndex = rawRows.findIndex((row) => hasTemplateHeaders(row, requiredHeaders));
+    const headerIndex = findRowIndex(rawRows, (row) => hasTemplateHeaders(row, requiredHeaders));
     if (headerIndex < 0) continue;
 
     const headers = rowToHeaderMap(rawRows[headerIndex]);
@@ -542,16 +588,17 @@ export function parsePassengerWorkbook(workbook) {
 
   for (const sheetName of workbook.SheetNames) {
     const rawRows = sheetRows(workbook.Sheets[sheetName]);
-    const headerIndex = rawRows.findIndex(hasPassengerHeaders);
+    const headerIndex = findRowIndex(rawRows, hasPassengerHeaders);
     if (headerIndex < 0) continue;
 
+    const isTicketingTemplate = hasTicketingTemplateHeaders(rawRows[headerIndex]);
     const headers = rowToHeaderMap(rawRows[headerIndex]);
     rawRows.slice(headerIndex + 1).forEach((row, offset) => {
       const sourceRowNumber = headerIndex + offset + 2;
-      const status = clean(getByHeader(row, headers, ["WILLING TO GO", "Status"])).toUpperCase();
-      const fullName = clean(
-        getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"]),
-      );
+      const status = isTicketingTemplate
+        ? "CONFIRMED"
+        : clean(getByHeader(row, headers, ["WILLING TO GO", "Status"])).toUpperCase();
+      const fullName = passengerFullName(row, headers);
       const sourceRef = `${sheetName}:${sourceRowNumber}`;
 
       if (!fullName && !status) return;
@@ -618,6 +665,8 @@ export function parsePassengerWorkbook(workbook) {
       }
       seenPassengerKeys.add(duplicateKey);
 
+      const ticketing = passengerTicketingFromRow(row, headers);
+
       rows.push({
         id: sourceRef,
         sourceSheet: sheetName,
@@ -633,7 +682,9 @@ export function parsePassengerWorkbook(workbook) {
         paymentType: "Company Paid",
         roomType: "Twin",
         visaRequired: true,
-        domesticTravelRequired: false,
+        domesticTravelRequired: Boolean(
+          ticketing.domesticTicket || ticketing.domesticPnr || ticketing.domesticVendor,
+        ),
         passportStatus: passportNumber ? "Received" : "Pending",
         specialRequests: clean(getByHeader(row, headers, ["REMARKS", "REMARKS 2", "Remarks"])),
         sourceDealerCode: clean(getByHeader(row, headers, ["Code", "Dealer Code"])),
@@ -651,6 +702,7 @@ export function parsePassengerWorkbook(workbook) {
           expiryDate: passportExpiryDate,
           nationality: "UNKNOWN",
         },
+        ticketing,
       });
     });
   }
@@ -755,9 +807,28 @@ export function parseFlightWorkbook(workbook) {
   }
 
   return {
-    groups: groups
-      .filter((group) => group.segments.length > 0)
-      .map(({ headerStart, ...group }) => group),
+    groups: groups.flatMap(({ headerStart, ...group }) =>
+      group.segments.length > 0 ? [group] : [],
+    ),
     errors,
   };
+}
+
+/** Count passengers by room type for import preview / post-upload summary. */
+export function summarizeRoomTypes(rows) {
+  const summary = {};
+  for (const row of rows || []) {
+    const roomType = String(row?.roomType ?? "").trim();
+    if (!roomType) continue;
+    summary[roomType] = (summary[roomType] ?? 0) + 1;
+  }
+  return summary;
+}
+
+export function formatRoomSummaryText(summary, jobCode) {
+  const entries = Object.entries(summary || {}).sort(([a], [b]) => a.localeCompare(b));
+  if (entries.length === 0) return "";
+  const prefix = jobCode ? `${jobCode}: ` : "";
+  const parts = entries.map(([roomType, count]) => `${roomType} ${count}`);
+  return `${prefix}${parts.join(", ")}`;
 }

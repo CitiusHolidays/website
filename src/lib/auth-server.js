@@ -2,7 +2,7 @@ import { convexBetterAuthNextJs } from "@convex-dev/better-auth/nextjs";
 import { fetchAction, fetchMutation, fetchQuery } from "convex/nextjs";
 import { anyApi } from "convex/server";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { getLoginUrlForCallback } from "@/lib/auth-sign-in-targets";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? "http://127.0.0.1:3210";
@@ -113,13 +113,15 @@ export async function requireAuth(callbackUrl) {
 
 export async function requireGuest(redirectTo = "/") {
   // Try to get the user - if we succeed, they're authenticated so redirect
+  let user = null;
   try {
-    const user = await getServerUser();
-    if (user) {
-      redirect(redirectTo);
-    }
-  } catch {
+    user = await getServerUser();
+  } catch (error) {
+    unstable_rethrow(error);
     // Not authenticated, which is what we want for requireGuest
+  }
+  if (user) {
+    redirect(redirectTo);
   }
 }
 

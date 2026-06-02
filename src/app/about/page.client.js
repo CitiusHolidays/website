@@ -1,7 +1,7 @@
 "use client";
 
 import { Heart, PlaneTakeoffIcon, Sparkle, Telescope } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Image from "next/image";
 import arpan from "@/static/team/arpan.webp";
 import divyanshu from "@/static/team/divyanshu.webp";
@@ -56,12 +56,6 @@ const timelineItemVariants = {
   show: { opacity: 1, x: 0, transition: { duration: 0.5, ease: "easeOut" } },
 };
 
-export const generateMetadata = () => ({
-  title: "About Citius | 15 Years of Travel Excellence",
-  description:
-    "Learn about Citius, our history of consumer delight and our commitment to responsible tourism.",
-});
-
 export default function AboutPage() {
   return (
     <>
@@ -76,6 +70,7 @@ export default function AboutPage() {
             src="/gallery/aboutus.webp"
             alt="About Citius"
             fill
+            sizes="100vw"
             priority
             className="object-cover object-center pt-16 brightness-75"
           />
@@ -104,18 +99,18 @@ export default function AboutPage() {
             >
               <div className="flex flex-col items-center mb-6">
                 <div className="relative mb-4">
-                  <div className="w-48 h-48 md:w-52 md:h-52 rounded-full overflow-hidden border-4 border-white shadow-xl flex items-center justify-center bg-white">
+                  <div className="size-48 md:w-52 md:h-52 rounded-full overflow-hidden border-4 border-white shadow-xl flex items-center justify-center bg-white">
                     <Image
                       src={arpan}
                       alt="Shri Arpan Mitra"
                       width={128}
                       height={128}
-                      className="w-full h-full object-cover"
+                      className="size-full object-cover"
                       style={{ objectPosition: "center 30%" }}
                     />
                   </div>
-                  <div className="absolute -bottom-1 -right-1 w-10 h-10 bg-citius-blue rounded-full flex items-center justify-center shadow-lg border-2 border-brand-light">
-                    <Heart className="w-5 h-5 text-brand-light" />
+                  <div className="absolute -bottom-1 -right-1 size-10 bg-citius-blue rounded-full flex items-center justify-center shadow-lg border-2 border-brand-light">
+                    <Heart className="size-5 text-brand-light" />
                   </div>
                 </div>
               </div>
@@ -132,7 +127,7 @@ export default function AboutPage() {
 
               <div className="prose max-w-none text-left space-y-4">
                 <p className="text-brand-dark leading-relaxed">
-                  Arpan Mitra was not just the founder of Citius Holidays — he was its heart and
+                  Arpan Mitra was not just the founder of Citius Holidays , he was its heart and
                   soul. Leaving behind a successful career at Mahindra & Mahindra, he courageously
                   followed his passion to build a travel company driven by purpose, values, and
                   meaningful experiences.
@@ -150,7 +145,7 @@ export default function AboutPage() {
                 </p>
 
                 <p className="text-brand-dark leading-relaxed">
-                  He may be gone, but his legacy lives on — in the journeys we craft, the culture he
+                  He may be gone, but his legacy lives on , in the journeys we craft, the culture he
                   built, and the passion he inspired in all of us.
                 </p>
               </div>
@@ -193,8 +188,8 @@ export default function AboutPage() {
           </div>
         </section>
         <section className="overflow-hidden relative px-4 pb-14 bg-brand-light via-brand-light/40">
-          <div className="absolute top-0 -left-40 w-96 h-96 rounded-full blur-3xl pointer-events-none bg-citius-blue/10" />
-          <div className="absolute bottom-0 -right-40 w-96 h-96 rounded-full blur-3xl pointer-events-none bg-citius-orange/10" />
+          <div className="absolute top-0 -left-40 size-96 rounded-full blur-3xl pointer-events-none bg-citius-blue/10" />
+          <div className="absolute bottom-0 -right-40 size-96 rounded-full blur-3xl pointer-events-none bg-citius-orange/10" />
           <div className="relative mx-auto max-w-5xl">
             <motion.ol
               className="relative pl-12 ml-6 space-y-12 border-l-2 border-brand-border/60"
@@ -204,27 +199,27 @@ export default function AboutPage() {
               viewport={{ once: true, amount: 0.2 }}
             >
               <motion.li className="relative group" variants={timelineItemVariants}>
-                <span className="flex absolute top-6 -left-9 justify-center items-center w-6 h-6 text-white rounded-full ring-4 ring-white shadow-md bg-citius-blue">
-                  <PlaneTakeoffIcon className="w-3 h-3" />
+                <span className="flex absolute top-6 -left-9 justify-center items-center size-6 text-white rounded-full ring-4 ring-white shadow-md bg-citius-blue">
+                  <PlaneTakeoffIcon className="size-3" />
                 </span>
                 <div className="p-6 rounded-xl border shadow-sm transition bg-white/60 border-brand-border group-hover:shadow-lg">
                   <h3 className="mb-2 text-2xl font-semibold text-brand-dark">Our Goal</h3>
                   <p className="leading-relaxed text-brand-muted">
                     To positively shape the future of the travel industry by creating standout
                     experiences, building strong, trusted partnerships, and contributing to the
-                    advancement of the MICE travel ecosystem — with every trip we design.
+                    advancement of the MICE travel ecosystem , with every trip we design.
                   </p>
                 </div>
               </motion.li>
 
               <motion.li className="relative group" variants={timelineItemVariants}>
-                <span className="flex absolute top-6 -left-9 justify-center items-center w-6 h-6 text-white rounded-full ring-4 ring-white shadow-md bg-citius-orange">
-                  <Telescope className="w-3 h-3" />
+                <span className="flex absolute top-6 -left-9 justify-center items-center size-6 text-white rounded-full ring-4 ring-white shadow-md bg-citius-orange">
+                  <Telescope className="size-3" />
                 </span>
                 <div className="p-6 rounded-xl border shadow-sm transition bg-white/60 border-brand-border group-hover:shadow-lg">
                   <h3 className="mb-2 text-2xl font-semibold text-brand-dark">Our Vision</h3>
                   <p className="leading-relaxed text-brand-muted">
-                    To be recognized as a trusted industry leader in MICE travel — known for our
+                    To be recognized as a trusted industry leader in MICE travel , known for our
                     expertise, consistency, and excellence. We aim to deliver world-class
                     experiences that are seamless, impactful, and profitable for our clients and
                     partners.
@@ -233,13 +228,13 @@ export default function AboutPage() {
               </motion.li>
 
               <motion.li className="relative group" variants={timelineItemVariants}>
-                <span className="flex absolute top-6 -left-9 justify-center items-center w-6 h-6 text-white rounded-full ring-4 ring-white shadow-md bg-citius-lime">
-                  <Sparkle className="w-3 h-3" />
+                <span className="flex absolute top-6 -left-9 justify-center items-center size-6 text-white rounded-full ring-4 ring-white shadow-md bg-citius-lime">
+                  <Sparkle className="size-3" />
                 </span>
                 <div className="p-6 rounded-xl border shadow-sm transition bg-white/60 border-brand-border group-hover:shadow-lg">
                   <h3 className="mb-2 text-2xl font-semibold text-brand-dark">Our Mission</h3>
                   <p className="leading-relaxed text-brand-muted">
-                    At Citius Holidays, we believe travel is more than just movement — it&apos;s
+                    At Citius Holidays, we believe travel is more than just movement , it&apos;s
                     connection, inspiration, and growth. Our mission is to deliver thoughtfully
                     curated MICE journeys that combine creativity, precision, and care. We empower
                     organizations to celebrate achievements, strengthen relationships, and unlock

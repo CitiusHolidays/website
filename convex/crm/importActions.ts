@@ -6,6 +6,27 @@ import { action } from "../_generated/server";
 import { decryptPassportDetails, encryptPassportDetails, hash } from "../lib/encryption";
 import { PERMISSIONS } from "./lib";
 
+export const IMPORT_BATCH_SIZE = 50;
+
+function chunkRows<T>(rows: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < rows.length; index += size) {
+    chunks.push(rows.slice(index, index + size));
+  }
+  return chunks;
+}
+
+function mergeRoomSummaries(
+  left: Record<string, number>,
+  right: Record<string, number>,
+): Record<string, number> {
+  const merged = { ...left };
+  for (const [roomType, count] of Object.entries(right)) {
+    merged[roomType] = (merged[roomType] ?? 0) + count;
+  }
+  return merged;
+}
+
 const passengerImportRowInput = v.object({
   id: v.string(),
   sourceSheet: v.string(),
@@ -79,6 +100,16 @@ const passengerImportRowInput = v.object({
     expiryDate: v.optional(v.string()),
     nationality: v.optional(v.string()),
   }),
+  ticketing: v.optional(
+    v.object({
+      internationalFare: v.optional(v.string()),
+      internationalPnr: v.optional(v.string()),
+      internationalVendor: v.optional(v.string()),
+      domesticTicket: v.optional(v.string()),
+      domesticPnr: v.optional(v.string()),
+      domesticVendor: v.optional(v.string()),
+    }),
+  ),
 });
 
 const exportKindValidator = v.union(
@@ -245,12 +276,45 @@ function mapPassengerExportRow(row: any) {
     sourceRsoName: row.sourceRsoName,
     sourceGroup: row.sourceGroup,
     willingToGo: row.cancellation || row.lastMinuteDrop ? "UNABLE TO GO" : "CONFIRMED",
+    ticketing: buildTicketingExport(row.tickets ?? []),
     passport,
     visa: row.visa ?? {
       status: row.visaStatus,
       appointmentDate: "",
       notes: "",
     },
+  };
+}
+
+function isDomesticTicket(ticket: any) {
+  const text = [ticket.ticketType, ticket.fareType, ticket.route, ticket.pnrCode, ticket.airline]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return text.includes("domestic");
+}
+
+function joinUnique(values: Array<string | undefined>) {
+  return Array.from(
+    values.reduce((set, value) => {
+      const text = clean(value);
+      if (text) set.add(text);
+      return set;
+    }, new Set<string>()),
+  ).join(" / ");
+}
+
+function buildTicketingExport(tickets: any[]) {
+  const domestic = tickets.filter(isDomesticTicket);
+  const international = tickets.filter((ticket) => !isDomesticTicket(ticket));
+
+  return {
+    internationalFare: "",
+    internationalPnr: joinUnique(international.map((ticket) => ticket.pnrCode)),
+    internationalVendor: "",
+    domesticTicket: joinUnique(domestic.map((ticket) => ticket.ticketNumber)),
+    domesticPnr: joinUnique(domestic.map((ticket) => ticket.pnrCode)),
+    domesticVendor: "",
   };
 }
 
@@ -262,11 +326,25 @@ export const previewPassengerImport = action({
   handler: async (ctx, args): Promise<any> => {
     const access = await requireImportAccess(ctx, args.rows);
     const preparedRows = preparePassengerRows(args.rows);
-    return await ctx.runQuery(internal.crm.imports.previewPassengerImportRows, {
-      jobCardId: args.jobCardId,
-      rows: preparedRows,
-      access,
-    });
+    const batches = chunkRows(preparedRows, IMPORT_BATCH_SIZE);
+    let mergedRows: Array<any> = [];
+    let roomSummary: Record<string, number> = {};
+
+    const batchResults = await Promise.all(
+      batches.map((batch) =>
+        ctx.runQuery(internal.crm.imports.previewPassengerImportRows, {
+          jobCardId: args.jobCardId,
+          rows: batch,
+          access,
+        }),
+      ),
+    );
+    for (const result of batchResults) {
+      mergedRows = mergedRows.concat(result.rows);
+      roomSummary = mergeRoomSummaries(roomSummary, result.roomSummary ?? {});
+    }
+
+    return { rows: mergedRows, roomSummary };
   },
 });
 
@@ -278,11 +356,34 @@ export const commitPassengerImport = action({
   handler: async (ctx, args): Promise<any> => {
     const access = await requireImportAccess(ctx, args.rows);
     const preparedRows = preparePassengerRows(args.rows);
-    return await ctx.runMutation(internal.crm.imports.commitPassengerImportRows, {
-      jobCardId: args.jobCardId,
-      rows: preparedRows,
-      access,
-    });
+    const batches = chunkRows(preparedRows, IMPORT_BATCH_SIZE);
+    let created = 0;
+    let updated = 0;
+    let roomSummary: Record<string, number> = {};
+
+    const batchResults = await Promise.all(
+      batches.map((batch, index) =>
+        ctx.runMutation(internal.crm.imports.commitPassengerImportBatch, {
+          jobCardId: args.jobCardId,
+          rows: batch,
+          access,
+          logActivity: index === batches.length - 1,
+        }),
+      ),
+    );
+    for (const result of batchResults) {
+      created += result.created;
+      updated += result.updated;
+      roomSummary = mergeRoomSummaries(roomSummary, result.roomSummary ?? {});
+    }
+
+    return {
+      created,
+      updated,
+      total: preparedRows.length,
+      failed: 0,
+      roomSummary,
+    };
   },
 });
 

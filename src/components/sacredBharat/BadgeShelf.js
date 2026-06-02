@@ -29,7 +29,7 @@ export default function BadgeShelf() {
             <div className="min-w-0">
               <p className="font-heading text-sm text-brand-dark flex items-center gap-1">
                 {trail.badgeName}
-                {earned && <Award className="h-3.5 w-3.5 text-citius-orange" />}
+                {earned && <Award className="size-3.5 text-citius-orange" />}
               </p>
               <p className="text-xs text-brand-muted truncate">{trail.title}</p>
             </div>

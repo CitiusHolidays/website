@@ -1095,7 +1095,10 @@ export function groupTrailsForHub(trailList) {
     const entry = map.get(t.group);
     if (entry) entry.trails.push(t);
   }
-  return trailGroupOrder.map((g) => map.get(g.id)).filter((g) => g.trails.length > 0);
+  return trailGroupOrder.flatMap((g) => {
+    const group = map.get(g.id);
+    return group.trails.length > 0 ? [group] : [];
+  });
 }
 
 /**

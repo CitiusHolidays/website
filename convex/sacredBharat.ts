@@ -49,8 +49,10 @@ const toWishlistApi = (item: Doc<"sacredBharatWishlist">) => ({
 });
 
 const buildProgressPayload = async (ctx: QueryCtx | MutationCtx, authUserId: string) => {
-  const visits = await getVisitsForUser(ctx, authUserId);
-  const wishlist = await getWishlistForUser(ctx, authUserId);
+  const [visits, wishlist] = await Promise.all([
+    getVisitsForUser(ctx, authUserId),
+    getWishlistForUser(ctx, authUserId),
+  ]);
   const templeIds = visits.map((v) => v.templeId);
   const summary = computeProgressSummary(templeIds);
 
@@ -130,22 +132,24 @@ export const mergeGuestProgress = mutation({
     const identity = await getIdentityOrThrow(ctx);
     const validIds = [...normalizeVisitedSet(args.templeIds)];
 
-    for (const templeId of validIds) {
-      const existing = await ctx.db
-        .query("sacredBharatVisits")
-        .withIndex("by_authUserId_templeId", (q) =>
-          q.eq("authUserId", identity.subject).eq("templeId", templeId),
-        )
-        .unique();
+    await Promise.all(
+      validIds.map(async (templeId) => {
+        const existing = await ctx.db
+          .query("sacredBharatVisits")
+          .withIndex("by_authUserId_templeId", (q) =>
+            q.eq("authUserId", identity.subject).eq("templeId", templeId),
+          )
+          .unique();
 
-      if (!existing) {
-        await ctx.db.insert("sacredBharatVisits", {
-          authUserId: identity.subject,
-          templeId,
-          visitedAt: now(),
-        });
-      }
-    }
+        if (!existing) {
+          await ctx.db.insert("sacredBharatVisits", {
+            authUserId: identity.subject,
+            templeId,
+            visitedAt: now(),
+          });
+        }
+      }),
+    );
 
     return await buildProgressPayload(ctx, identity.subject);
   },
@@ -225,14 +229,12 @@ const isLeaderboardOptedOut = async (ctx: QueryCtx, authUserId: string) => {
 
 async function buildLeaderboardEntries(ctx: QueryCtx) {
   const allVisits = await ctx.db.query("sacredBharatVisits").collect();
-  const byUser = new Map<string, string[]>();
+  const byUser = new Map<string, Set<string>>();
 
   for (const visit of allVisits) {
-    const list = byUser.get(visit.authUserId) ?? [];
-    if (!list.includes(visit.templeId)) {
-      list.push(visit.templeId);
-    }
-    byUser.set(visit.authUserId, list);
+    const set = byUser.get(visit.authUserId) ?? new Set<string>();
+    set.add(visit.templeId);
+    byUser.set(visit.authUserId, set);
   }
 
   const entries: {
@@ -245,22 +247,25 @@ async function buildLeaderboardEntries(ctx: QueryCtx) {
     completedTrailCount: number;
   }[] = [];
 
-  for (const [authUserId, templeIds] of byUser) {
-    if (await isLeaderboardOptedOut(ctx, authUserId)) {
-      continue;
-    }
-    if (templeIds.length === 0) continue;
-
-    const summary = computeProgressSummary(templeIds);
-    entries.push({
-      authUserId,
-      displayName: await getDisplayName(ctx, authUserId),
-      score: summary.score,
-      levelTitle: summary.levelTitle,
-      levelSlug: summary.levelSlug,
-      templeCount: summary.templeCount,
-      completedTrailCount: summary.completedTrailCount,
-    });
+  const entryResults = await Promise.all(
+    Array.from(byUser, async ([authUserId, templeSet]) => {
+      const templeIds = [...templeSet];
+      const isOptedOut = await isLeaderboardOptedOut(ctx, authUserId);
+      if (isOptedOut || templeIds.length === 0) return null;
+      const summary = computeProgressSummary(templeIds);
+      return {
+        authUserId,
+        displayName: await getDisplayName(ctx, authUserId),
+        score: summary.score,
+        levelTitle: summary.levelTitle,
+        levelSlug: summary.levelSlug,
+        templeCount: summary.templeCount,
+        completedTrailCount: summary.completedTrailCount,
+      };
+    }),
+  );
+  for (const entry of entryResults) {
+    if (entry) entries.push(entry);
   }
 
   entries.sort((a, b) => {

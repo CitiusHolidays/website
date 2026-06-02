@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import * as XLSX from "xlsx";
 import {
   buildFlightWorkbook,
   buildPassengerWorkbook,
@@ -42,25 +43,58 @@ describe("passenger spreadsheet exports", () => {
             expiryDate: "2028-03-22",
           },
         },
-        {
-          fullName: "SKIPPED GUEST",
-          willingToGo: "UNABLE TO GO",
-          foodPreference: "Veg",
-        },
       ],
       { sheetName: "JC-0001-NS" },
     );
 
     const parsed = parsePassengerWorkbook(workbook);
+    const sheet = workbook.Sheets["JC-0001-NS"];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+    expect(rows[0]).toEqual([
+      "NO",
+      "",
+      "SURNAME",
+      "Name As per Govt. ID Proof",
+      "Gender",
+      "Passport no ",
+      "Date of Birth",
+      "Passport Issus date",
+      "Passport Exp",
+      "Meal Preference",
+      "Contact No.",
+      "International fare",
+      "International PNR",
+      "VENDOR",
+      "Domestic ticket",
+      "Domestic PNR",
+      "VENDOR",
+    ]);
+    expect(rows[1]).toEqual([
+      1,
+      "MR",
+      "SEN",
+      "PRADIP",
+      "MALE",
+      "Z4619953",
+      "1967-06-12",
+      "2018-03-23",
+      "2028-03-22",
+      "NON VEG",
+      "9836184644",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+    ]);
     expect(parsed.rows).toHaveLength(1);
-    expect(parsed.skipped).toHaveLength(1);
+    expect(parsed.skipped).toHaveLength(0);
     expect(parsed.rows[0]).toMatchObject({
       fullName: "PRADIP SEN",
-      travelHub: "KOLKATA",
       foodPreference: "Non-Veg",
-      sourceDealerCode: "9121004953",
-      sourceDealerName: "SUDIP CEMENT SUPPLY",
-      sourceGroup: "04-12 FEB",
+      gender: "MALE",
+      contactNo: "9836184644",
     });
     expect(parsed.rows[0].passport).toMatchObject({
       number: "Z4619953",

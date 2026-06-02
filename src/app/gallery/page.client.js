@@ -1,7 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
-import AnimatedSection from "../../components/layout/AnimatedSection";
+import { m as motion } from "motion/react";
 import GalleryGrid from "../../components/ui/GalleryGrid";
 
 export default function GalleryPageClient({ images }) {
@@ -14,7 +13,8 @@ export default function GalleryPageClient({ images }) {
           loop
           playsInline
           poster="/gallery/bgfooter.webp"
-          className="absolute inset-0 w-full h-full object-cover bg-brand-dark object-center brightness-75"
+          className="absolute inset-0 size-full object-cover bg-brand-dark object-center brightness-75"
+          aria-label="Citius travel gallery background video"
         >
           <source src="/gallery/sunset.mp4" type="video/mp4" />
         </video>

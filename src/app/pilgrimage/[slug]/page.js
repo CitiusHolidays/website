@@ -20,12 +20,16 @@ const fetchOptions = { next: { revalidate: 30 } };
 
 function normalizeCmsGalleryRows(rows) {
   if (!rows?.length) return [];
-  return rows
-    .map((row) => ({
-      src: row?.asset?.url || "",
-      alt: row?.alt || "",
-    }))
-    .filter((row) => row.src);
+  return rows.reduce((items, row) => {
+    const src = row?.asset?.url || "";
+    if (src) {
+      items.push({
+        src,
+        alt: row?.alt || "",
+      });
+    }
+    return items;
+  }, []);
 }
 
 function mergeTrailGalleries(cms, staticGallery) {

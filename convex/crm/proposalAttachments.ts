@@ -20,12 +20,14 @@ export function publicProposalAttachment(row: {
 }
 
 async function requireVisibleProposal(ctx: any, proposalId: Id<"proposals">) {
-  const access = await requireAnyPermission(ctx, [
-    PERMISSIONS.VIEW_PROPOSALS,
-    PERMISSIONS.VIEW_CONTRACTING,
-    PERMISSIONS.VIEW_QUERIES,
+  const [access, proposal] = await Promise.all([
+    requireAnyPermission(ctx, [
+      PERMISSIONS.VIEW_PROPOSALS,
+      PERMISSIONS.VIEW_CONTRACTING,
+      PERMISSIONS.VIEW_QUERIES,
+    ]),
+    ctx.db.get(proposalId),
   ]);
-  const proposal = await ctx.db.get(proposalId);
   if (!proposal) {
     throw new ConvexError("Proposal not found");
   }
@@ -158,11 +160,8 @@ export const deleteAllForProposal = internalMutation({
       .query("proposalAttachments")
       .withIndex("by_proposalId", (q) => q.eq("proposalId", args.proposalId))
       .collect();
-    const storageIds: Id<"_storage">[] = [];
-    for (const row of rows) {
-      storageIds.push(row.storageId);
-      await ctx.db.delete(row._id);
-    }
+    const storageIds = rows.map((row) => row.storageId);
+    await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
     return { storageIds };
   },
 });

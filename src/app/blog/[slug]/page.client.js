@@ -1,6 +1,6 @@
 "use client";
 import imageUrlBuilder from "@sanity/image-url";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { PortableText } from "next-sanity";
@@ -14,7 +14,7 @@ const portableTextComponents = {
       </h1>
     ),
     h2: ({ children }) => (
-      <h2 className="text-3xl md:text-4xl font-bold my-6 text-brand-dark font-heading leading-tight tracking-tight border-l-4 border-citius-orange pl-4">
+      <h2 className="text-3xl md:text-4xl font-bold my-6 text-brand-dark font-heading leading-tight tracking-tight pl-4 shadow-[inset_3px_0_0_rgba(234,88,12,0.45)]">
         {children}
       </h2>
     ),
@@ -32,7 +32,7 @@ const portableTextComponents = {
       <p className="text-lg leading-relaxed my-6 text-brand-dark/90">{children}</p>
     ),
     blockquote: ({ children }) => (
-      <blockquote className="border-l-4 border-citius-orange bg-gradient-to-r from-citius-orange/5 to-transparent pl-6 pr-4 py-4 my-8 rounded-r-lg italic text-lg font-medium text-brand-dark/80">
+      <blockquote className="bg-gradient-to-r from-citius-orange/5 to-transparent pl-6 pr-4 py-4 my-8 rounded-r-lg shadow-[inset_3px_0_0_rgba(234,88,12,0.45)] italic text-lg font-medium text-brand-dark/80">
         {children}
       </blockquote>
     ),
@@ -46,7 +46,7 @@ const portableTextComponents = {
   listItem: {
     bullet: ({ children }) => (
       <li className="flex items-start gap-3 text-lg leading-relaxed text-brand-dark/90">
-        <span className="w-2 h-2 bg-citius-orange rounded-full mt-3 flex-shrink-0"></span>
+        <span className="size-2 bg-citius-orange rounded-full mt-3 flex-shrink-0"></span>
         <span>{children}</span>
       </li>
     ),
@@ -188,11 +188,11 @@ export default function PostPageClient({ post }) {
                       <Image
                         src={authorImageUrl || "/placeholder.svg"}
                         alt={post.author.name || "Author"}
-                        className="w-16 h-16 rounded-full object-cover border-3 border-citius-blue shadow-lg"
+                        className="size-16 rounded-full object-cover border-3 border-citius-blue shadow-lg"
                         width="64"
                         height="64"
                       />
-                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-brand-light"></div>
+                      <div className="absolute -bottom-1 -right-1 size-5 bg-green-500 rounded-full border-2 border-brand-light"></div>
                     </div>
                   )}
                   <div>

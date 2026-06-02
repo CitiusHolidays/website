@@ -1,18 +1,18 @@
 "use client";
 
 import { ArrowLeft, Building2, LogOut, Package } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { logout } from "@/lib/auth-client";
 import citiusLogo from "@/static/logos/logo.webp";
 
-export default function VendorPageClient({ user }) {
-  const handleLogout = async () => {
-    await logout();
-    window.location.href = "/";
-  };
+const handleLogout = async () => {
+  await logout();
+  window.location.href = "/";
+};
 
+export default function VendorPageClient({ user }) {
   return (
     <div className="min-h-screen bg-[#FDFBF7]">
       <header className="border-b border-[#e2e8f0] bg-white/80 backdrop-blur-sm">

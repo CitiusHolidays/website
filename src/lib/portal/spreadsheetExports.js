@@ -31,28 +31,50 @@ export function formatFoodPreferenceForExport(value) {
 
 function passengerRowToArray(row) {
   const passport = row.passport || {};
+  const name = splitPassengerName(row.fullName);
+  const ticketing = row.ticketing || {};
   return [
-    "",
-    row.sourceDealerCode || "",
-    row.sourceDealerName || "",
-    row.sourceDescription || "",
-    row.sourceSoName || "",
-    row.sourceRsoName || "",
-    1,
-    "",
-    row.willingToGo || "CONFIRMED",
-    row.travelHub || "",
-    row.fullName || "",
+    row.sequenceNumber || "",
+    honorificForPassenger(row.gender),
+    name.surname,
+    name.givenName,
     row.gender || "",
-    passport.dateOfBirth || "",
     passport.number || "",
+    passport.dateOfBirth || "",
     passport.issueDate || "",
     passport.expiryDate || "",
     formatFoodPreferenceForExport(row.foodPreference),
     row.contactNo || "",
-    row.specialRequests || "",
-    row.sourceGroup || "",
+    ticketing.internationalFare || "",
+    ticketing.internationalPnr || "",
+    ticketing.internationalVendor || "",
+    ticketing.domesticTicket || "",
+    ticketing.domesticPnr || "",
+    ticketing.domesticVendor || "",
   ];
+}
+
+function splitPassengerName(fullName) {
+  const parts = String(fullName ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length <= 1) {
+    return { surname: "", givenName: parts[0] || "" };
+  }
+  return {
+    surname: parts.at(-1) || "",
+    givenName: parts.slice(0, -1).join(" "),
+  };
+}
+
+function honorificForPassenger(gender) {
+  const key = String(gender ?? "")
+    .trim()
+    .toLowerCase();
+  if (key.startsWith("f")) return "MS";
+  if (key.startsWith("m")) return "MR";
+  return "";
 }
 
 function splitTemplateName(fullName) {
@@ -208,7 +230,10 @@ function visaRowToArray(row, index) {
 
 export function buildPassengerWorkbook(rows, { sheetName = "Passengers" } = {}) {
   const workbook = XLSX.utils.book_new();
-  const sheetRows = [[], PASSENGER_EXPORT_HEADERS, ...rows.map(passengerRowToArray)];
+  const sheetRows = [
+    PASSENGER_EXPORT_HEADERS,
+    ...rows.map((row, index) => passengerRowToArray({ ...row, sequenceNumber: index + 1 })),
+  ];
   XLSX.utils.book_append_sheet(
     workbook,
     XLSX.utils.aoa_to_sheet(sheetRows),

@@ -14,17 +14,19 @@ export const metadata = {
 export default async function PortalLayout({ children }) {
   unstable_noStore();
 
-  const { user } = await requireAuth("/portal");
-  await fetchAuthMutation(anyApi.authSync.syncMyAuthIdentity, {});
-  const access = await fetchAuthQuery(anyApi.crm.staff.getMyPortalAccess, {});
+  return requireAuth("/portal").then(async ({ user }) => {
+    const access = await fetchAuthMutation(anyApi.authSync.syncMyAuthIdentity, {}).then(() =>
+      fetchAuthQuery(anyApi.crm.staff.getMyPortalAccess, {}),
+    );
 
-  if (!access?.allowed) {
-    redirect("/account?portal=unauthorized");
-  }
+    if (!access?.allowed) {
+      redirect("/account?portal=unauthorized");
+    }
 
-  return (
-    <PortalShell access={access} user={user}>
-      {children}
-    </PortalShell>
-  );
+    return (
+      <PortalShell access={access} user={user}>
+        {children}
+      </PortalShell>
+    );
+  });
 }

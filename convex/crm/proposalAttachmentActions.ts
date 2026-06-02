@@ -84,20 +84,6 @@ export const attachFile = action({
     fileSize: v.number(),
   },
   handler: async (ctx, args) => {
-    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!canManageProposalFiles(access)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-
-    await ctx.runQuery(api.crm.proposalAttachments.verifyProposalAccess, {
-      proposalId: args.proposalId,
-    });
-
-    const normalizedProposalId = await ctx.runMutation(
-      internal.crm.proposalAttachments.resolveProposalId,
-      { proposalId: args.proposalId },
-    );
-
     if (!isAllowedMimeType(args.mimeType)) {
       try {
         await ctx.storage.delete(args.storageId);
@@ -118,7 +104,20 @@ export const attachFile = action({
       throw new ConvexError("Each file must be between 1 byte and 15 MB.");
     }
 
-    const blob = await ctx.storage.get(args.storageId);
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    if (!canManageProposalFiles(access)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+
+    const [, normalizedProposalId, blob] = await Promise.all([
+      ctx.runQuery(api.crm.proposalAttachments.verifyProposalAccess, {
+        proposalId: args.proposalId,
+      }),
+      ctx.runMutation(internal.crm.proposalAttachments.resolveProposalId, {
+        proposalId: args.proposalId,
+      }),
+      ctx.storage.get(args.storageId),
+    ]);
     if (!blob) {
       throw new ConvexError("Uploaded file not found in storage");
     }
@@ -258,20 +257,6 @@ export const attachFinalizedPdf = action({
     fileSize: v.number(),
   },
   handler: async (ctx, args) => {
-    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!canSendProposalFiles(access)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-
-    await ctx.runQuery(api.crm.proposalAttachments.verifyProposalAccess, {
-      proposalId: args.proposalId,
-    });
-
-    const normalizedProposalId = await ctx.runMutation(
-      internal.crm.proposalAttachments.resolveProposalId,
-      { proposalId: args.proposalId },
-    );
-
     if (!isPdfMimeType(args.mimeType)) {
       try {
         await ctx.storage.delete(args.storageId);
@@ -290,7 +275,20 @@ export const attachFinalizedPdf = action({
       throw new ConvexError("The PDF must be between 1 byte and 15 MB.");
     }
 
-    const blob = await ctx.storage.get(args.storageId);
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    if (!canSendProposalFiles(access)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+
+    const [, normalizedProposalId, blob] = await Promise.all([
+      ctx.runQuery(api.crm.proposalAttachments.verifyProposalAccess, {
+        proposalId: args.proposalId,
+      }),
+      ctx.runMutation(internal.crm.proposalAttachments.resolveProposalId, {
+        proposalId: args.proposalId,
+      }),
+      ctx.storage.get(args.storageId),
+    ]);
     if (!blob) {
       throw new ConvexError("Uploaded file not found in storage");
     }

@@ -1,4 +1,5 @@
 "use client";
+"use no memo";
 
 import { api } from "@convex/_generated/api";
 import { useAction, useConvexAuth, useMutation, useQuery } from "convex/react";
@@ -25,9 +26,9 @@ import {
   Upload,
   Users,
 } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m as motion } from "motion/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cloneElement, isValidElement, Suspense, useEffect, useRef, useState } from "react";
 import {
   CABIN_CLASSES,
   CALLING_STATUSES,
@@ -76,12 +77,14 @@ import {
   downloadWorkbook,
 } from "@/lib/portal/spreadsheetExports";
 import {
+  formatRoomSummaryText,
   parseFlightWorkbookFile,
   parsePassengerWorkbookFile,
   parsePassportWorkbookFile,
   parseRoomingWorkbookFile,
   parseTravellerMasterWorkbookFile,
   parseVisaWorkbookFile,
+  summarizeRoomTypes,
 } from "@/lib/portal/spreadsheetImports";
 import {
   getExpenseSplitTotal,
@@ -250,6 +253,7 @@ const INITIAL_FORM = {
   proposalId: "",
   landCostPerPax: "",
   airfarePerPax: "",
+  visaCostPerPax: "",
   sellingPrice: "",
   costPrice: "",
   taxRate: "",
@@ -345,6 +349,29 @@ const JOB_CARD_MODALS = new Set([
   "invoice",
   "expense",
 ]);
+
+const VIEWS_WITH_JOB_CARD_FILTER = new Set([
+  "travellers",
+  "passport",
+  "visa",
+  "ticketing",
+  "hotels",
+]);
+
+function filterByJobCard(rows, jobCardFilter) {
+  if (!jobCardFilter || !rows?.length) return rows || [];
+  return rows.filter((row) => row.jobCardId === jobCardFilter);
+}
+
+function jobCardFilterOptions(jobCards) {
+  return [
+    { value: "", label: "All job cards" },
+    ...(jobCards || []).map((job) => ({
+      value: job.id,
+      label: job.jobCode,
+    })),
+  ];
+}
 
 function jobCardSelectOptions(jobCards, { required = false, allowUnassigned = false } = {}) {
   const options = jobCards.map((job) => ({
@@ -505,6 +532,8 @@ export default function PortalWorkspace(props) {
 }
 
 function PortalWorkspaceInner({ view = "dashboard" }) {
+  "use no memo";
+
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState(INITIAL_FORM);
   const [pendingQueryFiles, setPendingQueryFiles] = useState([]);
@@ -512,6 +541,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const [pendingExpenseProofFiles, setPendingExpenseProofFiles] = useState([]);
   const [search, setSearch] = useState("");
   const [period, setPeriod] = useState("all");
+  const [jobCardFilter, setJobCardFilter] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [pipelineMode, setPipelineMode] = useState("sales");
@@ -697,160 +727,154 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const removeNotification = useMutation(api.crm.activity.removeNotification);
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
 
-  const periodFiltered = useMemo(
-    () => ({
-      queries: filterByPeriod(queries || [], period, "createdAt"),
-      proposals: filterByPeriod(proposals || [], period, "createdAt"),
-      jobCards: filterByPeriod(jobCards || [], period, "createdAt"),
-      travellers: filterByPeriod(travellers || [], period, "createdAt"),
-      visas: filterByPeriod(visas || [], period, "createdAt"),
-      pnrs: filterByPeriod(pnrs || [], period, "createdAt"),
-      tickets: filterByPeriod(tickets || [], period, "createdAt"),
-      seats: filterByPeriod(seats || [], period, "createdAt"),
-      flightItinerary: filterByPeriod(flightItinerary || [], period, "departureDate"),
-      hotels: filterByPeriod(hotels || [], period, "createdAt"),
-      tourManagers: filterByPeriod(tourManagers || [], period, "createdAt"),
-      invoices: filterByPeriod(invoices || [], period, "createdAt"),
-      expenses: filterByPeriod(
-        (expenses || []).map((row) => ({
-          ...row,
-          periodDate: row.expenseDate || row.createdAt,
-        })),
-        period,
-        "periodDate",
-      ),
-      approvals: filterByPeriod(approvals || [], period, "createdAt"),
-      leaves: filterByPeriod(leaves || [], period, "createdAt"),
-      activity: filterByPeriod(activity || [], period, "createdAt"),
-      notifications: filterByPeriod(notifications || [], period, "createdAt"),
-    }),
-    [
-      queries,
-      proposals,
-      jobCards,
-      travellers,
-      visas,
-      pnrs,
-      tickets,
-      seats,
-      flightItinerary,
-      hotels,
-      tourManagers,
-      invoices,
-      expenses,
-      approvals,
-      leaves,
-      activity,
-      notifications,
+  const periodFiltered = {
+    queries: filterByPeriod(queries || [], period, "createdAt"),
+    proposals: filterByPeriod(proposals || [], period, "createdAt"),
+    jobCards: filterByPeriod(jobCards || [], period, "createdAt"),
+    travellers: filterByPeriod(travellers || [], period, "createdAt"),
+    visas: filterByPeriod(visas || [], period, "createdAt"),
+    pnrs: filterByPeriod(pnrs || [], period, "createdAt"),
+    tickets: filterByPeriod(tickets || [], period, "createdAt"),
+    seats: filterByPeriod(seats || [], period, "createdAt"),
+    flightItinerary: filterByPeriod(flightItinerary || [], period, "departureDate"),
+    hotels: filterByPeriod(hotels || [], period, "createdAt"),
+    tourManagers: filterByPeriod(tourManagers || [], period, "createdAt"),
+    invoices: filterByPeriod(invoices || [], period, "createdAt"),
+    expenses: filterByPeriod(
+      (expenses || []).map((row) => ({
+        ...row,
+        periodDate: row.expenseDate || row.createdAt,
+      })),
       period,
-    ],
-  );
+      "periodDate",
+    ),
+    approvals: filterByPeriod(approvals || [], period, "createdAt"),
+    leaves: filterByPeriod(leaves || [], period, "createdAt"),
+    activity: filterByPeriod(activity || [], period, "createdAt"),
+    notifications: filterByPeriod(notifications || [], period, "createdAt"),
+  };
 
-  const filteredQueries = useMemo(
-    () =>
-      filterRows(periodFiltered.queries, search, [
-        "queryCode",
-        "clientName",
-        "destination",
-        "queryType",
-      ]),
-    [periodFiltered.queries, search],
-  );
-  const filteredTeam = useMemo(
-    () => filterRows(team || [], search, ["name", "email", "department", "function", "location"]),
-    [team, search],
-  );
-  const filteredStaff = useMemo(() => {
-    if (!staff) return staff;
-    return filterRows(staff, search, [
-      "name",
-      "email",
-      "department",
-      "function",
-      "location",
-      "mobile",
-      "roles",
-      "onboardingStatus",
-    ]);
-  }, [staff, search]);
+  const filteredQueries = filterRows(periodFiltered.queries, search, [
+    "queryCode",
+    "clientName",
+    "destination",
+    "queryType",
+  ]);
+  const filteredTeam = filterRows(team || [], search, [
+    "name",
+    "email",
+    "department",
+    "function",
+    "location",
+  ]);
+  const filteredStaff = !staff
+    ? staff
+    : filterRows(staff, search, [
+        "name",
+        "email",
+        "department",
+        "function",
+        "location",
+        "mobile",
+        "roles",
+        "onboardingStatus",
+      ]);
 
-  useEffect(() => {
+  const [searchView, setSearchView] = useState();
+  if (view !== searchView) {
+    setSearchView(view);
     setSearch("");
-  }, [view]);
+    setJobCardFilter("");
+  }
+
+  const filteredTravellers = filterRows(
+    filterByJobCard(periodFiltered.travellers, jobCardFilter),
+    search,
+    ["fullName", "jobCode", "travelHub", "sourceDealerName"],
+  );
+  const filteredVisas = filterRows(filterByJobCard(periodFiltered.visas, jobCardFilter), search, [
+    "travellerName",
+    "jobCode",
+    "travelHub",
+    "status",
+  ]);
+  const filteredTickets = filterRows(
+    filterByJobCard(periodFiltered.tickets, jobCardFilter),
+    search,
+    ["travellerName", "jobCode", "ticketNumber", "pnrCode"],
+  );
+  const filteredRoomingTravellers = filterRows(
+    filterByJobCard(periodFiltered.travellers, jobCardFilter).filter(
+      (row) => row.roomType || row.hotelAllocation,
+    ),
+    search,
+    ["fullName", "jobCode", "travelHub", "hotelAllocation"],
+  );
+  const showJobCardFilter = VIEWS_WITH_JOB_CARD_FILTER.has(view);
+
+  const openModalRef = useRef(null);
+  const openModal = (type, initial = {}) => {
+    setError("");
+    const next = { ...INITIAL_FORM, ...initial };
+    if (next.queryId && (type === "jobCard" || type === "proposal")) {
+      const linkedQuery = (queries || []).find((query) => query.id === next.queryId);
+      if (linkedQuery) {
+        Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
+      }
+      if (type === "jobCard" && !next.proposalId) {
+        const linkedProposal = (proposals || []).reduce((latest, proposal) => {
+          if (proposal.queryId !== next.queryId) return latest;
+          if (!latest) return proposal;
+          return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
+        }, null);
+        next.proposalId = linkedProposal?.id || "";
+      }
+    }
+    if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {
+      Object.assign(next, applyJobCardLink(next, jobCards[0], type, { onlyEmpty: true }));
+    }
+    if (JOB_CARD_MODALS.has(type) && next.jobCardId) {
+      const linkedJob = (jobCards || []).find((job) => job.id === next.jobCardId);
+      if (linkedJob) {
+        Object.assign(next, applyJobCardLink(next, linkedJob, type, { onlyEmpty: true }));
+      }
+    }
+    if (next.travellerId && ["ticket", "seat", "visa_create"].includes(type)) {
+      const linkedTraveller =
+        (travellers || []).find((traveller) => traveller.id === next.travellerId) ||
+        (travellersWithoutVisa || []).find((traveller) => traveller.id === next.travellerId);
+      if (linkedTraveller) {
+        Object.assign(next, applyTravellerLink(next, linkedTraveller, type, { onlyEmpty: true }));
+      }
+    }
+    if (next.pnrId && ["ticket", "seat"].includes(type)) {
+      const linkedPnr = (pnrs || []).find((pnr) => pnr.id === next.pnrId);
+      if (linkedPnr) {
+        Object.assign(next, applyPnrLink(next, linkedPnr, type, { onlyEmpty: true }));
+      }
+    }
+    if (next.visaRecordId && type === "visa") {
+      const linkedVisa = (visas || []).find((visa) => visa.id === next.visaRecordId);
+      if (linkedVisa) {
+        Object.assign(next, applyVisaRecordLink(next, linkedVisa, { onlyEmpty: true }));
+      }
+    }
+    Object.assign(next, reconcileLinkedSelections(next, travellers || [], pnrs || []));
+    if (type === "query" && !initial.queryType && isCementScopedUser(access)) {
+      next.queryType = "Cement";
+    }
+    setForm(next);
+    setModal(type);
+    if (type !== "query") setPendingQueryFiles([]);
+    if (type !== "proposal") setPendingProposalFiles([]);
+    if (type !== "expense") setPendingExpenseProofFiles([]);
+  };
 
   useEffect(() => {
-    if (!modal || !JOB_CARD_MODALS.has(modal) || jobCards?.length !== 1) {
-      return;
-    }
-    setForm((current) => {
-      if (current.jobCardId) return current;
-      const job = jobCards[0];
-      return {
-        ...current,
-        ...applyJobCardLink(current, job, modal, { onlyEmpty: true }),
-      };
-    });
-  }, [modal, jobCards]);
+    openModalRef.current = openModal;
+  });
 
-  const openModal = useCallback(
-    (type, initial = {}) => {
-      setError("");
-      const next = { ...INITIAL_FORM, ...initial };
-      if (next.queryId && (type === "jobCard" || type === "proposal")) {
-        const linkedQuery = (queries || []).find((query) => query.id === next.queryId);
-        if (linkedQuery) {
-          Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
-        }
-        if (type === "jobCard" && !next.proposalId) {
-          const linkedProposal = (proposals || [])
-            .filter((proposal) => proposal.queryId === next.queryId)
-            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
-          next.proposalId = linkedProposal?.id || "";
-        }
-      }
-      if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {
-        Object.assign(next, applyJobCardLink(next, jobCards[0], type, { onlyEmpty: true }));
-      }
-      if (JOB_CARD_MODALS.has(type) && next.jobCardId) {
-        const linkedJob = (jobCards || []).find((job) => job.id === next.jobCardId);
-        if (linkedJob) {
-          Object.assign(next, applyJobCardLink(next, linkedJob, type, { onlyEmpty: true }));
-        }
-      }
-      if (next.travellerId && ["ticket", "seat", "visa_create"].includes(type)) {
-        const linkedTraveller =
-          (travellers || []).find((traveller) => traveller.id === next.travellerId) ||
-          (travellersWithoutVisa || []).find((traveller) => traveller.id === next.travellerId);
-        if (linkedTraveller) {
-          Object.assign(next, applyTravellerLink(next, linkedTraveller, type, { onlyEmpty: true }));
-        }
-      }
-      if (next.pnrId && ["ticket", "seat"].includes(type)) {
-        const linkedPnr = (pnrs || []).find((pnr) => pnr.id === next.pnrId);
-        if (linkedPnr) {
-          Object.assign(next, applyPnrLink(next, linkedPnr, type, { onlyEmpty: true }));
-        }
-      }
-      if (next.visaRecordId && type === "visa") {
-        const linkedVisa = (visas || []).find((visa) => visa.id === next.visaRecordId);
-        if (linkedVisa) {
-          Object.assign(next, applyVisaRecordLink(next, linkedVisa, { onlyEmpty: true }));
-        }
-      }
-      Object.assign(next, reconcileLinkedSelections(next, travellers || [], pnrs || []));
-      if (type === "query" && !initial.queryType && isCementScopedUser(access)) {
-        next.queryType = "Cement";
-      }
-      setForm(next);
-      setModal(type);
-      if (type !== "query") setPendingQueryFiles([]);
-      if (type !== "proposal") setPendingProposalFiles([]);
-      if (type !== "expense") setPendingExpenseProofFiles([]);
-    },
-    [queries, proposals, jobCards, travellers, travellersWithoutVisa, pnrs, visas, access],
-  );
-
-  const closeModal = useCallback(() => {
+  const closeModal = () => {
     setModal(null);
     setForm(INITIAL_FORM);
     setPendingQueryFiles([]);
@@ -860,20 +884,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     if (searchParams.get("open") || searchParams.get("queryId")) {
       router.replace(pathname);
     }
-  }, [pathname, router, searchParams]);
-
-  const deepLinkCollections = useMemo(
-    () => ({
-      queries,
-      proposals,
-      jobCards,
-      tickets,
-      leaves,
-      expenses,
-      approvals,
-    }),
-    [queries, proposals, jobCards, tickets, leaves, expenses, approvals],
-  );
+  };
 
   useEffect(() => {
     const open = searchParams.get("open");
@@ -887,6 +898,16 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       return;
     }
 
+    const deepLinkCollections = {
+      queries,
+      proposals,
+      jobCards,
+      tickets,
+      leaves,
+      expenses,
+      approvals,
+    };
+
     const signature = `${open}:${id || ""}:${queryId || ""}`;
     if (deepLinkHandledRef.current === signature) {
       return;
@@ -899,8 +920,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
 
     if (resolved.status === "missing") {
       deepLinkHandledRef.current = signature;
-      setError("The linked record could not be found. It may have been deleted.");
-      router.replace(pathname);
+      window.history.replaceState(null, "", pathname);
       return;
     }
 
@@ -915,15 +935,26 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     );
     if (!initial) {
       deepLinkHandledRef.current = signature;
-      setError("The linked record could not be found. It may have been deleted.");
-      router.replace(pathname);
+      window.history.replaceState(null, "", pathname);
       return;
     }
 
     deepLinkHandledRef.current = signature;
-    openModal(resolved.modal, initial);
-    router.replace(pathname);
-  }, [allowed, canFetch, deepLinkCollections, openModal, pathname, router, searchParams]);
+    queueMicrotask(() => openModalRef.current?.(resolved.modal, initial));
+    window.history.replaceState(null, "", pathname);
+  }, [
+    allowed,
+    canFetch,
+    queries,
+    proposals,
+    jobCards,
+    tickets,
+    leaves,
+    expenses,
+    approvals,
+    pathname,
+    searchParams,
+  ]);
 
   if (isAuthLoading || !isAuthenticated || access === undefined) {
     return <LoadingPanel />;
@@ -969,6 +1000,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     try {
       if (JOB_CARD_MODALS.has(modal) && !form.jobCardId?.trim()) {
         setError("Please select a job card.");
+        setIsSaving(false);
         return;
       }
       if (modal === "query") {
@@ -1064,6 +1096,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           clientName: form.clientName,
           landCostPerPax: toNumber(form.landCostPerPax, 0),
           airfarePerPax: toNumber(form.airfarePerPax, 0),
+          visaCostPerPax: toNumber(form.visaCostPerPax, 0),
           sellingPrice: toNumber(form.sellingPrice, 0),
           ...(form.taxRate !== ""
             ? { taxRate: toNumber(form.taxRate, 0) }
@@ -1368,9 +1401,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       setError(
         err?.data || err?.message || "Unable to save. Check required fields and permissions.",
       );
-    } finally {
-      setIsSaving(false);
     }
+    setIsSaving(false);
   };
 
   return (
@@ -1383,8 +1415,12 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         period={period}
         setPeriod={setPeriod}
         showPeriodFilter={view !== "settings"}
+        showJobCardFilter={showJobCardFilter}
+        jobCardFilter={jobCardFilter}
+        setJobCardFilter={setJobCardFilter}
+        jobCards={jobCards || []}
       >
-        {renderHeaderAction(view, openModal, has, access)}
+        <HeaderActions view={view} openModal={openModal} has={has} access={access} />
       </PageHeader>
 
       {error && !modal && (
@@ -1452,7 +1488,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "travellers" && (
         <TravellersView
-          rows={periodFiltered.travellers}
+          rows={filteredTravellers}
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
@@ -1461,7 +1497,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "passport" && (
         <PassportDocumentsView
-          travellers={periodFiltered.travellers}
+          travellers={filteredTravellers}
           has={has}
           generateUploadUrl={generateUploadUrl}
           encryptAndStorePassport={encryptAndStorePassport}
@@ -1471,7 +1507,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "visa" && (
         <VisaTrackingView
-          rows={periodFiltered.visas}
+          rows={filteredVisas}
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
@@ -1481,7 +1517,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       {view === "ticketing" && (
         <TicketDashboardView
           summary={ticketDashboard}
-          tickets={periodFiltered.tickets}
+          tickets={filteredTickets}
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
@@ -1517,13 +1553,28 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         />
       )}
       {view === "hotels" && (
-        <HotelsView
-          rows={periodFiltered.hotels}
-          openModal={openModal}
-          has={has}
-          deleteItem={deleteItem}
-          removeHotel={removeHotel}
-        />
+        <div className="space-y-5">
+          <Panel
+            title="Hotel Properties"
+            subtitle="Manual hotel records for ground planning and check-in/out dates."
+          >
+            <HotelsView
+              rows={periodFiltered.hotels.filter(
+                (row) => !jobCardFilter || row.jobCardId === jobCardFilter,
+              )}
+              openModal={openModal}
+              has={has}
+              deleteItem={deleteItem}
+              removeHotel={removeHotel}
+            />
+          </Panel>
+          <Panel
+            title="Rooming Assignments"
+            subtitle="Passenger room types and allocations from traveller master or rooming import."
+          >
+            <RoomingListView rows={filteredRoomingTravellers} />
+          </Panel>
+        </div>
       )}
       {view === "tour-managers" && (
         <TourManagersView
@@ -1667,6 +1718,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         emptyLabel="No traveller master rows found."
         successLabel="Traveller master import complete"
         uploadLabel="Upload Traveller Master"
+        importKind="traveller"
       />
       <PassengerImportModal
         open={modal === "roomingImport"}
@@ -1680,6 +1732,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         emptyLabel="No rooming rows found."
         successLabel="Rooming import complete"
         uploadLabel="Upload Rooming"
+        importKind="rooming"
       />
       <PassengerImportModal
         open={modal === "passportImport"}
@@ -1782,7 +1835,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   );
 }
 
-function renderHeaderAction(view, openModal, has, access) {
+function HeaderActions({ view, openModal, has, access }) {
   if (view === "travellers" && has(P.MANAGE_TRAVELLERS)) {
     return (
       <div className="flex flex-wrap gap-2">
@@ -1972,6 +2025,10 @@ function PageHeader({
   period,
   setPeriod,
   showPeriodFilter = true,
+  showJobCardFilter = false,
+  jobCardFilter = "",
+  setJobCardFilter,
+  jobCards = [],
 }) {
   return (
     <motion.div
@@ -2010,6 +2067,27 @@ function PageHeader({
             />
           </label>
         )}
+        {showJobCardFilter && (
+          <label className="relative">
+            <span className="sr-only">Job card</span>
+            <select
+              value={jobCardFilter}
+              onChange={(event) => setJobCardFilter(event.target.value)}
+              className="portal-period-select h-11 w-full appearance-none rounded-full border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-44"
+              aria-label="Filter by job card"
+            >
+              {jobCardFilterOptions(jobCards).map((option) => (
+                <option key={option.value || "all"} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
+              size={16}
+            />
+          </label>
+        )}
         <label className="relative">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
@@ -2028,192 +2106,93 @@ function PageHeader({
   );
 }
 
-function DashboardView({ summary, has, access }) {
-  if (!summary) return <LoadingPanel />;
-  const queryTypeOptions = getQueryTypeOptions(access);
-
-  const metrics = [
-    {
-      label: "Active Queries",
-      value: summary.metrics.activeQueries,
-      Icon: ClipboardList,
-      permission: P.VIEW_QUERIES,
-    },
-    {
-      label: "Proposals Sent",
-      value: summary.metrics.proposalsSent,
-      Icon: FileText,
-      permission: P.VIEW_PROPOSALS,
-    },
-    {
-      label: "Confirmed Jobs",
-      value: summary.metrics.confirmedJobs,
-      Icon: CheckCircle2,
-      permission: P.VIEW_QUERIES,
-    },
-    {
-      label: "Open Job Cards",
-      value: summary.metrics.jobCardsOpen,
-      Icon: BriefcaseIcon,
-      permission: P.VIEW_JOB_CARDS,
-    },
-    {
-      label: "Tickets Issued",
-      value: summary.metrics.ticketsIssued,
-      Icon: Ticket,
-      permission: P.VIEW_TICKETING,
-    },
-    {
-      label: "Tickets Pending",
-      value: summary.metrics.ticketsPending,
-      Icon: Plane,
-      permission: P.VIEW_TICKETING,
-    },
-    {
-      label: "Visa Pending",
-      value: summary.metrics.visaPending,
-      Icon: ShieldCheck,
-      permission: P.VIEW_VISA,
-    },
-    {
-      label: "Outstanding",
-      value: money(summary.metrics.outstandingAmount),
-      Icon: CircleDollarSign,
-      permission: P.VIEW_FINANCE,
-    },
-    {
-      label: "Pending Approvals",
-      value: summary.metrics.pendingApprovals,
-      Icon: CheckCircle2,
-      permission: P.VIEW_APPROVALS,
-    },
-    {
-      label: "Revenue Pipeline",
-      value: money(summary.metrics.revenuePipeline),
-      Icon: CircleDollarSign,
-      permission: P.VIEW_FINANCE,
-    },
-  ].filter((metric) => has(metric.permission));
-
-  const departmentWorkflow = (summary.departmentWorkflow || []).filter((item) => {
-    if (item.label.startsWith("Sales")) return has(P.VIEW_QUERIES);
-    if (item.label.startsWith("Contracting")) return has(P.VIEW_CONTRACTING);
-    if (item.label.startsWith("Ops")) return has(P.VIEW_JOB_CARDS);
-    if (item.label.startsWith("Ticketing")) return has(P.VIEW_TICKETING);
-    if (item.label.startsWith("Finance")) return has(P.VIEW_FINANCE);
-    return true;
-  });
-
-  const urgentActions = (summary.urgentActions || []).filter((item) => {
-    if (item.type === "approvals") return has(P.VIEW_APPROVALS);
-    if (item.type === "finance") return has(P.VIEW_FINANCE);
-    if (item.type === "accounts") return has(P.MANAGE_JOB_CARDS);
-    if (item.type === "ticketing") return has(P.VIEW_TICKETING);
-    return has(P.VIEW_QUERIES);
-  });
-
-  const showOpsProgress =
-    has(P.VIEW_JOB_CARDS) ||
-    has(P.VIEW_TRAVELLERS) ||
-    has(P.VIEW_TICKETING) ||
-    has(P.VIEW_VISA) ||
-    has(P.VIEW_OPERATIONS) ||
-    has(P.VIEW_FINANCE);
-
-  const emptyQueryTypeCounts = () => queryTypeOptions.map((type) => ({ type, count: 0 }));
-  const queryTypeCounts = has(P.VIEW_QUERIES)
-    ? summary.queriesByType?.length
-      ? summary.queriesByType
-      : emptyQueryTypeCounts()
-    : [];
-  const confirmedQueryTypeCounts = has(P.VIEW_QUERIES)
-    ? summary.confirmedQueriesByType?.length
-      ? summary.confirmedQueriesByType
-      : emptyQueryTypeCounts()
-    : [];
-  const closedQueryTypeCounts = has(P.VIEW_QUERIES)
-    ? summary.closedQueriesByType?.length
-      ? summary.closedQueriesByType
-      : emptyQueryTypeCounts()
-    : [];
-  const activeQueryTotal = queryTypeCounts.reduce((sum, item) => sum + item.count, 0);
-  const confirmedQueryTotal = confirmedQueryTypeCounts.reduce((sum, item) => sum + item.count, 0);
-  const closedQueryTotal = closedQueryTypeCounts.reduce((sum, item) => sum + item.count, 0);
+function DashboardQueryTypeBreakdown({
+  queryTypeCounts,
+  confirmedQueryTypeCounts,
+  closedQueryTypeCounts,
+  activeQueryTotal,
+  confirmedQueryTotal,
+  closedQueryTotal,
+}) {
+  if (
+    queryTypeCounts.length === 0 &&
+    confirmedQueryTypeCounts.length === 0 &&
+    closedQueryTypeCounts.length === 0
+  ) {
+    return null;
+  }
 
   return (
-    <div className="space-y-8">
-      {metrics.length > 0 && (
+    <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+      {queryTypeCounts.length > 0 && (
         <section className="space-y-3">
-          <DashboardSectionHeading title="Overview" />
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-            {metrics.map(({ label, value, Icon }, index) => (
-              <StatCard key={label} label={label} value={value} Icon={Icon} index={index} />
+          <DashboardSectionHeading
+            title="Active queries by type"
+            detail={`${activeQueryTotal.toLocaleString("en-IN")} open enquiries in this period`}
+          />
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
+            {queryTypeCounts.map((item, index) => (
+              <QueryTypeTile
+                key={`active-${item.type}`}
+                type={item.type}
+                count={item.count}
+                index={index}
+              />
             ))}
           </div>
         </section>
       )}
-      {(queryTypeCounts.length > 0 ||
-        confirmedQueryTypeCounts.length > 0 ||
-        closedQueryTypeCounts.length > 0) && (
-        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-          {queryTypeCounts.length > 0 && (
-            <section className="space-y-3">
-              <DashboardSectionHeading
-                title="Active queries by type"
-                detail={`${activeQueryTotal.toLocaleString("en-IN")} open enquiries in this period`}
+      {confirmedQueryTypeCounts.length > 0 && (
+        <section className="space-y-3">
+          <DashboardSectionHeading
+            title="Confirmed queries by type"
+            detail={`${confirmedQueryTotal.toLocaleString("en-IN")} order confirmed in this period`}
+          />
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
+            {confirmedQueryTypeCounts.map((item, index) => (
+              <QueryTypeTile
+                key={`confirmed-${item.type}`}
+                type={item.type}
+                count={item.count}
+                index={index}
+                variant="confirmed"
               />
-              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
-                {queryTypeCounts.map((item, index) => (
-                  <QueryTypeTile
-                    key={`active-${item.type}`}
-                    type={item.type}
-                    count={item.count}
-                    index={index}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-          {confirmedQueryTypeCounts.length > 0 && (
-            <section className="space-y-3">
-              <DashboardSectionHeading
-                title="Confirmed queries by type"
-                detail={`${confirmedQueryTotal.toLocaleString("en-IN")} order confirmed in this period`}
-              />
-              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
-                {confirmedQueryTypeCounts.map((item, index) => (
-                  <QueryTypeTile
-                    key={`confirmed-${item.type}`}
-                    type={item.type}
-                    count={item.count}
-                    index={index}
-                    variant="confirmed"
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-          {closedQueryTypeCounts.length > 0 && (
-            <section className="space-y-3">
-              <DashboardSectionHeading
-                title="Lost queries by type"
-                detail={`${closedQueryTotal.toLocaleString("en-IN")} order lost in this period`}
-              />
-              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
-                {closedQueryTypeCounts.map((item, index) => (
-                  <QueryTypeTile
-                    key={`closed-${item.type}`}
-                    type={item.type}
-                    count={item.count}
-                    index={index}
-                    variant="closed"
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
+            ))}
+          </div>
+        </section>
       )}
+      {closedQueryTypeCounts.length > 0 && (
+        <section className="space-y-3">
+          <DashboardSectionHeading
+            title="Lost queries by type"
+            detail={`${closedQueryTotal.toLocaleString("en-IN")} order lost in this period`}
+          />
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
+            {closedQueryTypeCounts.map((item, index) => (
+              <QueryTypeTile
+                key={`closed-${item.type}`}
+                type={item.type}
+                count={item.count}
+                index={index}
+                variant="closed"
+              />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function DashboardSecondaryPanels({
+  summary,
+  has,
+  urgentActions,
+  departmentWorkflow,
+  showOpsProgress,
+}) {
+  return (
+    <>
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -2367,7 +2346,215 @@ function DashboardView({ summary, has, access }) {
           </div>
         </Panel>
       )}
+    </>
+  );
+}
+
+function DashboardView({ summary, has, access }) {
+  if (!summary) return <LoadingPanel />;
+  const queryTypeOptions = getQueryTypeOptions(access);
+
+  const metrics = [
+    {
+      label: "Active Queries",
+      value: summary.metrics.activeQueries,
+      Icon: ClipboardList,
+      permission: P.VIEW_QUERIES,
+    },
+    {
+      label: "Proposals Sent",
+      value: summary.metrics.proposalsSent,
+      Icon: FileText,
+      permission: P.VIEW_PROPOSALS,
+    },
+    {
+      label: "Confirmed Jobs",
+      value: summary.metrics.confirmedJobs,
+      Icon: CheckCircle2,
+      permission: P.VIEW_QUERIES,
+    },
+    {
+      label: "Open Job Cards",
+      value: summary.metrics.jobCardsOpen,
+      Icon: BriefcaseIcon,
+      permission: P.VIEW_JOB_CARDS,
+    },
+    {
+      label: "Tickets Issued",
+      value: summary.metrics.ticketsIssued,
+      Icon: Ticket,
+      permission: P.VIEW_TICKETING,
+    },
+    {
+      label: "Tickets Pending",
+      value: summary.metrics.ticketsPending,
+      Icon: Plane,
+      permission: P.VIEW_TICKETING,
+    },
+    {
+      label: "Visa Pending",
+      value: summary.metrics.visaPending,
+      Icon: ShieldCheck,
+      permission: P.VIEW_VISA,
+    },
+    {
+      label: "Outstanding",
+      value: money(summary.metrics.outstandingAmount),
+      Icon: CircleDollarSign,
+      permission: P.VIEW_FINANCE,
+    },
+    {
+      label: "Pending Approvals",
+      value: summary.metrics.pendingApprovals,
+      Icon: CheckCircle2,
+      permission: P.VIEW_APPROVALS,
+    },
+    {
+      label: "Revenue Pipeline",
+      value: money(summary.metrics.revenuePipeline),
+      Icon: CircleDollarSign,
+      permission: P.VIEW_FINANCE,
+    },
+  ].filter((metric) => has(metric.permission));
+
+  const departmentWorkflow = (summary.departmentWorkflow || []).filter((item) => {
+    if (item.label.startsWith("Sales")) return has(P.VIEW_QUERIES);
+    if (item.label.startsWith("Contracting")) return has(P.VIEW_CONTRACTING);
+    if (item.label.startsWith("Ops")) return has(P.VIEW_JOB_CARDS);
+    if (item.label.startsWith("Ticketing")) return has(P.VIEW_TICKETING);
+    if (item.label.startsWith("Finance")) return has(P.VIEW_FINANCE);
+    return true;
+  });
+
+  const urgentActions = (summary.urgentActions || []).filter((item) => {
+    if (item.type === "approvals") return has(P.VIEW_APPROVALS);
+    if (item.type === "finance") return has(P.VIEW_FINANCE);
+    if (item.type === "accounts") return has(P.MANAGE_JOB_CARDS);
+    if (item.type === "ticketing") return has(P.VIEW_TICKETING);
+    return has(P.VIEW_QUERIES);
+  });
+
+  const showOpsProgress =
+    has(P.VIEW_JOB_CARDS) ||
+    has(P.VIEW_TRAVELLERS) ||
+    has(P.VIEW_TICKETING) ||
+    has(P.VIEW_VISA) ||
+    has(P.VIEW_OPERATIONS) ||
+    has(P.VIEW_FINANCE);
+
+  const emptyQueryTypeCounts = () => queryTypeOptions.map((type) => ({ type, count: 0 }));
+  const queryTypeCounts = has(P.VIEW_QUERIES)
+    ? summary.queriesByType?.length
+      ? summary.queriesByType
+      : emptyQueryTypeCounts()
+    : [];
+  const confirmedQueryTypeCounts = has(P.VIEW_QUERIES)
+    ? summary.confirmedQueriesByType?.length
+      ? summary.confirmedQueriesByType
+      : emptyQueryTypeCounts()
+    : [];
+  const closedQueryTypeCounts = has(P.VIEW_QUERIES)
+    ? summary.closedQueriesByType?.length
+      ? summary.closedQueriesByType
+      : emptyQueryTypeCounts()
+    : [];
+  const activeQueryTotal = queryTypeCounts.reduce((sum, item) => sum + item.count, 0);
+  const confirmedQueryTotal = confirmedQueryTypeCounts.reduce((sum, item) => sum + item.count, 0);
+  const closedQueryTotal = closedQueryTypeCounts.reduce((sum, item) => sum + item.count, 0);
+
+  return (
+    <div className="space-y-8">
+      {metrics.length > 0 && (
+        <section className="space-y-3">
+          <DashboardSectionHeading title="Overview" />
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+            {metrics.map(({ label, value, Icon }, index) => (
+              <StatCard key={label} label={label} value={value} Icon={Icon} index={index} />
+            ))}
+          </div>
+        </section>
+      )}
+      <DashboardQueryTypeBreakdown
+        queryTypeCounts={queryTypeCounts}
+        confirmedQueryTypeCounts={confirmedQueryTypeCounts}
+        closedQueryTypeCounts={closedQueryTypeCounts}
+        activeQueryTotal={activeQueryTotal}
+        confirmedQueryTotal={confirmedQueryTotal}
+        closedQueryTotal={closedQueryTotal}
+      />
+      <DashboardSecondaryPanels
+        summary={summary}
+        has={has}
+        urgentActions={urgentActions}
+        departmentWorkflow={departmentWorkflow}
+        showOpsProgress={showOpsProgress}
+      />
     </div>
+  );
+}
+
+function QueryManageActions({ row, openModal, has, deleteItem, removeQuery, submitToContracting }) {
+  if (!has(P.MANAGE_QUERIES)) return null;
+  return (
+    <>
+      <button
+        type="button"
+        className="portal-small-btn"
+        onClick={() =>
+          openModal("query", {
+            entityId: row.id,
+            clientName: row.clientName,
+            contactPerson: row.contactPerson,
+            contactMobile: row.contactMobile,
+            destination: row.destination,
+            paxCount: String(row.paxCount),
+            travelStartDate: row.travelStartDate,
+            travelEndDate: row.travelEndDate,
+            queryType: row.queryType,
+            travelType: row.travelType,
+            budgetAmount: String(row.budgetAmount || ""),
+            source: row.source,
+            salesOwnerName: row.salesOwnerName,
+            notes: row.notes,
+          })
+        }
+      >
+        Edit
+      </button>
+      <button
+        type="button"
+        className="portal-small-btn"
+        onClick={() => openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })}
+      >
+        Reference Itinerary
+      </button>
+      <button
+        type="button"
+        className="portal-small-btn"
+        onClick={() => submitToContracting({ queryId: row.id })}
+      >
+        Submit to Contracting
+      </button>
+      <button
+        type="button"
+        className="portal-small-btn"
+        onClick={() =>
+          openModal("queryStatus", {
+            queryId: row.id,
+            salesStatus: row.salesStatus,
+            leadStage: row.leadStage || "Inquiry",
+            contractingStatus: row.contractingStatus,
+            approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
+          })
+        }
+      >
+        Update
+      </button>
+      <DeleteButton
+        label={row.queryCode}
+        onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })}
+      />
+    </>
   );
 }
 
@@ -2380,71 +2567,6 @@ function QueriesView({
   submitToContracting,
   getQueryAttachmentUrl,
 }) {
-  const renderQueryActions = (row) =>
-    has(P.MANAGE_QUERIES) && (
-      <>
-        <button
-          type="button"
-          className="portal-small-btn"
-          onClick={() =>
-            openModal("query", {
-              entityId: row.id,
-              clientName: row.clientName,
-              contactPerson: row.contactPerson,
-              contactMobile: row.contactMobile,
-              destination: row.destination,
-              paxCount: String(row.paxCount),
-              travelStartDate: row.travelStartDate,
-              travelEndDate: row.travelEndDate,
-              queryType: row.queryType,
-              travelType: row.travelType,
-              budgetAmount: String(row.budgetAmount || ""),
-              source: row.source,
-              salesOwnerName: row.salesOwnerName,
-              notes: row.notes,
-            })
-          }
-        >
-          Edit
-        </button>
-        <button
-          type="button"
-          className="portal-small-btn"
-          onClick={() =>
-            openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })
-          }
-        >
-          Reference Itinerary
-        </button>
-        <button
-          type="button"
-          className="portal-small-btn"
-          onClick={() => submitToContracting({ queryId: row.id })}
-        >
-          Submit
-        </button>
-        <button
-          type="button"
-          className="portal-small-btn"
-          onClick={() =>
-            openModal("queryStatus", {
-              queryId: row.id,
-              salesStatus: row.salesStatus,
-              leadStage: row.leadStage || "Inquiry",
-              contractingStatus: row.contractingStatus,
-              approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
-            })
-          }
-        >
-          Update
-        </button>
-        <DeleteButton
-          label={row.queryCode}
-          onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })}
-        />
-      </>
-    );
-
   return (
     <DataTable
       rows={rows}
@@ -2529,7 +2651,7 @@ function QueriesView({
                   className="portal-small-btn w-full"
                   onClick={() => submitToContracting({ queryId: row.id })}
                 >
-                  Submit
+                  Submit to Contracting
                 </button>,
                 <button
                   key="update"
@@ -2614,7 +2736,14 @@ function QueriesView({
           (row) =>
             has(P.MANAGE_QUERIES) && (
               <motion.div className="hidden flex-wrap gap-2 md:flex">
-                {renderQueryActions(row)}
+                <QueryManageActions
+                  row={row}
+                  openModal={openModal}
+                  has={has}
+                  deleteItem={deleteItem}
+                  removeQuery={removeQuery}
+                  submitToContracting={submitToContracting}
+                />
               </motion.div>
             ),
         ],
@@ -2633,7 +2762,7 @@ function ContractingView({
   deleteItem,
   removeQuery,
 }) {
-  const proposalsByQueryId = useMemo(() => {
+  const proposalsByQueryId = (() => {
     const map = new Map();
     for (const proposal of proposals) {
       if (!proposal.queryId) continue;
@@ -2646,7 +2775,7 @@ function ContractingView({
       }
     }
     return map;
-  }, [proposals]);
+  })();
 
   const contractingTeam = team.filter((member) =>
     member.roles.some((role) => ["Contracting", "Contracting Head"].includes(role)),
@@ -2757,6 +2886,7 @@ function ContractingView({
               <div className="flex gap-2">
                 {canAssign && (
                   <button
+                    type="button"
                     className="portal-small-btn"
                     onClick={() => openModal("assignContracting", { queryId: row.id })}
                   >
@@ -2766,6 +2896,7 @@ function ContractingView({
                 {has(P.MANAGE_CONTRACTING) && (
                   <>
                     <button
+                      type="button"
                       className="portal-small-btn"
                       onClick={() =>
                         openModal("queryStatus", {
@@ -2832,7 +2963,7 @@ function PipelineView({ rows, mode, setMode }) {
           >
             <div className="mb-3 flex items-center justify-between font-heading text-sm font-semibold text-citius-blue">
               {stage}
-              <span className="grid h-7 w-7 place-items-center rounded-full bg-citius-orange text-xs font-bold text-white">
+              <span className="grid size-7 place-items-center rounded-full bg-citius-orange text-xs font-bold text-white">
                 {items.length}
               </span>
             </div>
@@ -2918,6 +3049,7 @@ function ProposalsView({
         ["Linked Query", (row) => row.query?.queryCode || "-"],
         ["Land/Pax", (row) => money(row.landCostPerPax)],
         ["Airfare/Pax", (row) => money(row.airfarePerPax)],
+        ["Visa/Pax", (row) => money(row.visaCostPerPax)],
         ["CP/Pax", (row) => money(row.costPrice)],
         ["Tax", (row) => (row.taxRate != null ? `${row.taxRate}%` : "-")],
         ["Selling", (row) => money(row.sellingPrice)],
@@ -2966,6 +3098,7 @@ function ProposalsView({
               <div className="flex flex-wrap gap-2">
                 {canSend && row.status !== "Sent" && (
                   <button
+                    type="button"
                     className="portal-small-btn"
                     onClick={() => markProposalSent({ proposalId: row.id })}
                   >
@@ -2981,6 +3114,7 @@ function ProposalsView({
                         clientName: row.clientName,
                         landCostPerPax: String(row.landCostPerPax ?? ""),
                         airfarePerPax: String(row.airfarePerPax ?? ""),
+                        visaCostPerPax: String(row.visaCostPerPax ?? ""),
                         sellingPrice: String(row.sellingPrice ?? ""),
                         paxCount: String(row.query?.paxCount ?? 1),
                         taxRate: row.taxRate != null ? String(row.taxRate) : "",
@@ -3009,9 +3143,10 @@ function AccountsJobCardView({ rows, jobCards, openModal }) {
   const confirmed = rows.filter(
     (row) => row.salesStatus === "Order Confirmed" || row.contractingStatus === "Order Confirmed",
   );
-  const jobByQuery = new Map(
-    jobCards.filter((job) => job.queryId).map((job) => [job.queryId, job]),
-  );
+  const jobByQuery = jobCards.reduce((map, job) => {
+    if (job.queryId) map.set(job.queryId, job);
+    return map;
+  }, new Map());
   return (
     <div className="space-y-5">
       <Panel title="Payment terms reference">
@@ -3114,6 +3249,7 @@ function AccountsJobCardView({ rows, jobCards, openModal }) {
               }
               return (
                 <button
+                  type="button"
                   className="portal-small-btn"
                   onClick={() =>
                     openModal("jobCard", {
@@ -3214,6 +3350,7 @@ function JobCardsView({
               <div className="flex flex-wrap gap-2">
                 {showAssignContracting && (
                   <button
+                    type="button"
                     className="portal-small-btn"
                     onClick={() => openModal("assignContractingOwner", { jobCardId: job.id })}
                   >
@@ -3222,6 +3359,7 @@ function JobCardsView({
                 )}
                 {showAssignOps && (
                   <button
+                    type="button"
                     className="portal-small-btn"
                     onClick={() => openModal("assignOperationsOwner", { jobCardId: job.id })}
                   >
@@ -3230,6 +3368,7 @@ function JobCardsView({
                 )}
                 {showAssignTicketing && (
                   <button
+                    type="button"
                     className="portal-small-btn"
                     onClick={() => openModal("assignTicketingOwner", { jobCardId: job.id })}
                   >
@@ -3255,6 +3394,7 @@ function JobCardsView({
                       }
                     />
                     <button
+                      type="button"
                       className="portal-small-btn"
                       onClick={() =>
                         updateJobStatus({
@@ -3354,6 +3494,7 @@ function VisaTrackingView({ rows, openModal, has, deleteItem, removeVisa }) {
             has(P.MANAGE_VISA) && (
               <div className="flex flex-wrap gap-2">
                 <button
+                  type="button"
                   className="portal-small-btn"
                   onClick={() =>
                     openModal("visa", {
@@ -3381,6 +3522,157 @@ function VisaTrackingView({ rows, openModal, has, deleteItem, removeVisa }) {
   );
 }
 
+function PassportUploadModal({
+  uploadTraveller,
+  passportForm,
+  setPassportForm,
+  uploadError,
+  isUploading,
+  onClose,
+  onSubmit,
+}) {
+  if (!uploadTraveller) return null;
+
+  return (
+    <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm">
+      <form
+        onSubmit={onSubmit}
+        className="w-full max-w-lg rounded-2xl border border-brand-border bg-white shadow-2xl p-6 space-y-4"
+      >
+        <div className="flex items-center justify-between border-b border-brand-border pb-3">
+          <h3 className="font-heading text-lg font-semibold text-citius-blue">
+            Upload & Encrypt Passport: {uploadTraveller.fullName}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-brand-muted hover:text-brand-dark"
+          >
+            Close
+          </button>
+        </div>
+
+        {uploadError && (
+          <div className="rounded-md bg-red-50 p-3 text-sm text-red-600 border border-red-100">
+            {uploadError}
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <label
+              htmlFor="passport-file-input"
+              className="block text-xs font-medium text-brand-dark mb-1"
+            >
+              Passport Scan File (PDF, JPEG, PNG, WebP , max 15 MB) *
+            </label>
+            <input
+              type="file"
+              id="passport-file-input"
+              required
+              accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
+              className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="passport-number"
+                className="block text-xs font-medium text-brand-dark mb-1"
+              >
+                Passport Number
+              </label>
+              <input
+                id="passport-number"
+                type="text"
+                value={passportForm.number}
+                onChange={(e) => setPassportForm({ ...passportForm, number: e.target.value })}
+                placeholder="e.g. Z1234567"
+                className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="passport-expiry"
+                className="block text-xs font-medium text-brand-dark mb-1"
+              >
+                Expiry Date
+              </label>
+              <input
+                id="passport-expiry"
+                type="date"
+                value={passportForm.expiryDate}
+                onChange={(e) => setPassportForm({ ...passportForm, expiryDate: e.target.value })}
+                className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="passport-nationality"
+                className="block text-xs font-medium text-brand-dark mb-1"
+              >
+                Nationality
+              </label>
+              <input
+                id="passport-nationality"
+                type="text"
+                value={passportForm.nationality}
+                onChange={(e) => setPassportForm({ ...passportForm, nationality: e.target.value })}
+                placeholder="e.g. Indian"
+                className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="passport-dob"
+                className="block text-xs font-medium text-brand-dark mb-1"
+              >
+                Date of Birth
+              </label>
+              <input
+                id="passport-dob"
+                type="date"
+                value={passportForm.dateOfBirth}
+                onChange={(e) => setPassportForm({ ...passportForm, dateOfBirth: e.target.value })}
+                className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 border-t border-brand-border pt-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="portal-small-btn border-brand-border text-brand-dark"
+            disabled={isUploading}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="portal-small-btn bg-citius-blue text-white hover:bg-citius-blue/90 flex items-center gap-1"
+            disabled={isUploading}
+          >
+            {isUploading ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Encrypting & Saving…
+              </>
+            ) : (
+              "Encrypt & Upload"
+            )}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function PassportDocumentsView({
   travellers,
   has,
@@ -3401,21 +3693,6 @@ function PassportDocumentsView({
   const [viewingTravellerId, setViewingTravellerId] = useState(null); // spinner state for view
 
   const MAX_PASSPORT_FILE_BYTES = 15 * 1024 * 1024;
-
-  const inferPassportMimeType = (file) => {
-    if (file.type?.trim()) {
-      return file.type.trim().toLowerCase();
-    }
-    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-    const byExtension = {
-      pdf: "application/pdf",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      png: "image/png",
-      webp: "image/webp",
-    };
-    return byExtension[extension] ?? "";
-  };
 
   const handleUpload = async (e) => {
     e.preventDefault();
@@ -3446,7 +3723,9 @@ function PassportDocumentsView({
         body: file,
       });
       if (!uploadRes.ok) {
-        throw new Error("Failed to upload file to storage server.");
+        setUploadError("Failed to upload file to storage server.");
+        setIsUploading(false);
+        return;
       }
       const { storageId } = await uploadRes.json();
 
@@ -3468,9 +3747,8 @@ function PassportDocumentsView({
     } catch (err) {
       console.error(err);
       setUploadError(formatConvexError(err, "Failed to upload passport. Please try again."));
-    } finally {
-      setIsUploading(false);
     }
+    setIsUploading(false);
   };
 
   const handleView = async (travellerId) => {
@@ -3481,9 +3759,8 @@ function PassportDocumentsView({
     } catch (err) {
       console.error(err);
       alert(err?.data || err?.message || "Unable to decrypt passport scan.");
-    } finally {
-      setViewingTravellerId(null);
     }
+    setViewingTravellerId(null);
   };
 
   const handleDeletePassport = async (travellerName, travellerId) => {
@@ -3524,14 +3801,15 @@ function PassportDocumentsView({
                 {row.hasPassportScan ? (
                   <>
                     <button
+                      type="button"
                       className="portal-small-btn inline-flex items-center gap-1 bg-citius-blue text-white hover:bg-citius-blue/90"
                       onClick={() => handleView(row.id)}
                       disabled={viewingTravellerId !== null}
                     >
                       {viewingTravellerId === row.id ? (
                         <>
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          Decrypting...
+                          <Loader2 className="size-3 animate-spin" />
+                          Decrypting…
                         </>
                       ) : (
                         "Decrypt & View"
@@ -3539,6 +3817,7 @@ function PassportDocumentsView({
                     </button>
                     {has(P.MANAGE_VISA) && (
                       <button
+                        type="button"
                         className="portal-small-btn border-red-200 text-red-600 hover:bg-red-50"
                         onClick={() => handleDeletePassport(row.fullName, row.id)}
                       >
@@ -3549,6 +3828,7 @@ function PassportDocumentsView({
                 ) : (
                   has(P.MANAGE_VISA) && (
                     <button
+                      type="button"
                       className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
                       onClick={() => setUploadTraveller(row)}
                     >
@@ -3562,151 +3842,15 @@ function PassportDocumentsView({
         ]}
       />
 
-      {/* Local Passport Upload Modal */}
-      {uploadTraveller && (
-        <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm">
-          <form
-            onSubmit={handleUpload}
-            className="w-full max-w-lg rounded-2xl border border-brand-border bg-white shadow-2xl p-6 space-y-4"
-          >
-            <div className="flex items-center justify-between border-b border-brand-border pb-3">
-              <h3 className="font-heading text-lg font-semibold text-citius-blue">
-                Upload & Encrypt Passport: {uploadTraveller.fullName}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setUploadTraveller(null)}
-                className="text-brand-muted hover:text-brand-dark"
-              >
-                Close
-              </button>
-            </div>
-
-            {uploadError && (
-              <div className="rounded-md bg-red-50 p-3 text-sm text-red-600 border border-red-100">
-                {uploadError}
-              </div>
-            )}
-
-            <div className="space-y-3">
-              <div>
-                <label
-                  htmlFor="passport-file-input"
-                  className="block text-xs font-medium text-brand-dark mb-1"
-                >
-                  Passport Scan File (PDF, JPEG, PNG, WebP — max 15 MB) *
-                </label>
-                <input
-                  type="file"
-                  id="passport-file-input"
-                  required
-                  accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
-                  className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="passport-number"
-                    className="block text-xs font-medium text-brand-dark mb-1"
-                  >
-                    Passport Number
-                  </label>
-                  <input
-                    id="passport-number"
-                    type="text"
-                    value={passportForm.number}
-                    onChange={(e) => setPassportForm({ ...passportForm, number: e.target.value })}
-                    placeholder="e.g. Z1234567"
-                    className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="passport-expiry"
-                    className="block text-xs font-medium text-brand-dark mb-1"
-                  >
-                    Expiry Date
-                  </label>
-                  <input
-                    id="passport-expiry"
-                    type="date"
-                    value={passportForm.expiryDate}
-                    onChange={(e) =>
-                      setPassportForm({ ...passportForm, expiryDate: e.target.value })
-                    }
-                    className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="passport-nationality"
-                    className="block text-xs font-medium text-brand-dark mb-1"
-                  >
-                    Nationality
-                  </label>
-                  <input
-                    id="passport-nationality"
-                    type="text"
-                    value={passportForm.nationality}
-                    onChange={(e) =>
-                      setPassportForm({ ...passportForm, nationality: e.target.value })
-                    }
-                    placeholder="e.g. Indian"
-                    className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="passport-dob"
-                    className="block text-xs font-medium text-brand-dark mb-1"
-                  >
-                    Date of Birth
-                  </label>
-                  <input
-                    id="passport-dob"
-                    type="date"
-                    value={passportForm.dateOfBirth}
-                    onChange={(e) =>
-                      setPassportForm({ ...passportForm, dateOfBirth: e.target.value })
-                    }
-                    className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 border-t border-brand-border pt-4">
-              <button
-                type="button"
-                onClick={() => setUploadTraveller(null)}
-                className="portal-small-btn border-brand-border text-brand-dark"
-                disabled={isUploading}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="portal-small-btn bg-citius-blue text-white hover:bg-citius-blue/90 flex items-center gap-1"
-                disabled={isUploading}
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Encrypting & Saving...
-                  </>
-                ) : (
-                  "Encrypt & Upload"
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      <PassportUploadModal
+        uploadTraveller={uploadTraveller}
+        passportForm={passportForm}
+        setPassportForm={setPassportForm}
+        uploadError={uploadError}
+        isUploading={isUploading}
+        onClose={() => setUploadTraveller(null)}
+        onSubmit={handleUpload}
+      />
     </div>
   );
 }
@@ -3953,7 +4097,7 @@ function HotelsView({ rows, openModal, has, deleteItem, removeHotel }) {
   return (
     <DataTable
       rows={rows}
-      empty="No hotel records yet."
+      empty="No hotel records yet. Add a hotel property or use Import Rooming for passenger assignments below."
       columns={[
         ["Hotel", (row) => strong(row.name)],
         ["Job", (row) => row.jobCode],
@@ -3987,6 +4131,24 @@ function HotelsView({ rows, openModal, has, deleteItem, removeHotel }) {
               </div>
             ),
         ],
+      ]}
+    />
+  );
+}
+
+function RoomingListView({ rows }) {
+  return (
+    <DataTable
+      rows={rows}
+      empty="No rooming assignments yet. Import traveller master or rooming spreadsheet for this job card."
+      columns={[
+        ["Name", (row) => strong(row.fullName)],
+        ["Job", (row) => row.jobCode],
+        ["Hub", (row) => row.travelHub || "-"],
+        ["Room Type", (row) => <Badge label={row.roomType || "-"} tone="blue" />],
+        ["Hotel Allocation", (row) => row.hotelAllocation || "-"],
+        ["Food", (row) => <Badge label={row.foodPreference} tone="green" />],
+        ["Special Requests", (row) => row.specialRequests || "-"],
       ]}
     />
   );
@@ -4269,6 +4431,7 @@ function ExpensesView({
           (row) =>
             row.proofAttachment ? (
               <button
+                type="button"
                 className="portal-small-btn"
                 onClick={() =>
                   openQueryAttachment(row.proofAttachment.id, getExpenseAttachmentUrl, "expense")
@@ -4313,13 +4476,15 @@ function ExpensesView({
                   />
                 )}
                 <button
+                  type="button"
                   className="portal-small-btn"
                   onClick={() => submitExpenseForApproval({ expenseId: row.id })}
                 >
-                  Submit
+                  Submit for approval
                 </button>
                 {row.proofAttachment && (
                   <button
+                    type="button"
                     className="portal-small-btn"
                     onClick={() =>
                       removeExpenseProof({ attachmentId: row.proofAttachment.id }).catch((err) => {
@@ -4327,7 +4492,7 @@ function ExpensesView({
                       })
                     }
                   >
-                    Remove Proof
+                    Remove expense proof
                   </button>
                 )}
                 <DeleteButton
@@ -4365,12 +4530,14 @@ function ApprovalsView({ rows, has, openModal, decideApproval, deleteItem, remov
                 {row.status === "Pending" && (
                   <>
                     <button
+                      type="button"
                       className="portal-small-btn"
                       onClick={() => decideApproval({ approvalId: row.id, status: "Approved" })}
                     >
                       Approve
                     </button>
                     <button
+                      type="button"
                       className="portal-small-btn"
                       onClick={() =>
                         openModal("approvalDecide", {
@@ -4383,6 +4550,7 @@ function ApprovalsView({ rows, has, openModal, decideApproval, deleteItem, remov
                       Request Details
                     </button>
                     <button
+                      type="button"
                       className="portal-danger-btn"
                       onClick={() =>
                         openModal("approvalDecide", {
@@ -4587,9 +4755,10 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
     setDecidingLeaveId(leaveId);
     try {
       await decideLeave({ leaveId, status });
-    } finally {
-      setDecidingLeaveId(null);
+    } catch (err) {
+      console.error(err);
     }
+    setDecidingLeaveId(null);
   };
 
   return (
@@ -4645,12 +4814,13 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
                 <div className="flex flex-wrap gap-2">
                   {row.canApproveHead && (
                     <button
+                      type="button"
                       className="portal-small-btn"
                       disabled={decidingLeaveId === row.id}
                       onClick={() => handleLeaveDecision(row.id, "Approved")}
                     >
                       {decidingLeaveId === row.id
-                        ? "Saving..."
+                        ? "Saving…"
                         : row.headReviewerRole === "HR"
                           ? "Approve"
                           : "Approve (Head)"}
@@ -4658,15 +4828,17 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
                   )}
                   {row.canApproveHr && (
                     <button
+                      type="button"
                       className="portal-small-btn"
                       disabled={decidingLeaveId === row.id}
                       onClick={() => handleLeaveDecision(row.id, "Approved")}
                     >
-                      {decidingLeaveId === row.id ? "Saving..." : "Approve (HR)"}
+                      {decidingLeaveId === row.id ? "Saving…" : "Approve (HR)"}
                     </button>
                   )}
                   {row.canReject && (
                     <button
+                      type="button"
                       className="portal-danger-btn"
                       disabled={decidingLeaveId === row.id}
                       onClick={() => handleLeaveDecision(row.id, "Rejected")}
@@ -4677,6 +4849,7 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
                   {(canManageLeave ||
                     (access?.staffId === row.staffId && row.status === "Pending")) && (
                     <button
+                      type="button"
                       className="portal-small-btn"
                       onClick={() =>
                         openModal("leave_create", {
@@ -4723,10 +4896,7 @@ function SettingsView({
   const [onboardingSending, setOnboardingSending] = useState({});
 
   const searchTerm = search.trim();
-  const visibleDropdowns = useMemo(
-    () => filterDropdowns(dropdowns, search),
-    [dropdowns, search],
-  );
+  const visibleDropdowns = filterDropdowns(dropdowns, search);
 
   const handleSendOnboarding = async (row) => {
     setOnboardingSending((prev) => ({ ...prev, [row.id]: true }));
@@ -4736,16 +4906,9 @@ function SettingsView({
     } catch (err) {
       console.error(err);
       alert(err?.data || err?.message || "Failed to send onboarding email.");
-    } finally {
-      setOnboardingSending((prev) => ({ ...prev, [row.id]: false }));
     }
+    setOnboardingSending((prev) => ({ ...prev, [row.id]: false }));
   };
-  const onboardingActionLabel = (row) => {
-    if (row.onboardingStatus === "ready") return "Send password reset";
-    if (row.onboardingStatus === "pending") return "Resend verification";
-    return "Send verification";
-  };
-
   return (
     <div className="space-y-5">
       <Panel title="Staff allowlist">
@@ -4794,6 +4957,7 @@ function SettingsView({
               (row) => (
                 <div className="flex flex-wrap gap-2">
                   <button
+                    type="button"
                     className="portal-small-btn"
                     onClick={() =>
                       openModal("staff", {
@@ -4812,11 +4976,12 @@ function SettingsView({
                     Edit
                   </button>
                   <button
+                    type="button"
                     className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
                     onClick={() => handleSendOnboarding(row)}
                     disabled={onboardingSending[row.id]}
                   >
-                    {onboardingSending[row.id] ? "Sending..." : onboardingActionLabel(row)}
+                    {onboardingSending[row.id] ? "Sending…" : onboardingActionLabel(row)}
                   </button>
                   <DeleteButton
                     label={row.email}
@@ -4833,21 +4998,21 @@ function SettingsView({
         {searchTerm && Object.keys(visibleDropdowns).length === 0 ? (
           <EmptyState label="No workflow dropdown values match your search." />
         ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {Object.entries(visibleDropdowns).map(([category, values]) => (
-            <div
-              key={category}
-              className="rounded-md border border-brand-border bg-brand-light p-4"
-            >
-              <div className="mb-2 text-sm font-semibold capitalize">{category}</div>
-              <div className="flex flex-wrap gap-2">
-                {values.map((value) => (
-                  <Badge key={value} label={value} tone="gray" />
-                ))}
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {Object.entries(visibleDropdowns).map(([category, values]) => (
+              <div
+                key={category}
+                className="rounded-md border border-brand-border bg-brand-light p-4"
+              >
+                <div className="mb-2 text-sm font-semibold capitalize">{category}</div>
+                <div className="flex flex-wrap gap-2">
+                  {values.map((value) => (
+                    <Badge key={value} label={value} tone="gray" />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
         )}
       </Panel>
     </div>
@@ -4890,7 +5055,26 @@ function toPassengerImportInput(row) {
       expiryDate: row.passport?.expiryDate,
       nationality: row.passport?.nationality,
     },
+    ticketing: row.ticketing,
   };
+}
+
+function RoomSummaryPanel({ summary, jobCode, title = "Passengers by room type" }) {
+  const entries = Object.entries(summary || {}).sort(([a], [b]) => a.localeCompare(b));
+  if (entries.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-brand-border bg-brand-light/60 px-3 py-3 text-sm">
+      <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+        {title}
+        {jobCode ? ` — ${jobCode}` : ""}
+      </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {entries.map(([roomType, count]) => (
+          <Badge key={roomType} label={`${roomType}: ${count}`} tone="blue" />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function PassengerImportModal({
@@ -4905,6 +5089,7 @@ function PassengerImportModal({
   emptyLabel = "No confirmed passengers found.",
   successLabel = "Passenger import complete",
   uploadLabel = "Upload Passengers",
+  importKind = "passenger",
 }) {
   const [jobCardId, setJobCardId] = useState("");
   const [fileName, setFileName] = useState("");
@@ -4913,21 +5098,24 @@ function PassengerImportModal({
   const [isParsing, setIsParsing] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [importProgress, setImportProgress] = useState(null);
   const [error, setError] = useState("");
 
-  const rows = useMemo(() => parsed?.rows || [], [parsed]);
-  const importRows = useMemo(() => rows.map(toPassengerImportInput), [rows]);
+  const rows = parsed?.rows || [];
   const skipped = parsed?.skipped || [];
   const errors = parsed?.errors || [];
-  const previewRows = useMemo(() => preview?.rows || [], [preview]);
-  const previewById = useMemo(
-    () => new Map(previewRows.map((row) => [row.id, row])),
-    [previewRows],
-  );
+  const previewRows = preview?.rows || [];
+  const previewById = new Map(previewRows.map((row) => [row.id, row]));
   const createCount = previewRows.filter((row) => row.action === "create").length;
   const updateCount = previewRows.filter((row) => row.action === "update").length;
+  const selectedJob = (jobCards || []).find((job) => job.id === jobCardId);
+  const showRoomSummary = importKind === "traveller" || importKind === "rooming";
+  const parsedRoomSummary = showRoomSummary ? summarizeRoomTypes(rows) : {};
+  const previewRoomSummary = showRoomSummary
+    ? preview?.roomSummary || parsedRoomSummary
+    : parsedRoomSummary;
 
-  const reset = useCallback(() => {
+  const reset = () => {
     setJobCardId("");
     setFileName("");
     setParsed(null);
@@ -4936,20 +5124,18 @@ function PassengerImportModal({
     setIsParsing(false);
     setIsPreviewing(false);
     setIsSaving(false);
-  }, []);
+    setImportProgress(null);
+  };
 
-  const closeAndReset = useCallback(() => {
+  const closeAndReset = () => {
     reset();
     close();
-  }, [close, reset]);
-
-  useEffect(() => {
-    if (!open) reset();
-  }, [open, reset]);
+  };
 
   useEffect(() => {
     let cancelled = false;
     async function runPreview() {
+      const importRows = (parsed?.rows || []).map(toPassengerImportInput);
       if (!open || !jobCardId || importRows.length === 0) {
         setPreview(null);
         return;
@@ -4964,15 +5150,14 @@ function PassengerImportModal({
           setPreview(null);
           setError(err?.data || err?.message || "Unable to preview passenger import.");
         }
-      } finally {
-        if (!cancelled) setIsPreviewing(false);
       }
+      if (!cancelled) setIsPreviewing(false);
     }
     runPreview();
     return () => {
       cancelled = true;
     };
-  }, [open, jobCardId, importRows, previewPassengerImport]);
+  }, [open, jobCardId, parsed, previewPassengerImport]);
 
   const handleFile = async (event) => {
     const file = event.target.files?.[0];
@@ -4986,25 +5171,32 @@ function PassengerImportModal({
       setParsed(await parseWorkbookFile(file));
     } catch (err) {
       setError(err?.message || "Unable to read spreadsheet.");
-    } finally {
-      setIsParsing(false);
-      event.target.value = "";
     }
+    setIsParsing(false);
+    event.target.value = "";
   };
 
   const handleCommit = async () => {
     if (!jobCardId || rows.length === 0) return;
     setIsSaving(true);
     setError("");
+    setImportProgress({ current: 0, total: 1 });
     try {
+      setImportProgress({ current: 0, total: 1, label: "Uploading…" });
+      const importRows = rows.map(toPassengerImportInput);
       const result = await commitPassengerImport({ jobCardId, rows: importRows });
-      alert(`${successLabel}. Created ${result.created}, updated ${result.updated}.`);
+      let message = `${successLabel}. Created ${result.created}, updated ${result.updated}, total processed ${result.total}.`;
+      if (showRoomSummary && result.roomSummary) {
+        const roomText = formatRoomSummaryText(result.roomSummary, selectedJob?.jobCode);
+        if (roomText) message += `\n\nRoom summary: ${roomText}`;
+      }
+      alert(message);
       closeAndReset();
     } catch (err) {
       setError(err?.data || err?.message || "Import failed.");
-    } finally {
-      setIsSaving(false);
     }
+    setIsSaving(false);
+    setImportProgress(null);
   };
 
   return (
@@ -5040,10 +5232,19 @@ function PassengerImportModal({
         )}
         {errors.length > 0 && <ImportIssueList title="Rows needing correction" rows={errors} />}
         {skipped.length > 0 && <ImportIssueList title="Skipped rows" rows={skipped.slice(0, 8)} />}
+        {showRoomSummary && Object.keys(previewRoomSummary).length > 0 && (
+          <RoomSummaryPanel summary={previewRoomSummary} jobCode={selectedJob?.jobCode} />
+        )}
+        {importProgress && (
+          <div className="rounded-lg border border-brand-border bg-white px-3 py-2 text-sm text-brand-muted">
+            {importProgress.label ||
+              `Importing batch ${importProgress.current} of ${importProgress.total}…`}
+          </div>
+        )}
         {rows.length > 0 && (
           <DataTable
             compact
-            rows={rows.slice(0, 25).map((row) => ({
+            rows={rows.slice(0, 50).map((row) => ({
               ...row,
               action: previewById.get(row.id)?.action || (isPreviewing ? "checking" : "upsert"),
             }))}
@@ -5091,7 +5292,7 @@ function PassengerImportModal({
             disabled={!jobCardId || rows.length === 0 || isPreviewing || isSaving}
             onClick={handleCommit}
           >
-            {isSaving ? "Uploading..." : uploadLabel}
+            {isSaving ? importProgress?.label || "Uploading…" : uploadLabel}
           </button>
         </div>
       </div>
@@ -5110,11 +5311,13 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
   const groups = parsed?.groups || [];
   const errors = parsed?.errors || [];
   const existingSegmentKeys = new Set(
-    (itinerary || [])
-      .filter((group) => !jobCardId || group.jobCardId === jobCardId)
-      .flatMap((group) => group.segments || [])
-      .map((segment) => segment.importKey)
-      .filter(Boolean),
+    (itinerary || []).reduce((keys, group) => {
+      if (jobCardId && group.jobCardId !== jobCardId) return keys;
+      for (const segment of group.segments || []) {
+        if (segment.importKey) keys.push(segment.importKey);
+      }
+      return keys;
+    }, []),
   );
   const segmentCount = groups.reduce((sum, group) => sum + group.segments.length, 0);
   const updateCount = groups.reduce(
@@ -5123,23 +5326,19 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
     0,
   );
 
-  const reset = useCallback(() => {
+  const reset = () => {
     setJobCardId("");
     setFileName("");
     setParsed(null);
     setError("");
     setIsParsing(false);
     setIsSaving(false);
-  }, []);
+  };
 
-  const closeAndReset = useCallback(() => {
+  const closeAndReset = () => {
     reset();
     close();
-  }, [close, reset]);
-
-  useEffect(() => {
-    if (!open) reset();
-  }, [open, reset]);
+  };
 
   const handleFile = async (event) => {
     const file = event.target.files?.[0];
@@ -5152,10 +5351,9 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
       setParsed(await parseFlightWorkbookFile(file));
     } catch (err) {
       setError(err?.message || "Unable to read flight spreadsheet.");
-    } finally {
-      setIsParsing(false);
-      event.target.value = "";
     }
+    setIsParsing(false);
+    event.target.value = "";
   };
 
   const handleCommit = async () => {
@@ -5170,9 +5368,8 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
       closeAndReset();
     } catch (err) {
       setError(err?.data || err?.message || "Flight import failed.");
-    } finally {
-      setIsSaving(false);
     }
+    setIsSaving(false);
   };
 
   return (
@@ -5259,7 +5456,7 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
             disabled={!jobCardId || groups.length === 0 || isSaving}
             onClick={handleCommit}
           >
-            {isSaving ? "Uploading..." : "Upload Flights"}
+            {isSaving ? "Uploading…" : "Upload Flights"}
           </button>
         </div>
       </div>
@@ -5285,22 +5482,18 @@ function PassengerExportModal({
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState("");
 
-  const reset = useCallback(() => {
+  const reset = () => {
     setJobCardId("");
     setExportData(null);
     setError("");
     setIsLoading(false);
     setIsExporting(false);
-  }, []);
+  };
 
-  const closeAndReset = useCallback(() => {
+  const closeAndReset = () => {
     reset();
     close();
-  }, [close, reset]);
-
-  useEffect(() => {
-    if (!open) reset();
-  }, [open, reset]);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -5319,9 +5512,8 @@ function PassengerExportModal({
           setExportData(null);
           setError(err?.data || err?.message || "Unable to load passengers for export.");
         }
-      } finally {
-        if (!cancelled) setIsLoading(false);
       }
+      if (!cancelled) setIsLoading(false);
     }
     loadExportPreview();
     return () => {
@@ -5341,9 +5533,8 @@ function PassengerExportModal({
       closeAndReset();
     } catch (err) {
       setError(err?.message || "Passenger export failed.");
-    } finally {
-      setIsExporting(false);
     }
+    setIsExporting(false);
   };
 
   const rows = exportData?.rows || [];
@@ -5410,7 +5601,7 @@ function PassengerExportModal({
             disabled={!jobCardId || isLoading || rows.length === 0 || isExporting}
             onClick={handleExport}
           >
-            {isExporting ? "Exporting..." : "Download Spreadsheet"}
+            {isExporting ? "Exporting…" : "Download Spreadsheet"}
           </button>
         </div>
       </div>
@@ -5422,29 +5613,19 @@ function FlightExportModal({ open, close, jobCards, itinerary }) {
   const [jobCardId, setJobCardId] = useState("");
   const [error, setError] = useState("");
 
-  const selectedJob = useMemo(
-    () => jobCards.find((job) => job.id === jobCardId) || null,
-    [jobCards, jobCardId],
-  );
-  const groups = useMemo(
-    () => (itinerary || []).filter((group) => group.jobCardId === jobCardId),
-    [itinerary, jobCardId],
-  );
+  const selectedJob = jobCards.find((job) => job.id === jobCardId) || null;
+  const groups = (itinerary || []).filter((group) => group.jobCardId === jobCardId);
   const segmentCount = groups.reduce((sum, group) => sum + (group.segments?.length || 0), 0);
 
-  const reset = useCallback(() => {
+  const reset = () => {
     setJobCardId("");
     setError("");
-  }, []);
+  };
 
-  const closeAndReset = useCallback(() => {
+  const closeAndReset = () => {
     reset();
     close();
-  }, [close, reset]);
-
-  useEffect(() => {
-    if (!open) reset();
-  }, [open, reset]);
+  };
 
   const handleExport = () => {
     if (!selectedJob || groups.length === 0) return;
@@ -5612,7 +5793,7 @@ function ImportSummary({ isBusy, totals }) {
             {label}
           </div>
           <div className="mt-1 text-2xl font-semibold text-citius-blue">
-            {isBusy && value === "-" ? "..." : value}
+            {isBusy && value === "-" ? "…" : value}
           </div>
         </div>
       ))}
@@ -5718,9 +5899,11 @@ function EntityModal({
     }
     const linkedQuery = queries.find((query) => query.id === queryId);
     const patch = applyQueryLink(form, linkedQuery);
-    const linkedProposal = proposals
-      .filter((proposal) => proposal.queryId === queryId)
-      .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
+    const linkedProposal = proposals.reduce((latest, proposal) => {
+      if (proposal.queryId !== queryId) return latest;
+      if (!latest) return proposal;
+      return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
+    }, null);
     patch.proposalId = linkedProposal?.id || "";
     patchForm(patch);
   };
@@ -5943,11 +6126,12 @@ function EntityModal({
                       value={form.salesOwnerName}
                       options={[
                         { value: "", label: "Current user" },
-                        ...team
-                          .filter((member) =>
-                            member.roles.some((role) => ["Sales", "Sales Head"].includes(role)),
-                          )
-                          .map((member) => ({ value: member.name, label: member.name })),
+                        ...team.reduce((options, member) => {
+                          if (member.roles.some((role) => ["Sales", "Sales Head"].includes(role))) {
+                            options.push({ value: member.name, label: member.name });
+                          }
+                          return options;
+                        }, []),
                       ]}
                       onChange={(v) => updateForm("salesOwnerName", v)}
                     />
@@ -6195,6 +6379,12 @@ function EntityModal({
                       onChange={(v) => updateForm("airfarePerPax", v)}
                     />
                     <Input
+                      label="Visa Cost/Pax"
+                      type="number"
+                      value={form.visaCostPerPax}
+                      onChange={(v) => updateForm("visaCostPerPax", v)}
+                    />
+                    <Input
                       label="Selling Price"
                       type="number"
                       value={form.sellingPrice}
@@ -6214,13 +6404,22 @@ function EntityModal({
                         Cost Price (CP) per person
                       </div>
                       <div className="mt-1 font-semibold text-brand-dark">
-                        {money(proposalCostPerPax(form.landCostPerPax, form.airfarePerPax))}
+                        {money(
+                          proposalCostPerPax(
+                            form.landCostPerPax,
+                            form.airfarePerPax,
+                            form.visaCostPerPax,
+                          ),
+                        )}
                       </div>
                       <div className="mt-1 text-xs text-brand-muted">
                         Trip total:{" "}
                         {money(
-                          proposalCostPerPax(form.landCostPerPax, form.airfarePerPax) *
-                            Math.max(Number(form.paxCount) || 1, 1),
+                          proposalCostPerPax(
+                            form.landCostPerPax,
+                            form.airfarePerPax,
+                            form.visaCostPerPax,
+                          ) * Math.max(Number(form.paxCount) || 1, 1),
                         )}{" "}
                         ({Math.max(Number(form.paxCount) || 1, 1)} pax)
                       </div>
@@ -6246,13 +6445,18 @@ function EntityModal({
                       value={form.queryId}
                       options={[
                         { value: "", label: "Select confirmed query…" },
-                        ...queries
-                          .filter(
-                            (q) =>
-                              q.salesStatus === "Order Confirmed" ||
-                              q.contractingStatus === "Order Confirmed",
-                          )
-                          .map((q) => ({ value: q.id, label: `${q.queryCode} - ${q.clientName}` })),
+                        ...queries.reduce((options, q) => {
+                          if (
+                            q.salesStatus === "Order Confirmed" ||
+                            q.contractingStatus === "Order Confirmed"
+                          ) {
+                            options.push({
+                              value: q.id,
+                              label: `${q.queryCode} - ${q.clientName}`,
+                            });
+                          }
+                          return options;
+                        }, []),
                       ]}
                       onChange={handleJobQuerySelect}
                       required={!form.entityId}
@@ -6262,12 +6466,15 @@ function EntityModal({
                       value={form.proposalId}
                       options={[
                         { value: "", label: "Select proposal…" },
-                        ...proposals
-                          .filter((proposal) => !form.queryId || proposal.queryId === form.queryId)
-                          .map((proposal) => ({
-                            value: proposal.id,
-                            label: `${proposal.proposalCode} - ${proposal.status}`,
-                          })),
+                        ...proposals.reduce((options, proposal) => {
+                          if (!form.queryId || proposal.queryId === form.queryId) {
+                            options.push({
+                              value: proposal.id,
+                              label: `${proposal.proposalCode} - ${proposal.status}`,
+                            });
+                          }
+                          return options;
+                        }, []),
                       ]}
                       onChange={(v) => updateForm("proposalId", v)}
                       required={!form.entityId}
@@ -6343,7 +6550,7 @@ function EntityModal({
                       label="Guests travelling with"
                       value={form.guestCompanions}
                       onChange={(v) => updateForm("guestCompanions", v)}
-                      placeholder="Spouse, children, friends..."
+                      placeholder="Spouse, children, friends…"
                     />
                     <Select
                       label="Food Preference"
@@ -7053,18 +7260,19 @@ function DeleteButton({ label, onClick }) {
   );
 }
 
-function Panel({ title, children }) {
+function Panel({ title, subtitle, children, className = "" }) {
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      className="rounded-2xl border border-brand-border bg-white p-5 shadow-sm md:p-6"
+      className={`rounded-2xl border border-brand-border bg-white p-5 shadow-sm md:p-6 ${className}`}
     >
-      <h2 className="mb-4 font-heading text-lg font-semibold text-citius-blue md:text-xl">
-        {title}
-      </h2>
+      <div className="mb-4">
+        <h2 className="font-heading text-lg font-semibold text-citius-blue md:text-xl">{title}</h2>
+        {subtitle ? <p className="mt-1 text-sm text-brand-muted">{subtitle}</p> : null}
+      </div>
       {children}
     </motion.section>
   );
@@ -7254,7 +7462,7 @@ function MultiSelect({ label, value, options, onChange }) {
 
 function Textarea({ label, value, onChange, maxWords }) {
   const wordCount = countWords(value);
-  const handleChange = (event) => {
+  const updateTextareaValue = (event) => {
     let next = event.target.value;
     if (maxWords) {
       next = truncateToMaxWords(next, maxWords);
@@ -7267,7 +7475,7 @@ function Textarea({ label, value, onChange, maxWords }) {
       <span className="mb-1 block text-xs font-semibold text-brand-muted">{label}</span>
       <textarea
         value={value}
-        onChange={handleChange}
+        onChange={updateTextareaValue}
         rows={4}
         className="w-full rounded-xl border border-brand-border bg-brand-light px-3 py-2 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
       />
@@ -7282,18 +7490,19 @@ function Textarea({ label, value, onChange, maxWords }) {
   );
 }
 
+const BADGE_TONES = {
+  blue: "bg-citius-blue/10 text-citius-blue",
+  green: "bg-citius-green/15 text-emerald-700",
+  amber: "bg-citius-orange/15 text-amber-700",
+  red: "bg-red-50 text-red-700",
+  purple: "bg-violet-50 text-violet-700",
+  gray: "bg-brand-light text-brand-muted",
+};
+
 function Badge({ label, tone = "gray" }) {
-  const tones = {
-    blue: "bg-citius-blue/10 text-citius-blue",
-    green: "bg-citius-green/15 text-emerald-700",
-    amber: "bg-citius-orange/15 text-amber-700",
-    red: "bg-red-50 text-red-700",
-    purple: "bg-violet-50 text-violet-700",
-    gray: "bg-brand-light text-brand-muted",
-  };
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${tones[tone] || tones.gray}`}
+      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${BADGE_TONES[tone] || BADGE_TONES.gray}`}
     >
       {label}
     </span>
@@ -7401,8 +7610,24 @@ function LifecycleDates({ items, compact = false }) {
   );
 }
 
-function QueryRowActions({ primaryAction, overflowActions = [] }) {
+const EMPTY_OVERFLOW_ACTIONS = [];
+
+function getOverflowActionKey(action) {
+  return action?.key || action?.props?.["aria-label"] || action?.props?.children || "action";
+}
+
+function QueryRowActions({ primaryAction, overflowActions = EMPTY_OVERFLOW_ACTIONS }) {
   const [open, setOpen] = useState(false);
+  const closeAfterAction = (action) => {
+    if (!isValidElement(action)) return action;
+    return cloneElement(action, {
+      key: getOverflowActionKey(action),
+      onClick: (event) => {
+        action.props.onClick?.(event);
+        setOpen(false);
+      },
+    });
+  };
 
   return (
     <div className="flex items-center gap-2 md:hidden">
@@ -7428,12 +7653,8 @@ function QueryRowActions({ primaryAction, overflowActions = [] }) {
                 onClick={() => setOpen(false)}
               />
               <div className="absolute right-0 z-50 mt-2 min-w-[180px] rounded-xl border border-brand-border bg-white p-2 shadow-lg">
-                <div role="menu" className="flex flex-col gap-2" onClick={() => setOpen(false)}>
-                  {overflowActions.map((action, index) => (
-                    <div key={index} role="none">
-                      {action}
-                    </div>
-                  ))}
+                <div role="menu" tabIndex={-1} className="flex flex-col gap-2">
+                  {overflowActions.map(closeAfterAction)}
                 </div>
               </div>
             </>
@@ -7494,8 +7715,12 @@ function contractingTotalCost(rowOrForm) {
   );
 }
 
-function proposalCostPerPax(landCostPerPax, airfarePerPax) {
-  return Math.max(Number(landCostPerPax) || 0, 0) + Math.max(Number(airfarePerPax) || 0, 0);
+function proposalCostPerPax(landCostPerPax, airfarePerPax, visaCostPerPax = 0) {
+  return (
+    Math.max(Number(landCostPerPax) || 0, 0) +
+    Math.max(Number(airfarePerPax) || 0, 0) +
+    Math.max(Number(visaCostPerPax) || 0, 0)
+  );
 }
 
 function isQueryConfirmed(rowOrForm) {
@@ -7548,55 +7773,80 @@ function ContractingCostFields({ form, updateForm }) {
 const MAX_QUERY_ATTACHMENT_BYTES = 15 * 1024 * 1024;
 const QUERY_ATTACHMENT_ACCEPT =
   ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.webp,.gif";
+const PASSPORT_MIME_TYPES_BY_EXTENSION = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+function inferPassportMimeType(file) {
+  if (file.type?.trim()) {
+    return file.type.trim().toLowerCase();
+  }
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return PASSPORT_MIME_TYPES_BY_EXTENSION[extension] ?? "";
+}
+
+function onboardingActionLabel(row) {
+  if (row.onboardingStatus === "ready") return "Send password reset";
+  if (row.onboardingStatus === "pending") return "Resend verification";
+  return "Send verification";
+}
 
 async function uploadQueryFiles({ queryId, files, generateUploadUrl, attachQueryFile }) {
-  for (const file of files) {
-    if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
-      throw new Error(`${file.name} exceeds the 15 MB limit.`);
-    }
-    const uploadUrl = await generateUploadUrl({});
-    const uploadRes = await fetch(uploadUrl, {
-      method: "POST",
-      headers: { "Content-Type": file.type || "application/octet-stream" },
-      body: file,
-    });
-    if (!uploadRes.ok) {
-      throw new Error(`Failed to upload ${file.name}.`);
-    }
-    const { storageId } = await uploadRes.json();
-    await attachQueryFile({
-      queryId,
-      storageId,
-      fileName: file.name,
-      mimeType: file.type || "application/octet-stream",
-      fileSize: file.size,
-    });
-  }
+  await Promise.all(
+    files.map(async (file) => {
+      if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
+        throw new Error(`${file.name} exceeds the 15 MB limit.`);
+      }
+      const uploadUrl = await generateUploadUrl({});
+      const uploadRes = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!uploadRes.ok) {
+        throw new Error(`Failed to upload ${file.name}.`);
+      }
+      const { storageId } = await uploadRes.json();
+      await attachQueryFile({
+        queryId,
+        storageId,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        fileSize: file.size,
+      });
+    }),
+  );
 }
 
 async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, attachFile }) {
-  for (const file of files) {
-    if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
-      throw new Error(`${file.name} exceeds the 15 MB limit.`);
-    }
-    const uploadUrl = await generateUploadUrl({});
-    const uploadRes = await fetch(uploadUrl, {
-      method: "POST",
-      headers: { "Content-Type": file.type || "application/octet-stream" },
-      body: file,
-    });
-    if (!uploadRes.ok) {
-      throw new Error(`Failed to upload ${file.name}.`);
-    }
-    const { storageId } = await uploadRes.json();
-    await attachFile({
-      [idField]: entityId,
-      storageId,
-      fileName: file.name,
-      mimeType: file.type || "application/octet-stream",
-      fileSize: file.size,
-    });
-  }
+  await Promise.all(
+    files.map(async (file) => {
+      if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
+        throw new Error(`${file.name} exceeds the 15 MB limit.`);
+      }
+      const uploadUrl = await generateUploadUrl({});
+      const uploadRes = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!uploadRes.ok) {
+        throw new Error(`Failed to upload ${file.name}.`);
+      }
+      const { storageId } = await uploadRes.json();
+      await attachFile({
+        [idField]: entityId,
+        storageId,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+        fileSize: file.size,
+      });
+    }),
+  );
 }
 
 async function uploadExpenseProofFiles({
@@ -7605,15 +7855,13 @@ async function uploadExpenseProofFiles({
   generateUploadUrl,
   attachExpenseProof,
 }) {
-  for (const file of files) {
-    await uploadEntityFiles({
-      entityId: expenseId,
-      idField: "expenseId",
-      files: [file],
-      generateUploadUrl,
-      attachFile: attachExpenseProof,
-    });
-  }
+  await uploadEntityFiles({
+    entityId: expenseId,
+    idField: "expenseId",
+    files,
+    generateUploadUrl,
+    attachFile: attachExpenseProof,
+  });
 }
 
 function formatFileSize(bytes) {
@@ -7716,7 +7964,9 @@ function FinalizedProposalPdfPanel({
         body: file,
       });
       if (!uploadRes.ok) {
-        throw new Error(`Failed to upload ${file.name}.`);
+        setUploadError(`Failed to upload ${file.name}.`);
+        setIsUploading(false);
+        return;
       }
       const { storageId } = await uploadRes.json();
       await attachFinalizedPdf({
@@ -7728,9 +7978,8 @@ function FinalizedProposalPdfPanel({
       });
     } catch (err) {
       setUploadError(err?.data || err?.message || "Upload failed.");
-    } finally {
-      setIsUploading(false);
     }
+    setIsUploading(false);
   };
 
   const handleRemove = async () => {
@@ -7824,7 +8073,7 @@ function QueryAttachmentSummary({
         Add files
       </button>
     ) : (
-      <span className="text-xs text-brand-muted">—</span>
+      <span className="text-xs text-brand-muted">-</span>
     );
   }
 
@@ -7939,9 +8188,8 @@ function QueryAttachmentsPanel({
       });
     } catch (err) {
       setUploadError(err?.data || err?.message || "Upload failed.");
-    } finally {
-      setIsUploading(false);
     }
+    setIsUploading(false);
   };
 
   const handleRemove = async (attachment) => {

@@ -1,8 +1,9 @@
 "use client";
 
 import { ArrowRight, CreditCard, FileText, Mail, MapPin, Phone, Shield } from "lucide-react";
-import { motion, useScroll, useTransform } from "motion/react";
-import { useRef, useState } from "react";
+import { m as motion, useScroll, useTransform } from "motion/react";
+import Link from "next/link";
+import { useState } from "react";
 
 const billingPolicy = {
   title: "Billing & Payment Policy",
@@ -241,13 +242,16 @@ const Section = ({ data }) => (
 
     {data.subsections && (
       <div className="space-y-4 mb-4">
-        {data.subsections.map((sub, i) => (
-          <div key={i} className="bg-gray-50 p-4 rounded-lg border-l-4 border-citius-orange">
+        {data.subsections.map((sub) => (
+          <div
+            key={sub.title}
+            className="bg-gray-50 p-4 rounded-lg shadow-[inset_3px_0_0_rgba(234,88,12,0.45)]"
+          >
             <h4 className="font-semibold text-gray-900 mb-2">{sub.title}</h4>
             <ul className="space-y-2">
-              {sub.list.map((item, j) => (
-                <li key={j} className="flex items-start gap-2 text-sm text-gray-700">
-                  <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-citius-orange shrink-0" />
+              {sub.list.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-sm text-gray-700">
+                  <span className="mt-1.5 size-1.5 rounded-full bg-citius-orange shrink-0" />
                   <span>{item}</span>
                 </li>
               ))}
@@ -259,9 +263,9 @@ const Section = ({ data }) => (
 
     {data.list && (
       <ul className="space-y-3 mb-4">
-        {data.list.map((item, i) => (
-          <li key={i} className="flex items-start gap-3 group">
-            <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-citius-blue group-hover:bg-citius-orange transition-colors duration-300 shrink-0" />
+        {data.list.map((item) => (
+          <li key={item} className="flex items-start gap-3 group">
+            <span className="mt-1.5 size-1.5 rounded-full bg-citius-blue group-hover:bg-citius-orange transition-colors duration-300 shrink-0" />
             <span className="text-gray-700 font-content group-hover:text-gray-900 transition-colors duration-300">
               {item}
             </span>
@@ -278,11 +282,11 @@ const Section = ({ data }) => (
 
     {data.contact && (
       <div className="bg-brand-dark text-white p-6 rounded-xl mt-6 relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-citius-orange/20 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-citius-orange/30 transition-all duration-500" />
+        <div className="absolute top-0 right-0 size-32 bg-citius-orange/20 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-citius-orange/30 transition-all duration-500" />
         <h4 className="font-semibold text-lg mb-4 relative z-10">{data.contact.team}</h4>
         <div className="space-y-3 relative z-10 text-sm">
           <div className="flex items-center gap-3">
-            <Mail className="w-4 h-4 text-citius-orange" />
+            <Mail className="size-4 text-citius-orange" />
             <a
               href={`mailto:${data.contact.email}`}
               className="hover:text-citius-orange transition-colors"
@@ -291,7 +295,7 @@ const Section = ({ data }) => (
             </a>
           </div>
           <div className="flex items-center gap-3">
-            <Phone className="w-4 h-4 text-citius-orange" />
+            <Phone className="size-4 text-citius-orange" />
             <a
               href={`tel:${data.contact.phone.replace(/\s/g, "")}`}
               className="hover:text-citius-orange transition-colors"
@@ -301,7 +305,7 @@ const Section = ({ data }) => (
           </div>
           {data.contact.address && (
             <div className="flex items-center gap-3">
-              <MapPin className="w-4 h-4 text-citius-orange" />
+              <MapPin className="size-4 text-citius-orange" />
               <span>{data.contact.address}</span>
             </div>
           )}
@@ -359,6 +363,7 @@ export default function PolicyContent() {
               { id: "billing", label: "Billing Policy", icon: CreditCard },
             ].map((tab) => (
               <button
+                type="button"
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`group relative py-6 flex items-center gap-3 transition-colors duration-300 ${
@@ -366,7 +371,7 @@ export default function PolicyContent() {
                 }`}
               >
                 <tab.icon
-                  className={`w-5 h-5 transition-transform duration-300 ${activeTab === tab.id ? "scale-110" : "group-hover:scale-110"}`}
+                  className={`size-5 transition-transform duration-300 ${activeTab === tab.id ? "scale-110" : "group-hover:scale-110"}`}
                 />
                 <span className="font-semibold tracking-wide text-sm md:text-base uppercase">
                   {tab.label}
@@ -418,7 +423,7 @@ export default function PolicyContent() {
                   </p>
                   <p className="text-gray-600 italic">{termsPolicy.intro}</p>
                 </div>
-                {termsPolicy.content.map((section, idx) => (
+                {termsPolicy.content.map((section) => (
                   <Section key={section.heading} data={section} />
                 ))}
               </div>
@@ -429,20 +434,20 @@ export default function PolicyContent() {
       {/* Footer CTA */}
       <section className="bg-brand-dark py-16 px-6 mt-12">
         <div className="max-w-4xl mx-auto text-center">
-          <Shield className="w-12 h-12 text-citius-orange mx-auto mb-6" />
+          <Shield className="size-12 text-citius-orange mx-auto mb-6" />
           <h2 className="text-2xl md:text-3xl font-heading text-white mb-4">
             Have questions about our policies?
           </h2>
           <p className="text-gray-400 mb-8 max-w-lg mx-auto">
             Our support team is here to help you understand our terms and ensure a smooth journey.
           </p>
-          <a
+          <Link
             href="/contact"
             className="inline-flex items-center gap-2 bg-citius-orange text-white px-8 py-3 rounded-full hover:bg-white hover:text-citius-orange transition-all duration-300 font-semibold"
           >
             Contact Support
-            <ArrowRight className="w-4 h-4" />
-          </a>
+            <ArrowRight className="size-4" />
+          </Link>
         </div>
       </section>
     </div>

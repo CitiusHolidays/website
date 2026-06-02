@@ -1,7 +1,7 @@
 "use client";
 
 import imageUrlBuilder from "@sanity/image-url";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { client } from "@/sanity/client";
@@ -62,13 +62,13 @@ export default function BlogPageClient({ posts }) {
                             src={postImageUrl}
                             alt={post.title || "Post image"}
                             fill
-                            className="w-auto h-auto rounded-t-2xl object-contain"
+                            className="size-auto rounded-t-2xl object-contain"
                             sizes="(max-width: 1024px) 50vw, 33vw"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-citius-blue/10 to-citius-orange/10">
+                          <div className="size-full flex items-center justify-center bg-gradient-to-br from-citius-blue/10 to-citius-orange/10">
                             <svg
-                              className="w-12 h-12 text-brand-muted"
+                              className="size-12 text-brand-muted"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -87,7 +87,7 @@ export default function BlogPageClient({ posts }) {
                         )}
 
                         <div className="absolute top-4 left-4 z-10">
-                          <span className="inline-flex items-center justify-center w-8 h-8 bg-brand-light/90 backdrop-blur-sm text-citius-orange text-sm font-bold rounded-full border border-citius-orange/20 shadow-sm">
+                          <span className="inline-flex items-center justify-center size-8 bg-brand-light/90 backdrop-blur-sm text-citius-orange text-sm font-bold rounded-full border border-citius-orange/20 shadow-sm">
                             {String(index + 1).padStart(2, "0")}
                           </span>
                         </div>
@@ -115,7 +115,7 @@ export default function BlogPageClient({ posts }) {
                           <span className="inline-flex items-center gap-2 text-citius-blue font-medium group-hover:gap-3 transition-all duration-300">
                             Read more
                             <svg
-                              className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
+                              className="size-4 transition-transform duration-300 group-hover:translate-x-1"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -141,9 +141,9 @@ export default function BlogPageClient({ posts }) {
           ) : (
             <div className="text-center py-16">
               <div className="bg-brand-light rounded-2xl border border-brand-border p-12 max-w-md mx-auto">
-                <div className="w-16 h-16 bg-citius-orange/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <div className="size-16 bg-citius-orange/10 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg
-                    className="w-8 h-8 text-citius-orange"
+                    className="size-8 text-citius-orange"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"

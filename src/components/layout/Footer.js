@@ -7,6 +7,7 @@ import IATA from "@/static/partners/iata.webp";
 import IncredibleIndia from "@/static/partners/incredibleindiafooter.webp";
 
 const brandFill = { stroke: "none", fill: "currentColor" };
+const CURRENT_YEAR = new Date().getFullYear();
 
 const XIcon = createLucideIcon("X", [
   [
@@ -147,7 +148,7 @@ export default function Footer() {
                 aria-label="Instagram"
                 className="text-brand-muted hover:text-white transition-colors"
               >
-                <InstagramIcon className="w-6 h-6" />
+                <InstagramIcon className="size-6" />
               </Link>
             </div>
             <div className="transition-transform duration-200 hover:-translate-y-0.5">
@@ -156,7 +157,7 @@ export default function Footer() {
                 aria-label="Twitter"
                 className="text-brand-muted hover:text-white transition-colors"
               >
-                <XIcon className="w-6 h-6" />
+                <XIcon className="size-6" />
               </Link>
             </div>
             <div className="transition-transform duration-200 hover:-translate-y-0.5">
@@ -165,7 +166,7 @@ export default function Footer() {
                 aria-label="Facebook"
                 className="text-brand-muted hover:text-white transition-colors"
               >
-                <FacebookIcon className="w-6 h-6" />
+                <FacebookIcon className="size-6" />
               </Link>
             </div>
             <div className="transition-transform duration-200 hover:-translate-y-0.5">
@@ -174,7 +175,7 @@ export default function Footer() {
                 aria-label="LinkedIn"
                 className="text-brand-muted hover:text-white transition-colors"
               >
-                <LinkedinIcon className="w-6 h-6" />
+                <LinkedinIcon className="size-6" />
               </Link>
             </div>
           </div>
@@ -183,7 +184,7 @@ export default function Footer() {
 
       <div className="bg-brand-dark/20 py-4">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row justify-between items-center text-sm text-brand-muted">
-          <p>© {new Date().getFullYear()} Citius. All Rights Reserved.</p>
+          <p>© {CURRENT_YEAR} Citius. All Rights Reserved.</p>
           <div className="flex gap-4 sm:gap-6 mt-2 sm:mt-0">
             <Link
               href="/policies"

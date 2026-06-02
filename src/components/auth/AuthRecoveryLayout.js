@@ -1,9 +1,10 @@
 "use client";
 
 import { Compass, Map as MapIcon, Shield, Sparkles } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 
-export const BRAND_NAME = "Citius Holidays";
+const BRAND_NAME = "Citius Holidays";
+const CURRENT_YEAR = new Date().getFullYear();
 
 export default function AuthRecoveryLayout({
   panelHeading,
@@ -26,8 +27,8 @@ export default function AuthRecoveryLayout({
             className="absolute inset-0 bg-[url('/gallery/bgmice.webp')] bg-cover bg-center opacity-[0.18] mix-blend-overlay"
             aria-hidden
           />
-          <div className="absolute bottom-[-20%] left-[-20%] h-[800px] w-[800px] rounded-full bg-[#1e293b] opacity-10 blur-3xl" />
-          <div className="absolute top-[20%] right-[-10%] h-[400px] w-[400px] rounded-full bg-[#d4af37] opacity-5 blur-[100px]" />
+          <div className="absolute bottom-[-20%] left-[-20%] size-[800px] rounded-full bg-[#1e293b] opacity-10 blur-3xl" />
+          <div className="absolute top-[20%] right-[-10%] size-[400px] rounded-full bg-[#d4af37] opacity-5 blur-[100px]" />
           <motion.div
             className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.03] mix-blend-overlay"
             aria-hidden
@@ -41,7 +42,7 @@ export default function AuthRecoveryLayout({
             transition={{ delay: 0.35 }}
           >
             <div className="mb-2 flex items-center gap-3">
-              <Compass className="h-6 w-6 text-[#d4af37]" />
+              <Compass className="size-6 text-[#d4af37]" />
               <span className="text-sm uppercase tracking-[0.2em] text-[#d4af37]">
                 {BRAND_NAME}
               </span>
@@ -64,7 +65,7 @@ export default function AuthRecoveryLayout({
           >
             <div className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
               <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">
-                <Shield className="h-5 w-5" />
+                <Shield className="size-5" />
               </div>
               <div>
                 <h3 className="font-heading mb-1 text-lg font-medium text-white">Secure access</h3>
@@ -76,7 +77,7 @@ export default function AuthRecoveryLayout({
 
             <div className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
               <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">
-                <Sparkles className="h-5 w-5" />
+                <Sparkles className="size-5" />
               </div>
               <div>
                 <h3 className="font-heading mb-1 text-lg font-medium text-white">
@@ -91,7 +92,7 @@ export default function AuthRecoveryLayout({
 
             <div className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
               <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">
-                <MapIcon className="h-5 w-5" />
+                <MapIcon className="size-5" />
               </div>
               <div>
                 <h3 className="font-heading mb-1 text-lg font-medium text-white">
@@ -110,7 +111,7 @@ export default function AuthRecoveryLayout({
             transition={{ delay: 0.75 }}
             className="text-xs font-light text-white/30"
           >
-            © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
+            © {CURRENT_YEAR} {BRAND_NAME}. All rights reserved.
           </motion.p>
         </div>
       </motion.aside>

@@ -1,9 +1,9 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, m as motion } from "motion/react";
 import Image from "next/image";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useReducer } from "react";
 import { cn } from "../../utils/cn";
 
 const variants = {
@@ -23,31 +23,62 @@ const variants = {
   }),
 };
 
-export default function GalleryGrid({ images = [], className }) {
-  const [selectedIndex, setSelectedIndex] = useState(null);
-  const [direction, setDirection] = useState(0);
+const EMPTY_IMAGES = [];
 
-  const handleNext = useCallback(() => {
-    setDirection(1);
-    if (selectedIndex === null) return;
-    setSelectedIndex((prevIndex) => (prevIndex + 1) % images.length);
-  }, [selectedIndex, images.length]);
+function galleryReducer(state, action) {
+  switch (action.type) {
+    case "open":
+      return { selectedIndex: action.index, direction: 0 };
+    case "close":
+      return { ...state, selectedIndex: null };
+    case "next":
+      return {
+        selectedIndex:
+          state.selectedIndex === null
+            ? state.selectedIndex
+            : (state.selectedIndex + 1) % action.length,
+        direction: 1,
+      };
+    case "prev":
+      return {
+        selectedIndex:
+          state.selectedIndex === null
+            ? state.selectedIndex
+            : (state.selectedIndex - 1 + action.length) % action.length,
+        direction: -1,
+      };
+    default:
+      return state;
+  }
+}
 
-  const handlePrev = useCallback(() => {
-    setDirection(-1);
-    if (selectedIndex === null) return;
-    setSelectedIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
-  }, [selectedIndex, images.length]);
+export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
+  const [{ selectedIndex, direction }, dispatch] = useReducer(galleryReducer, {
+    selectedIndex: null,
+    direction: 0,
+  });
+
+  const handleNext = () => {
+    dispatch({ type: "next", length: images.length });
+  };
+
+  const handlePrev = () => {
+    dispatch({ type: "prev", length: images.length });
+  };
 
   const close = () => {
-    setSelectedIndex(null);
+    dispatch({ type: "close" });
   };
 
   useEffect(() => {
     const handleKey = (e) => {
-      if (e.key === "Escape") close();
-      if (e.key === "ArrowRight") handleNext();
-      if (e.key === "ArrowLeft") handlePrev();
+      if (e.key === "Escape") dispatch({ type: "close" });
+      if (e.key === "ArrowRight") {
+        dispatch({ type: "next", length: images.length });
+      }
+      if (e.key === "ArrowLeft") {
+        dispatch({ type: "prev", length: images.length });
+      }
     };
     if (selectedIndex !== null) {
       window.addEventListener("keydown", handleKey);
@@ -55,7 +86,7 @@ export default function GalleryGrid({ images = [], className }) {
     return () => {
       window.removeEventListener("keydown", handleKey);
     };
-  }, [selectedIndex, handleNext, handlePrev]);
+  }, [selectedIndex, images.length]);
 
   return (
     <>
@@ -73,8 +104,7 @@ export default function GalleryGrid({ images = [], className }) {
             key={item.asset?._id || item._key || index}
             layoutId={`image-container-${item.asset?._id || index}`}
             onClick={() => {
-              setDirection(0);
-              setSelectedIndex(index);
+              dispatch({ type: "open", index });
             }}
             className="aspect-[4/3] overflow-hidden rounded-lg group relative bg-brand-light w-full cursor-pointer"
             // variants={{
@@ -116,7 +146,7 @@ export default function GalleryGrid({ images = [], className }) {
                 }}
                 className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 text-white z-10 hover:bg-white/20 p-2 rounded-full transition-colors"
               >
-                <ArrowLeft className="w-8 h-8" />
+                <ArrowLeft className="size-8" />
               </motion.button>
               <motion.button
                 aria-label="Next Image"
@@ -126,7 +156,7 @@ export default function GalleryGrid({ images = [], className }) {
                 }}
                 className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 text-white z-10 hover:bg-white/20 p-2 rounded-full transition-colors"
               >
-                <ArrowRight className="w-8 h-8" />
+                <ArrowRight className="size-8" />
               </motion.button>
 
               <motion.div
@@ -152,6 +182,7 @@ export default function GalleryGrid({ images = [], className }) {
                       src={images[selectedIndex].asset?.url || ""}
                       alt={images[selectedIndex].alt || ""}
                       fill
+                      sizes="(max-width: 1024px) 100vw, 1024px"
                       className="object-contain"
                       priority
                     />
@@ -165,7 +196,7 @@ export default function GalleryGrid({ images = [], className }) {
               onClick={close}
               className="absolute top-4 right-4 text-white z-10 hover:scale-110"
             >
-              <X className="w-8 h-8" />
+              <X className="size-8" />
             </motion.button>
           </div>
         )}

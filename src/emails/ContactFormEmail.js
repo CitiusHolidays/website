@@ -15,6 +15,15 @@ import {
 
 export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
   const previewText = `New message from ${name} via your website`;
+  const receivedAt = new Date().toLocaleString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
 
   return (
     <Tailwind
@@ -40,7 +49,7 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
           <Container className="max-w-2xl bg-brand-dark mx-auto rounded-xl">
             <div className="pt-4">
               <Section className="bg-gradient-to-r from-citius-blue to-[#1e3a8a] text-white text-center py-12 px-8 rounded-t-2xl">
-                <div className="inline-block w-16 h-16 bg-white/20 rounded-full mb-6">
+                <div className="inline-block size-16 bg-white/20 rounded-full mb-6">
                   <Row style={{ height: "64px" }}>
                     <Column
                       style={{
@@ -62,7 +71,7 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
               </Section>
             </div>
 
-            <Section className="bg-brand-dark px-8 py-8 shadow-lg">
+            <Section className="bg-brand-dark p-8 shadow-lg">
               <Section className="bg-brand-dark mb-8">
                 <Heading className="text-lg font-semibold text-brand-light pt-6 pl-5 pb-2 mb-6 m-0">
                   Contact Information
@@ -72,7 +81,7 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
                   <div className="pl-4">
                     <Row>
                       <Column style={{ width: "56px", verticalAlign: "middle" }}>
-                        <div className="w-10 h-10 bg-citius-orange/10 rounded-lg text-center">
+                        <div className="size-10 bg-citius-orange/10 rounded-lg text-center">
                           <Text className="text-lg m-0 leading-10">👤</Text>
                         </div>
                       </Column>
@@ -96,7 +105,7 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
                   <div className="pl-4">
                     <Row>
                       <Column style={{ width: "56px", verticalAlign: "middle" }}>
-                        <div className="w-10 h-10 bg-citius-orange/10 rounded-lg text-center">
+                        <div className="size-10 bg-citius-orange/10 rounded-lg text-center">
                           <Text className="text-lg m-0 leading-10">📧</Text>
                         </div>
                       </Column>
@@ -123,7 +132,7 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
                     <div className="pl-4">
                       <Row>
                         <Column style={{ width: "56px", verticalAlign: "middle" }}>
-                          <div className="w-10 h-10 bg-citius-orange/10 rounded-lg text-center">
+                          <div className="size-10 bg-citius-orange/10 rounded-lg text-center">
                             <Text className="text-lg m-0 leading-10">📞</Text>
                           </div>
                         </Column>
@@ -150,7 +159,7 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
                   <div className="pl-4">
                     <Row>
                       <Column style={{ width: "56px", verticalAlign: "middle" }}>
-                        <div className="w-10 h-10 bg-citius-orange/10 rounded-lg text-center">
+                        <div className="size-10 bg-citius-orange/10 rounded-lg text-center">
                           <Text className="text-lg m-0 leading-10">📋</Text>
                         </div>
                       </Column>
@@ -177,7 +186,7 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
                 <div className="pl-4 mb-4">
                   <Row>
                     <Column style={{ width: "52px", verticalAlign: "middle" }}>
-                      <div className="w-10 h-10 bg-citius-orange/10 rounded-lg text-center">
+                      <div className="size-10 bg-citius-orange/10 rounded-lg text-center">
                         <Text className="text-lg m-0 leading-10">💬</Text>
                       </div>
                     </Column>
@@ -208,22 +217,11 @@ export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
               </Section>
             </Section>
 
-            <Section className="bg-brand-dark text-center py-8 px-8 rounded-b-2xl">
+            <Section className="bg-brand-dark text-center p-8 rounded-b-2xl">
               <Text className="text-white/80 text-sm m-0 mb-2">
                 <strong>Contact Form Submission</strong>
               </Text>
-              <Text className="text-white/60 text-xs m-0 mb-4">
-                Received on{" "}
-                {new Date().toLocaleString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  timeZoneName: "short",
-                })}
-              </Text>
+              <Text className="text-white/60 text-xs m-0 mb-4">Received on {receivedAt}</Text>
               <div>
                 <Text className="text-brand-light/50 pb-5 text-xs m-0">
                   This email was automatically generated from your website&apos;s contact form.

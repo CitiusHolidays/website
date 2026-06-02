@@ -61,10 +61,12 @@ export const listStaff = query({
 export const listDirectory = query({
   args: {},
   handler: async (ctx) => {
-    const access = await requireAnyPermission(ctx, [PERMISSIONS.VIEW_TEAM]);
-    const offices = await ctx.db.query("offices").collect();
+    const [access, offices, rows] = await Promise.all([
+      requireAnyPermission(ctx, [PERMISSIONS.VIEW_TEAM]),
+      ctx.db.query("offices").collect(),
+      ctx.db.query("staffUsers").collect(),
+    ]);
     const officeNames = new Map(offices.map((office) => [office._id, office.name]));
-    const rows = await ctx.db.query("staffUsers").collect();
     return rows
       .filter((staff) => staff.active)
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -99,7 +101,7 @@ export const upsertStaff = mutation({
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_STAFF);
     const emailNormalized = normalizeEmail(args.email);
-    if (!emailNormalized || !emailNormalized.includes("@")) {
+    if (!emailNormalized?.includes("@")) {
       throw new ConvexError("A valid email is required");
     }
 

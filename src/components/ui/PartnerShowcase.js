@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import { Ticker } from "motion-plus/react";
 import Image from "next/image";
 import AbuDhabi from "@/static/partners/abudhabi.webp";
@@ -115,7 +115,7 @@ function PartnerBox({ src, alt }) {
       whileHover="showInfo"
     >
       <motion.div
-        className="flex items-center justify-center w-full h-full"
+        className="flex items-center justify-center size-full"
         variants={{
           hideInfo: { scale: 1, filter: "blur(0px)", opacity: 1 },
           showInfo: { scale: 0.9, filter: "blur(5px)", opacity: 0.3 },
@@ -130,7 +130,7 @@ function PartnerBox({ src, alt }) {
         />
       </motion.div>
       <motion.div
-        className="absolute inset-0 flex items-center justify-center px-2 py-2 text-[16px] font-semibold uppercase text-[#222] bg-white/70"
+        className="absolute inset-0 flex items-center justify-center p-2 text-[16px] font-semibold uppercase text-[#222] bg-white/70"
         style={{ textShadow: "1px 1px 0px #fff" }}
         variants={{
           hideInfo: { opacity: 0, scale: 1.2 },
@@ -144,7 +144,7 @@ function PartnerBox({ src, alt }) {
 }
 
 export default function PartnerShowcase({ className }) {
-  const items = partners.map((logo, idx) => <PartnerBox key={idx} src={logo.src} alt={logo.alt} />);
+  const items = partners.map((logo) => <PartnerBox key={logo.alt} src={logo.src} alt={logo.alt} />);
 
   return (
     <motion.section

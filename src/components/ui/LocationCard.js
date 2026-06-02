@@ -1,6 +1,6 @@
 "use client";
 import { MapPin, Phone } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 
 export default function LocationCard({ city, address, phone, mapUrl, index }) {
   return (
@@ -14,12 +14,12 @@ export default function LocationCard({ city, address, phone, mapUrl, index }) {
 
       <div className="space-y-3">
         <div className="flex items-start gap-3">
-          <MapPin className="w-5 h-5 text-citius-orange mt-0.5 flex-shrink-0" />
+          <MapPin className="size-5 text-citius-orange mt-0.5 flex-shrink-0" />
           <p className="text-brand-muted text-sm leading-relaxed">{address}</p>
         </div>
 
         <div className="flex items-center gap-3">
-          <Phone className="w-5 h-5 text-citius-orange flex-shrink-0" />
+          <Phone className="size-5 text-citius-orange flex-shrink-0" />
           <a
             href={`tel:${phone}`}
             className="text-brand-dark text-sm hover:text-citius-orange transition-colors duration-200"
@@ -37,6 +37,7 @@ export default function LocationCard({ city, address, phone, mapUrl, index }) {
             width="100%"
             height="150"
             loading="lazy"
+            sandbox="allow-scripts allow-popups allow-presentation"
             className="rounded-md border border-brand-border"
             style={{ border: 0 }}
             allowFullScreen=""

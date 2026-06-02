@@ -79,23 +79,32 @@ export const list = query({
           .collect()
       : await ctx.db.query("travellers").collect();
     const passportRows = await ctx.db.query("passportDetails").collect();
-    const passportScanByTraveller = new Map(
-      passportRows
-        .filter((row) => Boolean(row.storageId))
-        .map((row) => [String(row.travellerId), true]),
-    );
-    const result = [];
-    for (const traveller of rows.sort((a, b) => b.createdAt - a.createdAt)) {
-      const job = await ctx.db.get(traveller.jobCardId);
-      const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
-      if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
-        continue;
+    const passportScanByTraveller = new Map();
+    for (const row of passportRows) {
+      if (row.storageId) {
+        passportScanByTraveller.set(String(row.travellerId), true);
       }
-      result.push(
-        publicTraveller(traveller, job, passportScanByTraveller.has(String(traveller._id))),
-      );
     }
-    return result;
+    const result = await Promise.all(
+      rows
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .map(async (traveller) => {
+          const job = await ctx.db.get(traveller.jobCardId);
+          if (!job) {
+            return null;
+          }
+          const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+          if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+            return null;
+          }
+          return publicTraveller(
+            traveller,
+            job,
+            passportScanByTraveller.has(String(traveller._id)),
+          );
+        }),
+    );
+    return result.filter(Boolean);
   },
 });
 
@@ -167,21 +176,22 @@ export const create = mutation({
       updatedAt: now,
     });
 
-    await ctx.db.insert("visaRecords", {
-      travellerId: id,
-      jobCardId,
-      status: visaStatus,
-      updatedBy: access.authUserId ?? "unknown",
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await createActivity(ctx, access, {
-      entityType: "traveller",
-      entityId: id,
-      action: "created",
-      message: `${args.fullName.trim()} added to ${job.jobCode}`,
-    });
+    await Promise.all([
+      ctx.db.insert("visaRecords", {
+        travellerId: id,
+        jobCardId,
+        status: visaStatus,
+        updatedBy: access.authUserId ?? "unknown",
+        createdAt: now,
+        updatedAt: now,
+      }),
+      createActivity(ctx, access, {
+        entityType: "traveller",
+        entityId: id,
+        action: "created",
+        message: `${args.fullName.trim()} added to ${job.jobCode}`,
+      }),
+    ]);
     return { id };
   },
 });
@@ -217,7 +227,7 @@ export const update = mutation({
       throw new ConvexError("Traveller not found");
     }
     const job = await ctx.db.get(traveller.jobCardId);
-    const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+    const linkedQuery = await (job?.queryId ? ctx.db.get(job.queryId) : Promise.resolve(null));
     if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -337,68 +347,72 @@ export const remove = mutation({
     travellerId: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TRAVELLERS);
     const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
     if (!travellerId) {
       throw new ConvexError("Invalid traveller id");
     }
-    const traveller = await ctx.db.get(travellerId);
+    const [access, traveller] = await Promise.all([
+      requireStaff(ctx, PERMISSIONS.MANAGE_TRAVELLERS),
+      ctx.db.get(travellerId),
+    ]);
     if (!traveller) {
       throw new ConvexError("Traveller not found");
     }
     const job = await ctx.db.get(traveller.jobCardId);
-    const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+    const [linkedQuery, passportDetails, visaRecords, tickets, seats, meals, rooms] =
+      await Promise.all([
+        job?.queryId ? ctx.db.get(job.queryId) : Promise.resolve(null),
+        ctx.db
+          .query("passportDetails")
+          .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+          .collect(),
+        ctx.db
+          .query("visaRecords")
+          .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+          .collect(),
+        ctx.db
+          .query("tickets")
+          .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+          .collect(),
+        ctx.db
+          .query("seatAllocations")
+          .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+          .collect(),
+        ctx.db
+          .query("mealPreferences")
+          .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+          .collect(),
+        ctx.db
+          .query("roomingListEntries")
+          .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+          .collect(),
+      ]);
     if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
 
-    const passportDetails = await ctx.db
-      .query("passportDetails")
-      .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-      .collect();
-    for (const row of passportDetails) await ctx.db.delete(row._id);
+    await Promise.all([
+      ...passportDetails.map((row) => ctx.db.delete(row._id)),
+      ...visaRecords.map((row) => ctx.db.delete(row._id)),
+      ...tickets.flatMap((row) => [
+        deleteEntityNotifications(ctx, "ticket", row._id),
+        ctx.db.delete(row._id),
+      ]),
+      ...seats.map((row) => ctx.db.delete(row._id)),
+      ...meals.map((row) => ctx.db.delete(row._id)),
+      ...rooms.map((row) => ctx.db.delete(row._id)),
+    ]);
 
-    const visaRecords = await ctx.db
-      .query("visaRecords")
-      .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-      .collect();
-    for (const row of visaRecords) await ctx.db.delete(row._id);
-
-    const tickets = await ctx.db
-      .query("tickets")
-      .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-      .collect();
-    for (const row of tickets) {
-      await deleteEntityNotifications(ctx, "ticket", row._id);
-      await ctx.db.delete(row._id);
-    }
-
-    const seats = await ctx.db
-      .query("seatAllocations")
-      .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-      .collect();
-    for (const row of seats) await ctx.db.delete(row._id);
-
-    const meals = await ctx.db
-      .query("mealPreferences")
-      .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-      .collect();
-    for (const row of meals) await ctx.db.delete(row._id);
-
-    const rooms = await ctx.db
-      .query("roomingListEntries")
-      .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-      .collect();
-    for (const row of rooms) await ctx.db.delete(row._id);
-
-    await createActivity(ctx, access, {
-      entityType: "traveller",
-      entityId: travellerId,
-      action: "deleted",
-      message: `${traveller.fullName} deleted`,
-    });
-    await deleteEntityNotifications(ctx, "traveller", travellerId);
-    await ctx.db.delete(travellerId);
+    await Promise.all([
+      createActivity(ctx, access, {
+        entityType: "traveller",
+        entityId: travellerId,
+        action: "deleted",
+        message: `${traveller.fullName} deleted`,
+      }),
+      deleteEntityNotifications(ctx, "traveller", travellerId),
+      ctx.db.delete(travellerId),
+    ]);
     return { id: travellerId };
   },
 });

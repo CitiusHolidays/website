@@ -1,15 +1,13 @@
 "use client";
 
 import { Map as MapIcon, Sparkles } from "lucide-react";
-import { motion } from "motion/react";
+import { m as motion } from "motion/react";
 import Image from "next/image";
-import {
-  CITIUS_CONNECT_LOGO_HEIGHT,
-  CITIUS_CONNECT_LOGO_WIDTH,
-} from "@/lib/citiusConnectLogo";
+import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
 import citiusLogo from "@/static/logos/logo.webp";
 
 export const BRAND_NAME = "Citius Holidays";
+const CURRENT_YEAR = new Date().getFullYear();
 
 export default function AuthShell({
   title,
@@ -37,8 +35,8 @@ export default function AuthShell({
       >
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-[#1a2c4e] via-[#0B1026] to-[#050814] opacity-80" />
-          <div className="absolute bottom-[-20%] left-[-20%] h-[800px] w-[800px] rounded-full bg-[#1e293b] opacity-10 blur-3xl" />
-          <div className="absolute top-[20%] right-[-10%] h-[400px] w-[400px] rounded-full bg-[#d4af37] opacity-5 blur-[100px]" />
+          <div className="absolute bottom-[-20%] left-[-20%] size-[800px] rounded-full bg-[#1e293b] opacity-10 blur-3xl" />
+          <div className="absolute top-[20%] right-[-10%] size-[400px] rounded-full bg-[#d4af37] opacity-5 blur-[100px]" />
           <div
             className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.03] mix-blend-overlay"
             aria-hidden
@@ -80,7 +78,7 @@ export default function AuthShell({
           >
             <div className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
               <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">
-                <Sparkles className="h-5 w-5" />
+                <Sparkles className="size-5" />
               </div>
               <div>
                 <h3 className="font-heading mb-1 text-lg font-medium text-white">
@@ -95,7 +93,7 @@ export default function AuthShell({
 
             <div className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
               <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">
-                <MapIcon className="h-5 w-5" />
+                <MapIcon className="size-5" />
               </div>
               <div>
                 <h3 className="font-heading mb-1 text-lg font-medium text-white">
@@ -110,7 +108,7 @@ export default function AuthShell({
 
             <div className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
               <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">
-                <Sparkles className="h-5 w-5" />
+                <Sparkles className="size-5" />
               </div>
               <div>
                 <h3 className="font-heading mb-1 text-lg font-medium text-white">Citius Connect</h3>
@@ -127,7 +125,7 @@ export default function AuthShell({
             transition={{ delay: 0.8 }}
             className="text-xs font-light text-white/30"
           >
-            © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
+            © {CURRENT_YEAR} {BRAND_NAME}. All rights reserved.
           </motion.p>
         </div>
       </motion.aside>

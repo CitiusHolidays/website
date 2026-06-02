@@ -2,16 +2,18 @@
 
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
-import { ArrowRight, BriefcaseBusiness, ChevronDown, LogOut, Menu, User, X } from "lucide-react";
-import { AnimatePresence, motion, useScroll, useTransform } from "motion/react";
+import { ArrowRight, Menu } from "lucide-react";
+import { AnimatePresence, m as motion, useScroll, useTransform } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { getTrailsForHub } from "@/data/trails";
 import { logout, useSession } from "@/lib/auth-client";
-import { getSignInAuthUrl, VISIBLE_SIGN_IN_TARGETS } from "@/lib/auth-sign-in-targets";
 import Logo from "@/static/logos/logo.webp";
+import { HeaderMobileMenu } from "./HeaderMobileMenu";
+import { SignInDropdown } from "./HeaderSignInDropdown";
+import { SpiritualTrailsDropdown } from "./HeaderSpiritualTrailsDropdown";
+import { HeaderUserMenu } from "./HeaderUserMenu";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -23,177 +25,6 @@ const navLinks = [
   { href: "/contact", label: "Contact" },
 ];
 
-function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const close = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
-  const items = VISIBLE_SIGN_IN_TARGETS.map((target) => ({
-    ...target,
-    icon: target.id === "employee" ? BriefcaseBusiness : User,
-  }));
-
-  if (variant === "mobile") {
-    return (
-      <div className="flex w-full flex-col items-center gap-3">
-        <span className="text-xs uppercase tracking-[0.25em] text-white/40">Sign In</span>
-        {items.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.id}
-              href={getSignInAuthUrl(item.id)}
-              onClick={() => onSelect?.()}
-              className="flex w-full max-w-xs items-center justify-center gap-3 rounded-full border border-white/15 px-6 py-3 text-sm text-white transition-colors hover:bg-white/10"
-            >
-              <span className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center">
-                <Icon size={18} strokeWidth={2} />
-              </span>
-              {item.label}
-            </Link>
-          );
-        })}
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((current) => !current)}
-        className={`hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium transition-all duration-300 ${
-          isScrolled
-            ? "bg-white/10 text-white hover:bg-white/20"
-            : "bg-white/10 backdrop-blur-md text-white hover:bg-white/20 border border-white/20"
-        }`}
-      >
-        <User size={16} />
-        Sign In
-        <ChevronDown
-          size={14}
-          className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.15 }}
-            className="absolute right-0 top-full z-50 mt-2 min-w-[11rem] overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-xl"
-          >
-            {items.map((item) => {
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.id}
-                  href={getSignInAuthUrl(item.id)}
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                >
-                  <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
-                    <Icon size={16} strokeWidth={2} />
-                  </span>
-                  {item.label}
-                </Link>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function SpiritualTrailsDropdown({ isScrolled, pathname }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  const trails = getTrailsForHub();
-  const isActive = pathname?.startsWith("/pilgrimage");
-
-  useEffect(() => {
-    const close = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={`relative px-4 py-2 text-sm font-medium transition-colors duration-200 flex items-center gap-1 rounded-full group overflow-hidden ${
-          isScrolled ? "text-slate-300 hover:text-white" : "text-white hover:text-white"
-        }`}
-      >
-        <span className="relative z-10 flex items-center gap-1">
-          Spiritual Trails
-          <ChevronDown
-            size={14}
-            className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-          />
-        </span>
-        <motion.div
-          className={`absolute inset-0 bg-white/10 rounded-full transition-opacity duration-200 pointer-events-none ${
-            isActive || open ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-          }`}
-          layoutId="navHover"
-        />
-      </button>
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.15 }}
-            className="absolute left-0 top-full mt-2 w-72 py-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-[min(70vh,420px)] overflow-y-auto"
-          >
-            <Link
-              href="/pilgrimage"
-              onClick={() => setOpen(false)}
-              className="block px-4 py-2.5 text-sm text-gray-900 hover:bg-gray-50 font-heading font-medium tracking-wide"
-            >
-              All trails overview
-            </Link>
-            <div className="border-t border-gray-100 my-1" />
-            {trails.map((t) => (
-              <Link
-                key={t.slug}
-                href={`/pilgrimage/${t.slug}`}
-                onClick={() => setOpen(false)}
-                className="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
-              >
-                <span className="line-clamp-2">{t.title}</span>
-                {t.status === "comingSoon" && (
-                  <span className="text-[10px] uppercase tracking-wider text-amber-700">
-                    Coming soon
-                  </span>
-                )}
-              </Link>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 export default function Header() {
   const pathname = usePathname();
   const isAuthPage = pathname?.startsWith("/auth");
@@ -204,7 +35,6 @@ export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const userMenuRef = useRef(null);
 
-  // Get session data
   const { data: session, isPending } = useSession();
   const user = session?.user;
   const { isAuthenticated } = useConvexAuth();
@@ -217,11 +47,10 @@ export default function Header() {
     const updateScroll = () => {
       setIsScrolled(window.scrollY > 20);
     };
-    window.addEventListener("scroll", updateScroll);
+    window.addEventListener("scroll", updateScroll, { passive: true });
     return () => window.removeEventListener("scroll", updateScroll);
   }, []);
 
-  // Close user menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
@@ -238,7 +67,6 @@ export default function Header() {
     window.location.href = "/";
   };
 
-  // Do not render the header on auth pages
   if (isAuthPage) return null;
 
   return (
@@ -259,12 +87,11 @@ export default function Header() {
           }`}
           layout="position"
         >
-          {/* Logo */}
           <Link href="/" className="relative z-10 flex items-center gap-2 group">
             <div
               className={`relative transition-all duration-300 ${isScrolled ? "scale-90" : "scale-100"}`}
             >
-              <div className={`rounded p-1`}>
+              <div className="rounded p-1">
                 <Image
                   src={Logo}
                   alt="Citius"
@@ -277,7 +104,6 @@ export default function Header() {
             </div>
           </Link>
 
-          {/* Desktop Nav */}
           <nav className="hidden lg:flex items-center gap-1">
             {navLinks.slice(0, 4).map((link) => (
               <Link
@@ -312,106 +138,23 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* CTA / User Menu / Mobile Menu Toggle */}
           <div className="flex items-center gap-3">
-            {/* User Authentication Section */}
             {isPending ? (
-              // Loading state
-              <div className="hidden sm:block w-8 h-8 rounded-full bg-white/10 animate-pulse" />
+              <div className="hidden sm:block size-8 rounded-full bg-white/10 animate-pulse" />
             ) : user ? (
-              // Logged in - User dropdown
-              <div className="relative" ref={userMenuRef}>
-                <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
-                    isScrolled
-                      ? "bg-white/10 text-white hover:bg-white/20"
-                      : "bg-white/10 backdrop-blur-md text-white hover:bg-white/20 border border-white/20"
-                  }`}
-                >
-                  {user.image ? (
-                    <Image
-                      src={user.image}
-                      alt={user.name || "User"}
-                      width={28}
-                      height={28}
-                      className="rounded-full"
-                    />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-citius-orange flex items-center justify-center">
-                      <span className="text-white text-xs font-bold">
-                        {user.name?.charAt(0)?.toUpperCase() ||
-                          user.email?.charAt(0)?.toUpperCase() ||
-                          "U"}
-                      </span>
-                    </div>
-                  )}
-                  {isScrolled ? (
-                    <></>
-                  ) : (
-                    <span className="hidden md:inline max-w-[100px] truncate">
-                      {user.name?.split(" ")[0] || "Account"}
-                    </span>
-                  )}
-                  <ChevronDown
-                    size={14}
-                    className={`transition-transform duration-200 ${userMenuOpen ? "rotate-180" : ""}`}
-                  />
-                </button>
-
-                {/* User Dropdown Menu */}
-                <AnimatePresence>
-                  {userMenuOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-full mt-2 w-56 py-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50"
-                    >
-                      {/* User Info */}
-                      <div className="px-4 py-3 border-b border-gray-100">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
-                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                      </div>
-
-                      {/* Menu Items */}
-                      <div className="py-1">
-                        {canAccessPortal && (
-                          <Link
-                            href="/portal"
-                            onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                          >
-                            <BriefcaseBusiness size={16} />
-                            Employee Portal
-                          </Link>
-                        )}
-                        <Link
-                          href="/account"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <User size={16} />
-                          My Account
-                        </Link>
-                        <button
-                          onClick={handleLogout}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
-                        >
-                          <LogOut size={16} />
-                          Sign Out
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <HeaderUserMenu
+                user={user}
+                isScrolled={isScrolled}
+                userMenuOpen={userMenuOpen}
+                setUserMenuOpen={setUserMenuOpen}
+                userMenuRef={userMenuRef}
+                canAccessPortal={canAccessPortal}
+                onLogout={handleLogout}
+              />
             ) : (
               <SignInDropdown isScrolled={isScrolled} />
             )}
 
-            {/* Let's Talk CTA */}
             <Link
               href="/contact"
               className={`hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${
@@ -424,6 +167,7 @@ export default function Header() {
             </Link>
 
             <button
+              type="button"
               onClick={() => setIsOpen(true)}
               className={`lg:hidden p-2 rounded-full transition-colors ${
                 isScrolled ? "text-white hover:bg-white/10" : "text-white hover:bg-white/10"
@@ -435,157 +179,16 @@ export default function Header() {
         </motion.div>
       </motion.header>
 
-      {/* Mobile Menu Overlay */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-slate-950/98 backdrop-blur-xl flex flex-col justify-center items-center"
-          >
-            <button
-              onClick={() => setIsOpen(false)}
-              className="absolute top-8 right-8 p-4 text-white/50 hover:text-white transition-colors"
-            >
-              <X size={32} />
-            </button>
-
-            <nav className="flex flex-col items-center gap-6 max-h-[65vh] overflow-y-auto px-4 w-full">
-              {navLinks.slice(0, 4).map((link, i) => (
-                <motion.div
-                  key={link.href}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 + i * 0.1 }}
-                >
-                  <Link
-                    href={link.href}
-                    onClick={() => setIsOpen(false)}
-                    className="text-4xl font-heading font-light text-white hover:text-blue-400 transition-colors block text-center"
-                  >
-                    {link.label}
-                  </Link>
-                </motion.div>
-              ))}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.45 }}
-                className="flex flex-col items-center gap-3 w-full border-y border-white/10 py-6"
-              >
-                <span className="text-xs uppercase tracking-[0.25em] text-white/40">
-                  Spiritual Trails
-                </span>
-                <Link
-                  href="/pilgrimage"
-                  onClick={() => setIsOpen(false)}
-                  className="text-2xl font-heading font-light text-white hover:text-blue-400 transition-colors"
-                >
-                  Overview
-                </Link>
-                <div className="flex flex-col items-center gap-2 mt-1">
-                  {getTrailsForHub().map((t) => (
-                    <Link
-                      key={t.slug}
-                      href={`/pilgrimage/${t.slug}`}
-                      onClick={() => setIsOpen(false)}
-                      className="text-base text-white/80 hover:text-blue-300 transition-colors text-center max-w-xs"
-                    >
-                      {t.title}
-                      {t.status === "comingSoon" ? " · soon" : ""}
-                    </Link>
-                  ))}
-                </div>
-              </motion.div>
-              {navLinks.slice(4).map((link, i) => (
-                <motion.div
-                  key={link.href}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.55 + i * 0.08 }}
-                >
-                  <Link
-                    href={link.href}
-                    onClick={() => setIsOpen(false)}
-                    className="text-4xl font-heading font-light text-white hover:text-blue-400 transition-colors block text-center"
-                  >
-                    {link.label}
-                  </Link>
-                </motion.div>
-              ))}
-            </nav>
-
-            {/* Mobile Auth Section */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="mt-8 flex flex-col items-center gap-4"
-            >
-              {user ? (
-                <>
-                  <div className="flex items-center gap-3 px-4 py-2 bg-white/10 rounded-full">
-                    {user.image ? (
-                      <Image
-                        src={user.image}
-                        alt={user.name || "User"}
-                        width={32}
-                        height={32}
-                        className="rounded-full"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-citius-orange flex items-center justify-center">
-                        <span className="text-white text-sm font-bold">
-                          {user.name?.charAt(0)?.toUpperCase() || "U"}
-                        </span>
-                      </div>
-                    )}
-                    <span className="text-white font-medium">{user.name?.split(" ")[0]}</span>
-                  </div>
-                  {canAccessPortal && (
-                    <Link
-                      href="/portal"
-                      onClick={() => setIsOpen(false)}
-                      className="text-lg text-white hover:text-blue-300 transition-colors"
-                    >
-                      Employee Portal
-                    </Link>
-                  )}
-                  <button
-                    onClick={() => {
-                      handleLogout();
-                      setIsOpen(false);
-                    }}
-                    className="text-lg text-red-400 hover:text-red-300 transition-colors"
-                  >
-                    Sign Out
-                  </button>
-                </>
-              ) : (
-                <SignInDropdown
-                  isScrolled={false}
-                  variant="mobile"
-                  onSelect={() => setIsOpen(false)}
-                />
-              )}
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.7 }}
-              className="mt-8"
-            >
-              <Image
-                src={Logo}
-                alt="Citius"
-                width={140}
-                height={50}
-                className="brightness-0 invert opacity-50"
-              />
-            </motion.div>
-          </motion.div>
+          <HeaderMobileMenu
+            isOpen={isOpen}
+            onClose={() => setIsOpen(false)}
+            navLinks={navLinks}
+            user={user}
+            canAccessPortal={canAccessPortal}
+            onLogout={handleLogout}
+          />
         )}
       </AnimatePresence>
     </>

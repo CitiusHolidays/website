@@ -14,7 +14,10 @@ export default function TempleChecklist({ templeIds, showAllTemples = false }) {
 
   const list = showAllTemples
     ? TEMPLES
-    : (templeIds ?? []).map((id) => getTempleById(id)).filter(Boolean);
+    : (templeIds ?? []).flatMap((id) => {
+        const temple = getTempleById(id);
+        return temple ? [temple] : [];
+      });
 
   return (
     <ul className="space-y-2">
@@ -34,18 +37,18 @@ export default function TempleChecklist({ templeIds, showAllTemples = false }) {
             >
               <span
                 className={cn(
-                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                  "flex size-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
                   visited
                     ? "border-citius-orange bg-citius-orange text-white"
                     : "border-brand-light text-transparent",
                 )}
               >
-                <Check className="h-4 w-4" strokeWidth={3} />
+                <Check className="size-4" strokeWidth={3} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="font-heading text-brand-dark">{temple.name}</p>
                 <p className="font-sans text-xs text-brand-muted flex items-center gap-1 mt-0.5">
-                  <MapPin className="h-3 w-3 shrink-0" />
+                  <MapPin className="size-3 shrink-0" />
                   {temple.city}, {temple.state}
                   {showAllTemples && (
                     <span className="ml-2 text-citius-blue/80">
