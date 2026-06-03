@@ -25,9 +25,10 @@ export function AuthVerificationNotice({ email, onBackToSignIn }) {
       </div>
       <h3 className="font-heading text-2xl font-medium text-emerald-900">Check Your Email</h3>
       <p className="text-emerald-700 text-sm leading-relaxed font-light">
-        We&apos;ve sent a verification link to{" "}
-        <strong className="font-medium text-emerald-900">{email}</strong>. Please click the link in
-        the email to verify and activate your account.
+        If this is a new account, we sent a verification link to{" "}
+        <strong className="font-medium text-emerald-900">{email}</strong>. If you already have an
+        account (including Google sign-in), check your inbox for a password or verification email
+        instead.
       </p>
       <button
         type="button"

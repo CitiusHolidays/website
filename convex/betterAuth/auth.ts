@@ -57,6 +57,20 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       enabled: true,
       minPasswordLength: 8,
       requireEmailVerification: true,
+      onExistingUserSignUp: async ({ user }) => {
+        if (!user.email) {
+          return;
+        }
+        try {
+          await requireRunMutationCtx(ctx).scheduler.runAfter(
+            0,
+            internal.authAccountLinking.handleExistingSignUpEmail,
+            { email: user.email },
+          );
+        } catch (err) {
+          console.error("Failed to queue existing-user sign-up recovery email:", err);
+        }
+      },
       sendResetPassword: async ({ user, url, token }) => {
         const resetUrl = token ? `${baseURL}/auth/reset-password?token=${token}` : url;
         const html = buildAuthEmailHtml({
@@ -82,6 +96,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     },
     emailVerification: {
       sendOnSignUp: true,
+      sendOnSignIn: true,
       sendVerificationEmail: async ({ user, url, token }) => {
         const html = buildAuthEmailHtml({
           greetingName: user.name || "there",
@@ -140,6 +155,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         enabled: true,
         trustedProviders: googleClientId ? ["google"] : [],
         allowDifferentEmails: false,
+        // Google is trusted; allow linking even when the email/password account is not verified yet.
+        requireLocalEmailVerified: false,
+        updateUserInfoOnLink: true,
       },
     },
     databaseHooks: {

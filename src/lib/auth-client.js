@@ -39,6 +39,13 @@ export async function signInWithGoogle(callbackURL = "/") {
   });
 }
 
+export async function requestPasswordReset({ email, redirectTo }) {
+  return await authClient.requestPasswordReset({
+    email,
+    redirectTo,
+  });
+}
+
 export async function logout() {
   return await signOut();
 }

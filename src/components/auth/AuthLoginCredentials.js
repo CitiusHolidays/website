@@ -8,6 +8,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-client";
+import { formatAuthApiError } from "@/lib/auth-errors";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
 import { AuthLoginForm, AuthVerificationNotice } from "./AuthLoginForm";
 
@@ -81,7 +82,7 @@ export function AuthLoginCredentials({
         });
 
         if (result?.error) {
-          setFormError(result.error.message || "Failed to sign in");
+          setFormError(formatAuthApiError(result.error.message, result.error.code));
         } else {
           try {
             await syncAuthIdentity({});
@@ -99,14 +100,7 @@ export function AuthLoginCredentials({
         });
 
         if (result?.error) {
-          const message = result.error.message || "Failed to sign up";
-          if (/already|exists|duplicate/i.test(message)) {
-            setFormError(
-              "An account with this email already exists. Use Forgot password to set your password, or sign in with Google if you used it before.",
-            );
-          } else {
-            setFormError(message);
-          }
+          setFormError(formatAuthApiError(result.error.message, result.error.code));
         } else {
           setIsVerificationSent(true);
         }

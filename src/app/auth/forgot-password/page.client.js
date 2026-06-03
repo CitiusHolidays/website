@@ -17,7 +17,7 @@ export default function ForgotPasswordPage() {
     setStatus({ type: "", message: "" });
 
     try {
-      const { error } = await authClient.forgetPassword({
+      const { error } = await authClient.requestPasswordReset({
         email,
         redirectTo: `${window.location.origin}/auth/reset-password`,
       });
@@ -46,7 +46,7 @@ export default function ForgotPasswordPage() {
       }
       panelSubtext="We&apos;ll email you a secure link to set a new password for your Citius Holidays account."
       formTitle="Reset password"
-      formDescription="Enter your email and we'll send you a link to choose a new password."
+      formDescription="Enter your email and we'll send you a link to set or reset your password. Works for Google-only accounts too."
     >
       {status.message ? (
         <div

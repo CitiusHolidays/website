@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import AuthLoginPageClient from "@/components/auth/AuthLoginPageClient";
+import { formatAuthCallbackError } from "@/lib/auth-errors";
 import { getServerUser } from "@/lib/auth-server";
 import { getAuthVariant, getAuthVariantFromCallbackUrl } from "@/lib/auth-sign-in-targets";
 
@@ -12,7 +13,7 @@ export async function createAuthLoginPage({ variantId, searchParams }) {
     redirect(variant.href);
   }
 
-  const error = params?.error;
+  const error = formatAuthCallbackError(params?.error);
   const mode = params?.mode || "signin";
 
   return <AuthLoginPageClient variantId={variantId} initialMode={mode} error={error} />;

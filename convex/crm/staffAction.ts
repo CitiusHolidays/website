@@ -2,15 +2,12 @@
 
 import crypto from "node:crypto";
 import { ConvexError, v } from "convex/values";
-import { api, components, internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { type ActionCtx, action, internalAction } from "../_generated/server";
 import { authComponent, createAuth } from "../betterAuth/auth";
-import { normalizeEmail } from "./lib";
-
-function getSiteUrl() {
-  return process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-}
+import { sendPasswordSetupEmail, sendVerificationEmail } from "../lib/betterAuthEmail";
+import { findAuthUserByEmail } from "../lib/betterAuthLookup";
 
 function isExistingUserError(err: unknown) {
   const message =
@@ -21,42 +18,6 @@ function isExistingUserError(err: unknown) {
         : String(err);
   const lower = message.toLowerCase();
   return lower.includes("already") || lower.includes("exists") || lower.includes("duplicate");
-}
-
-async function sendVerificationEmail(auth: ReturnType<typeof createAuth>, email: string) {
-  const siteUrl = getSiteUrl();
-  const callbackURL = `${siteUrl}/auth/email-verified`;
-  const api = auth.api as {
-    sendVerificationEmail?: (input: {
-      body: { email: string; callbackURL?: string };
-    }) => Promise<{ status?: boolean } | undefined>;
-  };
-  if (!api.sendVerificationEmail) {
-    return { sent: false, reason: "verification_api_unavailable" as const };
-  }
-  const result = await api.sendVerificationEmail({
-    body: { email, callbackURL },
-  });
-  return { sent: Boolean(result?.status ?? true), reason: "verification" as const };
-}
-
-async function findAuthUserByEmail(ctx: ActionCtx, email: string) {
-  const emailNormalized = normalizeEmail(email);
-  const candidates = [emailNormalized, email.trim()];
-  const authUsers = await Promise.all(
-    candidates.map((candidate) =>
-      ctx.runQuery(components.betterAuth.adapter.findOne, {
-        model: "user",
-        where: [{ field: "email", value: candidate }],
-      }),
-    ),
-  );
-  for (const authUser of authUsers) {
-    if (authUser && typeof authUser === "object" && "_id" in authUser) {
-      return authUser as { _id: string; emailVerified?: boolean; email?: string };
-    }
-  }
-  return null;
 }
 
 async function resolveCanonicalAuthUserId(ctx: ActionCtx, email: string, fallbackId?: string) {
@@ -89,17 +50,6 @@ async function ensureStaffAuthLink(
   return canonicalAuthUserId;
 }
 
-async function sendPasswordSetupEmail(auth: ReturnType<typeof createAuth>, email: string) {
-  const siteUrl = getSiteUrl();
-  const resetResult = await auth.api.requestPasswordReset({
-    body: {
-      email,
-      redirectTo: `${siteUrl}/auth/reset-password`,
-    },
-  });
-  return Boolean(resetResult?.status);
-}
-
 type ProvisionResult =
   | { ok: true; step: "verification_sent" | "password_setup_sent" }
   | { ok: false; step: "error"; message: string };
@@ -110,7 +60,8 @@ async function provisionStaffCore(
 ): Promise<ProvisionResult> {
   const auth = createAuth(ctx);
   const tempPassword = `${crypto.randomUUID()}A1!`;
-  const siteUrl = getSiteUrl();
+  const siteUrl =
+    process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   const callbackURL = `${siteUrl}/auth/email-verified`;
 
   try {
