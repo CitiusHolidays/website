@@ -10,6 +10,7 @@ import {
   notifyRoles,
   PERMISSIONS,
   publicQuery,
+  requestedProposalQueryIds,
   requireAnyPermission,
   requireStaff,
 } from "./lib";
@@ -40,30 +41,128 @@ function normalizeTaxRate(value: number) {
   return value;
 }
 
-const publicProposal = (proposal: any, linkedQuery: any, attachments: any[] = []) => ({
-  id: proposal._id,
-  proposalCode: proposal.proposalCode,
-  queryId: proposal.queryId ?? null,
-  query: linkedQuery ? publicQuery(linkedQuery) : null,
-  clientName: proposal.clientName,
-  preparedBy: proposal.preparedBy,
-  landCostPerPax: proposal.landCostPerPax ?? 0,
-  airfarePerPax: proposal.airfarePerPax ?? 0,
-  visaCostPerPax: proposal.visaCostPerPax ?? 0,
-  sellingPrice: proposal.sellingPrice ?? 0,
-  costPrice: proposal.costPrice ?? 0,
-  taxRate: proposal.taxRate ?? null,
-  pricingEnteredAt: proposal.pricingEnteredAt
-    ? new Date(proposal.pricingEnteredAt).toISOString()
-    : null,
-  itinerarySummary: proposal.itinerarySummary ?? "",
-  status: proposal.status,
-  attachments: attachments.sort((a, b) => b.createdAt - a.createdAt).map(publicProposalAttachment),
-  finalizedPdf: publicFinalizedPdf(proposal),
-  sentAt: proposal.sentAt ? new Date(proposal.sentAt).toISOString() : null,
-  createdAt: new Date(proposal.createdAt).toISOString(),
-  updatedAt: new Date(proposal.updatedAt).toISOString(),
-});
+async function resolveLinkedQueries(ctx: any, access: any, queryIdStrings: string[]) {
+  const normalizedIds = [];
+  const seen = new Set<string>();
+  for (const value of queryIdStrings) {
+    if (!value) continue;
+    const queryId = ctx.db.normalizeId("queries", value);
+    if (!queryId) {
+      throw new ConvexError("Invalid query id");
+    }
+    if (seen.has(queryId)) continue;
+    seen.add(queryId);
+    normalizedIds.push(queryId);
+  }
+
+  const linkedQueries = [];
+  for (const queryId of normalizedIds) {
+    const linkedQuery = await ctx.db.get(queryId);
+    if (!linkedQuery) {
+      throw new ConvexError("Linked query not found");
+    }
+    if (!canSeeQueryRecord(access, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    linkedQueries.push(linkedQuery);
+  }
+  return linkedQueries;
+}
+
+async function proposalQueryLinks(ctx: any, proposalId: any) {
+  return await ctx.db
+    .query("proposalQueryLinks")
+    .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposalId))
+    .collect();
+}
+
+async function linkedQueriesForProposal(ctx: any, proposal: any) {
+  const links = await proposalQueryLinks(ctx, proposal._id);
+  const queryIds = new Set<string>();
+  if (proposal.queryId) {
+    queryIds.add(proposal.queryId);
+  }
+  for (const link of links) {
+    queryIds.add(link.queryId);
+  }
+
+  const linkedQueries = [];
+  for (const queryId of queryIds) {
+    const linkedQuery = await ctx.db.get(queryId);
+    if (linkedQuery) {
+      linkedQueries.push(linkedQuery);
+    }
+  }
+  return linkedQueries;
+}
+
+async function syncProposalQueryLinks(
+  ctx: any,
+  proposalId: any,
+  queryIds: string[],
+  createdBy: string,
+) {
+  const existingLinks = await proposalQueryLinks(ctx, proposalId);
+  const target = new Set(queryIds);
+  await Promise.all(
+    existingLinks.map((link: any) =>
+      target.has(link.queryId) ? Promise.resolve() : ctx.db.delete(link._id),
+    ),
+  );
+
+  const existing = new Set(existingLinks.map((link: any) => link.queryId));
+  const now = Date.now();
+  await Promise.all(
+    queryIds.map(async (queryId) => {
+      if (existing.has(queryId)) return;
+      await ctx.db.insert("proposalQueryLinks", {
+        proposalId,
+        queryId,
+        createdBy,
+        createdAt: now,
+      });
+    }),
+  );
+}
+
+async function deleteProposalQueryLinks(ctx: any, proposalId: any) {
+  const links = await proposalQueryLinks(ctx, proposalId);
+  await Promise.all(links.map((link: any) => ctx.db.delete(link._id)));
+}
+
+const publicProposal = (proposal: any, linkedQueries: any[] = [], attachments: any[] = []) => {
+  const primaryQuery =
+    linkedQueries.find((query) => query._id === proposal.queryId) ?? linkedQueries[0] ?? null;
+  const queryIds = linkedQueries.map((query) => query._id);
+  return {
+    id: proposal._id,
+    proposalCode: proposal.proposalCode,
+    queryId: primaryQuery?._id ?? proposal.queryId ?? null,
+    queryIds,
+    query: primaryQuery ? publicQuery(primaryQuery) : null,
+    queries: linkedQueries.map(publicQuery),
+    clientName: proposal.clientName,
+    preparedBy: proposal.preparedBy,
+    landCostPerPax: proposal.landCostPerPax ?? 0,
+    airfarePerPax: proposal.airfarePerPax ?? 0,
+    visaCostPerPax: proposal.visaCostPerPax ?? 0,
+    sellingPrice: proposal.sellingPrice ?? 0,
+    costPrice: proposal.costPrice ?? 0,
+    taxRate: proposal.taxRate ?? null,
+    pricingEnteredAt: proposal.pricingEnteredAt
+      ? new Date(proposal.pricingEnteredAt).toISOString()
+      : null,
+    itinerarySummary: proposal.itinerarySummary ?? "",
+    status: proposal.status,
+    attachments: attachments
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map(publicProposalAttachment),
+    finalizedPdf: publicFinalizedPdf(proposal),
+    sentAt: proposal.sentAt ? new Date(proposal.sentAt).toISOString() : null,
+    createdAt: new Date(proposal.createdAt).toISOString(),
+    updatedAt: new Date(proposal.updatedAt).toISOString(),
+  };
+};
 
 export const list = query({
   args: {},
@@ -84,15 +183,13 @@ export const list = query({
       rows
         .sort((a, b) => b.createdAt - a.createdAt)
         .map(async (proposal) => {
-          const linkedQuery = await (proposal.queryId
-            ? ctx.db.get(proposal.queryId)
-            : Promise.resolve(null));
-          if (!canSeeProposalRecord(access, proposal, linkedQuery)) {
+          const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
+          if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
             return null;
           }
           return publicProposal(
             proposal,
-            linkedQuery,
+            linkedQueries,
             attachmentsByProposal.get(proposal._id) ?? [],
           );
         }),
@@ -104,6 +201,7 @@ export const list = query({
 export const create = mutation({
   args: {
     queryId: v.optional(v.string()),
+    queryIds: v.optional(v.array(v.string())),
     clientName: v.optional(v.string()),
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
@@ -114,14 +212,12 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_PROPOSALS);
-    const queryId = args.queryId ? ctx.db.normalizeId("queries", args.queryId) : null;
-    const linkedQuery = queryId ? await ctx.db.get(queryId) : null;
-    if (args.queryId && !linkedQuery) {
-      throw new ConvexError("Linked query not found");
-    }
-    if (linkedQuery && !canSeeQueryRecord(access, linkedQuery)) {
-      throw new ConvexError("FORBIDDEN");
-    }
+    const linkedQueries = await resolveLinkedQueries(
+      ctx,
+      access,
+      requestedProposalQueryIds(args) ?? [],
+    );
+    const primaryQuery = linkedQueries[0] ?? null;
 
     const now = Date.now();
     const landCostPerPax = args.landCostPerPax ?? 0;
@@ -134,10 +230,10 @@ export const create = mutation({
       airfarePerPax > 0 ||
       visaCostPerPax > 0;
     const proposalCode = await nextCode(ctx, "proposals", "P");
-    const clientName = linkedQuery?.clientName || args.clientName?.trim() || "Unlinked client";
+    const clientName = primaryQuery?.clientName || args.clientName?.trim() || "Unlinked client";
     const id = await ctx.db.insert("proposals", {
       proposalCode,
-      queryId: queryId ?? undefined,
+      queryId: primaryQuery?._id,
       clientName,
       preparedBy: access.name,
       landCostPerPax,
@@ -153,6 +249,12 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    await syncProposalQueryLinks(
+      ctx,
+      id,
+      linkedQueries.map((query) => query._id),
+      access.authUserId ?? "unknown",
+    );
 
     await createActivity(ctx, access, {
       entityType: "proposal",
@@ -169,6 +271,7 @@ export const update = mutation({
   args: {
     proposalId: v.string(),
     queryId: v.optional(v.string()),
+    queryIds: v.optional(v.array(v.string())),
     clientName: v.optional(v.string()),
     landCostPerPax: v.optional(v.number()),
     airfarePerPax: v.optional(v.number()),
@@ -187,31 +290,20 @@ export const update = mutation({
     if (!proposal) {
       throw new ConvexError("Proposal not found");
     }
-    const currentLinkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
-    if (!canSeeProposalRecord(access, proposal, currentLinkedQuery)) {
+    const currentLinkedQueries = await linkedQueriesForProposal(ctx, proposal);
+    if (!canSeeProposalRecord(access, proposal, currentLinkedQueries)) {
       throw new ConvexError("FORBIDDEN");
     }
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    let linkedQuery = currentLinkedQuery;
-    if (args.queryId !== undefined) {
-      const queryId = args.queryId ? ctx.db.normalizeId("queries", args.queryId) : null;
-      if (args.queryId && !queryId) {
-        throw new ConvexError("Invalid query id");
-      }
-      if (queryId) {
-        linkedQuery = await ctx.db.get(queryId);
-        if (!linkedQuery) {
-          throw new ConvexError("Linked query not found");
-        }
-        if (!canSeeQueryRecord(access, linkedQuery)) {
-          throw new ConvexError("FORBIDDEN");
-        }
-        patch.queryId = queryId;
-        patch.clientName = linkedQuery.clientName;
-      } else {
-        patch.queryId = undefined;
-        linkedQuery = null;
+    const requestedQueryIds = requestedProposalQueryIds(args);
+    let nextLinkedQueries: any[] | null = null;
+    if (requestedQueryIds !== null) {
+      nextLinkedQueries = await resolveLinkedQueries(ctx, access, requestedQueryIds);
+      const primaryQuery = nextLinkedQueries[0] ?? null;
+      patch.queryId = primaryQuery?._id;
+      if (primaryQuery) {
+        patch.clientName = primaryQuery.clientName;
       }
     }
     if (args.clientName !== undefined) patch.clientName = args.clientName.trim();
@@ -247,6 +339,14 @@ export const update = mutation({
     }
 
     await ctx.db.patch(proposalId, patch);
+    if (nextLinkedQueries !== null) {
+      await syncProposalQueryLinks(
+        ctx,
+        proposalId,
+        nextLinkedQueries.map((query) => query._id),
+        access.authUserId ?? "unknown",
+      );
+    }
     await createActivity(ctx, access, {
       entityType: "proposal",
       entityId: proposalId,
@@ -275,8 +375,8 @@ export const markSent = mutation({
     if (!proposal) {
       throw new ConvexError("Proposal not found");
     }
-    const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
-    if (!canSeeProposalRecord(access, proposal, linkedQuery)) {
+    const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
+    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
       throw new ConvexError("FORBIDDEN");
     }
     const now = Date.now();
@@ -285,12 +385,14 @@ export const markSent = mutation({
       sentAt: now,
       updatedAt: now,
     });
-    if (proposal.queryId) {
-      await ctx.db.patch(proposal.queryId, {
-        contractingStatus: "Proposal sent",
-        updatedAt: now,
-      });
-    }
+    await Promise.all(
+      linkedQueries.map((linkedQuery) =>
+        ctx.db.patch(linkedQuery._id, {
+          contractingStatus: "Proposal sent",
+          updatedAt: now,
+        }),
+      ),
+    );
     await createActivity(ctx, access, {
       entityType: "proposal",
       entityId: proposalId,
@@ -321,8 +423,8 @@ export const remove = mutation({
     if (!proposal) {
       throw new ConvexError("Proposal not found");
     }
-    const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
-    if (!canSeeProposalRecord(access, proposal, linkedQuery)) {
+    const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
+    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
       throw new ConvexError("FORBIDDEN");
     }
     const { storageIds } = await ctx.runMutation(
@@ -349,6 +451,7 @@ export const remove = mutation({
         message: `${proposal.proposalCode} deleted`,
       }),
       deleteEntityNotifications(ctx, "proposal", proposalId),
+      deleteProposalQueryLinks(ctx, proposalId),
       ctx.db.delete(proposalId),
     ]);
     return { id: proposalId };
@@ -414,12 +517,12 @@ export const getFinalizedPdfRecord = query({
     if (!proposal?.finalizedPdfStorageId) {
       return null;
     }
-    const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
+    const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
     const access = await requireAnyPermission(ctx, [
       PERMISSIONS.VIEW_PROPOSALS,
       PERMISSIONS.MANAGE_JOB_CARDS,
     ]);
-    if (!canSeeProposalRecord(access, proposal, linkedQuery)) {
+    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
       throw new ConvexError("FORBIDDEN");
     }
     return {

@@ -355,6 +355,16 @@ export default defineSchema({
     .index("by_createdBy", ["createdBy"])
     .index("by_status", ["status"]),
 
+  proposalQueryLinks: defineTable({
+    proposalId: v.id("proposals"),
+    queryId: v.id("queries"),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_proposalId", ["proposalId"])
+    .index("by_queryId", ["queryId"])
+    .index("by_proposalId_and_queryId", ["proposalId", "queryId"]),
+
   proposalAttachments: defineTable({
     proposalId: v.id("proposals"),
     storageId: v.id("_storage"),

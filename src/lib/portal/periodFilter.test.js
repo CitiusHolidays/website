@@ -1,26 +1,59 @@
-import { describe, expect, it } from "vitest";
-import { filterByPeriod, isInPeriod, parseRowDate, resolvePeriodRange } from "./periodFilter.js";
+import { describe, expect, test } from "bun:test";
+import {
+  dateRangeQueryArg,
+  EMPTY_DATE_RANGE,
+  filterByDateRange,
+  isInDateRange,
+  normalizeDateRange,
+  parseRowDate,
+  resolveDateRange,
+} from "./periodFilter.js";
 
 describe("periodFilter", () => {
-  it("returns null range for all time", () => {
-    expect(resolvePeriodRange("all")).toBeNull();
+  test("returns null range when both dates are empty", () => {
+    expect(resolveDateRange(EMPTY_DATE_RANGE)).toBeNull();
+    expect(dateRangeQueryArg(EMPTY_DATE_RANGE)).toBeUndefined();
   });
 
-  it("parses ISO and date-only values", () => {
+  test("parses ISO and date-only values", () => {
     expect(parseRowDate("2026-01-15")).toBe(new Date("2026-01-15T00:00:00").getTime());
     expect(parseRowDate("2026-01-15T10:00:00.000Z")).toBe(Date.parse("2026-01-15T10:00:00.000Z"));
   });
 
-  it("filters rows by createdAt within the selected period", () => {
-    const now = Date.now();
+  test("swaps inverted from/to dates", () => {
+    expect(normalizeDateRange({ from: "2026-02-01", to: "2026-01-01" })).toEqual({
+      from: "2026-01-01",
+      to: "2026-02-01",
+    });
+  });
+
+  test("filters rows by createdAt within an explicit date range", () => {
     const rows = [
-      { id: "recent", createdAt: new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString() },
-      { id: "old", createdAt: new Date(now - 40 * 24 * 60 * 60 * 1000).toISOString() },
+      { id: "in-range", createdAt: "2026-01-15T10:00:00.000Z" },
+      { id: "out-range", createdAt: "2025-12-01T10:00:00.000Z" },
     ];
 
-    expect(filterByPeriod(rows, "all")).toHaveLength(2);
-    expect(filterByPeriod(rows, "month").map((row) => row.id)).toEqual(["recent"]);
-    expect(isInPeriod(rows[0].createdAt, "month")).toBe(true);
-    expect(isInPeriod(rows[1].createdAt, "month")).toBe(false);
+    const range = { from: "2026-01-01", to: "2026-01-31" };
+    expect(filterByDateRange(rows, range).map((row) => row.id)).toEqual(["in-range"]);
+    expect(isInDateRange(rows[0].createdAt, range)).toBe(true);
+    expect(isInDateRange(rows[1].createdAt, range)).toBe(false);
+  });
+
+  test("supports open-ended ranges", () => {
+    const rows = [
+      { id: "recent", createdAt: new Date("2026-02-01T12:00:00").toISOString() },
+      { id: "old", createdAt: new Date("2025-01-01T12:00:00").toISOString() },
+    ];
+    expect(filterByDateRange(rows, { from: "2026-01-01", to: null }).map((row) => row.id)).toEqual([
+      "recent",
+    ]);
+    expect(filterByDateRange(rows, { from: null, to: "2025-06-30" }).map((row) => row.id)).toEqual([
+      "old",
+    ]);
+  });
+
+  test("includes the full end day", () => {
+    const endOfDay = new Date("2026-01-15T23:59:59").getTime();
+    expect(isInDateRange(endOfDay, { from: "2026-01-15", to: "2026-01-15" })).toBe(true);
   });
 });

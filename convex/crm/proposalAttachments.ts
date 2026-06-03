@@ -31,11 +31,28 @@ async function requireVisibleProposal(ctx: any, proposalId: Id<"proposals">) {
   if (!proposal) {
     throw new ConvexError("Proposal not found");
   }
-  const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
-  if (!canSeeProposalRecord(access, proposal, linkedQuery)) {
+  const links = await ctx.db
+    .query("proposalQueryLinks")
+    .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposalId))
+    .collect();
+  const queryIds = new Set<string>();
+  if (proposal.queryId) {
+    queryIds.add(proposal.queryId);
+  }
+  for (const link of links) {
+    queryIds.add(link.queryId);
+  }
+  const linkedQueries = [];
+  for (const queryId of queryIds) {
+    const linkedQuery = await ctx.db.get(queryId);
+    if (linkedQuery) {
+      linkedQueries.push(linkedQuery);
+    }
+  }
+  if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
     throw new ConvexError("FORBIDDEN");
   }
-  return { proposal, linkedQuery };
+  return { proposal, linkedQueries };
 }
 
 export const listForProposal = query({

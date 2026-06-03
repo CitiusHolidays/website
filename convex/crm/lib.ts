@@ -549,8 +549,14 @@ export function canSeeQueryRecord(access: PortalAccess, query: any) {
 }
 
 export function canSeeProposalRecord(access: PortalAccess, proposal: any, linkedQuery?: any) {
+  const linkedQueries = Array.isArray(linkedQuery)
+    ? linkedQuery.filter(Boolean)
+    : linkedQuery
+      ? [linkedQuery]
+      : [];
   if (shouldApplyCementScope(access)) {
-    if (!linkedQuery || !isCementQueryType(linkedQuery.queryType)) {
+    const cementQueries = linkedQueries.filter((query) => isCementQueryType(query.queryType));
+    if (cementQueries.length === 0) {
       return false;
     }
     if (canSeeAllCementRecords(access)) {
@@ -562,9 +568,10 @@ export function canSeeProposalRecord(access: PortalAccess, proposal: any, linked
     }
     if (
       hasRole(access, "Accounts") &&
-      linkedQuery &&
-      (linkedQuery.salesStatus === "Order Confirmed" ||
-        linkedQuery.contractingStatus === "Order Confirmed")
+      linkedQueries.some(
+        (query) =>
+          query.salesStatus === "Order Confirmed" || query.contractingStatus === "Order Confirmed",
+      )
     ) {
       return true;
     }
@@ -572,7 +579,7 @@ export function canSeeProposalRecord(access: PortalAccess, proposal: any, linked
   return (
     ownsAuthRecord(access, proposal.createdBy) ||
     ownsNamedRecord(access, proposal.preparedBy) ||
-    (linkedQuery ? canSeeQueryRecord(access, linkedQuery) : false)
+    linkedQueries.some((query) => canSeeQueryRecord(access, query))
   );
 }
 
@@ -615,6 +622,7 @@ export function applyCementPortalScope(
     tickets: any[];
     visas: any[];
     invoices: any[];
+    proposalQueryLinks?: any[];
   },
 ) {
   if (!shouldApplyCementScope(access)) {
@@ -622,6 +630,14 @@ export function applyCementPortalScope(
   }
 
   const queryById = new Map(records.queries.map((query) => [query._id, query]));
+  const proposalLinksByProposalId = new Map<string, any[]>();
+  for (const link of records.proposalQueryLinks ?? []) {
+    const linkedQuery = queryById.get(link.queryId);
+    if (!linkedQuery) continue;
+    const bucket = proposalLinksByProposalId.get(link.proposalId) ?? [];
+    bucket.push(linkedQuery);
+    proposalLinksByProposalId.set(link.proposalId, bucket);
+  }
   const visibleQueries = records.queries.filter((query) => canSeeQueryRecord(access, query));
   const visibleJobCards = records.jobCards.filter((job) => {
     const linkedQuery = job.queryId ? queryById.get(job.queryId) : undefined;
@@ -629,8 +645,12 @@ export function applyCementPortalScope(
   });
   const visibleJobIds = new Set(visibleJobCards.map((job) => job._id));
   const visibleProposals = records.proposals.filter((proposal) => {
-    const linkedQuery = proposal.queryId ? queryById.get(proposal.queryId) : undefined;
-    return canSeeProposalRecord(access, proposal, linkedQuery);
+    const linkedQueries = [...(proposalLinksByProposalId.get(proposal._id) ?? [])];
+    const legacyLinkedQuery = proposal.queryId ? queryById.get(proposal.queryId) : undefined;
+    if (legacyLinkedQuery && !linkedQueries.some((query) => query._id === legacyLinkedQuery._id)) {
+      linkedQueries.push(legacyLinkedQuery);
+    }
+    return canSeeProposalRecord(access, proposal, linkedQueries);
   });
 
   return {
@@ -1016,6 +1036,28 @@ export async function deleteEntityNotifications(
   );
 }
 
+async function deleteStorageFile(ctx: MutationCtx, storageId: unknown, label: string) {
+  if (!storageId) return;
+  try {
+    await ctx.storage.delete(storageId as any);
+  } catch (err) {
+    console.error(`Failed to delete ${label} from storage:`, err);
+  }
+}
+
+async function deleteApprovalsForEntity(ctx: MutationCtx, entityType: string, entityId: string) {
+  const approvals = await ctx.db
+    .query("approvalRequests")
+    .withIndex("by_entity", (q) => q.eq("entityType", entityType).eq("entityId", entityId))
+    .collect();
+  await Promise.all(
+    approvals.map(async (approval) => {
+      await deleteEntityNotifications(ctx, "approval", approval._id);
+      await ctx.db.delete(approval._id);
+    }),
+  );
+}
+
 async function deleteRowsByJobCard(
   ctx: MutationCtx,
   tableName: any,
@@ -1030,15 +1072,10 @@ async function deleteRowsByJobCard(
       if (entityType === "expense" && row.proofAttachmentId) {
         const attachment = (await ctx.db.get(row.proofAttachmentId)) as any;
         if (attachment) {
-          if (attachment.storageId) {
-            try {
-              await ctx.storage.delete(attachment.storageId);
-            } catch (err) {
-              console.error("Failed to delete expense proof from storage:", err);
-            }
-          }
+          await deleteStorageFile(ctx, attachment.storageId, "expense proof");
           await ctx.db.delete(attachment._id);
         }
+        await deleteApprovalsForEntity(ctx, "expense", row._id);
       }
       await deleteEntityNotifications(ctx, entityType, row._id);
       await ctx.db.delete(row._id);
@@ -1064,7 +1101,10 @@ export async function deleteJobCardCascade(ctx: MutationCtx, jobCardId: Id<"jobC
           .collect(),
       ]);
       await Promise.all([
-        ...passportDetails.map((row) => ctx.db.delete(row._id)),
+        ...passportDetails.map(async (row) => {
+          await deleteStorageFile(ctx, row.storageId, "passport scan");
+          await ctx.db.delete(row._id);
+        }),
         ...mealPreferences.map((row) => ctx.db.delete(row._id)),
         deleteEntityNotifications(ctx, "traveller", traveller._id),
         ctx.db.delete(traveller._id),
@@ -1074,6 +1114,7 @@ export async function deleteJobCardCascade(ctx: MutationCtx, jobCardId: Id<"jobC
 
   await Promise.all([
     deleteRowsByJobCard(ctx, "visaRecords", "visaRecord", jobCardId),
+    deleteRowsByJobCard(ctx, "flightSegments", "flightSegment", jobCardId),
     deleteRowsByJobCard(ctx, "flightGroups", "flightGroup", jobCardId),
     deleteRowsByJobCard(ctx, "pnrs", "pnr", jobCardId),
     deleteRowsByJobCard(ctx, "tickets", "ticket", jobCardId),
@@ -1156,40 +1197,72 @@ export function publicQuery(query: any) {
   };
 }
 
-export const portalPeriodValidator = v.union(
-  v.literal("all"),
-  v.literal("week"),
-  v.literal("month"),
-  v.literal("3months"),
-  v.literal("6months"),
-  v.literal("year"),
-);
+export const PORTAL_BULK_DELETE_LIMIT = 50;
 
-export type PortalPeriod = "all" | "week" | "month" | "3months" | "6months" | "year";
-
-const PERIOD_MS: Record<Exclude<PortalPeriod, "all">, number> = {
-  week: 7 * 24 * 60 * 60 * 1000,
-  month: 30 * 24 * 60 * 60 * 1000,
-  "3months": 90 * 24 * 60 * 60 * 1000,
-  "6months": 180 * 24 * 60 * 60 * 1000,
-  year: 365 * 24 * 60 * 60 * 1000,
-};
-
-export function resolvePortalPeriodRange(period: PortalPeriod = "all") {
-  if (period === "all") return null;
-  const windowMs = PERIOD_MS[period];
-  if (!windowMs) return null;
-  const untilMs = Date.now();
-  return { sinceMs: untilMs - windowMs, untilMs };
+export function requestedProposalQueryIds(args: { queryId?: string; queryIds?: string[] }) {
+  if (args.queryIds !== undefined) {
+    return args.queryIds;
+  }
+  if (args.queryId !== undefined) {
+    return args.queryId ? [args.queryId] : [];
+  }
+  return null;
 }
 
-export function filterRecordsByCreatedAt<T extends { createdAt: number }>(
+export function assertBulkDeleteLimit(count: number) {
+  if (count === 0) {
+    throw new ConvexError("No records selected");
+  }
+  if (count > PORTAL_BULK_DELETE_LIMIT) {
+    throw new ConvexError(`Select at most ${PORTAL_BULK_DELETE_LIMIT} records`);
+  }
+}
+
+export const portalDateRangeValidator = v.optional(
+  v.object({
+    from: v.optional(v.string()),
+    to: v.optional(v.string()),
+  }),
+);
+
+export type PortalDateRange = {
+  from?: string;
+  to?: string;
+};
+
+const PORTAL_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function parsePortalDateOnly(value: string | undefined): number | null {
+  if (!value?.trim()) return null;
+  const text = value.trim();
+  if (!PORTAL_DATE_ONLY_RE.test(text)) return null;
+  return new Date(`${text}T00:00:00`).getTime();
+}
+
+export function endOfPortalDateOnly(value: string | undefined): number | null {
+  const start = parsePortalDateOnly(value);
+  if (start == null) return null;
+  return start + 24 * 60 * 60 * 1000 - 1;
+}
+
+export function resolvePortalDateRange(range?: PortalDateRange | null) {
+  if (!range) return null;
+  const sinceMs = parsePortalDateOnly(range.from);
+  const untilMs = endOfPortalDateOnly(range.to);
+  if (sinceMs == null && untilMs == null) return null;
+  return {
+    sinceMs: sinceMs ?? 0,
+    untilMs: untilMs ?? Date.now(),
+  };
+}
+
+export function filterRecordsByDateRange<T extends { createdAt: number }>(
   records: T[],
-  period: PortalPeriod = "all",
+  range?: PortalDateRange | null,
 ) {
-  const range = resolvePortalPeriodRange(period);
-  if (!range) return records;
+  const resolved = resolvePortalDateRange(range);
+  if (!resolved) return records;
   return records.filter(
-    (record) => record.createdAt >= range.sinceMs && record.createdAt <= range.untilMs,
+    (record) => record.createdAt >= resolved.sinceMs && record.createdAt <= resolved.untilMs,
   );
 }

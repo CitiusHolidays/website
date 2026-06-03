@@ -556,24 +556,55 @@ export const remove = mutation({
       throw new ConvexError("FORBIDDEN");
     }
 
-    const proposals = await ctx.db
+    const legacyProposals = await ctx.db
       .query("proposals")
       .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
       .collect();
+    const proposalLinksForQuery = await ctx.db
+      .query("proposalQueryLinks")
+      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
+      .collect();
+    const proposalIds = new Set(legacyProposals.map((proposal) => proposal._id));
+    for (const link of proposalLinksForQuery) {
+      proposalIds.add(link.proposalId);
+    }
     await Promise.all(
-      proposals.map(async (proposal) => {
+      Array.from(proposalIds).map(async (proposalId) => {
+        const proposal = await ctx.db.get(proposalId);
+        if (!proposal) return;
+        const proposalLinks = await ctx.db
+          .query("proposalQueryLinks")
+          .withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId))
+          .collect();
+        const linksForDeletedQuery = proposalLinks.filter((link) => link.queryId === queryId);
+        const remainingLinks = proposalLinks.filter((link) => link.queryId !== queryId);
+        await Promise.all(linksForDeletedQuery.map((link) => ctx.db.delete(link._id)));
+
+        if (remainingLinks.length > 0 || (proposal.queryId && proposal.queryId !== queryId)) {
+          if (proposal.queryId === queryId) {
+            await ctx.db.patch(proposalId, {
+              queryId: remainingLinks[0].queryId,
+              updatedAt: Date.now(),
+            });
+          }
+          return;
+        }
+
         const { storageIds } = await ctx.runMutation(
           internal.crm.proposalAttachments.deleteAllForProposal,
-          { proposalId: proposal._id },
+          { proposalId },
         );
+        if (proposal.finalizedPdfStorageId) {
+          storageIds.push(proposal.finalizedPdfStorageId);
+        }
         await Promise.all([
           ...storageIds.map((storageId) =>
             ctx.storage.delete(storageId).catch((err) => {
               console.error("Failed to delete proposal attachment file:", err);
             }),
           ),
-          deleteEntityNotifications(ctx, "proposal", proposal._id),
-          ctx.db.delete(proposal._id),
+          deleteEntityNotifications(ctx, "proposal", proposalId),
+          ctx.db.delete(proposalId),
         ]);
       }),
     );

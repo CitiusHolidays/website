@@ -141,10 +141,25 @@ export const createFromQuery = mutation({
     if (args.proposalId && !proposalId) {
       throw new ConvexError("Invalid proposal id");
     }
-    const proposalRows = await ctx.db
+    const legacyProposalRows = await ctx.db
       .query("proposals")
       .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
       .collect();
+    const proposalLinks = await ctx.db
+      .query("proposalQueryLinks")
+      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
+      .collect();
+    const proposalRowsById = new Map(
+      legacyProposalRows.map((proposal) => [proposal._id, proposal]),
+    );
+    for (const link of proposalLinks) {
+      if (proposalRowsById.has(link.proposalId)) continue;
+      const linkedProposal = await ctx.db.get(link.proposalId);
+      if (linkedProposal) {
+        proposalRowsById.set(linkedProposal._id, linkedProposal);
+      }
+    }
+    const proposalRows = Array.from(proposalRowsById.values());
     if (!proposalId) {
       const sortedProposals = proposalRows.sort((a, b) => b.updatedAt - a.updatedAt);
       proposalId =
@@ -153,7 +168,15 @@ export const createFromQuery = mutation({
         null;
     }
     const proposal = proposalId ? await ctx.db.get(proposalId) : null;
-    if (!proposal || proposal.queryId !== queryId) {
+    const selectedProposalLink =
+      proposalId &&
+      (await ctx.db
+        .query("proposalQueryLinks")
+        .withIndex("by_proposalId_and_queryId", (q) =>
+          q.eq("proposalId", proposalId).eq("queryId", queryId),
+        )
+        .first());
+    if (!proposal || (proposal.queryId !== queryId && !selectedProposalLink)) {
       throw new ConvexError("Link a proposal for this confirmed query before opening a Job Card");
     }
     if (!["Accepted", "Sent"].includes(proposal.status)) {

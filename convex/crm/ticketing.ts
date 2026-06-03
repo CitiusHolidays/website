@@ -1,15 +1,19 @@
 import { ConvexError, v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import {
+  assertBulkDeleteLimit,
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
-  filterRecordsByCreatedAt,
+  filterRecordsByDateRange,
   isDefined,
   notifyRoles,
   PERMISSIONS,
-  type PortalPeriod,
-  portalPeriodValidator,
+  type PortalAccess,
+  type PortalDateRange,
+  portalDateRangeValidator,
   requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
@@ -94,17 +98,17 @@ async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
 
 export const dashboard = query({
   args: {
-    period: v.optional(portalPeriodValidator),
+    dateRange: portalDateRangeValidator,
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
-    const period = (args.period ?? "all") as PortalPeriod;
+    const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
     const [ticketRows, pnrRows] = await Promise.all([
       ctx.db.query("tickets").collect(),
       ctx.db.query("pnrs").collect(),
     ]);
-    const tickets = filterRecordsByCreatedAt(ticketRows, period);
-    const pnrs = filterRecordsByCreatedAt(pnrRows, period);
+    const tickets = filterRecordsByDateRange(ticketRows, dateRange);
+    const pnrs = filterRecordsByDateRange(pnrRows, dateRange);
     const visibleTickets = (
       await Promise.all(
         tickets.map(async (ticket) =>
@@ -516,6 +520,42 @@ export const updateTicketStatus = mutation({
   },
 });
 
+async function deleteTicketRecord(ctx: MutationCtx, access: PortalAccess, ticketId: Id<"tickets">) {
+  const ticket = await ctx.db.get(ticketId);
+  if (!ticket) {
+    throw new ConvexError("Ticket not found");
+  }
+  const job = await getVisibleJob(ctx, access, ticket.jobCardId);
+  if (!job) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  if (ticket.pnrId && ticket.ticketStatus === "Issued") {
+    const pnr = await ctx.db.get(ticket.pnrId);
+    if (pnr) {
+      await ctx.db.patch(ticket.pnrId, {
+        issuedSeats: Math.max((pnr.issuedSeats ?? 0) - 1, 0),
+        updatedAt: Date.now(),
+      });
+    }
+  }
+  if (ticket.travellerId) {
+    await ctx.db.patch(ticket.travellerId, {
+      ticketStatus: "Pending Issue",
+      updatedAt: Date.now(),
+    });
+  }
+  await Promise.all([
+    createActivity(ctx, access, {
+      entityType: "ticket",
+      entityId: ticketId,
+      action: "deleted",
+      message: `Ticket ${ticket.ticketNumber || ticketId} deleted`,
+    }),
+    deleteEntityNotifications(ctx, "ticket", ticketId),
+    ctx.db.delete(ticketId),
+  ]);
+}
+
 export const removeTicket = mutation({
   args: {
     ticketId: v.string(),
@@ -526,40 +566,30 @@ export const removeTicket = mutation({
     if (!ticketId) {
       throw new ConvexError("Invalid ticket id");
     }
-    const ticket = await ctx.db.get(ticketId);
-    if (!ticket) {
-      throw new ConvexError("Ticket not found");
-    }
-    const job = await getVisibleJob(ctx, access, ticket.jobCardId);
-    if (!job) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (ticket.pnrId && ticket.ticketStatus === "Issued") {
-      const pnr = await ctx.db.get(ticket.pnrId);
-      if (pnr) {
-        await ctx.db.patch(ticket.pnrId, {
-          issuedSeats: Math.max((pnr.issuedSeats ?? 0) - 1, 0),
-          updatedAt: Date.now(),
-        });
-      }
-    }
-    if (ticket.travellerId) {
-      await ctx.db.patch(ticket.travellerId, {
-        ticketStatus: "Pending Issue",
-        updatedAt: Date.now(),
-      });
-    }
-    await Promise.all([
-      createActivity(ctx, access, {
-        entityType: "ticket",
-        entityId: ticketId,
-        action: "deleted",
-        message: `Ticket ${ticket.ticketNumber || ticketId} deleted`,
-      }),
-      deleteEntityNotifications(ctx, "ticket", ticketId),
-      ctx.db.delete(ticketId),
-    ]);
+    await deleteTicketRecord(ctx, access, ticketId);
     return { id: ticketId };
+  },
+});
+
+export const removeManyTickets = mutation({
+  args: {
+    ticketIds: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
+    assertBulkDeleteLimit(args.ticketIds.length);
+    const ids: Id<"tickets">[] = [];
+    for (const raw of args.ticketIds) {
+      const ticketId = ctx.db.normalizeId("tickets", raw);
+      if (!ticketId) {
+        throw new ConvexError("Invalid ticket id");
+      }
+      ids.push(ticketId);
+    }
+    for (const ticketId of ids) {
+      await deleteTicketRecord(ctx, access, ticketId);
+    }
+    return { deletedCount: ids.length };
   },
 });
 
@@ -751,6 +781,53 @@ export const updateSeatAllocation = mutation({
   },
 });
 
+async function deletePnrRecord(ctx: MutationCtx, access: PortalAccess, pnrId: Id<"pnrs">) {
+  const pnr = await ctx.db.get(pnrId);
+  if (!pnr) {
+    throw new ConvexError("PNR not found");
+  }
+  const job = await getVisibleJob(ctx, access, pnr.jobCardId);
+  if (!job) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  const [tickets, seats] = await Promise.all([
+    ctx.db
+      .query("tickets")
+      .withIndex("by_pnrId", (q) => q.eq("pnrId", pnrId))
+      .collect(),
+    ctx.db
+      .query("seatAllocations")
+      .withIndex("by_pnrId", (q) => q.eq("pnrId", pnrId))
+      .collect(),
+  ]);
+  await Promise.all([
+    ...tickets.flatMap((ticket) =>
+      [
+        ticket.travellerId
+          ? ctx.db.patch(ticket.travellerId, {
+              ticketStatus: "Pending Issue",
+              updatedAt: Date.now(),
+            })
+          : null,
+        deleteEntityNotifications(ctx, "ticket", ticket._id),
+        ctx.db.delete(ticket._id),
+      ].filter(Boolean),
+    ),
+    ...seats.flatMap((seat) => [
+      deleteEntityNotifications(ctx, "seatAllocation", seat._id),
+      ctx.db.delete(seat._id),
+    ]),
+    createActivity(ctx, access, {
+      entityType: "pnr",
+      entityId: pnrId,
+      action: "deleted",
+      message: `${pnr.pnrCode} deleted`,
+    }),
+    deleteEntityNotifications(ctx, "pnr", pnrId),
+    ctx.db.delete(pnrId),
+  ]);
+}
+
 export const removePnr = mutation({
   args: {
     pnrId: v.string(),
@@ -761,51 +838,30 @@ export const removePnr = mutation({
     if (!pnrId) {
       throw new ConvexError("Invalid PNR id");
     }
-    const pnr = await ctx.db.get(pnrId);
-    if (!pnr) {
-      throw new ConvexError("PNR not found");
-    }
-    const job = await getVisibleJob(ctx, access, pnr.jobCardId);
-    if (!job) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    const [tickets, seats] = await Promise.all([
-      ctx.db
-        .query("tickets")
-        .withIndex("by_pnrId", (q) => q.eq("pnrId", pnrId))
-        .collect(),
-      ctx.db
-        .query("seatAllocations")
-        .withIndex("by_pnrId", (q) => q.eq("pnrId", pnrId))
-        .collect(),
-    ]);
-    await Promise.all([
-      ...tickets.flatMap((ticket) =>
-        [
-          ticket.travellerId
-            ? ctx.db.patch(ticket.travellerId, {
-                ticketStatus: "Pending Issue",
-                updatedAt: Date.now(),
-              })
-            : null,
-          deleteEntityNotifications(ctx, "ticket", ticket._id),
-          ctx.db.delete(ticket._id),
-        ].filter(Boolean),
-      ),
-      ...seats.flatMap((seat) => [
-        deleteEntityNotifications(ctx, "seatAllocation", seat._id),
-        ctx.db.delete(seat._id),
-      ]),
-      createActivity(ctx, access, {
-        entityType: "pnr",
-        entityId: pnrId,
-        action: "deleted",
-        message: `${pnr.pnrCode} deleted`,
-      }),
-      deleteEntityNotifications(ctx, "pnr", pnrId),
-      ctx.db.delete(pnrId),
-    ]);
+    await deletePnrRecord(ctx, access, pnrId);
     return { id: pnrId };
+  },
+});
+
+export const removeManyPnrs = mutation({
+  args: {
+    pnrIds: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
+    assertBulkDeleteLimit(args.pnrIds.length);
+    const ids: Id<"pnrs">[] = [];
+    for (const raw of args.pnrIds) {
+      const pnrId = ctx.db.normalizeId("pnrs", raw);
+      if (!pnrId) {
+        throw new ConvexError("Invalid PNR id");
+      }
+      ids.push(pnrId);
+    }
+    for (const pnrId of ids) {
+      await deletePnrRecord(ctx, access, pnrId);
+    }
+    return { deletedCount: ids.length };
   },
 });
 
@@ -858,6 +914,31 @@ export const assignTicketingOwner = mutation({
   },
 });
 
+async function deleteSeatAllocationRecord(
+  ctx: MutationCtx,
+  access: PortalAccess,
+  id: Id<"seatAllocations">,
+) {
+  const seat = await ctx.db.get(id);
+  if (!seat) {
+    throw new ConvexError("Seat allocation not found");
+  }
+  const job = await getVisibleJob(ctx, access, seat.jobCardId);
+  if (!job) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  await Promise.all([
+    createActivity(ctx, access, {
+      entityType: "seatAllocation",
+      entityId: id,
+      action: "deleted",
+      message: `Seat ${seat.seatNumber} deleted`,
+    }),
+    deleteEntityNotifications(ctx, "seatAllocation", id),
+    ctx.db.delete(id),
+  ]);
+}
+
 export const removeSeatAllocation = mutation({
   args: {
     seatAllocationId: v.string(),
@@ -868,24 +949,29 @@ export const removeSeatAllocation = mutation({
     if (!id) {
       throw new ConvexError("Invalid seat allocation id");
     }
-    const seat = await ctx.db.get(id);
-    if (!seat) {
-      throw new ConvexError("Seat allocation not found");
-    }
-    const job = await getVisibleJob(ctx, access, seat.jobCardId);
-    if (!job) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    await Promise.all([
-      createActivity(ctx, access, {
-        entityType: "seatAllocation",
-        entityId: id,
-        action: "deleted",
-        message: `Seat ${seat.seatNumber} deleted`,
-      }),
-      deleteEntityNotifications(ctx, "seatAllocation", id),
-      ctx.db.delete(id),
-    ]);
+    await deleteSeatAllocationRecord(ctx, access, id);
     return { id };
+  },
+});
+
+export const removeManySeatAllocations = mutation({
+  args: {
+    seatAllocationIds: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
+    assertBulkDeleteLimit(args.seatAllocationIds.length);
+    const ids: Id<"seatAllocations">[] = [];
+    for (const raw of args.seatAllocationIds) {
+      const id = ctx.db.normalizeId("seatAllocations", raw);
+      if (!id) {
+        throw new ConvexError("Invalid seat allocation id");
+      }
+      ids.push(id);
+    }
+    for (const id of ids) {
+      await deleteSeatAllocationRecord(ctx, access, id);
+    }
+    return { deletedCount: ids.length };
   },
 });

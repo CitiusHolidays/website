@@ -79,8 +79,25 @@ export const list = query({
         rows
           .sort((a, b) => b.createdAt - a.createdAt)
           .map(async (proposal) => {
-            const linkedQuery = proposal.queryId ? await ctx.db.get(proposal.queryId) : null;
-            if (!canSeeProposalRecord(access, proposal, linkedQuery ?? undefined)) {
+            const links = await ctx.db
+              .query("proposalQueryLinks")
+              .withIndex("by_proposalId", (q) => q.eq("proposalId", proposal._id))
+              .collect();
+            const queryIds = new Set<NonNullable<typeof proposal.queryId>>();
+            if (proposal.queryId) {
+              queryIds.add(proposal.queryId);
+            }
+            for (const link of links) {
+              queryIds.add(link.queryId);
+            }
+            const linkedQueries = [];
+            for (const queryId of queryIds) {
+              const linkedQuery = await ctx.db.get(queryId);
+              if (linkedQuery) {
+                linkedQueries.push(linkedQuery);
+              }
+            }
+            if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
               return null;
             }
             const eventDate = proposal.sentAt ?? proposal.createdAt;

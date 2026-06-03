@@ -1,10 +1,14 @@
 import { ConvexError, v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import {
+  assertBulkDeleteLimit,
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
   PERMISSIONS,
+  type PortalAccess,
   requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
@@ -145,6 +149,27 @@ export const updateHotel = mutation({
   },
 });
 
+async function deleteHotelRecord(ctx: MutationCtx, access: PortalAccess, hotelId: Id<"hotels">) {
+  const hotel = await ctx.db.get(hotelId);
+  if (!hotel) {
+    throw new ConvexError("Hotel not found");
+  }
+  const job = await getVisibleJob(ctx, access, hotel.jobCardId);
+  if (!job) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  await Promise.all([
+    createActivity(ctx, access, {
+      entityType: "hotel",
+      entityId: hotelId,
+      action: "deleted",
+      message: `${hotel.name} hotel deleted`,
+    }),
+    deleteEntityNotifications(ctx, "hotel", hotelId),
+    ctx.db.delete(hotelId),
+  ]);
+}
+
 export const removeHotel = mutation({
   args: {
     hotelId: v.string(),
@@ -155,25 +180,30 @@ export const removeHotel = mutation({
     if (!hotelId) {
       throw new ConvexError("Invalid hotel id");
     }
-    const hotel = await ctx.db.get(hotelId);
-    if (!hotel) {
-      throw new ConvexError("Hotel not found");
-    }
-    const job = await getVisibleJob(ctx, access, hotel.jobCardId);
-    if (!job) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    await Promise.all([
-      createActivity(ctx, access, {
-        entityType: "hotel",
-        entityId: hotelId,
-        action: "deleted",
-        message: `${hotel.name} hotel deleted`,
-      }),
-      deleteEntityNotifications(ctx, "hotel", hotelId),
-      ctx.db.delete(hotelId),
-    ]);
+    await deleteHotelRecord(ctx, access, hotelId);
     return { id: hotelId };
+  },
+});
+
+export const removeManyHotels = mutation({
+  args: {
+    hotelIds: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_OPERATIONS);
+    assertBulkDeleteLimit(args.hotelIds.length);
+    const ids: Id<"hotels">[] = [];
+    for (const raw of args.hotelIds) {
+      const hotelId = ctx.db.normalizeId("hotels", raw);
+      if (!hotelId) {
+        throw new ConvexError("Invalid hotel id");
+      }
+      ids.push(hotelId);
+    }
+    for (const hotelId of ids) {
+      await deleteHotelRecord(ctx, access, hotelId);
+    }
+    return { deletedCount: ids.length };
   },
 });
 
@@ -375,6 +405,40 @@ export const updateTourManager = mutation({
   },
 });
 
+async function deleteTourManagerRecord(
+  ctx: MutationCtx,
+  access: PortalAccess,
+  id: Id<"tourManagerAssignments">,
+) {
+  const tourManager = await ctx.db.get(id);
+  if (!tourManager) {
+    throw new ConvexError("Tour Manager not found");
+  }
+  if (tourManager.jobCardId && !(await getVisibleJob(ctx, access, tourManager.jobCardId))) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  if (tourManager.jobCardId) {
+    const job = await ctx.db.get(tourManager.jobCardId);
+    if (job?.tourManagerId === id) {
+      await ctx.db.patch(tourManager.jobCardId, {
+        tourManagerId: undefined,
+        tourManagerName: "",
+        updatedAt: Date.now(),
+      });
+    }
+  }
+  await Promise.all([
+    createActivity(ctx, access, {
+      entityType: "tourManager",
+      entityId: id,
+      action: "deleted",
+      message: `${tourManager.name} deleted`,
+    }),
+    deleteEntityNotifications(ctx, "tourManager", id),
+    ctx.db.delete(id),
+  ]);
+}
+
 export const removeTourManager = mutation({
   args: {
     tourManagerId: v.string(),
@@ -385,33 +449,29 @@ export const removeTourManager = mutation({
     if (!id) {
       throw new ConvexError("Invalid Tour Manager id");
     }
-    const tourManager = await ctx.db.get(id);
-    if (!tourManager) {
-      throw new ConvexError("Tour Manager not found");
-    }
-    if (tourManager.jobCardId && !(await getVisibleJob(ctx, access, tourManager.jobCardId))) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (tourManager.jobCardId) {
-      const job = await ctx.db.get(tourManager.jobCardId);
-      if (job?.tourManagerId === id) {
-        await ctx.db.patch(tourManager.jobCardId, {
-          tourManagerId: undefined,
-          tourManagerName: "",
-          updatedAt: Date.now(),
-        });
-      }
-    }
-    await Promise.all([
-      createActivity(ctx, access, {
-        entityType: "tourManager",
-        entityId: id,
-        action: "deleted",
-        message: `${tourManager.name} deleted`,
-      }),
-      deleteEntityNotifications(ctx, "tourManager", id),
-      ctx.db.delete(id),
-    ]);
+    await deleteTourManagerRecord(ctx, access, id);
     return { id };
+  },
+});
+
+export const removeManyTourManagers = mutation({
+  args: {
+    tourManagerIds: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireHeadOrAdmin(ctx, ["Operations Head"]);
+    assertBulkDeleteLimit(args.tourManagerIds.length);
+    const ids: Id<"tourManagerAssignments">[] = [];
+    for (const raw of args.tourManagerIds) {
+      const id = ctx.db.normalizeId("tourManagerAssignments", raw);
+      if (!id) {
+        throw new ConvexError("Invalid Tour Manager id");
+      }
+      ids.push(id);
+    }
+    for (const id of ids) {
+      await deleteTourManagerRecord(ctx, access, id);
+    }
+    return { deletedCount: ids.length };
   },
 });

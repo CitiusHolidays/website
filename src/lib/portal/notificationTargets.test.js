@@ -87,6 +87,39 @@ describe("notificationTargets", () => {
     });
   });
 
+  test("builds proposal edit prefill with multi-query links", () => {
+    const initial = buildModalInitial(
+      "proposal",
+      { entityId: "prop1", queryId: null },
+      {
+        proposals: [
+          {
+            id: "prop1",
+            queryId: "q1",
+            queryIds: ["q1", "q2"],
+            clientName: "Acme",
+            landCostPerPax: 100,
+            airfarePerPax: 50,
+            sellingPrice: 200,
+            itinerarySummary: "5 days",
+            queries: [
+              { id: "q1", queryCode: "QY-1", paxCount: 4 },
+              { id: "q2", queryCode: "QY-2", paxCount: 99 },
+            ],
+          },
+        ],
+      },
+    );
+
+    expect(initial).toMatchObject({
+      entityId: "prop1",
+      queryIds: ["q1", "q2"],
+      queryId: "q1",
+      paxCount: "4",
+      landCostPerPax: "100",
+    });
+  });
+
   test("builds query edit prefill from list rows", () => {
     const initial = buildModalInitial(
       "query",

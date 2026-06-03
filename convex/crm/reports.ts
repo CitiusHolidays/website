@@ -1,21 +1,20 @@
-import { v } from "convex/values";
 import { query } from "../_generated/server";
 import {
   applyCementPortalScope,
   canSeeQueryRecord,
-  filterRecordsByCreatedAt,
+  filterRecordsByDateRange,
   PERMISSIONS,
-  type PortalPeriod,
-  portalPeriodValidator,
+  type PortalDateRange,
+  portalDateRangeValidator,
   requireStaff,
 } from "./lib";
 
 export const overview = query({
   args: {
-    period: v.optional(portalPeriodValidator),
+    dateRange: portalDateRangeValidator,
   },
   handler: async (ctx, args) => {
-    const period = (args.period ?? "all") as PortalPeriod;
+    const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
     const [
       access,
       queryRows,
@@ -25,6 +24,7 @@ export const overview = query({
       ticketRows,
       visaRows,
       proposalRows,
+      proposalQueryLinkRows,
     ] = await Promise.all([
       requireStaff(ctx, PERMISSIONS.VIEW_REPORTS),
       ctx.db.query("queries").collect(),
@@ -34,14 +34,15 @@ export const overview = query({
       ctx.db.query("tickets").collect(),
       ctx.db.query("visaRecords").collect(),
       ctx.db.query("proposals").collect(),
+      ctx.db.query("proposalQueryLinks").collect(),
     ]);
-    let queries = filterRecordsByCreatedAt(queryRows, period);
-    let invoices = filterRecordsByCreatedAt(invoiceRows, period);
-    const jobCards = filterRecordsByCreatedAt(jobCardRows, period);
-    const travellers = filterRecordsByCreatedAt(travellerRows, period);
-    const tickets = filterRecordsByCreatedAt(ticketRows, period);
-    const visas = filterRecordsByCreatedAt(visaRows, period);
-    const proposals = filterRecordsByCreatedAt(proposalRows, period);
+    let queries = filterRecordsByDateRange(queryRows, dateRange);
+    let invoices = filterRecordsByDateRange(invoiceRows, dateRange);
+    const jobCards = filterRecordsByDateRange(jobCardRows, dateRange);
+    const travellers = filterRecordsByDateRange(travellerRows, dateRange);
+    const tickets = filterRecordsByDateRange(ticketRows, dateRange);
+    const visas = filterRecordsByDateRange(visaRows, dateRange);
+    const proposals = filterRecordsByDateRange(proposalRows, dateRange);
 
     const scopedRecords = applyCementPortalScope(access, {
       queries,
@@ -51,6 +52,7 @@ export const overview = query({
       tickets,
       visas,
       invoices,
+      proposalQueryLinks: proposalQueryLinkRows,
     });
     queries = scopedRecords.queries;
     invoices = scopedRecords.invoices;

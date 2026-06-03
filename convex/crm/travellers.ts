@@ -1,10 +1,14 @@
 import { ConvexError, v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import {
+  assertBulkDeleteLimit,
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
   PERMISSIONS,
+  type PortalAccess,
   requireAnyPermission,
   requireStaff,
 } from "./lib";
@@ -342,6 +346,72 @@ export const updateCallingStatus = mutation({
   },
 });
 
+async function deleteTravellerRecord(
+  ctx: MutationCtx,
+  access: PortalAccess,
+  travellerId: Id<"travellers">,
+) {
+  const traveller = await ctx.db.get(travellerId);
+  if (!traveller) {
+    throw new ConvexError("Traveller not found");
+  }
+  const job = await ctx.db.get(traveller.jobCardId);
+  const [linkedQuery, passportDetails, visaRecords, tickets, seats, meals, rooms] =
+    await Promise.all([
+      job?.queryId ? ctx.db.get(job.queryId) : Promise.resolve(null),
+      ctx.db
+        .query("passportDetails")
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+        .collect(),
+      ctx.db
+        .query("visaRecords")
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+        .collect(),
+      ctx.db
+        .query("tickets")
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+        .collect(),
+      ctx.db
+        .query("seatAllocations")
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+        .collect(),
+      ctx.db
+        .query("mealPreferences")
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+        .collect(),
+      ctx.db
+        .query("roomingListEntries")
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+        .collect(),
+    ]);
+  if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+    throw new ConvexError("FORBIDDEN");
+  }
+
+  await Promise.all([
+    ...passportDetails.map((row) => ctx.db.delete(row._id)),
+    ...visaRecords.map((row) => ctx.db.delete(row._id)),
+    ...tickets.flatMap((row) => [
+      deleteEntityNotifications(ctx, "ticket", row._id),
+      ctx.db.delete(row._id),
+    ]),
+    ...seats.map((row) => ctx.db.delete(row._id)),
+    ...meals.map((row) => ctx.db.delete(row._id)),
+    ...rooms.map((row) => ctx.db.delete(row._id)),
+  ]);
+
+  await Promise.all([
+    createActivity(ctx, access, {
+      entityType: "traveller",
+      entityId: travellerId,
+      action: "deleted",
+      message: `${traveller.fullName} deleted`,
+    }),
+    deleteEntityNotifications(ctx, "traveller", travellerId),
+    ctx.db.delete(travellerId),
+  ]);
+}
+
 export const remove = mutation({
   args: {
     travellerId: v.string(),
@@ -351,68 +421,30 @@ export const remove = mutation({
     if (!travellerId) {
       throw new ConvexError("Invalid traveller id");
     }
-    const [access, traveller] = await Promise.all([
-      requireStaff(ctx, PERMISSIONS.MANAGE_TRAVELLERS),
-      ctx.db.get(travellerId),
-    ]);
-    if (!traveller) {
-      throw new ConvexError("Traveller not found");
-    }
-    const job = await ctx.db.get(traveller.jobCardId);
-    const [linkedQuery, passportDetails, visaRecords, tickets, seats, meals, rooms] =
-      await Promise.all([
-        job?.queryId ? ctx.db.get(job.queryId) : Promise.resolve(null),
-        ctx.db
-          .query("passportDetails")
-          .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-          .collect(),
-        ctx.db
-          .query("visaRecords")
-          .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-          .collect(),
-        ctx.db
-          .query("tickets")
-          .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-          .collect(),
-        ctx.db
-          .query("seatAllocations")
-          .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-          .collect(),
-        ctx.db
-          .query("mealPreferences")
-          .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-          .collect(),
-        ctx.db
-          .query("roomingListEntries")
-          .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-          .collect(),
-      ]);
-    if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-
-    await Promise.all([
-      ...passportDetails.map((row) => ctx.db.delete(row._id)),
-      ...visaRecords.map((row) => ctx.db.delete(row._id)),
-      ...tickets.flatMap((row) => [
-        deleteEntityNotifications(ctx, "ticket", row._id),
-        ctx.db.delete(row._id),
-      ]),
-      ...seats.map((row) => ctx.db.delete(row._id)),
-      ...meals.map((row) => ctx.db.delete(row._id)),
-      ...rooms.map((row) => ctx.db.delete(row._id)),
-    ]);
-
-    await Promise.all([
-      createActivity(ctx, access, {
-        entityType: "traveller",
-        entityId: travellerId,
-        action: "deleted",
-        message: `${traveller.fullName} deleted`,
-      }),
-      deleteEntityNotifications(ctx, "traveller", travellerId),
-      ctx.db.delete(travellerId),
-    ]);
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TRAVELLERS);
+    await deleteTravellerRecord(ctx, access, travellerId);
     return { id: travellerId };
+  },
+});
+
+export const removeMany = mutation({
+  args: {
+    travellerIds: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TRAVELLERS);
+    assertBulkDeleteLimit(args.travellerIds.length);
+    const ids: Id<"travellers">[] = [];
+    for (const raw of args.travellerIds) {
+      const travellerId = ctx.db.normalizeId("travellers", raw);
+      if (!travellerId) {
+        throw new ConvexError("Invalid traveller id");
+      }
+      ids.push(travellerId);
+    }
+    for (const travellerId of ids) {
+      await deleteTravellerRecord(ctx, access, travellerId);
+    }
+    return { deletedCount: ids.length };
   },
 });

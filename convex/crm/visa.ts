@@ -1,10 +1,14 @@
 import { ConvexError, v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import {
+  assertBulkDeleteLimit,
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
   PERMISSIONS,
+  type PortalAccess,
   requireStaff,
 } from "./lib";
 
@@ -207,6 +211,39 @@ export const updateRecord = mutation({
   },
 });
 
+async function deleteVisaRecord(
+  ctx: MutationCtx,
+  access: PortalAccess,
+  visaRecordId: Id<"visaRecords">,
+) {
+  const record = await ctx.db.get(visaRecordId);
+  if (!record) {
+    throw new ConvexError("Visa record not found");
+  }
+  const job = await ctx.db.get(record.jobCardId);
+  if (!job) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  await Promise.all([
+    ctx.db.patch(record.travellerId, {
+      visaStatus: "Not Started",
+      updatedAt: Date.now(),
+    }),
+    createActivity(ctx, access, {
+      entityType: "visaRecord",
+      entityId: visaRecordId,
+      action: "deleted",
+      message: "Visa record deleted",
+    }),
+    deleteEntityNotifications(ctx, "visaRecord", visaRecordId),
+    ctx.db.delete(visaRecordId),
+  ]);
+}
+
 export const remove = mutation({
   args: {
     visaRecordId: v.string(),
@@ -217,33 +254,30 @@ export const remove = mutation({
     if (!visaRecordId) {
       throw new ConvexError("Invalid visa record id");
     }
-    const record = await ctx.db.get(visaRecordId);
-    if (!record) {
-      throw new ConvexError("Visa record not found");
-    }
-    const job = await ctx.db.get(record.jobCardId);
-    if (!job) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
-    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    await Promise.all([
-      ctx.db.patch(record.travellerId, {
-        visaStatus: "Not Started",
-        updatedAt: Date.now(),
-      }),
-      createActivity(ctx, access, {
-        entityType: "visaRecord",
-        entityId: visaRecordId,
-        action: "deleted",
-        message: "Visa record deleted",
-      }),
-      deleteEntityNotifications(ctx, "visaRecord", visaRecordId),
-      ctx.db.delete(visaRecordId),
-    ]);
+    await deleteVisaRecord(ctx, access, visaRecordId);
     return { id: visaRecordId };
+  },
+});
+
+export const removeMany = mutation({
+  args: {
+    visaRecordIds: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_VISA);
+    assertBulkDeleteLimit(args.visaRecordIds.length);
+    const ids: Id<"visaRecords">[] = [];
+    for (const raw of args.visaRecordIds) {
+      const visaRecordId = ctx.db.normalizeId("visaRecords", raw);
+      if (!visaRecordId) {
+        throw new ConvexError("Invalid visa record id");
+      }
+      ids.push(visaRecordId);
+    }
+    for (const visaRecordId of ids) {
+      await deleteVisaRecord(ctx, access, visaRecordId);
+    }
+    return { deletedCount: ids.length };
   },
 });
 

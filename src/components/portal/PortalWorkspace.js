@@ -29,6 +29,8 @@ import {
 import { AnimatePresence, m as motion } from "motion/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cloneElement, isValidElement, Suspense, useEffect, useRef, useState } from "react";
+import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
+import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import {
   CABIN_CLASSES,
   CALLING_STATUSES,
@@ -57,7 +59,12 @@ import {
   isDeepLinkDataReady,
   resolveDeepLink,
 } from "@/lib/portal/notificationTargets";
-import { filterByPeriod, PORTAL_PERIOD_OPTIONS } from "@/lib/portal/periodFilter";
+import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
+import {
+  proposalLinkedQueryIds,
+  proposalLinkedQueryLabel,
+  proposalPrimaryQuery,
+} from "@/lib/portal/proposalLinks";
 import {
   canAssignContracting,
   canAssignOperations,
@@ -250,6 +257,7 @@ const INITIAL_FORM = {
   notes: "",
   queryCode: "",
   queryId: "",
+  queryIds: [],
   proposalId: "",
   landCostPerPax: "",
   airfarePerPax: "",
@@ -540,7 +548,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const [pendingProposalFiles, setPendingProposalFiles] = useState([]);
   const [pendingExpenseProofFiles, setPendingExpenseProofFiles] = useState([]);
   const [search, setSearch] = useState("");
-  const [period, setPeriod] = useState("all");
+  const [dateRange, setDateRange] = useState(EMPTY_DATE_RANGE);
+  const dateRangeArg = dateRangeQueryArg(dateRange);
   const [jobCardFilter, setJobCardFilter] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -560,7 +569,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
 
   const summary = useQuery(
     api.crm.dashboard.getPortalSummary,
-    canFetch && allowed && view === "dashboard" ? { period } : "skip",
+    canFetch && allowed && view === "dashboard" ? { dateRange: dateRangeArg } : "skip",
   );
   const queries = useQuery(
     api.crm.queries.list,
@@ -580,7 +589,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const visas = useQuery(api.crm.visa.list, canFetch && has(P.VIEW_VISA) ? {} : "skip");
   const ticketDashboard = useQuery(
     api.crm.ticketing.dashboard,
-    canFetch && has(P.VIEW_TICKETING) ? { period } : "skip",
+    canFetch && has(P.VIEW_TICKETING) ? { dateRange: dateRangeArg } : "skip",
   );
   const pnrs = useQuery(
     api.crm.ticketing.listPnrs,
@@ -613,7 +622,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   );
   const financeOverview = useQuery(
     api.crm.finance.getFinanceOverview,
-    canFetch && has(P.VIEW_FINANCE) && view === "finance" ? { period } : "skip",
+    canFetch && has(P.VIEW_FINANCE) && view === "finance" ? { dateRange: dateRangeArg } : "skip",
   );
   const approvals = useQuery(
     api.crm.approvals.list,
@@ -621,7 +630,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   );
   const reports = useQuery(
     api.crm.reports.overview,
-    canFetch && has(P.VIEW_REPORTS) && view === "reports" ? { period } : "skip",
+    canFetch && has(P.VIEW_REPORTS) && view === "reports" ? { dateRange: dateRangeArg } : "skip",
   );
   const team = useQuery(api.crm.staff.listDirectory, canFetch && has(P.VIEW_TEAM) ? {} : "skip");
   const activity = useQuery(
@@ -715,12 +724,19 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const removeProposal = useMutation(api.crm.proposals.remove);
   const removeJobCard = useMutation(api.crm.jobCards.remove);
   const removeTraveller = useMutation(api.crm.travellers.remove);
+  const removeManyTravellers = useMutation(api.crm.travellers.removeMany);
   const removeVisa = useMutation(api.crm.visa.remove);
+  const removeManyVisas = useMutation(api.crm.visa.removeMany);
   const removePnr = useMutation(api.crm.ticketing.removePnr);
+  const removeManyPnrs = useMutation(api.crm.ticketing.removeManyPnrs);
   const removeTicket = useMutation(api.crm.ticketing.removeTicket);
+  const removeManyTickets = useMutation(api.crm.ticketing.removeManyTickets);
   const removeSeatAllocation = useMutation(api.crm.ticketing.removeSeatAllocation);
+  const removeManySeatAllocations = useMutation(api.crm.ticketing.removeManySeatAllocations);
   const removeHotel = useMutation(api.crm.ops.removeHotel);
+  const removeManyHotels = useMutation(api.crm.ops.removeManyHotels);
   const removeTourManager = useMutation(api.crm.ops.removeTourManager);
+  const removeManyTourManagers = useMutation(api.crm.ops.removeManyTourManagers);
   const removeInvoice = useMutation(api.crm.finance.removeInvoice);
   const removeExpense = useMutation(api.crm.finance.removeExpense);
   const removeStaff = useMutation(api.crm.staff.removeStaff);
@@ -728,30 +744,30 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
 
   const periodFiltered = {
-    queries: filterByPeriod(queries || [], period, "createdAt"),
-    proposals: filterByPeriod(proposals || [], period, "createdAt"),
-    jobCards: filterByPeriod(jobCards || [], period, "createdAt"),
-    travellers: filterByPeriod(travellers || [], period, "createdAt"),
-    visas: filterByPeriod(visas || [], period, "createdAt"),
-    pnrs: filterByPeriod(pnrs || [], period, "createdAt"),
-    tickets: filterByPeriod(tickets || [], period, "createdAt"),
-    seats: filterByPeriod(seats || [], period, "createdAt"),
-    flightItinerary: filterByPeriod(flightItinerary || [], period, "departureDate"),
-    hotels: filterByPeriod(hotels || [], period, "createdAt"),
-    tourManagers: filterByPeriod(tourManagers || [], period, "createdAt"),
-    invoices: filterByPeriod(invoices || [], period, "createdAt"),
-    expenses: filterByPeriod(
+    queries: filterByDateRange(queries || [], dateRange, "createdAt"),
+    proposals: filterByDateRange(proposals || [], dateRange, "createdAt"),
+    jobCards: filterByDateRange(jobCards || [], dateRange, "createdAt"),
+    travellers: filterByDateRange(travellers || [], dateRange, "createdAt"),
+    visas: filterByDateRange(visas || [], dateRange, "createdAt"),
+    pnrs: filterByDateRange(pnrs || [], dateRange, "createdAt"),
+    tickets: filterByDateRange(tickets || [], dateRange, "createdAt"),
+    seats: filterByDateRange(seats || [], dateRange, "createdAt"),
+    flightItinerary: filterByDateRange(flightItinerary || [], dateRange, "departureDate"),
+    hotels: filterByDateRange(hotels || [], dateRange, "createdAt"),
+    tourManagers: filterByDateRange(tourManagers || [], dateRange, "createdAt"),
+    invoices: filterByDateRange(invoices || [], dateRange, "createdAt"),
+    expenses: filterByDateRange(
       (expenses || []).map((row) => ({
         ...row,
         periodDate: row.expenseDate || row.createdAt,
       })),
-      period,
+      dateRange,
       "periodDate",
     ),
-    approvals: filterByPeriod(approvals || [], period, "createdAt"),
-    leaves: filterByPeriod(leaves || [], period, "createdAt"),
-    activity: filterByPeriod(activity || [], period, "createdAt"),
-    notifications: filterByPeriod(notifications || [], period, "createdAt"),
+    approvals: filterByDateRange(approvals || [], dateRange, "createdAt"),
+    leaves: filterByDateRange(leaves || [], dateRange, "createdAt"),
+    activity: filterByDateRange(activity || [], dateRange, "createdAt"),
+    notifications: filterByDateRange(notifications || [], dateRange, "createdAt"),
   };
 
   const filteredQueries = filterRows(periodFiltered.queries, search, [
@@ -816,6 +832,14 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const openModal = (type, initial = {}) => {
     setError("");
     const next = { ...INITIAL_FORM, ...initial };
+    if (type === "proposal") {
+      next.queryIds = Array.isArray(next.queryIds)
+        ? next.queryIds
+        : next.queryId
+          ? [next.queryId]
+          : [];
+      next.queryId = next.queryIds[0] || next.queryId || "";
+    }
     if (next.queryId && (type === "jobCard" || type === "proposal")) {
       const linkedQuery = (queries || []).find((query) => query.id === next.queryId);
       if (linkedQuery) {
@@ -823,7 +847,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       }
       if (type === "jobCard" && !next.proposalId) {
         const linkedProposal = (proposals || []).reduce((latest, proposal) => {
-          if (proposal.queryId !== next.queryId) return latest;
+          if (!proposalLinkedQueryIds(proposal).includes(next.queryId)) return latest;
           if (!latest) return proposal;
           return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
         }, null);
@@ -981,15 +1005,32 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     setForm((current) => ({ ...current, ...patch }));
   };
 
-  const deleteItem = async (label, mutation, args) => {
+  const deleteItem = async (label, mutation, args, options = {}) => {
     setError("");
-    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) {
+    const confirmMessage = options.confirmMessage || `Delete ${label}? This cannot be undone.`;
+    if (!window.confirm(confirmMessage)) {
       return;
     }
     try {
       await mutation(args);
     } catch (err) {
       setError(err?.data || err?.message || "Unable to delete this record.");
+    }
+  };
+
+  const deleteSelected = async (count, entityLabel, mutation, buildArgs) => {
+    setError("");
+    if (count === 0) return false;
+    const noun = count === 1 ? entityLabel : `${entityLabel}s`;
+    if (!window.confirm(`Delete ${count} selected ${noun}? This cannot be undone.`)) {
+      return false;
+    }
+    try {
+      await mutation(buildArgs());
+      return true;
+    } catch (err) {
+      setError(err?.data || err?.message || "Unable to delete selected records.");
+      return false;
     }
   };
 
@@ -1091,8 +1132,14 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       }
       if (modal === "proposal") {
         let proposalResult = null;
+        const proposalQueryIds =
+          Array.isArray(form.queryIds) && form.queryIds.length > 0
+            ? form.queryIds
+            : form.queryId
+              ? [form.queryId]
+              : [];
         const proposalPayload = {
-          queryId: form.queryId || undefined,
+          queryIds: proposalQueryIds,
           clientName: form.clientName,
           landCostPerPax: toNumber(form.landCostPerPax, 0),
           airfarePerPax: toNumber(form.airfarePerPax, 0),
@@ -1412,8 +1459,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         subtitle={meta.subtitle}
         search={search}
         setSearch={setSearch}
-        period={period}
-        setPeriod={setPeriod}
+        dateRange={dateRange}
+        setDateRange={setDateRange}
         showPeriodFilter={view !== "settings"}
         showJobCardFilter={showJobCardFilter}
         jobCardFilter={jobCardFilter}
@@ -1492,7 +1539,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
+          deleteSelected={deleteSelected}
           removeTraveller={removeTraveller}
+          removeManyTravellers={removeManyTravellers}
         />
       )}
       {view === "passport" && (
@@ -1511,7 +1560,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
+          deleteSelected={deleteSelected}
           removeVisa={removeVisa}
+          removeManyVisas={removeManyVisas}
         />
       )}
       {view === "ticketing" && (
@@ -1521,7 +1572,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
+          deleteSelected={deleteSelected}
           removeTicket={removeTicket}
+          removeManyTickets={removeManyTickets}
         />
       )}
       {view === "flights" && (
@@ -1531,7 +1584,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
+          deleteSelected={deleteSelected}
           removePnr={removePnr}
+          removeManyPnrs={removeManyPnrs}
         />
       )}
       {view === "seat-allocation" && (
@@ -1540,7 +1595,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
+          deleteSelected={deleteSelected}
           removeSeatAllocation={removeSeatAllocation}
+          removeManySeatAllocations={removeManySeatAllocations}
         />
       )}
       {view === "tickets" && (
@@ -1549,7 +1606,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
+          deleteSelected={deleteSelected}
           removeTicket={removeTicket}
+          removeManyTickets={removeManyTickets}
         />
       )}
       {view === "hotels" && (
@@ -1565,7 +1624,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
               openModal={openModal}
               has={has}
               deleteItem={deleteItem}
+              deleteSelected={deleteSelected}
               removeHotel={removeHotel}
+              removeManyHotels={removeManyHotels}
             />
           </Panel>
           <Panel
@@ -1584,7 +1645,9 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
           has={has}
           canAssign={canAssignTourManagers(access)}
           deleteItem={deleteItem}
+          deleteSelected={deleteSelected}
           removeTourManager={removeTourManager}
+          removeManyTourManagers={removeManyTourManagers}
           updateCallingStatus={updateCallingStatus}
         />
       )}
@@ -2022,8 +2085,8 @@ function PageHeader({
   children,
   search,
   setSearch,
-  period,
-  setPeriod,
+  dateRange,
+  setDateRange,
   showPeriodFilter = true,
   showJobCardFilter = false,
   jobCardFilter = "",
@@ -2047,25 +2110,7 @@ function PageHeader({
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
         {showPeriodFilter && (
-          <label className="relative">
-            <span className="sr-only">Time period</span>
-            <select
-              value={period}
-              onChange={(event) => setPeriod(event.target.value)}
-              className="portal-period-select h-11 w-full appearance-none rounded-full border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-44"
-              aria-label="Filter by time period"
-            >
-              {PORTAL_PERIOD_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
-              size={16}
-            />
-          </label>
+          <PortalDateRangeFilter dateRange={dateRange} setDateRange={setDateRange} />
         )}
         {showJobCardFilter && (
           <label className="relative">
@@ -2765,13 +2810,16 @@ function ContractingView({
   const proposalsByQueryId = (() => {
     const map = new Map();
     for (const proposal of proposals) {
-      if (!proposal.queryId) continue;
-      const existing = map.get(proposal.queryId);
-      if (
-        !existing ||
-        new Date(proposal.updatedAt).getTime() > new Date(existing.updatedAt).getTime()
-      ) {
-        map.set(proposal.queryId, proposal);
+      const queryIds = proposalLinkedQueryIds(proposal);
+      if (queryIds.length === 0) continue;
+      for (const queryId of queryIds) {
+        const existing = map.get(queryId);
+        if (
+          !existing ||
+          new Date(proposal.updatedAt).getTime() > new Date(existing.updatedAt).getTime()
+        ) {
+          map.set(queryId, proposal);
+        }
       }
     }
     return map;
@@ -2856,11 +2904,15 @@ function ContractingView({
                     openModal("proposal", {
                       entityId: proposal.id,
                       queryId: proposal.queryId || "",
+                      queryIds: proposalLinkedQueryIds(proposal),
                       clientName: proposal.clientName,
                       landCostPerPax: String(proposal.landCostPerPax ?? ""),
                       airfarePerPax: String(proposal.airfarePerPax ?? ""),
+                      visaCostPerPax: String(proposal.visaCostPerPax ?? ""),
                       sellingPrice: String(proposal.sellingPrice ?? ""),
-                      paxCount: String(proposal.query?.paxCount ?? row.paxCount ?? 1),
+                      paxCount: String(
+                        proposalPrimaryQuery(proposal)?.paxCount ?? row.paxCount ?? 1,
+                      ),
                       taxRate: proposal.taxRate != null ? String(proposal.taxRate) : "",
                       itinerarySummary: proposal.itinerarySummary || "",
                     })
@@ -3025,8 +3077,8 @@ function ProposalsView({
           />
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div>
-              <span className="text-brand-muted">Query</span>
-              <div className="font-medium">{row.query?.queryCode || "-"}</div>
+              <span className="text-brand-muted">Queries</span>
+              <div className="font-medium">{proposalLinkedQueryLabel(row)}</div>
             </div>
             <div>
               <span className="text-brand-muted">CP/Pax</span>
@@ -3046,7 +3098,7 @@ function ProposalsView({
           "Sent",
           (row) => <span className="text-xs text-brand-muted">{formatDate(row.sentAt)}</span>,
         ],
-        ["Linked Query", (row) => row.query?.queryCode || "-"],
+        ["Linked Queries", (row) => proposalLinkedQueryLabel(row)],
         ["Land/Pax", (row) => money(row.landCostPerPax)],
         ["Airfare/Pax", (row) => money(row.airfarePerPax)],
         ["Visa/Pax", (row) => money(row.visaCostPerPax)],
@@ -3111,12 +3163,13 @@ function ProposalsView({
                       openModal("proposal", {
                         entityId: row.id,
                         queryId: row.queryId || "",
+                        queryIds: proposalLinkedQueryIds(row),
                         clientName: row.clientName,
                         landCostPerPax: String(row.landCostPerPax ?? ""),
                         airfarePerPax: String(row.airfarePerPax ?? ""),
                         visaCostPerPax: String(row.visaCostPerPax ?? ""),
                         sellingPrice: String(row.sellingPrice ?? ""),
-                        paxCount: String(row.query?.paxCount ?? 1),
+                        paxCount: String(proposalPrimaryQuery(row)?.paxCount ?? 1),
                         taxRate: row.taxRate != null ? String(row.taxRate) : "",
                         itinerarySummary: row.itinerarySummary || "",
                       })
@@ -3407,7 +3460,16 @@ function JobCardsView({
                     </button>
                     <DeleteButton
                       label={job.jobCode}
-                      onClick={() => deleteItem(job.jobCode, removeJobCard, { jobCardId: job.id })}
+                      onClick={() =>
+                        deleteItem(
+                          job.jobCode,
+                          removeJobCard,
+                          { jobCardId: job.id },
+                          {
+                            confirmMessage: `Delete ${job.jobCode}? This will also delete linked travellers, passport records, visa records, flight groups and segments, PNRs, tickets, seats, hotels, rooming entries, tour manager assignments, vendors, itineraries, event flows, checklist tasks, invoices, additional services, expenses, proof attachments, approvals, and notifications. This cannot be undone.`,
+                          },
+                        )
+                      }
                     />
                   </>
                 )}
@@ -3420,11 +3482,30 @@ function JobCardsView({
   );
 }
 
-function TravellersView({ rows, openModal, has, deleteItem, removeTraveller }) {
+function TravellersView({
+  rows,
+  openModal,
+  has,
+  deleteItem,
+  deleteSelected,
+  removeTraveller,
+  removeManyTravellers,
+}) {
+  const canManage = has(P.MANAGE_TRAVELLERS);
   return (
-    <DataTable
+    <SelectableDataTable
       rows={rows}
       empty="No travellers yet."
+      selectable={canManage}
+      entityLabel="traveller"
+      onBulkDelete={
+        canManage
+          ? (ids) =>
+              deleteSelected(ids.length, "traveller", removeManyTravellers, () => ({
+                travellerIds: ids,
+              }))
+          : undefined
+      }
       columns={[
         ["Name", (row) => strong(row.fullName)],
         ["Job", (row) => row.jobCode],
@@ -3438,7 +3519,7 @@ function TravellersView({ rows, openModal, has, deleteItem, removeTraveller }) {
         [
           "Action",
           (row) =>
-            has(P.MANAGE_TRAVELLERS) && (
+            canManage && (
               <div className="flex flex-wrap gap-2">
                 <EditButton
                   onClick={() =>
@@ -3476,11 +3557,30 @@ function TravellersView({ rows, openModal, has, deleteItem, removeTraveller }) {
   );
 }
 
-function VisaTrackingView({ rows, openModal, has, deleteItem, removeVisa }) {
+function VisaTrackingView({
+  rows,
+  openModal,
+  has,
+  deleteItem,
+  deleteSelected,
+  removeVisa,
+  removeManyVisas,
+}) {
+  const canManage = has(P.MANAGE_VISA);
   return (
-    <DataTable
+    <SelectableDataTable
       rows={rows}
       empty="No visa records yet."
+      selectable={canManage}
+      entityLabel="visa record"
+      onBulkDelete={
+        canManage
+          ? (ids) =>
+              deleteSelected(ids.length, "visa record", removeManyVisas, () => ({
+                visaRecordIds: ids,
+              }))
+          : undefined
+      }
       columns={[
         ["Traveller", (row) => strong(row.travellerName)],
         ["Job", (row) => row.jobCode],
@@ -3491,7 +3591,7 @@ function VisaTrackingView({ rows, openModal, has, deleteItem, removeVisa }) {
         [
           "Action",
           (row) =>
-            has(P.MANAGE_VISA) && (
+            canManage && (
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -3855,7 +3955,16 @@ function PassportDocumentsView({
   );
 }
 
-function TicketDashboardView({ summary, tickets, openModal, has, deleteItem, removeTicket }) {
+function TicketDashboardView({
+  summary,
+  tickets,
+  openModal,
+  has,
+  deleteItem,
+  deleteSelected,
+  removeTicket,
+  removeManyTickets,
+}) {
   if (!summary) return <LoadingPanel />;
   return (
     <div className="space-y-5">
@@ -3877,22 +3986,44 @@ function TicketDashboardView({ summary, tickets, openModal, has, deleteItem, rem
         openModal={openModal}
         has={has}
         deleteItem={deleteItem}
+        deleteSelected={deleteSelected}
         removeTicket={removeTicket}
+        removeManyTickets={removeManyTickets}
       />
     </div>
   );
 }
 
-function PnrView({ rows, itinerary, openModal, has, deleteItem, removePnr }) {
+function PnrView({
+  rows,
+  itinerary,
+  openModal,
+  has,
+  deleteItem,
+  deleteSelected,
+  removePnr,
+  removeManyPnrs,
+}) {
+  const canManage = has(P.MANAGE_TICKETING);
   return (
     <div className="space-y-5">
       <Panel title="Flight Itinerary">
         <FlightItineraryList rows={itinerary} />
       </Panel>
       <Panel title="PNR Records">
-        <DataTable
+        <SelectableDataTable
           rows={rows}
           empty="No PNRs yet."
+          selectable={canManage}
+          entityLabel="PNR"
+          onBulkDelete={
+            canManage
+              ? (ids) =>
+                  deleteSelected(ids.length, "PNR", removeManyPnrs, () => ({
+                    pnrIds: ids,
+                  }))
+              : undefined
+          }
           columns={[
             [
               "PNR",
@@ -3911,7 +4042,7 @@ function PnrView({ rows, itinerary, openModal, has, deleteItem, removePnr }) {
             [
               "Action",
               (row) =>
-                has(P.MANAGE_TICKETING) && (
+                canManage && (
                   <div className="flex flex-wrap gap-2">
                     <EditButton
                       onClick={() =>
@@ -3997,11 +4128,30 @@ function FlightItineraryList({ rows }) {
   );
 }
 
-function TicketsView({ rows, openModal, has, deleteItem, removeTicket }) {
+function TicketsView({
+  rows,
+  openModal,
+  has,
+  deleteItem,
+  deleteSelected,
+  removeTicket,
+  removeManyTickets,
+}) {
+  const canManage = has(P.MANAGE_TICKETING);
   return (
-    <DataTable
+    <SelectableDataTable
       rows={rows}
       empty="No tickets yet."
+      selectable={canManage}
+      entityLabel="ticket"
+      onBulkDelete={
+        canManage
+          ? (ids) =>
+              deleteSelected(ids.length, "ticket", removeManyTickets, () => ({
+                ticketIds: ids,
+              }))
+          : undefined
+      }
       columns={[
         ["Ticket", (row) => row.ticketNumber || "-"],
         ["Traveller", (row) => strong(row.travellerName || "Unassigned")],
@@ -4014,7 +4164,7 @@ function TicketsView({ rows, openModal, has, deleteItem, removeTicket }) {
         [
           "Action",
           (row) =>
-            has(P.MANAGE_TICKETING) && (
+            canManage && (
               <div className="flex flex-wrap gap-2">
                 <EditButton
                   onClick={() =>
@@ -4048,11 +4198,30 @@ function TicketsView({ rows, openModal, has, deleteItem, removeTicket }) {
   );
 }
 
-function SeatView({ rows, openModal, has, deleteItem, removeSeatAllocation }) {
+function SeatView({
+  rows,
+  openModal,
+  has,
+  deleteItem,
+  deleteSelected,
+  removeSeatAllocation,
+  removeManySeatAllocations,
+}) {
+  const canManage = has(P.MANAGE_TICKETING);
   return (
-    <DataTable
+    <SelectableDataTable
       rows={rows}
       empty="No stored seat allocations yet."
+      selectable={canManage}
+      entityLabel="seat"
+      onBulkDelete={
+        canManage
+          ? (ids) =>
+              deleteSelected(ids.length, "seat", removeManySeatAllocations, () => ({
+                seatAllocationIds: ids,
+              }))
+          : undefined
+      }
       columns={[
         ["Seat", (row) => <span className="font-mono font-bold">{row.seatNumber}</span>],
         ["Traveller", (row) => row.travellerName || "Unassigned"],
@@ -4062,7 +4231,7 @@ function SeatView({ rows, openModal, has, deleteItem, removeSeatAllocation }) {
         [
           "Action",
           (row) =>
-            has(P.MANAGE_TICKETING) && (
+            canManage && (
               <div className="flex flex-wrap gap-2">
                 <EditButton
                   onClick={() =>
@@ -4093,11 +4262,30 @@ function SeatView({ rows, openModal, has, deleteItem, removeSeatAllocation }) {
   );
 }
 
-function HotelsView({ rows, openModal, has, deleteItem, removeHotel }) {
+function HotelsView({
+  rows,
+  openModal,
+  has,
+  deleteItem,
+  deleteSelected,
+  removeHotel,
+  removeManyHotels,
+}) {
+  const canManage = has(P.MANAGE_OPERATIONS);
   return (
-    <DataTable
+    <SelectableDataTable
       rows={rows}
       empty="No hotel records yet. Add a hotel property or use Import Rooming for passenger assignments below."
+      selectable={canManage}
+      entityLabel="hotel"
+      onBulkDelete={
+        canManage
+          ? (ids) =>
+              deleteSelected(ids.length, "hotel", removeManyHotels, () => ({
+                hotelIds: ids,
+              }))
+          : undefined
+      }
       columns={[
         ["Hotel", (row) => strong(row.name)],
         ["Job", (row) => row.jobCode],
@@ -4109,7 +4297,7 @@ function HotelsView({ rows, openModal, has, deleteItem, removeHotel }) {
         [
           "Action",
           (row) =>
-            has(P.MANAGE_OPERATIONS) && (
+            canManage && (
               <div className="flex flex-wrap gap-2">
                 <EditButton
                   onClick={() =>
@@ -4161,7 +4349,9 @@ function TourManagersView({
   has,
   canAssign,
   deleteItem,
+  deleteSelected,
   removeTourManager,
+  removeManyTourManagers,
   updateCallingStatus,
 }) {
   return (
@@ -4229,9 +4419,19 @@ function TourManagersView({
           ]}
         />
       </Panel>
-      <DataTable
+      <SelectableDataTable
         rows={rows}
         empty="No Tour Managers yet."
+        selectable={canAssign}
+        entityLabel="tour manager"
+        onBulkDelete={
+          canAssign
+            ? (ids) =>
+                deleteSelected(ids.length, "tour manager", removeManyTourManagers, () => ({
+                  tourManagerIds: ids,
+                }))
+            : undefined
+        }
         columns={[
           ["Name", (row) => strong(row.name)],
           ["Current Tour", (row) => row.currentTour || "Available"],
@@ -5883,13 +6083,19 @@ function EntityModal({
     }
   };
 
-  const handleProposalQuerySelect = (queryId) => {
-    if (!queryId) {
-      patchForm({ queryId: "" });
+  const handleProposalQuerySelect = (queryIds) => {
+    const nextQueryIds = Array.isArray(queryIds) ? queryIds : queryIds ? [queryIds] : [];
+    const primaryQueryId = nextQueryIds[0] || "";
+    if (!primaryQueryId) {
+      patchForm({ queryId: "", queryIds: [] });
       return;
     }
-    const linkedQuery = queries.find((query) => query.id === queryId);
-    patchForm(applyQueryLink(form, linkedQuery));
+    const linkedQuery = queries.find((query) => query.id === primaryQueryId);
+    patchForm({
+      ...applyQueryLink(form, linkedQuery),
+      queryId: primaryQueryId,
+      queryIds: nextQueryIds,
+    });
   };
 
   const handleJobQuerySelect = (queryId) => {
@@ -5900,7 +6106,7 @@ function EntityModal({
     const linkedQuery = queries.find((query) => query.id === queryId);
     const patch = applyQueryLink(form, linkedQuery);
     const linkedProposal = proposals.reduce((latest, proposal) => {
-      if (proposal.queryId !== queryId) return latest;
+      if (!proposalLinkedQueryIds(proposal).includes(queryId)) return latest;
       if (!latest) return proposal;
       return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
     }, null);
@@ -6349,16 +6555,19 @@ function EntityModal({
                 )}
                 {modal === "proposal" && (
                   <>
-                    <Select
-                      label="Linked Query"
-                      value={form.queryId}
-                      options={[
-                        { value: "", label: "Unlinked" },
-                        ...queries.map((q) => ({
-                          value: q.id,
-                          label: `${q.queryCode} - ${q.clientName}`,
-                        })),
-                      ]}
+                    <MultiSelect
+                      label="Linked Queries"
+                      value={
+                        Array.isArray(form.queryIds)
+                          ? form.queryIds
+                          : form.queryId
+                            ? [form.queryId]
+                            : []
+                      }
+                      options={queries.map((q) => ({
+                        value: q.id,
+                        label: `${q.queryCode} - ${q.clientName}`,
+                      }))}
                       onChange={handleProposalQuerySelect}
                     />
                     <Input
@@ -6467,7 +6676,10 @@ function EntityModal({
                       options={[
                         { value: "", label: "Select proposal…" },
                         ...proposals.reduce((options, proposal) => {
-                          if (!form.queryId || proposal.queryId === form.queryId) {
+                          if (
+                            !form.queryId ||
+                            proposalLinkedQueryIds(proposal).includes(form.queryId)
+                          ) {
                             options.push({
                               value: proposal.id,
                               label: `${proposal.proposalCode} - ${proposal.status}`,
@@ -7432,27 +7644,30 @@ function Select({ label, value, options, onChange, required = false }) {
 }
 
 function MultiSelect({ label, value, options, onChange }) {
+  const normalized = options.map((option) =>
+    typeof option === "string" ? { value: option, label: option } : option,
+  );
   const selected = new Set(value);
   return (
     <div className="md:col-span-2">
       <span className="mb-2 block text-xs font-semibold text-brand-muted">{label}</span>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {options.map((option) => (
+        {normalized.map((option) => (
           <label
-            key={option}
+            key={option.value}
             className="flex items-center gap-2 rounded-md border border-brand-border bg-brand-light px-3 py-2 text-sm"
           >
             <input
               type="checkbox"
-              checked={selected.has(option)}
+              checked={selected.has(option.value)}
               onChange={(event) => {
                 const next = new Set(selected);
-                if (event.target.checked) next.add(option);
-                else next.delete(option);
+                if (event.target.checked) next.add(option.value);
+                else next.delete(option.value);
                 onChange(Array.from(next));
               }}
             />
-            {option}
+            {option.label}
           </label>
         ))}
       </div>

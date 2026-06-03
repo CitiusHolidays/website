@@ -1,12 +1,11 @@
-import { v } from "convex/values";
 import { query } from "../_generated/server";
 import {
   applyCementPortalScope,
   CEMENT_QUERY_TYPES,
-  filterRecordsByCreatedAt,
+  filterRecordsByDateRange,
   PERMISSIONS,
-  type PortalPeriod,
-  portalPeriodValidator,
+  type PortalDateRange,
+  portalDateRangeValidator,
   requireStaff,
   shouldApplyCementScope,
 } from "./lib";
@@ -113,26 +112,30 @@ function buildUrgentActions({
 
 export const getPortalSummary = query({
   args: {
-    period: v.optional(portalPeriodValidator),
+    dateRange: portalDateRangeValidator,
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
-    const period = (args.period ?? "all") as PortalPeriod;
-    let queries = filterRecordsByCreatedAt(await ctx.db.query("queries").collect(), period);
-    let proposals = filterRecordsByCreatedAt(await ctx.db.query("proposals").collect(), period);
-    let jobCards = filterRecordsByCreatedAt(await ctx.db.query("jobCards").collect(), period);
-    let travellers = filterRecordsByCreatedAt(await ctx.db.query("travellers").collect(), period);
-    let tickets = filterRecordsByCreatedAt(await ctx.db.query("tickets").collect(), period);
-    let visas = filterRecordsByCreatedAt(await ctx.db.query("visaRecords").collect(), period);
-    let invoices = filterRecordsByCreatedAt(await ctx.db.query("invoices").collect(), period);
-    const approvals = filterRecordsByCreatedAt(
+    const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+    let queries = filterRecordsByDateRange(await ctx.db.query("queries").collect(), dateRange);
+    let proposals = filterRecordsByDateRange(await ctx.db.query("proposals").collect(), dateRange);
+    const proposalQueryLinks = await ctx.db.query("proposalQueryLinks").collect();
+    let jobCards = filterRecordsByDateRange(await ctx.db.query("jobCards").collect(), dateRange);
+    let travellers = filterRecordsByDateRange(
+      await ctx.db.query("travellers").collect(),
+      dateRange,
+    );
+    let tickets = filterRecordsByDateRange(await ctx.db.query("tickets").collect(), dateRange);
+    let visas = filterRecordsByDateRange(await ctx.db.query("visaRecords").collect(), dateRange);
+    let invoices = filterRecordsByDateRange(await ctx.db.query("invoices").collect(), dateRange);
+    const approvals = filterRecordsByDateRange(
       await ctx.db.query("approvalRequests").collect(),
-      period,
+      dateRange,
     );
     const staff = await ctx.db.query("staffUsers").collect();
-    const activities = filterRecordsByCreatedAt(
+    const activities = filterRecordsByDateRange(
       await ctx.db.query("activityLogs").collect(),
-      period,
+      dateRange,
     );
 
     const scopedRecords = applyCementPortalScope(access, {
@@ -143,6 +146,7 @@ export const getPortalSummary = query({
       tickets,
       visas,
       invoices,
+      proposalQueryLinks,
     });
     queries = scopedRecords.queries;
     proposals = scopedRecords.proposals;

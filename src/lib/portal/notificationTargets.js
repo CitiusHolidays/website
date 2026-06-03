@@ -1,3 +1,5 @@
+import { proposalLinkedQueryIds, proposalPrimaryQuery } from "./proposalLinks.js";
+
 const CONTRACTING_QUERY_TITLES = new Set(["New query received", "Query submitted to Contracting"]);
 
 export function getNotificationHref({ entityType, entityId, title }) {
@@ -195,14 +197,17 @@ export function buildModalInitial(modal, { entityId, queryId }, collections) {
     case "proposal": {
       const row = collections.proposals?.find((entry) => entry.id === entityId);
       if (!row) return null;
+      const queryIds = proposalLinkedQueryIds(row);
+      const primaryQuery = proposalPrimaryQuery(row);
       return {
         entityId: row.id,
         queryId: row.queryId || "",
+        queryIds,
         clientName: row.clientName,
         landCostPerPax: String(row.landCostPerPax ?? ""),
         airfarePerPax: String(row.airfarePerPax ?? ""),
         sellingPrice: String(row.sellingPrice ?? ""),
-        paxCount: String(row.query?.paxCount ?? 1),
+        paxCount: String(primaryQuery?.paxCount ?? 1),
         itinerarySummary: row.itinerarySummary || "",
       };
     }

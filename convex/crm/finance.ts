@@ -5,13 +5,13 @@ import {
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
-  filterRecordsByCreatedAt,
+  filterRecordsByDateRange,
   isDefined,
   nextCode,
   notifyRoles,
   PERMISSIONS,
-  type PortalPeriod,
-  portalPeriodValidator,
+  portalDateRangeValidator,
+  type PortalDateRange,
   requireAnyPermission,
   requireStaff,
 } from "./lib";
@@ -409,19 +409,19 @@ export const updateExpense = mutation({
 
 export const getFinanceOverview = query({
   args: {
-    period: v.optional(portalPeriodValidator),
+    dateRange: portalDateRangeValidator,
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
-    const period = (args.period ?? "all") as PortalPeriod;
+    const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
     const [invoiceRows, expenseRows, jobCardRows] = await Promise.all([
       ctx.db.query("invoices").collect(),
       ctx.db.query("expenseEntries").collect(),
       ctx.db.query("jobCards").collect(),
     ]);
-    const invoices = filterRecordsByCreatedAt(invoiceRows, period);
-    const expenses = filterRecordsByCreatedAt(expenseRows, period);
-    const allJobCards = filterRecordsByCreatedAt(jobCardRows, period);
+    const invoices = filterRecordsByDateRange(invoiceRows, dateRange);
+    const expenses = filterRecordsByDateRange(expenseRows, dateRange);
+    const allJobCards = filterRecordsByDateRange(jobCardRows, dateRange);
     const jobCards = (
       await Promise.all(
         allJobCards.map(async (job) => {
