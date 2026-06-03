@@ -9,7 +9,8 @@ import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import {
-  applyJobCardLink,
+    applyLeaveMatrixDefaults,
+    applyJobCardLink,
   applyPnrLink,
   applyQueryLink,
   applyTravellerLink,
@@ -1545,6 +1546,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     attachFinalizedPdf,
     attachProposalFile,
     attachQueryFile,
+    applyLeaveMatrixDefaults,
     canFetch,
     canViewTravellers,
     clearAllFilters,

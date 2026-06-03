@@ -938,6 +938,7 @@ function PortalWorkspaceViews({ workspace: w }) {
           deleteItem={w.deleteItem}
           removeStaff={w.removeStaff}
           startStaffOnboarding={w.startStaffOnboarding}
+          applyLeaveMatrixDefaults={w.applyLeaveMatrixDefaults}
         />
       )}
 
@@ -988,6 +989,7 @@ function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
         removeExpenseProof={w.removeExpenseProof}
         has={w.has}
         access={w.access}
+        leaveHeadApproverCandidates={w.leaveHeadApproverCandidates || []}
       />
       <PassengerImportModal
         open={w.modal === "passengerImport"}
@@ -4328,9 +4330,11 @@ function SettingsView({
   deleteItem,
   removeStaff,
   startStaffOnboarding,
+  applyLeaveMatrixDefaults,
 }) {
   const toast = usePortalToast();
   const [onboardingSending, setOnboardingSending] = useState({});
+  const [matrixSyncing, setMatrixSyncing] = useState(false);
 
   const searchTerm = search.trim();
   const visibleDropdowns = filterDropdowns(dropdowns, search);
@@ -4346,15 +4350,44 @@ function SettingsView({
     }
     setOnboardingSending((prev) => ({ ...prev, [row.id]: false }));
   };
+
+  const handleApplyLeaveMatrix = async () => {
+    setMatrixSyncing(true);
+    try {
+      const result = await applyLeaveMatrixDefaults({});
+      toast.success(
+        `Leave approvers synced from matrix (${result?.updated ?? 0} updated, ${result?.skipped ?? 0} skipped).`,
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error(err?.data || err?.message || "Failed to sync leave approvers.");
+    }
+    setMatrixSyncing(false);
+  };
+
   return (
     <div className="space-y-5">
       <Panel title="Staff allowlist">
+        <div className="mb-4 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            className="portal-small-btn"
+            disabled={matrixSyncing}
+            onClick={handleApplyLeaveMatrix}
+          >
+            {matrixSyncing ? "Syncing…" : "Sync leave approvers from matrix"}
+          </button>
+        </div>
         <DataTable
           rows={staff}
           empty={searchTerm ? "No staff match your search." : "No staff records yet."}
           columns={[
             ["Name", (row) => strong(row.name)],
             ["Email", (row) => row.email],
+            [
+              "Leave Head Approver",
+              (row) => row.leaveHeadApproverName || "Matrix default",
+            ],
             ["Department", (row) => row.department || "-"],
             ["Function", (row) => row.function || "-"],
             ["Location", (row) => row.location || "-"],
@@ -4406,6 +4439,14 @@ function SettingsView({
                         staffFunction: row.function,
                         mobile: row.mobile,
                         location: row.location,
+                        joiningDate: row.joiningDate || "",
+                        employmentStatus: row.employmentStatus || "Confirmed",
+                        confirmationDate: row.confirmationDate || "",
+                        leavePolicyGroup: row.leavePolicyGroup || "",
+                        leaveHeadApproverId: row.leaveHeadApproverId || "",
+                        maternityEventsUsed: String(row.maternityEventsUsed ?? 0),
+                        paternityEventsUsed: String(row.paternityEventsUsed ?? 0),
+                        marriageLeaveUsed: Boolean(row.marriageLeaveUsed),
                         staffActive: row.active,
                       })
                     }
