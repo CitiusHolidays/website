@@ -7,10 +7,8 @@ export const listActivity = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const [, rows] = await Promise.all([
-      requireStaff(ctx, PERMISSIONS.VIEW_ACTIVITY),
-      ctx.db.query("activityLogs").collect(),
-    ]);
+    await requireStaff(ctx, PERMISSIONS.VIEW_ACTIVITY);
+    const rows = await ctx.db.query("activityLogs").collect();
     return rows
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, args.limit ?? 50)
@@ -31,10 +29,8 @@ export const listNotifications = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const [access, rows] = await Promise.all([
-      requireStaff(ctx),
-      ctx.db.query("notifications").collect(),
-    ]);
+    const access = await requireStaff(ctx);
+    const rows = await ctx.db.query("notifications").collect();
     const roleSet = new Set(access.roles);
     return rows
       .filter(
@@ -74,29 +70,27 @@ export const markNotificationRead = mutation({
 export const markAllNotificationsRead = mutation({
   args: {},
   handler: async (ctx) => {
-    const [access, rows] = await Promise.all([
-      requireStaff(ctx),
-      ctx.db.query("notifications").collect(),
-    ]);
+    const access = await requireStaff(ctx);
+    const rows = await ctx.db.query("notifications").collect();
     const roleSet = new Set(access.roles);
     const now = Date.now();
-    const readableNotifications = rows.filter((notification) => {
+    let marked = 0;
+
+    for (const notification of rows) {
       if (notification.readAt) {
-        return false;
+        continue;
       }
       if (notification.recipientUserId && notification.recipientUserId !== access.authUserId) {
-        return false;
+        continue;
       }
       if (notification.recipientRole && !roleSet.has(notification.recipientRole)) {
-        return false;
+        continue;
       }
-      return true;
-    });
-    await Promise.all(
-      readableNotifications.map((notification) => ctx.db.patch(notification._id, { readAt: now })),
-    );
+      await ctx.db.patch(notification._id, { readAt: now });
+      marked += 1;
+    }
 
-    return { marked: readableNotifications.length };
+    return { marked };
   },
 });
 

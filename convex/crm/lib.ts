@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
@@ -763,6 +764,35 @@ function notificationEntityId(entityId?: string | Id<any>) {
   return entityId != null ? String(entityId) : undefined;
 }
 
+function addNotificationEmailRecipient(recipients: Set<string>, email?: string | null) {
+  const normalized = normalizeEmail(email);
+  if (normalized) {
+    recipients.add(normalized);
+  }
+}
+
+async function queueNotificationEmail(
+  ctx: MutationCtx,
+  recipients: Set<string>,
+  input: {
+    title: string;
+    body: string;
+    entityType?: string;
+    entityId?: string | Id<any>;
+  },
+) {
+  if (recipients.size === 0) {
+    return;
+  }
+  await ctx.scheduler.runAfter(0, internal.crm.notificationEmails.sendNotificationEmail, {
+    recipients: Array.from(recipients),
+    title: input.title,
+    body: input.body,
+    entityType: input.entityType,
+    entityId: notificationEntityId(input.entityId),
+  });
+}
+
 export async function notifyRoles(
   ctx: MutationCtx,
   roles: string[],
@@ -775,18 +805,26 @@ export async function notifyRoles(
 ) {
   const createdAt = Date.now();
   const entityId = notificationEntityId(input.entityId);
-  await Promise.all(
-    roles.map((role) =>
-      ctx.db.insert("notifications", {
-        recipientRole: role as any,
-        title: input.title,
-        body: input.body,
-        entityType: input.entityType,
-        entityId,
-        createdAt,
-      }),
-    ),
-  );
+  const staffRows = await ctx.db.query("staffUsers").collect();
+  const emailRecipients = new Set<string>();
+
+  for (const role of roles) {
+    for (const member of staffRows) {
+      if (member.active && member.roles.includes(role as any)) {
+        addNotificationEmailRecipient(emailRecipients, member.email);
+      }
+    }
+    await ctx.db.insert("notifications", {
+      recipientRole: role as any,
+      title: input.title,
+      body: input.body,
+      entityType: input.entityType,
+      entityId,
+      createdAt,
+    });
+  }
+
+  await queueNotificationEmail(ctx, emailRecipients, input);
 }
 
 export async function notifyStaffMatching(
@@ -806,62 +844,66 @@ export async function notifyStaffMatching(
   const entityId = notificationEntityId(input.entityId);
   const staffRows = await ctx.db.query("staffUsers").collect();
   const notifiedUserIds = new Set<string>();
-  const linkedStaffRoles = new Set<string>();
-  const notificationWrites = [];
+  const emailRecipients = new Set<string>();
 
   for (const member of staffRows) {
     if (!member.active || !shouldNotify(member)) {
       continue;
     }
+    addNotificationEmailRecipient(emailRecipients, member.email);
     if (member.authUserId) {
-      for (const role of member.roles) {
-        linkedStaffRoles.add(role);
-      }
       if (notifiedUserIds.has(member.authUserId)) {
         continue;
       }
       notifiedUserIds.add(member.authUserId);
-      notificationWrites.push(
-        ctx.db.insert("notifications", {
-          recipientUserId: member.authUserId,
-          title: input.title,
-          body: input.body,
-          entityType: input.entityType,
-          entityId,
-          createdAt,
-        }),
-      );
+      await ctx.db.insert("notifications", {
+        recipientUserId: member.authUserId,
+        title: input.title,
+        body: input.body,
+        entityType: input.entityType,
+        entityId,
+        createdAt,
+      });
       continue;
     }
     for (const role of member.roles) {
-      notificationWrites.push(
-        ctx.db.insert("notifications", {
-          recipientRole: role as any,
-          title: input.title,
-          body: input.body,
-          entityType: input.entityType,
-          entityId,
-          createdAt,
-        }),
-      );
+      await ctx.db.insert("notifications", {
+        recipientRole: role as any,
+        title: input.title,
+        body: input.body,
+        entityType: input.entityType,
+        entityId,
+        createdAt,
+      });
     }
   }
 
   for (const role of options?.fallbackRoles ?? []) {
-    if (!linkedStaffRoles.has(role)) {
-      notificationWrites.push(
-        ctx.db.insert("notifications", {
-          recipientRole: role as any,
-          title: input.title,
-          body: input.body,
-          entityType: input.entityType,
-          entityId,
-          createdAt,
-        }),
-      );
+    const hasLinkedStaff = staffRows.some(
+      (member) =>
+        member.active &&
+        member.authUserId &&
+        member.roles.includes(role as any) &&
+        shouldNotify(member),
+    );
+    if (!hasLinkedStaff) {
+      for (const member of staffRows) {
+        if (member.active && member.roles.includes(role as any) && shouldNotify(member)) {
+          addNotificationEmailRecipient(emailRecipients, member.email);
+        }
+      }
+      await ctx.db.insert("notifications", {
+        recipientRole: role as any,
+        title: input.title,
+        body: input.body,
+        entityType: input.entityType,
+        entityId,
+        createdAt,
+      });
     }
   }
-  await Promise.all(notificationWrites);
+
+  await queueNotificationEmail(ctx, emailRecipients, input);
 }
 
 const CODE_FIELD_BY_TABLE: Record<string, string> = {

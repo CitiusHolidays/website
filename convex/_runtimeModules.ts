@@ -27,6 +27,7 @@ import "./crm/jobCards";
 import "./crm/leave";
 import "./crm/lib";
 import "./crm/navShortcuts";
+import "./crm/notificationEmails";
 import "./crm/ops";
 import "./crm/passport";
 import "./crm/proposalAttachments";
