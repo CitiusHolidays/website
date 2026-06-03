@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { mutation, query } from "../_generated/server";
+import { internalQuery, mutation, query } from "../_generated/server";
 import {
   assertBulkDeleteLimit,
   canSeeJobCardRecord,
@@ -13,7 +13,7 @@ import {
   requireAnyPermission,
   requireStaff,
 } from "./lib";
-import { resolvePassportExpiryForList } from "./passportExpiry";
+import { normalizePassportExpiryDate } from "./passportExpiry";
 
 const foodPreferenceValidator = v.union(
   v.literal("Veg"),
@@ -94,18 +94,16 @@ export const list = query({
     const passportRows = await ctx.db.query("passportDetails").collect();
     const passportScanByTraveller = new Map<string, boolean>();
     const passportExpiryByTraveller = new Map<string, string>();
-    await Promise.all(
-      passportRows.map(async (row) => {
-        const travellerKey = String(row.travellerId);
-        if (row.storageId) {
-          passportScanByTraveller.set(travellerKey, true);
-        }
-        const expiryDate = await resolvePassportExpiryForList(row.expiryDate, row.encryptedPayload);
-        if (expiryDate) {
-          passportExpiryByTraveller.set(travellerKey, expiryDate);
-        }
-      }),
-    );
+    for (const row of passportRows) {
+      const travellerKey = String(row.travellerId);
+      if (row.storageId) {
+        passportScanByTraveller.set(travellerKey, true);
+      }
+      const expiryDate = normalizePassportExpiryDate(row.expiryDate);
+      if (expiryDate) {
+        passportExpiryByTraveller.set(travellerKey, expiryDate);
+      }
+    }
     const result = await Promise.all(
       rows
         .sort((a, b) => b.createdAt - a.createdAt)
@@ -127,6 +125,64 @@ export const list = query({
         }),
     );
     return result.filter(Boolean);
+  },
+});
+
+export const passportExpirySources = internalQuery({
+  args: {
+    jobCardId: v.optional(v.string()),
+    access: v.any(),
+  },
+  handler: async (ctx, args) => {
+    const access = args.access as PortalAccess;
+    if (!access?.allowed) {
+      return [];
+    }
+
+    const normalizedJobCardId = args.jobCardId
+      ? ctx.db.normalizeId("jobCards", args.jobCardId)
+      : null;
+    const travellers = normalizedJobCardId
+      ? await ctx.db
+          .query("travellers")
+          .withIndex("by_jobCardId", (q) => q.eq("jobCardId", normalizedJobCardId))
+          .collect()
+      : await ctx.db.query("travellers").collect();
+
+    const sources: Array<{
+      passportId: Id<"passportDetails">;
+      travellerId: Id<"travellers">;
+      expiryDate: string;
+      encryptedPayload: string;
+    }> = [];
+
+    for (const traveller of travellers) {
+      const job = await ctx.db.get(traveller.jobCardId);
+      if (!job) {
+        continue;
+      }
+      const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+      if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+        continue;
+      }
+
+      const passport = await ctx.db
+        .query("passportDetails")
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
+        .unique();
+      if (!passport?.encryptedPayload) {
+        continue;
+      }
+
+      sources.push({
+        passportId: passport._id,
+        travellerId: traveller._id,
+        expiryDate: passport.expiryDate ?? "",
+        encryptedPayload: passport.encryptedPayload,
+      });
+    }
+
+    return sources;
   },
 });
 

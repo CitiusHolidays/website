@@ -22,7 +22,22 @@ export function normalizePassportExpiryDate(value?: string | null) {
   return new Date(parsed).toISOString().slice(0, 10);
 }
 
-/** Same expiry resolution as passenger export (plain column, then encrypted payload). */
+/** Resolve expiry from plain column and/or decrypted passport JSON (export parity). */
+export function passportExpiryFromDecrypted(
+  plainExpiry?: string | null,
+  decrypted?: { expiryDate?: string } | null,
+): string {
+  const fromPlain = normalizePassportExpiryDate(plainExpiry);
+  if (fromPlain) {
+    return fromPlain;
+  }
+  if (!decrypted) {
+    return "";
+  }
+  return normalizePassportExpiryDate(cleanPassportField(decrypted.expiryDate)) ?? "";
+}
+
+/** Best-effort decrypt in query runtime; prefer passportActions.getTravellerPassportExpiryDates. */
 export async function resolvePassportExpiryForList(
   plainExpiry?: string | null,
   encryptedPayload?: string | null,
@@ -36,9 +51,5 @@ export async function resolvePassportExpiryForList(
   }
 
   const decrypted = await decryptPassportPayloadJson(encryptedPayload);
-  if (!decrypted) {
-    return "";
-  }
-
-  return normalizePassportExpiryDate(cleanPassportField(decrypted.expiryDate)) ?? "";
+  return passportExpiryFromDecrypted(plainExpiry, decrypted);
 }

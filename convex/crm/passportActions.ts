@@ -11,7 +11,26 @@ import {
   encryptPassportDetails,
 } from "../lib/encryption";
 import { PERMISSIONS } from "./lib";
-import { normalizePassportExpiryDate } from "./passportExpiry";
+import { normalizePassportExpiryDate, passportExpiryFromDecrypted } from "./passportExpiry";
+
+function resolvePassportExpiryFromEncrypted(
+  plainExpiry?: string | null,
+  encryptedPayload?: string | null,
+) {
+  const fromPlain = normalizePassportExpiryDate(plainExpiry);
+  if (fromPlain) {
+    return fromPlain;
+  }
+  if (!encryptedPayload) {
+    return "";
+  }
+  try {
+    const decrypted = decryptPassportDetails(encryptedPayload);
+    return passportExpiryFromDecrypted(plainExpiry, decrypted);
+  } catch {
+    return "";
+  }
+}
 
 const MAX_PASSPORT_FILE_BYTES = 15 * 1024 * 1024;
 const ALLOWED_PASSPORT_MIME_TYPES = new Set([
@@ -265,6 +284,44 @@ export const removePassport = action({
     });
 
     return { success: true };
+  },
+});
+
+export const getTravellerPassportExpiryDates = action({
+  args: {
+    jobCardId: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<Record<string, string>> => {
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    if (!access?.allowed || !access.permissions.includes(PERMISSIONS.VIEW_TRAVELLERS)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+
+    const sources: Array<{
+      passportId: Id<"passportDetails">;
+      travellerId: Id<"travellers">;
+      expiryDate: string;
+      encryptedPayload: string;
+    }> = await ctx.runQuery(internal.crm.travellers.passportExpirySources, {
+      jobCardId: args.jobCardId,
+      access,
+    });
+
+    const result: Record<string, string> = {};
+    for (const row of sources) {
+      const expiry = resolvePassportExpiryFromEncrypted(row.expiryDate, row.encryptedPayload);
+      if (!expiry) {
+        continue;
+      }
+      result[String(row.travellerId)] = expiry;
+      if (!normalizePassportExpiryDate(row.expiryDate)) {
+        await ctx.runMutation(internal.crm.passport.backfillPassportExpiryDate, {
+          passportId: row.passportId,
+          expiryDate: expiry,
+        });
+      }
+    }
+    return result;
   },
 });
 

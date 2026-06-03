@@ -28,7 +28,15 @@ import {
 } from "lucide-react";
 import { AnimatePresence, m as motion } from "motion/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { cloneElement, isValidElement, Suspense, useEffect, useRef, useState } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
 import { PortalListFilters } from "@/components/portal/PortalListFilters";
@@ -634,6 +642,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     api.crm.travellers.list,
     canFetch && has(P.VIEW_TRAVELLERS) ? {} : "skip",
   );
+  const [passportExpiryByTraveller, setPassportExpiryByTraveller] = useState({});
   const visas = useQuery(api.crm.visa.list, canFetch && has(P.VIEW_VISA) ? {} : "skip");
   const ticketDashboard = useQuery(
     api.crm.ticketing.dashboard,
@@ -751,6 +760,55 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const previewPassengerImport = useAction(api.crm.importActions.previewPassengerImport);
   const commitPassengerImport = useAction(api.crm.importActions.commitPassengerImport);
   const getPassengerExportRows = useAction(api.crm.importActions.getPassengerExportRows);
+  const getTravellerPassportExpiryDates = useAction(
+    api.crm.passportActions.getTravellerPassportExpiryDates,
+  );
+
+  const canViewTravellers = Boolean(access?.permissions?.includes(P.VIEW_TRAVELLERS));
+
+  useEffect(() => {
+    if (!canFetch || !canViewTravellers) {
+      return undefined;
+    }
+    if (view !== "travellers" && view !== "passport") {
+      return undefined;
+    }
+
+    let cancelled = false;
+    getTravellerPassportExpiryDates({ jobCardId: jobCardFilter || undefined })
+      .then((dates) => {
+        if (!cancelled) {
+          setPassportExpiryByTraveller(dates || {});
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPassportExpiryByTraveller({});
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canFetch,
+    canViewTravellers,
+    view,
+    jobCardFilter,
+    getTravellerPassportExpiryDates,
+    travellers?.length,
+  ]);
+
+  const travellersWithPassportExpiry = useMemo(() => {
+    const rows = travellers || [];
+    if (!Object.keys(passportExpiryByTraveller).length) {
+      return rows;
+    }
+    return rows.map((row) => ({
+      ...row,
+      passportExpiryDate: passportExpiryByTraveller[row.id] ?? row.passportExpiryDate ?? "",
+    }));
+  }, [travellers, passportExpiryByTraveller]);
   const commitFlightImport = useMutation(api.crm.imports.commitFlightImport);
   const createTicket = useMutation(api.crm.ticketing.createTicket);
   const updateTicket = useMutation(api.crm.ticketing.updateTicket);
@@ -795,7 +853,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     queries: filterByDateRange(queries || [], dateRange, "createdAt"),
     proposals: filterByDateRange(proposals || [], dateRange, "createdAt"),
     jobCards: filterByDateRange(jobCards || [], dateRange, "createdAt"),
-    travellers: filterByDateRange(travellers || [], dateRange, "createdAt"),
+    travellers: filterByDateRange(travellersWithPassportExpiry, dateRange, "createdAt"),
     visas: filterByDateRange(visas || [], dateRange, "createdAt"),
     pnrs: filterByDateRange(pnrs || [], dateRange, "createdAt"),
     tickets: filterByDateRange(tickets || [], dateRange, "createdAt"),
