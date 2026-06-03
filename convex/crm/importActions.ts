@@ -5,7 +5,7 @@ import { api, internal } from "../_generated/api";
 import { action } from "../_generated/server";
 import { decryptPassportDetails, encryptPassportDetails, hash } from "../lib/encryption";
 import { PERMISSIONS } from "./lib";
-import { normalizePassportExpiryDate } from "./passportExpiry";
+import { cleanPassportField, normalizePassportExpiryDate } from "./passportExpiry";
 
 export const IMPORT_BATCH_SIZE = 50;
 
@@ -232,11 +232,6 @@ async function requireExportAccess(ctx: any, exportKind: string) {
   return access;
 }
 
-function exportPassportField(value?: string) {
-  const text = clean(value);
-  return text && text !== "UNKNOWN" ? text : "";
-}
-
 function mapPassengerExportRow(row: any) {
   let passport = {
     number: "",
@@ -249,10 +244,10 @@ function mapPassengerExportRow(row: any) {
     try {
       const decrypted = decryptPassportDetails(row.encryptedPassportPayload);
       passport = {
-        number: exportPassportField(decrypted.number),
-        dateOfBirth: exportPassportField(decrypted.dateOfBirth),
-        issueDate: exportPassportField(decrypted.issueDate),
-        expiryDate: exportPassportField(decrypted.expiryDate),
+        number: cleanPassportField(decrypted.number),
+        dateOfBirth: cleanPassportField(decrypted.dateOfBirth),
+        issueDate: cleanPassportField(decrypted.issueDate),
+        expiryDate: cleanPassportField(decrypted.expiryDate),
       };
     } catch {
       passport = { number: "", dateOfBirth: "", issueDate: "", expiryDate: "" };

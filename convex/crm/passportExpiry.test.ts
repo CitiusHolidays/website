@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { normalizePassportExpiryDate } from "./passportExpiry";
+import { encryptPassportDetails } from "../lib/encryption";
+import {
+  cleanPassportField,
+  normalizePassportExpiryDate,
+  resolvePassportExpiryForList,
+} from "./passportExpiry";
 
 describe("normalizePassportExpiryDate", () => {
   test("returns undefined for empty or UNKNOWN values", () => {
@@ -13,5 +18,38 @@ describe("normalizePassportExpiryDate", () => {
 
   test("parses human-readable dates", () => {
     expect(normalizePassportExpiryDate("15 Mar 2028")).toBe("2028-03-15");
+  });
+});
+
+describe("cleanPassportField", () => {
+  test("returns empty string for UNKNOWN", () => {
+    expect(cleanPassportField("UNKNOWN")).toBe("");
+  });
+});
+
+describe("resolvePassportExpiryForList", () => {
+  test("prefers normalized plain expiry column", async () => {
+    await expect(resolvePassportExpiryForList("2028-03-15", "")).resolves.toBe("2028-03-15");
+  });
+
+  test("reads expiry from encrypted payload when plain column is empty", async () => {
+    const previousKey = process.env.ENCRYPTION_KEY;
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+    try {
+      const encrypted = encryptPassportDetails({
+        number: "Z1234567",
+        dateOfBirth: "1990-01-01",
+        issueDate: "2020-01-01",
+        expiryDate: "2031-06-15",
+        nationality: "IN",
+      });
+      await expect(resolvePassportExpiryForList("", encrypted)).resolves.toBe("2031-06-15");
+    } finally {
+      if (previousKey === undefined) {
+        delete process.env.ENCRYPTION_KEY;
+      } else {
+        process.env.ENCRYPTION_KEY = previousKey;
+      }
+    }
   });
 });

@@ -13,6 +13,7 @@ import {
   requireAnyPermission,
   requireStaff,
 } from "./lib";
+import { resolvePassportExpiryForList } from "./passportExpiry";
 
 const foodPreferenceValidator = v.union(
   v.literal("Veg"),
@@ -93,15 +94,18 @@ export const list = query({
     const passportRows = await ctx.db.query("passportDetails").collect();
     const passportScanByTraveller = new Map<string, boolean>();
     const passportExpiryByTraveller = new Map<string, string>();
-    for (const row of passportRows) {
-      const travellerKey = String(row.travellerId);
-      if (row.storageId) {
-        passportScanByTraveller.set(travellerKey, true);
-      }
-      if (row.expiryDate) {
-        passportExpiryByTraveller.set(travellerKey, row.expiryDate);
-      }
-    }
+    await Promise.all(
+      passportRows.map(async (row) => {
+        const travellerKey = String(row.travellerId);
+        if (row.storageId) {
+          passportScanByTraveller.set(travellerKey, true);
+        }
+        const expiryDate = await resolvePassportExpiryForList(row.expiryDate, row.encryptedPayload);
+        if (expiryDate) {
+          passportExpiryByTraveller.set(travellerKey, expiryDate);
+        }
+      }),
+    );
     const result = await Promise.all(
       rows
         .sort((a, b) => b.createdAt - a.createdAt)
