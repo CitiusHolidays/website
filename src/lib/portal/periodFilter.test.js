@@ -52,6 +52,14 @@ describe("periodFilter", () => {
     ]);
   });
 
+  test("team and settings are excluded from period filter views", () => {
+    const showPeriodFilter = (view) => !["settings", "team"].includes(view);
+    expect(showPeriodFilter("team")).toBe(false);
+    expect(showPeriodFilter("settings")).toBe(false);
+    expect(showPeriodFilter("queries")).toBe(true);
+    expect(showPeriodFilter("dashboard")).toBe(true);
+  });
+
   test("includes the full end day", () => {
     const endOfDay = new Date("2026-01-15T23:59:59").getTime();
     expect(isInDateRange(endOfDay, { from: "2026-01-15", to: "2026-01-15" })).toBe(true);

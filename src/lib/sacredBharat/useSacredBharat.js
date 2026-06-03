@@ -20,10 +20,13 @@ export function useSacredBharat() {
   const mergeAttempted = useRef(false);
 
   useEffect(() => {
-    const draft = readGuestDraft();
-    setGuestTempleIds(draft.templeIds);
-    setGuestWishlist(draft.wishlist);
-    setGuestHydrated(true);
+    const timeout = window.setTimeout(() => {
+      const draft = readGuestDraft();
+      setGuestTempleIds(draft.templeIds);
+      setGuestWishlist(draft.wishlist);
+      setGuestHydrated(true);
+    }, 0);
+    return () => window.clearTimeout(timeout);
   }, []);
 
   useEffect(() => {

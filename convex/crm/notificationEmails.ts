@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { Resend } from "resend";
 import { internalAction } from "../_generated/server";
 import { AUTH_EMAIL_FROM } from "../lib/emailConfig";
+import { getNotificationHref } from "./notificationPaths";
 
 function siteUrl() {
   return (
@@ -21,64 +22,6 @@ function escapeHtml(value: string) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
-}
-
-function notificationPath(args: { entityType?: string; entityId?: string; title: string }) {
-  if (!args.entityType || !args.entityId) {
-    return "/portal/activity";
-  }
-
-  const params = new URLSearchParams();
-
-  switch (args.entityType) {
-    case "query":
-      if (args.title === "Order confirmed") {
-        params.set("open", "jobCard");
-        params.set("queryId", args.entityId);
-        return `/portal/accounts/job-cards?${params}`;
-      }
-      if (args.title === "Order confirmed — assign owners") {
-        return "/portal/job-cards";
-      }
-      if (args.title === "New query received" || args.title === "Query submitted to Contracting") {
-        params.set("open", "queryStatus");
-        params.set("id", args.entityId);
-        return `/portal/contracting?${params}`;
-      }
-      params.set("open", "query");
-      params.set("id", args.entityId);
-      return `/portal/queries?${params}`;
-    case "proposal":
-      params.set("open", "proposal");
-      params.set("id", args.entityId);
-      return `/portal/proposals?${params}`;
-    case "jobCard":
-      if (args.title === "Assign contracting SPOC" || args.title === "Assign contracting owner") {
-        params.set("open", "assignContractingOwner");
-      } else if (args.title === "Assign operations owner") {
-        params.set("open", "assignOperationsOwner");
-      } else if (args.title === "Assign ticketing owner") {
-        params.set("open", "assignTicketingOwner");
-      } else {
-        params.set("open", "jobCard");
-      }
-      params.set("id", args.entityId);
-      return `/portal/job-cards?${params}`;
-    case "ticket":
-      params.set("open", "ticket");
-      params.set("id", args.entityId);
-      return `/portal/tickets?${params}`;
-    case "leave":
-      params.set("open", "leave_create");
-      params.set("id", args.entityId);
-      return `/portal/employees-on-leave?${params}`;
-    case "approval":
-      params.set("open", "approval");
-      params.set("id", args.entityId);
-      return `/portal/approvals?${params}`;
-    default:
-      return "/portal/activity";
-  }
 }
 
 function buildNotificationHtml(args: { title: string; body: string; href: string }) {
@@ -124,7 +67,7 @@ export const sendNotificationEmail = internalAction({
       return { sent: 0, skipped: 0 };
     }
 
-    const href = `${siteUrl()}${notificationPath(args)}`;
+    const href = `${siteUrl()}${getNotificationHref(args)}`;
     const html = buildNotificationHtml({
       title: args.title,
       body: args.body,

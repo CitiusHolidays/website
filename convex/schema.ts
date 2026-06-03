@@ -476,6 +476,7 @@ export default defineSchema({
   passportDetails: defineTable({
     travellerId: v.id("travellers"),
     encryptedPayload: v.string(),
+    expiryDate: v.optional(v.string()),
     lastFour: v.optional(v.string()),
     status: v.optional(v.string()),
     storageId: v.optional(v.id("_storage")),

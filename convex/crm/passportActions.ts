@@ -3,9 +3,15 @@
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { action } from "../_generated/server";
-import { decryptBuffer, encryptBuffer, encryptPassportDetails } from "../lib/encryption";
+import { action, internalAction } from "../_generated/server";
+import {
+  decryptBuffer,
+  decryptPassportDetails,
+  encryptBuffer,
+  encryptPassportDetails,
+} from "../lib/encryption";
 import { PERMISSIONS } from "./lib";
+import { normalizePassportExpiryDate } from "./passportExpiry";
 
 const MAX_PASSPORT_FILE_BYTES = 15 * 1024 * 1024;
 const ALLOWED_PASSPORT_MIME_TYPES = new Set([
@@ -149,6 +155,7 @@ export const encryptAndStorePassport = action({
       storageId: encryptedStorageId,
       encryptedPayload,
       lastFour: lastFour || undefined,
+      expiryDate: normalizePassportExpiryDate(args.expiryDate),
       fileName: args.fileName,
       mimeType: resolvedMimeType,
       createdBy: access.authUserId || "unknown",
@@ -258,5 +265,41 @@ export const removePassport = action({
     });
 
     return { success: true };
+  },
+});
+
+export const backfillPassportExpiryDates = internalAction({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<{ processed: number; updated: number; skipped: number }> => {
+    const rows: Array<{ id: Id<"passportDetails">; encryptedPayload: string }> = await ctx.runQuery(
+      internal.crm.passport.listPassportDetailsForBackfill,
+      {
+        limit: args.limit ?? 100,
+      },
+    );
+    let updated = 0;
+    let skipped = 0;
+
+    for (const row of rows) {
+      try {
+        const decrypted = decryptPassportDetails(row.encryptedPayload);
+        const expiryDate = normalizePassportExpiryDate(decrypted.expiryDate);
+        if (!expiryDate) {
+          skipped += 1;
+          continue;
+        }
+        await ctx.runMutation(internal.crm.passport.backfillPassportExpiryDate, {
+          passportId: row.id,
+          expiryDate,
+        });
+        updated += 1;
+      } catch {
+        skipped += 1;
+      }
+    }
+
+    return { processed: rows.length, updated, skipped };
   },
 });

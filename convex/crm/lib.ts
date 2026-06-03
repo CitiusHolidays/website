@@ -1036,7 +1036,68 @@ export async function deleteEntityNotifications(
   );
 }
 
-async function deleteStorageFile(ctx: MutationCtx, storageId: unknown, label: string) {
+export function canReceiveNotification(
+  notification: {
+    recipientUserId?: string;
+    recipientRole?: string;
+  },
+  access: { authUserId?: string | null; roles: string[] },
+) {
+  const roleSet = new Set(access.roles);
+  if (notification.recipientUserId && notification.recipientUserId !== access.authUserId) {
+    return false;
+  }
+  if (notification.recipientRole && !roleSet.has(notification.recipientRole)) {
+    return false;
+  }
+  return true;
+}
+
+export async function notifyStaffMember(
+  ctx: MutationCtx,
+  staffId: Id<"staffUsers">,
+  input: {
+    title: string;
+    body: string;
+    entityType?: string;
+    entityId?: string | Id<any>;
+  },
+) {
+  const staff = await ctx.db.get(staffId);
+  if (!staff?.active) {
+    return;
+  }
+  const createdAt = Date.now();
+  const entityId = notificationEntityId(input.entityId);
+  const emailRecipients = new Set<string>();
+  addNotificationEmailRecipient(emailRecipients, staff.email);
+
+  if (staff.authUserId) {
+    await ctx.db.insert("notifications", {
+      recipientUserId: staff.authUserId,
+      title: input.title,
+      body: input.body,
+      entityType: input.entityType,
+      entityId,
+      createdAt,
+    });
+  } else {
+    for (const role of staff.roles) {
+      await ctx.db.insert("notifications", {
+        recipientRole: role as any,
+        title: input.title,
+        body: input.body,
+        entityType: input.entityType,
+        entityId,
+        createdAt,
+      });
+    }
+  }
+
+  await queueNotificationEmail(ctx, emailRecipients, input);
+}
+
+export async function deleteStorageFile(ctx: MutationCtx, storageId: unknown, label: string) {
   if (!storageId) return;
   try {
     await ctx.storage.delete(storageId as any);

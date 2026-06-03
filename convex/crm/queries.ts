@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import {
   assertCementQueryTypeAllowed,
@@ -15,6 +16,7 @@ import {
   nextCode,
   notifyRoles,
   notifyStaffMatching,
+  notifyStaffMember,
   PERMISSIONS,
   publicQuery,
   requireAnyPermission,
@@ -329,6 +331,12 @@ export const assignContracting = mutation({
       action: "assigned_contracting",
       message: `${current.queryCode} assigned to ${ownerName}`,
     });
+    await notifyStaffMember(ctx, staffId, {
+      title: "Assign contracting owner",
+      body: `You were assigned as contracting SPOC for ${current.queryCode}.`,
+      entityType: "query",
+      entityId: queryId,
+    });
     return { id: queryId };
   },
 });
@@ -598,7 +606,7 @@ export const remove = mutation({
           storageIds.push(proposal.finalizedPdfStorageId);
         }
         await Promise.all([
-          ...storageIds.map((storageId) =>
+          ...storageIds.map((storageId: Id<"_storage">) =>
             ctx.storage.delete(storageId).catch((err) => {
               console.error("Failed to delete proposal attachment file:", err);
             }),
@@ -625,7 +633,7 @@ export const remove = mutation({
       queryId,
     });
     await Promise.all(
-      storageIds.map(async (storageId) => {
+      storageIds.map(async (storageId: Id<"_storage">) => {
         try {
           await ctx.storage.delete(storageId);
         } catch (err) {

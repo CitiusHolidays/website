@@ -1,0 +1,299 @@
+import {
+  APPROVAL_STATUSES,
+  CONTRACTING_STATUSES,
+  EXPENSE_APPROVAL_STATUSES,
+  EXPENSE_CATEGORIES,
+  INVOICE_STATUSES,
+  JOB_CARD_STATUSES,
+  LEAD_STAGES,
+  LEAVE_STATUSES,
+  LEAVE_TYPES,
+  PROPOSAL_STATUSES,
+  QUERY_TYPES,
+  REIMBURSEMENT_STATUSES,
+  ROOM_TYPES,
+  SALES_STATUSES,
+  SEAT_STATUSES,
+  TICKET_STATUSES,
+  TICKET_TYPES,
+  TOUR_MANAGER_STATUSES,
+  VISA_STATUSES,
+} from "@/lib/portal/constants";
+import { buildFilterOptions } from "@/lib/portal/listFilters";
+import {
+  filterByPassportExpiryUrgency,
+  PASSPORT_EXPIRY_URGENCY_OPTIONS,
+} from "@/lib/portal/passportExpiry";
+
+function staticOptions(values, allLabel) {
+  return [{ value: "", label: allLabel }, ...values.map((v) => ({ value: v, label: v }))];
+}
+
+function fromRows(field, allLabel) {
+  return {
+    field,
+    label: allLabel.replace(/^All /, ""),
+    options: "fromRows",
+    resolveOptions(rows) {
+      return [
+        { value: "", label: allLabel },
+        ...buildFilterOptions(rows, field).map((v) => ({ value: v, label: v })),
+      ];
+    },
+  };
+}
+
+/** Portal workspace views that render list tables or filterable grids. */
+export const PORTAL_LIST_VIEWS = [
+  "dashboard",
+  "queries",
+  "pipeline",
+  "proposals",
+  "contracting",
+  "accounts-job-cards",
+  "job-cards",
+  "travellers",
+  "passport",
+  "visa",
+  "hotels",
+  "tour-managers",
+  "ticketing",
+  "flights",
+  "tickets",
+  "seat-allocation",
+  "finance",
+  "expenses",
+  "approvals",
+  "employees-on-leave",
+  "team",
+  "activity",
+  "reports",
+  "settings",
+];
+
+function staticOptionValues(options) {
+  if (!Array.isArray(options)) return [];
+  return options.filter((entry) => entry.value).map((entry) => entry.value);
+}
+
+/** @type {Record<string, import('./listFilters.js').ListFilterDef[]>} */
+export const LIST_FILTER_CONFIG = {
+  dashboard: [],
+  reports: [],
+  settings: [],
+  queries: [
+    {
+      field: "salesStatus",
+      label: "Sales status",
+      options: staticOptions(SALES_STATUSES, "All sales statuses"),
+    },
+    {
+      field: "contractingStatus",
+      label: "Contracting status",
+      options: staticOptions(CONTRACTING_STATUSES, "All contracting statuses"),
+    },
+    {
+      field: "queryType",
+      label: "Query type",
+      options: staticOptions(QUERY_TYPES, "All query types"),
+    },
+  ],
+  pipeline: [
+    {
+      field: "salesStatus",
+      label: "Sales status",
+      options: staticOptions(SALES_STATUSES, "All sales statuses"),
+    },
+    {
+      field: "contractingStatus",
+      label: "Contracting status",
+      options: staticOptions(CONTRACTING_STATUSES, "All contracting statuses"),
+    },
+    {
+      field: "queryType",
+      label: "Query type",
+      options: staticOptions(QUERY_TYPES, "All query types"),
+    },
+    {
+      field: "leadStage",
+      label: "Lead stage",
+      options: staticOptions(LEAD_STAGES, "All lead stages"),
+    },
+  ],
+  proposals: [
+    { field: "status", label: "Status", options: staticOptions(PROPOSAL_STATUSES, "All statuses") },
+  ],
+  contracting: [
+    {
+      field: "contractingStatus",
+      label: "Contracting status",
+      options: staticOptions(CONTRACTING_STATUSES, "All contracting statuses"),
+    },
+    {
+      field: "queryType",
+      label: "Query type",
+      options: staticOptions(QUERY_TYPES, "All query types"),
+    },
+  ],
+  "accounts-job-cards": [
+    {
+      field: "queryType",
+      label: "Query type",
+      options: staticOptions(QUERY_TYPES, "All query types"),
+    },
+  ],
+  "job-cards": [
+    { field: "status", label: "Status", options: staticOptions(JOB_CARD_STATUSES, "All statuses") },
+    {
+      field: "queryType",
+      label: "Query type",
+      options: staticOptions(QUERY_TYPES, "All query types"),
+    },
+  ],
+  travellers: [
+    {
+      field: "visaStatus",
+      label: "Visa status",
+      options: staticOptions(VISA_STATUSES, "All visa statuses"),
+    },
+    {
+      field: "ticketStatus",
+      label: "Ticket status",
+      options: staticOptions(TICKET_STATUSES, "All ticket statuses"),
+    },
+    {
+      field: "callingStatus",
+      label: "Calling status",
+      options: staticOptions(["Pending", "Done", "No response"], "All calling statuses"),
+    },
+    {
+      field: "passportExpiryUrgency",
+      label: "Passport expiry",
+      options: PASSPORT_EXPIRY_URGENCY_OPTIONS,
+      filterFn: filterByPassportExpiryUrgency,
+    },
+  ],
+  passport: [
+    {
+      field: "passportStatus",
+      label: "Passport status",
+      options: staticOptions(["Pending", "Received"], "All passport statuses"),
+    },
+  ],
+  visa: [
+    { field: "status", label: "Status", options: staticOptions(VISA_STATUSES, "All statuses") },
+  ],
+  hotels: [
+    { field: "roomType", label: "Room type", options: staticOptions(ROOM_TYPES, "All room types") },
+  ],
+  "tour-managers": [
+    {
+      field: "status",
+      label: "Status",
+      options: staticOptions(TOUR_MANAGER_STATUSES, "All statuses"),
+    },
+    {
+      field: "callingStatus",
+      label: "Calling status",
+      options: staticOptions(["Pending", "Done", "No response"], "All calling statuses"),
+    },
+  ],
+  ticketing: [
+    {
+      field: "ticketStatus",
+      label: "Ticket status",
+      options: staticOptions(TICKET_STATUSES, "All ticket statuses"),
+    },
+  ],
+  flights: [fromRows("status", "All PNR statuses")],
+  tickets: [
+    {
+      field: "ticketStatus",
+      label: "Ticket status",
+      options: staticOptions(TICKET_STATUSES, "All ticket statuses"),
+    },
+    {
+      field: "ticketType",
+      label: "Ticket type",
+      options: staticOptions(TICKET_TYPES, "All ticket types"),
+    },
+  ],
+  "seat-allocation": [
+    { field: "status", label: "Status", options: staticOptions(SEAT_STATUSES, "All statuses") },
+  ],
+  finance: [
+    {
+      field: "status",
+      label: "Invoice status",
+      options: staticOptions(INVOICE_STATUSES, "All statuses"),
+    },
+  ],
+  expenses: [
+    {
+      field: "approvalStatus",
+      label: "Approval status",
+      options: staticOptions(EXPENSE_APPROVAL_STATUSES, "All approval statuses"),
+    },
+    {
+      field: "reimbursementStatus",
+      label: "Reimbursement",
+      options: staticOptions(REIMBURSEMENT_STATUSES, "All reimbursement statuses"),
+    },
+    {
+      field: "category",
+      label: "Category",
+      options: staticOptions(EXPENSE_CATEGORIES, "All categories"),
+    },
+  ],
+  approvals: [
+    { field: "status", label: "Status", options: staticOptions(APPROVAL_STATUSES, "All statuses") },
+    { field: "type", label: "Type", options: staticOptions(["Expense", "Finance"], "All types") },
+  ],
+  "employees-on-leave": [
+    { field: "status", label: "Status", options: staticOptions(LEAVE_STATUSES, "All statuses") },
+    {
+      field: "leaveType",
+      label: "Leave type",
+      options: staticOptions(LEAVE_TYPES, "All leave types"),
+    },
+  ],
+  team: [fromRows("department", "All departments"), fromRows("function", "All functions")],
+  activity: [fromRows("entityType", "All entity types")],
+};
+
+export const VIEWS_WITH_JOB_CARD_FILTER = [
+  "travellers",
+  "passport",
+  "visa",
+  "ticketing",
+  "hotels",
+  "flights",
+  "tickets",
+  "seat-allocation",
+  "finance",
+  "expenses",
+  "tour-managers",
+];
+
+export { staticOptionValues };
+
+export function getListFilterConfig(view, { pipelineMode = "sales" } = {}) {
+  if (view === "pipeline") {
+    if (pipelineMode === "sales") {
+      return [
+        {
+          field: "leadStage",
+          label: "Lead stage",
+          options: staticOptions(LEAD_STAGES, "All lead stages"),
+        },
+        {
+          field: "queryType",
+          label: "Query type",
+          options: staticOptions(QUERY_TYPES, "All query types"),
+        },
+      ];
+    }
+    return (LIST_FILTER_CONFIG.pipeline ?? []).filter((def) => def.field !== "leadStage");
+  }
+  return LIST_FILTER_CONFIG[view] ?? [];
+}

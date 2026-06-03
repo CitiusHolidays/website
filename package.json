@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "bun --bun next dev --turbopack",
+    "dev:reset": "rm -rf .next && bun run dev",
+    "dev:webpack": "bun --bun next dev --webpack",
     "build": "bunx convex codegen && bun --bun next build",
     "start": "bun --bun next start",
     "lint": "biome check .",

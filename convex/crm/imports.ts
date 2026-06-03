@@ -605,7 +605,7 @@ export const previewPassengerImportRows = internalQuery({
   },
 });
 
-async function processImportRows(
+export async function processImportRows(
   ctx: any,
   args: {
     jobCardId: Id<"jobCards">;
@@ -618,146 +618,153 @@ async function processImportRows(
 ) {
   let created = 0;
   let updated = 0;
+  let failed = 0;
   const now = Date.now();
   const { jobCardId, rows, access, job, matchIndex } = args;
 
   for (const row of rows) {
-    const match = findTravellerMatchInIndex(matchIndex, row);
-    const importKind = row.importKind ?? "passenger";
-    const travellerPatch = travellerPatchForImport(row, job, now);
+    try {
+      const match = findTravellerMatchInIndex(matchIndex, row);
+      const importKind = row.importKind ?? "passenger";
+      const travellerPatch = travellerPatchForImport(row, job, now);
 
-    let travellerId: Id<"travellers">;
-    let isNewTraveller = false;
-    if (match) {
-      const patch = { ...travellerPatch };
-      if (importKind === "passenger") {
-        patch.visaStatus =
-          row.visaRequired && match.visaStatus === "Not Required"
-            ? "Not Started"
-            : row.visaRequired
-              ? match.visaStatus
-              : "Not Required";
-      }
-      await ctx.db.patch(match._id, patch);
-      travellerId = match._id;
-      updated += 1;
-      registerTravellerInIndex(matchIndex, { ...match, ...patch, _id: match._id });
-    } else {
-      const newTraveller = travellerCreateDefaults(row, job, access, now);
-      travellerId = await ctx.db.insert("travellers", newTraveller);
-      isNewTraveller = true;
-      created += 1;
-      registerTravellerInIndex(matchIndex, {
-        _id: travellerId,
-        jobCardId,
-        fullName: newTraveller.fullName,
-        importKey: newTraveller.importKey,
-        visaStatus: newTraveller.visaStatus,
-      });
-      if (row.passportNumberHash) {
-        matchIndex.byPassportHash.set(row.passportNumberHash, {
+      let travellerId: Id<"travellers">;
+      let isNewTraveller = false;
+      if (match) {
+        const patch = { ...travellerPatch };
+        if (importKind === "passenger") {
+          patch.visaStatus =
+            row.visaRequired && match.visaStatus === "Not Required"
+              ? "Not Started"
+              : row.visaRequired
+                ? match.visaStatus
+                : "Not Required";
+        }
+        await ctx.db.patch(match._id, patch);
+        travellerId = match._id;
+        updated += 1;
+        registerTravellerInIndex(matchIndex, { ...match, ...patch, _id: match._id });
+      } else {
+        const newTraveller = travellerCreateDefaults(row, job, access, now);
+        travellerId = await ctx.db.insert("travellers", newTraveller);
+        isNewTraveller = true;
+        created += 1;
+        registerTravellerInIndex(matchIndex, {
           _id: travellerId,
           jobCardId,
           fullName: newTraveller.fullName,
           importKey: newTraveller.importKey,
+          visaStatus: newTraveller.visaStatus,
         });
-      }
-    }
-
-    if (isNewTraveller || importKind === "passenger" || importKind === "visa") {
-      const nextVisaStatus = row.visaStatus || (row.visaRequired ? "Not Started" : "Not Required");
-      const visaRecords = await ctx.db
-        .query("visaRecords")
-        .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
-        .collect();
-      const authUserId = access.authUserId ?? "unknown";
-      if (visaRecords.length === 0) {
-        await ctx.db.insert("visaRecords", {
-          travellerId,
-          jobCardId,
-          status: nextVisaStatus,
-          appointmentDate: row.biometricAppointmentDate?.trim() || "",
-          notes: row.visaNotes?.trim() || "",
-          updatedBy: authUserId,
-          createdAt: now,
-          updatedAt: now,
-        });
-      } else {
-        await Promise.all(
-          visaRecords.map((visaRecord: { _id: Id<"visaRecords">; status: string }) => {
-            const status =
-              importKind === "visa"
-                ? nextVisaStatus
-                : row.visaRequired
-                  ? visaRecord.status === "Not Required"
-                    ? "Not Started"
-                    : visaRecord.status
-                  : "Not Required";
-            return ctx.db.patch(visaRecord._id, {
-              status,
-              ...(importKind === "visa" && row.biometricAppointmentDate !== undefined
-                ? { appointmentDate: row.biometricAppointmentDate?.trim() || "" }
-                : {}),
-              ...(importKind === "visa" && row.visaNotes !== undefined
-                ? { notes: row.visaNotes?.trim() || "" }
-                : {}),
-              updatedBy: authUserId,
-              updatedAt: now,
-            });
-          }),
-        );
-      }
-    }
-
-    if (row.encryptedPassportPayload) {
-      const existingPassport = await ctx.db
-        .query("passportDetails")
-        .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
-        .unique();
-      if (existingPassport) {
-        await ctx.db.patch(existingPassport._id, {
-          encryptedPayload: row.encryptedPassportPayload,
-          lastFour: row.passportLastFour,
-          passportNumberHash: row.passportNumberHash,
-          status: "Received",
-          updatedAt: now,
-        });
-      } else {
-        await ctx.db.insert("passportDetails", {
-          travellerId,
-          encryptedPayload: row.encryptedPassportPayload,
-          lastFour: row.passportLastFour,
-          passportNumberHash: row.passportNumberHash,
-          status: "Received",
-          createdBy: access.authUserId ?? "unknown",
-          createdAt: now,
-          updatedAt: now,
-        });
-      }
-      if (row.passportNumberHash) {
-        const travellerDoc = matchIndex.byImportKey.get(row.importKey) ??
-          matchIndex.byNormalizedName.get(row.fullName.trim().toLowerCase()) ?? {
+        if (row.passportNumberHash) {
+          matchIndex.byPassportHash.set(row.passportNumberHash, {
             _id: travellerId,
             jobCardId,
-            fullName: row.fullName.trim(),
-            importKey: row.importKey,
-          };
-        matchIndex.byPassportHash.set(row.passportNumberHash, travellerDoc);
+            fullName: newTraveller.fullName,
+            importKey: newTraveller.importKey,
+          });
+        }
       }
-      await ctx.db.patch(travellerId, {
-        passportStatus: "Received",
-        updatedAt: now,
-      });
-    }
 
-    if (importKind === "passenger") {
-      await upsertTicketingRowsForTraveller(ctx, {
-        jobCardId,
-        travellerId,
-        row,
-        access,
-        now,
-      });
+      if (isNewTraveller || importKind === "passenger" || importKind === "visa") {
+        const nextVisaStatus =
+          row.visaStatus || (row.visaRequired ? "Not Started" : "Not Required");
+        const visaRecords = await ctx.db
+          .query("visaRecords")
+          .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
+          .collect();
+        const authUserId = access.authUserId ?? "unknown";
+        if (visaRecords.length === 0) {
+          await ctx.db.insert("visaRecords", {
+            travellerId,
+            jobCardId,
+            status: nextVisaStatus,
+            appointmentDate: row.biometricAppointmentDate?.trim() || "",
+            notes: row.visaNotes?.trim() || "",
+            updatedBy: authUserId,
+            createdAt: now,
+            updatedAt: now,
+          });
+        } else {
+          await Promise.all(
+            visaRecords.map((visaRecord: { _id: Id<"visaRecords">; status: string }) => {
+              const status =
+                importKind === "visa"
+                  ? nextVisaStatus
+                  : row.visaRequired
+                    ? visaRecord.status === "Not Required"
+                      ? "Not Started"
+                      : visaRecord.status
+                    : "Not Required";
+              return ctx.db.patch(visaRecord._id, {
+                status,
+                ...(importKind === "visa" && row.biometricAppointmentDate !== undefined
+                  ? { appointmentDate: row.biometricAppointmentDate?.trim() || "" }
+                  : {}),
+                ...(importKind === "visa" && row.visaNotes !== undefined
+                  ? { notes: row.visaNotes?.trim() || "" }
+                  : {}),
+                updatedBy: authUserId,
+                updatedAt: now,
+              });
+            }),
+          );
+        }
+      }
+
+      if (row.encryptedPassportPayload) {
+        const existingPassport = await ctx.db
+          .query("passportDetails")
+          .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
+          .unique();
+        const passportPatch: Record<string, unknown> = {
+          encryptedPayload: row.encryptedPassportPayload,
+          lastFour: row.passportLastFour,
+          passportNumberHash: row.passportNumberHash,
+          status: "Received",
+          updatedAt: now,
+        };
+        if (row.passportExpiryDate) {
+          passportPatch.expiryDate = row.passportExpiryDate;
+        }
+        if (existingPassport) {
+          await ctx.db.patch(existingPassport._id, passportPatch);
+        } else {
+          await ctx.db.insert("passportDetails", {
+            travellerId,
+            ...passportPatch,
+            createdBy: access.authUserId ?? "unknown",
+            createdAt: now,
+          });
+        }
+        if (row.passportNumberHash) {
+          const travellerDoc = matchIndex.byImportKey.get(row.importKey) ??
+            matchIndex.byNormalizedName.get(row.fullName.trim().toLowerCase()) ?? {
+              _id: travellerId,
+              jobCardId,
+              fullName: row.fullName.trim(),
+              importKey: row.importKey,
+            };
+          matchIndex.byPassportHash.set(row.passportNumberHash, travellerDoc);
+        }
+        await ctx.db.patch(travellerId, {
+          passportStatus: "Received",
+          updatedAt: now,
+        });
+      }
+
+      if (importKind === "passenger") {
+        await upsertTicketingRowsForTraveller(ctx, {
+          jobCardId,
+          travellerId,
+          row,
+          access,
+          now,
+        });
+      }
+    } catch (error) {
+      failed += 1;
+      console.error("Import row failed:", error);
     }
   }
 
@@ -781,6 +788,7 @@ async function processImportRows(
   return {
     created,
     updated,
+    failed,
     total: rows.length,
     roomSummary: summarizeRoomTypesFromRows(rows),
   };

@@ -10,6 +10,7 @@ import {
   filterRecordsByDateRange,
   isDefined,
   notifyRoles,
+  notifyStaffMember,
   PERMISSIONS,
   type PortalAccess,
   type PortalDateRange,
@@ -909,6 +910,12 @@ export const assignTicketingOwner = mutation({
       entityId: jobCardId,
       action: "assigned_ticketing",
       message: `${job.jobCode} assigned to ${ownerName} (Ticketing)`,
+    });
+    await notifyStaffMember(ctx, staffId, {
+      title: "Assign ticketing owner",
+      body: `You were assigned as ticketing owner for ${job.jobCode}.`,
+      entityType: "jobCard",
+      entityId: jobCardId,
     });
     return { id: jobCardId };
   },

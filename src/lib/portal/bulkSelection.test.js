@@ -26,6 +26,12 @@ describe("bulkSelection", () => {
     expect(toggleAllVisibleSelection(current, [])).toBe(current);
   });
 
+  test("prunes selection when status filter narrows visible rows", () => {
+    const selected = new Set(["a", "b", "c"]);
+    const visibleAfterFilter = ["a"];
+    expect(pruneSelectionToVisible(selected, visibleAfterFilter)).toEqual(new Set(["a"]));
+  });
+
   test("reports header checkbox state from visible rows only", () => {
     const selected = new Set(["a", "hidden"]);
     expect(allVisibleRowsSelected(selected, ["a", "b"])).toBe(false);

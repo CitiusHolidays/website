@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, query } from "../_generated/server";
+import { internalMutation, internalQuery, query } from "../_generated/server";
 import { PERMISSIONS, requireStaff } from "./lib";
+import { normalizePassportExpiryDate } from "./passportExpiry";
 
 export const getPassportMetadata = query({
   args: {
@@ -22,6 +23,7 @@ export const getPassportMetadata = query({
       id: row._id,
       travellerId: row.travellerId,
       lastFour: row.lastFour ?? "",
+      expiryDate: row.expiryDate ?? "",
       status: row.status ?? "Received",
       storageId: row.storageId,
       fileName: row.fileName,
@@ -41,6 +43,7 @@ export const savePassportMetadata = internalMutation({
     mimeType: v.string(),
     createdBy: v.string(),
     passportNumberHash: v.optional(v.string()),
+    expiryDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
@@ -49,6 +52,7 @@ export const savePassportMetadata = internalMutation({
     }
 
     const now = Date.now();
+    const expiryDate = normalizePassportExpiryDate(args.expiryDate);
     const existing = await ctx.db
       .query("passportDetails")
       .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
@@ -62,6 +66,7 @@ export const savePassportMetadata = internalMutation({
         fileName: args.fileName,
         mimeType: args.mimeType,
         passportNumberHash: args.passportNumberHash,
+        expiryDate,
         status: "Received",
         updatedAt: now,
       });
@@ -74,6 +79,7 @@ export const savePassportMetadata = internalMutation({
         fileName: args.fileName,
         mimeType: args.mimeType,
         passportNumberHash: args.passportNumberHash,
+        expiryDate,
         status: "Received",
         createdBy: args.createdBy,
         createdAt: now,
@@ -94,6 +100,7 @@ export const savePassportDetailsOnly = internalMutation({
     encryptedPayload: v.string(),
     lastFour: v.optional(v.string()),
     passportNumberHash: v.optional(v.string()),
+    expiryDate: v.optional(v.string()),
     createdBy: v.string(),
   },
   handler: async (ctx, args) => {
@@ -103,6 +110,7 @@ export const savePassportDetailsOnly = internalMutation({
     }
 
     const now = Date.now();
+    const expiryDate = normalizePassportExpiryDate(args.expiryDate);
     const existing = await ctx.db
       .query("passportDetails")
       .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
@@ -113,6 +121,7 @@ export const savePassportDetailsOnly = internalMutation({
         encryptedPayload: args.encryptedPayload,
         lastFour: args.lastFour,
         passportNumberHash: args.passportNumberHash,
+        expiryDate,
         status: "Received",
         updatedAt: now,
       });
@@ -122,6 +131,7 @@ export const savePassportDetailsOnly = internalMutation({
         encryptedPayload: args.encryptedPayload,
         lastFour: args.lastFour,
         passportNumberHash: args.passportNumberHash,
+        expiryDate,
         status: "Received",
         createdBy: args.createdBy,
         createdAt: now,
@@ -155,6 +165,35 @@ export const deletePassportMetadata = internalMutation({
 
     await ctx.db.patch(travellerIdNormalized, {
       passportStatus: "Pending",
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const listPassportDetailsForBackfill = internalQuery({
+  args: {
+    limit: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db.query("passportDetails").collect();
+    return rows
+      .filter((row) => !row.expiryDate && row.encryptedPayload)
+      .slice(0, args.limit)
+      .map((row) => ({
+        id: row._id,
+        encryptedPayload: row.encryptedPayload,
+      }));
+  },
+});
+
+export const backfillPassportExpiryDate = internalMutation({
+  args: {
+    passportId: v.id("passportDetails"),
+    expiryDate: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.passportId, {
+      expiryDate: normalizePassportExpiryDate(args.expiryDate),
       updatedAt: Date.now(),
     });
   },

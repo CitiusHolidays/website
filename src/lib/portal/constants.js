@@ -278,6 +278,23 @@ export const ROLE_PERMISSIONS = {
 export const TICKET_TYPES = ["FIT Ticket", "Group Ticket"];
 export const CABIN_CLASSES = ["Economy", "Premium Economy", "Business"];
 
+export const PROPOSAL_STATUSES = ["Draft", "Sent", "Accepted", "Rejected"];
+export const JOB_CARD_STATUSES = [
+  "Open",
+  "In Operations",
+  "Ready for Departure",
+  "On Tour",
+  "Closed",
+];
+export const INVOICE_STATUSES = ["Draft", "Generated", "Part Paid", "Paid", "Overdue"];
+export const SEAT_STATUSES = ["Available", "Held", "Assigned", "Blocked"];
+export const TOUR_MANAGER_STATUSES = ["Available", "Assigned", "Inactive"];
+export const APPROVAL_STATUSES = ["Pending", "Approved", "Rejected", "Needs Info"];
+export const EXPENSE_APPROVAL_STATUSES = ["Pending", "Approved", "Rejected"];
+export const LEAVE_STATUSES = ["Pending", "Approved", "Rejected"];
+export const REIMBURSEMENT_STATUSES = ["Not Submitted", "Pending", "Reimbursed"];
+export const PORTAL_BULK_DELETE_LIMIT = 50;
+
 export const PORTAL_NAV_GROUPS = [
   {
     label: "Overview",
@@ -531,6 +548,8 @@ export const EXPENSE_HEADS = [
 ];
 export const EXPENSE_CURRENCIES = ["INR", "USD", "AED", "EUR", "THB", "SGD"];
 export const LEAVE_TYPES = ["Casual", "Sick", "Privilege", "Leave Without Pay"];
+
+export const EXPENSE_CATEGORIES = EXPENSE_HEADS;
 
 export const PAYMENT_TERMS_BY_QUERY_TYPE = {
   MICE: { minAdvancePercent: 70, maxAdvancePercent: 90 },

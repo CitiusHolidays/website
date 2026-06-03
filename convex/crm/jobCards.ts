@@ -9,6 +9,7 @@ import {
   nextCode,
   notifyRoles,
   notifyStaffMatching,
+  notifyStaffMember,
   PERMISSIONS,
   paymentTermsFor,
   publicJobCard,
@@ -443,6 +444,12 @@ export const assignOperationsOwner = mutation({
       action: "assigned_operations",
       message: `${job.jobCode} assigned to ${ownerName} (Operations)`,
     });
+    await notifyStaffMember(ctx, staffId, {
+      title: "Assign operations owner",
+      body: `You were assigned as operations owner for ${job.jobCode}.`,
+      entityType: "jobCard",
+      entityId: jobCardId,
+    });
     return { id: jobCardId };
   },
 });
@@ -491,6 +498,12 @@ export const assignContractingOwner = mutation({
       entityId: jobCardId,
       action: "assigned_contracting",
       message: `${job.jobCode} assigned to ${ownerName} (Contracting)`,
+    });
+    await notifyStaffMember(ctx, staffId, {
+      title: "Assign contracting owner",
+      body: `You were assigned as contracting SPOC for ${job.jobCode}.`,
+      entityType: "jobCard",
+      entityId: jobCardId,
     });
     return { id: jobCardId };
   },

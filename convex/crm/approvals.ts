@@ -1,6 +1,12 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import { createActivity, PERMISSIONS, requireAnyPermission, requireStaff } from "./lib";
+import {
+  createActivity,
+  notifyStaffMatching,
+  PERMISSIONS,
+  requireAnyPermission,
+  requireStaff,
+} from "./lib";
 
 const decisionValidator = v.union(
   v.literal("Approved"),
@@ -92,6 +98,14 @@ export const decide = mutation({
       action: args.status.toLowerCase().replace(/\s+/g, "_"),
       message: `${approval.requestCode} ${args.status.toLowerCase()}`,
     });
+    if (approval.requestedBy) {
+      await notifyStaffMatching(ctx, (member) => member.authUserId === approval.requestedBy, {
+        title: `Approval ${args.status}`,
+        body: `${approval.requestCode}: ${approval.summary}`,
+        entityType: "approval",
+        entityId: approvalId,
+      });
+    }
     return { id: approvalId };
   },
 });

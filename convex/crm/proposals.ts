@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { internalMutation, mutation, query } from "../_generated/server";
 import {
   canSeeProposalRecord,
@@ -409,6 +410,42 @@ export const markSent = mutation({
   },
 });
 
+export const markAccepted = mutation({
+  args: {
+    proposalId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.MANAGE_PROPOSALS,
+      PERMISSIONS.MANAGE_CONTRACTING,
+    ]);
+    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
+    if (!proposalId) {
+      throw new ConvexError("Invalid proposal id");
+    }
+    const proposal = await ctx.db.get(proposalId);
+    if (!proposal) {
+      throw new ConvexError("Proposal not found");
+    }
+    const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
+    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const now = Date.now();
+    await ctx.db.patch(proposalId, {
+      status: "Accepted",
+      updatedAt: now,
+    });
+    await createActivity(ctx, access, {
+      entityType: "proposal",
+      entityId: proposalId,
+      action: "accepted",
+      message: `${proposal.proposalCode} marked as accepted`,
+    });
+    return { id: proposalId };
+  },
+});
+
 export const remove = mutation({
   args: {
     proposalId: v.string(),
@@ -435,7 +472,7 @@ export const remove = mutation({
       storageIds.push(proposal.finalizedPdfStorageId);
     }
     await Promise.all(
-      storageIds.map(async (storageId) => {
+      storageIds.map(async (storageId: Id<"_storage">) => {
         try {
           await ctx.storage.delete(storageId);
         } catch (err) {

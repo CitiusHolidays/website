@@ -5,6 +5,7 @@ import { api, internal } from "../_generated/api";
 import { action } from "../_generated/server";
 import { decryptPassportDetails, encryptPassportDetails, hash } from "../lib/encryption";
 import { PERMISSIONS } from "./lib";
+import { normalizePassportExpiryDate } from "./passportExpiry";
 
 export const IMPORT_BATCH_SIZE = 50;
 
@@ -149,6 +150,7 @@ function preparePassengerRows(rows: Array<any>) {
           })
         : undefined,
       passportLastFour: passportNumber ? passportNumber.slice(-4) : undefined,
+      passportExpiryDate: normalizePassportExpiryDate(clean(row.passport?.expiryDate)),
     };
   });
 }
@@ -359,6 +361,7 @@ export const commitPassengerImport = action({
     const batches = chunkRows(preparedRows, IMPORT_BATCH_SIZE);
     let created = 0;
     let updated = 0;
+    let failed = 0;
     let roomSummary: Record<string, number> = {};
 
     const batchResults = await Promise.all(
@@ -374,6 +377,7 @@ export const commitPassengerImport = action({
     for (const result of batchResults) {
       created += result.created;
       updated += result.updated;
+      failed += result.failed ?? 0;
       roomSummary = mergeRoomSummaries(roomSummary, result.roomSummary ?? {});
     }
 
@@ -381,7 +385,7 @@ export const commitPassengerImport = action({
       created,
       updated,
       total: preparedRows.length,
-      failed: 0,
+      failed,
       roomSummary,
     };
   },

@@ -7,6 +7,7 @@ import {
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
+  deleteStorageFile,
   PERMISSIONS,
   type PortalAccess,
   requireAnyPermission,
@@ -36,7 +37,12 @@ const paymentTypeValidator = v.union(
 
 const guestTypeValidator = v.union(v.literal("Employee"), v.literal("Client"), v.literal("VIP"));
 
-const publicTraveller = (traveller: any, job: any, hasPassportScan = false) => ({
+const publicTraveller = (
+  traveller: any,
+  job: any,
+  hasPassportScan = false,
+  passportExpiryDate = "",
+) => ({
   id: traveller._id,
   jobCardId: traveller.jobCardId,
   jobCode: job?.jobCode ?? "",
@@ -57,6 +63,8 @@ const publicTraveller = (traveller: any, job: any, hasPassportScan = false) => (
   specialRequests: traveller.specialRequests ?? "",
   passportStatus: traveller.passportStatus ?? "",
   hasPassportScan,
+  passportExpiryDate,
+  travelStartDate: job?.travelStartDate ?? "",
   ticketStatus: traveller.ticketStatus,
   visaStatus: traveller.visaStatus,
   callingStatus: traveller.callingStatus,
@@ -83,10 +91,15 @@ export const list = query({
           .collect()
       : await ctx.db.query("travellers").collect();
     const passportRows = await ctx.db.query("passportDetails").collect();
-    const passportScanByTraveller = new Map();
+    const passportScanByTraveller = new Map<string, boolean>();
+    const passportExpiryByTraveller = new Map<string, string>();
     for (const row of passportRows) {
+      const travellerKey = String(row.travellerId);
       if (row.storageId) {
-        passportScanByTraveller.set(String(row.travellerId), true);
+        passportScanByTraveller.set(travellerKey, true);
+      }
+      if (row.expiryDate) {
+        passportExpiryByTraveller.set(travellerKey, row.expiryDate);
       }
     }
     const result = await Promise.all(
@@ -105,6 +118,7 @@ export const list = query({
             traveller,
             job,
             passportScanByTraveller.has(String(traveller._id)),
+            passportExpiryByTraveller.get(String(traveller._id)) ?? "",
           );
         }),
     );
@@ -346,7 +360,7 @@ export const updateCallingStatus = mutation({
   },
 });
 
-async function deleteTravellerRecord(
+export async function deleteTravellerRecord(
   ctx: MutationCtx,
   access: PortalAccess,
   travellerId: Id<"travellers">,
@@ -389,7 +403,10 @@ async function deleteTravellerRecord(
   }
 
   await Promise.all([
-    ...passportDetails.map((row) => ctx.db.delete(row._id)),
+    ...passportDetails.map(async (row) => {
+      await deleteStorageFile(ctx, row.storageId, "passport scan");
+      await ctx.db.delete(row._id);
+    }),
     ...visaRecords.map((row) => ctx.db.delete(row._id)),
     ...tickets.flatMap((row) => [
       deleteEntityNotifications(ctx, "ticket", row._id),

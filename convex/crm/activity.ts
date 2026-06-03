@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import { PERMISSIONS, requireStaff } from "./lib";
+import { canReceiveNotification, PERMISSIONS, requireStaff } from "./lib";
 
 export const listActivity = query({
   args: {
@@ -57,10 +57,17 @@ export const markNotificationRead = mutation({
     notificationId: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
+    const access = await requireStaff(ctx);
     const id = ctx.db.normalizeId("notifications", args.notificationId);
     if (!id) {
       return null;
+    }
+    const notification = await ctx.db.get(id);
+    if (!notification) {
+      return null;
+    }
+    if (!canReceiveNotification(notification, access)) {
+      throw new ConvexError("FORBIDDEN");
     }
     await ctx.db.patch(id, { readAt: Date.now() });
     return { id };
@@ -99,7 +106,7 @@ export const removeNotification = mutation({
     notificationId: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
+    const access = await requireStaff(ctx);
     const id = ctx.db.normalizeId("notifications", args.notificationId);
     if (!id) {
       throw new ConvexError("Invalid notification id");
@@ -107,6 +114,9 @@ export const removeNotification = mutation({
     const notification = await ctx.db.get(id);
     if (!notification) {
       throw new ConvexError("Notification not found");
+    }
+    if (!canReceiveNotification(notification, access)) {
+      throw new ConvexError("FORBIDDEN");
     }
     await ctx.db.delete(id);
     return { id };

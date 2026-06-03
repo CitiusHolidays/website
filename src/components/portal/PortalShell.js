@@ -8,6 +8,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
+import { PortalToastProvider } from "@/components/portal/PortalToast";
 import { logout } from "@/lib/auth-client";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
@@ -81,222 +83,233 @@ export default function PortalShell({ access, user, children }) {
   };
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-brand-light text-brand-dark">
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,42,131,0.08),transparent),radial-gradient(ellipse_60%_40%_at_100%_100%,rgba(245,130,32,0.06),transparent)]"
-      />
+    <PortalToastProvider>
+      <PortalConfirmProvider>
+        <div className="relative min-h-screen overflow-x-hidden bg-brand-light text-brand-dark">
+          <a
+            href="#portal-main"
+            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[80] focus:rounded-full focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-citius-blue focus:shadow-lg"
+          >
+            Skip to main content
+          </a>
+          <div
+            aria-hidden
+            className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,42,131,0.08),transparent),radial-gradient(ellipse_60%_40%_at_100%_100%,rgba(245,130,32,0.06),transparent)]"
+          />
 
-      <motion.header
-        className="sticky top-0 z-40 border-b border-brand-border bg-white/95 shadow-sm backdrop-blur-xl"
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      >
-        <div className="flex h-16 items-center justify-between px-4 lg:px-6">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="rounded-full p-2 text-brand-dark transition hover:bg-brand-light lg:hidden"
-              aria-label="Open portal navigation"
-            >
-              <Menu size={20} />
-            </button>
-            <Link href="/portal" className="flex items-center gap-3">
-              <Image
-                src={ConnectLogo}
-                alt="Citius Connect"
-                width={CITIUS_CONNECT_LOGO_WIDTH}
-                height={CITIUS_CONNECT_LOGO_HEIGHT}
-                className="h-9 w-auto sm:h-10"
-                priority
-              />
-            </Link>
-            <span className="inline-flex max-w-[120px] truncate rounded-full bg-citius-orange px-2 py-1 text-[10px] font-semibold text-white sm:max-w-none sm:px-3 sm:text-[11px] md:inline-flex">
-              {access.roles?.join(" / ") || "Staff"}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 lg:gap-5">
-            <div className="flex items-center gap-5 rounded-full border border-brand-border bg-brand-light/70 py-1.5 pl-5 pr-1.5 md:gap-6 md:pl-6">
-              <div className="hidden min-w-0 md:block">
-                <div className="truncate text-sm font-semibold text-brand-dark">
-                  {access.name || user?.name}
-                </div>
-                <div className="truncate text-[11px] text-brand-muted">
-                  {access.email || user?.email}
-                </div>
-              </div>
-
-              <div className="relative shrink-0">
+          <motion.header
+            className="sticky top-0 z-40 border-b border-brand-border bg-white/95 shadow-sm backdrop-blur-xl"
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="flex h-16 items-center justify-between px-4 lg:px-6">
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={toggleNotifications}
-                  className="relative grid size-9 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition hover:text-citius-blue"
-                  aria-label="Open notifications"
+                  onClick={() => setSidebarOpen(true)}
+                  className="rounded-full p-2 text-brand-dark transition hover:bg-brand-light lg:hidden"
+                  aria-label="Open portal navigation"
                 >
-                  <Bell size={17} />
-                  {unreadCount > 0 && (
-                    <motion.span
-                      initial={{ scale: 0.95, opacity: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute -right-1 -top-1 min-w-5 rounded-full bg-citius-orange px-1.5 text-center text-[10px] font-bold leading-5 text-white"
-                    >
-                      {unreadCount}
-                    </motion.span>
-                  )}
+                  <Menu size={20} />
                 </button>
-                <AnimatePresence>
-                  {notificationsOpen && (
-                    <>
-                      <button
-                        type="button"
-                        className="fixed inset-0 z-40 cursor-default bg-transparent"
-                        aria-label="Close notifications"
-                        onClick={() => setNotificationsOpen(false)}
-                      />
-                      <motion.div
-                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute right-0 z-50 mt-3 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-brand-border bg-white text-brand-dark shadow-xl"
-                      >
-                        <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
-                          <div className="font-heading text-sm font-semibold text-citius-blue">
-                            Notifications
-                          </div>
-                          <ChevronDown size={16} className="text-brand-muted" />
-                        </div>
-                        <div className="max-h-80 overflow-y-auto">
-                          {(notifications || []).length === 0 ? (
-                            <div className="px-4 py-6 text-sm text-brand-muted">
-                              No notifications yet.
-                            </div>
-                          ) : (
-                            notifications.map((item) => (
-                              <button
-                                key={item.id}
-                                type="button"
-                                onClick={() => handleNotificationClick(item)}
-                                className="w-full border-b border-brand-border px-4 py-3 text-left transition last:border-b-0 hover:bg-brand-light"
-                              >
-                                <div className="flex gap-2">
-                                  <Circle
-                                    size={8}
-                                    className={
-                                      item.readAt
-                                        ? "mt-1.5 text-brand-muted/50"
-                                        : "mt-1.5 fill-citius-orange text-citius-orange"
-                                    }
-                                  />
-                                  <div>
-                                    <div className="text-sm font-semibold">{item.title}</div>
-                                    <div className="mt-1 text-xs leading-5 text-brand-muted">
-                                      {item.body}
-                                    </div>
-                                  </div>
-                                </div>
-                              </button>
-                            ))
-                          )}
-                        </div>
-                        <div className="border-t border-brand-border px-4 py-3">
-                          <Link
-                            href="/portal/activity"
-                            onClick={() => setNotificationsOpen(false)}
-                            className="text-xs font-semibold text-citius-blue transition hover:text-citius-orange"
-                          >
-                            View all notifications
-                          </Link>
-                        </div>
-                      </motion.div>
-                    </>
-                  )}
-                </AnimatePresence>
+                <Link href="/portal" className="flex items-center gap-3">
+                  <Image
+                    src={ConnectLogo}
+                    alt="Citius Connect"
+                    width={CITIUS_CONNECT_LOGO_WIDTH}
+                    height={CITIUS_CONNECT_LOGO_HEIGHT}
+                    className="h-9 w-auto sm:h-10"
+                    priority
+                  />
+                </Link>
+                <span className="inline-flex max-w-[120px] truncate rounded-full bg-citius-orange px-2 py-1 text-[10px] font-semibold text-white sm:max-w-none sm:px-3 sm:text-[11px] md:inline-flex">
+                  {access.roles?.join(" / ") || "Staff"}
+                </span>
               </div>
-            </div>
 
-            <span aria-hidden className="hidden h-8 w-px bg-brand-border md:block" />
+              <div className="flex items-center gap-4 lg:gap-5">
+                <div className="flex items-center gap-5 rounded-full border border-brand-border bg-brand-light/70 py-1.5 pl-5 pr-1.5 md:gap-6 md:pl-6">
+                  <div className="hidden min-w-0 md:block">
+                    <div className="truncate text-sm font-semibold text-brand-dark">
+                      {access.name || user?.name}
+                    </div>
+                    <div className="truncate text-[11px] text-brand-muted">
+                      {access.email || user?.email}
+                    </div>
+                  </div>
 
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="hidden rounded-full border border-brand-border bg-white px-4 py-2 text-xs font-medium text-brand-muted transition hover:border-citius-blue hover:text-citius-blue md:inline-flex"
-              >
-                Back to site
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-white px-4 py-2 text-xs font-semibold text-brand-dark transition hover:border-citius-blue hover:text-citius-blue"
-              >
-                <span className="hidden sm:inline">Sign Out</span>
-                <LogOut size={16} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </motion.header>
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={toggleNotifications}
+                      className="relative grid size-9 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition hover:text-citius-blue"
+                      aria-label="Open notifications"
+                    >
+                      <Bell size={17} />
+                      {unreadCount > 0 && (
+                        <motion.span
+                          initial={{ scale: 0.95, opacity: 0 }}
+                          animate={{ scale: 1 }}
+                          className="absolute -right-1 -top-1 min-w-5 rounded-full bg-citius-orange px-1.5 text-center text-[10px] font-bold leading-5 text-white"
+                        >
+                          {unreadCount}
+                        </motion.span>
+                      )}
+                    </button>
+                    <AnimatePresence>
+                      {notificationsOpen && (
+                        <>
+                          <button
+                            type="button"
+                            className="fixed inset-0 z-40 cursor-default bg-transparent"
+                            aria-label="Close notifications"
+                            onClick={() => setNotificationsOpen(false)}
+                          />
+                          <motion.div
+                            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute right-0 z-50 mt-3 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-brand-border bg-white text-brand-dark shadow-xl"
+                          >
+                            <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
+                              <div className="font-heading text-sm font-semibold text-citius-blue">
+                                Notifications
+                              </div>
+                              <ChevronDown size={16} className="text-brand-muted" />
+                            </div>
+                            <div className="max-h-80 overflow-y-auto">
+                              {(notifications || []).length === 0 ? (
+                                <div className="px-4 py-6 text-sm text-brand-muted">
+                                  No notifications yet.
+                                </div>
+                              ) : (
+                                notifications.map((item) => (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => handleNotificationClick(item)}
+                                    className="w-full border-b border-brand-border px-4 py-3 text-left transition last:border-b-0 hover:bg-brand-light"
+                                  >
+                                    <div className="flex gap-2">
+                                      <Circle
+                                        size={8}
+                                        className={
+                                          item.readAt
+                                            ? "mt-1.5 text-brand-muted/50"
+                                            : "mt-1.5 fill-citius-orange text-citius-orange"
+                                        }
+                                      />
+                                      <div>
+                                        <div className="text-sm font-semibold">{item.title}</div>
+                                        <div className="mt-1 text-xs leading-5 text-brand-muted">
+                                          {item.body}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                            <div className="border-t border-brand-border px-4 py-3">
+                              <Link
+                                href="/portal/activity"
+                                onClick={() => setNotificationsOpen(false)}
+                                className="text-xs font-semibold text-citius-blue transition hover:text-citius-orange"
+                              >
+                                View all notifications
+                              </Link>
+                            </div>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
 
-      <div className="flex min-h-[calc(100vh-64px)]">
-        <aside className="hidden w-64 shrink-0 border-r border-brand-border bg-white/80 backdrop-blur-sm lg:block">
-          <PortalNav navGroups={navGroups} pathname={pathname} navShortcuts={navShortcuts} />
-        </aside>
+                <span aria-hidden className="hidden h-8 w-px bg-brand-border md:block" />
 
-        <AnimatePresence>
-          {sidebarOpen && (
-            <>
-              <motion.button
-                type="button"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm lg:hidden"
-                onClick={() => setSidebarOpen(false)}
-                aria-label="Close portal navigation backdrop"
-              />
-              <motion.aside
-                initial={{ x: -280 }}
-                animate={{ x: 0 }}
-                exit={{ x: -280 }}
-                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                className="fixed inset-y-0 left-0 z-[60] w-[280px] bg-white shadow-2xl lg:hidden"
-              >
-                <div className="flex h-16 items-center justify-between border-b border-brand-border px-4">
-                  <span className="font-heading text-lg text-citius-blue">Navigation</span>
+                <div className="flex items-center gap-3">
+                  <Link
+                    href="/"
+                    className="hidden rounded-full border border-brand-border bg-white px-4 py-2 text-xs font-medium text-brand-muted transition hover:border-citius-blue hover:text-citius-blue md:inline-flex"
+                  >
+                    Back to site
+                  </Link>
                   <button
                     type="button"
-                    onClick={() => setSidebarOpen(false)}
-                    className="rounded-full p-2 text-brand-muted hover:bg-brand-light"
-                    aria-label="Close portal navigation"
+                    onClick={handleLogout}
+                    className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-white px-4 py-2 text-xs font-semibold text-brand-dark transition hover:border-citius-blue hover:text-citius-blue"
                   >
-                    <X size={20} />
+                    <span className="hidden sm:inline">Sign Out</span>
+                    <LogOut size={16} />
                   </button>
                 </div>
-                <PortalNav
-                  navGroups={navGroups}
-                  pathname={pathname}
-                  navShortcuts={navShortcuts}
-                  onNavigate={() => setSidebarOpen(false)}
-                />
-              </motion.aside>
-            </>
-          )}
-        </AnimatePresence>
+              </div>
+            </div>
+          </motion.header>
 
-        <motion.main
-          key={pathname}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-          className="min-w-0 flex-1 p-4 md:p-8 lg:p-10"
-        >
-          {children}
-        </motion.main>
-      </div>
-    </div>
+          <div className="flex min-h-[calc(100vh-64px)]">
+            <aside className="hidden w-64 shrink-0 border-r border-brand-border bg-white/80 backdrop-blur-sm lg:block">
+              <PortalNav navGroups={navGroups} pathname={pathname} navShortcuts={navShortcuts} />
+            </aside>
+
+            <AnimatePresence>
+              {sidebarOpen && (
+                <>
+                  <motion.button
+                    type="button"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm lg:hidden"
+                    onClick={() => setSidebarOpen(false)}
+                    aria-label="Close portal navigation backdrop"
+                  />
+                  <motion.aside
+                    initial={{ x: -280 }}
+                    animate={{ x: 0 }}
+                    exit={{ x: -280 }}
+                    transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                    className="fixed inset-y-0 left-0 z-[60] w-[280px] bg-white shadow-2xl lg:hidden"
+                  >
+                    <div className="flex h-16 items-center justify-between border-b border-brand-border px-4">
+                      <span className="font-heading text-lg text-citius-blue">Navigation</span>
+                      <button
+                        type="button"
+                        onClick={() => setSidebarOpen(false)}
+                        className="rounded-full p-2 text-brand-muted hover:bg-brand-light"
+                        aria-label="Close portal navigation"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
+                    <PortalNav
+                      navGroups={navGroups}
+                      pathname={pathname}
+                      navShortcuts={navShortcuts}
+                      onNavigate={() => setSidebarOpen(false)}
+                    />
+                  </motion.aside>
+                </>
+              )}
+            </AnimatePresence>
+
+            <motion.main
+              id="portal-main"
+              key={pathname}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="min-w-0 flex-1 p-4 md:p-8 lg:p-10"
+            >
+              {children}
+            </motion.main>
+          </div>
+        </div>
+      </PortalConfirmProvider>
+    </PortalToastProvider>
   );
 }
 
@@ -442,8 +455,8 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
                             aria-expanded={shortcutsExpanded}
                             aria-label={
                               shortcutsExpanded
-                                ? `Hide recent ${item.label}`
-                                : `Show recent ${item.label}`
+                                ? `Hide latest ${item.label}`
+                                : `Show latest ${item.label}`
                             }
                           >
                             <ChevronDown

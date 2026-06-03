@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 /** @param {Iterable<string>} selectedIds @param {string[]} visibleIds */
 export function pruneSelectionToVisible(selectedIds, visibleIds) {
@@ -38,10 +38,14 @@ export function useBulkSelection(visibleRows) {
     [visibleRows],
   );
   const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const rowIdsKey = rowIds.join("\0");
+  const prevRowIdsKeyRef = useRef(rowIdsKey);
 
   useEffect(() => {
+    if (prevRowIdsKeyRef.current === rowIdsKey) return;
+    prevRowIdsKeyRef.current = rowIdsKey;
     setSelectedIds((current) => pruneSelectionToVisible(current, rowIds));
-  }, [rowIds]);
+  }, [rowIdsKey, rowIds]);
 
   const toggleOne = useCallback((id) => {
     setSelectedIds((current) => {

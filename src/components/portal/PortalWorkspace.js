@@ -29,7 +29,10 @@ import {
 import { AnimatePresence, m as motion } from "motion/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cloneElement, isValidElement, Suspense, useEffect, useRef, useState } from "react";
+import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
+import { PortalListFilters } from "@/components/portal/PortalListFilters";
+import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import {
   CABIN_CLASSES,
@@ -54,17 +57,27 @@ import {
   VISA_STATUSES,
 } from "@/lib/portal/constants";
 import {
+  getListFilterConfig,
+  VIEWS_WITH_JOB_CARD_FILTER as JOB_CARD_FILTER_VIEWS,
+} from "@/lib/portal/listFilterConfig";
+import {
+  applyListFilters,
+  filterEmptyMessage,
+  hasActiveListFilters,
+} from "@/lib/portal/listFilters";
+import {
   buildModalInitial,
   getNotificationHref,
   isDeepLinkDataReady,
   resolveDeepLink,
 } from "@/lib/portal/notificationTargets";
-import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
 import {
-  proposalLinkedQueryIds,
-  proposalLinkedQueryLabel,
-  proposalPrimaryQuery,
-} from "@/lib/portal/proposalLinks";
+  attachPassportExpiryUrgency,
+  formatPassportExpiryLabel,
+  getPassportExpiryInfo,
+  passportExpiryTone,
+} from "@/lib/portal/passportExpiry";
+import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
 import {
   canAssignContracting,
   canAssignOperations,
@@ -74,6 +87,12 @@ import {
   isCementScopedUser,
   teamSelectOptions,
 } from "@/lib/portal/permissions";
+import {
+  proposalLinkedQueryIds,
+  proposalLinkedQueryLabel,
+  proposalPrimaryQuery,
+} from "@/lib/portal/proposalLinks";
+import { runMutation } from "@/lib/portal/runMutation";
 import {
   buildFlightWorkbook,
   buildPassengerWorkbook,
@@ -93,6 +112,7 @@ import {
   parseVisaWorkbookFile,
   summarizeRoomTypes,
 } from "@/lib/portal/spreadsheetImports";
+import { parseUrlFilterState, serializeUrlFilterState } from "@/lib/portal/urlFilterState";
 import {
   getExpenseSplitTotal,
   getPipelineBuckets,
@@ -358,13 +378,36 @@ const JOB_CARD_MODALS = new Set([
   "expense",
 ]);
 
-const VIEWS_WITH_JOB_CARD_FILTER = new Set([
-  "travellers",
-  "passport",
-  "visa",
-  "ticketing",
-  "hotels",
-]);
+const VIEWS_WITH_JOB_CARD_FILTER = new Set(JOB_CARD_FILTER_VIEWS);
+
+function pipeViewRows(
+  rows,
+  {
+    view,
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig,
+    search,
+    searchKeys,
+    dateField = "createdAt",
+  },
+) {
+  let result = filterByDateRange(rows || [], dateRange, dateField);
+  if (VIEWS_WITH_JOB_CARD_FILTER.has(view)) {
+    result = filterByJobCard(result, jobCardFilter);
+  }
+  if (view === "travellers" || view === "passport") {
+    result = attachPassportExpiryUrgency(result);
+  }
+  if (filterConfig?.length) {
+    result = applyListFilters(result, listFilters, filterConfig);
+  }
+  if (search?.trim() && searchKeys?.length) {
+    result = filterRows(result, search, searchKeys);
+  }
+  return result;
+}
 
 function filterByJobCard(rows, jobCardFilter) {
   if (!jobCardFilter || !rows?.length) return rows || [];
@@ -534,7 +577,7 @@ function reconcileLinkedSelections(form, travellers, pnrs) {
 export default function PortalWorkspace(props) {
   return (
     <Suspense fallback={<LoadingPanel />}>
-      <PortalWorkspaceInner {...props} />
+      <PortalWorkspaceInner key={props.view || "dashboard"} {...props} />
     </Suspense>
   );
 }
@@ -547,16 +590,21 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const [pendingQueryFiles, setPendingQueryFiles] = useState([]);
   const [pendingProposalFiles, setPendingProposalFiles] = useState([]);
   const [pendingExpenseProofFiles, setPendingExpenseProofFiles] = useState([]);
-  const [search, setSearch] = useState("");
-  const [dateRange, setDateRange] = useState(EMPTY_DATE_RANGE);
-  const dateRangeArg = dateRangeQueryArg(dateRange);
-  const [jobCardFilter, setJobCardFilter] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [pipelineMode, setPipelineMode] = useState("sales");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const toast = usePortalToast();
+  const { confirm } = usePortalConfirm();
+  const listFilterConfig = getListFilterConfig(view, { pipelineMode });
+  const initialUrlFilters = parseUrlFilterState(searchParams, listFilterConfig);
+  const [search, setSearch] = useState(initialUrlFilters.search);
+  const [dateRange, setDateRange] = useState(initialUrlFilters.dateRange);
+  const dateRangeArg = dateRangeQueryArg(dateRange);
+  const [jobCardFilter, setJobCardFilter] = useState(initialUrlFilters.jobCardFilter);
+  const [listFilters, setListFilters] = useState(initialUrlFilters.listFilters);
   const deepLinkOpen = searchParams.get("open");
   const deepLinkHandledRef = useRef("");
 
@@ -770,19 +818,213 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     notifications: filterByDateRange(notifications || [], dateRange, "createdAt"),
   };
 
-  const filteredQueries = filterRows(periodFiltered.queries, search, [
-    "queryCode",
-    "clientName",
-    "destination",
-    "queryType",
-  ]);
-  const filteredTeam = filterRows(team || [], search, [
-    "name",
-    "email",
-    "department",
-    "function",
-    "location",
-  ]);
+  const filtersActive =
+    Boolean(search.trim()) ||
+    Boolean(jobCardFilter) ||
+    Boolean(dateRange.from || dateRange.to) ||
+    hasActiveListFilters(listFilters, listFilterConfig);
+
+  const filteredQueries = pipeViewRows(periodFiltered.queries, {
+    view: "queries",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: listFilterConfig,
+    search,
+    searchKeys: ["queryCode", "clientName", "destination", "queryType", "salesOwnerName"],
+  });
+  const filteredPipelineQueries = pipeViewRows(periodFiltered.queries, {
+    view: "pipeline",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: listFilterConfig,
+    search,
+    searchKeys: ["queryCode", "clientName", "destination", "queryType", "salesOwnerName"],
+  });
+  const filteredContractingQueries = pipeViewRows(periodFiltered.queries, {
+    view: "contracting",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("contracting"),
+    search,
+    searchKeys: ["queryCode", "clientName", "destination", "queryType"],
+  });
+  const filteredProposals = pipeViewRows(periodFiltered.proposals, {
+    view: "proposals",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("proposals"),
+    search,
+    searchKeys: ["proposalCode", "clientName", "preparedBy"],
+  });
+  const filteredAccountsQueries = pipeViewRows(periodFiltered.queries, {
+    view: "accounts-job-cards",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("accounts-job-cards"),
+    search,
+    searchKeys: ["queryCode", "clientName", "destination"],
+  });
+  const filteredJobCards = pipeViewRows(periodFiltered.jobCards, {
+    view: "job-cards",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("job-cards"),
+    search,
+    searchKeys: ["jobCode", "clientName", "destination"],
+  });
+  const filteredTravellers = pipeViewRows(periodFiltered.travellers, {
+    view: "travellers",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("travellers"),
+    search,
+    searchKeys: ["fullName", "jobCode", "travelHub", "sourceDealerName"],
+  });
+  const filteredPassportTravellers = pipeViewRows(periodFiltered.travellers, {
+    view: "passport",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("passport"),
+    search,
+    searchKeys: ["fullName", "jobCode", "travelHub", "passportStatus"],
+  });
+  const filteredVisas = pipeViewRows(periodFiltered.visas, {
+    view: "visa",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("visa"),
+    search,
+    searchKeys: ["travellerName", "jobCode", "travelHub", "status"],
+  });
+  const filteredTickets = pipeViewRows(periodFiltered.tickets, {
+    view: "ticketing",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("ticketing"),
+    search,
+    searchKeys: ["travellerName", "jobCode", "ticketNumber", "pnrCode"],
+  });
+  const filteredPnrs = pipeViewRows(periodFiltered.pnrs, {
+    view: "flights",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("flights"),
+    search,
+    searchKeys: ["pnrCode", "airline", "route", "jobCode"],
+  });
+  const filteredAllTickets = pipeViewRows(periodFiltered.tickets, {
+    view: "tickets",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("tickets"),
+    search,
+    searchKeys: ["ticketNumber", "travellerName", "jobCode", "pnrCode"],
+  });
+  const filteredSeats = pipeViewRows(periodFiltered.seats, {
+    view: "seat-allocation",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("seat-allocation"),
+    search,
+    searchKeys: ["seatNumber", "jobCode"],
+  });
+  const filteredHotels = pipeViewRows(periodFiltered.hotels, {
+    view: "hotels",
+    dateRange,
+    jobCardFilter,
+    listFilters: {},
+    filterConfig: [],
+    search,
+    searchKeys: ["name", "city", "jobCode"],
+  });
+  const filteredRoomingTravellers = pipeViewRows(
+    periodFiltered.travellers.filter((row) => row.roomType || row.hotelAllocation),
+    {
+      view: "hotels",
+      dateRange,
+      jobCardFilter,
+      listFilters,
+      filterConfig: getListFilterConfig("hotels"),
+      search,
+      searchKeys: ["fullName", "jobCode", "travelHub", "hotelAllocation", "roomType"],
+    },
+  );
+  const filteredTourManagers = pipeViewRows(periodFiltered.tourManagers, {
+    view: "tour-managers",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("tour-managers"),
+    search,
+    searchKeys: ["name", "email", "phone", "jobCode"],
+  });
+  const filteredInvoices = pipeViewRows(periodFiltered.invoices, {
+    view: "finance",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("finance"),
+    search,
+    searchKeys: ["invoiceNumber", "jobCode"],
+  });
+  const filteredExpenses = pipeViewRows(periodFiltered.expenses, {
+    view: "expenses",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("expenses"),
+    search,
+    searchKeys: ["particulars", "paidBy", "tourManagerName", "jobCode"],
+  });
+  const filteredApprovals = pipeViewRows(periodFiltered.approvals, {
+    view: "approvals",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("approvals"),
+    search,
+    searchKeys: ["requestCode", "summary", "requestedByName", "type"],
+  });
+  const filteredLeaves = pipeViewRows(periodFiltered.leaves, {
+    view: "employees-on-leave",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("employees-on-leave"),
+    search,
+    searchKeys: ["reason", "leaveType", "status"],
+  });
+  const filteredActivity = pipeViewRows(periodFiltered.activity, {
+    view: "activity",
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    filterConfig: getListFilterConfig("activity"),
+    search,
+    searchKeys: ["action", "summary", "entityType", "actorName"],
+  });
+  const filteredTeam = pipeViewRows(team || [], {
+    view: "team",
+    dateRange: EMPTY_DATE_RANGE,
+    jobCardFilter: "",
+    listFilters,
+    filterConfig: getListFilterConfig("team"),
+    search,
+    searchKeys: ["name", "email", "department", "function", "location", "mobile", "roles"],
+  });
   const filteredStaff = !staff
     ? staff
     : filterRows(staff, search, [
@@ -796,37 +1038,53 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         "onboardingStatus",
       ]);
 
-  const [searchView, setSearchView] = useState();
-  if (view !== searchView) {
-    setSearchView(view);
+  useEffect(() => {
+    if (!allowed) return;
+    const params = serializeUrlFilterState(
+      { search, dateRange, jobCardFilter, listFilters },
+      listFilterConfig,
+      { preserveDeepLink: Boolean(modal), searchParams },
+    );
+    const qs = params.toString();
+    const nextUrl = qs ? `${pathname}?${qs}` : pathname;
+    const currentQs = searchParams.toString();
+    const currentUrl = currentQs ? `${pathname}?${currentQs}` : pathname;
+    if (nextUrl !== currentUrl) {
+      router.replace(nextUrl, { scroll: false });
+    }
+  }, [
+    allowed,
+    search,
+    dateRange,
+    jobCardFilter,
+    listFilters,
+    listFilterConfig,
+    modal,
+    pathname,
+    router,
+    searchParams,
+  ]);
+
+  const showJobCardFilter = VIEWS_WITH_JOB_CARD_FILTER.has(view);
+
+  const clearAllFilters = () => {
     setSearch("");
     setJobCardFilter("");
-  }
+    setListFilters({});
+    setDateRange(EMPTY_DATE_RANGE);
+  };
 
-  const filteredTravellers = filterRows(
-    filterByJobCard(periodFiltered.travellers, jobCardFilter),
-    search,
-    ["fullName", "jobCode", "travelHub", "sourceDealerName"],
-  );
-  const filteredVisas = filterRows(filterByJobCard(periodFiltered.visas, jobCardFilter), search, [
-    "travellerName",
-    "jobCode",
-    "travelHub",
-    "status",
-  ]);
-  const filteredTickets = filterRows(
-    filterByJobCard(periodFiltered.tickets, jobCardFilter),
-    search,
-    ["travellerName", "jobCode", "ticketNumber", "pnrCode"],
-  );
-  const filteredRoomingTravellers = filterRows(
-    filterByJobCard(periodFiltered.travellers, jobCardFilter).filter(
-      (row) => row.roomType || row.hotelAllocation,
-    ),
-    search,
-    ["fullName", "jobCode", "travelHub", "hotelAllocation"],
-  );
-  const showJobCardFilter = VIEWS_WITH_JOB_CARD_FILTER.has(view);
+  const setListFilterValue = (field, value) => {
+    setListFilters((current) => {
+      const next = { ...current };
+      if (value) {
+        next[field] = value;
+      } else {
+        delete next[field];
+      }
+      return next;
+    });
+  };
 
   const openModalRef = useRef(null);
   const openModal = (type, initial = {}) => {
@@ -905,9 +1163,12 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     setPendingProposalFiles([]);
     setPendingExpenseProofFiles([]);
     setError("");
-    if (searchParams.get("open") || searchParams.get("queryId")) {
-      router.replace(pathname);
-    }
+    const params = serializeUrlFilterState(
+      { search, dateRange, jobCardFilter, listFilters },
+      listFilterConfig,
+    );
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
   useEffect(() => {
@@ -944,7 +1205,13 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
 
     if (resolved.status === "missing") {
       deepLinkHandledRef.current = signature;
-      window.history.replaceState(null, "", pathname);
+      toast.error("Record not found or you may not have access.");
+      const params = serializeUrlFilterState(
+        { search, dateRange, jobCardFilter, listFilters },
+        listFilterConfig,
+      );
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
       return;
     }
 
@@ -959,13 +1226,18 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     );
     if (!initial) {
       deepLinkHandledRef.current = signature;
-      window.history.replaceState(null, "", pathname);
+      toast.error("Record not found or you may not have access.");
+      const params = serializeUrlFilterState(
+        { search, dateRange, jobCardFilter, listFilters },
+        listFilterConfig,
+      );
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
       return;
     }
 
     deepLinkHandledRef.current = signature;
     queueMicrotask(() => openModalRef.current?.(resolved.modal, initial));
-    window.history.replaceState(null, "", pathname);
   }, [
     allowed,
     canFetch,
@@ -978,6 +1250,13 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     approvals,
     pathname,
     searchParams,
+    listFilterConfig,
+    listFilters,
+    dateRange,
+    jobCardFilter,
+    search,
+    router,
+    toast,
   ]);
 
   if (isAuthLoading || !isAuthenticated || access === undefined) {
@@ -1008,13 +1287,19 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
   const deleteItem = async (label, mutation, args, options = {}) => {
     setError("");
     const confirmMessage = options.confirmMessage || `Delete ${label}? This cannot be undone.`;
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Delete record",
+      message: confirmMessage,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     try {
-      await mutation(args);
-    } catch (err) {
-      setError(err?.data || err?.message || "Unable to delete this record.");
+      await runMutation({ label, showToast: toast, successMessage: `${label} deleted` }, () =>
+        mutation(args),
+      );
+    } catch {
+      // Toast already shown by runMutation
     }
   };
 
@@ -1022,14 +1307,19 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     setError("");
     if (count === 0) return false;
     const noun = count === 1 ? entityLabel : `${entityLabel}s`;
-    if (!window.confirm(`Delete ${count} selected ${noun}? This cannot be undone.`)) {
-      return false;
-    }
+    const ok = await confirm({
+      title: "Delete selected",
+      message: `Delete ${count} selected ${noun}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return false;
     try {
-      await mutation(buildArgs());
+      await runMutation({ showToast: toast, successMessage: `Deleted ${count} ${noun}` }, () =>
+        mutation(buildArgs()),
+      );
       return true;
-    } catch (err) {
-      setError(err?.data || err?.message || "Unable to delete selected records.");
+    } catch {
       return false;
     }
   };
@@ -1039,415 +1329,420 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
     setIsSaving(true);
     setError("");
     try {
-      if (JOB_CARD_MODALS.has(modal) && !form.jobCardId?.trim()) {
-        setError("Please select a job card.");
-        setIsSaving(false);
-        return;
-      }
-      if (modal === "query") {
-        if (form.entityId) {
-          await updateQuery({
-            queryId: form.entityId,
-            clientName: form.clientName,
-            contactPerson: form.contactPerson,
-            contactMobile: form.contactMobile,
-            destination: form.destination,
-            paxCount: toNumber(form.paxCount, 1),
-            travelStartDate: form.travelStartDate,
-            travelEndDate: form.travelEndDate,
-            queryType: form.queryType,
-            travelType: form.travelType,
-            budgetAmount: toNumber(form.budgetAmount, 0),
-            source: form.source,
-            salesOwnerName: form.salesOwnerName,
-            notes: form.notes,
-          });
-        } else {
-          const created = await createQuery({
-            clientName: form.clientName,
-            contactPerson: form.contactPerson,
-            contactMobile: form.contactMobile,
-            destination: form.destination,
-            paxCount: toNumber(form.paxCount, 1),
-            travelStartDate: form.travelStartDate,
-            travelEndDate: form.travelEndDate,
-            queryType: form.queryType,
-            travelType: form.travelType,
-            budgetAmount: toNumber(form.budgetAmount, 0),
-            source: form.source,
-            salesOwnerName: form.salesOwnerName,
-            notes: form.notes,
-          });
-          if (pendingQueryFiles.length > 0) {
-            await uploadQueryFiles({
-              queryId: created.id,
-              files: pendingQueryFiles,
-              generateUploadUrl: generateQueryUploadUrl,
-              attachQueryFile,
-            });
+      let saveSuccessMessage = "Saved";
+      await runMutation(
+        {
+          label: "Save",
+          showToast: toast,
+          successMessage: () => saveSuccessMessage,
+          onError: (message) => setError(message),
+        },
+        async () => {
+          if (JOB_CARD_MODALS.has(modal) && !form.jobCardId?.trim()) {
+            throw new Error("Please select a job card.");
           }
-        }
-      }
-      if (modal === "assignContracting") {
-        await assignContracting({ queryId: form.queryId, staffId: form.staffId });
-      }
-      if (modal === "assignContractingOwner") {
-        await assignContractingOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
-      }
-      if (modal === "assignOperationsOwner") {
-        await assignOperationsOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
-      }
-      if (modal === "assignTicketingOwner") {
-        await assignTicketingOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
-      }
-      if (modal === "queryStatus") {
-        const payload = { queryId: form.queryId };
-        if (has(P.MANAGE_QUERIES)) {
-          payload.salesStatus = form.salesStatus;
-          payload.leadStage = form.leadStage;
-          payload.lostReason = form.salesStatus === "Order Lost" ? form.lostReason : undefined;
-          const confirmingNow = form.salesStatus === "Order Confirmed";
-          const queryRow = (queries || []).find((query) => query.id === form.queryId);
-          const alreadyConfirmed =
-            queryRow?.salesStatus === "Order Confirmed" ||
-            queryRow?.contractingStatus === "Order Confirmed";
-          if (confirmingNow || alreadyConfirmed) {
-            if (form.approxMargin !== "") {
-              payload.approxMargin = toNumber(form.approxMargin, 0);
+          if (modal === "query") {
+            if (form.entityId) {
+              await updateQuery({
+                queryId: form.entityId,
+                clientName: form.clientName,
+                contactPerson: form.contactPerson,
+                contactMobile: form.contactMobile,
+                destination: form.destination,
+                paxCount: toNumber(form.paxCount, 1),
+                travelStartDate: form.travelStartDate,
+                travelEndDate: form.travelEndDate,
+                queryType: form.queryType,
+                travelType: form.travelType,
+                budgetAmount: toNumber(form.budgetAmount, 0),
+                source: form.source,
+                salesOwnerName: form.salesOwnerName,
+                notes: form.notes,
+              });
+            } else {
+              const created = await createQuery({
+                clientName: form.clientName,
+                contactPerson: form.contactPerson,
+                contactMobile: form.contactMobile,
+                destination: form.destination,
+                paxCount: toNumber(form.paxCount, 1),
+                travelStartDate: form.travelStartDate,
+                travelEndDate: form.travelEndDate,
+                queryType: form.queryType,
+                travelType: form.travelType,
+                budgetAmount: toNumber(form.budgetAmount, 0),
+                source: form.source,
+                salesOwnerName: form.salesOwnerName,
+                notes: form.notes,
+              });
+              if (pendingQueryFiles.length > 0) {
+                await uploadQueryFiles({
+                  queryId: created.id,
+                  files: pendingQueryFiles,
+                  generateUploadUrl: generateQueryUploadUrl,
+                  attachQueryFile,
+                });
+              }
             }
           }
-        }
-        if (has(P.MANAGE_CONTRACTING) && !has(P.MANAGE_QUERIES)) {
-          payload.contractingStatus = form.contractingStatus;
-        }
-        if (has(P.MANAGE_CONTRACTING) && has(P.MANAGE_QUERIES)) {
-          payload.contractingStatus = form.contractingStatus;
-        }
-        if (has(P.MANAGE_CONTRACTING)) {
-          payload.contractingLandCost = toNumber(form.contractingLandCost, 0);
-          payload.contractingAirlinesCost = toNumber(form.contractingAirlinesCost, 0);
-          payload.contractingVisaCost = toNumber(form.contractingVisaCost, 0);
-        }
-        await updateQueryStatus(payload);
-      }
-      if (modal === "proposal") {
-        let proposalResult = null;
-        const proposalQueryIds =
-          Array.isArray(form.queryIds) && form.queryIds.length > 0
-            ? form.queryIds
-            : form.queryId
-              ? [form.queryId]
-              : [];
-        const proposalPayload = {
-          queryIds: proposalQueryIds,
-          clientName: form.clientName,
-          landCostPerPax: toNumber(form.landCostPerPax, 0),
-          airfarePerPax: toNumber(form.airfarePerPax, 0),
-          visaCostPerPax: toNumber(form.visaCostPerPax, 0),
-          sellingPrice: toNumber(form.sellingPrice, 0),
-          ...(form.taxRate !== ""
-            ? { taxRate: toNumber(form.taxRate, 0) }
-            : form.entityId
-              ? { taxRate: null }
-              : {}),
-          itinerarySummary: form.itinerarySummary,
-        };
-        if (form.entityId) {
-          proposalResult = await updateProposal({
-            proposalId: form.entityId,
-            ...proposalPayload,
-          });
-        } else {
-          proposalResult = await createProposal(proposalPayload);
-        }
-        const proposalId = form.entityId || proposalResult?.id;
-        if (proposalId && pendingProposalFiles.length > 0) {
-          await uploadEntityFiles({
-            entityId: proposalId,
-            idField: "proposalId",
-            files: pendingProposalFiles,
-            generateUploadUrl: generateProposalUploadUrl,
-            attachFile: attachProposalFile,
-          });
-        }
-      }
-      if (modal === "jobCard") {
-        if (form.entityId) {
-          await updateJobCard({
-            jobCardId: form.entityId,
-            clientName: form.clientName,
-            destination: form.destination,
-            confirmedPax: toNumber(form.confirmedPax, 1),
-            roomCount: toNumber(form.roomCount, 0),
-            travelStartDate: form.travelStartDate,
-            travelEndDate: form.travelEndDate,
-            tourManagerName: form.tourManagerName,
-          });
-        } else {
-          await createJobCard({
-            queryId: form.queryId,
-            proposalId: form.proposalId || undefined,
-            clientName: form.clientName,
-            destination: form.destination,
-            confirmedPax: toNumber(form.confirmedPax, 1),
-            roomCount: toNumber(form.roomCount, 0),
-            travelStartDate: form.travelStartDate,
-            travelEndDate: form.travelEndDate,
-            tourManagerName: form.tourManagerName,
-          });
-        }
-      }
-      if (modal === "traveller") {
-        const travellerPayload = {
-          fullName: form.fullName,
-          travelHub: form.travelHub,
-          foodPreference: form.foodPreference,
-          guestType: form.guestType,
-          paymentType: form.paymentType,
-          roomType: form.roomType,
-          visaRequired: form.visaRequired === "Yes",
-          domesticTravelRequired: form.domesticTravelRequired === "Yes",
-          biometricAppointmentDate: form.biometricAppointmentDate,
-          travelDate: form.travelDate,
-          guestCompanions: form.guestCompanions,
-          extensionOfTour: form.extensionOfTour === "Yes",
-          arrivingEarly: form.arrivingEarly === "Yes",
-          passportStatus: form.passportStatus,
-          hotelAllocation: form.hotelAllocation,
-          specialRequests: form.notes,
-        };
-        if (form.entityId) {
-          await updateTraveller({ travellerId: form.entityId, ...travellerPayload });
-        } else {
-          await createTraveller({ jobCardId: form.jobCardId, ...travellerPayload });
-        }
-      }
-      if (modal === "visa") {
-        await updateVisaRecord({
-          visaRecordId: form.visaRecordId,
-          status: form.visaStatus,
-          appointmentDate: form.appointmentDate,
-          notes: form.notes,
-        });
-      }
-      if (modal === "visa_create") {
-        await createVisa({
-          travellerId: form.travellerId,
-          status: form.visaStatus,
-        });
-      }
-      if (modal === "pnr") {
-        if (form.entityId) {
-          await updatePnr({
-            pnrId: form.entityId,
-            pnrCode: form.pnrCode,
-            airline: form.airline,
-            route: form.route,
-            fareType: form.fareType,
-            totalSeats: toNumber(form.totalSeats, 1),
-          });
-        } else {
-          await createPnr({
-            jobCardId: form.jobCardId,
-            pnrCode: form.pnrCode,
-            airline: form.airline,
-            route: form.route,
-            fareType: form.fareType,
-            totalSeats: toNumber(form.totalSeats, 1),
-          });
-        }
-      }
-      if (modal === "ticket") {
-        const ticketPayload = {
-          travellerId: form.travellerId || undefined,
-          pnrId: form.pnrId || undefined,
-          ticketNumber: form.ticketNumber,
-          ticketType: form.ticketType,
-          ticketStatus: form.ticketStatus,
-          paymentType: form.paymentType,
-          cabinClass: form.cabinClass,
-          mealPreference: form.foodPreference,
-          seatPreference: form.seatPreference,
-          seatNumber: form.seatNumber,
-        };
-        if (form.entityId) {
-          await updateTicket({ ticketId: form.entityId, ...ticketPayload });
-        } else {
-          await createTicket({ jobCardId: form.jobCardId, ...ticketPayload });
-        }
-      }
-      if (modal === "seat") {
-        if (form.entityId) {
-          await updateSeatAllocation({
-            seatAllocationId: form.entityId,
-            travellerId: form.travellerId || undefined,
-            pnrId: form.pnrId || undefined,
-            seatNumber: form.seatNumber,
-            status: form.seatStatus,
-            notes: form.notes,
-          });
-        } else {
-          await saveSeat({
-            jobCardId: form.jobCardId,
-            travellerId: form.travellerId || undefined,
-            pnrId: form.pnrId || undefined,
-            seatNumber: form.seatNumber,
-            status: form.seatStatus,
-            notes: form.notes,
-          });
-        }
-      }
-      if (modal === "hotel") {
-        if (form.entityId) {
-          await updateHotel({
-            hotelId: form.entityId,
-            name: form.hotelName,
-            city: form.city,
-            checkInDate: form.checkInDate,
-            checkOutDate: form.checkOutDate,
-            specialInstructions: form.notes,
-          });
-        } else {
-          await createHotel({
-            jobCardId: form.jobCardId,
-            name: form.hotelName,
-            city: form.city,
-            checkInDate: form.checkInDate,
-            checkOutDate: form.checkOutDate,
-            specialInstructions: form.notes,
-          });
-        }
-      }
-      if (modal === "tourManager") {
-        const selectedTm = team.find((member) => member.id === form.staffId);
-        if (form.entityId) {
-          await updateTourManager({
-            tourManagerId: form.entityId,
-            jobCardId: form.jobCardId || undefined,
-            name: selectedTm?.name || form.tourManagerName,
-            email: form.staffEmail,
-            phone: form.paidBy,
-            availabilityDate: form.travelStartDate,
-            notes: form.notes,
-          });
-        } else {
-          await createTourManager({
-            jobCardId: form.jobCardId || undefined,
-            staffId: form.staffId || undefined,
-            name: selectedTm?.name || form.tourManagerName,
-            email: form.staffEmail,
-            phone: form.paidBy,
-            availabilityDate: form.travelStartDate,
-            notes: form.notes,
-          });
-        }
-      }
-      if (modal === "invoice") {
-        if (form.entityId) {
-          await updateInvoice({
-            invoiceId: form.entityId,
-            invoiceNumber: form.invoiceNumber,
-            expectedAmount: toNumber(form.expectedAmount, 0),
-            receivedAmount: toNumber(form.receivedAmount, 0),
-            dueDate: form.dueDate,
-          });
-        } else {
-          await createInvoice({
-            jobCardId: form.jobCardId,
-            invoiceNumber: form.invoiceNumber,
-            expectedAmount: toNumber(form.expectedAmount, 0),
-            receivedAmount: toNumber(form.receivedAmount, 0),
-            dueDate: form.dueDate,
-          });
-        }
-      }
-      if (modal === "expense") {
-        const expenseTotal = getExpenseSplitTotal({
-          cardAmount: form.cardAmount,
-          cashAmount: form.cashAmount,
-          epayAmount: form.epayAmount,
-        });
-        const expensePayload = {
-          tourManagerName: form.tourManagerName,
-          category: form.category,
-          expenseDate: form.expenseDate,
-          particulars: form.particulars,
-          currency: form.currency,
-          cardAmount: toNumber(form.cardAmount, 0),
-          cashAmount: toNumber(form.cashAmount, 0),
-          epayAmount: toNumber(form.epayAmount, 0),
-          amount: expenseTotal,
-          paidBy: form.paidBy,
-          notes: form.notes,
-        };
-        let expenseResult = null;
-        if (form.entityId) {
-          expenseResult = await updateExpense({ expenseId: form.entityId, ...expensePayload });
-        } else {
-          expenseResult = await createExpense({
-            jobCardId: form.expenseType === "jobCard" ? form.jobCardId : undefined,
-            ...expensePayload,
-          });
-        }
-        const expenseId = form.entityId || expenseResult?.id;
-        if (expenseId && pendingExpenseProofFiles.length > 0) {
-          await uploadExpenseProofFiles({
-            expenseId,
-            files: pendingExpenseProofFiles.slice(0, 1),
-            generateUploadUrl: generateExpenseUploadUrl,
-            attachExpenseProof,
-          });
-        }
-      }
-      if (modal === "staff") {
-        const result = await upsertStaff({
-          staffId: form.staffId || undefined,
-          email: form.staffEmail,
-          name: form.staffName,
-          roles: form.staffRoles,
-          department: form.department,
-          function: form.staffFunction,
-          mobile: form.mobile,
-          location: form.location,
-          active: Boolean(form.staffActive),
-        });
-        if (result?.created) {
-          alert(
-            `Staff added. A verification email was sent to ${form.staffEmail}. They must verify their email before receiving a password setup link.`,
-          );
-        }
-      }
-      if (modal === "leave_create") {
-        const leavePayload = {
-          leaveType: form.leaveType,
-          startDate: form.startDate,
-          endDate: form.endDate,
-          reason: form.reason,
-        };
-        if (form.entityId) {
-          await updateLeave({ leaveId: form.entityId, ...leavePayload });
-        } else if (has(P.MANAGE_LEAVE)) {
-          await createLeave({
-            staffId: form.staffId,
-            ...leavePayload,
-            status: form.status || "Pending",
-          });
-        } else {
-          await createLeave(leavePayload);
-        }
-      }
-      if (modal === "approvalDecide") {
-        await decideApproval({
-          approvalId: form.approvalId,
-          status: form.approvalStatus,
-          decisionNote: form.decisionNote,
-        });
-      }
-      closeModal();
-    } catch (err) {
-      setError(
-        err?.data || err?.message || "Unable to save. Check required fields and permissions.",
+          if (modal === "assignContracting") {
+            await assignContracting({ queryId: form.queryId, staffId: form.staffId });
+          }
+          if (modal === "assignContractingOwner") {
+            await assignContractingOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
+          }
+          if (modal === "assignOperationsOwner") {
+            await assignOperationsOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
+          }
+          if (modal === "assignTicketingOwner") {
+            await assignTicketingOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
+          }
+          if (modal === "queryStatus") {
+            const payload = { queryId: form.queryId };
+            if (has(P.MANAGE_QUERIES)) {
+              payload.salesStatus = form.salesStatus;
+              payload.leadStage = form.leadStage;
+              payload.lostReason = form.salesStatus === "Order Lost" ? form.lostReason : undefined;
+              const confirmingNow = form.salesStatus === "Order Confirmed";
+              const queryRow = (queries || []).find((query) => query.id === form.queryId);
+              const alreadyConfirmed =
+                queryRow?.salesStatus === "Order Confirmed" ||
+                queryRow?.contractingStatus === "Order Confirmed";
+              if (confirmingNow || alreadyConfirmed) {
+                if (form.approxMargin !== "") {
+                  payload.approxMargin = toNumber(form.approxMargin, 0);
+                }
+              }
+            }
+            if (has(P.MANAGE_CONTRACTING) && !has(P.MANAGE_QUERIES)) {
+              payload.contractingStatus = form.contractingStatus;
+            }
+            if (has(P.MANAGE_CONTRACTING) && has(P.MANAGE_QUERIES)) {
+              payload.contractingStatus = form.contractingStatus;
+            }
+            if (has(P.MANAGE_CONTRACTING)) {
+              payload.contractingLandCost = toNumber(form.contractingLandCost, 0);
+              payload.contractingAirlinesCost = toNumber(form.contractingAirlinesCost, 0);
+              payload.contractingVisaCost = toNumber(form.contractingVisaCost, 0);
+            }
+            await updateQueryStatus(payload);
+          }
+          if (modal === "proposal") {
+            let proposalResult = null;
+            const proposalQueryIds =
+              Array.isArray(form.queryIds) && form.queryIds.length > 0
+                ? form.queryIds
+                : form.queryId
+                  ? [form.queryId]
+                  : [];
+            const proposalPayload = {
+              queryIds: proposalQueryIds,
+              clientName: form.clientName,
+              landCostPerPax: toNumber(form.landCostPerPax, 0),
+              airfarePerPax: toNumber(form.airfarePerPax, 0),
+              visaCostPerPax: toNumber(form.visaCostPerPax, 0),
+              sellingPrice: toNumber(form.sellingPrice, 0),
+              ...(form.taxRate !== ""
+                ? { taxRate: toNumber(form.taxRate, 0) }
+                : form.entityId
+                  ? { taxRate: null }
+                  : {}),
+              itinerarySummary: form.itinerarySummary,
+            };
+            if (form.entityId) {
+              proposalResult = await updateProposal({
+                proposalId: form.entityId,
+                ...proposalPayload,
+              });
+            } else {
+              proposalResult = await createProposal(proposalPayload);
+            }
+            const proposalId = form.entityId || proposalResult?.id;
+            if (proposalId && pendingProposalFiles.length > 0) {
+              await uploadEntityFiles({
+                entityId: proposalId,
+                idField: "proposalId",
+                files: pendingProposalFiles,
+                generateUploadUrl: generateProposalUploadUrl,
+                attachFile: attachProposalFile,
+              });
+            }
+          }
+          if (modal === "jobCard") {
+            if (form.entityId) {
+              await updateJobCard({
+                jobCardId: form.entityId,
+                clientName: form.clientName,
+                destination: form.destination,
+                confirmedPax: toNumber(form.confirmedPax, 1),
+                roomCount: toNumber(form.roomCount, 0),
+                travelStartDate: form.travelStartDate,
+                travelEndDate: form.travelEndDate,
+                tourManagerName: form.tourManagerName,
+              });
+            } else {
+              await createJobCard({
+                queryId: form.queryId,
+                proposalId: form.proposalId || undefined,
+                clientName: form.clientName,
+                destination: form.destination,
+                confirmedPax: toNumber(form.confirmedPax, 1),
+                roomCount: toNumber(form.roomCount, 0),
+                travelStartDate: form.travelStartDate,
+                travelEndDate: form.travelEndDate,
+                tourManagerName: form.tourManagerName,
+              });
+            }
+          }
+          if (modal === "traveller") {
+            const travellerPayload = {
+              fullName: form.fullName,
+              travelHub: form.travelHub,
+              foodPreference: form.foodPreference,
+              guestType: form.guestType,
+              paymentType: form.paymentType,
+              roomType: form.roomType,
+              visaRequired: form.visaRequired === "Yes",
+              domesticTravelRequired: form.domesticTravelRequired === "Yes",
+              biometricAppointmentDate: form.biometricAppointmentDate,
+              travelDate: form.travelDate,
+              guestCompanions: form.guestCompanions,
+              extensionOfTour: form.extensionOfTour === "Yes",
+              arrivingEarly: form.arrivingEarly === "Yes",
+              passportStatus: form.passportStatus,
+              hotelAllocation: form.hotelAllocation,
+              specialRequests: form.notes,
+            };
+            if (form.entityId) {
+              await updateTraveller({ travellerId: form.entityId, ...travellerPayload });
+            } else {
+              await createTraveller({ jobCardId: form.jobCardId, ...travellerPayload });
+            }
+          }
+          if (modal === "visa") {
+            await updateVisaRecord({
+              visaRecordId: form.visaRecordId,
+              status: form.visaStatus,
+              appointmentDate: form.appointmentDate,
+              notes: form.notes,
+            });
+          }
+          if (modal === "visa_create") {
+            await createVisa({
+              travellerId: form.travellerId,
+              status: form.visaStatus,
+            });
+          }
+          if (modal === "pnr") {
+            if (form.entityId) {
+              await updatePnr({
+                pnrId: form.entityId,
+                pnrCode: form.pnrCode,
+                airline: form.airline,
+                route: form.route,
+                fareType: form.fareType,
+                totalSeats: toNumber(form.totalSeats, 1),
+              });
+            } else {
+              await createPnr({
+                jobCardId: form.jobCardId,
+                pnrCode: form.pnrCode,
+                airline: form.airline,
+                route: form.route,
+                fareType: form.fareType,
+                totalSeats: toNumber(form.totalSeats, 1),
+              });
+            }
+          }
+          if (modal === "ticket") {
+            const ticketPayload = {
+              travellerId: form.travellerId || undefined,
+              pnrId: form.pnrId || undefined,
+              ticketNumber: form.ticketNumber,
+              ticketType: form.ticketType,
+              ticketStatus: form.ticketStatus,
+              paymentType: form.paymentType,
+              cabinClass: form.cabinClass,
+              mealPreference: form.foodPreference,
+              seatPreference: form.seatPreference,
+              seatNumber: form.seatNumber,
+            };
+            if (form.entityId) {
+              await updateTicket({ ticketId: form.entityId, ...ticketPayload });
+            } else {
+              await createTicket({ jobCardId: form.jobCardId, ...ticketPayload });
+            }
+          }
+          if (modal === "seat") {
+            if (form.entityId) {
+              await updateSeatAllocation({
+                seatAllocationId: form.entityId,
+                travellerId: form.travellerId || undefined,
+                pnrId: form.pnrId || undefined,
+                seatNumber: form.seatNumber,
+                status: form.seatStatus,
+                notes: form.notes,
+              });
+            } else {
+              await saveSeat({
+                jobCardId: form.jobCardId,
+                travellerId: form.travellerId || undefined,
+                pnrId: form.pnrId || undefined,
+                seatNumber: form.seatNumber,
+                status: form.seatStatus,
+                notes: form.notes,
+              });
+            }
+          }
+          if (modal === "hotel") {
+            if (form.entityId) {
+              await updateHotel({
+                hotelId: form.entityId,
+                name: form.hotelName,
+                city: form.city,
+                checkInDate: form.checkInDate,
+                checkOutDate: form.checkOutDate,
+                specialInstructions: form.notes,
+              });
+            } else {
+              await createHotel({
+                jobCardId: form.jobCardId,
+                name: form.hotelName,
+                city: form.city,
+                checkInDate: form.checkInDate,
+                checkOutDate: form.checkOutDate,
+                specialInstructions: form.notes,
+              });
+            }
+          }
+          if (modal === "tourManager") {
+            const selectedTm = team.find((member) => member.id === form.staffId);
+            if (form.entityId) {
+              await updateTourManager({
+                tourManagerId: form.entityId,
+                jobCardId: form.jobCardId || undefined,
+                name: selectedTm?.name || form.tourManagerName,
+                email: form.staffEmail,
+                phone: form.paidBy,
+                availabilityDate: form.travelStartDate,
+                notes: form.notes,
+              });
+            } else {
+              await createTourManager({
+                jobCardId: form.jobCardId || undefined,
+                staffId: form.staffId || undefined,
+                name: selectedTm?.name || form.tourManagerName,
+                email: form.staffEmail,
+                phone: form.paidBy,
+                availabilityDate: form.travelStartDate,
+                notes: form.notes,
+              });
+            }
+          }
+          if (modal === "invoice") {
+            if (form.entityId) {
+              await updateInvoice({
+                invoiceId: form.entityId,
+                invoiceNumber: form.invoiceNumber,
+                expectedAmount: toNumber(form.expectedAmount, 0),
+                receivedAmount: toNumber(form.receivedAmount, 0),
+                dueDate: form.dueDate,
+              });
+            } else {
+              await createInvoice({
+                jobCardId: form.jobCardId,
+                invoiceNumber: form.invoiceNumber,
+                expectedAmount: toNumber(form.expectedAmount, 0),
+                receivedAmount: toNumber(form.receivedAmount, 0),
+                dueDate: form.dueDate,
+              });
+            }
+          }
+          if (modal === "expense") {
+            const expenseTotal = getExpenseSplitTotal({
+              cardAmount: form.cardAmount,
+              cashAmount: form.cashAmount,
+              epayAmount: form.epayAmount,
+            });
+            const expensePayload = {
+              tourManagerName: form.tourManagerName,
+              category: form.category,
+              expenseDate: form.expenseDate,
+              particulars: form.particulars,
+              currency: form.currency,
+              cardAmount: toNumber(form.cardAmount, 0),
+              cashAmount: toNumber(form.cashAmount, 0),
+              epayAmount: toNumber(form.epayAmount, 0),
+              amount: expenseTotal,
+              paidBy: form.paidBy,
+              notes: form.notes,
+            };
+            let expenseResult = null;
+            if (form.entityId) {
+              expenseResult = await updateExpense({ expenseId: form.entityId, ...expensePayload });
+            } else {
+              expenseResult = await createExpense({
+                jobCardId: form.expenseType === "jobCard" ? form.jobCardId : undefined,
+                ...expensePayload,
+              });
+            }
+            const expenseId = form.entityId || expenseResult?.id;
+            if (expenseId && pendingExpenseProofFiles.length > 0) {
+              await uploadExpenseProofFiles({
+                expenseId,
+                files: pendingExpenseProofFiles.slice(0, 1),
+                generateUploadUrl: generateExpenseUploadUrl,
+                attachExpenseProof,
+              });
+            }
+          }
+          if (modal === "staff") {
+            const result = await upsertStaff({
+              staffId: form.staffId || undefined,
+              email: form.staffEmail,
+              name: form.staffName,
+              roles: form.staffRoles,
+              department: form.department,
+              function: form.staffFunction,
+              mobile: form.mobile,
+              location: form.location,
+              active: Boolean(form.staffActive),
+            });
+            if (result?.created) {
+              saveSuccessMessage = `Staff added. A verification email was sent to ${form.staffEmail}. They must verify their email before receiving a password setup link.`;
+            }
+          }
+          if (modal === "leave_create") {
+            const leavePayload = {
+              leaveType: form.leaveType,
+              startDate: form.startDate,
+              endDate: form.endDate,
+              reason: form.reason,
+            };
+            if (form.entityId) {
+              await updateLeave({ leaveId: form.entityId, ...leavePayload });
+            } else if (has(P.MANAGE_LEAVE)) {
+              await createLeave({
+                staffId: form.staffId,
+                ...leavePayload,
+                status: form.status || "Pending",
+              });
+            } else {
+              await createLeave(leavePayload);
+            }
+          }
+          if (modal === "approvalDecide") {
+            await decideApproval({
+              approvalId: form.approvalId,
+              status: form.approvalStatus,
+              decisionNote: form.decisionNote,
+            });
+          }
+          closeModal();
+        },
       );
+    } catch (err) {
+      setError(err?.data || err?.message || "Unable to save.");
     }
     setIsSaving(false);
   };
@@ -1461,11 +1756,38 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         setSearch={setSearch}
         dateRange={dateRange}
         setDateRange={setDateRange}
-        showPeriodFilter={view !== "settings"}
+        showSearch={view !== "dashboard"}
+        showPeriodFilter={!["settings", "team"].includes(view)}
         showJobCardFilter={showJobCardFilter}
         jobCardFilter={jobCardFilter}
         setJobCardFilter={setJobCardFilter}
         jobCards={jobCards || []}
+        listFilterConfig={listFilterConfig}
+        listFilters={listFilters}
+        setListFilterValue={setListFilterValue}
+        filterSourceRows={
+          {
+            proposals: periodFiltered.proposals,
+            "job-cards": periodFiltered.jobCards,
+            travellers: periodFiltered.travellers,
+            passport: periodFiltered.travellers,
+            visa: periodFiltered.visas,
+            ticketing: periodFiltered.tickets,
+            flights: periodFiltered.pnrs,
+            tickets: periodFiltered.tickets,
+            "seat-allocation": periodFiltered.seats,
+            hotels: periodFiltered.travellers,
+            "tour-managers": periodFiltered.tourManagers,
+            finance: periodFiltered.invoices,
+            expenses: periodFiltered.expenses,
+            approvals: periodFiltered.approvals,
+            "employees-on-leave": periodFiltered.leaves,
+            team: team || [],
+            activity: periodFiltered.activity,
+          }[view] ?? periodFiltered.queries
+        }
+        filtersActive={filtersActive}
+        onClearAllFilters={clearAllFilters}
       >
         <HeaderActions view={view} openModal={openModal} has={has} access={access} />
       </PageHeader>
@@ -1480,6 +1802,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       {view === "queries" && (
         <QueriesView
           rows={filteredQueries}
+          filtersActive={filtersActive}
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
@@ -1489,12 +1812,17 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         />
       )}
       {view === "pipeline" && (
-        <PipelineView rows={periodFiltered.queries} mode={pipelineMode} setMode={setPipelineMode} />
+        <PipelineView
+          rows={filteredPipelineQueries}
+          mode={pipelineMode}
+          setMode={setPipelineMode}
+        />
       )}
       {view === "contracting" && (
         <ContractingView
-          rows={filteredQueries}
-          proposals={periodFiltered.proposals}
+          rows={filteredContractingQueries}
+          proposals={filteredProposals}
+          filtersActive={filtersActive}
           team={team || []}
           openModal={openModal}
           has={has}
@@ -1505,7 +1833,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "proposals" && (
         <ProposalsView
-          rows={periodFiltered.proposals}
+          rows={filteredProposals}
+          filtersActive={filtersActive}
           markProposalSent={markProposalSent}
           openModal={openModal}
           has={has}
@@ -1517,14 +1846,16 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "accounts-job-cards" && (
         <AccountsJobCardView
-          rows={periodFiltered.queries}
-          jobCards={periodFiltered.jobCards}
+          rows={filteredAccountsQueries}
+          filtersActive={filtersActive}
+          jobCards={filteredJobCards}
           openModal={openModal}
         />
       )}
       {view === "job-cards" && (
         <JobCardsView
-          rows={periodFiltered.jobCards}
+          rows={filteredJobCards}
+          filtersActive={filtersActive}
           updateJobStatus={updateJobStatus}
           openModal={openModal}
           has={has}
@@ -1536,6 +1867,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       {view === "travellers" && (
         <TravellersView
           rows={filteredTravellers}
+          filtersActive={filtersActive}
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
@@ -1546,7 +1878,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "passport" && (
         <PassportDocumentsView
-          travellers={filteredTravellers}
+          travellers={filteredPassportTravellers}
+          filtersActive={filtersActive}
           has={has}
           generateUploadUrl={generateUploadUrl}
           encryptAndStorePassport={encryptAndStorePassport}
@@ -1557,6 +1890,7 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       {view === "visa" && (
         <VisaTrackingView
           rows={filteredVisas}
+          filtersActive={filtersActive}
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
@@ -1579,7 +1913,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "flights" && (
         <PnrView
-          rows={periodFiltered.pnrs}
+          rows={filteredPnrs}
+          filtersActive={filtersActive}
           itinerary={periodFiltered.flightItinerary}
           openModal={openModal}
           has={has}
@@ -1591,7 +1926,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "seat-allocation" && (
         <SeatView
-          rows={periodFiltered.seats}
+          rows={filteredSeats}
+          filtersActive={filtersActive}
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
@@ -1602,7 +1938,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "tickets" && (
         <TicketsView
-          rows={periodFiltered.tickets}
+          rows={filteredAllTickets}
+          filtersActive={filtersActive}
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
@@ -1618,9 +1955,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
             subtitle="Manual hotel records for ground planning and check-in/out dates."
           >
             <HotelsView
-              rows={periodFiltered.hotels.filter(
-                (row) => !jobCardFilter || row.jobCardId === jobCardFilter,
-              )}
+              rows={filteredHotels}
+              filtersActive={filtersActive}
               openModal={openModal}
               has={has}
               deleteItem={deleteItem}
@@ -1633,13 +1969,14 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
             title="Rooming Assignments"
             subtitle="Passenger room types and allocations from traveller master or rooming import."
           >
-            <RoomingListView rows={filteredRoomingTravellers} />
+            <RoomingListView rows={filteredRoomingTravellers} filtersActive={filtersActive} />
           </Panel>
         </div>
       )}
       {view === "tour-managers" && (
         <TourManagersView
-          rows={periodFiltered.tourManagers}
+          rows={filteredTourManagers}
+          filtersActive={filtersActive}
           travellers={periodFiltered.travellers}
           openModal={openModal}
           has={has}
@@ -1653,7 +1990,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "finance" && (
         <FinanceView
-          rows={periodFiltered.invoices}
+          rows={filteredInvoices}
+          filtersActive={filtersActive}
           overview={financeOverview}
           openModal={openModal}
           has={has}
@@ -1663,7 +2001,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "expenses" && (
         <ExpensesView
-          rows={periodFiltered.expenses}
+          rows={filteredExpenses}
+          filtersActive={filtersActive}
           openModal={openModal}
           has={has}
           deleteItem={deleteItem}
@@ -1675,7 +2014,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "approvals" && (
         <ApprovalsView
-          rows={periodFiltered.approvals}
+          rows={filteredApprovals}
+          filtersActive={filtersActive}
           has={has}
           openModal={openModal}
           decideApproval={decideApproval}
@@ -1687,7 +2027,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       {view === "team" && <TeamView rows={filteredTeam} />}
       {view === "employees-on-leave" && (
         <LeaveView
-          rows={periodFiltered.leaves}
+          rows={filteredLeaves}
+          filtersActive={filtersActive}
           staff={staff || team || []}
           access={access}
           openModal={openModal}
@@ -1699,7 +2040,8 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       )}
       {view === "activity" && (
         <ActivityView
-          activity={periodFiltered.activity}
+          activity={filteredActivity}
+          filtersActive={filtersActive}
           notifications={periodFiltered.notifications}
           deleteItem={deleteItem}
           removeNotification={removeNotification}
@@ -2088,10 +2430,17 @@ function PageHeader({
   dateRange,
   setDateRange,
   showPeriodFilter = true,
+  showSearch = true,
   showJobCardFilter = false,
   jobCardFilter = "",
   setJobCardFilter,
   jobCards = [],
+  listFilterConfig = [],
+  listFilters = {},
+  setListFilterValue,
+  filterSourceRows = [],
+  filtersActive = false,
+  onClearAllFilters,
 }) {
   return (
     <motion.div
@@ -2133,18 +2482,34 @@ function PageHeader({
             />
           </label>
         )}
-        <label className="relative">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
-            size={16}
-          />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="h-11 w-full rounded-full border border-brand-border bg-white pl-9 pr-4 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-72"
-            placeholder="Search current data"
-          />
-        </label>
+        <PortalListFilters
+          config={listFilterConfig}
+          values={listFilters}
+          onChange={setListFilterValue}
+          rows={filterSourceRows}
+        />
+        {filtersActive && onClearAllFilters && (
+          <button type="button" className="portal-small-btn bg-white" onClick={onClearAllFilters}>
+            Clear filters
+          </button>
+        )}
+        {showSearch && (
+          <label className="relative">
+            <span className="sr-only">Search this page</span>
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
+              size={16}
+              aria-hidden
+            />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="h-11 w-full rounded-full border border-brand-border bg-white pl-9 pr-4 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-72"
+              placeholder="Search current data"
+              aria-label="Search this page"
+            />
+          </label>
+        )}
         {children}
       </div>
     </motion.div>
@@ -2605,6 +2970,7 @@ function QueryManageActions({ row, openModal, has, deleteItem, removeQuery, subm
 
 function QueriesView({
   rows,
+  filtersActive = false,
   openModal,
   has,
   deleteItem,
@@ -2616,6 +2982,7 @@ function QueriesView({
     <DataTable
       rows={rows}
       empty="No queries yet."
+      filtersActive={filtersActive}
       mobileCardRender={(row) => (
         <div className="space-y-3">
           <div className="flex items-start justify-between gap-3">
@@ -2800,6 +3167,7 @@ function QueriesView({
 function ContractingView({
   rows,
   proposals,
+  filtersActive = false,
   team,
   openModal,
   has,
@@ -2865,6 +3233,7 @@ function ContractingView({
       <DataTable
         rows={rows}
         empty="No contracting queries yet."
+        filtersActive={filtersActive}
         columns={[
           [
             "Received",
@@ -3334,6 +3703,7 @@ function JobCardsView({
   access,
   deleteItem,
   removeJobCard,
+  filtersActive = false,
 }) {
   const showAssignContracting = canAssignContracting(access) || canAssignOperations(access);
   const showAssignOps = canAssignOperations(access);
@@ -3341,7 +3711,12 @@ function JobCardsView({
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {rows.length === 0 ? (
-        <EmptyState label="No Job Cards yet." />
+        <EmptyState
+          label={filterEmptyMessage({
+            filtersActive,
+            defaultMessage: "No Job Cards yet.",
+          })}
+        />
       ) : (
         rows.map((job, index) => (
           <motion.div
@@ -3490,14 +3865,35 @@ function TravellersView({
   deleteSelected,
   removeTraveller,
   removeManyTravellers,
+  filtersActive = false,
 }) {
   const canManage = has(P.MANAGE_TRAVELLERS);
   return (
     <SelectableDataTable
       rows={rows}
       empty="No travellers yet."
+      filtersActive={filtersActive}
+      rowLabel={(row) => row.fullName}
       selectable={canManage}
       entityLabel="traveller"
+      mobileCardRender={(row) => {
+        const expiry = getPassportExpiryInfo({
+          expiryDate: row.passportExpiryDate,
+          travelDate: row.travelStartDate || row.travelDate,
+        });
+        return (
+          <div className="space-y-1">
+            <div className="font-semibold text-brand-dark">{row.fullName}</div>
+            <div className="text-xs text-brand-muted">
+              {row.jobCode} · {row.travelHub || "No hub"}
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Badge label={row.visaStatus} tone={statusTone(row.visaStatus)} />
+              <Badge label={formatPassportExpiryLabel(expiry)} tone={passportExpiryTone(expiry)} />
+            </div>
+          </div>
+        );
+      }}
       onBulkDelete={
         canManage
           ? (ids) =>
@@ -3513,6 +3909,18 @@ function TravellersView({
         ["Room", (row) => <Badge label={row.roomType} tone="blue" />],
         ["Food", (row) => <Badge label={row.foodPreference} tone="green" />],
         ["Passport", (row) => row.passportStatus || "Pending"],
+        [
+          "Passport expiry",
+          (row) => {
+            const info = getPassportExpiryInfo({
+              expiryDate: row.passportExpiryDate,
+              travelDate: row.travelStartDate || row.travelDate,
+            });
+            return (
+              <Badge label={formatPassportExpiryLabel(info)} tone={passportExpiryTone(info)} />
+            );
+          },
+        ],
         ["Ticket", (row) => <Badge label={row.ticketStatus} tone={statusTone(row.ticketStatus)} />],
         ["Visa", (row) => <Badge label={row.visaStatus} tone={statusTone(row.visaStatus)} />],
         ["TM Call", (row) => row.callingStatus],
@@ -3565,12 +3973,24 @@ function VisaTrackingView({
   deleteSelected,
   removeVisa,
   removeManyVisas,
+  filtersActive = false,
 }) {
   const canManage = has(P.MANAGE_VISA);
   return (
     <SelectableDataTable
       rows={rows}
       empty="No visa records yet."
+      filtersActive={filtersActive}
+      rowLabel={(row) => row.travellerName}
+      mobileCardRender={(row) => (
+        <div className="space-y-1">
+          <div className="font-semibold text-brand-dark">{row.travellerName}</div>
+          <div className="text-xs text-brand-muted">
+            {row.jobCode} · {row.travelHub || "No hub"}
+          </div>
+          <Badge label={row.status} tone={statusTone(row.status)} />
+        </div>
+      )}
       selectable={canManage}
       entityLabel="visa record"
       onBulkDelete={
@@ -3780,7 +4200,10 @@ function PassportDocumentsView({
   encryptAndStorePassport,
   getPassportDocument,
   removePassport,
+  filtersActive = false,
 }) {
+  const toast = usePortalToast();
+  const { confirm } = usePortalConfirm();
   const [uploadTraveller, setUploadTraveller] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -3843,7 +4266,7 @@ function PassportDocumentsView({
 
       setUploadTraveller(null);
       setPassportForm({ number: "", expiryDate: "", nationality: "", dateOfBirth: "" });
-      alert("Passport scan uploaded and encrypted successfully!");
+      toast.success("Passport scan uploaded and encrypted successfully.");
     } catch (err) {
       console.error(err);
       setUploadError(formatConvexError(err, "Failed to upload passport. Please try again."));
@@ -3858,21 +4281,25 @@ function PassportDocumentsView({
       openPortalFile(`/api/portal/files/passport/${encodeURIComponent(travellerId)}`);
     } catch (err) {
       console.error(err);
-      alert(err?.data || err?.message || "Unable to decrypt passport scan.");
+      toast.error(err?.data || err?.message || "Unable to open passport scan.");
     }
     setViewingTravellerId(null);
   };
 
   const handleDeletePassport = async (travellerName, travellerId) => {
-    if (!window.confirm(`Delete passport scan for ${travellerName}? This cannot be undone.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Delete passport scan",
+      message: `Delete passport scan for ${travellerName}? This cannot be undone.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
     try {
-      await removePassport({ travellerId });
-      alert("Passport scan deleted successfully.");
-    } catch (err) {
-      console.error(err);
-      alert(err?.message || "Failed to delete passport scan.");
+      await runMutation({ showToast: toast, successMessage: "Passport scan deleted." }, () =>
+        removePassport({ travellerId }),
+      );
+    } catch {
+      // runMutation surfaces toast
     }
   };
 
@@ -3881,6 +4308,7 @@ function PassportDocumentsView({
       <DataTable
         rows={travellers}
         empty="No travellers on record."
+        filtersActive={filtersActive}
         columns={[
           ["Traveller", (row) => strong(row.fullName)],
           ["Job Code", (row) => row.jobCode],
@@ -4264,6 +4692,7 @@ function SeatView({
 
 function HotelsView({
   rows,
+  filtersActive = false,
   openModal,
   has,
   deleteItem,
@@ -4276,6 +4705,7 @@ function HotelsView({
     <SelectableDataTable
       rows={rows}
       empty="No hotel records yet. Add a hotel property or use Import Rooming for passenger assignments below."
+      filtersActive={filtersActive}
       selectable={canManage}
       entityLabel="hotel"
       onBulkDelete={
@@ -4324,11 +4754,12 @@ function HotelsView({
   );
 }
 
-function RoomingListView({ rows }) {
+function RoomingListView({ rows, filtersActive = false }) {
   return (
     <DataTable
       rows={rows}
       empty="No rooming assignments yet. Import traveller master or rooming spreadsheet for this job card."
+      filtersActive={filtersActive}
       columns={[
         ["Name", (row) => strong(row.fullName)],
         ["Job", (row) => row.jobCode],
@@ -4354,6 +4785,7 @@ function TourManagersView({
   removeManyTourManagers,
   updateCallingStatus,
 }) {
+  const toast = usePortalToast();
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
@@ -4407,7 +4839,15 @@ function TourManagersView({
                         type="button"
                         className="portal-small-btn"
                         onClick={() =>
-                          updateCallingStatus({ travellerId: row.id, callingStatus: status })
+                          runMutation(
+                            {
+                              label: "Calling status",
+                              showToast: toast,
+                              successMessage: `Calling status set to ${status}`,
+                            },
+                            () =>
+                              updateCallingStatus({ travellerId: row.id, callingStatus: status }),
+                          ).catch(() => {})
                         }
                       >
                         {status}
@@ -4601,6 +5041,7 @@ function FinanceView({ rows, overview, openModal, has, deleteItem, removeInvoice
 
 function ExpensesView({
   rows,
+  filtersActive = false,
   openModal,
   has,
   deleteItem,
@@ -4609,10 +5050,12 @@ function ExpensesView({
   getExpenseAttachmentUrl,
   removeExpenseProof,
 }) {
+  const toast = usePortalToast();
   return (
     <DataTable
       rows={rows}
       empty="No expenses yet."
+      filtersActive={filtersActive}
       columns={[
         ["Job", (row) => row.jobCode],
         ["Date", (row) => row.expenseDate || "-"],
@@ -4678,7 +5121,16 @@ function ExpensesView({
                 <button
                   type="button"
                   className="portal-small-btn"
-                  onClick={() => submitExpenseForApproval({ expenseId: row.id })}
+                  onClick={() =>
+                    runMutation(
+                      {
+                        label: "Expense approval",
+                        showToast: toast,
+                        successMessage: "Expense submitted for approval.",
+                      },
+                      () => submitExpenseForApproval({ expenseId: row.id }),
+                    ).catch(() => {})
+                  }
                 >
                   Submit for approval
                 </button>
@@ -4687,9 +5139,14 @@ function ExpensesView({
                     type="button"
                     className="portal-small-btn"
                     onClick={() =>
-                      removeExpenseProof({ attachmentId: row.proofAttachment.id }).catch((err) => {
-                        alert(err?.data || err?.message || "Unable to remove proof.");
-                      })
+                      runMutation(
+                        {
+                          label: "Expense proof",
+                          showToast: toast,
+                          successMessage: "Expense proof removed.",
+                        },
+                        () => removeExpenseProof({ attachmentId: row.proofAttachment.id }),
+                      ).catch(() => {})
                     }
                   >
                     Remove expense proof
@@ -4710,6 +5167,7 @@ function ExpensesView({
 }
 
 function ApprovalsView({ rows, has, openModal, decideApproval, deleteItem, removeApproval }) {
+  const toast = usePortalToast();
   return (
     <DataTable
       rows={rows}
@@ -4732,7 +5190,16 @@ function ApprovalsView({ rows, has, openModal, decideApproval, deleteItem, remov
                     <button
                       type="button"
                       className="portal-small-btn"
-                      onClick={() => decideApproval({ approvalId: row.id, status: "Approved" })}
+                      onClick={() =>
+                        runMutation(
+                          {
+                            label: "Approval",
+                            showToast: toast,
+                            successMessage: "Approval approved.",
+                          },
+                          () => decideApproval({ approvalId: row.id, status: "Approved" }),
+                        ).catch(() => {})
+                      }
                     >
                       Approve
                     </button>
@@ -5093,6 +5560,7 @@ function SettingsView({
   removeStaff,
   startStaffOnboarding,
 }) {
+  const toast = usePortalToast();
   const [onboardingSending, setOnboardingSending] = useState({});
 
   const searchTerm = search.trim();
@@ -5102,10 +5570,10 @@ function SettingsView({
     setOnboardingSending((prev) => ({ ...prev, [row.id]: true }));
     try {
       const result = await startStaffOnboarding({ staffId: row.id });
-      alert(result?.message || `Onboarding email sent to ${row.email}.`);
+      toast.success(result?.message || `Onboarding email sent to ${row.email}.`);
     } catch (err) {
       console.error(err);
-      alert(err?.data || err?.message || "Failed to send onboarding email.");
+      toast.error(err?.data || err?.message || "Failed to send onboarding email.");
     }
     setOnboardingSending((prev) => ({ ...prev, [row.id]: false }));
   };
@@ -5291,6 +5759,7 @@ function PassengerImportModal({
   uploadLabel = "Upload Passengers",
   importKind = "passenger",
 }) {
+  const toast = usePortalToast();
   const [jobCardId, setJobCardId] = useState("");
   const [fileName, setFileName] = useState("");
   const [parsed, setParsed] = useState(null);
@@ -5388,9 +5857,9 @@ function PassengerImportModal({
       let message = `${successLabel}. Created ${result.created}, updated ${result.updated}, total processed ${result.total}.`;
       if (showRoomSummary && result.roomSummary) {
         const roomText = formatRoomSummaryText(result.roomSummary, selectedJob?.jobCode);
-        if (roomText) message += `\n\nRoom summary: ${roomText}`;
+        if (roomText) message += ` Room summary: ${roomText}`;
       }
-      alert(message);
+      toast.success(message);
       closeAndReset();
     } catch (err) {
       setError(err?.data || err?.message || "Import failed.");
@@ -5501,6 +5970,7 @@ function PassengerImportModal({
 }
 
 function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImport }) {
+  const toast = usePortalToast();
   const [jobCardId, setJobCardId] = useState("");
   const [fileName, setFileName] = useState("");
   const [parsed, setParsed] = useState(null);
@@ -5562,7 +6032,7 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
     setError("");
     try {
       const result = await commitFlightImport({ jobCardId, groups });
-      alert(
+      toast.success(
         `Flight import complete. Created ${result.createdSegments}, updated ${result.updatedSegments} segments.`,
       );
       closeAndReset();
@@ -6207,21 +6677,38 @@ function EntityModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm"
+          onClick={close}
         >
           <motion.form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="portal-entity-modal-title"
             onSubmit={submit}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                close();
+              }
+            }}
             initial={{ opacity: 0, y: 24, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.98 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl"
+            className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:fixed max-sm:inset-0 max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none"
           >
             <div className="flex items-center justify-between border-b border-brand-border px-5 py-4">
-              <div className="font-heading text-lg font-semibold text-citius-blue">{title}</div>
+              <div
+                id="portal-entity-modal-title"
+                className="font-heading text-lg font-semibold text-citius-blue"
+              >
+                {title}
+              </div>
               <button
                 type="button"
                 onClick={close}
                 className="rounded-full p-2 text-brand-muted hover:bg-brand-light"
+                aria-label="Close dialog"
               >
                 Close
               </button>
@@ -7385,9 +7872,17 @@ function EntityModal({
   );
 }
 
-function DataTable({ rows, columns, empty, compact = false, mobileCardRender }) {
+function DataTable({
+  rows,
+  columns,
+  empty,
+  compact = false,
+  mobileCardRender,
+  filtersActive = false,
+}) {
   if (!rows) return <LoadingPanel />;
-  if (rows.length === 0) return <EmptyState label={empty} />;
+  const emptyLabel = filterEmptyMessage({ filtersActive, defaultMessage: empty });
+  if (rows.length === 0) return <EmptyState label={emptyLabel} />;
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -8111,6 +8606,7 @@ async function openFinalizedProposalPdf(proposalId, getFinalizedPdfUrl) {
 }
 
 function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, onDownload }) {
+  const toast = usePortalToast();
   if (!finalizedPdf) {
     return canSend ? (
       <button type="button" className="portal-small-btn" onClick={onManage}>
@@ -8128,7 +8624,7 @@ function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, onDownlo
         className="inline-flex max-w-[180px] items-center gap-1 truncate text-left text-xs font-medium text-citius-blue hover:underline"
         onClick={() =>
           onDownload().catch((err) => {
-            alert(err?.data || err?.message || "Unable to open file.");
+            toast.error(err?.data || err?.message || "Unable to open file.");
           })
         }
       >
@@ -8156,6 +8652,8 @@ function FinalizedProposalPdfPanel({
   getFinalizedPdfUrl,
   removeFinalizedPdf,
 }) {
+  const toast = usePortalToast();
+  const { confirm } = usePortalConfirm();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
@@ -8198,11 +8696,18 @@ function FinalizedProposalPdfPanel({
   };
 
   const handleRemove = async () => {
-    if (!window.confirm("Remove the finalized proposal PDF?")) return;
+    const ok = await confirm({
+      title: "Remove finalized PDF",
+      message: "Remove the finalized proposal PDF?",
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await removeFinalizedPdf({ proposalId });
+      toast.success("Finalized PDF removed.");
     } catch (err) {
-      alert(err?.data || err?.message || "Unable to remove file.");
+      toast.error(err?.data || err?.message || "Unable to remove file.");
     }
   };
 
@@ -8257,7 +8762,7 @@ function FinalizedProposalPdfPanel({
               className="portal-small-btn"
               onClick={() =>
                 openFinalizedProposalPdf(proposalId, getFinalizedPdfUrl).catch((err) => {
-                  alert(err?.data || err?.message || "Unable to open file.");
+                  toast.error(err?.data || err?.message || "Unable to open file.");
                 })
               }
             >
@@ -8282,6 +8787,7 @@ function QueryAttachmentSummary({
   getQueryAttachmentUrl,
   attachmentKind = "query",
 }) {
+  const toast = usePortalToast();
   if (!attachments.length) {
     return canManage ? (
       <button type="button" className="portal-small-btn" onClick={onManage}>
@@ -8301,7 +8807,7 @@ function QueryAttachmentSummary({
           className="inline-flex max-w-[180px] items-center gap-1 truncate text-left text-xs font-medium text-citius-blue hover:underline"
           onClick={() =>
             openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch((err) => {
-              alert(err?.data || err?.message || "Unable to open file.");
+              toast.error(err?.data || err?.message || "Unable to open file.");
             })
           }
         >
@@ -8382,6 +8888,8 @@ function QueryAttachmentsPanel({
   attachmentKind = "query",
   removeQueryAttachment,
 }) {
+  const toast = usePortalToast();
+  const { confirm } = usePortalConfirm();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
@@ -8408,11 +8916,18 @@ function QueryAttachmentsPanel({
   };
 
   const handleRemove = async (attachment) => {
-    if (!window.confirm(`Remove ${attachment.fileName}?`)) return;
+    const ok = await confirm({
+      title: "Remove file",
+      message: `Remove ${attachment.fileName}?`,
+      confirmLabel: "Remove",
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await removeQueryAttachment({ attachmentId: attachment.id });
+      toast.success("File removed.");
     } catch (err) {
-      alert(err?.data || err?.message || "Unable to remove file.");
+      toast.error(err?.data || err?.message || "Unable to remove file.");
     }
   };
 
@@ -8467,7 +8982,7 @@ function QueryAttachmentsPanel({
                   onClick={() =>
                     openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch(
                       (err) => {
-                        alert(err?.data || err?.message || "Unable to open file.");
+                        toast.error(err?.data || err?.message || "Unable to open file.");
                       },
                     )
                   }

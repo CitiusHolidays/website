@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 import { m as motion } from "motion/react";
 import { useBulkSelection } from "@/lib/portal/bulkSelection";
+import { PORTAL_BULK_DELETE_LIMIT } from "@/lib/portal/constants";
 
 function EmptyState({ label }) {
   return (
@@ -15,24 +16,35 @@ function EmptyState({ label }) {
 function LoadingPanel() {
   return (
     <div className="rounded-2xl border border-brand-border bg-white px-6 py-12 text-center text-sm text-brand-muted">
-      Loading...
+      Loading…
     </div>
   );
 }
 
-function BulkActionBar({ selectedCount, entityLabel, onDeleteSelected, onClear }) {
+function BulkActionBar({ selectedCount, entityLabel, onDeleteSelected, onClear, overBulkLimit }) {
   if (selectedCount === 0) return null;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-border bg-citius-blue/[0.04] px-4 py-3">
       <span className="text-sm font-medium text-citius-blue">
         {selectedCount} {entityLabel}
         {selectedCount === 1 ? "" : "s"} selected
+        {overBulkLimit ? ` (max ${PORTAL_BULK_DELETE_LIMIT})` : ""}
       </span>
       <div className="flex flex-wrap gap-2">
         <button type="button" className="portal-small-btn" onClick={onClear}>
           Clear
         </button>
-        <button type="button" className="portal-danger-btn" onClick={onDeleteSelected}>
+        <button
+          type="button"
+          className="portal-danger-btn disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={onDeleteSelected}
+          disabled={overBulkLimit}
+          title={
+            overBulkLimit
+              ? `Select at most ${PORTAL_BULK_DELETE_LIMIT} records to delete in one action`
+              : undefined
+          }
+        >
           <Trash2 size={13} />
           Delete selected
         </button>
@@ -50,11 +62,23 @@ export function SelectableDataTable({
   selectable = false,
   entityLabel = "record",
   onBulkDelete,
+  rowLabel,
+  filtersActive = false,
 }) {
   const bulk = useBulkSelection(selectable ? rows : []);
+  const overBulkLimit = bulk.selectedCount > PORTAL_BULK_DELETE_LIMIT;
+  const emptyLabel =
+    filtersActive && rows?.length === 0 ? "No matches — adjust or clear filters." : empty;
 
   if (!rows) return <LoadingPanel />;
-  if (rows.length === 0) return <EmptyState label={empty} />;
+  if (rows.length === 0) return <EmptyState label={emptyLabel} />;
+
+  const selectionLabel = (row) => {
+    if (typeof rowLabel === "function") {
+      return rowLabel(row);
+    }
+    return row.fullName || row.queryCode || row.jobCode || row.invoiceNumber || row.id;
+  };
 
   const selectionColumn = selectable
     ? [
@@ -67,7 +91,7 @@ export function SelectableDataTable({
               checked={bulk.selectedIds.has(row.id)}
               onChange={() => bulk.toggleOne(row.id)}
               onClick={(event) => event.stopPropagation()}
-              aria-label={`Select ${row.id}`}
+              aria-label={`Select ${selectionLabel(row)}`}
             />
           ),
         ],
@@ -98,6 +122,7 @@ export function SelectableDataTable({
           entityLabel={entityLabel}
           onDeleteSelected={handleBulkDelete}
           onClear={bulk.clearSelection}
+          overBulkLimit={overBulkLimit}
         />
       )}
       {mobileCardRender && (
@@ -116,7 +141,7 @@ export function SelectableDataTable({
                   className="mt-1 h-4 w-4 shrink-0 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
                   checked={bulk.selectedIds.has(row.id)}
                   onChange={() => bulk.toggleOne(row.id)}
-                  aria-label={`Select ${row.id}`}
+                  aria-label={`Select ${selectionLabel(row)}`}
                 />
               )}
               <div className="min-w-0 flex-1">{mobileCardRender(row)}</div>

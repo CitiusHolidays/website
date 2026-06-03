@@ -181,6 +181,7 @@ export const __convexExportSurface = [
   crm_proposals.create,
   crm_proposals.update,
   crm_proposals.markSent,
+  crm_proposals.markAccepted,
   crm_proposals.remove,
   crm_proposals.saveFinalizedPdf,
   crm_proposals.clearFinalizedPdf,

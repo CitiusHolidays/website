@@ -159,9 +159,30 @@ describe("notificationTargets", () => {
     expect(isDeepLinkDataReady("ticket", { tickets: [] })).toBe(true);
   });
 
+  test("resolveDeepLink returns missing when approval row is not found", () => {
+    expect(
+      resolveDeepLink({ open: "approval", id: "gone", queryId: null }, { approvals: [] }),
+    ).toEqual({ status: "missing" });
+  });
+
+  test("buildModalInitial returns null when deep-linked row is missing", () => {
+    expect(buildModalInitial("query", { entityId: "missing", queryId: null }, { queries: [] })).toBeNull();
+  });
+
   test("falls back to activity when metadata is missing", () => {
     expect(getNotificationHref({ entityType: "", entityId: "", title: "Test" })).toBe(
       "/portal/activity",
     );
+  });
+
+  test("resolveDeepLink reports missing targets when id is absent", () => {
+    expect(resolveDeepLink({ open: "approval", id: null }, { approvals: [] })).toEqual({
+      status: "missing",
+    });
+    expect(
+      resolveDeepLink({ open: "jobCard", id: null, queryId: "missing" }, { queries: [] }),
+    ).toEqual({
+      status: "missing",
+    });
   });
 });
