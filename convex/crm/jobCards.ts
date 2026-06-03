@@ -8,7 +8,6 @@ import {
   deleteJobCardCascade,
   nextCode,
   notifyRoles,
-  notifyStaffMatching,
   notifyStaffMember,
   PERMISSIONS,
   paymentTermsFor,
@@ -142,20 +141,26 @@ export const createFromQuery = mutation({
     if (args.proposalId && !proposalId) {
       throw new ConvexError("Invalid proposal id");
     }
-    const legacyProposalRows = await ctx.db
-      .query("proposals")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-      .collect();
-    const proposalLinks = await ctx.db
-      .query("proposalQueryLinks")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-      .collect();
+    const [legacyProposalRows, proposalLinks] = await Promise.all([
+      ctx.db
+        .query("proposals")
+        .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
+        .collect(),
+      ctx.db
+        .query("proposalQueryLinks")
+        .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
+        .collect(),
+    ]);
     const proposalRowsById = new Map(
       legacyProposalRows.map((proposal) => [proposal._id, proposal]),
     );
-    for (const link of proposalLinks) {
-      if (proposalRowsById.has(link.proposalId)) continue;
-      const linkedProposal = await ctx.db.get(link.proposalId);
+    const missingLinkProposalIds = proposalLinks.flatMap((link) =>
+      proposalRowsById.has(link.proposalId) ? [] : [link.proposalId],
+    );
+    const missingLinkProposals = await Promise.all(
+      missingLinkProposalIds.map((proposalId) => ctx.db.get(proposalId)),
+    );
+    for (const linkedProposal of missingLinkProposals) {
       if (linkedProposal) {
         proposalRowsById.set(linkedProposal._id, linkedProposal);
       }
@@ -210,6 +215,8 @@ export const createFromQuery = mutation({
       paymentTerms: queryType ? paymentTermsFor(queryType) : null,
       contractingOwnerId: linkedQuery?.contractingOwnerId,
       contractingOwnerName: linkedQuery?.contractingOwnerName ?? "",
+      ticketingOwnerId: linkedQuery?.ticketingOwnerId,
+      ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
       tourManagerName: args.tourManagerName?.trim() || "",
       status: "Open",
       preDepartureChecklist: DEFAULT_CHECKLIST,
@@ -218,6 +225,34 @@ export const createFromQuery = mutation({
       updatedAt: now,
     });
 
+    const ownerNotifications = [];
+    const contractingStaffId = linkedQuery?.contractingOwnerId
+      ? ctx.db.normalizeId("staffUsers", linkedQuery.contractingOwnerId)
+      : null;
+    if (contractingStaffId) {
+      ownerNotifications.push(
+        notifyStaffMember(ctx, contractingStaffId, {
+          title: "Job Card opened on your query",
+          body: `${jobCode} is ready. Continue contracting and coordinate operations deliverables.`,
+          entityType: "jobCard",
+          entityId: id,
+        }),
+      );
+    }
+    const ticketingStaffId = linkedQuery?.ticketingOwnerId
+      ? ctx.db.normalizeId("staffUsers", linkedQuery.ticketingOwnerId)
+      : null;
+    if (ticketingStaffId) {
+      ownerNotifications.push(
+        notifyStaffMember(ctx, ticketingStaffId, {
+          title: "Job Card opened on your query",
+          body: `${jobCode} is ready. Begin ticketing for this departure.`,
+          entityType: "jobCard",
+          entityId: id,
+        }),
+      );
+    }
+
     await Promise.all([
       createActivity(ctx, access, {
         entityType: "jobCard",
@@ -225,39 +260,24 @@ export const createFromQuery = mutation({
         action: "created",
         message: `${jobCode} opened for ${linkedQuery?.clientName || args.clientName || "client"}`,
       }),
-      notifyStaffMatching(
+      notifyRoles(
         ctx,
-        (staff) => staff.roles.some((role) => ["Contracting", "Contracting Head"].includes(role)),
+        [
+          "Contracting",
+          "Contracting Head",
+          "Operations",
+          "Operations Head",
+          "Ticketing",
+          "Head of Ticketing",
+        ],
         {
-          title: "Assign contracting SPOC",
-          body: `${jobCode} has been created. Assign a contracting SPOC for this Job Card.`,
+          title: "Job Card opened — start operations",
+          body: `${jobCode} is live for ${linkedQuery?.queryCode || "the confirmed query"}. Begin traveller master, tickets, passport, visa, and tour manager work.`,
           entityType: "jobCard",
           entityId: id,
         },
-        { fallbackRoles: ["Contracting Head"] },
       ),
-      notifyStaffMatching(
-        ctx,
-        (staff) => staff.roles.some((role) => ["Operations", "Operations Head"].includes(role)),
-        {
-          title: "Assign operations owner",
-          body: `${jobCode} has been created. Assign an operations owner for this Job Card.`,
-          entityType: "jobCard",
-          entityId: id,
-        },
-        { fallbackRoles: ["Operations Head"] },
-      ),
-      notifyStaffMatching(
-        ctx,
-        (staff) => staff.roles.some((role) => ["Ticketing", "Head of Ticketing"].includes(role)),
-        {
-          title: "Assign ticketing owner",
-          body: `${jobCode} has been created. Assign a ticketing owner for this Job Card.`,
-          entityType: "jobCard",
-          entityId: id,
-        },
-        { fallbackRoles: ["Head of Ticketing"] },
-      ),
+      ...ownerNotifications,
       notifyRoles(ctx, ["Sales", "Sales Head", "Finance"], {
         title: "Job Card opened",
         body: `${jobCode} has been created and is ready for operations.`,
@@ -433,23 +453,25 @@ export const assignOperationsOwner = mutation({
       throw new ConvexError("FORBIDDEN");
     }
     const ownerName = staff.name.trim();
-    await ctx.db.patch(jobCardId, {
-      operationsOwnerId: staffId,
-      operationsOwnerName: ownerName,
-      updatedAt: Date.now(),
-    });
-    await createActivity(ctx, access, {
-      entityType: "jobCard",
-      entityId: jobCardId,
-      action: "assigned_operations",
-      message: `${job.jobCode} assigned to ${ownerName} (Operations)`,
-    });
-    await notifyStaffMember(ctx, staffId, {
-      title: "Assign operations owner",
-      body: `You were assigned as operations owner for ${job.jobCode}.`,
-      entityType: "jobCard",
-      entityId: jobCardId,
-    });
+    await Promise.all([
+      ctx.db.patch(jobCardId, {
+        operationsOwnerId: staffId,
+        operationsOwnerName: ownerName,
+        updatedAt: Date.now(),
+      }),
+      createActivity(ctx, access, {
+        entityType: "jobCard",
+        entityId: jobCardId,
+        action: "assigned_operations",
+        message: `${job.jobCode} assigned to ${ownerName} (Operations)`,
+      }),
+      notifyStaffMember(ctx, staffId, {
+        title: "Assign operations owner",
+        body: `You were assigned as operations owner for ${job.jobCode}.`,
+        entityType: "jobCard",
+        entityId: jobCardId,
+      }),
+    ]);
     return { id: jobCardId };
   },
 });
@@ -488,23 +510,25 @@ export const assignContractingOwner = mutation({
       throw new ConvexError("FORBIDDEN");
     }
     const ownerName = staff.name.trim();
-    await ctx.db.patch(jobCardId, {
-      contractingOwnerId: staffId,
-      contractingOwnerName: ownerName,
-      updatedAt: Date.now(),
-    });
-    await createActivity(ctx, access, {
-      entityType: "jobCard",
-      entityId: jobCardId,
-      action: "assigned_contracting",
-      message: `${job.jobCode} assigned to ${ownerName} (Contracting)`,
-    });
-    await notifyStaffMember(ctx, staffId, {
-      title: "Assign contracting owner",
-      body: `You were assigned as contracting SPOC for ${job.jobCode}.`,
-      entityType: "jobCard",
-      entityId: jobCardId,
-    });
+    await Promise.all([
+      ctx.db.patch(jobCardId, {
+        contractingOwnerId: staffId,
+        contractingOwnerName: ownerName,
+        updatedAt: Date.now(),
+      }),
+      createActivity(ctx, access, {
+        entityType: "jobCard",
+        entityId: jobCardId,
+        action: "assigned_contracting",
+        message: `${job.jobCode} assigned to ${ownerName} (Contracting)`,
+      }),
+      notifyStaffMember(ctx, staffId, {
+        title: "Assign contracting owner",
+        body: `You were assigned as contracting SPOC for ${job.jobCode}.`,
+        entityType: "jobCard",
+        entityId: jobCardId,
+      }),
+    ]);
     return { id: jobCardId };
   },
 });

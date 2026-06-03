@@ -61,7 +61,12 @@ export const sendNotificationEmail = internalAction({
     }
 
     const recipients = Array.from(
-      new Set(args.recipients.map((email) => email.trim().toLowerCase()).filter(Boolean)),
+      new Set(
+        args.recipients.flatMap((email) => {
+          const normalized = email.trim().toLowerCase();
+          return normalized ? [normalized] : [];
+        }),
+      ),
     );
     if (recipients.length === 0) {
       return { sent: 0, skipped: 0 };
@@ -74,21 +79,22 @@ export const sendNotificationEmail = internalAction({
       href,
     });
     const resend = new Resend(resendKey);
-    let sent = 0;
-
-    for (const recipient of recipients) {
-      const { error } = await resend.emails.send({
-        from: AUTH_EMAIL_FROM,
-        to: [recipient],
-        subject: `Citius Connect: ${args.title}`,
-        html,
-      });
-      if (error) {
-        console.error("Failed to send notification email:", error);
-        continue;
-      }
-      sent += 1;
-    }
+    const outcomes = await Promise.all(
+      recipients.map(async (recipient) => {
+        const { error } = await resend.emails.send({
+          from: AUTH_EMAIL_FROM,
+          to: [recipient],
+          subject: `Citius Connect: ${args.title}`,
+          html,
+        });
+        if (error) {
+          console.error("Failed to send notification email:", error);
+          return false;
+        }
+        return true;
+      }),
+    );
+    const sent = outcomes.filter(Boolean).length;
 
     return { sent, skipped: recipients.length - sent };
   },

@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { canReceiveNotification, PERMISSIONS, requireStaff } from "./lib";
+import { notificationSummaryForAccess } from "./notificationSummary";
 
 export const listActivity = query({
   args: {
@@ -29,8 +30,10 @@ export const listNotifications = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
-    const rows = await ctx.db.query("notifications").collect();
+    const [access, rows] = await Promise.all([
+      requireStaff(ctx),
+      ctx.db.query("notifications").collect(),
+    ]);
     const roleSet = new Set(access.roles);
     return rows
       .filter(
@@ -49,6 +52,17 @@ export const listNotifications = query({
         readAt: notification.readAt ? new Date(notification.readAt).toISOString() : null,
         createdAt: new Date(notification.createdAt).toISOString(),
       }));
+  },
+});
+
+export const notificationSummary = query({
+  args: {},
+  handler: async (ctx) => {
+    const [access, rows] = await Promise.all([
+      requireStaff(ctx),
+      ctx.db.query("notifications").collect(),
+    ]);
+    return notificationSummaryForAccess(rows, access);
   },
 });
 
@@ -77,27 +91,23 @@ export const markNotificationRead = mutation({
 export const markAllNotificationsRead = mutation({
   args: {},
   handler: async (ctx) => {
-    const access = await requireStaff(ctx);
-    const rows = await ctx.db.query("notifications").collect();
+    const [access, rows] = await Promise.all([
+      requireStaff(ctx),
+      ctx.db.query("notifications").collect(),
+    ]);
     const roleSet = new Set(access.roles);
     const now = Date.now();
-    let marked = 0;
+    const toMark = rows.filter(
+      (notification) =>
+        !notification.readAt &&
+        (!notification.recipientUserId || notification.recipientUserId === access.authUserId) &&
+        (!notification.recipientRole || roleSet.has(notification.recipientRole)),
+    );
+    await Promise.all(
+      toMark.map((notification) => ctx.db.patch(notification._id, { readAt: now })),
+    );
 
-    for (const notification of rows) {
-      if (notification.readAt) {
-        continue;
-      }
-      if (notification.recipientUserId && notification.recipientUserId !== access.authUserId) {
-        continue;
-      }
-      if (notification.recipientRole && !roleSet.has(notification.recipientRole)) {
-        continue;
-      }
-      await ctx.db.patch(notification._id, { readAt: now });
-      marked += 1;
-    }
-
-    return { marked };
+    return { marked: toMark.length };
   },
 });
 

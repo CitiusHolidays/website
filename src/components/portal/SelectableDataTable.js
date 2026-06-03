@@ -87,7 +87,7 @@ export function SelectableDataTable({
           (row) => (
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
+              className="size-4 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
               checked={bulk.selectedIds.has(row.id)}
               onChange={() => bulk.toggleOne(row.id)}
               onClick={(event) => event.stopPropagation()}
@@ -138,7 +138,7 @@ export function SelectableDataTable({
               {selectable && (
                 <input
                   type="checkbox"
-                  className="mt-1 h-4 w-4 shrink-0 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
+                  className="mt-1 size-4 shrink-0 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
                   checked={bulk.selectedIds.has(row.id)}
                   onChange={() => bulk.toggleOne(row.id)}
                   aria-label={`Select ${selectionLabel(row)}`}
@@ -157,7 +157,7 @@ export function SelectableDataTable({
                 <th className="w-10 border-b border-brand-border px-4 py-3 text-left">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
+                    className="size-4 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
                     checked={bulk.allVisibleSelected}
                     ref={(input) => {
                       if (input) {

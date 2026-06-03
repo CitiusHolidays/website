@@ -1,9 +1,14 @@
 import { Inter, Poppins } from "next/font/google";
 import AppChrome from "@/components/layout/AppChrome";
 import { ConvexClientProvider } from "@/components/providers/ConvexClientProvider";
+import { __srcExportSurface } from "@/deadCodeSurface";
 import { getToken } from "@/lib/auth-server";
+import { __convexBackendManifest } from "@/lib/convexBackendManifest.server.js";
 
 import "./globals.css";
+
+void __srcExportSurface;
+void __convexBackendManifest;
 
 const inter = Inter({
   subsets: ["latin"],

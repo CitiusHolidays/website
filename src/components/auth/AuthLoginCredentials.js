@@ -6,7 +6,7 @@ import { Compass } from "lucide-react";
 import { m as motion } from "motion/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useReducer } from "react";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-client";
 import { formatAuthApiError } from "@/lib/auth-errors";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
@@ -32,6 +32,31 @@ const AUTH_ITEM_VARIANTS = {
   },
 };
 
+function createAuthState({ allowSignup, initialMode, error }) {
+  return {
+    mode: !allowSignup ? "signin" : initialMode === "signup" ? "signup" : "signin",
+    isLoading: false,
+    showPassword: false,
+    formError: error || "",
+    formData: { email: "", password: "", name: "" },
+    isVerificationSent: false,
+  };
+}
+
+function authReducer(state, action) {
+  switch (action.type) {
+    case "patch":
+      return { ...state, ...action.patch };
+    case "setFormField":
+      return {
+        ...state,
+        formData: { ...state.formData, [action.name]: action.value },
+      };
+    default:
+      return state;
+  }
+}
+
 export function AuthLoginCredentials({
   variant,
   copy,
@@ -43,36 +68,29 @@ export function AuthLoginCredentials({
 }) {
   const router = useRouter();
   const syncAuthIdentity = useMutation(api.authSync.syncMyAuthIdentity);
-  const [mode, setMode] = useState(
-    !variant.allowSignup ? "signin" : initialMode === "signup" ? "signup" : "signin",
+  const [state, dispatch] = useReducer(authReducer, { variant, initialMode, error }, ({ variant, initialMode, error }) =>
+    createAuthState({ allowSignup: variant.allowSignup, initialMode, error }),
   );
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [formError, setFormError] = useState(error || "");
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    name: "",
-  });
-  const [isVerificationSent, setIsVerificationSent] = useState(false);
+  const { mode, isLoading, showPassword, formError, formData, isVerificationSent } = state;
 
   const toggleMode = () => {
     if (!variant.allowSignup) return;
-    setMode(mode === "signin" ? "signup" : "signin");
-    setFormError("");
+    dispatch({
+      type: "patch",
+      patch: {
+        mode: mode === "signin" ? "signup" : "signin",
+        formError: "",
+      },
+    });
   };
 
   const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    dispatch({ type: "setFormField", name: e.target.name, value: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    setFormError("");
+    dispatch({ type: "patch", patch: { isLoading: true, formError: "" } });
 
     try {
       if (mode === "signin") {
@@ -82,7 +100,13 @@ export function AuthLoginCredentials({
         });
 
         if (result?.error) {
-          setFormError(formatAuthApiError(result.error.message, result.error.code));
+          dispatch({
+            type: "patch",
+            patch: {
+              formError: formatAuthApiError(result.error.message, result.error.code),
+              isLoading: false,
+            },
+          });
         } else {
           try {
             await syncAuthIdentity({});
@@ -100,24 +124,34 @@ export function AuthLoginCredentials({
         });
 
         if (result?.error) {
-          setFormError(formatAuthApiError(result.error.message, result.error.code));
+          dispatch({
+            type: "patch",
+            patch: {
+              formError: formatAuthApiError(result.error.message, result.error.code),
+              isLoading: false,
+            },
+          });
         } else {
-          setIsVerificationSent(true);
+          dispatch({ type: "patch", patch: { isVerificationSent: true, isLoading: false } });
         }
       }
     } catch (err) {
-      setFormError(err.message || "An unexpected error occurred");
+      dispatch({
+        type: "patch",
+        patch: { formError: err.message || "An unexpected error occurred", isLoading: false },
+      });
     }
-    setIsLoading(false);
   };
 
   const handleGoogleSignIn = async () => {
-    setIsLoading(true);
+    dispatch({ type: "patch", patch: { isLoading: true } });
     try {
       await signInWithGoogle(variant.href);
     } catch {
-      setFormError("Failed to initialize Google sign in");
-      setIsLoading(false);
+      dispatch({
+        type: "patch",
+        patch: { formError: "Failed to initialize Google sign in", isLoading: false },
+      });
     }
   };
 
@@ -203,8 +237,10 @@ export function AuthLoginCredentials({
           <AuthVerificationNotice
             email={formData.email}
             onBackToSignIn={() => {
-              setIsVerificationSent(false);
-              setMode("signin");
+              dispatch({
+                type: "patch",
+                patch: { isVerificationSent: false, mode: "signin" },
+              });
             }}
           />
         ) : (
@@ -218,7 +254,9 @@ export function AuthLoginCredentials({
             showPassword={showPassword}
             onInputChange={handleInputChange}
             onSubmit={handleSubmit}
-            onTogglePassword={() => setShowPassword(!showPassword)}
+            onTogglePassword={() =>
+              dispatch({ type: "patch", patch: { showPassword: !showPassword } })
+            }
             onToggleMode={toggleMode}
           />
         )}

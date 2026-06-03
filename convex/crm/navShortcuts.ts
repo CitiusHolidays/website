@@ -90,13 +90,11 @@ export const list = query({
             for (const link of links) {
               queryIds.add(link.queryId);
             }
-            const linkedQueries = [];
-            for (const queryId of queryIds) {
-              const linkedQuery = await ctx.db.get(queryId);
-              if (linkedQuery) {
-                linkedQueries.push(linkedQuery);
-              }
-            }
+            const linkedQueries = (
+              await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get(queryId)))
+            ).filter(
+              (linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery != null,
+            );
             if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
               return null;
             }

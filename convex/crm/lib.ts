@@ -826,23 +826,31 @@ export async function notifyRoles(
   const createdAt = Date.now();
   const entityId = notificationEntityId(input.entityId);
   const staffRows = await ctx.db.query("staffUsers").collect();
+  const staffRoleSets = staffRows.map((member) => ({
+    member,
+    roles: new Set(member.roles),
+  }));
   const emailRecipients = new Set<string>();
 
   for (const role of roles) {
-    for (const member of staffRows) {
-      if (member.active && member.roles.includes(role as any)) {
+    for (const { member, roles: memberRoles } of staffRoleSets) {
+      if (member.active && memberRoles.has(role as any)) {
         addNotificationEmailRecipient(emailRecipients, member.email);
       }
     }
-    await ctx.db.insert("notifications", {
-      recipientRole: role as any,
-      title: input.title,
-      body: input.body,
-      entityType: input.entityType,
-      entityId,
-      createdAt,
-    });
   }
+  await Promise.all(
+    roles.map((role) =>
+      ctx.db.insert("notifications", {
+        recipientRole: role as any,
+        title: input.title,
+        body: input.body,
+        entityType: input.entityType,
+        entityId,
+        createdAt,
+      }),
+    ),
+  );
 
   await queueNotificationEmail(ctx, emailRecipients, input);
 }
@@ -863,10 +871,15 @@ export async function notifyStaffMatching(
   const createdAt = Date.now();
   const entityId = notificationEntityId(input.entityId);
   const staffRows = await ctx.db.query("staffUsers").collect();
+  const staffRoleSets = staffRows.map((member) => ({
+    member,
+    roles: new Set(member.roles),
+  }));
   const notifiedUserIds = new Set<string>();
   const emailRecipients = new Set<string>();
+  const notificationInserts: Array<() => Promise<unknown>> = [];
 
-  for (const member of staffRows) {
+  for (const { member } of staffRoleSets) {
     if (!member.active || !shouldNotify(member)) {
       continue;
     }
@@ -876,52 +889,57 @@ export async function notifyStaffMatching(
         continue;
       }
       notifiedUserIds.add(member.authUserId);
-      await ctx.db.insert("notifications", {
-        recipientUserId: member.authUserId,
-        title: input.title,
-        body: input.body,
-        entityType: input.entityType,
-        entityId,
-        createdAt,
-      });
+      notificationInserts.push(() =>
+        ctx.db.insert("notifications", {
+          recipientUserId: member.authUserId,
+          title: input.title,
+          body: input.body,
+          entityType: input.entityType,
+          entityId,
+          createdAt,
+        }),
+      );
       continue;
     }
     for (const role of member.roles) {
-      await ctx.db.insert("notifications", {
-        recipientRole: role as any,
-        title: input.title,
-        body: input.body,
-        entityType: input.entityType,
-        entityId,
-        createdAt,
-      });
+      notificationInserts.push(() =>
+        ctx.db.insert("notifications", {
+          recipientRole: role as any,
+          title: input.title,
+          body: input.body,
+          entityType: input.entityType,
+          entityId,
+          createdAt,
+        }),
+      );
     }
   }
 
   for (const role of options?.fallbackRoles ?? []) {
-    const hasLinkedStaff = staffRows.some(
-      (member) =>
-        member.active &&
-        member.authUserId &&
-        member.roles.includes(role as any) &&
-        shouldNotify(member),
+    const hasLinkedStaff = staffRoleSets.some(
+      ({ member, roles: memberRoles }) =>
+        member.active && member.authUserId && memberRoles.has(role as any) && shouldNotify(member),
     );
     if (!hasLinkedStaff) {
-      for (const member of staffRows) {
-        if (member.active && member.roles.includes(role as any) && shouldNotify(member)) {
+      for (const { member, roles: memberRoles } of staffRoleSets) {
+        if (member.active && memberRoles.has(role as any) && shouldNotify(member)) {
           addNotificationEmailRecipient(emailRecipients, member.email);
         }
       }
-      await ctx.db.insert("notifications", {
-        recipientRole: role as any,
-        title: input.title,
-        body: input.body,
-        entityType: input.entityType,
-        entityId,
-        createdAt,
-      });
+      notificationInserts.push(() =>
+        ctx.db.insert("notifications", {
+          recipientRole: role as any,
+          title: input.title,
+          body: input.body,
+          entityType: input.entityType,
+          entityId,
+          createdAt,
+        }),
+      );
     }
   }
+
+  await Promise.all(notificationInserts.map((insert) => insert()));
 
   await queueNotificationEmail(ctx, emailRecipients, input);
 }
@@ -1082,16 +1100,18 @@ export async function notifyStaffMember(
       createdAt,
     });
   } else {
-    for (const role of staff.roles) {
-      await ctx.db.insert("notifications", {
-        recipientRole: role as any,
-        title: input.title,
-        body: input.body,
-        entityType: input.entityType,
-        entityId,
-        createdAt,
-      });
-    }
+    await Promise.all(
+      staff.roles.map((role) =>
+        ctx.db.insert("notifications", {
+          recipientRole: role as any,
+          title: input.title,
+          body: input.body,
+          entityType: input.entityType,
+          entityId,
+          createdAt,
+        }),
+      ),
+    );
   }
 
   await queueNotificationEmail(ctx, emailRecipients, input);
@@ -1162,10 +1182,12 @@ export async function deleteJobCardCascade(ctx: MutationCtx, jobCardId: Id<"jobC
           .collect(),
       ]);
       await Promise.all([
-        ...passportDetails.map(async (row) => {
-          await deleteStorageFile(ctx, row.storageId, "passport scan");
-          await ctx.db.delete(row._id);
-        }),
+        ...passportDetails.map((row) =>
+          Promise.all([
+            deleteStorageFile(ctx, row.storageId, "passport scan"),
+            ctx.db.delete(row._id),
+          ]),
+        ),
         ...mealPreferences.map((row) => ctx.db.delete(row._id)),
         deleteEntityNotifications(ctx, "traveller", traveller._id),
         ctx.db.delete(traveller._id),
@@ -1240,6 +1262,7 @@ export function publicQuery(query: any) {
     lostReason: query.lostReason ?? "",
     salesOwnerName: query.salesOwnerName ?? "",
     contractingOwnerName: query.contractingOwnerName ?? "",
+    ticketingOwnerName: query.ticketingOwnerName ?? "",
     contactMobile: query.contactMobile ?? "",
     budgetAmount: query.budgetAmount ?? 0,
     leadStage: query.leadStage === "Closed" ? "Lost" : (query.leadStage ?? ""),

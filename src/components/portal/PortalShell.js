@@ -46,6 +46,31 @@ const handleLogout = async () => {
   window.location.href = "/";
 };
 
+function NotificationListItem({ item, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(item)}
+      className="w-full border-b border-brand-border px-4 py-3 text-left transition last:border-b-0 hover:bg-brand-light"
+    >
+      <div className="flex gap-2">
+        <Circle
+          size={8}
+          className={
+            item.readAt
+              ? "mt-1.5 text-brand-muted/50"
+              : "mt-1.5 fill-citius-orange text-citius-orange"
+          }
+        />
+        <div>
+          <div className="text-sm font-semibold">{item.title}</div>
+          <div className="mt-1 text-xs leading-5 text-brand-muted">{item.body}</div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export default function PortalShell({ access, user, children }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -56,13 +81,18 @@ export default function PortalShell({ access, user, children }) {
     api.crm.activity.listNotifications,
     isAuthenticated && access?.allowed ? { limit: 8 } : "skip",
   );
+  const notificationSummary = useQuery(
+    api.crm.activity.notificationSummary,
+    isAuthenticated && access?.allowed ? {} : "skip",
+  );
   const navShortcuts = useQuery(
     api.crm.navShortcuts.list,
     isAuthenticated && access?.allowed ? {} : "skip",
   );
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
   const navGroups = getAccessibleNavGroups(access);
-  const unreadCount = (notifications || []).filter((item) => !item.readAt).length;
+  const unreadCount =
+    notificationSummary?.unreadCount ?? (notifications || []).filter((item) => !item.readAt).length;
 
   const toggleNotifications = () => {
     setNotificationsOpen((open) => !open);
@@ -151,9 +181,9 @@ export default function PortalShell({ access, user, children }) {
                         <motion.span
                           initial={{ scale: 0.95, opacity: 0 }}
                           animate={{ scale: 1 }}
-                          className="absolute -right-1 -top-1 min-w-5 rounded-full bg-citius-orange px-1.5 text-center text-[10px] font-bold leading-5 text-white"
+                          className="absolute -right-1 -top-1 min-w-5 rounded-full bg-citius-orange px-1.5 text-center text-[10px] font-bold leading-5 text-white tabular-nums shadow-sm"
                         >
-                          {unreadCount}
+                          {unreadCount > 99 ? "99+" : unreadCount}
                         </motion.span>
                       )}
                     </button>
@@ -186,29 +216,11 @@ export default function PortalShell({ access, user, children }) {
                                 </div>
                               ) : (
                                 notifications.map((item) => (
-                                  <button
+                                  <NotificationListItem
                                     key={item.id}
-                                    type="button"
-                                    onClick={() => handleNotificationClick(item)}
-                                    className="w-full border-b border-brand-border px-4 py-3 text-left transition last:border-b-0 hover:bg-brand-light"
-                                  >
-                                    <div className="flex gap-2">
-                                      <Circle
-                                        size={8}
-                                        className={
-                                          item.readAt
-                                            ? "mt-1.5 text-brand-muted/50"
-                                            : "mt-1.5 fill-citius-orange text-citius-orange"
-                                        }
-                                      />
-                                      <div>
-                                        <div className="text-sm font-semibold">{item.title}</div>
-                                        <div className="mt-1 text-xs leading-5 text-brand-muted">
-                                          {item.body}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </button>
+                                    item={item}
+                                    onClick={handleNotificationClick}
+                                  />
                                 ))
                               )}
                             </div>

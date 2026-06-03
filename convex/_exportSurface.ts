@@ -28,6 +28,11 @@ import * as crm_staffImport from "./crm/staffImport";
 import * as crm_ticketing from "./crm/ticketing";
 import * as crm_travellers from "./crm/travellers";
 import * as crm_visa from "./crm/visa";
+import * as crm_leaveApprovers from "./crm/leaveApprovers";
+import * as crm_leaveLapse from "./crm/leaveLapse";
+import * as crm_leavePolicy from "./crm/leavePolicy";
+import * as crm_notificationEmails from "./crm/notificationEmails";
+import * as crm_notificationSummary from "./crm/notificationSummary";
 import * as lib_authEmailHtml from "./lib/authEmailHtml";
 import * as lib_authSync from "./lib/authSync";
 import * as lib_emailConfig from "./lib/emailConfig";
@@ -58,6 +63,7 @@ export const __convexExportSurface = [
   bookings.markRefundedByPaymentId,
   crm_activity.listActivity,
   crm_activity.listNotifications,
+  crm_activity.notificationSummary,
   crm_activity.markNotificationRead,
   crm_activity.markAllNotificationsRead,
   crm_activity.removeNotification,
@@ -96,6 +102,7 @@ export const __convexExportSurface = [
   crm_jobCards.assignContractingOwner,
   crm_jobCards.remove,
   crm_leave.list,
+  crm_leave.balances,
   crm_leave.create,
   crm_leave.decide,
   crm_leave.update,
@@ -180,6 +187,7 @@ export const __convexExportSurface = [
   crm_proposals.list,
   crm_proposals.create,
   crm_proposals.update,
+  crm_proposals.sendToSales,
   crm_proposals.markSent,
   crm_proposals.markAccepted,
   crm_proposals.remove,
@@ -245,9 +253,28 @@ export const __convexExportSurface = [
   crm_visa.updateStatus,
   crm_visa.updateRecord,
   crm_visa.remove,
+  crm_queries.assignQueryTicketing,
+  crm_passport.listPassportDetailsForBackfill,
+  crm_passport.backfillPassportExpiryDate,
   crm_visa.removeMany,
   crm_visa.create,
   crm_visa.listTravellersWithoutVisa,
+  crm_leaveApprovers.LEAVE_HEAD_APPROVER_PICKER_ROLES,
+  crm_leaveApprovers.resolveAlertLabelToStaff,
+  crm_leaveApprovers.matrixAlertForStaffEmail,
+  crm_leaveApprovers.resolveLeaveHeadApproverIdFromMatrix,
+  crm_leaveApprovers.applyMatrixDefaults,
+  crm_leaveApprovers.listHeadApproverCandidates,
+  crm_leaveLapse.lapseClSlForFiscalYear,
+  crm_leaveLapse.runClSlLapse,
+  crm_leaveLapse.checkAndRunClSlLapse,
+  crm_leavePolicy.defaultLeaveEntitlement,
+  crm_notificationEmails.sendNotificationEmail,
+  crm_notificationSummary.notificationSummaryForAccess,
+  crm_travellers.passportExpirySources,
+  crm_imports.commitPassengerImportBatch,
+  crm_lib.parsePortalDateOnly,
+  crm_lib.endOfPortalDateOnly,
   lib_authEmailHtml.buildAuthEmailHtml,
   lib_authEmailHtml.AUTH_EMAIL_BRAND,
   lib_authSync.syncAuthRecords,

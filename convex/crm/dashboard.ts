@@ -9,6 +9,7 @@ import {
   requireStaff,
   shouldApplyCementScope,
 } from "./lib";
+import { getNotificationHref } from "./notificationPaths";
 
 const percent = (done: number, total: number) => (total > 0 ? Math.round((done / total) * 100) : 0);
 
@@ -22,6 +23,20 @@ const QUERY_TYPES = [
   "B2B",
   "Spiritual",
 ] as const;
+
+const SALES_PIPELINE_STAGES = [
+  "Inquiry",
+  "Proposal",
+  "Negotiation",
+  "Confirmation",
+  "Lost",
+] as const;
+
+const TICKET_ATTENTION_STATUSES = new Set([
+  "Name Change Required",
+  "Reissue Required",
+  "Refund Pending",
+]);
 
 const isActiveQuery = (query: { salesStatus: string }) =>
   query.salesStatus !== "Order Confirmed" && query.salesStatus !== "Order Lost";
@@ -41,7 +56,7 @@ function countQueriesByType<T extends { queryType: string }>(
   }));
 }
 
-function buildUrgentActions({
+export function buildUrgentActions({
   approvals,
   invoices,
   queries,
@@ -61,22 +76,28 @@ function buildUrgentActions({
   tickets: Array<{ _id: string; ticketNumber?: string; ticketStatus: string }>;
   nowDate: string;
 }) {
-  const actions = [];
+  const actions: Array<{
+    id: string;
+    label: string;
+    type: "approvals" | "finance" | "accounts" | "ticketing";
+    entityType: string;
+    entityId: string;
+    href: string;
+  }> = [];
   const queryIdsWithJobCards = new Set(
     jobCards.flatMap((job) => (job.queryId ? [job.queryId] : [])),
   );
-  const ticketStatusesNeedingAttention = new Set([
-    "Name Change Required",
-    "Reissue Required",
-    "Refund Pending",
-  ]);
 
   for (const approval of approvals) {
     if (approval.status !== "Pending") continue;
+    const entityId = approval._id;
     actions.push({
       id: approval._id,
       label: `${approval.requestCode} approval pending: ${approval.summary}`,
       type: "approvals",
+      entityType: "approval",
+      entityId,
+      href: getNotificationHref({ entityType: "approval", entityId, title: "" }),
     });
   }
 
@@ -86,28 +107,96 @@ function buildUrgentActions({
       id: invoice._id,
       label: `${invoice.invoiceNumber} has overdue balance`,
       type: "finance",
+      entityType: "invoice",
+      entityId: invoice._id,
+      href: "/portal/finance",
     });
   }
 
   for (const query of queries) {
     if (query.salesStatus !== "Order Confirmed" || queryIdsWithJobCards.has(query._id)) continue;
+    const entityId = query._id;
     actions.push({
       id: query._id,
       label: `${query.queryCode} needs Job Card creation`,
       type: "accounts",
+      entityType: "query",
+      entityId,
+      href: getNotificationHref({
+        entityType: "query",
+        entityId,
+        title: "Order confirmed",
+      }),
     });
   }
 
   for (const ticket of tickets) {
-    if (!ticketStatusesNeedingAttention.has(ticket.ticketStatus)) continue;
+    if (!TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus)) continue;
+    const entityId = ticket._id;
     actions.push({
       id: ticket._id,
       label: `Ticket ${ticket.ticketNumber || ticket._id} needs attention`,
       type: "ticketing",
+      entityType: "ticket",
+      entityId,
+      href: getNotificationHref({ entityType: "ticket", entityId, title: "" }),
     });
   }
 
   return actions.slice(0, 8);
+}
+
+export function buildPipelineSnapshot(queries: Array<{ leadStage?: string }>) {
+  return SALES_PIPELINE_STAGES.map((stage) => ({
+    stage,
+    count: queries.filter((q) => (q.leadStage || "Inquiry") === stage).length,
+  }));
+}
+
+export function buildTicketAttentionQueue(
+  tickets: Array<{ _id: string; ticketNumber?: string; ticketStatus: string }>,
+) {
+  return tickets
+    .filter((ticket) => TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus))
+    .slice(0, 8)
+    .map((ticket) => ({
+      id: ticket._id,
+      ticketNumber: ticket.ticketNumber || ticket._id,
+      ticketStatus: ticket.ticketStatus,
+    }));
+}
+
+export function buildOverdueInvoices({
+  invoices,
+  jobCards,
+  nowDate,
+}: {
+  invoices: Array<{
+    _id: string;
+    jobCardId?: string;
+    invoiceNumber: string;
+    balanceAmount: number;
+    dueDate?: string;
+  }>;
+  jobCards: Array<{ _id: string; clientName?: string }>;
+  nowDate: string;
+}) {
+  const jobCardById = new Map(jobCards.map((job) => [job._id, job]));
+
+  return invoices
+    .filter((invoice) => invoice.balanceAmount > 0 && invoice.dueDate && invoice.dueDate < nowDate)
+    .sort((a, b) => String(a.dueDate).localeCompare(String(b.dueDate)))
+    .slice(0, 8)
+    .map((invoice) => {
+      const job = invoice.jobCardId ? jobCardById.get(invoice.jobCardId) : null;
+      return {
+        id: invoice._id,
+        invoiceNumber: invoice.invoiceNumber,
+        clientName: job?.clientName ?? "",
+        balanceAmount: invoice.balanceAmount,
+        dueDate: invoice.dueDate ?? "",
+      };
+    });
 }
 
 export const getPortalSummary = query({
@@ -181,7 +270,14 @@ export const getPortalSummary = query({
     const confirmedQueryRecords = queries.filter(isConfirmedQuery);
     const closedQueryRecords = queries.filter(isClosedQuery);
 
+    const ticketAttentionQueue = buildTicketAttentionQueue(tickets);
+    const overdueInvoices = buildOverdueInvoices({ invoices, jobCards, nowDate });
+
     return {
+      generatedAt: new Date().toISOString(),
+      pipelineSnapshot: buildPipelineSnapshot(queries),
+      ticketAttentionQueue,
+      overdueInvoices,
       metrics: {
         activeQueries: activeQueryRecords.length,
         proposalsSent: proposals.filter((proposal) => proposal.status === "Sent").length,
@@ -350,6 +446,8 @@ export const getPortalSummary = query({
           action: activity.action,
           message: activity.message,
           actorName: activity.actorName,
+          entityType: activity.entityType,
+          entityId: activity.entityId,
           createdAt: new Date(activity.createdAt).toISOString(),
         })),
     };

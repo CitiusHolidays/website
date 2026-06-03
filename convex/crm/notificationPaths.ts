@@ -1,4 +1,8 @@
-const CONTRACTING_QUERY_TITLES = new Set(["New query received", "Query submitted to Contracting"]);
+const CONTRACTING_QUERY_TITLES = new Set([
+  "New query received",
+  "Query submitted to Contracting",
+  "Query ready for assignment",
+]);
 
 export type NotificationPathInput = {
   entityType?: string;
@@ -24,8 +28,13 @@ export function getNotificationHref(args: NotificationPathInput) {
       if (args.title === "Order confirmed — assign owners") {
         return "/portal/job-cards";
       }
+      if (args.title === "Query ready for assignment") {
+        params.set("open", "assignQueryTeams");
+        params.set("id", args.entityId);
+        return `/portal/contracting?${params}`;
+      }
       if (CONTRACTING_QUERY_TITLES.has(args.title)) {
-        params.set("open", "queryStatus");
+        params.set("open", "assignQueryTeams");
         params.set("id", args.entityId);
         return `/portal/contracting?${params}`;
       }

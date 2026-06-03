@@ -200,9 +200,7 @@ export const removeManyHotels = mutation({
       }
       ids.push(hotelId);
     }
-    for (const hotelId of ids) {
-      await deleteHotelRecord(ctx, access, hotelId);
-    }
+    await Promise.all(ids.map((hotelId) => deleteHotelRecord(ctx, access, hotelId)));
     return { deletedCount: ids.length };
   },
 });
@@ -469,9 +467,7 @@ export const removeManyTourManagers = mutation({
       }
       ids.push(id);
     }
-    for (const id of ids) {
-      await deleteTourManagerRecord(ctx, access, id);
-    }
+    await Promise.all(ids.map((id) => deleteTourManagerRecord(ctx, access, id)));
     return { deletedCount: ids.length };
   },
 });

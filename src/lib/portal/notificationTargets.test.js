@@ -7,14 +7,14 @@ import {
 } from "./notificationTargets";
 
 describe("notificationTargets", () => {
-  test("maps query notifications to contracting status modal", () => {
+  test("maps query notifications to contracting team assignment modal", () => {
     expect(
       getNotificationHref({
         entityType: "query",
         entityId: "query123",
         title: "New query received",
       }),
-    ).toBe("/portal/contracting?open=queryStatus&id=query123");
+    ).toBe("/portal/contracting?open=assignQueryTeams&id=query123");
   });
 
   test("maps confirmed orders to job card creation", () => {

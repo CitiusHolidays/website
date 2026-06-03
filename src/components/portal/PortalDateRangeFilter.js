@@ -13,7 +13,7 @@ export function PortalDateRangeFilter({ dateRange, setDateRange }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Calendar className="hidden h-4 w-4 text-brand-muted sm:block" aria-hidden />
+      <Calendar className="hidden size-4 text-brand-muted sm:block" aria-hidden />
       <label className="flex items-center gap-2">
         <span className="text-xs font-medium text-brand-muted">From</span>
         <input

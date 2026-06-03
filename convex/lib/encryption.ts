@@ -16,7 +16,7 @@ function getEncryptionKey(): Buffer {
   return Buffer.from(key, "base64");
 }
 
-export function encrypt(data: string | object): string {
+function encrypt(data: string | object): string {
   const key = getEncryptionKey();
   const plaintext = typeof data === "string" ? data : JSON.stringify(data);
   const iv = crypto.randomBytes(IV_LENGTH);
@@ -29,7 +29,7 @@ export function encrypt(data: string | object): string {
   return `${iv.toString("base64")}:${authTag.toString("base64")}:${encrypted}`;
 }
 
-export function decrypt(encryptedData: string, parseJson = true): any {
+function decrypt(encryptedData: string, parseJson = true): any {
   if (!encryptedData) {
     return null;
   }

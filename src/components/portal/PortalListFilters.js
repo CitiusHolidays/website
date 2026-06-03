@@ -2,7 +2,15 @@
 
 import { PortalSelectFilter } from "@/components/portal/PortalSelectFilter";
 
-export function PortalListFilters({ config = [], values = {}, onChange, rows = [] }) {
+const EMPTY_ARRAY = [];
+const EMPTY_OBJECT = {};
+
+export function PortalListFilters({
+  config = EMPTY_ARRAY,
+  values = EMPTY_OBJECT,
+  onChange,
+  rows = EMPTY_ARRAY,
+}) {
   if (!config.length) return null;
 
   return (

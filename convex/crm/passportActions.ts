@@ -308,19 +308,21 @@ export const getTravellerPassportExpiryDates = action({
     });
 
     const result: Record<string, string> = {};
-    for (const row of sources) {
-      const expiry = resolvePassportExpiryFromEncrypted(row.expiryDate, row.encryptedPayload);
-      if (!expiry) {
-        continue;
-      }
-      result[String(row.travellerId)] = expiry;
-      if (!normalizePassportExpiryDate(row.expiryDate)) {
-        await ctx.runMutation(internal.crm.passport.backfillPassportExpiryDate, {
-          passportId: row.passportId,
-          expiryDate: expiry,
-        });
-      }
-    }
+    await Promise.all(
+      sources.map(async (row) => {
+        const expiry = resolvePassportExpiryFromEncrypted(row.expiryDate, row.encryptedPayload);
+        if (!expiry) {
+          return;
+        }
+        result[String(row.travellerId)] = expiry;
+        if (!normalizePassportExpiryDate(row.expiryDate)) {
+          await ctx.runMutation(internal.crm.passport.backfillPassportExpiryDate, {
+            passportId: row.passportId,
+            expiryDate: expiry,
+          });
+        }
+      }),
+    );
     return result;
   },
 });
@@ -336,26 +338,26 @@ export const backfillPassportExpiryDates = internalAction({
         limit: args.limit ?? 100,
       },
     );
-    let updated = 0;
-    let skipped = 0;
-
-    for (const row of rows) {
-      try {
-        const decrypted = decryptPassportDetails(row.encryptedPayload);
-        const expiryDate = normalizePassportExpiryDate(decrypted.expiryDate);
-        if (!expiryDate) {
-          skipped += 1;
-          continue;
+    const outcomes = await Promise.all(
+      rows.map(async (row) => {
+        try {
+          const decrypted = decryptPassportDetails(row.encryptedPayload);
+          const expiryDate = normalizePassportExpiryDate(decrypted.expiryDate);
+          if (!expiryDate) {
+            return "skipped" as const;
+          }
+          await ctx.runMutation(internal.crm.passport.backfillPassportExpiryDate, {
+            passportId: row.id,
+            expiryDate,
+          });
+          return "updated" as const;
+        } catch {
+          return "skipped" as const;
         }
-        await ctx.runMutation(internal.crm.passport.backfillPassportExpiryDate, {
-          passportId: row.id,
-          expiryDate,
-        });
-        updated += 1;
-      } catch {
-        skipped += 1;
-      }
-    }
+      }),
+    );
+    const updated = outcomes.filter((outcome) => outcome === "updated").length;
+    const skipped = outcomes.filter((outcome) => outcome === "skipped").length;
 
     return { processed: rows.length, updated, skipped };
   },

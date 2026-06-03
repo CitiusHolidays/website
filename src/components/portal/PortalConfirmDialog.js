@@ -1,7 +1,7 @@
 "use client";
 
 import { m as motion } from "motion/react";
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
+import { createContext, use, useRef, useState } from "react";
 
 const PortalConfirmContext = createContext(null);
 
@@ -9,20 +9,20 @@ export function PortalConfirmProvider({ children }) {
   const [state, setState] = useState(null);
   const resolverRef = useRef(null);
 
-  const confirm = useCallback(({ title, message, confirmLabel = "Confirm", danger = false }) => {
+  const confirm = ({ title, message, confirmLabel = "Confirm", danger = false }) => {
     return new Promise((resolve) => {
       resolverRef.current = resolve;
       setState({ title, message, confirmLabel, danger });
     });
-  }, []);
+  };
 
-  const finish = useCallback((result) => {
+  const finish = (result) => {
     resolverRef.current?.(result);
     resolverRef.current = null;
     setState(null);
-  }, []);
+  };
 
-  const api = useMemo(() => ({ confirm }), [confirm]);
+  const api = { confirm };
 
   return (
     <PortalConfirmContext.Provider value={api}>
@@ -68,7 +68,7 @@ export function PortalConfirmProvider({ children }) {
 }
 
 export function usePortalConfirm() {
-  const ctx = useContext(PortalConfirmContext);
+  const ctx = use(PortalConfirmContext);
   if (!ctx) {
     throw new Error("usePortalConfirm must be used within PortalConfirmProvider");
   }

@@ -73,7 +73,13 @@ export const PORTAL_LIST_VIEWS = [
 
 function staticOptionValues(options) {
   if (!Array.isArray(options)) return [];
-  return options.filter((entry) => entry.value).map((entry) => entry.value);
+  const values = [];
+  for (const entry of options) {
+    if (entry.value) {
+      values.push(entry.value);
+    }
+  }
+  return values;
 }
 
 /** @type {Record<string, import('./listFilters.js').ListFilterDef[]>} */

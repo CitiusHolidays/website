@@ -3,14 +3,14 @@ import { canReceiveNotification } from "./lib";
 import { getNotificationHref } from "./notificationPaths";
 
 describe("notification paths", () => {
-  test("matches contracting query titles to status modal", () => {
+  test("matches contracting query titles to team assignment modal", () => {
     expect(
       getNotificationHref({
         entityType: "query",
         entityId: "query_1",
         title: "Query submitted to Contracting",
       }),
-    ).toBe("/portal/contracting?open=queryStatus&id=query_1");
+    ).toBe("/portal/contracting?open=assignQueryTeams&id=query_1");
   });
 
   test("maps owner assignment titles to job card modals", () => {

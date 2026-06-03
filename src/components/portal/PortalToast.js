@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, m as motion } from "motion/react";
-import { createContext, useContext, useState } from "react";
+import { createContext, use, useState } from "react";
 
 const PortalToastContext = createContext(null);
 
@@ -77,7 +77,7 @@ export function PortalToastProvider({ children }) {
 }
 
 export function usePortalToast() {
-  const ctx = useContext(PortalToastContext);
+  const ctx = use(PortalToastContext);
   if (!ctx) {
     throw new Error("usePortalToast must be used within PortalToastProvider");
   }

@@ -28,6 +28,10 @@ const staffRowValidator = v.object({
   function: v.optional(v.string()),
   mobile: v.optional(v.string()),
   location: v.optional(v.string()),
+  joiningDate: v.optional(v.string()),
+  employmentStatus: v.optional(v.union(v.literal("Probationer"), v.literal("Confirmed"))),
+  confirmationDate: v.optional(v.string()),
+  leavePolicyGroup: v.optional(v.string()),
 });
 
 async function importStaffRows(
@@ -41,6 +45,10 @@ async function importStaffRows(
       function?: string;
       mobile?: string;
       location?: string;
+      joiningDate?: string;
+      employmentStatus?: "Probationer" | "Confirmed";
+      confirmationDate?: string;
+      leavePolicyGroup?: string;
     }>;
     dryRun?: boolean;
     provisionAuth?: boolean;
@@ -87,6 +95,10 @@ async function importStaffRows(
           function: row.function?.trim() || "",
           mobile: row.mobile?.trim() || "",
           location: row.location?.trim() || "",
+          joiningDate: row.joiningDate || "",
+          employmentStatus: row.employmentStatus ?? "Confirmed",
+          confirmationDate: row.confirmationDate || "",
+          leavePolicyGroup: row.leavePolicyGroup?.trim() || "",
           active: true,
           updatedAt: now,
         };

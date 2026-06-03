@@ -63,7 +63,20 @@ export function isHead(access, department) {
 }
 
 export function canAssignContracting(access) {
-  return isAdmin(access) || hasRole(access, "Contracting Head");
+  return (
+    isAdmin(access) ||
+    hasRole(access, "Contracting Head") ||
+    hasRole(access, "Operations Head")
+  );
+}
+
+export function canAssignQueryTicketing(access) {
+  return (
+    isAdmin(access) ||
+    hasRole(access, "Contracting Head") ||
+    hasRole(access, "Operations Head") ||
+    hasRole(access, "Head of Ticketing")
+  );
 }
 
 export function canAssignOperations(access) {

@@ -62,6 +62,9 @@ export function getDeepLinkCollectionKeys(modal) {
   switch (modal) {
     case "query":
     case "queryStatus":
+    case "assignContracting":
+    case "assignQueryTicketing":
+    case "assignQueryTeams":
       return ["queries"];
     case "jobCard":
       return ["queries", "jobCards", "proposals"];
@@ -173,6 +176,21 @@ export function buildModalInitial(modal, { entityId, queryId }, collections) {
         travelEndDate: row.travelEndDate,
         tourManagerName: row.tourManagerName,
       };
+    }
+    case "assignQueryTeams": {
+      const row = collections.queries?.find((entry) => entry.id === (entityId || queryId));
+      if (!row) return null;
+      return { queryId: row.id, staffId: "", ticketingStaffId: "" };
+    }
+    case "assignContracting": {
+      const row = collections.queries?.find((entry) => entry.id === (entityId || queryId));
+      if (!row) return null;
+      return { queryId: row.id, staffId: "" };
+    }
+    case "assignQueryTicketing": {
+      const row = collections.queries?.find((entry) => entry.id === (entityId || queryId));
+      if (!row) return null;
+      return { queryId: row.id, ticketingStaffId: "" };
     }
     case "assignContractingOwner":
     case "assignOperationsOwner":

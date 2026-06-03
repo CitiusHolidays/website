@@ -1,4 +1,8 @@
-const CONTRACTING_QUERY_TITLES = new Set(["New query received", "Query submitted to Contracting"]);
+const CONTRACTING_QUERY_TITLES = new Set([
+  "New query received",
+  "Query submitted to Contracting",
+  "Query ready for assignment",
+]);
 
 /**
  * Build portal deep-link path for notifications (shared with Convex email links).
@@ -20,8 +24,13 @@ export function buildNotificationPath({ entityType, entityId, title }) {
       if (title === "Order confirmed — assign owners") {
         return "/portal/job-cards";
       }
+      if (title === "Query ready for assignment") {
+        params.set("open", "assignQueryTeams");
+        params.set("id", entityId);
+        return `/portal/contracting?${params}`;
+      }
       if (CONTRACTING_QUERY_TITLES.has(title)) {
-        params.set("open", "queryStatus");
+        params.set("open", "assignQueryTeams");
         params.set("id", entityId);
         return `/portal/contracting?${params}`;
       }

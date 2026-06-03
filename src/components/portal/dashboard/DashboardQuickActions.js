@@ -1,0 +1,42 @@
+"use client";
+
+import { Plus } from "lucide-react";
+import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+
+export function DashboardQuickActions({ has, openModal }) {
+  const actions = [
+    {
+      label: "Create query",
+      permission: P.MANAGE_QUERIES,
+      onClick: () => openModal("query"),
+    },
+    {
+      label: "Create proposal",
+      permission: P.MANAGE_PROPOSALS,
+      onClick: () => openModal("proposal"),
+    },
+    {
+      label: "Create job card",
+      permission: P.MANAGE_JOB_CARDS,
+      onClick: () => openModal("jobCard"),
+    },
+  ].filter((item) => has(item.permission));
+
+  if (!actions.length) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {actions.map((item) => (
+        <button
+          key={item.label}
+          type="button"
+          onClick={item.onClick}
+          className="portal-primary-btn inline-flex items-center gap-2"
+        >
+          <Plus size={16} />
+          {item.label}
+        </button>
+      ))}
+    </div>
+  );
+}

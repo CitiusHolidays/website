@@ -46,6 +46,7 @@ const travelType = v.union(v.literal("Domestic Travel"), v.literal("Internationa
 const salesStatus = v.union(
   v.literal("Proposal in discussion"),
   v.literal("Change in destination"),
+  v.literal("Date/Destination Change Required"),
   v.literal("Order Confirmed"),
   v.literal("Order Lost"),
 );
@@ -72,6 +73,7 @@ const contractingStatus = v.union(
   v.literal("Proposal in progress"),
   v.literal("Proposal sent"),
   v.literal("Change in destination"),
+  v.literal("Date/Destination Change Required"),
   v.literal("Order Confirmed"),
   v.literal("Order Lost"),
 );
@@ -149,9 +151,13 @@ const approvalStatus = v.union(
 );
 
 const leaveType = v.union(
+  v.literal("Privilege"),
   v.literal("Casual"),
   v.literal("Sick"),
-  v.literal("Privilege"),
+  v.literal("Maternity"),
+  v.literal("Paternity"),
+  v.literal("Bereavement"),
+  v.literal("Marriage"),
   v.literal("Leave Without Pay"),
 );
 
@@ -242,6 +248,14 @@ export default defineSchema({
     function: v.optional(v.string()),
     mobile: v.optional(v.string()),
     location: v.optional(v.string()),
+    joiningDate: v.optional(v.string()),
+    employmentStatus: v.optional(v.union(v.literal("Probationer"), v.literal("Confirmed"))),
+    confirmationDate: v.optional(v.string()),
+    leavePolicyGroup: v.optional(v.string()),
+    leaveHeadApproverId: v.optional(v.id("staffUsers")),
+    maternityEventsUsed: v.optional(v.number()),
+    paternityEventsUsed: v.optional(v.number()),
+    marriageLeaveUsed: v.optional(v.boolean()),
     active: v.boolean(),
     invitedBy: v.optional(v.string()),
     pendingPasswordSetup: v.optional(v.boolean()),
@@ -294,6 +308,8 @@ export default defineSchema({
     salesOwnerName: v.optional(v.string()),
     contractingOwnerId: v.optional(v.string()),
     contractingOwnerName: v.optional(v.string()),
+    ticketingOwnerId: v.optional(v.string()),
+    ticketingOwnerName: v.optional(v.string()),
     notes: v.optional(v.string()),
     contractingLandCost: v.optional(v.number()),
     contractingAirlinesCost: v.optional(v.number()),
@@ -311,6 +327,7 @@ export default defineSchema({
     .index("by_createdBy", ["createdBy"])
     .index("by_salesOwnerId", ["salesOwnerId"])
     .index("by_contractingOwnerId", ["contractingOwnerId"])
+    .index("by_ticketingOwnerId", ["ticketingOwnerId"])
     .index("by_queryType_createdAt", ["queryType", "createdAt"]),
 
   queryAttachments: defineTable({
@@ -879,6 +896,8 @@ export default defineSchema({
     reason: v.string(),
     status: reviewStatus,
     headReviewStatus: v.optional(reviewStatus),
+    headApproverStaffId: v.optional(v.id("staffUsers")),
+    headApproverName: v.optional(v.string()),
     headReviewerRole: v.optional(staffRole),
     headReviewedBy: v.optional(v.string()),
     headReviewedByName: v.optional(v.string()),
@@ -898,6 +917,46 @@ export default defineSchema({
     .index("by_headReviewStatus", ["headReviewStatus"])
     .index("by_hrReviewStatus", ["hrReviewStatus"])
     .index("by_startDate", ["startDate"]),
+
+  staffLeaveLedger: defineTable({
+    staffId: v.id("staffUsers"),
+    leaveRecordId: v.optional(v.id("staffLeaveRecords")),
+    fiscalYear: v.string(),
+    leaveType,
+    entryType: v.union(
+      v.literal("opening"),
+      v.literal("accrual"),
+      v.literal("usage"),
+      v.literal("reversal"),
+      v.literal("lapse"),
+      v.literal("carry_forward"),
+      v.literal("encashment"),
+    ),
+    days: v.number(),
+    note: v.optional(v.string()),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_staffId", ["staffId"])
+    .index("by_staffId_and_fiscalYear", ["staffId", "fiscalYear"])
+    .index("by_staffId_and_fiscalYear_and_leaveType", ["staffId", "fiscalYear", "leaveType"])
+    .index("by_leaveRecordId", ["leaveRecordId"]),
+
+  staffLeaveBalances: defineTable({
+    staffId: v.id("staffUsers"),
+    fiscalYear: v.string(),
+    leaveType,
+    openingDays: v.number(),
+    accruedDays: v.number(),
+    usedDays: v.number(),
+    carriedForwardDays: v.number(),
+    encashableDays: v.number(),
+    availableDays: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_staffId", ["staffId"])
+    .index("by_staffId_and_fiscalYear", ["staffId", "fiscalYear"])
+    .index("by_staffId_and_fiscalYear_and_leaveType", ["staffId", "fiscalYear", "leaveType"]),
 
   sacredBharatVisits: defineTable({
     authUserId: v.string(),

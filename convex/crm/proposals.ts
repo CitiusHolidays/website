@@ -9,6 +9,7 @@ import {
   deleteEntityNotifications,
   nextCode,
   notifyRoles,
+  notifyStaffMember,
   PERMISSIONS,
   publicQuery,
   requestedProposalQueryIds,
@@ -56,17 +57,18 @@ async function resolveLinkedQueries(ctx: any, access: any, queryIdStrings: strin
     normalizedIds.push(queryId);
   }
 
-  const linkedQueries = [];
-  for (const queryId of normalizedIds) {
-    const linkedQuery = await ctx.db.get(queryId);
-    if (!linkedQuery) {
-      throw new ConvexError("Linked query not found");
-    }
-    if (!canSeeQueryRecord(access, linkedQuery)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    linkedQueries.push(linkedQuery);
-  }
+  const linkedQueries = await Promise.all(
+    normalizedIds.map(async (queryId) => {
+      const linkedQuery = await ctx.db.get(queryId);
+      if (!linkedQuery) {
+        throw new ConvexError("Linked query not found");
+      }
+      if (!canSeeQueryRecord(access, linkedQuery)) {
+        throw new ConvexError("FORBIDDEN");
+      }
+      return linkedQuery;
+    }),
+  );
   return linkedQueries;
 }
 
@@ -87,13 +89,9 @@ async function linkedQueriesForProposal(ctx: any, proposal: any) {
     queryIds.add(link.queryId);
   }
 
-  const linkedQueries = [];
-  for (const queryId of queryIds) {
-    const linkedQuery = await ctx.db.get(queryId);
-    if (linkedQuery) {
-      linkedQueries.push(linkedQuery);
-    }
-  }
+  const linkedQueries = (
+    await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get(queryId)))
+  ).filter((linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery != null);
   return linkedQueries;
 }
 
@@ -250,19 +248,20 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     });
-    await syncProposalQueryLinks(
-      ctx,
-      id,
-      linkedQueries.map((query) => query._id),
-      access.authUserId ?? "unknown",
-    );
-
-    await createActivity(ctx, access, {
-      entityType: "proposal",
-      entityId: id,
-      action: "created",
-      message: `${proposalCode} created for ${clientName}`,
-    });
+    await Promise.all([
+      syncProposalQueryLinks(
+        ctx,
+        id,
+        linkedQueries.map((query) => query._id),
+        access.authUserId ?? "unknown",
+      ),
+      createActivity(ctx, access, {
+        entityType: "proposal",
+        entityId: id,
+        action: "created",
+        message: `${proposalCode} created for ${clientName}`,
+      }),
+    ]);
 
     return { id, proposalCode };
   },
@@ -381,31 +380,115 @@ export const markSent = mutation({
       throw new ConvexError("FORBIDDEN");
     }
     const now = Date.now();
-    await ctx.db.patch(proposalId, {
-      status: "Sent",
-      sentAt: now,
-      updatedAt: now,
-    });
-    await Promise.all(
-      linkedQueries.map((linkedQuery) =>
-        ctx.db.patch(linkedQuery._id, {
-          contractingStatus: "Proposal sent",
-          updatedAt: now,
-        }),
+    await Promise.all([
+      ctx.db.patch(proposalId, {
+        status: "Sent",
+        sentAt: now,
+        updatedAt: now,
+      }),
+      Promise.all(
+        linkedQueries.map((linkedQuery) =>
+          ctx.db.patch(linkedQuery._id, {
+            contractingStatus: "Proposal sent",
+            updatedAt: now,
+          }),
+        ),
       ),
-    );
-    await createActivity(ctx, access, {
-      entityType: "proposal",
-      entityId: proposalId,
-      action: "sent",
-      message: `${proposal.proposalCode} marked as sent`,
-    });
-    await notifyRoles(ctx, ["Sales", "Sales Head"], {
-      title: "Proposal sent",
-      body: `${proposal.proposalCode} has been sent to the client.`,
-      entityType: "proposal",
-      entityId: proposalId,
-    });
+      createActivity(ctx, access, {
+        entityType: "proposal",
+        entityId: proposalId,
+        action: "sent",
+        message: `${proposal.proposalCode} marked as sent`,
+      }),
+      notifyRoles(ctx, ["Sales", "Sales Head"], {
+        title: "Proposal sent",
+        body: `${proposal.proposalCode} has been sent to the client.`,
+        entityType: "proposal",
+        entityId: proposalId,
+      }),
+    ]);
+    return { id: proposalId };
+  },
+});
+
+export const sendToSales = mutation({
+  args: {
+    proposalId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.MANAGE_PROPOSALS,
+      PERMISSIONS.MANAGE_CONTRACTING,
+    ]);
+    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
+    if (!proposalId) {
+      throw new ConvexError("Invalid proposal id");
+    }
+    const proposal = await ctx.db.get(proposalId);
+    if (!proposal) {
+      throw new ConvexError("Proposal not found");
+    }
+    const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
+    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    if (proposal.status === "Sent") {
+      throw new ConvexError("This proposal was already sent to Sales");
+    }
+    const now = Date.now();
+    const queryCodes = linkedQueries.map((query) => query.queryCode).join(", ") || "linked query";
+    await Promise.all([
+      ctx.db.patch(proposalId, {
+        status: "Sent",
+        sentAt: now,
+        updatedAt: now,
+      }),
+      Promise.all(
+        linkedQueries.map((linkedQuery) =>
+          ctx.db.patch(linkedQuery._id, {
+            contractingStatus: "Proposal sent",
+            updatedAt: now,
+          }),
+        ),
+      ),
+      createActivity(ctx, access, {
+        entityType: "proposal",
+        entityId: proposalId,
+        action: "sent_to_sales",
+        message: `${proposal.proposalCode} sent to Sales for review (${queryCodes})`,
+      }),
+    ]);
+
+    const salesOwnerNotified = new Set<string>();
+    const salesOwnerNotifications = [];
+    for (const linkedQuery of linkedQueries) {
+      if (!linkedQuery.salesOwnerId || salesOwnerNotified.has(linkedQuery.salesOwnerId)) {
+        continue;
+      }
+      const salesStaffId = ctx.db.normalizeId("staffUsers", linkedQuery.salesOwnerId);
+      if (!salesStaffId) {
+        continue;
+      }
+      salesOwnerNotified.add(linkedQuery.salesOwnerId);
+      salesOwnerNotifications.push(
+        notifyStaffMember(ctx, salesStaffId, {
+          title: "Proposal ready for review",
+          body: `${proposal.proposalCode} for ${linkedQuery.queryCode} is ready. Review costing and use Sales Decision on the query.`,
+          entityType: "proposal",
+          entityId: proposalId,
+        }),
+      );
+    }
+
+    await Promise.all([
+      ...salesOwnerNotifications,
+      notifyRoles(ctx, ["Sales", "Sales Head"], {
+        title: "Proposal ready for review",
+        body: `${proposal.proposalCode} has been submitted by Contracting. Open Proposals or the linked query to review and decide.`,
+        entityType: "proposal",
+        entityId: proposalId,
+      }),
+    ]);
     return { id: proposalId };
   },
 });
@@ -554,10 +637,9 @@ export const getFinalizedPdfRecord = query({
     if (!proposal?.finalizedPdfStorageId) {
       return null;
     }
-    const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.VIEW_PROPOSALS,
-      PERMISSIONS.MANAGE_JOB_CARDS,
+    const [linkedQueries, access] = await Promise.all([
+      linkedQueriesForProposal(ctx, proposal),
+      requireAnyPermission(ctx, [PERMISSIONS.VIEW_PROPOSALS, PERMISSIONS.MANAGE_JOB_CARDS]),
     ]);
     if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
       throw new ConvexError("FORBIDDEN");

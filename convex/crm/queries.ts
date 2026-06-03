@@ -25,6 +25,80 @@ import {
 } from "./lib";
 import { publicQueryAttachment } from "./queryAttachments";
 
+const OPS_START_ROLES = [
+  "Contracting",
+  "Contracting Head",
+  "Operations",
+  "Operations Head",
+  "Ticketing",
+  "Head of Ticketing",
+] as const;
+
+async function notifyQueryOwner(
+  ctx: Parameters<typeof notifyStaffMember>[0],
+  ownerId: string | undefined,
+  notification: Parameters<typeof notifyStaffMember>[2],
+) {
+  if (!ownerId) {
+    return;
+  }
+  const staffId = ctx.db.normalizeId("staffUsers", ownerId);
+  if (!staffId) {
+    return;
+  }
+  await notifyStaffMember(ctx, staffId, notification);
+}
+
+async function notifyOrderConfirmedWorkflow(
+  ctx: Parameters<typeof notifyRoles>[0],
+  query: { queryCode: string; contractingOwnerId?: string; ticketingOwnerId?: string },
+  queryId: Id<"queries">,
+) {
+  const entity = { entityType: "query" as const, entityId: queryId };
+  await Promise.all([
+    notifyRoles(ctx, [...OPS_START_ROLES], {
+      title: "Order confirmed — prepare operations",
+      body: `${query.queryCode} was confirmed by Sales. Accounts will open a Job Card; contracting, operations, and ticketing can begin traveller master, tickets, passport, visa, and tour manager work.`,
+      ...entity,
+    }),
+    notifyQueryOwner(ctx, query.contractingOwnerId, {
+      title: "Order confirmed on your query",
+      body: `${query.queryCode} was confirmed. Prepare revised costing if needed and coordinate operations once the Job Card opens.`,
+      ...entity,
+    }),
+    notifyQueryOwner(ctx, query.ticketingOwnerId, {
+      title: "Order confirmed on your query",
+      body: `${query.queryCode} was confirmed. Prepare ticketing once the Job Card opens.`,
+      ...entity,
+    }),
+  ]);
+}
+
+async function notifyProposalRevisionWorkflow(
+  ctx: Parameters<typeof notifyRoles>[0],
+  query: { queryCode: string; contractingOwnerId?: string; ticketingOwnerId?: string },
+  queryId: Id<"queries">,
+) {
+  const entity = { entityType: "query" as const, entityId: queryId };
+  await Promise.all([
+    notifyRoles(ctx, ["Contracting", "Contracting Head", "Ticketing", "Head of Ticketing"], {
+      title: "Proposal revision required",
+      body: `${query.queryCode} needs a date or destination revision. Rework the proposal and return it to Sales.`,
+      ...entity,
+    }),
+    notifyQueryOwner(ctx, query.contractingOwnerId, {
+      title: "Revise proposal",
+      body: `${query.queryCode} was sent back by Sales for a date or destination change.`,
+      ...entity,
+    }),
+    notifyQueryOwner(ctx, query.ticketingOwnerId, {
+      title: "Revise proposal costing",
+      body: `${query.queryCode} needs updated ticketing inputs for the revised proposal.`,
+      ...entity,
+    }),
+  ]);
+}
+
 const queryTypeValidator = v.union(
   v.literal("MICE"),
   v.literal("MICE Bidding"),
@@ -44,6 +118,7 @@ const travelTypeValidator = v.union(
 const salesStatusValidator = v.union(
   v.literal("Proposal in discussion"),
   v.literal("Change in destination"),
+  v.literal("Date/Destination Change Required"),
   v.literal("Order Confirmed"),
   v.literal("Order Lost"),
 );
@@ -70,6 +145,7 @@ const contractingStatusValidator = v.union(
   v.literal("Proposal in progress"),
   v.literal("Proposal sent"),
   v.literal("Change in destination"),
+  v.literal("Date/Destination Change Required"),
   v.literal("Order Confirmed"),
   v.literal("Order Lost"),
 );
@@ -165,13 +241,14 @@ export const create = mutation({
       queryType: args.queryType,
       travelType: args.travelType,
       salesStatus: "Proposal in discussion",
-      leadStage: "Inquiry",
+      leadStage: "Proposal",
       contractingStatus: "Query Received",
       budgetAmount: Math.max(args.budgetAmount ?? 0, 0),
       source: args.source ?? "Client",
       salesOwnerId: access.authUserId,
       salesOwnerName: args.salesOwnerName?.trim() || access.name,
       notes: args.notes?.trim() || "",
+      submittedToContractingAt: now,
       createdBy: access.authUserId ?? "unknown",
       createdAt: now,
       updatedAt: now,
@@ -186,7 +263,13 @@ export const create = mutation({
       }),
       notifyRoles(ctx, contractingNotifyRolesForQueryType(args.queryType), {
         title: "New query received",
-        body: `${queryCode} is ready for contracting review.`,
+        body: `${queryCode} is ready for contracting and operations head review.`,
+        entityType: "query",
+        entityId: id,
+      }),
+      notifyRoles(ctx, ["Contracting Head", "Operations Head"], {
+        title: "Query ready for assignment",
+        body: `${queryCode} was raised by Sales. Review and assign contracting and ticketing teams.`,
         entityType: "query",
         entityId: id,
       }),
@@ -341,6 +424,78 @@ export const assignContracting = mutation({
   },
 });
 
+export const assignQueryTicketing = mutation({
+  args: {
+    queryId: v.string(),
+    staffId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireHeadOrAdmin(ctx, [
+      "Contracting Head",
+      "Operations Head",
+      "Head of Ticketing",
+    ]);
+    const queryId = ctx.db.normalizeId("queries", args.queryId);
+    if (!queryId) {
+      throw new ConvexError("Invalid query id");
+    }
+    const staffId = ctx.db.normalizeId("staffUsers", args.staffId);
+    if (!staffId) {
+      throw new ConvexError("Invalid staff id");
+    }
+    const staff = await ctx.db.get(staffId);
+    if (!staff?.active) {
+      throw new ConvexError("Staff member not found");
+    }
+    const isTicketingTeam = staff.roles.some((role) =>
+      ["Ticketing", "Head of Ticketing"].includes(role),
+    );
+    if (!isTicketingTeam) {
+      throw new ConvexError("Selected staff member is not on the ticketing team");
+    }
+    const current = await ctx.db.get(queryId);
+    if (!current) {
+      throw new ConvexError("Query not found");
+    }
+    if (!canSeeQueryRecord(access, current)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const ownerName = staff.name.trim();
+    const now = Date.now();
+    await ctx.db.patch(queryId, {
+      ticketingOwnerId: staffId,
+      ticketingOwnerName: ownerName,
+      updatedAt: now,
+    });
+    const jobCards = await ctx.db
+      .query("jobCards")
+      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
+      .collect();
+    await Promise.all(
+      jobCards.map((jobCard) =>
+        ctx.db.patch(jobCard._id, {
+          ticketingOwnerId: staffId,
+          ticketingOwnerName: ownerName,
+          updatedAt: now,
+        }),
+      ),
+    );
+    await createActivity(ctx, access, {
+      entityType: "query",
+      entityId: queryId,
+      action: "assigned_ticketing",
+      message: `${current.queryCode} ticketing assigned to ${ownerName}`,
+    });
+    await notifyStaffMember(ctx, staffId, {
+      title: "Assign ticketing owner",
+      body: `You were assigned as ticketing SPOC for ${current.queryCode}.`,
+      entityType: "query",
+      entityId: queryId,
+    });
+    return { id: queryId };
+  },
+});
+
 export const submitToContracting = mutation({
   args: {
     queryId: v.string(),
@@ -446,6 +601,13 @@ export const updateStatus = mutation({
         patch.contractingStatus = "Order Lost";
         patch.leadStage = "Lost";
       }
+      if (args.salesStatus === "Date/Destination Change Required") {
+        patch.contractingStatus = "Proposal in progress";
+        patch.leadStage = "Negotiation";
+      }
+      if (args.salesStatus === "Proposal in discussion") {
+        patch.leadStage = "Proposal";
+      }
     }
     if (args.leadStage) {
       patch.leadStage = args.leadStage;
@@ -498,6 +660,7 @@ export const updateStatus = mutation({
       !wasConfirmed &&
       (args.salesStatus === "Order Confirmed" || args.contractingStatus === "Order Confirmed");
     const isLost = args.salesStatus === "Order Lost";
+    const isRevisionRequested = args.salesStatus === "Date/Destination Change Required";
 
     await Promise.all([
       createActivity(ctx, access, {
@@ -513,25 +676,14 @@ export const updateStatus = mutation({
               ctx,
               (staff) => staff.roles.includes("Accounts"),
               {
-                title: "Order confirmed",
-                body: `${current.queryCode} is confirmed. Open a Job Card in Accounts / JC.`,
+                title: "Order confirmed — open Job Card",
+                body: `${current.queryCode} is confirmed. Create the Job Card in Accounts.`,
                 entityType: "query",
                 entityId: queryId,
               },
               { fallbackRoles: ["Accounts"] },
             ),
-            notifyStaffMatching(
-              ctx,
-              (staff) =>
-                staff.roles.includes("Contracting Head") || staff.roles.includes("Operations Head"),
-              {
-                title: "Order confirmed — assign owners",
-                body: `${current.queryCode} is confirmed. Assign contracting and operations owners once Accounts opens the Job Card.`,
-                entityType: "query",
-                entityId: queryId,
-              },
-              { fallbackRoles: ["Contracting Head", "Operations Head"] },
-            ),
+            notifyOrderConfirmedWorkflow(ctx, current, queryId),
             notifyRoles(ctx, ["Finance"], {
               title: "Order confirmed",
               body: `${current.queryCode} has been confirmed by Sales.`,
@@ -540,6 +692,7 @@ export const updateStatus = mutation({
             }),
           ]
         : []),
+      ...(isRevisionRequested ? [notifyProposalRevisionWorkflow(ctx, current, queryId)] : []),
     ]);
 
     return { id: queryId };
@@ -564,14 +717,16 @@ export const remove = mutation({
       throw new ConvexError("FORBIDDEN");
     }
 
-    const legacyProposals = await ctx.db
-      .query("proposals")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-      .collect();
-    const proposalLinksForQuery = await ctx.db
-      .query("proposalQueryLinks")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-      .collect();
+    const [legacyProposals, proposalLinksForQuery] = await Promise.all([
+      ctx.db
+        .query("proposals")
+        .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
+        .collect(),
+      ctx.db
+        .query("proposalQueryLinks")
+        .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
+        .collect(),
+    ]);
     const proposalIds = new Set(legacyProposals.map((proposal) => proposal._id));
     for (const link of proposalLinksForQuery) {
       proposalIds.add(link.proposalId);

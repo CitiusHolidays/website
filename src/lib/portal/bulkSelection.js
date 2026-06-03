@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 
 /** @param {Iterable<string>} selectedIds @param {string[]} visibleIds */
 export function pruneSelectionToVisible(selectedIds, visibleIds) {
@@ -33,23 +33,13 @@ export function someVisibleRowsSelected(selectedIds, visibleIds) {
 }
 
 export function useBulkSelection(visibleRows) {
-  const rowIds = useMemo(
-    () => (visibleRows || []).map((row) => row.id).filter(Boolean),
-    [visibleRows],
-  );
+  const rowIds = (visibleRows || []).flatMap((row) => (row.id ? [row.id] : []));
   const [selectedIds, setSelectedIds] = useState(() => new Set());
-  const rowIdsKey = rowIds.join("\0");
-  const prevRowIdsKeyRef = useRef(rowIdsKey);
+  const effectiveSelectedIds = pruneSelectionToVisible(selectedIds, rowIds);
 
-  useEffect(() => {
-    if (prevRowIdsKeyRef.current === rowIdsKey) return;
-    prevRowIdsKeyRef.current = rowIdsKey;
-    setSelectedIds((current) => pruneSelectionToVisible(current, rowIds));
-  }, [rowIdsKey, rowIds]);
-
-  const toggleOne = useCallback((id) => {
+  const toggleOne = (id) => {
     setSelectedIds((current) => {
-      const next = new Set(current);
+      const next = new Set(pruneSelectionToVisible(current, rowIds));
       if (next.has(id)) {
         next.delete(id);
       } else {
@@ -57,26 +47,25 @@ export function useBulkSelection(visibleRows) {
       }
       return next;
     });
-  }, []);
+  };
 
-  const toggleAllVisible = useCallback(() => {
-    setSelectedIds((current) => toggleAllVisibleSelection(current, rowIds));
-  }, [rowIds]);
+  const toggleAllVisible = () => {
+    setSelectedIds((current) =>
+      toggleAllVisibleSelection(pruneSelectionToVisible(current, rowIds), rowIds),
+    );
+  };
 
-  const clearSelection = useCallback(() => {
+  const clearSelection = () => {
     setSelectedIds(new Set());
-  }, []);
-
-  const allVisibleSelected = allVisibleRowsSelected(selectedIds, rowIds);
-  const someVisibleSelected = someVisibleRowsSelected(selectedIds, rowIds);
+  };
 
   return {
-    selectedIds,
-    selectedCount: selectedIds.size,
+    selectedIds: effectiveSelectedIds,
+    selectedCount: effectiveSelectedIds.size,
     toggleOne,
     toggleAllVisible,
     clearSelection,
-    allVisibleSelected,
-    someVisibleSelected,
+    allVisibleSelected: allVisibleRowsSelected(effectiveSelectedIds, rowIds),
+    someVisibleSelected: someVisibleRowsSelected(effectiveSelectedIds, rowIds),
   };
 }

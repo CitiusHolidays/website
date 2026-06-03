@@ -149,38 +149,35 @@ export const passportExpirySources = internalQuery({
           .collect()
       : await ctx.db.query("travellers").collect();
 
-    const sources: Array<{
-      passportId: Id<"passportDetails">;
-      travellerId: Id<"travellers">;
-      expiryDate: string;
-      encryptedPayload: string;
-    }> = [];
+    const sources = (
+      await Promise.all(
+        travellers.map(async (traveller) => {
+          const job = await ctx.db.get(traveller.jobCardId);
+          if (!job) {
+            return null;
+          }
+          const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+          if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+            return null;
+          }
 
-    for (const traveller of travellers) {
-      const job = await ctx.db.get(traveller.jobCardId);
-      if (!job) {
-        continue;
-      }
-      const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
-      if (!canSeeJobCardRecord(access, job, linkedQuery)) {
-        continue;
-      }
+          const passport = await ctx.db
+            .query("passportDetails")
+            .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
+            .unique();
+          if (!passport?.encryptedPayload) {
+            return null;
+          }
 
-      const passport = await ctx.db
-        .query("passportDetails")
-        .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-        .unique();
-      if (!passport?.encryptedPayload) {
-        continue;
-      }
-
-      sources.push({
-        passportId: passport._id,
-        travellerId: traveller._id,
-        expiryDate: passport.expiryDate ?? "",
-        encryptedPayload: passport.encryptedPayload,
-      });
-    }
+          return {
+            passportId: passport._id,
+            travellerId: traveller._id,
+            expiryDate: passport.expiryDate ?? "",
+            encryptedPayload: passport.encryptedPayload,
+          };
+        }),
+      )
+    ).filter((source): source is NonNullable<typeof source> => source != null);
 
     return sources;
   },
@@ -463,10 +460,12 @@ export async function deleteTravellerRecord(
   }
 
   await Promise.all([
-    ...passportDetails.map(async (row) => {
-      await deleteStorageFile(ctx, row.storageId, "passport scan");
-      await ctx.db.delete(row._id);
-    }),
+    ...passportDetails.map((row) =>
+      Promise.all([
+        deleteStorageFile(ctx, row.storageId, "passport scan"),
+        ctx.db.delete(row._id),
+      ]),
+    ),
     ...visaRecords.map((row) => ctx.db.delete(row._id)),
     ...tickets.flatMap((row) => [
       deleteEntityNotifications(ctx, "ticket", row._id),
@@ -519,9 +518,7 @@ export const removeMany = mutation({
       }
       ids.push(travellerId);
     }
-    for (const travellerId of ids) {
-      await deleteTravellerRecord(ctx, access, travellerId);
-    }
+    await Promise.all(ids.map((travellerId) => deleteTravellerRecord(ctx, access, travellerId)));
     return { deletedCount: ids.length };
   },
 });

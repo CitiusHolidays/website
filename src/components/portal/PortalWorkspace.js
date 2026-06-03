@@ -37,7 +37,12 @@ import {
   useRef,
   useState,
 } from "react";
+import { DashboardView } from "@/components/portal/dashboard/DashboardView";
+import { EntityModal } from "@/components/portal/EntityModal";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
+import { usePortalNotificationDeepLink } from "@/components/portal/usePortalNotificationDeepLink";
+import { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
+import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
 import { PortalListFilters } from "@/components/portal/PortalListFilters";
 import { usePortalToast } from "@/components/portal/PortalToast";
@@ -66,7 +71,6 @@ import {
 } from "@/lib/portal/constants";
 import {
   getListFilterConfig,
-  VIEWS_WITH_JOB_CARD_FILTER as JOB_CARD_FILTER_VIEWS,
 } from "@/lib/portal/listFilterConfig";
 import {
   applyListFilters,
@@ -85,6 +89,13 @@ import {
   getPassportExpiryInfo,
   passportExpiryTone,
 } from "@/lib/portal/passportExpiry";
+import { filterRows } from "@/lib/portal/pipeViewRows";
+import {
+  uploadEntityFiles,
+  uploadExpenseProofFiles,
+  uploadQueryFiles,
+} from "@/lib/portal/fileUploads";
+import { toNumber } from "@/lib/portal/formUtils";
 import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
 import {
   canAssignContracting,
@@ -142,6 +153,40 @@ const SPREADSHEET_MODALS = [
   "visaImport",
   "visaExport",
 ];
+
+const EMPTY_JOB_CARDS = [];
+const EMPTY_LIST_FILTER_CONFIG = [];
+const EMPTY_LIST_FILTERS = {};
+const EMPTY_FILTER_SOURCE_ROWS = [];
+
+const PASSENGER_IMPORT_INITIAL = {
+  jobCardId: "",
+  fileName: "",
+  parsed: null,
+  preview: null,
+  isParsing: false,
+  isPreviewing: false,
+  isSaving: false,
+  importProgress: null,
+  error: "",
+};
+
+const FLIGHT_IMPORT_INITIAL = {
+  jobCardId: "",
+  fileName: "",
+  parsed: null,
+  isParsing: false,
+  isSaving: false,
+  error: "",
+};
+
+const PASSENGER_EXPORT_INITIAL = {
+  jobCardId: "",
+  exportData: null,
+  isLoading: false,
+  isExporting: false,
+  error: "",
+};
 
 const VIEW_META = {
   dashboard: {
@@ -386,42 +431,6 @@ const JOB_CARD_MODALS = new Set([
   "expense",
 ]);
 
-const VIEWS_WITH_JOB_CARD_FILTER = new Set(JOB_CARD_FILTER_VIEWS);
-
-function pipeViewRows(
-  rows,
-  {
-    view,
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig,
-    search,
-    searchKeys,
-    dateField = "createdAt",
-  },
-) {
-  let result = filterByDateRange(rows || [], dateRange, dateField);
-  if (VIEWS_WITH_JOB_CARD_FILTER.has(view)) {
-    result = filterByJobCard(result, jobCardFilter);
-  }
-  if (view === "travellers" || view === "passport") {
-    result = attachPassportExpiryUrgency(result);
-  }
-  if (filterConfig?.length) {
-    result = applyListFilters(result, listFilters, filterConfig);
-  }
-  if (search?.trim() && searchKeys?.length) {
-    result = filterRows(result, search, searchKeys);
-  }
-  return result;
-}
-
-function filterByJobCard(rows, jobCardFilter) {
-  if (!jobCardFilter || !rows?.length) return rows || [];
-  return rows.filter((row) => row.jobCardId === jobCardFilter);
-}
-
 function jobCardFilterOptions(jobCards) {
   return [
     { value: "", label: "All job cards" },
@@ -591,737 +600,13 @@ export default function PortalWorkspace(props) {
 }
 
 function PortalWorkspaceInner({ view = "dashboard" }) {
-  "use no memo";
-
-  const [modal, setModal] = useState(null);
-  const [form, setForm] = useState(INITIAL_FORM);
-  const [pendingQueryFiles, setPendingQueryFiles] = useState([]);
-  const [pendingProposalFiles, setPendingProposalFiles] = useState([]);
-  const [pendingExpenseProofFiles, setPendingExpenseProofFiles] = useState([]);
-  const [error, setError] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [pipelineMode, setPipelineMode] = useState("sales");
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const toast = usePortalToast();
-  const { confirm } = usePortalConfirm();
-  const listFilterConfig = getListFilterConfig(view, { pipelineMode });
-  const initialUrlFilters = parseUrlFilterState(searchParams, listFilterConfig);
-  const [search, setSearch] = useState(initialUrlFilters.search);
-  const [dateRange, setDateRange] = useState(initialUrlFilters.dateRange);
-  const dateRangeArg = dateRangeQueryArg(dateRange);
-  const [jobCardFilter, setJobCardFilter] = useState(initialUrlFilters.jobCardFilter);
-  const [listFilters, setListFilters] = useState(initialUrlFilters.listFilters);
-  const deepLinkOpen = searchParams.get("open");
-  const deepLinkHandledRef = useRef("");
-
-  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
-  const access = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
-  const has = (permission) => Boolean(access?.permissions?.includes(permission));
-  const meta = VIEW_META[view] || VIEW_META.dashboard;
-  const allowed = access?.allowed && has(meta.permission);
-  const canFetch = isAuthenticated && access?.allowed;
-
-  const summary = useQuery(
-    api.crm.dashboard.getPortalSummary,
-    canFetch && allowed && view === "dashboard" ? { dateRange: dateRangeArg } : "skip",
-  );
-  const queries = useQuery(
-    api.crm.queries.list,
-    canFetch && (has(P.VIEW_QUERIES) || has(P.VIEW_CONTRACTING) || has(P.VIEW_JOB_CARDS))
-      ? {}
-      : "skip",
-  );
-  const proposals = useQuery(
-    api.crm.proposals.list,
-    canFetch && (has(P.VIEW_PROPOSALS) || has(P.MANAGE_JOB_CARDS)) ? {} : "skip",
-  );
-  const jobCards = useQuery(api.crm.jobCards.list, canFetch && has(P.VIEW_JOB_CARDS) ? {} : "skip");
-  const travellers = useQuery(
-    api.crm.travellers.list,
-    canFetch && has(P.VIEW_TRAVELLERS) ? {} : "skip",
-  );
-  const [passportExpiryByTraveller, setPassportExpiryByTraveller] = useState({});
-  const visas = useQuery(api.crm.visa.list, canFetch && has(P.VIEW_VISA) ? {} : "skip");
-  const ticketDashboard = useQuery(
-    api.crm.ticketing.dashboard,
-    canFetch && has(P.VIEW_TICKETING) ? { dateRange: dateRangeArg } : "skip",
-  );
-  const pnrs = useQuery(
-    api.crm.ticketing.listPnrs,
-    canFetch && has(P.VIEW_TICKETING) ? {} : "skip",
-  );
-  const tickets = useQuery(
-    api.crm.ticketing.listTickets,
-    canFetch && has(P.VIEW_TICKETING) ? {} : "skip",
-  );
-  const seats = useQuery(
-    api.crm.ticketing.listSeatAllocations,
-    canFetch && has(P.VIEW_TICKETING) ? {} : "skip",
-  );
-  const flightItinerary = useQuery(
-    api.crm.imports.listFlightItinerary,
-    canFetch && has(P.VIEW_TICKETING) ? {} : "skip",
-  );
-  const hotels = useQuery(api.crm.ops.listHotels, canFetch && has(P.VIEW_OPERATIONS) ? {} : "skip");
-  const tourManagers = useQuery(
-    api.crm.ops.listTourManagers,
-    canFetch && has(P.VIEW_TOUR_MANAGERS) ? {} : "skip",
-  );
-  const invoices = useQuery(
-    api.crm.finance.listInvoices,
-    canFetch && has(P.VIEW_FINANCE) ? {} : "skip",
-  );
-  const expenses = useQuery(
-    api.crm.finance.listExpenses,
-    canFetch && (has(P.VIEW_EXPENSES) || deepLinkOpen === "approval") ? {} : "skip",
-  );
-  const financeOverview = useQuery(
-    api.crm.finance.getFinanceOverview,
-    canFetch && has(P.VIEW_FINANCE) && view === "finance" ? { dateRange: dateRangeArg } : "skip",
-  );
-  const approvals = useQuery(
-    api.crm.approvals.list,
-    canFetch && has(P.VIEW_APPROVALS) ? {} : "skip",
-  );
-  const reports = useQuery(
-    api.crm.reports.overview,
-    canFetch && has(P.VIEW_REPORTS) && view === "reports" ? { dateRange: dateRangeArg } : "skip",
-  );
-  const team = useQuery(api.crm.staff.listDirectory, canFetch && has(P.VIEW_TEAM) ? {} : "skip");
-  const activity = useQuery(
-    api.crm.activity.listActivity,
-    canFetch && has(P.VIEW_ACTIVITY) ? { limit: 80 } : "skip",
-  );
-  const leaves = useQuery(api.crm.leave.list, canFetch && has(P.VIEW_LEAVE) ? {} : "skip");
-  const notifications = useQuery(
-    api.crm.activity.listNotifications,
-    canFetch ? { limit: 80 } : "skip",
-  );
-  const dropdowns = useQuery(
-    api.crm.settings.listDropdowns,
-    canFetch && view === "settings" ? {} : "skip",
-  );
-  const staff = useQuery(api.crm.staff.listStaff, canFetch && has(P.MANAGE_STAFF) ? {} : "skip");
-
-  const createQuery = useMutation(api.crm.queries.create);
-  const updateQuery = useMutation(api.crm.queries.update);
-  const submitToContracting = useMutation(api.crm.queries.submitToContracting);
-  const assignContracting = useMutation(api.crm.queries.assignContracting);
-  const assignContractingOwner = useMutation(api.crm.jobCards.assignContractingOwner);
-  const assignOperationsOwner = useMutation(api.crm.jobCards.assignOperationsOwner);
-  const assignTicketingOwner = useMutation(api.crm.ticketing.assignTicketingOwner);
-  const updateQueryStatus = useMutation(api.crm.queries.updateStatus);
-  const createProposal = useMutation(api.crm.proposals.create);
-  const updateProposal = useMutation(api.crm.proposals.update);
-  const markProposalSent = useMutation(api.crm.proposals.markSent);
-  const createJobCard = useMutation(api.crm.jobCards.createFromQuery);
-  const updateJobCard = useMutation(api.crm.jobCards.update);
-  const updateJobStatus = useMutation(api.crm.jobCards.updateStatus);
-  const createTraveller = useMutation(api.crm.travellers.create);
-  const updateTraveller = useMutation(api.crm.travellers.update);
-  const updateCallingStatus = useMutation(api.crm.travellers.updateCallingStatus);
-  const updateVisaRecord = useMutation(api.crm.visa.updateRecord);
-  const createVisa = useMutation(api.crm.visa.create);
-  const createLeave = useMutation(api.crm.leave.create);
-  const updateLeave = useMutation(api.crm.leave.update);
-  const decideLeave = useMutation(api.crm.leave.decide);
-  const removeLeave = useMutation(api.crm.leave.remove);
-  const generateUploadUrl = useAction(api.crm.passportActions.generateUploadUrl);
-  const encryptAndStorePassport = useAction(api.crm.passportActions.encryptAndStorePassport);
-  const getPassportDocument = useAction(api.crm.passportActions.getPassportDocument);
-  const removePassport = useAction(api.crm.passportActions.removePassport);
-  const generateQueryUploadUrl = useAction(api.crm.queryAttachmentActions.generateUploadUrl);
-  const attachQueryFile = useAction(api.crm.queryAttachmentActions.attachFile);
-  const getQueryAttachmentUrl = useAction(api.crm.queryAttachmentActions.getDownloadUrl);
-  const removeQueryAttachment = useAction(api.crm.queryAttachmentActions.removeAttachment);
-  const generateProposalUploadUrl = useAction(api.crm.proposalAttachmentActions.generateUploadUrl);
-  const attachProposalFile = useAction(api.crm.proposalAttachmentActions.attachFile);
-  const getProposalAttachmentUrl = useAction(api.crm.proposalAttachmentActions.getDownloadUrl);
-  const removeProposalAttachment = useAction(api.crm.proposalAttachmentActions.removeAttachment);
-  const generateFinalizedPdfUploadUrl = useAction(
-    api.crm.proposalAttachmentActions.generateFinalizedPdfUploadUrl,
-  );
-  const attachFinalizedPdf = useAction(api.crm.proposalAttachmentActions.attachFinalizedPdf);
-  const getFinalizedPdfUrl = useAction(api.crm.proposalAttachmentActions.getFinalizedPdfUrl);
-  const removeFinalizedPdf = useAction(api.crm.proposalAttachmentActions.removeFinalizedPdf);
-  const generateExpenseUploadUrl = useAction(api.crm.expenseAttachmentActions.generateUploadUrl);
-  const attachExpenseProof = useAction(api.crm.expenseAttachmentActions.attachProof);
-  const getExpenseAttachmentUrl = useAction(api.crm.expenseAttachmentActions.getDownloadUrl);
-  const removeExpenseProof = useAction(api.crm.expenseAttachmentActions.removeProof);
-  const startStaffOnboarding = useAction(api.crm.staffAction.startStaffOnboarding);
-  const travellersWithoutVisa = useQuery(
-    api.crm.visa.listTravellersWithoutVisa,
-    canFetch && has(P.VIEW_VISA) && (modal === "visa_create" || view === "visa") ? {} : "skip",
-  );
-  const createPnr = useMutation(api.crm.ticketing.createPnr);
-  const updatePnr = useMutation(api.crm.ticketing.updatePnr);
-  const previewPassengerImport = useAction(api.crm.importActions.previewPassengerImport);
-  const commitPassengerImport = useAction(api.crm.importActions.commitPassengerImport);
-  const getPassengerExportRows = useAction(api.crm.importActions.getPassengerExportRows);
-  const getTravellerPassportExpiryDates = useAction(
-    api.crm.passportActions.getTravellerPassportExpiryDates,
-  );
-
-  const canViewTravellers = Boolean(access?.permissions?.includes(P.VIEW_TRAVELLERS));
-
-  useEffect(() => {
-    if (!canFetch || !canViewTravellers) {
-      return undefined;
-    }
-    if (view !== "travellers" && view !== "passport") {
-      return undefined;
-    }
-
-    let cancelled = false;
-    getTravellerPassportExpiryDates({ jobCardId: jobCardFilter || undefined })
-      .then((dates) => {
-        if (!cancelled) {
-          setPassportExpiryByTraveller(dates || {});
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPassportExpiryByTraveller({});
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    canFetch,
-    canViewTravellers,
-    view,
-    jobCardFilter,
-    getTravellerPassportExpiryDates,
-    travellers?.length,
-  ]);
-
-  const travellersWithPassportExpiry = useMemo(() => {
-    const rows = travellers || [];
-    if (!Object.keys(passportExpiryByTraveller).length) {
-      return rows;
-    }
-    return rows.map((row) => ({
-      ...row,
-      passportExpiryDate: passportExpiryByTraveller[row.id] ?? row.passportExpiryDate ?? "",
-    }));
-  }, [travellers, passportExpiryByTraveller]);
-  const commitFlightImport = useMutation(api.crm.imports.commitFlightImport);
-  const createTicket = useMutation(api.crm.ticketing.createTicket);
-  const updateTicket = useMutation(api.crm.ticketing.updateTicket);
-  const saveSeat = useMutation(api.crm.ticketing.saveSeatAllocation);
-  const updateSeatAllocation = useMutation(api.crm.ticketing.updateSeatAllocation);
-  const createHotel = useMutation(api.crm.ops.createHotel);
-  const updateHotel = useMutation(api.crm.ops.updateHotel);
-  const createTourManager = useMutation(api.crm.ops.createTourManager);
-  const updateTourManager = useMutation(api.crm.ops.updateTourManager);
-  const createInvoice = useMutation(api.crm.finance.createInvoice);
-  const updateInvoice = useMutation(api.crm.finance.updateInvoice);
-  const createExpense = useMutation(api.crm.finance.createExpense);
-  const updateExpense = useMutation(api.crm.finance.updateExpense);
-  const submitExpenseForApproval = useMutation(api.crm.finance.submitExpenseForApproval);
-  const decideApproval = useMutation(api.crm.approvals.decide);
-  const removeApproval = useMutation(api.crm.approvals.remove);
-  const upsertStaff = useMutation(api.crm.staff.upsertStaff);
-  const removeQuery = useMutation(api.crm.queries.remove);
-  const removeProposal = useMutation(api.crm.proposals.remove);
-  const removeJobCard = useMutation(api.crm.jobCards.remove);
-  const removeTraveller = useMutation(api.crm.travellers.remove);
-  const removeManyTravellers = useMutation(api.crm.travellers.removeMany);
-  const removeVisa = useMutation(api.crm.visa.remove);
-  const removeManyVisas = useMutation(api.crm.visa.removeMany);
-  const removePnr = useMutation(api.crm.ticketing.removePnr);
-  const removeManyPnrs = useMutation(api.crm.ticketing.removeManyPnrs);
-  const removeTicket = useMutation(api.crm.ticketing.removeTicket);
-  const removeManyTickets = useMutation(api.crm.ticketing.removeManyTickets);
-  const removeSeatAllocation = useMutation(api.crm.ticketing.removeSeatAllocation);
-  const removeManySeatAllocations = useMutation(api.crm.ticketing.removeManySeatAllocations);
-  const removeHotel = useMutation(api.crm.ops.removeHotel);
-  const removeManyHotels = useMutation(api.crm.ops.removeManyHotels);
-  const removeTourManager = useMutation(api.crm.ops.removeTourManager);
-  const removeManyTourManagers = useMutation(api.crm.ops.removeManyTourManagers);
-  const removeInvoice = useMutation(api.crm.finance.removeInvoice);
-  const removeExpense = useMutation(api.crm.finance.removeExpense);
-  const removeStaff = useMutation(api.crm.staff.removeStaff);
-  const removeNotification = useMutation(api.crm.activity.removeNotification);
-  const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
-
-  const periodFiltered = {
-    queries: filterByDateRange(queries || [], dateRange, "createdAt"),
-    proposals: filterByDateRange(proposals || [], dateRange, "createdAt"),
-    jobCards: filterByDateRange(jobCards || [], dateRange, "createdAt"),
-    travellers: filterByDateRange(travellersWithPassportExpiry, dateRange, "createdAt"),
-    visas: filterByDateRange(visas || [], dateRange, "createdAt"),
-    pnrs: filterByDateRange(pnrs || [], dateRange, "createdAt"),
-    tickets: filterByDateRange(tickets || [], dateRange, "createdAt"),
-    seats: filterByDateRange(seats || [], dateRange, "createdAt"),
-    flightItinerary: filterByDateRange(flightItinerary || [], dateRange, "departureDate"),
-    hotels: filterByDateRange(hotels || [], dateRange, "createdAt"),
-    tourManagers: filterByDateRange(tourManagers || [], dateRange, "createdAt"),
-    invoices: filterByDateRange(invoices || [], dateRange, "createdAt"),
-    expenses: filterByDateRange(
-      (expenses || []).map((row) => ({
-        ...row,
-        periodDate: row.expenseDate || row.createdAt,
-      })),
-      dateRange,
-      "periodDate",
-    ),
-    approvals: filterByDateRange(approvals || [], dateRange, "createdAt"),
-    leaves: filterByDateRange(leaves || [], dateRange, "createdAt"),
-    activity: filterByDateRange(activity || [], dateRange, "createdAt"),
-    notifications: filterByDateRange(notifications || [], dateRange, "createdAt"),
-  };
-
-  const filtersActive =
-    Boolean(search.trim()) ||
-    Boolean(jobCardFilter) ||
-    Boolean(dateRange.from || dateRange.to) ||
-    hasActiveListFilters(listFilters, listFilterConfig);
-
-  const filteredQueries = pipeViewRows(periodFiltered.queries, {
-    view: "queries",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: listFilterConfig,
-    search,
-    searchKeys: ["queryCode", "clientName", "destination", "queryType", "salesOwnerName"],
-  });
-  const filteredPipelineQueries = pipeViewRows(periodFiltered.queries, {
-    view: "pipeline",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: listFilterConfig,
-    search,
-    searchKeys: ["queryCode", "clientName", "destination", "queryType", "salesOwnerName"],
-  });
-  const filteredContractingQueries = pipeViewRows(periodFiltered.queries, {
-    view: "contracting",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("contracting"),
-    search,
-    searchKeys: ["queryCode", "clientName", "destination", "queryType"],
-  });
-  const filteredProposals = pipeViewRows(periodFiltered.proposals, {
-    view: "proposals",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("proposals"),
-    search,
-    searchKeys: ["proposalCode", "clientName", "preparedBy"],
-  });
-  const filteredAccountsQueries = pipeViewRows(periodFiltered.queries, {
-    view: "accounts-job-cards",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("accounts-job-cards"),
-    search,
-    searchKeys: ["queryCode", "clientName", "destination"],
-  });
-  const filteredJobCards = pipeViewRows(periodFiltered.jobCards, {
-    view: "job-cards",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("job-cards"),
-    search,
-    searchKeys: ["jobCode", "clientName", "destination"],
-  });
-  const filteredTravellers = pipeViewRows(periodFiltered.travellers, {
-    view: "travellers",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("travellers"),
-    search,
-    searchKeys: ["fullName", "jobCode", "travelHub", "sourceDealerName"],
-  });
-  const filteredPassportTravellers = pipeViewRows(periodFiltered.travellers, {
-    view: "passport",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("passport"),
-    search,
-    searchKeys: ["fullName", "jobCode", "travelHub", "passportStatus"],
-  });
-  const filteredVisas = pipeViewRows(periodFiltered.visas, {
-    view: "visa",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("visa"),
-    search,
-    searchKeys: ["travellerName", "jobCode", "travelHub", "status"],
-  });
-  const filteredTickets = pipeViewRows(periodFiltered.tickets, {
-    view: "ticketing",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("ticketing"),
-    search,
-    searchKeys: ["travellerName", "jobCode", "ticketNumber", "pnrCode"],
-  });
-  const filteredPnrs = pipeViewRows(periodFiltered.pnrs, {
-    view: "flights",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("flights"),
-    search,
-    searchKeys: ["pnrCode", "airline", "route", "jobCode"],
-  });
-  const filteredAllTickets = pipeViewRows(periodFiltered.tickets, {
-    view: "tickets",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("tickets"),
-    search,
-    searchKeys: ["ticketNumber", "travellerName", "jobCode", "pnrCode"],
-  });
-  const filteredSeats = pipeViewRows(periodFiltered.seats, {
-    view: "seat-allocation",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("seat-allocation"),
-    search,
-    searchKeys: ["seatNumber", "jobCode"],
-  });
-  const filteredHotels = pipeViewRows(periodFiltered.hotels, {
-    view: "hotels",
-    dateRange,
-    jobCardFilter,
-    listFilters: {},
-    filterConfig: [],
-    search,
-    searchKeys: ["name", "city", "jobCode"],
-  });
-  const filteredRoomingTravellers = pipeViewRows(
-    periodFiltered.travellers.filter((row) => row.roomType || row.hotelAllocation),
-    {
-      view: "hotels",
-      dateRange,
-      jobCardFilter,
-      listFilters,
-      filterConfig: getListFilterConfig("hotels"),
-      search,
-      searchKeys: ["fullName", "jobCode", "travelHub", "hotelAllocation", "roomType"],
-    },
-  );
-  const filteredTourManagers = pipeViewRows(periodFiltered.tourManagers, {
-    view: "tour-managers",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("tour-managers"),
-    search,
-    searchKeys: ["name", "email", "phone", "jobCode"],
-  });
-  const filteredInvoices = pipeViewRows(periodFiltered.invoices, {
-    view: "finance",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("finance"),
-    search,
-    searchKeys: ["invoiceNumber", "jobCode"],
-  });
-  const filteredExpenses = pipeViewRows(periodFiltered.expenses, {
-    view: "expenses",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("expenses"),
-    search,
-    searchKeys: ["particulars", "paidBy", "tourManagerName", "jobCode"],
-  });
-  const filteredApprovals = pipeViewRows(periodFiltered.approvals, {
-    view: "approvals",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("approvals"),
-    search,
-    searchKeys: ["requestCode", "summary", "requestedByName", "type"],
-  });
-  const filteredLeaves = pipeViewRows(periodFiltered.leaves, {
-    view: "employees-on-leave",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("employees-on-leave"),
-    search,
-    searchKeys: ["reason", "leaveType", "status"],
-  });
-  const filteredActivity = pipeViewRows(periodFiltered.activity, {
-    view: "activity",
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    filterConfig: getListFilterConfig("activity"),
-    search,
-    searchKeys: ["action", "summary", "entityType", "actorName"],
-  });
-  const filteredTeam = pipeViewRows(team || [], {
-    view: "team",
-    dateRange: EMPTY_DATE_RANGE,
-    jobCardFilter: "",
-    listFilters,
-    filterConfig: getListFilterConfig("team"),
-    search,
-    searchKeys: ["name", "email", "department", "function", "location", "mobile", "roles"],
-  });
-  const filteredStaff = !staff
-    ? staff
-    : filterRows(staff, search, [
-        "name",
-        "email",
-        "department",
-        "function",
-        "location",
-        "mobile",
-        "roles",
-        "onboardingStatus",
-      ]);
-
-  useEffect(() => {
-    if (!allowed) return;
-    const params = serializeUrlFilterState(
-      { search, dateRange, jobCardFilter, listFilters },
-      listFilterConfig,
-      { preserveDeepLink: Boolean(modal), searchParams },
-    );
-    const qs = params.toString();
-    const nextUrl = qs ? `${pathname}?${qs}` : pathname;
-    const currentQs = searchParams.toString();
-    const currentUrl = currentQs ? `${pathname}?${currentQs}` : pathname;
-    if (nextUrl !== currentUrl) {
-      router.replace(nextUrl, { scroll: false });
-    }
-  }, [
-    allowed,
-    search,
-    dateRange,
-    jobCardFilter,
-    listFilters,
-    listFilterConfig,
-    modal,
-    pathname,
-    router,
-    searchParams,
-  ]);
-
-  const showJobCardFilter = VIEWS_WITH_JOB_CARD_FILTER.has(view);
-
-  const clearAllFilters = () => {
-    setSearch("");
-    setJobCardFilter("");
-    setListFilters({});
-    setDateRange(EMPTY_DATE_RANGE);
-  };
-
-  const setListFilterValue = (field, value) => {
-    setListFilters((current) => {
-      const next = { ...current };
-      if (value) {
-        next[field] = value;
-      } else {
-        delete next[field];
-      }
-      return next;
-    });
-  };
-
-  const openModalRef = useRef(null);
-  const openModal = (type, initial = {}) => {
-    setError("");
-    const next = { ...INITIAL_FORM, ...initial };
-    if (type === "proposal") {
-      next.queryIds = Array.isArray(next.queryIds)
-        ? next.queryIds
-        : next.queryId
-          ? [next.queryId]
-          : [];
-      next.queryId = next.queryIds[0] || next.queryId || "";
-    }
-    if (next.queryId && (type === "jobCard" || type === "proposal")) {
-      const linkedQuery = (queries || []).find((query) => query.id === next.queryId);
-      if (linkedQuery) {
-        Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
-      }
-      if (type === "jobCard" && !next.proposalId) {
-        const linkedProposal = (proposals || []).reduce((latest, proposal) => {
-          if (!proposalLinkedQueryIds(proposal).includes(next.queryId)) return latest;
-          if (!latest) return proposal;
-          return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
-        }, null);
-        next.proposalId = linkedProposal?.id || "";
-      }
-    }
-    if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {
-      Object.assign(next, applyJobCardLink(next, jobCards[0], type, { onlyEmpty: true }));
-    }
-    if (JOB_CARD_MODALS.has(type) && next.jobCardId) {
-      const linkedJob = (jobCards || []).find((job) => job.id === next.jobCardId);
-      if (linkedJob) {
-        Object.assign(next, applyJobCardLink(next, linkedJob, type, { onlyEmpty: true }));
-      }
-    }
-    if (next.travellerId && ["ticket", "seat", "visa_create"].includes(type)) {
-      const linkedTraveller =
-        (travellers || []).find((traveller) => traveller.id === next.travellerId) ||
-        (travellersWithoutVisa || []).find((traveller) => traveller.id === next.travellerId);
-      if (linkedTraveller) {
-        Object.assign(next, applyTravellerLink(next, linkedTraveller, type, { onlyEmpty: true }));
-      }
-    }
-    if (next.pnrId && ["ticket", "seat"].includes(type)) {
-      const linkedPnr = (pnrs || []).find((pnr) => pnr.id === next.pnrId);
-      if (linkedPnr) {
-        Object.assign(next, applyPnrLink(next, linkedPnr, type, { onlyEmpty: true }));
-      }
-    }
-    if (next.visaRecordId && type === "visa") {
-      const linkedVisa = (visas || []).find((visa) => visa.id === next.visaRecordId);
-      if (linkedVisa) {
-        Object.assign(next, applyVisaRecordLink(next, linkedVisa, { onlyEmpty: true }));
-      }
-    }
-    Object.assign(next, reconcileLinkedSelections(next, travellers || [], pnrs || []));
-    if (type === "query" && !initial.queryType && isCementScopedUser(access)) {
-      next.queryType = "Cement";
-    }
-    setForm(next);
-    setModal(type);
-    if (type !== "query") setPendingQueryFiles([]);
-    if (type !== "proposal") setPendingProposalFiles([]);
-    if (type !== "expense") setPendingExpenseProofFiles([]);
-  };
-
-  useEffect(() => {
-    openModalRef.current = openModal;
-  });
-
-  const closeModal = () => {
-    setModal(null);
-    setForm(INITIAL_FORM);
-    setPendingQueryFiles([]);
-    setPendingProposalFiles([]);
-    setPendingExpenseProofFiles([]);
-    setError("");
-    const params = serializeUrlFilterState(
-      { search, dateRange, jobCardFilter, listFilters },
-      listFilterConfig,
-    );
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  };
-
-  useEffect(() => {
-    const open = searchParams.get("open");
-    const id = searchParams.get("id");
-    const queryId = searchParams.get("queryId");
-    if (!open) {
-      deepLinkHandledRef.current = "";
-      return;
-    }
-    if (!allowed || !canFetch) {
-      return;
-    }
-
-    const deepLinkCollections = {
-      queries,
-      proposals,
-      jobCards,
-      tickets,
-      leaves,
-      expenses,
-      approvals,
-    };
-
-    const signature = `${open}:${id || ""}:${queryId || ""}`;
-    if (deepLinkHandledRef.current === signature) {
-      return;
-    }
-
-    const resolved = resolveDeepLink({ open, id, queryId }, deepLinkCollections);
-    if (resolved.status === "none" || resolved.status === "loading") {
-      return;
-    }
-
-    if (resolved.status === "missing") {
-      deepLinkHandledRef.current = signature;
-      toast.error("Record not found or you may not have access.");
-      const params = serializeUrlFilterState(
-        { search, dateRange, jobCardFilter, listFilters },
-        listFilterConfig,
-      );
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-      return;
-    }
-
-    if (!isDeepLinkDataReady(resolved.modal, deepLinkCollections)) {
-      return;
-    }
-
-    const initial = buildModalInitial(
-      resolved.modal,
-      { entityId: resolved.entityId, queryId: resolved.queryId },
-      deepLinkCollections,
-    );
-    if (!initial) {
-      deepLinkHandledRef.current = signature;
-      toast.error("Record not found or you may not have access.");
-      const params = serializeUrlFilterState(
-        { search, dateRange, jobCardFilter, listFilters },
-        listFilterConfig,
-      );
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-      return;
-    }
-
-    deepLinkHandledRef.current = signature;
-    queueMicrotask(() => openModalRef.current?.(resolved.modal, initial));
-  }, [
-    allowed,
-    canFetch,
-    queries,
-    proposals,
-    jobCards,
-    tickets,
-    leaves,
-    expenses,
-    approvals,
-    pathname,
-    searchParams,
-    listFilterConfig,
-    listFilters,
-    dateRange,
-    jobCardFilter,
-    search,
-    router,
-    toast,
-  ]);
-
-  if (isAuthLoading || !isAuthenticated || access === undefined) {
+  const workspace = usePortalWorkspaceState(view, searchParams);
+  usePortalNotificationDeepLink(workspace);
+  if (workspace.gate === "loading") {
     return <LoadingPanel />;
   }
-
-  if (!allowed) {
+  if (workspace.gate === "denied") {
     return (
       <div className="rounded-2xl border border-brand-border bg-white p-8 shadow-sm">
         <div className="font-heading text-xl font-semibold text-citius-blue">
@@ -1333,848 +618,394 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
       </div>
     );
   }
+  return <PortalWorkspaceLayout workspace={workspace} />;
+}
 
-  const updateForm = (field, value) => {
-    setForm((current) => ({ ...current, [field]: value }));
-  };
-
-  const patchForm = (patch) => {
-    setForm((current) => ({ ...current, ...patch }));
-  };
-
-  const deleteItem = async (label, mutation, args, options = {}) => {
-    setError("");
-    const confirmMessage = options.confirmMessage || `Delete ${label}? This cannot be undone.`;
-    const ok = await confirm({
-      title: "Delete record",
-      message: confirmMessage,
-      confirmLabel: "Delete",
-      danger: true,
-    });
-    if (!ok) return;
-    try {
-      await runMutation({ label, showToast: toast, successMessage: `${label} deleted` }, () =>
-        mutation(args),
-      );
-    } catch {
-      // Toast already shown by runMutation
-    }
-  };
-
-  const deleteSelected = async (count, entityLabel, mutation, buildArgs) => {
-    setError("");
-    if (count === 0) return false;
-    const noun = count === 1 ? entityLabel : `${entityLabel}s`;
-    const ok = await confirm({
-      title: "Delete selected",
-      message: `Delete ${count} selected ${noun}? This cannot be undone.`,
-      confirmLabel: "Delete",
-      danger: true,
-    });
-    if (!ok) return false;
-    try {
-      await runMutation({ showToast: toast, successMessage: `Deleted ${count} ${noun}` }, () =>
-        mutation(buildArgs()),
-      );
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setIsSaving(true);
-    setError("");
-    try {
-      let saveSuccessMessage = "Saved";
-      await runMutation(
-        {
-          label: "Save",
-          showToast: toast,
-          successMessage: () => saveSuccessMessage,
-          onError: (message) => setError(message),
-        },
-        async () => {
-          if (JOB_CARD_MODALS.has(modal) && !form.jobCardId?.trim()) {
-            throw new Error("Please select a job card.");
-          }
-          if (modal === "query") {
-            if (form.entityId) {
-              await updateQuery({
-                queryId: form.entityId,
-                clientName: form.clientName,
-                contactPerson: form.contactPerson,
-                contactMobile: form.contactMobile,
-                destination: form.destination,
-                paxCount: toNumber(form.paxCount, 1),
-                travelStartDate: form.travelStartDate,
-                travelEndDate: form.travelEndDate,
-                queryType: form.queryType,
-                travelType: form.travelType,
-                budgetAmount: toNumber(form.budgetAmount, 0),
-                source: form.source,
-                salesOwnerName: form.salesOwnerName,
-                notes: form.notes,
-              });
-            } else {
-              const created = await createQuery({
-                clientName: form.clientName,
-                contactPerson: form.contactPerson,
-                contactMobile: form.contactMobile,
-                destination: form.destination,
-                paxCount: toNumber(form.paxCount, 1),
-                travelStartDate: form.travelStartDate,
-                travelEndDate: form.travelEndDate,
-                queryType: form.queryType,
-                travelType: form.travelType,
-                budgetAmount: toNumber(form.budgetAmount, 0),
-                source: form.source,
-                salesOwnerName: form.salesOwnerName,
-                notes: form.notes,
-              });
-              if (pendingQueryFiles.length > 0) {
-                await uploadQueryFiles({
-                  queryId: created.id,
-                  files: pendingQueryFiles,
-                  generateUploadUrl: generateQueryUploadUrl,
-                  attachQueryFile,
-                });
-              }
-            }
-          }
-          if (modal === "assignContracting") {
-            await assignContracting({ queryId: form.queryId, staffId: form.staffId });
-          }
-          if (modal === "assignContractingOwner") {
-            await assignContractingOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
-          }
-          if (modal === "assignOperationsOwner") {
-            await assignOperationsOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
-          }
-          if (modal === "assignTicketingOwner") {
-            await assignTicketingOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
-          }
-          if (modal === "queryStatus") {
-            const payload = { queryId: form.queryId };
-            if (has(P.MANAGE_QUERIES)) {
-              payload.salesStatus = form.salesStatus;
-              payload.leadStage = form.leadStage;
-              payload.lostReason = form.salesStatus === "Order Lost" ? form.lostReason : undefined;
-              const confirmingNow = form.salesStatus === "Order Confirmed";
-              const queryRow = (queries || []).find((query) => query.id === form.queryId);
-              const alreadyConfirmed =
-                queryRow?.salesStatus === "Order Confirmed" ||
-                queryRow?.contractingStatus === "Order Confirmed";
-              if (confirmingNow || alreadyConfirmed) {
-                if (form.approxMargin !== "") {
-                  payload.approxMargin = toNumber(form.approxMargin, 0);
-                }
-              }
-            }
-            if (has(P.MANAGE_CONTRACTING) && !has(P.MANAGE_QUERIES)) {
-              payload.contractingStatus = form.contractingStatus;
-            }
-            if (has(P.MANAGE_CONTRACTING) && has(P.MANAGE_QUERIES)) {
-              payload.contractingStatus = form.contractingStatus;
-            }
-            if (has(P.MANAGE_CONTRACTING)) {
-              payload.contractingLandCost = toNumber(form.contractingLandCost, 0);
-              payload.contractingAirlinesCost = toNumber(form.contractingAirlinesCost, 0);
-              payload.contractingVisaCost = toNumber(form.contractingVisaCost, 0);
-            }
-            await updateQueryStatus(payload);
-          }
-          if (modal === "proposal") {
-            let proposalResult = null;
-            const proposalQueryIds =
-              Array.isArray(form.queryIds) && form.queryIds.length > 0
-                ? form.queryIds
-                : form.queryId
-                  ? [form.queryId]
-                  : [];
-            const proposalPayload = {
-              queryIds: proposalQueryIds,
-              clientName: form.clientName,
-              landCostPerPax: toNumber(form.landCostPerPax, 0),
-              airfarePerPax: toNumber(form.airfarePerPax, 0),
-              visaCostPerPax: toNumber(form.visaCostPerPax, 0),
-              sellingPrice: toNumber(form.sellingPrice, 0),
-              ...(form.taxRate !== ""
-                ? { taxRate: toNumber(form.taxRate, 0) }
-                : form.entityId
-                  ? { taxRate: null }
-                  : {}),
-              itinerarySummary: form.itinerarySummary,
-            };
-            if (form.entityId) {
-              proposalResult = await updateProposal({
-                proposalId: form.entityId,
-                ...proposalPayload,
-              });
-            } else {
-              proposalResult = await createProposal(proposalPayload);
-            }
-            const proposalId = form.entityId || proposalResult?.id;
-            if (proposalId && pendingProposalFiles.length > 0) {
-              await uploadEntityFiles({
-                entityId: proposalId,
-                idField: "proposalId",
-                files: pendingProposalFiles,
-                generateUploadUrl: generateProposalUploadUrl,
-                attachFile: attachProposalFile,
-              });
-            }
-          }
-          if (modal === "jobCard") {
-            if (form.entityId) {
-              await updateJobCard({
-                jobCardId: form.entityId,
-                clientName: form.clientName,
-                destination: form.destination,
-                confirmedPax: toNumber(form.confirmedPax, 1),
-                roomCount: toNumber(form.roomCount, 0),
-                travelStartDate: form.travelStartDate,
-                travelEndDate: form.travelEndDate,
-                tourManagerName: form.tourManagerName,
-              });
-            } else {
-              await createJobCard({
-                queryId: form.queryId,
-                proposalId: form.proposalId || undefined,
-                clientName: form.clientName,
-                destination: form.destination,
-                confirmedPax: toNumber(form.confirmedPax, 1),
-                roomCount: toNumber(form.roomCount, 0),
-                travelStartDate: form.travelStartDate,
-                travelEndDate: form.travelEndDate,
-                tourManagerName: form.tourManagerName,
-              });
-            }
-          }
-          if (modal === "traveller") {
-            const travellerPayload = {
-              fullName: form.fullName,
-              travelHub: form.travelHub,
-              foodPreference: form.foodPreference,
-              guestType: form.guestType,
-              paymentType: form.paymentType,
-              roomType: form.roomType,
-              visaRequired: form.visaRequired === "Yes",
-              domesticTravelRequired: form.domesticTravelRequired === "Yes",
-              biometricAppointmentDate: form.biometricAppointmentDate,
-              travelDate: form.travelDate,
-              guestCompanions: form.guestCompanions,
-              extensionOfTour: form.extensionOfTour === "Yes",
-              arrivingEarly: form.arrivingEarly === "Yes",
-              passportStatus: form.passportStatus,
-              hotelAllocation: form.hotelAllocation,
-              specialRequests: form.notes,
-            };
-            if (form.entityId) {
-              await updateTraveller({ travellerId: form.entityId, ...travellerPayload });
-            } else {
-              await createTraveller({ jobCardId: form.jobCardId, ...travellerPayload });
-            }
-          }
-          if (modal === "visa") {
-            await updateVisaRecord({
-              visaRecordId: form.visaRecordId,
-              status: form.visaStatus,
-              appointmentDate: form.appointmentDate,
-              notes: form.notes,
-            });
-          }
-          if (modal === "visa_create") {
-            await createVisa({
-              travellerId: form.travellerId,
-              status: form.visaStatus,
-            });
-          }
-          if (modal === "pnr") {
-            if (form.entityId) {
-              await updatePnr({
-                pnrId: form.entityId,
-                pnrCode: form.pnrCode,
-                airline: form.airline,
-                route: form.route,
-                fareType: form.fareType,
-                totalSeats: toNumber(form.totalSeats, 1),
-              });
-            } else {
-              await createPnr({
-                jobCardId: form.jobCardId,
-                pnrCode: form.pnrCode,
-                airline: form.airline,
-                route: form.route,
-                fareType: form.fareType,
-                totalSeats: toNumber(form.totalSeats, 1),
-              });
-            }
-          }
-          if (modal === "ticket") {
-            const ticketPayload = {
-              travellerId: form.travellerId || undefined,
-              pnrId: form.pnrId || undefined,
-              ticketNumber: form.ticketNumber,
-              ticketType: form.ticketType,
-              ticketStatus: form.ticketStatus,
-              paymentType: form.paymentType,
-              cabinClass: form.cabinClass,
-              mealPreference: form.foodPreference,
-              seatPreference: form.seatPreference,
-              seatNumber: form.seatNumber,
-            };
-            if (form.entityId) {
-              await updateTicket({ ticketId: form.entityId, ...ticketPayload });
-            } else {
-              await createTicket({ jobCardId: form.jobCardId, ...ticketPayload });
-            }
-          }
-          if (modal === "seat") {
-            if (form.entityId) {
-              await updateSeatAllocation({
-                seatAllocationId: form.entityId,
-                travellerId: form.travellerId || undefined,
-                pnrId: form.pnrId || undefined,
-                seatNumber: form.seatNumber,
-                status: form.seatStatus,
-                notes: form.notes,
-              });
-            } else {
-              await saveSeat({
-                jobCardId: form.jobCardId,
-                travellerId: form.travellerId || undefined,
-                pnrId: form.pnrId || undefined,
-                seatNumber: form.seatNumber,
-                status: form.seatStatus,
-                notes: form.notes,
-              });
-            }
-          }
-          if (modal === "hotel") {
-            if (form.entityId) {
-              await updateHotel({
-                hotelId: form.entityId,
-                name: form.hotelName,
-                city: form.city,
-                checkInDate: form.checkInDate,
-                checkOutDate: form.checkOutDate,
-                specialInstructions: form.notes,
-              });
-            } else {
-              await createHotel({
-                jobCardId: form.jobCardId,
-                name: form.hotelName,
-                city: form.city,
-                checkInDate: form.checkInDate,
-                checkOutDate: form.checkOutDate,
-                specialInstructions: form.notes,
-              });
-            }
-          }
-          if (modal === "tourManager") {
-            const selectedTm = team.find((member) => member.id === form.staffId);
-            if (form.entityId) {
-              await updateTourManager({
-                tourManagerId: form.entityId,
-                jobCardId: form.jobCardId || undefined,
-                name: selectedTm?.name || form.tourManagerName,
-                email: form.staffEmail,
-                phone: form.paidBy,
-                availabilityDate: form.travelStartDate,
-                notes: form.notes,
-              });
-            } else {
-              await createTourManager({
-                jobCardId: form.jobCardId || undefined,
-                staffId: form.staffId || undefined,
-                name: selectedTm?.name || form.tourManagerName,
-                email: form.staffEmail,
-                phone: form.paidBy,
-                availabilityDate: form.travelStartDate,
-                notes: form.notes,
-              });
-            }
-          }
-          if (modal === "invoice") {
-            if (form.entityId) {
-              await updateInvoice({
-                invoiceId: form.entityId,
-                invoiceNumber: form.invoiceNumber,
-                expectedAmount: toNumber(form.expectedAmount, 0),
-                receivedAmount: toNumber(form.receivedAmount, 0),
-                dueDate: form.dueDate,
-              });
-            } else {
-              await createInvoice({
-                jobCardId: form.jobCardId,
-                invoiceNumber: form.invoiceNumber,
-                expectedAmount: toNumber(form.expectedAmount, 0),
-                receivedAmount: toNumber(form.receivedAmount, 0),
-                dueDate: form.dueDate,
-              });
-            }
-          }
-          if (modal === "expense") {
-            const expenseTotal = getExpenseSplitTotal({
-              cardAmount: form.cardAmount,
-              cashAmount: form.cashAmount,
-              epayAmount: form.epayAmount,
-            });
-            const expensePayload = {
-              tourManagerName: form.tourManagerName,
-              category: form.category,
-              expenseDate: form.expenseDate,
-              particulars: form.particulars,
-              currency: form.currency,
-              cardAmount: toNumber(form.cardAmount, 0),
-              cashAmount: toNumber(form.cashAmount, 0),
-              epayAmount: toNumber(form.epayAmount, 0),
-              amount: expenseTotal,
-              paidBy: form.paidBy,
-              notes: form.notes,
-            };
-            let expenseResult = null;
-            if (form.entityId) {
-              expenseResult = await updateExpense({ expenseId: form.entityId, ...expensePayload });
-            } else {
-              expenseResult = await createExpense({
-                jobCardId: form.expenseType === "jobCard" ? form.jobCardId : undefined,
-                ...expensePayload,
-              });
-            }
-            const expenseId = form.entityId || expenseResult?.id;
-            if (expenseId && pendingExpenseProofFiles.length > 0) {
-              await uploadExpenseProofFiles({
-                expenseId,
-                files: pendingExpenseProofFiles.slice(0, 1),
-                generateUploadUrl: generateExpenseUploadUrl,
-                attachExpenseProof,
-              });
-            }
-          }
-          if (modal === "staff") {
-            const result = await upsertStaff({
-              staffId: form.staffId || undefined,
-              email: form.staffEmail,
-              name: form.staffName,
-              roles: form.staffRoles,
-              department: form.department,
-              function: form.staffFunction,
-              mobile: form.mobile,
-              location: form.location,
-              active: Boolean(form.staffActive),
-            });
-            if (result?.created) {
-              saveSuccessMessage = `Staff added. A verification email was sent to ${form.staffEmail}. They must verify their email before receiving a password setup link.`;
-            }
-          }
-          if (modal === "leave_create") {
-            const leavePayload = {
-              leaveType: form.leaveType,
-              startDate: form.startDate,
-              endDate: form.endDate,
-              reason: form.reason,
-            };
-            if (form.entityId) {
-              await updateLeave({ leaveId: form.entityId, ...leavePayload });
-            } else if (has(P.MANAGE_LEAVE)) {
-              await createLeave({
-                staffId: form.staffId,
-                ...leavePayload,
-                status: form.status || "Pending",
-              });
-            } else {
-              await createLeave(leavePayload);
-            }
-          }
-          if (modal === "approvalDecide") {
-            await decideApproval({
-              approvalId: form.approvalId,
-              status: form.approvalStatus,
-              decisionNote: form.decisionNote,
-            });
-          }
-          closeModal();
-        },
-      );
-    } catch (err) {
-      setError(err?.data || err?.message || "Unable to save.");
-    }
-    setIsSaving(false);
-  };
-
+function PortalWorkspaceHeader({ workspace: w }) {
   return (
-    <div className="mx-auto max-w-[1500px]">
+    <>
       <PageHeader
-        title={meta.title}
-        subtitle={meta.subtitle}
-        search={search}
-        setSearch={setSearch}
-        dateRange={dateRange}
-        setDateRange={setDateRange}
-        showSearch={view !== "dashboard"}
-        showPeriodFilter={!["settings", "team"].includes(view)}
-        showJobCardFilter={showJobCardFilter}
-        jobCardFilter={jobCardFilter}
-        setJobCardFilter={setJobCardFilter}
-        jobCards={jobCards || []}
-        listFilterConfig={listFilterConfig}
-        listFilters={listFilters}
-        setListFilterValue={setListFilterValue}
+        title={w.meta.title}
+        subtitle={w.meta.subtitle}
+        search={w.search}
+        setSearch={w.setSearchWithUrl}
+        dateRange={w.dateRange}
+        setDateRange={w.setDateRangeWithUrl}
+        showSearch={w.view !== "dashboard"}
+        showPeriodFilter={!["settings", "team"].includes(w.view)}
+        showJobCardFilter={w.showJobCardFilter}
+        jobCardFilter={w.jobCardFilter}
+        setJobCardFilter={w.setJobCardFilterWithUrl}
+        jobCards={w.jobCards || []}
+        listFilterConfig={w.listFilterConfig}
+        listFilters={w.listFilters}
+        setListFilterValue={w.setListFilterValue}
         filterSourceRows={
           {
-            proposals: periodFiltered.proposals,
-            "job-cards": periodFiltered.jobCards,
-            travellers: periodFiltered.travellers,
-            passport: periodFiltered.travellers,
-            visa: periodFiltered.visas,
-            ticketing: periodFiltered.tickets,
-            flights: periodFiltered.pnrs,
-            tickets: periodFiltered.tickets,
-            "seat-allocation": periodFiltered.seats,
-            hotels: periodFiltered.travellers,
-            "tour-managers": periodFiltered.tourManagers,
-            finance: periodFiltered.invoices,
-            expenses: periodFiltered.expenses,
-            approvals: periodFiltered.approvals,
-            "employees-on-leave": periodFiltered.leaves,
-            team: team || [],
-            activity: periodFiltered.activity,
-          }[view] ?? periodFiltered.queries
+            proposals: w.periodFiltered.proposals,
+            "job-cards": w.periodFiltered.jobCards,
+            travellers: w.periodFiltered.travellers,
+            passport: w.periodFiltered.travellers,
+            visa: w.periodFiltered.visas,
+            ticketing: w.periodFiltered.tickets,
+            flights: w.periodFiltered.pnrs,
+            tickets: w.periodFiltered.tickets,
+            "seat-allocation": w.periodFiltered.seats,
+            hotels: w.periodFiltered.travellers,
+            "tour-managers": w.periodFiltered.tourManagers,
+            finance: w.periodFiltered.invoices,
+            expenses: w.periodFiltered.expenses,
+            approvals: w.periodFiltered.approvals,
+            "employees-on-leave": w.periodFiltered.leaves,
+            team: w.team || [],
+            activity: w.periodFiltered.activity,
+          }[w.view] ?? w.periodFiltered.queries
         }
-        filtersActive={filtersActive}
-        onClearAllFilters={clearAllFilters}
+        filtersActive={w.filtersActive}
+        onClearAllFilters={w.clearAllFilters}
       >
-        <HeaderActions view={view} openModal={openModal} has={has} access={access} />
+        <HeaderActions view={w.view} openModal={w.openModal} has={w.has} access={w.access} />
       </PageHeader>
 
-      {error && !modal && (
+      {w.error && !w.modal && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
+          {w.error}
         </div>
       )}
+    </>
+  );
+}
 
-      {view === "dashboard" && <DashboardView summary={summary} has={has} access={access} />}
-      {view === "queries" && (
+function PortalWorkspaceViews({ workspace: w }) {
+  return (
+    <>
+{w.view === "dashboard" && <DashboardView summary={w.summary} has={w.has} access={w.access} />}
+      {w.view === "queries" && (
         <QueriesView
-          rows={filteredQueries}
-          filtersActive={filtersActive}
-          openModal={openModal}
-          has={has}
-          deleteItem={deleteItem}
-          removeQuery={removeQuery}
-          submitToContracting={submitToContracting}
-          getQueryAttachmentUrl={getQueryAttachmentUrl}
+          rows={w.filteredQueries}
+          filtersActive={w.filtersActive}
+          openModal={w.openModal}
+          has={w.has}
+          deleteItem={w.deleteItem}
+          removeQuery={w.removeQuery}
+          submitToContracting={w.submitToContracting}
+          getQueryAttachmentUrl={w.getQueryAttachmentUrl}
         />
       )}
-      {view === "pipeline" && (
+      {w.view === "pipeline" && (
         <PipelineView
-          rows={filteredPipelineQueries}
-          mode={pipelineMode}
-          setMode={setPipelineMode}
+          rows={w.filteredPipelineQueries}
+          mode={w.pipelineMode}
+          setMode={w.setPipelineMode}
         />
       )}
-      {view === "contracting" && (
+      {w.view === "contracting" && (
         <ContractingView
-          rows={filteredContractingQueries}
-          proposals={filteredProposals}
-          filtersActive={filtersActive}
-          team={team || []}
-          openModal={openModal}
-          has={has}
-          canAssign={canAssignContracting(access)}
-          deleteItem={deleteItem}
-          removeQuery={removeQuery}
+          rows={w.filteredContractingQueries}
+          proposals={w.filteredProposals}
+          filtersActive={w.filtersActive}
+          team={w.team || []}
+          openModal={w.openModal}
+          has={w.has}
+          canAssign={canAssignContracting(w.access)}
+          deleteItem={w.deleteItem}
+          removeQuery={w.removeQuery}
         />
       )}
-      {view === "proposals" && (
+      {w.view === "proposals" && (
         <ProposalsView
-          rows={filteredProposals}
-          filtersActive={filtersActive}
-          markProposalSent={markProposalSent}
-          openModal={openModal}
-          has={has}
-          deleteItem={deleteItem}
-          removeProposal={removeProposal}
-          getProposalAttachmentUrl={getProposalAttachmentUrl}
-          getFinalizedPdfUrl={getFinalizedPdfUrl}
+          rows={w.filteredProposals}
+          filtersActive={w.filtersActive}
+          markProposalSent={w.markProposalSent}
+          openModal={w.openModal}
+          has={w.has}
+          deleteItem={w.deleteItem}
+          removeProposal={w.removeProposal}
+          getProposalAttachmentUrl={w.getProposalAttachmentUrl}
+          getFinalizedPdfUrl={w.getFinalizedPdfUrl}
         />
       )}
-      {view === "accounts-job-cards" && (
+      {w.view === "accounts-job-cards" && (
         <AccountsJobCardView
-          rows={filteredAccountsQueries}
-          filtersActive={filtersActive}
-          jobCards={filteredJobCards}
-          openModal={openModal}
+          rows={w.filteredAccountsQueries}
+          filtersActive={w.filtersActive}
+          jobCards={w.filteredJobCards}
+          openModal={w.openModal}
         />
       )}
-      {view === "job-cards" && (
+      {w.view === "job-cards" && (
         <JobCardsView
-          rows={filteredJobCards}
-          filtersActive={filtersActive}
-          updateJobStatus={updateJobStatus}
-          openModal={openModal}
-          has={has}
-          access={access}
-          deleteItem={deleteItem}
-          removeJobCard={removeJobCard}
+          rows={w.filteredJobCards}
+          filtersActive={w.filtersActive}
+          updateJobStatus={w.updateJobStatus}
+          openModal={w.openModal}
+          has={w.has}
+          access={w.access}
+          deleteItem={w.deleteItem}
+          removeJobCard={w.removeJobCard}
         />
       )}
-      {view === "travellers" && (
+      {w.view === "travellers" && (
         <TravellersView
-          rows={filteredTravellers}
-          filtersActive={filtersActive}
-          openModal={openModal}
-          has={has}
-          deleteItem={deleteItem}
-          deleteSelected={deleteSelected}
-          removeTraveller={removeTraveller}
-          removeManyTravellers={removeManyTravellers}
+          rows={w.filteredTravellers}
+          filtersActive={w.filtersActive}
+          openModal={w.openModal}
+          has={w.has}
+          deleteItem={w.deleteItem}
+          deleteSelected={w.deleteSelected}
+          removeTraveller={w.removeTraveller}
+          removeManyTravellers={w.removeManyTravellers}
         />
       )}
-      {view === "passport" && (
+      {w.view === "passport" && (
         <PassportDocumentsView
-          travellers={filteredPassportTravellers}
-          filtersActive={filtersActive}
-          has={has}
-          generateUploadUrl={generateUploadUrl}
-          encryptAndStorePassport={encryptAndStorePassport}
-          getPassportDocument={getPassportDocument}
-          removePassport={removePassport}
+          travellers={w.filteredPassportTravellers}
+          filtersActive={w.filtersActive}
+          has={w.has}
+          generateUploadUrl={w.generateUploadUrl}
+          encryptAndStorePassport={w.encryptAndStorePassport}
+          getPassportDocument={w.getPassportDocument}
+          removePassport={w.removePassport}
         />
       )}
-      {view === "visa" && (
+      {w.view === "visa" && (
         <VisaTrackingView
-          rows={filteredVisas}
-          filtersActive={filtersActive}
-          openModal={openModal}
-          has={has}
-          deleteItem={deleteItem}
-          deleteSelected={deleteSelected}
-          removeVisa={removeVisa}
-          removeManyVisas={removeManyVisas}
+          rows={w.filteredVisas}
+          filtersActive={w.filtersActive}
+          openModal={w.openModal}
+          has={w.has}
+          deleteItem={w.deleteItem}
+          deleteSelected={w.deleteSelected}
+          removeVisa={w.removeVisa}
+          removeManyVisas={w.removeManyVisas}
         />
       )}
-      {view === "ticketing" && (
+      {w.view === "ticketing" && (
         <TicketDashboardView
-          summary={ticketDashboard}
-          tickets={filteredTickets}
-          openModal={openModal}
-          has={has}
-          deleteItem={deleteItem}
-          deleteSelected={deleteSelected}
-          removeTicket={removeTicket}
-          removeManyTickets={removeManyTickets}
+          summary={w.ticketDashboard}
+          tickets={w.filteredTickets}
+          openModal={w.openModal}
+          has={w.has}
+          deleteItem={w.deleteItem}
+          deleteSelected={w.deleteSelected}
+          removeTicket={w.removeTicket}
+          removeManyTickets={w.removeManyTickets}
         />
       )}
-      {view === "flights" && (
+      {w.view === "flights" && (
         <PnrView
-          rows={filteredPnrs}
-          filtersActive={filtersActive}
-          itinerary={periodFiltered.flightItinerary}
-          openModal={openModal}
-          has={has}
-          deleteItem={deleteItem}
-          deleteSelected={deleteSelected}
-          removePnr={removePnr}
-          removeManyPnrs={removeManyPnrs}
+          rows={w.filteredPnrs}
+          filtersActive={w.filtersActive}
+          itinerary={w.periodFiltered.flightItinerary}
+          openModal={w.openModal}
+          has={w.has}
+          deleteItem={w.deleteItem}
+          deleteSelected={w.deleteSelected}
+          removePnr={w.removePnr}
+          removeManyPnrs={w.removeManyPnrs}
         />
       )}
-      {view === "seat-allocation" && (
+      {w.view === "seat-allocation" && (
         <SeatView
-          rows={filteredSeats}
-          filtersActive={filtersActive}
-          openModal={openModal}
-          has={has}
-          deleteItem={deleteItem}
-          deleteSelected={deleteSelected}
-          removeSeatAllocation={removeSeatAllocation}
-          removeManySeatAllocations={removeManySeatAllocations}
+          rows={w.filteredSeats}
+          filtersActive={w.filtersActive}
+          openModal={w.openModal}
+          has={w.has}
+          deleteItem={w.deleteItem}
+          deleteSelected={w.deleteSelected}
+          removeSeatAllocation={w.removeSeatAllocation}
+          removeManySeatAllocations={w.removeManySeatAllocations}
         />
       )}
-      {view === "tickets" && (
+      {w.view === "tickets" && (
         <TicketsView
-          rows={filteredAllTickets}
-          filtersActive={filtersActive}
-          openModal={openModal}
-          has={has}
-          deleteItem={deleteItem}
-          deleteSelected={deleteSelected}
-          removeTicket={removeTicket}
-          removeManyTickets={removeManyTickets}
+          rows={w.filteredAllTickets}
+          filtersActive={w.filtersActive}
+          openModal={w.openModal}
+          has={w.has}
+          deleteItem={w.deleteItem}
+          deleteSelected={w.deleteSelected}
+          removeTicket={w.removeTicket}
+          removeManyTickets={w.removeManyTickets}
         />
       )}
-      {view === "hotels" && (
+      {w.view === "hotels" && (
         <div className="space-y-5">
           <Panel
             title="Hotel Properties"
             subtitle="Manual hotel records for ground planning and check-in/out dates."
           >
             <HotelsView
-              rows={filteredHotels}
-              filtersActive={filtersActive}
-              openModal={openModal}
-              has={has}
-              deleteItem={deleteItem}
-              deleteSelected={deleteSelected}
-              removeHotel={removeHotel}
-              removeManyHotels={removeManyHotels}
+              rows={w.filteredHotels}
+              filtersActive={w.filtersActive}
+              openModal={w.openModal}
+              has={w.has}
+              deleteItem={w.deleteItem}
+              deleteSelected={w.deleteSelected}
+              removeHotel={w.removeHotel}
+              removeManyHotels={w.removeManyHotels}
             />
           </Panel>
           <Panel
             title="Rooming Assignments"
             subtitle="Passenger room types and allocations from traveller master or rooming import."
           >
-            <RoomingListView rows={filteredRoomingTravellers} filtersActive={filtersActive} />
+            <RoomingListView rows={w.filteredRoomingTravellers} filtersActive={w.filtersActive} />
           </Panel>
         </div>
       )}
-      {view === "tour-managers" && (
+      {w.view === "tour-managers" && (
         <TourManagersView
-          rows={filteredTourManagers}
-          filtersActive={filtersActive}
-          travellers={periodFiltered.travellers}
-          openModal={openModal}
-          has={has}
-          canAssign={canAssignTourManagers(access)}
-          deleteItem={deleteItem}
-          deleteSelected={deleteSelected}
-          removeTourManager={removeTourManager}
-          removeManyTourManagers={removeManyTourManagers}
-          updateCallingStatus={updateCallingStatus}
+          rows={w.filteredTourManagers}
+          filtersActive={w.filtersActive}
+          travellers={w.periodFiltered.travellers}
+          openModal={w.openModal}
+          has={w.has}
+          canAssign={canAssignTourManagers(w.access)}
+          deleteItem={w.deleteItem}
+          deleteSelected={w.deleteSelected}
+          removeTourManager={w.removeTourManager}
+          removeManyTourManagers={w.removeManyTourManagers}
+          updateCallingStatus={w.updateCallingStatus}
         />
       )}
-      {view === "finance" && (
+      {w.view === "finance" && (
         <FinanceView
-          rows={filteredInvoices}
-          filtersActive={filtersActive}
-          overview={financeOverview}
-          openModal={openModal}
-          has={has}
-          deleteItem={deleteItem}
-          removeInvoice={removeInvoice}
+          rows={w.filteredInvoices}
+          filtersActive={w.filtersActive}
+          overview={w.financeOverview}
+          openModal={w.openModal}
+          has={w.has}
+          deleteItem={w.deleteItem}
+          removeInvoice={w.removeInvoice}
         />
       )}
-      {view === "expenses" && (
+      {w.view === "expenses" && (
         <ExpensesView
-          rows={filteredExpenses}
-          filtersActive={filtersActive}
-          openModal={openModal}
-          has={has}
-          deleteItem={deleteItem}
-          removeExpense={removeExpense}
-          submitExpenseForApproval={submitExpenseForApproval}
-          getExpenseAttachmentUrl={getExpenseAttachmentUrl}
-          removeExpenseProof={removeExpenseProof}
+          rows={w.filteredExpenses}
+          filtersActive={w.filtersActive}
+          openModal={w.openModal}
+          has={w.has}
+          deleteItem={w.deleteItem}
+          removeExpense={w.removeExpense}
+          submitExpenseForApproval={w.submitExpenseForApproval}
+          getExpenseAttachmentUrl={w.getExpenseAttachmentUrl}
+          removeExpenseProof={w.removeExpenseProof}
         />
       )}
-      {view === "approvals" && (
+      {w.view === "approvals" && (
         <ApprovalsView
-          rows={filteredApprovals}
-          filtersActive={filtersActive}
-          has={has}
-          openModal={openModal}
-          decideApproval={decideApproval}
-          deleteItem={deleteItem}
-          removeApproval={removeApproval}
+          rows={w.filteredApprovals}
+          filtersActive={w.filtersActive}
+          has={w.has}
+          openModal={w.openModal}
+          decideApproval={w.decideApproval}
+          deleteItem={w.deleteItem}
+          removeApproval={w.removeApproval}
         />
       )}
-      {view === "reports" && <ReportsView report={reports} />}
-      {view === "team" && <TeamView rows={filteredTeam} />}
-      {view === "employees-on-leave" && (
+      {w.view === "reports" && <ReportsView report={w.reports} />}
+      {w.view === "team" && <TeamView rows={w.filteredTeam} />}
+      {w.view === "employees-on-leave" && (
         <LeaveView
-          rows={filteredLeaves}
-          filtersActive={filtersActive}
-          staff={staff || team || []}
-          access={access}
-          openModal={openModal}
-          has={has}
-          deleteItem={deleteItem}
-          removeLeave={removeLeave}
-          decideLeave={decideLeave}
+          rows={w.filteredLeaves}
+          filtersActive={w.filtersActive}
+          staff={w.staff || w.team || []}
+          access={w.access}
+          openModal={w.openModal}
+          has={w.has}
+          deleteItem={w.deleteItem}
+          removeLeave={w.removeLeave}
+          decideLeave={w.decideLeave}
         />
       )}
-      {view === "activity" && (
+      {w.view === "activity" && (
         <ActivityView
-          activity={filteredActivity}
-          filtersActive={filtersActive}
-          notifications={periodFiltered.notifications}
-          deleteItem={deleteItem}
-          removeNotification={removeNotification}
-          markNotificationRead={markNotificationRead}
+          activity={w.filteredActivity}
+          filtersActive={w.filtersActive}
+          notifications={w.periodFiltered.notifications}
+          deleteItem={w.deleteItem}
+          removeNotification={w.removeNotification}
+          markNotificationRead={w.markNotificationRead}
         />
       )}
-      {view === "settings" && (
+      {w.view === "settings" && (
         <SettingsView
-          staff={filteredStaff}
-          dropdowns={dropdowns || {}}
-          search={search}
-          openModal={openModal}
-          deleteItem={deleteItem}
-          removeStaff={removeStaff}
-          startStaffOnboarding={startStaffOnboarding}
+          staff={w.filteredStaff}
+          dropdowns={w.dropdowns || {}}
+          search={w.search}
+          openModal={w.openModal}
+          deleteItem={w.deleteItem}
+          removeStaff={w.removeStaff}
+          startStaffOnboarding={w.startStaffOnboarding}
         />
       )}
 
-      <EntityModal
-        modal={SPREADSHEET_MODALS.includes(modal) ? null : modal}
-        form={form}
-        updateForm={updateForm}
-        patchForm={patchForm}
-        submit={submit}
-        close={closeModal}
-        error={error}
-        isSaving={isSaving}
-        queries={queries || []}
-        proposals={proposals || []}
-        jobCards={jobCards || []}
-        travellers={travellers || []}
-        visas={visas || []}
-        pnrs={pnrs || []}
-        team={team || []}
-        travellersWithoutVisa={travellersWithoutVisa || []}
-        pendingQueryFiles={pendingQueryFiles}
-        setPendingQueryFiles={setPendingQueryFiles}
-        pendingProposalFiles={pendingProposalFiles}
-        setPendingProposalFiles={setPendingProposalFiles}
-        pendingExpenseProofFiles={pendingExpenseProofFiles}
-        setPendingExpenseProofFiles={setPendingExpenseProofFiles}
-        generateQueryUploadUrl={generateQueryUploadUrl}
-        attachQueryFile={attachQueryFile}
-        getQueryAttachmentUrl={getQueryAttachmentUrl}
-        removeQueryAttachment={removeQueryAttachment}
-        generateProposalUploadUrl={generateProposalUploadUrl}
-        attachProposalFile={attachProposalFile}
-        getProposalAttachmentUrl={getProposalAttachmentUrl}
-        removeProposalAttachment={removeProposalAttachment}
-        generateFinalizedPdfUploadUrl={generateFinalizedPdfUploadUrl}
-        attachFinalizedPdf={attachFinalizedPdf}
-        getFinalizedPdfUrl={getFinalizedPdfUrl}
-        removeFinalizedPdf={removeFinalizedPdf}
-        getExpenseAttachmentUrl={getExpenseAttachmentUrl}
-        removeExpenseProof={removeExpenseProof}
-        has={has}
-        access={access}
+      
+    </>
+  );
+}
+
+function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
+  return (
+    <>
+<EntityModal
+        modal={SPREADSHEET_MODALS.includes(w.modal) ? null : w.modal}
+        form={w.form}
+        updateForm={w.updateForm}
+        patchForm={w.patchForm}
+        submit={w.submit}
+        close={w.closeModal}
+        error={w.error}
+        isSaving={w.isSaving}
+        queries={w.queries || []}
+        proposals={w.proposals || []}
+        jobCards={w.jobCards || []}
+        travellers={w.travellers || []}
+        visas={w.visas || []}
+        pnrs={w.pnrs || []}
+        team={w.team || []}
+        travellersWithoutVisa={w.travellersWithoutVisa || []}
+        pendingQueryFiles={w.pendingQueryFiles}
+        setPendingQueryFiles={w.setPendingQueryFiles}
+        pendingProposalFiles={w.pendingProposalFiles}
+        setPendingProposalFiles={w.setPendingProposalFiles}
+        pendingExpenseProofFiles={w.pendingExpenseProofFiles}
+        setPendingExpenseProofFiles={w.setPendingExpenseProofFiles}
+        generateQueryUploadUrl={w.generateQueryUploadUrl}
+        attachQueryFile={w.attachQueryFile}
+        getQueryAttachmentUrl={w.getQueryAttachmentUrl}
+        removeQueryAttachment={w.removeQueryAttachment}
+        generateProposalUploadUrl={w.generateProposalUploadUrl}
+        attachProposalFile={w.attachProposalFile}
+        getProposalAttachmentUrl={w.getProposalAttachmentUrl}
+        removeProposalAttachment={w.removeProposalAttachment}
+        generateFinalizedPdfUploadUrl={w.generateFinalizedPdfUploadUrl}
+        attachFinalizedPdf={w.attachFinalizedPdf}
+        getFinalizedPdfUrl={w.getFinalizedPdfUrl}
+        removeFinalizedPdf={w.removeFinalizedPdf}
+        getExpenseAttachmentUrl={w.getExpenseAttachmentUrl}
+        removeExpenseProof={w.removeExpenseProof}
+        has={w.has}
+        access={w.access}
       />
       <PassengerImportModal
-        open={modal === "passengerImport"}
-        close={closeModal}
-        jobCards={jobCards || []}
-        previewPassengerImport={previewPassengerImport}
-        commitPassengerImport={commitPassengerImport}
+        open={w.modal === "passengerImport"}
+        close={w.closeModal}
+        jobCards={w.jobCards || []}
+        previewPassengerImport={w.previewPassengerImport}
+        commitPassengerImport={w.commitPassengerImport}
         title="Import Ticketing Passenger List"
         fileLabel="Ticketing passenger spreadsheet"
         successLabel="Ticketing passenger import complete"
         uploadLabel="Upload Ticketing List"
       />
       <PassengerImportModal
-        open={modal === "travellerImport"}
-        close={closeModal}
-        jobCards={jobCards || []}
-        previewPassengerImport={previewPassengerImport}
-        commitPassengerImport={commitPassengerImport}
+        open={w.modal === "travellerImport"}
+        close={w.closeModal}
+        jobCards={w.jobCards || []}
+        previewPassengerImport={w.previewPassengerImport}
+        commitPassengerImport={w.commitPassengerImport}
         title="Import Traveller Master"
         fileLabel="Traveller master spreadsheet"
         parseWorkbookFile={parseTravellerMasterWorkbookFile}
@@ -2184,11 +1015,11 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         importKind="traveller"
       />
       <PassengerImportModal
-        open={modal === "roomingImport"}
-        close={closeModal}
-        jobCards={jobCards || []}
-        previewPassengerImport={previewPassengerImport}
-        commitPassengerImport={commitPassengerImport}
+        open={w.modal === "roomingImport"}
+        close={w.closeModal}
+        jobCards={w.jobCards || []}
+        previewPassengerImport={w.previewPassengerImport}
+        commitPassengerImport={w.commitPassengerImport}
         title="Import Rooming List"
         fileLabel="Rooming spreadsheet"
         parseWorkbookFile={parseRoomingWorkbookFile}
@@ -2198,11 +1029,11 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         importKind="rooming"
       />
       <PassengerImportModal
-        open={modal === "passportImport"}
-        close={closeModal}
-        jobCards={jobCards || []}
-        previewPassengerImport={previewPassengerImport}
-        commitPassengerImport={commitPassengerImport}
+        open={w.modal === "passportImport"}
+        close={w.closeModal}
+        jobCards={w.jobCards || []}
+        previewPassengerImport={w.previewPassengerImport}
+        commitPassengerImport={w.commitPassengerImport}
         title="Import Passport List"
         fileLabel="Passport spreadsheet"
         parseWorkbookFile={parsePassportWorkbookFile}
@@ -2211,11 +1042,11 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         uploadLabel="Upload Passports"
       />
       <PassengerImportModal
-        open={modal === "visaImport"}
-        close={closeModal}
-        jobCards={jobCards || []}
-        previewPassengerImport={previewPassengerImport}
-        commitPassengerImport={commitPassengerImport}
+        open={w.modal === "visaImport"}
+        close={w.closeModal}
+        jobCards={w.jobCards || []}
+        previewPassengerImport={w.previewPassengerImport}
+        commitPassengerImport={w.commitPassengerImport}
         title="Import Visa List"
         fileLabel="Visa spreadsheet"
         parseWorkbookFile={parseVisaWorkbookFile}
@@ -2224,27 +1055,27 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         uploadLabel="Upload Visa Rows"
       />
       <FlightImportModal
-        open={modal === "flightImport"}
-        close={closeModal}
-        jobCards={jobCards || []}
-        itinerary={flightItinerary || []}
-        commitFlightImport={commitFlightImport}
+        open={w.modal === "flightImport"}
+        close={w.closeModal}
+        jobCards={w.jobCards || []}
+        itinerary={w.flightItinerary || []}
+        commitFlightImport={w.commitFlightImport}
       />
       <PassengerExportModal
-        open={modal === "passengerExport"}
-        close={closeModal}
-        jobCards={jobCards || []}
-        getPassengerExportRows={getPassengerExportRows}
+        open={w.modal === "passengerExport"}
+        close={w.closeModal}
+        jobCards={w.jobCards || []}
+        getPassengerExportRows={w.getPassengerExportRows}
         title="Export Ticketing Passenger List"
         subtitle="Select a job card to download the ticketing passenger spreadsheet."
         filenameSuffix="ticketing-passengers"
         exportKind="passenger"
       />
       <PassengerExportModal
-        open={modal === "travellerExport"}
-        close={closeModal}
-        jobCards={jobCards || []}
-        getPassengerExportRows={getPassengerExportRows}
+        open={w.modal === "travellerExport"}
+        close={w.closeModal}
+        jobCards={w.jobCards || []}
+        getPassengerExportRows={w.getPassengerExportRows}
         title="Export Traveller Master"
         subtitle="Select a job card to download the Master list sheet in the traveller master format."
         buildWorkbook={buildTravellerMasterWorkbook}
@@ -2253,10 +1084,10 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         exportKind="traveller"
       />
       <PassengerExportModal
-        open={modal === "roomingExport"}
-        close={closeModal}
-        jobCards={jobCards || []}
-        getPassengerExportRows={getPassengerExportRows}
+        open={w.modal === "roomingExport"}
+        close={w.closeModal}
+        jobCards={w.jobCards || []}
+        getPassengerExportRows={w.getPassengerExportRows}
         title="Export Rooming List"
         subtitle="Select a job card to download the Rooming sheet in the master-list format."
         buildWorkbook={buildRoomingWorkbook}
@@ -2265,10 +1096,10 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         exportKind="rooming"
       />
       <PassengerExportModal
-        open={modal === "passportExport"}
-        close={closeModal}
-        jobCards={jobCards || []}
-        getPassengerExportRows={getPassengerExportRows}
+        open={w.modal === "passportExport"}
+        close={w.closeModal}
+        jobCards={w.jobCards || []}
+        getPassengerExportRows={w.getPassengerExportRows}
         title="Export Passport List"
         subtitle="Select a job card to download the Passport sheet in the master-list format."
         buildWorkbook={buildPassportWorkbook}
@@ -2277,10 +1108,10 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         exportKind="passport"
       />
       <PassengerExportModal
-        open={modal === "visaExport"}
-        close={closeModal}
-        jobCards={jobCards || []}
-        getPassengerExportRows={getPassengerExportRows}
+        open={w.modal === "visaExport"}
+        close={w.closeModal}
+        jobCards={w.jobCards || []}
+        getPassengerExportRows={w.getPassengerExportRows}
         title="Export Visa List"
         subtitle="Select a job card to download the Visa sheet in the master-list format."
         buildWorkbook={buildVisaWorkbook}
@@ -2289,14 +1120,25 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
         exportKind="visa"
       />
       <FlightExportModal
-        open={modal === "flightExport"}
-        close={closeModal}
-        jobCards={jobCards || []}
-        itinerary={flightItinerary || []}
+        open={w.modal === "flightExport"}
+        close={w.closeModal}
+        jobCards={w.jobCards || []}
+        itinerary={w.flightItinerary || []}
       />
+    </>
+  );
+}
+
+function PortalWorkspaceLayout({ workspace: w }) {
+  return (
+    <div className="mx-auto max-w-[1500px]">
+      <PortalWorkspaceHeader workspace={w} />
+      <PortalWorkspaceViews workspace={w} />
+      <PortalWorkspaceSpreadsheetModals workspace={w} />
     </div>
   );
 }
+
 
 function HeaderActions({ view, openModal, has, access }) {
   if (view === "travellers" && has(P.MANAGE_TRAVELLERS)) {
@@ -2492,11 +1334,11 @@ function PageHeader({
   showJobCardFilter = false,
   jobCardFilter = "",
   setJobCardFilter,
-  jobCards = [],
-  listFilterConfig = [],
-  listFilters = {},
+  jobCards = EMPTY_JOB_CARDS,
+  listFilterConfig = EMPTY_LIST_FILTER_CONFIG,
+  listFilters = EMPTY_LIST_FILTERS,
   setListFilterValue,
-  filterSourceRows = [],
+  filterSourceRows = EMPTY_FILTER_SOURCE_ROWS,
   filtersActive = false,
   onClearAllFilters,
 }) {
@@ -2815,149 +1657,6 @@ function DashboardSecondaryPanels({
         </Panel>
       )}
     </>
-  );
-}
-
-function DashboardView({ summary, has, access }) {
-  if (!summary) return <LoadingPanel />;
-  const queryTypeOptions = getQueryTypeOptions(access);
-
-  const metrics = [
-    {
-      label: "Active Queries",
-      value: summary.metrics.activeQueries,
-      Icon: ClipboardList,
-      permission: P.VIEW_QUERIES,
-    },
-    {
-      label: "Proposals Sent",
-      value: summary.metrics.proposalsSent,
-      Icon: FileText,
-      permission: P.VIEW_PROPOSALS,
-    },
-    {
-      label: "Confirmed Jobs",
-      value: summary.metrics.confirmedJobs,
-      Icon: CheckCircle2,
-      permission: P.VIEW_QUERIES,
-    },
-    {
-      label: "Open Job Cards",
-      value: summary.metrics.jobCardsOpen,
-      Icon: BriefcaseIcon,
-      permission: P.VIEW_JOB_CARDS,
-    },
-    {
-      label: "Tickets Issued",
-      value: summary.metrics.ticketsIssued,
-      Icon: Ticket,
-      permission: P.VIEW_TICKETING,
-    },
-    {
-      label: "Tickets Pending",
-      value: summary.metrics.ticketsPending,
-      Icon: Plane,
-      permission: P.VIEW_TICKETING,
-    },
-    {
-      label: "Visa Pending",
-      value: summary.metrics.visaPending,
-      Icon: ShieldCheck,
-      permission: P.VIEW_VISA,
-    },
-    {
-      label: "Outstanding",
-      value: money(summary.metrics.outstandingAmount),
-      Icon: CircleDollarSign,
-      permission: P.VIEW_FINANCE,
-    },
-    {
-      label: "Pending Approvals",
-      value: summary.metrics.pendingApprovals,
-      Icon: CheckCircle2,
-      permission: P.VIEW_APPROVALS,
-    },
-    {
-      label: "Revenue Pipeline",
-      value: money(summary.metrics.revenuePipeline),
-      Icon: CircleDollarSign,
-      permission: P.VIEW_FINANCE,
-    },
-  ].filter((metric) => has(metric.permission));
-
-  const departmentWorkflow = (summary.departmentWorkflow || []).filter((item) => {
-    if (item.label.startsWith("Sales")) return has(P.VIEW_QUERIES);
-    if (item.label.startsWith("Contracting")) return has(P.VIEW_CONTRACTING);
-    if (item.label.startsWith("Ops")) return has(P.VIEW_JOB_CARDS);
-    if (item.label.startsWith("Ticketing")) return has(P.VIEW_TICKETING);
-    if (item.label.startsWith("Finance")) return has(P.VIEW_FINANCE);
-    return true;
-  });
-
-  const urgentActions = (summary.urgentActions || []).filter((item) => {
-    if (item.type === "approvals") return has(P.VIEW_APPROVALS);
-    if (item.type === "finance") return has(P.VIEW_FINANCE);
-    if (item.type === "accounts") return has(P.MANAGE_JOB_CARDS);
-    if (item.type === "ticketing") return has(P.VIEW_TICKETING);
-    return has(P.VIEW_QUERIES);
-  });
-
-  const showOpsProgress =
-    has(P.VIEW_JOB_CARDS) ||
-    has(P.VIEW_TRAVELLERS) ||
-    has(P.VIEW_TICKETING) ||
-    has(P.VIEW_VISA) ||
-    has(P.VIEW_OPERATIONS) ||
-    has(P.VIEW_FINANCE);
-
-  const emptyQueryTypeCounts = () => queryTypeOptions.map((type) => ({ type, count: 0 }));
-  const queryTypeCounts = has(P.VIEW_QUERIES)
-    ? summary.queriesByType?.length
-      ? summary.queriesByType
-      : emptyQueryTypeCounts()
-    : [];
-  const confirmedQueryTypeCounts = has(P.VIEW_QUERIES)
-    ? summary.confirmedQueriesByType?.length
-      ? summary.confirmedQueriesByType
-      : emptyQueryTypeCounts()
-    : [];
-  const closedQueryTypeCounts = has(P.VIEW_QUERIES)
-    ? summary.closedQueriesByType?.length
-      ? summary.closedQueriesByType
-      : emptyQueryTypeCounts()
-    : [];
-  const activeQueryTotal = queryTypeCounts.reduce((sum, item) => sum + item.count, 0);
-  const confirmedQueryTotal = confirmedQueryTypeCounts.reduce((sum, item) => sum + item.count, 0);
-  const closedQueryTotal = closedQueryTypeCounts.reduce((sum, item) => sum + item.count, 0);
-
-  return (
-    <div className="space-y-8">
-      {metrics.length > 0 && (
-        <section className="space-y-3">
-          <DashboardSectionHeading title="Overview" />
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-            {metrics.map(({ label, value, Icon }, index) => (
-              <StatCard key={label} label={label} value={value} Icon={Icon} index={index} />
-            ))}
-          </div>
-        </section>
-      )}
-      <DashboardQueryTypeBreakdown
-        queryTypeCounts={queryTypeCounts}
-        confirmedQueryTypeCounts={confirmedQueryTypeCounts}
-        closedQueryTypeCounts={closedQueryTypeCounts}
-        activeQueryTotal={activeQueryTotal}
-        confirmedQueryTotal={confirmedQueryTotal}
-        closedQueryTotal={closedQueryTotal}
-      />
-      <DashboardSecondaryPanels
-        summary={summary}
-        has={has}
-        urgentActions={urgentActions}
-        departmentWorkflow={departmentWorkflow}
-        showOpsProgress={showOpsProgress}
-      />
-    </div>
   );
 }
 
@@ -4262,16 +2961,28 @@ function PassportDocumentsView({
 }) {
   const toast = usePortalToast();
   const { confirm } = usePortalConfirm();
-  const [uploadTraveller, setUploadTraveller] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadError, setUploadError] = useState("");
-  const [passportForm, setPassportForm] = useState({
-    number: "",
-    expiryDate: "",
-    nationality: "",
-    dateOfBirth: "",
+  const [passportState, patchPassportState] = usePatchReducer({
+    uploadTraveller: null,
+    isUploading: false,
+    uploadError: "",
+    passportForm: {
+      number: "",
+      expiryDate: "",
+      nationality: "",
+      dateOfBirth: "",
+    },
+    viewingTravellerId: null,
   });
-  const [viewingTravellerId, setViewingTravellerId] = useState(null); // spinner state for view
+  const { uploadTraveller, isUploading, uploadError, passportForm, viewingTravellerId } =
+    passportState;
+  const setUploadTraveller = (value) => patchPassportState({ uploadTraveller: value });
+  const setIsUploading = (value) => patchPassportState({ isUploading: value });
+  const setUploadError = (value) => patchPassportState({ uploadError: value });
+  const setPassportForm = (value) =>
+    patchPassportState({
+      passportForm: typeof value === "function" ? value(passportForm) : value,
+    });
+  const setViewingTravellerId = (value) => patchPassportState({ viewingTravellerId: value });
 
   const MAX_PASSPORT_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -5789,7 +4500,7 @@ function RoomSummaryPanel({ summary, jobCode, title = "Passengers by room type" 
   const entries = Object.entries(summary || {}).sort(([a], [b]) => a.localeCompare(b));
   if (entries.length === 0) return null;
   return (
-    <div className="rounded-lg border border-brand-border bg-brand-light/60 px-3 py-3 text-sm">
+    <div className="rounded-lg border border-brand-border bg-brand-light/60 p-3 text-sm">
       <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
         {title}
         {jobCode ? ` — ${jobCode}` : ""}
@@ -5818,15 +4529,28 @@ function PassengerImportModal({
   importKind = "passenger",
 }) {
   const toast = usePortalToast();
-  const [jobCardId, setJobCardId] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [parsed, setParsed] = useState(null);
-  const [preview, setPreview] = useState(null);
-  const [isParsing, setIsParsing] = useState(false);
-  const [isPreviewing, setIsPreviewing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [importProgress, setImportProgress] = useState(null);
-  const [error, setError] = useState("");
+  const [importState, patchImportState, , dispatchImport] = usePatchReducer(PASSENGER_IMPORT_INITIAL);
+  const {
+    jobCardId,
+    fileName,
+    parsed,
+    preview,
+    isParsing,
+    isPreviewing,
+    isSaving,
+    importProgress,
+    error,
+  } = importState;
+  const patchImport = (patch) => patchImportState(patch);
+  const setJobCardId = (value) => patchImport({ jobCardId: value });
+  const setFileName = (value) => patchImport({ fileName: value });
+  const setParsed = (value) => patchImport({ parsed: value });
+  const setPreview = (value) => patchImport({ preview: value });
+  const setIsParsing = (value) => patchImport({ isParsing: value });
+  const setIsPreviewing = (value) => patchImport({ isPreviewing: value });
+  const setIsSaving = (value) => patchImport({ isSaving: value });
+  const setImportProgress = (value) => patchImport({ importProgress: value });
+  const setError = (value) => patchImport({ error: value });
 
   const rows = parsed?.rows || [];
   const skipped = parsed?.skipped || [];
@@ -5842,17 +4566,7 @@ function PassengerImportModal({
     ? preview?.roomSummary || parsedRoomSummary
     : parsedRoomSummary;
 
-  const reset = () => {
-    setJobCardId("");
-    setFileName("");
-    setParsed(null);
-    setPreview(null);
-    setError("");
-    setIsParsing(false);
-    setIsPreviewing(false);
-    setIsSaving(false);
-    setImportProgress(null);
-  };
+  const reset = () => patchImportState(PASSENGER_IMPORT_INITIAL);
 
   const closeAndReset = () => {
     reset();
@@ -5864,27 +4578,31 @@ function PassengerImportModal({
     async function runPreview() {
       const importRows = (parsed?.rows || []).map(toPassengerImportInput);
       if (!open || !jobCardId || importRows.length === 0) {
-        setPreview(null);
+        dispatchImport({ type: "patch", patch: { preview: null } });
         return;
       }
-      setIsPreviewing(true);
-      setError("");
+      dispatchImport({ type: "patch", patch: { isPreviewing: true, error: "" } });
       try {
         const result = await previewPassengerImport({ jobCardId, rows: importRows });
-        if (!cancelled) setPreview(result);
+        if (!cancelled) dispatchImport({ type: "patch", patch: { preview: result } });
       } catch (err) {
         if (!cancelled) {
-          setPreview(null);
-          setError(err?.data || err?.message || "Unable to preview passenger import.");
+          dispatchImport({
+            type: "patch",
+            patch: {
+              preview: null,
+              error: err?.data || err?.message || "Unable to preview passenger import.",
+            },
+          });
         }
       }
-      if (!cancelled) setIsPreviewing(false);
+      if (!cancelled) dispatchImport({ type: "patch", patch: { isPreviewing: false } });
     }
     runPreview();
     return () => {
       cancelled = true;
     };
-  }, [open, jobCardId, parsed, previewPassengerImport]);
+  }, [open, jobCardId, parsed, previewPassengerImport, dispatchImport]);
 
   const handleFile = async (event) => {
     const file = event.target.files?.[0];
@@ -6029,12 +4747,15 @@ function PassengerImportModal({
 
 function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImport }) {
   const toast = usePortalToast();
-  const [jobCardId, setJobCardId] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [parsed, setParsed] = useState(null);
-  const [isParsing, setIsParsing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [flightState, patchFlightState] = usePatchReducer(FLIGHT_IMPORT_INITIAL);
+  const { jobCardId, fileName, parsed, isParsing, isSaving, error } = flightState;
+  const patchFlight = (patch) => patchFlightState(patch);
+  const setJobCardId = (value) => patchFlight({ jobCardId: value });
+  const setFileName = (value) => patchFlight({ fileName: value });
+  const setParsed = (value) => patchFlight({ parsed: value });
+  const setIsParsing = (value) => patchFlight({ isParsing: value });
+  const setIsSaving = (value) => patchFlight({ isSaving: value });
+  const setError = (value) => patchFlight({ error: value });
 
   const groups = parsed?.groups || [];
   const errors = parsed?.errors || [];
@@ -6054,14 +4775,7 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
     0,
   );
 
-  const reset = () => {
-    setJobCardId("");
-    setFileName("");
-    setParsed(null);
-    setError("");
-    setIsParsing(false);
-    setIsSaving(false);
-  };
+  const reset = () => patchFlightState(FLIGHT_IMPORT_INITIAL);
 
   const closeAndReset = () => {
     reset();
@@ -6204,19 +4918,16 @@ function PassengerExportModal({
   sheetName,
   exportKind = "passenger",
 }) {
-  const [jobCardId, setJobCardId] = useState("");
-  const [exportData, setExportData] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [error, setError] = useState("");
+  const [exportState, patchExportState, , dispatchExport] = usePatchReducer(PASSENGER_EXPORT_INITIAL);
+  const { jobCardId, exportData, isLoading, isExporting, error } = exportState;
+  const patchExport = (patch) => patchExportState(patch);
+  const setJobCardId = (value) => patchExport({ jobCardId: value });
+  const setExportData = (value) => patchExport({ exportData: value });
+  const setIsLoading = (value) => patchExport({ isLoading: value });
+  const setIsExporting = (value) => patchExport({ isExporting: value });
+  const setError = (value) => patchExport({ error: value });
 
-  const reset = () => {
-    setJobCardId("");
-    setExportData(null);
-    setError("");
-    setIsLoading(false);
-    setIsExporting(false);
-  };
+  const reset = () => patchExportState(PASSENGER_EXPORT_INITIAL);
 
   const closeAndReset = () => {
     reset();
@@ -6227,27 +4938,31 @@ function PassengerExportModal({
     let cancelled = false;
     async function loadExportPreview() {
       if (!open || !jobCardId) {
-        setExportData(null);
+        dispatchExport({ type: "patch", patch: { exportData: null } });
         return;
       }
-      setIsLoading(true);
-      setError("");
+      dispatchExport({ type: "patch", patch: { isLoading: true, error: "" } });
       try {
         const result = await getPassengerExportRows({ jobCardId, exportKind });
-        if (!cancelled) setExportData(result);
+        if (!cancelled) dispatchExport({ type: "patch", patch: { exportData: result } });
       } catch (err) {
         if (!cancelled) {
-          setExportData(null);
-          setError(err?.data || err?.message || "Unable to load passengers for export.");
+          dispatchExport({
+            type: "patch",
+            patch: {
+              exportData: null,
+              error: err?.data || err?.message || "Unable to load passengers for export.",
+            },
+          });
         }
       }
-      if (!cancelled) setIsLoading(false);
+      if (!cancelled) dispatchExport({ type: "patch", patch: { isLoading: false } });
     }
     loadExportPreview();
     return () => {
       cancelled = true;
     };
-  }, [open, jobCardId, exportKind, getPassengerExportRows]);
+  }, [open, jobCardId, exportKind, getPassengerExportRows, dispatchExport]);
 
   const handleExport = async () => {
     if (!exportData?.rows?.length) return;
@@ -6542,1391 +5257,6 @@ function ImportIssueList({ title, rows }) {
         ))}
       </div>
     </div>
-  );
-}
-
-function EntityModal({
-  modal,
-  form,
-  updateForm,
-  patchForm,
-  submit,
-  close,
-  error,
-  isSaving,
-  queries,
-  proposals,
-  jobCards,
-  travellers,
-  visas,
-  pnrs,
-  team,
-  travellersWithoutVisa,
-  pendingQueryFiles,
-  setPendingQueryFiles,
-  pendingProposalFiles,
-  setPendingProposalFiles,
-  pendingExpenseProofFiles,
-  setPendingExpenseProofFiles,
-  generateQueryUploadUrl,
-  attachQueryFile,
-  getQueryAttachmentUrl,
-  removeQueryAttachment,
-  generateProposalUploadUrl,
-  attachProposalFile,
-  getProposalAttachmentUrl,
-  removeProposalAttachment,
-  generateFinalizedPdfUploadUrl,
-  attachFinalizedPdf,
-  getFinalizedPdfUrl,
-  removeFinalizedPdf,
-  getExpenseAttachmentUrl,
-  removeExpenseProof,
-  has,
-  access,
-}) {
-  const contractingTeamOptions = teamSelectOptions(team, [
-    "Contracting",
-    "Contracting Head",
-    "Contracting Cement",
-  ]);
-  const operationsTeamOptions = teamSelectOptions(team, [
-    "Operations",
-    "Operations Head",
-    "Operations Cement",
-  ]);
-  const ticketingTeamOptions = teamSelectOptions(team, ["Ticketing", "Head of Ticketing"]);
-  const tourManagerOptions = teamSelectOptions(team, ["Tour Manager"]);
-  const travellerOptions = linkedTravellerOptions(travellers, form.jobCardId);
-  const pnrOptions = linkedPnrOptions(pnrs, form.jobCardId);
-
-  const handleStaffSelect = (field, staffId) => {
-    updateForm(field, staffId);
-    const member = team.find((entry) => entry.id === staffId);
-    if (!member) return;
-    if (field === "staffId" && modal === "tourManager") {
-      updateForm("tourManagerName", member.name);
-      updateForm("staffEmail", member.email || "");
-      updateForm("paidBy", member.mobile || "");
-    }
-  };
-
-  const handleProposalQuerySelect = (queryIds) => {
-    const nextQueryIds = Array.isArray(queryIds) ? queryIds : queryIds ? [queryIds] : [];
-    const primaryQueryId = nextQueryIds[0] || "";
-    if (!primaryQueryId) {
-      patchForm({ queryId: "", queryIds: [] });
-      return;
-    }
-    const linkedQuery = queries.find((query) => query.id === primaryQueryId);
-    patchForm({
-      ...applyQueryLink(form, linkedQuery),
-      queryId: primaryQueryId,
-      queryIds: nextQueryIds,
-    });
-  };
-
-  const handleJobQuerySelect = (queryId) => {
-    if (!queryId) {
-      patchForm({ queryId: "", proposalId: "" });
-      return;
-    }
-    const linkedQuery = queries.find((query) => query.id === queryId);
-    const patch = applyQueryLink(form, linkedQuery);
-    const linkedProposal = proposals.reduce((latest, proposal) => {
-      if (!proposalLinkedQueryIds(proposal).includes(queryId)) return latest;
-      if (!latest) return proposal;
-      return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
-    }, null);
-    patch.proposalId = linkedProposal?.id || "";
-    patchForm(patch);
-  };
-
-  const handleJobCardSelect = (jobCardId) => {
-    const linkedJob = jobCards.find((job) => job.id === jobCardId);
-    const patch = linkedJob
-      ? applyJobCardLink({ ...form, jobCardId }, linkedJob, modal)
-      : { jobCardId: jobCardId || "" };
-    patchForm({
-      ...patch,
-      ...reconcileLinkedSelections({ ...form, ...patch }, travellers, pnrs),
-    });
-  };
-
-  const handleTravellerSelect = (travellerId) => {
-    const linkedTraveller =
-      travellers.find((traveller) => traveller.id === travellerId) ||
-      travellersWithoutVisa.find((traveller) => traveller.id === travellerId);
-    const patch = applyTravellerLink(form, linkedTraveller, modal);
-    if (linkedTraveller?.jobCardId) {
-      const linkedJob = jobCards.find((job) => job.id === linkedTraveller.jobCardId);
-      Object.assign(patch, applyJobCardLink({ ...form, ...patch }, linkedJob, modal));
-    }
-    patchForm({
-      ...patch,
-      ...reconcileLinkedSelections({ ...form, ...patch }, travellers, pnrs),
-    });
-  };
-
-  const handlePnrSelect = (pnrId) => {
-    const linkedPnr = pnrs.find((pnr) => pnr.id === pnrId);
-    const patch = applyPnrLink(form, linkedPnr, modal);
-    if (linkedPnr?.jobCardId) {
-      const linkedJob = jobCards.find((job) => job.id === linkedPnr.jobCardId);
-      Object.assign(patch, applyJobCardLink({ ...form, ...patch }, linkedJob, modal));
-    }
-    patchForm({
-      ...patch,
-      ...reconcileLinkedSelections({ ...form, ...patch }, travellers, pnrs),
-    });
-  };
-
-  const handleVisaRecordSelect = (visaRecordId) => {
-    const linkedVisa = visas.find((visa) => visa.id === visaRecordId);
-    patchForm(
-      linkedVisa ? applyVisaRecordLink(form, linkedVisa) : { visaRecordId: visaRecordId || "" },
-    );
-  };
-
-  const title = modal
-    ? {
-        query: form.entityId ? "Edit Query" : "New Query / Enquiry",
-        queryAttachments: `Attachments — ${form.queryCode || "Query"}`,
-        proposalAttachments: `Working Files — ${form.queryCode || "Proposal"}`,
-        proposalFinalizedPdf: `Finalized Proposal PDF — ${form.queryCode || "Proposal"}`,
-        assignContracting: "Assign Contracting SPOC",
-        assignContractingOwner: "Assign Contracting SPOC",
-        assignOperationsOwner: "Assign Operations Owner",
-        assignTicketingOwner: "Assign Ticketing Owner",
-        queryStatus: "Update Query Status",
-        proposal: form.entityId ? "Edit Proposal" : "Create Proposal",
-        jobCard: form.entityId ? "Edit Job Card" : "Open Job Card",
-        traveller: form.entityId ? "Edit Traveller" : "Add Traveller",
-        visa: form.entityId ? "Edit Visa Record" : "Update Visa Status",
-        visa_create: "Create Visa Record",
-        pnr: form.entityId ? "Edit PNR" : "Add PNR",
-        ticket: form.entityId ? "Edit Ticket" : "Issue Ticket",
-        seat: form.entityId ? "Edit Seat Allocation" : "Save Seat Allocation",
-        hotel: form.entityId ? "Edit Hotel" : "Add Hotel",
-        tourManager: form.entityId ? "Edit Tour Manager" : "Add Tour Manager",
-        invoice: form.entityId ? "Edit Invoice" : "Generate Invoice",
-        expense: form.entityId ? "Edit Expense" : "Add Expense",
-        staff: "Staff Allowlist Entry",
-        leave_create: form.entityId
-          ? "Edit Leave"
-          : has(P.MANAGE_LEAVE)
-            ? "Record Employee Leave"
-            : "Request Leave",
-        approvalDecide:
-          form.approvalStatus === "Needs Info" ? "Request More Details" : "Reject Approval",
-      }[modal]
-    : "";
-
-  const lifecycleQuery = queries?.find((entry) => entry.id === (form.entityId || form.queryId));
-  const lifecycleProposal = proposals?.find((entry) => entry.id === form.entityId);
-  const lifecycleJobCard = jobCards?.find((entry) => entry.id === form.entityId);
-
-  return (
-    <AnimatePresence>
-      {modal && (
-        <motion.div
-          key={modal}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm"
-          onClick={close}
-        >
-          <motion.form
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="portal-entity-modal-title"
-            onSubmit={submit}
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                close();
-              }
-            }}
-            initial={{ opacity: 0, y: 24, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 24, scale: 0.98 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:fixed max-sm:inset-0 max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none"
-          >
-            <div className="flex items-center justify-between border-b border-brand-border px-5 py-4">
-              <div
-                id="portal-entity-modal-title"
-                className="font-heading text-lg font-semibold text-citius-blue"
-              >
-                {title}
-              </div>
-              <button
-                type="button"
-                onClick={close}
-                className="rounded-full p-2 text-brand-muted hover:bg-brand-light"
-                aria-label="Close dialog"
-              >
-                Close
-              </button>
-            </div>
-            <div className="max-h-[calc(90vh-130px)] overflow-y-auto p-5">
-              {error && (
-                <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {error}
-                </div>
-              )}
-              {(modal === "query" || modal === "queryStatus") && lifecycleQuery && (
-                <LifecycleDates
-                  items={[
-                    { label: "Created", value: lifecycleQuery.createdAt },
-                    {
-                      label: "Submitted to Contracting",
-                      value: lifecycleQuery.submittedToContractingAt,
-                    },
-                    { label: "Confirmed", value: lifecycleQuery.confirmedAt },
-                  ]}
-                />
-              )}
-              {modal === "proposal" && lifecycleProposal && (
-                <LifecycleDates
-                  items={[
-                    { label: "Created", value: lifecycleProposal.createdAt },
-                    { label: "Sent", value: lifecycleProposal.sentAt },
-                    { label: "Finalized PDF", value: lifecycleProposal.finalizedPdf?.uploadedAt },
-                  ]}
-                />
-              )}
-              {modal === "jobCard" && lifecycleJobCard && (
-                <LifecycleDates
-                  items={[
-                    { label: "Opened", value: lifecycleJobCard.createdAt },
-                    { label: "Last updated", value: lifecycleJobCard.updatedAt },
-                  ]}
-                />
-              )}
-              <div className="grid gap-4 md:grid-cols-2">
-                {modal === "query" && (
-                  <>
-                    <Input
-                      label="Client / Company"
-                      value={form.clientName}
-                      onChange={(v) => updateForm("clientName", v)}
-                      required
-                    />
-                    <Input
-                      label="Contact Person"
-                      value={form.contactPerson}
-                      onChange={(v) => updateForm("contactPerson", v)}
-                    />
-                    <Input
-                      label="Mobile"
-                      value={form.contactMobile}
-                      onChange={(v) => updateForm("contactMobile", v)}
-                    />
-                    <Input
-                      label="No. of Pax"
-                      type="number"
-                      value={form.paxCount}
-                      onChange={(v) => updateForm("paxCount", v)}
-                    />
-                    <Input
-                      label="Destination"
-                      value={form.destination}
-                      onChange={(v) => updateForm("destination", v)}
-                    />
-                    <Input
-                      label="Travel Date From"
-                      type="date"
-                      value={form.travelStartDate}
-                      onChange={(v) => updateForm("travelStartDate", v)}
-                    />
-                    <Input
-                      label="Travel Date To"
-                      type="date"
-                      value={form.travelEndDate}
-                      onChange={(v) => updateForm("travelEndDate", v)}
-                    />
-                    <Select
-                      label="Query Type"
-                      value={form.queryType}
-                      options={getQueryTypeOptions(access)}
-                      onChange={(v) => updateForm("queryType", v)}
-                    />
-                    <Select
-                      label="Travel Type"
-                      value={form.travelType}
-                      options={TRAVEL_TYPES}
-                      onChange={(v) => updateForm("travelType", v)}
-                    />
-                    <Input
-                      label="Budget INR"
-                      type="number"
-                      value={form.budgetAmount}
-                      onChange={(v) => updateForm("budgetAmount", v)}
-                    />
-                    <Select
-                      label="Source"
-                      value={form.source}
-                      options={QUERY_SOURCES}
-                      onChange={(v) => updateForm("source", v)}
-                    />
-                    <Select
-                      label="Sales Rep"
-                      value={form.salesOwnerName}
-                      options={[
-                        { value: "", label: "Current user" },
-                        ...team.reduce((options, member) => {
-                          if (member.roles.some((role) => ["Sales", "Sales Head"].includes(role))) {
-                            options.push({ value: member.name, label: member.name });
-                          }
-                          return options;
-                        }, []),
-                      ]}
-                      onChange={(v) => updateForm("salesOwnerName", v)}
-                    />
-                    <Textarea
-                      label="Notes"
-                      value={form.notes}
-                      onChange={(v) => updateForm("notes", v)}
-                      maxWords={MAX_QUERY_NOTES_WORDS}
-                    />
-                    <div className="md:col-span-2">
-                      <QueryFilePicker
-                        files={pendingQueryFiles}
-                        onChange={setPendingQueryFiles}
-                        inputId="new-query-files"
-                      />
-                    </div>
-                  </>
-                )}
-                {modal === "queryAttachments" && (
-                  <div className="md:col-span-2">
-                    <QueryAttachmentsPanel
-                      queryId={form.queryId}
-                      attachments={queries.find((q) => q.id === form.queryId)?.attachments || []}
-                      canManage={has(P.MANAGE_QUERIES)}
-                      generateQueryUploadUrl={generateQueryUploadUrl}
-                      attachQueryFile={attachQueryFile}
-                      getQueryAttachmentUrl={getQueryAttachmentUrl}
-                      removeQueryAttachment={removeQueryAttachment}
-                    />
-                  </div>
-                )}
-                {modal === "proposalAttachments" && (
-                  <div className="md:col-span-2">
-                    <QueryAttachmentsPanel
-                      entityId={form.proposalId}
-                      idField="proposalId"
-                      attachments={
-                        proposals.find((proposal) => proposal.id === form.proposalId)
-                          ?.attachments || []
-                      }
-                      canManage={has(P.MANAGE_PROPOSALS)}
-                      uploadLabel="Upload Working File"
-                      generateQueryUploadUrl={generateProposalUploadUrl}
-                      attachQueryFile={attachProposalFile}
-                      getQueryAttachmentUrl={getProposalAttachmentUrl}
-                      attachmentKind="proposal"
-                      removeQueryAttachment={removeProposalAttachment}
-                    />
-                  </div>
-                )}
-                {modal === "proposalFinalizedPdf" && (
-                  <div className="md:col-span-2">
-                    <FinalizedProposalPdfPanel
-                      proposalId={form.proposalId}
-                      finalizedPdf={
-                        proposals.find((proposal) => proposal.id === form.proposalId)
-                          ?.finalizedPdf || null
-                      }
-                      canSend={has(P.SEND_PROPOSALS) || has(P.MANAGE_PROPOSALS)}
-                      generateFinalizedPdfUploadUrl={generateFinalizedPdfUploadUrl}
-                      attachFinalizedPdf={attachFinalizedPdf}
-                      getFinalizedPdfUrl={getFinalizedPdfUrl}
-                      removeFinalizedPdf={removeFinalizedPdf}
-                    />
-                  </div>
-                )}
-                {modal === "assignContracting" && (
-                  <>
-                    <Select
-                      label="Query"
-                      value={form.queryId}
-                      options={queries.map((q) => ({
-                        value: q.id,
-                        label: `${q.queryCode} - ${q.clientName}`,
-                      }))}
-                      onChange={(v) => updateForm("queryId", v)}
-                      required
-                    />
-                    <Select
-                      label="Contracting SPOC"
-                      value={form.staffId}
-                      options={[
-                        { value: "", label: "Select team member…" },
-                        ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label })),
-                      ]}
-                      onChange={(v) => updateForm("staffId", v)}
-                      required
-                    />
-                  </>
-                )}
-                {modal === "assignContractingOwner" && (
-                  <>
-                    <Select
-                      label="Job Card"
-                      value={form.jobCardId}
-                      options={jobCardSelectOptions(jobCards, { required: true })}
-                      onChange={handleJobCardSelect}
-                      required
-                    />
-                    <Select
-                      label="Contracting SPOC"
-                      value={form.staffId}
-                      options={[
-                        { value: "", label: "Select team member…" },
-                        ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label })),
-                      ]}
-                      onChange={(v) => updateForm("staffId", v)}
-                      required
-                    />
-                  </>
-                )}
-                {modal === "assignOperationsOwner" && (
-                  <>
-                    <Select
-                      label="Job Card"
-                      value={form.jobCardId}
-                      options={jobCardSelectOptions(jobCards, { required: true })}
-                      onChange={handleJobCardSelect}
-                      required
-                    />
-                    <Select
-                      label="Operations Owner"
-                      value={form.staffId}
-                      options={[
-                        { value: "", label: "Select team member…" },
-                        ...operationsTeamOptions.map((o) => ({ value: o.value, label: o.label })),
-                      ]}
-                      onChange={(v) => updateForm("staffId", v)}
-                      required
-                    />
-                  </>
-                )}
-                {modal === "assignTicketingOwner" && (
-                  <>
-                    <Select
-                      label="Job Card"
-                      value={form.jobCardId}
-                      options={jobCardSelectOptions(jobCards, { required: true })}
-                      onChange={handleJobCardSelect}
-                      required
-                    />
-                    <div className="md:col-span-2 flex flex-wrap items-end gap-3">
-                      <div className="min-w-[240px] flex-1">
-                        <Select
-                          label="Ticketing Owner"
-                          value={form.staffId}
-                          options={[
-                            { value: "", label: "Select team member…" },
-                            ...ticketingTeamOptions.map((o) => ({
-                              value: o.value,
-                              label: o.label,
-                            })),
-                          ]}
-                          onChange={(v) => updateForm("staffId", v)}
-                          required
-                        />
-                      </div>
-                      {canAssignTicketing(access) && access?.staffId && (
-                        <button
-                          type="button"
-                          className="portal-outline-btn mb-1"
-                          onClick={() => updateForm("staffId", access.staffId)}
-                        >
-                          Assign to me
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-                {modal === "queryStatus" && (
-                  <>
-                    {has(P.MANAGE_QUERIES) && (
-                      <>
-                        <Select
-                          label="Sales Status"
-                          value={form.salesStatus}
-                          options={SALES_STATUSES}
-                          onChange={(v) => updateForm("salesStatus", v)}
-                        />
-                        <Select
-                          label="Lead Stage"
-                          value={form.leadStage}
-                          options={LEAD_STAGES}
-                          onChange={(v) => updateForm("leadStage", v)}
-                        />
-                        <Select
-                          label="Lost Reason"
-                          value={form.lostReason}
-                          options={LOST_REASONS}
-                          onChange={(v) => updateForm("lostReason", v)}
-                        />
-                        {(form.salesStatus === "Order Confirmed" || isQueryConfirmed(form)) && (
-                          <Input
-                            label="Approx. Margin (INR)"
-                            type="number"
-                            value={form.approxMargin}
-                            onChange={(v) => updateForm("approxMargin", v)}
-                            placeholder="Enter margin after confirmation"
-                          />
-                        )}
-                      </>
-                    )}
-                    {has(P.MANAGE_CONTRACTING) && (
-                      <Select
-                        label="Contracting Status"
-                        value={form.contractingStatus}
-                        options={CONTRACTING_STATUS_SELECT_OPTIONS}
-                        onChange={(v) => updateForm("contractingStatus", v)}
-                      />
-                    )}
-                    {has(P.MANAGE_CONTRACTING) && (
-                      <ContractingCostFields form={form} updateForm={updateForm} />
-                    )}
-                  </>
-                )}
-                {modal === "proposal" && (
-                  <>
-                    <MultiSelect
-                      label="Linked Queries"
-                      value={
-                        Array.isArray(form.queryIds)
-                          ? form.queryIds
-                          : form.queryId
-                            ? [form.queryId]
-                            : []
-                      }
-                      options={queries.map((q) => ({
-                        value: q.id,
-                        label: `${q.queryCode} - ${q.clientName}`,
-                      }))}
-                      onChange={handleProposalQuerySelect}
-                    />
-                    <Input
-                      label="Client Name"
-                      value={form.clientName}
-                      onChange={(v) => updateForm("clientName", v)}
-                    />
-                    <Input
-                      label="Land Cost/Pax"
-                      type="number"
-                      value={form.landCostPerPax}
-                      onChange={(v) => updateForm("landCostPerPax", v)}
-                    />
-                    <Input
-                      label="Airfare/Pax"
-                      type="number"
-                      value={form.airfarePerPax}
-                      onChange={(v) => updateForm("airfarePerPax", v)}
-                    />
-                    <Input
-                      label="Visa Cost/Pax"
-                      type="number"
-                      value={form.visaCostPerPax}
-                      onChange={(v) => updateForm("visaCostPerPax", v)}
-                    />
-                    <Input
-                      label="Selling Price"
-                      type="number"
-                      value={form.sellingPrice}
-                      onChange={(v) => updateForm("sellingPrice", v)}
-                    />
-                    <Input
-                      label="Tax (%)"
-                      type="number"
-                      value={form.taxRate}
-                      onChange={(v) => updateForm("taxRate", v)}
-                      placeholder="e.g. 5, 18, or custom"
-                      min="0"
-                      step="0.01"
-                    />
-                    <div className="rounded-lg border border-brand-border bg-brand-light/60 px-3 py-2 text-sm">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
-                        Cost Price (CP) per person
-                      </div>
-                      <div className="mt-1 font-semibold text-brand-dark">
-                        {money(
-                          proposalCostPerPax(
-                            form.landCostPerPax,
-                            form.airfarePerPax,
-                            form.visaCostPerPax,
-                          ),
-                        )}
-                      </div>
-                      <div className="mt-1 text-xs text-brand-muted">
-                        Trip total:{" "}
-                        {money(
-                          proposalCostPerPax(
-                            form.landCostPerPax,
-                            form.airfarePerPax,
-                            form.visaCostPerPax,
-                          ) * Math.max(Number(form.paxCount) || 1, 1),
-                        )}{" "}
-                        ({Math.max(Number(form.paxCount) || 1, 1)} pax)
-                      </div>
-                    </div>
-                    <Textarea
-                      label="Itinerary Summary"
-                      value={form.itinerarySummary}
-                      onChange={(v) => updateForm("itinerarySummary", v)}
-                    />
-                    <div className="md:col-span-2">
-                      <QueryFilePicker
-                        files={pendingProposalFiles}
-                        onChange={setPendingProposalFiles}
-                        inputId="proposal-files"
-                      />
-                    </div>
-                  </>
-                )}
-                {modal === "jobCard" && (
-                  <>
-                    <Select
-                      label="Confirmed Query"
-                      value={form.queryId}
-                      options={[
-                        { value: "", label: "Select confirmed query…" },
-                        ...queries.reduce((options, q) => {
-                          if (
-                            q.salesStatus === "Order Confirmed" ||
-                            q.contractingStatus === "Order Confirmed"
-                          ) {
-                            options.push({
-                              value: q.id,
-                              label: `${q.queryCode} - ${q.clientName}`,
-                            });
-                          }
-                          return options;
-                        }, []),
-                      ]}
-                      onChange={handleJobQuerySelect}
-                      required={!form.entityId}
-                    />
-                    <Select
-                      label="Linked Proposal"
-                      value={form.proposalId}
-                      options={[
-                        { value: "", label: "Select proposal…" },
-                        ...proposals.reduce((options, proposal) => {
-                          if (
-                            !form.queryId ||
-                            proposalLinkedQueryIds(proposal).includes(form.queryId)
-                          ) {
-                            options.push({
-                              value: proposal.id,
-                              label: `${proposal.proposalCode} - ${proposal.status}`,
-                            });
-                          }
-                          return options;
-                        }, []),
-                      ]}
-                      onChange={(v) => updateForm("proposalId", v)}
-                      required={!form.entityId}
-                    />
-                    <Input
-                      label="Client"
-                      value={form.clientName}
-                      onChange={(v) => updateForm("clientName", v)}
-                    />
-                    <Input
-                      label="Confirmed Pax"
-                      type="number"
-                      value={form.confirmedPax}
-                      onChange={(v) => updateForm("confirmedPax", v)}
-                    />
-                    <Input
-                      label="Room Count"
-                      type="number"
-                      value={form.roomCount}
-                      onChange={(v) => updateForm("roomCount", v)}
-                    />
-                    <Input
-                      label="Destination"
-                      value={form.destination}
-                      onChange={(v) => updateForm("destination", v)}
-                    />
-                    <Input
-                      label="Travel Start"
-                      type="date"
-                      value={form.travelStartDate}
-                      onChange={(v) => updateForm("travelStartDate", v)}
-                    />
-                    <Input
-                      label="Travel End"
-                      type="date"
-                      value={form.travelEndDate}
-                      onChange={(v) => updateForm("travelEndDate", v)}
-                    />
-                    <Input
-                      label="Tour Manager"
-                      value={form.tourManagerName}
-                      onChange={(v) => updateForm("tourManagerName", v)}
-                    />
-                  </>
-                )}
-                {modal === "traveller" && (
-                  <>
-                    <Select
-                      label="Job Card"
-                      value={form.jobCardId}
-                      options={jobCardSelectOptions(jobCards, { required: true })}
-                      onChange={handleJobCardSelect}
-                      required
-                    />
-                    <Input
-                      label="Full Name"
-                      value={form.fullName}
-                      onChange={(v) => updateForm("fullName", v)}
-                      required
-                    />
-                    <Input
-                      label="Travel Hub"
-                      value={form.travelHub}
-                      onChange={(v) => updateForm("travelHub", v)}
-                    />
-                    <Input
-                      label="Travel Date"
-                      type="date"
-                      value={form.travelDate}
-                      onChange={(v) => updateForm("travelDate", v)}
-                    />
-                    <Input
-                      label="Guests travelling with"
-                      value={form.guestCompanions}
-                      onChange={(v) => updateForm("guestCompanions", v)}
-                      placeholder="Spouse, children, friends…"
-                    />
-                    <Select
-                      label="Food Preference"
-                      value={form.foodPreference}
-                      options={FOOD_PREFERENCES}
-                      onChange={(v) => updateForm("foodPreference", v)}
-                    />
-                    <Select
-                      label="Guest Type"
-                      value={form.guestType}
-                      options={GUEST_TYPES}
-                      onChange={(v) => updateForm("guestType", v)}
-                    />
-                    <Select
-                      label="Payment Type"
-                      value={form.paymentType}
-                      options={PAYMENT_TYPES}
-                      onChange={(v) => updateForm("paymentType", v)}
-                    />
-                    <Select
-                      label="Room Type"
-                      value={form.roomType}
-                      options={ROOM_TYPES}
-                      onChange={(v) => updateForm("roomType", v)}
-                    />
-                    <Select
-                      label="Visa Required"
-                      value={form.visaRequired}
-                      options={["Yes", "No"]}
-                      onChange={(v) => updateForm("visaRequired", v)}
-                    />
-                    <Select
-                      label="Domestic Travel Required"
-                      value={form.domesticTravelRequired}
-                      options={["Yes", "No"]}
-                      onChange={(v) => updateForm("domesticTravelRequired", v)}
-                    />
-                    <Input
-                      label="Biometric Date"
-                      type="date"
-                      value={form.biometricAppointmentDate}
-                      onChange={(v) => updateForm("biometricAppointmentDate", v)}
-                    />
-                    <Select
-                      label="Extension of Tour"
-                      value={form.extensionOfTour}
-                      options={["No", "Yes"]}
-                      onChange={(v) => updateForm("extensionOfTour", v)}
-                    />
-                    <Select
-                      label="Arriving Early"
-                      value={form.arrivingEarly}
-                      options={["No", "Yes"]}
-                      onChange={(v) => updateForm("arrivingEarly", v)}
-                    />
-                    <Input
-                      label="Passport Status"
-                      value={form.passportStatus}
-                      onChange={(v) => updateForm("passportStatus", v)}
-                    />
-                    <Input
-                      label="Hotel Allocation"
-                      value={form.hotelAllocation}
-                      onChange={(v) => updateForm("hotelAllocation", v)}
-                    />
-                    <Textarea
-                      label="Special Requests"
-                      value={form.notes}
-                      onChange={(v) => updateForm("notes", v)}
-                    />
-                  </>
-                )}
-                {modal === "visa" && (
-                  <>
-                    <Select
-                      label="Visa Record"
-                      value={form.visaRecordId}
-                      options={visas.map((v) => ({
-                        value: v.id,
-                        label: `${v.travellerName} - ${v.jobCode}`,
-                      }))}
-                      onChange={handleVisaRecordSelect}
-                      required
-                    />
-                    <Select
-                      label="Visa Status"
-                      value={form.visaStatus}
-                      options={VISA_STATUSES}
-                      onChange={(v) => updateForm("visaStatus", v)}
-                    />
-                    <Input
-                      label="Appointment Date"
-                      type="date"
-                      value={form.appointmentDate}
-                      onChange={(v) => updateForm("appointmentDate", v)}
-                    />
-                    <Textarea
-                      label="Notes"
-                      value={form.notes}
-                      onChange={(v) => updateForm("notes", v)}
-                    />
-                  </>
-                )}
-                {modal === "visa_create" && (
-                  <>
-                    <Select
-                      label="Traveller"
-                      value={form.travellerId}
-                      options={[
-                        { value: "", label: "Select Traveller" },
-                        ...travellersWithoutVisa.map((t) => ({
-                          value: t.id,
-                          label: `${t.fullName} (${t.jobCode} - ${t.clientName})`,
-                        })),
-                      ]}
-                      onChange={handleTravellerSelect}
-                      required
-                    />
-                    <Select
-                      label="Visa Status"
-                      value={form.visaStatus}
-                      options={VISA_STATUSES}
-                      onChange={(v) => updateForm("visaStatus", v)}
-                    />
-                  </>
-                )}
-                {modal === "pnr" && (
-                  <>
-                    <Select
-                      label="Job Card"
-                      value={form.jobCardId}
-                      options={jobCardSelectOptions(jobCards, { required: true })}
-                      onChange={handleJobCardSelect}
-                      required
-                    />
-                    <Input
-                      label="PNR"
-                      value={form.pnrCode}
-                      onChange={(v) => updateForm("pnrCode", v)}
-                      required
-                    />
-                    <Input
-                      label="Airline"
-                      value={form.airline}
-                      onChange={(v) => updateForm("airline", v)}
-                    />
-                    <Input
-                      label="Route"
-                      value={form.route}
-                      onChange={(v) => updateForm("route", v)}
-                    />
-                    <Input
-                      label="Fare Type"
-                      value={form.fareType}
-                      onChange={(v) => updateForm("fareType", v)}
-                    />
-                    <Input
-                      label="Total Seats"
-                      type="number"
-                      value={form.totalSeats}
-                      onChange={(v) => updateForm("totalSeats", v)}
-                    />
-                  </>
-                )}
-                {modal === "ticket" && (
-                  <>
-                    <Select
-                      label="Job Card"
-                      value={form.jobCardId}
-                      options={jobCardSelectOptions(jobCards, { required: true })}
-                      onChange={handleJobCardSelect}
-                      required
-                    />
-                    <Select
-                      label="Traveller"
-                      value={form.travellerId}
-                      options={travellerOptions}
-                      onChange={handleTravellerSelect}
-                    />
-                    <Select
-                      label="PNR"
-                      value={form.pnrId}
-                      options={pnrOptions}
-                      onChange={handlePnrSelect}
-                    />
-                    <Input
-                      label="Ticket Number"
-                      value={form.ticketNumber}
-                      onChange={(v) => updateForm("ticketNumber", v)}
-                    />
-                    <Select
-                      label="Ticket Type"
-                      value={form.ticketType}
-                      options={TICKET_TYPES}
-                      onChange={(v) => updateForm("ticketType", v)}
-                    />
-                    <Select
-                      label="Ticket Status"
-                      value={form.ticketStatus}
-                      options={TICKET_STATUSES}
-                      onChange={(v) => updateForm("ticketStatus", v)}
-                    />
-                    <Select
-                      label="Payment Type"
-                      value={form.paymentType}
-                      options={PAYMENT_TYPES}
-                      onChange={(v) => updateForm("paymentType", v)}
-                    />
-                    <Select
-                      label="Cabin Class"
-                      value={form.cabinClass}
-                      options={CABIN_CLASSES}
-                      onChange={(v) => updateForm("cabinClass", v)}
-                    />
-                    <Select
-                      label="Meal Preference"
-                      value={form.foodPreference}
-                      options={FOOD_PREFERENCES}
-                      onChange={(v) => updateForm("foodPreference", v)}
-                    />
-                    <Input
-                      label="Seat Preference"
-                      value={form.seatPreference}
-                      onChange={(v) => updateForm("seatPreference", v)}
-                    />
-                    <Input
-                      label="Seat Number"
-                      value={form.seatNumber}
-                      onChange={(v) => updateForm("seatNumber", v)}
-                    />
-                  </>
-                )}
-                {modal === "seat" && (
-                  <>
-                    <Select
-                      label="Job Card"
-                      value={form.jobCardId}
-                      options={jobCardSelectOptions(jobCards, { required: true })}
-                      onChange={handleJobCardSelect}
-                      required
-                    />
-                    <Select
-                      label="Traveller"
-                      value={form.travellerId}
-                      options={travellerOptions}
-                      onChange={handleTravellerSelect}
-                    />
-                    <Select
-                      label="PNR"
-                      value={form.pnrId}
-                      options={pnrOptions}
-                      onChange={handlePnrSelect}
-                    />
-                    <Input
-                      label="Seat Number"
-                      value={form.seatNumber}
-                      onChange={(v) => updateForm("seatNumber", v)}
-                      required
-                    />
-                    <Select
-                      label="Status"
-                      value={form.seatStatus}
-                      options={["Available", "Held", "Assigned", "Blocked"]}
-                      onChange={(v) => updateForm("seatStatus", v)}
-                    />
-                    <Textarea
-                      label="Notes"
-                      value={form.notes}
-                      onChange={(v) => updateForm("notes", v)}
-                    />
-                  </>
-                )}
-                {modal === "hotel" && (
-                  <>
-                    <Select
-                      label="Job Card"
-                      value={form.jobCardId}
-                      options={jobCardSelectOptions(jobCards, { required: true })}
-                      onChange={handleJobCardSelect}
-                      required
-                    />
-                    <Input
-                      label="Hotel Name"
-                      value={form.hotelName}
-                      onChange={(v) => updateForm("hotelName", v)}
-                      required
-                    />
-                    <Input label="City" value={form.city} onChange={(v) => updateForm("city", v)} />
-                    <Input
-                      label="Check-in"
-                      type="date"
-                      value={form.checkInDate}
-                      onChange={(v) => updateForm("checkInDate", v)}
-                    />
-                    <Input
-                      label="Check-out"
-                      type="date"
-                      value={form.checkOutDate}
-                      onChange={(v) => updateForm("checkOutDate", v)}
-                    />
-                    <Textarea
-                      label="Special Instructions"
-                      value={form.notes}
-                      onChange={(v) => updateForm("notes", v)}
-                    />
-                  </>
-                )}
-                {modal === "tourManager" && (
-                  <>
-                    <Select
-                      label="Job Card"
-                      value={form.jobCardId}
-                      options={jobCardSelectOptions(jobCards, { allowUnassigned: true })}
-                      onChange={handleJobCardSelect}
-                    />
-                    <Select
-                      label="Tour Manager"
-                      value={form.staffId}
-                      options={[
-                        { value: "", label: "Select tour manager…" },
-                        ...tourManagerOptions.map((o) => ({ value: o.value, label: o.label })),
-                      ]}
-                      onChange={(v) => handleStaffSelect("staffId", v)}
-                      required
-                    />
-                    <Input
-                      label="Email"
-                      value={form.staffEmail}
-                      onChange={(v) => updateForm("staffEmail", v)}
-                    />
-                    <Input
-                      label="Phone"
-                      value={form.paidBy}
-                      onChange={(v) => updateForm("paidBy", v)}
-                    />
-                    <Input
-                      label="Available Date"
-                      type="date"
-                      value={form.travelStartDate}
-                      onChange={(v) => updateForm("travelStartDate", v)}
-                    />
-                    <Textarea
-                      label="Notes"
-                      value={form.notes}
-                      onChange={(v) => updateForm("notes", v)}
-                    />
-                  </>
-                )}
-                {modal === "invoice" && (
-                  <>
-                    <Select
-                      label="Job Card"
-                      value={form.jobCardId}
-                      options={jobCardSelectOptions(jobCards, { required: true })}
-                      onChange={handleJobCardSelect}
-                      required
-                    />
-                    <Input
-                      label="Invoice Number"
-                      value={form.invoiceNumber}
-                      onChange={(v) => updateForm("invoiceNumber", v)}
-                      required
-                    />
-                    <Input
-                      label="Expected Amount"
-                      type="number"
-                      value={form.expectedAmount}
-                      onChange={(v) => updateForm("expectedAmount", v)}
-                    />
-                    <Input
-                      label="Received Amount"
-                      type="number"
-                      value={form.receivedAmount}
-                      onChange={(v) => updateForm("receivedAmount", v)}
-                    />
-                    <Input
-                      label="Due Date"
-                      type="date"
-                      value={form.dueDate}
-                      onChange={(v) => updateForm("dueDate", v)}
-                    />
-                  </>
-                )}
-                {modal === "expense" && (
-                  <>
-                    <Select
-                      label="Expense Type"
-                      value={form.expenseType}
-                      options={[
-                        { value: "jobCard", label: "Job Card" },
-                        { value: "office", label: "Office / General" },
-                      ]}
-                      onChange={(v) => updateForm("expenseType", v)}
-                    />
-                    {form.expenseType === "jobCard" && (
-                      <Select
-                        label="Job Card"
-                        value={form.jobCardId}
-                        options={jobCardSelectOptions(jobCards, { required: true })}
-                        onChange={handleJobCardSelect}
-                        required
-                      />
-                    )}
-                    <Input
-                      label="Tour Manager"
-                      value={form.tourManagerName}
-                      onChange={(v) => updateForm("tourManagerName", v)}
-                    />
-                    <Input
-                      label="Expense Date"
-                      type="date"
-                      value={form.expenseDate}
-                      onChange={(v) => updateForm("expenseDate", v)}
-                    />
-                    <Select
-                      label="Expense Head"
-                      value={form.category}
-                      options={EXPENSE_HEADS}
-                      onChange={(v) => updateForm("category", v)}
-                      required
-                    />
-                    <Select
-                      label="Currency"
-                      value={form.currency}
-                      options={EXPENSE_CURRENCIES}
-                      onChange={(v) => updateForm("currency", v)}
-                    />
-                    <Input
-                      label="Card Amount"
-                      type="number"
-                      value={form.cardAmount}
-                      onChange={(v) => updateForm("cardAmount", v)}
-                    />
-                    <Input
-                      label="Cash Amount"
-                      type="number"
-                      value={form.cashAmount}
-                      onChange={(v) => updateForm("cashAmount", v)}
-                    />
-                    <Input
-                      label="E-Pay Amount"
-                      type="number"
-                      value={form.epayAmount}
-                      onChange={(v) => updateForm("epayAmount", v)}
-                    />
-                    <div className="rounded-xl border border-brand-border bg-brand-light px-3 py-2">
-                      <span className="mb-1 block text-xs font-semibold text-brand-muted">
-                        Total Amount
-                      </span>
-                      <div className="text-sm font-semibold text-brand-text">
-                        {money(
-                          getExpenseSplitTotal({
-                            cardAmount: form.cardAmount,
-                            cashAmount: form.cashAmount,
-                            epayAmount: form.epayAmount,
-                          }),
-                        )}
-                      </div>
-                    </div>
-                    <Input
-                      label="Paid By"
-                      value={form.paidBy}
-                      onChange={(v) => updateForm("paidBy", v)}
-                      required
-                    />
-                    <Textarea
-                      label="Particulars"
-                      value={form.particulars}
-                      onChange={(v) => updateForm("particulars", v)}
-                    />
-                    <div className="md:col-span-2">
-                      <QueryFilePicker
-                        files={pendingExpenseProofFiles}
-                        onChange={(files) => setPendingExpenseProofFiles(files.slice(-1))}
-                        inputId="expense-proof-files"
-                      />
-                    </div>
-                  </>
-                )}
-                {modal === "staff" && (
-                  <>
-                    <Input
-                      label="Name"
-                      value={form.staffName}
-                      onChange={(v) => updateForm("staffName", v)}
-                      required
-                    />
-                    <Input
-                      label="Email"
-                      type="email"
-                      value={form.staffEmail}
-                      onChange={(v) => updateForm("staffEmail", v)}
-                      required
-                    />
-                    <Input
-                      label="Mobile"
-                      value={form.mobile}
-                      onChange={(v) => updateForm("mobile", v)}
-                    />
-                    <Input
-                      label="Department"
-                      value={form.department}
-                      onChange={(v) => updateForm("department", v)}
-                    />
-                    <Input
-                      label="Function"
-                      value={form.staffFunction}
-                      onChange={(v) => updateForm("staffFunction", v)}
-                    />
-                    <Input
-                      label="Location"
-                      value={form.location}
-                      onChange={(v) => updateForm("location", v)}
-                    />
-                    <MultiSelect
-                      label="Roles"
-                      value={form.staffRoles}
-                      options={PORTAL_ROLES}
-                      onChange={(v) => updateForm("staffRoles", v)}
-                    />
-                    <Select
-                      label="Active"
-                      value={form.staffActive ? "Active" : "Inactive"}
-                      options={["Active", "Inactive"]}
-                      onChange={(v) => updateForm("staffActive", v === "Active")}
-                    />
-                  </>
-                )}
-                {modal === "leave_create" && (
-                  <>
-                    {has(P.MANAGE_LEAVE) && (
-                      <Select
-                        label="Employee"
-                        value={form.staffId}
-                        options={team.map((t) => ({
-                          value: t.id,
-                          label: `${t.name} (${t.department || "General"})`,
-                        }))}
-                        onChange={(v) => updateForm("staffId", v)}
-                        required={!form.entityId}
-                      />
-                    )}
-                    <Select
-                      label="Leave Type"
-                      value={form.leaveType}
-                      options={LEAVE_TYPES}
-                      onChange={(v) => updateForm("leaveType", v)}
-                    />
-                    <Input
-                      label="Start Date"
-                      type="date"
-                      value={form.startDate}
-                      onChange={(v) => updateForm("startDate", v)}
-                      required
-                    />
-                    <Input
-                      label="End Date"
-                      type="date"
-                      value={form.endDate}
-                      onChange={(v) => updateForm("endDate", v)}
-                      required
-                    />
-                    <Input
-                      label="Reason for Leave"
-                      value={form.reason}
-                      onChange={(v) => updateForm("reason", v)}
-                      required
-                      placeholder="e.g. Annual Leave, Medical, Personal"
-                    />
-                    {has(P.MANAGE_LEAVE) && !form.entityId && (
-                      <Select
-                        label="Status"
-                        value={form.status || "Pending"}
-                        options={["Approved", "Pending", "Rejected"]}
-                        onChange={(v) => updateForm("status", v)}
-                      />
-                    )}
-                  </>
-                )}
-                {modal === "approvalDecide" && (
-                  <>
-                    <Textarea
-                      label="Decision Note"
-                      value={form.decisionNote}
-                      onChange={(v) => updateForm("decisionNote", v)}
-                      required
-                      placeholder="Explain what details are needed or why this is rejected"
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 border-t border-brand-border px-5 py-4">
-              <button type="button" onClick={close} className="portal-outline-btn">
-                {["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(modal)
-                  ? "Close"
-                  : "Cancel"}
-              </button>
-              {!["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(
-                modal,
-              ) && (
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="portal-primary-btn disabled:opacity-60"
-                >
-                  {isSaving ? (
-                    <Loader2 className="animate-spin" size={16} />
-                  ) : (
-                    <CheckCircle2 size={16} />
-                  )}
-                  Save
-                </button>
-              )}
-            </div>
-          </motion.form>
-        </motion.div>
-      )}
-    </AnimatePresence>
   );
 }
 
@@ -8300,22 +5630,6 @@ function strong(value) {
   return <strong className="font-semibold">{value}</strong>;
 }
 
-function filterRows(rows, search, keys) {
-  const term = search.trim().toLowerCase();
-  if (!term) return rows;
-  return rows.filter((row) =>
-    keys.some((key) => {
-      const value = row[key];
-      if (Array.isArray(value)) {
-        return value.join(", ").toLowerCase().includes(term);
-      }
-      return String(value ?? "")
-        .toLowerCase()
-        .includes(term);
-    }),
-  );
-}
-
 function filterDropdowns(dropdowns, search) {
   const term = search.trim().toLowerCase();
   if (!term) return dropdowns;
@@ -8328,11 +5642,6 @@ function filterDropdowns(dropdowns, search) {
     }
   }
   return filtered;
-}
-
-function toNumber(value, fallback) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function formatDate(value) {
@@ -8561,75 +5870,6 @@ function onboardingActionLabel(row) {
   if (row.onboardingStatus === "ready") return "Send password reset";
   if (row.onboardingStatus === "pending") return "Resend verification";
   return "Send verification";
-}
-
-async function uploadQueryFiles({ queryId, files, generateUploadUrl, attachQueryFile }) {
-  await Promise.all(
-    files.map(async (file) => {
-      if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
-        throw new Error(`${file.name} exceeds the 15 MB limit.`);
-      }
-      const uploadUrl = await generateUploadUrl({});
-      const uploadRes = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      });
-      if (!uploadRes.ok) {
-        throw new Error(`Failed to upload ${file.name}.`);
-      }
-      const { storageId } = await uploadRes.json();
-      await attachQueryFile({
-        queryId,
-        storageId,
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-      });
-    }),
-  );
-}
-
-async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, attachFile }) {
-  await Promise.all(
-    files.map(async (file) => {
-      if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
-        throw new Error(`${file.name} exceeds the 15 MB limit.`);
-      }
-      const uploadUrl = await generateUploadUrl({});
-      const uploadRes = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      });
-      if (!uploadRes.ok) {
-        throw new Error(`Failed to upload ${file.name}.`);
-      }
-      const { storageId } = await uploadRes.json();
-      await attachFile({
-        [idField]: entityId,
-        storageId,
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
-      });
-    }),
-  );
-}
-
-async function uploadExpenseProofFiles({
-  expenseId,
-  files,
-  generateUploadUrl,
-  attachExpenseProof,
-}) {
-  await uploadEntityFiles({
-    entityId: expenseId,
-    idField: "expenseId",
-    files,
-    generateUploadUrl,
-    attachFile: attachExpenseProof,
-  });
 }
 
 function formatFileSize(bytes) {
@@ -9128,3 +6368,4 @@ function statusTone(status) {
 function BriefcaseIcon(props) {
   return <Settings {...props} />;
 }
+

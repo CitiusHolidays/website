@@ -1,21 +1,43 @@
 "use client";
 
 import { m as motion } from "motion/react";
-import { useState } from "react";
+import { useReducer } from "react";
 import { ACCOUNT_CONTAINER_VARIANTS, ProfileAlert, ProfileField, ProfileInput } from "./AccountUi";
 
 const PHONE_REGEX = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
 
+function createProfileState(user) {
+  return {
+    savedProfileData: undefined,
+    profileForm: {
+      name: user.name || "",
+      phoneNumber: user.phoneNumber || "",
+    },
+    isEditingProfile: false,
+    isSavingProfile: false,
+    profileAlert: null,
+  };
+}
+
+function profileReducer(state, action) {
+  switch (action.type) {
+    case "patch":
+      return { ...state, ...action.patch };
+    case "setFormField":
+      return {
+        ...state,
+        profileForm: { ...state.profileForm, [action.field]: action.value },
+      };
+    default:
+      return state;
+  }
+}
+
 export function AccountProfilePanel({ user }) {
-  const [savedProfileData, setSavedProfileData] = useState();
+  const [state, dispatch] = useReducer(profileReducer, user, createProfileState);
+  const { savedProfileData, profileForm, isEditingProfile, isSavingProfile, profileAlert } =
+    state;
   const profileData = savedProfileData ?? user;
-  const [profileForm, setProfileForm] = useState({
-    name: user.name || "",
-    phoneNumber: user.phoneNumber || "",
-  });
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [profileAlert, setProfileAlert] = useState(null);
 
   const memberSince = profileData?.createdAt
     ? new Date(profileData.createdAt).toLocaleDateString("en-US", {
@@ -25,19 +47,21 @@ export function AccountProfilePanel({ user }) {
     : "Not available";
 
   const handleProfileInput = (field, value) => {
-    setProfileForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    dispatch({ type: "setFormField", field, value });
   };
 
   const resetProfileForm = () => {
-    setProfileForm({
-      name: profileData.name || "",
-      phoneNumber: profileData.phoneNumber || "",
+    dispatch({
+      type: "patch",
+      patch: {
+        profileForm: {
+          name: profileData.name || "",
+          phoneNumber: profileData.phoneNumber || "",
+        },
+        isEditingProfile: false,
+        profileAlert: null,
+      },
     });
-    setIsEditingProfile(false);
-    setProfileAlert(null);
   };
 
   const handleProfileSave = async () => {
@@ -45,31 +69,45 @@ export function AccountProfilePanel({ user }) {
     const trimmedPhone = (profileForm.phoneNumber || "").trim();
 
     if (!trimmedName || trimmedName.length < 2) {
-      setProfileAlert({
-        type: "error",
-        message: "Please enter your full name (at least 2 characters).",
+      dispatch({
+        type: "patch",
+        patch: {
+          profileAlert: {
+            type: "error",
+            message: "Please enter your full name (at least 2 characters).",
+          },
+        },
       });
       return;
     }
 
     if (trimmedName.length > 80) {
-      setProfileAlert({
-        type: "error",
-        message: "Name is too long. Please keep it under 80 characters.",
+      dispatch({
+        type: "patch",
+        patch: {
+          profileAlert: {
+            type: "error",
+            message: "Name is too long. Please keep it under 80 characters.",
+          },
+        },
       });
       return;
     }
 
     if (trimmedPhone && !PHONE_REGEX.test(trimmedPhone)) {
-      setProfileAlert({
-        type: "error",
-        message: "Please enter a valid phone number (e.g., +1 555-123-4567).",
+      dispatch({
+        type: "patch",
+        patch: {
+          profileAlert: {
+            type: "error",
+            message: "Please enter a valid phone number (e.g., +1 555-123-4567).",
+          },
+        },
       });
       return;
     }
 
-    setIsSavingProfile(true);
-    setProfileAlert(null);
+    dispatch({ type: "patch", patch: { isSavingProfile: true, profileAlert: null } });
 
     try {
       const response = await fetch("/api/profile", {
@@ -86,35 +124,50 @@ export function AccountProfilePanel({ user }) {
       const data = await response.json();
 
       if (!response.ok) {
-        setProfileAlert({
-          type: "error",
-          message: data?.error || "Unable to update profile.",
+        dispatch({
+          type: "patch",
+          patch: {
+            profileAlert: {
+              type: "error",
+              message: data?.error || "Unable to update profile.",
+            },
+            isSavingProfile: false,
+          },
         });
-        setIsSavingProfile(false);
         return;
       }
 
-      setSavedProfileData((prev) => ({
-        ...prev,
-        ...profileData,
-        ...data.user,
-      }));
-      setProfileForm({
-        name: data.user?.name || "",
-        phoneNumber: data.user?.phoneNumber || "",
-      });
-      setIsEditingProfile(false);
-      setProfileAlert({
-        type: "success",
-        message: "Profile updated successfully.",
+      dispatch({
+        type: "patch",
+        patch: {
+          savedProfileData: {
+            ...profileData,
+            ...data.user,
+          },
+          profileForm: {
+            name: data.user?.name || "",
+            phoneNumber: data.user?.phoneNumber || "",
+          },
+          isEditingProfile: false,
+          profileAlert: {
+            type: "success",
+            message: "Profile updated successfully.",
+          },
+          isSavingProfile: false,
+        },
       });
     } catch (error) {
-      setProfileAlert({
-        type: "error",
-        message: error.message || "Unable to update profile.",
+      dispatch({
+        type: "patch",
+        patch: {
+          profileAlert: {
+            type: "error",
+            message: error.message || "Unable to update profile.",
+          },
+          isSavingProfile: false,
+        },
       });
     }
-    setIsSavingProfile(false);
   };
 
   return (
@@ -138,8 +191,10 @@ export function AccountProfilePanel({ user }) {
             <button
               type="button"
               onClick={() => {
-                setIsEditingProfile(true);
-                setProfileAlert(null);
+                dispatch({
+                  type: "patch",
+                  patch: { isEditingProfile: true, profileAlert: null },
+                });
               }}
               className="text-[#0B1026] text-sm font-semibold px-4 py-2 rounded-full border border-[#0B1026] hover:bg-[#0B1026] hover:text-white transition-colors"
             >

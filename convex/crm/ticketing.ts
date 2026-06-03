@@ -587,9 +587,7 @@ export const removeManyTickets = mutation({
       }
       ids.push(ticketId);
     }
-    for (const ticketId of ids) {
-      await deleteTicketRecord(ctx, access, ticketId);
-    }
+    await Promise.all(ids.map((ticketId) => deleteTicketRecord(ctx, access, ticketId)));
     return { deletedCount: ids.length };
   },
 });
@@ -859,9 +857,7 @@ export const removeManyPnrs = mutation({
       }
       ids.push(pnrId);
     }
-    for (const pnrId of ids) {
-      await deletePnrRecord(ctx, access, pnrId);
-    }
+    await Promise.all(ids.map((pnrId) => deletePnrRecord(ctx, access, pnrId)));
     return { deletedCount: ids.length };
   },
 });
@@ -900,23 +896,25 @@ export const assignTicketingOwner = mutation({
       throw new ConvexError("FORBIDDEN");
     }
     const ownerName = staff.name.trim();
-    await ctx.db.patch(jobCardId, {
-      ticketingOwnerId: staffId,
-      ticketingOwnerName: ownerName,
-      updatedAt: Date.now(),
-    });
-    await createActivity(ctx, access, {
-      entityType: "jobCard",
-      entityId: jobCardId,
-      action: "assigned_ticketing",
-      message: `${job.jobCode} assigned to ${ownerName} (Ticketing)`,
-    });
-    await notifyStaffMember(ctx, staffId, {
-      title: "Assign ticketing owner",
-      body: `You were assigned as ticketing owner for ${job.jobCode}.`,
-      entityType: "jobCard",
-      entityId: jobCardId,
-    });
+    await Promise.all([
+      ctx.db.patch(jobCardId, {
+        ticketingOwnerId: staffId,
+        ticketingOwnerName: ownerName,
+        updatedAt: Date.now(),
+      }),
+      createActivity(ctx, access, {
+        entityType: "jobCard",
+        entityId: jobCardId,
+        action: "assigned_ticketing",
+        message: `${job.jobCode} assigned to ${ownerName} (Ticketing)`,
+      }),
+      notifyStaffMember(ctx, staffId, {
+        title: "Assign ticketing owner",
+        body: `You were assigned as ticketing owner for ${job.jobCode}.`,
+        entityType: "jobCard",
+        entityId: jobCardId,
+      }),
+    ]);
     return { id: jobCardId };
   },
 });
@@ -976,9 +974,7 @@ export const removeManySeatAllocations = mutation({
       }
       ids.push(id);
     }
-    for (const id of ids) {
-      await deleteSeatAllocationRecord(ctx, access, id);
-    }
+    await Promise.all(ids.map((id) => deleteSeatAllocationRecord(ctx, access, id)));
     return { deletedCount: ids.length };
   },
 });

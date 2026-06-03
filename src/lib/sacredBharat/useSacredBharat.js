@@ -2,7 +2,7 @@
 
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { clearGuestDraft, readGuestDraft, writeGuestDraft } from "./guestStorage";
 import { computeProgress } from "./scoring";
 
@@ -45,94 +45,69 @@ export function useSacredBharat() {
       });
   }, [isAuthenticated, guestHydrated, mergeGuestMutation]);
 
-  const visitedTempleIds = useMemo(() => {
-    if (isAuthenticated && serverProgress) {
-      return serverProgress.visitedTempleIds ?? [];
+  const visitedTempleIds =
+    isAuthenticated && serverProgress ? (serverProgress.visitedTempleIds ?? []) : guestTempleIds;
+
+  const progress =
+    isAuthenticated && serverProgress
+      ? {
+          ...computeProgress(visitedTempleIds),
+          wishlist: serverProgress.wishlist ?? [],
+          visits: serverProgress.visits ?? [],
+        }
+      : {
+          ...computeProgress(visitedTempleIds),
+          wishlist: guestWishlist,
+          visits: [],
+        };
+
+  const persistGuest = (templeIds, wishlist = guestWishlist) => {
+    setGuestTempleIds(templeIds);
+    writeGuestDraft({ templeIds, wishlist });
+  };
+
+  const markVisited = async (templeId) => {
+    if (isAuthenticated) {
+      await markVisitedMutation({ templeId });
+      return;
     }
-    return guestTempleIds;
-  }, [isAuthenticated, serverProgress, guestTempleIds]);
-
-  const progress = useMemo(() => {
-    if (isAuthenticated && serverProgress) {
-      const local = computeProgress(visitedTempleIds);
-      return {
-        ...local,
-        wishlist: serverProgress.wishlist ?? [],
-        visits: serverProgress.visits ?? [],
-      };
+    if (!visitedTempleIds.includes(templeId)) {
+      persistGuest([...visitedTempleIds, templeId]);
     }
-    return {
-      ...computeProgress(visitedTempleIds),
-      wishlist: guestWishlist,
-      visits: [],
-    };
-  }, [isAuthenticated, serverProgress, visitedTempleIds, guestWishlist]);
+  };
 
-  const persistGuest = useCallback(
-    (templeIds, wishlist = guestWishlist) => {
-      setGuestTempleIds(templeIds);
-      writeGuestDraft({ templeIds, wishlist });
-    },
-    [guestWishlist],
-  );
+  const unmarkVisited = async (templeId) => {
+    if (isAuthenticated) {
+      await unmarkVisitedMutation({ templeId });
+      return;
+    }
+    persistGuest(visitedTempleIds.filter((id) => id !== templeId));
+  };
 
-  const markVisited = useCallback(
-    async (templeId) => {
-      if (isAuthenticated) {
-        await markVisitedMutation({ templeId });
-        return;
-      }
-      if (!visitedTempleIds.includes(templeId)) {
-        persistGuest([...visitedTempleIds, templeId]);
-      }
-    },
-    [isAuthenticated, visitedTempleIds, markVisitedMutation, persistGuest],
-  );
+  const toggleVisited = async (templeId) => {
+    if (visitedTempleIds.includes(templeId)) {
+      await unmarkVisited(templeId);
+    } else {
+      await markVisited(templeId);
+    }
+  };
 
-  const unmarkVisited = useCallback(
-    async (templeId) => {
-      if (isAuthenticated) {
-        await unmarkVisitedMutation({ templeId });
-        return;
-      }
-      persistGuest(visitedTempleIds.filter((id) => id !== templeId));
-    },
-    [isAuthenticated, visitedTempleIds, unmarkVisitedMutation, persistGuest],
-  );
+  const toggleWishlist = async (itemType, itemId) => {
+    if (isAuthenticated) {
+      await toggleWishlistMutation({ itemType, itemId });
+      return;
+    }
+    const key = `${itemType}:${itemId}`;
+    const exists = guestWishlist.some((w) => `${w.itemType}:${w.itemId}` === key);
+    const next = exists
+      ? guestWishlist.filter((w) => `${w.itemType}:${w.itemId}` !== key)
+      : [...guestWishlist, { itemType, itemId }];
+    setGuestWishlist(next);
+    writeGuestDraft({ templeIds: guestTempleIds, wishlist: next });
+  };
 
-  const toggleVisited = useCallback(
-    async (templeId) => {
-      if (visitedTempleIds.includes(templeId)) {
-        await unmarkVisited(templeId);
-      } else {
-        await markVisited(templeId);
-      }
-    },
-    [visitedTempleIds, markVisited, unmarkVisited],
-  );
-
-  const toggleWishlist = useCallback(
-    async (itemType, itemId) => {
-      if (isAuthenticated) {
-        await toggleWishlistMutation({ itemType, itemId });
-        return;
-      }
-      const key = `${itemType}:${itemId}`;
-      const exists = guestWishlist.some((w) => `${w.itemType}:${w.itemId}` === key);
-      const next = exists
-        ? guestWishlist.filter((w) => `${w.itemType}:${w.itemId}` !== key)
-        : [...guestWishlist, { itemType, itemId }];
-      setGuestWishlist(next);
-      writeGuestDraft({ templeIds: guestTempleIds, wishlist: next });
-    },
-    [isAuthenticated, guestWishlist, guestTempleIds, toggleWishlistMutation],
-  );
-
-  const isWishlisted = useCallback(
-    (itemType, itemId) =>
-      progress.wishlist?.some((w) => w.itemType === itemType && w.itemId === itemId) ?? false,
-    [progress.wishlist],
-  );
+  const isWishlisted = (itemType, itemId) =>
+    progress.wishlist?.some((w) => w.itemType === itemType && w.itemId === itemId) ?? false;
 
   const isLoading =
     authLoading ||

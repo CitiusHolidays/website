@@ -274,9 +274,7 @@ export const removeMany = mutation({
       }
       ids.push(visaRecordId);
     }
-    for (const visaRecordId of ids) {
-      await deleteVisaRecord(ctx, access, visaRecordId);
-    }
+    await Promise.all(ids.map((visaRecordId) => deleteVisaRecord(ctx, access, visaRecordId)));
     return { deletedCount: ids.length };
   },
 });

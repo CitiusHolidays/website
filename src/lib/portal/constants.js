@@ -279,6 +279,16 @@ export const TICKET_TYPES = ["FIT Ticket", "Group Ticket"];
 export const CABIN_CLASSES = ["Economy", "Premium Economy", "Business"];
 
 export const PROPOSAL_STATUSES = ["Draft", "Sent", "Accepted", "Rejected"];
+
+export function proposalStatusLabel(status) {
+  if (status === "Sent") return "With Sales";
+  return status ?? "";
+}
+
+export function contractingStatusLabel(status) {
+  if (status === "Proposal sent") return "With Sales";
+  return status ?? "";
+}
 export const JOB_CARD_STATUSES = [
   "Open",
   "In Operations",
@@ -486,8 +496,16 @@ export const TRAVEL_TYPES = ["Domestic Travel", "International Travel"];
 export const SALES_STATUSES = [
   "Proposal in discussion",
   "Change in destination",
+  "Date/Destination Change Required",
   "Order Confirmed",
   "Order Lost",
+];
+
+export const SALES_DECISION_OPTIONS = [
+  { value: "Proposal in discussion", label: "Proposal Under Discussion" },
+  { value: "Date/Destination Change Required", label: "Date/Destination Change Required" },
+  { value: "Order Confirmed", label: "Proposal Confirmed (Order Confirmed)" },
+  { value: "Order Lost", label: "Proposal Lost" },
 ];
 
 export const LEAD_STAGES = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Lost"];
@@ -499,6 +517,7 @@ export const CONTRACTING_STATUSES = [
   "Proposal in progress",
   "Proposal sent",
   "Change in destination",
+  "Date/Destination Change Required",
   "Order Confirmed",
 ];
 
@@ -547,7 +566,16 @@ export const EXPENSE_HEADS = [
   "Miscellaneous",
 ];
 export const EXPENSE_CURRENCIES = ["INR", "USD", "AED", "EUR", "THB", "SGD"];
-export const LEAVE_TYPES = ["Casual", "Sick", "Privilege", "Leave Without Pay"];
+export const LEAVE_TYPES = [
+  "Privilege",
+  "Casual",
+  "Sick",
+  "Maternity",
+  "Paternity",
+  "Bereavement",
+  "Marriage",
+  "Leave Without Pay",
+];
 
 export const EXPENSE_CATEGORIES = EXPENSE_HEADS;
 
@@ -567,6 +595,7 @@ export const PIPELINE_STAGES = [
   "Proposal in progress",
   "Proposal sent",
   "Change in destination",
+  "Date/Destination Change Required",
   "Order Confirmed",
   "Order Lost",
 ];

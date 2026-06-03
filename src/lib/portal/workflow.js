@@ -52,7 +52,11 @@ export function getSalesPipelineStage(query) {
   if (query?.contractingStatus === "Proposal sent") {
     return "Proposal";
   }
-  if (["Proposal in progress", "Change in destination"].includes(query?.contractingStatus)) {
+  if (
+    ["Proposal in progress", "Change in destination", "Date/Destination Change Required"].includes(
+      query?.contractingStatus,
+    )
+  ) {
     return "Negotiation";
   }
   return "Inquiry";

@@ -24,6 +24,9 @@ describe("portal workflow helpers", () => {
 
   test("maps query statuses into pipeline stages", () => {
     expect(getPipelineStage({ contractingStatus: "Proposal sent" })).toBe("Proposal sent");
+    expect(getPipelineStage({ contractingStatus: "Date/Destination Change Required" })).toBe(
+      "Date/Destination Change Required",
+    );
     expect(getPipelineStage({ salesStatus: "Order Confirmed" })).toBe("Order Confirmed");
     expect(getPipelineStage({ salesStatus: "Order Lost" })).toBe("Order Lost");
   });
@@ -33,11 +36,13 @@ describe("portal workflow helpers", () => {
       { id: "q1", contractingStatus: "Query Received" },
       { id: "q2", contractingStatus: "Proposal sent" },
       { id: "q3", salesStatus: "Order Confirmed" },
+      { id: "q4", contractingStatus: "Date/Destination Change Required" },
     ]);
 
     expect(buckets["Query Received"]).toHaveLength(1);
     expect(buckets["Proposal sent"]).toHaveLength(1);
     expect(buckets["Order Confirmed"]).toHaveLength(1);
+    expect(buckets["Date/Destination Change Required"]).toHaveLength(1);
   });
 
   test("validates terminal ticket and visa statuses", () => {
