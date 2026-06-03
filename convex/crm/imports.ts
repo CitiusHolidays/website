@@ -73,6 +73,7 @@ const passengerImportRow = v.object({
   passportNumberHash: v.optional(v.string()),
   encryptedPassportPayload: v.optional(v.string()),
   passportLastFour: v.optional(v.string()),
+  passportExpiryDate: v.optional(v.string()),
   ticketing: v.optional(
     v.object({
       internationalFare: v.optional(v.string()),
