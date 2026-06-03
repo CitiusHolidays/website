@@ -9,8 +9,7 @@ import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import {
-    applyLeaveMatrixDefaults,
-    applyJobCardLink,
+  applyJobCardLink,
   applyPnrLink,
   applyQueryLink,
   applyTravellerLink,
@@ -483,8 +482,6 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     api.crm.leaveApprovers.listHeadApproverCandidates,
     canFetch && has(P.MANAGE_STAFF) ? {} : "skip",
   );
-  const applyLeaveMatrixDefaults = useMutation(api.crm.leaveApprovers.applyMatrixDefaults);
-
   const createQuery = useMutation(api.crm.queries.create);
   const updateQuery = useMutation(api.crm.queries.update);
   const submitToContracting = useMutation(api.crm.queries.submitToContracting);
@@ -1546,7 +1543,6 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     attachFinalizedPdf,
     attachProposalFile,
     attachQueryFile,
-    applyLeaveMatrixDefaults,
     canFetch,
     canViewTravellers,
     clearAllFilters,
