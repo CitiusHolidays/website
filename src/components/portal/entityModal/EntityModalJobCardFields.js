@@ -1,33 +1,7 @@
 "use client";
 
-import {
-  ContractingCostFields,
-  FinalizedProposalPdfPanel,
-  Input,
-  isQueryConfirmed,
-  MAX_QUERY_NOTES_WORDS,
-  MultiSelect,
-  money,
-  proposalCostPerPax,
-  QueryAttachmentsPanel,
-  QueryFilePicker,
-  Select,
-  Textarea,
-} from "@/components/portal/PortalModalForm";
-import {
-  CONTRACTING_STATUS_SELECT_OPTIONS,
-  LOST_REASONS,
-  QUERY_SOURCES,
-  SALES_DECISION_OPTIONS,
-  TRAVEL_TYPES,
-} from "@/lib/portal/constants";
-import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
-import {
-  canAssignContracting,
-  canAssignQueryTicketing,
-  canAssignTicketing,
-  getQueryTypeOptions,
-} from "@/lib/portal/permissions";
+import { Input, Select } from "@/components/portal/PortalModalForm";
+import { proposalLinkedQueryIds } from "@/lib/portal/proposalLinks";
 
 export function EntityModalJobCardFields({
   modal,

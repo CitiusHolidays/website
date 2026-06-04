@@ -16,8 +16,12 @@ import {
 } from "@/components/portal/PortalModalForm";
 import {
   CONTRACTING_STATUS_SELECT_OPTIONS,
+  FOOD_PREFERENCES,
+  GUEST_TYPES,
   LOST_REASONS,
+  PAYMENT_TYPES,
   QUERY_SOURCES,
+  ROOM_TYPES,
   SALES_DECISION_OPTIONS,
   TRAVEL_TYPES,
 } from "@/lib/portal/constants";
