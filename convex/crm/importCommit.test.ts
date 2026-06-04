@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { processImportRows } from "./imports";
+import { describe, expect, spyOn, test } from "bun:test";
+import { processImportRows } from "./importProcessor";
 
 type Row = { _id: string; [key: string]: unknown };
 type Tables = Record<string, Row[]>;
@@ -70,46 +70,51 @@ describe("processImportRows failed count", () => {
       { failInsertNames: new Set(["Broken Row"]) },
     );
 
-    const result = await processImportRows(ctx as never, {
-      jobCardId: jobCardId as never,
-      rows: [
-        {
-          fullName: "Good Row",
-          importKey: "row-1",
-          importKind: "passenger",
-          visaRequired: false,
-          foodPreference: "Veg",
-          guestType: "Client",
-          paymentType: "Company Paid",
-          roomType: "Twin",
+    const consoleError = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const result = await processImportRows(ctx as never, {
+        jobCardId: jobCardId as never,
+        rows: [
+          {
+            fullName: "Good Row",
+            importKey: "row-1",
+            importKind: "passenger",
+            visaRequired: false,
+            foodPreference: "Veg",
+            guestType: "Client",
+            paymentType: "Company Paid",
+            roomType: "Twin",
+          },
+          {
+            fullName: "Broken Row",
+            importKey: "row-2",
+            importKind: "passenger",
+            visaRequired: false,
+            foodPreference: "Veg",
+            guestType: "Client",
+            paymentType: "Company Paid",
+            roomType: "Twin",
+          },
+        ],
+        access: { authUserId: "user_1" },
+        job: {
+          _id: jobCardId,
+          jobCode: "JC-0001",
+          travelStartDate: "2026-06-01",
         },
-        {
-          fullName: "Broken Row",
-          importKey: "row-2",
-          importKind: "passenger",
-          visaRequired: false,
-          foodPreference: "Veg",
-          guestType: "Client",
-          paymentType: "Company Paid",
-          roomType: "Twin",
+        matchIndex: {
+          byImportKey: new Map(),
+          byNormalizedName: new Map(),
+          byPassportHash: new Map(),
         },
-      ],
-      access: { authUserId: "user_1" },
-      job: {
-        _id: jobCardId,
-        jobCode: "JC-0001",
-        travelStartDate: "2026-06-01",
-      },
-      matchIndex: {
-        byImportKey: new Map(),
-        byNormalizedName: new Map(),
-        byPassportHash: new Map(),
-      },
-    });
+      });
 
-    expect(result.created).toBe(1);
-    expect(result.failed).toBe(1);
-    expect(result.total).toBe(2);
+      expect(result.created).toBe(1);
+      expect(result.failed).toBe(1);
+      expect(result.total).toBe(2);
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
 

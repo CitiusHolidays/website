@@ -3,156 +3,20 @@
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import { action } from "../_generated/server";
-import { decryptPassportDetails, encryptPassportDetails, hash } from "../lib/encryption";
+import { decryptPassportDetails } from "../lib/encryption";
+import {
+  chunkRows,
+  exportKindValidator,
+  IMPORT_BATCH_SIZE,
+  mergeRoomSummaries,
+  preparePassengerRows,
+  publicPassengerImportRow,
+} from "./importRows";
 import { PERMISSIONS } from "./lib";
-import { cleanPassportField, normalizePassportExpiryDate } from "./passportExpiry";
-
-export const IMPORT_BATCH_SIZE = 50;
-
-function chunkRows<T>(rows: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < rows.length; index += size) {
-    chunks.push(rows.slice(index, index + size));
-  }
-  return chunks;
-}
-
-function mergeRoomSummaries(
-  left: Record<string, number>,
-  right: Record<string, number>,
-): Record<string, number> {
-  const merged = { ...left };
-  for (const [roomType, count] of Object.entries(right)) {
-    merged[roomType] = (merged[roomType] ?? 0) + count;
-  }
-  return merged;
-}
-
-const passengerImportRowInput = v.object({
-  id: v.string(),
-  sourceSheet: v.string(),
-  sourceRowNumber: v.number(),
-  sourceStatus: v.optional(v.string()),
-  importKind: v.optional(
-    v.union(
-      v.literal("passenger"),
-      v.literal("traveller"),
-      v.literal("rooming"),
-      v.literal("passport"),
-      v.literal("visa"),
-    ),
-  ),
-  importKey: v.string(),
-  fullName: v.string(),
-  travelHub: v.optional(v.string()),
-  foodPreference: v.union(
-    v.literal("Veg"),
-    v.literal("Non-Veg"),
-    v.literal("Jain"),
-    v.literal("Vegan"),
-  ),
-  guestType: v.union(v.literal("Employee"), v.literal("Client"), v.literal("VIP")),
-  paymentType: v.union(
-    v.literal("Company Paid"),
-    v.literal("Self Paid"),
-    v.literal("Upgraded Self Paid"),
-  ),
-  roomType: v.union(
-    v.literal("SGL"),
-    v.literal("Twin"),
-    v.literal("DBL"),
-    v.literal("Child with Bed"),
-    v.literal("Family Room"),
-  ),
-  visaRequired: v.boolean(),
-  domesticTravelRequired: v.optional(v.boolean()),
-  passportStatus: v.optional(v.string()),
-  specialRequests: v.optional(v.string()),
-  sourceDealerCode: v.optional(v.string()),
-  sourceDealerName: v.optional(v.string()),
-  sourceDescription: v.optional(v.string()),
-  sourceSoName: v.optional(v.string()),
-  sourceRsoName: v.optional(v.string()),
-  sourceGroup: v.optional(v.string()),
-  gender: v.optional(v.string()),
-  contactNo: v.optional(v.string()),
-  hotelAllocation: v.optional(v.string()),
-  visaStatus: v.optional(
-    v.union(
-      v.literal("Not Required"),
-      v.literal("Not Started"),
-      v.literal("Checklist Shared"),
-      v.literal("Documents Pending"),
-      v.literal("Documents Verified"),
-      v.literal("Appointment Scheduled"),
-      v.literal("Submitted"),
-      v.literal("Awaiting"),
-      v.literal("Approved"),
-      v.literal("Rejected"),
-      v.literal("Re-applied"),
-    ),
-  ),
-  biometricAppointmentDate: v.optional(v.string()),
-  visaNotes: v.optional(v.string()),
-  passport: v.object({
-    number: v.optional(v.string()),
-    dateOfBirth: v.optional(v.string()),
-    issueDate: v.optional(v.string()),
-    expiryDate: v.optional(v.string()),
-    nationality: v.optional(v.string()),
-  }),
-  ticketing: v.optional(
-    v.object({
-      internationalFare: v.optional(v.string()),
-      internationalPnr: v.optional(v.string()),
-      internationalVendor: v.optional(v.string()),
-      domesticTicket: v.optional(v.string()),
-      domesticPnr: v.optional(v.string()),
-      domesticVendor: v.optional(v.string()),
-    }),
-  ),
-});
-
-const exportKindValidator = v.union(
-  v.literal("passenger"),
-  v.literal("traveller"),
-  v.literal("rooming"),
-  v.literal("passport"),
-  v.literal("visa"),
-);
+import { cleanPassportField } from "./passportExpiry";
 
 function clean(value?: string) {
   return String(value ?? "").trim();
-}
-
-function preparePassengerRows(rows: Array<any>) {
-  return rows.map((row) => {
-    const { passport, ...rest } = row;
-    const passportNumber = clean(row.passport?.number);
-    const passportNumberHash = passportNumber ? hash(passportNumber.toUpperCase()) : undefined;
-    const hasPassportDetails = Boolean(
-      passportNumber ||
-        clean(row.passport?.dateOfBirth) ||
-        clean(row.passport?.issueDate) ||
-        clean(row.passport?.expiryDate),
-    );
-
-    return {
-      ...rest,
-      passportNumberHash,
-      encryptedPassportPayload: hasPassportDetails
-        ? encryptPassportDetails({
-            number: passportNumber || "UNKNOWN",
-            dateOfBirth: clean(row.passport?.dateOfBirth) || "UNKNOWN",
-            issueDate: clean(row.passport?.issueDate),
-            expiryDate: clean(row.passport?.expiryDate) || "UNKNOWN",
-            nationality: clean(row.passport?.nationality) || "UNKNOWN",
-          })
-        : undefined,
-      passportLastFour: passportNumber ? passportNumber.slice(-4) : undefined,
-      passportExpiryDate: normalizePassportExpiryDate(clean(row.passport?.expiryDate)),
-    };
-  });
 }
 
 function hasPermission(access: any, permission: string) {
@@ -318,7 +182,7 @@ function buildTicketingExport(tickets: any[]) {
 export const previewPassengerImport = action({
   args: {
     jobCardId: v.string(),
-    rows: v.array(passengerImportRowInput),
+    rows: v.array(publicPassengerImportRow),
   },
   handler: async (ctx, args): Promise<any> => {
     const access = await requireImportAccess(ctx, args.rows);
@@ -348,7 +212,7 @@ export const previewPassengerImport = action({
 export const commitPassengerImport = action({
   args: {
     jobCardId: v.string(),
-    rows: v.array(passengerImportRowInput),
+    rows: v.array(publicPassengerImportRow),
   },
   handler: async (ctx, args): Promise<any> => {
     const access = await requireImportAccess(ctx, args.rows);

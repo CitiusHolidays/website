@@ -40,13 +40,12 @@ import {
 import { DashboardView } from "@/components/portal/dashboard/DashboardView";
 import { EntityModal } from "@/components/portal/EntityModal";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
-import { usePortalNotificationDeepLink } from "@/components/portal/usePortalNotificationDeepLink";
-import { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
-import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
 import { PortalListFilters } from "@/components/portal/PortalListFilters";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { usePortalNotificationDeepLink } from "@/components/portal/usePortalNotificationDeepLink";
+import { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
 import {
   CABIN_CLASSES,
   CALLING_STATUSES,
@@ -70,8 +69,12 @@ import {
   VISA_STATUSES,
 } from "@/lib/portal/constants";
 import {
-  getListFilterConfig,
-} from "@/lib/portal/listFilterConfig";
+  uploadEntityFiles,
+  uploadExpenseProofFiles,
+  uploadQueryFiles,
+} from "@/lib/portal/fileUploads";
+import { toNumber } from "@/lib/portal/formUtils";
+import { getListFilterConfig } from "@/lib/portal/listFilterConfig";
 import {
   applyListFilters,
   filterEmptyMessage,
@@ -83,19 +86,14 @@ import {
   isDeepLinkDataReady,
   resolveDeepLink,
 } from "@/lib/portal/notificationTargets";
+import { toPassengerImportInput } from "@/lib/portal/passengerImportRows";
 import {
   attachPassportExpiryUrgency,
   formatPassportExpiryLabel,
   getPassportExpiryInfo,
   passportExpiryTone,
 } from "@/lib/portal/passportExpiry";
-import { filterRows } from "@/lib/portal/pipeViewRows";
-import {
-  uploadEntityFiles,
-  uploadExpenseProofFiles,
-  uploadQueryFiles,
-} from "@/lib/portal/fileUploads";
-import { toNumber } from "@/lib/portal/formUtils";
+import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
 import {
   canAssignContracting,
@@ -106,6 +104,7 @@ import {
   isCementScopedUser,
   teamSelectOptions,
 } from "@/lib/portal/permissions";
+import { filterRows } from "@/lib/portal/pipeViewRows";
 import {
   proposalLinkedQueryIds,
   proposalLinkedQueryLabel,
@@ -950,16 +949,108 @@ function PortalWorkspaceViews({ workspace: w }) {
           startStaffOnboarding={w.startStaffOnboarding}
         />
       )}
-
-      
     </>
   );
 }
 
+const PASSENGER_IMPORT_MODAL_CONFIGS = [
+  {
+    modal: "passengerImport",
+    title: "Import Ticketing Passenger List",
+    fileLabel: "Ticketing passenger spreadsheet",
+    successLabel: "Ticketing passenger import complete",
+    uploadLabel: "Upload Ticketing List",
+  },
+  {
+    modal: "travellerImport",
+    title: "Import Traveller Master",
+    fileLabel: "Traveller master spreadsheet",
+    parseWorkbookFile: parseTravellerMasterWorkbookFile,
+    emptyLabel: "No traveller master rows found.",
+    successLabel: "Traveller master import complete",
+    uploadLabel: "Upload Traveller Master",
+    importKind: "traveller",
+  },
+  {
+    modal: "roomingImport",
+    title: "Import Rooming List",
+    fileLabel: "Rooming spreadsheet",
+    parseWorkbookFile: parseRoomingWorkbookFile,
+    emptyLabel: "No rooming rows found.",
+    successLabel: "Rooming import complete",
+    uploadLabel: "Upload Rooming",
+    importKind: "rooming",
+  },
+  {
+    modal: "passportImport",
+    title: "Import Passport List",
+    fileLabel: "Passport spreadsheet",
+    parseWorkbookFile: parsePassportWorkbookFile,
+    emptyLabel: "No passport rows found.",
+    successLabel: "Passport import complete",
+    uploadLabel: "Upload Passports",
+  },
+  {
+    modal: "visaImport",
+    title: "Import Visa List",
+    fileLabel: "Visa spreadsheet",
+    parseWorkbookFile: parseVisaWorkbookFile,
+    emptyLabel: "No visa rows found.",
+    successLabel: "Visa import complete",
+    uploadLabel: "Upload Visa Rows",
+  },
+];
+
+const PASSENGER_EXPORT_MODAL_CONFIGS = [
+  {
+    modal: "passengerExport",
+    title: "Export Ticketing Passenger List",
+    subtitle: "Select a job card to download the ticketing passenger spreadsheet.",
+    filenameSuffix: "ticketing-passengers",
+    exportKind: "passenger",
+  },
+  {
+    modal: "travellerExport",
+    title: "Export Traveller Master",
+    subtitle: "Select a job card to download the Master list sheet in the traveller master format.",
+    buildWorkbook: buildTravellerMasterWorkbook,
+    filenameSuffix: "traveller-master",
+    sheetName: "Master list",
+    exportKind: "traveller",
+  },
+  {
+    modal: "roomingExport",
+    title: "Export Rooming List",
+    subtitle: "Select a job card to download the Rooming sheet in the master-list format.",
+    buildWorkbook: buildRoomingWorkbook,
+    filenameSuffix: "rooming",
+    sheetName: "Rooming",
+    exportKind: "rooming",
+  },
+  {
+    modal: "passportExport",
+    title: "Export Passport List",
+    subtitle: "Select a job card to download the Passport sheet in the master-list format.",
+    buildWorkbook: buildPassportWorkbook,
+    filenameSuffix: "passport",
+    sheetName: "Passport",
+    exportKind: "passport",
+  },
+  {
+    modal: "visaExport",
+    title: "Export Visa List",
+    subtitle: "Select a job card to download the Visa sheet in the master-list format.",
+    buildWorkbook: buildVisaWorkbook,
+    filenameSuffix: "visa",
+    sheetName: "Visa",
+    exportKind: "visa",
+  },
+];
+
 function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
   return (
     <>
-<EntityModal
+      <EntityModal
         modal={SPREADSHEET_MODALS.includes(w.modal) ? null : w.modal}
         form={w.form}
         updateForm={w.updateForm}
@@ -1000,71 +1091,17 @@ function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
         access={w.access}
         leaveHeadApproverCandidates={w.leaveHeadApproverCandidates || []}
       />
-      <PassengerImportModal
-        open={w.modal === "passengerImport"}
-        close={w.closeModal}
-        jobCards={w.jobCards || []}
-        previewPassengerImport={w.previewPassengerImport}
-        commitPassengerImport={w.commitPassengerImport}
-        title="Import Ticketing Passenger List"
-        fileLabel="Ticketing passenger spreadsheet"
-        successLabel="Ticketing passenger import complete"
-        uploadLabel="Upload Ticketing List"
-      />
-      <PassengerImportModal
-        open={w.modal === "travellerImport"}
-        close={w.closeModal}
-        jobCards={w.jobCards || []}
-        previewPassengerImport={w.previewPassengerImport}
-        commitPassengerImport={w.commitPassengerImport}
-        title="Import Traveller Master"
-        fileLabel="Traveller master spreadsheet"
-        parseWorkbookFile={parseTravellerMasterWorkbookFile}
-        emptyLabel="No traveller master rows found."
-        successLabel="Traveller master import complete"
-        uploadLabel="Upload Traveller Master"
-        importKind="traveller"
-      />
-      <PassengerImportModal
-        open={w.modal === "roomingImport"}
-        close={w.closeModal}
-        jobCards={w.jobCards || []}
-        previewPassengerImport={w.previewPassengerImport}
-        commitPassengerImport={w.commitPassengerImport}
-        title="Import Rooming List"
-        fileLabel="Rooming spreadsheet"
-        parseWorkbookFile={parseRoomingWorkbookFile}
-        emptyLabel="No rooming rows found."
-        successLabel="Rooming import complete"
-        uploadLabel="Upload Rooming"
-        importKind="rooming"
-      />
-      <PassengerImportModal
-        open={w.modal === "passportImport"}
-        close={w.closeModal}
-        jobCards={w.jobCards || []}
-        previewPassengerImport={w.previewPassengerImport}
-        commitPassengerImport={w.commitPassengerImport}
-        title="Import Passport List"
-        fileLabel="Passport spreadsheet"
-        parseWorkbookFile={parsePassportWorkbookFile}
-        emptyLabel="No passport rows found."
-        successLabel="Passport import complete"
-        uploadLabel="Upload Passports"
-      />
-      <PassengerImportModal
-        open={w.modal === "visaImport"}
-        close={w.closeModal}
-        jobCards={w.jobCards || []}
-        previewPassengerImport={w.previewPassengerImport}
-        commitPassengerImport={w.commitPassengerImport}
-        title="Import Visa List"
-        fileLabel="Visa spreadsheet"
-        parseWorkbookFile={parseVisaWorkbookFile}
-        emptyLabel="No visa rows found."
-        successLabel="Visa import complete"
-        uploadLabel="Upload Visa Rows"
-      />
+      {PASSENGER_IMPORT_MODAL_CONFIGS.map((config) => (
+        <PassengerImportModal
+          key={config.modal}
+          open={w.modal === config.modal}
+          close={w.closeModal}
+          jobCards={w.jobCards || []}
+          previewPassengerImport={w.previewPassengerImport}
+          commitPassengerImport={w.commitPassengerImport}
+          {...config}
+        />
+      ))}
       <FlightImportModal
         open={w.modal === "flightImport"}
         close={w.closeModal}
@@ -1072,64 +1109,16 @@ function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
         itinerary={w.flightItinerary || []}
         commitFlightImport={w.commitFlightImport}
       />
-      <PassengerExportModal
-        open={w.modal === "passengerExport"}
-        close={w.closeModal}
-        jobCards={w.jobCards || []}
-        getPassengerExportRows={w.getPassengerExportRows}
-        title="Export Ticketing Passenger List"
-        subtitle="Select a job card to download the ticketing passenger spreadsheet."
-        filenameSuffix="ticketing-passengers"
-        exportKind="passenger"
-      />
-      <PassengerExportModal
-        open={w.modal === "travellerExport"}
-        close={w.closeModal}
-        jobCards={w.jobCards || []}
-        getPassengerExportRows={w.getPassengerExportRows}
-        title="Export Traveller Master"
-        subtitle="Select a job card to download the Master list sheet in the traveller master format."
-        buildWorkbook={buildTravellerMasterWorkbook}
-        filenameSuffix="traveller-master"
-        sheetName="Master list"
-        exportKind="traveller"
-      />
-      <PassengerExportModal
-        open={w.modal === "roomingExport"}
-        close={w.closeModal}
-        jobCards={w.jobCards || []}
-        getPassengerExportRows={w.getPassengerExportRows}
-        title="Export Rooming List"
-        subtitle="Select a job card to download the Rooming sheet in the master-list format."
-        buildWorkbook={buildRoomingWorkbook}
-        filenameSuffix="rooming"
-        sheetName="Rooming"
-        exportKind="rooming"
-      />
-      <PassengerExportModal
-        open={w.modal === "passportExport"}
-        close={w.closeModal}
-        jobCards={w.jobCards || []}
-        getPassengerExportRows={w.getPassengerExportRows}
-        title="Export Passport List"
-        subtitle="Select a job card to download the Passport sheet in the master-list format."
-        buildWorkbook={buildPassportWorkbook}
-        filenameSuffix="passport"
-        sheetName="Passport"
-        exportKind="passport"
-      />
-      <PassengerExportModal
-        open={w.modal === "visaExport"}
-        close={w.closeModal}
-        jobCards={w.jobCards || []}
-        getPassengerExportRows={w.getPassengerExportRows}
-        title="Export Visa List"
-        subtitle="Select a job card to download the Visa sheet in the master-list format."
-        buildWorkbook={buildVisaWorkbook}
-        filenameSuffix="visa"
-        sheetName="Visa"
-        exportKind="visa"
-      />
+      {PASSENGER_EXPORT_MODAL_CONFIGS.map((config) => (
+        <PassengerExportModal
+          key={config.modal}
+          open={w.modal === config.modal}
+          close={w.closeModal}
+          jobCards={w.jobCards || []}
+          getPassengerExportRows={w.getPassengerExportRows}
+          {...config}
+        />
+      ))}
       <FlightExportModal
         open={w.modal === "flightExport"}
         close={w.closeModal}
@@ -1149,7 +1138,6 @@ function PortalWorkspaceLayout({ workspace: w }) {
     </div>
   );
 }
-
 
 function HeaderActions({ view, openModal, has, access }) {
   if (view === "travellers" && has(P.MANAGE_TRAVELLERS)) {
@@ -4371,10 +4359,7 @@ function SettingsView({
           columns={[
             ["Name", (row) => strong(row.name)],
             ["Email", (row) => row.email],
-            [
-              "Leave Head Approver",
-              (row) => row.leaveHeadApproverName || "Matrix default",
-            ],
+            ["Leave Head Approver", (row) => row.leaveHeadApproverName || "Matrix default"],
             ["Department", (row) => row.department || "-"],
             ["Function", (row) => row.function || "-"],
             ["Location", (row) => row.location || "-"],
@@ -4484,46 +4469,6 @@ function SettingsView({
   );
 }
 
-function toPassengerImportInput(row) {
-  return {
-    id: row.id,
-    sourceSheet: row.sourceSheet,
-    sourceRowNumber: row.sourceRowNumber,
-    importKind: row.importKind,
-    importKey: row.importKey,
-    fullName: row.fullName,
-    travelHub: row.travelHub,
-    foodPreference: row.foodPreference,
-    guestType: row.guestType,
-    paymentType: row.paymentType,
-    roomType: row.roomType,
-    visaRequired: row.visaRequired,
-    domesticTravelRequired: row.domesticTravelRequired,
-    passportStatus: row.passportStatus,
-    specialRequests: row.specialRequests,
-    sourceDealerCode: row.sourceDealerCode,
-    sourceDealerName: row.sourceDealerName,
-    sourceDescription: row.sourceDescription,
-    sourceSoName: row.sourceSoName,
-    sourceRsoName: row.sourceRsoName,
-    sourceGroup: row.sourceGroup,
-    gender: row.gender,
-    contactNo: row.contactNo,
-    hotelAllocation: row.hotelAllocation,
-    visaStatus: row.visaStatus || undefined,
-    biometricAppointmentDate: row.biometricAppointmentDate,
-    visaNotes: row.visaNotes,
-    passport: {
-      number: row.passport?.number,
-      dateOfBirth: row.passport?.dateOfBirth,
-      issueDate: row.passport?.issueDate,
-      expiryDate: row.passport?.expiryDate,
-      nationality: row.passport?.nationality,
-    },
-    ticketing: row.ticketing,
-  };
-}
-
 function RoomSummaryPanel({ summary, jobCode, title = "Passengers by room type" }) {
   const entries = Object.entries(summary || {}).sort(([a], [b]) => a.localeCompare(b));
   if (entries.length === 0) return null;
@@ -4557,7 +4502,8 @@ function PassengerImportModal({
   importKind = "passenger",
 }) {
   const toast = usePortalToast();
-  const [importState, patchImportState, , dispatchImport] = usePatchReducer(PASSENGER_IMPORT_INITIAL);
+  const [importState, patchImportState, , dispatchImport] =
+    usePatchReducer(PASSENGER_IMPORT_INITIAL);
   const {
     jobCardId,
     fileName,
@@ -4946,7 +4892,8 @@ function PassengerExportModal({
   sheetName,
   exportKind = "passenger",
 }) {
-  const [exportState, patchExportState, , dispatchExport] = usePatchReducer(PASSENGER_EXPORT_INITIAL);
+  const [exportState, patchExportState, , dispatchExport] =
+    usePatchReducer(PASSENGER_EXPORT_INITIAL);
   const { jobCardId, exportData, isLoading, isExporting, error } = exportState;
   const patchExport = (patch) => patchExportState(patch);
   const setJobCardId = (value) => patchExport({ jobCardId: value });
@@ -5839,39 +5786,37 @@ function ContractingCostFields({ form, updateForm }) {
   const totalCost = contractingTotalCost(form);
 
   return (
-    <>
-      <div className="md:col-span-2 rounded-xl border border-brand-border bg-brand-light/60 p-4">
-        <div className="mb-3 font-heading text-sm font-semibold text-citius-blue">
-          Contracting cost
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <Input
-            label="Land Cost (INR)"
-            type="number"
-            value={form.contractingLandCost}
-            onChange={(v) => updateForm("contractingLandCost", v)}
-          />
-          <Input
-            label="Airlines Cost (INR)"
-            type="number"
-            value={form.contractingAirlinesCost}
-            onChange={(v) => updateForm("contractingAirlinesCost", v)}
-          />
-          <Input
-            label="Visa Cost (INR)"
-            type="number"
-            value={form.contractingVisaCost}
-            onChange={(v) => updateForm("contractingVisaCost", v)}
-          />
-          <div className="rounded-lg border border-brand-border bg-white px-3 py-2 text-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
-              Total cost
-            </div>
-            <div className="mt-1 font-semibold text-brand-dark">{money(totalCost)}</div>
+    <div className="md:col-span-2 rounded-xl border border-brand-border bg-brand-light/60 p-4">
+      <div className="mb-3 font-heading text-sm font-semibold text-citius-blue">
+        Contracting cost
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Input
+          label="Land Cost (INR)"
+          type="number"
+          value={form.contractingLandCost}
+          onChange={(v) => updateForm("contractingLandCost", v)}
+        />
+        <Input
+          label="Airlines Cost (INR)"
+          type="number"
+          value={form.contractingAirlinesCost}
+          onChange={(v) => updateForm("contractingAirlinesCost", v)}
+        />
+        <Input
+          label="Visa Cost (INR)"
+          type="number"
+          value={form.contractingVisaCost}
+          onChange={(v) => updateForm("contractingVisaCost", v)}
+        />
+        <div className="rounded-lg border border-brand-border bg-white px-3 py-2 text-sm">
+          <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+            Total cost
           </div>
+          <div className="mt-1 font-semibold text-brand-dark">{money(totalCost)}</div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

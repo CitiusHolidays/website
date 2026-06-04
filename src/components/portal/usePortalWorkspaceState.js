@@ -9,30 +9,20 @@ import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import {
-  applyJobCardLink,
-  applyPnrLink,
-  applyQueryLink,
-  applyTravellerLink,
-  applyVisaRecordLink,
-  reconcileLinkedSelections,
-} from "@/lib/portal/entityModalLinks";
-import {
   uploadEntityFiles,
   uploadExpenseProofFiles,
   uploadQueryFiles,
 } from "@/lib/portal/fileUploads";
-import { toNumber } from "@/lib/portal/formUtils";
 import { fiscalYearForDate } from "@/lib/portal/leavePolicy";
 import { getListFilterConfig } from "@/lib/portal/listFilterConfig";
 import { hasActiveListFilters } from "@/lib/portal/listFilters";
+import { executeModalCommand } from "@/lib/portal/modalCommandExecutor";
+import { createInitialModalForm, JOB_CARD_MODALS } from "@/lib/portal/modalLifecycle";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
-import { isCementScopedUser } from "@/lib/portal/permissions";
 import { filterRows, pipeViewRows, VIEWS_WITH_JOB_CARD_FILTER } from "@/lib/portal/pipeViewRows";
-import { proposalLinkedQueryIds } from "@/lib/portal/proposalLinks";
 import { runMutation } from "@/lib/portal/runMutation";
 import { parseUrlFilterState, serializeUrlFilterState } from "@/lib/portal/urlFilterState";
-import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
 const P = PORTAL_PERMISSIONS;
 const _EMPTY_ARRAY = [];
@@ -296,16 +286,6 @@ const INITIAL_FORM = {
   location: "",
 };
 
-const JOB_CARD_MODALS = new Set([
-  "traveller",
-  "pnr",
-  "ticket",
-  "seat",
-  "hotel",
-  "invoice",
-  "expense",
-]);
-
 export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   "use no memo";
 
@@ -377,11 +357,6 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     patchState({ jobCardFilter: typeof value === "function" ? value(jobCardFilter) : value });
   const setListFilters = (value) =>
     patchState({ listFilters: typeof value === "function" ? value(listFilters) : value });
-  const setPassportExpiryByTraveller = (value) =>
-    patchState({
-      passportExpiryByTraveller:
-        typeof value === "function" ? value(passportExpiryByTraveller) : value,
-    });
   const listFilterConfig = getListFilterConfig(view, { pipelineMode });
   const dateRangeArg = dateRangeQueryArg(dateRange);
   const deepLinkOpen = searchParams.get("open");
@@ -950,62 +925,19 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
 
   const openModal = (type, initial = {}) => {
     setError("");
-    const next = { ...INITIAL_FORM, ...initial };
-    if (type === "proposal") {
-      next.queryIds = Array.isArray(next.queryIds)
-        ? next.queryIds
-        : next.queryId
-          ? [next.queryId]
-          : [];
-      next.queryId = next.queryIds[0] || next.queryId || "";
-    }
-    if (next.queryId && (type === "jobCard" || type === "proposal")) {
-      const linkedQuery = (queries || []).find((query) => query.id === next.queryId);
-      if (linkedQuery) {
-        Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
-      }
-      if (type === "jobCard" && !next.proposalId) {
-        const linkedProposal = (proposals || []).reduce((latest, proposal) => {
-          if (!proposalLinkedQueryIds(proposal).includes(next.queryId)) return latest;
-          if (!latest) return proposal;
-          return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
-        }, null);
-        next.proposalId = linkedProposal?.id || "";
-      }
-    }
-    if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {
-      Object.assign(next, applyJobCardLink(next, jobCards[0], type, { onlyEmpty: true }));
-    }
-    if (JOB_CARD_MODALS.has(type) && next.jobCardId) {
-      const linkedJob = (jobCards || []).find((job) => job.id === next.jobCardId);
-      if (linkedJob) {
-        Object.assign(next, applyJobCardLink(next, linkedJob, type, { onlyEmpty: true }));
-      }
-    }
-    if (next.travellerId && ["ticket", "seat", "visa_create"].includes(type)) {
-      const linkedTraveller =
-        (travellers || []).find((traveller) => traveller.id === next.travellerId) ||
-        (travellersWithoutVisa || []).find((traveller) => traveller.id === next.travellerId);
-      if (linkedTraveller) {
-        Object.assign(next, applyTravellerLink(next, linkedTraveller, type, { onlyEmpty: true }));
-      }
-    }
-    if (next.pnrId && ["ticket", "seat"].includes(type)) {
-      const linkedPnr = (pnrs || []).find((pnr) => pnr.id === next.pnrId);
-      if (linkedPnr) {
-        Object.assign(next, applyPnrLink(next, linkedPnr, type, { onlyEmpty: true }));
-      }
-    }
-    if (next.visaRecordId && type === "visa") {
-      const linkedVisa = (visas || []).find((visa) => visa.id === next.visaRecordId);
-      if (linkedVisa) {
-        Object.assign(next, applyVisaRecordLink(next, linkedVisa, { onlyEmpty: true }));
-      }
-    }
-    Object.assign(next, reconcileLinkedSelections(next, travellers || [], pnrs || []));
-    if (type === "query" && !initial.queryType && isCementScopedUser(access)) {
-      next.queryType = "Cement";
-    }
+    const next = createInitialModalForm({
+      type,
+      initial,
+      initialForm: INITIAL_FORM,
+      queries: queries || [],
+      proposals: proposals || [],
+      jobCards: jobCards || [],
+      travellers: travellers || [],
+      travellersWithoutVisa: travellersWithoutVisa || [],
+      pnrs: pnrs || [],
+      visas: visas || [],
+      access,
+    });
     setForm(next);
     setModal(type);
     if (type !== "query") setPendingQueryFiles([]);
@@ -1090,440 +1022,62 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
           onError: (message) => setError(message),
         },
         async () => {
-          if (JOB_CARD_MODALS.has(modal) && !form.jobCardId?.trim()) {
-            throw new Error("Please select a job card.");
-          }
-          if (modal === "query") {
-            if (form.entityId) {
-              await updateQuery({
-                queryId: form.entityId,
-                clientName: form.clientName,
-                contactPerson: form.contactPerson,
-                contactMobile: form.contactMobile,
-                destination: form.destination,
-                paxCount: toNumber(form.paxCount, 1),
-                travelStartDate: form.travelStartDate,
-                travelEndDate: form.travelEndDate,
-                queryType: form.queryType,
-                travelType: form.travelType,
-                budgetAmount: toNumber(form.budgetAmount, 0),
-                source: form.source,
-                salesOwnerName: form.salesOwnerName,
-                notes: form.notes,
-              });
-            } else {
-              const created = await createQuery({
-                clientName: form.clientName,
-                contactPerson: form.contactPerson,
-                contactMobile: form.contactMobile,
-                destination: form.destination,
-                paxCount: toNumber(form.paxCount, 1),
-                travelStartDate: form.travelStartDate,
-                travelEndDate: form.travelEndDate,
-                queryType: form.queryType,
-                travelType: form.travelType,
-                budgetAmount: toNumber(form.budgetAmount, 0),
-                source: form.source,
-                salesOwnerName: form.salesOwnerName,
-                notes: form.notes,
-              });
-              if (pendingQueryFiles.length > 0) {
-                await uploadQueryFiles({
-                  queryId: created.id,
-                  files: pendingQueryFiles,
-                  generateUploadUrl: generateQueryUploadUrl,
-                  attachQueryFile,
-                });
-              }
-            }
-          }
-          if (modal === "assignContracting") {
-            await assignContracting({ queryId: form.queryId, staffId: form.staffId });
-          }
-          if (modal === "assignQueryTicketing") {
-            await assignQueryTicketing({
-              queryId: form.queryId,
-              staffId: form.ticketingStaffId || form.staffId,
-            });
-          }
-          if (modal === "assignQueryTeams") {
-            if (!form.queryId) {
-              throw new Error("Select a query.");
-            }
-            if (form.staffId) {
-              await assignContracting({ queryId: form.queryId, staffId: form.staffId });
-            }
-            const ticketingStaffId = form.ticketingStaffId?.trim();
-            if (ticketingStaffId) {
-              await assignQueryTicketing({ queryId: form.queryId, staffId: ticketingStaffId });
-            }
-            if (!form.staffId && !ticketingStaffId) {
-              throw new Error("Select a contracting and/or ticketing SPOC.");
-            }
-          }
-          if (modal === "assignContractingOwner") {
-            await assignContractingOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
-          }
-          if (modal === "assignOperationsOwner") {
-            await assignOperationsOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
-          }
-          if (modal === "assignTicketingOwner") {
-            await assignTicketingOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
-          }
-          if (modal === "queryStatus") {
-            const payload = { queryId: form.queryId };
-            if (has(P.MANAGE_CONTRACTING)) {
-              payload.contractingStatus = form.contractingStatus;
-              payload.contractingLandCost = toNumber(form.contractingLandCost, 0);
-              payload.contractingAirlinesCost = toNumber(form.contractingAirlinesCost, 0);
-              payload.contractingVisaCost = toNumber(form.contractingVisaCost, 0);
-            }
-            await updateQueryStatus(payload);
-          }
-          if (modal === "salesDecision") {
-            const decision = form.salesDecision || form.salesStatus || "Proposal in discussion";
-            const payload = {
-              queryId: form.queryId,
-              salesStatus: decision,
-              leadStage:
-                decision === "Order Confirmed"
-                  ? "Confirmation"
-                  : decision === "Order Lost"
-                    ? "Lost"
-                    : decision === "Date/Destination Change Required"
-                      ? "Negotiation"
-                      : "Proposal",
-              lostReason: decision === "Order Lost" ? form.lostReason : undefined,
-            };
-            const queryRow = (queries || []).find((query) => query.id === form.queryId);
-            const confirmingNow = decision === "Order Confirmed";
-            const alreadyConfirmed =
-              queryRow?.salesStatus === "Order Confirmed" ||
-              queryRow?.contractingStatus === "Order Confirmed";
-            if ((confirmingNow || alreadyConfirmed) && form.approxMargin !== "") {
-              payload.approxMargin = toNumber(form.approxMargin, 0);
-            }
-            await updateQueryStatus(payload);
-          }
-          if (modal === "proposal") {
-            let proposalResult = null;
-            const proposalQueryIds =
-              Array.isArray(form.queryIds) && form.queryIds.length > 0
-                ? form.queryIds
-                : form.queryId
-                  ? [form.queryId]
-                  : [];
-            const proposalPayload = {
-              queryIds: proposalQueryIds,
-              clientName: form.clientName,
-              landCostPerPax: toNumber(form.landCostPerPax, 0),
-              airfarePerPax: toNumber(form.airfarePerPax, 0),
-              visaCostPerPax: toNumber(form.visaCostPerPax, 0),
-              sellingPrice: toNumber(form.sellingPrice, 0),
-              ...(form.taxRate !== ""
-                ? { taxRate: toNumber(form.taxRate, 0) }
-                : form.entityId
-                  ? { taxRate: null }
-                  : {}),
-              itinerarySummary: form.itinerarySummary,
-            };
-            if (form.entityId) {
-              proposalResult = await updateProposal({
-                proposalId: form.entityId,
-                ...proposalPayload,
-              });
-            } else {
-              proposalResult = await createProposal(proposalPayload);
-            }
-            const proposalId = form.entityId || proposalResult?.id;
-            if (proposalId && pendingProposalFiles.length > 0) {
-              await uploadEntityFiles({
-                entityId: proposalId,
-                idField: "proposalId",
-                files: pendingProposalFiles,
-                generateUploadUrl: generateProposalUploadUrl,
-                attachFile: attachProposalFile,
-              });
-            }
-          }
-          if (modal === "jobCard") {
-            if (form.entityId) {
-              await updateJobCard({
-                jobCardId: form.entityId,
-                clientName: form.clientName,
-                destination: form.destination,
-                confirmedPax: toNumber(form.confirmedPax, 1),
-                roomCount: toNumber(form.roomCount, 0),
-                travelStartDate: form.travelStartDate,
-                travelEndDate: form.travelEndDate,
-                tourManagerName: form.tourManagerName,
-              });
-            } else {
-              await createJobCard({
-                queryId: form.queryId,
-                proposalId: form.proposalId || undefined,
-                clientName: form.clientName,
-                destination: form.destination,
-                confirmedPax: toNumber(form.confirmedPax, 1),
-                roomCount: toNumber(form.roomCount, 0),
-                travelStartDate: form.travelStartDate,
-                travelEndDate: form.travelEndDate,
-                tourManagerName: form.tourManagerName,
-              });
-            }
-          }
-          if (modal === "traveller") {
-            const travellerPayload = {
-              fullName: form.fullName,
-              travelHub: form.travelHub,
-              foodPreference: form.foodPreference,
-              guestType: form.guestType,
-              paymentType: form.paymentType,
-              roomType: form.roomType,
-              visaRequired: form.visaRequired === "Yes",
-              domesticTravelRequired: form.domesticTravelRequired === "Yes",
-              biometricAppointmentDate: form.biometricAppointmentDate,
-              travelDate: form.travelDate,
-              guestCompanions: form.guestCompanions,
-              extensionOfTour: form.extensionOfTour === "Yes",
-              arrivingEarly: form.arrivingEarly === "Yes",
-              passportStatus: form.passportStatus,
-              hotelAllocation: form.hotelAllocation,
-              specialRequests: form.notes,
-            };
-            if (form.entityId) {
-              await updateTraveller({ travellerId: form.entityId, ...travellerPayload });
-            } else {
-              await createTraveller({ jobCardId: form.jobCardId, ...travellerPayload });
-            }
-          }
-          if (modal === "visa") {
-            await updateVisaRecord({
-              visaRecordId: form.visaRecordId,
-              status: form.visaStatus,
-              appointmentDate: form.appointmentDate,
-              notes: form.notes,
-            });
-          }
-          if (modal === "visa_create") {
-            await createVisa({
-              travellerId: form.travellerId,
-              status: form.visaStatus,
-            });
-          }
-          if (modal === "pnr") {
-            if (form.entityId) {
-              await updatePnr({
-                pnrId: form.entityId,
-                pnrCode: form.pnrCode,
-                airline: form.airline,
-                route: form.route,
-                fareType: form.fareType,
-                totalSeats: toNumber(form.totalSeats, 1),
-              });
-            } else {
-              await createPnr({
-                jobCardId: form.jobCardId,
-                pnrCode: form.pnrCode,
-                airline: form.airline,
-                route: form.route,
-                fareType: form.fareType,
-                totalSeats: toNumber(form.totalSeats, 1),
-              });
-            }
-          }
-          if (modal === "ticket") {
-            const ticketPayload = {
-              travellerId: form.travellerId || undefined,
-              pnrId: form.pnrId || undefined,
-              ticketNumber: form.ticketNumber,
-              ticketType: form.ticketType,
-              ticketStatus: form.ticketStatus,
-              paymentType: form.paymentType,
-              cabinClass: form.cabinClass,
-              mealPreference: form.foodPreference,
-              seatPreference: form.seatPreference,
-              seatNumber: form.seatNumber,
-            };
-            if (form.entityId) {
-              await updateTicket({ ticketId: form.entityId, ...ticketPayload });
-            } else {
-              await createTicket({ jobCardId: form.jobCardId, ...ticketPayload });
-            }
-          }
-          if (modal === "seat") {
-            if (form.entityId) {
-              await updateSeatAllocation({
-                seatAllocationId: form.entityId,
-                travellerId: form.travellerId || undefined,
-                pnrId: form.pnrId || undefined,
-                seatNumber: form.seatNumber,
-                status: form.seatStatus,
-                notes: form.notes,
-              });
-            } else {
-              await saveSeat({
-                jobCardId: form.jobCardId,
-                travellerId: form.travellerId || undefined,
-                pnrId: form.pnrId || undefined,
-                seatNumber: form.seatNumber,
-                status: form.seatStatus,
-                notes: form.notes,
-              });
-            }
-          }
-          if (modal === "hotel") {
-            if (form.entityId) {
-              await updateHotel({
-                hotelId: form.entityId,
-                name: form.hotelName,
-                city: form.city,
-                checkInDate: form.checkInDate,
-                checkOutDate: form.checkOutDate,
-                specialInstructions: form.notes,
-              });
-            } else {
-              await createHotel({
-                jobCardId: form.jobCardId,
-                name: form.hotelName,
-                city: form.city,
-                checkInDate: form.checkInDate,
-                checkOutDate: form.checkOutDate,
-                specialInstructions: form.notes,
-              });
-            }
-          }
-          if (modal === "tourManager") {
-            const selectedTm = team.find((member) => member.id === form.staffId);
-            if (form.entityId) {
-              await updateTourManager({
-                tourManagerId: form.entityId,
-                jobCardId: form.jobCardId || undefined,
-                name: selectedTm?.name || form.tourManagerName,
-                email: form.staffEmail,
-                phone: form.paidBy,
-                availabilityDate: form.travelStartDate,
-                notes: form.notes,
-              });
-            } else {
-              await createTourManager({
-                jobCardId: form.jobCardId || undefined,
-                staffId: form.staffId || undefined,
-                name: selectedTm?.name || form.tourManagerName,
-                email: form.staffEmail,
-                phone: form.paidBy,
-                availabilityDate: form.travelStartDate,
-                notes: form.notes,
-              });
-            }
-          }
-          if (modal === "invoice") {
-            if (form.entityId) {
-              await updateInvoice({
-                invoiceId: form.entityId,
-                invoiceNumber: form.invoiceNumber,
-                expectedAmount: toNumber(form.expectedAmount, 0),
-                receivedAmount: toNumber(form.receivedAmount, 0),
-                dueDate: form.dueDate,
-              });
-            } else {
-              await createInvoice({
-                jobCardId: form.jobCardId,
-                invoiceNumber: form.invoiceNumber,
-                expectedAmount: toNumber(form.expectedAmount, 0),
-                receivedAmount: toNumber(form.receivedAmount, 0),
-                dueDate: form.dueDate,
-              });
-            }
-          }
-          if (modal === "expense") {
-            const expenseTotal = getExpenseSplitTotal({
-              cardAmount: form.cardAmount,
-              cashAmount: form.cashAmount,
-              epayAmount: form.epayAmount,
-            });
-            const expensePayload = {
-              tourManagerName: form.tourManagerName,
-              category: form.category,
-              expenseDate: form.expenseDate,
-              particulars: form.particulars,
-              currency: form.currency,
-              cardAmount: toNumber(form.cardAmount, 0),
-              cashAmount: toNumber(form.cashAmount, 0),
-              epayAmount: toNumber(form.epayAmount, 0),
-              amount: expenseTotal,
-              paidBy: form.paidBy,
-              notes: form.notes,
-            };
-            let expenseResult = null;
-            if (form.entityId) {
-              expenseResult = await updateExpense({ expenseId: form.entityId, ...expensePayload });
-            } else {
-              expenseResult = await createExpense({
-                jobCardId: form.expenseType === "jobCard" ? form.jobCardId : undefined,
-                ...expensePayload,
-              });
-            }
-            const expenseId = form.entityId || expenseResult?.id;
-            if (expenseId && pendingExpenseProofFiles.length > 0) {
-              await uploadExpenseProofFiles({
-                expenseId,
-                files: pendingExpenseProofFiles.slice(0, 1),
-                generateUploadUrl: generateExpenseUploadUrl,
-                attachExpenseProof,
-              });
-            }
-          }
-          if (modal === "staff") {
-            const result = await upsertStaff({
-              staffId: form.staffId || undefined,
-              email: form.staffEmail,
-              name: form.staffName,
-              roles: form.staffRoles,
-              department: form.department,
-              function: form.staffFunction,
-              mobile: form.mobile,
-              location: form.location,
-              joiningDate: form.joiningDate,
-              employmentStatus: form.employmentStatus,
-              confirmationDate: form.confirmationDate,
-              leavePolicyGroup: form.leavePolicyGroup,
-              leaveHeadApproverId: form.leaveHeadApproverId || undefined,
-              maternityEventsUsed: toNumber(form.maternityEventsUsed, 0),
-              paternityEventsUsed: toNumber(form.paternityEventsUsed, 0),
-              marriageLeaveUsed: Boolean(form.marriageLeaveUsed),
-              active: Boolean(form.staffActive),
-            });
-            if (result?.created) {
-              saveSuccessMessage = `Staff added. A verification email was sent to ${form.staffEmail}. They must verify their email before receiving a password setup link.`;
-            }
-          }
-          if (modal === "leave_create") {
-            const leavePayload = {
-              leaveType: form.leaveType,
-              startDate: form.startDate,
-              endDate: form.endDate,
-              reason: form.reason,
-            };
-            if (form.entityId) {
-              await updateLeave({ leaveId: form.entityId, ...leavePayload });
-            } else if (has(P.MANAGE_LEAVE)) {
-              await createLeave({
-                staffId: form.staffId,
-                ...leavePayload,
-                status: form.status || "Pending",
-              });
-            } else {
-              await createLeave(leavePayload);
-            }
-          }
-          if (modal === "approvalDecide") {
-            await decideApproval({
-              approvalId: form.approvalId,
-              status: form.approvalStatus,
-              decisionNote: form.decisionNote,
-            });
-          }
+          saveSuccessMessage = await executeModalCommand({
+            modal,
+            form,
+            deps: {
+              has,
+              queries: queries || [],
+              team: team || [],
+              jobCardModals: JOB_CARD_MODALS,
+              pendingQueryFiles,
+              pendingProposalFiles,
+              pendingExpenseProofFiles,
+              uploadQueryFiles,
+              uploadEntityFiles,
+              uploadExpenseProofFiles,
+              generateQueryUploadUrl,
+              attachQueryFile,
+              generateProposalUploadUrl,
+              attachProposalFile,
+              generateExpenseUploadUrl,
+              attachExpenseProof,
+              createQuery,
+              updateQuery,
+              assignContracting,
+              assignQueryTicketing,
+              assignContractingOwner,
+              assignOperationsOwner,
+              assignTicketingOwner,
+              updateQueryStatus,
+              createProposal,
+              updateProposal,
+              createJobCard,
+              updateJobCard,
+              createTraveller,
+              updateTraveller,
+              updateVisaRecord,
+              createVisa,
+              createPnr,
+              updatePnr,
+              createTicket,
+              updateTicket,
+              saveSeat,
+              updateSeatAllocation,
+              createHotel,
+              updateHotel,
+              createTourManager,
+              updateTourManager,
+              createInvoice,
+              updateInvoice,
+              createExpense,
+              updateExpense,
+              upsertStaff,
+              createLeave,
+              updateLeave,
+              decideApproval,
+            },
+          });
           closeModal();
         },
       );
@@ -1539,6 +1093,86 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
       : !allowed
         ? "denied"
         : "ready";
+
+  const session = {
+    access,
+    allowed,
+    canFetch,
+    canViewTravellers,
+    gate,
+    has,
+  };
+  const filterState = {
+    clearAllFilters,
+    dateRange,
+    filtersActive,
+    jobCardFilter,
+    listFilterConfig,
+    listFilters,
+    periodFiltered,
+    replaceFilterUrl,
+    search,
+    showJobCardFilter,
+    setDateRangeWithUrl,
+    setJobCardFilterWithUrl,
+    setListFilterValue,
+    setSearchWithUrl,
+  };
+  const workspaceRows = {
+    accountsQueries: filteredAccountsQueries,
+    activity: filteredActivity,
+    allTickets: filteredAllTickets,
+    approvals: filteredApprovals,
+    contractingQueries: filteredContractingQueries,
+    expenses: filteredExpenses,
+    hotels: filteredHotels,
+    invoices: filteredInvoices,
+    jobCards: filteredJobCards,
+    leaves: filteredLeaves,
+    passportTravellers: filteredPassportTravellers,
+    pipelineQueries: filteredPipelineQueries,
+    pnrs: filteredPnrs,
+    proposals: filteredProposals,
+    queries: filteredQueries,
+    roomingTravellers: filteredRoomingTravellers,
+    seats: filteredSeats,
+    staff: filteredStaff,
+    team: filteredTeam,
+    tickets: filteredTickets,
+    tourManagers: filteredTourManagers,
+    travellers: filteredTravellers,
+    visas: filteredVisas,
+  };
+  const modalControls = {
+    closeModal,
+    error,
+    form,
+    isSaving,
+    modal,
+    openModal,
+    patchForm,
+    submit,
+    updateForm,
+  };
+  const commands = {
+    clearAllFilters,
+    closeModal,
+    deleteItem,
+    deleteSelected,
+    openModal,
+    setDateRangeWithUrl,
+    setJobCardFilterWithUrl,
+    setListFilterValue,
+    setSearchWithUrl,
+    submit,
+  };
+  const workspaceFacade = {
+    commands,
+    filters: filterState,
+    modal: modalControls,
+    rows: workspaceRows,
+    session,
+  };
 
   return {
     access,
@@ -1682,6 +1316,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     saveSeat,
     search,
     searchParams,
+    session,
     seats,
     sendProposalToSales,
     setDateRangeWithUrl,
@@ -1727,6 +1362,10 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     upsertStaff,
     view,
     visas,
+    workspace: workspaceFacade,
+    rows: workspaceRows,
+    filters: filterState,
+    commands,
     setPipelineMode: _setPipelineMode,
   };
 }
