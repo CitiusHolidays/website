@@ -16,23 +16,23 @@ import {
   applyVisaRecordLink,
   reconcileLinkedSelections,
 } from "@/lib/portal/entityModalLinks";
-import { getListFilterConfig } from "@/lib/portal/listFilterConfig";
-import { hasActiveListFilters } from "@/lib/portal/listFilters";
 import {
   uploadEntityFiles,
   uploadExpenseProofFiles,
   uploadQueryFiles,
 } from "@/lib/portal/fileUploads";
 import { toNumber } from "@/lib/portal/formUtils";
-import { filterRows, pipeViewRows, VIEWS_WITH_JOB_CARD_FILTER } from "@/lib/portal/pipeViewRows";
+import { fiscalYearForDate } from "@/lib/portal/leavePolicy";
+import { getListFilterConfig } from "@/lib/portal/listFilterConfig";
+import { hasActiveListFilters } from "@/lib/portal/listFilters";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
 import { isCementScopedUser } from "@/lib/portal/permissions";
+import { filterRows, pipeViewRows, VIEWS_WITH_JOB_CARD_FILTER } from "@/lib/portal/pipeViewRows";
 import { proposalLinkedQueryIds } from "@/lib/portal/proposalLinks";
 import { runMutation } from "@/lib/portal/runMutation";
 import { parseUrlFilterState, serializeUrlFilterState } from "@/lib/portal/urlFilterState";
 import { getExpenseSplitTotal } from "@/lib/portal/workflow";
-
 
 const P = PORTAL_PERMISSIONS;
 const _EMPTY_ARRAY = [];
@@ -465,10 +465,18 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     canFetch && has(P.VIEW_ACTIVITY) ? { limit: 80 } : "skip",
   );
   const leaves = useQuery(api.crm.leave.list, canFetch && has(P.VIEW_LEAVE) ? {} : "skip");
-  const leaveBalances = useQuery(
-    api.crm.leave.balances,
-    canFetch && has(P.VIEW_LEAVE) ? {} : "skip",
-  );
+  const leaveBalanceArgs =
+    canFetch && has(P.VIEW_LEAVE)
+      ? {
+          ...(has(P.MANAGE_LEAVE) && modal === "leave_create" && form.staffId
+            ? { staffId: form.staffId }
+            : {}),
+          ...(modal === "leave_create" && form.startDate
+            ? { fiscalYear: fiscalYearForDate(form.startDate) }
+            : {}),
+        }
+      : null;
+  const leaveBalances = useQuery(api.crm.leave.balances, leaveBalanceArgs ?? "skip");
   const notifications = useQuery(
     api.crm.activity.listNotifications,
     canFetch ? { limit: 80 } : "skip",
@@ -1564,8 +1572,10 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     dateRange,
     deepLinkHandledRef,
     deleteItem,
+    deleteSelected,
     decideApproval,
     decideLeave,
+    dropdowns,
     flightItinerary,
     encryptAndStorePassport,
     error,

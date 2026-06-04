@@ -3,7 +3,6 @@
 import { Trash2 } from "lucide-react";
 import { m as motion } from "motion/react";
 import { useBulkSelection } from "@/lib/portal/bulkSelection";
-import { PORTAL_BULK_DELETE_LIMIT } from "@/lib/portal/constants";
 
 function EmptyState({ label }) {
   return (
@@ -21,14 +20,13 @@ function LoadingPanel() {
   );
 }
 
-function BulkActionBar({ selectedCount, entityLabel, onDeleteSelected, onClear, overBulkLimit }) {
+function BulkActionBar({ selectedCount, entityLabel, onDeleteSelected, onClear }) {
   if (selectedCount === 0) return null;
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-border bg-citius-blue/[0.04] px-4 py-3">
       <span className="text-sm font-medium text-citius-blue">
         {selectedCount} {entityLabel}
         {selectedCount === 1 ? "" : "s"} selected
-        {overBulkLimit ? ` (max ${PORTAL_BULK_DELETE_LIMIT})` : ""}
       </span>
       <div className="flex flex-wrap gap-2">
         <button type="button" className="portal-small-btn" onClick={onClear}>
@@ -36,14 +34,8 @@ function BulkActionBar({ selectedCount, entityLabel, onDeleteSelected, onClear, 
         </button>
         <button
           type="button"
-          className="portal-danger-btn disabled:cursor-not-allowed disabled:opacity-50"
+          className="portal-danger-btn"
           onClick={onDeleteSelected}
-          disabled={overBulkLimit}
-          title={
-            overBulkLimit
-              ? `Select at most ${PORTAL_BULK_DELETE_LIMIT} records to delete in one action`
-              : undefined
-          }
         >
           <Trash2 size={13} />
           Delete selected
@@ -66,7 +58,6 @@ export function SelectableDataTable({
   filtersActive = false,
 }) {
   const bulk = useBulkSelection(selectable ? rows : []);
-  const overBulkLimit = bulk.selectedCount > PORTAL_BULK_DELETE_LIMIT;
   const emptyLabel =
     filtersActive && rows?.length === 0 ? "No matches — adjust or clear filters." : empty;
 
@@ -122,7 +113,6 @@ export function SelectableDataTable({
           entityLabel={entityLabel}
           onDeleteSelected={handleBulkDelete}
           onClear={bulk.clearSelection}
-          overBulkLimit={overBulkLimit}
         />
       )}
       {mobileCardRender && (

@@ -303,8 +303,6 @@ export const APPROVAL_STATUSES = ["Pending", "Approved", "Rejected", "Needs Info
 export const EXPENSE_APPROVAL_STATUSES = ["Pending", "Approved", "Rejected"];
 export const LEAVE_STATUSES = ["Pending", "Approved", "Rejected"];
 export const REIMBURSEMENT_STATUSES = ["Not Submitted", "Pending", "Reimbursed"];
-export const PORTAL_BULK_DELETE_LIMIT = 50;
-
 export const PORTAL_NAV_GROUPS = [
   {
     label: "Overview",

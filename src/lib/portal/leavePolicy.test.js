@@ -43,4 +43,20 @@ describe("leavePolicy", () => {
       balanceAfter: 0,
     });
   });
+
+  test("uses policy defaults when no balance rows are loaded yet", () => {
+    const result = calculateLeaveRequestImpact({
+      leaveType: "Casual",
+      startDate: "2026-06-01",
+      endDate: "2026-06-01",
+      employmentStatus: "Confirmed",
+      balances: {},
+    });
+
+    expect(result).toMatchObject({
+      allowed: true,
+      days: 1,
+      balanceAfter: 7,
+    });
+  });
 });

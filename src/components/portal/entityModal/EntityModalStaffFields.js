@@ -1,28 +1,7 @@
 "use client";
 
-import {
-  Input,
-  MultiSelect,
-  money,
-  QueryFilePicker,
-  Select,
-  Textarea,
-} from "@/components/portal/PortalModalForm";
-import {
-  CABIN_CLASSES,
-  EXPENSE_CURRENCIES,
-  EXPENSE_HEADS,
-  FOOD_PREFERENCES,
-  GUEST_TYPES,
-  LEAVE_TYPES,
-  PAYMENT_TYPES,
-  PORTAL_ROLES,
-  TICKET_STATUSES,
-  TICKET_TYPES,
-  VISA_STATUSES,
-} from "@/lib/portal/constants";
-import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
-import { getExpenseSplitTotal } from "@/lib/portal/workflow";
+import { Input, MultiSelect, Select } from "@/components/portal/PortalModalForm";
+import { PORTAL_ROLES } from "@/lib/portal/constants";
 
 export function EntityModalStaffFields({
   modal,
@@ -82,18 +61,6 @@ export function EntityModalStaffFields({
             label="Location"
             value={form.location}
             onChange={(v) => updateForm("location", v)}
-          />
-          <Input
-            label="Joining Date"
-            type="date"
-            value={form.joiningDate}
-            onChange={(v) => updateForm("joiningDate", v)}
-          />
-          <Select
-            label="Employment Status"
-            value={form.employmentStatus}
-            options={["Probationer", "Confirmed"]}
-            onChange={(v) => updateForm("employmentStatus", v)}
           />
           <Input
             label="Confirmation Date"

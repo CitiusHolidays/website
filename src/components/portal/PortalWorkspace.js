@@ -679,7 +679,17 @@ function PortalWorkspaceHeader({ workspace: w }) {
 function PortalWorkspaceViews({ workspace: w }) {
   return (
     <>
-{w.view === "dashboard" && <DashboardView summary={w.summary} has={w.has} access={w.access} />}
+      {w.view === "dashboard" && (
+        <DashboardView
+          summary={w.summary}
+          has={w.has}
+          access={w.access}
+          dateRange={w.dateRange}
+          setDateRange={w.setDateRangeWithUrl}
+          openModal={w.openModal}
+          loading={w.summary === undefined}
+        />
+      )}
       {w.view === "queries" && (
         <QueriesView
           rows={w.filteredQueries}
@@ -1661,8 +1671,25 @@ function DashboardSecondaryPanels({
   );
 }
 
+function queryStatusModalForAccess(row, has) {
+  const isContractingUpdate = has(P.MANAGE_CONTRACTING);
+  return {
+    modal: isContractingUpdate ? "queryStatus" : "salesDecision",
+    label: isContractingUpdate ? "Update" : "Sales Decision",
+    initial: {
+      queryId: row.id,
+      salesStatus: row.salesStatus,
+      salesDecision: row.salesStatus || "Proposal in discussion",
+      leadStage: row.leadStage || "Inquiry",
+      contractingStatus: row.contractingStatus,
+      approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
+    },
+  };
+}
+
 function QueryManageActions({ row, openModal, has, deleteItem, removeQuery, submitToContracting }) {
   if (!has(P.MANAGE_QUERIES)) return null;
+  const statusAction = queryStatusModalForAccess(row, has);
   return (
     <>
       <button
@@ -1706,17 +1733,9 @@ function QueryManageActions({ row, openModal, has, deleteItem, removeQuery, subm
       <button
         type="button"
         className="portal-small-btn"
-        onClick={() =>
-          openModal("queryStatus", {
-            queryId: row.id,
-            salesStatus: row.salesStatus,
-            leadStage: row.leadStage || "Inquiry",
-            contractingStatus: row.contractingStatus,
-            approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
-          })
-        }
+        onClick={() => openModal(statusAction.modal, statusAction.initial)}
       >
-        Update
+        {statusAction.label}
       </button>
       <DeleteButton
         label={row.queryCode}
@@ -1827,17 +1846,12 @@ function QueriesView({
                   key="update"
                   type="button"
                   className="portal-small-btn w-full"
-                  onClick={() =>
-                    openModal("queryStatus", {
-                      queryId: row.id,
-                      salesStatus: row.salesStatus,
-                      leadStage: row.leadStage || "Inquiry",
-                      contractingStatus: row.contractingStatus,
-                      approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
-                    })
-                  }
+                  onClick={() => {
+                    const statusAction = queryStatusModalForAccess(row, has);
+                    openModal(statusAction.modal, statusAction.initial);
+                  }}
                 >
-                  Update
+                  {queryStatusModalForAccess(row, has).label}
                 </button>,
                 <DeleteButton
                   key="delete"
@@ -6382,4 +6396,3 @@ function statusTone(status) {
 function BriefcaseIcon(props) {
   return <Settings {...props} />;
 }
-

@@ -3,12 +3,10 @@
 import { EntityModalShell } from "@/components/portal/entityModal/EntityModalShell";
 import { getEntityModalTitle } from "@/components/portal/entityModal/entityModalTitles";
 import { useEntityModalLinking } from "@/components/portal/entityModal/useEntityModalLinking";
-import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import { linkedPnrOptions, linkedTravellerOptions } from "@/lib/portal/entityModalLinks";
 import { calculateLeaveRequestImpact } from "@/lib/portal/leavePolicy";
 import { teamSelectOptions } from "@/lib/portal/permissions";
 
-const P = PORTAL_PERMISSIONS;
 const EMPTY_ARRAY = [];
 
 export function EntityModal({
@@ -79,9 +77,11 @@ export function EntityModal({
     team.find((member) => member.id === access?.staffId) ||
     {};
   const leaveBalanceEntries = [];
+  const leaveBalanceRows = [];
   for (const row of leaveBalances || []) {
     if (!form.staffId || row.staffId === form.staffId) {
       leaveBalanceEntries.push([row.leaveType, row.availableDays]);
+      leaveBalanceRows.push(row);
     }
   }
   const leaveBalanceMap = Object.fromEntries(leaveBalanceEntries);
@@ -168,6 +168,7 @@ export function EntityModal({
     tourManagerOptions,
     leaveHeadApproverOptions,
     leaveImpact,
+    leaveBalanceRows,
     pendingExpenseProofFiles,
     setPendingExpenseProofFiles,
     handleJobCardSelect: linking.handleJobCardSelect,

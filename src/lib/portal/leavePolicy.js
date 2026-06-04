@@ -54,6 +54,31 @@ export function fiscalYearForDate(value) {
     : `${year - 1}-${year}`;
 }
 
+function monthsElapsedInPolicyYear(value) {
+  const date = new Date(`${value}T12:00:00`);
+  const startYear =
+    date.getMonth() >= LEAVE_POLICY_YEAR_START_MONTH ? date.getFullYear() : date.getFullYear() - 1;
+  return (
+    (date.getFullYear() - startYear) * 12 + date.getMonth() - LEAVE_POLICY_YEAR_START_MONTH + 1
+  );
+}
+
+export function defaultLeaveEntitlement(leaveType, employmentStatus = "Confirmed", startDate = "") {
+  const isProbationer = employmentStatus === "Probationer";
+  if (leaveType === "Leave Without Pay") return Number.POSITIVE_INFINITY;
+  if (leaveType === "Privilege") {
+    if (isProbationer) return 0;
+    return Math.min(21, Math.max(0, monthsElapsedInPolicyYear(startDate)) * 1.75);
+  }
+  if (leaveType === "Casual") return 8;
+  if (leaveType === "Sick") return 10;
+  if (leaveType === "Maternity") return 182;
+  if (leaveType === "Paternity") return isProbationer ? 5 : 10;
+  if (leaveType === "Bereavement") return 5;
+  if (leaveType === "Marriage") return isProbationer ? 0 : 5;
+  return 0;
+}
+
 export function calculateLeaveRequestImpact({
   leaveType,
   startDate,
@@ -112,7 +137,9 @@ export function calculateLeaveRequestImpact({
     };
   }
 
-  const available = Number(balances[leaveType] ?? 0);
+  const available = Number(
+    balances[leaveType] ?? defaultLeaveEntitlement(leaveType, employmentStatus, startDate),
+  );
   if (available < days) {
     return {
       allowed: false,

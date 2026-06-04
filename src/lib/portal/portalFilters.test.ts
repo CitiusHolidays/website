@@ -3,7 +3,6 @@ import { ConvexError } from "convex/values";
 import {
   assertBulkDeleteLimit,
   filterRecordsByDateRange,
-  PORTAL_BULK_DELETE_LIMIT,
   requestedProposalQueryIds,
   resolvePortalDateRange,
 } from "../../../convex/crm/lib";
@@ -54,9 +53,9 @@ describe("requestedProposalQueryIds", () => {
 });
 
 describe("assertBulkDeleteLimit", () => {
-  test("rejects empty and oversized bulk deletes", () => {
+  test("rejects empty bulk deletes", () => {
     expect(() => assertBulkDeleteLimit(0)).toThrow(ConvexError);
-    expect(() => assertBulkDeleteLimit(PORTAL_BULK_DELETE_LIMIT + 1)).toThrow(ConvexError);
-    expect(() => assertBulkDeleteLimit(PORTAL_BULK_DELETE_LIMIT)).not.toThrow();
+    expect(() => assertBulkDeleteLimit(1)).not.toThrow();
+    expect(() => assertBulkDeleteLimit(500)).not.toThrow();
   });
 });

@@ -1281,8 +1281,6 @@ export function publicQuery(query: any) {
   };
 }
 
-export const PORTAL_BULK_DELETE_LIMIT = 50;
-
 export function requestedProposalQueryIds(args: { queryId?: string; queryIds?: string[] }) {
   if (args.queryIds !== undefined) {
     return args.queryIds;
@@ -1296,9 +1294,6 @@ export function requestedProposalQueryIds(args: { queryId?: string; queryIds?: s
 export function assertBulkDeleteLimit(count: number) {
   if (count === 0) {
     throw new ConvexError("No records selected");
-  }
-  if (count > PORTAL_BULK_DELETE_LIMIT) {
-    throw new ConvexError(`Select at most ${PORTAL_BULK_DELETE_LIMIT} records`);
   }
 }
 

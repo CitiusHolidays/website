@@ -1,28 +1,7 @@
 "use client";
 
-import {
-  Input,
-  MultiSelect,
-  money,
-  QueryFilePicker,
-  Select,
-  Textarea,
-} from "@/components/portal/PortalModalForm";
-import {
-  CABIN_CLASSES,
-  EXPENSE_CURRENCIES,
-  EXPENSE_HEADS,
-  FOOD_PREFERENCES,
-  GUEST_TYPES,
-  LEAVE_TYPES,
-  PAYMENT_TYPES,
-  PORTAL_ROLES,
-  TICKET_STATUSES,
-  TICKET_TYPES,
-  VISA_STATUSES,
-} from "@/lib/portal/constants";
-import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
-import { getExpenseSplitTotal } from "@/lib/portal/workflow";
+import { Input, Select } from "@/components/portal/PortalModalForm";
+import { LEAVE_TYPES, PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 
 export function EntityModalLeaveFields({
   modal,
@@ -42,6 +21,7 @@ export function EntityModalLeaveFields({
   tourManagerOptions,
   leaveHeadApproverOptions,
   leaveImpact,
+  leaveBalanceRows,
   pendingExpenseProofFiles,
   setPendingExpenseProofFiles,
   handleJobCardSelect,
@@ -93,6 +73,24 @@ export function EntityModalLeaveFields({
             required
             placeholder="e.g. Annual Leave, Medical, Personal"
           />
+          {leaveBalanceRows?.length > 0 && (
+            <div className="md:col-span-2 rounded-xl border border-brand-border bg-brand-light/70 px-4 py-3">
+              <div className="mb-3 text-sm font-semibold text-citius-blue">Leave balances</div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {leaveBalanceRows.map((row) => (
+                  <div
+                    key={row.leaveType}
+                    className="rounded-lg border border-brand-border bg-white px-3 py-2"
+                  >
+                    <div className="text-xs font-medium text-brand-muted">{row.leaveType}</div>
+                    <div className="mt-1 text-lg font-semibold text-brand-dark">
+                      {Number(row.availableDays || 0).toFixed(1)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {leaveImpact && (
             <div
               className={`md:col-span-2 rounded-xl border px-4 py-3 text-sm ${
