@@ -88,14 +88,8 @@ async function linkedQueriesForProposal(ctx: QueryCtx, proposal: Doc<"proposals"
     queryIds.add(link.queryId);
   }
 
-  const queries = [];
-  for (const queryId of queryIds) {
-    const query = await ctx.db.get(queryId);
-    if (query) {
-      queries.push(query);
-    }
-  }
-  return queries;
+  const queryResults = await Promise.all([...queryIds].map((queryId) => ctx.db.get(queryId)));
+  return queryResults.filter((query): query is Doc<"queries"> => Boolean(query));
 }
 
 function addQueryRows(rows: DetailRow[], query: Doc<"queries">) {
@@ -143,16 +137,17 @@ async function proposalDetails(ctx: QueryCtx, entityId: string): Promise<DetailS
     rows,
     "Destinations",
     linkedQueries
-      .map((query) => query.destination)
-      .filter(Boolean)
+      .flatMap((query) => (query.destination ? [query.destination] : []))
       .join(", "),
   );
   addRow(
     rows,
     "Travel dates",
     linkedQueries
-      .map((query) => formatDateRange(query.travelStartDate, query.travelEndDate))
-      .filter(Boolean)
+      .flatMap((query) => {
+        const range = formatDateRange(query.travelStartDate, query.travelEndDate);
+        return range ? [range] : [];
+      })
       .join("; "),
   );
   addRow(rows, "Cost price / pax", formatAmount(proposal.costPrice));

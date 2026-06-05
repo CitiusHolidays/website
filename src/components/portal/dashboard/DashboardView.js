@@ -19,8 +19,7 @@ import { DashboardCollapsibleSection } from "./DashboardCollapsibleSection";
 import { DashboardFinanceOverdue } from "./DashboardFinanceOverdue";
 import { DashboardHero } from "./DashboardHero";
 import { DashboardOpsReadiness } from "./DashboardOpsReadiness";
-import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
-import { DashboardPeriodPresets } from "./DashboardPeriodPresets";
+import { DashboardPeriodControls } from "./DashboardPeriodControls";
 import { DashboardPipelineSnapshot } from "./DashboardPipelineSnapshot";
 import { DashboardQueryTypeTabs } from "./DashboardQueryTypeTabs";
 import { DashboardQuickActions } from "./DashboardQuickActions";
@@ -199,7 +198,7 @@ export function DashboardView({
       <DashboardHero displayName={access?.name} dateRange={dateRange} generatedAt={generatedAt} />
     ),
     quickActions: <DashboardQuickActions has={has} openModal={openModal} />,
-    periodPresets: <DashboardPeriodPresets dateRange={dateRange} setDateRange={setDateRange} />,
+    periodPresets: <DashboardPeriodControls dateRange={dateRange} setDateRange={setDateRange} />,
     stats: (
       <DashboardStatGrid
         metrics={metrics}
@@ -276,13 +275,12 @@ export function DashboardView({
       <DashboardSectionBlock id="hero" sections={sections} persona={persona} />
       {(persona.sections.includes("quickActions") ||
         persona.sections.includes("periodPresets")) && (
-        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <DashboardSectionBlock id="quickActions" sections={sections} persona={persona} />
-          <div className="flex flex-col gap-3 sm:items-end">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 shrink">
+            <DashboardSectionBlock id="quickActions" sections={sections} persona={persona} />
+          </div>
+          <div className="shrink-0 lg:ml-auto">
             <DashboardSectionBlock id="periodPresets" sections={sections} persona={persona} />
-            {persona.sections.includes("periodPresets") && (
-              <PortalDateRangeFilter compact dateRange={dateRange} setDateRange={setDateRange} />
-            )}
           </div>
         </div>
       )}
