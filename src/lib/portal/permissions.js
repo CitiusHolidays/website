@@ -22,6 +22,7 @@ export function getPermissionsForRoles(roles = []) {
   }
   if (roles.length > 0) {
     permissions.add(PORTAL_PERMISSIONS.REQUEST_LEAVE);
+    permissions.add(PORTAL_PERMISSIONS.VIEW_EXPENSES);
   }
   return Array.from(permissions).sort();
 }
@@ -88,12 +89,7 @@ export function canAssignContracting(access) {
 }
 
 export function canAssignQueryTicketing(access) {
-  return (
-    isAdmin(access) ||
-    hasRole(access, "Contracting Head") ||
-    hasRole(access, "Operations Head") ||
-    hasRole(access, "Head of Ticketing")
-  );
+  return isAdmin(access) || hasRole(access, "Head of Ticketing");
 }
 
 export function canAssignOperations(access) {

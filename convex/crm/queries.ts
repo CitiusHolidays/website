@@ -443,11 +443,7 @@ export const assignQueryTicketing = mutation({
     staffId: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await requireHeadOrAdmin(ctx, [
-      "Contracting Head",
-      "Operations Head",
-      "Head of Ticketing",
-    ]);
+    const access = await requireHeadOrAdmin(ctx, ["Head of Ticketing"]);
     const queryId = ctx.db.normalizeId("queries", args.queryId);
     if (!queryId) {
       throw new ConvexError("Invalid query id");

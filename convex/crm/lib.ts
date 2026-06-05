@@ -315,6 +315,7 @@ export function getRolePermissions(roles: string[]) {
   }
   if (roles.length > 0) {
     permissions.add(P.REQUEST_LEAVE);
+    permissions.add(P.VIEW_EXPENSES);
   }
   return Array.from(permissions).sort();
 }

@@ -6,6 +6,7 @@ import { PORTAL_PERMISSIONS } from "./constants";
 import {
   canAccessPage,
   canAccessPipeline,
+  canAssignQueryTicketing,
   getAccessibleNavGroups,
   getPermissionsForRoles,
   getQueryTypeOptions,
@@ -61,6 +62,13 @@ describe("portal permissions", () => {
 
     expect(canAccessPipeline(salesAccess)).toBe(true);
     expect(canAccessPipeline(ticketingAccess)).toBe(false);
+  });
+
+  test("query ticketing assignment is limited to admin and head of ticketing", () => {
+    expect(canAssignQueryTicketing({ roles: ["Admin"] })).toBe(true);
+    expect(canAssignQueryTicketing({ roles: ["Head of Ticketing"] })).toBe(true);
+    expect(canAssignQueryTicketing({ roles: ["Contracting Head"] })).toBe(false);
+    expect(canAssignQueryTicketing({ roles: ["Operations Head"] })).toBe(false);
   });
 
   test("ticketing role sees enquiry and proposal navigation for assigned work", () => {
