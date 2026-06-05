@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { buildUrgentActionHref, buildUrgentViewAllHref } from "@/lib/portal/dashboardLinks";
 import { DashboardEmpty, DashboardPanel } from "./DashboardPanel";
+import { formatRelativeTime } from "./utils";
 
 const GROUP_LABELS = {
   approvals: "Approvals",
@@ -12,55 +13,61 @@ const GROUP_LABELS = {
 };
 
 export function DashboardActionInbox({ actions, dateRange }) {
+  const viewAllHref = actions?.length
+    ? buildUrgentViewAllHref(actions[0].type, dateRange)
+    : "/portal/activity";
+
   if (!actions?.length) {
     return (
-      <DashboardPanel title="Action inbox">
+      <DashboardPanel
+        title="Action inbox"
+        action={
+          <Link href={viewAllHref} className="text-xs font-bold text-citius-blue hover:underline">
+            View all
+          </Link>
+        }
+      >
         <DashboardEmpty label="You're clear — no urgent actions right now." />
       </DashboardPanel>
     );
   }
 
-  const grouped = actions.reduce(
-    (acc, item) => {
-      const key = item.type || "other";
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(item);
-      return acc;
-    },
-    /** @type {Record<string, typeof actions>} */ ({}),
-  );
-
   return (
-    <DashboardPanel title="Action inbox" subtitle="Items that need attention now">
-      <div className="space-y-5">
-        {Object.entries(grouped).map(([type, items]) => (
-          <div key={type}>
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
-                {GROUP_LABELS[type] || type}
+    <DashboardPanel
+      title="Action inbox"
+      action={
+        <Link href={viewAllHref} className="text-xs font-bold text-citius-blue hover:underline">
+          View all
+        </Link>
+      }
+    >
+      <ul className="-mt-1 divide-y divide-brand-border/80">
+        {actions.slice(0, 5).map((item) => (
+          <li key={item.id}>
+            <Link
+              href={buildUrgentActionHref(item)}
+              className="group grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citius-blue"
+            >
+              <span
+                className={`mt-0.5 size-2 rounded-full ${
+                  item.type === "ticketing" ? "bg-citius-blue" : "bg-citius-orange"
+                }`}
+              />
+              <span className="min-w-0">
+                <span className="block text-[11px] font-bold uppercase tracking-wide text-brand-muted">
+                  {GROUP_LABELS[item.type] || item.type}
+                </span>
+                <span className="mt-0.5 block truncate font-medium text-brand-dark group-hover:text-citius-blue">
+                  {item.label}
+                </span>
               </span>
-              <Link
-                href={buildUrgentViewAllHref(type, dateRange)}
-                className="text-xs font-semibold text-citius-blue hover:underline"
-              >
-                View all
-              </Link>
-            </div>
-            <ul className="space-y-2">
-              {items.map((item) => (
-                <li key={item.id}>
-                  <Link
-                    href={buildUrgentActionHref(item)}
-                    className="block rounded-xl border border-brand-border bg-white p-3 text-sm transition-shadow hover:border-citius-orange/30 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citius-blue"
-                  >
-                    <div className="font-medium text-brand-dark">{item.label}</div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+              <span className="text-xs tabular-nums text-brand-muted">
+                {formatRelativeTime(item.createdAt)}
+              </span>
+            </Link>
+          </li>
         ))}
-      </div>
+      </ul>
     </DashboardPanel>
   );
 }

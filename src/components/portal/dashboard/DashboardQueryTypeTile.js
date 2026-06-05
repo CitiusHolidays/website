@@ -1,15 +1,25 @@
 "use client";
 
+import { Boxes, Building2, Globe2, UsersRound } from "lucide-react";
 import Link from "next/link";
 
 export function DashboardQueryTypeTile({ type, count, variant = "active", href }) {
-  const tone = type.includes("Cement")
-    ? "from-stone-500/10 to-stone-500/5 border-stone-200"
-    : type.startsWith("MICE")
-      ? "from-citius-blue/12 to-citius-blue/5 border-citius-blue/15"
-      : type === "FIT" || type === "Family Group"
-        ? "from-emerald-500/12 to-emerald-500/5 border-emerald-200"
-        : "from-citius-orange/12 to-citius-orange/5 border-citius-orange/20";
+  const Icon =
+    type.includes("Cement") || type === "Cement types"
+      ? Boxes
+      : type.startsWith("MICE")
+        ? UsersRound
+        : type.includes("FIT") || type === "Family Group"
+          ? Building2
+          : Globe2;
+  const tone =
+    type.includes("Cement") || type === "Cement types"
+      ? "from-stone-500/8 to-white border-stone-300 text-stone-700"
+      : type.startsWith("MICE")
+        ? "from-citius-blue/10 to-white border-citius-blue/25 text-citius-blue"
+        : type.includes("FIT") || type === "Family Group"
+          ? "from-emerald-500/10 to-white border-emerald-300 text-emerald-700"
+          : "from-citius-orange/10 to-white border-citius-orange/30 text-citius-orange";
   const valueTone =
     variant === "confirmed"
       ? "text-emerald-700"
@@ -23,16 +33,18 @@ export function DashboardQueryTypeTile({ type, count, variant = "active", href }
         ? "ring-1 ring-stone-400/20"
         : "";
 
-  const className = `rounded-xl border bg-linear-to-br p-4 shadow-sm transition-shadow hover:shadow-md hover:border-citius-orange/30 ${tone} ${ringTone}`;
+  const className = `rounded-xl border bg-linear-to-br p-4 shadow-sm shadow-brand-dark/[0.03] transition-shadow hover:shadow-md hover:border-citius-orange/30 ${tone} ${ringTone}`;
 
   const inner = (
     <>
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-brand-muted">
-        {type}
+      <div className="flex items-center gap-2 text-xs font-medium text-brand-muted">
+        <Icon size={18} className="shrink-0" />
+        <span className="truncate">{type}</span>
       </div>
-      <div className={`mt-2 font-heading text-2xl font-semibold tabular-nums ${valueTone}`}>
+      <div className={`mt-4 font-heading text-3xl font-semibold tabular-nums ${valueTone}`}>
         {count}
       </div>
+      <div className="mt-2 text-xs text-brand-muted">In selected period</div>
     </>
   );
 

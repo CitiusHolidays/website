@@ -1,9 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { formatDisplayDateTime } from "@/lib/formatDate";
 import { getNotificationHref } from "@/lib/portal/notificationPaths";
 import { DashboardEmpty, DashboardPanel } from "./DashboardPanel";
+import { formatRelativeTime } from "./utils";
+
+function activityDot(message = "") {
+  if (/confirmed|approved|issued/i.test(message)) return "bg-emerald-500";
+  if (/lost|cancel|overdue|pending/i.test(message)) return "bg-citius-orange";
+  return "bg-citius-blue";
+}
 
 export function DashboardActivityStrip({ activities, canView }) {
   if (!canView) return null;
@@ -11,17 +17,22 @@ export function DashboardActivityStrip({ activities, canView }) {
   const rows = activities || [];
 
   return (
-    <DashboardPanel title="Recent activity">
-      <p className="mb-3 text-xs">
-        <Link href="/portal/activity" className="font-semibold text-citius-blue hover:underline">
+    <DashboardPanel
+      title="Recent activity"
+      action={
+        <Link
+          href="/portal/activity"
+          className="text-xs font-bold text-citius-blue hover:underline"
+        >
           View all activity
         </Link>
-      </p>
+      }
+    >
       {!rows.length ? (
         <DashboardEmpty label="No recent activity in this period." />
       ) : (
-        <ul className="space-y-2">
-          {rows.map((row) => {
+        <ul className="divide-y divide-brand-border/80">
+          {rows.slice(0, 5).map((row) => {
             const href =
               row.entityType && row.entityId
                 ? getNotificationHref({
@@ -34,15 +45,15 @@ export function DashboardActivityStrip({ activities, canView }) {
               <li key={row.id}>
                 <Link
                   href={href}
-                  className="block rounded-lg border border-brand-border bg-brand-light px-3 py-2 text-sm hover:border-citius-orange/30"
+                  className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-2 text-sm hover:text-citius-blue"
                 >
-                  <div className="font-medium text-brand-dark">{row.message}</div>
-                  <div className="mt-0.5 text-xs text-brand-muted">
-                    {row.actorName}
-                    {row.createdAt
-                      ? ` · ${formatDisplayDateTime(row.createdAt)}`
-                      : ""}
-                  </div>
+                  <span className={`size-2 rounded-full ${activityDot(row.message)}`} />
+                  <span className="min-w-0 truncate font-medium text-brand-dark">
+                    {row.message}
+                  </span>
+                  <span className="text-xs tabular-nums text-brand-muted">
+                    {row.createdAt ? formatRelativeTime(row.createdAt) : ""}
+                  </span>
                 </Link>
               </li>
             );

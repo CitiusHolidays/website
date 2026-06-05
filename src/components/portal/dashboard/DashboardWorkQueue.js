@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { formatDisplayDate } from "@/lib/formatDate";
-import { buildJobCardHref } from "@/lib/portal/dashboardLinks";
+import { buildDashboardListUrl, buildJobCardHref } from "@/lib/portal/dashboardLinks";
 import { DashboardEmpty, DashboardPanel, DashboardProgress } from "./DashboardPanel";
 
 const BADGE_TONES = {
@@ -67,7 +67,17 @@ export function DashboardUpcomingDepartures({ departures, dateRange, hasJobCards
   if (!hasJobCards) return null;
 
   return (
-    <DashboardPanel title="Upcoming departures">
+    <DashboardPanel
+      title="Upcoming departures"
+      action={
+        <Link
+          href={buildDashboardListUrl({ view: "job-cards", dateRange })}
+          className="text-xs font-bold text-citius-blue hover:underline"
+        >
+          View all job cards
+        </Link>
+      }
+    >
       {!departures?.length ? (
         <DashboardEmpty label="No upcoming departures." />
       ) : (
@@ -95,12 +105,60 @@ export function DashboardUpcomingDepartures({ departures, dateRange, hasJobCards
                     </Link>
                   </td>
                   <td className="py-2 pr-3 font-medium text-brand-dark">{row.clientName}</td>
-                  <td className="py-2 pr-3 tabular-nums">{formatDisplayDate(row.travelStartDate)}</td>
+                  <td className="py-2 pr-3 tabular-nums">
+                    {formatDisplayDate(row.travelStartDate)}
+                  </td>
                   <td className="py-2 pr-3 tabular-nums">{row.pax}</td>
                   <td className="py-2 pr-3">{row.tourManagerName || "—"}</td>
                   <td className="py-2">
                     <Badge label={row.readiness} tone={statusTone(row.readiness)} />
                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </DashboardPanel>
+  );
+}
+
+export function DashboardWorkQueuesSummary({ rows }) {
+  const visibleRows = rows || [];
+
+  return (
+    <DashboardPanel title="Work queues">
+      {!visibleRows.length ? (
+        <DashboardEmpty label="No open work queues for this period." />
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-brand-border text-xs text-brand-muted">
+                <th className="py-2 pr-3 font-semibold">Queue</th>
+                <th className="py-2 pr-3 text-right font-semibold">Pending</th>
+                <th className="py-2 pr-3 text-right font-semibold">Oldest item</th>
+                <th className="py-2 text-right font-semibold">Owner</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleRows.slice(0, 5).map((row) => (
+                <tr key={row.label} className="border-b border-brand-border/70 last:border-0">
+                  <td className="py-2.5 pr-3">
+                    <Link
+                      href={row.href}
+                      className="font-semibold text-citius-blue hover:underline"
+                    >
+                      {row.label}
+                    </Link>
+                  </td>
+                  <td className="py-2.5 pr-3 text-right tabular-nums text-brand-dark">
+                    {row.value ?? 0}
+                  </td>
+                  <td className="py-2.5 pr-3 text-right tabular-nums text-brand-muted">
+                    {row.oldestLabel || "—"}
+                  </td>
+                  <td className="py-2.5 text-right text-brand-muted">{row.owner}</td>
                 </tr>
               ))}
             </tbody>

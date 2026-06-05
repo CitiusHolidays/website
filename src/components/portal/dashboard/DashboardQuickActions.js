@@ -30,13 +30,13 @@ export function DashboardQuickActions({ has, openModal }) {
   if (!actions.length) return null;
 
   return (
-    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {actions.map((item) => (
+    <div className="flex flex-nowrap items-center gap-3 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {actions.map((item, index) => (
         <button
           key={item.label}
           type="button"
           onClick={item.onClick}
-          className="portal-primary-btn inline-flex items-center gap-2"
+          className={`${index === 0 ? "portal-primary-btn" : "portal-outline-btn"} inline-flex min-w-40 items-center gap-2`}
         >
           <Plus size={16} />
           {item.label}

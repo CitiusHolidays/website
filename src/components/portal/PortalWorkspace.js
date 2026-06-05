@@ -1367,9 +1367,11 @@ function PageHeader({
         <h1 className="max-w-5xl font-heading text-3xl font-semibold leading-tight text-citius-blue md:text-4xl">
           {title}
         </h1>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-brand-muted md:text-base">
-          {subtitle}
-        </p>
+        {subtitle ? (
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-brand-muted md:text-base">
+            {subtitle}
+          </p>
+        ) : null}
       </div>
       <div className="flex w-full flex-col gap-3 lg:max-w-3xl xl:max-w-none">
         {(showPeriodFilter ||

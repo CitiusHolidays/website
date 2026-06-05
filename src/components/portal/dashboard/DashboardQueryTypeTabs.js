@@ -11,6 +11,23 @@ const TABS = [
   { id: "closed", label: "Lost", detailKey: "closed" },
 ];
 
+const QUERY_TYPE_GROUPS = [
+  { label: "Cement types", types: ["Cement", "Cement Bidding"] },
+  { label: "MICE", types: ["MICE", "MICE Bidding"] },
+  { label: "FIT / Family Group", types: ["FIT", "Family Group"] },
+  { label: "Everything else", types: ["B2B", "Spiritual"] },
+];
+
+function groupQueryTypeRows(rows = []) {
+  return QUERY_TYPE_GROUPS.map((group) => ({
+    type: group.label,
+    count: rows
+      .filter((row) => group.types.includes(row.type))
+      .reduce((sum, row) => sum + row.count, 0),
+    sourceTypes: group.types,
+  }));
+}
+
 export function DashboardQueryTypeTabs({
   queryTypeCounts,
   confirmedQueryTypeCounts,
@@ -24,13 +41,21 @@ export function DashboardQueryTypeTabs({
   const [tab, setTab] = useState(defaultTab);
 
   const datasets = {
-    active: { rows: queryTypeCounts, total: activeQueryTotal, variant: "active" },
+    active: {
+      rows: groupQueryTypeRows(queryTypeCounts),
+      total: activeQueryTotal,
+      variant: "active",
+    },
     confirmed: {
-      rows: confirmedQueryTypeCounts,
+      rows: groupQueryTypeRows(confirmedQueryTypeCounts),
       total: confirmedQueryTotal,
       variant: "confirmed",
     },
-    closed: { rows: closedQueryTypeCounts, total: closedQueryTotal, variant: "closed" },
+    closed: {
+      rows: groupQueryTypeRows(closedQueryTypeCounts),
+      total: closedQueryTotal,
+      variant: "closed",
+    },
   };
 
   const current = datasets[tab] || datasets.active;
@@ -51,40 +76,48 @@ export function DashboardQueryTypeTabs({
 
   return (
     <section className="space-y-3">
-      <DashboardSectionHeading title="Queries by type" detail={detail} />
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Query status bucket">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === item.id}
-            onClick={() => setTab(item.id)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-              tab === item.id
-                ? "bg-citius-blue text-white"
-                : "border border-brand-border bg-white text-brand-muted hover:text-brand-dark"
-            }`}
+      <div className="rounded-xl border border-brand-border bg-white p-4 shadow-sm shadow-brand-dark/[0.03]">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <DashboardSectionHeading title="Query types by status" detail={detail} />
+          <div
+            className="flex rounded-lg border border-brand-border bg-white p-1"
+            role="tablist"
+            aria-label="Query status bucket"
           >
-            {item.label}
-          </button>
-        ))}
-      </div>
-      {current.rows?.length === 0 ? (
-        <DashboardEmpty label="No queries in this bucket for the selected period." />
-      ) : (
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {current.rows.map((item) => (
-            <DashboardQueryTypeTile
-              key={`${tab}-${item.type}`}
-              type={item.type}
-              count={item.count}
-              variant={current.variant}
-              href={buildQueryTypeTileHref(tab, item.type, dateRange)}
-            />
-          ))}
+            {TABS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={tab === item.id}
+                onClick={() => setTab(item.id)}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                  tab === item.id
+                    ? "bg-citius-blue text-white shadow-sm"
+                    : "text-brand-muted hover:text-brand-dark"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
+        {current.rows?.length === 0 ? (
+          <DashboardEmpty label="No queries in this bucket for the selected period." />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {current.rows.map((item) => (
+              <DashboardQueryTypeTile
+                key={`${tab}-${item.type}`}
+                type={item.type}
+                count={item.count}
+                variant={current.variant}
+                href={buildQueryTypeTileHref(tab, item.sourceTypes?.[0] || item.type, dateRange)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

@@ -12,7 +12,6 @@ function startOfMonth() {
 }
 
 const PRESETS = [
-  { id: "7d", label: "7d", range: () => ({ from: daysAgo(7), to: daysAgo(0) }) },
   { id: "30d", label: "30d", range: () => ({ from: daysAgo(30), to: daysAgo(0) }) },
   { id: "mtd", label: "MTD", range: () => ({ from: startOfMonth(), to: daysAgo(0) }) },
 ];
@@ -26,8 +25,18 @@ export function DashboardPeriodPresets({ dateRange, setDateRange }) {
   const allTime = !dateRange?.from && !dateRange?.to;
 
   return (
-    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <span className="shrink-0 text-xs font-semibold text-brand-muted">Quick period:</span>
+    <div className="flex flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-brand-border bg-white p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <button
+        type="button"
+        onClick={() => setDateRange({ from: null, to: null })}
+        className={`${PRESET_BUTTON_CLASS} shrink-0 ${
+          allTime
+            ? "border-citius-blue bg-citius-blue text-white"
+            : "border-transparent bg-white text-brand-muted hover:text-brand-dark"
+        }`}
+      >
+        All time
+      </button>
       {PRESETS.map((preset) => (
         <button
           key={preset.id}
@@ -36,23 +45,12 @@ export function DashboardPeriodPresets({ dateRange, setDateRange }) {
           className={`${PRESET_BUTTON_CLASS} shrink-0 ${
             active(preset)
               ? "border-citius-blue bg-citius-blue text-white"
-              : "border-brand-border bg-white text-brand-muted hover:border-citius-blue/40 hover:text-brand-dark"
+              : "border-transparent bg-white text-brand-muted hover:text-brand-dark"
           }`}
         >
           {preset.label}
         </button>
       ))}
-      <button
-        type="button"
-        onClick={() => setDateRange({ from: null, to: null })}
-        className={`${PRESET_BUTTON_CLASS} shrink-0 ${
-          allTime
-            ? "border-citius-blue bg-citius-blue text-white"
-            : "border-brand-border bg-white text-brand-muted hover:border-citius-blue/40 hover:text-brand-dark"
-        }`}
-      >
-        All time
-      </button>
     </div>
   );
 }

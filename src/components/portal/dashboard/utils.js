@@ -30,3 +30,32 @@ export function isSummaryStale(iso, staleMinutes = 5) {
   if (!Number.isFinite(ms)) return false;
   return Date.now() - ms > staleMinutes * 60 * 1000;
 }
+
+export function formatMetricTrend(trend) {
+  if (!trend || trend.direction === "flat" || trend.delta === 0) {
+    return "— no change";
+  }
+  const arrow = trend.direction === "up" ? "↑" : "↓";
+  return `${arrow} ${trend.delta} vs last 30d`;
+}
+
+export function formatRelativeTime(iso) {
+  if (!iso) return "";
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return "";
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - ms) / 60000));
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const hours = Math.floor(diffMinutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+export function formatOldestDays(iso) {
+  if (!iso) return "—";
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return "—";
+  const days = Math.max(1, Math.floor((Date.now() - ms) / 86400000));
+  return `${days}d`;
+}

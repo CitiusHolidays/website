@@ -1,7 +1,7 @@
 "use client";
 
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import { DashboardEmpty, DashboardPanel, DashboardProgress } from "./DashboardPanel";
+import { DashboardPanel, DashboardProgress } from "./DashboardPanel";
 import { DashboardActiveTours } from "./DashboardWorkQueue";
 
 export function DashboardOpsReadiness({
@@ -11,55 +11,63 @@ export function DashboardOpsReadiness({
   showAggregateProgress,
   personaId,
 }) {
-  const hideAggregate = personaId === "operations" && summary.activeTours?.length > 0;
+  const hideAggregate = !showAggregateProgress;
+  const rows = [
+    has(P.VIEW_TRAVELLERS) && {
+      label: "Travellers",
+      progress: summary.progress.guestData,
+      tone: "blue",
+    },
+    has(P.VIEW_TRAVELLERS) && {
+      label: "Passport",
+      progress: summary.progress.passport,
+      tone: "blue",
+    },
+    has(P.VIEW_VISA) && {
+      label: "Visa",
+      progress: summary.progress.visas,
+      tone: "blue",
+    },
+    has(P.VIEW_OPERATIONS) && {
+      label: "Rooming",
+      progress: summary.progress.rooming,
+      tone: "blue",
+    },
+    has(P.VIEW_JOB_CARDS) && {
+      label: "Tour Manager",
+      progress: summary.progress.tourManager,
+      tone: "orange",
+    },
+    has(P.VIEW_FINANCE) && {
+      label: "Payment",
+      progress: summary.progress.payment,
+      tone: "orange",
+    },
+  ].filter(Boolean);
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-5 xl:grid-cols-[1.35fr_0.9fr] max-sm:grid-cols-1">
+      {personaId === "operations" ? (
         <DashboardActiveTours
           tours={summary.activeTours}
           dateRange={dateRange}
           hasJobCards={has(P.VIEW_JOB_CARDS)}
         />
-      </div>
-      {showAggregateProgress && !hideAggregate ? (
-        <DashboardPanel title="Readiness overview">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {has(P.VIEW_TICKETING) && (
+      ) : null}
+      {!hideAggregate && rows.length ? (
+        <DashboardPanel title="Operations readiness">
+          <div className="space-y-3">
+            {rows.map((row) => (
               <DashboardProgress
-                label="Tickets issued / total pax"
-                value={summary.progress.tickets.percent}
+                key={row.label}
+                label={row.label}
+                value={row.progress?.percent ?? 0}
+                tone={row.tone}
+                meta={row.progress ? `${row.progress.done} / ${row.progress.total}` : undefined}
               />
-            )}
-            {has(P.VIEW_VISA) && (
-              <DashboardProgress
-                label="Visa approved / total pax"
-                value={summary.progress.visas.percent}
-              />
-            )}
-            {has(P.VIEW_TRAVELLERS) && (
-              <DashboardProgress
-                label="Guest data completed"
-                value={summary.progress.guestData.percent}
-              />
-            )}
-            {has(P.VIEW_OPERATIONS) && (
-              <DashboardProgress
-                label="Rooming completed"
-                value={summary.progress.rooming.percent}
-              />
-            )}
-            {has(P.VIEW_FINANCE) && (
-              <DashboardProgress
-                label="Payment received"
-                value={summary.progress.payment.percent}
-              />
-            )}
+            ))}
           </div>
         </DashboardPanel>
-      ) : null}
-      {!summary.activeTours?.length && has(P.VIEW_JOB_CARDS) ? (
-        <DashboardEmpty label="No active tours to show readiness for." />
       ) : null}
     </div>
   );

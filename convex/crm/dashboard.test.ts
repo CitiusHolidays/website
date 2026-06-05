@@ -126,11 +126,11 @@ describe("dashboard summary slices", () => {
         {},
       ]),
     ).toEqual([
-      { stage: "Inquiry", count: 1 },
-      { stage: "Proposal", count: 2 },
-      { stage: "Negotiation", count: 0 },
-      { stage: "Confirmation", count: 0 },
-      { stage: "Lost", count: 1 },
+      { stage: "Inquiry", count: 1, value: 0, weighted: 0 },
+      { stage: "Proposal", count: 2, value: 0, weighted: 0 },
+      { stage: "Negotiation", count: 0, value: 0, weighted: 0 },
+      { stage: "Confirmation", count: 0, value: 0, weighted: 0 },
+      { stage: "Lost", count: 1, value: 0, weighted: 0 },
     ]);
   });
 
@@ -250,11 +250,11 @@ describe("getPortalSummary", () => {
       { type: "Cement Bidding", count: 0 },
     ]);
     expect(summary.pipelineSnapshot).toEqual([
-      { stage: "Inquiry", count: 0 },
-      { stage: "Proposal", count: 1 },
-      { stage: "Negotiation", count: 0 },
-      { stage: "Confirmation", count: 0 },
-      { stage: "Lost", count: 0 },
+      { stage: "Inquiry", count: 0, value: 0, weighted: 0 },
+      { stage: "Proposal", count: 1, value: 0, weighted: 0 },
+      { stage: "Negotiation", count: 0, value: 0, weighted: 0 },
+      { stage: "Confirmation", count: 0, value: 0, weighted: 0 },
+      { stage: "Lost", count: 0, value: 0, weighted: 0 },
     ]);
   });
 });

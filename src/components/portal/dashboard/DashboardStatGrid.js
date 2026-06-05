@@ -6,12 +6,13 @@ import { DashboardStatCard } from "./DashboardStatCard";
 
 export function DashboardStatGrid({ metrics, featuredLabel, dateRange }) {
   if (!metrics?.length) return null;
+  const visibleMetrics = metrics.slice(0, 5);
 
   return (
-    <section className="space-y-3">
-      <DashboardSectionHeading title="Overview" />
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
-        {metrics.map(({ label, value, Icon }) => (
+    <section>
+      <DashboardSectionHeading title="Overview" className="sr-only" />
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        {visibleMetrics.map(({ label, value, Icon, trend }) => (
           <DashboardStatCard
             key={label}
             label={label}
@@ -19,6 +20,7 @@ export function DashboardStatGrid({ metrics, featuredLabel, dateRange }) {
             Icon={Icon}
             featured={label === featuredLabel}
             href={buildKpiHref(label, dateRange)}
+            trend={trend}
           />
         ))}
       </div>

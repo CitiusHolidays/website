@@ -46,8 +46,7 @@ const _SPREADSHEET_MODALS = [
 const VIEW_META = {
   dashboard: {
     title: "Dashboard",
-    subtitle:
-      "Your command center — act on urgent items, KPIs, and departures for the selected period.",
+    subtitle: "",
     permission: P.VIEW_DASHBOARD,
   },
   queries: {

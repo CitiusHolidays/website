@@ -20,7 +20,7 @@ export function resolveDashboardPersona(has, access = {}) {
   const hasDirectorScope = has(P.VIEW_REPORTS) && deptViews >= 3;
 
   if (hasDirectorScope) {
-    return persona("director", "Active Queries", "active", [
+    return persona("director", "Active queries", "active", [
       "hero",
       "quickActions",
       "periodPresets",
@@ -28,6 +28,8 @@ export function resolveDashboardPersona(has, access = {}) {
       "inbox",
       "pipeline",
       "workQueue",
+      "ticketingQueue",
+      "readiness",
       "queryTypes",
       "activity",
       "collapsible",
@@ -51,7 +53,7 @@ export function resolveDashboardPersona(has, access = {}) {
   }
 
   if (has(P.MANAGE_CONTRACTING) && has(P.VIEW_CONTRACTING)) {
-    return persona("contracting", "Proposals Sent", "active", [
+    return persona("contracting", "Proposals sent", "active", [
       "hero",
       "quickActions",
       "periodPresets",
@@ -63,7 +65,7 @@ export function resolveDashboardPersona(has, access = {}) {
   }
 
   if (has(P.MANAGE_TICKETING) && has(P.VIEW_TICKETING)) {
-    return persona("ticketing", "Tickets Pending", "active", [
+    return persona("ticketing", "Tickets pending", "active", [
       "hero",
       "quickActions",
       "periodPresets",
@@ -87,7 +89,7 @@ export function resolveDashboardPersona(has, access = {}) {
   }
 
   if (has(P.MANAGE_OPERATIONS) || has(P.MANAGE_TRAVELLERS)) {
-    return persona("operations", "Open Job Cards", "active", [
+    return persona("operations", "Open job cards", "active", [
       "hero",
       "quickActions",
       "periodPresets",
@@ -100,7 +102,7 @@ export function resolveDashboardPersona(has, access = {}) {
   }
 
   if (has(P.VIEW_CONTRACTING) && !has(P.VIEW_QUERIES)) {
-    return persona("contracting", "Proposals Sent", "active", [
+    return persona("contracting", "Proposals sent", "active", [
       "hero",
       "quickActions",
       "periodPresets",
@@ -112,10 +114,10 @@ export function resolveDashboardPersona(has, access = {}) {
   }
 
   if (!permissions.length) {
-    return persona("sales", "Active Queries", "active", ["hero", "periodPresets"]);
+    return persona("sales", "Active queries", "active", ["hero", "periodPresets"]);
   }
 
-  return persona("sales", "Active Queries", "active", [
+  return persona("sales", "Active queries", "active", [
     "hero",
     "quickActions",
     "periodPresets",

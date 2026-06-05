@@ -1,16 +1,17 @@
 "use client";
 
 import {
+  CalendarDays,
   CheckCircle2,
   CircleDollarSign,
   ClipboardList,
   FileText,
-  Plane,
   ShieldCheck,
   Ticket,
 } from "lucide-react";
 import { m as motion } from "motion/react";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { buildDashboardListUrl } from "@/lib/portal/dashboardLinks";
 import { resolveDashboardPersona } from "@/lib/portal/dashboardPersona";
 import { getQueryTypeOptions } from "@/lib/portal/permissions";
 import { DashboardActionInbox } from "./DashboardActionInbox";
@@ -26,8 +27,136 @@ import { DashboardQuickActions } from "./DashboardQuickActions";
 import { DashboardSectionSkeleton, DashboardStatsSkeleton } from "./DashboardSkeleton";
 import { DashboardStatGrid } from "./DashboardStatGrid";
 import { DashboardTicketingQueue } from "./DashboardTicketingQueue";
-import { DashboardUpcomingDepartures } from "./DashboardWorkQueue";
-import { formatMoney } from "./utils";
+import { DashboardUpcomingDepartures, DashboardWorkQueuesSummary } from "./DashboardWorkQueue";
+import { formatMetricTrend, formatMoney, formatOldestDays } from "./utils";
+
+function metricTrend(summary, key) {
+  const trend = summary?.metricTrends?.[key];
+  return {
+    ...trend,
+    label: formatMetricTrend(trend),
+  };
+}
+
+function buildDashboardMetrics(summary, has, persona) {
+  const m = summary.metrics;
+  const directorMetrics = [
+    {
+      label: "Active queries",
+      value: m.activeQueries,
+      Icon: ClipboardList,
+      permission: P.VIEW_QUERIES,
+      trendKey: "activeQueries",
+    },
+    {
+      label: "Proposals sent",
+      value: m.proposalsSent,
+      Icon: FileText,
+      permission: P.VIEW_PROPOSALS,
+      trendKey: "proposalsSent",
+    },
+    {
+      label: "Confirmed jobs",
+      value: m.confirmedJobs,
+      Icon: CheckCircle2,
+      permission: P.VIEW_QUERIES,
+      trendKey: "confirmedJobs",
+    },
+    {
+      label: "Open job cards",
+      value: m.jobCardsOpen,
+      Icon: BriefcaseIcon,
+      permission: P.VIEW_JOB_CARDS,
+      trendKey: "jobCardsOpen",
+    },
+    {
+      label: "Departures (30d)",
+      value: m.departures30d ?? 0,
+      Icon: CalendarDays,
+      permission: P.VIEW_JOB_CARDS,
+      trendKey: "departures30d",
+    },
+  ];
+
+  if (persona.id === "director") {
+    return directorMetrics.reduce((metrics, metric) => {
+      if (!has(metric.permission)) return metrics;
+      metrics.push({
+        ...metric,
+        trend: metricTrend(summary, metric.trendKey),
+      });
+      return metrics;
+    }, []);
+  }
+
+  return [
+    {
+      label: "Active queries",
+      value: m.activeQueries,
+      Icon: ClipboardList,
+      permission: P.VIEW_QUERIES,
+      trendKey: "activeQueries",
+    },
+    {
+      label: "Proposals sent",
+      value: m.proposalsSent,
+      Icon: FileText,
+      permission: P.VIEW_PROPOSALS,
+      trendKey: "proposalsSent",
+    },
+    {
+      label: "Confirmed jobs",
+      value: m.confirmedJobs,
+      Icon: CheckCircle2,
+      permission: P.VIEW_QUERIES,
+      trendKey: "confirmedJobs",
+    },
+    {
+      label: "Open job cards",
+      value: m.jobCardsOpen,
+      Icon: BriefcaseIcon,
+      permission: P.VIEW_JOB_CARDS,
+      trendKey: "jobCardsOpen",
+    },
+    {
+      label: "Tickets pending",
+      value: m.ticketsPending,
+      Icon: Ticket,
+      permission: P.VIEW_TICKETING,
+    },
+    {
+      label: "Visa pending",
+      value: m.visaPending,
+      Icon: ShieldCheck,
+      permission: P.VIEW_VISA,
+    },
+    {
+      label: "Outstanding",
+      value: formatMoney(m.outstandingAmount),
+      Icon: CircleDollarSign,
+      permission: P.VIEW_FINANCE,
+    },
+    {
+      label: "Pending approvals",
+      value: m.pendingApprovals,
+      Icon: CheckCircle2,
+      permission: P.VIEW_APPROVALS,
+    },
+    {
+      label: "Revenue pipeline",
+      value: formatMoney(m.revenuePipeline),
+      Icon: CircleDollarSign,
+      permission: P.VIEW_FINANCE,
+    },
+  ].reduce((metrics, metric) => {
+    if (!has(metric.permission)) return metrics;
+    metrics.push({
+      ...metric,
+      trend: metric.trendKey ? metricTrend(summary, metric.trendKey) : undefined,
+    });
+    return metrics;
+  }, []);
+}
 
 function BriefcaseIcon(props) {
   return (
@@ -98,68 +227,7 @@ export function DashboardView({
 
   if (!summary) return null;
 
-  const metrics = [
-    {
-      label: "Active Queries",
-      value: summary.metrics.activeQueries,
-      Icon: ClipboardList,
-      permission: P.VIEW_QUERIES,
-    },
-    {
-      label: "Proposals Sent",
-      value: summary.metrics.proposalsSent,
-      Icon: FileText,
-      permission: P.VIEW_PROPOSALS,
-    },
-    {
-      label: "Confirmed Jobs",
-      value: summary.metrics.confirmedJobs,
-      Icon: CheckCircle2,
-      permission: P.VIEW_QUERIES,
-    },
-    {
-      label: "Open Job Cards",
-      value: summary.metrics.jobCardsOpen,
-      Icon: BriefcaseIcon,
-      permission: P.VIEW_JOB_CARDS,
-    },
-    {
-      label: "Tickets Issued",
-      value: summary.metrics.ticketsIssued,
-      Icon: Ticket,
-      permission: P.VIEW_TICKETING,
-    },
-    {
-      label: "Tickets Pending",
-      value: summary.metrics.ticketsPending,
-      Icon: Plane,
-      permission: P.VIEW_TICKETING,
-    },
-    {
-      label: "Visa Pending",
-      value: summary.metrics.visaPending,
-      Icon: ShieldCheck,
-      permission: P.VIEW_VISA,
-    },
-    {
-      label: "Outstanding",
-      value: formatMoney(summary.metrics.outstandingAmount),
-      Icon: CircleDollarSign,
-      permission: P.VIEW_FINANCE,
-    },
-    {
-      label: "Pending Approvals",
-      value: summary.metrics.pendingApprovals,
-      Icon: CheckCircle2,
-      permission: P.VIEW_APPROVALS,
-    },
-    {
-      label: "Revenue Pipeline",
-      value: formatMoney(summary.metrics.revenuePipeline),
-      Icon: CircleDollarSign,
-      permission: P.VIEW_FINANCE,
-    },
-  ].filter((metric) => has(metric.permission));
+  const metrics = buildDashboardMetrics(summary, has, persona);
 
   const urgentActions = filterUrgentActions(summary, has);
   const departmentWorkflow = filterDepartmentWorkflow(summary, has);
@@ -193,6 +261,78 @@ export function DashboardView({
     has(P.VIEW_OPERATIONS) ||
     has(P.VIEW_FINANCE);
 
+  const oldestByType = (type) => {
+    let oldest = null;
+    for (const item of urgentActions) {
+      if (item.type !== type || !item.createdAt) continue;
+      if (oldest === null || item.createdAt < oldest) {
+        oldest = item.createdAt;
+      }
+    }
+    return oldest;
+  };
+
+  const roomingPending = Math.max(
+    0,
+    (summary.progress?.rooming?.total || 0) - (summary.progress?.rooming?.done || 0),
+  );
+
+  const workQueueRows = [
+    has(P.MANAGE_JOB_CARDS) && {
+      label: "Job Cards Pending",
+      value: urgentActions.filter((item) => item.type === "accounts").length,
+      oldest: oldestByType("accounts"),
+      owner: "Accounts",
+      href: buildDashboardListUrl({ view: "accounts-job-cards", dateRange }),
+    },
+    has(P.VIEW_CONTRACTING) && {
+      label: "Proposal with Contracting",
+      value: summary.departmentWorkflow?.find((item) => item.label.startsWith("Contracting"))
+        ?.value,
+      oldest: null,
+      owner: "Contracting",
+      href: buildDashboardListUrl({ view: "contracting", dateRange }),
+    },
+    has(P.VIEW_VISA) && {
+      label: "Visa Follow-ups",
+      value: summary.metrics.visaPending,
+      oldest: null,
+      owner: "Visa",
+      href: buildDashboardListUrl({ view: "visa", dateRange }),
+    },
+    has(P.VIEW_OPERATIONS) &&
+      roomingPending > 0 && {
+        label: "Rooming Follow-ups",
+        value: roomingPending,
+        oldest: null,
+        owner: "Operations",
+        href: buildDashboardListUrl({ view: "hotels", dateRange }),
+      },
+    has(P.VIEW_FINANCE) && {
+      label: "Finance Approvals",
+      value: summary.metrics.pendingApprovals,
+      oldest: oldestByType("finance"),
+      owner: "Accounts",
+      href: buildDashboardListUrl({
+        view: "approvals",
+        listFilters: { status: "Pending" },
+        dateRange,
+      }),
+    },
+    has(P.VIEW_TICKETING) && {
+      label: "Ticketing Follow-ups",
+      value: summary.ticketAttentionQueue?.length || summary.metrics.ticketsPending || 0,
+      oldest: oldestByType("ticketing"),
+      owner: "Ticketing",
+      href: buildDashboardListUrl({ view: "tickets", dateRange }),
+    },
+  ]
+    .filter(Boolean)
+    .map((row) => ({
+      ...row,
+      oldestLabel: formatOldestDays(row.oldest),
+    }));
+
   const sections = {
     hero: (
       <DashboardHero displayName={access?.name} dateRange={dateRange} generatedAt={generatedAt} />
@@ -214,14 +354,24 @@ export function DashboardView({
       />
     ),
     workQueue: (
-      <div className="grid gap-5 xl:grid-cols-2">
-        <DashboardUpcomingDepartures
-          departures={summary.upcomingDepartures}
-          dateRange={dateRange}
-          hasJobCards={has(P.VIEW_JOB_CARDS)}
-        />
-        {has(P.VIEW_FINANCE) ? (
-          <DashboardFinanceOverdue invoices={summary.overdueInvoices} dateRange={dateRange} />
+      <div className="space-y-5">
+        <div className="grid gap-5 lg:grid-cols-2">
+          <DashboardWorkQueuesSummary rows={workQueueRows} />
+          {persona.sections.includes("activity") ? (
+            <DashboardActivityStrip
+              activities={summary.recentActivity}
+              canView={has(P.VIEW_ACTIVITY)}
+            />
+          ) : has(P.VIEW_FINANCE) ? (
+            <DashboardFinanceOverdue invoices={summary.overdueInvoices} dateRange={dateRange} />
+          ) : null}
+        </div>
+        {has(P.VIEW_JOB_CARDS) ? (
+          <DashboardUpcomingDepartures
+            departures={summary.upcomingDepartures}
+            dateRange={dateRange}
+            hasJobCards={has(P.VIEW_JOB_CARDS)}
+          />
         ) : null}
       </div>
     ),
@@ -235,7 +385,12 @@ export function DashboardView({
       />
     ),
     ticketingQueue: (
-      <DashboardTicketingQueue queue={summary.ticketAttentionQueue} dateRange={dateRange} />
+      <DashboardTicketingQueue
+        queue={summary.ticketAttentionQueue}
+        dateRange={dateRange}
+        stats={summary.ticketingStats}
+        metricTrends={summary.metricTrends}
+      />
     ),
     queryTypes: persona.showQueryTypes ? (
       <DashboardQueryTypeTabs
@@ -249,9 +404,7 @@ export function DashboardView({
         dateRange={dateRange}
       />
     ) : null,
-    activity: (
-      <DashboardActivityStrip activities={summary.recentActivity} canView={has(P.VIEW_ACTIVITY)} />
-    ),
+    activity: null,
     collapsible: (
       <DashboardCollapsibleSection
         departmentWorkflow={departmentWorkflow}
@@ -262,39 +415,59 @@ export function DashboardView({
     ),
   };
 
-  const showStatsInboxRow =
-    persona.sections.includes("stats") && persona.sections.includes("inbox");
+  const hasSection = (id) => persona.sections.includes(id) && sections[id];
+  const leftSections = ["queryTypes", "pipeline", "workQueue", "collapsible"].filter(hasSection);
+  const rightSections = ["inbox", "ticketingQueue", "readiness"].filter(hasSection);
+  const renderedTopSections = new Set(["hero", "quickActions", "periodPresets", "stats"]);
+  for (const id of [...leftSections, ...rightSections]) renderedTopSections.add(id);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className="space-y-8"
+      className="space-y-5"
     >
-      <DashboardSectionBlock id="hero" sections={sections} persona={persona} />
-      {(persona.sections.includes("quickActions") ||
-        persona.sections.includes("periodPresets")) && (
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 shrink">
+      <div className="space-y-5">
+        <section className="rounded-xl border border-brand-border bg-white p-4 shadow-sm shadow-brand-dark/[0.03] md:p-6">
+          <DashboardSectionBlock id="hero" sections={sections} persona={persona} />
+
+          <div className="mt-5 flex flex-col gap-4 border-t border-brand-border/70 pt-5 lg:flex-row lg:items-end lg:justify-between">
             <DashboardSectionBlock id="quickActions" sections={sections} persona={persona} />
-          </div>
-          <div className="shrink-0 lg:ml-auto">
             <DashboardSectionBlock id="periodPresets" sections={sections} persona={persona} />
           </div>
+
+          {hasSection("stats") ? (
+            <div className="mt-6 border-t border-brand-border/70 pt-6">
+              <DashboardSectionBlock id="stats" sections={sections} persona={persona} />
+            </div>
+          ) : null}
+        </section>
+
+        <div
+          className={
+            rightSections.length ? "grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem]" : "grid gap-5"
+          }
+        >
+          <div className="space-y-5">
+            {leftSections.map((id) => (
+              <DashboardSectionBlock key={id} id={id} sections={sections} persona={persona} />
+            ))}
+          </div>
+          {rightSections.length ? (
+            <aside className="space-y-5">
+              {rightSections.map((id) => (
+                <DashboardSectionBlock key={id} id={id} sections={sections} persona={persona} />
+              ))}
+            </aside>
+          ) : null}
         </div>
-      )}
-      {showStatsInboxRow ? (
-        <div className="grid gap-5 max-sm:grid-cols-1 xl:grid-cols-[1.15fr_0.85fr]">
-          <div className="max-sm:order-2">{sections.stats}</div>
-          <div className="max-sm:order-1">{sections.inbox}</div>
-        </div>
-      ) : null}
-      {persona.sections.flatMap((id) => {
-        if (id === "hero" || id === "quickActions" || id === "periodPresets") return [];
-        if (showStatsInboxRow && (id === "stats" || id === "inbox")) return [];
-        return [<DashboardSectionBlock key={id} id={id} sections={sections} persona={persona} />];
-      })}
+
+        {persona.sections.flatMap((id) => {
+          if (renderedTopSections.has(id)) return [];
+          return [<DashboardSectionBlock key={id} id={id} sections={sections} persona={persona} />];
+        })}
+      </div>
     </motion.div>
   );
 }
