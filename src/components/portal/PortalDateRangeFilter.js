@@ -1,9 +1,15 @@
 "use client";
 
 import { Calendar } from "lucide-react";
+import { useId } from "react";
+import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { normalizeDateRange } from "@/lib/portal/periodFilter";
 
-export function PortalDateRangeFilter({ dateRange, setDateRange }) {
+const FILTER_INPUT_CLASS = "portal-period-select !rounded-full !bg-white min-w-[9.5rem]";
+
+export function PortalDateRangeFilter({ dateRange, setDateRange, compact = false }) {
+  const fromId = useId();
+  const toId = useId();
   const normalized = normalizeDateRange(dateRange);
   const hasRange = Boolean(normalized.from || normalized.to);
 
@@ -12,25 +18,29 @@ export function PortalDateRangeFilter({ dateRange, setDateRange }) {
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div
+      className={
+        compact ? "flex flex-wrap items-center gap-2" : "flex flex-wrap items-center gap-2"
+      }
+    >
       <Calendar className="hidden size-4 text-brand-muted sm:block" aria-hidden />
-      <label className="flex items-center gap-2">
+      <label htmlFor={fromId} className="flex items-center gap-2">
         <span className="text-xs font-medium text-brand-muted">From</span>
-        <input
-          type="date"
+        <PortalDateInput
+          id={fromId}
           value={normalized.from || ""}
-          onChange={(event) => update("from", event.target.value)}
-          className="portal-period-select h-11 rounded-full border border-brand-border bg-white px-3 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
+          onChange={(iso) => update("from", iso)}
+          inputClassName={FILTER_INPUT_CLASS}
           aria-label="Filter from date"
         />
       </label>
-      <label className="flex items-center gap-2">
+      <label htmlFor={toId} className="flex items-center gap-2">
         <span className="text-xs font-medium text-brand-muted">To</span>
-        <input
-          type="date"
+        <PortalDateInput
+          id={toId}
           value={normalized.to || ""}
-          onChange={(event) => update("to", event.target.value)}
-          className="portal-period-select h-11 rounded-full border border-brand-border bg-white px-3 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
+          onChange={(iso) => update("to", iso)}
+          inputClassName={FILTER_INPUT_CLASS}
           aria-label="Filter to date"
         />
       </label>

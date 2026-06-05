@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatDisplayDateTime } from "@/lib/formatDate";
 import { getNotificationHref } from "@/lib/portal/notificationPaths";
 import { DashboardEmpty, DashboardPanel } from "./DashboardPanel";
 
@@ -39,7 +40,7 @@ export function DashboardActivityStrip({ activities, canView }) {
                   <div className="mt-0.5 text-xs text-brand-muted">
                     {row.actorName}
                     {row.createdAt
-                      ? ` · ${new Date(row.createdAt).toLocaleString("en-IN", { dateStyle: "short", timeStyle: "short" })}`
+                      ? ` · ${formatDisplayDateTime(row.createdAt)}`
                       : ""}
                   </div>
                 </Link>

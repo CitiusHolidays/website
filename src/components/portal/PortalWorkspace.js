@@ -39,7 +39,9 @@ import {
 } from "react";
 import { DashboardView } from "@/components/portal/dashboard/DashboardView";
 import { EntityModal } from "@/components/portal/EntityModal";
+import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
+import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
 import { PortalListFilters } from "@/components/portal/PortalListFilters";
 import { usePortalToast } from "@/components/portal/PortalToast";
@@ -86,6 +88,7 @@ import {
   isDeepLinkDataReady,
   resolveDeepLink,
 } from "@/lib/portal/notificationTargets";
+import { formatDisplayDate } from "@/lib/formatDate";
 import { toPassengerImportInput } from "@/lib/portal/passengerImportRows";
 import {
   attachPassportExpiryUrgency,
@@ -631,7 +634,7 @@ function PortalWorkspaceHeader({ workspace: w }) {
         dateRange={w.dateRange}
         setDateRange={w.setDateRangeWithUrl}
         showSearch={w.view !== "dashboard"}
-        showPeriodFilter={!["settings", "team"].includes(w.view)}
+        showPeriodFilter={!["settings", "team", "dashboard"].includes(w.view)}
         showJobCardFilter={w.showJobCardFilter}
         jobCardFilter={w.jobCardFilter}
         setJobCardFilter={w.setJobCardFilterWithUrl}
@@ -1605,7 +1608,7 @@ function DashboardSecondaryPanels({
                 columns={[
                   ["JC", (row) => row.jobCode],
                   ["Client", (row) => strong(row.clientName)],
-                  ["Date", (row) => row.travelStartDate],
+                  ["Date", (row) => formatDisplayDate(row.travelStartDate)],
                   ["Pax", (row) => row.pax],
                   ["TM", (row) => row.tourManagerName || "-"],
                   [
@@ -2766,7 +2769,7 @@ function VisaTrackingView({
         ["Job", (row) => row.jobCode],
         ["Hub", (row) => row.travelHub || "-"],
         ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
-        ["Appointment", (row) => row.appointmentDate || "-"],
+        ["Appointment", (row) => formatDisplayDate(row.appointmentDate)],
         ["Notes", (row) => row.notes || "-"],
         [
           "Action",
@@ -2879,12 +2882,12 @@ function PassportUploadModal({
               >
                 Expiry Date
               </label>
-              <input
+              <PortalDateInput
                 id="passport-expiry"
-                type="date"
                 value={passportForm.expiryDate}
-                onChange={(e) => setPassportForm({ ...passportForm, expiryDate: e.target.value })}
-                className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
+                onChange={(iso) => setPassportForm({ ...passportForm, expiryDate: iso })}
+                inputClassName="!h-9 !rounded-md !text-sm"
+                className="w-full"
               />
             </div>
           </div>
@@ -2913,12 +2916,12 @@ function PassportUploadModal({
               >
                 Date of Birth
               </label>
-              <input
+              <PortalDateInput
                 id="passport-dob"
-                type="date"
                 value={passportForm.dateOfBirth}
-                onChange={(e) => setPassportForm({ ...passportForm, dateOfBirth: e.target.value })}
-                className="w-full text-sm border border-brand-border rounded-md p-2 focus:ring-1 focus:ring-citius-blue focus:outline-none"
+                onChange={(iso) => setPassportForm({ ...passportForm, dateOfBirth: iso })}
+                inputClassName="!h-9 !rounded-md !text-sm"
+                className="w-full"
               />
             </div>
           </div>
@@ -3493,8 +3496,8 @@ function HotelsView({
         ["Job", (row) => row.jobCode],
         ["Client", (row) => row.clientName],
         ["City", (row) => row.city || "-"],
-        ["Check-in", (row) => row.checkInDate || "-"],
-        ["Check-out", (row) => row.checkOutDate || "-"],
+        ["Check-in", (row) => formatDisplayDate(row.checkInDate)],
+        ["Check-out", (row) => formatDisplayDate(row.checkOutDate)],
         ["Instructions", (row) => row.specialInstructions || "-"],
         [
           "Action",
@@ -3649,7 +3652,7 @@ function TourManagersView({
           ["Current Tour", (row) => row.currentTour || "Available"],
           ["Job", (row) => row.jobCode || "-"],
           ["Calling", (row) => row.callingStatus],
-          ["Available", (row) => row.availabilityDate || "-"],
+          ["Available", (row) => formatDisplayDate(row.availabilityDate)],
           ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
           [
             "Action",
@@ -3761,7 +3764,7 @@ function FinanceView({ rows, overview, openModal, has, deleteItem, removeInvoice
                 ["Client", (row) => strong(row.clientName)],
                 ["JC", (row) => row.jobCode],
                 ["Due", (row) => money(row.dueAmount)],
-                ["Due Date", (row) => row.dueDate || "-"],
+                ["Due Date", (row) => formatDisplayDate(row.dueDate)],
                 ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
               ]}
             />
@@ -3830,7 +3833,7 @@ function ExpensesView({
       filtersActive={filtersActive}
       columns={[
         ["Job", (row) => row.jobCode],
-        ["Date", (row) => row.expenseDate || "-"],
+        ["Date", (row) => formatDisplayDate(row.expenseDate)],
         ["Category", (row) => strong(row.category)],
         ["Particulars", (row) => row.particulars || "-"],
         ["Currency", (row) => row.currency],
@@ -4225,8 +4228,8 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
               ),
             ],
             ["Leave Type", (row) => <Badge label={row.leaveType || "Casual"} tone="blue" />],
-            ["Start Date", (row) => row.startDate],
-            ["End Date", (row) => row.endDate],
+            ["Start Date", (row) => formatDisplayDate(row.startDate)],
+            ["End Date", (row) => formatDisplayDate(row.endDate)],
             ["Reason", (row) => row.reason || "-"],
             [
               "Head Review",
@@ -5619,15 +5622,6 @@ function filterDropdowns(dropdowns, search) {
   return filtered;
 }
 
-function formatDate(value) {
-  if (!value) return "-";
-  return new Date(value).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 function formatConvexError(error, fallback) {
   if (!error) return fallback;
   if (typeof error.data === "string" && error.data.trim()) {
@@ -5637,29 +5631,6 @@ function formatConvexError(error, fallback) {
     return error.message;
   }
   return fallback;
-}
-
-function LifecycleDates({ items, compact = false }) {
-  const visible = (items || []).filter((item) => item.value);
-  if (visible.length === 0) return null;
-  return (
-    <div
-      className={
-        compact ? "" : "mb-4 rounded-lg border border-brand-border bg-brand-light/50 px-4 py-3"
-      }
-    >
-      <div
-        className={`flex flex-wrap gap-x-4 gap-y-1 ${compact ? "text-xs text-brand-muted" : "text-xs text-brand-muted"}`}
-      >
-        {visible.map((item) => (
-          <span key={item.label}>
-            <span className="font-semibold text-brand-dark">{item.label}:</span>{" "}
-            {formatDate(item.value)}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 const EMPTY_OVERFLOW_ACTIONS = [];

@@ -4,6 +4,7 @@ import { m as motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { PortableText } from "next-sanity";
+import { formatDisplayDate } from "@/lib/formatDate";
 import { client } from "@/sanity/client";
 
 const portableTextComponents = {
@@ -153,11 +154,7 @@ export default function PostPageClient({ post }) {
                 <span>📖 {Math.ceil((post.body?.length || 0) / 40)} min read</span>
                 <span>•</span>
                 <time dateTime={post.publishedAt}>
-                  {new Date(post.publishedAt).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                  {formatDisplayDate(post.publishedAt)}
                 </time>
               </div>
             </div>
@@ -208,22 +205,14 @@ export default function PostPageClient({ post }) {
                 <div className="flex items-center gap-2 bg-white/50 px-3 py-2 rounded-lg">
                   <span className="font-semibold">Published:</span>
                   <time dateTime={post.publishedAt} className="text-brand-dark font-medium">
-                    {new Date(post.publishedAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {formatDisplayDate(post.publishedAt)}
                   </time>
                 </div>
                 {post._updatedAt && post._updatedAt !== post._createdAt && (
                   <div className="flex items-center gap-2 bg-white/50 px-3 py-2 rounded-lg">
                     <span className="font-semibold">Updated:</span>
                     <time dateTime={post._updatedAt} className="text-brand-dark font-medium">
-                      {new Date(post._updatedAt).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {formatDisplayDate(post._updatedAt)}
                     </time>
                   </div>
                 )}
@@ -282,11 +271,7 @@ export default function PostPageClient({ post }) {
                 <p className="font-medium">
                   📅 Published on{" "}
                   <span className="text-brand-dark font-semibold">
-                    {new Date(post.publishedAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                    {formatDisplayDate(post.publishedAt)}
                   </span>
                 </p>
               </div>

@@ -1,4 +1,5 @@
 import { query } from "../_generated/server";
+import { formatDisplayDate } from "../lib/formatDate";
 import {
   canSeeJobCardRecord,
   canSeeProposalRecord,
@@ -18,10 +19,7 @@ type Shortcut = {
 
 function formatShortcutDate(timestamp?: number) {
   if (!timestamp) return "";
-  return new Date(timestamp).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-  });
+  return formatDisplayDate(timestamp);
 }
 
 function queryHref(id: string) {

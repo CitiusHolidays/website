@@ -1,3 +1,4 @@
+import { formatDisplayDate, formatDisplayDateTime } from "@/lib/formatDate";
 import { EMPTY_DATE_RANGE, normalizeDateRange } from "@/lib/portal/periodFilter";
 
 export function formatMoney(value) {
@@ -8,18 +9,16 @@ export function formatMoney(value) {
 export function formatPeriodLabel(dateRange) {
   const { from, to } = normalizeDateRange(dateRange || EMPTY_DATE_RANGE);
   if (!from && !to) return "All time";
-  if (from && to) return `${from} – ${to}`;
-  if (from) return `From ${from}`;
-  return `Until ${to}`;
+  if (from && to) return `${formatDisplayDate(from)} – ${formatDisplayDate(to)}`;
+  if (from) return `From ${formatDisplayDate(from)}`;
+  return `Until ${formatDisplayDate(to)}`;
 }
 
 export function formatDataAsOf(iso) {
   if (!iso) return null;
   try {
-    return new Date(iso).toLocaleString("en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+    const formatted = formatDisplayDateTime(iso);
+    return formatted === "-" ? null : formatted;
   } catch {
     return null;
   }

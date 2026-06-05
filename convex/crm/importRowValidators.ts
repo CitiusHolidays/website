@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-export const importKindValidator = v.union(
+const importKindValidator = v.union(
   v.literal("passenger"),
   v.literal("traveller"),
   v.literal("rooming"),
@@ -10,14 +10,14 @@ export const importKindValidator = v.union(
 
 export const exportKindValidator = importKindValidator;
 
-export const foodPreferenceValidator = v.union(
+const foodPreferenceValidator = v.union(
   v.literal("Veg"),
   v.literal("Non-Veg"),
   v.literal("Jain"),
   v.literal("Vegan"),
 );
 
-export const visaStatusValidator = v.union(
+const visaStatusValidator = v.union(
   v.literal("Not Required"),
   v.literal("Not Started"),
   v.literal("Checklist Shared"),

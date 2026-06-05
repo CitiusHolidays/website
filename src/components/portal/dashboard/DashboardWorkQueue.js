@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatDisplayDate } from "@/lib/formatDate";
 import { buildJobCardHref } from "@/lib/portal/dashboardLinks";
 import { DashboardEmpty, DashboardPanel, DashboardProgress } from "./DashboardPanel";
 
@@ -94,7 +95,7 @@ export function DashboardUpcomingDepartures({ departures, dateRange, hasJobCards
                     </Link>
                   </td>
                   <td className="py-2 pr-3 font-medium text-brand-dark">{row.clientName}</td>
-                  <td className="py-2 pr-3 tabular-nums">{row.travelStartDate}</td>
+                  <td className="py-2 pr-3 tabular-nums">{formatDisplayDate(row.travelStartDate)}</td>
                   <td className="py-2 pr-3 tabular-nums">{row.pax}</td>
                   <td className="py-2 pr-3">{row.tourManagerName || "—"}</td>
                   <td className="py-2">

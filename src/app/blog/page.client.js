@@ -4,6 +4,7 @@ import imageUrlBuilder from "@sanity/image-url";
 import { m as motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
+import { formatDisplayDate } from "@/lib/formatDate";
 import { client } from "@/sanity/client";
 
 const { projectId, dataset } = client.config();
@@ -99,11 +100,7 @@ export default function BlogPageClient({ posts }) {
                             dateTime={post.publishedAt}
                             className="text-sm text-brand-muted font-medium"
                           >
-                            {new Date(post.publishedAt).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })}
+                            {formatDisplayDate(post.publishedAt)}
                           </time>
                         </div>
 

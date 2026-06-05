@@ -2,6 +2,7 @@
 
 import { m as motion } from "motion/react";
 import { useReducer } from "react";
+import { formatDisplayDate } from "@/lib/formatDate";
 import { ACCOUNT_CONTAINER_VARIANTS, ProfileAlert, ProfileField, ProfileInput } from "./AccountUi";
 
 const PHONE_REGEX = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
@@ -40,10 +41,7 @@ export function AccountProfilePanel({ user }) {
   const profileData = savedProfileData ?? user;
 
   const memberSince = profileData?.createdAt
-    ? new Date(profileData.createdAt).toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric",
-      })
+    ? formatDisplayDate(profileData.createdAt)
     : "Not available";
 
   const handleProfileInput = (field, value) => {

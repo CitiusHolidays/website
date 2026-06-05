@@ -1,7 +1,6 @@
-import { render } from "@react-email/render";
 import { NextResponse } from "next/server";
-import ContactFormEmail from "@/emails/ContactFormEmail";
 import { checkContactRateLimit } from "@/lib/contact/rate-limit";
+import { renderContactFormEmail } from "@/lib/contact/renderContactEmail";
 import {
   detectSpamContent,
   getClientIp,
@@ -106,15 +105,14 @@ export async function POST(request) {
     return rejectSpam();
   }
 
-  const emailHtml = await render(
-    <ContactFormEmail
-      name={trimmedName}
-      email={trimmedEmail}
-      phone={trimmedPhone}
-      subject={trimmedSubject || "Contact Form Message"}
-      message={trimmedMessage}
-    />,
-  );
+  const emailHtml = await renderContactFormEmail({
+    receivedAtMs: Date.now(),
+    name: trimmedName,
+    email: trimmedEmail,
+    phone: trimmedPhone,
+    subject: trimmedSubject || "Contact Form Message",
+    message: trimmedMessage,
+  });
 
   try {
     await sendEmail({

@@ -13,17 +13,15 @@ import {
   Text,
 } from "@react-email/components";
 
-export const ContactFormEmail = ({ name, email, phone, subject, message }) => {
+export const ContactFormEmail = ({
+  name,
+  email,
+  phone,
+  subject,
+  message,
+  receivedAt,
+}) => {
   const previewText = `New message from ${name} via your website`;
-  const receivedAt = new Date().toLocaleString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZoneName: "short",
-  });
 
   return (
     <Tailwind

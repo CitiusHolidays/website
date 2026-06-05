@@ -19,6 +19,7 @@ import { DashboardCollapsibleSection } from "./DashboardCollapsibleSection";
 import { DashboardFinanceOverdue } from "./DashboardFinanceOverdue";
 import { DashboardHero } from "./DashboardHero";
 import { DashboardOpsReadiness } from "./DashboardOpsReadiness";
+import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
 import { DashboardPeriodPresets } from "./DashboardPeriodPresets";
 import { DashboardPipelineSnapshot } from "./DashboardPipelineSnapshot";
 import { DashboardQueryTypeTabs } from "./DashboardQueryTypeTabs";
@@ -277,7 +278,12 @@ export function DashboardView({
         persona.sections.includes("periodPresets")) && (
         <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <DashboardSectionBlock id="quickActions" sections={sections} persona={persona} />
-          <DashboardSectionBlock id="periodPresets" sections={sections} persona={persona} />
+          <div className="flex flex-col gap-3 sm:items-end">
+            <DashboardSectionBlock id="periodPresets" sections={sections} persona={persona} />
+            {persona.sections.includes("periodPresets") && (
+              <PortalDateRangeFilter compact dateRange={dateRange} setDateRange={setDateRange} />
+            )}
+          </div>
         </div>
       )}
       {showStatsInboxRow ? (

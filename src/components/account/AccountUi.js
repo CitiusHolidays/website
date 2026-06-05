@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { m as motion } from "motion/react";
 import Image from "next/image";
+import { formatDisplayDate } from "@/lib/formatDate";
 import Link from "next/link";
 import { useId, useState } from "react";
 
@@ -111,8 +112,7 @@ export function BookingCard({ booking, type }) {
             <div className="flex items-center gap-2">
               <Calendar size={16} className="text-[#d4af37]" />
               <span>
-                {new Date(trip.startDate).toLocaleDateString()} -{" "}
-                {new Date(trip.endDate).toLocaleDateString()}
+                {formatDisplayDate(trip.startDate)} - {formatDisplayDate(trip.endDate)}
               </span>
             </div>
             <div className="flex items-center gap-2">

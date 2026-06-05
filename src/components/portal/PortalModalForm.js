@@ -2,18 +2,11 @@
 
 import { Loader2 } from "lucide-react";
 import { m as motion } from "motion/react";
-import { useState } from "react";
+import { useId, useState } from "react";
+import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { usePortalToast } from "@/components/portal/PortalToast";
-
-function formatDate(value) {
-  if (!value) return "-";
-  return new Date(value).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
+import { formatDisplayDate as formatDate } from "@/lib/formatDate";
 
 function formatFileSize(bytes) {
   if (!bytes) return "0 B";
@@ -115,19 +108,46 @@ function notesPreview(value) {
   return formatNotesPreview(value);
 }
 
-function Input({ label, value, onChange, type = "text", required = false, placeholder, ...rest }) {
+function Input({
+  label,
+  value,
+  onChange,
+  type = "text",
+  required = false,
+  placeholder,
+  id: idProp,
+  ...rest
+}) {
+  const autoId = useId();
+  const fieldId = idProp || autoId;
+  const fieldClass =
+    "h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10";
   return (
-    <label className="block">
+    <label className="block" htmlFor={fieldId}>
       <span className="mb-1 block text-xs font-semibold text-brand-muted">{label}</span>
-      <input
-        type={type}
-        required={required}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
-        {...rest}
-      />
+      {type === "date" ? (
+        <PortalDateInput
+          id={fieldId}
+          value={value}
+          onChange={onChange}
+          required={required}
+          placeholder={placeholder || "DD/MM/YYYY"}
+          inputClassName="!bg-brand-light focus:!bg-white"
+          className="w-full"
+          {...rest}
+        />
+      ) : (
+        <input
+          id={fieldId}
+          type={type}
+          required={required}
+          value={value}
+          placeholder={placeholder}
+          onChange={(event) => onChange(event.target.value)}
+          className={fieldClass}
+          {...rest}
+        />
+      )}
     </label>
   );
 }
