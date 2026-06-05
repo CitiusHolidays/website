@@ -1150,7 +1150,7 @@ function PortalWorkspaceLayout({ workspace: w }) {
 function HeaderActions({ view, openModal, has, access }) {
   if (view === "travellers" && has(P.MANAGE_TRAVELLERS)) {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-2">
         <button
           type="button"
           onClick={() => openModal("travellerExport")}
@@ -1176,7 +1176,7 @@ function HeaderActions({ view, openModal, has, access }) {
   }
   if (view === "ticketing" && has(P.MANAGE_TICKETING)) {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-2">
         <button
           type="button"
           onClick={() => openModal("passengerExport")}
@@ -1202,7 +1202,7 @@ function HeaderActions({ view, openModal, has, access }) {
   }
   if (view === "flights" && has(P.MANAGE_TICKETING)) {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-2">
         <button
           type="button"
           onClick={() => openModal("flightExport")}
@@ -1228,7 +1228,7 @@ function HeaderActions({ view, openModal, has, access }) {
   }
   if (view === "hotels" && has(P.MANAGE_OPERATIONS)) {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-2">
         <button
           type="button"
           onClick={() => openModal("roomingExport")}
@@ -1254,7 +1254,7 @@ function HeaderActions({ view, openModal, has, access }) {
   }
   if (view === "passport" && has(P.MANAGE_VISA)) {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-2">
         <button
           type="button"
           onClick={() => openModal("passportExport")}
@@ -1276,7 +1276,7 @@ function HeaderActions({ view, openModal, has, access }) {
   }
   if (view === "visa" && has(P.MANAGE_VISA)) {
     return (
-      <div className="flex flex-wrap gap-2">
+      <div className="flex shrink-0 flex-nowrap items-center gap-2">
         <button
           type="button"
           onClick={() => openModal("visaExport")}
@@ -1324,7 +1324,11 @@ function HeaderActions({ view, openModal, has, access }) {
   const action = actions[view];
   if (!action) return null;
   return (
-    <button type="button" onClick={() => openModal(action[0])} className="portal-primary-btn">
+    <button
+      type="button"
+      onClick={() => openModal(action[0])}
+      className="portal-primary-btn shrink-0 whitespace-nowrap"
+    >
       <Plus size={16} />
       {action[1]}
     </button>
@@ -1367,60 +1371,79 @@ function PageHeader({
           {subtitle}
         </p>
       </div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-        {showPeriodFilter && (
-          <PortalDateRangeFilter dateRange={dateRange} setDateRange={setDateRange} />
-        )}
-        {showJobCardFilter && (
-          <label className="relative">
-            <span className="sr-only">Job card</span>
-            <select
-              value={jobCardFilter}
-              onChange={(event) => setJobCardFilter(event.target.value)}
-              className="portal-period-select h-11 w-full appearance-none rounded-full border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-44"
-              aria-label="Filter by job card"
-            >
-              {jobCardFilterOptions(jobCards).map((option) => (
-                <option key={option.value || "all"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
-              size={16}
+      <div className="flex w-full flex-col gap-3 lg:max-w-3xl xl:max-w-none">
+        {(showPeriodFilter ||
+          showJobCardFilter ||
+          listFilterConfig.length > 0 ||
+          onClearAllFilters) && (
+          <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {showPeriodFilter && (
+              <PortalDateRangeFilter dateRange={dateRange} setDateRange={setDateRange} />
+            )}
+            {showJobCardFilter && (
+              <label className="relative shrink-0">
+                <span className="sr-only">Job card</span>
+                <select
+                  value={jobCardFilter}
+                  onChange={(event) => setJobCardFilter(event.target.value)}
+                  className="portal-period-select h-11 w-44 appearance-none rounded-full border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
+                  aria-label="Filter by job card"
+                >
+                  {jobCardFilterOptions(jobCards).map((option) => (
+                    <option key={option.value || "all"} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
+                  size={16}
+                />
+              </label>
+            )}
+            <PortalListFilters
+              config={listFilterConfig}
+              values={listFilters}
+              onChange={setListFilterValue}
+              rows={filterSourceRows}
             />
-          </label>
+            {onClearAllFilters ? (
+              <button
+                type="button"
+                className={`portal-small-btn shrink-0 whitespace-nowrap bg-white ${
+                  filtersActive ? "" : "pointer-events-none invisible"
+                }`}
+                onClick={onClearAllFilters}
+                tabIndex={filtersActive ? 0 : -1}
+                disabled={!filtersActive}
+              >
+                Clear filters
+              </button>
+            ) : null}
+          </div>
         )}
-        <PortalListFilters
-          config={listFilterConfig}
-          values={listFilters}
-          onChange={setListFilterValue}
-          rows={filterSourceRows}
-        />
-        {filtersActive && onClearAllFilters && (
-          <button type="button" className="portal-small-btn bg-white" onClick={onClearAllFilters}>
-            Clear filters
-          </button>
+        {(showSearch || children) && (
+          <div className="flex flex-nowrap items-center justify-end gap-2">
+            {showSearch && (
+              <label className="relative min-w-0 shrink">
+                <span className="sr-only">Search this page</span>
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
+                  size={16}
+                  aria-hidden
+                />
+                <input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="h-11 w-full min-w-[12rem] rounded-full border border-brand-border bg-white pl-9 pr-4 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-72"
+                  placeholder="Search current data"
+                  aria-label="Search this page"
+                />
+              </label>
+            )}
+            {children ? <div className="flex shrink-0 flex-nowrap items-center gap-2">{children}</div> : null}
+          </div>
         )}
-        {showSearch && (
-          <label className="relative">
-            <span className="sr-only">Search this page</span>
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
-              size={16}
-              aria-hidden
-            />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              className="h-11 w-full rounded-full border border-brand-border bg-white pl-9 pr-4 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-72"
-              placeholder="Search current data"
-              aria-label="Search this page"
-            />
-          </label>
-        )}
-        {children}
       </div>
     </motion.div>
   );

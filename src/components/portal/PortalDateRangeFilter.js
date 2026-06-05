@@ -5,8 +5,13 @@ import { useId } from "react";
 import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { getFilterDateRangeError, normalizeDateRange } from "@/lib/portal/periodFilter";
 
-const FILTER_INPUT_CLASS =
-  "portal-period-select !h-9 !rounded-full !bg-white !w-[9.5rem] !min-w-[9.5rem] !max-w-[9.5rem]";
+const FILTER_INPUT_BASE =
+  "portal-period-select !rounded-full !bg-white !w-[9.5rem] !min-w-[9.5rem] !max-w-[9.5rem]";
+const FILTER_INPUT_COMPACT = `${FILTER_INPUT_BASE} !h-9`;
+const FILTER_INPUT_DEFAULT = `${FILTER_INPUT_BASE} !h-11`;
+
+const TOOLBAR_ROW_CLASS =
+  "flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 export function PortalDateRangeFilter({ dateRange, setDateRange, compact = false }) {
   const fromId = useId();
@@ -19,13 +24,11 @@ export function PortalDateRangeFilter({ dateRange, setDateRange, compact = false
     setDateRange((current) => normalizeDateRange({ ...current, [field]: value || null }));
   };
 
-  const rowClass = compact
-    ? "flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-    : "flex flex-wrap items-center gap-2";
+  const inputClassName = compact ? FILTER_INPUT_COMPACT : FILTER_INPUT_DEFAULT;
 
   return (
-    <div className="space-y-1">
-      <div className={rowClass}>
+    <div className="shrink-0 space-y-1">
+      <div className={TOOLBAR_ROW_CLASS}>
         <Calendar className="hidden size-4 shrink-0 text-brand-muted sm:block" aria-hidden />
         <label htmlFor={fromId} className="flex shrink-0 items-center gap-2">
           <span className="text-xs font-medium text-brand-muted">From</span>
@@ -33,7 +36,7 @@ export function PortalDateRangeFilter({ dateRange, setDateRange, compact = false
             id={fromId}
             value={normalized.from || ""}
             onChange={(iso) => update("from", iso)}
-            inputClassName={FILTER_INPUT_CLASS}
+            inputClassName={inputClassName}
             aria-label="Filter from date"
           />
         </label>
@@ -43,7 +46,7 @@ export function PortalDateRangeFilter({ dateRange, setDateRange, compact = false
             id={toId}
             value={normalized.to || ""}
             onChange={(iso) => update("to", iso)}
-            inputClassName={FILTER_INPUT_CLASS}
+            inputClassName={inputClassName}
             aria-label="Filter to date"
           />
         </label>

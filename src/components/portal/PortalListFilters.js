@@ -14,7 +14,7 @@ export function PortalListFilters({
   if (!config.length) return null;
 
   return (
-    <>
+    <div className="contents">
       {config.map((def) => {
         const options =
           def.options === "fromRows" && def.resolveOptions
@@ -30,6 +30,6 @@ export function PortalListFilters({
           />
         );
       })}
-    </>
+    </div>
   );
 }

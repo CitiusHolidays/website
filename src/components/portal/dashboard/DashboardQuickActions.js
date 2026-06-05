@@ -30,7 +30,7 @@ export function DashboardQuickActions({ has, openModal }) {
   if (!actions.length) return null;
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {actions.map((item) => (
         <button
           key={item.label}

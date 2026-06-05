@@ -31,6 +31,7 @@ import * as crm_visa from "./crm/visa";
 import * as crm_leaveApprovers from "./crm/leaveApprovers";
 import * as crm_leaveLapse from "./crm/leaveLapse";
 import * as crm_leavePolicy from "./crm/leavePolicy";
+import * as crm_notificationEmailDetails from "./crm/notificationEmailDetails";
 import * as crm_notificationEmails from "./crm/notificationEmails";
 import * as crm_notificationSummary from "./crm/notificationSummary";
 import * as lib_authEmailHtml from "./lib/authEmailHtml";
@@ -73,6 +74,7 @@ export const __convexExportSurface = [
   crm_approvals.pendingCount,
   crm_dashboard.getPortalSummary,
   crm_expenseAttachments.verifyExpenseAccess,
+  crm_expenseAttachments.verifyExpenseProofMutationAccess,
   crm_expenseAttachments.getAttachmentRecord,
   crm_expenseAttachments.saveExpenseProof,
   crm_expenseAttachments.deleteExpenseProof,
@@ -269,6 +271,7 @@ export const __convexExportSurface = [
   crm_leaveLapse.runClSlLapse,
   crm_leaveLapse.checkAndRunClSlLapse,
   crm_leavePolicy.defaultLeaveEntitlement,
+  crm_notificationEmailDetails.getNotificationEmailDetails,
   crm_notificationEmails.sendNotificationEmail,
   crm_notificationSummary.notificationSummaryForAccess,
   crm_travellers.passportExpirySources,
