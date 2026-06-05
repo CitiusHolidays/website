@@ -927,6 +927,7 @@ function PortalWorkspaceViews({ workspace: w }) {
           filtersActive={w.filtersActive}
           staff={w.staff || w.team || []}
           access={w.access}
+          leaveBalances={w.leaveBalances}
           openModal={w.openModal}
           has={w.has}
           deleteItem={w.deleteItem}
@@ -1072,6 +1073,7 @@ function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
         visas={w.visas || []}
         pnrs={w.pnrs || []}
         team={w.team || []}
+        leaveBalances={w.leaveBalances}
         travellersWithoutVisa={w.travellersWithoutVisa || []}
         pendingQueryFiles={w.pendingQueryFiles}
         setPendingQueryFiles={w.setPendingQueryFiles}
@@ -4213,7 +4215,50 @@ function ActivityView({
   );
 }
 
-function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeave, decideLeave }) {
+function leaveBalanceRowsForDisplay(leaveBalances) {
+  if (!Array.isArray(leaveBalances)) {
+    return null;
+  }
+
+  const rowsByType = new Map(leaveBalances.map((row) => [row.leaveType, row]));
+  return LEAVE_TYPES.map((leaveType) => {
+    const row = rowsByType.get(leaveType);
+    if (row) {
+      const availableDays = Number(row.availableDays || 0).toFixed(1);
+      return {
+        leaveType,
+        value: availableDays,
+        detail: `${row.fiscalYear || "Current year"} balance`,
+      };
+    }
+
+    if (leaveType === "Leave Without Pay") {
+      return {
+        leaveType,
+        value: "Unpaid",
+        detail: "No balance limit",
+      };
+    }
+
+    return {
+      leaveType,
+      value: "-",
+      detail: "No balance row",
+    };
+  });
+}
+
+function LeaveView({
+  rows,
+  staff,
+  access,
+  leaveBalances,
+  openModal,
+  has,
+  deleteItem,
+  removeLeave,
+  decideLeave,
+}) {
   const today = new Date().toISOString().split("T")[0];
   const activeCount = rows.filter(
     (r) => r.startDate <= today && r.endDate >= today && r.status === "Approved",
@@ -4222,6 +4267,7 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
   const rejectedCount = rows.filter((r) => r.status === "Rejected").length;
   const upcomingCount = rows.filter((r) => r.status === "Approved" && r.startDate > today).length;
   const canManageLeave = has(P.MANAGE_LEAVE);
+  const balanceRows = leaveBalanceRowsForDisplay(leaveBalances);
   const [decidingLeaveId, setDecidingLeaveId] = useState(null);
 
   const handleLeaveDecision = async (leaveId, status) => {
@@ -4246,6 +4292,30 @@ function LeaveView({ rows, staff, access, openModal, has, deleteItem, removeLeav
         <StatCard label="Rejected" value={rejectedCount} Icon={ShieldCheck} />
         <StatCard label="Total Recorded" value={rows.length} Icon={ClipboardList} />
       </div>
+
+      <Panel
+        title="My leave balances"
+        subtitle="Current fiscal-year availability before any pending request is approved."
+      >
+        {balanceRows === null ? (
+          <div className="rounded-xl border border-brand-border bg-brand-light px-4 py-3 text-sm text-brand-muted">
+            Loading leave balances...
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {balanceRows.map((row) => (
+              <div
+                key={row.leaveType}
+                className="rounded-xl border border-brand-border bg-brand-light px-4 py-3"
+              >
+                <div className="text-xs font-medium text-brand-muted">{row.leaveType}</div>
+                <div className="mt-1 text-xl font-semibold text-brand-dark">{row.value}</div>
+                <div className="mt-1 text-xs text-brand-muted">{row.detail}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Panel>
 
       <div className="bg-brand-surface rounded-xl border border-brand-border overflow-hidden shadow-sm">
         <DataTable

@@ -61,11 +61,17 @@ describe("portal workspace modularization contract", () => {
   });
 
   test("leave modal shows balances and staff modal hides deferred policy fields", () => {
+    const workspace = read(WORKSPACE_FILE);
+    const leaveCall = workspace.match(/<LeaveView[\s\S]*?\/>/)?.[0] || "";
+    const modalCall = workspace.match(/<EntityModal[\s\S]*?\/>/)?.[0] || "";
     const leaveFields = read(LEAVE_FIELDS_FILE);
     const staffFields = read(STAFF_FIELDS_FILE);
 
+    expect(leaveCall).toContain("leaveBalances={w.leaveBalances}");
+    expect(modalCall).toContain("leaveBalances={w.leaveBalances}");
     expect(leaveFields).toContain("Leave balances");
     expect(leaveFields).toContain("availableDays");
+    expect(leaveFields).toContain("No balance limit");
     expect(staffFields).not.toContain('label="Joining Date"');
     expect(staffFields).not.toContain('label="Employment Status"');
   });

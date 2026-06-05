@@ -1,5 +1,5 @@
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import { assertDateRangeOrder, getDateRangeError } from "@/lib/portal/dateValidation";
+import { assertDateRangeOrder } from "@/lib/portal/dateValidation";
 import { toNumber } from "@/lib/portal/formUtils";
 import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
@@ -182,5 +182,3 @@ export function validateModalForm(modal, form, deps = {}) {
     assertNonNegativeNumber(form.contractingVisaCost, "Visa cost");
   }
 }
-
-export { getDateRangeError, MAX_QUERY_NOTES_WORDS };

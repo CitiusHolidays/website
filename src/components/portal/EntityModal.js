@@ -77,11 +77,11 @@ export function EntityModal({
     team.find((member) => member.id === access?.staffId) ||
     {};
   const leaveBalanceEntries = [];
-  const leaveBalanceRows = [];
+  const leaveBalanceRows = Array.isArray(leaveBalances) ? [] : null;
   for (const row of leaveBalances || []) {
     if (!form.staffId || row.staffId === form.staffId) {
       leaveBalanceEntries.push([row.leaveType, row.availableDays]);
-      leaveBalanceRows.push(row);
+      leaveBalanceRows?.push(row);
     }
   }
   const leaveBalanceMap = Object.fromEntries(leaveBalanceEntries);
