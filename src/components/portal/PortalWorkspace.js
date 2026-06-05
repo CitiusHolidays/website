@@ -700,6 +700,7 @@ function PortalWorkspaceViews({ workspace: w }) {
           filtersActive={w.filtersActive}
           openModal={w.openModal}
           has={w.has}
+          canAssign={canAssignContracting(w.access) || canAssignQueryTicketing(w.access)}
           deleteItem={w.deleteItem}
           removeQuery={w.removeQuery}
           submitToContracting={w.submitToContracting}
@@ -1669,7 +1670,7 @@ function DashboardSecondaryPanels({
 }
 
 function queryStatusModalForAccess(row, has) {
-  const isContractingUpdate = has(P.MANAGE_CONTRACTING);
+  const isContractingUpdate = has(P.MANAGE_CONTRACTING) && !has(P.MANAGE_QUERIES);
   return {
     modal: isContractingUpdate ? "queryStatus" : "salesDecision",
     label: isContractingUpdate ? "Update" : "Sales Decision",
@@ -1750,6 +1751,7 @@ function QueriesView({
   filtersActive = false,
   openModal,
   has,
+  canAssign = false,
   deleteItem,
   removeQuery,
   submitToContracting,
@@ -1863,6 +1865,15 @@ function QueriesView({
               ]}
             />
           )}
+          {!has(P.MANAGE_QUERIES) && canAssign && row.submittedToContractingAt && (
+            <button
+              type="button"
+              className="portal-small-btn"
+              onClick={() => openModal("assignQueryTeams", { queryId: row.id })}
+            >
+              Assign teams
+            </button>
+          )}
         </div>
       )}
       columns={[
@@ -1919,9 +1930,9 @@ function QueriesView({
         ["Source", (row) => row.source || "-"],
         [
           "Action",
-          (row) =>
-            has(P.MANAGE_QUERIES) && (
-              <motion.div className="hidden flex-wrap gap-2 md:flex">
+          (row) => (
+            <motion.div className="hidden flex-wrap gap-2 md:flex">
+              {has(P.MANAGE_QUERIES) && (
                 <QueryManageActions
                   row={row}
                   openModal={openModal}
@@ -1930,8 +1941,18 @@ function QueriesView({
                   removeQuery={removeQuery}
                   submitToContracting={submitToContracting}
                 />
-              </motion.div>
-            ),
+              )}
+              {!has(P.MANAGE_QUERIES) && canAssign && row.submittedToContractingAt && (
+                <button
+                  type="button"
+                  className="portal-small-btn"
+                  onClick={() => openModal("assignQueryTeams", { queryId: row.id })}
+                >
+                  Assign teams
+                </button>
+              )}
+            </motion.div>
+          ),
         ],
       ]}
     />

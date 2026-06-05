@@ -33,14 +33,31 @@ export function hasPermission(access, permission) {
   return Boolean(access?.permissions?.includes(permission));
 }
 
+export function canAccessPipeline(access) {
+  return (
+    hasPermission(access, PORTAL_PERMISSIONS.MANAGE_QUERIES) ||
+    hasPermission(access, PORTAL_PERMISSIONS.VIEW_CONTRACTING)
+  );
+}
+
+function navItemAllowed(access, item) {
+  if (item.page === "pipeline") {
+    return canAccessPipeline(access);
+  }
+  return hasPermission(access, item.permission);
+}
+
 export function getAccessibleNavGroups(access) {
   return PORTAL_NAV_GROUPS.flatMap((group) => {
-    const items = group.items.filter((item) => hasPermission(access, item.permission));
+    const items = group.items.filter((item) => navItemAllowed(access, item));
     return items.length > 0 ? [{ ...group, items }] : [];
   });
 }
 
 export function canAccessPage(access, page) {
+  if (page === "pipeline") {
+    return canAccessPipeline(access);
+  }
   return PORTAL_NAV_GROUPS.some((group) =>
     group.items.some((item) => item.page === page && hasPermission(access, item.permission)),
   );

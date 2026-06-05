@@ -172,6 +172,8 @@ export const ROLE_PERMISSIONS = {
   ],
   "Head of Ticketing": [
     P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.VIEW_TRAVELLERS,
     P.VIEW_TICKETING,
@@ -183,6 +185,9 @@ export const ROLE_PERMISSIONS = {
   ],
   Ticketing: [
     P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_PROPOSALS,
+    P.MANAGE_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.VIEW_TRAVELLERS,
     P.VIEW_TICKETING,

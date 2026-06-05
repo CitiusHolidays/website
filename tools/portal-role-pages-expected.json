@@ -28,12 +28,12 @@
     "denied": ["settings", "activity"]
   },
   "Ticketing": {
-    "allowed": ["dashboard", "job-cards", "travellers", "ticketing", "flights", "tickets", "seat-allocation", "tour-managers", "employees-on-leave"],
-    "denied": ["queries", "contracting", "finance", "settings", "activity", "team"]
+    "allowed": ["dashboard", "queries", "proposals", "job-cards", "travellers", "ticketing", "flights", "tickets", "seat-allocation", "tour-managers", "employees-on-leave"],
+    "denied": ["pipeline", "contracting", "finance", "settings", "activity", "team"]
   },
   "Head of Ticketing": {
-    "allowed": ["dashboard", "job-cards", "travellers", "ticketing", "flights", "tour-managers", "team", "employees-on-leave"],
-    "denied": ["queries", "contracting", "finance", "settings", "activity"]
+    "allowed": ["dashboard", "queries", "proposals", "job-cards", "travellers", "ticketing", "flights", "tour-managers", "team", "employees-on-leave"],
+    "denied": ["pipeline", "contracting", "finance", "settings", "activity"]
   },
   "Tour Manager": {
     "allowed": ["dashboard", "job-cards", "travellers", "visa", "ticketing", "tour-managers", "expenses", "employees-on-leave"],

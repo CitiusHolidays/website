@@ -20,6 +20,7 @@ import { executeModalCommand } from "@/lib/portal/modalCommandExecutor";
 import { createInitialModalForm, JOB_CARD_MODALS } from "@/lib/portal/modalLifecycle";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
+import { canAccessPipeline } from "@/lib/portal/permissions";
 import { filterRows, pipeViewRows, VIEWS_WITH_JOB_CARD_FILTER } from "@/lib/portal/pipeViewRows";
 import { runMutation } from "@/lib/portal/runMutation";
 import { parseUrlFilterState, serializeUrlFilterState } from "@/lib/portal/urlFilterState";
@@ -366,7 +367,8 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const access = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
   const has = (permission) => Boolean(access?.permissions?.includes(permission));
   const meta = VIEW_META[view] || VIEW_META.dashboard;
-  const allowed = access?.allowed && has(meta.permission);
+  const allowed =
+    access?.allowed && (view === "pipeline" ? canAccessPipeline(access) : has(meta.permission));
   const canFetch = isAuthenticated && access?.allowed;
 
   const summary = useQuery(
@@ -970,9 +972,8 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
 
   const submitToContracting = async ({ queryId }) => {
     try {
-      await runMutation(
-        { showToast: toast, successMessage: "Submitted to Contracting" },
-        () => submitToContractingMutation({ queryId }),
+      await runMutation({ showToast: toast, successMessage: "Submitted to Contracting" }, () =>
+        submitToContractingMutation({ queryId }),
       );
     } catch {
       // Toast already shown by runMutation

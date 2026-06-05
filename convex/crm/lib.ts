@@ -181,6 +181,8 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   "Head of Ticketing": [
     P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.VIEW_TRAVELLERS,
     P.VIEW_TICKETING,
@@ -192,6 +194,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   Ticketing: [
     P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_PROPOSALS,
+    P.MANAGE_PROPOSALS,
     P.VIEW_JOB_CARDS,
     P.VIEW_TRAVELLERS,
     P.VIEW_TICKETING,
@@ -529,7 +534,14 @@ export function canSeeQueryRecord(access: PortalAccess, query: any) {
       return true;
     }
   } else {
-    if (canSeeDepartmentRecords(access, ["Sales Head", "Contracting Head", "Operations Head"])) {
+    if (
+      canSeeDepartmentRecords(access, [
+        "Sales Head",
+        "Contracting Head",
+        "Operations Head",
+        "Head of Ticketing",
+      ])
+    ) {
       return true;
     }
     if (
@@ -543,8 +555,10 @@ export function canSeeQueryRecord(access: PortalAccess, query: any) {
     ownsAuthRecord(access, query.createdBy) ||
     ownsAuthRecord(access, query.salesOwnerId) ||
     ownsStaffRecord(access, query.contractingOwnerId) ||
+    ownsStaffRecord(access, query.ticketingOwnerId) ||
     ownsNamedRecord(access, query.salesOwnerName) ||
-    ownsNamedRecord(access, query.contractingOwnerName)
+    ownsNamedRecord(access, query.contractingOwnerName) ||
+    ownsNamedRecord(access, query.ticketingOwnerName)
   );
 }
 
@@ -563,7 +577,14 @@ export function canSeeProposalRecord(access: PortalAccess, proposal: any, linked
       return true;
     }
   } else {
-    if (canSeeDepartmentRecords(access, ["Sales Head", "Contracting Head", "Operations Head"])) {
+    if (
+      canSeeDepartmentRecords(access, [
+        "Sales Head",
+        "Contracting Head",
+        "Operations Head",
+        "Head of Ticketing",
+      ])
+    ) {
       return true;
     }
     if (

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { PORTAL_PERMISSIONS } from "./constants";
 import {
   canAccessPage,
+  canAccessPipeline,
   getAccessibleNavGroups,
   getPermissionsForRoles,
   getQueryTypeOptions,
@@ -52,6 +53,31 @@ describe("portal permissions", () => {
         .flatMap((group) => group.items)
         .map((item) => item.page),
     ).not.toContain("settings");
+  });
+
+  test("pipeline is limited to sales and contracting workflows", () => {
+    const salesAccess = { permissions: getPermissionsForRoles(["Sales"]) };
+    const ticketingAccess = { permissions: getPermissionsForRoles(["Ticketing"]) };
+
+    expect(canAccessPipeline(salesAccess)).toBe(true);
+    expect(canAccessPipeline(ticketingAccess)).toBe(false);
+  });
+
+  test("ticketing role sees enquiry and proposal navigation for assigned work", () => {
+    const pages = pagesForRoles(["Ticketing"]);
+
+    expect(pages).toEqual(
+      expect.arrayContaining([
+        "dashboard",
+        "queries",
+        "proposals",
+        "ticketing",
+        "employees-on-leave",
+      ]),
+    );
+    expect(pages).not.toEqual(
+      expect.arrayContaining(["pipeline", "contracting", "finance", "team"]),
+    );
   });
 
   test("sales role only sees enquiry and proposal navigation", () => {
