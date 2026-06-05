@@ -975,6 +975,22 @@ export function assertMaxWordCount(
   }
 }
 
+export function assertDateRangeOrder(
+  startDate: string | undefined | null,
+  endDate: string | undefined | null,
+  startLabel: string,
+  endLabel: string,
+) {
+  const start = startDate?.trim();
+  const end = endDate?.trim();
+  if (!start || !end) {
+    return;
+  }
+  if (start > end) {
+    throw new ConvexError(`${startLabel} must be on or before ${endLabel}.`);
+  }
+}
+
 export function creatorInitials(name: string) {
   const parts = name
     .trim()

@@ -88,6 +88,25 @@ describe("executeModalCommand", () => {
     ]);
   });
 
+  test("rejects inverted travel dates before mutations run", async () => {
+    const { deps, calls } = makeDeps();
+
+    await expect(
+      executeModalCommand({
+        modal: "query",
+        form: {
+          clientName: "Acme",
+          paxCount: "2",
+          travelStartDate: "2026-08-10",
+          travelEndDate: "2026-08-01",
+        },
+        deps,
+      }),
+    ).rejects.toThrow("Travel start date must be on or before Travel end date.");
+
+    expect(calls).toEqual([]);
+  });
+
   test("creates query then uploads pending query files", async () => {
     const pendingQueryFiles = [{ name: "ref.pdf" }];
     const { deps, calls } = makeDeps({ pendingQueryFiles });

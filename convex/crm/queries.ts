@@ -4,6 +4,7 @@ import type { Id } from "../_generated/dataModel";
 import { mutation, query } from "../_generated/server";
 import {
   assertCementQueryTypeAllowed,
+  assertDateRangeOrder,
   assertMaxWordCount,
   canSeeQueryRecord,
   contractingNotifyRolesForQueryType,
@@ -212,6 +213,12 @@ export const create = mutation({
       throw new ConvexError("Pax count must be greater than zero");
     }
     assertMaxWordCount(args.notes, MAX_QUERY_NOTES_WORDS, "Notes");
+    assertDateRangeOrder(
+      args.travelStartDate,
+      args.travelEndDate,
+      "Travel start date",
+      "Travel end date",
+    );
 
     const now = Date.now();
     const [access, [queryCode, clientId]] = await Promise.all([
@@ -319,6 +326,12 @@ export const update = mutation({
     if (args.queryType !== undefined) {
       assertCementQueryTypeAllowed(access, args.queryType);
     }
+    assertDateRangeOrder(
+      args.travelStartDate ?? current.travelStartDate,
+      args.travelEndDate ?? current.travelEndDate,
+      "Travel start date",
+      "Travel end date",
+    );
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.clientName !== undefined) patch.clientName = args.clientName.trim();

@@ -3,6 +3,7 @@ import {
   dateRangeQueryArg,
   EMPTY_DATE_RANGE,
   filterByDateRange,
+  getFilterDateRangeError,
   isInDateRange,
   normalizeDateRange,
   parseRowDate,
@@ -15,16 +16,24 @@ describe("periodFilter", () => {
     expect(dateRangeQueryArg(EMPTY_DATE_RANGE)).toBeUndefined();
   });
 
+  test("skips backend date range args when from is after to", () => {
+    expect(dateRangeQueryArg({ from: "2026-02-01", to: "2026-01-01" })).toBeUndefined();
+  });
+
   test("parses ISO and date-only values", () => {
     expect(parseRowDate("2026-01-15")).toBe(new Date("2026-01-15T00:00:00").getTime());
     expect(parseRowDate("2026-01-15T10:00:00.000Z")).toBe(Date.parse("2026-01-15T10:00:00.000Z"));
   });
 
-  test("swaps inverted from/to dates", () => {
+  test("keeps inverted from/to dates for validation instead of swapping", () => {
     expect(normalizeDateRange({ from: "2026-02-01", to: "2026-01-01" })).toEqual({
-      from: "2026-01-01",
-      to: "2026-02-01",
+      from: "2026-02-01",
+      to: "2026-01-01",
     });
+    expect(getFilterDateRangeError({ from: "2026-02-01", to: "2026-01-01" })).toBe(
+      "From must be on or before To.",
+    );
+    expect(resolveDateRange({ from: "2026-02-01", to: "2026-01-01" })).toBeNull();
   });
 
   test("filters rows by createdAt within an explicit date range", () => {

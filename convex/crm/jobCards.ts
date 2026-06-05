@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import {
+  assertDateRangeOrder,
   canSeeJobCardRecord,
   canSeeQueryRecord,
   createActivity,
@@ -107,6 +108,12 @@ export const createFromQuery = mutation({
     if (args.confirmedPax < 1) {
       throw new ConvexError("Confirmed pax must be greater than zero");
     }
+    assertDateRangeOrder(
+      args.travelStartDate,
+      args.travelEndDate,
+      "Travel start date",
+      "Travel end date",
+    );
 
     if (!args.queryId) {
       throw new ConvexError("Select a confirmed query before opening a Job Card");
@@ -321,6 +328,12 @@ export const update = mutation({
     if (args.confirmedPax !== undefined && args.confirmedPax < 1) {
       throw new ConvexError("Confirmed pax must be greater than zero");
     }
+    assertDateRangeOrder(
+      args.travelStartDate ?? job.travelStartDate,
+      args.travelEndDate ?? job.travelEndDate,
+      "Travel start date",
+      "Travel end date",
+    );
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.clientName !== undefined) patch.clientName = args.clientName.trim();

@@ -1,3 +1,5 @@
+import { getDateRangeError } from "@/lib/portal/dateValidation";
+
 /** @typedef {{ from: string | null, to: string | null }} PortalDateRange */
 
 export const EMPTY_DATE_RANGE = { from: null, to: null };
@@ -31,14 +33,24 @@ export function normalizeDateRange(range) {
   const from = range?.from?.trim() || null;
   const to = range?.to?.trim() || null;
   if (!from && !to) return EMPTY_DATE_RANGE;
-  if (from && to && from > to) {
-    return { from: to, to: from };
-  }
   return { from, to };
+}
+
+export function getFilterDateRangeError(range) {
+  const normalized = normalizeDateRange(range);
+  return getDateRangeError(normalized.from, normalized.to, {
+    startLabel: "From",
+    endLabel: "To",
+  });
+}
+
+export function isValidDateRange(range) {
+  return getFilterDateRangeError(range) == null;
 }
 
 export function resolveDateRange(range) {
   const normalized = normalizeDateRange(range);
+  if (getFilterDateRangeError(normalized)) return null;
   const sinceMs = parseDateOnly(normalized.from);
   const untilMs = endOfDateOnly(normalized.to);
   if (sinceMs == null && untilMs == null) return null;
@@ -84,6 +96,7 @@ export function resolvePeriodRange(range) {
 export function dateRangeQueryArg(range) {
   const normalized = normalizeDateRange(range);
   if (!normalized.from && !normalized.to) return undefined;
+  if (getFilterDateRangeError(normalized)) return undefined;
   return {
     from: normalized.from ?? undefined,
     to: normalized.to ?? undefined,

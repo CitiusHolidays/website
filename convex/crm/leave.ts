@@ -16,6 +16,7 @@ import {
   type LeaveType,
 } from "./leavePolicy";
 import {
+  assertDateRangeOrder,
   canHeadReview,
   createActivity,
   getHeadReviewerRolesForStaff,
@@ -292,6 +293,7 @@ export const create = mutation({
     const directApproval = canRecordForOthers && args.status && args.status !== "Pending";
     const status = directApproval ? args.status! : "Pending";
     const leaveType = ensureLeaveType(args.leaveType ?? "Casual");
+    assertDateRangeOrder(args.startDate, args.endDate, "Leave start date", "Leave end date");
     const fiscalYear = fiscalYearForDate(args.startDate);
     const balances = await balanceMapForStaff(ctx, staff, fiscalYear, args.startDate);
     const decision = calculateLeaveDecision({
@@ -556,6 +558,12 @@ export const update = mutation({
     if (!canManage && leave.status !== "Pending") {
       throw new ConvexError("Only pending leave requests can be edited");
     }
+    assertDateRangeOrder(
+      args.startDate ?? leave.startDate,
+      args.endDate ?? leave.endDate,
+      "Leave start date",
+      "Leave end date",
+    );
     const patch: Record<string, string | number> = { updatedAt: Date.now() };
     if (args.leaveType !== undefined) patch.leaveType = args.leaveType;
     if (args.startDate !== undefined) patch.startDate = args.startDate;

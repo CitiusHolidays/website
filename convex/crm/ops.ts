@@ -4,6 +4,7 @@ import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import {
   assertBulkDeleteLimit,
+  assertDateRangeOrder,
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
@@ -74,6 +75,7 @@ export const createHotel = mutation({
     if (!job) {
       throw new ConvexError("Job Card not found or not assigned to you");
     }
+    assertDateRangeOrder(args.checkInDate, args.checkOutDate, "Check-in date", "Check-out date");
     const now = Date.now();
     const id = await ctx.db.insert("hotels", {
       jobCardId,
@@ -126,6 +128,12 @@ export const updateHotel = mutation({
     if (args.name !== undefined && !args.name.trim()) {
       throw new ConvexError("Hotel name is required");
     }
+    assertDateRangeOrder(
+      args.checkInDate ?? hotel.checkInDate,
+      args.checkOutDate ?? hotel.checkOutDate,
+      "Check-in date",
+      "Check-out date",
+    );
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
     if (args.name !== undefined) patch.name = args.name.trim();

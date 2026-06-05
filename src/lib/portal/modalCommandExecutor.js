@@ -1,8 +1,10 @@
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { validateModalForm } from "@/lib/portal/formValidation";
 import { toNumber } from "@/lib/portal/formUtils";
 import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
 export async function executeModalCommand({ modal, form, deps }) {
+  validateModalForm(modal, form, deps);
   if (deps.jobCardModals?.has(modal) && !form.jobCardId?.trim()) {
     throw new Error("Please select a job card.");
   }
