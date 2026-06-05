@@ -45,6 +45,7 @@ export const PORTAL_PERMISSIONS = {
   VIEW_FINANCE: "view:finance",
   MANAGE_FINANCE: "manage:finance",
   VIEW_EXPENSES: "view:expenses",
+  CREATE_EXPENSES: "create:expenses",
   MANAGE_EXPENSES: "manage:expenses",
   APPROVE_EXPENSES: "approve:expenses",
   VIEW_TEAM: "view:team",

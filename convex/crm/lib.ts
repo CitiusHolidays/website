@@ -33,6 +33,7 @@ export const PERMISSIONS = {
   VIEW_FINANCE: "view:finance",
   MANAGE_FINANCE: "manage:finance",
   VIEW_EXPENSES: "view:expenses",
+  CREATE_EXPENSES: "create:expenses",
   MANAGE_EXPENSES: "manage:expenses",
   APPROVE_EXPENSES: "approve:expenses",
   VIEW_TEAM: "view:team",
@@ -316,6 +317,7 @@ export function getRolePermissions(roles: string[]) {
   if (roles.length > 0) {
     permissions.add(P.REQUEST_LEAVE);
     permissions.add(P.VIEW_EXPENSES);
+    permissions.add(P.CREATE_EXPENSES);
   }
   return Array.from(permissions).sort();
 }

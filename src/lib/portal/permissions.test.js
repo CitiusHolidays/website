@@ -37,7 +37,20 @@ describe("portal permissions", () => {
 
     expect(permissions).toContain(PORTAL_PERMISSIONS.VIEW_QUERIES);
     expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_TICKETING);
+    expect(permissions).toContain(PORTAL_PERMISSIONS.CREATE_EXPENSES);
     expect(new Set(permissions).size).toBe(permissions.length);
+  });
+
+  test("every staff role can create expenses without broad expense management access", () => {
+    for (const role of Object.keys(roleExpectations)) {
+      const permissions = getPermissionsForRoles([role]);
+
+      expect(permissions, `${role} should create expenses`).toContain(
+        PORTAL_PERMISSIONS.CREATE_EXPENSES,
+      );
+    }
+
+    expect(getPermissionsForRoles(["Sales"])).not.toContain(PORTAL_PERMISSIONS.MANAGE_EXPENSES);
   });
 
   test("restricts navigation based on role permissions", () => {

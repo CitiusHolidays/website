@@ -3,10 +3,29 @@ import type { Id } from "../_generated/dataModel";
 import { internalMutation, query } from "../_generated/server";
 import { canSeeJobCardRecord, PERMISSIONS, requireAnyPermission } from "./lib";
 
+function canMutateExpenseProof(
+  access: any,
+  expense: { createdBy?: string; approvalStatus?: string },
+) {
+  if (
+    access.permissions.includes(PERMISSIONS.MANAGE_EXPENSES) ||
+    access.permissions.includes(PERMISSIONS.MANAGE_FINANCE)
+  ) {
+    return true;
+  }
+  return Boolean(
+    access.permissions.includes(PERMISSIONS.CREATE_EXPENSES) &&
+      expense.createdBy &&
+      expense.createdBy === access.authUserId &&
+      expense.approvalStatus !== "Approved",
+  );
+}
+
 async function requireVisibleExpense(ctx: any, expenseId: Id<"expenseEntries">) {
   const [access, expense] = await Promise.all([
     requireAnyPermission(ctx, [
       PERMISSIONS.VIEW_EXPENSES,
+      PERMISSIONS.CREATE_EXPENSES,
       PERMISSIONS.MANAGE_EXPENSES,
       PERMISSIONS.MANAGE_FINANCE,
     ]),
@@ -24,9 +43,17 @@ async function requireVisibleExpense(ctx: any, expenseId: Id<"expenseEntries">) 
     if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
-    return { expense, job };
+    return { access, expense, job };
   }
-  return { expense, job: null };
+  return { access, expense, job: null };
+}
+
+async function requireMutableExpenseProof(ctx: any, expenseId: Id<"expenseEntries">) {
+  const { access, expense } = await requireVisibleExpense(ctx, expenseId);
+  if (!canMutateExpenseProof(access, expense)) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  return expense;
 }
 
 export const verifyExpenseAccess = query({
@@ -39,6 +66,20 @@ export const verifyExpenseAccess = query({
       throw new ConvexError("Invalid expense id");
     }
     await requireVisibleExpense(ctx, expenseId);
+    return { id: expenseId };
+  },
+});
+
+export const verifyExpenseProofMutationAccess = query({
+  args: {
+    expenseId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const expenseId = ctx.db.normalizeId("expenseEntries", args.expenseId);
+    if (!expenseId) {
+      throw new ConvexError("Invalid expense id");
+    }
+    await requireMutableExpenseProof(ctx, expenseId);
     return { id: expenseId };
   },
 });

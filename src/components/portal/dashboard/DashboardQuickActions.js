@@ -20,6 +20,11 @@ export function DashboardQuickActions({ has, openModal }) {
       permission: P.MANAGE_JOB_CARDS,
       onClick: () => openModal("jobCard"),
     },
+    {
+      label: "Add expense",
+      permission: P.CREATE_EXPENSES,
+      onClick: () => openModal("expense"),
+    },
   ].filter((item) => has(item.permission));
 
   if (!actions.length) return null;

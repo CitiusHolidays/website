@@ -10,8 +10,8 @@ import {
   nextCode,
   notifyRoles,
   PERMISSIONS,
-  portalDateRangeValidator,
   type PortalDateRange,
+  portalDateRangeValidator,
   requireAnyPermission,
   requireStaff,
 } from "./lib";
@@ -278,7 +278,7 @@ export const createExpense = mutation({
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_EXPENSES);
+    const access = await requireStaff(ctx, PERMISSIONS.CREATE_EXPENSES);
     let jobCardId: Id<"jobCards"> | null | undefined;
     if (args.jobCardId) {
       jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);

@@ -30,6 +30,15 @@ function canManageExpenseFiles(access: any) {
   );
 }
 
+function canPrepareExpenseFileUpload(access: any) {
+  return (
+    access?.allowed &&
+    (access.permissions.includes(PERMISSIONS.CREATE_EXPENSES) ||
+      access.permissions.includes(PERMISSIONS.MANAGE_EXPENSES) ||
+      access.permissions.includes(PERMISSIONS.MANAGE_FINANCE))
+  );
+}
+
 async function buildDownloadFile(
   ctx: any,
   record: {
@@ -55,7 +64,7 @@ export const generateUploadUrl = action({
   args: {},
   handler: async (ctx) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!canManageExpenseFiles(access)) {
+    if (!canPrepareExpenseFileUpload(access)) {
       throw new ConvexError("FORBIDDEN");
     }
     return await ctx.storage.generateUploadUrl();
@@ -90,12 +99,12 @@ export const attachProof = action({
     }
 
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!canManageExpenseFiles(access)) {
+    if (!canPrepareExpenseFileUpload(access)) {
       throw new ConvexError("FORBIDDEN");
     }
 
     const [{ id: expenseId }, blob] = await Promise.all([
-      ctx.runQuery(api.crm.expenseAttachments.verifyExpenseAccess, {
+      ctx.runQuery(api.crm.expenseAttachments.verifyExpenseProofMutationAccess, {
         expenseId: args.expenseId,
       }),
       ctx.storage.get(args.storageId),

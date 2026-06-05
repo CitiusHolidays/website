@@ -1,5 +1,6 @@
 "use client";
 
+import { Calendar } from "lucide-react";
 import { useId, useState } from "react";
 import {
   displayDateFromIsoDay,
@@ -8,7 +9,7 @@ import {
 } from "@/lib/formatDate";
 
 const BASE_CLASS =
-  "h-11 rounded-xl border bg-white px-3 text-sm tabular-nums outline-none transition focus:ring-2 focus:ring-citius-blue/10";
+  "h-11 w-full rounded-xl border bg-white px-3 pr-10 text-sm tabular-nums outline-none transition focus:ring-2 focus:ring-citius-blue/10";
 const VALID_CLASS = `${BASE_CLASS} border-brand-border focus:border-citius-blue`;
 const INVALID_CLASS = `${BASE_CLASS} border-red-300 focus:border-red-500`;
 
@@ -62,38 +63,60 @@ export function PortalDateInput({
   };
 
   return (
-    <input
-      type="text"
-      inputMode="numeric"
-      autoComplete="off"
-      id={id}
-      name={name}
-      required={required}
-      disabled={disabled}
-      value={text}
-      placeholder={placeholder}
-      aria-label={ariaLabel}
-      aria-invalid={showInvalid || undefined}
-      onChange={(event) => {
-        const next = formatDisplayDateInputDigits(event.target.value);
-        beginEdit(next);
-        const digits = next.replace(/\D/g, "");
-        if (digits.length === 8) {
-          const iso = isoDayFromDisplayDate(next);
-          if (iso) {
-            onChange(iso);
-            setEditState(null);
+    <div className={`relative ${className}`.trim()}>
+      <input
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        id={id}
+        name={name}
+        required={required}
+        disabled={disabled}
+        value={text}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        aria-invalid={showInvalid || undefined}
+        onChange={(event) => {
+          const next = formatDisplayDateInputDigits(event.target.value);
+          beginEdit(next);
+          const digits = next.replace(/\D/g, "");
+          if (digits.length === 8) {
+            const iso = isoDayFromDisplayDate(next);
+            if (iso) {
+              onChange(iso);
+              setEditState(null);
+            }
           }
-        }
-      }}
-      onBlur={() => commit(text)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          commit(text);
-        }
-      }}
-      className={`${showInvalid ? INVALID_CLASS : VALID_CLASS} ${inputClassName} ${className}`.trim()}
-    />
+        }}
+        onBlur={() => commit(text)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commit(text);
+          }
+        }}
+        className={`${showInvalid ? INVALID_CLASS : VALID_CLASS} ${inputClassName}`.trim()}
+      />
+      <Calendar
+        className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-brand-muted"
+        aria-hidden
+      />
+      <input
+        type="date"
+        value={value || ""}
+        disabled={disabled}
+        aria-label={ariaLabel ? `${ariaLabel} calendar picker` : "Open calendar picker"}
+        tabIndex={-1}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setEditState(null);
+          setInvalid(false);
+        }}
+        onClick={(event) => {
+          event.currentTarget.showPicker?.();
+        }}
+        className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+      />
+    </div>
   );
 }

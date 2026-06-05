@@ -4,6 +4,9 @@ import { join } from "node:path";
 
 const WORKSPACE_FILE = "src/components/portal/PortalWorkspace.js";
 const WORKSPACE_STATE_FILE = "src/components/portal/usePortalWorkspaceState.js";
+const DATE_INPUT_FILE = "src/components/portal/PortalDateInput.js";
+const FINANCE_FILE = "convex/crm/finance.ts";
+const EXPENSE_ATTACHMENT_ACTIONS_FILE = "convex/crm/expenseAttachmentActions.ts";
 const ENTITY_MODAL_DIR = "src/components/portal/entityModal";
 const LEAVE_FIELDS_FILE = "src/components/portal/entityModal/EntityModalLeaveFields.js";
 const STAFF_FIELDS_FILE = "src/components/portal/entityModal/EntityModalStaffFields.js";
@@ -58,6 +61,26 @@ describe("portal workspace modularization contract", () => {
       });
 
     expect(offenders).toEqual([]);
+  });
+
+  test("portal date input keeps manual entry and exposes a native calendar picker", () => {
+    const dateInput = read(DATE_INPUT_FILE);
+
+    expect(dateInput).toContain('type="text"');
+    expect(dateInput).toContain('type="date"');
+    expect(dateInput).toContain("displayDateFromIsoDay");
+    expect(dateInput).toContain("isoDayFromDisplayDate");
+  });
+
+  test("expense creation is available without broad expense management", () => {
+    const workspace = read(WORKSPACE_FILE);
+    const finance = read(FINANCE_FILE);
+    const attachmentActions = read(EXPENSE_ATTACHMENT_ACTIONS_FILE);
+
+    expect(workspace).toContain('expenses: has(P.CREATE_EXPENSES) && ["expense", "Add Expense"]');
+    expect(finance).toContain("requireStaff(ctx, PERMISSIONS.CREATE_EXPENSES)");
+    expect(attachmentActions).toContain("PERMISSIONS.CREATE_EXPENSES");
+    expect(attachmentActions).toContain("verifyExpenseProofMutationAccess");
   });
 
   test("leave modal shows balances and staff modal hides deferred policy fields", () => {

@@ -39,15 +39,16 @@ import {
 } from "react";
 import { DashboardView } from "@/components/portal/dashboard/DashboardView";
 import { EntityModal } from "@/components/portal/EntityModal";
-import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
 import { PortalListFilters } from "@/components/portal/PortalListFilters";
+import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { usePortalNotificationDeepLink } from "@/components/portal/usePortalNotificationDeepLink";
 import { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
+import { formatDisplayDate } from "@/lib/formatDate";
 import {
   CABIN_CLASSES,
   CALLING_STATUSES,
@@ -88,7 +89,6 @@ import {
   isDeepLinkDataReady,
   resolveDeepLink,
 } from "@/lib/portal/notificationTargets";
-import { formatDisplayDate } from "@/lib/formatDate";
 import { toPassengerImportInput } from "@/lib/portal/passengerImportRows";
 import {
   attachPassportExpiryUrgency,
@@ -115,7 +115,6 @@ import {
   proposalPrimaryQuery,
 } from "@/lib/portal/proposalLinks";
 import { runMutation } from "@/lib/portal/runMutation";
-import { PORTAL_Z } from "@/lib/portal/zIndex";
 import {
   buildFlightWorkbook,
   buildPassengerWorkbook,
@@ -141,6 +140,7 @@ import {
   getPipelineBuckets,
   getSalesPipelineBuckets,
 } from "@/lib/portal/workflow";
+import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const P = PORTAL_PERMISSIONS;
 const SPREADSHEET_MODALS = [
@@ -1306,16 +1306,15 @@ function HeaderActions({ view, openModal, has, access }) {
   }
   const actions = {
     queries: has(P.MANAGE_QUERIES) && ["query", "New Query"],
-    contracting:
-      (canAssignContracting(access) || canAssignQueryTicketing(access)) && [
-        "assignQueryTeams",
-        "Assign teams",
-      ],
+    contracting: (canAssignContracting(access) || canAssignQueryTicketing(access)) && [
+      "assignQueryTeams",
+      "Assign teams",
+    ],
     proposals: has(P.MANAGE_PROPOSALS) && ["proposal", "New Proposal"],
     tickets: has(P.MANAGE_TICKETING) && ["ticket", "Issue Ticket"],
     "seat-allocation": has(P.MANAGE_TICKETING) && ["seat", "Save Seat"],
     "tour-managers": canAssignTourManagers(access) && ["tourManager", "Add Tour Manager"],
-    expenses: has(P.MANAGE_EXPENSES) && ["expense", "Add Expense"],
+    expenses: has(P.CREATE_EXPENSES) && ["expense", "Add Expense"],
     settings: has(P.MANAGE_STAFF) && ["staff", "Add Staff"],
     "employees-on-leave": (has(P.REQUEST_LEAVE) || has(P.MANAGE_LEAVE)) && [
       "leave_create",
