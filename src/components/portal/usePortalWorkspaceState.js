@@ -467,7 +467,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   );
   const createQuery = useMutation(api.crm.queries.create);
   const updateQuery = useMutation(api.crm.queries.update);
-  const submitToContracting = useMutation(api.crm.queries.submitToContracting);
+  const submitToContractingMutation = useMutation(api.crm.queries.submitToContracting);
   const assignContracting = useMutation(api.crm.queries.assignContracting);
   const assignQueryTicketing = useMutation(api.crm.queries.assignQueryTicketing);
   const assignContractingOwner = useMutation(api.crm.jobCards.assignContractingOwner);
@@ -966,6 +966,17 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
 
   const patchForm = (patch) => {
     setForm((current) => ({ ...current, ...patch }));
+  };
+
+  const submitToContracting = async ({ queryId }) => {
+    try {
+      await runMutation(
+        { showToast: toast, successMessage: "Submitted to Contracting" },
+        () => submitToContractingMutation({ queryId }),
+      );
+    } catch {
+      // Toast already shown by runMutation
+    }
   };
 
   const deleteItem = async (label, mutation, args, options = {}) => {

@@ -101,6 +101,7 @@ import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/po
 import {
   canAssignContracting,
   canAssignOperations,
+  canAssignQueryTicketing,
   canAssignTicketing,
   canAssignTourManagers,
   getQueryTypeOptions,
@@ -720,7 +721,7 @@ function PortalWorkspaceViews({ workspace: w }) {
           team={w.team || []}
           openModal={w.openModal}
           has={w.has}
-          canAssign={canAssignContracting(w.access)}
+          canAssign={canAssignContracting(w.access) || canAssignQueryTicketing(w.access)}
           deleteItem={w.deleteItem}
           removeQuery={w.removeQuery}
         />
@@ -1302,7 +1303,11 @@ function HeaderActions({ view, openModal, has, access }) {
   }
   const actions = {
     queries: has(P.MANAGE_QUERIES) && ["query", "New Query"],
-    contracting: canAssignContracting(access) && ["assignContracting", "Assign Contracting"],
+    contracting:
+      (canAssignContracting(access) || canAssignQueryTicketing(access)) && [
+        "assignQueryTeams",
+        "Assign teams",
+      ],
     proposals: has(P.MANAGE_PROPOSALS) && ["proposal", "New Proposal"],
     tickets: has(P.MANAGE_TICKETING) && ["ticket", "Issue Ticket"],
     "seat-allocation": has(P.MANAGE_TICKETING) && ["seat", "Save Seat"],
@@ -1682,6 +1687,7 @@ function queryStatusModalForAccess(row, has) {
 function QueryManageActions({ row, openModal, has, deleteItem, removeQuery, submitToContracting }) {
   if (!has(P.MANAGE_QUERIES)) return null;
   const statusAction = queryStatusModalForAccess(row, has);
+  const alreadySubmitted = Boolean(row.submittedToContractingAt);
   return (
     <>
       <button
@@ -1715,13 +1721,15 @@ function QueryManageActions({ row, openModal, has, deleteItem, removeQuery, subm
       >
         Reference Itinerary
       </button>
-      <button
-        type="button"
-        className="portal-small-btn"
-        onClick={() => submitToContracting({ queryId: row.id })}
-      >
-        Submit to Contracting
-      </button>
+      {!alreadySubmitted && (
+        <button
+          type="button"
+          className="portal-small-btn"
+          onClick={() => submitToContracting({ queryId: row.id })}
+        >
+          Submit to Contracting
+        </button>
+      )}
       <button
         type="button"
         className="portal-small-btn"
@@ -1826,14 +1834,16 @@ function QueriesView({
                 >
                   Reference Itinerary
                 </button>,
-                <button
-                  key="submit"
-                  type="button"
-                  className="portal-small-btn w-full"
-                  onClick={() => submitToContracting({ queryId: row.id })}
-                >
-                  Submit to Contracting
-                </button>,
+                !row.submittedToContractingAt ? (
+                  <button
+                    key="submit"
+                    type="button"
+                    className="portal-small-btn w-full"
+                    onClick={() => submitToContracting({ queryId: row.id })}
+                  >
+                    Submit to Contracting
+                  </button>
+                ) : null,
                 <button
                   key="update"
                   type="button"
@@ -2073,7 +2083,7 @@ function ContractingView({
                   <button
                     type="button"
                     className="portal-small-btn"
-                    onClick={() => openModal("assignContracting", { queryId: row.id })}
+                    onClick={() => openModal("assignQueryTeams", { queryId: row.id })}
                   >
                     Assign
                   </button>
