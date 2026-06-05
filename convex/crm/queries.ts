@@ -443,7 +443,11 @@ export const assignQueryTicketing = mutation({
     staffId: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await requireHeadOrAdmin(ctx, ["Head of Ticketing"]);
+    const access = await requireHeadOrAdmin(ctx, [
+      "Contracting Head",
+      "Operations Head",
+      "Head of Ticketing",
+    ]);
     const queryId = ctx.db.normalizeId("queries", args.queryId);
     if (!queryId) {
       throw new ConvexError("Invalid query id");
@@ -535,6 +539,12 @@ export const submitToContracting = mutation({
         entityId: queryId,
         action: "submitted_to_contracting",
         message: `${current.queryCode} submitted to Contracting`,
+      }),
+      notifyRoles(ctx, ["Contracting Head", "Operations Head"], {
+        title: "Query ready for assignment",
+        body: `${current.queryCode} was submitted by Sales. Review and assign contracting and ticketing teams.`,
+        entityType: "query",
+        entityId: queryId,
       }),
       notifyRoles(ctx, ["Contracting", "Contracting Head", "Operations Head", "Directors"], {
         title: "Query submitted to Contracting",
@@ -702,6 +712,28 @@ export const updateStatus = mutation({
           ]
         : []),
       ...(isRevisionRequested ? [notifyProposalRevisionWorkflow(ctx, current, queryId)] : []),
+      ...(isLost
+        ? [
+            notifyRoles(ctx, ["Contracting", "Contracting Head"], {
+              title: "Order lost",
+              body: `${current.queryCode} was marked lost by Sales.`,
+              entityType: "query",
+              entityId: queryId,
+            }),
+            notifyQueryOwner(ctx, current.contractingOwnerId, {
+              title: "Order lost on your query",
+              body: `${current.queryCode} was marked lost by Sales.`,
+              entityType: "query",
+              entityId: queryId,
+            }),
+            notifyQueryOwner(ctx, current.ticketingOwnerId, {
+              title: "Order lost on your query",
+              body: `${current.queryCode} was marked lost by Sales.`,
+              entityType: "query",
+              entityId: queryId,
+            }),
+          ]
+        : []),
     ]);
 
     return { id: queryId };

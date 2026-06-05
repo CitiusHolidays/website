@@ -7,14 +7,31 @@ import {
 } from "./notificationTargets";
 
 describe("notificationTargets", () => {
-  test("maps query notifications to contracting team assignment modal", () => {
+  test("maps query notifications to team assignment on queries list", () => {
     expect(
       getNotificationHref({
         entityType: "query",
         entityId: "query123",
         title: "New query received",
       }),
-    ).toBe("/portal/contracting?open=assignQueryTeams&id=query123");
+    ).toBe("/portal/queries?open=assignQueryTeams&id=query123");
+    expect(
+      getNotificationHref({
+        entityType: "query",
+        entityId: "query123",
+        title: "Query ready for assignment",
+      }),
+    ).toBe("/portal/queries?open=assignQueryTeams&id=query123");
+  });
+
+  test("maps proposal review notifications to sales decision", () => {
+    expect(
+      getNotificationHref({
+        entityType: "query",
+        entityId: "query123",
+        title: "Proposal ready for review",
+      }),
+    ).toBe("/portal/queries?open=salesDecision&id=query123");
   });
 
   test("maps confirmed orders to job card creation", () => {
@@ -23,6 +40,13 @@ describe("notificationTargets", () => {
         entityType: "query",
         entityId: "query123",
         title: "Order confirmed",
+      }),
+    ).toBe("/portal/accounts/job-cards?open=jobCard&queryId=query123");
+    expect(
+      getNotificationHref({
+        entityType: "query",
+        entityId: "query123",
+        title: "Order confirmed — open Job Card",
       }),
     ).toBe("/portal/accounts/job-cards?open=jobCard&queryId=query123");
     expect(

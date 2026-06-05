@@ -62,6 +62,7 @@ export function getDeepLinkCollectionKeys(modal) {
   switch (modal) {
     case "query":
     case "queryStatus":
+    case "salesDecision":
     case "assignContracting":
     case "assignQueryTicketing":
     case "assignQueryTeams":
@@ -130,6 +131,19 @@ export function buildModalInitial(modal, { entityId, queryId }, collections) {
         contractingAirlinesCost: String(row.contractingAirlinesCost ?? ""),
         contractingVisaCost: String(row.contractingVisaCost ?? ""),
         approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
+      };
+    }
+    case "salesDecision": {
+      const row = collections.queries?.find((entry) => entry.id === entityId);
+      if (!row) return null;
+      return {
+        queryId: row.id,
+        salesStatus: row.salesStatus,
+        salesDecision: row.salesStatus || "Proposal in discussion",
+        leadStage: row.leadStage || "Inquiry",
+        contractingStatus: row.contractingStatus,
+        approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
+        lostReason: row.lostReason || "",
       };
     }
     case "proposal": {

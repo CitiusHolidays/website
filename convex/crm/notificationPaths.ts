@@ -1,4 +1,4 @@
-const CONTRACTING_QUERY_TITLES = new Set([
+const ASSIGNMENT_QUERY_TITLES = new Set([
   "New query received",
   "Query submitted to Contracting",
   "Query ready for assignment",
@@ -10,6 +10,13 @@ export type NotificationPathInput = {
   title: string;
 };
 
+function assignmentQueryPath(entityId: string) {
+  const params = new URLSearchParams();
+  params.set("open", "assignQueryTeams");
+  params.set("id", entityId);
+  return `/portal/queries?${params}`;
+}
+
 /** Portal path (+ query string) for in-app and email notification deep links. */
 export function getNotificationHref(args: NotificationPathInput) {
   if (!args.entityType || !args.entityId) {
@@ -20,6 +27,11 @@ export function getNotificationHref(args: NotificationPathInput) {
 
   switch (args.entityType) {
     case "query":
+      if (args.title === "Order confirmed — open Job Card") {
+        params.set("open", "jobCard");
+        params.set("queryId", args.entityId);
+        return `/portal/accounts/job-cards?${params}`;
+      }
       if (args.title === "Order confirmed") {
         params.set("open", "jobCard");
         params.set("queryId", args.entityId);
@@ -28,20 +40,23 @@ export function getNotificationHref(args: NotificationPathInput) {
       if (args.title === "Order confirmed — assign owners") {
         return "/portal/job-cards";
       }
-      if (args.title === "Query ready for assignment") {
-        params.set("open", "assignQueryTeams");
+      if (args.title === "Proposal ready for review") {
+        params.set("open", "salesDecision");
         params.set("id", args.entityId);
-        return `/portal/contracting?${params}`;
+        return `/portal/queries?${params}`;
       }
-      if (CONTRACTING_QUERY_TITLES.has(args.title)) {
-        params.set("open", "assignQueryTeams");
-        params.set("id", args.entityId);
-        return `/portal/contracting?${params}`;
+      if (ASSIGNMENT_QUERY_TITLES.has(args.title)) {
+        return assignmentQueryPath(args.entityId);
       }
       params.set("open", "query");
       params.set("id", args.entityId);
       return `/portal/queries?${params}`;
     case "proposal":
+      if (args.title === "Proposal ready for review") {
+        params.set("open", "proposal");
+        params.set("id", args.entityId);
+        return `/portal/proposals?${params}`;
+      }
       params.set("open", "proposal");
       params.set("id", args.entityId);
       return `/portal/proposals?${params}`;

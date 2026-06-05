@@ -181,7 +181,7 @@ export default function PortalShell({ access, user, children }) {
                       {unreadCount > 0 && (
                         <motion.span
                           initial={{ scale: 0.95, opacity: 0 }}
-                          animate={{ scale: 1 }}
+                          animate={{ scale: 1, opacity: 1 }}
                           className="absolute -right-1 -top-1 min-w-5 rounded-full bg-citius-orange px-1.5 text-center text-[10px] font-bold leading-5 text-white tabular-nums shadow-sm"
                         >
                           {unreadCount > 99 ? "99+" : unreadCount}

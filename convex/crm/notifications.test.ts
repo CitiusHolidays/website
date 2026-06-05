@@ -3,14 +3,34 @@ import { canReceiveNotification } from "./lib";
 import { getNotificationHref } from "./notificationPaths";
 
 describe("notification paths", () => {
-  test("matches contracting query titles to team assignment modal", () => {
+  test("matches contracting query titles to team assignment on queries list", () => {
     expect(
       getNotificationHref({
         entityType: "query",
         entityId: "query_1",
         title: "Query submitted to Contracting",
       }),
-    ).toBe("/portal/contracting?open=assignQueryTeams&id=query_1");
+    ).toBe("/portal/queries?open=assignQueryTeams&id=query_1");
+  });
+
+  test("maps sales review notifications to sales decision modal", () => {
+    expect(
+      getNotificationHref({
+        entityType: "query",
+        entityId: "query_1",
+        title: "Proposal ready for review",
+      }),
+    ).toBe("/portal/queries?open=salesDecision&id=query_1");
+  });
+
+  test("maps accounts job card alerts to accounts workspace", () => {
+    expect(
+      getNotificationHref({
+        entityType: "query",
+        entityId: "query_1",
+        title: "Order confirmed — open Job Card",
+      }),
+    ).toBe("/portal/accounts/job-cards?open=jobCard&queryId=query_1");
   });
 
   test("maps owner assignment titles to job card modals", () => {

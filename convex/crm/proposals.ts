@@ -437,6 +437,7 @@ export const sendToSales = mutation({
     }
     const now = Date.now();
     const queryCodes = linkedQueries.map((query) => query.queryCode).join(", ") || "linked query";
+    const primaryQuery = linkedQueries[0] ?? null;
     await Promise.all([
       ctx.db.patch(proposalId, {
         status: "Sent",
@@ -474,20 +475,31 @@ export const sendToSales = mutation({
         notifyStaffMember(ctx, salesStaffId, {
           title: "Proposal ready for review",
           body: `${proposal.proposalCode} for ${linkedQuery.queryCode} is ready. Review costing and use Sales Decision on the query.`,
-          entityType: "proposal",
-          entityId: proposalId,
+          entityType: "query",
+          entityId: linkedQuery._id,
         }),
       );
     }
 
     await Promise.all([
       ...salesOwnerNotifications,
-      notifyRoles(ctx, ["Sales", "Sales Head"], {
-        title: "Proposal ready for review",
-        body: `${proposal.proposalCode} has been submitted by Contracting. Open Proposals or the linked query to review and decide.`,
-        entityType: "proposal",
-        entityId: proposalId,
-      }),
+      ...(primaryQuery
+        ? [
+            notifyRoles(ctx, ["Sales", "Sales Head"], {
+              title: "Proposal ready for review",
+              body: `${proposal.proposalCode} has been submitted by Contracting. Open the linked query to review and decide.`,
+              entityType: "query",
+              entityId: primaryQuery._id,
+            }),
+          ]
+        : [
+            notifyRoles(ctx, ["Sales", "Sales Head"], {
+              title: "Proposal ready for review",
+              body: `${proposal.proposalCode} has been submitted by Contracting. Open Proposals or the linked query to review and decide.`,
+              entityType: "proposal",
+              entityId: proposalId,
+            }),
+          ]),
     ]);
     return { id: proposalId };
   },

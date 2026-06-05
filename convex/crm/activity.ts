@@ -34,13 +34,8 @@ export const listNotifications = query({
       requireStaff(ctx),
       ctx.db.query("notifications").collect(),
     ]);
-    const roleSet = new Set(access.roles);
     return rows
-      .filter(
-        (row) =>
-          (!row.recipientUserId || row.recipientUserId === access.authUserId) &&
-          (!row.recipientRole || roleSet.has(row.recipientRole)),
-      )
+      .filter((row) => canReceiveNotification(row, access))
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, args.limit ?? 20)
       .map((notification) => ({
@@ -95,13 +90,9 @@ export const markAllNotificationsRead = mutation({
       requireStaff(ctx),
       ctx.db.query("notifications").collect(),
     ]);
-    const roleSet = new Set(access.roles);
     const now = Date.now();
     const toMark = rows.filter(
-      (notification) =>
-        !notification.readAt &&
-        (!notification.recipientUserId || notification.recipientUserId === access.authUserId) &&
-        (!notification.recipientRole || roleSet.has(notification.recipientRole)),
+      (notification) => !notification.readAt && canReceiveNotification(notification, access),
     );
     await Promise.all(
       toMark.map((notification) => ctx.db.patch(notification._id, { readAt: now })),

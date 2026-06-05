@@ -2,9 +2,15 @@
 
 import { v } from "convex/values";
 import { Resend } from "resend";
+import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { AUTH_EMAIL_FROM } from "../lib/emailConfig";
 import { getNotificationHref } from "./notificationPaths";
+
+type EmailDetails = {
+  title: string;
+  rows: Array<{ label: string; value: string }>;
+} | null;
 
 function siteUrl() {
   return (
@@ -24,10 +30,52 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
-function buildNotificationHtml(args: { title: string; body: string; href: string }) {
+function buildDetailsHtml(details: EmailDetails) {
+  if (!details || details.rows.length === 0) {
+    return "";
+  }
+
+  const rows = details.rows
+    .map(
+      (row) => `<tr>
+          <td style="padding:9px 12px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:13px;line-height:1.4;width:38%;vertical-align:top;">${escapeHtml(row.label)}</td>
+          <td style="padding:9px 12px;border-top:1px solid #e5e7eb;color:#111827;font-size:13px;line-height:1.4;font-weight:600;vertical-align:top;">${escapeHtml(row.value)}</td>
+        </tr>`,
+    )
+    .join("");
+
+  return `<div style="margin:0 0 24px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fbfdff;">
+          <p style="margin:0;padding:11px 12px;background:#f3f6fb;color:#0f4c81;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">${escapeHtml(details.title)}</p>
+          <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
+            ${rows}
+          </table>
+        </div>`;
+}
+
+function buildNotificationText(args: {
+  title: string;
+  body: string;
+  href: string;
+  details: EmailDetails;
+}) {
+  const detailLines =
+    args.details && args.details.rows.length > 0
+      ? ["", args.details.title, ...args.details.rows.map((row) => `${row.label}: ${row.value}`)]
+      : [];
+
+  return [args.title, "", args.body, ...detailLines, "", `Open in portal: ${args.href}`].join("\n");
+}
+
+function buildNotificationHtml(args: {
+  title: string;
+  body: string;
+  href: string;
+  details: EmailDetails;
+}) {
   const title = escapeHtml(args.title);
   const body = escapeHtml(args.body);
   const href = escapeHtml(args.href);
+  const detailsHtml = buildDetailsHtml(args.details);
 
   return `<!doctype html>
 <html>
@@ -37,6 +85,7 @@ function buildNotificationHtml(args: { title: string; body: string; href: string
         <p style="margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0f4c81;">Citius Connect</p>
         <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:#102a83;">${title}</h1>
         <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151;">${body}</p>
+        ${detailsHtml}
         <a href="${href}" style="display:inline-block;border-radius:999px;background:#f58220;padding:12px 18px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">Open in portal</a>
         <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#6b7280;">This email mirrors an in-app notification in Citius Connect.</p>
       </div>
@@ -53,7 +102,7 @@ export const sendNotificationEmail = internalAction({
     entityType: v.optional(v.string()),
     entityId: v.optional(v.string()),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) {
       console.error("Skipping notification email: RESEND_API_KEY is not configured.");
@@ -73,10 +122,24 @@ export const sendNotificationEmail = internalAction({
     }
 
     const href = `${siteUrl()}${getNotificationHref(args)}`;
+    const details: EmailDetails =
+      args.entityType && args.entityId
+        ? await ctx.runQuery(internal.crm.notificationEmailDetails.getNotificationEmailDetails, {
+            entityType: args.entityType,
+            entityId: args.entityId,
+          })
+        : null;
     const html = buildNotificationHtml({
       title: args.title,
       body: args.body,
       href,
+      details,
+    });
+    const text = buildNotificationText({
+      title: args.title,
+      body: args.body,
+      href,
+      details,
     });
     const resend = new Resend(resendKey);
     const outcomes = await Promise.all(
@@ -86,6 +149,7 @@ export const sendNotificationEmail = internalAction({
           to: [recipient],
           subject: `Citius Connect: ${args.title}`,
           html,
+          text,
         });
         if (error) {
           console.error("Failed to send notification email:", error);

@@ -1,8 +1,15 @@
-const CONTRACTING_QUERY_TITLES = new Set([
+const ASSIGNMENT_QUERY_TITLES = new Set([
   "New query received",
   "Query submitted to Contracting",
   "Query ready for assignment",
 ]);
+
+function assignmentQueryPath(entityId) {
+  const params = new URLSearchParams();
+  params.set("open", "assignQueryTeams");
+  params.set("id", entityId);
+  return `/portal/queries?${params}`;
+}
 
 /**
  * Build portal deep-link path for notifications (shared with Convex email links).
@@ -16,6 +23,11 @@ export function buildNotificationPath({ entityType, entityId, title }) {
 
   switch (entityType) {
     case "query":
+      if (title === "Order confirmed — open Job Card") {
+        params.set("open", "jobCard");
+        params.set("queryId", entityId);
+        return `/portal/accounts/job-cards?${params}`;
+      }
       if (title === "Order confirmed") {
         params.set("open", "jobCard");
         params.set("queryId", entityId);
@@ -24,20 +36,23 @@ export function buildNotificationPath({ entityType, entityId, title }) {
       if (title === "Order confirmed — assign owners") {
         return "/portal/job-cards";
       }
-      if (title === "Query ready for assignment") {
-        params.set("open", "assignQueryTeams");
+      if (title === "Proposal ready for review") {
+        params.set("open", "salesDecision");
         params.set("id", entityId);
-        return `/portal/contracting?${params}`;
+        return `/portal/queries?${params}`;
       }
-      if (CONTRACTING_QUERY_TITLES.has(title)) {
-        params.set("open", "assignQueryTeams");
-        params.set("id", entityId);
-        return `/portal/contracting?${params}`;
+      if (ASSIGNMENT_QUERY_TITLES.has(title)) {
+        return assignmentQueryPath(entityId);
       }
       params.set("open", "query");
       params.set("id", entityId);
       return `/portal/queries?${params}`;
     case "proposal":
+      if (title === "Proposal ready for review") {
+        params.set("open", "proposal");
+        params.set("id", entityId);
+        return `/portal/proposals?${params}`;
+      }
       params.set("open", "proposal");
       params.set("id", entityId);
       return `/portal/proposals?${params}`;
