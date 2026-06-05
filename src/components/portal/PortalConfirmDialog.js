@@ -2,6 +2,7 @@
 
 import { m as motion } from "motion/react";
 import { createContext, use, useRef, useState } from "react";
+import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const PortalConfirmContext = createContext(null);
 
@@ -28,7 +29,9 @@ export function PortalConfirmProvider({ children }) {
     <PortalConfirmContext.Provider value={api}>
       {children}
       {state && (
-        <div className="fixed inset-0 z-[70] grid place-items-center bg-brand-dark/40 p-4">
+        <div
+          className={`fixed inset-0 ${PORTAL_Z.confirm} grid place-items-center bg-brand-dark/40 p-4`}
+        >
           <motion.div
             role="alertdialog"
             aria-modal="true"

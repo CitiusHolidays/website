@@ -14,6 +14,7 @@ import { logout } from "@/lib/auth-client";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
+import { PORTAL_Z } from "@/lib/portal/zIndex";
 import ConnectLogo from "@/static/logos/citiusconnect.png";
 
 const NAV_EXPANDED_STORAGE_KEY = "portal-nav-expanded-groups";
@@ -118,7 +119,7 @@ export default function PortalShell({ access, user, children }) {
         <div className="relative min-h-screen overflow-x-hidden bg-brand-light text-brand-dark">
           <a
             href="#portal-main"
-            className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[80] focus:rounded-full focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-citius-blue focus:shadow-lg"
+            className={`sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 ${PORTAL_Z.skipLinkFocus} focus:rounded-full focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-citius-blue focus:shadow-lg`}
           >
             Skip to main content
           </a>
@@ -128,7 +129,7 @@ export default function PortalShell({ access, user, children }) {
           />
 
           <motion.header
-            className="sticky top-0 z-40 border-b border-brand-border bg-white/95 shadow-sm backdrop-blur-xl"
+            className={`sticky top-0 ${PORTAL_Z.chrome} border-b border-brand-border bg-white/95 shadow-sm backdrop-blur-xl`}
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
@@ -192,7 +193,7 @@ export default function PortalShell({ access, user, children }) {
                         <>
                           <button
                             type="button"
-                            className="fixed inset-0 z-40 cursor-default bg-transparent"
+                            className={`fixed inset-0 ${PORTAL_Z.chrome} cursor-default bg-transparent`}
                             aria-label="Close notifications"
                             onClick={() => setNotificationsOpen(false)}
                           />
@@ -201,7 +202,7 @@ export default function PortalShell({ access, user, children }) {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: 8, scale: 0.96 }}
                             transition={{ duration: 0.15 }}
-                            className="absolute right-0 z-50 mt-3 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-brand-border bg-white text-brand-dark shadow-xl"
+                            className={`absolute right-0 ${PORTAL_Z.dropdown} mt-3 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-brand-border bg-white text-brand-dark shadow-xl`}
                           >
                             <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
                               <div className="font-heading text-sm font-semibold text-citius-blue">
@@ -275,7 +276,7 @@ export default function PortalShell({ access, user, children }) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm lg:hidden"
+                    className={`fixed inset-0 ${PORTAL_Z.mobileBackdrop} bg-slate-950/60 backdrop-blur-sm lg:hidden`}
                     onClick={() => setSidebarOpen(false)}
                     aria-label="Close portal navigation backdrop"
                   />
@@ -284,7 +285,7 @@ export default function PortalShell({ access, user, children }) {
                     animate={{ x: 0 }}
                     exit={{ x: -280 }}
                     transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                    className="fixed inset-y-0 left-0 z-[60] w-[280px] bg-white shadow-2xl lg:hidden"
+                    className={`fixed inset-y-0 left-0 ${PORTAL_Z.mobileDrawer} w-[280px] bg-white shadow-2xl lg:hidden`}
                   >
                     <div className="flex h-16 items-center justify-between border-b border-brand-border px-4">
                       <span className="font-heading text-lg text-citius-blue">Navigation</span>

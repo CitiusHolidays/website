@@ -2,6 +2,7 @@
 
 import { AnimatePresence, m as motion } from "motion/react";
 import { createContext, use, useState } from "react";
+import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const PortalToastContext = createContext(null);
 
@@ -64,7 +65,7 @@ export function PortalToastProvider({ children }) {
       {children}
       <section
         aria-label="Toast messages"
-        className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-full max-w-sm flex-col gap-2 px-4 sm:px-0"
+        className={`pointer-events-none fixed bottom-4 right-4 ${PORTAL_Z.toast} flex w-full max-w-sm flex-col gap-2 px-4 sm:px-0`}
       >
         <AnimatePresence mode="popLayout">
           {toasts.map((toast) => (

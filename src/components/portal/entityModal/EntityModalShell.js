@@ -3,6 +3,7 @@
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { AnimatePresence, m as motion } from "motion/react";
 import { LifecycleDates } from "@/components/portal/PortalModalForm";
+import { PORTAL_Z } from "@/lib/portal/zIndex";
 import { EntityModalFieldsPrimary } from "./EntityModalFieldsPrimary";
 import { EntityModalFieldsSecondary } from "./EntityModalFieldsSecondary";
 
@@ -30,7 +31,7 @@ export function EntityModalShell({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm"
+          className={`fixed inset-0 ${PORTAL_Z.entityModal} grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm`}
           onClick={close}
         >
           <motion.form

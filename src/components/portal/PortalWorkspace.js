@@ -114,6 +114,7 @@ import {
   proposalPrimaryQuery,
 } from "@/lib/portal/proposalLinks";
 import { runMutation } from "@/lib/portal/runMutation";
+import { PORTAL_Z } from "@/lib/portal/zIndex";
 import {
   buildFlightWorkbook,
   buildPassengerWorkbook,
@@ -2817,7 +2818,9 @@ function PassportUploadModal({
   if (!uploadTraveller) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm">
+    <div
+      className={`fixed inset-0 ${PORTAL_Z.nestedModal} grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm`}
+    >
       <form
         onSubmit={onSubmit}
         className="w-full max-w-lg rounded-2xl border border-brand-border bg-white shadow-2xl p-6 space-y-4"
@@ -5158,7 +5161,7 @@ function ImportModalShell({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-citius-blue/35 p-4 backdrop-blur-sm"
+          className={`fixed inset-0 ${PORTAL_Z.importModal} flex items-center justify-center bg-citius-blue/35 p-4 backdrop-blur-sm`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -5671,11 +5674,13 @@ function QueryRowActions({ primaryAction, overflowActions = EMPTY_OVERFLOW_ACTIO
             <>
               <button
                 type="button"
-                className="fixed inset-0 z-40 cursor-default bg-transparent"
+                className={`fixed inset-0 ${PORTAL_Z.chrome} cursor-default bg-transparent`}
                 aria-label="Close actions menu"
                 onClick={() => setOpen(false)}
               />
-              <div className="absolute right-0 z-50 mt-2 min-w-[180px] rounded-xl border border-brand-border bg-white p-2 shadow-lg">
+              <div
+                className={`absolute right-0 ${PORTAL_Z.dropdown} mt-2 min-w-[180px] rounded-xl border border-brand-border bg-white p-2 shadow-lg`}
+              >
                 <div role="menu" tabIndex={-1} className="flex flex-col gap-2">
                   {overflowActions.map(closeAfterAction)}
                 </div>
