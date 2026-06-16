@@ -1,7 +1,7 @@
 "use client";
 
 import { MessageCircle } from "lucide-react";
-import { easeInOut, m as motion } from "motion/react";
+import { easeInOut, m } from "motion/react";
 import { useState } from "react";
 import { ChatbotWindow } from "./ChatbotWindow";
 
@@ -11,7 +11,7 @@ export default function Chatbot() {
   return (
     <>
       {!isOpen && (
-        <motion.button
+        <m.button
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ ease: easeInOut }}
@@ -23,7 +23,7 @@ export default function Chatbot() {
             size={24}
             className="group-hover:rotate-12 transition-transform duration-300"
           />
-        </motion.button>
+        </m.button>
       )}
 
       <ChatbotWindow isOpen={isOpen} onClose={() => setIsOpen(false)} />

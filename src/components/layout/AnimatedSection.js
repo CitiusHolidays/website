@@ -1,6 +1,6 @@
 "use client";
 
-import { m as motion, useInView } from "motion/react";
+import { m, useInView } from "motion/react";
 import { useRef } from "react";
 import { cn } from "../../utils/cn";
 
@@ -9,7 +9,7 @@ export default function AnimatedSection({ children, className, ...props }) {
   const isInView = useInView(ref, { once: true, amount: 0 });
 
   return (
-    <motion.section
+    <m.section
       ref={ref}
       className={cn(className)}
       initial={{ opacity: 0, y: 50 }}
@@ -18,6 +18,6 @@ export default function AnimatedSection({ children, className, ...props }) {
       {...props}
     >
       {children}
-    </motion.section>
+    </m.section>
   );
 }

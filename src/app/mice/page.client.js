@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { Briefcase, PiggyBank, ThumbsUp, Users } from "lucide-react";
-import { m as motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import AnimatedSection from "../../components/layout/AnimatedSection";
@@ -32,7 +32,7 @@ export default function MicePageClient({ images }) {
   return (
     <>
       <section className="relative h-[50vh] bg-[#0B1026] flex items-center justify-center text-center overflow-hidden">
-        <motion.div
+        <m.div
           className="absolute inset-0 mt-3"
           initial={{ scale: 1.1, opacity: 0.8 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -46,15 +46,15 @@ export default function MicePageClient({ images }) {
             priority
             className="object-cover object-center pt-16 brightness-75"
           />
-        </motion.div>
-        <motion.h1
+        </m.div>
+        <m.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="relative z-10 text-4xl font-bold text-white md:text-5xl"
         >
           Meeting Your MICE Goals
-        </motion.h1>
+        </m.h1>
       </section>
 
       <AnimatedSection>
@@ -72,14 +72,14 @@ export default function MicePageClient({ images }) {
           <h2 className="mb-8 text-3xl font-semibold text-citius-blue">
             Successfully Executed MICE Programs Across the Globe
           </h2>
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.9 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true, amount: 0.2 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
           >
             <Image src={WorldMap} alt="World map" width={800} height={400} className="mx-auto" />
-          </motion.div>
+          </m.div>
         </section>
       </AnimatedSection>
 
@@ -88,7 +88,7 @@ export default function MicePageClient({ images }) {
           <h2 className="mb-12 text-3xl font-semibold text-center text-citius-blue">
             Our Commitment
           </h2>
-          <motion.div
+          <m.div
             className="grid gap-8 mx-auto max-w-5xl sm:grid-cols-2 md:grid-cols-4"
             initial="hidden"
             whileInView="show"
@@ -98,7 +98,7 @@ export default function MicePageClient({ images }) {
             }}
           >
             {commitments.map(({ title, Icon }) => (
-              <motion.div
+              <m.div
                 key={title}
                 className="text-center"
                 variants={{
@@ -108,9 +108,9 @@ export default function MicePageClient({ images }) {
               >
                 <Icon className="mx-auto mb-4 size-10 text-citius-orange" />
                 <p className="font-medium text-brand-dark">{title}</p>
-              </motion.div>
+              </m.div>
             ))}
-          </motion.div>
+          </m.div>
         </section>
       </AnimatedSection>
 

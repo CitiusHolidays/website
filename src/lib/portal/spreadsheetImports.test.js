@@ -1,22 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import * as XLSX from "xlsx";
 import {
   normalizeFoodPreference,
+  normalizeRoomType,
   parseFlightWorkbook,
   parsePassengerWorkbook,
   parsePassportWorkbook,
   parseRoomingWorkbook,
   parseTravellerMasterWorkbook,
   parseVisaWorkbook,
+  workbookFromSheets,
 } from "./spreadsheetImports";
-
-function workbookFromSheets(sheets) {
-  const workbook = XLSX.utils.book_new();
-  for (const [name, rows] of Object.entries(sheets)) {
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(rows), name);
-  }
-  return workbook;
-}
 
 describe("passenger spreadsheet imports", () => {
   test("imports confirmed passenger rows and skips other statuses", () => {
@@ -119,6 +112,16 @@ describe("passenger spreadsheet imports", () => {
     expect(normalizeFoodPreference("")).toBe("Veg");
   });
 
+  test("normalizes room types to portal labels", () => {
+    expect(normalizeRoomType("SGL")).toBe("Single");
+    expect(normalizeRoomType("single")).toBe("Single");
+    expect(normalizeRoomType("DBL")).toBe("Double");
+    expect(normalizeRoomType("double")).toBe("Double");
+    expect(normalizeRoomType("TPL")).toBe("Triple");
+    expect(normalizeRoomType("triple sharing")).toBe("Triple");
+    expect(normalizeRoomType("family")).toBe("Family Room");
+  });
+
   test("deduplicates repeated passenger rows within one workbook", () => {
     const header = [
       "WILLING TO GO ",
@@ -198,6 +201,8 @@ describe("passenger spreadsheet imports", () => {
     expect(result.skipped).toHaveLength(0);
     expect(result.rows[0]).toMatchObject({
       fullName: "ANSHIKA AGARWAL",
+      surname: "AGARWAL",
+      givenName: "ANSHIKA",
       gender: "FEMALE",
       contactNo: "9932929359",
       domesticTravelRequired: true,

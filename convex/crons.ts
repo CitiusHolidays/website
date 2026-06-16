@@ -10,4 +10,11 @@ crons.daily(
   {},
 );
 
+crons.daily(
+  "run portal workflow nudges",
+  { hourUTC: 3, minuteUTC: 30 },
+  internal.crm.workflowNudges.runScheduledNudges,
+  {},
+);
+
 export default crons;

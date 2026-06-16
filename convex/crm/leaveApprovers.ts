@@ -61,9 +61,7 @@ export function resolveAlertLabelToStaff(
       matches[0]
     );
   }
-  return matches.reduce((best, row) =>
-    row.name.localeCompare(best.name) < 0 ? row : best,
-  );
+  return matches.reduce((best, row) => (row.name.localeCompare(best.name) < 0 ? row : best));
 }
 
 export function matrixAlertForStaffEmail(email: string) {

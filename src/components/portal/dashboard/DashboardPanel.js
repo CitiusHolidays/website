@@ -1,6 +1,6 @@
 "use client";
 
-import { m as motion } from "motion/react";
+import { m } from "motion/react";
 
 export function DashboardPanel({ title, subtitle, action, children, className = "" }) {
   return (
@@ -64,7 +64,7 @@ export function DashboardProgress({ label, value, tone = "blue", meta }) {
         </span>
       </div>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-brand-border/80">
-        <motion.div
+        <m.div
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}

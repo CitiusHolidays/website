@@ -3,6 +3,7 @@
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
 import { Trophy } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/utils/cn";
 
 export default function LeaderboardTable({ limit = 50 }) {
@@ -73,7 +74,16 @@ export default function LeaderboardTable({ limit = 50 }) {
               >
                 <td className="px-4 py-3 font-medium tabular-nums text-citius-blue">{row.rank}</td>
                 <td className="px-4 py-3 font-medium text-brand-dark">
-                  {row.displayName}
+                  {row.passportSlug ? (
+                    <Link
+                      href={`/sacred-bharat/yatris/${row.passportSlug}`}
+                      className="text-citius-blue hover:text-citius-orange"
+                    >
+                      {row.displayName}
+                    </Link>
+                  ) : (
+                    row.displayName
+                  )}
                   {row.isCurrentUser && (
                     <span className="ml-2 text-xs text-citius-orange">(you)</span>
                   )}

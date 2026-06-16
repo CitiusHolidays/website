@@ -134,17 +134,3 @@ export function computeProgress(templeIds) {
     totalTrails: TRAILS.length,
   };
 }
-
-/**
- * @param {{ templeId: string, visitedAt: number }[]} visits
- */
-export function visitsToTempleIds(visits) {
-  return visits.map((v) => v.templeId);
-}
-
-/**
- * @param {{ templeId: string, visitedAt: number }[]} visits
- */
-export function sortVisitsChronologically(visits) {
-  return visits.toSorted((a, b) => b.visitedAt - a.visitedAt);
-}

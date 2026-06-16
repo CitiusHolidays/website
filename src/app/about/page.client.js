@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { Heart, PlaneTakeoffIcon, Sparkle, Telescope } from "lucide-react";
-import { m as motion } from "motion/react";
 import Image from "next/image";
 import arpan from "@/static/team/arpan.webp";
 import divyanshu from "@/static/team/divyanshu.webp";
@@ -60,7 +60,7 @@ export default function AboutPage() {
   return (
     <>
       <section className="relative h-[60vh] flex items-center justify-center bg-[#0B1026] text-center overflow-hidden">
-        <motion.div
+        <m.div
           className="absolute inset-0 mt-3"
           initial={{ scale: 1.1, opacity: 0.8 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -74,7 +74,7 @@ export default function AboutPage() {
             priority
             className="object-cover object-center pt-16 brightness-75"
           />
-        </motion.div>
+        </m.div>
       </section>
 
       <section className="px-4 pt-16 text-center bg-brand-light">
@@ -90,7 +90,7 @@ export default function AboutPage() {
       <div>
         <section className="px-4 bg-brand-light">
           <div className="max-w-4xl mx-auto text-center">
-            <motion.div
+            <m.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -154,7 +154,7 @@ export default function AboutPage() {
                 <p className="text-brand-dark font-semibold text-lg mb-2">Forever in our hearts.</p>
                 <p className="text-brand-muted italic">- Team Citius Holidays</p>
               </div>
-            </motion.div>
+            </m.div>
           </div>
         </section>
       </div>
@@ -191,14 +191,14 @@ export default function AboutPage() {
           <div className="absolute top-0 -left-40 size-96 rounded-full blur-3xl pointer-events-none bg-citius-blue/10" />
           <div className="absolute bottom-0 -right-40 size-96 rounded-full blur-3xl pointer-events-none bg-citius-orange/10" />
           <div className="relative mx-auto max-w-5xl">
-            <motion.ol
+            <m.ol
               className="relative pl-12 ml-6 space-y-12 border-l-2 border-brand-border/60"
               variants={timelineVariants}
               initial="hidden"
               whileInView="show"
               viewport={{ once: true, amount: 0.2 }}
             >
-              <motion.li className="relative group" variants={timelineItemVariants}>
+              <m.li className="relative group" variants={timelineItemVariants}>
                 <span className="flex absolute top-6 -left-9 justify-center items-center size-6 text-white rounded-full ring-4 ring-white shadow-md bg-citius-blue">
                   <PlaneTakeoffIcon className="size-3" />
                 </span>
@@ -210,9 +210,9 @@ export default function AboutPage() {
                     advancement of the MICE travel ecosystem , with every trip we design.
                   </p>
                 </div>
-              </motion.li>
+              </m.li>
 
-              <motion.li className="relative group" variants={timelineItemVariants}>
+              <m.li className="relative group" variants={timelineItemVariants}>
                 <span className="flex absolute top-6 -left-9 justify-center items-center size-6 text-white rounded-full ring-4 ring-white shadow-md bg-citius-orange">
                   <Telescope className="size-3" />
                 </span>
@@ -225,9 +225,9 @@ export default function AboutPage() {
                     partners.
                   </p>
                 </div>
-              </motion.li>
+              </m.li>
 
-              <motion.li className="relative group" variants={timelineItemVariants}>
+              <m.li className="relative group" variants={timelineItemVariants}>
                 <span className="flex absolute top-6 -left-9 justify-center items-center size-6 text-white rounded-full ring-4 ring-white shadow-md bg-citius-lime">
                   <Sparkle className="size-3" />
                 </span>
@@ -242,8 +242,8 @@ export default function AboutPage() {
                     unforgettable.
                   </p>
                 </div>
-              </motion.li>
-            </motion.ol>
+              </m.li>
+            </m.ol>
           </div>
         </section>
       </AnimatedSection>

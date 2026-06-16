@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, CreditCard, FileText, Mail, MapPin, Phone, Shield } from "lucide-react";
-import { m as motion, useScroll, useTransform } from "motion/react";
+import { m, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -325,7 +325,7 @@ export default function PolicyContent() {
       {" "}
       {/* Off-white paper color */}
       {/* Progress Bar */}
-      <motion.div
+      <m.div
         className="fixed top-0 left-0 right-0 h-1 bg-citius-orange z-50 origin-left"
         style={{ scaleX }}
       />
@@ -335,15 +335,15 @@ export default function PolicyContent() {
         <div className="absolute inset-0 bg-gradient-to-b from-brand-dark/0 via-brand-dark/50 to-brand-dark" />
 
         <div className="max-w-4xl mx-auto relative z-10 text-center">
-          <motion.h1
+          <m.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
             className="text-4xl md:text-6xl font-heading mb-6"
           >
             Legal & Policies
-          </motion.h1>
-          <motion.p
+          </m.h1>
+          <m.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.8, delay: 0.2 }}
@@ -351,7 +351,7 @@ export default function PolicyContent() {
           >
             Transparency and trust are at the heart of our journeys. Please review our policies
             carefully.
-          </motion.p>
+          </m.p>
         </div>
       </header>
       {/* Navigation Tabs */}
@@ -377,7 +377,7 @@ export default function PolicyContent() {
                   {tab.label}
                 </span>
                 {activeTab === tab.id && (
-                  <motion.div
+                  <m.div
                     layoutId="activeTab"
                     className="absolute bottom-0 left-0 right-0 h-0.5 bg-citius-orange"
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
@@ -391,7 +391,7 @@ export default function PolicyContent() {
       {/* Content Area */}
       <main className="max-w-3xl mx-auto px-6 py-16">
         <div className="font-sans text-lg">
-          <motion.div
+          <m.div
             key={activeTab}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -428,7 +428,7 @@ export default function PolicyContent() {
                 ))}
               </div>
             )}
-          </motion.div>
+          </m.div>
         </div>
       </main>
       {/* Footer CTA */}

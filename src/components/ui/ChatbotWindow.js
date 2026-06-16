@@ -1,7 +1,7 @@
 "use client";
 
 import { Sparkles, Trash2, X } from "lucide-react";
-import { AnimatePresence, easeInOut, m as motion } from "motion/react";
+import { AnimatePresence, easeInOut, m } from "motion/react";
 import { useState } from "react";
 import { ChatbotComposer } from "./ChatbotComposer";
 import { ChatbotMessageList, ChatbotSuggestions } from "./ChatbotMessages";
@@ -24,7 +24,7 @@ function ChatbotPanelHeader({ messages, isMinimized, onClear, onToggleMinimize, 
       </div>
       <div className="flex items-center gap-1">
         {messages.length > 0 && (
-          <motion.button
+          <m.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={onClear}
@@ -32,16 +32,16 @@ function ChatbotPanelHeader({ messages, isMinimized, onClear, onToggleMinimize, 
             title="Clear chat history"
           >
             <Trash2 size={16} />
-          </motion.button>
+          </m.button>
         )}
-        <motion.button
+        <m.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={onToggleMinimize}
           className="text-white/80 hover:text-white transition-colors p-1.5 hover:bg-white/20 rounded-full size-6 flex items-center justify-center text-sm relative overflow-hidden"
         >
           <AnimatePresence mode="wait">
-            <motion.span
+            <m.span
               key={isMinimized ? "minimized" : "maximized"}
               initial={{ opacity: 0, y: -10, scale: 0.8 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -50,17 +50,17 @@ function ChatbotPanelHeader({ messages, isMinimized, onClear, onToggleMinimize, 
               className="absolute inset-0 flex items-center justify-center"
             >
               {isMinimized ? "+" : "−"}
-            </motion.span>
+            </m.span>
           </AnimatePresence>
-        </motion.button>
-        <motion.button
+        </m.button>
+        <m.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={onClose}
           className="text-white/80 hover:text-white transition-colors p-1.5 hover:bg-white/20 rounded-full"
         >
           <X size={16} />
-        </motion.button>
+        </m.button>
       </div>
     </div>
   );
@@ -84,7 +84,7 @@ export function ChatbotWindow({ isOpen, onClose }) {
 
   return (
     <AnimatePresence>
-      <motion.div
+      <m.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{
           scale: 1,
@@ -110,7 +110,7 @@ export function ChatbotWindow({ isOpen, onClose }) {
 
         <AnimatePresence mode="wait">
           {!isMinimized && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
@@ -137,10 +137,10 @@ export function ChatbotWindow({ isOpen, onClose }) {
                 onInputChange={handleInputChange}
                 onSubmit={handleSubmit}
               />
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </m.div>
     </AnimatePresence>
   );
 }

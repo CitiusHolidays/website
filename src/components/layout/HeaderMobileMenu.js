@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { X } from "lucide-react";
-import { m as motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { getTrailsForHub } from "@/data/trails";
@@ -12,7 +12,7 @@ export function HeaderMobileMenu({ isOpen, onClose, navLinks, user, canAccessPor
   if (!isOpen) return null;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -28,7 +28,7 @@ export function HeaderMobileMenu({ isOpen, onClose, navLinks, user, canAccessPor
 
       <nav className="flex flex-col items-center gap-6 max-h-[65vh] overflow-y-auto px-4 w-full">
         {navLinks.slice(0, 4).map((link, i) => (
-          <motion.div
+          <m.div
             key={link.href}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -41,9 +41,9 @@ export function HeaderMobileMenu({ isOpen, onClose, navLinks, user, canAccessPor
             >
               {link.label}
             </Link>
-          </motion.div>
+          </m.div>
         ))}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45 }}
@@ -72,9 +72,9 @@ export function HeaderMobileMenu({ isOpen, onClose, navLinks, user, canAccessPor
               </Link>
             ))}
           </div>
-        </motion.div>
+        </m.div>
         {navLinks.slice(4).map((link, i) => (
-          <motion.div
+          <m.div
             key={link.href}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -87,11 +87,11 @@ export function HeaderMobileMenu({ isOpen, onClose, navLinks, user, canAccessPor
             >
               {link.label}
             </Link>
-          </motion.div>
+          </m.div>
         ))}
       </nav>
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.6 }}
@@ -140,9 +140,9 @@ export function HeaderMobileMenu({ isOpen, onClose, navLinks, user, canAccessPor
         ) : (
           <SignInDropdown isScrolled={false} variant="mobile" onSelect={onClose} />
         )}
-      </motion.div>
+      </m.div>
 
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.7 }}
@@ -155,7 +155,7 @@ export function HeaderMobileMenu({ isOpen, onClose, navLinks, user, canAccessPor
           height={50}
           className="brightness-0 invert opacity-50"
         />
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
@@ -47,7 +47,7 @@ export default function SpiritualHero() {
     <section className="relative h-screen min-h-[700px] w-full overflow-hidden bg-brand-dark">
       {/* Background Slideshow */}
       <AnimatePresence initial={false}>
-        <motion.div
+        <m.div
           key={`img-${currentIndex}`}
           initial={{ opacity: 0, scale: 1.1 }}
           animate={{ opacity: 0.6, scale: 1 }}
@@ -63,7 +63,7 @@ export default function SpiritualHero() {
             className="object-cover"
             priority
           />
-        </motion.div>
+        </m.div>
       </AnimatePresence>
 
       {/* Atmospheric Gradients */}
@@ -74,20 +74,20 @@ export default function SpiritualHero() {
       <div className="relative z-20 flex h-full items-center justify-center px-6">
         <div className="max-w-4xl text-center">
           <AnimatePresence mode="popLayout" initial={false}>
-            <motion.div
+            <m.div
               key={`text-${currentIndex}`}
               initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               exit={{ opacity: 0, y: -30, filter: "blur(10px)" }}
               transition={transitionConfig}
             >
-              <motion.span
+              <m.span
                 initial={{ opacity: 0, letterSpacing: "0.2em" }}
                 animate={{ opacity: 1, letterSpacing: "0.5em" }}
                 className="mb-4 block text-xs font-medium uppercase tracking-[0.5em] text-citius-orange md:text-sm"
               >
                 Citius Spiritual Trails
-              </motion.span>
+              </m.span>
 
               <h1 className="font-heading mb-6 text-5xl font-bold tracking-tight text-white md:text-8xl">
                 {images[currentIndex].title}
@@ -96,10 +96,10 @@ export default function SpiritualHero() {
               <p className="font-sans text-xl italic text-white/80 md:text-3xl px-4">
                 {images[currentIndex].subtitle}
               </p>
-            </motion.div>
+            </m.div>
           </AnimatePresence>
 
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 1, duration: 1 }}
@@ -109,7 +109,7 @@ export default function SpiritualHero() {
             <p className="font-sans text-sm uppercase tracking-widest text-white/50">
               Scroll to Begin
             </p>
-          </motion.div>
+          </m.div>
         </div>
       </div>
 

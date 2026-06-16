@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import * as XLSX from "xlsx";
 import {
   buildFlightWorkbook,
   buildPassengerWorkbook,
@@ -48,8 +47,7 @@ describe("passenger spreadsheet exports", () => {
     );
 
     const parsed = parsePassengerWorkbook(workbook);
-    const sheet = workbook.Sheets["JC-0001-NS"];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+    const rows = workbook.Sheets["JC-0001-NS"];
     expect(rows[0]).toEqual([
       "NO",
       "",
@@ -141,10 +139,14 @@ describe("master-list sheet exports", () => {
   };
 
   test("builds a traveller master workbook that the master-list parser reads", () => {
-    const parsed = parseTravellerMasterWorkbook(buildTravellerMasterWorkbook([row]));
+    const parsed = parseTravellerMasterWorkbook(
+      buildTravellerMasterWorkbook([{ ...row, surname: "GARG", givenName: "SANJAY" }]),
+    );
     expect(parsed.rows[0]).toMatchObject({
       importKind: "traveller",
       fullName: "GARG SANJAY",
+      surname: "GARG",
+      givenName: "SANJAY",
       sourceDealerCode: "MUM",
       sourceDealerName: "AGGARWAL APPLIANCES",
       sourceDescription: "Mumbai",

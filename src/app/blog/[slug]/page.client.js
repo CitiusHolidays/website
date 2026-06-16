@@ -1,11 +1,10 @@
 "use client";
-import imageUrlBuilder from "@sanity/image-url";
-import { m as motion } from "motion/react";
+import { m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { PortableText } from "next-sanity";
 import { formatDisplayDate } from "@/lib/formatDate";
-import { client } from "@/sanity/client";
+import { urlFor } from "@/sanity/imageUrl";
 
 const portableTextComponents = {
   block: {
@@ -93,10 +92,6 @@ const portableTextComponents = {
   },
 };
 
-const { projectId, dataset } = client.config();
-const urlFor = (source) =>
-  projectId && dataset ? imageUrlBuilder({ projectId, dataset }).image(source) : null;
-
 export default function PostPageClient({ post }) {
   if (!post) {
     return (
@@ -119,7 +114,7 @@ export default function PostPageClient({ post }) {
     <>
       <div className="bg-[#0B1026] h-19" />
       <main className="container mx-auto min-h-screen max-w-4xl pt-22 p-8">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
@@ -131,9 +126,9 @@ export default function PostPageClient({ post }) {
           >
             ← Back to posts
           </Link>
-        </motion.div>
+        </m.div>
 
-        <motion.article
+        <m.article
           className="space-y-12"
           initial="hidden"
           animate="show"
@@ -141,7 +136,7 @@ export default function PostPageClient({ post }) {
             show: { transition: { staggerChildren: 0.15, delayChildren: 0.2 } },
           }}
         >
-          <motion.header
+          <m.header
             className="space-y-8 text-center"
             variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
           >
@@ -153,9 +148,7 @@ export default function PostPageClient({ post }) {
               <div className="flex items-center justify-center gap-4 text-sm text-brand-muted">
                 <span>📖 {Math.ceil((post.body?.length || 0) / 40)} min read</span>
                 <span>•</span>
-                <time dateTime={post.publishedAt}>
-                  {formatDisplayDate(post.publishedAt)}
-                </time>
+                <time dateTime={post.publishedAt}>{formatDisplayDate(post.publishedAt)}</time>
               </div>
             </div>
 
@@ -171,9 +164,9 @@ export default function PostPageClient({ post }) {
                 ))}
               </div>
             )}
-          </motion.header>
+          </m.header>
 
-          <motion.div
+          <m.div
             className="bg-gradient-to-r from-brand-light to-brand-light/50 rounded-2xl p-8 border border-brand-border hover:scale-102 transition-transform duration-300 shadow-lg"
             variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
           >
@@ -226,10 +219,10 @@ export default function PostPageClient({ post }) {
                 </div>
               </div>
             )}
-          </motion.div>
+          </m.div>
 
           {postImageUrl && (
-            <motion.div
+            <m.div
               className="relative w-full aspect-video rounded-3xl overflow-hidden border border-brand-border shadow-2xl hover:scale-102 transition-transform duration-300"
               variants={{ hidden: { opacity: 0, scale: 0.95 }, show: { opacity: 1, scale: 1 } }}
             >
@@ -243,10 +236,10 @@ export default function PostPageClient({ post }) {
                 className="hover:scale-105 transition-transform duration-700"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-            </motion.div>
+            </m.div>
           )}
 
-          <motion.div
+          <m.div
             className="prose prose-xl max-w-none"
             variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
           >
@@ -260,9 +253,9 @@ export default function PostPageClient({ post }) {
                 <p className="text-brand-muted italic text-xl">No content available.</p>
               </div>
             )}
-          </motion.div>
+          </m.div>
 
-          <motion.footer
+          <m.footer
             className="pt-12 mt-16 border-t border-brand-border"
             variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
           >
@@ -282,8 +275,8 @@ export default function PostPageClient({ post }) {
                 ← Back to all posts
               </Link>
             </div>
-          </motion.footer>
-        </motion.article>
+          </m.footer>
+        </m.article>
       </main>
     </>
   );

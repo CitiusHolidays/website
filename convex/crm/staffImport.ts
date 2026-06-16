@@ -32,6 +32,7 @@ const staffRowValidator = v.object({
   employmentStatus: v.optional(v.union(v.literal("Probationer"), v.literal("Confirmed"))),
   confirmationDate: v.optional(v.string()),
   leavePolicyGroup: v.optional(v.string()),
+  reportingManagerName: v.optional(v.string()),
 });
 
 async function importStaffRows(
@@ -49,6 +50,7 @@ async function importStaffRows(
       employmentStatus?: "Probationer" | "Confirmed";
       confirmationDate?: string;
       leavePolicyGroup?: string;
+      reportingManagerName?: string;
     }>;
     dryRun?: boolean;
     provisionAuth?: boolean;
@@ -99,6 +101,7 @@ async function importStaffRows(
           employmentStatus: row.employmentStatus ?? "Confirmed",
           confirmationDate: row.confirmationDate || "",
           leavePolicyGroup: row.leavePolicyGroup?.trim() || "",
+          reportingManagerName: row.reportingManagerName?.trim() || "",
           active: true,
           updatedAt: now,
         };
@@ -152,6 +155,26 @@ async function importStaffRows(
     skipped: results.filter((row) => row.action === "skipped").length,
     errors: results.filter((row) => row.action === "error").length,
   };
+
+  if (!dryRun) {
+    const staffRows = await ctx.db.query("staffUsers").collect();
+    const staffByName = new Map(staffRows.map((staff) => [staff.name.trim().toLowerCase(), staff]));
+    await Promise.all(
+      staffRows.flatMap((staff) => {
+        const managerName = staff.reportingManagerName?.trim();
+        if (!managerName || staff.reportingManagerStaffId) return [];
+        const manager = staffByName.get(managerName.toLowerCase());
+        if (!manager || manager._id === staff._id) return [];
+        return [
+          ctx.db.patch(staff._id, {
+            reportingManagerStaffId: manager._id,
+            reportingManagerName: manager.name,
+            updatedAt: now,
+          }),
+        ];
+      }),
+    );
+  }
 
   return { summary, results };
 }

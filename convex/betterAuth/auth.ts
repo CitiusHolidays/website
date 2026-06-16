@@ -6,7 +6,7 @@ import {
   requireRunMutationCtx,
 } from "@convex-dev/better-auth/utils";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
-import { api, components, internal } from "../_generated/api";
+import { components, internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
 import { AUTH_EMAIL_BRAND, buildAuthEmailHtml } from "../lib/authEmailHtml";
@@ -84,7 +84,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           footerNote: "If you did not request a password reset, you can safely ignore this email.",
         });
         try {
-          await requireActionCtx(ctx).runAction(api.email.sendEmail, {
+          await requireActionCtx(ctx).runAction(internal.email.sendEmail, {
             to: user.email,
             subject: `Reset your ${AUTH_EMAIL_BRAND} password`,
             html,
@@ -109,7 +109,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           footerNote: "If you did not sign up for an account, you can safely ignore this email.",
         });
         try {
-          await requireActionCtx(ctx).runAction(api.email.sendEmail, {
+          await requireActionCtx(ctx).runAction(internal.email.sendEmail, {
             to: user.email,
             subject: `Verify your ${AUTH_EMAIL_BRAND} account`,
             html,

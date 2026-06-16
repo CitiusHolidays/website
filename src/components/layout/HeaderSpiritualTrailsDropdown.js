@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { getTrailsForHub } from "@/data/trails";
@@ -38,7 +38,7 @@ export function SpiritualTrailsDropdown({ isScrolled, pathname }) {
             className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           />
         </span>
-        <motion.div
+        <m.div
           className={`absolute inset-0 bg-white/10 rounded-full transition-opacity duration-200 pointer-events-none ${
             isActive || open ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           }`}
@@ -47,7 +47,7 @@ export function SpiritualTrailsDropdown({ isScrolled, pathname }) {
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
@@ -77,7 +77,7 @@ export function SpiritualTrailsDropdown({ isScrolled, pathname }) {
                 )}
               </Link>
             ))}
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

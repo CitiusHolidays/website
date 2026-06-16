@@ -14,20 +14,13 @@ import {
   requireStaff,
 } from "./lib";
 import { normalizePassportExpiryDate } from "./passportExpiry";
+import { roomTypeValidator } from "../lib/roomTypeValidators";
 
 const foodPreferenceValidator = v.union(
   v.literal("Veg"),
   v.literal("Non-Veg"),
   v.literal("Jain"),
   v.literal("Vegan"),
-);
-
-const roomTypeValidator = v.union(
-  v.literal("SGL"),
-  v.literal("Twin"),
-  v.literal("DBL"),
-  v.literal("Child with Bed"),
-  v.literal("Family Room"),
 );
 
 const paymentTypeValidator = v.union(
@@ -49,6 +42,8 @@ const publicTraveller = (
   jobCode: job?.jobCode ?? "",
   clientName: job?.clientName ?? "",
   fullName: traveller.fullName,
+  surname: traveller.surname ?? "",
+  givenName: traveller.givenName ?? "",
   travelHub: traveller.travelHub ?? "",
   foodPreference: traveller.foodPreference,
   guestType: traveller.guestType,
@@ -187,6 +182,8 @@ export const create = mutation({
   args: {
     jobCardId: v.string(),
     fullName: v.string(),
+    surname: v.optional(v.string()),
+    givenName: v.optional(v.string()),
     travelHub: v.optional(v.string()),
     foodPreference: foodPreferenceValidator,
     guestType: guestTypeValidator,
@@ -226,6 +223,8 @@ export const create = mutation({
     const id = await ctx.db.insert("travellers", {
       jobCardId,
       fullName: args.fullName.trim(),
+      surname: args.surname?.trim() || "",
+      givenName: args.givenName?.trim() || "",
       travelHub: args.travelHub?.trim() || "",
       foodPreference: args.foodPreference,
       guestType: args.guestType,
@@ -275,6 +274,8 @@ export const update = mutation({
   args: {
     travellerId: v.string(),
     fullName: v.optional(v.string()),
+    surname: v.optional(v.string()),
+    givenName: v.optional(v.string()),
     travelHub: v.optional(v.string()),
     foodPreference: v.optional(foodPreferenceValidator),
     guestType: v.optional(guestTypeValidator),
@@ -313,6 +314,8 @@ export const update = mutation({
     const now = Date.now();
     const patch: Record<string, unknown> = { updatedAt: now };
     if (args.fullName !== undefined) patch.fullName = args.fullName.trim();
+    if (args.surname !== undefined) patch.surname = args.surname.trim();
+    if (args.givenName !== undefined) patch.givenName = args.givenName.trim();
     if (args.travelHub !== undefined) patch.travelHub = args.travelHub.trim();
     if (args.foodPreference !== undefined) patch.foodPreference = args.foodPreference;
     if (args.guestType !== undefined) patch.guestType = args.guestType;
@@ -461,10 +464,7 @@ export async function deleteTravellerRecord(
 
   await Promise.all([
     ...passportDetails.map((row) =>
-      Promise.all([
-        deleteStorageFile(ctx, row.storageId, "passport scan"),
-        ctx.db.delete(row._id),
-      ]),
+      Promise.all([deleteStorageFile(ctx, row.storageId, "passport scan"), ctx.db.delete(row._id)]),
     ),
     ...visaRecords.map((row) => ctx.db.delete(row._id)),
     ...tickets.flatMap((row) => [

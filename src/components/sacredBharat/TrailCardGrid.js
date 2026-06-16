@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
-import { m as motion } from "motion/react";
 import Link from "next/link";
 import { TRAILS } from "@/data/sacredBharat/trails";
 import { cn } from "@/utils/cn";
@@ -32,7 +32,7 @@ export default function TrailCardGrid() {
             const percent = tp?.percent ?? 0;
             const complete = tp?.complete ?? false;
             return (
-              <motion.div
+              <m.div
                 key={trail.slug}
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -76,7 +76,7 @@ export default function TrailCardGrid() {
                     <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform" />
                   </span>
                 </Link>
-              </motion.div>
+              </m.div>
             );
           })}
         </div>

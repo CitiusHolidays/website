@@ -37,6 +37,19 @@ const flightGroupInput = v.object({
   segments: v.array(flightSegmentInput),
 });
 
+function travellerExportOrder(a: any, b: any) {
+  const aImported = typeof a.sourceRowNumber === "number";
+  const bImported = typeof b.sourceRowNumber === "number";
+  if (aImported !== bImported) return aImported ? -1 : 1;
+  if (aImported && bImported) {
+    const sheetCompare = String(a.sourceSheet ?? "").localeCompare(String(b.sourceSheet ?? ""));
+    if (sheetCompare !== 0) return sheetCompare;
+    if (a.sourceRowNumber !== b.sourceRowNumber) return a.sourceRowNumber - b.sourceRowNumber;
+  }
+  if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
+  return a.fullName.localeCompare(b.fullName);
+}
+
 function groupImportKey(sheet: string, groupIndex: number) {
   return `${sheet.trim().toLowerCase()}|${groupIndex}`;
 }
@@ -296,73 +309,75 @@ export const getPassengerExportSource = internalQuery({
       .collect();
 
     const rows = await Promise.all(
-      travellers
-        .sort((a, b) => a.fullName.localeCompare(b.fullName))
-        .map(async (traveller) => {
-          const [passport, visaRecord, ticketRows] = await Promise.all([
-            ctx.db
-              .query("passportDetails")
-              .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-              .unique(),
-            ctx.db
-              .query("visaRecords")
-              .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-              .unique(),
-            ctx.db
-              .query("tickets")
-              .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-              .collect(),
-          ]);
-          const ticketRowsWithPnr = await Promise.all(
-            ticketRows.map(async (ticket) => {
-              const pnr = ticket.pnrId ? await ctx.db.get(ticket.pnrId) : null;
-              return {
-                ticketNumber: ticket.ticketNumber ?? "",
-                ticketType: ticket.ticketType ?? "",
-                pnrCode: pnr?.pnrCode ?? "",
-                airline: pnr?.airline ?? "",
-                route: pnr?.route ?? "",
-                fareType: pnr?.fareType ?? "",
-              };
-            }),
-          );
+      travellers.sort(travellerExportOrder).map(async (traveller) => {
+        const [passport, visaRecord, ticketRows] = await Promise.all([
+          ctx.db
+            .query("passportDetails")
+            .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
+            .unique(),
+          ctx.db
+            .query("visaRecords")
+            .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
+            .unique(),
+          ctx.db
+            .query("tickets")
+            .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
+            .collect(),
+        ]);
+        const ticketRowsWithPnr = await Promise.all(
+          ticketRows.map(async (ticket) => {
+            const pnr = ticket.pnrId ? await ctx.db.get(ticket.pnrId) : null;
+            return {
+              ticketNumber: ticket.ticketNumber ?? "",
+              ticketType: ticket.ticketType ?? "",
+              pnrCode: pnr?.pnrCode ?? "",
+              airline: pnr?.airline ?? "",
+              route: pnr?.route ?? "",
+              fareType: pnr?.fareType ?? "",
+            };
+          }),
+        );
 
-          return {
-            travellerId: traveller._id,
-            fullName: traveller.fullName,
-            travelHub: traveller.travelHub ?? "",
-            foodPreference: traveller.foodPreference,
-            paymentType: traveller.paymentType,
-            roomType: traveller.roomType,
-            visaRequired: traveller.visaRequired,
-            visaStatus: traveller.visaStatus,
-            hotelAllocation: traveller.hotelAllocation ?? "",
-            gender: traveller.gender ?? "",
-            contactNo: traveller.contactNo ?? "",
-            specialRequests: traveller.specialRequests ?? "",
-            sourceDealerCode: traveller.sourceDealerCode ?? "",
-            sourceDealerName: traveller.sourceDealerName ?? "",
-            sourceDescription: traveller.sourceDescription ?? "",
-            sourceSoName: traveller.sourceSoName ?? "",
-            sourceRsoName: traveller.sourceRsoName ?? "",
-            sourceGroup: traveller.sourceGroup ?? "",
-            cancellation: traveller.cancellation ?? false,
-            lastMinuteDrop: traveller.lastMinuteDrop ?? false,
-            encryptedPassportPayload: passport?.encryptedPayload ?? "",
-            tickets: ticketRowsWithPnr,
-            visa: visaRecord
-              ? {
-                  status: visaRecord.status,
-                  appointmentDate: visaRecord.appointmentDate ?? "",
-                  notes: visaRecord.notes ?? "",
-                }
-              : {
-                  status: traveller.visaStatus,
-                  appointmentDate: traveller.biometricAppointmentDate ?? "",
-                  notes: "",
-                },
-          };
-        }),
+        return {
+          travellerId: traveller._id,
+          fullName: traveller.fullName,
+          surname: traveller.surname ?? "",
+          givenName: traveller.givenName ?? "",
+          travelHub: traveller.travelHub ?? "",
+          foodPreference: traveller.foodPreference,
+          paymentType: traveller.paymentType,
+          roomType: traveller.roomType,
+          visaRequired: traveller.visaRequired,
+          visaStatus: traveller.visaStatus,
+          hotelAllocation: traveller.hotelAllocation ?? "",
+          gender: traveller.gender ?? "",
+          contactNo: traveller.contactNo ?? "",
+          specialRequests: traveller.specialRequests ?? "",
+          sourceDealerCode: traveller.sourceDealerCode ?? "",
+          sourceDealerName: traveller.sourceDealerName ?? "",
+          sourceDescription: traveller.sourceDescription ?? "",
+          sourceSoName: traveller.sourceSoName ?? "",
+          sourceRsoName: traveller.sourceRsoName ?? "",
+          sourceGroup: traveller.sourceGroup ?? "",
+          sourceSheet: traveller.sourceSheet ?? "",
+          sourceRowNumber: traveller.sourceRowNumber ?? null,
+          cancellation: traveller.cancellation ?? false,
+          lastMinuteDrop: traveller.lastMinuteDrop ?? false,
+          encryptedPassportPayload: passport?.encryptedPayload ?? "",
+          tickets: ticketRowsWithPnr,
+          visa: visaRecord
+            ? {
+                status: visaRecord.status,
+                appointmentDate: visaRecord.appointmentDate ?? "",
+                notes: visaRecord.notes ?? "",
+              }
+            : {
+                status: traveller.visaStatus,
+                appointmentDate: traveller.biometricAppointmentDate ?? "",
+                notes: "",
+              },
+        };
+      }),
     );
 
     return {

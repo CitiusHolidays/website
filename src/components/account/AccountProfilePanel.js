@@ -1,6 +1,6 @@
 "use client";
 
-import { m as motion } from "motion/react";
+import { m } from "motion/react";
 import { useReducer } from "react";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { ACCOUNT_CONTAINER_VARIANTS, ProfileAlert, ProfileField, ProfileInput } from "./AccountUi";
@@ -36,8 +36,7 @@ function profileReducer(state, action) {
 
 export function AccountProfilePanel({ user }) {
   const [state, dispatch] = useReducer(profileReducer, user, createProfileState);
-  const { savedProfileData, profileForm, isEditingProfile, isSavingProfile, profileAlert } =
-    state;
+  const { savedProfileData, profileForm, isEditingProfile, isSavingProfile, profileAlert } = state;
   const profileData = savedProfileData ?? user;
 
   const memberSince = profileData?.createdAt
@@ -169,7 +168,7 @@ export function AccountProfilePanel({ user }) {
   };
 
   return (
-    <motion.div
+    <m.div
       key="profile"
       initial="hidden"
       animate="visible"
@@ -265,6 +264,6 @@ export function AccountProfilePanel({ user }) {
             : "No passport details provided"}
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { m as motion, useScroll, useTransform } from "motion/react";
+import { m, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 import { useRef } from "react";
 import HeroVideo from "./HeroVideo";
@@ -21,37 +21,37 @@ export default function HomeHeroClient() {
       ref={heroRef}
       className="relative h-screen min-h-[700px] flex items-center justify-center text-center overflow-hidden"
     >
-      <motion.div style={{ y, opacity }} className="absolute inset-0 size-full">
+      <m.div style={{ y, opacity }} className="absolute inset-0 size-full">
         <HeroVideo className="object-cover object-center size-full brightness-[0.65]" />
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900/60" />
         <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-30 mix-blend-overlay" />
-      </motion.div>
+      </m.div>
 
       <div className="relative z-10 px-4 max-w-5xl mx-auto flex flex-col items-center">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
           className="mb-6 inline-block px-4 py-1.5 rounded-full border border-white/20 bg-white/10 backdrop-blur-md text-xs font-medium tracking-wider text-white uppercase"
         >
           Premium Travel Partners
-        </motion.div>
+        </m.div>
 
         <h1 className="font-heading font-semibold text-4xl md:text-6xl lg:text-7xl text-white leading-[1.1] tracking-tight mb-8 drop-shadow-2xl">
           Your next great journey <br />
           <span className="text-blue-100 italic">starts here.</span>
         </h1>
 
-        <motion.p
+        <m.p
           className="mb-10 text-lg md:text-xl text-slate-200 max-w-2xl mx-auto leading-relaxed font-light"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut", delay: 0.3 }}
         >
           Crafted by experts. Designed for you.
-        </motion.p>
+        </m.p>
 
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut", delay: 0.5 }}
@@ -74,10 +74,10 @@ export default function HomeHeroClient() {
           >
             Explore Services
           </Link>
-        </motion.div>
+        </m.div>
       </div>
 
-      <motion.div
+      <m.div
         className="absolute bottom-10 left-1/2 -translate-x-1/2 text-white/50 flex flex-col items-center gap-2"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -85,7 +85,7 @@ export default function HomeHeroClient() {
       >
         <span className="text-[10px] uppercase tracking-widest">Scroll</span>
         <div className="w-[1px] h-12 bg-gradient-to-b from-white/50 to-transparent" />
-      </motion.div>
+      </m.div>
     </section>
   );
 }

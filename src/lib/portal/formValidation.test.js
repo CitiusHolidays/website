@@ -41,4 +41,29 @@ describe("validateModalForm", () => {
       }),
     ).toThrow("Select a lost reason.");
   });
+
+  test("requires expense category selection", () => {
+    expect(() =>
+      validateModalForm("expense", {
+        expenseType: "office",
+        expenseDate: "2026-06-15",
+        category: "",
+        cardAmount: "100",
+        paidBy: "Staff",
+      }),
+    ).toThrow("Select a category.");
+  });
+
+  test("office expenses do not require a job card", () => {
+    expect(() =>
+      validateModalForm("expense", {
+        expenseType: "office",
+        jobCardId: "",
+        expenseDate: "2026-06-15",
+        category: "Miscellaneous",
+        cardAmount: "100",
+        paidBy: "Staff",
+      }),
+    ).not.toThrow();
+  });
 });

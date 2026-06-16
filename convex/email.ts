@@ -2,17 +2,17 @@
 
 import { v } from "convex/values";
 import { Resend } from "resend";
-import { action } from "./_generated/server";
+import { internalAction } from "./_generated/server";
 import { AUTH_EMAIL_FROM } from "./lib/emailConfig";
 
-export const sendEmail = action({
+export const sendEmail = internalAction({
   args: {
     to: v.string(),
     subject: v.string(),
     html: v.string(),
     replyTo: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (_ctx, args) => {
     const resendKey = process.env.RESEND_API_KEY;
     if (!resendKey) {
       throw new Error("RESEND_API_KEY environment variable is not configured.");

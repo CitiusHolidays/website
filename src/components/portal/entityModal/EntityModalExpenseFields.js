@@ -61,7 +61,12 @@ export function EntityModalExpenseFields({
               { value: "jobCard", label: "Job Card" },
               { value: "office", label: "Office / General" },
             ]}
-            onChange={(v) => updateForm("expenseType", v)}
+            onChange={(v) =>
+              patchForm({
+                expenseType: v,
+                ...(v === "office" ? { jobCardId: "" } : {}),
+              })
+            }
           />
           {form.expenseType === "jobCard" && (
             <Select
@@ -84,9 +89,9 @@ export function EntityModalExpenseFields({
             onChange={(v) => updateForm("expenseDate", v)}
           />
           <Select
-            label="Expense Head"
+            label="Category"
             value={form.category}
-            options={EXPENSE_HEADS}
+            options={[{ value: "", label: "Select category…" }, ...EXPENSE_HEADS]}
             onChange={(v) => updateForm("category", v)}
             required
           />

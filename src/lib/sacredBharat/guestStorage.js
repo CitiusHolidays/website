@@ -1,4 +1,4 @@
-export const SACRED_BHARAT_DRAFT_KEY = "citius-sacred-bharat-draft";
+const SACRED_BHARAT_DRAFT_KEY = "citius-sacred-bharat-draft";
 
 /**
  * @returns {{ templeIds: string[], wishlist: { itemType: string, itemId: string }[] }}

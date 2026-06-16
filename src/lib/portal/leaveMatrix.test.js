@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { leaveAlertToken, LEAVE_MATRIX_ALERT_BY_EMAIL } from "./leaveMatrix.js";
+import { LEAVE_MATRIX_ALERT_BY_EMAIL, leaveAlertToken } from "./leaveMatrix.js";
 
 describe("leaveMatrix", () => {
   test("maps known employee emails to alert labels", () => {

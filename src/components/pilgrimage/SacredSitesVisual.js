@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { MapPin, Mountain, Sparkles } from "lucide-react";
-import { m as motion } from "motion/react";
 import Image from "next/image";
 import { sacredSites } from "../../data/trails";
 import { cn } from "../../utils/cn";
@@ -11,7 +11,7 @@ function SacredSiteCard({ site, index }) {
   const img = site.image;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-100px" }}
@@ -63,7 +63,7 @@ function SacredSiteCard({ site, index }) {
           </div>
 
           {/* Hover Reveal */}
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             whileHover={{ opacity: 1 }}
             className="absolute inset-0 bg-citius-blue/10 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500"
@@ -72,7 +72,7 @@ function SacredSiteCard({ site, index }) {
               <Sparkles className="size-8 text-citius-orange mx-auto mb-2" />
               <p className="text-white font-heading text-sm">Sacred Site</p>
             </div>
-          </motion.div>
+          </m.div>
         </div>
 
         {/* Content Section */}
@@ -107,7 +107,7 @@ function SacredSiteCard({ site, index }) {
           </div>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -116,7 +116,7 @@ export default function SacredSitesVisual({ className }) {
     <section className={cn("py-16 md:py-32 bg-white", className)}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -133,7 +133,7 @@ export default function SacredSitesVisual({ className }) {
             their meaning deepens the journey.
           </p>
           <div className="w-16 md:w-24 h-px bg-citius-orange/30 mx-auto mt-6 md:mt-8" />
-        </motion.div>
+        </m.div>
 
         {/* Sacred Sites Grid */}
         <div className="space-y-6 md:space-y-8">
@@ -143,7 +143,7 @@ export default function SacredSitesVisual({ className }) {
         </div>
 
         {/* Bottom Note */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -156,7 +156,7 @@ export default function SacredSitesVisual({ className }) {
               to be transformed.&rdquo;
             </p>
           </div>
-        </motion.div>
+        </m.div>
       </div>
     </section>
   );

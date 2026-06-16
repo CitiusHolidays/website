@@ -6,6 +6,8 @@ export function toPassengerImportInput(row) {
     importKind: row.importKind,
     importKey: row.importKey,
     fullName: row.fullName,
+    surname: row.surname,
+    givenName: row.givenName,
     travelHub: row.travelHub,
     foodPreference: row.foodPreference,
     guestType: row.guestType,

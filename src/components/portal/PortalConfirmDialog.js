@@ -1,6 +1,6 @@
 "use client";
 
-import { m as motion } from "motion/react";
+import { m } from "motion/react";
 import { createContext, use, useRef, useState } from "react";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 
@@ -32,7 +32,7 @@ export function PortalConfirmProvider({ children }) {
         <div
           className={`fixed inset-0 ${PORTAL_Z.confirm} grid place-items-center bg-brand-dark/40 p-4`}
         >
-          <motion.div
+          <m.div
             role="alertdialog"
             aria-modal="true"
             aria-labelledby="portal-confirm-title"
@@ -63,7 +63,7 @@ export function PortalConfirmProvider({ children }) {
                 {state.confirmLabel}
               </button>
             </div>
-          </motion.div>
+          </m.div>
         </div>
       )}
     </PortalConfirmContext.Provider>

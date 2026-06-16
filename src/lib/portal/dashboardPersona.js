@@ -53,7 +53,7 @@ export function resolveDashboardPersona(has, access = {}) {
   }
 
   if (has(P.MANAGE_CONTRACTING) && has(P.VIEW_CONTRACTING)) {
-    return persona("contracting", "Proposals sent", "active", [
+    return persona("contracting", "Proposals Sent", "active", [
       "hero",
       "quickActions",
       "periodPresets",
@@ -65,7 +65,7 @@ export function resolveDashboardPersona(has, access = {}) {
   }
 
   if (has(P.MANAGE_TICKETING) && has(P.VIEW_TICKETING)) {
-    return persona("ticketing", "Tickets pending", "active", [
+    return persona("ticketing", "Tickets Pending", "active", [
       "hero",
       "quickActions",
       "periodPresets",
@@ -102,7 +102,7 @@ export function resolveDashboardPersona(has, access = {}) {
   }
 
   if (has(P.VIEW_CONTRACTING) && !has(P.VIEW_QUERIES)) {
-    return persona("contracting", "Proposals sent", "active", [
+    return persona("contracting", "Proposals Sent", "active", [
       "hero",
       "quickActions",
       "periodPresets",

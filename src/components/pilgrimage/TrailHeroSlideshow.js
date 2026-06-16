@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
@@ -54,7 +54,7 @@ export default function TrailHeroSlideshow({ trail }) {
   return (
     <section className="relative h-screen min-h-[700px] w-full overflow-hidden bg-brand-dark">
       <AnimatePresence initial={false} mode="sync">
-        <motion.div
+        <m.div
           key={current.src}
           initial={{ opacity: 0, scale: 1.06 }}
           animate={{ opacity: 0.6, scale: 1 }}
@@ -70,7 +70,7 @@ export default function TrailHeroSlideshow({ trail }) {
             sizes="100vw"
             priority
           />
-        </motion.div>
+        </m.div>
       </AnimatePresence>
 
       <div
@@ -84,7 +84,7 @@ export default function TrailHeroSlideshow({ trail }) {
 
       {/* Full-height overlay: back link top, title + slide dots bottom — matches base SpiritualHero viewport */}
       <div className="relative z-20 flex h-full min-h-[700px] flex-col px-4 max-w-6xl mx-auto w-full pt-28 md:pt-32 pb-12 md:pb-16">
-        {/* <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="shrink-0">
+        {/* <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="shrink-0">
           <Link
             href="/pilgrimage#all-trails"
             className="inline-flex items-center gap-2 text-sm text-white/85 hover:text-white transition-colors font-medium drop-shadow-sm"
@@ -92,10 +92,10 @@ export default function TrailHeroSlideshow({ trail }) {
             <ArrowLeft className="size-4" />
             All spiritual trails
           </Link>
-        </motion.div> */}
+        </m.div> */}
 
         <div className="flex min-h-0 flex-1 flex-col justify-end">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
@@ -122,7 +122,7 @@ export default function TrailHeroSlideshow({ trail }) {
                 {trail.positioning}
               </p>
             )}
-          </motion.div>
+          </m.div>
 
           {slides.length > 1 && (
             <div className="flex justify-center md:justify-start gap-2 mt-6 pb-1">

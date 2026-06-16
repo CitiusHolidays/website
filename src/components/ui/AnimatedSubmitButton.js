@@ -1,10 +1,10 @@
 "use client";
 
-import { AnimatePresence, m as motion, useTime, useTransform } from "motion/react";
+import { AnimatePresence, m, useTime, useTransform } from "motion/react";
 
 const Badge = ({ state }) => {
   return (
-    <motion.div
+    <m.div
       style={{ ...styles.badge, gap: state === "idle" ? 0 : 8 }}
       className="bg-citius-orange text-brand-light"
       animate={
@@ -22,7 +22,7 @@ const Badge = ({ state }) => {
     >
       <Icon state={state} />
       <Label state={state} />
-    </motion.div>
+    </m.div>
   );
 };
 
@@ -45,13 +45,13 @@ const Icon = ({ state }) => {
   }
 
   return (
-    <motion.span
+    <m.span
       style={styles.iconContainer}
       animate={{ width: state === "idle" ? 0 : 20 }}
       transition={SPRING_CONFIG}
     >
       <AnimatePresence>
-        <motion.span
+        <m.span
           key={state}
           style={styles.icon}
           initial={{ y: -40, scale: 0.5, filter: "blur(6px)" }}
@@ -60,9 +60,9 @@ const Icon = ({ state }) => {
           transition={{ duration: 0.15, ease: "easeInOut" }}
         >
           {IconComponent}
-        </motion.span>
+        </m.span>
       </AnimatePresence>
-    </motion.span>
+    </m.span>
   );
 };
 
@@ -83,9 +83,9 @@ const svgProps = {
 
 function Check() {
   return (
-    <motion.svg {...svgProps}>
-      <motion.polyline points="4 12 9 17 20 6" {...animations} />
-    </motion.svg>
+    <m.svg {...svgProps}>
+      <m.polyline points="4 12 9 17 20 6" {...animations} />
+    </m.svg>
   );
 }
 
@@ -94,7 +94,7 @@ function Loader() {
   const rotate = useTransform(time, [0, 1000], [0, 360], { clamp: false });
 
   return (
-    <motion.div
+    <m.div
       style={{
         rotate,
         display: "flex",
@@ -104,19 +104,19 @@ function Loader() {
         height: ICON_SIZE,
       }}
     >
-      <motion.svg {...svgProps}>
-        <motion.path d="M21 12a9 9 0 1 1-6.219-8.56" {...animations} />
-      </motion.svg>
-    </motion.div>
+      <m.svg {...svgProps}>
+        <m.path d="M21 12a9 9 0 1 1-6.219-8.56" {...animations} />
+      </m.svg>
+    </m.div>
   );
 }
 
 function X() {
   return (
-    <motion.svg {...svgProps}>
-      <motion.line x1="6" y1="6" x2="18" y2="18" {...animations} />
-      <motion.line x1="18" y1="6" x2="6" y2="18" {...secondLineAnimation} />
-    </motion.svg>
+    <m.svg {...svgProps}>
+      <m.line x1="6" y1="6" x2="18" y2="18" {...animations} />
+      <m.line x1="18" y1="6" x2="6" y2="18" {...secondLineAnimation} />
+    </m.svg>
   );
 }
 
@@ -133,9 +133,9 @@ const secondLineAnimation = {
 
 const Label = ({ state }) => {
   return (
-    <motion.span layout style={{ position: "relative" }} transition={SPRING_CONFIG}>
+    <m.span layout style={{ position: "relative" }} transition={SPRING_CONFIG}>
       <AnimatePresence mode="sync" initial={false}>
-        <motion.div
+        <m.div
           key={state}
           style={{ textWrap: "nowrap" }}
           initial={{ y: -20, opacity: 0, filter: "blur(10px)", position: "absolute" }}
@@ -144,9 +144,9 @@ const Label = ({ state }) => {
           transition={{ duration: 0.2, ease: "easeInOut" }}
         >
           {STATES[state]}
-        </motion.div>
+        </m.div>
       </AnimatePresence>
-    </motion.span>
+    </m.span>
   );
 };
 

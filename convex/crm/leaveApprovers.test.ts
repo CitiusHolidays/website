@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  getLeaveApprovalActionsForApprover,
-  resolveAlertLabelToStaff,
-} from "./leaveApprovers";
+import { getLeaveApprovalActionsForApprover, resolveAlertLabelToStaff } from "./leaveApprovers";
 
 const staffRows = [
   {

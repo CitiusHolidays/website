@@ -5,7 +5,7 @@
  * Razorpay is the standard payment gateway for UPI, Netbanking, and Cards in India.
  */
 
-import crypto from "crypto";
+import crypto from "node:crypto";
 import Razorpay from "razorpay";
 
 // Validate environment variables
@@ -83,11 +83,11 @@ export function verifyPaymentSignature({ orderId, paymentId, signature }) {
 
   // Razorpay signature verification formula:
   // signature = HMAC-SHA256(orderId + "|" + paymentId, secret)
-  const body = orderId + "|" + paymentId;
+  const body = `${orderId}|${paymentId}`;
 
   const expectedSignature = crypto.createHmac("sha256", keySecret).update(body).digest("hex");
 
-  return expectedSignature === signature;
+  return timingSafeSignatureEqual(expectedSignature, signature);
 }
 
 /**
@@ -106,7 +106,21 @@ export function verifyWebhookSignature(body, signature, webhookSecret) {
 
   const expectedSignature = crypto.createHmac("sha256", webhookSecret).update(body).digest("hex");
 
-  return expectedSignature === signature;
+  return timingSafeSignatureEqual(expectedSignature, signature);
+}
+
+function timingSafeSignatureEqual(expectedSignature, signature) {
+  if (typeof signature !== "string") {
+    return false;
+  }
+
+  const expected = Buffer.from(expectedSignature, "hex");
+  const received = Buffer.from(signature, "hex");
+  if (expected.length !== received.length || received.length === 0) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(expected, received);
 }
 
 /**

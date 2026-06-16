@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { JOB_CARD_MODALS } from "./modalLifecycle";
 import { executeModalCommand } from "./modalCommandExecutor";
 
 function makeDeps(overrides = {}) {
@@ -13,6 +14,7 @@ function makeDeps(overrides = {}) {
       has: () => false,
       queries: [],
       team: [],
+      jobCardModals: JOB_CARD_MODALS,
       pendingQueryFiles: [],
       pendingProposalFiles: [],
       pendingExpenseProofFiles: [],
@@ -23,6 +25,12 @@ function makeDeps(overrides = {}) {
       updateQuery: record("updateQuery"),
       assignContracting: record("assignContracting"),
       assignQueryTicketing: record("assignQueryTicketing"),
+      assignQueryTeams: record("assignQueryTeams"),
+      assignJobCardCreator: record("assignJobCardCreator"),
+      addProposalCollaborator: record("addProposalCollaborator"),
+      removeProposalCollaborator: record("removeProposalCollaborator"),
+      addJobCardCollaborator: record("addJobCardCollaborator"),
+      removeJobCardCollaborator: record("removeJobCardCollaborator"),
       assignContractingOwner: record("assignContractingOwner"),
       assignOperationsOwner: record("assignOperationsOwner"),
       assignTicketingOwner: record("assignTicketingOwner"),
@@ -136,5 +144,95 @@ describe("executeModalCommand", () => {
       "uploadQueryFiles",
       expect.objectContaining({ queryId: "query_1", files: pendingQueryFiles }),
     ]);
+  });
+  test("assignQueryTeams calls the atomic mutation once", async () => {
+    const { deps, calls } = makeDeps();
+    await executeModalCommand({
+      modal: "assignQueryTeams",
+      form: {
+        queryId: "query_1",
+        staffId: "staff_contracting",
+        ticketingStaffId: "staff_ticketing",
+      },
+      deps,
+    });
+    expect(calls).toEqual([
+      [
+        "assignQueryTeams",
+        {
+          queryId: "query_1",
+          contractingStaffId: "staff_contracting",
+          ticketingStaffId: "staff_ticketing",
+        },
+      ],
+    ]);
+  });
+
+  test("assignJobCardCreator calls the assignment mutation", async () => {
+    const { deps, calls } = makeDeps();
+    await executeModalCommand({
+      modal: "assignJobCardCreator",
+      form: { queryId: "query_1", staffId: "staff_accounts" },
+      deps,
+    });
+    expect(calls).toEqual([
+      ["assignJobCardCreator", { queryId: "query_1", staffId: "staff_accounts" }],
+    ]);
+  });
+
+  test("collaborator modals call proposal and job card share mutations", async () => {
+    const { deps, calls } = makeDeps();
+    await executeModalCommand({
+      modal: "addProposalCollaborator",
+      form: { proposalId: "proposal_1", staffId: "staff_ops" },
+      deps,
+    });
+    await executeModalCommand({
+      modal: "addJobCardCollaborator",
+      form: { jobCardId: "job_1", staffId: "staff_ops" },
+      deps,
+    });
+    await executeModalCommand({
+      modal: "removeProposalCollaborator",
+      form: { proposalId: "proposal_1", staffId: "staff_ops" },
+      deps,
+    });
+    await executeModalCommand({
+      modal: "removeJobCardCollaborator",
+      form: { jobCardId: "job_1", staffId: "staff_ops" },
+      deps,
+    });
+    expect(calls).toEqual([
+      ["addProposalCollaborator", { proposalId: "proposal_1", staffId: "staff_ops" }],
+      ["addJobCardCollaborator", { jobCardId: "job_1", staffId: "staff_ops" }],
+      ["removeProposalCollaborator", { proposalId: "proposal_1", staffId: "staff_ops" }],
+      ["removeJobCardCollaborator", { jobCardId: "job_1", staffId: "staff_ops" }],
+    ]);
+  });
+
+  test("office/general expenses do not require a job card", async () => {
+    const { deps, calls } = makeDeps();
+    await executeModalCommand({
+      modal: "expense",
+      form: {
+        expenseType: "office",
+        jobCardId: "",
+        expenseDate: "2026-06-15",
+        category: "Miscellaneous",
+        cardAmount: "500",
+        paidBy: "Accounts",
+      },
+      deps,
+    });
+    expect(calls).toEqual([
+      [
+        "createExpense",
+        expect.objectContaining({
+          category: "Miscellaneous",
+          paidBy: "Accounts",
+        }),
+      ],
+    ]);
+    expect(calls[0][1].jobCardId).toBeUndefined();
   });
 });

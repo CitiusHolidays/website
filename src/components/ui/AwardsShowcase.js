@@ -1,5 +1,5 @@
 import { Award, Medal, Ribbon, Star, Trophy } from "lucide-react";
-import { m as motion } from "motion/react";
+import { m } from "motion/react";
 import { cn } from "../../utils/cn";
 
 const awards = [
@@ -42,7 +42,7 @@ const itemVariants = {
 
 export default function AwardsShowcase({ className }) {
   return (
-    <motion.section
+    <m.section
       className={cn("py-20 bg-gradient-to-br from-citius-blue to-brand-dark text-white", className)}
       initial="hidden"
       whileInView="show"
@@ -50,7 +50,7 @@ export default function AwardsShowcase({ className }) {
       variants={containerVariants}
     >
       <div className="px-4 mx-auto max-w-7xl text-center">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
@@ -61,28 +61,28 @@ export default function AwardsShowcase({ className }) {
             Our commitment to quality and service has been acknowledged by industry leaders
             worldwide.
           </p>
-        </motion.div>
+        </m.div>
 
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {awards.map(({ title, year, Icon }) => (
-            <motion.div
+            <m.div
               key={title}
               className="p-8 text-center bg-white rounded-xl shadow-xl hover:shadow-2xl transition-shadow duration-300"
               variants={itemVariants}
               whileHover={{ scale: 1.05, y: -5 }}
             >
-              <motion.div
+              <m.div
                 whileHover={{ rotate: 15, scale: 1.1 }}
                 className="inline-block p-3 mb-4 rounded-full bg-brand-light"
               >
                 <Icon className="size-10 text-citius-orange" />
-              </motion.div>
+              </m.div>
               <h3 className="mb-2 text-lg font-bold text-brand-dark leading-tight">{title}</h3>
               <p className="text-sm font-medium text-brand-muted">{year}</p>
-            </motion.div>
+            </m.div>
           ))}
         </div>
       </div>
-    </motion.section>
+    </m.section>
   );
 }

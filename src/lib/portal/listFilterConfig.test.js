@@ -28,16 +28,20 @@ describe("listFilterConfig", () => {
       PROPOSAL_STATUSES,
     );
     expect(
-      LIST_FILTER_CONFIG["job-cards"].find((f) => f.field === "status")?.options
-        ?.map((o) => o.value)
+      LIST_FILTER_CONFIG["job-cards"]
+        .find((f) => f.field === "status")
+        ?.options?.map((o) => o.value)
         .filter(Boolean),
     ).toEqual(JOB_CARD_STATUSES);
     expect(LIST_FILTER_CONFIG.visa[0].options?.map((o) => o.value).filter(Boolean)).toEqual(
       VISA_STATUSES,
     );
-    expect(LIST_FILTER_CONFIG.queries.find((f) => f.field === "queryType")?.options
-      ?.map((o) => o.value)
-      .filter(Boolean)).toEqual(QUERY_TYPES);
+    expect(
+      LIST_FILTER_CONFIG.queries
+        .find((f) => f.field === "queryType")
+        ?.options?.map((o) => o.value)
+        .filter(Boolean),
+    ).toEqual(QUERY_TYPES);
   });
 
   test("team view uses directory filters without date-scoped fields", () => {

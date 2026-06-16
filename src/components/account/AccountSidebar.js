@@ -1,13 +1,13 @@
 "use client";
 
+import { m } from "motion/react";
 import { LogOut, Map as MapIcon, Settings, User } from "lucide-react";
-import { m as motion } from "motion/react";
 import { NavButton } from "./AccountUi";
 
 export function AccountSidebar({ activeTab, onTabChange, onLogout, isLoggingOut }) {
   return (
     <div className="lg:col-span-3">
-      <motion.div
+      <m.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.4 }}
@@ -44,7 +44,7 @@ export function AccountSidebar({ activeTab, onTabChange, onLogout, isLoggingOut 
             <span>{isLoggingOut ? "Signing out…" : "Sign Out"}</span>
           </button>
         </nav>
-      </motion.div>
+      </m.div>
     </div>
   );
 }

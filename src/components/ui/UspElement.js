@@ -1,11 +1,11 @@
 "use client";
 
+import { m } from "motion/react";
 import { CheckCircle2 } from "lucide-react";
-import { m as motion } from "motion/react";
 
 export default function UspElement({ title }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, x: -20 }}
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
@@ -18,6 +18,6 @@ export default function UspElement({ title }) {
       <span className="font-medium text-brand-dark group-hover:text-blue-900 transition-colors">
         {title}
       </span>
-    </motion.div>
+    </m.div>
   );
 }

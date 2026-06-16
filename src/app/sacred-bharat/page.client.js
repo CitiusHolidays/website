@@ -3,13 +3,15 @@
 import Link from "next/link";
 import AnimatedSection from "@/components/layout/AnimatedSection";
 import BadgeShelf from "@/components/sacredBharat/BadgeShelf";
-import FamilyComingSoon from "@/components/sacredBharat/FamilyComingSoon";
+import ChallengeGrid from "@/components/sacredBharat/ChallengeGrid";
 import GuestSaveBanner from "@/components/sacredBharat/GuestSaveBanner";
 import LeaderboardTable from "@/components/sacredBharat/LeaderboardTable";
 import PilgrimageLegacy from "@/components/sacredBharat/PilgrimageLegacy";
+import PrivateGroupPanel from "@/components/sacredBharat/PrivateGroupPanel";
 import ProgressSummary from "@/components/sacredBharat/ProgressSummary";
 import SacredBharatHero from "@/components/sacredBharat/SacredBharatHero";
 import TrailCardGrid from "@/components/sacredBharat/TrailCardGrid";
+import YatriPassportProfilePanel from "@/components/sacredBharat/YatriPassportProfilePanel";
 
 export default function SacredBharatPageClient() {
   return (
@@ -19,6 +21,7 @@ export default function SacredBharatPageClient() {
       <section className="py-10 md:py-12 border-b border-brand-light">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
           <GuestSaveBanner />
+          <YatriPassportProfilePanel />
           <p className="font-sans text-xs text-brand-muted text-center max-w-2xl mx-auto">
             Visits are self-declared on an honor system , a personal record of your spiritual
             journey, not verified darshan proof.
@@ -31,6 +34,24 @@ export default function SacredBharatPageClient() {
       </AnimatedSection>
 
       <TrailCardGrid />
+
+      <AnimatedSection className="py-12 px-4 max-w-6xl mx-auto">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="font-heading text-2xl md:text-3xl text-brand-dark">Challenges</h2>
+            <p className="mt-2 font-sans text-sm text-brand-muted">
+              Curated goals based on temple visits and trail progress.
+            </p>
+          </div>
+          <Link
+            href="/sacred-bharat/challenges"
+            className="text-sm font-medium text-citius-blue hover:text-citius-orange"
+          >
+            All challenges →
+          </Link>
+        </div>
+        <ChallengeGrid limit={5} />
+      </AnimatedSection>
 
       <AnimatedSection className="py-16 md:py-20 px-4 max-w-6xl mx-auto">
         <div className="grid gap-12 lg:grid-cols-2">
@@ -48,7 +69,7 @@ export default function SacredBharatPageClient() {
       </AnimatedSection>
 
       <AnimatedSection className="py-12 px-4 max-w-6xl mx-auto">
-        <FamilyComingSoon />
+        <PrivateGroupPanel />
       </AnimatedSection>
 
       <section className="py-16 md:py-24 bg-white border-t border-brand-light">

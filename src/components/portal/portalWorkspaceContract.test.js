@@ -39,6 +39,25 @@ describe("portal workspace modularization contract", () => {
     expect(missingKeys).toEqual([]);
   });
 
+  test("list views use compact toolbar instead of legacy page header", () => {
+    const workspace = read(WORKSPACE_FILE);
+
+    expect(workspace).toContain("PortalListToolbar");
+    expect(workspace).not.toContain("SavedViewsBar");
+    expect(workspace).not.toContain("text-3xl md:text-4xl");
+    expect(workspace).not.toContain("function PageHeader");
+    expect(workspace).not.toContain("function DashboardQueryTypeBreakdown");
+  });
+
+  test("dashboard skips duplicate workspace header band", () => {
+    const workspace = read(WORKSPACE_FILE);
+    const headerBlock = workspace.match(/function PortalWorkspaceHeader[\s\S]*?^}/m)?.[0] || "";
+
+    expect(headerBlock).toMatch(
+      /if \(w\.view === "dashboard"\)[\s\S]*return w\.error && !w\.modal \?/,
+    );
+  });
+
   test("dashboard receives the handlers used by quick actions and period presets", () => {
     const workspace = read(WORKSPACE_FILE);
     const dashboardCall = workspace.match(/<DashboardView[\s\S]*?\/>/)?.[0] || "";

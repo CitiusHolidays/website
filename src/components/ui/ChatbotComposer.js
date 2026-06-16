@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { Send } from "lucide-react";
-import { m as motion } from "motion/react";
 
 export function ChatbotComposer({ input, inputRows, isLoading, onInputChange, onSubmit }) {
   return (
@@ -26,7 +26,7 @@ export function ChatbotComposer({ input, inputRows, isLoading, onInputChange, on
             }
           }}
         />
-        <motion.button
+        <m.button
           type="submit"
           disabled={isLoading || !input.trim()}
           whileHover={{ scale: 1.05 }}
@@ -34,7 +34,7 @@ export function ChatbotComposer({ input, inputRows, isLoading, onInputChange, on
           className="bg-green-600 hover:bg-green-600/90 text-white p-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-sm hover:shadow-md self-end"
         >
           <Send size={18} />
-        </motion.button>
+        </m.button>
       </form>
     </div>
   );

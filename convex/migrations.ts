@@ -1,6 +1,11 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
+import {
+  isLegacyRoomCode,
+  resolveRoomingEntryRoomType,
+  resolveTravellerRoomFields,
+} from "./lib/roomTypes";
 
 const toTimestamp = (value: unknown, fallback = Date.now()) => {
   if (!value) {
@@ -210,6 +215,120 @@ export const importBookings = mutation({
   },
 });
 
+export const migrateRoomTypes = mutation({
+  args: {
+    secret: v.string(),
+  },
+  returns: v.object({
+    travellersUpdated: v.number(),
+    travellerRoomTypesUpdated: v.number(),
+    roomingEntriesUpdated: v.number(),
+    legacyTravellerRoomTypes: v.number(),
+    legacyRoomingRoomTypes: v.number(),
+    mismatchedTravellers: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    assertMigrationSecret(args.secret);
+
+    const travellers = await ctx.db.query("travellers").collect();
+    let legacyTravellerRoomTypes = 0;
+    let mismatchedTravellers = 0;
+    let travellersUpdated = 0;
+    let travellerRoomTypesUpdated = 0;
+
+    const travellerPatches: Array<{
+      id: (typeof travellers)[number]["_id"];
+      patch: Partial<Doc<"travellers">>;
+    }> = [];
+
+    for (const traveller of travellers) {
+      if (isLegacyRoomCode(traveller.roomType)) {
+        legacyTravellerRoomTypes += 1;
+      }
+
+      const resolved = resolveTravellerRoomFields(traveller.roomType, traveller.hotelAllocation);
+      if (resolved.roomType && String(traveller.roomType) !== resolved.roomType) {
+        mismatchedTravellers += 1;
+      }
+
+      const patch: Partial<Doc<"travellers">> = {};
+
+      if (resolved.roomType && String(traveller.roomType) !== resolved.roomType) {
+        patch.roomType = resolved.roomType;
+      }
+      if (
+        resolved.hotelAllocation !== undefined &&
+        (traveller.hotelAllocation ?? "") !== resolved.hotelAllocation
+      ) {
+        patch.hotelAllocation = resolved.hotelAllocation;
+      }
+
+      if (Object.keys(patch).length === 0) {
+        continue;
+      }
+
+      patch.updatedAt = Date.now();
+      travellerPatches.push({ id: traveller._id, patch });
+    }
+
+    await Promise.all(
+      travellerPatches.map(async ({ id, patch }) => {
+        await ctx.db.patch(id, patch);
+      }),
+    );
+
+    travellersUpdated = travellerPatches.length;
+    travellerRoomTypesUpdated = travellerPatches.filter(
+      ({ patch }) => patch.roomType !== undefined,
+    ).length;
+
+    const roomingEntries = await ctx.db.query("roomingListEntries").collect();
+    let legacyRoomingRoomTypes = 0;
+    let roomingEntriesUpdated = 0;
+
+    const roomingPatches: Array<{
+      id: (typeof roomingEntries)[number]["_id"];
+      patch: Pick<Doc<"roomingListEntries">, "roomType" | "updatedAt">;
+    }> = [];
+
+    for (const entry of roomingEntries) {
+      if (isLegacyRoomCode(entry.roomType)) {
+        legacyRoomingRoomTypes += 1;
+      }
+
+      const roomType = resolveRoomingEntryRoomType(entry.roomType);
+      if (!roomType || String(entry.roomType) === roomType) {
+        continue;
+      }
+
+      roomingPatches.push({
+        id: entry._id,
+        patch: {
+          roomType,
+          updatedAt: Date.now(),
+        },
+      });
+    }
+
+    await Promise.all(
+      roomingPatches.map(async ({ id, patch }) => {
+        await ctx.db.patch(id, patch);
+      }),
+    );
+
+    roomingEntriesUpdated = roomingPatches.length;
+
+    return {
+      travellersUpdated,
+      travellerRoomTypesUpdated,
+      roomingEntriesUpdated,
+      legacyTravellerRoomTypes,
+      legacyRoomingRoomTypes,
+      mismatchedTravellers,
+    };
+  },
+});
+
 export const getStats = query({
   args: {},
   handler: async (ctx) => {
@@ -242,27 +361,5 @@ export const getStats = query({
       bookingsByStatus,
       seatTotals,
     };
-  },
-});
-
-export const fixQuerySourceManual = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const rows = await ctx.db.query("queries").collect();
-    const rowsToUpdate = rows.filter((row) => (row.source as string | undefined) === "Manual");
-    await Promise.all(rowsToUpdate.map((row) => ctx.db.patch(row._id, { source: "Client" })));
-
-    return { updated: rowsToUpdate.length, total: rows.length };
-  },
-});
-
-export const migrateLeadStageClosedToLost = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const rows = await ctx.db.query("queries").collect();
-    const rowsToUpdate = rows.filter((row) => row.leadStage === "Closed");
-    await Promise.all(rowsToUpdate.map((row) => ctx.db.patch(row._id, { leadStage: "Lost" })));
-
-    return { updated: rowsToUpdate.length, total: rows.length };
   },
 });

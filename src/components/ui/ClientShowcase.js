@@ -1,7 +1,7 @@
-"use client";
+import { m } from "motion/react";
 
-import { m as motion } from "motion/react";
-import { Ticker } from "motion-plus/react";
+("use client");
+
 import Image from "next/image";
 import Acer from "@/static/clients/acer.webp";
 import Adani from "@/static/clients/adani.webp";
@@ -29,16 +29,17 @@ import Volvo from "@/static/clients/volvo.webp";
 import Wockhardt from "@/static/clients/wockhardt.webp";
 import YesBank from "@/static/clients/yesbank.webp";
 import { cn } from "../../utils/cn";
+import { Ticker } from "motion-plus/react";
 
 function ClientBox({ src, alt }) {
   return (
-    <motion.div
+    <m.div
       className="relative flex items-center justify-center overflow-hidden"
       style={{ width: 180, height: 100 }}
       initial="hideInfo"
       whileHover="showInfo"
     >
-      <motion.div
+      <m.div
         className="flex items-center justify-center size-full"
         variants={{
           hideInfo: { scale: 1, filter: "blur(0px)", opacity: 1 },
@@ -52,8 +53,8 @@ function ClientBox({ src, alt }) {
           height={60}
           style={{ width: "100%", height: "100%", objectFit: "contain" }}
         />
-      </motion.div>
-      <motion.div
+      </m.div>
+      <m.div
         className="absolute inset-0 flex items-center justify-center p-2 text-[16px] font-semibold uppercase text-[#222] bg-white/70"
         style={{ textShadow: "1px 1px 0px #fff" }}
         variants={{
@@ -62,8 +63,8 @@ function ClientBox({ src, alt }) {
         }}
       >
         {alt}
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }
 
@@ -99,7 +100,7 @@ export default function ClientShowcase({ className }) {
   const items = clients.map((logo) => <ClientBox key={logo.alt} src={logo.src} alt={logo.alt} />);
 
   return (
-    <motion.section
+    <m.section
       initial={{ opacity: 0, y: 40 }}
       whileInView={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, delay: 0.2 }}
@@ -123,6 +124,6 @@ export default function ClientShowcase({ className }) {
         }}
         gap={10}
       />
-    </motion.section>
+    </m.section>
   );
 }

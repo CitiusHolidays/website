@@ -1,15 +1,10 @@
 "use client";
 
-import imageUrlBuilder from "@sanity/image-url";
-import { m as motion } from "motion/react";
+import { m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { formatDisplayDate } from "@/lib/formatDate";
-import { client } from "@/sanity/client";
-
-const { projectId, dataset } = client.config();
-const urlFor = (source) =>
-  projectId && dataset ? imageUrlBuilder({ projectId, dataset }).image(source) : null;
+import { urlFor } from "@/sanity/imageUrl";
 
 export default function BlogPageClient({ posts }) {
   return (
@@ -18,26 +13,26 @@ export default function BlogPageClient({ posts }) {
       <div className="min-h-screen bg-[url('/gallery/bgfooter.webp')] bg-cover bg-center">
         <main className="container mx-auto max-w-6xl pt-20 p-8">
           <div className="mb-12 text-center">
-            <motion.h1
+            <m.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
               className="text-5xl md:text-6xl font-bold text-citius-blue font-heading mb-4"
             >
               Latest Posts
-            </motion.h1>
-            <motion.p
+            </m.h1>
+            <m.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
               className="text-xl text-brand-muted max-w-2xl mx-auto"
             >
               Discover our latest thoughts, insights, and stories from our blog
-            </motion.p>
+            </m.p>
           </div>
 
           {posts.length > 0 ? (
-            <motion.div
+            <m.div
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
               initial="hidden"
               animate="show"
@@ -48,7 +43,7 @@ export default function BlogPageClient({ posts }) {
               {posts.map((post, index) => {
                 const postImageUrl = post.mainImage ? urlFor(post.mainImage).url() : null;
                 return (
-                  <motion.article
+                  <m.article
                     key={post._id}
                     className="group bg-white rounded-2xl border border-brand-border hover:border-citius-blue/30 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden"
                     variants={{
@@ -131,10 +126,10 @@ export default function BlogPageClient({ posts }) {
                         </div>
                       </div>
                     </Link>
-                  </motion.article>
+                  </m.article>
                 );
               })}
-            </motion.div>
+            </m.div>
           ) : (
             <div className="text-center py-16">
               <div className="bg-brand-light rounded-2xl border border-brand-border p-12 max-w-md mx-auto">

@@ -3,6 +3,15 @@
 import { Input, MultiSelect, Select } from "@/components/portal/PortalModalForm";
 import { PORTAL_ROLES } from "@/lib/portal/constants";
 
+function staffOptionsExcluding(team, excludedId) {
+  return team.reduce((options, member) => {
+    if (member.id !== excludedId) {
+      options.push({ value: member.id, label: member.name });
+    }
+    return options;
+  }, []);
+}
+
 export function EntityModalStaffFields({
   modal,
   form,
@@ -79,6 +88,15 @@ export function EntityModalStaffFields({
             value={form.leaveHeadApproverId}
             options={leaveHeadApproverOptions}
             onChange={(v) => updateForm("leaveHeadApproverId", v)}
+          />
+          <Select
+            label="Reporting Manager"
+            value={form.reportingManagerStaffId}
+            options={[
+              { value: "", label: form.reportingManagerName || "Select reporting manager..." },
+              ...staffOptionsExcluding(team, form.staffId),
+            ]}
+            onChange={(v) => updateForm("reportingManagerStaffId", v)}
           />
           <div className="md:col-span-2 rounded-xl border border-brand-border bg-brand-light/70 px-4 py-3 text-sm text-brand-muted">
             First approval goes to this head or director. HR always gives the second approval after

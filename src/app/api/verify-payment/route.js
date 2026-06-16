@@ -9,54 +9,26 @@
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation } from "@/lib/auth-server";
+import { verifyPaymentRequest } from "@/lib/paymentVerification";
 import { verifyPaymentSignature } from "@/lib/razorpay";
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, booking_id } = body;
+    const { booking_id } = body;
 
-    // TODO(payment-security): when Razorpay webhook/server secrets are ready, move
-    // payment status mutations behind a server-only secret or internal action.
-
-    // Validate required fields
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      return NextResponse.json(
-        { error: "Missing payment verification parameters" },
-        { status: 400 },
-      );
-    }
-
-    // Verify the payment signature
-    const isValid = verifyPaymentSignature({
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
-      signature: razorpay_signature,
+    const result = await verifyPaymentRequest({
+      body,
+      verifySignature: verifyPaymentSignature,
+      confirmBooking: (args) => fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, args),
     });
 
-    if (!isValid) {
-      console.error("Payment signature verification failed:", {
-        orderId: razorpay_order_id,
-        paymentId: razorpay_payment_id,
-      });
-
-      void booking_id;
-
-      return NextResponse.json(
-        { error: "Payment verification failed. Please contact support." },
-        { status: 400 },
-      );
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
-    const confirmed = await fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, {
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
-      signature: razorpay_signature,
-    });
-
-    if (!confirmed?.success) {
-      return NextResponse.json({ error: "Booking not found for this order" }, { status: 404 });
-    }
+    void booking_id;
+    const { confirmed } = result;
 
     if (confirmed.alreadyConfirmed) {
       return NextResponse.json({

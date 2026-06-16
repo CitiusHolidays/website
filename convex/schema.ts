@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { roomTypeValidator } from "./lib/roomTypeValidators";
 
 const bookingStatus = v.union(
   v.literal("pending"),
@@ -17,6 +18,7 @@ const staffRole = v.union(
   v.literal("Contracting"),
   v.literal("Contracting Head"),
   v.literal("Accounts"),
+  v.literal("Accounts Head"),
   v.literal("Operations"),
   v.literal("Operations Head"),
   v.literal("Ticketing"),
@@ -115,13 +117,7 @@ const paymentType = v.union(
   v.literal("Upgraded Self Paid"),
 );
 
-const roomType = v.union(
-  v.literal("SGL"),
-  v.literal("Twin"),
-  v.literal("DBL"),
-  v.literal("Child with Bed"),
-  v.literal("Family Room"),
-);
+const roomType = roomTypeValidator;
 
 const foodPreference = v.union(
   v.literal("Veg"),
@@ -253,6 +249,8 @@ export default defineSchema({
     confirmationDate: v.optional(v.string()),
     leavePolicyGroup: v.optional(v.string()),
     leaveHeadApproverId: v.optional(v.id("staffUsers")),
+    reportingManagerName: v.optional(v.string()),
+    reportingManagerStaffId: v.optional(v.id("staffUsers")),
     maternityEventsUsed: v.optional(v.number()),
     paternityEventsUsed: v.optional(v.number()),
     marriageLeaveUsed: v.optional(v.boolean()),
@@ -310,6 +308,8 @@ export default defineSchema({
     contractingOwnerName: v.optional(v.string()),
     ticketingOwnerId: v.optional(v.string()),
     ticketingOwnerName: v.optional(v.string()),
+    jobCardCreatorStaffId: v.optional(v.id("staffUsers")),
+    jobCardCreatorName: v.optional(v.string()),
     notes: v.optional(v.string()),
     contractingLandCost: v.optional(v.number()),
     contractingAirlinesCost: v.optional(v.number()),
@@ -328,7 +328,8 @@ export default defineSchema({
     .index("by_salesOwnerId", ["salesOwnerId"])
     .index("by_contractingOwnerId", ["contractingOwnerId"])
     .index("by_ticketingOwnerId", ["ticketingOwnerId"])
-    .index("by_queryType_createdAt", ["queryType", "createdAt"]),
+    .index("by_queryType_createdAt", ["queryType", "createdAt"])
+    .index("by_createdAt", ["createdAt"]),
 
   queryAttachments: defineTable({
     queryId: v.id("queries"),
@@ -364,13 +365,18 @@ export default defineSchema({
     finalizedPdfFileName: v.optional(v.string()),
     finalizedPdfUploadedAt: v.optional(v.number()),
     finalizedPdfUploadedBy: v.optional(v.string()),
+    collaboratorStaffIds: v.optional(v.array(v.id("staffUsers"))),
+    lastEditedBy: v.optional(v.string()),
+    lastEditedByName: v.optional(v.string()),
+    lastEditedAt: v.optional(v.number()),
     createdBy: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_queryId", ["queryId"])
     .index("by_createdBy", ["createdBy"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_createdAt", ["createdAt"]),
 
   proposalQueryLinks: defineTable({
     proposalId: v.id("proposals"),
@@ -423,6 +429,10 @@ export default defineSchema({
     operationsOwnerName: v.optional(v.string()),
     ticketingOwnerId: v.optional(v.string()),
     ticketingOwnerName: v.optional(v.string()),
+    collaboratorStaffIds: v.optional(v.array(v.id("staffUsers"))),
+    lastEditedBy: v.optional(v.string()),
+    lastEditedByName: v.optional(v.string()),
+    lastEditedAt: v.optional(v.number()),
     tourManagerId: v.optional(v.id("tourManagerAssignments")),
     tourManagerName: v.optional(v.string()),
     status: v.union(
@@ -444,11 +454,14 @@ export default defineSchema({
     .index("by_contractingOwnerId", ["contractingOwnerId"])
     .index("by_operationsOwnerId", ["operationsOwnerId"])
     .index("by_ticketingOwnerId", ["ticketingOwnerId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_createdAt", ["createdAt"]),
 
   travellers: defineTable({
     jobCardId: v.id("jobCards"),
     fullName: v.string(),
+    surname: v.optional(v.string()),
+    givenName: v.optional(v.string()),
     travelHub: v.optional(v.string()),
     foodPreference,
     guestType,
@@ -610,7 +623,8 @@ export default defineSchema({
     .index("by_jobCardId", ["jobCardId"])
     .index("by_travellerId", ["travellerId"])
     .index("by_pnrId", ["pnrId"])
-    .index("by_ticketStatus", ["ticketStatus"]),
+    .index("by_ticketStatus", ["ticketStatus"])
+    .index("by_createdAt", ["createdAt"]),
 
   seatAllocations: defineTable({
     jobCardId: v.id("jobCards"),
@@ -803,7 +817,16 @@ export default defineSchema({
     amount: v.number(),
     paidBy: v.string(),
     proofAttachmentId: v.optional(v.id("attachments")),
-    approvalStatus: v.union(v.literal("Pending"), v.literal("Approved"), v.literal("Rejected")),
+    approvalStatus,
+    managerReviewStatus: v.optional(reviewStatus),
+    managerApproverStaffId: v.optional(v.id("staffUsers")),
+    managerReviewedBy: v.optional(v.string()),
+    managerReviewedByName: v.optional(v.string()),
+    managerReviewedAt: v.optional(v.number()),
+    financeReviewStatus: v.optional(reviewStatus),
+    financeReviewedBy: v.optional(v.string()),
+    financeReviewedByName: v.optional(v.string()),
+    financeReviewedAt: v.optional(v.number()),
     reimbursementStatus: v.union(
       v.literal("Not Submitted"),
       v.literal("Pending"),
@@ -874,7 +897,47 @@ export default defineSchema({
   })
     .index("by_recipientUserId", ["recipientUserId"])
     .index("by_recipientRole", ["recipientRole"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .index("by_recipientUserId_createdAt", ["recipientUserId", "createdAt"])
+    .index("by_recipientRole_createdAt", ["recipientRole", "createdAt"]),
+
+  portalSavedViews: defineTable({
+    ownerAuthUserId: v.optional(v.string()),
+    ownerStaffId: v.optional(v.id("staffUsers")),
+    sharedRole: v.optional(staffRole),
+    name: v.string(),
+    view: v.string(),
+    pathname: v.string(),
+    filterState: v.any(),
+    isFavorite: v.boolean(),
+    isPinnedToDashboard: v.boolean(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_ownerAuthUserId", ["ownerAuthUserId"])
+    .index("by_sharedRole", ["sharedRole"])
+    .index("by_view", ["view"])
+    .index("by_createdBy", ["createdBy"]),
+
+  portalWorkflowRules: defineTable({
+    key: v.string(),
+    enabled: v.boolean(),
+    thresholdHours: v.optional(v.number()),
+    recipientRole: v.optional(staffRole),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  portalWorkflowRuleRuns: defineTable({
+    ruleKey: v.string(),
+    entityType: v.string(),
+    entityId: v.string(),
+    lastTriggeredAt: v.number(),
+  })
+    .index("by_ruleKey", ["ruleKey"])
+    .index("by_entity", ["entityType", "entityId"])
+    .index("by_rule_entity", ["ruleKey", "entityType", "entityId"]),
 
   dropdownOptions: defineTable({
     category: v.string(),
@@ -962,9 +1025,29 @@ export default defineSchema({
     authUserId: v.string(),
     templeId: v.string(),
     visitedAt: v.number(),
+    visitedOn: v.optional(v.string()),
+    note: v.optional(v.string()),
+    source: v.optional(v.union(v.literal("self"), v.literal("citius_booking"))),
+    citiusBookingId: v.optional(v.id("bookings")),
   })
     .index("by_authUserId", ["authUserId"])
     .index("by_authUserId_templeId", ["authUserId", "templeId"]),
+
+  sacredBharatProfiles: defineTable({
+    authUserId: v.string(),
+    slug: v.string(),
+    displayName: v.string(),
+    bio: v.optional(v.string()),
+    homeCity: v.optional(v.string()),
+    isPublic: v.boolean(),
+    shareWishlist: v.boolean(),
+    shareRecentVisits: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_authUserId", ["authUserId"])
+    .index("by_slug", ["slug"])
+    .index("by_isPublic", ["isPublic"]),
 
   sacredBharatWishlist: defineTable({
     authUserId: v.string(),
@@ -974,4 +1057,25 @@ export default defineSchema({
   })
     .index("by_authUserId", ["authUserId"])
     .index("by_authUserId_item", ["authUserId", "itemType", "itemId"]),
+
+  sacredBharatGroups: defineTable({
+    name: v.string(),
+    ownerAuthUserId: v.string(),
+    inviteCode: v.string(),
+    isArchived: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_ownerAuthUserId", ["ownerAuthUserId"])
+    .index("by_inviteCode", ["inviteCode"]),
+
+  sacredBharatGroupMembers: defineTable({
+    groupId: v.id("sacredBharatGroups"),
+    authUserId: v.string(),
+    role: v.union(v.literal("owner"), v.literal("member")),
+    joinedAt: v.number(),
+  })
+    .index("by_groupId", ["groupId"])
+    .index("by_authUserId", ["authUserId"])
+    .index("by_groupId_authUserId", ["groupId", "authUserId"]),
 });

@@ -117,9 +117,7 @@ export function EntityModalLeaveFields({
                     className="rounded-lg border border-brand-border bg-white px-3 py-2"
                   >
                     <div className="text-xs font-medium text-brand-muted">{row.leaveType}</div>
-                    <div className="mt-1 text-lg font-semibold text-brand-dark">
-                      {row.value}
-                    </div>
+                    <div className="mt-1 text-lg font-semibold text-brand-dark">{row.value}</div>
                     {row.detail ? (
                       <div className="mt-1 text-xs text-brand-muted">{row.detail}</div>
                     ) : null}
@@ -142,14 +140,6 @@ export function EntityModalLeaveFields({
                   ).toFixed(1)}.`
                 : leaveImpact.reason}
             </div>
-          )}
-          {has(P.MANAGE_LEAVE) && !form.entityId && (
-            <Select
-              label="Status"
-              value={form.status || "Pending"}
-              options={["Approved", "Pending", "Rejected"]}
-              onChange={(v) => updateForm("status", v)}
-            />
           )}
         </>
       )}

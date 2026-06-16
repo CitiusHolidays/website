@@ -1,6 +1,6 @@
 "use client";
 
-import { m as motion, useInView } from "motion/react";
+import { m, useInView } from "motion/react";
 import { AnimateNumber } from "motion-plus/react";
 import { useRef } from "react";
 import { cn } from "../../utils/cn";
@@ -11,7 +11,7 @@ export default function AnimatedCounter({ value, label, className }) {
   const displayValue = isInView ? value : 0;
 
   return (
-    <motion.div ref={ref} className={cn("text-center", className)}>
+    <m.div ref={ref} className={cn("text-center", className)}>
       {/* Screen reader accessible version */}
       <span className="sr-only">
         {displayValue}+ {label}
@@ -30,6 +30,6 @@ export default function AnimatedCounter({ value, label, className }) {
       <p className="text-brand-dark font-medium" aria-hidden="true">
         {label}
       </p>
-    </motion.div>
+    </m.div>
   );
 }

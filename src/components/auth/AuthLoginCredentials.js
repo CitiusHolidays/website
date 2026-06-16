@@ -1,9 +1,9 @@
 "use client";
 
+import { m } from "motion/react";
 import { api } from "@convex/_generated/api";
 import { useMutation } from "convex/react";
 import { Compass } from "lucide-react";
-import { m as motion } from "motion/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useReducer } from "react";
@@ -68,8 +68,11 @@ export function AuthLoginCredentials({
 }) {
   const router = useRouter();
   const syncAuthIdentity = useMutation(api.authSync.syncMyAuthIdentity);
-  const [state, dispatch] = useReducer(authReducer, { variant, initialMode, error }, ({ variant, initialMode, error }) =>
-    createAuthState({ allowSignup: variant.allowSignup, initialMode, error }),
+  const [state, dispatch] = useReducer(
+    authReducer,
+    { variant, initialMode, error },
+    ({ variant, initialMode, error }) =>
+      createAuthState({ allowSignup: variant.allowSignup, initialMode, error }),
   );
   const { mode, isLoading, showPassword, formError, formData, isVerificationSent } = state;
 
@@ -157,7 +160,7 @@ export function AuthLoginCredentials({
 
   return (
     <div className="w-full md:w-1/2 lg:w-7/12 flex items-center justify-center p-6 md:p-12 relative">
-      <motion.div
+      <m.div
         className="w-full max-w-md"
         initial="hidden"
         animate="visible"
@@ -187,16 +190,16 @@ export function AuthLoginCredentials({
           ) : null}
         </div>
 
-        <motion.div variants={AUTH_ITEM_VARIANTS} className="mb-8">
+        <m.div variants={AUTH_ITEM_VARIANTS} className="mb-8">
           <h2 className="font-heading text-4xl md:text-5xl text-[#0B1026] mb-3">
             {mode === "signin" ? copy.signInTitle : copy.signUpTitle}
           </h2>
           <p className="text-[#0B1026]/60 font-light text-lg">
             {mode === "signin" ? copy.signInSubtitle : copy.signUpSubtitle}
           </p>
-        </motion.div>
+        </m.div>
 
-        <motion.div variants={AUTH_ITEM_VARIANTS} className="space-y-4 mb-8">
+        <m.div variants={AUTH_ITEM_VARIANTS} className="space-y-4 mb-8">
           <button
             type="button"
             onClick={handleGoogleSignIn}
@@ -231,7 +234,7 @@ export function AuthLoginCredentials({
             </span>
             <div className="grow border-t border-[#e2e8f0]"></div>
           </div>
-        </motion.div>
+        </m.div>
 
         {isVerificationSent ? (
           <AuthVerificationNotice
@@ -260,7 +263,7 @@ export function AuthLoginCredentials({
             onToggleMode={toggleMode}
           />
         )}
-      </motion.div>
+      </m.div>
     </div>
   );
 }

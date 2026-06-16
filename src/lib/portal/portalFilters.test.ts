@@ -28,10 +28,9 @@ describe("portal date range filters", () => {
   test("supports open-ended from-only ranges", () => {
     const recent = Date.parse("2026-02-01T12:00:00Z");
     const old = Date.parse("2025-01-01T12:00:00Z");
-    const filtered = filterRecordsByDateRange(
-      [{ createdAt: recent }, { createdAt: old }],
-      { from: "2026-01-01" },
-    );
+    const filtered = filterRecordsByDateRange([{ createdAt: recent }, { createdAt: old }], {
+      from: "2026-01-01",
+    });
     expect(filtered).toEqual([{ createdAt: recent }]);
   });
 });

@@ -2,7 +2,7 @@
 export const MIN_FORM_SECONDS = 3;
 
 /** Reject stale timing tokens (replay / scraped payloads). */
-export const MAX_FORM_AGE_MS = 24 * 60 * 60 * 1000;
+const MAX_FORM_AGE_MS = 24 * 60 * 60 * 1000;
 
 const SPAM_KEYWORDS = [
   "seo services",
@@ -42,6 +42,21 @@ export function getClientIp(request) {
 }
 
 /**
+ * @param {string | null} value
+ * @returns {string}
+ */
+function originFromHeader(value) {
+  if (!value) {
+    return "";
+  }
+  try {
+    return new URL(value).origin;
+  } catch {
+    return "";
+  }
+}
+
+/**
  * @param {Request} request
  * @returns {boolean}
  */
@@ -54,27 +69,20 @@ export function isAllowedSiteOrigin(request) {
     process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
 
   if (!siteUrl) {
-    return true;
+    return false;
   }
 
   let allowedOrigin;
   try {
     allowedOrigin = new URL(siteUrl).origin;
   } catch {
-    return true;
+    return false;
   }
 
   const origin = request.headers.get("origin");
   const referer = request.headers.get("referer");
 
-  if (origin?.startsWith(allowedOrigin)) {
-    return true;
-  }
-  if (referer?.startsWith(allowedOrigin)) {
-    return true;
-  }
-
-  return false;
+  return originFromHeader(origin) === allowedOrigin || originFromHeader(referer) === allowedOrigin;
 }
 
 /**

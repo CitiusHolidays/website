@@ -12,7 +12,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
@@ -207,13 +207,13 @@ export default function CircularServicesMenu() {
       {/* Animated line from center to hovered/tapped service */}
       <AnimatePresence>
         {linePos && (
-          <motion.svg
+          <m.svg
             className="absolute top-0 left-0 size-full pointer-events-none z-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <motion.line
+            <m.line
               x1={linePos.x1}
               y1={linePos.y1}
               x2={linePos.x2}
@@ -227,10 +227,10 @@ export default function CircularServicesMenu() {
               animate={{ x2: linePos.x2, y2: linePos.y2 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
             />
-          </motion.svg>
+          </m.svg>
         )}
       </AnimatePresence>
-      <motion.div
+      <m.div
         className="relative z-20 size-32 md:w-52 md:h-52 pb-8 bg-white rounded-full shadow-2xl border-4 border-citius-blue flex flex-col items-center justify-center px-3"
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -249,7 +249,7 @@ export default function CircularServicesMenu() {
             />
           </div>
           <AnimatePresence mode="wait">
-            <motion.div
+            <m.div
               key={selectedService?.title || "default"}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -266,19 +266,19 @@ export default function CircularServicesMenu() {
                     ? "Tap a service to learn more"
                     : "Hover over a service to learn more")}
               </p>
-            </motion.div>
+            </m.div>
           </AnimatePresence>
         </div>
-      </motion.div>
+      </m.div>
 
-      <motion.div
+      <m.div
         className="absolute inset-0"
         variants={containerVariants}
         initial="hidden"
         animate="show"
       >
         {servicePositions.map((service, idx) => (
-          <motion.div
+          <m.div
             key={service.title}
             ref={(el) => (serviceRefs.current[idx] = el)}
             className="absolute z-10 flex flex-col items-center"
@@ -306,9 +306,9 @@ export default function CircularServicesMenu() {
             >
               {service.title}
             </span>
-          </motion.div>
+          </m.div>
         ))}
-      </motion.div>
+      </m.div>
     </div>
   );
 }

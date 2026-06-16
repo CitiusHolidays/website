@@ -267,21 +267,38 @@ export const LIST_FILTER_CONFIG = {
   activity: [fromRows("entityType", "All entity types")],
 };
 
-export const VIEWS_WITH_JOB_CARD_FILTER = [
-  "travellers",
-  "passport",
-  "visa",
-  "ticketing",
-  "hotels",
-  "flights",
-  "tickets",
-  "seat-allocation",
-  "finance",
-  "expenses",
-  "tour-managers",
-];
+export { VIEWS_WITH_JOB_CARD_FILTER } from "@/lib/portal/jobCardFilterViews.js";
 
 export { staticOptionValues };
+
+/** Search keys used when computing filter option counts per view. */
+export const VIEW_FILTER_SEARCH_KEYS = {
+  queries: ["queryCode", "clientName", "destination", "queryType", "salesOwnerName"],
+  pipeline: ["queryCode", "clientName", "destination", "queryType", "salesOwnerName"],
+  proposals: ["proposalCode", "queryCode", "clientName", "destination"],
+  contracting: ["queryCode", "clientName", "destination", "queryType"],
+  "accounts-job-cards": ["queryCode", "clientName", "destination", "queryType"],
+  "job-cards": ["jobCode", "clientName", "destination", "queryType"],
+  travellers: ["fullName", "jobCode", "travelHub", "visaStatus", "ticketStatus"],
+  passport: ["fullName", "jobCode", "passportStatus"],
+  visa: ["travellerName", "jobCode", "status", "destination"],
+  ticketing: ["ticketNumber", "travellerName", "jobCode", "pnrCode"],
+  flights: ["pnrCode", "jobCode", "status"],
+  tickets: ["ticketNumber", "travellerName", "jobCode", "pnrCode"],
+  "seat-allocation": ["seatNumber", "jobCode"],
+  hotels: ["fullName", "jobCode", "travelHub", "hotelAllocation", "roomType"],
+  "tour-managers": ["name", "email", "phone", "jobCode"],
+  finance: ["invoiceNumber", "jobCode"],
+  expenses: ["particulars", "paidBy", "tourManagerName", "jobCode"],
+  approvals: ["requestCode", "summary", "requestedByName", "type"],
+  "employees-on-leave": ["staffName", "staffEmail", "department", "reason", "leaveType", "status"],
+  team: ["name", "email", "department", "function", "location", "mobile", "roles"],
+  activity: ["action", "summary", "entityType", "actorName"],
+};
+
+export function getViewFilterSearchKeys(view) {
+  return VIEW_FILTER_SEARCH_KEYS[view] ?? VIEW_FILTER_SEARCH_KEYS.queries;
+}
 
 export function getListFilterConfig(view, { pipelineMode = "sales" } = {}) {
   if (view === "pipeline") {

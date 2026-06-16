@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
+import { assertPaymentMutationSecret } from "./lib/paymentMutationAuth";
 
 const VALID_CURRENCIES = new Set(["INR", "USD"]);
 
@@ -257,59 +258,67 @@ export const markBookingFailedById = mutation({
   },
 });
 
+export const confirmBookingByOrderIdHandler = async (
+  ctx: MutationCtx,
+  args: { orderId: string; paymentId: string; signature?: string },
+) => {
+  const booking = await getBookingByOrderId(ctx, args.orderId);
+  if (!booking) {
+    return {
+      success: false,
+      message: "Booking not found for this order",
+    };
+  }
+
+  if (booking.status === "confirmed") {
+    return {
+      success: true,
+      alreadyConfirmed: true,
+      booking: toApiBooking(booking),
+    };
+  }
+
+  const trip = await ctx.db.get(booking.tripId);
+  if (!trip) {
+    throw new ConvexError("Trip not found for booking");
+  }
+  if (trip.availableSeats < booking.travelers) {
+    throw new ConvexError("No seats available for confirmation");
+  }
+
+  const timestamp = Date.now();
+  await Promise.all([
+    ctx.db.patch(booking._id, {
+      status: "confirmed",
+      razorpayPaymentId: args.paymentId,
+      razorpaySignature: args.signature,
+      confirmedAt: timestamp,
+      updatedAt: timestamp,
+    }),
+    ctx.db.patch(trip._id, {
+      availableSeats: trip.availableSeats - booking.travelers,
+      updatedAt: timestamp,
+    }),
+  ]);
+
+  const updated = await ctx.db.get(booking._id);
+  return {
+    success: true,
+    alreadyConfirmed: false,
+    booking: updated ? toApiBooking(updated) : null,
+  };
+};
+
 export const confirmBookingByOrderId = mutation({
   args: {
     orderId: v.string(),
     paymentId: v.string(),
     signature: v.optional(v.string()),
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
-    // TODO(payment-security): restrict server-only payment status mutations once Razorpay webhook secrets are configured.
-    const booking = await getBookingByOrderId(ctx, args.orderId);
-    if (!booking) {
-      return {
-        success: false,
-        message: "Booking not found for this order",
-      };
-    }
-
-    if (booking.status === "confirmed") {
-      return {
-        success: true,
-        alreadyConfirmed: true,
-        booking: toApiBooking(booking),
-      };
-    }
-
-    const trip = await ctx.db.get(booking.tripId);
-    if (!trip) {
-      throw new ConvexError("Trip not found for booking");
-    }
-    if (trip.availableSeats < booking.travelers) {
-      throw new ConvexError("No seats available for confirmation");
-    }
-
-    const timestamp = Date.now();
-    await Promise.all([
-      ctx.db.patch(booking._id, {
-        status: "confirmed",
-        razorpayPaymentId: args.paymentId,
-        razorpaySignature: args.signature,
-        confirmedAt: timestamp,
-        updatedAt: timestamp,
-      }),
-      ctx.db.patch(trip._id, {
-        availableSeats: trip.availableSeats - booking.travelers,
-        updatedAt: timestamp,
-      }),
-    ]);
-
-    const updated = await ctx.db.get(booking._id);
-    return {
-      success: true,
-      alreadyConfirmed: false,
-      booking: updated ? toApiBooking(updated) : null,
-    };
+    assertPaymentMutationSecret(args.serverSecret);
+    return await confirmBookingByOrderIdHandler(ctx, args);
   },
 });
 
@@ -317,9 +326,10 @@ export const recordPaymentAuthorized = mutation({
   args: {
     orderId: v.string(),
     paymentId: v.string(),
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
-    // TODO(payment-security): restrict server-only payment status mutations once Razorpay webhook secrets are configured.
+    assertPaymentMutationSecret(args.serverSecret);
     const booking = await getBookingByOrderId(ctx, args.orderId);
     if (!booking) {
       return null;
@@ -334,34 +344,51 @@ export const recordPaymentAuthorized = mutation({
   },
 });
 
+export const markPaymentFailedByOrderIdHandler = async (
+  ctx: MutationCtx,
+  args: { orderId: string; paymentId?: string },
+) => {
+  const booking = await getBookingByOrderId(ctx, args.orderId);
+  if (!booking) {
+    return null;
+  }
+
+  if (booking.status === "confirmed" || booking.status === "refunded") {
+    return {
+      id: booking._id,
+      ignored: true,
+      status: booking.status,
+    };
+  }
+
+  await ctx.db.patch(booking._id, {
+    status: "failed",
+    razorpayPaymentId: args.paymentId ?? booking.razorpayPaymentId,
+    updatedAt: Date.now(),
+  });
+
+  return { id: booking._id, status: "failed" as const };
+};
+
 export const markPaymentFailedByOrderId = mutation({
   args: {
     orderId: v.string(),
     paymentId: v.optional(v.string()),
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
-    // TODO(payment-security): restrict server-only payment status mutations once Razorpay webhook secrets are configured.
-    const booking = await getBookingByOrderId(ctx, args.orderId);
-    if (!booking) {
-      return null;
-    }
-
-    await ctx.db.patch(booking._id, {
-      status: "failed",
-      razorpayPaymentId: args.paymentId ?? booking.razorpayPaymentId,
-      updatedAt: Date.now(),
-    });
-
-    return { id: booking._id };
+    assertPaymentMutationSecret(args.serverSecret);
+    return await markPaymentFailedByOrderIdHandler(ctx, args);
   },
 });
 
 export const markRefundedByPaymentId = mutation({
   args: {
     paymentId: v.string(),
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
-    // TODO(payment-security): restrict server-only payment status mutations once Razorpay webhook secrets are configured.
+    assertPaymentMutationSecret(args.serverSecret);
     const booking = await getBookingByPaymentId(ctx, args.paymentId);
     if (!booking) {
       return null;

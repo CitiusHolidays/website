@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
 
 const AUTH_ITEM_VARIANTS = {
@@ -15,7 +15,7 @@ const AUTH_ITEM_VARIANTS = {
 
 export function AuthVerificationNotice({ email, onBackToSignIn }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className="bg-emerald-50 border border-green-100 rounded-2xl p-6 text-center space-y-4"
@@ -37,7 +37,7 @@ export function AuthVerificationNotice({ email, onBackToSignIn }) {
       >
         Back to Sign In
       </button>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -59,7 +59,7 @@ export function AuthLoginForm({
       <form onSubmit={onSubmit} className="space-y-5">
         <AnimatePresence mode="wait">
           {mode === "signup" && variant.allowSignup && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
@@ -86,11 +86,11 @@ export function AuthLoginForm({
                   <User className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-[#94a3b8] group-focus-within:text-[#d4af37] transition-colors" />
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
 
-        <motion.div variants={AUTH_ITEM_VARIANTS} className="group">
+        <m.div variants={AUTH_ITEM_VARIANTS} className="group">
           <label
             htmlFor="auth-email"
             className="block text-sm font-medium text-[#0f172a] mb-1.5 ml-1"
@@ -110,9 +110,9 @@ export function AuthLoginForm({
             />
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-[#94a3b8] group-focus-within:text-[#d4af37] transition-colors" />
           </div>
-        </motion.div>
+        </m.div>
 
-        <motion.div variants={AUTH_ITEM_VARIANTS} className="group">
+        <m.div variants={AUTH_ITEM_VARIANTS} className="group">
           <div className="flex items-center justify-between mb-1.5 ml-1">
             <label htmlFor="auth-password" className="block text-sm font-medium text-[#0f172a]">
               Password
@@ -146,20 +146,20 @@ export function AuthLoginForm({
               {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
             </button>
           </div>
-        </motion.div>
+        </m.div>
 
         {formError && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className="p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm flex items-center gap-2"
           >
             <div className="size-1.5 rounded-full bg-red-500" />
             {formError}
-          </motion.div>
+          </m.div>
         )}
 
-        <motion.button
+        <m.button
           variants={AUTH_ITEM_VARIANTS}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -175,11 +175,11 @@ export function AuthLoginForm({
           {!isLoading && (
             <ArrowRight className="size-5 relative z-10 group-hover:translate-x-1 transition-transform" />
           )}
-        </motion.button>
+        </m.button>
       </form>
 
       {variant.allowSignup && (
-        <motion.div variants={AUTH_ITEM_VARIANTS} className="mt-8 text-center">
+        <m.div variants={AUTH_ITEM_VARIANTS} className="mt-8 text-center">
           <p className="text-[#64748b]">
             {mode === "signin" ? "Don't have an account?" : "Already have an account?"}
             <button
@@ -191,7 +191,7 @@ export function AuthLoginForm({
               <span className="absolute -bottom-0.5 left-0 size-0.5 bg-[#d4af37] transition-all group-hover:w-full" />
             </button>
           </p>
-        </motion.div>
+        </m.div>
       )}
     </>
   );

@@ -1,7 +1,38 @@
 import { ConvexError, v } from "convex/values";
+import type { QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery, query } from "../_generated/server";
-import { PERMISSIONS, requireStaff } from "./lib";
+import { canSeeJobCardRecord, PERMISSIONS, requireStaff } from "./lib";
 import { normalizePassportExpiryDate } from "./passportExpiry";
+
+export async function loadPassportMetadata(ctx: QueryCtx, travellerIdRaw: string) {
+  const access = await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
+  const travellerIdNormalized = ctx.db.normalizeId("travellers", travellerIdRaw);
+  if (!travellerIdNormalized) return null;
+  const traveller = await ctx.db.get(travellerIdNormalized);
+  if (!traveller) return null;
+  const job = await ctx.db.get(traveller.jobCardId);
+  if (!job) return null;
+  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  const row = await ctx.db
+    .query("passportDetails")
+    .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerIdNormalized))
+    .unique();
+  if (!row) return null;
+  return {
+    id: row._id,
+    travellerId: row.travellerId,
+    lastFour: row.lastFour ?? "",
+    expiryDate: row.expiryDate ?? "",
+    status: row.status ?? "Received",
+    storageId: row.storageId,
+    fileName: row.fileName,
+    mimeType: row.mimeType,
+    createdAt: new Date(row.createdAt).toISOString(),
+  };
+}
 
 export const getPassportMetadata = query({
   args: {

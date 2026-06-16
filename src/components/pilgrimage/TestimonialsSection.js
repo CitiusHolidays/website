@@ -1,13 +1,13 @@
 "use client";
 
+import { m } from "motion/react";
 import { Quote, Star } from "lucide-react";
-import { m as motion } from "motion/react";
 import { kailashTestimonials } from "../../data/trails";
 import { cn } from "../../utils/cn";
 
 function TestimonialCard({ testimonial, index }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
@@ -60,7 +60,7 @@ function TestimonialCard({ testimonial, index }) {
         {/* Decorative Element */}
         <div className="absolute bottom-0 right-0 w-24 md:w-32 h-24 md:h-32 bg-gradient-to-tl from-citius-orange/5 to-transparent rounded-tr-2xl md:rounded-tr-3xl rounded-bl-2xl md:rounded-bl-3xl pointer-events-none" />
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -69,7 +69,7 @@ export default function TestimonialsSection({ className }) {
     <section className={cn("py-16 md:py-32 bg-[#f8f5f2]", className)}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -86,7 +86,7 @@ export default function TestimonialsSection({ className }) {
             commitment to excellence.
           </p>
           <div className="w-16 md:w-24 h-px bg-citius-orange/30 mx-auto mt-6 md:mt-8" />
-        </motion.div>
+        </m.div>
 
         {/* Testimonials Grid */}
         <div className="grid md:grid-cols-2 gap-6 md:gap-8">
@@ -96,7 +96,7 @@ export default function TestimonialsSection({ className }) {
         </div>
 
         {/* Bottom CTA */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -112,7 +112,7 @@ export default function TestimonialsSection({ className }) {
           >
             Begin Your Journey
           </a>
-        </motion.div>
+        </m.div>
       </div>
     </section>
   );

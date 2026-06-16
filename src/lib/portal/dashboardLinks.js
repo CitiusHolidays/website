@@ -220,6 +220,9 @@ export function buildUrgentViewAllHref(type, dateRange) {
 }
 
 export function buildJobCardHref(jobCardId, dateRange) {
+  if (jobCardId) {
+    return `/portal/job-cards/${jobCardId}`;
+  }
   return buildDashboardListUrl({
     view: "job-cards",
     dateRange,

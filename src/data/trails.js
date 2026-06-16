@@ -1,4 +1,4 @@
-export const trails = [
+const trails = [
   {
     id: "kailash-mansarovar-14day",
     slug: "kailash-mansarovar-14day",
@@ -1062,7 +1062,7 @@ export const sacredSites = [
 ];
 
 /** Hub section order (trails grouped under these ids via `trail.group`) */
-export const trailGroupOrder = [
+const trailGroupOrder = [
   { id: "kailash-mansarovar", label: "Kailash Mansarovar 2026" },
   { id: "kora-routes", label: "Kora routes" },
   { id: "special-programs", label: "Special programs" },

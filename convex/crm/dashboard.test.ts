@@ -5,6 +5,7 @@ import {
   buildTicketAttentionQueue,
   buildUrgentActions,
   getPortalSummary,
+  groupByJobCardId,
 } from "./dashboard";
 
 function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
@@ -18,9 +19,31 @@ function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
     active: true,
   };
 
+  const activityTakeCalls: number[] = [];
   const getRows = (table: string) => (table === "staffUsers" ? [staff] : (tables[table] ?? []));
 
+  const queryBuilder = (table: string) => ({
+    collect: async () => getRows(table),
+    withIndex: (indexName: string) => {
+      if (table === "activityLogs" && indexName === "by_createdAt") {
+        return {
+          order: (_direction: string) => ({
+            take: async (limit: number) => {
+              activityTakeCalls.push(limit);
+              return [...getRows(table)].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+            },
+          }),
+          unique: async () => getRows(table).find((row) => row.active) ?? null,
+        };
+      }
+      return {
+        unique: async () => getRows(table).find((row) => row.active) ?? null,
+      };
+    },
+  });
+
   return {
+    activityTakeCalls,
     auth: {
       getUserIdentity: async () => ({
         subject: "auth_1",
@@ -29,12 +52,7 @@ function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
       }),
     },
     db: {
-      query: (table: string) => ({
-        collect: async () => getRows(table),
-        withIndex: () => ({
-          unique: async () => getRows(table).find((row) => row.active) ?? null,
-        }),
-      }),
+      query: (table: string) => queryBuilder(table),
     },
   };
 }
@@ -203,46 +221,45 @@ describe("dashboard summary slices", () => {
 
 describe("getPortalSummary", () => {
   test("returns generatedAt and keeps cement scope on query counts", async () => {
-    const summary = await getPortalSummary._handler(
-      makeCtx(
-        {
-          queries: [
-            {
-              _id: "query_cement",
-              queryCode: "Q-C",
-              queryType: "Cement",
-              salesStatus: "Proposal in discussion",
-              contractingStatus: "Query Received",
-              leadStage: "Proposal",
-              createdBy: "auth_1",
-              createdAt: Date.UTC(2026, 0, 1),
-            },
-            {
-              _id: "query_mice",
-              queryCode: "Q-M",
-              queryType: "MICE",
-              salesStatus: "Proposal in discussion",
-              contractingStatus: "Query Received",
-              leadStage: "Inquiry",
-              createdBy: "auth_1",
-              createdAt: Date.UTC(2026, 0, 1),
-            },
-          ],
-          proposals: [],
-          proposalQueryLinks: [],
-          jobCards: [],
-          travellers: [],
-          tickets: [],
-          visaRecords: [],
-          invoices: [],
-          approvalRequests: [],
-          activityLogs: [],
-        },
-        ["Sales Cement"],
-      ) as any,
-      { dateRange: null },
+    const { activityTakeCalls, ...ctx } = makeCtx(
+      {
+        queries: [
+          {
+            _id: "query_cement",
+            queryCode: "Q-C",
+            queryType: "Cement",
+            salesStatus: "Proposal in discussion",
+            contractingStatus: "Query Received",
+            leadStage: "Proposal",
+            createdBy: "auth_1",
+            createdAt: Date.UTC(2026, 0, 1),
+          },
+          {
+            _id: "query_mice",
+            queryCode: "Q-M",
+            queryType: "MICE",
+            salesStatus: "Proposal in discussion",
+            contractingStatus: "Query Received",
+            leadStage: "Inquiry",
+            createdBy: "auth_1",
+            createdAt: Date.UTC(2026, 0, 1),
+          },
+        ],
+        proposals: [],
+        proposalQueryLinks: [],
+        jobCards: [],
+        travellers: [],
+        tickets: [],
+        visaRecords: [],
+        invoices: [],
+        approvalRequests: [],
+        activityLogs: [],
+      },
+      ["Sales Cement"],
     );
+    const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
 
+    expect(activityTakeCalls).toEqual([8]);
     expect(Date.parse(summary.generatedAt)).not.toBeNaN();
     expect(summary.metrics.activeQueries).toBe(1);
     expect(summary.queriesByType).toEqual([
@@ -256,5 +273,70 @@ describe("getPortalSummary", () => {
       { stage: "Confirmation", count: 0, value: 0, weighted: 0 },
       { stage: "Lost", count: 0, value: 0, weighted: 0 },
     ]);
+  });
+});
+
+describe("groupByJobCardId", () => {
+  test("groups travellers by job card id", () => {
+    expect(
+      groupByJobCardId([
+        { jobCardId: "job_1", fullName: "A" },
+        { jobCardId: "job_2", fullName: "B" },
+        { jobCardId: "job_1", fullName: "C" },
+      ] as any),
+    ).toEqual(
+      new Map([
+        [
+          "job_1",
+          [
+            { jobCardId: "job_1", fullName: "A" },
+            { jobCardId: "job_1", fullName: "C" },
+          ],
+        ],
+        ["job_2", [{ jobCardId: "job_2", fullName: "B" }]],
+      ]),
+    );
+  });
+});
+
+describe("getPortalSummary response shape", () => {
+  test("returns the dashboard top-level keys", async () => {
+    const ctx = makeCtx({
+      queries: [],
+      proposals: [],
+      proposalQueryLinks: [],
+      jobCards: [],
+      travellers: [],
+      tickets: [],
+      visaRecords: [],
+      invoices: [],
+      approvalRequests: [],
+      activityLogs: [],
+    });
+
+    const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
+
+    expect(Object.keys(summary).sort()).toEqual(
+      [
+        "activeTours",
+        "capacity",
+        "closedQueriesByType",
+        "confirmedQueriesByType",
+        "departmentWorkflow",
+        "generatedAt",
+        "metricTrends",
+        "metrics",
+        "myTeam",
+        "overdueInvoices",
+        "pipelineSnapshot",
+        "progress",
+        "queriesByType",
+        "recentActivity",
+        "ticketAttentionQueue",
+        "ticketingStats",
+        "upcomingDepartures",
+        "urgentActions",
+      ].sort(),
+    );
   });
 });

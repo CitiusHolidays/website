@@ -17,10 +17,12 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 
 ## 🛠️ Tech Stack
 
-- [Next.js 15](https://nextjs.org/) (App Router)
+- [Next.js 16](https://nextjs.org/) (App Router)
 - [React 19](https://react.dev/)
+- [Bun](https://bun.sh/) (package manager and runtime)
 - [Tailwind CSS 4](https://tailwindcss.com/)
-- [Sanity.io](https://www.sanity.io/) (headless CMS)
+- [Biome](https://biomejs.dev/) (lint and format)
+- [Sanity.io](https://www.sanity.io/) (headless CMS; Studio in `citius-blog/`)
 - [Convex](https://www.convex.dev/) (database + backend functions)
 - [Better Auth](https://www.better-auth.com/) (authentication)
 - [Razorpay](https://razorpay.com/) (payments)
@@ -38,30 +40,19 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 - `src/static/` — Static images, videos, and assets
 - `src/utils/` — Utility functions
 - `convex/` — Convex schema, auth component, and backend functions
-- `scripts/migrations/` — Postgres-to-Convex migration scripts
+- `citius-blog/` — Sanity Studio (schemas, config, and local CMS tooling)
+- `scripts/` — Maintenance and one-off developer utilities
 
 ## ⚡ Getting Started
 
 1. **Install dependencies:**
    ```bash
-   npm install
-   # or
-   yarn install
-   # or
-   pnpm install
-   # or
    bun install
    ```
 
 2. **Run the development server:**
    ```bash
-   npm run dev
-   # or
-   yarn dev
-   # or
-   pnpm dev
-   # or
-   bun dev
+   bun run dev
    ```
 
    Open [http://localhost:3000](http://localhost:3000) to view the app.
@@ -89,11 +80,8 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 
    # Encryption Configuration (required for sensitive passport scans)
    # Generate: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-   # Set in Convex too: npx convex env set ENCRYPTION_KEY <same-base64-value>
+   # Set in Convex too: bunx convex env set ENCRYPTION_KEY <same-base64-value>
    ENCRYPTION_KEY=your-32-byte-base64-encryption-key-here
-
-   # Optional local migration source database
-   # DATABASE_URL=postgresql://...
 
    # Optional: Enable Sanity preview mode for draft content
    # SANITY_PREVIEW=true
@@ -101,8 +89,8 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 
 4. **Build for production:**
    ```bash
-   npm run build
-   npm start
+   bun run build
+   bun run start
    ```
 
    The build runs `convex codegen` first to create `convex/_generated/` (that folder is gitignored). On Vercel, set a **Convex deploy key** as `CONVEX_DEPLOY_KEY` in project environment variables (Convex dashboard → Project Settings → Deploy Key).
@@ -110,24 +98,36 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 ## 📜 Available Scripts
 
 - `dev` — Start the development server
-- `build` — Build the app for production
+- `build` — Run Convex codegen, then build the app for production
 - `start` — Start the production server
-- `lint` — Run ESLint
+- `lint` — Run Biome checks
+- `lint:fix` — Auto-fix Biome issues where possible
+- `format` — Format code with Biome
+- `test` — Run the test suite
 - `convex:dev` — Run Convex locally and generate API artifacts
+- `convex:codegen` — Regenerate Convex API types
 - `auth:schema:generate` — Generate BetterAuth Convex schema file
-- `migrate:export` — Export legacy Postgres data to JSON
-- `migrate:import` — Import exported data into Convex
-- `migrate:verify` — Run parity checks between Postgres and Convex
+- `optimize-images` — Optimize static images via `scripts/full-optimize-images.mjs`
+
+## 🔧 Maintenance Scripts
+
+Tracked utilities in `scripts/` for local development and maintenance:
+
+- `scripts/generate-convex-export-surface.mjs` — Regenerate Convex export surface helpers
+- `scripts/full-optimize-images.mjs` — Batch image optimization (also exposed as `bun run optimize-images`)
+
+Other scripts in `scripts/` are one-off refactors for portal workspace layout; run them directly with `node` only when you know you need them.
 
 ## 📝 Content Management (Sanity.io)
-- Blog posts, gallery images, and some content are managed via [Sanity.io](https://www.sanity.io/).
-- See the `/blog` folder for Sanity schemas and configuration.
+
+- Blog posts, gallery images, and related content are managed via [Sanity.io](https://www.sanity.io/).
+- Sanity Studio lives in `citius-blog/`. From that directory, run `bun install` then `bun run dev` to open the Studio locally.
 
 ## 🤝 Contributing
 
 1. Fork the repo and create your branch from `main`.
-2. Install dependencies and run the dev server.
-3. Make your changes and test thoroughly.
+2. Run `bun install` and `bun run dev`.
+3. Make your changes and test thoroughly (`bun test`, `bun run lint`).
 4. Submit a pull request with a clear description.
 
 ## 🙋‍♂️ Need Help?

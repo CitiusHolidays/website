@@ -1,4 +1,5 @@
 import type { Id } from "../_generated/dataModel";
+import { resolveRoomCategory, resolveTravellerRoomFields } from "../lib/roomTypes";
 import { canSeeJobCardRecord, createActivity } from "./lib";
 
 export type TravellerDoc = {
@@ -332,6 +333,8 @@ function travellerPatchForImport(row: any, job: any, now: number) {
   const patch: Record<string, unknown> = {
     jobCardId: job._id,
     fullName: row.fullName.trim(),
+    surname: row.surname?.trim() || "",
+    givenName: row.givenName?.trim() || "",
     importSource: `${importKind}-spreadsheet`,
     importKey: row.importKey,
     sourceSheet: row.sourceSheet,
@@ -357,7 +360,7 @@ function travellerPatchForImport(row: any, job: any, now: number) {
     patch.foodPreference = row.foodPreference;
     patch.guestType = row.guestType;
     patch.paymentType = row.paymentType;
-    patch.roomType = row.roomType;
+    patch.roomType = resolveRoomCategory(row.roomType) ?? row.roomType;
     patch.visaRequired = row.visaRequired;
     patch.domesticTravelRequired = row.domesticTravelRequired ?? false;
     patch.passportStatus = row.passportStatus?.trim() || "Pending";
@@ -366,10 +369,20 @@ function travellerPatchForImport(row: any, job: any, now: number) {
   }
 
   if (importKind === "rooming") {
-    patch.roomType = row.roomType;
+    const resolved = resolveTravellerRoomFields(
+      row.roomType,
+      row.hotelAllocation ?? row.roomType,
+    );
+    if (resolved.roomType) {
+      patch.roomType = resolved.roomType;
+    }
     if (includeText(row.travelHub)) patch.travelHub = row.travelHub.trim();
     if (includeText(row.specialRequests)) patch.specialRequests = row.specialRequests.trim();
-    if (includeText(row.hotelAllocation)) patch.hotelAllocation = row.hotelAllocation.trim();
+    if (resolved.hotelAllocation !== undefined) {
+      patch.hotelAllocation = resolved.hotelAllocation;
+    } else if (includeText(row.hotelAllocation)) {
+      patch.hotelAllocation = row.hotelAllocation.trim();
+    }
     if (includeText(row.passportStatus)) patch.passportStatus = row.passportStatus.trim();
     return patch;
   }
@@ -397,6 +410,8 @@ function travellerCreateDefaults(row: any, job: any, access: any, now: number) {
   return {
     jobCardId: job._id,
     fullName: row.fullName.trim(),
+    surname: row.surname?.trim() || "",
+    givenName: row.givenName?.trim() || "",
     travelHub: row.travelHub?.trim() || "",
     foodPreference: row.foodPreference,
     guestType: row.guestType,

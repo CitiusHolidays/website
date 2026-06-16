@@ -22,7 +22,16 @@ import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
 import { canAccessPipeline } from "@/lib/portal/permissions";
 import { filterRows, pipeViewRows, VIEWS_WITH_JOB_CARD_FILTER } from "@/lib/portal/pipeViewRows";
+import {
+  buildViewResultCountMap,
+  getViewResultCount,
+} from "@/lib/portal/viewResultCounts";
 import { runMutation } from "@/lib/portal/runMutation";
+import {
+  currentFiltersToSavedViewInput,
+  normalizeSavedViewState,
+  savedViewToUrl,
+} from "@/lib/portal/savedViews";
 import { parseUrlFilterState, serializeUrlFilterState } from "@/lib/portal/urlFilterState";
 
 const P = PORTAL_PERMISSIONS;
@@ -208,6 +217,8 @@ const INITIAL_FORM = {
   tourManagerName: "",
   jobCardId: "",
   fullName: "",
+  surname: "",
+  givenName: "",
   travelHub: "",
   travelDate: "",
   guestCompanions: "",
@@ -253,6 +264,8 @@ const INITIAL_FORM = {
   confirmationDate: "",
   leavePolicyGroup: "",
   leaveHeadApproverId: "",
+  reportingManagerStaffId: "",
+  reportingManagerName: "",
   maternityEventsUsed: "0",
   paternityEventsUsed: "0",
   marriageLeaveUsed: false,
@@ -374,6 +387,13 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     api.crm.dashboard.getPortalSummary,
     canFetch && allowed && view === "dashboard" ? { dateRange: dateRangeArg } : "skip",
   );
+  const savedViews = useQuery(
+    api.crm.savedViews.listForPortal,
+    canFetch && allowed ? { view } : "skip",
+  );
+  const createSavedView = useMutation(api.crm.savedViews.create);
+  const updateSavedView = useMutation(api.crm.savedViews.update);
+  const removeSavedView = useMutation(api.crm.savedViews.remove);
   const queries = useQuery(
     api.crm.queries.list,
     canFetch && (has(P.VIEW_QUERIES) || has(P.VIEW_CONTRACTING) || has(P.VIEW_JOB_CARDS))
@@ -471,17 +491,23 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const submitToContractingMutation = useMutation(api.crm.queries.submitToContracting);
   const assignContracting = useMutation(api.crm.queries.assignContracting);
   const assignQueryTicketing = useMutation(api.crm.queries.assignQueryTicketing);
+  const assignQueryTeams = useMutation(api.crm.queries.assignQueryTeams);
+  const assignJobCardCreator = useMutation(api.crm.queries.assignJobCardCreator);
   const assignContractingOwner = useMutation(api.crm.jobCards.assignContractingOwner);
   const assignOperationsOwner = useMutation(api.crm.jobCards.assignOperationsOwner);
   const assignTicketingOwner = useMutation(api.crm.ticketing.assignTicketingOwner);
   const updateQueryStatus = useMutation(api.crm.queries.updateStatus);
   const createProposal = useMutation(api.crm.proposals.create);
   const updateProposal = useMutation(api.crm.proposals.update);
+  const addProposalCollaborator = useMutation(api.crm.proposals.addCollaborator);
+  const removeProposalCollaborator = useMutation(api.crm.proposals.removeCollaborator);
   const sendProposalToSales = useMutation(api.crm.proposals.sendToSales);
   const markProposalSent = useMutation(api.crm.proposals.markSent);
   const createJobCard = useMutation(api.crm.jobCards.createFromQuery);
   const updateJobCard = useMutation(api.crm.jobCards.update);
   const updateJobStatus = useMutation(api.crm.jobCards.updateStatus);
+  const addJobCardCollaborator = useMutation(api.crm.jobCards.addCollaborator);
+  const removeJobCardCollaborator = useMutation(api.crm.jobCards.removeCollaborator);
   const createTraveller = useMutation(api.crm.travellers.create);
   const updateTraveller = useMutation(api.crm.travellers.update);
   const updateCallingStatus = useMutation(api.crm.travellers.updateCallingStatus);
@@ -589,6 +615,8 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const createExpense = useMutation(api.crm.finance.createExpense);
   const updateExpense = useMutation(api.crm.finance.updateExpense);
   const submitExpenseForApproval = useMutation(api.crm.finance.submitExpenseForApproval);
+  const decideExpenseManager = useMutation(api.crm.finance.decideExpenseManager);
+  const decideExpenseFinance = useMutation(api.crm.finance.decideExpenseFinance);
   const decideApproval = useMutation(api.crm.approvals.decide);
   const removeApproval = useMutation(api.crm.approvals.remove);
   const upsertStaff = useMutation(api.crm.staff.upsertStaff);
@@ -862,6 +890,31 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
         "onboardingStatus",
       ]);
 
+  const viewResultCountMap = buildViewResultCountMap({
+    filteredQueries,
+    filteredPipelineQueries,
+    filteredContractingQueries,
+    filteredProposals,
+    filteredAccountsQueries,
+    filteredJobCards,
+    filteredTravellers,
+    filteredPassportTravellers,
+    filteredVisas,
+    filteredTickets,
+    filteredPnrs,
+    filteredAllTickets,
+    filteredSeats,
+    filteredRoomingTravellers,
+    filteredTourManagers,
+    filteredInvoices,
+    filteredExpenses,
+    filteredApprovals,
+    filteredLeaves,
+    filteredTeam,
+    filteredActivity,
+  });
+  const viewResultCount = getViewResultCount(view, viewResultCountMap);
+
   const replaceFilterUrl = (nextFilters) => {
     if (!allowed) return;
     const params = serializeUrlFilterState(nextFilters, listFilterConfig, {
@@ -923,6 +976,62 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
       return next;
     });
   };
+
+  const applySavedView = (savedView) => {
+    const normalized = normalizeSavedViewState(savedView.filterState, listFilterConfig);
+    setSearch(normalized.search);
+    setDateRange(normalized.dateRange);
+    setJobCardFilter(normalized.jobCardFilter);
+    setListFilters(normalized.listFilters);
+    replaceFilterUrl(normalized);
+  };
+
+  const saveCurrentView = async (name, options = {}) => {
+    const input = currentFiltersToSavedViewInput({
+      view,
+      pathname,
+      search,
+      dateRange,
+      jobCardFilter,
+      listFilters,
+      filterConfig: listFilterConfig,
+    });
+    return await runMutation({ showToast: toast, successMessage: "Saved view created." }, () =>
+      createSavedView({
+        ...input,
+        name,
+        sharedRole: options.sharedRole || undefined,
+        isFavorite: options.isFavorite ?? true,
+        isPinnedToDashboard: options.isPinnedToDashboard ?? false,
+      }),
+    );
+  };
+
+  const deleteSavedView = async (savedViewId) =>
+    await runMutation({ showToast: toast, successMessage: "Saved view deleted." }, () =>
+      removeSavedView({ savedViewId }),
+    );
+
+  const toggleSavedViewFavorite = async (savedView) =>
+    await runMutation({ showToast: toast }, () =>
+      updateSavedView({
+        savedViewId: savedView.id,
+        isFavorite: !savedView.isFavorite,
+      }),
+    );
+
+  const toggleSavedViewPinned = async (savedView) =>
+    await runMutation({ showToast: toast }, () =>
+      updateSavedView({
+        savedViewId: savedView.id,
+        isPinnedToDashboard: !savedView.isPinnedToDashboard,
+      }),
+    );
+
+  const savedViewLinks = (savedViews ?? []).map((savedView) => ({
+    ...savedView,
+    href: savedViewToUrl(savedView.pathname || pathname, savedView, listFilterConfig),
+  }));
 
   const openModal = (type, initial = {}) => {
     setError("");
@@ -1057,14 +1166,20 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
               updateQuery,
               assignContracting,
               assignQueryTicketing,
+              assignQueryTeams,
+              assignJobCardCreator,
               assignContractingOwner,
               assignOperationsOwner,
               assignTicketingOwner,
               updateQueryStatus,
               createProposal,
               updateProposal,
+              addProposalCollaborator,
+              removeProposalCollaborator,
               createJobCard,
               updateJobCard,
+              addJobCardCollaborator,
+              removeJobCardCollaborator,
               createTraveller,
               updateTraveller,
               updateVisaRecord,
@@ -1166,32 +1281,43 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     updateForm,
   };
   const commands = {
+    applySavedView,
     clearAllFilters,
     closeModal,
+    deleteSavedView,
     deleteItem,
     deleteSelected,
     openModal,
+    saveCurrentView,
     setDateRangeWithUrl,
     setJobCardFilterWithUrl,
     setListFilterValue,
     setSearchWithUrl,
     submit,
+    toggleSavedViewFavorite,
+    toggleSavedViewPinned,
   };
   const workspaceFacade = {
     commands,
     filters: filterState,
     modal: modalControls,
     rows: workspaceRows,
+    savedViews: savedViewLinks,
     session,
   };
 
   return {
     access,
     activity,
+    addJobCardCollaborator,
+    addProposalCollaborator,
     allowed,
     approvals,
+    applySavedView,
     assignContracting,
     assignQueryTicketing,
+    assignQueryTeams,
+    assignJobCardCreator,
     attachExpenseProof,
     attachFinalizedPdf,
     attachProposalFile,
@@ -1217,8 +1343,11 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     dateRange,
     deepLinkHandledRef,
     deleteItem,
+    deleteSavedView,
     deleteSelected,
     decideApproval,
+    decideExpenseFinance,
+    decideExpenseManager,
     decideLeave,
     dropdowns,
     flightItinerary,
@@ -1300,6 +1429,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     removeHotel,
     removeInvoice,
     removeJobCard,
+    removeJobCardCollaborator,
     removeLeave,
     removeManyHotels,
     removeManyPnrs,
@@ -1313,6 +1443,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     removePnr,
     removeProposal,
     removeProposalAttachment,
+    removeProposalCollaborator,
     removeQuery,
     removeQueryAttachment,
     removeSeatAllocation,
@@ -1325,6 +1456,8 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     reports,
     router,
     saveSeat,
+    savedViews: savedViewLinks,
+    saveCurrentView,
     search,
     searchParams,
     session,
@@ -1341,6 +1474,8 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     staff,
     startStaffOnboarding,
     submit,
+    toggleSavedViewFavorite,
+    toggleSavedViewPinned,
     submitExpenseForApproval,
     submitToContracting,
     summary,
@@ -1372,6 +1507,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     updateVisaRecord,
     upsertStaff,
     view,
+    viewResultCount,
     visas,
     workspace: workspaceFacade,
     rows: workspaceRows,

@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { ArrowRight, Heart, Phone, Shield, Sparkles, Sunrise } from "lucide-react";
-import { m as motion } from "motion/react";
 import Link from "next/link";
 import AnimatedSection from "../../components/layout/AnimatedSection";
 import JourneyComparison from "../../components/pilgrimage/JourneyComparison";
@@ -26,7 +26,7 @@ export default function PilgrimagePageClient({ images }) {
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
 
         <AnimatedSection className="px-4 max-w-6xl mx-auto text-center relative z-10">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -44,10 +44,10 @@ export default function PilgrimagePageClient({ images }) {
               soon. Explore every trail below for galleries, dates, inclusions, and booking.
             </p>
             <div className="w-16 md:w-24 h-px bg-citius-orange/30 mx-auto mt-6 md:mt-10" />
-          </motion.div>
+          </m.div>
 
           <div className="grid lg:grid-cols-2 gap-8 md:gap-16 items-start text-left">
-            <motion.div
+            <m.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -71,7 +71,7 @@ export default function PilgrimagePageClient({ images }) {
                   devotion.&rdquo;
                 </p>
               </div>
-            </motion.div>
+            </m.div>
 
             <div className="grid gap-4 md:gap-5">
               {[
@@ -96,7 +96,7 @@ export default function PilgrimagePageClient({ images }) {
                   icon: Sunrise,
                 },
               ].map((item, idx) => (
-                <motion.div
+                <m.div
                   key={item.title}
                   initial={{ opacity: 0, x: 20 }}
                   whileInView={{ opacity: 1, x: 0 }}
@@ -115,7 +115,7 @@ export default function PilgrimagePageClient({ images }) {
                       {item.desc}
                     </p>
                   </div>
-                </motion.div>
+                </m.div>
               ))}
             </div>
           </div>
@@ -138,7 +138,7 @@ export default function PilgrimagePageClient({ images }) {
       {/* Why Citius - Trust Section */}
       <section className="py-16 md:py-24 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -150,7 +150,7 @@ export default function PilgrimagePageClient({ images }) {
             <h2 className="font-heading text-3xl md:text-4xl lg:text-5xl text-brand-dark mb-4">
               Your Trust, <span className="text-citius-blue italic">Our Commitment</span>
             </h2>
-          </motion.div>
+          </m.div>
 
           <div className="grid md:grid-cols-3 gap-6 md:gap-8">
             {[
@@ -173,7 +173,7 @@ export default function PilgrimagePageClient({ images }) {
                 statLabel: "Days of transformation",
               },
             ].map((item, idx) => (
-              <motion.div
+              <m.div
                 key={item.title}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -193,7 +193,7 @@ export default function PilgrimagePageClient({ images }) {
                   {item.title}
                 </h3>
                 <p className="text-sm text-brand-muted leading-relaxed">{item.desc}</p>
-              </motion.div>
+              </m.div>
             ))}
           </div>
         </div>
@@ -229,7 +229,7 @@ export default function PilgrimagePageClient({ images }) {
       {/* Final CTA Section */}
       <section className="py-16 md:py-24 bg-linear-to-b from-[#f8f5f2] to-white">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -264,7 +264,7 @@ export default function PilgrimagePageClient({ images }) {
             <p className="text-xs text-brand-muted mt-6">
               Early registration recommended. 2026 departures filling fast.
             </p>
-          </motion.div>
+          </m.div>
         </div>
       </section>
 

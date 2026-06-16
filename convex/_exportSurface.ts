@@ -13,8 +13,14 @@ import * as crm_finance from "./crm/finance";
 import * as crm_imports from "./crm/imports";
 import * as crm_jobCards from "./crm/jobCards";
 import * as crm_leave from "./crm/leave";
+import * as crm_leaveApprovers from "./crm/leaveApprovers";
+import * as crm_leaveLapse from "./crm/leaveLapse";
+import * as crm_leavePolicy from "./crm/leavePolicy";
 import * as crm_lib from "./crm/lib";
 import * as crm_navShortcuts from "./crm/navShortcuts";
+import * as crm_notificationEmailDetails from "./crm/notificationEmailDetails";
+import * as crm_notificationEmails from "./crm/notificationEmails";
+import * as crm_notificationSummary from "./crm/notificationSummary";
 import * as crm_ops from "./crm/ops";
 import * as crm_passport from "./crm/passport";
 import * as crm_proposalAttachments from "./crm/proposalAttachments";
@@ -28,12 +34,6 @@ import * as crm_staffImport from "./crm/staffImport";
 import * as crm_ticketing from "./crm/ticketing";
 import * as crm_travellers from "./crm/travellers";
 import * as crm_visa from "./crm/visa";
-import * as crm_leaveApprovers from "./crm/leaveApprovers";
-import * as crm_leaveLapse from "./crm/leaveLapse";
-import * as crm_leavePolicy from "./crm/leavePolicy";
-import * as crm_notificationEmailDetails from "./crm/notificationEmailDetails";
-import * as crm_notificationEmails from "./crm/notificationEmails";
-import * as crm_notificationSummary from "./crm/notificationSummary";
 import * as lib_authEmailHtml from "./lib/authEmailHtml";
 import * as lib_authSync from "./lib/authSync";
 import * as lib_emailConfig from "./lib/emailConfig";
@@ -200,6 +200,7 @@ export const __convexExportSurface = [
   crm_queries.create,
   crm_queries.update,
   crm_queries.assignContracting,
+  crm_queries.assignQueryTeams,
   crm_queries.submitToContracting,
   crm_queries.updateStatus,
   crm_queries.remove,
@@ -290,8 +291,6 @@ export const __convexExportSurface = [
   migrations.importTrips,
   migrations.importBookings,
   migrations.getStats,
-  migrations.fixQuerySourceManual,
-  migrations.migrateLeadStageClosedToLost,
   sacredBharat.getMyProgress,
   sacredBharat.markTempleVisited,
   sacredBharat.unmarkTempleVisited,

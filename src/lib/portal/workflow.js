@@ -39,7 +39,7 @@ export function getPipelineBuckets(queries = []) {
   return buckets;
 }
 
-export function getSalesPipelineStage(query) {
+function getSalesPipelineStage(query) {
   if (query?.leadStage) {
     return query.leadStage;
   }
@@ -70,10 +70,6 @@ export function getSalesPipelineBuckets(queries = []) {
     buckets[stage].push(query);
   }
   return buckets;
-}
-
-export function isClosedQuery(query) {
-  return ["Order Confirmed", "Order Lost"].includes(getPipelineStage(query));
 }
 
 export function isVisaComplete(status) {

@@ -120,6 +120,8 @@ function mapPassengerExportRow(row: any) {
 
   return {
     fullName: row.fullName,
+    surname: row.surname,
+    givenName: row.givenName,
     travelHub: row.travelHub,
     foodPreference: row.foodPreference,
     paymentType: row.paymentType,
@@ -136,6 +138,8 @@ function mapPassengerExportRow(row: any) {
     sourceSoName: row.sourceSoName,
     sourceRsoName: row.sourceRsoName,
     sourceGroup: row.sourceGroup,
+    sourceSheet: row.sourceSheet,
+    sourceRowNumber: row.sourceRowNumber,
     willingToGo: row.cancellation || row.lastMinuteDrop ? "UNABLE TO GO" : "CONFIRMED",
     ticketing: buildTicketingExport(row.tickets ?? []),
     passport,

@@ -1,10 +1,10 @@
 "use client";
 
+import { m } from "motion/react";
 import { Loader2 } from "lucide-react";
-import { m as motion } from "motion/react";
 import { useId, useState } from "react";
-import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
+import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { formatDisplayDate as formatDate } from "@/lib/formatDate";
 
@@ -396,7 +396,7 @@ function FinalizedProposalPdfPanel({
   };
 
   return (
-    <motion.div className="space-y-4">
+    <m.div className="space-y-4">
       <p className="text-sm text-brand-muted">
         Upload the client-ready proposal PDF here. Sales can download it and send it to the client,
         then mark the proposal as sent.
@@ -460,7 +460,7 @@ function FinalizedProposalPdfPanel({
           </div>
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -569,7 +569,7 @@ function QueryAttachmentsPanel({
   };
 
   return (
-    <motion.div className="space-y-4">
+    <m.div className="space-y-4">
       {canManage && (
         <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
           <label
@@ -640,7 +640,7 @@ function QueryAttachmentsPanel({
           ))}
         </ul>
       )}
-    </motion.div>
+    </m.div>
   );
 }
 

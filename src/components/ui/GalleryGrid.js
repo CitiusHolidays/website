@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
 import { useEffect, useReducer } from "react";
 import { cn } from "../../utils/cn";
@@ -90,7 +90,7 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
 
   return (
     <>
-      <motion.div
+      <m.div
         className={cn("grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-3", className)}
         initial="hidden"
         whileInView="show"
@@ -100,7 +100,7 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
         }}
       >
         {images.map((item, index) => (
-          <motion.div
+          <m.div
             key={item.asset?._id || item._key || index}
             layoutId={`image-container-${item.asset?._id || index}`}
             onClick={() => {
@@ -119,14 +119,14 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
               className={cn("object-cover transition-transform duration-300 group-hover:scale-105")}
               sizes="(max-width: 768px) 50vw, 33vw"
             />
-          </motion.div>
+          </m.div>
         ))}
-      </motion.div>
+      </m.div>
 
       <AnimatePresence>
         {selectedIndex !== null && images[selectedIndex] && (
           <div className="fixed inset-0 z-50">
-            <motion.button
+            <m.button
               type="button"
               aria-label="Close gallery"
               initial={{ opacity: 0 }}
@@ -138,7 +138,7 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
             />
 
             <div className="absolute inset-0 flex items-center justify-center p-4">
-              <motion.button
+              <m.button
                 aria-label="Previous Image"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -147,8 +147,8 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
                 className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 text-white z-10 hover:bg-white/20 p-2 rounded-full transition-colors"
               >
                 <ArrowLeft className="size-8" />
-              </motion.button>
-              <motion.button
+              </m.button>
+              <m.button
                 aria-label="Next Image"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -157,15 +157,15 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
                 className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 text-white z-10 hover:bg-white/20 p-2 rounded-full transition-colors"
               >
                 <ArrowRight className="size-8" />
-              </motion.button>
+              </m.button>
 
-              <motion.div
+              <m.div
                 layoutId={`image-container-${images[selectedIndex].asset?._id || selectedIndex}`}
                 className="relative w-full max-w-5xl aspect-[4/3] rounded-lg overflow-hidden shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
               >
                 <AnimatePresence initial={false} custom={direction}>
-                  <motion.div
+                  <m.div
                     key={selectedIndex}
                     custom={direction}
                     variants={variants}
@@ -186,18 +186,18 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
                       className="object-contain"
                       priority
                     />
-                  </motion.div>
+                  </m.div>
                 </AnimatePresence>
-              </motion.div>
+              </m.div>
             </div>
 
-            <motion.button
+            <m.button
               aria-label="Close"
               onClick={close}
               className="absolute top-4 right-4 text-white z-10 hover:scale-110"
             >
               <X className="size-8" />
-            </motion.button>
+            </m.button>
           </div>
         )}
       </AnimatePresence>

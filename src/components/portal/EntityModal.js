@@ -68,6 +68,7 @@ export function EntityModal({
     "Operations Head",
     "Operations Cement",
   ]);
+  const accountsTeamOptions = teamSelectOptions(team, ["Accounts", "Accounts Head"]);
   const ticketingTeamOptions = teamSelectOptions(team, ["Ticketing", "Head of Ticketing"]);
   const tourManagerOptions = teamSelectOptions(team, ["Tour Manager"]);
   const travellerOptions = linkedTravellerOptions(travellers, form.jobCardId);
@@ -130,6 +131,7 @@ export function EntityModal({
     team,
     contractingTeamOptions,
     operationsTeamOptions,
+    accountsTeamOptions,
     ticketingTeamOptions,
     pendingQueryFiles,
     setPendingQueryFiles,

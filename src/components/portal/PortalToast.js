@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { createContext, use, useState } from "react";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 
@@ -15,7 +15,7 @@ function ToastItem({ toast, onDismiss }) {
         : "border-brand-border bg-white text-brand-dark";
 
   return (
-    <motion.div
+    <m.div
       layout
       initial={{ opacity: 0, y: 8, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -36,7 +36,7 @@ function ToastItem({ toast, onDismiss }) {
           Dismiss
         </button>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 

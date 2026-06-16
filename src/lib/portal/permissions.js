@@ -103,7 +103,7 @@ export function canAssignTourManagers(access) {
   return isAdmin(access) || hasRole(access, "Operations Head");
 }
 
-export function filterTeamByRoles(team = [], roles = []) {
+function filterTeamByRoles(team = [], roles = []) {
   return team.filter((member) => member.roles?.some((role) => roles.includes(role)));
 }
 

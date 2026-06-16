@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
+import { applyGuestProgressMerge } from "./lib/sacredBharatGuestMerge";
 import {
   computeProgressSummary,
   computeScore,
@@ -10,6 +11,7 @@ import {
 } from "./lib/sacredBharatScoring";
 
 const now = () => Date.now();
+const RESERVED_PASSPORT_SLUGS = new Set(["leaderboard", "trails", "groups", "challenges", "admin"]);
 
 const getIdentity = async (ctx: QueryCtx | MutationCtx) => {
   return await ctx.auth.getUserIdentity();
@@ -40,6 +42,9 @@ const getWishlistForUser = async (ctx: QueryCtx | MutationCtx, authUserId: strin
 const toVisitApi = (visit: Doc<"sacredBharatVisits">) => ({
   templeId: visit.templeId,
   visitedAt: visit.visitedAt,
+  visitedOn: visit.visitedOn ?? null,
+  note: visit.note ?? null,
+  source: visit.source ?? "self",
 });
 
 const toWishlistApi = (item: Doc<"sacredBharatWishlist">) => ({
@@ -66,6 +71,48 @@ const buildProgressPayload = async (ctx: QueryCtx | MutationCtx, authUserId: str
   };
 };
 
+function normalizePassportSlug(value: string) {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!slug || RESERVED_PASSPORT_SLUGS.has(slug)) {
+    throw new ConvexError("PASSPORT_SLUG_RESERVED");
+  }
+  if (slug.length < 3 || slug.length > 48) {
+    throw new ConvexError("PASSPORT_SLUG_INVALID");
+  }
+  return slug;
+}
+
+async function getPassportProfileForUser(ctx: QueryCtx | MutationCtx, authUserId: string) {
+  return await ctx.db
+    .query("sacredBharatProfiles")
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+    .unique();
+}
+
+async function buildGroupMemberSummary(ctx: QueryCtx, authUserId: string) {
+  const [passport, profile, progress] = await Promise.all([
+    getPassportProfileForUser(ctx, authUserId),
+    ctx.db
+      .query("userProfiles")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+      .unique(),
+    buildProgressPayload(ctx, authUserId),
+  ]);
+  return {
+    authUserId,
+    displayName: passport?.displayName || profile?.name || "Sacred Yatri",
+    slug: passport?.isPublic ? passport.slug : null,
+    score: progress.score,
+    templeCount: progress.templeCount,
+    levelTitle: progress.levelTitle,
+    badges: [],
+  };
+}
+
 export const getMyProgress = query({
   args: {},
   handler: async (ctx) => {
@@ -78,7 +125,11 @@ export const getMyProgress = query({
 });
 
 export const markTempleVisited = mutation({
-  args: { templeId: v.string() },
+  args: {
+    templeId: v.string(),
+    visitedOn: v.optional(v.string()),
+    note: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
     const visitedSet = normalizeVisitedSet([args.templeId]);
@@ -98,10 +149,81 @@ export const markTempleVisited = mutation({
         authUserId: identity.subject,
         templeId: args.templeId,
         visitedAt: now(),
+        visitedOn: args.visitedOn,
+        note: args.note,
+        source: "self",
       });
     }
 
     return await buildProgressPayload(ctx, identity.subject);
+  },
+});
+
+export const getMyPassportProfile = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await getIdentity(ctx);
+    if (!identity) return null;
+    const profile = await getPassportProfileForUser(ctx, identity.subject);
+    return profile
+      ? {
+          id: profile._id,
+          slug: profile.slug,
+          displayName: profile.displayName,
+          bio: profile.bio ?? "",
+          homeCity: profile.homeCity ?? "",
+          isPublic: profile.isPublic,
+          shareWishlist: profile.shareWishlist,
+          shareRecentVisits: profile.shareRecentVisits,
+        }
+      : null;
+  },
+});
+
+export const upsertMyPassportProfile = mutation({
+  args: {
+    slug: v.string(),
+    displayName: v.string(),
+    bio: v.optional(v.string()),
+    homeCity: v.optional(v.string()),
+    isPublic: v.boolean(),
+    shareWishlist: v.boolean(),
+    shareRecentVisits: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await getIdentityOrThrow(ctx);
+    const slug = normalizePassportSlug(args.slug);
+    const [existingSlug, existing] = await Promise.all([
+      ctx.db
+        .query("sacredBharatProfiles")
+        .withIndex("by_slug", (q) => q.eq("slug", slug))
+        .unique(),
+      getPassportProfileForUser(ctx, identity.subject),
+    ]);
+    if (existingSlug && existingSlug.authUserId !== identity.subject) {
+      throw new ConvexError("PASSPORT_SLUG_TAKEN");
+    }
+    const timestamp = now();
+    const patch = {
+      slug,
+      displayName: args.displayName.trim() || "Sacred Yatri",
+      bio: args.bio?.trim(),
+      homeCity: args.homeCity?.trim(),
+      isPublic: args.isPublic,
+      shareWishlist: args.shareWishlist,
+      shareRecentVisits: args.shareRecentVisits,
+      updatedAt: timestamp,
+    };
+    if (existing) {
+      await ctx.db.patch(existing._id, patch);
+      return { id: existing._id, slug };
+    }
+    const id = await ctx.db.insert("sacredBharatProfiles", {
+      authUserId: identity.subject,
+      ...patch,
+      createdAt: timestamp,
+    });
+    return { id, slug };
   },
 });
 
@@ -127,28 +249,23 @@ export const unmarkTempleVisited = mutation({
 export const mergeGuestProgress = mutation({
   args: {
     templeIds: v.array(v.string()),
+    wishlist: v.optional(
+      v.array(
+        v.object({
+          itemType: v.union(v.literal("temple"), v.literal("trail")),
+          itemId: v.string(),
+        }),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
-    const validIds = [...normalizeVisitedSet(args.templeIds)];
-
-    await Promise.all(
-      validIds.map(async (templeId) => {
-        const existing = await ctx.db
-          .query("sacredBharatVisits")
-          .withIndex("by_authUserId_templeId", (q) =>
-            q.eq("authUserId", identity.subject).eq("templeId", templeId),
-          )
-          .unique();
-
-        if (!existing) {
-          await ctx.db.insert("sacredBharatVisits", {
-            authUserId: identity.subject,
-            templeId,
-            visitedAt: now(),
-          });
-        }
-      }),
+    const timestamp = now();
+    await applyGuestProgressMerge(
+      ctx,
+      identity.subject,
+      { templeIds: args.templeIds, wishlist: args.wishlist },
+      { visitedAt: timestamp, createdAt: timestamp },
     );
 
     return await buildProgressPayload(ctx, identity.subject);
@@ -240,6 +357,7 @@ async function buildLeaderboardEntries(ctx: QueryCtx) {
   const entries: {
     authUserId: string;
     displayName: string;
+    passportSlug: string | null;
     score: number;
     levelTitle: string;
     levelSlug: string;
@@ -253,9 +371,11 @@ async function buildLeaderboardEntries(ctx: QueryCtx) {
       const isOptedOut = await isLeaderboardOptedOut(ctx, authUserId);
       if (isOptedOut || templeIds.length === 0) return null;
       const summary = computeProgressSummary(templeIds);
+      const passport = await getPassportProfileForUser(ctx, authUserId);
       return {
         authUserId,
-        displayName: await getDisplayName(ctx, authUserId),
+        displayName: passport?.displayName || (await getDisplayName(ctx, authUserId)),
+        passportSlug: passport?.isPublic ? passport.slug : null,
         score: summary.score,
         levelTitle: summary.levelTitle,
         levelSlug: summary.levelSlug,
@@ -285,6 +405,7 @@ export const getLeaderboard = query({
     return entries.slice(0, limit).map((entry, index) => ({
       rank: index + 1,
       displayName: entry.displayName,
+      passportSlug: entry.passportSlug,
       score: entry.score,
       levelTitle: entry.levelTitle,
       levelSlug: entry.levelSlug,
@@ -305,6 +426,7 @@ export const getLeaderboardWithMe = query({
     const top = entries.slice(0, limit).map((entry, index) => ({
       rank: index + 1,
       displayName: entry.displayName,
+      passportSlug: entry.passportSlug,
       score: entry.score,
       levelTitle: entry.levelTitle,
       levelSlug: entry.levelSlug,
@@ -357,6 +479,237 @@ export const getMyLeaderboardRank = query({
       score: entry.score,
       levelTitle: entry.levelTitle,
       displayName: entry.displayName,
+      passportSlug: entry.passportSlug,
+    };
+  },
+});
+
+function makeInviteCode() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+async function requireGroupMember(ctx: QueryCtx | MutationCtx, groupId: any, authUserId: string) {
+  const membership = await ctx.db
+    .query("sacredBharatGroupMembers")
+    .withIndex("by_groupId_authUserId", (q) =>
+      q.eq("groupId", groupId).eq("authUserId", authUserId),
+    )
+    .unique();
+  if (!membership) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  return membership;
+}
+
+export const createGroup = mutation({
+  args: { name: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await getIdentityOrThrow(ctx);
+    const timestamp = now();
+    let inviteCode = makeInviteCode();
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const existing = await ctx.db
+        .query("sacredBharatGroups")
+        .withIndex("by_inviteCode", (q) => q.eq("inviteCode", inviteCode))
+        .first();
+      if (!existing) break;
+      inviteCode = makeInviteCode();
+    }
+    const groupId = await ctx.db.insert("sacredBharatGroups", {
+      name: args.name.trim() || "Sacred Bharat Group",
+      ownerAuthUserId: identity.subject,
+      inviteCode,
+      isArchived: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    await ctx.db.insert("sacredBharatGroupMembers", {
+      groupId,
+      authUserId: identity.subject,
+      role: "owner",
+      joinedAt: timestamp,
+    });
+    return { id: groupId, inviteCode };
+  },
+});
+
+export const joinGroupByInviteCode = mutation({
+  args: { inviteCode: v.string() },
+  handler: async (ctx, args) => {
+    const [identity, group] = await Promise.all([
+      getIdentityOrThrow(ctx),
+      ctx.db
+        .query("sacredBharatGroups")
+        .withIndex("by_inviteCode", (q) => q.eq("inviteCode", args.inviteCode.trim().toUpperCase()))
+        .unique(),
+    ]);
+    if (!group || group.isArchived) {
+      throw new ConvexError("GROUP_NOT_FOUND");
+    }
+    const existing = await ctx.db
+      .query("sacredBharatGroupMembers")
+      .withIndex("by_groupId_authUserId", (q) =>
+        q.eq("groupId", group._id).eq("authUserId", identity.subject),
+      )
+      .unique();
+    if (!existing) {
+      await ctx.db.insert("sacredBharatGroupMembers", {
+        groupId: group._id,
+        authUserId: identity.subject,
+        role: "member",
+        joinedAt: now(),
+      });
+    }
+    return { id: group._id };
+  },
+});
+
+export const listMyGroups = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await getIdentity(ctx);
+    if (!identity) return [];
+    const memberships = await ctx.db
+      .query("sacredBharatGroupMembers")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", identity.subject))
+      .collect();
+    const groups = await Promise.all(
+      memberships.map((membership) => ctx.db.get(membership.groupId)),
+    );
+    return groups.flatMap((group, index) =>
+      group && !group.isArchived
+        ? [
+            {
+              id: group._id,
+              name: group.name,
+              inviteCode: group.inviteCode,
+              role: memberships[index].role,
+              memberCount: memberships.length,
+            },
+          ]
+        : [],
+    );
+  },
+});
+
+export const getGroupLeaderboard = query({
+  args: { groupId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await getIdentityOrThrow(ctx);
+    const groupId = ctx.db.normalizeId("sacredBharatGroups", args.groupId);
+    if (!groupId) throw new ConvexError("Invalid group id");
+    const group = await ctx.db.get(groupId);
+    if (!group || group.isArchived) throw new ConvexError("GROUP_NOT_FOUND");
+    const [membership, members] = await Promise.all([
+      requireGroupMember(ctx, groupId, identity.subject),
+      ctx.db
+        .query("sacredBharatGroupMembers")
+        .withIndex("by_groupId", (q) => q.eq("groupId", groupId))
+        .collect(),
+    ]);
+    const summaries = await Promise.all(
+      members.map((member) => buildGroupMemberSummary(ctx, member.authUserId)),
+    );
+    summaries.sort((a, b) => b.score - a.score || b.templeCount - a.templeCount);
+    return {
+      group: {
+        id: group._id,
+        name: group.name,
+        inviteCode: group.inviteCode,
+        role: membership.role,
+      },
+      entries: summaries.map((summary, index) => ({
+        rank: index + 1,
+        ...summary,
+        isCurrentUser: summary.authUserId === identity.subject,
+      })),
+    };
+  },
+});
+
+export const renameGroup = mutation({
+  args: { groupId: v.string(), name: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await getIdentityOrThrow(ctx);
+    const groupId = ctx.db.normalizeId("sacredBharatGroups", args.groupId);
+    if (!groupId) throw new ConvexError("Invalid group id");
+    const membership = await requireGroupMember(ctx, groupId, identity.subject);
+    if (membership.role !== "owner") throw new ConvexError("FORBIDDEN");
+    await ctx.db.patch(groupId, { name: args.name.trim(), updatedAt: now() });
+    return { id: groupId };
+  },
+});
+
+export const archiveGroup = mutation({
+  args: { groupId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await getIdentityOrThrow(ctx);
+    const groupId = ctx.db.normalizeId("sacredBharatGroups", args.groupId);
+    if (!groupId) throw new ConvexError("Invalid group id");
+    const membership = await requireGroupMember(ctx, groupId, identity.subject);
+    if (membership.role !== "owner") throw new ConvexError("FORBIDDEN");
+    await ctx.db.patch(groupId, { isArchived: true, updatedAt: now() });
+    return { id: groupId };
+  },
+});
+
+export const leaveGroup = mutation({
+  args: { groupId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await getIdentityOrThrow(ctx);
+    const groupId = ctx.db.normalizeId("sacredBharatGroups", args.groupId);
+    if (!groupId) throw new ConvexError("Invalid group id");
+    const membership = await requireGroupMember(ctx, groupId, identity.subject);
+    if (membership.role === "owner") {
+      throw new ConvexError("Archive the group before leaving as owner");
+    }
+    await ctx.db.delete(membership._id);
+    return { id: groupId };
+  },
+});
+
+export const getPublicPassportBySlug = query({
+  args: { slug: v.string() },
+  handler: async (ctx, args) => {
+    const slug = normalizePassportSlug(args.slug);
+    const passport = await ctx.db
+      .query("sacredBharatProfiles")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .unique();
+    if (!passport?.isPublic) {
+      return null;
+    }
+    const [progress, wishlist, leaderboardEntries, profile] = await Promise.all([
+      buildProgressPayload(ctx, passport.authUserId),
+      getWishlistForUser(ctx, passport.authUserId),
+      buildLeaderboardEntries(ctx),
+      ctx.db
+        .query("userProfiles")
+        .withIndex("by_authUserId", (q) => q.eq("authUserId", passport.authUserId))
+        .unique(),
+    ]);
+    const leaderboardIndex = profile?.sacredBharatLeaderboardOptOut
+      ? -1
+      : leaderboardEntries.findIndex((entry) => entry.authUserId === passport.authUserId);
+    return {
+      profile: {
+        slug: passport.slug,
+        displayName: passport.displayName,
+        bio: passport.bio ?? "",
+        homeCity: passport.homeCity ?? "",
+        isPublic: passport.isPublic,
+        shareWishlist: passport.shareWishlist,
+        shareRecentVisits: passport.shareRecentVisits,
+      },
+      progress: {
+        ...progress,
+        visits: passport.shareRecentVisits ? progress.visits.slice(0, 8) : [],
+        wishlist: passport.shareWishlist ? wishlist.map(toWishlistApi) : [],
+      },
+      leaderboardRank:
+        leaderboardIndex >= 0
+          ? { rank: leaderboardIndex + 1, totalPlayers: leaderboardEntries.length }
+          : null,
     };
   },
 });

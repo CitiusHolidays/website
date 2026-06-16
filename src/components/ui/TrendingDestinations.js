@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { MapPin } from "lucide-react";
-import { m as motion } from "motion/react";
 import Image from "next/image";
 import { useState } from "react";
 import {
@@ -11,7 +11,7 @@ import {
 
 function DestinationCard({ destination, index }) {
   return (
-    <motion.div
+    <m.div
       className="group relative flex-shrink-0 w-[85vw] md:w-[400px] h-[500px] rounded-3xl overflow-hidden cursor-pointer"
       initial={{ opacity: 0, x: 50 }}
       whileInView={{ opacity: 1, x: 0 }}
@@ -55,7 +55,7 @@ function DestinationCard({ destination, index }) {
             Explore <ArrowRight size={16} />
         </div> */}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -74,13 +74,13 @@ export default function TrendingDestinations({
 
       <div className="max-w-7xl mx-auto px-4 mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <motion.h2
+          <m.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             className="text-4xl md:text-5xl font-heading font-bold text-brand-dark mb-4"
           >
             Trending Now
-          </motion.h2>
+          </m.h2>
           <p className="text-lg text-brand-muted max-w-md">
             Discover the most sought-after destinations for meetings, incentives, conferences, and
             exhibitions

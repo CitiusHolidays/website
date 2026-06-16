@@ -26,7 +26,8 @@ import {
   Upload,
   Users,
 } from "lucide-react";
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   cloneElement,
@@ -39,12 +40,20 @@ import {
 } from "react";
 import { DashboardView } from "@/components/portal/dashboard/DashboardView";
 import { EntityModal } from "@/components/portal/EntityModal";
+import {
+  PortalChromeSavedViewsSync,
+  usePortalChrome,
+} from "@/components/portal/PortalChromeContext";
+import {
+  PortalCommandPaletteRoot,
+  PortalCommandPaletteTrigger,
+} from "@/components/portal/PortalCommandPalette";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { PortalDateInput } from "@/components/portal/PortalDateInput";
-import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
-import { PortalListFilters } from "@/components/portal/PortalListFilters";
+import PortalListToolbar from "@/components/portal/PortalListToolbar";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
+import SaveViewDialog from "@/components/portal/SaveViewDialog";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { usePortalNotificationDeepLink } from "@/components/portal/usePortalNotificationDeepLink";
 import { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
@@ -77,6 +86,7 @@ import {
   uploadQueryFiles,
 } from "@/lib/portal/fileUploads";
 import { toNumber } from "@/lib/portal/formUtils";
+import { buildPassengerImportResultMessage } from "@/lib/portal/importResultMessages";
 import { getListFilterConfig } from "@/lib/portal/listFilterConfig";
 import {
   applyListFilters,
@@ -104,7 +114,9 @@ import {
   canAssignQueryTicketing,
   canAssignTicketing,
   canAssignTourManagers,
+  getAccessibleNavGroups,
   getQueryTypeOptions,
+  hasRole,
   isCementScopedUser,
   teamSelectOptions,
 } from "@/lib/portal/permissions";
@@ -626,50 +638,63 @@ function PortalWorkspaceInner({ view = "dashboard" }) {
 }
 
 function PortalWorkspaceHeader({ workspace: w }) {
+  if (w.view === "dashboard") {
+    return w.error && !w.modal ? (
+      <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        {w.error}
+      </div>
+    ) : null;
+  }
+
+  const filterSourceRows =
+    {
+      proposals: w.periodFiltered.proposals,
+      "job-cards": w.periodFiltered.jobCards,
+      travellers: w.periodFiltered.travellers,
+      passport: w.periodFiltered.travellers,
+      visa: w.periodFiltered.visas,
+      ticketing: w.periodFiltered.tickets,
+      flights: w.periodFiltered.pnrs,
+      tickets: w.periodFiltered.tickets,
+      "seat-allocation": w.periodFiltered.seats,
+      hotels: w.periodFiltered.travellers,
+      "tour-managers": w.periodFiltered.tourManagers,
+      finance: w.periodFiltered.invoices,
+      expenses: w.periodFiltered.expenses,
+      approvals: w.periodFiltered.approvals,
+      "employees-on-leave": w.periodFiltered.leaves,
+      team: w.team || [],
+      activity: w.periodFiltered.activity,
+    }[w.view] ?? w.periodFiltered.queries;
+
   return (
     <>
-      <PageHeader
+      <PortalListToolbar
         title={w.meta.title}
-        subtitle={w.meta.subtitle}
         search={w.search}
         setSearch={w.setSearchWithUrl}
+        showSearch
         dateRange={w.dateRange}
         setDateRange={w.setDateRangeWithUrl}
-        showSearch={w.view !== "dashboard"}
-        showPeriodFilter={!["settings", "team", "dashboard"].includes(w.view)}
+        showPeriodFilter={!["settings", "team"].includes(w.view)}
         showJobCardFilter={w.showJobCardFilter}
         jobCardFilter={w.jobCardFilter}
         setJobCardFilter={w.setJobCardFilterWithUrl}
         jobCards={w.jobCards || []}
+        jobCardFilterOptions={jobCardFilterOptions}
         listFilterConfig={w.listFilterConfig}
         listFilters={w.listFilters}
         setListFilterValue={w.setListFilterValue}
-        filterSourceRows={
-          {
-            proposals: w.periodFiltered.proposals,
-            "job-cards": w.periodFiltered.jobCards,
-            travellers: w.periodFiltered.travellers,
-            passport: w.periodFiltered.travellers,
-            visa: w.periodFiltered.visas,
-            ticketing: w.periodFiltered.tickets,
-            flights: w.periodFiltered.pnrs,
-            tickets: w.periodFiltered.tickets,
-            "seat-allocation": w.periodFiltered.seats,
-            hotels: w.periodFiltered.travellers,
-            "tour-managers": w.periodFiltered.tourManagers,
-            finance: w.periodFiltered.invoices,
-            expenses: w.periodFiltered.expenses,
-            approvals: w.periodFiltered.approvals,
-            "employees-on-leave": w.periodFiltered.leaves,
-            team: w.team || [],
-            activity: w.periodFiltered.activity,
-          }[w.view] ?? w.periodFiltered.queries
-        }
+        filterSourceRows={filterSourceRows}
         filtersActive={w.filtersActive}
         onClearAllFilters={w.clearAllFilters}
-      >
-        <HeaderActions view={w.view} openModal={w.openModal} has={w.has} access={w.access} />
-      </PageHeader>
+        commandPalette={<PortalCommandPaletteTrigger />}
+        view={w.view}
+        resultCount={w.viewResultCount}
+        actions={
+          <HeaderActions view={w.view} openModal={w.openModal} has={w.has} access={w.access} />
+        }
+      />
 
       {w.error && !w.modal && (
         <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -746,6 +771,7 @@ function PortalWorkspaceViews({ workspace: w }) {
           filtersActive={w.filtersActive}
           jobCards={w.filteredJobCards}
           openModal={w.openModal}
+          access={w.access}
         />
       )}
       {w.view === "job-cards" && (
@@ -904,6 +930,8 @@ function PortalWorkspaceViews({ workspace: w }) {
           deleteItem={w.deleteItem}
           removeExpense={w.removeExpense}
           submitExpenseForApproval={w.submitExpenseForApproval}
+          decideExpenseManager={w.decideExpenseManager}
+          decideExpenseFinance={w.decideExpenseFinance}
           getExpenseAttachmentUrl={w.getExpenseAttachmentUrl}
           removeExpenseProof={w.removeExpenseProof}
         />
@@ -1138,12 +1166,45 @@ function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
 }
 
 function PortalWorkspaceLayout({ workspace: w }) {
+  const navGroups = getAccessibleNavGroups(w.access);
+  const { navShortcuts } = usePortalChrome();
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [savingView, setSavingView] = useState(false);
+
   return (
-    <div className="mx-auto max-w-[1500px]">
-      <PortalWorkspaceHeader workspace={w} />
-      <PortalWorkspaceViews workspace={w} />
-      <PortalWorkspaceSpreadsheetModals workspace={w} />
-    </div>
+    <PortalCommandPaletteRoot
+      workspace={{ ...w, navGroups, navShortcuts }}
+      onSaveView={() => setSaveDialogOpen(true)}
+    >
+      <div className="mx-auto max-w-[1500px]">
+        <PortalChromeSavedViewsSync
+          savedViews={w.savedViews || []}
+          applySavedView={w.applySavedView}
+          saveCurrentView={w.saveCurrentView}
+          deleteSavedView={w.deleteSavedView}
+          toggleSavedViewFavorite={w.toggleSavedViewFavorite}
+        />
+        <PortalWorkspaceHeader workspace={w} />
+        <PortalWorkspaceViews workspace={w} />
+        <PortalWorkspaceSpreadsheetModals workspace={w} />
+      </div>
+      <SaveViewDialog
+        open={saveDialogOpen}
+        onClose={() => setSaveDialogOpen(false)}
+        onSave={async (name, options) => {
+          setSavingView(true);
+          try {
+            await w.saveCurrentView(name, options);
+            setSaveDialogOpen(false);
+            setSavingView(false);
+          } catch (error) {
+            setSavingView(false);
+            throw error;
+          }
+        }}
+        saving={savingView}
+      />
+    </PortalCommandPaletteRoot>
   );
 }
 
@@ -1335,200 +1396,6 @@ function HeaderActions({ view, openModal, has, access }) {
   );
 }
 
-function PageHeader({
-  title,
-  subtitle,
-  children,
-  search,
-  setSearch,
-  dateRange,
-  setDateRange,
-  showPeriodFilter = true,
-  showSearch = true,
-  showJobCardFilter = false,
-  jobCardFilter = "",
-  setJobCardFilter,
-  jobCards = EMPTY_JOB_CARDS,
-  listFilterConfig = EMPTY_LIST_FILTER_CONFIG,
-  listFilters = EMPTY_LIST_FILTERS,
-  setListFilterValue,
-  filterSourceRows = EMPTY_FILTER_SOURCE_ROWS,
-  filtersActive = false,
-  onClearAllFilters,
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-      className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
-    >
-      <div>
-        <h1 className="max-w-5xl font-heading text-3xl font-semibold leading-tight text-citius-blue md:text-4xl">
-          {title}
-        </h1>
-        {subtitle ? (
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-brand-muted md:text-base">
-            {subtitle}
-          </p>
-        ) : null}
-      </div>
-      <div className="flex w-full flex-col gap-3 lg:max-w-3xl xl:max-w-none">
-        {(showPeriodFilter ||
-          showJobCardFilter ||
-          listFilterConfig.length > 0 ||
-          onClearAllFilters) && (
-          <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {showPeriodFilter && (
-              <PortalDateRangeFilter dateRange={dateRange} setDateRange={setDateRange} />
-            )}
-            {showJobCardFilter && (
-              <label className="relative shrink-0">
-                <span className="sr-only">Job card</span>
-                <select
-                  value={jobCardFilter}
-                  onChange={(event) => setJobCardFilter(event.target.value)}
-                  className="portal-period-select h-11 w-44 appearance-none rounded-full border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
-                  aria-label="Filter by job card"
-                >
-                  {jobCardFilterOptions(jobCards).map((option) => (
-                    <option key={option.value || "all"} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
-                  size={16}
-                />
-              </label>
-            )}
-            <PortalListFilters
-              config={listFilterConfig}
-              values={listFilters}
-              onChange={setListFilterValue}
-              rows={filterSourceRows}
-            />
-            {onClearAllFilters ? (
-              <button
-                type="button"
-                className={`portal-small-btn shrink-0 whitespace-nowrap bg-white ${
-                  filtersActive ? "" : "pointer-events-none invisible"
-                }`}
-                onClick={onClearAllFilters}
-                tabIndex={filtersActive ? 0 : -1}
-                disabled={!filtersActive}
-              >
-                Clear filters
-              </button>
-            ) : null}
-          </div>
-        )}
-        {(showSearch || children) && (
-          <div className="flex flex-nowrap items-center justify-end gap-2">
-            {showSearch && (
-              <label className="relative min-w-0 shrink">
-                <span className="sr-only">Search this page</span>
-                <Search
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted/60"
-                  size={16}
-                  aria-hidden
-                />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  className="h-11 w-full min-w-[12rem] rounded-full border border-brand-border bg-white pl-9 pr-4 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-72"
-                  placeholder="Search current data"
-                  aria-label="Search this page"
-                />
-              </label>
-            )}
-            {children ? <div className="flex shrink-0 flex-nowrap items-center gap-2">{children}</div> : null}
-          </div>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
-function DashboardQueryTypeBreakdown({
-  queryTypeCounts,
-  confirmedQueryTypeCounts,
-  closedQueryTypeCounts,
-  activeQueryTotal,
-  confirmedQueryTotal,
-  closedQueryTotal,
-}) {
-  if (
-    queryTypeCounts.length === 0 &&
-    confirmedQueryTypeCounts.length === 0 &&
-    closedQueryTypeCounts.length === 0
-  ) {
-    return null;
-  }
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-      {queryTypeCounts.length > 0 && (
-        <section className="space-y-3">
-          <DashboardSectionHeading
-            title="Active queries by type"
-            detail={`${activeQueryTotal.toLocaleString("en-IN")} open enquiries in this period`}
-          />
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
-            {queryTypeCounts.map((item, index) => (
-              <QueryTypeTile
-                key={`active-${item.type}`}
-                type={item.type}
-                count={item.count}
-                index={index}
-              />
-            ))}
-          </div>
-        </section>
-      )}
-      {confirmedQueryTypeCounts.length > 0 && (
-        <section className="space-y-3">
-          <DashboardSectionHeading
-            title="Confirmed queries by type"
-            detail={`${confirmedQueryTotal.toLocaleString("en-IN")} order confirmed in this period`}
-          />
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
-            {confirmedQueryTypeCounts.map((item, index) => (
-              <QueryTypeTile
-                key={`confirmed-${item.type}`}
-                type={item.type}
-                count={item.count}
-                index={index}
-                variant="confirmed"
-              />
-            ))}
-          </div>
-        </section>
-      )}
-      {closedQueryTypeCounts.length > 0 && (
-        <section className="space-y-3">
-          <DashboardSectionHeading
-            title="Lost queries by type"
-            detail={`${closedQueryTotal.toLocaleString("en-IN")} order lost in this period`}
-          />
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-4">
-            {closedQueryTypeCounts.map((item, index) => (
-              <QueryTypeTile
-                key={`closed-${item.type}`}
-                type={item.type}
-                count={item.count}
-                index={index}
-                variant="closed"
-              />
-            ))}
-          </div>
-        </section>
-      )}
-    </div>
-  );
-}
-
 function DashboardSecondaryPanels({
   summary,
   has,
@@ -1538,7 +1405,7 @@ function DashboardSecondaryPanels({
 }) {
   return (
     <>
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.05 }}
@@ -1551,7 +1418,7 @@ function DashboardSecondaryPanels({
             ) : (
               <div className="space-y-4">
                 {summary.activeTours.map((tour, index) => (
-                  <motion.div
+                  <m.div
                     key={tour.id}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1572,7 +1439,7 @@ function DashboardSecondaryPanels({
                     </div>
                     <Progress label="Tickets issued" value={tour.ticketProgress} />
                     <Progress label="Visa approved" value={tour.visaProgress} />
-                  </motion.div>
+                  </m.div>
                 ))}
               </div>
             )}
@@ -1584,7 +1451,7 @@ function DashboardSecondaryPanels({
           ) : (
             <div className="space-y-3">
               {urgentActions.map((item, index) => (
-                <motion.div
+                <m.div
                   key={item.id}
                   initial={{ opacity: 0, x: 12 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -1593,12 +1460,12 @@ function DashboardSecondaryPanels({
                 >
                   <div className="font-medium text-brand-dark">{item.label}</div>
                   <div className="mt-1 text-xs text-brand-muted">{item.type}</div>
-                </motion.div>
+                </m.div>
               ))}
             </div>
           )}
         </Panel>
-      </motion.div>
+      </m.div>
       {showOpsProgress && (
         <Panel title="Overall progress">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -1623,7 +1490,7 @@ function DashboardSecondaryPanels({
           </div>
         </Panel>
       )}
-      <motion.div
+      <m.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.12 }}
@@ -1677,7 +1544,7 @@ function DashboardSecondaryPanels({
             )}
           </Panel>
         )}
-      </motion.div>
+      </m.div>
       {departmentWorkflow.length > 0 && (
         <Panel title="Department workflow">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -1906,38 +1773,37 @@ function QueriesView({
         ["Query ID", (row) => row.queryCode],
         ["Client", (row) => strong(row.clientName)],
         [
-          "Created",
-          (row) => <span className="text-xs text-brand-muted">{formatDate(row.createdAt)}</span>,
-        ],
-        [
-          "Submitted",
+          "Dates",
           (row) => (
-            <span className="text-xs text-brand-muted">
-              {formatDate(row.submittedToContractingAt)}
-            </span>
+            <LifecycleDates
+              compact
+              items={[
+                { label: "Created", value: row.createdAt },
+                { label: "Submitted", value: row.submittedToContractingAt },
+                { label: "Confirmed", value: row.confirmedAt },
+              ]}
+            />
           ),
         ],
-        [
-          "Confirmed",
-          (row) => <span className="text-xs text-brand-muted">{formatDate(row.confirmedAt)}</span>,
-        ],
         ["Destination", (row) => row.destination || "TBD"],
-        ["Pax", (row) => row.paxCount],
-        ["Budget", (row) => money(row.budgetAmount)],
         [
-          "Approx. Margin",
-          (row) =>
-            isQueryConfirmed(row)
-              ? row.approxMargin != null
-                ? money(row.approxMargin)
-                : "-"
-              : "-",
+          "Pax",
+          (row) => (
+            <div>
+              <div>{row.paxCount}</div>
+              <div className="text-xs text-brand-muted">
+                {money(row.budgetAmount)}
+                {isQueryConfirmed(row) && row.approxMargin != null
+                  ? ` · ${money(row.approxMargin)} margin`
+                  : ""}
+              </div>
+            </div>
+          ),
         ],
         [
           "Stage",
           (row) => <Badge label={row.leadStage || "Inquiry"} tone={statusTone(row.leadStage)} />,
         ],
-        ["Type", (row) => <Badge label={row.queryType} tone="blue" />],
         [
           "Files",
           (row) => (
@@ -1952,12 +1818,10 @@ function QueriesView({
           ),
         ],
         ["Sales", (row) => row.salesOwnerName || "-"],
-        ["Notes", (row) => notesPreview(row.notes)],
-        ["Source", (row) => row.source || "-"],
         [
           "Action",
           (row) => (
-            <motion.div className="hidden flex-wrap gap-2 md:flex">
+            <m.div className="hidden flex-wrap gap-2 md:flex">
               {has(P.MANAGE_QUERIES) && (
                 <QueryManageActions
                   row={row}
@@ -1977,7 +1841,7 @@ function QueriesView({
                   Assign teams
                 </button>
               )}
-            </motion.div>
+            </m.div>
           ),
         ],
       ]}
@@ -2030,7 +1894,7 @@ function ContractingView({
   }));
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
@@ -2167,7 +2031,7 @@ function ContractingView({
           ],
         ]}
       />
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -2196,7 +2060,7 @@ function PipelineView({ rows, mode, setMode }) {
       </div>
       <div className="grid grid-flow-dense gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {Object.entries(buckets).map(([stage, items], index) => (
-          <motion.div
+          <m.div
             key={stage}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2225,7 +2089,7 @@ function PipelineView({ rows, mode, setMode }) {
                 </div>
               ))}
             </div>
-          </motion.div>
+          </m.div>
         ))}
       </div>
     </div>
@@ -2295,6 +2159,13 @@ function ProposalsView({
         ["CP/Pax", (row) => money(row.costPrice)],
         ["Tax", (row) => (row.taxRate != null ? `${row.taxRate}%` : "-")],
         ["Selling", (row) => money(row.sellingPrice)],
+        [
+          "Last Edit",
+          (row) =>
+            row.lastEditedByName
+              ? `${row.lastEditedByName} · ${formatDate(row.lastEditedAt)}`
+              : "-",
+        ],
         [
           "Finalized PDF",
           (row) => (
@@ -2367,6 +2238,34 @@ function ProposalsView({
                   />
                 )}
                 {canManage && (
+                  <button
+                    type="button"
+                    className="portal-small-btn"
+                    onClick={() =>
+                      openModal("addProposalCollaborator", {
+                        proposalId: row.id,
+                        queryCode: row.proposalCode,
+                      })
+                    }
+                  >
+                    Share
+                  </button>
+                )}
+                {canManage && (row.collaboratorStaffIds ?? []).length > 0 && (
+                  <button
+                    type="button"
+                    className="portal-small-btn"
+                    onClick={() =>
+                      openModal("removeProposalCollaborator", {
+                        proposalId: row.id,
+                        queryCode: row.proposalCode,
+                      })
+                    }
+                  >
+                    Unshare
+                  </button>
+                )}
+                {canManage && (
                   <DeleteButton
                     label={row.proposalCode}
                     onClick={() =>
@@ -2382,7 +2281,7 @@ function ProposalsView({
   );
 }
 
-function AccountsJobCardView({ rows, jobCards, openModal }) {
+function AccountsJobCardView({ rows, jobCards, openModal, access }) {
   const confirmed = rows.filter(
     (row) => row.salesStatus === "Order Confirmed" || row.contractingStatus === "Order Confirmed",
   );
@@ -2390,6 +2289,10 @@ function AccountsJobCardView({ rows, jobCards, openModal }) {
     if (job.queryId) map.set(job.queryId, job);
     return map;
   }, new Map());
+  const canAssignCreator =
+    hasRole(access, "Admin") || hasRole(access, "Directors") || hasRole(access, "Accounts Head");
+  const canOverrideCreator = hasRole(access, "Admin") || hasRole(access, "Directors");
+  const currentStaffId = access?.staffId ? String(access.staffId) : "";
   return (
     <div className="space-y-5">
       <Panel title="Payment terms reference">
@@ -2463,6 +2366,7 @@ function AccountsJobCardView({ rows, jobCards, openModal }) {
           ["Destination", (row) => row.destination || "TBD"],
           ["Pax", (row) => row.paxCount],
           ["Payment Terms", (row) => paymentTermLabel(row.queryType)],
+          ["Assigned Creator", (row) => row.jobCardCreatorName || "Not assigned"],
           [
             "Job Card",
             (row) => {
@@ -2487,6 +2391,32 @@ function AccountsJobCardView({ rows, jobCards, openModal }) {
                 return (
                   <span className="text-xs font-semibold text-brand-muted">
                     Linked to {linkedJob.jobCode}
+                  </span>
+                );
+              }
+              if (!row.jobCardCreatorStaffId) {
+                return canAssignCreator ? (
+                  <button
+                    type="button"
+                    className="portal-small-btn"
+                    onClick={() =>
+                      openModal("assignJobCardCreator", {
+                        queryId: row.id,
+                        queryCode: row.queryCode,
+                        clientName: row.clientName,
+                      })
+                    }
+                  >
+                    Assign creator
+                  </button>
+                ) : (
+                  <Badge label="Awaiting assignment" tone="orange" />
+                );
+              }
+              if (!canOverrideCreator && String(row.jobCardCreatorStaffId) !== currentStaffId) {
+                return (
+                  <span className="text-xs font-semibold text-brand-muted">
+                    Assigned to {row.jobCardCreatorName}
                   </span>
                 );
               }
@@ -2529,151 +2459,234 @@ function JobCardsView({
   const showAssignContracting = canAssignContracting(access) || canAssignOperations(access);
   const showAssignOps = canAssignOperations(access);
   const showAssignTicketing = canAssignTicketing(access);
+  const canManage = has(P.MANAGE_JOB_CARDS);
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {rows.length === 0 ? (
-        <EmptyState
-          label={filterEmptyMessage({
-            filtersActive,
-            defaultMessage: "No Job Cards yet.",
-          })}
-        />
-      ) : (
-        rows.map((job, index) => (
-          <motion.div
-            key={job.id}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            whileHover={{ y: -4 }}
-            className="overflow-hidden rounded-2xl border border-brand-border bg-white shadow-sm transition-shadow hover:shadow-lg"
-          >
-            <div className="flex items-center justify-between border-b border-brand-border px-5 py-4">
-              <div>
-                <div className="font-semibold text-brand-dark">{job.clientName}</div>
-                <div className="text-xs text-brand-muted">
-                  {job.jobCode} - {job.destination || "Destination pending"}
-                </div>
-                <div className="mt-1 text-xs text-brand-muted">
-                  Opened {formatDate(job.createdAt)}
-                </div>
-              </div>
-              <Badge label={job.status} tone={statusTone(job.status)} />
+    <SelectableDataTable
+      rows={rows}
+      empty="No Job Cards yet."
+      filtersActive={filtersActive}
+      compact
+      mobileCardRender={(job) => (
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="font-semibold text-brand-dark">{job.jobCode}</div>
+              <div className="text-sm text-brand-muted">{job.clientName}</div>
             </div>
-            <div className="space-y-3 p-5 text-sm">
-              <div className="flex justify-between">
-                <span>Confirmed pax</span>
-                <strong>{job.confirmedPax}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Rooms</span>
-                <strong>{job.roomCount || "-"}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Query</span>
-                <strong>{job.queryId ? "Linked" : "-"}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Proposal</span>
-                <strong>{job.proposalId ? "Linked" : "-"}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Contracting SPOC</span>
-                <strong>{job.contractingOwnerName || "Unassigned"}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Ops Owner</span>
-                <strong>{job.operationsOwnerName || "Unassigned"}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Ticketing Owner</span>
-                <strong>{job.ticketingOwnerName || "Unassigned"}</strong>
-              </div>
-              <div className="flex justify-between">
-                <span>Tour Manager</span>
-                <strong>{job.tourManagerName || "Unassigned"}</strong>
-              </div>
-              <div className="text-xs text-brand-muted">
-                {job.paymentTerms?.label || "Payment terms pending"}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {showAssignContracting && (
-                  <button
-                    type="button"
-                    className="portal-small-btn"
-                    onClick={() => openModal("assignContractingOwner", { jobCardId: job.id })}
-                  >
-                    Assign Contracting
-                  </button>
-                )}
-                {showAssignOps && (
-                  <button
-                    type="button"
-                    className="portal-small-btn"
-                    onClick={() => openModal("assignOperationsOwner", { jobCardId: job.id })}
-                  >
-                    Assign Ops
-                  </button>
-                )}
-                {showAssignTicketing && (
-                  <button
-                    type="button"
-                    className="portal-small-btn"
-                    onClick={() => openModal("assignTicketingOwner", { jobCardId: job.id })}
-                  >
-                    Assign Ticketing
-                  </button>
-                )}
-                {has(P.MANAGE_JOB_CARDS) && (
-                  <>
-                    <EditButton
-                      onClick={() =>
-                        openModal("jobCard", {
-                          entityId: job.id,
-                          queryId: job.queryId || "",
-                          proposalId: job.proposalId || "",
-                          clientName: job.clientName,
-                          confirmedPax: String(job.confirmedPax),
-                          roomCount: String(job.roomCount || ""),
-                          destination: job.destination,
-                          travelStartDate: job.travelStartDate,
-                          travelEndDate: job.travelEndDate,
-                          tourManagerName: job.tourManagerName,
-                        })
-                      }
-                    />
-                    <button
-                      type="button"
-                      className="portal-small-btn"
-                      onClick={() =>
-                        updateJobStatus({
-                          jobCardId: job.id,
-                          status: job.status === "Open" ? "In Operations" : "Ready for Departure",
-                        })
-                      }
-                    >
-                      <RefreshCw size={13} /> Advance Status
-                    </button>
-                    <DeleteButton
-                      label={job.jobCode}
-                      onClick={() =>
-                        deleteItem(
-                          job.jobCode,
-                          removeJobCard,
-                          { jobCardId: job.id },
-                          {
-                            confirmMessage: `Delete ${job.jobCode}? This will also delete linked travellers, passport records, visa records, flight groups and segments, PNRs, tickets, seats, hotels, rooming entries, tour manager assignments, vendors, itineraries, event flows, checklist tasks, invoices, additional services, expenses, proof attachments, approvals, and notifications. This cannot be undone.`,
-                          },
-                        )
-                      }
-                    />
-                  </>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        ))
+            <Badge label={job.status} tone={statusTone(job.status)} />
+          </div>
+          <div className="text-xs text-brand-muted">
+            {job.destination || "Destination pending"} · Opened {formatDate(job.createdAt)}
+          </div>
+          <Link href={`/portal/job-cards/${job.id}`} className="portal-small-btn inline-flex">
+            Open
+          </Link>
+        </div>
       )}
+      columns={[
+        ["Job code", (row) => strong(row.jobCode)],
+        ["Client", (row) => row.clientName],
+        ["Destination", (row) => row.destination || "-"],
+        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+        [
+          "Owners",
+          (row) => (
+            <span
+              className="text-xs text-brand-muted"
+              title={`Contracting: ${row.contractingOwnerName || "Unassigned"} · Ops: ${row.operationsOwnerName || "Unassigned"} · Ticketing: ${row.ticketingOwnerName || "Unassigned"}`}
+            >
+              {row.contractingOwnerName || row.operationsOwnerName || row.ticketingOwnerName
+                ? [row.contractingOwnerName, row.operationsOwnerName, row.ticketingOwnerName]
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .join(" · ")
+                : "Unassigned"}
+            </span>
+          ),
+        ],
+        [
+          "Opened",
+          (row) => <span className="text-xs text-brand-muted">{formatDate(row.createdAt)}</span>,
+        ],
+        [
+          "Last Edit",
+          (row) =>
+            row.lastEditedByName
+              ? `${row.lastEditedByName} · ${formatDate(row.lastEditedAt)}`
+              : "-",
+        ],
+        [
+          "Actions",
+          (row) => (
+            <JobCardRowActions
+              job={row}
+              openModal={openModal}
+              has={has}
+              visibility={{
+                canManage,
+                assignContracting: showAssignContracting,
+                assignOps: showAssignOps,
+                assignTicketing: showAssignTicketing,
+              }}
+              updateJobStatus={updateJobStatus}
+              deleteItem={deleteItem}
+              removeJobCard={removeJobCard}
+            />
+          ),
+        ],
+      ]}
+    />
+  );
+}
+
+function JobCardRowActions({
+  job,
+  openModal,
+  has,
+  visibility,
+  updateJobStatus,
+  deleteItem,
+  removeJobCard,
+}) {
+  const [open, setOpen] = useState(false);
+  const { canManage, assignContracting, assignOps, assignTicketing } = visibility;
+  const overflowActions = [
+    assignContracting ? (
+      <button
+        key="assign-contracting"
+        type="button"
+        className="portal-small-btn w-full"
+        onClick={() => openModal("assignContractingOwner", { jobCardId: job.id })}
+      >
+        Assign Contracting
+      </button>
+    ) : null,
+    assignOps ? (
+      <button
+        key="assign-ops"
+        type="button"
+        className="portal-small-btn w-full"
+        onClick={() => openModal("assignOperationsOwner", { jobCardId: job.id })}
+      >
+        Assign Ops
+      </button>
+    ) : null,
+    assignTicketing ? (
+      <button
+        key="assign-ticketing"
+        type="button"
+        className="portal-small-btn w-full"
+        onClick={() => openModal("assignTicketingOwner", { jobCardId: job.id })}
+      >
+        Assign Ticketing
+      </button>
+    ) : null,
+    canManage ? (
+      <EditButton
+        key="edit"
+        onClick={() =>
+          openModal("jobCard", {
+            entityId: job.id,
+            queryId: job.queryId || "",
+            proposalId: job.proposalId || "",
+            clientName: job.clientName,
+            confirmedPax: String(job.confirmedPax),
+            roomCount: String(job.roomCount || ""),
+            destination: job.destination,
+            travelStartDate: job.travelStartDate,
+            travelEndDate: job.travelEndDate,
+            tourManagerName: job.tourManagerName,
+          })
+        }
+      />
+    ) : null,
+    canManage ? (
+      <button
+        key="share"
+        type="button"
+        className="portal-small-btn w-full"
+        onClick={() => openModal("addJobCardCollaborator", { jobCardId: job.id })}
+      >
+        Share
+      </button>
+    ) : null,
+    canManage && (job.collaboratorStaffIds ?? []).length > 0 ? (
+      <button
+        key="unshare"
+        type="button"
+        className="portal-small-btn w-full"
+        onClick={() => openModal("removeJobCardCollaborator", { jobCardId: job.id })}
+      >
+        Unshare
+      </button>
+    ) : null,
+    canManage ? (
+      <button
+        key="advance"
+        type="button"
+        className="portal-small-btn w-full"
+        onClick={() =>
+          updateJobStatus({
+            jobCardId: job.id,
+            status: job.status === "Open" ? "In Operations" : "Ready for Departure",
+          })
+        }
+      >
+        Advance Status
+      </button>
+    ) : null,
+    canManage ? (
+      <DeleteButton
+        key="delete"
+        label={job.jobCode}
+        onClick={() =>
+          deleteItem(
+            job.jobCode,
+            removeJobCard,
+            { jobCardId: job.id },
+            {
+              confirmMessage: `Delete ${job.jobCode}? This will also delete linked travellers, passport records, visa records, flight groups and segments, PNRs, tickets, seats, hotels, rooming entries, tour manager assignments, vendors, itineraries, event flows, checklist tasks, invoices, additional services, expenses, proof attachments, approvals, and notifications. This cannot be undone.`,
+            },
+          )
+        }
+      />
+    ) : null,
+  ].filter(Boolean);
+
+  return (
+    <div className="flex items-center gap-2">
+      <Link href={`/portal/job-cards/${job.id}`} className="portal-small-btn">
+        Open
+      </Link>
+      {overflowActions.length > 0 ? (
+        <div className="relative">
+          <button
+            type="button"
+            className="portal-small-btn inline-flex items-center gap-1"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+            aria-label="More job card actions"
+          >
+            <MoreHorizontal size={14} />
+          </button>
+          {open ? (
+            <>
+              <button
+                type="button"
+                className={`fixed inset-0 ${PORTAL_Z.dropdownBackdrop} cursor-default bg-transparent`}
+                aria-label="Close actions menu"
+                onClick={() => setOpen(false)}
+              />
+              <div
+                className={`absolute right-0 ${PORTAL_Z.dropdown} z-10 mt-2 min-w-[180px] rounded-xl border border-brand-border bg-white p-2 shadow-lg`}
+              >
+                <div className="flex flex-col gap-2">{overflowActions}</div>
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2725,6 +2738,8 @@ function TravellersView({
       }
       columns={[
         ["Name", (row) => strong(row.fullName)],
+        ["Surname", (row) => row.surname || "-"],
+        ["Given Name", (row) => row.givenName || "-"],
         ["Job", (row) => row.jobCode],
         ["Hub", (row) => row.travelHub || "-"],
         ["Room", (row) => <Badge label={row.roomType} tone="blue" />],
@@ -2756,6 +2771,8 @@ function TravellersView({
                       entityId: row.id,
                       jobCardId: row.jobCardId,
                       fullName: row.fullName,
+                      surname: row.surname || "",
+                      givenName: row.givenName || "",
                       travelHub: row.travelHub,
                       travelDate: row.travelDate,
                       guestCompanions: row.guestCompanions,
@@ -3771,7 +3788,7 @@ function FinanceView({ rows, overview, openModal, has, deleteItem, removeInvoice
           </div>
           {overview.fundProjections && (
             <Panel title="Fund projections">
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35 }}
@@ -3797,7 +3814,7 @@ function FinanceView({ rows, overview, openModal, has, deleteItem, removeInvoice
                   value={money(overview.fundProjections.pendingExpenseApprovals)}
                   Icon={CheckCircle2}
                 />
-              </motion.div>
+              </m.div>
             </Panel>
           )}
           <Panel title="Tour-wise P&L">
@@ -3882,6 +3899,8 @@ function ExpensesView({
   deleteItem,
   removeExpense,
   submitExpenseForApproval,
+  decideExpenseManager,
+  decideExpenseFinance,
   getExpenseAttachmentUrl,
   removeExpenseProof,
 }) {
@@ -3923,7 +3942,17 @@ function ExpensesView({
         ],
         [
           "Approval",
-          (row) => <Badge label={row.approvalStatus} tone={statusTone(row.approvalStatus)} />,
+          (row) => (
+            <div className="space-y-1">
+              <Badge label={row.approvalStatus} tone={statusTone(row.approvalStatus)} />
+              <div className="text-xs text-brand-muted">
+                Manager: {row.managerReviewStatus || "Pending"}
+              </div>
+              <div className="text-xs text-brand-muted">
+                Finance: {row.financeReviewStatus || "Pending"}
+              </div>
+            </div>
+          ),
         ],
         ["Reimbursement", (row) => row.reimbursementStatus],
         [
@@ -3953,22 +3982,114 @@ function ExpensesView({
                     }
                   />
                 )}
-                <button
-                  type="button"
-                  className="portal-small-btn"
-                  onClick={() =>
-                    runMutation(
-                      {
-                        label: "Expense approval",
-                        showToast: toast,
-                        successMessage: "Expense submitted for approval.",
-                      },
-                      () => submitExpenseForApproval({ expenseId: row.id }),
-                    ).catch(() => {})
-                  }
-                >
-                  Submit for approval
-                </button>
+                {!row.submittedForApprovalAt && (
+                  <button
+                    type="button"
+                    className="portal-small-btn"
+                    onClick={() =>
+                      runMutation(
+                        {
+                          label: "Expense approval",
+                          showToast: toast,
+                          successMessage: "Expense submitted for approval.",
+                        },
+                        () => submitExpenseForApproval({ expenseId: row.id }),
+                      ).catch(() => {})
+                    }
+                  >
+                    Submit for approval
+                  </button>
+                )}
+                {row.canApproveManager && (
+                  <>
+                    <button
+                      type="button"
+                      className="portal-small-btn"
+                      onClick={() =>
+                        runMutation(
+                          {
+                            label: "Manager approval",
+                            showToast: toast,
+                            successMessage: "Expense manager-approved.",
+                          },
+                          () =>
+                            decideExpenseManager({
+                              expenseId: row.id,
+                              status: "Approved",
+                            }),
+                        ).catch(() => {})
+                      }
+                    >
+                      Manager approve
+                    </button>
+                    <button
+                      type="button"
+                      className="portal-danger-btn"
+                      onClick={() =>
+                        runMutation(
+                          {
+                            label: "Manager approval",
+                            showToast: toast,
+                            successMessage: "Expense rejected.",
+                          },
+                          () =>
+                            decideExpenseManager({
+                              expenseId: row.id,
+                              status: "Rejected",
+                            }),
+                        ).catch(() => {})
+                      }
+                    >
+                      Manager reject
+                    </button>
+                  </>
+                )}
+                {row.canApproveFinance && (
+                  <>
+                    <button
+                      type="button"
+                      className="portal-small-btn"
+                      onClick={() =>
+                        runMutation(
+                          {
+                            label: "Finance approval",
+                            showToast: toast,
+                            successMessage: "Expense finance-approved.",
+                          },
+                          () =>
+                            decideExpenseFinance({
+                              expenseId: row.id,
+                              status: "Approved",
+                              reimbursementStatus: "Pending",
+                            }),
+                        ).catch(() => {})
+                      }
+                    >
+                      Finance approve
+                    </button>
+                    <button
+                      type="button"
+                      className="portal-danger-btn"
+                      onClick={() =>
+                        runMutation(
+                          {
+                            label: "Finance approval",
+                            showToast: toast,
+                            successMessage: "Expense rejected.",
+                          },
+                          () =>
+                            decideExpenseFinance({
+                              expenseId: row.id,
+                              status: "Rejected",
+                              reimbursementStatus: "Not Submitted",
+                            }),
+                        ).catch(() => {})
+                      }
+                    >
+                      Finance reject
+                    </button>
+                  </>
+                )}
                 {row.proofAttachment && (
                   <button
                     type="button"
@@ -4491,6 +4612,7 @@ function SettingsView({
             ["Name", (row) => strong(row.name)],
             ["Email", (row) => row.email],
             ["Leave Head Approver", (row) => row.leaveHeadApproverName || "Matrix default"],
+            ["Reporting Manager", (row) => row.reportingManagerName || "-"],
             ["Department", (row) => row.department || "-"],
             ["Function", (row) => row.function || "-"],
             ["Location", (row) => row.location || "-"],
@@ -4547,6 +4669,8 @@ function SettingsView({
                         confirmationDate: row.confirmationDate || "",
                         leavePolicyGroup: row.leavePolicyGroup || "",
                         leaveHeadApproverId: row.leaveHeadApproverId || "",
+                        reportingManagerStaffId: row.reportingManagerStaffId || "",
+                        reportingManagerName: row.reportingManagerName || "",
                         maternityEventsUsed: String(row.maternityEventsUsed ?? 0),
                         paternityEventsUsed: String(row.paternityEventsUsed ?? 0),
                         marriageLeaveUsed: Boolean(row.marriageLeaveUsed),
@@ -4735,13 +4859,22 @@ function PassengerImportModal({
       setImportProgress({ current: 0, total: 1, label: "Uploading…" });
       const importRows = rows.map(toPassengerImportInput);
       const result = await commitPassengerImport({ jobCardId, rows: importRows });
-      let message = `${successLabel}. Created ${result.created}, updated ${result.updated}, total processed ${result.total}.`;
+      let roomSummaryText = "";
       if (showRoomSummary && result.roomSummary) {
-        const roomText = formatRoomSummaryText(result.roomSummary, selectedJob?.jobCode);
-        if (roomText) message += ` Room summary: ${roomText}`;
+        roomSummaryText = formatRoomSummaryText(result.roomSummary, selectedJob?.jobCode) || "";
       }
-      toast.success(message);
-      closeAndReset();
+      const { isPartialFailure, message } = buildPassengerImportResultMessage(
+        result,
+        successLabel,
+        roomSummaryText,
+      );
+      if (isPartialFailure) {
+        toast.error(message);
+        setError(message);
+      } else {
+        toast.success(message);
+        closeAndReset();
+      }
     } catch (err) {
       setError(err?.data || err?.message || "Import failed.");
     }
@@ -5078,7 +5211,7 @@ function PassengerExportModal({
       const workbook = buildWorkbook(exportData.rows, {
         sheetName: sheetName || exportData.jobCode,
       });
-      downloadWorkbook(workbook, `${exportData.jobCode}-${filenameSuffix}.xlsx`);
+      await downloadWorkbook(workbook, `${exportData.jobCode}-${filenameSuffix}.xlsx`);
       closeAndReset();
     } catch (err) {
       setError(err?.message || "Passenger export failed.");
@@ -5176,12 +5309,12 @@ function FlightExportModal({ open, close, jobCards, itinerary }) {
     close();
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!selectedJob || groups.length === 0) return;
     setError("");
     try {
       const workbook = buildFlightWorkbook(groups, { defaultSheetName: selectedJob.jobCode });
-      downloadWorkbook(workbook, `${selectedJob.jobCode}-flights.xlsx`);
+      await downloadWorkbook(workbook, `${selectedJob.jobCode}-flights.xlsx`);
       closeAndReset();
     } catch (err) {
       setError(err?.message || "Flight export failed.");
@@ -5285,13 +5418,13 @@ function ImportModalShell({
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <m.div
           className={`fixed inset-0 ${PORTAL_Z.importModal} flex items-center justify-center bg-citius-blue/35 p-4 backdrop-blur-sm`}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <motion.div
+          <m.div
             initial={{ opacity: 0, scale: 0.96, y: 18 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 18 }}
@@ -5311,8 +5444,8 @@ function ImportModalShell({
               </button>
             </div>
             {children}
-          </motion.div>
-        </motion.div>
+          </m.div>
+        </m.div>
       )}
     </AnimatePresence>
   );
@@ -5378,7 +5511,7 @@ function DataTable({
   const emptyLabel = filterEmptyMessage({ filtersActive, defaultMessage: empty });
   if (rows.length === 0) return <EmptyState label={emptyLabel} />;
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
@@ -5387,7 +5520,7 @@ function DataTable({
       {mobileCardRender && (
         <div className="divide-y divide-brand-border md:hidden">
           {rows.map((row, rowIndex) => (
-            <motion.div
+            <m.div
               key={row.id}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -5395,7 +5528,7 @@ function DataTable({
               className="p-4"
             >
               {mobileCardRender(row)}
-            </motion.div>
+            </m.div>
           ))}
         </div>
       )}
@@ -5415,7 +5548,7 @@ function DataTable({
           </thead>
           <tbody>
             {rows.map((row, rowIndex) => (
-              <motion.tr
+              <m.tr
                 key={row.id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -5430,12 +5563,12 @@ function DataTable({
                     {render(row) || "-"}
                   </td>
                 ))}
-              </motion.tr>
+              </m.tr>
             ))}
           </tbody>
         </table>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -5463,7 +5596,7 @@ function DeleteButton({ label, onClick }) {
 
 function Panel({ title, subtitle, children, className = "" }) {
   return (
-    <motion.section
+    <m.section
       initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-40px" }}
@@ -5475,7 +5608,7 @@ function Panel({ title, subtitle, children, className = "" }) {
         {subtitle ? <p className="mt-1 text-sm text-brand-muted">{subtitle}</p> : null}
       </div>
       {children}
-    </motion.section>
+    </m.section>
   );
 }
 
@@ -5510,7 +5643,7 @@ function QueryTypeTile({ type, count, index = 0, variant = "active" }) {
         : "";
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
@@ -5523,13 +5656,13 @@ function QueryTypeTile({ type, count, index = 0, variant = "active" }) {
       <div className={`mt-2 font-heading text-2xl font-semibold tabular-nums ${valueTone}`}>
         {count}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
 function StatCard({ label, value, Icon, index = 0, featured = false }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
@@ -5553,7 +5686,7 @@ function StatCard({ label, value, Icon, index = 0, featured = false }) {
       >
         {value}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -5565,7 +5698,7 @@ function Progress({ label, value }) {
         <strong className="text-citius-blue">{Math.min(value || 0, 100)}%</strong>
       </div>
       <div className="mt-1 h-2 overflow-hidden rounded-full bg-brand-border">
-        <motion.div
+        <m.div
           initial={{ width: 0 }}
           animate={{ width: `${Math.min(value || 0, 100)}%` }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
@@ -5799,7 +5932,7 @@ function QueryRowActions({ primaryAction, overflowActions = EMPTY_OVERFLOW_ACTIO
             <>
               <button
                 type="button"
-                className={`fixed inset-0 ${PORTAL_Z.chrome} cursor-default bg-transparent`}
+                className={`fixed inset-0 ${PORTAL_Z.dropdownBackdrop} cursor-default bg-transparent`}
                 aria-label="Close actions menu"
                 onClick={() => setOpen(false)}
               />
@@ -6084,7 +6217,7 @@ function FinalizedProposalPdfPanel({
   };
 
   return (
-    <motion.div className="space-y-4">
+    <m.div className="space-y-4">
       <p className="text-sm text-brand-muted">
         Upload the client-ready proposal PDF here. Sales can download it and send it to the client,
         then mark the proposal as sent.
@@ -6148,7 +6281,7 @@ function FinalizedProposalPdfPanel({
           </div>
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -6304,7 +6437,7 @@ function QueryAttachmentsPanel({
   };
 
   return (
-    <motion.div className="space-y-4">
+    <m.div className="space-y-4">
       {canManage && (
         <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
           <label
@@ -6375,7 +6508,7 @@ function QueryAttachmentsPanel({
           ))}
         </ul>
       )}
-    </motion.div>
+    </m.div>
   );
 }
 

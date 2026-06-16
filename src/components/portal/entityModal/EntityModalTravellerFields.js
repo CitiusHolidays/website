@@ -85,6 +85,12 @@ export function EntityModalTravellerFields({
             onChange={(v) => updateForm("fullName", v)}
             required
           />
+          <Input label="Surname" value={form.surname} onChange={(v) => updateForm("surname", v)} />
+          <Input
+            label="Given Name"
+            value={form.givenName}
+            onChange={(v) => updateForm("givenName", v)}
+          />
           <Input
             label="Travel Hub"
             value={form.travelHub}

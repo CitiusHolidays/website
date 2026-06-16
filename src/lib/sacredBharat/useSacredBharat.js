@@ -32,13 +32,14 @@ export function useSacredBharat() {
   useEffect(() => {
     if (!isAuthenticated || !guestHydrated || mergeAttempted.current) return;
     const draft = readGuestDraft();
-    if (draft.templeIds.length === 0) return;
+    if (draft.templeIds.length === 0 && draft.wishlist.length === 0) return;
 
     mergeAttempted.current = true;
-    mergeGuestMutation({ templeIds: draft.templeIds })
+    mergeGuestMutation({ templeIds: draft.templeIds, wishlist: draft.wishlist })
       .then(() => {
         clearGuestDraft();
         setGuestTempleIds([]);
+        setGuestWishlist([]);
       })
       .catch(() => {
         mergeAttempted.current = false;

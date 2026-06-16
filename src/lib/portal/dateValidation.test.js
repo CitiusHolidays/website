@@ -6,9 +6,9 @@ describe("dateValidation", () => {
     expect(getDateRangeError("2026-06-04", "2026-01-01")).toBe(
       "Start date must be on or before End date.",
     );
-    expect(getDateRangeError("2026-06-04", "2026-01-01", { startLabel: "From", endLabel: "To" })).toBe(
-      "From must be on or before To.",
-    );
+    expect(
+      getDateRangeError("2026-06-04", "2026-01-01", { startLabel: "From", endLabel: "To" }),
+    ).toBe("From must be on or before To.");
   });
 
   test("allows open-ended ranges", () => {

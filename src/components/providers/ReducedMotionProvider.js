@@ -6,7 +6,7 @@ export default function ReducedMotionProvider({ children }) {
   const prefersReducedMotion = useReducedMotion();
 
   return (
-    <LazyMotion features={domAnimation} strict>
+    <LazyMotion features={domAnimation}>
       <MotionConfig reducedMotion={prefersReducedMotion ? "always" : "user"}>
         {children}
       </MotionConfig>

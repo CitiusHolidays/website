@@ -25,6 +25,7 @@ import {
   requireStaff,
 } from "./lib";
 import { publicQueryAttachment } from "./queryAttachments";
+import { applyQueryTeamAssignments } from "./queryTeamAssignment";
 
 const OPS_START_ROLES = [
   "Contracting",
@@ -360,97 +361,63 @@ export const update = mutation({
 });
 
 export const assignContracting = mutation({
-  args: {
-    queryId: v.string(),
-    staffId: v.string(),
-  },
+  args: { queryId: v.string(), staffId: v.string() },
   handler: async (ctx, args) => {
     const access = await requireHeadOrAdmin(ctx, ["Contracting Head", "Operations Head"]);
-    const queryId = ctx.db.normalizeId("queries", args.queryId);
-    if (!queryId) {
-      throw new ConvexError("Invalid query id");
-    }
-    const staffId = ctx.db.normalizeId("staffUsers", args.staffId);
-    if (!staffId) {
-      throw new ConvexError("Invalid staff id");
-    }
-    const staff = await ctx.db.get(staffId);
-    if (!staff?.active) {
-      throw new ConvexError("Staff member not found");
-    }
-    const isContractingTeam = staff.roles.some((role) =>
-      ["Contracting", "Contracting Head"].includes(role),
-    );
-    if (!isContractingTeam) {
-      throw new ConvexError("Selected staff member is not on the contracting team");
-    }
-    const current = await ctx.db.get(queryId);
-    if (!current) {
-      throw new ConvexError("Query not found");
-    }
-    if (!canSeeQueryRecord(access, current)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    const ownerName = staff.name.trim();
-    const now = Date.now();
-    await ctx.db.patch(queryId, {
-      contractingOwnerId: staffId,
-      contractingOwnerName: ownerName,
-      contractingStatus: "Query Received",
-      updatedAt: now,
+    return await applyQueryTeamAssignments(ctx, access, {
+      queryId: args.queryId,
+      contractingStaffId: args.staffId,
     });
-    const jobCards = await ctx.db
-      .query("jobCards")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-      .collect();
-    await Promise.all([
-      ...jobCards.map((jobCard) =>
-        ctx.db.patch(jobCard._id, {
-          contractingOwnerId: staffId,
-          contractingOwnerName: ownerName,
-          updatedAt: now,
-        }),
-      ),
-      ctx.db.insert("contractingAssignments", {
-        queryId,
-        ownerId: staffId,
-        ownerName,
-        status: "Query Received",
-        createdBy: access.authUserId ?? "unknown",
-        createdAt: now,
-        updatedAt: now,
-      }),
-    ]);
-    await createActivity(ctx, access, {
-      entityType: "query",
-      entityId: queryId,
-      action: "assigned_contracting",
-      message: `${current.queryCode} assigned to ${ownerName}`,
-    });
-    await notifyStaffMember(ctx, staffId, {
-      title: "Assign contracting owner",
-      body: `You were assigned as contracting SPOC for ${current.queryCode}.`,
-      entityType: "query",
-      entityId: queryId,
-    });
-    return { id: queryId };
   },
 });
 
 export const assignQueryTicketing = mutation({
-  args: {
-    queryId: v.string(),
-    staffId: v.string(),
-  },
+  args: { queryId: v.string(), staffId: v.string() },
   handler: async (ctx, args) => {
     const access = await requireHeadOrAdmin(ctx, [
       "Contracting Head",
       "Operations Head",
       "Head of Ticketing",
     ]);
+    return await applyQueryTeamAssignments(ctx, access, {
+      queryId: args.queryId,
+      ticketingStaffId: args.staffId,
+    });
+  },
+});
+
+export const assignQueryTeams = mutation({
+  args: {
+    queryId: v.string(),
+    contractingStaffId: v.optional(v.string()),
+    ticketingStaffId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx);
+    return await applyQueryTeamAssignments(ctx, access, args);
+  },
+});
+
+export const assignJobCardCreator = mutation({
+  args: {
+    queryId: v.string(),
+    staffId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireHeadOrAdmin(ctx, ["Accounts Head"]);
     const queryId = ctx.db.normalizeId("queries", args.queryId);
     if (!queryId) {
       throw new ConvexError("Invalid query id");
+    }
+    const query = await ctx.db.get(queryId);
+    if (!query) {
+      throw new ConvexError("Query not found");
+    }
+    if (!canSeeQueryRecord(access, query)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    if (query.salesStatus !== "Order Confirmed" && query.contractingStatus !== "Order Confirmed") {
+      throw new ConvexError("Assign a Job Card creator only after order confirmation");
     }
     const staffId = ctx.db.normalizeId("staffUsers", args.staffId);
     if (!staffId) {
@@ -460,51 +427,29 @@ export const assignQueryTicketing = mutation({
     if (!staff?.active) {
       throw new ConvexError("Staff member not found");
     }
-    const isTicketingTeam = staff.roles.some((role) =>
-      ["Ticketing", "Head of Ticketing"].includes(role),
-    );
-    if (!isTicketingTeam) {
-      throw new ConvexError("Selected staff member is not on the ticketing team");
+    if (!staff.roles.some((role) => ["Accounts", "Accounts Head"].includes(role))) {
+      throw new ConvexError("Selected staff member is not in Accounts");
     }
-    const current = await ctx.db.get(queryId);
-    if (!current) {
-      throw new ConvexError("Query not found");
-    }
-    if (!canSeeQueryRecord(access, current)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    const ownerName = staff.name.trim();
     const now = Date.now();
-    await ctx.db.patch(queryId, {
-      ticketingOwnerId: staffId,
-      ticketingOwnerName: ownerName,
-      updatedAt: now,
-    });
-    const jobCards = await ctx.db
-      .query("jobCards")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-      .collect();
-    await Promise.all(
-      jobCards.map((jobCard) =>
-        ctx.db.patch(jobCard._id, {
-          ticketingOwnerId: staffId,
-          ticketingOwnerName: ownerName,
-          updatedAt: now,
-        }),
-      ),
-    );
-    await createActivity(ctx, access, {
-      entityType: "query",
-      entityId: queryId,
-      action: "assigned_ticketing",
-      message: `${current.queryCode} ticketing assigned to ${ownerName}`,
-    });
-    await notifyStaffMember(ctx, staffId, {
-      title: "Assign ticketing owner",
-      body: `You were assigned as ticketing SPOC for ${current.queryCode}.`,
-      entityType: "query",
-      entityId: queryId,
-    });
+    await Promise.all([
+      ctx.db.patch(queryId, {
+        jobCardCreatorStaffId: staffId,
+        jobCardCreatorName: staff.name.trim(),
+        updatedAt: now,
+      }),
+      createActivity(ctx, access, {
+        entityType: "query",
+        entityId: queryId,
+        action: "assigned_job_card_creator",
+        message: `${query.queryCode} Job Card creator assigned to ${staff.name.trim()}`,
+      }),
+      notifyStaffMember(ctx, staffId, {
+        title: "Job Card assigned",
+        body: `${query.queryCode} is assigned to you for Job Card creation.`,
+        entityType: "query",
+        entityId: queryId,
+      }),
+    ]);
     return { id: queryId };
   },
 });

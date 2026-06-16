@@ -54,7 +54,7 @@ const DROPDOWNS: Record<string, string[]> = {
     "Refunded",
   ],
   paymentType: ["Company Paid", "Self Paid", "Upgraded Self Paid"],
-  roomType: ["SGL", "Twin", "DBL", "Child with Bed", "Family Room"],
+  roomType: ["Single", "Twin", "Double", "Triple", "Child with Bed", "Family Room"],
   foodPreference: ["Veg", "Non-Veg", "Jain", "Vegan"],
   callingStatus: ["Pending", "Done", "No response"],
   guestType: ["Employee", "Client", "VIP"],

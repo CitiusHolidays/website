@@ -6,6 +6,7 @@ export const PORTAL_ROLES = [
   "Contracting",
   "Contracting Head",
   "Accounts",
+  "Accounts Head",
   "Operations",
   "Operations Head",
   "Ticketing",
@@ -131,6 +132,18 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_FINANCE,
     P.MANAGE_FINANCE,
     P.VIEW_EXPENSES,
+    P.VIEW_LEAVE,
+    P.VIEW_REPORTS,
+  ],
+  "Accounts Head": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_JOB_CARDS,
+    P.MANAGE_JOB_CARDS,
+    P.VIEW_FINANCE,
+    P.MANAGE_FINANCE,
+    P.VIEW_EXPENSES,
+    P.VIEW_TEAM,
     P.VIEW_LEAVE,
     P.VIEW_REPORTS,
   ],
@@ -286,15 +299,6 @@ export const CABIN_CLASSES = ["Economy", "Premium Economy", "Business"];
 
 export const PROPOSAL_STATUSES = ["Draft", "Sent", "Accepted", "Rejected"];
 
-export function proposalStatusLabel(status) {
-  if (status === "Sent") return "With Sales";
-  return status ?? "";
-}
-
-export function contractingStatusLabel(status) {
-  if (status === "Proposal sent") return "With Sales";
-  return status ?? "";
-}
 export const JOB_CARD_STATUSES = [
   "Open",
   "In Operations",
@@ -306,7 +310,7 @@ export const INVOICE_STATUSES = ["Draft", "Generated", "Part Paid", "Paid", "Ove
 export const SEAT_STATUSES = ["Available", "Held", "Assigned", "Blocked"];
 export const TOUR_MANAGER_STATUSES = ["Available", "Assigned", "Inactive"];
 export const APPROVAL_STATUSES = ["Pending", "Approved", "Rejected", "Needs Info"];
-export const EXPENSE_APPROVAL_STATUSES = ["Pending", "Approved", "Rejected"];
+export const EXPENSE_APPROVAL_STATUSES = ["Pending", "Approved", "Rejected", "Needs Info"];
 export const LEAVE_STATUSES = ["Pending", "Approved", "Rejected"];
 export const REIMBURSEMENT_STATUSES = ["Not Submitted", "Pending", "Reimbursed"];
 export const PORTAL_NAV_GROUPS = [
@@ -556,7 +560,7 @@ export const TICKET_STATUSES = [
 ];
 
 export const PAYMENT_TYPES = ["Company Paid", "Self Paid", "Upgraded Self Paid"];
-export const ROOM_TYPES = ["SGL", "Twin", "DBL", "Child with Bed", "Family Room"];
+export const ROOM_TYPES = ["Single", "Twin", "Double", "Triple", "Child with Bed", "Family Room"];
 export const FOOD_PREFERENCES = ["Veg", "Non-Veg", "Jain", "Vegan"];
 export const CALLING_STATUSES = ["Pending", "Done", "No response"];
 export const GUEST_TYPES = ["Employee", "Client", "VIP"];

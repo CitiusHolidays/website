@@ -1,7 +1,7 @@
 "use client";
 "use no memo";
+import { m } from "motion/react";
 import { AlertCircle, FileText, Mail, MessageSquare, Phone, User } from "lucide-react";
-import { m as motion } from "motion/react";
 import { useEffect, useReducer, useRef, useState } from "react";
 import AnimatedSubmitButton from "./AnimatedSubmitButton";
 import TurnstileWidget from "./TurnstileWidget";
@@ -253,7 +253,7 @@ export default function ModernContactForm() {
 
         {INPUT_FIELDS.map((field) => (
           <div key={field.name} className="relative">
-            <motion.div
+            <m.div
               className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10"
               animate={{
                 scale: focusedField === field.name || formValues[field.name] ? 0.8 : 1,
@@ -263,9 +263,9 @@ export default function ModernContactForm() {
               <field.icon
                 className={`size-5 ${errors[field.name] ? "text-red-500" : "text-gray-400"}`}
               />
-            </motion.div>
+            </m.div>
 
-            <motion.label
+            <m.label
               htmlFor={field.name}
               className="absolute left-12 top-1/2 transform -translate-y-1/2 text-gray-500 transition-all duration-200 pointer-events-none"
               animate={{
@@ -287,7 +287,7 @@ export default function ModernContactForm() {
               transition={{ duration: 0.2 }}
             >
               {field.label}
-            </motion.label>
+            </m.label>
 
             <input
               type={field.type}
@@ -314,7 +314,7 @@ export default function ModernContactForm() {
         ))}
 
         <div className="relative">
-          <motion.div
+          <m.div
             className="absolute left-4 top-5 z-10"
             animate={{
               scale: focusedField === "message" || formValues.message ? 0.8 : 1,
@@ -324,9 +324,9 @@ export default function ModernContactForm() {
             <MessageSquare
               className={`size-5 ${errors.message ? "text-red-500" : "text-gray-400"}`}
             />
-          </motion.div>
+          </m.div>
 
-          <motion.label
+          <m.label
             htmlFor="message"
             className="absolute left-12 top-5 text-gray-500 transition-all duration-200 pointer-events-none"
             animate={{
@@ -342,7 +342,7 @@ export default function ModernContactForm() {
             transition={{ duration: 0.2 }}
           >
             Message
-          </motion.label>
+          </m.label>
 
           <textarea
             id="message"

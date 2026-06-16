@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { Map as MapIcon, Sparkles } from "lucide-react";
-import { m as motion } from "motion/react";
 import Image from "next/image";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
 
@@ -12,7 +12,7 @@ export function AuthLoginHero({ copy, brandLogo, brandLogoAlt, isConnect }) {
   const heroLines = copy.heroLines ?? [];
 
   return (
-    <motion.div
+    <m.div
       className="relative hidden md:flex w-full md:w-1/2 lg:w-5/12 bg-[#0B1026] text-[#FDFBF7] overflow-hidden flex-col justify-between p-12"
       initial={{ opacity: 0, x: -50 }}
       animate={{ opacity: 1, x: 0 }}
@@ -26,7 +26,7 @@ export function AuthLoginHero({ copy, brandLogo, brandLogoAlt, isConnect }) {
       </div>
 
       <div className="relative z-10 h-full flex flex-col justify-between">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
@@ -60,9 +60,9 @@ export function AuthLoginHero({ copy, brandLogo, brandLogoAlt, isConnect }) {
               </span>
             ))}
           </h1>
-        </motion.div>
+        </m.div>
 
-        <motion.div
+        <m.div
           className="space-y-8"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -89,17 +89,17 @@ export function AuthLoginHero({ copy, brandLogo, brandLogoAlt, isConnect }) {
               </div>
             );
           })}
-        </motion.div>
+        </m.div>
 
-        <motion.div
+        <m.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8 }}
           className="text-xs text-white/30 font-light"
         >
           © {AUTH_COPYRIGHT_YEAR} Citius Holidays. All rights reserved.
-        </motion.div>
+        </m.div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

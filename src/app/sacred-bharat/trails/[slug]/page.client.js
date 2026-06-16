@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { ArrowLeft, ExternalLink, Heart } from "lucide-react";
-import { m as motion } from "motion/react";
 import Link from "next/link";
 import GuestSaveBanner from "@/components/sacredBharat/GuestSaveBanner";
 import LevelBadge from "@/components/sacredBharat/LevelBadge";
@@ -30,7 +30,7 @@ export default function TrailDetailClient({ trail }) {
             <ArrowLeft className="size-4" />
             Sacred Bharat
           </Link>
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+          <m.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <span className="text-3xl mb-4 block" aria-hidden>
               {trail.emoji}
             </span>
@@ -55,7 +55,7 @@ export default function TrailDetailClient({ trail }) {
                 style={{ width: `${trailProgress?.percent ?? 0}%` }}
               />
             </div>
-          </motion.div>
+          </m.div>
         </div>
       </section>
 

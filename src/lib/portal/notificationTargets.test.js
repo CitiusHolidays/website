@@ -190,7 +190,9 @@ describe("notificationTargets", () => {
   });
 
   test("buildModalInitial returns null when deep-linked row is missing", () => {
-    expect(buildModalInitial("query", { entityId: "missing", queryId: null }, { queries: [] })).toBeNull();
+    expect(
+      buildModalInitial("query", { entityId: "missing", queryId: null }, { queries: [] }),
+    ).toBeNull();
   });
 
   test("falls back to activity when metadata is missing", () => {

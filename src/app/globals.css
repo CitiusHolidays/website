@@ -205,3 +205,104 @@ body {
 .portal-period-select::-ms-expand {
   display: none;
 }
+
+:root {
+  --portal-toolbar-height: 2.75rem;
+  --portal-section-gap: 1rem;
+  --portal-page-title-size: 1.25rem;
+  --portal-surface-radius: 0.5rem;
+}
+
+.portal-toolbar-control {
+  min-height: var(--portal-toolbar-height);
+  border-radius: 0.5rem;
+}
+
+.portal-toolbar-btn {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 0.5rem;
+  padding: 0 0.65rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.portal-page-title {
+  font-size: var(--portal-page-title-size);
+}
+
+.portal-command-backdrop {
+  border: 0;
+  background: rgb(15 23 42 / 0.14);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: default;
+}
+
+.portal-native-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  pointer-events: none;
+}
+
+.portal-native-dialog::backdrop {
+  background: transparent;
+}
+
+.portal-command-panel,
+.portal-save-view-panel {
+  pointer-events: none;
+}
+
+.portal-command-surface {
+  display: flex;
+  min-height: 0;
+  max-height: min(70vh, 32rem);
+  flex-direction: column;
+}
+
+.portal-command-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.portal-command-scroll::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+.portal-command-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.portal-command-scroll::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgb(148 163 184 / 0.45);
+  background-clip: padding-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-command-backdrop {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgb(15 23 42 / 0.28);
+  }
+}

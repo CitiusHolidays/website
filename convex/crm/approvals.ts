@@ -80,7 +80,24 @@ export const decide = mutation({
     if (approval.entityType === "expense") {
       const expenseId = ctx.db.normalizeId("expenseEntries", approval.entityId);
       if (expenseId) {
+        const expense = await ctx.db.get(expenseId);
+        if (expense && (expense.managerReviewStatus ?? "Pending") !== "Approved") {
+          throw new ConvexError("Manager approval is required before Finance approval");
+        }
         await ctx.db.patch(expenseId, {
+          financeReviewStatus:
+            args.status === "Approved"
+              ? "Approved"
+              : args.status === "Needs Info"
+                ? "Pending"
+                : "Rejected",
+          ...(args.status === "Needs Info"
+            ? {}
+            : {
+                financeReviewedBy: access.authUserId ?? "unknown",
+                financeReviewedByName: access.name,
+                financeReviewedAt: now,
+              }),
           approvalStatus:
             args.status === "Approved"
               ? "Approved"

@@ -1,6 +1,6 @@
 "use client";
 
-import { m as motion } from "motion/react";
+import { m } from "motion/react";
 import AnimatedSection from "../../components/layout/AnimatedSection";
 import LocationCard from "../../components/ui/LocationCard";
 import ModernContactForm from "../../components/ui/ModernContactForm";
@@ -34,15 +34,15 @@ export default function ContactPage() {
       <AnimatedSection className="py-16 bg-[url('/gallery/bgfooter.webp')] bg-center px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <motion.h1
+            <m.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
               className="text-4xl md:text-5xl font-bold text-citius-blue mb-4"
             >
               Get in Touch
-            </motion.h1>
-            <motion.p
+            </m.h1>
+            <m.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
@@ -50,11 +50,11 @@ export default function ContactPage() {
             >
               Ready to start your journey? Our team is here to craft unforgettable experiences for
               you.
-            </motion.p>
+            </m.p>
           </div>
 
           <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
-            <motion.div
+            <m.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true, amount: 0.2 }}
@@ -62,17 +62,17 @@ export default function ContactPage() {
               className="order-2 lg:order-1"
             >
               <ModernContactForm />
-            </motion.div>
+            </m.div>
 
             <div className="order-1 lg:order-2 space-y-8">
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, x: 20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true, amount: 0.2 }}
                 transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
               >
                 <h2 className="text-2xl font-semibold text-citius-blue mb-6">Our Offices</h2>
-                <motion.div
+                <m.div
                   className="space-y-8"
                   initial="hidden"
                   whileInView="show"
@@ -82,7 +82,7 @@ export default function ContactPage() {
                   }}
                 >
                   {offices.map((office, index) => (
-                    <motion.div
+                    <m.div
                       key={office.city}
                       variants={{
                         hidden: { opacity: 0, y: 20 },
@@ -104,10 +104,10 @@ export default function ContactPage() {
                           referrerPolicy="no-referrer-when-downgrade"
                         />
                       </div>
-                    </motion.div>
+                    </m.div>
                   ))}
-                </motion.div>
-              </motion.div>
+                </m.div>
+              </m.div>
             </div>
           </div>
         </div>

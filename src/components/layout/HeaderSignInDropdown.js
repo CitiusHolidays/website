@@ -1,7 +1,7 @@
 "use client";
 
 import { BriefcaseBusiness, ChevronDown, User } from "lucide-react";
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { getSignInAuthUrl, VISIBLE_SIGN_IN_TARGETS } from "@/lib/auth-sign-in-targets";
@@ -69,7 +69,7 @@ export function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
@@ -92,7 +92,7 @@ export function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
                 </Link>
               );
             })}
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

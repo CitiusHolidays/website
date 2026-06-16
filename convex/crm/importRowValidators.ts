@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { roomTypeValidator } from "../lib/roomTypeValidators";
 
 const importKindValidator = v.union(
   v.literal("passenger"),
@@ -49,6 +50,8 @@ export const internalPassengerImportRow = v.object({
   importKind: v.optional(importKindValidator),
   importKey: v.string(),
   fullName: v.string(),
+  surname: v.optional(v.string()),
+  givenName: v.optional(v.string()),
   travelHub: v.optional(v.string()),
   foodPreference: foodPreferenceValidator,
   guestType: v.union(v.literal("Employee"), v.literal("Client"), v.literal("VIP")),
@@ -57,13 +60,7 @@ export const internalPassengerImportRow = v.object({
     v.literal("Self Paid"),
     v.literal("Upgraded Self Paid"),
   ),
-  roomType: v.union(
-    v.literal("SGL"),
-    v.literal("Twin"),
-    v.literal("DBL"),
-    v.literal("Child with Bed"),
-    v.literal("Family Room"),
-  ),
+  roomType: roomTypeValidator,
   visaRequired: v.boolean(),
   domesticTravelRequired: v.optional(v.boolean()),
   passportStatus: v.optional(v.string()),
@@ -95,6 +92,8 @@ export const publicPassengerImportRow = v.object({
   importKind: v.optional(importKindValidator),
   importKey: v.string(),
   fullName: v.string(),
+  surname: v.optional(v.string()),
+  givenName: v.optional(v.string()),
   travelHub: v.optional(v.string()),
   foodPreference: foodPreferenceValidator,
   guestType: v.union(v.literal("Employee"), v.literal("Client"), v.literal("VIP")),
@@ -103,13 +102,7 @@ export const publicPassengerImportRow = v.object({
     v.literal("Self Paid"),
     v.literal("Upgraded Self Paid"),
   ),
-  roomType: v.union(
-    v.literal("SGL"),
-    v.literal("Twin"),
-    v.literal("DBL"),
-    v.literal("Child with Bed"),
-    v.literal("Family Room"),
-  ),
+  roomType: roomTypeValidator,
   visaRequired: v.boolean(),
   domesticTravelRequired: v.optional(v.boolean()),
   passportStatus: v.optional(v.string()),

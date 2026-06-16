@@ -1,5 +1,6 @@
 "use client";
 
+import { m } from "motion/react";
 import {
   Calendar,
   CheckCircle2,
@@ -11,11 +12,10 @@ import {
   User,
   XCircle,
 } from "lucide-react";
-import { m as motion } from "motion/react";
 import Image from "next/image";
-import { formatDisplayDate } from "@/lib/formatDate";
 import Link from "next/link";
 import { useId, useState } from "react";
+import { formatDisplayDate } from "@/lib/formatDate";
 
 export const ACCOUNT_CONTAINER_VARIANTS = {
   hidden: { opacity: 0 },
@@ -59,7 +59,7 @@ export function BookingCard({ booking, type }) {
   const { trip, booking: bookingData } = booking;
 
   return (
-    <motion.div
+    <m.div
       variants={{
         hidden: { y: 20, opacity: 0 },
         visible: { y: 0, opacity: 1 },
@@ -146,7 +146,7 @@ export function BookingCard({ booking, type }) {
           </Link>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -234,7 +234,7 @@ export function Toggle() {
       onClick={() => setIsOn(!isOn)}
       className={`w-12 h-6 rounded-full p-1 transition-colors ${isOn ? "bg-[#0B1026]" : "bg-gray-200"}`}
     >
-      <motion.div
+      <m.div
         layout
         className="size-4 rounded-full bg-white shadow-sm"
         animate={{ x: isOn ? 24 : 0 }}
@@ -254,7 +254,7 @@ export function AccountHero({ user, upcomingCount, pastCount }) {
       </div>
 
       <div className="container mx-auto px-6 relative z-10">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
@@ -288,7 +288,7 @@ export function AccountHero({ user, upcomingCount, pastCount }) {
               <span className="text-xs text-white/50 uppercase tracking-wider">Past Trips</span>
             </div>
           </div>
-        </motion.div>
+        </m.div>
       </div>
     </div>
   );

@@ -24,7 +24,7 @@ import {
   Users,
   Video,
 } from "lucide-react";
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
@@ -51,7 +51,7 @@ const TabButton = ({ active, onClick, label, icon: Icon }) => (
 
 function HighlightsTab({ highlights }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
@@ -63,7 +63,7 @@ function HighlightsTab({ highlights }) {
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {highlights.map((site, idx) => (
-          <motion.div
+          <m.div
             key={site.title}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -88,10 +88,10 @@ function HighlightsTab({ highlights }) {
               {site.location}
             </p>
             <p className="text-sm text-brand-dark/80 leading-relaxed">{site.description}</p>
-          </motion.div>
+          </m.div>
         ))}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -149,7 +149,7 @@ function ItineraryTab({ itinerary, itineraryTimelineImage }) {
   const showPlaceholder = itineraryTimelineImage?.placeholder && !hasImage;
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 1.05 }}
@@ -195,7 +195,7 @@ function ItineraryTab({ itinerary, itineraryTimelineImage }) {
         {/* Day Cards */}
         <div className="space-y-4 md:space-y-6">
           {itinerary.map((item, idx) => (
-            <motion.div
+            <m.div
               key={item.day || item.title}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -283,11 +283,11 @@ function ItineraryTab({ itinerary, itineraryTimelineImage }) {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           ))}
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -360,7 +360,7 @@ function RegistrationAndPolicySection({ policy }) {
 
 function PackageDetailsTab({ trail }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
@@ -465,14 +465,14 @@ function PackageDetailsTab({ trail }) {
           </div>
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }
 
 function InfoTab({ info, layoutVariant }) {
   const isAerialLayout = layoutVariant === "aerial";
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 1.02 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
@@ -611,7 +611,7 @@ function InfoTab({ info, layoutVariant }) {
           </div>
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -645,7 +645,7 @@ function DeparturesBlock({ departures }) {
 function GalleryTab({ gallery }) {
   if (!gallery?.length) return null;
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
@@ -666,14 +666,14 @@ function GalleryTab({ gallery }) {
           />
         </div>
       ))}
-    </motion.div>
+    </m.div>
   );
 }
 
 function BookingTab({ options }) {
   if (!options?.length) return null;
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
@@ -712,14 +712,14 @@ function BookingTab({ options }) {
           </Link>
         );
       })}
-    </motion.div>
+    </m.div>
   );
 }
 
 function ReviewsTab({ testimonials }) {
   if (!testimonials?.length) return null;
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
@@ -747,7 +747,7 @@ function ReviewsTab({ testimonials }) {
           </p>
         </div>
       ))}
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -756,7 +756,7 @@ function MediaTab({ media }) {
   const hasAr = Boolean(media?.arUrl);
   if (!embed && !hasAr) return null;
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
@@ -797,14 +797,14 @@ function MediaTab({ media }) {
           </a>
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }
 
 function BlogsTab({ posts }) {
   if (!posts?.length) return null;
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
@@ -826,7 +826,7 @@ function BlogsTab({ posts }) {
           </li>
         ))}
       </ul>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -834,7 +834,7 @@ function TrailHeader({ trail, title, subtitle, tagline, positioning, isComingSoo
   return (
     <>
       <div className="text-center mb-10 md:mb-16">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -863,11 +863,11 @@ function TrailHeader({ trail, title, subtitle, tagline, positioning, isComingSoo
             </p>
           )}
           <div className="w-12 md:w-16 h-1 bg-citius-orange mx-auto mt-6 md:mt-8 rounded-full" />
-        </motion.div>
+        </m.div>
       </div>
 
       {trail.quickFacts && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -886,7 +886,7 @@ function TrailHeader({ trail, title, subtitle, tagline, positioning, isComingSoo
               </span>
             </div>
           ))}
-        </motion.div>
+        </m.div>
       )}
     </>
   );
@@ -929,7 +929,7 @@ function OverviewTab({ overview, trail }) {
   if (!overview) return null;
 
   return (
-    <motion.div
+    <m.div
       key="overview"
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
@@ -996,7 +996,7 @@ function OverviewTab({ overview, trail }) {
         )}
       </div>
       <RegistrationAndPolicySection policy={trail.registrationAndPolicy} />
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -1040,7 +1040,7 @@ function TrailTabContent({ activeTab, trail, relatedBlogPosts, flags, reviewsLis
 
 function TrailCta({ isAerial }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
@@ -1068,7 +1068,7 @@ function TrailCta({ isAerial }) {
           </Link>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 

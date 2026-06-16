@@ -1,15 +1,17 @@
 "use client";
 
+import { m } from "motion/react";
 import {
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   CircleDollarSign,
   ClipboardList,
   FileText,
   ShieldCheck,
   Ticket,
 } from "lucide-react";
-import { m as motion } from "motion/react";
+import { useState } from "react";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { buildDashboardListUrl } from "@/lib/portal/dashboardLinks";
 import { resolveDashboardPersona } from "@/lib/portal/dashboardPersona";
@@ -201,6 +203,75 @@ function DashboardSectionBlock({ id, sections, persona }) {
   const node = sections[id];
   if (!node || !persona.sections.includes(id)) return null;
   return <div>{node}</div>;
+}
+
+const EMPTY_CAPACITY_ROWS = [];
+
+function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
+  if (!rows.length) return null;
+  return (
+    <section className="border-b border-brand-border/70 pb-4">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-3 text-left"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        <h2 className="font-heading text-base text-brand-dark">Capacity heatmap</h2>
+        <span className="font-sans text-xs text-brand-muted">Role load</span>
+      </button>
+      {open ? (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {rows.map((row) => (
+            <div key={row.role} className="rounded-lg bg-brand-light/40 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate font-heading text-sm text-brand-dark">{row.role}</p>
+                <span
+                  className={`rounded-full px-2 py-0.5 font-sans text-[11px] ${
+                    row.severity === "overloaded"
+                      ? "bg-red-100 text-red-700"
+                      : row.severity === "busy"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-emerald-100 text-emerald-700"
+                  }`}
+                >
+                  {row.severity}
+                </span>
+              </div>
+              <p className="mt-2 font-sans text-xs text-brand-muted">
+                Avg {row.averageLoad} items · {row.staffCount} staff
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function DashboardPipelineTypesCollapsible({ pipeline, queryTypes, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  if (!pipeline && !queryTypes) return null;
+  return (
+    <section className="border-b border-brand-border/70 pb-4">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-2 text-left"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        <h2 className="font-heading text-base text-brand-dark">Pipeline & types</h2>
+        <ChevronDown size={18} className={`shrink-0 transition ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open ? (
+        <div className="mt-4 space-y-4">
+          {pipeline}
+          {queryTypes}
+        </div>
+      ) : null}
+    </section>
+  );
 }
 
 export function DashboardView({
@@ -416,58 +487,85 @@ export function DashboardView({
   };
 
   const hasSection = (id) => persona.sections.includes(id) && sections[id];
-  const leftSections = ["queryTypes", "pipeline", "workQueue", "collapsible"].filter(hasSection);
+  const isDirector = persona.id === "director";
+  const isHeadRole = access?.roles?.some((role) => role.includes("Head"));
+  const leftSections = isDirector
+    ? ["queryTypes", "pipeline", "workQueue", "collapsible"].filter(hasSection)
+    : ["workQueue", "collapsible"].filter(hasSection);
   const rightSections = ["inbox", "ticketingQueue", "readiness"].filter(hasSection);
+  const showCombinedPipelineTypes =
+    !isDirector && (hasSection("pipeline") || hasSection("queryTypes"));
   const renderedTopSections = new Set(["hero", "quickActions", "periodPresets", "stats"]);
   for (const id of [...leftSections, ...rightSections]) renderedTopSections.add(id);
+  if (showCombinedPipelineTypes) {
+    renderedTopSections.add("pipeline");
+    renderedTopSections.add("queryTypes");
+  }
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      className="space-y-5"
+      className="space-y-4"
     >
-      <div className="space-y-5">
-        <section className="rounded-xl border border-brand-border bg-white p-4 shadow-sm shadow-brand-dark/[0.03] md:p-6">
-          <DashboardSectionBlock id="hero" sections={sections} persona={persona} />
+      <DashboardSectionBlock id="hero" sections={sections} persona={persona} />
 
-          <div className="mt-5 flex flex-col gap-4 border-t border-brand-border/70 pt-5 lg:flex-row lg:items-end lg:justify-between">
-            <DashboardSectionBlock id="quickActions" sections={sections} persona={persona} />
-            <DashboardSectionBlock id="periodPresets" sections={sections} persona={persona} />
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-border/70 pb-4">
+        <DashboardSectionBlock id="quickActions" sections={sections} persona={persona} />
+        <DashboardSectionBlock id="periodPresets" sections={sections} persona={persona} />
+      </div>
 
-          {hasSection("stats") ? (
-            <div className="mt-6 border-t border-brand-border/70 pt-6">
-              <DashboardSectionBlock id="stats" sections={sections} persona={persona} />
-            </div>
+      {hasSection("stats") ? (
+        <div className="border-b border-brand-border/70 pb-4">
+          <DashboardSectionBlock id="stats" sections={sections} persona={persona} />
+        </div>
+      ) : null}
+
+      <div
+        className={
+          rightSections.length
+            ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]"
+            : "grid gap-4"
+        }
+      >
+        <div className="space-y-4">
+          {showCombinedPipelineTypes ? (
+            <DashboardPipelineTypesCollapsible
+              pipeline={sections.pipeline}
+              queryTypes={sections.queryTypes}
+              defaultOpen={false}
+            />
           ) : null}
-        </section>
-
-        <div
-          className={
-            rightSections.length ? "grid gap-5 md:grid-cols-[minmax(0,1fr)_20rem]" : "grid gap-5"
-          }
-        >
-          <div className="space-y-5">
-            {leftSections.map((id) => (
+          {leftSections.map((id) => (
+            <DashboardSectionBlock key={id} id={id} sections={sections} persona={persona} />
+          ))}
+        </div>
+        {rightSections.length ? (
+          <aside className="hidden space-y-4 xl:block">
+            {rightSections.map((id) => (
               <DashboardSectionBlock key={id} id={id} sections={sections} persona={persona} />
             ))}
-          </div>
-          {rightSections.length ? (
-            <aside className="space-y-5">
-              {rightSections.map((id) => (
-                <DashboardSectionBlock key={id} id={id} sections={sections} persona={persona} />
-              ))}
-            </aside>
-          ) : null}
-        </div>
-
-        {persona.sections.flatMap((id) => {
-          if (renderedTopSections.has(id)) return [];
-          return [<DashboardSectionBlock key={id} id={id} sections={sections} persona={persona} />];
-        })}
+          </aside>
+        ) : null}
       </div>
-    </motion.div>
+
+      {rightSections.length ? (
+        <div className="space-y-4 xl:hidden">
+          {rightSections.map((id) => (
+            <DashboardSectionBlock key={id} id={id} sections={sections} persona={persona} />
+          ))}
+        </div>
+      ) : null}
+
+      {has(P.VIEW_TEAM) || isHeadRole ? (
+        <DashboardCapacityHeatmap rows={summary.capacity} defaultOpen={Boolean(isHeadRole)} />
+      ) : null}
+
+      {persona.sections.flatMap((id) => {
+        if (renderedTopSections.has(id)) return [];
+        return [<DashboardSectionBlock key={id} id={id} sections={sections} persona={persona} />];
+      })}
+    </m.div>
   );
 }

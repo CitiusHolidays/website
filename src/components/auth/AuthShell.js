@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { Map as MapIcon, Sparkles } from "lucide-react";
-import { m as motion } from "motion/react";
 import Image from "next/image";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
 import citiusLogo from "@/static/logos/logo.webp";
@@ -27,7 +27,7 @@ export default function AuthShell({
       };
   return (
     <div className="flex min-h-screen w-full flex-col bg-[#FDFBF7] md:flex-row">
-      <motion.aside
+      <m.aside
         className="relative hidden w-full flex-col justify-between overflow-hidden bg-[#0B1026] p-12 text-[#FDFBF7] md:flex md:w-1/2 lg:w-5/12"
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -44,7 +44,7 @@ export default function AuthShell({
         </div>
 
         <div className="relative z-10 flex h-full flex-col justify-between">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
@@ -68,9 +68,9 @@ export default function AuthShell({
               <span className="italic text-citius-orange">Within</span> Begins <br />
               Here.
             </h1>
-          </motion.div>
+          </m.div>
 
-          <motion.div
+          <m.div
             className="my-10 space-y-8"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -117,21 +117,21 @@ export default function AuthShell({
                 </p>
               </div>
             </div>
-          </motion.div>
+          </m.div>
 
-          <motion.p
+          <m.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8 }}
             className="text-xs font-light text-white/30"
           >
             © {CURRENT_YEAR} {BRAND_NAME}. All rights reserved.
-          </motion.p>
+          </m.p>
         </div>
-      </motion.aside>
+      </m.aside>
 
       <div className="relative flex w-full items-center justify-center p-6 md:w-1/2 md:p-12 lg:w-7/12">
-        <motion.div
+        <m.div
           className="relative z-10 w-full max-w-md"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -159,15 +159,15 @@ export default function AuthShell({
             />
           </div>
 
-          <motion.div className="mb-8">
+          <m.div className="mb-8">
             <h2 className="font-heading mb-3 text-4xl text-[#0B1026] md:text-5xl">{title}</h2>
             {description ? (
               <p className="text-lg font-light text-[#0B1026]/60">{description}</p>
             ) : null}
-          </motion.div>
+          </m.div>
 
           {children}
-        </motion.div>
+        </m.div>
       </div>
     </div>
   );

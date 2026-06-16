@@ -1,6 +1,6 @@
 "use client";
 
-import { m as motion } from "motion/react";
+import { m } from "motion/react";
 import AnimatedSection from "../../components/layout/AnimatedSection";
 import CircularServicesMenu from "../../components/ui/CircularServicesMenu";
 
@@ -14,15 +14,15 @@ export default function ServicesPage() {
         <div className="pointer-events-none absolute -bottom-20 -right-20 size-96 rounded-full bg-citius-orange/20 blur-3xl" />
 
         <div className="relative max-w-4xl mx-auto text-center mb-16">
-          <motion.h1
+          <m.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="text-4xl md:text-5xl font-extrabold text-citius-blue mb-4"
           >
             A Spectrum of World-Class Services
-          </motion.h1>
-          <motion.p
+          </m.h1>
+          <m.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
@@ -30,17 +30,17 @@ export default function ServicesPage() {
           >
             Discover our comprehensive suite of services crafted to make every journey and event
             effortless, memorable, and aligned with your business goals.
-          </motion.p>
+          </m.p>
         </div>
 
-        <motion.div
+        <m.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, delay: 0.4, ease: [0.22, 1, 0.36, 1] }}
           className="relative max-w-6xl mx-auto"
         >
           <CircularServicesMenu />
-        </motion.div>
+        </m.div>
       </AnimatedSection>
     </>
   );

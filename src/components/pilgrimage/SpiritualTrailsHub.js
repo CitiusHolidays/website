@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { ArrowRight, Compass } from "lucide-react";
-import { m as motion } from "motion/react";
 import Link from "next/link";
 import { cn } from "../../utils/cn";
 
@@ -9,7 +9,7 @@ export default function SpiritualTrailsHub({ groups }) {
   return (
     <section className="py-16 md:py-24 bg-white border-t border-brand-light" id="all-trails">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -25,7 +25,7 @@ export default function SpiritualTrailsHub({ groups }) {
             Choose a path below for full itineraries, galleries, departure windows, and booking
             options. Flagship 2026 programmes are open; specialised routes are opening soon.
           </p>
-        </motion.div>
+        </m.div>
 
         <div className="space-y-14 md:space-y-20">
           {groups.map((group) => (
@@ -43,7 +43,7 @@ export default function SpiritualTrailsHub({ groups }) {
                 )}
               >
                 {group.trails.map((trail, idx) => (
-                  <motion.div
+                  <m.div
                     key={trail.slug}
                     initial={{ opacity: 0, y: 12 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -81,7 +81,7 @@ export default function SpiritualTrailsHub({ groups }) {
                         <ArrowRight className="size-4 group-hover:translate-x-0.5 transition-transform" />
                       </span>
                     </Link>
-                  </motion.div>
+                  </m.div>
                 ))}
               </div>
             </div>

@@ -1,3 +1,4 @@
+import type { Id } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import {
   applyCementPortalScope,
@@ -10,6 +11,18 @@ import {
   shouldApplyCementScope,
 } from "./lib";
 import { getNotificationHref } from "./notificationPaths";
+
+const RECENT_ACTIVITY_LIMIT = 8;
+
+export function groupByJobCardId<T extends { jobCardId: Id<"jobCards"> }>(rows: T[]) {
+  const grouped = new Map<Id<"jobCards">, T[]>();
+  for (const row of rows) {
+    const bucket = grouped.get(row.jobCardId) ?? [];
+    bucket.push(row);
+    grouped.set(row.jobCardId, bucket);
+  }
+  return grouped;
+}
 
 const percent = (done: number, total: number) => (total > 0 ? Math.round((done / total) * 100) : 0);
 
@@ -277,7 +290,11 @@ export const getPortalSummary = query({
     );
     const staff = await ctx.db.query("staffUsers").collect();
     const activities = filterRecordsByDateRange(
-      await ctx.db.query("activityLogs").collect(),
+      await ctx.db
+        .query("activityLogs")
+        .withIndex("by_createdAt")
+        .order("desc")
+        .take(RECENT_ACTIVITY_LIMIT),
       dateRange,
     );
 
@@ -298,6 +315,9 @@ export const getPortalSummary = query({
     tickets = scopedRecords.tickets;
     visas = scopedRecords.visas;
     invoices = scopedRecords.invoices;
+
+    const jobCardByIdForTravellers = new Map(jobCards.map((job) => [job._id, job]));
+    const travellersByJobCard = groupByJobCardId(travellers);
 
     const scopedAllQueries = applyCementPortalScope(access, {
       queries: allQueriesRaw,
@@ -375,7 +395,7 @@ export const getPortalSummary = query({
       (traveller) => traveller.passportStatus === "Received",
     ).length;
     const tourManagerDone = travellers.filter((traveller) => {
-      const job = jobCards.find((item) => item._id === traveller.jobCardId);
+      const job = jobCardByIdForTravellers.get(traveller.jobCardId);
       return Boolean(job?.tourManagerName || job?.tourManagerId);
     }).length;
 
@@ -404,6 +424,34 @@ export const getPortalSummary = query({
 
     const ticketAttentionQueue = buildTicketAttentionQueue(tickets);
     const overdueInvoices = buildOverdueInvoices({ invoices, jobCards, nowDate });
+    const capacityByRole = staff.reduce((map, member) => {
+      if (!member.active) return map;
+      const staffId = String(member._id);
+      const load =
+        queries.filter(
+          (query) =>
+            String(query.salesOwnerId) === staffId &&
+            !["Order Confirmed", "Order Lost"].includes(query.salesStatus),
+        ).length +
+        queries.filter(
+          (query) =>
+            String(query.contractingOwnerId) === staffId &&
+            !["Order Confirmed", "Order Lost"].includes(query.salesStatus),
+        ).length +
+        jobCards.filter(
+          (job) =>
+            [job.contractingOwnerId, job.operationsOwnerId, job.ticketingOwnerId]
+              .map(String)
+              .includes(staffId) && job.status !== "Closed",
+        ).length;
+      for (const role of member.roles) {
+        const current = map.get(role) ?? { role, staffCount: 0, load: 0 };
+        current.staffCount += 1;
+        current.load += load;
+        map.set(role, current);
+      }
+      return map;
+    }, new Map<string, { role: string; staffCount: number; load: number }>());
 
     return {
       generatedAt: new Date().toISOString(),
@@ -429,10 +477,7 @@ export const getPortalSummary = query({
         revenuePipeline,
       },
       metricTrends: {
-        activeQueries: buildMetricTrend(
-          last30ActiveQueries.length,
-          prior30ActiveQueries.length,
-        ),
+        activeQueries: buildMetricTrend(last30ActiveQueries.length, prior30ActiveQueries.length),
         proposalsSent: buildMetricTrend(last30ProposalsSent.length, prior30ProposalsSent.length),
         confirmedJobs: buildMetricTrend(last30Confirmed.length, prior30Confirmed.length),
         jobCardsOpen: buildMetricTrend(last30OpenJobs.length, prior30OpenJobs.length),
@@ -499,6 +544,19 @@ export const getPortalSummary = query({
           percent: percent(receivedPayment, expectedPayment),
         },
       ],
+      capacity: Array.from(capacityByRole.values())
+        .map((row) => ({
+          ...row,
+          averageLoad: row.staffCount ? Math.round(row.load / row.staffCount) : 0,
+          severity:
+            row.staffCount && row.load / row.staffCount >= 10
+              ? "overloaded"
+              : row.staffCount && row.load / row.staffCount >= 6
+                ? "busy"
+                : "normal",
+        }))
+        .sort((a, b) => b.averageLoad - a.averageLoad)
+        .slice(0, 8),
       myTeam: staff
         .filter(
           (member) => member.active && member.roles.some((role) => access.roles.includes(role)),
@@ -558,7 +616,7 @@ export const getPortalSummary = query({
         nowDate,
       }),
       activeTours: activeJobs.slice(0, 6).map((job) => {
-        const jobTravellers = travellers.filter((traveller) => traveller.jobCardId === job._id);
+        const jobTravellers = travellersByJobCard.get(job._id) ?? [];
         const jobTicketsIssued = jobTravellers.filter(
           (traveller) => traveller.ticketStatus === "Issued",
         ).length;
@@ -581,7 +639,7 @@ export const getPortalSummary = query({
         .sort((a, b) => String(a.travelStartDate).localeCompare(String(b.travelStartDate)))
         .slice(0, 6)
         .map((job) => {
-          const jobTravellers = travellers.filter((traveller) => traveller.jobCardId === job._id);
+          const jobTravellers = travellersByJobCard.get(job._id) ?? [];
           const ticketProgress = percent(
             jobTravellers.filter((traveller) => traveller.ticketStatus === "Issued").length,
             jobTravellers.length,
@@ -608,18 +666,15 @@ export const getPortalSummary = query({
                   : "Ticketing",
           };
         }),
-      recentActivity: activities
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .slice(0, 8)
-        .map((activity) => ({
-          id: activity._id,
-          action: activity.action,
-          message: activity.message,
-          actorName: activity.actorName,
-          entityType: activity.entityType,
-          entityId: activity.entityId,
-          createdAt: new Date(activity.createdAt).toISOString(),
-        })),
+      recentActivity: activities.map((activity) => ({
+        id: activity._id,
+        action: activity.action,
+        message: activity.message,
+        actorName: activity.actorName,
+        entityType: activity.entityType,
+        entityId: activity.entityId,
+        createdAt: new Date(activity.createdAt).toISOString(),
+      })),
     };
   },
 });

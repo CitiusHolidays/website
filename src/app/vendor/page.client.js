@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { ArrowLeft, Building2, LogOut, Package } from "lucide-react";
-import { m as motion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { logout } from "@/lib/auth-client";
@@ -38,7 +38,7 @@ export default function VendorPageClient({ user }) {
       </header>
 
       <main className="mx-auto max-w-5xl px-6 py-16">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
@@ -86,7 +86,7 @@ export default function VendorPageClient({ user }) {
             </Link>
             <p className="text-sm text-[#94a3b8]">Signed in as {user?.email}</p>
           </div>
-        </motion.div>
+        </m.div>
       </main>
     </div>
   );

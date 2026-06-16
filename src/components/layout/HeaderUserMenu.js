@@ -1,7 +1,7 @@
 "use client";
 
 import { BriefcaseBusiness, ChevronDown, LogOut, User } from "lucide-react";
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -53,7 +53,7 @@ export function HeaderUserMenu({
 
       <AnimatePresence>
         {userMenuOpen && (
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -93,7 +93,7 @@ export function HeaderUserMenu({
                 Sign Out
               </button>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
     </div>

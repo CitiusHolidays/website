@@ -13,7 +13,12 @@ const FILTER_INPUT_DEFAULT = `${FILTER_INPUT_BASE} !h-11`;
 const TOOLBAR_ROW_CLASS =
   "flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
-export function PortalDateRangeFilter({ dateRange, setDateRange, compact = false }) {
+export function PortalDateRangeFilter({
+  dateRange,
+  setDateRange,
+  compact = false,
+  inlineError = false,
+}) {
   const fromId = useId();
   const toId = useId();
   const normalized = normalizeDateRange(dateRange);
@@ -27,7 +32,7 @@ export function PortalDateRangeFilter({ dateRange, setDateRange, compact = false
   const inputClassName = compact ? FILTER_INPUT_COMPACT : FILTER_INPUT_DEFAULT;
 
   return (
-    <div className="shrink-0 space-y-1">
+    <div className={`shrink-0 ${inlineError ? "" : "space-y-1"}`}>
       <div className={TOOLBAR_ROW_CLASS}>
         <Calendar className="hidden size-4 shrink-0 text-brand-muted sm:block" aria-hidden />
         <label htmlFor={fromId} className="flex shrink-0 items-center gap-2">
@@ -40,7 +45,7 @@ export function PortalDateRangeFilter({ dateRange, setDateRange, compact = false
             aria-label="Filter from date"
           />
         </label>
-        <label htmlFor={toId} className="flex shrink-0 items-center gap-2">
+        <label htmlFor={toId} className="relative flex shrink-0 items-center gap-2">
           <span className="text-xs font-medium text-brand-muted">To</span>
           <PortalDateInput
             id={toId}
@@ -48,7 +53,18 @@ export function PortalDateRangeFilter({ dateRange, setDateRange, compact = false
             onChange={(iso) => update("to", iso)}
             inputClassName={inputClassName}
             aria-label="Filter to date"
+            aria-invalid={Boolean(rangeError)}
+            aria-describedby={rangeError && inlineError ? `${toId}-error` : undefined}
           />
+          {rangeError && inlineError ? (
+            <span
+              id={`${toId}-error`}
+              className="absolute -bottom-5 left-8 whitespace-nowrap text-[11px] font-medium text-red-600"
+              role="alert"
+            >
+              {rangeError}
+            </span>
+          ) : null}
         </label>
         <button
           type="button"
@@ -62,7 +78,7 @@ export function PortalDateRangeFilter({ dateRange, setDateRange, compact = false
           Clear dates
         </button>
       </div>
-      {rangeError ? (
+      {rangeError && !inlineError ? (
         <p className="text-xs font-medium text-red-600" role="alert">
           {rangeError}
         </p>

@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { Trash2 } from "lucide-react";
-import { m as motion } from "motion/react";
 import { useBulkSelection } from "@/lib/portal/bulkSelection";
 
 function EmptyState({ label }) {
@@ -32,11 +32,7 @@ function BulkActionBar({ selectedCount, entityLabel, onDeleteSelected, onClear }
         <button type="button" className="portal-small-btn" onClick={onClear}>
           Clear
         </button>
-        <button
-          type="button"
-          className="portal-danger-btn"
-          onClick={onDeleteSelected}
-        >
+        <button type="button" className="portal-danger-btn" onClick={onDeleteSelected}>
           <Trash2 size={13} />
           Delete selected
         </button>
@@ -101,7 +97,7 @@ export function SelectableDataTable({
   };
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
@@ -118,7 +114,7 @@ export function SelectableDataTable({
       {mobileCardRender && (
         <div className="divide-y divide-brand-border md:hidden">
           {rows.map((row, rowIndex) => (
-            <motion.div
+            <m.div
               key={row.id}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -135,7 +131,7 @@ export function SelectableDataTable({
                 />
               )}
               <div className="min-w-0 flex-1">{mobileCardRender(row)}</div>
-            </motion.div>
+            </m.div>
           ))}
         </div>
       )}
@@ -171,7 +167,7 @@ export function SelectableDataTable({
           </thead>
           <tbody>
             {rows.map((row, rowIndex) => (
-              <motion.tr
+              <m.tr
                 key={row.id}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -186,11 +182,11 @@ export function SelectableDataTable({
                     {render(row) || (label ? "-" : null)}
                   </td>
                 ))}
-              </motion.tr>
+              </m.tr>
             ))}
           </tbody>
         </table>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

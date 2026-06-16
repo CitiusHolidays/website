@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { ArrowRight, CheckCircle, Clock, Footprints, Mountain, Plane, Users } from "lucide-react";
-import { m as motion } from "motion/react";
 import Link from "next/link";
 import { cn } from "../../utils/cn";
 
@@ -50,7 +50,7 @@ const comparisonData = [
 
 function ComparisonRow({ item, index }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
@@ -82,7 +82,7 @@ function ComparisonRow({ item, index }) {
         </p>
         <p className="text-xs md:text-sm text-brand-muted">{item.aerialDesc}</p>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -91,7 +91,7 @@ export default function JourneyComparison({ className }) {
     <section className={cn("py-16 md:py-24 bg-white", className)}>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -107,7 +107,7 @@ export default function JourneyComparison({ className }) {
             Whether you seek the complete pilgrimage experience or divine darshan without physical
             exertion, both paths lead to the same blessings.
           </p>
-        </motion.div>
+        </m.div>
 
         {/* Mobile Cards */}
         <div className="md:hidden space-y-4 mb-8">
@@ -116,7 +116,7 @@ export default function JourneyComparison({ className }) {
             href="/pilgrimage/kailash-mansarovar-14day"
             className="block bg-linear-to-br from-citius-blue to-citius-blue/90 rounded-2xl p-5 text-white shadow-md hover:brightness-110 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citius-blue"
           >
-            <motion.div
+            <m.div
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -130,7 +130,7 @@ export default function JourneyComparison({ className }) {
                   Open trail <ArrowRight className="size-3" />
                 </span>
               </div>
-            </motion.div>
+            </m.div>
           </Link>
 
           {/* Aerial Card */}
@@ -138,7 +138,7 @@ export default function JourneyComparison({ className }) {
             href="/pilgrimage/kailash-aerial-3day"
             className="block bg-linear-to-br from-citius-orange to-citius-orange/90 rounded-2xl p-5 text-white shadow-md hover:brightness-110 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citius-orange"
           >
-            <motion.div
+            <m.div
               initial={{ opacity: 0, x: 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -152,7 +152,7 @@ export default function JourneyComparison({ className }) {
                   Open trail <ArrowRight className="size-3" />
                 </span>
               </div>
-            </motion.div>
+            </m.div>
           </Link>
         </div>
 
@@ -196,7 +196,7 @@ export default function JourneyComparison({ className }) {
         </div>
 
         {/* Package Highlights */}
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -264,7 +264,7 @@ export default function JourneyComparison({ className }) {
               </p>
             </div>
           </div>
-        </motion.div>
+        </m.div>
       </div>
     </section>
   );

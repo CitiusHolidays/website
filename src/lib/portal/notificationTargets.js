@@ -58,7 +58,7 @@ export function resolveDeepLink({ open, id, queryId }, collections) {
   };
 }
 
-export function getDeepLinkCollectionKeys(modal) {
+function getDeepLinkCollectionKeys(modal) {
   switch (modal) {
     case "query":
     case "queryStatus":

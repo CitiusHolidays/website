@@ -55,6 +55,7 @@ export const ALL_ROLES = [
   "Contracting",
   "Contracting Head",
   "Accounts",
+  "Accounts Head",
   "Operations",
   "Operations Head",
   "Ticketing",
@@ -140,6 +141,18 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_FINANCE,
     P.MANAGE_FINANCE,
     P.VIEW_EXPENSES,
+    P.VIEW_LEAVE,
+    P.VIEW_REPORTS,
+  ],
+  "Accounts Head": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_JOB_CARDS,
+    P.MANAGE_JOB_CARDS,
+    P.VIEW_FINANCE,
+    P.MANAGE_FINANCE,
+    P.VIEW_EXPENSES,
+    P.VIEW_TEAM,
     P.VIEW_LEAVE,
     P.VIEW_REPORTS,
   ],
@@ -457,6 +470,10 @@ export function isDirectorOrAdmin(access: PortalAccess) {
   return isAdmin(access) || hasRole(access, "Directors");
 }
 
+export function isAdminDirectorOrRole(access: PortalAccess, roles: string[]) {
+  return isDirectorOrAdmin(access) || roles.some((role) => hasRole(access, role));
+}
+
 export const CEMENT_ROLES = [
   "Contracting Cement",
   "Operations Cement",
@@ -492,6 +509,13 @@ export function ownsAuthRecord(access: PortalAccess, ownerId?: string | null) {
 
 export function ownsStaffRecord(access: PortalAccess, ownerId?: string | null) {
   return Boolean(ownerId && access.staffId && ownerId === access.staffId);
+}
+
+export function isCollaborator(access: PortalAccess, collaboratorStaffIds?: unknown[] | null) {
+  if (!access.staffId || !Array.isArray(collaboratorStaffIds)) {
+    return false;
+  }
+  return collaboratorStaffIds.some((staffId) => String(staffId) === String(access.staffId));
 }
 
 export function ownsNamedRecord(access: PortalAccess, ownerName?: string | null) {
@@ -603,6 +627,7 @@ export function canSeeProposalRecord(access: PortalAccess, proposal: any, linked
   return (
     ownsAuthRecord(access, proposal.createdBy) ||
     ownsNamedRecord(access, proposal.preparedBy) ||
+    isCollaborator(access, proposal.collaboratorStaffIds) ||
     linkedQueries.some((query) => canSeeQueryRecord(access, query))
   );
 }
@@ -628,12 +653,54 @@ export function canSeeJobCardRecord(access: PortalAccess, job: any, linkedQuery?
     ownsStaffRecord(access, job.contractingOwnerId) ||
     ownsStaffRecord(access, job.operationsOwnerId) ||
     ownsStaffRecord(access, job.ticketingOwnerId) ||
+    isCollaborator(access, job.collaboratorStaffIds) ||
     ownsNamedRecord(access, job.contractingOwnerName) ||
     ownsNamedRecord(access, job.operationsOwnerName) ||
     ownsNamedRecord(access, job.ticketingOwnerName) ||
     ownsNamedRecord(access, job.tourManagerName) ||
     (linkedQuery ? canSeeQueryRecord(access, linkedQuery) : false)
   );
+}
+
+export function canEditContractingRecord(
+  access: PortalAccess,
+  record: {
+    contractingOwnerId?: string | null;
+    contractingOwnerName?: string | null;
+    collaboratorStaffIds?: unknown[] | null;
+  },
+) {
+  return (
+    isAdminDirectorOrRole(access, ["Contracting Head", "Operations Head"]) ||
+    ownsStaffRecord(access, record.contractingOwnerId) ||
+    ownsNamedRecord(access, record.contractingOwnerName) ||
+    isCollaborator(access, record.collaboratorStaffIds)
+  );
+}
+
+export function canEditOperationsRecord(
+  access: PortalAccess,
+  record: {
+    operationsOwnerId?: string | null;
+    operationsOwnerName?: string | null;
+    collaboratorStaffIds?: unknown[] | null;
+  },
+) {
+  return (
+    isAdminDirectorOrRole(access, ["Operations Head"]) ||
+    ownsStaffRecord(access, record.operationsOwnerId) ||
+    ownsNamedRecord(access, record.operationsOwnerName) ||
+    isCollaborator(access, record.collaboratorStaffIds)
+  );
+}
+
+export function editorPatch(access: PortalAccess, timestamp = Date.now()) {
+  return {
+    lastEditedBy: access.authUserId ?? access.email ?? "unknown",
+    lastEditedByName: access.name,
+    lastEditedAt: timestamp,
+    updatedAt: timestamp,
+  };
 }
 
 export function applyCementPortalScope(
@@ -1275,8 +1342,14 @@ export function publicJobCard(job: any) {
     queryType: job.queryType ?? "",
     paymentTerms: job.paymentTerms ?? null,
     contractingOwnerName: job.contractingOwnerName ?? "",
+    contractingOwnerId: job.contractingOwnerId ?? "",
     operationsOwnerName: job.operationsOwnerName ?? "",
+    operationsOwnerId: job.operationsOwnerId ?? "",
     ticketingOwnerName: job.ticketingOwnerName ?? "",
+    ticketingOwnerId: job.ticketingOwnerId ?? "",
+    collaboratorStaffIds: job.collaboratorStaffIds ?? [],
+    lastEditedByName: job.lastEditedByName ?? "",
+    lastEditedAt: job.lastEditedAt ? new Date(job.lastEditedAt).toISOString() : null,
     tourManagerName: job.tourManagerName ?? "",
     status: job.status,
     preDepartureChecklist: job.preDepartureChecklist ?? null,
@@ -1302,7 +1375,11 @@ export function publicQuery(query: any) {
     lostReason: query.lostReason ?? "",
     salesOwnerName: query.salesOwnerName ?? "",
     contractingOwnerName: query.contractingOwnerName ?? "",
+    contractingOwnerId: query.contractingOwnerId ?? "",
     ticketingOwnerName: query.ticketingOwnerName ?? "",
+    ticketingOwnerId: query.ticketingOwnerId ?? "",
+    jobCardCreatorStaffId: query.jobCardCreatorStaffId ?? "",
+    jobCardCreatorName: query.jobCardCreatorName ?? "",
     contactMobile: query.contactMobile ?? "",
     budgetAmount: query.budgetAmount ?? 0,
     leadStage: query.leadStage === "Closed" ? "Lost" : (query.leadStage ?? ""),

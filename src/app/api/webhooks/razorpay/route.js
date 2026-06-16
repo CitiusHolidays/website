@@ -15,6 +15,7 @@
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation } from "@/lib/auth-server";
+import { getPaymentMutationSecret } from "@/lib/paymentVerification";
 import { verifyWebhookSignature } from "@/lib/razorpay";
 
 // Disable body parsing - we need the raw body for signature verification
@@ -101,9 +102,16 @@ async function handlePaymentAuthorized(payment) {
 
   console.log(`Payment authorized: ${payment.id} for order ${payment.order_id}`);
 
+  const serverSecret = getPaymentMutationSecret();
+  if (!serverSecret) {
+    console.error("PAYMENT_MUTATION_SECRET not configured; skipping payment authorization update");
+    return;
+  }
+
   await fetchAuthMutation(anyApi.bookings.recordPaymentAuthorized, {
     orderId: payment.order_id,
     paymentId: payment.id,
+    serverSecret,
   });
 }
 
@@ -115,9 +123,16 @@ async function handlePaymentCaptured(payment) {
 
   console.log(`Payment captured: ${payment.id} for order ${payment.order_id}`);
 
+  const serverSecret = getPaymentMutationSecret();
+  if (!serverSecret) {
+    console.error("PAYMENT_MUTATION_SECRET not configured; skipping booking confirmation");
+    return;
+  }
+
   const result = await fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, {
     orderId: payment.order_id,
     paymentId: payment.id,
+    serverSecret,
   });
 
   if (!result?.success) {
@@ -145,10 +160,28 @@ async function handlePaymentFailed(payment) {
   console.log(`Payment failed: ${payment.id} for order ${payment.order_id}`);
   console.log(`Failure reason: ${payment.error_description || "Unknown"}`);
 
-  await fetchAuthMutation(anyApi.bookings.markPaymentFailedByOrderId, {
+  const serverSecret = getPaymentMutationSecret();
+  if (!serverSecret) {
+    console.error("PAYMENT_MUTATION_SECRET not configured; skipping payment failure update");
+    return;
+  }
+
+  const result = await fetchAuthMutation(anyApi.bookings.markPaymentFailedByOrderId, {
     orderId: payment.order_id,
     paymentId: payment.id,
+    serverSecret,
   });
+
+  if (result?.ignored) {
+    console.log(
+      `Ignored payment.failed for order ${payment.order_id}; booking already ${result.status}`,
+    );
+    return;
+  }
+
+  if (result?.id) {
+    console.log(`Booking ${result.id} marked failed via webhook`);
+  }
 }
 
 /**
@@ -159,7 +192,14 @@ async function handleRefundCreated(refund) {
 
   console.log(`Refund created: ${refund.id} for payment ${refund.payment_id}`);
 
+  const serverSecret = getPaymentMutationSecret();
+  if (!serverSecret) {
+    console.error("PAYMENT_MUTATION_SECRET not configured; skipping refund status update");
+    return;
+  }
+
   await fetchAuthMutation(anyApi.bookings.markRefundedByPaymentId, {
     paymentId: refund.payment_id,
+    serverSecret,
   });
 }

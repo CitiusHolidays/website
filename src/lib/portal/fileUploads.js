@@ -27,7 +27,13 @@ export async function uploadQueryFiles({ queryId, files, generateUploadUrl, atta
   );
 }
 
-export async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, attachFile }) {
+export async function uploadEntityFiles({
+  entityId,
+  idField,
+  files,
+  generateUploadUrl,
+  attachFile,
+}) {
   await Promise.all(
     files.map(async (file) => {
       if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {

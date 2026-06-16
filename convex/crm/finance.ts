@@ -7,8 +7,10 @@ import {
   deleteEntityNotifications,
   filterRecordsByDateRange,
   isDefined,
+  isDirectorOrAdmin,
   nextCode,
   notifyRoles,
+  notifyStaffMember,
   PERMISSIONS,
   type PortalDateRange,
   portalDateRangeValidator,
@@ -24,6 +26,8 @@ const expenseCurrencyValidator = v.union(
   v.literal("THB"),
   v.literal("SGD"),
 );
+
+const expenseDecisionValidator = v.union(v.literal("Approved"), v.literal("Rejected"));
 
 async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
   const job = await ctx.db.get(jobCardId);
@@ -209,6 +213,54 @@ async function assertExpenseAccess(ctx: any, access: any, expense: { jobCardId?:
   }
 }
 
+async function staffByAuthUserId(ctx: any, authUserId?: string) {
+  if (!authUserId) return null;
+  return await ctx.db
+    .query("staffUsers")
+    .withIndex("by_authUserId", (q: any) => q.eq("authUserId", authUserId))
+    .unique();
+}
+
+async function resolveExpenseSubmitterAndManager(ctx: any, access: any, expense: any) {
+  const submitter =
+    (await staffByAuthUserId(ctx, expense.createdBy)) ??
+    (access.staffId ? await ctx.db.get(access.staffId) : null);
+  const managerId = submitter?.reportingManagerStaffId ?? null;
+  const manager = managerId ? await ctx.db.get(managerId) : null;
+  if (!submitter) {
+    throw new ConvexError("Expense submitter staff record not found");
+  }
+  if (!manager?.active) {
+    if (isDirectorOrAdmin(access)) {
+      return { submitter, manager: null };
+    }
+    throw new ConvexError("Reporting manager is not configured for this expense submitter");
+  }
+  return { submitter, manager };
+}
+
+function canApproveExpenseAsManager(access: any, expense: any) {
+  return (
+    isDirectorOrAdmin(access) ||
+    Boolean(
+      expense.managerApproverStaffId &&
+        access.staffId &&
+        String(expense.managerApproverStaffId) === String(access.staffId),
+    )
+  );
+}
+
+async function notifyExpenseSubmitter(
+  ctx: any,
+  expense: any,
+  input: Parameters<typeof notifyRoles>[2],
+) {
+  const submitter = await staffByAuthUserId(ctx, expense.createdBy);
+  if (submitter?._id) {
+    await notifyStaffMember(ctx, submitter._id, input);
+  }
+}
+
 export const listExpenses = query({
   args: {},
   handler: async (ctx) => {
@@ -249,6 +301,26 @@ export const listExpenses = query({
                 }
               : null,
             approvalStatus: expense.approvalStatus,
+            managerReviewStatus: expense.managerReviewStatus ?? "Pending",
+            managerApproverStaffId: expense.managerApproverStaffId ?? "",
+            managerReviewedByName: expense.managerReviewedByName ?? "",
+            managerReviewedAt: expense.managerReviewedAt
+              ? new Date(expense.managerReviewedAt).toISOString()
+              : null,
+            financeReviewStatus: expense.financeReviewStatus ?? "Pending",
+            financeReviewedByName: expense.financeReviewedByName ?? "",
+            financeReviewedAt: expense.financeReviewedAt
+              ? new Date(expense.financeReviewedAt).toISOString()
+              : null,
+            canApproveManager:
+              Boolean(expense.submittedForApprovalAt) &&
+              (expense.managerReviewStatus ?? "Pending") === "Pending" &&
+              canApproveExpenseAsManager(access, expense),
+            canApproveFinance:
+              (expense.managerReviewStatus ?? "Pending") === "Approved" &&
+              (expense.financeReviewStatus ?? "Pending") === "Pending" &&
+              (access.permissions.includes(PERMISSIONS.APPROVE_EXPENSES) ||
+                access.permissions.includes(PERMISSIONS.MANAGE_FINANCE)),
             reimbursementStatus: expense.reimbursementStatus,
             notes: expense.notes ?? "",
             submittedForApprovalAt: expense.submittedForApprovalAt
@@ -288,6 +360,12 @@ export const createExpense = mutation({
       if (!(await getVisibleJob(ctx, access, jobCardId))) {
         throw new ConvexError("Job Card not found or not assigned to you");
       }
+    }
+    if (!args.category.trim()) {
+      throw new ConvexError("Select a category");
+    }
+    if (!args.paidBy.trim()) {
+      throw new ConvexError("Paid by is required");
     }
     const now = Date.now();
     const hasSplit =
@@ -360,7 +438,7 @@ export const updateExpense = mutation({
     }
     if (args.category !== undefined) {
       if (!args.category.trim()) {
-        throw new ConvexError("Category is required");
+        throw new ConvexError("Select a category");
       }
       patch.category = args.category.trim();
     }
@@ -520,6 +598,39 @@ export const getFinanceOverview = query({
   },
 });
 
+async function createFinanceExpenseApproval(ctx: any, access: any, expenseId: any, expense: any) {
+  const existing = await ctx.db
+    .query("approvalRequests")
+    .withIndex("by_entity", (q: any) => q.eq("entityType", "expense").eq("entityId", expenseId))
+    .collect();
+  const pending = existing.find((approval: any) => approval.status === "Pending");
+  if (pending) {
+    return { id: pending._id };
+  }
+  const now = Date.now();
+  const requestCode = await nextCode(ctx, "approvalRequests", "APR");
+  const approvalId = await ctx.db.insert("approvalRequests", {
+    requestCode,
+    type: "Expense",
+    entityType: "expense",
+    entityId: expenseId,
+    requestedBy: expense.createdBy ?? access.authUserId ?? "unknown",
+    requestedByName: expense.tourManagerName || access.name,
+    summary: `${expense.category} expense for ${(expense.amount ?? 0).toLocaleString("en-IN")}`,
+    amount: expense.amount ?? 0,
+    status: "Pending",
+    createdAt: now,
+    updatedAt: now,
+  });
+  await notifyRoles(ctx, ["Finance", "Directors"], {
+    title: "Expense finance approval requested",
+    body: `${requestCode}: ${expense.category} expense is manager-approved and needs Finance approval.`,
+    entityType: "approval",
+    entityId: approvalId,
+  });
+  return { id: approvalId };
+}
+
 export const submitExpenseForApproval = mutation({
   args: {
     expenseId: v.string(),
@@ -534,48 +645,179 @@ export const submitExpenseForApproval = mutation({
     if (!expense) {
       throw new ConvexError("Expense not found");
     }
-    await assertExpenseAccess(ctx, access, expense);
-    const existing = await ctx.db
-      .query("approvalRequests")
-      .withIndex("by_entity", (q) => q.eq("entityType", "expense").eq("entityId", expenseId))
-      .collect();
-    if (existing.some((approval) => approval.status === "Pending")) {
-      return { id: existing.find((approval) => approval.status === "Pending")?._id };
+    const alreadyPendingSubmission =
+      Boolean(expense.submittedForApprovalAt) &&
+      (expense.managerReviewStatus ?? "Pending") === "Pending";
+    if (alreadyPendingSubmission) {
+      if (expense.jobCardId) {
+        await assertExpenseAccess(ctx, access, expense);
+      }
+      return { id: expenseId };
     }
+    await assertExpenseAccess(ctx, access, expense);
+    const { manager } = await resolveExpenseSubmitterAndManager(ctx, access, expense);
     const now = Date.now();
-    const requestCode = await nextCode(ctx, "approvalRequests", "APR");
-    const approvalId = await ctx.db.insert("approvalRequests", {
-      requestCode,
-      type: "Expense",
-      entityType: "expense",
-      entityId: expenseId,
-      requestedBy: access.authUserId ?? "unknown",
-      requestedByName: access.name,
-      summary: `${expense.category} expense for ${(expense.amount ?? 0).toLocaleString("en-IN")}`,
-      amount: expense.amount ?? 0,
-      status: "Pending",
-      createdAt: now,
-      updatedAt: now,
-    });
-    await ctx.db.patch(expenseId, {
+    const submitPatch: Record<string, unknown> = {
       submittedForApprovalAt: now,
+      managerReviewStatus: manager ? "Pending" : "Approved",
+      financeReviewStatus: "Pending",
       approvalStatus: "Pending",
       reimbursementStatus: "Pending",
       updatedAt: now,
-    });
+    };
+    const activityMessage = `${expense.category} expense submitted for manager approval`;
+    if (manager?._id) {
+      submitPatch.managerApproverStaffId = manager._id;
+      await ctx.db.patch(expenseId, submitPatch);
+      await Promise.all([
+        createActivity(ctx, access, {
+          entityType: "expense",
+          entityId: expenseId,
+          action: "submitted_for_approval",
+          message: activityMessage,
+        }),
+        notifyStaffMember(ctx, manager._id, {
+          title: "Expense manager approval requested",
+          body: `${expense.category} expense for ${(expense.amount ?? 0).toLocaleString("en-IN")} needs your approval.`,
+          entityType: "expense",
+          entityId: expenseId,
+        }),
+      ]);
+      return { id: expenseId };
+    }
+    submitPatch.managerReviewedBy = access.authUserId;
+    submitPatch.managerReviewedByName = access.name;
+    submitPatch.managerReviewedAt = now;
+    await ctx.db.patch(expenseId, submitPatch);
     await createActivity(ctx, access, {
       entityType: "expense",
       entityId: expenseId,
       action: "submitted_for_approval",
-      message: `${requestCode} created for expense approval`,
+      message: activityMessage,
     });
-    await notifyRoles(ctx, ["Finance", "Directors"], {
-      title: "Expense approval requested",
-      body: `${requestCode}: ${expense.category} expense needs approval.`,
-      entityType: "approval",
-      entityId: approvalId,
+    return await createFinanceExpenseApproval(ctx, access, expenseId, expense);
+  },
+});
+
+export const decideExpenseManager = mutation({
+  args: {
+    expenseId: v.string(),
+    status: expenseDecisionValidator,
+    decisionNote: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_EXPENSES);
+    const expenseId = ctx.db.normalizeId("expenseEntries", args.expenseId);
+    if (!expenseId) throw new ConvexError("Invalid expense id");
+    const expense = await ctx.db.get(expenseId);
+    if (!expense) throw new ConvexError("Expense not found");
+    if ((expense.managerReviewStatus ?? "Pending") !== "Pending") {
+      throw new ConvexError("Manager review is already complete");
+    }
+    if (!canApproveExpenseAsManager(access, expense)) {
+      throw new ConvexError("Only the reporting manager can approve this expense stage");
+    }
+    await assertExpenseAccess(ctx, access, expense);
+    const now = Date.now();
+    const patch: Record<string, unknown> = {
+      managerReviewStatus: args.status,
+      managerReviewedBy: access.authUserId ?? "unknown",
+      managerReviewedByName: access.name,
+      managerReviewedAt: now,
+      updatedAt: now,
+    };
+    if (args.status === "Rejected") {
+      patch.approvalStatus = "Rejected";
+      patch.reimbursementStatus = "Not Submitted";
+    }
+    await ctx.db.patch(expenseId, patch);
+    await createActivity(ctx, access, {
+      entityType: "expense",
+      entityId: expenseId,
+      action: `manager_${args.status.toLowerCase()}`,
+      message: `Expense manager review ${args.status.toLowerCase()}`,
+      metadata: { decisionNote: args.decisionNote?.trim() || "" },
     });
-    return { id: approvalId };
+    if (args.status === "Approved") {
+      await createFinanceExpenseApproval(ctx, access, expenseId, expense);
+    } else {
+      await notifyExpenseSubmitter(ctx, expense, {
+        title: "Expense rejected by manager",
+        body: `${expense.category} expense was rejected by your reporting manager.`,
+        entityType: "expense",
+        entityId: expenseId,
+      });
+    }
+    return { id: expenseId };
+  },
+});
+
+export const decideExpenseFinance = mutation({
+  args: {
+    expenseId: v.string(),
+    status: expenseDecisionValidator,
+    reimbursementStatus: v.optional(
+      v.union(v.literal("Not Submitted"), v.literal("Pending"), v.literal("Reimbursed")),
+    ),
+    decisionNote: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.APPROVE_EXPENSES,
+      PERMISSIONS.MANAGE_FINANCE,
+    ]);
+    const expenseId = ctx.db.normalizeId("expenseEntries", args.expenseId);
+    if (!expenseId) throw new ConvexError("Invalid expense id");
+    const expense = await ctx.db.get(expenseId);
+    if (!expense) throw new ConvexError("Expense not found");
+    if ((expense.managerReviewStatus ?? "Pending") !== "Approved") {
+      throw new ConvexError("Manager approval is required before Finance approval");
+    }
+    await assertExpenseAccess(ctx, access, expense);
+    const now = Date.now();
+    await ctx.db.patch(expenseId, {
+      financeReviewStatus: args.status,
+      financeReviewedBy: access.authUserId ?? "unknown",
+      financeReviewedByName: access.name,
+      financeReviewedAt: now,
+      approvalStatus: args.status,
+      reimbursementStatus:
+        args.reimbursementStatus ?? (args.status === "Approved" ? "Pending" : "Not Submitted"),
+      updatedAt: now,
+    });
+    const approvalRows = await ctx.db
+      .query("approvalRequests")
+      .withIndex("by_entity", (q) => q.eq("entityType", "expense").eq("entityId", expenseId))
+      .collect();
+    await Promise.all(
+      approvalRows.flatMap((approval) =>
+        approval.status === "Pending"
+          ? [
+              ctx.db.patch(approval._id, {
+                status: args.status,
+                decidedBy: access.authUserId ?? "unknown",
+                decidedByName: access.name,
+                decidedAt: now,
+                decisionNote: args.decisionNote?.trim() || "",
+                updatedAt: now,
+              }),
+            ]
+          : [],
+      ),
+    );
+    await createActivity(ctx, access, {
+      entityType: "expense",
+      entityId: expenseId,
+      action: `finance_${args.status.toLowerCase()}`,
+      message: `Expense finance review ${args.status.toLowerCase()}`,
+    });
+    await notifyExpenseSubmitter(ctx, expense, {
+      title: `Expense ${args.status}`,
+      body: `${expense.category} expense was ${args.status.toLowerCase()} by Finance.`,
+      entityType: "expense",
+      entityId: expenseId,
+    });
+    return { id: expenseId };
   },
 });
 
@@ -602,12 +844,23 @@ export const updateExpenseStatus = mutation({
     if (!expense) {
       throw new ConvexError("Expense not found");
     }
+    if ((expense.managerReviewStatus ?? "Pending") !== "Approved") {
+      throw new ConvexError("Manager approval is required before Finance approval");
+    }
     await assertExpenseAccess(ctx, access, expense);
-    await ctx.db.patch(id, {
+    const now = Date.now();
+    const expensePatch: Record<string, unknown> = {
+      financeReviewStatus: args.approvalStatus === "Pending" ? "Pending" : args.approvalStatus,
       approvalStatus: args.approvalStatus,
       reimbursementStatus: args.reimbursementStatus,
-      updatedAt: Date.now(),
-    });
+      updatedAt: now,
+    };
+    if (args.approvalStatus !== "Pending") {
+      expensePatch.financeReviewedBy = access.authUserId;
+      expensePatch.financeReviewedByName = access.name;
+      expensePatch.financeReviewedAt = now;
+    }
+    await ctx.db.patch(id, expensePatch);
     const approvalRows = await ctx.db
       .query("approvalRequests")
       .withIndex("by_entity", (q) => q.eq("entityType", "expense").eq("entityId", id))
@@ -619,12 +872,12 @@ export const updateExpenseStatus = mutation({
         }
         const approvalPatch: Record<string, unknown> = {
           status: args.approvalStatus === "Pending" ? "Pending" : args.approvalStatus,
-          updatedAt: Date.now(),
+          updatedAt: now,
         };
         if (args.approvalStatus !== "Pending") {
           approvalPatch.decidedBy = access.authUserId;
           approvalPatch.decidedByName = access.name;
-          approvalPatch.decidedAt = Date.now();
+          approvalPatch.decidedAt = now;
         }
         return [ctx.db.patch(approval._id, approvalPatch)];
       }),

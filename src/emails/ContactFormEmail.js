@@ -13,14 +13,7 @@ import {
   Text,
 } from "@react-email/components";
 
-export const ContactFormEmail = ({
-  name,
-  email,
-  phone,
-  subject,
-  message,
-  receivedAt,
-}) => {
+export const ContactFormEmail = ({ name, email, phone, subject, message, receivedAt }) => {
   const previewText = `New message from ${name} via your website`;
 
   return (

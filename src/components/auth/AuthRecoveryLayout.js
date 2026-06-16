@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { Compass, Map as MapIcon, Shield, Sparkles } from "lucide-react";
-import { m as motion } from "motion/react";
 
 const BRAND_NAME = "Citius Holidays";
 const CURRENT_YEAR = new Date().getFullYear();
@@ -15,7 +15,7 @@ export default function AuthRecoveryLayout({
 }) {
   return (
     <div className="min-h-screen w-full flex flex-col md:flex-row bg-[#FDFBF7]">
-      <motion.aside
+      <m.aside
         className="relative hidden md:flex w-full md:w-1/2 lg:w-5/12 flex-col overflow-hidden bg-[#0B1026] p-12 text-[#FDFBF7]"
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -23,20 +23,20 @@ export default function AuthRecoveryLayout({
       >
         <div className="absolute inset-0 z-0">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-[#1a2c4e] via-[#0B1026] to-[#050814] opacity-90" />
-          <motion.div
+          <m.div
             className="absolute inset-0 bg-[url('/gallery/bgmice.webp')] bg-cover bg-center opacity-[0.18] mix-blend-overlay"
             aria-hidden
           />
           <div className="absolute bottom-[-20%] left-[-20%] size-[800px] rounded-full bg-[#1e293b] opacity-10 blur-3xl" />
           <div className="absolute top-[20%] right-[-10%] size-[400px] rounded-full bg-[#d4af37] opacity-5 blur-[100px]" />
-          <motion.div
+          <m.div
             className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.03] mix-blend-overlay"
             aria-hidden
           />
         </div>
 
         <div className="relative z-10 flex h-full flex-col justify-between">
-          <motion.div
+          <m.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35 }}
@@ -55,9 +55,9 @@ export default function AuthRecoveryLayout({
                 {panelSubtext}
               </p>
             ) : null}
-          </motion.div>
+          </m.div>
 
-          <motion.div
+          <m.div
             className="my-10 space-y-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -103,18 +103,18 @@ export default function AuthRecoveryLayout({
                 </p>
               </div>
             </div>
-          </motion.div>
+          </m.div>
 
-          <motion.p
+          <m.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.75 }}
             className="text-xs font-light text-white/30"
           >
             © {CURRENT_YEAR} {BRAND_NAME}. All rights reserved.
-          </motion.p>
+          </m.p>
         </div>
-      </motion.aside>
+      </m.aside>
 
       <div className="relative flex w-full md:w-1/2 lg:w-7/12 items-center justify-center overflow-hidden p-6 md:p-12">
         <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
@@ -124,7 +124,7 @@ export default function AuthRecoveryLayout({
           <div className="absolute inset-0 bg-gradient-to-br from-[#FDFBF7]/92 via-[#FDFBF7]/88 to-[#FDFBF7]/95" />
         </div>
 
-        <motion.div
+        <m.div
           className="relative z-10 w-full max-w-md"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -138,7 +138,7 @@ export default function AuthRecoveryLayout({
           </div>
 
           {children}
-        </motion.div>
+        </m.div>
       </div>
     </div>
   );

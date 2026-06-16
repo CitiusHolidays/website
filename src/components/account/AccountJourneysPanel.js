@@ -1,13 +1,13 @@
 "use client";
 
+import { m } from "motion/react";
 import { ChevronRight, Plane } from "lucide-react";
-import { m as motion } from "motion/react";
 import Link from "next/link";
 import { ACCOUNT_CONTAINER_VARIANTS, ACCOUNT_ITEM_VARIANTS, BookingCard } from "./AccountUi";
 
 export function AccountJourneysPanel({ upcomingBookings, pastBookings }) {
   return (
-    <motion.div
+    <m.div
       key="journeys"
       initial="hidden"
       animate="visible"
@@ -16,7 +16,7 @@ export function AccountJourneysPanel({ upcomingBookings, pastBookings }) {
       className="space-y-12"
     >
       <section>
-        <motion.h2
+        <m.h2
           variants={ACCOUNT_ITEM_VARIANTS}
           className="font-heading text-3xl text-[#0B1026] mb-6 flex items-center gap-3"
         >
@@ -24,7 +24,7 @@ export function AccountJourneysPanel({ upcomingBookings, pastBookings }) {
           <span className="text-sm font-sans font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
             {upcomingBookings.length}
           </span>
-        </motion.h2>
+        </m.h2>
 
         {upcomingBookings.length > 0 ? (
           <div className="grid gap-6">
@@ -33,7 +33,7 @@ export function AccountJourneysPanel({ upcomingBookings, pastBookings }) {
             ))}
           </div>
         ) : (
-          <motion.div
+          <m.div
             variants={ACCOUNT_ITEM_VARIANTS}
             className="bg-white rounded-2xl p-12 text-center border border-dashed border-gray-200"
           >
@@ -50,18 +50,18 @@ export function AccountJourneysPanel({ upcomingBookings, pastBookings }) {
             >
               Explore Destinations <ChevronRight size={16} />
             </Link>
-          </motion.div>
+          </m.div>
         )}
       </section>
 
       {pastBookings.length > 0 && (
         <section>
-          <motion.h2
+          <m.h2
             variants={ACCOUNT_ITEM_VARIANTS}
             className="font-heading text-3xl text-[#0B1026] mb-6 mt-12 opacity-80"
           >
             Past Memories
-          </motion.h2>
+          </m.h2>
           <div className="grid gap-6 opacity-80 hover:opacity-100 transition-opacity duration-300">
             {pastBookings.map((booking) => (
               <BookingCard key={booking.booking.id} booking={booking} type="past" />
@@ -69,6 +69,6 @@ export function AccountJourneysPanel({ upcomingBookings, pastBookings }) {
           </div>
         </section>
       )}
-    </motion.div>
+    </m.div>
   );
 }

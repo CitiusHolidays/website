@@ -14,7 +14,7 @@ function assignmentQueryPath(entityId) {
 /**
  * Build portal deep-link path for notifications (shared with Convex email links).
  */
-export function buildNotificationPath({ entityType, entityId, title }) {
+function buildNotificationPath({ entityType, entityId, title }) {
   if (!entityType || !entityId) {
     return "/portal/activity";
   }

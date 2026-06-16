@@ -68,6 +68,33 @@ export function validateModalForm(modal, form, deps = {}) {
     });
   }
 
+  if (modal === "assignJobCardCreator") {
+    if (!String(form.queryId ?? "").trim()) {
+      throw new Error("Select a confirmed query.");
+    }
+    if (!String(form.staffId ?? "").trim()) {
+      throw new Error("Select the Accounts person who will create the job card.");
+    }
+  }
+
+  if (modal === "addProposalCollaborator" || modal === "removeProposalCollaborator") {
+    if (!String(form.proposalId || form.entityId || "").trim()) {
+      throw new Error("Select a proposal.");
+    }
+    if (!String(form.staffId ?? "").trim()) {
+      throw new Error("Select a collaborator.");
+    }
+  }
+
+  if (modal === "addJobCardCollaborator" || modal === "removeJobCardCollaborator") {
+    if (!String(form.jobCardId || form.entityId || "").trim()) {
+      throw new Error("Select a job card.");
+    }
+    if (!String(form.staffId ?? "").trim()) {
+      throw new Error("Select a collaborator.");
+    }
+  }
+
   if (modal === "hotel") {
     if (!String(form.hotelName ?? "").trim()) {
       throw new Error("Hotel name is required.");
@@ -138,7 +165,7 @@ export function validateModalForm(modal, form, deps = {}) {
       throw new Error("Select a job card.");
     }
     if (!String(form.expenseDate ?? "").trim()) throw new Error("Expense date is required.");
-    if (!String(form.category ?? "").trim()) throw new Error("Category is required.");
+    if (!String(form.category ?? "").trim()) throw new Error("Select a category.");
     assertNonNegativeNumber(form.cardAmount, "Card amount");
     assertNonNegativeNumber(form.cashAmount, "Cash amount");
     assertNonNegativeNumber(form.epayAmount, "E-pay amount");

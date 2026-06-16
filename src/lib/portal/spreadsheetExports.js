@@ -1,4 +1,3 @@
-import * as XLSX from "xlsx";
 import { formatDisplayDateForExport } from "@/lib/formatDate";
 import {
   FLIGHT_EXPORT_HEADER,
@@ -8,14 +7,11 @@ import {
   TRAVELLER_MASTER_EXPORT_HEADERS,
   VISA_EXPORT_HEADERS,
 } from "./spreadsheetImports";
-
-function sanitizeSheetName(name, fallback = "Sheet1") {
-  const cleaned = String(name ?? "")
-    .replace(/[\\/?*[\]:]/g, " ")
-    .trim()
-    .slice(0, 31);
-  return cleaned || fallback;
-}
+import {
+  sanitizeSheetName,
+  workbookArrayBufferFromSheets,
+  workbookFromSheets,
+} from "./workbookAdapter";
 
 export function formatFoodPreferenceForExport(value) {
   switch (value) {
@@ -32,7 +28,10 @@ export function formatFoodPreferenceForExport(value) {
 
 function passengerRowToArray(row) {
   const passport = row.passport || {};
-  const name = splitPassengerName(row.fullName);
+  const name =
+    row.surname || row.givenName
+      ? { surname: row.surname || "", givenName: row.givenName || row.fullName || "" }
+      : splitPassengerName(row.fullName);
   const ticketing = row.ticketing || {};
   return [
     row.sequenceNumber || "",
@@ -94,10 +93,12 @@ function splitTemplateName(fullName) {
 
 function roomTypeForTemplate(value) {
   switch (value) {
-    case "SGL":
+    case "Single":
       return "SINGLE";
-    case "DBL":
+    case "Double":
       return "DOUBLE";
+    case "Triple":
+      return "TRIPLE";
     case "Child with Bed":
       return "Child with Bed";
     case "Family Room":
@@ -120,7 +121,10 @@ function paymentTypeForTemplate(value) {
 
 function templateBase(row) {
   const passport = row.passport || {};
-  const name = splitTemplateName(row.fullName);
+  const name =
+    row.surname || row.givenName
+      ? { surname: row.surname || "", givenName: row.givenName || row.fullName || "" }
+      : splitTemplateName(row.fullName);
   return {
     passport,
     surname: name.surname,
@@ -230,61 +234,41 @@ function visaRowToArray(row, index) {
 }
 
 export function buildPassengerWorkbook(rows, { sheetName = "Passengers" } = {}) {
-  const workbook = XLSX.utils.book_new();
   const sheetRows = [
     PASSENGER_EXPORT_HEADERS,
     ...rows.map((row, index) => passengerRowToArray({ ...row, sequenceNumber: index + 1 })),
   ];
-  XLSX.utils.book_append_sheet(
-    workbook,
-    XLSX.utils.aoa_to_sheet(sheetRows),
-    sanitizeSheetName(sheetName),
-  );
-  return workbook;
+  return workbookFromSheets({
+    [sanitizeSheetName(sheetName)]: sheetRows,
+  });
 }
 
 export function buildTravellerMasterWorkbook(rows, { sheetName = "Master list" } = {}) {
-  const workbook = XLSX.utils.book_new();
   const sheetRows = [TRAVELLER_MASTER_EXPORT_HEADERS, ...rows.map(travellerMasterRowToArray)];
-  XLSX.utils.book_append_sheet(
-    workbook,
-    XLSX.utils.aoa_to_sheet(sheetRows),
-    sanitizeSheetName(sheetName),
-  );
-  return workbook;
+  return workbookFromSheets({
+    [sanitizeSheetName(sheetName)]: sheetRows,
+  });
 }
 
 export function buildRoomingWorkbook(rows, { sheetName = "Rooming" } = {}) {
-  const workbook = XLSX.utils.book_new();
   const sheetRows = [ROOMING_EXPORT_HEADERS, ...rows.map(roomingRowToArray)];
-  XLSX.utils.book_append_sheet(
-    workbook,
-    XLSX.utils.aoa_to_sheet(sheetRows),
-    sanitizeSheetName(sheetName),
-  );
-  return workbook;
+  return workbookFromSheets({
+    [sanitizeSheetName(sheetName)]: sheetRows,
+  });
 }
 
 export function buildPassportWorkbook(rows, { sheetName = "Passport" } = {}) {
-  const workbook = XLSX.utils.book_new();
   const sheetRows = [PASSPORT_EXPORT_HEADERS, ...rows.map(passportRowToArray)];
-  XLSX.utils.book_append_sheet(
-    workbook,
-    XLSX.utils.aoa_to_sheet(sheetRows),
-    sanitizeSheetName(sheetName),
-  );
-  return workbook;
+  return workbookFromSheets({
+    [sanitizeSheetName(sheetName)]: sheetRows,
+  });
 }
 
 export function buildVisaWorkbook(rows, { sheetName = "Visa" } = {}) {
-  const workbook = XLSX.utils.book_new();
   const sheetRows = [VISA_EXPORT_HEADERS, ...rows.map(visaRowToArray)];
-  XLSX.utils.book_append_sheet(
-    workbook,
-    XLSX.utils.aoa_to_sheet(sheetRows),
-    sanitizeSheetName(sheetName),
-  );
-  return workbook;
+  return workbookFromSheets({
+    [sanitizeSheetName(sheetName)]: sheetRows,
+  });
 }
 
 function flightHeaderRow() {
@@ -307,7 +291,6 @@ function flightSegmentRow(segment) {
 }
 
 export function buildFlightWorkbook(groups, { defaultSheetName = "Flights" } = {}) {
-  const workbook = XLSX.utils.book_new();
   const groupsBySheet = new Map();
 
   for (const group of groups) {
@@ -316,13 +299,11 @@ export function buildFlightWorkbook(groups, { defaultSheetName = "Flights" } = {
     groupsBySheet.get(key).push(group);
   }
 
+  const sheets = {};
+
   if (groupsBySheet.size === 0) {
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.aoa_to_sheet([[], flightHeaderRow()]),
-      sanitizeSheetName(defaultSheetName),
-    );
-    return workbook;
+    sheets[sanitizeSheetName(defaultSheetName)] = [[], flightHeaderRow()];
+    return workbookFromSheets(sheets);
   }
 
   const usedNames = new Set();
@@ -350,14 +331,14 @@ export function buildFlightWorkbook(groups, { defaultSheetName = "Flights" } = {
       sheetRows.push(flightHeaderRow());
     }
 
-    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(sheetRows), sheetName);
+    sheets[sheetName] = sheetRows;
   }
 
-  return workbook;
+  return workbookFromSheets(sheets);
 }
 
-export function downloadWorkbook(workbook, filename) {
-  const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+export async function downloadWorkbook(workbook, filename) {
+  const buffer = await workbookArrayBufferFromSheets(workbook.Sheets);
   const blob = new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });

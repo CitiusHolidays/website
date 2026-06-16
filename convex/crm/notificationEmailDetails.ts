@@ -136,9 +136,7 @@ async function proposalDetails(ctx: QueryCtx, entityId: string): Promise<DetailS
   addRow(
     rows,
     "Destinations",
-    linkedQueries
-      .flatMap((query) => (query.destination ? [query.destination] : []))
-      .join(", "),
+    linkedQueries.flatMap((query) => (query.destination ? [query.destination] : [])).join(", "),
   );
   addRow(
     rows,

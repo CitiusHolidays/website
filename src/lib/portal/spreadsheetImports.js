@@ -1,4 +1,6 @@
-import * as XLSX from "xlsx";
+import { parseExcelDateCode, workbookRowsFromArrayBuffer } from "./workbookAdapter";
+
+export { workbookFromSheets } from "./workbookAdapter";
 
 export const PASSENGER_EXPORT_HEADERS = [
   "NO",
@@ -165,45 +167,32 @@ function getByHeader(row, headers, names) {
   return "";
 }
 
-function sheetRows(sheet) {
-  return XLSX.utils.sheet_to_json(sheet, {
-    header: 1,
-    defval: "",
-    raw: true,
-    blankrows: false,
-  });
-}
-
-function workbookFromArrayBuffer(buffer) {
-  return XLSX.read(buffer, {
-    type: "array",
-    cellDates: true,
-    raw: false,
-  });
+function sheetRows(rowArrays) {
+  return rowArrays ?? [];
 }
 
 export async function parsePassengerWorkbookFile(file) {
-  return parsePassengerWorkbook(workbookFromArrayBuffer(await file.arrayBuffer()));
+  return parsePassengerWorkbook(await workbookRowsFromArrayBuffer(await file.arrayBuffer()));
 }
 
 export async function parseFlightWorkbookFile(file) {
-  return parseFlightWorkbook(workbookFromArrayBuffer(await file.arrayBuffer()));
+  return parseFlightWorkbook(await workbookRowsFromArrayBuffer(await file.arrayBuffer()));
 }
 
 export async function parseTravellerMasterWorkbookFile(file) {
-  return parseTravellerMasterWorkbook(workbookFromArrayBuffer(await file.arrayBuffer()));
+  return parseTravellerMasterWorkbook(await workbookRowsFromArrayBuffer(await file.arrayBuffer()));
 }
 
 export async function parseRoomingWorkbookFile(file) {
-  return parseRoomingWorkbook(workbookFromArrayBuffer(await file.arrayBuffer()));
+  return parseRoomingWorkbook(await workbookRowsFromArrayBuffer(await file.arrayBuffer()));
 }
 
 export async function parsePassportWorkbookFile(file) {
-  return parsePassportWorkbook(workbookFromArrayBuffer(await file.arrayBuffer()));
+  return parsePassportWorkbook(await workbookRowsFromArrayBuffer(await file.arrayBuffer()));
 }
 
 export async function parseVisaWorkbookFile(file) {
-  return parseVisaWorkbook(workbookFromArrayBuffer(await file.arrayBuffer()));
+  return parseVisaWorkbook(await workbookRowsFromArrayBuffer(await file.arrayBuffer()));
 }
 
 function formatDateObject(value) {
@@ -226,10 +215,11 @@ export function normalizeFoodPreference(value) {
 export function normalizeRoomType(value, fallback = "Twin") {
   const key = headerKey(value);
   if (!key) return fallback;
-  if (key.includes("single") || key === "sgl") return "SGL";
-  if (key.includes("double") || key === "dbl") return "DBL";
+  if (key.includes("single") || key === "sgl") return "Single";
+  if (key.includes("double") || key === "dbl") return "Double";
+  if (key.includes("triple") || key === "tpl") return "Triple";
   if (key.includes("child")) return "Child with Bed";
-  if (key.includes("family") || key.includes("triple")) return "Family Room";
+  if (key.includes("family")) return "Family Room";
   if (key.includes("twin")) return "Twin";
   return fallback;
 }
@@ -265,7 +255,7 @@ export function normalizeImportedDate(value) {
     return formatDateObject(value);
   }
   if (typeof value === "number") {
-    const parsed = XLSX.SSF.parse_date_code(value);
+    const parsed = parseExcelDateCode(value);
     if (parsed) {
       return [
         String(parsed.y).padStart(4, "0"),
@@ -303,7 +293,7 @@ function formatTime(value) {
     return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
   }
   if (typeof value === "number") {
-    const parsed = XLSX.SSF.parse_date_code(value);
+    const parsed = parseExcelDateCode(value);
     if (parsed) {
       return `${String(parsed.H).padStart(2, "0")}:${String(parsed.M).padStart(2, "0")}`;
     }
@@ -344,6 +334,21 @@ function fullNameFromTemplateRow(row, headers) {
     .join(" ");
 }
 
+function templateNameParts(row, headers) {
+  const surname = clean(getByHeader(row, headers, ["SURNAME", "Surname", "Last Name"]));
+  const givenName = clean(
+    getByHeader(row, headers, [
+      "GIVEN NAME",
+      "Given Name",
+      "First Name",
+      "Name As per Govt. ID Proof",
+      "Passenger Name",
+      "Full Name",
+    ]),
+  );
+  return { surname, givenName };
+}
+
 function passengerFullName(row, headers) {
   const name = clean(
     getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"]),
@@ -352,6 +357,14 @@ function passengerFullName(row, headers) {
   const hasTicketingNameParts = Boolean(surname && name && headers.has(headerKey("SURNAME")));
   if (hasTicketingNameParts) return [name, surname].filter(Boolean).join(" ");
   return name || surname;
+}
+
+function passengerNameParts(row, headers) {
+  const surname = clean(getByHeader(row, headers, ["SURNAME", "Surname", "Last Name"]));
+  const givenName = clean(
+    getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"]),
+  );
+  return { surname, givenName };
 }
 
 function adjacentCellByHeader(row, headers, header, offset = 1) {
@@ -392,6 +405,7 @@ function templateImportKey({ fullName, dateOfBirth, contactNo, passportNumber })
 
 function templateRowBase({ row, headers, sheetName, sourceRowNumber, importKind }) {
   const fullName = fullNameFromTemplateRow(row, headers);
+  const nameParts = templateNameParts(row, headers);
   const dateOfBirth = normalizeImportedDate(
     getByHeader(row, headers, ["Date of Birth As per passport", "Date of Birth", "DOB"]),
   );
@@ -441,6 +455,8 @@ function templateRowBase({ row, headers, sheetName, sourceRowNumber, importKind 
     importKind,
     importKey: templateImportKey({ fullName, dateOfBirth, contactNo, passportNumber }),
     fullName,
+    surname: nameParts.surname,
+    givenName: nameParts.givenName,
     travelHub: clean(getByHeader(row, headers, ["Hub", "Travel Hub"])),
     foodPreference: normalizeFoodPreference(
       getByHeader(row, headers, ["Meal", "Meal Preference", "Food Preference"]),
@@ -507,7 +523,7 @@ function parseTemplateWorkbook(workbook, { importKind, preferredSheetNames, requ
   const sheetNames = matchingSheetNames.length > 0 ? matchingSheetNames : workbook.SheetNames;
 
   for (const sheetName of sheetNames) {
-    const rawRows = sheetRows(workbook.Sheets[sheetName]);
+    const rawRows = sheetRows(workbook.Sheets[sheetName] ?? []);
     const headerIndex = findRowIndex(rawRows, (row) => hasTemplateHeaders(row, requiredHeaders));
     if (headerIndex < 0) continue;
 
@@ -587,7 +603,7 @@ export function parsePassengerWorkbook(workbook) {
   const seenPassengerKeys = new Set();
 
   for (const sheetName of workbook.SheetNames) {
-    const rawRows = sheetRows(workbook.Sheets[sheetName]);
+    const rawRows = sheetRows(workbook.Sheets[sheetName] ?? []);
     const headerIndex = findRowIndex(rawRows, hasPassengerHeaders);
     if (headerIndex < 0) continue;
 
@@ -599,6 +615,7 @@ export function parsePassengerWorkbook(workbook) {
         ? "CONFIRMED"
         : clean(getByHeader(row, headers, ["WILLING TO GO", "Status"])).toUpperCase();
       const fullName = passengerFullName(row, headers);
+      const nameParts = passengerNameParts(row, headers);
       const sourceRef = `${sheetName}:${sourceRowNumber}`;
 
       if (!fullName && !status) return;
@@ -674,6 +691,8 @@ export function parsePassengerWorkbook(workbook) {
         importKind: "passenger",
         importKey,
         fullName,
+        surname: nameParts.surname,
+        givenName: nameParts.givenName,
         travelHub: clean(getByHeader(row, headers, ["Boarding Airport", "Travel Hub"])),
         foodPreference: normalizeFoodPreference(
           getByHeader(row, headers, ["Meal Preference", "Food Preference"]),
@@ -732,7 +751,7 @@ export function parseFlightWorkbook(workbook) {
   const errors = [];
 
   for (const sheetName of workbook.SheetNames) {
-    const rawRows = sheetRows(workbook.Sheets[sheetName]);
+    const rawRows = sheetRows(workbook.Sheets[sheetName] ?? []);
     let current = null;
     let groupIndex = 0;
 

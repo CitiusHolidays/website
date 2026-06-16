@@ -2,11 +2,15 @@ import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import {
   assertDateRangeOrder,
+  canEditContractingRecord,
+  canEditOperationsRecord,
   canSeeJobCardRecord,
   canSeeQueryRecord,
   createActivity,
   creatorInitials,
   deleteJobCardCascade,
+  editorPatch,
+  isDirectorOrAdmin,
   nextCode,
   notifyRoles,
   notifyStaffMember,
@@ -70,6 +74,53 @@ const DEFAULT_CHECKLIST = [
   { key: "financeClosure", label: "Final invoice and balance closure", done: false },
 ];
 
+function checklistItemToTask(item: any, index: number, createdBy: string, timestamp: number) {
+  return {
+    category: item.category ?? item.owner ?? "Operations",
+    title: item.label ?? item.title ?? `Checklist item ${index + 1}`,
+    completed: Boolean(item.done ?? item.completed),
+    dueDate: item.dueDate,
+    ownerRole: item.owner,
+    completedAt: item.done || item.completed ? timestamp : undefined,
+    createdBy,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+async function materializeDefaultChecklistTasks(
+  ctx: any,
+  jobCardId: any,
+  checklist: any[],
+  createdBy: string,
+  timestamp = Date.now(),
+) {
+  await Promise.all(
+    (checklist ?? DEFAULT_CHECKLIST).map((item, index) =>
+      ctx.db.insert("checklistTasks", {
+        jobCardId,
+        ...checklistItemToTask(item, index, createdBy, timestamp),
+      }),
+    ),
+  );
+}
+
+async function getChecklistTasksWithFallback(ctx: any, job: any) {
+  const tasks = await ctx.db
+    .query("checklistTasks")
+    .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", job._id))
+    .collect();
+  if (tasks.length > 0) {
+    return tasks.sort((a: any, b: any) => a.createdAt - b.createdAt);
+  }
+  return (job.preDepartureChecklist ?? DEFAULT_CHECKLIST).map((item: any, index: number) => ({
+    _id: `legacy-${job._id}-${item.key ?? index}`,
+    jobCardId: job._id,
+    ...checklistItemToTask(item, index, job.createdBy, job.createdAt),
+    legacy: true,
+  }));
+}
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -89,6 +140,138 @@ export const list = query({
         }),
     );
     return result.filter(Boolean);
+  },
+});
+
+export const getCommandCenter = query({
+  args: { jobCardId: v.string() },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_JOB_CARDS);
+    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!jobCardId) {
+      throw new ConvexError("Invalid Job Card id");
+    }
+    const job = await ctx.db.get(jobCardId);
+    if (!job) {
+      throw new ConvexError("Job Card not found");
+    }
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const [
+      proposal,
+      travellers,
+      visaRecords,
+      tickets,
+      pnrs,
+      hotels,
+      rooming,
+      vendors,
+      itineraries,
+      eventFlows,
+      invoices,
+      expenses,
+      activity,
+      checklistTasks,
+    ] = await Promise.all([
+      job.proposalId ? ctx.db.get(job.proposalId) : null,
+      ctx.db
+        .query("travellers")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      ctx.db
+        .query("visaRecords")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      ctx.db
+        .query("tickets")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      ctx.db
+        .query("pnrs")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      ctx.db
+        .query("hotels")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      ctx.db
+        .query("roomingListEntries")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      ctx.db
+        .query("vendors")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      ctx.db
+        .query("itineraries")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      ctx.db
+        .query("eventFlows")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      ctx.db
+        .query("invoices")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      ctx.db
+        .query("expenseEntries")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      ctx.db
+        .query("activityLogs")
+        .withIndex("by_entity", (q) =>
+          q.eq("entityType", "jobCard").eq("entityId", String(jobCardId)),
+        )
+        .collect(),
+      getChecklistTasksWithFallback(ctx, job),
+    ]);
+    return {
+      jobCard: publicJobCard(job),
+      query: linkedQuery
+        ? {
+            id: linkedQuery._id,
+            queryCode: linkedQuery.queryCode,
+            clientName: linkedQuery.clientName,
+            destination: linkedQuery.destination ?? "",
+            salesStatus: linkedQuery.salesStatus,
+            contractingStatus: linkedQuery.contractingStatus,
+          }
+        : null,
+      proposal: proposal
+        ? {
+            id: proposal._id,
+            proposalCode: proposal.proposalCode,
+            status: proposal.status,
+            sellingPrice: proposal.sellingPrice ?? 0,
+            costPrice: proposal.costPrice ?? 0,
+          }
+        : null,
+      travellers,
+      visaRecords,
+      tickets,
+      pnrs,
+      hotels,
+      rooming,
+      vendors,
+      itineraries,
+      eventFlows,
+      invoices,
+      expenses,
+      checklistTasks,
+      recentActivity: activity
+        .sort((a, b) => b.createdAt - a.createdAt)
+        .slice(0, 12)
+        .map((row) => ({
+          id: row._id,
+          action: row.action,
+          message: row.message,
+          actorName: row.actorName,
+          createdAt: new Date(row.createdAt).toISOString(),
+        })),
+    };
   },
 });
 
@@ -128,6 +311,14 @@ export const createFromQuery = mutation({
     }
     if (!canSeeQueryRecord(access, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
+    }
+    if (!isDirectorOrAdmin(access)) {
+      if (!linkedQuery.jobCardCreatorStaffId) {
+        throw new ConvexError("Accounts Head must assign a Job Card creator first");
+      }
+      if (!access.staffId || linkedQuery.jobCardCreatorStaffId !== access.staffId) {
+        throw new ConvexError("Only the assigned Accounts person can create this Job Card");
+      }
     }
     if (
       linkedQuery &&
@@ -205,7 +396,7 @@ export const createFromQuery = mutation({
 
     const now = Date.now();
     const jobCode = await nextCode(ctx, "jobCards", "JC", {
-      suffix: creatorInitials(access.name),
+      suffix: creatorInitials(linkedQuery.salesOwnerName || access.name),
     });
     const queryType = linkedQuery?.queryType;
     const id = await ctx.db.insert("jobCards", {
@@ -224,6 +415,10 @@ export const createFromQuery = mutation({
       contractingOwnerName: linkedQuery?.contractingOwnerName ?? "",
       ticketingOwnerId: linkedQuery?.ticketingOwnerId,
       ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
+      collaboratorStaffIds: [],
+      lastEditedBy: access.authUserId ?? access.email ?? "unknown",
+      lastEditedByName: access.name,
+      lastEditedAt: now,
       tourManagerName: args.tourManagerName?.trim() || "",
       status: "Open",
       preDepartureChecklist: DEFAULT_CHECKLIST,
@@ -231,6 +426,13 @@ export const createFromQuery = mutation({
       createdAt: now,
       updatedAt: now,
     });
+    await materializeDefaultChecklistTasks(
+      ctx,
+      id,
+      DEFAULT_CHECKLIST,
+      access.authUserId ?? "unknown",
+      now,
+    );
 
     const ownerNotifications = [];
     const contractingStaffId = linkedQuery?.contractingOwnerId
@@ -325,6 +527,9 @@ export const update = mutation({
     if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
+    if (!canEditOperationsRecord(access, job) && !canEditContractingRecord(access, job)) {
+      throw new ConvexError("Only assigned SPOCs, collaborators, and heads can edit this Job Card");
+    }
     if (args.confirmedPax !== undefined && args.confirmedPax < 1) {
       throw new ConvexError("Confirmed pax must be greater than zero");
     }
@@ -335,7 +540,7 @@ export const update = mutation({
       "Travel end date",
     );
 
-    const patch: Record<string, unknown> = { updatedAt: Date.now() };
+    const patch: Record<string, unknown> = editorPatch(access);
     if (args.clientName !== undefined) patch.clientName = args.clientName.trim();
     if (args.destination !== undefined) patch.destination = args.destination.trim();
     if (args.confirmedPax !== undefined) patch.confirmedPax = args.confirmedPax;
@@ -380,9 +585,14 @@ export const updateChecklist = mutation({
     if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
+    if (!canEditOperationsRecord(access, job) && !canEditContractingRecord(access, job)) {
+      throw new ConvexError(
+        "Only assigned SPOCs, collaborators, and heads can update this checklist",
+      );
+    }
     await ctx.db.patch(id, {
       preDepartureChecklist: args.checklist,
-      updatedAt: Date.now(),
+      ...editorPatch(access),
     });
     await createActivity(ctx, access, {
       entityType: "jobCard",
@@ -391,6 +601,104 @@ export const updateChecklist = mutation({
       message: `${job.jobCode} checklist updated`,
     });
     return { id };
+  },
+});
+
+export const updateChecklistTask = mutation({
+  args: {
+    taskId: v.string(),
+    completed: v.boolean(),
+    dueDate: v.optional(v.string()),
+    ownerRole: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.MANAGE_JOB_CARDS,
+      PERMISSIONS.MANAGE_OPERATIONS,
+      PERMISSIONS.MANAGE_FINANCE,
+    ]);
+    const taskId = ctx.db.normalizeId("checklistTasks", args.taskId);
+    if (!taskId) throw new ConvexError("Invalid checklist task id");
+    const task = await ctx.db.get(taskId);
+    if (!task) throw new ConvexError("Checklist task not found");
+    const job = await ctx.db.get(task.jobCardId);
+    if (!job) throw new ConvexError("Job Card not found");
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) throw new ConvexError("FORBIDDEN");
+    if (!canEditOperationsRecord(access, job) && !canEditContractingRecord(access, job)) {
+      throw new ConvexError("Only assigned SPOCs, collaborators, and heads can update this task");
+    }
+    await ctx.db.patch(taskId, {
+      completed: args.completed,
+      completedAt: args.completed ? Date.now() : undefined,
+      dueDate: args.dueDate,
+      ownerRole: args.ownerRole as any,
+      ...editorPatch(access),
+    });
+    return { id: taskId };
+  },
+});
+
+export const createChecklistTask = mutation({
+  args: {
+    jobCardId: v.string(),
+    category: v.string(),
+    title: v.string(),
+    dueDate: v.optional(v.string()),
+    ownerRole: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.MANAGE_JOB_CARDS,
+      PERMISSIONS.MANAGE_OPERATIONS,
+      PERMISSIONS.MANAGE_FINANCE,
+    ]);
+    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!jobCardId) throw new ConvexError("Invalid Job Card id");
+    const job = await ctx.db.get(jobCardId);
+    if (!job) throw new ConvexError("Job Card not found");
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) throw new ConvexError("FORBIDDEN");
+    if (!canEditOperationsRecord(access, job) && !canEditContractingRecord(access, job)) {
+      throw new ConvexError("Only assigned SPOCs, collaborators, and heads can add tasks");
+    }
+    const now = Date.now();
+    const id = await ctx.db.insert("checklistTasks", {
+      jobCardId,
+      category: args.category.trim() || "Operations",
+      title: args.title.trim(),
+      completed: false,
+      dueDate: args.dueDate,
+      ownerRole: args.ownerRole as any,
+      createdBy: access.authUserId ?? "unknown",
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { id };
+  },
+});
+
+export const removeChecklistTask = mutation({
+  args: { taskId: v.string() },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.MANAGE_JOB_CARDS,
+      PERMISSIONS.MANAGE_OPERATIONS,
+      PERMISSIONS.MANAGE_FINANCE,
+    ]);
+    const taskId = ctx.db.normalizeId("checklistTasks", args.taskId);
+    if (!taskId) throw new ConvexError("Invalid checklist task id");
+    const task = await ctx.db.get(taskId);
+    if (!task) throw new ConvexError("Checklist task not found");
+    const job = await ctx.db.get(task.jobCardId);
+    if (!job) throw new ConvexError("Job Card not found");
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) throw new ConvexError("FORBIDDEN");
+    if (!canEditOperationsRecord(access, job) && !canEditContractingRecord(access, job)) {
+      throw new ConvexError("Only assigned SPOCs, collaborators, and heads can remove tasks");
+    }
+    await ctx.db.delete(taskId);
+    return { id: taskId };
   },
 });
 
@@ -423,7 +731,12 @@ export const updateStatus = mutation({
     if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
-    await ctx.db.patch(id, { status: args.status, updatedAt: Date.now() });
+    if (!canEditOperationsRecord(access, job)) {
+      throw new ConvexError(
+        "Only assigned Operations SPOC, collaborators, and heads can update status",
+      );
+    }
+    await ctx.db.patch(id, { status: args.status, ...editorPatch(access) });
     await createActivity(ctx, access, {
       entityType: "jobCard",
       entityId: id,
@@ -431,6 +744,81 @@ export const updateStatus = mutation({
       message: `${job.jobCode} moved to ${args.status}`,
     });
     return { id };
+  },
+});
+
+export const addCollaborator = mutation({
+  args: {
+    jobCardId: v.string(),
+    staffId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.MANAGE_JOB_CARDS,
+      PERMISSIONS.MANAGE_OPERATIONS,
+      PERMISSIONS.MANAGE_CONTRACTING,
+    ]);
+    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!jobCardId) throw new ConvexError("Invalid Job Card id");
+    const staffId = ctx.db.normalizeId("staffUsers", args.staffId);
+    if (!staffId) throw new ConvexError("Invalid staff id");
+    const [job, staff] = await Promise.all([ctx.db.get(jobCardId), ctx.db.get(staffId)]);
+    if (!job) throw new ConvexError("Job Card not found");
+    if (!staff?.active) throw new ConvexError("Staff member not found");
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) throw new ConvexError("FORBIDDEN");
+    if (!canEditOperationsRecord(access, job) && !canEditContractingRecord(access, job)) {
+      throw new ConvexError("Only assigned SPOCs and heads can add collaborators");
+    }
+    const collaborators = new Set((job.collaboratorStaffIds ?? []).map(String));
+    collaborators.add(String(staffId));
+    await Promise.all([
+      ctx.db.patch(jobCardId, {
+        collaboratorStaffIds: Array.from(collaborators).map(
+          (id) => ctx.db.normalizeId("staffUsers", id)!,
+        ),
+        ...editorPatch(access),
+      }),
+      notifyStaffMember(ctx, staffId, {
+        title: "Job Card access shared",
+        body: `${job.jobCode} was shared with you for collaboration.`,
+        entityType: "jobCard",
+        entityId: jobCardId,
+      }),
+    ]);
+    return { id: jobCardId };
+  },
+});
+
+export const removeCollaborator = mutation({
+  args: {
+    jobCardId: v.string(),
+    staffId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.MANAGE_JOB_CARDS,
+      PERMISSIONS.MANAGE_OPERATIONS,
+      PERMISSIONS.MANAGE_CONTRACTING,
+    ]);
+    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!jobCardId) throw new ConvexError("Invalid Job Card id");
+    const staffId = ctx.db.normalizeId("staffUsers", args.staffId);
+    if (!staffId) throw new ConvexError("Invalid staff id");
+    const job = await ctx.db.get(jobCardId);
+    if (!job) throw new ConvexError("Job Card not found");
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) throw new ConvexError("FORBIDDEN");
+    if (!canEditOperationsRecord(access, job) && !canEditContractingRecord(access, job)) {
+      throw new ConvexError("Only assigned SPOCs and heads can remove collaborators");
+    }
+    await ctx.db.patch(jobCardId, {
+      collaboratorStaffIds: (job.collaboratorStaffIds ?? []).filter(
+        (id: any) => String(id) !== String(staffId),
+      ),
+      ...editorPatch(access),
+    });
+    return { id: jobCardId };
   },
 });
 

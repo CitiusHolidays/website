@@ -63,6 +63,8 @@ export const listStaff = query({
         leaveHeadApproverName: staff.leaveHeadApproverId
           ? (approverNameById.get(staff.leaveHeadApproverId) ?? "")
           : "",
+        reportingManagerName: staff.reportingManagerName ?? "",
+        reportingManagerStaffId: staff.reportingManagerStaffId ?? "",
         maternityEventsUsed: staff.maternityEventsUsed ?? 0,
         paternityEventsUsed: staff.paternityEventsUsed ?? 0,
         marriageLeaveUsed: staff.marriageLeaveUsed ?? false,
@@ -105,6 +107,8 @@ export const listDirectory = query({
         employmentStatus: staff.employmentStatus ?? "Confirmed",
         confirmationDate: staff.confirmationDate ?? "",
         leavePolicyGroup: staff.leavePolicyGroup ?? "",
+        reportingManagerName: staff.reportingManagerName ?? "",
+        reportingManagerStaffId: staff.reportingManagerStaffId ?? "",
         isCurrentUser: access.staffId
           ? staff._id === access.staffId
           : normalizeEmail(staff.email) === normalizeEmail(access.email),
@@ -127,6 +131,8 @@ export const upsertStaff = mutation({
     confirmationDate: v.optional(v.string()),
     leavePolicyGroup: v.optional(v.string()),
     leaveHeadApproverId: v.optional(v.string()),
+    reportingManagerStaffId: v.optional(v.string()),
+    reportingManagerName: v.optional(v.string()),
     maternityEventsUsed: v.optional(v.number()),
     paternityEventsUsed: v.optional(v.number()),
     marriageLeaveUsed: v.optional(v.boolean()),
@@ -152,6 +158,20 @@ export const upsertStaff = mutation({
         throw new ConvexError("Leave head approver must be an active staff member");
       }
     }
+    const reportingManagerStaffId = args.reportingManagerStaffId
+      ? ctx.db.normalizeId("staffUsers", args.reportingManagerStaffId)
+      : null;
+    if (args.reportingManagerStaffId && !reportingManagerStaffId) {
+      throw new ConvexError("Invalid reporting manager");
+    }
+    const reportingManager = reportingManagerStaffId
+      ? await ctx.db.get(reportingManagerStaffId)
+      : null;
+    if (reportingManagerStaffId && !reportingManager?.active) {
+      throw new ConvexError("Reporting manager must be an active staff member");
+    }
+    const reportingManagerName =
+      reportingManager?.name?.trim() || args.reportingManagerName?.trim() || "";
     const now = Date.now();
     const existingByEmail = await ctx.db
       .query("staffUsers")
@@ -182,6 +202,8 @@ export const upsertStaff = mutation({
         confirmationDate: args.confirmationDate || "",
         leavePolicyGroup: args.leavePolicyGroup?.trim() || "",
         leaveHeadApproverId: leaveHeadApproverId ?? undefined,
+        reportingManagerName,
+        reportingManagerStaffId: reportingManagerStaffId ?? undefined,
         maternityEventsUsed: Math.max(args.maternityEventsUsed ?? 0, 0),
         paternityEventsUsed: Math.max(args.paternityEventsUsed ?? 0, 0),
         marriageLeaveUsed: args.marriageLeaveUsed ?? false,
@@ -205,6 +227,8 @@ export const upsertStaff = mutation({
         confirmationDate: args.confirmationDate || "",
         leavePolicyGroup: args.leavePolicyGroup?.trim() || "",
         leaveHeadApproverId: leaveHeadApproverId ?? undefined,
+        reportingManagerName,
+        reportingManagerStaffId: reportingManagerStaffId ?? undefined,
         maternityEventsUsed: Math.max(args.maternityEventsUsed ?? 0, 0),
         paternityEventsUsed: Math.max(args.paternityEventsUsed ?? 0, 0),
         marriageLeaveUsed: args.marriageLeaveUsed ?? false,
@@ -228,6 +252,8 @@ export const upsertStaff = mutation({
       confirmationDate: args.confirmationDate || "",
       leavePolicyGroup: args.leavePolicyGroup?.trim() || "",
       leaveHeadApproverId: leaveHeadApproverId ?? undefined,
+      reportingManagerName,
+      reportingManagerStaffId: reportingManagerStaffId ?? undefined,
       maternityEventsUsed: Math.max(args.maternityEventsUsed ?? 0, 0),
       paternityEventsUsed: Math.max(args.paternityEventsUsed ?? 0, 0),
       marriageLeaveUsed: args.marriageLeaveUsed ?? false,

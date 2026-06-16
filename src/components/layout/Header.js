@@ -3,7 +3,7 @@
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
 import { ArrowRight, Menu } from "lucide-react";
-import { AnimatePresence, m as motion, useScroll, useTransform } from "motion/react";
+import { AnimatePresence, m, useScroll, useTransform } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -71,7 +71,7 @@ export default function Header() {
 
   return (
     <>
-      <motion.header
+      <m.header
         className={`fixed top-0 left-0 right-0 z-50 flex justify-center transition-all duration-300 ${
           isScrolled ? "pt-4" : "pt-0"
         }`}
@@ -79,7 +79,7 @@ export default function Header() {
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
       >
-        <motion.div
+        <m.div
           className={`relative flex items-center justify-between transition-all duration-500 ease-[0.16,1,0.3,1] ${
             isScrolled
               ? "w-[90%] md:w-[80%] lg:w-[1200px] bg-slate-900/40 backdrop-blur-xl shadow-2xl rounded-full py-3 px-6"
@@ -114,7 +114,7 @@ export default function Header() {
                 }`}
               >
                 <span className="relative z-10">{link.label}</span>
-                <motion.div
+                <m.div
                   className="absolute inset-0 bg-white/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                   layoutId="navHover"
                 />
@@ -130,7 +130,7 @@ export default function Header() {
                 }`}
               >
                 <span className="relative z-10">{link.label}</span>
-                <motion.div
+                <m.div
                   className="absolute inset-0 bg-white/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                   layoutId="navHover"
                 />
@@ -176,8 +176,8 @@ export default function Header() {
               <Menu size={24} />
             </button>
           </div>
-        </motion.div>
-      </motion.header>
+        </m.div>
+      </m.header>
 
       <AnimatePresence>
         {isOpen && (

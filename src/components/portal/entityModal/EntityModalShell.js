@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { LifecycleDates } from "@/components/portal/PortalModalForm";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import { EntityModalFieldsPrimary } from "./EntityModalFieldsPrimary";
@@ -26,7 +26,7 @@ export function EntityModalShell({
   return (
     <AnimatePresence>
       {modal && (
-        <motion.div
+        <m.div
           key={modal}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -34,7 +34,7 @@ export function EntityModalShell({
           className={`fixed inset-0 ${PORTAL_Z.entityModal} grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm`}
           onClick={close}
         >
-          <motion.form
+          <m.form
             role="dialog"
             aria-modal="true"
             aria-labelledby="portal-entity-modal-title"
@@ -131,8 +131,8 @@ export function EntityModalShell({
                 </button>
               )}
             </div>
-          </motion.form>
-        </motion.div>
+          </m.form>
+        </m.div>
       )}
     </AnimatePresence>
   );

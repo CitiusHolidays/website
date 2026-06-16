@@ -1,6 +1,6 @@
 "use client";
 
-import { m as motion } from "motion/react";
+import { m } from "motion/react";
 import GalleryGrid from "../../components/ui/GalleryGrid";
 
 export default function GalleryPageClient({ images }) {
@@ -19,26 +19,26 @@ export default function GalleryPageClient({ images }) {
           <source src="/gallery/sunset.mp4" type="video/mp4" />
         </video>
         <div className="relative z-10 max-w-3xl px-4">
-          <motion.h1
+          <m.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
             className="text-4xl md:text-5xl font-bold text-brand-light mb-4"
           >
             Gallery
-          </motion.h1>
-          <motion.p
+          </m.h1>
+          <m.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
             className="text-lg md:text-xl text-brand-light"
           >
             Browse memorable moments and events curated by Citius across the globe.
-          </motion.p>
+          </m.p>
         </div>
       </section>
       {/* <AnimatedSection className="py-16 bg-white px-4"> */}
-      <motion.div
+      <m.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         viewport={{ once: true, amount: 0.1 }}
@@ -46,7 +46,7 @@ export default function GalleryPageClient({ images }) {
         className="py-16 bg-[url('/gallery/bgfooter.webp')] bg-center px-4"
       >
         <GalleryGrid images={images} className="max-w-6xl mx-auto" />
-      </motion.div>
+      </m.div>
       {/* </AnimatedSection> */}
     </>
   );

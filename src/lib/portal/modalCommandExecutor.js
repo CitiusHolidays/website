@@ -1,11 +1,17 @@
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import { validateModalForm } from "@/lib/portal/formValidation";
 import { toNumber } from "@/lib/portal/formUtils";
+import { validateModalForm } from "@/lib/portal/formValidation";
 import { getExpenseSplitTotal } from "@/lib/portal/workflow";
+
+function modalRequiresJobCard(modal, form, jobCardModals) {
+  if (!jobCardModals?.has(modal)) return false;
+  if (modal === "expense" && form.expenseType === "office") return false;
+  return true;
+}
 
 export async function executeModalCommand({ modal, form, deps }) {
   validateModalForm(modal, form, deps);
-  if (deps.jobCardModals?.has(modal) && !form.jobCardId?.trim()) {
+  if (modalRequiresJobCard(modal, form, deps.jobCardModals) && !form.jobCardId?.trim()) {
     throw new Error("Please select a job card.");
   }
   if (modal === "query") {
@@ -62,17 +68,40 @@ export async function executeModalCommand({ modal, form, deps }) {
     });
   }
   if (modal === "assignQueryTeams") {
-    if (!form.queryId) throw new Error("Select a query.");
-    if (form.staffId) {
-      await deps.assignContracting({ queryId: form.queryId, staffId: form.staffId });
-    }
-    const ticketingStaffId = form.ticketingStaffId?.trim();
-    if (ticketingStaffId) {
-      await deps.assignQueryTicketing({ queryId: form.queryId, staffId: ticketingStaffId });
-    }
-    if (!form.staffId && !ticketingStaffId) {
-      throw new Error("Select a contracting and/or ticketing SPOC.");
-    }
+    const contractingStaffId = String(form.staffId ?? "").trim();
+    const ticketingStaffId = String(form.ticketingStaffId ?? "").trim();
+    await deps.assignQueryTeams({
+      queryId: form.queryId,
+      contractingStaffId: contractingStaffId || undefined,
+      ticketingStaffId: ticketingStaffId || undefined,
+    });
+  }
+  if (modal === "assignJobCardCreator") {
+    await deps.assignJobCardCreator({ queryId: form.queryId, staffId: form.staffId });
+  }
+  if (modal === "addProposalCollaborator") {
+    await deps.addProposalCollaborator({
+      proposalId: form.proposalId || form.entityId,
+      staffId: form.staffId,
+    });
+  }
+  if (modal === "removeProposalCollaborator") {
+    await deps.removeProposalCollaborator({
+      proposalId: form.proposalId || form.entityId,
+      staffId: form.staffId,
+    });
+  }
+  if (modal === "addJobCardCollaborator") {
+    await deps.addJobCardCollaborator({
+      jobCardId: form.jobCardId || form.entityId,
+      staffId: form.staffId,
+    });
+  }
+  if (modal === "removeJobCardCollaborator") {
+    await deps.removeJobCardCollaborator({
+      jobCardId: form.jobCardId || form.entityId,
+      staffId: form.staffId,
+    });
   }
   if (modal === "assignContractingOwner") {
     await deps.assignContractingOwner({ jobCardId: form.jobCardId, staffId: form.staffId });
@@ -185,6 +214,8 @@ export async function executeModalCommand({ modal, form, deps }) {
   if (modal === "traveller") {
     const travellerPayload = {
       fullName: form.fullName,
+      surname: form.surname,
+      givenName: form.givenName,
       travelHub: form.travelHub,
       foodPreference: form.foodPreference,
       guestType: form.guestType,
@@ -367,6 +398,8 @@ export async function executeModalCommand({ modal, form, deps }) {
       confirmationDate: form.confirmationDate,
       leavePolicyGroup: form.leavePolicyGroup,
       leaveHeadApproverId: form.leaveHeadApproverId || undefined,
+      reportingManagerStaffId: form.reportingManagerStaffId || undefined,
+      reportingManagerName: form.reportingManagerName || undefined,
       maternityEventsUsed: toNumber(form.maternityEventsUsed, 0),
       paternityEventsUsed: toNumber(form.paternityEventsUsed, 0),
       marriageLeaveUsed: Boolean(form.marriageLeaveUsed),

@@ -1,5 +1,5 @@
-import { applyListFilters } from "@/lib/portal/listFilters";
 import { VIEWS_WITH_JOB_CARD_FILTER as JOB_CARD_FILTER_VIEWS } from "@/lib/portal/listFilterConfig";
+import { applyListFilters } from "@/lib/portal/listFilters";
 import { attachPassportExpiryUrgency } from "@/lib/portal/passportExpiry";
 import { filterByDateRange } from "@/lib/portal/periodFilter";
 

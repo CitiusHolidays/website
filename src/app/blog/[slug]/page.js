@@ -1,12 +1,8 @@
-import imageUrlBuilder from "@sanity/image-url";
 import { notFound } from "next/navigation";
 import { client } from "@/sanity/client";
 import { sanityFetchOptions } from "@/sanity/fetchOptions";
+import { urlFor } from "@/sanity/imageUrl";
 import PostPageClient from "./page.client";
-
-const { projectId, dataset } = client.config();
-const urlFor = (source) =>
-  projectId && dataset ? imageUrlBuilder({ projectId, dataset }).image(source) : null;
 
 const POST_QUERY = `*[_type == "post" && slug.current == $slug][0]{
   _id,

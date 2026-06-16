@@ -1,7 +1,11 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { canReceiveNotification, PERMISSIONS, requireStaff } from "./lib";
-import { notificationSummaryForAccess } from "./notificationSummary";
+import {
+  fetchAllNotificationsForAccess,
+  fetchNotificationsForAccess,
+  notificationSummaryForAccessFromDb,
+} from "./notificationReads";
 
 export const listActivity = query({
   args: {
@@ -9,19 +13,21 @@ export const listActivity = query({
   },
   handler: async (ctx, args) => {
     await requireStaff(ctx, PERMISSIONS.VIEW_ACTIVITY);
-    const rows = await ctx.db.query("activityLogs").collect();
-    return rows
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, args.limit ?? 50)
-      .map((activity) => ({
-        id: activity._id,
-        entityType: activity.entityType,
-        entityId: activity.entityId ?? "",
-        action: activity.action,
-        message: activity.message,
-        actorName: activity.actorName,
-        createdAt: new Date(activity.createdAt).toISOString(),
-      }));
+    const limit = args.limit ?? 50;
+    const rows = await ctx.db
+      .query("activityLogs")
+      .withIndex("by_createdAt")
+      .order("desc")
+      .take(limit);
+    return rows.map((activity) => ({
+      id: activity._id,
+      entityType: activity.entityType,
+      entityId: activity.entityId ?? "",
+      action: activity.action,
+      message: activity.message,
+      actorName: activity.actorName,
+      createdAt: new Date(activity.createdAt).toISOString(),
+    }));
   },
 });
 
@@ -30,34 +36,25 @@ export const listNotifications = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const [access, rows] = await Promise.all([
-      requireStaff(ctx),
-      ctx.db.query("notifications").collect(),
-    ]);
-    return rows
-      .filter((row) => canReceiveNotification(row, access))
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, args.limit ?? 20)
-      .map((notification) => ({
-        id: notification._id,
-        title: notification.title,
-        body: notification.body,
-        entityType: notification.entityType ?? "",
-        entityId: notification.entityId ?? "",
-        readAt: notification.readAt ? new Date(notification.readAt).toISOString() : null,
-        createdAt: new Date(notification.createdAt).toISOString(),
-      }));
+    const access = await requireStaff(ctx);
+    const rows = await fetchNotificationsForAccess(ctx, access, args.limit ?? 20);
+    return rows.map((notification) => ({
+      id: notification._id,
+      title: notification.title,
+      body: notification.body,
+      entityType: notification.entityType ?? "",
+      entityId: notification.entityId ?? "",
+      readAt: notification.readAt ? new Date(notification.readAt).toISOString() : null,
+      createdAt: new Date(notification.createdAt).toISOString(),
+    }));
   },
 });
 
 export const notificationSummary = query({
   args: {},
   handler: async (ctx) => {
-    const [access, rows] = await Promise.all([
-      requireStaff(ctx),
-      ctx.db.query("notifications").collect(),
-    ]);
-    return notificationSummaryForAccess(rows, access);
+    const access = await requireStaff(ctx);
+    return notificationSummaryForAccessFromDb(ctx, access);
   },
 });
 
@@ -86,13 +83,10 @@ export const markNotificationRead = mutation({
 export const markAllNotificationsRead = mutation({
   args: {},
   handler: async (ctx) => {
-    const [access, rows] = await Promise.all([
-      requireStaff(ctx),
-      ctx.db.query("notifications").collect(),
-    ]);
+    const access = await requireStaff(ctx);
     const now = Date.now();
-    const toMark = rows.filter(
-      (notification) => !notification.readAt && canReceiveNotification(notification, access),
+    const toMark = (await fetchAllNotificationsForAccess(ctx, access)).filter(
+      (notification) => !notification.readAt,
     );
     await Promise.all(
       toMark.map((notification) => ctx.db.patch(notification._id, { readAt: now })),

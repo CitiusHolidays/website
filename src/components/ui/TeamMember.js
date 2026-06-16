@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { AnimatePresence, m as motion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
 import { useState } from "react";
 
@@ -11,7 +11,7 @@ export default function TeamMember({ member, index }) {
   const collapsedHeight = "60px";
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.3 }}
@@ -46,7 +46,7 @@ export default function TeamMember({ member, index }) {
       </div>
 
       <div className="p-6">
-        <motion.h3
+        <m.h3
           className={`${
             member.name.length > 16 ? "text-lg" : "text-xl"
           } font-bold text-brand-dark mb-1`}
@@ -55,43 +55,43 @@ export default function TeamMember({ member, index }) {
           transition={{ delay: index * 0.1 + 0.3 }}
         >
           {member.name}
-        </motion.h3>
-        <motion.p
+        </m.h3>
+        <m.p
           className="text-citius-orange font-medium mb-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: index * 0.1 + 0.4 }}
         >
           {member.position}
-        </motion.p>
+        </m.p>
 
         <div className="relative">
-          <motion.div
+          <m.div
             animate={{ height: isExpanded ? "auto" : collapsedHeight }}
             className="overflow-hidden relative"
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           >
             <p className="text-sm text-brand-muted leading-relaxed">{member.bio}</p>
-          </motion.div>
+          </m.div>
 
           {member.bio.length > 200 && (
-            <motion.button
+            <m.button
               onClick={() => setIsExpanded(!isExpanded)}
               className="mt-3 flex items-center gap-1 text-citius-blue hover:text-citius-orange transition-colors text-sm font-medium"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
               <span>{isExpanded ? "Show Less" : "Read More"}</span>
-              <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.3 }}>
+              <m.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.3 }}>
                 <ChevronDown className="size-4" />
-              </motion.div>
-            </motion.button>
+              </m.div>
+            </m.button>
           )}
         </div>
 
         <AnimatePresence>
           {isExpanded && member.quote && (
-            <motion.div
+            <m.div
               initial={{ opacity: 0, height: 0, y: 10 }}
               animate={{ opacity: 1, height: "auto", y: 0 }}
               exit={{ opacity: 0, height: 0, y: 10 }}
@@ -102,10 +102,10 @@ export default function TeamMember({ member, index }) {
               {member.quoteAuthor && (
                 <p className="text-xs text-brand-muted mt-1">- {member.quoteAuthor}</p>
               )}
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
+    </m.div>
   );
 }

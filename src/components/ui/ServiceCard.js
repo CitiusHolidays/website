@@ -1,12 +1,12 @@
 "use client";
 
+import { m } from "motion/react";
 import { ArrowUpRight } from "lucide-react";
-import { m as motion } from "motion/react";
 import { cn } from "../../utils/cn";
 
 export default function ServiceCard({ title, icon: Icon, description, className, ...props }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-50px" }}
@@ -43,6 +43,6 @@ export default function ServiceCard({ title, icon: Icon, description, className,
           </p>
         )}
       </div>
-    </motion.div>
+    </m.div>
   );
 }

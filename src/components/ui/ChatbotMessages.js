@@ -1,11 +1,11 @@
 "use client";
 
+import { m } from "motion/react";
 import DOMPurify from "dompurify";
 import parse from "html-react-parser";
 import { MessageCircle } from "lucide-react";
-import { m as motion } from "motion/react";
 
-export function renderFormattedText(text, isStreaming = false) {
+function renderFormattedText(text, isStreaming = false) {
   if (!text) return null;
 
   if (isStreaming) {
@@ -55,7 +55,7 @@ export function renderFormattedText(text, isStreaming = false) {
 
 export function ChatbotSuggestions({ onSelectPrompt }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 }}
@@ -85,7 +85,7 @@ export function ChatbotSuggestions({ onSelectPrompt }) {
           </button>
         ))}
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -93,7 +93,7 @@ export function ChatbotMessageList({ messages, isLoading }) {
   return (
     <>
       {messages.map((message) => (
-        <motion.div
+        <m.div
           key={message.id}
           initial={{ opacity: 0, y: 10, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -113,10 +113,10 @@ export function ChatbotMessageList({ messages, isLoading }) {
               </div>
             ))}
           </div>
-        </motion.div>
+        </m.div>
       ))}
       {isLoading && (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex justify-start"
@@ -124,7 +124,7 @@ export function ChatbotMessageList({ messages, isLoading }) {
           <div className="bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-md border border-gray-200 shadow-sm mr-auto">
             <div className="flex gap-1 items-center">
               {[0, 0.2, 0.4].map((delay) => (
-                <motion.div
+                <m.div
                   key={delay}
                   className="size-1.5 bg-gray-400 rounded-full"
                   animate={{ scale: [1, 1.2, 1] }}
@@ -138,7 +138,7 @@ export function ChatbotMessageList({ messages, isLoading }) {
               ))}
             </div>
           </div>
-        </motion.div>
+        </m.div>
       )}
     </>
   );

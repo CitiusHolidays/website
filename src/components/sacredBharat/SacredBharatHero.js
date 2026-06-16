@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { Sparkles } from "lucide-react";
-import { m as motion } from "motion/react";
 import Link from "next/link";
 import LevelBadge from "./LevelBadge";
 import { useSacredBharatContext } from "./SacredBharatProvider";
@@ -19,7 +19,7 @@ export default function SacredBharatHero() {
       />
       <div className="absolute inset-0 bg-linear-to-t from-brand-dark via-brand-dark/70 to-transparent" />
       <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-14 md:pb-20 pt-28 md:pt-36">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
@@ -53,7 +53,7 @@ export default function SacredBharatHero() {
               Book with Citius
             </Link>
           </div>
-        </motion.div>
+        </m.div>
       </div>
     </section>
   );

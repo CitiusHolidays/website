@@ -1,10 +1,10 @@
 "use client";
+import { m } from "motion/react";
 import { MapPin, Phone } from "lucide-react";
-import { m as motion } from "motion/react";
 
 export default function LocationCard({ city, address, phone, mapUrl, index }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
@@ -45,6 +45,6 @@ export default function LocationCard({ city, address, phone, mapUrl, index }) {
           />
         </div>
       )}
-    </motion.div>
+    </m.div>
   );
 }

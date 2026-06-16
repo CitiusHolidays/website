@@ -1,11 +1,11 @@
 "use client";
 
-import { m as motion } from "motion/react";
+import { m } from "motion/react";
 import { ACCOUNT_CONTAINER_VARIANTS, SettingRow, Toggle } from "./AccountUi";
 
 export function AccountSettingsPanel() {
   return (
-    <motion.div
+    <m.div
       key="settings"
       initial="hidden"
       animate="visible"
@@ -42,6 +42,6 @@ export function AccountSettingsPanel() {
           }
         />
       </div>
-    </motion.div>
+    </m.div>
   );
 }

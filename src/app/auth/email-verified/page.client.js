@@ -1,7 +1,7 @@
 "use client";
 
+import { m } from "motion/react";
 import { ArrowRight, Mail, ShieldCheck } from "lucide-react";
-import { m as motion } from "motion/react";
 import Link from "next/link";
 import AuthShell, { BRAND_NAME } from "@/components/auth/AuthShell";
 import citiusConnectLogo from "@/static/logos/citiusconnect.png";
@@ -16,7 +16,7 @@ export default function EmailVerifiedPageClient() {
       showBrandLabel={false}
     >
       <div className="space-y-6">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ type: "spring", stiffness: 120, damping: 16 }}
@@ -50,7 +50,7 @@ export default function EmailVerifiedPageClient() {
               </div>
             </div>
           </div>
-        </motion.div>
+        </m.div>
 
         <Link
           href="/auth/connect"
