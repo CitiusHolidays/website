@@ -175,6 +175,22 @@ const EMPTY_LIST_FILTER_CONFIG = [];
 const EMPTY_LIST_FILTERS = {};
 const EMPTY_FILTER_SOURCE_ROWS = [];
 
+const HOTEL_ROOMING_TABS = [
+  { id: "hotels", label: "Hotels" },
+  { id: "rooming", label: "Rooming" },
+  { id: "room-count", label: "Room Count" },
+];
+
+const ROOM_TYPE_CAPACITY = {
+  Single: 1,
+  Twin: 2,
+  Double: 2,
+  Triple: 3,
+  "Child with Bed": 1,
+  "Family Room": 4,
+};
+const ROOM_TYPE_SET = new Set(ROOM_TYPES);
+
 const PASSENGER_IMPORT_INITIAL = {
   jobCardId: "",
   fileName: "",
@@ -657,7 +673,7 @@ function PortalWorkspaceHeader({ workspace: w }) {
       flights: w.periodFiltered.pnrs,
       tickets: w.periodFiltered.tickets,
       "seat-allocation": w.periodFiltered.seats,
-      hotels: w.periodFiltered.travellers,
+      hotels: w.periodFiltered.travellers.filter((row) => row.roomType || row.hotelAllocation),
       "tour-managers": w.periodFiltered.tourManagers,
       finance: w.periodFiltered.invoices,
       expenses: w.periodFiltered.expenses,
@@ -677,7 +693,7 @@ function PortalWorkspaceHeader({ workspace: w }) {
         dateRange={w.dateRange}
         setDateRange={w.setDateRangeWithUrl}
         showPeriodFilter={!["settings", "team"].includes(w.view)}
-        showJobCardFilter={w.showJobCardFilter}
+        showJobCardFilter={w.showJobCardFilter && w.view !== "hotels"}
         jobCardFilter={w.jobCardFilter}
         setJobCardFilter={w.setJobCardFilterWithUrl}
         jobCards={w.jobCards || []}
@@ -691,6 +707,7 @@ function PortalWorkspaceHeader({ workspace: w }) {
         commandPalette={<PortalCommandPaletteTrigger />}
         view={w.view}
         resultCount={w.viewResultCount}
+        defaultFiltersOpen={w.view === "hotels"}
         actions={
           <HeaderActions view={w.view} openModal={w.openModal} has={w.has} access={w.access} />
         }
@@ -871,29 +888,23 @@ function PortalWorkspaceViews({ workspace: w }) {
         />
       )}
       {w.view === "hotels" && (
-        <div className="space-y-5">
-          <Panel
-            title="Hotel Properties"
-            subtitle="Manual hotel records for ground planning and check-in/out dates."
-          >
-            <HotelsView
-              rows={w.filteredHotels}
-              filtersActive={w.filtersActive}
-              openModal={w.openModal}
-              has={w.has}
-              deleteItem={w.deleteItem}
-              deleteSelected={w.deleteSelected}
-              removeHotel={w.removeHotel}
-              removeManyHotels={w.removeManyHotels}
-            />
-          </Panel>
-          <Panel
-            title="Rooming Assignments"
-            subtitle="Passenger room types and allocations from traveller master or rooming import."
-          >
-            <RoomingListView rows={w.filteredRoomingTravellers} filtersActive={w.filtersActive} />
-          </Panel>
-        </div>
+        <HotelRoomingTabs
+          hotels={w.filteredHotels}
+          roomingRows={w.filteredRoomingTravellers}
+          roomCountRows={w.periodFiltered.travellers.filter(
+            (row) => row.roomType || row.hotelAllocation,
+          )}
+          filtersActive={w.filtersActive}
+          openModal={w.openModal}
+          has={w.has}
+          deleteItem={w.deleteItem}
+          deleteSelected={w.deleteSelected}
+          removeHotel={w.removeHotel}
+          removeManyHotels={w.removeManyHotels}
+          jobCards={w.jobCards || []}
+          jobCardFilter={w.jobCardFilter}
+          setJobCardFilter={w.setJobCardFilterWithUrl}
+        />
       )}
       {w.view === "tour-managers" && (
         <TourManagersView
@@ -3603,6 +3614,245 @@ function HotelsView({
         ],
       ]}
     />
+  );
+}
+
+function estimateRoomCount(roomType, assignments) {
+  const capacity = ROOM_TYPE_CAPACITY[roomType] ?? 1;
+  return Math.ceil(assignments / capacity);
+}
+
+function buildRoomTypeCountRows(rows) {
+  const counts = new Map();
+  for (const row of rows || []) {
+    const roomType = row.roomType || "Unassigned";
+    counts.set(roomType, (counts.get(roomType) ?? 0) + 1);
+  }
+  const extraTypes = [];
+  for (const roomType of counts.keys()) {
+    if (!ROOM_TYPE_SET.has(roomType)) {
+      extraTypes.push(roomType);
+    }
+  }
+  extraTypes.sort((a, b) => a.localeCompare(b));
+  const orderedTypes = [...ROOM_TYPES, ...extraTypes];
+  const roomTypeRows = [];
+  for (const roomType of orderedTypes) {
+    if (!counts.has(roomType)) {
+      continue;
+    }
+    const assignments = counts.get(roomType) ?? 0;
+    roomTypeRows.push({
+      id: roomType,
+      roomType,
+      assignments,
+      estimatedRooms: estimateRoomCount(roomType, assignments),
+    });
+  }
+  return roomTypeRows;
+}
+
+function buildJobRoomCountRows(rows, jobCards) {
+  const jobsById = new Map((jobCards || []).map((job) => [job.id, job]));
+  const groups = new Map();
+  for (const row of rows || []) {
+    const id = row.jobCardId || "unassigned";
+    const current = groups.get(id) || {
+      id,
+      jobCode: row.jobCode || jobsById.get(row.jobCardId)?.jobCode || "Unassigned",
+      clientName: row.clientName || jobsById.get(row.jobCardId)?.clientName || "-",
+      rows: [],
+    };
+    current.rows.push(row);
+    groups.set(id, current);
+  }
+  return Array.from(groups.values())
+    .map((group) => {
+      const roomTypes = buildRoomTypeCountRows(group.rows);
+      return {
+        ...group,
+        assignments: group.rows.length,
+        estimatedRooms: roomTypes.reduce((sum, row) => sum + row.estimatedRooms, 0),
+        roomBreakdown: roomTypes.map((row) => `${row.roomType}: ${row.assignments}`).join(", "),
+      };
+    })
+    .sort((a, b) => a.jobCode.localeCompare(b.jobCode));
+}
+
+function RoomCountView({ rows, jobCards, jobCardFilter, setJobCardFilter }) {
+  const selectedRows = jobCardFilter
+    ? (rows || []).filter((row) => row.jobCardId === jobCardFilter)
+    : rows || [];
+  const selectedJob = (jobCards || []).find((job) => job.id === jobCardFilter);
+  const roomTypeRows = buildRoomTypeCountRows(selectedRows);
+  const totalAssignments = selectedRows.length;
+  const totalEstimatedRooms = roomTypeRows.reduce((sum, row) => sum + row.estimatedRooms, 0);
+  const jobBreakdownRows = jobCardFilter ? [] : buildJobRoomCountRows(rows || [], jobCards);
+
+  return (
+    <Panel
+      title="Room Count"
+      subtitle="Filter by Job Card and review rooming counts by room type."
+    >
+      <div className="mb-4 flex flex-col gap-3 rounded-xl border border-brand-border bg-brand-light/50 p-3 sm:flex-row sm:items-end sm:justify-between">
+        <label className="relative block min-w-0 sm:w-72">
+          <span className="mb-1 block text-xs font-semibold text-citius-blue">Job Card</span>
+          <select
+            value={jobCardFilter}
+            onChange={(event) => setJobCardFilter(event.target.value)}
+            className="portal-toolbar-control portal-period-select h-11 w-full appearance-none rounded-lg border border-brand-border bg-white px-3 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-out focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
+            aria-label="Filter room count by job card"
+          >
+            {jobCardFilterOptions(jobCards).map((option) => (
+              <option key={option.value || "all"} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            className="pointer-events-none absolute bottom-3 right-3 text-brand-muted/60"
+            size={16}
+            aria-hidden
+          />
+        </label>
+        <div className="grid grid-cols-2 gap-2 sm:min-w-64">
+          <div className="rounded-lg border border-brand-border bg-white px-3 py-2">
+            <p className="text-xs font-semibold text-brand-muted">Rooming rows</p>
+            <p className="font-heading text-xl font-semibold text-brand-dark tabular-nums">
+              {totalAssignments}
+            </p>
+          </div>
+          <div className="rounded-lg border border-brand-border bg-white px-3 py-2">
+            <p className="text-xs font-semibold text-brand-muted">Est. rooms</p>
+            <p className="font-heading text-xl font-semibold text-brand-dark tabular-nums">
+              {totalEstimatedRooms}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {selectedJob ? (
+        <div className="mb-3 text-sm text-brand-muted">
+          Showing room count for <strong className="text-brand-dark">{selectedJob.jobCode}</strong>
+          {selectedJob.clientName ? ` · ${selectedJob.clientName}` : ""}
+        </div>
+      ) : null}
+
+      <DataTable
+        rows={roomTypeRows}
+        empty="No rooming rows found for this job card."
+        compact
+        columns={[
+          ["Room Type", (row) => <Badge label={row.roomType} tone="blue" />],
+          ["Rooming Rows", (row) => row.assignments],
+          ["Estimated Rooms", (row) => row.estimatedRooms],
+        ]}
+      />
+
+      {!jobCardFilter && jobBreakdownRows.length > 0 ? (
+        <div className="mt-5">
+          <DashboardSectionHeading
+            title="Job Card Breakdown"
+            detail="Counts are grouped from rooming assignments."
+          />
+          <div className="mt-3">
+            <DataTable
+              rows={jobBreakdownRows}
+              empty="No job card room counts yet."
+              compact
+              columns={[
+                ["Job", (row) => strong(row.jobCode)],
+                ["Client", (row) => row.clientName],
+                ["Rooming Rows", (row) => row.assignments],
+                ["Est. Rooms", (row) => row.estimatedRooms],
+                ["Room Types", (row) => row.roomBreakdown || "-"],
+              ]}
+            />
+          </div>
+        </div>
+      ) : null}
+    </Panel>
+  );
+}
+
+function HotelRoomingTabs({
+  hotels,
+  roomingRows,
+  roomCountRows,
+  filtersActive,
+  openModal,
+  has,
+  deleteItem,
+  deleteSelected,
+  removeHotel,
+  removeManyHotels,
+  jobCards,
+  jobCardFilter,
+  setJobCardFilter,
+}) {
+  const [tab, setTab] = useState("room-count");
+
+  return (
+    <section className="space-y-4">
+      <div
+        className="flex w-fit rounded-lg border border-brand-border bg-white p-1"
+        role="tablist"
+        aria-label="Hotel and rooming tabs"
+      >
+        {HOTEL_ROOMING_TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === item.id}
+            onClick={() => setTab(item.id)}
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+              tab === item.id
+                ? "bg-citius-blue text-white shadow-sm"
+                : "text-brand-muted hover:text-brand-dark"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "hotels" ? (
+        <Panel
+          title="Hotel Properties"
+          subtitle="Manual hotel records for ground planning and check-in/out dates."
+        >
+          <HotelsView
+            rows={hotels}
+            filtersActive={filtersActive}
+            openModal={openModal}
+            has={has}
+            deleteItem={deleteItem}
+            deleteSelected={deleteSelected}
+            removeHotel={removeHotel}
+            removeManyHotels={removeManyHotels}
+          />
+        </Panel>
+      ) : null}
+
+      {tab === "rooming" ? (
+        <Panel
+          title="Rooming Assignments"
+          subtitle="Passenger room types and allocations from traveller master or rooming import."
+        >
+          <RoomingListView rows={roomingRows} filtersActive={filtersActive} />
+        </Panel>
+      ) : null}
+
+      {tab === "room-count" ? (
+        <RoomCountView
+          rows={roomCountRows}
+          jobCards={jobCards}
+          jobCardFilter={jobCardFilter}
+          setJobCardFilter={setJobCardFilter}
+        />
+      ) : null}
+    </section>
   );
 }
 

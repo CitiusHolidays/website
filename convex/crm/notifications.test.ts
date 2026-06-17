@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { canReceiveNotification } from "./lib";
+import { canReceiveNotification, expandNotificationEmailRoles } from "./lib";
 import { getNotificationHref } from "./notificationPaths";
 
 describe("notification paths", () => {
@@ -67,6 +67,24 @@ describe("canReceiveNotification", () => {
 
   test("rejects role-targeted notifications without the role", () => {
     expect(canReceiveNotification({ recipientRole: "Finance" }, access)).toBe(false);
+  });
+});
+
+describe("expandNotificationEmailRoles", () => {
+  test("includes department heads for department-targeted notification emails", () => {
+    expect(expandNotificationEmailRoles(["Contracting", "Operations"])).toEqual([
+      "Contracting",
+      "Contracting Head",
+      "Operations",
+      "Operations Head",
+    ]);
+  });
+
+  test("does not turn head-targeted emails into base department emails", () => {
+    expect(expandNotificationEmailRoles(["Contracting Head", "Operations Head"])).toEqual([
+      "Contracting Head",
+      "Operations Head",
+    ]);
   });
 });
 

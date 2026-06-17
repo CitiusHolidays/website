@@ -882,6 +882,25 @@ function addNotificationEmailRecipient(recipients: Set<string>, email?: string |
   }
 }
 
+const ROLE_EMAIL_RECIPIENT_EXPANSIONS: Record<string, string[]> = {
+  Sales: ["Sales", "Sales Head"],
+  Contracting: ["Contracting", "Contracting Head"],
+  Accounts: ["Accounts", "Accounts Head"],
+  Operations: ["Operations", "Operations Head"],
+  Ticketing: ["Ticketing", "Head of Ticketing"],
+};
+
+export function expandNotificationEmailRoles(roles: string[]) {
+  const expanded = new Set<string>();
+  for (const role of roles) {
+    expanded.add(role);
+    for (const recipientRole of ROLE_EMAIL_RECIPIENT_EXPANSIONS[role] ?? []) {
+      expanded.add(recipientRole);
+    }
+  }
+  return Array.from(expanded);
+}
+
 async function queueNotificationEmail(
   ctx: MutationCtx,
   recipients: Set<string>,
@@ -922,11 +941,16 @@ export async function notifyRoles(
     roles: new Set(member.roles),
   }));
   const emailRecipients = new Set<string>();
+  const emailRecipientRoles = new Set(expandNotificationEmailRoles(roles));
 
-  for (const role of roles) {
-    for (const { member, roles: memberRoles } of staffRoleSets) {
-      if (member.active && memberRoles.has(role as any)) {
+  for (const { member, roles: memberRoles } of staffRoleSets) {
+    if (!member.active) {
+      continue;
+    }
+    for (const role of emailRecipientRoles) {
+      if (memberRoles.has(role as any)) {
         addNotificationEmailRecipient(emailRecipients, member.email);
+        break;
       }
     }
   }

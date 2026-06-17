@@ -41,6 +41,7 @@ export default function PortalListToolbar({
   actions,
   view = "",
   resultCount = null,
+  defaultFiltersOpen = false,
 }) {
   const filterControlCount = countFilterControls({
     showPeriodFilter,
@@ -48,7 +49,7 @@ export default function PortalListToolbar({
     showJobCardFilter,
   });
   const collapsibleFilters = filterControlCount > 3;
-  const [filtersOpen, setFiltersOpen] = useState(!collapsibleFilters);
+  const [filtersOpen, setFiltersOpen] = useState(defaultFiltersOpen || !collapsibleFilters);
   const showFilterRow = filterControlCount > 0 && (!collapsibleFilters || filtersOpen);
   const filterSearchKeys = getViewFilterSearchKeys(view);
   const scopedFilterRows = filterScopeRows(filterSourceRows, {

@@ -52,7 +52,8 @@ next-env.d.ts
 # convex
 convex/_generated
 .convex
-docs
+docs/*
+!docs/PORTAL_ROLES_AND_ACCESS.md
 scripts
 
 Agents.md
