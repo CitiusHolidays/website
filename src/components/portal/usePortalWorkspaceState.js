@@ -22,10 +22,6 @@ import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
 import { canAccessPipeline } from "@/lib/portal/permissions";
 import { filterRows, pipeViewRows, VIEWS_WITH_JOB_CARD_FILTER } from "@/lib/portal/pipeViewRows";
-import {
-  buildViewResultCountMap,
-  getViewResultCount,
-} from "@/lib/portal/viewResultCounts";
 import { runMutation } from "@/lib/portal/runMutation";
 import {
   currentFiltersToSavedViewInput,
@@ -33,6 +29,7 @@ import {
   savedViewToUrl,
 } from "@/lib/portal/savedViews";
 import { parseUrlFilterState, serializeUrlFilterState } from "@/lib/portal/urlFilterState";
+import { buildViewResultCountMap, getViewResultCount } from "@/lib/portal/viewResultCounts";
 
 const P = PORTAL_PERMISSIONS;
 const _EMPTY_ARRAY = [];
@@ -482,6 +479,10 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     canFetch && view === "settings" ? {} : "skip",
   );
   const staff = useQuery(api.crm.staff.listStaff, canFetch && has(P.MANAGE_STAFF) ? {} : "skip");
+  const accountsJobCardCreators = useQuery(
+    api.crm.staff.listAccountsForJobCards,
+    canFetch && view === "accounts-job-cards" ? {} : "skip",
+  );
   const leaveHeadApproverCandidates = useQuery(
     api.crm.leaveApprovers.listHeadApproverCandidates,
     canFetch && has(P.MANAGE_STAFF) ? {} : "skip",
@@ -493,6 +494,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const assignQueryTicketing = useMutation(api.crm.queries.assignQueryTicketing);
   const assignQueryTeams = useMutation(api.crm.queries.assignQueryTeams);
   const assignJobCardCreator = useMutation(api.crm.queries.assignJobCardCreator);
+  const setJobCardCreatorAccess = useMutation(api.crm.staff.setJobCardCreatorAccess);
   const assignContractingOwner = useMutation(api.crm.jobCards.assignContractingOwner);
   const assignOperationsOwner = useMutation(api.crm.jobCards.assignOperationsOwner);
   const assignTicketingOwner = useMutation(api.crm.ticketing.assignTicketingOwner);
@@ -1311,6 +1313,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     activity,
     addJobCardCollaborator,
     addProposalCollaborator,
+    accountsJobCardCreators,
     allowed,
     approvals,
     applySavedView,
@@ -1463,6 +1466,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     session,
     seats,
     sendProposalToSales,
+    setJobCardCreatorAccess,
     setDateRangeWithUrl,
     setJobCardFilterWithUrl,
     setListFilterValue,

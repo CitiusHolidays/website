@@ -7,6 +7,8 @@ import {
   canAccessPage,
   canAccessPipeline,
   canAssignQueryTicketing,
+  canCreateJobCardFromAccounts,
+  canManageJobCardCreatorAccess,
   getAccessibleNavGroups,
   getPermissionsForRoles,
   getQueryTypeOptions,
@@ -82,6 +84,20 @@ describe("portal permissions", () => {
     expect(canAssignQueryTicketing({ roles: ["Head of Ticketing"] })).toBe(true);
     expect(canAssignQueryTicketing({ roles: ["Contracting Head"] })).toBe(false);
     expect(canAssignQueryTicketing({ roles: ["Operations Head"] })).toBe(false);
+  });
+
+  test("job card creation is limited to selected accounts creators plus overrides", () => {
+    const creators = [{ id: "staff_accounts", jobCardCreatorEnabled: true }];
+
+    expect(canManageJobCardCreatorAccess({ roles: ["Accounts Head"] })).toBe(true);
+    expect(canManageJobCardCreatorAccess({ roles: ["Accounts"] })).toBe(false);
+    expect(canCreateJobCardFromAccounts({ roles: ["Directors"] }, [])).toBe(true);
+    expect(
+      canCreateJobCardFromAccounts({ roles: ["Accounts"], staffId: "staff_accounts" }, creators),
+    ).toBe(true);
+    expect(
+      canCreateJobCardFromAccounts({ roles: ["Accounts"], staffId: "staff_other" }, creators),
+    ).toBe(false);
   });
 
   test("ticketing role sees enquiry and proposal navigation for assigned work", () => {

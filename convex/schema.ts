@@ -254,6 +254,7 @@ export default defineSchema({
     maternityEventsUsed: v.optional(v.number()),
     paternityEventsUsed: v.optional(v.number()),
     marriageLeaveUsed: v.optional(v.boolean()),
+    jobCardCreatorEnabled: v.optional(v.boolean()),
     active: v.boolean(),
     invitedBy: v.optional(v.string()),
     pendingPasswordSetup: v.optional(v.boolean()),

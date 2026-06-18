@@ -17,6 +17,7 @@ import {
 import {
   CONTRACTING_STATUS_SELECT_OPTIONS,
   FOOD_PREFERENCES,
+  GENDER_OPTIONS,
   GUEST_TYPES,
   LOST_REASONS,
   PAYMENT_TYPES,
@@ -90,6 +91,12 @@ export function EntityModalTravellerFields({
             label="Given Name"
             value={form.givenName}
             onChange={(v) => updateForm("givenName", v)}
+          />
+          <Select
+            label="Gender"
+            value={form.gender}
+            options={[{ value: "", label: "Select gender…" }, ...GENDER_OPTIONS]}
+            onChange={(v) => updateForm("gender", v)}
           />
           <Input
             label="Travel Hub"

@@ -103,6 +103,18 @@ export function canAssignTourManagers(access) {
   return isAdmin(access) || hasRole(access, "Operations Head");
 }
 
+export function canManageJobCardCreatorAccess(access) {
+  return isAdmin(access) || hasRole(access, "Directors") || hasRole(access, "Accounts Head");
+}
+
+export function canCreateJobCardFromAccounts(access, creators = []) {
+  if (canManageJobCardCreatorAccess(access)) return true;
+  const staffId = String(access?.staffId || "");
+  return creators.some(
+    (creator) => creator.jobCardCreatorEnabled && String(creator.id) === staffId,
+  );
+}
+
 function filterTeamByRoles(team = [], roles = []) {
   return team.filter((member) => member.roles?.some((role) => roles.includes(role)));
 }

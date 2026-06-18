@@ -203,7 +203,7 @@ describe("passenger spreadsheet imports", () => {
       fullName: "ANSHIKA AGARWAL",
       surname: "AGARWAL",
       givenName: "ANSHIKA",
-      gender: "FEMALE",
+      gender: "Female",
       contactNo: "9932929359",
       domesticTravelRequired: true,
       passportStatus: "Received",
@@ -277,6 +277,7 @@ describe("master-list sheet imports", () => {
     expect(result.rows[0]).toMatchObject({
       importKind: "traveller",
       fullName: "GARG SANJAY",
+      gender: "Male",
       travelHub: "BOM",
       foodPreference: "Non-Veg",
       sourceDealerCode: "MUM",

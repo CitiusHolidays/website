@@ -25,7 +25,7 @@ describe("passenger spreadsheet exports", () => {
           fullName: "PRADIP SEN",
           travelHub: "KOLKATA",
           foodPreference: "Non-Veg",
-          gender: "MALE",
+          gender: "Male",
           contactNo: "9836184644",
           specialRequests: "",
           sourceDealerCode: "9121004953",
@@ -91,7 +91,7 @@ describe("passenger spreadsheet exports", () => {
     expect(parsed.rows[0]).toMatchObject({
       fullName: "PRADIP SEN",
       foodPreference: "Non-Veg",
-      gender: "MALE",
+      gender: "Male",
       contactNo: "9836184644",
     });
     expect(parsed.rows[0].passport).toMatchObject({

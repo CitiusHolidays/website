@@ -1,4 +1,5 @@
 import { parseExcelDateCode, workbookRowsFromArrayBuffer } from "./workbookAdapter";
+import { normalizeTravellerGender } from "./travellerSummary";
 
 export { workbookFromSheets } from "./workbookAdapter";
 
@@ -476,7 +477,7 @@ function templateRowBase({ row, headers, sheetName, sourceRowNumber, importKind 
     sourceDescription: clean(getByHeader(row, headers, ["Branch", "Branch "])),
     sourceSoName: clean(getByHeader(row, headers, ["Base Location", "Base"])),
     sourceRsoName: clean(getByHeader(row, headers, ["Airlines", "Airline"])),
-    gender: clean(getByHeader(row, headers, ["Gender"])),
+    gender: normalizeTravellerGender(getByHeader(row, headers, ["Gender"])),
     contactNo,
     passport: {
       number: passportNumber,
@@ -712,7 +713,7 @@ export function parsePassengerWorkbook(workbook) {
         sourceSoName: clean(getByHeader(row, headers, ["SO Name"])),
         sourceRsoName: clean(getByHeader(row, headers, ["RSO Name"])),
         sourceGroup: clean(getByHeader(row, headers, ["GROUP", "Group"])),
-        gender: clean(getByHeader(row, headers, ["Gender"])),
+        gender: normalizeTravellerGender(getByHeader(row, headers, ["Gender"])),
         contactNo,
         passport: {
           number: passportNumber,

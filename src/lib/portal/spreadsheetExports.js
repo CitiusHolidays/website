@@ -1,4 +1,5 @@
 import { formatDisplayDateForExport } from "@/lib/formatDate";
+import { normalizeTravellerGender } from "@/lib/portal/travellerSummary";
 import {
   FLIGHT_EXPORT_HEADER,
   PASSENGER_EXPORT_HEADERS,
@@ -26,6 +27,13 @@ export function formatFoodPreferenceForExport(value) {
   }
 }
 
+function genderForTemplate(value) {
+  const normalized = normalizeTravellerGender(value);
+  if (normalized === "Male") return "MALE";
+  if (normalized === "Female") return "FEMALE";
+  return value || "";
+}
+
 function passengerRowToArray(row) {
   const passport = row.passport || {};
   const name =
@@ -38,7 +46,7 @@ function passengerRowToArray(row) {
     honorificForPassenger(row.gender),
     name.surname,
     name.givenName,
-    row.gender || "",
+    genderForTemplate(row.gender),
     passport.number || "",
     formatDisplayDateForExport(passport.dateOfBirth),
     formatDisplayDateForExport(passport.issueDate),
@@ -130,7 +138,7 @@ function templateBase(row) {
     surname: name.surname,
     givenName: name.givenName,
     dealerName: row.sourceDealerName || "",
-    gender: row.gender || "",
+    gender: genderForTemplate(row.gender),
     passportValid: passport.number && passport.expiryDate ? "Yes" : "",
     remarks: row.specialRequests || "",
     contactNo: row.contactNo || "",

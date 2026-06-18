@@ -230,6 +230,7 @@ export async function executeModalCommand({ modal, form, deps }) {
       arrivingEarly: form.arrivingEarly === "Yes",
       passportStatus: form.passportStatus,
       hotelAllocation: form.hotelAllocation,
+      gender: form.gender,
       specialRequests: form.notes,
     };
     if (form.entityId) {

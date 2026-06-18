@@ -114,9 +114,10 @@ import {
   canAssignQueryTicketing,
   canAssignTicketing,
   canAssignTourManagers,
+  canCreateJobCardFromAccounts,
+  canManageJobCardCreatorAccess,
   getAccessibleNavGroups,
   getQueryTypeOptions,
-  hasRole,
   isCementScopedUser,
   teamSelectOptions,
 } from "@/lib/portal/permissions";
@@ -146,6 +147,7 @@ import {
   parseVisaWorkbookFile,
   summarizeRoomTypes,
 } from "@/lib/portal/spreadsheetImports";
+import { buildTravellerCountSummary } from "@/lib/portal/travellerSummary";
 import { parseUrlFilterState, serializeUrlFilterState } from "@/lib/portal/urlFilterState";
 import {
   getExpenseSplitTotal,
@@ -389,6 +391,7 @@ const INITIAL_FORM = {
   travelDate: "",
   guestCompanions: "",
   foodPreference: "Veg",
+  gender: "",
   guestType: "Employee",
   paymentType: "Company Paid",
   roomType: "Twin",
@@ -787,6 +790,8 @@ function PortalWorkspaceViews({ workspace: w }) {
           rows={w.filteredAccountsQueries}
           filtersActive={w.filtersActive}
           jobCards={w.filteredJobCards}
+          creators={w.accountsJobCardCreators || []}
+          setJobCardCreatorAccess={w.setJobCardCreatorAccess}
           openModal={w.openModal}
           access={w.access}
         />
@@ -806,6 +811,10 @@ function PortalWorkspaceViews({ workspace: w }) {
       {w.view === "travellers" && (
         <TravellersView
           rows={w.filteredTravellers}
+          countRows={w.periodFiltered.travellers}
+          jobCards={w.jobCards || []}
+          jobCardFilter={w.jobCardFilter}
+          setJobCardFilter={w.setJobCardFilterWithUrl}
           filtersActive={w.filtersActive}
           openModal={w.openModal}
           has={w.has}
@@ -2292,7 +2301,15 @@ function ProposalsView({
   );
 }
 
-function AccountsJobCardView({ rows, jobCards, openModal, access }) {
+function AccountsJobCardView({
+  rows,
+  jobCards,
+  creators,
+  setJobCardCreatorAccess,
+  openModal,
+  access,
+}) {
+  const toast = usePortalToast();
   const confirmed = rows.filter(
     (row) => row.salesStatus === "Order Confirmed" || row.contractingStatus === "Order Confirmed",
   );
@@ -2300,12 +2317,60 @@ function AccountsJobCardView({ rows, jobCards, openModal, access }) {
     if (job.queryId) map.set(job.queryId, job);
     return map;
   }, new Map());
-  const canAssignCreator =
-    hasRole(access, "Admin") || hasRole(access, "Directors") || hasRole(access, "Accounts Head");
-  const canOverrideCreator = hasRole(access, "Admin") || hasRole(access, "Directors");
-  const currentStaffId = access?.staffId ? String(access.staffId) : "";
+  const canAssignCreator = canManageJobCardCreatorAccess(access);
+  const canCreateJobCards = canCreateJobCardFromAccounts(access, creators);
   return (
     <div className="space-y-5">
+      <Panel title="Job Card creators">
+        <DataTable
+          compact
+          rows={creators}
+          empty="No Accounts staff found."
+          columns={[
+            ["Name", (row) => strong(row.name)],
+            ["Email", (row) => row.email],
+            ["Role", (row) => row.roles.join(", ")],
+            [
+              "Create access",
+              (row) => (
+                <Badge
+                  label={row.jobCardCreatorEnabled ? "Enabled" : "View only"}
+                  tone={row.jobCardCreatorEnabled ? "green" : "slate"}
+                />
+              ),
+            ],
+            [
+              "Action",
+              (row) =>
+                canAssignCreator ? (
+                  <button
+                    type="button"
+                    className="portal-small-btn"
+                    onClick={() =>
+                      runMutation(
+                        {
+                          showToast: toast,
+                          successMessage: row.jobCardCreatorEnabled
+                            ? "Job Card creator access removed."
+                            : "Job Card creator access enabled.",
+                        },
+                        () =>
+                          setJobCardCreatorAccess({
+                            staffId: row.id,
+                            enabled: !row.jobCardCreatorEnabled,
+                          }),
+                      )
+                    }
+                  >
+                    {row.jobCardCreatorEnabled ? "Disable" : "Enable"}
+                  </button>
+                ) : (
+                  <span className="text-xs font-semibold text-brand-muted">Managed by head</span>
+                ),
+            ],
+          ]}
+        />
+      </Panel>
       <Panel title="Payment terms reference">
         <DataTable
           compact
@@ -2377,7 +2442,6 @@ function AccountsJobCardView({ rows, jobCards, openModal, access }) {
           ["Destination", (row) => row.destination || "TBD"],
           ["Pax", (row) => row.paxCount],
           ["Payment Terms", (row) => paymentTermLabel(row.queryType)],
-          ["Assigned Creator", (row) => row.jobCardCreatorName || "Not assigned"],
           [
             "Job Card",
             (row) => {
@@ -2405,31 +2469,8 @@ function AccountsJobCardView({ rows, jobCards, openModal, access }) {
                   </span>
                 );
               }
-              if (!row.jobCardCreatorStaffId) {
-                return canAssignCreator ? (
-                  <button
-                    type="button"
-                    className="portal-small-btn"
-                    onClick={() =>
-                      openModal("assignJobCardCreator", {
-                        queryId: row.id,
-                        queryCode: row.queryCode,
-                        clientName: row.clientName,
-                      })
-                    }
-                  >
-                    Assign creator
-                  </button>
-                ) : (
-                  <Badge label="Awaiting assignment" tone="orange" />
-                );
-              }
-              if (!canOverrideCreator && String(row.jobCardCreatorStaffId) !== currentStaffId) {
-                return (
-                  <span className="text-xs font-semibold text-brand-muted">
-                    Assigned to {row.jobCardCreatorName}
-                  </span>
-                );
+              if (!canCreateJobCards) {
+                return <Badge label="View only" tone="slate" />;
               }
               return (
                 <button
@@ -2704,6 +2745,10 @@ function JobCardRowActions({
 
 function TravellersView({
   rows,
+  countRows,
+  jobCards,
+  jobCardFilter,
+  setJobCardFilter,
   openModal,
   has,
   deleteItem,
@@ -2714,103 +2759,121 @@ function TravellersView({
 }) {
   const canManage = has(P.MANAGE_TRAVELLERS);
   return (
-    <SelectableDataTable
-      rows={rows}
-      empty="No travellers yet."
-      filtersActive={filtersActive}
-      rowLabel={(row) => row.fullName}
-      selectable={canManage}
-      entityLabel="traveller"
-      mobileCardRender={(row) => {
-        const expiry = getPassportExpiryInfo({
-          expiryDate: row.passportExpiryDate,
-          travelDate: row.travelStartDate || row.travelDate,
-        });
-        return (
-          <div className="space-y-1">
-            <div className="font-semibold text-brand-dark">{row.fullName}</div>
-            <div className="text-xs text-brand-muted">
-              {row.jobCode} · {row.travelHub || "No hub"}
-            </div>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Badge label={row.visaStatus} tone={statusTone(row.visaStatus)} />
-              <Badge label={formatPassportExpiryLabel(expiry)} tone={passportExpiryTone(expiry)} />
-            </div>
-          </div>
-        );
-      }}
-      onBulkDelete={
-        canManage
-          ? (ids) =>
-              deleteSelected(ids.length, "traveller", removeManyTravellers, () => ({
-                travellerIds: ids,
-              }))
-          : undefined
-      }
-      columns={[
-        ["Name", (row) => strong(row.fullName)],
-        ["Surname", (row) => row.surname || "-"],
-        ["Given Name", (row) => row.givenName || "-"],
-        ["Job", (row) => row.jobCode],
-        ["Hub", (row) => row.travelHub || "-"],
-        ["Room", (row) => <Badge label={row.roomType} tone="blue" />],
-        ["Food", (row) => <Badge label={row.foodPreference} tone="green" />],
-        ["Passport", (row) => row.passportStatus || "Pending"],
-        [
-          "Passport expiry",
-          (row) => {
-            const info = getPassportExpiryInfo({
-              expiryDate: row.passportExpiryDate,
-              travelDate: row.travelStartDate || row.travelDate,
-            });
-            return (
-              <Badge label={formatPassportExpiryLabel(info)} tone={passportExpiryTone(info)} />
-            );
-          },
-        ],
-        ["Ticket", (row) => <Badge label={row.ticketStatus} tone={statusTone(row.ticketStatus)} />],
-        ["Visa", (row) => <Badge label={row.visaStatus} tone={statusTone(row.visaStatus)} />],
-        ["TM Call", (row) => row.callingStatus],
-        [
-          "Action",
-          (row) =>
-            canManage && (
-              <div className="flex flex-wrap gap-2">
-                <EditButton
-                  onClick={() =>
-                    openModal("traveller", {
-                      entityId: row.id,
-                      jobCardId: row.jobCardId,
-                      fullName: row.fullName,
-                      surname: row.surname || "",
-                      givenName: row.givenName || "",
-                      travelHub: row.travelHub,
-                      travelDate: row.travelDate,
-                      guestCompanions: row.guestCompanions,
-                      foodPreference: row.foodPreference,
-                      guestType: row.guestType,
-                      paymentType: row.paymentType,
-                      roomType: row.roomType,
-                      visaRequired: row.visaRequired ? "Yes" : "No",
-                      domesticTravelRequired: row.domesticTravelRequired ? "Yes" : "No",
-                      biometricAppointmentDate: row.biometricAppointmentDate,
-                      extensionOfTour: row.extensionOfTour ? "Yes" : "No",
-                      arrivingEarly: row.arrivingEarly ? "Yes" : "No",
-                      passportStatus: row.passportStatus,
-                      hotelAllocation: row.hotelAllocation,
-                      notes: row.specialRequests || "",
-                    })
-                  }
-                />
-                <DeleteButton
-                  label={row.fullName}
-                  onClick={() => deleteItem(row.fullName, removeTraveller, { travellerId: row.id })}
+    <div className="space-y-4">
+      <TravellerCountView
+        rows={countRows}
+        jobCards={jobCards}
+        jobCardFilter={jobCardFilter}
+        setJobCardFilter={setJobCardFilter}
+      />
+      <SelectableDataTable
+        rows={rows}
+        empty="No travellers yet."
+        filtersActive={filtersActive}
+        rowLabel={(row) => row.fullName}
+        selectable={canManage}
+        entityLabel="traveller"
+        mobileCardRender={(row) => {
+          const expiry = getPassportExpiryInfo({
+            expiryDate: row.passportExpiryDate,
+            travelDate: row.travelStartDate || row.travelDate,
+          });
+          return (
+            <div className="space-y-1">
+              <div className="font-semibold text-brand-dark">{row.fullName}</div>
+              <div className="text-xs text-brand-muted">
+                {row.jobCode} · {row.travelHub || "No hub"}
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Badge label={row.visaStatus} tone={statusTone(row.visaStatus)} />
+                <Badge
+                  label={formatPassportExpiryLabel(expiry)}
+                  tone={passportExpiryTone(expiry)}
                 />
               </div>
-            ),
-        ],
-      ]}
-    />
+            </div>
+          );
+        }}
+        onBulkDelete={
+          canManage
+            ? (ids) =>
+                deleteSelected(ids.length, "traveller", removeManyTravellers, () => ({
+                  travellerIds: ids,
+                }))
+            : undefined
+        }
+        columns={[
+          ["Name", (row) => strong(row.fullName)],
+          ["Surname", (row) => row.surname || "-"],
+          ["Given Name", (row) => row.givenName || "-"],
+          ["Job", (row) => row.jobCode],
+          ["Hub", (row) => row.travelHub || "-"],
+          ["Gender", (row) => row.gender || "-"],
+          ["Room", (row) => <Badge label={row.roomType} tone="blue" />],
+          ["Food", (row) => <Badge label={row.foodPreference} tone="green" />],
+          ["Passport", (row) => row.passportStatus || "Pending"],
+          [
+            "Passport expiry",
+            (row) => {
+              const info = getPassportExpiryInfo({
+                expiryDate: row.passportExpiryDate,
+                travelDate: row.travelStartDate || row.travelDate,
+              });
+              return (
+                <Badge label={formatPassportExpiryLabel(info)} tone={passportExpiryTone(info)} />
+              );
+            },
+          ],
+          [
+            "Ticket",
+            (row) => <Badge label={row.ticketStatus} tone={statusTone(row.ticketStatus)} />,
+          ],
+          ["Visa", (row) => <Badge label={row.visaStatus} tone={statusTone(row.visaStatus)} />],
+          ["TM Call", (row) => row.callingStatus],
+          [
+            "Action",
+            (row) =>
+              canManage && (
+                <div className="flex flex-wrap gap-2">
+                  <EditButton
+                    onClick={() =>
+                      openModal("traveller", {
+                        entityId: row.id,
+                        jobCardId: row.jobCardId,
+                        fullName: row.fullName,
+                        surname: row.surname || "",
+                        givenName: row.givenName || "",
+                        gender: row.gender || "",
+                        travelHub: row.travelHub,
+                        travelDate: row.travelDate,
+                        guestCompanions: row.guestCompanions,
+                        foodPreference: row.foodPreference,
+                        guestType: row.guestType,
+                        paymentType: row.paymentType,
+                        roomType: row.roomType,
+                        visaRequired: row.visaRequired ? "Yes" : "No",
+                        domesticTravelRequired: row.domesticTravelRequired ? "Yes" : "No",
+                        biometricAppointmentDate: row.biometricAppointmentDate,
+                        extensionOfTour: row.extensionOfTour ? "Yes" : "No",
+                        arrivingEarly: row.arrivingEarly ? "Yes" : "No",
+                        passportStatus: row.passportStatus,
+                        hotelAllocation: row.hotelAllocation,
+                        notes: row.specialRequests || "",
+                      })
+                    }
+                  />
+                  <DeleteButton
+                    label={row.fullName}
+                    onClick={() =>
+                      deleteItem(row.fullName, removeTraveller, { travellerId: row.id })
+                    }
+                  />
+                </div>
+              ),
+          ],
+        ]}
+      />
+    </div>
   );
 }
 
@@ -3679,6 +3742,34 @@ function buildJobRoomCountRows(rows, jobCards) {
     .sort((a, b) => a.jobCode.localeCompare(b.jobCode));
 }
 
+function JobCardFilterPanel({ jobCards, jobCardFilter, setJobCardFilter, ariaLabel, children }) {
+  return (
+    <div className="mb-4 flex flex-col gap-3 rounded-xl border border-brand-border bg-brand-light/50 p-3 sm:flex-row sm:items-end sm:justify-between">
+      <label className="relative block min-w-0 sm:w-72">
+        <span className="mb-1 block text-xs font-semibold text-citius-blue">Job Card</span>
+        <select
+          value={jobCardFilter}
+          onChange={(event) => setJobCardFilter(event.target.value)}
+          className="portal-toolbar-control portal-period-select h-11 w-full appearance-none rounded-lg border border-brand-border bg-white px-3 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-out focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
+          aria-label={ariaLabel}
+        >
+          {jobCardFilterOptions(jobCards).map((option) => (
+            <option key={option.value || "all"} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          className="pointer-events-none absolute bottom-3 right-3 text-brand-muted/60"
+          size={16}
+          aria-hidden
+        />
+      </label>
+      {children}
+    </div>
+  );
+}
+
 function RoomCountView({ rows, jobCards, jobCardFilter, setJobCardFilter }) {
   const selectedRows = jobCardFilter
     ? (rows || []).filter((row) => row.jobCardId === jobCardFilter)
@@ -3690,31 +3781,13 @@ function RoomCountView({ rows, jobCards, jobCardFilter, setJobCardFilter }) {
   const jobBreakdownRows = jobCardFilter ? [] : buildJobRoomCountRows(rows || [], jobCards);
 
   return (
-    <Panel
-      title="Room Count"
-      subtitle="Filter by Job Card and review rooming counts by room type."
-    >
-      <div className="mb-4 flex flex-col gap-3 rounded-xl border border-brand-border bg-brand-light/50 p-3 sm:flex-row sm:items-end sm:justify-between">
-        <label className="relative block min-w-0 sm:w-72">
-          <span className="mb-1 block text-xs font-semibold text-citius-blue">Job Card</span>
-          <select
-            value={jobCardFilter}
-            onChange={(event) => setJobCardFilter(event.target.value)}
-            className="portal-toolbar-control portal-period-select h-11 w-full appearance-none rounded-lg border border-brand-border bg-white px-3 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-out focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
-            aria-label="Filter room count by job card"
-          >
-            {jobCardFilterOptions(jobCards).map((option) => (
-              <option key={option.value || "all"} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <ChevronDown
-            className="pointer-events-none absolute bottom-3 right-3 text-brand-muted/60"
-            size={16}
-            aria-hidden
-          />
-        </label>
+    <Panel title="Room Count" subtitle="Filter by Job Card and review rooming counts by room type.">
+      <JobCardFilterPanel
+        jobCards={jobCards}
+        jobCardFilter={jobCardFilter}
+        setJobCardFilter={setJobCardFilter}
+        ariaLabel="Filter room count by job card"
+      >
         <div className="grid grid-cols-2 gap-2 sm:min-w-64">
           <div className="rounded-lg border border-brand-border bg-white px-3 py-2">
             <p className="text-xs font-semibold text-brand-muted">Rooming rows</p>
@@ -3729,7 +3802,7 @@ function RoomCountView({ rows, jobCards, jobCardFilter, setJobCardFilter }) {
             </p>
           </div>
         </div>
-      </div>
+      </JobCardFilterPanel>
 
       {selectedJob ? (
         <div className="mb-3 text-sm text-brand-muted">
@@ -3766,6 +3839,123 @@ function RoomCountView({ rows, jobCards, jobCardFilter, setJobCardFilter }) {
                 ["Rooming Rows", (row) => row.assignments],
                 ["Est. Rooms", (row) => row.estimatedRooms],
                 ["Room Types", (row) => row.roomBreakdown || "-"],
+              ]}
+            />
+          </div>
+        </div>
+      ) : null}
+    </Panel>
+  );
+}
+
+function buildJobTravellerCountRows(rows, jobCards) {
+  const jobsById = new Map((jobCards || []).map((job) => [job.id, job]));
+  const groups = new Map();
+  for (const row of rows || []) {
+    const id = row.jobCardId || "unassigned";
+    const current = groups.get(id) || {
+      id,
+      jobCode: row.jobCode || jobsById.get(row.jobCardId)?.jobCode || "Unassigned",
+      clientName: row.clientName || jobsById.get(row.jobCardId)?.clientName || "-",
+      rows: [],
+    };
+    current.rows.push(row);
+    groups.set(id, current);
+  }
+  return Array.from(groups.values())
+    .map((group) => {
+      const summary = buildTravellerCountSummary(group.rows);
+      return {
+        ...group,
+        totalPax: group.rows.length,
+        male: summary.male,
+        female: summary.female,
+        foodBreakdown:
+          summary.foodRows
+            .filter((row) => row.value > 0)
+            .map((row) => `${row.label}: ${row.value}`)
+            .join(", ") || "-",
+      };
+    })
+    .sort((a, b) => a.jobCode.localeCompare(b.jobCode));
+}
+
+function TravellerCountView({ rows, jobCards, jobCardFilter, setJobCardFilter }) {
+  const selectedRows = jobCardFilter
+    ? (rows || []).filter((row) => row.jobCardId === jobCardFilter)
+    : rows || [];
+  const selectedJob = (jobCards || []).find((job) => job.id === jobCardFilter);
+  const summary = buildTravellerCountSummary(selectedRows);
+  const foodRows = summary.foodRows.map((row) => ({
+    id: row.label,
+    foodPreference: row.label,
+    count: row.value,
+  }));
+  const jobBreakdownRows = jobCardFilter ? [] : buildJobTravellerCountRows(rows || [], jobCards);
+
+  return (
+    <Panel
+      title="Passenger Count"
+      subtitle="Filter by Job Card and review gender and food preference counts."
+    >
+      <JobCardFilterPanel
+        jobCards={jobCards}
+        jobCardFilter={jobCardFilter}
+        setJobCardFilter={setJobCardFilter}
+        ariaLabel="Filter passenger count by job card"
+      >
+        <div className="grid grid-cols-2 gap-2 sm:min-w-64">
+          <div className="rounded-lg border border-brand-border bg-white px-3 py-2">
+            <p className="text-xs font-semibold text-brand-muted">Male</p>
+            <p className="font-heading text-xl font-semibold text-brand-dark tabular-nums">
+              {summary.male}
+            </p>
+          </div>
+          <div className="rounded-lg border border-brand-border bg-white px-3 py-2">
+            <p className="text-xs font-semibold text-brand-muted">Female</p>
+            <p className="font-heading text-xl font-semibold text-brand-dark tabular-nums">
+              {summary.female}
+            </p>
+          </div>
+        </div>
+      </JobCardFilterPanel>
+
+      {selectedJob ? (
+        <div className="mb-3 text-sm text-brand-muted">
+          Showing passenger count for{" "}
+          <strong className="text-brand-dark">{selectedJob.jobCode}</strong>
+          {selectedJob.clientName ? ` · ${selectedJob.clientName}` : ""}
+        </div>
+      ) : null}
+
+      <DataTable
+        rows={foodRows}
+        empty="No traveller rows found for this job card."
+        compact
+        columns={[
+          ["Food Preference", (row) => <Badge label={row.foodPreference} tone="green" />],
+          ["Count", (row) => row.count],
+        ]}
+      />
+
+      {!jobCardFilter && jobBreakdownRows.length > 0 ? (
+        <div className="mt-5">
+          <DashboardSectionHeading
+            title="Job Card Breakdown"
+            detail="Counts are grouped from traveller master rows."
+          />
+          <div className="mt-3">
+            <DataTable
+              rows={jobBreakdownRows}
+              empty="No job card passenger counts yet."
+              compact
+              columns={[
+                ["Job", (row) => strong(row.jobCode)],
+                ["Client", (row) => row.clientName],
+                ["Total Pax", (row) => row.totalPax],
+                ["Male", (row) => row.male],
+                ["Female", (row) => row.female],
+                ["Food", (row) => row.foodBreakdown],
               ]}
             />
           </div>
@@ -3840,6 +4030,12 @@ function HotelRoomingTabs({
           title="Rooming Assignments"
           subtitle="Passenger room types and allocations from traveller master or rooming import."
         >
+          <JobCardFilterPanel
+            jobCards={jobCards}
+            jobCardFilter={jobCardFilter}
+            setJobCardFilter={setJobCardFilter}
+            ariaLabel="Filter rooming by job card"
+          />
           <RoomingListView rows={roomingRows} filtersActive={filtersActive} />
         </Panel>
       ) : null}

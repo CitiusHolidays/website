@@ -16,7 +16,6 @@ import {
   MAX_QUERY_NOTES_WORDS,
   nextCode,
   notifyRoles,
-  notifyStaffMatching,
   notifyStaffMember,
   PERMISSIONS,
   publicQuery,
@@ -74,6 +73,31 @@ async function notifyOrderConfirmedWorkflow(
       ...entity,
     }),
   ]);
+}
+
+async function notifyJobCardCreators(
+  ctx: Parameters<typeof notifyStaffMember>[0],
+  query: { queryCode: string },
+  queryId: Id<"queries">,
+) {
+  const staffRows = await ctx.db.query("staffUsers").collect();
+  await Promise.all(
+    staffRows
+      .filter(
+        (staff) =>
+          staff.active &&
+          staff.jobCardCreatorEnabled &&
+          staff.roles.some((role) => ["Accounts", "Accounts Head"].includes(role)),
+      )
+      .map((staff) =>
+        notifyStaffMember(ctx, staff._id, {
+          title: "Order confirmed — open Job Card",
+          body: `${query.queryCode} is confirmed. Create the Job Card in Accounts.`,
+          entityType: "query",
+          entityId: queryId,
+        }),
+      ),
+  );
 }
 
 async function notifyProposalRevisionWorkflow(
@@ -636,17 +660,7 @@ export const updateStatus = mutation({
       }),
       ...(isNewlyConfirmed
         ? [
-            notifyStaffMatching(
-              ctx,
-              (staff) => staff.roles.includes("Accounts"),
-              {
-                title: "Order confirmed — open Job Card",
-                body: `${current.queryCode} is confirmed. Create the Job Card in Accounts.`,
-                entityType: "query",
-                entityId: queryId,
-              },
-              { fallbackRoles: ["Accounts"] },
-            ),
+            notifyJobCardCreators(ctx, current, queryId),
             notifyOrderConfirmedWorkflow(ctx, current, queryId),
             notifyRoles(ctx, ["Finance"], {
               title: "Order confirmed",

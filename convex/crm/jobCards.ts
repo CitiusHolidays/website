@@ -10,6 +10,7 @@ import {
   creatorInitials,
   deleteJobCardCascade,
   editorPatch,
+  hasRole,
   isDirectorOrAdmin,
   nextCode,
   notifyRoles,
@@ -312,12 +313,10 @@ export const createFromQuery = mutation({
     if (!canSeeQueryRecord(access, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
-    if (!isDirectorOrAdmin(access)) {
-      if (!linkedQuery.jobCardCreatorStaffId) {
-        throw new ConvexError("Accounts Head must assign a Job Card creator first");
-      }
-      if (!access.staffId || linkedQuery.jobCardCreatorStaffId !== access.staffId) {
-        throw new ConvexError("Only the assigned Accounts person can create this Job Card");
+    if (!isDirectorOrAdmin(access) && !hasRole(access, "Accounts Head")) {
+      const staff = access.staffId ? await ctx.db.get(access.staffId) : null;
+      if (!staff?.jobCardCreatorEnabled) {
+        throw new ConvexError("Only enabled Accounts Job Card creators can create Job Cards");
       }
     }
     if (

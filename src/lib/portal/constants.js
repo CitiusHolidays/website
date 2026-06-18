@@ -562,6 +562,7 @@ export const TICKET_STATUSES = [
 export const PAYMENT_TYPES = ["Company Paid", "Self Paid", "Upgraded Self Paid"];
 export const ROOM_TYPES = ["Single", "Twin", "Double", "Triple", "Child with Bed", "Family Room"];
 export const FOOD_PREFERENCES = ["Veg", "Non-Veg", "Jain", "Vegan"];
+export const GENDER_OPTIONS = ["Male", "Female"];
 export const CALLING_STATUSES = ["Pending", "Done", "No response"];
 export const GUEST_TYPES = ["Employee", "Client", "VIP"];
 export const EXPENSE_HEADS = [

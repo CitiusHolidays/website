@@ -111,6 +111,23 @@ function applyQueryLink(form, query, { onlyEmpty = false } = {}) {
   set("travelEndDate", query.travelEndDate || "");
   set("paxCount", String(query.paxCount || 1));
   set("budgetAmount", query.budgetAmount ? String(query.budgetAmount) : "");
+  set("landCostPerPax", query.contractingLandCost != null ? String(query.contractingLandCost) : "");
+  set(
+    "airfarePerPax",
+    query.contractingAirlinesCost != null ? String(query.contractingAirlinesCost) : "",
+  );
+  set("visaCostPerPax", query.contractingVisaCost != null ? String(query.contractingVisaCost) : "");
+  return patch;
+}
+
+function applyStaffLink(staffId, member, modal) {
+  const patch = { staffId: staffId || "" };
+  if (!member) return patch;
+  if (modal === "tourManager") {
+    patch.tourManagerName = member.name;
+    patch.staffEmail = member.email || "";
+    patch.paidBy = member.mobile || "";
+  }
   return patch;
 }
 
@@ -154,6 +171,7 @@ export {
   applyJobCardLink,
   applyPnrLink,
   applyQueryLink,
+  applyStaffLink,
   applyTravellerLink,
   applyVisaRecordLink,
   jobCardSelectOptions,

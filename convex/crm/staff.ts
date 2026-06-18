@@ -8,6 +8,7 @@ import {
   normalizeEmail,
   PERMISSIONS,
   requireAnyPermission,
+  requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
 
@@ -113,6 +114,53 @@ export const listDirectory = query({
           ? staff._id === access.staffId
           : normalizeEmail(staff.email) === normalizeEmail(access.email),
       }));
+  },
+});
+
+export const listAccountsForJobCards = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAnyPermission(ctx, [PERMISSIONS.VIEW_JOB_CARDS]);
+    const rows = await ctx.db.query("staffUsers").collect();
+    return rows
+      .filter(
+        (staff) =>
+          staff.active && staff.roles.some((role) => ["Accounts", "Accounts Head"].includes(role)),
+      )
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((staff) => ({
+        id: staff._id,
+        email: staff.email,
+        name: staff.name,
+        roles: staff.roles,
+        jobCardCreatorEnabled: Boolean(staff.jobCardCreatorEnabled),
+      }));
+  },
+});
+
+export const setJobCardCreatorAccess = mutation({
+  args: {
+    staffId: v.string(),
+    enabled: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await requireHeadOrAdmin(ctx, ["Accounts Head"]);
+    const staffId = ctx.db.normalizeId("staffUsers", args.staffId);
+    if (!staffId) {
+      throw new ConvexError("Invalid staff id");
+    }
+    const staff = await ctx.db.get(staffId);
+    if (!staff?.active) {
+      throw new ConvexError("Staff member not found");
+    }
+    if (!staff.roles.some((role) => ["Accounts", "Accounts Head"].includes(role))) {
+      throw new ConvexError("Selected staff member is not in Accounts");
+    }
+    await ctx.db.patch(staffId, {
+      jobCardCreatorEnabled: args.enabled,
+      updatedAt: Date.now(),
+    });
+    return { id: staffId };
   },
 });
 

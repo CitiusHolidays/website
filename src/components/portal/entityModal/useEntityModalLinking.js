@@ -4,6 +4,7 @@ import {
   applyJobCardLink,
   applyPnrLink,
   applyQueryLink,
+  applyStaffLink,
   applyTravellerLink,
   applyVisaRecordLink,
   reconcileLinkedSelections,
@@ -25,14 +26,12 @@ export function useEntityModalLinking({
   team,
 }) {
   const handleStaffSelect = (field, staffId) => {
-    updateForm(field, staffId);
     const member = team.find((entry) => entry.id === staffId);
-    if (!member) return;
-    if (field === "staffId" && modal === "tourManager") {
-      updateForm("tourManagerName", member.name);
-      updateForm("staffEmail", member.email || "");
-      updateForm("paidBy", member.mobile || "");
+    if (field === "staffId") {
+      patchForm(applyStaffLink(staffId, member, modal));
+      return;
     }
+    updateForm(field, staffId);
   };
 
   const handleProposalQuerySelect = (queryIds) => {

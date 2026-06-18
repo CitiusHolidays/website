@@ -67,6 +67,7 @@ const publicTraveller = (
   cancellation: traveller.cancellation ?? false,
   lastMinuteDrop: traveller.lastMinuteDrop ?? false,
   hotelAllocation: traveller.hotelAllocation ?? "",
+  gender: traveller.gender ?? "",
   createdAt: new Date(traveller.createdAt).toISOString(),
   updatedAt: new Date(traveller.updatedAt).toISOString(),
 });
@@ -199,6 +200,7 @@ export const create = mutation({
     specialRequests: v.optional(v.string()),
     passportStatus: v.optional(v.string()),
     hotelAllocation: v.optional(v.string()),
+    gender: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TRAVELLERS);
@@ -240,6 +242,7 @@ export const create = mutation({
       specialRequests: args.specialRequests?.trim() || "",
       passportStatus: args.passportStatus?.trim() || "Pending",
       hotelAllocation: args.hotelAllocation?.trim() || "",
+      gender: args.gender?.trim() || "",
       ticketStatus: "Pending Issue",
       visaStatus,
       callingStatus: "Pending",
@@ -291,6 +294,7 @@ export const update = mutation({
     specialRequests: v.optional(v.string()),
     passportStatus: v.optional(v.string()),
     hotelAllocation: v.optional(v.string()),
+    gender: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TRAVELLERS);
@@ -349,6 +353,9 @@ export const update = mutation({
     }
     if (args.hotelAllocation !== undefined) {
       patch.hotelAllocation = args.hotelAllocation.trim();
+    }
+    if (args.gender !== undefined) {
+      patch.gender = args.gender.trim();
     }
 
     await ctx.db.patch(travellerId, patch);
