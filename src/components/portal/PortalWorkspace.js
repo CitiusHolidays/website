@@ -833,6 +833,10 @@ function PortalWorkspaceViews({ workspace: w }) {
           encryptAndStorePassport={w.encryptAndStorePassport}
           getPassportDocument={w.getPassportDocument}
           removePassport={w.removePassport}
+          deleteItem={w.deleteItem}
+          deleteSelected={w.deleteSelected}
+          removeTraveller={w.removeTraveller}
+          removeManyTravellers={w.removeManyTravellers}
         />
       )}
       {w.view === "visa" && (
@@ -910,6 +914,8 @@ function PortalWorkspaceViews({ workspace: w }) {
           deleteSelected={w.deleteSelected}
           removeHotel={w.removeHotel}
           removeManyHotels={w.removeManyHotels}
+          removeTraveller={w.removeTraveller}
+          removeManyTravellers={w.removeManyTravellers}
           jobCards={w.jobCards || []}
           jobCardFilter={w.jobCardFilter}
           setJobCardFilter={w.setJobCardFilterWithUrl}
@@ -920,6 +926,7 @@ function PortalWorkspaceViews({ workspace: w }) {
           rows={w.filteredTourManagers}
           filtersActive={w.filtersActive}
           travellers={w.periodFiltered.travellers}
+          assignments={w.periodFiltered.tourManagers}
           openModal={w.openModal}
           has={w.has}
           canAssign={canAssignTourManagers(w.access)}
@@ -3114,6 +3121,10 @@ function PassportDocumentsView({
   encryptAndStorePassport,
   getPassportDocument,
   removePassport,
+  deleteItem,
+  deleteSelected,
+  removeTraveller,
+  removeManyTravellers,
   filtersActive = false,
 }) {
   const toast = usePortalToast();
@@ -3231,10 +3242,36 @@ function PassportDocumentsView({
 
   return (
     <div className="space-y-6">
-      <DataTable
+      <SelectableDataTable
         rows={travellers}
         empty="No travellers on record."
         filtersActive={filtersActive}
+        selectable={has(P.MANAGE_TRAVELLERS)}
+        entityLabel="traveller"
+        rowLabel={(row) => row.fullName}
+        onBulkDelete={
+          has(P.MANAGE_TRAVELLERS)
+            ? (ids) =>
+                deleteSelected(ids.length, "traveller", removeManyTravellers, () => ({
+                  travellerIds: ids,
+                }))
+            : undefined
+        }
+        mobileCardRender={(row) => (
+          <div className="space-y-1">
+            <div className="font-semibold text-brand-dark">{row.fullName}</div>
+            <div className="text-xs text-brand-muted">
+              {row.jobCode} · {row.clientName || "No client"}
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Badge
+                label={row.passportStatus || "Pending"}
+                tone={row.passportStatus === "Received" ? "green" : "orange"}
+              />
+              {row.hasPassportScan ? <Badge label="Scan uploaded" tone="green" /> : null}
+            </div>
+          </div>
+        )}
         columns={[
           ["Traveller", (row) => strong(row.fullName)],
           ["Job Code", (row) => row.jobCode],
@@ -3289,6 +3326,14 @@ function PassportDocumentsView({
                       {row.passportStatus === "Received" ? "Upload Scan" : "Upload Passport Scan"}
                     </button>
                   )
+                )}
+                {has(P.MANAGE_TRAVELLERS) && (
+                  <DeleteButton
+                    label={row.fullName}
+                    onClick={() =>
+                      deleteItem(row.fullName, removeTraveller, { travellerId: row.id })
+                    }
+                  />
                 )}
               </div>
             ),
@@ -3976,6 +4021,8 @@ function HotelRoomingTabs({
   deleteSelected,
   removeHotel,
   removeManyHotels,
+  removeTraveller,
+  removeManyTravellers,
   jobCards,
   jobCardFilter,
   setJobCardFilter,
@@ -4036,7 +4083,15 @@ function HotelRoomingTabs({
             setJobCardFilter={setJobCardFilter}
             ariaLabel="Filter rooming by job card"
           />
-          <RoomingListView rows={roomingRows} filtersActive={filtersActive} />
+          <RoomingListView
+            rows={roomingRows}
+            filtersActive={filtersActive}
+            has={has}
+            deleteItem={deleteItem}
+            deleteSelected={deleteSelected}
+            removeTraveller={removeTraveller}
+            removeManyTravellers={removeManyTravellers}
+          />
         </Panel>
       ) : null}
 
@@ -4052,12 +4107,32 @@ function HotelRoomingTabs({
   );
 }
 
-function RoomingListView({ rows, filtersActive = false }) {
+function RoomingListView({
+  rows,
+  filtersActive = false,
+  has,
+  deleteItem,
+  deleteSelected,
+  removeTraveller,
+  removeManyTravellers,
+}) {
+  const canManage = has?.(P.MANAGE_TRAVELLERS);
   return (
-    <DataTable
+    <SelectableDataTable
       rows={rows}
       empty="No rooming assignments yet. Import traveller master or rooming spreadsheet for this job card."
       filtersActive={filtersActive}
+      selectable={canManage}
+      entityLabel="rooming row"
+      rowLabel={(row) => row.fullName}
+      onBulkDelete={
+        canManage
+          ? (ids) =>
+              deleteSelected(ids.length, "rooming row", removeManyTravellers, () => ({
+                travellerIds: ids,
+              }))
+          : undefined
+      }
       columns={[
         ["Name", (row) => strong(row.fullName)],
         ["Job", (row) => row.jobCode],
@@ -4066,6 +4141,16 @@ function RoomingListView({ rows, filtersActive = false }) {
         ["Hotel Allocation", (row) => row.hotelAllocation || "-"],
         ["Food", (row) => <Badge label={row.foodPreference} tone="green" />],
         ["Special Requests", (row) => row.specialRequests || "-"],
+        [
+          "Action",
+          (row) =>
+            canManage && (
+              <DeleteButton
+                label={row.fullName}
+                onClick={() => deleteItem(row.fullName, removeTraveller, { travellerId: row.id })}
+              />
+            ),
+        ],
       ]}
     />
   );
@@ -4074,6 +4159,7 @@ function RoomingListView({ rows, filtersActive = false }) {
 function TourManagersView({
   rows,
   travellers,
+  assignments,
   openModal,
   has,
   canAssign,
@@ -4084,6 +4170,14 @@ function TourManagersView({
   updateCallingStatus,
 }) {
   const toast = usePortalToast();
+  const assignedTourManagersByJob = new Map();
+  for (const manager of assignments || []) {
+    if (!manager.jobCardId) continue;
+    const current = assignedTourManagersByJob.get(manager.jobCardId) || [];
+    current.push(manager.name);
+    assignedTourManagersByJob.set(manager.jobCardId, current);
+  }
+
   return (
     <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-3">
@@ -4107,56 +4201,6 @@ function TourManagersView({
           Icon={ShieldCheck}
         />
       </div>
-      <Panel title="Calling status board">
-        <DataTable
-          compact
-          rows={travellers}
-          empty="No travellers to call yet."
-          columns={[
-            ["Guest", (row) => strong(row.fullName)],
-            ["Job", (row) => row.jobCode],
-            ["Hub", (row) => row.travelHub || "-"],
-            ["Type", (row) => row.guestType],
-            [
-              "Cancellation",
-              (row) =>
-                row.cancellation || row.lastMinuteDrop ? <Badge label="Flagged" tone="red" /> : "-",
-            ],
-            [
-              "Calling",
-              (row) => <Badge label={row.callingStatus} tone={statusTone(row.callingStatus)} />,
-            ],
-            [
-              "Action",
-              (row) =>
-                has(P.MANAGE_TOUR_MANAGERS) && (
-                  <div className="flex flex-wrap gap-2">
-                    {CALLING_STATUSES.map((status) => (
-                      <button
-                        key={status}
-                        type="button"
-                        className="portal-small-btn"
-                        onClick={() =>
-                          runMutation(
-                            {
-                              label: "Calling status",
-                              showToast: toast,
-                              successMessage: `Calling status set to ${status}`,
-                            },
-                            () =>
-                              updateCallingStatus({ travellerId: row.id, callingStatus: status }),
-                          ).catch(() => {})
-                        }
-                      >
-                        {status}
-                      </button>
-                    ))}
-                  </div>
-                ),
-            ],
-          ]}
-        />
-      </Panel>
       <SelectableDataTable
         rows={rows}
         empty="No Tour Managers yet."
@@ -4206,6 +4250,60 @@ function TourManagersView({
           ],
         ]}
       />
+      <Panel title="Calling status board">
+        <DataTable
+          compact
+          rows={travellers}
+          empty="No travellers to call yet."
+          columns={[
+            ["Guest", (row) => strong(row.fullName)],
+            ["Job", (row) => row.jobCode],
+            [
+              "Tour Manager",
+              (row) => assignedTourManagersByJob.get(row.jobCardId)?.join(", ") || "Unassigned",
+            ],
+            ["Hub", (row) => row.travelHub || "-"],
+            ["Type", (row) => row.guestType],
+            [
+              "Cancellation",
+              (row) =>
+                row.cancellation || row.lastMinuteDrop ? <Badge label="Flagged" tone="red" /> : "-",
+            ],
+            [
+              "Calling",
+              (row) => <Badge label={row.callingStatus} tone={statusTone(row.callingStatus)} />,
+            ],
+            [
+              "Action",
+              (row) =>
+                has(P.MANAGE_TOUR_MANAGERS) && (
+                  <div className="flex flex-wrap gap-2">
+                    {CALLING_STATUSES.map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        className="portal-small-btn"
+                        onClick={() =>
+                          runMutation(
+                            {
+                              label: "Calling status",
+                              showToast: toast,
+                              successMessage: `Calling status set to ${status}`,
+                            },
+                            () =>
+                              updateCallingStatus({ travellerId: row.id, callingStatus: status }),
+                          ).catch(() => {})
+                        }
+                      >
+                        {status}
+                      </button>
+                    ))}
+                  </div>
+                ),
+            ],
+          ]}
+        />
+      </Panel>
     </div>
   );
 }
