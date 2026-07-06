@@ -19,7 +19,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isRateLimitError(error: { statusCode?: number; name?: string }) {
+function isRateLimitError(error: { statusCode?: number | null; name?: string }) {
   return error.statusCode === 429 || error.name === "rate_limit_exceeded";
 }
 
