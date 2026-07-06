@@ -486,10 +486,13 @@ export async function updateTourManagerForTest(
   }
   const shouldResolveTravelBatch =
     args.travelBatchId !== undefined || (args.jobCardId === undefined && tourManager.travelBatchId);
+  const existingTravelBatchId = tourManager.travelBatchId;
   const travelBatch = shouldResolveTravelBatch
     ? args.travelBatchId !== undefined
       ? await getValidatedTravelBatch(ctx, args.travelBatchId, jobCardId)
-      : await ctx.db.get(tourManager.travelBatchId)
+      : existingTravelBatchId
+        ? await ctx.db.get(existingTravelBatchId)
+        : null
     : null;
   if (args.travelBatchId !== undefined || args.jobCardId !== undefined) {
     patch.travelBatchId = travelBatch?._id;
@@ -524,6 +527,9 @@ export async function updateTourManagerForTest(
       String(travelBatch?._id ?? "") !== String(tourManager.travelBatchId ?? "") ||
       args.reportingInstructions !== undefined);
 
+  const allocationStaffId = staffId;
+  const allocationJobCardId = jobCardId;
+
   await Promise.all([
     createActivity(ctx, access, {
       entityType: "tourManager",
@@ -531,11 +537,11 @@ export async function updateTourManagerForTest(
       action: "updated",
       message: `${name} tour manager updated`,
     }),
-    notifyOnAllocation
-      ? notifyStaffMember(ctx, staffId, {
+    notifyOnAllocation && allocationStaffId && allocationJobCardId
+      ? notifyStaffMember(ctx, allocationStaffId, {
           title: "Tour Manager allocation updated",
           body: tourManagerNotificationBody(
-            await ctx.db.get(jobCardId),
+            await ctx.db.get(allocationJobCardId),
             travelBatch,
             args.reportingInstructions ?? tourManager.reportingInstructions,
           ),

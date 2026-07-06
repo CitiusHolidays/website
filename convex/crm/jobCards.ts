@@ -1,4 +1,6 @@
 import { ConvexError, v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import {
   assertDateRangeOrder,
@@ -185,7 +187,11 @@ export function queryRequiresTicketingWork(query?: {
   return Boolean(query?.ticketingOwnerId);
 }
 
-async function notifyFinanceHeadsOnJobCardCreation(ctx: any, jobCode: string, jobCardId: any) {
+async function notifyFinanceHeadsOnJobCardCreation(
+  ctx: MutationCtx,
+  jobCode: string,
+  jobCardId: Id<"jobCards">,
+) {
   const staffRows = await ctx.db.query("staffUsers").collect();
   const financeHeads = staffRows.filter(isFinanceHeadStaff);
   await Promise.all(
@@ -348,6 +354,7 @@ export const getCommandCenter = query({
     if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
+    const linkedProposalId = job.proposalId;
     const [
       proposal,
       travellers,
@@ -366,7 +373,7 @@ export const getCommandCenter = query({
       travelBatches,
       proposalAttachments,
     ] = await Promise.all([
-      job.proposalId ? ctx.db.get(job.proposalId) : null,
+      linkedProposalId ? ctx.db.get(linkedProposalId) : null,
       ctx.db
         .query("travellers")
         .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
@@ -422,10 +429,10 @@ export const getCommandCenter = query({
         .query("travelBatches")
         .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
         .collect(),
-      job.proposalId
+      linkedProposalId
         ? ctx.db
             .query("proposalAttachments")
-            .withIndex("by_proposalId", (q) => q.eq("proposalId", job.proposalId))
+            .withIndex("by_proposalId", (q) => q.eq("proposalId", linkedProposalId))
             .collect()
         : Promise.resolve([]),
     ]);

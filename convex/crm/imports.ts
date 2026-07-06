@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { MutationCtx } from "../_generated/server";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
 import {
   buildTravellerMatchIndex,
@@ -10,7 +11,7 @@ import {
   summarizeRoomTypesFromRows,
 } from "./importProcessor";
 import { exportKindValidator, internalPassengerImportRow } from "./importRowValidators";
-import { createActivity, PERMISSIONS, requireStaff } from "./lib";
+import { createActivity, type PortalAccess, PERMISSIONS, requireStaff } from "./lib";
 
 const flightSegmentInput = v.object({
   id: v.string(),
@@ -40,6 +41,35 @@ const flightGroupInput = v.object({
   segments: v.array(flightSegmentInput),
 });
 
+type CommitFlightImportArgs = {
+  jobCardId: string;
+  groups: Array<{
+    id?: string;
+    sourceSheet: string;
+    groupIndex: number;
+    name: string;
+    travelBatchId?: string;
+    travelBatchReference?: string;
+    segments: Array<{
+      id?: string;
+      sourceSheet?: string;
+      sourceRowNumber?: number;
+      sourceGroupIndex?: number;
+      segmentIndex?: number;
+      importKey?: string;
+      dateLabel: string;
+      airline: string;
+      flightNumber: string;
+      departTime?: string;
+      origin: string;
+      arriveTime?: string;
+      destination: string;
+      duration?: string;
+      transit?: string;
+    }>;
+  }>;
+};
+
 function travellerExportOrder(a: any, b: any) {
   const aImported = typeof a.sourceRowNumber === "number";
   const bImported = typeof b.sourceRowNumber === "number";
@@ -55,6 +85,15 @@ function travellerExportOrder(a: any, b: any) {
 
 function groupImportKey(sheet: string, groupIndex: number) {
   return `${sheet.trim().toLowerCase()}|${groupIndex}`;
+}
+
+function flightSegmentImportKey(
+  group: { sourceSheet: string; groupIndex: number },
+  segment: CommitFlightImportArgs["groups"][number]["segments"][number],
+) {
+  if (segment.importKey) return segment.importKey;
+  const segmentIndex = segment.segmentIndex ?? 0;
+  return `${groupImportKey(group.sourceSheet, group.groupIndex)}|${segmentIndex}`;
 }
 
 function summarizeGroup(group: {
@@ -166,36 +205,9 @@ export const commitPassengerImportRows = internalMutation({
 });
 
 export async function commitFlightImportForTest(
-  ctx: any,
-  args: {
-    jobCardId: string;
-    groups: Array<{
-      id?: string;
-      sourceSheet: string;
-      groupIndex: number;
-      name: string;
-      travelBatchId?: string;
-      travelBatchReference?: string;
-      segments: Array<{
-        id?: string;
-        sourceSheet?: string;
-        sourceRowNumber?: number;
-        sourceGroupIndex?: number;
-        segmentIndex?: number;
-        importKey?: string;
-        dateLabel: string;
-        airline: string;
-        flightNumber: string;
-        departTime?: string;
-        origin: string;
-        arriveTime?: string;
-        destination: string;
-        duration?: string;
-        transit?: string;
-      }>;
-    }>;
-  },
-  access: any,
+  ctx: MutationCtx,
+  args: CommitFlightImportArgs,
+  access: PortalAccess,
 ) {
   const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
   if (!jobCardId) throw new ConvexError("Invalid Job Card id");
@@ -220,7 +232,7 @@ export async function commitFlightImportForTest(
       .first();
 
     let flightGroupId: Id<"flightGroups">;
-    const groupPatch: Record<string, unknown> = {
+    const groupFields = {
       name: group.name.trim() || summary.name,
       route: summary.route,
       airline: summary.airline,
@@ -232,30 +244,32 @@ export async function commitFlightImportForTest(
       importKey,
       sourceSheet: group.sourceSheet,
       sourceGroupIndex: group.groupIndex,
+      travelBatchId,
       updatedAt: now,
     };
-    groupPatch.travelBatchId = travelBatchId;
 
     if (existingGroup) {
-      await ctx.db.patch(existingGroup._id, groupPatch);
+      await ctx.db.patch(existingGroup._id, groupFields);
       flightGroupId = existingGroup._id;
       updatedGroups += 1;
     } else {
       flightGroupId = await ctx.db.insert("flightGroups", {
         jobCardId,
-        ...groupPatch,
+        ...groupFields,
         createdBy: access.authUserId ?? "unknown",
         createdAt: now,
       });
       createdGroups += 1;
     }
 
-    const incomingKeys = new Set(group.segments.map((segment) => segment.importKey));
+    const incomingKeys = new Set(
+      group.segments.map((segment) => flightSegmentImportKey(group, segment)),
+    );
     const existingSegments = await ctx.db
       .query("flightSegments")
       .withIndex("by_flightGroupId", (q) => q.eq("flightGroupId", flightGroupId))
       .collect();
-    const existingSegmentByImportKey = new Map(
+    const existingSegmentByImportKey = new Map<string, Doc<"flightSegments">>(
       existingSegments.map((segment) => [segment.importKey, segment]),
     );
     await Promise.all(
@@ -266,15 +280,16 @@ export async function commitFlightImportForTest(
 
     const segmentResults = await Promise.all(
       group.segments.map(async (segment) => {
-        const existingSegment = existingSegmentByImportKey.get(segment.importKey);
+        const segmentImportKey = flightSegmentImportKey(group, segment);
+        const existingSegment = existingSegmentByImportKey.get(segmentImportKey);
         const segmentPatch = {
           jobCardId,
           flightGroupId,
-          importKey: segment.importKey,
-          sourceSheet: segment.sourceSheet,
+          importKey: segmentImportKey,
+          sourceSheet: segment.sourceSheet ?? group.sourceSheet,
           sourceRowNumber: segment.sourceRowNumber,
-          sourceGroupIndex: segment.sourceGroupIndex,
-          segmentIndex: segment.segmentIndex,
+          sourceGroupIndex: segment.sourceGroupIndex ?? group.groupIndex,
+          segmentIndex: segment.segmentIndex ?? 0,
           dateLabel: segment.dateLabel,
           airline: segment.airline,
           flightNumber: segment.flightNumber,
