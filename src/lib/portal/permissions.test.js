@@ -90,14 +90,13 @@ describe("portal permissions", () => {
     expect(canAssignQueryTicketing({ roles: ["Operations Head"] })).toBe(false);
   });
 
-  test("directors receive full operational permissions except admin settings", () => {
+  test("directors receive full admin permissions", () => {
     const permissions = getPermissionsForRoles(["Directors"]);
 
     expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_QUERIES);
-    expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_CONTRACTING);
-    expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_JOB_CARDS);
-    expect(permissions).not.toContain(PORTAL_PERMISSIONS.MANAGE_STAFF);
-    expect(permissions).not.toContain(PORTAL_PERMISSIONS.VIEW_ACTIVITY);
+    expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_STAFF);
+    expect(permissions).toContain(PORTAL_PERMISSIONS.VIEW_ACTIVITY);
+    expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_DROPDOWNS);
   });
 
   test("sales can load team picker options for contracting spoc dropdowns", () => {
@@ -204,16 +203,16 @@ describe("portal permissions", () => {
     expect(pagesForRoles(["Admin"])).toContain("team");
   });
 
-  test("admin can access settings", () => {
-    const access = {
-      permissions: getPermissionsForRoles(["Admin"]),
-    };
-
-    expect(canAccessPage(access, "settings")).toBe(true);
+  test("admin and directors can access settings", () => {
+    expect(canAccessPage({ permissions: getPermissionsForRoles(["Admin"]) }, "settings")).toBe(true);
+    expect(canAccessPage({ permissions: getPermissionsForRoles(["Directors"]) }, "settings")).toBe(
+      true,
+    );
   });
 
-  test("activity log nav is admin-only", () => {
+  test("activity log nav is admin and director only", () => {
     expect(pagesForRoles(["Admin"])).toContain("activity");
+    expect(pagesForRoles(["Directors"])).toContain("activity");
     expect(pagesForRoles(["Sales Head"])).not.toContain("activity");
     expect(pagesForRoles(["Finance"])).not.toContain("activity");
     expect(pagesForRoles(["Operations Head"])).not.toContain("activity");

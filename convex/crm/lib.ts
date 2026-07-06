@@ -104,7 +104,7 @@ export const SALES_REP_ROLES = ["Sales", "Sales Head", "Sales Cement"] as const;
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   Admin: Object.values(P),
-  Directors: DIRECTOR_PERMISSIONS,
+  Directors: Object.values(P),
   "Sales Head": [
     P.VIEW_DASHBOARD,
     P.VIEW_QUERIES,
@@ -928,6 +928,8 @@ export function expandNotificationEmailRoles(roles: string[]) {
   return Array.from(expanded);
 }
 
+const NOTIFICATION_EMAIL_STAGGER_MS = 600;
+
 async function queueNotificationEmail(
   ctx: MutationCtx,
   recipients: Set<string>,
@@ -937,17 +939,24 @@ async function queueNotificationEmail(
     entityType?: string;
     entityId?: string | Id<any>;
   },
+  options?: {
+    emailDelayMs?: number;
+  },
 ) {
   if (recipients.size === 0) {
     return;
   }
-  await ctx.scheduler.runAfter(0, internal.crm.notificationEmails.sendNotificationEmail, {
-    recipients: Array.from(recipients),
-    title: input.title,
-    body: input.body,
-    entityType: input.entityType,
-    entityId: notificationEntityId(input.entityId),
-  });
+  await ctx.scheduler.runAfter(
+    options?.emailDelayMs ?? 0,
+    internal.crm.notificationEmails.sendNotificationEmail,
+    {
+      recipients: Array.from(recipients),
+      title: input.title,
+      body: input.body,
+      entityType: input.entityType,
+      entityId: notificationEntityId(input.entityId),
+    },
+  );
 }
 
 export async function notifyRoles(
@@ -958,6 +967,9 @@ export async function notifyRoles(
     body: string;
     entityType?: string;
     entityId?: string | Id<any>;
+  },
+  options?: {
+    emailDelayMs?: number;
   },
 ) {
   const createdAt = Date.now();
@@ -995,7 +1007,7 @@ export async function notifyRoles(
     ),
   );
 
-  await queueNotificationEmail(ctx, emailRecipients, input);
+  await queueNotificationEmail(ctx, emailRecipients, input, options);
 }
 
 export async function notifyStaffMatching(
@@ -1247,6 +1259,9 @@ export async function notifyStaffMember(
     entityType?: string;
     entityId?: string | Id<any>;
   },
+  options?: {
+    emailDelayMs?: number;
+  },
 ) {
   const staff = await ctx.db.get(staffId);
   if (!staff?.active) {
@@ -1283,8 +1298,10 @@ export async function notifyStaffMember(
     );
   }
 
-  await queueNotificationEmail(ctx, emailRecipients, input);
+  await queueNotificationEmail(ctx, emailRecipients, input, options);
 }
+
+export { NOTIFICATION_EMAIL_STAGGER_MS };
 
 export async function deleteStorageFile(ctx: MutationCtx, storageId: unknown, label: string) {
   if (!storageId) return;

@@ -12,6 +12,42 @@ type EmailDetails = {
   rows: Array<{ label: string; value: string }>;
 } | null;
 
+const RESEND_MIN_INTERVAL_MS = 550;
+const RESEND_MAX_RETRIES = 4;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRateLimitError(error: { statusCode?: number; name?: string }) {
+  return error.statusCode === 429 || error.name === "rate_limit_exceeded";
+}
+
+async function sendEmailWithRetry(
+  resend: Resend,
+  message: {
+    from: string;
+    to: string[];
+    subject: string;
+    html: string;
+    text: string;
+  },
+) {
+  for (let attempt = 0; attempt < RESEND_MAX_RETRIES; attempt += 1) {
+    const { error } = await resend.emails.send(message);
+    if (!error) {
+      return true;
+    }
+    if (isRateLimitError(error) && attempt < RESEND_MAX_RETRIES - 1) {
+      await sleep(RESEND_MIN_INTERVAL_MS * (attempt + 1));
+      continue;
+    }
+    console.error("Failed to send notification email:", error);
+    return false;
+  }
+  return false;
+}
+
 function siteUrl() {
   return (
     process.env.SITE_URL ||
@@ -94,6 +130,39 @@ function buildNotificationHtml(args: {
 </html>`;
 }
 
+async function sendNotificationEmailsSequentially(
+  resend: Resend,
+  recipients: string[],
+  message: {
+    from: string;
+    subject: string;
+    html: string;
+    text: string;
+  },
+  index = 0,
+  sent = 0,
+): Promise<number> {
+  if (index >= recipients.length) {
+    return sent;
+  }
+
+  const delivered = await sendEmailWithRetry(resend, {
+    ...message,
+    to: [recipients[index]],
+  });
+  if (recipients.length > 1 && index < recipients.length - 1) {
+    await sleep(RESEND_MIN_INTERVAL_MS);
+  }
+
+  return sendNotificationEmailsSequentially(
+    resend,
+    recipients,
+    message,
+    index + 1,
+    sent + (delivered ? 1 : 0),
+  );
+}
+
 export const sendNotificationEmail = internalAction({
   args: {
     recipients: v.array(v.string()),
@@ -142,23 +211,12 @@ export const sendNotificationEmail = internalAction({
       details,
     });
     const resend = new Resend(resendKey);
-    const outcomes = await Promise.all(
-      recipients.map(async (recipient) => {
-        const { error } = await resend.emails.send({
-          from: AUTH_EMAIL_FROM,
-          to: [recipient],
-          subject: `Citius Connect: ${args.title}`,
-          html,
-          text,
-        });
-        if (error) {
-          console.error("Failed to send notification email:", error);
-          return false;
-        }
-        return true;
-      }),
-    );
-    const sent = outcomes.filter(Boolean).length;
+    const sent = await sendNotificationEmailsSequentially(resend, recipients, {
+      from: AUTH_EMAIL_FROM,
+      subject: `Citius Connect: ${args.title}`,
+      html,
+      text,
+    });
 
     return { sent, skipped: recipients.length - sent };
   },

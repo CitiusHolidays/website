@@ -869,116 +869,110 @@ const PASSENGER_EXPORT_MODAL_CONFIGS = [
   },
 ];
 
-function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
+function travelBatchEntityModalKey(modal, form) {
+  if (modal === TRAVEL_BATCH_MODAL) {
+    return `travel-batch:${form?.entityId ?? form?.jobCardId ?? "new"}`;
+  }
+  return modal ?? "closed";
+}
+
+function TravelBatchEntityModalBridge({ workspace: w }) {
   const toast = usePortalToast();
   const createTravelBatch = useMutation(api.crm.jobCards.createTravelBatch);
   const updateTravelBatch = useMutation(api.crm.jobCards.updateTravelBatch);
   const [travelBatchError, setTravelBatchError] = useState("");
   const [travelBatchSaving, setTravelBatchSaving] = useState(false);
 
-  useEffect(() => {
+  async function submit(event) {
     if (w.modal !== TRAVEL_BATCH_MODAL) {
-      setTravelBatchError("");
-      setTravelBatchSaving(false);
+      return w.submit(event);
     }
-  }, [w.modal]);
-
-  const submit = useCallback(
-    async (event) => {
-      if (w.modal !== TRAVEL_BATCH_MODAL) {
-        return w.submit(event);
-      }
-      event.preventDefault();
-      setTravelBatchSaving(true);
-      setTravelBatchError("");
-      try {
-        await runMutation(
-          {
-            label: "Save",
-            showToast: toast,
-            successMessage: "Saved",
-            onError: (message) => setTravelBatchError(message),
-          },
-          async () => {
-            await executeModalCommand({
-              modal: TRAVEL_BATCH_MODAL,
-              form: w.form,
-              deps: {
-                has: w.has,
-                access: w.access,
-                queries: w.queries || [],
-                team: w.team || [],
-                jobCardModals: JOB_CARD_MODALS,
-                createTravelBatch,
-                updateTravelBatch,
-              },
-            });
-            w.closeModal();
-          },
-        );
-      } catch (err) {
-        setTravelBatchError(err?.data || err?.message || "Unable to save.");
-      }
-      setTravelBatchSaving(false);
-    },
-    [
-      createTravelBatch,
-      toast,
-      updateTravelBatch,
-      w.access,
-      w.closeModal,
-      w.form,
-      w.has,
-      w.modal,
-      w.queries,
-      w.submit,
-      w.team,
-    ],
-  );
+    event.preventDefault();
+    setTravelBatchSaving(true);
+    setTravelBatchError("");
+    try {
+      await runMutation(
+        {
+          label: "Save",
+          showToast: toast,
+          successMessage: "Saved",
+          onError: (message) => setTravelBatchError(message),
+        },
+        async () => {
+          await executeModalCommand({
+            modal: TRAVEL_BATCH_MODAL,
+            form: w.form,
+            deps: {
+              has: w.has,
+              access: w.access,
+              queries: w.queries || [],
+              team: w.team || [],
+              jobCardModals: JOB_CARD_MODALS,
+              createTravelBatch,
+              updateTravelBatch,
+            },
+          });
+          w.closeModal();
+        },
+      );
+    } catch (err) {
+      setTravelBatchError(err?.data || err?.message || "Unable to save.");
+    }
+    setTravelBatchSaving(false);
+  }
 
   return (
+    <EntityModal
+      modal={SPREADSHEET_MODALS.includes(w.modal) ? null : w.modal}
+      form={w.form}
+      updateForm={w.updateForm}
+      patchForm={w.patchForm}
+      submit={submit}
+      close={w.closeModal}
+      error={w.modal === TRAVEL_BATCH_MODAL ? travelBatchError : w.error}
+      isSaving={w.modal === TRAVEL_BATCH_MODAL ? travelBatchSaving : w.isSaving}
+      queries={w.queries || []}
+      proposals={w.proposals || []}
+      jobCards={w.jobCards || []}
+      travellers={w.travellers || []}
+      visas={w.visas || []}
+      pnrs={w.pnrs || []}
+      team={w.team || []}
+      leaveBalances={w.leaveBalances}
+      travellersWithoutVisa={w.travellersWithoutVisa || []}
+      pendingQueryFiles={w.pendingQueryFiles}
+      setPendingQueryFiles={w.setPendingQueryFiles}
+      pendingProposalFiles={w.pendingProposalFiles}
+      setPendingProposalFiles={w.setPendingProposalFiles}
+      pendingExpenseProofFiles={w.pendingExpenseProofFiles}
+      setPendingExpenseProofFiles={w.setPendingExpenseProofFiles}
+      generateQueryUploadUrl={w.generateQueryUploadUrl}
+      attachQueryFile={w.attachQueryFile}
+      getQueryAttachmentUrl={w.getQueryAttachmentUrl}
+      removeQueryAttachment={w.removeQueryAttachment}
+      generateProposalUploadUrl={w.generateProposalUploadUrl}
+      attachProposalFile={w.attachProposalFile}
+      getProposalAttachmentUrl={w.getProposalAttachmentUrl}
+      removeProposalAttachment={w.removeProposalAttachment}
+      generateFinalizedPdfUploadUrl={w.generateFinalizedPdfUploadUrl}
+      attachFinalizedPdf={w.attachFinalizedPdf}
+      getFinalizedPdfUrl={w.getFinalizedPdfUrl}
+      removeFinalizedPdf={w.removeFinalizedPdf}
+      getExpenseAttachmentUrl={w.getExpenseAttachmentUrl}
+      removeExpenseProof={w.removeExpenseProof}
+      has={w.has}
+      access={w.access}
+      leaveHeadApproverCandidates={w.leaveHeadApproverCandidates || []}
+    />
+  );
+}
+
+function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
+  return (
     <>
-      <EntityModal
-        modal={SPREADSHEET_MODALS.includes(w.modal) ? null : w.modal}
-        form={w.form}
-        updateForm={w.updateForm}
-        patchForm={w.patchForm}
-        submit={submit}
-        close={w.closeModal}
-        error={w.modal === TRAVEL_BATCH_MODAL ? travelBatchError : w.error}
-        isSaving={w.modal === TRAVEL_BATCH_MODAL ? travelBatchSaving : w.isSaving}
-        queries={w.queries || []}
-        proposals={w.proposals || []}
-        jobCards={w.jobCards || []}
-        travellers={w.travellers || []}
-        visas={w.visas || []}
-        pnrs={w.pnrs || []}
-        team={w.team || []}
-        leaveBalances={w.leaveBalances}
-        travellersWithoutVisa={w.travellersWithoutVisa || []}
-        pendingQueryFiles={w.pendingQueryFiles}
-        setPendingQueryFiles={w.setPendingQueryFiles}
-        pendingProposalFiles={w.pendingProposalFiles}
-        setPendingProposalFiles={w.setPendingProposalFiles}
-        pendingExpenseProofFiles={w.pendingExpenseProofFiles}
-        setPendingExpenseProofFiles={w.setPendingExpenseProofFiles}
-        generateQueryUploadUrl={w.generateQueryUploadUrl}
-        attachQueryFile={w.attachQueryFile}
-        getQueryAttachmentUrl={w.getQueryAttachmentUrl}
-        removeQueryAttachment={w.removeQueryAttachment}
-        generateProposalUploadUrl={w.generateProposalUploadUrl}
-        attachProposalFile={w.attachProposalFile}
-        getProposalAttachmentUrl={w.getProposalAttachmentUrl}
-        removeProposalAttachment={w.removeProposalAttachment}
-        generateFinalizedPdfUploadUrl={w.generateFinalizedPdfUploadUrl}
-        attachFinalizedPdf={w.attachFinalizedPdf}
-        getFinalizedPdfUrl={w.getFinalizedPdfUrl}
-        removeFinalizedPdf={w.removeFinalizedPdf}
-        getExpenseAttachmentUrl={w.getExpenseAttachmentUrl}
-        removeExpenseProof={w.removeExpenseProof}
-        has={w.has}
-        access={w.access}
-        leaveHeadApproverCandidates={w.leaveHeadApproverCandidates || []}
+      <TravelBatchEntityModalBridge
+        key={travelBatchEntityModalKey(w.modal, w.form)}
+        workspace={w}
       />
       {PASSENGER_IMPORT_MODAL_CONFIGS.map((config) => (
         <PassengerImportModal
@@ -3811,16 +3805,16 @@ function buildJobTravellerCountRows(rows, jobCards) {
   return Array.from(groups.values())
     .map((group) => {
       const summary = buildTravellerCountSummary(group.rows);
+      const foodParts = [];
+      for (const row of summary.foodRows) {
+        if (row.value > 0) foodParts.push(`${row.label}: ${row.value}`);
+      }
       return {
         ...group,
         totalPax: group.rows.length,
         male: summary.male,
         female: summary.female,
-        foodBreakdown:
-          summary.foodRows
-            .filter((row) => row.value > 0)
-            .map((row) => `${row.label}: ${row.value}`)
-            .join(", ") || "-",
+        foodBreakdown: foodParts.join(", ") || "-",
       };
     })
     .sort((a, b) => a.jobCode.localeCompare(b.jobCode));

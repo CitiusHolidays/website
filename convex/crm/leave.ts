@@ -322,13 +322,10 @@ export async function createLeaveRequest(ctx: MutationCtx, args: CreateLeaveArgs
 
   const now = Date.now();
   const headApproverId = await resolveLeaveHeadApproverId(ctx, staff, staffRows);
-  const finalAuthorityId = await resolveLeaveFinalAuthorityId(
-    ctx,
-    staff,
-    headApproverId,
-    staffRows,
-  );
-  const hrCopyStaffId = await resolveLeaveHrCopyStaffId(ctx, staff, staffRows);
+  const [finalAuthorityId, hrCopyStaffId] = await Promise.all([
+    resolveLeaveFinalAuthorityId(ctx, staff, headApproverId, staffRows),
+    resolveLeaveHrCopyStaffId(ctx, staff, staffRows),
+  ]);
   const leaveType = ensureLeaveType(args.leaveType ?? "Casual");
   assertDateRangeOrder(args.startDate, args.endDate, "Leave start date", "Leave end date");
   const fiscalYear = fiscalYearForDate(args.startDate);

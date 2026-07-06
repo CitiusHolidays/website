@@ -70,9 +70,11 @@
       "approvals",
       "reports",
       "team",
-      "employees-on-leave"
+      "employees-on-leave",
+      "settings",
+      "activity"
     ],
-    "denied": ["settings", "activity"]
+    "denied": []
   },
   "Admin": {
     "allowed": ["dashboard", "queries", "settings", "finance", "ticketing", "expenses", "employees-on-leave", "activity"],

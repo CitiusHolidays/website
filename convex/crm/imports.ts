@@ -356,14 +356,16 @@ export const getPassengerExportSource = internalQuery({
     const job = await getVisibleJob(ctx, args.access, jobCardId);
     if (!job) throw new ConvexError("FORBIDDEN");
 
-    const travellers = await ctx.db
-      .query("travellers")
-      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
-      .collect();
-    const travelBatches = await ctx.db
-      .query("travelBatches")
-      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
-      .collect();
+    const [travellers, travelBatches] = await Promise.all([
+      ctx.db
+        .query("travellers")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      ctx.db
+        .query("travelBatches")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+    ]);
     const travelBatchById = new Map(travelBatches.map((batch) => [String(batch._id), batch]));
 
     const rows = await Promise.all(

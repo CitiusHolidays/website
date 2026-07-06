@@ -19,6 +19,7 @@ import {
   getHeadReviewerRolesForStaff,
   isDirectorOrAdmin,
   normalizeEmail,
+  NOTIFICATION_EMAIL_STAGGER_MS,
   notifyRoles,
   notifyStaffMember,
   PERMISSIONS,
@@ -181,7 +182,6 @@ export async function notifyLeaveRequestSubmitted(
     endDate: string;
   },
 ) {
-  const headApprover = args.headApproverId ? await ctx.db.get(args.headApproverId) : null;
   const summary = `${args.staff.name} requested ${args.leaveType} leave from ${args.startDate} to ${args.endDate}.`;
   const payload = {
     title: "Leave request pending",
@@ -189,14 +189,35 @@ export async function notifyLeaveRequestSubmitted(
     entityType: "leave",
     entityId: args.leaveId,
   };
+  let emailDelayMs = 0;
+  const notifiedStaffIds = new Set<string>();
 
-  if (headApprover) {
-    await notifyStaffMember(ctx, headApprover._id, {
-      ...payload,
-      title: "Leave awaiting your approval",
-      body: `${summary} You are the department head approver.`,
-    });
-  }
+  const notifyUniqueStaff = async (
+    staffId: Id<"staffUsers"> | null | undefined,
+    notification: {
+      title: string;
+      body: string;
+      entityType: string;
+      entityId: Id<"staffLeaveRecords">;
+    },
+  ) => {
+    if (!staffId) {
+      return;
+    }
+    const key = String(staffId);
+    if (notifiedStaffIds.has(key)) {
+      return;
+    }
+    notifiedStaffIds.add(key);
+    await notifyStaffMember(ctx, staffId, notification, { emailDelayMs });
+    emailDelayMs += NOTIFICATION_EMAIL_STAGGER_MS;
+  };
+
+  await notifyUniqueStaff(args.headApproverId, {
+    ...payload,
+    title: "Leave awaiting your approval",
+    body: `${summary} You are the department head approver.`,
+  });
 
   const hrCopyPayload = {
     ...payload,
@@ -204,9 +225,9 @@ export async function notifyLeaveRequestSubmitted(
     body: `${summary} HR final approval is required after the head approver decides.`,
   };
   if (args.hrCopyStaffId) {
-    await notifyStaffMember(ctx, args.hrCopyStaffId, hrCopyPayload);
+    await notifyUniqueStaff(args.hrCopyStaffId, hrCopyPayload);
   } else {
-    await notifyRoles(ctx, ["HR"], hrCopyPayload);
+    await notifyRoles(ctx, ["HR"], hrCopyPayload, { emailDelayMs });
   }
 }
 

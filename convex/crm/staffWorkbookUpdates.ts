@@ -241,13 +241,14 @@ function comparableValue(value: unknown) {
 }
 
 function buildChanges(existing: StaffUser | null, after: StaffWorkbookPatch) {
-  return previewFields
-    .map((field) => ({
-      field,
-      before: existing ? (existing[field] ?? (Array.isArray(after[field]) ? [] : "")) : "",
-      after: after[field] ?? "",
-    }))
-    .filter((change) => comparableValue(change.before) !== comparableValue(change.after));
+  const changes = [];
+  for (const field of previewFields) {
+    const before = existing ? (existing[field] ?? (Array.isArray(after[field]) ? [] : "")) : "";
+    const afterValue = after[field] ?? "";
+    if (comparableValue(before) === comparableValue(afterValue)) continue;
+    changes.push({ field, before, after: afterValue });
+  }
+  return changes;
 }
 
 function previewAfter(patch: StaffWorkbookPatch) {
@@ -334,7 +335,12 @@ export async function buildStaffWorkbookPreviewForTest(
 
 function acceptedSet(values?: string[]) {
   if (!values || values.length === 0) return null;
-  return new Set(values.map((value) => normalizeEmail(value)).filter(Boolean));
+  return new Set(
+    values.flatMap((value) => {
+      const normalized = normalizeEmail(value);
+      return normalized ? [normalized] : [];
+    }),
+  );
 }
 
 export async function applyStaffWorkbookRowsForTest(
@@ -357,78 +363,80 @@ export async function applyStaffWorkbookRowsForTest(
     );
   });
 
-  const applied: StaffWorkbookPreviewRow[] = [];
-  for (const row of rowsToApply) {
-    const emailNormalized = normalizeEmail(row.email);
-    const existing = initialByEmail.get(emailNormalized) ?? null;
-    const patch = normalizeWorkbookPatch(row, {
-      staffByName: initialByName,
-      employee: { name: cleanText(row.name), staffId: existing?._id },
-    });
-    const changes = buildChanges(existing, patch);
+  const applied = await Promise.all(
+    rowsToApply.map(async (row) => {
+      const emailNormalized = normalizeEmail(row.email);
+      const existing = initialByEmail.get(emailNormalized) ?? null;
+      const patch = normalizeWorkbookPatch(row, {
+        staffByName: initialByName,
+        employee: { name: cleanText(row.name), staffId: existing?._id },
+      });
+      const changes = buildChanges(existing, patch);
 
-    if (existing) {
-      if (changes.length > 0) {
-        await ctx.db.patch(existing._id, {
-          ...patch,
-          updatedAt: now,
-        });
+      if (existing) {
+        if (changes.length > 0) {
+          await ctx.db.patch(existing._id, {
+            ...patch,
+            updatedAt: now,
+          });
+        }
+        return {
+          action: changes.length > 0 ? "updated" : "unchanged",
+          staffId: existing._id,
+          email: patch.email,
+          emailNormalized: patch.emailNormalized,
+          name: patch.name,
+          before: existing,
+          after: previewAfter(patch),
+          changes,
+          sourceSheet: row.sourceSheet,
+          sourceRowNumber: row.sourceRowNumber,
+        } satisfies StaffWorkbookPreviewRow;
       }
-      applied.push({
-        action: changes.length > 0 ? "updated" : "unchanged",
-        staffId: existing._id,
+
+      const id = await ctx.db.insert("staffUsers", {
+        ...patch,
+        invitedBy: "staff-workbook",
+        pendingPasswordSetup: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return {
+        action: "created",
+        staffId: id,
         email: patch.email,
         emailNormalized: patch.emailNormalized,
         name: patch.name,
-        before: existing,
+        before: {},
         after: previewAfter(patch),
         changes,
         sourceSheet: row.sourceSheet,
         sourceRowNumber: row.sourceRowNumber,
-      });
-      continue;
-    }
-
-    const id = await ctx.db.insert("staffUsers", {
-      ...patch,
-      invitedBy: "staff-workbook",
-      pendingPasswordSetup: true,
-      createdAt: now,
-      updatedAt: now,
-    });
-    applied.push({
-      action: "created",
-      staffId: id,
-      email: patch.email,
-      emailNormalized: patch.emailNormalized,
-      name: patch.name,
-      before: {},
-      after: previewAfter(patch),
-      changes,
-      sourceSheet: row.sourceSheet,
-      sourceRowNumber: row.sourceRowNumber,
-    });
-  }
+      } satisfies StaffWorkbookPreviewRow;
+    }),
+  );
 
   const resolvedStaffRows = (await ctx.db.query("staffUsers").collect()) as StaffUser[];
   const resolvedByEmail = new Map(resolvedStaffRows.map((staff) => [staff.emailNormalized, staff]));
   const resolvedByName = staffNameIndex(resolvedStaffRows);
 
-  for (const row of rowsToApply) {
-    const staff = resolvedByEmail.get(normalizeEmail(row.email));
-    if (!staff) continue;
-    const resolved = normalizeWorkbookPatch(row, {
-      staffByName: resolvedByName,
-      employee: { name: staff.name, staffId: staff._id },
-    });
-    await ctx.db.patch(staff._id, {
-      leaveLevel1ApproverStaffId: resolved.leaveLevel1ApproverStaffId ?? undefined,
-      leaveEscalationApproverStaffId: resolved.leaveEscalationApproverStaffId ?? undefined,
-      leaveFinalAuthorityStaffId: resolved.leaveFinalAuthorityStaffId ?? undefined,
-      leaveHrCopyStaffId: resolved.leaveHrCopyStaffId ?? undefined,
-      updatedAt: now,
-    });
-  }
+  await Promise.all(
+    rowsToApply.map(async (row) => {
+      const staff = resolvedByEmail.get(normalizeEmail(row.email));
+      if (!staff) return;
+      const resolved = normalizeWorkbookPatch(row, {
+        staffByName: resolvedByName,
+        employee: { name: staff.name, staffId: staff._id },
+      });
+      await ctx.db.patch(staff._id, {
+        leaveLevel1ApproverStaffId: resolved.leaveLevel1ApproverStaffId ?? undefined,
+        leaveEscalationApproverStaffId: resolved.leaveEscalationApproverStaffId ?? undefined,
+        leaveFinalAuthorityStaffId: resolved.leaveFinalAuthorityStaffId ?? undefined,
+        leaveHrCopyStaffId: resolved.leaveHrCopyStaffId ?? undefined,
+        updatedAt: now,
+      });
+    }),
+  );
 
   return { summary: summarize(applied), rows: applied };
 }

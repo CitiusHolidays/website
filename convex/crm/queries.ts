@@ -87,16 +87,19 @@ async function notifyJobCardCreators(
   queryId: Id<"queries">,
 ) {
   const staffRows = await ctx.db.query("staffUsers").collect();
-  await Promise.all(
-    staffRows.filter(isJobCardCreatorNotificationTarget).map((staff) =>
+  const notifications = [];
+  for (const staff of staffRows) {
+    if (!isJobCardCreatorNotificationTarget(staff)) continue;
+    notifications.push(
       notifyStaffMember(ctx, staff._id, {
         title: "Order confirmed — open Job Card",
         body: `${query.queryCode} is confirmed. Create the Job Card in Accounts.`,
         entityType: "query",
         entityId: queryId,
       }),
-    ),
-  );
+    );
+  }
+  await Promise.all(notifications);
 }
 
 export function isJobCardCreatorNotificationTarget(staff: { active?: boolean; roles?: string[] }) {

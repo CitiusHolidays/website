@@ -110,7 +110,12 @@ export default function HomeMainClient() {
 
           <div className="grid gap-6 px-4 mx-auto max-w-7xl sm:grid-cols-2 lg:grid-cols-4">
             {services.map((service) => (
-              <ServiceCard key={service.title} {...service} />
+              <ServiceCard
+                key={service.title}
+                title={service.title}
+                icon={service.icon}
+                description={service.description}
+              />
             ))}
           </div>
         </div>

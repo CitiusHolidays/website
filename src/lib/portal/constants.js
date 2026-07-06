@@ -95,7 +95,7 @@ export const SALES_REP_ROLES = ["Sales", "Sales Head", "Sales Cement"];
 
 export const ROLE_PERMISSIONS = {
   Admin: Object.values(PORTAL_PERMISSIONS),
-  Directors: DIRECTOR_PERMISSIONS,
+  Directors: Object.values(PORTAL_PERMISSIONS),
   "Sales Head": [
     P.VIEW_DASHBOARD,
     P.VIEW_QUERIES,

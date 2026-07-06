@@ -31,6 +31,7 @@ import * as crm_reports from "./crm/reports";
 import * as crm_settings from "./crm/settings";
 import * as crm_staff from "./crm/staff";
 import * as crm_staffImport from "./crm/staffImport";
+import * as crm_staffWorkbookUpdates from "./crm/staffWorkbookUpdates";
 import * as crm_ticketing from "./crm/ticketing";
 import * as crm_travellers from "./crm/travellers";
 import * as crm_visa from "./crm/visa";
@@ -99,6 +100,11 @@ export const __convexExportSurface = [
   crm_jobCards.createFromQuery,
   crm_jobCards.update,
   crm_jobCards.updateChecklist,
+  crm_jobCards.updateChecklistTask,
+  crm_jobCards.createChecklistTask,
+  crm_jobCards.removeChecklistTask,
+  crm_jobCards.addCollaborator,
+  crm_jobCards.removeCollaborator,
   crm_jobCards.updateStatus,
   crm_jobCards.assignOperationsOwner,
   crm_jobCards.assignContractingOwner,
@@ -198,6 +204,8 @@ export const __convexExportSurface = [
   crm_proposals.markSent,
   crm_proposals.markAccepted,
   crm_proposals.remove,
+  crm_proposals.addCollaborator,
+  crm_proposals.removeCollaborator,
   crm_proposals.saveFinalizedPdf,
   crm_proposals.clearFinalizedPdf,
   crm_proposals.getFinalizedPdfRecord,
@@ -206,6 +214,7 @@ export const __convexExportSurface = [
   crm_queries.update,
   crm_queries.assignContracting,
   crm_queries.assignQueryTeams,
+  crm_queries.assignJobCardCreator,
   crm_queries.submitToContracting,
   crm_queries.updateStatus,
   crm_queries.remove,
@@ -234,6 +243,8 @@ export const __convexExportSurface = [
   crm_staff.clearPendingPasswordSetup,
   crm_staffImport.bulkImportStaff,
   crm_staffImport.importStaffFromSpreadsheet,
+  crm_staffWorkbookUpdates.previewStaffWorkbookUpdates,
+  crm_staffWorkbookUpdates.applyStaffWorkbookUpdates,
   crm_ticketing.dashboard,
   crm_ticketing.listPnrs,
   crm_ticketing.createPnr,
