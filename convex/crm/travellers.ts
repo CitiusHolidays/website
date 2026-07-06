@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { internalQuery, mutation, query } from "../_generated/server";
+import { roomTypeValidator } from "../lib/roomTypeValidators";
 import {
   assertBulkDeleteLimit,
   canSeeJobCardRecord,
@@ -14,7 +15,6 @@ import {
   requireStaff,
 } from "./lib";
 import { normalizePassportExpiryDate } from "./passportExpiry";
-import { roomTypeValidator } from "../lib/roomTypeValidators";
 
 const foodPreferenceValidator = v.union(
   v.literal("Veg"),
@@ -31,9 +31,26 @@ const paymentTypeValidator = v.union(
 
 const guestTypeValidator = v.union(v.literal("Employee"), v.literal("Client"), v.literal("VIP"));
 
+async function normalizeTravelBatchForJob(ctx: any, jobCardId: Id<"jobCards">, rawId?: string) {
+  const value = String(rawId ?? "").trim();
+  if (!value) {
+    return { travelBatchId: undefined, travelBatch: null };
+  }
+  const travelBatchId = ctx.db.normalizeId("travelBatches", value);
+  if (!travelBatchId) {
+    throw new ConvexError("Invalid Travel Batch id");
+  }
+  const batch = await ctx.db.get(travelBatchId);
+  if (!batch || String(batch.jobCardId) !== String(jobCardId)) {
+    throw new ConvexError("Travel Batch must belong to the selected Job Card");
+  }
+  return { travelBatchId, travelBatch: batch };
+}
+
 const publicTraveller = (
   traveller: any,
   job: any,
+  travelBatch: any = null,
   hasPassportScan = false,
   passportExpiryDate = "",
 ) => ({
@@ -41,6 +58,9 @@ const publicTraveller = (
   jobCardId: traveller.jobCardId,
   jobCode: job?.jobCode ?? "",
   clientName: job?.clientName ?? "",
+  travelBatchId: traveller.travelBatchId ?? "",
+  travelBatchCode: travelBatch?.batchCode ?? "",
+  travelBatchReference: travelBatch?.batchReference ?? "",
   fullName: traveller.fullName,
   surname: traveller.surname ?? "",
   givenName: traveller.givenName ?? "",
@@ -115,6 +135,7 @@ export const list = query({
           return publicTraveller(
             traveller,
             job,
+            traveller.travelBatchId ? await ctx.db.get(traveller.travelBatchId) : null,
             passportScanByTraveller.has(String(traveller._id)),
             passportExpiryByTraveller.get(String(traveller._id)) ?? "",
           );
@@ -182,6 +203,7 @@ export const passportExpirySources = internalQuery({
 export const create = mutation({
   args: {
     jobCardId: v.string(),
+    travelBatchId: v.optional(v.string()),
     fullName: v.string(),
     surname: v.optional(v.string()),
     givenName: v.optional(v.string()),
@@ -219,11 +241,13 @@ export const create = mutation({
     if (!args.fullName.trim()) {
       throw new ConvexError("Traveller name is required");
     }
+    const { travelBatchId } = await normalizeTravelBatchForJob(ctx, jobCardId, args.travelBatchId);
 
     const now = Date.now();
     const visaStatus = args.visaRequired ? "Not Started" : "Not Required";
     const id = await ctx.db.insert("travellers", {
       jobCardId,
+      ...(travelBatchId ? { travelBatchId } : {}),
       fullName: args.fullName.trim(),
       surname: args.surname?.trim() || "",
       givenName: args.givenName?.trim() || "",
@@ -276,6 +300,7 @@ export const create = mutation({
 export const update = mutation({
   args: {
     travellerId: v.string(),
+    travelBatchId: v.optional(v.string()),
     fullName: v.optional(v.string()),
     surname: v.optional(v.string()),
     givenName: v.optional(v.string()),
@@ -317,6 +342,14 @@ export const update = mutation({
 
     const now = Date.now();
     const patch: Record<string, unknown> = { updatedAt: now };
+    if (args.travelBatchId !== undefined) {
+      const normalized = await normalizeTravelBatchForJob(
+        ctx,
+        traveller.jobCardId,
+        args.travelBatchId,
+      );
+      patch.travelBatchId = normalized.travelBatchId;
+    }
     if (args.fullName !== undefined) patch.fullName = args.fullName.trim();
     if (args.surname !== undefined) patch.surname = args.surname.trim();
     if (args.givenName !== undefined) patch.givenName = args.givenName.trim();

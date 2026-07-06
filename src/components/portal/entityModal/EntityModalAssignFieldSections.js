@@ -1,12 +1,19 @@
 "use client";
 
 import { Select } from "@/components/portal/PortalModalForm";
+import { TICKETING_SCOPE_OPTIONS } from "@/lib/portal/constants";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
 import {
   canAssignContracting,
   canAssignQueryTicketing,
   canAssignTicketing,
+  usesSalesInitialAssignmentForm,
 } from "@/lib/portal/permissions";
+
+const TICKETING_SCOPE_SELECT_OPTIONS = [
+  { value: "", label: "Select ticketing scope…" },
+  ...TICKETING_SCOPE_OPTIONS.map((scope) => ({ value: scope, label: scope })),
+];
 
 function queryOptions(queries) {
   return queries.map((q) => ({
@@ -93,6 +100,8 @@ export function AssignQueryTeamsFields({
   contractingTeamOptions,
   ticketingTeamOptions,
 }) {
+  const salesInitial = usesSalesInitialAssignmentForm(access);
+
   return (
     <>
       <Select
@@ -102,7 +111,7 @@ export function AssignQueryTeamsFields({
         onChange={(v) => updateForm("queryId", v)}
         required
       />
-      {canAssignContracting(access) && (
+      {(salesInitial || canAssignContracting(access)) && (
         <Select
           label="Contracting SPOC"
           value={form.staffId}
@@ -114,9 +123,10 @@ export function AssignQueryTeamsFields({
             })),
           ]}
           onChange={(v) => updateForm("staffId", v)}
+          required={salesInitial}
         />
       )}
-      {canAssignQueryTicketing(access) && (
+      {!salesInitial && canAssignQueryTicketing(access) && (
         <Select
           label="Ticketing SPOC"
           value={form.ticketingStaffId}
@@ -130,20 +140,23 @@ export function AssignQueryTeamsFields({
           onChange={(v) => updateForm("ticketingStaffId", v)}
         />
       )}
+      <Select
+        label="Ticketing Scope"
+        value={form.ticketingScope}
+        options={TICKETING_SCOPE_SELECT_OPTIONS}
+        onChange={(v) => updateForm("ticketingScope", v)}
+        required={salesInitial}
+      />
       <p className="text-sm text-brand-muted">
-        Assign at least one SPOC. Contracting prepares land/visa costing; ticketing prepares airfare
-        inputs for the proposal.
+        {salesInitial
+          ? "Choose the Contracting SPOC and Ticketing Scope. Ticketing heads will assign a Ticketing SPOC when needed."
+          : "Assign at least one SPOC or update Ticketing Scope. Contracting prepares land/visa costing; ticketing prepares airfare inputs for the proposal."}
       </p>
     </>
   );
 }
 
-export function AssignJobCardCreatorFields({
-  form,
-  updateForm,
-  queries,
-  accountsTeamOptions,
-}) {
+export function AssignJobCardCreatorFields({ form, updateForm, queries, accountsTeamOptions }) {
   return (
     <>
       <Select
@@ -222,10 +235,7 @@ export function RemoveProposalCollaboratorFields({
       <Select
         label="Collaborator"
         value={form.staffId}
-        options={[
-          { value: "", label: "Select collaborator..." },
-          ...proposalCollaboratorOptions,
-        ]}
+        options={[{ value: "", label: "Select collaborator..." }, ...proposalCollaboratorOptions]}
         onChange={(v) => updateForm("staffId", v)}
         required
       />
@@ -283,10 +293,7 @@ export function RemoveJobCardCollaboratorFields({
       <Select
         label="Collaborator"
         value={form.staffId}
-        options={[
-          { value: "", label: "Select collaborator..." },
-          ...jobCardCollaboratorOptions,
-        ]}
+        options={[{ value: "", label: "Select collaborator..." }, ...jobCardCollaboratorOptions]}
         onChange={(v) => updateForm("staffId", v)}
         required
       />

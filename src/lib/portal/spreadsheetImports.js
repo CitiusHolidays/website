@@ -1,5 +1,5 @@
-import { parseExcelDateCode, workbookRowsFromArrayBuffer } from "./workbookAdapter";
 import { normalizeTravellerGender } from "./travellerSummary";
+import { parseExcelDateCode, workbookRowsFromArrayBuffer } from "./workbookAdapter";
 
 export { workbookFromSheets } from "./workbookAdapter";
 
@@ -21,6 +21,7 @@ export const PASSENGER_EXPORT_HEADERS = [
   "Domestic ticket",
   "Domestic PNR",
   "VENDOR",
+  "Travel Batch",
 ];
 
 export const FLIGHT_EXPORT_HEADER = [
@@ -54,6 +55,7 @@ export const TRAVELLER_MASTER_EXPORT_HEADERS = [
   "Food Preference",
   "Hub",
   "Airlines",
+  "Travel Batch",
   "",
 ];
 
@@ -76,6 +78,7 @@ export const ROOMING_EXPORT_HEADERS = [
   "Hub",
   "Airlines International",
   "Airlines Domestic ",
+  "Travel Batch",
   "",
 ];
 
@@ -93,6 +96,7 @@ export const PASSPORT_EXPORT_HEADERS = [
   "Place of Issue",
   "REMARKS:  Expiry PP / Under Renewal",
   "Contact Number",
+  "Travel Batch",
 ];
 
 export const VISA_EXPORT_HEADERS = [
@@ -116,6 +120,7 @@ export const VISA_EXPORT_HEADERS = [
   "Company paid/ Self Paid",
   "Amount",
   "Remarks ",
+  "Travel Batch",
 ];
 
 const PASSENGER_REQUIRED_HEADERS = ["Name As per Govt. ID Proof", "WILLING TO GO"];
@@ -404,6 +409,26 @@ function templateImportKey({ fullName, dateOfBirth, contactNo, passportNumber })
   return passengerImportKey({ fullName, dateOfBirth, contactNo });
 }
 
+const TRAVEL_BATCH_HEADER_NAMES = ["Travel Batch", "Travel Batch Reference", "Batch Reference"];
+
+function travelBatchHeaderIndex(headers) {
+  for (const name of TRAVEL_BATCH_HEADER_NAMES) {
+    const index = headers.get(headerKey(name));
+    if (index !== undefined) {
+      return index;
+    }
+  }
+  return undefined;
+}
+
+function travelBatchReferenceFromRow(row, headers) {
+  const index = travelBatchHeaderIndex(headers);
+  if (index === undefined) {
+    return undefined;
+  }
+  return clean(row[index]);
+}
+
 function templateRowBase({ row, headers, sheetName, sourceRowNumber, importKind }) {
   const fullName = fullNameFromTemplateRow(row, headers);
   const nameParts = templateNameParts(row, headers);
@@ -455,6 +480,7 @@ function templateRowBase({ row, headers, sheetName, sourceRowNumber, importKind 
     sourceRowNumber,
     importKind,
     importKey: templateImportKey({ fullName, dateOfBirth, contactNo, passportNumber }),
+    travelBatchReference: travelBatchReferenceFromRow(row, headers),
     fullName,
     surname: nameParts.surname,
     givenName: nameParts.givenName,
@@ -691,6 +717,7 @@ export function parsePassengerWorkbook(workbook) {
         sourceRowNumber,
         importKind: "passenger",
         importKey,
+        travelBatchReference: travelBatchReferenceFromRow(row, headers),
         fullName,
         surname: nameParts.surname,
         givenName: nameParts.givenName,
@@ -755,8 +782,14 @@ export function parseFlightWorkbook(workbook) {
     const rawRows = sheetRows(workbook.Sheets[sheetName] ?? []);
     let current = null;
     let groupIndex = 0;
+    let pendingTravelBatchReference = "";
 
     rawRows.forEach((row, rowIndex) => {
+      if (headerKey(clean(row[0])) === headerKey("Travel Batch")) {
+        pendingTravelBatchReference = clean(row[1]);
+        return;
+      }
+
       const headerStart = findFlightHeaderStart(row);
       if (headerStart >= 0) {
         current = {
@@ -765,8 +798,10 @@ export function parseFlightWorkbook(workbook) {
           groupIndex,
           headerStart,
           name: `${sheetName} itinerary ${groupIndex + 1}`,
+          travelBatchReference: pendingTravelBatchReference || undefined,
           segments: [],
         };
+        pendingTravelBatchReference = "";
         groups.push(current);
         groupIndex += 1;
         return;

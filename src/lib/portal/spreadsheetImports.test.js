@@ -105,6 +105,45 @@ describe("passenger spreadsheet imports", () => {
     });
   });
 
+  test("reads optional travel batch reference from template rows", () => {
+    const workbook = workbookFromSheets({
+      Rooming: [
+        ["SURNAME", "GIVEN NAME", "ROOMING Category", "Travel Batch"],
+        ["GARG", "SANJAY", "TWIN", "JC-0001 / B01"],
+      ],
+    });
+
+    const result = parseRoomingWorkbook(workbook);
+    expect(result.rows[0]).toMatchObject({
+      fullName: "GARG SANJAY",
+      travelBatchReference: "JC-0001 / B01",
+    });
+  });
+
+  test("omits travelBatchReference when the Travel Batch column is absent", () => {
+    const workbook = workbookFromSheets({
+      Rooming: [
+        ["SURNAME", "GIVEN NAME", "ROOMING Category"],
+        ["GARG", "SANJAY", "TWIN"],
+      ],
+    });
+
+    const result = parseRoomingWorkbook(workbook);
+    expect(result.rows[0].travelBatchReference).toBeUndefined();
+  });
+
+  test("keeps blank Travel Batch column as empty string for intentional unbatching", () => {
+    const workbook = workbookFromSheets({
+      Rooming: [
+        ["SURNAME", "GIVEN NAME", "ROOMING Category", "Travel Batch"],
+        ["GARG", "SANJAY", "TWIN", ""],
+      ],
+    });
+
+    const result = parseRoomingWorkbook(workbook);
+    expect(result.rows[0].travelBatchReference).toBe("");
+  });
+
   test("normalizes meal preferences", () => {
     expect(normalizeFoodPreference("NON VEG")).toBe("Non-Veg");
     expect(normalizeFoodPreference("Jain Meal")).toBe("Jain");

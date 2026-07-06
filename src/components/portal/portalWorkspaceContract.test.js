@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 const WORKSPACE_FILE = "src/components/portal/PortalWorkspace.js";
 const WORKSPACE_STATE_FILE = "src/components/portal/usePortalWorkspaceState.js";
+const WORKSPACE_CONTRACT_FILE = "src/lib/portal/workspaceContract.js";
 const DATE_INPUT_FILE = "src/components/portal/PortalDateInput.js";
 const FINANCE_FILE = "convex/crm/finance.ts";
 const EXPENSE_ATTACHMENT_ACTIONS_FILE = "convex/crm/expenseAttachmentActions.ts";
@@ -29,6 +30,20 @@ function workspaceHookReturnKeys() {
 }
 
 describe("portal workspace modularization contract", () => {
+  test("workspace view metadata and form defaults live in the shared contract", () => {
+    const workspace = read(WORKSPACE_FILE);
+    const hook = read(WORKSPACE_STATE_FILE);
+    const contract = read(WORKSPACE_CONTRACT_FILE);
+
+    expect(contract).toContain("export const VIEW_META");
+    expect(contract).toContain("export const INITIAL_FORM");
+    expect(contract).toContain("export const SPREADSHEET_MODALS");
+    expect(workspace).toContain("@/lib/portal/workspaceContract");
+    expect(hook).toContain("@/lib/portal/workspaceContract");
+    expect(workspace).not.toMatch(/\bconst VIEW_META\b|\bconst INITIAL_FORM\b/);
+    expect(hook).not.toMatch(/\bconst VIEW_META\b|\bconst INITIAL_FORM\b/);
+  });
+
   test("PortalWorkspace only reads properties returned by usePortalWorkspaceState", () => {
     const workspace = read(WORKSPACE_FILE);
     const usedKeys = new Set([...workspace.matchAll(/\bw\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));
@@ -37,6 +52,17 @@ describe("portal workspace modularization contract", () => {
     const missingKeys = [...usedKeys].filter((key) => !returnedKeys.has(key)).sort();
 
     expect(missingKeys).toEqual([]);
+  });
+
+  test("All Sales Query delete actions use the existing confirmation flow with the row id", () => {
+    const workspace = read(WORKSPACE_FILE);
+    const deleteCalls =
+      workspace.match(/deleteItem\(row\.queryCode, removeQuery, \{ queryId: row\.id \}\)/g) ?? [];
+
+    expect(deleteCalls.length).toBeGreaterThanOrEqual(1);
+    expect(workspace).not.toContain(
+      "deleteItem(row.queryCode, removeQuery, { queryId: row.queryCode })",
+    );
   });
 
   test("list views use compact toolbar instead of legacy page header", () => {
@@ -102,6 +128,17 @@ describe("portal workspace modularization contract", () => {
     expect(attachmentActions).toContain("verifyExpenseProofMutationAccess");
   });
 
+  test("settings staff workbook flow wires parser and Convex preview/apply APIs", () => {
+    const workspace = read(WORKSPACE_FILE);
+    const panel = read("src/components/portal/settings/StaffWorkbookImportPanel.js");
+
+    expect(workspace).toContain("StaffWorkbookImportPanel");
+    expect(panel).toContain("parseStaffWorkbookFile");
+    expect(panel).toContain("api.crm.staffWorkbookUpdates.previewStaffWorkbookUpdates");
+    expect(panel).toContain("api.crm.staffWorkbookUpdates.applyStaffWorkbookUpdates");
+    expect(panel).not.toContain("Sync leave approvers from matrix");
+  });
+
   test("leave modal shows balances and staff modal hides deferred policy fields", () => {
     const workspace = read(WORKSPACE_FILE);
     const leaveCall = workspace.match(/<LeaveView[\s\S]*?\/>/)?.[0] || "";
@@ -116,5 +153,40 @@ describe("portal workspace modularization contract", () => {
     expect(leaveFields).toContain("No balance limit");
     expect(staffFields).not.toContain('label="Joining Date"');
     expect(staffFields).not.toContain('label="Employment Status"');
+  });
+
+  test("leave view exposes final-authority approve via canApproveFinal and Approved decision", () => {
+    const workspace = read(WORKSPACE_FILE);
+    const leaveView =
+      workspace.match(/function LeaveView\([\s\S]*?\nfunction SettingsView/)?.[0] || "";
+
+    expect(leaveView).toContain("row.canApproveHead");
+    expect(leaveView).toContain("row.canApproveHr");
+    expect(leaveView).toContain("row.canApproveFinal");
+    expect(leaveView).toMatch(
+      /row\.canApproveFinal[\s\S]*?handleLeaveDecision\(row\.id, "Approved"\)/,
+    );
+    expect(leaveView).toContain("Approve (Final Authority)");
+  });
+
+  test("job cards view exposes travel batches and Convex travel batch mutations", () => {
+    const workspace = read(WORKSPACE_FILE);
+    const contract = read(WORKSPACE_CONTRACT_FILE);
+    const executor = read("src/lib/portal/modalCommandExecutor.js");
+    const primaryFields = read("src/components/portal/entityModal/EntityModalFieldsPrimary.js");
+    const jobCardsView =
+      workspace.match(/function JobCardsView\([\s\S]*?\nfunction JobCardRowActions/)?.[0] || "";
+
+    expect(contract).toContain("export const TRAVEL_BATCH_MODAL");
+    expect(contract).toContain("buildTravelBatchModalInitial");
+    expect(contract).toContain("formatTravelBatchOwnerSummary");
+    expect(workspace).toContain("JobCardTravelBatchesCell");
+    expect(workspace).toContain("travelBatches");
+    expect(workspace).toContain("api.crm.jobCards.createTravelBatch");
+    expect(workspace).toContain("api.crm.jobCards.updateTravelBatch");
+    expect(primaryFields).toContain("EntityModalTravelBatchFields");
+    expect(executor).toContain('modal === "travelBatch"');
+    expect(jobCardsView).toContain("Travel Batches");
+    expect(workspace).toContain("Add Travel Batch");
   });
 });

@@ -4,6 +4,7 @@ import type { Id } from "../_generated/dataModel";
 import { internalMutation, mutation, query } from "../_generated/server";
 import {
   canEditContractingRecord,
+  canSeeJobCardRecord,
   canSeeProposalRecord,
   canSeeQueryRecord,
   createActivity,
@@ -776,10 +777,24 @@ export const getFinalizedPdfRecord = query({
     }
     const [linkedQueries, access] = await Promise.all([
       linkedQueriesForProposal(ctx, proposal),
-      requireAnyPermission(ctx, [PERMISSIONS.VIEW_PROPOSALS, PERMISSIONS.MANAGE_JOB_CARDS]),
+      requireAnyPermission(ctx, [
+        PERMISSIONS.VIEW_PROPOSALS,
+        PERMISSIONS.MANAGE_JOB_CARDS,
+        PERMISSIONS.VIEW_JOB_CARDS,
+      ]),
     ]);
     if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
-      throw new ConvexError("FORBIDDEN");
+      const linkedJobs = await ctx.db
+        .query("jobCards")
+        .withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId))
+        .collect();
+      const visibleJob = linkedJobs.some((job) => {
+        const linkedQuery = linkedQueries.find((query) => query._id === job.queryId);
+        return canSeeJobCardRecord(access, job, linkedQuery);
+      });
+      if (!visibleJob) {
+        throw new ConvexError("FORBIDDEN");
+      }
     }
     return {
       proposalId,

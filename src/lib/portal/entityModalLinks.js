@@ -27,6 +27,22 @@ function linkedTravellerOptions(travellers, jobCardId) {
   ];
 }
 
+function travelBatchLabel(batch) {
+  return batch.batchReference || batch.batchCode || batch.id;
+}
+
+function travelBatchSelectOptions(jobCards, jobCardId) {
+  const job = jobCards.find((entry) => entry.id === jobCardId);
+  const batches = job?.travelBatches || [];
+  return [
+    { value: "", label: jobCardId ? "Unbatched" : "Select job card first…" },
+    ...batches.map((batch) => ({
+      value: batch.id,
+      label: travelBatchLabel(batch),
+    })),
+  ];
+}
+
 function linkedPnrOptions(pnrs, jobCardId) {
   const rows = jobCardId ? pnrs.filter((pnr) => pnr.jobCardId === jobCardId) : pnrs;
   return [
@@ -50,6 +66,9 @@ function applyJobCardLink(form, job, modal, { onlyEmpty = false } = {}) {
 
   if (modal === "traveller") {
     set("travelDate", job.travelStartDate);
+    if (!onlyEmpty || !form.travelBatchId) {
+      patch.travelBatchId = "";
+    }
   }
   if (modal === "hotel") {
     set("checkInDate", job.travelStartDate);
@@ -58,6 +77,21 @@ function applyJobCardLink(form, job, modal, { onlyEmpty = false } = {}) {
   }
   if (modal === "expense" || modal === "tourManager") {
     set("tourManagerName", job.tourManagerName);
+  }
+  if (modal === "travelBatch") {
+    set("destination", job.destination);
+    set("confirmedPax", String(job.confirmedPax ?? ""));
+    set("roomCount", String(job.roomCount ?? ""));
+    set("travelStartDate", job.travelStartDate);
+    set("travelEndDate", job.travelEndDate);
+    set("contractingOwnerId", job.contractingOwnerId);
+    set("contractingOwnerName", job.contractingOwnerName);
+    set("operationsOwnerId", job.operationsOwnerId);
+    set("operationsOwnerName", job.operationsOwnerName);
+    set("ticketingOwnerId", job.ticketingOwnerId);
+    set("ticketingOwnerName", job.ticketingOwnerName);
+    set("tourManagerName", job.tourManagerName);
+    set("status", job.status || "Open");
   }
 
   return patch;
@@ -75,6 +109,9 @@ function applyTravellerLink(form, traveller, modal, { onlyEmpty = false } = {}) 
 
   if (traveller.jobCardId) {
     set("jobCardId", traveller.jobCardId);
+  }
+  if (modal === "traveller") {
+    set("travelBatchId", traveller.travelBatchId || "");
   }
   if (modal === "ticket") {
     set("paymentType", traveller.paymentType);
@@ -147,7 +184,17 @@ function applyVisaRecordLink(form, visa, { onlyEmpty = false } = {}) {
   return patch;
 }
 
-function reconcileLinkedSelections(form, travellers, pnrs) {
+function reconcileTravelBatchSelection(form, jobCards) {
+  if (!form.travelBatchId || !form.jobCardId) return {};
+  const job = jobCards.find((entry) => entry.id === form.jobCardId);
+  const batches = job?.travelBatches || [];
+  if (!batches.some((batch) => batch.id === form.travelBatchId)) {
+    return { travelBatchId: "" };
+  }
+  return {};
+}
+
+function reconcileLinkedSelections(form, travellers, pnrs, jobCards) {
   const patch = {};
 
   if (form.travellerId) {
@@ -164,6 +211,8 @@ function reconcileLinkedSelections(form, travellers, pnrs) {
     }
   }
 
+  Object.assign(patch, reconcileTravelBatchSelection(form, jobCards));
+
   return patch;
 }
 
@@ -178,4 +227,6 @@ export {
   linkedPnrOptions,
   linkedTravellerOptions,
   reconcileLinkedSelections,
+  reconcileTravelBatchSelection,
+  travelBatchSelectOptions,
 };

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { canReceiveNotification, expandNotificationEmailRoles } from "./lib";
+import { canReceiveNotification, expandNotificationEmailRoles, notifyRoles } from "./lib";
 import { getNotificationHref } from "./notificationPaths";
 
 describe("notification paths", () => {
@@ -51,7 +51,11 @@ describe("notification paths", () => {
 });
 
 describe("canReceiveNotification", () => {
-  const access = { authUserId: "user_a", roles: ["Sales", "Operations"] };
+  const access = {
+    staffId: "staff_a" as never,
+    authUserId: "user_a",
+    roles: ["Sales", "Operations"],
+  };
 
   test("allows notifications targeted at the signed-in user", () => {
     expect(canReceiveNotification({ recipientUserId: "user_a" }, access)).toBe(true);
@@ -59,6 +63,24 @@ describe("canReceiveNotification", () => {
 
   test("rejects notifications for a different user", () => {
     expect(canReceiveNotification({ recipientUserId: "user_b" }, access)).toBe(false);
+  });
+
+  test("allows staff-targeted notifications even when auth user id changed", () => {
+    expect(
+      canReceiveNotification(
+        { recipientStaffId: "staff_a" as never, recipientUserId: "old_user_a" },
+        access,
+      ),
+    ).toBe(true);
+  });
+
+  test("rejects staff-targeted notifications for another staff record", () => {
+    expect(
+      canReceiveNotification(
+        { recipientStaffId: "staff_b" as never, recipientUserId: "user_a" },
+        access,
+      ),
+    ).toBe(false);
   });
 
   test("allows role-targeted notifications when the user has the role", () => {
@@ -84,6 +106,62 @@ describe("expandNotificationEmailRoles", () => {
     expect(expandNotificationEmailRoles(["Contracting Head", "Operations Head"])).toEqual([
       "Contracting Head",
       "Operations Head",
+    ]);
+  });
+});
+
+describe("notifyRoles", () => {
+  test("uses expanded role recipients for bell rows and email recipients", async () => {
+    const tables: Record<string, any[]> = {
+      staffUsers: [
+        {
+          _id: "staff_accounts",
+          email: "accounts@example.com",
+          roles: ["Accounts"],
+          active: true,
+        },
+        {
+          _id: "staff_accounts_head",
+          email: "head@example.com",
+          roles: ["Accounts Head"],
+          active: true,
+        },
+      ],
+      notifications: [],
+    };
+    const scheduled: any[] = [];
+    const ctx = {
+      scheduler: {
+        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
+          scheduled.push({ fn, args });
+        },
+      },
+      db: {
+        query: (table: string) => ({
+          collect: async () => tables[table] ?? [],
+        }),
+        insert: async (table: string, doc: Record<string, unknown>) => {
+          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
+          tables[table].push(row);
+          return row._id;
+        },
+      },
+    };
+
+    await notifyRoles(ctx as never, ["Accounts"], {
+      title: "Accounts ping",
+      body: "Check this",
+      entityType: "query",
+      entityId: "query_1",
+    });
+
+    expect(tables.notifications.map((row) => row.recipientRole).sort()).toEqual([
+      "Accounts",
+      "Accounts Head",
+    ]);
+    expect(scheduled[0].args.recipients.sort()).toEqual([
+      "accounts@example.com",
+      "head@example.com",
     ]);
   });
 });
@@ -163,6 +241,38 @@ describe("notificationReads bounded fetch", () => {
       10,
     );
     expect(result.map((row) => row._id)).toEqual(["n1", "n2"]);
+  });
+
+  test("fetchNotificationsForAccess includes stable staff-id notifications", async () => {
+    const { fetchNotificationsForAccess } = await import("./notificationReads");
+    const rows = [
+      {
+        _id: "n1",
+        title: "Mine by staff",
+        body: "",
+        recipientStaffId: "staff_a",
+        recipientUserId: "old_user_a",
+        createdAt: 4,
+      },
+      {
+        _id: "n2",
+        title: "Other staff",
+        body: "",
+        recipientStaffId: "staff_b",
+        createdAt: 3,
+      },
+    ];
+    const ctx = makeNotificationCtx(rows);
+    const result = await fetchNotificationsForAccess(
+      ctx as never,
+      {
+        staffId: "staff_a",
+        authUserId: "new_user_a",
+        roles: [],
+      },
+      10,
+    );
+    expect(result.map((row) => row._id)).toEqual(["n1"]);
   });
 
   test("notificationSummaryForAccessFromDb sets hasMoreUnread when scan cap is hit", async () => {

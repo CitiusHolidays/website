@@ -33,6 +33,7 @@ import {
   cloneElement,
   isValidElement,
   Suspense,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -55,6 +56,7 @@ import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm"
 import { usePortalToast } from "@/components/portal/PortalToast";
 import SaveViewDialog from "@/components/portal/SaveViewDialog";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { StaffWorkbookImportPanel } from "@/components/portal/settings/StaffWorkbookImportPanel";
 import { usePortalNotificationDeepLink } from "@/components/portal/usePortalNotificationDeepLink";
 import { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
 import { formatDisplayDate } from "@/lib/formatDate";
@@ -93,6 +95,8 @@ import {
   filterEmptyMessage,
   hasActiveListFilters,
 } from "@/lib/portal/listFilters";
+import { executeModalCommand } from "@/lib/portal/modalCommandExecutor";
+import { JOB_CARD_MODALS } from "@/lib/portal/modalLifecycle";
 import {
   buildModalInitial,
   getNotificationHref,
@@ -109,13 +113,16 @@ import {
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
 import {
+  assignQueryTeamsButtonLabel,
   canAssignContracting,
   canAssignOperations,
   canAssignQueryTicketing,
   canAssignTicketing,
   canAssignTourManagers,
   canCreateJobCardFromAccounts,
+  canHeadAssignQueryTeams,
   canManageJobCardCreatorAccess,
+  canShowAssignQueryTeamsButton,
   getAccessibleNavGroups,
   getQueryTypeOptions,
   isCementScopedUser,
@@ -127,6 +134,7 @@ import {
   proposalLinkedQueryLabel,
   proposalPrimaryQuery,
 } from "@/lib/portal/proposalLinks";
+import { buildQueryStatusAction } from "@/lib/portal/queryStatusAction";
 import { runMutation } from "@/lib/portal/runMutation";
 import {
   buildFlightWorkbook,
@@ -154,24 +162,15 @@ import {
   getPipelineBuckets,
   getSalesPipelineBuckets,
 } from "@/lib/portal/workflow";
+import {
+  buildTravelBatchModalInitial,
+  formatTravelBatchOwnerSummary,
+  SPREADSHEET_MODALS,
+  TRAVEL_BATCH_MODAL,
+} from "@/lib/portal/workspaceContract";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const P = PORTAL_PERMISSIONS;
-const SPREADSHEET_MODALS = [
-  "passengerImport",
-  "flightImport",
-  "passengerExport",
-  "flightExport",
-  "travellerImport",
-  "travellerExport",
-  "roomingImport",
-  "roomingExport",
-  "passportImport",
-  "passportExport",
-  "visaImport",
-  "visaExport",
-];
-
 const EMPTY_JOB_CARDS = [];
 const EMPTY_LIST_FILTER_CONFIG = [];
 const EMPTY_LIST_FILTERS = {};
@@ -222,250 +221,6 @@ const PASSENGER_EXPORT_INITIAL = {
   error: "",
 };
 
-const VIEW_META = {
-  dashboard: {
-    title: "Dashboard",
-    subtitle: "Live overview across active enquiries, jobs, tickets, visas, and payments.",
-    permission: P.VIEW_DASHBOARD,
-  },
-  queries: {
-    title: "All Sales Queries",
-    subtitle: "Manage incoming MICE, group travel, FIT, B2B, cement, and spiritual enquiries.",
-    permission: P.VIEW_QUERIES,
-  },
-  pipeline: {
-    title: "Pipeline View",
-    subtitle: "Track query movement from contracting to confirmed or lost.",
-    permission: P.VIEW_QUERIES,
-  },
-  proposals: {
-    title: "Proposals",
-    subtitle: "Create, cost, and send proposals linked to active queries.",
-    permission: P.VIEW_PROPOSALS,
-  },
-  contracting: {
-    title: "Contracting Dashboard",
-    subtitle: "Assign contracting SPOCs and move proposals through contracting statuses.",
-    permission: P.VIEW_CONTRACTING,
-  },
-  "accounts-job-cards": {
-    title: "Accounts / Job Card Creation",
-    subtitle: "Create Job Card numbers only after order confirmation.",
-    permission: P.MANAGE_JOB_CARDS,
-  },
-  "job-cards": {
-    title: "Job Cards",
-    subtitle: "Operational file control, progress, and pre-departure checklist status.",
-    permission: P.VIEW_JOB_CARDS,
-  },
-  travellers: {
-    title: "Traveller Master Sheet",
-    subtitle:
-      "Guest details, hubs, food preferences, rooming, visa, ticket, and TM calling status.",
-    permission: P.VIEW_TRAVELLERS,
-  },
-  passport: {
-    title: "Passport Documents",
-    subtitle: "Upload, encrypt, and manage traveller passport scans.",
-    permission: P.VIEW_VISA,
-  },
-  visa: {
-    title: "Visa Tracking",
-    subtitle:
-      "Checklist, appointments, submission, approval, rejection, and re-application tracking.",
-    permission: P.VIEW_VISA,
-  },
-  ticketing: {
-    title: "Ticket Dashboard",
-    subtitle: "Ticket status summary across active Job Cards.",
-    permission: P.VIEW_TICKETING,
-  },
-  flights: {
-    title: "Flights & PNR",
-    subtitle: "Manage PNRs, routes, fare types, group seats, and airline records.",
-    permission: P.VIEW_TICKETING,
-  },
-  "seat-allocation": {
-    title: "Seat Allocation",
-    subtitle: "Manual stored seat assignments, holds, and blocks.",
-    permission: P.VIEW_TICKETING,
-  },
-  tickets: {
-    title: "All Tickets",
-    subtitle: "Issue, reissue, cancellation, name correction, and refund tracking.",
-    permission: P.VIEW_TICKETING,
-  },
-  hotels: {
-    title: "Hotel / Rooming List",
-    subtitle: "Hotel arrangements, rooming, special instructions, and ground planning.",
-    permission: P.VIEW_OPERATIONS,
-  },
-  "tour-managers": {
-    title: "Tour Managers",
-    subtitle: "TM assignment, calling status, availability, and active tour visibility.",
-    permission: P.VIEW_TOUR_MANAGERS,
-  },
-  finance: {
-    title: "Finance",
-    subtitle: "Fund projections, invoices, received amounts, balances, and closure status.",
-    permission: P.VIEW_FINANCE,
-  },
-  expenses: {
-    title: "Expense Management",
-    subtitle: "Tour-wise expenses, approval, and reimbursement tracking.",
-    permission: P.VIEW_EXPENSES,
-  },
-  approvals: {
-    title: "Approvals",
-    subtitle: "Unified approval queue for expenses and finance handoffs.",
-    permission: P.VIEW_APPROVALS,
-  },
-  reports: {
-    title: "Reports",
-    subtitle: "Revenue, headcount, and conversion snapshots for leadership review.",
-    permission: P.VIEW_REPORTS,
-  },
-  team: {
-    title: "Team Directory",
-    subtitle: "Read-only staff directory by department, role, and location.",
-    permission: P.VIEW_TEAM,
-  },
-  "employees-on-leave": {
-    title: "Employees on Leave",
-    subtitle: "Leave requests, approvals, and team availability.",
-    permission: P.VIEW_LEAVE,
-  },
-  activity: {
-    title: "Notifications / Activity Log",
-    subtitle: "Audit trail for CRM status changes and workflow triggers.",
-    permission: P.VIEW_ACTIVITY,
-  },
-  settings: {
-    title: "Settings / Dropdown Management",
-    subtitle: "Staff allowlist and workflow dropdown reference values.",
-    permission: P.MANAGE_STAFF,
-  },
-};
-
-const INITIAL_FORM = {
-  clientName: "",
-  contactPerson: "",
-  contactMobile: "",
-  destination: "",
-  paxCount: "1",
-  travelStartDate: "",
-  travelEndDate: "",
-  queryType: "MICE",
-  travelType: "International Travel",
-  budgetAmount: "",
-  source: "Client",
-  leadStage: "Inquiry",
-  salesOwnerName: "",
-  notes: "",
-  queryCode: "",
-  queryId: "",
-  queryIds: [],
-  proposalId: "",
-  landCostPerPax: "",
-  airfarePerPax: "",
-  visaCostPerPax: "",
-  sellingPrice: "",
-  costPrice: "",
-  taxRate: "",
-  expenseType: "jobCard",
-  itinerarySummary: "",
-  ownerName: "",
-  salesStatus: "Proposal in discussion",
-  contractingStatus: "Proposal in progress",
-  lostReason: "Price",
-  contractingLandCost: "",
-  contractingAirlinesCost: "",
-  contractingVisaCost: "",
-  approxMargin: "",
-  confirmedPax: "1",
-  roomCount: "",
-  tourManagerName: "",
-  jobCardId: "",
-  fullName: "",
-  travelHub: "",
-  travelDate: "",
-  guestCompanions: "",
-  foodPreference: "Veg",
-  gender: "",
-  guestType: "Employee",
-  paymentType: "Company Paid",
-  roomType: "Twin",
-  visaRequired: "Yes",
-  passportStatus: "Pending",
-  hotelAllocation: "",
-  domesticTravelRequired: "No",
-  biometricAppointmentDate: "",
-  extensionOfTour: "No",
-  arrivingEarly: "No",
-  visaRecordId: "",
-  visaStatus: "Checklist Shared",
-  appointmentDate: "",
-  pnrCode: "",
-  airline: "",
-  route: "",
-  fareType: "",
-  totalSeats: "1",
-  travellerId: "",
-  pnrId: "",
-  ticketNumber: "",
-  ticketType: "FIT Ticket",
-  ticketStatus: "Issued",
-  cabinClass: "Economy",
-  seatPreference: "",
-  seatNumber: "",
-  seatStatus: "Assigned",
-  hotelName: "",
-  city: "",
-  checkInDate: "",
-  checkOutDate: "",
-  staffId: "",
-  staffName: "",
-  staffEmail: "",
-  staffRoles: ["Sales"],
-  staffActive: true,
-  invoiceNumber: "",
-  expectedAmount: "",
-  receivedAmount: "",
-  dueDate: "",
-  category: "",
-  expenseDate: "",
-  particulars: "",
-  currency: "INR",
-  cardAmount: "",
-  cashAmount: "",
-  epayAmount: "",
-  amount: "",
-  paidBy: "",
-  department: "",
-  leaveType: "Casual",
-  startDate: "",
-  endDate: "",
-  reason: "",
-  status: "Pending",
-  entityId: "",
-  approvalId: "",
-  approvalStatus: "Rejected",
-  decisionNote: "",
-  staffFunction: "",
-  mobile: "",
-  location: "",
-};
-
-const JOB_CARD_MODALS = new Set([
-  "traveller",
-  "pnr",
-  "ticket",
-  "seat",
-  "hotel",
-  "invoice",
-  "expense",
-]);
-
 function jobCardFilterOptions(jobCards) {
   return [
     { value: "", label: "All job cards" },
@@ -474,6 +229,10 @@ function jobCardFilterOptions(jobCards) {
       label: job.jobCode,
     })),
   ];
+}
+
+function travelBatchDisplayLabel(row) {
+  return row?.travelBatchReference || row?.travelBatchCode || "-";
 }
 
 function jobCardSelectOptions(jobCards, { required = false, allowUnassigned = false } = {}) {
@@ -629,7 +388,7 @@ function reconcileLinkedSelections(form, travellers, pnrs) {
 export default function PortalWorkspace(props) {
   return (
     <Suspense fallback={<LoadingPanel />}>
-      <PortalWorkspaceInner key={props.view || "dashboard"} {...props} />
+      <PortalWorkspaceInner {...props} key={props.view || "dashboard"} />
     </Suspense>
   );
 }
@@ -745,7 +504,7 @@ function PortalWorkspaceViews({ workspace: w }) {
           filtersActive={w.filtersActive}
           openModal={w.openModal}
           has={w.has}
-          canAssign={canAssignContracting(w.access) || canAssignQueryTicketing(w.access)}
+          access={w.access}
           deleteItem={w.deleteItem}
           removeQuery={w.removeQuery}
           submitToContracting={w.submitToContracting}
@@ -767,7 +526,7 @@ function PortalWorkspaceViews({ workspace: w }) {
           team={w.team || []}
           openModal={w.openModal}
           has={w.has}
-          canAssign={canAssignContracting(w.access) || canAssignQueryTicketing(w.access)}
+          canAssign={canHeadAssignQueryTeams(w.access)}
           deleteItem={w.deleteItem}
           removeQuery={w.removeQuery}
         />
@@ -1110,6 +869,72 @@ const PASSENGER_EXPORT_MODAL_CONFIGS = [
 ];
 
 function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
+  const toast = usePortalToast();
+  const createTravelBatch = useMutation(api.crm.jobCards.createTravelBatch);
+  const updateTravelBatch = useMutation(api.crm.jobCards.updateTravelBatch);
+  const [travelBatchError, setTravelBatchError] = useState("");
+  const [travelBatchSaving, setTravelBatchSaving] = useState(false);
+
+  useEffect(() => {
+    if (w.modal !== TRAVEL_BATCH_MODAL) {
+      setTravelBatchError("");
+      setTravelBatchSaving(false);
+    }
+  }, [w.modal]);
+
+  const submit = useCallback(
+    async (event) => {
+      if (w.modal !== TRAVEL_BATCH_MODAL) {
+        return w.submit(event);
+      }
+      event.preventDefault();
+      setTravelBatchSaving(true);
+      setTravelBatchError("");
+      try {
+        await runMutation(
+          {
+            label: "Save",
+            showToast: toast,
+            successMessage: "Saved",
+            onError: (message) => setTravelBatchError(message),
+          },
+          async () => {
+            await executeModalCommand({
+              modal: TRAVEL_BATCH_MODAL,
+              form: w.form,
+              deps: {
+                has: w.has,
+                access: w.access,
+                queries: w.queries || [],
+                team: w.team || [],
+                jobCardModals: JOB_CARD_MODALS,
+                createTravelBatch,
+                updateTravelBatch,
+              },
+            });
+            w.closeModal();
+          },
+        );
+      } catch (err) {
+        setTravelBatchError(err?.data || err?.message || "Unable to save.");
+      }
+      setTravelBatchSaving(false);
+    },
+    [
+      createTravelBatch,
+      toast,
+      updateTravelBatch,
+      w.access,
+      w.closeModal,
+      w.form,
+      w.has,
+      w.modal,
+      w.queries,
+      w.submit,
+      w.team,
+    ],
+  );
+
   return (
     <>
       <EntityModal
@@ -1117,10 +942,10 @@ function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
         form={w.form}
         updateForm={w.updateForm}
         patchForm={w.patchForm}
-        submit={w.submit}
+        submit={submit}
         close={w.closeModal}
-        error={w.error}
-        isSaving={w.isSaving}
+        error={w.modal === TRAVEL_BATCH_MODAL ? travelBatchError : w.error}
+        isSaving={w.modal === TRAVEL_BATCH_MODAL ? travelBatchSaving : w.isSaving}
         queries={w.queries || []}
         proposals={w.proposals || []}
         jobCards={w.jobCards || []}
@@ -1156,13 +981,13 @@ function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
       />
       {PASSENGER_IMPORT_MODAL_CONFIGS.map((config) => (
         <PassengerImportModal
-          key={config.modal}
           open={w.modal === config.modal}
           close={w.closeModal}
           jobCards={w.jobCards || []}
           previewPassengerImport={w.previewPassengerImport}
           commitPassengerImport={w.commitPassengerImport}
           {...config}
+          key={config.modal}
         />
       ))}
       <FlightImportModal
@@ -1174,12 +999,12 @@ function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
       />
       {PASSENGER_EXPORT_MODAL_CONFIGS.map((config) => (
         <PassengerExportModal
-          key={config.modal}
           open={w.modal === config.modal}
           close={w.closeModal}
           jobCards={w.jobCards || []}
           getPassengerExportRows={w.getPassengerExportRows}
           {...config}
+          key={config.modal}
         />
       ))}
       <FlightExportModal
@@ -1394,10 +1219,7 @@ function HeaderActions({ view, openModal, has, access }) {
   }
   const actions = {
     queries: has(P.MANAGE_QUERIES) && ["query", "New Query"],
-    contracting: (canAssignContracting(access) || canAssignQueryTicketing(access)) && [
-      "assignQueryTeams",
-      "Assign teams",
-    ],
+    contracting: canHeadAssignQueryTeams(access) && ["assignQueryTeams", "Assign teams"],
     proposals: has(P.MANAGE_PROPOSALS) && ["proposal", "New Proposal"],
     tickets: has(P.MANAGE_TICKETING) && ["ticket", "Issue Ticket"],
     "seat-allocation": has(P.MANAGE_TICKETING) && ["seat", "Save Seat"],
@@ -1589,49 +1411,52 @@ function DashboardSecondaryPanels({
   );
 }
 
-function queryStatusModalForAccess(row, has) {
-  const isContractingUpdate = has(P.MANAGE_CONTRACTING) && !has(P.MANAGE_QUERIES);
+function queryModalEditInitial(row) {
   return {
-    modal: isContractingUpdate ? "queryStatus" : "salesDecision",
-    label: isContractingUpdate ? "Update" : "Sales Decision",
-    initial: {
-      queryId: row.id,
-      salesStatus: row.salesStatus,
-      salesDecision: row.salesStatus || "Proposal in discussion",
-      leadStage: row.leadStage || "Inquiry",
-      contractingStatus: row.contractingStatus,
-      approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
-    },
+    entityId: row.id,
+    clientName: row.clientName,
+    contactPerson: row.contactPerson,
+    contactMobile: row.contactMobile,
+    destination: row.destination,
+    paxCount: String(row.paxCount),
+    travelStartDate: row.travelStartDate,
+    travelEndDate: row.travelEndDate,
+    queryType: row.queryType,
+    travelType: row.travelType,
+    budgetAmount: String(row.budgetAmount || ""),
+    source: row.source,
+    salesOwnerName: row.salesOwnerName,
+    notes: row.notes,
+    staffId: row.contractingOwnerId || "",
+    ticketingScope: row.ticketingScope || "",
+    travelInBatches: row.travelInBatches ? "Yes" : "No",
+    batchingNotes: row.batchingNotes || "",
   };
+}
+
+function formatQueryBatchCell(row) {
+  if (!row.travelInBatches) return "No";
+  const notes = (row.batchingNotes || "").trim();
+  if (!notes) return "Yes";
+  const preview = notes.length > 48 ? `${notes.slice(0, 48)}...` : notes;
+  return (
+    <div>
+      <div>Yes</div>
+      <div className="text-xs text-brand-muted">{preview}</div>
+    </div>
+  );
 }
 
 function QueryManageActions({ row, openModal, has, deleteItem, removeQuery, submitToContracting }) {
   if (!has(P.MANAGE_QUERIES)) return null;
-  const statusAction = queryStatusModalForAccess(row, has);
+  const statusAction = buildQueryStatusAction(row, has);
   const alreadySubmitted = Boolean(row.submittedToContractingAt);
   return (
     <>
       <button
         type="button"
         className="portal-small-btn"
-        onClick={() =>
-          openModal("query", {
-            entityId: row.id,
-            clientName: row.clientName,
-            contactPerson: row.contactPerson,
-            contactMobile: row.contactMobile,
-            destination: row.destination,
-            paxCount: String(row.paxCount),
-            travelStartDate: row.travelStartDate,
-            travelEndDate: row.travelEndDate,
-            queryType: row.queryType,
-            travelType: row.travelType,
-            budgetAmount: String(row.budgetAmount || ""),
-            source: row.source,
-            salesOwnerName: row.salesOwnerName,
-            notes: row.notes,
-          })
-        }
+        onClick={() => openModal("query", queryModalEditInitial(row))}
       >
         Edit
       </button>
@@ -1671,7 +1496,7 @@ function QueriesView({
   filtersActive = false,
   openModal,
   has,
-  canAssign = false,
+  access,
   deleteItem,
   removeQuery,
   submitToContracting,
@@ -1682,120 +1507,114 @@ function QueriesView({
       rows={rows}
       empty="No queries yet."
       filtersActive={filtersActive}
-      mobileCardRender={(row) => (
-        <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="font-semibold text-brand-dark">{row.queryCode}</div>
-              <div className="text-sm text-brand-muted">{row.clientName}</div>
+      mobileCardRender={(row) => {
+        const statusAction = buildQueryStatusAction(row, has);
+        return (
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="font-semibold text-brand-dark">{row.queryCode}</div>
+                <div className="text-sm text-brand-muted">{row.clientName}</div>
+              </div>
+              <Badge label={row.leadStage || "Inquiry"} tone={statusTone(row.leadStage)} />
             </div>
-            <Badge label={row.leadStage || "Inquiry"} tone={statusTone(row.leadStage)} />
-          </div>
-          <LifecycleDates
-            compact
-            items={[
-              { label: "Created", value: row.createdAt },
-              { label: "Submitted", value: row.submittedToContractingAt },
-              { label: "Confirmed", value: row.confirmedAt },
-            ]}
-          />
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <div>
-              <span className="text-brand-muted">Destination</span>
-              <div className="font-medium">{row.destination || "TBD"}</div>
-            </div>
-            <div>
-              <span className="text-brand-muted">Pax</span>
-              <div className="font-medium">{row.paxCount}</div>
-            </div>
-            <div>
-              <span className="text-brand-muted">Budget</span>
-              <div className="font-medium">{money(row.budgetAmount)}</div>
-            </div>
-            <div>
-              <span className="text-brand-muted">Sales</span>
-              <div className="font-medium">{row.salesOwnerName || "-"}</div>
-            </div>
-          </div>
-          {has(P.MANAGE_QUERIES) && (
-            <QueryRowActions
-              primaryAction={
-                <button
-                  type="button"
-                  className="portal-small-btn"
-                  onClick={() =>
-                    openModal("query", {
-                      entityId: row.id,
-                      clientName: row.clientName,
-                      contactPerson: row.contactPerson,
-                      contactMobile: row.contactMobile,
-                      destination: row.destination,
-                      paxCount: String(row.paxCount),
-                      travelStartDate: row.travelStartDate,
-                      travelEndDate: row.travelEndDate,
-                      queryType: row.queryType,
-                      travelType: row.travelType,
-                      budgetAmount: String(row.budgetAmount || ""),
-                      source: row.source,
-                      salesOwnerName: row.salesOwnerName,
-                      notes: row.notes,
-                    })
-                  }
-                >
-                  Edit
-                </button>
-              }
-              overflowActions={[
-                <button
-                  key="ref"
-                  type="button"
-                  className="portal-small-btn w-full"
-                  onClick={() =>
-                    openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })
-                  }
-                >
-                  Reference Itinerary
-                </button>,
-                !row.submittedToContractingAt ? (
-                  <button
-                    key="submit"
-                    type="button"
-                    className="portal-small-btn w-full"
-                    onClick={() => submitToContracting({ queryId: row.id })}
-                  >
-                    Submit to Contracting
-                  </button>
-                ) : null,
-                <button
-                  key="update"
-                  type="button"
-                  className="portal-small-btn w-full"
-                  onClick={() => {
-                    const statusAction = queryStatusModalForAccess(row, has);
-                    openModal(statusAction.modal, statusAction.initial);
-                  }}
-                >
-                  {queryStatusModalForAccess(row, has).label}
-                </button>,
-                <DeleteButton
-                  key="delete"
-                  label={row.queryCode}
-                  onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })}
-                />,
+            <LifecycleDates
+              compact
+              items={[
+                { label: "Created", value: row.createdAt },
+                { label: "Submitted", value: row.submittedToContractingAt },
+                { label: "Confirmed", value: row.confirmedAt },
               ]}
             />
-          )}
-          {!has(P.MANAGE_QUERIES) && canAssign && row.submittedToContractingAt && (
-            <button
-              type="button"
-              className="portal-small-btn"
-              onClick={() => openModal("assignQueryTeams", { queryId: row.id })}
-            >
-              Assign teams
-            </button>
-          )}
-        </div>
-      )}
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-brand-muted">Destination</span>
+                <div className="font-medium">{row.destination || "TBD"}</div>
+              </div>
+              <div>
+                <span className="text-brand-muted">Pax</span>
+                <div className="font-medium">{row.paxCount}</div>
+              </div>
+              <div>
+                <span className="text-brand-muted">Budget</span>
+                <div className="font-medium">{money(row.budgetAmount)}</div>
+              </div>
+              <div>
+                <span className="text-brand-muted">Sales</span>
+                <div className="font-medium">{row.salesOwnerName || "-"}</div>
+              </div>
+              {row.travelInBatches ? (
+                <div className="col-span-2">
+                  <span className="text-brand-muted">Travel in Batches</span>
+                  <div className="font-medium">
+                    Yes
+                    {(row.batchingNotes || "").trim()
+                      ? ` - ${(row.batchingNotes || "").trim()}`
+                      : ""}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            {has(P.MANAGE_QUERIES) && (
+              <QueryRowActions
+                primaryAction={
+                  <button
+                    type="button"
+                    className="portal-small-btn"
+                    onClick={() => openModal("query", queryModalEditInitial(row))}
+                  >
+                    Edit
+                  </button>
+                }
+                overflowActions={[
+                  <button
+                    key="ref"
+                    type="button"
+                    className="portal-small-btn w-full"
+                    onClick={() =>
+                      openModal("queryAttachments", { queryId: row.id, queryCode: row.queryCode })
+                    }
+                  >
+                    Reference Itinerary
+                  </button>,
+                  !row.submittedToContractingAt ? (
+                    <button
+                      key="submit"
+                      type="button"
+                      className="portal-small-btn w-full"
+                      onClick={() => submitToContracting({ queryId: row.id })}
+                    >
+                      Submit to Contracting
+                    </button>
+                  ) : null,
+                  <button
+                    key="update"
+                    type="button"
+                    className="portal-small-btn w-full"
+                    onClick={() => openModal(statusAction.modal, statusAction.initial)}
+                  >
+                    {statusAction.label}
+                  </button>,
+                  <DeleteButton
+                    key="delete"
+                    label={row.queryCode}
+                    onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })}
+                  />,
+                ]}
+              />
+            )}
+            {canShowAssignQueryTeamsButton(access, row) && (
+              <button
+                type="button"
+                className="portal-small-btn"
+                onClick={() => openModal("assignQueryTeams", { queryId: row.id })}
+              >
+                {assignQueryTeamsButtonLabel(access)}
+              </button>
+            )}
+          </div>
+        );
+      }}
       columns={[
         ["Query ID", (row) => row.queryCode],
         ["Client", (row) => strong(row.clientName)],
@@ -1845,6 +1664,8 @@ function QueriesView({
           ),
         ],
         ["Sales", (row) => row.salesOwnerName || "-"],
+        ["Ticketing Scope", (row) => row.ticketingScope || "-"],
+        ["Batches", (row) => formatQueryBatchCell(row)],
         [
           "Action",
           (row) => (
@@ -1859,13 +1680,13 @@ function QueriesView({
                   submitToContracting={submitToContracting}
                 />
               )}
-              {!has(P.MANAGE_QUERIES) && canAssign && row.submittedToContractingAt && (
+              {canShowAssignQueryTeamsButton(access, row) && (
                 <button
                   type="button"
                   className="portal-small-btn"
                   onClick={() => openModal("assignQueryTeams", { queryId: row.id })}
                 >
-                  Assign teams
+                  {assignQueryTeamsButtonLabel(access)}
                 </button>
               )}
             </m.div>
@@ -1965,6 +1786,7 @@ function ContractingView({
           ],
           ["Sales SPOC", (row) => row.salesOwnerName || "-"],
           ["Contracting SPOC", (row) => row.contractingOwnerName || "Unassigned"],
+          ["Ticketing Scope", (row) => row.ticketingScope || "-"],
           ["Notes", (row) => notesPreview(row.notes)],
           [
             "Status",
@@ -2015,46 +1837,37 @@ function ContractingView({
           ],
           [
             "Action",
-            (row) => (
-              <div className="flex gap-2">
-                {canAssign && (
-                  <button
-                    type="button"
-                    className="portal-small-btn"
-                    onClick={() => openModal("assignQueryTeams", { queryId: row.id })}
-                  >
-                    Assign
-                  </button>
-                )}
-                {has(P.MANAGE_CONTRACTING) && (
-                  <>
+            (row) => {
+              const statusAction = buildQueryStatusAction(row, has);
+              return (
+                <div className="flex gap-2">
+                  {canAssign && (
                     <button
                       type="button"
                       className="portal-small-btn"
-                      onClick={() =>
-                        openModal("queryStatus", {
-                          queryId: row.id,
-                          salesStatus: row.salesStatus,
-                          leadStage: row.leadStage || "Inquiry",
-                          contractingStatus: row.contractingStatus,
-                          budgetAmount: String(row.budgetAmount || ""),
-                          contractingLandCost: String(row.contractingLandCost ?? ""),
-                          contractingAirlinesCost: String(row.contractingAirlinesCost ?? ""),
-                          contractingVisaCost: String(row.contractingVisaCost ?? ""),
-                          approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
-                        })
-                      }
+                      onClick={() => openModal("assignQueryTeams", { queryId: row.id })}
                     >
-                      Status
+                      Assign
                     </button>
-                    <DeleteButton
-                      label={row.queryCode}
-                      onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })}
-                    />
-                  </>
-                )}
-              </div>
-            ),
+                  )}
+                  {has(P.MANAGE_CONTRACTING) && (
+                    <>
+                      <button
+                        type="button"
+                        className="portal-small-btn"
+                        onClick={() => openModal(statusAction.modal, statusAction.initial)}
+                      >
+                        {statusAction.label}
+                      </button>
+                      <DeleteButton
+                        label={row.queryCode}
+                        onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })}
+                      />
+                    </>
+                  )}
+                </div>
+              );
+            },
           ],
         ]}
       />
@@ -2505,6 +2318,60 @@ function AccountsJobCardView({
   );
 }
 
+function JobCardTravelBatchesCell({ job, openModal, canManage }) {
+  const batches = job.travelBatches || [];
+  return (
+    <div className="min-w-[220px] space-y-1.5 text-xs">
+      {batches.length === 0 ? (
+        <span className="text-brand-muted">No batches</span>
+      ) : (
+        batches.map((batch) => (
+          <div
+            key={batch.id}
+            className="space-y-0.5 border-b border-brand-border/60 pb-1.5 last:border-0 last:pb-0"
+          >
+            <div className="font-medium text-brand-dark">{batch.batchReference}</div>
+            <div className="text-brand-muted">
+              {batch.destination || "—"} · {batch.confirmedPax} pax · {batch.roomCount || 0} rooms
+            </div>
+            <div className="text-brand-muted">
+              {batch.travelStartDate ? formatDisplayDate(batch.travelStartDate) : "—"}
+              {batch.travelEndDate ? ` – ${formatDisplayDate(batch.travelEndDate)}` : ""}
+            </div>
+            <div className="text-brand-muted" title={formatTravelBatchOwnerSummary(batch)}>
+              {formatTravelBatchOwnerSummary(batch)}
+              {batch.tourManagerName ? ` · TM ${batch.tourManagerName}` : ""}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pt-0.5">
+              <Badge label={batch.status} tone={statusTone(batch.status)} />
+              {canManage ? (
+                <button
+                  type="button"
+                  className="portal-small-btn"
+                  onClick={() =>
+                    openModal(TRAVEL_BATCH_MODAL, buildTravelBatchModalInitial({ job, batch }))
+                  }
+                >
+                  Edit
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ))
+      )}
+      {canManage ? (
+        <button
+          type="button"
+          className="portal-small-btn mt-1"
+          onClick={() => openModal(TRAVEL_BATCH_MODAL, buildTravelBatchModalInitial({ job }))}
+        >
+          + Batch
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 function JobCardsView({
   rows,
   updateJobStatus,
@@ -2519,6 +2386,7 @@ function JobCardsView({
   const showAssignOps = canAssignOperations(access);
   const showAssignTicketing = canAssignTicketing(access);
   const canManage = has(P.MANAGE_JOB_CARDS);
+  const canManageTravelBatches = canManage || has(P.MANAGE_OPERATIONS);
 
   return (
     <SelectableDataTable
@@ -2538,6 +2406,11 @@ function JobCardsView({
           <div className="text-xs text-brand-muted">
             {job.destination || "Destination pending"} · Opened {formatDate(job.createdAt)}
           </div>
+          <JobCardTravelBatchesCell
+            job={job}
+            openModal={openModal}
+            canManage={canManageTravelBatches}
+          />
           <Link href={`/portal/job-cards/${job.id}`} className="portal-small-btn inline-flex">
             Open
           </Link>
@@ -2565,6 +2438,16 @@ function JobCardsView({
           ),
         ],
         [
+          "Travel Batches",
+          (row) => (
+            <JobCardTravelBatchesCell
+              job={row}
+              openModal={openModal}
+              canManage={canManageTravelBatches}
+            />
+          ),
+        ],
+        [
           "Opened",
           (row) => <span className="text-xs text-brand-muted">{formatDate(row.createdAt)}</span>,
         ],
@@ -2584,6 +2467,7 @@ function JobCardsView({
               has={has}
               visibility={{
                 canManage,
+                canManageTravelBatches,
                 assignContracting: showAssignContracting,
                 assignOps: showAssignOps,
                 assignTicketing: showAssignTicketing,
@@ -2609,7 +2493,8 @@ function JobCardRowActions({
   removeJobCard,
 }) {
   const [open, setOpen] = useState(false);
-  const { canManage, assignContracting, assignOps, assignTicketing } = visibility;
+  const { canManage, canManageTravelBatches, assignContracting, assignOps, assignTicketing } =
+    visibility;
   const overflowActions = [
     assignContracting ? (
       <button
@@ -2639,6 +2524,16 @@ function JobCardRowActions({
         onClick={() => openModal("assignTicketingOwner", { jobCardId: job.id })}
       >
         Assign Ticketing
+      </button>
+    ) : null,
+    canManageTravelBatches ? (
+      <button
+        key="add-batch"
+        type="button"
+        className="portal-small-btn w-full"
+        onClick={() => openModal(TRAVEL_BATCH_MODAL, buildTravelBatchModalInitial({ job }))}
+      >
+        Add Travel Batch
       </button>
     ) : null,
     canManage ? (
@@ -2789,7 +2684,7 @@ function TravellersView({
             <div className="space-y-1">
               <div className="font-semibold text-brand-dark">{row.fullName}</div>
               <div className="text-xs text-brand-muted">
-                {row.jobCode} · {row.travelHub || "No hub"}
+                {row.jobCode} · {row.travelHub || "No hub"} · {travelBatchDisplayLabel(row)}
               </div>
               <div className="flex flex-wrap gap-2 pt-1">
                 <Badge label={row.visaStatus} tone={statusTone(row.visaStatus)} />
@@ -2814,6 +2709,7 @@ function TravellersView({
           ["Surname", (row) => row.surname || "-"],
           ["Given Name", (row) => row.givenName || "-"],
           ["Job", (row) => row.jobCode],
+          ["Travel Batch", (row) => travelBatchDisplayLabel(row)],
           ["Hub", (row) => row.travelHub || "-"],
           ["Gender", (row) => row.gender || "-"],
           ["Room", (row) => <Badge label={row.roomType} tone="blue" />],
@@ -2847,6 +2743,7 @@ function TravellersView({
                       openModal("traveller", {
                         entityId: row.id,
                         jobCardId: row.jobCardId,
+                        travelBatchId: row.travelBatchId || "",
                         fullName: row.fullName,
                         surname: row.surname || "",
                         givenName: row.givenName || "",
@@ -2905,7 +2802,7 @@ function VisaTrackingView({
         <div className="space-y-1">
           <div className="font-semibold text-brand-dark">{row.travellerName}</div>
           <div className="text-xs text-brand-muted">
-            {row.jobCode} · {row.travelHub || "No hub"}
+            {row.jobCode} · {row.travelHub || "No hub"} · {travelBatchDisplayLabel(row)}
           </div>
           <Badge label={row.status} tone={statusTone(row.status)} />
         </div>
@@ -2923,6 +2820,7 @@ function VisaTrackingView({
       columns={[
         ["Traveller", (row) => strong(row.travellerName)],
         ["Job", (row) => row.jobCode],
+        ["Travel Batch", (row) => travelBatchDisplayLabel(row)],
         ["Hub", (row) => row.travelHub || "-"],
         ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
         ["Appointment", (row) => formatDisplayDate(row.appointmentDate)],
@@ -3261,7 +3159,7 @@ function PassportDocumentsView({
           <div className="space-y-1">
             <div className="font-semibold text-brand-dark">{row.fullName}</div>
             <div className="text-xs text-brand-muted">
-              {row.jobCode} · {row.clientName || "No client"}
+              {row.jobCode} · {row.clientName || "No client"} · {travelBatchDisplayLabel(row)}
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
               <Badge
@@ -3275,6 +3173,7 @@ function PassportDocumentsView({
         columns={[
           ["Traveller", (row) => strong(row.fullName)],
           ["Job Code", (row) => row.jobCode],
+          ["Travel Batch", (row) => travelBatchDisplayLabel(row)],
           ["Client", (row) => row.clientName],
           [
             "Passport Scan Status",
@@ -3555,6 +3454,7 @@ function TicketsView({
         ["Ticket", (row) => row.ticketNumber || "-"],
         ["Traveller", (row) => strong(row.travellerName || "Unassigned")],
         ["Job", (row) => row.jobCode],
+        ["Travel Batch", (row) => travelBatchDisplayLabel(row)],
         ["Type", (row) => row.ticketType || "-"],
         ["PNR", (row) => row.pnrCode || "-"],
         ["Class", (row) => row.cabinClass || "Economy"],
@@ -4136,6 +4036,7 @@ function RoomingListView({
       columns={[
         ["Name", (row) => strong(row.fullName)],
         ["Job", (row) => row.jobCode],
+        ["Travel Batch", (row) => travelBatchDisplayLabel(row)],
         ["Hub", (row) => row.travelHub || "-"],
         ["Room Type", (row) => <Badge label={row.roomType || "-"} tone="blue" />],
         ["Hotel Allocation", (row) => row.hotelAllocation || "-"],
@@ -4156,6 +4057,35 @@ function RoomingListView({
   );
 }
 
+function normalizeTravelBatchId(travelBatchId) {
+  return travelBatchId || "";
+}
+
+function tourManagerAssignmentKey(jobCardId, travelBatchId) {
+  return `${jobCardId}:${normalizeTravelBatchId(travelBatchId)}`;
+}
+
+function buildTourManagersByJobAndBatch(assignments) {
+  const byKey = new Map();
+  for (const manager of assignments || []) {
+    if (!manager.jobCardId) continue;
+    const key = tourManagerAssignmentKey(manager.jobCardId, manager.travelBatchId);
+    const current = byKey.get(key) || [];
+    current.push(manager.name);
+    byKey.set(key, current);
+  }
+  return byKey;
+}
+
+function getAssignedTourManagerNames(row, byKey) {
+  if (!row.jobCardId) return "Unassigned";
+  const batchNames = byKey.get(tourManagerAssignmentKey(row.jobCardId, row.travelBatchId));
+  if (batchNames?.length) return batchNames.join(", ");
+  const fallbackNames = byKey.get(tourManagerAssignmentKey(row.jobCardId, ""));
+  if (fallbackNames?.length) return fallbackNames.join(", ");
+  return "Unassigned";
+}
+
 function TourManagersView({
   rows,
   travellers,
@@ -4170,13 +4100,7 @@ function TourManagersView({
   updateCallingStatus,
 }) {
   const toast = usePortalToast();
-  const assignedTourManagersByJob = new Map();
-  for (const manager of assignments || []) {
-    if (!manager.jobCardId) continue;
-    const current = assignedTourManagersByJob.get(manager.jobCardId) || [];
-    current.push(manager.name);
-    assignedTourManagersByJob.set(manager.jobCardId, current);
-  }
+  const assignedTourManagersByJobAndBatch = buildTourManagersByJobAndBatch(assignments);
 
   return (
     <div className="space-y-5">
@@ -4231,10 +4155,13 @@ function TourManagersView({
                       openModal("tourManager", {
                         entityId: row.id,
                         jobCardId: row.jobCardId || "",
+                        staffId: row.staffId || "",
+                        travelBatchId: row.travelBatchId || "",
                         tourManagerName: row.name,
                         staffEmail: row.email,
                         paidBy: row.phone,
                         travelStartDate: row.availabilityDate,
+                        reportingInstructions: row.reportingInstructions || "",
                         notes: row.notes,
                       })
                     }
@@ -4258,9 +4185,10 @@ function TourManagersView({
           columns={[
             ["Guest", (row) => strong(row.fullName)],
             ["Job", (row) => row.jobCode],
+            ["Travel Batch", (row) => travelBatchDisplayLabel(row)],
             [
               "Tour Manager",
-              (row) => assignedTourManagersByJob.get(row.jobCardId)?.join(", ") || "Unassigned",
+              (row) => getAssignedTourManagerNames(row, assignedTourManagersByJobAndBatch),
             ],
             ["Hub", (row) => row.travelHub || "-"],
             ["Type", (row) => row.guestType],
@@ -4861,7 +4789,6 @@ function ActivityView({
 
               return (
                 <div
-                  key={item.id}
                   className={itemClassName}
                   {...(isInteractive
                     ? {
@@ -4876,6 +4803,7 @@ function ActivityView({
                         },
                       }
                     : {})}
+                  key={item.id}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -5071,6 +4999,16 @@ function LeaveView({
                       {decidingLeaveId === row.id ? "Saving…" : "Approve (HR)"}
                     </button>
                   )}
+                  {row.canApproveFinal && (
+                    <button
+                      type="button"
+                      className="portal-small-btn"
+                      disabled={decidingLeaveId === row.id}
+                      onClick={() => handleLeaveDecision(row.id, "Approved")}
+                    >
+                      {decidingLeaveId === row.id ? "Saving…" : "Approve (Final Authority)"}
+                    </button>
+                  )}
                   {row.canReject && (
                     <button
                       type="button"
@@ -5148,6 +5086,7 @@ function SettingsView({
 
   return (
     <div className="space-y-5">
+      <StaffWorkbookImportPanel />
       <Panel title="Staff allowlist">
         <DataTable
           rows={staff}
@@ -5493,6 +5432,7 @@ function PassengerImportModal({
                 ),
               ],
               ["Passenger", (row) => strong(row.fullName)],
+              ["Travel Batch", (row) => row.travelBatchReference || "-"],
               ["Hub", (row) => row.travelHub || "-"],
               ["Room", (row) => row.roomType || "-"],
               ["Visa", (row) => row.visaStatus || (row.visaRequired ? "Required" : "Not Required")],
@@ -5633,7 +5573,14 @@ function FlightImportModal({ open, close, jobCards, itinerary, commitFlightImpor
             {groups.slice(0, 8).map((group) => (
               <div key={group.id} className="rounded-lg border border-brand-border bg-white">
                 <div className="flex items-center justify-between border-b border-brand-border px-4 py-3">
-                  <div className="font-semibold text-citius-blue">{group.name}</div>
+                  <div className="font-semibold text-citius-blue">
+                    {group.name}
+                    {group.travelBatchReference ? (
+                      <span className="ml-2 font-normal text-brand-muted">
+                        · {group.travelBatchReference}
+                      </span>
+                    ) : null}
+                  </div>
                   <div className="text-xs text-brand-muted">
                     {group.segments.length} segment{group.segments.length === 1 ? "" : "s"}
                   </div>

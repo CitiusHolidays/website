@@ -139,6 +139,28 @@ const headStaff = {
   employmentStatus: "Confirmed",
 };
 
+const workbookHeadStaff = {
+  _id: "staff_workbook_head",
+  authUserId: "auth_workbook_head",
+  email: "workbook-head@citius.in",
+  emailNormalized: "workbook-head@citius.in",
+  name: "Workbook Head",
+  roles: ["Operations Head"],
+  active: true,
+  employmentStatus: "Confirmed",
+};
+
+const finalAuthorityStaff = {
+  _id: "staff_final",
+  authUserId: "auth_final",
+  email: "final@citius.in",
+  emailNormalized: "final@citius.in",
+  name: "Final Authority",
+  roles: ["Directors"],
+  active: true,
+  employmentStatus: "Confirmed",
+};
+
 const employeeStaff = {
   _id: "staff_employee",
   authUserId: "auth_employee",
@@ -151,7 +173,188 @@ const employeeStaff = {
   leaveHeadApproverId: "staff_head",
 };
 
+const workbookEmployeeStaff = {
+  ...employeeStaff,
+  leaveHeadApproverId: undefined,
+  leaveLevel1ApproverStaffId: "staff_workbook_head",
+  leaveLevel1ApproverName: "Workbook Head",
+  leaveFinalAuthorityStaffId: "staff_workbook_head",
+  leaveFinalAuthorityName: "Workbook Head",
+  leaveHrCopyStaffId: "staff_hr",
+  leaveHrCopyName: "HR User",
+};
+
 describe("leaveCreateApproval", () => {
+  test("leave requests notify workbook-derived level 1 approver and configured HR copy", async () => {
+    const { ctx, tables } = makeLeaveCtx(
+      {
+        staffUsers: [hrStaff, headStaff, workbookHeadStaff, workbookEmployeeStaff],
+        staffLeaveRecords: [],
+        staffLeaveBalances: [],
+        staffLeaveLedger: [],
+        activityLogs: [],
+        notifications: [],
+      },
+      { subject: "auth_hr", email: "hr@citius.in", name: "HR User" },
+    );
+
+    await createLeaveRequest(ctx as never, {
+      staffId: "staff_employee",
+      leaveType: "Casual",
+      startDate: "2026-07-01",
+      endDate: "2026-07-01",
+      reason: "Personal",
+    });
+
+    const leave = tables.staffLeaveRecords[0];
+    expect(leave?.headApproverStaffId).toBe("staff_workbook_head");
+    expect(tables.notifications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          recipientUserId: "auth_workbook_head",
+          title: "Leave awaiting your approval",
+        }),
+        expect.objectContaining({
+          recipientUserId: "auth_hr",
+          title: "Leave submitted (HR copy)",
+        }),
+      ]),
+    );
+  });
+
+  test("manual leave head override takes precedence over workbook level 1 approver", async () => {
+    const overriddenEmployee = {
+      ...workbookEmployeeStaff,
+      leaveHeadApproverId: "staff_head",
+    };
+    const { ctx, tables } = makeLeaveCtx(
+      {
+        staffUsers: [hrStaff, headStaff, workbookHeadStaff, overriddenEmployee],
+        staffLeaveRecords: [],
+        staffLeaveBalances: [],
+        staffLeaveLedger: [],
+        activityLogs: [],
+        notifications: [],
+      },
+      { subject: "auth_hr", email: "hr@citius.in", name: "HR User" },
+    );
+
+    await createLeaveRequest(ctx as never, {
+      staffId: "staff_employee",
+      leaveType: "Casual",
+      startDate: "2026-07-01",
+      endDate: "2026-07-01",
+      reason: "Personal",
+    });
+
+    const leave = tables.staffLeaveRecords[0];
+    expect(leave?.headApproverStaffId).toBe("staff_head");
+    expect(tables.notifications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          recipientUserId: "auth_head",
+          title: "Leave awaiting your approval",
+        }),
+      ]),
+    );
+    expect(tables.notifications.some((row) => row.recipientUserId === "auth_workbook_head")).toBe(
+      false,
+    );
+  });
+
+  test("different level 1 and final authority values require final authority before HR review", async () => {
+    const threeStageEmployee = {
+      ...workbookEmployeeStaff,
+      leaveFinalAuthorityStaffId: "staff_final",
+      leaveFinalAuthorityName: "Final Authority",
+    };
+    const { ctx, tables, setIdentity } = makeLeaveCtx(
+      {
+        staffUsers: [hrStaff, workbookHeadStaff, finalAuthorityStaff, threeStageEmployee],
+        staffLeaveRecords: [],
+        staffLeaveBalances: [],
+        staffLeaveLedger: [],
+        activityLogs: [],
+        notifications: [],
+      },
+      { subject: "auth_hr", email: "hr@citius.in", name: "HR User" },
+    );
+
+    const { id } = await createLeaveRequest(ctx as never, {
+      staffId: "staff_employee",
+      leaveType: "Casual",
+      startDate: "2026-07-01",
+      endDate: "2026-07-01",
+      reason: "Personal",
+    });
+
+    setIdentity({
+      subject: "auth_workbook_head",
+      email: "workbook-head@citius.in",
+      name: "Workbook Head",
+    });
+    await decideLeaveRequest(ctx as never, {
+      leaveId: id,
+      status: "Approved",
+      decisionNote: "Level 1 ok",
+    });
+
+    const afterLevel1 = tables.staffLeaveRecords.find((row) => row._id === id);
+    expect(afterLevel1?.status).toBe("Pending");
+    expect(afterLevel1?.headReviewStatus).toBe("Approved");
+    expect(afterLevel1?.finalReviewStatus).toBe("Pending");
+    expect(afterLevel1?.hrReviewStatus).toBe("Pending");
+    expect(tables.notifications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          recipientUserId: "auth_final",
+          title: "Leave awaiting final authority approval",
+        }),
+      ]),
+    );
+
+    setIdentity({ subject: "auth_hr", email: "hr@citius.in", name: "HR User" });
+    await expect(
+      decideLeaveRequest(ctx as never, {
+        leaveId: id,
+        status: "Approved",
+        decisionNote: "Too early",
+      }),
+    ).rejects.toThrow("Final authority approval is required before HR review");
+
+    setIdentity({ subject: "auth_final", email: "final@citius.in", name: "Final Authority" });
+    await decideLeaveRequest(ctx as never, {
+      leaveId: id,
+      status: "Approved",
+      decisionNote: "Final ok",
+    });
+
+    const afterFinal = tables.staffLeaveRecords.find((row) => row._id === id);
+    expect(afterFinal?.status).toBe("Pending");
+    expect(afterFinal?.finalReviewStatus).toBe("Approved");
+    expect(afterFinal?.hrReviewStatus).toBe("Pending");
+    expect(tables.notifications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          recipientUserId: "auth_hr",
+          title: "Leave ready for HR approval",
+        }),
+      ]),
+    );
+
+    setIdentity({ subject: "auth_hr", email: "hr@citius.in", name: "HR User" });
+    await decideLeaveRequest(ctx as never, {
+      leaveId: id,
+      status: "Approved",
+      decisionNote: "HR ok",
+    });
+
+    const afterHr = tables.staffLeaveRecords.find((row) => row._id === id);
+    expect(afterHr?.status).toBe("Approved");
+    expect(afterHr?.hrReviewStatus).toBe("Approved");
+    expect(tables.staffLeaveLedger.some((entry) => entry.entryType === "usage")).toBe(true);
+  });
+
   test("HR create with Approved still inserts Pending reviews and no ledger usage", async () => {
     const notifySpy = spyOn(leaveApprovers, "notifyLeaveRequestSubmitted").mockResolvedValue(
       undefined,

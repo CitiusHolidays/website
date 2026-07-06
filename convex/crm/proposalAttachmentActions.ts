@@ -148,7 +148,8 @@ export const getDownloadUrl = action({
       access?.allowed &&
       (access.permissions.includes(PERMISSIONS.VIEW_PROPOSALS) ||
         access.permissions.includes(PERMISSIONS.VIEW_CONTRACTING) ||
-        access.permissions.includes(PERMISSIONS.VIEW_QUERIES));
+        access.permissions.includes(PERMISSIONS.VIEW_QUERIES) ||
+        access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS));
     if (!canView) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -181,7 +182,8 @@ export const getDownloadFile = action({
       access?.allowed &&
       (access.permissions.includes(PERMISSIONS.VIEW_PROPOSALS) ||
         access.permissions.includes(PERMISSIONS.VIEW_CONTRACTING) ||
-        access.permissions.includes(PERMISSIONS.VIEW_QUERIES));
+        access.permissions.includes(PERMISSIONS.VIEW_QUERIES) ||
+        access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS));
     if (!canView) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -325,7 +327,8 @@ export const getFinalizedPdfUrl = action({
       access?.allowed &&
       (access.permissions.includes(PERMISSIONS.VIEW_PROPOSALS) ||
         access.permissions.includes(PERMISSIONS.VIEW_CONTRACTING) ||
-        access.permissions.includes(PERMISSIONS.VIEW_QUERIES));
+        access.permissions.includes(PERMISSIONS.VIEW_QUERIES) ||
+        access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS));
     if (!canView) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -358,7 +361,8 @@ export const getFinalizedPdfFile = action({
       access?.allowed &&
       (access.permissions.includes(PERMISSIONS.VIEW_PROPOSALS) ||
         access.permissions.includes(PERMISSIONS.VIEW_CONTRACTING) ||
-        access.permissions.includes(PERMISSIONS.VIEW_QUERIES));
+        access.permissions.includes(PERMISSIONS.VIEW_QUERIES) ||
+        access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS));
     if (!canView) {
       throw new ConvexError("FORBIDDEN");
     }

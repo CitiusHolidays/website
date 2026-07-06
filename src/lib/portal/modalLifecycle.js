@@ -87,9 +87,23 @@ export function createInitialModalForm({
       Object.assign(next, applyVisaRecordLink(next, linkedVisa, { onlyEmpty: true }));
     }
   }
-  Object.assign(next, reconcileLinkedSelections(next, travellers, pnrs));
+  Object.assign(next, reconcileLinkedSelections(next, travellers, pnrs, jobCards));
   if (type === "query" && !initial.queryType && isCementScopedUser(access)) {
     next.queryType = "Cement";
+  }
+  if (type === "assignQueryTeams" && next.queryId) {
+    const linkedQuery = queries.find((query) => query.id === next.queryId);
+    if (linkedQuery) {
+      if (linkedQuery.contractingOwnerId) {
+        next.staffId = linkedQuery.contractingOwnerId;
+      }
+      if (linkedQuery.ticketingOwnerId) {
+        next.ticketingStaffId = linkedQuery.ticketingOwnerId;
+      }
+      if (linkedQuery.ticketingScope) {
+        next.ticketingScope = linkedQuery.ticketingScope;
+      }
+    }
   }
   return next;
 }

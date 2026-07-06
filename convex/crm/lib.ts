@@ -935,13 +935,14 @@ export async function notifyRoles(
 ) {
   const createdAt = Date.now();
   const entityId = notificationEntityId(input.entityId);
+  const recipientRoles = expandNotificationEmailRoles(roles);
   const staffRows = await ctx.db.query("staffUsers").collect();
   const staffRoleSets = staffRows.map((member) => ({
     member,
     roles: new Set(member.roles),
   }));
   const emailRecipients = new Set<string>();
-  const emailRecipientRoles = new Set(expandNotificationEmailRoles(roles));
+  const emailRecipientRoles = new Set(recipientRoles);
 
   for (const { member, roles: memberRoles } of staffRoleSets) {
     if (!member.active) {
@@ -955,7 +956,7 @@ export async function notifyRoles(
     }
   }
   await Promise.all(
-    roles.map((role) =>
+    recipientRoles.map((role) =>
       ctx.db.insert("notifications", {
         recipientRole: role as any,
         title: input.title,
@@ -1006,6 +1007,7 @@ export async function notifyStaffMatching(
       notifiedUserIds.add(member.authUserId);
       notificationInserts.push(() =>
         ctx.db.insert("notifications", {
+          recipientStaffId: member._id,
           recipientUserId: member.authUserId,
           title: input.title,
           body: input.body,
@@ -1187,14 +1189,21 @@ export async function deleteEntityNotifications(
 
 export function canReceiveNotification(
   notification: {
+    recipientStaffId?: Id<"staffUsers">;
     recipientUserId?: string;
     recipientRole?: string;
   },
-  access: { authUserId?: string | null; roles: string[] },
+  access: { staffId?: Id<"staffUsers"> | null; authUserId?: string | null; roles: string[] },
 ) {
   const roleSet = new Set(access.roles);
-  if (notification.recipientUserId && notification.recipientUserId !== access.authUserId) {
+  if (
+    notification.recipientStaffId &&
+    String(notification.recipientStaffId) !== String(access.staffId ?? "")
+  ) {
     return false;
+  }
+  if (notification.recipientUserId && notification.recipientUserId !== access.authUserId) {
+    return String(notification.recipientStaffId ?? "") === String(access.staffId ?? "");
   }
   if (notification.recipientRole && !roleSet.has(notification.recipientRole)) {
     return false;
@@ -1223,6 +1232,7 @@ export async function notifyStaffMember(
 
   if (staff.authUserId) {
     await ctx.db.insert("notifications", {
+      recipientStaffId: staffId,
       recipientUserId: staff.authUserId,
       title: input.title,
       body: input.body,
@@ -1234,6 +1244,7 @@ export async function notifyStaffMember(
     await Promise.all(
       staff.roles.map((role) =>
         ctx.db.insert("notifications", {
+          recipientStaffId: staffId,
           recipientRole: role as any,
           title: input.title,
           body: input.body,
@@ -1382,6 +1393,35 @@ export function publicJobCard(job: any) {
   };
 }
 
+export function publicTravelBatch(batch: any) {
+  return {
+    id: batch._id,
+    jobCardId: batch.jobCardId,
+    batchCode: batch.batchCode,
+    batchReference: batch.batchReference,
+    destination: batch.destination ?? "",
+    confirmedPax: batch.confirmedPax,
+    roomCount: batch.roomCount ?? 0,
+    travelStartDate: batch.travelStartDate ?? "",
+    travelEndDate: batch.travelEndDate ?? "",
+    queryType: batch.queryType ?? "",
+    paymentTerms: batch.paymentTerms ?? null,
+    contractingOwnerName: batch.contractingOwnerName ?? "",
+    contractingOwnerId: batch.contractingOwnerId ?? "",
+    operationsOwnerName: batch.operationsOwnerName ?? "",
+    operationsOwnerId: batch.operationsOwnerId ?? "",
+    ticketingOwnerName: batch.ticketingOwnerName ?? "",
+    ticketingOwnerId: batch.ticketingOwnerId ?? "",
+    lastEditedByName: batch.lastEditedByName ?? "",
+    lastEditedAt: batch.lastEditedAt ? new Date(batch.lastEditedAt).toISOString() : null,
+    tourManagerName: batch.tourManagerName ?? "",
+    status: batch.status,
+    preDepartureChecklist: batch.preDepartureChecklist ?? null,
+    createdAt: new Date(batch.createdAt).toISOString(),
+    updatedAt: new Date(batch.updatedAt).toISOString(),
+  };
+}
+
 export function publicQuery(query: any) {
   return {
     id: query._id,
@@ -1402,6 +1442,9 @@ export function publicQuery(query: any) {
     contractingOwnerId: query.contractingOwnerId ?? "",
     ticketingOwnerName: query.ticketingOwnerName ?? "",
     ticketingOwnerId: query.ticketingOwnerId ?? "",
+    ticketingScope: query.ticketingScope ?? "",
+    travelInBatches: Boolean(query.travelInBatches),
+    batchingNotes: query.batchingNotes ?? "",
     jobCardCreatorStaffId: query.jobCardCreatorStaffId ?? "",
     jobCardCreatorName: query.jobCardCreatorName ?? "",
     contactMobile: query.contactMobile ?? "",

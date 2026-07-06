@@ -4,9 +4,13 @@ import { mutation, query } from "../_generated/server";
 import {
   canApproveLeaveAsHead,
   getLeaveApprovalActionsForApprover,
+  notifyLeaveReadyForFinalAuthority,
+  notifyLeaveReadyForHr,
   notifyLeaveRequestSubmitted,
   primaryHeadRoleForStaff,
+  resolveLeaveFinalAuthorityId,
   resolveLeaveHeadApproverId,
+  resolveLeaveHrCopyStaffId,
 } from "./leaveApprovers";
 import {
   calculateLeaveDecision,
@@ -23,7 +27,6 @@ import {
   getHeadReviewerRolesForStaff,
   isDefined,
   isHrReviewer,
-  notifyRoles,
   PERMISSIONS,
   requireAnyPermission,
   requireStaff,
@@ -190,6 +193,15 @@ async function canSeeLeave(
   if (resolvedApproverId && access.staffId && access.staffId === resolvedApproverId) {
     return true;
   }
+  const finalAuthorityId = await resolveLeaveFinalAuthorityId(
+    ctx,
+    staff,
+    resolvedApproverId,
+    staffRows,
+  );
+  if (finalAuthorityId && access.staffId && access.staffId === finalAuthorityId) {
+    return true;
+  }
   const reviewerRole = leave.headReviewerRole ?? getHeadReviewerRolesForStaff(staff)[0] ?? "HR";
   return canHeadReview(access, reviewerRole);
 }
@@ -211,10 +223,18 @@ export const list = query({
           return null;
         }
         const resolvedApproverId = await resolveLeaveHeadApproverId(ctx, staff, staffRows);
-        const headApprover =
-          (leave.headApproverStaffId ?? resolvedApproverId)
-            ? await ctx.db.get(leave.headApproverStaffId ?? resolvedApproverId!)
-            : null;
+        const headApproverId = leave.headApproverStaffId ?? resolvedApproverId ?? undefined;
+        const finalAuthorityId =
+          leave.finalAuthorityStaffId ??
+          (await resolveLeaveFinalAuthorityId(ctx, staff, resolvedApproverId, staffRows)) ??
+          undefined;
+        const hrCopyStaffId =
+          leave.hrCopyStaffId ??
+          (await resolveLeaveHrCopyStaffId(ctx, staff, staffRows)) ??
+          undefined;
+        const headApprover = headApproverId ? await ctx.db.get(headApproverId) : null;
+        const finalAuthority = finalAuthorityId ? await ctx.db.get(finalAuthorityId) : null;
+        const hrCopyStaff = hrCopyStaffId ? await ctx.db.get(hrCopyStaffId) : null;
         return {
           id: leave._id,
           staffId: leave.staffId,
@@ -229,12 +249,24 @@ export const list = query({
           reason: leave.reason,
           status: leave.status ?? "Pending",
           headReviewStatus: leave.headReviewStatus ?? "Pending",
-          headApproverStaffId: leave.headApproverStaffId ?? resolvedApproverId ?? undefined,
+          headApproverStaffId: headApproverId,
           headApproverName: leave.headApproverName ?? headApprover?.name ?? "Not assigned",
           headReviewerRole: leave.headReviewerRole ?? primaryHeadRoleForStaff(staff),
           headReviewedByName: leave.headReviewedByName ?? "",
           headDecisionNote: leave.headDecisionNote ?? "",
+          finalReviewStatus: finalAuthorityId
+            ? (leave.finalReviewStatus ?? "Pending")
+            : (leave.finalReviewStatus ?? "Approved"),
+          finalAuthorityStaffId: finalAuthorityId,
+          finalAuthorityName:
+            leave.finalAuthorityName ??
+            finalAuthority?.name ??
+            (finalAuthorityId ? "Not assigned" : ""),
+          finalReviewedByName: leave.finalReviewedByName ?? "",
+          finalDecisionNote: leave.finalDecisionNote ?? "",
           hrReviewStatus: leave.hrReviewStatus ?? "Pending",
+          hrCopyStaffId,
+          hrCopyName: leave.hrCopyName ?? hrCopyStaff?.name ?? "",
           hrReviewedByName: leave.hrReviewedByName ?? "",
           decisionNote: leave.decisionNote ?? "",
           ...getLeaveApprovalActionsForApprover(
@@ -242,6 +274,7 @@ export const list = query({
             leave,
             staff,
             resolvedApproverId,
+            finalAuthorityId ?? null,
             isHrReviewer,
           ),
           createdAt: new Date(leave.createdAt).toISOString(),
@@ -289,11 +322,20 @@ export async function createLeaveRequest(ctx: MutationCtx, args: CreateLeaveArgs
 
   const now = Date.now();
   const headApproverId = await resolveLeaveHeadApproverId(ctx, staff, staffRows);
+  const finalAuthorityId = await resolveLeaveFinalAuthorityId(
+    ctx,
+    staff,
+    headApproverId,
+    staffRows,
+  );
+  const hrCopyStaffId = await resolveLeaveHrCopyStaffId(ctx, staff, staffRows);
   const leaveType = ensureLeaveType(args.leaveType ?? "Casual");
   assertDateRangeOrder(args.startDate, args.endDate, "Leave start date", "Leave end date");
   const fiscalYear = fiscalYearForDate(args.startDate);
-  const [headApprover, balances] = await Promise.all([
+  const [headApprover, finalAuthority, hrCopyStaff, balances] = await Promise.all([
     headApproverId ? ctx.db.get(headApproverId) : Promise.resolve(null),
+    finalAuthorityId ? ctx.db.get(finalAuthorityId) : Promise.resolve(null),
+    hrCopyStaffId ? ctx.db.get(hrCopyStaffId) : Promise.resolve(null),
     balanceMapForStaff(ctx, staff, fiscalYear, args.startDate),
   ]);
   const headReviewerRole = headApprover
@@ -321,6 +363,11 @@ export async function createLeaveRequest(ctx: MutationCtx, args: CreateLeaveArgs
     headApproverStaffId: headApproverId ?? undefined,
     headApproverName: headApprover?.name ?? "",
     headReviewerRole: headReviewerRole as any,
+    finalReviewStatus: finalAuthorityId ? "Pending" : "Approved",
+    finalAuthorityStaffId: finalAuthorityId ?? undefined,
+    finalAuthorityName: finalAuthority?.name ?? "",
+    hrCopyStaffId: hrCopyStaffId ?? undefined,
+    hrCopyName: hrCopyStaff?.name ?? "",
     hrReviewStatus: "Pending",
     createdBy: access.authUserId || "system",
     createdAt: now,
@@ -338,6 +385,7 @@ export async function createLeaveRequest(ctx: MutationCtx, args: CreateLeaveArgs
       leaveId: id,
       staff,
       headApproverId,
+      hrCopyStaffId,
       leaveType: args.leaveType ?? "Casual",
       startDate: args.startDate,
       endDate: args.endDate,
@@ -388,8 +436,15 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
 
   const now = Date.now();
   const staffRows = await ctx.db.query("staffUsers").collect();
-  const resolvedApproverId = await resolveLeaveHeadApproverId(ctx, staff, staffRows);
+  const resolvedApproverId =
+    leave.headApproverStaffId ?? (await resolveLeaveHeadApproverId(ctx, staff, staffRows));
+  const finalAuthorityId =
+    leave.finalAuthorityStaffId ??
+    (await resolveLeaveFinalAuthorityId(ctx, staff, resolvedApproverId, staffRows));
+  const hrCopyStaffId =
+    leave.hrCopyStaffId ?? (await resolveLeaveHrCopyStaffId(ctx, staff, staffRows));
   const headStatus = leave.headReviewStatus ?? "Pending";
+  const finalStatus = finalAuthorityId ? (leave.finalReviewStatus ?? "Pending") : "Approved";
   const hrStatus = leave.hrReviewStatus ?? "Pending";
   const overallStatus = leave.status ?? "Pending";
   const note = args.decisionNote?.trim() || "";
@@ -403,6 +458,7 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
     leave,
     staff,
     resolvedApproverId,
+    finalAuthorityId,
     isHrReviewer,
   );
   const patch: Record<string, unknown> = { updatedAt: now };
@@ -430,6 +486,33 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
     patch.headDecisionNote = note;
     if (args.status === "Rejected") {
       patch.status = "Rejected";
+      patch.finalReviewStatus = "Rejected";
+      patch.hrReviewStatus = "Rejected";
+      patch.decisionNote = note;
+    } else {
+      patch.status = "Pending";
+      patch.finalReviewStatus = finalAuthorityId ? "Pending" : "Approved";
+      patch.hrReviewStatus = "Pending";
+    }
+  } else if (finalAuthorityId && finalStatus !== "Approved") {
+    if (args.status === "Approved" && !actions.canApproveFinal) {
+      throw new ConvexError("Final authority approval is required before HR review");
+    }
+    if (args.status === "Rejected" && !actions.canReject) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    if (finalStatus !== "Pending") {
+      throw new ConvexError("Final authority review has already been completed");
+    }
+
+    stage = "final_reviewed";
+    patch.finalReviewStatus = args.status;
+    patch.finalReviewedBy = access.authUserId;
+    patch.finalReviewedByName = access.name;
+    patch.finalReviewedAt = now;
+    patch.finalDecisionNote = note;
+    if (args.status === "Rejected") {
+      patch.status = "Rejected";
       patch.hrReviewStatus = "Rejected";
       patch.decisionNote = note;
     } else {
@@ -437,6 +520,9 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
       patch.hrReviewStatus = "Pending";
     }
   } else {
+    if (finalAuthorityId && finalStatus !== "Approved") {
+      throw new ConvexError("Final authority approval is required before HR review");
+    }
     if (!actions.canApproveHr && !actions.canReject) {
       throw new ConvexError("HR final approval is required");
     }
@@ -475,16 +561,37 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
     entityType: "leave",
     entityId: leaveId,
     action: stage,
-    message: `Leave for ${staff.name} ${args.status.toLowerCase()} at ${stage === "head_reviewed" ? "head review" : "HR final review"}`,
+    message: `Leave for ${staff.name} ${args.status.toLowerCase()} at ${
+      stage === "head_reviewed"
+        ? "head review"
+        : stage === "final_reviewed"
+          ? "final authority review"
+          : "HR final review"
+    }`,
     metadata: patch,
   });
 
   if (stage === "head_reviewed" && args.status === "Approved") {
-    await notifyRoles(ctx, ["HR"], {
-      title: "Leave ready for HR approval",
-      body: `${staff.name}'s leave request has department head approval.`,
-      entityType: "leave",
-      entityId: leaveId,
+    if (finalAuthorityId) {
+      await notifyLeaveReadyForFinalAuthority(ctx, {
+        leaveId,
+        staff,
+        finalAuthorityId,
+      });
+    } else {
+      await notifyLeaveReadyForHr(ctx, {
+        leaveId,
+        staff,
+        hrCopyStaffId,
+      });
+    }
+  }
+
+  if (stage === "final_reviewed" && args.status === "Approved") {
+    await notifyLeaveReadyForHr(ctx, {
+      leaveId,
+      staff,
+      hrCopyStaffId,
     });
   }
 

@@ -100,6 +100,42 @@ function includeText(value: string | undefined) {
   return value !== undefined && value.trim() !== "";
 }
 
+export async function resolveImportTravelBatchId(
+  ctx: any,
+  jobCardId: Id<"jobCards">,
+  row: any,
+): Promise<Id<"travelBatches"> | undefined> {
+  const rawId = String(row.travelBatchId ?? "").trim();
+  if (rawId) {
+    const travelBatchId = ctx.db.normalizeId("travelBatches", rawId);
+    if (!travelBatchId) {
+      throw new Error("Invalid Travel Batch id");
+    }
+    const batch = await ctx.db.get(travelBatchId);
+    if (!batch || String(batch.jobCardId) !== String(jobCardId)) {
+      throw new Error("Travel Batch must belong to the selected Job Card");
+    }
+    return travelBatchId;
+  }
+
+  const reference = String(row.travelBatchReference ?? "").trim();
+  if (!reference) return undefined;
+  const batches = await ctx.db
+    .query("travelBatches")
+    .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
+    .collect();
+  const normalizedReference = reference.toLowerCase();
+  const match = batches.find((batch: any) =>
+    [batch.batchReference, batch.batchCode]
+      .filter(Boolean)
+      .some((value) => String(value).trim().toLowerCase() === normalizedReference),
+  );
+  if (!match) {
+    throw new Error(`Travel Batch not found for ${reference}`);
+  }
+  return match._id;
+}
+
 function ticketingEntries(row: any) {
   const ticketing = row.ticketing ?? {};
   return [
@@ -328,7 +364,12 @@ async function upsertTicketingRowsForTraveller(
   ]);
 }
 
-function travellerPatchForImport(row: any, job: any, now: number) {
+function travellerPatchForImport(
+  row: any,
+  job: any,
+  now: number,
+  travelBatchId?: Id<"travelBatches">,
+) {
   const importKind = row.importKind ?? "passenger";
   const patch: Record<string, unknown> = {
     jobCardId: job._id,
@@ -341,6 +382,9 @@ function travellerPatchForImport(row: any, job: any, now: number) {
     sourceRowNumber: row.sourceRowNumber,
     updatedAt: now,
   };
+  if (row.travelBatchId !== undefined || row.travelBatchReference !== undefined) {
+    patch.travelBatchId = travelBatchId;
+  }
 
   const includeSourceFields = () => {
     patch.sourceDealerCode = row.sourceDealerCode?.trim() || "";
@@ -369,10 +413,7 @@ function travellerPatchForImport(row: any, job: any, now: number) {
   }
 
   if (importKind === "rooming") {
-    const resolved = resolveTravellerRoomFields(
-      row.roomType,
-      row.hotelAllocation ?? row.roomType,
-    );
+    const resolved = resolveTravellerRoomFields(row.roomType, row.hotelAllocation ?? row.roomType);
     if (resolved.roomType) {
       patch.roomType = resolved.roomType;
     }
@@ -405,10 +446,17 @@ function travellerPatchForImport(row: any, job: any, now: number) {
   return patch;
 }
 
-function travellerCreateDefaults(row: any, job: any, access: any, now: number) {
+function travellerCreateDefaults(
+  row: any,
+  job: any,
+  access: any,
+  now: number,
+  travelBatchId?: Id<"travelBatches">,
+) {
   const visaStatus = row.visaStatus || (row.visaRequired ? "Not Started" : "Not Required");
   return {
     jobCardId: job._id,
+    ...(travelBatchId ? { travelBatchId } : {}),
     fullName: row.fullName.trim(),
     surname: row.surname?.trim() || "",
     givenName: row.givenName?.trim() || "",
@@ -471,7 +519,8 @@ export async function processImportRows(
     try {
       const match = findTravellerMatchInIndex(matchIndex, row);
       const importKind = row.importKind ?? "passenger";
-      const travellerPatch = travellerPatchForImport(row, job, now);
+      const travelBatchId = await resolveImportTravelBatchId(ctx, jobCardId, row);
+      const travellerPatch = travellerPatchForImport(row, job, now, travelBatchId);
 
       let travellerId: Id<"travellers">;
       let isNewTraveller = false;
@@ -490,7 +539,7 @@ export async function processImportRows(
         updated += 1;
         registerTravellerInIndex(matchIndex, { ...match, ...patch, _id: match._id });
       } else {
-        const newTraveller = travellerCreateDefaults(row, job, access, now);
+        const newTraveller = travellerCreateDefaults(row, job, access, now, travelBatchId);
         travellerId = await ctx.db.insert("travellers", newTraveller);
         isNewTraveller = true;
         created += 1;

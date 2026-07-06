@@ -26,7 +26,7 @@ import {
   SALES_DECISION_OPTIONS,
   TRAVEL_TYPES,
 } from "@/lib/portal/constants";
-import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
+import { jobCardSelectOptions, travelBatchSelectOptions } from "@/lib/portal/entityModalLinks";
 import {
   canAssignContracting,
   canAssignQueryTicketing,
@@ -79,6 +79,12 @@ export function EntityModalTravellerFields({
             options={jobCardSelectOptions(jobCards, { required: true })}
             onChange={handleJobCardSelect}
             required
+          />
+          <Select
+            label="Travel Batch"
+            value={form.travelBatchId || ""}
+            options={travelBatchSelectOptions(jobCards, form.jobCardId)}
+            onChange={(value) => updateForm("travelBatchId", value)}
           />
           <Input
             label="Full Name"

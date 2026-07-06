@@ -59,6 +59,10 @@ async function getJob(ctx: QueryCtx, jobCardId?: Id<"jobCards">) {
   return jobCardId ? await ctx.db.get(jobCardId) : null;
 }
 
+async function getTravelBatch(ctx: QueryCtx, travelBatchId?: Id<"travelBatches">) {
+  return travelBatchId ? await ctx.db.get(travelBatchId) : null;
+}
+
 async function getQuery(ctx: QueryCtx, queryId?: Id<"queries">) {
   return queryId ? await ctx.db.get(queryId) : null;
 }
@@ -106,6 +110,7 @@ function addQueryRows(rows: DetailRow[], query: Doc<"queries">) {
   addRow(rows, "Sales SPOC", query.salesOwnerName);
   addRow(rows, "Contracting SPOC", query.contractingOwnerName);
   addRow(rows, "Ticketing SPOC", query.ticketingOwnerName);
+  addRow(rows, "Ticketing Scope", query.ticketingScope);
   addRow(rows, "Budget", formatAmount(query.budgetAmount));
 }
 
@@ -426,6 +431,9 @@ async function leaveDetails(ctx: QueryCtx, entityId: string): Promise<DetailSect
   addRow(rows, "Status", leave.status);
   addRow(rows, "Head approver", leave.headApproverName);
   addRow(rows, "Head review", leave.headReviewStatus);
+  addRow(rows, "Final authority", leave.finalAuthorityName);
+  addRow(rows, "Final authority review", leave.finalReviewStatus);
+  addRow(rows, "HR copy", leave.hrCopyName);
   addRow(rows, "HR review", leave.hrReviewStatus);
   addRow(rows, "Reason", leave.reason);
   addRow(rows, "Decision note", leave.decisionNote);
@@ -455,12 +463,27 @@ async function tourManagerDetails(ctx: QueryCtx, entityId: string): Promise<Deta
   if (!tourManagerId) return null;
   const tourManager = await ctx.db.get(tourManagerId);
   if (!tourManager) return null;
-  const job = await getJob(ctx, tourManager.jobCardId);
+  const [job, batch] = await Promise.all([
+    getJob(ctx, tourManager.jobCardId),
+    getTravelBatch(ctx, tourManager.travelBatchId),
+  ]);
+  const destination = batch?.destination ?? job?.destination;
+  const pax = batch?.confirmedPax ?? job?.confirmedPax;
+  const travelDates = formatDateRange(
+    batch?.travelStartDate ?? job?.travelStartDate,
+    batch?.travelEndDate ?? job?.travelEndDate,
+  );
 
   const rows: DetailRow[] = [];
   addRow(rows, "Tour manager", tourManager.name);
   addRow(rows, "Job Card", job?.jobCode);
+  addRow(rows, "Travel Batch", batch?.batchReference);
   addRow(rows, "Client", job?.clientName);
+  addRow(rows, "Tour name", job?.clientName);
+  addRow(rows, "Travel dates", travelDates);
+  addRow(rows, "Destination", destination);
+  addRow(rows, "Pax", pax);
+  addRow(rows, "Reporting instructions", tourManager.reportingInstructions);
   addRow(rows, "Status", tourManager.status);
   addRow(rows, "Email", tourManager.email);
   addRow(rows, "Phone", tourManager.phone);

@@ -19,6 +19,7 @@ import {
   LOST_REASONS,
   QUERY_SOURCES,
   SALES_DECISION_OPTIONS,
+  TICKETING_SCOPE_OPTIONS,
   TRAVEL_TYPES,
 } from "@/lib/portal/constants";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
@@ -28,6 +29,16 @@ import {
   canAssignTicketing,
   getQueryTypeOptions,
 } from "@/lib/portal/permissions";
+
+const TICKETING_SCOPE_SELECT_OPTIONS = [
+  { value: "", label: "Select Ticketing Scope..." },
+  ...TICKETING_SCOPE_OPTIONS.map((scope) => ({ value: scope, label: scope })),
+];
+
+const TRAVEL_IN_BATCHES_OPTIONS = [
+  { value: "No", label: "No" },
+  { value: "Yes", label: "Yes" },
+];
 
 export function EntityModalQueryFields({
   modal,
@@ -145,6 +156,41 @@ export function EntityModalQueryFields({
             ]}
             onChange={(v) => updateForm("salesOwnerName", v)}
           />
+          <Select
+            label="Contracting SPOC"
+            value={form.staffId}
+            options={[
+              { value: "", label: "Select Contracting SPOC..." },
+              ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label })),
+            ]}
+            onChange={(v) => updateForm("staffId", v)}
+          />
+          <Select
+            label="Ticketing Scope"
+            value={form.ticketingScope}
+            options={TICKETING_SCOPE_SELECT_OPTIONS}
+            onChange={(v) => updateForm("ticketingScope", v)}
+          />
+          <Select
+            label="Travel in Batches"
+            value={form.travelInBatches || "No"}
+            options={TRAVEL_IN_BATCHES_OPTIONS}
+            onChange={(v) =>
+              patchForm({
+                travelInBatches: v,
+                ...(v === "Yes" ? {} : { batchingNotes: "" }),
+              })
+            }
+          />
+          {form.travelInBatches === "Yes" && (
+            <div className="md:col-span-2">
+              <Textarea
+                label="Batch Details"
+                value={form.batchingNotes}
+                onChange={(v) => updateForm("batchingNotes", v)}
+              />
+            </div>
+          )}
           <Textarea
             label="Notes"
             value={form.notes}

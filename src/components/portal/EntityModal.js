@@ -113,7 +113,7 @@ export function EntityModal({
     team,
   });
 
-  const title = getEntityModalTitle(modal, form, has);
+  const title = getEntityModalTitle(modal, form, has, access);
   const lifecycleQuery = queries?.find((entry) => entry.id === (form.entityId || form.queryId));
   const lifecycleProposal = proposals?.find((entry) => entry.id === form.entityId);
   const lifecycleJobCard = jobCards?.find((entry) => entry.id === form.entityId);

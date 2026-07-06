@@ -86,18 +86,37 @@ describe("portal permissions", () => {
     expect(canAssignQueryTicketing({ roles: ["Operations Head"] })).toBe(false);
   });
 
-  test("job card creation is limited to selected accounts creators plus overrides", () => {
-    const creators = [{ id: "staff_accounts", jobCardCreatorEnabled: true }];
+  test("job card creation is available to accounts team plus admin and director overrides", () => {
+    const legacyCreators = [{ id: "staff_accounts", jobCardCreatorEnabled: true }];
 
     expect(canManageJobCardCreatorAccess({ roles: ["Accounts Head"] })).toBe(true);
     expect(canManageJobCardCreatorAccess({ roles: ["Accounts"] })).toBe(false);
     expect(canCreateJobCardFromAccounts({ roles: ["Directors"] }, [])).toBe(true);
+    expect(canCreateJobCardFromAccounts({ roles: ["Admin"] }, [])).toBe(true);
+    expect(canCreateJobCardFromAccounts({ roles: ["Accounts Head"] }, [])).toBe(true);
     expect(
-      canCreateJobCardFromAccounts({ roles: ["Accounts"], staffId: "staff_accounts" }, creators),
+      canCreateJobCardFromAccounts(
+        { roles: ["Accounts"], staffId: "staff_accounts" },
+        legacyCreators,
+      ),
     ).toBe(true);
     expect(
-      canCreateJobCardFromAccounts({ roles: ["Accounts"], staffId: "staff_other" }, creators),
+      canCreateJobCardFromAccounts({ roles: ["Accounts"], staffId: "staff_other" }, legacyCreators),
+    ).toBe(true);
+    expect(
+      canCreateJobCardFromAccounts({ roles: ["Sales"], staffId: "staff_accounts" }, legacyCreators),
     ).toBe(false);
+  });
+
+  test("legacy job card creators list does not grant Sales users access", () => {
+    const legacyCreators = [{ id: "staff_accounts", jobCardCreatorEnabled: true }];
+
+    expect(
+      canCreateJobCardFromAccounts({ roles: ["Sales"], staffId: "staff_accounts" }, legacyCreators),
+    ).toBe(false);
+    expect(
+      canCreateJobCardFromAccounts({ roles: ["Accounts"], staffId: "staff_other" }, legacyCreators),
+    ).toBe(true);
   });
 
   test("ticketing role sees enquiry and proposal navigation for assigned work", () => {

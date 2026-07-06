@@ -61,3 +61,8 @@ Agents.md
 public/gallery/spiritual/newimages/*
 
 bin/*
+
+.cursor/*
+.scratch/*
+.agents/*
+.claude/*

@@ -66,6 +66,7 @@ describe("passenger spreadsheet exports", () => {
       "Domestic ticket",
       "Domestic PNR",
       "VENDOR",
+      "Travel Batch",
     ]);
     expect(rows[1]).toEqual([
       1,
@@ -79,6 +80,7 @@ describe("passenger spreadsheet exports", () => {
       "22/03/2028",
       "NON VEG",
       "9836184644",
+      "",
       "",
       "",
       "",
@@ -125,6 +127,7 @@ describe("master-list sheet exports", () => {
     travelHub: "KOLKATA",
     contactNo: "9836184644",
     paymentType: "Self Paid",
+    travelBatchReference: "JC-0001 / B01",
     passport: {
       number: "Z4619953",
       dateOfBirth: "1967-06-12",
@@ -153,6 +156,7 @@ describe("master-list sheet exports", () => {
       sourceSoName: "Mumbai",
       sourceRsoName: "Kenya Airlines",
       travelHub: "KOLKATA",
+      travelBatchReference: "JC-0001 / B01",
     });
   });
 
@@ -163,6 +167,7 @@ describe("master-list sheet exports", () => {
       fullName: "GARG SANJAY",
       roomType: "Twin",
       foodPreference: "Non-Veg",
+      travelBatchReference: "JC-0001 / B01",
     });
   });
 
@@ -172,6 +177,7 @@ describe("master-list sheet exports", () => {
       importKind: "passport",
       fullName: "GARG SANJAY",
       passportStatus: "Received",
+      travelBatchReference: "JC-0001 / B01",
     });
     expect(parsed.rows[0].passport.number).toBe("Z4619953");
   });
@@ -185,6 +191,7 @@ describe("master-list sheet exports", () => {
       paymentType: "Self Paid",
       biometricAppointmentDate: "2026-06-18",
       visaNotes: "Stamped",
+      travelBatchReference: "JC-0001 / B01",
     });
   });
 });
@@ -195,6 +202,7 @@ describe("flight spreadsheet exports", () => {
       [
         {
           sourceSheet: "BOM",
+          travelBatchReference: "JC-0001 / B01",
           segments: [
             {
               dateLabel: "Thu 1 Oct",
@@ -242,6 +250,7 @@ describe("flight spreadsheet exports", () => {
 
     const parsed = parseFlightWorkbook(workbook);
     expect(parsed.groups).toHaveLength(2);
+    expect(parsed.groups[0].travelBatchReference).toBe("JC-0001 / B01");
     expect(parsed.groups[0].segments).toHaveLength(2);
     expect(parsed.groups[0].segments[0]).toMatchObject({
       dateLabel: "Thu 1 Oct",

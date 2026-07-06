@@ -1,9 +1,19 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
-import { canSeeQueryRecord, createActivity, notifyStaffMember, type PortalAccess } from "./lib";
+import {
+  canSeeQueryRecord,
+  createActivity,
+  hasRole,
+  isDirectorOrAdmin,
+  notifyRoles,
+  notifyStaffMember,
+  type PortalAccess,
+} from "./lib";
 
 const CONTRACTING_TEAM_ROLES = ["Contracting", "Contracting Head"] as const;
 const TICKETING_TEAM_ROLES = ["Ticketing", "Head of Ticketing"] as const;
+const TICKETING_SCOPE_VALUES = ["Domestic", "International", "Both", "Not required"] as const;
+type TicketingScope = (typeof TICKETING_SCOPE_VALUES)[number];
 
 async function loadVisibleQueryForAssignment(
   ctx: MutationCtx,
@@ -53,7 +63,56 @@ export type ApplyQueryTeamAssignmentsInput = {
   queryId: string;
   contractingStaffId?: string;
   ticketingStaffId?: string;
+  ticketingScope?: string;
 };
+
+function normalizedTicketingScope(scope: string | undefined): TicketingScope | undefined {
+  const value = scope?.trim();
+  if (!value) {
+    return undefined;
+  }
+  if (!(TICKETING_SCOPE_VALUES as readonly string[]).includes(value)) {
+    throw new ConvexError("Select a valid Ticketing Scope.");
+  }
+  return value as TicketingScope;
+}
+
+function isHeadAssignmentAccess(access: PortalAccess) {
+  return (
+    isDirectorOrAdmin(access) ||
+    hasRole(access, "Contracting Head") ||
+    hasRole(access, "Operations Head") ||
+    hasRole(access, "Head of Ticketing")
+  );
+}
+
+function isSalesAssignmentAccess(access: PortalAccess) {
+  return (
+    hasRole(access, "Sales") || hasRole(access, "Sales Head") || hasRole(access, "Sales Cement")
+  );
+}
+
+function hasExistingAssignment(query: {
+  contractingOwnerId?: string;
+  ticketingOwnerId?: string;
+  ticketingScope?: string;
+}) {
+  return Boolean(query.contractingOwnerId || query.ticketingOwnerId || query.ticketingScope);
+}
+
+function relevantAssignmentHeadRoles(args: {
+  ticketingScope?: TicketingScope;
+  ticketingAssigned: boolean;
+}) {
+  const roles = ["Contracting Head", "Operations Head"];
+  if (
+    args.ticketingAssigned ||
+    (args.ticketingScope !== undefined && args.ticketingScope !== "Not required")
+  ) {
+    roles.push("Head of Ticketing");
+  }
+  return roles;
+}
 
 export async function applyQueryTeamAssignments(
   ctx: MutationCtx,
@@ -62,7 +121,8 @@ export async function applyQueryTeamAssignments(
 ) {
   const contractingStaffId = args.contractingStaffId?.trim() || undefined;
   const ticketingStaffId = args.ticketingStaffId?.trim() || undefined;
-  if (!contractingStaffId && !ticketingStaffId) {
+  const ticketingScope = normalizedTicketingScope(args.ticketingScope);
+  if (!contractingStaffId && !ticketingStaffId && !ticketingScope) {
     throw new ConvexError("Select a contracting and/or ticketing SPOC.");
   }
 
@@ -71,6 +131,25 @@ export async function applyQueryTeamAssignments(
     access,
     args.queryId,
   );
+
+  const hasHeadAccess = isHeadAssignmentAccess(access);
+  if (!hasHeadAccess) {
+    if (!isSalesAssignmentAccess(access) || !access.permissions.includes("manage:queries")) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    if (hasExistingAssignment(current)) {
+      throw new ConvexError("Only heads can reassign query teams.");
+    }
+    if (ticketingStaffId) {
+      throw new ConvexError("Only heads can assign ticketing SPOCs.");
+    }
+    if (!contractingStaffId) {
+      throw new ConvexError("Select a Contracting SPOC.");
+    }
+    if (!ticketingScope) {
+      throw new ConvexError("Select a Ticketing Scope.");
+    }
+  }
 
   const contracting = contractingStaffId
     ? await loadAssignableStaff(ctx, contractingStaffId, "contracting")
@@ -96,6 +175,9 @@ export async function applyQueryTeamAssignments(
     const ownerName = ticketing.staff.name.trim();
     queryPatch.ticketingOwnerId = ticketing.staffId;
     queryPatch.ticketingOwnerName = ownerName;
+  }
+  if (ticketingScope) {
+    queryPatch.ticketingScope = ticketingScope;
   }
 
   const writes: Promise<unknown>[] = [ctx.db.patch(queryId, queryPatch)];
@@ -161,6 +243,21 @@ export async function applyQueryTeamAssignments(
       entityId: queryId,
     });
   }
+
+  const headRoles = relevantAssignmentHeadRoles({
+    ticketingScope,
+    ticketingAssigned: Boolean(ticketing),
+  });
+  await notifyRoles(ctx, headRoles, {
+    title: isSalesAssignmentAccess(access)
+      ? "Query team assigned by Sales"
+      : "Query team assignment updated",
+    body: `${current.queryCode} was assigned to ${contracting?.staff.name.trim() || current.contractingOwnerName || "a Contracting SPOC"}${
+      ticketingScope ? ` with Ticketing Scope: ${ticketingScope}` : ""
+    }.`,
+    entityType: "query",
+    entityId: queryId,
+  });
 
   return { id: queryId };
 }

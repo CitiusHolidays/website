@@ -59,6 +59,7 @@ function passengerRowToArray(row) {
     ticketing.domesticTicket || "",
     ticketing.domesticPnr || "",
     ticketing.domesticVendor || "",
+    row.travelBatchReference || "",
   ];
 }
 
@@ -166,6 +167,7 @@ function roomingRowToArray(row, index) {
     row.travelHub || "",
     "",
     "",
+    row.travelBatchReference || "",
     "",
   ];
 }
@@ -191,6 +193,7 @@ function travellerMasterRowToArray(row, index) {
     formatFoodPreferenceForExport(row.foodPreference),
     row.travelHub || "",
     row.sourceRsoName || "",
+    row.travelBatchReference || "",
     "",
   ];
 }
@@ -211,6 +214,7 @@ function passportRowToArray(row, index) {
     "",
     base.remarks,
     base.contactNo,
+    row.travelBatchReference || "",
   ];
 }
 
@@ -238,6 +242,7 @@ function visaRowToArray(row, index) {
     paymentTypeForTemplate(row.paymentType),
     "",
     visa.notes || "",
+    row.travelBatchReference || "",
   ];
 }
 
@@ -329,6 +334,9 @@ export function buildFlightWorkbook(groups, { defaultSheetName = "Flights" } = {
     for (const group of sheetGroups) {
       const segments = group.segments || [];
       if (segments.length === 0) continue;
+      if (group.travelBatchReference) {
+        sheetRows.push(["Travel Batch", group.travelBatchReference]);
+      }
       sheetRows.push(flightHeaderRow());
       for (const segment of segments) {
         sheetRows.push(flightSegmentRow(segment));

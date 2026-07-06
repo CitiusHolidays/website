@@ -10,18 +10,32 @@ import {
   creatorInitials,
   deleteJobCardCascade,
   editorPatch,
-  hasRole,
-  isDirectorOrAdmin,
   nextCode,
   notifyRoles,
   notifyStaffMember,
   PERMISSIONS,
   paymentTermsFor,
   publicJobCard,
+  publicTravelBatch,
   requireAnyPermission,
   requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
+import { publicProposalAttachment } from "./proposalAttachments";
+
+type StaffNotificationTarget = {
+  _id: any;
+  active: boolean;
+  function?: string | null;
+};
+
+const JOB_CARD_STATUS = v.union(
+  v.literal("Open"),
+  v.literal("In Operations"),
+  v.literal("Ready for Departure"),
+  v.literal("On Tour"),
+  v.literal("Closed"),
+);
 
 const DEFAULT_CHECKLIST = [
   { key: "handover", label: "Sales/Contracting handover acknowledged", done: false },
@@ -122,6 +136,145 @@ async function getChecklistTasksWithFallback(ctx: any, job: any) {
   }));
 }
 
+export function formatTravelBatchCode(sequence: number) {
+  if (!Number.isFinite(sequence) || sequence < 1) {
+    throw new ConvexError("Travel Batch sequence must be greater than zero");
+  }
+  return `B${String(Math.floor(sequence)).padStart(2, "0")}`;
+}
+
+export function buildTravelBatchReference(jobCode: string, batchCode: string) {
+  return `${jobCode} / ${batchCode}`;
+}
+
+function parseTravelBatchSequence(batchCode: string | undefined | null) {
+  const match = String(batchCode ?? "").match(/^B(\d+)$/);
+  return match ? Number(match[1]) : 0;
+}
+
+export function isFinanceHeadStaff(staff: StaffNotificationTarget) {
+  return (
+    staff.active &&
+    String(staff.function ?? "")
+      .trim()
+      .toLowerCase() === "finance head"
+  );
+}
+
+function canCreateJobCardFromConfirmedQuery(
+  access: { roles: string[] },
+  staff?: { jobCardCreatorEnabled?: boolean } | null,
+) {
+  return (
+    access.roles.includes("Admin") ||
+    access.roles.includes("Directors") ||
+    access.roles.includes("Accounts") ||
+    access.roles.includes("Accounts Head") ||
+    Boolean(staff?.jobCardCreatorEnabled)
+  );
+}
+
+export function queryRequiresTicketingWork(query?: {
+  ticketingOwnerId?: string | null;
+  ticketingScope?: string | null;
+}) {
+  const scope = String(query?.ticketingScope ?? "").trim();
+  if (scope) {
+    return scope !== "Not required";
+  }
+  return Boolean(query?.ticketingOwnerId);
+}
+
+async function notifyFinanceHeadsOnJobCardCreation(ctx: any, jobCode: string, jobCardId: any) {
+  const staffRows = await ctx.db.query("staffUsers").collect();
+  const financeHeads = staffRows.filter(isFinanceHeadStaff);
+  await Promise.all(
+    financeHeads.map((staff) =>
+      notifyStaffMember(ctx, staff._id, {
+        title: "Job Card opened",
+        body: `${jobCode} has been created and is ready for finance tracking.`,
+        entityType: "jobCard",
+        entityId: jobCardId,
+      }),
+    ),
+  );
+}
+
+export function nextTravelBatchIdentity(
+  jobCode: string,
+  existingBatches: Array<{ batchCode?: string | null }>,
+) {
+  const nextSequence =
+    existingBatches.reduce(
+      (max, batch) => Math.max(max, parseTravelBatchSequence(batch.batchCode)),
+      0,
+    ) + 1;
+  const batchCode = formatTravelBatchCode(nextSequence);
+  return {
+    batchCode,
+    batchReference: buildTravelBatchReference(jobCode, batchCode),
+  };
+}
+
+function travelBatchPatchFromArgs(args: {
+  destination?: string;
+  confirmedPax?: number;
+  roomCount?: number;
+  travelStartDate?: string;
+  travelEndDate?: string;
+  contractingOwnerId?: string;
+  contractingOwnerName?: string;
+  operationsOwnerId?: string;
+  operationsOwnerName?: string;
+  ticketingOwnerId?: string;
+  ticketingOwnerName?: string;
+  tourManagerName?: string;
+  status?: string;
+}) {
+  const patch: Record<string, unknown> = {};
+  if (args.destination !== undefined) patch.destination = args.destination.trim();
+  if (args.confirmedPax !== undefined) patch.confirmedPax = args.confirmedPax;
+  if (args.roomCount !== undefined) patch.roomCount = args.roomCount;
+  if (args.travelStartDate !== undefined) patch.travelStartDate = args.travelStartDate;
+  if (args.travelEndDate !== undefined) patch.travelEndDate = args.travelEndDate;
+  if (args.contractingOwnerId !== undefined) patch.contractingOwnerId = args.contractingOwnerId;
+  if (args.contractingOwnerName !== undefined) {
+    patch.contractingOwnerName = args.contractingOwnerName.trim();
+  }
+  if (args.operationsOwnerId !== undefined) patch.operationsOwnerId = args.operationsOwnerId;
+  if (args.operationsOwnerName !== undefined) {
+    patch.operationsOwnerName = args.operationsOwnerName.trim();
+  }
+  if (args.ticketingOwnerId !== undefined) patch.ticketingOwnerId = args.ticketingOwnerId;
+  if (args.ticketingOwnerName !== undefined) {
+    patch.ticketingOwnerName = args.ticketingOwnerName.trim();
+  }
+  if (args.tourManagerName !== undefined) patch.tourManagerName = args.tourManagerName.trim();
+  if (args.status !== undefined) patch.status = args.status;
+  return patch;
+}
+
+function publicOperationalProposalSummary(proposal: any, attachments: any[] = []) {
+  return {
+    id: proposal._id,
+    proposalCode: proposal.proposalCode,
+    status: proposal.status,
+    clientName: proposal.clientName ?? "",
+    itinerarySummary: proposal.itinerarySummary ?? "",
+    attachments: attachments
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map(publicProposalAttachment),
+    finalizedPdf: proposal.finalizedPdfStorageId
+      ? {
+          fileName: proposal.finalizedPdfFileName ?? "proposal.pdf",
+          uploadedAt: proposal.finalizedPdfUploadedAt
+            ? new Date(proposal.finalizedPdfUploadedAt).toISOString()
+            : null,
+        }
+      : null,
+  };
+}
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -137,10 +290,45 @@ export const list = query({
           if (!canSeeJobCardRecord(access, job, linkedQuery)) {
             return null;
           }
-          return publicJobCard(job);
+          const batches = await ctx.db
+            .query("travelBatches")
+            .withIndex("by_jobCardId", (q) => q.eq("jobCardId", job._id))
+            .collect();
+          return {
+            ...publicJobCard(job),
+            travelBatches: batches
+              .sort((a, b) => a.batchCode.localeCompare(b.batchCode))
+              .map(publicTravelBatch),
+          };
         }),
     );
     return result.filter(Boolean);
+  },
+});
+
+export const listTravelBatches = query({
+  args: {
+    jobCardId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_JOB_CARDS);
+    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!jobCardId) {
+      throw new ConvexError("Invalid Job Card id");
+    }
+    const job = await ctx.db.get(jobCardId);
+    if (!job) {
+      throw new ConvexError("Job Card not found");
+    }
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const rows = await ctx.db
+      .query("travelBatches")
+      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+      .collect();
+    return rows.sort((a, b) => a.batchCode.localeCompare(b.batchCode)).map(publicTravelBatch);
   },
 });
 
@@ -175,6 +363,8 @@ export const getCommandCenter = query({
       expenses,
       activity,
       checklistTasks,
+      travelBatches,
+      proposalAttachments,
     ] = await Promise.all([
       job.proposalId ? ctx.db.get(job.proposalId) : null,
       ctx.db
@@ -228,6 +418,16 @@ export const getCommandCenter = query({
         )
         .collect(),
       getChecklistTasksWithFallback(ctx, job),
+      ctx.db
+        .query("travelBatches")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .collect(),
+      job.proposalId
+        ? ctx.db
+            .query("proposalAttachments")
+            .withIndex("by_proposalId", (q) => q.eq("proposalId", job.proposalId))
+            .collect()
+        : Promise.resolve([]),
     ]);
     return {
       jobCard: publicJobCard(job),
@@ -241,15 +441,7 @@ export const getCommandCenter = query({
             contractingStatus: linkedQuery.contractingStatus,
           }
         : null,
-      proposal: proposal
-        ? {
-            id: proposal._id,
-            proposalCode: proposal.proposalCode,
-            status: proposal.status,
-            sellingPrice: proposal.sellingPrice ?? 0,
-            costPrice: proposal.costPrice ?? 0,
-          }
-        : null,
+      proposal: proposal ? publicOperationalProposalSummary(proposal, proposalAttachments) : null,
       travellers,
       visaRecords,
       tickets,
@@ -262,6 +454,9 @@ export const getCommandCenter = query({
       invoices,
       expenses,
       checklistTasks,
+      travelBatches: travelBatches
+        .sort((a, b) => a.batchCode.localeCompare(b.batchCode))
+        .map(publicTravelBatch),
       recentActivity: activity
         .sort((a, b) => b.createdAt - a.createdAt)
         .slice(0, 12)
@@ -313,11 +508,9 @@ export const createFromQuery = mutation({
     if (!canSeeQueryRecord(access, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
-    if (!isDirectorOrAdmin(access) && !hasRole(access, "Accounts Head")) {
-      const staff = access.staffId ? await ctx.db.get(access.staffId) : null;
-      if (!staff?.jobCardCreatorEnabled) {
-        throw new ConvexError("Only enabled Accounts Job Card creators can create Job Cards");
-      }
+    const staff = access.staffId ? await ctx.db.get(access.staffId) : null;
+    if (!canCreateJobCardFromConfirmedQuery(access, staff)) {
+      throw new ConvexError("Only Accounts can create Job Cards after order confirmation");
     }
     if (
       linkedQuery &&
@@ -395,7 +588,7 @@ export const createFromQuery = mutation({
 
     const now = Date.now();
     const jobCode = await nextCode(ctx, "jobCards", "JC", {
-      suffix: creatorInitials(linkedQuery.salesOwnerName || access.name),
+      suffix: creatorInitials(access.name),
     });
     const queryType = linkedQuery?.queryType;
     const id = await ctx.db.insert("jobCards", {
@@ -450,7 +643,8 @@ export const createFromQuery = mutation({
     const ticketingStaffId = linkedQuery?.ticketingOwnerId
       ? ctx.db.normalizeId("staffUsers", linkedQuery.ticketingOwnerId)
       : null;
-    if (ticketingStaffId) {
+    const needsTicketingWork = queryRequiresTicketingWork(linkedQuery);
+    if (ticketingStaffId && needsTicketingWork) {
       ownerNotifications.push(
         notifyStaffMember(ctx, ticketingStaffId, {
           title: "Job Card opened on your query",
@@ -460,6 +654,13 @@ export const createFromQuery = mutation({
         }),
       );
     }
+    const downstreamRoles = [
+      "Contracting",
+      "Contracting Head",
+      "Operations",
+      "Operations Head",
+      ...(needsTicketingWork ? ["Ticketing", "Head of Ticketing"] : []),
+    ];
 
     await Promise.all([
       createActivity(ctx, access, {
@@ -468,30 +669,20 @@ export const createFromQuery = mutation({
         action: "created",
         message: `${jobCode} opened for ${linkedQuery?.clientName || args.clientName || "client"}`,
       }),
-      notifyRoles(
-        ctx,
-        [
-          "Contracting",
-          "Contracting Head",
-          "Operations",
-          "Operations Head",
-          "Ticketing",
-          "Head of Ticketing",
-        ],
-        {
-          title: "Job Card opened — start operations",
-          body: `${jobCode} is live for ${linkedQuery?.queryCode || "the confirmed query"}. Begin traveller master, tickets, passport, visa, and tour manager work.`,
-          entityType: "jobCard",
-          entityId: id,
-        },
-      ),
+      notifyRoles(ctx, downstreamRoles, {
+        title: "Job Card opened — start operations",
+        body: `${jobCode} is live for ${linkedQuery?.queryCode || "the confirmed query"}. Begin traveller master, tickets, passport, visa, and tour manager work.`,
+        entityType: "jobCard",
+        entityId: id,
+      }),
       ...ownerNotifications,
-      notifyRoles(ctx, ["Sales", "Sales Head", "Finance"], {
+      notifyRoles(ctx, ["Sales", "Sales Head"], {
         title: "Job Card opened",
         body: `${jobCode} has been created and is ready for operations.`,
         entityType: "jobCard",
         entityId: id,
       }),
+      notifyFinanceHeadsOnJobCardCreation(ctx, jobCode, id),
     ]);
 
     return { id, jobCode };
@@ -558,6 +749,161 @@ export const update = mutation({
       message: `${job.jobCode} updated`,
     });
     return { id };
+  },
+});
+
+export const createTravelBatch = mutation({
+  args: {
+    jobCardId: v.string(),
+    destination: v.optional(v.string()),
+    confirmedPax: v.optional(v.number()),
+    roomCount: v.optional(v.number()),
+    travelStartDate: v.optional(v.string()),
+    travelEndDate: v.optional(v.string()),
+    contractingOwnerId: v.optional(v.string()),
+    contractingOwnerName: v.optional(v.string()),
+    operationsOwnerId: v.optional(v.string()),
+    operationsOwnerName: v.optional(v.string()),
+    ticketingOwnerId: v.optional(v.string()),
+    ticketingOwnerName: v.optional(v.string()),
+    tourManagerName: v.optional(v.string()),
+    status: v.optional(JOB_CARD_STATUS),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.MANAGE_JOB_CARDS,
+      PERMISSIONS.MANAGE_OPERATIONS,
+    ]);
+    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!jobCardId) {
+      throw new ConvexError("Invalid Job Card id");
+    }
+    const job = await ctx.db.get(jobCardId);
+    if (!job) {
+      throw new ConvexError("Job Card not found");
+    }
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    if (!canEditOperationsRecord(access, job) && !canEditContractingRecord(access, job)) {
+      throw new ConvexError(
+        "Only assigned SPOCs, collaborators, and heads can create Travel Batches",
+      );
+    }
+    const confirmedPax = args.confirmedPax ?? job.confirmedPax;
+    if (confirmedPax < 1) {
+      throw new ConvexError("Confirmed pax must be greater than zero");
+    }
+    const travelStartDate = args.travelStartDate ?? job.travelStartDate ?? "";
+    const travelEndDate = args.travelEndDate ?? job.travelEndDate ?? "";
+    assertDateRangeOrder(travelStartDate, travelEndDate, "Travel start date", "Travel end date");
+
+    const existingBatches = await ctx.db
+      .query("travelBatches")
+      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+      .collect();
+    const identity = nextTravelBatchIdentity(job.jobCode, existingBatches);
+    const now = Date.now();
+    const id = await ctx.db.insert("travelBatches", {
+      jobCardId,
+      ...identity,
+      destination: args.destination?.trim() ?? job.destination ?? "",
+      confirmedPax,
+      roomCount: args.roomCount ?? job.roomCount ?? 0,
+      travelStartDate,
+      travelEndDate,
+      queryType: job.queryType as any,
+      paymentTerms: job.paymentTerms ?? null,
+      contractingOwnerId: args.contractingOwnerId ?? job.contractingOwnerId,
+      contractingOwnerName: args.contractingOwnerName?.trim() ?? job.contractingOwnerName ?? "",
+      operationsOwnerId: args.operationsOwnerId ?? job.operationsOwnerId,
+      operationsOwnerName: args.operationsOwnerName?.trim() ?? job.operationsOwnerName ?? "",
+      ticketingOwnerId: args.ticketingOwnerId ?? job.ticketingOwnerId,
+      ticketingOwnerName: args.ticketingOwnerName?.trim() ?? job.ticketingOwnerName ?? "",
+      tourManagerName: args.tourManagerName?.trim() ?? job.tourManagerName ?? "",
+      status: args.status ?? job.status,
+      preDepartureChecklist: job.preDepartureChecklist ?? DEFAULT_CHECKLIST,
+      ...editorPatch(access),
+      createdBy: access.authUserId ?? "unknown",
+      createdAt: now,
+      updatedAt: now,
+    });
+    await createActivity(ctx, access, {
+      entityType: "jobCard",
+      entityId: jobCardId,
+      action: "travel_batch_created",
+      message: `${identity.batchReference} created`,
+    });
+    return { id, ...identity };
+  },
+});
+
+export const updateTravelBatch = mutation({
+  args: {
+    travelBatchId: v.string(),
+    destination: v.optional(v.string()),
+    confirmedPax: v.optional(v.number()),
+    roomCount: v.optional(v.number()),
+    travelStartDate: v.optional(v.string()),
+    travelEndDate: v.optional(v.string()),
+    contractingOwnerId: v.optional(v.string()),
+    contractingOwnerName: v.optional(v.string()),
+    operationsOwnerId: v.optional(v.string()),
+    operationsOwnerName: v.optional(v.string()),
+    ticketingOwnerId: v.optional(v.string()),
+    ticketingOwnerName: v.optional(v.string()),
+    tourManagerName: v.optional(v.string()),
+    status: v.optional(JOB_CARD_STATUS),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.MANAGE_JOB_CARDS,
+      PERMISSIONS.MANAGE_OPERATIONS,
+    ]);
+    const travelBatchId = ctx.db.normalizeId("travelBatches", args.travelBatchId);
+    if (!travelBatchId) {
+      throw new ConvexError("Invalid Travel Batch id");
+    }
+    const batch = await ctx.db.get(travelBatchId);
+    if (!batch) {
+      throw new ConvexError("Travel Batch not found");
+    }
+    const job = await ctx.db.get(batch.jobCardId);
+    if (!job) {
+      throw new ConvexError("Job Card not found");
+    }
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    if (!canEditOperationsRecord(access, job) && !canEditContractingRecord(access, job)) {
+      throw new ConvexError(
+        "Only assigned SPOCs, collaborators, and heads can update Travel Batches",
+      );
+    }
+    if (args.confirmedPax !== undefined && args.confirmedPax < 1) {
+      throw new ConvexError("Confirmed pax must be greater than zero");
+    }
+    assertDateRangeOrder(
+      args.travelStartDate ?? batch.travelStartDate,
+      args.travelEndDate ?? batch.travelEndDate,
+      "Travel start date",
+      "Travel end date",
+    );
+
+    const patch = {
+      ...travelBatchPatchFromArgs(args),
+      ...editorPatch(access),
+    };
+    await ctx.db.patch(travelBatchId, patch);
+    await createActivity(ctx, access, {
+      entityType: "jobCard",
+      entityId: batch.jobCardId,
+      action: "travel_batch_updated",
+      message: `${batch.batchReference} updated`,
+    });
+    return { id: travelBatchId };
   },
 });
 

@@ -45,6 +45,13 @@ const queryType = v.union(
 
 const travelType = v.union(v.literal("Domestic Travel"), v.literal("International Travel"));
 
+const ticketingScope = v.union(
+  v.literal("Domestic"),
+  v.literal("International"),
+  v.literal("Both"),
+  v.literal("Not required"),
+);
+
 const salesStatus = v.union(
   v.literal("Proposal in discussion"),
   v.literal("Change in destination"),
@@ -249,6 +256,14 @@ export default defineSchema({
     confirmationDate: v.optional(v.string()),
     leavePolicyGroup: v.optional(v.string()),
     leaveHeadApproverId: v.optional(v.id("staffUsers")),
+    leaveLevel1ApproverName: v.optional(v.string()),
+    leaveLevel1ApproverStaffId: v.optional(v.id("staffUsers")),
+    leaveEscalationApproverName: v.optional(v.string()),
+    leaveEscalationApproverStaffId: v.optional(v.id("staffUsers")),
+    leaveFinalAuthorityName: v.optional(v.string()),
+    leaveFinalAuthorityStaffId: v.optional(v.id("staffUsers")),
+    leaveHrCopyName: v.optional(v.string()),
+    leaveHrCopyStaffId: v.optional(v.id("staffUsers")),
     reportingManagerName: v.optional(v.string()),
     reportingManagerStaffId: v.optional(v.id("staffUsers")),
     maternityEventsUsed: v.optional(v.number()),
@@ -309,6 +324,10 @@ export default defineSchema({
     contractingOwnerName: v.optional(v.string()),
     ticketingOwnerId: v.optional(v.string()),
     ticketingOwnerName: v.optional(v.string()),
+    ticketingScope: v.optional(ticketingScope),
+    reassignToTeams: v.optional(v.boolean()),
+    travelInBatches: v.optional(v.boolean()),
+    batchingNotes: v.optional(v.string()),
     jobCardCreatorStaffId: v.optional(v.id("staffUsers")),
     jobCardCreatorName: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -458,8 +477,49 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_createdAt", ["createdAt"]),
 
+  travelBatches: defineTable({
+    jobCardId: v.id("jobCards"),
+    batchCode: v.string(),
+    batchReference: v.string(),
+    destination: v.optional(v.string()),
+    confirmedPax: v.number(),
+    roomCount: v.optional(v.number()),
+    travelStartDate: v.optional(v.string()),
+    travelEndDate: v.optional(v.string()),
+    queryType: v.optional(queryType),
+    paymentTerms: v.optional(v.any()),
+    contractingOwnerId: v.optional(v.string()),
+    contractingOwnerName: v.optional(v.string()),
+    operationsOwnerId: v.optional(v.string()),
+    operationsOwnerName: v.optional(v.string()),
+    ticketingOwnerId: v.optional(v.string()),
+    ticketingOwnerName: v.optional(v.string()),
+    tourManagerId: v.optional(v.id("tourManagerAssignments")),
+    tourManagerName: v.optional(v.string()),
+    status: v.union(
+      v.literal("Open"),
+      v.literal("In Operations"),
+      v.literal("Ready for Departure"),
+      v.literal("On Tour"),
+      v.literal("Closed"),
+    ),
+    preDepartureChecklist: v.optional(v.any()),
+    lastEditedBy: v.optional(v.string()),
+    lastEditedByName: v.optional(v.string()),
+    lastEditedAt: v.optional(v.number()),
+    createdBy: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_jobCardId_and_batchCode", ["jobCardId", "batchCode"])
+    .index("by_batchReference", ["batchReference"])
+    .index("by_status", ["status"])
+    .index("by_createdAt", ["createdAt"]),
+
   travellers: defineTable({
     jobCardId: v.id("jobCards"),
+    travelBatchId: v.optional(v.id("travelBatches")),
     fullName: v.string(),
     surname: v.optional(v.string()),
     givenName: v.optional(v.string()),
@@ -500,6 +560,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_jobCardId", ["jobCardId"])
+    .index("by_travelBatchId", ["travelBatchId"])
+    .index("by_jobCardId_and_travelBatchId", ["jobCardId", "travelBatchId"])
     .index("by_jobCardId_importKey", ["jobCardId", "importKey"])
     .index("by_visaStatus", ["visaStatus"])
     .index("by_ticketStatus", ["ticketStatus"]),
@@ -541,6 +603,7 @@ export default defineSchema({
 
   flightGroups: defineTable({
     jobCardId: v.id("jobCards"),
+    travelBatchId: v.optional(v.id("travelBatches")),
     name: v.string(),
     route: v.string(),
     airline: v.string(),
@@ -557,6 +620,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_jobCardId", ["jobCardId"])
+    .index("by_travelBatchId", ["travelBatchId"])
+    .index("by_jobCardId_and_travelBatchId", ["jobCardId", "travelBatchId"])
     .index("by_jobCardId_importKey", ["jobCardId", "importKey"]),
 
   flightSegments: defineTable({
@@ -697,6 +762,8 @@ export default defineSchema({
 
   tourManagerAssignments: defineTable({
     jobCardId: v.optional(v.id("jobCards")),
+    travelBatchId: v.optional(v.id("travelBatches")),
+    staffId: v.optional(v.id("staffUsers")),
     name: v.string(),
     email: v.optional(v.string()),
     phone: v.optional(v.string()),
@@ -704,12 +771,15 @@ export default defineSchema({
     languages: v.optional(v.array(v.string())),
     callingStatus,
     availabilityDate: v.optional(v.string()),
+    reportingInstructions: v.optional(v.string()),
     notes: v.optional(v.string()),
     createdBy: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_jobCardId", ["jobCardId"])
+    .index("by_travelBatchId", ["travelBatchId"])
+    .index("by_jobCardId_and_travelBatchId", ["jobCardId", "travelBatchId"])
     .index("by_status", ["status"]),
 
   vendors: defineTable({
@@ -887,6 +957,7 @@ export default defineSchema({
     .index("by_createdAt", ["createdAt"]),
 
   notifications: defineTable({
+    recipientStaffId: v.optional(v.id("staffUsers")),
     recipientUserId: v.optional(v.string()),
     recipientRole: v.optional(staffRole),
     title: v.string(),
@@ -896,6 +967,8 @@ export default defineSchema({
     readAt: v.optional(v.number()),
     createdAt: v.number(),
   })
+    .index("by_recipientStaffId", ["recipientStaffId"])
+    .index("by_recipientStaffId_createdAt", ["recipientStaffId", "createdAt"])
     .index("by_recipientUserId", ["recipientUserId"])
     .index("by_recipientRole", ["recipientRole"])
     .index("by_createdAt", ["createdAt"])
@@ -967,6 +1040,15 @@ export default defineSchema({
     headReviewedByName: v.optional(v.string()),
     headReviewedAt: v.optional(v.number()),
     headDecisionNote: v.optional(v.string()),
+    finalReviewStatus: v.optional(reviewStatus),
+    finalAuthorityStaffId: v.optional(v.id("staffUsers")),
+    finalAuthorityName: v.optional(v.string()),
+    finalReviewedBy: v.optional(v.string()),
+    finalReviewedByName: v.optional(v.string()),
+    finalReviewedAt: v.optional(v.number()),
+    finalDecisionNote: v.optional(v.string()),
+    hrCopyStaffId: v.optional(v.id("staffUsers")),
+    hrCopyName: v.optional(v.string()),
     hrReviewStatus: v.optional(reviewStatus),
     hrReviewedBy: v.optional(v.string()),
     hrReviewedByName: v.optional(v.string()),

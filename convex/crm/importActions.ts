@@ -119,6 +119,9 @@ function mapPassengerExportRow(row: any) {
   }
 
   return {
+    travelBatchId: row.travelBatchId,
+    travelBatchReference: row.travelBatchReference,
+    travelBatchCode: row.travelBatchCode,
     fullName: row.fullName,
     surname: row.surname,
     givenName: row.givenName,

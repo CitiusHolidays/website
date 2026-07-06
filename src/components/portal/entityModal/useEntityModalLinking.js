@@ -69,10 +69,13 @@ export function useEntityModalLinking({
     const linkedJob = jobCards.find((job) => job.id === jobCardId);
     const patch = linkedJob
       ? applyJobCardLink({ ...form, jobCardId }, linkedJob, modal)
-      : { jobCardId: jobCardId || "" };
+      : {
+          jobCardId: jobCardId || "",
+          ...(modal === "traveller" ? { travelBatchId: "" } : {}),
+        };
     patchForm({
       ...patch,
-      ...reconcileLinkedSelections({ ...form, ...patch }, travellers, pnrs),
+      ...reconcileLinkedSelections({ ...form, ...patch }, travellers, pnrs, jobCards),
     });
   };
 
@@ -83,11 +86,14 @@ export function useEntityModalLinking({
     const patch = applyTravellerLink(form, linkedTraveller, modal);
     if (linkedTraveller?.jobCardId) {
       const linkedJob = jobCards.find((job) => job.id === linkedTraveller.jobCardId);
-      Object.assign(patch, applyJobCardLink({ ...form, ...patch }, linkedJob, modal));
+      Object.assign(
+        patch,
+        applyJobCardLink({ ...form, ...patch }, linkedJob, modal, { onlyEmpty: true }),
+      );
     }
     patchForm({
       ...patch,
-      ...reconcileLinkedSelections({ ...form, ...patch }, travellers, pnrs),
+      ...reconcileLinkedSelections({ ...form, ...patch }, travellers, pnrs, jobCards),
     });
   };
 
@@ -100,7 +106,7 @@ export function useEntityModalLinking({
     }
     patchForm({
       ...patch,
-      ...reconcileLinkedSelections({ ...form, ...patch }, travellers, pnrs),
+      ...reconcileLinkedSelections({ ...form, ...patch }, travellers, pnrs, jobCards),
     });
   };
 

@@ -501,6 +501,8 @@ export const CEMENT_QUERY_TYPES = ["Cement", "Cement Bidding"];
 
 export const TRAVEL_TYPES = ["Domestic Travel", "International Travel"];
 
+export const TICKETING_SCOPE_OPTIONS = ["Domestic", "International", "Both", "Not required"];
+
 export const SALES_STATUSES = [
   "Proposal in discussion",
   "Change in destination",
@@ -512,8 +514,8 @@ export const SALES_STATUSES = [
 export const SALES_DECISION_OPTIONS = [
   { value: "Proposal in discussion", label: "Proposal Under Discussion" },
   { value: "Date/Destination Change Required", label: "Date/Destination Change Required" },
-  { value: "Order Confirmed", label: "Proposal Confirmed (Order Confirmed)" },
-  { value: "Order Lost", label: "Proposal Lost" },
+  { value: "Order Confirmed", label: "Order Confirmed" },
+  { value: "Order Lost", label: "Order Lost" },
 ];
 
 export const LEAD_STAGES = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Lost"];

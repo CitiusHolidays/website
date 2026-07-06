@@ -5,6 +5,7 @@ import { EntityModalJobCardFields } from "./EntityModalJobCardFields";
 import { EntityModalMediaFields } from "./EntityModalMediaFields";
 import { EntityModalProposalFields } from "./EntityModalProposalFields";
 import { EntityModalQueryFields } from "./EntityModalQueryFields";
+import { EntityModalTravelBatchFields } from "./EntityModalTravelBatchFields";
 import { EntityModalTravellerFields } from "./EntityModalTravellerFields";
 import { EntityModalWorkflowFields } from "./EntityModalWorkflowFields";
 
@@ -17,6 +18,7 @@ export function EntityModalFieldsPrimary(props) {
       <EntityModalWorkflowFields {...props} />
       <EntityModalProposalFields {...props} />
       <EntityModalJobCardFields {...props} />
+      <EntityModalTravelBatchFields {...props} />
       <EntityModalTravellerFields {...props} />
     </>
   );

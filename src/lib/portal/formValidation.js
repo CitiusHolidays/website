@@ -1,7 +1,18 @@
-import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { PORTAL_PERMISSIONS as P, TICKETING_SCOPE_OPTIONS } from "@/lib/portal/constants";
 import { assertDateRangeOrder } from "@/lib/portal/dateValidation";
-import { toNumber } from "@/lib/portal/formUtils";
+import { canHeadAssignQueryTeams, isSalesQueryAssigner } from "@/lib/portal/permissions";
 import { getExpenseSplitTotal } from "@/lib/portal/workflow";
+
+function assertValidTicketingScope(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  if (!TICKETING_SCOPE_OPTIONS.includes(trimmed)) {
+    throw new Error("Select a valid Ticketing Scope.");
+  }
+  return trimmed;
+}
 
 const MAX_QUERY_NOTES_WORDS = 30;
 
@@ -52,6 +63,28 @@ export function validateModalForm(modal, form, deps = {}) {
       endLabel: "Travel end date",
     });
     assertNonNegativeNumber(form.budgetAmount, "Budget");
+    const contractingStaffId = String(form.staffId ?? "").trim();
+    const ticketingScope = assertValidTicketingScope(form.ticketingScope);
+    if (contractingStaffId && !ticketingScope) {
+      throw new Error("Select a Ticketing Scope.");
+    }
+    if (!contractingStaffId && ticketingScope) {
+      throw new Error("Select a Contracting SPOC.");
+    }
+  }
+
+  if (modal === "travelBatch") {
+    if (!String(form.jobCardId ?? "").trim()) {
+      throw new Error("Select a job card.");
+    }
+    assertPositiveInt(form.confirmedPax, "Confirmed pax");
+    if (form.roomCount !== "" && form.roomCount != null) {
+      assertNonNegativeNumber(form.roomCount, "Room count");
+    }
+    assertDateRangeOrder(form.travelStartDate, form.travelEndDate, {
+      startLabel: "Travel start date",
+      endLabel: "Travel end date",
+    });
   }
 
   if (modal === "jobCard") {
@@ -134,9 +167,25 @@ export function validateModalForm(modal, form, deps = {}) {
     if (!String(form.queryId ?? "").trim()) throw new Error("Select a query.");
     const contractingStaffId = String(form.staffId ?? "").trim();
     const ticketingStaffId = String(form.ticketingStaffId ?? "").trim();
-    if (!contractingStaffId && !ticketingStaffId) {
-      throw new Error("Select a contracting and/or ticketing SPOC.");
+    const ticketingScopeRaw = String(form.ticketingScope ?? "").trim();
+    const access = deps.access || {};
+    const salesInitial = isSalesQueryAssigner(access) && !canHeadAssignQueryTeams(access);
+
+    if (salesInitial) {
+      if (!contractingStaffId) {
+        throw new Error("Select a Contracting SPOC.");
+      }
+      if (!ticketingScopeRaw) {
+        throw new Error("Select a Ticketing Scope.");
+      }
+      if (ticketingStaffId) {
+        throw new Error("Only heads can assign ticketing SPOCs.");
+      }
+    } else if (!contractingStaffId && !ticketingStaffId && !ticketingScopeRaw) {
+      throw new Error("Select a contracting SPOC, ticketing SPOC, or Ticketing Scope.");
     }
+
+    assertValidTicketingScope(ticketingScopeRaw);
   }
 
   if (

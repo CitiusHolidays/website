@@ -21,7 +21,7 @@ import {
   TICKET_TYPES,
   VISA_STATUSES,
 } from "@/lib/portal/constants";
-import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
+import { jobCardSelectOptions, travelBatchSelectOptions } from "@/lib/portal/entityModalLinks";
 import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
 export function EntityModalTourManagerFields({
@@ -57,9 +57,18 @@ export function EntityModalTourManagerFields({
           <Select
             label="Job Card"
             value={form.jobCardId}
-            options={jobCardSelectOptions(jobCards, { allowUnassigned: true })}
+            options={jobCardSelectOptions(jobCards, { required: true })}
             onChange={handleJobCardSelect}
+            required
           />
+          {form.jobCardId ? (
+            <Select
+              label="Travel Batch"
+              value={form.travelBatchId || ""}
+              options={travelBatchSelectOptions(jobCards, form.jobCardId)}
+              onChange={(value) => updateForm("travelBatchId", value)}
+            />
+          ) : null}
           <Select
             label="Tour Manager"
             value={form.staffId}
@@ -81,6 +90,11 @@ export function EntityModalTourManagerFields({
             type="date"
             value={form.travelStartDate}
             onChange={(v) => updateForm("travelStartDate", v)}
+          />
+          <Textarea
+            label="Reporting Instructions"
+            value={form.reportingInstructions || ""}
+            onChange={(v) => updateForm("reportingInstructions", v)}
           />
           <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
         </>

@@ -1,10 +1,11 @@
 "use client";
 
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
+import { usesSalesInitialAssignmentForm } from "@/lib/portal/permissions";
 
 const P = PORTAL_PERMISSIONS;
 
-export function getEntityModalTitle(modal, form, has) {
+export function getEntityModalTitle(modal, form, has, access) {
   if (!modal) return "";
   return (
     {
@@ -13,7 +14,9 @@ export function getEntityModalTitle(modal, form, has) {
       proposalAttachments: `Working Files — ${form.queryCode || "Proposal"}`,
       proposalFinalizedPdf: `Finalized Proposal PDF — ${form.queryCode || "Proposal"}`,
       assignContracting: "Assign Contracting SPOC",
-      assignQueryTeams: "Assign contracting & ticketing teams",
+      assignQueryTeams: usesSalesInitialAssignmentForm(access)
+        ? "Assign Contracting SPOC & Ticketing Scope"
+        : "Assign contracting & ticketing teams",
       assignQueryTicketing: "Assign Ticketing SPOC",
       assignJobCardCreator: "Assign Job Card Creator",
       addProposalCollaborator: "Add Proposal Collaborator",
@@ -27,6 +30,7 @@ export function getEntityModalTitle(modal, form, has) {
       salesDecision: "Sales Decision",
       proposal: form.entityId ? "Edit Proposal" : "Create Proposal",
       jobCard: form.entityId ? "Edit Job Card" : "Open Job Card",
+      travelBatch: form.entityId ? "Edit Travel Batch" : "Add Travel Batch",
       traveller: form.entityId ? "Edit Traveller" : "Add Traveller",
       visa: form.entityId ? "Edit Visa Record" : "Update Visa Status",
       visa_create: "Create Visa Record",

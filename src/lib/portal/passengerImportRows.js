@@ -5,6 +5,8 @@ export function toPassengerImportInput(row) {
     sourceRowNumber: row.sourceRowNumber,
     importKind: row.importKind,
     importKey: row.importKey,
+    travelBatchId: row.travelBatchId,
+    travelBatchReference: row.travelBatchReference,
     fullName: row.fullName,
     surname: row.surname,
     givenName: row.givenName,

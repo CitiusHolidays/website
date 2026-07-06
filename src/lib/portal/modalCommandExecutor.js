@@ -1,7 +1,22 @@
-import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { PORTAL_PERMISSIONS as P, TICKETING_SCOPE_OPTIONS } from "@/lib/portal/constants";
 import { toNumber } from "@/lib/portal/formUtils";
 import { validateModalForm } from "@/lib/portal/formValidation";
 import { getExpenseSplitTotal } from "@/lib/portal/workflow";
+
+function normalizedTicketingScope(scope) {
+  const value = String(scope ?? "").trim();
+  if (!value) {
+    return undefined;
+  }
+  if (!TICKETING_SCOPE_OPTIONS.includes(value)) {
+    throw new Error("Select a valid Ticketing Scope.");
+  }
+  return value;
+}
+
+function withoutUndefinedValues(payload) {
+  return Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined));
+}
 
 function modalRequiresJobCard(modal, form, jobCardModals) {
   if (!jobCardModals?.has(modal)) return false;
@@ -15,6 +30,7 @@ export async function executeModalCommand({ modal, form, deps }) {
     throw new Error("Please select a job card.");
   }
   if (modal === "query") {
+    const travelInBatches = form.travelInBatches === "Yes" || form.travelInBatches === true;
     if (form.entityId) {
       await deps.updateQuery({
         queryId: form.entityId,
@@ -30,6 +46,8 @@ export async function executeModalCommand({ modal, form, deps }) {
         budgetAmount: toNumber(form.budgetAmount, 0),
         source: form.source,
         salesOwnerName: form.salesOwnerName,
+        travelInBatches,
+        batchingNotes: travelInBatches ? form.batchingNotes : "",
         notes: form.notes,
       });
     } else {
@@ -46,6 +64,10 @@ export async function executeModalCommand({ modal, form, deps }) {
         budgetAmount: toNumber(form.budgetAmount, 0),
         source: form.source,
         salesOwnerName: form.salesOwnerName,
+        contractingStaffId: form.staffId || undefined,
+        ticketingScope: normalizedTicketingScope(form.ticketingScope),
+        travelInBatches,
+        batchingNotes: travelInBatches ? form.batchingNotes : "",
         notes: form.notes,
       });
       if (deps.pendingQueryFiles.length > 0) {
@@ -70,10 +92,12 @@ export async function executeModalCommand({ modal, form, deps }) {
   if (modal === "assignQueryTeams") {
     const contractingStaffId = String(form.staffId ?? "").trim();
     const ticketingStaffId = String(form.ticketingStaffId ?? "").trim();
+    const ticketingScope = normalizedTicketingScope(form.ticketingScope);
     await deps.assignQueryTeams({
       queryId: form.queryId,
       contractingStaffId: contractingStaffId || undefined,
       ticketingStaffId: ticketingStaffId || undefined,
+      ticketingScope,
     });
   }
   if (modal === "assignJobCardCreator") {
@@ -185,6 +209,34 @@ export async function executeModalCommand({ modal, form, deps }) {
       });
     }
   }
+  if (modal === "travelBatch") {
+    const travelBatchPayload = withoutUndefinedValues({
+      destination: form.destination,
+      confirmedPax: toNumber(form.confirmedPax, 1),
+      roomCount: toNumber(form.roomCount, 0),
+      travelStartDate: form.travelStartDate,
+      travelEndDate: form.travelEndDate,
+      contractingOwnerId: form.contractingOwnerId || undefined,
+      contractingOwnerName: form.contractingOwnerName?.trim() || undefined,
+      operationsOwnerId: form.operationsOwnerId || undefined,
+      operationsOwnerName: form.operationsOwnerName?.trim() || undefined,
+      ticketingOwnerId: form.ticketingOwnerId || undefined,
+      ticketingOwnerName: form.ticketingOwnerName?.trim() || undefined,
+      tourManagerName: form.tourManagerName?.trim() || undefined,
+      status: form.status || undefined,
+    });
+    if (form.entityId) {
+      await deps.updateTravelBatch({
+        travelBatchId: form.entityId,
+        ...travelBatchPayload,
+      });
+    } else {
+      await deps.createTravelBatch({
+        jobCardId: form.jobCardId,
+        ...travelBatchPayload,
+      });
+    }
+  }
   if (modal === "jobCard") {
     if (form.entityId) {
       await deps.updateJobCard({
@@ -232,11 +284,15 @@ export async function executeModalCommand({ modal, form, deps }) {
       hotelAllocation: form.hotelAllocation,
       gender: form.gender,
       specialRequests: form.notes,
+      travelBatchId: form.travelBatchId || "",
     };
     if (form.entityId) {
       await deps.updateTraveller({ travellerId: form.entityId, ...travellerPayload });
     } else {
-      await deps.createTraveller({ jobCardId: form.jobCardId, ...travellerPayload });
+      await deps.createTraveller({
+        jobCardId: form.jobCardId,
+        ...travellerPayload,
+      });
     }
   }
   if (modal === "visa") {
@@ -322,14 +378,20 @@ export async function executeModalCommand({ modal, form, deps }) {
     const selectedTm = deps.team.find((member) => member.id === form.staffId);
     const payload = {
       jobCardId: form.jobCardId || undefined,
+      travelBatchId: form.travelBatchId || "",
       name: selectedTm?.name || form.tourManagerName,
       email: form.staffEmail,
       phone: form.paidBy,
       availabilityDate: form.travelStartDate,
+      reportingInstructions: form.reportingInstructions,
       notes: form.notes,
     };
     if (form.entityId) {
-      await deps.updateTourManager({ tourManagerId: form.entityId, ...payload });
+      await deps.updateTourManager({
+        tourManagerId: form.entityId,
+        staffId: form.staffId || undefined,
+        ...payload,
+      });
     } else {
       await deps.createTourManager({ staffId: form.staffId || undefined, ...payload });
     }

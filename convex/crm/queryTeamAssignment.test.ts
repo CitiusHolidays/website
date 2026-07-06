@@ -19,6 +19,19 @@ function headAccess(overrides: Partial<PortalAccess> = {}): PortalAccess {
   };
 }
 
+function salesAccess(overrides: Partial<PortalAccess> = {}): PortalAccess {
+  return {
+    allowed: true,
+    email: "sales@citiusholidays.com",
+    name: "Sales User",
+    roles: ["Sales"],
+    permissions: ["manage:queries"],
+    authUserId: "auth_sales",
+    staffId: "staffUsers_sales",
+    ...overrides,
+  };
+}
+
 function makeAssignmentCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))]),
@@ -101,6 +114,47 @@ const ticketingStaff = {
 };
 
 describe("applyQueryTeamAssignments", () => {
+  test("allows Sales to make the initial contracting assignment with ticketing scope", async () => {
+    const { ctx, tables } = makeAssignmentCtx({
+      queries: [{ ...baseQuery, salesOwnerId: "auth_sales" }],
+      staffUsers: [contractingStaff],
+      jobCards: [],
+      contractingAssignments: [],
+    });
+    const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
+    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
+    const notifyRoles = spyOn(lib, "notifyRoles").mockImplementation(async () => {});
+
+    try {
+      await applyQueryTeamAssignments(ctx as never, salesAccess(), {
+        queryId: "queries_1",
+        contractingStaffId: "staffUsers_contracting",
+        ticketingScope: "Both",
+      });
+
+      expect(tables.queries[0]).toMatchObject({
+        contractingOwnerId: "staffUsers_contracting",
+        contractingOwnerName: "Contracting User",
+        contractingStatus: "Query Received",
+        ticketingScope: "Both",
+      });
+      expect(notifyStaffMember).toHaveBeenCalledWith(
+        expect.anything(),
+        "staffUsers_contracting",
+        expect.objectContaining({ title: "Assign contracting owner" }),
+      );
+      expect(notifyRoles).toHaveBeenCalledWith(
+        expect.anything(),
+        ["Contracting Head", "Operations Head", "Head of Ticketing"],
+        expect.objectContaining({ title: "Query team assigned by Sales" }),
+      );
+    } finally {
+      createActivity.mockRestore();
+      notifyStaffMember.mockRestore();
+      notifyRoles.mockRestore();
+    }
+  });
+
   test("assigns contracting and ticketing in one write", async () => {
     const { ctx, tables } = makeAssignmentCtx({
       queries: [{ ...baseQuery }],
@@ -116,6 +170,7 @@ describe("applyQueryTeamAssignments", () => {
         queryId: "queries_1",
         contractingStaffId: "staffUsers_contracting",
         ticketingStaffId: "staffUsers_ticketing",
+        ticketingScope: "International",
       });
 
       expect(result.id).toBe("queries_1");
@@ -125,6 +180,7 @@ describe("applyQueryTeamAssignments", () => {
         contractingStatus: "Query Received",
         ticketingOwnerId: "staffUsers_ticketing",
         ticketingOwnerName: "Ticketing User",
+        ticketingScope: "International",
       });
       expect(tables.jobCards[0]).toMatchObject({
         contractingOwnerId: "staffUsers_contracting",
@@ -164,6 +220,118 @@ describe("applyQueryTeamAssignments", () => {
       createActivity.mockRestore();
       notifyStaffMember.mockRestore();
     }
+  });
+
+  test("notifies only contracting and operations heads when ticketing is not required", async () => {
+    const { ctx } = makeAssignmentCtx({
+      queries: [{ ...baseQuery, salesOwnerId: "auth_sales" }],
+      staffUsers: [contractingStaff],
+      jobCards: [],
+      contractingAssignments: [],
+    });
+    const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
+    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
+    const notifyRoles = spyOn(lib, "notifyRoles").mockImplementation(async () => {});
+
+    try {
+      await applyQueryTeamAssignments(ctx as never, salesAccess(), {
+        queryId: "queries_1",
+        contractingStaffId: "staffUsers_contracting",
+        ticketingScope: "Not required",
+      });
+
+      expect(notifyRoles).toHaveBeenCalledWith(
+        expect.anything(),
+        ["Contracting Head", "Operations Head"],
+        expect.objectContaining({ title: "Query team assigned by Sales" }),
+      );
+    } finally {
+      createActivity.mockRestore();
+      notifyStaffMember.mockRestore();
+      notifyRoles.mockRestore();
+    }
+  });
+
+  test("prevents Sales from reassigning after initial assignment", async () => {
+    const { ctx } = makeAssignmentCtx({
+      queries: [
+        {
+          ...baseQuery,
+          salesOwnerId: "auth_sales",
+          contractingOwnerId: "staffUsers_existing",
+          ticketingScope: "Domestic",
+          submittedToContractingAt: Date.now(),
+        },
+      ],
+      staffUsers: [contractingStaff],
+      jobCards: [],
+      contractingAssignments: [],
+    });
+
+    await expect(
+      applyQueryTeamAssignments(ctx as never, salesAccess(), {
+        queryId: "queries_1",
+        contractingStaffId: "staffUsers_contracting",
+        ticketingScope: "Both",
+      }),
+    ).rejects.toEqual(new ConvexError("Only heads can reassign query teams."));
+  });
+
+  test("allows Sales to make the first assignment after query submission when no team fields exist", async () => {
+    const { ctx, tables } = makeAssignmentCtx({
+      queries: [
+        {
+          ...baseQuery,
+          salesOwnerId: "auth_sales",
+          submittedToContractingAt: Date.now(),
+        },
+      ],
+      staffUsers: [contractingStaff],
+      jobCards: [],
+      contractingAssignments: [],
+    });
+    const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
+    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
+    const notifyRoles = spyOn(lib, "notifyRoles").mockImplementation(async () => {});
+
+    try {
+      await applyQueryTeamAssignments(ctx as never, salesAccess(), {
+        queryId: "queries_1",
+        contractingStaffId: "staffUsers_contracting",
+        ticketingScope: "Domestic",
+      });
+
+      expect(tables.queries[0]).toMatchObject({
+        contractingOwnerId: "staffUsers_contracting",
+        ticketingScope: "Domestic",
+      });
+      expect(notifyStaffMember).toHaveBeenCalledWith(
+        expect.anything(),
+        "staffUsers_contracting",
+        expect.objectContaining({ title: "Assign contracting owner" }),
+      );
+    } finally {
+      createActivity.mockRestore();
+      notifyStaffMember.mockRestore();
+      notifyRoles.mockRestore();
+    }
+  });
+
+  test("rejects invalid ticketing scope", async () => {
+    const { ctx } = makeAssignmentCtx({
+      queries: [{ ...baseQuery, salesOwnerId: "auth_sales" }],
+      staffUsers: [contractingStaff],
+      jobCards: [],
+      contractingAssignments: [],
+    });
+
+    await expect(
+      applyQueryTeamAssignments(ctx as never, salesAccess(), {
+        queryId: "queries_1",
+        contractingStaffId: "staffUsers_contracting",
+        ticketingScope: "Regional",
+      }),
+    ).rejects.toEqual(new ConvexError("Select a valid Ticketing Scope."));
   });
 
   test("supports ticketing-only assignment", async () => {

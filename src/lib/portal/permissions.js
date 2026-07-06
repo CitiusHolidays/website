@@ -91,6 +91,61 @@ export function canAssignQueryTicketing(access) {
   return isAdmin(access) || hasRole(access, "Head of Ticketing");
 }
 
+export function canHeadAssignQueryTeams(access) {
+  return canAssignContracting(access) || canAssignQueryTicketing(access);
+}
+
+export function isSalesQueryAssigner(access) {
+  return (
+    (hasRole(access, "Sales") ||
+      hasRole(access, "Sales Head") ||
+      hasRole(access, "Sales Cement")) &&
+    hasPermission(access, PORTAL_PERMISSIONS.MANAGE_QUERIES)
+  );
+}
+
+export function usesSalesInitialAssignmentForm(access) {
+  return isSalesQueryAssigner(access) && !canHeadAssignQueryTeams(access);
+}
+
+export function queryHasTeamAssignment(query) {
+  return Boolean(
+    query?.contractingOwnerId ||
+      query?.ticketingOwnerId ||
+      query?.ticketingScope ||
+      query?.submittedToContractingAt,
+  );
+}
+
+export function canShowSalesInitialAssignButton(access, query) {
+  return usesSalesInitialAssignmentForm(access) && !queryHasTeamAssignment(query);
+}
+
+export function canShowHeadAssignQueryButton(access, query) {
+  if (!canHeadAssignQueryTeams(access)) {
+    return false;
+  }
+  return Boolean(
+    query?.submittedToContractingAt ||
+      query?.contractingOwnerId ||
+      query?.ticketingOwnerId ||
+      query?.ticketingScope,
+  );
+}
+
+export function canShowAssignQueryTeamsButton(access, query) {
+  return (
+    canShowSalesInitialAssignButton(access, query) || canShowHeadAssignQueryButton(access, query)
+  );
+}
+
+export function assignQueryTeamsButtonLabel(access) {
+  if (usesSalesInitialAssignmentForm(access)) {
+    return "Assign contracting";
+  }
+  return "Assign teams";
+}
+
 export function canAssignOperations(access) {
   return isAdmin(access) || hasRole(access, "Operations Head");
 }
@@ -107,12 +162,9 @@ export function canManageJobCardCreatorAccess(access) {
   return isAdmin(access) || hasRole(access, "Directors") || hasRole(access, "Accounts Head");
 }
 
-export function canCreateJobCardFromAccounts(access, creators = []) {
+export function canCreateJobCardFromAccounts(access, _creators = []) {
   if (canManageJobCardCreatorAccess(access)) return true;
-  const staffId = String(access?.staffId || "");
-  return creators.some(
-    (creator) => creator.jobCardCreatorEnabled && String(creator.id) === staffId,
-  );
+  return hasRole(access, "Accounts");
 }
 
 function filterTeamByRoles(team = [], roles = []) {

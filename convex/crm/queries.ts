@@ -10,7 +10,6 @@ import {
   contractingNotifyRolesForQueryType,
   createActivity,
   deleteEntityNotifications,
-  deleteJobCardCascade,
   hasRole,
   isDirectorOrAdmin,
   MAX_QUERY_NOTES_WORDS,
@@ -34,6 +33,13 @@ const OPS_START_ROLES = [
   "Ticketing",
   "Head of Ticketing",
 ] as const;
+
+const ticketingScopeValidator = v.union(
+  v.literal("Domestic"),
+  v.literal("International"),
+  v.literal("Both"),
+  v.literal("Not required"),
+);
 
 async function notifyQueryOwner(
   ctx: Parameters<typeof notifyStaffMember>[0],
@@ -82,47 +88,21 @@ async function notifyJobCardCreators(
 ) {
   const staffRows = await ctx.db.query("staffUsers").collect();
   await Promise.all(
-    staffRows
-      .filter(
-        (staff) =>
-          staff.active &&
-          staff.jobCardCreatorEnabled &&
-          staff.roles.some((role) => ["Accounts", "Accounts Head"].includes(role)),
-      )
-      .map((staff) =>
-        notifyStaffMember(ctx, staff._id, {
-          title: "Order confirmed — open Job Card",
-          body: `${query.queryCode} is confirmed. Create the Job Card in Accounts.`,
-          entityType: "query",
-          entityId: queryId,
-        }),
-      ),
+    staffRows.filter(isJobCardCreatorNotificationTarget).map((staff) =>
+      notifyStaffMember(ctx, staff._id, {
+        title: "Order confirmed — open Job Card",
+        body: `${query.queryCode} is confirmed. Create the Job Card in Accounts.`,
+        entityType: "query",
+        entityId: queryId,
+      }),
+    ),
   );
 }
 
-async function notifyProposalRevisionWorkflow(
-  ctx: Parameters<typeof notifyRoles>[0],
-  query: { queryCode: string; contractingOwnerId?: string; ticketingOwnerId?: string },
-  queryId: Id<"queries">,
-) {
-  const entity = { entityType: "query" as const, entityId: queryId };
-  await Promise.all([
-    notifyRoles(ctx, ["Contracting", "Contracting Head", "Ticketing", "Head of Ticketing"], {
-      title: "Proposal revision required",
-      body: `${query.queryCode} needs a date or destination revision. Rework the proposal and return it to Sales.`,
-      ...entity,
-    }),
-    notifyQueryOwner(ctx, query.contractingOwnerId, {
-      title: "Revise proposal",
-      body: `${query.queryCode} was sent back by Sales for a date or destination change.`,
-      ...entity,
-    }),
-    notifyQueryOwner(ctx, query.ticketingOwnerId, {
-      title: "Revise proposal costing",
-      body: `${query.queryCode} needs updated ticketing inputs for the revised proposal.`,
-      ...entity,
-    }),
-  ]);
+export function isJobCardCreatorNotificationTarget(staff: { active?: boolean; roles?: string[] }) {
+  return Boolean(
+    staff.active && staff.roles?.some((role) => ["Accounts", "Accounts Head"].includes(role)),
+  );
 }
 
 const queryTypeValidator = v.union(
@@ -183,6 +163,195 @@ const lostReasonValidator = v.union(
   v.literal("Other"),
 );
 
+export type SalesStatus =
+  | "Proposal in discussion"
+  | "Change in destination"
+  | "Date/Destination Change Required"
+  | "Order Confirmed"
+  | "Order Lost";
+
+export type LeadStage = "Inquiry" | "Proposal" | "Negotiation" | "Confirmation" | "Lost" | "Closed";
+
+export type ContractingStatus =
+  | "Query Received"
+  | "Proposal in progress"
+  | "Proposal sent"
+  | "Change in destination"
+  | "Date/Destination Change Required"
+  | "Order Confirmed"
+  | "Order Lost";
+
+export type LostReason = "Price" | "Competition" | "Not travelling" | "Other";
+
+export type QueryStatusArgs = {
+  queryId: string;
+  salesStatus?: SalesStatus;
+  leadStage?: LeadStage;
+  contractingStatus?: ContractingStatus;
+  lostReason?: LostReason;
+  lostReasonOther?: string;
+  contractingLandCost?: number;
+  contractingAirlinesCost?: number;
+  contractingVisaCost?: number;
+  approxMargin?: number;
+};
+
+type CurrentQueryStatus = {
+  queryCode: string;
+  salesStatus: SalesStatus;
+  leadStage?: LeadStage;
+  contractingStatus: ContractingStatus;
+  contractingOwnerId?: string;
+  ticketingOwnerId?: string;
+};
+
+type QueryStatusPatch = Record<string, unknown>;
+
+export function buildQueryStatusPatch({
+  args,
+  now,
+}: {
+  args: QueryStatusArgs;
+  now: number;
+}): QueryStatusPatch {
+  if (args.contractingStatus === "Order Lost") {
+    throw new ConvexError("Only Sales can mark an order as lost");
+  }
+  if (args.salesStatus === "Order Lost" && !args.lostReason) {
+    throw new ConvexError("Select a lost reason.");
+  }
+
+  const patch: QueryStatusPatch = {
+    updatedAt: now,
+  };
+  if (args.salesStatus) {
+    patch.salesStatus = args.salesStatus;
+    if (args.salesStatus === "Order Confirmed") {
+      patch.contractingStatus = "Order Confirmed";
+      patch.leadStage = "Confirmation";
+      patch.confirmedAt = now;
+      patch.reassignToTeams = false;
+    }
+    if (args.salesStatus === "Order Lost") {
+      patch.contractingStatus = "Order Lost";
+      patch.leadStage = "Lost";
+      patch.reassignToTeams = false;
+    }
+    if (args.salesStatus === "Date/Destination Change Required") {
+      patch.contractingStatus = "Proposal in progress";
+      patch.leadStage = "Negotiation";
+      patch.reassignToTeams = true;
+    }
+    if (args.salesStatus === "Proposal in discussion") {
+      patch.leadStage = "Proposal";
+      patch.reassignToTeams = false;
+    }
+  }
+  if (args.leadStage) {
+    patch.leadStage = args.leadStage;
+  }
+  if (args.contractingStatus) {
+    patch.contractingStatus = args.contractingStatus;
+    if (args.contractingStatus === "Order Confirmed") {
+      patch.salesStatus = "Order Confirmed";
+      patch.leadStage = "Confirmation";
+      patch.confirmedAt = now;
+    }
+  }
+  if (args.lostReason) {
+    patch.lostReason = args.lostReason;
+    patch.lostReasonOther = args.lostReasonOther?.trim() || "";
+  }
+  if (args.contractingLandCost !== undefined) {
+    patch.contractingLandCost = Math.max(args.contractingLandCost, 0);
+  }
+  if (args.contractingAirlinesCost !== undefined) {
+    patch.contractingAirlinesCost = Math.max(args.contractingAirlinesCost, 0);
+  }
+  if (args.contractingVisaCost !== undefined) {
+    patch.contractingVisaCost = Math.max(args.contractingVisaCost, 0);
+  }
+
+  return patch;
+}
+
+type PlannedRoleNotification = {
+  roles: string[];
+  title: string;
+  body: string;
+};
+
+type PlannedOwnerNotification = {
+  ownerId: string;
+  title: string;
+  body: string;
+};
+
+export function buildQueryStatusNotificationPlan({
+  current,
+  args,
+  isNewlyConfirmed,
+}: {
+  current: CurrentQueryStatus;
+  args: QueryStatusArgs;
+  wasConfirmed: boolean;
+  isNewlyConfirmed: boolean;
+}) {
+  const roleNotifications: PlannedRoleNotification[] = [];
+  const ownerNotifications: PlannedOwnerNotification[] = [];
+  const addOwnerNotification = (
+    ownerId: string | undefined,
+    notification: Omit<PlannedOwnerNotification, "ownerId">,
+  ) => {
+    if (!ownerId || ownerNotifications.some((entry) => entry.ownerId === ownerId)) {
+      return;
+    }
+    ownerNotifications.push({ ownerId, ...notification });
+  };
+
+  if (args.salesStatus === "Date/Destination Change Required") {
+    addOwnerNotification(current.contractingOwnerId, {
+      title: "Revise proposal",
+      body: `${current.queryCode} was sent back by Sales for a date or destination change.`,
+    });
+    addOwnerNotification(current.ticketingOwnerId, {
+      title: "Revise proposal costing",
+      body: `${current.queryCode} needs updated ticketing inputs for the revised proposal.`,
+    });
+  }
+
+  if (args.salesStatus === "Order Lost") {
+    roleNotifications.push({
+      roles: ["Contracting", "Contracting Head"],
+      title: "Order lost",
+      body: `${current.queryCode} was marked lost by Sales.`,
+    });
+    addOwnerNotification(current.contractingOwnerId, {
+      title: "Order lost on your query",
+      body: `${current.queryCode} was marked lost by Sales.`,
+    });
+    addOwnerNotification(current.ticketingOwnerId, {
+      title: "Order lost on your query",
+      body: `${current.queryCode} was marked lost by Sales.`,
+    });
+  }
+
+  if (isNewlyConfirmed) {
+    roleNotifications.push({
+      roles: ["Finance"],
+      title: "Order confirmed",
+      body: `${current.queryCode} has been confirmed by Sales.`,
+    });
+  }
+
+  return {
+    notifyJobCardCreators: isNewlyConfirmed,
+    notifyOrderConfirmedWorkflow: isNewlyConfirmed,
+    roleNotifications,
+    ownerNotifications,
+  };
+}
+
 export const list = query({
   args: {},
   handler: async (ctx) => {
@@ -228,6 +397,10 @@ export const create = mutation({
     budgetAmount: v.optional(v.number()),
     source: v.optional(querySourceValidator),
     salesOwnerName: v.optional(v.string()),
+    contractingStaffId: v.optional(v.string()),
+    ticketingScope: v.optional(ticketingScopeValidator),
+    travelInBatches: v.optional(v.boolean()),
+    batchingNotes: v.optional(v.string()),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -279,6 +452,8 @@ export const create = mutation({
       source: args.source ?? "Client",
       salesOwnerId: access.authUserId,
       salesOwnerName: args.salesOwnerName?.trim() || access.name,
+      travelInBatches: Boolean(args.travelInBatches),
+      batchingNotes: args.batchingNotes?.trim() || "",
       notes: args.notes?.trim() || "",
       submittedToContractingAt: now,
       createdBy: access.authUserId ?? "unknown",
@@ -307,6 +482,14 @@ export const create = mutation({
       }),
     ]);
 
+    if (args.contractingStaffId || args.ticketingScope) {
+      await applyQueryTeamAssignments(ctx, access, {
+        queryId: id,
+        contractingStaffId: args.contractingStaffId,
+        ticketingScope: args.ticketingScope,
+      });
+    }
+
     return { id, queryCode };
   },
 });
@@ -326,6 +509,8 @@ export const update = mutation({
     budgetAmount: v.optional(v.number()),
     source: v.optional(querySourceValidator),
     salesOwnerName: v.optional(v.string()),
+    travelInBatches: v.optional(v.boolean()),
+    batchingNotes: v.optional(v.string()),
     notes: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -371,6 +556,8 @@ export const update = mutation({
     if (args.budgetAmount !== undefined) patch.budgetAmount = Math.max(args.budgetAmount, 0);
     if (args.source !== undefined) patch.source = args.source;
     if (args.salesOwnerName !== undefined) patch.salesOwnerName = args.salesOwnerName.trim();
+    if (args.travelInBatches !== undefined) patch.travelInBatches = args.travelInBatches;
+    if (args.batchingNotes !== undefined) patch.batchingNotes = args.batchingNotes.trim();
     if (args.notes !== undefined) patch.notes = args.notes.trim();
 
     await ctx.db.patch(queryId, patch);
@@ -415,6 +602,7 @@ export const assignQueryTeams = mutation({
     queryId: v.string(),
     contractingStaffId: v.optional(v.string()),
     ticketingStaffId: v.optional(v.string()),
+    ticketingScope: v.optional(ticketingScopeValidator),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
@@ -571,60 +759,14 @@ export const updateStatus = mutation({
       throw new ConvexError("Only Sales can confirm or lose an order");
     }
 
-    if (args.contractingStatus === "Order Lost") {
-      throw new ConvexError("Only Sales can mark an order as lost");
-    }
-
-    const patch: Record<string, unknown> = {
-      updatedAt: Date.now(),
-    };
-    if (args.salesStatus) {
-      patch.salesStatus = args.salesStatus;
-      if (args.salesStatus === "Order Confirmed") {
-        patch.contractingStatus = "Order Confirmed";
-        patch.leadStage = "Confirmation";
-        patch.confirmedAt = Date.now();
-      }
-      if (args.salesStatus === "Order Lost") {
-        patch.contractingStatus = "Order Lost";
-        patch.leadStage = "Lost";
-      }
-      if (args.salesStatus === "Date/Destination Change Required") {
-        patch.contractingStatus = "Proposal in progress";
-        patch.leadStage = "Negotiation";
-      }
-      if (args.salesStatus === "Proposal in discussion") {
-        patch.leadStage = "Proposal";
-      }
-    }
-    if (args.leadStage) {
-      patch.leadStage = args.leadStage;
-    }
-    if (args.contractingStatus) {
-      patch.contractingStatus = args.contractingStatus;
-      if (args.contractingStatus === "Order Confirmed") {
-        patch.salesStatus = "Order Confirmed";
-        patch.leadStage = "Confirmation";
-        patch.confirmedAt = Date.now();
-      }
-    }
-    if (args.lostReason) {
-      patch.lostReason = args.lostReason;
-      patch.lostReasonOther = args.lostReasonOther?.trim() || "";
-    }
-    if (args.contractingLandCost !== undefined) {
-      patch.contractingLandCost = Math.max(args.contractingLandCost, 0);
-    }
-    if (args.contractingAirlinesCost !== undefined) {
-      patch.contractingAirlinesCost = Math.max(args.contractingAirlinesCost, 0);
-    }
-    if (args.contractingVisaCost !== undefined) {
-      patch.contractingVisaCost = Math.max(args.contractingVisaCost, 0);
-    }
+    const patch = buildQueryStatusPatch({
+      args,
+      now: Date.now(),
+    });
 
     const willBeConfirmed =
-      args.salesStatus === "Order Confirmed" ||
-      args.contractingStatus === "Order Confirmed" ||
+      patch.salesStatus === "Order Confirmed" ||
+      patch.contractingStatus === "Order Confirmed" ||
       current.salesStatus === "Order Confirmed" ||
       current.contractingStatus === "Order Confirmed";
 
@@ -648,7 +790,12 @@ export const updateStatus = mutation({
       !wasConfirmed &&
       (args.salesStatus === "Order Confirmed" || args.contractingStatus === "Order Confirmed");
     const isLost = args.salesStatus === "Order Lost";
-    const isRevisionRequested = args.salesStatus === "Date/Destination Change Required";
+    const notificationPlan = buildQueryStatusNotificationPlan({
+      current,
+      args,
+      wasConfirmed,
+      isNewlyConfirmed,
+    });
 
     await Promise.all([
       createActivity(ctx, access, {
@@ -658,41 +805,28 @@ export const updateStatus = mutation({
         message: `${current.queryCode} status updated`,
         metadata: patch,
       }),
-      ...(isNewlyConfirmed
-        ? [
-            notifyJobCardCreators(ctx, current, queryId),
-            notifyOrderConfirmedWorkflow(ctx, current, queryId),
-            notifyRoles(ctx, ["Finance"], {
-              title: "Order confirmed",
-              body: `${current.queryCode} has been confirmed by Sales.`,
-              entityType: "query",
-              entityId: queryId,
-            }),
-          ]
+      ...(notificationPlan.notifyJobCardCreators
+        ? [notifyJobCardCreators(ctx, current, queryId)]
         : []),
-      ...(isRevisionRequested ? [notifyProposalRevisionWorkflow(ctx, current, queryId)] : []),
-      ...(isLost
-        ? [
-            notifyRoles(ctx, ["Contracting", "Contracting Head"], {
-              title: "Order lost",
-              body: `${current.queryCode} was marked lost by Sales.`,
-              entityType: "query",
-              entityId: queryId,
-            }),
-            notifyQueryOwner(ctx, current.contractingOwnerId, {
-              title: "Order lost on your query",
-              body: `${current.queryCode} was marked lost by Sales.`,
-              entityType: "query",
-              entityId: queryId,
-            }),
-            notifyQueryOwner(ctx, current.ticketingOwnerId, {
-              title: "Order lost on your query",
-              body: `${current.queryCode} was marked lost by Sales.`,
-              entityType: "query",
-              entityId: queryId,
-            }),
-          ]
+      ...(notificationPlan.notifyOrderConfirmedWorkflow
+        ? [notifyOrderConfirmedWorkflow(ctx, current, queryId)]
         : []),
+      ...notificationPlan.roleNotifications.map((notification) =>
+        notifyRoles(ctx, notification.roles, {
+          title: notification.title,
+          body: notification.body,
+          entityType: "query",
+          entityId: queryId,
+        }),
+      ),
+      ...notificationPlan.ownerNotifications.map((notification) =>
+        notifyQueryOwner(ctx, notification.ownerId, {
+          title: notification.title,
+          body: notification.body,
+          entityType: "query",
+          entityId: queryId,
+        }),
+      ),
     ]);
 
     return { id: queryId };
@@ -717,7 +851,7 @@ export const remove = mutation({
       throw new ConvexError("FORBIDDEN");
     }
 
-    const [legacyProposals, proposalLinksForQuery] = await Promise.all([
+    const [legacyProposals, proposalLinksForQuery, jobCards] = await Promise.all([
       ctx.db
         .query("proposals")
         .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
@@ -726,63 +860,35 @@ export const remove = mutation({
         .query("proposalQueryLinks")
         .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
         .collect(),
+      ctx.db
+        .query("jobCards")
+        .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
+        .collect(),
     ]);
-    const proposalIds = new Set(legacyProposals.map((proposal) => proposal._id));
-    for (const link of proposalLinksForQuery) {
-      proposalIds.add(link.proposalId);
+    const linkedRecordTypes: string[] = [];
+    if (legacyProposals.length > 0 || proposalLinksForQuery.length > 0) {
+      linkedRecordTypes.push("proposals");
     }
-    await Promise.all(
-      Array.from(proposalIds).map(async (proposalId) => {
-        const proposal = await ctx.db.get(proposalId);
-        if (!proposal) return;
-        const proposalLinks = await ctx.db
-          .query("proposalQueryLinks")
-          .withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId))
-          .collect();
-        const linksForDeletedQuery = proposalLinks.filter((link) => link.queryId === queryId);
-        const remainingLinks = proposalLinks.filter((link) => link.queryId !== queryId);
-        await Promise.all(linksForDeletedQuery.map((link) => ctx.db.delete(link._id)));
-
-        if (remainingLinks.length > 0 || (proposal.queryId && proposal.queryId !== queryId)) {
-          if (proposal.queryId === queryId) {
-            await ctx.db.patch(proposalId, {
-              queryId: remainingLinks[0].queryId,
-              updatedAt: Date.now(),
-            });
-          }
-          return;
-        }
-
-        const { storageIds } = await ctx.runMutation(
-          internal.crm.proposalAttachments.deleteAllForProposal,
-          { proposalId },
-        );
-        if (proposal.finalizedPdfStorageId) {
-          storageIds.push(proposal.finalizedPdfStorageId);
-        }
-        await Promise.all([
-          ...storageIds.map((storageId: Id<"_storage">) =>
-            ctx.storage.delete(storageId).catch((err) => {
-              console.error("Failed to delete proposal attachment file:", err);
-            }),
-          ),
-          deleteEntityNotifications(ctx, "proposal", proposalId),
-          ctx.db.delete(proposalId),
-        ]);
-      }),
-    );
+    if (jobCards.length > 0) {
+      linkedRecordTypes.push("job cards");
+    }
+    if (linkedRecordTypes.length > 0) {
+      const linkedSummary =
+        linkedRecordTypes.length === 1
+          ? linkedRecordTypes[0]
+          : `${linkedRecordTypes.slice(0, -1).join(", ")} and ${
+              linkedRecordTypes[linkedRecordTypes.length - 1]
+            }`;
+      throw new ConvexError(
+        `Cannot delete ${current.queryCode} because it has linked ${linkedSummary}. Delete or unlink those records first.`,
+      );
+    }
 
     const assignments = await ctx.db
       .query("contractingAssignments")
       .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
       .collect();
     await Promise.all(assignments.map((assignment) => ctx.db.delete(assignment._id)));
-
-    const jobCards = await ctx.db
-      .query("jobCards")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-      .collect();
-    await Promise.all(jobCards.map((jobCard) => deleteJobCardCascade(ctx, jobCard._id)));
 
     const { storageIds } = await ctx.runMutation(internal.crm.queryAttachments.deleteAllForQuery, {
       queryId,

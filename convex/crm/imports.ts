@@ -6,6 +6,7 @@ import {
   findTravellerMatchInIndex,
   getVisibleJob,
   processImportRows,
+  resolveImportTravelBatchId,
   summarizeRoomTypesFromRows,
 } from "./importProcessor";
 import { exportKindValidator, internalPassengerImportRow } from "./importRowValidators";
@@ -34,6 +35,8 @@ const flightGroupInput = v.object({
   sourceSheet: v.string(),
   groupIndex: v.number(),
   name: v.string(),
+  travelBatchId: v.optional(v.string()),
+  travelBatchReference: v.optional(v.string()),
   segments: v.array(flightSegmentInput),
 });
 
@@ -162,134 +165,169 @@ export const commitPassengerImportRows = internalMutation({
   },
 });
 
+export async function commitFlightImportForTest(
+  ctx: any,
+  args: {
+    jobCardId: string;
+    groups: Array<{
+      id?: string;
+      sourceSheet: string;
+      groupIndex: number;
+      name: string;
+      travelBatchId?: string;
+      travelBatchReference?: string;
+      segments: Array<{
+        id?: string;
+        sourceSheet?: string;
+        sourceRowNumber?: number;
+        sourceGroupIndex?: number;
+        segmentIndex?: number;
+        importKey?: string;
+        dateLabel: string;
+        airline: string;
+        flightNumber: string;
+        departTime?: string;
+        origin: string;
+        arriveTime?: string;
+        destination: string;
+        duration?: string;
+        transit?: string;
+      }>;
+    }>;
+  },
+  access: any,
+) {
+  const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+  if (!jobCardId) throw new ConvexError("Invalid Job Card id");
+  const job = await getVisibleJob(ctx, access, jobCardId);
+  if (!job) throw new ConvexError("FORBIDDEN");
+
+  const now = Date.now();
+  let createdGroups = 0;
+  let updatedGroups = 0;
+  let createdSegments = 0;
+  let updatedSegments = 0;
+
+  for (const group of args.groups) {
+    const importKey = groupImportKey(group.sourceSheet, group.groupIndex);
+    const summary = summarizeGroup(group);
+    const travelBatchId = await resolveImportTravelBatchId(ctx, jobCardId, group);
+    const existingGroup = await ctx.db
+      .query("flightGroups")
+      .withIndex("by_jobCardId_importKey", (q) =>
+        q.eq("jobCardId", jobCardId).eq("importKey", importKey),
+      )
+      .first();
+
+    let flightGroupId: Id<"flightGroups">;
+    const groupPatch: Record<string, unknown> = {
+      name: group.name.trim() || summary.name,
+      route: summary.route,
+      airline: summary.airline,
+      flightNumber: summary.flightNumber,
+      departureDate: summary.departureDate,
+      arrivalDate: summary.arrivalDate,
+      ticketingType: "Imported Itinerary",
+      totalSeats: 0,
+      importKey,
+      sourceSheet: group.sourceSheet,
+      sourceGroupIndex: group.groupIndex,
+      updatedAt: now,
+    };
+    groupPatch.travelBatchId = travelBatchId;
+
+    if (existingGroup) {
+      await ctx.db.patch(existingGroup._id, groupPatch);
+      flightGroupId = existingGroup._id;
+      updatedGroups += 1;
+    } else {
+      flightGroupId = await ctx.db.insert("flightGroups", {
+        jobCardId,
+        ...groupPatch,
+        createdBy: access.authUserId ?? "unknown",
+        createdAt: now,
+      });
+      createdGroups += 1;
+    }
+
+    const incomingKeys = new Set(group.segments.map((segment) => segment.importKey));
+    const existingSegments = await ctx.db
+      .query("flightSegments")
+      .withIndex("by_flightGroupId", (q) => q.eq("flightGroupId", flightGroupId))
+      .collect();
+    const existingSegmentByImportKey = new Map(
+      existingSegments.map((segment) => [segment.importKey, segment]),
+    );
+    await Promise.all(
+      existingSegments.flatMap((existingSegment) =>
+        incomingKeys.has(existingSegment.importKey) ? [] : [ctx.db.delete(existingSegment._id)],
+      ),
+    );
+
+    const segmentResults = await Promise.all(
+      group.segments.map(async (segment) => {
+        const existingSegment = existingSegmentByImportKey.get(segment.importKey);
+        const segmentPatch = {
+          jobCardId,
+          flightGroupId,
+          importKey: segment.importKey,
+          sourceSheet: segment.sourceSheet,
+          sourceRowNumber: segment.sourceRowNumber,
+          sourceGroupIndex: segment.sourceGroupIndex,
+          segmentIndex: segment.segmentIndex,
+          dateLabel: segment.dateLabel,
+          airline: segment.airline,
+          flightNumber: segment.flightNumber,
+          departTime: segment.departTime ?? "",
+          origin: segment.origin,
+          arriveTime: segment.arriveTime ?? "",
+          destination: segment.destination,
+          duration: segment.duration ?? "",
+          transit: segment.transit ?? "",
+          updatedAt: now,
+        };
+        if (existingSegment) {
+          await ctx.db.patch(existingSegment._id, segmentPatch);
+          return "updated";
+        }
+        await ctx.db.insert("flightSegments", {
+          ...segmentPatch,
+          createdBy: access.authUserId ?? "unknown",
+          createdAt: now,
+        });
+        return "created";
+      }),
+    );
+    for (const result of segmentResults) {
+      if (result === "created") createdSegments += 1;
+      if (result === "updated") updatedSegments += 1;
+    }
+  }
+
+  await createActivity(ctx, access, {
+    entityType: "flightGroup",
+    entityId: jobCardId,
+    action: "imported",
+    message: `${createdSegments + updatedSegments} flight segments imported for ${job.jobCode}`,
+  });
+
+  return {
+    createdGroups,
+    updatedGroups,
+    createdSegments,
+    updatedSegments,
+    totalGroups: args.groups.length,
+    totalSegments: args.groups.reduce((sum, group) => sum + group.segments.length, 0),
+  };
+}
+
 export const commitFlightImport = mutation({
   args: {
     jobCardId: v.string(),
     groups: v.array(flightGroupInput),
   },
-  handler: async (ctx, args) => {
-    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
-    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
-    if (!jobCardId) throw new ConvexError("Invalid Job Card id");
-    const job = await getVisibleJob(ctx, access, jobCardId);
-    if (!job) throw new ConvexError("FORBIDDEN");
-
-    const now = Date.now();
-    let createdGroups = 0;
-    let updatedGroups = 0;
-    let createdSegments = 0;
-    let updatedSegments = 0;
-
-    for (const group of args.groups) {
-      const importKey = groupImportKey(group.sourceSheet, group.groupIndex);
-      const summary = summarizeGroup(group);
-      const existingGroup = await ctx.db
-        .query("flightGroups")
-        .withIndex("by_jobCardId_importKey", (q) =>
-          q.eq("jobCardId", jobCardId).eq("importKey", importKey),
-        )
-        .first();
-
-      let flightGroupId: Id<"flightGroups">;
-      const groupPatch = {
-        name: group.name.trim() || summary.name,
-        route: summary.route,
-        airline: summary.airline,
-        flightNumber: summary.flightNumber,
-        departureDate: summary.departureDate,
-        arrivalDate: summary.arrivalDate,
-        ticketingType: "Imported Itinerary",
-        totalSeats: 0,
-        importKey,
-        sourceSheet: group.sourceSheet,
-        sourceGroupIndex: group.groupIndex,
-        updatedAt: now,
-      };
-
-      if (existingGroup) {
-        await ctx.db.patch(existingGroup._id, groupPatch);
-        flightGroupId = existingGroup._id;
-        updatedGroups += 1;
-      } else {
-        flightGroupId = await ctx.db.insert("flightGroups", {
-          jobCardId,
-          ...groupPatch,
-          createdBy: access.authUserId ?? "unknown",
-          createdAt: now,
-        });
-        createdGroups += 1;
-      }
-
-      const incomingKeys = new Set(group.segments.map((segment) => segment.importKey));
-      const existingSegments = await ctx.db
-        .query("flightSegments")
-        .withIndex("by_flightGroupId", (q) => q.eq("flightGroupId", flightGroupId))
-        .collect();
-      const existingSegmentByImportKey = new Map(
-        existingSegments.map((segment) => [segment.importKey, segment]),
-      );
-      await Promise.all(
-        existingSegments.flatMap((existingSegment) =>
-          incomingKeys.has(existingSegment.importKey) ? [] : [ctx.db.delete(existingSegment._id)],
-        ),
-      );
-
-      const segmentResults = await Promise.all(
-        group.segments.map(async (segment) => {
-          const existingSegment = existingSegmentByImportKey.get(segment.importKey);
-          const segmentPatch = {
-            jobCardId,
-            flightGroupId,
-            importKey: segment.importKey,
-            sourceSheet: segment.sourceSheet,
-            sourceRowNumber: segment.sourceRowNumber,
-            sourceGroupIndex: segment.sourceGroupIndex,
-            segmentIndex: segment.segmentIndex,
-            dateLabel: segment.dateLabel,
-            airline: segment.airline,
-            flightNumber: segment.flightNumber,
-            departTime: segment.departTime ?? "",
-            origin: segment.origin,
-            arriveTime: segment.arriveTime ?? "",
-            destination: segment.destination,
-            duration: segment.duration ?? "",
-            transit: segment.transit ?? "",
-            updatedAt: now,
-          };
-          if (existingSegment) {
-            await ctx.db.patch(existingSegment._id, segmentPatch);
-            return "updated";
-          }
-          await ctx.db.insert("flightSegments", {
-            ...segmentPatch,
-            createdBy: access.authUserId ?? "unknown",
-            createdAt: now,
-          });
-          return "created";
-        }),
-      );
-      for (const result of segmentResults) {
-        if (result === "created") createdSegments += 1;
-        if (result === "updated") updatedSegments += 1;
-      }
-    }
-
-    await createActivity(ctx, access, {
-      entityType: "flightGroup",
-      entityId: jobCardId,
-      action: "imported",
-      message: `${createdSegments + updatedSegments} flight segments imported for ${job.jobCode}`,
-    });
-
-    return {
-      createdGroups,
-      updatedGroups,
-      createdSegments,
-      updatedSegments,
-      totalGroups: args.groups.length,
-      totalSegments: args.groups.reduce((sum, group) => sum + group.segments.length, 0),
-    };
-  },
+  handler: async (ctx, args) =>
+    commitFlightImportForTest(ctx, args, await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING)),
 });
 
 export const getPassengerExportSource = internalQuery({
@@ -307,6 +345,11 @@ export const getPassengerExportSource = internalQuery({
       .query("travellers")
       .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
       .collect();
+    const travelBatches = await ctx.db
+      .query("travelBatches")
+      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+      .collect();
+    const travelBatchById = new Map(travelBatches.map((batch) => [String(batch._id), batch]));
 
     const rows = await Promise.all(
       travellers.sort(travellerExportOrder).map(async (traveller) => {
@@ -340,6 +383,11 @@ export const getPassengerExportSource = internalQuery({
 
         return {
           travellerId: traveller._id,
+          travelBatchId: traveller.travelBatchId ?? "",
+          travelBatchReference:
+            travelBatchById.get(String(traveller.travelBatchId ?? ""))?.batchReference ?? "",
+          travelBatchCode:
+            travelBatchById.get(String(traveller.travelBatchId ?? ""))?.batchCode ?? "",
           fullName: traveller.fullName,
           surname: traveller.surname ?? "",
           givenName: traveller.givenName ?? "",
@@ -435,11 +483,15 @@ export const listFlightItinerary = query({
             .query("flightSegments")
             .withIndex("by_flightGroupId", (q) => q.eq("flightGroupId", group._id))
             .collect();
+          const travelBatch = group.travelBatchId ? await ctx.db.get(group.travelBatchId) : null;
           return {
             id: group._id,
             jobCardId: group.jobCardId,
             jobCode: job.jobCode,
             clientName: job.clientName,
+            travelBatchId: group.travelBatchId ?? "",
+            travelBatchReference: travelBatch?.batchReference ?? "",
+            travelBatchCode: travelBatch?.batchCode ?? "",
             name: group.name,
             route: group.route,
             airline: group.airline,

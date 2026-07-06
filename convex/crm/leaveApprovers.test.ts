@@ -57,6 +57,7 @@ describe("leaveApprovers", () => {
       leave,
       employee as any,
       "staff_monika",
+      null,
       () => false,
     );
     expect(headActions.canApproveHead).toBe(true);
@@ -67,6 +68,7 @@ describe("leaveApprovers", () => {
       leave,
       employee as any,
       "staff_monika",
+      null,
       (access) => access.roles.includes("HR"),
     );
     expect(hrActions.canApproveHead).toBe(false);
@@ -92,6 +94,7 @@ describe("leaveApprovers", () => {
       leave,
       employee as any,
       "staff_monika",
+      null,
       (access) => access.roles.includes("HR"),
     );
     expect(hrActions.canApproveHead).toBe(false);

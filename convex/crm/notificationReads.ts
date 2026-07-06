@@ -3,6 +3,7 @@ import type { QueryCtx } from "../_generated/server";
 import { canReceiveNotification } from "./lib";
 
 type NotificationAccess = {
+  staffId?: Id<"staffUsers"> | null;
   authUserId?: string | null;
   roles: string[];
 };
@@ -35,6 +36,20 @@ async function fetchIndexedNotificationBatches(
       .query("notifications")
       .withIndex("by_recipientUserId_createdAt", (q) =>
         q.eq("recipientUserId", access.authUserId ?? undefined),
+      )
+      .order("desc")
+      .take(takePerSource);
+    if (rows.length >= takePerSource) {
+      hitCap = true;
+    }
+    batches.push(rows);
+  }
+
+  if (access.staffId) {
+    const rows = await ctx.db
+      .query("notifications")
+      .withIndex("by_recipientStaffId_createdAt", (q) =>
+        q.eq("recipientStaffId", access.staffId ?? undefined),
       )
       .order("desc")
       .take(takePerSource);
@@ -88,6 +103,17 @@ export async function fetchAllNotificationsForAccess(ctx: QueryCtx, access: Noti
         .query("notifications")
         .withIndex("by_recipientUserId", (q) =>
           q.eq("recipientUserId", access.authUserId ?? undefined),
+        )
+        .collect(),
+    );
+  }
+
+  if (access.staffId) {
+    batches.push(
+      await ctx.db
+        .query("notifications")
+        .withIndex("by_recipientStaffId", (q) =>
+          q.eq("recipientStaffId", access.staffId ?? undefined),
         )
         .collect(),
     );

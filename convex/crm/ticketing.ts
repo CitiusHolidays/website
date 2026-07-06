@@ -61,13 +61,22 @@ const publicPnr = (pnr: any, job: any) => ({
   updatedAt: new Date(pnr.updatedAt).toISOString(),
 });
 
-const publicTicket = (ticket: any, traveller: any, pnr: any, job: any) => ({
+const publicTicket = (
+  ticket: any,
+  traveller: any,
+  pnr: any,
+  job: any,
+  travelBatch: any = null,
+) => ({
   id: ticket._id,
   jobCardId: ticket.jobCardId,
   jobCode: job?.jobCode ?? "",
   clientName: job?.clientName ?? "",
   travellerId: ticket.travellerId ?? null,
   travellerName: traveller?.fullName ?? "",
+  travelBatchId: traveller?.travelBatchId ?? "",
+  travelBatchCode: travelBatch?.batchCode ?? "",
+  travelBatchReference: travelBatch?.batchReference ?? "",
   pnrId: ticket.pnrId ?? null,
   pnrCode: pnr?.pnrCode ?? "",
   ticketNumber: ticket.ticketNumber ?? "",
@@ -273,7 +282,10 @@ export const listTickets = query({
             ticket.pnrId ? ctx.db.get(ticket.pnrId) : null,
             getVisibleJob(ctx, access, ticket.jobCardId),
           ]);
-          return job ? publicTicket(ticket, traveller, pnr, job) : null;
+          const travelBatch = traveller?.travelBatchId
+            ? await ctx.db.get(traveller.travelBatchId)
+            : null;
+          return job ? publicTicket(ticket, traveller, pnr, job, travelBatch) : null;
         }),
     );
     return result.filter(Boolean);

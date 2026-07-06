@@ -1,7 +1,12 @@
 import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, query } from "../_generated/server";
-import { canSeeProposalRecord, PERMISSIONS, requireAnyPermission } from "./lib";
+import {
+  canSeeJobCardRecord,
+  canSeeProposalRecord,
+  PERMISSIONS,
+  requireAnyPermission,
+} from "./lib";
 
 export function publicProposalAttachment(row: {
   _id: Id<"proposalAttachments">;
@@ -25,6 +30,7 @@ async function requireVisibleProposal(ctx: any, proposalId: Id<"proposals">) {
       PERMISSIONS.VIEW_PROPOSALS,
       PERMISSIONS.VIEW_CONTRACTING,
       PERMISSIONS.VIEW_QUERIES,
+      PERMISSIONS.VIEW_JOB_CARDS,
     ]),
     ctx.db.get(proposalId),
   ]);
@@ -45,7 +51,19 @@ async function requireVisibleProposal(ctx: any, proposalId: Id<"proposals">) {
   const linkedQueries = (
     await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get(queryId)))
   ).filter((linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery != null);
-  if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
+  const canSeeProposal = canSeeProposalRecord(access, proposal, linkedQueries);
+  if (!canSeeProposal) {
+    const jobs = await ctx.db
+      .query("jobCards")
+      .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposalId))
+      .collect();
+    const visibleJob = jobs.some((job: any) => {
+      const linkedQuery = linkedQueries.find((query) => query._id === job.queryId);
+      return canSeeJobCardRecord(access, job, linkedQuery);
+    });
+    if (visibleJob) {
+      return { proposal, linkedQueries };
+    }
     throw new ConvexError("FORBIDDEN");
   }
   return { proposal, linkedQueries };

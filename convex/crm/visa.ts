@@ -26,13 +26,16 @@ const visaStatusValidator = v.union(
   v.literal("Re-applied"),
 );
 
-const publicVisa = (record: any, traveller: any, job: any) => ({
+const publicVisa = (record: any, traveller: any, job: any, travelBatch: any = null) => ({
   id: record._id,
   travellerId: record.travellerId,
   jobCardId: record.jobCardId,
   jobCode: job?.jobCode ?? "",
   clientName: job?.clientName ?? "",
   travellerName: traveller?.fullName ?? "",
+  travelBatchId: traveller?.travelBatchId ?? "",
+  travelBatchCode: travelBatch?.batchCode ?? "",
+  travelBatchReference: travelBatch?.batchReference ?? "",
   travelHub: traveller?.travelHub ?? "",
   status: record.status,
   appointmentDate: record.appointmentDate ?? traveller?.biometricAppointmentDate ?? "",
@@ -69,7 +72,10 @@ export const list = query({
           if (!canSeeJobCardRecord(access, job, linkedQuery)) {
             return null;
           }
-          return publicVisa(record, traveller, job);
+          const travelBatch = traveller?.travelBatchId
+            ? await ctx.db.get(traveller.travelBatchId)
+            : null;
+          return publicVisa(record, traveller, job, travelBatch);
         }),
     );
     return result.filter(Boolean);
