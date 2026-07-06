@@ -1,15 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { streamChatResponse } from "./chatbotStream";
 
-const CHAT_HISTORY_KEY = "citius-chat-history:v1";
+const CHAT_HISTORY_KEY = "citius-chat-history:v4";
 
 function loadStoredMessages() {
   if (typeof window === "undefined") return [];
   const savedMessages = localStorage.getItem(CHAT_HISTORY_KEY);
   if (!savedMessages) return [];
+
   try {
-    return JSON.parse(savedMessages);
+    const parsedMessages = JSON.parse(savedMessages);
+    return Array.isArray(parsedMessages) ? parsedMessages : [];
   } catch (error) {
     console.error("Error loading chat history:", error);
     localStorage.removeItem(CHAT_HISTORY_KEY);
@@ -17,25 +20,52 @@ function loadStoredMessages() {
   }
 }
 
+function persistMessages(messages) {
+  if (typeof window === "undefined") return;
+  if (messages.length > 0) {
+    localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
+  } else {
+    localStorage.removeItem(CHAT_HISTORY_KEY);
+  }
+}
+
+function createUserMessage(text) {
+  return {
+    id: `user-${Date.now()}`,
+    role: "user",
+    parts: [{ type: "text", text }],
+  };
+}
+
+function createAssistantMessage(id, text) {
+  return {
+    id,
+    role: "assistant",
+    parts: [{ type: "text", text }],
+  };
+}
+
+function upsertAssistantText(messages, assistantId, text) {
+  const existingIndex = messages.findIndex((message) => message.id === assistantId);
+  const assistantMessage = createAssistantMessage(assistantId, text);
+  if (existingIndex === -1) return [...messages, assistantMessage];
+
+  const nextMessages = [...messages];
+  nextMessages[existingIndex] = assistantMessage;
+  return nextMessages;
+}
+
 export function useChatbotConversation() {
   const messagesContainerRef = useRef(null);
+  const abortControllerRef = useRef(null);
   const [messages, setMessages] = useState(loadStoredMessages);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [inputRows, setInputRows] = useState(1);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const updateMessages = (updater) => {
-    setMessages((previous) => {
-      const next = typeof updater === "function" ? updater(previous) : updater;
-      if (typeof window !== "undefined") {
-        if (next.length > 0) {
-          localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(next));
-        } else {
-          localStorage.removeItem(CHAT_HISTORY_KEY);
-        }
-      }
-      return next;
-    });
+    setMessages((previous) => (typeof updater === "function" ? updater(previous) : updater));
   };
 
   const handleInputChange = (e) => {
@@ -47,129 +77,66 @@ export function useChatbotConversation() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    const text = input.trim();
+    if (!text || isLoading) return;
 
-    const userMessage = {
-      id: Date.now().toString(),
-      role: "user",
-      parts: [{ type: "text", text: input }],
-      createdAt: new Date(),
+    const userMessage = createUserMessage(text);
+    const nextMessages = [...messages, userMessage];
+
+    setMessages(nextMessages);
+    setInput("");
+    setInputRows(1);
+    setErrorMessage("");
+    setIsLoading(true);
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    const finishRequest = () => {
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
+      setIsLoading(false);
     };
 
-    updateMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsLoading(true);
-    setInputRows(1);
+    const assistantId = `assistant-${Date.now()}`;
 
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
-      });
-
-      if (!response.ok) {
-        updateMessages((prev) => [
-          ...prev,
-          {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            parts: [
-              { type: "text", text: "Sorry, I'm having trouble connecting. Please try again." },
-            ],
-            createdAt: new Date(),
-          },
-        ]);
-        setIsLoading(false);
-        return;
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) {
-        updateMessages((prev) => [
-          ...prev,
-          {
-            id: (Date.now() + 1).toString(),
-            role: "assistant",
-            parts: [{ type: "text", text: "No response stream was available. Please try again." }],
-            createdAt: new Date(),
-          },
-        ]);
-        setIsLoading(false);
-        return;
-      }
-
-      const decoder = new TextDecoder();
-      const assistantMessage = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        parts: [{ type: "text", text: "" }],
-        createdAt: new Date(),
-        isStreaming: true,
-      };
-
-      updateMessages((prev) => [...prev, assistantMessage]);
-
-      let accumulatedText = "";
-
-      const readNextChunk = async () => {
-        const { done, value } = await reader.read();
-
-        if (done) {
-          updateMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === assistantMessage.id
-                ? {
-                    ...msg,
-                    parts: [{ type: "text", text: accumulatedText }],
-                    isStreaming: false,
-                  }
-                : msg,
-            ),
-          );
-          return;
-        }
-
-        accumulatedText += decoder.decode(value, { stream: true });
-        updateMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessage.id
-              ? {
-                  ...msg,
-                  parts: [{ type: "text", text: accumulatedText }],
-                  isStreaming: true,
-                }
-              : msg,
-          ),
-        );
-        await readNextChunk();
-      };
-
-      await readNextChunk();
-    } catch (error) {
+    const result = await streamChatResponse({
+      messages: nextMessages,
+      userMessage,
+      assistantId,
+      signal: abortController.signal,
+      onTextDelta: (visibleText) => {
+        setMessages((currentMessages) => upsertAssistantText(currentMessages, assistantId, visibleText));
+      },
+      onStreamError: (message) => {
+        setErrorMessage(message);
+      },
+    }).catch((error) => {
+      if (abortController.signal.aborted) return null;
       console.error("Error sending message:", error);
-      updateMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          parts: [{ type: "text", text: "Sorry, I encountered an error. Please try again." }],
-          createdAt: new Date(),
-          isStreaming: false,
-        },
-      ]);
+      setErrorMessage("Sorry, I encountered an error. Please try again.");
+      return null;
+    });
+
+    if (result && !result.streamedVisibleText && !result.streamHadError) {
+      setErrorMessage("Citius Concierge could not complete that response. Please try again.");
     }
-    setIsLoading(false);
+
+    finishRequest();
   };
 
   useEffect(() => {
-    if (messagesContainerRef.current) {
-      requestAnimationFrame(() => {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-        }
-      });
-    }
+    persistMessages(messages);
+  }, [messages]);
+
+  useEffect(() => {
+    if (!messagesContainerRef.current) return;
+    requestAnimationFrame(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    });
   });
 
   return {
@@ -177,6 +144,7 @@ export function useChatbotConversation() {
     input,
     isLoading,
     inputRows,
+    errorMessage,
     messagesContainerRef,
     updateMessages,
     handleInputChange,

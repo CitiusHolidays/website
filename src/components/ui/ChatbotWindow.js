@@ -1,34 +1,38 @@
 "use client";
 
-import { Sparkles, Trash2, X } from "lucide-react";
+import { Compass, Trash2, X } from "lucide-react";
 import { AnimatePresence, easeInOut, m } from "motion/react";
-import { useState } from "react";
+import { useEffect, useEffectEvent, useState } from "react";
 import { ChatbotComposer } from "./ChatbotComposer";
 import { ChatbotMessageList, ChatbotSuggestions } from "./ChatbotMessages";
 import { useChatbotConversation } from "./useChatbotConversation";
 
 function ChatbotPanelHeader({ messages, isMinimized, onClear, onToggleMinimize, onClose }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-green-600 text-white flex-shrink-0">
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <div className="size-8 bg-white/20 rounded-full flex items-center justify-center">
-            <Sparkles size={16} className="text-white" />
+    <div className="flex items-center justify-between px-4 py-3 bg-citius-blue text-white flex-shrink-0">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="relative shrink-0">
+          <div className="size-8 bg-white/15 rounded-full flex items-center justify-center">
+            <Compass size={16} className="text-white" aria-hidden="true" />
           </div>
-          <span className="absolute bottom-0 right-0 size-2.5 bg-green-400 rounded-full border-2 border-green-600" />
+          <span
+            className="absolute bottom-0 right-0 size-2.5 bg-emerald-400 rounded-full border-2 border-citius-blue"
+            aria-hidden="true"
+          />
         </div>
-        <div>
-          <h3 className="font-semibold text-sm">Travel Assistant</h3>
-          <p className="text-xs text-white/90">Online</p>
+        <div className="min-w-0">
+          <h3 className="font-semibold text-sm truncate">Citius Concierge</h3>
+          <p className="text-xs text-white/80 truncate">Citius Holidays</p>
         </div>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 shrink-0">
         {messages.length > 0 && (
           <m.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={onClear}
-            className="text-white/80 hover:text-white transition-colors p-1.5 hover:bg-white/20 rounded-full"
+            className="text-white/80 hover:text-white transition-colors p-1.5 hover:bg-white/15 rounded-full"
+            aria-label="Clear chat history"
             title="Clear chat history"
           >
             <Trash2 size={16} />
@@ -38,7 +42,8 @@ function ChatbotPanelHeader({ messages, isMinimized, onClear, onToggleMinimize, 
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={onToggleMinimize}
-          className="text-white/80 hover:text-white transition-colors p-1.5 hover:bg-white/20 rounded-full size-6 flex items-center justify-center text-sm relative overflow-hidden"
+          className="text-white/80 hover:text-white transition-colors p-1.5 hover:bg-white/15 rounded-full size-6 flex items-center justify-center text-sm relative overflow-hidden"
+          aria-label={isMinimized ? "Expand chat" : "Minimize chat"}
         >
           <AnimatePresence mode="wait">
             <m.span
@@ -57,7 +62,8 @@ function ChatbotPanelHeader({ messages, isMinimized, onClear, onToggleMinimize, 
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
           onClick={onClose}
-          className="text-white/80 hover:text-white transition-colors p-1.5 hover:bg-white/20 rounded-full"
+          className="text-white/80 hover:text-white transition-colors p-1.5 hover:bg-white/15 rounded-full"
+          aria-label="Close chat"
         >
           <X size={16} />
         </m.button>
@@ -73,12 +79,26 @@ export function ChatbotWindow({ isOpen, onClose }) {
     input,
     isLoading,
     inputRows,
+    errorMessage,
     messagesContainerRef,
     updateMessages,
     handleInputChange,
     handleSubmit,
     setInput,
   } = useChatbotConversation();
+
+  const handleEscapeClose = useEffectEvent(() => {
+    onClose();
+  });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") handleEscapeClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -99,6 +119,8 @@ export function ChatbotWindow({ isOpen, onClose }) {
           height: { duration: 0.4, ease: easeInOut },
         }}
         className="fixed bottom-4 right-4 left-4 z-50 flex w-auto max-w-[400px] flex-col overflow-hidden rounded-2xl border border-brand-border/50 bg-white shadow-2xl backdrop-blur-sm origin-bottom-right sm:bottom-6 sm:left-auto sm:right-6 sm:w-[400px]"
+        role="dialog"
+        aria-label="Citius Concierge chat"
       >
         <ChatbotPanelHeader
           messages={messages}
@@ -119,13 +141,19 @@ export function ChatbotWindow({ isOpen, onClose }) {
             >
               <div
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white"
+                className="flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-b from-slate-50/80 to-white"
               >
-                <div className={messages.length === 0 ? "p-6" : "p-6 space-y-4"}>
+                <div
+                  className={messages.length === 0 ? "p-6" : "p-4 space-y-3 sm:p-5 sm:space-y-4"}
+                >
                   {messages.length === 0 ? (
                     <ChatbotSuggestions onSelectPrompt={setInput} />
                   ) : (
-                    <ChatbotMessageList messages={messages} isLoading={isLoading} />
+                    <ChatbotMessageList
+                      messages={messages}
+                      isLoading={isLoading}
+                      errorMessage={errorMessage}
+                    />
                   )}
                 </div>
               </div>

@@ -1,7 +1,7 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { streamText } from "ai";
+import { convertToModelMessages, stepCountIs, streamText } from "ai";
+import { CITIUS_CHAT_MODEL, citiusChatTools, systemPrompt } from "@/lib/ai/citiusTravelAssistant";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
-import { systemPrompt } from "./sysprompt";
 
 export const maxDuration = 60;
 
@@ -10,6 +10,8 @@ const MAX_CHAT_MESSAGES = 20;
 const MAX_CHAT_MESSAGE_CHARS = 4000;
 const CHAT_WINDOW_MS = 10 * 60 * 1000;
 const CHAT_MAX_REQUESTS = 20;
+const FALLBACK_MODELS_ENV = "OPENROUTER_FALLBACK_MODELS";
+const DEFAULT_FALLBACK_MODELS = ["google/gemma-4-31b-it:free", "openai/gpt-oss-120b:free"];
 
 /** @type {Map<string, { count: number; resetAt: number }>} */
 const chatBuckets = new Map();
@@ -39,6 +41,51 @@ function checkChatRateLimit(key) {
   }
 
   return { allowed: true };
+}
+
+function normalizeChatMessage(msg) {
+  const role = msg?.role === "assistant" || msg?.role === "user" ? msg.role : "user";
+  const rawParts = Array.isArray(msg?.parts)
+    ? msg.parts
+    : [{ type: "text", text: msg?.content || "" }];
+  const parts = rawParts.flatMap((part) => {
+    if (part?.type !== "text") return [];
+    const text = String(part.text || "").slice(0, MAX_CHAT_MESSAGE_CHARS);
+    return text.trim().length > 0 ? [{ type: "text", text }] : [];
+  });
+
+  return {
+    id: String(msg?.id || crypto.randomUUID()),
+    role,
+    parts,
+  };
+}
+
+function configuredOpenRouterModels() {
+  const fallbackModels = String(process.env[FALLBACK_MODELS_ENV] || "")
+    .split(",")
+    .flatMap((model) => {
+      const trimmed = model.trim();
+      return trimmed ? [trimmed] : [];
+    });
+  return [...new Set([CITIUS_CHAT_MODEL, ...DEFAULT_FALLBACK_MODELS, ...fallbackModels])];
+}
+
+function chatStreamErrorMessage(error) {
+  const details =
+    typeof error === "string" ? error : JSON.stringify(error, Object.getOwnPropertyNames(error));
+  if (
+    details.includes("ResourceExhausted") ||
+    details.includes("provider_unavailable") ||
+    details.includes("Worker local total request limit")
+  ) {
+    return [
+      "Citius Concierge is temporarily at model capacity.",
+      "",
+      "Please try again in a moment, or share your destination, dates, traveler count, departure city, and travel purpose so the Citius team can pick it up directly.",
+    ].join("\n");
+  }
+  return "Citius Concierge could not complete that response. Please try again.";
 }
 
 // Initialize OpenRouter with the API key from environment variables
@@ -93,24 +140,36 @@ export async function POST(req) {
       });
     }
 
-    // Convert messages to the format expected by the AI SDK
-    const convertedMessages = messages.map((msg) => {
-      const role = msg.role === "assistant" || msg.role === "user" ? msg.role : "user";
-      const content = String(msg.parts?.[0]?.text || msg.content || "").slice(
-        0,
-        MAX_CHAT_MESSAGE_CHARS,
-      );
-      return { role, content };
+    const uiMessages = messages.flatMap((msg) => {
+      const normalized = normalizeChatMessage(msg);
+      return normalized.parts.length > 0 ? [normalized] : [];
     });
+    const convertedMessages = await convertToModelMessages(uiMessages);
 
     const result = streamText({
-      model: openrouter.chat("nvidia/nemotron-3-nano-30b-a3b:free"),
+      model: openrouter.chat(CITIUS_CHAT_MODEL),
       messages: convertedMessages,
-      // Add system message for travel context
       system: systemPrompt,
+      tools: citiusChatTools,
+      stopWhen: stepCountIs(4),
+      temperature: 0.35,
+      maxOutputTokens: 900,
+      maxRetries: 2,
+      providerOptions: {
+        openrouter: {
+          models: configuredOpenRouterModels(),
+          reasoning: {
+            effort: "none",
+            exclude: true,
+          },
+        },
+      },
+      abortSignal: req.signal,
     });
 
-    return result.toTextStreamResponse();
+    return result.toUIMessageStreamResponse({
+      onError: chatStreamErrorMessage,
+    });
   } catch (error) {
     console.error("Chat API error:", error);
     return new Response(JSON.stringify({ error: "Failed to process chat request" }), {
