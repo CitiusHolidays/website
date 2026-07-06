@@ -10,6 +10,7 @@ import {
   requireAnyPermission,
   requireHeadOrAdmin,
   requireStaff,
+  TEAM_PICKER_PERMISSIONS,
 } from "./lib";
 
 const validRoleSet = new Set<string>(ALL_ROLES);
@@ -129,6 +130,44 @@ export const listDirectory = query({
         isCurrentUser: access.staffId
           ? staff._id === access.staffId
           : normalizeEmail(staff.email) === normalizeEmail(access.email),
+      }));
+  },
+});
+
+/** Minimal staff list for assignment dropdowns (Sales query SPOC, modals) without full team-directory access. */
+export const listTeamOptions = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      id: v.id("staffUsers"),
+      email: v.string(),
+      name: v.string(),
+      roles: v.array(v.string()),
+      department: v.string(),
+      function: v.string(),
+      mobile: v.string(),
+      location: v.string(),
+      joiningDate: v.string(),
+      employmentStatus: v.string(),
+    }),
+  ),
+  handler: async (ctx) => {
+    await requireAnyPermission(ctx, [...TEAM_PICKER_PERMISSIONS]);
+    const rows = await ctx.db.query("staffUsers").collect();
+    return rows
+      .filter((staff) => staff.active)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((staff) => ({
+        id: staff._id,
+        email: staff.email,
+        name: staff.name,
+        roles: staff.roles,
+        department: staff.department ?? staff.roles[0] ?? "",
+        function: staff.function ?? staff.roles.join(", "),
+        mobile: staff.mobile ?? "",
+        location: staff.location ?? "",
+        joiningDate: staff.joiningDate ?? "",
+        employmentStatus: staff.employmentStatus ?? "Confirmed",
       }));
   },
 });

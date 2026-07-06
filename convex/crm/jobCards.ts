@@ -12,6 +12,8 @@ import {
   creatorInitials,
   deleteJobCardCascade,
   editorPatch,
+  hasRole,
+  isDirectorOrAdmin,
   nextCode,
   notifyRoles,
   notifyStaffMember,
@@ -164,14 +166,13 @@ export function isFinanceHeadStaff(staff: StaffNotificationTarget) {
 }
 
 function canCreateJobCardFromConfirmedQuery(
-  access: { roles: string[] },
+  access: Parameters<typeof isDirectorOrAdmin>[0],
   staff?: { jobCardCreatorEnabled?: boolean } | null,
 ) {
   return (
-    access.roles.includes("Admin") ||
-    access.roles.includes("Directors") ||
-    access.roles.includes("Accounts") ||
-    access.roles.includes("Accounts Head") ||
+    isDirectorOrAdmin(access) ||
+    hasRole(access, "Accounts") ||
+    hasRole(access, "Accounts Head") ||
     Boolean(staff?.jobCardCreatorEnabled)
   );
 }

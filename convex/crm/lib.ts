@@ -71,29 +71,40 @@ export const ALL_ROLES = [
 
 const P = PERMISSIONS;
 
+const DIRECTOR_EXCLUDED_PERMISSIONS = new Set<string>([
+  P.MANAGE_STAFF,
+  P.MANAGE_DROPDOWNS,
+  P.VIEW_ACTIVITY,
+]);
+
+export const DIRECTOR_PERMISSIONS = Object.values(P).filter(
+  (permission) => !DIRECTOR_EXCLUDED_PERMISSIONS.has(permission),
+);
+
+export const TEAM_PICKER_PERMISSIONS = [
+  P.VIEW_TEAM,
+  P.MANAGE_QUERIES,
+  P.MANAGE_CONTRACTING,
+  P.MANAGE_PROPOSALS,
+  P.MANAGE_JOB_CARDS,
+  P.MANAGE_OPERATIONS,
+  P.MANAGE_TICKETING,
+  P.MANAGE_LEAVE,
+] as const;
+
+export const CONTRACTING_TEAM_ROLES = [
+  "Contracting",
+  "Contracting Head",
+  "Contracting Cement",
+] as const;
+
+export const TICKETING_TEAM_ROLES = ["Ticketing", "Head of Ticketing"] as const;
+
+export const SALES_REP_ROLES = ["Sales", "Sales Head", "Sales Cement"] as const;
+
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   Admin: Object.values(P),
-  Directors: [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.VIEW_CONTRACTING,
-    P.VIEW_PROPOSALS,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_TRAVELLERS,
-    P.VIEW_VISA,
-    P.VIEW_TICKETING,
-    P.VIEW_OPERATIONS,
-    P.VIEW_TOUR_MANAGERS,
-    P.VIEW_FINANCE,
-    P.VIEW_EXPENSES,
-    P.APPROVE_EXPENSES,
-    P.VIEW_TEAM,
-    P.VIEW_LEAVE,
-    P.APPROVE_LEAVE,
-    P.VIEW_APPROVALS,
-    P.VIEW_REPORTS,
-    P.VIEW_SENSITIVE_TRAVELLER_DATA,
-  ],
+  Directors: DIRECTOR_PERMISSIONS,
   "Sales Head": [
     P.VIEW_DASHBOARD,
     P.VIEW_QUERIES,
@@ -280,27 +291,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.SEND_PROPOSALS,
     P.VIEW_LEAVE,
   ],
-  "Director Cement": [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.VIEW_CONTRACTING,
-    P.VIEW_PROPOSALS,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_TRAVELLERS,
-    P.VIEW_VISA,
-    P.VIEW_TICKETING,
-    P.VIEW_OPERATIONS,
-    P.VIEW_TOUR_MANAGERS,
-    P.VIEW_FINANCE,
-    P.VIEW_EXPENSES,
-    P.APPROVE_EXPENSES,
-    P.VIEW_TEAM,
-    P.VIEW_LEAVE,
-    P.APPROVE_LEAVE,
-    P.VIEW_APPROVALS,
-    P.VIEW_REPORTS,
-    P.VIEW_SENSITIVE_TRAVELLER_DATA,
-  ],
+  "Director Cement": DIRECTOR_PERMISSIONS,
 };
 
 export const PAYMENT_TERMS: Record<string, { min: number; max: number }> = {
@@ -467,7 +458,9 @@ export function isAdmin(access: PortalAccess) {
 }
 
 export function isDirectorOrAdmin(access: PortalAccess) {
-  return isAdmin(access) || hasRole(access, "Directors");
+  return (
+    isAdmin(access) || hasRole(access, "Directors") || hasRole(access, "Director Cement")
+  );
 }
 
 export function isAdminDirectorOrRole(access: PortalAccess, roles: string[]) {
@@ -567,12 +560,15 @@ export function canSeeQueryRecord(access: PortalAccess, query: any) {
         "Contracting Head",
         "Operations Head",
         "Head of Ticketing",
+        "Accounts Head",
       ])
     ) {
       return true;
     }
     if (
-      (hasRole(access, "Accounts") || hasRole(access, "Finance")) &&
+      (hasRole(access, "Accounts") ||
+        hasRole(access, "Accounts Head") ||
+        hasRole(access, "Finance")) &&
       (query.salesStatus === "Order Confirmed" || query.contractingStatus === "Order Confirmed")
     ) {
       return true;
@@ -610,12 +606,13 @@ export function canSeeProposalRecord(access: PortalAccess, proposal: any, linked
         "Contracting Head",
         "Operations Head",
         "Head of Ticketing",
+        "Accounts Head",
       ])
     ) {
       return true;
     }
     if (
-      hasRole(access, "Accounts") &&
+      (hasRole(access, "Accounts") || hasRole(access, "Accounts Head")) &&
       linkedQueries.some(
         (query) =>
           query.salesStatus === "Order Confirmed" || query.contractingStatus === "Order Confirmed",
@@ -675,6 +672,36 @@ export function canEditContractingRecord(
     ownsStaffRecord(access, record.contractingOwnerId) ||
     ownsNamedRecord(access, record.contractingOwnerName) ||
     isCollaborator(access, record.collaboratorStaffIds)
+  );
+}
+
+type ProposalEditQuery = {
+  contractingOwnerId?: string | null;
+  contractingOwnerName?: string | null;
+  ticketingOwnerId?: string | null;
+  ticketingOwnerName?: string | null;
+  collaboratorStaffIds?: unknown[] | null;
+};
+
+export function canEditProposalRecord(
+  access: PortalAccess,
+  proposal: {
+    contractingOwnerId?: string | null;
+    contractingOwnerName?: string | null;
+    collaboratorStaffIds?: unknown[] | null;
+  },
+  linkedQueries: ProposalEditQuery[] = [],
+) {
+  if (canEditContractingRecord(access, proposal)) {
+    return true;
+  }
+  if (linkedQueries.some((query) => canEditContractingRecord(access, query))) {
+    return true;
+  }
+  return linkedQueries.some(
+    (query) =>
+      ownsStaffRecord(access, query.ticketingOwnerId) ||
+      ownsNamedRecord(access, query.ticketingOwnerName),
   );
 }
 

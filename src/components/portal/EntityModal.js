@@ -6,6 +6,7 @@ import { useEntityModalLinking } from "@/components/portal/entityModal/useEntity
 import { linkedPnrOptions, linkedTravellerOptions } from "@/lib/portal/entityModalLinks";
 import { calculateLeaveRequestImpact } from "@/lib/portal/leavePolicy";
 import { teamSelectOptions } from "@/lib/portal/permissions";
+import { CONTRACTING_TEAM_ROLES, SALES_REP_ROLES, TICKETING_TEAM_ROLES } from "@/lib/portal/constants";
 
 const EMPTY_ARRAY = [];
 
@@ -58,18 +59,14 @@ export function EntityModal({
       label: member.label,
     })),
   ];
-  const contractingTeamOptions = teamSelectOptions(team, [
-    "Contracting",
-    "Contracting Head",
-    "Contracting Cement",
-  ]);
+  const contractingTeamOptions = teamSelectOptions(team, CONTRACTING_TEAM_ROLES);
   const operationsTeamOptions = teamSelectOptions(team, [
     "Operations",
     "Operations Head",
     "Operations Cement",
   ]);
   const accountsTeamOptions = teamSelectOptions(team, ["Accounts", "Accounts Head"]);
-  const ticketingTeamOptions = teamSelectOptions(team, ["Ticketing", "Head of Ticketing"]);
+  const ticketingTeamOptions = teamSelectOptions(team, TICKETING_TEAM_ROLES);
   const tourManagerOptions = teamSelectOptions(team, ["Tour Manager"]);
   const travellerOptions = linkedTravellerOptions(travellers, form.jobCardId);
   const pnrOptions = linkedPnrOptions(pnrs, form.jobCardId);

@@ -2,16 +2,16 @@ import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import {
   canSeeQueryRecord,
+  CONTRACTING_TEAM_ROLES,
   createActivity,
   hasRole,
   isDirectorOrAdmin,
   notifyRoles,
   notifyStaffMember,
+  TICKETING_TEAM_ROLES,
   type PortalAccess,
 } from "./lib";
 
-const CONTRACTING_TEAM_ROLES = ["Contracting", "Contracting Head"] as const;
-const TICKETING_TEAM_ROLES = ["Ticketing", "Head of Ticketing"] as const;
 const TICKETING_SCOPE_VALUES = ["Domestic", "International", "Both", "Not required"] as const;
 type TicketingScope = (typeof TICKETING_SCOPE_VALUES)[number];
 

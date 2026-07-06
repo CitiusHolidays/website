@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { Id } from "../_generated/dataModel";
-import { canSeeProposalRecord, canSeeQueryRecord, type PortalAccess } from "./lib";
+import {
+  canEditProposalRecord,
+  canSeeProposalRecord,
+  canSeeQueryRecord,
+  type PortalAccess,
+} from "./lib";
 
 function access(overrides: Partial<PortalAccess>): PortalAccess {
   return {
@@ -79,5 +84,35 @@ describe("sales flow record visibility", () => {
     };
 
     expect(canSeeProposalRecord(viewer, proposal, linkedQuery)).toBe(true);
+  });
+
+  test("ticketing SPOC can edit assigned proposal costing", () => {
+    const staffId = "staff_ticketing" as Id<"staffUsers">;
+    const viewer = access({
+      staffId,
+      roles: ["Ticketing"],
+      permissions: ["manage:proposals"],
+    });
+    const linkedQuery = {
+      ticketingOwnerId: staffId,
+      ticketingOwnerName: "Staff User",
+    };
+    const proposal = { preparedBy: "Contracting User" };
+
+    expect(canEditProposalRecord(viewer, proposal, [linkedQuery])).toBe(true);
+  });
+
+  test("accounts head sees department queries", () => {
+    const viewer = access({
+      roles: ["Accounts Head"],
+      permissions: ["view:queries"],
+    });
+    const query = {
+      queryCode: "Q-0005",
+      queryType: "FIT",
+      salesOwnerName: "Other Sales",
+    };
+
+    expect(canSeeQueryRecord(viewer, query)).toBe(true);
   });
 });

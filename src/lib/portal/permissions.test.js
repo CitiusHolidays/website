@@ -6,13 +6,16 @@ import { PORTAL_PERMISSIONS } from "./constants";
 import {
   canAccessPage,
   canAccessPipeline,
+  canAssignContracting,
   canAssignQueryTicketing,
   canCreateJobCardFromAccounts,
   canManageJobCardCreatorAccess,
+  canUseTeamPicker,
   getAccessibleNavGroups,
   getPermissionsForRoles,
   getQueryTypeOptions,
   isCementScopedUser,
+  isDirectorOrAdmin,
   normalizeEmail,
 } from "./permissions";
 
@@ -79,11 +82,39 @@ describe("portal permissions", () => {
     expect(canAccessPipeline(ticketingAccess)).toBe(false);
   });
 
-  test("query ticketing assignment is limited to admin and head of ticketing", () => {
+  test("query ticketing assignment is limited to admin, directors, and head of ticketing", () => {
     expect(canAssignQueryTicketing({ roles: ["Admin"] })).toBe(true);
+    expect(canAssignQueryTicketing({ roles: ["Directors"] })).toBe(true);
     expect(canAssignQueryTicketing({ roles: ["Head of Ticketing"] })).toBe(true);
     expect(canAssignQueryTicketing({ roles: ["Contracting Head"] })).toBe(false);
     expect(canAssignQueryTicketing({ roles: ["Operations Head"] })).toBe(false);
+  });
+
+  test("directors receive full operational permissions except admin settings", () => {
+    const permissions = getPermissionsForRoles(["Directors"]);
+
+    expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_QUERIES);
+    expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_CONTRACTING);
+    expect(permissions).toContain(PORTAL_PERMISSIONS.MANAGE_JOB_CARDS);
+    expect(permissions).not.toContain(PORTAL_PERMISSIONS.MANAGE_STAFF);
+    expect(permissions).not.toContain(PORTAL_PERMISSIONS.VIEW_ACTIVITY);
+  });
+
+  test("sales can load team picker options for contracting spoc dropdowns", () => {
+    const access = {
+      roles: ["Sales"],
+      permissions: getPermissionsForRoles(["Sales"]),
+    };
+
+    expect(canUseTeamPicker(access)).toBe(true);
+    expect(isDirectorOrAdmin(access)).toBe(false);
+    expect(canAssignContracting(access)).toBe(false);
+  });
+
+  test("directors can assign contracting and ticketing teams", () => {
+    expect(canAssignContracting({ roles: ["Directors"] })).toBe(true);
+    expect(canAssignQueryTicketing({ roles: ["Directors"] })).toBe(true);
+    expect(isDirectorOrAdmin({ roles: ["Director Cement"] })).toBe(true);
   });
 
   test("job card creation is available to accounts team plus admin and director overrides", () => {

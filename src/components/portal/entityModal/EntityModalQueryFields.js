@@ -19,6 +19,7 @@ import {
   LOST_REASONS,
   QUERY_SOURCES,
   SALES_DECISION_OPTIONS,
+  SALES_REP_ROLES,
   TICKETING_SCOPE_OPTIONS,
   TRAVEL_TYPES,
 } from "@/lib/portal/constants";
@@ -148,7 +149,7 @@ export function EntityModalQueryFields({
             options={[
               { value: "", label: "Current user" },
               ...team.reduce((options, member) => {
-                if (member.roles.some((role) => ["Sales", "Sales Head"].includes(role))) {
+                if (member.roles.some((role) => SALES_REP_ROLES.includes(role))) {
                   options.push({ value: member.name, label: member.name });
                 }
                 return options;
@@ -172,7 +173,7 @@ export function EntityModalQueryFields({
             onChange={(v) => updateForm("ticketingScope", v)}
           />
           <Select
-            label="Travel in Batches"
+            label="Travel in Series"
             value={form.travelInBatches || "No"}
             options={TRAVEL_IN_BATCHES_OPTIONS}
             onChange={(v) =>

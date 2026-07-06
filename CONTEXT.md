@@ -4,9 +4,9 @@ This glossary names business concepts in the Citius CRM portal so implementation
 
 ## Language
 
-**Travel Batch**:
-A full trip instance under one Job Card for group travel where different passenger groups go to the same place on different dates or schedules. A Travel Batch has the same operational fields the trip would have if it were not batched; the batch only separates people by time and day while preserving one Job Card.
-_Avoid_: Batch identity as loose document fields, reduced batch metadata, separate Job Card per batch
+**Travel Series / Travel Batch**:
+A full trip instance under one Job Card for group travel where different passenger groups go to the same place on different dates or schedules. The portal UI calls this "Travel in Series"; backend fields and import/export columns still use travel batch terminology (`travelBatchId`, Travel Batch). A Travel Batch has the same operational fields the trip would have if it were not split into series; the batch only separates people by time and day while preserving one Job Card.
+_Avoid_: Batch identity as loose document fields, reduced batch metadata, separate Job Card per batch, changing storage fields only to match the UI label
 
 **Ticketing Scope**:
 The sales-level indication of whether a query needs domestic ticketing, international ticketing, both, or no ticketing work.

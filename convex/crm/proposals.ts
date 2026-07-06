@@ -3,7 +3,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, mutation, query } from "../_generated/server";
 import {
-  canEditContractingRecord,
+  canEditProposalRecord,
   canSeeJobCardRecord,
   canSeeProposalRecord,
   canSeeQueryRecord,
@@ -223,9 +223,9 @@ export const create = mutation({
       requestedProposalQueryIds(args) ?? [],
     );
     const primaryQuery = linkedQueries[0] ?? null;
-    if (primaryQuery && !canEditContractingRecord(access, primaryQuery)) {
+    if (linkedQueries.length > 0 && !canEditProposalRecord(access, {}, linkedQueries)) {
       throw new ConvexError(
-        "Only assigned Contracting SPOC, collaborators, and heads can create proposals",
+        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can create proposals",
       );
     }
 
@@ -306,12 +306,9 @@ export const update = mutation({
     if (!canSeeProposalRecord(access, proposal, currentLinkedQueries)) {
       throw new ConvexError("FORBIDDEN");
     }
-    if (
-      !canEditContractingRecord(access, proposal) &&
-      !currentLinkedQueries.some((query) => canEditContractingRecord(access, query))
-    ) {
+    if (!canEditProposalRecord(access, proposal, currentLinkedQueries)) {
       throw new ConvexError(
-        "Only assigned Contracting SPOC, collaborators, and heads can edit this proposal",
+        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can edit this proposal",
       );
     }
 
@@ -400,12 +397,11 @@ export const markSent = mutation({
       throw new ConvexError("FORBIDDEN");
     }
     if (
-      !canEditContractingRecord(access, proposal) &&
-      !linkedQueries.some((query) => canEditContractingRecord(access, query)) &&
+      !canEditProposalRecord(access, proposal, linkedQueries) &&
       !access.permissions.includes(PERMISSIONS.SEND_PROPOSALS)
     ) {
       throw new ConvexError(
-        "Only assigned Contracting SPOC, collaborators, and heads can send this proposal",
+        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can send this proposal",
       );
     }
     const now = Date.now();
@@ -461,12 +457,9 @@ export const sendToSales = mutation({
     if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
       throw new ConvexError("FORBIDDEN");
     }
-    if (
-      !canEditContractingRecord(access, proposal) &&
-      !linkedQueries.some((query) => canEditContractingRecord(access, query))
-    ) {
+    if (!canEditProposalRecord(access, proposal, linkedQueries)) {
       throw new ConvexError(
-        "Only assigned Contracting SPOC, collaborators, and heads can send this proposal to Sales",
+        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can send this proposal to Sales",
       );
     }
     if (proposal.status === "Sent") {
@@ -563,12 +556,9 @@ export const markAccepted = mutation({
     if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
       throw new ConvexError("FORBIDDEN");
     }
-    if (
-      !canEditContractingRecord(access, proposal) &&
-      !linkedQueries.some((query) => canEditContractingRecord(access, query))
-    ) {
+    if (!canEditProposalRecord(access, proposal, linkedQueries)) {
       throw new ConvexError(
-        "Only assigned Contracting SPOC, collaborators, and heads can accept this proposal",
+        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can accept this proposal",
       );
     }
     const now = Date.now();
@@ -604,12 +594,9 @@ export const remove = mutation({
     if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
       throw new ConvexError("FORBIDDEN");
     }
-    if (
-      !canEditContractingRecord(access, proposal) &&
-      !linkedQueries.some((query) => canEditContractingRecord(access, query))
-    ) {
+    if (!canEditProposalRecord(access, proposal, linkedQueries)) {
       throw new ConvexError(
-        "Only assigned Contracting SPOC, collaborators, and heads can delete this proposal",
+        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can delete this proposal",
       );
     }
     const { storageIds } = await ctx.runMutation(
@@ -659,11 +646,10 @@ export const addCollaborator = mutation({
     if (!staff?.active) throw new ConvexError("Staff member not found");
     const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
     if (!canSeeProposalRecord(access, proposal, linkedQueries)) throw new ConvexError("FORBIDDEN");
-    if (
-      !canEditContractingRecord(access, proposal) &&
-      !linkedQueries.some((query) => canEditContractingRecord(access, query))
-    ) {
-      throw new ConvexError("Only assigned Contracting SPOC and heads can add collaborators");
+    if (!canEditProposalRecord(access, proposal, linkedQueries)) {
+      throw new ConvexError(
+        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can add collaborators",
+      );
     }
     const collaborators = new Set((proposal.collaboratorStaffIds ?? []).map(String));
     collaborators.add(String(staffId));
@@ -700,11 +686,10 @@ export const removeCollaborator = mutation({
     if (!proposal) throw new ConvexError("Proposal not found");
     const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
     if (!canSeeProposalRecord(access, proposal, linkedQueries)) throw new ConvexError("FORBIDDEN");
-    if (
-      !canEditContractingRecord(access, proposal) &&
-      !linkedQueries.some((query) => canEditContractingRecord(access, query))
-    ) {
-      throw new ConvexError("Only assigned Contracting SPOC and heads can remove collaborators");
+    if (!canEditProposalRecord(access, proposal, linkedQueries)) {
+      throw new ConvexError(
+        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can remove collaborators",
+      );
     }
     await ctx.db.patch(proposalId, {
       collaboratorStaffIds: (proposal.collaboratorStaffIds ?? []).filter(

@@ -54,6 +54,8 @@ convex/_generated
 .convex
 docs/*
 !docs/PORTAL_ROLES_AND_ACCESS.md
+!docs/PORTAL_PERMISSIONS_ARCHITECTURE.md
+!docs/PORTAL_CRM_WORKFLOWS.md
 scripts
 
 Agents.md

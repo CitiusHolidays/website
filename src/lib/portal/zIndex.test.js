@@ -11,17 +11,20 @@ describe("portal z-index stack", () => {
     expect(PORTAL_Z_INDEX.dropdown).toBeGreaterThan(PORTAL_Z_INDEX.dropdownBackdrop);
   });
 
-  test("command palette sits above dropdowns but below mobile drawer and toasts", () => {
+  test("command palette sits above dropdowns but below mobile drawer", () => {
     expect(PORTAL_Z_INDEX.commandPalette).toBeGreaterThan(PORTAL_Z_INDEX.dropdown);
     expect(PORTAL_Z_INDEX.mobileDrawer).toBeGreaterThan(PORTAL_Z_INDEX.commandPalette);
-    expect(PORTAL_Z_INDEX.toast).toBeGreaterThan(PORTAL_Z_INDEX.mobileDrawer);
   });
 
-  test("modals and confirms stay on top", () => {
-    expect(PORTAL_Z_INDEX.importModal).toBeGreaterThan(PORTAL_Z_INDEX.toast);
+  test("toasts sit above modals so validation feedback is visible", () => {
+    expect(PORTAL_Z_INDEX.importModal).toBeGreaterThan(PORTAL_Z_INDEX.mobileDrawer);
     expect(PORTAL_Z_INDEX.entityModal).toBeGreaterThan(PORTAL_Z_INDEX.importModal);
     expect(PORTAL_Z_INDEX.nestedModal).toBeGreaterThan(PORTAL_Z_INDEX.entityModal);
-    expect(PORTAL_Z_INDEX.confirm).toBeGreaterThan(PORTAL_Z_INDEX.nestedModal);
+    expect(PORTAL_Z_INDEX.toast).toBeGreaterThan(PORTAL_Z_INDEX.nestedModal);
+  });
+
+  test("confirm dialogs stay above toasts", () => {
+    expect(PORTAL_Z_INDEX.confirm).toBeGreaterThan(PORTAL_Z_INDEX.toast);
   });
 
   test("PORTAL_Z_INDEX keys mirror PORTAL_Z keys", () => {

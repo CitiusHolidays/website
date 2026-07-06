@@ -63,6 +63,7 @@ import { formatDisplayDate } from "@/lib/formatDate";
 import {
   CABIN_CLASSES,
   CALLING_STATUSES,
+  CONTRACTING_TEAM_ROLES,
   CONTRACTING_STATUS_SELECT_OPTIONS,
   EXPENSE_CURRENCIES,
   EXPENSE_HEADS,
@@ -1545,7 +1546,7 @@ function QueriesView({
               </div>
               {row.travelInBatches ? (
                 <div className="col-span-2">
-                  <span className="text-brand-muted">Travel in Batches</span>
+                  <span className="text-brand-muted">Travel in Series</span>
                   <div className="font-medium">
                     Yes
                     {(row.batchingNotes || "").trim()
@@ -1727,7 +1728,7 @@ function ContractingView({
   })();
 
   const contractingTeam = team.filter((member) =>
-    member.roles.some((role) => ["Contracting", "Contracting Head"].includes(role)),
+    member.roles.some((role) => CONTRACTING_TEAM_ROLES.includes(role)),
   );
   const teamRows = contractingTeam.map((member) => ({
     id: member.id,

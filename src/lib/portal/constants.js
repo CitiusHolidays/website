@@ -62,29 +62,40 @@ export const PORTAL_PERMISSIONS = {
 
 const P = PORTAL_PERMISSIONS;
 
+const DIRECTOR_EXCLUDED_PERMISSIONS = new Set([
+  P.MANAGE_STAFF,
+  P.MANAGE_DROPDOWNS,
+  P.VIEW_ACTIVITY,
+]);
+
+export const DIRECTOR_PERMISSIONS = Object.values(P).filter(
+  (permission) => !DIRECTOR_EXCLUDED_PERMISSIONS.has(permission),
+);
+
+export const TEAM_PICKER_PERMISSIONS = [
+  P.VIEW_TEAM,
+  P.MANAGE_QUERIES,
+  P.MANAGE_CONTRACTING,
+  P.MANAGE_PROPOSALS,
+  P.MANAGE_JOB_CARDS,
+  P.MANAGE_OPERATIONS,
+  P.MANAGE_TICKETING,
+  P.MANAGE_LEAVE,
+];
+
+export const CONTRACTING_TEAM_ROLES = [
+  "Contracting",
+  "Contracting Head",
+  "Contracting Cement",
+];
+
+export const TICKETING_TEAM_ROLES = ["Ticketing", "Head of Ticketing"];
+
+export const SALES_REP_ROLES = ["Sales", "Sales Head", "Sales Cement"];
+
 export const ROLE_PERMISSIONS = {
   Admin: Object.values(PORTAL_PERMISSIONS),
-  Directors: [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.VIEW_CONTRACTING,
-    P.VIEW_PROPOSALS,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_TRAVELLERS,
-    P.VIEW_VISA,
-    P.VIEW_TICKETING,
-    P.VIEW_OPERATIONS,
-    P.VIEW_TOUR_MANAGERS,
-    P.VIEW_FINANCE,
-    P.VIEW_EXPENSES,
-    P.APPROVE_EXPENSES,
-    P.VIEW_TEAM,
-    P.VIEW_LEAVE,
-    P.APPROVE_LEAVE,
-    P.VIEW_APPROVALS,
-    P.VIEW_REPORTS,
-    P.VIEW_SENSITIVE_TRAVELLER_DATA,
-  ],
+  Directors: DIRECTOR_PERMISSIONS,
   "Sales Head": [
     P.VIEW_DASHBOARD,
     P.VIEW_QUERIES,
@@ -271,27 +282,7 @@ export const ROLE_PERMISSIONS = {
     P.SEND_PROPOSALS,
     P.VIEW_LEAVE,
   ],
-  "Director Cement": [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.VIEW_CONTRACTING,
-    P.VIEW_PROPOSALS,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_TRAVELLERS,
-    P.VIEW_VISA,
-    P.VIEW_TICKETING,
-    P.VIEW_OPERATIONS,
-    P.VIEW_TOUR_MANAGERS,
-    P.VIEW_FINANCE,
-    P.VIEW_EXPENSES,
-    P.APPROVE_EXPENSES,
-    P.VIEW_TEAM,
-    P.VIEW_LEAVE,
-    P.APPROVE_LEAVE,
-    P.VIEW_APPROVALS,
-    P.VIEW_REPORTS,
-    P.VIEW_SENSITIVE_TRAVELLER_DATA,
-  ],
+  "Director Cement": DIRECTOR_PERMISSIONS,
 };
 
 export const TICKET_TYPES = ["FIT Ticket", "Group Ticket"];

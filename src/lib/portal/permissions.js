@@ -5,6 +5,7 @@ import {
   PORTAL_PERMISSIONS,
   QUERY_TYPES,
   ROLE_PERMISSIONS,
+  TEAM_PICKER_PERMISSIONS,
 } from "./constants";
 
 export function normalizeEmail(email) {
@@ -73,6 +74,14 @@ export function isAdmin(access) {
   return hasRole(access, "Admin");
 }
 
+export function isDirectorOrAdmin(access) {
+  return isAdmin(access) || hasRole(access, "Directors") || hasRole(access, "Director Cement");
+}
+
+export function canUseTeamPicker(access) {
+  return TEAM_PICKER_PERMISSIONS.some((permission) => hasPermission(access, permission));
+}
+
 export function isHead(access, department) {
   const headRole = department.includes("Head") ? department : `${department} Head`;
   if (department === "Ticketing") {
@@ -83,12 +92,14 @@ export function isHead(access, department) {
 
 export function canAssignContracting(access) {
   return (
-    isAdmin(access) || hasRole(access, "Contracting Head") || hasRole(access, "Operations Head")
+    isDirectorOrAdmin(access) ||
+    hasRole(access, "Contracting Head") ||
+    hasRole(access, "Operations Head")
   );
 }
 
 export function canAssignQueryTicketing(access) {
-  return isAdmin(access) || hasRole(access, "Head of Ticketing");
+  return isDirectorOrAdmin(access) || hasRole(access, "Head of Ticketing");
 }
 
 export function canHeadAssignQueryTeams(access) {
@@ -147,19 +158,19 @@ export function assignQueryTeamsButtonLabel(access) {
 }
 
 export function canAssignOperations(access) {
-  return isAdmin(access) || hasRole(access, "Operations Head");
+  return isDirectorOrAdmin(access) || hasRole(access, "Operations Head");
 }
 
 export function canAssignTicketing(access) {
-  return isAdmin(access) || hasRole(access, "Head of Ticketing");
+  return isDirectorOrAdmin(access) || hasRole(access, "Head of Ticketing");
 }
 
 export function canAssignTourManagers(access) {
-  return isAdmin(access) || hasRole(access, "Operations Head");
+  return isDirectorOrAdmin(access) || hasRole(access, "Operations Head");
 }
 
 export function canManageJobCardCreatorAccess(access) {
-  return isAdmin(access) || hasRole(access, "Directors") || hasRole(access, "Accounts Head");
+  return isDirectorOrAdmin(access) || hasRole(access, "Accounts Head");
 }
 
 export function canCreateJobCardFromAccounts(access, _creators = []) {
@@ -183,7 +194,7 @@ export function isCementScopedUser(access) {
   if (!access?.roles?.length) {
     return false;
   }
-  if (isAdmin(access) || hasRole(access, "Directors")) {
+  if (isDirectorOrAdmin(access)) {
     return false;
   }
   return access.roles.some((role) => CEMENT_ROLES.includes(role));

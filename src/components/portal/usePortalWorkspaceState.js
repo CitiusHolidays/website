@@ -20,7 +20,7 @@ import { executeModalCommand } from "@/lib/portal/modalCommandExecutor";
 import { createInitialModalForm, JOB_CARD_MODALS } from "@/lib/portal/modalLifecycle";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg, EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
-import { canAccessPipeline } from "@/lib/portal/permissions";
+import { canAccessPipeline, canUseTeamPicker } from "@/lib/portal/permissions";
 import { filterRows, pipeViewRows, VIEWS_WITH_JOB_CARD_FILTER } from "@/lib/portal/pipeViewRows";
 import { runMutation } from "@/lib/portal/runMutation";
 import {
@@ -133,13 +133,14 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const removeSavedView = useMutation(api.crm.savedViews.remove);
   const queries = useQuery(
     api.crm.queries.list,
-    canFetch && (has(P.VIEW_QUERIES) || has(P.VIEW_CONTRACTING) || has(P.VIEW_JOB_CARDS))
+    canFetch &&
+      (has(P.VIEW_QUERIES) || has(P.VIEW_CONTRACTING) || has(P.MANAGE_JOB_CARDS))
       ? {}
       : "skip",
   );
   const proposals = useQuery(
     api.crm.proposals.list,
-    canFetch && (has(P.VIEW_PROPOSALS) || has(P.MANAGE_JOB_CARDS)) ? {} : "skip",
+    canFetch && (has(P.VIEW_PROPOSALS) || has(P.VIEW_CONTRACTING)) ? {} : "skip",
   );
   const jobCards = useQuery(api.crm.jobCards.list, canFetch && has(P.VIEW_JOB_CARDS) ? {} : "skip");
   const travellers = useQuery(
@@ -192,7 +193,15 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     api.crm.reports.overview,
     canFetch && has(P.VIEW_REPORTS) && view === "reports" ? { dateRange: dateRangeArg } : "skip",
   );
-  const team = useQuery(api.crm.staff.listDirectory, canFetch && has(P.VIEW_TEAM) ? {} : "skip");
+  const teamDirectory = useQuery(
+    api.crm.staff.listDirectory,
+    canFetch && has(P.VIEW_TEAM) ? {} : "skip",
+  );
+  const teamPicker = useQuery(
+    api.crm.staff.listTeamOptions,
+    canFetch && !has(P.VIEW_TEAM) && canUseTeamPicker(access) ? {} : "skip",
+  );
+  const team = teamDirectory ?? teamPicker ?? [];
   const activity = useQuery(
     api.crm.activity.listActivity,
     canFetch && has(P.VIEW_ACTIVITY) ? { limit: 80 } : "skip",
@@ -216,12 +225,12 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   );
   const dropdowns = useQuery(
     api.crm.settings.listDropdowns,
-    canFetch && view === "settings" ? {} : "skip",
+    canFetch && view === "settings" && has(P.MANAGE_STAFF) ? {} : "skip",
   );
   const staff = useQuery(api.crm.staff.listStaff, canFetch && has(P.MANAGE_STAFF) ? {} : "skip");
   const accountsJobCardCreators = useQuery(
     api.crm.staff.listAccountsForJobCards,
-    canFetch && view === "accounts-job-cards" ? {} : "skip",
+    canFetch && view === "accounts-job-cards" && has(P.MANAGE_JOB_CARDS) ? {} : "skip",
   );
   const leaveHeadApproverCandidates = useQuery(
     api.crm.leaveApprovers.listHeadApproverCandidates,

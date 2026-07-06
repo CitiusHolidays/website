@@ -7,6 +7,7 @@ import {
   canAssignContracting,
   canAssignQueryTicketing,
   canAssignTicketing,
+  canHeadAssignQueryTeams,
   usesSalesInitialAssignmentForm,
 } from "@/lib/portal/permissions";
 
@@ -126,7 +127,7 @@ export function AssignQueryTeamsFields({
           required={salesInitial}
         />
       )}
-      {!salesInitial && canAssignQueryTicketing(access) && (
+      {!salesInitial && canHeadAssignQueryTeams(access) && (
         <Select
           label="Ticketing SPOC"
           value={form.ticketingStaffId}
