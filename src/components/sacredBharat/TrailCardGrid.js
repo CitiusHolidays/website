@@ -22,7 +22,7 @@ export default function TrailCardGrid() {
             Complete a trail, earn your badge
           </h2>
           <p className="mx-auto mt-4 max-w-2xl font-sans text-brand-muted">
-            Each trail grants bonus points and a unique badge when every sacred site is marked
+            Each trail grants a completion bonus and a unique badge when every sacred site is marked
             visited. Many temples belong to multiple trails.
           </p>
         </div>

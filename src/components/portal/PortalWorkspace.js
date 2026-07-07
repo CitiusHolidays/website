@@ -5102,6 +5102,13 @@ function SettingsView({
             ["Location", (row) => row.location || "-"],
             ["Roles", (row) => row.roles.join(", ")],
             [
+              "Email alerts",
+              (row) =>
+                row.emailAlertRoles && row.emailAlertRoles.length > 0
+                  ? row.emailAlertRoles.join(", ")
+                  : "Same as roles",
+            ],
+            [
               "Onboarding",
               (row) => (
                 <Badge
@@ -5141,6 +5148,7 @@ function SettingsView({
                       openModal("staff", {
                         confirmationDate: row.confirmationDate || "",
                         department: row.department,
+                        emailAlertRoles: row.emailAlertRoles || [],
                         employmentStatus: row.employmentStatus || "Confirmed",
                         joiningDate: row.joiningDate || "",
                         leaveHeadApproverId: row.leaveHeadApproverId || "",

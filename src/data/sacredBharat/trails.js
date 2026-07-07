@@ -18,7 +18,7 @@ export const TRAILS = [
     completionBonus: 500,
     emoji: "🚩",
     slug: "char-dham-trail",
-    templeIds: ["badrinath", "dwarka", "jagannath", "rameswaram"],
+    templeIds: ["badrinath", "dwarka", "jagannath", "ramanathaswamy"],
     title: "Char Dham Trail",
   },
   {
@@ -27,7 +27,7 @@ export const TRAILS = [
     completionBonus: 300,
     emoji: "🏹",
     slug: "ramayana-trail",
-    templeIds: ["ayodhya", "chitrakoot", "nashik-panchavati", "rameswaram"],
+    templeIds: ["ayodhya", "chitrakoot", "nashik-panchavati", "ramanathaswamy"],
     title: "Ramayana Trail",
   },
   {
@@ -63,7 +63,7 @@ export const TRAILS = [
     completionBonus: 200,
     emoji: "🌊",
     slug: "sacred-rivers-trail",
-    templeIds: ["varanasi", "haridwar", "prayagraj", "rameswaram"],
+    templeIds: ["kashi-vishwanath", "haridwar", "prayagraj", "ramanathaswamy"],
     title: "Sacred Rivers Trail",
   },
   {
@@ -72,7 +72,15 @@ export const TRAILS = [
     completionBonus: 500,
     emoji: "✨",
     slug: "moksha-cities-trail",
-    templeIds: ["ayodhya", "mathura", "haridwar", "varanasi", "ujjain", "dwarka", "kanchipuram"],
+    templeIds: [
+      "ayodhya",
+      "mathura",
+      "haridwar",
+      "kashi-vishwanath",
+      "ujjain",
+      "dwarka",
+      "kanchipuram",
+    ],
     title: "Moksha Cities Trail",
   },
   {
@@ -81,7 +89,7 @@ export const TRAILS = [
     completionBonus: 250,
     emoji: "🛕",
     slug: "divine-south-trail",
-    templeIds: ["tirupati", "meenakshi", "rameswaram", "sri-rangam", "guruvayur"],
+    templeIds: ["tirupati", "meenakshi", "ramanathaswamy", "sri-rangam", "guruvayur"],
     title: "Divine South Trail",
   },
   {

@@ -164,6 +164,92 @@ describe("notifyRoles", () => {
       "head@example.com",
     ]);
   });
+
+  test("uses staff email alert roles when present", async () => {
+    const tables: Record<string, any[]> = {
+      notifications: [],
+      staffUsers: [
+        {
+          _id: "staff_ops_head",
+          active: true,
+          email: "ops-head@example.com",
+          roles: ["Operations Head"],
+        },
+        {
+          _id: "staff_email_delegate",
+          active: true,
+          email: "delegate@example.com",
+          emailAlertRoles: ["Operations Head"],
+          roles: ["Finance"],
+        },
+        {
+          _id: "staff_email_optout",
+          active: true,
+          email: "optout@example.com",
+          emailAlertRoles: ["Sales"],
+          roles: ["Operations Head"],
+        },
+      ],
+    };
+    const scheduled: any[] = [];
+    const ctx = {
+      db: {
+        insert: async (table: string, doc: Record<string, unknown>) => {
+          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
+          tables[table].push(row);
+          return row._id;
+        },
+        query: (table: string) => ({
+          collect: async () => tables[table] ?? [],
+        }),
+      },
+      scheduler: {
+        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
+          scheduled.push({ args, fn });
+        },
+      },
+    };
+
+    await notifyRoles(
+      ctx as never,
+      ["Operations Head"],
+      {
+        body: "Review",
+        entityId: "query_1",
+        entityType: "query",
+        title: "Query ready for assignment",
+      },
+      { emailRoles: ["Operations Head"] }
+    );
+
+    expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Operations Head"]);
+    expect(scheduled[0].args.recipients.sort()).toEqual([
+      "delegate@example.com",
+      "ops-head@example.com",
+    ]);
+  });
+});
+
+describe("query intake notification roles", () => {
+  test("routes query intake to assignment heads without the whole contracting team", async () => {
+    const { queryAssignmentHeadRoles } = await import("./queries");
+
+    expect(queryAssignmentHeadRoles({})).toEqual(["Contracting Head", "Operations Head"]);
+    expect(queryAssignmentHeadRoles({ ticketingScope: "Not required" })).toEqual([
+      "Contracting Head",
+      "Operations Head",
+    ]);
+    expect(queryAssignmentHeadRoles({ ticketingScope: "Domestic" })).toEqual([
+      "Contracting Head",
+      "Operations Head",
+      "Head of Ticketing",
+    ]);
+    expect(queryAssignmentHeadRoles({ ticketingOwnerId: "staff_ticketing" })).toEqual([
+      "Contracting Head",
+      "Operations Head",
+      "Head of Ticketing",
+    ]);
+  });
 });
 
 describe("notificationReads bounded fetch", () => {

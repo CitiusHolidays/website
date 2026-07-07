@@ -181,6 +181,7 @@ export const INITIAL_FORM = {
   domesticTravelRequired: "No",
   dueDate: "",
   employmentStatus: "Confirmed",
+  emailAlertRoles: [],
   endDate: "",
   entityId: "",
   epayAmount: "",

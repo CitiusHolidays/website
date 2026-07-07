@@ -456,6 +456,7 @@ export async function executeModalCommand({ modal, form, deps }) {
       confirmationDate: form.confirmationDate,
       department: form.department,
       email: form.staffEmail,
+      emailAlertRoles: form.emailAlertRoles || [],
       employmentStatus: form.employmentStatus,
       function: form.staffFunction,
       joiningDate: form.joiningDate,

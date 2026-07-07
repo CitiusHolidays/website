@@ -112,6 +112,7 @@ function addQueryRows(rows: DetailRow[], query: Doc<"queries">) {
   addRow(rows, "Ticketing SPOC", query.ticketingOwnerName);
   addRow(rows, "Ticketing Scope", query.ticketingScope);
   addRow(rows, "Budget", formatAmount(query.budgetAmount));
+  addRow(rows, "Notes", query.notes);
 }
 
 async function queryDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {

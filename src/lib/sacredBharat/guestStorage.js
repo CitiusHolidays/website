@@ -1,4 +1,10 @@
+import { resolveCanonicalTempleId } from "../../data/sacredBharat/templeAliases.js";
+
 const SACRED_BHARAT_DRAFT_KEY = "citius-sacred-bharat-draft";
+
+function normalizeDraftTempleIds(templeIds) {
+  return [...new Set((templeIds ?? []).map((id) => resolveCanonicalTempleId(id)).filter(Boolean))];
+}
 
 /**
  * @returns {{ templeIds: string[], wishlist: { itemType: string, itemId: string }[] }}
@@ -14,7 +20,9 @@ export function readGuestDraft() {
     }
     const parsed = JSON.parse(raw);
     return {
-      templeIds: Array.isArray(parsed.templeIds) ? parsed.templeIds : [],
+      templeIds: normalizeDraftTempleIds(
+        Array.isArray(parsed.templeIds) ? parsed.templeIds : []
+      ),
       wishlist: Array.isArray(parsed.wishlist) ? parsed.wishlist : [],
     };
   } catch {
@@ -33,7 +41,7 @@ export function writeGuestDraft(draft) {
   window.localStorage.setItem(
     SACRED_BHARAT_DRAFT_KEY,
     JSON.stringify({
-      templeIds: draft.templeIds ?? current.templeIds,
+      templeIds: normalizeDraftTempleIds(draft.templeIds ?? current.templeIds),
       wishlist: draft.wishlist ?? current.wishlist,
     })
   );

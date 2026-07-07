@@ -911,6 +911,7 @@ export default defineSchema({
     createdAt: v.number(),
     department: v.optional(v.string()),
     email: v.string(),
+    emailAlertRoles: v.optional(v.array(staffRole)),
     emailNormalized: v.string(),
     employmentStatus: v.optional(v.union(v.literal("Probationer"), v.literal("Confirmed"))),
     function: v.optional(v.string()),

@@ -1,4 +1,4 @@
-/** Score thresholds → pilgrim title */
+/** Score thresholds → pilgrim title (Soul Score includes temple points + trail bonuses). */
 export const LEVELS = [
   { maxScore: 250, minScore: 0, slug: "seeker", title: "Seeker" },
   { maxScore: 500, minScore: 251, slug: "pilgrim", title: "Pilgrim" },
@@ -12,5 +12,3 @@ export const LEVELS = [
   },
   { maxScore: null, minScore: 2001, slug: "moksha-pathfinder", title: "Moksha Pathfinder" },
 ];
-
-export const POINTS_PER_TEMPLE = 25;

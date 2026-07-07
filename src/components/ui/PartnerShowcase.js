@@ -1,7 +1,6 @@
 "use client";
 
 import { m } from "motion/react";
-import { Ticker } from "motion-plus/react";
 import Image from "next/image";
 import AbuDhabi from "@/static/partners/abudhabi.webp";
 import Accor from "@/static/partners/accor.webp";
@@ -53,6 +52,7 @@ import VietJet from "@/static/partners/vietjet.webp";
 import Vietnam from "@/static/partners/vietnam.webp";
 import VietnamAirlines from "@/static/partners/vietnamairlines.webp";
 import { cn } from "../../utils/cn";
+import LogoTicker from "./LogoTicker";
 
 const partners = [
   { alt: "Abu Dhabi", src: AbuDhabi },
@@ -157,16 +157,12 @@ export default function PartnerShowcase({ className }) {
       <h2 className="mb-8 text-center font-semibold text-2xl text-brand-dark">
         Our Global Hospitality, Tourism, and Airline Partners
       </h2>
-      <Ticker
-        gap={5}
+      <LogoTicker
+        gap={24}
         items={items}
         style={{
           alignItems: "center",
           display: "flex",
-          maskImage:
-            "linear-gradient(to right, transparent 5%, black 10%, black 90%, transparent 95%)",
-          WebkitMaskImage:
-            "linear-gradient(to right, transparent 5%, black 10%, black 90%, transparent 95%)",
         }}
         velocity={65}
       />

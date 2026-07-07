@@ -7,7 +7,6 @@ import {
   assertDateRangeOrder,
   assertMaxWordCount,
   canSeeQueryRecord,
-  contractingNotifyRolesForQueryType,
   createActivity,
   deleteEntityNotifications,
   hasRole,
@@ -108,6 +107,55 @@ export function isJobCardCreatorNotificationTarget(staff: { active?: boolean; ro
   return Boolean(
     staff.active && staff.roles?.some((role) => ["Accounts", "Accounts Head"].includes(role))
   );
+}
+
+export function queryAssignmentHeadRoles(query: {
+  ticketingOwnerId?: string;
+  ticketingScope?: string;
+}) {
+  const roles = ["Contracting Head", "Operations Head"];
+  if (query.ticketingOwnerId || (query.ticketingScope && query.ticketingScope !== "Not required")) {
+    roles.push("Head of Ticketing");
+  }
+  return roles;
+}
+
+async function notifyQueryAssignmentHeads(
+  ctx: Parameters<typeof notifyRoles>[0],
+  query: { ticketingOwnerId?: string; ticketingScope?: string },
+  notification: Parameters<typeof notifyRoles>[2]
+) {
+  const roles = queryAssignmentHeadRoles(query);
+  await notifyRoles(ctx, roles, notification, { emailRoles: roles });
+}
+
+async function notifyAssignedQueryOwners(
+  ctx: Parameters<typeof notifyStaffMember>[0],
+  query: { queryCode: string; contractingOwnerId?: string; ticketingOwnerId?: string },
+  queryId: Id<"queries">
+) {
+  const notifications = [];
+  if (query.contractingOwnerId) {
+    notifications.push(
+      notifyQueryOwner(ctx, query.contractingOwnerId, {
+        body: `${query.queryCode} was submitted by Sales and is ready for contracting proposal work.`,
+        entityId: queryId,
+        entityType: "query",
+        title: "Query submitted for proposal work",
+      })
+    );
+  }
+  if (query.ticketingOwnerId) {
+    notifications.push(
+      notifyQueryOwner(ctx, query.ticketingOwnerId, {
+        body: `${query.queryCode} was submitted by Sales and is ready for ticketing inputs.`,
+        entityId: queryId,
+        entityType: "query",
+        title: "Query submitted for ticketing inputs",
+      })
+    );
+  }
+  await Promise.all(notifications);
 }
 
 const queryTypeValidator = v.union(
@@ -466,26 +514,12 @@ export const create = mutation({
       updatedAt: now,
     });
 
-    await Promise.all([
-      createActivity(ctx, access, {
-        action: "created",
-        entityId: id,
-        entityType: "query",
-        message: `${queryCode} created for ${args.clientName.trim()}`,
-      }),
-      notifyRoles(ctx, contractingNotifyRolesForQueryType(args.queryType), {
-        body: `${queryCode} is ready for contracting and operations head review.`,
-        entityId: id,
-        entityType: "query",
-        title: "New query received",
-      }),
-      notifyRoles(ctx, ["Contracting Head", "Operations Head"], {
-        body: `${queryCode} was raised by Sales. Review and assign contracting and ticketing teams.`,
-        entityId: id,
-        entityType: "query",
-        title: "Query ready for assignment",
-      }),
-    ]);
+    await createActivity(ctx, access, {
+      action: "created",
+      entityId: id,
+      entityType: "query",
+      message: `${queryCode} created for ${args.clientName.trim()}`,
+    });
 
     if (args.contractingStaffId || args.ticketingScope) {
       await applyQueryTeamAssignments(ctx, access, {
@@ -493,6 +527,17 @@ export const create = mutation({
         queryId: id,
         ticketingScope: args.ticketingScope,
       });
+    } else {
+      await notifyQueryAssignmentHeads(
+        ctx,
+        { ticketingScope: args.ticketingScope },
+        {
+          body: `${queryCode} was raised by Sales. Review and assign contracting and ticketing teams.`,
+          entityId: id,
+          entityType: "query",
+          title: "Query ready for assignment",
+        }
+      );
     }
 
     return { id, queryCode };
@@ -725,6 +770,9 @@ export const submitToContracting = mutation({
       submittedToContractingAt: now,
       updatedAt: now,
     });
+    const hasAssignedTeam = Boolean(
+      current.contractingOwnerId || current.ticketingOwnerId || current.ticketingScope
+    );
     await Promise.all([
       createActivity(ctx, access, {
         action: "submitted_to_contracting",
@@ -732,18 +780,15 @@ export const submitToContracting = mutation({
         entityType: "query",
         message: `${current.queryCode} submitted to Contracting`,
       }),
-      notifyRoles(ctx, ["Contracting Head", "Operations Head"], {
-        body: `${current.queryCode} was submitted by Sales. Review and assign contracting and ticketing teams.`,
+      notifyQueryAssignmentHeads(ctx, current, {
+        body: hasAssignedTeam
+          ? `${current.queryCode} was submitted by Sales and is ready for assigned proposal work.`
+          : `${current.queryCode} was submitted by Sales. Review and assign contracting and ticketing teams.`,
         entityId: queryId,
         entityType: "query",
-        title: "Query ready for assignment",
+        title: hasAssignedTeam ? "Query submitted to Contracting" : "Query ready for assignment",
       }),
-      notifyRoles(ctx, ["Contracting", "Contracting Head", "Operations Head", "Directors"], {
-        body: `${current.queryCode} is ready for assignment and proposal work.`,
-        entityId: queryId,
-        entityType: "query",
-        title: "Query submitted to Contracting",
-      }),
+      ...(hasAssignedTeam ? [notifyAssignedQueryOwners(ctx, current, queryId)] : []),
     ]);
     return { id: queryId };
   },

@@ -126,6 +126,12 @@ export function EntityModalStaffFields({
             options={PORTAL_ROLES}
             value={form.staffRoles}
           />
+          <MultiSelect
+            label="Email alert roles"
+            onChange={(v) => updateForm("emailAlertRoles", v)}
+            options={PORTAL_ROLES}
+            value={form.emailAlertRoles || []}
+          />
           <Select
             label="Active"
             onChange={(v) => updateForm("staffActive", v === "Active")}

@@ -932,6 +932,12 @@ export function expandNotificationEmailRoles(roles: string[]) {
   return Array.from(expanded);
 }
 
+function emailAlertRolesForStaff(member: { emailAlertRoles?: string[]; roles: string[] }) {
+  return member.emailAlertRoles && member.emailAlertRoles.length > 0
+    ? member.emailAlertRoles
+    : member.roles;
+}
+
 const NOTIFICATION_EMAIL_STAGGER_MS = 600;
 
 async function queueNotificationEmail(
@@ -945,6 +951,7 @@ async function queueNotificationEmail(
   },
   options?: {
     emailDelayMs?: number;
+    emailRoles?: string[];
   }
 ) {
   if (recipients.size === 0) {
@@ -974,6 +981,7 @@ export async function notifyRoles(
   },
   options?: {
     emailDelayMs?: number;
+    emailRoles?: string[];
   }
 ) {
   const createdAt = Date.now();
@@ -985,14 +993,15 @@ export async function notifyRoles(
     roles: new Set(member.roles),
   }));
   const emailRecipients = new Set<string>();
-  const emailRecipientRoles = new Set(recipientRoles);
+  const emailRecipientRoles = new Set(expandNotificationEmailRoles(options?.emailRoles ?? roles));
 
-  for (const { member, roles: memberRoles } of staffRoleSets) {
+  for (const { member } of staffRoleSets) {
     if (!member.active) {
       continue;
     }
+    const memberEmailRoles = new Set(emailAlertRolesForStaff(member));
     for (const role of emailRecipientRoles) {
-      if (memberRoles.has(role as any)) {
+      if (memberEmailRoles.has(role)) {
         addNotificationEmailRecipient(emailRecipients, member.email);
         break;
       }

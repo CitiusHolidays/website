@@ -72,7 +72,9 @@ Coarse `manage:*` permissions gate API entry points, but proposal/query/job-card
 
 ## Notification email behavior
 
-Bell notifications are still targeted by exact user or role rows. Email recipient lookup expands department notifications to the corresponding head role so operational heads do not miss email when a workflow targets the base department role:
+Bell notifications are targeted by exact user or role rows created by the workflow. Staff records can also carry **Email alert roles** in Settings; when present, those roles control which role-based email alerts the staff member receives. If Email alert roles are empty, email delivery falls back to the staff member's portal roles.
+
+Email recipient lookup expands department notifications to the corresponding head role so operational heads do not miss email when a workflow targets the base department role:
 
 | Notification role | Also emails |
 | --- | --- |
@@ -83,3 +85,5 @@ Bell notifications are still targeted by exact user or role rows. Email recipien
 | Ticketing | Head of Ticketing |
 
 Head-targeted notifications do not email the base department role unless that base role is also targeted.
+
+Sales query intake is narrower than the base expansion table: new or submitted queries notify the assigned Contracting/Ticketing SPOCs plus the relevant assignment heads. They do not create bell or email alerts for the entire Contracting team.

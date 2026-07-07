@@ -1,16 +1,20 @@
-import { LEVELS, POINTS_PER_TEMPLE } from "../../data/sacredBharat/levels.js";
+import { SACRED_BHARAT_CHALLENGES } from "../../data/sacredBharat/challenges.js";
+import { LEVELS } from "../../data/sacredBharat/levels.js";
 import { REGIONS } from "../../data/sacredBharat/regions.js";
-import { TEMPLE_BY_ID, TEMPLES } from "../../data/sacredBharat/temples.js";
+import { resolveCanonicalTempleId } from "../../data/sacredBharat/templeAliases.js";
+import { getTemplePoints, TEMPLE_BY_ID, TEMPLES } from "../../data/sacredBharat/temples.js";
 import { TRAILS } from "../../data/sacredBharat/trails.js";
+import { getChallengeBadgeAwards, getChallengeProgress } from "./challenges.js";
+
+export { getTemplePoints };
 
 /**
  * @param {string[] | Set<string>} templeIds
  */
 export function normalizeVisitedSet(templeIds) {
-  if (templeIds instanceof Set) {
-    return new Set([...templeIds].filter((id) => TEMPLE_BY_ID[id]));
-  }
-  return new Set((templeIds || []).filter((id) => TEMPLE_BY_ID[id]));
+  const raw = templeIds instanceof Set ? [...templeIds] : templeIds ?? [];
+  const canonical = raw.map((id) => resolveCanonicalTempleId(id));
+  return new Set(canonical.filter((id) => TEMPLE_BY_ID[id]));
 }
 
 /**
@@ -59,20 +63,57 @@ function getTrailProgress(trail, visitedSet) {
   };
 }
 
+function buildTrailSummaries(visitedSet) {
+  return TRAILS.map((trail) => {
+    const progress = getTrailProgress(trail, visitedSet);
+    const complete = isTrailComplete(trail, visitedSet);
+    return {
+      emoji: trail.emoji,
+      slug: trail.slug,
+      title: trail.title,
+      ...progress,
+      badgeId: trail.badgeId,
+      badgeName: trail.badgeName,
+      complete,
+      completionBonus: trail.completionBonus,
+    };
+  });
+}
+
 /**
  * @param {string[] | Set<string>} templeIds
  */
+export function computeTemplePointsTotal(visitedSet) {
+  let total = 0;
+  for (const templeId of visitedSet) {
+    total += getTemplePoints(templeId);
+  }
+  return total;
+}
+
+/**
+ * @param {Set<string>} visitedSet
+ * @param {ReturnType<typeof buildTrailSummaries>} trails
+ */
+export function computeChallengeBonus(visitedSet, trails) {
+  const progress = { trails, visitedTempleIds: [...visitedSet] };
+  return SACRED_BHARAT_CHALLENGES.reduce((sum, challenge) => {
+    if (getChallengeProgress(challenge, progress).complete) {
+      return sum + (challenge.points ?? 0);
+    }
+    return sum;
+  }, 0);
+}
+
 export function computeScore(templeIds) {
   const visitedSet = normalizeVisitedSet(templeIds);
-  let score = visitedSet.size * POINTS_PER_TEMPLE;
-
-  for (const trail of TRAILS) {
-    if (isTrailComplete(trail, visitedSet)) {
-      score += trail.completionBonus;
-    }
-  }
-
-  return score;
+  const trails = buildTrailSummaries(visitedSet);
+  const templePointsTotal = computeTemplePointsTotal(visitedSet);
+  const trailBonusTotal = trails
+    .filter((trail) => trail.complete)
+    .reduce((sum, trail) => sum + trail.completionBonus, 0);
+  const challengeBonusTotal = computeChallengeBonus(visitedSet, trails);
+  return templePointsTotal + trailBonusTotal + challengeBonusTotal;
 }
 
 /**
@@ -91,25 +132,16 @@ export function getLevelForScore(score) {
  */
 export function computeProgress(templeIds) {
   const visitedSet = normalizeVisitedSet(templeIds);
-  const score = computeScore(visitedSet);
+  const trails = buildTrailSummaries(visitedSet);
+  const templePointsTotal = computeTemplePointsTotal(visitedSet);
+  const trailBonusTotal = trails
+    .filter((trail) => trail.complete)
+    .reduce((sum, trail) => sum + trail.completionBonus, 0);
+  const challengeBonusTotal = computeChallengeBonus(visitedSet, trails);
+  const score = templePointsTotal + trailBonusTotal + challengeBonusTotal;
   const level = getLevelForScore(score);
 
-  const trails = TRAILS.map((trail) => {
-    const progress = getTrailProgress(trail, visitedSet);
-    const complete = isTrailComplete(trail, visitedSet);
-    return {
-      emoji: trail.emoji,
-      slug: trail.slug,
-      title: trail.title,
-      ...progress,
-      badgeId: trail.badgeId,
-      badgeName: trail.badgeName,
-      complete,
-      completionBonus: trail.completionBonus,
-    };
-  });
-
-  const badges = trails.reduce((items, t) => {
+  const trailBadges = trails.reduce((items, t) => {
     if (t.complete) {
       items.push({
         badgeId: t.badgeId,
@@ -120,16 +152,24 @@ export function computeProgress(templeIds) {
     return items;
   }, []);
 
+  const challengeBadges = getChallengeBadgeAwards({ trails, visitedTempleIds: [...visitedSet] });
+  const badges = [...trailBadges, ...challengeBadges];
+
   const completedTrailCount = trails.filter((t) => t.complete).length;
+  const completedChallengeCount = challengeBadges.length;
 
   return {
     badges,
+    challengeBonusTotal,
+    completedChallengeCount,
     completedTrailCount,
     level,
     score,
     templeCount: visitedSet.size,
+    templePointsTotal,
     totalTemples: TEMPLES.length,
     totalTrails: TRAILS.length,
+    trailBonusTotal,
     trails,
     visitedTempleIds: [...visitedSet],
   };

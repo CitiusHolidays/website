@@ -4,6 +4,7 @@ import { Check, MapPin } from "lucide-react";
 import { REGION_LABELS } from "@/data/sacredBharat/regions";
 import { getTempleById, TEMPLES } from "@/data/sacredBharat/temples";
 import { cn } from "@/utils/cn";
+import TempleJourneyCard from "./TempleJourneyCard";
 import { useSacredBharatContext } from "./SacredBharatProvider";
 
 /**
@@ -57,8 +58,13 @@ export default function TempleChecklist({ templeIds, showAllTemples = false }) {
                   )}
                 </p>
               </div>
-              <span className="shrink-0 text-brand-muted text-xs">+25 pts</span>
+              <span className="shrink-0 text-brand-muted text-xs tabular-nums">
+                +{temple.points} pts
+              </span>
             </button>
+            {!visited ? (
+              <TempleJourneyCard templeId={temple.id} visitedTempleIds={visitedTempleIds} />
+            ) : null}
           </li>
         );
       })}

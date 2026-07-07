@@ -5,6 +5,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { clearGuestDraft, readGuestDraft, writeGuestDraft } from "./guestStorage";
 import { computeProgress } from "./scoring";
+import { resolveCanonicalTempleId } from "../../data/sacredBharat/templeAliases.js";
 
 export function useSacredBharat() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();
@@ -72,28 +73,31 @@ export function useSacredBharat() {
   };
 
   const markVisited = async (templeId) => {
+    const canonicalId = resolveCanonicalTempleId(templeId);
     if (isAuthenticated) {
-      await markVisitedMutation({ templeId });
+      await markVisitedMutation({ templeId: canonicalId });
       return;
     }
-    if (!visitedTempleIds.includes(templeId)) {
-      persistGuest([...visitedTempleIds, templeId]);
+    if (!visitedTempleIds.includes(canonicalId)) {
+      persistGuest([...visitedTempleIds, canonicalId]);
     }
   };
 
   const unmarkVisited = async (templeId) => {
+    const canonicalId = resolveCanonicalTempleId(templeId);
     if (isAuthenticated) {
-      await unmarkVisitedMutation({ templeId });
+      await unmarkVisitedMutation({ templeId: canonicalId });
       return;
     }
-    persistGuest(visitedTempleIds.filter((id) => id !== templeId));
+    persistGuest(visitedTempleIds.filter((id) => id !== canonicalId));
   };
 
   const toggleVisited = async (templeId) => {
-    if (visitedTempleIds.includes(templeId)) {
-      await unmarkVisited(templeId);
+    const canonicalId = resolveCanonicalTempleId(templeId);
+    if (visitedTempleIds.includes(canonicalId)) {
+      await unmarkVisited(canonicalId);
     } else {
-      await markVisited(templeId);
+      await markVisited(canonicalId);
     }
   };
 

@@ -5,6 +5,7 @@ import AnimatedSection from "@/components/layout/AnimatedSection";
 import BadgeShelf from "@/components/sacredBharat/BadgeShelf";
 import ChallengeGrid from "@/components/sacredBharat/ChallengeGrid";
 import GuestSaveBanner from "@/components/sacredBharat/GuestSaveBanner";
+import JourneyPlannerPanel from "@/components/sacredBharat/JourneyPlannerPanel";
 import LeaderboardTable from "@/components/sacredBharat/LeaderboardTable";
 import PilgrimageLegacy from "@/components/sacredBharat/PilgrimageLegacy";
 import PrivateGroupPanel from "@/components/sacredBharat/PrivateGroupPanel";
@@ -31,6 +32,10 @@ export default function SacredBharatPageClient() {
 
       <AnimatedSection className="mx-auto max-w-6xl px-4 py-16 md:py-20">
         <ProgressSummary />
+      </AnimatedSection>
+
+      <AnimatedSection className="mx-auto max-w-6xl px-4 py-12">
+        <JourneyPlannerPanel />
       </AnimatedSection>
 
       <TrailCardGrid />

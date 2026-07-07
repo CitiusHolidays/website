@@ -1,7 +1,6 @@
 "use client";
 
 import { m } from "motion/react";
-import { Ticker } from "motion-plus/react";
 import Image from "next/image";
 import Acer from "@/static/clients/acer.webp";
 import Adani from "@/static/clients/adani.webp";
@@ -29,6 +28,7 @@ import Volvo from "@/static/clients/volvo.webp";
 import Wockhardt from "@/static/clients/wockhardt.webp";
 import YesBank from "@/static/clients/yesbank.webp";
 import { cn } from "../../utils/cn";
+import LogoTicker from "./LogoTicker";
 
 function ClientBox({ src, alt }) {
   return (
@@ -109,17 +109,12 @@ export default function ClientShowcase({ className }) {
       <h2 className="mb-8 text-center font-semibold text-2xl text-citius-blue">
         Trusted by Industry Leaders
       </h2>
-      <Ticker
-        gap={10}
+      <LogoTicker
+        gap={48}
         items={items}
         style={{
           alignItems: "center",
           display: "flex",
-          gap: "3rem",
-          maskImage:
-            "linear-gradient(to right, transparent 5%, black 10%, black 90%, transparent 95%)",
-          WebkitMaskImage:
-            "linear-gradient(to right, transparent 5%, black 10%, black 90%, transparent 95%)",
         }}
         velocity={65}
       />

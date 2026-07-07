@@ -66,6 +66,38 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
+const MULTILINE_DETAIL_LABELS = new Set([
+  "Batching notes",
+  "Decision note",
+  "Itinerary summary",
+  "Notes",
+  "Particulars",
+  "Reason",
+  "Reporting instructions",
+  "Special instructions",
+  "Summary",
+]);
+
+const EMAIL_NAVY = "#0f2d5c";
+const EMAIL_ORANGE = "#f58220";
+const EMAIL_BG = "#eef2f7";
+const EMAIL_BORDER = "#d5dde8";
+const EMAIL_LABEL = "#5c6b7f";
+const EMAIL_TEXT = "#1a2332";
+const EMAIL_MUTED = "#6b7c93";
+
+function isMultilineDetailRow(label: string, value: string) {
+  return value.includes("\n") || MULTILINE_DETAIL_LABELS.has(label);
+}
+
+function buildDetailValueHtml(label: string, value: string) {
+  const escaped = escapeHtml(value);
+  if (isMultilineDetailRow(label, value)) {
+    return `<td style="padding:10px 14px;border-top:1px solid ${EMAIL_BORDER};color:${EMAIL_TEXT};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.55;vertical-align:top;white-space:pre-wrap;word-break:break-word;">${escaped}</td>`;
+  }
+  return `<td style="padding:10px 14px;border-top:1px solid ${EMAIL_BORDER};color:${EMAIL_TEXT};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45;font-weight:600;vertical-align:top;word-break:break-word;">${escaped}</td>`;
+}
+
 function buildDetailsHtml(details: EmailDetails) {
   if (!details || details.rows.length === 0) {
     return "";
@@ -74,18 +106,18 @@ function buildDetailsHtml(details: EmailDetails) {
   const rows = details.rows
     .map(
       (row) => `<tr>
-          <td style="padding:9px 12px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:13px;line-height:1.4;width:38%;vertical-align:top;">${escapeHtml(row.label)}</td>
-          <td style="padding:9px 12px;border-top:1px solid #e5e7eb;color:#111827;font-size:13px;line-height:1.4;font-weight:600;vertical-align:top;">${escapeHtml(row.value)}</td>
-        </tr>`
+            <td style="padding:10px 14px;border-top:1px solid ${EMAIL_BORDER};color:${EMAIL_LABEL};font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;width:34%;vertical-align:top;font-weight:600;">${escapeHtml(row.label)}</td>
+            ${buildDetailValueHtml(row.label, row.value)}
+          </tr>`
     )
     .join("");
 
-  return `<div style="margin:0 0 24px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fbfdff;">
-          <p style="margin:0;padding:11px 12px;background:#f3f6fb;color:#0f4c81;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">${escapeHtml(details.title)}</p>
-          <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;">
-            ${rows}
-          </table>
-        </div>`;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;border-collapse:collapse;border:1px solid ${EMAIL_BORDER};background-color:#f8fafc;">
+          <tr>
+            <td colspan="2" style="padding:12px 14px;background-color:${EMAIL_NAVY};color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">${escapeHtml(details.title)}</td>
+          </tr>
+          ${rows}
+        </table>`;
 }
 
 function buildNotificationText(args: {
@@ -96,10 +128,26 @@ function buildNotificationText(args: {
 }) {
   const detailLines =
     args.details && args.details.rows.length > 0
-      ? ["", args.details.title, ...args.details.rows.map((row) => `${row.label}: ${row.value}`)]
+      ? [
+          "",
+          args.details.title.toUpperCase(),
+          "-".repeat(Math.min(args.details.title.length, 48)),
+          ...args.details.rows.map((row) => `${row.label}: ${row.value}`),
+        ]
       : [];
 
-  return [args.title, "", args.body, ...detailLines, "", `Open in portal: ${args.href}`].join("\n");
+  return [
+    "CITIUS CONNECT",
+    args.title,
+    "",
+    args.body,
+    ...detailLines,
+    "",
+    "Open in portal:",
+    args.href,
+    "",
+    "This email mirrors an in-app notification in Citius Connect.",
+  ].join("\n");
 }
 
 function buildNotificationHtml(args: {
@@ -113,19 +161,49 @@ function buildNotificationHtml(args: {
   const href = escapeHtml(args.href);
   const detailsHtml = buildDetailsHtml(args.details);
 
-  return `<!doctype html>
-<html>
-  <body style="margin:0;background:#f6f8fb;font-family:Arial,sans-serif;color:#14213d;">
-    <div style="margin:0 auto;max-width:560px;padding:32px 20px;">
-      <div style="border:1px solid #dfe5ef;border-radius:12px;background:#ffffff;padding:24px;">
-        <p style="margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0f4c81;">Citius Connect</p>
-        <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;color:#102a83;">${title}</h1>
-        <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151;">${body}</p>
-        ${detailsHtml}
-        <a href="${href}" style="display:inline-block;border-radius:999px;background:#f58220;padding:12px 18px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">Open in portal</a>
-        <p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:#6b7280;">This email mirrors an in-app notification in Citius Connect.</p>
-      </div>
-    </div>
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>${title}</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:${EMAIL_BG};font-family:Arial,Helvetica,sans-serif;color:${EMAIL_TEXT};">
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:${EMAIL_BG};border-collapse:collapse;">
+      <tr>
+        <td align="center" style="padding:28px 16px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;border-collapse:collapse;">
+            <tr>
+              <td style="padding:20px 24px;background-color:${EMAIL_NAVY};border:1px solid ${EMAIL_NAVY};border-bottom:none;border-radius:8px 8px 0 0;">
+                <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#9eb6d4;">Citius Connect</p>
+                <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.4;color:#d7e3f2;">Portal notification</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 24px;background-color:#ffffff;border-left:1px solid ${EMAIL_BORDER};border-right:1px solid ${EMAIL_BORDER};">
+                <h1 style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:1.3;font-weight:700;color:${EMAIL_NAVY};">${title}</h1>
+                <p style="margin:0 0 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#334155;">${body}</p>
+                ${detailsHtml}
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td align="left" bgcolor="${EMAIL_ORANGE}" style="border-radius:6px;background-color:${EMAIL_ORANGE};">
+                      <a href="${href}" style="display:inline-block;padding:13px 22px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;line-height:1.2;color:#ffffff;text-decoration:none;border-radius:6px;">Open in portal</a>
+                    </td>
+                  </tr>
+                </table>
+                <p style="margin:22px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:${EMAIL_MUTED};">This email mirrors an in-app notification in Citius Connect. Sign in to review the full record and take action.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 24px;background-color:#f4f7fb;border:1px solid ${EMAIL_BORDER};border-top:none;border-radius:0 0 8px 8px;text-align:center;">
+                <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.5;color:${EMAIL_MUTED};">Citius Connect CRM portal</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>`;
 }

@@ -1,6 +1,38 @@
 /** Server-side scoring mirror of src/lib/sacredBharat/scoring.js */
 
-const POINTS_PER_TEMPLE = 25;
+import { resolveCanonicalTempleId } from "./sacredBharatAliases";
+
+const TEMPLE_POINTS: Record<string, number> = {
+  akshardham: 76,
+  ayodhya: 95,
+  badrinath: 95,
+  "banke-bihari": 84,
+  chitrakoot: 80,
+  dakshineswar: 80,
+  dwarka: 91,
+  guruvayur: 79,
+  haridwar: 85,
+  jagannath: 94,
+  "kailash-mansarovar": 100,
+  kamakhya: 88,
+  kanchipuram: 82,
+  "kashi-vishwanath": 98,
+  kedarnath: 97,
+  konark: 78,
+  mahakaleshwar: 90,
+  mathura: 81,
+  meenakshi: 86,
+  "nashik-panchavati": 77,
+  prayagraj: 83,
+  "prem-mandir": 75,
+  ramanathaswamy: 92,
+  siddhivinayak: 82,
+  somnath: 89,
+  "sri-rangam": 87,
+  tirupati: 100,
+  ujjain: 85,
+  "vaishno-devi": 93,
+};
 
 const REGIONS = ["north", "south", "east", "west"] as const;
 
@@ -28,13 +60,12 @@ const TEMPLE_REGIONS: Record<string, string> = {
   prayagraj: "north",
   "prem-mandir": "north",
   ramanathaswamy: "south",
-  rameswaram: "south",
+  siddhivinayak: "west",
   somnath: "west",
   "sri-rangam": "south",
   tirupati: "south",
   ujjain: "west",
   "vaishno-devi": "north",
-  varanasi: "north",
 };
 
 const VALID_TEMPLE_IDS = new Set(Object.keys(TEMPLE_REGIONS));
@@ -52,12 +83,12 @@ const TRAILS: TrailDef[] = [
   {
     completionBonus: 500,
     slug: "char-dham-trail",
-    templeIds: ["badrinath", "dwarka", "jagannath", "rameswaram"],
+    templeIds: ["badrinath", "dwarka", "jagannath", "ramanathaswamy"],
   },
   {
     completionBonus: 300,
     slug: "ramayana-trail",
-    templeIds: ["ayodhya", "chitrakoot", "nashik-panchavati", "rameswaram"],
+    templeIds: ["ayodhya", "chitrakoot", "nashik-panchavati", "ramanathaswamy"],
   },
   {
     completionBonus: 200,
@@ -77,17 +108,25 @@ const TRAILS: TrailDef[] = [
   {
     completionBonus: 200,
     slug: "sacred-rivers-trail",
-    templeIds: ["varanasi", "haridwar", "prayagraj", "rameswaram"],
+    templeIds: ["kashi-vishwanath", "haridwar", "prayagraj", "ramanathaswamy"],
   },
   {
     completionBonus: 500,
     slug: "moksha-cities-trail",
-    templeIds: ["ayodhya", "mathura", "haridwar", "varanasi", "ujjain", "dwarka", "kanchipuram"],
+    templeIds: [
+      "ayodhya",
+      "mathura",
+      "haridwar",
+      "kashi-vishwanath",
+      "ujjain",
+      "dwarka",
+      "kanchipuram",
+    ],
   },
   {
     completionBonus: 250,
     slug: "divine-south-trail",
-    templeIds: ["tirupati", "meenakshi", "rameswaram", "sri-rangam", "guruvayur"],
+    templeIds: ["tirupati", "meenakshi", "ramanathaswamy", "sri-rangam", "guruvayur"],
   },
   {
     completionBonus: 400,
@@ -100,6 +139,39 @@ const TRAILS: TrailDef[] = [
     templeIds: ["konark", "meenakshi", "sri-rangam", "akshardham"],
   },
   { completionBonus: 150, slug: "bharat-explorer-trail", type: "region" },
+];
+
+type ChallengeDef = {
+  points: number;
+  requiredCount?: number;
+  slug: string;
+  templeIds?: string[];
+  trailSlugs?: string[];
+};
+
+const CHALLENGES: ChallengeDef[] = [
+  {
+    points: 150,
+    requiredCount: 2,
+    slug: "char-dham-prep",
+    templeIds: ["badrinath", "dwarka", "jagannath", "ramanathaswamy"],
+  },
+  {
+    points: 250,
+    requiredCount: 4,
+    slug: "four-jyotirlingas",
+    templeIds: ["kashi-vishwanath", "kedarnath", "somnath", "mahakaleshwar", "ramanathaswamy"],
+  },
+  {
+    points: 300,
+    requiredCount: 5,
+    slug: "shiva-devotee",
+    templeIds: ["kashi-vishwanath", "kedarnath", "somnath", "mahakaleshwar", "ramanathaswamy"],
+  },
+  { points: 200, slug: "sacred-rivers", trailSlugs: ["sacred-rivers-trail"] },
+  { points: 250, slug: "south-temple-circuit", trailSlugs: ["divine-south-trail"] },
+  { points: 100, requiredCount: 5, slug: "first-five-darshans", templeIds: [] },
+  { points: 300, slug: "bharat-explorer-2026", trailSlugs: ["bharat-explorer-trail"] },
 ];
 
 const LEVELS = [
@@ -122,7 +194,20 @@ const LEVELS = [
 ];
 
 export function normalizeVisitedSet(templeIds: string[]): Set<string> {
-  return new Set(templeIds.filter((id) => VALID_TEMPLE_IDS.has(id)));
+  const canonical = templeIds.map((id) => resolveCanonicalTempleId(id));
+  return new Set(canonical.filter((id) => VALID_TEMPLE_IDS.has(id)));
+}
+
+function getTemplePoints(templeId: string): number {
+  return TEMPLE_POINTS[templeId] ?? 0;
+}
+
+function computeTemplePointsTotal(visitedSet: Set<string>): number {
+  let total = 0;
+  for (const templeId of visitedSet) {
+    total += getTemplePoints(templeId);
+  }
+  return total;
 }
 
 function isBharatExplorerComplete(visitedSet: Set<string>): boolean {
@@ -136,14 +221,42 @@ function isTrailComplete(trail: TrailDef, visitedSet: Set<string>): boolean {
   return trail.templeIds.every((id) => visitedSet.has(id));
 }
 
+function isChallengeComplete(challenge: ChallengeDef, visitedSet: Set<string>): boolean {
+  if (challenge.trailSlugs?.length) {
+    return challenge.trailSlugs.every((slug) => {
+      const trail = TRAILS.find((item) => item.slug === slug);
+      return trail ? isTrailComplete(trail, visitedSet) : false;
+    });
+  }
+
+  const templeIds = challenge.templeIds ?? [];
+  const requiredCount = challenge.requiredCount ?? templeIds.length;
+  const visited =
+    templeIds.length > 0
+      ? templeIds.filter((id) => visitedSet.has(id)).length
+      : visitedSet.size;
+  return requiredCount > 0 && visited >= requiredCount;
+}
+
+function computeChallengeBonus(visitedSet: Set<string>): number {
+  let bonus = 0;
+  for (const challenge of CHALLENGES) {
+    if (isChallengeComplete(challenge, visitedSet)) {
+      bonus += challenge.points;
+    }
+  }
+  return bonus;
+}
+
 export function computeScore(templeIds: string[]): number {
   const visitedSet = normalizeVisitedSet(templeIds);
-  let score = visitedSet.size * POINTS_PER_TEMPLE;
+  let score = computeTemplePointsTotal(visitedSet);
   for (const trail of TRAILS) {
     if (isTrailComplete(trail, visitedSet)) {
       score += trail.completionBonus;
     }
   }
+  score += computeChallengeBonus(visitedSet);
   return score;
 }
 

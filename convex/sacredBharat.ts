@@ -3,6 +3,7 @@ import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { applyGuestProgressMerge } from "./lib/sacredBharatGuestMerge";
+import { resolveCanonicalTempleId } from "./lib/sacredBharatAliases";
 import {
   computeProgressSummary,
   computeScore,
@@ -128,7 +129,8 @@ export const markTempleVisited = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
-    const visitedSet = normalizeVisitedSet([args.templeId]);
+    const templeId = resolveCanonicalTempleId(args.templeId);
+    const visitedSet = normalizeVisitedSet([templeId]);
     if (visitedSet.size === 0) {
       throw new ConvexError("INVALID_TEMPLE");
     }
@@ -136,7 +138,7 @@ export const markTempleVisited = mutation({
     const existing = await ctx.db
       .query("sacredBharatVisits")
       .withIndex("by_authUserId_templeId", (q) =>
-        q.eq("authUserId", identity.subject).eq("templeId", args.templeId)
+        q.eq("authUserId", identity.subject).eq("templeId", templeId)
       )
       .unique();
 
@@ -145,7 +147,7 @@ export const markTempleVisited = mutation({
         authUserId: identity.subject,
         note: args.note,
         source: "self",
-        templeId: args.templeId,
+        templeId,
         visitedAt: now(),
         visitedOn: args.visitedOn,
       });
@@ -229,10 +231,11 @@ export const unmarkTempleVisited = mutation({
   args: { templeId: v.string() },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const templeId = resolveCanonicalTempleId(args.templeId);
     const existing = await ctx.db
       .query("sacredBharatVisits")
       .withIndex("by_authUserId_templeId", (q) =>
-        q.eq("authUserId", identity.subject).eq("templeId", args.templeId)
+        q.eq("authUserId", identity.subject).eq("templeId", templeId)
       )
       .unique();
 

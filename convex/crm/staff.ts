@@ -53,6 +53,7 @@ export const listStaff = query({
         createdAt: new Date(staff.createdAt).toISOString(),
         department: staff.department ?? "",
         email: staff.email,
+        emailAlertRoles: staff.emailAlertRoles ?? [],
         employmentStatus: staff.employmentStatus ?? "Confirmed",
         function: staff.function ?? "",
         id: staff._id,
@@ -223,6 +224,7 @@ export const upsertStaff = mutation({
     confirmationDate: v.optional(v.string()),
     department: v.optional(v.string()),
     email: v.string(),
+    emailAlertRoles: v.optional(v.array(v.string())),
     employmentStatus: v.optional(v.union(v.literal("Probationer"), v.literal("Confirmed"))),
     function: v.optional(v.string()),
     joiningDate: v.optional(v.string()),
@@ -247,6 +249,7 @@ export const upsertStaff = mutation({
     }
 
     const roles = sanitizeRoles(args.roles);
+    const emailAlertRoles = args.emailAlertRoles?.length ? sanitizeRoles(args.emailAlertRoles) : [];
     const leaveHeadApproverId = args.leaveHeadApproverId
       ? ctx.db.normalizeId("staffUsers", args.leaveHeadApproverId)
       : null;
@@ -294,6 +297,7 @@ export const upsertStaff = mutation({
         confirmationDate: args.confirmationDate || "",
         department: args.department?.trim() || "",
         email: args.email.trim(),
+        emailAlertRoles: emailAlertRoles as any,
         emailNormalized,
         employmentStatus: args.employmentStatus ?? "Confirmed",
         function: args.function?.trim() || "",
@@ -320,6 +324,7 @@ export const upsertStaff = mutation({
         active: args.active,
         confirmationDate: args.confirmationDate || "",
         department: args.department?.trim() || "",
+        emailAlertRoles: emailAlertRoles as any,
         employmentStatus: args.employmentStatus ?? "Confirmed",
         function: args.function?.trim() || "",
         joiningDate: args.joiningDate || "",
@@ -345,6 +350,7 @@ export const upsertStaff = mutation({
       createdAt: now,
       department: args.department?.trim() || "",
       email: args.email.trim(),
+      emailAlertRoles: emailAlertRoles as any,
       emailNormalized,
       employmentStatus: args.employmentStatus ?? "Confirmed",
       function: args.function?.trim() || "",
