@@ -22,28 +22,28 @@ describe("passenger spreadsheet exports", () => {
     const workbook = buildPassengerWorkbook(
       [
         {
-          fullName: "PRADIP SEN",
-          travelHub: "KOLKATA",
-          foodPreference: "Non-Veg",
-          gender: "Male",
           contactNo: "9836184644",
-          specialRequests: "",
+          foodPreference: "Non-Veg",
+          fullName: "PRADIP SEN",
+          gender: "Male",
+          passport: {
+            dateOfBirth: "1967-06-12",
+            expiryDate: "2028-03-22",
+            issueDate: "2018-03-23",
+            number: "Z4619953",
+          },
           sourceDealerCode: "9121004953",
           sourceDealerName: "SUDIP CEMENT SUPPLY",
           sourceDescription: "24 PGNS(NORTH)",
-          sourceSoName: "Cossipore",
-          sourceRsoName: "Rest of Bengal",
           sourceGroup: "04-12 FEB",
+          sourceRsoName: "Rest of Bengal",
+          sourceSoName: "Cossipore",
+          specialRequests: "",
+          travelHub: "KOLKATA",
           willingToGo: "CONFIRMED",
-          passport: {
-            number: "Z4619953",
-            dateOfBirth: "1967-06-12",
-            issueDate: "2018-03-23",
-            expiryDate: "2028-03-22",
-          },
         },
       ],
-      { sheetName: "JC-0001-NS" },
+      { sheetName: "JC-0001-NS" }
     );
 
     const parsed = parsePassengerWorkbook(workbook);
@@ -91,16 +91,16 @@ describe("passenger spreadsheet exports", () => {
     expect(parsed.rows).toHaveLength(1);
     expect(parsed.skipped).toHaveLength(0);
     expect(parsed.rows[0]).toMatchObject({
-      fullName: "PRADIP SEN",
-      foodPreference: "Non-Veg",
-      gender: "Male",
       contactNo: "9836184644",
+      foodPreference: "Non-Veg",
+      fullName: "PRADIP SEN",
+      gender: "Male",
     });
     expect(parsed.rows[0].passport).toMatchObject({
-      number: "Z4619953",
       dateOfBirth: "1967-06-12",
-      issueDate: "2018-03-23",
       expiryDate: "2028-03-22",
+      issueDate: "2018-03-23",
+      number: "Z4619953",
     });
   });
 
@@ -114,59 +114,59 @@ describe("passenger spreadsheet exports", () => {
 
 describe("master-list sheet exports", () => {
   const row = {
-    fullName: "GARG SANJAY",
-    sourceDealerName: "AGGARWAL APPLIANCES",
-    sourceDealerCode: "MUM",
-    sourceDescription: "Mumbai",
-    sourceSoName: "Mumbai",
-    sourceRsoName: "Kenya Airlines",
-    gender: "MALE",
-    roomType: "Twin",
-    hotelAllocation: "Twin",
-    foodPreference: "Non-Veg",
-    travelHub: "KOLKATA",
     contactNo: "9836184644",
-    paymentType: "Self Paid",
-    travelBatchReference: "JC-0001 / B01",
+    foodPreference: "Non-Veg",
+    fullName: "GARG SANJAY",
+    gender: "MALE",
+    hotelAllocation: "Twin",
     passport: {
-      number: "Z4619953",
       dateOfBirth: "1967-06-12",
-      issueDate: "2018-03-23",
       expiryDate: "2028-03-22",
+      issueDate: "2018-03-23",
+      number: "Z4619953",
     },
+    paymentType: "Self Paid",
+    roomType: "Twin",
+    sourceDealerCode: "MUM",
+    sourceDealerName: "AGGARWAL APPLIANCES",
+    sourceDescription: "Mumbai",
+    sourceRsoName: "Kenya Airlines",
+    sourceSoName: "Mumbai",
+    travelBatchReference: "JC-0001 / B01",
+    travelHub: "KOLKATA",
     visa: {
-      status: "Approved",
       appointmentDate: "2026-06-18",
       notes: "Stamped",
+      status: "Approved",
     },
   };
 
   test("builds a traveller master workbook that the master-list parser reads", () => {
     const parsed = parseTravellerMasterWorkbook(
-      buildTravellerMasterWorkbook([{ ...row, surname: "GARG", givenName: "SANJAY" }]),
+      buildTravellerMasterWorkbook([{ ...row, givenName: "SANJAY", surname: "GARG" }])
     );
     expect(parsed.rows[0]).toMatchObject({
-      importKind: "traveller",
       fullName: "GARG SANJAY",
-      surname: "GARG",
       givenName: "SANJAY",
+      importKind: "traveller",
       sourceDealerCode: "MUM",
       sourceDealerName: "AGGARWAL APPLIANCES",
       sourceDescription: "Mumbai",
-      sourceSoName: "Mumbai",
       sourceRsoName: "Kenya Airlines",
-      travelHub: "KOLKATA",
+      sourceSoName: "Mumbai",
+      surname: "GARG",
       travelBatchReference: "JC-0001 / B01",
+      travelHub: "KOLKATA",
     });
   });
 
   test("builds a rooming workbook that the rooming parser reads", () => {
     const parsed = parseRoomingWorkbook(buildRoomingWorkbook([row]));
     expect(parsed.rows[0]).toMatchObject({
-      importKind: "rooming",
-      fullName: "GARG SANJAY",
-      roomType: "Twin",
       foodPreference: "Non-Veg",
+      fullName: "GARG SANJAY",
+      importKind: "rooming",
+      roomType: "Twin",
       travelBatchReference: "JC-0001 / B01",
     });
   });
@@ -174,8 +174,8 @@ describe("master-list sheet exports", () => {
   test("builds a passport workbook that the passport parser reads", () => {
     const parsed = parsePassportWorkbook(buildPassportWorkbook([row]));
     expect(parsed.rows[0]).toMatchObject({
-      importKind: "passport",
       fullName: "GARG SANJAY",
+      importKind: "passport",
       passportStatus: "Received",
       travelBatchReference: "JC-0001 / B01",
     });
@@ -185,13 +185,13 @@ describe("master-list sheet exports", () => {
   test("builds a visa workbook that the visa parser reads", () => {
     const parsed = parseVisaWorkbook(buildVisaWorkbook([row]));
     expect(parsed.rows[0]).toMatchObject({
-      importKind: "visa",
-      fullName: "GARG SANJAY",
-      visaStatus: "Approved",
-      paymentType: "Self Paid",
       biometricAppointmentDate: "2026-06-18",
-      visaNotes: "Stamped",
+      fullName: "GARG SANJAY",
+      importKind: "visa",
+      paymentType: "Self Paid",
       travelBatchReference: "JC-0001 / B01",
+      visaNotes: "Stamped",
+      visaStatus: "Approved",
     });
   });
 });
@@ -201,51 +201,51 @@ describe("flight spreadsheet exports", () => {
     const workbook = buildFlightWorkbook(
       [
         {
-          sourceSheet: "BOM",
-          travelBatchReference: "JC-0001 / B01",
           segments: [
             {
-              dateLabel: "Thu 1 Oct",
               airline: "Kenya Airlines",
-              flightNumber: "203",
-              departTime: "02:40",
-              origin: "Mumbai",
               arriveTime: "06:25",
+              dateLabel: "Thu 1 Oct",
+              departTime: "02:40",
               destination: "Nairobi",
               duration: "6h 15m",
+              flightNumber: "203",
+              origin: "Mumbai",
               transit: "-",
             },
             {
-              dateLabel: "Sun 4 Oct",
               airline: "Kenya Airlines",
-              flightNumber: "202",
-              departTime: "16:45",
-              origin: "Nairobi",
               arriveTime: "01:40",
+              dateLabel: "Sun 4 Oct",
+              departTime: "16:45",
               destination: "Mumbai",
               duration: "6h 25m",
+              flightNumber: "202",
+              origin: "Nairobi",
               transit: "-",
             },
           ],
+          sourceSheet: "BOM",
+          travelBatchReference: "JC-0001 / B01",
         },
         {
-          sourceSheet: "BOM",
           segments: [
             {
-              dateLabel: "Thu 1 Oct",
               airline: "Kenya Airlines",
-              flightNumber: "205",
-              departTime: "06:45",
-              origin: "Mumbai",
               arriveTime: "10:30",
+              dateLabel: "Thu 1 Oct",
+              departTime: "06:45",
               destination: "Nairobi",
               duration: "6h 15m",
+              flightNumber: "205",
+              origin: "Mumbai",
               transit: "-",
             },
           ],
+          sourceSheet: "BOM",
         },
       ],
-      { defaultSheetName: "JC-0001-NS" },
+      { defaultSheetName: "JC-0001-NS" }
     );
 
     const parsed = parseFlightWorkbook(workbook);
@@ -253,11 +253,11 @@ describe("flight spreadsheet exports", () => {
     expect(parsed.groups[0].travelBatchReference).toBe("JC-0001 / B01");
     expect(parsed.groups[0].segments).toHaveLength(2);
     expect(parsed.groups[0].segments[0]).toMatchObject({
-      dateLabel: "Thu 1 Oct",
       airline: "Kenya Airlines",
+      dateLabel: "Thu 1 Oct",
+      destination: "Nairobi",
       flightNumber: "203",
       origin: "Mumbai",
-      destination: "Nairobi",
     });
     expect(parsed.errors).toHaveLength(0);
   });

@@ -8,43 +8,43 @@ export function isDefined<T>(value: T | null | undefined | false): value is T {
 }
 
 export const PERMISSIONS = {
-  VIEW_DASHBOARD: "view:dashboard",
-  MANAGE_STAFF: "manage:staff",
-  MANAGE_DROPDOWNS: "manage:dropdowns",
-  VIEW_QUERIES: "view:queries",
-  MANAGE_QUERIES: "manage:queries",
-  VIEW_CONTRACTING: "view:contracting",
-  MANAGE_CONTRACTING: "manage:contracting",
-  VIEW_PROPOSALS: "view:proposals",
-  MANAGE_PROPOSALS: "manage:proposals",
-  SEND_PROPOSALS: "send:proposals",
-  VIEW_JOB_CARDS: "view:jobCards",
-  MANAGE_JOB_CARDS: "manage:jobCards",
-  VIEW_TRAVELLERS: "view:travellers",
-  MANAGE_TRAVELLERS: "manage:travellers",
-  VIEW_VISA: "view:visa",
-  MANAGE_VISA: "manage:visa",
-  VIEW_TICKETING: "view:ticketing",
-  MANAGE_TICKETING: "manage:ticketing",
-  VIEW_OPERATIONS: "view:operations",
-  MANAGE_OPERATIONS: "manage:operations",
-  VIEW_TOUR_MANAGERS: "view:tourManagers",
-  MANAGE_TOUR_MANAGERS: "manage:tourManagers",
-  VIEW_FINANCE: "view:finance",
-  MANAGE_FINANCE: "manage:finance",
-  VIEW_EXPENSES: "view:expenses",
-  CREATE_EXPENSES: "create:expenses",
-  MANAGE_EXPENSES: "manage:expenses",
   APPROVE_EXPENSES: "approve:expenses",
-  VIEW_TEAM: "view:team",
-  VIEW_LEAVE: "view:leave",
-  MANAGE_LEAVE: "manage:leave",
   APPROVE_LEAVE: "approve:leave",
-  VIEW_APPROVALS: "view:approvals",
-  VIEW_REPORTS: "view:reports",
-  VIEW_ACTIVITY: "view:activity",
-  VIEW_SENSITIVE_TRAVELLER_DATA: "view:sensitiveTravellerData",
+  CREATE_EXPENSES: "create:expenses",
+  MANAGE_CONTRACTING: "manage:contracting",
+  MANAGE_DROPDOWNS: "manage:dropdowns",
+  MANAGE_EXPENSES: "manage:expenses",
+  MANAGE_FINANCE: "manage:finance",
+  MANAGE_JOB_CARDS: "manage:jobCards",
+  MANAGE_LEAVE: "manage:leave",
+  MANAGE_OPERATIONS: "manage:operations",
+  MANAGE_PROPOSALS: "manage:proposals",
+  MANAGE_QUERIES: "manage:queries",
+  MANAGE_STAFF: "manage:staff",
+  MANAGE_TICKETING: "manage:ticketing",
+  MANAGE_TOUR_MANAGERS: "manage:tourManagers",
+  MANAGE_TRAVELLERS: "manage:travellers",
+  MANAGE_VISA: "manage:visa",
   REQUEST_LEAVE: "request:leave",
+  SEND_PROPOSALS: "send:proposals",
+  VIEW_ACTIVITY: "view:activity",
+  VIEW_APPROVALS: "view:approvals",
+  VIEW_CONTRACTING: "view:contracting",
+  VIEW_DASHBOARD: "view:dashboard",
+  VIEW_EXPENSES: "view:expenses",
+  VIEW_FINANCE: "view:finance",
+  VIEW_JOB_CARDS: "view:jobCards",
+  VIEW_LEAVE: "view:leave",
+  VIEW_OPERATIONS: "view:operations",
+  VIEW_PROPOSALS: "view:proposals",
+  VIEW_QUERIES: "view:queries",
+  VIEW_REPORTS: "view:reports",
+  VIEW_SENSITIVE_TRAVELLER_DATA: "view:sensitiveTravellerData",
+  VIEW_TEAM: "view:team",
+  VIEW_TICKETING: "view:ticketing",
+  VIEW_TOUR_MANAGERS: "view:tourManagers",
+  VIEW_TRAVELLERS: "view:travellers",
+  VIEW_VISA: "view:visa",
 };
 
 export const ALL_ROLES = [
@@ -78,7 +78,7 @@ const DIRECTOR_EXCLUDED_PERMISSIONS = new Set<string>([
 ]);
 
 export const DIRECTOR_PERMISSIONS = Object.values(P).filter(
-  (permission) => !DIRECTOR_EXCLUDED_PERMISSIONS.has(permission),
+  (permission) => !DIRECTOR_EXCLUDED_PERMISSIONS.has(permission)
 );
 
 export const TEAM_PICKER_PERMISSIONS = [
@@ -103,48 +103,6 @@ export const TICKETING_TEAM_ROLES = ["Ticketing", "Head of Ticketing"] as const;
 export const SALES_REP_ROLES = ["Sales", "Sales Head", "Sales Cement"] as const;
 
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  Admin: Object.values(P),
-  Directors: Object.values(P),
-  "Sales Head": [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.MANAGE_QUERIES,
-    P.VIEW_PROPOSALS,
-    P.SEND_PROPOSALS,
-    P.VIEW_TEAM,
-    P.VIEW_LEAVE,
-    P.APPROVE_LEAVE,
-  ],
-  Sales: [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.MANAGE_QUERIES,
-    P.VIEW_PROPOSALS,
-    P.SEND_PROPOSALS,
-    P.VIEW_LEAVE,
-  ],
-  "Contracting Head": [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.VIEW_CONTRACTING,
-    P.MANAGE_CONTRACTING,
-    P.VIEW_PROPOSALS,
-    P.MANAGE_PROPOSALS,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_TEAM,
-    P.VIEW_LEAVE,
-    P.APPROVE_LEAVE,
-  ],
-  Contracting: [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.VIEW_CONTRACTING,
-    P.MANAGE_CONTRACTING,
-    P.VIEW_PROPOSALS,
-    P.MANAGE_PROPOSALS,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_LEAVE,
-  ],
   Accounts: [
     P.VIEW_DASHBOARD,
     P.VIEW_JOB_CARDS,
@@ -166,6 +124,101 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.VIEW_TEAM,
     P.VIEW_LEAVE,
     P.VIEW_REPORTS,
+  ],
+  Admin: Object.values(P),
+  Contracting: [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
+    P.MANAGE_CONTRACTING,
+    P.VIEW_PROPOSALS,
+    P.MANAGE_PROPOSALS,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_LEAVE,
+  ],
+  "Contracting Cement": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
+    P.MANAGE_CONTRACTING,
+    P.VIEW_PROPOSALS,
+    P.MANAGE_PROPOSALS,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_LEAVE,
+  ],
+  "Contracting Head": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
+    P.MANAGE_CONTRACTING,
+    P.VIEW_PROPOSALS,
+    P.MANAGE_PROPOSALS,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
+  ],
+  "Director Cement": DIRECTOR_PERMISSIONS,
+  Directors: Object.values(P),
+  Finance: [
+    P.VIEW_DASHBOARD,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_FINANCE,
+    P.MANAGE_FINANCE,
+    P.VIEW_EXPENSES,
+    P.APPROVE_EXPENSES,
+    P.VIEW_LEAVE,
+    P.VIEW_APPROVALS,
+    P.VIEW_REPORTS,
+  ],
+  "Head of Ticketing": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_PROPOSALS,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.VIEW_TICKETING,
+    P.MANAGE_TICKETING,
+    P.VIEW_TOUR_MANAGERS,
+    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
+  ],
+  HR: [
+    P.VIEW_DASHBOARD,
+    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.MANAGE_LEAVE,
+    P.APPROVE_LEAVE,
+    P.VIEW_APPROVALS,
+  ],
+  Operations: [
+    P.VIEW_DASHBOARD,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.MANAGE_TRAVELLERS,
+    P.VIEW_VISA,
+    P.MANAGE_VISA,
+    P.VIEW_OPERATIONS,
+    P.MANAGE_OPERATIONS,
+    P.VIEW_TOUR_MANAGERS,
+    P.VIEW_TICKETING,
+    P.VIEW_EXPENSES,
+    P.VIEW_LEAVE,
+  ],
+  "Operations Cement": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.MANAGE_TRAVELLERS,
+    P.VIEW_VISA,
+    P.MANAGE_VISA,
+    P.VIEW_OPERATIONS,
+    P.MANAGE_OPERATIONS,
+    P.VIEW_TOUR_MANAGERS,
+    P.VIEW_TICKETING,
+    P.VIEW_EXPENSES,
+    P.VIEW_LEAVE,
   ],
   "Operations Head": [
     P.VIEW_DASHBOARD,
@@ -190,29 +243,28 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.APPROVE_LEAVE,
     P.VIEW_SENSITIVE_TRAVELLER_DATA,
   ],
-  Operations: [
-    P.VIEW_DASHBOARD,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_TRAVELLERS,
-    P.MANAGE_TRAVELLERS,
-    P.VIEW_VISA,
-    P.MANAGE_VISA,
-    P.VIEW_OPERATIONS,
-    P.MANAGE_OPERATIONS,
-    P.VIEW_TOUR_MANAGERS,
-    P.VIEW_TICKETING,
-    P.VIEW_EXPENSES,
-    P.VIEW_LEAVE,
-  ],
-  "Head of Ticketing": [
+  Sales: [
     P.VIEW_DASHBOARD,
     P.VIEW_QUERIES,
+    P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_TRAVELLERS,
-    P.VIEW_TICKETING,
-    P.MANAGE_TICKETING,
-    P.VIEW_TOUR_MANAGERS,
+    P.SEND_PROPOSALS,
+    P.VIEW_LEAVE,
+  ],
+  "Sales Cement": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.MANAGE_QUERIES,
+    P.VIEW_PROPOSALS,
+    P.SEND_PROPOSALS,
+    P.VIEW_LEAVE,
+  ],
+  "Sales Head": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.MANAGE_QUERIES,
+    P.VIEW_PROPOSALS,
+    P.SEND_PROPOSALS,
     P.VIEW_TEAM,
     P.VIEW_LEAVE,
     P.APPROVE_LEAVE,
@@ -240,69 +292,17 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.MANAGE_EXPENSES,
     P.VIEW_LEAVE,
   ],
-  Finance: [
-    P.VIEW_DASHBOARD,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_FINANCE,
-    P.MANAGE_FINANCE,
-    P.VIEW_EXPENSES,
-    P.APPROVE_EXPENSES,
-    P.VIEW_LEAVE,
-    P.VIEW_APPROVALS,
-    P.VIEW_REPORTS,
-  ],
-  HR: [
-    P.VIEW_DASHBOARD,
-    P.VIEW_TEAM,
-    P.VIEW_LEAVE,
-    P.MANAGE_LEAVE,
-    P.APPROVE_LEAVE,
-    P.VIEW_APPROVALS,
-  ],
-  "Contracting Cement": [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.VIEW_CONTRACTING,
-    P.MANAGE_CONTRACTING,
-    P.VIEW_PROPOSALS,
-    P.MANAGE_PROPOSALS,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_LEAVE,
-  ],
-  "Operations Cement": [
-    P.VIEW_DASHBOARD,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_TRAVELLERS,
-    P.MANAGE_TRAVELLERS,
-    P.VIEW_VISA,
-    P.MANAGE_VISA,
-    P.VIEW_OPERATIONS,
-    P.MANAGE_OPERATIONS,
-    P.VIEW_TOUR_MANAGERS,
-    P.VIEW_TICKETING,
-    P.VIEW_EXPENSES,
-    P.VIEW_LEAVE,
-  ],
-  "Sales Cement": [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.MANAGE_QUERIES,
-    P.VIEW_PROPOSALS,
-    P.SEND_PROPOSALS,
-    P.VIEW_LEAVE,
-  ],
-  "Director Cement": DIRECTOR_PERMISSIONS,
 };
 
 export const PAYMENT_TERMS: Record<string, { min: number; max: number }> = {
-  MICE: { min: 70, max: 90 },
-  "MICE Bidding": { min: 70, max: 90 },
-  Cement: { min: 70, max: 90 },
-  "Cement Bidding": { min: 70, max: 100 },
-  FIT: { min: 90, max: 100 },
-  "Family Group": { min: 90, max: 100 },
-  B2B: { min: 80, max: 100 },
-  Spiritual: { min: 100, max: 100 },
+  B2B: { max: 100, min: 80 },
+  Cement: { max: 90, min: 70 },
+  "Cement Bidding": { max: 100, min: 70 },
+  "Family Group": { max: 100, min: 90 },
+  FIT: { max: 100, min: 90 },
+  MICE: { max: 90, min: 70 },
+  "MICE Bidding": { max: 90, min: 70 },
+  Spiritual: { max: 100, min: 100 },
 };
 
 export function normalizeEmail(email?: string | null) {
@@ -351,7 +351,7 @@ function isBootstrapAdmin(email: string) {
 
 async function resolveActiveStaff(
   ctx: QueryCtx | MutationCtx,
-  identity: { subject: string; email?: string | null; name?: string | null },
+  identity: { subject: string; email?: string | null; name?: string | null }
 ) {
   if (identity.subject) {
     const byAuth = await ctx.db
@@ -382,11 +382,11 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
   if (!identity) {
     return {
       allowed: false,
-      reason: "UNAUTHENTICATED",
       email: "",
       name: "",
-      roles: [],
       permissions: [],
+      reason: "UNAUTHENTICATED",
+      roles: [],
     };
   }
 
@@ -397,36 +397,36 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
     const permissions = getRolePermissions(staff.roles);
     return {
       allowed: true,
-      staffId: staff._id,
-      bootstrap: false,
       authUserId: identity.subject,
+      bootstrap: false,
       email: staff.email,
       name: staff.name || identity.name || staff.email,
-      roles: staff.roles,
       permissions,
+      roles: staff.roles,
+      staffId: staff._id,
     };
   }
 
   if (email && isBootstrapAdmin(email)) {
     return {
       allowed: true,
-      bootstrap: true,
       authUserId: identity.subject,
+      bootstrap: true,
       email,
       name: identity.name || email,
-      roles: ["Admin"],
       permissions: getRolePermissions(["Admin"]),
+      roles: ["Admin"],
     };
   }
 
   return {
     allowed: false,
-    reason: "NOT_STAFF",
     authUserId: identity.subject,
     email,
     name: identity.name || email,
-    roles: [],
     permissions: [],
+    reason: "NOT_STAFF",
+    roles: [],
   };
 }
 
@@ -458,9 +458,7 @@ export function isAdmin(access: PortalAccess) {
 }
 
 export function isDirectorOrAdmin(access: PortalAccess) {
-  return (
-    isAdmin(access) || hasRole(access, "Directors") || hasRole(access, "Director Cement")
-  );
+  return isAdmin(access) || hasRole(access, "Directors") || hasRole(access, "Director Cement");
 }
 
 export function isAdminDirectorOrRole(access: PortalAccess, roles: string[]) {
@@ -505,7 +503,7 @@ export function ownsStaffRecord(access: PortalAccess, ownerId?: string | null) {
 }
 
 export function isCollaborator(access: PortalAccess, collaboratorStaffIds?: unknown[] | null) {
-  if (!access.staffId || !Array.isArray(collaboratorStaffIds)) {
+  if (!(access.staffId && Array.isArray(collaboratorStaffIds))) {
     return false;
   }
   return collaboratorStaffIds.some((staffId) => String(staffId) === String(access.staffId));
@@ -521,7 +519,7 @@ export function hasCementRole(access: PortalAccess) {
 
 export function isCementQueryType(queryType?: string | null) {
   return CEMENT_QUERY_TYPES.includes(
-    String(queryType ?? "") as (typeof CEMENT_QUERY_TYPES)[number],
+    String(queryType ?? "") as (typeof CEMENT_QUERY_TYPES)[number]
   );
 }
 
@@ -615,7 +613,7 @@ export function canSeeProposalRecord(access: PortalAccess, proposal: any, linked
       (hasRole(access, "Accounts") || hasRole(access, "Accounts Head")) &&
       linkedQueries.some(
         (query) =>
-          query.salesStatus === "Order Confirmed" || query.contractingStatus === "Order Confirmed",
+          query.salesStatus === "Order Confirmed" || query.contractingStatus === "Order Confirmed"
       )
     ) {
       return true;
@@ -665,7 +663,7 @@ export function canEditContractingRecord(
     contractingOwnerId?: string | null;
     contractingOwnerName?: string | null;
     collaboratorStaffIds?: unknown[] | null;
-  },
+  }
 ) {
   return (
     isAdminDirectorOrRole(access, ["Contracting Head", "Operations Head"]) ||
@@ -690,7 +688,7 @@ export function canEditProposalRecord(
     contractingOwnerName?: string | null;
     collaboratorStaffIds?: unknown[] | null;
   },
-  linkedQueries: ProposalEditQuery[] = [],
+  linkedQueries: ProposalEditQuery[] = []
 ) {
   if (canEditContractingRecord(access, proposal)) {
     return true;
@@ -701,7 +699,7 @@ export function canEditProposalRecord(
   return linkedQueries.some(
     (query) =>
       ownsStaffRecord(access, query.ticketingOwnerId) ||
-      ownsNamedRecord(access, query.ticketingOwnerName),
+      ownsNamedRecord(access, query.ticketingOwnerName)
   );
 }
 
@@ -711,7 +709,7 @@ export function canEditOperationsRecord(
     operationsOwnerId?: string | null;
     operationsOwnerName?: string | null;
     collaboratorStaffIds?: unknown[] | null;
-  },
+  }
 ) {
   return (
     isAdminDirectorOrRole(access, ["Operations Head"]) ||
@@ -723,9 +721,9 @@ export function canEditOperationsRecord(
 
 export function editorPatch(access: PortalAccess, timestamp = Date.now()) {
   return {
+    lastEditedAt: timestamp,
     lastEditedBy: access.authUserId ?? access.email ?? "unknown",
     lastEditedByName: access.name,
-    lastEditedAt: timestamp,
     updatedAt: timestamp,
   };
 }
@@ -741,7 +739,7 @@ export function applyCementPortalScope(
     visas: any[];
     invoices: any[];
     proposalQueryLinks?: any[];
-  },
+  }
 ) {
   if (!shouldApplyCementScope(access)) {
     return records;
@@ -751,7 +749,9 @@ export function applyCementPortalScope(
   const proposalLinksByProposalId = new Map<string, any[]>();
   for (const link of records.proposalQueryLinks ?? []) {
     const linkedQuery = queryById.get(link.queryId);
-    if (!linkedQuery) continue;
+    if (!linkedQuery) {
+      continue;
+    }
     const bucket = proposalLinksByProposalId.get(link.proposalId) ?? [];
     bucket.push(linkedQuery);
     proposalLinksByProposalId.set(link.proposalId, bucket);
@@ -772,15 +772,15 @@ export function applyCementPortalScope(
   });
 
   return {
-    queries: visibleQueries,
-    proposals: visibleProposals,
-    jobCards: visibleJobCards,
-    travellers: records.travellers.filter((traveller) => visibleJobIds.has(traveller.jobCardId)),
-    tickets: records.tickets.filter((ticket) => visibleJobIds.has(ticket.jobCardId)),
-    visas: records.visas.filter((visa) => visibleJobIds.has(visa.jobCardId)),
     invoices: records.invoices.filter(
-      (invoice) => !invoice.jobCardId || visibleJobIds.has(invoice.jobCardId),
+      (invoice) => !invoice.jobCardId || visibleJobIds.has(invoice.jobCardId)
     ),
+    jobCards: visibleJobCards,
+    proposals: visibleProposals,
+    queries: visibleQueries,
+    tickets: records.tickets.filter((ticket) => visibleJobIds.has(ticket.jobCardId)),
+    travellers: records.travellers.filter((traveller) => visibleJobIds.has(traveller.jobCardId)),
+    visas: records.visas.filter((visa) => visibleJobIds.has(visa.jobCardId)),
   };
 }
 
@@ -788,9 +788,12 @@ export function getHeadReviewerRolesForStaff(staff: { roles?: string[]; departme
   const roles = new Set(staff.roles ?? []);
   const department = (staff.department ?? "").toLowerCase();
   const reviewerRoles: string[] = [];
-  if (roles.has("Sales") || department.includes("sales")) reviewerRoles.push("Sales Head");
-  if (roles.has("Contracting") || department.includes("contracting"))
+  if (roles.has("Sales") || department.includes("sales")) {
+    reviewerRoles.push("Sales Head");
+  }
+  if (roles.has("Contracting") || department.includes("contracting")) {
     reviewerRoles.push("Contracting Head");
+  }
   if (
     roles.has("Operations") ||
     roles.has("Tour Manager") ||
@@ -799,8 +802,9 @@ export function getHeadReviewerRolesForStaff(staff: { roles?: string[]; departme
   ) {
     reviewerRoles.push("Operations Head");
   }
-  if (roles.has("Ticketing") || department.includes("ticket"))
+  if (roles.has("Ticketing") || department.includes("ticket")) {
     reviewerRoles.push("Head of Ticketing");
+  }
   return Array.from(new Set(reviewerRoles.length > 0 ? reviewerRoles : ["HR"]));
 }
 
@@ -831,7 +835,7 @@ export function getLeaveApprovalActions(
     hrReviewStatus?: string;
     headReviewerRole?: string;
   },
-  staff: { roles?: string[]; department?: string },
+  staff: { roles?: string[]; department?: string }
 ) {
   const status = leave.status ?? "Pending";
   const headStatus = leave.headReviewStatus ?? "Pending";
@@ -884,22 +888,22 @@ export async function createActivity(
     action: string;
     message: string;
     metadata?: unknown;
-  },
+  }
 ) {
   await ctx.db.insert("activityLogs", {
-    entityType: input.entityType,
-    entityId: input.entityId,
     action: input.action,
-    message: input.message,
     actorId: access.authUserId ?? "system",
     actorName: access.name || access.email || "System",
-    metadata: input.metadata ?? null,
     createdAt: Date.now(),
+    entityId: input.entityId,
+    entityType: input.entityType,
+    message: input.message,
+    metadata: input.metadata ?? null,
   });
 }
 
 function notificationEntityId(entityId?: string | Id<any>) {
-  return entityId != null ? String(entityId) : undefined;
+  return entityId == null ? undefined : String(entityId);
 }
 
 function addNotificationEmailRecipient(recipients: Set<string>, email?: string | null) {
@@ -910,10 +914,10 @@ function addNotificationEmailRecipient(recipients: Set<string>, email?: string |
 }
 
 const ROLE_EMAIL_RECIPIENT_EXPANSIONS: Record<string, string[]> = {
-  Sales: ["Sales", "Sales Head"],
-  Contracting: ["Contracting", "Contracting Head"],
   Accounts: ["Accounts", "Accounts Head"],
+  Contracting: ["Contracting", "Contracting Head"],
   Operations: ["Operations", "Operations Head"],
+  Sales: ["Sales", "Sales Head"],
   Ticketing: ["Ticketing", "Head of Ticketing"],
 };
 
@@ -941,7 +945,7 @@ async function queueNotificationEmail(
   },
   options?: {
     emailDelayMs?: number;
-  },
+  }
 ) {
   if (recipients.size === 0) {
     return;
@@ -950,12 +954,12 @@ async function queueNotificationEmail(
     options?.emailDelayMs ?? 0,
     internal.crm.notificationEmails.sendNotificationEmail,
     {
+      body: input.body,
+      entityId: notificationEntityId(input.entityId),
+      entityType: input.entityType,
       recipients: Array.from(recipients),
       title: input.title,
-      body: input.body,
-      entityType: input.entityType,
-      entityId: notificationEntityId(input.entityId),
-    },
+    }
   );
 }
 
@@ -970,7 +974,7 @@ export async function notifyRoles(
   },
   options?: {
     emailDelayMs?: number;
-  },
+  }
 ) {
   const createdAt = Date.now();
   const entityId = notificationEntityId(input.entityId);
@@ -997,14 +1001,14 @@ export async function notifyRoles(
   await Promise.all(
     recipientRoles.map((role) =>
       ctx.db.insert("notifications", {
+        body: input.body,
+        createdAt,
+        entityId,
+        entityType: input.entityType,
         recipientRole: role as any,
         title: input.title,
-        body: input.body,
-        entityType: input.entityType,
-        entityId,
-        createdAt,
-      }),
-    ),
+      })
+    )
   );
 
   await queueNotificationEmail(ctx, emailRecipients, input, options);
@@ -1021,7 +1025,7 @@ export async function notifyStaffMatching(
   },
   options?: {
     fallbackRoles?: string[];
-  },
+  }
 ) {
   const createdAt = Date.now();
   const entityId = notificationEntityId(input.entityId);
@@ -1035,7 +1039,7 @@ export async function notifyStaffMatching(
   const notificationInserts: Array<() => Promise<unknown>> = [];
 
   for (const { member } of staffRoleSets) {
-    if (!member.active || !shouldNotify(member)) {
+    if (!(member.active && shouldNotify(member))) {
       continue;
     }
     addNotificationEmailRecipient(emailRecipients, member.email);
@@ -1046,27 +1050,27 @@ export async function notifyStaffMatching(
       notifiedUserIds.add(member.authUserId);
       notificationInserts.push(() =>
         ctx.db.insert("notifications", {
+          body: input.body,
+          createdAt,
+          entityId,
+          entityType: input.entityType,
           recipientStaffId: member._id,
           recipientUserId: member.authUserId,
           title: input.title,
-          body: input.body,
-          entityType: input.entityType,
-          entityId,
-          createdAt,
-        }),
+        })
       );
       continue;
     }
     for (const role of member.roles) {
       notificationInserts.push(() =>
         ctx.db.insert("notifications", {
+          body: input.body,
+          createdAt,
+          entityId,
+          entityType: input.entityType,
           recipientRole: role as any,
           title: input.title,
-          body: input.body,
-          entityType: input.entityType,
-          entityId,
-          createdAt,
-        }),
+        })
       );
     }
   }
@@ -1074,7 +1078,7 @@ export async function notifyStaffMatching(
   for (const role of options?.fallbackRoles ?? []) {
     const hasLinkedStaff = staffRoleSets.some(
       ({ member, roles: memberRoles }) =>
-        member.active && member.authUserId && memberRoles.has(role as any) && shouldNotify(member),
+        member.active && member.authUserId && memberRoles.has(role as any) && shouldNotify(member)
     );
     if (!hasLinkedStaff) {
       for (const { member, roles: memberRoles } of staffRoleSets) {
@@ -1084,13 +1088,13 @@ export async function notifyStaffMatching(
       }
       notificationInserts.push(() =>
         ctx.db.insert("notifications", {
+          body: input.body,
+          createdAt,
+          entityId,
+          entityType: input.entityType,
           recipientRole: role as any,
           title: input.title,
-          body: input.body,
-          entityType: input.entityType,
-          entityId,
-          createdAt,
-        }),
+        })
       );
     }
   }
@@ -1101,10 +1105,10 @@ export async function notifyStaffMatching(
 }
 
 const CODE_FIELD_BY_TABLE: Record<string, string> = {
-  jobCards: "jobCode",
-  queries: "queryCode",
-  proposals: "proposalCode",
   approvalRequests: "requestCode",
+  jobCards: "jobCode",
+  proposals: "proposalCode",
+  queries: "queryCode",
 };
 
 export const MAX_QUERY_NOTES_WORDS = 30;
@@ -1120,7 +1124,7 @@ export function countWords(value: string | undefined | null) {
 export function assertMaxWordCount(
   value: string | undefined,
   maxWords: number,
-  fieldLabel: string,
+  fieldLabel: string
 ) {
   if (value === undefined) {
     return;
@@ -1135,11 +1139,11 @@ export function assertDateRangeOrder(
   startDate: string | undefined | null,
   endDate: string | undefined | null,
   startLabel: string,
-  endLabel: string,
+  endLabel: string
 ) {
   const start = startDate?.trim();
   const end = endDate?.trim();
-  if (!start || !end) {
+  if (!(start && end)) {
     return;
   }
   if (start > end) {
@@ -1169,7 +1173,7 @@ export async function nextCode(
   ctx: QueryCtx | MutationCtx,
   tableName: any,
   prefix: string,
-  options?: { suffix?: string },
+  options?: { suffix?: string }
 ) {
   const codeField = CODE_FIELD_BY_TABLE[tableName];
   const rows = await ctx.db.query(tableName).collect();
@@ -1202,27 +1206,27 @@ export async function nextCode(
 }
 
 export function paymentTermsFor(queryType: string) {
-  const terms = PAYMENT_TERMS[queryType] ?? { min: 70, max: 100 };
+  const terms = PAYMENT_TERMS[queryType] ?? { max: 100, min: 70 };
   return {
-    minAdvancePercent: terms.min,
-    maxAdvancePercent: terms.max,
     label:
       terms.min === terms.max ? `${terms.min}% advance` : `${terms.min}%-${terms.max}% advance`,
+    maxAdvancePercent: terms.max,
+    minAdvancePercent: terms.min,
   };
 }
 
 export async function deleteEntityNotifications(
   ctx: MutationCtx,
   entityType: string,
-  entityId: string,
+  entityId: string
 ) {
   const notifications = await ctx.db.query("notifications").collect();
   await Promise.all(
     notifications.flatMap((notification) =>
       notification.entityType === entityType && notification.entityId === entityId
         ? [ctx.db.delete(notification._id)]
-        : [],
-    ),
+        : []
+    )
   );
 }
 
@@ -1232,7 +1236,7 @@ export function canReceiveNotification(
     recipientUserId?: string;
     recipientRole?: string;
   },
-  access: { staffId?: Id<"staffUsers"> | null; authUserId?: string | null; roles: string[] },
+  access: { staffId?: Id<"staffUsers"> | null; authUserId?: string | null; roles: string[] }
 ) {
   const roleSet = new Set(access.roles);
   if (
@@ -1261,7 +1265,7 @@ export async function notifyStaffMember(
   },
   options?: {
     emailDelayMs?: number;
-  },
+  }
 ) {
   const staff = await ctx.db.get(staffId);
   if (!staff?.active) {
@@ -1274,27 +1278,27 @@ export async function notifyStaffMember(
 
   if (staff.authUserId) {
     await ctx.db.insert("notifications", {
+      body: input.body,
+      createdAt,
+      entityId,
+      entityType: input.entityType,
       recipientStaffId: staffId,
       recipientUserId: staff.authUserId,
       title: input.title,
-      body: input.body,
-      entityType: input.entityType,
-      entityId,
-      createdAt,
     });
   } else {
     await Promise.all(
       staff.roles.map((role) =>
         ctx.db.insert("notifications", {
-          recipientStaffId: staffId,
-          recipientRole: role as any,
-          title: input.title,
           body: input.body,
-          entityType: input.entityType,
-          entityId,
           createdAt,
-        }),
-      ),
+          entityId,
+          entityType: input.entityType,
+          recipientRole: role as any,
+          recipientStaffId: staffId,
+          title: input.title,
+        })
+      )
     );
   }
 
@@ -1304,7 +1308,9 @@ export async function notifyStaffMember(
 export { NOTIFICATION_EMAIL_STAGGER_MS };
 
 export async function deleteStorageFile(ctx: MutationCtx, storageId: unknown, label: string) {
-  if (!storageId) return;
+  if (!storageId) {
+    return;
+  }
   try {
     await ctx.storage.delete(storageId as any);
   } catch (err) {
@@ -1321,7 +1327,7 @@ async function deleteApprovalsForEntity(ctx: MutationCtx, entityType: string, en
     approvals.map(async (approval) => {
       await deleteEntityNotifications(ctx, "approval", approval._id);
       await ctx.db.delete(approval._id);
-    }),
+    })
   );
 }
 
@@ -1329,7 +1335,7 @@ async function deleteRowsByJobCard(
   ctx: MutationCtx,
   tableName: any,
   entityType: string,
-  jobCardId: Id<"jobCards">,
+  jobCardId: Id<"jobCards">
 ) {
   const rows = await (ctx.db.query as any)(tableName)
     .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
@@ -1346,7 +1352,7 @@ async function deleteRowsByJobCard(
       }
       await deleteEntityNotifications(ctx, entityType, row._id);
       await ctx.db.delete(row._id);
-    }),
+    })
   );
 }
 
@@ -1372,13 +1378,13 @@ export async function deleteJobCardCascade(ctx: MutationCtx, jobCardId: Id<"jobC
           Promise.all([
             deleteStorageFile(ctx, row.storageId, "passport scan"),
             ctx.db.delete(row._id),
-          ]),
+          ])
         ),
         ...mealPreferences.map((row) => ctx.db.delete(row._id)),
         deleteEntityNotifications(ctx, "traveller", traveller._id),
         ctx.db.delete(traveller._id),
       ]);
-    }),
+    })
   );
 
   await Promise.all([
@@ -1408,103 +1414,103 @@ export async function deleteJobCardCascade(ctx: MutationCtx, jobCardId: Id<"jobC
 
 export function publicJobCard(job: any) {
   return {
+    clientName: job.clientName,
+    collaboratorStaffIds: job.collaboratorStaffIds ?? [],
+    confirmedPax: job.confirmedPax,
+    contractingOwnerId: job.contractingOwnerId ?? "",
+    contractingOwnerName: job.contractingOwnerName ?? "",
+    createdAt: new Date(job.createdAt).toISOString(),
+    destination: job.destination ?? "",
     id: job._id,
     jobCode: job.jobCode,
-    queryId: job.queryId ?? null,
-    proposalId: job.proposalId ?? null,
-    clientName: job.clientName,
-    destination: job.destination ?? "",
-    confirmedPax: job.confirmedPax,
-    roomCount: job.roomCount ?? 0,
-    travelStartDate: job.travelStartDate ?? "",
-    travelEndDate: job.travelEndDate ?? "",
-    queryType: job.queryType ?? "",
-    paymentTerms: job.paymentTerms ?? null,
-    contractingOwnerName: job.contractingOwnerName ?? "",
-    contractingOwnerId: job.contractingOwnerId ?? "",
-    operationsOwnerName: job.operationsOwnerName ?? "",
-    operationsOwnerId: job.operationsOwnerId ?? "",
-    ticketingOwnerName: job.ticketingOwnerName ?? "",
-    ticketingOwnerId: job.ticketingOwnerId ?? "",
-    collaboratorStaffIds: job.collaboratorStaffIds ?? [],
-    lastEditedByName: job.lastEditedByName ?? "",
     lastEditedAt: job.lastEditedAt ? new Date(job.lastEditedAt).toISOString() : null,
-    tourManagerName: job.tourManagerName ?? "",
-    status: job.status,
+    lastEditedByName: job.lastEditedByName ?? "",
+    operationsOwnerId: job.operationsOwnerId ?? "",
+    operationsOwnerName: job.operationsOwnerName ?? "",
+    paymentTerms: job.paymentTerms ?? null,
     preDepartureChecklist: job.preDepartureChecklist ?? null,
-    createdAt: new Date(job.createdAt).toISOString(),
+    proposalId: job.proposalId ?? null,
+    queryId: job.queryId ?? null,
+    queryType: job.queryType ?? "",
+    roomCount: job.roomCount ?? 0,
+    status: job.status,
+    ticketingOwnerId: job.ticketingOwnerId ?? "",
+    ticketingOwnerName: job.ticketingOwnerName ?? "",
+    tourManagerName: job.tourManagerName ?? "",
+    travelEndDate: job.travelEndDate ?? "",
+    travelStartDate: job.travelStartDate ?? "",
     updatedAt: new Date(job.updatedAt).toISOString(),
   };
 }
 
 export function publicTravelBatch(batch: any) {
   return {
-    id: batch._id,
-    jobCardId: batch.jobCardId,
     batchCode: batch.batchCode,
     batchReference: batch.batchReference,
-    destination: batch.destination ?? "",
     confirmedPax: batch.confirmedPax,
-    roomCount: batch.roomCount ?? 0,
-    travelStartDate: batch.travelStartDate ?? "",
-    travelEndDate: batch.travelEndDate ?? "",
-    queryType: batch.queryType ?? "",
-    paymentTerms: batch.paymentTerms ?? null,
-    contractingOwnerName: batch.contractingOwnerName ?? "",
     contractingOwnerId: batch.contractingOwnerId ?? "",
-    operationsOwnerName: batch.operationsOwnerName ?? "",
-    operationsOwnerId: batch.operationsOwnerId ?? "",
-    ticketingOwnerName: batch.ticketingOwnerName ?? "",
-    ticketingOwnerId: batch.ticketingOwnerId ?? "",
-    lastEditedByName: batch.lastEditedByName ?? "",
-    lastEditedAt: batch.lastEditedAt ? new Date(batch.lastEditedAt).toISOString() : null,
-    tourManagerName: batch.tourManagerName ?? "",
-    status: batch.status,
-    preDepartureChecklist: batch.preDepartureChecklist ?? null,
+    contractingOwnerName: batch.contractingOwnerName ?? "",
     createdAt: new Date(batch.createdAt).toISOString(),
+    destination: batch.destination ?? "",
+    id: batch._id,
+    jobCardId: batch.jobCardId,
+    lastEditedAt: batch.lastEditedAt ? new Date(batch.lastEditedAt).toISOString() : null,
+    lastEditedByName: batch.lastEditedByName ?? "",
+    operationsOwnerId: batch.operationsOwnerId ?? "",
+    operationsOwnerName: batch.operationsOwnerName ?? "",
+    paymentTerms: batch.paymentTerms ?? null,
+    preDepartureChecklist: batch.preDepartureChecklist ?? null,
+    queryType: batch.queryType ?? "",
+    roomCount: batch.roomCount ?? 0,
+    status: batch.status,
+    ticketingOwnerId: batch.ticketingOwnerId ?? "",
+    ticketingOwnerName: batch.ticketingOwnerName ?? "",
+    tourManagerName: batch.tourManagerName ?? "",
+    travelEndDate: batch.travelEndDate ?? "",
+    travelStartDate: batch.travelStartDate ?? "",
     updatedAt: new Date(batch.updatedAt).toISOString(),
   };
 }
 
 export function publicQuery(query: any) {
   return {
-    id: query._id,
-    queryCode: query.queryCode,
-    clientName: query.clientName,
-    contactPerson: query.contactPerson ?? "",
-    destination: query.destination ?? "",
-    paxCount: query.paxCount,
-    travelStartDate: query.travelStartDate ?? "",
-    travelEndDate: query.travelEndDate ?? "",
-    queryType: query.queryType,
-    travelType: query.travelType,
-    salesStatus: query.salesStatus,
-    contractingStatus: query.contractingStatus,
-    lostReason: query.lostReason ?? "",
-    salesOwnerName: query.salesOwnerName ?? "",
-    contractingOwnerName: query.contractingOwnerName ?? "",
-    contractingOwnerId: query.contractingOwnerId ?? "",
-    ticketingOwnerName: query.ticketingOwnerName ?? "",
-    ticketingOwnerId: query.ticketingOwnerId ?? "",
-    ticketingScope: query.ticketingScope ?? "",
-    travelInBatches: Boolean(query.travelInBatches),
+    approxMargin: query.approxMargin ?? null,
     batchingNotes: query.batchingNotes ?? "",
-    jobCardCreatorStaffId: query.jobCardCreatorStaffId ?? "",
-    jobCardCreatorName: query.jobCardCreatorName ?? "",
-    contactMobile: query.contactMobile ?? "",
     budgetAmount: query.budgetAmount ?? 0,
+    clientName: query.clientName,
+    confirmedAt: query.confirmedAt ? new Date(query.confirmedAt).toISOString() : null,
+    contactMobile: query.contactMobile ?? "",
+    contactPerson: query.contactPerson ?? "",
+    contractingAirlinesCost: query.contractingAirlinesCost ?? 0,
+    contractingLandCost: query.contractingLandCost ?? 0,
+    contractingOwnerId: query.contractingOwnerId ?? "",
+    contractingOwnerName: query.contractingOwnerName ?? "",
+    contractingStatus: query.contractingStatus,
+    contractingVisaCost: query.contractingVisaCost ?? 0,
+    createdAt: new Date(query.createdAt).toISOString(),
+    destination: query.destination ?? "",
+    id: query._id,
+    jobCardCreatorName: query.jobCardCreatorName ?? "",
+    jobCardCreatorStaffId: query.jobCardCreatorStaffId ?? "",
     leadStage: query.leadStage === "Closed" ? "Lost" : (query.leadStage ?? ""),
+    lostReason: query.lostReason ?? "",
+    notes: query.notes ?? "",
+    paxCount: query.paxCount,
+    queryCode: query.queryCode,
+    queryType: query.queryType,
+    salesOwnerName: query.salesOwnerName ?? "",
+    salesStatus: query.salesStatus,
     source: query.source ?? "",
     submittedToContractingAt: query.submittedToContractingAt
       ? new Date(query.submittedToContractingAt).toISOString()
       : null,
-    notes: query.notes ?? "",
-    contractingLandCost: query.contractingLandCost ?? 0,
-    contractingAirlinesCost: query.contractingAirlinesCost ?? 0,
-    contractingVisaCost: query.contractingVisaCost ?? 0,
-    approxMargin: query.approxMargin ?? null,
-    confirmedAt: query.confirmedAt ? new Date(query.confirmedAt).toISOString() : null,
-    createdAt: new Date(query.createdAt).toISOString(),
+    ticketingOwnerId: query.ticketingOwnerId ?? "",
+    ticketingOwnerName: query.ticketingOwnerName ?? "",
+    ticketingScope: query.ticketingScope ?? "",
+    travelEndDate: query.travelEndDate ?? "",
+    travelInBatches: Boolean(query.travelInBatches),
+    travelStartDate: query.travelStartDate ?? "",
+    travelType: query.travelType,
     updatedAt: new Date(query.updatedAt).toISOString(),
   };
 }
@@ -1529,7 +1535,7 @@ export const portalDateRangeValidator = v.optional(
   v.object({
     from: v.optional(v.string()),
     to: v.optional(v.string()),
-  }),
+  })
 );
 
 export type PortalDateRange = {
@@ -1540,23 +1546,33 @@ export type PortalDateRange = {
 const PORTAL_DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function parsePortalDateOnly(value: string | undefined): number | null {
-  if (!value?.trim()) return null;
+  if (!value?.trim()) {
+    return null;
+  }
   const text = value.trim();
-  if (!PORTAL_DATE_ONLY_RE.test(text)) return null;
+  if (!PORTAL_DATE_ONLY_RE.test(text)) {
+    return null;
+  }
   return new Date(`${text}T00:00:00`).getTime();
 }
 
 export function endOfPortalDateOnly(value: string | undefined): number | null {
   const start = parsePortalDateOnly(value);
-  if (start == null) return null;
+  if (start == null) {
+    return null;
+  }
   return start + 24 * 60 * 60 * 1000 - 1;
 }
 
 export function resolvePortalDateRange(range?: PortalDateRange | null) {
-  if (!range) return null;
+  if (!range) {
+    return null;
+  }
   const sinceMs = parsePortalDateOnly(range.from);
   const untilMs = endOfPortalDateOnly(range.to);
-  if (sinceMs == null && untilMs == null) return null;
+  if (sinceMs == null && untilMs == null) {
+    return null;
+  }
   return {
     sinceMs: sinceMs ?? 0,
     untilMs: untilMs ?? Date.now(),
@@ -1565,11 +1581,13 @@ export function resolvePortalDateRange(range?: PortalDateRange | null) {
 
 export function filterRecordsByDateRange<T extends { createdAt: number }>(
   records: T[],
-  range?: PortalDateRange | null,
+  range?: PortalDateRange | null
 ) {
   const resolved = resolvePortalDateRange(range);
-  if (!resolved) return records;
+  if (!resolved) {
+    return records;
+  }
   return records.filter(
-    (record) => record.createdAt >= resolved.sinceMs && record.createdAt <= resolved.untilMs,
+    (record) => record.createdAt >= resolved.sinceMs && record.createdAt <= resolved.untilMs
   );
 }

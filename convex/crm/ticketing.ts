@@ -26,38 +26,38 @@ const ticketStatusValidator = v.union(
   v.literal("Reissue Required"),
   v.literal("Cancelled"),
   v.literal("Refund Pending"),
-  v.literal("Refunded"),
+  v.literal("Refunded")
 );
 
 const paymentTypeValidator = v.union(
   v.literal("Company Paid"),
   v.literal("Self Paid"),
-  v.literal("Upgraded Self Paid"),
+  v.literal("Upgraded Self Paid")
 );
 
 const foodPreferenceValidator = v.union(
   v.literal("Veg"),
   v.literal("Non-Veg"),
   v.literal("Jain"),
-  v.literal("Vegan"),
+  v.literal("Vegan")
 );
 
 const ticketTypeValidator = v.union(v.literal("FIT Ticket"), v.literal("Group Ticket"));
 
 const publicPnr = (pnr: any, job: any) => ({
+  airline: pnr.airline,
+  clientName: job?.clientName ?? "",
+  createdAt: new Date(pnr.createdAt).toISOString(),
+  fareType: pnr.fareType ?? "",
+  flightGroupId: pnr.flightGroupId ?? null,
   id: pnr._id,
+  issuedSeats: pnr.issuedSeats,
   jobCardId: pnr.jobCardId,
   jobCode: job?.jobCode ?? "",
-  clientName: job?.clientName ?? "",
-  flightGroupId: pnr.flightGroupId ?? null,
   pnrCode: pnr.pnrCode,
-  airline: pnr.airline,
   route: pnr.route,
-  fareType: pnr.fareType ?? "",
   status: pnr.status ?? "",
   totalSeats: pnr.totalSeats,
-  issuedSeats: pnr.issuedSeats,
-  createdAt: new Date(pnr.createdAt).toISOString(),
   updatedAt: new Date(pnr.updatedAt).toISOString(),
 });
 
@@ -66,28 +66,28 @@ const publicTicket = (
   traveller: any,
   pnr: any,
   job: any,
-  travelBatch: any = null,
+  travelBatch: any = null
 ) => ({
+  cabinClass: ticket.cabinClass ?? "",
+  clientName: job?.clientName ?? "",
+  createdAt: new Date(ticket.createdAt).toISOString(),
   id: ticket._id,
   jobCardId: ticket.jobCardId,
   jobCode: job?.jobCode ?? "",
-  clientName: job?.clientName ?? "",
+  mealPreference: ticket.mealPreference ?? "",
+  paymentType: ticket.paymentType,
+  pnrCode: pnr?.pnrCode ?? "",
+  pnrId: ticket.pnrId ?? null,
+  seatNumber: ticket.seatNumber ?? "",
+  seatPreference: ticket.seatPreference ?? "",
+  ticketNumber: ticket.ticketNumber ?? "",
+  ticketStatus: ticket.ticketStatus,
+  ticketType: ticket.ticketType ?? "",
+  travelBatchCode: travelBatch?.batchCode ?? "",
+  travelBatchId: traveller?.travelBatchId ?? "",
+  travelBatchReference: travelBatch?.batchReference ?? "",
   travellerId: ticket.travellerId ?? null,
   travellerName: traveller?.fullName ?? "",
-  travelBatchId: traveller?.travelBatchId ?? "",
-  travelBatchCode: travelBatch?.batchCode ?? "",
-  travelBatchReference: travelBatch?.batchReference ?? "",
-  pnrId: ticket.pnrId ?? null,
-  pnrCode: pnr?.pnrCode ?? "",
-  ticketNumber: ticket.ticketNumber ?? "",
-  ticketType: ticket.ticketType ?? "",
-  ticketStatus: ticket.ticketStatus,
-  paymentType: ticket.paymentType,
-  cabinClass: ticket.cabinClass ?? "",
-  mealPreference: ticket.mealPreference ?? "",
-  seatPreference: ticket.seatPreference ?? "",
-  seatNumber: ticket.seatNumber ?? "",
-  createdAt: new Date(ticket.createdAt).toISOString(),
   updatedAt: new Date(ticket.updatedAt).toISOString(),
 });
 
@@ -122,34 +122,34 @@ export const dashboard = query({
     const visibleTickets = (
       await Promise.all(
         tickets.map(async (ticket) =>
-          (await getVisibleJob(ctx, access, ticket.jobCardId)) ? ticket : null,
-        ),
+          (await getVisibleJob(ctx, access, ticket.jobCardId)) ? ticket : null
+        )
       )
     ).filter(isDefined);
     const visiblePnrs = (
       await Promise.all(
-        pnrs.map(async (pnr) => ((await getVisibleJob(ctx, access, pnr.jobCardId)) ? pnr : null)),
+        pnrs.map(async (pnr) => ((await getVisibleJob(ctx, access, pnr.jobCardId)) ? pnr : null))
       )
     ).filter(isDefined);
     const issued = visibleTickets.filter((ticket) => ticket.ticketStatus === "Issued").length;
     const pending = visibleTickets.filter(
-      (ticket) => ticket.ticketStatus === "Pending Issue",
+      (ticket) => ticket.ticketStatus === "Pending Issue"
     ).length;
     const attention = visibleTickets.filter((ticket) =>
-      ["Name Change Required", "Reissue Required", "Refund Pending"].includes(ticket.ticketStatus),
+      ["Name Change Required", "Reissue Required", "Refund Pending"].includes(ticket.ticketStatus)
     ).length;
 
     return {
-      issued,
-      pending,
       attention,
       cancelled: visibleTickets.filter((ticket) => ticket.ticketStatus === "Cancelled").length,
-      refunded: visibleTickets.filter((ticket) => ticket.ticketStatus === "Refunded").length,
       fitTickets: visibleTickets.filter((ticket) => ticket.ticketType === "FIT Ticket").length,
       groupTickets: visibleTickets.filter((ticket) => ticket.ticketType === "Group Ticket").length,
-      pnrCount: visiblePnrs.length,
-      totalSeats: visiblePnrs.reduce((sum, pnr) => sum + pnr.totalSeats, 0),
+      issued,
       issuedSeats: visiblePnrs.reduce((sum, pnr) => sum + pnr.issuedSeats, 0),
+      pending,
+      pnrCount: visiblePnrs.length,
+      refunded: visibleTickets.filter((ticket) => ticket.ticketStatus === "Refunded").length,
+      totalSeats: visiblePnrs.reduce((sum, pnr) => sum + pnr.totalSeats, 0),
     };
   },
 });
@@ -167,7 +167,7 @@ export const listPnrs = query({
         .map(async (pnr) => {
           const job = await getVisibleJob(ctx, access, pnr.jobCardId);
           return job ? publicPnr(pnr, job) : null;
-        }),
+        })
     );
     return result.filter(Boolean);
   },
@@ -175,11 +175,11 @@ export const listPnrs = query({
 
 export const createPnr = mutation({
   args: {
+    airline: v.string(),
+    fareType: v.optional(v.string()),
     jobCardId: v.string(),
     pnrCode: v.string(),
-    airline: v.string(),
     route: v.string(),
-    fareType: v.optional(v.string()),
     totalSeats: v.number(),
   },
   handler: async (ctx, args) => {
@@ -194,22 +194,22 @@ export const createPnr = mutation({
     }
     const now = Date.now();
     const id = await ctx.db.insert("pnrs", {
+      airline: args.airline.trim(),
+      createdAt: now,
+      createdBy: access.authUserId ?? "unknown",
+      fareType: args.fareType?.trim() || "",
+      issuedSeats: 0,
       jobCardId,
       pnrCode: args.pnrCode.trim().toUpperCase(),
-      airline: args.airline.trim(),
       route: args.route.trim(),
-      fareType: args.fareType?.trim() || "",
       status: "Active",
       totalSeats: args.totalSeats,
-      issuedSeats: 0,
-      createdBy: access.authUserId ?? "unknown",
-      createdAt: now,
       updatedAt: now,
     });
     await createActivity(ctx, access, {
-      entityType: "pnr",
-      entityId: id,
       action: "created",
+      entityId: id,
+      entityType: "pnr",
       message: `${args.pnrCode.trim().toUpperCase()} added to ${job.jobCode}`,
     });
     return { id };
@@ -218,13 +218,13 @@ export const createPnr = mutation({
 
 export const updatePnr = mutation({
   args: {
-    pnrId: v.string(),
-    pnrCode: v.optional(v.string()),
     airline: v.optional(v.string()),
-    route: v.optional(v.string()),
     fareType: v.optional(v.string()),
-    totalSeats: v.optional(v.number()),
+    pnrCode: v.optional(v.string()),
+    pnrId: v.string(),
+    route: v.optional(v.string()),
     status: v.optional(v.string()),
+    totalSeats: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
@@ -248,18 +248,30 @@ export const updatePnr = mutation({
     }
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    if (args.pnrCode !== undefined) patch.pnrCode = args.pnrCode.trim().toUpperCase();
-    if (args.airline !== undefined) patch.airline = args.airline.trim();
-    if (args.route !== undefined) patch.route = args.route.trim();
-    if (args.fareType !== undefined) patch.fareType = args.fareType.trim();
-    if (args.totalSeats !== undefined) patch.totalSeats = args.totalSeats;
-    if (args.status !== undefined) patch.status = args.status.trim();
+    if (args.pnrCode !== undefined) {
+      patch.pnrCode = args.pnrCode.trim().toUpperCase();
+    }
+    if (args.airline !== undefined) {
+      patch.airline = args.airline.trim();
+    }
+    if (args.route !== undefined) {
+      patch.route = args.route.trim();
+    }
+    if (args.fareType !== undefined) {
+      patch.fareType = args.fareType.trim();
+    }
+    if (args.totalSeats !== undefined) {
+      patch.totalSeats = args.totalSeats;
+    }
+    if (args.status !== undefined) {
+      patch.status = args.status.trim();
+    }
 
     await ctx.db.patch(pnrId, patch);
     await createActivity(ctx, access, {
-      entityType: "pnr",
-      entityId: pnrId,
       action: "updated",
+      entityId: pnrId,
+      entityType: "pnr",
       message: `${(args.pnrCode ?? pnr.pnrCode).trim().toUpperCase()} updated`,
     });
     return { id: pnrId };
@@ -286,7 +298,7 @@ export const listTickets = query({
             ? await ctx.db.get(traveller.travelBatchId)
             : null;
           return job ? publicTicket(ticket, traveller, pnr, job, travelBatch) : null;
-        }),
+        })
     );
     return result.filter(Boolean);
   },
@@ -294,17 +306,17 @@ export const listTickets = query({
 
 export const createTicket = mutation({
   args: {
-    jobCardId: v.string(),
-    travellerId: v.optional(v.string()),
-    pnrId: v.optional(v.string()),
-    ticketNumber: v.optional(v.string()),
-    ticketType: v.optional(ticketTypeValidator),
-    ticketStatus: ticketStatusValidator,
-    paymentType: paymentTypeValidator,
     cabinClass: v.optional(v.string()),
+    jobCardId: v.string(),
     mealPreference: v.optional(foodPreferenceValidator),
-    seatPreference: v.optional(v.string()),
+    paymentType: paymentTypeValidator,
+    pnrId: v.optional(v.string()),
     seatNumber: v.optional(v.string()),
+    seatPreference: v.optional(v.string()),
+    ticketNumber: v.optional(v.string()),
+    ticketStatus: ticketStatusValidator,
+    ticketType: v.optional(ticketTypeValidator),
+    travellerId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     if (!args.jobCardId.trim()) {
@@ -325,19 +337,19 @@ export const createTicket = mutation({
     }
     const now = Date.now();
     const id = await ctx.db.insert("tickets", {
-      jobCardId,
-      travellerId: travellerId ?? undefined,
-      pnrId: pnrId ?? undefined,
-      ticketNumber: args.ticketNumber?.trim() || "",
-      ticketType: args.ticketType,
-      ticketStatus: args.ticketStatus,
-      paymentType: args.paymentType,
       cabinClass: args.cabinClass?.trim() || "Economy",
-      mealPreference: args.mealPreference,
-      seatPreference: args.seatPreference?.trim() || "",
-      seatNumber: args.seatNumber?.trim() || "",
-      createdBy: access.authUserId ?? "unknown",
       createdAt: now,
+      createdBy: access.authUserId ?? "unknown",
+      jobCardId,
+      mealPreference: args.mealPreference,
+      paymentType: args.paymentType,
+      pnrId: pnrId ?? undefined,
+      seatNumber: args.seatNumber?.trim() || "",
+      seatPreference: args.seatPreference?.trim() || "",
+      ticketNumber: args.ticketNumber?.trim() || "",
+      ticketStatus: args.ticketStatus,
+      ticketType: args.ticketType,
+      travellerId: travellerId ?? undefined,
       updatedAt: now,
     });
 
@@ -358,17 +370,17 @@ export const createTicket = mutation({
     }
 
     await createActivity(ctx, access, {
-      entityType: "ticket",
-      entityId: id,
       action: "created",
+      entityId: id,
+      entityType: "ticket",
       message: `Ticket ${args.ticketNumber?.trim() || id} added to ${job.jobCode}`,
     });
     if (["Name Change Required", "Reissue Required"].includes(args.ticketStatus)) {
       await notifyRoles(ctx, ["Operations", "Operations Head"], {
-        title: "Ticketing action needed",
         body: `A ticket in ${job.jobCode} needs ${args.ticketStatus.toLowerCase()}.`,
-        entityType: "ticket",
         entityId: id,
+        entityType: "ticket",
+        title: "Ticketing action needed",
       });
     }
     return { id };
@@ -377,17 +389,17 @@ export const createTicket = mutation({
 
 export const updateTicket = mutation({
   args: {
-    ticketId: v.string(),
-    travellerId: v.optional(v.string()),
-    pnrId: v.optional(v.string()),
-    ticketNumber: v.optional(v.string()),
-    ticketType: v.optional(ticketTypeValidator),
-    ticketStatus: v.optional(ticketStatusValidator),
-    paymentType: v.optional(paymentTypeValidator),
     cabinClass: v.optional(v.string()),
     mealPreference: v.optional(foodPreferenceValidator),
-    seatPreference: v.optional(v.string()),
+    paymentType: v.optional(paymentTypeValidator),
+    pnrId: v.optional(v.string()),
     seatNumber: v.optional(v.string()),
+    seatPreference: v.optional(v.string()),
+    ticketId: v.string(),
+    ticketNumber: v.optional(v.string()),
+    ticketStatus: v.optional(ticketStatusValidator),
+    ticketType: v.optional(ticketTypeValidator),
+    travellerId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
@@ -424,24 +436,44 @@ export const updateTicket = mutation({
     const now = Date.now();
     const nextStatus = args.ticketStatus ?? ticket.ticketStatus;
     const patch: Record<string, unknown> = { updatedAt: now };
-    if (travellerId !== undefined) patch.travellerId = travellerId ?? undefined;
-    if (pnrId !== undefined) patch.pnrId = pnrId ?? undefined;
-    if (args.ticketNumber !== undefined) patch.ticketNumber = args.ticketNumber.trim();
-    if (args.ticketType !== undefined) patch.ticketType = args.ticketType;
-    if (args.ticketStatus !== undefined) patch.ticketStatus = args.ticketStatus;
-    if (args.paymentType !== undefined) patch.paymentType = args.paymentType;
-    if (args.cabinClass !== undefined) patch.cabinClass = args.cabinClass.trim();
-    if (args.mealPreference !== undefined) patch.mealPreference = args.mealPreference;
-    if (args.seatPreference !== undefined) patch.seatPreference = args.seatPreference.trim();
-    if (args.seatNumber !== undefined) patch.seatNumber = args.seatNumber.trim();
+    if (travellerId !== undefined) {
+      patch.travellerId = travellerId ?? undefined;
+    }
+    if (pnrId !== undefined) {
+      patch.pnrId = pnrId ?? undefined;
+    }
+    if (args.ticketNumber !== undefined) {
+      patch.ticketNumber = args.ticketNumber.trim();
+    }
+    if (args.ticketType !== undefined) {
+      patch.ticketType = args.ticketType;
+    }
+    if (args.ticketStatus !== undefined) {
+      patch.ticketStatus = args.ticketStatus;
+    }
+    if (args.paymentType !== undefined) {
+      patch.paymentType = args.paymentType;
+    }
+    if (args.cabinClass !== undefined) {
+      patch.cabinClass = args.cabinClass.trim();
+    }
+    if (args.mealPreference !== undefined) {
+      patch.mealPreference = args.mealPreference;
+    }
+    if (args.seatPreference !== undefined) {
+      patch.seatPreference = args.seatPreference.trim();
+    }
+    if (args.seatNumber !== undefined) {
+      patch.seatNumber = args.seatNumber.trim();
+    }
 
-    const effectivePnrId = (pnrId !== undefined ? pnrId : ticket.pnrId) ?? null;
+    const effectivePnrId = (pnrId === undefined ? ticket.pnrId : pnrId) ?? null;
     const wasIssued = ticket.ticketStatus === "Issued";
     const willBeIssued = nextStatus === "Issued";
 
     await ctx.db.patch(ticketId, patch);
 
-    const linkedTravellerId = travellerId !== undefined ? travellerId : ticket.travellerId;
+    const linkedTravellerId = travellerId === undefined ? ticket.travellerId : travellerId;
     if (linkedTravellerId) {
       await ctx.db.patch(linkedTravellerId, {
         ticketStatus: nextStatus,
@@ -470,9 +502,9 @@ export const updateTicket = mutation({
     }
 
     await createActivity(ctx, access, {
-      entityType: "ticket",
-      entityId: ticketId,
       action: "updated",
+      entityId: ticketId,
+      entityType: "ticket",
       message: `Ticket ${ticket.ticketNumber || ticketId} updated`,
     });
     if (
@@ -482,10 +514,10 @@ export const updateTicket = mutation({
       const job = await ctx.db.get(ticket.jobCardId);
       if (job) {
         await notifyRoles(ctx, ["Operations", "Operations Head"], {
-          title: "Ticketing action needed",
           body: `A ticket in ${job.jobCode} needs ${args.ticketStatus.toLowerCase()}.`,
-          entityType: "ticket",
           entityId: ticketId,
+          entityType: "ticket",
+          title: "Ticketing action needed",
         });
       }
     }
@@ -524,9 +556,9 @@ export const updateTicketStatus = mutation({
       });
     }
     await createActivity(ctx, access, {
-      entityType: "ticket",
-      entityId: ticketId,
       action: "status_updated",
+      entityId: ticketId,
+      entityType: "ticket",
       message: `Ticket status set to ${args.ticketStatus}`,
     });
     return { id: ticketId };
@@ -559,9 +591,9 @@ async function deleteTicketRecord(ctx: MutationCtx, access: PortalAccess, ticket
   }
   await Promise.all([
     createActivity(ctx, access, {
-      entityType: "ticket",
-      entityId: ticketId,
       action: "deleted",
+      entityId: ticketId,
+      entityType: "ticket",
       message: `Ticket ${ticket.ticketNumber || ticketId} deleted`,
     }),
     deleteEntityNotifications(ctx, "ticket", ticketId),
@@ -619,21 +651,23 @@ export const listSeatAllocations = query({
             seat.travellerId ? ctx.db.get(seat.travellerId) : null,
             getVisibleJob(ctx, access, seat.jobCardId),
           ]);
-          if (!job) return null;
+          if (!job) {
+            return null;
+          }
           return {
+            clientName: job?.clientName ?? "",
+            createdAt: new Date(seat.createdAt).toISOString(),
             id: seat._id,
             jobCardId: seat.jobCardId,
             jobCode: job?.jobCode ?? "",
-            clientName: job?.clientName ?? "",
-            travellerId: seat.travellerId ?? null,
-            travellerName: traveller?.fullName ?? "",
+            notes: seat.notes ?? "",
             pnrId: seat.pnrId ?? null,
             seatNumber: seat.seatNumber,
             status: seat.status,
-            notes: seat.notes ?? "",
-            createdAt: new Date(seat.createdAt).toISOString(),
+            travellerId: seat.travellerId ?? null,
+            travellerName: traveller?.fullName ?? "",
           };
-        }),
+        })
     );
     return result.filter(Boolean);
   },
@@ -642,16 +676,16 @@ export const listSeatAllocations = query({
 export const saveSeatAllocation = mutation({
   args: {
     jobCardId: v.string(),
-    travellerId: v.optional(v.string()),
+    notes: v.optional(v.string()),
     pnrId: v.optional(v.string()),
     seatNumber: v.string(),
     status: v.union(
       v.literal("Available"),
       v.literal("Held"),
       v.literal("Assigned"),
-      v.literal("Blocked"),
+      v.literal("Blocked")
     ),
-    notes: v.optional(v.string()),
+    travellerId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
@@ -669,14 +703,14 @@ export const saveSeatAllocation = mutation({
     }
     const now = Date.now();
     const id = await ctx.db.insert("seatAllocations", {
+      createdAt: now,
+      createdBy: access.authUserId ?? "unknown",
       jobCardId,
-      travellerId: travellerId ?? undefined,
+      notes: args.notes?.trim() || "",
       pnrId: pnrId ?? undefined,
       seatNumber: args.seatNumber.trim().toUpperCase(),
       status: args.status,
-      notes: args.notes?.trim() || "",
-      createdBy: access.authUserId ?? "unknown",
-      createdAt: now,
+      travellerId: travellerId ?? undefined,
       updatedAt: now,
     });
     if (travellerId && args.status === "Assigned") {
@@ -689,14 +723,14 @@ export const saveSeatAllocation = mutation({
           ctx.db.patch(ticket._id, {
             seatNumber: args.seatNumber.trim().toUpperCase(),
             updatedAt: now,
-          }),
-        ),
+          })
+        )
       );
     }
     await createActivity(ctx, access, {
-      entityType: "seatAllocation",
-      entityId: id,
       action: "saved",
+      entityId: id,
+      entityType: "seatAllocation",
       message: `Seat ${args.seatNumber.trim().toUpperCase()} saved`,
     });
     return { id };
@@ -705,19 +739,19 @@ export const saveSeatAllocation = mutation({
 
 export const updateSeatAllocation = mutation({
   args: {
-    seatAllocationId: v.string(),
-    travellerId: v.optional(v.string()),
+    notes: v.optional(v.string()),
     pnrId: v.optional(v.string()),
+    seatAllocationId: v.string(),
     seatNumber: v.optional(v.string()),
     status: v.optional(
       v.union(
         v.literal("Available"),
         v.literal("Held"),
         v.literal("Assigned"),
-        v.literal("Blocked"),
-      ),
+        v.literal("Blocked")
+      )
     ),
-    notes: v.optional(v.string()),
+    travellerId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
@@ -758,15 +792,25 @@ export const updateSeatAllocation = mutation({
     const nextSeatNumber = args.seatNumber?.trim().toUpperCase() ?? seat.seatNumber;
     const nextStatus = args.status ?? seat.status;
     const patch: Record<string, unknown> = { updatedAt: now };
-    if (travellerId !== undefined) patch.travellerId = travellerId ?? undefined;
-    if (pnrId !== undefined) patch.pnrId = pnrId ?? undefined;
-    if (args.seatNumber !== undefined) patch.seatNumber = nextSeatNumber;
-    if (args.status !== undefined) patch.status = args.status;
-    if (args.notes !== undefined) patch.notes = args.notes.trim();
+    if (travellerId !== undefined) {
+      patch.travellerId = travellerId ?? undefined;
+    }
+    if (pnrId !== undefined) {
+      patch.pnrId = pnrId ?? undefined;
+    }
+    if (args.seatNumber !== undefined) {
+      patch.seatNumber = nextSeatNumber;
+    }
+    if (args.status !== undefined) {
+      patch.status = args.status;
+    }
+    if (args.notes !== undefined) {
+      patch.notes = args.notes.trim();
+    }
 
     await ctx.db.patch(id, patch);
 
-    const linkedTravellerId = travellerId !== undefined ? travellerId : seat.travellerId;
+    const linkedTravellerId = travellerId === undefined ? seat.travellerId : travellerId;
     if (linkedTravellerId && nextStatus === "Assigned") {
       const tickets = await ctx.db
         .query("tickets")
@@ -777,15 +821,15 @@ export const updateSeatAllocation = mutation({
           ctx.db.patch(ticket._id, {
             seatNumber: nextSeatNumber,
             updatedAt: now,
-          }),
-        ),
+          })
+        )
       );
     }
 
     await createActivity(ctx, access, {
-      entityType: "seatAllocation",
-      entityId: id,
       action: "updated",
+      entityId: id,
+      entityType: "seatAllocation",
       message: `Seat ${nextSeatNumber} updated`,
     });
     return { id };
@@ -822,16 +866,16 @@ async function deletePnrRecord(ctx: MutationCtx, access: PortalAccess, pnrId: Id
           : null,
         deleteEntityNotifications(ctx, "ticket", ticket._id),
         ctx.db.delete(ticket._id),
-      ].filter(Boolean),
+      ].filter(Boolean)
     ),
     ...seats.flatMap((seat) => [
       deleteEntityNotifications(ctx, "seatAllocation", seat._id),
       ctx.db.delete(seat._id),
     ]),
     createActivity(ctx, access, {
-      entityType: "pnr",
-      entityId: pnrId,
       action: "deleted",
+      entityId: pnrId,
+      entityType: "pnr",
       message: `${pnr.pnrCode} deleted`,
     }),
     deleteEntityNotifications(ctx, "pnr", pnrId),
@@ -894,7 +938,7 @@ export const assignTicketingOwner = mutation({
       throw new ConvexError("Staff member not found");
     }
     const isTicketingTeam = staff.roles.some((role) =>
-      ["Ticketing", "Head of Ticketing"].includes(role),
+      ["Ticketing", "Head of Ticketing"].includes(role)
     );
     if (!isTicketingTeam) {
       throw new ConvexError("Selected staff member is not on the ticketing team");
@@ -915,16 +959,16 @@ export const assignTicketingOwner = mutation({
         updatedAt: Date.now(),
       }),
       createActivity(ctx, access, {
-        entityType: "jobCard",
-        entityId: jobCardId,
         action: "assigned_ticketing",
+        entityId: jobCardId,
+        entityType: "jobCard",
         message: `${job.jobCode} assigned to ${ownerName} (Ticketing)`,
       }),
       notifyStaffMember(ctx, staffId, {
-        title: "Assign ticketing owner",
         body: `You were assigned as ticketing owner for ${job.jobCode}.`,
-        entityType: "jobCard",
         entityId: jobCardId,
+        entityType: "jobCard",
+        title: "Assign ticketing owner",
       }),
     ]);
     return { id: jobCardId };
@@ -934,7 +978,7 @@ export const assignTicketingOwner = mutation({
 async function deleteSeatAllocationRecord(
   ctx: MutationCtx,
   access: PortalAccess,
-  id: Id<"seatAllocations">,
+  id: Id<"seatAllocations">
 ) {
   const seat = await ctx.db.get(id);
   if (!seat) {
@@ -946,9 +990,9 @@ async function deleteSeatAllocationRecord(
   }
   await Promise.all([
     createActivity(ctx, access, {
-      entityType: "seatAllocation",
-      entityId: id,
       action: "deleted",
+      entityId: id,
+      entityType: "seatAllocation",
       message: `Seat ${seat.seatNumber} deleted`,
     }),
     deleteEntityNotifications(ctx, "seatAllocation", id),

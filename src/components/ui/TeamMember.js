@@ -12,29 +12,29 @@ export default function TeamMember({ member, index }) {
 
   return (
     <m.div
+      className="group overflow-hidden rounded-xl bg-white shadow-lg transition-shadow duration-300 hover:shadow-2xl"
       initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.3 }}
       transition={{
-        duration: 0.6,
         delay: index * 0.1,
+        duration: 0.6,
         ease: [0.22, 1, 0.36, 1],
       }}
-      className="bg-white rounded-xl shadow-lg overflow-hidden group hover:shadow-2xl transition-shadow duration-300"
+      viewport={{ amount: 0.3, once: true }}
+      whileInView={{ opacity: 1, y: 0 }}
     >
       <div className="relative h-80 bg-gradient-to-br from-citius-blue to-citius-orange">
         {member.image ? (
           <Image
-            src={member.image}
             alt={member.name}
+            className="object-cover object-center"
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            className="object-cover object-center"
+            src={member.image}
           />
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="size-32 bg-white/20 rounded-full flex items-center justify-center">
-              <span className="text-4xl font-bold text-brand-light">
+          <div className="flex h-full items-center justify-center">
+            <div className="flex size-32 items-center justify-center rounded-full bg-white/20">
+              <span className="font-bold text-4xl text-brand-light">
                 {member.name
                   .split(" ")
                   .map((n) => n[0])
@@ -47,19 +47,19 @@ export default function TeamMember({ member, index }) {
 
       <div className="p-6">
         <m.h3
+          animate={{ opacity: 1 }}
           className={`${
             member.name.length > 16 ? "text-lg" : "text-xl"
-          } font-bold text-brand-dark mb-1`}
+          } mb-1 font-bold text-brand-dark`}
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
           transition={{ delay: index * 0.1 + 0.3 }}
         >
           {member.name}
         </m.h3>
         <m.p
-          className="text-citius-orange font-medium mb-4"
-          initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          className="mb-4 font-medium text-citius-orange"
+          initial={{ opacity: 0 }}
           transition={{ delay: index * 0.1 + 0.4 }}
         >
           {member.position}
@@ -68,16 +68,16 @@ export default function TeamMember({ member, index }) {
         <div className="relative">
           <m.div
             animate={{ height: isExpanded ? "auto" : collapsedHeight }}
-            className="overflow-hidden relative"
+            className="relative overflow-hidden"
             transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
           >
-            <p className="text-sm text-brand-muted leading-relaxed">{member.bio}</p>
+            <p className="text-brand-muted text-sm leading-relaxed">{member.bio}</p>
           </m.div>
 
           {member.bio.length > 200 && (
             <m.button
+              className="mt-3 flex items-center gap-1 font-medium text-citius-blue text-sm transition-colors hover:text-citius-orange"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="mt-3 flex items-center gap-1 text-citius-blue hover:text-citius-orange transition-colors text-sm font-medium"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -92,15 +92,15 @@ export default function TeamMember({ member, index }) {
         <AnimatePresence>
           {isExpanded && member.quote && (
             <m.div
-              initial={{ opacity: 0, height: 0, y: 10 }}
-              animate={{ opacity: 1, height: "auto", y: 0 }}
-              exit={{ opacity: 0, height: 0, y: 10 }}
+              animate={{ height: "auto", opacity: 1, y: 0 }}
+              className="mt-4 overflow-hidden border-brand-border border-t pt-4"
+              exit={{ height: 0, opacity: 0, y: 10 }}
+              initial={{ height: 0, opacity: 0, y: 10 }}
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="mt-4 pt-4 border-t border-brand-border overflow-hidden"
             >
-              <p className="text-sm italic text-brand-muted">&quot;{member.quote}&quot;</p>
+              <p className="text-brand-muted text-sm italic">&quot;{member.quote}&quot;</p>
               {member.quoteAuthor && (
-                <p className="text-xs text-brand-muted mt-1">- {member.quoteAuthor}</p>
+                <p className="mt-1 text-brand-muted text-xs">- {member.quoteAuthor}</p>
               )}
             </m.div>
           )}

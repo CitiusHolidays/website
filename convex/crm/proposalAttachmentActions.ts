@@ -49,7 +49,7 @@ async function buildDownloadFile(
     storageId: string;
     fileName: string;
     mimeType?: string;
-  },
+  }
 ) {
   const blob = await ctx.storage.get(record.storageId);
   if (!blob) {
@@ -77,11 +77,11 @@ export const generateUploadUrl = action({
 
 export const attachFile = action({
   args: {
+    fileName: v.string(),
+    fileSize: v.number(),
+    mimeType: v.string(),
     proposalId: v.string(),
     storageId: v.id("_storage"),
-    fileName: v.string(),
-    mimeType: v.string(),
-    fileSize: v.number(),
   },
   handler: async (ctx, args) => {
     if (!isAllowedMimeType(args.mimeType)) {
@@ -91,7 +91,7 @@ export const attachFile = action({
         // ignore cleanup errors
       }
       throw new ConvexError(
-        "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text.",
+        "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
 
@@ -123,12 +123,12 @@ export const attachFile = action({
     }
 
     await ctx.runMutation(internal.crm.proposalAttachments.saveAttachment, {
+      createdBy: access.authUserId || "unknown",
+      fileName: args.fileName.trim() || "proposal attachment",
+      fileSize: args.fileSize,
+      mimeType: args.mimeType.trim() || "application/octet-stream",
       proposalId: normalizedProposalId,
       storageId: args.storageId,
-      fileName: args.fileName.trim() || "proposal attachment",
-      mimeType: args.mimeType.trim() || "application/octet-stream",
-      fileSize: args.fileSize,
-      createdBy: access.authUserId || "unknown",
     });
 
     return { success: true };
@@ -141,7 +141,7 @@ export const getDownloadUrl = action({
   },
   handler: async (
     ctx,
-    args,
+    args
   ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     const canView =
@@ -175,7 +175,7 @@ export const getDownloadFile = action({
   },
   handler: async (
     ctx,
-    args,
+    args
   ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     const canView =
@@ -224,7 +224,7 @@ export const removeAttachment = action({
       internal.crm.proposalAttachments.deleteAttachmentRecord,
       {
         attachmentId: record.id,
-      },
+      }
     );
 
     if (storageId) {
@@ -252,11 +252,11 @@ export const generateFinalizedPdfUploadUrl = action({
 
 export const attachFinalizedPdf = action({
   args: {
+    fileName: v.string(),
+    fileSize: v.number(),
+    mimeType: v.string(),
     proposalId: v.string(),
     storageId: v.id("_storage"),
-    fileName: v.string(),
-    mimeType: v.string(),
-    fileSize: v.number(),
   },
   handler: async (ctx, args) => {
     if (!isPdfMimeType(args.mimeType)) {
@@ -296,9 +296,9 @@ export const attachFinalizedPdf = action({
     }
 
     const { previousStorageId } = await ctx.runMutation(internal.crm.proposals.saveFinalizedPdf, {
+      fileName: args.fileName.trim() || "proposal.pdf",
       proposalId: normalizedProposalId,
       storageId: args.storageId,
-      fileName: args.fileName.trim() || "proposal.pdf",
       uploadedBy: access.authUserId || "unknown",
     });
 
@@ -320,7 +320,7 @@ export const getFinalizedPdfUrl = action({
   },
   handler: async (
     ctx,
-    args,
+    args
   ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string } | null> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     const canView =
@@ -341,9 +341,9 @@ export const getFinalizedPdfUrl = action({
     }
 
     return await buildDownloadFile(ctx, {
-      storageId: record.storageId,
       fileName: record.fileName,
       mimeType: "application/pdf",
+      storageId: record.storageId,
     });
   },
 });
@@ -354,7 +354,7 @@ export const getFinalizedPdfFile = action({
   },
   handler: async (
     ctx,
-    args,
+    args
   ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string } | null> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     const canView =
@@ -375,9 +375,9 @@ export const getFinalizedPdfFile = action({
     }
 
     return await buildDownloadFile(ctx, {
-      storageId: record.storageId,
       fileName: record.fileName,
       mimeType: "application/pdf",
+      storageId: record.storageId,
     });
   },
 });
@@ -398,7 +398,7 @@ export const removeFinalizedPdf = action({
 
     const normalizedProposalId = await ctx.runMutation(
       internal.crm.proposalAttachments.resolveProposalId,
-      { proposalId: args.proposalId },
+      { proposalId: args.proposalId }
     );
 
     const { previousStorageId } = await ctx.runMutation(internal.crm.proposals.clearFinalizedPdf, {

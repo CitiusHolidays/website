@@ -11,7 +11,7 @@ describe("proposalLinks", () => {
       proposalLinkedQueryIds({
         queryId: "legacy",
         queryIds: ["q1", "q2"],
-      }),
+      })
     ).toEqual(["q1", "q2"]);
   });
 
@@ -25,17 +25,17 @@ describe("proposalLinks", () => {
     expect(
       proposalLinkedQueryLabel({
         queries: [{ queryCode: "QY-1" }, { queryCode: "QY-2" }],
-      }),
+      })
     ).toBe("QY-1, QY-2");
   });
 
   test("uses primary query for pax and legacy single-query label", () => {
-    const primary = { queryCode: "QY-9", paxCount: 7 };
+    const primary = { paxCount: 7, queryCode: "QY-9" };
     expect(
       proposalPrimaryQuery({
-        query: primary,
         queries: [{ queryCode: "OTHER" }],
-      }),
+        query: primary,
+      })
     ).toBe(primary);
     expect(proposalLinkedQueryLabel({ query: primary })).toBe("QY-9");
     expect(proposalLinkedQueryLabel({})).toBe("-");

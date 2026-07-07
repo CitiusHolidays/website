@@ -12,8 +12,8 @@ function access(overrides: Partial<PortalAccess>): PortalAccess {
     allowed: true,
     email: "staff@citiusholidays.com",
     name: "Staff User",
-    roles: ["Ticketing"],
     permissions: [],
+    roles: ["Ticketing"],
     ...overrides,
   };
 }
@@ -22,9 +22,9 @@ describe("sales flow record visibility", () => {
   test("ticketing SPOC sees assigned query", () => {
     const staffId = "staff_ticketing" as Id<"staffUsers">;
     const viewer = access({
-      staffId,
-      roles: ["Ticketing"],
       permissions: ["view:queries", "view:proposals"],
+      roles: ["Ticketing"],
+      staffId,
     });
     const query = {
       queryCode: "Q-0001",
@@ -38,9 +38,9 @@ describe("sales flow record visibility", () => {
 
   test("ticketing user does not see unassigned queries", () => {
     const viewer = access({
-      staffId: "staff_ticketing" as Id<"staffUsers">,
-      roles: ["Ticketing"],
       permissions: ["view:queries", "view:proposals"],
+      roles: ["Ticketing"],
+      staffId: "staff_ticketing" as Id<"staffUsers">,
     });
     const query = {
       queryCode: "Q-0002",
@@ -53,8 +53,8 @@ describe("sales flow record visibility", () => {
 
   test("head of ticketing sees department queries", () => {
     const viewer = access({
-      roles: ["Head of Ticketing"],
       permissions: ["view:queries", "view:proposals"],
+      roles: ["Head of Ticketing"],
     });
     const query = {
       queryCode: "Q-0003",
@@ -68,9 +68,9 @@ describe("sales flow record visibility", () => {
   test("proposal visibility follows linked query assignment", () => {
     const staffId = "staff_ticketing" as Id<"staffUsers">;
     const viewer = access({
-      staffId,
-      roles: ["Ticketing"],
       permissions: ["view:queries", "view:proposals"],
+      roles: ["Ticketing"],
+      staffId,
     });
     const linkedQuery = {
       queryCode: "Q-0004",
@@ -79,8 +79,8 @@ describe("sales flow record visibility", () => {
       ticketingOwnerName: "Staff User",
     };
     const proposal = {
-      proposalCode: "P-0001",
       preparedBy: "Contracting User",
+      proposalCode: "P-0001",
     };
 
     expect(canSeeProposalRecord(viewer, proposal, linkedQuery)).toBe(true);
@@ -89,9 +89,9 @@ describe("sales flow record visibility", () => {
   test("ticketing SPOC can edit assigned proposal costing", () => {
     const staffId = "staff_ticketing" as Id<"staffUsers">;
     const viewer = access({
-      staffId,
-      roles: ["Ticketing"],
       permissions: ["manage:proposals"],
+      roles: ["Ticketing"],
+      staffId,
     });
     const linkedQuery = {
       ticketingOwnerId: staffId,
@@ -104,8 +104,8 @@ describe("sales flow record visibility", () => {
 
   test("accounts head sees department queries", () => {
     const viewer = access({
-      roles: ["Accounts Head"],
       permissions: ["view:queries"],
+      roles: ["Accounts Head"],
     });
     const query = {
       queryCode: "Q-0005",

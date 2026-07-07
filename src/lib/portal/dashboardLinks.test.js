@@ -33,10 +33,10 @@ describe("dashboardLinks", () => {
   test("builds dashboard list urls with filters and deep-link params", () => {
     const url = parsed(
       buildDashboardListUrl({
-        view: "accounts-job-cards",
-        listFilters: { status: "Open" },
         deepLink: { open: "jobCard", queryId: "query_1" },
-      }),
+        listFilters: { status: "Open" },
+        view: "accounts-job-cards",
+      })
     );
 
     expect(url.pathname).toBe("/portal/accounts/job-cards");
@@ -48,23 +48,23 @@ describe("dashboardLinks", () => {
   test("prefers server-built urgent action hrefs", () => {
     expect(
       buildUrgentActionHref({
+        entityId: "invoice_1",
+        entityType: "invoice",
+        href: "/portal/finance",
         id: "invoice_1",
         type: "finance",
-        entityType: "invoice",
-        entityId: "invoice_1",
-        href: "/portal/finance",
-      }),
+      })
     ).toBe("/portal/finance");
   });
 
   test("falls back to notification-style urgent action links", () => {
     expect(
       buildUrgentActionHref({
+        entityId: "query_1",
+        entityType: "query",
         id: "query_1",
         type: "accounts",
-        entityType: "query",
-        entityId: "query_1",
-      }),
+      })
     ).toBe("/portal/accounts/job-cards?open=jobCard&queryId=query_1");
   });
 

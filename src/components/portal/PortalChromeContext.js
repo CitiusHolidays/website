@@ -29,10 +29,10 @@ export function PortalChromeSavedViewsSync({
 
   useEffect(() => {
     setSavedViewActions({
-      savedViews,
       applySavedView,
-      saveCurrentView,
       deleteSavedView,
+      saveCurrentView,
+      savedViews,
       toggleSavedViewFavorite,
     });
     return () => setSavedViewActions(null);

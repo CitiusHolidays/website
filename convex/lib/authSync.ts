@@ -86,8 +86,8 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
 
     await Promise.all(
       matchingProfiles.flatMap((duplicate) =>
-        duplicate._id !== profileByAuth._id ? [ctx.db.delete(duplicate._id)] : [],
-      ),
+        duplicate._id === profileByAuth._id ? [] : [ctx.db.delete(duplicate._id)]
+      )
     );
 
     return { linkedStaff, profileId: profileByAuth._id };
@@ -97,15 +97,15 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
     await ctx.db.patch(orphanedProfile._id, {
       authUserId,
       email: email || orphanedProfile.email,
-      name: pickProfileName(input.name, orphanedProfile),
       image: getIdentityImage(input.image) || orphanedProfile.image || "",
+      name: pickProfileName(input.name, orphanedProfile),
       updatedAt: now,
     });
 
     await Promise.all(
       matchingProfiles.flatMap((duplicate) =>
-        duplicate._id !== orphanedProfile._id ? [ctx.db.delete(duplicate._id)] : [],
-      ),
+        duplicate._id === orphanedProfile._id ? [] : [ctx.db.delete(duplicate._id)]
+      )
     );
 
     return { linkedStaff, profileId: orphanedProfile._id };
@@ -117,12 +117,12 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
 
   const profileId = await ctx.db.insert("userProfiles", {
     authUserId,
-    email,
-    name: pickProfileName(input.name, undefined),
-    phoneNumber: "",
-    passportDetailsEncrypted: "",
-    image: getIdentityImage(input.image),
     createdAt: now,
+    email,
+    image: getIdentityImage(input.image),
+    name: pickProfileName(input.name, undefined),
+    passportDetailsEncrypted: "",
+    phoneNumber: "",
     updatedAt: now,
   });
 

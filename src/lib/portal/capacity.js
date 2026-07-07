@@ -5,8 +5,12 @@ export const CAPACITY_THRESHOLDS = {
 };
 
 function severity(load) {
-  if (load >= CAPACITY_THRESHOLDS.overloaded) return "overloaded";
-  if (load >= CAPACITY_THRESHOLDS.busy) return "busy";
+  if (load >= CAPACITY_THRESHOLDS.overloaded) {
+    return "overloaded";
+  }
+  if (load >= CAPACITY_THRESHOLDS.busy) {
+    return "busy";
+  }
   return "normal";
 }
 
@@ -24,29 +28,29 @@ export function buildStaffCapacityRows({
     const activeSalesQueries = queries.filter(
       (row) =>
         String(row.salesOwnerId) === staffId &&
-        !["Order Confirmed", "Order Lost"].includes(row.salesStatus),
+        !["Order Confirmed", "Order Lost"].includes(row.salesStatus)
     ).length;
     const activeContractingQueries = queries.filter(
       (row) =>
         String(row.contractingOwnerId) === staffId &&
-        !["Order Confirmed", "Order Lost"].includes(row.salesStatus),
+        !["Order Confirmed", "Order Lost"].includes(row.salesStatus)
     ).length;
     const activeJobCards = jobCards.filter(
       (row) =>
         [row.contractingOwnerId, row.operationsOwnerId, row.ticketingOwnerId]
           .map(String)
-          .includes(staffId) && row.status !== "Closed",
+          .includes(staffId) && row.status !== "Closed"
     ).length;
     const ticketAttention = tickets.filter(
       (row) =>
         String(row.ownerId ?? row.ticketingOwnerId ?? "") === staffId &&
-        ["Name Change Required", "Reissue Required", "Refund Pending"].includes(row.ticketStatus),
+        ["Name Change Required", "Reissue Required", "Refund Pending"].includes(row.ticketStatus)
     ).length;
     const financeItems =
       invoices.filter((row) => (row.balanceAmount ?? 0) > 0).length +
       approvals.filter((row) => row.status === "Pending").length;
     const visaBlockers = visas.filter(
-      (row) => !["Approved", "Not Required"].includes(row.status),
+      (row) => !["Approved", "Not Required"].includes(row.status)
     ).length;
     const load =
       activeSalesQueries +
@@ -56,16 +60,16 @@ export function buildStaffCapacityRows({
       financeItems +
       visaBlockers;
     return {
-      id: staffId,
-      name: member.name,
-      roles: member.roles ?? [],
-      load,
-      severity: severity(load),
-      activeSalesQueries,
       activeContractingQueries,
       activeJobCards,
-      ticketAttention,
+      activeSalesQueries,
       financeItems,
+      id: staffId,
+      load,
+      name: member.name,
+      roles: member.roles ?? [],
+      severity: severity(load),
+      ticketAttention,
       visaBlockers,
     };
   });
@@ -75,10 +79,12 @@ export function buildRoleCapacitySummary(rows = []) {
   const byRole = new Map();
   for (const row of rows) {
     for (const role of row.roles ?? ["Unassigned"]) {
-      const current = byRole.get(role) ?? { role, staffCount: 0, load: 0, overloaded: 0 };
+      const current = byRole.get(role) ?? { load: 0, overloaded: 0, role, staffCount: 0 };
       current.staffCount += 1;
       current.load += row.load;
-      if (row.severity === "overloaded") current.overloaded += 1;
+      if (row.severity === "overloaded") {
+        current.overloaded += 1;
+      }
       byRole.set(role, current);
     }
   }

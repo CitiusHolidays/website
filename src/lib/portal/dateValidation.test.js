@@ -4,10 +4,10 @@ import { assertDateRangeOrder, getDateRangeError, isIsoDate } from "./dateValida
 describe("dateValidation", () => {
   test("detects inverted ISO date ranges", () => {
     expect(getDateRangeError("2026-06-04", "2026-01-01")).toBe(
-      "Start date must be on or before End date.",
+      "Start date must be on or before End date."
     );
     expect(
-      getDateRangeError("2026-06-04", "2026-01-01", { startLabel: "From", endLabel: "To" }),
+      getDateRangeError("2026-06-04", "2026-01-01", { endLabel: "To", startLabel: "From" })
     ).toBe("From must be on or before To.");
   });
 
@@ -19,9 +19,9 @@ describe("dateValidation", () => {
   test("assertDateRangeOrder throws on invalid ranges", () => {
     expect(() =>
       assertDateRangeOrder("2026-06-04", "2026-01-01", {
-        startLabel: "Travel start date",
         endLabel: "Travel end date",
-      }),
+        startLabel: "Travel start date",
+      })
     ).toThrow("Travel start date must be on or before Travel end date.");
   });
 

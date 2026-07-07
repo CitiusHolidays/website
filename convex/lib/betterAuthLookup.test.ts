@@ -6,13 +6,13 @@ describe("authAccountSummary", () => {
     expect(
       authAccountSummary([
         { providerId: "google" },
-        { providerId: "credential", password: "hashed" },
-      ]),
+        { password: "hashed", providerId: "credential" },
+      ])
     ).toEqual({ hasCredential: true, hasGoogle: true });
   });
 
   test("treats credential without password as no email login", () => {
-    expect(authAccountSummary([{ providerId: "credential", password: null }])).toEqual({
+    expect(authAccountSummary([{ password: null, providerId: "credential" }])).toEqual({
       hasCredential: false,
       hasGoogle: false,
     });

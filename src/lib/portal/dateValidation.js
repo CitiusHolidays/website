@@ -14,12 +14,16 @@ export function isIsoDate(value) {
 export function getDateRangeError(
   start,
   end,
-  { startLabel = "Start date", endLabel = "End date" } = {},
+  { startLabel = "Start date", endLabel = "End date" } = {}
 ) {
   const from = String(start ?? "").trim();
   const to = String(end ?? "").trim();
-  if (!from || !to) return null;
-  if (!isIsoDate(from) || !isIsoDate(to)) return null;
+  if (!(from && to)) {
+    return null;
+  }
+  if (!(isIsoDate(from) && isIsoDate(to))) {
+    return null;
+  }
   if (from > to) {
     return `${startLabel} must be on or before ${endLabel}.`;
   }

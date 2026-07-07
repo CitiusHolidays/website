@@ -34,32 +34,32 @@ export function PortalDateRangeFilter({
   return (
     <div className={`shrink-0 ${inlineError ? "" : "space-y-1"}`}>
       <div className={TOOLBAR_ROW_CLASS}>
-        <Calendar className="hidden size-4 shrink-0 text-brand-muted sm:block" aria-hidden />
-        <label htmlFor={fromId} className="flex shrink-0 items-center gap-2">
-          <span className="text-xs font-medium text-brand-muted">From</span>
+        <Calendar aria-hidden className="hidden size-4 shrink-0 text-brand-muted sm:block" />
+        <label className="flex shrink-0 items-center gap-2" htmlFor={fromId}>
+          <span className="font-medium text-brand-muted text-xs">From</span>
           <PortalDateInput
-            id={fromId}
-            value={normalized.from || ""}
-            onChange={(iso) => update("from", iso)}
-            inputClassName={inputClassName}
             aria-label="Filter from date"
+            id={fromId}
+            inputClassName={inputClassName}
+            onChange={(iso) => update("from", iso)}
+            value={normalized.from || ""}
           />
         </label>
-        <label htmlFor={toId} className="relative flex shrink-0 items-center gap-2">
-          <span className="text-xs font-medium text-brand-muted">To</span>
+        <label className="relative flex shrink-0 items-center gap-2" htmlFor={toId}>
+          <span className="font-medium text-brand-muted text-xs">To</span>
           <PortalDateInput
-            id={toId}
-            value={normalized.to || ""}
-            onChange={(iso) => update("to", iso)}
-            inputClassName={inputClassName}
-            aria-label="Filter to date"
-            aria-invalid={Boolean(rangeError)}
             aria-describedby={rangeError && inlineError ? `${toId}-error` : undefined}
+            aria-invalid={Boolean(rangeError)}
+            aria-label="Filter to date"
+            id={toId}
+            inputClassName={inputClassName}
+            onChange={(iso) => update("to", iso)}
+            value={normalized.to || ""}
           />
           {rangeError && inlineError ? (
             <span
+              className="absolute -bottom-5 left-8 whitespace-nowrap font-medium text-[11px] text-red-600"
               id={`${toId}-error`}
-              className="absolute -bottom-5 left-8 whitespace-nowrap text-[11px] font-medium text-red-600"
               role="alert"
             >
               {rangeError}
@@ -67,19 +67,19 @@ export function PortalDateRangeFilter({
           ) : null}
         </label>
         <button
-          type="button"
           className={`portal-small-btn shrink-0 whitespace-nowrap ${
             hasRange ? "" : "pointer-events-none invisible"
           }`}
+          disabled={!hasRange}
           onClick={() => setDateRange({ from: null, to: null })}
           tabIndex={hasRange ? 0 : -1}
-          disabled={!hasRange}
+          type="button"
         >
           Clear dates
         </button>
       </div>
       {rangeError && !inlineError ? (
-        <p className="text-xs font-medium text-red-600" role="alert">
+        <p className="font-medium text-red-600 text-xs" role="alert">
           {rangeError}
         </p>
       ) : null}

@@ -6,9 +6,7 @@ import { assertPaymentMutationSecret } from "./lib/paymentMutationAuth";
 
 const VALID_CURRENCIES = new Set(["INR", "USD"]);
 
-const getIdentity = async (ctx: QueryCtx | MutationCtx) => {
-  return await ctx.auth.getUserIdentity();
-};
+const getIdentity = async (ctx: QueryCtx | MutationCtx) => await ctx.auth.getUserIdentity();
 
 const getIdentityOrThrow = async (ctx: QueryCtx | MutationCtx) => {
   const identity = await getIdentity(ctx);
@@ -20,7 +18,7 @@ const getIdentityOrThrow = async (ctx: QueryCtx | MutationCtx) => {
 
 const resolveTrip = async (
   ctx: QueryCtx | MutationCtx,
-  tripIdentifier: string,
+  tripIdentifier: string
 ): Promise<Doc<"trips"> | null> => {
   const normalizedTripId = ctx.db.normalizeId("trips", tripIdentifier);
   if (normalizedTripId) {
@@ -45,48 +43,47 @@ const resolveTrip = async (
 };
 
 const toApiTrip = (trip: Doc<"trips">) => ({
-  id: trip._id,
-  name: trip.name,
-  slug: trip.slug,
-  description: trip.description ?? "",
-  startDate: trip.startDate,
-  endDate: trip.endDate,
-  totalSeats: trip.totalSeats,
   availableSeats: trip.availableSeats,
+  coverImage: trip.coverImage ?? "",
+  createdAt: new Date(trip.createdAt).toISOString(),
+  description: trip.description ?? "",
+  difficulty: trip.difficulty ?? "",
+  endDate: trip.endDate,
+  gallery: trip.gallery ?? [],
+  id: trip._id,
+  isActive: trip.isActive,
+  name: trip.name,
   priceInr: trip.priceInr,
   priceUsd: trip.priceUsd,
-  difficulty: trip.difficulty ?? "",
-  coverImage: trip.coverImage ?? "",
-  gallery: trip.gallery ?? [],
-  isActive: trip.isActive,
-  createdAt: new Date(trip.createdAt).toISOString(),
+  slug: trip.slug,
+  startDate: trip.startDate,
+  totalSeats: trip.totalSeats,
   updatedAt: new Date(trip.updatedAt).toISOString(),
 });
 
 const toApiBooking = (booking: Doc<"bookings">) => ({
+  confirmedAt: booking.confirmedAt ? new Date(booking.confirmedAt).toISOString() : null,
+  createdAt: new Date(booking.createdAt).toISOString(),
+  currency: booking.currency,
   id: booking._id,
-  userId: booking.userId,
-  tripId: booking.tripId,
-  status: booking.status,
+  notes: booking.notes ?? null,
   razorpayOrderId: booking.razorpayOrderId,
   razorpayPaymentId: booking.razorpayPaymentId,
   razorpaySignature: booking.razorpaySignature ?? null,
+  status: booking.status,
   totalAmount: booking.totalAmount,
-  currency: booking.currency,
-  travelers: booking.travelers,
   travelerDetails: booking.travelerDetails ?? null,
-  notes: booking.notes ?? null,
-  confirmedAt: booking.confirmedAt ? new Date(booking.confirmedAt).toISOString() : null,
-  createdAt: new Date(booking.createdAt).toISOString(),
+  travelers: booking.travelers,
+  tripId: booking.tripId,
   updatedAt: new Date(booking.updatedAt).toISOString(),
+  userId: booking.userId,
 });
 
-const getUserProfile = async (ctx: QueryCtx | MutationCtx, authUserId: string) => {
-  return await ctx.db
+const getUserProfile = async (ctx: QueryCtx | MutationCtx, authUserId: string) =>
+  await ctx.db
     .query("userProfiles")
     .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
     .unique();
-};
 
 const ensureValidCheckoutArgs = (travelers: number, currency: string) => {
   if (travelers < 1 || travelers > 10) {
@@ -115,9 +112,9 @@ const getBookingByPaymentId = async (ctx: QueryCtx | MutationCtx, paymentId: str
 
 export const prepareCheckout = query({
   args: {
-    tripIdentifier: v.string(),
-    travelers: v.number(),
     currency: v.string(),
+    travelers: v.number(),
+    tripIdentifier: v.string(),
   },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
@@ -135,29 +132,29 @@ export const prepareCheckout = query({
     const pricePerPerson = args.currency === "INR" ? trip.priceInr : trip.priceUsd;
 
     return {
-      user: {
-        id: identity.subject,
-        email: profile?.email ?? identity.email ?? "",
-        name: profile?.name ?? identity.name ?? "Traveler",
-        phoneNumber: profile?.phoneNumber ?? "",
-      },
-      trip: toApiTrip(trip),
-      travelers: args.travelers,
       currency: args.currency,
       pricePerPerson,
       totalAmount: pricePerPerson * args.travelers,
+      travelers: args.travelers,
+      trip: toApiTrip(trip),
+      user: {
+        email: profile?.email ?? identity.email ?? "",
+        id: identity.subject,
+        name: profile?.name ?? identity.name ?? "Traveler",
+        phoneNumber: profile?.phoneNumber ?? "",
+      },
     };
   },
 });
 
 export const createPendingBooking = mutation({
   args: {
-    tripIdentifier: v.string(),
-    travelers: v.number(),
     currency: v.string(),
+    notes: v.optional(v.string()),
     razorpayOrderId: v.string(),
     travelerDetails: v.optional(v.any()),
-    notes: v.optional(v.string()),
+    travelers: v.number(),
+    tripIdentifier: v.string(),
   },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
@@ -176,18 +173,18 @@ export const createPendingBooking = mutation({
     const timestamp = Date.now();
 
     const bookingId = await ctx.db.insert("bookings", {
-      userId: identity.subject,
-      tripId: trip._id,
-      status: "pending",
+      createdAt: timestamp,
+      currency: args.currency,
+      notes: args.notes ?? "",
       razorpayOrderId: args.razorpayOrderId,
       razorpayPaymentId: "",
+      status: "pending",
       totalAmount,
-      currency: args.currency,
-      travelers: args.travelers,
       travelerDetails: args.travelerDetails ?? null,
-      notes: args.notes ?? "",
-      createdAt: timestamp,
+      travelers: args.travelers,
+      tripId: trip._id,
       updatedAt: timestamp,
+      userId: identity.subject,
     });
 
     return {
@@ -195,8 +192,8 @@ export const createPendingBooking = mutation({
         id: bookingId,
         status: "pending",
       },
-      totalAmount,
       currency: args.currency,
+      totalAmount,
       trip: toApiTrip(trip),
     };
   },
@@ -219,7 +216,9 @@ export const getMyBookings = query({
     const trips = await Promise.all(rows.map((booking) => ctx.db.get(booking.tripId)));
     return rows.flatMap((booking, index) => {
       const trip = trips[index];
-      if (!trip) return [];
+      if (!trip) {
+        return [];
+      }
       return [
         {
           booking: toApiBooking(booking),
@@ -260,21 +259,21 @@ export const markBookingFailedById = mutation({
 
 export const confirmBookingByOrderIdHandler = async (
   ctx: MutationCtx,
-  args: { orderId: string; paymentId: string; signature?: string },
+  args: { orderId: string; paymentId: string; signature?: string }
 ) => {
   const booking = await getBookingByOrderId(ctx, args.orderId);
   if (!booking) {
     return {
-      success: false,
       message: "Booking not found for this order",
+      success: false,
     };
   }
 
   if (booking.status === "confirmed") {
     return {
-      success: true,
       alreadyConfirmed: true,
       booking: toApiBooking(booking),
+      success: true,
     };
   }
 
@@ -289,10 +288,10 @@ export const confirmBookingByOrderIdHandler = async (
   const timestamp = Date.now();
   await Promise.all([
     ctx.db.patch(booking._id, {
-      status: "confirmed",
+      confirmedAt: timestamp,
       razorpayPaymentId: args.paymentId,
       razorpaySignature: args.signature,
-      confirmedAt: timestamp,
+      status: "confirmed",
       updatedAt: timestamp,
     }),
     ctx.db.patch(trip._id, {
@@ -303,9 +302,9 @@ export const confirmBookingByOrderIdHandler = async (
 
   const updated = await ctx.db.get(booking._id);
   return {
-    success: true,
     alreadyConfirmed: false,
     booking: updated ? toApiBooking(updated) : null,
+    success: true,
   };
 };
 
@@ -313,8 +312,8 @@ export const confirmBookingByOrderId = mutation({
   args: {
     orderId: v.string(),
     paymentId: v.string(),
-    signature: v.optional(v.string()),
     serverSecret: v.string(),
+    signature: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     assertPaymentMutationSecret(args.serverSecret);
@@ -346,7 +345,7 @@ export const recordPaymentAuthorized = mutation({
 
 export const markPaymentFailedByOrderIdHandler = async (
   ctx: MutationCtx,
-  args: { orderId: string; paymentId?: string },
+  args: { orderId: string; paymentId?: string }
 ) => {
   const booking = await getBookingByOrderId(ctx, args.orderId);
   if (!booking) {
@@ -362,8 +361,8 @@ export const markPaymentFailedByOrderIdHandler = async (
   }
 
   await ctx.db.patch(booking._id, {
-    status: "failed",
     razorpayPaymentId: args.paymentId ?? booking.razorpayPaymentId,
+    status: "failed",
     updatedAt: Date.now(),
   });
 

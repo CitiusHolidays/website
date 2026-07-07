@@ -11,20 +11,20 @@ describe("urlFilterState", () => {
 
   test("round-trips search, dates, job card, and status filters", () => {
     const params = new URLSearchParams({
-      q: "acme",
-      from: "2026-01-01",
-      to: "2026-01-31",
-      jc: "job1",
-      f_salesStatus: "Inquiry",
       f_queryType: "MICE",
+      f_salesStatus: "Inquiry",
+      from: "2026-01-01",
+      jc: "job1",
+      q: "acme",
+      to: "2026-01-31",
     });
     const parsed = parseUrlFilterState(params, config);
     expect(parsed.search).toBe("acme");
     expect(parsed.dateRange).toEqual({ from: "2026-01-01", to: "2026-01-31" });
     expect(parsed.jobCardFilter).toBe("job1");
     expect(parsed.listFilters).toEqual({
-      salesStatus: "Inquiry",
       queryType: "MICE",
+      salesStatus: "Inquiry",
     });
 
     const serialized = serializeUrlFilterState(parsed, config);
@@ -49,13 +49,13 @@ describe("urlFilterState", () => {
     const incoming = new URLSearchParams("open=query&id=q1&q=acme");
     const serialized = serializeUrlFilterState(
       {
-        search: "acme",
         dateRange: { from: "", to: "" },
         jobCardFilter: "",
         listFilters: {},
+        search: "acme",
       },
       config,
-      { preserveDeepLink: true, searchParams: incoming },
+      { preserveDeepLink: true, searchParams: incoming }
     );
     expect(serialized.get("open")).toBe("query");
     expect(serialized.get("id")).toBe("q1");
@@ -65,19 +65,19 @@ describe("urlFilterState", () => {
   test("hasAnyFilterState detects active filters", () => {
     expect(
       hasAnyFilterState({
-        search: "",
         dateRange: { from: "", to: "" },
         jobCardFilter: "",
         listFilters: {},
-      }),
+        search: "",
+      })
     ).toBe(false);
     expect(
       hasAnyFilterState({
-        search: "acme",
         dateRange: { from: "", to: "" },
         jobCardFilter: "",
         listFilters: {},
-      }),
+        search: "acme",
+      })
     ).toBe(true);
   });
 });

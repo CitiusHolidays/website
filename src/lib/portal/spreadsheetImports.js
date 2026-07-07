@@ -211,48 +211,102 @@ function formatDateObject(value) {
 
 export function normalizeFoodPreference(value) {
   const key = headerKey(value);
-  if (!key) return "Veg";
-  if (key.includes("nonveg") || key.includes("nonvegetarian")) return "Non-Veg";
-  if (key.includes("jain")) return "Jain";
-  if (key.includes("vegan")) return "Vegan";
+  if (!key) {
+    return "Veg";
+  }
+  if (key.includes("nonveg") || key.includes("nonvegetarian")) {
+    return "Non-Veg";
+  }
+  if (key.includes("jain")) {
+    return "Jain";
+  }
+  if (key.includes("vegan")) {
+    return "Vegan";
+  }
   return "Veg";
 }
 
 export function normalizeRoomType(value, fallback = "Twin") {
   const key = headerKey(value);
-  if (!key) return fallback;
-  if (key.includes("single") || key === "sgl") return "Single";
-  if (key.includes("double") || key === "dbl") return "Double";
-  if (key.includes("triple") || key === "tpl") return "Triple";
-  if (key.includes("child")) return "Child with Bed";
-  if (key.includes("family")) return "Family Room";
-  if (key.includes("twin")) return "Twin";
+  if (!key) {
+    return fallback;
+  }
+  if (key.includes("single") || key === "sgl") {
+    return "Single";
+  }
+  if (key.includes("double") || key === "dbl") {
+    return "Double";
+  }
+  if (key.includes("triple") || key === "tpl") {
+    return "Triple";
+  }
+  if (key.includes("child")) {
+    return "Child with Bed";
+  }
+  if (key.includes("family")) {
+    return "Family Room";
+  }
+  if (key.includes("twin")) {
+    return "Twin";
+  }
   return fallback;
 }
 
 export function normalizePaymentType(value, fallback = "Company Paid") {
   const key = headerKey(value);
-  if (!key) return fallback;
-  if (key.includes("upgrade")) return "Upgraded Self Paid";
-  if (key.includes("self")) return "Self Paid";
-  if (key.includes("company")) return "Company Paid";
+  if (!key) {
+    return fallback;
+  }
+  if (key.includes("upgrade")) {
+    return "Upgraded Self Paid";
+  }
+  if (key.includes("self")) {
+    return "Self Paid";
+  }
+  if (key.includes("company")) {
+    return "Company Paid";
+  }
   return fallback;
 }
 
 export function normalizeVisaStatus(value) {
   const key = headerKey(value);
-  if (!key) return "";
-  if (key.includes("notrequired")) return "Not Required";
-  if (key.includes("checklist")) return "Checklist Shared";
-  if (key.includes("documentpending") || key.includes("docpending")) return "Documents Pending";
-  if (key.includes("documentverified") || key.includes("docverified")) return "Documents Verified";
-  if (key.includes("appointment")) return "Appointment Scheduled";
-  if (key.includes("submitted")) return "Submitted";
-  if (key.includes("awaiting")) return "Awaiting";
-  if (key.includes("approved")) return "Approved";
-  if (key.includes("rejected")) return "Rejected";
-  if (key.includes("reapplied") || key.includes("reapply")) return "Re-applied";
-  if (key.includes("notstarted") || key.includes("pending")) return "Not Started";
+  if (!key) {
+    return "";
+  }
+  if (key.includes("notrequired")) {
+    return "Not Required";
+  }
+  if (key.includes("checklist")) {
+    return "Checklist Shared";
+  }
+  if (key.includes("documentpending") || key.includes("docpending")) {
+    return "Documents Pending";
+  }
+  if (key.includes("documentverified") || key.includes("docverified")) {
+    return "Documents Verified";
+  }
+  if (key.includes("appointment")) {
+    return "Appointment Scheduled";
+  }
+  if (key.includes("submitted")) {
+    return "Submitted";
+  }
+  if (key.includes("awaiting")) {
+    return "Awaiting";
+  }
+  if (key.includes("approved")) {
+    return "Approved";
+  }
+  if (key.includes("rejected")) {
+    return "Rejected";
+  }
+  if (key.includes("reapplied") || key.includes("reapply")) {
+    return "Re-applied";
+  }
+  if (key.includes("notstarted") || key.includes("pending")) {
+    return "Not Started";
+  }
   return "";
 }
 
@@ -271,8 +325,12 @@ export function normalizeImportedDate(value) {
     }
   }
   const text = clean(value);
-  if (!text) return "";
-  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+  if (!text) {
+    return "";
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+    return text.slice(0, 10);
+  }
 
   const dotMatch = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
   if (dotMatch) {
@@ -329,9 +387,11 @@ function hasTicketingTemplateHeaders(row) {
 
 function fullNameFromTemplateRow(row, headers) {
   const fullName = clean(
-    getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"]),
+    getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"])
   );
-  if (fullName) return fullName;
+  if (fullName) {
+    return fullName;
+  }
   return [
     clean(getByHeader(row, headers, ["SURNAME", "Surname", "Last Name"])),
     clean(getByHeader(row, headers, ["GIVEN NAME", "Given Name", "First Name"])),
@@ -350,27 +410,29 @@ function templateNameParts(row, headers) {
       "Name As per Govt. ID Proof",
       "Passenger Name",
       "Full Name",
-    ]),
+    ])
   );
-  return { surname, givenName };
+  return { givenName, surname };
 }
 
 function passengerFullName(row, headers) {
   const name = clean(
-    getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"]),
+    getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"])
   );
   const surname = clean(getByHeader(row, headers, ["SURNAME", "Surname", "Last Name"]));
   const hasTicketingNameParts = Boolean(surname && name && headers.has(headerKey("SURNAME")));
-  if (hasTicketingNameParts) return [name, surname].filter(Boolean).join(" ");
+  if (hasTicketingNameParts) {
+    return [name, surname].filter(Boolean).join(" ");
+  }
   return name || surname;
 }
 
 function passengerNameParts(row, headers) {
   const surname = clean(getByHeader(row, headers, ["SURNAME", "Surname", "Last Name"]));
   const givenName = clean(
-    getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"]),
+    getByHeader(row, headers, ["Name As per Govt. ID Proof", "Passenger Name", "Full Name"])
   );
-  return { surname, givenName };
+  return { givenName, surname };
 }
 
 function adjacentCellByHeader(row, headers, header, offset = 1) {
@@ -380,33 +442,40 @@ function adjacentCellByHeader(row, headers, header, offset = 1) {
 
 function passengerTicketingFromRow(row, headers) {
   return {
+    domesticPnr: clean(getByHeader(row, headers, ["Domestic PNR"])),
+    domesticTicket: clean(getByHeader(row, headers, ["Domestic ticket", "Domestic Ticket"])),
+    domesticVendor: clean(adjacentCellByHeader(row, headers, "Domestic PNR")),
     internationalFare: clean(getByHeader(row, headers, ["International fare"])),
     internationalPnr: clean(getByHeader(row, headers, ["International PNR"])),
     internationalVendor: clean(adjacentCellByHeader(row, headers, "International PNR")),
-    domesticTicket: clean(getByHeader(row, headers, ["Domestic ticket", "Domestic Ticket"])),
-    domesticPnr: clean(getByHeader(row, headers, ["Domestic PNR"])),
-    domesticVendor: clean(adjacentCellByHeader(row, headers, "Domestic PNR")),
   };
 }
 
 function isPassportValidForTravel(value) {
   const key = headerKey(value);
-  if (!key) return null;
+  if (!key) {
+    return null;
+  }
   if (
     key === "no" ||
     key === "n" ||
     key.includes("invalid") ||
     key.includes("renewal") ||
     key.includes("expired")
-  )
+  ) {
     return false;
-  if (key === "yes" || key === "y" || key.includes("valid")) return true;
+  }
+  if (key === "yes" || key === "y" || key.includes("valid")) {
+    return true;
+  }
   return null;
 }
 
 function templateImportKey({ fullName, dateOfBirth, contactNo, passportNumber }) {
-  if (passportNumber) return `passport:${passportNumber.toUpperCase()}`;
-  return passengerImportKey({ fullName, dateOfBirth, contactNo });
+  if (passportNumber) {
+    return `passport:${passportNumber.toUpperCase()}`;
+  }
+  return passengerImportKey({ contactNo, dateOfBirth, fullName });
 }
 
 const TRAVEL_BATCH_HEADER_NAMES = ["Travel Batch", "Travel Batch Reference", "Batch Reference"];
@@ -418,13 +487,12 @@ function travelBatchHeaderIndex(headers) {
       return index;
     }
   }
-  return undefined;
 }
 
 function travelBatchReferenceFromRow(row, headers) {
   const index = travelBatchHeaderIndex(headers);
   if (index === undefined) {
-    return undefined;
+    return;
   }
   return clean(row[index]);
 }
@@ -433,20 +501,16 @@ function templateRowBase({ row, headers, sheetName, sourceRowNumber, importKind 
   const fullName = fullNameFromTemplateRow(row, headers);
   const nameParts = templateNameParts(row, headers);
   const dateOfBirth = normalizeImportedDate(
-    getByHeader(row, headers, ["Date of Birth As per passport", "Date of Birth", "DOB"]),
+    getByHeader(row, headers, ["Date of Birth As per passport", "Date of Birth", "DOB"])
   );
   const contactNo = clean(
-    getByHeader(row, headers, ["Contact Number", "Contact No.", "Contact No", "Mobile", "Phone"]),
+    getByHeader(row, headers, ["Contact Number", "Contact No.", "Contact No", "Mobile", "Phone"])
   );
   const passportNumber = clean(
-    getByHeader(row, headers, ["Passport Number", "Passport no", "Passport No.", "Passport no "]),
+    getByHeader(row, headers, ["Passport Number", "Passport no", "Passport No.", "Passport no "])
   );
   const passportIssueDate = normalizeImportedDate(
-    getByHeader(row, headers, [
-      "Passport Issue date",
-      "Passport Issus date",
-      "Passport Issue Date",
-    ]),
+    getByHeader(row, headers, ["Passport Issue date", "Passport Issus date", "Passport Issue Date"])
   );
   const passportExpiryDate = normalizeImportedDate(
     getByHeader(row, headers, [
@@ -454,10 +518,10 @@ function templateRowBase({ row, headers, sheetName, sourceRowNumber, importKind 
       "Passport Exp",
       "Passport Expiry",
       "Passport Expiry Date",
-    ]),
+    ])
   );
   const validForTravel = isPassportValidForTravel(
-    getByHeader(row, headers, ["PP Valid for Travel Yes /No", "PP Valid for Travel Yes/No"]),
+    getByHeader(row, headers, ["PP Valid for Travel Yes /No", "PP Valid for Travel Yes/No"])
   );
   const remarks = clean(
     getByHeader(row, headers, [
@@ -465,62 +529,58 @@ function templateRowBase({ row, headers, sheetName, sourceRowNumber, importKind 
       "Remarks",
       "REMARKS:  Expiry PP / Under Renewal",
       "Remarks ",
-    ]),
+    ])
   );
   const roomType = normalizeRoomType(
-    getByHeader(row, headers, ["ROOMING Category", "Rooming Category", "Room Type"]),
+    getByHeader(row, headers, ["ROOMING Category", "Rooming Category", "Room Type"])
   );
   const visaStatus = normalizeVisaStatus(
-    getByHeader(row, headers, ["Status Of Visa", "Visa Status", "Status"]),
+    getByHeader(row, headers, ["Status Of Visa", "Visa Status", "Status"])
   );
 
   return {
-    id: `${sheetName}:${sourceRowNumber}`,
-    sourceSheet: sheetName,
-    sourceRowNumber,
-    importKind,
-    importKey: templateImportKey({ fullName, dateOfBirth, contactNo, passportNumber }),
-    travelBatchReference: travelBatchReferenceFromRow(row, headers),
-    fullName,
-    surname: nameParts.surname,
-    givenName: nameParts.givenName,
-    travelHub: clean(getByHeader(row, headers, ["Hub", "Travel Hub"])),
-    foodPreference: normalizeFoodPreference(
-      getByHeader(row, headers, ["Meal", "Meal Preference", "Food Preference"]),
+    biometricAppointmentDate: normalizeImportedDate(
+      getByHeader(row, headers, ["Date of Appointmemt ", "Date of Appointment", "Appointment Date"])
     ),
+    contactNo,
+    domesticTravelRequired: false,
+    foodPreference: normalizeFoodPreference(
+      getByHeader(row, headers, ["Meal", "Meal Preference", "Food Preference"])
+    ),
+    fullName,
+    gender: normalizeTravellerGender(getByHeader(row, headers, ["Gender"])),
+    givenName: nameParts.givenName,
     guestType: "Client",
+    hotelAllocation: importKind === "rooming" ? roomType : "",
+    id: `${sheetName}:${sourceRowNumber}`,
+    importKey: templateImportKey({ contactNo, dateOfBirth, fullName, passportNumber }),
+    importKind,
+    passport: {
+      dateOfBirth,
+      expiryDate: passportExpiryDate,
+      issueDate: passportIssueDate,
+      nationality: "UNKNOWN",
+      number: passportNumber,
+    },
+    passportStatus: validForTravel === false ? "Pending" : passportNumber ? "Received" : "Pending",
     paymentType: normalizePaymentType(
-      getByHeader(row, headers, ["Company paid/ Self Paid", "Payment Type"]),
+      getByHeader(row, headers, ["Company paid/ Self Paid", "Payment Type"])
     ),
     roomType,
-    visaRequired: visaStatus ? visaStatus !== "Not Required" : true,
-    domesticTravelRequired: false,
-    passportStatus: validForTravel === false ? "Pending" : passportNumber ? "Received" : "Pending",
-    specialRequests: remarks,
-    hotelAllocation: importKind === "rooming" ? roomType : "",
     sourceDealerCode: clean(getByHeader(row, headers, ["Branch Code", "Code", "Dealer Code"])),
     sourceDealerName: clean(getByHeader(row, headers, ["Dealer Name", "Name"])),
     sourceDescription: clean(getByHeader(row, headers, ["Branch", "Branch "])),
-    sourceSoName: clean(getByHeader(row, headers, ["Base Location", "Base"])),
+    sourceRowNumber,
     sourceRsoName: clean(getByHeader(row, headers, ["Airlines", "Airline"])),
-    gender: normalizeTravellerGender(getByHeader(row, headers, ["Gender"])),
-    contactNo,
-    passport: {
-      number: passportNumber,
-      dateOfBirth,
-      issueDate: passportIssueDate,
-      expiryDate: passportExpiryDate,
-      nationality: "UNKNOWN",
-    },
-    visaStatus: visaStatus || undefined,
-    biometricAppointmentDate: normalizeImportedDate(
-      getByHeader(row, headers, [
-        "Date of Appointmemt ",
-        "Date of Appointment",
-        "Appointment Date",
-      ]),
-    ),
+    sourceSheet: sheetName,
+    sourceSoName: clean(getByHeader(row, headers, ["Base Location", "Base"])),
+    specialRequests: remarks,
+    surname: nameParts.surname,
+    travelBatchReference: travelBatchReferenceFromRow(row, headers),
+    travelHub: clean(getByHeader(row, headers, ["Hub", "Travel Hub"])),
     visaNotes: clean(getByHeader(row, headers, ["Remarks ", "Visa Remarks", "Notes"])),
+    visaRequired: visaStatus ? visaStatus !== "Not Required" : true,
+    visaStatus: visaStatus || undefined,
   };
 }
 
@@ -545,26 +605,30 @@ function parseTemplateWorkbook(workbook, { importKind, preferredSheetNames, requ
   const seenPassengerKeys = new Set();
   const preferred = new Set(preferredSheetNames.map(headerKey));
   const matchingSheetNames = workbook.SheetNames.filter((sheetName) =>
-    preferred.has(headerKey(sheetName)),
+    preferred.has(headerKey(sheetName))
   );
   const sheetNames = matchingSheetNames.length > 0 ? matchingSheetNames : workbook.SheetNames;
 
   for (const sheetName of sheetNames) {
     const rawRows = sheetRows(workbook.Sheets[sheetName] ?? []);
     const headerIndex = findRowIndex(rawRows, (row) => hasTemplateHeaders(row, requiredHeaders));
-    if (headerIndex < 0) continue;
+    if (headerIndex < 0) {
+      continue;
+    }
 
     const headers = rowToHeaderMap(rawRows[headerIndex]);
     rawRows.slice(headerIndex + 1).forEach((row, offset) => {
       const sourceRowNumber = headerIndex + offset + 2;
-      if (!hasAnyValue(row)) return;
-      const parsed = templateRowBase({ row, headers, sheetName, sourceRowNumber, importKind });
+      if (!hasAnyValue(row)) {
+        return;
+      }
+      const parsed = templateRowBase({ headers, importKind, row, sheetName, sourceRowNumber });
       if (!parsed.fullName) {
         errors.push({
           id: parsed.id,
-          sourceSheet: sheetName,
-          sourceRowNumber,
           message: "Row is missing SURNAME/GIVEN NAME or passenger name.",
+          sourceRowNumber,
+          sourceSheet: sheetName,
         });
         return;
       }
@@ -574,12 +638,12 @@ function parseTemplateWorkbook(workbook, { importKind, preferredSheetNames, requ
         : `row:${parsed.importKey}`;
       if (seenPassengerKeys.has(duplicateKey)) {
         skipped.push({
-          id: parsed.id,
-          sourceSheet: sheetName,
-          sourceRowNumber,
           fullName: parsed.fullName,
-          status: "Duplicate",
+          id: parsed.id,
           reason: "Duplicate passenger row already included in this upload.",
+          sourceRowNumber,
+          sourceSheet: sheetName,
+          status: "Duplicate",
         });
         return;
       }
@@ -588,7 +652,7 @@ function parseTemplateWorkbook(workbook, { importKind, preferredSheetNames, requ
     });
   }
 
-  return { rows, skipped, errors };
+  return { errors, rows, skipped };
 }
 
 export function parseRoomingWorkbook(workbook) {
@@ -632,7 +696,9 @@ export function parsePassengerWorkbook(workbook) {
   for (const sheetName of workbook.SheetNames) {
     const rawRows = sheetRows(workbook.Sheets[sheetName] ?? []);
     const headerIndex = findRowIndex(rawRows, hasPassengerHeaders);
-    if (headerIndex < 0) continue;
+    if (headerIndex < 0) {
+      continue;
+    }
 
     const isTicketingTemplate = hasTicketingTemplateHeaders(rawRows[headerIndex]);
     const headers = rowToHeaderMap(rawRows[headerIndex]);
@@ -645,33 +711,35 @@ export function parsePassengerWorkbook(workbook) {
       const nameParts = passengerNameParts(row, headers);
       const sourceRef = `${sheetName}:${sourceRowNumber}`;
 
-      if (!fullName && !status) return;
+      if (!(fullName || status)) {
+        return;
+      }
       if (status !== "CONFIRMED") {
         skipped.push({
-          id: sourceRef,
-          sourceSheet: sheetName,
-          sourceRowNumber,
           fullName: fullName || clean(getByHeader(row, headers, ["Name"])),
-          status: status || "Blank",
+          id: sourceRef,
           reason: "Only CONFIRMED passenger rows are imported.",
+          sourceRowNumber,
+          sourceSheet: sheetName,
+          status: status || "Blank",
         });
         return;
       }
       if (!fullName) {
         errors.push({
           id: sourceRef,
-          sourceSheet: sheetName,
-          sourceRowNumber,
           message: "Confirmed row is missing Name As per Govt. ID Proof.",
+          sourceRowNumber,
+          sourceSheet: sheetName,
         });
         return;
       }
 
       const dateOfBirth = normalizeImportedDate(
-        getByHeader(row, headers, ["Date of Birth", "DOB"]),
+        getByHeader(row, headers, ["Date of Birth", "DOB"])
       );
       const contactNo = clean(
-        getByHeader(row, headers, ["Contact No.", "Contact No", "Mobile", "Phone"]),
+        getByHeader(row, headers, ["Contact No.", "Contact No", "Mobile", "Phone"])
       );
       const passportNumber = clean(
         getByHeader(row, headers, [
@@ -679,31 +747,31 @@ export function parsePassengerWorkbook(workbook) {
           "Passport no ",
           "Passport No.",
           "Passport Number",
-        ]),
+        ])
       );
       const passportExpiryDate = normalizeImportedDate(
-        getByHeader(row, headers, ["Passport Exp", "Passport Expiry", "Passport Expiry Date"]),
+        getByHeader(row, headers, ["Passport Exp", "Passport Expiry", "Passport Expiry Date"])
       );
       const passportIssueDate = normalizeImportedDate(
         getByHeader(row, headers, [
           "Passport Issus date",
           "Passport Issue Date",
           "Passport Issued Date",
-        ]),
+        ])
       );
 
-      const importKey = passengerImportKey({ fullName, dateOfBirth, contactNo });
+      const importKey = passengerImportKey({ contactNo, dateOfBirth, fullName });
       const duplicateKey = passportNumber
         ? `passport:${passportNumber.toUpperCase()}`
         : `row:${importKey}`;
       if (seenPassengerKeys.has(duplicateKey)) {
         skipped.push({
-          id: sourceRef,
-          sourceSheet: sheetName,
-          sourceRowNumber,
           fullName,
-          status,
+          id: sourceRef,
           reason: "Duplicate passenger row already included in this upload.",
+          sourceRowNumber,
+          sourceSheet: sheetName,
+          status,
         });
         return;
       }
@@ -712,60 +780,62 @@ export function parsePassengerWorkbook(workbook) {
       const ticketing = passengerTicketingFromRow(row, headers);
 
       rows.push({
-        id: sourceRef,
-        sourceSheet: sheetName,
-        sourceRowNumber,
-        importKind: "passenger",
-        importKey,
-        travelBatchReference: travelBatchReferenceFromRow(row, headers),
-        fullName,
-        surname: nameParts.surname,
-        givenName: nameParts.givenName,
-        travelHub: clean(getByHeader(row, headers, ["Boarding Airport", "Travel Hub"])),
-        foodPreference: normalizeFoodPreference(
-          getByHeader(row, headers, ["Meal Preference", "Food Preference"]),
+        contactNo,
+        domesticTravelRequired: Boolean(
+          ticketing.domesticTicket || ticketing.domesticPnr || ticketing.domesticVendor
         ),
+        foodPreference: normalizeFoodPreference(
+          getByHeader(row, headers, ["Meal Preference", "Food Preference"])
+        ),
+        fullName,
+        gender: normalizeTravellerGender(getByHeader(row, headers, ["Gender"])),
+        givenName: nameParts.givenName,
         guestType: "Client",
+        id: sourceRef,
+        importKey,
+        importKind: "passenger",
+        passport: {
+          dateOfBirth,
+          expiryDate: passportExpiryDate,
+          issueDate: passportIssueDate,
+          nationality: "UNKNOWN",
+          number: passportNumber,
+        },
+        passportStatus: passportNumber ? "Received" : "Pending",
         paymentType: "Company Paid",
         roomType: "Twin",
-        visaRequired: true,
-        domesticTravelRequired: Boolean(
-          ticketing.domesticTicket || ticketing.domesticPnr || ticketing.domesticVendor,
-        ),
-        passportStatus: passportNumber ? "Received" : "Pending",
-        specialRequests: clean(getByHeader(row, headers, ["REMARKS", "REMARKS 2", "Remarks"])),
         sourceDealerCode: clean(getByHeader(row, headers, ["Code", "Dealer Code"])),
         sourceDealerName: clean(getByHeader(row, headers, ["Name", "Dealer Name"])),
         sourceDescription: clean(getByHeader(row, headers, ["Description"])),
-        sourceSoName: clean(getByHeader(row, headers, ["SO Name"])),
-        sourceRsoName: clean(getByHeader(row, headers, ["RSO Name"])),
         sourceGroup: clean(getByHeader(row, headers, ["GROUP", "Group"])),
-        gender: normalizeTravellerGender(getByHeader(row, headers, ["Gender"])),
-        contactNo,
-        passport: {
-          number: passportNumber,
-          dateOfBirth,
-          issueDate: passportIssueDate,
-          expiryDate: passportExpiryDate,
-          nationality: "UNKNOWN",
-        },
+        sourceRowNumber,
+        sourceRsoName: clean(getByHeader(row, headers, ["RSO Name"])),
+        sourceSheet: sheetName,
+        sourceSoName: clean(getByHeader(row, headers, ["SO Name"])),
+        specialRequests: clean(getByHeader(row, headers, ["REMARKS", "REMARKS 2", "Remarks"])),
+        surname: nameParts.surname,
         ticketing,
+        travelBatchReference: travelBatchReferenceFromRow(row, headers),
+        travelHub: clean(getByHeader(row, headers, ["Boarding Airport", "Travel Hub"])),
+        visaRequired: true,
       });
     });
   }
 
-  return { rows, skipped, errors };
+  return { errors, rows, skipped };
 }
 
 function isFlightHeaderSlice(row, startIndex) {
   return FLIGHT_EXPORT_HEADER.every(
-    (header, offset) => headerKey(row[startIndex + offset]) === headerKey(header),
+    (header, offset) => headerKey(row[startIndex + offset]) === headerKey(header)
   );
 }
 
 function findFlightHeaderStart(row) {
   for (let index = 0; index <= row.length - FLIGHT_EXPORT_HEADER.length; index += 1) {
-    if (isFlightHeaderSlice(row, index)) return index;
+    if (isFlightHeaderSlice(row, index)) {
+      return index;
+    }
   }
   return -1;
 }
@@ -793,13 +863,13 @@ export function parseFlightWorkbook(workbook) {
       const headerStart = findFlightHeaderStart(row);
       if (headerStart >= 0) {
         current = {
-          id: `${sheetName}:${groupIndex + 1}`,
-          sourceSheet: sheetName,
           groupIndex,
           headerStart,
+          id: `${sheetName}:${groupIndex + 1}`,
           name: `${sheetName} itinerary ${groupIndex + 1}`,
-          travelBatchReference: pendingTravelBatchReference || undefined,
           segments: [],
+          sourceSheet: sheetName,
+          travelBatchReference: pendingTravelBatchReference || undefined,
         };
         pendingTravelBatchReference = "";
         groups.push(current);
@@ -807,7 +877,9 @@ export function parseFlightWorkbook(workbook) {
         return;
       }
 
-      if (!current) return;
+      if (!current) {
+        return;
+      }
       if (!hasAnyValue(row)) {
         current = null;
         return;
@@ -819,13 +891,15 @@ export function parseFlightWorkbook(workbook) {
       const flightNumber = clean(row[start + 2]);
       const sourceRowNumber = rowIndex + 1;
 
-      if (!dateLabel && !airline && !flightNumber) return;
+      if (!(dateLabel || airline || flightNumber)) {
+        return;
+      }
       if (!flightNumber) {
         errors.push({
           id: `${sheetName}:${sourceRowNumber}`,
-          sourceSheet: sheetName,
-          sourceRowNumber,
           message: "Flight row is missing Flight No.",
+          sourceRowNumber,
+          sourceSheet: sheetName,
         });
         return;
       }
@@ -834,11 +908,14 @@ export function parseFlightWorkbook(workbook) {
       const origin = clean(row[start + 4]);
       const destination = clean(row[start + 6]);
       current.segments.push({
+        airline,
+        arriveTime: formatTime(row[start + 5]),
+        dateLabel,
+        departTime: formatTime(row[start + 3]),
+        destination,
+        duration: clean(row[start + 7]),
+        flightNumber,
         id: `${sheetName}:${current.groupIndex + 1}:${segmentIndex + 1}`,
-        sourceSheet: sheetName,
-        sourceRowNumber,
-        sourceGroupIndex: current.groupIndex,
-        segmentIndex,
         importKey: [
           normalizedKey(sheetName),
           current.groupIndex,
@@ -848,24 +925,21 @@ export function parseFlightWorkbook(workbook) {
           normalizedKey(origin),
           normalizedKey(destination),
         ].join("|"),
-        dateLabel,
-        airline,
-        flightNumber,
-        departTime: formatTime(row[start + 3]),
         origin,
-        arriveTime: formatTime(row[start + 5]),
-        destination,
-        duration: clean(row[start + 7]),
+        segmentIndex,
+        sourceGroupIndex: current.groupIndex,
+        sourceRowNumber,
+        sourceSheet: sheetName,
         transit: clean(row[start + 8]),
       });
     });
   }
 
   return {
-    groups: groups.flatMap(({ headerStart, ...group }) =>
-      group.segments.length > 0 ? [group] : [],
-    ),
     errors,
+    groups: groups.flatMap(({ headerStart, ...group }) =>
+      group.segments.length > 0 ? [group] : []
+    ),
   };
 }
 
@@ -874,7 +948,9 @@ export function summarizeRoomTypes(rows) {
   const summary = {};
   for (const row of rows || []) {
     const roomType = String(row?.roomType ?? "").trim();
-    if (!roomType) continue;
+    if (!roomType) {
+      continue;
+    }
     summary[roomType] = (summary[roomType] ?? 0) + 1;
   }
   return summary;
@@ -882,7 +958,9 @@ export function summarizeRoomTypes(rows) {
 
 export function formatRoomSummaryText(summary, jobCode) {
   const entries = Object.entries(summary || {}).sort(([a], [b]) => a.localeCompare(b));
-  if (entries.length === 0) return "";
+  if (entries.length === 0) {
+    return "";
+  }
   const prefix = jobCode ? `${jobCode}: ` : "";
   const parts = entries.map(([roomType, count]) => `${roomType} ${count}`);
   return `${prefix}${parts.join(", ")}`;

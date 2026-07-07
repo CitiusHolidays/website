@@ -14,73 +14,73 @@ export default async function sitemap() {
   const posts = await client.fetch(postsQuery, {}, sanityFetchOptions.sitemap);
 
   const postUrls = posts.map((post) => ({
-    url: `${baseUrl}/blog/${post.slug}`,
-    lastModified: post._updatedAt,
     changeFrequency: "daily",
+    lastModified: post._updatedAt,
     priority: 0.5,
+    url: `${baseUrl}/blog/${post.slug}`,
   }));
 
   const spiritualTrailUrls = getTrailSlugsForStaticParams().map(({ slug }) => ({
-    url: `${baseUrl}/pilgrimage/${slug}`,
-    lastModified: new Date(),
     changeFrequency: "monthly",
+    lastModified: new Date(),
     priority: 0.55,
+    url: `${baseUrl}/pilgrimage/${slug}`,
   }));
 
   const staticUrls = [
     {
-      url: baseUrl,
-      lastModified: new Date(),
       changeFrequency: "yearly",
+      lastModified: new Date(),
       priority: 1,
+      url: baseUrl,
     },
     {
+      changeFrequency: "monthly",
+      lastModified: new Date(),
+      priority: 0.5,
       url: `${baseUrl}/about`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
     },
     {
+      changeFrequency: "monthly",
+      lastModified: new Date(),
+      priority: 0.5,
       url: `${baseUrl}/account`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
     },
     {
+      changeFrequency: "monthly",
+      lastModified: new Date(),
+      priority: 0.5,
       url: `${baseUrl}/contact`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
     },
     {
+      changeFrequency: "monthly",
+      lastModified: new Date(),
+      priority: 0.5,
       url: `${baseUrl}/gallery`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
     },
     {
+      changeFrequency: "monthly",
+      lastModified: new Date(),
+      priority: 0.5,
       url: `${baseUrl}/mice`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
     },
     {
+      changeFrequency: "monthly",
+      lastModified: new Date(),
+      priority: 0.5,
       url: `${baseUrl}/pilgrimage`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
     },
     {
-      url: `${baseUrl}/policies`,
-      lastModified: new Date(),
       changeFrequency: "monthly",
+      lastModified: new Date(),
       priority: 0.3,
+      url: `${baseUrl}/policies`,
     },
     {
-      url: `${baseUrl}/services`,
-      lastModified: new Date(),
       changeFrequency: "monthly",
+      lastModified: new Date(),
       priority: 0.5,
+      url: `${baseUrl}/services`,
     },
   ];
 

@@ -15,22 +15,22 @@ const SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js";
  */
 export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }) {
   const containerRef = useRef(null);
-  const callbacksRef = useRef({ onVerify, onExpire, onError });
+  const callbacksRef = useRef({ onError, onExpire, onVerify });
 
   useEffect(() => {
-    callbacksRef.current = { onVerify, onExpire, onError };
+    callbacksRef.current = { onError, onExpire, onVerify };
   }, [onVerify, onExpire, onError]);
 
   useEffect(() => {
-    if (!siteKey || !containerRef.current) {
-      return undefined;
+    if (!(siteKey && containerRef.current)) {
+      return;
     }
 
     const container = containerRef.current;
     let renderedWidgetId = null;
 
     const renderWidget = () => {
-      if (!container || !window.turnstile) {
+      if (!(container && window.turnstile)) {
         return;
       }
 
@@ -44,11 +44,11 @@ export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }
       }
 
       renderedWidgetId = window.turnstile.render(container, {
+        callback: (token) => callbacksRef.current.onVerify?.(token),
+        "error-callback": () => callbacksRef.current.onError?.(),
+        "expired-callback": () => callbacksRef.current.onExpire?.(),
         sitekey: siteKey,
         theme: "light",
-        callback: (token) => callbacksRef.current.onVerify?.(token),
-        "expired-callback": () => callbacksRef.current.onExpire?.(),
-        "error-callback": () => callbacksRef.current.onError?.(),
       });
     };
 
@@ -93,9 +93,9 @@ export default function TurnstileWidget({ siteKey, onVerify, onExpire, onError }
 
   return (
     <fieldset
-      ref={containerRef}
-      className="min-h-[65px] flex justify-center border-0 p-0 m-0 min-w-0"
       aria-label="Security check"
+      className="m-0 flex min-h-[65px] min-w-0 justify-center border-0 p-0"
+      ref={containerRef}
     />
   );
 }

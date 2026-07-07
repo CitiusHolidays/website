@@ -22,11 +22,10 @@ export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
 
   return (
     <DashboardPanel
-      title="Pipeline snapshot"
       action={
         <Link
+          className="font-bold text-citius-blue text-xs hover:underline"
           href="/portal/pipeline"
-          className="text-xs font-bold text-citius-blue hover:underline"
         >
           Open pipeline
         </Link>
@@ -35,7 +34,7 @@ export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
           <thead>
-            <tr className="border-b border-brand-border text-xs text-brand-muted">
+            <tr className="border-brand-border border-b text-brand-muted text-xs">
               <th className="py-2 pr-3 font-semibold">Stage</th>
               <th className="py-2 pr-3 font-semibold">Share</th>
               <th className="py-2 pr-3 text-right font-semibold">Queries</th>
@@ -56,11 +55,11 @@ export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
                       ? "bg-emerald-600"
                       : "bg-slate-400";
               return (
-                <tr key={row.stage} className="border-b border-brand-border/70 last:border-0">
+                <tr className="border-brand-border/70 border-b last:border-0" key={row.stage}>
                   <td className="py-2.5 pr-3">
                     <Link
-                      href={buildPipelineStageHref(row.stage, dateRange)}
                       className="inline-flex items-center gap-2 font-medium text-brand-dark hover:text-citius-blue"
+                      href={buildPipelineStageHref(row.stage, dateRange)}
                     >
                       <span className={`size-2 rounded-full ${dot}`} />
                       {row.stage}
@@ -74,16 +73,16 @@ export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
                           style={{ width: `${width}%` }}
                         />
                       </div>
-                      <span className="text-xs tabular-nums text-brand-muted">{share}%</span>
+                      <span className="text-brand-muted text-xs tabular-nums">{share}%</span>
                     </div>
                   </td>
-                  <td className="py-2.5 pr-3 text-right font-semibold tabular-nums text-brand-dark">
+                  <td className="py-2.5 pr-3 text-right font-semibold text-brand-dark tabular-nums">
                     {row.count}
                   </td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-brand-dark">
+                  <td className="py-2.5 pr-3 text-right text-brand-dark tabular-nums">
                     {formatMoney(row.value || 0).replace("INR ", "₹")}
                   </td>
-                  <td className="py-2.5 text-right tabular-nums text-brand-dark">
+                  <td className="py-2.5 text-right text-brand-dark tabular-nums">
                     {formatMoney(row.weighted || 0).replace("INR ", "₹")}
                   </td>
                 </tr>
@@ -91,7 +90,7 @@ export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
             })}
           </tbody>
           <tfoot>
-            <tr className="border-t border-brand-border text-sm font-bold text-brand-dark">
+            <tr className="border-brand-border border-t font-bold text-brand-dark text-sm">
               <td className="pt-5 pr-3">Total</td>
               <td className="pt-5 pr-3 text-brand-muted">—</td>
               <td className="pt-5 pr-3 text-right tabular-nums">{total}</td>

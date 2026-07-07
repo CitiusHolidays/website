@@ -6,45 +6,45 @@ import { MessageResponse } from "@/components/ai-elements/message";
 
 const CHATBOT_SUGGESTIONS = [
   {
+    icon: Building2,
+    label: "Corporate offsite or MICE planning",
     prompt:
       "We need a premium MICE programme for about 80 people. Can you outline what Citius typically handles and what details you would need from us?",
-    label: "Corporate offsite or MICE planning",
-    icon: Building2,
   },
   {
+    icon: Compass,
+    label: "Destination shortlist for a retreat",
     prompt:
       "Help me shortlist destinations for a leadership retreat in Q4. We want something premium, not too far from India, with strong hotels and experiences.",
-    label: "Destination shortlist for a retreat",
-    icon: Compass,
   },
   {
+    icon: Mountain,
+    label: "Kailash and spiritual trail programmes",
     prompt:
       "What should we know about Kailash Mansarovar and other spiritual trail options with Citius?",
-    label: "Kailash and spiritual trail programmes",
-    icon: Mountain,
   },
   {
+    icon: FileText,
+    label: "Hand off for a tailored proposal",
     prompt:
       "We are ready for a tailored proposal. What information should we share so the Citius team can take over?",
-    label: "Hand off for a tailored proposal",
-    icon: FileText,
   },
 ];
 
 function CuratingIndicator() {
   return (
     <span className="inline-flex items-center gap-2 text-brand-muted text-sm">
-      <span className="flex gap-1 items-center" aria-hidden="true">
+      <span aria-hidden="true" className="flex items-center gap-1">
         {[0, 0.2, 0.4].map((delay) => (
           <m.span
+            animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.2, 1] }}
+            className="size-1.5 rounded-full bg-brand-muted/60"
             key={delay}
-            className="size-1.5 bg-brand-muted/60 rounded-full"
-            animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
             transition={{
-              duration: 1,
-              repeat: Number.POSITIVE_INFINITY,
-              ease: "easeInOut",
               delay,
+              duration: 1,
+              ease: "easeInOut",
+              repeat: Number.POSITIVE_INFINITY,
             }}
           />
         ))}
@@ -69,25 +69,25 @@ function hasVisibleText(message) {
 export function ChatbotSuggestions({ onSelectPrompt }) {
   return (
     <m.div
-      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      className="mt-4 text-center"
+      initial={{ opacity: 0, y: 20 }}
       transition={{ delay: 0.1 }}
-      className="text-center mt-4"
     >
-      <h4 className="text-lg font-semibold text-brand-dark mb-2">Citius Concierge</h4>
-      <p className="text-sm text-brand-muted leading-relaxed max-w-xs mx-auto">
+      <h4 className="mb-2 font-semibold text-brand-dark text-lg">Citius Concierge</h4>
+      <p className="mx-auto max-w-xs text-brand-muted text-sm leading-relaxed">
         Premium travel guidance for MICE, curated destinations, spiritual trails, and handing you
         over to our specialists with a clear brief.
       </p>
       <div className="mt-5 space-y-2">
         {CHATBOT_SUGGESTIONS.map(({ prompt, label, icon: Icon }) => (
           <button
+            className="flex w-full items-start gap-3 rounded-xl border border-brand-border bg-white px-4 py-3 text-left text-brand-dark text-sm transition-colors hover:bg-gray-50"
             key={prompt}
-            type="button"
             onClick={() => onSelectPrompt(prompt)}
-            className="w-full text-left px-4 py-3 bg-white hover:bg-gray-50 border border-brand-border rounded-xl text-sm text-brand-dark transition-colors flex items-start gap-3"
+            type="button"
           >
-            <Icon size={16} className="text-citius-blue shrink-0 mt-0.5" aria-hidden="true" />
+            <Icon aria-hidden="true" className="mt-0.5 shrink-0 text-citius-blue" size={16} />
             <span className="min-w-0 break-words">{label}</span>
           </button>
         ))}
@@ -105,17 +105,17 @@ export function ChatbotMessageList({ messages, isLoading, errorMessage }) {
     <>
       {messages.map((message) => (
         <m.div
-          key={message.id}
-          initial={{ opacity: 0, y: 10, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.2 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
           className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+          key={message.id}
+          transition={{ duration: 0.2 }}
         >
           <div
-            className={`max-w-[96%] min-w-0 px-4 py-3 rounded-2xl ${
+            className={`min-w-0 max-w-[96%] rounded-2xl px-4 py-3 ${
               message.role === "user"
-                ? "bg-citius-blue text-white rounded-br-md shadow-sm ml-auto"
-                : "bg-gray-50 text-brand-dark border border-brand-border/60 rounded-bl-md shadow-sm mr-auto"
+                ? "ml-auto rounded-br-md bg-citius-blue text-white shadow-sm"
+                : "mr-auto rounded-bl-md border border-brand-border/60 bg-gray-50 text-brand-dark shadow-sm"
             }`}
           >
             {message.role === "assistant" &&
@@ -125,13 +125,13 @@ export function ChatbotMessageList({ messages, isLoading, errorMessage }) {
               <CuratingIndicator />
             ) : (
               getTextParts(message).map((part) => (
-                <div key={getMessagePartKey(message, part)} className="min-w-0 text-sm">
+                <div className="min-w-0 text-sm" key={getMessagePartKey(message, part)}>
                   {message.role === "user" ? (
-                    <div className="whitespace-pre-wrap leading-relaxed break-words">
+                    <div className="whitespace-pre-wrap break-words leading-relaxed">
                       {part.text}
                     </div>
                   ) : (
-                    <MessageResponse className="chatbot-formatted text-sm leading-relaxed break-words [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:text-brand-dark [&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:first:mt-0 [&_p]:mb-1.5 [&_p:last-child]:mb-0 [&_ul]:my-1 [&_ol]:my-1 [&_li]:mb-0.5">
+                    <MessageResponse className="chatbot-formatted break-words text-sm leading-relaxed [&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:font-semibold [&_h3]:text-brand-dark [&_h3]:text-sm [&_h3]:first:mt-0 [&_li]:mb-0.5 [&_ol]:my-1 [&_p:last-child]:mb-0 [&_p]:mb-1.5 [&_ul]:my-1">
                       {part.text}
                     </MessageResponse>
                   )}
@@ -143,22 +143,22 @@ export function ChatbotMessageList({ messages, isLoading, errorMessage }) {
       ))}
       {showCuratingBubble && (
         <m.div
-          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex justify-start"
+          initial={{ opacity: 0, y: 10 }}
         >
-          <div className="bg-gray-50 px-4 py-3 rounded-2xl rounded-bl-md border border-brand-border/60 shadow-sm mr-auto">
+          <div className="mr-auto rounded-2xl rounded-bl-md border border-brand-border/60 bg-gray-50 px-4 py-3 shadow-sm">
             <CuratingIndicator />
           </div>
         </m.div>
       )}
       {errorMessage && (
         <m.div
-          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex justify-start"
+          initial={{ opacity: 0, y: 10 }}
         >
-          <div className="bg-red-50 px-4 py-3 rounded-2xl rounded-bl-md border border-red-100 text-sm text-red-700 shadow-sm mr-auto">
+          <div className="mr-auto rounded-2xl rounded-bl-md border border-red-100 bg-red-50 px-4 py-3 text-red-700 text-sm shadow-sm">
             {errorMessage}
           </div>
         </m.div>

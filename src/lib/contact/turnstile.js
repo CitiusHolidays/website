@@ -16,22 +16,22 @@ export async function verifyTurnstileToken(token, remoteip) {
   }
 
   if (!token || typeof token !== "string") {
-    return { ok: false, error: "missing_token" };
+    return { error: "missing_token", ok: false };
   }
 
   try {
     const body = new URLSearchParams({
-      secret,
       response: token,
+      secret,
     });
     if (remoteip && remoteip !== "unknown") {
       body.set("remoteip", remoteip);
     }
 
     const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      method: "POST",
     });
 
     const result = await response.json();
@@ -44,10 +44,10 @@ export async function verifyTurnstileToken(token, remoteip) {
       ? result["error-codes"].join(",")
       : "verification_failed";
 
-    return { ok: false, error: codes };
+    return { error: codes, ok: false };
   } catch (err) {
     console.error("[contact] Turnstile verification error:", err);
-    return { ok: false, error: "verification_error" };
+    return { error: "verification_error", ok: false };
   }
 }
 

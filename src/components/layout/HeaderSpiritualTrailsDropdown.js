@@ -6,11 +6,10 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { getTrailsForHub } from "@/data/trails";
 
-export function SpiritualTrailsDropdown({ isScrolled, pathname }) {
+export function SpiritualTrailsDropdown({ isScrolled }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const trails = getTrailsForHub();
-  const isActive = pathname?.startsWith("/pilgrimage");
 
   useEffect(() => {
     const close = (e) => {
@@ -25,22 +24,22 @@ export function SpiritualTrailsDropdown({ isScrolled, pathname }) {
   return (
     <div className="relative" ref={ref}>
       <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={`relative px-4 py-2 text-sm font-medium transition-colors duration-200 flex items-center gap-1 rounded-full group overflow-hidden ${
+        className={`group relative flex items-center gap-1 overflow-hidden rounded-full px-4 py-2 font-medium text-sm transition-colors duration-200 ${
           isScrolled ? "text-slate-300 hover:text-white" : "text-white hover:text-white"
         }`}
+        onClick={() => setOpen((o) => !o)}
+        type="button"
       >
         <span className="relative z-10 flex items-center gap-1">
           Spiritual Trails
           <ChevronDown
-            size={14}
             className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            size={14}
           />
         </span>
         <m.div
-          className={`absolute inset-0 bg-white/10 rounded-full transition-opacity duration-200 pointer-events-none ${
-            isActive || open ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          className={`pointer-events-none absolute inset-0 rounded-full bg-white/10 transition-opacity duration-200 ${
+            open ? "opacity-100" : "opacity-0 group-hover:opacity-100"
           }`}
           layoutId="navHover"
         />
@@ -48,30 +47,30 @@ export function SpiritualTrailsDropdown({ isScrolled, pathname }) {
       <AnimatePresence>
         {open && (
           <m.div
-            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
+            className="absolute top-full left-0 z-50 mt-2 max-h-[min(70vh,420px)] w-72 overflow-y-auto rounded-xl border border-gray-100 bg-white py-2 shadow-xl"
             exit={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 top-full mt-2 w-72 py-2 bg-white rounded-xl shadow-xl border border-gray-100 z-50 max-h-[min(70vh,420px)] overflow-y-auto"
           >
             <Link
+              className="block px-4 py-2.5 font-heading font-medium text-gray-900 text-sm tracking-wide hover:bg-gray-50"
               href="/pilgrimage"
               onClick={() => setOpen(false)}
-              className="block px-4 py-2.5 text-sm text-gray-900 hover:bg-gray-50 font-heading font-medium tracking-wide"
             >
               All trails overview
             </Link>
-            <div className="border-t border-gray-100 my-1" />
+            <div className="my-1 border-gray-100 border-t" />
             {trails.map((t) => (
               <Link
-                key={t.slug}
+                className="block px-4 py-2 text-gray-600 text-sm hover:bg-gray-50"
                 href={`/pilgrimage/${t.slug}`}
+                key={t.slug}
                 onClick={() => setOpen(false)}
-                className="block px-4 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
                 <span className="line-clamp-2">{t.title}</span>
                 {t.status === "comingSoon" && (
-                  <span className="text-[10px] uppercase tracking-wider text-amber-700">
+                  <span className="text-[10px] text-amber-700 uppercase tracking-wider">
                     Coming soon
                   </span>
                 )}

@@ -6,7 +6,7 @@ import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 function assertValidTicketingScope(value) {
   const trimmed = String(value ?? "").trim();
   if (!trimmed) {
-    return undefined;
+    return;
   }
   if (!TICKETING_SCOPE_OPTIONS.includes(trimmed)) {
     throw new Error("Select a valid Ticketing Scope.");
@@ -18,7 +18,9 @@ const MAX_QUERY_NOTES_WORDS = 30;
 
 function countWords(value) {
   const trimmed = String(value ?? "").trim();
-  if (!trimmed) return 0;
+  if (!trimmed) {
+    return 0;
+  }
   return trimmed.split(/\s+/).length;
 }
 
@@ -31,7 +33,9 @@ function assertPositiveInt(value, label, { min = 1 } = {}) {
 
 function assertNonNegativeNumber(value, label) {
   const parsed = Number(value);
-  if (value === "" || value == null) return;
+  if (value === "" || value == null) {
+    return;
+  }
   if (!Number.isFinite(parsed) || parsed < 0) {
     throw new Error(`${label} cannot be negative.`);
   }
@@ -59,8 +63,8 @@ export function validateModalForm(modal, form, deps = {}) {
     assertPositiveInt(form.paxCount, "Pax count");
     assertMaxWords(form.notes, MAX_QUERY_NOTES_WORDS, "Notes");
     assertDateRangeOrder(form.travelStartDate, form.travelEndDate, {
-      startLabel: "Travel start date",
       endLabel: "Travel end date",
+      startLabel: "Travel start date",
     });
     assertNonNegativeNumber(form.budgetAmount, "Budget");
     const contractingStaffId = String(form.staffId ?? "").trim();
@@ -82,13 +86,13 @@ export function validateModalForm(modal, form, deps = {}) {
       assertNonNegativeNumber(form.roomCount, "Room count");
     }
     assertDateRangeOrder(form.travelStartDate, form.travelEndDate, {
-      startLabel: "Travel start date",
       endLabel: "Travel end date",
+      startLabel: "Travel start date",
     });
   }
 
   if (modal === "jobCard") {
-    if (!form.entityId && !String(form.queryId ?? "").trim()) {
+    if (!(form.entityId || String(form.queryId ?? "").trim())) {
       throw new Error("Select a confirmed query before opening a job card.");
     }
     assertPositiveInt(form.confirmedPax, "Confirmed pax");
@@ -96,8 +100,8 @@ export function validateModalForm(modal, form, deps = {}) {
       assertNonNegativeNumber(form.roomCount, "Room count");
     }
     assertDateRangeOrder(form.travelStartDate, form.travelEndDate, {
-      startLabel: "Travel start date",
       endLabel: "Travel end date",
+      startLabel: "Travel start date",
     });
   }
 
@@ -133,18 +137,18 @@ export function validateModalForm(modal, form, deps = {}) {
       throw new Error("Hotel name is required.");
     }
     assertDateRangeOrder(form.checkInDate, form.checkOutDate, {
-      startLabel: "Check-in date",
       endLabel: "Check-out date",
+      startLabel: "Check-in date",
     });
   }
 
   if (modal === "leave_create") {
-    if (!String(form.startDate ?? "").trim() || !String(form.endDate ?? "").trim()) {
+    if (!(String(form.startDate ?? "").trim() && String(form.endDate ?? "").trim())) {
       throw new Error("Start and end dates are required.");
     }
     assertDateRangeOrder(form.startDate, form.endDate, {
-      startLabel: "Leave start date",
       endLabel: "Leave end date",
+      startLabel: "Leave start date",
     });
     if (!String(form.reason ?? "").trim()) {
       throw new Error("Reason is required.");
@@ -152,19 +156,27 @@ export function validateModalForm(modal, form, deps = {}) {
   }
 
   if (modal === "assignContracting") {
-    if (!String(form.queryId ?? "").trim()) throw new Error("Select a query.");
-    if (!String(form.staffId ?? "").trim()) throw new Error("Select a contracting SPOC.");
+    if (!String(form.queryId ?? "").trim()) {
+      throw new Error("Select a query.");
+    }
+    if (!String(form.staffId ?? "").trim()) {
+      throw new Error("Select a contracting SPOC.");
+    }
   }
 
   if (modal === "assignQueryTicketing") {
-    if (!String(form.queryId ?? "").trim()) throw new Error("Select a query.");
+    if (!String(form.queryId ?? "").trim()) {
+      throw new Error("Select a query.");
+    }
     if (!String(form.ticketingStaffId ?? form.staffId ?? "").trim()) {
       throw new Error("Select a ticketing SPOC.");
     }
   }
 
   if (modal === "assignQueryTeams") {
-    if (!String(form.queryId ?? "").trim()) throw new Error("Select a query.");
+    if (!String(form.queryId ?? "").trim()) {
+      throw new Error("Select a query.");
+    }
     const contractingStaffId = String(form.staffId ?? "").trim();
     const ticketingStaffId = String(form.ticketingStaffId ?? "").trim();
     const ticketingScopeRaw = String(form.ticketingScope ?? "").trim();
@@ -181,7 +193,7 @@ export function validateModalForm(modal, form, deps = {}) {
       if (ticketingStaffId) {
         throw new Error("Only heads can assign ticketing SPOCs.");
       }
-    } else if (!contractingStaffId && !ticketingStaffId && !ticketingScopeRaw) {
+    } else if (!(contractingStaffId || ticketingStaffId || ticketingScopeRaw)) {
       throw new Error("Select a contracting SPOC, ticketing SPOC, or Ticketing Scope.");
     }
 
@@ -193,8 +205,12 @@ export function validateModalForm(modal, form, deps = {}) {
     modal === "assignOperationsOwner" ||
     modal === "assignTicketingOwner"
   ) {
-    if (!String(form.jobCardId ?? "").trim()) throw new Error("Select a job card.");
-    if (!String(form.staffId ?? "").trim()) throw new Error("Select a team member.");
+    if (!String(form.jobCardId ?? "").trim()) {
+      throw new Error("Select a job card.");
+    }
+    if (!String(form.staffId ?? "").trim()) {
+      throw new Error("Select a team member.");
+    }
   }
 
   if (modal === "salesDecision") {
@@ -205,7 +221,9 @@ export function validateModalForm(modal, form, deps = {}) {
   }
 
   if (modal === "pnr") {
-    if (!String(form.pnrCode ?? "").trim()) throw new Error("PNR code is required.");
+    if (!String(form.pnrCode ?? "").trim()) {
+      throw new Error("PNR code is required.");
+    }
     assertPositiveInt(form.totalSeats, "Total seats");
   }
 
@@ -213,8 +231,12 @@ export function validateModalForm(modal, form, deps = {}) {
     if (form.expenseType === "jobCard" && !String(form.jobCardId ?? "").trim()) {
       throw new Error("Select a job card.");
     }
-    if (!String(form.expenseDate ?? "").trim()) throw new Error("Expense date is required.");
-    if (!String(form.category ?? "").trim()) throw new Error("Select a category.");
+    if (!String(form.expenseDate ?? "").trim()) {
+      throw new Error("Expense date is required.");
+    }
+    if (!String(form.category ?? "").trim()) {
+      throw new Error("Select a category.");
+    }
     assertNonNegativeNumber(form.cardAmount, "Card amount");
     assertNonNegativeNumber(form.cashAmount, "Cash amount");
     assertNonNegativeNumber(form.epayAmount, "E-pay amount");
@@ -248,8 +270,12 @@ export function validateModalForm(modal, form, deps = {}) {
   }
 
   if (modal === "staff") {
-    if (!String(form.staffEmail ?? "").trim()) throw new Error("Email is required.");
-    if (!String(form.staffName ?? "").trim()) throw new Error("Name is required.");
+    if (!String(form.staffEmail ?? "").trim()) {
+      throw new Error("Email is required.");
+    }
+    if (!String(form.staffName ?? "").trim()) {
+      throw new Error("Name is required.");
+    }
   }
 
   if (modal === "queryStatus" && has(P.MANAGE_CONTRACTING)) {

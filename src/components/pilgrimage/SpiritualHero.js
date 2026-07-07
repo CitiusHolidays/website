@@ -6,28 +6,28 @@ import { useEffect, useState } from "react";
 
 const images = [
   {
-    src: "/gallery/spiritual/yoga-silhouette.webp",
     alt: "Inner Peace",
-    title: "Seek Stillness",
+    src: "/gallery/spiritual/yoga-silhouette.webp",
     subtitle: "A journey of silent transformation",
+    title: "Seek Stillness",
   },
   {
-    src: "/gallery/spiritual/varanasi-sunset.webp",
     alt: "Varanasi Sunset",
-    title: "Divine Connection",
+    src: "/gallery/spiritual/varanasi-sunset.webp",
     subtitle: "Where the soul meets the sacred",
+    title: "Divine Connection",
   },
   {
-    src: "/gallery/spiritual/scriptures.webp",
     alt: "Ancient Wisdom",
-    title: "Timeless Wisdom",
+    src: "/gallery/spiritual/scriptures.webp",
     subtitle: "Echoes of the eternal",
+    title: "Timeless Wisdom",
   },
   {
-    src: "/gallery/spiritual/damru-hand.webp",
     alt: "Shiva's Drum",
-    title: "Cosmic Rhythm",
+    src: "/gallery/spiritual/damru-hand.webp",
     subtitle: "The dance of creation and dissolution",
+    title: "Cosmic Rhythm",
   },
 ];
 
@@ -48,20 +48,20 @@ export default function SpiritualHero() {
       {/* Background Slideshow */}
       <AnimatePresence initial={false}>
         <m.div
-          key={`img-${currentIndex}`}
-          initial={{ opacity: 0, scale: 1.1 }}
           animate={{ opacity: 0.6, scale: 1 }}
-          exit={{ opacity: 0 }}
-          transition={transitionConfig}
           className="absolute inset-0 z-0"
+          exit={{ opacity: 0 }}
+          initial={{ opacity: 0, scale: 1.1 }}
+          key={`img-${currentIndex}`}
+          transition={transitionConfig}
         >
           <Image
-            src={images[currentIndex].src}
             alt={images[currentIndex].alt}
-            fill
-            sizes="100vw"
             className="object-cover"
+            fill
             priority
+            sizes="100vw"
+            src={images[currentIndex].src}
           />
         </m.div>
       </AnimatePresence>
@@ -73,40 +73,40 @@ export default function SpiritualHero() {
       {/* Content */}
       <div className="relative z-20 flex h-full items-center justify-center px-6">
         <div className="max-w-4xl text-center">
-          <AnimatePresence mode="popLayout" initial={false}>
+          <AnimatePresence initial={false} mode="popLayout">
             <m.div
+              animate={{ filter: "blur(0px)", opacity: 1, y: 0 }}
+              exit={{ filter: "blur(10px)", opacity: 0, y: -30 }}
+              initial={{ filter: "blur(10px)", opacity: 0, y: 30 }}
               key={`text-${currentIndex}`}
-              initial={{ opacity: 0, y: 30, filter: "blur(10px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              exit={{ opacity: 0, y: -30, filter: "blur(10px)" }}
               transition={transitionConfig}
             >
               <m.span
-                initial={{ opacity: 0, letterSpacing: "0.2em" }}
-                animate={{ opacity: 1, letterSpacing: "0.5em" }}
-                className="mb-4 block text-xs font-medium uppercase tracking-[0.5em] text-citius-orange md:text-sm"
+                animate={{ letterSpacing: "0.5em", opacity: 1 }}
+                className="mb-4 block font-medium text-citius-orange text-xs uppercase tracking-[0.5em] md:text-sm"
+                initial={{ letterSpacing: "0.2em", opacity: 0 }}
               >
                 Citius Spiritual Trails
               </m.span>
 
-              <h1 className="font-heading mb-6 text-5xl font-bold tracking-tight text-white md:text-8xl">
+              <h1 className="mb-6 font-bold font-heading text-5xl text-white tracking-tight md:text-8xl">
                 {images[currentIndex].title}
               </h1>
 
-              <p className="font-sans text-xl italic text-white/80 md:text-3xl px-4">
+              <p className="px-4 font-sans text-white/80 text-xl italic md:text-3xl">
                 {images[currentIndex].subtitle}
               </p>
             </m.div>
           </AnimatePresence>
 
           <m.div
-            initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1, duration: 1 }}
             className="mt-12 flex flex-col items-center gap-6"
+            initial={{ opacity: 0 }}
+            transition={{ delay: 1, duration: 1 }}
           >
             <div className="h-24 w-px bg-linear-to-b from-citius-orange to-transparent" />
-            <p className="font-sans text-sm uppercase tracking-widest text-white/50">
+            <p className="font-sans text-sm text-white/50 uppercase tracking-widest">
               Scroll to Begin
             </p>
           </m.div>
@@ -114,23 +114,23 @@ export default function SpiritualHero() {
       </div>
 
       {/* Navigation Indicators */}
-      <div className="absolute bottom-12 right-12 z-20 flex gap-3">
+      <div className="absolute right-12 bottom-12 z-20 flex gap-3">
         {images.map((image, idx) => (
           <button
-            key={image.src}
-            type="button"
-            onClick={() => setCurrentIndex(idx)}
+            aria-label={`Go to slide ${idx + 1}`}
             className={`h-1 transition-all duration-500 ${
               idx === currentIndex ? "w-12 bg-citius-orange" : "w-4 bg-white/20 hover:bg-white/40"
             }`}
-            aria-label={`Go to slide ${idx + 1}`}
+            key={image.src}
+            onClick={() => setCurrentIndex(idx)}
+            type="button"
           />
         ))}
       </div>
 
       {/* Side Label */}
-      <div className="absolute left-12 top-1/2 z-20 hidden -translate-y-1/2 -rotate-90 origin-left md:block">
-        <p className="font-heading text-xs tracking-[1em] text-white/20 uppercase whitespace-nowrap">
+      <div className="absolute top-1/2 left-12 z-20 hidden origin-left -translate-y-1/2 -rotate-90 md:block">
+        <p className="whitespace-nowrap font-heading text-white/20 text-xs uppercase tracking-[1em]">
           The Journey Within
         </p>
       </div>

@@ -1,9 +1,9 @@
 "use client";
 
-import { m } from "motion/react";
 import { api } from "@convex/_generated/api";
 import { useMutation } from "convex/react";
 import { Compass } from "lucide-react";
+import { m } from "motion/react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useReducer } from "react";
@@ -17,29 +17,29 @@ const AUTH_CONTAINER_VARIANTS = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
       delayChildren: 0.2,
+      staggerChildren: 0.1,
     },
   },
 };
 
 const AUTH_ITEM_VARIANTS = {
-  hidden: { y: 20, opacity: 0 },
+  hidden: { opacity: 0, y: 20 },
   visible: {
-    y: 0,
     opacity: 1,
-    transition: { type: "spring", stiffness: 100, damping: 10 },
+    transition: { damping: 10, stiffness: 100, type: "spring" },
+    y: 0,
   },
 };
 
 function createAuthState({ allowSignup, initialMode, error }) {
   return {
-    mode: !allowSignup ? "signin" : initialMode === "signup" ? "signup" : "signin",
-    isLoading: false,
-    showPassword: false,
+    formData: { email: "", name: "", password: "" },
     formError: error || "",
-    formData: { email: "", password: "", name: "" },
+    isLoading: false,
     isVerificationSent: false,
+    mode: allowSignup ? (initialMode === "signup" ? "signup" : "signin") : "signin",
+    showPassword: false,
   };
 }
 
@@ -70,30 +70,32 @@ export function AuthLoginCredentials({
   const syncAuthIdentity = useMutation(api.authSync.syncMyAuthIdentity);
   const [state, dispatch] = useReducer(
     authReducer,
-    { variant, initialMode, error },
+    { error, initialMode, variant },
     ({ variant, initialMode, error }) =>
-      createAuthState({ allowSignup: variant.allowSignup, initialMode, error }),
+      createAuthState({ allowSignup: variant.allowSignup, error, initialMode })
   );
   const { mode, isLoading, showPassword, formError, formData, isVerificationSent } = state;
 
   const toggleMode = () => {
-    if (!variant.allowSignup) return;
+    if (!variant.allowSignup) {
+      return;
+    }
     dispatch({
-      type: "patch",
       patch: {
-        mode: mode === "signin" ? "signup" : "signin",
         formError: "",
+        mode: mode === "signin" ? "signup" : "signin",
       },
+      type: "patch",
     });
   };
 
   const handleInputChange = (e) => {
-    dispatch({ type: "setFormField", name: e.target.name, value: e.target.value });
+    dispatch({ name: e.target.name, type: "setFormField", value: e.target.value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    dispatch({ type: "patch", patch: { isLoading: true, formError: "" } });
+    dispatch({ patch: { formError: "", isLoading: true }, type: "patch" });
 
     try {
       if (mode === "signin") {
@@ -104,11 +106,11 @@ export function AuthLoginCredentials({
 
         if (result?.error) {
           dispatch({
-            type: "patch",
             patch: {
               formError: formatAuthApiError(result.error.message, result.error.code),
               isLoading: false,
             },
+            type: "patch",
           });
         } else {
           try {
@@ -122,89 +124,89 @@ export function AuthLoginCredentials({
       } else {
         const result = await signUpWithEmail({
           email: formData.email,
-          password: formData.password,
           name: formData.name,
+          password: formData.password,
         });
 
         if (result?.error) {
           dispatch({
-            type: "patch",
             patch: {
               formError: formatAuthApiError(result.error.message, result.error.code),
               isLoading: false,
             },
+            type: "patch",
           });
         } else {
-          dispatch({ type: "patch", patch: { isVerificationSent: true, isLoading: false } });
+          dispatch({ patch: { isLoading: false, isVerificationSent: true }, type: "patch" });
         }
       }
     } catch (err) {
       dispatch({
-        type: "patch",
         patch: { formError: err.message || "An unexpected error occurred", isLoading: false },
+        type: "patch",
       });
     }
   };
 
   const handleGoogleSignIn = async () => {
-    dispatch({ type: "patch", patch: { isLoading: true } });
+    dispatch({ patch: { isLoading: true }, type: "patch" });
     try {
       await signInWithGoogle(variant.href);
     } catch {
       dispatch({
-        type: "patch",
         patch: { formError: "Failed to initialize Google sign in", isLoading: false },
+        type: "patch",
       });
     }
   };
 
   return (
-    <div className="w-full md:w-1/2 lg:w-7/12 flex items-center justify-center p-6 md:p-12 relative">
+    <div className="relative flex w-full items-center justify-center p-6 md:w-1/2 md:p-12 lg:w-7/12">
       <m.div
+        animate="visible"
         className="w-full max-w-md"
         initial="hidden"
-        animate="visible"
         variants={AUTH_CONTAINER_VARIANTS}
       >
-        <div className="md:hidden mb-8 text-center">
+        <div className="mb-8 text-center md:hidden">
           <div className="mb-4 flex items-center justify-center">
             {isConnect ? (
               <Image
-                src={brandLogo}
                 alt={brandLogoAlt}
-                width={CITIUS_CONNECT_LOGO_WIDTH}
-                height={CITIUS_CONNECT_LOGO_HEIGHT}
                 className="h-11 w-auto max-w-[200px]"
+                height={CITIUS_CONNECT_LOGO_HEIGHT}
+                src={brandLogo}
+                width={CITIUS_CONNECT_LOGO_WIDTH}
               />
             ) : (
               <div className="flex items-center justify-center gap-2">
                 <Compass className="size-6 text-[#0B1026]" />
-                <span className="text-sm uppercase tracking-[0.2em] text-[#0B1026]">
+                <span className="text-[#0B1026] text-sm uppercase tracking-[0.2em]">
                   {copy.brandLabel}
                 </span>
               </div>
             )}
           </div>
-          {!isConnect ? (
+          {isConnect ? null : (
             <h1 className="font-heading text-4xl text-[#0B1026]">{copy.mobileTitle}</h1>
-          ) : null}
+          )}
         </div>
 
-        <m.div variants={AUTH_ITEM_VARIANTS} className="mb-8">
-          <h2 className="font-heading text-4xl md:text-5xl text-[#0B1026] mb-3">
+        <m.div className="mb-8" variants={AUTH_ITEM_VARIANTS}>
+          <h2 className="mb-3 font-heading text-4xl text-[#0B1026] md:text-5xl">
             {mode === "signin" ? copy.signInTitle : copy.signUpTitle}
           </h2>
-          <p className="text-[#0B1026]/60 font-light text-lg">
+          <p className="font-light text-[#0B1026]/60 text-lg">
             {mode === "signin" ? copy.signInSubtitle : copy.signUpSubtitle}
           </p>
         </m.div>
 
-        <m.div variants={AUTH_ITEM_VARIANTS} className="space-y-4 mb-8">
+        <m.div className="mb-8 space-y-4" variants={AUTH_ITEM_VARIANTS}>
           <button
-            type="button"
-            onClick={handleGoogleSignIn}
+            className="group flex w-full items-center justify-center gap-3 rounded-xl border border-[#e2e8f0] bg-white p-4 text-[#0f172a] shadow-sm transition-all duration-300 hover:border-[#cbd5e1] hover:bg-[#f8fafc] hover:shadow-md"
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] hover:border-[#cbd5e1] text-[#0f172a] p-4 rounded-xl transition-all duration-300 group shadow-sm hover:shadow-md"
+            onClick={handleGoogleSignIn}
+            type="button"
           >
             <svg className="size-5 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
               <path
@@ -228,11 +230,11 @@ export function AuthLoginCredentials({
           </button>
 
           <div className="relative flex items-center py-2">
-            <div className="grow border-t border-[#e2e8f0]"></div>
-            <span className="shrink-0 mx-4 text-[#94a3b8] text-sm font-light uppercase tracking-wider">
+            <div className="grow border-[#e2e8f0] border-t" />
+            <span className="mx-4 shrink-0 font-light text-[#94a3b8] text-sm uppercase tracking-wider">
               Or continue with
             </span>
-            <div className="grow border-t border-[#e2e8f0]"></div>
+            <div className="grow border-[#e2e8f0] border-t" />
           </div>
         </m.div>
 
@@ -241,26 +243,26 @@ export function AuthLoginCredentials({
             email={formData.email}
             onBackToSignIn={() => {
               dispatch({
-                type: "patch",
                 patch: { isVerificationSent: false, mode: "signin" },
+                type: "patch",
               });
             }}
           />
         ) : (
           <AuthLoginForm
-            variant={variant}
             copy={copy}
-            mode={mode}
             formData={formData}
             formError={formError}
             isLoading={isLoading}
-            showPassword={showPassword}
+            mode={mode}
             onInputChange={handleInputChange}
             onSubmit={handleSubmit}
-            onTogglePassword={() =>
-              dispatch({ type: "patch", patch: { showPassword: !showPassword } })
-            }
             onToggleMode={toggleMode}
+            onTogglePassword={() =>
+              dispatch({ patch: { showPassword: !showPassword }, type: "patch" })
+            }
+            showPassword={showPassword}
+            variant={variant}
           />
         )}
       </m.div>

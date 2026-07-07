@@ -51,14 +51,18 @@ export function useEntityModalLinking({
 
   const handleJobQuerySelect = (queryId) => {
     if (!queryId) {
-      patchForm({ queryId: "", proposalId: "" });
+      patchForm({ proposalId: "", queryId: "" });
       return;
     }
     const linkedQuery = queries.find((query) => query.id === queryId);
     const patch = applyQueryLink(form, linkedQuery);
     const linkedProposal = proposals.reduce((latest, proposal) => {
-      if (!proposalLinkedQueryIds(proposal).includes(queryId)) return latest;
-      if (!latest) return proposal;
+      if (!proposalLinkedQueryIds(proposal).includes(queryId)) {
+        return latest;
+      }
+      if (!latest) {
+        return proposal;
+      }
       return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
     }, null);
     patch.proposalId = linkedProposal?.id || "";
@@ -88,7 +92,7 @@ export function useEntityModalLinking({
       const linkedJob = jobCards.find((job) => job.id === linkedTraveller.jobCardId);
       Object.assign(
         patch,
-        applyJobCardLink({ ...form, ...patch }, linkedJob, modal, { onlyEmpty: true }),
+        applyJobCardLink({ ...form, ...patch }, linkedJob, modal, { onlyEmpty: true })
       );
     }
     patchForm({
@@ -113,16 +117,16 @@ export function useEntityModalLinking({
   const handleVisaRecordSelect = (visaRecordId) => {
     const linkedVisa = visas.find((visa) => visa.id === visaRecordId);
     patchForm(
-      linkedVisa ? applyVisaRecordLink(form, linkedVisa) : { visaRecordId: visaRecordId || "" },
+      linkedVisa ? applyVisaRecordLink(form, linkedVisa) : { visaRecordId: visaRecordId || "" }
     );
   };
   return {
-    handleStaffSelect,
-    handleProposalQuerySelect,
-    handleJobQuerySelect,
     handleJobCardSelect,
-    handleTravellerSelect,
+    handleJobQuerySelect,
     handlePnrSelect,
+    handleProposalQuerySelect,
+    handleStaffSelect,
+    handleTravellerSelect,
     handleVisaRecordSelect,
   };
 }

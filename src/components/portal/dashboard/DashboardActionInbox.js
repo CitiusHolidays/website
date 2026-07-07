@@ -6,9 +6,9 @@ import { DashboardEmpty, DashboardPanel } from "./DashboardPanel";
 import { formatRelativeTime } from "./utils";
 
 const GROUP_LABELS = {
+  accounts: "Accounts",
   approvals: "Approvals",
   finance: "Finance",
-  accounts: "Accounts",
   ticketing: "Ticketing",
 };
 
@@ -20,12 +20,12 @@ export function DashboardActionInbox({ actions, dateRange }) {
   if (!actions?.length) {
     return (
       <DashboardPanel
-        title="Action inbox"
         action={
-          <Link href={viewAllHref} className="text-xs font-bold text-citius-blue hover:underline">
+          <Link className="font-bold text-citius-blue text-xs hover:underline" href={viewAllHref}>
             View all
           </Link>
         }
+        title="Action inbox"
       >
         <DashboardEmpty label="You're clear — no urgent actions right now." />
       </DashboardPanel>
@@ -34,9 +34,8 @@ export function DashboardActionInbox({ actions, dateRange }) {
 
   return (
     <DashboardPanel
-      title="Action inbox"
       action={
-        <Link href={viewAllHref} className="text-xs font-bold text-citius-blue hover:underline">
+        <Link className="font-bold text-citius-blue text-xs hover:underline" href={viewAllHref}>
           View all
         </Link>
       }
@@ -45,8 +44,8 @@ export function DashboardActionInbox({ actions, dateRange }) {
         {actions.slice(0, 5).map((item) => (
           <li key={item.id}>
             <Link
+              className="group grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
               href={buildUrgentActionHref(item)}
-              className="group grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citius-blue"
             >
               <span
                 className={`mt-0.5 size-2 rounded-full ${
@@ -54,14 +53,14 @@ export function DashboardActionInbox({ actions, dateRange }) {
                 }`}
               />
               <span className="min-w-0">
-                <span className="block text-[11px] font-bold uppercase tracking-wide text-brand-muted">
+                <span className="block font-bold text-[11px] text-brand-muted uppercase tracking-wide">
                   {GROUP_LABELS[item.type] || item.type}
                 </span>
                 <span className="mt-0.5 block truncate font-medium text-brand-dark group-hover:text-citius-blue">
                   {item.label}
                 </span>
               </span>
-              <span className="text-xs tabular-nums text-brand-muted">
+              <span className="text-brand-muted text-xs tabular-nums">
                 {formatRelativeTime(item.createdAt)}
               </span>
             </Link>

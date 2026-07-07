@@ -15,23 +15,23 @@ export default function BadgeShelf() {
         const earned = earnedIds.has(trail.badgeId);
         return (
           <div
-            key={trail.badgeId}
             className={cn(
-              "rounded-xl border px-4 py-3 flex items-center gap-3",
+              "flex items-center gap-3 rounded-xl border px-4 py-3",
               earned
                 ? "border-citius-orange/30 bg-citius-orange/5"
-                : "border-brand-light bg-brand-light/20 opacity-60",
+                : "border-brand-light bg-brand-light/20 opacity-60"
             )}
+            key={trail.badgeId}
           >
-            <span className="text-xl" aria-hidden>
+            <span aria-hidden className="text-xl">
               {trail.emoji}
             </span>
             <div className="min-w-0">
-              <p className="font-heading text-sm text-brand-dark flex items-center gap-1">
+              <p className="flex items-center gap-1 font-heading text-brand-dark text-sm">
                 {trail.badgeName}
                 {earned && <Award className="size-3.5 text-citius-orange" />}
               </p>
-              <p className="text-xs text-brand-muted truncate">{trail.title}</p>
+              <p className="truncate text-brand-muted text-xs">{trail.title}</p>
             </div>
           </div>
         );

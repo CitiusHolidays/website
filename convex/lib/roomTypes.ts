@@ -10,11 +10,11 @@ const ROOM_TYPE_LABELS = [
 export type RoomTypeLabel = (typeof ROOM_TYPE_LABELS)[number];
 
 const LEGACY_ROOM_TYPE_MAP: Record<string, RoomTypeLabel> = {
-  SGL: "Single",
-  TPL: "Triple",
   DBL: "Double",
-  SINGLE: "Single",
   DOUBLE: "Double",
+  SGL: "Single",
+  SINGLE: "Single",
+  TPL: "Triple",
   TRIPLE: "Triple",
 };
 
@@ -30,37 +30,49 @@ function isRoomTypeLabel(value: unknown): value is RoomTypeLabel {
 
 /** Map legacy codes / room labels to a schema-safe room type, or undefined. */
 export function resolveRoomCategory(value: unknown): RoomTypeLabel | undefined {
-  if (typeof value !== "string" || !value.trim()) return undefined;
+  if (typeof value !== "string" || !value.trim()) {
+    return;
+  }
   const trimmed = value.trim();
   const legacy = LEGACY_ROOM_TYPE_MAP[trimmed] ?? LEGACY_ROOM_TYPE_MAP[trimmed.toUpperCase()];
-  if (legacy) return legacy;
-  if (isRoomTypeLabel(trimmed)) return trimmed;
-  return undefined;
+  if (legacy) {
+    return legacy;
+  }
+  if (isRoomTypeLabel(trimmed)) {
+    return trimmed;
+  }
 }
 
 /** @deprecated Use resolveRoomCategory for roomType fields. */
 export function normalizeLegacyRoomType(value: unknown): RoomTypeLabel | string | undefined {
   const category = resolveRoomCategory(value);
-  if (category) return category;
+  if (category) {
+    return category;
+  }
   if (typeof value === "string") {
     const trimmed = value.trim();
     return trimmed || undefined;
   }
-  return undefined;
 }
 
 function normalizeHotelAllocationValue(value: unknown): string | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (typeof value !== "string") return undefined;
+  if (value === undefined || value === null) {
+    return;
+  }
+  if (typeof value !== "string") {
+    return;
+  }
   const trimmed = value.trim();
-  if (!trimmed) return "";
+  if (!trimmed) {
+    return "";
+  }
   const asCategory = resolveRoomCategory(trimmed);
   return asCategory ?? trimmed;
 }
 
 export function resolveTravellerRoomFields(
   roomType: unknown,
-  hotelAllocation: unknown,
+  hotelAllocation: unknown
 ): {
   roomType: RoomTypeLabel | undefined;
   hotelAllocation: string | undefined;
@@ -75,8 +87,8 @@ export function resolveTravellerRoomFields(
   }
 
   return {
-    roomType: nextRoomType,
     hotelAllocation: normalizedAllocation,
+    roomType: nextRoomType,
   };
 }
 

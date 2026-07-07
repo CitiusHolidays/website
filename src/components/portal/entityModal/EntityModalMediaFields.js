@@ -1,34 +1,10 @@
 "use client";
 
 import {
-  ContractingCostFields,
   FinalizedProposalPdfPanel,
-  Input,
-  isQueryConfirmed,
-  MAX_QUERY_NOTES_WORDS,
-  MultiSelect,
-  money,
-  proposalCostPerPax,
   QueryAttachmentsPanel,
-  QueryFilePicker,
-  Select,
-  Textarea,
 } from "@/components/portal/PortalModalForm";
-import {
-  CONTRACTING_STATUS_SELECT_OPTIONS,
-  LOST_REASONS,
-  PORTAL_PERMISSIONS as P,
-  QUERY_SOURCES,
-  SALES_DECISION_OPTIONS,
-  TRAVEL_TYPES,
-} from "@/lib/portal/constants";
-import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
-import {
-  canAssignContracting,
-  canAssignQueryTicketing,
-  canAssignTicketing,
-  getQueryTypeOptions,
-} from "@/lib/portal/permissions";
+import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 
 export function EntityModalMediaFields({
   modal,
@@ -70,12 +46,12 @@ export function EntityModalMediaFields({
       {modal === "queryAttachments" && (
         <div className="md:col-span-2">
           <QueryAttachmentsPanel
-            queryId={form.queryId}
             attachments={queries.find((q) => q.id === form.queryId)?.attachments || []}
+            attachQueryFile={attachQueryFile}
             canManage={has(P.MANAGE_QUERIES)}
             generateQueryUploadUrl={generateQueryUploadUrl}
-            attachQueryFile={attachQueryFile}
             getQueryAttachmentUrl={getQueryAttachmentUrl}
+            queryId={form.queryId}
             removeQueryAttachment={removeQueryAttachment}
           />
         </div>
@@ -83,32 +59,32 @@ export function EntityModalMediaFields({
       {modal === "proposalAttachments" && (
         <div className="md:col-span-2">
           <QueryAttachmentsPanel
-            entityId={form.proposalId}
-            idField="proposalId"
+            attachmentKind="proposal"
             attachments={
               proposals.find((proposal) => proposal.id === form.proposalId)?.attachments || []
             }
-            canManage={has(P.MANAGE_PROPOSALS)}
-            uploadLabel="Upload Working File"
-            generateQueryUploadUrl={generateProposalUploadUrl}
             attachQueryFile={attachProposalFile}
+            canManage={has(P.MANAGE_PROPOSALS)}
+            entityId={form.proposalId}
+            generateQueryUploadUrl={generateProposalUploadUrl}
             getQueryAttachmentUrl={getProposalAttachmentUrl}
-            attachmentKind="proposal"
+            idField="proposalId"
             removeQueryAttachment={removeProposalAttachment}
+            uploadLabel="Upload Working File"
           />
         </div>
       )}
       {modal === "proposalFinalizedPdf" && (
         <div className="md:col-span-2">
           <FinalizedProposalPdfPanel
-            proposalId={form.proposalId}
+            attachFinalizedPdf={attachFinalizedPdf}
+            canSend={has(P.SEND_PROPOSALS) || has(P.MANAGE_PROPOSALS)}
             finalizedPdf={
               proposals.find((proposal) => proposal.id === form.proposalId)?.finalizedPdf || null
             }
-            canSend={has(P.SEND_PROPOSALS) || has(P.MANAGE_PROPOSALS)}
             generateFinalizedPdfUploadUrl={generateFinalizedPdfUploadUrl}
-            attachFinalizedPdf={attachFinalizedPdf}
             getFinalizedPdfUrl={getFinalizedPdfUrl}
+            proposalId={form.proposalId}
             removeFinalizedPdf={removeFinalizedPdf}
           />
         </div>

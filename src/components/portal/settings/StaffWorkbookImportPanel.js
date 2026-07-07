@@ -33,15 +33,23 @@ function defaultAcceptedEmails(previewRows) {
 }
 
 function formatFieldValue(value) {
-  if (Array.isArray(value)) return value.length > 0 ? value.join(", ") : "-";
+  if (Array.isArray(value)) {
+    return value.length > 0 ? value.join(", ") : "-";
+  }
   const text = String(value ?? "").trim();
   return text || "-";
 }
 
 function actionTone(action) {
-  if (action === "created") return "green";
-  if (action === "updated") return "blue";
-  if (action === "unchanged") return "gray";
+  if (action === "created") {
+    return "green";
+  }
+  if (action === "updated") {
+    return "blue";
+  }
+  if (action === "unchanged") {
+    return "gray";
+  }
   return "orange";
 }
 
@@ -57,7 +65,7 @@ function ActionBadge({ action }) {
           : "bg-stone-100 text-stone-700 border-stone-200";
   return (
     <span
-      className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${toneClass}`}
+      className={`inline-flex rounded-full border px-2 py-0.5 font-semibold text-[11px] uppercase tracking-wide ${toneClass}`}
     >
       {action}
     </span>
@@ -68,11 +76,11 @@ function SummaryTiles({ isBusy, totals }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
       {totals.map(([label, value]) => (
-        <div key={label} className="rounded-lg border border-brand-border bg-white px-4 py-3">
-          <div className="text-xs font-semibold uppercase tracking-[0.08em] text-brand-muted">
+        <div className="rounded-lg border border-brand-border bg-white px-4 py-3" key={label}>
+          <div className="font-semibold text-brand-muted text-xs uppercase tracking-[0.08em]">
             {label}
           </div>
-          <div className="mt-1 text-2xl font-semibold text-citius-blue">
+          <div className="mt-1 font-semibold text-2xl text-citius-blue">
             {isBusy && value === "-" ? "…" : value}
           </div>
         </div>
@@ -82,11 +90,13 @@ function SummaryTiles({ isBusy, totals }) {
 }
 
 function IssueList({ title, rows }) {
-  if (rows.length === 0) return null;
+  if (rows.length === 0) {
+    return null;
+  }
   return (
     <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-      <div className="text-sm font-semibold text-amber-900">{title}</div>
-      <div className="mt-2 space-y-1 text-sm text-amber-800">
+      <div className="font-semibold text-amber-900 text-sm">{title}</div>
+      <div className="mt-2 space-y-1 text-amber-800 text-sm">
         {rows.map((row) => (
           <div
             key={row.id || `${row.sourceSheet}:${row.sourceRowNumber}:${row.reason || row.message}`}
@@ -109,10 +119,10 @@ function PreviewRowCard({ row, accepted, onToggle }) {
       <div className="flex flex-wrap items-start gap-3">
         <label className="mt-1 flex items-center gap-2">
           <input
-            type="checkbox"
             checked={canAccept && accepted}
             disabled={!canAccept}
             onChange={(event) => onToggle(row.emailNormalized, event.target.checked)}
+            type="checkbox"
           />
           <span className="sr-only">Accept row</span>
         </label>
@@ -122,7 +132,7 @@ function PreviewRowCard({ row, accepted, onToggle }) {
             <span className="font-semibold text-citius-blue">{row.name || row.email}</span>
             <span className="text-brand-muted">{row.email}</span>
             {row.sourceSheet ? (
-              <span className="text-xs text-brand-muted">
+              <span className="text-brand-muted text-xs">
                 {row.sourceSheet} row {row.sourceRowNumber}
               </span>
             ) : null}
@@ -130,7 +140,7 @@ function PreviewRowCard({ row, accepted, onToggle }) {
           {row.message ? <div className="text-amber-800">{row.message}</div> : null}
           {(row.changes || []).length > 0 && (
             <div className="rounded-md border border-sky-200 bg-sky-50/80 px-3 py-2">
-              <div className="text-xs font-semibold uppercase tracking-wide text-sky-900">
+              <div className="font-semibold text-sky-900 text-xs uppercase tracking-wide">
                 Changed fields
               </div>
               <ul className="mt-1 space-y-1 text-sky-950">
@@ -150,14 +160,14 @@ function PreviewRowCard({ row, accepted, onToggle }) {
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {AFTER_FIELD_LABELS.map(([field, label]) => (
               <div
-                key={field}
                 className={`rounded-md border px-2.5 py-1.5 ${
                   changedFields.has(field)
                     ? "border-sky-200 bg-white"
                     : "border-brand-border/70 bg-white/70"
                 }`}
+                key={field}
               >
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-brand-muted">
+                <div className="font-semibold text-[10px] text-brand-muted uppercase tracking-wide">
                   {label}
                 </div>
                 <div className="mt-0.5 text-brand-dark">{formatFieldValue(after[field])}</div>
@@ -171,15 +181,15 @@ function PreviewRowCard({ row, accepted, onToggle }) {
 }
 
 const INITIAL_STATE = {
-  fileName: "",
-  parsed: null,
-  preview: null,
   acceptedEmails: new Set(),
   applyResult: null,
+  error: "",
+  fileName: "",
+  isApplying: false,
   isParsing: false,
   isPreviewing: false,
-  isApplying: false,
-  error: "",
+  parsed: null,
+  preview: null,
 };
 
 function reducer(state, action) {
@@ -193,8 +203,8 @@ function reducer(state, action) {
     case "parseSuccess":
       return {
         ...state,
-        parsed: action.parsed,
         isParsing: false,
+        parsed: action.parsed,
       };
     case "parseFailure":
       return {
@@ -212,22 +222,25 @@ function reducer(state, action) {
     case "previewSuccess":
       return {
         ...state,
-        preview: action.preview,
         acceptedEmails: defaultAcceptedEmails(action.preview.rows),
         isPreviewing: false,
+        preview: action.preview,
       };
     case "previewFailure":
       return {
         ...state,
-        preview: null,
         acceptedEmails: new Set(),
         error: action.error,
         isPreviewing: false,
+        preview: null,
       };
     case "toggleAccepted": {
       const acceptedEmails = new Set(state.acceptedEmails);
-      if (action.checked) acceptedEmails.add(action.emailNormalized);
-      else acceptedEmails.delete(action.emailNormalized);
+      if (action.checked) {
+        acceptedEmails.add(action.emailNormalized);
+      } else {
+        acceptedEmails.delete(action.emailNormalized);
+      }
       return { ...state, acceptedEmails };
     }
     case "setAcceptedEmails":
@@ -269,7 +282,7 @@ export function StaffWorkbookImportPanel() {
   const toast = usePortalToast();
   const convex = useConvex();
   const applyStaffWorkbookUpdates = useMutation(
-    api.crm.staffWorkbookUpdates.applyStaffWorkbookUpdates,
+    api.crm.staffWorkbookUpdates.applyStaffWorkbookUpdates
   );
 
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
@@ -297,75 +310,81 @@ export function StaffWorkbookImportPanel() {
     applicableRows.every((row) => acceptedEmails.has(row.emailNormalized));
 
   async function runPreview(rows, options = {}) {
-    dispatch({ type: "previewStart", clearApplyResult: options.clearApplyResult !== false });
+    dispatch({ clearApplyResult: options.clearApplyResult !== false, type: "previewStart" });
     try {
       const result = await convex.query(api.crm.staffWorkbookUpdates.previewStaffWorkbookUpdates, {
         rows,
       });
-      dispatch({ type: "previewSuccess", preview: result });
+      dispatch({ preview: result, type: "previewSuccess" });
     } catch (err) {
       dispatch({
-        type: "previewFailure",
         error: err?.data || err?.message || "Unable to preview staff workbook updates.",
+        type: "previewFailure",
       });
     }
   }
 
   const handleFile = async (event) => {
     const file = event.target.files?.[0];
-    if (!file) return;
-    dispatch({ type: "fileSelected", fileName: file.name });
+    if (!file) {
+      return;
+    }
+    dispatch({ fileName: file.name, type: "fileSelected" });
     try {
       const result = await parseStaffWorkbookFile(file);
-      dispatch({ type: "parseSuccess", parsed: result });
+      dispatch({ parsed: result, type: "parseSuccess" });
       if (result.rows.length > 0) {
         await runPreview(result.rows);
       }
     } catch (err) {
       dispatch({
-        type: "parseFailure",
         error: err?.message || "Unable to read leave matrix workbook.",
+        type: "parseFailure",
       });
     }
     event.target.value = "";
   };
 
   const toggleAccepted = (emailNormalized, checked) => {
-    if (!emailNormalized) return;
-    dispatch({ type: "toggleAccepted", emailNormalized, checked });
+    if (!emailNormalized) {
+      return;
+    }
+    dispatch({ checked, emailNormalized, type: "toggleAccepted" });
   };
 
   const toggleAllApplicable = (checked) => {
     dispatch({
-      type: "setAcceptedEmails",
       acceptedEmails: checked ? defaultAcceptedEmails(applicableRows) : new Set(),
+      type: "setAcceptedEmails",
     });
   };
 
   const handleApply = async () => {
-    if (!parsedRows.length) return;
+    if (!parsedRows.length) {
+      return;
+    }
     const accepted = Array.from(acceptedEmails);
     if (accepted.length === 0) {
-      dispatch({ type: "setError", error: "Select at least one created or updated row to apply." });
+      dispatch({ error: "Select at least one created or updated row to apply.", type: "setError" });
       return;
     }
 
     dispatch({ type: "applyStart" });
     try {
       const result = await applyStaffWorkbookUpdates({
-        rows: parsedRows,
         acceptedEmailNormalized: accepted,
+        rows: parsedRows,
       });
-      dispatch({ type: "applySuccess", applyResult: result });
+      dispatch({ applyResult: result, type: "applySuccess" });
       const { created = 0, updated = 0, unchanged = 0, skipped = 0 } = result.summary || {};
       toast.success(
-        `Staff workbook applied: ${created} created, ${updated} updated, ${unchanged} unchanged, ${skipped} skipped.`,
+        `Staff workbook applied: ${created} created, ${updated} updated, ${unchanged} unchanged, ${skipped} skipped.`
       );
       await runPreview(parsedRows, { clearApplyResult: false });
     } catch (err) {
       dispatch({
-        type: "applyFailure",
         error: err?.data || err?.message || "Failed to apply staff workbook updates.",
+        type: "applyFailure",
       });
     }
   };
@@ -376,33 +395,33 @@ export function StaffWorkbookImportPanel() {
 
   const busy = isParsing || isPreviewing || isApplying;
   const acceptedCount = applicableRows.filter((row) =>
-    acceptedEmails.has(row.emailNormalized),
+    acceptedEmails.has(row.emailNormalized)
   ).length;
 
   return (
     <section className="rounded-lg border border-brand-border bg-white p-5 shadow-sm md:p-6">
       <div className="mb-4">
-        <h2 className="font-heading text-lg font-semibold text-citius-blue md:text-xl">
+        <h2 className="font-heading font-semibold text-citius-blue text-lg md:text-xl">
           Leave matrix workbook
         </h2>
-        <p className="mt-1 text-sm text-brand-muted">
+        <p className="mt-1 text-brand-muted text-sm">
           Upload the staff leave matrix workbook to review new or changed staff records and approver
           routing before applying.
         </p>
       </div>
 
       <div className="space-y-4">
-        <label className="block rounded-lg border border-dashed border-brand-border bg-brand-light/40 p-4">
-          <span className="text-sm font-semibold text-citius-blue">Leave matrix spreadsheet</span>
+        <label className="block rounded-lg border border-brand-border border-dashed bg-brand-light/40 p-4">
+          <span className="font-semibold text-citius-blue text-sm">Leave matrix spreadsheet</span>
           <input
-            type="file"
             accept=".xlsx,.xls,.csv"
-            onChange={handleFile}
+            className="mt-2 block w-full text-brand-dark text-sm file:mr-3 file:rounded-md file:border-0 file:bg-citius-blue file:px-3 file:py-2 file:font-semibold file:text-sm file:text-white disabled:opacity-60"
             disabled={busy}
-            className="mt-2 block w-full text-sm text-brand-dark file:mr-3 file:rounded-md file:border-0 file:bg-citius-blue file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white disabled:opacity-60"
+            onChange={handleFile}
+            type="file"
           />
           {fileName ? (
-            <span className="mt-2 block text-xs text-brand-muted">{fileName}</span>
+            <span className="mt-2 block text-brand-muted text-xs">{fileName}</span>
           ) : null}
         </label>
 
@@ -418,7 +437,7 @@ export function StaffWorkbookImportPanel() {
         />
 
         {previewSummary ? (
-          <div className="text-sm text-brand-muted">
+          <div className="text-brand-muted text-sm">
             Preview skipped {previewSummary.skipped} row
             {previewSummary.skipped === 1 ? "" : "s"}.
             {acceptedCount > 0
@@ -428,13 +447,13 @@ export function StaffWorkbookImportPanel() {
         ) : null}
 
         {error ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
             {error}
           </div>
         ) : null}
 
         {applyResult?.summary ? (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900 text-sm">
             Last apply: {applyResult.summary.created} created, {applyResult.summary.updated}{" "}
             updated, {applyResult.summary.unchanged} unchanged, {applyResult.summary.skipped}{" "}
             skipped.
@@ -442,34 +461,34 @@ export function StaffWorkbookImportPanel() {
         ) : null}
 
         {parserSkipped.length > 0 ? (
-          <IssueList title="Parser skipped rows" rows={parserSkipped.slice(0, 12)} />
+          <IssueList rows={parserSkipped.slice(0, 12)} title="Parser skipped rows" />
         ) : null}
 
         {previewRows.some((row) => row.action === "skipped") ? (
           <IssueList
-            title="Preview skipped rows"
             rows={previewRows
               .filter((row) => row.action === "skipped")
               .slice(0, 12)
               .map((row) => ({
-                sourceSheet: row.sourceSheet,
-                sourceRowNumber: row.sourceRowNumber,
                 message: row.message || "Skipped",
+                sourceRowNumber: row.sourceRowNumber,
+                sourceSheet: row.sourceSheet,
               }))}
+            title="Preview skipped rows"
           />
         ) : null}
 
         {previewRows.length > 0 ? (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="text-sm font-semibold text-citius-blue">Review changes</div>
+              <div className="font-semibold text-citius-blue text-sm">Review changes</div>
               {applicableRows.length > 0 ? (
-                <label className="flex items-center gap-2 text-sm text-brand-dark">
+                <label className="flex items-center gap-2 text-brand-dark text-sm">
                   <input
-                    type="checkbox"
                     checked={allApplicableAccepted}
-                    onChange={(event) => toggleAllApplicable(event.target.checked)}
                     disabled={busy}
+                    onChange={(event) => toggleAllApplicable(event.target.checked)}
+                    type="checkbox"
                   />
                   Accept all created/updated rows ({applicableRows.length})
                 </label>
@@ -478,10 +497,10 @@ export function StaffWorkbookImportPanel() {
             <div className="max-h-[32rem] space-y-3 overflow-y-auto pr-1">
               {previewRows.map((row) => (
                 <PreviewRowCard
-                  key={row.emailNormalized || `${row.sourceSheet}:${row.sourceRowNumber}`}
-                  row={row}
                   accepted={acceptedEmails.has(row.emailNormalized)}
+                  key={row.emailNormalized || `${row.sourceSheet}:${row.sourceRowNumber}`}
                   onToggle={toggleAccepted}
+                  row={row}
                 />
               ))}
             </div>
@@ -491,23 +510,23 @@ export function StaffWorkbookImportPanel() {
         <div className="flex flex-wrap justify-end gap-2">
           {(parsed || preview || fileName) && (
             <button
-              type="button"
-              className="portal-small-btn bg-brand-light border-brand-border text-brand-dark hover:bg-brand-light/70"
-              onClick={handleReset}
+              className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
               disabled={busy}
+              onClick={handleReset}
+              type="button"
             >
               Reset
             </button>
           )}
           <button
-            type="button"
             className="portal-small-btn bg-citius-blue text-white hover:bg-citius-blue/90 disabled:opacity-60"
-            onClick={handleApply}
             disabled={busy || !parsedRows.length || acceptedCount === 0}
+            onClick={handleApply}
+            type="button"
           >
             {isApplying ? (
               <span className="inline-flex items-center gap-2">
-                <Loader2 size={14} className="animate-spin" />
+                <Loader2 className="animate-spin" size={14} />
                 Applying…
               </span>
             ) : (

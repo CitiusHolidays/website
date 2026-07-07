@@ -40,7 +40,7 @@ describe("passenger spreadsheet imports", () => {
         ],
         [
           "ACL",
-          9121004953,
+          9_121_004_953,
           "SUDIP CEMENT SUPPLY",
           "24 PGNS(NORTH)",
           "Cossipore",
@@ -56,13 +56,13 @@ describe("passenger spreadsheet imports", () => {
           "2018-03-23",
           "2028-03-22",
           "NON VEG",
-          9836184644,
+          9_836_184_644,
           "",
           "04-12 FEB",
         ],
         [
           "ACL",
-          9121004882,
+          9_121_004_882,
           "DIBYENDU KUNDU",
           "CALCUTTA [ N ]",
           "Cossipore",
@@ -89,19 +89,19 @@ describe("passenger spreadsheet imports", () => {
     expect(result.rows).toHaveLength(1);
     expect(result.skipped).toHaveLength(1);
     expect(result.rows[0]).toMatchObject({
-      fullName: "PRADIP SEN",
-      travelHub: "KOLKATA",
       foodPreference: "Non-Veg",
+      fullName: "PRADIP SEN",
       passportStatus: "Received",
       sourceDealerCode: "9121004953",
       sourceDealerName: "SUDIP CEMENT SUPPLY",
       sourceGroup: "04-12 FEB",
+      travelHub: "KOLKATA",
     });
     expect(result.rows[0].passport).toMatchObject({
-      number: "Z4619953",
       dateOfBirth: "1967-06-12",
-      issueDate: "2018-03-23",
       expiryDate: "2028-03-22",
+      issueDate: "2018-03-23",
+      number: "Z4619953",
     });
   });
 
@@ -171,8 +171,8 @@ describe("passenger spreadsheet imports", () => {
     ];
     const duplicate = ["CONFIRMED", "PRADIP SEN", "1967-06-12", "Z4619953", "VEG"];
     const workbook = workbookFromSheets({
-      Sheet5: [header, duplicate],
       G2: [header, duplicate],
+      Sheet5: [header, duplicate],
     });
     const result = parsePassengerWorkbook(workbook);
     expect(result.rows).toHaveLength(1);
@@ -224,11 +224,11 @@ describe("passenger spreadsheet imports", () => {
           "2026-02-12",
           "2036-02-11",
           "VEG",
-          9932929359,
-          55168,
+          9_932_929_359,
+          55_168,
           "ICQULJ",
           "LAXMINARAYAN",
-          15281,
+          15_281,
           "7V3C5J",
           "TBO",
         ],
@@ -239,27 +239,27 @@ describe("passenger spreadsheet imports", () => {
     expect(result.rows).toHaveLength(1);
     expect(result.skipped).toHaveLength(0);
     expect(result.rows[0]).toMatchObject({
-      fullName: "ANSHIKA AGARWAL",
-      surname: "AGARWAL",
-      givenName: "ANSHIKA",
-      gender: "Female",
       contactNo: "9932929359",
       domesticTravelRequired: true,
+      fullName: "ANSHIKA AGARWAL",
+      gender: "Female",
+      givenName: "ANSHIKA",
       passportStatus: "Received",
+      surname: "AGARWAL",
       ticketing: {
+        domesticPnr: "7V3C5J",
+        domesticTicket: "15281",
+        domesticVendor: "TBO",
         internationalFare: "55168",
         internationalPnr: "ICQULJ",
         internationalVendor: "LAXMINARAYAN",
-        domesticTicket: "15281",
-        domesticPnr: "7V3C5J",
-        domesticVendor: "TBO",
       },
     });
     expect(result.rows[0].passport).toMatchObject({
-      number: "AK429734",
       dateOfBirth: "1987-07-26",
-      issueDate: "2026-02-12",
       expiryDate: "2036-02-11",
+      issueDate: "2026-02-12",
+      number: "AK429734",
     });
   });
 });
@@ -314,22 +314,22 @@ describe("master-list sheet imports", () => {
     const result = parseTravellerMasterWorkbook(workbook);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0]).toMatchObject({
-      importKind: "traveller",
+      foodPreference: "Non-Veg",
       fullName: "GARG SANJAY",
       gender: "Male",
-      travelHub: "BOM",
-      foodPreference: "Non-Veg",
+      importKind: "traveller",
       sourceDealerCode: "MUM",
       sourceDealerName: "AGGARWAL APPLIANCES",
       sourceDescription: "Mumbai",
-      sourceSoName: "Mumbai",
       sourceRsoName: "Kenya Airlines",
+      sourceSoName: "Mumbai",
+      travelHub: "BOM",
     });
     expect(result.rows[0].passport).toMatchObject({
-      number: "Z4619953",
-      issueDate: "2018-03-23",
-      expiryDate: "2028-03-22",
       dateOfBirth: "1967-06-12",
+      expiryDate: "2028-03-22",
+      issueDate: "2018-03-23",
+      number: "Z4619953",
     });
   });
 
@@ -378,12 +378,12 @@ describe("master-list sheet imports", () => {
     const result = parseRoomingWorkbook(workbook);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0]).toMatchObject({
-      importKind: "rooming",
-      fullName: "GARG SANJAY",
-      roomType: "Twin",
-      hotelAllocation: "Twin",
-      specialRequests: "ADJACENT ROOMS",
       foodPreference: "Non-Veg",
+      fullName: "GARG SANJAY",
+      hotelAllocation: "Twin",
+      importKind: "rooming",
+      roomType: "Twin",
+      specialRequests: "ADJACENT ROOMS",
       travelHub: "KOLKATA",
     });
   });
@@ -427,15 +427,15 @@ describe("master-list sheet imports", () => {
     const result = parsePassportWorkbook(workbook);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0]).toMatchObject({
-      importKind: "passport",
       fullName: "GARG SANJAY",
+      importKind: "passport",
       passportStatus: "Received",
     });
     expect(result.rows[0].passport).toMatchObject({
-      number: "Z4619953",
-      issueDate: "2018-03-23",
-      expiryDate: "2028-03-22",
       dateOfBirth: "1967-06-12",
+      expiryDate: "2028-03-22",
+      issueDate: "2018-03-23",
+      number: "Z4619953",
     });
   });
 
@@ -492,12 +492,12 @@ describe("master-list sheet imports", () => {
     const result = parseVisaWorkbook(workbook);
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0]).toMatchObject({
-      importKind: "visa",
-      fullName: "GARG SANJAY",
-      visaStatus: "Approved",
-      paymentType: "Self Paid",
       biometricAppointmentDate: "2026-06-18",
+      fullName: "GARG SANJAY",
+      importKind: "visa",
+      paymentType: "Self Paid",
       visaNotes: "Stamped",
+      visaStatus: "Approved",
     });
   });
 });
@@ -575,11 +575,11 @@ describe("flight spreadsheet imports", () => {
     expect(result.groups).toHaveLength(2);
     expect(result.groups[0].segments).toHaveLength(2);
     expect(result.groups[0].segments[0]).toMatchObject({
-      dateLabel: "Thu 1 Oct",
       airline: "Kenya Airlines",
+      dateLabel: "Thu 1 Oct",
+      destination: "Nairobi",
       flightNumber: "203",
       origin: "Mumbai",
-      destination: "Nairobi",
     });
     expect(result.errors).toHaveLength(0);
   });

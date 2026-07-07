@@ -1,28 +1,7 @@
 "use client";
 
-import {
-  Input,
-  MultiSelect,
-  money,
-  QueryFilePicker,
-  Select,
-  Textarea,
-} from "@/components/portal/PortalModalForm";
-import {
-  CABIN_CLASSES,
-  EXPENSE_CURRENCIES,
-  EXPENSE_HEADS,
-  FOOD_PREFERENCES,
-  GUEST_TYPES,
-  LEAVE_TYPES,
-  PAYMENT_TYPES,
-  PORTAL_ROLES,
-  TICKET_STATUSES,
-  TICKET_TYPES,
-  VISA_STATUSES,
-} from "@/lib/portal/constants";
+import { Input, Select, Textarea } from "@/components/portal/PortalModalForm";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
-import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
 export function EntityModalHotelFields({
   modal,
@@ -56,34 +35,34 @@ export function EntityModalHotelFields({
         <>
           <Select
             label="Job Card"
-            value={form.jobCardId}
-            options={jobCardSelectOptions(jobCards, { required: true })}
             onChange={handleJobCardSelect}
+            options={jobCardSelectOptions(jobCards, { required: true })}
             required
+            value={form.jobCardId}
           />
           <Input
             label="Hotel Name"
-            value={form.hotelName}
             onChange={(v) => updateForm("hotelName", v)}
             required
+            value={form.hotelName}
           />
-          <Input label="City" value={form.city} onChange={(v) => updateForm("city", v)} />
+          <Input label="City" onChange={(v) => updateForm("city", v)} value={form.city} />
           <Input
             label="Check-in"
+            onChange={(v) => updateForm("checkInDate", v)}
             type="date"
             value={form.checkInDate}
-            onChange={(v) => updateForm("checkInDate", v)}
           />
           <Input
             label="Check-out"
+            onChange={(v) => updateForm("checkOutDate", v)}
             type="date"
             value={form.checkOutDate}
-            onChange={(v) => updateForm("checkOutDate", v)}
           />
           <Textarea
             label="Special Instructions"
-            value={form.notes}
             onChange={(v) => updateForm("notes", v)}
+            value={form.notes}
           />
         </>
       )}

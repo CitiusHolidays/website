@@ -16,7 +16,9 @@ function dedupeNotifications(rows: NotificationRow[]) {
   const seen = new Set<Id<"notifications">>();
   const deduped: NotificationRow[] = [];
   for (const row of rows) {
-    if (seen.has(row._id)) continue;
+    if (seen.has(row._id)) {
+      continue;
+    }
     seen.add(row._id);
     deduped.push(row);
   }
@@ -26,7 +28,7 @@ function dedupeNotifications(rows: NotificationRow[]) {
 async function fetchIndexedNotificationBatches(
   ctx: QueryCtx,
   access: NotificationAccess,
-  takePerSource: number,
+  takePerSource: number
 ) {
   const batches: NotificationRow[][] = [];
   let hitCap = false;
@@ -35,7 +37,7 @@ async function fetchIndexedNotificationBatches(
     const rows = await ctx.db
       .query("notifications")
       .withIndex("by_recipientUserId_createdAt", (q) =>
-        q.eq("recipientUserId", access.authUserId ?? undefined),
+        q.eq("recipientUserId", access.authUserId ?? undefined)
       )
       .order("desc")
       .take(takePerSource);
@@ -49,7 +51,7 @@ async function fetchIndexedNotificationBatches(
     const rows = await ctx.db
       .query("notifications")
       .withIndex("by_recipientStaffId_createdAt", (q) =>
-        q.eq("recipientStaffId", access.staffId ?? undefined),
+        q.eq("recipientStaffId", access.staffId ?? undefined)
       )
       .order("desc")
       .take(takePerSource);
@@ -65,8 +67,8 @@ async function fetchIndexedNotificationBatches(
         .query("notifications")
         .withIndex("by_recipientRole_createdAt", (q) => q.eq("recipientRole", role as never))
         .order("desc")
-        .take(takePerSource),
-    ),
+        .take(takePerSource)
+    )
   );
   for (const rows of roleBatches) {
     if (rows.length >= takePerSource) {
@@ -76,15 +78,15 @@ async function fetchIndexedNotificationBatches(
   }
 
   return {
-    rows: dedupeNotifications(batches.flat()),
     hitCap,
+    rows: dedupeNotifications(batches.flat()),
   };
 }
 
 export async function fetchNotificationsForAccess(
   ctx: QueryCtx,
   access: NotificationAccess,
-  limit: number,
+  limit: number
 ) {
   const buffer = Math.max(limit * 3, limit);
   const { rows } = await fetchIndexedNotificationBatches(ctx, access, buffer);
@@ -102,9 +104,9 @@ export async function fetchAllNotificationsForAccess(ctx: QueryCtx, access: Noti
       await ctx.db
         .query("notifications")
         .withIndex("by_recipientUserId", (q) =>
-          q.eq("recipientUserId", access.authUserId ?? undefined),
+          q.eq("recipientUserId", access.authUserId ?? undefined)
         )
-        .collect(),
+        .collect()
     );
   }
 
@@ -113,9 +115,9 @@ export async function fetchAllNotificationsForAccess(ctx: QueryCtx, access: Noti
       await ctx.db
         .query("notifications")
         .withIndex("by_recipientStaffId", (q) =>
-          q.eq("recipientStaffId", access.staffId ?? undefined),
+          q.eq("recipientStaffId", access.staffId ?? undefined)
         )
-        .collect(),
+        .collect()
     );
   }
 
@@ -124,8 +126,8 @@ export async function fetchAllNotificationsForAccess(ctx: QueryCtx, access: Noti
       ctx.db
         .query("notifications")
         .withIndex("by_recipientRole", (q) => q.eq("recipientRole", role as never))
-        .collect(),
-    ),
+        .collect()
+    )
   );
   batches.push(...roleBatches);
 
@@ -134,7 +136,7 @@ export async function fetchAllNotificationsForAccess(ctx: QueryCtx, access: Noti
 
 export async function notificationSummaryForAccessFromDb(
   ctx: QueryCtx,
-  access: NotificationAccess,
+  access: NotificationAccess
 ) {
   const { rows, hitCap } = await fetchIndexedNotificationBatches(ctx, access, SUMMARY_SCAN_CAP);
   const visible = rows.filter((row) => canReceiveNotification(row, access));

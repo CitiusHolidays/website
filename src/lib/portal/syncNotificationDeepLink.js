@@ -34,18 +34,18 @@ export function syncNotificationDeepLink({
     deepLinkHandledRef.current = "";
     return;
   }
-  if (!allowed || !canFetch) {
+  if (!(allowed && canFetch)) {
     return;
   }
 
   const deepLinkCollections = {
-    queries,
-    proposals,
-    jobCards,
-    tickets,
-    leaves,
-    expenses,
     approvals,
+    expenses,
+    jobCards,
+    leaves,
+    proposals,
+    queries,
+    tickets,
   };
 
   const signature = `${open}:${id || ""}:${queryId || ""}`;
@@ -53,7 +53,7 @@ export function syncNotificationDeepLink({
     return;
   }
 
-  const resolved = resolveDeepLink({ open, id, queryId }, deepLinkCollections);
+  const resolved = resolveDeepLink({ id, open, queryId }, deepLinkCollections);
   if (resolved.status === "none" || resolved.status === "loading") {
     return;
   }
@@ -62,8 +62,8 @@ export function syncNotificationDeepLink({
     deepLinkHandledRef.current = signature;
     toast.error("Record not found or you may not have access.");
     const params = serializeUrlFilterState(
-      { search, dateRange, jobCardFilter, listFilters },
-      listFilterConfig,
+      { dateRange, jobCardFilter, listFilters, search },
+      listFilterConfig
     );
     const qs = params.toString();
     window.history.replaceState(window.history.state, "", qs ? `${pathname}?${qs}` : pathname);
@@ -77,14 +77,14 @@ export function syncNotificationDeepLink({
   const initial = buildModalInitial(
     resolved.modal,
     { entityId: resolved.entityId, queryId: resolved.queryId },
-    deepLinkCollections,
+    deepLinkCollections
   );
   if (!initial) {
     deepLinkHandledRef.current = signature;
     toast.error("Record not found or you may not have access.");
     const params = serializeUrlFilterState(
-      { search, dateRange, jobCardFilter, listFilters },
-      listFilterConfig,
+      { dateRange, jobCardFilter, listFilters, search },
+      listFilterConfig
     );
     const qs = params.toString();
     window.history.replaceState(window.history.state, "", qs ? `${pathname}?${qs}` : pathname);

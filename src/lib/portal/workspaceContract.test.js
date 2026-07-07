@@ -9,31 +9,31 @@ describe("workspaceContract travel batches", () => {
     expect(
       buildTravelBatchModalInitial({
         batch: {
-          id: "batch_1",
-          jobCardId: "job_1",
           batchReference: "JC-0001-NS / B01",
-          destination: "Dubai",
           confirmedPax: 10,
-          roomCount: 5,
-          travelStartDate: "2026-08-01",
-          travelEndDate: "2026-08-08",
           contractingOwnerId: "staff_1",
           contractingOwnerName: "Contracting",
+          destination: "Dubai",
+          id: "batch_1",
+          jobCardId: "job_1",
           operationsOwnerId: "staff_2",
           operationsOwnerName: "Operations",
+          roomCount: 5,
+          status: "Open",
           ticketingOwnerId: "staff_3",
           ticketingOwnerName: "Ticketing",
           tourManagerName: "TM",
-          status: "Open",
+          travelEndDate: "2026-08-08",
+          travelStartDate: "2026-08-01",
         },
-      }),
+      })
     ).toMatchObject({
-      entityId: "batch_1",
       batchReference: "JC-0001-NS / B01",
-      destination: "Dubai",
       confirmedPax: "10",
-      roomCount: "5",
       contractingOwnerName: "Contracting",
+      destination: "Dubai",
+      entityId: "batch_1",
+      roomCount: "5",
       tourManagerName: "TM",
     });
   });
@@ -44,7 +44,7 @@ describe("workspaceContract travel batches", () => {
         contractingOwnerName: "A",
         operationsOwnerName: "B",
         ticketingOwnerName: "",
-      }),
+      })
     ).toBe("A · B");
     expect(formatTravelBatchOwnerSummary({})).toBe("Unassigned");
   });

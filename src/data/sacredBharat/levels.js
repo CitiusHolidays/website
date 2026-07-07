@@ -1,16 +1,16 @@
 /** Score thresholds → pilgrim title */
 export const LEVELS = [
-  { minScore: 0, maxScore: 250, title: "Seeker", slug: "seeker" },
-  { minScore: 251, maxScore: 500, title: "Pilgrim", slug: "pilgrim" },
-  { minScore: 501, maxScore: 1000, title: "Yatri", slug: "yatri" },
-  { minScore: 1001, maxScore: 1500, title: "Dharma Explorer", slug: "dharma-explorer" },
+  { maxScore: 250, minScore: 0, slug: "seeker", title: "Seeker" },
+  { maxScore: 500, minScore: 251, slug: "pilgrim", title: "Pilgrim" },
+  { maxScore: 1000, minScore: 501, slug: "yatri", title: "Yatri" },
+  { maxScore: 1500, minScore: 1001, slug: "dharma-explorer", title: "Dharma Explorer" },
   {
-    minScore: 1501,
     maxScore: 2000,
-    title: "Sacred Bharat Ambassador",
+    minScore: 1501,
     slug: "sacred-bharat-ambassador",
+    title: "Sacred Bharat Ambassador",
   },
-  { minScore: 2001, maxScore: null, title: "Moksha Pathfinder", slug: "moksha-pathfinder" },
+  { maxScore: null, minScore: 2001, slug: "moksha-pathfinder", title: "Moksha Pathfinder" },
 ];
 
 export const POINTS_PER_TEMPLE = 25;

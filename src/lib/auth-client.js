@@ -8,10 +8,10 @@ const isProd = process.env.NODE_ENV === "production";
 
 export const authClient = createAuthClient({
   baseURL,
-  plugins: [convexClient()],
   fetchOptions: {
     credentials: "include",
   },
+  plugins: [convexClient()],
 });
 
 export const { signIn, signUp, signOut, useSession, getSession } = authClient;
@@ -19,8 +19,8 @@ export const { signIn, signUp, signOut, useSession, getSession } = authClient;
 export async function signUpWithEmail({ email, password, name, phoneNumber }) {
   return await signUp.email({
     email,
-    password,
     name,
+    password,
     phoneNumber,
   });
 }
@@ -34,8 +34,8 @@ export async function signInWithEmail({ email, password }) {
 
 export async function signInWithGoogle(callbackURL = "/") {
   return await signIn.social({
-    provider: "google",
     callbackURL,
+    provider: "google",
   });
 }
 

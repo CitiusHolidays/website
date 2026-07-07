@@ -49,141 +49,26 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
   }
 
   return {
-    appName: AUTH_EMAIL_BRAND,
-    baseURL,
-    secret,
-    database: authComponent.adapter(ctx),
-    emailAndPassword: {
-      enabled: true,
-      minPasswordLength: 8,
-      requireEmailVerification: true,
-      onExistingUserSignUp: async ({ user }) => {
-        if (!user.email) {
-          return;
-        }
-        try {
-          await requireRunMutationCtx(ctx).scheduler.runAfter(
-            0,
-            internal.authAccountLinking.handleExistingSignUpEmail,
-            { email: user.email },
-          );
-        } catch (err) {
-          console.error("Failed to queue existing-user sign-up recovery email:", err);
-        }
-      },
-      sendResetPassword: async ({ user, url, token }) => {
-        const resetUrl = token ? `${baseURL}/auth/reset-password?token=${token}` : url;
-        const html = buildAuthEmailHtml({
-          greetingName: user.name || "there",
-          headline: "Reset your password",
-          bodyParagraphs: [
-            `We received a request to reset your password for your ${AUTH_EMAIL_BRAND} account. Click the button below to choose a new password.`,
-          ],
-          ctaHref: resetUrl,
-          ctaLabel: "Reset password",
-          footerNote: "If you did not request a password reset, you can safely ignore this email.",
-        });
-        try {
-          await requireActionCtx(ctx).runAction(internal.email.sendEmail, {
-            to: user.email,
-            subject: `Reset your ${AUTH_EMAIL_BRAND} password`,
-            html,
-          });
-        } catch (err) {
-          console.error("Failed to send reset password email:", err);
-        }
-      },
-    },
-    emailVerification: {
-      sendOnSignUp: true,
-      sendOnSignIn: true,
-      sendVerificationEmail: async ({ user, url, token }) => {
-        const html = buildAuthEmailHtml({
-          greetingName: user.name || "there",
-          headline: "Verify your email",
-          bodyParagraphs: [
-            `Thank you for signing up with ${AUTH_EMAIL_BRAND}. Click the button below to verify your email address and activate your account.`,
-          ],
-          ctaHref: url,
-          ctaLabel: "Verify email",
-          footerNote: "If you did not sign up for an account, you can safely ignore this email.",
-        });
-        try {
-          await requireActionCtx(ctx).runAction(internal.email.sendEmail, {
-            to: user.email,
-            subject: `Verify your ${AUTH_EMAIL_BRAND} account`,
-            html,
-          });
-        } catch (err) {
-          console.error("Failed to send verification email:", err);
-        }
-      },
-      afterEmailVerification: async (user) => {
-        if (!user.email) {
-          return;
-        }
-        try {
-          await requireRunMutationCtx(ctx).scheduler.runAfter(
-            0,
-            internal.crm.staffAction.sendPasswordSetupAfterVerification,
-            { email: user.email },
-          );
-        } catch (err) {
-          console.error("Failed to queue staff password setup after verification:", err);
-        }
-      },
-    },
-    socialProviders,
-    session: {
-      expiresIn: THIRTY_DAYS_IN_SECONDS,
-      updateAge: TWENTY_FOUR_HOURS_IN_SECONDS,
-      cookieCache: {
-        enabled: true,
-        maxAge: FIVE_MINUTES_IN_SECONDS,
-      },
-    },
-    user: {
-      additionalFields: {
-        phoneNumber: {
-          type: "string",
-          required: false,
-        },
-      },
-    },
     account: {
       accountLinking: {
-        enabled: true,
-        trustedProviders: googleClientId ? ["google"] : [],
         allowDifferentEmails: false,
+        enabled: true,
         // Google is trusted; allow linking even when the email/password account is not verified yet.
         requireLocalEmailVerified: false,
+        trustedProviders: googleClientId ? ["google"] : [],
         updateUserInfoOnLink: true,
       },
     },
+    advanced: {
+      // In Convex dev deployments NODE_ENV can still be "production".
+      // Derive secure cookie behavior from URL/override so localhost auth works.
+      useSecureCookies,
+      // Use default cookie configuration - don't override cookiePrefix
+    },
+    appName: AUTH_EMAIL_BRAND,
+    baseURL,
+    database: authComponent.adapter(ctx),
     databaseHooks: {
-      user: {
-        create: {
-          after: async (user) => {
-            if (!user.email) {
-              return;
-            }
-            try {
-              await requireRunMutationCtx(ctx).scheduler.runAfter(
-                0,
-                internal.authSync.syncFromIdentity,
-                {
-                  authUserId: user.id,
-                  email: user.email,
-                  name: user.name,
-                  image: user.image ?? undefined,
-                },
-              );
-            } catch (err) {
-              console.error("Failed to queue auth sync after user create:", err);
-            }
-          },
-        },
-      },
       session: {
         create: {
           after: async (session) => {
@@ -198,9 +83,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
                 {
                   authUserId: session.userId,
                   email: authUser.email,
-                  name: authUser.name,
                   image: authUser.image ?? undefined,
-                },
+                  name: authUser.name,
+                }
               );
             } catch (err) {
               console.error("Failed to queue auth sync after session create:", err);
@@ -208,24 +93,137 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           },
         },
       },
+      user: {
+        create: {
+          after: async (user) => {
+            if (!user.email) {
+              return;
+            }
+            try {
+              await requireRunMutationCtx(ctx).scheduler.runAfter(
+                0,
+                internal.authSync.syncFromIdentity,
+                {
+                  authUserId: user.id,
+                  email: user.email,
+                  image: user.image ?? undefined,
+                  name: user.name,
+                }
+              );
+            } catch (err) {
+              console.error("Failed to queue auth sync after user create:", err);
+            }
+          },
+        },
+      },
     },
-    rateLimit: {
+    emailAndPassword: {
       enabled: true,
-      window: 60,
-      max: 10,
+      minPasswordLength: 8,
+      onExistingUserSignUp: async ({ user }) => {
+        if (!user.email) {
+          return;
+        }
+        try {
+          await requireRunMutationCtx(ctx).scheduler.runAfter(
+            0,
+            internal.authAccountLinking.handleExistingSignUpEmail,
+            { email: user.email }
+          );
+        } catch (err) {
+          console.error("Failed to queue existing-user sign-up recovery email:", err);
+        }
+      },
+      requireEmailVerification: true,
+      sendResetPassword: async ({ user, url, token }) => {
+        const resetUrl = token ? `${baseURL}/auth/reset-password?token=${token}` : url;
+        const html = buildAuthEmailHtml({
+          bodyParagraphs: [
+            `We received a request to reset your password for your ${AUTH_EMAIL_BRAND} account. Click the button below to choose a new password.`,
+          ],
+          ctaHref: resetUrl,
+          ctaLabel: "Reset password",
+          footerNote: "If you did not request a password reset, you can safely ignore this email.",
+          greetingName: user.name || "there",
+          headline: "Reset your password",
+        });
+        try {
+          await requireActionCtx(ctx).runAction(internal.email.sendEmail, {
+            html,
+            subject: `Reset your ${AUTH_EMAIL_BRAND} password`,
+            to: user.email,
+          });
+        } catch (err) {
+          console.error("Failed to send reset password email:", err);
+        }
+      },
     },
-    advanced: {
-      // In Convex dev deployments NODE_ENV can still be "production".
-      // Derive secure cookie behavior from URL/override so localhost auth works.
-      useSecureCookies,
-      // Use default cookie configuration - don't override cookiePrefix
+    emailVerification: {
+      afterEmailVerification: async (user) => {
+        if (!user.email) {
+          return;
+        }
+        try {
+          await requireRunMutationCtx(ctx).scheduler.runAfter(
+            0,
+            internal.crm.staffAction.sendPasswordSetupAfterVerification,
+            { email: user.email }
+          );
+        } catch (err) {
+          console.error("Failed to queue staff password setup after verification:", err);
+        }
+      },
+      sendOnSignIn: true,
+      sendOnSignUp: true,
+      sendVerificationEmail: async ({ user, url, token }) => {
+        const html = buildAuthEmailHtml({
+          bodyParagraphs: [
+            `Thank you for signing up with ${AUTH_EMAIL_BRAND}. Click the button below to verify your email address and activate your account.`,
+          ],
+          ctaHref: url,
+          ctaLabel: "Verify email",
+          footerNote: "If you did not sign up for an account, you can safely ignore this email.",
+          greetingName: user.name || "there",
+          headline: "Verify your email",
+        });
+        try {
+          await requireActionCtx(ctx).runAction(internal.email.sendEmail, {
+            html,
+            subject: `Verify your ${AUTH_EMAIL_BRAND} account`,
+            to: user.email,
+          });
+        } catch (err) {
+          console.error("Failed to send verification email:", err);
+        }
+      },
     },
     plugins: [convex({ authConfig })],
+    rateLimit: {
+      enabled: true,
+      max: 10,
+      window: 60,
+    },
+    secret,
+    session: {
+      cookieCache: {
+        enabled: true,
+        maxAge: FIVE_MINUTES_IN_SECONDS,
+      },
+      expiresIn: THIRTY_DAYS_IN_SECONDS,
+      updateAge: TWENTY_FOUR_HOURS_IN_SECONDS,
+    },
+    socialProviders,
+    user: {
+      additionalFields: {
+        phoneNumber: {
+          required: false,
+          type: "string",
+        },
+      },
+    },
   } satisfies BetterAuthOptions;
 };
 
 export const options = createAuthOptions({} as GenericCtx<DataModel>);
 
-export const createAuth = (ctx: GenericCtx<DataModel>) => {
-  return betterAuth(createAuthOptions(ctx));
-};
+export const createAuth = (ctx: GenericCtx<DataModel>) => betterAuth(createAuthOptions(ctx));

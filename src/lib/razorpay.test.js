@@ -22,7 +22,7 @@ describe("verifyPaymentSignature", () => {
     expect(verifyPaymentSignature({ orderId, paymentId, signature })).toBe(true);
     expect(verifyPaymentSignature({ orderId, paymentId, signature: `${signature}00` })).toBe(false);
     expect(verifyPaymentSignature({ orderId, paymentId, signature: "not-a-hex-signature" })).toBe(
-      false,
+      false
     );
   });
 });

@@ -2,25 +2,12 @@
 
 import {
   Input,
-  MultiSelect,
   money,
   QueryFilePicker,
   Select,
   Textarea,
 } from "@/components/portal/PortalModalForm";
-import {
-  CABIN_CLASSES,
-  EXPENSE_CURRENCIES,
-  EXPENSE_HEADS,
-  FOOD_PREFERENCES,
-  GUEST_TYPES,
-  LEAVE_TYPES,
-  PAYMENT_TYPES,
-  PORTAL_ROLES,
-  TICKET_STATUSES,
-  TICKET_TYPES,
-  VISA_STATUSES,
-} from "@/lib/portal/constants";
+import { EXPENSE_CURRENCIES, EXPENSE_HEADS } from "@/lib/portal/constants";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
 import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
@@ -56,97 +43,97 @@ export function EntityModalExpenseFields({
         <>
           <Select
             label="Expense Type"
-            value={form.expenseType}
-            options={[
-              { value: "jobCard", label: "Job Card" },
-              { value: "office", label: "Office / General" },
-            ]}
             onChange={(v) =>
               patchForm({
                 expenseType: v,
                 ...(v === "office" ? { jobCardId: "" } : {}),
               })
             }
+            options={[
+              { label: "Job Card", value: "jobCard" },
+              { label: "Office / General", value: "office" },
+            ]}
+            value={form.expenseType}
           />
           {form.expenseType === "jobCard" && (
             <Select
               label="Job Card"
-              value={form.jobCardId}
-              options={jobCardSelectOptions(jobCards, { required: true })}
               onChange={handleJobCardSelect}
+              options={jobCardSelectOptions(jobCards, { required: true })}
               required
+              value={form.jobCardId}
             />
           )}
           <Input
             label="Tour Manager"
-            value={form.tourManagerName}
             onChange={(v) => updateForm("tourManagerName", v)}
+            value={form.tourManagerName}
           />
           <Input
             label="Expense Date"
+            onChange={(v) => updateForm("expenseDate", v)}
             type="date"
             value={form.expenseDate}
-            onChange={(v) => updateForm("expenseDate", v)}
           />
           <Select
             label="Category"
-            value={form.category}
-            options={[{ value: "", label: "Select category…" }, ...EXPENSE_HEADS]}
             onChange={(v) => updateForm("category", v)}
+            options={[{ label: "Select category…", value: "" }, ...EXPENSE_HEADS]}
             required
+            value={form.category}
           />
           <Select
             label="Currency"
-            value={form.currency}
-            options={EXPENSE_CURRENCIES}
             onChange={(v) => updateForm("currency", v)}
+            options={EXPENSE_CURRENCIES}
+            value={form.currency}
           />
           <Input
             label="Card Amount"
+            onChange={(v) => updateForm("cardAmount", v)}
             type="number"
             value={form.cardAmount}
-            onChange={(v) => updateForm("cardAmount", v)}
           />
           <Input
             label="Cash Amount"
+            onChange={(v) => updateForm("cashAmount", v)}
             type="number"
             value={form.cashAmount}
-            onChange={(v) => updateForm("cashAmount", v)}
           />
           <Input
             label="E-Pay Amount"
+            onChange={(v) => updateForm("epayAmount", v)}
             type="number"
             value={form.epayAmount}
-            onChange={(v) => updateForm("epayAmount", v)}
           />
           <div className="rounded-xl border border-brand-border bg-brand-light px-3 py-2">
-            <span className="mb-1 block text-xs font-semibold text-brand-muted">Total Amount</span>
-            <div className="text-sm font-semibold text-brand-text">
+            <span className="mb-1 block font-semibold text-brand-muted text-xs">Total Amount</span>
+            <div className="font-semibold text-brand-text text-sm">
               {money(
                 getExpenseSplitTotal({
                   cardAmount: form.cardAmount,
                   cashAmount: form.cashAmount,
                   epayAmount: form.epayAmount,
-                }),
+                })
               )}
             </div>
           </div>
           <Input
             label="Paid By"
-            value={form.paidBy}
             onChange={(v) => updateForm("paidBy", v)}
             required
+            value={form.paidBy}
           />
           <Textarea
             label="Particulars"
-            value={form.particulars}
             onChange={(v) => updateForm("particulars", v)}
+            value={form.particulars}
           />
           <div className="md:col-span-2">
             <QueryFilePicker
               files={pendingExpenseProofFiles}
-              onChange={(files) => setPendingExpenseProofFiles(files.slice(-1))}
               inputId="expense-proof-files"
+              onChange={(files) => setPendingExpenseProofFiles(files.slice(-1))}
             />
           </div>
         </>

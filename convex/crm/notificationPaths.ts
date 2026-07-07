@@ -19,7 +19,7 @@ function assignmentQueryPath(entityId: string) {
 
 /** Portal path (+ query string) for in-app and email notification deep links. */
 export function getNotificationHref(args: NotificationPathInput) {
-  if (!args.entityType || !args.entityId) {
+  if (!(args.entityType && args.entityId)) {
     return "/portal/activity";
   }
 

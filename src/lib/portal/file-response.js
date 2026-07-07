@@ -17,7 +17,7 @@ function contentDisposition(fileName, disposition = "attachment") {
 }
 
 export function portalFileResponse(file, options = {}) {
-  if (!file?.base64 && !file?.bytes) {
+  if (!(file?.base64 || file?.bytes)) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
@@ -25,14 +25,14 @@ export function portalFileResponse(file, options = {}) {
   const mimeType = file.mimeType || DEFAULT_MIME_TYPE;
 
   return new NextResponse(body, {
-    status: 200,
     headers: {
-      "Content-Type": mimeType,
-      "Content-Length": String(body.byteLength),
-      "Content-Disposition": contentDisposition(file.fileName, options.disposition),
       "Cache-Control": "private, no-store, max-age=0",
+      "Content-Disposition": contentDisposition(file.fileName, options.disposition),
+      "Content-Length": String(body.byteLength),
+      "Content-Type": mimeType,
       "X-Content-Type-Options": "nosniff",
     },
+    status: 200,
   });
 }
 

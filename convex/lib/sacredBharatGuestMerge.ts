@@ -11,7 +11,9 @@ export function dedupeWishlistItems(items: WishlistItemInput[]): WishlistItemInp
   const result: WishlistItemInput[] = [];
   for (const item of items) {
     const key = `${item.itemType}:${item.itemId}`;
-    if (seen.has(key)) continue;
+    if (seen.has(key)) {
+      continue;
+    }
     seen.add(key);
     result.push(item);
   }
@@ -22,14 +24,14 @@ async function mergeGuestVisits(
   ctx: MutationCtx,
   authUserId: string,
   templeIds: string[],
-  visitedAt: number,
+  visitedAt: number
 ): Promise<void> {
   await Promise.all(
     templeIds.map(async (templeId) => {
       const existing = await ctx.db
         .query("sacredBharatVisits")
         .withIndex("by_authUserId_templeId", (q) =>
-          q.eq("authUserId", authUserId).eq("templeId", templeId),
+          q.eq("authUserId", authUserId).eq("templeId", templeId)
         )
         .unique();
 
@@ -40,7 +42,7 @@ async function mergeGuestVisits(
           visitedAt,
         });
       }
-    }),
+    })
   );
 }
 
@@ -48,7 +50,7 @@ export async function mergeGuestWishlist(
   ctx: MutationCtx,
   authUserId: string,
   wishlist: WishlistItemInput[],
-  createdAt: number,
+  createdAt: number
 ): Promise<void> {
   const deduped = dedupeWishlistItems(wishlist);
   await Promise.all(
@@ -56,19 +58,19 @@ export async function mergeGuestWishlist(
       const existing = await ctx.db
         .query("sacredBharatWishlist")
         .withIndex("by_authUserId_item", (q) =>
-          q.eq("authUserId", authUserId).eq("itemType", item.itemType).eq("itemId", item.itemId),
+          q.eq("authUserId", authUserId).eq("itemType", item.itemType).eq("itemId", item.itemId)
         )
         .unique();
 
       if (!existing) {
         await ctx.db.insert("sacredBharatWishlist", {
           authUserId,
-          itemType: item.itemType,
-          itemId: item.itemId,
           createdAt,
+          itemId: item.itemId,
+          itemType: item.itemType,
         });
       }
-    }),
+    })
   );
 }
 
@@ -76,7 +78,7 @@ export async function applyGuestProgressMerge(
   ctx: MutationCtx,
   authUserId: string,
   args: { templeIds: string[]; wishlist?: WishlistItemInput[] },
-  timestamps: { visitedAt: number; createdAt: number },
+  timestamps: { visitedAt: number; createdAt: number }
 ): Promise<void> {
   const validIds = [...normalizeVisitedSet(args.templeIds)];
   await mergeGuestVisits(ctx, authUserId, validIds, timestamps.visitedAt);

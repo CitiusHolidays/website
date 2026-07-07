@@ -138,12 +138,12 @@ export function resolveDashboardPersona(has, access = {}) {
  */
 function persona(id, featuredMetricLabel, defaultQueryTab, sections) {
   return {
-    id,
-    featuredMetricLabel,
     defaultQueryTab,
+    featuredMetricLabel,
+    id,
     sections,
-    showQueryTypes: sections.includes("queryTypes"),
     showOpsProgress: id === "operations" || id === "director",
+    showQueryTypes: sections.includes("queryTypes"),
   };
 }
 

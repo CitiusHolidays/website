@@ -30,7 +30,7 @@ async function buildDownloadFile(
     storageId: string;
     fileName: string;
     mimeType: string;
-  },
+  }
 ) {
   const blob = await ctx.storage.get(record.storageId);
   if (!blob) {
@@ -49,7 +49,7 @@ export const generateUploadUrl = action({
   args: {},
   handler: async (ctx) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!access?.allowed || !access.permissions.includes(PERMISSIONS.MANAGE_QUERIES)) {
+    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.MANAGE_QUERIES))) {
       throw new ConvexError("FORBIDDEN");
     }
     return await ctx.storage.generateUploadUrl();
@@ -58,11 +58,11 @@ export const generateUploadUrl = action({
 
 export const attachFile = action({
   args: {
+    fileName: v.string(),
+    fileSize: v.number(),
+    mimeType: v.string(),
     queryId: v.string(),
     storageId: v.id("_storage"),
-    fileName: v.string(),
-    mimeType: v.string(),
-    fileSize: v.number(),
   },
   handler: async (ctx, args) => {
     if (!isAllowedMimeType(args.mimeType)) {
@@ -72,7 +72,7 @@ export const attachFile = action({
         // ignore cleanup errors
       }
       throw new ConvexError(
-        "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text.",
+        "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
 
@@ -86,7 +86,7 @@ export const attachFile = action({
     }
 
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!access?.allowed || !access.permissions.includes(PERMISSIONS.MANAGE_QUERIES)) {
+    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.MANAGE_QUERIES))) {
       throw new ConvexError("FORBIDDEN");
     }
 
@@ -101,12 +101,12 @@ export const attachFile = action({
     }
 
     await ctx.runMutation(internal.crm.queryAttachments.saveAttachment, {
+      createdBy: access.authUserId || "unknown",
+      fileName: args.fileName.trim() || "attachment",
+      fileSize: args.fileSize,
+      mimeType: args.mimeType.trim() || "application/octet-stream",
       queryId: normalizedQueryId,
       storageId: args.storageId,
-      fileName: args.fileName.trim() || "attachment",
-      mimeType: args.mimeType.trim() || "application/octet-stream",
-      fileSize: args.fileSize,
-      createdBy: access.authUserId || "unknown",
     });
 
     return { success: true };
@@ -119,7 +119,7 @@ export const getDownloadUrl = action({
   },
   handler: async (
     ctx,
-    args,
+    args
   ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     const canView =
@@ -151,7 +151,7 @@ export const getDownloadFile = action({
   },
   handler: async (
     ctx,
-    args,
+    args
   ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     const canView =
@@ -183,7 +183,7 @@ export const removeAttachment = action({
   },
   handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!access?.allowed || !access.permissions.includes(PERMISSIONS.MANAGE_QUERIES)) {
+    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.MANAGE_QUERIES))) {
       throw new ConvexError("FORBIDDEN");
     }
 
@@ -198,7 +198,7 @@ export const removeAttachment = action({
       internal.crm.queryAttachments.deleteAttachmentRecord,
       {
         attachmentId: record.id,
-      },
+      }
     );
 
     if (storageId) {

@@ -14,22 +14,19 @@ type Tables = Record<string, Row[]>;
 function makeTravelBatchCtx(initialTables: Tables = {}) {
   const staff = {
     _id: "staff_ops_head",
+    active: true,
     authUserId: "auth_ops_head",
     email: "ops-head@example.com",
     emailNormalized: "ops-head@example.com",
     name: "Ops Head",
     roles: ["Operations Head"],
-    active: true,
   };
   const tables = {
-    staffUsers: [staff],
     activityLogs: [],
+    staffUsers: [staff],
     travelBatches: [],
     ...Object.fromEntries(
-      Object.entries(initialTables).map(([table, rows]) => [
-        table,
-        rows.map((row) => ({ ...row })),
-      ]),
+      Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
     ),
   } as Tables;
 
@@ -37,13 +34,18 @@ function makeTravelBatchCtx(initialTables: Tables = {}) {
   const findById = async (id: string) => {
     for (const rows of Object.values(tables)) {
       const row = rows.find((entry) => entry._id === id);
-      if (row) return row;
+      if (row) {
+        return row;
+      }
     }
     return null;
   };
   const queryBuilder = (table: string) => {
     let rows = getRows(table);
     const builder = {
+      collect: async () => rows.map((row) => ({ ...row })),
+      first: async () => rows[0] ?? null,
+      unique: async () => rows[0] ?? null,
       withIndex(_indexName: string, callback: (q: any) => unknown) {
         const filters: Array<{ field: string; value: unknown }> = [];
         const q = {
@@ -56,9 +58,6 @@ function makeTravelBatchCtx(initialTables: Tables = {}) {
         rows = rows.filter((row) => filters.every((filter) => row[filter.field] === filter.value));
         return builder;
       },
-      collect: async () => rows.map((row) => ({ ...row })),
-      first: async () => rows[0] ?? null,
-      unique: async () => rows[0] ?? null,
     };
     return builder;
   };
@@ -66,21 +65,20 @@ function makeTravelBatchCtx(initialTables: Tables = {}) {
   const ctx = {
     auth: {
       getUserIdentity: async () => ({
-        subject: "auth_ops_head",
         email: "ops-head@example.com",
         name: "Ops Head",
+        subject: "auth_ops_head",
       }),
     },
     db: {
-      normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
       get: findById,
-      query: (table: string) => queryBuilder(table),
       insert: async (table: string, doc: Record<string, unknown>) => {
         const id = `${table}_${getRows(table).length + 1}`;
         const row = { _id: id, ...doc };
         tables[table] = [...getRows(table), row];
         return id;
       },
+      normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
       patch: async (id: string, patch: Record<string, unknown>) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
@@ -90,6 +88,7 @@ function makeTravelBatchCtx(initialTables: Tables = {}) {
           }
         }
       },
+      query: (table: string) => queryBuilder(table),
     },
   };
 
@@ -98,26 +97,26 @@ function makeTravelBatchCtx(initialTables: Tables = {}) {
 
 const baseJobCard = {
   _id: "jobCards_1",
-  jobCode: "JC-0001-NS",
   clientName: "Acme Ltd",
-  destination: "Dubai",
   confirmedPax: 24,
-  roomCount: 12,
-  travelStartDate: "2026-08-01",
-  travelEndDate: "2026-08-05",
-  queryType: "MICE",
-  paymentTerms: { advance: 50 },
   contractingOwnerId: "staff_contracting",
   contractingOwnerName: "Contracting SPOC",
+  createdAt: 1000,
+  createdBy: "auth_accounts",
+  destination: "Dubai",
+  jobCode: "JC-0001-NS",
   operationsOwnerId: "staff_ops",
   operationsOwnerName: "Ops SPOC",
+  paymentTerms: { advance: 50 },
+  preDepartureChecklist: [{ done: false, key: "handover" }],
+  queryType: "MICE",
+  roomCount: 12,
+  status: "Open",
   ticketingOwnerId: "staff_ticketing",
   ticketingOwnerName: "Ticketing SPOC",
   tourManagerName: "Tour Lead",
-  status: "Open",
-  preDepartureChecklist: [{ key: "handover", done: false }],
-  createdBy: "auth_accounts",
-  createdAt: 1000,
+  travelEndDate: "2026-08-05",
+  travelStartDate: "2026-08-01",
   updatedAt: 1000,
 };
 
@@ -127,7 +126,7 @@ describe("Travel Batches on Job Cards", () => {
     expect(formatTravelBatchCode(12)).toBe("B12");
     expect(buildTravelBatchReference("JC-0001-NS", "B01")).toBe("JC-0001-NS / B01");
     expect(
-      nextTravelBatchIdentity("JC-0001-NS", [{ batchCode: "B01" }, { batchCode: "B03" }]),
+      nextTravelBatchIdentity("JC-0001-NS", [{ batchCode: "B01" }, { batchCode: "B03" }])
     ).toEqual({
       batchCode: "B04",
       batchReference: "JC-0001-NS / B04",
@@ -145,35 +144,35 @@ describe("Travel Batches on Job Cards", () => {
     });
 
     expect(result).toMatchObject({
-      id: "travelBatches_1",
       batchCode: "B01",
       batchReference: "JC-0001-NS / B01",
+      id: "travelBatches_1",
     });
     expect(tables.travelBatches[0]).toMatchObject({
-      jobCardId: "jobCards_1",
       batchCode: "B01",
       batchReference: "JC-0001-NS / B01",
-      destination: "Dubai",
       confirmedPax: 24,
-      roomCount: 12,
-      travelStartDate: "2026-08-01",
-      travelEndDate: "2026-08-05",
-      queryType: "MICE",
-      paymentTerms: { advance: 50 },
       contractingOwnerId: "staff_contracting",
       contractingOwnerName: "Contracting SPOC",
+      destination: "Dubai",
+      jobCardId: "jobCards_1",
       operationsOwnerId: "staff_ops",
       operationsOwnerName: "Ops SPOC",
+      paymentTerms: { advance: 50 },
+      preDepartureChecklist: [{ done: false, key: "handover" }],
+      queryType: "MICE",
+      roomCount: 12,
+      status: "Open",
       ticketingOwnerId: "staff_ticketing",
       ticketingOwnerName: "Ticketing SPOC",
       tourManagerName: "Tour Lead",
-      status: "Open",
-      preDepartureChecklist: [{ key: "handover", done: false }],
+      travelEndDate: "2026-08-05",
+      travelStartDate: "2026-08-01",
     });
     expect(tables.activityLogs[0]).toMatchObject({
-      entityType: "jobCard",
-      entityId: "jobCards_1",
       action: "travel_batch_created",
+      entityId: "jobCards_1",
+      entityType: "jobCard",
       message: "JC-0001-NS / B01 created",
     });
   });
@@ -185,18 +184,18 @@ describe("Travel Batches on Job Cards", () => {
     });
 
     await expect(
-      (listTravelBatches as any)._handler(ctx, { jobCardId: "jobCards_1" }),
+      (listTravelBatches as any)._handler(ctx, { jobCardId: "jobCards_1" })
     ).resolves.toEqual([]);
 
     await (createTravelBatch as any)._handler(ctx, {
-      jobCardId: "jobCards_1",
       confirmedPax: 12,
+      jobCardId: "jobCards_1",
     });
     await (createTravelBatch as any)._handler(ctx, {
-      jobCardId: "jobCards_1",
       confirmedPax: 12,
-      travelStartDate: "2026-08-06",
+      jobCardId: "jobCards_1",
       travelEndDate: "2026-08-10",
+      travelStartDate: "2026-08-06",
     });
 
     const rows = await (listTravelBatches as any)._handler(ctx, { jobCardId: "jobCards_1" });
@@ -212,38 +211,38 @@ describe("Travel Batches on Job Cards", () => {
       travelBatches: [
         {
           _id: "travelBatches_2",
-          jobCardId: "jobCards_1",
           batchCode: "B02",
           batchReference: "JC-0001-NS / B02",
-          destination: "Dubai",
           confirmedPax: 10,
-          status: "Open",
-          createdBy: "auth_ops_head",
           createdAt: 2000,
+          createdBy: "auth_ops_head",
+          destination: "Dubai",
+          jobCardId: "jobCards_1",
+          status: "Open",
           updatedAt: 2000,
         },
         {
           _id: "travelBatches_1",
-          jobCardId: "jobCards_1",
           batchCode: "B01",
           batchReference: "JC-0001-NS / B01",
-          destination: "Dubai",
           confirmedPax: 14,
-          status: "In Operations",
-          createdBy: "auth_ops_head",
           createdAt: 1000,
+          createdBy: "auth_ops_head",
+          destination: "Dubai",
+          jobCardId: "jobCards_1",
+          status: "In Operations",
           updatedAt: 1000,
         },
         {
           _id: "travelBatches_other",
-          jobCardId: "jobCards_2",
           batchCode: "B01",
           batchReference: "JC-0002-NS / B01",
-          destination: "Bali",
           confirmedPax: 8,
-          status: "Open",
-          createdBy: "auth_ops_head",
           createdAt: 1000,
+          createdBy: "auth_ops_head",
+          destination: "Bali",
+          jobCardId: "jobCards_2",
+          status: "Open",
           updatedAt: 1000,
         },
       ],
@@ -256,10 +255,10 @@ describe("Travel Batches on Job Cards", () => {
       "JC-0001-NS / B02",
     ]);
     expect(rows[0]).toMatchObject({
+      confirmedPax: 14,
       id: "travelBatches_1",
       jobCardId: "jobCards_1",
       status: "In Operations",
-      confirmedPax: 14,
     });
   });
 
@@ -269,51 +268,51 @@ describe("Travel Batches on Job Cards", () => {
       travelBatches: [
         {
           _id: "travelBatches_1",
-          jobCardId: "jobCards_1",
           batchCode: "B01",
           batchReference: "JC-0001-NS / B01",
-          destination: "Dubai",
           confirmedPax: 24,
+          createdAt: 1000,
+          createdBy: "auth_ops_head",
+          destination: "Dubai",
+          jobCardId: "jobCards_1",
           roomCount: 12,
-          travelStartDate: "2026-08-01",
-          travelEndDate: "2026-08-05",
           status: "Open",
           tourManagerName: "Tour Lead",
-          createdBy: "auth_ops_head",
-          createdAt: 1000,
+          travelEndDate: "2026-08-05",
+          travelStartDate: "2026-08-01",
           updatedAt: 1000,
         },
       ],
     });
 
     await (updateTravelBatch as any)._handler(ctx, {
-      travelBatchId: "travelBatches_1",
-      destination: "Abu Dhabi",
       confirmedPax: 18,
+      destination: "Abu Dhabi",
       roomCount: 9,
-      travelStartDate: "2026-08-03",
-      travelEndDate: "2026-08-07",
-      tourManagerName: "New Lead",
       status: "In Operations",
+      tourManagerName: "New Lead",
+      travelBatchId: "travelBatches_1",
+      travelEndDate: "2026-08-07",
+      travelStartDate: "2026-08-03",
     });
 
     expect(tables.travelBatches[0]).toMatchObject({
       batchCode: "B01",
       batchReference: "JC-0001-NS / B01",
-      destination: "Abu Dhabi",
       confirmedPax: 18,
-      roomCount: 9,
-      travelStartDate: "2026-08-03",
-      travelEndDate: "2026-08-07",
-      tourManagerName: "New Lead",
-      status: "In Operations",
+      destination: "Abu Dhabi",
       lastEditedBy: "auth_ops_head",
       lastEditedByName: "Ops Head",
+      roomCount: 9,
+      status: "In Operations",
+      tourManagerName: "New Lead",
+      travelEndDate: "2026-08-07",
+      travelStartDate: "2026-08-03",
     });
     expect(tables.activityLogs[0]).toMatchObject({
-      entityType: "jobCard",
-      entityId: "jobCards_1",
       action: "travel_batch_updated",
+      entityId: "jobCards_1",
+      entityType: "jobCard",
       message: "JC-0001-NS / B01 updated",
     });
   });

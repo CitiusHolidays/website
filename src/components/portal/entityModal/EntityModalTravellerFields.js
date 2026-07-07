@@ -1,38 +1,14 @@
 "use client";
 
+import { Input, Select, Textarea } from "@/components/portal/PortalModalForm";
 import {
-  ContractingCostFields,
-  FinalizedProposalPdfPanel,
-  Input,
-  isQueryConfirmed,
-  MAX_QUERY_NOTES_WORDS,
-  MultiSelect,
-  money,
-  proposalCostPerPax,
-  QueryAttachmentsPanel,
-  QueryFilePicker,
-  Select,
-  Textarea,
-} from "@/components/portal/PortalModalForm";
-import {
-  CONTRACTING_STATUS_SELECT_OPTIONS,
   FOOD_PREFERENCES,
   GENDER_OPTIONS,
   GUEST_TYPES,
-  LOST_REASONS,
   PAYMENT_TYPES,
-  QUERY_SOURCES,
   ROOM_TYPES,
-  SALES_DECISION_OPTIONS,
-  TRAVEL_TYPES,
 } from "@/lib/portal/constants";
 import { jobCardSelectOptions, travelBatchSelectOptions } from "@/lib/portal/entityModalLinks";
-import {
-  canAssignContracting,
-  canAssignQueryTicketing,
-  canAssignTicketing,
-  getQueryTypeOptions,
-} from "@/lib/portal/permissions";
 
 export function EntityModalTravellerFields({
   modal,
@@ -75,120 +51,120 @@ export function EntityModalTravellerFields({
         <>
           <Select
             label="Job Card"
-            value={form.jobCardId}
-            options={jobCardSelectOptions(jobCards, { required: true })}
             onChange={handleJobCardSelect}
+            options={jobCardSelectOptions(jobCards, { required: true })}
             required
+            value={form.jobCardId}
           />
           <Select
             label="Travel Batch"
-            value={form.travelBatchId || ""}
-            options={travelBatchSelectOptions(jobCards, form.jobCardId)}
             onChange={(value) => updateForm("travelBatchId", value)}
+            options={travelBatchSelectOptions(jobCards, form.jobCardId)}
+            value={form.travelBatchId || ""}
           />
           <Input
             label="Full Name"
-            value={form.fullName}
             onChange={(v) => updateForm("fullName", v)}
             required
+            value={form.fullName}
           />
-          <Input label="Surname" value={form.surname} onChange={(v) => updateForm("surname", v)} />
+          <Input label="Surname" onChange={(v) => updateForm("surname", v)} value={form.surname} />
           <Input
             label="Given Name"
-            value={form.givenName}
             onChange={(v) => updateForm("givenName", v)}
+            value={form.givenName}
           />
           <Select
             label="Gender"
-            value={form.gender}
-            options={[{ value: "", label: "Select gender…" }, ...GENDER_OPTIONS]}
             onChange={(v) => updateForm("gender", v)}
+            options={[{ label: "Select gender…", value: "" }, ...GENDER_OPTIONS]}
+            value={form.gender}
           />
           <Input
             label="Travel Hub"
-            value={form.travelHub}
             onChange={(v) => updateForm("travelHub", v)}
+            value={form.travelHub}
           />
           <Input
             label="Travel Date"
+            onChange={(v) => updateForm("travelDate", v)}
             type="date"
             value={form.travelDate}
-            onChange={(v) => updateForm("travelDate", v)}
           />
           <Input
             label="Guests travelling with"
-            value={form.guestCompanions}
             onChange={(v) => updateForm("guestCompanions", v)}
             placeholder="Spouse, children, friends…"
+            value={form.guestCompanions}
           />
           <Select
             label="Food Preference"
-            value={form.foodPreference}
-            options={FOOD_PREFERENCES}
             onChange={(v) => updateForm("foodPreference", v)}
+            options={FOOD_PREFERENCES}
+            value={form.foodPreference}
           />
           <Select
             label="Guest Type"
-            value={form.guestType}
-            options={GUEST_TYPES}
             onChange={(v) => updateForm("guestType", v)}
+            options={GUEST_TYPES}
+            value={form.guestType}
           />
           <Select
             label="Payment Type"
-            value={form.paymentType}
-            options={PAYMENT_TYPES}
             onChange={(v) => updateForm("paymentType", v)}
+            options={PAYMENT_TYPES}
+            value={form.paymentType}
           />
           <Select
             label="Room Type"
-            value={form.roomType}
-            options={ROOM_TYPES}
             onChange={(v) => updateForm("roomType", v)}
+            options={ROOM_TYPES}
+            value={form.roomType}
           />
           <Select
             label="Visa Required"
-            value={form.visaRequired}
-            options={["Yes", "No"]}
             onChange={(v) => updateForm("visaRequired", v)}
+            options={["Yes", "No"]}
+            value={form.visaRequired}
           />
           <Select
             label="Domestic Travel Required"
-            value={form.domesticTravelRequired}
-            options={["Yes", "No"]}
             onChange={(v) => updateForm("domesticTravelRequired", v)}
+            options={["Yes", "No"]}
+            value={form.domesticTravelRequired}
           />
           <Input
             label="Biometric Date"
+            onChange={(v) => updateForm("biometricAppointmentDate", v)}
             type="date"
             value={form.biometricAppointmentDate}
-            onChange={(v) => updateForm("biometricAppointmentDate", v)}
           />
           <Select
             label="Extension of Tour"
-            value={form.extensionOfTour}
-            options={["No", "Yes"]}
             onChange={(v) => updateForm("extensionOfTour", v)}
+            options={["No", "Yes"]}
+            value={form.extensionOfTour}
           />
           <Select
             label="Arriving Early"
-            value={form.arrivingEarly}
-            options={["No", "Yes"]}
             onChange={(v) => updateForm("arrivingEarly", v)}
+            options={["No", "Yes"]}
+            value={form.arrivingEarly}
           />
           <Input
             label="Passport Status"
-            value={form.passportStatus}
             onChange={(v) => updateForm("passportStatus", v)}
+            value={form.passportStatus}
           />
           <Input
             label="Hotel Allocation"
-            value={form.hotelAllocation}
             onChange={(v) => updateForm("hotelAllocation", v)}
+            value={form.hotelAllocation}
           />
           <Textarea
             label="Special Requests"
-            value={form.notes}
             onChange={(v) => updateForm("notes", v)}
+            value={form.notes}
           />
         </>
       )}

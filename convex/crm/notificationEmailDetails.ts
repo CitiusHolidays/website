@@ -116,20 +116,28 @@ function addQueryRows(rows: DetailRow[], query: Doc<"queries">) {
 
 async function queryDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const queryId = ctx.db.normalizeId("queries", entityId);
-  if (!queryId) return null;
+  if (!queryId) {
+    return null;
+  }
   const query = await ctx.db.get(queryId);
-  if (!query) return null;
+  if (!query) {
+    return null;
+  }
 
   const rows: DetailRow[] = [];
   addQueryRows(rows, query);
-  return { title: "Query details", rows };
+  return { rows, title: "Query details" };
 }
 
 async function proposalDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const proposalId = ctx.db.normalizeId("proposals", entityId);
-  if (!proposalId) return null;
+  if (!proposalId) {
+    return null;
+  }
   const proposal = await ctx.db.get(proposalId);
-  if (!proposal) return null;
+  if (!proposal) {
+    return null;
+  }
 
   const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
   const rows: DetailRow[] = [];
@@ -141,7 +149,7 @@ async function proposalDetails(ctx: QueryCtx, entityId: string): Promise<DetailS
   addRow(
     rows,
     "Destinations",
-    linkedQueries.flatMap((query) => (query.destination ? [query.destination] : [])).join(", "),
+    linkedQueries.flatMap((query) => (query.destination ? [query.destination] : [])).join(", ")
   );
   addRow(
     rows,
@@ -151,20 +159,24 @@ async function proposalDetails(ctx: QueryCtx, entityId: string): Promise<DetailS
         const range = formatDateRange(query.travelStartDate, query.travelEndDate);
         return range ? [range] : [];
       })
-      .join("; "),
+      .join("; ")
   );
   addRow(rows, "Cost price / pax", formatAmount(proposal.costPrice));
   addRow(rows, "Selling price", formatAmount(proposal.sellingPrice));
   addRow(rows, "Tax rate", formatPercent(proposal.taxRate));
   addRow(rows, "Itinerary summary", proposal.itinerarySummary);
-  return { title: "Proposal details", rows };
+  return { rows, title: "Proposal details" };
 }
 
 async function jobCardDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const jobCardId = ctx.db.normalizeId("jobCards", entityId);
-  if (!jobCardId) return null;
+  if (!jobCardId) {
+    return null;
+  }
   const job = await ctx.db.get(jobCardId);
-  if (!job) return null;
+  if (!job) {
+    return null;
+  }
   const [query, proposal] = await Promise.all([
     getQuery(ctx, job.queryId),
     job.proposalId ? ctx.db.get(job.proposalId) : null,
@@ -185,14 +197,18 @@ async function jobCardDetails(ctx: QueryCtx, entityId: string): Promise<DetailSe
   addRow(rows, "Operations owner", job.operationsOwnerName);
   addRow(rows, "Ticketing SPOC", job.ticketingOwnerName);
   addRow(rows, "Tour manager", job.tourManagerName);
-  return { title: "Job Card details", rows };
+  return { rows, title: "Job Card details" };
 }
 
 async function travellerDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const travellerId = ctx.db.normalizeId("travellers", entityId);
-  if (!travellerId) return null;
+  if (!travellerId) {
+    return null;
+  }
   const traveller = await ctx.db.get(travellerId);
-  if (!traveller) return null;
+  if (!traveller) {
+    return null;
+  }
   const job = await getJob(ctx, traveller.jobCardId);
 
   const rows: DetailRow[] = [];
@@ -207,14 +223,18 @@ async function travellerDetails(ctx: QueryCtx, entityId: string): Promise<Detail
   addRow(rows, "Visa status", traveller.visaStatus);
   addRow(rows, "Ticket status", traveller.ticketStatus);
   addRow(rows, "Calling status", traveller.callingStatus);
-  return { title: "Traveller details", rows };
+  return { rows, title: "Traveller details" };
 }
 
 async function ticketDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const ticketId = ctx.db.normalizeId("tickets", entityId);
-  if (!ticketId) return null;
+  if (!ticketId) {
+    return null;
+  }
   const ticket = await ctx.db.get(ticketId);
-  if (!ticket) return null;
+  if (!ticket) {
+    return null;
+  }
   const [job, traveller, pnr] = await Promise.all([
     getJob(ctx, ticket.jobCardId),
     getTraveller(ctx, ticket.travellerId),
@@ -235,14 +255,18 @@ async function ticketDetails(ctx: QueryCtx, entityId: string): Promise<DetailSec
   addRow(rows, "Name change", ticket.nameChangeStatus);
   addRow(rows, "Reissue", ticket.reissueStatus);
   addRow(rows, "Cancellation", ticket.cancellationStatus);
-  return { title: "Ticket details", rows };
+  return { rows, title: "Ticket details" };
 }
 
 async function pnrDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const pnrId = ctx.db.normalizeId("pnrs", entityId);
-  if (!pnrId) return null;
+  if (!pnrId) {
+    return null;
+  }
   const pnr = await ctx.db.get(pnrId);
-  if (!pnr) return null;
+  if (!pnr) {
+    return null;
+  }
   const [job, flightGroup] = await Promise.all([
     getJob(ctx, pnr.jobCardId),
     getFlightGroup(ctx, pnr.flightGroupId),
@@ -257,14 +281,18 @@ async function pnrDetails(ctx: QueryCtx, entityId: string): Promise<DetailSectio
   addRow(rows, "Fare type", pnr.fareType);
   addRow(rows, "Status", pnr.status);
   addRow(rows, "Issued seats", `${pnr.issuedSeats}/${pnr.totalSeats}`);
-  return { title: "PNR details", rows };
+  return { rows, title: "PNR details" };
 }
 
 async function passportDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const passportId = ctx.db.normalizeId("passportDetails", entityId);
-  if (!passportId) return null;
+  if (!passportId) {
+    return null;
+  }
   const passport = await ctx.db.get(passportId);
-  if (!passport) return null;
+  if (!passport) {
+    return null;
+  }
   const traveller = await getTraveller(ctx, passport.travellerId);
   const job = await getJob(ctx, traveller?.jobCardId);
 
@@ -276,14 +304,18 @@ async function passportDetails(ctx: QueryCtx, entityId: string): Promise<DetailS
   addRow(rows, "Expiry date", formatDate(passport.expiryDate));
   addRow(rows, "Passport last four", passport.lastFour);
   addRow(rows, "File", passport.fileName);
-  return { title: "Passport details", rows };
+  return { rows, title: "Passport details" };
 }
 
 async function visaDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const visaId = ctx.db.normalizeId("visaRecords", entityId);
-  if (!visaId) return null;
+  if (!visaId) {
+    return null;
+  }
   const visa = await ctx.db.get(visaId);
-  if (!visa) return null;
+  if (!visa) {
+    return null;
+  }
   const [traveller, job] = await Promise.all([
     getTraveller(ctx, visa.travellerId),
     getJob(ctx, visa.jobCardId),
@@ -298,27 +330,31 @@ async function visaDetails(ctx: QueryCtx, entityId: string): Promise<DetailSecti
   addRow(
     rows,
     "Submitted",
-    visa.submittedAt ? new Date(visa.submittedAt).toLocaleDateString("en-GB") : "",
+    visa.submittedAt ? new Date(visa.submittedAt).toLocaleDateString("en-GB") : ""
   );
   addRow(
     rows,
     "Approved",
-    visa.approvedAt ? new Date(visa.approvedAt).toLocaleDateString("en-GB") : "",
+    visa.approvedAt ? new Date(visa.approvedAt).toLocaleDateString("en-GB") : ""
   );
   addRow(
     rows,
     "Rejected",
-    visa.rejectedAt ? new Date(visa.rejectedAt).toLocaleDateString("en-GB") : "",
+    visa.rejectedAt ? new Date(visa.rejectedAt).toLocaleDateString("en-GB") : ""
   );
   addRow(rows, "Notes", visa.notes);
-  return { title: "Visa details", rows };
+  return { rows, title: "Visa details" };
 }
 
 async function flightGroupDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const flightGroupId = ctx.db.normalizeId("flightGroups", entityId);
-  if (!flightGroupId) return null;
+  if (!flightGroupId) {
+    return null;
+  }
   const flight = await ctx.db.get(flightGroupId);
-  if (!flight) return null;
+  if (!flight) {
+    return null;
+  }
   const job = await getJob(ctx, flight.jobCardId);
 
   const rows: DetailRow[] = [];
@@ -331,14 +367,18 @@ async function flightGroupDetails(ctx: QueryCtx, entityId: string): Promise<Deta
   addRow(rows, "Arrival", formatDate(flight.arrivalDate));
   addRow(rows, "Ticketing type", flight.ticketingType);
   addRow(rows, "Total seats", flight.totalSeats);
-  return { title: "Flight details", rows };
+  return { rows, title: "Flight details" };
 }
 
 async function seatDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const seatId = ctx.db.normalizeId("seatAllocations", entityId);
-  if (!seatId) return null;
+  if (!seatId) {
+    return null;
+  }
   const seat = await ctx.db.get(seatId);
-  if (!seat) return null;
+  if (!seat) {
+    return null;
+  }
   const [job, traveller, pnr, flightGroup] = await Promise.all([
     getJob(ctx, seat.jobCardId),
     getTraveller(ctx, seat.travellerId),
@@ -354,14 +394,18 @@ async function seatDetails(ctx: QueryCtx, entityId: string): Promise<DetailSecti
   addRow(rows, "PNR", pnr?.pnrCode);
   addRow(rows, "Flight group", flightGroup?.name);
   addRow(rows, "Notes", seat.notes);
-  return { title: "Seat details", rows };
+  return { rows, title: "Seat details" };
 }
 
 async function invoiceDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const invoiceId = ctx.db.normalizeId("invoices", entityId);
-  if (!invoiceId) return null;
+  if (!invoiceId) {
+    return null;
+  }
   const invoice = await ctx.db.get(invoiceId);
-  if (!invoice) return null;
+  if (!invoice) {
+    return null;
+  }
   const job = await getJob(ctx, invoice.jobCardId);
 
   const rows: DetailRow[] = [];
@@ -373,14 +417,18 @@ async function invoiceDetails(ctx: QueryCtx, entityId: string): Promise<DetailSe
   addRow(rows, "Expected amount", formatAmount(invoice.expectedAmount));
   addRow(rows, "Received amount", formatAmount(invoice.receivedAmount));
   addRow(rows, "Balance amount", formatAmount(invoice.balanceAmount));
-  return { title: "Invoice details", rows };
+  return { rows, title: "Invoice details" };
 }
 
 async function expenseDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const expenseId = ctx.db.normalizeId("expenseEntries", entityId);
-  if (!expenseId) return null;
+  if (!expenseId) {
+    return null;
+  }
   const expense = await ctx.db.get(expenseId);
-  if (!expense) return null;
+  if (!expense) {
+    return null;
+  }
   const job = await getJob(ctx, expense.jobCardId);
 
   const rows: DetailRow[] = [];
@@ -395,14 +443,18 @@ async function expenseDetails(ctx: QueryCtx, entityId: string): Promise<DetailSe
   addRow(rows, "Approval status", expense.approvalStatus);
   addRow(rows, "Reimbursement status", expense.reimbursementStatus);
   addRow(rows, "Notes", expense.notes);
-  return { title: "Expense details", rows };
+  return { rows, title: "Expense details" };
 }
 
 async function approvalDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const approvalId = ctx.db.normalizeId("approvalRequests", entityId);
-  if (!approvalId) return null;
+  if (!approvalId) {
+    return null;
+  }
   const approval = await ctx.db.get(approvalId);
-  if (!approval) return null;
+  if (!approval) {
+    return null;
+  }
 
   const rows: DetailRow[] = [];
   addRow(rows, "Approval", approval.requestCode);
@@ -413,14 +465,18 @@ async function approvalDetails(ctx: QueryCtx, entityId: string): Promise<DetailS
   addRow(rows, "Requested by", approval.requestedByName);
   addRow(rows, "Decision by", approval.decidedByName);
   addRow(rows, "Decision note", approval.decisionNote);
-  return { title: "Approval details", rows };
+  return { rows, title: "Approval details" };
 }
 
 async function leaveDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const leaveId = ctx.db.normalizeId("staffLeaveRecords", entityId);
-  if (!leaveId) return null;
+  if (!leaveId) {
+    return null;
+  }
   const leave = await ctx.db.get(leaveId);
-  if (!leave) return null;
+  if (!leave) {
+    return null;
+  }
   const staff = await ctx.db.get(leave.staffId);
 
   const rows: DetailRow[] = [];
@@ -437,14 +493,18 @@ async function leaveDetails(ctx: QueryCtx, entityId: string): Promise<DetailSect
   addRow(rows, "HR review", leave.hrReviewStatus);
   addRow(rows, "Reason", leave.reason);
   addRow(rows, "Decision note", leave.decisionNote);
-  return { title: "Leave details", rows };
+  return { rows, title: "Leave details" };
 }
 
 async function hotelDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const hotelId = ctx.db.normalizeId("hotels", entityId);
-  if (!hotelId) return null;
+  if (!hotelId) {
+    return null;
+  }
   const hotel = await ctx.db.get(hotelId);
-  if (!hotel) return null;
+  if (!hotel) {
+    return null;
+  }
   const job = await getJob(ctx, hotel.jobCardId);
 
   const rows: DetailRow[] = [];
@@ -455,14 +515,18 @@ async function hotelDetails(ctx: QueryCtx, entityId: string): Promise<DetailSect
   addRow(rows, "Check-in", formatDate(hotel.checkInDate));
   addRow(rows, "Check-out", formatDate(hotel.checkOutDate));
   addRow(rows, "Special instructions", hotel.specialInstructions);
-  return { title: "Hotel details", rows };
+  return { rows, title: "Hotel details" };
 }
 
 async function tourManagerDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const tourManagerId = ctx.db.normalizeId("tourManagerAssignments", entityId);
-  if (!tourManagerId) return null;
+  if (!tourManagerId) {
+    return null;
+  }
   const tourManager = await ctx.db.get(tourManagerId);
-  if (!tourManager) return null;
+  if (!tourManager) {
+    return null;
+  }
   const [job, batch] = await Promise.all([
     getJob(ctx, tourManager.jobCardId),
     getTravelBatch(ctx, tourManager.travelBatchId),
@@ -471,7 +535,7 @@ async function tourManagerDetails(ctx: QueryCtx, entityId: string): Promise<Deta
   const pax = batch?.confirmedPax ?? job?.confirmedPax;
   const travelDates = formatDateRange(
     batch?.travelStartDate ?? job?.travelStartDate,
-    batch?.travelEndDate ?? job?.travelEndDate,
+    batch?.travelEndDate ?? job?.travelEndDate
   );
 
   const rows: DetailRow[] = [];
@@ -491,16 +555,16 @@ async function tourManagerDetails(ctx: QueryCtx, entityId: string): Promise<Deta
   addRow(rows, "Availability date", formatDate(tourManager.availabilityDate));
   addRow(rows, "Calling status", tourManager.callingStatus);
   addRow(rows, "Notes", tourManager.notes);
-  return { title: "Tour manager details", rows };
+  return { rows, title: "Tour manager details" };
 }
 
 export const getNotificationEmailDetails = internalQuery({
   args: {
-    entityType: v.optional(v.string()),
     entityId: v.optional(v.string()),
+    entityType: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<DetailSection | null> => {
-    if (!args.entityType || !args.entityId) {
+    if (!(args.entityType && args.entityId)) {
       return null;
     }
 

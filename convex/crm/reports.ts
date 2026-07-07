@@ -45,14 +45,14 @@ export const overview = query({
     const proposals = filterRecordsByDateRange(proposalRows, dateRange);
 
     const scopedRecords = applyCementPortalScope(access, {
-      queries,
-      proposals,
-      jobCards,
-      travellers,
-      tickets,
-      visas,
       invoices,
+      jobCards,
       proposalQueryLinks: proposalQueryLinkRows,
+      proposals,
+      queries,
+      tickets,
+      travellers,
+      visas,
     });
     queries = scopedRecords.queries;
     invoices = scopedRecords.invoices;
@@ -67,9 +67,9 @@ export const overview = query({
     const revenueByType = new Map<string, { queryType: string; revenue: number; count: number }>();
     for (const query of queries) {
       const current = revenueByType.get(query.queryType) ?? {
+        count: 0,
         queryType: query.queryType,
         revenue: 0,
-        count: 0,
       };
       current.count += 1;
       current.revenue += query.budgetAmount ?? 0;
@@ -87,15 +87,15 @@ export const overview = query({
 
     const confirmedRevenue = invoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
     return {
-      revenueByType: Array.from(revenueByType.values()).sort((a, b) => b.revenue - a.revenue),
       locationHeadcount: Array.from(locationHeadcount.entries())
-        .map(([location, count]) => ({ id: location, location, count }))
+        .map(([location, count]) => ({ count, id: location, location }))
         .sort((a, b) => b.count - a.count),
+      revenueByType: Array.from(revenueByType.values()).sort((a, b) => b.revenue - a.revenue),
       summary: {
-        totalPipelineBudget: queries.reduce((sum, query) => sum + (query.budgetAmount ?? 0), 0),
-        confirmedRevenue,
         confirmedQueries: queries.filter((query) => query.salesStatus === "Order Confirmed").length,
+        confirmedRevenue,
         lostQueries: queries.filter((query) => query.salesStatus === "Order Lost").length,
+        totalPipelineBudget: queries.reduce((sum, query) => sum + (query.budgetAmount ?? 0), 0),
       },
     };
   },

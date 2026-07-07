@@ -10,8 +10,8 @@ import {
 export function getPaymentTermForQueryType(queryType) {
   return (
     PAYMENT_TERMS_BY_QUERY_TYPE[queryType] || {
-      minAdvancePercent: 70,
       maxAdvancePercent: 100,
+      minAdvancePercent: 70,
     }
   );
 }
@@ -54,7 +54,7 @@ function getSalesPipelineStage(query) {
   }
   if (
     ["Proposal in progress", "Change in destination", "Date/Destination Change Required"].includes(
-      query?.contractingStatus,
+      query?.contractingStatus
     )
   ) {
     return "Negotiation";

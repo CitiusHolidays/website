@@ -12,10 +12,10 @@ export async function sendEmail({ to, subject, html, replyTo, from }) {
 
   const { data, error } = await resend.emails.send({
     from: from || AUTH_EMAIL_FROM,
-    to: Array.isArray(to) ? to : [to],
-    subject,
     html,
     reply_to: replyTo,
+    subject,
+    to: Array.isArray(to) ? to : [to],
   });
 
   if (error) {

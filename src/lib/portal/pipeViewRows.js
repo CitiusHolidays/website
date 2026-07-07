@@ -6,13 +6,17 @@ import { filterByDateRange } from "@/lib/portal/periodFilter";
 export const VIEWS_WITH_JOB_CARD_FILTER = new Set(JOB_CARD_FILTER_VIEWS);
 
 function filterByJobCard(rows, jobCardFilter) {
-  if (!jobCardFilter || !rows?.length) return rows || [];
+  if (!(jobCardFilter && rows?.length)) {
+    return rows || [];
+  }
   return rows.filter((row) => row.jobCardId === jobCardFilter);
 }
 
 export function filterRows(rows, search, keys) {
   const term = search.trim().toLowerCase();
-  if (!term) return rows;
+  if (!term) {
+    return rows;
+  }
   return rows.filter((row) =>
     keys.some((key) => {
       const value = row[key];
@@ -22,7 +26,7 @@ export function filterRows(rows, search, keys) {
       return String(value ?? "")
         .toLowerCase()
         .includes(term);
-    }),
+    })
   );
 }
 
@@ -37,7 +41,7 @@ export function pipeViewRows(
     search,
     searchKeys,
     dateField = "createdAt",
-  },
+  }
 ) {
   let result = filterByDateRange(rows || [], dateRange, dateField);
   if (VIEWS_WITH_JOB_CARD_FILTER.has(view)) {

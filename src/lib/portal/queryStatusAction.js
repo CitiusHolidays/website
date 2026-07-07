@@ -2,25 +2,25 @@ import { PORTAL_PERMISSIONS as P } from "./constants.js";
 
 export function buildQueryStatusInitial(row) {
   return {
-    queryId: row.id,
-    salesStatus: row.salesStatus,
-    salesDecision: row.salesStatus || "Proposal in discussion",
-    leadStage: row.leadStage || "Inquiry",
-    contractingStatus: row.contractingStatus,
+    approxMargin: row.approxMargin == null ? "" : String(row.approxMargin),
     budgetAmount: String(row.budgetAmount || ""),
-    contractingLandCost: String(row.contractingLandCost ?? ""),
     contractingAirlinesCost: String(row.contractingAirlinesCost ?? ""),
+    contractingLandCost: String(row.contractingLandCost ?? ""),
+    contractingStatus: row.contractingStatus,
     contractingVisaCost: String(row.contractingVisaCost ?? ""),
-    approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
+    leadStage: row.leadStage || "Inquiry",
     lostReason: row.lostReason || "",
+    queryId: row.id,
+    salesDecision: row.salesStatus || "Proposal in discussion",
+    salesStatus: row.salesStatus,
   };
 }
 
 export function buildQueryStatusAction(row, has) {
   const isContractingOnly = has(P.MANAGE_CONTRACTING) && !has(P.MANAGE_QUERIES);
   return {
-    modal: isContractingOnly ? "queryStatus" : "salesDecision",
-    label: isContractingOnly ? "Status" : "Sales Decision",
     initial: buildQueryStatusInitial(row),
+    label: isContractingOnly ? "Status" : "Sales Decision",
+    modal: isContractingOnly ? "queryStatus" : "salesDecision",
   };
 }

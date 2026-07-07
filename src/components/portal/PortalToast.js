@@ -16,22 +16,22 @@ function ToastItem({ toast, onDismiss }) {
 
   return (
     <m.div
-      layout
-      initial={{ opacity: 0, y: 8, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -4, scale: 0.98 }}
-      transition={{ duration: 0.2 }}
-      className={`pointer-events-auto max-w-sm rounded-xl border px-4 py-3 text-sm shadow-lg ${toneClass}`}
-      role="status"
+      animate={{ opacity: 1, scale: 1, y: 0 }}
       aria-live="polite"
+      className={`pointer-events-auto max-w-sm rounded-xl border px-4 py-3 text-sm shadow-lg ${toneClass}`}
+      exit={{ opacity: 0, scale: 0.98, y: -4 }}
+      initial={{ opacity: 0, scale: 0.98, y: 8 }}
+      layout
+      role="status"
+      transition={{ duration: 0.2 }}
     >
       <div className="flex items-start justify-between gap-3">
         <span>{toast.message}</span>
         <button
-          type="button"
-          className="shrink-0 text-xs font-semibold opacity-70 transition hover:opacity-100"
-          onClick={() => onDismiss(toast.id)}
           aria-label="Dismiss notification"
+          className="shrink-0 font-semibold text-xs opacity-70 transition hover:opacity-100"
+          onClick={() => onDismiss(toast.id)}
+          type="button"
         >
           Dismiss
         </button>
@@ -55,9 +55,9 @@ export function PortalToastProvider({ children }) {
   };
 
   const api = {
-    success: (message) => push(message, "success"),
     error: (message) => push(message, "error"),
     info: (message) => push(message, "info"),
+    success: (message) => push(message, "success"),
   };
 
   return (
@@ -65,11 +65,11 @@ export function PortalToastProvider({ children }) {
       {children}
       <section
         aria-label="Toast messages"
-        className={`pointer-events-none fixed bottom-4 right-4 ${PORTAL_Z.toast} flex w-full max-w-sm flex-col gap-2 px-4 sm:px-0`}
+        className={`pointer-events-none fixed right-4 bottom-4 ${PORTAL_Z.toast} flex w-full max-w-sm flex-col gap-2 px-4 sm:px-0`}
       >
         <AnimatePresence mode="popLayout">
           {toasts.map((toast) => (
-            <ToastItem key={toast.id} toast={toast} onDismiss={dismiss} />
+            <ToastItem key={toast.id} onDismiss={dismiss} toast={toast} />
           ))}
         </AnimatePresence>
       </section>

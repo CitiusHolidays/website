@@ -1,28 +1,28 @@
 export default {
-  name: "spiritualtrails",
-  type: "document",
-  title: "Spiritual Trails Main",
   fields: [
     {
-      name: "images",
-      type: "array",
-      title: "Hub preview images (optional)",
       description:
         "Optional images for the main /pilgrimage grid. Each trail page uses its own “Trail gallery” document.",
+      name: "images",
       of: [
         {
-          type: "image",
-          options: { hotspot: true },
           fields: [
             {
               name: "alt",
-              type: "string",
               title: "Alternative text",
+              type: "string",
             },
           ],
+          options: { hotspot: true },
+          type: "image",
         },
       ],
       options: { layout: "grid" },
+      title: "Hub preview images (optional)",
+      type: "array",
     },
   ],
+  name: "spiritualtrails",
+  title: "Spiritual Trails Main",
+  type: "document",
 };

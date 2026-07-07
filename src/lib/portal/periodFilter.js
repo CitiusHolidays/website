@@ -7,8 +7,12 @@ export const EMPTY_DATE_RANGE = { from: null, to: null };
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function parseRowDate(value) {
-  if (value == null || value === "") return Number.NaN;
-  if (typeof value === "number") return value;
+  if (value == null || value === "") {
+    return Number.NaN;
+  }
+  if (typeof value === "number") {
+    return value;
+  }
   const text = String(value).trim();
   if (DATE_ONLY_RE.test(text)) {
     return new Date(`${text}T00:00:00`).getTime();
@@ -17,30 +21,38 @@ export function parseRowDate(value) {
 }
 
 export function parseDateOnly(value) {
-  if (!value?.trim()) return null;
+  if (!value?.trim()) {
+    return null;
+  }
   const text = value.trim();
-  if (!DATE_ONLY_RE.test(text)) return null;
+  if (!DATE_ONLY_RE.test(text)) {
+    return null;
+  }
   return new Date(`${text}T00:00:00`).getTime();
 }
 
 export function endOfDateOnly(value) {
   const start = parseDateOnly(value);
-  if (start == null) return null;
+  if (start == null) {
+    return null;
+  }
   return start + 24 * 60 * 60 * 1000 - 1;
 }
 
 export function normalizeDateRange(range) {
   const from = range?.from?.trim() || null;
   const to = range?.to?.trim() || null;
-  if (!from && !to) return EMPTY_DATE_RANGE;
+  if (!(from || to)) {
+    return EMPTY_DATE_RANGE;
+  }
   return { from, to };
 }
 
 export function getFilterDateRangeError(range) {
   const normalized = normalizeDateRange(range);
   return getDateRangeError(normalized.from, normalized.to, {
-    startLabel: "From",
     endLabel: "To",
+    startLabel: "From",
   });
 }
 
@@ -50,10 +62,14 @@ export function isValidDateRange(range) {
 
 export function resolveDateRange(range) {
   const normalized = normalizeDateRange(range);
-  if (getFilterDateRangeError(normalized)) return null;
+  if (getFilterDateRangeError(normalized)) {
+    return null;
+  }
   const sinceMs = parseDateOnly(normalized.from);
   const untilMs = endOfDateOnly(normalized.to);
-  if (sinceMs == null && untilMs == null) return null;
+  if (sinceMs == null && untilMs == null) {
+    return null;
+  }
   return {
     sinceMs: sinceMs ?? 0,
     untilMs: untilMs ?? Date.now(),
@@ -62,18 +78,26 @@ export function resolveDateRange(range) {
 
 export function isInDateRange(value, range) {
   const resolved = resolveDateRange(range);
-  if (!resolved) return true;
+  if (!resolved) {
+    return true;
+  }
   const ms = parseRowDate(value);
-  if (!Number.isFinite(ms)) return false;
+  if (!Number.isFinite(ms)) {
+    return false;
+  }
   return ms >= resolved.sinceMs && ms <= resolved.untilMs;
 }
 
 export function filterByDateRange(rows, range, dateKey = "createdAt") {
   const resolved = resolveDateRange(range);
-  if (!resolved || !rows?.length) return rows || [];
+  if (!(resolved && rows?.length)) {
+    return rows || [];
+  }
   return rows.filter((row) => {
     const ms = parseRowDate(row[dateKey]);
-    if (!Number.isFinite(ms)) return false;
+    if (!Number.isFinite(ms)) {
+      return false;
+    }
     return ms >= resolved.sinceMs && ms <= resolved.untilMs;
   });
 }
@@ -95,8 +119,12 @@ export function resolvePeriodRange(range) {
 
 export function dateRangeQueryArg(range) {
   const normalized = normalizeDateRange(range);
-  if (!normalized.from && !normalized.to) return undefined;
-  if (getFilterDateRangeError(normalized)) return undefined;
+  if (!(normalized.from || normalized.to)) {
+    return;
+  }
+  if (getFilterDateRangeError(normalized)) {
+    return;
+  }
   return {
     from: normalized.from ?? undefined,
     to: normalized.to ?? undefined,

@@ -10,7 +10,7 @@ function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) {
     throw new Error(
-      "ENCRYPTION_KEY environment variable is not configured. Base64 string required.",
+      "ENCRYPTION_KEY environment variable is not configured. Base64 string required."
     );
   }
   return Buffer.from(key, "base64");
@@ -81,11 +81,11 @@ export function hash(data: string): string {
 }
 
 export interface PassportDetailsPayload {
-  number: string;
-  expiryDate: string;
-  nationality: string;
   dateOfBirth: string;
+  expiryDate: string;
   issueDate?: string;
+  nationality: string;
+  number: string;
 }
 
 export function encryptPassportDetails(passportDetails: PassportDetailsPayload): string {
@@ -101,17 +101,17 @@ export function encryptPassportDetails(passportDetails: PassportDetailsPayload):
     }
   }
   return encrypt({
-    number: passportDetails.number,
-    expiryDate: passportDetails.expiryDate,
-    nationality: passportDetails.nationality,
     dateOfBirth: passportDetails.dateOfBirth,
-    issueDate: passportDetails.issueDate ?? "",
     encryptedAt: new Date().toISOString(),
+    expiryDate: passportDetails.expiryDate,
+    issueDate: passportDetails.issueDate ?? "",
+    nationality: passportDetails.nationality,
+    number: passportDetails.number,
   });
 }
 
 export function decryptPassportDetails(
-  encryptedDetails: string,
+  encryptedDetails: string
 ): PassportDetailsPayload & { encryptedAt: string; issueDate?: string } {
   return decrypt(encryptedDetails, true);
 }

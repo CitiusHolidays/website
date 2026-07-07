@@ -7,7 +7,9 @@ import { useSacredBharatContext } from "./SacredBharatProvider";
 export default function GuestSaveBanner({ className = "" }) {
   const { isAuthenticated, progress } = useSacredBharatContext();
 
-  if (isAuthenticated) return null;
+  if (isAuthenticated) {
+    return null;
+  }
 
   const loginHref = "/auth/guest?callbackUrl=/sacred-bharat";
 
@@ -17,22 +19,22 @@ export default function GuestSaveBanner({ className = "" }) {
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="font-heading text-sm uppercase tracking-[0.2em] text-citius-orange mb-1">
+          <p className="mb-1 font-heading text-citius-orange text-sm uppercase tracking-[0.2em]">
             Save your pilgrimage
           </p>
-          <p className="font-sans text-sm md:text-base text-brand-muted">
+          <p className="font-sans text-brand-muted text-sm md:text-base">
             You have {progress.templeCount} sacred site
             {progress.templeCount === 1 ? "" : "s"} logged locally. Sign in to save progress, earn
             your place on the leaderboard, and build your digital legacy.
           </p>
         </div>
         <Link
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-citius-blue px-5 py-2.5 font-medium text-sm text-white transition-colors hover:bg-citius-blue/90"
           href={loginHref}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-citius-blue px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-citius-blue/90"
         >
           <LogIn size={16} />
           Sign in to save
-          <Trophy size={16} className="text-citius-orange" />
+          <Trophy className="text-citius-orange" size={16} />
         </Link>
       </div>
     </div>

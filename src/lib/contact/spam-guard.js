@@ -26,7 +26,7 @@ const SPAM_KEYWORDS = [
 const URL_PATTERN = /https?:\/\/|www\./gi;
 const SPAM_KEYWORD_PATTERN = new RegExp(
   SPAM_KEYWORDS.map((keyword) => keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
-  "i",
+  "i"
 );
 
 /**
@@ -124,21 +124,21 @@ export function detectSpamContent({ name, email, subject, message }) {
   const combined = `${name} ${email} ${subject} ${message}`.toLowerCase();
 
   if (SPAM_KEYWORD_PATTERN.test(combined)) {
-    return { spam: true, reason: "keyword" };
+    return { reason: "keyword", spam: true };
   }
 
   const urlMatches = message.match(URL_PATTERN) || [];
   if (urlMatches.length >= 2) {
-    return { spam: true, reason: "urls" };
+    return { reason: "urls", spam: true };
   }
 
   if (message.length > 80 && message === message.toUpperCase()) {
-    return { spam: true, reason: "shouting" };
+    return { reason: "shouting", spam: true };
   }
 
   const localPart = email.split("@")[0] || "";
   if (/^\d{8,}$/.test(localPart)) {
-    return { spam: true, reason: "numeric_email" };
+    return { reason: "numeric_email", spam: true };
   }
 
   return { spam: false };

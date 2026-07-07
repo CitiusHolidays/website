@@ -8,9 +8,9 @@ import {
 describe("capacity", () => {
   test("computes staff load and role summaries", () => {
     const rows = buildStaffCapacityRows({
-      staff: [{ _id: "s1", name: "A", roles: ["Sales"] }],
-      queries: [{ salesOwnerId: "s1", salesStatus: "Proposal in discussion" }],
       jobCards: [],
+      queries: [{ salesOwnerId: "s1", salesStatus: "Proposal in discussion" }],
+      staff: [{ _id: "s1", name: "A", roles: ["Sales"] }],
     });
     expect(rows[0].load).toBe(1);
     expect(buildRoleCapacitySummary(rows)[0]).toMatchObject({ role: "Sales", staffCount: 1 });

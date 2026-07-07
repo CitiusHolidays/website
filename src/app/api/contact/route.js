@@ -15,7 +15,7 @@ import { sendEmail } from "@/lib/email/send";
 function rejectSpam() {
   return NextResponse.json(
     { error: "Unable to send your message. Please try again later." },
-    { status: 400 },
+    { status: 400 }
   );
 }
 
@@ -30,9 +30,9 @@ export async function POST(request) {
     return NextResponse.json(
       { error: "Too many submissions. Please wait a few minutes and try again." },
       {
-        status: 429,
         headers: { "Retry-After": String(rateLimit.retryAfterSec) },
-      },
+        status: 429,
+      }
     );
   }
 
@@ -53,7 +53,7 @@ export async function POST(request) {
     if (!captcha.ok) {
       return NextResponse.json(
         { error: "Security verification failed. Please refresh and try again." },
-        { status: 400 },
+        { status: 400 }
       );
     }
   }
@@ -68,10 +68,10 @@ export async function POST(request) {
   const trimmedSubject = (subject || "").toString().trim().slice(0, 120);
   const trimmedMessage = (message || "").toString().trim();
 
-  if (!trimmedName || !trimmedEmail || !trimmedMessage) {
+  if (!(trimmedName && trimmedEmail && trimmedMessage)) {
     return NextResponse.json(
       { error: "Please provide name, email, and message." },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -85,7 +85,7 @@ export async function POST(request) {
     if (!phoneRegex.test(trimmedPhone)) {
       return NextResponse.json(
         { error: "Please provide a valid phone number (e.g., +1 555-123-4567)." },
-        { status: 400 },
+        { status: 400 }
       );
     }
   }
@@ -95,10 +95,10 @@ export async function POST(request) {
   }
 
   const spamCheck = detectSpamContent({
-    name: trimmedName,
     email: trimmedEmail,
-    subject: trimmedSubject,
     message: trimmedMessage,
+    name: trimmedName,
+    subject: trimmedSubject,
   });
   if (spamCheck.spam) {
     console.info("[contact] Blocked spam submission:", spamCheck.reason, clientIp);
@@ -106,21 +106,21 @@ export async function POST(request) {
   }
 
   const emailHtml = await renderContactFormEmail({
-    receivedAtMs: Date.now(),
-    name: trimmedName,
     email: trimmedEmail,
-    phone: trimmedPhone,
-    subject: trimmedSubject || "Contact Form Message",
     message: trimmedMessage,
+    name: trimmedName,
+    phone: trimmedPhone,
+    receivedAtMs: Date.now(),
+    subject: trimmedSubject || "Contact Form Message",
   });
 
   try {
     await sendEmail({
       from: CONTACT_EMAIL_FROM,
-      to: CONTACT_EMAIL_TO,
-      subject: `Contact Form Submission: ${trimmedSubject || "Contact Form Message"}`,
       html: emailHtml,
       replyTo: trimmedEmail,
+      subject: `Contact Form Submission: ${trimmedSubject || "Contact Form Message"}`,
+      to: CONTACT_EMAIL_TO,
     });
     return NextResponse.json({ message: "Email sent successfully!" }, { status: 200 });
   } catch (err) {

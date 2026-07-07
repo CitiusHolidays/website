@@ -8,16 +8,16 @@ const CL_SL_LAPSE_TYPES: LeaveType[] = ["Casual", "Sick"];
 const LAPSE_TIMEZONE = "Asia/Kolkata";
 
 const CL_SL_LAPSE_DAY_PARTS_FORMATTER = new Intl.DateTimeFormat("en-GB", {
-  timeZone: LAPSE_TIMEZONE,
-  month: "numeric",
   day: "numeric",
+  month: "numeric",
+  timeZone: LAPSE_TIMEZONE,
 });
 
 const CL_SL_LAPSE_ISO_DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+  day: "2-digit",
+  month: "2-digit",
   timeZone: LAPSE_TIMEZONE,
   year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
 });
 
 export function isClSlLapseDay(value = new Date()) {
@@ -39,12 +39,12 @@ async function hasLapseEntry(
   ctx: { db: any },
   staffId: Id<"staffUsers">,
   fiscalYear: string,
-  leaveType: LeaveType,
+  leaveType: LeaveType
 ) {
   const entries = await ctx.db
     .query("staffLeaveLedger")
     .withIndex("by_staffId_and_fiscalYear", (q: any) =>
-      q.eq("staffId", staffId).eq("fiscalYear", fiscalYear),
+      q.eq("staffId", staffId).eq("fiscalYear", fiscalYear)
     )
     .collect();
   return entries.some((entry: any) => entry.leaveType === leaveType && entry.entryType === "lapse");
@@ -67,7 +67,7 @@ export async function lapseClSlForFiscalYear(ctx: { db: any }, fiscalYear: strin
           const balance = await ctx.db
             .query("staffLeaveBalances")
             .withIndex("by_staffId_and_fiscalYear_and_leaveType", (q: any) =>
-              q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear).eq("leaveType", leaveType),
+              q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear).eq("leaveType", leaveType)
             )
             .first();
 
@@ -77,14 +77,14 @@ export async function lapseClSlForFiscalYear(ctx: { db: any }, fiscalYear: strin
           }
 
           await ctx.db.insert("staffLeaveLedger", {
-            staffId: staff._id,
+            createdAt: now,
+            createdBy: "system",
+            days: availableDays,
+            entryType: "lapse",
             fiscalYear,
             leaveType,
-            entryType: "lapse",
-            days: availableDays,
             note: `Unused ${leaveType} leave lapsed on 31 March (${fiscalYear}).`,
-            createdBy: "system",
-            createdAt: now,
+            staffId: staff._id,
           });
 
           if (balance) {
@@ -95,10 +95,10 @@ export async function lapseClSlForFiscalYear(ctx: { db: any }, fiscalYear: strin
           }
 
           return 1;
-        }),
+        })
       );
       return staffLapses.reduce<number>((sum, count) => sum + count, 0);
-    }),
+    })
   );
   const lapsedRows = lapseCounts.reduce((sum, count) => sum + count, 0);
 
@@ -122,7 +122,7 @@ export const checkAndRunClSlLapse = internalMutation({
   handler: async (ctx) => {
     const fiscalYear = fiscalYearEndingOn31March();
     if (!fiscalYear) {
-      return { skipped: true, reason: "not_lapse_day" };
+      return { reason: "not_lapse_day", skipped: true };
     }
     const result = await lapseClSlForFiscalYear(ctx, fiscalYear);
     return { skipped: false, ...result };

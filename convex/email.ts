@@ -7,10 +7,10 @@ import { AUTH_EMAIL_FROM } from "./lib/emailConfig";
 
 export const sendEmail = internalAction({
   args: {
-    to: v.string(),
-    subject: v.string(),
     html: v.string(),
     replyTo: v.optional(v.string()),
+    subject: v.string(),
+    to: v.string(),
   },
   handler: async (_ctx, args) => {
     const resendKey = process.env.RESEND_API_KEY;
@@ -21,15 +21,15 @@ export const sendEmail = internalAction({
     const resend = new Resend(resendKey);
     const { error, data } = await resend.emails.send({
       from: emailFrom,
-      to: [args.to],
-      subject: args.subject,
       html: args.html,
       replyTo: args.replyTo,
+      subject: args.subject,
+      to: [args.to],
     });
     if (error) {
       console.error("Resend send email error:", error);
       throw new Error(`Failed to send email: ${error.message}`);
     }
-    return { success: true, id: data?.id };
+    return { id: data?.id, success: true };
   },
 });

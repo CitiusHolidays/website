@@ -16,7 +16,7 @@ export async function createAuthLoginPage({ variantId, searchParams }) {
   const error = formatAuthCallbackError(params?.error);
   const mode = params?.mode || "signin";
 
-  return <AuthLoginPageClient variantId={variantId} initialMode={mode} error={error} />;
+  return <AuthLoginPageClient error={error} initialMode={mode} variantId={variantId} />;
 }
 
 export async function createLegacyAuthRedirect({ searchParams }) {

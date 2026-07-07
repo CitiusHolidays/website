@@ -4,11 +4,13 @@ import { redirect } from "next/navigation";
 import PortalShell from "@/components/portal/PortalShell";
 import { fetchAuthMutation, fetchAuthQuery, requireAuth } from "@/lib/auth-server";
 
-export const dynamic = "force-dynamic";
+// TODO: Cache Components adoption. Refactor this route so this opt-out can be removed.
+// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+export const instant = false;
 
 export const metadata = {
-  title: "TravelCRM Portal | Citius Holidays",
   description: "Internal Citius Holidays CRM portal.",
+  title: "TravelCRM Portal | Citius Holidays",
 };
 
 export default async function PortalLayout({ children }) {
@@ -16,7 +18,7 @@ export default async function PortalLayout({ children }) {
 
   return requireAuth("/portal").then(async ({ user }) => {
     const access = await fetchAuthMutation(anyApi.authSync.syncMyAuthIdentity, {}).then(() =>
-      fetchAuthQuery(anyApi.crm.staff.getMyPortalAccess, {}),
+      fetchAuthQuery(anyApi.crm.staff.getMyPortalAccess, {})
     );
 
     if (!access?.allowed) {

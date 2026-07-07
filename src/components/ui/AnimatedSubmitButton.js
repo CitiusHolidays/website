@@ -2,29 +2,27 @@
 
 import { AnimatePresence, m, useTime, useTransform } from "motion/react";
 
-const Badge = ({ state }) => {
-  return (
-    <m.div
-      style={{ ...styles.badge, gap: state === "idle" ? 0 : 8 }}
-      className="bg-citius-orange text-brand-light"
-      animate={
-        state === "error"
-          ? { x: [0, -6, 6, -6, 0], scale: 1 }
-          : state === "success"
-            ? { x: 0, scale: [1, 1.2, 1] }
-            : { x: 0, scale: 1 }
-      }
-      transition={{
-        duration: 0.3,
-        ease: "easeInOut",
-        times: state === "error" ? [0, 0.25, 0.5, 0.75, 1] : undefined,
-      }}
-    >
-      <Icon state={state} />
-      <Label state={state} />
-    </m.div>
-  );
-};
+const Badge = ({ state }) => (
+  <m.div
+    animate={
+      state === "error"
+        ? { scale: 1, x: [0, -6, 6, -6, 0] }
+        : state === "success"
+          ? { scale: [1, 1.2, 1], x: 0 }
+          : { scale: 1, x: 0 }
+    }
+    className="bg-citius-orange text-brand-light"
+    style={{ ...styles.badge, gap: state === "idle" ? 0 : 8 }}
+    transition={{
+      duration: 0.3,
+      ease: "easeInOut",
+      times: state === "error" ? [0, 0.25, 0.5, 0.75, 1] : undefined,
+    }}
+  >
+    <Icon state={state} />
+    <Label state={state} />
+  </m.div>
+);
 
 const Icon = ({ state }) => {
   let IconComponent = null;
@@ -46,17 +44,17 @@ const Icon = ({ state }) => {
 
   return (
     <m.span
-      style={styles.iconContainer}
       animate={{ width: state === "idle" ? 0 : 20 }}
+      style={styles.iconContainer}
       transition={SPRING_CONFIG}
     >
       <AnimatePresence>
         <m.span
+          animate={{ filter: "blur(0px)", scale: 1, y: 0 }}
+          exit={{ filter: "blur(6px)", scale: 0.5, y: 40 }}
+          initial={{ filter: "blur(6px)", scale: 0.5, y: -40 }}
           key={state}
           style={styles.icon}
-          initial={{ y: -40, scale: 0.5, filter: "blur(6px)" }}
-          animate={{ y: 0, scale: 1, filter: "blur(0px)" }}
-          exit={{ y: 40, scale: 0.5, filter: "blur(6px)" }}
           transition={{ duration: 0.15, ease: "easeInOut" }}
         >
           {IconComponent}
@@ -71,14 +69,14 @@ const STROKE_WIDTH = 2;
 const VIEW_BOX_SIZE = 24;
 
 const svgProps = {
-  width: ICON_SIZE,
-  height: ICON_SIZE,
-  viewBox: `0 0 ${VIEW_BOX_SIZE} ${VIEW_BOX_SIZE}`,
   fill: "none",
+  height: ICON_SIZE,
   stroke: "currentColor",
-  strokeWidth: STROKE_WIDTH,
   strokeLinecap: "round",
   strokeLinejoin: "round",
+  strokeWidth: STROKE_WIDTH,
+  viewBox: `0 0 ${VIEW_BOX_SIZE} ${VIEW_BOX_SIZE}`,
+  width: ICON_SIZE,
 };
 
 function Check() {
@@ -96,12 +94,12 @@ function Loader() {
   return (
     <m.div
       style={{
-        rotate,
-        display: "flex",
         alignItems: "center",
-        justifyContent: "center",
-        width: ICON_SIZE,
+        display: "flex",
         height: ICON_SIZE,
+        justifyContent: "center",
+        rotate,
+        width: ICON_SIZE,
       }}
     >
       <m.svg {...svgProps}>
@@ -114,16 +112,16 @@ function Loader() {
 function X() {
   return (
     <m.svg {...svgProps}>
-      <m.line x1="6" y1="6" x2="18" y2="18" {...animations} />
-      <m.line x1="18" y1="6" x2="6" y2="18" {...secondLineAnimation} />
+      <m.line x1="6" x2="18" y1="6" y2="18" {...animations} />
+      <m.line x1="18" x2="6" y1="6" y2="18" {...secondLineAnimation} />
     </m.svg>
   );
 }
 
 const animations = {
-  initial: { pathLength: 0 },
   animate: { pathLength: 1 },
-  transition: { type: "spring", stiffness: 150, damping: 20 },
+  initial: { pathLength: 0 },
+  transition: { damping: 20, stiffness: 150, type: "spring" },
 };
 
 const secondLineAnimation = {
@@ -131,66 +129,64 @@ const secondLineAnimation = {
   transition: { ...animations.transition, delay: 0.1 },
 };
 
-const Label = ({ state }) => {
-  return (
-    <m.span layout style={{ position: "relative" }} transition={SPRING_CONFIG}>
-      <AnimatePresence mode="sync" initial={false}>
-        <m.div
-          key={state}
-          style={{ textWrap: "nowrap" }}
-          initial={{ y: -20, opacity: 0, filter: "blur(10px)", position: "absolute" }}
-          animate={{ y: 0, opacity: 1, filter: "blur(0px)", position: "relative" }}
-          exit={{ y: 20, opacity: 0, filter: "blur(10px)", position: "absolute" }}
-          transition={{ duration: 0.2, ease: "easeInOut" }}
-        >
-          {STATES[state]}
-        </m.div>
-      </AnimatePresence>
-    </m.span>
-  );
-};
+const Label = ({ state }) => (
+  <m.span layout style={{ position: "relative" }} transition={SPRING_CONFIG}>
+    <AnimatePresence initial={false} mode="sync">
+      <m.div
+        animate={{ filter: "blur(0px)", opacity: 1, position: "relative", y: 0 }}
+        exit={{ filter: "blur(10px)", opacity: 0, position: "absolute", y: 20 }}
+        initial={{ filter: "blur(10px)", opacity: 0, position: "absolute", y: -20 }}
+        key={state}
+        style={{ textWrap: "nowrap" }}
+        transition={{ duration: 0.2, ease: "easeInOut" }}
+      >
+        {STATES[state]}
+      </m.div>
+    </AnimatePresence>
+  </m.span>
+);
 
 const styles = {
   badge: {
-    display: "flex",
-    overflow: "hidden",
     alignItems: "center",
-    justifyContent: "center",
-    padding: "12px 20px",
     borderRadius: 999,
-    willChange: "transform, filter",
-    fontWeight: 600,
-  },
-  iconContainer: {
-    height: 20,
-    position: "relative",
     display: "flex",
-    alignItems: "center",
+    fontWeight: 600,
     justifyContent: "center",
+    overflow: "hidden",
+    padding: "12px 20px",
+    willChange: "transform, filter",
   },
   icon: {
-    position: "absolute",
     left: 0,
+    position: "absolute",
     top: 0,
+  },
+  iconContainer: {
+    alignItems: "center",
+    display: "flex",
+    height: 20,
+    justifyContent: "center",
+    position: "relative",
   },
 };
 
 const STATES = {
+  error: "Failed! Try again",
   idle: "Send Message",
   processing: "Sending…",
   success: "Sent!",
-  error: "Failed! Try again",
 };
 
 const SPRING_CONFIG = {
-  type: "spring",
-  stiffness: 600,
   damping: 30,
+  stiffness: 600,
+  type: "spring",
 };
 
 export default function AnimatedSubmitButton({ state, isSubmitting }) {
   return (
-    <button type="submit" disabled={isSubmitting} className="w-full flex justify-center">
+    <button className="flex w-full justify-center" disabled={isSubmitting} type="submit">
       <Badge state={state} />
     </button>
   );

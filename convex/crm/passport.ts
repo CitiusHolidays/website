@@ -7,11 +7,17 @@ import { normalizePassportExpiryDate } from "./passportExpiry";
 export async function loadPassportMetadata(ctx: QueryCtx, travellerIdRaw: string) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
   const travellerIdNormalized = ctx.db.normalizeId("travellers", travellerIdRaw);
-  if (!travellerIdNormalized) return null;
+  if (!travellerIdNormalized) {
+    return null;
+  }
   const traveller = await ctx.db.get(travellerIdNormalized);
-  if (!traveller) return null;
+  if (!traveller) {
+    return null;
+  }
   const job = await ctx.db.get(traveller.jobCardId);
-  if (!job) return null;
+  if (!job) {
+    return null;
+  }
   const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
@@ -20,17 +26,19 @@ export async function loadPassportMetadata(ctx: QueryCtx, travellerIdRaw: string
     .query("passportDetails")
     .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerIdNormalized))
     .unique();
-  if (!row) return null;
+  if (!row) {
+    return null;
+  }
   return {
-    id: row._id,
-    travellerId: row.travellerId,
-    lastFour: row.lastFour ?? "",
+    createdAt: new Date(row.createdAt).toISOString(),
     expiryDate: row.expiryDate ?? "",
+    fileName: row.fileName,
+    id: row._id,
+    lastFour: row.lastFour ?? "",
+    mimeType: row.mimeType,
     status: row.status ?? "Received",
     storageId: row.storageId,
-    fileName: row.fileName,
-    mimeType: row.mimeType,
-    createdAt: new Date(row.createdAt).toISOString(),
+    travellerId: row.travellerId,
   };
 }
 
@@ -41,40 +49,44 @@ export const getPassportMetadata = query({
   handler: async (ctx, args) => {
     await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
     const travellerIdNormalized = ctx.db.normalizeId("travellers", args.travellerId);
-    if (!travellerIdNormalized) return null;
+    if (!travellerIdNormalized) {
+      return null;
+    }
 
     const row = await ctx.db
       .query("passportDetails")
       .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerIdNormalized))
       .unique();
 
-    if (!row) return null;
+    if (!row) {
+      return null;
+    }
 
     return {
-      id: row._id,
-      travellerId: row.travellerId,
-      lastFour: row.lastFour ?? "",
+      createdAt: new Date(row.createdAt).toISOString(),
       expiryDate: row.expiryDate ?? "",
+      fileName: row.fileName,
+      id: row._id,
+      lastFour: row.lastFour ?? "",
+      mimeType: row.mimeType,
       status: row.status ?? "Received",
       storageId: row.storageId,
-      fileName: row.fileName,
-      mimeType: row.mimeType,
-      createdAt: new Date(row.createdAt).toISOString(),
+      travellerId: row.travellerId,
     };
   },
 });
 
 export const savePassportMetadata = internalMutation({
   args: {
-    travellerId: v.string(),
-    storageId: v.id("_storage"),
-    encryptedPayload: v.string(),
-    lastFour: v.optional(v.string()),
-    fileName: v.string(),
-    mimeType: v.string(),
     createdBy: v.string(),
-    passportNumberHash: v.optional(v.string()),
+    encryptedPayload: v.string(),
     expiryDate: v.optional(v.string()),
+    fileName: v.string(),
+    lastFour: v.optional(v.string()),
+    mimeType: v.string(),
+    passportNumberHash: v.optional(v.string()),
+    storageId: v.id("_storage"),
+    travellerId: v.string(),
   },
   handler: async (ctx, args) => {
     const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
@@ -92,28 +104,28 @@ export const savePassportMetadata = internalMutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         encryptedPayload: args.encryptedPayload,
-        lastFour: args.lastFour,
-        storageId: args.storageId,
+        expiryDate,
         fileName: args.fileName,
+        lastFour: args.lastFour,
         mimeType: args.mimeType,
         passportNumberHash: args.passportNumberHash,
-        expiryDate,
         status: "Received",
+        storageId: args.storageId,
         updatedAt: now,
       });
     } else {
       await ctx.db.insert("passportDetails", {
-        travellerId,
+        createdAt: now,
+        createdBy: args.createdBy,
         encryptedPayload: args.encryptedPayload,
-        lastFour: args.lastFour,
-        storageId: args.storageId,
+        expiryDate,
         fileName: args.fileName,
+        lastFour: args.lastFour,
         mimeType: args.mimeType,
         passportNumberHash: args.passportNumberHash,
-        expiryDate,
         status: "Received",
-        createdBy: args.createdBy,
-        createdAt: now,
+        storageId: args.storageId,
+        travellerId,
         updatedAt: now,
       });
     }
@@ -127,12 +139,12 @@ export const savePassportMetadata = internalMutation({
 
 export const savePassportDetailsOnly = internalMutation({
   args: {
-    travellerId: v.string(),
+    createdBy: v.string(),
     encryptedPayload: v.string(),
+    expiryDate: v.optional(v.string()),
     lastFour: v.optional(v.string()),
     passportNumberHash: v.optional(v.string()),
-    expiryDate: v.optional(v.string()),
-    createdBy: v.string(),
+    travellerId: v.string(),
   },
   handler: async (ctx, args) => {
     const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
@@ -150,22 +162,22 @@ export const savePassportDetailsOnly = internalMutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         encryptedPayload: args.encryptedPayload,
+        expiryDate,
         lastFour: args.lastFour,
         passportNumberHash: args.passportNumberHash,
-        expiryDate,
         status: "Received",
         updatedAt: now,
       });
     } else {
       await ctx.db.insert("passportDetails", {
-        travellerId,
+        createdAt: now,
+        createdBy: args.createdBy,
         encryptedPayload: args.encryptedPayload,
+        expiryDate,
         lastFour: args.lastFour,
         passportNumberHash: args.passportNumberHash,
-        expiryDate,
         status: "Received",
-        createdBy: args.createdBy,
-        createdAt: now,
+        travellerId,
         updatedAt: now,
       });
     }
@@ -183,7 +195,9 @@ export const deletePassportMetadata = internalMutation({
   },
   handler: async (ctx, args) => {
     const travellerIdNormalized = ctx.db.normalizeId("travellers", args.travellerId);
-    if (!travellerIdNormalized) return;
+    if (!travellerIdNormalized) {
+      return;
+    }
 
     const existing = await ctx.db
       .query("passportDetails")
@@ -211,16 +225,16 @@ export const listPassportDetailsForBackfill = internalQuery({
       .filter((row) => !row.expiryDate && row.encryptedPayload)
       .slice(0, args.limit)
       .map((row) => ({
-        id: row._id,
         encryptedPayload: row.encryptedPayload,
+        id: row._id,
       }));
   },
 });
 
 export const backfillPassportExpiryDate = internalMutation({
   args: {
-    passportId: v.id("passportDetails"),
     expiryDate: v.optional(v.string()),
+    passportId: v.id("passportDetails"),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.passportId, {
@@ -232,24 +246,28 @@ export const backfillPassportExpiryDate = internalMutation({
 
 export const logViewActivity = internalMutation({
   args: {
-    travellerId: v.string(),
     authUserId: v.string(),
+    travellerId: v.string(),
     userName: v.string(),
   },
   handler: async (ctx, args) => {
     const travellerIdNormalized = ctx.db.normalizeId("travellers", args.travellerId);
-    if (!travellerIdNormalized) return;
+    if (!travellerIdNormalized) {
+      return;
+    }
     const traveller = await ctx.db.get(travellerIdNormalized);
-    if (!traveller) return;
+    if (!traveller) {
+      return;
+    }
 
     await ctx.db.insert("activityLogs", {
-      entityType: "passport",
-      entityId: args.travellerId,
       action: "viewed",
-      message: `Passport scanned document of ${traveller.fullName} viewed by ${args.userName}`,
       actorId: args.authUserId,
       actorName: args.userName,
       createdAt: Date.now(),
+      entityId: args.travellerId,
+      entityType: "passport",
+      message: `Passport scanned document of ${traveller.fullName} viewed by ${args.userName}`,
     });
   },
 });

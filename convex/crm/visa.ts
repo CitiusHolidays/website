@@ -23,30 +23,30 @@ const visaStatusValidator = v.union(
   v.literal("Awaiting"),
   v.literal("Approved"),
   v.literal("Rejected"),
-  v.literal("Re-applied"),
+  v.literal("Re-applied")
 );
 
 const publicVisa = (record: any, traveller: any, job: any, travelBatch: any = null) => ({
-  id: record._id,
-  travellerId: record.travellerId,
-  jobCardId: record.jobCardId,
-  jobCode: job?.jobCode ?? "",
-  clientName: job?.clientName ?? "",
-  travellerName: traveller?.fullName ?? "",
-  travelBatchId: traveller?.travelBatchId ?? "",
-  travelBatchCode: travelBatch?.batchCode ?? "",
-  travelBatchReference: travelBatch?.batchReference ?? "",
-  travelHub: traveller?.travelHub ?? "",
-  status: record.status,
   appointmentDate: record.appointmentDate ?? traveller?.biometricAppointmentDate ?? "",
+  approvedAt: record.approvedAt ? new Date(record.approvedAt).toISOString() : null,
   checklistSharedAt: record.checklistSharedAt
     ? new Date(record.checklistSharedAt).toISOString()
     : null,
-  submittedAt: record.submittedAt ? new Date(record.submittedAt).toISOString() : null,
-  approvedAt: record.approvedAt ? new Date(record.approvedAt).toISOString() : null,
-  rejectedAt: record.rejectedAt ? new Date(record.rejectedAt).toISOString() : null,
-  notes: record.notes ?? "",
+  clientName: job?.clientName ?? "",
   createdAt: new Date(record.createdAt).toISOString(),
+  id: record._id,
+  jobCardId: record.jobCardId,
+  jobCode: job?.jobCode ?? "",
+  notes: record.notes ?? "",
+  rejectedAt: record.rejectedAt ? new Date(record.rejectedAt).toISOString() : null,
+  status: record.status,
+  submittedAt: record.submittedAt ? new Date(record.submittedAt).toISOString() : null,
+  travelBatchCode: travelBatch?.batchCode ?? "",
+  travelBatchId: traveller?.travelBatchId ?? "",
+  travelBatchReference: travelBatch?.batchReference ?? "",
+  travelHub: traveller?.travelHub ?? "",
+  travellerId: record.travellerId,
+  travellerName: traveller?.fullName ?? "",
   updatedAt: new Date(record.updatedAt).toISOString(),
 });
 
@@ -76,7 +76,7 @@ export const list = query({
             ? await ctx.db.get(traveller.travelBatchId)
             : null;
           return publicVisa(record, traveller, job, travelBatch);
-        }),
+        })
     );
     return result.filter(Boolean);
   },
@@ -84,10 +84,10 @@ export const list = query({
 
 export const updateStatus = mutation({
   args: {
-    visaRecordId: v.string(),
-    status: visaStatusValidator,
     appointmentDate: v.optional(v.string()),
     notes: v.optional(v.string()),
+    status: visaStatusValidator,
+    visaRecordId: v.string(),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_VISA);
@@ -109,11 +109,11 @@ export const updateStatus = mutation({
     }
     const now = Date.now();
     const patch: Record<string, unknown> = {
-      status: args.status,
       appointmentDate: args.appointmentDate || record.appointmentDate || "",
       notes: args.notes?.trim() || record.notes || "",
-      updatedBy: access.authUserId ?? "unknown",
+      status: args.status,
       updatedAt: now,
+      updatedBy: access.authUserId ?? "unknown",
     };
     if (args.status === "Checklist Shared") {
       patch.checklistSharedAt = now;
@@ -131,14 +131,14 @@ export const updateStatus = mutation({
     await Promise.all([
       ctx.db.patch(visaRecordId, patch),
       ctx.db.patch(record.travellerId, {
-        visaStatus: args.status,
         biometricAppointmentDate: args.appointmentDate || "",
         updatedAt: now,
+        visaStatus: args.status,
       }),
       createActivity(ctx, access, {
-        entityType: "visaRecord",
-        entityId: visaRecordId,
         action: "status_updated",
+        entityId: visaRecordId,
+        entityType: "visaRecord",
         message: `Visa status set to ${args.status}`,
       }),
     ]);
@@ -148,10 +148,10 @@ export const updateStatus = mutation({
 
 export const updateRecord = mutation({
   args: {
-    visaRecordId: v.string(),
-    status: v.optional(visaStatusValidator),
     appointmentDate: v.optional(v.string()),
     notes: v.optional(v.string()),
+    status: v.optional(visaStatusValidator),
+    visaRecordId: v.string(),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_VISA);
@@ -175,14 +175,18 @@ export const updateRecord = mutation({
     const now = Date.now();
     const nextStatus = args.status ?? record.status;
     const patch: Record<string, unknown> = {
-      updatedBy: access.authUserId ?? "unknown",
       updatedAt: now,
+      updatedBy: access.authUserId ?? "unknown",
     };
-    if (args.status !== undefined) patch.status = args.status;
+    if (args.status !== undefined) {
+      patch.status = args.status;
+    }
     if (args.appointmentDate !== undefined) {
       patch.appointmentDate = args.appointmentDate;
     }
-    if (args.notes !== undefined) patch.notes = args.notes.trim();
+    if (args.notes !== undefined) {
+      patch.notes = args.notes.trim();
+    }
 
     if (args.status === "Checklist Shared" && !record.checklistSharedAt) {
       patch.checklistSharedAt = now;
@@ -201,15 +205,15 @@ export const updateRecord = mutation({
       ctx.db.patch(visaRecordId, patch),
       ctx.db.patch(record.travellerId, {
         visaStatus: nextStatus,
-        ...(args.appointmentDate !== undefined
-          ? { biometricAppointmentDate: args.appointmentDate }
-          : {}),
+        ...(args.appointmentDate === undefined
+          ? {}
+          : { biometricAppointmentDate: args.appointmentDate }),
         updatedAt: now,
       }),
       createActivity(ctx, access, {
-        entityType: "visaRecord",
-        entityId: visaRecordId,
         action: "updated",
+        entityId: visaRecordId,
+        entityType: "visaRecord",
         message: `Visa record updated${args.status ? ` (${args.status})` : ""}`,
       }),
     ]);
@@ -220,7 +224,7 @@ export const updateRecord = mutation({
 async function deleteVisaRecord(
   ctx: MutationCtx,
   access: PortalAccess,
-  visaRecordId: Id<"visaRecords">,
+  visaRecordId: Id<"visaRecords">
 ) {
   const record = await ctx.db.get(visaRecordId);
   if (!record) {
@@ -236,13 +240,13 @@ async function deleteVisaRecord(
   }
   await Promise.all([
     ctx.db.patch(record.travellerId, {
-      visaStatus: "Not Started",
       updatedAt: Date.now(),
+      visaStatus: "Not Started",
     }),
     createActivity(ctx, access, {
-      entityType: "visaRecord",
-      entityId: visaRecordId,
       action: "deleted",
+      entityId: visaRecordId,
+      entityType: "visaRecord",
       message: "Visa record deleted",
     }),
     deleteEntityNotifications(ctx, "visaRecord", visaRecordId),
@@ -287,8 +291,8 @@ export const removeMany = mutation({
 
 export const create = mutation({
   args: {
-    travellerId: v.string(),
     status: v.optional(visaStatusValidator),
+    travellerId: v.string(),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_VISA);
@@ -320,23 +324,23 @@ export const create = mutation({
     const now = Date.now();
     const status = args.status || "Not Started";
     const recordId = await ctx.db.insert("visaRecords", {
-      travellerId,
+      createdAt: now,
       jobCardId: traveller.jobCardId,
       status,
-      updatedBy: access.authUserId ?? "unknown",
-      createdAt: now,
+      travellerId,
       updatedAt: now,
+      updatedBy: access.authUserId ?? "unknown",
     });
 
     await Promise.all([
       ctx.db.patch(travellerId, {
-        visaStatus: status,
         updatedAt: now,
+        visaStatus: status,
       }),
       createActivity(ctx, access, {
-        entityType: "visaRecord",
-        entityId: recordId,
         action: "created",
+        entityId: recordId,
+        entityType: "visaRecord",
         message: `Visa tracking record created for ${traveller.fullName}`,
       }),
     ]);
@@ -367,14 +371,14 @@ export const listTravellersWithoutVisa = query({
             return null;
           }
           return {
-            id: traveller._id,
-            fullName: traveller.fullName,
-            jobCode: job?.jobCode ?? "",
             clientName: job?.clientName ?? "",
+            fullName: traveller.fullName,
+            id: traveller._id,
+            jobCode: job?.jobCode ?? "",
           };
         }
         return null;
-      }),
+      })
     );
     return result.filter(Boolean);
   },

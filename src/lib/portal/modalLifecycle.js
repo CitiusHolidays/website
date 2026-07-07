@@ -21,8 +21,12 @@ export const JOB_CARD_MODALS = new Set([
 
 function latestProposalForQuery(proposals = [], queryId) {
   return proposals.reduce((latest, proposal) => {
-    if (!proposalLinkedQueryIds(proposal).includes(queryId)) return latest;
-    if (!latest) return proposal;
+    if (!proposalLinkedQueryIds(proposal).includes(queryId)) {
+      return latest;
+    }
+    if (!latest) {
+      return proposal;
+    }
     return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
   }, null);
 }

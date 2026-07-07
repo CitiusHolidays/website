@@ -16,7 +16,7 @@ export type BetterAuthAccountRow = {
 
 export async function findAuthUserByEmail(
   ctx: ActionCtx,
-  email: string,
+  email: string
 ): Promise<BetterAuthUserRow | null> {
   const emailNormalized = normalizeEmail(email);
   const candidates = [emailNormalized, email.trim()];
@@ -25,8 +25,8 @@ export async function findAuthUserByEmail(
       ctx.runQuery(components.betterAuth.adapter.findOne, {
         model: "user",
         where: [{ field: "email", value: candidate }],
-      }),
-    ),
+      })
+    )
   );
   for (const authUser of authUsers) {
     if (authUser && typeof authUser === "object" && "_id" in authUser) {
@@ -38,12 +38,12 @@ export async function findAuthUserByEmail(
 
 export async function findAuthAccountsByUserId(
   ctx: ActionCtx,
-  userId: string,
+  userId: string
 ): Promise<BetterAuthAccountRow[]> {
   const result = await ctx.runQuery(components.betterAuth.adapter.findMany, {
     model: "account",
+    paginationOpts: { cursor: null, numItems: 32 },
     where: [{ field: "userId", value: userId }],
-    paginationOpts: { numItems: 32, cursor: null },
   });
   const accounts = Array.isArray(result)
     ? result
@@ -55,7 +55,7 @@ export async function findAuthAccountsByUserId(
 
 export function authAccountSummary(accounts: BetterAuthAccountRow[]) {
   const hasCredential = accounts.some(
-    (account) => account.providerId === "credential" && Boolean(account.password),
+    (account) => account.providerId === "credential" && Boolean(account.password)
   );
   const hasGoogle = accounts.some((account) => account.providerId === "google");
   return { hasCredential, hasGoogle };

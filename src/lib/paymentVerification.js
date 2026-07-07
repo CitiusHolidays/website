@@ -1,7 +1,7 @@
 export function validateVerifyPaymentPayload(body) {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = body ?? {};
-  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-    return { ok: false, status: 400, error: "Missing payment verification parameters" };
+  if (!(razorpay_order_id && razorpay_payment_id && razorpay_signature)) {
+    return { error: "Missing payment verification parameters", ok: false, status: 400 };
   }
   return {
     ok: true,
@@ -28,26 +28,26 @@ export async function verifyPaymentRequest({ body, verifySignature, confirmBooki
   });
   if (!isValid) {
     return {
+      error: "Payment verification failed. Please contact support.",
       ok: false,
       status: 400,
-      error: "Payment verification failed. Please contact support.",
     };
   }
 
   const serverSecret = getPaymentMutationSecret();
   if (!serverSecret) {
-    return { ok: false, status: 500, error: "Payment confirmation is not configured" };
+    return { error: "Payment confirmation is not configured", ok: false, status: 500 };
   }
 
   const confirmed = await confirmBooking({
     orderId: validated.orderId,
     paymentId: validated.paymentId,
-    signature: validated.signature,
     serverSecret,
+    signature: validated.signature,
   });
   if (!confirmed?.success) {
-    return { ok: false, status: 404, error: "Booking not found for this order" };
+    return { error: "Booking not found for this order", ok: false, status: 404 };
   }
 
-  return { ok: true, confirmed };
+  return { confirmed, ok: true };
 }

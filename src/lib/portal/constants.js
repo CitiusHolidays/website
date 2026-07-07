@@ -21,43 +21,43 @@ export const PORTAL_ROLES = [
 ];
 
 export const PORTAL_PERMISSIONS = {
-  VIEW_DASHBOARD: "view:dashboard",
-  MANAGE_STAFF: "manage:staff",
-  MANAGE_DROPDOWNS: "manage:dropdowns",
-  VIEW_QUERIES: "view:queries",
-  MANAGE_QUERIES: "manage:queries",
-  VIEW_CONTRACTING: "view:contracting",
-  MANAGE_CONTRACTING: "manage:contracting",
-  VIEW_PROPOSALS: "view:proposals",
-  MANAGE_PROPOSALS: "manage:proposals",
-  SEND_PROPOSALS: "send:proposals",
-  VIEW_JOB_CARDS: "view:jobCards",
-  MANAGE_JOB_CARDS: "manage:jobCards",
-  VIEW_TRAVELLERS: "view:travellers",
-  MANAGE_TRAVELLERS: "manage:travellers",
-  VIEW_VISA: "view:visa",
-  MANAGE_VISA: "manage:visa",
-  VIEW_TICKETING: "view:ticketing",
-  MANAGE_TICKETING: "manage:ticketing",
-  VIEW_OPERATIONS: "view:operations",
-  MANAGE_OPERATIONS: "manage:operations",
-  VIEW_TOUR_MANAGERS: "view:tourManagers",
-  MANAGE_TOUR_MANAGERS: "manage:tourManagers",
-  VIEW_FINANCE: "view:finance",
-  MANAGE_FINANCE: "manage:finance",
-  VIEW_EXPENSES: "view:expenses",
-  CREATE_EXPENSES: "create:expenses",
-  MANAGE_EXPENSES: "manage:expenses",
   APPROVE_EXPENSES: "approve:expenses",
-  VIEW_TEAM: "view:team",
-  VIEW_LEAVE: "view:leave",
-  MANAGE_LEAVE: "manage:leave",
   APPROVE_LEAVE: "approve:leave",
-  VIEW_APPROVALS: "view:approvals",
-  VIEW_REPORTS: "view:reports",
-  VIEW_ACTIVITY: "view:activity",
-  VIEW_SENSITIVE_TRAVELLER_DATA: "view:sensitiveTravellerData",
+  CREATE_EXPENSES: "create:expenses",
+  MANAGE_CONTRACTING: "manage:contracting",
+  MANAGE_DROPDOWNS: "manage:dropdowns",
+  MANAGE_EXPENSES: "manage:expenses",
+  MANAGE_FINANCE: "manage:finance",
+  MANAGE_JOB_CARDS: "manage:jobCards",
+  MANAGE_LEAVE: "manage:leave",
+  MANAGE_OPERATIONS: "manage:operations",
+  MANAGE_PROPOSALS: "manage:proposals",
+  MANAGE_QUERIES: "manage:queries",
+  MANAGE_STAFF: "manage:staff",
+  MANAGE_TICKETING: "manage:ticketing",
+  MANAGE_TOUR_MANAGERS: "manage:tourManagers",
+  MANAGE_TRAVELLERS: "manage:travellers",
+  MANAGE_VISA: "manage:visa",
   REQUEST_LEAVE: "request:leave",
+  SEND_PROPOSALS: "send:proposals",
+  VIEW_ACTIVITY: "view:activity",
+  VIEW_APPROVALS: "view:approvals",
+  VIEW_CONTRACTING: "view:contracting",
+  VIEW_DASHBOARD: "view:dashboard",
+  VIEW_EXPENSES: "view:expenses",
+  VIEW_FINANCE: "view:finance",
+  VIEW_JOB_CARDS: "view:jobCards",
+  VIEW_LEAVE: "view:leave",
+  VIEW_OPERATIONS: "view:operations",
+  VIEW_PROPOSALS: "view:proposals",
+  VIEW_QUERIES: "view:queries",
+  VIEW_REPORTS: "view:reports",
+  VIEW_SENSITIVE_TRAVELLER_DATA: "view:sensitiveTravellerData",
+  VIEW_TEAM: "view:team",
+  VIEW_TICKETING: "view:ticketing",
+  VIEW_TOUR_MANAGERS: "view:tourManagers",
+  VIEW_TRAVELLERS: "view:travellers",
+  VIEW_VISA: "view:visa",
 };
 
 const P = PORTAL_PERMISSIONS;
@@ -69,7 +69,7 @@ const DIRECTOR_EXCLUDED_PERMISSIONS = new Set([
 ]);
 
 export const DIRECTOR_PERMISSIONS = Object.values(P).filter(
-  (permission) => !DIRECTOR_EXCLUDED_PERMISSIONS.has(permission),
+  (permission) => !DIRECTOR_EXCLUDED_PERMISSIONS.has(permission)
 );
 
 export const TEAM_PICKER_PERMISSIONS = [
@@ -83,59 +83,13 @@ export const TEAM_PICKER_PERMISSIONS = [
   P.MANAGE_LEAVE,
 ];
 
-export const CONTRACTING_TEAM_ROLES = [
-  "Contracting",
-  "Contracting Head",
-  "Contracting Cement",
-];
+export const CONTRACTING_TEAM_ROLES = ["Contracting", "Contracting Head", "Contracting Cement"];
 
 export const TICKETING_TEAM_ROLES = ["Ticketing", "Head of Ticketing"];
 
 export const SALES_REP_ROLES = ["Sales", "Sales Head", "Sales Cement"];
 
 export const ROLE_PERMISSIONS = {
-  Admin: Object.values(PORTAL_PERMISSIONS),
-  Directors: Object.values(PORTAL_PERMISSIONS),
-  "Sales Head": [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.MANAGE_QUERIES,
-    P.VIEW_PROPOSALS,
-    P.SEND_PROPOSALS,
-    P.VIEW_TEAM,
-    P.VIEW_LEAVE,
-    P.APPROVE_LEAVE,
-  ],
-  Sales: [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.MANAGE_QUERIES,
-    P.VIEW_PROPOSALS,
-    P.SEND_PROPOSALS,
-    P.VIEW_LEAVE,
-  ],
-  "Contracting Head": [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.VIEW_CONTRACTING,
-    P.MANAGE_CONTRACTING,
-    P.VIEW_PROPOSALS,
-    P.MANAGE_PROPOSALS,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_TEAM,
-    P.VIEW_LEAVE,
-    P.APPROVE_LEAVE,
-  ],
-  Contracting: [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.VIEW_CONTRACTING,
-    P.MANAGE_CONTRACTING,
-    P.VIEW_PROPOSALS,
-    P.MANAGE_PROPOSALS,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_LEAVE,
-  ],
   Accounts: [
     P.VIEW_DASHBOARD,
     P.VIEW_JOB_CARDS,
@@ -157,6 +111,101 @@ export const ROLE_PERMISSIONS = {
     P.VIEW_TEAM,
     P.VIEW_LEAVE,
     P.VIEW_REPORTS,
+  ],
+  Admin: Object.values(PORTAL_PERMISSIONS),
+  Contracting: [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
+    P.MANAGE_CONTRACTING,
+    P.VIEW_PROPOSALS,
+    P.MANAGE_PROPOSALS,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_LEAVE,
+  ],
+  "Contracting Cement": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
+    P.MANAGE_CONTRACTING,
+    P.VIEW_PROPOSALS,
+    P.MANAGE_PROPOSALS,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_LEAVE,
+  ],
+  "Contracting Head": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_CONTRACTING,
+    P.MANAGE_CONTRACTING,
+    P.VIEW_PROPOSALS,
+    P.MANAGE_PROPOSALS,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
+  ],
+  "Director Cement": DIRECTOR_PERMISSIONS,
+  Directors: Object.values(PORTAL_PERMISSIONS),
+  Finance: [
+    P.VIEW_DASHBOARD,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_FINANCE,
+    P.MANAGE_FINANCE,
+    P.VIEW_EXPENSES,
+    P.APPROVE_EXPENSES,
+    P.VIEW_LEAVE,
+    P.VIEW_APPROVALS,
+    P.VIEW_REPORTS,
+  ],
+  "Head of Ticketing": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.VIEW_PROPOSALS,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.VIEW_TICKETING,
+    P.MANAGE_TICKETING,
+    P.VIEW_TOUR_MANAGERS,
+    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.APPROVE_LEAVE,
+  ],
+  HR: [
+    P.VIEW_DASHBOARD,
+    P.VIEW_TEAM,
+    P.VIEW_LEAVE,
+    P.MANAGE_LEAVE,
+    P.APPROVE_LEAVE,
+    P.VIEW_APPROVALS,
+  ],
+  Operations: [
+    P.VIEW_DASHBOARD,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.MANAGE_TRAVELLERS,
+    P.VIEW_VISA,
+    P.MANAGE_VISA,
+    P.VIEW_OPERATIONS,
+    P.MANAGE_OPERATIONS,
+    P.VIEW_TOUR_MANAGERS,
+    P.VIEW_TICKETING,
+    P.VIEW_EXPENSES,
+    P.VIEW_LEAVE,
+  ],
+  "Operations Cement": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_JOB_CARDS,
+    P.VIEW_TRAVELLERS,
+    P.MANAGE_TRAVELLERS,
+    P.VIEW_VISA,
+    P.MANAGE_VISA,
+    P.VIEW_OPERATIONS,
+    P.MANAGE_OPERATIONS,
+    P.VIEW_TOUR_MANAGERS,
+    P.VIEW_TICKETING,
+    P.VIEW_EXPENSES,
+    P.VIEW_LEAVE,
   ],
   "Operations Head": [
     P.VIEW_DASHBOARD,
@@ -181,29 +230,28 @@ export const ROLE_PERMISSIONS = {
     P.APPROVE_LEAVE,
     P.VIEW_SENSITIVE_TRAVELLER_DATA,
   ],
-  Operations: [
-    P.VIEW_DASHBOARD,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_TRAVELLERS,
-    P.MANAGE_TRAVELLERS,
-    P.VIEW_VISA,
-    P.MANAGE_VISA,
-    P.VIEW_OPERATIONS,
-    P.MANAGE_OPERATIONS,
-    P.VIEW_TOUR_MANAGERS,
-    P.VIEW_TICKETING,
-    P.VIEW_EXPENSES,
-    P.VIEW_LEAVE,
-  ],
-  "Head of Ticketing": [
+  Sales: [
     P.VIEW_DASHBOARD,
     P.VIEW_QUERIES,
+    P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_TRAVELLERS,
-    P.VIEW_TICKETING,
-    P.MANAGE_TICKETING,
-    P.VIEW_TOUR_MANAGERS,
+    P.SEND_PROPOSALS,
+    P.VIEW_LEAVE,
+  ],
+  "Sales Cement": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.MANAGE_QUERIES,
+    P.VIEW_PROPOSALS,
+    P.SEND_PROPOSALS,
+    P.VIEW_LEAVE,
+  ],
+  "Sales Head": [
+    P.VIEW_DASHBOARD,
+    P.VIEW_QUERIES,
+    P.MANAGE_QUERIES,
+    P.VIEW_PROPOSALS,
+    P.SEND_PROPOSALS,
     P.VIEW_TEAM,
     P.VIEW_LEAVE,
     P.APPROVE_LEAVE,
@@ -231,58 +279,6 @@ export const ROLE_PERMISSIONS = {
     P.MANAGE_EXPENSES,
     P.VIEW_LEAVE,
   ],
-  Finance: [
-    P.VIEW_DASHBOARD,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_FINANCE,
-    P.MANAGE_FINANCE,
-    P.VIEW_EXPENSES,
-    P.APPROVE_EXPENSES,
-    P.VIEW_LEAVE,
-    P.VIEW_APPROVALS,
-    P.VIEW_REPORTS,
-  ],
-  HR: [
-    P.VIEW_DASHBOARD,
-    P.VIEW_TEAM,
-    P.VIEW_LEAVE,
-    P.MANAGE_LEAVE,
-    P.APPROVE_LEAVE,
-    P.VIEW_APPROVALS,
-  ],
-  "Contracting Cement": [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.VIEW_CONTRACTING,
-    P.MANAGE_CONTRACTING,
-    P.VIEW_PROPOSALS,
-    P.MANAGE_PROPOSALS,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_LEAVE,
-  ],
-  "Operations Cement": [
-    P.VIEW_DASHBOARD,
-    P.VIEW_JOB_CARDS,
-    P.VIEW_TRAVELLERS,
-    P.MANAGE_TRAVELLERS,
-    P.VIEW_VISA,
-    P.MANAGE_VISA,
-    P.VIEW_OPERATIONS,
-    P.MANAGE_OPERATIONS,
-    P.VIEW_TOUR_MANAGERS,
-    P.VIEW_TICKETING,
-    P.VIEW_EXPENSES,
-    P.VIEW_LEAVE,
-  ],
-  "Sales Cement": [
-    P.VIEW_DASHBOARD,
-    P.VIEW_QUERIES,
-    P.MANAGE_QUERIES,
-    P.VIEW_PROPOSALS,
-    P.SEND_PROPOSALS,
-    P.VIEW_LEAVE,
-  ],
-  "Director Cement": DIRECTOR_PERMISSIONS,
 };
 
 export const TICKET_TYPES = ["FIT Ticket", "Group Ticket"];
@@ -306,13 +302,12 @@ export const LEAVE_STATUSES = ["Pending", "Approved", "Rejected"];
 export const REIMBURSEMENT_STATUSES = ["Not Submitted", "Pending", "Reimbursed"];
 export const PORTAL_NAV_GROUPS = [
   {
-    label: "Overview",
     items: [
       { href: "/portal", label: "Dashboard", page: "dashboard", permission: P.VIEW_DASHBOARD },
     ],
+    label: "Overview",
   },
   {
-    label: "Enquiries",
     items: [
       {
         href: "/portal/queries",
@@ -334,9 +329,9 @@ export const PORTAL_NAV_GROUPS = [
         permission: P.VIEW_CONTRACTING,
       },
     ],
+    label: "Enquiries",
   },
   {
-    label: "Proposals",
     items: [
       {
         href: "/portal/proposals",
@@ -346,9 +341,9 @@ export const PORTAL_NAV_GROUPS = [
         shortcutKey: "proposals",
       },
     ],
+    label: "Proposals",
   },
   {
-    label: "Job Cards",
     items: [
       {
         href: "/portal/accounts/job-cards",
@@ -364,9 +359,9 @@ export const PORTAL_NAV_GROUPS = [
         shortcutKey: "jobCards",
       },
     ],
+    label: "Job Cards",
   },
   {
-    label: "Ticketing",
     items: [
       {
         href: "/portal/ticketing",
@@ -394,9 +389,9 @@ export const PORTAL_NAV_GROUPS = [
         shortcutKey: "tickets",
       },
     ],
+    label: "Ticketing",
   },
   {
-    label: "Operations",
     items: [
       {
         href: "/portal/travellers",
@@ -424,9 +419,9 @@ export const PORTAL_NAV_GROUPS = [
         permission: P.VIEW_TOUR_MANAGERS,
       },
     ],
+    label: "Operations",
   },
   {
-    label: "Finance",
     items: [
       { href: "/portal/finance", label: "Finance", page: "finance", permission: P.VIEW_FINANCE },
       {
@@ -443,9 +438,9 @@ export const PORTAL_NAV_GROUPS = [
       },
       { href: "/portal/reports", label: "Reports", page: "reports", permission: P.VIEW_REPORTS },
     ],
+    label: "Finance",
   },
   {
-    label: "Admin",
     items: [
       { href: "/portal/team", label: "Team Directory", page: "team", permission: P.VIEW_TEAM },
       {
@@ -455,9 +450,9 @@ export const PORTAL_NAV_GROUPS = [
         permission: P.VIEW_LEAVE,
       },
     ],
+    label: "Admin",
   },
   {
-    label: "System",
     items: [
       {
         href: "/portal/activity",
@@ -467,6 +462,7 @@ export const PORTAL_NAV_GROUPS = [
       },
       { href: "/portal/settings", label: "Settings", page: "settings", permission: P.MANAGE_STAFF },
     ],
+    label: "System",
   },
 ];
 
@@ -503,10 +499,10 @@ export const SALES_STATUSES = [
 ];
 
 export const SALES_DECISION_OPTIONS = [
-  { value: "Proposal in discussion", label: "Proposal Under Discussion" },
-  { value: "Date/Destination Change Required", label: "Date/Destination Change Required" },
-  { value: "Order Confirmed", label: "Order Confirmed" },
-  { value: "Order Lost", label: "Order Lost" },
+  { label: "Proposal Under Discussion", value: "Proposal in discussion" },
+  { label: "Date/Destination Change Required", value: "Date/Destination Change Required" },
+  { label: "Order Confirmed", value: "Order Confirmed" },
+  { label: "Order Lost", value: "Order Lost" },
 ];
 
 export const LEAD_STAGES = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Lost"];
@@ -523,7 +519,7 @@ export const CONTRACTING_STATUSES = [
 ];
 
 export const CONTRACTING_STATUS_SELECT_OPTIONS = CONTRACTING_STATUSES.filter(
-  (status) => !["Order Confirmed", "Order Lost"].includes(status),
+  (status) => !["Order Confirmed", "Order Lost"].includes(status)
 );
 
 export const LOST_REASONS = ["Price", "Competition", "Not travelling", "Other"];
@@ -582,14 +578,14 @@ export const LEAVE_TYPES = [
 export const EXPENSE_CATEGORIES = EXPENSE_HEADS;
 
 export const PAYMENT_TERMS_BY_QUERY_TYPE = {
-  MICE: { minAdvancePercent: 70, maxAdvancePercent: 90 },
-  "MICE Bidding": { minAdvancePercent: 70, maxAdvancePercent: 90 },
-  Cement: { minAdvancePercent: 70, maxAdvancePercent: 90 },
-  "Cement Bidding": { minAdvancePercent: 70, maxAdvancePercent: 100 },
-  FIT: { minAdvancePercent: 90, maxAdvancePercent: 100 },
-  "Family Group": { minAdvancePercent: 90, maxAdvancePercent: 100 },
-  B2B: { minAdvancePercent: 80, maxAdvancePercent: 100 },
-  Spiritual: { minAdvancePercent: 100, maxAdvancePercent: 100 },
+  B2B: { maxAdvancePercent: 100, minAdvancePercent: 80 },
+  Cement: { maxAdvancePercent: 90, minAdvancePercent: 70 },
+  "Cement Bidding": { maxAdvancePercent: 100, minAdvancePercent: 70 },
+  "Family Group": { maxAdvancePercent: 100, minAdvancePercent: 90 },
+  FIT: { maxAdvancePercent: 100, minAdvancePercent: 90 },
+  MICE: { maxAdvancePercent: 90, minAdvancePercent: 70 },
+  "MICE Bidding": { maxAdvancePercent: 90, minAdvancePercent: 70 },
+  Spiritual: { maxAdvancePercent: 100, minAdvancePercent: 100 },
 };
 
 export const PIPELINE_STAGES = [

@@ -18,70 +18,70 @@ import { useEffect, useRef, useState } from "react";
 
 const services = [
   {
-    title: "MICE",
-    icon: Briefcase,
     description: "Meetings, Incentives, Conferences & Exhibitions worldwide.",
+    icon: Briefcase,
     path: "/mice",
+    title: "MICE",
   },
   {
-    title: "VISA Assistance",
-    icon: FileBadge,
     description: "End-to-end visa processing and support services.",
+    icon: FileBadge,
     path: "/services",
+    title: "VISA Assistance",
   },
   {
-    title: "Event Management",
-    icon: Users,
     description: "From concept to execution of corporate events.",
+    icon: Users,
     path: "/services",
+    title: "Event Management",
   },
   {
-    title: "International Travel",
-    icon: Globe,
     description: "Curated global itineraries and travel experiences.",
+    icon: Globe,
     path: "/services",
+    title: "International Travel",
   },
   {
-    title: "Domestic Travel",
-    icon: MapPinned,
     description: "Explore India with bespoke domestic journeys.",
+    icon: MapPinned,
     path: "/services",
+    title: "Domestic Travel",
   },
   {
-    title: "Travel Insurance",
-    icon: ShieldCheck,
     description: "Comprehensive travel insurance and protection.",
+    icon: ShieldCheck,
     path: "/services",
+    title: "Travel Insurance",
   },
   {
-    title: "Branding",
-    icon: Star,
     description: "Event branding and collateral design services.",
+    icon: Star,
     path: "/services",
+    title: "Branding",
   },
   {
-    title: "Celebrity Management",
-    icon: Medal,
     description: "Book celebrities and performers for events.",
+    icon: Medal,
     path: "/services",
+    title: "Celebrity Management",
   },
   {
-    title: "Sporting Events",
-    icon: Trophy,
     description: "Access to premier sports hospitality packages.",
+    icon: Trophy,
     path: "/services",
+    title: "Sporting Events",
   },
   {
-    title: "Onsite Travel Desk",
-    icon: Plane,
     description: "Dedicated travel desks for large corporate events.",
+    icon: Plane,
     path: "/services",
+    title: "Onsite Travel Desk",
   },
   {
-    title: "Spiritual Trails",
-    icon: Sun,
     description: "Sacred journeys to spiritual destinations worldwide.",
+    icon: Sun,
     path: "/pilgrimage",
+    title: "Spiritual Trails",
   },
 ];
 
@@ -89,8 +89,8 @@ const containerVariants = {
   hidden: {},
   show: {
     transition: {
-      staggerChildren: 0.07,
       delayChildren: 0.2,
+      staggerChildren: 0.07,
     },
   },
 };
@@ -105,13 +105,13 @@ const itemVariants = {
   show: (service) => ({
     opacity: 1,
     scale: 1,
-    x: `calc(-50% + ${service.x}px)`,
-    y: `calc(-50% + ${service.y}px)`,
     transition: {
-      type: "spring",
       damping: 12,
       stiffness: 100,
+      type: "spring",
     },
+    x: `calc(-50% + ${service.x}px)`,
+    y: `calc(-50% + ${service.y}px)`,
   }),
 };
 
@@ -149,9 +149,9 @@ export default function CircularServicesMenu() {
     const y = Math.sin(angle) * layout.radius;
     return {
       ...service,
+      angle,
       x,
       y,
-      angle,
     };
   });
 
@@ -177,7 +177,7 @@ export default function CircularServicesMenu() {
           }
           const centerX = containerRect.width / 2;
           const centerY = containerRect.height / 2;
-          nextLinePos = { x1: centerX, y1: centerY, x2: serviceX, y2: serviceY };
+          nextLinePos = { x1: centerX, x2: serviceX, y1: centerY, y2: serviceY };
         }
       }
       setLinePos(nextLinePos);
@@ -201,66 +201,66 @@ export default function CircularServicesMenu() {
 
   return (
     <div
+      className="relative flex h-[400px] w-full items-center justify-center md:h-[520px] lg:h-[600px]"
       ref={containerRef}
-      className="relative w-full h-[400px] md:h-[520px] lg:h-[600px] flex items-center justify-center"
     >
       {/* Animated line from center to hovered/tapped service */}
       <AnimatePresence>
         {linePos && (
           <m.svg
-            className="absolute top-0 left-0 size-full pointer-events-none z-10"
-            initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
+            className="pointer-events-none absolute top-0 left-0 z-10 size-full"
             exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }}
           >
             <m.line
-              x1={linePos.x1}
-              y1={linePos.y1}
-              x2={linePos.x2}
-              y2={linePos.y2}
-              stroke="#9ca3af"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeDasharray="6,6"
-              opacity={0.3}
-              initial={{ x2: linePos.x1, y2: linePos.y1 }}
               animate={{ x2: linePos.x2, y2: linePos.y2 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              initial={{ x2: linePos.x1, y2: linePos.y1 }}
+              opacity={0.3}
+              stroke="#9ca3af"
+              strokeDasharray="6,6"
+              strokeLinecap="round"
+              strokeWidth="3"
+              transition={{ damping: 30, stiffness: 300, type: "spring" }}
+              x1={linePos.x1}
+              x2={linePos.x2}
+              y1={linePos.y1}
+              y2={linePos.y2}
             />
           </m.svg>
         )}
       </AnimatePresence>
       <m.div
-        className="relative z-20 size-32 md:w-52 md:h-52 pb-8 bg-white rounded-full shadow-2xl border-4 border-citius-blue flex flex-col items-center justify-center px-3"
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative z-20 flex size-32 flex-col items-center justify-center rounded-full border-4 border-citius-blue bg-white px-3 pb-8 shadow-2xl md:h-52 md:w-52"
+        initial={{ opacity: 0, scale: 0.8 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
       >
-        <div className="flex flex-col items-center justify-center h-auto">
-          <div className="flex items-center justify-center mb-1">
+        <div className="flex h-auto flex-col items-center justify-center">
+          <div className="mb-1 flex items-center justify-center">
             <Image
-              src="/gallery/logo.webp"
               alt="Citius Logo"
-              width={60}
+              className="mx-auto size-12 object-contain md:h-20 md:w-20"
               height={60}
-              className="mx-auto size-12 md:w-20 md:h-20 object-contain"
-              style={{ objectFit: "contain" }}
               priority
+              src="/gallery/logo.webp"
+              style={{ objectFit: "contain" }}
+              width={60}
             />
           </div>
           <AnimatePresence mode="wait">
             <m.div
-              key={selectedService?.title || "default"}
-              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
+              className="flex flex-1 flex-col justify-center text-center"
               exit={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: 10 }}
+              key={selectedService?.title || "default"}
               transition={{ duration: 0.3 }}
-              className="text-center flex-1 flex flex-col justify-center"
             >
-              <h3 className="text-xs md:text-base font-bold text-brand-dark mb-1 leading-tight">
+              <h3 className="mb-1 font-bold text-brand-dark text-xs leading-tight md:text-base">
                 {selectedService?.title || "Our Services"}
               </h3>
-              <p className="text-xs text-brand-muted leading-tight px-1">
+              <p className="px-1 text-brand-muted text-xs leading-tight">
                 {selectedService?.description ||
                   (layout.isMobile
                     ? "Tap a service to learn more"
@@ -272,37 +272,37 @@ export default function CircularServicesMenu() {
       </m.div>
 
       <m.div
-        className="absolute inset-0"
-        variants={containerVariants}
-        initial="hidden"
         animate="show"
+        className="absolute inset-0"
+        initial="hidden"
+        variants={containerVariants}
       >
         {servicePositions.map((service, idx) => (
           <m.div
-            key={service.title}
-            ref={(el) => (serviceRefs.current[idx] = el)}
             className="absolute z-10 flex flex-col items-center"
+            custom={service}
+            key={service.title}
+            onClick={() => layout.isMobile && handleServiceInteraction(service)}
+            onHoverEnd={handleServiceLeave}
+            onHoverStart={() => !layout.isMobile && handleServiceInteraction(service)}
+            ref={(el) => (serviceRefs.current[idx] = el)}
             style={{
               left: "50%",
               top: "50%",
             }}
             variants={itemVariants}
-            custom={service}
-            onHoverStart={() => !layout.isMobile && handleServiceInteraction(service)}
-            onHoverEnd={handleServiceLeave}
-            onClick={() => layout.isMobile && handleServiceInteraction(service)}
           >
             <button
-              type="button"
-              className="size-12 md:w-16 md:h-16 lg:w-18 lg:h-18 bg-brand-light rounded-full shadow-lg border-2 border-citius-orange flex items-center justify-center cursor-pointer group focus:outline-none focus:ring-4 focus:ring-citius-orange/30"
-              tabIndex={0}
               aria-label={`Maps to ${service.title} service`}
+              className="group flex size-12 cursor-pointer items-center justify-center rounded-full border-2 border-citius-orange bg-brand-light shadow-lg focus:outline-none focus:ring-4 focus:ring-citius-orange/30 md:h-16 md:w-16 lg:h-18 lg:w-18"
+              tabIndex={0}
+              type="button"
             >
-              <service.icon className="size-6 md:w-8 md:h-8 lg:w-9 lg:h-9 text-citius-blue group-hover:text-citius-orange transition-colors duration-200" />
+              <service.icon className="size-6 text-citius-blue transition-colors duration-200 group-hover:text-citius-orange md:h-8 md:w-8 lg:h-9 lg:w-9" />
             </button>
             <span
-              className="mt-2 text-xs md:text-sm lg:text-base text-brand-dark font-medium text-center max-w-[80px] md:max-w-[100px] leading-tight select-none"
               aria-hidden="true"
+              className="mt-2 max-w-[80px] select-none text-center font-medium text-brand-dark text-xs leading-tight md:max-w-[100px] md:text-sm lg:text-base"
             >
               {service.title}
             </span>

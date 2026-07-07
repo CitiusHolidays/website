@@ -8,13 +8,13 @@ export function buildRegionSummary(visitedTempleIds = []) {
     const temples = TEMPLES.filter((temple) => temple.region === region);
     const count = temples.filter((temple) => visited.has(temple.id)).length;
     return {
-      region,
-      visited: count,
-      total: temples.length,
       percent: temples.length ? Math.round((count / temples.length) * 100) : 0,
+      region,
       states: [
         ...new Set(temples.flatMap((temple) => (visited.has(temple.id) ? [temple.state] : []))),
       ],
+      total: temples.length,
+      visited: count,
     };
   });
 }

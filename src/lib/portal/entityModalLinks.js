@@ -2,14 +2,14 @@
 
 function jobCardSelectOptions(jobCards, { required = false, allowUnassigned = false } = {}) {
   const options = jobCards.map((job) => ({
-    value: job.id,
     label: `${job.jobCode} - ${job.clientName}`,
+    value: job.id,
   }));
   if (allowUnassigned) {
-    return [{ value: "", label: "Unassigned" }, ...options];
+    return [{ label: "Unassigned", value: "" }, ...options];
   }
   if (required) {
-    return [{ value: "", label: "Select job card…" }, ...options];
+    return [{ label: "Select job card…", value: "" }, ...options];
   }
   return options;
 }
@@ -19,10 +19,10 @@ function linkedTravellerOptions(travellers, jobCardId) {
     ? travellers.filter((traveller) => traveller.jobCardId === jobCardId)
     : travellers;
   return [
-    { value: "", label: jobCardId ? "Unassigned" : "Select job card first…" },
+    { label: jobCardId ? "Unassigned" : "Select job card first…", value: "" },
     ...rows.map((traveller) => ({
-      value: traveller.id,
       label: `${traveller.fullName} - ${traveller.jobCode}`,
+      value: traveller.id,
     })),
   ];
 }
@@ -35,10 +35,10 @@ function travelBatchSelectOptions(jobCards, jobCardId) {
   const job = jobCards.find((entry) => entry.id === jobCardId);
   const batches = job?.travelBatches || [];
   return [
-    { value: "", label: jobCardId ? "Unbatched" : "Select job card first…" },
+    { label: jobCardId ? "Unbatched" : "Select job card first…", value: "" },
     ...batches.map((batch) => ({
-      value: batch.id,
       label: travelBatchLabel(batch),
+      value: batch.id,
     })),
   ];
 }
@@ -46,27 +46,33 @@ function travelBatchSelectOptions(jobCards, jobCardId) {
 function linkedPnrOptions(pnrs, jobCardId) {
   const rows = jobCardId ? pnrs.filter((pnr) => pnr.jobCardId === jobCardId) : pnrs;
   return [
-    { value: "", label: jobCardId ? "No PNR" : "Select job card first…" },
+    { label: jobCardId ? "No PNR" : "Select job card first…", value: "" },
     ...rows.map((pnr) => ({
-      value: pnr.id,
       label: `${pnr.pnrCode} - ${pnr.route}`,
+      value: pnr.id,
     })),
   ];
 }
 
 function applyJobCardLink(form, job, modal, { onlyEmpty = false } = {}) {
-  if (!job) return {};
+  if (!job) {
+    return {};
+  }
 
   const patch = { jobCardId: job.id };
   const set = (field, value) => {
-    if (value === undefined || value === null || value === "") return;
-    if (onlyEmpty && form[field]) return;
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+    if (onlyEmpty && form[field]) {
+      return;
+    }
     patch[field] = value;
   };
 
   if (modal === "traveller") {
     set("travelDate", job.travelStartDate);
-    if (!onlyEmpty || !form.travelBatchId) {
+    if (!(onlyEmpty && form.travelBatchId)) {
       patch.travelBatchId = "";
     }
   }
@@ -98,12 +104,18 @@ function applyJobCardLink(form, job, modal, { onlyEmpty = false } = {}) {
 }
 
 function applyTravellerLink(form, traveller, modal, { onlyEmpty = false } = {}) {
-  if (!traveller) return { travellerId: "" };
+  if (!traveller) {
+    return { travellerId: "" };
+  }
 
   const patch = { travellerId: traveller.id };
   const set = (field, value) => {
-    if (value === undefined || value === null || value === "") return;
-    if (onlyEmpty && form[field]) return;
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+    if (onlyEmpty && form[field]) {
+      return;
+    }
     patch[field] = value;
   };
 
@@ -122,22 +134,30 @@ function applyTravellerLink(form, traveller, modal, { onlyEmpty = false } = {}) 
 }
 
 function applyPnrLink(form, pnr, modal, { onlyEmpty = false } = {}) {
-  if (!pnr) return { pnrId: "" };
+  if (!pnr) {
+    return { pnrId: "" };
+  }
 
   const patch = { pnrId: pnr.id };
-  if (pnr.jobCardId && (!onlyEmpty || !form.jobCardId)) {
+  if (pnr.jobCardId && !(onlyEmpty && form.jobCardId)) {
     patch.jobCardId = pnr.jobCardId;
   }
   return patch;
 }
 
 function applyQueryLink(form, query, { onlyEmpty = false } = {}) {
-  if (!query?.id) return {};
+  if (!query?.id) {
+    return {};
+  }
 
   const patch = { queryId: query.id };
   const set = (field, value) => {
-    if (value === undefined || value === null || value === "") return;
-    if (onlyEmpty && form[field]) return;
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+    if (onlyEmpty && form[field]) {
+      return;
+    }
     patch[field] = value;
   };
 
@@ -148,18 +168,20 @@ function applyQueryLink(form, query, { onlyEmpty = false } = {}) {
   set("travelEndDate", query.travelEndDate || "");
   set("paxCount", String(query.paxCount || 1));
   set("budgetAmount", query.budgetAmount ? String(query.budgetAmount) : "");
-  set("landCostPerPax", query.contractingLandCost != null ? String(query.contractingLandCost) : "");
+  set("landCostPerPax", query.contractingLandCost == null ? "" : String(query.contractingLandCost));
   set(
     "airfarePerPax",
-    query.contractingAirlinesCost != null ? String(query.contractingAirlinesCost) : "",
+    query.contractingAirlinesCost == null ? "" : String(query.contractingAirlinesCost)
   );
-  set("visaCostPerPax", query.contractingVisaCost != null ? String(query.contractingVisaCost) : "");
+  set("visaCostPerPax", query.contractingVisaCost == null ? "" : String(query.contractingVisaCost));
   return patch;
 }
 
 function applyStaffLink(staffId, member, modal) {
   const patch = { staffId: staffId || "" };
-  if (!member) return patch;
+  if (!member) {
+    return patch;
+  }
   if (modal === "tourManager") {
     patch.tourManagerName = member.name;
     patch.staffEmail = member.email || "";
@@ -169,12 +191,18 @@ function applyStaffLink(staffId, member, modal) {
 }
 
 function applyVisaRecordLink(form, visa, { onlyEmpty = false } = {}) {
-  if (!visa?.id) return {};
+  if (!visa?.id) {
+    return {};
+  }
 
   const patch = { visaRecordId: visa.id };
   const set = (field, value) => {
-    if (value === undefined || value === null || value === "") return;
-    if (onlyEmpty && form[field]) return;
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+    if (onlyEmpty && form[field]) {
+      return;
+    }
     patch[field] = value;
   };
 
@@ -185,7 +213,9 @@ function applyVisaRecordLink(form, visa, { onlyEmpty = false } = {}) {
 }
 
 function reconcileTravelBatchSelection(form, jobCards) {
-  if (!form.travelBatchId || !form.jobCardId) return {};
+  if (!(form.travelBatchId && form.jobCardId)) {
+    return {};
+  }
   const job = jobCards.find((entry) => entry.id === form.jobCardId);
   const batches = job?.travelBatches || [];
   if (!batches.some((batch) => batch.id === form.travelBatchId)) {

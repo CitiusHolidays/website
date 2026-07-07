@@ -33,15 +33,15 @@ export async function POST(request) {
     if (travelers < 1 || travelers > 10) {
       return NextResponse.json(
         { error: "Number of travelers must be between 1 and 10" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     await fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {});
     const checkout = await fetchAuthQuery(anyApi.bookings.prepareCheckout, {
-      tripIdentifier: tripId,
-      travelers,
       currency: normalizedCurrency,
+      travelers,
+      tripIdentifier: tripId,
     });
 
     // Calculate total amount based on currency
@@ -54,59 +54,59 @@ export async function POST(request) {
     const razorpayOrder = await createOrder({
       amount: totalAmount,
       currency: normalizedCurrency,
-      receipt: receiptId,
       notes: {
+        travelers: travelers.toString(),
         tripId: checkout.trip.id,
         tripName: checkout.trip.name,
-        userId: currentUser.id,
         userEmail: checkout.user.email,
-        travelers: travelers.toString(),
+        userId: currentUser.id,
       },
+      receipt: receiptId,
     });
 
     const booking = await fetchAuthMutation(anyApi.bookings.createPendingBooking, {
-      tripIdentifier: tripId,
-      travelers,
       currency: normalizedCurrency,
+      notes: notes || "",
       razorpayOrderId: razorpayOrder.id,
       travelerDetails: travelerDetails.length > 0 ? travelerDetails : null,
-      notes: notes || "",
+      travelers,
+      tripIdentifier: tripId,
     });
 
     // Return order details for frontend Razorpay Checkout
     return NextResponse.json({
-      success: true,
-      order: {
-        id: razorpayOrder.id,
-        amount: razorpayOrder.amount,
-        currency: razorpayOrder.currency,
-        receipt: razorpayOrder.receipt,
-      },
       booking: {
         id: booking.booking.id,
         status: booking.booking.status,
       },
+      order: {
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        id: razorpayOrder.id,
+        receipt: razorpayOrder.receipt,
+      },
       // Razorpay checkout configuration
       razorpay: {
-        key: razorpayKeyId,
-        orderId: razorpayOrder.id,
         amount: totalAmount,
         currency: normalizedCurrency,
-        name: "Spiritual Trails",
         description: `${checkout.trip.name} - ${travelers} traveler(s)`,
-        prefill: {
-          name: checkout.user.name,
-          email: checkout.user.email,
-          contact: checkout.user.phoneNumber || "",
-        },
+        key: razorpayKeyId,
+        name: "Spiritual Trails",
         notes: {
           bookingId: booking.booking.id,
           tripId,
+        },
+        orderId: razorpayOrder.id,
+        prefill: {
+          contact: checkout.user.phoneNumber || "",
+          email: checkout.user.email,
+          name: checkout.user.name,
         },
         theme: {
           color: "#8B4513", // Earthy brown for spiritual theme
         },
       },
+      success: true,
     });
   } catch (error) {
     console.error("Create order error:", error);
@@ -114,7 +114,7 @@ export async function POST(request) {
     if (error?.message?.includes("Trip not found")) {
       return NextResponse.json(
         { error: "Trip not found or is no longer available" },
-        { status: 404 },
+        { status: 404 }
       );
     }
 
@@ -130,13 +130,13 @@ export async function POST(request) {
     if (error.message?.includes("Razorpay")) {
       return NextResponse.json(
         { error: "Payment gateway error. Please try again later." },
-        { status: 503 },
+        { status: 503 }
       );
     }
 
     return NextResponse.json(
       { error: "Failed to create order. Please try again." },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

@@ -29,13 +29,13 @@ export function getChallengeProgress(challenge, progress) {
 
   const complete = total > 0 && visited >= total;
   return {
-    slug: challenge.slug,
-    title: challenge.title,
-    visited,
-    total,
-    percent: total ? Math.min(100, Math.round((visited / total) * 100)) : 0,
     complete,
     nextTempleIds: templeIds.filter((id) => !visitedSet.has(id)).slice(0, 3),
+    percent: total ? Math.min(100, Math.round((visited / total) * 100)) : 0,
+    slug: challenge.slug,
+    title: challenge.title,
+    total,
+    visited,
   };
 }
 
@@ -49,7 +49,7 @@ export function getChallengeBadgeAwards(progress, challenges = SACRED_BHARAT_CHA
             challengeSlug: challenge.slug,
           },
         ]
-      : [],
+      : []
   );
 }
 
@@ -59,6 +59,6 @@ export function sortChallengesForUser(challenges = SACRED_BHARAT_CHALLENGES, pro
     .toSorted(
       (a, b) =>
         Number(a.progress.complete) - Number(b.progress.complete) ||
-        b.progress.percent - a.progress.percent,
+        b.progress.percent - a.progress.percent
     );
 }

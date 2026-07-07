@@ -1,15 +1,15 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import {
-  canSeeQueryRecord,
   CONTRACTING_TEAM_ROLES,
+  canSeeQueryRecord,
   createActivity,
   hasRole,
   isDirectorOrAdmin,
   notifyRoles,
   notifyStaffMember,
-  TICKETING_TEAM_ROLES,
   type PortalAccess,
+  TICKETING_TEAM_ROLES,
 } from "./lib";
 
 const TICKETING_SCOPE_VALUES = ["Domestic", "International", "Both", "Not required"] as const;
@@ -18,7 +18,7 @@ type TicketingScope = (typeof TICKETING_SCOPE_VALUES)[number];
 async function loadVisibleQueryForAssignment(
   ctx: MutationCtx,
   access: PortalAccess,
-  queryIdRaw: string,
+  queryIdRaw: string
 ) {
   const queryId = ctx.db.normalizeId("queries", queryIdRaw);
   if (!queryId) {
@@ -31,13 +31,13 @@ async function loadVisibleQueryForAssignment(
   if (!canSeeQueryRecord(access, query)) {
     throw new ConvexError("FORBIDDEN");
   }
-  return { queryId, query };
+  return { query, queryId };
 }
 
 async function loadAssignableStaff(
   ctx: MutationCtx,
   staffIdRaw: string,
-  team: "contracting" | "ticketing",
+  team: "contracting" | "ticketing"
 ) {
   const staffId = ctx.db.normalizeId("staffUsers", staffIdRaw);
   if (!staffId) {
@@ -53,10 +53,10 @@ async function loadAssignableStaff(
     throw new ConvexError(
       team === "contracting"
         ? "Selected staff member is not on the contracting team"
-        : "Selected staff member is not on the ticketing team",
+        : "Selected staff member is not on the ticketing team"
     );
   }
-  return { staffId, staff };
+  return { staff, staffId };
 }
 
 export type ApplyQueryTeamAssignmentsInput = {
@@ -69,7 +69,7 @@ export type ApplyQueryTeamAssignmentsInput = {
 function normalizedTicketingScope(scope: string | undefined): TicketingScope | undefined {
   const value = scope?.trim();
   if (!value) {
-    return undefined;
+    return;
   }
   if (!(TICKETING_SCOPE_VALUES as readonly string[]).includes(value)) {
     throw new ConvexError("Select a valid Ticketing Scope.");
@@ -117,24 +117,24 @@ function relevantAssignmentHeadRoles(args: {
 export async function applyQueryTeamAssignments(
   ctx: MutationCtx,
   access: PortalAccess,
-  args: ApplyQueryTeamAssignmentsInput,
+  args: ApplyQueryTeamAssignmentsInput
 ) {
   const contractingStaffId = args.contractingStaffId?.trim() || undefined;
   const ticketingStaffId = args.ticketingStaffId?.trim() || undefined;
   const ticketingScope = normalizedTicketingScope(args.ticketingScope);
-  if (!contractingStaffId && !ticketingStaffId && !ticketingScope) {
+  if (!(contractingStaffId || ticketingStaffId || ticketingScope)) {
     throw new ConvexError("Select a contracting and/or ticketing SPOC.");
   }
 
   const { queryId, query: current } = await loadVisibleQueryForAssignment(
     ctx,
     access,
-    args.queryId,
+    args.queryId
   );
 
   const hasHeadAccess = isHeadAssignmentAccess(access);
   if (!hasHeadAccess) {
-    if (!isSalesAssignmentAccess(access) || !access.permissions.includes("manage:queries")) {
+    if (!(isSalesAssignmentAccess(access) && access.permissions.includes("manage:queries"))) {
       throw new ConvexError("FORBIDDEN");
     }
     if (hasExistingAssignment(current)) {
@@ -199,14 +199,14 @@ export async function applyQueryTeamAssignments(
     const ownerName = contracting.staff.name.trim();
     writes.push(
       ctx.db.insert("contractingAssignments", {
-        queryId,
+        createdAt: now,
+        createdBy: access.authUserId ?? "unknown",
         ownerId: contracting.staffId,
         ownerName,
+        queryId,
         status: "Query Received",
-        createdBy: access.authUserId ?? "unknown",
-        createdAt: now,
         updatedAt: now,
-      }),
+      })
     );
   }
 
@@ -215,48 +215,48 @@ export async function applyQueryTeamAssignments(
   if (contracting) {
     const ownerName = contracting.staff.name.trim();
     await createActivity(ctx, access, {
-      entityType: "query",
-      entityId: queryId,
       action: "assigned_contracting",
+      entityId: queryId,
+      entityType: "query",
       message: `${current.queryCode} assigned to ${ownerName}`,
     });
     await notifyStaffMember(ctx, contracting.staffId, {
-      title: "Assign contracting owner",
       body: `You were assigned as contracting SPOC for ${current.queryCode}.`,
-      entityType: "query",
       entityId: queryId,
+      entityType: "query",
+      title: "Assign contracting owner",
     });
   }
 
   if (ticketing) {
     const ownerName = ticketing.staff.name.trim();
     await createActivity(ctx, access, {
-      entityType: "query",
-      entityId: queryId,
       action: "assigned_ticketing",
+      entityId: queryId,
+      entityType: "query",
       message: `${current.queryCode} ticketing assigned to ${ownerName}`,
     });
     await notifyStaffMember(ctx, ticketing.staffId, {
-      title: "Assign ticketing owner",
       body: `You were assigned as ticketing SPOC for ${current.queryCode}.`,
-      entityType: "query",
       entityId: queryId,
+      entityType: "query",
+      title: "Assign ticketing owner",
     });
   }
 
   const headRoles = relevantAssignmentHeadRoles({
-    ticketingScope,
     ticketingAssigned: Boolean(ticketing),
+    ticketingScope,
   });
   await notifyRoles(ctx, headRoles, {
-    title: isSalesAssignmentAccess(access)
-      ? "Query team assigned by Sales"
-      : "Query team assignment updated",
     body: `${current.queryCode} was assigned to ${contracting?.staff.name.trim() || current.contractingOwnerName || "a Contracting SPOC"}${
       ticketingScope ? ` with Ticketing Scope: ${ticketingScope}` : ""
     }.`,
-    entityType: "query",
     entityId: queryId,
+    entityType: "query",
+    title: isSalesAssignmentAccess(access)
+      ? "Query team assigned by Sales"
+      : "Query team assignment updated",
   });
 
   return { id: queryId };

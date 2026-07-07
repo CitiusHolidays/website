@@ -6,7 +6,6 @@ import { ArrowRight, Menu } from "lucide-react";
 import { AnimatePresence, m, useScroll, useTransform } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { logout, useSession } from "@/lib/auth-client";
 import Logo from "@/static/logos/logo.webp";
@@ -26,9 +25,6 @@ const navLinks = [
 ];
 
 export default function Header() {
-  const pathname = usePathname();
-  const isAuthPage = pathname?.startsWith("/auth");
-
   const [isOpen, setIsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { scrollY } = useScroll();
@@ -67,71 +63,69 @@ export default function Header() {
     window.location.href = "/";
   };
 
-  if (isAuthPage) return null;
-
   return (
     <>
       <m.header
-        className={`fixed top-0 left-0 right-0 z-50 flex justify-center transition-all duration-300 ${
+        animate={{ opacity: 1, y: 0 }}
+        className={`fixed top-0 right-0 left-0 z-50 flex justify-center transition-all duration-300 ${
           isScrolled ? "pt-4" : "pt-0"
         }`}
-        initial={{ y: -100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
+        initial={{ opacity: 0, y: -100 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
       >
         <m.div
           className={`relative flex items-center justify-between transition-all duration-500 ease-[0.16,1,0.3,1] ${
             isScrolled
-              ? "w-[90%] md:w-[80%] lg:w-[1200px] bg-slate-900/40 backdrop-blur-xl shadow-2xl rounded-full py-3 px-6"
-              : "w-[95%] md:w-[90%] bg-transparent py-4 px-0"
+              ? "w-[90%] rounded-full bg-slate-900/40 px-6 py-3 shadow-2xl backdrop-blur-xl md:w-[80%] lg:w-[1200px]"
+              : "w-[95%] bg-transparent px-0 py-4 md:w-[90%]"
           }`}
           layout="position"
         >
-          <Link href="/" className="relative z-10 flex items-center gap-2 group">
+          <Link className="group relative z-10 flex items-center gap-2" href="/">
             <div
               className={`relative transition-all duration-300 ${isScrolled ? "scale-90" : "scale-100"}`}
             >
               <div className="rounded p-1">
                 <Image
-                  src={Logo}
                   alt="Citius"
-                  width={isScrolled ? 100 : 120}
-                  height={40}
                   className="object-contain transition-all duration-300"
+                  height={40}
                   priority
+                  src={Logo}
+                  width={isScrolled ? 100 : 120}
                 />
               </div>
             </div>
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav className="hidden items-center gap-1 lg:flex">
             {navLinks.slice(0, 4).map((link) => (
               <Link
-                key={link.href}
-                href={link.href}
-                className={`relative px-4 py-2 text-sm font-medium transition-colors duration-200 group overflow-hidden rounded-full ${
+                className={`group relative overflow-hidden rounded-full px-4 py-2 font-medium text-sm transition-colors duration-200 ${
                   isScrolled ? "text-slate-300 hover:text-white" : "text-white hover:text-white"
                 }`}
+                href={link.href}
+                key={link.href}
               >
                 <span className="relative z-10">{link.label}</span>
                 <m.div
-                  className="absolute inset-0 bg-white/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                   layoutId="navHover"
                 />
               </Link>
             ))}
-            <SpiritualTrailsDropdown isScrolled={isScrolled} pathname={pathname} />
+            <SpiritualTrailsDropdown isScrolled={isScrolled} />
             {navLinks.slice(4).map((link) => (
               <Link
-                key={link.href}
-                href={link.href}
-                className={`relative px-4 py-2 text-sm font-medium transition-colors duration-200 group overflow-hidden rounded-full ${
+                className={`group relative overflow-hidden rounded-full px-4 py-2 font-medium text-sm transition-colors duration-200 ${
                   isScrolled ? "text-slate-300 hover:text-white" : "text-white hover:text-white"
                 }`}
+                href={link.href}
+                key={link.href}
               >
                 <span className="relative z-10">{link.label}</span>
                 <m.div
-                  className="absolute inset-0 bg-white/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                   layoutId="navHover"
                 />
               </Link>
@@ -140,38 +134,38 @@ export default function Header() {
 
           <div className="flex items-center gap-3">
             {isPending ? (
-              <div className="hidden sm:block size-8 rounded-full bg-white/10 animate-pulse" />
+              <div className="hidden size-8 animate-pulse rounded-full bg-white/10 sm:block" />
             ) : user ? (
               <HeaderUserMenu
-                user={user}
-                isScrolled={isScrolled}
-                userMenuOpen={userMenuOpen}
-                setUserMenuOpen={setUserMenuOpen}
-                userMenuRef={userMenuRef}
                 canAccessPortal={canAccessPortal}
+                isScrolled={isScrolled}
                 onLogout={handleLogout}
+                setUserMenuOpen={setUserMenuOpen}
+                user={user}
+                userMenuOpen={userMenuOpen}
+                userMenuRef={userMenuRef}
               />
             ) : (
               <SignInDropdown isScrolled={isScrolled} />
             )}
 
             <Link
-              href="/contact"
-              className={`hidden sm:flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${
+              className={`hidden items-center gap-2 rounded-full px-5 py-2.5 font-bold text-sm transition-all duration-300 sm:flex ${
                 isScrolled
                   ? "bg-white text-slate-900 hover:bg-blue-50"
-                  : "bg-white/10 backdrop-blur-md text-white hover:bg-white/20 border border-white/20"
+                  : "border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"
               }`}
+              href="/contact"
             >
               Let&apos;s Talk <ArrowRight size={14} />
             </Link>
 
             <button
-              type="button"
-              onClick={() => setIsOpen(true)}
-              className={`lg:hidden p-2 rounded-full transition-colors ${
+              className={`rounded-full p-2 transition-colors lg:hidden ${
                 isScrolled ? "text-white hover:bg-white/10" : "text-white hover:bg-white/10"
               }`}
+              onClick={() => setIsOpen(true)}
+              type="button"
             >
               <Menu size={24} />
             </button>
@@ -182,12 +176,12 @@ export default function Header() {
       <AnimatePresence>
         {isOpen && (
           <HeaderMobileMenu
-            isOpen={isOpen}
-            onClose={() => setIsOpen(false)}
-            navLinks={navLinks}
-            user={user}
             canAccessPortal={canAccessPortal}
+            isOpen={isOpen}
+            navLinks={navLinks}
+            onClose={() => setIsOpen(false)}
             onLogout={handleLogout}
+            user={user}
           />
         )}
       </AnimatePresence>

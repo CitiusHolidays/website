@@ -6,9 +6,9 @@ import { DashboardEmpty, DashboardSectionHeading } from "./DashboardPanel";
 import { DashboardQueryTypeTile } from "./DashboardQueryTypeTile";
 
 const TABS = [
-  { id: "active", label: "Active", detailKey: "active" },
-  { id: "confirmed", label: "Confirmed", detailKey: "confirmed" },
-  { id: "closed", label: "Lost", detailKey: "closed" },
+  { detailKey: "active", id: "active", label: "Active" },
+  { detailKey: "confirmed", id: "confirmed", label: "Confirmed" },
+  { detailKey: "closed", id: "closed", label: "Lost" },
 ];
 
 const QUERY_TYPE_GROUPS = [
@@ -20,11 +20,11 @@ const QUERY_TYPE_GROUPS = [
 
 function groupQueryTypeRows(rows = []) {
   return QUERY_TYPE_GROUPS.map((group) => ({
-    type: group.label,
     count: rows
       .filter((row) => group.types.includes(row.type))
       .reduce((sum, row) => sum + row.count, 0),
     sourceTypes: group.types,
+    type: group.label,
   }));
 }
 
@@ -46,23 +46,21 @@ export function DashboardQueryTypeTabs({
       total: activeQueryTotal,
       variant: "active",
     },
-    confirmed: {
-      rows: groupQueryTypeRows(confirmedQueryTypeCounts),
-      total: confirmedQueryTotal,
-      variant: "confirmed",
-    },
     closed: {
       rows: groupQueryTypeRows(closedQueryTypeCounts),
       total: closedQueryTotal,
       variant: "closed",
     },
+    confirmed: {
+      rows: groupQueryTypeRows(confirmedQueryTypeCounts),
+      total: confirmedQueryTotal,
+      variant: "confirmed",
+    },
   };
 
   const current = datasets[tab] || datasets.active;
   if (
-    !queryTypeCounts?.length &&
-    !confirmedQueryTypeCounts?.length &&
-    !closedQueryTypeCounts?.length
+    !(queryTypeCounts?.length || confirmedQueryTypeCounts?.length || closedQueryTypeCounts?.length)
   ) {
     return null;
   }
@@ -76,26 +74,26 @@ export function DashboardQueryTypeTabs({
 
   return (
     <section className="space-y-3">
-      <div className="rounded-xl border border-brand-border bg-white p-4 shadow-sm shadow-brand-dark/[0.03]">
+      <div className="rounded-xl border border-brand-border bg-white p-4 shadow-brand-dark/[0.03] shadow-sm">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <DashboardSectionHeading title="Query types by status" detail={detail} />
+          <DashboardSectionHeading detail={detail} title="Query types by status" />
           <div
+            aria-label="Query status bucket"
             className="flex rounded-lg border border-brand-border bg-white p-1"
             role="tablist"
-            aria-label="Query status bucket"
           >
             {TABS.map((item) => (
               <button
-                key={item.id}
-                type="button"
-                role="tab"
                 aria-selected={tab === item.id}
-                onClick={() => setTab(item.id)}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                className={`rounded-md px-3 py-1.5 font-semibold text-xs transition ${
                   tab === item.id
                     ? "bg-citius-blue text-white shadow-sm"
                     : "text-brand-muted hover:text-brand-dark"
                 }`}
+                key={item.id}
+                onClick={() => setTab(item.id)}
+                role="tab"
+                type="button"
               >
                 {item.label}
               </button>
@@ -108,11 +106,11 @@ export function DashboardQueryTypeTabs({
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {current.rows.map((item) => (
               <DashboardQueryTypeTile
+                count={item.count}
+                href={buildQueryTypeTileHref(tab, item.sourceTypes?.[0] || item.type, dateRange)}
                 key={`${tab}-${item.type}`}
                 type={item.type}
-                count={item.count}
                 variant={current.variant}
-                href={buildQueryTypeTileHref(tab, item.sourceTypes?.[0] || item.type, dateRange)}
               />
             ))}
           </div>

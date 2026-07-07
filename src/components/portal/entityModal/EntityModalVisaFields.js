@@ -1,28 +1,7 @@
 "use client";
 
-import {
-  Input,
-  MultiSelect,
-  money,
-  QueryFilePicker,
-  Select,
-  Textarea,
-} from "@/components/portal/PortalModalForm";
-import {
-  CABIN_CLASSES,
-  EXPENSE_CURRENCIES,
-  EXPENSE_HEADS,
-  FOOD_PREFERENCES,
-  GUEST_TYPES,
-  LEAVE_TYPES,
-  PAYMENT_TYPES,
-  PORTAL_ROLES,
-  TICKET_STATUSES,
-  TICKET_TYPES,
-  VISA_STATUSES,
-} from "@/lib/portal/constants";
-import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
-import { getExpenseSplitTotal } from "@/lib/portal/workflow";
+import { Input, Select, Textarea } from "@/components/portal/PortalModalForm";
+import { VISA_STATUSES } from "@/lib/portal/constants";
 
 export function EntityModalVisaFields({
   modal,
@@ -56,49 +35,49 @@ export function EntityModalVisaFields({
         <>
           <Select
             label="Visa Record"
-            value={form.visaRecordId}
-            options={visas.map((v) => ({
-              value: v.id,
-              label: `${v.travellerName} - ${v.jobCode}`,
-            }))}
             onChange={handleVisaRecordSelect}
+            options={visas.map((v) => ({
+              label: `${v.travellerName} - ${v.jobCode}`,
+              value: v.id,
+            }))}
             required
+            value={form.visaRecordId}
           />
           <Select
             label="Visa Status"
-            value={form.visaStatus}
-            options={VISA_STATUSES}
             onChange={(v) => updateForm("visaStatus", v)}
+            options={VISA_STATUSES}
+            value={form.visaStatus}
           />
           <Input
             label="Appointment Date"
+            onChange={(v) => updateForm("appointmentDate", v)}
             type="date"
             value={form.appointmentDate}
-            onChange={(v) => updateForm("appointmentDate", v)}
           />
-          <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
+          <Textarea label="Notes" onChange={(v) => updateForm("notes", v)} value={form.notes} />
         </>
       )}
       {modal === "visa_create" && (
         <>
           <Select
             label="Traveller"
-            value={form.travellerId}
+            onChange={handleTravellerSelect}
             options={[
-              { value: "", label: "Select Traveller" },
+              { label: "Select Traveller", value: "" },
               ...travellersWithoutVisa.map((t) => ({
-                value: t.id,
                 label: `${t.fullName} (${t.jobCode} - ${t.clientName})`,
+                value: t.id,
               })),
             ]}
-            onChange={handleTravellerSelect}
             required
+            value={form.travellerId}
           />
           <Select
             label="Visa Status"
-            value={form.visaStatus}
-            options={VISA_STATUSES}
             onChange={(v) => updateForm("visaStatus", v)}
+            options={VISA_STATUSES}
+            value={form.visaStatus}
           />
         </>
       )}

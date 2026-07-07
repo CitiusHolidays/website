@@ -19,8 +19,8 @@ export async function POST(request) {
 
     const result = await verifyPaymentRequest({
       body,
-      verifySignature: verifyPaymentSignature,
       confirmBooking: (args) => fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, args),
+      verifySignature: verifyPaymentSignature,
     });
 
     if (!result.ok) {
@@ -32,29 +32,29 @@ export async function POST(request) {
 
     if (confirmed.alreadyConfirmed) {
       return NextResponse.json({
-        success: true,
-        message: "Payment already confirmed",
         booking: {
           id: confirmed.booking?.id,
           status: confirmed.booking?.status,
         },
+        message: "Payment already confirmed",
+        success: true,
       });
     }
 
     return NextResponse.json({
-      success: true,
-      message: "Payment verified and booking confirmed",
       booking: {
+        confirmedAt: confirmed.booking?.confirmedAt,
         id: confirmed.booking?.id,
         status: confirmed.booking?.status,
-        confirmedAt: confirmed.booking?.confirmedAt,
       },
+      message: "Payment verified and booking confirmed",
+      success: true,
     });
   } catch (error) {
     console.error("Payment verification error:", error);
     return NextResponse.json(
       { error: "Failed to verify payment. Please contact support." },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

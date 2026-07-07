@@ -17,12 +17,12 @@ function pct(done, total) {
 
 function section(key, label, done, total) {
   return {
+    complete: total > 0 && done >= total,
+    done,
     key,
     label,
-    done,
-    total,
     percent: pct(done, total),
-    complete: total > 0 && done >= total,
+    total,
   };
 }
 
@@ -42,19 +42,19 @@ export function buildJobCardCommandCenter(payload = {}) {
       "passports",
       "Passports",
       travellers.filter((row) => row.passportStatus === "Received").length,
-      travellerTotal,
+      travellerTotal
     ),
     section(
       "visas",
       "Visas",
       visas.filter((row) => ["Approved", "Not Required"].includes(row.status)).length,
-      Math.max(visas.length, travellerTotal),
+      Math.max(visas.length, travellerTotal)
     ),
     section(
       "tickets",
       "Tickets",
       tickets.filter((row) => row.ticketStatus === "Issued").length,
-      Math.max(tickets.length, travellerTotal),
+      Math.max(tickets.length, travellerTotal)
     ),
     section("hotels", "Hotels/rooming", rooming.length || hotels.length, travellerTotal),
     section("tourManager", "Tour manager", job.tourManagerName ? 1 : 0, 1),
@@ -62,13 +62,13 @@ export function buildJobCardCommandCenter(payload = {}) {
       "finance",
       "Finance/payment",
       invoices.filter((row) => (row.balanceAmount ?? 0) <= 0).length,
-      invoices.length,
+      invoices.length
     ),
     section(
       "checklist",
       "Checklist tasks",
       tasks.filter((row) => row.completed).length,
-      tasks.length,
+      tasks.length
     ),
   ];
   const blockers = readinessSections.flatMap((item) =>
@@ -77,10 +77,10 @@ export function buildJobCardCommandCenter(payload = {}) {
       : [
           {
             key: item.key,
-            severity: item.percent < 50 ? "critical" : "warning",
             label: `${item.label} incomplete`,
+            severity: item.percent < 50 ? "critical" : "warning",
           },
-        ],
+        ]
   );
   const ownerLanes = [
     { label: "Contracting SPOC", value: job.contractingOwnerName || "Unassigned" },
@@ -91,23 +91,23 @@ export function buildJobCardCommandCenter(payload = {}) {
   ];
   const nextActions = [
     ...blockers.map((blocker) => ({
+      dueDate: job.travelStartDate ? formatDisplayDate(job.travelStartDate) : "",
       id: `blocker:${blocker.key}`,
       label: blocker.label,
       severity: blocker.severity,
-      dueDate: job.travelStartDate ? formatDisplayDate(job.travelStartDate) : "",
     })),
     ...tasks.flatMap((task) =>
       task.completed
         ? []
         : [
             {
+              dueDate: task.dueDate ? formatDisplayDate(task.dueDate) : "",
               id: task._id,
               label: task.title,
               severity: task.dueDate ? "warning" : "info",
-              dueDate: task.dueDate ? formatDisplayDate(task.dueDate) : "",
             },
-          ],
+          ]
     ),
   ];
-  return { readinessSections, blockers, ownerLanes, nextActions, sectionLabels: SECTION_SPECS };
+  return { blockers, nextActions, ownerLanes, readinessSections, sectionLabels: SECTION_SPECS };
 }

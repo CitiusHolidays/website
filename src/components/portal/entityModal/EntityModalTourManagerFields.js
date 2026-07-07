@@ -1,28 +1,7 @@
 "use client";
 
-import {
-  Input,
-  MultiSelect,
-  money,
-  QueryFilePicker,
-  Select,
-  Textarea,
-} from "@/components/portal/PortalModalForm";
-import {
-  CABIN_CLASSES,
-  EXPENSE_CURRENCIES,
-  EXPENSE_HEADS,
-  FOOD_PREFERENCES,
-  GUEST_TYPES,
-  LEAVE_TYPES,
-  PAYMENT_TYPES,
-  PORTAL_ROLES,
-  TICKET_STATUSES,
-  TICKET_TYPES,
-  VISA_STATUSES,
-} from "@/lib/portal/constants";
+import { Input, Select, Textarea } from "@/components/portal/PortalModalForm";
 import { jobCardSelectOptions, travelBatchSelectOptions } from "@/lib/portal/entityModalLinks";
-import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
 export function EntityModalTourManagerFields({
   modal,
@@ -56,47 +35,47 @@ export function EntityModalTourManagerFields({
         <>
           <Select
             label="Job Card"
-            value={form.jobCardId}
-            options={jobCardSelectOptions(jobCards, { required: true })}
             onChange={handleJobCardSelect}
+            options={jobCardSelectOptions(jobCards, { required: true })}
             required
+            value={form.jobCardId}
           />
           {form.jobCardId ? (
             <Select
               label="Travel Batch"
-              value={form.travelBatchId || ""}
-              options={travelBatchSelectOptions(jobCards, form.jobCardId)}
               onChange={(value) => updateForm("travelBatchId", value)}
+              options={travelBatchSelectOptions(jobCards, form.jobCardId)}
+              value={form.travelBatchId || ""}
             />
           ) : null}
           <Select
             label="Tour Manager"
-            value={form.staffId}
-            options={[
-              { value: "", label: "Select tour manager…" },
-              ...tourManagerOptions.map((o) => ({ value: o.value, label: o.label })),
-            ]}
             onChange={(v) => handleStaffSelect("staffId", v)}
+            options={[
+              { label: "Select tour manager…", value: "" },
+              ...tourManagerOptions.map((o) => ({ label: o.label, value: o.value })),
+            ]}
             required
+            value={form.staffId}
           />
           <Input
             label="Email"
-            value={form.staffEmail}
             onChange={(v) => updateForm("staffEmail", v)}
+            value={form.staffEmail}
           />
-          <Input label="Phone" value={form.paidBy} onChange={(v) => updateForm("paidBy", v)} />
+          <Input label="Phone" onChange={(v) => updateForm("paidBy", v)} value={form.paidBy} />
           <Input
             label="Available Date"
+            onChange={(v) => updateForm("travelStartDate", v)}
             type="date"
             value={form.travelStartDate}
-            onChange={(v) => updateForm("travelStartDate", v)}
           />
           <Textarea
             label="Reporting Instructions"
-            value={form.reportingInstructions || ""}
             onChange={(v) => updateForm("reportingInstructions", v)}
+            value={form.reportingInstructions || ""}
           />
-          <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
+          <Textarea label="Notes" onChange={(v) => updateForm("notes", v)} value={form.notes} />
         </>
       )}
     </>

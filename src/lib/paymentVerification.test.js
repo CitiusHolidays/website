@@ -21,10 +21,10 @@ describe("verifyPaymentRequest", () => {
         razorpay_payment_id: "pay_1",
         razorpay_signature: "bad_sig",
       },
-      verifySignature: () => false,
       confirmBooking: async () => {
         throw new Error("confirmBooking should not be called");
       },
+      verifySignature: () => false,
     });
     expect(result.ok).toBe(false);
     expect(result.status).toBe(400);
@@ -40,10 +40,10 @@ describe("verifyPaymentRequest", () => {
           razorpay_payment_id: "pay_1",
           razorpay_signature: "good_sig",
         },
-        verifySignature: () => true,
         confirmBooking: async () => {
           throw new Error("confirmBooking should not be called");
         },
+        verifySignature: () => true,
       });
       expect(result.ok).toBe(false);
       expect(result.status).toBe(500);

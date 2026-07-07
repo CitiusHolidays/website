@@ -10,14 +10,22 @@ type Tables = Record<string, Row[]>;
 
 function makeMergeCtx(initialTables: Tables = {}) {
   const tables = Object.fromEntries(
-    Object.entries(initialTables).map(([table, rows]) => [table, [...rows]]),
+    Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
   ) as Tables;
 
   const ctx = {
     db: {
+      insert: async (tableName: string, doc: Record<string, unknown>) => {
+        const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
+        const row = { _id: id, ...doc };
+        tables[tableName] = [...(tables[tableName] ?? []), row];
+        return id;
+      },
       query(tableName: string) {
         let rows = tables[tableName] ?? [];
         return {
+          collect: async () => [...rows],
+          unique: async () => rows[0] ?? null,
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const q = {
@@ -28,19 +36,11 @@ function makeMergeCtx(initialTables: Tables = {}) {
             };
             callback(q);
             rows = rows.filter((row) =>
-              filters.every((filter) => row[filter.field] === filter.value),
+              filters.every((filter) => row[filter.field] === filter.value)
             );
             return this;
           },
-          unique: async () => rows[0] ?? null,
-          collect: async () => [...rows],
         };
-      },
-      insert: async (tableName: string, doc: Record<string, unknown>) => {
-        const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
-        const row = { _id: id, ...doc };
-        tables[tableName] = [...(tables[tableName] ?? []), row];
-        return id;
       },
     },
   };
@@ -52,13 +52,13 @@ describe("dedupeWishlistItems", () => {
   test("removes repeated guest wishlist entries", () => {
     expect(
       dedupeWishlistItems([
-        { itemType: "temple", itemId: "badrinath" },
-        { itemType: "temple", itemId: "badrinath" },
-        { itemType: "trail", itemId: "shiva-trail" },
-      ]),
+        { itemId: "badrinath", itemType: "temple" },
+        { itemId: "badrinath", itemType: "temple" },
+        { itemId: "shiva-trail", itemType: "trail" },
+      ])
     ).toEqual([
-      { itemType: "temple", itemId: "badrinath" },
-      { itemType: "trail", itemId: "shiva-trail" },
+      { itemId: "badrinath", itemType: "temple" },
+      { itemId: "shiva-trail", itemType: "trail" },
     ]);
   });
 });
@@ -66,16 +66,16 @@ describe("dedupeWishlistItems", () => {
 describe("applyGuestProgressMerge", () => {
   test("merges guest visits and wishlist for the authenticated user", async () => {
     const { ctx, tables } = makeMergeCtx();
-    const timestamps = { visitedAt: 1_700_000_000_000, createdAt: 1_700_000_000_001 };
+    const timestamps = { createdAt: 1_700_000_000_001, visitedAt: 1_700_000_000_000 };
 
     await applyGuestProgressMerge(
       ctx as never,
       "auth_guest",
       {
         templeIds: ["kedarnath"],
-        wishlist: [{ itemType: "temple", itemId: "badrinath" }],
+        wishlist: [{ itemId: "badrinath", itemType: "temple" }],
       },
-      timestamps,
+      timestamps
     );
 
     expect(tables.sacredBharatVisits).toEqual([
@@ -88,34 +88,34 @@ describe("applyGuestProgressMerge", () => {
     expect(tables.sacredBharatWishlist).toEqual([
       expect.objectContaining({
         authUserId: "auth_guest",
-        itemType: "temple",
-        itemId: "badrinath",
         createdAt: timestamps.createdAt,
+        itemId: "badrinath",
+        itemType: "temple",
       }),
     ]);
   });
 
   test("merges wishlist-only guest drafts with no visited temples", async () => {
     const { ctx, tables } = makeMergeCtx();
-    const timestamps = { visitedAt: 1_700_000_000_000, createdAt: 1_700_000_000_001 };
+    const timestamps = { createdAt: 1_700_000_000_001, visitedAt: 1_700_000_000_000 };
 
     await applyGuestProgressMerge(
       ctx as never,
       "auth_guest",
       {
         templeIds: [],
-        wishlist: [{ itemType: "trail", itemId: "shiva-trail" }],
+        wishlist: [{ itemId: "shiva-trail", itemType: "trail" }],
       },
-      timestamps,
+      timestamps
     );
 
     expect(tables.sacredBharatVisits ?? []).toEqual([]);
     expect(tables.sacredBharatWishlist).toEqual([
       expect.objectContaining({
         authUserId: "auth_guest",
-        itemType: "trail",
-        itemId: "shiva-trail",
         createdAt: timestamps.createdAt,
+        itemId: "shiva-trail",
+        itemType: "trail",
       }),
     ]);
   });
@@ -134,9 +134,9 @@ describe("applyGuestProgressMerge", () => {
         {
           _id: "wish_1",
           authUserId: "auth_guest",
-          itemType: "temple",
-          itemId: "badrinath",
           createdAt: 2,
+          itemId: "badrinath",
+          itemType: "temple",
         },
       ],
     });
@@ -146,9 +146,9 @@ describe("applyGuestProgressMerge", () => {
       "auth_guest",
       {
         templeIds: ["kedarnath"],
-        wishlist: [{ itemType: "temple", itemId: "badrinath" }],
+        wishlist: [{ itemId: "badrinath", itemType: "temple" }],
       },
-      { visitedAt: 3, createdAt: 4 },
+      { createdAt: 4, visitedAt: 3 }
     );
 
     expect(tables.sacredBharatVisits).toHaveLength(1);
@@ -163,9 +163,9 @@ describe("applyGuestProgressMerge", () => {
       "auth_guest",
       {
         templeIds: ["not-a-temple"],
-        wishlist: [{ itemType: "temple", itemId: "badrinath" }],
+        wishlist: [{ itemId: "badrinath", itemType: "temple" }],
       },
-      { visitedAt: 123, createdAt: 456 },
+      { createdAt: 456, visitedAt: 123 }
     );
 
     expect(tables.sacredBharatVisits ?? []).toEqual([]);
@@ -181,10 +181,10 @@ describe("mergeGuestWishlist", () => {
       ctx as never,
       "auth_guest",
       [
-        { itemType: "temple", itemId: "badrinath" },
-        { itemType: "temple", itemId: "badrinath" },
+        { itemId: "badrinath", itemType: "temple" },
+        { itemId: "badrinath", itemType: "temple" },
       ],
-      456,
+      456
     );
 
     expect(tables.sacredBharatWishlist).toHaveLength(1);

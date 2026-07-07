@@ -1,25 +1,28 @@
 /** Convex copy of leave matrix seed (see `src/lib/portal/leaveMatrix.js`). */
 
 export const LEAVE_ALERT_NAME_TOKENS = {
+  directors: "directors",
+  divyanshu: "divyanshu",
+  kalyan: "kalyan",
   monika: "monika",
-  rosy: "rosy",
   oliviya: "olyvia",
   olyvia: "olyvia",
-  vicky: "vicky",
-  swati: "swati",
+  rosy: "rosy",
   sree: "sree",
-  divyanshu: "divyanshu",
-  directors: "directors",
-  kalyan: "kalyan",
   surajit: "surajit",
+  swati: "swati",
+  vicky: "vicky",
 } as const;
 
 export const LEAVE_MATRIX_ALERT_BY_EMAIL: Record<string, string> = {
+  "accounts.kolkata@citius.in": "Kalyan",
   "aditya@citius.in": "Monika",
   "ajay@citius.in": "Rosy",
   "anamika@citius.in": "Oliviya",
   "anup@citius.in": "Vicky",
   "aritra@citius.in": "Oliviya",
+  "booking@citius.in": "Rosy",
+  "bookings@citius.in": "Rosy",
   "dipankar@citius.in": "Rosy",
   "divyanshu@citius.in": "Directors",
   "kalyan@citius.in": "Surajit",
@@ -28,8 +31,8 @@ export const LEAVE_MATRIX_ALERT_BY_EMAIL: Record<string, string> = {
   "manthan@citius.in": "Swati",
   "mithu@citius.in": "Rosy",
   "monika@citius.in": "Divyanshu",
-  "ticketing@citius.in": "Rosy",
   "olyvia@citius.in": "Directors",
+  "ops@citius.in": "Rosy",
   "partha@citius.in": "Rosy",
   "pratyush@citius.in": "Monika",
   "radhagobinda@citius.in": "Rosy",
@@ -37,31 +40,34 @@ export const LEAVE_MATRIX_ALERT_BY_EMAIL: Record<string, string> = {
   "rujuta@citius.in": "Sree",
   "sanjay@citius.in": "Rosy",
   "satyaki@citius.in": "Kalyan",
-  "bookings@citius.in": "Rosy",
   "sourav@citius.in": "Sree",
+  "sree@citius.in": "Oliviya",
   "subhajit@citius.in": "Sree",
-  "ops@citius.in": "Rosy",
   "sudeshna@citius.in": "Rosy",
   "suhatro@citius.in": "Rosy",
   "sumit.k@citius.in": "Swati",
   "sumit@citius.in": "Vicky",
-  "accounts.kolkata@citius.in": "Kalyan",
   "surajit@citius.in": "Rosy",
-  "booking@citius.in": "Rosy",
   "swati@citius.in": "Divyanshu",
+  "ticketing@citius.in": "Rosy",
   "upanita@citius.in": "Rosy",
   "vicky@citius.in": "Monika",
-  "sree@citius.in": "Oliviya",
 };
 
 export function leaveAlertToken(alertLabel: string) {
   const normalized = String(alertLabel ?? "")
     .trim()
     .toLowerCase();
-  if (!normalized) return "";
-  if (normalized.includes("director")) return LEAVE_ALERT_NAME_TOKENS.directors;
+  if (!normalized) {
+    return "";
+  }
+  if (normalized.includes("director")) {
+    return LEAVE_ALERT_NAME_TOKENS.directors;
+  }
   for (const [key, token] of Object.entries(LEAVE_ALERT_NAME_TOKENS)) {
-    if (key === "directors") continue;
+    if (key === "directors") {
+      continue;
+    }
     if (normalized === key || normalized.startsWith(`${key} `)) {
       return token;
     }

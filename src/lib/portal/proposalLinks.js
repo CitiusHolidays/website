@@ -6,7 +6,9 @@ export function proposalLinkedQueryIds(proposal) {
 }
 
 export function proposalPrimaryQuery(proposal) {
-  if (proposal?.query) return proposal.query;
+  if (proposal?.query) {
+    return proposal.query;
+  }
   return Array.isArray(proposal?.queries) ? proposal.queries[0] : null;
 }
 
@@ -17,6 +19,8 @@ export function proposalLinkedQueryLabel(proposal) {
       : proposal?.query
         ? [proposal.query]
         : [];
-  if (linkedQueries.length === 0) return "-";
+  if (linkedQueries.length === 0) {
+    return "-";
+  }
   return linkedQueries.map((query) => query.queryCode).join(", ");
 }

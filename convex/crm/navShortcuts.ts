@@ -13,7 +13,7 @@ import {
 async function takeNewestByCreatedAt<TableName extends keyof DataModel>(
   ctx: QueryCtx,
   table: TableName,
-  take: number,
+  take: number
 ) {
   return ctx.db
     .query(table)
@@ -32,7 +32,9 @@ type Shortcut = {
 };
 
 function formatShortcutDate(timestamp?: number) {
-  if (!timestamp) return "";
+  if (!timestamp) {
+    return "";
+  }
   return formatDisplayDate(timestamp);
 }
 
@@ -62,9 +64,9 @@ export const list = query({
       jobCards: Shortcut[];
       tickets: Shortcut[];
     } = {
-      queries: [],
-      proposals: [],
       jobCards: [],
+      proposals: [],
+      queries: [],
       tickets: [],
     };
 
@@ -76,10 +78,10 @@ export const list = query({
         .map((row) => {
           const dateLabel = formatShortcutDate(row.createdAt);
           return {
+            dateLabel,
+            href: queryHref(row._id),
             id: row._id,
             label: `${row.queryCode} · ${row.clientName}${dateLabel ? ` · ${dateLabel}` : ""}`,
-            href: queryHref(row._id),
-            dateLabel,
           };
         });
     }
@@ -102,7 +104,7 @@ export const list = query({
           const linkedQueries = (
             await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get(queryId)))
           ).filter(
-            (linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery != null,
+            (linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery != null
           );
           if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
             return null;
@@ -111,12 +113,12 @@ export const list = query({
           const dateLabel = formatShortcutDate(eventDate);
           const prefix = proposal.sentAt ? "Sent " : "";
           return {
+            dateLabel,
+            href: proposalHref(proposal._id),
             id: proposal._id,
             label: `${proposal.proposalCode} · ${proposal.clientName}${dateLabel ? ` · ${prefix}${dateLabel}` : ""}`,
-            href: proposalHref(proposal._id),
-            dateLabel,
           };
-        }),
+        })
       );
       result.proposals = shortcuts.filter(Boolean).slice(0, LIMIT) as Shortcut[];
     }
@@ -131,12 +133,12 @@ export const list = query({
           }
           const dateLabel = formatShortcutDate(job.createdAt);
           return {
+            dateLabel,
+            href: jobCardHref(job._id),
             id: job._id,
             label: `${job.jobCode}${dateLabel ? ` · ${dateLabel}` : ""}`,
-            href: jobCardHref(job._id),
-            dateLabel,
           };
-        }),
+        })
       );
       result.jobCards = shortcuts.filter(Boolean).slice(0, LIMIT) as Shortcut[];
     }
@@ -156,12 +158,12 @@ export const list = query({
           const dateLabel = formatShortcutDate(ticket.createdAt);
           const ticketLabel = ticket.ticketNumber?.trim() || "Ticket";
           return {
+            dateLabel,
+            href: ticketHref(ticket._id),
             id: ticket._id,
             label: `${ticketLabel} · ${job.jobCode}${dateLabel ? ` · ${dateLabel}` : ""}`,
-            href: ticketHref(ticket._id),
-            dateLabel,
           };
-        }),
+        })
       );
       result.tickets = shortcuts.filter(Boolean).slice(0, LIMIT) as Shortcut[];
     }

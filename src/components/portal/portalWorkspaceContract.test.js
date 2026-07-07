@@ -19,13 +19,15 @@ function read(file) {
 function workspaceHookReturnKeys() {
   const hook = read(WORKSPACE_STATE_FILE);
   const match = hook.match(/\n {2}return \{([\s\S]*?)\n {2}\};\n\}/);
-  if (!match) return new Set();
+  if (!match) {
+    return new Set();
+  }
 
   return new Set(
     match[1]
       .split("\n")
       .map((line) => line.trim().match(/^([A-Za-z_$][\w$]*)(?:,|:)/)?.[1])
-      .filter(Boolean),
+      .filter(Boolean)
   );
 }
 
@@ -61,7 +63,7 @@ describe("portal workspace modularization contract", () => {
 
     expect(deleteCalls.length).toBeGreaterThanOrEqual(1);
     expect(workspace).not.toContain(
-      "deleteItem(row.queryCode, removeQuery, { queryId: row.queryCode })",
+      "deleteItem(row.queryCode, removeQuery, { queryId: row.queryCode })"
     );
   });
 
@@ -80,7 +82,7 @@ describe("portal workspace modularization contract", () => {
     const headerBlock = workspace.match(/function PortalWorkspaceHeader[\s\S]*?^}/m)?.[0] || "";
 
     expect(headerBlock).toMatch(
-      /if \(w\.view === "dashboard"\)[\s\S]*return w\.error && !w\.modal \?/,
+      /if \(w\.view === "dashboard"\)[\s\S]*return w\.error && !w\.modal \?/
     );
   });
 
@@ -164,7 +166,7 @@ describe("portal workspace modularization contract", () => {
     expect(leaveView).toContain("row.canApproveHr");
     expect(leaveView).toContain("row.canApproveFinal");
     expect(leaveView).toMatch(
-      /row\.canApproveFinal[\s\S]*?handleLeaveDecision\(row\.id, "Approved"\)/,
+      /row\.canApproveFinal[\s\S]*?handleLeaveDecision\(row\.id, "Approved"\)/
     );
     expect(leaveView).toContain("Approve (Final Authority)");
   });

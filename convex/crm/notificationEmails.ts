@@ -31,7 +31,7 @@ async function sendEmailWithRetry(
     subject: string;
     html: string;
     text: string;
-  },
+  }
 ) {
   for (let attempt = 0; attempt < RESEND_MAX_RETRIES; attempt += 1) {
     const { error } = await resend.emails.send(message);
@@ -76,7 +76,7 @@ function buildDetailsHtml(details: EmailDetails) {
       (row) => `<tr>
           <td style="padding:9px 12px;border-top:1px solid #e5e7eb;color:#6b7280;font-size:13px;line-height:1.4;width:38%;vertical-align:top;">${escapeHtml(row.label)}</td>
           <td style="padding:9px 12px;border-top:1px solid #e5e7eb;color:#111827;font-size:13px;line-height:1.4;font-weight:600;vertical-align:top;">${escapeHtml(row.value)}</td>
-        </tr>`,
+        </tr>`
     )
     .join("");
 
@@ -140,7 +140,7 @@ async function sendNotificationEmailsSequentially(
     text: string;
   },
   index = 0,
-  sent = 0,
+  sent = 0
 ): Promise<number> {
   if (index >= recipients.length) {
     return sent;
@@ -159,17 +159,17 @@ async function sendNotificationEmailsSequentially(
     recipients,
     message,
     index + 1,
-    sent + (delivered ? 1 : 0),
+    sent + (delivered ? 1 : 0)
   );
 }
 
 export const sendNotificationEmail = internalAction({
   args: {
+    body: v.string(),
+    entityId: v.optional(v.string()),
+    entityType: v.optional(v.string()),
     recipients: v.array(v.string()),
     title: v.string(),
-    body: v.string(),
-    entityType: v.optional(v.string()),
-    entityId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const resendKey = process.env.RESEND_API_KEY;
@@ -183,8 +183,8 @@ export const sendNotificationEmail = internalAction({
         args.recipients.flatMap((email) => {
           const normalized = email.trim().toLowerCase();
           return normalized ? [normalized] : [];
-        }),
-      ),
+        })
+      )
     );
     if (recipients.length === 0) {
       return { sent: 0, skipped: 0 };
@@ -194,27 +194,27 @@ export const sendNotificationEmail = internalAction({
     const details: EmailDetails =
       args.entityType && args.entityId
         ? await ctx.runQuery(internal.crm.notificationEmailDetails.getNotificationEmailDetails, {
-            entityType: args.entityType,
             entityId: args.entityId,
+            entityType: args.entityType,
           })
         : null;
     const html = buildNotificationHtml({
-      title: args.title,
       body: args.body,
-      href,
       details,
+      href,
+      title: args.title,
     });
     const text = buildNotificationText({
-      title: args.title,
       body: args.body,
-      href,
       details,
+      href,
+      title: args.title,
     });
     const resend = new Resend(resendKey);
     const sent = await sendNotificationEmailsSequentially(resend, recipients, {
       from: AUTH_EMAIL_FROM,
-      subject: `Citius Connect: ${args.title}`,
       html,
+      subject: `Citius Connect: ${args.title}`,
       text,
     });
 

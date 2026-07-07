@@ -18,21 +18,21 @@ export default function AuthLoginPageClient({
   const brandLogoAlt = isConnect ? "Citius Connect" : "Citius Holidays";
 
   return (
-    <div className="min-h-screen w-full flex flex-col md:flex-row bg-[#FDFBF7]">
+    <div className="flex min-h-screen w-full flex-col bg-[#FDFBF7] md:flex-row">
       <AuthLoginHero
-        copy={copy}
         brandLogo={brandLogo}
         brandLogoAlt={brandLogoAlt}
+        copy={copy}
         isConnect={isConnect}
       />
       <AuthLoginCredentials
-        variant={variant}
-        copy={copy}
         brandLogo={brandLogo}
         brandLogoAlt={brandLogoAlt}
-        isConnect={isConnect}
-        initialMode={initialMode}
+        copy={copy}
         error={error}
+        initialMode={initialMode}
+        isConnect={isConnect}
+        variant={variant}
       />
     </div>
   );

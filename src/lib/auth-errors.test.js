@@ -14,7 +14,7 @@ describe("formatAuthCallbackError", () => {
 describe("formatAuthApiError", () => {
   test("guides Google-only users on invalid password", () => {
     expect(formatAuthApiError("Invalid email or password", "INVALID_EMAIL_OR_PASSWORD")).toContain(
-      "Google",
+      "Google"
     );
   });
 

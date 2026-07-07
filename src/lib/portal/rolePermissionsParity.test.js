@@ -4,27 +4,27 @@ import {
   CONTRACTING_TEAM_ROLES,
   DIRECTOR_PERMISSIONS,
   PERMISSIONS,
-  ROLE_PERMISSIONS as SERVER_ROLE_PERMISSIONS,
   SALES_REP_ROLES,
+  ROLE_PERMISSIONS as SERVER_ROLE_PERMISSIONS,
   TEAM_PICKER_PERMISSIONS,
   TICKETING_TEAM_ROLES,
 } from "../../../convex/crm/lib.ts";
 import {
   CONTRACTING_TEAM_ROLES as CLIENT_CONTRACTING_TEAM_ROLES,
   DIRECTOR_PERMISSIONS as CLIENT_DIRECTOR_PERMISSIONS,
-  PORTAL_PERMISSIONS,
-  PORTAL_ROLES,
   ROLE_PERMISSIONS as CLIENT_ROLE_PERMISSIONS,
   SALES_REP_ROLES as CLIENT_SALES_REP_ROLES,
   TEAM_PICKER_PERMISSIONS as CLIENT_TEAM_PICKER_PERMISSIONS,
   TICKETING_TEAM_ROLES as CLIENT_TICKETING_TEAM_ROLES,
+  PORTAL_PERMISSIONS,
+  PORTAL_ROLES,
 } from "./constants.js";
 
 function sortedRecord(record) {
   return Object.fromEntries(
     Object.entries(record)
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(([role, permissions]) => [role, [...permissions].sort()]),
+      .map(([role, permissions]) => [role, [...permissions].sort()])
   );
 }
 

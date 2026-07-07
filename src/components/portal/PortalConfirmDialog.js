@@ -10,12 +10,11 @@ export function PortalConfirmProvider({ children }) {
   const [state, setState] = useState(null);
   const resolverRef = useRef(null);
 
-  const confirm = ({ title, message, confirmLabel = "Confirm", danger = false }) => {
-    return new Promise((resolve) => {
+  const confirm = ({ title, message, confirmLabel = "Confirm", danger = false }) =>
+    new Promise((resolve) => {
       resolverRef.current = resolve;
-      setState({ title, message, confirmLabel, danger });
+      setState({ confirmLabel, danger, message, title });
     });
-  };
 
   const finish = (result) => {
     resolverRef.current?.(result);
@@ -33,32 +32,32 @@ export function PortalConfirmProvider({ children }) {
           className={`fixed inset-0 ${PORTAL_Z.confirm} grid place-items-center bg-brand-dark/40 p-4`}
         >
           <m.div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="portal-confirm-title"
-            aria-describedby="portal-confirm-message"
-            initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.2 }}
+            aria-describedby="portal-confirm-message"
+            aria-labelledby="portal-confirm-title"
+            aria-modal="true"
             className="w-full max-w-md rounded-2xl border border-brand-border bg-white p-6 shadow-xl"
+            initial={{ opacity: 0, scale: 0.96 }}
+            role="alertdialog"
+            transition={{ duration: 0.2 }}
           >
             <h2
+              className="font-heading font-semibold text-citius-blue text-lg"
               id="portal-confirm-title"
-              className="font-heading text-lg font-semibold text-citius-blue"
             >
               {state.title}
             </h2>
-            <p id="portal-confirm-message" className="mt-2 text-sm text-brand-muted">
+            <p className="mt-2 text-brand-muted text-sm" id="portal-confirm-message">
               {state.message}
             </p>
             <div className="mt-6 flex flex-wrap justify-end gap-2">
-              <button type="button" className="portal-small-btn" onClick={() => finish(false)}>
+              <button className="portal-small-btn" onClick={() => finish(false)} type="button">
                 Cancel
               </button>
               <button
-                type="button"
                 className={state.danger ? "portal-danger-btn" : "portal-primary-btn"}
                 onClick={() => finish(true)}
+                type="button"
               >
                 {state.confirmLabel}
               </button>

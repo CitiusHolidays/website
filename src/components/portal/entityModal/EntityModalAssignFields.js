@@ -34,123 +34,123 @@ export function EntityModalAssignFields({
   const selectedProposal = proposals.find((proposal) => proposal.id === selectedProposalId);
   const proposalCollaboratorOptions = teamOptionsForCollaborators(
     team,
-    selectedProposal?.collaboratorStaffIds,
+    selectedProposal?.collaboratorStaffIds
   );
   const selectedJobCardId = form.jobCardId || form.entityId;
   const selectedJobCard = jobCards.find((jobCard) => jobCard.id === selectedJobCardId);
   const jobCardCollaboratorOptions = teamOptionsForCollaborators(
     team,
-    selectedJobCard?.collaboratorStaffIds,
+    selectedJobCard?.collaboratorStaffIds
   );
 
   switch (modal) {
     case "assignContracting":
       return (
         <AssignContractingFields
-          form={form}
-          updateForm={updateForm}
-          queries={queries}
           contractingTeamOptions={contractingTeamOptions}
+          form={form}
+          queries={queries}
+          updateForm={updateForm}
         />
       );
     case "assignQueryTicketing":
       return (
         <AssignQueryTicketingFields
           form={form}
-          updateForm={updateForm}
           queries={queries}
           ticketingTeamOptions={ticketingTeamOptions}
+          updateForm={updateForm}
         />
       );
     case "assignQueryTeams":
       return (
         <AssignQueryTeamsFields
-          form={form}
-          updateForm={updateForm}
           access={access}
-          queries={queries}
           contractingTeamOptions={contractingTeamOptions}
+          form={form}
+          queries={queries}
           ticketingTeamOptions={ticketingTeamOptions}
+          updateForm={updateForm}
         />
       );
     case "assignJobCardCreator":
       return (
         <AssignJobCardCreatorFields
-          form={form}
-          updateForm={updateForm}
-          queries={queries}
           accountsTeamOptions={accountsTeamOptions}
+          form={form}
+          queries={queries}
+          updateForm={updateForm}
         />
       );
     case "addProposalCollaborator":
       return (
         <AddProposalCollaboratorFields
           form={form}
-          updateForm={updateForm}
           proposals={proposals}
           team={team}
+          updateForm={updateForm}
         />
       );
     case "removeProposalCollaborator":
       return (
         <RemoveProposalCollaboratorFields
           form={form}
-          updateForm={updateForm}
-          proposals={proposals}
           proposalCollaboratorOptions={proposalCollaboratorOptions}
+          proposals={proposals}
           selectedProposalId={selectedProposalId}
+          updateForm={updateForm}
         />
       );
     case "addJobCardCollaborator":
       return (
         <AddJobCardCollaboratorFields
           form={form}
-          updateForm={updateForm}
+          handleJobCardSelect={handleJobCardSelect}
           jobCards={jobCards}
           team={team}
-          handleJobCardSelect={handleJobCardSelect}
+          updateForm={updateForm}
         />
       );
     case "removeJobCardCollaborator":
       return (
         <RemoveJobCardCollaboratorFields
           form={form}
-          updateForm={updateForm}
-          jobCards={jobCards}
-          jobCardCollaboratorOptions={jobCardCollaboratorOptions}
-          selectedJobCardId={selectedJobCardId}
           handleJobCardSelect={handleJobCardSelect}
+          jobCardCollaboratorOptions={jobCardCollaboratorOptions}
+          jobCards={jobCards}
+          selectedJobCardId={selectedJobCardId}
+          updateForm={updateForm}
         />
       );
     case "assignContractingOwner":
       return (
         <AssignContractingOwnerFields
-          form={form}
-          updateForm={updateForm}
-          jobCards={jobCards}
           contractingTeamOptions={contractingTeamOptions}
+          form={form}
           handleJobCardSelect={handleJobCardSelect}
+          jobCards={jobCards}
+          updateForm={updateForm}
         />
       );
     case "assignOperationsOwner":
       return (
         <AssignOperationsOwnerFields
           form={form}
-          updateForm={updateForm}
+          handleJobCardSelect={handleJobCardSelect}
           jobCards={jobCards}
           operationsTeamOptions={operationsTeamOptions}
-          handleJobCardSelect={handleJobCardSelect}
+          updateForm={updateForm}
         />
       );
     case "assignTicketingOwner":
       return (
         <AssignTicketingOwnerFields
-          form={form}
-          updateForm={updateForm}
           access={access}
+          form={form}
+          handleJobCardSelect={handleJobCardSelect}
           jobCards={jobCards}
           ticketingTeamOptions={ticketingTeamOptions}
-          handleJobCardSelect={handleJobCardSelect}
+          updateForm={updateForm}
         />
       );
     default:

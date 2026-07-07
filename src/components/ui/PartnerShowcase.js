@@ -56,82 +56,82 @@ import VietnamAirlines from "@/static/partners/vietnamairlines.webp";
 import { cn } from "../../utils/cn";
 
 const partners = [
-  { src: AbuDhabi, alt: "Abu Dhabi" },
-  { src: Accor, alt: "Accor" },
-  { src: AirIndia, alt: "Air India" },
-  { src: AnaAirlines, alt: "Ana Airlines" },
-  { src: Bali, alt: "Bali" },
-  { src: BritishAirways, alt: "British Airways" },
-  { src: Cathay, alt: "Cathay" },
-  { src: Delta, alt: "Delta" },
-  { src: Dubai, alt: "Dubai" },
-  { src: Emirates, alt: "Emirates" },
-  { src: EthopianAirlines, alt: "Ethopian Airlines" },
-  { src: Etihad, alt: "Etihad" },
-  { src: Hilton, alt: "Hilton" },
-  { src: HongKong, alt: "Hong Kong" },
-  { src: Hungary, alt: "Hungary" },
-  { src: Hyatt, alt: "Hyatt" },
-  { src: Iata, alt: "IATA" },
-  { src: IncredibleIndia, alt: "Incredible India" },
-  { src: Indigo, alt: "Indigo" },
-  { src: ItcHotel, alt: "ITC Hotel" },
-  { src: Japan, alt: "Japan" },
-  { src: JapanAirlines, alt: "Japan Airlines" },
-  { src: Kenya, alt: "Kenya" },
-  { src: KenyaAirlines, alt: "Kenya Airlines" },
-  { src: Lufthansa, alt: "Lufthansa" },
-  { src: Malaysia, alt: "Malaysia" },
-  { src: MalaysianAirlines, alt: "Malaysian Airlines" },
-  { src: Malta, alt: "Malta" },
-  { src: Marriot, alt: "Marriot" },
-  { src: Mauritius, alt: "Mauritius" },
-  { src: Oberoi, alt: "Oberoi" },
-  { src: PolishAirlines, alt: "Polish Airlines" },
-  { src: Qatar, alt: "Qatar" },
-  { src: Radisson, alt: "Radisson" },
-  { src: Safilo, alt: "Safilo" },
-  { src: Seychelles, alt: "Seychelles" },
-  { src: Singapore, alt: "Singapore" },
-  { src: SingaporeAirlines, alt: "Singapore Airlines" },
-  { src: SouthAfrica, alt: "South Africa" },
-  { src: SriLanka, alt: "Sri Lanka" },
-  { src: SriLankanAirlines, alt: "Sri Lankan Airlines" },
-  { src: Switzerland, alt: "Switzerland" },
-  { src: TajHotel, alt: "Taj Hotel" },
-  { src: ThaiAirways, alt: "Thai Airways" },
-  { src: Thailand, alt: "Thailand" },
-  { src: USATourism, alt: "USA Tourism" },
-  { src: VietJet, alt: "VietJet" },
-  { src: Vietnam, alt: "Vietnam" },
-  { src: VietnamAirlines, alt: "Vietnam Airlines" },
+  { alt: "Abu Dhabi", src: AbuDhabi },
+  { alt: "Accor", src: Accor },
+  { alt: "Air India", src: AirIndia },
+  { alt: "Ana Airlines", src: AnaAirlines },
+  { alt: "Bali", src: Bali },
+  { alt: "British Airways", src: BritishAirways },
+  { alt: "Cathay", src: Cathay },
+  { alt: "Delta", src: Delta },
+  { alt: "Dubai", src: Dubai },
+  { alt: "Emirates", src: Emirates },
+  { alt: "Ethopian Airlines", src: EthopianAirlines },
+  { alt: "Etihad", src: Etihad },
+  { alt: "Hilton", src: Hilton },
+  { alt: "Hong Kong", src: HongKong },
+  { alt: "Hungary", src: Hungary },
+  { alt: "Hyatt", src: Hyatt },
+  { alt: "IATA", src: Iata },
+  { alt: "Incredible India", src: IncredibleIndia },
+  { alt: "Indigo", src: Indigo },
+  { alt: "ITC Hotel", src: ItcHotel },
+  { alt: "Japan", src: Japan },
+  { alt: "Japan Airlines", src: JapanAirlines },
+  { alt: "Kenya", src: Kenya },
+  { alt: "Kenya Airlines", src: KenyaAirlines },
+  { alt: "Lufthansa", src: Lufthansa },
+  { alt: "Malaysia", src: Malaysia },
+  { alt: "Malaysian Airlines", src: MalaysianAirlines },
+  { alt: "Malta", src: Malta },
+  { alt: "Marriot", src: Marriot },
+  { alt: "Mauritius", src: Mauritius },
+  { alt: "Oberoi", src: Oberoi },
+  { alt: "Polish Airlines", src: PolishAirlines },
+  { alt: "Qatar", src: Qatar },
+  { alt: "Radisson", src: Radisson },
+  { alt: "Safilo", src: Safilo },
+  { alt: "Seychelles", src: Seychelles },
+  { alt: "Singapore", src: Singapore },
+  { alt: "Singapore Airlines", src: SingaporeAirlines },
+  { alt: "South Africa", src: SouthAfrica },
+  { alt: "Sri Lanka", src: SriLanka },
+  { alt: "Sri Lankan Airlines", src: SriLankanAirlines },
+  { alt: "Switzerland", src: Switzerland },
+  { alt: "Taj Hotel", src: TajHotel },
+  { alt: "Thai Airways", src: ThaiAirways },
+  { alt: "Thailand", src: Thailand },
+  { alt: "USA Tourism", src: USATourism },
+  { alt: "VietJet", src: VietJet },
+  { alt: "Vietnam", src: Vietnam },
+  { alt: "Vietnam Airlines", src: VietnamAirlines },
 ];
 
 function PartnerBox({ src, alt }) {
   return (
     <m.div
       className="relative flex items-center justify-center overflow-hidden"
-      style={{ width: 180, height: 100 }}
       initial="hideInfo"
+      style={{ height: 100, width: 180 }}
       whileHover="showInfo"
     >
       <m.div
-        className="flex items-center justify-center size-full"
+        className="flex size-full items-center justify-center"
         variants={{
-          hideInfo: { scale: 1, filter: "blur(0px)", opacity: 1 },
-          showInfo: { scale: 0.9, filter: "blur(5px)", opacity: 0.3 },
+          hideInfo: { filter: "blur(0px)", opacity: 1, scale: 1 },
+          showInfo: { filter: "blur(5px)", opacity: 0.3, scale: 0.9 },
         }}
       >
         <Image
-          src={src}
           alt={alt}
-          width={120}
           height={60}
-          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          src={src}
+          style={{ height: "100%", objectFit: "contain", width: "100%" }}
+          width={120}
         />
       </m.div>
       <m.div
-        className="absolute inset-0 flex items-center justify-center p-2 text-[16px] font-semibold uppercase text-[#222] bg-white/70"
+        className="absolute inset-0 flex items-center justify-center bg-white/70 p-2 font-semibold text-[#222] text-[16px] uppercase"
         style={{ textShadow: "1px 1px 0px #fff" }}
         variants={{
           hideInfo: { opacity: 0, scale: 1.2 },
@@ -145,31 +145,31 @@ function PartnerBox({ src, alt }) {
 }
 
 export default function PartnerShowcase({ className }) {
-  const items = partners.map((logo) => <PartnerBox key={logo.alt} src={logo.src} alt={logo.alt} />);
+  const items = partners.map((logo) => <PartnerBox alt={logo.alt} key={logo.alt} src={logo.src} />);
 
   return (
     <m.section
+      className={cn("bg-brand-light py-12", className)}
       initial={{ opacity: 0, y: 40 }}
+      transition={{ delay: 0.2, duration: 0.8 }}
+      viewport={{ amount: 0.2, once: true }}
       whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, delay: 0.2 }}
-      viewport={{ once: true, amount: 0.2 }}
-      className={cn("py-12 bg-brand-light", className)}
     >
-      <h2 className="text-center text-2xl font-semibold text-brand-dark mb-8">
+      <h2 className="mb-8 text-center font-semibold text-2xl text-brand-dark">
         Our Global Hospitality, Tourism, and Airline Partners
       </h2>
       <Ticker
-        velocity={65}
+        gap={5}
         items={items}
         style={{
-          display: "flex",
           alignItems: "center",
+          display: "flex",
           maskImage:
             "linear-gradient(to right, transparent 5%, black 10%, black 90%, transparent 95%)",
           WebkitMaskImage:
             "linear-gradient(to right, transparent 5%, black 10%, black 90%, transparent 95%)",
         }}
-        gap={5}
+        velocity={65}
       />
     </m.section>
   );

@@ -20,13 +20,13 @@ export const listActivity = query({
       .order("desc")
       .take(limit);
     return rows.map((activity) => ({
-      id: activity._id,
-      entityType: activity.entityType,
-      entityId: activity.entityId ?? "",
       action: activity.action,
-      message: activity.message,
       actorName: activity.actorName,
       createdAt: new Date(activity.createdAt).toISOString(),
+      entityId: activity.entityId ?? "",
+      entityType: activity.entityType,
+      id: activity._id,
+      message: activity.message,
     }));
   },
 });
@@ -39,13 +39,13 @@ export const listNotifications = query({
     const access = await requireStaff(ctx);
     const rows = await fetchNotificationsForAccess(ctx, access, args.limit ?? 20);
     return rows.map((notification) => ({
-      id: notification._id,
-      title: notification.title,
       body: notification.body,
-      entityType: notification.entityType ?? "",
-      entityId: notification.entityId ?? "",
-      readAt: notification.readAt ? new Date(notification.readAt).toISOString() : null,
       createdAt: new Date(notification.createdAt).toISOString(),
+      entityId: notification.entityId ?? "",
+      entityType: notification.entityType ?? "",
+      id: notification._id,
+      readAt: notification.readAt ? new Date(notification.readAt).toISOString() : null,
+      title: notification.title,
     }));
   },
 });
@@ -86,10 +86,10 @@ export const markAllNotificationsRead = mutation({
     const access = await requireStaff(ctx);
     const now = Date.now();
     const toMark = (await fetchAllNotificationsForAccess(ctx, access)).filter(
-      (notification) => !notification.readAt,
+      (notification) => !notification.readAt
     );
     await Promise.all(
-      toMark.map((notification) => ctx.db.patch(notification._id, { readAt: now })),
+      toMark.map((notification) => ctx.db.patch(notification._id, { readAt: now }))
     );
 
     return { marked: toMark.length };

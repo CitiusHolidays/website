@@ -6,10 +6,10 @@ export default function JobCardReadinessMap({ sections = EMPTY_SECTIONS }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {sections.map((section) => (
-        <div key={section.key} className="rounded-lg border border-brand-border bg-white p-4">
+        <div className="rounded-lg border border-brand-border bg-white p-4" key={section.key}>
           <div className="flex items-center justify-between gap-3">
-            <p className="font-heading text-sm text-brand-dark">{section.label}</p>
-            <p className="font-sans text-xs tabular-nums text-brand-muted">
+            <p className="font-heading text-brand-dark text-sm">{section.label}</p>
+            <p className="font-sans text-brand-muted text-xs tabular-nums">
               {section.done}/{section.total}
             </p>
           </div>

@@ -22,12 +22,12 @@ export const ContactFormEmail = ({ name, email, phone, subject, message, receive
         theme: {
           extend: {
             colors: {
+              "brand-border": "#E5E7EB",
+              "brand-dark": "#111827",
+              "brand-light": "#F9FAFB",
+              "brand-muted": "#6B7280",
               "citius-blue": "#102A83",
               "citius-orange": "#F58220",
-              "brand-dark": "#111827",
-              "brand-muted": "#6B7280",
-              "brand-light": "#F9FAFB",
-              "brand-border": "#E5E7EB",
             },
           },
         },
@@ -37,54 +37,54 @@ export const ContactFormEmail = ({ name, email, phone, subject, message, receive
         <Head />
         <Preview>{previewText}</Preview>
         <Body className="bg-brand-light font-sans">
-          <Container className="max-w-2xl bg-brand-dark mx-auto rounded-xl">
+          <Container className="mx-auto max-w-2xl rounded-xl bg-brand-dark">
             <div className="pt-4">
-              <Section className="bg-gradient-to-r from-citius-blue to-[#1e3a8a] text-white text-center py-12 px-8 rounded-t-2xl">
-                <div className="inline-block size-16 bg-white/20 rounded-full mb-6">
+              <Section className="rounded-t-2xl bg-gradient-to-r from-citius-blue to-[#1e3a8a] px-8 py-12 text-center text-white">
+                <div className="mb-6 inline-block size-16 rounded-full bg-white/20">
                   <Row style={{ height: "64px" }}>
                     <Column
                       style={{
-                        width: "64px",
-                        verticalAlign: "middle",
                         textAlign: "center",
+                        verticalAlign: "middle",
+                        width: "64px",
                       }}
                     >
-                      <Text className="text-3xl m-0">📧</Text>
+                      <Text className="m-0 text-3xl">📧</Text>
                     </Column>
                   </Row>
                 </div>
-                <Heading className="text-3xl font-bold m-0 mb-3">
+                <Heading className="m-0 mb-3 font-bold text-3xl">
                   New Contact Form Submission
                 </Heading>
-                <Text className="text-lg opacity-90 m-0">
+                <Text className="m-0 text-lg opacity-90">
                   You have received a new message from your website
                 </Text>
               </Section>
             </div>
 
             <Section className="bg-brand-dark p-8 shadow-lg">
-              <Section className="bg-brand-dark mb-8">
-                <Heading className="text-lg font-semibold text-brand-light pt-6 pl-5 pb-2 mb-6 m-0">
+              <Section className="mb-8 bg-brand-dark">
+                <Heading className="m-0 mb-6 pt-6 pb-2 pl-5 font-semibold text-brand-light text-lg">
                   Contact Information
                 </Heading>
 
                 <div className="space-y-4">
                   <div className="pl-4">
                     <Row>
-                      <Column style={{ width: "56px", verticalAlign: "middle" }}>
-                        <div className="size-10 bg-citius-orange/10 rounded-lg text-center">
-                          <Text className="text-lg m-0 leading-10">👤</Text>
+                      <Column style={{ verticalAlign: "middle", width: "56px" }}>
+                        <div className="size-10 rounded-lg bg-citius-orange/10 text-center">
+                          <Text className="m-0 text-lg leading-10">👤</Text>
                         </div>
                       </Column>
                       <Column style={{ verticalAlign: "middle" }}>
                         <Text
-                          className="text-sm font-medium text-brand-muted"
+                          className="font-medium text-brand-muted text-sm"
                           style={{ margin: "0 0 2px 0" }}
                         >
                           Name
                         </Text>
                         <Text
-                          className="text-base font-semibold text-brand-light"
+                          className="font-semibold text-base text-brand-light"
                           style={{ margin: 0 }}
                         >
                           {name}
@@ -95,22 +95,22 @@ export const ContactFormEmail = ({ name, email, phone, subject, message, receive
 
                   <div className="pl-4">
                     <Row>
-                      <Column style={{ width: "56px", verticalAlign: "middle" }}>
-                        <div className="size-10 bg-citius-orange/10 rounded-lg text-center">
-                          <Text className="text-lg m-0 leading-10">📧</Text>
+                      <Column style={{ verticalAlign: "middle", width: "56px" }}>
+                        <div className="size-10 rounded-lg bg-citius-orange/10 text-center">
+                          <Text className="m-0 text-lg leading-10">📧</Text>
                         </div>
                       </Column>
                       <Column style={{ verticalAlign: "middle" }}>
                         <Text
-                          className="text-sm font-medium text-brand-muted"
+                          className="font-medium text-brand-muted text-sm"
                           style={{ margin: "0 0 2px 0" }}
                         >
                           Email Address
                         </Text>
                         <Text style={{ margin: 0 }}>
                           <a
+                            className="font-semibold text-base text-citius-orange hover:underline"
                             href={`mailto:${email}`}
-                            className="text-citius-orange font-semibold text-base hover:underline"
                           >
                             {email}
                           </a>
@@ -122,22 +122,22 @@ export const ContactFormEmail = ({ name, email, phone, subject, message, receive
                   {phone && (
                     <div className="pl-4">
                       <Row>
-                        <Column style={{ width: "56px", verticalAlign: "middle" }}>
-                          <div className="size-10 bg-citius-orange/10 rounded-lg text-center">
-                            <Text className="text-lg m-0 leading-10">📞</Text>
+                        <Column style={{ verticalAlign: "middle", width: "56px" }}>
+                          <div className="size-10 rounded-lg bg-citius-orange/10 text-center">
+                            <Text className="m-0 text-lg leading-10">📞</Text>
                           </div>
                         </Column>
                         <Column style={{ verticalAlign: "middle" }}>
                           <Text
-                            className="text-sm font-medium text-brand-muted"
+                            className="font-medium text-brand-muted text-sm"
                             style={{ margin: "0 0 2px 0" }}
                           >
                             Phone Number
                           </Text>
                           <Text style={{ margin: 0 }}>
                             <a
+                              className="font-semibold text-base text-citius-orange hover:underline"
                               href={`tel:${phone}`}
-                              className="text-citius-orange font-semibold text-base hover:underline"
                             >
                               {phone}
                             </a>
@@ -149,20 +149,20 @@ export const ContactFormEmail = ({ name, email, phone, subject, message, receive
 
                   <div className="pl-4">
                     <Row>
-                      <Column style={{ width: "56px", verticalAlign: "middle" }}>
-                        <div className="size-10 bg-citius-orange/10 rounded-lg text-center">
-                          <Text className="text-lg m-0 leading-10">📋</Text>
+                      <Column style={{ verticalAlign: "middle", width: "56px" }}>
+                        <div className="size-10 rounded-lg bg-citius-orange/10 text-center">
+                          <Text className="m-0 text-lg leading-10">📋</Text>
                         </div>
                       </Column>
                       <Column style={{ verticalAlign: "middle" }}>
                         <Text
-                          className="text-sm font-medium text-brand-muted"
+                          className="font-medium text-brand-muted text-sm"
                           style={{ margin: "0 0 2px 0" }}
                         >
                           Subject
                         </Text>
                         <Text
-                          className="text-base font-semibold text-brand-light"
+                          className="font-semibold text-base text-brand-light"
                           style={{ margin: 0 }}
                         >
                           {subject}
@@ -174,47 +174,47 @@ export const ContactFormEmail = ({ name, email, phone, subject, message, receive
               </Section>
 
               <Section className="mb-8">
-                <div className="pl-4 mb-4">
+                <div className="mb-4 pl-4">
                   <Row>
-                    <Column style={{ width: "52px", verticalAlign: "middle" }}>
-                      <div className="size-10 bg-citius-orange/10 rounded-lg text-center">
-                        <Text className="text-lg m-0 leading-10">💬</Text>
+                    <Column style={{ verticalAlign: "middle", width: "52px" }}>
+                      <div className="size-10 rounded-lg bg-citius-orange/10 text-center">
+                        <Text className="m-0 text-lg leading-10">💬</Text>
                       </div>
                     </Column>
                     <Column style={{ verticalAlign: "middle" }}>
-                      <Heading className="text-xl font-semibold text-brand-light m-0">
+                      <Heading className="m-0 font-semibold text-brand-light text-xl">
                         Message
                       </Heading>
                     </Column>
                   </Row>
                 </div>
 
-                <Section className="bg-brand-dark rounded-xl">
+                <Section className="rounded-xl bg-brand-dark">
                   <div className="pl-5">
-                    <Text className="text-base leading-relaxed text-brand-light m-0 whitespace-pre-wrap">
+                    <Text className="m-0 whitespace-pre-wrap text-base text-brand-light leading-relaxed">
                       {message}
                     </Text>
                   </div>
                 </Section>
               </Section>
 
-              <Section className="text-center mb-8">
+              <Section className="mb-8 text-center">
                 <Button
+                  className="rounded-lg bg-citius-blue px-8 py-4 font-semibold text-base text-white transition-colors hover:bg-citius-blue/90"
                   href={`mailto:${email}`}
-                  className="bg-citius-blue text-white px-8 py-4 rounded-lg font-semibold text-base hover:bg-citius-blue/90 transition-colors"
                 >
                   Reply to {name}
                 </Button>
               </Section>
             </Section>
 
-            <Section className="bg-brand-dark text-center p-8 rounded-b-2xl">
-              <Text className="text-white/80 text-sm m-0 mb-2">
+            <Section className="rounded-b-2xl bg-brand-dark p-8 text-center">
+              <Text className="m-0 mb-2 text-sm text-white/80">
                 <strong>Contact Form Submission</strong>
               </Text>
-              <Text className="text-white/60 text-xs m-0 mb-4">Received on {receivedAt}</Text>
+              <Text className="m-0 mb-4 text-white/60 text-xs">Received on {receivedAt}</Text>
               <div>
-                <Text className="text-brand-light/50 pb-5 text-xs m-0">
+                <Text className="m-0 pb-5 text-brand-light/50 text-xs">
                   This email was automatically generated from your website&apos;s contact form.
                 </Text>
               </div>

@@ -43,7 +43,7 @@ function hasRequiredHeaders(headers) {
 
 function staffSheetEntries(workbook) {
   return Object.entries(workbook.Sheets ?? {}).flatMap(([sheetName, rows]) =>
-    (rows ?? []).map((row, index) => ({ sheetName, row, rowNumber: index + 1 })),
+    (rows ?? []).map((row, index) => ({ row, rowNumber: index + 1, sheetName }))
   );
 }
 
@@ -72,41 +72,43 @@ export function parseStaffWorkbook(workbook) {
 
     const name = getByHeader(entry.row, activeHeaders, ["Name", "Employee Name"]);
     const email = getByHeader(entry.row, activeHeaders, ["Email", "Email ID", "Email Id"]);
-    if (!name && !email) continue;
-    if (!name || !email) {
+    if (!(name || email)) {
+      continue;
+    }
+    if (!(name && email)) {
       skipped.push({
         id: `${entry.sheetName}:${entry.rowNumber}`,
-        sourceSheet: entry.sheetName,
-        sourceRowNumber: entry.rowNumber,
         reason: "Missing staff name or email",
+        sourceRowNumber: entry.rowNumber,
+        sourceSheet: entry.sheetName,
       });
       continue;
     }
 
     rows.push({
-      sourceSheet: entry.sheetName,
-      sourceRowNumber: entry.rowNumber,
-      name,
-      email,
-      mobile: getByHeader(entry.row, activeHeaders, ["Mobile", "Mobile No", "Contact No."]),
-      jobRole: getByHeader(entry.row, activeHeaders, ["Job Role", "Role"]),
       departmentTeam: getByHeader(entry.row, activeHeaders, [
         "Department / Team",
         "Department",
         "Team",
       ]),
-      location: getByHeader(entry.row, activeHeaders, ["Location", "Base Location"]),
-      level1ApproverName: getByHeader(entry.row, activeHeaders, [
-        "Level 1 Approver",
-        "Leave Application Alert",
-      ]),
+      email,
       escalationApproverName: getByHeader(entry.row, activeHeaders, [
         "Escalation (Level 2)",
         "Level 2 Approver",
       ]),
       finalAuthorityName: getByHeader(entry.row, activeHeaders, ["Final Authority"]),
       hrCopyName: getByHeader(entry.row, activeHeaders, ["CC to HR", "HR Copy", "Copy to HR"]),
+      jobRole: getByHeader(entry.row, activeHeaders, ["Job Role", "Role"]),
+      level1ApproverName: getByHeader(entry.row, activeHeaders, [
+        "Level 1 Approver",
+        "Leave Application Alert",
+      ]),
+      location: getByHeader(entry.row, activeHeaders, ["Location", "Base Location"]),
+      mobile: getByHeader(entry.row, activeHeaders, ["Mobile", "Mobile No", "Contact No."]),
+      name,
       notes: getByHeader(entry.row, activeHeaders, ["Notes", "Remarks"]),
+      sourceRowNumber: entry.rowNumber,
+      sourceSheet: entry.sheetName,
     });
   }
 

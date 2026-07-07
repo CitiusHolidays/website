@@ -21,11 +21,11 @@ export function usePatchReducer(initialStateOrFactory) {
     }
   }, initialState);
 
-  const patch = (patchValue) => dispatch({ type: "patch", patch: patchValue });
+  const patch = (patchValue) => dispatch({ patch: patchValue, type: "patch" });
   const reset = (next) =>
     dispatch({
-      type: "reset",
       next: next ? () => resolveInitial(next) : undefined,
+      type: "reset",
     });
 
   return [state, patch, reset, dispatch];

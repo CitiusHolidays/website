@@ -41,8 +41,8 @@ const normalizeBookingStatus = (value: unknown): BookingStatus => {
 
 export const importUsers = mutation({
   args: {
-    secret: v.string(),
     rows: v.array(v.any()),
+    secret: v.string(),
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
@@ -60,39 +60,38 @@ export const importUsers = mutation({
 
         const payload = {
           authUserId,
+          createdAt: toTimestamp(row.created_at ?? row.createdAt),
           email: row.email ?? "",
+          image: row.image ?? "",
+          legacyUserId: authUserId,
           name: row.name ?? "Traveler",
-          phoneNumber: row.phone_number ?? row.phoneNumber ?? "",
           passportDetailsEncrypted:
             row.passport_details_encrypted ?? row.passportDetailsEncrypted ?? "",
-          image: row.image ?? "",
-          createdAt: toTimestamp(row.created_at ?? row.createdAt),
+          phoneNumber: row.phone_number ?? row.phoneNumber ?? "",
           updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
-          legacyUserId: authUserId,
         };
 
         if (existing) {
           await ctx.db.patch(existing._id, payload);
           return "updated";
-        } else {
-          await ctx.db.insert("userProfiles", payload);
-          return "imported";
         }
-      }),
+        await ctx.db.insert("userProfiles", payload);
+        return "imported";
+      })
     );
 
     return {
       imported: results.filter((result) => result === "imported").length,
-      updated: results.filter((result) => result === "updated").length,
       total: args.rows.length,
+      updated: results.filter((result) => result === "updated").length,
     };
   },
 });
 
 export const importTrips = mutation({
   args: {
-    secret: v.string(),
     rows: v.array(v.any()),
+    secret: v.string(),
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
@@ -110,49 +109,48 @@ export const importTrips = mutation({
 
         const isActiveRaw = row.is_active ?? row.isActive ?? 1;
         const payload = {
-          name: row.name ?? "",
-          slug: row.slug ?? "",
-          description: row.description ?? "",
-          startDate: row.start_date ?? row.startDate ?? "",
-          endDate: row.end_date ?? row.endDate ?? "",
-          totalSeats: Number(row.total_seats ?? row.totalSeats ?? 0),
           availableSeats: Number(row.available_seats ?? row.availableSeats ?? 0),
+          coverImage: row.cover_image ?? row.coverImage ?? "",
+          createdAt: toTimestamp(row.created_at ?? row.createdAt),
+          description: row.description ?? "",
+          difficulty: row.difficulty ?? "",
+          endDate: row.end_date ?? row.endDate ?? "",
+          exclusions: row.exclusions ?? [],
+          gallery: row.gallery ?? [],
+          inclusions: row.inclusions ?? [],
+          isActive: Number(isActiveRaw) === 1 || isActiveRaw === true,
+          itinerary: row.itinerary ?? [],
+          legacyTripId,
+          name: row.name ?? "",
           priceInr: Number(row.price_inr ?? row.priceInr ?? 0),
           priceUsd: Number(row.price_usd ?? row.priceUsd ?? 0),
-          difficulty: row.difficulty ?? "",
-          itinerary: row.itinerary ?? [],
-          inclusions: row.inclusions ?? [],
-          exclusions: row.exclusions ?? [],
-          coverImage: row.cover_image ?? row.coverImage ?? "",
-          gallery: row.gallery ?? [],
-          isActive: Number(isActiveRaw) === 1 || isActiveRaw === true,
-          createdAt: toTimestamp(row.created_at ?? row.createdAt),
+          slug: row.slug ?? "",
+          startDate: row.start_date ?? row.startDate ?? "",
+          totalSeats: Number(row.total_seats ?? row.totalSeats ?? 0),
           updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
-          legacyTripId,
         };
 
         if (existing) {
           await ctx.db.patch(existing._id, payload);
           return "updated";
-        } else {
-          await ctx.db.insert("trips", payload);
-          return "imported";
         }
-      }),
+        await ctx.db.insert("trips", payload);
+        return "imported";
+      })
     );
 
     return {
       imported: results.filter((result) => result === "imported").length,
-      updated: results.filter((result) => result === "updated").length,
       total: args.rows.length,
+      updated: results.filter((result) => result === "updated").length,
     };
   },
 });
 
 export const importBookings = mutation({
   args: {
-    secret: v.string(),
     rows: v.array(v.any()),
+    secret: v.string(),
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
@@ -179,38 +177,37 @@ export const importBookings = mutation({
           .unique();
 
         const payload = {
-          userId: row.user_id ?? row.userId ?? "",
-          tripId: trip._id,
-          status: normalizeBookingStatus(row.status),
+          confirmedAt: row.confirmed_at ? toTimestamp(row.confirmed_at) : undefined,
+          createdAt: toTimestamp(row.created_at ?? row.createdAt),
+          currency: row.currency ?? "INR",
+          legacyBookingId,
+          notes: row.notes ?? "",
           razorpayOrderId: row.razorpay_order_id ?? row.razorpayOrderId ?? "",
           razorpayPaymentId: row.razorpay_payment_id ?? row.razorpayPaymentId ?? "",
           razorpaySignature: row.razorpay_signature ?? row.razorpaySignature ?? "",
+          status: normalizeBookingStatus(row.status),
           totalAmount: Number(row.total_amount ?? row.totalAmount ?? 0),
-          currency: row.currency ?? "INR",
-          travelers: Number(row.travelers ?? 1),
           travelerDetails: row.traveler_details ?? row.travelerDetails ?? null,
-          notes: row.notes ?? "",
-          createdAt: toTimestamp(row.created_at ?? row.createdAt),
+          travelers: Number(row.travelers ?? 1),
+          tripId: trip._id,
           updatedAt: toTimestamp(row.updated_at ?? row.updatedAt),
-          confirmedAt: row.confirmed_at ? toTimestamp(row.confirmed_at) : undefined,
-          legacyBookingId,
+          userId: row.user_id ?? row.userId ?? "",
         };
 
         if (existing) {
           await ctx.db.patch(existing._id, payload);
           return "updated";
-        } else {
-          await ctx.db.insert("bookings", payload);
-          return "imported";
         }
-      }),
+        await ctx.db.insert("bookings", payload);
+        return "imported";
+      })
     );
 
     return {
       imported: results.filter((result) => result === "imported").length,
-      updated: results.filter((result) => result === "updated").length,
       skipped: results.filter((result) => result === "skipped").length,
       total: args.rows.length,
+      updated: results.filter((result) => result === "updated").length,
     };
   },
 });
@@ -219,14 +216,6 @@ export const migrateRoomTypes = mutation({
   args: {
     secret: v.string(),
   },
-  returns: v.object({
-    travellersUpdated: v.number(),
-    travellerRoomTypesUpdated: v.number(),
-    roomingEntriesUpdated: v.number(),
-    legacyTravellerRoomTypes: v.number(),
-    legacyRoomingRoomTypes: v.number(),
-    mismatchedTravellers: v.number(),
-  }),
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
 
@@ -274,12 +263,12 @@ export const migrateRoomTypes = mutation({
     await Promise.all(
       travellerPatches.map(async ({ id, patch }) => {
         await ctx.db.patch(id, patch);
-      }),
+      })
     );
 
     travellersUpdated = travellerPatches.length;
     travellerRoomTypesUpdated = travellerPatches.filter(
-      ({ patch }) => patch.roomType !== undefined,
+      ({ patch }) => patch.roomType !== undefined
     ).length;
 
     const roomingEntries = await ctx.db.query("roomingListEntries").collect();
@@ -313,20 +302,28 @@ export const migrateRoomTypes = mutation({
     await Promise.all(
       roomingPatches.map(async ({ id, patch }) => {
         await ctx.db.patch(id, patch);
-      }),
+      })
     );
 
     roomingEntriesUpdated = roomingPatches.length;
 
     return {
-      travellersUpdated,
-      travellerRoomTypesUpdated,
-      roomingEntriesUpdated,
-      legacyTravellerRoomTypes,
       legacyRoomingRoomTypes,
+      legacyTravellerRoomTypes,
       mismatchedTravellers,
+      roomingEntriesUpdated,
+      travellerRoomTypesUpdated,
+      travellersUpdated,
     };
   },
+  returns: v.object({
+    legacyRoomingRoomTypes: v.number(),
+    legacyTravellerRoomTypes: v.number(),
+    mismatchedTravellers: v.number(),
+    roomingEntriesUpdated: v.number(),
+    travellerRoomTypesUpdated: v.number(),
+    travellersUpdated: v.number(),
+  }),
 });
 
 export const getStats = query({
@@ -345,20 +342,20 @@ export const getStats = query({
     }, {});
 
     const seatTotals = trips.map((trip) => ({
+      availableSeats: trip.availableSeats,
       id: trip._id,
       legacyTripId: trip.legacyTripId ?? null,
       slug: trip.slug,
       totalSeats: trip.totalSeats,
-      availableSeats: trip.availableSeats,
     }));
 
     return {
-      counts: {
-        users: users.length,
-        trips: trips.length,
-        bookings: bookings.length,
-      },
       bookingsByStatus,
+      counts: {
+        bookings: bookings.length,
+        trips: trips.length,
+        users: users.length,
+      },
       seatTotals,
     };
   },

@@ -37,11 +37,11 @@ describe("resolvePassportExpiryForList", () => {
     process.env.ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
     try {
       const encrypted = encryptPassportDetails({
-        number: "Z1234567",
         dateOfBirth: "1990-01-01",
-        issueDate: "2020-01-01",
         expiryDate: "2031-06-15",
+        issueDate: "2020-01-01",
         nationality: "IN",
+        number: "Z1234567",
       });
       await expect(resolvePassportExpiryForList("", encrypted)).resolves.toBe("2031-06-15");
     } finally {

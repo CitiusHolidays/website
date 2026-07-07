@@ -37,20 +37,20 @@ export function DashboardQueryTypeTile({ type, count, variant = "active", href }
 
   const inner = (
     <>
-      <div className="flex items-center gap-2 text-xs font-medium text-brand-muted">
-        <Icon size={18} className="shrink-0" />
+      <div className="flex items-center gap-2 font-medium text-brand-muted text-xs">
+        <Icon className="shrink-0" size={18} />
         <span className="truncate">{type}</span>
       </div>
-      <div className={`mt-4 font-heading text-3xl font-semibold tabular-nums ${valueTone}`}>
+      <div className={`mt-4 font-heading font-semibold text-3xl tabular-nums ${valueTone}`}>
         {count}
       </div>
-      <div className="mt-2 text-xs text-brand-muted">In selected period</div>
+      <div className="mt-2 text-brand-muted text-xs">In selected period</div>
     </>
   );
 
   if (href) {
     return (
-      <Link href={href} className={className}>
+      <Link className={className} href={href}>
         {inner}
       </Link>
     );

@@ -1,12 +1,12 @@
 "use client";
 
-import { m } from "motion/react";
 import { Trash2 } from "lucide-react";
+import { m } from "motion/react";
 import { useBulkSelection } from "@/lib/portal/bulkSelection";
 
 function EmptyState({ label }) {
   return (
-    <div className="rounded-2xl border border-dashed border-brand-border bg-white px-6 py-12 text-center text-sm text-brand-muted">
+    <div className="rounded-2xl border border-brand-border border-dashed bg-white px-6 py-12 text-center text-brand-muted text-sm">
       {label}
     </div>
   );
@@ -14,25 +14,27 @@ function EmptyState({ label }) {
 
 function LoadingPanel() {
   return (
-    <div className="rounded-2xl border border-brand-border bg-white px-6 py-12 text-center text-sm text-brand-muted">
+    <div className="rounded-2xl border border-brand-border bg-white px-6 py-12 text-center text-brand-muted text-sm">
       Loading…
     </div>
   );
 }
 
 function BulkActionBar({ selectedCount, entityLabel, onDeleteSelected, onClear }) {
-  if (selectedCount === 0) return null;
+  if (selectedCount === 0) {
+    return null;
+  }
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-border bg-citius-blue/[0.04] px-4 py-3">
-      <span className="text-sm font-medium text-citius-blue">
+    <div className="flex flex-wrap items-center justify-between gap-3 border-brand-border border-b bg-citius-blue/[0.04] px-4 py-3">
+      <span className="font-medium text-citius-blue text-sm">
         {selectedCount} {entityLabel}
         {selectedCount === 1 ? "" : "s"} selected
       </span>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="portal-small-btn" onClick={onClear}>
+        <button className="portal-small-btn" onClick={onClear} type="button">
           Clear
         </button>
-        <button type="button" className="portal-danger-btn" onClick={onDeleteSelected}>
+        <button className="portal-danger-btn" onClick={onDeleteSelected} type="button">
           <Trash2 size={13} />
           Delete selected
         </button>
@@ -57,8 +59,12 @@ export function SelectableDataTable({
   const emptyLabel =
     filtersActive && rows?.length === 0 ? "No matches — adjust or clear filters." : empty;
 
-  if (!rows) return <LoadingPanel />;
-  if (rows.length === 0) return <EmptyState label={emptyLabel} />;
+  if (!rows) {
+    return <LoadingPanel />;
+  }
+  if (rows.length === 0) {
+    return <EmptyState label={emptyLabel} />;
+  }
 
   const selectionLabel = (row) => {
     if (typeof rowLabel === "function") {
@@ -73,12 +79,12 @@ export function SelectableDataTable({
           "",
           (row) => (
             <input
-              type="checkbox"
-              className="size-4 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
+              aria-label={`Select ${selectionLabel(row)}`}
               checked={bulk.selectedIds.has(row.id)}
+              className="size-4 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
               onChange={() => bulk.toggleOne(row.id)}
               onClick={(event) => event.stopPropagation()}
-              aria-label={`Select ${selectionLabel(row)}`}
+              type="checkbox"
             />
           ),
         ],
@@ -88,7 +94,9 @@ export function SelectableDataTable({
   const tableColumns = [...selectionColumn, ...columns];
 
   const handleBulkDelete = async () => {
-    if (!onBulkDelete || bulk.selectedCount === 0) return;
+    if (!onBulkDelete || bulk.selectedCount === 0) {
+      return;
+    }
     const ids = [...bulk.selectedIds];
     const ok = await onBulkDelete(ids);
     if (ok) {
@@ -98,36 +106,36 @@ export function SelectableDataTable({
 
   return (
     <m.div
-      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
       className="overflow-hidden rounded-2xl border border-brand-border bg-white shadow-sm"
+      initial={{ opacity: 0, y: 12 }}
+      transition={{ duration: 0.35 }}
     >
       {selectable && (
         <BulkActionBar
-          selectedCount={bulk.selectedCount}
           entityLabel={entityLabel}
-          onDeleteSelected={handleBulkDelete}
           onClear={bulk.clearSelection}
+          onDeleteSelected={handleBulkDelete}
+          selectedCount={bulk.selectedCount}
         />
       )}
       {mobileCardRender && (
         <div className="divide-y divide-brand-border md:hidden">
           {rows.map((row, rowIndex) => (
             <m.div
-              key={row.id}
-              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: Math.min(rowIndex * 0.02, 0.2) }}
               className="flex gap-3 p-4"
+              initial={{ opacity: 0 }}
+              key={row.id}
+              transition={{ delay: Math.min(rowIndex * 0.02, 0.2) }}
             >
               {selectable && (
                 <input
-                  type="checkbox"
-                  className="mt-1 size-4 shrink-0 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
-                  checked={bulk.selectedIds.has(row.id)}
-                  onChange={() => bulk.toggleOne(row.id)}
                   aria-label={`Select ${selectionLabel(row)}`}
+                  checked={bulk.selectedIds.has(row.id)}
+                  className="mt-1 size-4 shrink-0 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
+                  onChange={() => bulk.toggleOne(row.id)}
+                  type="checkbox"
                 />
               )}
               <div className="min-w-0 flex-1">{mobileCardRender(row)}</div>
@@ -140,25 +148,25 @@ export function SelectableDataTable({
           <thead className="bg-brand-light/80">
             <tr>
               {selectable && (
-                <th className="w-10 border-b border-brand-border px-4 py-3 text-left">
+                <th className="w-10 border-brand-border border-b px-4 py-3 text-left">
                   <input
-                    type="checkbox"
-                    className="size-4 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
+                    aria-label="Select all visible rows"
                     checked={bulk.allVisibleSelected}
+                    className="size-4 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
+                    onChange={bulk.toggleAllVisible}
                     ref={(input) => {
                       if (input) {
                         input.indeterminate = bulk.someVisibleSelected && !bulk.allVisibleSelected;
                       }
                     }}
-                    onChange={bulk.toggleAllVisible}
-                    aria-label="Select all visible rows"
+                    type="checkbox"
                   />
                 </th>
               )}
               {columns.map(([label]) => (
                 <th
+                  className="border-brand-border border-b px-4 py-3 text-left font-semibold text-citius-blue/80 text-xs"
                   key={label}
-                  className="border-b border-brand-border px-4 py-3 text-left text-xs font-semibold text-citius-blue/80"
                 >
                   {label}
                 </th>
@@ -168,16 +176,16 @@ export function SelectableDataTable({
           <tbody>
             {rows.map((row, rowIndex) => (
               <m.tr
-                key={row.id}
-                initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: Math.min(rowIndex * 0.02, 0.2) }}
                 className="transition-colors hover:bg-citius-blue/[0.03]"
+                initial={{ opacity: 0 }}
+                key={row.id}
+                transition={{ delay: Math.min(rowIndex * 0.02, 0.2) }}
               >
                 {tableColumns.map(([label, render], columnIndex) => (
                   <td
+                    className={`border-brand-border border-b px-4 ${compact ? "py-2" : "py-3"} text-brand-dark text-sm last:border-b-0`}
                     key={label || `select-${columnIndex}`}
-                    className={`border-b border-brand-border px-4 ${compact ? "py-2" : "py-3"} text-sm text-brand-dark last:border-b-0`}
                   >
                     {render(row) || (label ? "-" : null)}
                   </td>

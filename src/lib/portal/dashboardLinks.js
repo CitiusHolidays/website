@@ -19,28 +19,28 @@ export function buildDashboardListUrl({
   return buildFilterUrl(
     path.startsWith("/") ? path : `/portal/${path}`,
     {
-      search: "",
       dateRange: dateRange || { from: null, to: null },
       jobCardFilter: jobCardFilter || "",
       listFilters,
+      search: "",
     },
-    deepLink,
+    deepLink
   );
 }
 
 const VIEW_PATHS = {
-  queries: "/portal/queries",
-  proposals: "/portal/proposals",
-  "job-cards": "/portal/job-cards",
-  tickets: "/portal/tickets",
-  visa: "/portal/visa",
-  finance: "/portal/finance",
-  approvals: "/portal/approvals",
-  pipeline: "/portal/pipeline",
-  contracting: "/portal/contracting",
-  hotels: "/portal/hotels",
   "accounts-job-cards": "/portal/accounts/job-cards",
   activity: "/portal/activity",
+  approvals: "/portal/approvals",
+  contracting: "/portal/contracting",
+  finance: "/portal/finance",
+  hotels: "/portal/hotels",
+  "job-cards": "/portal/job-cards",
+  pipeline: "/portal/pipeline",
+  proposals: "/portal/proposals",
+  queries: "/portal/queries",
+  tickets: "/portal/tickets",
+  visa: "/portal/visa",
 };
 
 /**
@@ -52,64 +52,64 @@ export function buildKpiHref(label, dateRange) {
   switch (label) {
     case "Active queries":
     case "Active Queries":
-      return buildDashboardListUrl({ view: "pipeline", dateRange: range });
+      return buildDashboardListUrl({ dateRange: range, view: "pipeline" });
     case "Proposals sent":
     case "Proposals Sent":
       return buildDashboardListUrl({
-        view: "proposals",
-        listFilters: { status: "Sent" },
         dateRange: range,
+        listFilters: { status: "Sent" },
+        view: "proposals",
       });
     case "Confirmed jobs":
     case "Confirmed Jobs":
       return buildDashboardListUrl({
-        view: "queries",
-        listFilters: { salesStatus: "Order Confirmed" },
         dateRange: range,
+        listFilters: { salesStatus: "Order Confirmed" },
+        view: "queries",
       });
     case "Open job cards":
     case "Open Job Cards":
       return buildDashboardListUrl({
-        view: "job-cards",
-        listFilters: { status: "Open" },
         dateRange: range,
+        listFilters: { status: "Open" },
+        view: "job-cards",
       });
     case "Departures (30d)":
       return buildDashboardListUrl({
-        view: "job-cards",
-        listFilters: { status: "Ready for Departure" },
         dateRange: range,
+        listFilters: { status: "Ready for Departure" },
+        view: "job-cards",
       });
     case "Tickets Issued":
       return buildDashboardListUrl({
-        view: "tickets",
-        listFilters: { ticketStatus: "Issued" },
         dateRange: range,
+        listFilters: { ticketStatus: "Issued" },
+        view: "tickets",
       });
     case "Tickets pending":
     case "Tickets Pending":
       return buildDashboardListUrl({
-        view: "tickets",
-        listFilters: { ticketStatus: "Pending Issue" },
         dateRange: range,
+        listFilters: { ticketStatus: "Pending Issue" },
+        view: "tickets",
       });
     case "Visa pending":
     case "Visa Pending":
       return buildDashboardListUrl({
-        view: "visa",
-        listFilters: { status: VISA_PENDING_STATUSES[0] },
         dateRange: range,
+        listFilters: { status: VISA_PENDING_STATUSES[0] },
+        view: "visa",
       });
     case "Outstanding":
     case "Revenue pipeline":
     case "Revenue Pipeline":
-      return buildDashboardListUrl({ view: "finance", dateRange: range });
+      return buildDashboardListUrl({ dateRange: range, view: "finance" });
     case "Pending approvals":
     case "Pending Approvals":
       return buildDashboardListUrl({
-        view: "approvals",
-        listFilters: { status: "Pending" },
         dateRange: range,
+        listFilters: { status: "Pending" },
+        view: "approvals",
       });
     default:
       return "/portal";
@@ -129,15 +129,17 @@ export function buildQueryTypeTileHref(bucket, queryType, dateRange) {
     listFilters.salesStatus = "Order Lost";
   }
   return buildDashboardListUrl({
-    view: bucket === "active" ? "pipeline" : "queries",
-    listFilters,
     dateRange: dateRange || { from: null, to: null },
+    listFilters,
+    view: bucket === "active" ? "pipeline" : "queries",
   });
 }
 
 /** @param {{ id: string, type: string, entityType?: string, entityId?: string, href?: string, label?: string }} action */
 export function buildUrgentActionHref(action) {
-  if (action.href) return action.href;
+  if (action.href) {
+    return action.href;
+  }
 
   const entityId = action.entityId || action.id;
   const entityType = action.entityType || urgentEntityType(action.type);
@@ -145,13 +147,13 @@ export function buildUrgentActionHref(action) {
   if (entityType && entityId) {
     if (action.type === "accounts") {
       return buildDashboardListUrl({
-        view: "accounts-job-cards",
         deepLink: { open: "jobCard", queryId: entityId },
+        view: "accounts-job-cards",
       });
     }
     return getNotificationHref({
-      entityType,
       entityId,
+      entityType,
       title: action.type === "accounts" ? "Order confirmed" : "",
     });
   }
@@ -159,21 +161,21 @@ export function buildUrgentActionHref(action) {
   switch (action.type) {
     case "approvals":
       return buildDashboardListUrl({
-        view: "approvals",
+        deepLink: { id: entityId, open: "approval" },
         listFilters: { status: "Pending" },
-        deepLink: { open: "approval", id: entityId },
+        view: "approvals",
       });
     case "finance":
       return buildDashboardListUrl({ view: "finance" });
     case "accounts":
       return buildDashboardListUrl({
-        view: "accounts-job-cards",
         deepLink: { open: "jobCard", queryId: entityId },
+        view: "accounts-job-cards",
       });
     case "ticketing":
       return buildDashboardListUrl({
+        deepLink: { id: entityId, open: "ticket" },
         view: "tickets",
-        deepLink: { open: "ticket", id: entityId },
       });
     default:
       return "/portal/activity";
@@ -200,19 +202,19 @@ export function buildUrgentViewAllHref(type, dateRange) {
   switch (type) {
     case "approvals":
       return buildDashboardListUrl({
-        view: "approvals",
-        listFilters: { status: "Pending" },
         dateRange,
+        listFilters: { status: "Pending" },
+        view: "approvals",
       });
     case "finance":
-      return buildDashboardListUrl({ view: "finance", dateRange });
+      return buildDashboardListUrl({ dateRange, view: "finance" });
     case "accounts":
-      return buildDashboardListUrl({ view: "accounts-job-cards", dateRange });
+      return buildDashboardListUrl({ dateRange, view: "accounts-job-cards" });
     case "ticketing":
       return buildDashboardListUrl({
-        view: "tickets",
-        listFilters: { ticketStatus: TICKET_ATTENTION_STATUSES[0] },
         dateRange,
+        listFilters: { ticketStatus: TICKET_ATTENTION_STATUSES[0] },
+        view: "tickets",
       });
     default:
       return "/portal";
@@ -224,17 +226,17 @@ export function buildJobCardHref(jobCardId, dateRange) {
     return `/portal/job-cards/${jobCardId}`;
   }
   return buildDashboardListUrl({
-    view: "job-cards",
     dateRange,
-    deepLink: { open: "jobCard", id: jobCardId },
+    deepLink: { id: jobCardId, open: "jobCard" },
+    view: "job-cards",
   });
 }
 
 export function buildPipelineStageHref(stage, dateRange) {
   return buildDashboardListUrl({
-    view: "pipeline",
-    listFilters: stage ? { leadStage: stage } : {},
     dateRange: dateRange || { from: null, to: null },
+    listFilters: stage ? { leadStage: stage } : {},
+    view: "pipeline",
   });
 }
 

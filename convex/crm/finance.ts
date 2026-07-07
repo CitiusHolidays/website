@@ -24,7 +24,7 @@ const expenseCurrencyValidator = v.union(
   v.literal("AED"),
   v.literal("EUR"),
   v.literal("THB"),
-  v.literal("SGD"),
+  v.literal("SGD")
 );
 
 const expenseDecisionValidator = v.union(v.literal("Approved"), v.literal("Rejected"));
@@ -54,21 +54,23 @@ export const listInvoices = query({
         .sort((a, b) => b.createdAt - a.createdAt)
         .map(async (invoice) => {
           const job = await getVisibleJob(ctx, access, invoice.jobCardId);
-          if (!job) return null;
+          if (!job) {
+            return null;
+          }
           return {
+            balanceAmount: invoice.balanceAmount,
+            clientName: job?.clientName ?? "",
+            dueDate: invoice.dueDate ?? "",
+            expectedAmount: invoice.expectedAmount,
+            generatedAt: invoice.generatedAt ? new Date(invoice.generatedAt).toISOString() : null,
             id: invoice._id,
+            invoiceNumber: invoice.invoiceNumber,
             jobCardId: invoice.jobCardId,
             jobCode: job?.jobCode ?? "",
-            clientName: job?.clientName ?? "",
-            invoiceNumber: invoice.invoiceNumber,
-            expectedAmount: invoice.expectedAmount,
             receivedAmount: invoice.receivedAmount,
-            balanceAmount: invoice.balanceAmount,
             status: invoice.status,
-            dueDate: invoice.dueDate ?? "",
-            generatedAt: invoice.generatedAt ? new Date(invoice.generatedAt).toISOString() : null,
           };
-        }),
+        })
     );
     return result.filter(Boolean);
   },
@@ -76,11 +78,11 @@ export const listInvoices = query({
 
 export const createInvoice = mutation({
   args: {
-    jobCardId: v.string(),
-    invoiceNumber: v.string(),
-    expectedAmount: v.number(),
-    receivedAmount: v.optional(v.number()),
     dueDate: v.optional(v.string()),
+    expectedAmount: v.number(),
+    invoiceNumber: v.string(),
+    jobCardId: v.string(),
+    receivedAmount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_FINANCE);
@@ -95,22 +97,22 @@ export const createInvoice = mutation({
     const receivedAmount = args.receivedAmount ?? 0;
     const balanceAmount = Math.max(args.expectedAmount - receivedAmount, 0);
     const id = await ctx.db.insert("invoices", {
-      jobCardId,
-      invoiceNumber: args.invoiceNumber.trim(),
-      expectedAmount: args.expectedAmount,
-      receivedAmount,
       balanceAmount,
-      status: balanceAmount === 0 ? "Paid" : receivedAmount > 0 ? "Part Paid" : "Generated",
-      dueDate: args.dueDate || "",
-      generatedAt: now,
-      createdBy: access.authUserId ?? "unknown",
       createdAt: now,
+      createdBy: access.authUserId ?? "unknown",
+      dueDate: args.dueDate || "",
+      expectedAmount: args.expectedAmount,
+      generatedAt: now,
+      invoiceNumber: args.invoiceNumber.trim(),
+      jobCardId,
+      receivedAmount,
+      status: balanceAmount === 0 ? "Paid" : receivedAmount > 0 ? "Part Paid" : "Generated",
       updatedAt: now,
     });
     await createActivity(ctx, access, {
-      entityType: "invoice",
-      entityId: id,
       action: "created",
+      entityId: id,
+      entityType: "invoice",
       message: `${args.invoiceNumber.trim()} invoice generated`,
     });
     return { id };
@@ -119,11 +121,11 @@ export const createInvoice = mutation({
 
 export const updateInvoice = mutation({
   args: {
+    dueDate: v.optional(v.string()),
+    expectedAmount: v.optional(v.number()),
     invoiceId: v.string(),
     invoiceNumber: v.optional(v.string()),
-    expectedAmount: v.optional(v.number()),
     receivedAmount: v.optional(v.number()),
-    dueDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_FINANCE);
@@ -146,9 +148,9 @@ export const updateInvoice = mutation({
     const receivedAmount = args.receivedAmount ?? invoice.receivedAmount;
     const balanceAmount = Math.max(expectedAmount - receivedAmount, 0);
     const patch: Record<string, unknown> = {
+      balanceAmount,
       expectedAmount,
       receivedAmount,
-      balanceAmount,
       status:
         balanceAmount === 0
           ? "Paid"
@@ -159,14 +161,18 @@ export const updateInvoice = mutation({
               : "Generated",
       updatedAt: Date.now(),
     };
-    if (args.invoiceNumber !== undefined) patch.invoiceNumber = args.invoiceNumber.trim();
-    if (args.dueDate !== undefined) patch.dueDate = args.dueDate;
+    if (args.invoiceNumber !== undefined) {
+      patch.invoiceNumber = args.invoiceNumber.trim();
+    }
+    if (args.dueDate !== undefined) {
+      patch.dueDate = args.dueDate;
+    }
 
     await ctx.db.patch(invoiceId, patch);
     await createActivity(ctx, access, {
-      entityType: "invoice",
-      entityId: invoiceId,
       action: "updated",
+      entityId: invoiceId,
+      entityType: "invoice",
       message: `${(args.invoiceNumber ?? invoice.invoiceNumber).trim()} invoice updated`,
     });
     return { id: invoiceId };
@@ -192,9 +198,9 @@ export const removeInvoice = mutation({
     }
     await Promise.all([
       createActivity(ctx, access, {
-        entityType: "invoice",
-        entityId: invoiceId,
         action: "deleted",
+        entityId: invoiceId,
+        entityType: "invoice",
         message: `${invoice.invoiceNumber} invoice deleted`,
       }),
       deleteEntityNotifications(ctx, "invoice", invoiceId),
@@ -214,7 +220,9 @@ async function assertExpenseAccess(ctx: any, access: any, expense: { jobCardId?:
 }
 
 async function staffByAuthUserId(ctx: any, authUserId?: string) {
-  if (!authUserId) return null;
+  if (!authUserId) {
+    return null;
+  }
   return await ctx.db
     .query("staffUsers")
     .withIndex("by_authUserId", (q: any) => q.eq("authUserId", authUserId))
@@ -232,11 +240,11 @@ async function resolveExpenseSubmitterAndManager(ctx: any, access: any, expense:
   }
   if (!manager?.active) {
     if (isDirectorOrAdmin(access)) {
-      return { submitter, manager: null };
+      return { manager: null, submitter };
     }
     throw new ConvexError("Reporting manager is not configured for this expense submitter");
   }
-  return { submitter, manager };
+  return { manager, submitter };
 }
 
 function canApproveExpenseAsManager(access: any, expense: any) {
@@ -245,7 +253,7 @@ function canApproveExpenseAsManager(access: any, expense: any) {
     Boolean(
       expense.managerApproverStaffId &&
         access.staffId &&
-        String(expense.managerApproverStaffId) === String(access.staffId),
+        String(expense.managerApproverStaffId) === String(access.staffId)
     )
   );
 }
@@ -253,7 +261,7 @@ function canApproveExpenseAsManager(access: any, expense: any) {
 async function notifyExpenseSubmitter(
   ctx: any,
   expense: any,
-  input: Parameters<typeof notifyRoles>[2],
+  input: Parameters<typeof notifyRoles>[2]
 ) {
   const submitter = await staffByAuthUserId(ctx, expense.createdBy);
   if (submitter?._id) {
@@ -276,59 +284,61 @@ export const listExpenses = query({
             expense.jobCardId ? getVisibleJob(ctx, access, expense.jobCardId) : null,
             expense.proofAttachmentId ? ctx.db.get(expense.proofAttachmentId) : null,
           ]);
-          if (expense.jobCardId && !job) return null;
+          if (expense.jobCardId && !job) {
+            return null;
+          }
           return {
-            id: expense._id,
-            jobCardId: expense.jobCardId ?? null,
-            jobCode: job?.jobCode ?? "Office",
-            clientName: job?.clientName ?? "",
-            tourManagerName: expense.tourManagerName ?? "",
-            category: expense.category,
-            expenseDate: expense.expenseDate ?? "",
-            particulars: expense.particulars ?? "",
-            currency: expense.currency ?? "INR",
-            cardAmount: expense.cardAmount ?? 0,
-            cashAmount: expense.cashAmount ?? 0,
-            epayAmount: expense.epayAmount ?? 0,
             amount: expense.amount,
-            paidBy: expense.paidBy,
-            proofAttachment: proofAttachment
-              ? {
-                  id: proofAttachment._id,
-                  fileName: proofAttachment.fileName,
-                  mimeType: proofAttachment.mimeType ?? "",
-                  createdAt: new Date(proofAttachment.createdAt).toISOString(),
-                }
-              : null,
             approvalStatus: expense.approvalStatus,
-            managerReviewStatus: expense.managerReviewStatus ?? "Pending",
-            managerApproverStaffId: expense.managerApproverStaffId ?? "",
-            managerReviewedByName: expense.managerReviewedByName ?? "",
-            managerReviewedAt: expense.managerReviewedAt
-              ? new Date(expense.managerReviewedAt).toISOString()
-              : null,
-            financeReviewStatus: expense.financeReviewStatus ?? "Pending",
-            financeReviewedByName: expense.financeReviewedByName ?? "",
-            financeReviewedAt: expense.financeReviewedAt
-              ? new Date(expense.financeReviewedAt).toISOString()
-              : null,
-            canApproveManager:
-              Boolean(expense.submittedForApprovalAt) &&
-              (expense.managerReviewStatus ?? "Pending") === "Pending" &&
-              canApproveExpenseAsManager(access, expense),
             canApproveFinance:
               (expense.managerReviewStatus ?? "Pending") === "Approved" &&
               (expense.financeReviewStatus ?? "Pending") === "Pending" &&
               (access.permissions.includes(PERMISSIONS.APPROVE_EXPENSES) ||
                 access.permissions.includes(PERMISSIONS.MANAGE_FINANCE)),
-            reimbursementStatus: expense.reimbursementStatus,
+            canApproveManager:
+              Boolean(expense.submittedForApprovalAt) &&
+              (expense.managerReviewStatus ?? "Pending") === "Pending" &&
+              canApproveExpenseAsManager(access, expense),
+            cardAmount: expense.cardAmount ?? 0,
+            cashAmount: expense.cashAmount ?? 0,
+            category: expense.category,
+            clientName: job?.clientName ?? "",
+            createdAt: new Date(expense.createdAt).toISOString(),
+            currency: expense.currency ?? "INR",
+            epayAmount: expense.epayAmount ?? 0,
+            expenseDate: expense.expenseDate ?? "",
+            financeReviewedAt: expense.financeReviewedAt
+              ? new Date(expense.financeReviewedAt).toISOString()
+              : null,
+            financeReviewedByName: expense.financeReviewedByName ?? "",
+            financeReviewStatus: expense.financeReviewStatus ?? "Pending",
+            id: expense._id,
+            jobCardId: expense.jobCardId ?? null,
+            jobCode: job?.jobCode ?? "Office",
+            managerApproverStaffId: expense.managerApproverStaffId ?? "",
+            managerReviewedAt: expense.managerReviewedAt
+              ? new Date(expense.managerReviewedAt).toISOString()
+              : null,
+            managerReviewedByName: expense.managerReviewedByName ?? "",
+            managerReviewStatus: expense.managerReviewStatus ?? "Pending",
             notes: expense.notes ?? "",
+            paidBy: expense.paidBy,
+            particulars: expense.particulars ?? "",
+            proofAttachment: proofAttachment
+              ? {
+                  createdAt: new Date(proofAttachment.createdAt).toISOString(),
+                  fileName: proofAttachment.fileName,
+                  id: proofAttachment._id,
+                  mimeType: proofAttachment.mimeType ?? "",
+                }
+              : null,
+            reimbursementStatus: expense.reimbursementStatus,
             submittedForApprovalAt: expense.submittedForApprovalAt
               ? new Date(expense.submittedForApprovalAt).toISOString()
               : null,
-            createdAt: new Date(expense.createdAt).toISOString(),
+            tourManagerName: expense.tourManagerName ?? "",
           };
-        }),
+        })
     );
     return result.filter(Boolean);
   },
@@ -336,18 +346,18 @@ export const listExpenses = query({
 
 export const createExpense = mutation({
   args: {
-    jobCardId: v.optional(v.string()),
-    tourManagerName: v.optional(v.string()),
-    category: v.string(),
-    expenseDate: v.optional(v.string()),
-    particulars: v.optional(v.string()),
-    currency: v.optional(expenseCurrencyValidator),
+    amount: v.optional(v.number()),
     cardAmount: v.optional(v.number()),
     cashAmount: v.optional(v.number()),
+    category: v.string(),
+    currency: v.optional(expenseCurrencyValidator),
     epayAmount: v.optional(v.number()),
-    amount: v.optional(v.number()),
-    paidBy: v.string(),
+    expenseDate: v.optional(v.string()),
+    jobCardId: v.optional(v.string()),
     notes: v.optional(v.string()),
+    paidBy: v.string(),
+    particulars: v.optional(v.string()),
+    tourManagerName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.CREATE_EXPENSES);
@@ -374,28 +384,28 @@ export const createExpense = mutation({
       args.epayAmount !== undefined;
     const amount = hasSplit ? splitTotal(args) : (args.amount ?? 0);
     const id = await ctx.db.insert("expenseEntries", {
-      jobCardId: jobCardId ?? undefined,
-      tourManagerName: args.tourManagerName?.trim() || access.name,
-      category: args.category.trim(),
-      expenseDate: args.expenseDate || new Date(now).toISOString().slice(0, 10),
-      particulars: args.particulars?.trim() || args.notes?.trim() || "",
-      currency: args.currency ?? "INR",
+      amount,
+      approvalStatus: "Pending",
       cardAmount: args.cardAmount ?? 0,
       cashAmount: args.cashAmount ?? 0,
-      epayAmount: args.epayAmount ?? 0,
-      amount,
-      paidBy: args.paidBy.trim(),
-      approvalStatus: "Pending",
-      reimbursementStatus: "Not Submitted",
-      notes: args.notes?.trim() || "",
-      createdBy: access.authUserId ?? "unknown",
+      category: args.category.trim(),
       createdAt: now,
+      createdBy: access.authUserId ?? "unknown",
+      currency: args.currency ?? "INR",
+      epayAmount: args.epayAmount ?? 0,
+      expenseDate: args.expenseDate || new Date(now).toISOString().slice(0, 10),
+      jobCardId: jobCardId ?? undefined,
+      notes: args.notes?.trim() || "",
+      paidBy: args.paidBy.trim(),
+      particulars: args.particulars?.trim() || args.notes?.trim() || "",
+      reimbursementStatus: "Not Submitted",
+      tourManagerName: args.tourManagerName?.trim() || access.name,
       updatedAt: now,
     });
     await createActivity(ctx, access, {
-      entityType: "expense",
-      entityId: id,
       action: "created",
+      entityId: id,
+      entityType: "expense",
       message: `${args.category.trim()} expense submitted`,
     });
     return { id };
@@ -404,18 +414,18 @@ export const createExpense = mutation({
 
 export const updateExpense = mutation({
   args: {
-    expenseId: v.string(),
-    tourManagerName: v.optional(v.string()),
-    category: v.optional(v.string()),
-    expenseDate: v.optional(v.string()),
-    particulars: v.optional(v.string()),
-    currency: v.optional(expenseCurrencyValidator),
+    amount: v.optional(v.number()),
     cardAmount: v.optional(v.number()),
     cashAmount: v.optional(v.number()),
+    category: v.optional(v.string()),
+    currency: v.optional(expenseCurrencyValidator),
     epayAmount: v.optional(v.number()),
-    amount: v.optional(v.number()),
-    paidBy: v.optional(v.string()),
+    expenseDate: v.optional(v.string()),
+    expenseId: v.string(),
     notes: v.optional(v.string()),
+    paidBy: v.optional(v.string()),
+    particulars: v.optional(v.string()),
+    tourManagerName: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_EXPENSES);
@@ -442,19 +452,33 @@ export const updateExpense = mutation({
       }
       patch.category = args.category.trim();
     }
-    if (args.expenseDate !== undefined) patch.expenseDate = args.expenseDate;
-    if (args.particulars !== undefined) patch.particulars = args.particulars.trim();
-    if (args.currency !== undefined) patch.currency = args.currency;
-    if (args.cardAmount !== undefined) patch.cardAmount = args.cardAmount;
-    if (args.cashAmount !== undefined) patch.cashAmount = args.cashAmount;
-    if (args.epayAmount !== undefined) patch.epayAmount = args.epayAmount;
+    if (args.expenseDate !== undefined) {
+      patch.expenseDate = args.expenseDate;
+    }
+    if (args.particulars !== undefined) {
+      patch.particulars = args.particulars.trim();
+    }
+    if (args.currency !== undefined) {
+      patch.currency = args.currency;
+    }
+    if (args.cardAmount !== undefined) {
+      patch.cardAmount = args.cardAmount;
+    }
+    if (args.cashAmount !== undefined) {
+      patch.cashAmount = args.cashAmount;
+    }
+    if (args.epayAmount !== undefined) {
+      patch.epayAmount = args.epayAmount;
+    }
     if (args.paidBy !== undefined) {
       if (!args.paidBy.trim()) {
         throw new ConvexError("Paid by is required");
       }
       patch.paidBy = args.paidBy.trim();
     }
-    if (args.notes !== undefined) patch.notes = args.notes.trim();
+    if (args.notes !== undefined) {
+      patch.notes = args.notes.trim();
+    }
 
     if (
       args.amount !== undefined ||
@@ -476,9 +500,9 @@ export const updateExpense = mutation({
 
     await ctx.db.patch(id, patch);
     await createActivity(ctx, access, {
-      entityType: "expense",
-      entityId: id,
       action: "updated",
+      entityId: id,
+      entityType: "expense",
       message: `${(args.category ?? expense.category).trim()} expense updated`,
     });
     return { id };
@@ -505,38 +529,38 @@ export const getFinanceOverview = query({
         allJobCards.map(async (job) => {
           const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
           return canSeeJobCardRecord(access, job, linkedQuery) ? job : null;
-        }),
+        })
       )
     ).filter(isDefined);
     const visibleJobIds = new Set(jobCards.map((job) => job._id));
     const visibleInvoices = invoices.filter((invoice) => visibleJobIds.has(invoice.jobCardId));
     const visibleExpenses = expenses.filter((expense) =>
-      expense.jobCardId ? visibleJobIds.has(expense.jobCardId) : true,
+      expense.jobCardId ? visibleJobIds.has(expense.jobCardId) : true
     );
     const rows = [];
     for (const job of jobCards.sort((a, b) => b.createdAt - a.createdAt)) {
       const jobInvoices = visibleInvoices.filter((invoice) => invoice.jobCardId === job._id);
       const jobExpenses = visibleExpenses.filter(
-        (expense) => expense.jobCardId === job._id && expense.approvalStatus === "Approved",
+        (expense) => expense.jobCardId === job._id && expense.approvalStatus === "Approved"
       );
       const revenue = jobInvoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
       const expenseTotal = jobExpenses.reduce((sum, expense) => sum + expense.amount, 0);
       const profit = revenue - expenseTotal;
       rows.push({
+        clientName: job.clientName,
+        expense: expenseTotal,
         id: job._id,
         jobCode: job.jobCode,
-        clientName: job.clientName,
-        revenue,
-        expense: expenseTotal,
-        profit,
         marginPercent: revenue > 0 ? Math.round((profit / revenue) * 100) : 0,
+        profit,
+        revenue,
       });
     }
     const today = new Date().toISOString().slice(0, 10);
     const pendingReimbursements = visibleExpenses
       .filter(
         (expense) =>
-          expense.approvalStatus === "Approved" && expense.reimbursementStatus === "Pending",
+          expense.approvalStatus === "Approved" && expense.reimbursementStatus === "Pending"
       )
       .reduce((sum, expense) => sum + (expense.amount ?? 0), 0);
     const pendingExpenseApprovals = visibleExpenses
@@ -544,7 +568,7 @@ export const getFinanceOverview = query({
       .reduce((sum, expense) => sum + (expense.amount ?? 0), 0);
     const expectedCollections = visibleInvoices.reduce(
       (sum, invoice) => sum + Math.max(invoice.balanceAmount ?? 0, 0),
-      0,
+      0
     );
     const advancePipeline = jobCards
       .filter((job) => job.status !== "Closed")
@@ -564,11 +588,11 @@ export const getFinanceOverview = query({
       }
       const job = jobCardsById.get(invoice.jobCardId);
       outstanding.push({
-        id: invoice._id,
         clientName: job?.clientName ?? "",
-        jobCode: job?.jobCode ?? "",
         dueAmount: invoice.balanceAmount,
         dueDate: invoice.dueDate ?? "",
+        id: invoice._id,
+        jobCode: job?.jobCode ?? "",
         status:
           invoice.dueDate && invoice.dueDate < today
             ? "Overdue"
@@ -580,19 +604,19 @@ export const getFinanceOverview = query({
 
     return {
       fundProjections: {
-        expectedCollections,
         advancePipeline,
-        pendingReimbursements,
+        expectedCollections,
         pendingExpenseApprovals,
+        pendingReimbursements,
       },
-      pnl: rows,
       outstanding,
+      pnl: rows,
       summary: {
-        totalRevenue: visibleInvoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0),
-        clientOutstanding: visibleInvoices.reduce((sum, invoice) => sum + invoice.balanceAmount, 0),
         approvedExpenses: visibleExpenses
           .filter((expense) => expense.approvalStatus === "Approved")
           .reduce((sum, expense) => sum + expense.amount, 0),
+        clientOutstanding: visibleInvoices.reduce((sum, invoice) => sum + invoice.balanceAmount, 0),
+        totalRevenue: visibleInvoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0),
       },
     };
   },
@@ -610,23 +634,23 @@ async function createFinanceExpenseApproval(ctx: any, access: any, expenseId: an
   const now = Date.now();
   const requestCode = await nextCode(ctx, "approvalRequests", "APR");
   const approvalId = await ctx.db.insert("approvalRequests", {
-    requestCode,
-    type: "Expense",
-    entityType: "expense",
+    amount: expense.amount ?? 0,
+    createdAt: now,
     entityId: expenseId,
+    entityType: "expense",
+    requestCode,
     requestedBy: expense.createdBy ?? access.authUserId ?? "unknown",
     requestedByName: expense.tourManagerName || access.name,
-    summary: `${expense.category} expense for ${(expense.amount ?? 0).toLocaleString("en-IN")}`,
-    amount: expense.amount ?? 0,
     status: "Pending",
-    createdAt: now,
+    summary: `${expense.category} expense for ${(expense.amount ?? 0).toLocaleString("en-IN")}`,
+    type: "Expense",
     updatedAt: now,
   });
   await notifyRoles(ctx, ["Finance", "Directors"], {
-    title: "Expense finance approval requested",
     body: `${requestCode}: ${expense.category} expense is manager-approved and needs Finance approval.`,
-    entityType: "approval",
     entityId: approvalId,
+    entityType: "approval",
+    title: "Expense finance approval requested",
   });
   return { id: approvalId };
 }
@@ -658,11 +682,11 @@ export const submitExpenseForApproval = mutation({
     const { manager } = await resolveExpenseSubmitterAndManager(ctx, access, expense);
     const now = Date.now();
     const submitPatch: Record<string, unknown> = {
-      submittedForApprovalAt: now,
-      managerReviewStatus: manager ? "Pending" : "Approved",
-      financeReviewStatus: "Pending",
       approvalStatus: "Pending",
+      financeReviewStatus: "Pending",
+      managerReviewStatus: manager ? "Pending" : "Approved",
       reimbursementStatus: "Pending",
+      submittedForApprovalAt: now,
       updatedAt: now,
     };
     const activityMessage = `${expense.category} expense submitted for manager approval`;
@@ -671,16 +695,16 @@ export const submitExpenseForApproval = mutation({
       await ctx.db.patch(expenseId, submitPatch);
       await Promise.all([
         createActivity(ctx, access, {
-          entityType: "expense",
-          entityId: expenseId,
           action: "submitted_for_approval",
+          entityId: expenseId,
+          entityType: "expense",
           message: activityMessage,
         }),
         notifyStaffMember(ctx, manager._id, {
-          title: "Expense manager approval requested",
           body: `${expense.category} expense for ${(expense.amount ?? 0).toLocaleString("en-IN")} needs your approval.`,
-          entityType: "expense",
           entityId: expenseId,
+          entityType: "expense",
+          title: "Expense manager approval requested",
         }),
       ]);
       return { id: expenseId };
@@ -690,9 +714,9 @@ export const submitExpenseForApproval = mutation({
     submitPatch.managerReviewedAt = now;
     await ctx.db.patch(expenseId, submitPatch);
     await createActivity(ctx, access, {
-      entityType: "expense",
-      entityId: expenseId,
       action: "submitted_for_approval",
+      entityId: expenseId,
+      entityType: "expense",
       message: activityMessage,
     });
     return await createFinanceExpenseApproval(ctx, access, expenseId, expense);
@@ -701,16 +725,20 @@ export const submitExpenseForApproval = mutation({
 
 export const decideExpenseManager = mutation({
   args: {
+    decisionNote: v.optional(v.string()),
     expenseId: v.string(),
     status: expenseDecisionValidator,
-    decisionNote: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_EXPENSES);
     const expenseId = ctx.db.normalizeId("expenseEntries", args.expenseId);
-    if (!expenseId) throw new ConvexError("Invalid expense id");
+    if (!expenseId) {
+      throw new ConvexError("Invalid expense id");
+    }
     const expense = await ctx.db.get(expenseId);
-    if (!expense) throw new ConvexError("Expense not found");
+    if (!expense) {
+      throw new ConvexError("Expense not found");
+    }
     if ((expense.managerReviewStatus ?? "Pending") !== "Pending") {
       throw new ConvexError("Manager review is already complete");
     }
@@ -720,10 +748,10 @@ export const decideExpenseManager = mutation({
     await assertExpenseAccess(ctx, access, expense);
     const now = Date.now();
     const patch: Record<string, unknown> = {
-      managerReviewStatus: args.status,
+      managerReviewedAt: now,
       managerReviewedBy: access.authUserId ?? "unknown",
       managerReviewedByName: access.name,
-      managerReviewedAt: now,
+      managerReviewStatus: args.status,
       updatedAt: now,
     };
     if (args.status === "Rejected") {
@@ -732,9 +760,9 @@ export const decideExpenseManager = mutation({
     }
     await ctx.db.patch(expenseId, patch);
     await createActivity(ctx, access, {
-      entityType: "expense",
-      entityId: expenseId,
       action: `manager_${args.status.toLowerCase()}`,
+      entityId: expenseId,
+      entityType: "expense",
       message: `Expense manager review ${args.status.toLowerCase()}`,
       metadata: { decisionNote: args.decisionNote?.trim() || "" },
     });
@@ -742,10 +770,10 @@ export const decideExpenseManager = mutation({
       await createFinanceExpenseApproval(ctx, access, expenseId, expense);
     } else {
       await notifyExpenseSubmitter(ctx, expense, {
-        title: "Expense rejected by manager",
         body: `${expense.category} expense was rejected by your reporting manager.`,
-        entityType: "expense",
         entityId: expenseId,
+        entityType: "expense",
+        title: "Expense rejected by manager",
       });
     }
     return { id: expenseId };
@@ -754,12 +782,12 @@ export const decideExpenseManager = mutation({
 
 export const decideExpenseFinance = mutation({
   args: {
-    expenseId: v.string(),
-    status: expenseDecisionValidator,
-    reimbursementStatus: v.optional(
-      v.union(v.literal("Not Submitted"), v.literal("Pending"), v.literal("Reimbursed")),
-    ),
     decisionNote: v.optional(v.string()),
+    expenseId: v.string(),
+    reimbursementStatus: v.optional(
+      v.union(v.literal("Not Submitted"), v.literal("Pending"), v.literal("Reimbursed"))
+    ),
+    status: expenseDecisionValidator,
   },
   handler: async (ctx, args) => {
     const access = await requireAnyPermission(ctx, [
@@ -767,20 +795,24 @@ export const decideExpenseFinance = mutation({
       PERMISSIONS.MANAGE_FINANCE,
     ]);
     const expenseId = ctx.db.normalizeId("expenseEntries", args.expenseId);
-    if (!expenseId) throw new ConvexError("Invalid expense id");
+    if (!expenseId) {
+      throw new ConvexError("Invalid expense id");
+    }
     const expense = await ctx.db.get(expenseId);
-    if (!expense) throw new ConvexError("Expense not found");
+    if (!expense) {
+      throw new ConvexError("Expense not found");
+    }
     if ((expense.managerReviewStatus ?? "Pending") !== "Approved") {
       throw new ConvexError("Manager approval is required before Finance approval");
     }
     await assertExpenseAccess(ctx, access, expense);
     const now = Date.now();
     await ctx.db.patch(expenseId, {
-      financeReviewStatus: args.status,
+      approvalStatus: args.status,
+      financeReviewedAt: now,
       financeReviewedBy: access.authUserId ?? "unknown",
       financeReviewedByName: access.name,
-      financeReviewedAt: now,
-      approvalStatus: args.status,
+      financeReviewStatus: args.status,
       reimbursementStatus:
         args.reimbursementStatus ?? (args.status === "Approved" ? "Pending" : "Not Submitted"),
       updatedAt: now,
@@ -794,28 +826,28 @@ export const decideExpenseFinance = mutation({
         approval.status === "Pending"
           ? [
               ctx.db.patch(approval._id, {
-                status: args.status,
+                decidedAt: now,
                 decidedBy: access.authUserId ?? "unknown",
                 decidedByName: access.name,
-                decidedAt: now,
                 decisionNote: args.decisionNote?.trim() || "",
+                status: args.status,
                 updatedAt: now,
               }),
             ]
-          : [],
-      ),
+          : []
+      )
     );
     await createActivity(ctx, access, {
-      entityType: "expense",
-      entityId: expenseId,
       action: `finance_${args.status.toLowerCase()}`,
+      entityId: expenseId,
+      entityType: "expense",
       message: `Expense finance review ${args.status.toLowerCase()}`,
     });
     await notifyExpenseSubmitter(ctx, expense, {
-      title: `Expense ${args.status}`,
       body: `${expense.category} expense was ${args.status.toLowerCase()} by Finance.`,
-      entityType: "expense",
       entityId: expenseId,
+      entityType: "expense",
+      title: `Expense ${args.status}`,
     });
     return { id: expenseId };
   },
@@ -823,12 +855,12 @@ export const decideExpenseFinance = mutation({
 
 export const updateExpenseStatus = mutation({
   args: {
-    expenseId: v.string(),
     approvalStatus: v.union(v.literal("Pending"), v.literal("Approved"), v.literal("Rejected")),
+    expenseId: v.string(),
     reimbursementStatus: v.union(
       v.literal("Not Submitted"),
       v.literal("Pending"),
-      v.literal("Reimbursed"),
+      v.literal("Reimbursed")
     ),
   },
   handler: async (ctx, args) => {
@@ -850,8 +882,8 @@ export const updateExpenseStatus = mutation({
     await assertExpenseAccess(ctx, access, expense);
     const now = Date.now();
     const expensePatch: Record<string, unknown> = {
-      financeReviewStatus: args.approvalStatus === "Pending" ? "Pending" : args.approvalStatus,
       approvalStatus: args.approvalStatus,
+      financeReviewStatus: args.approvalStatus === "Pending" ? "Pending" : args.approvalStatus,
       reimbursementStatus: args.reimbursementStatus,
       updatedAt: now,
     };
@@ -880,12 +912,12 @@ export const updateExpenseStatus = mutation({
           approvalPatch.decidedAt = now;
         }
         return [ctx.db.patch(approval._id, approvalPatch)];
-      }),
+      })
     );
     await createActivity(ctx, access, {
-      entityType: "expense",
-      entityId: id,
       action: "status_updated",
+      entityId: id,
+      entityType: "expense",
       message: `Expense ${args.approvalStatus.toLowerCase()}`,
     });
     return { id };
@@ -912,9 +944,9 @@ export const removeExpense = mutation({
     }
     await assertExpenseAccess(ctx, access, expense);
     await createActivity(ctx, access, {
-      entityType: "expense",
-      entityId: id,
       action: "deleted",
+      entityId: id,
+      entityType: "expense",
       message: `${expense.category} expense deleted`,
     });
     if (expense.proofAttachmentId) {

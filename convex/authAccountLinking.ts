@@ -22,7 +22,7 @@ export const handleExistingSignUpEmail = internalAction({
   handler: async (ctx, args) => {
     const authUser = await findAuthUserByEmail(ctx, args.email);
     if (!authUser?._id) {
-      return { sent: false, reason: "user_not_found" as const };
+      return { reason: "user_not_found" as const, sent: false };
     }
 
     const accounts = await findAuthAccountsByUserId(ctx, String(authUser._id));
@@ -32,23 +32,23 @@ export const handleExistingSignUpEmail = internalAction({
     if (hasCredential && !authUser.emailVerified) {
       const verification = await sendVerificationEmail(auth, args.email);
       return {
-        sent: verification.sent,
         reason: verification.sent ? ("verification" as const) : verification.reason,
+        sent: verification.sent,
       };
     }
 
     if (!hasCredential && hasGoogle) {
       const sent = await sendPasswordSetupEmail(auth, args.email);
       return {
-        sent,
         reason: sent ? ("password_setup" as const) : ("email_send_failed" as const),
+        sent,
       };
     }
 
     const passwordSent = await sendPasswordSetupEmail(auth, args.email);
     return {
-      sent: passwordSent,
       reason: passwordSent ? ("password_reset" as const) : ("email_send_failed" as const),
+      sent: passwordSent,
     };
   },
 });

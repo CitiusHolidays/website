@@ -13,20 +13,22 @@ function commandMatches(command, term) {
 export function buildNavigationCommands({ navGroups = [], currentPathname = "" } = {}) {
   return navGroups.flatMap((group) =>
     (group.items ?? []).flatMap((item) => {
-      if (item.hidden || !item.href) return [];
+      if (item.hidden || !item.href) {
+        return [];
+      }
       return [
         {
-          id: `nav:${item.href}`,
-          label: item.label,
-          subtitle: group.label ?? "Portal",
-          keywords: [item.href, group.label],
-          icon: item.iconName ?? "Navigation",
+          active: item.href === currentPathname,
           group: "Navigate",
           href: item.href,
-          active: item.href === currentPathname,
+          icon: item.iconName ?? "Navigation",
+          id: `nav:${item.href}`,
+          keywords: [item.href, group.label],
+          label: item.label,
+          subtitle: group.label ?? "Portal",
         },
       ];
-    }),
+    })
   );
 }
 
@@ -36,17 +38,17 @@ export function buildRecentRecordCommands({ navShortcuts = {} } = {}) {
       row.href
         ? [
             {
-              id: `recent:${type}:${row.id ?? row.href}`,
-              label: row.label ?? row.title ?? row.code ?? row.href,
-              subtitle: row.subtitle ?? type,
-              keywords: [type, row.code, row.clientName, row.destination],
-              icon: "Clock",
               group: "Recent",
               href: row.href,
+              icon: "Clock",
+              id: `recent:${type}:${row.id ?? row.href}`,
+              keywords: [type, row.code, row.clientName, row.destination],
+              label: row.label ?? row.title ?? row.code ?? row.href,
+              subtitle: row.subtitle ?? type,
             },
           ]
-        : [],
-    ),
+        : []
+    )
   );
 }
 
@@ -61,16 +63,18 @@ export function buildCreateCommands({ has = () => false, openModal } = {}) {
     ["leave", "New leave request", "request:leave"],
   ];
   return specs.flatMap(([modal, label, permission]) => {
-    if (!has(permission) || typeof openModal !== "function") return [];
+    if (!has(permission) || typeof openModal !== "function") {
+      return [];
+    }
     return [
       {
-        id: `create:${modal}`,
-        label,
-        subtitle: "Create",
-        keywords: [modal, permission],
-        icon: "Plus",
         group: "Create",
+        icon: "Plus",
+        id: `create:${modal}`,
+        keywords: [modal, permission],
+        label,
         run: () => openModal(modal),
+        subtitle: "Create",
       },
     ];
   });
@@ -84,14 +88,14 @@ export function buildSavedViewCommands({ savedViews = [], applySavedView } = {})
         ? savedViewToUrl(savedView.pathname, savedView, getListFilterConfig(savedView.view))
         : undefined);
     return {
-      id: `saved-view:${savedView.id}`,
-      label: savedView.name,
-      subtitle: savedView.sharedRole ? `${savedView.sharedRole} shared view` : "Saved view",
-      keywords: [savedView.view, savedView.pathname, savedView.sharedRole],
-      icon: savedView.isFavorite ? "Star" : "Bookmark",
       group: "Saved views",
       href,
+      icon: savedView.isFavorite ? "Star" : "Bookmark",
+      id: `saved-view:${savedView.id}`,
+      keywords: [savedView.view, savedView.pathname, savedView.sharedRole],
+      label: savedView.name,
       run: typeof applySavedView === "function" ? () => applySavedView(savedView) : undefined,
+      subtitle: savedView.sharedRole ? `${savedView.sharedRole} shared view` : "Saved view",
     };
   });
 }
@@ -103,7 +107,9 @@ export function filterCommands(commands, term = "") {
     : commands;
   return filtered.toSorted((a, b) => {
     const groupDelta = GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group);
-    if (groupDelta !== 0) return groupDelta;
+    if (groupDelta !== 0) {
+      return groupDelta;
+    }
     return a.label.localeCompare(b.label);
   });
 }

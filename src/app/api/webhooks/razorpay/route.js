@@ -18,9 +18,6 @@ import { fetchAuthMutation } from "@/lib/auth-server";
 import { getPaymentMutationSecret } from "@/lib/paymentVerification";
 import { verifyWebhookSignature } from "@/lib/razorpay";
 
-// Disable body parsing - we need the raw body for signature verification
-export const runtime = "nodejs";
-
 export async function POST(request) {
   try {
     // Get the raw body as text for signature verification
@@ -90,7 +87,7 @@ export async function POST(request) {
     console.error("Webhook processing error:", error);
     // Return 200 anyway to prevent retries for parsing errors
     // Log the error for debugging
-    return NextResponse.json({ received: true, error: "Processing error logged" });
+    return NextResponse.json({ error: "Processing error logged", received: true });
   }
 }
 
@@ -98,7 +95,9 @@ export async function POST(request) {
  * Handle payment authorized event
  */
 async function handlePaymentAuthorized(payment) {
-  if (!payment?.order_id) return;
+  if (!payment?.order_id) {
+    return;
+  }
 
   console.log(`Payment authorized: ${payment.id} for order ${payment.order_id}`);
 
@@ -119,7 +118,9 @@ async function handlePaymentAuthorized(payment) {
  * Handle payment captured event (successful payment)
  */
 async function handlePaymentCaptured(payment) {
-  if (!payment?.order_id) return;
+  if (!payment?.order_id) {
+    return;
+  }
 
   console.log(`Payment captured: ${payment.id} for order ${payment.order_id}`);
 
@@ -155,7 +156,9 @@ async function handlePaymentCaptured(payment) {
  * Handle payment failed event
  */
 async function handlePaymentFailed(payment) {
-  if (!payment?.order_id) return;
+  if (!payment?.order_id) {
+    return;
+  }
 
   console.log(`Payment failed: ${payment.id} for order ${payment.order_id}`);
   console.log(`Failure reason: ${payment.error_description || "Unknown"}`);
@@ -174,7 +177,7 @@ async function handlePaymentFailed(payment) {
 
   if (result?.ignored) {
     console.log(
-      `Ignored payment.failed for order ${payment.order_id}; booking already ${result.status}`,
+      `Ignored payment.failed for order ${payment.order_id}; booking already ${result.status}`
     );
     return;
   }
@@ -188,7 +191,9 @@ async function handlePaymentFailed(payment) {
  * Handle refund created event
  */
 async function handleRefundCreated(refund) {
-  if (!refund?.payment_id) return;
+  if (!refund?.payment_id) {
+    return;
+  }
 
   console.log(`Refund created: ${refund.id} for payment ${refund.payment_id}`);
 

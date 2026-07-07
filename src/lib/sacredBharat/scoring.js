@@ -18,7 +18,7 @@ export function normalizeVisitedSet(templeIds) {
  */
 export function isBharatExplorerComplete(visitedSet) {
   return REGIONS.every((region) =>
-    TEMPLES.some((t) => t.region === region && visitedSet.has(t.id)),
+    TEMPLES.some((t) => t.region === region && visitedSet.has(t.id))
   );
 }
 
@@ -40,22 +40,22 @@ export function isTrailComplete(trail, visitedSet) {
 function getTrailProgress(trail, visitedSet) {
   if (trail.type === "region") {
     const completedRegions = REGIONS.filter((region) =>
-      TEMPLES.some((t) => t.region === region && visitedSet.has(t.id)),
+      TEMPLES.some((t) => t.region === region && visitedSet.has(t.id))
     );
     return {
-      visited: completedRegions.length,
-      total: REGIONS.length,
-      percent: Math.round((completedRegions.length / REGIONS.length) * 100),
       completedRegions,
+      percent: Math.round((completedRegions.length / REGIONS.length) * 100),
+      total: REGIONS.length,
+      visited: completedRegions.length,
     };
   }
   const visited = trail.templeIds.filter((id) => visitedSet.has(id)).length;
   const total = trail.templeIds.length;
   return {
-    visited,
-    total,
-    percent: total === 0 ? 0 : Math.round((visited / total) * 100),
     completedRegions: [],
+    percent: total === 0 ? 0 : Math.round((visited / total) * 100),
+    total,
+    visited,
   };
 }
 
@@ -81,7 +81,7 @@ export function computeScore(templeIds) {
 export function getLevelForScore(score) {
   const match =
     LEVELS.find(
-      (level) => score >= level.minScore && (level.maxScore === null || score <= level.maxScore),
+      (level) => score >= level.minScore && (level.maxScore === null || score <= level.maxScore)
     ) ?? LEVELS[0];
   return match;
 }
@@ -98,14 +98,14 @@ export function computeProgress(templeIds) {
     const progress = getTrailProgress(trail, visitedSet);
     const complete = isTrailComplete(trail, visitedSet);
     return {
+      emoji: trail.emoji,
       slug: trail.slug,
       title: trail.title,
-      emoji: trail.emoji,
       ...progress,
-      complete,
-      completionBonus: trail.completionBonus,
       badgeId: trail.badgeId,
       badgeName: trail.badgeName,
+      complete,
+      completionBonus: trail.completionBonus,
     };
   });
 
@@ -123,14 +123,14 @@ export function computeProgress(templeIds) {
   const completedTrailCount = trails.filter((t) => t.complete).length;
 
   return {
-    visitedTempleIds: [...visitedSet],
-    templeCount: visitedSet.size,
-    totalTemples: TEMPLES.length,
-    score,
-    level,
-    trails,
     badges,
     completedTrailCount,
+    level,
+    score,
+    templeCount: visitedSet.size,
+    totalTemples: TEMPLES.length,
     totalTrails: TRAILS.length,
+    trails,
+    visitedTempleIds: [...visitedSet],
   };
 }

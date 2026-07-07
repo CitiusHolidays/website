@@ -13,19 +13,19 @@ import {
 describe("portal workflow helpers", () => {
   test("uses workbook payment terms by query type", () => {
     expect(getPaymentTermForQueryType("Spiritual")).toEqual({
-      minAdvancePercent: 100,
       maxAdvancePercent: 100,
+      minAdvancePercent: 100,
     });
     expect(getPaymentTermForQueryType("B2B")).toEqual({
-      minAdvancePercent: 80,
       maxAdvancePercent: 100,
+      minAdvancePercent: 80,
     });
   });
 
   test("maps query statuses into pipeline stages", () => {
     expect(getPipelineStage({ contractingStatus: "Proposal sent" })).toBe("Proposal sent");
     expect(getPipelineStage({ contractingStatus: "Date/Destination Change Required" })).toBe(
-      "Date/Destination Change Required",
+      "Date/Destination Change Required"
     );
     expect(getPipelineStage({ salesStatus: "Order Confirmed" })).toBe("Order Confirmed");
     expect(getPipelineStage({ salesStatus: "Order Lost" })).toBe("Order Lost");
@@ -33,10 +33,10 @@ describe("portal workflow helpers", () => {
 
   test("builds pipeline buckets", () => {
     const buckets = getPipelineBuckets([
-      { id: "q1", contractingStatus: "Query Received" },
-      { id: "q2", contractingStatus: "Proposal sent" },
+      { contractingStatus: "Query Received", id: "q1" },
+      { contractingStatus: "Proposal sent", id: "q2" },
       { id: "q3", salesStatus: "Order Confirmed" },
-      { id: "q4", contractingStatus: "Date/Destination Change Required" },
+      { contractingStatus: "Date/Destination Change Required", id: "q4" },
     ]);
 
     expect(buckets["Query Received"]).toHaveLength(1);
@@ -54,10 +54,10 @@ describe("portal workflow helpers", () => {
 
   test("computes expense total from card cash and e-pay amounts", () => {
     expect(
-      getExpenseSplitTotal({ cardAmount: "1000", cashAmount: "250", epayAmount: "99.5" }),
+      getExpenseSplitTotal({ cardAmount: "1000", cashAmount: "250", epayAmount: "99.5" })
     ).toBe(1349.5);
     expect(getExpenseSplitTotal({ cardAmount: "", cashAmount: null, epayAmount: undefined })).toBe(
-      0,
+      0
     );
   });
 });

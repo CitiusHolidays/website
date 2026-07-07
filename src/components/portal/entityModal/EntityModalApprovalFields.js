@@ -1,28 +1,6 @@
 "use client";
 
-import {
-  Input,
-  MultiSelect,
-  money,
-  QueryFilePicker,
-  Select,
-  Textarea,
-} from "@/components/portal/PortalModalForm";
-import {
-  CABIN_CLASSES,
-  EXPENSE_CURRENCIES,
-  EXPENSE_HEADS,
-  FOOD_PREFERENCES,
-  GUEST_TYPES,
-  LEAVE_TYPES,
-  PAYMENT_TYPES,
-  PORTAL_ROLES,
-  TICKET_STATUSES,
-  TICKET_TYPES,
-  VISA_STATUSES,
-} from "@/lib/portal/constants";
-import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
-import { getExpenseSplitTotal } from "@/lib/portal/workflow";
+import { Textarea } from "@/components/portal/PortalModalForm";
 
 export function EntityModalApprovalFields({
   modal,
@@ -56,10 +34,10 @@ export function EntityModalApprovalFields({
         <>
           <Textarea
             label="Decision Note"
-            value={form.decisionNote}
             onChange={(v) => updateForm("decisionNote", v)}
-            required
             placeholder="Explain what details are needed or why this is rejected"
+            required
+            value={form.decisionNote}
           />
         </>
       )}

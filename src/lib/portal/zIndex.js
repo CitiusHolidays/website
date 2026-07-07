@@ -6,34 +6,34 @@
  * so validation errors remain visible; confirm dialogs stay on top.
  */
 export const PORTAL_Z = {
-  toolbar: "z-30",
   chrome: "z-40",
-  dropdownBackdrop: "z-[45]",
-  dropdown: "z-50",
   commandPalette: "z-[55]",
+  confirm: "z-[100]",
+  dropdown: "z-50",
+  dropdownBackdrop: "z-[45]",
+  entityModal: "z-[80]",
+  importModal: "z-[75]",
   mobileBackdrop: "z-50",
   mobileDrawer: "z-[60]",
-  importModal: "z-[75]",
-  entityModal: "z-[80]",
   nestedModal: "z-[90]",
-  toast: "z-[95]",
-  confirm: "z-[100]",
   skipLinkFocus: "z-[100]",
+  toast: "z-[95]",
+  toolbar: "z-30",
 };
 
 /** Numeric mirror of PORTAL_Z for inline styles (command palette frame, etc.). */
 export const PORTAL_Z_INDEX = {
-  toolbar: 30,
   chrome: 40,
-  dropdownBackdrop: 45,
-  dropdown: 50,
   commandPalette: 55,
+  confirm: 100,
+  dropdown: 50,
+  dropdownBackdrop: 45,
+  entityModal: 80,
+  importModal: 75,
   mobileBackdrop: 50,
   mobileDrawer: 60,
-  importModal: 75,
-  entityModal: 80,
   nestedModal: 90,
-  toast: 95,
-  confirm: 100,
   skipLinkFocus: 100,
+  toast: 95,
+  toolbar: 30,
 };

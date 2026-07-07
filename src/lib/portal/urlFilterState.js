@@ -12,10 +12,10 @@ export function parsePortalFilterParams(searchParams) {
     }
   }
   return {
-    search,
     dateRange: { from, to },
     jobCardFilter: jc,
     listFilters,
+    search,
   };
 }
 
@@ -41,17 +41,31 @@ export function serializePortalFilterParams({
 }) {
   const params = new URLSearchParams();
   const term = (search || "").trim();
-  if (term) params.set("q", term);
-  if (dateRange?.from) params.set("from", dateRange.from);
-  if (dateRange?.to) params.set("to", dateRange.to);
-  if (jobCardFilter) params.set("jc", jobCardFilter);
+  if (term) {
+    params.set("q", term);
+  }
+  if (dateRange?.from) {
+    params.set("from", dateRange.from);
+  }
+  if (dateRange?.to) {
+    params.set("to", dateRange.to);
+  }
+  if (jobCardFilter) {
+    params.set("jc", jobCardFilter);
+  }
   for (const [field, value] of Object.entries(listFilters || {})) {
-    if (value) params.set(`${FILTER_PARAM_PREFIX}${field}`, value);
+    if (value) {
+      params.set(`${FILTER_PARAM_PREFIX}${field}`, value);
+    }
   }
   if (deepLink?.open) {
     params.set("open", deepLink.open);
-    if (deepLink.id) params.set("id", deepLink.id);
-    if (deepLink.queryId) params.set("queryId", deepLink.queryId);
+    if (deepLink.id) {
+      params.set("id", deepLink.id);
+    }
+    if (deepLink.queryId) {
+      params.set("queryId", deepLink.queryId);
+    }
   }
   return params;
 }
@@ -65,8 +79,8 @@ export function serializeUrlFilterState(state, filterConfig = [], options = {}) 
   const deepLink =
     options.preserveDeepLink && options.searchParams
       ? {
-          open: options.searchParams.get("open") || undefined,
           id: options.searchParams.get("id") || undefined,
+          open: options.searchParams.get("open") || undefined,
           queryId: options.searchParams.get("queryId") || undefined,
         }
       : null;
@@ -78,11 +92,11 @@ export function serializeUrlFilterState(state, filterConfig = [], options = {}) 
     }
   }
   return serializePortalFilterParams({
-    search: state.search,
     dateRange: state.dateRange,
+    deepLink: deepLink?.open ? deepLink : null,
     jobCardFilter: state.jobCardFilter,
     listFilters,
-    deepLink: deepLink?.open ? deepLink : null,
+    search: state.search,
   });
 }
 
@@ -93,8 +107,14 @@ export function buildFilterUrl(pathname, state, deepLink = null) {
 }
 
 export function hasAnyFilterState({ search, dateRange, jobCardFilter, listFilters }) {
-  if ((search || "").trim()) return true;
-  if (jobCardFilter) return true;
-  if (dateRange?.from || dateRange?.to) return true;
+  if ((search || "").trim()) {
+    return true;
+  }
+  if (jobCardFilter) {
+    return true;
+  }
+  if (dateRange?.from || dateRange?.to) {
+    return true;
+  }
   return Object.values(listFilters || {}).some(Boolean);
 }

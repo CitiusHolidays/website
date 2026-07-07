@@ -1,7 +1,9 @@
 import { useSyncExternalStore } from "react";
 
 export function isMacPlatform() {
-  if (typeof navigator === "undefined") return false;
+  if (typeof navigator === "undefined") {
+    return false;
+  }
   if (navigator.userAgentData?.platform) {
     return navigator.userAgentData.platform === "macOS";
   }
@@ -18,6 +20,6 @@ export function useModShortcutLabel() {
   return useSyncExternalStore(
     subscribeToShortcutLabel,
     () => getModShortcutLabel(),
-    () => "Ctrl+K",
+    () => "Ctrl+K"
   );
 }

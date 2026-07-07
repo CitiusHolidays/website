@@ -12,8 +12,8 @@ const convexSiteUrl =
   "http://127.0.0.1:3211";
 
 const betterAuth = convexBetterAuthNextJs({
-  convexUrl,
   convexSiteUrl,
+  convexUrl,
 });
 
 export const { handler, preloadAuthQuery } = betterAuth;
@@ -37,12 +37,12 @@ const getRequestToken = async () => {
   }
 
   const tokenResponse = await fetch(`${protocol}://${host}/api/auth/convex/token`, {
-    method: "GET",
-    headers: {
-      cookie: requestHeaders.get("cookie") ?? "",
-      accept: "application/json",
-    },
     cache: "no-store",
+    headers: {
+      accept: "application/json",
+      cookie: requestHeaders.get("cookie") ?? "",
+    },
+    method: "GET",
   }).catch(() => null);
 
   if (!tokenResponse?.ok) {
@@ -94,7 +94,7 @@ export async function getServerSession() {
   if (!user) {
     return null;
   }
-  return { user, session: { user } };
+  return { session: { user }, user };
 }
 
 const getLoginUrl = (callbackUrl) => getLoginUrlForCallback(callbackUrl || "/account");
@@ -108,7 +108,7 @@ export async function requireAuth(callbackUrl) {
     redirect(loginUrl);
   }
 
-  return { user, session: { user } };
+  return { session: { user }, user };
 }
 
 export async function requireGuest(redirectTo = "/") {
@@ -132,9 +132,9 @@ export async function getUserForLayout() {
   }
 
   return {
-    id: user.id,
     email: user.email,
-    name: user.name,
+    id: user.id,
     image: user.image,
+    name: user.name,
   };
 }

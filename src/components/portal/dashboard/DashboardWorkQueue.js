@@ -6,21 +6,25 @@ import { buildDashboardListUrl, buildJobCardHref } from "@/lib/portal/dashboardL
 import { DashboardEmpty, DashboardPanel, DashboardProgress } from "./DashboardPanel";
 
 const BADGE_TONES = {
-  green: "bg-emerald-50 text-emerald-800 border-emerald-200",
   amber: "bg-amber-50 text-amber-900 border-amber-200",
   blue: "bg-blue-50 text-blue-800 border-blue-200",
+  green: "bg-emerald-50 text-emerald-800 border-emerald-200",
 };
 
 function statusTone(readiness) {
-  if (readiness === "Ready") return "green";
-  if (readiness === "Docs pending") return "amber";
+  if (readiness === "Ready") {
+    return "green";
+  }
+  if (readiness === "Docs pending") {
+    return "amber";
+  }
   return "blue";
 }
 
 function Badge({ label, tone }) {
   return (
     <span
-      className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${BADGE_TONES[tone] || BADGE_TONES.blue}`}
+      className={`inline-flex rounded-full border px-2 py-0.5 font-semibold text-[11px] ${BADGE_TONES[tone] || BADGE_TONES.blue}`}
     >
       {label}
     </span>
@@ -28,26 +32,26 @@ function Badge({ label, tone }) {
 }
 
 export function DashboardActiveTours({ tours, dateRange, hasJobCards }) {
-  if (!hasJobCards) return null;
+  if (!hasJobCards) {
+    return null;
+  }
 
   return (
     <DashboardPanel title="Active tours">
-      {!tours?.length ? (
-        <DashboardEmpty label="No active tours yet." />
-      ) : (
+      {tours?.length ? (
         <div className="space-y-4">
           {tours.map((tour) => (
             <Link
-              key={tour.id}
-              href={buildJobCardHref(tour.id, dateRange)}
               className="block overflow-hidden rounded-xl border border-brand-border bg-brand-light p-4 transition-shadow hover:border-citius-orange/30 hover:shadow-md"
+              href={buildJobCardHref(tour.id, dateRange)}
+              key={tour.id}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="text-sm font-semibold text-brand-dark">
+                  <div className="font-semibold text-brand-dark text-sm">
                     {tour.jobCode} - {tour.clientName}
                   </div>
-                  <div className="text-xs text-brand-muted">
+                  <div className="text-brand-muted text-xs">
                     {tour.destination || "Destination pending"} - {tour.pax} pax
                   </div>
                 </div>
@@ -58,33 +62,34 @@ export function DashboardActiveTours({ tours, dateRange, hasJobCards }) {
             </Link>
           ))}
         </div>
+      ) : (
+        <DashboardEmpty label="No active tours yet." />
       )}
     </DashboardPanel>
   );
 }
 
 export function DashboardUpcomingDepartures({ departures, dateRange, hasJobCards }) {
-  if (!hasJobCards) return null;
+  if (!hasJobCards) {
+    return null;
+  }
 
   return (
     <DashboardPanel
-      title="Upcoming departures"
       action={
         <Link
-          href={buildDashboardListUrl({ view: "job-cards", dateRange })}
-          className="text-xs font-bold text-citius-blue hover:underline"
+          className="font-bold text-citius-blue text-xs hover:underline"
+          href={buildDashboardListUrl({ dateRange, view: "job-cards" })}
         >
           View all job cards
         </Link>
       }
     >
-      {!departures?.length ? (
-        <DashboardEmpty label="No upcoming departures." />
-      ) : (
+      {departures?.length ? (
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-brand-border text-xs text-brand-muted">
+              <tr className="border-brand-border border-b text-brand-muted text-xs">
                 <th className="py-2 pr-3 font-semibold">JC</th>
                 <th className="py-2 pr-3 font-semibold">Client</th>
                 <th className="py-2 pr-3 font-semibold">Date</th>
@@ -95,11 +100,11 @@ export function DashboardUpcomingDepartures({ departures, dateRange, hasJobCards
             </thead>
             <tbody>
               {departures.map((row) => (
-                <tr key={row.id} className="border-b border-brand-border/60 last:border-0">
+                <tr className="border-brand-border/60 border-b last:border-0" key={row.id}>
                   <td className="py-2 pr-3">
                     <Link
-                      href={buildJobCardHref(row.id, dateRange)}
                       className="font-semibold text-citius-blue hover:underline"
+                      href={buildJobCardHref(row.id, dateRange)}
                     >
                       {row.jobCode}
                     </Link>
@@ -118,6 +123,8 @@ export function DashboardUpcomingDepartures({ departures, dateRange, hasJobCards
             </tbody>
           </table>
         </div>
+      ) : (
+        <DashboardEmpty label="No upcoming departures." />
       )}
     </DashboardPanel>
   );
@@ -128,13 +135,11 @@ export function DashboardWorkQueuesSummary({ rows }) {
 
   return (
     <DashboardPanel title="Work queues">
-      {!visibleRows.length ? (
-        <DashboardEmpty label="No open work queues for this period." />
-      ) : (
+      {visibleRows.length ? (
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-brand-border text-xs text-brand-muted">
+              <tr className="border-brand-border border-b text-brand-muted text-xs">
                 <th className="py-2 pr-3 font-semibold">Queue</th>
                 <th className="py-2 pr-3 text-right font-semibold">Pending</th>
                 <th className="py-2 pr-3 text-right font-semibold">Oldest item</th>
@@ -143,19 +148,19 @@ export function DashboardWorkQueuesSummary({ rows }) {
             </thead>
             <tbody>
               {visibleRows.slice(0, 5).map((row) => (
-                <tr key={row.label} className="border-b border-brand-border/70 last:border-0">
+                <tr className="border-brand-border/70 border-b last:border-0" key={row.label}>
                   <td className="py-2.5 pr-3">
                     <Link
-                      href={row.href}
                       className="font-semibold text-citius-blue hover:underline"
+                      href={row.href}
                     >
                       {row.label}
                     </Link>
                   </td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-brand-dark">
+                  <td className="py-2.5 pr-3 text-right text-brand-dark tabular-nums">
                     {row.value ?? 0}
                   </td>
-                  <td className="py-2.5 pr-3 text-right tabular-nums text-brand-muted">
+                  <td className="py-2.5 pr-3 text-right text-brand-muted tabular-nums">
                     {row.oldestLabel || "—"}
                   </td>
                   <td className="py-2.5 text-right text-brand-muted">{row.owner}</td>
@@ -164,6 +169,8 @@ export function DashboardWorkQueuesSummary({ rows }) {
             </tbody>
           </table>
         </div>
+      ) : (
+        <DashboardEmpty label="No open work queues for this period." />
       )}
     </DashboardPanel>
   );

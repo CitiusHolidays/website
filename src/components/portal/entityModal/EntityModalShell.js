@@ -27,18 +27,20 @@ export function EntityModalShell({
     <AnimatePresence>
       {modal && (
         <m.div
-          key={modal}
-          initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
           className={`fixed inset-0 ${PORTAL_Z.entityModal} grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm`}
+          exit={{ opacity: 0 }}
+          initial={{ opacity: 0 }}
+          key={modal}
           onClick={close}
         >
           <m.form
-            role="dialog"
-            aria-modal="true"
+            animate={{ opacity: 1, scale: 1, y: 0 }}
             aria-labelledby="portal-entity-modal-title"
-            onSubmit={submit}
+            aria-modal="true"
+            className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:fixed max-sm:inset-0 max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none"
+            exit={{ opacity: 0, scale: 0.98, y: 24 }}
+            initial={{ opacity: 0, scale: 0.98, y: 24 }}
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => {
               if (event.key === "Escape") {
@@ -46,31 +48,29 @@ export function EntityModalShell({
                 close();
               }
             }}
-            initial={{ opacity: 0, y: 24, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 24, scale: 0.98 }}
+            onSubmit={submit}
+            role="dialog"
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:fixed max-sm:inset-0 max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none"
           >
-            <div className="flex items-center justify-between border-b border-brand-border px-5 py-4">
+            <div className="flex items-center justify-between border-brand-border border-b px-5 py-4">
               <div
+                className="font-heading font-semibold text-citius-blue text-lg"
                 id="portal-entity-modal-title"
-                className="font-heading text-lg font-semibold text-citius-blue"
               >
                 {title}
               </div>
               <button
-                type="button"
-                onClick={close}
-                className="rounded-full p-2 text-brand-muted hover:bg-brand-light"
                 aria-label="Close dialog"
+                className="rounded-full p-2 text-brand-muted hover:bg-brand-light"
+                onClick={close}
+                type="button"
               >
                 Close
               </button>
             </div>
             <div className="max-h-[calc(90vh-130px)] overflow-y-auto p-5">
               {error && (
-                <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
                   {error}
                 </div>
               )}
@@ -108,19 +108,19 @@ export function EntityModalShell({
                 <EntityModalFieldsSecondary {...secondaryProps} />
               </div>
             </div>
-            <div className="flex justify-end gap-3 border-t border-brand-border px-5 py-4">
-              <button type="button" onClick={close} className="portal-outline-btn">
+            <div className="flex justify-end gap-3 border-brand-border border-t px-5 py-4">
+              <button className="portal-outline-btn" onClick={close} type="button">
                 {["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(modal)
                   ? "Close"
                   : "Cancel"}
               </button>
               {!["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(
-                modal,
+                modal
               ) && (
                 <button
-                  type="submit"
-                  disabled={isSaving}
                   className="portal-primary-btn disabled:opacity-60"
+                  disabled={isSaving}
+                  type="submit"
                 >
                   {isSaving ? (
                     <Loader2 className="animate-spin" size={16} />

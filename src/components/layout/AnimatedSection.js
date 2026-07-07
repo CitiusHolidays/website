@@ -6,14 +6,14 @@ import { cn } from "../../utils/cn";
 
 export default function AnimatedSection({ children, className, ...props }) {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, amount: 0 });
+  const isInView = useInView(ref, { amount: 0, once: true });
 
   return (
     <m.section
-      ref={ref}
+      animate={isInView ? { opacity: 1, y: 0 } : {}}
       className={cn(className)}
       initial={{ opacity: 0, y: 50 }}
-      animate={isInView ? { opacity: 1, y: 0 } : {}}
+      ref={ref}
       transition={{ duration: 0.8, ease: "easeOut" }}
       {...props}
     >

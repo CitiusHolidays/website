@@ -13,22 +13,22 @@ function leaveBalanceRowsForDisplay(leaveBalanceRows) {
     const row = rowsByType.get(leaveType);
     if (row) {
       return {
+        detail: row.fiscalYear || "",
         leaveType,
         value: Number(row.availableDays || 0).toFixed(1),
-        detail: row.fiscalYear || "",
       };
     }
     if (leaveType === "Leave Without Pay") {
       return {
+        detail: "No balance limit",
         leaveType,
         value: "Unpaid",
-        detail: "No balance limit",
       };
     }
     return {
+      detail: "No balance row",
       leaveType,
       value: "-",
-      detail: "No balance row",
     };
   });
 }
@@ -69,57 +69,57 @@ export function EntityModalLeaveFields({
           {has(P.MANAGE_LEAVE) && (
             <Select
               label="Employee"
-              value={form.staffId}
-              options={team.map((t) => ({
-                value: t.id,
-                label: `${t.name} (${t.department || "General"})`,
-              }))}
               onChange={(v) => updateForm("staffId", v)}
+              options={team.map((t) => ({
+                label: `${t.name} (${t.department || "General"})`,
+                value: t.id,
+              }))}
               required={!form.entityId}
+              value={form.staffId}
             />
           )}
           <Select
             label="Leave Type"
-            value={form.leaveType}
-            options={LEAVE_TYPES}
             onChange={(v) => updateForm("leaveType", v)}
+            options={LEAVE_TYPES}
+            value={form.leaveType}
           />
           <Input
             label="Start Date"
-            type="date"
-            value={form.startDate}
             onChange={(v) => updateForm("startDate", v)}
             required
+            type="date"
+            value={form.startDate}
           />
           <Input
             label="End Date"
-            type="date"
-            value={form.endDate}
             onChange={(v) => updateForm("endDate", v)}
             required
+            type="date"
+            value={form.endDate}
           />
           <Input
             label="Reason for Leave"
-            value={form.reason}
             onChange={(v) => updateForm("reason", v)}
-            required
             placeholder="e.g. Annual Leave, Medical, Personal"
+            required
+            value={form.reason}
           />
-          <div className="md:col-span-2 rounded-xl border border-brand-border bg-brand-light/70 px-4 py-3">
-            <div className="mb-3 text-sm font-semibold text-citius-blue">Leave balances</div>
+          <div className="rounded-xl border border-brand-border bg-brand-light/70 px-4 py-3 md:col-span-2">
+            <div className="mb-3 font-semibold text-citius-blue text-sm">Leave balances</div>
             {balanceRowsForDisplay === null ? (
-              <div className="text-sm text-brand-muted">Loading leave balances...</div>
+              <div className="text-brand-muted text-sm">Loading leave balances...</div>
             ) : (
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {balanceRowsForDisplay.map((row) => (
                   <div
-                    key={row.leaveType}
                     className="rounded-lg border border-brand-border bg-white px-3 py-2"
+                    key={row.leaveType}
                   >
-                    <div className="text-xs font-medium text-brand-muted">{row.leaveType}</div>
-                    <div className="mt-1 text-lg font-semibold text-brand-dark">{row.value}</div>
+                    <div className="font-medium text-brand-muted text-xs">{row.leaveType}</div>
+                    <div className="mt-1 font-semibold text-brand-dark text-lg">{row.value}</div>
                     {row.detail ? (
-                      <div className="mt-1 text-xs text-brand-muted">{row.detail}</div>
+                      <div className="mt-1 text-brand-muted text-xs">{row.detail}</div>
                     ) : null}
                   </div>
                 ))}
@@ -128,7 +128,7 @@ export function EntityModalLeaveFields({
           </div>
           {leaveImpact && (
             <div
-              className={`md:col-span-2 rounded-xl border px-4 py-3 text-sm ${
+              className={`rounded-xl border px-4 py-3 text-sm md:col-span-2 ${
                 leaveImpact.allowed
                   ? "border-green-200 bg-green-50 text-green-800"
                   : "border-red-200 bg-red-50 text-red-800"
@@ -136,7 +136,7 @@ export function EntityModalLeaveFields({
             >
               {leaveImpact.allowed
                 ? `${leaveImpact.days} day(s). Balance after approval: ${Number(
-                    leaveImpact.balanceAfter || 0,
+                    leaveImpact.balanceAfter || 0
                   ).toFixed(1)}.`
                 : leaveImpact.reason}
             </div>

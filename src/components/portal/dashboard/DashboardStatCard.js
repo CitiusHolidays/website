@@ -13,18 +13,18 @@ export function DashboardStatCard({ label, value, Icon, featured = false, href, 
   const inner = (
     <>
       <div className="flex items-center justify-between">
-        <div className="max-w-[8rem] text-xs font-medium leading-tight text-brand-dark">{label}</div>
+        <div className="max-w-[8rem] font-medium text-brand-dark text-xs leading-tight">
+          {label}
+        </div>
         <div
           className={`rounded-lg p-1.5 ${
-            featured
-              ? "bg-citius-blue/10 text-citius-blue"
-              : "bg-citius-blue/5 text-citius-blue"
+            featured ? "bg-citius-blue/10 text-citius-blue" : "bg-citius-blue/5 text-citius-blue"
           }`}
         >
           <Icon size={17} />
         </div>
       </div>
-      <div className="mt-3 font-heading text-3xl font-semibold leading-none tabular-nums text-brand-dark">
+      <div className="mt-3 font-heading font-semibold text-3xl text-brand-dark tabular-nums leading-none">
         {value}
       </div>
       <div className={`mt-2 text-xs ${trendTone}`}>{trend?.label || "— no change"}</div>
@@ -37,7 +37,7 @@ export function DashboardStatCard({ label, value, Icon, featured = false, href, 
 
   if (href) {
     return (
-      <Link href={href} className={className} aria-label={`${label}: ${value}. View details.`}>
+      <Link aria-label={`${label}: ${value}. View details.`} className={className} href={href}>
         {inner}
       </Link>
     );

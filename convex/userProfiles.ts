@@ -14,13 +14,13 @@ const toApiUser = (profile: Doc<"userProfiles"> | null, identity: UserIdentity) 
   const updatedAt = profile?.updatedAt ?? createdAt;
 
   return {
-    id: identity.subject,
-    email: profile?.email ?? identity.email ?? "",
-    name: profile?.name ?? identity.name ?? "Traveler",
-    phoneNumber: profile?.phoneNumber ?? "",
-    image: profile?.image ?? (getIdentityImage(identity) || null),
-    passportDetailsEncrypted: profile?.passportDetailsEncrypted ?? null,
     createdAt: new Date(createdAt).toISOString(),
+    email: profile?.email ?? identity.email ?? "",
+    id: identity.subject,
+    image: profile?.image ?? (getIdentityImage(identity) || null),
+    name: profile?.name ?? identity.name ?? "Traveler",
+    passportDetailsEncrypted: profile?.passportDetailsEncrypted ?? null,
+    phoneNumber: profile?.phoneNumber ?? "",
     updatedAt: new Date(updatedAt).toISOString(),
   };
 };
@@ -33,12 +33,11 @@ const getIdentityOrThrow = async (ctx: QueryCtx | MutationCtx) => {
   return identity;
 };
 
-const getProfileByAuthUserId = async (ctx: QueryCtx | MutationCtx, authUserId: string) => {
-  return await ctx.db
+const getProfileByAuthUserId = async (ctx: QueryCtx | MutationCtx, authUserId: string) =>
+  await ctx.db
     .query("userProfiles")
     .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
     .unique();
-};
 
 export const ensureMyProfile = mutation({
   args: {},
@@ -47,8 +46,8 @@ export const ensureMyProfile = mutation({
     await syncAuthRecords(ctx, {
       authUserId: identity.subject,
       email: identity.email ?? "",
-      name: identity.name ?? undefined,
       image: getIdentityImage(identity) || undefined,
+      name: identity.name ?? undefined,
     });
 
     const existing = await getProfileByAuthUserId(ctx, identity.subject);
@@ -58,13 +57,13 @@ export const ensureMyProfile = mutation({
 
     const createdAt = now();
     return {
-      id: identity.subject,
-      email: identity.email ?? "",
-      name: identity.name ?? "Traveler",
-      phoneNumber: "",
-      image: getIdentityImage(identity) || null,
-      passportDetailsEncrypted: "",
       createdAt: new Date(createdAt).toISOString(),
+      email: identity.email ?? "",
+      id: identity.subject,
+      image: getIdentityImage(identity) || null,
+      name: identity.name ?? "Traveler",
+      passportDetailsEncrypted: "",
+      phoneNumber: "",
       updatedAt: new Date(createdAt).toISOString(),
     };
   },
@@ -97,8 +96,8 @@ export const updateMyProfile = mutation({
       await syncAuthRecords(ctx, {
         authUserId: identity.subject,
         email: identity.email ?? "",
-        name: args.name,
         image: getIdentityImage(identity) || undefined,
+        name: args.name,
       });
       const created = await getProfileByAuthUserId(ctx, identity.subject);
       if (created) {
@@ -109,13 +108,13 @@ export const updateMyProfile = mutation({
         });
       }
       return {
-        id: identity.subject,
-        email: identity.email ?? "",
-        name: args.name,
-        phoneNumber: args.phoneNumber ?? "",
-        image: getIdentityImage(identity) || null,
-        passportDetailsEncrypted: "",
         createdAt: new Date(updatedAt).toISOString(),
+        email: identity.email ?? "",
+        id: identity.subject,
+        image: getIdentityImage(identity) || null,
+        name: args.name,
+        passportDetailsEncrypted: "",
+        phoneNumber: args.phoneNumber ?? "",
         updatedAt: new Date(updatedAt).toISOString(),
       };
     }
@@ -127,13 +126,13 @@ export const updateMyProfile = mutation({
     });
 
     return {
-      id: identity.subject,
-      email: current.email,
-      name: args.name,
-      phoneNumber: args.phoneNumber ?? "",
-      image: current.image ?? null,
-      passportDetailsEncrypted: current.passportDetailsEncrypted ?? "",
       createdAt: new Date(current.createdAt).toISOString(),
+      email: current.email,
+      id: identity.subject,
+      image: current.image ?? null,
+      name: args.name,
+      passportDetailsEncrypted: current.passportDetailsEncrypted ?? "",
+      phoneNumber: args.phoneNumber ?? "",
       updatedAt: new Date(updatedAt).toISOString(),
     };
   },

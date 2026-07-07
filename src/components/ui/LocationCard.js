@@ -1,28 +1,28 @@
 "use client";
-import { m } from "motion/react";
 import { MapPin, Phone } from "lucide-react";
+import { m } from "motion/react";
 
 export default function LocationCard({ city, address, phone, mapUrl, index }) {
   return (
     <m.div
-      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="bg-brand-light rounded-lg border border-brand-border p-6 shadow-sm hover:shadow-md transition-all duration-200"
+      className="rounded-lg border border-brand-border bg-brand-light p-6 shadow-sm transition-all duration-200 hover:shadow-md"
+      initial={{ opacity: 0, y: 20 }}
+      transition={{ delay: index * 0.1, duration: 0.5 }}
     >
-      <h3 className="text-xl font-bold text-brand-dark mb-4">{city}</h3>
+      <h3 className="mb-4 font-bold text-brand-dark text-xl">{city}</h3>
 
       <div className="space-y-3">
         <div className="flex items-start gap-3">
-          <MapPin className="size-5 text-citius-orange mt-0.5 flex-shrink-0" />
+          <MapPin className="mt-0.5 size-5 flex-shrink-0 text-citius-orange" />
           <p className="text-brand-muted text-sm leading-relaxed">{address}</p>
         </div>
 
         <div className="flex items-center gap-3">
-          <Phone className="size-5 text-citius-orange flex-shrink-0" />
+          <Phone className="size-5 flex-shrink-0 text-citius-orange" />
           <a
+            className="text-brand-dark text-sm transition-colors duration-200 hover:text-citius-orange"
             href={`tel:${phone}`}
-            className="text-brand-dark text-sm hover:text-citius-orange transition-colors duration-200"
           >
             {phone}
           </a>
@@ -32,16 +32,16 @@ export default function LocationCard({ city, address, phone, mapUrl, index }) {
       {mapUrl && (
         <div className="mt-4">
           <iframe
-            title={`${city} office location`}
-            src={mapUrl}
-            width="100%"
+            allowFullScreen=""
+            className="rounded-md border border-brand-border"
             height="150"
             loading="lazy"
-            sandbox="allow-scripts allow-popups allow-presentation"
-            className="rounded-md border border-brand-border"
-            style={{ border: 0 }}
-            allowFullScreen=""
             referrerPolicy="no-referrer-when-downgrade"
+            sandbox="allow-scripts allow-popups allow-presentation"
+            src={mapUrl}
+            style={{ border: 0 }}
+            title={`${city} office location`}
+            width="100%"
           />
         </div>
       )}

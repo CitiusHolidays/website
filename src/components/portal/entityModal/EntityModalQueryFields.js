@@ -1,44 +1,28 @@
 "use client";
 
 import {
-  ContractingCostFields,
-  FinalizedProposalPdfPanel,
   Input,
-  isQueryConfirmed,
   MAX_QUERY_NOTES_WORDS,
-  MultiSelect,
-  money,
-  proposalCostPerPax,
-  QueryAttachmentsPanel,
   QueryFilePicker,
   Select,
   Textarea,
 } from "@/components/portal/PortalModalForm";
 import {
-  CONTRACTING_STATUS_SELECT_OPTIONS,
-  LOST_REASONS,
   QUERY_SOURCES,
-  SALES_DECISION_OPTIONS,
   SALES_REP_ROLES,
   TICKETING_SCOPE_OPTIONS,
   TRAVEL_TYPES,
 } from "@/lib/portal/constants";
-import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
-import {
-  canAssignContracting,
-  canAssignQueryTicketing,
-  canAssignTicketing,
-  getQueryTypeOptions,
-} from "@/lib/portal/permissions";
+import { getQueryTypeOptions } from "@/lib/portal/permissions";
 
 const TICKETING_SCOPE_SELECT_OPTIONS = [
-  { value: "", label: "Select Ticketing Scope..." },
-  ...TICKETING_SCOPE_OPTIONS.map((scope) => ({ value: scope, label: scope })),
+  { label: "Select Ticketing Scope...", value: "" },
+  ...TICKETING_SCOPE_OPTIONS.map((scope) => ({ label: scope, value: scope })),
 ];
 
 const TRAVEL_IN_BATCHES_OPTIONS = [
-  { value: "No", label: "No" },
-  { value: "Yes", label: "Yes" },
+  { label: "No", value: "No" },
+  { label: "Yes", value: "Yes" },
 ];
 
 export function EntityModalQueryFields({
@@ -82,127 +66,127 @@ export function EntityModalQueryFields({
         <>
           <Input
             label="Client / Company"
-            value={form.clientName}
             onChange={(v) => updateForm("clientName", v)}
             required
+            value={form.clientName}
           />
           <Input
             label="Contact Person"
-            value={form.contactPerson}
             onChange={(v) => updateForm("contactPerson", v)}
+            value={form.contactPerson}
           />
           <Input
             label="Mobile"
-            value={form.contactMobile}
             onChange={(v) => updateForm("contactMobile", v)}
+            value={form.contactMobile}
           />
           <Input
             label="No. of Pax"
+            onChange={(v) => updateForm("paxCount", v)}
             type="number"
             value={form.paxCount}
-            onChange={(v) => updateForm("paxCount", v)}
           />
           <Input
             label="Destination"
-            value={form.destination}
             onChange={(v) => updateForm("destination", v)}
+            value={form.destination}
           />
           <Input
             label="Travel Date From"
+            onChange={(v) => updateForm("travelStartDate", v)}
             type="date"
             value={form.travelStartDate}
-            onChange={(v) => updateForm("travelStartDate", v)}
           />
           <Input
             label="Travel Date To"
+            onChange={(v) => updateForm("travelEndDate", v)}
             type="date"
             value={form.travelEndDate}
-            onChange={(v) => updateForm("travelEndDate", v)}
           />
           <Select
             label="Query Type"
-            value={form.queryType}
-            options={getQueryTypeOptions(access)}
             onChange={(v) => updateForm("queryType", v)}
+            options={getQueryTypeOptions(access)}
+            value={form.queryType}
           />
           <Select
             label="Travel Type"
-            value={form.travelType}
-            options={TRAVEL_TYPES}
             onChange={(v) => updateForm("travelType", v)}
+            options={TRAVEL_TYPES}
+            value={form.travelType}
           />
           <Input
             label="Budget INR"
+            onChange={(v) => updateForm("budgetAmount", v)}
             type="number"
             value={form.budgetAmount}
-            onChange={(v) => updateForm("budgetAmount", v)}
           />
           <Select
             label="Source"
-            value={form.source}
-            options={QUERY_SOURCES}
             onChange={(v) => updateForm("source", v)}
+            options={QUERY_SOURCES}
+            value={form.source}
           />
           <Select
             label="Sales Rep"
-            value={form.salesOwnerName}
+            onChange={(v) => updateForm("salesOwnerName", v)}
             options={[
-              { value: "", label: "Current user" },
+              { label: "Current user", value: "" },
               ...team.reduce((options, member) => {
                 if (member.roles.some((role) => SALES_REP_ROLES.includes(role))) {
-                  options.push({ value: member.name, label: member.name });
+                  options.push({ label: member.name, value: member.name });
                 }
                 return options;
               }, []),
             ]}
-            onChange={(v) => updateForm("salesOwnerName", v)}
+            value={form.salesOwnerName}
           />
           <Select
             label="Contracting SPOC"
-            value={form.staffId}
-            options={[
-              { value: "", label: "Select Contracting SPOC..." },
-              ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label })),
-            ]}
             onChange={(v) => updateForm("staffId", v)}
+            options={[
+              { label: "Select Contracting SPOC...", value: "" },
+              ...contractingTeamOptions.map((o) => ({ label: o.label, value: o.value })),
+            ]}
+            value={form.staffId}
           />
           <Select
             label="Ticketing Scope"
-            value={form.ticketingScope}
-            options={TICKETING_SCOPE_SELECT_OPTIONS}
             onChange={(v) => updateForm("ticketingScope", v)}
+            options={TICKETING_SCOPE_SELECT_OPTIONS}
+            value={form.ticketingScope}
           />
           <Select
             label="Travel in Series"
-            value={form.travelInBatches || "No"}
-            options={TRAVEL_IN_BATCHES_OPTIONS}
             onChange={(v) =>
               patchForm({
                 travelInBatches: v,
                 ...(v === "Yes" ? {} : { batchingNotes: "" }),
               })
             }
+            options={TRAVEL_IN_BATCHES_OPTIONS}
+            value={form.travelInBatches || "No"}
           />
           {form.travelInBatches === "Yes" && (
             <div className="md:col-span-2">
               <Textarea
                 label="Batch Details"
-                value={form.batchingNotes}
                 onChange={(v) => updateForm("batchingNotes", v)}
+                value={form.batchingNotes}
               />
             </div>
           )}
           <Textarea
             label="Notes"
-            value={form.notes}
-            onChange={(v) => updateForm("notes", v)}
             maxWords={MAX_QUERY_NOTES_WORDS}
+            onChange={(v) => updateForm("notes", v)}
+            value={form.notes}
           />
           <div className="md:col-span-2">
             <QueryFilePicker
               files={pendingQueryFiles}
-              onChange={setPendingQueryFiles}
               inputId="new-query-files"
+              onChange={setPendingQueryFiles}
             />
           </div>
         </>

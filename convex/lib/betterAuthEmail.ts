@@ -13,12 +13,12 @@ export async function sendVerificationEmail(auth: ReturnType<typeof createAuth>,
     }) => Promise<{ status?: boolean } | undefined>;
   };
   if (!api.sendVerificationEmail) {
-    return { sent: false, reason: "verification_api_unavailable" as const };
+    return { reason: "verification_api_unavailable" as const, sent: false };
   }
   const result = await api.sendVerificationEmail({
-    body: { email, callbackURL },
+    body: { callbackURL, email },
   });
-  return { sent: Boolean(result?.status ?? true), reason: "verification" as const };
+  return { reason: "verification" as const, sent: Boolean(result?.status ?? true) };
 }
 
 export async function sendPasswordSetupEmail(auth: ReturnType<typeof createAuth>, email: string) {

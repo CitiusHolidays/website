@@ -1,21 +1,21 @@
 "use client";
 
-import { m } from "motion/react";
 import { CheckCircle2 } from "lucide-react";
+import { m } from "motion/react";
 
 export default function UspElement({ title }) {
   return (
     <m.div
+      className="group flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-300 hover:border-blue-100 hover:shadow-md"
       initial={{ opacity: 0, x: -20 }}
-      whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
       whileHover={{ x: 10 }}
-      className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-100 transition-all duration-300 group"
+      whileInView={{ opacity: 1, x: 0 }}
     >
-      <div className="size-10 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-500 transition-colors duration-300">
-        <CheckCircle2 className="size-5 text-blue-600 group-hover:text-white transition-colors duration-300" />
+      <div className="flex size-10 items-center justify-center rounded-full bg-blue-50 transition-colors duration-300 group-hover:bg-blue-500">
+        <CheckCircle2 className="size-5 text-blue-600 transition-colors duration-300 group-hover:text-white" />
       </div>
-      <span className="font-medium text-brand-dark group-hover:text-blue-900 transition-colors">
+      <span className="font-medium text-brand-dark transition-colors group-hover:text-blue-900">
         {title}
       </span>
     </m.div>

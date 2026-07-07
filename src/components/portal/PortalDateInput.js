@@ -65,17 +65,15 @@ export function PortalDateInput({
   return (
     <div className={`relative ${className}`.trim()}>
       <input
-        type="text"
-        inputMode="numeric"
-        autoComplete="off"
-        id={id}
-        name={name}
-        required={required}
-        disabled={disabled}
-        value={text}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
         aria-invalid={showInvalid || undefined}
+        aria-label={ariaLabel}
+        autoComplete="off"
+        className={`${showInvalid ? INVALID_CLASS : VALID_CLASS} ${inputClassName}`.trim()}
+        disabled={disabled}
+        id={id}
+        inputMode="numeric"
+        name={name}
+        onBlur={() => commit(text)}
         onChange={(event) => {
           const next = formatDisplayDateInputDigits(event.target.value);
           beginEdit(next);
@@ -88,25 +86,25 @@ export function PortalDateInput({
             }
           }
         }}
-        onBlur={() => commit(text)}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
             commit(text);
           }
         }}
-        className={`${showInvalid ? INVALID_CLASS : VALID_CLASS} ${inputClassName}`.trim()}
+        placeholder={placeholder}
+        required={required}
+        type="text"
+        value={text}
       />
       <Calendar
-        className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-brand-muted"
         aria-hidden
+        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-brand-muted"
       />
       <input
-        type="date"
-        value={value || ""}
-        disabled={disabled}
         aria-label={ariaLabel ? `${ariaLabel} calendar picker` : "Open calendar picker"}
-        tabIndex={-1}
+        className="absolute top-1/2 right-1 h-9 w-9 -translate-y-1/2 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        disabled={disabled}
         onChange={(event) => {
           onChange(event.target.value);
           setEditState(null);
@@ -115,7 +113,9 @@ export function PortalDateInput({
         onClick={(event) => {
           event.currentTarget.showPicker?.();
         }}
-        className="absolute right-1 top-1/2 h-9 w-9 -translate-y-1/2 cursor-pointer opacity-0 disabled:cursor-not-allowed"
+        tabIndex={-1}
+        type="date"
+        value={value || ""}
       />
     </div>
   );

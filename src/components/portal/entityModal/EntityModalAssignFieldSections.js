@@ -5,21 +5,20 @@ import { TICKETING_SCOPE_OPTIONS } from "@/lib/portal/constants";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
 import {
   canAssignContracting,
-  canAssignQueryTicketing,
   canAssignTicketing,
   canHeadAssignQueryTeams,
   usesSalesInitialAssignmentForm,
 } from "@/lib/portal/permissions";
 
 const TICKETING_SCOPE_SELECT_OPTIONS = [
-  { value: "", label: "Select ticketing scope…" },
-  ...TICKETING_SCOPE_OPTIONS.map((scope) => ({ value: scope, label: scope })),
+  { label: "Select ticketing scope…", value: "" },
+  ...TICKETING_SCOPE_OPTIONS.map((scope) => ({ label: scope, value: scope })),
 ];
 
 function queryOptions(queries) {
   return queries.map((q) => ({
-    value: q.id,
     label: `${q.queryCode} - ${q.clientName}`,
+    value: q.id,
   }));
 }
 
@@ -27,8 +26,8 @@ function confirmedQueryOptions(queries) {
   return queries.reduce((options, query) => {
     if (query.salesStatus === "Order Confirmed" || query.contractingStatus === "Order Confirmed") {
       options.push({
-        value: query.id,
         label: `${query.queryCode} - ${query.clientName}`,
+        value: query.id,
       });
     }
     return options;
@@ -39,7 +38,7 @@ function teamOptionsForIds(team, ids) {
   const idSet = new Set(ids ?? []);
   return team.reduce((options, member) => {
     if (idSet.has(member.id)) {
-      options.push({ value: member.id, label: member.name });
+      options.push({ label: member.name, value: member.id });
     }
     return options;
   }, []);
@@ -50,20 +49,20 @@ export function AssignContractingFields({ form, updateForm, queries, contracting
     <>
       <Select
         label="Query"
-        value={form.queryId}
-        options={queryOptions(queries)}
         onChange={(v) => updateForm("queryId", v)}
+        options={queryOptions(queries)}
         required
+        value={form.queryId}
       />
       <Select
         label="Contracting SPOC"
-        value={form.staffId}
-        options={[
-          { value: "", label: "Select team member…" },
-          ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label })),
-        ]}
         onChange={(v) => updateForm("staffId", v)}
+        options={[
+          { label: "Select team member…", value: "" },
+          ...contractingTeamOptions.map((o) => ({ label: o.label, value: o.value })),
+        ]}
         required
+        value={form.staffId}
       />
     </>
   );
@@ -74,20 +73,20 @@ export function AssignQueryTicketingFields({ form, updateForm, queries, ticketin
     <>
       <Select
         label="Query"
-        value={form.queryId}
-        options={queryOptions(queries)}
         onChange={(v) => updateForm("queryId", v)}
+        options={queryOptions(queries)}
         required
+        value={form.queryId}
       />
       <Select
         label="Ticketing SPOC"
-        value={form.ticketingStaffId}
-        options={[
-          { value: "", label: "Select team member…" },
-          ...ticketingTeamOptions.map((o) => ({ value: o.value, label: o.label })),
-        ]}
         onChange={(v) => updateForm("ticketingStaffId", v)}
+        options={[
+          { label: "Select team member…", value: "" },
+          ...ticketingTeamOptions.map((o) => ({ label: o.label, value: o.value })),
+        ]}
         required
+        value={form.ticketingStaffId}
       />
     </>
   );
@@ -107,48 +106,48 @@ export function AssignQueryTeamsFields({
     <>
       <Select
         label="Query"
-        value={form.queryId}
-        options={queryOptions(queries)}
         onChange={(v) => updateForm("queryId", v)}
+        options={queryOptions(queries)}
         required
+        value={form.queryId}
       />
       {(salesInitial || canAssignContracting(access)) && (
         <Select
           label="Contracting SPOC"
-          value={form.staffId}
+          onChange={(v) => updateForm("staffId", v)}
           options={[
-            { value: "", label: "Select contracting…" },
+            { label: "Select contracting…", value: "" },
             ...contractingTeamOptions.map((o) => ({
-              value: o.value,
               label: o.label,
+              value: o.value,
             })),
           ]}
-          onChange={(v) => updateForm("staffId", v)}
           required={salesInitial}
+          value={form.staffId}
         />
       )}
       {!salesInitial && canHeadAssignQueryTeams(access) && (
         <Select
           label="Ticketing SPOC"
-          value={form.ticketingStaffId}
+          onChange={(v) => updateForm("ticketingStaffId", v)}
           options={[
-            { value: "", label: "Select ticketing…" },
+            { label: "Select ticketing…", value: "" },
             ...ticketingTeamOptions.map((o) => ({
-              value: o.value,
               label: o.label,
+              value: o.value,
             })),
           ]}
-          onChange={(v) => updateForm("ticketingStaffId", v)}
+          value={form.ticketingStaffId}
         />
       )}
       <Select
         label="Ticketing Scope"
-        value={form.ticketingScope}
-        options={TICKETING_SCOPE_SELECT_OPTIONS}
         onChange={(v) => updateForm("ticketingScope", v)}
+        options={TICKETING_SCOPE_SELECT_OPTIONS}
         required={salesInitial}
+        value={form.ticketingScope}
       />
-      <p className="text-sm text-brand-muted">
+      <p className="text-brand-muted text-sm">
         {salesInitial
           ? "Choose the Contracting SPOC and Ticketing Scope. Ticketing heads will assign a Ticketing SPOC when needed."
           : "Assign at least one SPOC or update Ticketing Scope. Contracting prepares land/visa costing; ticketing prepares airfare inputs for the proposal."}
@@ -162,20 +161,20 @@ export function AssignJobCardCreatorFields({ form, updateForm, queries, accounts
     <>
       <Select
         label="Query"
-        value={form.queryId}
-        options={confirmedQueryOptions(queries)}
         onChange={(v) => updateForm("queryId", v)}
+        options={confirmedQueryOptions(queries)}
         required
+        value={form.queryId}
       />
       <Select
         label="Job Card Creator"
-        value={form.staffId}
-        options={[
-          { value: "", label: "Select Accounts member..." },
-          ...accountsTeamOptions.map((o) => ({ value: o.value, label: o.label })),
-        ]}
         onChange={(v) => updateForm("staffId", v)}
+        options={[
+          { label: "Select Accounts member...", value: "" },
+          ...accountsTeamOptions.map((o) => ({ label: o.label, value: o.value })),
+        ]}
         required
+        value={form.staffId}
       />
     </>
   );
@@ -186,26 +185,26 @@ export function AddProposalCollaboratorFields({ form, updateForm, proposals, tea
     <>
       <Select
         label="Proposal"
-        value={form.proposalId || form.entityId}
+        onChange={(v) => updateForm("proposalId", v)}
         options={[
-          { value: "", label: "Select proposal..." },
+          { label: "Select proposal...", value: "" },
           ...proposals.map((p) => ({
-            value: p.id,
             label: `${p.proposalCode} - ${p.clientName}`,
+            value: p.id,
           })),
         ]}
-        onChange={(v) => updateForm("proposalId", v)}
         required
+        value={form.proposalId || form.entityId}
       />
       <Select
         label="Collaborator"
-        value={form.staffId}
-        options={[
-          { value: "", label: "Select team member..." },
-          ...team.map((member) => ({ value: member.id, label: member.name })),
-        ]}
         onChange={(v) => updateForm("staffId", v)}
+        options={[
+          { label: "Select team member...", value: "" },
+          ...team.map((member) => ({ label: member.name, value: member.id })),
+        ]}
         required
+        value={form.staffId}
       />
     </>
   );
@@ -222,23 +221,23 @@ export function RemoveProposalCollaboratorFields({
     <>
       <Select
         label="Proposal"
-        value={selectedProposalId}
+        onChange={(v) => updateForm("proposalId", v)}
         options={[
-          { value: "", label: "Select proposal..." },
+          { label: "Select proposal...", value: "" },
           ...proposals.map((p) => ({
-            value: p.id,
             label: `${p.proposalCode} - ${p.clientName}`,
+            value: p.id,
           })),
         ]}
-        onChange={(v) => updateForm("proposalId", v)}
         required
+        value={selectedProposalId}
       />
       <Select
         label="Collaborator"
-        value={form.staffId}
-        options={[{ value: "", label: "Select collaborator..." }, ...proposalCollaboratorOptions]}
         onChange={(v) => updateForm("staffId", v)}
+        options={[{ label: "Select collaborator...", value: "" }, ...proposalCollaboratorOptions]}
         required
+        value={form.staffId}
       />
     </>
   );
@@ -255,20 +254,20 @@ export function AddJobCardCollaboratorFields({
     <>
       <Select
         label="Job Card"
-        value={form.jobCardId || form.entityId}
-        options={jobCardSelectOptions(jobCards, { required: true })}
         onChange={handleJobCardSelect}
+        options={jobCardSelectOptions(jobCards, { required: true })}
         required
+        value={form.jobCardId || form.entityId}
       />
       <Select
         label="Collaborator"
-        value={form.staffId}
-        options={[
-          { value: "", label: "Select team member..." },
-          ...team.map((member) => ({ value: member.id, label: member.name })),
-        ]}
         onChange={(v) => updateForm("staffId", v)}
+        options={[
+          { label: "Select team member...", value: "" },
+          ...team.map((member) => ({ label: member.name, value: member.id })),
+        ]}
         required
+        value={form.staffId}
       />
     </>
   );
@@ -286,17 +285,17 @@ export function RemoveJobCardCollaboratorFields({
     <>
       <Select
         label="Job Card"
-        value={selectedJobCardId}
-        options={jobCardSelectOptions(jobCards, { required: true })}
         onChange={handleJobCardSelect}
+        options={jobCardSelectOptions(jobCards, { required: true })}
         required
+        value={selectedJobCardId}
       />
       <Select
         label="Collaborator"
-        value={form.staffId}
-        options={[{ value: "", label: "Select collaborator..." }, ...jobCardCollaboratorOptions]}
         onChange={(v) => updateForm("staffId", v)}
+        options={[{ label: "Select collaborator...", value: "" }, ...jobCardCollaboratorOptions]}
         required
+        value={form.staffId}
       />
     </>
   );
@@ -313,20 +312,20 @@ export function AssignContractingOwnerFields({
     <>
       <Select
         label="Job Card"
-        value={form.jobCardId}
-        options={jobCardSelectOptions(jobCards, { required: true })}
         onChange={handleJobCardSelect}
+        options={jobCardSelectOptions(jobCards, { required: true })}
         required
+        value={form.jobCardId}
       />
       <Select
         label="Contracting SPOC"
-        value={form.staffId}
-        options={[
-          { value: "", label: "Select team member…" },
-          ...contractingTeamOptions.map((o) => ({ value: o.value, label: o.label })),
-        ]}
         onChange={(v) => updateForm("staffId", v)}
+        options={[
+          { label: "Select team member…", value: "" },
+          ...contractingTeamOptions.map((o) => ({ label: o.label, value: o.value })),
+        ]}
         required
+        value={form.staffId}
       />
     </>
   );
@@ -343,20 +342,20 @@ export function AssignOperationsOwnerFields({
     <>
       <Select
         label="Job Card"
-        value={form.jobCardId}
-        options={jobCardSelectOptions(jobCards, { required: true })}
         onChange={handleJobCardSelect}
+        options={jobCardSelectOptions(jobCards, { required: true })}
         required
+        value={form.jobCardId}
       />
       <Select
         label="Operations Owner"
-        value={form.staffId}
-        options={[
-          { value: "", label: "Select team member…" },
-          ...operationsTeamOptions.map((o) => ({ value: o.value, label: o.label })),
-        ]}
         onChange={(v) => updateForm("staffId", v)}
+        options={[
+          { label: "Select team member…", value: "" },
+          ...operationsTeamOptions.map((o) => ({ label: o.label, value: o.value })),
+        ]}
         required
+        value={form.staffId}
       />
     </>
   );
@@ -374,32 +373,32 @@ export function AssignTicketingOwnerFields({
     <>
       <Select
         label="Job Card"
-        value={form.jobCardId}
-        options={jobCardSelectOptions(jobCards, { required: true })}
         onChange={handleJobCardSelect}
+        options={jobCardSelectOptions(jobCards, { required: true })}
         required
+        value={form.jobCardId}
       />
-      <div className="md:col-span-2 flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end gap-3 md:col-span-2">
         <div className="min-w-[240px] flex-1">
           <Select
             label="Ticketing Owner"
-            value={form.staffId}
+            onChange={(v) => updateForm("staffId", v)}
             options={[
-              { value: "", label: "Select team member…" },
+              { label: "Select team member…", value: "" },
               ...ticketingTeamOptions.map((o) => ({
-                value: o.value,
                 label: o.label,
+                value: o.value,
               })),
             ]}
-            onChange={(v) => updateForm("staffId", v)}
             required
+            value={form.staffId}
           />
         </div>
         {canAssignTicketing(access) && access?.staffId && (
           <button
-            type="button"
             className="portal-outline-btn mb-1 transition-transform duration-150 ease-out active:scale-[0.96]"
             onClick={() => updateForm("staffId", access.staffId)}
+            type="button"
           >
             Assign to me
           </button>

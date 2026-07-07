@@ -46,19 +46,19 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const bootstrapListFilterConfig = getListFilterConfig(view, { pipelineMode: "sales" });
   const initialUrlFilters = parseUrlFilterState(searchParams, bootstrapListFilterConfig);
   const [workspace, patchWorkspace, , dispatchWorkspace] = usePatchReducer({
-    modal: null,
-    form: INITIAL_FORM,
-    pendingQueryFiles: [],
-    pendingProposalFiles: [],
-    pendingExpenseProofFiles: [],
-    error: "",
-    isSaving: false,
-    pipelineMode: "sales",
-    search: initialUrlFilters.search,
     dateRange: initialUrlFilters.dateRange,
+    error: "",
+    form: INITIAL_FORM,
+    isSaving: false,
     jobCardFilter: initialUrlFilters.jobCardFilter,
     listFilters: initialUrlFilters.listFilters,
+    modal: null,
     passportExpiryByTraveller: {},
+    pendingExpenseProofFiles: [],
+    pendingProposalFiles: [],
+    pendingQueryFiles: [],
+    pipelineMode: "sales",
+    search: initialUrlFilters.search,
   });
   const {
     modal,
@@ -122,89 +122,88 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
 
   const summary = useQuery(
     api.crm.dashboard.getPortalSummary,
-    canFetch && allowed && view === "dashboard" ? { dateRange: dateRangeArg } : "skip",
+    canFetch && allowed && view === "dashboard" ? { dateRange: dateRangeArg } : "skip"
   );
   const savedViews = useQuery(
     api.crm.savedViews.listForPortal,
-    canFetch && allowed ? { view } : "skip",
+    canFetch && allowed ? { view } : "skip"
   );
   const createSavedView = useMutation(api.crm.savedViews.create);
   const updateSavedView = useMutation(api.crm.savedViews.update);
   const removeSavedView = useMutation(api.crm.savedViews.remove);
   const queries = useQuery(
     api.crm.queries.list,
-    canFetch &&
-      (has(P.VIEW_QUERIES) || has(P.VIEW_CONTRACTING) || has(P.MANAGE_JOB_CARDS))
+    canFetch && (has(P.VIEW_QUERIES) || has(P.VIEW_CONTRACTING) || has(P.MANAGE_JOB_CARDS))
       ? {}
-      : "skip",
+      : "skip"
   );
   const proposals = useQuery(
     api.crm.proposals.list,
-    canFetch && (has(P.VIEW_PROPOSALS) || has(P.VIEW_CONTRACTING)) ? {} : "skip",
+    canFetch && (has(P.VIEW_PROPOSALS) || has(P.VIEW_CONTRACTING)) ? {} : "skip"
   );
   const jobCards = useQuery(api.crm.jobCards.list, canFetch && has(P.VIEW_JOB_CARDS) ? {} : "skip");
   const travellers = useQuery(
     api.crm.travellers.list,
-    canFetch && has(P.VIEW_TRAVELLERS) ? {} : "skip",
+    canFetch && has(P.VIEW_TRAVELLERS) ? {} : "skip"
   );
   const visas = useQuery(api.crm.visa.list, canFetch && has(P.VIEW_VISA) ? {} : "skip");
   const ticketDashboard = useQuery(
     api.crm.ticketing.dashboard,
-    canFetch && has(P.VIEW_TICKETING) ? { dateRange: dateRangeArg } : "skip",
+    canFetch && has(P.VIEW_TICKETING) ? { dateRange: dateRangeArg } : "skip"
   );
   const pnrs = useQuery(
     api.crm.ticketing.listPnrs,
-    canFetch && has(P.VIEW_TICKETING) ? {} : "skip",
+    canFetch && has(P.VIEW_TICKETING) ? {} : "skip"
   );
   const tickets = useQuery(
     api.crm.ticketing.listTickets,
-    canFetch && has(P.VIEW_TICKETING) ? {} : "skip",
+    canFetch && has(P.VIEW_TICKETING) ? {} : "skip"
   );
   const seats = useQuery(
     api.crm.ticketing.listSeatAllocations,
-    canFetch && has(P.VIEW_TICKETING) ? {} : "skip",
+    canFetch && has(P.VIEW_TICKETING) ? {} : "skip"
   );
   const flightItinerary = useQuery(
     api.crm.imports.listFlightItinerary,
-    canFetch && has(P.VIEW_TICKETING) ? {} : "skip",
+    canFetch && has(P.VIEW_TICKETING) ? {} : "skip"
   );
   const hotels = useQuery(api.crm.ops.listHotels, canFetch && has(P.VIEW_OPERATIONS) ? {} : "skip");
   const tourManagers = useQuery(
     api.crm.ops.listTourManagers,
-    canFetch && has(P.VIEW_TOUR_MANAGERS) ? {} : "skip",
+    canFetch && has(P.VIEW_TOUR_MANAGERS) ? {} : "skip"
   );
   const invoices = useQuery(
     api.crm.finance.listInvoices,
-    canFetch && has(P.VIEW_FINANCE) ? {} : "skip",
+    canFetch && has(P.VIEW_FINANCE) ? {} : "skip"
   );
   const expenses = useQuery(
     api.crm.finance.listExpenses,
-    canFetch && (has(P.VIEW_EXPENSES) || deepLinkOpen === "approval") ? {} : "skip",
+    canFetch && (has(P.VIEW_EXPENSES) || deepLinkOpen === "approval") ? {} : "skip"
   );
   const financeOverview = useQuery(
     api.crm.finance.getFinanceOverview,
-    canFetch && has(P.VIEW_FINANCE) && view === "finance" ? { dateRange: dateRangeArg } : "skip",
+    canFetch && has(P.VIEW_FINANCE) && view === "finance" ? { dateRange: dateRangeArg } : "skip"
   );
   const approvals = useQuery(
     api.crm.approvals.list,
-    canFetch && has(P.VIEW_APPROVALS) ? {} : "skip",
+    canFetch && has(P.VIEW_APPROVALS) ? {} : "skip"
   );
   const reports = useQuery(
     api.crm.reports.overview,
-    canFetch && has(P.VIEW_REPORTS) && view === "reports" ? { dateRange: dateRangeArg } : "skip",
+    canFetch && has(P.VIEW_REPORTS) && view === "reports" ? { dateRange: dateRangeArg } : "skip"
   );
   const teamDirectory = useQuery(
     api.crm.staff.listDirectory,
-    canFetch && has(P.VIEW_TEAM) ? {} : "skip",
+    canFetch && has(P.VIEW_TEAM) ? {} : "skip"
   );
   const teamPicker = useQuery(
     api.crm.staff.listTeamOptions,
-    canFetch && !has(P.VIEW_TEAM) && canUseTeamPicker(access) ? {} : "skip",
+    canFetch && !has(P.VIEW_TEAM) && canUseTeamPicker(access) ? {} : "skip"
   );
   const team = teamDirectory ?? teamPicker ?? [];
   const activity = useQuery(
     api.crm.activity.listActivity,
-    canFetch && has(P.VIEW_ACTIVITY) ? { limit: 80 } : "skip",
+    canFetch && has(P.VIEW_ACTIVITY) ? { limit: 80 } : "skip"
   );
   const leaves = useQuery(api.crm.leave.list, canFetch && has(P.VIEW_LEAVE) ? {} : "skip");
   const leaveBalanceArgs =
@@ -221,20 +220,20 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const leaveBalances = useQuery(api.crm.leave.balances, leaveBalanceArgs ?? "skip");
   const notifications = useQuery(
     api.crm.activity.listNotifications,
-    canFetch ? { limit: 80 } : "skip",
+    canFetch ? { limit: 80 } : "skip"
   );
   const dropdowns = useQuery(
     api.crm.settings.listDropdowns,
-    canFetch && view === "settings" && has(P.MANAGE_STAFF) ? {} : "skip",
+    canFetch && view === "settings" && has(P.MANAGE_STAFF) ? {} : "skip"
   );
   const staff = useQuery(api.crm.staff.listStaff, canFetch && has(P.MANAGE_STAFF) ? {} : "skip");
   const accountsJobCardCreators = useQuery(
     api.crm.staff.listAccountsForJobCards,
-    canFetch && view === "accounts-job-cards" && has(P.MANAGE_JOB_CARDS) ? {} : "skip",
+    canFetch && view === "accounts-job-cards" && has(P.MANAGE_JOB_CARDS) ? {} : "skip"
   );
   const leaveHeadApproverCandidates = useQuery(
     api.crm.leaveApprovers.listHeadApproverCandidates,
-    canFetch && has(P.MANAGE_STAFF) ? {} : "skip",
+    canFetch && has(P.MANAGE_STAFF) ? {} : "skip"
   );
   const createQuery = useMutation(api.crm.queries.create);
   const updateQuery = useMutation(api.crm.queries.update);
@@ -281,7 +280,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const getProposalAttachmentUrl = useAction(api.crm.proposalAttachmentActions.getDownloadUrl);
   const removeProposalAttachment = useAction(api.crm.proposalAttachmentActions.removeAttachment);
   const generateFinalizedPdfUploadUrl = useAction(
-    api.crm.proposalAttachmentActions.generateFinalizedPdfUploadUrl,
+    api.crm.proposalAttachmentActions.generateFinalizedPdfUploadUrl
   );
   const attachFinalizedPdf = useAction(api.crm.proposalAttachmentActions.attachFinalizedPdf);
   const getFinalizedPdfUrl = useAction(api.crm.proposalAttachmentActions.getFinalizedPdfUrl);
@@ -293,7 +292,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const startStaffOnboarding = useAction(api.crm.staffAction.startStaffOnboarding);
   const travellersWithoutVisa = useQuery(
     api.crm.visa.listTravellersWithoutVisa,
-    canFetch && has(P.VIEW_VISA) && (modal === "visa_create" || view === "visa") ? {} : "skip",
+    canFetch && has(P.VIEW_VISA) && (modal === "visa_create" || view === "visa") ? {} : "skip"
   );
   const createPnr = useMutation(api.crm.ticketing.createPnr);
   const updatePnr = useMutation(api.crm.ticketing.updatePnr);
@@ -301,17 +300,17 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const commitPassengerImport = useAction(api.crm.importActions.commitPassengerImport);
   const getPassengerExportRows = useAction(api.crm.importActions.getPassengerExportRows);
   const getTravellerPassportExpiryDates = useAction(
-    api.crm.passportActions.getTravellerPassportExpiryDates,
+    api.crm.passportActions.getTravellerPassportExpiryDates
   );
 
   const canViewTravellers = Boolean(access?.permissions?.includes(P.VIEW_TRAVELLERS));
 
   useEffect(() => {
-    if (!canFetch || !canViewTravellers) {
-      return undefined;
+    if (!(canFetch && canViewTravellers)) {
+      return;
     }
     if (view !== "travellers" && view !== "passport") {
-      return undefined;
+      return;
     }
 
     let cancelled = false;
@@ -319,16 +318,16 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
       .then((dates) => {
         if (!cancelled) {
           dispatchWorkspace({
-            type: "patch",
             patch: { passportExpiryByTraveller: dates || {} },
+            type: "patch",
           });
         }
       })
       .catch(() => {
         if (!cancelled) {
           dispatchWorkspace({
-            type: "patch",
             patch: { passportExpiryByTraveller: {} },
+            type: "patch",
           });
         }
       });
@@ -346,12 +345,12 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   ]);
 
   const travellerRows = travellers || [];
-  const travellersWithPassportExpiry = !Object.keys(passportExpiryByTraveller).length
-    ? travellerRows
-    : travellerRows.map((row) => ({
+  const travellersWithPassportExpiry = Object.keys(passportExpiryByTraveller).length
+    ? travellerRows.map((row) => ({
         ...row,
         passportExpiryDate: passportExpiryByTraveller[row.id] ?? row.passportExpiryDate ?? "",
-      }));
+      }))
+    : travellerRows;
   const commitFlightImport = useMutation(api.crm.imports.commitFlightImport);
   const createTicket = useMutation(api.crm.ticketing.createTicket);
   const updateTicket = useMutation(api.crm.ticketing.updateTicket);
@@ -395,30 +394,30 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
 
   const periodFiltered = {
-    queries: filterByDateRange(queries || [], dateRange, "createdAt"),
-    proposals: filterByDateRange(proposals || [], dateRange, "createdAt"),
-    jobCards: filterByDateRange(jobCards || [], dateRange, "createdAt"),
-    travellers: filterByDateRange(travellersWithPassportExpiry, dateRange, "createdAt"),
-    visas: filterByDateRange(visas || [], dateRange, "createdAt"),
-    pnrs: filterByDateRange(pnrs || [], dateRange, "createdAt"),
-    tickets: filterByDateRange(tickets || [], dateRange, "createdAt"),
-    seats: filterByDateRange(seats || [], dateRange, "createdAt"),
-    flightItinerary: filterByDateRange(flightItinerary || [], dateRange, "departureDate"),
-    hotels: filterByDateRange(hotels || [], dateRange, "createdAt"),
-    tourManagers: filterByDateRange(tourManagers || [], dateRange, "createdAt"),
-    invoices: filterByDateRange(invoices || [], dateRange, "createdAt"),
+    activity: filterByDateRange(activity || [], dateRange, "createdAt"),
+    approvals: filterByDateRange(approvals || [], dateRange, "createdAt"),
     expenses: filterByDateRange(
       (expenses || []).map((row) => ({
         ...row,
         periodDate: row.expenseDate || row.createdAt,
       })),
       dateRange,
-      "periodDate",
+      "periodDate"
     ),
-    approvals: filterByDateRange(approvals || [], dateRange, "createdAt"),
+    flightItinerary: filterByDateRange(flightItinerary || [], dateRange, "departureDate"),
+    hotels: filterByDateRange(hotels || [], dateRange, "createdAt"),
+    invoices: filterByDateRange(invoices || [], dateRange, "createdAt"),
+    jobCards: filterByDateRange(jobCards || [], dateRange, "createdAt"),
     leaves: filterByDateRange(leaves || [], dateRange, "createdAt"),
-    activity: filterByDateRange(activity || [], dateRange, "createdAt"),
     notifications: filterByDateRange(notifications || [], dateRange, "createdAt"),
+    pnrs: filterByDateRange(pnrs || [], dateRange, "createdAt"),
+    proposals: filterByDateRange(proposals || [], dateRange, "createdAt"),
+    queries: filterByDateRange(queries || [], dateRange, "createdAt"),
+    seats: filterByDateRange(seats || [], dateRange, "createdAt"),
+    tickets: filterByDateRange(tickets || [], dateRange, "createdAt"),
+    tourManagers: filterByDateRange(tourManagers || [], dateRange, "createdAt"),
+    travellers: filterByDateRange(travellersWithPassportExpiry, dateRange, "createdAt"),
+    visas: filterByDateRange(visas || [], dateRange, "createdAt"),
   };
 
   const filtersActive =
@@ -428,139 +427,138 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     hasActiveListFilters(listFilters, listFilterConfig);
 
   const filteredQueries = pipeViewRows(periodFiltered.queries, {
-    view: "queries",
     dateRange,
+    filterConfig: listFilterConfig,
     jobCardFilter,
     listFilters,
-    filterConfig: listFilterConfig,
     search,
     searchKeys: ["queryCode", "clientName", "destination", "queryType", "salesOwnerName"],
+    view: "queries",
   });
   const filteredPipelineQueries = pipeViewRows(periodFiltered.queries, {
-    view: "pipeline",
     dateRange,
+    filterConfig: listFilterConfig,
     jobCardFilter,
     listFilters,
-    filterConfig: listFilterConfig,
     search,
     searchKeys: ["queryCode", "clientName", "destination", "queryType", "salesOwnerName"],
+    view: "pipeline",
   });
   const filteredContractingQueries = pipeViewRows(periodFiltered.queries, {
-    view: "contracting",
     dateRange,
+    filterConfig: getListFilterConfig("contracting"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("contracting"),
     search,
     searchKeys: ["queryCode", "clientName", "destination", "queryType"],
+    view: "contracting",
   });
   const filteredProposals = pipeViewRows(periodFiltered.proposals, {
-    view: "proposals",
     dateRange,
+    filterConfig: getListFilterConfig("proposals"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("proposals"),
     search,
     searchKeys: ["proposalCode", "clientName", "preparedBy"],
+    view: "proposals",
   });
   const filteredAccountsQueries = pipeViewRows(periodFiltered.queries, {
-    view: "accounts-job-cards",
     dateRange,
+    filterConfig: getListFilterConfig("accounts-job-cards"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("accounts-job-cards"),
     search,
     searchKeys: ["queryCode", "clientName", "destination"],
+    view: "accounts-job-cards",
   });
   const filteredJobCards = pipeViewRows(periodFiltered.jobCards, {
-    view: "job-cards",
     dateRange,
+    filterConfig: getListFilterConfig("job-cards"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("job-cards"),
     search,
     searchKeys: ["jobCode", "clientName", "destination"],
+    view: "job-cards",
   });
   const filteredTravellers = pipeViewRows(periodFiltered.travellers, {
-    view: "travellers",
     dateRange,
+    filterConfig: getListFilterConfig("travellers"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("travellers"),
     search,
     searchKeys: ["fullName", "jobCode", "travelHub", "sourceDealerName", "travelBatchReference"],
+    view: "travellers",
   });
   const filteredPassportTravellers = pipeViewRows(periodFiltered.travellers, {
-    view: "passport",
     dateRange,
+    filterConfig: getListFilterConfig("passport"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("passport"),
     search,
     searchKeys: ["fullName", "jobCode", "travelHub", "passportStatus", "travelBatchReference"],
+    view: "passport",
   });
   const filteredVisas = pipeViewRows(periodFiltered.visas, {
-    view: "visa",
     dateRange,
+    filterConfig: getListFilterConfig("visa"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("visa"),
     search,
     searchKeys: ["travellerName", "jobCode", "travelHub", "status"],
+    view: "visa",
   });
   const filteredTickets = pipeViewRows(periodFiltered.tickets, {
-    view: "ticketing",
     dateRange,
+    filterConfig: getListFilterConfig("ticketing"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("ticketing"),
     search,
     searchKeys: ["travellerName", "jobCode", "ticketNumber", "pnrCode"],
+    view: "ticketing",
   });
   const filteredPnrs = pipeViewRows(periodFiltered.pnrs, {
-    view: "flights",
     dateRange,
+    filterConfig: getListFilterConfig("flights"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("flights"),
     search,
     searchKeys: ["pnrCode", "airline", "route", "jobCode"],
+    view: "flights",
   });
   const filteredAllTickets = pipeViewRows(periodFiltered.tickets, {
-    view: "tickets",
     dateRange,
+    filterConfig: getListFilterConfig("tickets"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("tickets"),
     search,
     searchKeys: ["ticketNumber", "travellerName", "jobCode", "pnrCode"],
+    view: "tickets",
   });
   const filteredSeats = pipeViewRows(periodFiltered.seats, {
-    view: "seat-allocation",
     dateRange,
+    filterConfig: getListFilterConfig("seat-allocation"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("seat-allocation"),
     search,
     searchKeys: ["seatNumber", "jobCode"],
+    view: "seat-allocation",
   });
   const filteredHotels = pipeViewRows(periodFiltered.hotels, {
-    view: "hotels",
     dateRange,
+    filterConfig: [],
     jobCardFilter,
     listFilters: {},
-    filterConfig: [],
     search,
     searchKeys: ["name", "city", "jobCode"],
+    view: "hotels",
   });
   const filteredRoomingTravellers = pipeViewRows(
     periodFiltered.travellers.filter((row) => row.roomType || row.hotelAllocation),
     {
-      view: "hotels",
       dateRange,
+      filterConfig: getListFilterConfig("hotels"),
       jobCardFilter,
       listFilters,
-      filterConfig: getListFilterConfig("hotels"),
       search,
       searchKeys: [
         "fullName",
@@ -570,74 +568,74 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
         "roomType",
         "travelBatchReference",
       ],
-    },
+      view: "hotels",
+    }
   );
   const filteredTourManagers = pipeViewRows(periodFiltered.tourManagers, {
-    view: "tour-managers",
     dateRange,
+    filterConfig: getListFilterConfig("tour-managers"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("tour-managers"),
     search,
     searchKeys: ["name", "email", "phone", "jobCode"],
+    view: "tour-managers",
   });
   const filteredInvoices = pipeViewRows(periodFiltered.invoices, {
-    view: "finance",
     dateRange,
+    filterConfig: getListFilterConfig("finance"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("finance"),
     search,
     searchKeys: ["invoiceNumber", "jobCode"],
+    view: "finance",
   });
   const filteredExpenses = pipeViewRows(periodFiltered.expenses, {
-    view: "expenses",
     dateRange,
+    filterConfig: getListFilterConfig("expenses"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("expenses"),
     search,
     searchKeys: ["particulars", "paidBy", "tourManagerName", "jobCode"],
+    view: "expenses",
   });
   const filteredApprovals = pipeViewRows(periodFiltered.approvals, {
-    view: "approvals",
     dateRange,
+    filterConfig: getListFilterConfig("approvals"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("approvals"),
     search,
     searchKeys: ["requestCode", "summary", "requestedByName", "type"],
+    view: "approvals",
   });
   const filteredLeaves = pipeViewRows(periodFiltered.leaves, {
-    view: "employees-on-leave",
     dateRange,
+    filterConfig: getListFilterConfig("employees-on-leave"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("employees-on-leave"),
     search,
     searchKeys: ["staffName", "staffEmail", "department", "reason", "leaveType", "status"],
+    view: "employees-on-leave",
   });
   const filteredActivity = pipeViewRows(periodFiltered.activity, {
-    view: "activity",
     dateRange,
+    filterConfig: getListFilterConfig("activity"),
     jobCardFilter,
     listFilters,
-    filterConfig: getListFilterConfig("activity"),
     search,
     searchKeys: ["action", "summary", "entityType", "actorName"],
+    view: "activity",
   });
   const filteredTeam = pipeViewRows(team || [], {
-    view: "team",
     dateRange: EMPTY_DATE_RANGE,
+    filterConfig: getListFilterConfig("team"),
     jobCardFilter: "",
     listFilters,
-    filterConfig: getListFilterConfig("team"),
     search,
     searchKeys: ["name", "email", "department", "function", "location", "mobile", "roles"],
+    view: "team",
   });
-  const filteredStaff = !staff
-    ? staff
-    : filterRows(staff, search, [
+  const filteredStaff = staff
+    ? filterRows(staff, search, [
         "name",
         "email",
         "department",
@@ -646,35 +644,38 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
         "mobile",
         "roles",
         "onboardingStatus",
-      ]);
+      ])
+    : staff;
 
   const viewResultCountMap = buildViewResultCountMap({
-    filteredQueries,
-    filteredPipelineQueries,
-    filteredContractingQueries,
-    filteredProposals,
     filteredAccountsQueries,
-    filteredJobCards,
-    filteredTravellers,
-    filteredPassportTravellers,
-    filteredVisas,
-    filteredTickets,
-    filteredPnrs,
-    filteredAllTickets,
-    filteredSeats,
-    filteredRoomingTravellers,
-    filteredTourManagers,
-    filteredInvoices,
-    filteredExpenses,
-    filteredApprovals,
-    filteredLeaves,
-    filteredTeam,
     filteredActivity,
+    filteredAllTickets,
+    filteredApprovals,
+    filteredContractingQueries,
+    filteredExpenses,
+    filteredInvoices,
+    filteredJobCards,
+    filteredLeaves,
+    filteredPassportTravellers,
+    filteredPipelineQueries,
+    filteredPnrs,
+    filteredProposals,
+    filteredQueries,
+    filteredRoomingTravellers,
+    filteredSeats,
+    filteredTeam,
+    filteredTickets,
+    filteredTourManagers,
+    filteredTravellers,
+    filteredVisas,
   });
   const viewResultCount = getViewResultCount(view, viewResultCountMap);
 
   const replaceFilterUrl = (nextFilters) => {
-    if (!allowed) return;
+    if (!allowed) {
+      return;
+    }
     const params = serializeUrlFilterState(nextFilters, listFilterConfig, {
       preserveDeepLink: Boolean(modal),
       searchParams,
@@ -692,10 +693,10 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
 
   const clearAllFilters = () => {
     const clearedFilters = {
-      search: "",
       dateRange: EMPTY_DATE_RANGE,
       jobCardFilter: "",
       listFilters: {},
+      search: "",
     };
     setSearch(clearedFilters.search);
     setJobCardFilter(clearedFilters.jobCardFilter);
@@ -707,19 +708,19 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const setSearchWithUrl = (value) => {
     const nextSearch = typeof value === "function" ? value(search) : value;
     setSearch(nextSearch);
-    replaceFilterUrl({ search: nextSearch, dateRange, jobCardFilter, listFilters });
+    replaceFilterUrl({ dateRange, jobCardFilter, listFilters, search: nextSearch });
   };
 
   const setDateRangeWithUrl = (value) => {
     const nextDateRange = typeof value === "function" ? value(dateRange) : value;
     setDateRange(nextDateRange);
-    replaceFilterUrl({ search, dateRange: nextDateRange, jobCardFilter, listFilters });
+    replaceFilterUrl({ dateRange: nextDateRange, jobCardFilter, listFilters, search });
   };
 
   const setJobCardFilterWithUrl = (value) => {
     const nextJobCardFilter = typeof value === "function" ? value(jobCardFilter) : value;
     setJobCardFilter(nextJobCardFilter);
-    replaceFilterUrl({ search, dateRange, jobCardFilter: nextJobCardFilter, listFilters });
+    replaceFilterUrl({ dateRange, jobCardFilter: nextJobCardFilter, listFilters, search });
   };
 
   const setListFilterValue = (field, value) => {
@@ -730,7 +731,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
       } else {
         delete next[field];
       }
-      replaceFilterUrl({ search, dateRange, jobCardFilter, listFilters: next });
+      replaceFilterUrl({ dateRange, jobCardFilter, listFilters: next, search });
       return next;
     });
   };
@@ -746,44 +747,44 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
 
   const saveCurrentView = async (name, options = {}) => {
     const input = currentFiltersToSavedViewInput({
-      view,
-      pathname,
-      search,
       dateRange,
+      filterConfig: listFilterConfig,
       jobCardFilter,
       listFilters,
-      filterConfig: listFilterConfig,
+      pathname,
+      search,
+      view,
     });
     return await runMutation({ showToast: toast, successMessage: "Saved view created." }, () =>
       createSavedView({
         ...input,
-        name,
-        sharedRole: options.sharedRole || undefined,
         isFavorite: options.isFavorite ?? true,
         isPinnedToDashboard: options.isPinnedToDashboard ?? false,
-      }),
+        name,
+        sharedRole: options.sharedRole || undefined,
+      })
     );
   };
 
   const deleteSavedView = async (savedViewId) =>
     await runMutation({ showToast: toast, successMessage: "Saved view deleted." }, () =>
-      removeSavedView({ savedViewId }),
+      removeSavedView({ savedViewId })
     );
 
   const toggleSavedViewFavorite = async (savedView) =>
     await runMutation({ showToast: toast }, () =>
       updateSavedView({
-        savedViewId: savedView.id,
         isFavorite: !savedView.isFavorite,
-      }),
+        savedViewId: savedView.id,
+      })
     );
 
   const toggleSavedViewPinned = async (savedView) =>
     await runMutation({ showToast: toast }, () =>
       updateSavedView({
-        savedViewId: savedView.id,
         isPinnedToDashboard: !savedView.isPinnedToDashboard,
-      }),
+        savedViewId: savedView.id,
+      })
     );
 
   const savedViewLinks = (savedViews ?? []).map((savedView) => ({
@@ -794,23 +795,29 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const openModal = (type, initial = {}) => {
     setError("");
     const next = createInitialModalForm({
-      type,
+      access,
       initial,
       initialForm: INITIAL_FORM,
-      queries: queries || [],
-      proposals: proposals || [],
       jobCards: jobCards || [],
+      pnrs: pnrs || [],
+      proposals: proposals || [],
+      queries: queries || [],
       travellers: travellers || [],
       travellersWithoutVisa: travellersWithoutVisa || [],
-      pnrs: pnrs || [],
+      type,
       visas: visas || [],
-      access,
     });
     setForm(next);
     setModal(type);
-    if (type !== "query") setPendingQueryFiles([]);
-    if (type !== "proposal") setPendingProposalFiles([]);
-    if (type !== "expense") setPendingExpenseProofFiles([]);
+    if (type !== "query") {
+      setPendingQueryFiles([]);
+    }
+    if (type !== "proposal") {
+      setPendingProposalFiles([]);
+    }
+    if (type !== "expense") {
+      setPendingExpenseProofFiles([]);
+    }
   };
 
   const closeModal = () => {
@@ -821,8 +828,8 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     setPendingExpenseProofFiles([]);
     setError("");
     const params = serializeUrlFilterState(
-      { search, dateRange, jobCardFilter, listFilters },
-      listFilterConfig,
+      { dateRange, jobCardFilter, listFilters, search },
+      listFilterConfig
     );
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
@@ -839,7 +846,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const submitToContracting = async ({ queryId }) => {
     try {
       await runMutation({ showToast: toast, successMessage: "Submitted to Contracting" }, () =>
-        submitToContractingMutation({ queryId }),
+        submitToContractingMutation({ queryId })
       );
     } catch {
       // Toast already shown by runMutation
@@ -850,15 +857,17 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     setError("");
     const confirmMessage = options.confirmMessage || `Delete ${label}? This cannot be undone.`;
     const ok = await confirm({
-      title: "Delete record",
-      message: confirmMessage,
       confirmLabel: "Delete",
       danger: true,
+      message: confirmMessage,
+      title: "Delete record",
     });
-    if (!ok) return;
+    if (!ok) {
+      return;
+    }
     try {
       await runMutation({ label, showToast: toast, successMessage: `${label} deleted` }, () =>
-        mutation(args),
+        mutation(args)
       );
     } catch {
       // Toast already shown by runMutation
@@ -867,18 +876,22 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
 
   const deleteSelected = async (count, entityLabel, mutation, buildArgs) => {
     setError("");
-    if (count === 0) return false;
+    if (count === 0) {
+      return false;
+    }
     const noun = count === 1 ? entityLabel : `${entityLabel}s`;
     const ok = await confirm({
-      title: "Delete selected",
-      message: `Delete ${count} selected ${noun}? This cannot be undone.`,
       confirmLabel: "Delete",
       danger: true,
+      message: `Delete ${count} selected ${noun}? This cannot be undone.`,
+      title: "Delete selected",
     });
-    if (!ok) return false;
+    if (!ok) {
+      return false;
+    }
     try {
       await runMutation({ showToast: toast, successMessage: `Deleted ${count} ${noun}` }, () =>
-        mutation(buildArgs()),
+        mutation(buildArgs())
       );
       return true;
     } catch {
@@ -895,76 +908,76 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
       await runMutation(
         {
           label: "Save",
+          onError: (message) => setError(message),
           showToast: toast,
           successMessage: () => saveSuccessMessage,
-          onError: (message) => setError(message),
         },
         async () => {
           saveSuccessMessage = await executeModalCommand({
-            modal,
-            form,
             deps: {
-              has,
               access,
-              queries: queries || [],
-              team: team || [],
-              jobCardModals: JOB_CARD_MODALS,
-              pendingQueryFiles,
-              pendingProposalFiles,
-              pendingExpenseProofFiles,
-              uploadQueryFiles,
-              uploadEntityFiles,
-              uploadExpenseProofFiles,
-              generateQueryUploadUrl,
-              attachQueryFile,
-              generateProposalUploadUrl,
-              attachProposalFile,
-              generateExpenseUploadUrl,
-              attachExpenseProof,
-              createQuery,
-              updateQuery,
-              assignContracting,
-              assignQueryTicketing,
-              assignQueryTeams,
-              assignJobCardCreator,
-              assignContractingOwner,
-              assignOperationsOwner,
-              assignTicketingOwner,
-              updateQueryStatus,
-              createProposal,
-              updateProposal,
-              addProposalCollaborator,
-              removeProposalCollaborator,
-              createJobCard,
-              updateJobCard,
               addJobCardCollaborator,
-              removeJobCardCollaborator,
+              addProposalCollaborator,
+              assignContracting,
+              assignContractingOwner,
+              assignJobCardCreator,
+              assignOperationsOwner,
+              assignQueryTeams,
+              assignQueryTicketing,
+              assignTicketingOwner,
+              attachExpenseProof,
+              attachProposalFile,
+              attachQueryFile,
+              createExpense,
+              createHotel,
+              createInvoice,
+              createJobCard,
+              createLeave,
+              createPnr,
+              createProposal,
+              createQuery,
+              createTicket,
+              createTourManager,
               createTraveller,
+              createVisa,
+              decideApproval,
+              generateExpenseUploadUrl,
+              generateProposalUploadUrl,
+              generateQueryUploadUrl,
+              has,
+              jobCardModals: JOB_CARD_MODALS,
+              pendingExpenseProofFiles,
+              pendingProposalFiles,
+              pendingQueryFiles,
+              queries: queries || [],
+              removeJobCardCollaborator,
+              removeProposalCollaborator,
+              saveSeat,
+              team: team || [],
+              updateExpense,
+              updateHotel,
+              updateInvoice,
+              updateJobCard,
+              updateLeave,
+              updatePnr,
+              updateProposal,
+              updateQuery,
+              updateQueryStatus,
+              updateSeatAllocation,
+              updateTicket,
+              updateTourManager,
               updateTraveller,
               updateVisaRecord,
-              createVisa,
-              createPnr,
-              updatePnr,
-              createTicket,
-              updateTicket,
-              saveSeat,
-              updateSeatAllocation,
-              createHotel,
-              updateHotel,
-              createTourManager,
-              updateTourManager,
-              createInvoice,
-              updateInvoice,
-              createExpense,
-              updateExpense,
+              uploadEntityFiles,
+              uploadExpenseProofFiles,
+              uploadQueryFiles,
               upsertStaff,
-              createLeave,
-              updateLeave,
-              decideApproval,
             },
+            form,
+            modal,
           });
           closeModal();
-        },
+        }
       );
     } catch (err) {
       setError(err?.data || err?.message || "Unable to save.");
@@ -975,9 +988,9 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
   const gate =
     isAuthLoading || !isAuthenticated || access === undefined
       ? "loading"
-      : !allowed
-        ? "denied"
-        : "ready";
+      : allowed
+        ? "ready"
+        : "denied";
 
   const session = {
     access,
@@ -997,11 +1010,11 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     periodFiltered,
     replaceFilterUrl,
     search,
-    showJobCardFilter,
     setDateRangeWithUrl,
     setJobCardFilterWithUrl,
     setListFilterValue,
     setSearchWithUrl,
+    showJobCardFilter,
   };
   const workspaceRows = {
     accountsQueries: filteredAccountsQueries,
@@ -1043,8 +1056,8 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     applySavedView,
     clearAllFilters,
     closeModal,
-    deleteSavedView,
     deleteItem,
+    deleteSavedView,
     deleteSelected,
     openModal,
     saveCurrentView,
@@ -1067,17 +1080,17 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
 
   return {
     access,
+    accountsJobCardCreators,
     activity,
     addJobCardCollaborator,
     addProposalCollaborator,
-    accountsJobCardCreators,
     allowed,
-    approvals,
     applySavedView,
+    approvals,
     assignContracting,
-    assignQueryTicketing,
-    assignQueryTeams,
     assignJobCardCreator,
+    assignQueryTeams,
+    assignQueryTicketing,
     attachExpenseProof,
     attachFinalizedPdf,
     attachProposalFile,
@@ -1086,6 +1099,7 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     canViewTravellers,
     clearAllFilters,
     closeModal,
+    commands,
     commitFlightImport,
     commitPassengerImport,
     createExpense,
@@ -1101,16 +1115,15 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     createTraveller,
     createVisa,
     dateRange,
-    deepLinkHandledRef,
-    deleteItem,
-    deleteSavedView,
-    deleteSelected,
     decideApproval,
     decideExpenseFinance,
     decideExpenseManager,
     decideLeave,
+    deepLinkHandledRef,
+    deleteItem,
+    deleteSavedView,
+    deleteSelected,
     dropdowns,
-    flightItinerary,
     encryptAndStorePassport,
     error,
     expenses,
@@ -1137,8 +1150,10 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     filteredTourManagers,
     filteredTravellers,
     filteredVisas,
+    filters: filterState,
     filtersActive,
     financeOverview,
+    flightItinerary,
     form,
     gate,
     generateExpenseUploadUrl,
@@ -1215,28 +1230,28 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     replaceFilterUrl,
     reports,
     router,
-    saveSeat,
-    savedViews: savedViewLinks,
+    rows: workspaceRows,
     saveCurrentView,
+    savedViews: savedViewLinks,
+    saveSeat,
     search,
     searchParams,
-    session,
     seats,
     sendProposalToSales,
-    setJobCardCreatorAccess,
+    session,
     setDateRangeWithUrl,
+    setJobCardCreatorAccess,
     setJobCardFilterWithUrl,
     setListFilterValue,
     setPendingExpenseProofFiles,
     setPendingProposalFiles,
     setPendingQueryFiles,
+    setPipelineMode: _setPipelineMode,
     setSearchWithUrl,
     showJobCardFilter,
     staff,
     startStaffOnboarding,
     submit,
-    toggleSavedViewFavorite,
-    toggleSavedViewPinned,
     submitExpenseForApproval,
     submitToContracting,
     summary,
@@ -1244,6 +1259,8 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     ticketDashboard,
     tickets,
     toast,
+    toggleSavedViewFavorite,
+    toggleSavedViewPinned,
     tourManagers,
     travellerRows,
     travellers,
@@ -1271,9 +1288,5 @@ export function usePortalWorkspaceState(view = "dashboard", searchParams) {
     viewResultCount,
     visas,
     workspace: workspaceFacade,
-    rows: workspaceRows,
-    filters: filterState,
-    commands,
-    setPipelineMode: _setPipelineMode,
   };
 }

@@ -25,16 +25,16 @@ function getEncryptionKeyBytes(): Uint8Array<ArrayBuffer> | null {
 }
 
 async function importAesKey(keyBytes: Uint8Array<ArrayBuffer>) {
-  return crypto.subtle.importKey("raw", keyBytes, { name: ALGORITHM, length: 256 }, false, [
+  return crypto.subtle.importKey("raw", keyBytes, { length: 256, name: ALGORITHM }, false, [
     "decrypt",
   ]);
 }
 
 /** Decrypt passport JSON payloads in query/mutation runtime (matches convex/lib/encryption.ts). */
 export async function decryptPassportPayloadJson(
-  encryptedData: string,
+  encryptedData: string
 ): Promise<Record<string, string> | null> {
-  if (!encryptedData || !globalThis.crypto?.subtle) {
+  if (!(encryptedData && globalThis.crypto?.subtle)) {
     return null;
   }
 
@@ -65,9 +65,9 @@ export async function decryptPassportPayloadJson(
   try {
     const cryptoKey = await importAesKey(keyBytes);
     const decrypted = await crypto.subtle.decrypt(
-      { name: ALGORITHM, iv: ivSource },
+      { iv: ivSource, name: ALGORITHM },
       cryptoKey,
-      combinedSource,
+      combinedSource
     );
     const text = new TextDecoder().decode(decrypted);
     const parsed = JSON.parse(text);

@@ -49,21 +49,32 @@ function collectImportedBindings(source) {
     if (clause.startsWith("{")) {
       for (const part of clause.slice(1, -1).split(",")) {
         const trimmed = part.trim();
-        if (!trimmed) continue;
-        const alias = trimmed.split(/\s+as\s+/).pop()?.trim();
-        if (alias) bindings.add(alias);
+        if (!trimmed) {
+          continue;
+        }
+        const alias = trimmed
+          .split(/\s+as\s+/)
+          .pop()
+          ?.trim();
+        if (alias) {
+          bindings.add(alias);
+        }
       }
       continue;
     }
 
     if (clause.startsWith("*")) {
       const alias = clause.match(/\s+as\s+(\w+)/)?.[1];
-      if (alias) bindings.add(alias);
+      if (alias) {
+        bindings.add(alias);
+      }
       continue;
     }
 
     const defaultAlias = clause.split(",")[0]?.trim();
-    if (defaultAlias) bindings.add(defaultAlias);
+    if (defaultAlias) {
+      bindings.add(defaultAlias);
+    }
   }
 
   return bindings;
@@ -87,7 +98,9 @@ function collectLocalBindings(source) {
   for (const match of source.matchAll(/function\s+\w+\s*\(\{([^}]*)\}/g)) {
     for (const part of match[1].split(",")) {
       const name = part.trim().split(":")[0]?.trim();
-      if (name && /^[A-Z]/.test(name)) bindings.add(name);
+      if (name && /^[A-Z]/.test(name)) {
+        bindings.add(name);
+      }
     }
   }
 
@@ -95,9 +108,7 @@ function collectLocalBindings(source) {
 }
 
 function collectJsxComponents(source) {
-  return new Set(
-    [...source.matchAll(/<([A-Z][\w$]*)\b/g)].map((match) => match[1]),
-  );
+  return new Set([...source.matchAll(/<([A-Z][\w$]*)\b/g)].map((match) => match[1]));
 }
 
 describe("portal component imports", () => {
@@ -116,7 +127,7 @@ describe("portal component imports", () => {
       const jsxComponents = collectJsxComponents(source);
 
       const unresolved = [...jsxComponents]
-        .filter((name) => !imports.has(name) && !locals.has(name) && !INTRINSIC_TAGS.has(name))
+        .filter((name) => !(imports.has(name) || locals.has(name) || INTRINSIC_TAGS.has(name)))
         .sort();
 
       expect(unresolved).toEqual([]);

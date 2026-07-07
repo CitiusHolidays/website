@@ -6,15 +6,36 @@ type Tables = Record<string, Row[]>;
 
 function makeCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
-    Object.entries(initialTables).map(([table, rows]) => [table, [...rows]]),
+    Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
   ) as Tables;
   const deletedStorageIds: string[] = [];
 
   const ctx = {
     db: {
+      delete: async (id: string) => {
+        for (const [table, rows] of Object.entries(tables)) {
+          tables[table] = rows.filter((row) => row._id !== id);
+        }
+      },
+      get: async (id: string) => {
+        for (const rows of Object.values(tables)) {
+          const row = rows.find((entry) => entry._id === id);
+          if (row) {
+            return row;
+          }
+        }
+        return null;
+      },
+      insert: async (tableName: string, doc: Record<string, unknown>) => {
+        const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
+        tables[tableName] = [...(tables[tableName] ?? []), { _id: id, ...doc }];
+        return id;
+      },
+      patch: async () => {},
       query(tableName: string) {
         let rows = tables[tableName] ?? [];
         return {
+          collect: async () => [...rows],
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const q = {
@@ -25,31 +46,12 @@ function makeCtx(initialTables: Tables) {
             };
             callback(q);
             rows = rows.filter((row) =>
-              filters.every((filter) => row[filter.field] === filter.value),
+              filters.every((filter) => row[filter.field] === filter.value)
             );
             return this;
           },
-          collect: async () => [...rows],
         };
       },
-      get: async (id: string) => {
-        for (const rows of Object.values(tables)) {
-          const row = rows.find((entry) => entry._id === id);
-          if (row) return row;
-        }
-        return null;
-      },
-      delete: async (id: string) => {
-        for (const [table, rows] of Object.entries(tables)) {
-          tables[table] = rows.filter((row) => row._id !== id);
-        }
-      },
-      insert: async (tableName: string, doc: Record<string, unknown>) => {
-        const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
-        tables[tableName] = [...(tables[tableName] ?? []), { _id: id, ...doc }];
-        return id;
-      },
-      patch: async () => {},
     },
     storage: {
       delete: async (storageId: string) => {
@@ -58,7 +60,7 @@ function makeCtx(initialTables: Tables) {
     },
   };
 
-  return { ctx, tables, deletedStorageIds };
+  return { ctx, deletedStorageIds, tables };
 }
 
 describe("deleteTravellerRecord", () => {
@@ -66,30 +68,30 @@ describe("deleteTravellerRecord", () => {
     const travellerId = "traveller_1";
     const jobCardId = "job_1";
     const { ctx, tables, deletedStorageIds } = makeCtx({
-      travellers: [{ _id: travellerId, jobCardId, fullName: "Alex Guest" }],
-      jobCards: [{ _id: jobCardId, queryId: null, createdBy: "user_1" }],
+      jobCards: [{ _id: jobCardId, createdBy: "user_1", queryId: null }],
+      mealPreferences: [],
+      notifications: [],
       passportDetails: [
         {
           _id: "passport_1",
-          travellerId,
           storageId: "passport_storage_1",
+          travellerId,
         },
       ],
-      visaRecords: [],
-      tickets: [],
-      seatAllocations: [],
-      mealPreferences: [],
       roomingListEntries: [],
-      notifications: [],
+      seatAllocations: [],
+      tickets: [],
+      travellers: [{ _id: travellerId, fullName: "Alex Guest", jobCardId }],
+      visaRecords: [],
     });
 
     const access = {
-      authUserId: "user_1",
-      roles: ["Directors"],
-      name: "Director",
-      email: "director@example.com",
       allowed: true,
+      authUserId: "user_1",
+      email: "director@example.com",
+      name: "Director",
       permissions: ["manage:travellers"],
+      roles: ["Directors"],
       staffId: "staff_1",
     };
 

@@ -1,28 +1,7 @@
 "use client";
 
-import {
-  Input,
-  MultiSelect,
-  money,
-  QueryFilePicker,
-  Select,
-  Textarea,
-} from "@/components/portal/PortalModalForm";
-import {
-  CABIN_CLASSES,
-  EXPENSE_CURRENCIES,
-  EXPENSE_HEADS,
-  FOOD_PREFERENCES,
-  GUEST_TYPES,
-  LEAVE_TYPES,
-  PAYMENT_TYPES,
-  PORTAL_ROLES,
-  TICKET_STATUSES,
-  TICKET_TYPES,
-  VISA_STATUSES,
-} from "@/lib/portal/constants";
+import { Input, Select } from "@/components/portal/PortalModalForm";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
-import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
 export function EntityModalInvoiceFields({
   modal,
@@ -56,34 +35,34 @@ export function EntityModalInvoiceFields({
         <>
           <Select
             label="Job Card"
-            value={form.jobCardId}
-            options={jobCardSelectOptions(jobCards, { required: true })}
             onChange={handleJobCardSelect}
+            options={jobCardSelectOptions(jobCards, { required: true })}
             required
+            value={form.jobCardId}
           />
           <Input
             label="Invoice Number"
-            value={form.invoiceNumber}
             onChange={(v) => updateForm("invoiceNumber", v)}
             required
+            value={form.invoiceNumber}
           />
           <Input
             label="Expected Amount"
+            onChange={(v) => updateForm("expectedAmount", v)}
             type="number"
             value={form.expectedAmount}
-            onChange={(v) => updateForm("expectedAmount", v)}
           />
           <Input
             label="Received Amount"
+            onChange={(v) => updateForm("receivedAmount", v)}
             type="number"
             value={form.receivedAmount}
-            onChange={(v) => updateForm("receivedAmount", v)}
           />
           <Input
             label="Due Date"
+            onChange={(v) => updateForm("dueDate", v)}
             type="date"
             value={form.dueDate}
-            onChange={(v) => updateForm("dueDate", v)}
           />
         </>
       )}

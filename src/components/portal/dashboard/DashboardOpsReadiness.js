@@ -49,9 +49,9 @@ export function DashboardOpsReadiness({
     <div className="space-y-5">
       {personaId === "operations" ? (
         <DashboardActiveTours
-          tours={summary.activeTours}
           dateRange={dateRange}
           hasJobCards={has(P.VIEW_JOB_CARDS)}
+          tours={summary.activeTours}
         />
       ) : null}
       {!hideAggregate && rows.length ? (
@@ -61,9 +61,9 @@ export function DashboardOpsReadiness({
               <DashboardProgress
                 key={row.label}
                 label={row.label}
-                value={row.progress?.percent ?? 0}
-                tone={row.tone}
                 meta={row.progress ? `${row.progress.done} / ${row.progress.total}` : undefined}
+                tone={row.tone}
+                value={row.progress?.percent ?? 0}
               />
             ))}
           </div>

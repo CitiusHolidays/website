@@ -9,45 +9,45 @@ import ServiceCard from "../ui/ServiceCard";
 import UspElement from "../ui/UspElement";
 
 const ClientShowcase = dynamic(() => import("../ui/ClientShowcase"), {
-  ssr: false,
   loading: () => <div className="h-28 w-full" />,
+  ssr: false,
 });
 
 const PartnerShowcase = dynamic(() => import("../ui/PartnerShowcase"), {
-  ssr: false,
   loading: () => <div className="h-28 w-full" />,
+  ssr: false,
 });
 
 const TrendingDestinations = dynamic(() => import("../ui/TrendingDestinations"), {
-  ssr: false,
   loading: () => <div className="h-[460px] w-full" />,
+  ssr: false,
 });
 
 const AwardsShowcase = dynamic(() => import("../ui/AwardsShowcase"), {
-  ssr: false,
   loading: () => <div className="h-24 w-full" />,
+  ssr: false,
 });
 
 const services = [
   {
-    title: "MICE Excellence",
-    icon: Briefcase,
     description: "End-to-end management for Meetings, Incentives, Conferences & Exhibitions.",
+    icon: Briefcase,
+    title: "MICE Excellence",
   },
   {
-    title: "Global Voyages",
-    icon: Globe,
     description: "Curated global itineraries for corporate & leisure travelers.",
+    icon: Globe,
+    title: "Global Voyages",
   },
   {
-    title: "Domestic Gems",
-    icon: MapPinned,
     description: "Discover India with bespoke experiential journeys.",
+    icon: MapPinned,
+    title: "Domestic Gems",
   },
   {
-    title: "Elite Sports",
-    icon: Trophy,
     description: "Access to the world's premier sporting spectacles with VIP hospitality.",
+    icon: Trophy,
+    title: "Elite Sports",
   },
 ];
 
@@ -65,28 +65,28 @@ const usps = [
 ];
 
 const stats = [
-  { value: 15, label: "Years of Excellence" },
-  { value: 75, label: "Global Destinations" },
-  { value: 52, label: "Corporate Partners" },
-  { value: 99768, label: "Happy Travelers" },
+  { label: "Years of Excellence", value: 15 },
+  { label: "Global Destinations", value: 75 },
+  { label: "Corporate Partners", value: 52 },
+  { label: "Happy Travelers", value: 99_768 },
 ];
 
 export default function HomeMainClient() {
   return (
     <div className="relative w-full overflow-hidden bg-brand-light">
-      <AnimatedSection className="relative py-24 bg-white z-20 -mt-10 rounded-t-[3rem] border-t border-brand-border/50 shadow-[0_-20px_40px_rgba(0,0,0,0.02)]">
-        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent opacity-50" />
-        <div className="text-center mb-16">
-          <p className="text-citius-blue font-medium uppercase tracking-widest text-sm mb-2">
+      <AnimatedSection className="relative z-20 -mt-10 rounded-t-[3rem] border-brand-border/50 border-t bg-white py-24 shadow-[0_-20px_40px_rgba(0,0,0,0.02)]">
+        <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent opacity-50" />
+        <div className="mb-16 text-center">
+          <p className="mb-2 font-medium text-citius-blue text-sm uppercase tracking-widest">
             Our Impact
           </p>
-          <h2 className="font-heading text-4xl font-semibold text-brand-dark">
+          <h2 className="font-heading font-semibold text-4xl text-brand-dark">
             A Legacy of Excellence
           </h2>
         </div>
-        <div className="grid gap-12 place-items-center px-4 mx-auto max-w-6xl sm:grid-cols-2 md:grid-cols-4">
+        <div className="mx-auto grid max-w-6xl place-items-center gap-12 px-4 sm:grid-cols-2 md:grid-cols-4">
           {stats.map((s) => (
-            <AnimatedCounter key={s.label} value={s.value} label={s.label} />
+            <AnimatedCounter key={s.label} label={s.label} value={s.value} />
           ))}
         </div>
       </AnimatedSection>
@@ -95,33 +95,33 @@ export default function HomeMainClient() {
         <TrendingDestinations />
       </div>
 
-      <AnimatedSection className="py-32 bg-brand-dark text-white relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#4f46e5_1px,transparent_1px)] [background-size:32px_32px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
+      <AnimatedSection className="relative overflow-hidden bg-brand-dark py-32 text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(#4f46e5_1px,transparent_1px)] opacity-10 [background-size:32px_32px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
 
         <div className="relative z-10">
-          <div className="text-center mb-20 px-4">
-            <h2 className="font-heading text-4xl md:text-5xl font-semibold mb-6">
+          <div className="mb-20 px-4 text-center">
+            <h2 className="mb-6 font-heading font-semibold text-4xl md:text-5xl">
               Curated Services
             </h2>
-            <p className="text-slate-400 max-w-2xl mx-auto text-lg font-light">
+            <p className="mx-auto max-w-2xl font-light text-lg text-slate-400">
               Experience tailored solutions designed for the modern traveler and corporate entity.
             </p>
           </div>
 
-          <div className="grid gap-6 px-4 mx-auto max-w-7xl sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:grid-cols-2 lg:grid-cols-4">
             {services.map((service) => (
               <ServiceCard
+                description={service.description}
+                icon={service.icon}
                 key={service.title}
                 title={service.title}
-                icon={service.icon}
-                description={service.description}
               />
             ))}
           </div>
         </div>
       </AnimatedSection>
 
-      <AnimatedSection className="py-24 bg-white">
+      <AnimatedSection className="bg-white py-24">
         <ClientShowcase />
       </AnimatedSection>
 
@@ -129,13 +129,13 @@ export default function HomeMainClient() {
         <AwardsShowcase />
       </AnimatedSection>
 
-      <AnimatedSection className="py-24 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 grid lg:grid-cols-2 gap-16 items-center">
+      <AnimatedSection className="bg-slate-50 py-24">
+        <div className="mx-auto grid max-w-7xl items-center gap-16 px-4 lg:grid-cols-2">
           <div>
-            <h2 className="font-heading text-4xl font-bold text-brand-dark mb-6">
+            <h2 className="mb-6 font-bold font-heading text-4xl text-brand-dark">
               Why Choose Citius?
             </h2>
-            <p className="text-brand-muted text-lg mb-8 leading-relaxed">
+            <p className="mb-8 text-brand-muted text-lg leading-relaxed">
               We create journeys with purpose, precision, and passion , delivering seamless,
               memorable travel experiences every single time
             </p>
@@ -145,11 +145,11 @@ export default function HomeMainClient() {
               ))}
             </div>
           </div>
-          <div className="relative h-[500px] rounded-3xl overflow-hidden shadow-2xl group">
-            <div className="absolute inset-0 bg-gradient-to-tr from-blue-900/40 to-transparent z-10" />
-            <div className="absolute inset-0 bg-[url('/gallery/aboutus.webp')] bg-cover bg-center transition-transform duration-700 group-hover:scale-105" />
-            <div className="absolute bottom-0 left-0 right-0 p-8 z-20 bg-gradient-to-t from-black/80 to-transparent">
-              <div className="text-white font-heading text-2xl italic">
+          <div className="group relative h-[500px] overflow-hidden rounded-3xl shadow-2xl">
+            <div className="absolute inset-0 z-10 bg-gradient-to-tr from-blue-900/40 to-transparent" />
+            <div className="absolute inset-0 bg-[url('/gallery/aboutus.webp')] bg-center bg-cover transition-transform duration-700 group-hover:scale-105" />
+            <div className="absolute right-0 bottom-0 left-0 z-20 bg-gradient-to-t from-black/80 to-transparent p-8">
+              <div className="font-heading text-2xl text-white italic">
                 &quot;Travel is the only thing you buy that makes you richer.&quot;
               </div>
             </div>
@@ -161,22 +161,22 @@ export default function HomeMainClient() {
         <PartnerShowcase />
       </AnimatedSection>
 
-      <AnimatedSection className="relative py-32 text-center text-white overflow-hidden">
-        <div className="absolute inset-0 bg-blue-900 z-0" />
-        <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-20 mix-blend-overlay z-10" />
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 z-0" />
+      <AnimatedSection className="relative overflow-hidden py-32 text-center text-white">
+        <div className="absolute inset-0 z-0 bg-blue-900" />
+        <div className="absolute inset-0 z-10 bg-[url('/noise.svg')] opacity-20 mix-blend-overlay" />
+        <div className="absolute inset-0 z-0 bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900" />
 
-        <div className="relative z-20 max-w-3xl mx-auto px-4">
-          <h2 className="mb-8 text-4xl md:text-5xl font-heading font-bold leading-tight">
+        <div className="relative z-20 mx-auto max-w-3xl px-4">
+          <h2 className="mb-8 font-bold font-heading text-4xl leading-tight md:text-5xl">
             Ready for your next <br />
             <span className="text-emerald-100">extraordinary journey?</span>
           </h2>
-          <p className="text-blue-100 text-lg mb-10 max-w-xl mx-auto">
+          <p className="mx-auto mb-10 max-w-xl text-blue-100 text-lg">
             Let our experts craft a personalized itinerary that exceeds your expectations.
           </p>
           <Link
+            className="inline-flex items-center gap-2 rounded-full bg-white px-10 py-5 font-semibold text-blue-950 shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl"
             href="/contact"
-            className="inline-flex items-center gap-2 px-10 py-5 font-semibold text-blue-950 bg-white rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300"
           >
             Start Planning Now <ArrowRight size={18} />
           </Link>

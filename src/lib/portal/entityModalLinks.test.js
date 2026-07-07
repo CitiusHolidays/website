@@ -13,20 +13,20 @@ describe("entityModalLinks", () => {
       applyQueryLink(
         {},
         {
-          id: "query_1",
           clientName: "Acme",
-          paxCount: 12,
-          contractingLandCost: 1000,
           contractingAirlinesCost: 500,
+          contractingLandCost: 1000,
           contractingVisaCost: 125,
-        },
-      ),
+          id: "query_1",
+          paxCount: 12,
+        }
+      )
     ).toMatchObject({
-      queryId: "query_1",
-      clientName: "Acme",
-      paxCount: "12",
-      landCostPerPax: "1000",
       airfarePerPax: "500",
+      clientName: "Acme",
+      landCostPerPax: "1000",
+      paxCount: "12",
+      queryId: "query_1",
       visaCostPerPax: "125",
     });
   });
@@ -36,38 +36,38 @@ describe("entityModalLinks", () => {
       applyJobCardLink(
         {},
         {
-          id: "job_1",
-          destination: "Dubai",
           confirmedPax: 10,
-          roomCount: 5,
-          travelStartDate: "2026-08-01",
-          travelEndDate: "2026-08-08",
           contractingOwnerId: "staff_1",
           contractingOwnerName: "Contracting",
+          destination: "Dubai",
+          id: "job_1",
           operationsOwnerId: "staff_2",
           operationsOwnerName: "Operations",
+          roomCount: 5,
+          status: "In Operations",
           ticketingOwnerId: "staff_3",
           ticketingOwnerName: "Ticketing",
           tourManagerName: "TM",
-          status: "In Operations",
+          travelEndDate: "2026-08-08",
+          travelStartDate: "2026-08-01",
         },
-        "travelBatch",
-      ),
+        "travelBatch"
+      )
     ).toMatchObject({
-      jobCardId: "job_1",
-      destination: "Dubai",
       confirmedPax: "10",
-      roomCount: "5",
-      travelStartDate: "2026-08-01",
-      travelEndDate: "2026-08-08",
       contractingOwnerId: "staff_1",
       contractingOwnerName: "Contracting",
+      destination: "Dubai",
+      jobCardId: "job_1",
       operationsOwnerId: "staff_2",
       operationsOwnerName: "Operations",
+      roomCount: "5",
+      status: "In Operations",
       ticketingOwnerId: "staff_3",
       ticketingOwnerName: "Ticketing",
       tourManagerName: "TM",
-      status: "In Operations",
+      travelEndDate: "2026-08-08",
+      travelStartDate: "2026-08-01",
     });
   });
 
@@ -75,14 +75,14 @@ describe("entityModalLinks", () => {
     expect(
       applyStaffLink(
         "staff_1",
-        { name: "Nisha Shah", email: "nisha@example.com", mobile: "9999999999" },
-        "tourManager",
-      ),
+        { email: "nisha@example.com", mobile: "9999999999", name: "Nisha Shah" },
+        "tourManager"
+      )
     ).toEqual({
+      paidBy: "9999999999",
+      staffEmail: "nisha@example.com",
       staffId: "staff_1",
       tourManagerName: "Nisha Shah",
-      staffEmail: "nisha@example.com",
-      paidBy: "9999999999",
     });
   });
 
@@ -90,12 +90,12 @@ describe("entityModalLinks", () => {
     const jobCards = [
       {
         id: "job_1",
-        travelBatches: [{ id: "batch_1", batchReference: "JC-0001 / B01" }],
+        travelBatches: [{ batchReference: "JC-0001 / B01", id: "batch_1" }],
       },
       { id: "job_2", travelBatches: [] },
     ];
     expect(
-      reconcileTravelBatchSelection({ jobCardId: "job_2", travelBatchId: "batch_1" }, jobCards),
+      reconcileTravelBatchSelection({ jobCardId: "job_2", travelBatchId: "batch_1" }, jobCards)
     ).toEqual({ travelBatchId: "" });
   });
 
@@ -105,14 +105,14 @@ describe("entityModalLinks", () => {
         [
           {
             id: "job_1",
-            travelBatches: [{ id: "batch_1", batchReference: "JC-0001 / B01", batchCode: "B01" }],
+            travelBatches: [{ batchCode: "B01", batchReference: "JC-0001 / B01", id: "batch_1" }],
           },
         ],
-        "job_1",
-      ),
+        "job_1"
+      )
     ).toEqual([
-      { value: "", label: "Unbatched" },
-      { value: "batch_1", label: "JC-0001 / B01" },
+      { label: "Unbatched", value: "" },
+      { label: "JC-0001 / B01", value: "batch_1" },
     ]);
   });
 });

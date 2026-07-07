@@ -98,59 +98,59 @@ async function requireExportAccess(ctx: any, exportKind: string) {
 
 function mapPassengerExportRow(row: any) {
   let passport = {
-    number: "",
     dateOfBirth: "",
-    issueDate: "",
     expiryDate: "",
+    issueDate: "",
+    number: "",
   };
 
   if (row.encryptedPassportPayload) {
     try {
       const decrypted = decryptPassportDetails(row.encryptedPassportPayload);
       passport = {
-        number: cleanPassportField(decrypted.number),
         dateOfBirth: cleanPassportField(decrypted.dateOfBirth),
-        issueDate: cleanPassportField(decrypted.issueDate),
         expiryDate: cleanPassportField(decrypted.expiryDate),
+        issueDate: cleanPassportField(decrypted.issueDate),
+        number: cleanPassportField(decrypted.number),
       };
     } catch {
-      passport = { number: "", dateOfBirth: "", issueDate: "", expiryDate: "" };
+      passport = { dateOfBirth: "", expiryDate: "", issueDate: "", number: "" };
     }
   }
 
   return {
-    travelBatchId: row.travelBatchId,
-    travelBatchReference: row.travelBatchReference,
-    travelBatchCode: row.travelBatchCode,
-    fullName: row.fullName,
-    surname: row.surname,
-    givenName: row.givenName,
-    travelHub: row.travelHub,
+    contactNo: row.contactNo,
     foodPreference: row.foodPreference,
+    fullName: row.fullName,
+    gender: row.gender,
+    givenName: row.givenName,
+    hotelAllocation: row.hotelAllocation,
+    passport,
     paymentType: row.paymentType,
     roomType: row.roomType,
-    visaRequired: row.visaRequired,
-    visaStatus: row.visaStatus,
-    hotelAllocation: row.hotelAllocation,
-    gender: row.gender,
-    contactNo: row.contactNo,
-    specialRequests: row.specialRequests,
     sourceDealerCode: row.sourceDealerCode,
     sourceDealerName: row.sourceDealerName,
     sourceDescription: row.sourceDescription,
-    sourceSoName: row.sourceSoName,
-    sourceRsoName: row.sourceRsoName,
     sourceGroup: row.sourceGroup,
-    sourceSheet: row.sourceSheet,
     sourceRowNumber: row.sourceRowNumber,
-    willingToGo: row.cancellation || row.lastMinuteDrop ? "UNABLE TO GO" : "CONFIRMED",
+    sourceRsoName: row.sourceRsoName,
+    sourceSheet: row.sourceSheet,
+    sourceSoName: row.sourceSoName,
+    specialRequests: row.specialRequests,
+    surname: row.surname,
     ticketing: buildTicketingExport(row.tickets ?? []),
-    passport,
+    travelBatchCode: row.travelBatchCode,
+    travelBatchId: row.travelBatchId,
+    travelBatchReference: row.travelBatchReference,
+    travelHub: row.travelHub,
     visa: row.visa ?? {
-      status: row.visaStatus,
       appointmentDate: "",
       notes: "",
+      status: row.visaStatus,
     },
+    visaRequired: row.visaRequired,
+    visaStatus: row.visaStatus,
+    willingToGo: row.cancellation || row.lastMinuteDrop ? "UNABLE TO GO" : "CONFIRMED",
   };
 }
 
@@ -166,9 +166,11 @@ function joinUnique(values: Array<string | undefined>) {
   return Array.from(
     values.reduce((set, value) => {
       const text = clean(value);
-      if (text) set.add(text);
+      if (text) {
+        set.add(text);
+      }
       return set;
-    }, new Set<string>()),
+    }, new Set<string>())
   ).join(" / ");
 }
 
@@ -177,12 +179,12 @@ function buildTicketingExport(tickets: any[]) {
   const international = tickets.filter((ticket) => !isDomesticTicket(ticket));
 
   return {
+    domesticPnr: joinUnique(domestic.map((ticket) => ticket.pnrCode)),
+    domesticTicket: joinUnique(domestic.map((ticket) => ticket.ticketNumber)),
+    domesticVendor: "",
     internationalFare: "",
     internationalPnr: joinUnique(international.map((ticket) => ticket.pnrCode)),
     internationalVendor: "",
-    domesticTicket: joinUnique(domestic.map((ticket) => ticket.ticketNumber)),
-    domesticPnr: joinUnique(domestic.map((ticket) => ticket.pnrCode)),
-    domesticVendor: "",
   };
 }
 
@@ -201,18 +203,18 @@ export const previewPassengerImport = action({
     const batchResults = await Promise.all(
       batches.map((batch) =>
         ctx.runQuery(internal.crm.imports.previewPassengerImportRows, {
+          access,
           jobCardId: args.jobCardId,
           rows: batch,
-          access,
-        }),
-      ),
+        })
+      )
     );
     for (const result of batchResults) {
       mergedRows = mergedRows.concat(result.rows);
       roomSummary = mergeRoomSummaries(roomSummary, result.roomSummary ?? {});
     }
 
-    return { rows: mergedRows, roomSummary };
+    return { roomSummary, rows: mergedRows };
   },
 });
 
@@ -233,12 +235,12 @@ export const commitPassengerImport = action({
     const batchResults = await Promise.all(
       batches.map((batch, index) =>
         ctx.runMutation(internal.crm.imports.commitPassengerImportBatch, {
-          jobCardId: args.jobCardId,
-          rows: batch,
           access,
+          jobCardId: args.jobCardId,
           logActivity: index === batches.length - 1,
-        }),
-      ),
+          rows: batch,
+        })
+      )
     );
     for (const result of batchResults) {
       created += result.created;
@@ -249,37 +251,37 @@ export const commitPassengerImport = action({
 
     return {
       created,
-      updated,
-      total: preparedRows.length,
       failed,
       roomSummary,
+      total: preparedRows.length,
+      updated,
     };
   },
 });
 
 export const getPassengerExportRows = action({
   args: {
-    jobCardId: v.string(),
     exportKind: v.optional(exportKindValidator),
+    jobCardId: v.string(),
   },
   handler: async (ctx, args): Promise<any> => {
     const access = await requireExportAccess(ctx, args.exportKind ?? "passenger");
     const source = await ctx.runQuery(internal.crm.imports.getPassengerExportSource, {
-      jobCardId: args.jobCardId,
       access,
+      jobCardId: args.jobCardId,
     });
     const rows = source.rows.map(mapPassengerExportRow);
 
     await ctx.runMutation(internal.crm.imports.logPassengerExport, {
+      access,
+      exportKind: args.exportKind ?? "passenger",
       jobCardId: args.jobCardId,
       rowCount: rows.length,
-      exportKind: args.exportKind ?? "passenger",
-      access,
     });
 
     return {
-      jobCode: source.jobCode,
       clientName: source.clientName,
+      jobCode: source.jobCode,
       rows,
     };
   },

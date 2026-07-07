@@ -4,6 +4,19 @@ import { internalMutation, mutation, query } from "../_generated/server";
 import { PERMISSIONS, requireStaff } from "./lib";
 
 const DROPDOWNS: Record<string, string[]> = {
+  callingStatus: ["Pending", "Done", "No response"],
+  contractingStatus: [
+    "Query Received",
+    "Proposal in progress",
+    "Proposal sent",
+    "Change in destination",
+    "Date/Destination Change Required",
+    "Order Confirmed",
+  ],
+  foodPreference: ["Veg", "Non-Veg", "Jain", "Vegan"],
+  guestType: ["Employee", "Client", "VIP"],
+  lostReason: ["Price", "Competition", "Not travelling", "Other"],
+  paymentType: ["Company Paid", "Self Paid", "Upgraded Self Paid"],
   queryType: [
     "MICE",
     "MICE Bidding",
@@ -14,6 +27,7 @@ const DROPDOWNS: Record<string, string[]> = {
     "B2B",
     "Spiritual",
   ],
+  roomType: ["Single", "Twin", "Double", "Triple", "Child with Bed", "Family Room"],
   salesStatus: [
     "Proposal in discussion",
     "Change in destination",
@@ -21,15 +35,15 @@ const DROPDOWNS: Record<string, string[]> = {
     "Order Confirmed",
     "Order Lost",
   ],
-  contractingStatus: [
-    "Query Received",
-    "Proposal in progress",
-    "Proposal sent",
-    "Change in destination",
-    "Date/Destination Change Required",
-    "Order Confirmed",
+  ticketStatus: [
+    "Pending Issue",
+    "Issued",
+    "Name Change Required",
+    "Reissue Required",
+    "Cancelled",
+    "Refund Pending",
+    "Refunded",
   ],
-  lostReason: ["Price", "Competition", "Not travelling", "Other"],
   travelType: ["Domestic Travel", "International Travel"],
   visaStatus: [
     "Not Required",
@@ -44,20 +58,6 @@ const DROPDOWNS: Record<string, string[]> = {
     "Rejected",
     "Re-applied",
   ],
-  ticketStatus: [
-    "Pending Issue",
-    "Issued",
-    "Name Change Required",
-    "Reissue Required",
-    "Cancelled",
-    "Refund Pending",
-    "Refunded",
-  ],
-  paymentType: ["Company Paid", "Self Paid", "Upgraded Self Paid"],
-  roomType: ["Single", "Twin", "Double", "Triple", "Child with Bed", "Family Room"],
-  foodPreference: ["Veg", "Non-Veg", "Jain", "Vegan"],
-  callingStatus: ["Pending", "Done", "No response"],
-  guestType: ["Employee", "Client", "VIP"],
 };
 
 const PRESET_TABLES = ["roleDefinitions", "dropdownOptions", "paymentTerms"] as const;
@@ -70,7 +70,7 @@ async function deletePresetRows(ctx: MutationCtx) {
       const rows = await ctx.db.query(table).collect();
       await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
       deleted[table] = rows.length;
-    }),
+    })
   );
 
   return { deleted };
@@ -94,15 +94,13 @@ export const clearPortalPresetData = mutation({
 
 export const clearPortalPresetDataInternal = internalMutation({
   args: {},
-  handler: async (ctx) => {
-    return await deletePresetRows(ctx);
-  },
+  handler: async (ctx) => await deletePresetRows(ctx),
 });
 
 export const setDropdownOptionActive = mutation({
   args: {
-    optionId: v.string(),
     active: v.boolean(),
+    optionId: v.string(),
   },
   handler: async (ctx, args) => {
     await requireStaff(ctx, PERMISSIONS.MANAGE_DROPDOWNS);

@@ -9,7 +9,7 @@ import {
 describe("bulkSelection", () => {
   test("drops selections that are no longer visible", () => {
     expect(pruneSelectionToVisible(new Set(["a", "b", "c"]), ["a", "c"])).toEqual(
-      new Set(["a", "c"]),
+      new Set(["a", "c"])
     );
   });
 

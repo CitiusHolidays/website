@@ -6,9 +6,13 @@ import { streamChatResponse } from "./chatbotStream";
 const CHAT_HISTORY_KEY = "citius-chat-history:v4";
 
 function loadStoredMessages() {
-  if (typeof window === "undefined") return [];
+  if (typeof window === "undefined") {
+    return [];
+  }
   const savedMessages = localStorage.getItem(CHAT_HISTORY_KEY);
-  if (!savedMessages) return [];
+  if (!savedMessages) {
+    return [];
+  }
 
   try {
     const parsedMessages = JSON.parse(savedMessages);
@@ -21,7 +25,9 @@ function loadStoredMessages() {
 }
 
 function persistMessages(messages) {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined") {
+    return;
+  }
   if (messages.length > 0) {
     localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
   } else {
@@ -32,23 +38,25 @@ function persistMessages(messages) {
 function createUserMessage(text) {
   return {
     id: `user-${Date.now()}`,
+    parts: [{ text, type: "text" }],
     role: "user",
-    parts: [{ type: "text", text }],
   };
 }
 
 function createAssistantMessage(id, text) {
   return {
     id,
+    parts: [{ text, type: "text" }],
     role: "assistant",
-    parts: [{ type: "text", text }],
   };
 }
 
 function upsertAssistantText(messages, assistantId, text) {
   const existingIndex = messages.findIndex((message) => message.id === assistantId);
   const assistantMessage = createAssistantMessage(assistantId, text);
-  if (existingIndex === -1) return [...messages, assistantMessage];
+  if (existingIndex === -1) {
+    return [...messages, assistantMessage];
+  }
 
   const nextMessages = [...messages];
   nextMessages[existingIndex] = assistantMessage;
@@ -78,7 +86,9 @@ export function useChatbotConversation() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const text = input.trim();
-    if (!text || isLoading) return;
+    if (!text || isLoading) {
+      return;
+    }
 
     const userMessage = createUserMessage(text);
     const nextMessages = [...messages, userMessage];
@@ -102,18 +112,22 @@ export function useChatbotConversation() {
     const assistantId = `assistant-${Date.now()}`;
 
     const result = await streamChatResponse({
-      messages: nextMessages,
-      userMessage,
       assistantId,
-      signal: abortController.signal,
-      onTextDelta: (visibleText) => {
-        setMessages((currentMessages) => upsertAssistantText(currentMessages, assistantId, visibleText));
-      },
+      messages: nextMessages,
       onStreamError: (message) => {
         setErrorMessage(message);
       },
+      onTextDelta: (visibleText) => {
+        setMessages((currentMessages) =>
+          upsertAssistantText(currentMessages, assistantId, visibleText)
+        );
+      },
+      signal: abortController.signal,
+      userMessage,
     }).catch((error) => {
-      if (abortController.signal.aborted) return null;
+      if (abortController.signal.aborted) {
+        return null;
+      }
       console.error("Error sending message:", error);
       setErrorMessage("Sorry, I encountered an error. Please try again.");
       return null;
@@ -131,7 +145,9 @@ export function useChatbotConversation() {
   }, [messages]);
 
   useEffect(() => {
-    if (!messagesContainerRef.current) return;
+    if (!messagesContainerRef.current) {
+      return;
+    }
     requestAnimationFrame(() => {
       if (messagesContainerRef.current) {
         messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
@@ -140,15 +156,15 @@ export function useChatbotConversation() {
   });
 
   return {
-    messages,
-    input,
-    isLoading,
-    inputRows,
     errorMessage,
-    messagesContainerRef,
-    updateMessages,
     handleInputChange,
     handleSubmit,
+    input,
+    inputRows,
+    isLoading,
+    messages,
+    messagesContainerRef,
     setInput,
+    updateMessages,
   };
 }

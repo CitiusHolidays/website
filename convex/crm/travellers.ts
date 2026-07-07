@@ -20,13 +20,13 @@ const foodPreferenceValidator = v.union(
   v.literal("Veg"),
   v.literal("Non-Veg"),
   v.literal("Jain"),
-  v.literal("Vegan"),
+  v.literal("Vegan")
 );
 
 const paymentTypeValidator = v.union(
   v.literal("Company Paid"),
   v.literal("Self Paid"),
-  v.literal("Upgraded Self Paid"),
+  v.literal("Upgraded Self Paid")
 );
 
 const guestTypeValidator = v.union(v.literal("Employee"), v.literal("Client"), v.literal("VIP"));
@@ -34,7 +34,7 @@ const guestTypeValidator = v.union(v.literal("Employee"), v.literal("Client"), v
 async function normalizeTravelBatchForJob(ctx: any, jobCardId: Id<"jobCards">, rawId?: string) {
   const value = String(rawId ?? "").trim();
   if (!value) {
-    return { travelBatchId: undefined, travelBatch: null };
+    return { travelBatch: null, travelBatchId: undefined };
   }
   const travelBatchId = ctx.db.normalizeId("travelBatches", value);
   if (!travelBatchId) {
@@ -44,7 +44,7 @@ async function normalizeTravelBatchForJob(ctx: any, jobCardId: Id<"jobCards">, r
   if (!batch || String(batch.jobCardId) !== String(jobCardId)) {
     throw new ConvexError("Travel Batch must belong to the selected Job Card");
   }
-  return { travelBatchId, travelBatch: batch };
+  return { travelBatch: batch, travelBatchId };
 }
 
 const publicTraveller = (
@@ -52,44 +52,44 @@ const publicTraveller = (
   job: any,
   travelBatch: any = null,
   hasPassportScan = false,
-  passportExpiryDate = "",
+  passportExpiryDate = ""
 ) => ({
+  arrivingEarly: traveller.arrivingEarly ?? false,
+  biometricAppointmentDate: traveller.biometricAppointmentDate ?? "",
+  callingStatus: traveller.callingStatus,
+  cancellation: traveller.cancellation ?? false,
+  clientName: job?.clientName ?? "",
+  createdAt: new Date(traveller.createdAt).toISOString(),
+  domesticTravelRequired: traveller.domesticTravelRequired ?? false,
+  extensionOfTour: traveller.extensionOfTour ?? false,
+  foodPreference: traveller.foodPreference,
+  fullName: traveller.fullName,
+  gender: traveller.gender ?? "",
+  givenName: traveller.givenName ?? "",
+  guestCompanions: traveller.guestCompanions ?? "",
+  guestType: traveller.guestType,
+  hasPassportScan,
+  hotelAllocation: traveller.hotelAllocation ?? "",
   id: traveller._id,
   jobCardId: traveller.jobCardId,
   jobCode: job?.jobCode ?? "",
-  clientName: job?.clientName ?? "",
-  travelBatchId: traveller.travelBatchId ?? "",
-  travelBatchCode: travelBatch?.batchCode ?? "",
-  travelBatchReference: travelBatch?.batchReference ?? "",
-  fullName: traveller.fullName,
-  surname: traveller.surname ?? "",
-  givenName: traveller.givenName ?? "",
-  travelHub: traveller.travelHub ?? "",
-  foodPreference: traveller.foodPreference,
-  guestType: traveller.guestType,
+  lastMinuteDrop: traveller.lastMinuteDrop ?? false,
+  passportExpiryDate,
+  passportStatus: traveller.passportStatus ?? "",
   paymentType: traveller.paymentType,
   roomType: traveller.roomType,
-  visaRequired: traveller.visaRequired,
-  domesticTravelRequired: traveller.domesticTravelRequired ?? false,
-  biometricAppointmentDate: traveller.biometricAppointmentDate ?? "",
-  travelDate: traveller.travelDate ?? "",
-  extensionOfTour: traveller.extensionOfTour ?? false,
-  arrivingEarly: traveller.arrivingEarly ?? false,
-  guestCompanions: traveller.guestCompanions ?? "",
   specialRequests: traveller.specialRequests ?? "",
-  passportStatus: traveller.passportStatus ?? "",
-  hasPassportScan,
-  passportExpiryDate,
-  travelStartDate: job?.travelStartDate ?? "",
+  surname: traveller.surname ?? "",
   ticketStatus: traveller.ticketStatus,
-  visaStatus: traveller.visaStatus,
-  callingStatus: traveller.callingStatus,
-  cancellation: traveller.cancellation ?? false,
-  lastMinuteDrop: traveller.lastMinuteDrop ?? false,
-  hotelAllocation: traveller.hotelAllocation ?? "",
-  gender: traveller.gender ?? "",
-  createdAt: new Date(traveller.createdAt).toISOString(),
+  travelBatchCode: travelBatch?.batchCode ?? "",
+  travelBatchId: traveller.travelBatchId ?? "",
+  travelBatchReference: travelBatch?.batchReference ?? "",
+  travelDate: traveller.travelDate ?? "",
+  travelHub: traveller.travelHub ?? "",
+  travelStartDate: job?.travelStartDate ?? "",
   updatedAt: new Date(traveller.updatedAt).toISOString(),
+  visaRequired: traveller.visaRequired,
+  visaStatus: traveller.visaStatus,
 });
 
 export const list = query({
@@ -137,9 +137,9 @@ export const list = query({
             job,
             traveller.travelBatchId ? await ctx.db.get(traveller.travelBatchId) : null,
             passportScanByTraveller.has(String(traveller._id)),
-            passportExpiryByTraveller.get(String(traveller._id)) ?? "",
+            passportExpiryByTraveller.get(String(traveller._id)) ?? ""
           );
-        }),
+        })
     );
     return result.filter(Boolean);
   },
@@ -147,8 +147,8 @@ export const list = query({
 
 export const passportExpirySources = internalQuery({
   args: {
-    jobCardId: v.optional(v.string()),
     access: v.any(),
+    jobCardId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = args.access as PortalAccess;
@@ -187,12 +187,12 @@ export const passportExpirySources = internalQuery({
           }
 
           return {
+            encryptedPayload: passport.encryptedPayload,
+            expiryDate: passport.expiryDate ?? "",
             passportId: passport._id,
             travellerId: traveller._id,
-            expiryDate: passport.expiryDate ?? "",
-            encryptedPayload: passport.encryptedPayload,
           };
-        }),
+        })
       )
     ).filter((source): source is NonNullable<typeof source> => source != null);
 
@@ -202,27 +202,27 @@ export const passportExpirySources = internalQuery({
 
 export const create = mutation({
   args: {
-    jobCardId: v.string(),
-    travelBatchId: v.optional(v.string()),
-    fullName: v.string(),
-    surname: v.optional(v.string()),
-    givenName: v.optional(v.string()),
-    travelHub: v.optional(v.string()),
+    arrivingEarly: v.optional(v.boolean()),
+    biometricAppointmentDate: v.optional(v.string()),
+    domesticTravelRequired: v.optional(v.boolean()),
+    extensionOfTour: v.optional(v.boolean()),
     foodPreference: foodPreferenceValidator,
+    fullName: v.string(),
+    gender: v.optional(v.string()),
+    givenName: v.optional(v.string()),
+    guestCompanions: v.optional(v.string()),
     guestType: guestTypeValidator,
+    hotelAllocation: v.optional(v.string()),
+    jobCardId: v.string(),
+    passportStatus: v.optional(v.string()),
     paymentType: paymentTypeValidator,
     roomType: roomTypeValidator,
-    visaRequired: v.boolean(),
-    domesticTravelRequired: v.optional(v.boolean()),
-    biometricAppointmentDate: v.optional(v.string()),
-    travelDate: v.optional(v.string()),
-    extensionOfTour: v.optional(v.boolean()),
-    arrivingEarly: v.optional(v.boolean()),
-    guestCompanions: v.optional(v.string()),
     specialRequests: v.optional(v.string()),
-    passportStatus: v.optional(v.string()),
-    hotelAllocation: v.optional(v.string()),
-    gender: v.optional(v.string()),
+    surname: v.optional(v.string()),
+    travelBatchId: v.optional(v.string()),
+    travelDate: v.optional(v.string()),
+    travelHub: v.optional(v.string()),
+    visaRequired: v.boolean(),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TRAVELLERS);
@@ -248,48 +248,48 @@ export const create = mutation({
     const id = await ctx.db.insert("travellers", {
       jobCardId,
       ...(travelBatchId ? { travelBatchId } : {}),
-      fullName: args.fullName.trim(),
-      surname: args.surname?.trim() || "",
-      givenName: args.givenName?.trim() || "",
-      travelHub: args.travelHub?.trim() || "",
-      foodPreference: args.foodPreference,
-      guestType: args.guestType,
-      paymentType: args.paymentType,
-      roomType: args.roomType,
-      visaRequired: args.visaRequired,
-      domesticTravelRequired: args.domesticTravelRequired ?? false,
-      biometricAppointmentDate: args.biometricAppointmentDate || "",
-      travelDate: args.travelDate || "",
-      extensionOfTour: args.extensionOfTour ?? false,
       arrivingEarly: args.arrivingEarly ?? false,
-      guestCompanions: args.guestCompanions?.trim() || "",
-      specialRequests: args.specialRequests?.trim() || "",
-      passportStatus: args.passportStatus?.trim() || "Pending",
-      hotelAllocation: args.hotelAllocation?.trim() || "",
-      gender: args.gender?.trim() || "",
-      ticketStatus: "Pending Issue",
-      visaStatus,
+      biometricAppointmentDate: args.biometricAppointmentDate || "",
       callingStatus: "Pending",
       cancellation: false,
-      lastMinuteDrop: false,
-      createdBy: access.authUserId ?? "unknown",
       createdAt: now,
+      createdBy: access.authUserId ?? "unknown",
+      domesticTravelRequired: args.domesticTravelRequired ?? false,
+      extensionOfTour: args.extensionOfTour ?? false,
+      foodPreference: args.foodPreference,
+      fullName: args.fullName.trim(),
+      gender: args.gender?.trim() || "",
+      givenName: args.givenName?.trim() || "",
+      guestCompanions: args.guestCompanions?.trim() || "",
+      guestType: args.guestType,
+      hotelAllocation: args.hotelAllocation?.trim() || "",
+      lastMinuteDrop: false,
+      passportStatus: args.passportStatus?.trim() || "Pending",
+      paymentType: args.paymentType,
+      roomType: args.roomType,
+      specialRequests: args.specialRequests?.trim() || "",
+      surname: args.surname?.trim() || "",
+      ticketStatus: "Pending Issue",
+      travelDate: args.travelDate || "",
+      travelHub: args.travelHub?.trim() || "",
       updatedAt: now,
+      visaRequired: args.visaRequired,
+      visaStatus,
     });
 
     await Promise.all([
       ctx.db.insert("visaRecords", {
-        travellerId: id,
+        createdAt: now,
         jobCardId,
         status: visaStatus,
-        updatedBy: access.authUserId ?? "unknown",
-        createdAt: now,
+        travellerId: id,
         updatedAt: now,
+        updatedBy: access.authUserId ?? "unknown",
       }),
       createActivity(ctx, access, {
-        entityType: "traveller",
-        entityId: id,
         action: "created",
+        entityId: id,
+        entityType: "traveller",
         message: `${args.fullName.trim()} added to ${job.jobCode}`,
       }),
     ]);
@@ -299,27 +299,27 @@ export const create = mutation({
 
 export const update = mutation({
   args: {
-    travellerId: v.string(),
-    travelBatchId: v.optional(v.string()),
-    fullName: v.optional(v.string()),
-    surname: v.optional(v.string()),
-    givenName: v.optional(v.string()),
-    travelHub: v.optional(v.string()),
+    arrivingEarly: v.optional(v.boolean()),
+    biometricAppointmentDate: v.optional(v.string()),
+    domesticTravelRequired: v.optional(v.boolean()),
+    extensionOfTour: v.optional(v.boolean()),
     foodPreference: v.optional(foodPreferenceValidator),
+    fullName: v.optional(v.string()),
+    gender: v.optional(v.string()),
+    givenName: v.optional(v.string()),
+    guestCompanions: v.optional(v.string()),
     guestType: v.optional(guestTypeValidator),
+    hotelAllocation: v.optional(v.string()),
+    passportStatus: v.optional(v.string()),
     paymentType: v.optional(paymentTypeValidator),
     roomType: v.optional(roomTypeValidator),
-    visaRequired: v.optional(v.boolean()),
-    domesticTravelRequired: v.optional(v.boolean()),
-    biometricAppointmentDate: v.optional(v.string()),
-    travelDate: v.optional(v.string()),
-    extensionOfTour: v.optional(v.boolean()),
-    arrivingEarly: v.optional(v.boolean()),
-    guestCompanions: v.optional(v.string()),
     specialRequests: v.optional(v.string()),
-    passportStatus: v.optional(v.string()),
-    hotelAllocation: v.optional(v.string()),
-    gender: v.optional(v.string()),
+    surname: v.optional(v.string()),
+    travelBatchId: v.optional(v.string()),
+    travelDate: v.optional(v.string()),
+    travelHub: v.optional(v.string()),
+    travellerId: v.string(),
+    visaRequired: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TRAVELLERS);
@@ -333,7 +333,7 @@ export const update = mutation({
     }
     const job = await ctx.db.get(traveller.jobCardId);
     const linkedQuery = await (job?.queryId ? ctx.db.get(job.queryId) : Promise.resolve(null));
-    if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+    if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
       throw new ConvexError("FORBIDDEN");
     }
     if (args.fullName !== undefined && !args.fullName.trim()) {
@@ -346,18 +346,34 @@ export const update = mutation({
       const normalized = await normalizeTravelBatchForJob(
         ctx,
         traveller.jobCardId,
-        args.travelBatchId,
+        args.travelBatchId
       );
       patch.travelBatchId = normalized.travelBatchId;
     }
-    if (args.fullName !== undefined) patch.fullName = args.fullName.trim();
-    if (args.surname !== undefined) patch.surname = args.surname.trim();
-    if (args.givenName !== undefined) patch.givenName = args.givenName.trim();
-    if (args.travelHub !== undefined) patch.travelHub = args.travelHub.trim();
-    if (args.foodPreference !== undefined) patch.foodPreference = args.foodPreference;
-    if (args.guestType !== undefined) patch.guestType = args.guestType;
-    if (args.paymentType !== undefined) patch.paymentType = args.paymentType;
-    if (args.roomType !== undefined) patch.roomType = args.roomType;
+    if (args.fullName !== undefined) {
+      patch.fullName = args.fullName.trim();
+    }
+    if (args.surname !== undefined) {
+      patch.surname = args.surname.trim();
+    }
+    if (args.givenName !== undefined) {
+      patch.givenName = args.givenName.trim();
+    }
+    if (args.travelHub !== undefined) {
+      patch.travelHub = args.travelHub.trim();
+    }
+    if (args.foodPreference !== undefined) {
+      patch.foodPreference = args.foodPreference;
+    }
+    if (args.guestType !== undefined) {
+      patch.guestType = args.guestType;
+    }
+    if (args.paymentType !== undefined) {
+      patch.paymentType = args.paymentType;
+    }
+    if (args.roomType !== undefined) {
+      patch.roomType = args.roomType;
+    }
     if (args.visaRequired !== undefined) {
       patch.visaRequired = args.visaRequired;
       patch.visaStatus = args.visaRequired
@@ -372,9 +388,15 @@ export const update = mutation({
     if (args.biometricAppointmentDate !== undefined) {
       patch.biometricAppointmentDate = args.biometricAppointmentDate;
     }
-    if (args.travelDate !== undefined) patch.travelDate = args.travelDate;
-    if (args.extensionOfTour !== undefined) patch.extensionOfTour = args.extensionOfTour;
-    if (args.arrivingEarly !== undefined) patch.arrivingEarly = args.arrivingEarly;
+    if (args.travelDate !== undefined) {
+      patch.travelDate = args.travelDate;
+    }
+    if (args.extensionOfTour !== undefined) {
+      patch.extensionOfTour = args.extensionOfTour;
+    }
+    if (args.arrivingEarly !== undefined) {
+      patch.arrivingEarly = args.arrivingEarly;
+    }
     if (args.guestCompanions !== undefined) {
       patch.guestCompanions = args.guestCompanions.trim();
     }
@@ -400,8 +422,8 @@ export const update = mutation({
         .unique();
       if (visaRecord) {
         const visaPatch: Record<string, unknown> = {
-          updatedBy: access.authUserId ?? "unknown",
           updatedAt: now,
+          updatedBy: access.authUserId ?? "unknown",
         };
         if (args.visaRequired !== undefined) {
           visaPatch.status = patch.visaStatus as string;
@@ -414,9 +436,9 @@ export const update = mutation({
     }
 
     await createActivity(ctx, access, {
-      entityType: "traveller",
-      entityId: travellerId,
       action: "updated",
+      entityId: travellerId,
+      entityType: "traveller",
       message: `${(args.fullName ?? traveller.fullName).trim()} updated`,
     });
     return { id: travellerId };
@@ -425,8 +447,8 @@ export const update = mutation({
 
 export const updateCallingStatus = mutation({
   args: {
-    travellerId: v.string(),
     callingStatus: v.union(v.literal("Pending"), v.literal("Done"), v.literal("No response")),
+    travellerId: v.string(),
   },
   handler: async (ctx, args) => {
     const access = await requireAnyPermission(ctx, [
@@ -443,7 +465,7 @@ export const updateCallingStatus = mutation({
     }
     const job = await ctx.db.get(traveller.jobCardId);
     const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
-    if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+    if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
       throw new ConvexError("FORBIDDEN");
     }
     await ctx.db.patch(travellerId, {
@@ -451,9 +473,9 @@ export const updateCallingStatus = mutation({
       updatedAt: Date.now(),
     });
     await createActivity(ctx, access, {
-      entityType: "traveller",
-      entityId: travellerId,
       action: "calling_status_updated",
+      entityId: travellerId,
+      entityType: "traveller",
       message: `Traveller calling status set to ${args.callingStatus}`,
     });
     return { id: travellerId };
@@ -463,7 +485,7 @@ export const updateCallingStatus = mutation({
 export async function deleteTravellerRecord(
   ctx: MutationCtx,
   access: PortalAccess,
-  travellerId: Id<"travellers">,
+  travellerId: Id<"travellers">
 ) {
   const traveller = await ctx.db.get(travellerId);
   if (!traveller) {
@@ -498,13 +520,13 @@ export async function deleteTravellerRecord(
         .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
         .collect(),
     ]);
-  if (!job || !canSeeJobCardRecord(access, job, linkedQuery)) {
+  if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
     throw new ConvexError("FORBIDDEN");
   }
 
   await Promise.all([
     ...passportDetails.map((row) =>
-      Promise.all([deleteStorageFile(ctx, row.storageId, "passport scan"), ctx.db.delete(row._id)]),
+      Promise.all([deleteStorageFile(ctx, row.storageId, "passport scan"), ctx.db.delete(row._id)])
     ),
     ...visaRecords.map((row) => ctx.db.delete(row._id)),
     ...tickets.flatMap((row) => [
@@ -518,9 +540,9 @@ export async function deleteTravellerRecord(
 
   await Promise.all([
     createActivity(ctx, access, {
-      entityType: "traveller",
-      entityId: travellerId,
       action: "deleted",
+      entityId: travellerId,
+      entityType: "traveller",
       message: `${traveller.fullName} deleted`,
     }),
     deleteEntityNotifications(ctx, "traveller", travellerId),

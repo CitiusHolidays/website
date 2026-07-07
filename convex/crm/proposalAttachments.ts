@@ -16,11 +16,11 @@ export function publicProposalAttachment(row: {
   createdAt: number;
 }) {
   return {
-    id: row._id,
-    fileName: row.fileName,
-    mimeType: row.mimeType,
-    fileSize: row.fileSize,
     createdAt: new Date(row.createdAt).toISOString(),
+    fileName: row.fileName,
+    fileSize: row.fileSize,
+    id: row._id,
+    mimeType: row.mimeType,
   };
 }
 
@@ -62,11 +62,11 @@ async function requireVisibleProposal(ctx: any, proposalId: Id<"proposals">) {
       return canSeeJobCardRecord(access, job, linkedQuery);
     });
     if (visibleJob) {
-      return { proposal, linkedQueries };
+      return { linkedQueries, proposal };
     }
     throw new ConvexError("FORBIDDEN");
   }
-  return { proposal, linkedQueries };
+  return { linkedQueries, proposal };
 }
 
 export const listForProposal = query({
@@ -116,11 +116,11 @@ export const getAttachmentRecord = query({
     }
     await requireVisibleProposal(ctx, row.proposalId);
     return {
+      fileName: row.fileName,
       id: row._id,
+      mimeType: row.mimeType,
       proposalId: row.proposalId,
       storageId: row.storageId,
-      fileName: row.fileName,
-      mimeType: row.mimeType,
     };
   },
 });
@@ -144,12 +144,12 @@ export const resolveProposalId = internalMutation({
 
 export const saveAttachment = internalMutation({
   args: {
+    createdBy: v.string(),
+    fileName: v.string(),
+    fileSize: v.number(),
+    mimeType: v.string(),
     proposalId: v.id("proposals"),
     storageId: v.id("_storage"),
-    fileName: v.string(),
-    mimeType: v.string(),
-    fileSize: v.number(),
-    createdBy: v.string(),
   },
   handler: async (ctx, args) => {
     const proposal = await ctx.db.get(args.proposalId);
@@ -157,13 +157,13 @@ export const saveAttachment = internalMutation({
       throw new ConvexError("Proposal not found");
     }
     await ctx.db.insert("proposalAttachments", {
+      createdAt: Date.now(),
+      createdBy: args.createdBy,
+      fileName: args.fileName,
+      fileSize: args.fileSize,
+      mimeType: args.mimeType,
       proposalId: args.proposalId,
       storageId: args.storageId,
-      fileName: args.fileName,
-      mimeType: args.mimeType,
-      fileSize: args.fileSize,
-      createdBy: args.createdBy,
-      createdAt: Date.now(),
     });
   },
 });

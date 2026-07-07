@@ -38,7 +38,7 @@ describe("portal date range filters", () => {
 describe("requestedProposalQueryIds", () => {
   test("honors explicit queryIds including empty list", () => {
     expect(requestedProposalQueryIds({ queryIds: ["q1", "q2"] })).toEqual(["q1", "q2"]);
-    expect(requestedProposalQueryIds({ queryIds: [], queryId: "legacy" })).toEqual([]);
+    expect(requestedProposalQueryIds({ queryId: "legacy", queryIds: [] })).toEqual([]);
   });
 
   test("maps legacy queryId to a single-item array", () => {

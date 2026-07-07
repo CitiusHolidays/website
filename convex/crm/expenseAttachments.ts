@@ -5,7 +5,7 @@ import { canSeeJobCardRecord, PERMISSIONS, requireAnyPermission } from "./lib";
 
 function canMutateExpenseProof(
   access: any,
-  expense: { createdBy?: string; approvalStatus?: string },
+  expense: { createdBy?: string; approvalStatus?: string }
 ) {
   if (
     access.permissions.includes(PERMISSIONS.MANAGE_EXPENSES) ||
@@ -17,7 +17,7 @@ function canMutateExpenseProof(
     access.permissions.includes(PERMISSIONS.CREATE_EXPENSES) &&
       expense.createdBy &&
       expense.createdBy === access.authUserId &&
-      expense.approvalStatus !== "Approved",
+      expense.approvalStatus !== "Approved"
   );
 }
 
@@ -103,22 +103,22 @@ export const getAttachmentRecord = query({
     }
     await requireVisibleExpense(ctx, expenseId);
     return {
-      id: row._id,
       expenseId,
-      storageId: row.storageId ?? "",
       fileName: row.fileName,
+      id: row._id,
       mimeType: row.mimeType ?? "application/octet-stream",
+      storageId: row.storageId ?? "",
     };
   },
 });
 
 export const saveExpenseProof = internalMutation({
   args: {
+    createdBy: v.string(),
     expenseId: v.id("expenseEntries"),
-    storageId: v.id("_storage"),
     fileName: v.string(),
     mimeType: v.string(),
-    createdBy: v.string(),
+    storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
     const expense = await ctx.db.get(args.expenseId);
@@ -134,13 +134,13 @@ export const saveExpenseProof = internalMutation({
       }
     }
     const attachmentId = await ctx.db.insert("attachments", {
-      entityType: "expense",
-      entityId: args.expenseId,
-      fileName: args.fileName,
-      storageId: args.storageId,
-      mimeType: args.mimeType,
-      createdBy: args.createdBy,
       createdAt: Date.now(),
+      createdBy: args.createdBy,
+      entityId: args.expenseId,
+      entityType: "expense",
+      fileName: args.fileName,
+      mimeType: args.mimeType,
+      storageId: args.storageId,
     });
     await ctx.db.patch(args.expenseId, {
       proofAttachmentId: attachmentId,

@@ -22,8 +22,8 @@ import {
 const roleExpectations = JSON.parse(
   readFileSync(
     join(dirname(fileURLToPath(import.meta.url)), "../../../tools/portal-role-pages-expected.json"),
-    "utf8",
-  ),
+    "utf8"
+  )
 );
 
 function pagesForRoles(roles) {
@@ -51,7 +51,7 @@ describe("portal permissions", () => {
       const permissions = getPermissionsForRoles([role]);
 
       expect(permissions, `${role} should create expenses`).toContain(
-        PORTAL_PERMISSIONS.CREATE_EXPENSES,
+        PORTAL_PERMISSIONS.CREATE_EXPENSES
       );
     }
 
@@ -70,7 +70,7 @@ describe("portal permissions", () => {
     expect(
       getAccessibleNavGroups(access)
         .flatMap((group) => group.items)
-        .map((item) => item.page),
+        .map((item) => item.page)
     ).not.toContain("settings");
   });
 
@@ -101,8 +101,8 @@ describe("portal permissions", () => {
 
   test("sales can load team picker options for contracting spoc dropdowns", () => {
     const access = {
-      roles: ["Sales"],
       permissions: getPermissionsForRoles(["Sales"]),
+      roles: ["Sales"],
     };
 
     expect(canUseTeamPicker(access)).toBe(true);
@@ -127,14 +127,14 @@ describe("portal permissions", () => {
     expect(
       canCreateJobCardFromAccounts(
         { roles: ["Accounts"], staffId: "staff_accounts" },
-        legacyCreators,
-      ),
+        legacyCreators
+      )
     ).toBe(true);
     expect(
-      canCreateJobCardFromAccounts({ roles: ["Accounts"], staffId: "staff_other" }, legacyCreators),
+      canCreateJobCardFromAccounts({ roles: ["Accounts"], staffId: "staff_other" }, legacyCreators)
     ).toBe(true);
     expect(
-      canCreateJobCardFromAccounts({ roles: ["Sales"], staffId: "staff_accounts" }, legacyCreators),
+      canCreateJobCardFromAccounts({ roles: ["Sales"], staffId: "staff_accounts" }, legacyCreators)
     ).toBe(false);
   });
 
@@ -142,10 +142,10 @@ describe("portal permissions", () => {
     const legacyCreators = [{ id: "staff_accounts", jobCardCreatorEnabled: true }];
 
     expect(
-      canCreateJobCardFromAccounts({ roles: ["Sales"], staffId: "staff_accounts" }, legacyCreators),
+      canCreateJobCardFromAccounts({ roles: ["Sales"], staffId: "staff_accounts" }, legacyCreators)
     ).toBe(false);
     expect(
-      canCreateJobCardFromAccounts({ roles: ["Accounts"], staffId: "staff_other" }, legacyCreators),
+      canCreateJobCardFromAccounts({ roles: ["Accounts"], staffId: "staff_other" }, legacyCreators)
     ).toBe(true);
   });
 
@@ -159,10 +159,10 @@ describe("portal permissions", () => {
         "proposals",
         "ticketing",
         "employees-on-leave",
-      ]),
+      ])
     );
     expect(pages).not.toEqual(
-      expect.arrayContaining(["pipeline", "contracting", "finance", "team"]),
+      expect.arrayContaining(["pipeline", "contracting", "finance", "team"])
     );
   });
 
@@ -176,10 +176,10 @@ describe("portal permissions", () => {
         "pipeline",
         "proposals",
         "employees-on-leave",
-      ]),
+      ])
     );
     expect(pages).not.toEqual(
-      expect.arrayContaining(["finance", "ticketing", "contracting", "job-cards", "team"]),
+      expect.arrayContaining(["finance", "ticketing", "contracting", "job-cards", "team"])
     );
   });
 
@@ -204,9 +204,11 @@ describe("portal permissions", () => {
   });
 
   test("admin and directors can access settings", () => {
-    expect(canAccessPage({ permissions: getPermissionsForRoles(["Admin"]) }, "settings")).toBe(true);
+    expect(canAccessPage({ permissions: getPermissionsForRoles(["Admin"]) }, "settings")).toBe(
+      true
+    );
     expect(canAccessPage({ permissions: getPermissionsForRoles(["Directors"]) }, "settings")).toBe(
-      true,
+      true
     );
   });
 
@@ -220,13 +222,13 @@ describe("portal permissions", () => {
 
   test("cement roles only get cement query type options", () => {
     const cementAccess = {
-      roles: ["Sales Cement"],
       permissions: getPermissionsForRoles(["Sales Cement"]),
+      roles: ["Sales Cement"],
     };
     expect(isCementScopedUser(cementAccess)).toBe(true);
     expect(getQueryTypeOptions(cementAccess)).toEqual(["Cement", "Cement Bidding"]);
     expect(
-      isCementScopedUser({ roles: ["Admin"], permissions: getPermissionsForRoles(["Admin"]) }),
+      isCementScopedUser({ permissions: getPermissionsForRoles(["Admin"]), roles: ["Admin"] })
     ).toBe(false);
   });
 

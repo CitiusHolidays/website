@@ -27,7 +27,7 @@ async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
 async function getValidatedTravelBatch(
   ctx: any,
   travelBatchId: string | undefined,
-  jobCardId: any,
+  jobCardId: any
 ) {
   if (!travelBatchId) {
     return null;
@@ -68,22 +68,24 @@ export const listHotels = query({
         .sort((a, b) => b.createdAt - a.createdAt)
         .map(async (hotel) => {
           const job = await getVisibleJob(ctx, access, hotel.jobCardId);
-          if (!job) return null;
+          if (!job) {
+            return null;
+          }
           return {
+            checkInDate: hotel.checkInDate ?? "",
+            checkOutDate: hotel.checkOutDate ?? "",
+            city: hotel.city ?? "",
+            clientName: job?.clientName ?? "",
+            createdAt: new Date(hotel.createdAt).toISOString(),
+            earlyCheckIn: hotel.earlyCheckIn ?? false,
             id: hotel._id,
             jobCardId: hotel.jobCardId,
             jobCode: job?.jobCode ?? "",
-            clientName: job?.clientName ?? "",
-            name: hotel.name,
-            city: hotel.city ?? "",
-            checkInDate: hotel.checkInDate ?? "",
-            checkOutDate: hotel.checkOutDate ?? "",
-            earlyCheckIn: hotel.earlyCheckIn ?? false,
             lateCheckout: hotel.lateCheckout ?? false,
+            name: hotel.name,
             specialInstructions: hotel.specialInstructions ?? "",
-            createdAt: new Date(hotel.createdAt).toISOString(),
           };
-        }),
+        })
     );
     return result.filter(Boolean);
   },
@@ -91,11 +93,11 @@ export const listHotels = query({
 
 export const createHotel = mutation({
   args: {
-    jobCardId: v.string(),
-    name: v.string(),
-    city: v.optional(v.string()),
     checkInDate: v.optional(v.string()),
     checkOutDate: v.optional(v.string()),
+    city: v.optional(v.string()),
+    jobCardId: v.string(),
+    name: v.string(),
     specialInstructions: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -111,22 +113,22 @@ export const createHotel = mutation({
     assertDateRangeOrder(args.checkInDate, args.checkOutDate, "Check-in date", "Check-out date");
     const now = Date.now();
     const id = await ctx.db.insert("hotels", {
-      jobCardId,
-      name: args.name.trim(),
-      city: args.city?.trim() || "",
       checkInDate: args.checkInDate || "",
       checkOutDate: args.checkOutDate || "",
-      earlyCheckIn: false,
-      lateCheckout: false,
-      specialInstructions: args.specialInstructions?.trim() || "",
-      createdBy: access.authUserId ?? "unknown",
+      city: args.city?.trim() || "",
       createdAt: now,
+      createdBy: access.authUserId ?? "unknown",
+      earlyCheckIn: false,
+      jobCardId,
+      lateCheckout: false,
+      name: args.name.trim(),
+      specialInstructions: args.specialInstructions?.trim() || "",
       updatedAt: now,
     });
     await createActivity(ctx, access, {
-      entityType: "hotel",
-      entityId: id,
       action: "created",
+      entityId: id,
+      entityType: "hotel",
       message: `${args.name.trim()} hotel added`,
     });
     return { id };
@@ -135,13 +137,13 @@ export const createHotel = mutation({
 
 export const updateHotel = mutation({
   args: {
-    hotelId: v.string(),
-    name: v.optional(v.string()),
-    city: v.optional(v.string()),
     checkInDate: v.optional(v.string()),
     checkOutDate: v.optional(v.string()),
+    city: v.optional(v.string()),
     earlyCheckIn: v.optional(v.boolean()),
+    hotelId: v.string(),
     lateCheckout: v.optional(v.boolean()),
+    name: v.optional(v.string()),
     specialInstructions: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -165,25 +167,37 @@ export const updateHotel = mutation({
       args.checkInDate ?? hotel.checkInDate,
       args.checkOutDate ?? hotel.checkOutDate,
       "Check-in date",
-      "Check-out date",
+      "Check-out date"
     );
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    if (args.name !== undefined) patch.name = args.name.trim();
-    if (args.city !== undefined) patch.city = args.city.trim();
-    if (args.checkInDate !== undefined) patch.checkInDate = args.checkInDate;
-    if (args.checkOutDate !== undefined) patch.checkOutDate = args.checkOutDate;
-    if (args.earlyCheckIn !== undefined) patch.earlyCheckIn = args.earlyCheckIn;
-    if (args.lateCheckout !== undefined) patch.lateCheckout = args.lateCheckout;
+    if (args.name !== undefined) {
+      patch.name = args.name.trim();
+    }
+    if (args.city !== undefined) {
+      patch.city = args.city.trim();
+    }
+    if (args.checkInDate !== undefined) {
+      patch.checkInDate = args.checkInDate;
+    }
+    if (args.checkOutDate !== undefined) {
+      patch.checkOutDate = args.checkOutDate;
+    }
+    if (args.earlyCheckIn !== undefined) {
+      patch.earlyCheckIn = args.earlyCheckIn;
+    }
+    if (args.lateCheckout !== undefined) {
+      patch.lateCheckout = args.lateCheckout;
+    }
     if (args.specialInstructions !== undefined) {
       patch.specialInstructions = args.specialInstructions.trim();
     }
 
     await ctx.db.patch(hotelId, patch);
     await createActivity(ctx, access, {
-      entityType: "hotel",
-      entityId: hotelId,
       action: "updated",
+      entityId: hotelId,
+      entityType: "hotel",
       message: `${(args.name ?? hotel.name).trim()} hotel updated`,
     });
     return { id: hotelId };
@@ -201,9 +215,9 @@ async function deleteHotelRecord(ctx: MutationCtx, access: PortalAccess, hotelId
   }
   await Promise.all([
     createActivity(ctx, access, {
-      entityType: "hotel",
-      entityId: hotelId,
       action: "deleted",
+      entityId: hotelId,
+      entityType: "hotel",
       message: `${hotel.name} hotel deleted`,
     }),
     deleteEntityNotifications(ctx, "hotel", hotelId),
@@ -258,26 +272,28 @@ export const listTourManagers = query({
         .sort((a, b) => b.createdAt - a.createdAt)
         .map(async (row) => {
           const job = row.jobCardId ? await getVisibleJob(ctx, access, row.jobCardId) : null;
-          if (row.jobCardId && !job) return null;
+          if (row.jobCardId && !job) {
+            return null;
+          }
           return {
+            availabilityDate: row.availabilityDate ?? "",
+            callingStatus: row.callingStatus,
+            createdAt: new Date(row.createdAt).toISOString(),
+            currentTour: job?.clientName ?? "",
+            email: row.email ?? "",
             id: row._id,
             jobCardId: row.jobCardId ?? null,
-            travelBatchId: row.travelBatchId ?? null,
-            staffId: row.staffId ?? "",
             jobCode: job?.jobCode ?? "",
-            currentTour: job?.clientName ?? "",
-            name: row.name,
-            email: row.email ?? "",
-            phone: row.phone ?? "",
-            status: row.status,
             languages: row.languages ?? [],
-            callingStatus: row.callingStatus,
-            availabilityDate: row.availabilityDate ?? "",
-            reportingInstructions: row.reportingInstructions ?? "",
+            name: row.name,
             notes: row.notes ?? "",
-            createdAt: new Date(row.createdAt).toISOString(),
+            phone: row.phone ?? "",
+            reportingInstructions: row.reportingInstructions ?? "",
+            staffId: row.staffId ?? "",
+            status: row.status,
+            travelBatchId: row.travelBatchId ?? null,
           };
-        }),
+        })
     );
     return result.filter(Boolean);
   },
@@ -296,7 +312,7 @@ export async function createTourManagerForTest(
     reportingInstructions?: string;
     notes?: string;
   },
-  access: PortalAccess,
+  access: PortalAccess
 ) {
   let name = args.name.trim();
   let email = args.email?.trim() || "";
@@ -331,20 +347,20 @@ export async function createTourManagerForTest(
   const travelBatch = await getValidatedTravelBatch(ctx, args.travelBatchId, jobCardId);
   const now = Date.now();
   const id = await ctx.db.insert("tourManagerAssignments", {
-    jobCardId: jobCardId ?? undefined,
-    travelBatchId: travelBatch?._id,
-    staffId: staffId ?? undefined,
-    name,
-    email,
-    phone,
-    status: jobCardId ? "Assigned" : "Available",
-    languages: [],
-    callingStatus: "Pending",
     availabilityDate: args.availabilityDate || "",
-    reportingInstructions: args.reportingInstructions?.trim() || "",
-    notes: args.notes?.trim() || "",
-    createdBy: access.authUserId ?? "unknown",
+    callingStatus: "Pending",
     createdAt: now,
+    createdBy: access.authUserId ?? "unknown",
+    email,
+    jobCardId: jobCardId ?? undefined,
+    languages: [],
+    name,
+    notes: args.notes?.trim() || "",
+    phone,
+    reportingInstructions: args.reportingInstructions?.trim() || "",
+    staffId: staffId ?? undefined,
+    status: jobCardId ? "Assigned" : "Available",
+    travelBatchId: travelBatch?._id,
     updatedAt: now,
   });
   if (jobCardId) {
@@ -356,21 +372,21 @@ export async function createTourManagerForTest(
   }
   await Promise.all([
     createActivity(ctx, access, {
-      entityType: "tourManager",
-      entityId: id,
       action: "created",
+      entityId: id,
+      entityType: "tourManager",
       message: `${name} added as Tour Manager`,
     }),
     staffId && jobCardId
       ? notifyStaffMember(ctx, staffId, {
-          title: "Tour Manager allocated",
           body: tourManagerNotificationBody(
             await ctx.db.get(jobCardId),
             travelBatch,
-            args.reportingInstructions,
+            args.reportingInstructions
           ),
-          entityType: "tourManager",
           entityId: id,
+          entityType: "tourManager",
+          title: "Tour Manager allocated",
         })
       : null,
   ]);
@@ -379,15 +395,15 @@ export async function createTourManagerForTest(
 
 export const createTourManager = mutation({
   args: {
-    jobCardId: v.optional(v.string()),
-    travelBatchId: v.optional(v.string()),
-    staffId: v.optional(v.string()),
-    name: v.string(),
-    email: v.optional(v.string()),
-    phone: v.optional(v.string()),
     availabilityDate: v.optional(v.string()),
-    reportingInstructions: v.optional(v.string()),
+    email: v.optional(v.string()),
+    jobCardId: v.optional(v.string()),
+    name: v.string(),
     notes: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    reportingInstructions: v.optional(v.string()),
+    staffId: v.optional(v.string()),
+    travelBatchId: v.optional(v.string()),
   },
   handler: async (ctx, args) =>
     createTourManagerForTest(ctx, args, await requireHeadOrAdmin(ctx, ["Operations Head"])),
@@ -410,7 +426,7 @@ export async function updateTourManagerForTest(
     callingStatus?: "Pending" | "Done" | "No response";
     status?: "Available" | "Assigned" | "Inactive";
   },
-  access: PortalAccess,
+  access: PortalAccess
 ) {
   const id = ctx.db.normalizeId("tourManagerAssignments", args.tourManagerId);
   if (!id) {
@@ -429,17 +445,33 @@ export async function updateTourManagerForTest(
 
   const now = Date.now();
   const patch: Record<string, unknown> = { updatedAt: now };
-  if (args.name !== undefined) patch.name = args.name.trim();
-  if (args.email !== undefined) patch.email = args.email.trim();
-  if (args.phone !== undefined) patch.phone = args.phone.trim();
-  if (args.availabilityDate !== undefined) patch.availabilityDate = args.availabilityDate;
+  if (args.name !== undefined) {
+    patch.name = args.name.trim();
+  }
+  if (args.email !== undefined) {
+    patch.email = args.email.trim();
+  }
+  if (args.phone !== undefined) {
+    patch.phone = args.phone.trim();
+  }
+  if (args.availabilityDate !== undefined) {
+    patch.availabilityDate = args.availabilityDate;
+  }
   if (args.reportingInstructions !== undefined) {
     patch.reportingInstructions = args.reportingInstructions.trim();
   }
-  if (args.notes !== undefined) patch.notes = args.notes.trim();
-  if (args.languages !== undefined) patch.languages = args.languages;
-  if (args.callingStatus !== undefined) patch.callingStatus = args.callingStatus;
-  if (args.status !== undefined) patch.status = args.status;
+  if (args.notes !== undefined) {
+    patch.notes = args.notes.trim();
+  }
+  if (args.languages !== undefined) {
+    patch.languages = args.languages;
+  }
+  if (args.callingStatus !== undefined) {
+    patch.callingStatus = args.callingStatus;
+  }
+  if (args.status !== undefined) {
+    patch.status = args.status;
+  }
 
   let staffId = tourManager.staffId;
   if (args.staffId !== undefined) {
@@ -455,9 +487,15 @@ export async function updateTourManagerForTest(
       if (!staff.roles.includes("Tour Manager")) {
         throw new ConvexError("Selected staff member is not a tour manager");
       }
-      if (args.name === undefined) patch.name = staff.name.trim();
-      if (args.email === undefined) patch.email = staff.email || "";
-      if (args.phone === undefined) patch.phone = staff.mobile || "";
+      if (args.name === undefined) {
+        patch.name = staff.name.trim();
+      }
+      if (args.email === undefined) {
+        patch.email = staff.email || "";
+      }
+      if (args.phone === undefined) {
+        patch.phone = staff.mobile || "";
+      }
     }
     staffId = nextStaffId ?? undefined;
     patch.staffId = nextStaffId ?? undefined;
@@ -488,11 +526,11 @@ export async function updateTourManagerForTest(
     args.travelBatchId !== undefined || (args.jobCardId === undefined && tourManager.travelBatchId);
   const existingTravelBatchId = tourManager.travelBatchId;
   const travelBatch = shouldResolveTravelBatch
-    ? args.travelBatchId !== undefined
-      ? await getValidatedTravelBatch(ctx, args.travelBatchId, jobCardId)
-      : existingTravelBatchId
+    ? args.travelBatchId === undefined
+      ? existingTravelBatchId
         ? await ctx.db.get(existingTravelBatchId)
         : null
+      : await getValidatedTravelBatch(ctx, args.travelBatchId, jobCardId)
     : null;
   if (args.travelBatchId !== undefined || args.jobCardId !== undefined) {
     patch.travelBatchId = travelBatch?._id;
@@ -532,21 +570,21 @@ export async function updateTourManagerForTest(
 
   await Promise.all([
     createActivity(ctx, access, {
-      entityType: "tourManager",
-      entityId: id,
       action: "updated",
+      entityId: id,
+      entityType: "tourManager",
       message: `${name} tour manager updated`,
     }),
     notifyOnAllocation && allocationStaffId && allocationJobCardId
       ? notifyStaffMember(ctx, allocationStaffId, {
-          title: "Tour Manager allocation updated",
           body: tourManagerNotificationBody(
             await ctx.db.get(allocationJobCardId),
             travelBatch,
-            args.reportingInstructions ?? tourManager.reportingInstructions,
+            args.reportingInstructions ?? tourManager.reportingInstructions
           ),
-          entityType: "tourManager",
           entityId: id,
+          entityType: "tourManager",
+          title: "Tour Manager allocation updated",
         })
       : null,
   ]);
@@ -555,23 +593,23 @@ export async function updateTourManagerForTest(
 
 export const updateTourManager = mutation({
   args: {
-    tourManagerId: v.string(),
-    jobCardId: v.optional(v.string()),
-    travelBatchId: v.optional(v.string()),
-    staffId: v.optional(v.string()),
-    name: v.optional(v.string()),
-    email: v.optional(v.string()),
-    phone: v.optional(v.string()),
     availabilityDate: v.optional(v.string()),
-    reportingInstructions: v.optional(v.string()),
-    notes: v.optional(v.string()),
-    languages: v.optional(v.array(v.string())),
     callingStatus: v.optional(
-      v.union(v.literal("Pending"), v.literal("Done"), v.literal("No response")),
+      v.union(v.literal("Pending"), v.literal("Done"), v.literal("No response"))
     ),
+    email: v.optional(v.string()),
+    jobCardId: v.optional(v.string()),
+    languages: v.optional(v.array(v.string())),
+    name: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    reportingInstructions: v.optional(v.string()),
+    staffId: v.optional(v.string()),
     status: v.optional(
-      v.union(v.literal("Available"), v.literal("Assigned"), v.literal("Inactive")),
+      v.union(v.literal("Available"), v.literal("Assigned"), v.literal("Inactive"))
     ),
+    tourManagerId: v.string(),
+    travelBatchId: v.optional(v.string()),
   },
   handler: async (ctx, args) =>
     updateTourManagerForTest(ctx, args, await requireHeadOrAdmin(ctx, ["Operations Head"])),
@@ -580,7 +618,7 @@ export const updateTourManager = mutation({
 async function deleteTourManagerRecord(
   ctx: MutationCtx,
   access: PortalAccess,
-  id: Id<"tourManagerAssignments">,
+  id: Id<"tourManagerAssignments">
 ) {
   const tourManager = await ctx.db.get(id);
   if (!tourManager) {
@@ -601,9 +639,9 @@ async function deleteTourManagerRecord(
   }
   await Promise.all([
     createActivity(ctx, access, {
-      entityType: "tourManager",
-      entityId: id,
       action: "deleted",
+      entityId: id,
+      entityType: "tourManager",
       message: `${tourManager.name} deleted`,
     }),
     deleteEntityNotifications(ctx, "tourManager", id),

@@ -11,7 +11,7 @@ export async function PUT(request) {
     if (!sessionUser?.id) {
       return NextResponse.json(
         { error: "You must be signed in to update your profile." },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
@@ -29,21 +29,21 @@ export async function PUT(request) {
     if (!trimmedName || trimmedName.length < 2) {
       return NextResponse.json(
         { error: "Please provide your full name (at least 2 characters)." },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     if (trimmedName.length > 80) {
       return NextResponse.json(
         { error: "Name is too long. Please keep it under 80 characters." },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     if (trimmedPhone && !phoneRegex.test(trimmedPhone)) {
       return NextResponse.json(
         { error: "Please provide a valid phone number (e.g., +1 555-123-4567)." },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -57,14 +57,14 @@ export async function PUT(request) {
     }
 
     const responseUser = {
-      id: updated.id,
-      email: updated.email,
-      name: updated.name,
-      phoneNumber: updated.phoneNumber || "",
-      image: updated.image,
       createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
+      email: updated.email,
+      id: updated.id,
+      image: updated.image,
+      name: updated.name,
       passportDetailsEncrypted: updated.passportDetailsEncrypted,
+      phoneNumber: updated.phoneNumber || "",
+      updatedAt: updated.updatedAt,
     };
 
     return NextResponse.json({ user: responseUser });
@@ -72,7 +72,7 @@ export async function PUT(request) {
     console.error("Profile update error:", error);
     return NextResponse.json(
       { error: "Unable to update profile. Please try again." },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

@@ -9,14 +9,14 @@ const PHONE_REGEX = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]
 
 function createProfileState(user) {
   return {
-    savedProfileData: undefined,
+    isEditingProfile: false,
+    isSavingProfile: false,
+    profileAlert: null,
     profileForm: {
       name: user.name || "",
       phoneNumber: user.phoneNumber || "",
     },
-    isEditingProfile: false,
-    isSavingProfile: false,
-    profileAlert: null,
+    savedProfileData: undefined,
   };
 }
 
@@ -44,20 +44,20 @@ export function AccountProfilePanel({ user }) {
     : "Not available";
 
   const handleProfileInput = (field, value) => {
-    dispatch({ type: "setFormField", field, value });
+    dispatch({ field, type: "setFormField", value });
   };
 
   const resetProfileForm = () => {
     dispatch({
-      type: "patch",
       patch: {
+        isEditingProfile: false,
+        profileAlert: null,
         profileForm: {
           name: profileData.name || "",
           phoneNumber: profileData.phoneNumber || "",
         },
-        isEditingProfile: false,
-        profileAlert: null,
       },
+      type: "patch",
     });
   };
 
@@ -67,198 +67,198 @@ export function AccountProfilePanel({ user }) {
 
     if (!trimmedName || trimmedName.length < 2) {
       dispatch({
-        type: "patch",
         patch: {
           profileAlert: {
-            type: "error",
             message: "Please enter your full name (at least 2 characters).",
+            type: "error",
           },
         },
+        type: "patch",
       });
       return;
     }
 
     if (trimmedName.length > 80) {
       dispatch({
-        type: "patch",
         patch: {
           profileAlert: {
-            type: "error",
             message: "Name is too long. Please keep it under 80 characters.",
+            type: "error",
           },
         },
+        type: "patch",
       });
       return;
     }
 
     if (trimmedPhone && !PHONE_REGEX.test(trimmedPhone)) {
       dispatch({
-        type: "patch",
         patch: {
           profileAlert: {
-            type: "error",
             message: "Please enter a valid phone number (e.g., +1 555-123-4567).",
+            type: "error",
           },
         },
+        type: "patch",
       });
       return;
     }
 
-    dispatch({ type: "patch", patch: { isSavingProfile: true, profileAlert: null } });
+    dispatch({ patch: { isSavingProfile: true, profileAlert: null }, type: "patch" });
 
     try {
       const response = await fetch("/api/profile", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           name: trimmedName,
           phoneNumber: trimmedPhone,
         }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PUT",
       });
 
       const data = await response.json();
 
       if (!response.ok) {
         dispatch({
-          type: "patch",
           patch: {
-            profileAlert: {
-              type: "error",
-              message: data?.error || "Unable to update profile.",
-            },
             isSavingProfile: false,
+            profileAlert: {
+              message: data?.error || "Unable to update profile.",
+              type: "error",
+            },
           },
+          type: "patch",
         });
         return;
       }
 
       dispatch({
-        type: "patch",
         patch: {
-          savedProfileData: {
-            ...profileData,
-            ...data.user,
+          isEditingProfile: false,
+          isSavingProfile: false,
+          profileAlert: {
+            message: "Profile updated successfully.",
+            type: "success",
           },
           profileForm: {
             name: data.user?.name || "",
             phoneNumber: data.user?.phoneNumber || "",
           },
-          isEditingProfile: false,
-          profileAlert: {
-            type: "success",
-            message: "Profile updated successfully.",
+          savedProfileData: {
+            ...profileData,
+            ...data.user,
           },
-          isSavingProfile: false,
         },
+        type: "patch",
       });
     } catch (error) {
       dispatch({
-        type: "patch",
         patch: {
-          profileAlert: {
-            type: "error",
-            message: error.message || "Unable to update profile.",
-          },
           isSavingProfile: false,
+          profileAlert: {
+            message: error.message || "Unable to update profile.",
+            type: "error",
+          },
         },
+        type: "patch",
       });
     }
   };
 
   return (
     <m.div
-      key="profile"
-      initial="hidden"
       animate="visible"
+      className="overflow-hidden rounded-3xl bg-white shadow-[#0B1026]/5 shadow-xl"
       exit={{ opacity: 0, y: 10 }}
+      initial="hidden"
+      key="profile"
       variants={ACCOUNT_CONTAINER_VARIANTS}
-      className="bg-white rounded-3xl shadow-xl shadow-[#0B1026]/5 overflow-hidden"
     >
-      <div className="p-8 border-b border-gray-100">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="border-gray-100 border-b p-8">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
             <h2 className="font-heading text-3xl text-[#0B1026]">Personal Details</h2>
-            <p className="text-sm text-gray-500 font-light">
+            <p className="font-light text-gray-500 text-sm">
               Update how we reach you and what shows on bookings.
             </p>
           </div>
-          {!isEditingProfile ? (
-            <button
-              type="button"
-              onClick={() => {
-                dispatch({
-                  type: "patch",
-                  patch: { isEditingProfile: true, profileAlert: null },
-                });
-              }}
-              className="text-[#0B1026] text-sm font-semibold px-4 py-2 rounded-full border border-[#0B1026] hover:bg-[#0B1026] hover:text-white transition-colors"
-            >
-              Edit Details
-            </button>
-          ) : (
+          {isEditingProfile ? (
             <div className="flex items-center gap-3">
               <button
-                type="button"
+                className="rounded-full border border-gray-200 px-4 py-2 font-medium text-gray-600 text-sm transition-colors hover:bg-gray-50"
                 onClick={resetProfileForm}
-                className="px-4 py-2 text-sm font-medium text-gray-600 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors"
+                type="button"
               >
                 Cancel
               </button>
               <button
-                type="button"
-                onClick={handleProfileSave}
-                disabled={isSavingProfile}
-                className={`px-4 py-2 text-sm font-semibold rounded-full transition-colors ${
+                className={`rounded-full px-4 py-2 font-semibold text-sm transition-colors ${
                   isSavingProfile
-                    ? "bg-[#0B1026]/60 text-white cursor-not-allowed"
+                    ? "cursor-not-allowed bg-[#0B1026]/60 text-white"
                     : "bg-[#0B1026] text-white hover:bg-[#1a2c4e]"
                 }`}
+                disabled={isSavingProfile}
+                onClick={handleProfileSave}
+                type="button"
               >
                 {isSavingProfile ? "Saving…" : "Save Changes"}
               </button>
             </div>
+          ) : (
+            <button
+              className="rounded-full border border-[#0B1026] px-4 py-2 font-semibold text-[#0B1026] text-sm transition-colors hover:bg-[#0B1026] hover:text-white"
+              onClick={() => {
+                dispatch({
+                  patch: { isEditingProfile: true, profileAlert: null },
+                  type: "patch",
+                });
+              }}
+              type="button"
+            >
+              Edit Details
+            </button>
           )}
         </div>
-        {profileAlert && <ProfileAlert type={profileAlert.type} message={profileAlert.message} />}
+        {profileAlert && <ProfileAlert message={profileAlert.message} type={profileAlert.type} />}
       </div>
 
-      {!isEditingProfile ? (
-        <div className="p-8 grid md:grid-cols-2 gap-x-12 gap-y-8">
+      {isEditingProfile ? (
+        <div className="grid gap-x-12 gap-y-8 p-8 md:grid-cols-2">
+          <ProfileInput
+            label="Full Name"
+            onChange={(value) => handleProfileInput("name", value)}
+            placeholder="Enter your full name"
+            value={profileForm.name}
+          />
+          <ProfileInput disabled label="Email Address" value={profileData.email} />
+          <ProfileInput
+            label="Phone Number"
+            onChange={(value) => handleProfileInput("phoneNumber", value)}
+            placeholder="+1 555-123-4567"
+            type="tel"
+            value={profileForm.phoneNumber}
+          />
+          <ProfileField label="Member Since" value={memberSince} />
+        </div>
+      ) : (
+        <div className="grid gap-x-12 gap-y-8 p-8 md:grid-cols-2">
           <ProfileField label="Full Name" value={profileData.name} />
           <ProfileField label="Email Address" value={profileData.email} />
           <ProfileField label="Phone Number" value={profileData.phoneNumber || "Not provided"} />
           <ProfileField label="Member Since" value={memberSince} />
         </div>
-      ) : (
-        <div className="p-8 grid md:grid-cols-2 gap-x-12 gap-y-8">
-          <ProfileInput
-            label="Full Name"
-            value={profileForm.name}
-            onChange={(value) => handleProfileInput("name", value)}
-            placeholder="Enter your full name"
-          />
-          <ProfileInput label="Email Address" value={profileData.email} disabled />
-          <ProfileInput
-            label="Phone Number"
-            value={profileForm.phoneNumber}
-            onChange={(value) => handleProfileInput("phoneNumber", value)}
-            placeholder="+1 555-123-4567"
-            type="tel"
-          />
-          <ProfileField label="Member Since" value={memberSince} />
-        </div>
       )}
 
-      <div className="bg-[#f8fafc] p-8 border-t border-gray-100">
-        <h3 className="font-heading text-xl text-[#0B1026] mb-4">Passport Details</h3>
-        <p className="text-gray-500 text-sm font-light mb-4">
+      <div className="border-gray-100 border-t bg-[#f8fafc] p-8">
+        <h3 className="mb-4 font-heading text-[#0B1026] text-xl">Passport Details</h3>
+        <p className="mb-4 font-light text-gray-500 text-sm">
           Your passport details are securely encrypted. We only decrypt them when necessary for
           booking arrangements.
         </p>
-        <div className="flex items-center gap-3 text-sm text-gray-500 bg-white border border-gray-200 rounded-lg p-4 max-w-md">
-          <div className="size-2 rounded-full bg-green-500"></div>
+        <div className="flex max-w-md items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 text-gray-500 text-sm">
+          <div className="size-2 rounded-full bg-green-500" />
           {profileData.passportDetailsEncrypted
             ? "Passport details on file"
             : "No passport details provided"}

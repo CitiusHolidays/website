@@ -5,21 +5,20 @@ export default function robots() {
     return {
       rules: [
         {
-          userAgent: "*",
           allow: "/",
           disallow: "/admin",
+          userAgent: "*",
         },
       ],
       sitemap: `${baseUrl}/sitemap.xml`,
     };
-  } else {
-    return {
-      rules: [
-        {
-          userAgent: "*",
-          disallow: "/",
-        },
-      ],
-    };
   }
+  return {
+    rules: [
+      {
+        disallow: "/",
+        userAgent: "*",
+      },
+    ],
+  };
 }

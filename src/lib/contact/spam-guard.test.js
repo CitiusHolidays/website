@@ -126,20 +126,20 @@ describe("validateFormTiming", () => {
 describe("detectSpamContent", () => {
   test("flags obvious SEO spam", () => {
     const result = detectSpamContent({
-      name: "Mark",
       email: "mark@example.com",
-      subject: "Hello",
       message: "We offer SEO services and backlink packages.",
+      name: "Mark",
+      subject: "Hello",
     });
     expect(result.spam).toBe(true);
   });
 
   test("allows normal travel inquiry", () => {
     const result = detectSpamContent({
-      name: "Priya Sharma",
       email: "priya@example.com",
-      subject: "Kerala trip",
       message: "Looking for a 7-day family trip to Kerala in December.",
+      name: "Priya Sharma",
+      subject: "Kerala trip",
     });
     expect(result.spam).toBe(false);
   });

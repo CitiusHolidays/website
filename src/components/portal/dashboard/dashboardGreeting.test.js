@@ -13,7 +13,7 @@ describe("getDashboardGreeting", () => {
     const lateAfternoon = new Date(2026, 6, 5, 16, 0, 0);
     expect(getDashboardGreeting({ now: noon })).toBe("Good afternoon");
     expect(getDashboardGreeting({ displayName: "Jane Doe", now: noon })).toBe(
-      "Good afternoon, Jane",
+      "Good afternoon, Jane"
     );
     expect(getDashboardGreeting({ now: lateAfternoon })).toBe("Good afternoon");
   });
@@ -23,7 +23,7 @@ describe("getDashboardGreeting", () => {
     const night = new Date(2026, 6, 5, 22, 0, 0);
     expect(getDashboardGreeting({ now: evening })).toBe("Good evening");
     expect(getDashboardGreeting({ displayName: "Jane Doe", now: evening })).toBe(
-      "Good evening, Jane",
+      "Good evening, Jane"
     );
     expect(getDashboardGreeting({ now: night })).toBe("Good evening");
   });

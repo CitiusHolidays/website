@@ -29,8 +29,12 @@ export function formatFoodPreferenceForExport(value) {
 
 function genderForTemplate(value) {
   const normalized = normalizeTravellerGender(value);
-  if (normalized === "Male") return "MALE";
-  if (normalized === "Female") return "FEMALE";
+  if (normalized === "Male") {
+    return "MALE";
+  }
+  if (normalized === "Female") {
+    return "FEMALE";
+  }
   return value || "";
 }
 
@@ -38,7 +42,7 @@ function passengerRowToArray(row) {
   const passport = row.passport || {};
   const name =
     row.surname || row.givenName
-      ? { surname: row.surname || "", givenName: row.givenName || row.fullName || "" }
+      ? { givenName: row.givenName || row.fullName || "", surname: row.surname || "" }
       : splitPassengerName(row.fullName);
   const ticketing = row.ticketing || {};
   return [
@@ -69,11 +73,11 @@ function splitPassengerName(fullName) {
     .split(/\s+/)
     .filter(Boolean);
   if (parts.length <= 1) {
-    return { surname: "", givenName: parts[0] || "" };
+    return { givenName: parts[0] || "", surname: "" };
   }
   return {
-    surname: parts.at(-1) || "",
     givenName: parts.slice(0, -1).join(" "),
+    surname: parts.at(-1) || "",
   };
 }
 
@@ -81,8 +85,12 @@ function honorificForPassenger(gender) {
   const key = String(gender ?? "")
     .trim()
     .toLowerCase();
-  if (key.startsWith("f")) return "MS";
-  if (key.startsWith("m")) return "MR";
+  if (key.startsWith("f")) {
+    return "MS";
+  }
+  if (key.startsWith("m")) {
+    return "MR";
+  }
   return "";
 }
 
@@ -92,11 +100,11 @@ function splitTemplateName(fullName) {
     .split(/\s+/)
     .filter(Boolean);
   if (parts.length <= 1) {
-    return { surname: "", givenName: parts[0] || "" };
+    return { givenName: parts[0] || "", surname: "" };
   }
   return {
-    surname: parts[0],
     givenName: parts.slice(1).join(" "),
+    surname: parts[0],
   };
 }
 
@@ -132,17 +140,17 @@ function templateBase(row) {
   const passport = row.passport || {};
   const name =
     row.surname || row.givenName
-      ? { surname: row.surname || "", givenName: row.givenName || row.fullName || "" }
+      ? { givenName: row.givenName || row.fullName || "", surname: row.surname || "" }
       : splitTemplateName(row.fullName);
   return {
-    passport,
-    surname: name.surname,
-    givenName: name.givenName,
+    contactNo: row.contactNo || "",
     dealerName: row.sourceDealerName || "",
     gender: genderForTemplate(row.gender),
+    givenName: name.givenName,
+    passport,
     passportValid: passport.number && passport.expiryDate ? "Yes" : "",
     remarks: row.specialRequests || "",
-    contactNo: row.contactNo || "",
+    surname: name.surname,
   };
 }
 
@@ -308,7 +316,9 @@ export function buildFlightWorkbook(groups, { defaultSheetName = "Flights" } = {
 
   for (const group of groups) {
     const key = group.sourceSheet || defaultSheetName;
-    if (!groupsBySheet.has(key)) groupsBySheet.set(key, []);
+    if (!groupsBySheet.has(key)) {
+      groupsBySheet.set(key, []);
+    }
     groupsBySheet.get(key).push(group);
   }
 
@@ -333,7 +343,9 @@ export function buildFlightWorkbook(groups, { defaultSheetName = "Flights" } = {
     const sheetRows = [[]];
     for (const group of sheetGroups) {
       const segments = group.segments || [];
-      if (segments.length === 0) continue;
+      if (segments.length === 0) {
+        continue;
+      }
       if (group.travelBatchReference) {
         sheetRows.push(["Travel Batch", group.travelBatchReference]);
       }

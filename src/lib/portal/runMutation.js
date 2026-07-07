@@ -8,14 +8,14 @@ export function assertRunMutationArgs(options, fn) {
   if (typeof fn === "function") {
     if (options == null || typeof options !== "object" || Array.isArray(options)) {
       throw new TypeError(
-        "runMutation(options, fn): first argument must be an options object (e.g. { showToast, successMessage }).",
+        "runMutation(options, fn): first argument must be an options object (e.g. { showToast, successMessage })."
       );
     }
     return;
   }
   if (typeof options === "function") {
     throw new TypeError(
-      "runMutation(options, fn): arguments look reversed — pass the options object first, then () => mutation(...).",
+      "runMutation(options, fn): arguments look reversed — pass the options object first, then () => mutation(...)."
     );
   }
   throw new TypeError("runMutation(options, fn): second argument must be a function.");
@@ -30,7 +30,7 @@ const RUN_MUTATION_REVERSED_CALL_PATTERN = /runMutation\s*\(\s*(?:async\s*)?\(/;
 export function findRunMutationReversedCallLines(source) {
   const lines = source.split("\n");
   return lines.flatMap((line, index) =>
-    RUN_MUTATION_REVERSED_CALL_PATTERN.test(line) ? [index + 1] : [],
+    RUN_MUTATION_REVERSED_CALL_PATTERN.test(line) ? [index + 1] : []
   );
 }
 

@@ -5,35 +5,35 @@ import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
 
 const AUTH_ITEM_VARIANTS = {
-  hidden: { y: 20, opacity: 0 },
+  hidden: { opacity: 0, y: 20 },
   visible: {
-    y: 0,
     opacity: 1,
-    transition: { type: "spring", stiffness: 100, damping: 10 },
+    transition: { damping: 10, stiffness: 100, type: "spring" },
+    y: 0,
   },
 };
 
 export function AuthVerificationNotice({ email, onBackToSignIn }) {
   return (
     <m.div
-      initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="bg-emerald-50 border border-green-100 rounded-2xl p-6 text-center space-y-4"
+      className="space-y-4 rounded-2xl border border-green-100 bg-emerald-50 p-6 text-center"
+      initial={{ opacity: 0, scale: 0.95 }}
     >
-      <div className="size-12 bg-emerald-500 text-white rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+      <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-500 font-bold text-2xl text-white">
         ✓
       </div>
-      <h3 className="font-heading text-2xl font-medium text-emerald-900">Check Your Email</h3>
-      <p className="text-emerald-700 text-sm leading-relaxed font-light">
+      <h3 className="font-heading font-medium text-2xl text-emerald-900">Check Your Email</h3>
+      <p className="font-light text-emerald-700 text-sm leading-relaxed">
         If this is a new account, we sent a verification link to{" "}
         <strong className="font-medium text-emerald-900">{email}</strong>. If you already have an
         account (including Google sign-in), check your inbox for a password or verification email
         instead.
       </p>
       <button
-        type="button"
+        className="mt-4 rounded-lg bg-[#0B1026] px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-[#1a2c4e]"
         onClick={onBackToSignIn}
-        className="mt-4 px-4 py-2 bg-[#0B1026] text-white rounded-lg text-sm font-medium hover:bg-[#1a2c4e] transition-colors"
+        type="button"
       >
         Back to Sign In
       </button>
@@ -56,71 +56,71 @@ export function AuthLoginForm({
 }) {
   return (
     <>
-      <form onSubmit={onSubmit} className="space-y-5">
+      <form className="space-y-5" onSubmit={onSubmit}>
         <AnimatePresence mode="wait">
           {mode === "signup" && variant.allowSignup && (
             <m.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              initial={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
               <div className="group">
                 <label
+                  className="mb-1.5 ml-1 block font-medium text-[#0f172a] text-sm"
                   htmlFor="auth-name"
-                  className="block text-sm font-medium text-[#0f172a] mb-1.5 ml-1"
                 >
                   Full Name
                 </label>
                 <div className="relative">
                   <input
+                    className="w-full rounded-xl border border-[#e2e8f0] bg-white px-4 py-3.5 pl-11 text-[#0f172a] text-lg outline-none transition-all duration-200 placeholder:font-light placeholder:text-[#94a3b8] focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20"
                     id="auth-name"
-                    type="text"
                     name="name"
-                    required={mode === "signup"}
-                    value={formData.name}
                     onChange={onInputChange}
-                    className="w-full bg-white border border-[#e2e8f0] text-[#0f172a] text-lg px-4 py-3.5 pl-11 rounded-xl focus:ring-2 focus:ring-[#d4af37]/20 focus:border-[#d4af37] outline-none transition-all duration-200 placeholder:text-[#94a3b8] placeholder:font-light"
                     placeholder="John Doe"
+                    required={mode === "signup"}
+                    type="text"
+                    value={formData.name}
                   />
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-[#94a3b8] group-focus-within:text-[#d4af37] transition-colors" />
+                  <User className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-[#d4af37]" />
                 </div>
               </div>
             </m.div>
           )}
         </AnimatePresence>
 
-        <m.div variants={AUTH_ITEM_VARIANTS} className="group">
+        <m.div className="group" variants={AUTH_ITEM_VARIANTS}>
           <label
+            className="mb-1.5 ml-1 block font-medium text-[#0f172a] text-sm"
             htmlFor="auth-email"
-            className="block text-sm font-medium text-[#0f172a] mb-1.5 ml-1"
           >
             Email Address
           </label>
           <div className="relative">
             <input
+              className="w-full rounded-xl border border-[#e2e8f0] bg-white px-4 py-3.5 pl-11 text-[#0f172a] text-lg outline-none transition-all duration-200 placeholder:font-light placeholder:text-[#94a3b8] focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20"
               id="auth-email"
-              type="email"
               name="email"
-              required
-              value={formData.email}
               onChange={onInputChange}
-              className="w-full bg-white border border-[#e2e8f0] text-[#0f172a] text-lg px-4 py-3.5 pl-11 rounded-xl focus:ring-2 focus:ring-[#d4af37]/20 focus:border-[#d4af37] outline-none transition-all duration-200 placeholder:text-[#94a3b8] placeholder:font-light"
               placeholder="you@example.com"
+              required
+              type="email"
+              value={formData.email}
             />
-            <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-[#94a3b8] group-focus-within:text-[#d4af37] transition-colors" />
+            <Mail className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-[#d4af37]" />
           </div>
         </m.div>
 
-        <m.div variants={AUTH_ITEM_VARIANTS} className="group">
-          <div className="flex items-center justify-between mb-1.5 ml-1">
-            <label htmlFor="auth-password" className="block text-sm font-medium text-[#0f172a]">
+        <m.div className="group" variants={AUTH_ITEM_VARIANTS}>
+          <div className="mb-1.5 ml-1 flex items-center justify-between">
+            <label className="block font-medium text-[#0f172a] text-sm" htmlFor="auth-password">
               Password
             </label>
             {mode === "signin" && (
               <Link
+                className="text-[#d4af37] text-sm transition-colors hover:text-[#b5952f]"
                 href="/auth/forgot-password"
-                className="text-sm text-[#d4af37] hover:text-[#b5952f] transition-colors"
               >
                 Forgot password?
               </Link>
@@ -128,20 +128,20 @@ export function AuthLoginForm({
           </div>
           <div className="relative">
             <input
+              className="w-full rounded-xl border border-[#e2e8f0] bg-white px-4 py-3.5 pr-11 pl-11 text-[#0f172a] text-lg outline-none transition-all duration-200 placeholder:font-light placeholder:text-[#94a3b8] focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20"
               id="auth-password"
-              type={showPassword ? "text" : "password"}
               name="password"
-              required
-              value={formData.password}
               onChange={onInputChange}
-              className="w-full bg-white border border-[#e2e8f0] text-[#0f172a] text-lg px-4 py-3.5 pl-11 pr-11 rounded-xl focus:ring-2 focus:ring-[#d4af37]/20 focus:border-[#d4af37] outline-none transition-all duration-200 placeholder:text-[#94a3b8] placeholder:font-light"
               placeholder="••••••••"
+              required
+              type={showPassword ? "text" : "password"}
+              value={formData.password}
             />
-            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-[#94a3b8] group-focus-within:text-[#d4af37] transition-colors" />
+            <Lock className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-[#d4af37]" />
             <button
-              type="button"
+              className="absolute top-1/2 right-4 -translate-y-1/2 text-[#94a3b8] transition-colors hover:text-[#0f172a] focus:outline-none"
               onClick={onTogglePassword}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-[#0f172a] transition-colors focus:outline-none"
+              type="button"
             >
               {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
             </button>
@@ -150,9 +150,9 @@ export function AuthLoginForm({
 
         {formError && (
           <m.div
-            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-3 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm flex items-center gap-2"
+            className="flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-red-600 text-sm"
+            initial={{ opacity: 0, y: -10 }}
           >
             <div className="size-1.5 rounded-full bg-red-500" />
             {formError}
@@ -160,32 +160,32 @@ export function AuthLoginForm({
         )}
 
         <m.button
+          className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#0B1026] py-4 font-medium text-lg text-white shadow-[#0B1026]/20 shadow-lg transition-all duration-300 hover:shadow-[#0B1026]/30 hover:shadow-xl"
+          disabled={isLoading}
+          type="submit"
           variants={AUTH_ITEM_VARIANTS}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          disabled={isLoading}
-          type="submit"
-          className="w-full bg-[#0B1026] text-white font-medium text-lg py-4 rounded-xl shadow-lg shadow-[#0B1026]/20 hover:shadow-xl hover:shadow-[#0B1026]/30 transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden group"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 group-hover:opacity-90 transition-opacity" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 transition-opacity group-hover:opacity-90" />
           <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-10 mix-blend-overlay" />
           <span className="relative z-10">
             {isLoading ? "Processing…" : mode === "signin" ? copy.submitSignIn : copy.submitSignUp}
           </span>
           {!isLoading && (
-            <ArrowRight className="size-5 relative z-10 group-hover:translate-x-1 transition-transform" />
+            <ArrowRight className="relative z-10 size-5 transition-transform group-hover:translate-x-1" />
           )}
         </m.button>
       </form>
 
       {variant.allowSignup && (
-        <m.div variants={AUTH_ITEM_VARIANTS} className="mt-8 text-center">
+        <m.div className="mt-8 text-center" variants={AUTH_ITEM_VARIANTS}>
           <p className="text-[#64748b]">
             {mode === "signin" ? "Don't have an account?" : "Already have an account?"}
             <button
-              type="button"
+              className="group relative ml-2 font-medium text-[#d4af37] transition-colors hover:text-[#b5952f]"
               onClick={onToggleMode}
-              className="ml-2 font-medium text-[#d4af37] hover:text-[#b5952f] transition-colors relative group"
+              type="button"
             >
               {mode === "signin" ? "Sign up" : "Sign in"}
               <span className="absolute -bottom-0.5 left-0 size-0.5 bg-[#d4af37] transition-all group-hover:w-full" />

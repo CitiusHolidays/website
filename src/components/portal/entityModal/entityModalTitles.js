@@ -6,49 +6,51 @@ import { usesSalesInitialAssignmentForm } from "@/lib/portal/permissions";
 const P = PORTAL_PERMISSIONS;
 
 export function getEntityModalTitle(modal, form, has, access) {
-  if (!modal) return "";
+  if (!modal) {
+    return "";
+  }
   return (
     {
-      query: form.entityId ? "Edit Query" : "New Query / Enquiry",
-      queryAttachments: `Attachments — ${form.queryCode || "Query"}`,
-      proposalAttachments: `Working Files — ${form.queryCode || "Proposal"}`,
-      proposalFinalizedPdf: `Finalized Proposal PDF — ${form.queryCode || "Proposal"}`,
+      addJobCardCollaborator: "Add Job Card Collaborator",
+      addProposalCollaborator: "Add Proposal Collaborator",
+      approvalDecide:
+        form.approvalStatus === "Needs Info" ? "Request More Details" : "Reject Approval",
       assignContracting: "Assign Contracting SPOC",
+      assignContractingOwner: "Assign Contracting SPOC",
+      assignJobCardCreator: "Assign Job Card Creator",
+      assignOperationsOwner: "Assign Operations Owner",
       assignQueryTeams: usesSalesInitialAssignmentForm(access)
         ? "Assign Contracting SPOC & Ticketing Scope"
         : "Assign contracting & ticketing teams",
       assignQueryTicketing: "Assign Ticketing SPOC",
-      assignJobCardCreator: "Assign Job Card Creator",
-      addProposalCollaborator: "Add Proposal Collaborator",
-      removeProposalCollaborator: "Remove Proposal Collaborator",
-      addJobCardCollaborator: "Add Job Card Collaborator",
-      removeJobCardCollaborator: "Remove Job Card Collaborator",
-      assignContractingOwner: "Assign Contracting SPOC",
-      assignOperationsOwner: "Assign Operations Owner",
       assignTicketingOwner: "Assign Ticketing Owner",
-      queryStatus: "Update Query Status",
-      salesDecision: "Sales Decision",
-      proposal: form.entityId ? "Edit Proposal" : "Create Proposal",
-      jobCard: form.entityId ? "Edit Job Card" : "Open Job Card",
-      travelBatch: form.entityId ? "Edit Travel Batch" : "Add Travel Batch",
-      traveller: form.entityId ? "Edit Traveller" : "Add Traveller",
-      visa: form.entityId ? "Edit Visa Record" : "Update Visa Status",
-      visa_create: "Create Visa Record",
-      pnr: form.entityId ? "Edit PNR" : "Add PNR",
-      ticket: form.entityId ? "Edit Ticket" : "Issue Ticket",
-      seat: form.entityId ? "Edit Seat Allocation" : "Save Seat Allocation",
-      hotel: form.entityId ? "Edit Hotel" : "Add Hotel",
-      tourManager: form.entityId ? "Edit Tour Manager" : "Add Tour Manager",
-      invoice: form.entityId ? "Edit Invoice" : "Generate Invoice",
       expense: form.entityId ? "Edit Expense" : "Add Expense",
-      staff: "Staff Allowlist Entry",
+      hotel: form.entityId ? "Edit Hotel" : "Add Hotel",
+      invoice: form.entityId ? "Edit Invoice" : "Generate Invoice",
+      jobCard: form.entityId ? "Edit Job Card" : "Open Job Card",
       leave_create: form.entityId
         ? "Edit Leave"
         : has(P.MANAGE_LEAVE)
           ? "Record Employee Leave"
           : "Request Leave",
-      approvalDecide:
-        form.approvalStatus === "Needs Info" ? "Request More Details" : "Reject Approval",
+      pnr: form.entityId ? "Edit PNR" : "Add PNR",
+      proposal: form.entityId ? "Edit Proposal" : "Create Proposal",
+      proposalAttachments: `Working Files — ${form.queryCode || "Proposal"}`,
+      proposalFinalizedPdf: `Finalized Proposal PDF — ${form.queryCode || "Proposal"}`,
+      query: form.entityId ? "Edit Query" : "New Query / Enquiry",
+      queryAttachments: `Attachments — ${form.queryCode || "Query"}`,
+      queryStatus: "Update Query Status",
+      removeJobCardCollaborator: "Remove Job Card Collaborator",
+      removeProposalCollaborator: "Remove Proposal Collaborator",
+      salesDecision: "Sales Decision",
+      seat: form.entityId ? "Edit Seat Allocation" : "Save Seat Allocation",
+      staff: "Staff Allowlist Entry",
+      ticket: form.entityId ? "Edit Ticket" : "Issue Ticket",
+      tourManager: form.entityId ? "Edit Tour Manager" : "Add Tour Manager",
+      travelBatch: form.entityId ? "Edit Travel Batch" : "Add Travel Batch",
+      traveller: form.entityId ? "Edit Traveller" : "Add Traveller",
+      visa: form.entityId ? "Edit Visa Record" : "Update Visa Status",
+      visa_create: "Create Visa Record",
     }[modal] || ""
   );
 }

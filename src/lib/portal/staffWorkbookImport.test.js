@@ -39,19 +39,19 @@ describe("staff workbook import parsing", () => {
     const result = parseStaffWorkbook(workbook);
     expect(result.rows).toEqual([
       {
-        sourceSheet: "Leave Approval Matrix",
-        sourceRowNumber: 2,
-        name: "Surajit Roy",
-        email: "surajit@citius.in",
-        mobile: "9831952974",
-        jobRole: "Finance HOD",
         departmentTeam: "Finance Head",
-        location: "Kolkata",
-        level1ApproverName: "Kushmesh Chowdhury",
+        email: "surajit@citius.in",
         escalationApproverName: "",
         finalAuthorityName: "Surajit Roy",
         hrCopyName: "Mithu Chatterjee",
+        jobRole: "Finance HOD",
+        level1ApproverName: "Kushmesh Chowdhury",
+        location: "Kolkata",
+        mobile: "9831952974",
+        name: "Surajit Roy",
         notes: "Kolkata Accounts HOD / top authority",
+        sourceRowNumber: 2,
+        sourceSheet: "Leave Approval Matrix",
       },
     ]);
     expect(result.skipped).toEqual([]);

@@ -5,15 +5,14 @@ describe("buildTravellerCountSummary", () => {
   test("counts gender and food preferences from filtered traveller rows", () => {
     expect(
       buildTravellerCountSummary([
-        { gender: "Male", foodPreference: "Veg" },
-        { gender: "F", foodPreference: "Jain" },
-        { gender: "female", foodPreference: "Veg" },
-        { gender: "M", foodPreference: "No Onion" },
-        { gender: "MALE", foodPreference: "Veg" },
-        { gender: "FEMALE", foodPreference: "Non-Veg" },
-      ]),
+        { foodPreference: "Veg", gender: "Male" },
+        { foodPreference: "Jain", gender: "F" },
+        { foodPreference: "Veg", gender: "female" },
+        { foodPreference: "No Onion", gender: "M" },
+        { foodPreference: "Veg", gender: "MALE" },
+        { foodPreference: "Non-Veg", gender: "FEMALE" },
+      ])
     ).toEqual({
-      male: 3,
       female: 3,
       foodRows: [
         { label: "Veg", value: 3 },
@@ -22,6 +21,7 @@ describe("buildTravellerCountSummary", () => {
         { label: "Vegan", value: 0 },
         { label: "No Onion", value: 1 },
       ],
+      male: 3,
     });
   });
 });

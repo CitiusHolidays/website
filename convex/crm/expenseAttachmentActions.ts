@@ -18,7 +18,7 @@ const ALLOWED_MIME_PREFIXES = [
 function isAllowedMimeType(mimeType: string) {
   const normalized = mimeType.trim().toLowerCase();
   return Boolean(
-    normalized && ALLOWED_MIME_PREFIXES.some((prefix) => normalized.startsWith(prefix)),
+    normalized && ALLOWED_MIME_PREFIXES.some((prefix) => normalized.startsWith(prefix))
   );
 }
 
@@ -45,7 +45,7 @@ async function buildDownloadFile(
     storageId: string;
     fileName: string;
     mimeType: string;
-  },
+  }
 ) {
   const blob = await ctx.storage.get(record.storageId);
   if (!blob) {
@@ -74,10 +74,10 @@ export const generateUploadUrl = action({
 export const attachProof = action({
   args: {
     expenseId: v.string(),
-    storageId: v.id("_storage"),
     fileName: v.string(),
-    mimeType: v.string(),
     fileSize: v.number(),
+    mimeType: v.string(),
+    storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
     if (!isAllowedMimeType(args.mimeType)) {
@@ -116,12 +116,12 @@ export const attachProof = action({
     const { previousStorageId } = await ctx.runMutation(
       internal.crm.expenseAttachments.saveExpenseProof,
       {
+        createdBy: access.authUserId || "unknown",
         expenseId,
-        storageId: args.storageId,
         fileName: args.fileName.trim() || "expense proof",
         mimeType: args.mimeType.trim() || "application/octet-stream",
-        createdBy: access.authUserId || "unknown",
-      },
+        storageId: args.storageId,
+      }
     );
 
     if (previousStorageId) {
@@ -142,10 +142,10 @@ export const getDownloadUrl = action({
   },
   handler: async (
     ctx,
-    args,
+    args
   ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!access?.allowed || !access.permissions.includes(PERMISSIONS.VIEW_EXPENSES)) {
+    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.VIEW_EXPENSES))) {
       throw new ConvexError("FORBIDDEN");
     }
 
@@ -166,10 +166,10 @@ export const getDownloadFile = action({
   },
   handler: async (
     ctx,
-    args,
+    args
   ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!access?.allowed || !access.permissions.includes(PERMISSIONS.VIEW_EXPENSES)) {
+    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.VIEW_EXPENSES))) {
       throw new ConvexError("FORBIDDEN");
     }
 
@@ -203,7 +203,7 @@ export const removeProof = action({
 
     const { storageId } = await ctx.runMutation(
       internal.crm.expenseAttachments.deleteExpenseProof,
-      { attachmentId: record.id },
+      { attachmentId: record.id }
     );
     if (storageId) {
       try {

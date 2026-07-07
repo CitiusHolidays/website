@@ -16,7 +16,7 @@ export default function DeferredChatbot() {
         () => {
           setIsReady(true);
         },
-        { timeout: 4000 },
+        { timeout: 4000 }
       );
 
       return () => window.cancelIdleCallback(idleId);

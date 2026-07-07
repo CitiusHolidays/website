@@ -9,19 +9,19 @@ export default function ChallengeGrid({ limit }) {
   const { progress } = useSacredBharat();
   const challenges = sortChallengesForUser(SACRED_BHARAT_CHALLENGES, progress).slice(
     0,
-    limit ?? SACRED_BHARAT_CHALLENGES.length,
+    limit ?? SACRED_BHARAT_CHALLENGES.length
   );
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {challenges.map((challenge) => (
-        <article key={challenge.slug} className="rounded-lg border border-brand-light bg-white p-4">
+        <article className="rounded-lg border border-brand-light bg-white p-4" key={challenge.slug}>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="font-heading text-lg text-brand-dark">{challenge.title}</h3>
-              <p className="mt-1 font-sans text-sm text-brand-muted">{challenge.description}</p>
+              <h3 className="font-heading text-brand-dark text-lg">{challenge.title}</h3>
+              <p className="mt-1 font-sans text-brand-muted text-sm">{challenge.description}</p>
             </div>
             {challenge.progress.complete && (
-              <span className="rounded-full bg-citius-orange/10 px-2 py-1 font-sans text-xs font-semibold text-citius-orange">
+              <span className="rounded-full bg-citius-orange/10 px-2 py-1 font-sans font-semibold text-citius-orange text-xs">
                 Badge
               </span>
             )}
@@ -32,7 +32,7 @@ export default function ChallengeGrid({ limit }) {
               style={{ width: `${challenge.progress.percent}%` }}
             />
           </div>
-          <p className="mt-2 font-sans text-xs text-brand-muted">
+          <p className="mt-2 font-sans text-brand-muted text-xs">
             {challenge.progress.visited}/{challenge.progress.total} complete · {challenge.points}{" "}
             pts
           </p>
@@ -40,8 +40,8 @@ export default function ChallengeGrid({ limit }) {
       ))}
       {limit && (
         <Link
-          href="/sacred-bharat/challenges"
           className="rounded-lg border border-brand-light bg-brand-light/30 p-4 font-heading text-brand-dark hover:border-citius-orange"
+          href="/sacred-bharat/challenges"
         >
           View all challenges
         </Link>

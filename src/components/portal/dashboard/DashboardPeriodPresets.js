@@ -22,31 +22,31 @@ const PRESET_BUTTON_CLASS =
 export function DashboardPeriodPresets({ dateRange, setDateRange }) {
   const active = (preset) =>
     dateRange?.from === preset.range().from && dateRange?.to === preset.range().to;
-  const allTime = !dateRange?.from && !dateRange?.to;
+  const allTime = !(dateRange?.from || dateRange?.to);
 
   return (
     <div className="flex flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-brand-border bg-white p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <button
-        type="button"
-        onClick={() => setDateRange({ from: null, to: null })}
         className={`${PRESET_BUTTON_CLASS} shrink-0 ${
           allTime
             ? "border-citius-blue bg-citius-blue text-white"
             : "border-transparent bg-white text-brand-muted hover:text-brand-dark"
         }`}
+        onClick={() => setDateRange({ from: null, to: null })}
+        type="button"
       >
         All time
       </button>
       {PRESETS.map((preset) => (
         <button
-          key={preset.id}
-          type="button"
-          onClick={() => setDateRange(preset.range())}
           className={`${PRESET_BUTTON_CLASS} shrink-0 ${
             active(preset)
               ? "border-citius-blue bg-citius-blue text-white"
               : "border-transparent bg-white text-brand-muted hover:text-brand-dark"
           }`}
+          key={preset.id}
+          onClick={() => setDateRange(preset.range())}
+          type="button"
         >
           {preset.label}
         </button>

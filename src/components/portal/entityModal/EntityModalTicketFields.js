@@ -1,28 +1,14 @@
 "use client";
 
-import {
-  Input,
-  MultiSelect,
-  money,
-  QueryFilePicker,
-  Select,
-  Textarea,
-} from "@/components/portal/PortalModalForm";
+import { Input, Select } from "@/components/portal/PortalModalForm";
 import {
   CABIN_CLASSES,
-  EXPENSE_CURRENCIES,
-  EXPENSE_HEADS,
   FOOD_PREFERENCES,
-  GUEST_TYPES,
-  LEAVE_TYPES,
   PAYMENT_TYPES,
-  PORTAL_ROLES,
   TICKET_STATUSES,
   TICKET_TYPES,
-  VISA_STATUSES,
 } from "@/lib/portal/constants";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
-import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
 export function EntityModalTicketFields({
   modal,
@@ -56,62 +42,62 @@ export function EntityModalTicketFields({
         <>
           <Select
             label="Job Card"
-            value={form.jobCardId}
-            options={jobCardSelectOptions(jobCards, { required: true })}
             onChange={handleJobCardSelect}
+            options={jobCardSelectOptions(jobCards, { required: true })}
             required
+            value={form.jobCardId}
           />
           <Select
             label="Traveller"
-            value={form.travellerId}
-            options={travellerOptions}
             onChange={handleTravellerSelect}
+            options={travellerOptions}
+            value={form.travellerId}
           />
-          <Select label="PNR" value={form.pnrId} options={pnrOptions} onChange={handlePnrSelect} />
+          <Select label="PNR" onChange={handlePnrSelect} options={pnrOptions} value={form.pnrId} />
           <Input
             label="Ticket Number"
-            value={form.ticketNumber}
             onChange={(v) => updateForm("ticketNumber", v)}
+            value={form.ticketNumber}
           />
           <Select
             label="Ticket Type"
-            value={form.ticketType}
-            options={TICKET_TYPES}
             onChange={(v) => updateForm("ticketType", v)}
+            options={TICKET_TYPES}
+            value={form.ticketType}
           />
           <Select
             label="Ticket Status"
-            value={form.ticketStatus}
-            options={TICKET_STATUSES}
             onChange={(v) => updateForm("ticketStatus", v)}
+            options={TICKET_STATUSES}
+            value={form.ticketStatus}
           />
           <Select
             label="Payment Type"
-            value={form.paymentType}
-            options={PAYMENT_TYPES}
             onChange={(v) => updateForm("paymentType", v)}
+            options={PAYMENT_TYPES}
+            value={form.paymentType}
           />
           <Select
             label="Cabin Class"
-            value={form.cabinClass}
-            options={CABIN_CLASSES}
             onChange={(v) => updateForm("cabinClass", v)}
+            options={CABIN_CLASSES}
+            value={form.cabinClass}
           />
           <Select
             label="Meal Preference"
-            value={form.foodPreference}
-            options={FOOD_PREFERENCES}
             onChange={(v) => updateForm("foodPreference", v)}
+            options={FOOD_PREFERENCES}
+            value={form.foodPreference}
           />
           <Input
             label="Seat Preference"
-            value={form.seatPreference}
             onChange={(v) => updateForm("seatPreference", v)}
+            value={form.seatPreference}
           />
           <Input
             label="Seat Number"
-            value={form.seatNumber}
             onChange={(v) => updateForm("seatNumber", v)}
+            value={form.seatNumber}
           />
         </>
       )}

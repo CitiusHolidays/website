@@ -6,7 +6,7 @@ type Tables = Record<string, Row[]>;
 
 function makeBookingsCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
-    Object.entries(initialTables).map(([table, rows]) => [table, [...rows]]),
+    Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
   ) as Tables;
 
   const ctx = {
@@ -20,9 +20,19 @@ function makeBookingsCtx(initialTables: Tables) {
         }
         return null;
       },
+      patch: async (id: string, patch: Record<string, unknown>) => {
+        for (const [table, rows] of Object.entries(tables)) {
+          const index = rows.findIndex((row) => row._id === id);
+          if (index >= 0) {
+            tables[table][index] = { ...rows[index], ...patch };
+            return;
+          }
+        }
+      },
       query(tableName: string) {
         let rows = tables[tableName] ?? [];
         return {
+          take: async (limit: number) => rows.slice(0, limit),
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const q = {
@@ -33,21 +43,11 @@ function makeBookingsCtx(initialTables: Tables) {
             };
             callback(q);
             rows = rows.filter((row) =>
-              filters.every((filter) => row[filter.field] === filter.value),
+              filters.every((filter) => row[filter.field] === filter.value)
             );
             return this;
           },
-          take: async (limit: number) => rows.slice(0, limit),
         };
-      },
-      patch: async (id: string, patch: Record<string, unknown>) => {
-        for (const [table, rows] of Object.entries(tables)) {
-          const index = rows.findIndex((row) => row._id === id);
-          if (index >= 0) {
-            tables[table][index] = { ...rows[index], ...patch };
-            return;
-          }
-        }
       },
     },
   };
@@ -62,16 +62,16 @@ const orderId = "order_test_1";
 function baseBooking(overrides: Record<string, unknown> = {}) {
   return {
     _id: bookingId,
-    userId: "user_1",
-    tripId,
-    status: "pending",
+    createdAt: 1,
+    currency: "INR",
     razorpayOrderId: orderId,
     razorpayPaymentId: "",
+    status: "pending",
     totalAmount: 1000,
-    currency: "INR",
     travelers: 2,
-    createdAt: 1,
+    tripId,
     updatedAt: 1,
+    userId: "user_1",
     ...overrides,
   };
 }
@@ -79,16 +79,16 @@ function baseBooking(overrides: Record<string, unknown> = {}) {
 function baseTrip(overrides: Record<string, unknown> = {}) {
   return {
     _id: tripId,
-    name: "Test Trip",
-    slug: "test-trip",
-    startDate: "2026-07-01",
-    endDate: "2026-07-10",
-    totalSeats: 10,
     availableSeats: 8,
+    createdAt: 1,
+    endDate: "2026-07-10",
+    isActive: true,
+    name: "Test Trip",
     priceInr: 500,
     priceUsd: 10,
-    isActive: true,
-    createdAt: 1,
+    slug: "test-trip",
+    startDate: "2026-07-01",
+    totalSeats: 10,
     updatedAt: 1,
     ...overrides,
   };
@@ -97,7 +97,7 @@ function baseTrip(overrides: Record<string, unknown> = {}) {
 describe("markPaymentFailedByOrderId transitions", () => {
   test("ignores failure for confirmed bookings", async () => {
     const { ctx, tables } = makeBookingsCtx({
-      bookings: [baseBooking({ status: "confirmed", razorpayPaymentId: "pay_ok" })],
+      bookings: [baseBooking({ razorpayPaymentId: "pay_ok", status: "confirmed" })],
       trips: [baseTrip()],
     });
 
@@ -116,7 +116,7 @@ describe("markPaymentFailedByOrderId transitions", () => {
 
   test("ignores failure for refunded bookings", async () => {
     const { ctx, tables } = makeBookingsCtx({
-      bookings: [baseBooking({ status: "refunded", razorpayPaymentId: "pay_refunded" })],
+      bookings: [baseBooking({ razorpayPaymentId: "pay_refunded", status: "refunded" })],
       trips: [baseTrip()],
     });
 
@@ -155,9 +155,9 @@ describe("confirmBookingByOrderId transitions", () => {
     const { ctx } = makeBookingsCtx({
       bookings: [
         baseBooking({
-          status: "confirmed",
-          razorpayPaymentId: "pay_ok",
           confirmedAt: 123,
+          razorpayPaymentId: "pay_ok",
+          status: "confirmed",
         }),
       ],
       trips: [baseTrip({ availableSeats: 6 })],
@@ -174,7 +174,7 @@ describe("confirmBookingByOrderId transitions", () => {
 
   test("confirms a booking after a prior failure event", async () => {
     const { ctx, tables } = makeBookingsCtx({
-      bookings: [baseBooking({ status: "failed", razorpayPaymentId: "pay_fail" })],
+      bookings: [baseBooking({ razorpayPaymentId: "pay_fail", status: "failed" })],
       trips: [baseTrip({ availableSeats: 8 })],
     });
 

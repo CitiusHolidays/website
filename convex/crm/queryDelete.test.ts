@@ -11,20 +11,26 @@ const removeQuery = remove as never as QueryRemoveHandler;
 
 function makeDeleteCtx(initialTables: Tables) {
   const tables = Object.fromEntries(
-    Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))]),
+    Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
   ) as Tables;
 
   const ctx = {
     auth: {
       getUserIdentity: async () => ({
-        subject: "auth_admin",
         email: "admin@citiusholidays.com",
         name: "Admin User",
+        subject: "auth_admin",
       }),
     },
     db: {
-      normalizeId(tableName: string, id: string) {
-        return (tables[tableName] ?? []).some((row) => row._id === id) ? id : null;
+      delete: async (id: string) => {
+        for (const [tableName, rows] of Object.entries(tables)) {
+          const nextRows = rows.filter((row) => row._id !== id);
+          if (nextRows.length !== rows.length) {
+            tables[tableName] = nextRows;
+            return;
+          }
+        }
       },
       get: async (id: string) => {
         for (const rows of Object.values(tables)) {
@@ -35,9 +41,20 @@ function makeDeleteCtx(initialTables: Tables) {
         }
         return null;
       },
+      insert: async (tableName: string, doc: Record<string, unknown>) => {
+        const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
+        const row = { _id: id, ...doc };
+        tables[tableName] = [...(tables[tableName] ?? []), row];
+        return id;
+      },
+      normalizeId(tableName: string, id: string) {
+        return (tables[tableName] ?? []).some((row) => row._id === id) ? id : null;
+      },
       query(tableName: string) {
         let rows = tables[tableName] ?? [];
         return {
+          collect: async () => [...rows],
+          unique: async () => rows[0] ?? null,
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const q = {
@@ -48,28 +65,11 @@ function makeDeleteCtx(initialTables: Tables) {
             };
             callback(q);
             rows = rows.filter((row) =>
-              filters.every((filter) => row[filter.field] === filter.value),
+              filters.every((filter) => row[filter.field] === filter.value)
             );
             return this;
           },
-          collect: async () => [...rows],
-          unique: async () => rows[0] ?? null,
         };
-      },
-      insert: async (tableName: string, doc: Record<string, unknown>) => {
-        const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
-        const row = { _id: id, ...doc };
-        tables[tableName] = [...(tables[tableName] ?? []), row];
-        return id;
-      },
-      delete: async (id: string) => {
-        for (const [tableName, rows] of Object.entries(tables)) {
-          const nextRows = rows.filter((row) => row._id !== id);
-          if (nextRows.length !== rows.length) {
-            tables[tableName] = nextRows;
-            return;
-          }
-        }
       },
     },
     runMutation: async () => ({ storageIds: [] }),
@@ -83,39 +83,39 @@ function makeDeleteCtx(initialTables: Tables) {
 
 const adminStaff = {
   _id: "staffUsers_admin",
+  active: true,
   authUserId: "auth_admin",
   email: "admin@citiusholidays.com",
   emailNormalized: "admin@citiusholidays.com",
   name: "Admin User",
   roles: ["Admin"],
-  active: true,
 };
 
 const baseQuery = {
   _id: "queries_1",
-  queryCode: "Q-0001",
   clientName: "Acme Travel",
-  queryType: "FIT",
-  travelType: "Domestic Travel",
-  paxCount: 4,
-  salesStatus: "Proposal in discussion",
   contractingStatus: "Query Received",
-  createdBy: "auth_admin",
   createdAt: 1,
+  createdBy: "auth_admin",
+  paxCount: 4,
+  queryCode: "Q-0001",
+  queryType: "FIT",
+  salesStatus: "Proposal in discussion",
+  travelType: "Domestic Travel",
   updatedAt: 1,
 };
 
 describe("query deletion", () => {
   test("deletes an unlinked All Sales Query", async () => {
     const { ctx, tables } = makeDeleteCtx({
-      staffUsers: [adminStaff],
-      queries: [baseQuery],
-      proposals: [],
-      proposalQueryLinks: [],
+      activityLogs: [],
       contractingAssignments: [{ _id: "contractingAssignments_1", queryId: "queries_1" }],
       jobCards: [],
-      notifications: [{ _id: "notifications_1", entityType: "query", entityId: "queries_1" }],
-      activityLogs: [],
+      notifications: [{ _id: "notifications_1", entityId: "queries_1", entityType: "query" }],
+      proposalQueryLinks: [],
+      proposals: [],
+      queries: [baseQuery],
+      staffUsers: [adminStaff],
     });
 
     const result = await removeQuery._handler(ctx, {
@@ -127,27 +127,27 @@ describe("query deletion", () => {
     expect(tables.contractingAssignments).toEqual([]);
     expect(tables.notifications).toEqual([]);
     expect(tables.activityLogs[0]).toMatchObject({
-      entityType: "query",
-      entityId: "queries_1",
       action: "deleted",
+      entityId: "queries_1",
+      entityType: "query",
       message: "Q-0001 deleted",
     });
   });
 
   test("keeps linked records intact and explains why a query cannot be deleted", async () => {
     const { ctx, tables } = makeDeleteCtx({
-      staffUsers: [adminStaff],
-      queries: [baseQuery],
-      proposals: [{ _id: "proposals_1", proposalCode: "P-0001", queryId: "queries_1" }],
-      proposalQueryLinks: [],
+      activityLogs: [],
       contractingAssignments: [],
       jobCards: [{ _id: "jobCards_1", jobCode: "JC-0001", queryId: "queries_1" }],
       notifications: [],
-      activityLogs: [],
+      proposalQueryLinks: [],
+      proposals: [{ _id: "proposals_1", proposalCode: "P-0001", queryId: "queries_1" }],
+      queries: [baseQuery],
+      staffUsers: [adminStaff],
     });
 
     await expect(removeQuery._handler(ctx, { queryId: "queries_1" })).rejects.toThrow(
-      "Cannot delete Q-0001 because it has linked proposals and job cards. Delete or unlink those records first.",
+      "Cannot delete Q-0001 because it has linked proposals and job cards. Delete or unlink those records first."
     );
 
     expect(tables.queries).toHaveLength(1);

@@ -11,12 +11,12 @@ import {
 function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
   const staff = {
     _id: "staff_1",
+    active: true,
     authUserId: "auth_1",
     email: "admin@example.com",
     emailNormalized: "admin@example.com",
     name: "Admin User",
     roles: staffRoles,
-    active: true,
   };
 
   const activityTakeCalls: number[] = [];
@@ -46,9 +46,9 @@ function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
     activityTakeCalls,
     auth: {
       getUserIdentity: async () => ({
-        subject: "auth_1",
         email: "admin@example.com",
         name: "Admin User",
+        subject: "auth_1",
       }),
     },
     db: {
@@ -63,21 +63,22 @@ describe("buildUrgentActions", () => {
       approvals: [
         {
           _id: "approval_1",
-          status: "Pending",
           requestCode: "APR-1",
+          status: "Pending",
           summary: "Expense review",
         },
       ],
       invoices: [
         {
           _id: "invoice_1",
-          invoiceNumber: "INV-1",
           balanceAmount: 500,
           dueDate: "2026-01-01",
+          invoiceNumber: "INV-1",
         },
       ],
-      queries: [{ _id: "query_1", salesStatus: "Order Confirmed", queryCode: "Q-1" }],
       jobCards: [],
+      nowDate: "2026-02-01",
+      queries: [{ _id: "query_1", queryCode: "Q-1", salesStatus: "Order Confirmed" }],
       tickets: [
         {
           _id: "ticket_1",
@@ -85,37 +86,36 @@ describe("buildUrgentActions", () => {
           ticketStatus: "Reissue Required",
         },
       ],
-      nowDate: "2026-02-01",
     });
 
     expect(actions).toEqual([
       expect.objectContaining({
+        entityId: "approval_1",
+        entityType: "approval",
+        href: "/portal/approvals?open=approval&id=approval_1",
         id: "approval_1",
         type: "approvals",
-        entityType: "approval",
-        entityId: "approval_1",
-        href: "/portal/approvals?open=approval&id=approval_1",
       }),
       expect.objectContaining({
+        entityId: "invoice_1",
+        entityType: "invoice",
+        href: "/portal/finance",
         id: "invoice_1",
         type: "finance",
-        entityType: "invoice",
-        entityId: "invoice_1",
-        href: "/portal/finance",
       }),
       expect.objectContaining({
+        entityId: "query_1",
+        entityType: "query",
+        href: "/portal/accounts/job-cards?open=jobCard&queryId=query_1",
         id: "query_1",
         type: "accounts",
-        entityType: "query",
-        entityId: "query_1",
-        href: "/portal/accounts/job-cards?open=jobCard&queryId=query_1",
       }),
       expect.objectContaining({
+        entityId: "ticket_1",
+        entityType: "ticket",
+        href: "/portal/tickets?open=ticket&id=ticket_1",
         id: "ticket_1",
         type: "ticketing",
-        entityType: "ticket",
-        entityId: "ticket_1",
-        href: "/portal/tickets?open=ticket&id=ticket_1",
       }),
     ]);
   });
@@ -124,10 +124,10 @@ describe("buildUrgentActions", () => {
     const actions = buildUrgentActions({
       approvals: [],
       invoices: [],
-      queries: [{ _id: "query_1", salesStatus: "Order Confirmed", queryCode: "Q-1" }],
       jobCards: [{ queryId: "query_1" }],
-      tickets: [],
       nowDate: "2026-02-01",
+      queries: [{ _id: "query_1", queryCode: "Q-1", salesStatus: "Order Confirmed" }],
+      tickets: [],
     });
 
     expect(actions).toEqual([]);
@@ -142,23 +142,23 @@ describe("dashboard summary slices", () => {
         { leadStage: "Proposal" },
         { leadStage: "Lost" },
         {},
-      ]),
+      ])
     ).toEqual([
-      { stage: "Inquiry", count: 1, value: 0, weighted: 0 },
-      { stage: "Proposal", count: 2, value: 0, weighted: 0 },
-      { stage: "Negotiation", count: 0, value: 0, weighted: 0 },
-      { stage: "Confirmation", count: 0, value: 0, weighted: 0 },
-      { stage: "Lost", count: 1, value: 0, weighted: 0 },
+      { count: 1, stage: "Inquiry", value: 0, weighted: 0 },
+      { count: 2, stage: "Proposal", value: 0, weighted: 0 },
+      { count: 0, stage: "Negotiation", value: 0, weighted: 0 },
+      { count: 0, stage: "Confirmation", value: 0, weighted: 0 },
+      { count: 1, stage: "Lost", value: 0, weighted: 0 },
     ]);
   });
 
   test("returns the oldest eight overdue invoices with job-card client names", () => {
     const invoices = Array.from({ length: 10 }, (_, index) => ({
       _id: `invoice_${index}`,
-      jobCardId: index % 2 === 0 ? "job_1" : "job_2",
-      invoiceNumber: `INV-${index}`,
       balanceAmount: 100 + index,
       dueDate: `2026-01-${String(index + 1).padStart(2, "0")}`,
+      invoiceNumber: `INV-${index}`,
+      jobCardId: index % 2 === 0 ? "job_1" : "job_2",
     }));
 
     expect(
@@ -167,17 +167,17 @@ describe("dashboard summary slices", () => {
           ...invoices,
           {
             _id: "paid_invoice",
-            jobCardId: "job_1",
-            invoiceNumber: "INV-PAID",
             balanceAmount: 0,
             dueDate: "2026-01-01",
+            invoiceNumber: "INV-PAID",
+            jobCardId: "job_1",
           },
           {
             _id: "future_invoice",
-            jobCardId: "job_1",
-            invoiceNumber: "INV-FUTURE",
             balanceAmount: 1000,
             dueDate: "2026-03-01",
+            invoiceNumber: "INV-FUTURE",
+            jobCardId: "job_1",
           },
         ],
         jobCards: [
@@ -185,15 +185,15 @@ describe("dashboard summary slices", () => {
           { _id: "job_2", clientName: "Globex" },
         ],
         nowDate: "2026-02-01",
-      }),
+      })
     ).toEqual(
       invoices.slice(0, 8).map((invoice, index) => ({
+        balanceAmount: invoice.balanceAmount,
+        clientName: index % 2 === 0 ? "Acme" : "Globex",
+        dueDate: invoice.dueDate,
         id: invoice._id,
         invoiceNumber: invoice.invoiceNumber,
-        clientName: index % 2 === 0 ? "Acme" : "Globex",
-        balanceAmount: invoice.balanceAmount,
-        dueDate: invoice.dueDate,
-      })),
+      }))
     );
   });
 
@@ -203,7 +203,7 @@ describe("dashboard summary slices", () => {
         { _id: "ticket_1", ticketNumber: "TKT-1", ticketStatus: "Issued" },
         { _id: "ticket_2", ticketNumber: "TKT-2", ticketStatus: "Name Change Required" },
         { _id: "ticket_3", ticketStatus: "Refund Pending" },
-      ]),
+      ])
     ).toEqual([
       {
         id: "ticket_2",
@@ -223,39 +223,39 @@ describe("getPortalSummary", () => {
   test("returns generatedAt and keeps cement scope on query counts", async () => {
     const { activityTakeCalls, ...ctx } = makeCtx(
       {
+        activityLogs: [],
+        approvalRequests: [],
+        invoices: [],
+        jobCards: [],
+        proposalQueryLinks: [],
+        proposals: [],
         queries: [
           {
             _id: "query_cement",
+            contractingStatus: "Query Received",
+            createdAt: Date.UTC(2026, 0, 1),
+            createdBy: "auth_1",
+            leadStage: "Proposal",
             queryCode: "Q-C",
             queryType: "Cement",
             salesStatus: "Proposal in discussion",
-            contractingStatus: "Query Received",
-            leadStage: "Proposal",
-            createdBy: "auth_1",
-            createdAt: Date.UTC(2026, 0, 1),
           },
           {
             _id: "query_mice",
+            contractingStatus: "Query Received",
+            createdAt: Date.UTC(2026, 0, 1),
+            createdBy: "auth_1",
+            leadStage: "Inquiry",
             queryCode: "Q-M",
             queryType: "MICE",
             salesStatus: "Proposal in discussion",
-            contractingStatus: "Query Received",
-            leadStage: "Inquiry",
-            createdBy: "auth_1",
-            createdAt: Date.UTC(2026, 0, 1),
           },
         ],
-        proposals: [],
-        proposalQueryLinks: [],
-        jobCards: [],
-        travellers: [],
         tickets: [],
+        travellers: [],
         visaRecords: [],
-        invoices: [],
-        approvalRequests: [],
-        activityLogs: [],
       },
-      ["Sales Cement"],
+      ["Sales Cement"]
     );
     const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
 
@@ -263,15 +263,15 @@ describe("getPortalSummary", () => {
     expect(Date.parse(summary.generatedAt)).not.toBeNaN();
     expect(summary.metrics.activeQueries).toBe(1);
     expect(summary.queriesByType).toEqual([
-      { type: "Cement", count: 1 },
-      { type: "Cement Bidding", count: 0 },
+      { count: 1, type: "Cement" },
+      { count: 0, type: "Cement Bidding" },
     ]);
     expect(summary.pipelineSnapshot).toEqual([
-      { stage: "Inquiry", count: 0, value: 0, weighted: 0 },
-      { stage: "Proposal", count: 1, value: 0, weighted: 0 },
-      { stage: "Negotiation", count: 0, value: 0, weighted: 0 },
-      { stage: "Confirmation", count: 0, value: 0, weighted: 0 },
-      { stage: "Lost", count: 0, value: 0, weighted: 0 },
+      { count: 0, stage: "Inquiry", value: 0, weighted: 0 },
+      { count: 1, stage: "Proposal", value: 0, weighted: 0 },
+      { count: 0, stage: "Negotiation", value: 0, weighted: 0 },
+      { count: 0, stage: "Confirmation", value: 0, weighted: 0 },
+      { count: 0, stage: "Lost", value: 0, weighted: 0 },
     ]);
   });
 });
@@ -280,21 +280,21 @@ describe("groupByJobCardId", () => {
   test("groups travellers by job card id", () => {
     expect(
       groupByJobCardId([
-        { jobCardId: "job_1", fullName: "A" },
-        { jobCardId: "job_2", fullName: "B" },
-        { jobCardId: "job_1", fullName: "C" },
-      ] as any),
+        { fullName: "A", jobCardId: "job_1" },
+        { fullName: "B", jobCardId: "job_2" },
+        { fullName: "C", jobCardId: "job_1" },
+      ] as any)
     ).toEqual(
       new Map([
         [
           "job_1",
           [
-            { jobCardId: "job_1", fullName: "A" },
-            { jobCardId: "job_1", fullName: "C" },
+            { fullName: "A", jobCardId: "job_1" },
+            { fullName: "C", jobCardId: "job_1" },
           ],
         ],
-        ["job_2", [{ jobCardId: "job_2", fullName: "B" }]],
-      ]),
+        ["job_2", [{ fullName: "B", jobCardId: "job_2" }]],
+      ])
     );
   });
 });
@@ -302,16 +302,16 @@ describe("groupByJobCardId", () => {
 describe("getPortalSummary response shape", () => {
   test("returns the dashboard top-level keys", async () => {
     const ctx = makeCtx({
-      queries: [],
-      proposals: [],
-      proposalQueryLinks: [],
-      jobCards: [],
-      travellers: [],
-      tickets: [],
-      visaRecords: [],
-      invoices: [],
-      approvalRequests: [],
       activityLogs: [],
+      approvalRequests: [],
+      invoices: [],
+      jobCards: [],
+      proposalQueryLinks: [],
+      proposals: [],
+      queries: [],
+      tickets: [],
+      travellers: [],
+      visaRecords: [],
     });
 
     const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
@@ -336,7 +336,7 @@ describe("getPortalSummary response shape", () => {
         "ticketingStats",
         "upcomingDepartures",
         "urgentActions",
-      ].sort(),
+      ].sort()
     );
   });
 });

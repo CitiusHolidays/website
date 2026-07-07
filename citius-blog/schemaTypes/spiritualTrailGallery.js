@@ -10,55 +10,55 @@ const TRAIL_OPTIONS = [
 ];
 
 export default {
-  name: "spiritualTrailGallery",
-  type: "document",
-  title: "Trail gallery",
   fields: [
     {
-      name: "trailSlug",
-      type: "string",
-      title: "Trail",
       description:
         "Pick the route this gallery belongs to. Create a separate Trail gallery document for each trail — images do not carry over between pages.",
+      name: "trailSlug",
       options: {
-        list: TRAIL_OPTIONS,
         layout: "dropdown",
+        list: TRAIL_OPTIONS,
       },
+      title: "Trail",
+      type: "string",
       validation: (Rule) => Rule.required(),
     },
     {
       name: "images",
-      type: "array",
-      title: "Images",
       of: [
         {
-          type: "image",
-          options: { hotspot: true },
           fields: [
             {
               name: "alt",
-              type: "string",
               title: "Alternative text",
+              type: "string",
             },
           ],
+          options: { hotspot: true },
+          type: "image",
         },
       ],
       options: { layout: "grid" },
+      title: "Images",
+      type: "array",
     },
   ],
+  name: "spiritualTrailGallery",
   preview: {
-    select: {
-      slug: "trailSlug",
-      alt0: "images.0.alt",
-      media: "images.0",
-    },
     prepare({ slug, alt0, media }) {
       const label = TRAIL_OPTIONS.find((o) => o.value === slug)?.title || slug;
       return {
-        title: label,
-        subtitle: alt0 || "Gallery",
         media,
+        subtitle: alt0 || "Gallery",
+        title: label,
       };
     },
+    select: {
+      alt0: "images.0.alt",
+      media: "images.0",
+      slug: "trailSlug",
+    },
   },
+  title: "Trail gallery",
+  type: "document",
 };

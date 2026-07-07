@@ -3,66 +3,66 @@ import AnimatedSection from "../../components/layout/AnimatedSection";
 
 const values = [
   {
-    title: "Integrity",
     description: "We operate with transparency, trust, and respect in every interaction.",
     icon: <Globe />,
+    title: "Integrity",
   },
   {
-    title: "Excellence",
     description: "We strive to exceed expectations with detail, finesse, and thoughtful planning.",
     icon: <Plane />,
+    title: "Excellence",
   },
   {
-    title: "Innovation",
     description: "We use fresh thinking and smart tools to craft bold, modern travel solutions.",
     icon: <Sparkle />,
+    title: "Innovation",
   },
   {
-    title: "Relationships",
     description:
       "People matter most. We nurture genuine, long-term bonds with clients, partners, and our team.",
     icon: <Handshake />,
+    title: "Relationships",
   },
   {
-    title: "Sustainability",
     description: "We travel responsibly — respecting communities, culture, and the environment.",
     icon: <TreePine />,
+    title: "Sustainability",
   },
   {
-    title: "Employee Development",
     description: "We invest in our people. Their growth fuels our growth.",
     icon: <BookOpen />,
+    title: "Employee Development",
   },
   {
-    title: "Women's Inclusiveness",
     description: "We champion equal opportunities, leadership, and voices at every level.",
     icon: <Heart />,
+    title: "Women's Inclusiveness",
   },
   {
-    title: "Impact",
     description: "We design experiences that leave lasting impressions — not just itineraries.",
     icon: <Users />,
+    title: "Impact",
   },
 ];
 
 export default function ValuesCard() {
   return (
     <AnimatedSection>
-      <section className="px-4 py-16 bg-brand-light">
-        <h2 className="mb-12 text-3xl font-bold text-center text-citius-blue">Our Values</h2>
-        <div className="grid grid-cols-1 gap-8 mx-auto max-w-6xl sm:grid-cols-2 lg:grid-cols-4">
+      <section className="bg-brand-light px-4 py-16">
+        <h2 className="mb-12 text-center font-bold text-3xl text-citius-blue">Our Values</h2>
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {values.map((value) => (
             <div
+              className="group relative overflow-hidden rounded-lg border border-brand-border bg-white p-6 text-center shadow-lg transition-all duration-300 ease-in-out hover:-translate-y-2 hover:shadow-2xl"
               key={value.title}
-              className="relative group p-6 text-center bg-white rounded-lg border shadow-lg transition-all duration-300 ease-in-out border-brand-border hover:shadow-2xl hover:-translate-y-2 overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-citius-orange to-citius-blue opacity-0 group-hover:opacity-20 transition-opacity duration-500 transform-gpu group-hover:scale-150 blur-2xl"></div>
+              <div className="absolute inset-0 transform-gpu bg-gradient-to-r from-citius-orange to-citius-blue opacity-0 blur-2xl transition-opacity duration-500 group-hover:scale-150 group-hover:opacity-20" />
               <div className="relative z-10">
-                <div className="inline-flex justify-center items-center mb-4 size-10 text-brand-light rounded-full bg-citius-blue">
+                <div className="mb-4 inline-flex size-10 items-center justify-center rounded-full bg-citius-blue text-brand-light">
                   {value.icon}
                 </div>
-                <h3 className="mb-2 text-xl font-semibold text-brand-dark">{value.title}</h3>
-                <p className="text-sm leading-relaxed text-brand-muted">{value.description}</p>
+                <h3 className="mb-2 font-semibold text-brand-dark text-xl">{value.title}</h3>
+                <p className="text-brand-muted text-sm leading-relaxed">{value.description}</p>
               </div>
             </div>
           ))}

@@ -30,105 +30,105 @@ export function EntityModalTravelBatchFields({
   return (
     <>
       {form.batchReference ? (
-        <Input label="Batch reference" value={form.batchReference} onChange={() => {}} readOnly />
+        <Input label="Batch reference" onChange={() => {}} readOnly value={form.batchReference} />
       ) : null}
       {form.entityId ? (
         <Input
           label="Job Card"
-          value={jobCards.find((job) => job.id === form.jobCardId)?.jobCode || form.jobCardId || ""}
           onChange={() => {}}
           readOnly
+          value={jobCards.find((job) => job.id === form.jobCardId)?.jobCode || form.jobCardId || ""}
         />
       ) : (
         <Select
           label="Job Card"
-          value={form.jobCardId}
-          options={jobCardSelectOptions(jobCards, { required: true })}
           onChange={handleJobCardSelect}
+          options={jobCardSelectOptions(jobCards, { required: true })}
           required
+          value={form.jobCardId}
         />
       )}
       <Input
         label="Destination"
-        value={form.destination}
         onChange={(value) => updateForm("destination", value)}
+        value={form.destination}
       />
       <Input
         label="Confirmed Pax"
+        onChange={(value) => updateForm("confirmedPax", value)}
         type="number"
         value={form.confirmedPax}
-        onChange={(value) => updateForm("confirmedPax", value)}
       />
       <Input
         label="Room Count"
+        onChange={(value) => updateForm("roomCount", value)}
         type="number"
         value={form.roomCount}
-        onChange={(value) => updateForm("roomCount", value)}
       />
       <Input
         label="Travel Start"
+        onChange={(value) => updateForm("travelStartDate", value)}
         type="date"
         value={form.travelStartDate}
-        onChange={(value) => updateForm("travelStartDate", value)}
       />
       <Input
         label="Travel End"
+        onChange={(value) => updateForm("travelEndDate", value)}
         type="date"
         value={form.travelEndDate}
-        onChange={(value) => updateForm("travelEndDate", value)}
       />
       <Select
         label="Contracting SPOC"
-        value={form.contractingOwnerId}
-        options={[
-          { value: "", label: "Unassigned" },
-          ...contractingTeamOptions.map((option) => ({
-            value: option.value,
-            label: option.label,
-          })),
-        ]}
         onChange={(value) =>
           setOwner("contractingOwnerId", "contractingOwnerName", value, contractingTeamOptions)
         }
+        options={[
+          { label: "Unassigned", value: "" },
+          ...contractingTeamOptions.map((option) => ({
+            label: option.label,
+            value: option.value,
+          })),
+        ]}
+        value={form.contractingOwnerId}
       />
       <Select
         label="Operations SPOC"
-        value={form.operationsOwnerId}
-        options={[
-          { value: "", label: "Unassigned" },
-          ...operationsTeamOptions.map((option) => ({
-            value: option.value,
-            label: option.label,
-          })),
-        ]}
         onChange={(value) =>
           setOwner("operationsOwnerId", "operationsOwnerName", value, operationsTeamOptions)
         }
+        options={[
+          { label: "Unassigned", value: "" },
+          ...operationsTeamOptions.map((option) => ({
+            label: option.label,
+            value: option.value,
+          })),
+        ]}
+        value={form.operationsOwnerId}
       />
       <Select
         label="Ticketing SPOC"
-        value={form.ticketingOwnerId}
-        options={[
-          { value: "", label: "Unassigned" },
-          ...ticketingTeamOptions.map((option) => ({
-            value: option.value,
-            label: option.label,
-          })),
-        ]}
         onChange={(value) =>
           setOwner("ticketingOwnerId", "ticketingOwnerName", value, ticketingTeamOptions)
         }
+        options={[
+          { label: "Unassigned", value: "" },
+          ...ticketingTeamOptions.map((option) => ({
+            label: option.label,
+            value: option.value,
+          })),
+        ]}
+        value={form.ticketingOwnerId}
       />
       <Input
         label="Tour Manager"
-        value={form.tourManagerName}
         onChange={(value) => updateForm("tourManagerName", value)}
+        value={form.tourManagerName}
       />
       <Select
         label="Status"
-        value={form.status}
-        options={JOB_CARD_STATUSES.map((status) => ({ value: status, label: status }))}
         onChange={(value) => updateForm("status", value)}
+        options={JOB_CARD_STATUSES.map((status) => ({ label: status, value: status }))}
+        value={form.status}
       />
     </>
   );

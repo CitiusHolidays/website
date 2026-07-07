@@ -62,7 +62,7 @@ export function canAccessPage(access, page) {
     return canAccessPipeline(access);
   }
   return PORTAL_NAV_GROUPS.some((group) =>
-    group.items.some((item) => item.page === page && hasPermission(access, item.permission)),
+    group.items.some((item) => item.page === page && hasPermission(access, item.permission))
   );
 }
 
@@ -124,7 +124,7 @@ export function queryHasTeamAssignment(query) {
     query?.contractingOwnerId ||
       query?.ticketingOwnerId ||
       query?.ticketingScope ||
-      query?.submittedToContractingAt,
+      query?.submittedToContractingAt
   );
 }
 
@@ -140,7 +140,7 @@ export function canShowHeadAssignQueryButton(access, query) {
     query?.submittedToContractingAt ||
       query?.contractingOwnerId ||
       query?.ticketingOwnerId ||
-      query?.ticketingScope,
+      query?.ticketingScope
   );
 }
 
@@ -174,7 +174,9 @@ export function canManageJobCardCreatorAccess(access) {
 }
 
 export function canCreateJobCardFromAccounts(access, _creators = []) {
-  if (canManageJobCardCreatorAccess(access)) return true;
+  if (canManageJobCardCreatorAccess(access)) {
+    return true;
+  }
   return hasRole(access, "Accounts");
 }
 
@@ -184,9 +186,9 @@ function filterTeamByRoles(team = [], roles = []) {
 
 export function teamSelectOptions(team = [], roles = []) {
   return filterTeamByRoles(team, roles).map((member) => ({
-    value: member.id,
     label: member.name,
     member,
+    value: member.id,
   }));
 }
 

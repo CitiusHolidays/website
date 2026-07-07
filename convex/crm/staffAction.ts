@@ -33,19 +33,19 @@ async function ensureStaffAuthLink(
   staffId: Id<"staffUsers">,
   email: string,
   name: string,
-  authUserId?: string,
+  authUserId?: string
 ) {
   const canonicalAuthUserId =
     (await resolveCanonicalAuthUserId(ctx, email, authUserId)) ?? authUserId;
   if (!canonicalAuthUserId) {
-    return undefined;
+    return;
   }
 
   await ctx.runMutation(internal.crm.staff.linkAuthUserId, {
-    staffId,
     authUserId: canonicalAuthUserId,
     email,
     name,
+    staffId,
   });
   return canonicalAuthUserId;
 }
@@ -56,7 +56,7 @@ type ProvisionResult =
 
 async function provisionStaffCore(
   ctx: ActionCtx,
-  args: { staffId: Id<"staffUsers">; email: string; name: string },
+  args: { staffId: Id<"staffUsers">; email: string; name: string }
 ): Promise<ProvisionResult> {
   const auth = createAuth(ctx);
   const tempPassword = `${crypto.randomUUID()}A1!`;
@@ -67,27 +67,27 @@ async function provisionStaffCore(
   try {
     const result = await auth.api.signUpEmail({
       body: {
-        email: args.email,
-        password: tempPassword,
-        name: args.name,
         callbackURL,
+        email: args.email,
+        name: args.name,
+        password: tempPassword,
       },
     });
 
     if (!result?.user) {
-      return { ok: false, step: "error", message: "Failed to create auth user" };
+      return { message: "Failed to create auth user", ok: false, step: "error" };
     }
 
     const authUserId = await resolveCanonicalAuthUserId(ctx, args.email, result.user.id);
     if (!authUserId) {
-      return { ok: false, step: "error", message: "Failed to resolve auth user" };
+      return { message: "Failed to resolve auth user", ok: false, step: "error" };
     }
 
     await ctx.runMutation(internal.crm.staff.linkAuthUserId, {
-      staffId: args.staffId,
       authUserId,
       email: args.email,
       name: args.name,
+      staffId: args.staffId,
     });
 
     await ctx.runMutation(internal.crm.staff.markPendingOnboarding, {
@@ -125,18 +125,18 @@ async function provisionStaffCore(
     }
     console.error("Staff provision error:", err);
     return {
+      message: err instanceof Error ? err.message : "Provision failed",
       ok: false,
       step: "error",
-      message: err instanceof Error ? err.message : "Provision failed",
     };
   }
 }
 
 export const provisionStaffUser = internalAction({
   args: {
-    staffId: v.id("staffUsers"),
     email: v.string(),
     name: v.string(),
+    staffId: v.id("staffUsers"),
   },
   handler: async (ctx, args) => provisionStaffCore(ctx, args),
 });
@@ -150,7 +150,7 @@ export const sendPasswordSetupAfterVerification = internalAction({
       email: args.email,
     });
     if (!staff) {
-      return { sent: false, reason: "staff_not_pending" as const };
+      return { reason: "staff_not_pending" as const, sent: false };
     }
 
     await ensureStaffAuthLink(ctx, staff.staffId, staff.email, staff.name, staff.authUserId);
@@ -159,7 +159,7 @@ export const sendPasswordSetupAfterVerification = internalAction({
     const sent = await sendPasswordSetupEmail(auth, args.email);
     if (!sent) {
       console.error("Failed to send staff password setup email for", args.email);
-      return { sent: false, reason: "email_send_failed" as const };
+      return { reason: "email_send_failed" as const, sent: false };
     }
 
     await ctx.runMutation(internal.crm.staff.clearPendingPasswordSetup, {
@@ -176,7 +176,7 @@ export const startStaffOnboarding = action({
   },
   handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!access?.allowed || !access.permissions.includes("manage:staff")) {
+    if (!(access?.allowed && access.permissions.includes("manage:staff"))) {
       throw new ConvexError("FORBIDDEN");
     }
 
@@ -190,19 +190,19 @@ export const startStaffOnboarding = action({
 
     if (!staff.authUserId) {
       const result = await provisionStaffCore(ctx, {
-        staffId: staff.staffId,
         email: staff.email,
         name: staff.name,
+        staffId: staff.staffId,
       });
       if (!result.ok) {
         throw new ConvexError(result.message ?? "Failed to start onboarding");
       }
       return {
-        step: result.step,
         message:
           result.step === "password_setup_sent"
             ? "Password setup email sent."
             : "Verification email sent. They must verify before setting a password.",
+        step: result.step,
       };
     }
 
@@ -216,7 +216,7 @@ export const startStaffOnboarding = action({
       staff.staffId,
       staff.email,
       staff.name,
-      staff.authUserId,
+      staff.authUserId
     );
 
     let emailVerified = false;
@@ -237,17 +237,17 @@ export const startStaffOnboarding = action({
         staffId: staff.staffId,
       });
       return {
-        step: "password_setup_sent",
         message: "Password setup email sent.",
+        step: "password_setup_sent",
       };
     }
 
     const verification = await sendVerificationEmail(auth, staff.email);
     if (verification.sent) {
       return {
-        step: "verification_sent",
         message:
           "Verification email sent. After they verify, they will receive a password setup link.",
+        step: "verification_sent",
       };
     }
 
@@ -261,8 +261,8 @@ export const startStaffOnboarding = action({
     });
 
     return {
-      step: "password_setup_sent",
       message: "Password setup email sent.",
+      step: "password_setup_sent",
     };
   },
 });
@@ -275,7 +275,7 @@ export const adminSendResetEmail = action({
   },
   handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!access?.allowed || !access.permissions.includes("manage:staff")) {
+    if (!(access?.allowed && access.permissions.includes("manage:staff"))) {
       throw new ConvexError("FORBIDDEN");
     }
 

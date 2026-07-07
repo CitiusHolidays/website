@@ -9,38 +9,42 @@ type Tables = Record<string, Row[]>;
 function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
   const staff = {
     _id: "staff_operations" as Id<"staffUsers">,
+    active: true,
     authUserId: "auth_operations",
     email: "operations@citiusholidays.com",
     emailNormalized: "operations@citiusholidays.com",
     name: "Operations User",
     roles: ["Operations"],
-    active: true,
     ...staffOverrides,
   };
   const allTables: Tables = { staffUsers: [staff], ...tables };
   const ctx = {
     auth: {
       getUserIdentity: async () => ({
-        subject: staff.authUserId,
         email: staff.email,
         name: staff.name,
+        subject: staff.authUserId,
       }),
     },
     db: {
+      get: async (id: string) => {
+        for (const rows of Object.values(allTables)) {
+          const row = rows.find((entry) => entry._id === id);
+          if (row) {
+            return row;
+          }
+        }
+        return null;
+      },
       normalizeId(table: string, id: string) {
         const rows = allTables[table] ?? [];
         return rows.some((row) => row._id === id) ? id : null;
       },
-      get: async (id: string) => {
-        for (const rows of Object.values(allTables)) {
-          const row = rows.find((entry) => entry._id === id);
-          if (row) return row;
-        }
-        return null;
-      },
       query(table: string) {
         let rows = allTables[table] ?? [];
         return {
+          collect: async () => [...rows],
+          unique: async () => rows[0] ?? null,
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const q = {
@@ -53,8 +57,6 @@ function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
             rows = rows.filter((row) => filters.every((f) => row[f.field] === f.value));
             return this;
           },
-          unique: async () => rows[0] ?? null,
-          collect: async () => [...rows],
         };
       },
     },
@@ -69,56 +71,60 @@ describe("passport metadata access scope", () => {
   const passportId = "passportDetails_1";
   const linkedQuery = {
     _id: queryId,
-    queryCode: "Q-0001",
-    queryType: "FIT",
     operationsOwnerId: "staff_operations",
     operationsOwnerName: "Operations User",
+    queryCode: "Q-0001",
+    queryType: "FIT",
   };
   const job = {
     _id: jobCardId,
+    createdAt: 1,
     jobCode: "JC-0001",
-    queryId,
-    queryType: "FIT",
     operationsOwnerId: "staff_operations",
     operationsOwnerName: "Operations User",
-    createdAt: 1,
+    queryId,
+    queryType: "FIT",
   };
-  const traveller = { _id: travellerId, jobCardId, fullName: "Jane Doe", createdAt: 1 };
+  const traveller = { _id: travellerId, createdAt: 1, fullName: "Jane Doe", jobCardId };
   const passportRow = {
     _id: passportId,
-    travellerId,
-    lastFour: "1234",
+    createdAt: 1_700_000_000_000,
     expiryDate: "2030-01-01",
+    fileName: "passport.pdf",
+    lastFour: "1234",
+    mimeType: "application/pdf",
     status: "Received",
     storageId: "storage_1",
-    fileName: "passport.pdf",
-    mimeType: "application/pdf",
-    createdAt: 1_700_000_000_000,
+    travellerId,
   };
 
   test("staff with view:visa and job-card visibility receives metadata", async () => {
     const { ctx } = makePassportCtx({
-      queries: [linkedQuery],
       jobCards: [job],
-      travellers: [traveller],
       passportDetails: [passportRow],
+      queries: [linkedQuery],
+      travellers: [traveller],
     });
     const metadata = await loadPassportMetadata(ctx as never, travellerId);
     expect(metadata).toEqual({
-      id: passportId,
-      travellerId,
-      lastFour: "1234",
+      createdAt: new Date(passportRow.createdAt).toISOString(),
       expiryDate: "2030-01-01",
+      fileName: "passport.pdf",
+      id: passportId,
+      lastFour: "1234",
+      mimeType: "application/pdf",
       status: "Received",
       storageId: "storage_1",
-      fileName: "passport.pdf",
-      mimeType: "application/pdf",
-      createdAt: new Date(passportRow.createdAt).toISOString(),
+      travellerId,
     });
   });
 
   test("staff with view:visa but no job-card visibility is forbidden", async () => {
     const { ctx } = makePassportCtx({
+      jobCards: [
+        { ...job, operationsOwnerId: "staff_other", operationsOwnerName: "Other Operations" },
+      ],
+      passportDetails: [passportRow],
       queries: [
         {
           ...linkedQuery,
@@ -126,33 +132,29 @@ describe("passport metadata access scope", () => {
           operationsOwnerName: "Other Operations",
         },
       ],
-      jobCards: [
-        { ...job, operationsOwnerId: "staff_other", operationsOwnerName: "Other Operations" },
-      ],
       travellers: [traveller],
-      passportDetails: [passportRow],
     });
     await expect(loadPassportMetadata(ctx as never, travellerId)).rejects.toEqual(
-      new ConvexError("FORBIDDEN"),
+      new ConvexError("FORBIDDEN")
     );
   });
 
   test("invalid traveller id returns null", async () => {
     const { ctx } = makePassportCtx({
-      queries: [linkedQuery],
       jobCards: [job],
-      travellers: [traveller],
       passportDetails: [passportRow],
+      queries: [linkedQuery],
+      travellers: [traveller],
     });
     await expect(loadPassportMetadata(ctx as never, "not-a-traveller-id")).resolves.toBeNull();
   });
 
   test("missing passport row returns null", async () => {
     const { ctx } = makePassportCtx({
-      queries: [linkedQuery],
       jobCards: [job],
-      travellers: [traveller],
       passportDetails: [],
+      queries: [linkedQuery],
+      travellers: [traveller],
     });
     await expect(loadPassportMetadata(ctx as never, travellerId)).resolves.toBeNull();
   });
@@ -160,15 +162,15 @@ describe("passport metadata access scope", () => {
   test("staff without view:visa is forbidden", async () => {
     const { ctx } = makePassportCtx(
       {
-        queries: [linkedQuery],
         jobCards: [job],
-        travellers: [traveller],
         passportDetails: [passportRow],
+        queries: [linkedQuery],
+        travellers: [traveller],
       },
-      { roles: ["Sales"] },
+      { roles: ["Sales"] }
     );
     await expect(loadPassportMetadata(ctx as never, travellerId)).rejects.toEqual(
-      new ConvexError("FORBIDDEN"),
+      new ConvexError("FORBIDDEN")
     );
   });
 });

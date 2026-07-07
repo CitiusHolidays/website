@@ -35,7 +35,7 @@ import {
 const leaveStatusValidator = v.union(
   v.literal("Pending"),
   v.literal("Approved"),
-  v.literal("Rejected"),
+  v.literal("Rejected")
 );
 
 const leaveTypeValidator = v.union(
@@ -46,11 +46,13 @@ const leaveTypeValidator = v.union(
   v.literal("Paternity"),
   v.literal("Bereavement"),
   v.literal("Marriage"),
-  v.literal("Leave Without Pay"),
+  v.literal("Leave Without Pay")
 );
 
 function ensureLeaveType(value: string): LeaveType {
-  if ((LEAVE_TYPES as readonly string[]).includes(value)) return value as LeaveType;
+  if ((LEAVE_TYPES as readonly string[]).includes(value)) {
+    return value as LeaveType;
+  }
   return "Casual";
 }
 
@@ -58,7 +60,7 @@ async function balanceMapForStaff(ctx: any, staff: any, fiscalYear: string, star
   const balances = await ctx.db
     .query("staffLeaveBalances")
     .withIndex("by_staffId_and_fiscalYear", (q: any) =>
-      q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear),
+      q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear)
     )
     .collect();
   const map: Record<string, number> = {};
@@ -71,7 +73,7 @@ async function balanceMapForStaff(ctx: any, staff: any, fiscalYear: string, star
   const ledger = await ctx.db
     .query("staffLeaveLedger")
     .withIndex("by_staffId_and_fiscalYear", (q: any) =>
-      q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear),
+      q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear)
     )
     .collect();
   const debitEntryTypes = new Set(["usage", "lapse", "encashment"]);
@@ -83,14 +85,16 @@ async function balanceMapForStaff(ctx: any, staff: any, fiscalYear: string, star
     }
   }
   for (const leaveType of LEAVE_TYPES) {
-    if (leaveType === "Leave Without Pay") continue;
+    if (leaveType === "Leave Without Pay") {
+      continue;
+    }
     if (map[leaveType] === undefined) {
       const decision = calculateLeaveDecision({
-        leaveType,
-        startDate,
-        endDate: startDate,
-        staff,
         balances: {},
+        endDate: startDate,
+        leaveType,
+        staff,
+        startDate,
       });
       map[leaveType] = decision.allowed ? decision.balanceAfter + 1 : 0;
     }
@@ -103,19 +107,23 @@ async function upsertLeaveBalance(
   staff: any,
   fiscalYear: string,
   leaveType: LeaveType,
-  deltaUsedDays: number,
+  deltaUsedDays: number
 ) {
-  if (leaveType === "Leave Without Pay") return;
+  if (leaveType === "Leave Without Pay") {
+    return;
+  }
   const existing = await ctx.db
     .query("staffLeaveBalances")
     .withIndex("by_staffId_and_fiscalYear_and_leaveType", (q: any) =>
-      q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear).eq("leaveType", leaveType),
+      q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear).eq("leaveType", leaveType)
     )
     .first();
   const base =
     existing ??
     initialBalanceRows(staff._id, staff, fiscalYear).find((row) => row.leaveType === leaveType);
-  if (!base) return;
+  if (!base) {
+    return;
+  }
   const now = Date.now();
   const usedDays = Math.max((base.usedDays ?? 0) + deltaUsedDays, 0);
   const availableDays = Math.max(
@@ -124,25 +132,25 @@ async function upsertLeaveBalance(
       (base.carriedForwardDays ?? 0) -
       usedDays -
       (base.encashableDays ?? 0),
-    0,
+    0
   );
   const patch = {
-    openingDays: base.openingDays ?? 0,
     accruedDays: base.accruedDays ?? 0,
-    usedDays,
+    availableDays,
     carriedForwardDays: base.carriedForwardDays ?? 0,
     encashableDays: base.encashableDays ?? 0,
-    availableDays,
+    openingDays: base.openingDays ?? 0,
     updatedAt: now,
+    usedDays,
   };
   if (existing) {
     await ctx.db.patch(existing._id, patch);
     return;
   }
   await ctx.db.insert("staffLeaveBalances", {
-    staffId: staff._id,
     fiscalYear,
     leaveType,
+    staffId: staff._id,
     ...patch,
   });
 }
@@ -154,18 +162,20 @@ async function ledgerUsageForApprovedLeave(ctx: any, access: any, leave: any, st
     .query("staffLeaveLedger")
     .withIndex("by_leaveRecordId", (q: any) => q.eq("leaveRecordId", leave._id))
     .collect();
-  if (existing.some((entry: any) => entry.entryType === "usage")) return;
+  if (existing.some((entry: any) => entry.entryType === "usage")) {
+    return;
+  }
   const days = inclusiveLeaveDays(leave.startDate, leave.endDate);
   await ctx.db.insert("staffLeaveLedger", {
-    staffId: staff._id,
-    leaveRecordId: leave._id,
-    fiscalYear,
-    leaveType,
-    entryType: "usage",
-    days,
-    note: `Approved leave: ${leave.reason || ""}`.trim(),
-    createdBy: access.authUserId ?? "system",
     createdAt: Date.now(),
+    createdBy: access.authUserId ?? "system",
+    days,
+    entryType: "usage",
+    fiscalYear,
+    leaveRecordId: leave._id,
+    leaveType,
+    note: `Approved leave: ${leave.reason || ""}`.trim(),
+    staffId: staff._id,
   });
   await upsertLeaveBalance(ctx, staff, fiscalYear, leaveType, days);
 }
@@ -176,7 +186,7 @@ async function canSeeLeave(
   leave: any,
   staff: any,
   staffRows: any[],
-  approverCache: Map<string, any>,
+  approverCache: Map<string, any>
 ) {
   if (isHrReviewer(access)) {
     return true;
@@ -197,7 +207,7 @@ async function canSeeLeave(
     ctx,
     staff,
     resolvedApproverId,
-    staffRows,
+    staffRows
   );
   if (finalAuthorityId && access.staffId && access.staffId === finalAuthorityId) {
     return true;
@@ -219,7 +229,7 @@ export const list = query({
     const result = await Promise.all(
       leaves.map(async (leave) => {
         const staff = await ctx.db.get(leave.staffId);
-        if (!staff || !(await canSeeLeave(ctx, access, leave, staff, staffRows, approverCache))) {
+        if (!(staff && (await canSeeLeave(ctx, access, leave, staff, staffRows, approverCache)))) {
           return null;
         }
         const resolvedApproverId = await resolveLeaveHeadApproverId(ctx, staff, staffRows);
@@ -236,50 +246,50 @@ export const list = query({
         const finalAuthority = finalAuthorityId ? await ctx.db.get(finalAuthorityId) : null;
         const hrCopyStaff = hrCopyStaffId ? await ctx.db.get(hrCopyStaffId) : null;
         return {
-          id: leave._id,
-          staffId: leave.staffId,
-          staffName: staff.name,
-          staffEmail: staff.email,
-          department: staff.department || "General",
-          leaveType: leave.leaveType ?? "Casual",
-          startDate: leave.startDate,
-          endDate: leave.endDate,
           days: inclusiveLeaveDays(leave.startDate, leave.endDate),
-          fiscalYear: fiscalYearForDate(leave.startDate),
-          reason: leave.reason,
-          status: leave.status ?? "Pending",
-          headReviewStatus: leave.headReviewStatus ?? "Pending",
-          headApproverStaffId: headApproverId,
-          headApproverName: leave.headApproverName ?? headApprover?.name ?? "Not assigned",
-          headReviewerRole: leave.headReviewerRole ?? primaryHeadRoleForStaff(staff),
-          headReviewedByName: leave.headReviewedByName ?? "",
-          headDecisionNote: leave.headDecisionNote ?? "",
-          finalReviewStatus: finalAuthorityId
-            ? (leave.finalReviewStatus ?? "Pending")
-            : (leave.finalReviewStatus ?? "Approved"),
-          finalAuthorityStaffId: finalAuthorityId,
+          decisionNote: leave.decisionNote ?? "",
+          department: staff.department || "General",
+          endDate: leave.endDate,
           finalAuthorityName:
             leave.finalAuthorityName ??
             finalAuthority?.name ??
             (finalAuthorityId ? "Not assigned" : ""),
-          finalReviewedByName: leave.finalReviewedByName ?? "",
+          finalAuthorityStaffId: finalAuthorityId,
           finalDecisionNote: leave.finalDecisionNote ?? "",
-          hrReviewStatus: leave.hrReviewStatus ?? "Pending",
-          hrCopyStaffId,
+          finalReviewedByName: leave.finalReviewedByName ?? "",
+          finalReviewStatus: finalAuthorityId
+            ? (leave.finalReviewStatus ?? "Pending")
+            : (leave.finalReviewStatus ?? "Approved"),
+          fiscalYear: fiscalYearForDate(leave.startDate),
+          headApproverName: leave.headApproverName ?? headApprover?.name ?? "Not assigned",
+          headApproverStaffId: headApproverId,
+          headDecisionNote: leave.headDecisionNote ?? "",
+          headReviewedByName: leave.headReviewedByName ?? "",
+          headReviewerRole: leave.headReviewerRole ?? primaryHeadRoleForStaff(staff),
+          headReviewStatus: leave.headReviewStatus ?? "Pending",
           hrCopyName: leave.hrCopyName ?? hrCopyStaff?.name ?? "",
+          hrCopyStaffId,
           hrReviewedByName: leave.hrReviewedByName ?? "",
-          decisionNote: leave.decisionNote ?? "",
+          hrReviewStatus: leave.hrReviewStatus ?? "Pending",
+          id: leave._id,
+          leaveType: leave.leaveType ?? "Casual",
+          reason: leave.reason,
+          staffEmail: staff.email,
+          staffId: leave.staffId,
+          staffName: staff.name,
+          startDate: leave.startDate,
+          status: leave.status ?? "Pending",
           ...getLeaveApprovalActionsForApprover(
             access,
             leave,
             staff,
             resolvedApproverId,
             finalAuthorityId ?? null,
-            isHrReviewer,
+            isHrReviewer
           ),
           createdAt: new Date(leave.createdAt).toISOString(),
         };
-      }),
+      })
     );
 
     return result.filter(isDefined).sort((a, b) => b.startDate.localeCompare(a.startDate));
@@ -339,53 +349,53 @@ export async function createLeaveRequest(ctx: MutationCtx, args: CreateLeaveArgs
     ? primaryHeadRoleForStaff(headApprover)
     : primaryHeadRoleForStaff(staff);
   const decision = calculateLeaveDecision({
-    leaveType,
-    startDate: args.startDate,
-    endDate: args.endDate,
-    staff,
     balances,
+    endDate: args.endDate,
+    leaveType,
+    staff,
+    startDate: args.startDate,
   });
   if (!decision.allowed) {
     throw new ConvexError(decision.reason);
   }
 
   const id = await ctx.db.insert("staffLeaveRecords", {
-    staffId,
-    leaveType,
-    startDate: args.startDate,
-    endDate: args.endDate,
-    reason: args.reason.trim(),
-    status: "Pending",
-    headReviewStatus: "Pending",
-    headApproverStaffId: headApproverId ?? undefined,
-    headApproverName: headApprover?.name ?? "",
-    headReviewerRole: headReviewerRole as any,
-    finalReviewStatus: finalAuthorityId ? "Pending" : "Approved",
-    finalAuthorityStaffId: finalAuthorityId ?? undefined,
-    finalAuthorityName: finalAuthority?.name ?? "",
-    hrCopyStaffId: hrCopyStaffId ?? undefined,
-    hrCopyName: hrCopyStaff?.name ?? "",
-    hrReviewStatus: "Pending",
-    createdBy: access.authUserId || "system",
     createdAt: now,
+    createdBy: access.authUserId || "system",
+    endDate: args.endDate,
+    finalAuthorityName: finalAuthority?.name ?? "",
+    finalAuthorityStaffId: finalAuthorityId ?? undefined,
+    finalReviewStatus: finalAuthorityId ? "Pending" : "Approved",
+    headApproverName: headApprover?.name ?? "",
+    headApproverStaffId: headApproverId ?? undefined,
+    headReviewerRole: headReviewerRole as any,
+    headReviewStatus: "Pending",
+    hrCopyName: hrCopyStaff?.name ?? "",
+    hrCopyStaffId: hrCopyStaffId ?? undefined,
+    hrReviewStatus: "Pending",
+    leaveType,
+    reason: args.reason.trim(),
+    staffId,
+    startDate: args.startDate,
+    status: "Pending",
     updatedAt: now,
   });
 
   await Promise.all([
     createActivity(ctx, access, {
-      entityType: "leave",
-      entityId: id,
       action: "requested",
+      entityId: id,
+      entityType: "leave",
       message: `Leave requested for ${staff.name}: ${args.startDate} to ${args.endDate}`,
     }),
     notifyLeaveRequestSubmitted(ctx, {
-      leaveId: id,
-      staff,
+      endDate: args.endDate,
       headApproverId,
       hrCopyStaffId,
+      leaveId: id,
       leaveType: args.leaveType ?? "Casual",
+      staff,
       startDate: args.startDate,
-      endDate: args.endDate,
     }),
   ]);
 
@@ -394,11 +404,11 @@ export async function createLeaveRequest(ctx: MutationCtx, args: CreateLeaveArgs
 
 export const create = mutation({
   args: {
-    staffId: v.optional(v.string()),
-    leaveType: v.optional(leaveTypeValidator),
-    startDate: v.string(),
     endDate: v.string(),
+    leaveType: v.optional(leaveTypeValidator),
     reason: v.string(),
+    staffId: v.optional(v.string()),
+    startDate: v.string(),
     status: v.optional(leaveStatusValidator),
   },
   handler: createLeaveRequest,
@@ -456,7 +466,7 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
     staff,
     resolvedApproverId,
     finalAuthorityId,
-    isHrReviewer,
+    isHrReviewer
   );
   const patch: Record<string, unknown> = { updatedAt: now };
   let stage = "hr_reviewed";
@@ -520,7 +530,7 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
     if (finalAuthorityId && finalStatus !== "Approved") {
       throw new ConvexError("Final authority approval is required before HR review");
     }
-    if (!actions.canApproveHr && !actions.canReject) {
+    if (!(actions.canApproveHr || actions.canReject)) {
       throw new ConvexError("HR final approval is required");
     }
     if (hrStatus !== "Pending") {
@@ -537,11 +547,11 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
       const fiscalYear = fiscalYearForDate(leave.startDate);
       const balances = await balanceMapForStaff(ctx, staff, fiscalYear, leave.startDate);
       const decision = calculateLeaveDecision({
-        leaveType,
-        startDate: leave.startDate,
-        endDate: leave.endDate,
-        staff,
         balances,
+        endDate: leave.endDate,
+        leaveType,
+        staff,
+        startDate: leave.startDate,
       });
       if (!decision.allowed) {
         throw new ConvexError(decision.reason);
@@ -555,9 +565,9 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
     await ledgerUsageForApprovedLeave(ctx, access, patchedLeave, staff);
   }
   await createActivity(ctx, access, {
-    entityType: "leave",
-    entityId: leaveId,
     action: stage,
+    entityId: leaveId,
+    entityType: "leave",
     message: `Leave for ${staff.name} ${args.status.toLowerCase()} at ${
       stage === "head_reviewed"
         ? "head review"
@@ -571,24 +581,24 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
   if (stage === "head_reviewed" && args.status === "Approved") {
     if (finalAuthorityId) {
       await notifyLeaveReadyForFinalAuthority(ctx, {
+        finalAuthorityId,
         leaveId,
         staff,
-        finalAuthorityId,
       });
     } else {
       await notifyLeaveReadyForHr(ctx, {
+        hrCopyStaffId,
         leaveId,
         staff,
-        hrCopyStaffId,
       });
     }
   }
 
   if (stage === "final_reviewed" && args.status === "Approved") {
     await notifyLeaveReadyForHr(ctx, {
+      hrCopyStaffId,
       leaveId,
       staff,
-      hrCopyStaffId,
     });
   }
 
@@ -597,17 +607,17 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
 
 export const decide = mutation({
   args: {
+    decisionNote: v.optional(v.string()),
     leaveId: v.string(),
     status: leaveStatusValidator,
-    decisionNote: v.optional(v.string()),
   },
   handler: decideLeaveRequest,
 });
 
 export const balances = query({
   args: {
-    staffId: v.optional(v.string()),
     fiscalYear: v.optional(v.string()),
+    staffId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_LEAVE);
@@ -615,43 +625,51 @@ export const balances = query({
     let staffId = access.staffId;
     if (args.staffId && isHrReviewer(access)) {
       const normalized = ctx.db.normalizeId("staffUsers", args.staffId);
-      if (!normalized) throw new ConvexError("Invalid staff member ID");
+      if (!normalized) {
+        throw new ConvexError("Invalid staff member ID");
+      }
       staffId = normalized;
     }
-    if (!staffId) return [];
+    if (!staffId) {
+      return [];
+    }
     const staff = await ctx.db.get(staffId);
-    if (!staff) return [];
+    if (!staff) {
+      return [];
+    }
     const seeded = initialBalanceRows(staff._id, staff, fiscalYear);
     const existing = await ctx.db
       .query("staffLeaveBalances")
       .withIndex("by_staffId_and_fiscalYear", (q) =>
-        q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear),
+        q.eq("staffId", staff._id).eq("fiscalYear", fiscalYear)
       )
       .collect();
     const byType = new Map<string, any>(seeded.map((row) => [row.leaveType, row]));
-    for (const row of existing) byType.set(row.leaveType, row);
+    for (const row of existing) {
+      byType.set(row.leaveType, row);
+    }
     return Array.from(byType.values()).map((row: any) => ({
-      staffId: staff._id,
-      staffName: staff.name,
+      accruedDays: row.accruedDays,
+      availableDays: row.availableDays,
+      carriedForwardDays: row.carriedForwardDays,
+      encashableDays: row.encashableDays,
       fiscalYear,
       leaveType: row.leaveType,
       openingDays: row.openingDays,
-      accruedDays: row.accruedDays,
+      staffId: staff._id,
+      staffName: staff.name,
       usedDays: row.usedDays,
-      carriedForwardDays: row.carriedForwardDays,
-      encashableDays: row.encashableDays,
-      availableDays: row.availableDays,
     }));
   },
 });
 
 export const update = mutation({
   args: {
+    endDate: v.optional(v.string()),
     leaveId: v.string(),
     leaveType: v.optional(leaveTypeValidator),
-    startDate: v.optional(v.string()),
-    endDate: v.optional(v.string()),
     reason: v.optional(v.string()),
+    startDate: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.REQUEST_LEAVE);
@@ -674,18 +692,26 @@ export const update = mutation({
       args.startDate ?? leave.startDate,
       args.endDate ?? leave.endDate,
       "Leave start date",
-      "Leave end date",
+      "Leave end date"
     );
     const patch: Record<string, string | number> = { updatedAt: Date.now() };
-    if (args.leaveType !== undefined) patch.leaveType = args.leaveType;
-    if (args.startDate !== undefined) patch.startDate = args.startDate;
-    if (args.endDate !== undefined) patch.endDate = args.endDate;
-    if (args.reason !== undefined) patch.reason = args.reason.trim();
+    if (args.leaveType !== undefined) {
+      patch.leaveType = args.leaveType;
+    }
+    if (args.startDate !== undefined) {
+      patch.startDate = args.startDate;
+    }
+    if (args.endDate !== undefined) {
+      patch.endDate = args.endDate;
+    }
+    if (args.reason !== undefined) {
+      patch.reason = args.reason.trim();
+    }
     await ctx.db.patch(leaveId, patch);
     await createActivity(ctx, access, {
-      entityType: "leave",
-      entityId: leaveId,
       action: "updated",
+      entityId: leaveId,
+      entityType: "leave",
       message: `Leave record updated for ${leave.staffId}`,
     });
     return { id: leaveId };
@@ -715,9 +741,9 @@ export const remove = mutation({
     const [staff] = await Promise.all([ctx.db.get(leave.staffId), ctx.db.delete(leaveId)]);
 
     await createActivity(ctx, access, {
-      entityType: "leave",
-      entityId: leaveId,
       action: "deleted",
+      entityId: leaveId,
+      entityType: "leave",
       message: `Leave record deleted for ${staff?.name || "unknown staff"}`,
     });
 

@@ -16,20 +16,18 @@ const getIdentityOrThrow = async (ctx: MutationCtx) => {
 const identityToSyncInput = (identity: UserIdentity) => ({
   authUserId: identity.subject,
   email: identity.email ?? "",
-  name: identity.name ?? undefined,
   image: typeof identity.picture === "string" ? identity.picture : undefined,
+  name: identity.name ?? undefined,
 });
 
 export const syncFromIdentity = internalMutation({
   args: {
     authUserId: v.string(),
     email: v.string(),
-    name: v.optional(v.string()),
     image: v.optional(v.string()),
+    name: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    return await syncAuthRecords(ctx, args);
-  },
+  handler: async (ctx, args) => await syncAuthRecords(ctx, args),
 });
 
 export const syncMyAuthIdentity = mutation({
@@ -183,11 +181,11 @@ export const repairAuthLinks = mutation({
     ]);
 
     return {
-      staffRelinked,
-      profilesRelinked,
       duplicatesRemoved,
-      staffTotal: staffRows.length,
+      profilesRelinked,
       profileTotal: profiles.length,
+      staffRelinked,
+      staffTotal: staffRows.length,
     };
   },
 });

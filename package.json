@@ -8,9 +8,10 @@
     "dev:webpack": "bun --bun next dev --webpack",
     "build": "bunx convex codegen --typecheck enable && bun --bun next build",
     "start": "bun --bun next start",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "format": "biome format --write .",
+    "lint": "ultracite check",
+    "lint:fix": "ultracite fix",
+    "lint:doctor": "ultracite doctor",
+    "format": "ultracite fix",
     "test": "bun test",
     "check": "bun run lint && bun test",
     "perf:hero-baseline": "node bin/perf-hero-baseline.mjs",
@@ -51,11 +52,12 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.2",
+    "@biomejs/biome": "2.5.2",
     "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^26.1.0",
     "babel-plugin-react-compiler": "^1.0.0",
     "tailwindcss": "^4.3.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "ultracite": "7.9.0"
   }
 }

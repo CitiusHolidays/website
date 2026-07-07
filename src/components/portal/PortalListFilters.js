@@ -16,9 +16,11 @@ export function PortalListFilters({
   search = "",
   searchKeys = EMPTY_ARRAY,
 }) {
-  if (!config.length) return null;
+  if (!config.length) {
+    return null;
+  }
 
-  const scopedRows = filterScopeRows(rows, { view, jobCardFilter, search, searchKeys });
+  const scopedRows = filterScopeRows(rows, { jobCardFilter, search, searchKeys, view });
 
   return (
     <div className="contents">
@@ -28,20 +30,20 @@ export function PortalListFilters({
             ? def.resolveOptions(scopedRows)
             : def.options || [];
         const options = enrichFilterOptions({
+          config,
+          field: def.field,
+          filterFn: def.filterFn,
+          filterValues: values,
           options: baseOptions,
           rows: scopedRows,
-          field: def.field,
-          filterValues: values,
-          config,
-          filterFn: def.filterFn,
         });
         return (
           <PortalSelectFilter
             key={def.field}
             label={def.label}
-            value={values[def.field] || ""}
             onChange={(next) => onChange(def.field, next)}
             options={options}
+            value={values[def.field] || ""}
           />
         );
       })}

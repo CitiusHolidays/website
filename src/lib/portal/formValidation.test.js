@@ -7,9 +7,9 @@ describe("validateModalForm", () => {
       validateModalForm("query", {
         clientName: "Acme",
         paxCount: "2",
-        travelStartDate: "2026-08-10",
         travelEndDate: "2026-08-01",
-      }),
+        travelStartDate: "2026-08-10",
+      })
     ).toThrow("Travel start date must be on or before Travel end date.");
   });
 
@@ -18,52 +18,52 @@ describe("validateModalForm", () => {
       validateModalForm("query", {
         clientName: "Acme",
         paxCount: "0",
-      }),
+      })
     ).toThrow("Pax count must be at least 1.");
   });
 
   test("rejects inverted leave dates", () => {
     expect(() =>
       validateModalForm("leave_create", {
-        startDate: "2026-08-10",
         endDate: "2026-08-01",
         reason: "Trip",
-      }),
+        startDate: "2026-08-10",
+      })
     ).toThrow("Leave start date must be on or before Leave end date.");
   });
 
   test("requires lost reason when marking order lost", () => {
     expect(() =>
       validateModalForm("salesDecision", {
+        lostReason: "",
         queryId: "query_1",
         salesDecision: "Order Lost",
-        lostReason: "",
-      }),
+      })
     ).toThrow("Select a lost reason.");
   });
 
   test("requires expense category selection", () => {
     expect(() =>
       validateModalForm("expense", {
-        expenseType: "office",
-        expenseDate: "2026-06-15",
-        category: "",
         cardAmount: "100",
+        category: "",
+        expenseDate: "2026-06-15",
+        expenseType: "office",
         paidBy: "Staff",
-      }),
+      })
     ).toThrow("Select a category.");
   });
 
   test("office expenses do not require a job card", () => {
     expect(() =>
       validateModalForm("expense", {
+        cardAmount: "100",
+        category: "Miscellaneous",
+        expenseDate: "2026-06-15",
         expenseType: "office",
         jobCardId: "",
-        expenseDate: "2026-06-15",
-        category: "Miscellaneous",
-        cardAmount: "100",
         paidBy: "Staff",
-      }),
+      })
     ).not.toThrow();
   });
 });

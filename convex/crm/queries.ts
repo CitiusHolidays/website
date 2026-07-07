@@ -38,13 +38,13 @@ const ticketingScopeValidator = v.union(
   v.literal("Domestic"),
   v.literal("International"),
   v.literal("Both"),
-  v.literal("Not required"),
+  v.literal("Not required")
 );
 
 async function notifyQueryOwner(
   ctx: Parameters<typeof notifyStaffMember>[0],
   ownerId: string | undefined,
-  notification: Parameters<typeof notifyStaffMember>[2],
+  notification: Parameters<typeof notifyStaffMember>[2]
 ) {
   if (!ownerId) {
     return;
@@ -59,23 +59,23 @@ async function notifyQueryOwner(
 async function notifyOrderConfirmedWorkflow(
   ctx: Parameters<typeof notifyRoles>[0],
   query: { queryCode: string; contractingOwnerId?: string; ticketingOwnerId?: string },
-  queryId: Id<"queries">,
+  queryId: Id<"queries">
 ) {
-  const entity = { entityType: "query" as const, entityId: queryId };
+  const entity = { entityId: queryId, entityType: "query" as const };
   await Promise.all([
     notifyRoles(ctx, [...OPS_START_ROLES], {
-      title: "Order confirmed — prepare operations",
       body: `${query.queryCode} was confirmed by Sales. Accounts will open a Job Card; contracting, operations, and ticketing can begin traveller master, tickets, passport, visa, and tour manager work.`,
+      title: "Order confirmed — prepare operations",
       ...entity,
     }),
     notifyQueryOwner(ctx, query.contractingOwnerId, {
-      title: "Order confirmed on your query",
       body: `${query.queryCode} was confirmed. Prepare revised costing if needed and coordinate operations once the Job Card opens.`,
+      title: "Order confirmed on your query",
       ...entity,
     }),
     notifyQueryOwner(ctx, query.ticketingOwnerId, {
-      title: "Order confirmed on your query",
       body: `${query.queryCode} was confirmed. Prepare ticketing once the Job Card opens.`,
+      title: "Order confirmed on your query",
       ...entity,
     }),
   ]);
@@ -84,19 +84,21 @@ async function notifyOrderConfirmedWorkflow(
 async function notifyJobCardCreators(
   ctx: Parameters<typeof notifyStaffMember>[0],
   query: { queryCode: string },
-  queryId: Id<"queries">,
+  queryId: Id<"queries">
 ) {
   const staffRows = await ctx.db.query("staffUsers").collect();
   const notifications = [];
   for (const staff of staffRows) {
-    if (!isJobCardCreatorNotificationTarget(staff)) continue;
+    if (!isJobCardCreatorNotificationTarget(staff)) {
+      continue;
+    }
     notifications.push(
       notifyStaffMember(ctx, staff._id, {
-        title: "Order confirmed — open Job Card",
         body: `${query.queryCode} is confirmed. Create the Job Card in Accounts.`,
-        entityType: "query",
         entityId: queryId,
-      }),
+        entityType: "query",
+        title: "Order confirmed — open Job Card",
+      })
     );
   }
   await Promise.all(notifications);
@@ -104,7 +106,7 @@ async function notifyJobCardCreators(
 
 export function isJobCardCreatorNotificationTarget(staff: { active?: boolean; roles?: string[] }) {
   return Boolean(
-    staff.active && staff.roles?.some((role) => ["Accounts", "Accounts Head"].includes(role)),
+    staff.active && staff.roles?.some((role) => ["Accounts", "Accounts Head"].includes(role))
   );
 }
 
@@ -116,12 +118,12 @@ const queryTypeValidator = v.union(
   v.literal("FIT"),
   v.literal("Family Group"),
   v.literal("B2B"),
-  v.literal("Spiritual"),
+  v.literal("Spiritual")
 );
 
 const travelTypeValidator = v.union(
   v.literal("Domestic Travel"),
-  v.literal("International Travel"),
+  v.literal("International Travel")
 );
 
 const salesStatusValidator = v.union(
@@ -129,7 +131,7 @@ const salesStatusValidator = v.union(
   v.literal("Change in destination"),
   v.literal("Date/Destination Change Required"),
   v.literal("Order Confirmed"),
-  v.literal("Order Lost"),
+  v.literal("Order Lost")
 );
 
 const leadStageValidator = v.union(
@@ -138,7 +140,7 @@ const leadStageValidator = v.union(
   v.literal("Negotiation"),
   v.literal("Confirmation"),
   v.literal("Lost"),
-  v.literal("Closed"),
+  v.literal("Closed")
 );
 
 const querySourceValidator = v.union(
@@ -146,7 +148,7 @@ const querySourceValidator = v.union(
   v.literal("WhatsApp"),
   v.literal("Email"),
   v.literal("Client"),
-  v.literal("Referral"),
+  v.literal("Referral")
 );
 
 const contractingStatusValidator = v.union(
@@ -156,14 +158,14 @@ const contractingStatusValidator = v.union(
   v.literal("Change in destination"),
   v.literal("Date/Destination Change Required"),
   v.literal("Order Confirmed"),
-  v.literal("Order Lost"),
+  v.literal("Order Lost")
 );
 
 const lostReasonValidator = v.union(
   v.literal("Price"),
   v.literal("Competition"),
   v.literal("Not travelling"),
-  v.literal("Other"),
+  v.literal("Other")
 );
 
 export type SalesStatus =
@@ -304,7 +306,7 @@ export function buildQueryStatusNotificationPlan({
   const ownerNotifications: PlannedOwnerNotification[] = [];
   const addOwnerNotification = (
     ownerId: string | undefined,
-    notification: Omit<PlannedOwnerNotification, "ownerId">,
+    notification: Omit<PlannedOwnerNotification, "ownerId">
   ) => {
     if (!ownerId || ownerNotifications.some((entry) => entry.ownerId === ownerId)) {
       return;
@@ -314,44 +316,44 @@ export function buildQueryStatusNotificationPlan({
 
   if (args.salesStatus === "Date/Destination Change Required") {
     addOwnerNotification(current.contractingOwnerId, {
-      title: "Revise proposal",
       body: `${current.queryCode} was sent back by Sales for a date or destination change.`,
+      title: "Revise proposal",
     });
     addOwnerNotification(current.ticketingOwnerId, {
-      title: "Revise proposal costing",
       body: `${current.queryCode} needs updated ticketing inputs for the revised proposal.`,
+      title: "Revise proposal costing",
     });
   }
 
   if (args.salesStatus === "Order Lost") {
     roleNotifications.push({
+      body: `${current.queryCode} was marked lost by Sales.`,
       roles: ["Contracting", "Contracting Head"],
       title: "Order lost",
-      body: `${current.queryCode} was marked lost by Sales.`,
     });
     addOwnerNotification(current.contractingOwnerId, {
-      title: "Order lost on your query",
       body: `${current.queryCode} was marked lost by Sales.`,
+      title: "Order lost on your query",
     });
     addOwnerNotification(current.ticketingOwnerId, {
-      title: "Order lost on your query",
       body: `${current.queryCode} was marked lost by Sales.`,
+      title: "Order lost on your query",
     });
   }
 
   if (isNewlyConfirmed) {
     roleNotifications.push({
+      body: `${current.queryCode} has been confirmed by Sales.`,
       roles: ["Finance"],
       title: "Order confirmed",
-      body: `${current.queryCode} has been confirmed by Sales.`,
     });
   }
 
   return {
     notifyJobCardCreators: isNewlyConfirmed,
     notifyOrderConfirmedWorkflow: isNewlyConfirmed,
-    roleNotifications,
     ownerNotifications,
+    roleNotifications,
   };
 }
 
@@ -388,23 +390,23 @@ export const list = query({
 
 export const create = mutation({
   args: {
-    clientName: v.string(),
-    contactPerson: v.optional(v.string()),
-    contactMobile: v.optional(v.string()),
-    destination: v.optional(v.string()),
-    paxCount: v.number(),
-    travelStartDate: v.optional(v.string()),
-    travelEndDate: v.optional(v.string()),
-    queryType: queryTypeValidator,
-    travelType: travelTypeValidator,
-    budgetAmount: v.optional(v.number()),
-    source: v.optional(querySourceValidator),
-    salesOwnerName: v.optional(v.string()),
-    contractingStaffId: v.optional(v.string()),
-    ticketingScope: v.optional(ticketingScopeValidator),
-    travelInBatches: v.optional(v.boolean()),
     batchingNotes: v.optional(v.string()),
+    budgetAmount: v.optional(v.number()),
+    clientName: v.string(),
+    contactMobile: v.optional(v.string()),
+    contactPerson: v.optional(v.string()),
+    contractingStaffId: v.optional(v.string()),
+    destination: v.optional(v.string()),
     notes: v.optional(v.string()),
+    paxCount: v.number(),
+    queryType: queryTypeValidator,
+    salesOwnerName: v.optional(v.string()),
+    source: v.optional(querySourceValidator),
+    ticketingScope: v.optional(ticketingScopeValidator),
+    travelEndDate: v.optional(v.string()),
+    travelInBatches: v.optional(v.boolean()),
+    travelStartDate: v.optional(v.string()),
+    travelType: travelTypeValidator,
   },
   handler: async (ctx, args) => {
     if (!args.clientName.trim()) {
@@ -418,7 +420,7 @@ export const create = mutation({
       args.travelStartDate,
       args.travelEndDate,
       "Travel start date",
-      "Travel end date",
+      "Travel end date"
     );
 
     const now = Date.now();
@@ -427,68 +429,68 @@ export const create = mutation({
       Promise.all([
         nextCode(ctx, "queries", "Q"),
         ctx.db.insert("clients", {
-          name: args.clientName.trim(),
           contactPerson: args.contactPerson?.trim() || "",
-          phone: args.contactMobile?.trim() || "",
           createdAt: now,
+          name: args.clientName.trim(),
+          phone: args.contactMobile?.trim() || "",
           updatedAt: now,
         }),
       ]),
     ]);
     assertCementQueryTypeAllowed(access, args.queryType);
     const id = await ctx.db.insert("queries", {
-      queryCode,
+      batchingNotes: args.batchingNotes?.trim() || "",
+      budgetAmount: Math.max(args.budgetAmount ?? 0, 0),
       clientId,
       clientName: args.clientName.trim(),
-      contactPerson: args.contactPerson?.trim() || "",
       contactMobile: args.contactMobile?.trim() || "",
-      destination: args.destination?.trim() || "",
-      paxCount: args.paxCount,
-      travelStartDate: args.travelStartDate || "",
-      travelEndDate: args.travelEndDate || "",
-      queryType: args.queryType,
-      travelType: args.travelType,
-      salesStatus: "Proposal in discussion",
-      leadStage: "Proposal",
+      contactPerson: args.contactPerson?.trim() || "",
       contractingStatus: "Query Received",
-      budgetAmount: Math.max(args.budgetAmount ?? 0, 0),
-      source: args.source ?? "Client",
+      createdAt: now,
+      createdBy: access.authUserId ?? "unknown",
+      destination: args.destination?.trim() || "",
+      leadStage: "Proposal",
+      notes: args.notes?.trim() || "",
+      paxCount: args.paxCount,
+      queryCode,
+      queryType: args.queryType,
       salesOwnerId: access.authUserId,
       salesOwnerName: args.salesOwnerName?.trim() || access.name,
-      travelInBatches: Boolean(args.travelInBatches),
-      batchingNotes: args.batchingNotes?.trim() || "",
-      notes: args.notes?.trim() || "",
+      salesStatus: "Proposal in discussion",
+      source: args.source ?? "Client",
       submittedToContractingAt: now,
-      createdBy: access.authUserId ?? "unknown",
-      createdAt: now,
+      travelEndDate: args.travelEndDate || "",
+      travelInBatches: Boolean(args.travelInBatches),
+      travelStartDate: args.travelStartDate || "",
+      travelType: args.travelType,
       updatedAt: now,
     });
 
     await Promise.all([
       createActivity(ctx, access, {
-        entityType: "query",
-        entityId: id,
         action: "created",
+        entityId: id,
+        entityType: "query",
         message: `${queryCode} created for ${args.clientName.trim()}`,
       }),
       notifyRoles(ctx, contractingNotifyRolesForQueryType(args.queryType), {
-        title: "New query received",
         body: `${queryCode} is ready for contracting and operations head review.`,
-        entityType: "query",
         entityId: id,
+        entityType: "query",
+        title: "New query received",
       }),
       notifyRoles(ctx, ["Contracting Head", "Operations Head"], {
-        title: "Query ready for assignment",
         body: `${queryCode} was raised by Sales. Review and assign contracting and ticketing teams.`,
-        entityType: "query",
         entityId: id,
+        entityType: "query",
+        title: "Query ready for assignment",
       }),
     ]);
 
     if (args.contractingStaffId || args.ticketingScope) {
       await applyQueryTeamAssignments(ctx, access, {
-        queryId: id,
         contractingStaffId: args.contractingStaffId,
+        queryId: id,
         ticketingScope: args.ticketingScope,
       });
     }
@@ -499,22 +501,22 @@ export const create = mutation({
 
 export const update = mutation({
   args: {
-    queryId: v.string(),
-    clientName: v.optional(v.string()),
-    contactPerson: v.optional(v.string()),
-    contactMobile: v.optional(v.string()),
-    destination: v.optional(v.string()),
-    paxCount: v.optional(v.number()),
-    travelStartDate: v.optional(v.string()),
-    travelEndDate: v.optional(v.string()),
-    queryType: v.optional(queryTypeValidator),
-    travelType: v.optional(travelTypeValidator),
-    budgetAmount: v.optional(v.number()),
-    source: v.optional(querySourceValidator),
-    salesOwnerName: v.optional(v.string()),
-    travelInBatches: v.optional(v.boolean()),
     batchingNotes: v.optional(v.string()),
+    budgetAmount: v.optional(v.number()),
+    clientName: v.optional(v.string()),
+    contactMobile: v.optional(v.string()),
+    contactPerson: v.optional(v.string()),
+    destination: v.optional(v.string()),
     notes: v.optional(v.string()),
+    paxCount: v.optional(v.number()),
+    queryId: v.string(),
+    queryType: v.optional(queryTypeValidator),
+    salesOwnerName: v.optional(v.string()),
+    source: v.optional(querySourceValidator),
+    travelEndDate: v.optional(v.string()),
+    travelInBatches: v.optional(v.boolean()),
+    travelStartDate: v.optional(v.string()),
+    travelType: v.optional(travelTypeValidator),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES);
@@ -543,31 +545,61 @@ export const update = mutation({
       args.travelStartDate ?? current.travelStartDate,
       args.travelEndDate ?? current.travelEndDate,
       "Travel start date",
-      "Travel end date",
+      "Travel end date"
     );
 
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
-    if (args.clientName !== undefined) patch.clientName = args.clientName.trim();
-    if (args.contactPerson !== undefined) patch.contactPerson = args.contactPerson.trim();
-    if (args.contactMobile !== undefined) patch.contactMobile = args.contactMobile.trim();
-    if (args.destination !== undefined) patch.destination = args.destination.trim();
-    if (args.paxCount !== undefined) patch.paxCount = args.paxCount;
-    if (args.travelStartDate !== undefined) patch.travelStartDate = args.travelStartDate;
-    if (args.travelEndDate !== undefined) patch.travelEndDate = args.travelEndDate;
-    if (args.queryType !== undefined) patch.queryType = args.queryType;
-    if (args.travelType !== undefined) patch.travelType = args.travelType;
-    if (args.budgetAmount !== undefined) patch.budgetAmount = Math.max(args.budgetAmount, 0);
-    if (args.source !== undefined) patch.source = args.source;
-    if (args.salesOwnerName !== undefined) patch.salesOwnerName = args.salesOwnerName.trim();
-    if (args.travelInBatches !== undefined) patch.travelInBatches = args.travelInBatches;
-    if (args.batchingNotes !== undefined) patch.batchingNotes = args.batchingNotes.trim();
-    if (args.notes !== undefined) patch.notes = args.notes.trim();
+    if (args.clientName !== undefined) {
+      patch.clientName = args.clientName.trim();
+    }
+    if (args.contactPerson !== undefined) {
+      patch.contactPerson = args.contactPerson.trim();
+    }
+    if (args.contactMobile !== undefined) {
+      patch.contactMobile = args.contactMobile.trim();
+    }
+    if (args.destination !== undefined) {
+      patch.destination = args.destination.trim();
+    }
+    if (args.paxCount !== undefined) {
+      patch.paxCount = args.paxCount;
+    }
+    if (args.travelStartDate !== undefined) {
+      patch.travelStartDate = args.travelStartDate;
+    }
+    if (args.travelEndDate !== undefined) {
+      patch.travelEndDate = args.travelEndDate;
+    }
+    if (args.queryType !== undefined) {
+      patch.queryType = args.queryType;
+    }
+    if (args.travelType !== undefined) {
+      patch.travelType = args.travelType;
+    }
+    if (args.budgetAmount !== undefined) {
+      patch.budgetAmount = Math.max(args.budgetAmount, 0);
+    }
+    if (args.source !== undefined) {
+      patch.source = args.source;
+    }
+    if (args.salesOwnerName !== undefined) {
+      patch.salesOwnerName = args.salesOwnerName.trim();
+    }
+    if (args.travelInBatches !== undefined) {
+      patch.travelInBatches = args.travelInBatches;
+    }
+    if (args.batchingNotes !== undefined) {
+      patch.batchingNotes = args.batchingNotes.trim();
+    }
+    if (args.notes !== undefined) {
+      patch.notes = args.notes.trim();
+    }
 
     await ctx.db.patch(queryId, patch);
     await createActivity(ctx, access, {
-      entityType: "query",
-      entityId: queryId,
       action: "updated",
+      entityId: queryId,
+      entityType: "query",
       message: `${current.queryCode} updated`,
     });
     return { id: queryId };
@@ -579,8 +611,8 @@ export const assignContracting = mutation({
   handler: async (ctx, args) => {
     const access = await requireHeadOrAdmin(ctx, ["Contracting Head", "Operations Head"]);
     return await applyQueryTeamAssignments(ctx, access, {
-      queryId: args.queryId,
       contractingStaffId: args.staffId,
+      queryId: args.queryId,
     });
   },
 });
@@ -602,10 +634,10 @@ export const assignQueryTicketing = mutation({
 
 export const assignQueryTeams = mutation({
   args: {
-    queryId: v.string(),
     contractingStaffId: v.optional(v.string()),
-    ticketingStaffId: v.optional(v.string()),
+    queryId: v.string(),
     ticketingScope: v.optional(ticketingScopeValidator),
+    ticketingStaffId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
@@ -648,21 +680,21 @@ export const assignJobCardCreator = mutation({
     const now = Date.now();
     await Promise.all([
       ctx.db.patch(queryId, {
-        jobCardCreatorStaffId: staffId,
         jobCardCreatorName: staff.name.trim(),
+        jobCardCreatorStaffId: staffId,
         updatedAt: now,
       }),
       createActivity(ctx, access, {
-        entityType: "query",
-        entityId: queryId,
         action: "assigned_job_card_creator",
+        entityId: queryId,
+        entityType: "query",
         message: `${query.queryCode} Job Card creator assigned to ${staff.name.trim()}`,
       }),
       notifyStaffMember(ctx, staffId, {
-        title: "Job Card assigned",
         body: `${query.queryCode} is assigned to you for Job Card creation.`,
-        entityType: "query",
         entityId: queryId,
+        entityType: "query",
+        title: "Job Card assigned",
       }),
     ]);
     return { id: queryId };
@@ -695,22 +727,22 @@ export const submitToContracting = mutation({
     });
     await Promise.all([
       createActivity(ctx, access, {
-        entityType: "query",
-        entityId: queryId,
         action: "submitted_to_contracting",
+        entityId: queryId,
+        entityType: "query",
         message: `${current.queryCode} submitted to Contracting`,
       }),
       notifyRoles(ctx, ["Contracting Head", "Operations Head"], {
-        title: "Query ready for assignment",
         body: `${current.queryCode} was submitted by Sales. Review and assign contracting and ticketing teams.`,
-        entityType: "query",
         entityId: queryId,
+        entityType: "query",
+        title: "Query ready for assignment",
       }),
       notifyRoles(ctx, ["Contracting", "Contracting Head", "Operations Head", "Directors"], {
-        title: "Query submitted to Contracting",
         body: `${current.queryCode} is ready for assignment and proposal work.`,
-        entityType: "query",
         entityId: queryId,
+        entityType: "query",
+        title: "Query submitted to Contracting",
       }),
     ]);
     return { id: queryId };
@@ -719,16 +751,16 @@ export const submitToContracting = mutation({
 
 export const updateStatus = mutation({
   args: {
-    queryId: v.string(),
-    salesStatus: v.optional(salesStatusValidator),
-    leadStage: v.optional(leadStageValidator),
+    approxMargin: v.optional(v.number()),
+    contractingAirlinesCost: v.optional(v.number()),
+    contractingLandCost: v.optional(v.number()),
     contractingStatus: v.optional(contractingStatusValidator),
+    contractingVisaCost: v.optional(v.number()),
+    leadStage: v.optional(leadStageValidator),
     lostReason: v.optional(lostReasonValidator),
     lostReasonOther: v.optional(v.string()),
-    contractingLandCost: v.optional(v.number()),
-    contractingAirlinesCost: v.optional(v.number()),
-    contractingVisaCost: v.optional(v.number()),
-    approxMargin: v.optional(v.number()),
+    queryId: v.string(),
+    salesStatus: v.optional(salesStatusValidator),
   },
   handler: async (ctx, args) => {
     const access = await requireAnyPermission(ctx, [
@@ -776,7 +808,7 @@ export const updateStatus = mutation({
     if (args.approxMargin !== undefined) {
       if (!willBeConfirmed) {
         throw new ConvexError(
-          "Approximate margin can only be entered after the query is confirmed",
+          "Approximate margin can only be entered after the query is confirmed"
         );
       }
       if (!access.permissions.includes(PERMISSIONS.MANAGE_QUERIES)) {
@@ -794,17 +826,17 @@ export const updateStatus = mutation({
       (args.salesStatus === "Order Confirmed" || args.contractingStatus === "Order Confirmed");
     const isLost = args.salesStatus === "Order Lost";
     const notificationPlan = buildQueryStatusNotificationPlan({
-      current,
       args,
-      wasConfirmed,
+      current,
       isNewlyConfirmed,
+      wasConfirmed,
     });
 
     await Promise.all([
       createActivity(ctx, access, {
-        entityType: "query",
-        entityId: queryId,
         action: isNewlyConfirmed ? "confirmed" : isLost ? "lost" : "status_updated",
+        entityId: queryId,
+        entityType: "query",
         message: `${current.queryCode} status updated`,
         metadata: patch,
       }),
@@ -816,19 +848,19 @@ export const updateStatus = mutation({
         : []),
       ...notificationPlan.roleNotifications.map((notification) =>
         notifyRoles(ctx, notification.roles, {
-          title: notification.title,
           body: notification.body,
-          entityType: "query",
           entityId: queryId,
-        }),
+          entityType: "query",
+          title: notification.title,
+        })
       ),
       ...notificationPlan.ownerNotifications.map((notification) =>
         notifyQueryOwner(ctx, notification.ownerId, {
-          title: notification.title,
           body: notification.body,
-          entityType: "query",
           entityId: queryId,
-        }),
+          entityType: "query",
+          title: notification.title,
+        })
       ),
     ]);
 
@@ -883,7 +915,7 @@ export const remove = mutation({
               linkedRecordTypes[linkedRecordTypes.length - 1]
             }`;
       throw new ConvexError(
-        `Cannot delete ${current.queryCode} because it has linked ${linkedSummary}. Delete or unlink those records first.`,
+        `Cannot delete ${current.queryCode} because it has linked ${linkedSummary}. Delete or unlink those records first.`
       );
     }
 
@@ -903,14 +935,14 @@ export const remove = mutation({
         } catch (err) {
           console.error("Failed to delete query attachment file:", err);
         }
-      }),
+      })
     );
 
     await Promise.all([
       createActivity(ctx, access, {
-        entityType: "query",
-        entityId: queryId,
         action: "deleted",
+        entityId: queryId,
+        entityType: "query",
         message: `${current.queryCode} deleted`,
       }),
       deleteEntityNotifications(ctx, "query", queryId),

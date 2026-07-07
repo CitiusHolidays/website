@@ -4,25 +4,25 @@ import { getLeaveApprovalActionsForApprover, resolveAlertLabelToStaff } from "./
 const staffRows = [
   {
     _id: "staff_monika",
+    active: true,
     email: "monika@citius.in",
     name: "Monika Sarang Karnik",
     roles: ["Operations Head", "Contracting Head"],
-    active: true,
   },
   {
     _id: "staff_mithu",
+    active: true,
     email: "mithu@citius.in",
     name: "Mithu Chatterjee",
     roles: ["HR"],
-    active: true,
   },
   {
     _id: "staff_aditya",
+    active: true,
     email: "aditya@citius.in",
+    leaveHeadApproverId: "staff_monika",
     name: "Aditya Patil",
     roles: ["Contracting"],
-    active: true,
-    leaveHeadApproverId: "staff_monika",
   },
 ] as const;
 
@@ -34,22 +34,22 @@ describe("leaveApprovers", () => {
 
   test("head approval does not expose HR actions in the same stage", () => {
     const leave = {
-      status: "Pending",
+      headApproverStaffId: "staff_monika",
       headReviewStatus: "Pending",
       hrReviewStatus: "Pending",
-      headApproverStaffId: "staff_monika",
+      status: "Pending",
     };
     const employee = staffRows[2];
 
     const headAccess = {
-      staffId: "staff_monika",
-      roles: ["Operations Head"],
       permissions: ["approve:leave"],
+      roles: ["Operations Head"],
+      staffId: "staff_monika",
     };
     const hrAccess = {
-      staffId: "staff_mithu",
-      roles: ["HR"],
       permissions: ["manage:leave", "approve:leave"],
+      roles: ["HR"],
+      staffId: "staff_mithu",
     };
 
     const headActions = getLeaveApprovalActionsForApprover(
@@ -58,7 +58,7 @@ describe("leaveApprovers", () => {
       employee as any,
       "staff_monika",
       null,
-      () => false,
+      () => false
     );
     expect(headActions.canApproveHead).toBe(true);
     expect(headActions.canApproveHr).toBe(false);
@@ -69,7 +69,7 @@ describe("leaveApprovers", () => {
       employee as any,
       "staff_monika",
       null,
-      (access) => access.roles.includes("HR"),
+      (access) => access.roles.includes("HR")
     );
     expect(hrActions.canApproveHead).toBe(false);
     expect(hrActions.canApproveHr).toBe(false);
@@ -77,16 +77,16 @@ describe("leaveApprovers", () => {
 
   test("HR actions unlock only after head approval", () => {
     const leave = {
-      status: "Pending",
+      headApproverStaffId: "staff_monika",
       headReviewStatus: "Approved",
       hrReviewStatus: "Pending",
-      headApproverStaffId: "staff_monika",
+      status: "Pending",
     };
     const employee = staffRows[2];
     const hrAccess = {
-      staffId: "staff_mithu",
-      roles: ["HR"],
       permissions: ["manage:leave", "approve:leave"],
+      roles: ["HR"],
+      staffId: "staff_mithu",
     };
 
     const hrActions = getLeaveApprovalActionsForApprover(
@@ -95,7 +95,7 @@ describe("leaveApprovers", () => {
       employee as any,
       "staff_monika",
       null,
-      (access) => access.roles.includes("HR"),
+      (access) => access.roles.includes("HR")
     );
     expect(hrActions.canApproveHead).toBe(false);
     expect(hrActions.canApproveHr).toBe(true);

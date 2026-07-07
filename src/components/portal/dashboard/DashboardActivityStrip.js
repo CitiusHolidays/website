@@ -6,52 +6,55 @@ import { DashboardEmpty, DashboardPanel } from "./DashboardPanel";
 import { formatRelativeTime } from "./utils";
 
 function activityDot(message = "") {
-  if (/confirmed|approved|issued/i.test(message)) return "bg-emerald-500";
-  if (/lost|cancel|overdue|pending/i.test(message)) return "bg-citius-orange";
+  if (/confirmed|approved|issued/i.test(message)) {
+    return "bg-emerald-500";
+  }
+  if (/lost|cancel|overdue|pending/i.test(message)) {
+    return "bg-citius-orange";
+  }
   return "bg-citius-blue";
 }
 
 export function DashboardActivityStrip({ activities, canView }) {
-  if (!canView) return null;
+  if (!canView) {
+    return null;
+  }
 
   const rows = activities || [];
 
   return (
     <DashboardPanel
-      title="Recent activity"
       action={
         <Link
+          className="font-bold text-citius-blue text-xs hover:underline"
           href="/portal/activity"
-          className="text-xs font-bold text-citius-blue hover:underline"
         >
           View all activity
         </Link>
       }
     >
-      {!rows.length ? (
-        <DashboardEmpty label="No recent activity in this period." />
-      ) : (
+      {rows.length ? (
         <ul className="divide-y divide-brand-border/80">
           {rows.slice(0, 5).map((row) => {
             const href =
               row.entityType && row.entityId
                 ? getNotificationHref({
-                    entityType: row.entityType,
                     entityId: row.entityId,
+                    entityType: row.entityType,
                     title: row.action || "",
                   })
                 : "/portal/activity";
             return (
               <li key={row.id}>
                 <Link
-                  href={href}
                   className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-2 text-sm hover:text-citius-blue"
+                  href={href}
                 >
                   <span className={`size-2 rounded-full ${activityDot(row.message)}`} />
                   <span className="min-w-0 truncate font-medium text-brand-dark">
                     {row.message}
                   </span>
-                  <span className="text-xs tabular-nums text-brand-muted">
+                  <span className="text-brand-muted text-xs tabular-nums">
                     {row.createdAt ? formatRelativeTime(row.createdAt) : ""}
                   </span>
                 </Link>
@@ -59,6 +62,8 @@ export function DashboardActivityStrip({ activities, canView }) {
             );
           })}
         </ul>
+      ) : (
+        <DashboardEmpty label="No recent activity in this period." />
       )}
     </DashboardPanel>
   );

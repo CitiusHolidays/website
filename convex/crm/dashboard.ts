@@ -27,11 +27,11 @@ export function groupByJobCardId<T extends { jobCardId: Id<"jobCards"> }>(rows: 
 const percent = (done: number, total: number) => (total > 0 ? Math.round((done / total) * 100) : 0);
 
 const PIPELINE_STAGE_WEIGHTS: Record<(typeof SALES_PIPELINE_STAGES)[number], number> = {
-  Inquiry: 0.1,
-  Proposal: 0.25,
-  Negotiation: 0.5,
   Confirmation: 0.9,
+  Inquiry: 0.1,
   Lost: 0,
+  Negotiation: 0.5,
+  Proposal: 0.25,
 };
 
 function daysFromIso(iso: string, offsetDays: number) {
@@ -83,11 +83,11 @@ const isClosedQuery = (query: { salesStatus: string }) => query.salesStatus === 
 
 function countQueriesByType<T extends { queryType: string }>(
   records: T[],
-  types: readonly string[] = QUERY_TYPES,
+  types: readonly string[] = QUERY_TYPES
 ) {
   return types.map((type) => ({
-    type,
     count: records.filter((query) => query.queryType === type).length,
+    type,
   }));
 }
 
@@ -133,65 +133,73 @@ export function buildUrgentActions({
     createdAt?: string;
   }> = [];
   const queryIdsWithJobCards = new Set(
-    jobCards.flatMap((job) => (job.queryId ? [job.queryId] : [])),
+    jobCards.flatMap((job) => (job.queryId ? [job.queryId] : []))
   );
 
   for (const approval of approvals) {
-    if (approval.status !== "Pending") continue;
+    if (approval.status !== "Pending") {
+      continue;
+    }
     const entityId = approval._id;
     actions.push({
+      createdAt: approval.createdAt ? new Date(approval.createdAt).toISOString() : undefined,
+      entityId,
+      entityType: "approval",
+      href: getNotificationHref({ entityId, entityType: "approval", title: "" }),
       id: approval._id,
       label: `${approval.requestCode} approval pending: ${approval.summary}`,
       type: "approvals",
-      entityType: "approval",
-      entityId,
-      href: getNotificationHref({ entityType: "approval", entityId, title: "" }),
-      createdAt: approval.createdAt ? new Date(approval.createdAt).toISOString() : undefined,
     });
   }
 
   for (const invoice of invoices) {
-    if (!(invoice.balanceAmount > 0 && invoice.dueDate && invoice.dueDate < nowDate)) continue;
+    if (!(invoice.balanceAmount > 0 && invoice.dueDate && invoice.dueDate < nowDate)) {
+      continue;
+    }
     actions.push({
+      createdAt: invoice.updatedAt ? new Date(invoice.updatedAt).toISOString() : undefined,
+      entityId: invoice._id,
+      entityType: "invoice",
+      href: "/portal/finance",
       id: invoice._id,
       label: `${invoice.invoiceNumber} has overdue balance`,
       type: "finance",
-      entityType: "invoice",
-      entityId: invoice._id,
-      href: "/portal/finance",
-      createdAt: invoice.updatedAt ? new Date(invoice.updatedAt).toISOString() : undefined,
     });
   }
 
   for (const query of queries) {
-    if (query.salesStatus !== "Order Confirmed" || queryIdsWithJobCards.has(query._id)) continue;
+    if (query.salesStatus !== "Order Confirmed" || queryIdsWithJobCards.has(query._id)) {
+      continue;
+    }
     const entityId = query._id;
     actions.push({
+      createdAt: query.updatedAt ? new Date(query.updatedAt).toISOString() : undefined,
+      entityId,
+      entityType: "query",
+      href: getNotificationHref({
+        entityId,
+        entityType: "query",
+        title: "Order confirmed",
+      }),
       id: query._id,
       label: `${query.queryCode} needs Job Card creation`,
       type: "accounts",
-      entityType: "query",
-      entityId,
-      href: getNotificationHref({
-        entityType: "query",
-        entityId,
-        title: "Order confirmed",
-      }),
-      createdAt: query.updatedAt ? new Date(query.updatedAt).toISOString() : undefined,
     });
   }
 
   for (const ticket of tickets) {
-    if (!TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus)) continue;
+    if (!TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus)) {
+      continue;
+    }
     const entityId = ticket._id;
     actions.push({
+      createdAt: ticket.updatedAt ? new Date(ticket.updatedAt).toISOString() : undefined,
+      entityId,
+      entityType: "ticket",
+      href: getNotificationHref({ entityId, entityType: "ticket", title: "" }),
       id: ticket._id,
       label: `Ticket ${ticket.ticketNumber || ticket._id} needs attention`,
       type: "ticketing",
-      entityType: "ticket",
-      entityId,
-      href: getNotificationHref({ entityType: "ticket", entityId, title: "" }),
-      createdAt: ticket.updatedAt ? new Date(ticket.updatedAt).toISOString() : undefined,
     });
   }
 
@@ -199,15 +207,15 @@ export function buildUrgentActions({
 }
 
 export function buildPipelineSnapshot(
-  queries: Array<{ leadStage?: string; budgetAmount?: number }>,
+  queries: Array<{ leadStage?: string; budgetAmount?: number }>
 ) {
   return SALES_PIPELINE_STAGES.map((stage) => {
     const stageQueries = queries.filter((q) => (q.leadStage || "Inquiry") === stage);
     const value = stageQueries.reduce((sum, query) => sum + (query.budgetAmount ?? 0), 0);
     const weight = PIPELINE_STAGE_WEIGHTS[stage];
     return {
-      stage,
       count: stageQueries.length,
+      stage,
       value,
       weighted: Math.round(value * weight),
     };
@@ -215,7 +223,7 @@ export function buildPipelineSnapshot(
 }
 
 export function buildTicketAttentionQueue(
-  tickets: Array<{ _id: string; ticketNumber?: string; ticketStatus: string }>,
+  tickets: Array<{ _id: string; ticketNumber?: string; ticketStatus: string }>
 ) {
   return tickets
     .filter((ticket) => TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus))
@@ -251,11 +259,11 @@ export function buildOverdueInvoices({
     .map((invoice) => {
       const job = invoice.jobCardId ? jobCardById.get(invoice.jobCardId) : null;
       return {
+        balanceAmount: invoice.balanceAmount,
+        clientName: job?.clientName ?? "",
+        dueDate: invoice.dueDate ?? "",
         id: invoice._id,
         invoiceNumber: invoice.invoiceNumber,
-        clientName: job?.clientName ?? "",
-        balanceAmount: invoice.balanceAmount,
-        dueDate: invoice.dueDate ?? "",
       };
     });
 }
@@ -279,14 +287,14 @@ export const getPortalSummary = query({
     let jobCards = filterRecordsByDateRange(allJobCardsRaw, dateRange);
     let travellers = filterRecordsByDateRange(
       await ctx.db.query("travellers").collect(),
-      dateRange,
+      dateRange
     );
     let tickets = filterRecordsByDateRange(allTicketsRaw, dateRange);
     let visas = filterRecordsByDateRange(await ctx.db.query("visaRecords").collect(), dateRange);
     let invoices = filterRecordsByDateRange(await ctx.db.query("invoices").collect(), dateRange);
     const approvals = filterRecordsByDateRange(
       await ctx.db.query("approvalRequests").collect(),
-      dateRange,
+      dateRange
     );
     const staff = await ctx.db.query("staffUsers").collect();
     const activities = filterRecordsByDateRange(
@@ -295,18 +303,18 @@ export const getPortalSummary = query({
         .withIndex("by_createdAt")
         .order("desc")
         .take(RECENT_ACTIVITY_LIMIT),
-      dateRange,
+      dateRange
     );
 
     const scopedRecords = applyCementPortalScope(access, {
-      queries,
-      proposals,
-      jobCards,
-      travellers,
-      tickets,
-      visas,
       invoices,
+      jobCards,
       proposalQueryLinks,
+      proposals,
+      queries,
+      tickets,
+      travellers,
+      visas,
     });
     queries = scopedRecords.queries;
     proposals = scopedRecords.proposals;
@@ -320,44 +328,44 @@ export const getPortalSummary = query({
     const travellersByJobCard = groupByJobCardId(travellers);
 
     const scopedAllQueries = applyCementPortalScope(access, {
-      queries: allQueriesRaw,
-      proposals: allProposalsRaw,
-      jobCards: allJobCardsRaw,
-      travellers: [],
-      tickets: allTicketsRaw,
-      visas: [],
       invoices: [],
+      jobCards: allJobCardsRaw,
       proposalQueryLinks,
+      proposals: allProposalsRaw,
+      queries: allQueriesRaw,
+      tickets: allTicketsRaw,
+      travellers: [],
+      visas: [],
     }).queries;
     const scopedAllProposals = applyCementPortalScope(access, {
-      queries: allQueriesRaw,
-      proposals: allProposalsRaw,
-      jobCards: allJobCardsRaw,
-      travellers: [],
-      tickets: allTicketsRaw,
-      visas: [],
       invoices: [],
+      jobCards: allJobCardsRaw,
       proposalQueryLinks,
+      proposals: allProposalsRaw,
+      queries: allQueriesRaw,
+      tickets: allTicketsRaw,
+      travellers: [],
+      visas: [],
     }).proposals;
     const scopedAllJobCards = applyCementPortalScope(access, {
-      queries: allQueriesRaw,
-      proposals: allProposalsRaw,
-      jobCards: allJobCardsRaw,
-      travellers: [],
-      tickets: allTicketsRaw,
-      visas: [],
       invoices: [],
+      jobCards: allJobCardsRaw,
       proposalQueryLinks,
+      proposals: allProposalsRaw,
+      queries: allQueriesRaw,
+      tickets: allTicketsRaw,
+      travellers: [],
+      visas: [],
     }).jobCards;
     const scopedAllTickets = applyCementPortalScope(access, {
-      queries: allQueriesRaw,
-      proposals: allProposalsRaw,
-      jobCards: allJobCardsRaw,
-      travellers: [],
-      tickets: allTicketsRaw,
-      visas: [],
       invoices: [],
+      jobCards: allJobCardsRaw,
       proposalQueryLinks,
+      proposals: allProposalsRaw,
+      queries: allQueriesRaw,
+      tickets: allTicketsRaw,
+      travellers: [],
+      visas: [],
     }).tickets;
 
     const queryTypesForCounts = shouldApplyCementScope(access)
@@ -367,17 +375,17 @@ export const getPortalSummary = query({
     const activeJobs = jobCards.filter((job) => job.status !== "Closed");
     const ticketsIssued = tickets.filter((ticket) => ticket.ticketStatus === "Issued").length;
     const visaApproved = visas.filter((visa) =>
-      ["Approved", "Not Required"].includes(visa.status),
+      ["Approved", "Not Required"].includes(visa.status)
     ).length;
     const roomingDone = travellers.filter((traveller) => traveller.hotelAllocation).length;
     const guestDataDone = travellers.filter(
-      (traveller) => traveller.fullName && traveller.travelHub && traveller.foodPreference,
+      (traveller) => traveller.fullName && traveller.travelHub && traveller.foodPreference
     ).length;
     const expectedPayment = invoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
     const receivedPayment = invoices.reduce((sum, invoice) => sum + invoice.receivedAmount, 0);
     const outstandingAmount = invoices.reduce(
       (sum, invoice) => sum + Math.max(invoice.balanceAmount ?? 0, 0),
-      0,
+      0
     );
     const nowDate = new Date().toISOString().slice(0, 10);
     const revenuePipeline = invoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
@@ -389,10 +397,10 @@ export const getPortalSummary = query({
       (job) =>
         job.travelStartDate &&
         job.travelStartDate >= nowDate &&
-        job.travelStartDate <= daysFromIso(nowDate, 30),
+        job.travelStartDate <= daysFromIso(nowDate, 30)
     ).length;
     const passportDone = travellers.filter(
-      (traveller) => traveller.passportStatus === "Received",
+      (traveller) => traveller.passportStatus === "Received"
     ).length;
     const tourManagerDone = travellers.filter((traveller) => {
       const job = jobCardByIdForTravellers.get(traveller.jobCardId);
@@ -402,22 +410,22 @@ export const getPortalSummary = query({
     const last30Range = { from: daysFromIso(nowDate, -30), to: nowDate };
     const prior30Range = { from: daysFromIso(nowDate, -60), to: daysFromIso(nowDate, -31) };
     const last30ActiveQueries = filterRecordsByDateRange(scopedAllQueries, last30Range).filter(
-      isActiveQuery,
+      isActiveQuery
     );
     const prior30ActiveQueries = filterRecordsByDateRange(scopedAllQueries, prior30Range).filter(
-      isActiveQuery,
+      isActiveQuery
     );
     const last30ProposalsSent = filterRecordsByDateRange(scopedAllProposals, last30Range).filter(
-      (proposal) => proposal.status === "Sent",
+      (proposal) => proposal.status === "Sent"
     );
     const prior30ProposalsSent = filterRecordsByDateRange(scopedAllProposals, prior30Range).filter(
-      (proposal) => proposal.status === "Sent",
+      (proposal) => proposal.status === "Sent"
     );
     const last30Confirmed = filterRecordsByDateRange(scopedAllQueries, last30Range).filter(
-      isConfirmedQuery,
+      isConfirmedQuery
     );
     const prior30Confirmed = filterRecordsByDateRange(scopedAllQueries, prior30Range).filter(
-      isConfirmedQuery,
+      isConfirmedQuery
     );
     const last30OpenJobs = filterRecordsByDateRange(allActiveJobs, last30Range);
     const prior30OpenJobs = filterRecordsByDateRange(allActiveJobs, prior30Range);
@@ -425,27 +433,29 @@ export const getPortalSummary = query({
     const ticketAttentionQueue = buildTicketAttentionQueue(tickets);
     const overdueInvoices = buildOverdueInvoices({ invoices, jobCards, nowDate });
     const capacityByRole = staff.reduce((map, member) => {
-      if (!member.active) return map;
+      if (!member.active) {
+        return map;
+      }
       const staffId = String(member._id);
       const load =
         queries.filter(
           (query) =>
             String(query.salesOwnerId) === staffId &&
-            !["Order Confirmed", "Order Lost"].includes(query.salesStatus),
+            !["Order Confirmed", "Order Lost"].includes(query.salesStatus)
         ).length +
         queries.filter(
           (query) =>
             String(query.contractingOwnerId) === staffId &&
-            !["Order Confirmed", "Order Lost"].includes(query.salesStatus),
+            !["Order Confirmed", "Order Lost"].includes(query.salesStatus)
         ).length +
         jobCards.filter(
           (job) =>
             [job.contractingOwnerId, job.operationsOwnerId, job.ticketingOwnerId]
               .map(String)
-              .includes(staffId) && job.status !== "Closed",
+              .includes(staffId) && job.status !== "Closed"
         ).length;
       for (const role of member.roles) {
-        const current = map.get(role) ?? { role, staffCount: 0, load: 0 };
+        const current = map.get(role) ?? { load: 0, role, staffCount: 0 };
         current.staffCount += 1;
         current.load += load;
         map.set(role, current);
@@ -454,96 +464,25 @@ export const getPortalSummary = query({
     }, new Map<string, { role: string; staffCount: number; load: number }>());
 
     return {
-      generatedAt: new Date().toISOString(),
-      pipelineSnapshot: buildPipelineSnapshot(queries),
-      ticketAttentionQueue,
-      overdueInvoices,
-      metrics: {
-        activeQueries: activeQueryRecords.length,
-        proposalsSent: proposals.filter((proposal) => proposal.status === "Sent").length,
-        confirmedJobs: confirmedQueryRecords.length,
-        jobCardsOpen: activeJobs.length,
-        departures30d,
-        ticketsIssued,
-        ticketsPending: tickets.filter((ticket) => ticket.ticketStatus === "Pending Issue").length,
-        visaPending: visas.filter((visa) =>
-          ["Not Started", "Checklist Shared", "Documents Pending", "Awaiting"].includes(
-            visa.status,
-          ),
-        ).length,
-        paymentPending: invoices.filter((invoice) => invoice.balanceAmount > 0).length,
-        outstandingAmount,
-        pendingApprovals: approvals.filter((approval) => approval.status === "Pending").length,
-        revenuePipeline,
-      },
-      metricTrends: {
-        activeQueries: buildMetricTrend(last30ActiveQueries.length, prior30ActiveQueries.length),
-        proposalsSent: buildMetricTrend(last30ProposalsSent.length, prior30ProposalsSent.length),
-        confirmedJobs: buildMetricTrend(last30Confirmed.length, prior30Confirmed.length),
-        jobCardsOpen: buildMetricTrend(last30OpenJobs.length, prior30OpenJobs.length),
-        departures30d: buildMetricTrend(
-          departures30d,
-          allActiveJobs.filter(
-            (job) =>
-              job.travelStartDate &&
-              job.travelStartDate >= daysFromIso(nowDate, -60) &&
-              job.travelStartDate <= daysFromIso(nowDate, -31),
-          ).length,
-        ),
-      },
-      ticketingStats: {
-        onHold: scopedAllTickets.filter((ticket) => ticket.ticketStatus === "Pending Issue").length,
-        reissue: scopedAllTickets.filter((ticket) => ticket.ticketStatus === "Reissue Required")
-          .length,
-        cancelReq: scopedAllTickets.filter((ticket) =>
-          ["Refund Pending", "Cancelled"].includes(ticket.ticketStatus),
-        ).length,
-        upcomingDep: departures30d,
-      },
-      queriesByType: countQueriesByType(activeQueryRecords, queryTypesForCounts),
-      confirmedQueriesByType: countQueriesByType(confirmedQueryRecords, queryTypesForCounts),
-      closedQueriesByType: countQueriesByType(closedQueryRecords, queryTypesForCounts),
-      departmentWorkflow: [
-        {
-          label: "Sales open leads",
-          value: queries.filter(
-            (query) => !["Order Confirmed", "Order Lost"].includes(query.salesStatus),
-          ).length,
-          percent: percent(
-            queries.filter(
-              (query) => !["Order Confirmed", "Order Lost"].includes(query.salesStatus),
-            ).length,
-            Math.max(queries.length, 1),
-          ),
-        },
-        {
-          label: "Contracting in progress",
-          value: queries.filter((query) =>
-            ["Query Received", "Proposal in progress"].includes(query.contractingStatus),
-          ).length,
-          percent: percent(
-            queries.filter((query) =>
-              ["Query Received", "Proposal in progress"].includes(query.contractingStatus),
-            ).length,
-            Math.max(queries.length, 1),
-          ),
-        },
-        {
-          label: "Ops active groups",
-          value: activeJobs.length,
-          percent: percent(activeJobs.length, Math.max(jobCards.length, 1)),
-        },
-        {
-          label: "Ticketing issued",
-          value: ticketsIssued,
-          percent: percent(ticketsIssued, travellers.length),
-        },
-        {
-          label: "Finance pending",
-          value: outstandingAmount,
-          percent: percent(receivedPayment, expectedPayment),
-        },
-      ],
+      activeTours: activeJobs.slice(0, 6).map((job) => {
+        const jobTravellers = travellersByJobCard.get(job._id) ?? [];
+        const jobTicketsIssued = jobTravellers.filter(
+          (traveller) => traveller.ticketStatus === "Issued"
+        ).length;
+        const jobVisasApproved = jobTravellers.filter((traveller) =>
+          ["Approved", "Not Required"].includes(traveller.visaStatus)
+        ).length;
+        return {
+          clientName: job.clientName,
+          destination: job.destination ?? "",
+          id: job._id,
+          jobCode: job.jobCode,
+          pax: job.confirmedPax,
+          status: job.status,
+          ticketProgress: percent(jobTicketsIssued, jobTravellers.length),
+          visaProgress: percent(jobVisasApproved, jobTravellers.length),
+        };
+      }),
       capacity: Array.from(capacityByRole.values())
         .map((row) => ({
           ...row,
@@ -557,83 +496,153 @@ export const getPortalSummary = query({
         }))
         .sort((a, b) => b.averageLoad - a.averageLoad)
         .slice(0, 8),
+      closedQueriesByType: countQueriesByType(closedQueryRecords, queryTypesForCounts),
+      confirmedQueriesByType: countQueriesByType(confirmedQueryRecords, queryTypesForCounts),
+      departmentWorkflow: [
+        {
+          label: "Sales open leads",
+          percent: percent(
+            queries.filter(
+              (query) => !["Order Confirmed", "Order Lost"].includes(query.salesStatus)
+            ).length,
+            Math.max(queries.length, 1)
+          ),
+          value: queries.filter(
+            (query) => !["Order Confirmed", "Order Lost"].includes(query.salesStatus)
+          ).length,
+        },
+        {
+          label: "Contracting in progress",
+          percent: percent(
+            queries.filter((query) =>
+              ["Query Received", "Proposal in progress"].includes(query.contractingStatus)
+            ).length,
+            Math.max(queries.length, 1)
+          ),
+          value: queries.filter((query) =>
+            ["Query Received", "Proposal in progress"].includes(query.contractingStatus)
+          ).length,
+        },
+        {
+          label: "Ops active groups",
+          percent: percent(activeJobs.length, Math.max(jobCards.length, 1)),
+          value: activeJobs.length,
+        },
+        {
+          label: "Ticketing issued",
+          percent: percent(ticketsIssued, travellers.length),
+          value: ticketsIssued,
+        },
+        {
+          label: "Finance pending",
+          percent: percent(receivedPayment, expectedPayment),
+          value: outstandingAmount,
+        },
+      ],
+      generatedAt: new Date().toISOString(),
+      metrics: {
+        activeQueries: activeQueryRecords.length,
+        confirmedJobs: confirmedQueryRecords.length,
+        departures30d,
+        jobCardsOpen: activeJobs.length,
+        outstandingAmount,
+        paymentPending: invoices.filter((invoice) => invoice.balanceAmount > 0).length,
+        pendingApprovals: approvals.filter((approval) => approval.status === "Pending").length,
+        proposalsSent: proposals.filter((proposal) => proposal.status === "Sent").length,
+        revenuePipeline,
+        ticketsIssued,
+        ticketsPending: tickets.filter((ticket) => ticket.ticketStatus === "Pending Issue").length,
+        visaPending: visas.filter((visa) =>
+          ["Not Started", "Checklist Shared", "Documents Pending", "Awaiting"].includes(visa.status)
+        ).length,
+      },
+      metricTrends: {
+        activeQueries: buildMetricTrend(last30ActiveQueries.length, prior30ActiveQueries.length),
+        confirmedJobs: buildMetricTrend(last30Confirmed.length, prior30Confirmed.length),
+        departures30d: buildMetricTrend(
+          departures30d,
+          allActiveJobs.filter(
+            (job) =>
+              job.travelStartDate &&
+              job.travelStartDate >= daysFromIso(nowDate, -60) &&
+              job.travelStartDate <= daysFromIso(nowDate, -31)
+          ).length
+        ),
+        jobCardsOpen: buildMetricTrend(last30OpenJobs.length, prior30OpenJobs.length),
+        proposalsSent: buildMetricTrend(last30ProposalsSent.length, prior30ProposalsSent.length),
+      },
       myTeam: staff
         .filter(
-          (member) => member.active && member.roles.some((role) => access.roles.includes(role)),
+          (member) => member.active && member.roles.some((role) => access.roles.includes(role))
         )
         .slice(0, 6)
         .map((member) => ({
-          id: member._id,
-          name: member.name,
-          email: member.email,
           department: member.department ?? member.roles[0] ?? "",
+          email: member.email,
           function: member.function ?? member.roles.join(", "),
+          id: member._id,
           location: member.location ?? "",
+          name: member.name,
         })),
+      overdueInvoices,
+      pipelineSnapshot: buildPipelineSnapshot(queries),
       progress: {
-        tickets: {
-          done: ticketsIssued,
-          total: travellers.length,
-          percent: percent(ticketsIssued, travellers.length),
-        },
-        visas: {
-          done: visaApproved,
-          total: travellers.length,
-          percent: percent(visaApproved, travellers.length),
-        },
         guestData: {
           done: guestDataDone,
-          total: travellers.length,
           percent: percent(guestDataDone, travellers.length),
+          total: travellers.length,
         },
         passport: {
           done: passportDone,
-          total: travellers.length,
           percent: percent(passportDone, travellers.length),
-        },
-        rooming: {
-          done: roomingDone,
           total: travellers.length,
-          percent: percent(roomingDone, travellers.length),
-        },
-        tourManager: {
-          done: tourManagerDone,
-          total: travellers.length,
-          percent: percent(tourManagerDone, travellers.length),
         },
         payment: {
           done: receivedPayment,
-          total: expectedPayment,
           percent: percent(receivedPayment, expectedPayment),
+          total: expectedPayment,
+        },
+        rooming: {
+          done: roomingDone,
+          percent: percent(roomingDone, travellers.length),
+          total: travellers.length,
+        },
+        tickets: {
+          done: ticketsIssued,
+          percent: percent(ticketsIssued, travellers.length),
+          total: travellers.length,
+        },
+        tourManager: {
+          done: tourManagerDone,
+          percent: percent(tourManagerDone, travellers.length),
+          total: travellers.length,
+        },
+        visas: {
+          done: visaApproved,
+          percent: percent(visaApproved, travellers.length),
+          total: travellers.length,
         },
       },
-      urgentActions: buildUrgentActions({
-        approvals,
-        invoices,
-        queries,
-        jobCards,
-        tickets,
-        nowDate,
-      }),
-      activeTours: activeJobs.slice(0, 6).map((job) => {
-        const jobTravellers = travellersByJobCard.get(job._id) ?? [];
-        const jobTicketsIssued = jobTravellers.filter(
-          (traveller) => traveller.ticketStatus === "Issued",
-        ).length;
-        const jobVisasApproved = jobTravellers.filter((traveller) =>
-          ["Approved", "Not Required"].includes(traveller.visaStatus),
-        ).length;
-        return {
-          id: job._id,
-          jobCode: job.jobCode,
-          clientName: job.clientName,
-          destination: job.destination ?? "",
-          pax: job.confirmedPax,
-          status: job.status,
-          ticketProgress: percent(jobTicketsIssued, jobTravellers.length),
-          visaProgress: percent(jobVisasApproved, jobTravellers.length),
-        };
-      }),
+      queriesByType: countQueriesByType(activeQueryRecords, queryTypesForCounts),
+      recentActivity: activities.map((activity) => ({
+        action: activity.action,
+        actorName: activity.actorName,
+        createdAt: new Date(activity.createdAt).toISOString(),
+        entityId: activity.entityId,
+        entityType: activity.entityType,
+        id: activity._id,
+        message: activity.message,
+      })),
+      ticketAttentionQueue,
+      ticketingStats: {
+        cancelReq: scopedAllTickets.filter((ticket) =>
+          ["Refund Pending", "Cancelled"].includes(ticket.ticketStatus)
+        ).length,
+        onHold: scopedAllTickets.filter((ticket) => ticket.ticketStatus === "Pending Issue").length,
+        reissue: scopedAllTickets.filter((ticket) => ticket.ticketStatus === "Reissue Required")
+          .length,
+        upcomingDep: departures30d,
+      },
       upcomingDepartures: activeJobs
         .filter((job) => job.travelStartDate && job.travelStartDate >= nowDate)
         .sort((a, b) => String(a.travelStartDate).localeCompare(String(b.travelStartDate)))
@@ -642,39 +651,38 @@ export const getPortalSummary = query({
           const jobTravellers = travellersByJobCard.get(job._id) ?? [];
           const ticketProgress = percent(
             jobTravellers.filter((traveller) => traveller.ticketStatus === "Issued").length,
-            jobTravellers.length,
+            jobTravellers.length
           );
           const visaProgress = percent(
             jobTravellers.filter((traveller) =>
-              ["Approved", "Not Required"].includes(traveller.visaStatus),
+              ["Approved", "Not Required"].includes(traveller.visaStatus)
             ).length,
-            jobTravellers.length,
+            jobTravellers.length
           );
           return {
-            id: job._id,
-            jobCode: job.jobCode,
             clientName: job.clientName,
             destination: job.destination ?? "",
+            id: job._id,
+            jobCode: job.jobCode,
             pax: job.confirmedPax,
-            travelStartDate: job.travelStartDate,
-            tourManagerName: job.tourManagerName ?? "",
             readiness:
               ticketProgress >= 100 && visaProgress >= 100
                 ? "Ready"
                 : visaProgress < 100
                   ? "Docs pending"
                   : "Ticketing",
+            tourManagerName: job.tourManagerName ?? "",
+            travelStartDate: job.travelStartDate,
           };
         }),
-      recentActivity: activities.map((activity) => ({
-        id: activity._id,
-        action: activity.action,
-        message: activity.message,
-        actorName: activity.actorName,
-        entityType: activity.entityType,
-        entityId: activity.entityId,
-        createdAt: new Date(activity.createdAt).toISOString(),
-      })),
+      urgentActions: buildUrgentActions({
+        approvals,
+        invoices,
+        jobCards,
+        nowDate,
+        queries,
+        tickets,
+      }),
     };
   },
 });

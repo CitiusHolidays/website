@@ -8,22 +8,22 @@ export async function uploadQueryFiles({ queryId, files, generateUploadUrl, atta
       }
       const uploadUrl = await generateUploadUrl({});
       const uploadRes = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
         body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        method: "POST",
       });
       if (!uploadRes.ok) {
         throw new Error(`Failed to upload ${file.name}.`);
       }
       const { storageId } = await uploadRes.json();
       await attachQueryFile({
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type || "application/octet-stream",
         queryId,
         storageId,
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        fileSize: file.size,
       });
-    }),
+    })
   );
 }
 
@@ -41,9 +41,9 @@ export async function uploadEntityFiles({
       }
       const uploadUrl = await generateUploadUrl({});
       const uploadRes = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
         body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        method: "POST",
       });
       if (!uploadRes.ok) {
         throw new Error(`Failed to upload ${file.name}.`);
@@ -51,12 +51,12 @@ export async function uploadEntityFiles({
       const { storageId } = await uploadRes.json();
       await attachFile({
         [idField]: entityId,
-        storageId,
         fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
         fileSize: file.size,
+        mimeType: file.type || "application/octet-stream",
+        storageId,
       });
-    }),
+    })
   );
 }
 
@@ -67,10 +67,10 @@ export async function uploadExpenseProofFiles({
   attachExpenseProof,
 }) {
   await uploadEntityFiles({
+    attachFile: attachExpenseProof,
     entityId: expenseId,
-    idField: "expenseId",
     files,
     generateUploadUrl,
-    attachFile: attachExpenseProof,
+    idField: "expenseId",
   });
 }

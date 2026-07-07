@@ -1,45 +1,45 @@
 "use client";
 
-import { m } from "motion/react";
 import { Quote, Star } from "lucide-react";
+import { m } from "motion/react";
 import { kailashTestimonials } from "../../data/trails";
 import { cn } from "../../utils/cn";
 
 function TestimonialCard({ testimonial, index }) {
   return (
     <m.div
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
-      transition={{ duration: 0.6, delay: index * 0.15, ease: "easeOut" }}
       className="group relative"
+      initial={{ opacity: 0, y: 30 }}
+      transition={{ delay: index * 0.15, duration: 0.6, ease: "easeOut" }}
+      viewport={{ margin: "-50px", once: true }}
+      whileInView={{ opacity: 1, y: 0 }}
     >
-      <div className="relative bg-white rounded-2xl md:rounded-3xl p-6 md:p-10 shadow-lg shadow-brand-dark/5 border border-brand-light/50 hover:shadow-xl hover:shadow-brand-dark/10 hover:border-citius-orange/20 transition-all duration-500 h-full flex flex-col">
+      <div className="relative flex h-full flex-col rounded-2xl border border-brand-light/50 bg-white p-6 shadow-brand-dark/5 shadow-lg transition-all duration-500 hover:border-citius-orange/20 hover:shadow-brand-dark/10 hover:shadow-xl md:rounded-3xl md:p-10">
         {/* Quote Icon */}
-        <div className="absolute -top-4 -left-2 md:-top-5 md:-left-3 size-10 md:w-12 md:h-12 bg-citius-orange rounded-full flex items-center justify-center shadow-lg">
-          <Quote className="size-4 md:w-5 md:h-5 text-white" />
+        <div className="absolute -top-4 -left-2 flex size-10 items-center justify-center rounded-full bg-citius-orange shadow-lg md:-top-5 md:-left-3 md:h-12 md:w-12">
+          <Quote className="size-4 text-white md:h-5 md:w-5" />
         </div>
 
         {/* Rating */}
-        <div className="flex gap-1 mb-4 md:mb-6 ml-4">
+        <div className="mb-4 ml-4 flex gap-1 md:mb-6">
           {Array.from({ length: testimonial.rating }, (_, i) => `star-${i + 1}`).map((starKey) => (
             <Star
+              className="size-3.5 fill-citius-orange text-citius-orange md:h-4 md:w-4"
               key={starKey}
-              className="size-3.5 md:w-4 md:h-4 fill-citius-orange text-citius-orange"
             />
           ))}
         </div>
 
         {/* Quote Text */}
-        <blockquote className="font-sans text-base md:text-lg text-brand-dark/90 leading-relaxed mb-6 md:mb-8 flex-grow">
+        <blockquote className="mb-6 flex-grow font-sans text-base text-brand-dark/90 leading-relaxed md:mb-8 md:text-lg">
           &ldquo;{testimonial.quote}&rdquo;
         </blockquote>
 
         {/* Author Info */}
-        <div className="flex items-center gap-3 md:gap-4 pt-4 md:pt-6 border-t border-brand-light">
+        <div className="flex items-center gap-3 border-brand-light border-t pt-4 md:gap-4 md:pt-6">
           {/* Avatar Placeholder */}
-          <div className="size-11 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-citius-blue to-citius-blue/70 flex items-center justify-center shrink-0">
-            <span className="font-heading text-white font-semibold text-base md:text-lg">
+          <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-citius-blue to-citius-blue/70 md:h-14 md:w-14">
+            <span className="font-heading font-semibold text-base text-white md:text-lg">
               {testimonial.name
                 .split(" ")
                 .map((n) => n[0])
@@ -49,16 +49,16 @@ function TestimonialCard({ testimonial, index }) {
           </div>
 
           <div className="min-w-0">
-            <p className="font-heading text-sm md:text-base font-semibold text-citius-blue truncate">
+            <p className="truncate font-heading font-semibold text-citius-blue text-sm md:text-base">
               {testimonial.name}
             </p>
-            <p className="text-xs md:text-sm text-brand-muted">{testimonial.location}</p>
-            <p className="text-xs text-citius-orange/80 mt-0.5">{testimonial.journey}</p>
+            <p className="text-brand-muted text-xs md:text-sm">{testimonial.location}</p>
+            <p className="mt-0.5 text-citius-orange/80 text-xs">{testimonial.journey}</p>
           </div>
         </div>
 
         {/* Decorative Element */}
-        <div className="absolute bottom-0 right-0 w-24 md:w-32 h-24 md:h-32 bg-gradient-to-tl from-citius-orange/5 to-transparent rounded-tr-2xl md:rounded-tr-3xl rounded-bl-2xl md:rounded-bl-3xl pointer-events-none" />
+        <div className="pointer-events-none absolute right-0 bottom-0 h-24 w-24 rounded-tr-2xl rounded-bl-2xl bg-gradient-to-tl from-citius-orange/5 to-transparent md:h-32 md:w-32 md:rounded-tr-3xl md:rounded-bl-3xl" />
       </div>
     </m.div>
   );
@@ -66,49 +66,49 @@ function TestimonialCard({ testimonial, index }) {
 
 export default function TestimonialsSection({ className }) {
   return (
-    <section className={cn("py-16 md:py-32 bg-[#f8f5f2]", className)}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className={cn("bg-[#f8f5f2] py-16 md:py-32", className)}>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <m.div
+          className="mb-12 text-center md:mb-20"
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-12 md:mb-20"
+          whileInView={{ opacity: 1, y: 0 }}
         >
-          <span className="font-heading text-citius-orange text-xs md:text-sm tracking-[0.3em] uppercase mb-4 block">
+          <span className="mb-4 block font-heading text-citius-orange text-xs uppercase tracking-[0.3em] md:text-sm">
             Traveller Stories
           </span>
-          <h2 className="font-heading text-3xl md:text-5xl text-brand-dark mb-4 md:mb-6 leading-tight">
+          <h2 className="mb-4 font-heading text-3xl text-brand-dark leading-tight md:mb-6 md:text-5xl">
             Voices from the <span className="text-citius-blue italic">Sacred Path</span>
           </h2>
-          <p className="font-sans text-base md:text-xl text-brand-muted max-w-2xl mx-auto leading-relaxed">
+          <p className="mx-auto max-w-2xl font-sans text-base text-brand-muted leading-relaxed md:text-xl">
             Hear from yatris who have experienced the transformation. Their journeys inspire our
             commitment to excellence.
           </p>
-          <div className="w-16 md:w-24 h-px bg-citius-orange/30 mx-auto mt-6 md:mt-8" />
+          <div className="mx-auto mt-6 h-px w-16 bg-citius-orange/30 md:mt-8 md:w-24" />
         </m.div>
 
         {/* Testimonials Grid */}
-        <div className="grid md:grid-cols-2 gap-6 md:gap-8">
+        <div className="grid gap-6 md:grid-cols-2 md:gap-8">
           {kailashTestimonials.map((testimonial, index) => (
-            <TestimonialCard key={testimonial.id} testimonial={testimonial} index={index} />
+            <TestimonialCard index={index} key={testimonial.id} testimonial={testimonial} />
           ))}
         </div>
 
         {/* Bottom CTA */}
         <m.div
+          className="mt-12 text-center md:mt-16"
           initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
           transition={{ delay: 0.4 }}
-          className="mt-12 md:mt-16 text-center"
+          viewport={{ once: true }}
+          whileInView={{ opacity: 1, y: 0 }}
         >
-          <p className="font-sans text-base md:text-lg text-brand-muted mb-6">
+          <p className="mb-6 font-sans text-base text-brand-muted md:text-lg">
             Join hundreds of fulfilled yatris who have made this sacred journey with us.
           </p>
           <a
+            className="inline-flex items-center gap-2 rounded-full bg-citius-blue px-8 py-3.5 font-heading text-sm text-white tracking-wider shadow-citius-blue/20 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-citius-blue/90"
             href="#journey-details"
-            className="inline-flex items-center gap-2 px-8 py-3.5 bg-citius-blue text-white font-heading tracking-wider text-sm rounded-full hover:bg-citius-blue/90 hover:-translate-y-0.5 transition-all duration-300 shadow-lg shadow-citius-blue/20"
           >
             Begin Your Journey
           </a>

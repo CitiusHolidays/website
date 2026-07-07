@@ -6,55 +6,55 @@ describe("notification paths", () => {
   test("matches contracting query titles to team assignment on queries list", () => {
     expect(
       getNotificationHref({
-        entityType: "query",
         entityId: "query_1",
+        entityType: "query",
         title: "Query submitted to Contracting",
-      }),
+      })
     ).toBe("/portal/queries?open=assignQueryTeams&id=query_1");
   });
 
   test("maps sales review notifications to sales decision modal", () => {
     expect(
       getNotificationHref({
-        entityType: "query",
         entityId: "query_1",
+        entityType: "query",
         title: "Proposal ready for review",
-      }),
+      })
     ).toBe("/portal/queries?open=salesDecision&id=query_1");
   });
 
   test("maps accounts job card alerts to accounts workspace", () => {
     expect(
       getNotificationHref({
-        entityType: "query",
         entityId: "query_1",
+        entityType: "query",
         title: "Order confirmed — open Job Card",
-      }),
+      })
     ).toBe("/portal/accounts/job-cards?open=jobCard&queryId=query_1");
   });
 
   test("maps owner assignment titles to job card modals", () => {
     expect(
       getNotificationHref({
-        entityType: "jobCard",
         entityId: "job_1",
+        entityType: "jobCard",
         title: "Assign operations owner",
-      }),
+      })
     ).toBe("/portal/job-cards?open=assignOperationsOwner&id=job_1");
   });
 
   test("falls back to activity when entity is missing", () => {
-    expect(getNotificationHref({ entityType: "", entityId: "", title: "Ping" })).toBe(
-      "/portal/activity",
+    expect(getNotificationHref({ entityId: "", entityType: "", title: "Ping" })).toBe(
+      "/portal/activity"
     );
   });
 });
 
 describe("canReceiveNotification", () => {
   const access = {
-    staffId: "staff_a" as never,
     authUserId: "user_a",
     roles: ["Sales", "Operations"],
+    staffId: "staff_a" as never,
   };
 
   test("allows notifications targeted at the signed-in user", () => {
@@ -69,8 +69,8 @@ describe("canReceiveNotification", () => {
     expect(
       canReceiveNotification(
         { recipientStaffId: "staff_a" as never, recipientUserId: "old_user_a" },
-        access,
-      ),
+        access
+      )
     ).toBe(true);
   });
 
@@ -78,8 +78,8 @@ describe("canReceiveNotification", () => {
     expect(
       canReceiveNotification(
         { recipientStaffId: "staff_b" as never, recipientUserId: "user_a" },
-        access,
-      ),
+        access
+      )
     ).toBe(false);
   });
 
@@ -113,46 +113,46 @@ describe("expandNotificationEmailRoles", () => {
 describe("notifyRoles", () => {
   test("uses expanded role recipients for bell rows and email recipients", async () => {
     const tables: Record<string, any[]> = {
+      notifications: [],
       staffUsers: [
         {
           _id: "staff_accounts",
+          active: true,
           email: "accounts@example.com",
           roles: ["Accounts"],
-          active: true,
         },
         {
           _id: "staff_accounts_head",
+          active: true,
           email: "head@example.com",
           roles: ["Accounts Head"],
-          active: true,
         },
       ],
-      notifications: [],
     };
     const scheduled: any[] = [];
     const ctx = {
-      scheduler: {
-        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-          scheduled.push({ fn, args });
-        },
-      },
       db: {
-        query: (table: string) => ({
-          collect: async () => tables[table] ?? [],
-        }),
         insert: async (table: string, doc: Record<string, unknown>) => {
           const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
           tables[table].push(row);
           return row._id;
         },
+        query: (table: string) => ({
+          collect: async () => tables[table] ?? [],
+        }),
+      },
+      scheduler: {
+        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
+          scheduled.push({ args, fn });
+        },
       },
     };
 
     await notifyRoles(ctx as never, ["Accounts"], {
-      title: "Accounts ping",
       body: "Check this",
-      entityType: "query",
       entityId: "query_1",
+      entityType: "query",
+      title: "Accounts ping",
     });
 
     expect(tables.notifications.map((row) => row.recipientRole).sort()).toEqual([
@@ -177,7 +177,7 @@ describe("notificationReads bounded fetch", () => {
           return {
             withIndex: (
               _indexName: string,
-              callback: (q: { eq: (field: string, value: unknown) => unknown }) => unknown,
+              callback: (q: { eq: (field: string, value: unknown) => unknown }) => unknown
             ) => {
               const filters: Record<string, unknown> = {};
               const builder = {
@@ -188,16 +188,16 @@ describe("notificationReads bounded fetch", () => {
               };
               callback(builder);
               const filtered = notifications.filter((row) =>
-                Object.entries(filters).every(([field, value]) => row[field] === value),
+                Object.entries(filters).every(([field, value]) => row[field] === value)
               );
               return {
+                collect: async () => filtered,
                 order: () => ({
                   take: async (limit: number) =>
                     [...filtered]
                       .sort((a, b) => Number(b.createdAt) - Number(a.createdAt))
                       .slice(0, limit),
                 }),
-                collect: async () => filtered,
               };
             },
           };
@@ -211,24 +211,24 @@ describe("notificationReads bounded fetch", () => {
     const rows = [
       {
         _id: "n1",
-        title: "Ops",
         body: "",
-        recipientRole: "Operations",
         createdAt: 3,
+        recipientRole: "Operations",
+        title: "Ops",
       },
       {
         _id: "n2",
-        title: "Mine",
         body: "",
-        recipientUserId: "user_a",
         createdAt: 2,
+        recipientUserId: "user_a",
+        title: "Mine",
       },
       {
         _id: "n1",
-        title: "Dup",
         body: "",
-        recipientUserId: "user_a",
         createdAt: 3,
+        recipientUserId: "user_a",
+        title: "Dup",
       },
     ];
     const ctx = makeNotificationCtx(rows);
@@ -238,7 +238,7 @@ describe("notificationReads bounded fetch", () => {
         authUserId: "user_a",
         roles: ["Operations"],
       },
-      10,
+      10
     );
     expect(result.map((row) => row._id)).toEqual(["n1", "n2"]);
   });
@@ -248,29 +248,29 @@ describe("notificationReads bounded fetch", () => {
     const rows = [
       {
         _id: "n1",
-        title: "Mine by staff",
         body: "",
+        createdAt: 4,
         recipientStaffId: "staff_a",
         recipientUserId: "old_user_a",
-        createdAt: 4,
+        title: "Mine by staff",
       },
       {
         _id: "n2",
-        title: "Other staff",
         body: "",
-        recipientStaffId: "staff_b",
         createdAt: 3,
+        recipientStaffId: "staff_b",
+        title: "Other staff",
       },
     ];
     const ctx = makeNotificationCtx(rows);
     const result = await fetchNotificationsForAccess(
       ctx as never,
       {
-        staffId: "staff_a",
         authUserId: "new_user_a",
         roles: [],
+        staffId: "staff_a",
       },
-      10,
+      10
     );
     expect(result.map((row) => row._id)).toEqual(["n1"]);
   });
@@ -279,10 +279,10 @@ describe("notificationReads bounded fetch", () => {
     const { notificationSummaryForAccessFromDb } = await import("./notificationReads");
     const rows = Array.from({ length: 500 }, (_, index) => ({
       _id: `n_${index}`,
-      title: "Ping",
       body: "",
-      recipientUserId: "user_a",
       createdAt: index,
+      recipientUserId: "user_a",
+      title: "Ping",
     }));
     const ctx = makeNotificationCtx(rows);
     const summary = await notificationSummaryForAccessFromDb(ctx as never, {
@@ -290,6 +290,6 @@ describe("notificationReads bounded fetch", () => {
       roles: [],
     });
     expect(summary.unreadCount).toBe(500);
-    expect(summary).toEqual({ unreadCount: 500, hasMoreUnread: true });
+    expect(summary).toEqual({ hasMoreUnread: true, unreadCount: 500 });
   });
 });

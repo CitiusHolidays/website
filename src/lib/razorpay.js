@@ -12,10 +12,10 @@ import Razorpay from "razorpay";
 const keyId = process.env.RAZORPAY_KEY_ID;
 const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
-if (!keyId || !keySecret) {
+if (!(keyId && keySecret)) {
   console.warn(
     "Razorpay credentials not configured. " +
-      "Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env.local",
+      "Please add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env.local"
   );
 }
 
@@ -25,7 +25,7 @@ let razorpayInstance = null;
 
 export function getRazorpay() {
   if (!razorpayInstance) {
-    if (!keyId || !keySecret) {
+    if (!(keyId && keySecret)) {
       throw new Error("Razorpay credentials not configured");
     }
     razorpayInstance = new Razorpay({
@@ -52,9 +52,9 @@ export async function createOrder({ amount, currency = "INR", receipt, notes = {
   const options = {
     amount, // Amount in paise (smallest currency unit)
     currency,
-    receipt,
     notes,
     payment_capture: 1, // Auto-capture payment
+    receipt,
   };
 
   try {

@@ -10,13 +10,11 @@ export function DashboardFinanceOverdue({ invoices, dateRange }) {
 
   return (
     <DashboardPanel title="Overdue invoices">
-      {!rows.length ? (
-        <DashboardEmpty label="No overdue balances in this period." />
-      ) : (
+      {rows.length ? (
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-brand-border text-xs text-brand-muted">
+              <tr className="border-brand-border border-b text-brand-muted text-xs">
                 <th className="py-2 pr-3 font-semibold">Invoice</th>
                 <th className="py-2 pr-3 font-semibold">Client</th>
                 <th className="py-2 pr-3 font-semibold">Due</th>
@@ -25,18 +23,18 @@ export function DashboardFinanceOverdue({ invoices, dateRange }) {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.id} className="border-b border-brand-border/60 last:border-0">
+                <tr className="border-brand-border/60 border-b last:border-0" key={row.id}>
                   <td className="py-2 pr-3">
                     <Link
-                      href={buildDashboardListUrl({ view: "finance", dateRange })}
                       className="font-semibold text-citius-blue hover:underline"
+                      href={buildDashboardListUrl({ dateRange, view: "finance" })}
                     >
                       {row.invoiceNumber}
                     </Link>
                   </td>
                   <td className="py-2 pr-3">{row.clientName || "—"}</td>
                   <td className="py-2 pr-3 tabular-nums">{row.dueDate || "—"}</td>
-                  <td className="py-2 tabular-nums font-medium">
+                  <td className="py-2 font-medium tabular-nums">
                     {formatMoney(row.balanceAmount)}
                   </td>
                 </tr>
@@ -44,6 +42,8 @@ export function DashboardFinanceOverdue({ invoices, dateRange }) {
             </tbody>
           </table>
         </div>
+      ) : (
+        <DashboardEmpty label="No overdue balances in this period." />
       )}
     </DashboardPanel>
   );

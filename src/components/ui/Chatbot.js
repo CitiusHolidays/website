@@ -12,17 +12,17 @@ export default function Chatbot() {
     <>
       {!isOpen && (
         <m.button
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ ease: easeInOut }}
-          className="fixed bottom-6 right-6 z-50 bg-citius-blue hover:bg-citius-blue/90 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 group hover:scale-105"
-          onClick={() => setIsOpen(true)}
+          animate={{ opacity: 1, scale: 1 }}
           aria-label="Open Citius Concierge chat"
+          className="group fixed right-6 bottom-6 z-50 rounded-full bg-citius-blue p-4 text-white shadow-lg transition-all duration-300 hover:scale-105 hover:bg-citius-blue/90 hover:shadow-xl"
+          initial={{ opacity: 0, scale: 0.95 }}
+          onClick={() => setIsOpen(true)}
+          transition={{ ease: easeInOut }}
         >
           <Compass
-            size={24}
-            className="group-hover:rotate-12 transition-transform duration-300"
             aria-hidden="true"
+            className="transition-transform duration-300 group-hover:rotate-12"
+            size={24}
           />
         </m.button>
       )}

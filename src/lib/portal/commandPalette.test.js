@@ -18,17 +18,17 @@ describe("commandPalette", () => {
   test("builds recent and saved view commands", () => {
     const recent = buildRecentRecordCommands({
       navShortcuts: {
-        queries: [{ id: "q1", label: "Q-1", href: "/portal/queries?open=query&id=q1" }],
+        queries: [{ href: "/portal/queries?open=query&id=q1", id: "q1", label: "Q-1" }],
       },
     });
     const saved = buildSavedViewCommands({
       savedViews: [
         {
+          filterState: { search: "acme" },
           id: "sv1",
           name: "My jobs",
-          view: "job-cards",
           pathname: "/portal/job-cards",
-          filterState: { search: "acme" },
+          view: "job-cards",
         },
       ],
     });
@@ -42,14 +42,14 @@ describe("commandPalette", () => {
       [
         ...buildRecentRecordCommands({
           navShortcuts: {
-            queries: [{ id: "q1", label: "Q-1", href: "/portal/queries?open=query&id=q1" }],
+            queries: [{ href: "/portal/queries?open=query&id=q1", id: "q1", label: "Q-1" }],
           },
         }),
         ...buildSavedViewCommands({
           savedViews: [{ id: "sv1", name: "My jobs", view: "job-cards" }],
         }),
       ],
-      "",
+      ""
     );
     expect(commands.map((command) => command.group)).toEqual(["Recent", "Saved views"]);
   });
@@ -57,10 +57,10 @@ describe("commandPalette", () => {
   test("filters commands by label, subtitle, and keywords", () => {
     const commands = filterCommands(
       [
-        { id: "a", label: "New query", group: "Create", keywords: ["sales"] },
-        { id: "b", label: "Job Cards", group: "Navigate", subtitle: "Operations" },
+        { group: "Create", id: "a", keywords: ["sales"], label: "New query" },
+        { group: "Navigate", id: "b", label: "Job Cards", subtitle: "Operations" },
       ],
-      "operations",
+      "operations"
     );
     expect(commands.map((command) => command.id)).toEqual(["b"]);
   });

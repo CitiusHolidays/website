@@ -22,29 +22,29 @@ describe("roomTypes migration helpers", () => {
 
   test("resolveTravellerRoomFields syncs room type from migrated hotel allocation", () => {
     expect(resolveTravellerRoomFields("Twin", "SGL")).toEqual({
-      roomType: "Single",
       hotelAllocation: "Single",
+      roomType: "Single",
     });
   });
 
   test("resolveTravellerRoomFields fixes room type when allocation was already migrated", () => {
     expect(resolveTravellerRoomFields("Twin", "Single")).toEqual({
-      roomType: "Single",
       hotelAllocation: "Single",
+      roomType: "Single",
     });
   });
 
   test("resolveTravellerRoomFields updates both fields when room type is legacy", () => {
     expect(resolveTravellerRoomFields("SGL", "SGL")).toEqual({
-      roomType: "Single",
       hotelAllocation: "Single",
+      roomType: "Single",
     });
   });
 
   test("resolveTravellerRoomFields leaves hotel names on allocation unchanged", () => {
     expect(resolveTravellerRoomFields("Twin", "Taj Delhi")).toEqual({
-      roomType: "Twin",
       hotelAllocation: "Taj Delhi",
+      roomType: "Twin",
     });
   });
 });

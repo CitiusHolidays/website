@@ -8,33 +8,33 @@ describe("importRows", () => {
     try {
       const [prepared] = preparePassengerRows([
         {
-          id: "Sheet1:2",
-          sourceSheet: "Sheet1",
-          sourceRowNumber: 2,
-          sourceStatus: "CONFIRMED",
-          importKind: "passenger",
-          importKey: "row-1",
-          fullName: "ANSHIKA AGARWAL",
           foodPreference: "Veg",
+          fullName: "ANSHIKA AGARWAL",
           guestType: "Client",
+          id: "Sheet1:2",
+          importKey: "row-1",
+          importKind: "passenger",
+          passport: {
+            dateOfBirth: "1987-07-26",
+            expiryDate: "2036-02-11",
+            issueDate: "2026-02-12",
+            nationality: "INDIAN",
+            number: "AK429734",
+          },
           paymentType: "Company Paid",
           roomType: "Twin",
+          sourceRowNumber: 2,
+          sourceSheet: "Sheet1",
+          sourceStatus: "CONFIRMED",
           visaRequired: true,
-          passport: {
-            number: "AK429734",
-            dateOfBirth: "1987-07-26",
-            issueDate: "2026-02-12",
-            expiryDate: "2036-02-11",
-            nationality: "INDIAN",
-          },
         },
       ]);
 
       expect(prepared).not.toHaveProperty("sourceStatus");
       expect(prepared).not.toHaveProperty("passport");
       expect(prepared).toMatchObject({
-        passportLastFour: "9734",
         passportExpiryDate: "2036-02-11",
+        passportLastFour: "9734",
       });
       expect(prepared.passportNumberHash).toBeString();
       expect(prepared.encryptedPassportPayload).toBeString();
@@ -49,9 +49,9 @@ describe("importRows", () => {
 
   test("chunks rows and merges room summaries", () => {
     expect(chunkRows([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
-    expect(mergeRoomSummaries({ Twin: 1 }, { Twin: 2, Single: 1 })).toEqual({
-      Twin: 3,
+    expect(mergeRoomSummaries({ Twin: 1 }, { Single: 1, Twin: 2 })).toEqual({
       Single: 1,
+      Twin: 3,
     });
   });
 });

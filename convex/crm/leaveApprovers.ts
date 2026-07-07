@@ -18,8 +18,8 @@ export const LEAVE_HEAD_APPROVER_PICKER_ROLES = [
 import {
   getHeadReviewerRolesForStaff,
   isDirectorOrAdmin,
-  normalizeEmail,
   NOTIFICATION_EMAIL_STAGGER_MS,
+  normalizeEmail,
   notifyRoles,
   notifyStaffMember,
   PERMISSIONS,
@@ -53,21 +53,27 @@ function nameKey(value: unknown) {
 
 function staffByName(staffRows: StaffRow[], name?: string) {
   const key = nameKey(name);
-  if (!key) return null;
+  if (!key) {
+    return null;
+  }
   return staffRows.find((row) => row.active && nameKey(row.name) === key) ?? null;
 }
 
 async function activeStaffById(
   ctx: QueryCtx | MutationCtx,
-  staffId?: Id<"staffUsers">,
+  staffId?: Id<"staffUsers">
 ): Promise<StaffRow | null> {
-  if (!staffId) return null;
+  if (!staffId) {
+    return null;
+  }
   const staff = await ctx.db.get(staffId);
   return staff?.active ? (staff as StaffRow) : null;
 }
 
 function staffMatchesAlertToken(staff: StaffRow, token: string) {
-  if (!token) return false;
+  if (!token) {
+    return false;
+  }
   if (token === LEAVE_ALERT_NAME_TOKENS.directors) {
     return staff.roles.some((role) => DIRECTOR_ROLES.has(role));
   }
@@ -77,12 +83,16 @@ function staffMatchesAlertToken(staff: StaffRow, token: string) {
 
 export function resolveAlertLabelToStaff(
   staffRows: StaffRow[],
-  alertLabel: string,
+  alertLabel: string
 ): StaffRow | null {
   const token = leaveAlertToken(alertLabel);
-  if (!token) return null;
+  if (!token) {
+    return null;
+  }
   const matches = staffRows.filter((row) => row.active && staffMatchesAlertToken(row, token));
-  if (matches.length === 0) return null;
+  if (matches.length === 0) {
+    return null;
+  }
   if (token === LEAVE_ALERT_NAME_TOKENS.directors) {
     return (
       matches.find((row) => row.roles.includes("Directors")) ??
@@ -101,7 +111,7 @@ export function matrixAlertForStaffEmail(email: string) {
 export async function resolveLeaveHeadApproverIdFromMatrix(
   ctx: QueryCtx | MutationCtx,
   staff: StaffRow,
-  staffRows?: StaffRow[],
+  staffRows?: StaffRow[]
 ): Promise<Id<"staffUsers"> | null> {
   const alertLabel = matrixAlertForStaffEmail(staff.email);
   if (!alertLabel) {
@@ -115,7 +125,7 @@ export async function resolveLeaveHeadApproverIdFromMatrix(
 export async function resolveLeaveHeadApproverId(
   ctx: QueryCtx | MutationCtx,
   staff: StaffRow,
-  staffRows?: StaffRow[],
+  staffRows?: StaffRow[]
 ): Promise<Id<"staffUsers"> | null> {
   const manualOverride = await activeStaffById(ctx, staff.leaveHeadApproverId);
   if (manualOverride) {
@@ -140,7 +150,7 @@ export async function resolveLeaveFinalAuthorityId(
   ctx: QueryCtx | MutationCtx,
   staff: StaffRow,
   headApproverId: Id<"staffUsers"> | null,
-  staffRows?: StaffRow[],
+  staffRows?: StaffRow[]
 ): Promise<Id<"staffUsers"> | null> {
   const configured = await activeStaffById(ctx, staff.leaveFinalAuthorityStaffId);
   if (configured && configured._id !== headApproverId) {
@@ -159,7 +169,7 @@ export async function resolveLeaveFinalAuthorityId(
 export async function resolveLeaveHrCopyStaffId(
   ctx: QueryCtx | MutationCtx,
   staff: StaffRow,
-  staffRows?: StaffRow[],
+  staffRows?: StaffRow[]
 ): Promise<Id<"staffUsers"> | null> {
   const configured = await activeStaffById(ctx, staff.leaveHrCopyStaffId);
   if (configured) {
@@ -180,14 +190,14 @@ export async function notifyLeaveRequestSubmitted(
     leaveType: string;
     startDate: string;
     endDate: string;
-  },
+  }
 ) {
   const summary = `${args.staff.name} requested ${args.leaveType} leave from ${args.startDate} to ${args.endDate}.`;
   const payload = {
-    title: "Leave request pending",
     body: summary,
-    entityType: "leave",
     entityId: args.leaveId,
+    entityType: "leave",
+    title: "Leave request pending",
   };
   let emailDelayMs = 0;
   const notifiedStaffIds = new Set<string>();
@@ -199,7 +209,7 @@ export async function notifyLeaveRequestSubmitted(
       body: string;
       entityType: string;
       entityId: Id<"staffLeaveRecords">;
-    },
+    }
   ) => {
     if (!staffId) {
       return;
@@ -215,14 +225,14 @@ export async function notifyLeaveRequestSubmitted(
 
   await notifyUniqueStaff(args.headApproverId, {
     ...payload,
-    title: "Leave awaiting your approval",
     body: `${summary} You are the department head approver.`,
+    title: "Leave awaiting your approval",
   });
 
   const hrCopyPayload = {
     ...payload,
-    title: "Leave submitted (HR copy)",
     body: `${summary} HR final approval is required after the head approver decides.`,
+    title: "Leave submitted (HR copy)",
   };
   if (args.hrCopyStaffId) {
     await notifyUniqueStaff(args.hrCopyStaffId, hrCopyPayload);
@@ -237,13 +247,13 @@ export async function notifyLeaveReadyForFinalAuthority(
     leaveId: Id<"staffLeaveRecords">;
     staff: StaffRow;
     finalAuthorityId: Id<"staffUsers">;
-  },
+  }
 ) {
   await notifyStaffMember(ctx, args.finalAuthorityId, {
-    title: "Leave awaiting final authority approval",
     body: `${args.staff.name}'s leave request has Level 1 approval and needs your final authority review.`,
-    entityType: "leave",
     entityId: args.leaveId,
+    entityType: "leave",
+    title: "Leave awaiting final authority approval",
   });
 }
 
@@ -253,13 +263,13 @@ export async function notifyLeaveReadyForHr(
     leaveId: Id<"staffLeaveRecords">;
     staff: StaffRow;
     hrCopyStaffId: Id<"staffUsers"> | null;
-  },
+  }
 ) {
   const payload = {
-    title: "Leave ready for HR approval",
     body: `${args.staff.name}'s leave request has prior approval and needs HR final review.`,
-    entityType: "leave",
     entityId: args.leaveId,
+    entityType: "leave",
+    title: "Leave ready for HR approval",
   };
   if (args.hrCopyStaffId) {
     await notifyStaffMember(ctx, args.hrCopyStaffId, payload);
@@ -282,7 +292,7 @@ export function canApproveLeaveAsHead(
     headApproverStaffId?: Id<"staffUsers">;
   },
   staff: StaffRow,
-  resolvedHeadApproverId: Id<"staffUsers"> | null,
+  resolvedHeadApproverId: Id<"staffUsers"> | null
 ) {
   const headStatus = leave.headReviewStatus ?? "Pending";
   if (headStatus !== "Pending") {
@@ -314,7 +324,7 @@ export function getLeaveApprovalActionsForApprover(
   staff: StaffRow,
   resolvedHeadApproverId: Id<"staffUsers"> | null,
   resolvedFinalAuthorityId: Id<"staffUsers"> | null,
-  isHrReviewer: (access: any) => boolean,
+  isHrReviewer: (access: any) => boolean
 ) {
   const status = leave.status ?? "Pending";
   const headStatus = leave.headReviewStatus ?? "Pending";
@@ -323,7 +333,7 @@ export function getLeaveApprovalActionsForApprover(
   const hrStatus = leave.hrReviewStatus ?? "Pending";
 
   if (status !== "Pending") {
-    return { canApproveHead: false, canApproveFinal: false, canApproveHr: false, canReject: false };
+    return { canApproveFinal: false, canApproveHead: false, canApproveHr: false, canReject: false };
   }
 
   const canHead = canApproveLeaveAsHead(access, leave, staff, resolvedHeadApproverId);
@@ -335,8 +345,8 @@ export function getLeaveApprovalActionsForApprover(
 
   if (headStatus === "Pending") {
     return {
-      canApproveHead: canHead,
       canApproveFinal: false,
+      canApproveHead: canHead,
       canApproveHr: false,
       canReject: canHead,
     };
@@ -344,8 +354,8 @@ export function getLeaveApprovalActionsForApprover(
 
   if (headStatus === "Approved" && finalAuthorityId && finalStatus === "Pending") {
     return {
-      canApproveHead: false,
       canApproveFinal: Boolean(canFinal),
+      canApproveHead: false,
       canApproveHr: false,
       canReject: Boolean(canFinal),
     };
@@ -353,14 +363,14 @@ export function getLeaveApprovalActionsForApprover(
 
   if (headStatus === "Approved" && finalStatus === "Approved" && hrStatus === "Pending") {
     return {
-      canApproveHead: false,
       canApproveFinal: false,
+      canApproveHead: false,
       canApproveHr: canHr,
       canReject: canHr,
     };
   }
 
-  return { canApproveHead: false, canApproveFinal: false, canApproveHr: false, canReject: false };
+  return { canApproveFinal: false, canApproveHead: false, canApproveHr: false, canReject: false };
 }
 
 export const applyMatrixDefaults = mutation({
@@ -386,12 +396,12 @@ export const applyMatrixDefaults = mutation({
           updatedAt: now,
         });
         return "updated" as const;
-      }),
+      })
     );
     const updated = outcomes.filter((outcome) => outcome === "updated").length;
     const skipped = outcomes.filter((outcome) => outcome === "skipped").length;
 
-    return { updated, skipped };
+    return { skipped, updated };
   },
 });
 
@@ -404,15 +414,15 @@ export const listHeadApproverCandidates = query({
       .filter(
         (staff) =>
           staff.active &&
-          staff.roles.some((role) => LEAVE_HEAD_APPROVER_PICKER_ROLES.includes(role as any)),
+          staff.roles.some((role) => LEAVE_HEAD_APPROVER_PICKER_ROLES.includes(role as any))
       )
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((staff) => ({
-        id: staff._id,
-        name: staff.name,
         email: staff.email,
-        roles: staff.roles,
+        id: staff._id,
         label: `${staff.name} (${staff.roles.filter((role) => LEAVE_HEAD_APPROVER_PICKER_ROLES.includes(role as any)).join(", ")})`,
+        name: staff.name,
+        roles: staff.roles,
       }));
   },
 });

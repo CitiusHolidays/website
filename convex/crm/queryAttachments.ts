@@ -11,11 +11,11 @@ export function publicQueryAttachment(row: {
   createdAt: number;
 }) {
   return {
-    id: row._id,
-    fileName: row.fileName,
-    mimeType: row.mimeType,
-    fileSize: row.fileSize,
     createdAt: new Date(row.createdAt).toISOString(),
+    fileName: row.fileName,
+    fileSize: row.fileSize,
+    id: row._id,
+    mimeType: row.mimeType,
   };
 }
 
@@ -33,7 +33,7 @@ export const listForQuery = query({
       return [];
     }
     const query = await ctx.db.get(queryId);
-    if (!query || !canSeeQueryRecord(access, query)) {
+    if (!(query && canSeeQueryRecord(access, query))) {
       return [];
     }
     const rows = await ctx.db
@@ -62,15 +62,15 @@ export const getAttachmentRecord = query({
       return null;
     }
     const query = await ctx.db.get(row.queryId);
-    if (!query || !canSeeQueryRecord(access, query)) {
+    if (!(query && canSeeQueryRecord(access, query))) {
       return null;
     }
     return {
+      fileName: row.fileName,
       id: row._id,
+      mimeType: row.mimeType,
       queryId: row.queryId,
       storageId: row.storageId,
-      fileName: row.fileName,
-      mimeType: row.mimeType,
     };
   },
 });
@@ -94,12 +94,12 @@ export const resolveQueryId = internalMutation({
 
 export const saveAttachment = internalMutation({
   args: {
+    createdBy: v.string(),
+    fileName: v.string(),
+    fileSize: v.number(),
+    mimeType: v.string(),
     queryId: v.id("queries"),
     storageId: v.id("_storage"),
-    fileName: v.string(),
-    mimeType: v.string(),
-    fileSize: v.number(),
-    createdBy: v.string(),
   },
   handler: async (ctx, args) => {
     const query = await ctx.db.get(args.queryId);
@@ -107,13 +107,13 @@ export const saveAttachment = internalMutation({
       throw new ConvexError("Query not found");
     }
     await ctx.db.insert("queryAttachments", {
+      createdAt: Date.now(),
+      createdBy: args.createdBy,
+      fileName: args.fileName,
+      fileSize: args.fileSize,
+      mimeType: args.mimeType,
       queryId: args.queryId,
       storageId: args.storageId,
-      fileName: args.fileName,
-      mimeType: args.mimeType,
-      fileSize: args.fileSize,
-      createdBy: args.createdBy,
-      createdAt: Date.now(),
     });
   },
 });

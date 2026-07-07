@@ -5,22 +5,22 @@ import { getNotificationHref as getConvexNotificationHref } from "./notification
 describe("dashboard notification path parity", () => {
   const fixtures = [
     {
-      entityType: "approval",
       entityId: "approval_1",
-      title: "",
+      entityType: "approval",
       href: "/portal/approvals?open=approval&id=approval_1",
-    },
-    {
-      entityType: "query",
-      entityId: "query_1",
-      title: "Order confirmed",
-      href: "/portal/accounts/job-cards?open=jobCard&queryId=query_1",
-    },
-    {
-      entityType: "ticket",
-      entityId: "ticket_1",
       title: "",
+    },
+    {
+      entityId: "query_1",
+      entityType: "query",
+      href: "/portal/accounts/job-cards?open=jobCard&queryId=query_1",
+      title: "Order confirmed",
+    },
+    {
+      entityId: "ticket_1",
+      entityType: "ticket",
       href: "/portal/tickets?open=ticket&id=ticket_1",
+      title: "",
     },
   ];
 

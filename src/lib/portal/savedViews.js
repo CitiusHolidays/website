@@ -2,12 +2,12 @@ import { serializeUrlFilterState } from "./urlFilterState";
 
 function emptySavedViewState() {
   return {
-    search: "",
+    columns: [],
     dateRange: { from: "", to: "" },
     jobCardFilter: "",
     listFilters: {},
+    search: "",
     sort: {},
-    columns: [],
   };
 }
 
@@ -21,15 +21,15 @@ export function normalizeSavedViewState(input = {}, filterConfig = []) {
   }
   return {
     ...emptySavedViewState(),
-    search: String(input.search ?? "").trim(),
+    columns: Array.isArray(input.columns) ? input.columns : [],
     dateRange: {
       from: input.dateRange?.from ?? "",
       to: input.dateRange?.to ?? "",
     },
     jobCardFilter: input.jobCardFilter ?? "",
     listFilters,
+    search: String(input.search ?? "").trim(),
     sort: input.sort ?? {},
-    columns: Array.isArray(input.columns) ? input.columns : [],
   };
 }
 
@@ -49,11 +49,11 @@ export function currentFiltersToSavedViewInput({
   filterConfig = [],
 }) {
   return {
-    view,
-    pathname,
     filterState: normalizeSavedViewState(
-      { search, dateRange, jobCardFilter, listFilters },
-      filterConfig,
+      { dateRange, jobCardFilter, listFilters, search },
+      filterConfig
     ),
+    pathname,
+    view,
   };
 }

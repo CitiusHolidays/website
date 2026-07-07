@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -8,7 +8,6 @@
   "files": {
     "ignoreUnknown": false,
     "includes": [
-      "**",
       "!convex/_generated",
       "!convex/betterAuth/_generated",
       "!citius-blog/dist",
@@ -25,23 +24,64 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "correctness": {
-        "useExhaustiveDependencies": "warn",
+        "noUnusedFunctionParameters": "warn",
         "noUnusedVariables": "warn",
-        "noUndeclaredVariables": "error"
+        "noUndeclaredVariables": "error",
+        "useExhaustiveDependencies": "warn"
       },
       "suspicious": {
+        "noEmptyBlockStatements": "warn",
         "noArrayIndexKey": "warn",
-        "noExplicitAny": "off"
+        "noBitwiseOperators": "warn",
+        "noEqualsToNull": "warn",
+        "noEvolvingTypes": "warn",
+        "noExplicitAny": "off",
+        "noLeakedRender": "warn",
+        "noNestedPromises": "warn",
+        "noReturnAssign": "warn",
+        "noShadow": "warn",
+        "noUnnecessaryConditions": "warn",
+        "noUnusedExpressions": "warn",
+        "useArraySortCompare": "warn",
+        "useAwait": "warn"
       },
       "a11y": {
-        "useButtonType": "warn",
+        "noSvgWithoutTitle": "off",
         "useKeyWithClickEvents": "off",
-        "noSvgWithoutTitle": "off"
+        "useButtonType": "warn"
       },
       "style": {
-        "noNonNullAssertion": "off"
+        "noExportedImports": "warn",
+        "noIncrementDecrement": "warn",
+        "noMultiAssign": "warn",
+        "noNestedTernary": "warn",
+        "noNonNullAssertion": "off",
+        "noSubstr": "warn",
+        "useAtIndex": "warn",
+        "useConsistentArrayType": "warn",
+        "useConsistentTypeDefinitions": "warn",
+        "useDefaultParameterLast": "warn",
+        "useDefaultSwitchClause": "warn",
+        "useDestructuring": "warn",
+        "useErrorCause": "warn",
+        "useFilenamingConvention": "off",
+        "useNodejsImportProtocol": "warn"
+      },
+      "performance": {
+        "noAwaitInLoops": "warn",
+        "noBarrelFile": "warn",
+        "noJsxPropsBind": "warn",
+        "noNamespaceImport": "warn",
+        "useTopLevelRegex": "warn"
+      },
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "warn",
+        "noRedundantDefaultExport": "warn",
+        "noUselessFragments": "warn",
+        "noVoid": "warn",
+        "useOptionalChain": "warn"
       }
     }
   },
@@ -63,5 +103,10 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "extends": [
+    "ultracite/biome/core",
+    "ultracite/biome/react",
+    "ultracite/biome/next"
+  ]
 }

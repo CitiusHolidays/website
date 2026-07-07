@@ -15,7 +15,7 @@ import { normalizePassportExpiryDate, passportExpiryFromDecrypted } from "./pass
 
 function resolvePassportExpiryFromEncrypted(
   plainExpiry?: string | null,
-  encryptedPayload?: string | null,
+  encryptedPayload?: string | null
 ) {
   const fromPlain = normalizePassportExpiryDate(plainExpiry);
   if (fromPlain) {
@@ -51,9 +51,9 @@ function inferPassportMimeType(fileName: string, mimeType: string) {
   }
   const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
   const byExtension: Record<string, string> = {
-    pdf: "application/pdf",
-    jpg: "image/jpeg",
     jpeg: "image/jpeg",
+    jpg: "image/jpeg",
+    pdf: "application/pdf",
     png: "image/png",
     webp: "image/webp",
   };
@@ -67,7 +67,7 @@ function encryptPassportPayload(buffer: Buffer) {
     const message = error instanceof Error ? error.message : "Encryption failed";
     if (message.includes("ENCRYPTION_KEY")) {
       throw new ConvexError(
-        "Encryption is not configured. Ask an admin to set ENCRYPTION_KEY in the Convex deployment.",
+        "Encryption is not configured. Ask an admin to set ENCRYPTION_KEY in the Convex deployment."
       );
     }
     throw new ConvexError(`Failed to encrypt passport scan: ${message}`);
@@ -78,7 +78,7 @@ export const generateUploadUrl = action({
   args: {},
   handler: async (ctx) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!access || !access.allowed || !access.permissions.includes(PERMISSIONS.MANAGE_VISA)) {
+    if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
       throw new ConvexError("FORBIDDEN");
     }
     return await ctx.storage.generateUploadUrl();
@@ -87,19 +87,19 @@ export const generateUploadUrl = action({
 
 export const encryptAndStorePassport = action({
   args: {
-    travellerId: v.string(),
-    tempStorageId: v.id("_storage"),
-    fileName: v.string(),
-    mimeType: v.string(),
-    fileSize: v.optional(v.number()),
-    number: v.optional(v.string()),
-    expiryDate: v.optional(v.string()),
-    nationality: v.optional(v.string()),
     dateOfBirth: v.optional(v.string()),
+    expiryDate: v.optional(v.string()),
+    fileName: v.string(),
+    fileSize: v.optional(v.number()),
+    mimeType: v.string(),
+    nationality: v.optional(v.string()),
+    number: v.optional(v.string()),
+    tempStorageId: v.id("_storage"),
+    travellerId: v.string(),
   },
   handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!access || !access.allowed || !access.permissions.includes(PERMISSIONS.MANAGE_VISA)) {
+    if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
       throw new ConvexError("FORBIDDEN");
     }
 
@@ -136,18 +136,18 @@ export const encryptAndStorePassport = action({
     let lastFour = "";
     if (args.number && args.expiryDate && args.nationality && args.dateOfBirth) {
       encryptedPayload = encryptPassportDetails({
-        number: args.number,
+        dateOfBirth: args.dateOfBirth,
         expiryDate: args.expiryDate,
         nationality: args.nationality,
-        dateOfBirth: args.dateOfBirth,
+        number: args.number,
       });
       lastFour = args.number.trim().slice(-4);
     } else {
       encryptedPayload = encryptPassportDetails({
-        number: "UNKNOWN",
+        dateOfBirth: "UNKNOWN",
         expiryDate: "UNKNOWN",
         nationality: "UNKNOWN",
-        dateOfBirth: "UNKNOWN",
+        number: "UNKNOWN",
       });
     }
 
@@ -170,14 +170,14 @@ export const encryptAndStorePassport = action({
     }
 
     await ctx.runMutation(internal.crm.passport.savePassportMetadata, {
-      travellerId: args.travellerId,
-      storageId: encryptedStorageId,
+      createdBy: access.authUserId || "unknown",
       encryptedPayload,
-      lastFour: lastFour || undefined,
       expiryDate: normalizePassportExpiryDate(args.expiryDate),
       fileName: args.fileName,
+      lastFour: lastFour || undefined,
       mimeType: resolvedMimeType,
-      createdBy: access.authUserId || "unknown",
+      storageId: encryptedStorageId,
+      travellerId: args.travellerId,
     });
 
     return { success: true };
@@ -192,7 +192,7 @@ type PassportMetadata = {
 
 async function readPassportFile(ctx: any, travellerId: string) {
   const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-  if (!access || !access.allowed || !access.permissions.includes(PERMISSIONS.VIEW_VISA)) {
+  if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.VIEW_VISA))) {
     throw new ConvexError("FORBIDDEN");
   }
 
@@ -200,7 +200,7 @@ async function readPassportFile(ctx: any, travellerId: string) {
     travellerId,
   });
 
-  if (!existing || !existing.storageId) {
+  if (!(existing && existing.storageId)) {
     throw new ConvexError("Passport document not found for this traveller");
   }
 
@@ -213,8 +213,8 @@ async function readPassportFile(ctx: any, travellerId: string) {
   const decryptedBuffer = decryptBuffer(Buffer.from(encryptedBytes));
 
   await ctx.runMutation(internal.crm.passport.logViewActivity, {
-    travellerId,
     authUserId: access.authUserId || "unknown",
+    travellerId,
     userName: access.name || "Unknown",
   });
 
@@ -235,7 +235,7 @@ export const getPassportDocument = action({
   },
   handler: async (
     ctx,
-    args,
+    args
   ): Promise<{ success: true; bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
     const file = await readPassportFile(ctx, args.travellerId);
     return {
@@ -249,12 +249,8 @@ export const getPassportFile = action({
   args: {
     travellerId: v.string(),
   },
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
-    return await readPassportFile(ctx, args.travellerId);
-  },
+  handler: async (ctx, args): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> =>
+    await readPassportFile(ctx, args.travellerId),
 });
 
 export const removePassport = action({
@@ -263,7 +259,7 @@ export const removePassport = action({
   },
   handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!access || !access.allowed || !access.permissions.includes(PERMISSIONS.MANAGE_VISA)) {
+    if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
       throw new ConvexError("FORBIDDEN");
     }
 
@@ -293,7 +289,7 @@ export const getTravellerPassportExpiryDates = action({
   },
   handler: async (ctx, args): Promise<Record<string, string>> => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!access?.allowed || !access.permissions.includes(PERMISSIONS.VIEW_TRAVELLERS)) {
+    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.VIEW_TRAVELLERS))) {
       throw new ConvexError("FORBIDDEN");
     }
 
@@ -303,8 +299,8 @@ export const getTravellerPassportExpiryDates = action({
       expiryDate: string;
       encryptedPayload: string;
     }> = await ctx.runQuery(internal.crm.travellers.passportExpirySources, {
-      jobCardId: args.jobCardId,
       access,
+      jobCardId: args.jobCardId,
     });
 
     const result: Record<string, string> = {};
@@ -317,11 +313,11 @@ export const getTravellerPassportExpiryDates = action({
         result[String(row.travellerId)] = expiry;
         if (!normalizePassportExpiryDate(row.expiryDate)) {
           await ctx.runMutation(internal.crm.passport.backfillPassportExpiryDate, {
-            passportId: row.passportId,
             expiryDate: expiry,
+            passportId: row.passportId,
           });
         }
-      }),
+      })
     );
     return result;
   },
@@ -336,7 +332,7 @@ export const backfillPassportExpiryDates = internalAction({
       internal.crm.passport.listPassportDetailsForBackfill,
       {
         limit: args.limit ?? 100,
-      },
+      }
     );
     const outcomes = await Promise.all(
       rows.map(async (row) => {
@@ -347,18 +343,18 @@ export const backfillPassportExpiryDates = internalAction({
             return "skipped" as const;
           }
           await ctx.runMutation(internal.crm.passport.backfillPassportExpiryDate, {
-            passportId: row.id,
             expiryDate,
+            passportId: row.id,
           });
           return "updated" as const;
         } catch {
           return "skipped" as const;
         }
-      }),
+      })
     );
     const updated = outcomes.filter((outcome) => outcome === "updated").length;
     const skipped = outcomes.filter((outcome) => outcome === "skipped").length;
 
-    return { processed: rows.length, updated, skipped };
+    return { processed: rows.length, skipped, updated };
   },
 });

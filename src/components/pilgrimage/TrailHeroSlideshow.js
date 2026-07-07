@@ -5,8 +5,8 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 const FALLBACK_HERO = {
-  src: "/gallery/spiritual/mansarovar-lake.webp",
   alt: "Lake Mansarovar",
+  src: "/gallery/spiritual/mansarovar-lake.webp",
 };
 
 const transitionConfig = { duration: 1.2, ease: [0.4, 0, 0.2, 1] };
@@ -16,9 +16,11 @@ function buildSlides(trail) {
   const slides = [];
 
   const push = (src, alt) => {
-    if (!src || seen.has(src)) return;
+    if (!src || seen.has(src)) {
+      return;
+    }
     seen.add(src);
-    slides.push({ src, alt: alt || "Trail image" });
+    slides.push({ alt: alt || "Trail image", src });
   };
 
   if (trail.heroBackground?.src) {
@@ -27,7 +29,9 @@ function buildSlides(trail) {
 
   if (Array.isArray(trail.gallery)) {
     for (const g of trail.gallery) {
-      if (g?.src) push(g.src, g.alt);
+      if (g?.src) {
+        push(g.src, g.alt);
+      }
     }
   }
 
@@ -43,7 +47,9 @@ export default function TrailHeroSlideshow({ trail }) {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (slides.length <= 1) return undefined;
+    if (slides.length <= 1) {
+      return;
+    }
     const t = setInterval(() => {
       setIndex((prev) => (prev + 1) % slides.length);
     }, 5500);
@@ -55,35 +61,35 @@ export default function TrailHeroSlideshow({ trail }) {
     <section className="relative h-screen min-h-[700px] w-full overflow-hidden bg-brand-dark">
       <AnimatePresence initial={false} mode="sync">
         <m.div
-          key={current.src}
-          initial={{ opacity: 0, scale: 1.06 }}
           animate={{ opacity: 0.6, scale: 1 }}
-          exit={{ opacity: 0 }}
-          transition={transitionConfig}
           className="absolute inset-0 z-0"
+          exit={{ opacity: 0 }}
+          initial={{ opacity: 0, scale: 1.06 }}
+          key={current.src}
+          transition={transitionConfig}
         >
           <Image
-            src={current.src}
             alt={current.alt}
-            fill
             className="object-cover"
-            sizes="100vw"
+            fill
             priority
+            sizes="100vw"
+            src={current.src}
           />
         </m.div>
       </AnimatePresence>
 
       <div
-        className="absolute inset-0 z-10 bg-linear-to-b from-brand-dark/60 via-transparent to-brand-dark"
         aria-hidden
+        className="absolute inset-0 z-10 bg-linear-to-b from-brand-dark/60 via-transparent to-brand-dark"
       />
       <div
-        className="absolute inset-0 z-10 bg-linear-to-r from-brand-dark/40 via-transparent to-transparent"
         aria-hidden
+        className="absolute inset-0 z-10 bg-linear-to-r from-brand-dark/40 via-transparent to-transparent"
       />
 
       {/* Full-height overlay: back link top, title + slide dots bottom — matches base SpiritualHero viewport */}
-      <div className="relative z-20 flex h-full min-h-[700px] flex-col px-4 max-w-6xl mx-auto w-full pt-28 md:pt-32 pb-12 md:pb-16">
+      <div className="relative z-20 mx-auto flex h-full min-h-[700px] w-full max-w-6xl flex-col px-4 pt-28 pb-12 md:pt-32 md:pb-16">
         {/* <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="shrink-0">
           <Link
             href="/pilgrimage#all-trails"
@@ -96,45 +102,45 @@ export default function TrailHeroSlideshow({ trail }) {
 
         <div className="flex min-h-0 flex-1 flex-col justify-end">
           <m.div
-            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
+            className="pb-2 text-center md:text-left"
+            initial={{ opacity: 0, y: 12 }}
             transition={{ delay: 0.05 }}
-            className="text-center md:text-left pb-2"
           >
             {trail.status === "comingSoon" && (
-              <span className="inline-block mb-3 text-xs font-heading uppercase tracking-wider text-amber-100 bg-amber-500/25 border border-amber-200/40 px-3 py-1 rounded-full backdrop-blur-sm">
+              <span className="mb-3 inline-block rounded-full border border-amber-200/40 bg-amber-500/25 px-3 py-1 font-heading text-amber-100 text-xs uppercase tracking-wider backdrop-blur-sm">
                 Coming soon
               </span>
             )}
             {trail.tagline && (
-              <p className="text-xs md:text-sm font-heading text-citius-orange uppercase tracking-[0.2em] mb-2 drop-shadow-sm line-clamp-2">
+              <p className="mb-2 line-clamp-2 font-heading text-citius-orange text-xs uppercase tracking-[0.2em] drop-shadow-sm md:text-sm">
                 {trail.tagline}
               </p>
             )}
-            <h1 className="font-heading text-3xl md:text-5xl text-white leading-tight mb-3 drop-shadow-md">
+            <h1 className="mb-3 font-heading text-3xl text-white leading-tight drop-shadow-md md:text-5xl">
               {trail.title}
             </h1>
-            <p className="font-sans text-lg md:text-xl text-white/90 max-w-3xl italic drop-shadow line-clamp-3 md:line-clamp-none">
+            <p className="line-clamp-3 max-w-3xl font-sans text-lg text-white/90 italic drop-shadow md:line-clamp-none md:text-xl">
               {trail.subtitle}
             </p>
             {trail.positioning && (
-              <p className="mt-4 text-sm md:text-base text-white/80 max-w-2xl line-clamp-3">
+              <p className="mt-4 line-clamp-3 max-w-2xl text-sm text-white/80 md:text-base">
                 {trail.positioning}
               </p>
             )}
           </m.div>
 
           {slides.length > 1 && (
-            <div className="flex justify-center md:justify-start gap-2 mt-6 pb-1">
+            <div className="mt-6 flex justify-center gap-2 pb-1 md:justify-start">
               {slides.map((s, idx) => (
                 <button
-                  key={s.src}
-                  type="button"
-                  onClick={() => setIndex(idx)}
+                  aria-label={`Hero image ${idx + 1}`}
                   className={`h-1 rounded-full transition-all duration-500 ${
                     idx === index ? "w-10 bg-citius-orange" : "w-3 bg-white/25 hover:bg-white/45"
                   }`}
-                  aria-label={`Hero image ${idx + 1}`}
+                  key={s.src}
+                  onClick={() => setIndex(idx)}
+                  type="button"
                 />
               ))}
             </div>

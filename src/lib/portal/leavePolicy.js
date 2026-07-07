@@ -1,49 +1,51 @@
 export const LEAVE_POLICY_YEAR_START_MONTH = 3; // April, zero-based month.
 
 export const LEAVE_POLICY = {
-  Privilege: {
-    probationerAllowed: false,
-    confirmedAnnualEntitlement: 21,
-    accrualPerMonth: 1.75,
-    carryForwardMax: 10,
-    encashableAbove: 10,
+  Bereavement: {
+    maxAtOnce: 5,
   },
   Casual: {
-    probationerAnnualEntitlement: 8,
     confirmedAnnualEntitlement: 8,
+    lapsesOn: "31 Mar",
     maxAtOnce: 3,
-    lapsesOn: "31 Mar",
+    probationerAnnualEntitlement: 8,
   },
-  Sick: {
-    probationerAnnualEntitlement: 10,
-    confirmedAnnualEntitlement: 10,
-    lapsesOn: "31 Mar",
+  "Leave Without Pay": {
+    unpaid: true,
+  },
+  Marriage: {
+    maxAtOnce: 5,
+    probationerAllowed: false,
   },
   Maternity: {
     eligibleAfterDays: 80,
     maxAtOnce: 182,
   },
   Paternity: {
-    probationerMaxAtOnce: 5,
     maxAtOnce: 10,
+    probationerMaxAtOnce: 5,
   },
-  Bereavement: {
-    maxAtOnce: 5,
-  },
-  Marriage: {
+  Privilege: {
+    accrualPerMonth: 1.75,
+    carryForwardMax: 10,
+    confirmedAnnualEntitlement: 21,
+    encashableAbove: 10,
     probationerAllowed: false,
-    maxAtOnce: 5,
   },
-  "Leave Without Pay": {
-    unpaid: true,
+  Sick: {
+    confirmedAnnualEntitlement: 10,
+    lapsesOn: "31 Mar",
+    probationerAnnualEntitlement: 10,
   },
 };
 
 export function inclusiveLeaveDays(startDate, endDate) {
   const start = Date.parse(`${startDate}T12:00:00`);
   const end = Date.parse(`${endDate}T12:00:00`);
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return 0;
-  return Math.floor((end - start) / 86400000) + 1;
+  if (!(Number.isFinite(start) && Number.isFinite(end)) || end < start) {
+    return 0;
+  }
+  return Math.floor((end - start) / 86_400_000) + 1;
 }
 
 export function fiscalYearForDate(value) {
@@ -65,17 +67,33 @@ function monthsElapsedInPolicyYear(value) {
 
 export function defaultLeaveEntitlement(leaveType, employmentStatus = "Confirmed", startDate = "") {
   const isProbationer = employmentStatus === "Probationer";
-  if (leaveType === "Leave Without Pay") return Number.POSITIVE_INFINITY;
+  if (leaveType === "Leave Without Pay") {
+    return Number.POSITIVE_INFINITY;
+  }
   if (leaveType === "Privilege") {
-    if (isProbationer) return 0;
+    if (isProbationer) {
+      return 0;
+    }
     return Math.min(21, Math.max(0, monthsElapsedInPolicyYear(startDate)) * 1.75);
   }
-  if (leaveType === "Casual") return 8;
-  if (leaveType === "Sick") return 10;
-  if (leaveType === "Maternity") return 182;
-  if (leaveType === "Paternity") return isProbationer ? 5 : 10;
-  if (leaveType === "Bereavement") return 5;
-  if (leaveType === "Marriage") return isProbationer ? 0 : 5;
+  if (leaveType === "Casual") {
+    return 8;
+  }
+  if (leaveType === "Sick") {
+    return 10;
+  }
+  if (leaveType === "Maternity") {
+    return 182;
+  }
+  if (leaveType === "Paternity") {
+    return isProbationer ? 5 : 10;
+  }
+  if (leaveType === "Bereavement") {
+    return 5;
+  }
+  if (leaveType === "Marriage") {
+    return isProbationer ? 0 : 5;
+  }
   return 0;
 }
 
@@ -89,24 +107,24 @@ export function calculateLeaveRequestImpact({
 }) {
   const days = inclusiveLeaveDays(startDate, endDate);
   if (days <= 0) {
-    return { allowed: false, days: 0, balanceAfter: 0, reason: "Choose a valid date range." };
+    return { allowed: false, balanceAfter: 0, days: 0, reason: "Choose a valid date range." };
   }
 
   const policy = LEAVE_POLICY[leaveType];
   if (!policy) {
-    return { allowed: false, days, balanceAfter: 0, reason: "Unsupported leave type." };
+    return { allowed: false, balanceAfter: 0, days, reason: "Unsupported leave type." };
   }
 
   if (policy.unpaid) {
-    return { allowed: true, days, balanceAfter: 0, reason: "" };
+    return { allowed: true, balanceAfter: 0, days, reason: "" };
   }
 
   const isProbationer = employmentStatus === "Probationer";
   if (isProbationer && policy.probationerAllowed === false) {
     return {
       allowed: false,
-      days,
       balanceAfter: Number(balances[leaveType] ?? 0),
+      days,
       reason: `${leaveType} leave is not accrued during probation.`,
     };
   }
@@ -114,12 +132,12 @@ export function calculateLeaveRequestImpact({
   if (leaveType === "Maternity" && joiningDate) {
     const joined = Date.parse(`${joiningDate}T12:00:00`);
     const start = Date.parse(`${startDate}T12:00:00`);
-    const serviceDays = Number.isFinite(joined) ? Math.floor((start - joined) / 86400000) : 0;
+    const serviceDays = Number.isFinite(joined) ? Math.floor((start - joined) / 86_400_000) : 0;
     if (serviceDays < policy.eligibleAfterDays) {
       return {
         allowed: false,
-        days,
         balanceAfter: Number(balances[leaveType] ?? 0),
+        days,
         reason: "Maternity leave requires at least 80 days of service.",
       };
     }
@@ -131,28 +149,28 @@ export function calculateLeaveRequestImpact({
   if (maxAtOnce && days > maxAtOnce) {
     return {
       allowed: false,
-      days,
       balanceAfter: Number(balances[leaveType] ?? 0),
+      days,
       reason: `${leaveType} leave is limited to ${maxAtOnce} days at once.`,
     };
   }
 
   const available = Number(
-    balances[leaveType] ?? defaultLeaveEntitlement(leaveType, employmentStatus, startDate),
+    balances[leaveType] ?? defaultLeaveEntitlement(leaveType, employmentStatus, startDate)
   );
   if (available < days) {
     return {
       allowed: false,
-      days,
       balanceAfter: available,
+      days,
       reason: `Insufficient ${leaveType} leave balance.`,
     };
   }
 
   return {
     allowed: true,
-    days,
     balanceAfter: available - days,
+    days,
     reason: "",
   };
 }

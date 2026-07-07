@@ -6,7 +6,9 @@ function parseStreamEvent(eventText) {
     .filter((line) => line.startsWith("data:"))
     .map((line) => line.slice(5).trimStart())
     .join("\n");
-  if (!data || data === "[DONE]") return null;
+  if (!data || data === "[DONE]") {
+    return null;
+  }
 
   try {
     return JSON.parse(data);
@@ -35,18 +37,18 @@ export async function streamChatResponse({
   onStreamError,
 }) {
   const response = await fetch("/api/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       id: CHAT_ID,
+      messageId: userMessage.id,
       messages,
       trigger: "submit-message",
-      messageId: userMessage.id,
     }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
     signal,
   });
 
-  if (!response.ok || !response.body) {
+  if (!(response.ok && response.body)) {
     const errorText = await response.text();
     onStreamError(errorText || "Failed to fetch the chat response.");
     return { streamedVisibleText: false, streamHadError: true };
@@ -61,7 +63,9 @@ export async function streamChatResponse({
 
   const handleEvent = (eventText) => {
     const event = parseStreamEvent(eventText);
-    if (!event) return;
+    if (!event) {
+      return;
+    }
 
     if (event.type === "text-delta" && typeof event.delta === "string") {
       assistantText += event.delta;
@@ -78,14 +82,16 @@ export async function streamChatResponse({
       onStreamError(
         event.errorText ||
           event.message ||
-          "Citius Concierge is temporarily at model capacity. Please try again.",
+          "Citius Concierge is temporarily at model capacity. Please try again."
       );
     }
   };
 
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      break;
+    }
 
     buffer += decoder.decode(value, { stream: true });
     const events = buffer.split("\n\n");

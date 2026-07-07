@@ -14,7 +14,9 @@ export function pruneSelectionToVisible(selectedIds, visibleIds) {
 
 /** @param {Set<string>} selectedIds @param {string[]} visibleIds */
 export function toggleAllVisibleSelection(selectedIds, visibleIds) {
-  if (visibleIds.length === 0) return selectedIds;
+  if (visibleIds.length === 0) {
+    return selectedIds;
+  }
   const allSelected = visibleIds.every((id) => selectedIds.has(id));
   if (allSelected) {
     return new Set();
@@ -51,7 +53,7 @@ export function useBulkSelection(visibleRows) {
 
   const toggleAllVisible = () => {
     setSelectedIds((current) =>
-      toggleAllVisibleSelection(pruneSelectionToVisible(current, rowIds), rowIds),
+      toggleAllVisibleSelection(pruneSelectionToVisible(current, rowIds), rowIds)
     );
   };
 
@@ -60,12 +62,12 @@ export function useBulkSelection(visibleRows) {
   };
 
   return {
-    selectedIds: effectiveSelectedIds,
-    selectedCount: effectiveSelectedIds.size,
-    toggleOne,
-    toggleAllVisible,
-    clearSelection,
     allVisibleSelected: allVisibleRowsSelected(effectiveSelectedIds, rowIds),
+    clearSelection,
+    selectedCount: effectiveSelectedIds.size,
+    selectedIds: effectiveSelectedIds,
     someVisibleSelected: someVisibleRowsSelected(effectiveSelectedIds, rowIds),
+    toggleAllVisible,
+    toggleOne,
   };
 }

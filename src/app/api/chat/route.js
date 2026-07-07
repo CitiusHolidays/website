@@ -47,17 +47,19 @@ function normalizeChatMessage(msg) {
   const role = msg?.role === "assistant" || msg?.role === "user" ? msg.role : "user";
   const rawParts = Array.isArray(msg?.parts)
     ? msg.parts
-    : [{ type: "text", text: msg?.content || "" }];
+    : [{ text: msg?.content || "", type: "text" }];
   const parts = rawParts.flatMap((part) => {
-    if (part?.type !== "text") return [];
+    if (part?.type !== "text") {
+      return [];
+    }
     const text = String(part.text || "").slice(0, MAX_CHAT_MESSAGE_CHARS);
-    return text.trim().length > 0 ? [{ type: "text", text }] : [];
+    return text.trim().length > 0 ? [{ text, type: "text" }] : [];
   });
 
   return {
     id: String(msg?.id || crypto.randomUUID()),
-    role,
     parts,
+    role,
   };
 }
 
@@ -97,8 +99,8 @@ export async function POST(req) {
   try {
     if (!isAllowedSiteOrigin(req)) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
         headers: { "Content-Type": "application/json" },
+        status: 403,
       });
     }
 
@@ -108,35 +110,35 @@ export async function POST(req) {
       return new Response(
         JSON.stringify({ error: "Too many chat requests. Please try again shortly." }),
         {
-          status: 429,
           headers: {
             "Content-Type": "application/json",
             "Retry-After": String(rateLimit.retryAfterSec),
           },
-        },
+          status: 429,
+        }
       );
     }
 
     const contentLength = Number(req.headers.get("content-length") || 0);
     if (contentLength > MAX_CHAT_BODY_BYTES) {
       return new Response(JSON.stringify({ error: "Chat request is too large." }), {
-        status: 413,
         headers: { "Content-Type": "application/json" },
+        status: 413,
       });
     }
 
     if (!process.env.OPENROUTER_API_KEY) {
       return new Response(JSON.stringify({ error: "Chat service is not configured." }), {
-        status: 500,
         headers: { "Content-Type": "application/json" },
+        status: 500,
       });
     }
 
     const { messages } = await req.json();
     if (!Array.isArray(messages) || messages.length > MAX_CHAT_MESSAGES) {
       return new Response(JSON.stringify({ error: "Invalid chat request." }), {
-        status: 400,
         headers: { "Content-Type": "application/json" },
+        status: 400,
       });
     }
 
@@ -147,14 +149,11 @@ export async function POST(req) {
     const convertedMessages = await convertToModelMessages(uiMessages);
 
     const result = streamText({
-      model: openrouter.chat(CITIUS_CHAT_MODEL),
-      messages: convertedMessages,
-      system: systemPrompt,
-      tools: citiusChatTools,
-      stopWhen: stepCountIs(4),
-      temperature: 0.35,
+      abortSignal: req.signal,
       maxOutputTokens: 900,
       maxRetries: 2,
+      messages: convertedMessages,
+      model: openrouter.chat(CITIUS_CHAT_MODEL),
       providerOptions: {
         openrouter: {
           models: configuredOpenRouterModels(),
@@ -164,7 +163,10 @@ export async function POST(req) {
           },
         },
       },
-      abortSignal: req.signal,
+      stopWhen: stepCountIs(4),
+      system: systemPrompt,
+      temperature: 0.35,
+      tools: citiusChatTools,
     });
 
     return result.toUIMessageStreamResponse({
@@ -173,8 +175,8 @@ export async function POST(req) {
   } catch (error) {
     console.error("Chat API error:", error);
     return new Response(JSON.stringify({ error: "Failed to process chat request" }), {
-      status: 500,
       headers: { "Content-Type": "application/json" },
+      status: 500,
     });
   }
 }

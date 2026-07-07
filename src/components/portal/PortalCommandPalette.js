@@ -35,12 +35,12 @@ import { useModShortcutLabel } from "@/lib/portal/shortcutLabels";
 const PortalCommandPaletteContext = createContext(null);
 
 const COMMAND_ICONS = {
-  Navigation,
+  Bookmark,
   Clock,
+  FilterX,
+  Navigation,
   Plus,
   Star,
-  Bookmark,
-  FilterX,
 };
 
 const subscribeToClientMount = (onStoreChange) => {
@@ -51,9 +51,9 @@ const getClientMountedSnapshot = () => true;
 const getServerMountedSnapshot = () => false;
 
 const initialPaletteState = {
+  activeIndex: 0,
   open: false,
   term: "",
-  activeIndex: 0,
 };
 
 function paletteReducer(state, action) {
@@ -63,7 +63,7 @@ function paletteReducer(state, action) {
     case "close":
       return initialPaletteState;
     case "term":
-      return { ...state, term: action.term, activeIndex: 0 };
+      return { ...state, activeIndex: 0, term: action.term };
     case "activeIndex":
       return { ...state, activeIndex: action.activeIndex };
     default:
@@ -75,8 +75,8 @@ function useCommands(workspace, term, onSaveView) {
   return filterCommands(
     [
       ...buildNavigationCommands({
-        navGroups: workspace.navGroups,
         currentPathname: workspace.pathname,
+        navGroups: workspace.navGroups,
       }),
       ...buildRecentRecordCommands({
         navShortcuts: workspace.navShortcuts,
@@ -86,31 +86,31 @@ function useCommands(workspace, term, onSaveView) {
         openModal: workspace.openModal,
       }),
       ...buildSavedViewCommands({
-        savedViews: workspace.savedViews,
         applySavedView: workspace.applySavedView,
+        savedViews: workspace.savedViews,
       }),
       ...(typeof onSaveView === "function"
         ? [
             {
-              id: "action:save-view",
-              label: "Save current view",
-              subtitle: workspace.meta?.title ?? "Portal",
               group: "Actions",
               icon: "Star",
+              id: "action:save-view",
+              label: "Save current view",
               run: onSaveView,
+              subtitle: workspace.meta?.title ?? "Portal",
             },
           ]
         : []),
       {
-        id: "action:clear-filters",
-        label: "Clear filters",
-        subtitle: workspace.meta?.title,
         group: "Actions",
         icon: "FilterX",
+        id: "action:clear-filters",
+        label: "Clear filters",
         run: workspace.clearAllFilters,
+        subtitle: workspace.meta?.title,
       },
     ],
-    term,
+    term
   );
 }
 
@@ -121,7 +121,7 @@ function groupCommands(commands) {
     if (last?.label === command.group) {
       last.items.push(command);
     } else {
-      groups.push({ label: command.group, items: [command] });
+      groups.push({ items: [command], label: command.group });
     }
   }
   return groups;
@@ -131,54 +131,51 @@ function CommandPaletteIcon({ name, active }) {
   const IconComponent = COMMAND_ICONS[name] ?? Navigation;
   return (
     <span
+      aria-hidden
       className={`grid size-8 shrink-0 place-items-center rounded-lg transition-[background-color,color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] ${
         active ? "bg-citius-blue/12 text-citius-blue" : "bg-brand-light/80 text-brand-muted"
       }`}
-      aria-hidden
     >
       {createElement(IconComponent, { size: 15, strokeWidth: 2 })}
     </span>
   );
 }
 
-function CommandPaletteItem({
-  command,
-  active,
-  onSelect,
-  onHover,
-}) {
+function CommandPaletteItem({ command, active, onSelect, onHover }) {
   const itemRef = useRef(null);
 
   useLayoutEffect(() => {
-    if (!active) return;
+    if (!active) {
+      return;
+    }
     itemRef.current?.scrollIntoView({ block: "nearest" });
   }, [active]);
 
   return (
     <button
-      ref={itemRef}
-      type="button"
-      onClick={onSelect}
-      onMouseEnter={onHover}
       className={`group relative w-full rounded-lg px-2 py-1.5 text-left transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.96] ${
         active
           ? "bg-citius-blue/8 text-brand-dark before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-citius-blue"
           : "text-brand-dark hover:bg-brand-light/70"
       }`}
+      onClick={onSelect}
+      onMouseEnter={onHover}
+      ref={itemRef}
+      type="button"
     >
       <div className="flex items-center gap-3">
-        <CommandPaletteIcon name={command.icon} active={active} />
+        <CommandPaletteIcon active={active} name={command.icon} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
-            <span className="truncate font-sans text-sm font-medium">{command.label}</span>
+            <span className="truncate font-medium font-sans text-sm">{command.label}</span>
             {active ? (
-              <kbd className="hidden shrink-0 items-center gap-0.5 rounded border border-brand-border/80 bg-white/90 px-1.5 py-0.5 font-sans text-[10px] font-medium text-brand-muted sm:inline-flex">
-                <CornerDownLeft size={10} aria-hidden />
+              <kbd className="hidden shrink-0 items-center gap-0.5 rounded border border-brand-border/80 bg-white/90 px-1.5 py-0.5 font-medium font-sans text-[10px] text-brand-muted sm:inline-flex">
+                <CornerDownLeft aria-hidden size={10} />
               </kbd>
             ) : null}
           </div>
           {command.subtitle ? (
-            <p className="mt-0.5 truncate font-sans text-xs text-brand-muted">{command.subtitle}</p>
+            <p className="mt-0.5 truncate font-sans text-brand-muted text-xs">{command.subtitle}</p>
           ) : null}
         </div>
       </div>
@@ -196,12 +193,12 @@ export function PortalCommandPaletteTrigger({ className = "" }) {
 
   return (
     <button
-      type="button"
-      onClick={() => context?.openPalette()}
-      className={`portal-toolbar-btn border border-brand-border bg-white text-brand-muted transition-[transform,color,background-color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-citius-blue/30 hover:text-citius-blue active:scale-[0.96] ${className}`}
       aria-label={`Open command palette (${modShortcutLabel})`}
+      className={`portal-toolbar-btn border border-brand-border bg-white text-brand-muted transition-[transform,color,background-color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-citius-blue/30 hover:text-citius-blue active:scale-[0.96] ${className}`}
+      onClick={() => context?.openPalette()}
+      type="button"
     >
-      <Search size={15} aria-hidden />
+      <Search aria-hidden size={15} />
       <kbd className="hidden rounded border border-brand-border/80 bg-brand-light/80 px-1.5 py-0.5 font-sans text-[10px] text-brand-muted sm:inline">
         {modShortcutLabel}
       </kbd>
@@ -224,62 +221,59 @@ function CommandPaletteOverlay({
   boundedActiveIndex,
   runCommand,
 }) {
-  if (!open || !mounted) {
+  if (!(open && mounted)) {
     return null;
   }
 
   return createPortal(
     <dialog
-      ref={dialogRef}
       aria-label="Command palette"
       className="portal-native-dialog"
       onCancel={(event) => {
         event.preventDefault();
         closePalette();
       }}
+      ref={dialogRef}
     >
       <button
-        type="button"
         aria-label="Close command palette"
         className="portal-command-backdrop"
-        style={backdropStyle}
         onClick={closePalette}
+        style={backdropStyle}
+        type="button"
       />
       <div className="portal-command-panel" style={panelStyle}>
         <div className="portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl">
-          <div className="flex shrink-0 items-center gap-2 border-b border-brand-border/80 px-3 py-2">
-            <Search size={16} className="shrink-0 text-brand-muted" aria-hidden />
+          <div className="flex shrink-0 items-center gap-2 border-brand-border/80 border-b px-3 py-2">
+            <Search aria-hidden className="shrink-0 text-brand-muted" size={16} />
             <input
-              ref={inputRef}
               aria-label="Search portal commands"
-              value={term}
+              className="min-w-0 flex-1 bg-transparent py-2 font-sans text-brand-dark text-sm outline-none placeholder:text-brand-muted/70"
               onChange={(event) => {
-                dispatchPalette({ type: "term", term: event.target.value });
+                dispatchPalette({ term: event.target.value, type: "term" });
               }}
               placeholder="Search commands…"
-              className="min-w-0 flex-1 bg-transparent py-2 font-sans text-sm text-brand-dark outline-none placeholder:text-brand-muted/70"
+              ref={inputRef}
+              value={term}
             />
             <button
-              type="button"
-              onClick={closePalette}
               aria-label="Close"
               className="grid size-8 shrink-0 place-items-center rounded-lg text-brand-muted transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
+              onClick={closePalette}
+              type="button"
             >
               <X size={16} />
             </button>
           </div>
-          <div
-            className="portal-command-scroll p-2"
-            onWheel={(event) => event.stopPropagation()}
-          >
+          <div className="portal-command-scroll p-2" onWheel={(event) => event.stopPropagation()}>
             {commands.length === 0 ? (
-              <p className="px-3 py-6 text-center font-sans text-sm text-brand-muted">
+              <p className="px-3 py-6 text-center font-sans text-brand-muted text-sm">
                 No matching commands
               </p>
             ) : (
               groupedWithIndex.map((group) => (
-                <div key={group.label} className="mb-1 last:mb-0">
-                  <div className="px-3 pb-1 pt-2 font-sans text-[10px] font-semibold uppercase tracking-wide text-brand-muted">
+                <div className="mb-1 last:mb-0" key={group.label}>
+                  <div className="px-3 pt-2 pb-1 font-sans font-semibold text-[10px] text-brand-muted uppercase tracking-wide">
                     {group.label}
                   </div>
                   <div className="space-y-0.5">
@@ -288,13 +282,13 @@ function CommandPaletteOverlay({
                       const active = index === boundedActiveIndex;
                       return (
                         <CommandPaletteItem
-                          key={command.id}
-                          command={command}
                           active={active}
-                          onSelect={() => runCommand(command)}
+                          command={command}
+                          key={command.id}
                           onHover={() =>
-                            dispatchPalette({ type: "activeIndex", activeIndex: index })
+                            dispatchPalette({ activeIndex: index, type: "activeIndex" })
                           }
+                          onSelect={() => runCommand(command)}
                         />
                       );
                     })}
@@ -306,7 +300,7 @@ function CommandPaletteOverlay({
         </div>
       </div>
     </dialog>,
-    document.body,
+    document.body
   );
 }
 
@@ -316,7 +310,7 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
   const mounted = useSyncExternalStore(
     subscribeToClientMount,
     getClientMountedSnapshot,
-    getServerMountedSnapshot,
+    getServerMountedSnapshot
   );
   const inputRef = useRef(null);
   const dialogRef = useRef(null);
@@ -342,10 +336,16 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
   };
 
   const runCommand = (command) => {
-    if (!command) return;
+    if (!command) {
+      return;
+    }
     closePalette();
-    if (command.run) command.run();
-    if (command.href) window.location.assign(command.href);
+    if (command.run) {
+      command.run();
+    }
+    if (command.href) {
+      window.location.assign(command.href);
+    }
   };
 
   useEffect(() => {
@@ -357,10 +357,16 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
       window.setTimeout(() => inputRef.current?.focus(), 0);
     };
     const runFromKey = (command) => {
-      if (!command) return;
+      if (!command) {
+        return;
+      }
       closeFromKey();
-      if (command.run) command.run();
-      if (command.href) window.location.assign(command.href);
+      if (command.run) {
+        command.run();
+      }
+      if (command.href) {
+        window.location.assign(command.href);
+      }
     };
 
     const onKeyDown = (event) => {
@@ -380,17 +386,16 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
       } else if (open && event.key === "ArrowDown") {
         event.preventDefault();
         dispatchPalette({
-          type: "activeIndex",
           activeIndex: Math.min(activeIndex + 1, maxActiveIndex),
+          type: "activeIndex",
         });
       } else if (open && event.key === "ArrowUp") {
         event.preventDefault();
-        dispatchPalette({ type: "activeIndex", activeIndex: Math.max(activeIndex - 1, 0) });
+        dispatchPalette({ activeIndex: Math.max(activeIndex - 1, 0), type: "activeIndex" });
       } else if (open && event.key === "Enter") {
         event.preventDefault();
         runFromKey(commands[boundedActiveIndex]);
       } else if (!open && isTyping) {
-        return;
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -398,7 +403,9 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
   }, [activeIndex, boundedActiveIndex, commands, maxActiveIndex, open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      return;
+    }
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -407,13 +414,17 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
   }, [open]);
 
   useEffect(() => {
-    if (!open || !mounted) return;
+    if (!(open && mounted)) {
+      return;
+    }
     const dialog = dialogRef.current;
     if (dialog && !dialog.open) {
       dialog.showModal();
     }
     return () => {
-      if (dialog?.open) dialog.close();
+      if (dialog?.open) {
+        dialog.close();
+      }
     };
   }, [mounted, open]);
 
@@ -423,19 +434,19 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
     <PortalCommandPaletteContext.Provider value={contextValue}>
       {children}
       <CommandPaletteOverlay
-        open={open}
-        mounted={mounted}
-        dialogRef={dialogRef}
         backdropStyle={backdropStyle}
-        panelStyle={panelStyle}
-        closePalette={closePalette}
-        inputRef={inputRef}
-        term={term}
-        dispatchPalette={dispatchPalette}
-        commands={commands}
-        groupedWithIndex={groupedWithIndex}
         boundedActiveIndex={boundedActiveIndex}
+        closePalette={closePalette}
+        commands={commands}
+        dialogRef={dialogRef}
+        dispatchPalette={dispatchPalette}
+        groupedWithIndex={groupedWithIndex}
+        inputRef={inputRef}
+        mounted={mounted}
+        open={open}
+        panelStyle={panelStyle}
         runCommand={runCommand}
+        term={term}
       />
     </PortalCommandPaletteContext.Provider>
   );

@@ -10,7 +10,7 @@ export default function PilgrimageLegacy() {
 
   if (visits.length === 0 && progress.templeCount === 0) {
     return (
-      <p className="font-sans text-sm text-brand-muted">
+      <p className="font-sans text-brand-muted text-sm">
         Mark your first temple to begin your digital pilgrimage legacy.
       </p>
     );
@@ -19,25 +19,25 @@ export default function PilgrimageLegacy() {
   const legacyEntries =
     isAuthenticated && visits.length > 0
       ? visits.map((v) => ({
+          name: getTempleById(v.templeId)?.name ?? v.templeId,
           templeId: v.templeId,
           visitedAt: v.visitedAt,
-          name: getTempleById(v.templeId)?.name ?? v.templeId,
         }))
       : progress.visitedTempleIds.map((id) => ({
+          name: getTempleById(id)?.name ?? id,
           templeId: id,
           visitedAt: null,
-          name: getTempleById(id)?.name ?? id,
         }));
 
   return (
-    <ul className="space-y-2 max-h-64 overflow-y-auto">
+    <ul className="max-h-64 space-y-2 overflow-y-auto">
       {legacyEntries.map((entry) => (
         <li
-          key={entry.templeId}
           className="flex justify-between gap-4 rounded-lg border border-brand-light px-4 py-2.5 text-sm"
+          key={entry.templeId}
         >
           <span className="font-medium text-brand-dark">{entry.name}</span>
-          <span className="text-brand-muted shrink-0 tabular-nums">
+          <span className="shrink-0 text-brand-muted tabular-nums">
             {entry.visitedAt ? formatVisitDate(entry.visitedAt) : "Logged locally"}
           </span>
         </li>

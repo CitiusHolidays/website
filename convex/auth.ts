@@ -18,13 +18,13 @@ export const getCurrentUser = query({
     const updatedAtIso = profile?.updatedAt ? new Date(profile.updatedAt).toISOString() : nowIso;
 
     return {
-      id: identity.subject,
-      email: profile?.email ?? identity.email ?? "",
-      name: profile?.name ?? identity.name ?? "Traveler",
-      phoneNumber: profile?.phoneNumber ?? "",
-      image: profile?.image ?? identity.picture ?? null,
-      passportDetailsEncrypted: profile?.passportDetailsEncrypted ?? null,
       createdAt: createdAtIso,
+      email: profile?.email ?? identity.email ?? "",
+      id: identity.subject,
+      image: profile?.image ?? identity.picture ?? null,
+      name: profile?.name ?? identity.name ?? "Traveler",
+      passportDetailsEncrypted: profile?.passportDetailsEncrypted ?? null,
+      phoneNumber: profile?.phoneNumber ?? "",
       updatedAt: updatedAtIso,
     };
   },

@@ -10,9 +10,9 @@ export default function ProgressSummary() {
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 animate-pulse">
+      <div className="grid animate-pulse gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-24 rounded-2xl bg-brand-light" />
+          <div className="h-24 rounded-2xl bg-brand-light" key={i} />
         ))}
       </div>
     );
@@ -20,24 +20,24 @@ export default function ProgressSummary() {
 
   const stats = [
     {
+      icon: MapPin,
       label: "Sacred sites",
       value: `${progress.templeCount}/${progress.totalTemples}`,
-      icon: MapPin,
     },
     {
+      icon: Route,
       label: "Trails completed",
       value: `${progress.completedTrailCount}/${progress.totalTrails}`,
-      icon: Route,
     },
     {
+      icon: Award,
       label: "Badges earned",
       value: String(progress.badges.length),
-      icon: Award,
     },
     {
+      icon: Trophy,
       label: "Soul score",
       value: String(progress.score),
-      icon: Trophy,
     },
   ];
 
@@ -46,18 +46,18 @@ export default function ProgressSummary() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <LevelBadge level={progress.level} score={progress.score} size="lg" />
         <Link
+          className="font-medium text-citius-blue text-sm transition-colors hover:text-citius-orange"
           href="/sacred-bharat/leaderboard"
-          className="text-sm font-medium text-citius-blue hover:text-citius-orange transition-colors"
         >
           View leaderboard →
         </Link>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon }) => (
-          <div key={label} className="rounded-2xl border border-brand-light bg-white p-5 shadow-sm">
-            <Icon className="size-5 text-citius-orange mb-3" />
+          <div className="rounded-2xl border border-brand-light bg-white p-5 shadow-sm" key={label}>
+            <Icon className="mb-3 size-5 text-citius-orange" />
             <p className="font-heading text-2xl text-brand-dark tabular-nums">{value}</p>
-            <p className="font-sans text-sm text-brand-muted mt-1">{label}</p>
+            <p className="mt-1 font-sans text-brand-muted text-sm">{label}</p>
           </div>
         ))}
       </div>

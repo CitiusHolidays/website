@@ -11,61 +11,61 @@ function makeDeps(overrides = {}) {
   return {
     calls,
     deps: {
-      has: () => false,
-      queries: [],
-      team: [],
-      jobCardModals: JOB_CARD_MODALS,
-      pendingQueryFiles: [],
-      pendingProposalFiles: [],
-      pendingExpenseProofFiles: [],
-      uploadQueryFiles: record("uploadQueryFiles"),
-      uploadEntityFiles: record("uploadEntityFiles"),
-      uploadExpenseProofFiles: record("uploadExpenseProofFiles"),
-      createQuery: record("createQuery", { id: "query_1" }),
-      updateQuery: record("updateQuery"),
-      assignContracting: record("assignContracting"),
-      assignQueryTicketing: record("assignQueryTicketing"),
-      assignQueryTeams: record("assignQueryTeams"),
-      assignJobCardCreator: record("assignJobCardCreator"),
-      addProposalCollaborator: record("addProposalCollaborator"),
-      removeProposalCollaborator: record("removeProposalCollaborator"),
       addJobCardCollaborator: record("addJobCardCollaborator"),
-      removeJobCardCollaborator: record("removeJobCardCollaborator"),
+      addProposalCollaborator: record("addProposalCollaborator"),
+      assignContracting: record("assignContracting"),
       assignContractingOwner: record("assignContractingOwner"),
+      assignJobCardCreator: record("assignJobCardCreator"),
       assignOperationsOwner: record("assignOperationsOwner"),
+      assignQueryTeams: record("assignQueryTeams"),
+      assignQueryTicketing: record("assignQueryTicketing"),
       assignTicketingOwner: record("assignTicketingOwner"),
-      updateQueryStatus: record("updateQueryStatus"),
-      createProposal: record("createProposal", { id: "proposal_1" }),
-      updateProposal: record("updateProposal", { id: "proposal_1" }),
+      createExpense: record("createExpense", { id: "expense_1" }),
+      createHotel: record("createHotel"),
+      createInvoice: record("createInvoice"),
       createJobCard: record("createJobCard"),
-      updateJobCard: record("updateJobCard"),
+      createLeave: record("createLeave"),
+      createPnr: record("createPnr"),
+      createProposal: record("createProposal", { id: "proposal_1" }),
+      createQuery: record("createQuery", { id: "query_1" }),
+      createTicket: record("createTicket"),
+      createTourManager: record("createTourManager"),
       createTravelBatch: record("createTravelBatch", {
-        id: "batch_1",
         batchReference: "JC-0001-NS / B01",
+        id: "batch_1",
       }),
-      updateTravelBatch: record("updateTravelBatch"),
       createTraveller: record("createTraveller"),
+      createVisa: record("createVisa"),
+      decideApproval: record("decideApproval"),
+      has: () => false,
+      jobCardModals: JOB_CARD_MODALS,
+      pendingExpenseProofFiles: [],
+      pendingProposalFiles: [],
+      pendingQueryFiles: [],
+      queries: [],
+      removeJobCardCollaborator: record("removeJobCardCollaborator"),
+      removeProposalCollaborator: record("removeProposalCollaborator"),
+      saveSeat: record("saveSeat"),
+      team: [],
+      updateExpense: record("updateExpense", { id: "expense_1" }),
+      updateHotel: record("updateHotel"),
+      updateInvoice: record("updateInvoice"),
+      updateJobCard: record("updateJobCard"),
+      updateLeave: record("updateLeave"),
+      updatePnr: record("updatePnr"),
+      updateProposal: record("updateProposal", { id: "proposal_1" }),
+      updateQuery: record("updateQuery"),
+      updateQueryStatus: record("updateQueryStatus"),
+      updateSeatAllocation: record("updateSeatAllocation"),
+      updateTicket: record("updateTicket"),
+      updateTourManager: record("updateTourManager"),
+      updateTravelBatch: record("updateTravelBatch"),
       updateTraveller: record("updateTraveller"),
       updateVisaRecord: record("updateVisaRecord"),
-      createVisa: record("createVisa"),
-      createPnr: record("createPnr"),
-      updatePnr: record("updatePnr"),
-      createTicket: record("createTicket"),
-      updateTicket: record("updateTicket"),
-      saveSeat: record("saveSeat"),
-      updateSeatAllocation: record("updateSeatAllocation"),
-      createHotel: record("createHotel"),
-      updateHotel: record("updateHotel"),
-      createTourManager: record("createTourManager"),
-      updateTourManager: record("updateTourManager"),
-      createInvoice: record("createInvoice"),
-      updateInvoice: record("updateInvoice"),
-      createExpense: record("createExpense", { id: "expense_1" }),
-      updateExpense: record("updateExpense", { id: "expense_1" }),
+      uploadEntityFiles: record("uploadEntityFiles"),
+      uploadExpenseProofFiles: record("uploadExpenseProofFiles"),
+      uploadQueryFiles: record("uploadQueryFiles"),
       upsertStaff: record("upsertStaff", { created: false }),
-      createLeave: record("createLeave"),
-      updateLeave: record("updateLeave"),
-      decideApproval: record("decideApproval"),
       ...overrides,
     },
   };
@@ -78,24 +78,24 @@ describe("executeModalCommand", () => {
     });
 
     await executeModalCommand({
-      modal: "salesDecision",
+      deps,
       form: {
-        queryId: "query_1",
-        salesDecision: "Order Confirmed",
         approxMargin: "",
         lostReason: "Price",
+        queryId: "query_1",
+        salesDecision: "Order Confirmed",
       },
-      deps,
+      modal: "salesDecision",
     });
 
     expect(calls).toEqual([
       [
         "updateQueryStatus",
         {
-          queryId: "query_1",
-          salesStatus: "Order Confirmed",
           leadStage: "Confirmation",
           lostReason: undefined,
+          queryId: "query_1",
+          salesStatus: "Order Confirmed",
         },
       ],
     ]);
@@ -106,15 +106,15 @@ describe("executeModalCommand", () => {
 
     await expect(
       executeModalCommand({
-        modal: "query",
+        deps,
         form: {
           clientName: "Acme",
           paxCount: "2",
-          travelStartDate: "2026-08-10",
           travelEndDate: "2026-08-01",
+          travelStartDate: "2026-08-10",
         },
-        deps,
-      }),
+        modal: "query",
+      })
     ).rejects.toThrow("Travel start date must be on or before Travel end date.");
 
     expect(calls).toEqual([]);
@@ -125,39 +125,39 @@ describe("executeModalCommand", () => {
     const { deps, calls } = makeDeps({ pendingQueryFiles });
 
     await executeModalCommand({
-      modal: "query",
+      deps,
       form: {
-        clientName: "Acme",
-        contactPerson: "Nina",
-        contactMobile: "999",
-        destination: "Dubai",
-        paxCount: "8",
-        travelStartDate: "2026-08-01",
-        travelEndDate: "2026-08-06",
-        queryType: "MICE",
-        travelType: "International Travel",
+        batchingNotes: "3 batches of 100 pax on separate dates",
         budgetAmount: "12000",
-        source: "Client",
+        clientName: "Acme",
+        contactMobile: "999",
+        contactPerson: "Nina",
+        destination: "Dubai",
+        notes: "Reference itinerary",
+        paxCount: "8",
+        queryType: "MICE",
         salesOwnerName: "Sales",
+        source: "Client",
         staffId: "staff_contracting",
         ticketingScope: "Both",
+        travelEndDate: "2026-08-06",
         travelInBatches: "Yes",
-        batchingNotes: "3 batches of 100 pax on separate dates",
-        notes: "Reference itinerary",
+        travelStartDate: "2026-08-01",
+        travelType: "International Travel",
       },
-      deps,
+      modal: "query",
     });
 
     expect(calls[0][0]).toBe("createQuery");
     expect(calls[0][1]).toMatchObject({
+      batchingNotes: "3 batches of 100 pax on separate dates",
       contractingStaffId: "staff_contracting",
       ticketingScope: "Both",
       travelInBatches: true,
-      batchingNotes: "3 batches of 100 pax on separate dates",
     });
     expect(calls[1]).toEqual([
       "uploadQueryFiles",
-      expect.objectContaining({ queryId: "query_1", files: pendingQueryFiles }),
+      expect.objectContaining({ files: pendingQueryFiles, queryId: "query_1" }),
     ]);
   });
 
@@ -166,21 +166,21 @@ describe("executeModalCommand", () => {
 
     await expect(
       executeModalCommand({
-        modal: "query",
+        deps,
         form: {
+          budgetAmount: "12000",
           clientName: "Acme",
           paxCount: "8",
-          travelStartDate: "2026-08-01",
-          travelEndDate: "2026-08-06",
           queryType: "MICE",
-          travelType: "International Travel",
-          budgetAmount: "12000",
           source: "Client",
           staffId: "staff_contracting",
           ticketingScope: "",
+          travelEndDate: "2026-08-06",
+          travelStartDate: "2026-08-01",
+          travelType: "International Travel",
         },
-        deps,
-      }),
+        modal: "query",
+      })
     ).rejects.toThrow("Select a Ticketing Scope.");
 
     expect(calls).toEqual([]);
@@ -190,30 +190,30 @@ describe("executeModalCommand", () => {
     const { deps, calls } = makeDeps();
 
     await executeModalCommand({
-      modal: "query",
-      form: {
-        entityId: "query_1",
-        clientName: "Acme",
-        paxCount: "8",
-        travelStartDate: "2026-08-01",
-        travelEndDate: "2026-08-06",
-        queryType: "MICE",
-        travelType: "International Travel",
-        budgetAmount: "12000",
-        source: "Client",
-        travelInBatches: "No",
-        batchingNotes: "3 batches of 100 pax",
-      },
       deps,
+      form: {
+        batchingNotes: "3 batches of 100 pax",
+        budgetAmount: "12000",
+        clientName: "Acme",
+        entityId: "query_1",
+        paxCount: "8",
+        queryType: "MICE",
+        source: "Client",
+        travelEndDate: "2026-08-06",
+        travelInBatches: "No",
+        travelStartDate: "2026-08-01",
+        travelType: "International Travel",
+      },
+      modal: "query",
     });
 
     expect(calls).toEqual([
       [
         "updateQuery",
         expect.objectContaining({
+          batchingNotes: "",
           queryId: "query_1",
           travelInBatches: false,
-          batchingNotes: "",
         }),
       ],
     ]);
@@ -222,23 +222,23 @@ describe("executeModalCommand", () => {
   test("assignQueryTeams calls the atomic mutation once", async () => {
     const { deps, calls } = makeDeps();
     await executeModalCommand({
-      modal: "assignQueryTeams",
+      deps,
       form: {
         queryId: "query_1",
         staffId: "staff_contracting",
-        ticketingStaffId: "staff_ticketing",
         ticketingScope: "Both",
+        ticketingStaffId: "staff_ticketing",
       },
-      deps,
+      modal: "assignQueryTeams",
     });
     expect(calls).toEqual([
       [
         "assignQueryTeams",
         {
-          queryId: "query_1",
           contractingStaffId: "staff_contracting",
-          ticketingStaffId: "staff_ticketing",
+          queryId: "query_1",
           ticketingScope: "Both",
+          ticketingStaffId: "staff_ticketing",
         },
       ],
     ]);
@@ -249,14 +249,14 @@ describe("executeModalCommand", () => {
 
     await expect(
       executeModalCommand({
-        modal: "assignQueryTeams",
+        deps,
         form: {
           queryId: "query_1",
           staffId: "staff_contracting",
           ticketingScope: "Regional",
         },
-        deps,
-      }),
+        modal: "assignQueryTeams",
+      })
     ).rejects.toThrow("Select a valid Ticketing Scope.");
 
     expect(calls).toEqual([]);
@@ -265,9 +265,9 @@ describe("executeModalCommand", () => {
   test("assignJobCardCreator calls the assignment mutation", async () => {
     const { deps, calls } = makeDeps();
     await executeModalCommand({
-      modal: "assignJobCardCreator",
-      form: { queryId: "query_1", staffId: "staff_accounts" },
       deps,
+      form: { queryId: "query_1", staffId: "staff_accounts" },
+      modal: "assignJobCardCreator",
     });
     expect(calls).toEqual([
       ["assignJobCardCreator", { queryId: "query_1", staffId: "staff_accounts" }],
@@ -277,24 +277,24 @@ describe("executeModalCommand", () => {
   test("collaborator modals call proposal and job card share mutations", async () => {
     const { deps, calls } = makeDeps();
     await executeModalCommand({
+      deps,
+      form: { proposalId: "proposal_1", staffId: "staff_ops" },
       modal: "addProposalCollaborator",
-      form: { proposalId: "proposal_1", staffId: "staff_ops" },
-      deps,
     });
     await executeModalCommand({
+      deps,
+      form: { jobCardId: "job_1", staffId: "staff_ops" },
       modal: "addJobCardCollaborator",
-      form: { jobCardId: "job_1", staffId: "staff_ops" },
-      deps,
     });
     await executeModalCommand({
-      modal: "removeProposalCollaborator",
+      deps,
       form: { proposalId: "proposal_1", staffId: "staff_ops" },
-      deps,
+      modal: "removeProposalCollaborator",
     });
     await executeModalCommand({
-      modal: "removeJobCardCollaborator",
-      form: { jobCardId: "job_1", staffId: "staff_ops" },
       deps,
+      form: { jobCardId: "job_1", staffId: "staff_ops" },
+      modal: "removeJobCardCollaborator",
     });
     expect(calls).toEqual([
       ["addProposalCollaborator", { proposalId: "proposal_1", staffId: "staff_ops" }],
@@ -307,16 +307,16 @@ describe("executeModalCommand", () => {
   test("office/general expenses do not require a job card", async () => {
     const { deps, calls } = makeDeps();
     await executeModalCommand({
-      modal: "expense",
+      deps,
       form: {
+        cardAmount: "500",
+        category: "Miscellaneous",
+        expenseDate: "2026-06-15",
         expenseType: "office",
         jobCardId: "",
-        expenseDate: "2026-06-15",
-        category: "Miscellaneous",
-        cardAmount: "500",
         paidBy: "Accounts",
       },
-      deps,
+      modal: "expense",
     });
     expect(calls).toEqual([
       [
@@ -333,43 +333,43 @@ describe("executeModalCommand", () => {
   test("creates travel batches with operational fields on the parent job card", async () => {
     const { deps, calls } = makeDeps();
     await executeModalCommand({
-      modal: "travelBatch",
+      deps,
       form: {
-        jobCardId: "job_1",
-        destination: "Dubai",
         confirmedPax: "12",
-        roomCount: "6",
-        travelStartDate: "2026-08-01",
-        travelEndDate: "2026-08-10",
         contractingOwnerId: "staff_contracting",
         contractingOwnerName: "Contracting Lead",
+        destination: "Dubai",
+        jobCardId: "job_1",
         operationsOwnerId: "staff_ops",
         operationsOwnerName: "Ops Lead",
+        roomCount: "6",
+        status: "In Operations",
         ticketingOwnerId: "staff_ticketing",
         ticketingOwnerName: "Ticketing Lead",
         tourManagerName: "TM One",
-        status: "In Operations",
+        travelEndDate: "2026-08-10",
+        travelStartDate: "2026-08-01",
       },
-      deps,
+      modal: "travelBatch",
     });
     expect(calls).toEqual([
       [
         "createTravelBatch",
         {
-          jobCardId: "job_1",
-          destination: "Dubai",
           confirmedPax: 12,
-          roomCount: 6,
-          travelStartDate: "2026-08-01",
-          travelEndDate: "2026-08-10",
           contractingOwnerId: "staff_contracting",
           contractingOwnerName: "Contracting Lead",
+          destination: "Dubai",
+          jobCardId: "job_1",
           operationsOwnerId: "staff_ops",
           operationsOwnerName: "Ops Lead",
+          roomCount: 6,
+          status: "In Operations",
           ticketingOwnerId: "staff_ticketing",
           ticketingOwnerName: "Ticketing Lead",
           tourManagerName: "TM One",
-          status: "In Operations",
+          travelEndDate: "2026-08-10",
+          travelStartDate: "2026-08-01",
         },
       ],
     ]);
@@ -378,31 +378,31 @@ describe("executeModalCommand", () => {
   test("updates travel batches by travel batch id", async () => {
     const { deps, calls } = makeDeps();
     await executeModalCommand({
-      modal: "travelBatch",
+      deps,
       form: {
+        batchReference: "JC-0001-NS / B01",
+        confirmedPax: "8",
+        destination: "Singapore",
         entityId: "batch_1",
         jobCardId: "job_1",
-        batchReference: "JC-0001-NS / B01",
-        destination: "Singapore",
-        confirmedPax: "8",
         roomCount: "4",
-        travelStartDate: "2026-09-01",
-        travelEndDate: "2026-09-08",
         status: "Open",
+        travelEndDate: "2026-09-08",
+        travelStartDate: "2026-09-01",
       },
-      deps,
+      modal: "travelBatch",
     });
     expect(calls).toEqual([
       [
         "updateTravelBatch",
         {
-          travelBatchId: "batch_1",
-          destination: "Singapore",
           confirmedPax: 8,
+          destination: "Singapore",
           roomCount: 4,
-          travelStartDate: "2026-09-01",
-          travelEndDate: "2026-09-08",
           status: "Open",
+          travelBatchId: "batch_1",
+          travelEndDate: "2026-09-08",
+          travelStartDate: "2026-09-01",
         },
       ],
     ]);
@@ -412,44 +412,44 @@ describe("executeModalCommand", () => {
     const { deps, calls } = makeDeps();
 
     await executeModalCommand({
-      modal: "traveller",
+      deps,
       form: {
-        jobCardId: "job_1",
-        travelBatchId: "batch_1",
-        fullName: "Ada Lovelace",
-        visaRequired: "Yes",
+        arrivingEarly: "No",
         domesticTravelRequired: "No",
         extensionOfTour: "No",
-        arrivingEarly: "No",
+        fullName: "Ada Lovelace",
+        jobCardId: "job_1",
+        travelBatchId: "batch_1",
+        visaRequired: "Yes",
       },
-      deps,
+      modal: "traveller",
     });
 
     expect(calls[0][1]).toMatchObject({
+      fullName: "Ada Lovelace",
       jobCardId: "job_1",
       travelBatchId: "batch_1",
-      fullName: "Ada Lovelace",
     });
 
     await executeModalCommand({
-      modal: "traveller",
+      deps,
       form: {
+        arrivingEarly: "No",
+        domesticTravelRequired: "No",
         entityId: "traveller_1",
+        extensionOfTour: "No",
+        fullName: "Ada Lovelace",
         jobCardId: "job_1",
         travelBatchId: "",
-        fullName: "Ada Lovelace",
         visaRequired: "Yes",
-        domesticTravelRequired: "No",
-        extensionOfTour: "No",
-        arrivingEarly: "No",
       },
-      deps,
+      modal: "traveller",
     });
 
     expect(calls[1][1]).toMatchObject({
-      travellerId: "traveller_1",
-      travelBatchId: "",
       fullName: "Ada Lovelace",
+      travelBatchId: "",
+      travellerId: "traveller_1",
     });
   });
 });

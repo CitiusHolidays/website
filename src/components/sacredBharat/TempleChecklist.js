@@ -26,28 +26,28 @@ export default function TempleChecklist({ templeIds, showAllTemples = false }) {
         return (
           <li key={temple.id}>
             <button
-              type="button"
-              onClick={() => toggleVisited(temple.id)}
               className={cn(
-                "w-full flex items-center gap-4 rounded-xl border px-4 py-3 text-left transition-all",
+                "flex w-full items-center gap-4 rounded-xl border px-4 py-3 text-left transition-all",
                 visited
                   ? "border-citius-orange/35 bg-citius-orange/5"
-                  : "border-brand-light bg-white hover:border-citius-blue/25",
+                  : "border-brand-light bg-white hover:border-citius-blue/25"
               )}
+              onClick={() => toggleVisited(temple.id)}
+              type="button"
             >
               <span
                 className={cn(
                   "flex size-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
                   visited
                     ? "border-citius-orange bg-citius-orange text-white"
-                    : "border-brand-light text-transparent",
+                    : "border-brand-light text-transparent"
                 )}
               >
                 <Check className="size-4" strokeWidth={3} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="font-heading text-brand-dark">{temple.name}</p>
-                <p className="font-sans text-xs text-brand-muted flex items-center gap-1 mt-0.5">
+                <p className="mt-0.5 flex items-center gap-1 font-sans text-brand-muted text-xs">
                   <MapPin className="size-3 shrink-0" />
                   {temple.city}, {temple.state}
                   {showAllTemples && (
@@ -57,7 +57,7 @@ export default function TempleChecklist({ templeIds, showAllTemples = false }) {
                   )}
                 </p>
               </div>
-              <span className="text-xs text-brand-muted shrink-0">+25 pts</span>
+              <span className="shrink-0 text-brand-muted text-xs">+25 pts</span>
             </button>
           </li>
         );

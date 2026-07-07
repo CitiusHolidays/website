@@ -1,7 +1,7 @@
 "use client";
 
-import { m } from "motion/react";
 import { Loader2 } from "lucide-react";
+import { m } from "motion/react";
 import { useId, useState } from "react";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { PortalDateInput } from "@/components/portal/PortalDateInput";
@@ -9,9 +9,15 @@ import { usePortalToast } from "@/components/portal/PortalToast";
 import { formatDisplayDate as formatDate } from "@/lib/formatDate";
 
 function formatFileSize(bytes) {
-  if (!bytes) return "0 B";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (!bytes) {
+    return "0 B";
+  }
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
@@ -27,9 +33,9 @@ async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, 
       }
       const uploadUrl = await generateUploadUrl({});
       const uploadRes = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
         body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        method: "POST",
       });
       if (!uploadRes.ok) {
         throw new Error(`Failed to upload ${file.name}.`);
@@ -37,12 +43,12 @@ async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, 
       const { storageId } = await uploadRes.json();
       await attachFile({
         [idField]: entityId,
-        storageId,
         fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
         fileSize: file.size,
+        mimeType: file.type || "application/octet-stream",
+        storageId,
       });
-    }),
+    })
   );
 }
 
@@ -74,7 +80,9 @@ const MAX_QUERY_NOTES_WORDS = 30;
 
 function countWords(value) {
   const trimmed = String(value || "").trim();
-  if (!trimmed) return 0;
+  if (!trimmed) {
+    return 0;
+  }
   return trimmed.split(/\s+/).length;
 }
 
@@ -91,12 +99,14 @@ function truncateToMaxWords(value, maxWords) {
 
 function formatNotesPreview(value, maxWords = MAX_QUERY_NOTES_WORDS) {
   const text = String(value || "").trim();
-  if (!text) return "-";
+  if (!text) {
+    return "-";
+  }
   const words = text.split(/\s+/).filter(Boolean);
   const display = words.length > maxWords ? `${words.slice(0, maxWords).join(" ")}…` : text;
   return (
     <span
-      className="block max-w-[220px] whitespace-normal break-words text-xs leading-snug text-brand-muted"
+      className="block max-w-[220px] whitespace-normal break-words text-brand-muted text-xs leading-snug"
       title={text}
     >
       {display}
@@ -124,27 +134,27 @@ function Input({
     "h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10";
   return (
     <label className="block" htmlFor={fieldId}>
-      <span className="mb-1 block text-xs font-semibold text-brand-muted">{label}</span>
+      <span className="mb-1 block font-semibold text-brand-muted text-xs">{label}</span>
       {type === "date" ? (
         <PortalDateInput
-          id={fieldId}
-          value={value}
-          onChange={onChange}
-          required={required}
-          placeholder={placeholder || "DD/MM/YYYY"}
-          inputClassName="!bg-brand-light focus:!bg-white"
           className="w-full"
+          id={fieldId}
+          inputClassName="!bg-brand-light focus:!bg-white"
+          onChange={onChange}
+          placeholder={placeholder || "DD/MM/YYYY"}
+          required={required}
+          value={value}
           {...rest}
         />
       ) : (
         <input
-          id={fieldId}
-          type={type}
-          required={required}
-          value={value}
-          placeholder={placeholder}
-          onChange={(event) => onChange(event.target.value)}
           className={fieldClass}
+          id={fieldId}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          required={required}
+          type={type}
+          value={value}
           {...rest}
         />
       )}
@@ -154,16 +164,16 @@ function Input({
 
 function Select({ label, value, options, onChange, required = false }) {
   const normalized = options.map((option) =>
-    typeof option === "string" ? { value: option, label: option } : option,
+    typeof option === "string" ? { label: option, value: option } : option
   );
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-semibold text-brand-muted">{label}</span>
+      <span className="mb-1 block font-semibold text-brand-muted text-xs">{label}</span>
       <select
+        className="h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
+        onChange={(event) => onChange(event.target.value)}
         required={required}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
       >
         {normalized.map((option) => (
           <option key={option.value} value={option.value}>
@@ -177,27 +187,30 @@ function Select({ label, value, options, onChange, required = false }) {
 
 function MultiSelect({ label, value, options, onChange }) {
   const normalized = options.map((option) =>
-    typeof option === "string" ? { value: option, label: option } : option,
+    typeof option === "string" ? { label: option, value: option } : option
   );
   const selected = new Set(value);
   return (
     <div className="md:col-span-2">
-      <span className="mb-2 block text-xs font-semibold text-brand-muted">{label}</span>
+      <span className="mb-2 block font-semibold text-brand-muted text-xs">{label}</span>
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {normalized.map((option) => (
           <label
-            key={option.value}
             className="flex items-center gap-2 rounded-md border border-brand-border bg-brand-light px-3 py-2 text-sm"
+            key={option.value}
           >
             <input
-              type="checkbox"
               checked={selected.has(option.value)}
               onChange={(event) => {
                 const next = new Set(selected);
-                if (event.target.checked) next.add(option.value);
-                else next.delete(option.value);
+                if (event.target.checked) {
+                  next.add(option.value);
+                } else {
+                  next.delete(option.value);
+                }
                 onChange(Array.from(next));
               }}
+              type="checkbox"
             />
             {option.label}
           </label>
@@ -219,12 +232,12 @@ function Textarea({ label, value, onChange, maxWords }) {
 
   return (
     <label className="block md:col-span-2">
-      <span className="mb-1 block text-xs font-semibold text-brand-muted">{label}</span>
+      <span className="mb-1 block font-semibold text-brand-muted text-xs">{label}</span>
       <textarea
-        value={value}
+        className="w-full rounded-xl border border-brand-border bg-brand-light px-3 py-2 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
         onChange={updateTextareaValue}
         rows={4}
-        className="w-full rounded-xl border border-brand-border bg-brand-light px-3 py-2 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
+        value={value}
       />
       {maxWords ? (
         <span
@@ -239,7 +252,9 @@ function Textarea({ label, value, onChange, maxWords }) {
 
 function LifecycleDates({ items, compact = false }) {
   const visible = (items || []).filter((item) => item.value);
-  if (visible.length === 0) return null;
+  if (visible.length === 0) {
+    return null;
+  }
   return (
     <div
       className={
@@ -247,7 +262,7 @@ function LifecycleDates({ items, compact = false }) {
       }
     >
       <div
-        className={`flex flex-wrap gap-x-4 gap-y-1 ${compact ? "text-xs text-brand-muted" : "text-xs text-brand-muted"}`}
+        className={`flex flex-wrap gap-x-4 gap-y-1 ${compact ? "text-brand-muted text-xs" : "text-brand-muted text-xs"}`}
       >
         {visible.map((item) => (
           <span key={item.label}>
@@ -292,31 +307,31 @@ function ContractingCostFields({ form, updateForm }) {
 
   return (
     <>
-      <div className="md:col-span-2 rounded-xl border border-brand-border bg-brand-light/60 p-4">
-        <div className="mb-3 font-heading text-sm font-semibold text-citius-blue">
+      <div className="rounded-xl border border-brand-border bg-brand-light/60 p-4 md:col-span-2">
+        <div className="mb-3 font-heading font-semibold text-citius-blue text-sm">
           Contracting cost
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <Input
             label="Land Cost (INR)"
+            onChange={(v) => updateForm("contractingLandCost", v)}
             type="number"
             value={form.contractingLandCost}
-            onChange={(v) => updateForm("contractingLandCost", v)}
           />
           <Input
             label="Airlines Cost (INR)"
+            onChange={(v) => updateForm("contractingAirlinesCost", v)}
             type="number"
             value={form.contractingAirlinesCost}
-            onChange={(v) => updateForm("contractingAirlinesCost", v)}
           />
           <Input
             label="Visa Cost (INR)"
+            onChange={(v) => updateForm("contractingVisaCost", v)}
             type="number"
             value={form.contractingVisaCost}
-            onChange={(v) => updateForm("contractingVisaCost", v)}
           />
           <div className="rounded-lg border border-brand-border bg-white px-3 py-2 text-sm">
-            <div className="text-xs font-semibold uppercase tracking-wide text-brand-muted">
+            <div className="font-semibold text-brand-muted text-xs uppercase tracking-wide">
               Total cost
             </div>
             <div className="mt-1 font-semibold text-brand-dark">{money(totalCost)}</div>
@@ -344,7 +359,9 @@ function FinalizedProposalPdfPanel({
   const handleUpload = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || !proposalId) return;
+    if (!(file && proposalId)) {
+      return;
+    }
 
     if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
       setUploadError(`${file.name} exceeds the 15 MB limit.`);
@@ -356,9 +373,9 @@ function FinalizedProposalPdfPanel({
     try {
       const uploadUrl = await generateFinalizedPdfUploadUrl({});
       const uploadRes = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/pdf" },
         body: file,
+        headers: { "Content-Type": file.type || "application/pdf" },
+        method: "POST",
       });
       if (!uploadRes.ok) {
         setUploadError(`Failed to upload ${file.name}.`);
@@ -367,11 +384,11 @@ function FinalizedProposalPdfPanel({
       }
       const { storageId } = await uploadRes.json();
       await attachFinalizedPdf({
+        fileName: file.name,
+        fileSize: file.size,
+        mimeType: file.type || "application/pdf",
         proposalId,
         storageId,
-        fileName: file.name,
-        mimeType: file.type || "application/pdf",
-        fileSize: file.size,
       });
     } catch (err) {
       setUploadError(err?.data || err?.message || "Upload failed.");
@@ -381,12 +398,14 @@ function FinalizedProposalPdfPanel({
 
   const handleRemove = async () => {
     const ok = await confirm({
-      title: "Remove finalized PDF",
-      message: "Remove the finalized proposal PDF?",
       confirmLabel: "Remove",
       danger: true,
+      message: "Remove the finalized proposal PDF?",
+      title: "Remove finalized PDF",
     });
-    if (!ok) return;
+    if (!ok) {
+      return;
+    }
     try {
       await removeFinalizedPdf({ proposalId });
       toast.success("Finalized PDF removed.");
@@ -397,68 +416,68 @@ function FinalizedProposalPdfPanel({
 
   return (
     <m.div className="space-y-4">
-      <p className="text-sm text-brand-muted">
+      <p className="text-brand-muted text-sm">
         Upload the client-ready proposal PDF here. Sales can download it and send it to the client,
         then mark the proposal as sent.
       </p>
       {canSend && (
         <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
           <label
+            className="mb-2 block font-medium text-brand-text text-sm"
             htmlFor="finalized-proposal-pdf-upload"
-            className="mb-2 block text-sm font-medium text-brand-text"
           >
             {finalizedPdf ? "Replace Finalized Proposal PDF" : "Upload Finalized Proposal PDF"}
           </label>
-          <p className="mb-3 text-xs text-brand-muted">PDF only, up to 15 MB.</p>
+          <p className="mb-3 text-brand-muted text-xs">PDF only, up to 15 MB.</p>
           <input
-            id="finalized-proposal-pdf-upload"
-            type="file"
             accept=".pdf,application/pdf"
+            className="block w-full text-brand-text text-sm file:mr-3 file:rounded-full file:border-0 file:bg-citius-orange file:px-4 file:py-2 file:font-semibold file:text-sm file:text-white"
             disabled={isUploading}
-            className="block w-full text-sm text-brand-text file:mr-3 file:rounded-full file:border-0 file:bg-citius-orange file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
+            id="finalized-proposal-pdf-upload"
             onChange={handleUpload}
+            type="file"
           />
           {isUploading && (
-            <p className="mt-2 flex items-center gap-2 text-sm text-brand-muted">
+            <p className="mt-2 flex items-center gap-2 text-brand-muted text-sm">
               <Loader2 className="animate-spin" size={14} />
               Uploading…
             </p>
           )}
-          {uploadError && <p className="mt-2 text-sm text-red-600">{uploadError}</p>}
+          {uploadError && <p className="mt-2 text-red-600 text-sm">{uploadError}</p>}
         </div>
       )}
 
-      {!finalizedPdf ? (
-        <p className="text-sm text-brand-muted">No finalized proposal PDF uploaded yet.</p>
-      ) : (
+      {finalizedPdf ? (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-brand-border bg-white px-4 py-3">
           <div className="min-w-0">
             <div className="truncate font-medium text-brand-text">{finalizedPdf.fileName}</div>
             {finalizedPdf.uploadedAt && (
-              <div className="text-xs text-brand-muted">
+              <div className="text-brand-muted text-xs">
                 Uploaded {formatDate(finalizedPdf.uploadedAt)}
               </div>
             )}
           </div>
           <div className="flex shrink-0 gap-2">
             <button
-              type="button"
               className="portal-small-btn"
               onClick={() =>
                 openFinalizedProposalPdf(proposalId, getFinalizedPdfUrl).catch((err) => {
                   toast.error(err?.data || err?.message || "Unable to open file.");
                 })
               }
+              type="button"
             >
               Download
             </button>
             {canSend && (
-              <button type="button" className="portal-danger-btn" onClick={handleRemove}>
+              <button className="portal-danger-btn" onClick={handleRemove} type="button">
                 Remove
               </button>
             )}
           </div>
         </div>
+      ) : (
+        <p className="text-brand-muted text-sm">No finalized proposal PDF uploaded yet.</p>
       )}
     </m.div>
   );
@@ -467,40 +486,42 @@ function FinalizedProposalPdfPanel({
 function QueryFilePicker({ files, onChange, inputId }) {
   return (
     <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
-      <label htmlFor={inputId} className="mb-2 block text-sm font-medium text-brand-text">
+      <label className="mb-2 block font-medium text-brand-text text-sm" htmlFor={inputId}>
         Attachments
       </label>
-      <p className="mb-3 text-xs text-brand-muted">
+      <p className="mb-3 text-brand-muted text-xs">
         PDF, Office documents, images, or text files up to 15 MB each.
       </p>
       <input
-        id={inputId}
-        type="file"
-        multiple
         accept={QUERY_ATTACHMENT_ACCEPT}
-        className="block w-full text-sm text-brand-text file:mr-3 file:rounded-full file:border-0 file:bg-citius-blue file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-citius-blue/90"
+        className="block w-full text-brand-text text-sm file:mr-3 file:rounded-full file:border-0 file:bg-citius-blue file:px-4 file:py-2 file:font-semibold file:text-sm file:text-white hover:file:bg-citius-blue/90"
+        id={inputId}
+        multiple
         onChange={(event) => {
           const picked = Array.from(event.target.files || []);
-          if (!picked.length) return;
+          if (!picked.length) {
+            return;
+          }
           onChange([...files, ...picked]);
           event.target.value = "";
         }}
+        type="file"
       />
       {files.length > 0 && (
         <ul className="mt-3 space-y-2">
           {files.map((file, index) => (
             <li
-              key={`${file.name}-${file.size}-${index}`}
               className="flex items-center justify-between gap-3 rounded-lg border border-brand-border bg-white px-3 py-2 text-sm"
+              key={`${file.name}-${file.size}-${index}`}
             >
               <div className="min-w-0">
                 <div className="truncate font-medium text-brand-text">{file.name}</div>
-                <div className="text-xs text-brand-muted">{formatFileSize(file.size)}</div>
+                <div className="text-brand-muted text-xs">{formatFileSize(file.size)}</div>
               </div>
               <button
-                type="button"
-                className="shrink-0 text-xs font-semibold text-red-600 hover:underline"
+                className="shrink-0 font-semibold text-red-600 text-xs hover:underline"
                 onClick={() => onChange(files.filter((_, i) => i !== index))}
+                type="button"
               >
                 Remove
               </button>
@@ -534,17 +555,19 @@ function QueryAttachmentsPanel({
     const picked = Array.from(event.target.files || []);
     event.target.value = "";
     const targetId = entityId || queryId;
-    if (!picked.length || !targetId) return;
+    if (!(picked.length && targetId)) {
+      return;
+    }
 
     setIsUploading(true);
     setUploadError("");
     try {
       await uploadEntityFiles({
+        attachFile: attachQueryFile,
         entityId: targetId,
-        idField,
         files: picked,
         generateUploadUrl: generateQueryUploadUrl,
-        attachFile: attachQueryFile,
+        idField,
       });
     } catch (err) {
       setUploadError(err?.data || err?.message || "Upload failed.");
@@ -554,12 +577,14 @@ function QueryAttachmentsPanel({
 
   const handleRemove = async (attachment) => {
     const ok = await confirm({
-      title: "Remove file",
-      message: `Remove ${attachment.fileName}?`,
       confirmLabel: "Remove",
       danger: true,
+      message: `Remove ${attachment.fileName}?`,
+      title: "Remove file",
     });
-    if (!ok) return;
+    if (!ok) {
+      return;
+    }
     try {
       await removeQueryAttachment({ attachmentId: attachment.id });
       toast.success("File removed.");
@@ -573,64 +598,64 @@ function QueryAttachmentsPanel({
       {canManage && (
         <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
           <label
+            className="mb-2 block font-medium text-brand-text text-sm"
             htmlFor="query-attachment-upload"
-            className="mb-2 block text-sm font-medium text-brand-text"
           >
             {uploadLabel}
           </label>
           <input
-            id="query-attachment-upload"
-            type="file"
-            multiple
             accept={QUERY_ATTACHMENT_ACCEPT}
+            className="block w-full text-brand-text text-sm file:mr-3 file:rounded-full file:border-0 file:bg-citius-orange file:px-4 file:py-2 file:font-semibold file:text-sm file:text-white"
             disabled={isUploading}
-            className="block w-full text-sm text-brand-text file:mr-3 file:rounded-full file:border-0 file:bg-citius-orange file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
+            id="query-attachment-upload"
+            multiple
             onChange={handleUpload}
+            type="file"
           />
           {isUploading && (
-            <p className="mt-2 flex items-center gap-2 text-sm text-brand-muted">
+            <p className="mt-2 flex items-center gap-2 text-brand-muted text-sm">
               <Loader2 className="animate-spin" size={14} />
               Uploading…
             </p>
           )}
-          {uploadError && <p className="mt-2 text-sm text-red-600">{uploadError}</p>}
+          {uploadError && <p className="mt-2 text-red-600 text-sm">{uploadError}</p>}
         </div>
       )}
 
       {attachments.length === 0 ? (
-        <p className="text-sm text-brand-muted">No files attached yet.</p>
+        <p className="text-brand-muted text-sm">No files attached yet.</p>
       ) : (
         <ul className="space-y-2">
           {attachments.map((file) => (
             <li
-              key={file.id}
               className="flex items-center justify-between gap-3 rounded-xl border border-brand-border bg-white px-4 py-3"
+              key={file.id}
             >
               <div className="min-w-0">
                 <div className="truncate font-medium text-brand-text">{file.fileName}</div>
-                <div className="text-xs text-brand-muted">
+                <div className="text-brand-muted text-xs">
                   {formatFileSize(file.fileSize)} · {formatDate(file.createdAt)}
                 </div>
               </div>
               <div className="flex shrink-0 gap-2">
                 <button
-                  type="button"
                   className="portal-small-btn"
                   onClick={() =>
                     openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch(
                       (err) => {
                         toast.error(err?.data || err?.message || "Unable to open file.");
-                      },
+                      }
                     )
                   }
+                  type="button"
                 >
                   Open
                 </button>
                 {canManage && (
                   <button
-                    type="button"
                     className="portal-small-btn text-red-600"
                     onClick={() => handleRemove(file)}
+                    type="button"
                   >
                     Remove
                   </button>

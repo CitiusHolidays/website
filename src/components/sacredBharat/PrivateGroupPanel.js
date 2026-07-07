@@ -18,8 +18,8 @@ export default function PrivateGroupPanel() {
     return (
       <div className="rounded-lg border border-brand-light bg-white p-5 text-center">
         <Users className="mx-auto mb-3 size-5 text-citius-blue" />
-        <p className="font-heading text-lg text-brand-dark">Private groups</p>
-        <p className="mt-2 font-sans text-sm text-brand-muted">
+        <p className="font-heading text-brand-dark text-lg">Private groups</p>
+        <p className="mt-2 font-sans text-brand-muted text-sm">
           Sign in to compare progress with family, friends, or a pilgrimage group.
         </p>
       </div>
@@ -33,7 +33,9 @@ export default function PrivateGroupPanel() {
   };
   const onJoin = async (event) => {
     event.preventDefault();
-    if (!inviteCode.trim()) return;
+    if (!inviteCode.trim()) {
+      return;
+    }
     await joinGroup({ inviteCode });
     setInviteCode("");
   };
@@ -42,35 +44,35 @@ export default function PrivateGroupPanel() {
     <div className="rounded-lg border border-brand-light bg-white p-5">
       <div className="flex items-center gap-2">
         <Users className="size-5 text-citius-blue" />
-        <h2 className="font-heading text-lg text-brand-dark">Private groups</h2>
+        <h2 className="font-heading text-brand-dark text-lg">Private groups</h2>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <form onSubmit={onCreate} className="space-y-2">
+        <form className="space-y-2" onSubmit={onCreate}>
           <input
             aria-label="Group name"
-            value={name}
+            className="w-full rounded-md border border-brand-light px-3 py-2 font-sans text-sm"
             onChange={(event) => setName(event.target.value)}
             placeholder="Group name"
-            className="w-full rounded-md border border-brand-light px-3 py-2 font-sans text-sm"
+            value={name}
           />
           <button
+            className="rounded-md bg-citius-blue px-3 py-2 font-sans font-semibold text-white text-xs"
             type="submit"
-            className="rounded-md bg-citius-blue px-3 py-2 font-sans text-xs font-semibold text-white"
           >
             Create group
           </button>
         </form>
-        <form onSubmit={onJoin} className="space-y-2">
+        <form className="space-y-2" onSubmit={onJoin}>
           <input
             aria-label="Invite code"
-            value={inviteCode}
+            className="w-full rounded-md border border-brand-light px-3 py-2 font-sans text-sm uppercase"
             onChange={(event) => setInviteCode(event.target.value)}
             placeholder="Invite code"
-            className="w-full rounded-md border border-brand-light px-3 py-2 font-sans text-sm uppercase"
+            value={inviteCode}
           />
           <button
+            className="rounded-md bg-brand-dark px-3 py-2 font-sans font-semibold text-white text-xs"
             type="submit"
-            className="rounded-md bg-brand-dark px-3 py-2 font-sans text-xs font-semibold text-white"
           >
             Join group
           </button>
@@ -79,12 +81,12 @@ export default function PrivateGroupPanel() {
       <div className="mt-5 grid gap-2">
         {(groups ?? []).map((group) => (
           <Link
-            key={group.id}
+            className="flex items-center justify-between rounded-md bg-brand-light/40 px-3 py-2 font-sans text-brand-dark text-sm"
             href={`/sacred-bharat/groups/${group.id}`}
-            className="flex items-center justify-between rounded-md bg-brand-light/40 px-3 py-2 font-sans text-sm text-brand-dark"
+            key={group.id}
           >
             <span>{group.name}</span>
-            <span className="text-xs text-brand-muted">{group.inviteCode}</span>
+            <span className="text-brand-muted text-xs">{group.inviteCode}</span>
           </Link>
         ))}
       </div>

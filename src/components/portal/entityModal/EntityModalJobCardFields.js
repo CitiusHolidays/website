@@ -44,81 +44,81 @@ export function EntityModalJobCardFields({
         <>
           <Select
             label="Confirmed Query"
-            value={form.queryId}
+            onChange={handleJobQuerySelect}
             options={[
-              { value: "", label: "Select confirmed query…" },
+              { label: "Select confirmed query…", value: "" },
               ...queries.reduce((options, q) => {
                 if (
                   q.salesStatus === "Order Confirmed" ||
                   q.contractingStatus === "Order Confirmed"
                 ) {
                   options.push({
-                    value: q.id,
                     label: `${q.queryCode} - ${q.clientName}`,
+                    value: q.id,
                   });
                 }
                 return options;
               }, []),
             ]}
-            onChange={handleJobQuerySelect}
             required={!form.entityId}
+            value={form.queryId}
           />
           <Select
             label="Linked Proposal"
-            value={form.proposalId}
+            onChange={(v) => updateForm("proposalId", v)}
             options={[
-              { value: "", label: "Select proposal…" },
+              { label: "Select proposal…", value: "" },
               ...proposals.reduce((options, proposal) => {
                 if (!form.queryId || proposalLinkedQueryIds(proposal).includes(form.queryId)) {
                   options.push({
-                    value: proposal.id,
                     label: `${proposal.proposalCode} - ${proposal.status}`,
+                    value: proposal.id,
                   });
                 }
                 return options;
               }, []),
             ]}
-            onChange={(v) => updateForm("proposalId", v)}
             required={!form.entityId}
+            value={form.proposalId}
           />
           <Input
             label="Client"
-            value={form.clientName}
             onChange={(v) => updateForm("clientName", v)}
+            value={form.clientName}
           />
           <Input
             label="Confirmed Pax"
+            onChange={(v) => updateForm("confirmedPax", v)}
             type="number"
             value={form.confirmedPax}
-            onChange={(v) => updateForm("confirmedPax", v)}
           />
           <Input
             label="Room Count"
+            onChange={(v) => updateForm("roomCount", v)}
             type="number"
             value={form.roomCount}
-            onChange={(v) => updateForm("roomCount", v)}
           />
           <Input
             label="Destination"
-            value={form.destination}
             onChange={(v) => updateForm("destination", v)}
+            value={form.destination}
           />
           <Input
             label="Travel Start"
+            onChange={(v) => updateForm("travelStartDate", v)}
             type="date"
             value={form.travelStartDate}
-            onChange={(v) => updateForm("travelStartDate", v)}
           />
           <Input
             label="Travel End"
+            onChange={(v) => updateForm("travelEndDate", v)}
             type="date"
             value={form.travelEndDate}
-            onChange={(v) => updateForm("travelEndDate", v)}
           />
           <Input
             label="Tour Manager"
-            value={form.tourManagerName}
             onChange={(v) => updateForm("tourManagerName", v)}
+            value={form.tourManagerName}
           />
         </>
       )}

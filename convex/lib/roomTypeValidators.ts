@@ -7,5 +7,5 @@ export const roomTypeValidator = v.union(
   v.literal("Double"),
   v.literal("Triple"),
   v.literal("Child with Bed"),
-  v.literal("Family Room"),
+  v.literal("Family Room")
 );

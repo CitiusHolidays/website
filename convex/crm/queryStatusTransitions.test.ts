@@ -7,11 +7,11 @@ import {
 } from "./queries";
 
 const baseCurrent = {
+  contractingOwnerId: "staff_contracting",
+  contractingStatus: "Proposal sent",
+  leadStage: "Proposal",
   queryCode: "Q-0001",
   salesStatus: "Proposal in discussion",
-  leadStage: "Proposal",
-  contractingStatus: "Proposal sent",
-  contractingOwnerId: "staff_contracting",
   ticketingOwnerId: "staff_ticketing",
 };
 
@@ -25,39 +25,39 @@ function patch(args: QueryStatusArgs) {
 describe("query status transitions", () => {
   test("maps Sales Decision outcomes to canonical status transitions", () => {
     expect(patch({ salesStatus: "Proposal in discussion" })).toMatchObject({
-      salesStatus: "Proposal in discussion",
       leadStage: "Proposal",
       reassignToTeams: false,
+      salesStatus: "Proposal in discussion",
     });
     expect(patch({ salesStatus: "Date/Destination Change Required" })).toMatchObject({
-      salesStatus: "Date/Destination Change Required",
       contractingStatus: "Proposal in progress",
       leadStage: "Negotiation",
       reassignToTeams: true,
+      salesStatus: "Date/Destination Change Required",
     });
     expect(patch({ salesStatus: "Order Confirmed" })).toMatchObject({
-      salesStatus: "Order Confirmed",
+      confirmedAt: 1000,
       contractingStatus: "Order Confirmed",
       leadStage: "Confirmation",
-      confirmedAt: 1000,
       reassignToTeams: false,
+      salesStatus: "Order Confirmed",
     });
   });
 
   test("keeps Order Lost sales-only and requires a lost reason", () => {
     expect(() => patch({ salesStatus: "Order Lost" })).toThrow(
-      new ConvexError("Select a lost reason."),
+      new ConvexError("Select a lost reason.")
     );
     expect(() => patch({ contractingStatus: "Order Lost" })).toThrow(
-      new ConvexError("Only Sales can mark an order as lost"),
+      new ConvexError("Only Sales can mark an order as lost")
     );
-    expect(patch({ salesStatus: "Order Lost", lostReason: "Competition" })).toMatchObject({
-      salesStatus: "Order Lost",
+    expect(patch({ lostReason: "Competition", salesStatus: "Order Lost" })).toMatchObject({
       contractingStatus: "Order Lost",
       leadStage: "Lost",
       lostReason: "Competition",
       lostReasonOther: "",
       reassignToTeams: false,
+      salesStatus: "Order Lost",
     });
   });
 
@@ -73,30 +73,30 @@ describe("query status transitions", () => {
   test("plans revision notifications for assigned SPOCs only", () => {
     expect(
       buildQueryStatusNotificationPlan({
-        current: baseCurrent,
         args: {
           queryId: "queries_1",
           salesStatus: "Date/Destination Change Required",
         },
-        wasConfirmed: false,
+        current: baseCurrent,
         isNewlyConfirmed: false,
-      }),
+        wasConfirmed: false,
+      })
     ).toEqual({
       notifyJobCardCreators: false,
       notifyOrderConfirmedWorkflow: false,
-      roleNotifications: [],
       ownerNotifications: [
         {
+          body: "Q-0001 was sent back by Sales for a date or destination change.",
           ownerId: "staff_contracting",
           title: "Revise proposal",
-          body: "Q-0001 was sent back by Sales for a date or destination change.",
         },
         {
+          body: "Q-0001 needs updated ticketing inputs for the revised proposal.",
           ownerId: "staff_ticketing",
           title: "Revise proposal costing",
-          body: "Q-0001 needs updated ticketing inputs for the revised proposal.",
         },
       ],
+      roleNotifications: [],
     });
   });
 });

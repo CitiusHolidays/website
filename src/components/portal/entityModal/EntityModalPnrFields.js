@@ -1,28 +1,7 @@
 "use client";
 
-import {
-  Input,
-  MultiSelect,
-  money,
-  QueryFilePicker,
-  Select,
-  Textarea,
-} from "@/components/portal/PortalModalForm";
-import {
-  CABIN_CLASSES,
-  EXPENSE_CURRENCIES,
-  EXPENSE_HEADS,
-  FOOD_PREFERENCES,
-  GUEST_TYPES,
-  LEAVE_TYPES,
-  PAYMENT_TYPES,
-  PORTAL_ROLES,
-  TICKET_STATUSES,
-  TICKET_TYPES,
-  VISA_STATUSES,
-} from "@/lib/portal/constants";
+import { Input, Select } from "@/components/portal/PortalModalForm";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
-import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
 export function EntityModalPnrFields({
   modal,
@@ -56,29 +35,29 @@ export function EntityModalPnrFields({
         <>
           <Select
             label="Job Card"
-            value={form.jobCardId}
-            options={jobCardSelectOptions(jobCards, { required: true })}
             onChange={handleJobCardSelect}
+            options={jobCardSelectOptions(jobCards, { required: true })}
             required
+            value={form.jobCardId}
           />
           <Input
             label="PNR"
-            value={form.pnrCode}
             onChange={(v) => updateForm("pnrCode", v)}
             required
+            value={form.pnrCode}
           />
-          <Input label="Airline" value={form.airline} onChange={(v) => updateForm("airline", v)} />
-          <Input label="Route" value={form.route} onChange={(v) => updateForm("route", v)} />
+          <Input label="Airline" onChange={(v) => updateForm("airline", v)} value={form.airline} />
+          <Input label="Route" onChange={(v) => updateForm("route", v)} value={form.route} />
           <Input
             label="Fare Type"
-            value={form.fareType}
             onChange={(v) => updateForm("fareType", v)}
+            value={form.fareType}
           />
           <Input
             label="Total Seats"
+            onChange={(v) => updateForm("totalSeats", v)}
             type="number"
             value={form.totalSeats}
-            onChange={(v) => updateForm("totalSeats", v)}
           />
         </>
       )}

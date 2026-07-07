@@ -21,7 +21,7 @@ export function chunkRows<T>(rows: T[], size: number): T[][] {
 
 export function mergeRoomSummaries(
   left: Record<string, number>,
-  right: Record<string, number>,
+  right: Record<string, number>
 ): Record<string, number> {
   const merged = { ...left };
   for (const [roomType, count] of Object.entries(right)) {
@@ -43,23 +43,23 @@ export function preparePassengerRows(rows: Array<any>) {
       passportNumber ||
         clean(passport?.dateOfBirth) ||
         clean(passport?.issueDate) ||
-        clean(passport?.expiryDate),
+        clean(passport?.expiryDate)
     );
 
     return {
       ...rest,
-      passportNumberHash,
       encryptedPassportPayload: hasPassportDetails
         ? encryptPassportDetails({
-            number: passportNumber || "UNKNOWN",
             dateOfBirth: clean(passport?.dateOfBirth) || "UNKNOWN",
-            issueDate: clean(passport?.issueDate),
             expiryDate: clean(passport?.expiryDate) || "UNKNOWN",
+            issueDate: clean(passport?.issueDate),
             nationality: clean(passport?.nationality) || "UNKNOWN",
+            number: passportNumber || "UNKNOWN",
           })
         : undefined,
-      passportLastFour: passportNumber ? passportNumber.slice(-4) : undefined,
       passportExpiryDate: normalizePassportExpiryDate(clean(passport?.expiryDate)),
+      passportLastFour: passportNumber ? passportNumber.slice(-4) : undefined,
+      passportNumberHash,
     };
   });
 }

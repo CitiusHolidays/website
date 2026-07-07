@@ -31,15 +31,15 @@ describe("periodFilter", () => {
       to: "2026-01-01",
     });
     expect(getFilterDateRangeError({ from: "2026-02-01", to: "2026-01-01" })).toBe(
-      "From must be on or before To.",
+      "From must be on or before To."
     );
     expect(resolveDateRange({ from: "2026-02-01", to: "2026-01-01" })).toBeNull();
   });
 
   test("filters rows by createdAt within an explicit date range", () => {
     const rows = [
-      { id: "in-range", createdAt: "2026-01-15T10:00:00.000Z" },
-      { id: "out-range", createdAt: "2025-12-01T10:00:00.000Z" },
+      { createdAt: "2026-01-15T10:00:00.000Z", id: "in-range" },
+      { createdAt: "2025-12-01T10:00:00.000Z", id: "out-range" },
     ];
 
     const range = { from: "2026-01-01", to: "2026-01-31" };
@@ -50,8 +50,8 @@ describe("periodFilter", () => {
 
   test("supports open-ended ranges", () => {
     const rows = [
-      { id: "recent", createdAt: new Date("2026-02-01T12:00:00").toISOString() },
-      { id: "old", createdAt: new Date("2025-01-01T12:00:00").toISOString() },
+      { createdAt: new Date("2026-02-01T12:00:00").toISOString(), id: "recent" },
+      { createdAt: new Date("2025-01-01T12:00:00").toISOString(), id: "old" },
     ];
     expect(filterByDateRange(rows, { from: "2026-01-01", to: null }).map((row) => row.id)).toEqual([
       "recent",

@@ -1,28 +1,7 @@
 "use client";
 
-import {
-  Input,
-  MultiSelect,
-  money,
-  QueryFilePicker,
-  Select,
-  Textarea,
-} from "@/components/portal/PortalModalForm";
-import {
-  CABIN_CLASSES,
-  EXPENSE_CURRENCIES,
-  EXPENSE_HEADS,
-  FOOD_PREFERENCES,
-  GUEST_TYPES,
-  LEAVE_TYPES,
-  PAYMENT_TYPES,
-  PORTAL_ROLES,
-  TICKET_STATUSES,
-  TICKET_TYPES,
-  VISA_STATUSES,
-} from "@/lib/portal/constants";
+import { Input, Select, Textarea } from "@/components/portal/PortalModalForm";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
-import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
 export function EntityModalSeatFields({
   modal,
@@ -56,31 +35,31 @@ export function EntityModalSeatFields({
         <>
           <Select
             label="Job Card"
-            value={form.jobCardId}
-            options={jobCardSelectOptions(jobCards, { required: true })}
             onChange={handleJobCardSelect}
+            options={jobCardSelectOptions(jobCards, { required: true })}
             required
+            value={form.jobCardId}
           />
           <Select
             label="Traveller"
-            value={form.travellerId}
-            options={travellerOptions}
             onChange={handleTravellerSelect}
+            options={travellerOptions}
+            value={form.travellerId}
           />
-          <Select label="PNR" value={form.pnrId} options={pnrOptions} onChange={handlePnrSelect} />
+          <Select label="PNR" onChange={handlePnrSelect} options={pnrOptions} value={form.pnrId} />
           <Input
             label="Seat Number"
-            value={form.seatNumber}
             onChange={(v) => updateForm("seatNumber", v)}
             required
+            value={form.seatNumber}
           />
           <Select
             label="Status"
-            value={form.seatStatus}
-            options={["Available", "Held", "Assigned", "Blocked"]}
             onChange={(v) => updateForm("seatStatus", v)}
+            options={["Available", "Held", "Assigned", "Blocked"]}
+            value={form.seatStatus}
           />
-          <Textarea label="Notes" value={form.notes} onChange={(v) => updateForm("notes", v)} />
+          <Textarea label="Notes" onChange={(v) => updateForm("notes", v)} value={form.notes} />
         </>
       )}
     </>

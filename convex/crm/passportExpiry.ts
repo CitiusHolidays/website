@@ -10,14 +10,14 @@ export function cleanPassportField(value?: string | null) {
 export function normalizePassportExpiryDate(value?: string | null) {
   const trimmed = String(value ?? "").trim();
   if (!trimmed || trimmed.toUpperCase() === "UNKNOWN") {
-    return undefined;
+    return;
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
     return trimmed;
   }
   const parsed = Date.parse(trimmed);
   if (Number.isNaN(parsed)) {
-    return undefined;
+    return;
   }
   return new Date(parsed).toISOString().slice(0, 10);
 }
@@ -25,7 +25,7 @@ export function normalizePassportExpiryDate(value?: string | null) {
 /** Resolve expiry from plain column and/or decrypted passport JSON (export parity). */
 export function passportExpiryFromDecrypted(
   plainExpiry?: string | null,
-  decrypted?: { expiryDate?: string } | null,
+  decrypted?: { expiryDate?: string } | null
 ): string {
   const fromPlain = normalizePassportExpiryDate(plainExpiry);
   if (fromPlain) {
@@ -40,7 +40,7 @@ export function passportExpiryFromDecrypted(
 /** Best-effort decrypt in query runtime; prefer passportActions.getTravellerPassportExpiryDates. */
 export async function resolvePassportExpiryForList(
   plainExpiry?: string | null,
-  encryptedPayload?: string | null,
+  encryptedPayload?: string | null
 ): Promise<string> {
   const fromPlain = normalizePassportExpiryDate(plainExpiry);
   if (fromPlain) {

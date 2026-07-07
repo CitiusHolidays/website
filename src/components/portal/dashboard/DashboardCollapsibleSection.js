@@ -7,7 +7,9 @@ import { DashboardPanel, DashboardProgress } from "./DashboardPanel";
 const STORAGE_PREFIX = "portal-dashboard-collapse-";
 
 function readCollapseOpen(key) {
-  if (typeof window === "undefined") return true;
+  if (typeof window === "undefined") {
+    return true;
+  }
   try {
     return localStorage.getItem(`${STORAGE_PREFIX}${key}`) !== "0";
   } catch {
@@ -32,7 +34,9 @@ export function DashboardCollapsibleSection({
   const [workflowOpen, setWorkflowOpen] = useState(() => readCollapseOpen("workflow"));
   const [teamOpen, setTeamOpen] = useState(() => readCollapseOpen("team"));
 
-  if (!showWorkflow && !showTeam) return null;
+  if (!(showWorkflow || showTeam)) {
+    return null;
+  }
 
   return (
     <div className="space-y-5">
@@ -40,7 +44,7 @@ export function DashboardCollapsibleSection({
         <DashboardPanel
           title={
             <button
-              type="button"
+              aria-expanded={workflowOpen}
               className="flex w-full items-center justify-between gap-2 text-left"
               onClick={() => {
                 setWorkflowOpen((open) => {
@@ -49,12 +53,12 @@ export function DashboardCollapsibleSection({
                   return next;
                 });
               }}
-              aria-expanded={workflowOpen}
+              type="button"
             >
               <span>Department workflow</span>
               <ChevronDown
-                size={18}
                 className={`shrink-0 transition ${workflowOpen ? "rotate-180" : ""}`}
+                size={18}
               />
             </button>
           }
@@ -76,7 +80,7 @@ export function DashboardCollapsibleSection({
         <DashboardPanel
           title={
             <button
-              type="button"
+              aria-expanded={teamOpen}
               className="flex w-full items-center justify-between gap-2 text-left"
               onClick={() => {
                 setTeamOpen((open) => {
@@ -85,12 +89,12 @@ export function DashboardCollapsibleSection({
                   return next;
                 });
               }}
-              aria-expanded={teamOpen}
+              type="button"
             >
               <span>My team</span>
               <ChevronDown
-                size={18}
                 className={`shrink-0 transition ${teamOpen ? "rotate-180" : ""}`}
+                size={18}
               />
             </button>
           }
@@ -99,14 +103,14 @@ export function DashboardCollapsibleSection({
             <div className="grid gap-3 sm:grid-cols-2">
               {myTeam.map((member) => (
                 <div
-                  key={member.id}
                   className="rounded-xl border border-brand-border bg-brand-light p-4"
+                  key={member.id}
                 >
-                  <div className="text-sm font-semibold text-brand-dark">{member.name}</div>
-                  <div className="mt-1 text-xs text-brand-muted">
+                  <div className="font-semibold text-brand-dark text-sm">{member.name}</div>
+                  <div className="mt-1 text-brand-muted text-xs">
                     {member.function || member.department}
                   </div>
-                  <div className="mt-1 text-xs text-brand-muted">
+                  <div className="mt-1 text-brand-muted text-xs">
                     {member.location || member.email}
                   </div>
                 </div>

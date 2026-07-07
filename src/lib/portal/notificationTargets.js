@@ -21,10 +21,10 @@ export function resolveDeepLink({ open, id, queryId }, collections) {
     }
     if (approval.entityType === "expense") {
       return {
-        status: "resolved",
-        modal: "expense",
         entityId: approval.entityId,
+        modal: "expense",
         queryId: null,
+        status: "resolved",
       };
     }
     return { status: "missing" };
@@ -39,22 +39,22 @@ export function resolveDeepLink({ open, id, queryId }, collections) {
       return { status: "missing" };
     }
     return {
-      status: "resolved",
-      modal: "jobCard",
       entityId: null,
+      modal: "jobCard",
       queryId,
+      status: "resolved",
     };
   }
 
-  if (!id && !queryId) {
+  if (!(id || queryId)) {
     return { status: "missing" };
   }
 
   return {
-    status: "resolved",
-    modal: open,
     entityId: id || null,
+    modal: open,
     queryId: queryId || null,
+    status: "resolved",
   };
 }
 
@@ -100,167 +100,193 @@ export function buildModalInitial(modal, { entityId, queryId }, collections) {
   switch (modal) {
     case "query": {
       const row = collections.queries?.find((entry) => entry.id === entityId);
-      if (!row) return null;
+      if (!row) {
+        return null;
+      }
       return {
-        entityId: row.id,
-        clientName: row.clientName,
-        contactPerson: row.contactPerson,
-        contactMobile: row.contactMobile,
-        destination: row.destination,
-        paxCount: String(row.paxCount),
-        travelStartDate: row.travelStartDate,
-        travelEndDate: row.travelEndDate,
-        queryType: row.queryType,
-        travelType: row.travelType,
         budgetAmount: String(row.budgetAmount || ""),
-        source: row.source,
-        salesOwnerName: row.salesOwnerName,
+        clientName: row.clientName,
+        contactMobile: row.contactMobile,
+        contactPerson: row.contactPerson,
+        destination: row.destination,
+        entityId: row.id,
         notes: row.notes,
+        paxCount: String(row.paxCount),
+        queryType: row.queryType,
+        salesOwnerName: row.salesOwnerName,
+        source: row.source,
+        travelEndDate: row.travelEndDate,
+        travelStartDate: row.travelStartDate,
+        travelType: row.travelType,
       };
     }
     case "queryStatus": {
       const row = collections.queries?.find((entry) => entry.id === entityId);
-      if (!row) return null;
+      if (!row) {
+        return null;
+      }
       return {
+        approxMargin: row.approxMargin == null ? "" : String(row.approxMargin),
+        budgetAmount: String(row.budgetAmount || ""),
+        contractingAirlinesCost: String(row.contractingAirlinesCost ?? ""),
+        contractingLandCost: String(row.contractingLandCost ?? ""),
+        contractingStatus: row.contractingStatus,
+        contractingVisaCost: String(row.contractingVisaCost ?? ""),
+        leadStage: row.leadStage || "Inquiry",
         queryId: row.id,
         salesStatus: row.salesStatus,
-        leadStage: row.leadStage || "Inquiry",
-        contractingStatus: row.contractingStatus,
-        budgetAmount: String(row.budgetAmount || ""),
-        contractingLandCost: String(row.contractingLandCost ?? ""),
-        contractingAirlinesCost: String(row.contractingAirlinesCost ?? ""),
-        contractingVisaCost: String(row.contractingVisaCost ?? ""),
-        approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
       };
     }
     case "salesDecision": {
       const row = collections.queries?.find((entry) => entry.id === entityId);
-      if (!row) return null;
+      if (!row) {
+        return null;
+      }
       return {
-        queryId: row.id,
-        salesStatus: row.salesStatus,
-        salesDecision: row.salesStatus || "Proposal in discussion",
-        leadStage: row.leadStage || "Inquiry",
+        approxMargin: row.approxMargin == null ? "" : String(row.approxMargin),
         contractingStatus: row.contractingStatus,
-        approxMargin: row.approxMargin != null ? String(row.approxMargin) : "",
+        leadStage: row.leadStage || "Inquiry",
         lostReason: row.lostReason || "",
+        queryId: row.id,
+        salesDecision: row.salesStatus || "Proposal in discussion",
+        salesStatus: row.salesStatus,
       };
     }
     case "proposal": {
       const row = collections.proposals?.find((entry) => entry.id === entityId);
-      if (!row) return null;
+      if (!row) {
+        return null;
+      }
       const queryIds = proposalLinkedQueryIds(row);
       const primaryQuery = proposalPrimaryQuery(row);
       return {
+        airfarePerPax: String(row.airfarePerPax ?? ""),
+        clientName: row.clientName,
         entityId: row.id,
+        itinerarySummary: row.itinerarySummary || "",
+        landCostPerPax: String(row.landCostPerPax ?? ""),
+        paxCount: String(primaryQuery?.paxCount ?? 1),
         queryId: row.queryId || "",
         queryIds,
-        clientName: row.clientName,
-        landCostPerPax: String(row.landCostPerPax ?? ""),
-        airfarePerPax: String(row.airfarePerPax ?? ""),
         sellingPrice: String(row.sellingPrice ?? ""),
-        paxCount: String(primaryQuery?.paxCount ?? 1),
-        itinerarySummary: row.itinerarySummary || "",
       };
     }
     case "jobCard": {
       if (queryId && !entityId) {
         const row = collections.queries?.find((entry) => entry.id === queryId);
-        if (!row) return null;
+        if (!row) {
+          return null;
+        }
         return {
-          queryId: row.id,
           clientName: row.clientName,
-          destination: row.destination,
           confirmedPax: String(row.paxCount),
-          travelStartDate: row.travelStartDate,
+          destination: row.destination,
+          queryId: row.id,
           travelEndDate: row.travelEndDate,
+          travelStartDate: row.travelStartDate,
         };
       }
       const row = collections.jobCards?.find((entry) => entry.id === entityId);
-      if (!row) return null;
+      if (!row) {
+        return null;
+      }
       return {
-        entityId: row.id,
-        queryId: row.queryId || "",
-        proposalId: row.proposalId || "",
         clientName: row.clientName,
         confirmedPax: String(row.confirmedPax),
-        roomCount: String(row.roomCount || ""),
         destination: row.destination,
-        travelStartDate: row.travelStartDate,
-        travelEndDate: row.travelEndDate,
+        entityId: row.id,
+        proposalId: row.proposalId || "",
+        queryId: row.queryId || "",
+        roomCount: String(row.roomCount || ""),
         tourManagerName: row.tourManagerName,
+        travelEndDate: row.travelEndDate,
+        travelStartDate: row.travelStartDate,
       };
     }
     case "assignQueryTeams": {
       const row = collections.queries?.find((entry) => entry.id === (entityId || queryId));
-      if (!row) return null;
+      if (!row) {
+        return null;
+      }
       return { queryId: row.id, staffId: "", ticketingStaffId: "" };
     }
     case "assignContracting": {
       const row = collections.queries?.find((entry) => entry.id === (entityId || queryId));
-      if (!row) return null;
+      if (!row) {
+        return null;
+      }
       return { queryId: row.id, staffId: "" };
     }
     case "assignQueryTicketing": {
       const row = collections.queries?.find((entry) => entry.id === (entityId || queryId));
-      if (!row) return null;
+      if (!row) {
+        return null;
+      }
       return { queryId: row.id, ticketingStaffId: "" };
     }
     case "assignContractingOwner":
     case "assignOperationsOwner":
     case "assignTicketingOwner": {
       const row = collections.jobCards?.find((entry) => entry.id === entityId);
-      if (!row) return null;
+      if (!row) {
+        return null;
+      }
       return { jobCardId: row.id };
     }
     case "ticket": {
       const row = collections.tickets?.find((entry) => entry.id === entityId);
-      if (!row) return null;
+      if (!row) {
+        return null;
+      }
       return {
-        entityId: row.id,
-        jobCardId: row.jobCardId,
-        travellerId: row.travellerId || "",
-        pnrId: row.pnrId || "",
-        ticketNumber: row.ticketNumber,
-        ticketType: row.ticketType,
-        ticketStatus: row.ticketStatus,
-        paymentType: row.paymentType,
         cabinClass: row.cabinClass,
+        entityId: row.id,
         foodPreference: row.mealPreference,
-        seatPreference: row.seatPreference,
+        jobCardId: row.jobCardId,
+        paymentType: row.paymentType,
+        pnrId: row.pnrId || "",
         seatNumber: row.seatNumber,
+        seatPreference: row.seatPreference,
+        ticketNumber: row.ticketNumber,
+        ticketStatus: row.ticketStatus,
+        ticketType: row.ticketType,
+        travellerId: row.travellerId || "",
       };
     }
     case "leave_create": {
       const row = collections.leaves?.find((entry) => entry.id === entityId);
-      if (!row) return null;
+      if (!row) {
+        return null;
+      }
       return {
-        entityId: row.id,
-        staffId: row.staffId,
-        leaveType: row.leaveType || "Casual",
-        startDate: row.startDate,
         endDate: row.endDate,
+        entityId: row.id,
+        leaveType: row.leaveType || "Casual",
         reason: row.reason,
+        staffId: row.staffId,
+        startDate: row.startDate,
         status: row.status,
       };
     }
     case "expense": {
       const row = collections.expenses?.find((entry) => entry.id === entityId);
-      if (!row) return null;
+      if (!row) {
+        return null;
+      }
       return {
-        entityId: row.id,
-        jobCardId: row.jobCardId,
-        tourManagerName: row.tourManagerName,
-        category: row.category,
-        expenseDate: row.expenseDate,
-        particulars: row.particulars,
-        currency: row.currency,
+        amount: String(row.amount),
         cardAmount: String(row.cardAmount),
         cashAmount: String(row.cashAmount),
+        category: row.category,
+        currency: row.currency,
+        entityId: row.id,
         epayAmount: String(row.epayAmount),
-        amount: String(row.amount),
-        paidBy: row.paidBy,
+        expenseDate: row.expenseDate,
+        jobCardId: row.jobCardId,
         notes: row.notes,
+        paidBy: row.paidBy,
+        particulars: row.particulars,
+        tourManagerName: row.tourManagerName,
       };
     }
     default:

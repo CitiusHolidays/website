@@ -9,8 +9,8 @@ import {
 
 describe("workbookAdapter", () => {
   test("parseExcelDateCode matches Excel serial dates and times", () => {
-    expect(parseExcelDateCode(43252)).toMatchObject({ y: 2018, m: 6, d: 1, H: 0, M: 0, S: 0 });
-    expect(parseExcelDateCode(43252.5)).toMatchObject({ y: 2018, m: 6, d: 1, H: 12, M: 0, S: 0 });
+    expect(parseExcelDateCode(43_252)).toMatchObject({ d: 1, H: 0, M: 0, m: 6, S: 0, y: 2018 });
+    expect(parseExcelDateCode(43_252.5)).toMatchObject({ d: 1, H: 12, M: 0, m: 6, S: 0, y: 2018 });
     expect(parseExcelDateCode(-1)).toBeNull();
   });
 

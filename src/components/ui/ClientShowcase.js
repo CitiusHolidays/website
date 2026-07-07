@@ -2,6 +2,7 @@ import { m } from "motion/react";
 
 ("use client");
 
+import { Ticker } from "motion-plus/react";
 import Image from "next/image";
 import Acer from "@/static/clients/acer.webp";
 import Adani from "@/static/clients/adani.webp";
@@ -29,33 +30,32 @@ import Volvo from "@/static/clients/volvo.webp";
 import Wockhardt from "@/static/clients/wockhardt.webp";
 import YesBank from "@/static/clients/yesbank.webp";
 import { cn } from "../../utils/cn";
-import { Ticker } from "motion-plus/react";
 
 function ClientBox({ src, alt }) {
   return (
     <m.div
       className="relative flex items-center justify-center overflow-hidden"
-      style={{ width: 180, height: 100 }}
       initial="hideInfo"
+      style={{ height: 100, width: 180 }}
       whileHover="showInfo"
     >
       <m.div
-        className="flex items-center justify-center size-full"
+        className="flex size-full items-center justify-center"
         variants={{
-          hideInfo: { scale: 1, filter: "blur(0px)", opacity: 1 },
-          showInfo: { scale: 0.9, filter: "blur(5px)", opacity: 0.3 },
+          hideInfo: { filter: "blur(0px)", opacity: 1, scale: 1 },
+          showInfo: { filter: "blur(5px)", opacity: 0.3, scale: 0.9 },
         }}
       >
         <Image
-          src={src}
           alt={alt}
-          width={120}
           height={60}
-          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          src={src}
+          style={{ height: "100%", objectFit: "contain", width: "100%" }}
+          width={120}
         />
       </m.div>
       <m.div
-        className="absolute inset-0 flex items-center justify-center p-2 text-[16px] font-semibold uppercase text-[#222] bg-white/70"
+        className="absolute inset-0 flex items-center justify-center bg-white/70 p-2 font-semibold text-[#222] text-[16px] uppercase"
         style={{ textShadow: "1px 1px 0px #fff" }}
         variants={{
           hideInfo: { opacity: 0, scale: 1.2 },
@@ -69,60 +69,60 @@ function ClientBox({ src, alt }) {
 }
 
 const clients = [
-  { src: Acer, alt: "Acer" },
-  { src: Adani, alt: "Adani" },
-  { src: Aditya, alt: "Aditya Birla" },
-  { src: Allegis, alt: "Allegis" },
-  { src: Ambuja, alt: "Ambuja" },
-  { src: Berger, alt: "Berger" },
-  { src: CooperVision, alt: "Cooper Vision" },
-  { src: GEHealthcare, alt: "GE Healthcare" },
-  { src: Godrej, alt: "Godrej" },
-  { src: Gunnebo, alt: "Gunnebo" },
-  { src: HDFCBank, alt: "HDFC Bank" },
-  { src: Hiranandani, alt: "Hiranandani" },
-  { src: Iffco, alt: "Iffco" },
-  { src: Linen, alt: "Linen Club" },
-  { src: Manking, alt: "Manking" },
-  { src: Merck, alt: "Merck" },
-  { src: Philips, alt: "Philips" },
-  { src: SBIGeneral, alt: "SBI General" },
-  { src: Sequent, alt: "Sequent" },
-  { src: Signify, alt: "Signify" },
-  { src: Tineta, alt: "Tineta" },
-  { src: Titan, alt: "Titan" },
-  { src: Volvo, alt: "Volvo" },
-  { src: Wockhardt, alt: "Wockhardt" },
-  { src: YesBank, alt: "Yes Bank" },
+  { alt: "Acer", src: Acer },
+  { alt: "Adani", src: Adani },
+  { alt: "Aditya Birla", src: Aditya },
+  { alt: "Allegis", src: Allegis },
+  { alt: "Ambuja", src: Ambuja },
+  { alt: "Berger", src: Berger },
+  { alt: "Cooper Vision", src: CooperVision },
+  { alt: "GE Healthcare", src: GEHealthcare },
+  { alt: "Godrej", src: Godrej },
+  { alt: "Gunnebo", src: Gunnebo },
+  { alt: "HDFC Bank", src: HDFCBank },
+  { alt: "Hiranandani", src: Hiranandani },
+  { alt: "Iffco", src: Iffco },
+  { alt: "Linen Club", src: Linen },
+  { alt: "Manking", src: Manking },
+  { alt: "Merck", src: Merck },
+  { alt: "Philips", src: Philips },
+  { alt: "SBI General", src: SBIGeneral },
+  { alt: "Sequent", src: Sequent },
+  { alt: "Signify", src: Signify },
+  { alt: "Tineta", src: Tineta },
+  { alt: "Titan", src: Titan },
+  { alt: "Volvo", src: Volvo },
+  { alt: "Wockhardt", src: Wockhardt },
+  { alt: "Yes Bank", src: YesBank },
 ];
 
 export default function ClientShowcase({ className }) {
-  const items = clients.map((logo) => <ClientBox key={logo.alt} src={logo.src} alt={logo.alt} />);
+  const items = clients.map((logo) => <ClientBox alt={logo.alt} key={logo.alt} src={logo.src} />);
 
   return (
     <m.section
+      className={cn("bg-brand-light py-12", className)}
       initial={{ opacity: 0, y: 40 }}
+      transition={{ delay: 0.2, duration: 0.8 }}
+      viewport={{ amount: 0.2, once: true }}
       whileInView={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, delay: 0.2 }}
-      viewport={{ once: true, amount: 0.2 }}
-      className={cn("py-12 bg-brand-light", className)}
     >
-      <h2 className="mb-8 text-2xl font-semibold text-center text-citius-blue">
+      <h2 className="mb-8 text-center font-semibold text-2xl text-citius-blue">
         Trusted by Industry Leaders
       </h2>
       <Ticker
-        velocity={65}
+        gap={10}
         items={items}
         style={{
+          alignItems: "center",
           display: "flex",
           gap: "3rem",
-          alignItems: "center",
           maskImage:
             "linear-gradient(to right, transparent 5%, black 10%, black 90%, transparent 95%)",
           WebkitMaskImage:
             "linear-gradient(to right, transparent 5%, black 10%, black 90%, transparent 95%)",
         }}
-        gap={10}
+        velocity={65}
       />
     </m.section>
   );

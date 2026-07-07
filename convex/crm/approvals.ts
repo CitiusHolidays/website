@@ -11,7 +11,7 @@ import {
 const decisionValidator = v.union(
   v.literal("Approved"),
   v.literal("Rejected"),
-  v.literal("Needs Info"),
+  v.literal("Needs Info")
 );
 
 export const list = query({
@@ -26,19 +26,19 @@ export const list = query({
     return rows
       .sort((a, b) => b.createdAt - a.createdAt)
       .map((approval) => ({
-        id: approval._id,
-        requestCode: approval.requestCode,
-        type: approval.type,
-        entityType: approval.entityType,
-        entityId: approval.entityId,
-        requestedByName: approval.requestedByName ?? approval.requestedBy,
-        summary: approval.summary,
         amount: approval.amount ?? 0,
-        status: approval.status,
+        createdAt: new Date(approval.createdAt).toISOString(),
+        decidedAt: approval.decidedAt ? new Date(approval.decidedAt).toISOString() : null,
         decidedByName: approval.decidedByName ?? "",
         decisionNote: approval.decisionNote ?? "",
-        decidedAt: approval.decidedAt ? new Date(approval.decidedAt).toISOString() : null,
-        createdAt: new Date(approval.createdAt).toISOString(),
+        entityId: approval.entityId,
+        entityType: approval.entityType,
+        id: approval._id,
+        requestCode: approval.requestCode,
+        requestedByName: approval.requestedByName ?? approval.requestedBy,
+        status: approval.status,
+        summary: approval.summary,
+        type: approval.type,
       }));
   },
 });
@@ -46,8 +46,8 @@ export const list = query({
 export const decide = mutation({
   args: {
     approvalId: v.string(),
-    status: decisionValidator,
     decisionNote: v.optional(v.string()),
+    status: decisionValidator,
   },
   handler: async (ctx, args) => {
     if (
@@ -70,11 +70,11 @@ export const decide = mutation({
     }
     const now = Date.now();
     await ctx.db.patch(approvalId, {
-      status: args.status,
+      decidedAt: now,
       decidedBy: access.authUserId ?? "unknown",
       decidedByName: access.name,
-      decidedAt: now,
       decisionNote: args.decisionNote?.trim() || "",
+      status: args.status,
       updatedAt: now,
     });
     if (approval.entityType === "expense") {
@@ -94,9 +94,9 @@ export const decide = mutation({
           ...(args.status === "Needs Info"
             ? {}
             : {
+                financeReviewedAt: now,
                 financeReviewedBy: access.authUserId ?? "unknown",
                 financeReviewedByName: access.name,
-                financeReviewedAt: now,
               }),
           approvalStatus:
             args.status === "Approved"
@@ -110,17 +110,17 @@ export const decide = mutation({
       }
     }
     await createActivity(ctx, access, {
-      entityType: "approval",
-      entityId: approvalId,
       action: args.status.toLowerCase().replace(/\s+/g, "_"),
+      entityId: approvalId,
+      entityType: "approval",
       message: `${approval.requestCode} ${args.status.toLowerCase()}`,
     });
     if (approval.requestedBy) {
       await notifyStaffMatching(ctx, (member) => member.authUserId === approval.requestedBy, {
-        title: `Approval ${args.status}`,
         body: `${approval.requestCode}: ${approval.summary}`,
-        entityType: "approval",
         entityId: approvalId,
+        entityType: "approval",
+        title: `Approval ${args.status}`,
       });
     }
     return { id: approvalId };
@@ -146,9 +146,9 @@ export const remove = mutation({
     }
     await ctx.db.delete(approvalId);
     await createActivity(ctx, access, {
-      entityType: "approval",
-      entityId: approvalId,
       action: "deleted",
+      entityId: approvalId,
+      entityType: "approval",
       message: `${approval.requestCode} approval deleted`,
     });
     return { id: approvalId };

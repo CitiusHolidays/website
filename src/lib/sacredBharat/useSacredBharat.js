@@ -30,9 +30,13 @@ export function useSacredBharat() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated || !guestHydrated || mergeAttempted.current) return;
+    if (!(isAuthenticated && guestHydrated) || mergeAttempted.current) {
+      return;
+    }
     const draft = readGuestDraft();
-    if (draft.templeIds.length === 0 && draft.wishlist.length === 0) return;
+    if (draft.templeIds.length === 0 && draft.wishlist.length === 0) {
+      return;
+    }
 
     mergeAttempted.current = true;
     mergeGuestMutation({ templeIds: draft.templeIds, wishlist: draft.wishlist })
@@ -53,13 +57,13 @@ export function useSacredBharat() {
     isAuthenticated && serverProgress
       ? {
           ...computeProgress(visitedTempleIds),
-          wishlist: serverProgress.wishlist ?? [],
           visits: serverProgress.visits ?? [],
+          wishlist: serverProgress.wishlist ?? [],
         }
       : {
           ...computeProgress(visitedTempleIds),
-          wishlist: guestWishlist,
           visits: [],
+          wishlist: guestWishlist,
         };
 
   const persistGuest = (templeIds, wishlist = guestWishlist) => {
@@ -95,14 +99,14 @@ export function useSacredBharat() {
 
   const toggleWishlist = async (itemType, itemId) => {
     if (isAuthenticated) {
-      await toggleWishlistMutation({ itemType, itemId });
+      await toggleWishlistMutation({ itemId, itemType });
       return;
     }
     const key = `${itemType}:${itemId}`;
     const exists = guestWishlist.some((w) => `${w.itemType}:${w.itemId}` === key);
     const next = exists
       ? guestWishlist.filter((w) => `${w.itemType}:${w.itemId}` !== key)
-      : [...guestWishlist, { itemType, itemId }];
+      : [...guestWishlist, { itemId, itemType }];
     setGuestWishlist(next);
     writeGuestDraft({ templeIds: guestTempleIds, wishlist: next });
   };
@@ -112,18 +116,18 @@ export function useSacredBharat() {
 
   const isLoading =
     authLoading ||
-    (!guestHydrated && !isAuthenticated) ||
+    !(guestHydrated || isAuthenticated) ||
     (isAuthenticated && serverProgress === undefined);
 
   return {
     isAuthenticated,
     isLoading,
-    visitedTempleIds,
-    progress,
+    isWishlisted,
     markVisited,
-    unmarkVisited,
+    progress,
     toggleVisited,
     toggleWishlist,
-    isWishlisted,
+    unmarkVisited,
+    visitedTempleIds,
   };
 }

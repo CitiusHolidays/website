@@ -10,8 +10,8 @@ describe("sacred bharat challenges", () => {
   test("computes temple-count challenge progress", () => {
     const challenge = SACRED_BHARAT_CHALLENGES.find((item) => item.slug === "first-five-darshans");
     const progress = getChallengeProgress(challenge, {
-      visitedTempleIds: ["kedarnath", "badrinath"],
       trails: [],
+      visitedTempleIds: ["kedarnath", "badrinath"],
     });
     expect(progress.percent).toBe(40);
     expect(progress.complete).toBe(false);
@@ -19,12 +19,12 @@ describe("sacred bharat challenges", () => {
 
   test("awards badges and sorts active challenges first", () => {
     const progress = {
+      trails: [{ complete: true, slug: "char-dham-trail" }],
       visitedTempleIds: ["kedarnath", "badrinath", "dwarka", "jagannath", "rameswaram"],
-      trails: [{ slug: "char-dham-trail", complete: true }],
     };
     expect(getChallengeBadgeAwards(progress).length).toBeGreaterThan(0);
     expect(sortChallengesForUser(SACRED_BHARAT_CHALLENGES, progress)[0].progress.complete).toBe(
-      false,
+      false
     );
   });
 });

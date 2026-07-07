@@ -4,12 +4,12 @@ import { list } from "./navShortcuts";
 function makeCtx(tables: Record<string, unknown[]>) {
   const staff = {
     _id: "staff_1",
+    active: true,
     authUserId: "auth_1",
     email: "admin@example.com",
     emailNormalized: "admin@example.com",
     name: "Admin User",
     roles: ["Admin"],
-    active: true,
   };
 
   const takeCalls: Array<{ table: string; take: number }> = [];
@@ -27,7 +27,7 @@ function makeCtx(tables: Record<string, unknown[]>) {
             .sort(
               (a, b) =>
                 Number((b as { createdAt?: number }).createdAt ?? 0) -
-                Number((a as { createdAt?: number }).createdAt ?? 0),
+                Number((a as { createdAt?: number }).createdAt ?? 0)
             )
             .slice(0, take);
         },
@@ -36,20 +36,21 @@ function makeCtx(tables: Record<string, unknown[]>) {
   };
 
   return {
-    takeCalls,
     ctx: {
       auth: {
         getUserIdentity: async () => ({
-          subject: "auth_1",
           email: "admin@example.com",
           name: "Admin User",
+          subject: "auth_1",
         }),
       },
       db: {
         get: async (id: string) => {
           for (const rows of Object.values(tables)) {
             const match = rows.find((row) => (row as { _id?: string })._id === id);
-            if (match) return match;
+            if (match) {
+              return match;
+            }
           }
           return null;
         },
@@ -59,6 +60,7 @@ function makeCtx(tables: Record<string, unknown[]>) {
         }),
       },
     },
+    takeCalls,
   };
 }
 
@@ -66,17 +68,17 @@ describe("navShortcuts list", () => {
   test("requests bounded newest rows before visibility filtering", async () => {
     const queries = Array.from({ length: 20 }, (_, index) => ({
       _id: `query_${index}`,
-      queryCode: `Q-${index}`,
       clientName: "Client",
-      createdBy: "auth_1",
       createdAt: index,
+      createdBy: "auth_1",
+      queryCode: `Q-${index}`,
     }));
 
     const { ctx, takeCalls } = makeCtx({
-      queries,
-      proposals: [],
-      proposalQueryLinks: [],
       jobCards: [],
+      proposalQueryLinks: [],
+      proposals: [],
+      queries,
       tickets: [],
     });
 
