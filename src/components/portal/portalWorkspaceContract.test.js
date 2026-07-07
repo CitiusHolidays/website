@@ -31,6 +31,15 @@ function workspaceHookReturnKeys() {
   );
 }
 
+function functionBlock(source, name) {
+  const start = source.indexOf(`function ${name}(`);
+  if (start === -1) {
+    return "";
+  }
+  const next = source.indexOf("\nfunction ", start + 1);
+  return source.slice(start, next === -1 ? undefined : next);
+}
+
 describe("portal workspace modularization contract", () => {
   test("workspace view metadata and form defaults live in the shared contract", () => {
     const workspace = read(WORKSPACE_FILE);
@@ -93,6 +102,26 @@ describe("portal workspace modularization contract", () => {
     expect(dashboardCall).toContain("dateRange={w.dateRange}");
     expect(dashboardCall).toContain("setDateRange={w.setDateRangeWithUrl}");
     expect(dashboardCall).toContain("openModal={w.openModal}");
+  });
+
+  test("table-backed views pass rows to their table component", () => {
+    const workspace = read(WORKSPACE_FILE);
+    const contracts = [
+      ["QueriesView", "DataTable", "rows={rows}"],
+      ["ProposalsView", "DataTable", "rows={rows}"],
+      ["AccountsJobCardView", "DataTable", "rows={creators}"],
+      ["JobCardsView", "SelectableDataTable", "rows={rows}"],
+      ["ExpensesView", "DataTable", "rows={rows}"],
+      ["ApprovalsView", "DataTable", "rows={rows}"],
+      ["LeaveView", "DataTable", "rows={rows}"],
+    ];
+
+    for (const [viewName, tableComponent, rowsProp] of contracts) {
+      const block = functionBlock(workspace, viewName);
+
+      expect(block).toContain(`<${tableComponent}`);
+      expect(block).toContain(rowsProp);
+    }
   });
 
   test("extracted entity modal files import the portal permission alias when they use it", () => {

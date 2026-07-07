@@ -1,7 +1,6 @@
+"use client";
+
 import { m } from "motion/react";
-
-("use client");
-
 import { Ticker } from "motion-plus/react";
 import Image from "next/image";
 import AbuDhabi from "@/static/partners/abudhabi.webp";

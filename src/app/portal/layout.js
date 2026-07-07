@@ -2,6 +2,7 @@ import { anyApi } from "convex/server";
 import { unstable_noStore } from "next/cache";
 import { redirect } from "next/navigation";
 import PortalShell from "@/components/portal/PortalShell";
+import ReducedMotionProvider from "@/components/providers/ReducedMotionProvider";
 import { fetchAuthMutation, fetchAuthQuery, requireAuth } from "@/lib/auth-server";
 
 // TODO: Cache Components adoption. Refactor this route so this opt-out can be removed.
@@ -16,19 +17,19 @@ export const metadata = {
 export default async function PortalLayout({ children }) {
   unstable_noStore();
 
-  return requireAuth("/portal").then(async ({ user }) => {
-    const access = await fetchAuthMutation(anyApi.authSync.syncMyAuthIdentity, {}).then(() =>
-      fetchAuthQuery(anyApi.crm.staff.getMyPortalAccess, {})
-    );
+  const { user } = await requireAuth("/portal");
+  await fetchAuthMutation(anyApi.authSync.syncMyAuthIdentity, {});
+  const access = await fetchAuthQuery(anyApi.crm.staff.getMyPortalAccess, {});
 
-    if (!access?.allowed) {
-      redirect("/account?portal=unauthorized");
-    }
+  if (!access?.allowed) {
+    redirect("/account?portal=unauthorized");
+  }
 
-    return (
+  return (
+    <ReducedMotionProvider>
       <PortalShell access={access} user={user}>
         {children}
       </PortalShell>
-    );
-  });
+    </ReducedMotionProvider>
+  );
 }

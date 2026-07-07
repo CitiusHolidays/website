@@ -1,7 +1,6 @@
+"use client";
+
 import { m } from "motion/react";
-
-("use client");
-
 import { Ticker } from "motion-plus/react";
 import Image from "next/image";
 import Acer from "@/static/clients/acer.webp";

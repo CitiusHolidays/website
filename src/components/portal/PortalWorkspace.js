@@ -1666,6 +1666,7 @@ function QueriesView({
           </div>
         );
       }}
+      rows={rows}
     />
   );
 }
@@ -2093,6 +2094,7 @@ function ProposalsView({
           </div>
         </div>
       )}
+      rows={rows}
     />
   );
 }
@@ -2166,6 +2168,7 @@ function AccountsJobCardView({
           ]}
           compact
           empty="No Accounts staff found."
+          rows={creators}
         />
       </Panel>
       <Panel title="Payment terms reference">
@@ -2454,6 +2457,7 @@ function JobCardsView({
           </Link>
         </div>
       )}
+      rows={rows}
     />
   );
 }
@@ -4586,6 +4590,7 @@ function ExpensesView({
       ]}
       empty="No expenses yet."
       filtersActive={filtersActive}
+      rows={rows}
     />
   );
 }
@@ -4666,6 +4671,7 @@ function ApprovalsView({ rows, has, openModal, decideApproval, deleteItem, remov
         ],
       ]}
       empty="No approvals in the queue."
+      rows={rows}
     />
   );
 }
@@ -5047,6 +5053,7 @@ function LeaveView({
             ],
           ]}
           empty="No leave records yet."
+          rows={rows}
         />
       </div>
     </div>
