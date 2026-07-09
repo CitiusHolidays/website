@@ -21,6 +21,7 @@ export function HeaderMobileMenu({ isOpen, onClose, navLinks, user, canAccessPor
       initial={{ opacity: 0 }}
     >
       <button
+        aria-label="Close menu"
         className="absolute top-8 right-8 p-4 text-white/50 transition-colors hover:text-white"
         onClick={onClose}
         type="button"

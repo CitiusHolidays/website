@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { getModShortcutLabel } from "./shortcutLabels.js";
+import { getModShortcutLabel } from "./shortcutLabels";
 
 describe("shortcutLabels", () => {
   test("getModShortcutLabel returns platform-specific labels", () => {

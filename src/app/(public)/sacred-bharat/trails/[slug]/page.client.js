@@ -38,7 +38,8 @@ export default function TrailDetailClient({ trail }) {
             <p className="mb-6 max-w-2xl font-sans text-white/75">
               Complete this trail to earn the{" "}
               <strong className="text-citius-orange">{trail.badgeName}</strong> badge and a{" "}
-              <strong>+{trail.completionBonus}</strong> trail bonus (plus each site's Temple Points).
+              <strong>+{trail.completionBonus}</strong> trail bonus (plus each site's Temple
+              Points).
             </p>
             <div className="flex flex-wrap items-center gap-4">
               <LevelBadge level={progress.level} score={progress.score} />

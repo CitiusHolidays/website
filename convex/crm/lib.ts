@@ -443,7 +443,8 @@ export async function requireStaff(ctx: QueryCtx | MutationCtx, permission?: str
 
 export async function requireAnyPermission(ctx: QueryCtx | MutationCtx, permissions: string[]) {
   const access = await requireStaff(ctx);
-  if (!permissions.some((permission) => access.permissions.includes(permission))) {
+  const permissionSet = new Set(access.permissions);
+  if (!permissions.some((permission) => permissionSet.has(permission))) {
     throw new ConvexError("FORBIDDEN");
   }
   return access;

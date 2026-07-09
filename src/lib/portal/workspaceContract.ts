@@ -1,5 +1,7 @@
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 
+export type PortalPermission = (typeof P)[keyof typeof P];
+
 export const TRAVEL_BATCH_MODAL = "travelBatch";
 
 export const SPREADSHEET_MODALS = [
@@ -15,7 +17,15 @@ export const SPREADSHEET_MODALS = [
   "passportExport",
   "visaImport",
   "visaExport",
-];
+] as const;
+
+export type SpreadsheetModalId = (typeof SPREADSHEET_MODALS)[number];
+
+export interface PortalViewMeta {
+  permission: PortalPermission;
+  subtitle: string;
+  title: string;
+}
 
 export const VIEW_META = {
   "accounts-job-cards": {
@@ -140,7 +150,9 @@ export const VIEW_META = {
       "Checklist, appointments, submission, approval, rejection, and re-application tracking.",
     title: "Visa Tracking",
   },
-};
+} satisfies Record<string, PortalViewMeta>;
+
+export type PortalViewId = keyof typeof VIEW_META;
 
 export const INITIAL_FORM = {
   airfarePerPax: "",
@@ -180,8 +192,8 @@ export const INITIAL_FORM = {
   destination: "",
   domesticTravelRequired: "No",
   dueDate: "",
+  emailAlertRoles: [] as string[],
   employmentStatus: "Confirmed",
-  emailAlertRoles: [],
   endDate: "",
   entityId: "",
   epayAmount: "",
@@ -227,7 +239,7 @@ export const INITIAL_FORM = {
   proposalId: "",
   queryCode: "",
   queryId: "",
-  queryIds: [],
+  queryIds: [] as string[],
   queryType: "MICE",
   reason: "",
   receivedAmount: "",
@@ -249,7 +261,7 @@ export const INITIAL_FORM = {
   staffFunction: "",
   staffId: "",
   staffName: "",
-  staffRoles: ["Sales"],
+  staffRoles: ["Sales"] as string[],
   startDate: "",
   status: "Pending",
   surname: "",
@@ -277,51 +289,92 @@ export const INITIAL_FORM = {
   visaStatus: "Checklist Shared",
 };
 
-/** @param {{ job?: Record<string, unknown>, batch?: Record<string, unknown> }} source */
-export function buildTravelBatchModalInitial({ job, batch } = {}) {
+export type PortalFormState = typeof INITIAL_FORM;
+
+export interface TravelBatchOwnerSource {
+  batchReference?: string;
+  confirmedPax?: number | string;
+  contractingOwnerId?: string;
+  contractingOwnerName?: string;
+  destination?: string;
+  id?: string;
+  jobCardId?: string;
+  operationsOwnerId?: string;
+  operationsOwnerName?: string;
+  roomCount?: number | string;
+  status?: string;
+  ticketingOwnerId?: string;
+  ticketingOwnerName?: string;
+  tourManagerName?: string;
+  travelEndDate?: string;
+  travelStartDate?: string;
+}
+
+export type TravelBatchModalInitial = Partial<
+  Pick<
+    PortalFormState,
+    | "batchReference"
+    | "confirmedPax"
+    | "contractingOwnerId"
+    | "contractingOwnerName"
+    | "destination"
+    | "entityId"
+    | "jobCardId"
+    | "operationsOwnerId"
+    | "operationsOwnerName"
+    | "roomCount"
+    | "status"
+    | "ticketingOwnerId"
+    | "ticketingOwnerName"
+    | "tourManagerName"
+    | "travelEndDate"
+    | "travelStartDate"
+  >
+>;
+
+function travelBatchOwnerInitial(source: TravelBatchOwnerSource): TravelBatchModalInitial {
+  return {
+    confirmedPax: String(source.confirmedPax ?? ""),
+    contractingOwnerId: source.contractingOwnerId || "",
+    contractingOwnerName: source.contractingOwnerName || "",
+    destination: source.destination || "",
+    operationsOwnerId: source.operationsOwnerId || "",
+    operationsOwnerName: source.operationsOwnerName || "",
+    roomCount: String(source.roomCount ?? ""),
+    status: source.status || "Open",
+    ticketingOwnerId: source.ticketingOwnerId || "",
+    ticketingOwnerName: source.ticketingOwnerName || "",
+    tourManagerName: source.tourManagerName || "",
+    travelEndDate: source.travelEndDate || "",
+    travelStartDate: source.travelStartDate || "",
+  };
+}
+
+export function buildTravelBatchModalInitial({
+  job,
+  batch,
+}: {
+  job?: TravelBatchOwnerSource;
+  batch?: TravelBatchOwnerSource;
+} = {}): TravelBatchModalInitial {
   if (batch) {
     return {
+      ...travelBatchOwnerInitial(batch),
       batchReference: batch.batchReference || "",
-      confirmedPax: String(batch.confirmedPax ?? ""),
-      contractingOwnerId: batch.contractingOwnerId || "",
-      contractingOwnerName: batch.contractingOwnerName || "",
-      destination: batch.destination || "",
       entityId: batch.id,
       jobCardId: batch.jobCardId,
-      operationsOwnerId: batch.operationsOwnerId || "",
-      operationsOwnerName: batch.operationsOwnerName || "",
-      roomCount: String(batch.roomCount ?? ""),
-      status: batch.status || "Open",
-      ticketingOwnerId: batch.ticketingOwnerId || "",
-      ticketingOwnerName: batch.ticketingOwnerName || "",
-      tourManagerName: batch.tourManagerName || "",
-      travelEndDate: batch.travelEndDate || "",
-      travelStartDate: batch.travelStartDate || "",
     };
   }
   if (job) {
     return {
-      confirmedPax: String(job.confirmedPax ?? ""),
-      contractingOwnerId: job.contractingOwnerId || "",
-      contractingOwnerName: job.contractingOwnerName || "",
-      destination: job.destination || "",
+      ...travelBatchOwnerInitial(job),
       jobCardId: job.id,
-      operationsOwnerId: job.operationsOwnerId || "",
-      operationsOwnerName: job.operationsOwnerName || "",
-      roomCount: String(job.roomCount ?? ""),
-      status: job.status || "Open",
-      ticketingOwnerId: job.ticketingOwnerId || "",
-      ticketingOwnerName: job.ticketingOwnerName || "",
-      tourManagerName: job.tourManagerName || "",
-      travelEndDate: job.travelEndDate || "",
-      travelStartDate: job.travelStartDate || "",
     };
   }
   return {};
 }
 
-/** @param {Record<string, unknown>} batch */
-export function formatTravelBatchOwnerSummary(batch) {
+export function formatTravelBatchOwnerSummary(batch: TravelBatchOwnerSource): string {
   const owners = [
     batch.contractingOwnerName,
     batch.operationsOwnerName,

@@ -15,3 +15,11 @@ _Avoid_: Ticketing person dropdown at sales query creation
 **Finance Head**:
 The staff member whose job role is Finance Head and who receives finance-head notifications for confirmed orders and Job Card handoff.
 _Avoid_: All Accounts staff, configurable HOD Finance without role match
+
+**Proposal Pricing Complete**:
+A Proposal is ready for Sales/client handoff and Job Card handoff only when both selling price and cost price per person are entered. Draft Proposals may remain pricing-incomplete while Contracting and Ticketing collaborate.
+_Avoid_: Treating Draft pricing gaps as workflow-ready, discovering missing proposal pricing during Job Card creation
+
+**Proposal Handoff**:
+The workflow transition where a Proposal leaves Draft preparation and is sent to Sales or marked sent to the client. Proposal Handoff requires Proposal Pricing Complete.
+_Avoid_: Allowing Sales review, client send, or downstream Job Card opening from a pricing-incomplete Proposal

@@ -57,7 +57,8 @@ export function useEntityModalLinking({
     const linkedQuery = queries.find((query) => query.id === queryId);
     const patch = applyQueryLink(form, linkedQuery);
     const linkedProposal = proposals.reduce((latest, proposal) => {
-      if (!proposalLinkedQueryIds(proposal).includes(queryId)) {
+      const linkedQueryIds = new Set(proposalLinkedQueryIds(proposal));
+      if (!linkedQueryIds.has(queryId)) {
         return latest;
       }
       if (!latest) {

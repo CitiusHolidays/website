@@ -232,9 +232,7 @@ function isChallengeComplete(challenge: ChallengeDef, visitedSet: Set<string>): 
   const templeIds = challenge.templeIds ?? [];
   const requiredCount = challenge.requiredCount ?? templeIds.length;
   const visited =
-    templeIds.length > 0
-      ? templeIds.filter((id) => visitedSet.has(id)).length
-      : visitedSet.size;
+    templeIds.length > 0 ? templeIds.filter((id) => visitedSet.has(id)).length : visitedSet.size;
   return requiredCount > 0 && visited >= requiredCount;
 }
 

@@ -9,17 +9,18 @@
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation } from "@/lib/auth-server";
+import type { ConfirmBookingArgs, VerifyPaymentPayload } from "@/lib/paymentVerification";
 import { verifyPaymentRequest } from "@/lib/paymentVerification";
 import { verifyPaymentSignature } from "@/lib/razorpay";
 
-export async function POST(request) {
+export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { booking_id } = body;
+    const body = (await request.json()) as VerifyPaymentPayload;
 
     const result = await verifyPaymentRequest({
       body,
-      confirmBooking: (args) => fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, args),
+      confirmBooking: (args: ConfirmBookingArgs) =>
+        fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, args),
       verifySignature: verifyPaymentSignature,
     });
 
@@ -27,7 +28,6 @@ export async function POST(request) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
-    void booking_id;
     const { confirmed } = result;
 
     if (confirmed.alreadyConfirmed) {

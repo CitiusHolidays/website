@@ -66,13 +66,12 @@ export default function TeamMember({ member, index }) {
         </m.p>
 
         <div className="relative">
-          <m.div
-            animate={{ height: isExpanded ? "auto" : collapsedHeight }}
-            className="relative overflow-hidden"
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          <div
+            className="relative overflow-hidden transition-[max-height] duration-500 ease-out"
+            style={{ maxHeight: isExpanded ? "none" : collapsedHeight }}
           >
             <p className="text-brand-muted text-sm leading-relaxed">{member.bio}</p>
-          </m.div>
+          </div>
 
           {member.bio.length > 200 && (
             <m.button
@@ -92,10 +91,11 @@ export default function TeamMember({ member, index }) {
         <AnimatePresence>
           {isExpanded && member.quote && (
             <m.div
-              animate={{ height: "auto", opacity: 1, y: 0 }}
+              animate={{ opacity: 1, scaleY: 1, y: 0 }}
               className="mt-4 overflow-hidden border-brand-border border-t pt-4"
-              exit={{ height: 0, opacity: 0, y: 10 }}
-              initial={{ height: 0, opacity: 0, y: 10 }}
+              exit={{ opacity: 0, scaleY: 0.96, y: 10 }}
+              initial={{ opacity: 0, scaleY: 0.96, y: 10 }}
+              style={{ originY: 0 }}
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             >
               <p className="text-brand-muted text-sm italic">&quot;{member.quote}&quot;</p>

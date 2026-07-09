@@ -161,6 +161,73 @@ describe("executeModalCommand", () => {
     ]);
   });
 
+  test("allows pricing-incomplete draft proposal save before Proposal Handoff", async () => {
+    const { deps, calls } = makeDeps();
+
+    await executeModalCommand({
+      deps,
+      form: {
+        airfarePerPax: "",
+        itinerarySummary: "Draft itinerary",
+        landCostPerPax: "",
+        queryIds: ["query_1"],
+        sellingPrice: "",
+        taxRate: "",
+        visaCostPerPax: "",
+      },
+      modal: "proposal",
+    });
+
+    expect(calls).toEqual([
+      [
+        "createProposal",
+        expect.objectContaining({
+          airfarePerPax: 0,
+          landCostPerPax: 0,
+          queryIds: ["query_1"],
+          sellingPrice: 0,
+          visaCostPerPax: 0,
+        }),
+      ],
+    ]);
+  });
+
+  test("rejects invalid required modal fields before mutations run", async () => {
+    const { deps, calls } = makeDeps();
+
+    await expect(
+      executeModalCommand({
+        deps,
+        form: { fullName: "", jobCardId: "job_1" },
+        modal: "traveller",
+      })
+    ).rejects.toThrow("Traveller name is required.");
+
+    await expect(
+      executeModalCommand({
+        deps,
+        form: { invoiceNumber: "", jobCardId: "job_1" },
+        modal: "invoice",
+      })
+    ).rejects.toThrow("Invoice number is required.");
+
+    await expect(
+      executeModalCommand({
+        deps,
+        form: {
+          cardAmount: "100",
+          category: "Miscellaneous",
+          expenseDate: "2026-06-15",
+          expenseType: "office",
+          paidBy: "",
+        },
+        modal: "expense",
+      })
+    ).rejects.toThrow("Paid by is required.");
+
+    expect(calls).toEqual([]);
+  });
+
   test("query assignment fields require contracting SPOC and ticketing scope together", async () => {
     const { deps, calls } = makeDeps();
 

@@ -47,8 +47,10 @@ async function loadAssignableStaff(
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
   }
-  const allowedRoles = team === "contracting" ? CONTRACTING_TEAM_ROLES : TICKETING_TEAM_ROLES;
-  const onTeam = staff.roles.some((role) => (allowedRoles as readonly string[]).includes(role));
+  const allowedRoles = new Set<string>(
+    team === "contracting" ? CONTRACTING_TEAM_ROLES : TICKETING_TEAM_ROLES
+  );
+  const onTeam = staff.roles.some((role) => allowedRoles.has(role));
   if (!onTeam) {
     throw new ConvexError(
       team === "contracting"

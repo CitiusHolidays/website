@@ -4,8 +4,8 @@ import { Check, MapPin } from "lucide-react";
 import { REGION_LABELS } from "@/data/sacredBharat/regions";
 import { getTempleById, TEMPLES } from "@/data/sacredBharat/temples";
 import { cn } from "@/utils/cn";
-import TempleJourneyCard from "./TempleJourneyCard";
 import { useSacredBharatContext } from "./SacredBharatProvider";
+import TempleJourneyCard from "./TempleJourneyCard";
 
 /**
  * @param {{ templeIds?: string[], showAllTemples?: boolean }} props
@@ -19,11 +19,12 @@ export default function TempleChecklist({ templeIds, showAllTemples = false }) {
         const temple = getTempleById(id);
         return temple ? [temple] : [];
       });
+  const visitedSet = new Set(visitedTempleIds);
 
   return (
     <ul className="space-y-2">
       {list.map((temple) => {
-        const visited = visitedTempleIds.includes(temple.id);
+        const visited = visitedSet.has(temple.id);
         return (
           <li key={temple.id}>
             <button
@@ -62,9 +63,9 @@ export default function TempleChecklist({ templeIds, showAllTemples = false }) {
                 +{temple.points} pts
               </span>
             </button>
-            {!visited ? (
+            {visited ? null : (
               <TempleJourneyCard templeId={temple.id} visitedTempleIds={visitedTempleIds} />
-            ) : null}
+            )}
           </li>
         );
       })}

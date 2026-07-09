@@ -4,13 +4,13 @@ import {
   buildRecentRecordCommands,
   buildSavedViewCommands,
   filterCommands,
-} from "./commandPalette.js";
+} from "./commandPalette";
 
 describe("commandPalette", () => {
   test("gates create commands by permission", () => {
     const commands = buildCreateCommands({
       has: (permission) => permission === "manage:queries",
-      openModal: () => {},
+      openModal: () => undefined,
     });
     expect(commands.map((command) => command.id)).toEqual(["create:query"]);
   });

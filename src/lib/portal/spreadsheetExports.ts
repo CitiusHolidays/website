@@ -10,11 +10,85 @@ import {
 } from "./spreadsheetImports";
 import {
   sanitizeSheetName,
+  type WorkbookRow,
+  type WorkbookRows,
   workbookArrayBufferFromSheets,
   workbookFromSheets,
 } from "./workbookAdapter";
 
-export function formatFoodPreferenceForExport(value) {
+const WHITESPACE_RE = /\s+/;
+
+interface ExportPassportDetails {
+  dateOfBirth?: string;
+  expiryDate?: string;
+  issueDate?: string;
+  number?: string;
+}
+
+interface ExportVisaDetails {
+  appointmentDate?: string;
+  notes?: string;
+  status?: string;
+}
+
+export interface TravellerWorkbookExportRow {
+  contactNo?: string;
+  foodPreference?: string;
+  fullName?: string;
+  gender?: string;
+  givenName?: string;
+  hotelAllocation?: string;
+  passport?: ExportPassportDetails;
+  paymentType?: string;
+  roomType?: string;
+  sourceDealerCode?: string;
+  sourceDealerName?: string;
+  sourceDescription?: string;
+  sourceRsoName?: string;
+  sourceSoName?: string;
+  specialRequests?: string;
+  surname?: string;
+  ticketing?: {
+    domesticPnr?: string;
+    domesticTicket?: string;
+    domesticVendor?: string;
+    internationalFare?: string | number;
+    internationalPnr?: string;
+    internationalVendor?: string;
+  };
+  travelBatchReference?: string;
+  travelHub?: string;
+  visa?: ExportVisaDetails;
+  visaStatus?: string;
+}
+
+export interface FlightSegmentExportRow {
+  airline?: string;
+  arriveTime?: string;
+  dateLabel?: string;
+  departTime?: string;
+  destination?: string;
+  duration?: string;
+  flightNumber?: string | number;
+  origin?: string;
+  transit?: string;
+}
+
+export interface FlightGroupExportRow {
+  segments?: FlightSegmentExportRow[];
+  sourceSheet?: string;
+  travelBatchReference?: string;
+}
+
+interface WorkbookBuildOptions {
+  sheetName?: string;
+}
+
+interface FlightWorkbookBuildOptions {
+  defaultSheetName?: string;
+}
+
+export function formatFoodPreferenceForExport(value: unknown): string {
   switch (value) {
     case "Non-Veg":
       return "NON VEG";
@@ -27,7 +101,7 @@ export function formatFoodPreferenceForExport(value) {
   }
 }
 
-function genderForTemplate(value) {
+function genderForTemplate(value: unknown): string {
   const normalized = normalizeTravellerGender(value);
   if (normalized === "Male") {
     return "MALE";
@@ -35,10 +109,12 @@ function genderForTemplate(value) {
   if (normalized === "Female") {
     return "FEMALE";
   }
-  return value || "";
+  return typeof value === "string" ? value : "";
 }
 
-function passengerRowToArray(row) {
+function passengerRowToArray(
+  row: TravellerWorkbookExportRow & { sequenceNumber?: number }
+): WorkbookRow {
   const passport = row.passport || {};
   const name =
     row.surname || row.givenName
@@ -67,10 +143,10 @@ function passengerRowToArray(row) {
   ];
 }
 
-function splitPassengerName(fullName) {
+function splitPassengerName(fullName: unknown): { givenName: string; surname: string } {
   const parts = String(fullName ?? "")
     .trim()
-    .split(/\s+/)
+    .split(WHITESPACE_RE)
     .filter(Boolean);
   if (parts.length <= 1) {
     return { givenName: parts[0] || "", surname: "" };
@@ -81,7 +157,7 @@ function splitPassengerName(fullName) {
   };
 }
 
-function honorificForPassenger(gender) {
+function honorificForPassenger(gender: unknown): string {
   const key = String(gender ?? "")
     .trim()
     .toLowerCase();
@@ -94,10 +170,10 @@ function honorificForPassenger(gender) {
   return "";
 }
 
-function splitTemplateName(fullName) {
+function splitTemplateName(fullName: unknown): { givenName: string; surname: string } {
   const parts = String(fullName ?? "")
     .trim()
-    .split(/\s+/)
+    .split(WHITESPACE_RE)
     .filter(Boolean);
   if (parts.length <= 1) {
     return { givenName: parts[0] || "", surname: "" };
@@ -108,7 +184,7 @@ function splitTemplateName(fullName) {
   };
 }
 
-function roomTypeForTemplate(value) {
+function roomTypeForTemplate(value: unknown): string {
   switch (value) {
     case "Single":
       return "SINGLE";
@@ -125,7 +201,7 @@ function roomTypeForTemplate(value) {
   }
 }
 
-function paymentTypeForTemplate(value) {
+function paymentTypeForTemplate(value: unknown): string {
   switch (value) {
     case "Self Paid":
       return "Self Paid";
@@ -136,7 +212,16 @@ function paymentTypeForTemplate(value) {
   }
 }
 
-function templateBase(row) {
+function templateBase(row: TravellerWorkbookExportRow): {
+  contactNo: string;
+  dealerName: string;
+  gender: string;
+  givenName: string;
+  passport: ExportPassportDetails;
+  passportValid: string;
+  remarks: string;
+  surname: string;
+} {
   const passport = row.passport || {};
   const name =
     row.surname || row.givenName
@@ -154,7 +239,7 @@ function templateBase(row) {
   };
 }
 
-function roomingRowToArray(row, index) {
+function roomingRowToArray(row: TravellerWorkbookExportRow, index: number): WorkbookRow {
   const base = templateBase(row);
   return [
     index + 1,
@@ -180,7 +265,7 @@ function roomingRowToArray(row, index) {
   ];
 }
 
-function travellerMasterRowToArray(row, index) {
+function travellerMasterRowToArray(row: TravellerWorkbookExportRow, index: number): WorkbookRow {
   const base = templateBase(row);
   return [
     index + 1,
@@ -206,7 +291,7 @@ function travellerMasterRowToArray(row, index) {
   ];
 }
 
-function passportRowToArray(row, index) {
+function passportRowToArray(row: TravellerWorkbookExportRow, index: number): WorkbookRow {
   const base = templateBase(row);
   return [
     index + 1,
@@ -226,7 +311,7 @@ function passportRowToArray(row, index) {
   ];
 }
 
-function visaRowToArray(row, index) {
+function visaRowToArray(row: TravellerWorkbookExportRow, index: number): WorkbookRow {
   const base = templateBase(row);
   const visa = row.visa || {};
   return [
@@ -254,7 +339,10 @@ function visaRowToArray(row, index) {
   ];
 }
 
-export function buildPassengerWorkbook(rows, { sheetName = "Passengers" } = {}) {
+export function buildPassengerWorkbook(
+  rows: TravellerWorkbookExportRow[],
+  { sheetName = "Passengers" }: WorkbookBuildOptions = {}
+): WorkbookRows {
   const sheetRows = [
     PASSENGER_EXPORT_HEADERS,
     ...rows.map((row, index) => passengerRowToArray({ ...row, sequenceNumber: index + 1 })),
@@ -264,39 +352,51 @@ export function buildPassengerWorkbook(rows, { sheetName = "Passengers" } = {}) 
   });
 }
 
-export function buildTravellerMasterWorkbook(rows, { sheetName = "Master list" } = {}) {
+export function buildTravellerMasterWorkbook(
+  rows: TravellerWorkbookExportRow[],
+  { sheetName = "Master list" }: WorkbookBuildOptions = {}
+): WorkbookRows {
   const sheetRows = [TRAVELLER_MASTER_EXPORT_HEADERS, ...rows.map(travellerMasterRowToArray)];
   return workbookFromSheets({
     [sanitizeSheetName(sheetName)]: sheetRows,
   });
 }
 
-export function buildRoomingWorkbook(rows, { sheetName = "Rooming" } = {}) {
+export function buildRoomingWorkbook(
+  rows: TravellerWorkbookExportRow[],
+  { sheetName = "Rooming" }: WorkbookBuildOptions = {}
+): WorkbookRows {
   const sheetRows = [ROOMING_EXPORT_HEADERS, ...rows.map(roomingRowToArray)];
   return workbookFromSheets({
     [sanitizeSheetName(sheetName)]: sheetRows,
   });
 }
 
-export function buildPassportWorkbook(rows, { sheetName = "Passport" } = {}) {
+export function buildPassportWorkbook(
+  rows: TravellerWorkbookExportRow[],
+  { sheetName = "Passport" }: WorkbookBuildOptions = {}
+): WorkbookRows {
   const sheetRows = [PASSPORT_EXPORT_HEADERS, ...rows.map(passportRowToArray)];
   return workbookFromSheets({
     [sanitizeSheetName(sheetName)]: sheetRows,
   });
 }
 
-export function buildVisaWorkbook(rows, { sheetName = "Visa" } = {}) {
+export function buildVisaWorkbook(
+  rows: TravellerWorkbookExportRow[],
+  { sheetName = "Visa" }: WorkbookBuildOptions = {}
+): WorkbookRows {
   const sheetRows = [VISA_EXPORT_HEADERS, ...rows.map(visaRowToArray)];
   return workbookFromSheets({
     [sanitizeSheetName(sheetName)]: sheetRows,
   });
 }
 
-function flightHeaderRow() {
+function flightHeaderRow(): WorkbookRow {
   return ["", ...FLIGHT_EXPORT_HEADER];
 }
 
-function flightSegmentRow(segment) {
+function flightSegmentRow(segment: FlightSegmentExportRow): WorkbookRow {
   return [
     "",
     segment.dateLabel || "",
@@ -311,61 +411,80 @@ function flightSegmentRow(segment) {
   ];
 }
 
-export function buildFlightWorkbook(groups, { defaultSheetName = "Flights" } = {}) {
-  const groupsBySheet = new Map();
-
+function groupFlightsBySheet(
+  groups: FlightGroupExportRow[],
+  defaultSheetName: string
+): Map<string, FlightGroupExportRow[]> {
+  const groupsBySheet = new Map<string, FlightGroupExportRow[]>();
   for (const group of groups) {
     const key = group.sourceSheet || defaultSheetName;
-    if (!groupsBySheet.has(key)) {
-      groupsBySheet.set(key, []);
-    }
-    groupsBySheet.get(key).push(group);
+    const sheetGroups = groupsBySheet.get(key) ?? [];
+    sheetGroups.push(group);
+    groupsBySheet.set(key, sheetGroups);
   }
+  return groupsBySheet;
+}
 
-  const sheets = {};
+function uniqueSheetName(
+  sheetKey: string,
+  defaultSheetName: string,
+  usedNames: Set<string>
+): string {
+  let sheetName = sanitizeSheetName(sheetKey, defaultSheetName);
+  let suffix = 2;
+  while (usedNames.has(sheetName)) {
+    const trimmed = sheetName.slice(0, Math.max(1, 28 - String(suffix).length));
+    sheetName = `${trimmed}-${suffix}`;
+    suffix += 1;
+  }
+  usedNames.add(sheetName);
+  return sheetName;
+}
+
+function flightSheetRows(sheetGroups: FlightGroupExportRow[]): WorkbookRow[] {
+  const sheetRows: WorkbookRow[] = [[]];
+  for (const group of sheetGroups) {
+    const segments = group.segments || [];
+    if (segments.length === 0) {
+      continue;
+    }
+    if (group.travelBatchReference) {
+      sheetRows.push(["Travel Batch", group.travelBatchReference]);
+    }
+    sheetRows.push(flightHeaderRow());
+    for (const segment of segments) {
+      sheetRows.push(flightSegmentRow(segment));
+    }
+    sheetRows.push([]);
+  }
+  if (sheetRows.length === 1) {
+    sheetRows.push(flightHeaderRow());
+  }
+  return sheetRows;
+}
+
+export function buildFlightWorkbook(
+  groups: FlightGroupExportRow[],
+  { defaultSheetName = "Flights" }: FlightWorkbookBuildOptions = {}
+): WorkbookRows {
+  const groupsBySheet = groupFlightsBySheet(groups, defaultSheetName);
+  const sheets: Record<string, WorkbookRow[]> = {};
 
   if (groupsBySheet.size === 0) {
     sheets[sanitizeSheetName(defaultSheetName)] = [[], flightHeaderRow()];
     return workbookFromSheets(sheets);
   }
 
-  const usedNames = new Set();
+  const usedNames = new Set<string>();
   for (const [sheetKey, sheetGroups] of groupsBySheet.entries()) {
-    let sheetName = sanitizeSheetName(sheetKey, defaultSheetName);
-    let suffix = 2;
-    while (usedNames.has(sheetName)) {
-      const trimmed = sheetName.slice(0, Math.max(1, 28 - String(suffix).length));
-      sheetName = `${trimmed}-${suffix}`;
-      suffix += 1;
-    }
-    usedNames.add(sheetName);
-
-    const sheetRows = [[]];
-    for (const group of sheetGroups) {
-      const segments = group.segments || [];
-      if (segments.length === 0) {
-        continue;
-      }
-      if (group.travelBatchReference) {
-        sheetRows.push(["Travel Batch", group.travelBatchReference]);
-      }
-      sheetRows.push(flightHeaderRow());
-      for (const segment of segments) {
-        sheetRows.push(flightSegmentRow(segment));
-      }
-      sheetRows.push([]);
-    }
-    if (sheetRows.length === 1) {
-      sheetRows.push(flightHeaderRow());
-    }
-
-    sheets[sheetName] = sheetRows;
+    const sheetName = uniqueSheetName(sheetKey, defaultSheetName, usedNames);
+    sheets[sheetName] = flightSheetRows(sheetGroups);
   }
 
   return workbookFromSheets(sheets);
 }
 
-export async function downloadWorkbook(workbook, filename) {
+export async function downloadWorkbook(workbook: WorkbookRows, filename: string): Promise<void> {
   const buffer = await workbookArrayBufferFromSheets(workbook.Sheets);
   const blob = new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

@@ -1,6 +1,39 @@
 import ExcelJS from "exceljs";
 
-export function sanitizeSheetName(name, fallback = "Sheet1") {
+export type WorkbookCellValue = string | number | boolean | Date | null | undefined;
+export type WorkbookRow = WorkbookCellValue[];
+export type WorkbookSheetMap = Record<string, WorkbookRow[]>;
+export interface WorkbookRows {
+  SheetNames: string[];
+  Sheets: WorkbookSheetMap;
+}
+
+interface ExcelDateOptions {
+  date1904?: boolean;
+}
+
+export interface ParsedExcelDateCode {
+  D: number;
+  d: number;
+  H: number;
+  M: number;
+  m: number;
+  q: number;
+  S: number;
+  T: number;
+  u: number;
+  y: number;
+}
+
+interface ExcelCellObject {
+  error?: unknown;
+  hyperlink?: string;
+  result?: unknown;
+  richText?: Array<{ text?: string }>;
+  text?: string;
+}
+
+export function sanitizeSheetName(name: unknown, fallback = "Sheet1"): string {
   const cleaned = String(name ?? "")
     .replace(/[\\/?*[\]:]/g, " ")
     .trim()
@@ -8,11 +41,15 @@ export function sanitizeSheetName(name, fallback = "Sheet1") {
   return cleaned || fallback;
 }
 
-export function parseExcelDateCode(serial, opts, b2) {
+export function parseExcelDateCode(
+  serial: unknown,
+  opts?: ExcelDateOptions,
+  b2 = false
+): ParsedExcelDateCode | null {
   if (typeof serial !== "number" || !Number.isFinite(serial) || serial > 2_958_465 || serial < 0) {
     return null;
   }
-  let date = serial | 0;
+  let date = Math.trunc(serial);
   let time = Math.floor(86_400 * (serial - date));
   let dow = 0;
   const out = {
@@ -35,15 +72,17 @@ export function parseExcelDateCode(serial, opts, b2) {
   }
   if (out.u > 0.9999) {
     out.u = 0;
-    if (++time === 86_400) {
-      out.T = time = 0;
+    time += 1;
+    if (time === 86_400) {
+      time = 0;
+      out.T = time;
       date += 1;
       out.D += 1;
     }
   }
-  let year;
-  let month;
-  let day;
+  let year: number;
+  let month: number;
+  let day: number;
   if (date === 60) {
     if (b2) {
       year = 1317;
@@ -93,14 +132,18 @@ export function parseExcelDateCode(serial, opts, b2) {
   return out;
 }
 
-function normalizeCellValue(value) {
-  if (value == null) {
+function isExcelCellObject(value: unknown): value is ExcelCellObject {
+  return Boolean(value && typeof value === "object");
+}
+
+function normalizeCellValue(value: unknown): WorkbookCellValue {
+  if (value === null || value === undefined) {
     return "";
   }
   if (value instanceof Date) {
     return value;
   }
-  if (typeof value === "object") {
+  if (isExcelCellObject(value)) {
     if (Object.hasOwn(value, "result")) {
       return normalizeCellValue(value.result);
     }
@@ -117,12 +160,20 @@ function normalizeCellValue(value) {
       return "";
     }
   }
-  return value;
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    value instanceof Date
+  ) {
+    return value;
+  }
+  return "";
 }
 
-function isBlankRow(rowValues) {
+function isBlankRow(rowValues: WorkbookRow): boolean {
   return rowValues.every((value) => {
-    if (value == null || value === "") {
+    if (value === null || value === undefined || value === "") {
       return true;
     }
     if (typeof value === "string" && value.trim() === "") {
@@ -132,32 +183,35 @@ function isBlankRow(rowValues) {
   });
 }
 
-function rowValuesFromWorksheetRow(row) {
+function rowValuesFromWorksheetRow(row: ExcelJS.Row): WorkbookRow {
   const raw = row.values;
   if (!Array.isArray(raw)) {
     return [];
   }
   const values = raw.slice(1).map((value) => normalizeCellValue(value));
-  while (values.length > 0 && (values.at(-1) === "" || values.at(-1) == null)) {
+  while (
+    values.length > 0 &&
+    (values.at(-1) === "" || values.at(-1) === null || values.at(-1) === undefined)
+  ) {
     values.pop();
   }
   return values;
 }
 
-export function workbookFromSheets(sheets) {
+export function workbookFromSheets(sheets: WorkbookSheetMap): WorkbookRows {
   const SheetNames = Object.keys(sheets);
   return { SheetNames, Sheets: { ...sheets } };
 }
 
-export async function workbookRowsFromArrayBuffer(buffer) {
+export async function workbookRowsFromArrayBuffer(buffer: ArrayBuffer): Promise<WorkbookRows> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
-  const Sheets = {};
-  const SheetNames = [];
+  const Sheets: WorkbookSheetMap = {};
+  const SheetNames: string[] = [];
   for (const worksheet of workbook.worksheets) {
     const sheetName = worksheet.name;
     SheetNames.push(sheetName);
-    const rows = [];
+    const rows: WorkbookRow[] = [];
     worksheet.eachRow({ includeEmpty: false }, (row) => {
       const values = rowValuesFromWorksheetRow(row);
       if (!isBlankRow(values)) {
@@ -169,7 +223,7 @@ export async function workbookRowsFromArrayBuffer(buffer) {
   return { SheetNames, Sheets };
 }
 
-export async function workbookArrayBufferFromSheets(sheets) {
+export async function workbookArrayBufferFromSheets(sheets: WorkbookSheetMap): Promise<BlobPart> {
   const workbook = new ExcelJS.Workbook();
   for (const [name, rows] of Object.entries(sheets)) {
     const worksheet = workbook.addWorksheet(sanitizeSheetName(name));
@@ -177,5 +231,5 @@ export async function workbookArrayBufferFromSheets(sheets) {
       worksheet.addRow(row);
     }
   }
-  return workbook.xlsx.writeBuffer();
+  return await workbook.xlsx.writeBuffer();
 }

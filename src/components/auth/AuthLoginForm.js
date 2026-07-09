@@ -60,9 +60,10 @@ export function AuthLoginForm({
         <AnimatePresence mode="wait">
           {mode === "signup" && variant.allowSignup && (
             <m.div
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              initial={{ height: 0, opacity: 0 }}
+              animate={{ opacity: 1, scaleY: 1 }}
+              exit={{ opacity: 0, scaleY: 0.96 }}
+              initial={{ opacity: 0, scaleY: 0.96 }}
+              style={{ originY: 0 }}
               transition={{ duration: 0.2 }}
             >
               <div className="group">
@@ -139,6 +140,7 @@ export function AuthLoginForm({
             />
             <Lock className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-[#d4af37]" />
             <button
+              aria-label={showPassword ? "Hide password" : "Show password"}
               className="absolute top-1/2 right-4 -translate-y-1/2 text-[#94a3b8] transition-colors hover:text-[#0f172a] focus:outline-none"
               onClick={onTogglePassword}
               type="button"

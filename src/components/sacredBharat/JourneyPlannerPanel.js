@@ -30,10 +30,12 @@ export default function JourneyPlannerPanel() {
     const abortController = new AbortController();
     abortRef.current = abortController;
 
-    const wishlistTrailSlugs =
-      progress.wishlist
-        ?.filter((item) => item.itemType === "trail")
-        .map((item) => item.itemId) ?? [];
+    const wishlistTrailSlugs = [];
+    for (const item of progress.wishlist ?? []) {
+      if (item.itemType === "trail") {
+        wishlistTrailSlugs.push(item.itemId);
+      }
+    }
 
     await streamJourneyPlannerResponse({
       focusTempleId: activeFocus,
@@ -75,8 +77,8 @@ export default function JourneyPlannerPanel() {
         <div>
           <h2 className="font-heading text-brand-dark text-xl">AI Journey Planner</h2>
           <p className="mt-1 font-sans text-brand-muted text-sm">
-            Personalized pilgrimage ideas from your Soul Score progress — season, airport, mythology,
-            and day-by-day outline.
+            Personalized pilgrimage ideas from your Soul Score progress — season, airport,
+            mythology, and day-by-day outline.
           </p>
         </div>
       </div>

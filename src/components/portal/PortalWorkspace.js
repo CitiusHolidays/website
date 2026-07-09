@@ -361,7 +361,7 @@ function reconcileLinkedSelections(form, travellers, pnrs) {
 export default function PortalWorkspace(props) {
   return (
     <Suspense fallback={<LoadingPanel />}>
-      <PortalWorkspaceInner {...props} key={props.view || "dashboard"} />
+      <PortalWorkspaceInner key={props.view || "dashboard"} {...props} />
     </Suspense>
   );
 }
@@ -950,10 +950,10 @@ function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
           close={w.closeModal}
           commitPassengerImport={w.commitPassengerImport}
           jobCards={w.jobCards || []}
+          key={config.modal}
           open={w.modal === config.modal}
           previewPassengerImport={w.previewPassengerImport}
           {...config}
-          key={config.modal}
         />
       ))}
       <FlightImportModal
@@ -968,9 +968,9 @@ function PortalWorkspaceSpreadsheetModals({ workspace: w }) {
           close={w.closeModal}
           getPassengerExportRows={w.getPassengerExportRows}
           jobCards={w.jobCards || []}
+          key={config.modal}
           open={w.modal === config.modal}
           {...config}
-          key={config.modal}
         />
       ))}
       <FlightExportModal
@@ -6233,9 +6233,9 @@ function Progress({ label, value }) {
       </div>
       <div className="mt-1 h-2 overflow-hidden rounded-full bg-brand-border">
         <m.div
-          animate={{ width: `${Math.min(value || 0, 100)}%` }}
-          className="h-full rounded-full bg-linear-to-r from-citius-orange to-citius-blue"
-          initial={{ width: 0 }}
+          animate={{ scaleX: Math.min(value || 0, 100) / 100 }}
+          className="h-full w-full origin-left rounded-full bg-linear-to-r from-citius-orange to-citius-blue"
+          initial={{ scaleX: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         />
       </div>
@@ -6921,10 +6921,10 @@ function QueryFilePicker({ files, onChange, inputId }) {
       />
       {files.length > 0 && (
         <ul className="mt-3 space-y-2">
-          {files.map((file, index) => (
+          {files.map((file) => (
             <li
               className="flex items-center justify-between gap-3 rounded-lg border border-brand-border bg-white px-3 py-2 text-sm"
-              key={`${file.name}-${file.size}-${index}`}
+              key={`${file.name}-${file.size}-${file.lastModified}`}
             >
               <div className="min-w-0">
                 <div className="truncate font-medium text-brand-text">{file.name}</div>
@@ -6932,7 +6932,18 @@ function QueryFilePicker({ files, onChange, inputId }) {
               </div>
               <button
                 className="shrink-0 font-semibold text-red-600 text-xs hover:underline"
-                onClick={() => onChange(files.filter((_, i) => i !== index))}
+                onClick={() =>
+                  onChange(
+                    files.filter(
+                      (entry) =>
+                        !(
+                          entry.name === file.name &&
+                          entry.size === file.size &&
+                          entry.lastModified === file.lastModified
+                        )
+                    )
+                  )
+                }
                 type="button"
               >
                 Remove

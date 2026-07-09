@@ -13,24 +13,14 @@ import {
 import { m } from "motion/react";
 import { useState } from "react";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import { buildDashboardListUrl } from "@/lib/portal/dashboardLinks";
 import { resolveDashboardPersona } from "@/lib/portal/dashboardPersona";
-import { getQueryTypeOptions } from "@/lib/portal/permissions";
-import { DashboardActionInbox } from "./DashboardActionInbox";
-import { DashboardActivityStrip } from "./DashboardActivityStrip";
-import { DashboardCollapsibleSection } from "./DashboardCollapsibleSection";
-import { DashboardFinanceOverdue } from "./DashboardFinanceOverdue";
-import { DashboardHero } from "./DashboardHero";
-import { DashboardOpsReadiness } from "./DashboardOpsReadiness";
-import { DashboardPeriodControls } from "./DashboardPeriodControls";
-import { DashboardPipelineSnapshot } from "./DashboardPipelineSnapshot";
-import { DashboardQueryTypeTabs } from "./DashboardQueryTypeTabs";
-import { DashboardQuickActions } from "./DashboardQuickActions";
 import { DashboardSectionSkeleton, DashboardStatsSkeleton } from "./DashboardSkeleton";
-import { DashboardStatGrid } from "./DashboardStatGrid";
-import { DashboardTicketingQueue } from "./DashboardTicketingQueue";
-import { DashboardUpcomingDepartures, DashboardWorkQueuesSummary } from "./DashboardWorkQueue";
-import { formatMetricTrend, formatMoney, formatOldestDays } from "./utils";
+import {
+  buildDashboardSections,
+  buildQueryTypeCounts,
+  buildWorkQueueRows,
+} from "./dashboardViewHelpers";
+import { formatMetricTrend, formatMoney } from "./utils";
 
 function metricTrend(summary, key) {
   const trend = summary?.metricTrends?.[key];
@@ -312,7 +302,6 @@ export function DashboardView({
   loading,
 }) {
   const persona = resolveDashboardPersona(has, access);
-  const generatedAt = summary?.generatedAt;
 
   if (loading && !summary) {
     return (
@@ -329,31 +318,9 @@ export function DashboardView({
   }
 
   const metrics = buildDashboardMetrics(summary, has, persona);
-
   const urgentActions = filterUrgentActions(summary, has);
   const departmentWorkflow = filterDepartmentWorkflow(summary, has);
-
-  const queryTypeOptions = getQueryTypeOptions(access);
-  const emptyQueryTypeCounts = () => queryTypeOptions.map((type) => ({ count: 0, type }));
-  const queryTypeCounts = has(P.VIEW_QUERIES)
-    ? summary.queriesByType?.length
-      ? summary.queriesByType
-      : emptyQueryTypeCounts()
-    : [];
-  const confirmedQueryTypeCounts = has(P.VIEW_QUERIES)
-    ? summary.confirmedQueriesByType?.length
-      ? summary.confirmedQueriesByType
-      : emptyQueryTypeCounts()
-    : [];
-  const closedQueryTypeCounts = has(P.VIEW_QUERIES)
-    ? summary.closedQueriesByType?.length
-      ? summary.closedQueriesByType
-      : emptyQueryTypeCounts()
-    : [];
-  const activeQueryTotal = queryTypeCounts.reduce((sum, item) => sum + item.count, 0);
-  const confirmedQueryTotal = confirmedQueryTypeCounts.reduce((sum, item) => sum + item.count, 0);
-  const closedQueryTotal = closedQueryTypeCounts.reduce((sum, item) => sum + item.count, 0);
-
+  const queryTypeData = buildQueryTypeCounts(summary, has, access);
   const showOpsProgress =
     has(P.VIEW_JOB_CARDS) ||
     has(P.VIEW_TRAVELLERS) ||
@@ -361,162 +328,22 @@ export function DashboardView({
     has(P.VIEW_VISA) ||
     has(P.VIEW_OPERATIONS) ||
     has(P.VIEW_FINANCE);
-
-  const oldestByType = (type) => {
-    let oldest = null;
-    for (const item of urgentActions) {
-      if (item.type !== type || !item.createdAt) {
-        continue;
-      }
-      if (oldest === null || item.createdAt < oldest) {
-        oldest = item.createdAt;
-      }
-    }
-    return oldest;
-  };
-
-  const roomingPending = Math.max(
-    0,
-    (summary.progress?.rooming?.total || 0) - (summary.progress?.rooming?.done || 0)
-  );
-
-  const workQueueRows = [
-    has(P.MANAGE_JOB_CARDS) && {
-      href: buildDashboardListUrl({ dateRange, view: "accounts-job-cards" }),
-      label: "Job Cards Pending",
-      oldest: oldestByType("accounts"),
-      owner: "Accounts",
-      value: urgentActions.filter((item) => item.type === "accounts").length,
-    },
-    has(P.VIEW_CONTRACTING) && {
-      href: buildDashboardListUrl({ dateRange, view: "contracting" }),
-      label: "Proposal with Contracting",
-      oldest: null,
-      owner: "Contracting",
-      value: summary.departmentWorkflow?.find((item) => item.label.startsWith("Contracting"))
-        ?.value,
-    },
-    has(P.VIEW_VISA) && {
-      href: buildDashboardListUrl({ dateRange, view: "visa" }),
-      label: "Visa Follow-ups",
-      oldest: null,
-      owner: "Visa",
-      value: summary.metrics.visaPending,
-    },
-    has(P.VIEW_OPERATIONS) &&
-      roomingPending > 0 && {
-        href: buildDashboardListUrl({ dateRange, view: "hotels" }),
-        label: "Rooming Follow-ups",
-        oldest: null,
-        owner: "Operations",
-        value: roomingPending,
-      },
-    has(P.VIEW_FINANCE) && {
-      href: buildDashboardListUrl({
-        dateRange,
-        listFilters: { status: "Pending" },
-        view: "approvals",
-      }),
-      label: "Finance Approvals",
-      oldest: oldestByType("finance"),
-      owner: "Accounts",
-      value: summary.metrics.pendingApprovals,
-    },
-    has(P.VIEW_TICKETING) && {
-      href: buildDashboardListUrl({ dateRange, view: "tickets" }),
-      label: "Ticketing Follow-ups",
-      oldest: oldestByType("ticketing"),
-      owner: "Ticketing",
-      value: summary.ticketAttentionQueue?.length || summary.metrics.ticketsPending || 0,
-    },
-  ]
-    .filter(Boolean)
-    .map((row) => ({
-      ...row,
-      oldestLabel: formatOldestDays(row.oldest),
-    }));
-
-  const sections = {
-    activity: null,
-    collapsible: (
-      <DashboardCollapsibleSection
-        departmentWorkflow={departmentWorkflow}
-        myTeam={summary.myTeam}
-        showTeam={has(P.VIEW_TEAM)}
-        showWorkflow={persona.id === "director"}
-      />
-    ),
-    hero: (
-      <DashboardHero dateRange={dateRange} displayName={access?.name} generatedAt={generatedAt} />
-    ),
-    inbox: <DashboardActionInbox actions={urgentActions} dateRange={dateRange} />,
-    periodPresets: <DashboardPeriodControls dateRange={dateRange} setDateRange={setDateRange} />,
-    pipeline: (
-      <DashboardPipelineSnapshot
-        dateRange={dateRange}
-        pipelineSnapshot={summary.pipelineSnapshot}
-      />
-    ),
-    queryTypes: persona.showQueryTypes ? (
-      <DashboardQueryTypeTabs
-        activeQueryTotal={activeQueryTotal}
-        closedQueryTotal={closedQueryTotal}
-        closedQueryTypeCounts={closedQueryTypeCounts}
-        confirmedQueryTotal={confirmedQueryTotal}
-        confirmedQueryTypeCounts={confirmedQueryTypeCounts}
-        dateRange={dateRange}
-        defaultTab={persona.defaultQueryTab}
-        queryTypeCounts={queryTypeCounts}
-      />
-    ) : null,
-    quickActions: <DashboardQuickActions has={has} openModal={openModal} />,
-    readiness: (
-      <DashboardOpsReadiness
-        dateRange={dateRange}
-        has={has}
-        personaId={persona.id}
-        showAggregateProgress={showOpsProgress}
-        summary={summary}
-      />
-    ),
-    stats: (
-      <DashboardStatGrid
-        dateRange={dateRange}
-        featuredLabel={persona.featuredMetricLabel}
-        metrics={metrics}
-      />
-    ),
-    ticketingQueue: (
-      <DashboardTicketingQueue
-        dateRange={dateRange}
-        metricTrends={summary.metricTrends}
-        queue={summary.ticketAttentionQueue}
-        stats={summary.ticketingStats}
-      />
-    ),
-    workQueue: (
-      <div className="space-y-5">
-        <div className="grid gap-5 lg:grid-cols-2">
-          <DashboardWorkQueuesSummary rows={workQueueRows} />
-          {persona.sections.includes("activity") ? (
-            <DashboardActivityStrip
-              activities={summary.recentActivity}
-              canView={has(P.VIEW_ACTIVITY)}
-            />
-          ) : has(P.VIEW_FINANCE) ? (
-            <DashboardFinanceOverdue dateRange={dateRange} invoices={summary.overdueInvoices} />
-          ) : null}
-        </div>
-        {has(P.VIEW_JOB_CARDS) ? (
-          <DashboardUpcomingDepartures
-            dateRange={dateRange}
-            departures={summary.upcomingDepartures}
-            hasJobCards={has(P.VIEW_JOB_CARDS)}
-          />
-        ) : null}
-      </div>
-    ),
-  };
+  const workQueueRows = buildWorkQueueRows({ dateRange, has, summary, urgentActions });
+  const sections = buildDashboardSections({
+    access,
+    dateRange,
+    departmentWorkflow,
+    has,
+    metrics,
+    openModal,
+    persona,
+    queryTypeData,
+    setDateRange,
+    showOpsProgress,
+    summary,
+    urgentActions,
+    workQueueRows,
+  });
 
   const hasSection = (id) => persona.sections.includes(id) && sections[id];
   const isDirector = persona.id === "director";

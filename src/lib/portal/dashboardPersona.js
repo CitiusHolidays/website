@@ -149,5 +149,6 @@ function persona(id, featuredMetricLabel, defaultQueryTab, sections) {
 
 export function orderDashboardSections(sections, personaConfig) {
   const order = personaConfig.sections;
-  return order.filter((id) => sections.includes(id));
+  const sectionSet = new Set(sections);
+  return order.filter((id) => sectionSet.has(id));
 }

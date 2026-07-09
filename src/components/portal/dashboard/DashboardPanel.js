@@ -65,9 +65,9 @@ export function DashboardProgress({ label, value, tone = "blue", meta }) {
       </div>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-brand-border/80">
         <m.div
-          animate={{ width: `${pct}%` }}
-          className={`h-full rounded-full ${fill}`}
-          initial={{ width: 0 }}
+          animate={{ scaleX: pct / 100 }}
+          className={`h-full w-full origin-left rounded-full ${fill}`}
+          initial={{ scaleX: 0 }}
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
         />
       </div>

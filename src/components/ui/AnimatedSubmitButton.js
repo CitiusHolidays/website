@@ -44,8 +44,8 @@ const Icon = ({ state }) => {
 
   return (
     <m.span
-      animate={{ width: state === "idle" ? 0 : 20 }}
-      style={styles.iconContainer}
+      animate={{ opacity: state === "idle" ? 0 : 1, scaleX: state === "idle" ? 0 : 1 }}
+      style={{ ...styles.iconContainer, width: state === "idle" ? 0 : 20 }}
       transition={SPRING_CONFIG}
     >
       <AnimatePresence>
@@ -168,6 +168,7 @@ const styles = {
     height: 20,
     justifyContent: "center",
     position: "relative",
+    transformOrigin: "left center",
   },
 };
 

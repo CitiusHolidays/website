@@ -46,6 +46,16 @@ function normalizeTaxRate(value: number) {
   return value;
 }
 
+function isProposalPricingComplete(proposal: any) {
+  return (proposal.sellingPrice ?? 0) > 0 && (proposal.costPrice ?? 0) > 0;
+}
+
+function assertProposalPricingComplete(proposal: any, message: string) {
+  if (!isProposalPricingComplete(proposal)) {
+    throw new ConvexError(message);
+  }
+}
+
 async function resolveLinkedQueries(ctx: any, access: any, queryIdStrings: string[]) {
   const normalizedIds = [];
   const seen = new Set<string>();
@@ -420,6 +430,10 @@ export const markSent = mutation({
         "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can send this proposal"
       );
     }
+    assertProposalPricingComplete(
+      proposal,
+      "Enter selling price and cost price on the proposal before marking it sent."
+    );
     const now = Date.now();
     await Promise.all([
       ctx.db.patch(proposalId, {
@@ -481,6 +495,10 @@ export const sendToSales = mutation({
     if (proposal.status === "Sent") {
       throw new ConvexError("This proposal was already sent to Sales");
     }
+    assertProposalPricingComplete(
+      proposal,
+      "Enter selling price and cost price on the proposal before sending it to Sales."
+    );
     const now = Date.now();
     const queryCodes = linkedQueries.map((query) => query.queryCode).join(", ") || "linked query";
     const primaryQuery = linkedQueries[0] ?? null;

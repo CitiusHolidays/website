@@ -1,5 +1,5 @@
-import { getTrailBySlug } from "../../data/sacredBharat/trails.js";
 import { getTempleById, TEMPLES } from "../../data/sacredBharat/temples.js";
+import { getTrailBySlug } from "../../data/sacredBharat/trails.js";
 
 /**
  * @param {string} templeId
@@ -37,8 +37,8 @@ export function getTempleJourneyPlan(templeId, visitedTempleIds = []) {
     bestSeason: journey.bestSeason ?? "Oct–Mar",
     estimatedDays: journey.estimatedDays ?? 2,
     mythology: journey.mythology ?? "",
-    nearestAirport: journey.nearestAirport ?? null,
     nearbySacredPlaces,
+    nearestAirport: journey.nearestAirport ?? null,
     pointsAvailable: temple.points,
     suggestedNextTempleId: unvisitedNearby[0]?.id ?? null,
     temple: {

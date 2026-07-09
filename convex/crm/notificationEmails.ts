@@ -5,6 +5,7 @@ import { Resend } from "resend";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { AUTH_EMAIL_FROM } from "../lib/emailConfig";
+import { deliverNotificationEmailsSequentially } from "./notificationEmailDelivery";
 import { getNotificationHref } from "./notificationPaths";
 
 type EmailDetails = {
@@ -14,38 +15,10 @@ type EmailDetails = {
 
 const RESEND_MIN_INTERVAL_MS = 550;
 const RESEND_MAX_RETRIES = 4;
+const TRAILING_SLASH_RE = /\/$/;
 
-function sleep(ms: number) {
+function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isRateLimitError(error: { statusCode?: number | null; name?: string }) {
-  return error.statusCode === 429 || error.name === "rate_limit_exceeded";
-}
-
-async function sendEmailWithRetry(
-  resend: Resend,
-  message: {
-    from: string;
-    to: string[];
-    subject: string;
-    html: string;
-    text: string;
-  }
-) {
-  for (let attempt = 0; attempt < RESEND_MAX_RETRIES; attempt += 1) {
-    const { error } = await resend.emails.send(message);
-    if (!error) {
-      return true;
-    }
-    if (isRateLimitError(error) && attempt < RESEND_MAX_RETRIES - 1) {
-      await sleep(RESEND_MIN_INTERVAL_MS * (attempt + 1));
-      continue;
-    }
-    console.error("Failed to send notification email:", error);
-    return false;
-  }
-  return false;
 }
 
 function siteUrl() {
@@ -54,7 +27,7 @@ function siteUrl() {
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
     "http://localhost:3000"
-  ).replace(/\/$/, "");
+  ).replace(TRAILING_SLASH_RE, "");
 }
 
 function escapeHtml(value: string) {
@@ -208,39 +181,6 @@ function buildNotificationHtml(args: {
 </html>`;
 }
 
-async function sendNotificationEmailsSequentially(
-  resend: Resend,
-  recipients: string[],
-  message: {
-    from: string;
-    subject: string;
-    html: string;
-    text: string;
-  },
-  index = 0,
-  sent = 0
-): Promise<number> {
-  if (index >= recipients.length) {
-    return sent;
-  }
-
-  const delivered = await sendEmailWithRetry(resend, {
-    ...message,
-    to: [recipients[index]],
-  });
-  if (recipients.length > 1 && index < recipients.length - 1) {
-    await sleep(RESEND_MIN_INTERVAL_MS);
-  }
-
-  return sendNotificationEmailsSequentially(
-    resend,
-    recipients,
-    message,
-    index + 1,
-    sent + (delivered ? 1 : 0)
-  );
-}
-
 export const sendNotificationEmail = internalAction({
   args: {
     body: v.string(),
@@ -289,13 +229,22 @@ export const sendNotificationEmail = internalAction({
       title: args.title,
     });
     const resend = new Resend(resendKey);
-    const sent = await sendNotificationEmailsSequentially(resend, recipients, {
-      from: AUTH_EMAIL_FROM,
-      html,
-      subject: `Citius Connect: ${args.title}`,
-      text,
+    const delivery = await deliverNotificationEmailsSequentially({
+      config: {
+        maxRetries: RESEND_MAX_RETRIES,
+        minIntervalMs: RESEND_MIN_INTERVAL_MS,
+      },
+      message: {
+        from: AUTH_EMAIL_FROM,
+        html,
+        subject: `Citius Connect: ${args.title}`,
+        text,
+      },
+      recipients,
+      sendEmail: (message) => resend.emails.send(message),
+      sleep,
     });
 
-    return { sent, skipped: recipients.length - sent };
+    return delivery;
   },
 });

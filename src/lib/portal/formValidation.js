@@ -15,13 +15,18 @@ function assertValidTicketingScope(value) {
 }
 
 const MAX_QUERY_NOTES_WORDS = 30;
+const WORD_SPLIT_RE = /\s+/;
+export const PROPOSAL_HANDOFF_TO_SALES_ERROR =
+  "Enter selling price and cost price on the proposal before sending it to Sales.";
+export const PROPOSAL_MARK_SENT_ERROR =
+  "Enter selling price and cost price on the proposal before marking it sent.";
 
 function countWords(value) {
   const trimmed = String(value ?? "").trim();
   if (!trimmed) {
     return 0;
   }
-  return trimmed.split(/\s+/).length;
+  return trimmed.split(WORD_SPLIT_RE).length;
 }
 
 function assertPositiveInt(value, label, { min = 1 } = {}) {
@@ -33,11 +38,32 @@ function assertPositiveInt(value, label, { min = 1 } = {}) {
 
 function assertNonNegativeNumber(value, label) {
   const parsed = Number(value);
-  if (value === "" || value == null) {
+  if (value === "" || value === null || value === undefined) {
     return;
   }
   if (!Number.isFinite(parsed) || parsed < 0) {
     throw new Error(`${label} cannot be negative.`);
+  }
+}
+
+function proposalCostPrice(form) {
+  if (form.costPrice !== "" && form.costPrice !== null && form.costPrice !== undefined) {
+    return Number(form.costPrice);
+  }
+  return (
+    Math.max(Number(form.landCostPerPax) || 0, 0) +
+    Math.max(Number(form.airfarePerPax) || 0, 0) +
+    Math.max(Number(form.visaCostPerPax) || 0, 0)
+  );
+}
+
+export function isProposalPricingComplete(form) {
+  return Number(form.sellingPrice) > 0 && proposalCostPrice(form) > 0;
+}
+
+export function assertProposalPricingComplete(form, message = PROPOSAL_HANDOFF_TO_SALES_ERROR) {
+  if (!isProposalPricingComplete(form)) {
+    throw new Error(message);
   }
 }
 
@@ -82,7 +108,7 @@ export function validateModalForm(modal, form, deps = {}) {
       throw new Error("Select a job card.");
     }
     assertPositiveInt(form.confirmedPax, "Confirmed pax");
-    if (form.roomCount !== "" && form.roomCount != null) {
+    if (form.roomCount !== "" && form.roomCount !== null && form.roomCount !== undefined) {
       assertNonNegativeNumber(form.roomCount, "Room count");
     }
     assertDateRangeOrder(form.travelStartDate, form.travelEndDate, {
@@ -96,13 +122,46 @@ export function validateModalForm(modal, form, deps = {}) {
       throw new Error("Select a confirmed query before opening a job card.");
     }
     assertPositiveInt(form.confirmedPax, "Confirmed pax");
-    if (form.roomCount !== "" && form.roomCount != null) {
+    if (form.roomCount !== "" && form.roomCount !== null && form.roomCount !== undefined) {
       assertNonNegativeNumber(form.roomCount, "Room count");
     }
     assertDateRangeOrder(form.travelStartDate, form.travelEndDate, {
       endLabel: "Travel end date",
       startLabel: "Travel start date",
     });
+  }
+
+  if (modal === "traveller" && !String(form.fullName ?? "").trim()) {
+    throw new Error("Traveller name is required.");
+  }
+
+  if (modal === "visa" && !String(form.visaRecordId ?? "").trim()) {
+    throw new Error("Select a visa record.");
+  }
+
+  if (modal === "visa_create" && !String(form.travellerId ?? "").trim()) {
+    throw new Error("Select a traveller.");
+  }
+
+  if (modal === "seat" && !String(form.seatNumber ?? "").trim()) {
+    throw new Error("Seat number is required.");
+  }
+
+  if (modal === "tourManager") {
+    if (!String(form.jobCardId ?? "").trim()) {
+      throw new Error("Select a job card.");
+    }
+    if (!(String(form.staffId ?? "").trim() || String(form.tourManagerName ?? "").trim())) {
+      throw new Error("Select a tour manager.");
+    }
+  }
+
+  if (modal === "invoice") {
+    if (!String(form.invoiceNumber ?? "").trim()) {
+      throw new Error("Invoice number is required.");
+    }
+    assertNonNegativeNumber(form.expectedAmount, "Expected amount");
+    assertNonNegativeNumber(form.receivedAmount, "Received amount");
   }
 
   if (modal === "assignJobCardCreator") {
@@ -237,6 +296,9 @@ export function validateModalForm(modal, form, deps = {}) {
     if (!String(form.category ?? "").trim()) {
       throw new Error("Select a category.");
     }
+    if (!String(form.paidBy ?? "").trim()) {
+      throw new Error("Paid by is required.");
+    }
     assertNonNegativeNumber(form.cardAmount, "Card amount");
     assertNonNegativeNumber(form.cashAmount, "Cash amount");
     assertNonNegativeNumber(form.epayAmount, "E-pay amount");
@@ -251,12 +313,12 @@ export function validateModalForm(modal, form, deps = {}) {
   }
 
   if (modal === "proposal") {
-    const queryIds =
-      Array.isArray(form.queryIds) && form.queryIds.length > 0
-        ? form.queryIds
-        : form.queryId
-          ? [form.queryId]
-          : [];
+    let queryIds = [];
+    if (Array.isArray(form.queryIds) && form.queryIds.length > 0) {
+      queryIds = form.queryIds;
+    } else if (form.queryId) {
+      queryIds = [form.queryId];
+    }
     if (queryIds.length === 0) {
       throw new Error("Select at least one linked query.");
     }
@@ -264,9 +326,13 @@ export function validateModalForm(modal, form, deps = {}) {
     assertNonNegativeNumber(form.airfarePerPax, "Airfare per pax");
     assertNonNegativeNumber(form.visaCostPerPax, "Visa cost per pax");
     assertNonNegativeNumber(form.sellingPrice, "Selling price");
-    if (form.taxRate !== "" && form.taxRate != null) {
+    if (form.taxRate !== "" && form.taxRate !== null && form.taxRate !== undefined) {
       assertNonNegativeNumber(form.taxRate, "Tax rate");
     }
+  }
+
+  if (modal === "proposalHandoff") {
+    assertProposalPricingComplete(form, PROPOSAL_HANDOFF_TO_SALES_ERROR);
   }
 
   if (modal === "staff") {
@@ -282,5 +348,15 @@ export function validateModalForm(modal, form, deps = {}) {
     assertNonNegativeNumber(form.contractingLandCost, "Land cost");
     assertNonNegativeNumber(form.contractingAirlinesCost, "Airlines cost");
     assertNonNegativeNumber(form.contractingVisaCost, "Visa cost");
+  }
+
+  if (modal === "approvalDecide") {
+    const status = form.approvalStatus;
+    if (
+      (status === "Rejected" || status === "Needs Info") &&
+      !String(form.decisionNote ?? "").trim()
+    ) {
+      throw new Error("A decision note is required when rejecting or requesting details.");
+    }
   }
 }

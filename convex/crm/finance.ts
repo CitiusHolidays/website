@@ -276,6 +276,10 @@ export const listExpenses = query({
       requireStaff(ctx, PERMISSIONS.VIEW_EXPENSES),
       ctx.db.query("expenseEntries").collect(),
     ]);
+    const permissionSet = new Set(access.permissions);
+    const canApproveFinancePermission =
+      permissionSet.has(PERMISSIONS.APPROVE_EXPENSES) ||
+      permissionSet.has(PERMISSIONS.MANAGE_FINANCE);
     const result = await Promise.all(
       rows
         .sort((a, b) => b.createdAt - a.createdAt)
@@ -293,8 +297,7 @@ export const listExpenses = query({
             canApproveFinance:
               (expense.managerReviewStatus ?? "Pending") === "Approved" &&
               (expense.financeReviewStatus ?? "Pending") === "Pending" &&
-              (access.permissions.includes(PERMISSIONS.APPROVE_EXPENSES) ||
-                access.permissions.includes(PERMISSIONS.MANAGE_FINANCE)),
+              canApproveFinancePermission,
             canApproveManager:
               Boolean(expense.submittedForApprovalAt) &&
               (expense.managerReviewStatus ?? "Pending") === "Pending" &&

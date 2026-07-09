@@ -8,8 +8,8 @@ import {
   parseRoomingWorkbook,
   parseTravellerMasterWorkbook,
   parseVisaWorkbook,
-  workbookFromSheets,
 } from "./spreadsheetImports";
+import { workbookFromSheets } from "./workbookAdapter";
 
 describe("passenger spreadsheet imports", () => {
   test("imports confirmed passenger rows and skips other statuses", () => {
@@ -177,6 +177,27 @@ describe("passenger spreadsheet imports", () => {
     const result = parsePassengerWorkbook(workbook);
     expect(result.rows).toHaveLength(1);
     expect(result.skipped[0].reason).toContain("Duplicate");
+  });
+
+  test("does not cap confirmed passenger rows in the parser", () => {
+    const header = [
+      "WILLING TO GO ",
+      "Name As per Govt. ID Proof",
+      "Date of Birth",
+      "Passport no ",
+      "Meal Preference",
+    ];
+    const rows = Array.from({ length: 150 }, (_, index) => [
+      "CONFIRMED",
+      `PASSENGER ${index + 1}`,
+      "1967-06-12",
+      `P${String(index + 1).padStart(4, "0")}`,
+      "VEG",
+    ]);
+    const result = parsePassengerWorkbook(workbookFromSheets({ Sheet1: [header, ...rows] }));
+    expect(result.rows).toHaveLength(150);
+    expect(result.errors).toHaveLength(0);
+    expect(result.skipped).toHaveLength(0);
   });
 
   test("reports confirmed rows missing passenger names", () => {

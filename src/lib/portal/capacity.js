@@ -23,35 +23,37 @@ export function buildStaffCapacityRows({
   approvals = [],
   invoices = [],
 } = {}) {
+  const closedSalesStatuses = new Set(["Order Confirmed", "Order Lost"]);
+  const ticketAttentionStatuses = new Set([
+    "Name Change Required",
+    "Reissue Required",
+    "Refund Pending",
+  ]);
+  const clearedVisaStatuses = new Set(["Approved", "Not Required"]);
   return staff.map((member) => {
     const staffId = String(member.id ?? member._id);
     const activeSalesQueries = queries.filter(
-      (row) =>
-        String(row.salesOwnerId) === staffId &&
-        !["Order Confirmed", "Order Lost"].includes(row.salesStatus)
+      (row) => String(row.salesOwnerId) === staffId && !closedSalesStatuses.has(row.salesStatus)
     ).length;
     const activeContractingQueries = queries.filter(
       (row) =>
-        String(row.contractingOwnerId) === staffId &&
-        !["Order Confirmed", "Order Lost"].includes(row.salesStatus)
+        String(row.contractingOwnerId) === staffId && !closedSalesStatuses.has(row.salesStatus)
     ).length;
-    const activeJobCards = jobCards.filter(
-      (row) =>
-        [row.contractingOwnerId, row.operationsOwnerId, row.ticketingOwnerId]
-          .map(String)
-          .includes(staffId) && row.status !== "Closed"
-    ).length;
+    const activeJobCards = jobCards.filter((row) => {
+      const ownerIds = new Set(
+        [row.contractingOwnerId, row.operationsOwnerId, row.ticketingOwnerId].map(String)
+      );
+      return ownerIds.has(staffId) && row.status !== "Closed";
+    }).length;
     const ticketAttention = tickets.filter(
       (row) =>
         String(row.ownerId ?? row.ticketingOwnerId ?? "") === staffId &&
-        ["Name Change Required", "Reissue Required", "Refund Pending"].includes(row.ticketStatus)
+        ticketAttentionStatuses.has(row.ticketStatus)
     ).length;
     const financeItems =
       invoices.filter((row) => (row.balanceAmount ?? 0) > 0).length +
       approvals.filter((row) => row.status === "Pending").length;
-    const visaBlockers = visas.filter(
-      (row) => !["Approved", "Not Required"].includes(row.status)
-    ).length;
+    const visaBlockers = visas.filter((row) => !clearedVisaStatuses.has(row.status)).length;
     const load =
       activeSalesQueries +
       activeContractingQueries +

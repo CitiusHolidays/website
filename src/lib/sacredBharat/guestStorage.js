@@ -3,7 +3,14 @@ import { resolveCanonicalTempleId } from "../../data/sacredBharat/templeAliases.
 const SACRED_BHARAT_DRAFT_KEY = "citius-sacred-bharat-draft";
 
 function normalizeDraftTempleIds(templeIds) {
-  return [...new Set((templeIds ?? []).map((id) => resolveCanonicalTempleId(id)).filter(Boolean))];
+  return [
+    ...new Set(
+      (templeIds ?? []).flatMap((id) => {
+        const resolved = resolveCanonicalTempleId(id);
+        return resolved ? [resolved] : [];
+      })
+    ),
+  ];
 }
 
 /**
@@ -20,9 +27,7 @@ export function readGuestDraft() {
     }
     const parsed = JSON.parse(raw);
     return {
-      templeIds: normalizeDraftTempleIds(
-        Array.isArray(parsed.templeIds) ? parsed.templeIds : []
-      ),
+      templeIds: normalizeDraftTempleIds(Array.isArray(parsed.templeIds) ? parsed.templeIds : []),
       wishlist: Array.isArray(parsed.wishlist) ? parsed.wishlist : [],
     };
   } catch {

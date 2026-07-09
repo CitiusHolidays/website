@@ -103,11 +103,33 @@ A modern travel agency website for Citius Holidays, built with Next.js. This pro
 - `lint` — Run Biome checks
 - `lint:fix` — Auto-fix Biome issues where possible
 - `format` — Format code with Biome
+- `typecheck` — Generate Next.js route types, then run the root app/source TypeScript check
 - `test` — Run the test suite
 - `convex:dev` — Run Convex locally and generate API artifacts
 - `convex:codegen` — Regenerate Convex API types
 - `auth:schema:generate` — Generate BetterAuth Convex schema file
 - `optimize-images` — Optimize static images via `scripts/full-optimize-images.mjs`
+
+## TypeScript and Effect Migration
+
+The source migration is TypeScript-first, not Effect-first. Use plain TypeScript by default.
+Use Effect only when a module has at least two orchestration pressures:
+
+- external I/O
+- retry or throttle behavior
+- concurrency control
+- typed recoverable errors
+- rollback or cleanup
+- test-time dependency substitution
+
+Do not use Effect for simple async functions, simple React component state, straightforward
+Convex validators, or ordinary Convex query/mutation business state transitions. Prefer early
+Effect pilots in backend/API orchestration seams such as payment routes, notification email
+delivery, spreadsheet imports, migrations, and other failure-prone integration edges.
+
+Use `src/lib/effectAdoption.ts` and `src/lib/effectAdoption.test.ts` as the local example for the
+threshold and a small typed external-I/O wrapper. Run `bun run typecheck` for migrated app/source
+TypeScript and keep Convex type generation separate with `bunx convex codegen`.
 
 ## 🔧 Maintenance Scripts
 

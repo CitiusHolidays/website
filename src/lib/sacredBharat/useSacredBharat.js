@@ -3,9 +3,9 @@
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
+import { resolveCanonicalTempleId } from "../../data/sacredBharat/templeAliases.js";
 import { clearGuestDraft, readGuestDraft, writeGuestDraft } from "./guestStorage";
 import { computeProgress } from "./scoring";
-import { resolveCanonicalTempleId } from "../../data/sacredBharat/templeAliases.js";
 
 export function useSacredBharat() {
   const { isAuthenticated, isLoading: authLoading } = useConvexAuth();

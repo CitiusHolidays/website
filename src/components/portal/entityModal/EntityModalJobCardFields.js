@@ -69,7 +69,8 @@ export function EntityModalJobCardFields({
             options={[
               { label: "Select proposal…", value: "" },
               ...proposals.reduce((options, proposal) => {
-                if (!form.queryId || proposalLinkedQueryIds(proposal).includes(form.queryId)) {
+                const linkedQueryIds = new Set(proposalLinkedQueryIds(proposal));
+                if (!form.queryId || linkedQueryIds.has(form.queryId)) {
                   options.push({
                     label: `${proposal.proposalCode} - ${proposal.status}`,
                     value: proposal.id,

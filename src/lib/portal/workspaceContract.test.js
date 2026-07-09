@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  buildTravelBatchModalInitial,
-  formatTravelBatchOwnerSummary,
-} from "./workspaceContract.js";
+import { buildTravelBatchModalInitial, formatTravelBatchOwnerSummary } from "./workspaceContract";
 
 describe("workspaceContract travel batches", () => {
   test("buildTravelBatchModalInitial maps batch identity and operational fields", () => {

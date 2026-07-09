@@ -20,6 +20,9 @@ export function resolveCanonicalTempleId(templeId) {
  * @param {string[] | Set<string>} templeIds
  */
 export function resolveCanonicalTempleIds(templeIds) {
-  const list = templeIds instanceof Set ? [...templeIds] : templeIds ?? [];
-  return list.map(resolveCanonicalTempleId).filter(Boolean);
+  const list = templeIds instanceof Set ? [...templeIds] : (templeIds ?? []);
+  return list.flatMap((id) => {
+    const resolved = resolveCanonicalTempleId(id);
+    return resolved ? [resolved] : [];
+  });
 }

@@ -161,6 +161,7 @@ export default function Header() {
             </Link>
 
             <button
+              aria-label="Open menu"
               className={`rounded-full p-2 transition-colors lg:hidden ${
                 isScrolled ? "text-white hover:bg-white/10" : "text-white hover:bg-white/10"
               }`}

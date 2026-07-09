@@ -1,5 +1,5 @@
 /**
- * Portal UI stacking order (low → high).
+ * Portal UI stacking order (low -> high).
  * Header-attached dropdowns sit in the header (chrome) stacking context, so list
  * toolbars must stay below chrome. Command palette / save-view dialogs portal to
  * document.body and use PORTAL_Z_INDEX for inline styles. Toasts sit above modals
@@ -19,7 +19,9 @@ export const PORTAL_Z = {
   skipLinkFocus: "z-[100]",
   toast: "z-[95]",
   toolbar: "z-30",
-};
+} as const;
+
+export type PortalZKey = keyof typeof PORTAL_Z;
 
 /** Numeric mirror of PORTAL_Z for inline styles (command palette frame, etc.). */
 export const PORTAL_Z_INDEX = {
@@ -36,4 +38,4 @@ export const PORTAL_Z_INDEX = {
   skipLinkFocus: 100,
   toast: 95,
   toolbar: 30,
-};
+} as const satisfies Record<PortalZKey, number>;

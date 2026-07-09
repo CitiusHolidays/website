@@ -181,7 +181,8 @@ export function canCreateJobCardFromAccounts(access, _creators = []) {
 }
 
 function filterTeamByRoles(team = [], roles = []) {
-  return team.filter((member) => member.roles?.some((role) => roles.includes(role)));
+  const roleSet = new Set(roles);
+  return team.filter((member) => member.roles?.some((role) => roleSet.has(role)));
 }
 
 export function teamSelectOptions(team = [], roles = []) {

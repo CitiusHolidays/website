@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { TRAILS } from "@/data/sacredBharat/trails";
 import { getTemplePoints } from "@/data/sacredBharat/temples";
+import { TRAILS } from "@/data/sacredBharat/trails";
 import {
   computeProgress,
   computeScore,
@@ -42,9 +42,7 @@ describe("sacred bharat scoring", () => {
     expect(progress.badges.some((b) => b.badgeId === "mahadev-explorer")).toBe(true);
     const templeTotal = shiva.templeIds.reduce((sum, id) => sum + getTemplePoints(id), 0);
     expect(progress.templePointsTotal).toBe(templeTotal);
-    expect(progress.score).toBe(
-      templeTotal + shiva.completionBonus + progress.challengeBonusTotal
-    );
+    expect(progress.score).toBe(templeTotal + shiva.completionBonus + progress.challengeBonusTotal);
   });
 
   test("bharat explorer requires all four regions", () => {
@@ -66,7 +64,12 @@ describe("sacred bharat scoring", () => {
   });
 
   test("merges legacy temple ids without double counting", () => {
-    const legacy = normalizeVisitedSet(["rameswaram", "ramanathaswamy", "varanasi", "kashi-vishwanath"]);
+    const legacy = normalizeVisitedSet([
+      "rameswaram",
+      "ramanathaswamy",
+      "varanasi",
+      "kashi-vishwanath",
+    ]);
     expect(legacy.size).toBe(2);
     expect(legacy.has("ramanathaswamy")).toBe(true);
     expect(legacy.has("kashi-vishwanath")).toBe(true);

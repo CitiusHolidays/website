@@ -1,8 +1,8 @@
-import { CITIUS_CHAT_MODEL } from "@/lib/ai/citiusTravelAssistant";
-import { getTrailBySlug } from "@/data/sacredBharat/trails";
-import { getTempleById, TEMPLES } from "@/data/sacredBharat/temples";
 import { resolveCanonicalTempleId } from "@/data/sacredBharat/templeAliases";
-import { suggestNextJourneys, getTempleJourneyPlan } from "@/lib/sacredBharat/journeyPlanner";
+import { getTempleById, TEMPLES } from "@/data/sacredBharat/temples";
+import { getTrailBySlug } from "@/data/sacredBharat/trails";
+import { CITIUS_CHAT_MODEL } from "@/lib/ai/citiusTravelAssistant";
+import { getTempleJourneyPlan, suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
 
 export { CITIUS_CHAT_MODEL };
 
@@ -32,16 +32,24 @@ export function buildSacredBharatPlannerContext(input) {
   const focusPlan = focusId ? getTempleJourneyPlan(focusId, visited) : null;
 
   const trail = input.trailSlug ? getTrailBySlug(input.trailSlug) : null;
-  const trailRemaining =
-    trail?.templeIds?.filter((id) => !visited.includes(id)).map((id) => getTempleById(id)?.name) ??
-    [];
+  const visitedSet = new Set(visited);
+  const trailRemaining = [];
+  for (const id of trail?.templeIds ?? []) {
+    if (visitedSet.has(id)) {
+      continue;
+    }
+    const name = getTempleById(id)?.name;
+    if (name) {
+      trailRemaining.push(name);
+    }
+  }
 
   return {
     catalogSize: TEMPLES.length,
-    focusTemple,
     focusPlan,
+    focusTemple,
     trail,
-    trailRemaining: trailRemaining.filter(Boolean),
+    trailRemaining,
     visitedCount: visited.length,
     visitedDetails,
     wishlistTrailSlugs: input.wishlistTrailSlugs ?? [],

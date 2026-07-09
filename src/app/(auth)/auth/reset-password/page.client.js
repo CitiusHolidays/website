@@ -142,6 +142,7 @@ function ResetPasswordForm() {
               />
               <Lock className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-[#d4af37]" />
               <button
+                aria-label={showPassword ? "Hide password" : "Show password"}
                 className="absolute top-1/2 right-4 -translate-y-1/2 text-[#94a3b8] transition-colors hover:text-[#0f172a] focus:outline-none"
                 onClick={() => dispatch({ type: "togglePassword" })}
                 type="button"

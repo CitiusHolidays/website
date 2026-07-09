@@ -1,7 +1,7 @@
 "use client";
 
 import { Compass, Trash2, X } from "lucide-react";
-import { AnimatePresence, easeInOut, m } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { useEffect, useEffectEvent, useState } from "react";
 import { ChatbotComposer } from "./ChatbotComposer";
 import { ChatbotMessageList, ChatbotSuggestions } from "./ChatbotMessages";
@@ -112,18 +112,18 @@ export function ChatbotWindow({ isOpen, onClose }) {
     <AnimatePresence>
       <m.div
         animate={{
-          height: isMinimized ? "80px" : "min(650px, 85dvh)",
           opacity: 1,
           scale: 1,
         }}
         aria-label="Citius Concierge chat"
-        className="fixed right-4 bottom-4 left-4 z-50 flex w-auto max-w-[400px] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-brand-border/50 bg-white shadow-2xl backdrop-blur-sm sm:right-6 sm:bottom-6 sm:left-auto sm:w-[400px]"
+        className={`fixed right-4 bottom-4 left-4 z-50 flex w-auto max-w-[400px] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-brand-border/50 bg-white shadow-2xl backdrop-blur-sm sm:right-6 sm:bottom-6 sm:left-auto sm:w-[400px] ${
+          isMinimized ? "h-20" : "h-[min(650px,85dvh)]"
+        }`}
         exit={{ opacity: 0, scale: 0.95 }}
         initial={{ opacity: 0, scale: 0.95 }}
         role="dialog"
         transition={{
           damping: 25,
-          height: { duration: 0.4, ease: easeInOut },
           stiffness: 400,
           type: "spring",
         }}
@@ -139,10 +139,11 @@ export function ChatbotWindow({ isOpen, onClose }) {
         <AnimatePresence mode="wait">
           {!isMinimized && (
             <m.div
-              animate={{ height: "auto", opacity: 1 }}
+              animate={{ opacity: 1, scaleY: 1 }}
               className="flex min-h-0 flex-1 flex-col"
-              exit={{ height: 0, opacity: 0 }}
-              initial={{ height: 0, opacity: 0 }}
+              exit={{ opacity: 0, scaleY: 0.98 }}
+              initial={{ opacity: 0, scaleY: 0.98 }}
+              style={{ originY: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
             >
               <div

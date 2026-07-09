@@ -12,7 +12,7 @@ export { getTemplePoints };
  * @param {string[] | Set<string>} templeIds
  */
 export function normalizeVisitedSet(templeIds) {
-  const raw = templeIds instanceof Set ? [...templeIds] : templeIds ?? [];
+  const raw = templeIds instanceof Set ? [...templeIds] : (templeIds ?? []);
   const canonical = raw.map((id) => resolveCanonicalTempleId(id));
   return new Set(canonical.filter((id) => TEMPLE_BY_ID[id]));
 }

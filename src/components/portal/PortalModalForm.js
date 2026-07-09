@@ -509,10 +509,10 @@ function QueryFilePicker({ files, onChange, inputId }) {
       />
       {files.length > 0 && (
         <ul className="mt-3 space-y-2">
-          {files.map((file, index) => (
+          {files.map((file) => (
             <li
               className="flex items-center justify-between gap-3 rounded-lg border border-brand-border bg-white px-3 py-2 text-sm"
-              key={`${file.name}-${file.size}-${index}`}
+              key={`${file.name}-${file.size}-${file.lastModified}`}
             >
               <div className="min-w-0">
                 <div className="truncate font-medium text-brand-text">{file.name}</div>
@@ -520,7 +520,18 @@ function QueryFilePicker({ files, onChange, inputId }) {
               </div>
               <button
                 className="shrink-0 font-semibold text-red-600 text-xs hover:underline"
-                onClick={() => onChange(files.filter((_, i) => i !== index))}
+                onClick={() =>
+                  onChange(
+                    files.filter(
+                      (entry) =>
+                        !(
+                          entry.name === file.name &&
+                          entry.size === file.size &&
+                          entry.lastModified === file.lastModified
+                        )
+                    )
+                  )
+                }
                 type="button"
               >
                 Remove

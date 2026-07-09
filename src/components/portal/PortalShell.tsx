@@ -7,8 +7,12 @@ import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useReducer, useState } from "react";
-import { PortalChromeProvider, usePortalChrome } from "@/components/portal/PortalChromeContext";
+import { type ReactNode, useReducer, useState } from "react";
+import {
+  PortalChromeProvider,
+  type PortalNavShortcuts,
+  usePortalChrome,
+} from "@/components/portal/PortalChromeContext";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
 import SaveViewDialog from "@/components/portal/SaveViewDialog";
@@ -24,7 +28,80 @@ const NAV_EXPANDED_STORAGE_KEY = "portal-nav-expanded-groups";
 const NAV_SHORTCUTS_STORAGE_KEY = "portal-nav-expanded-shortcuts";
 const NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY = "portal-nav-collapsed-shortcuts";
 
-function readStoredSet(key) {
+const ignoreAsyncError = (): void => undefined;
+
+interface PortalAccess {
+  allowed?: boolean;
+  email?: string;
+  name?: string;
+  permissions?: string[];
+  roles?: string[];
+}
+
+interface PortalUser {
+  email?: string | null;
+  name?: string | null;
+}
+
+interface NotificationItem {
+  body?: string;
+  entityId?: string;
+  entityType?: string;
+  id: string;
+  readAt?: string | number | null;
+  title?: string;
+}
+
+interface PortalNavItem {
+  href: string;
+  label: string;
+  shortcutKey?: string;
+}
+
+interface PortalNavGroup {
+  items: PortalNavItem[];
+  label: string;
+}
+
+interface PortalNavState {
+  collapsedShortcuts: Set<string>;
+  expandedGroups: Set<string>;
+  expandedShortcuts: Set<string>;
+  saveDialogOpen: boolean;
+  savingView: boolean;
+}
+
+type PortalNavAction =
+  | { open: boolean; type: "saveDialogOpen" }
+  | { saving: boolean; type: "savingView" }
+  | { type: "expandedGroups"; value: Set<string> }
+  | { type: "expandedShortcuts"; value: Set<string> }
+  | { type: "collapsedShortcuts"; value: Set<string> }
+  | {
+      collapsedShortcuts: Set<string>;
+      expandedShortcuts: Set<string>;
+      type: "shortcutSets";
+    };
+
+interface NotificationListItemProps {
+  item: NotificationItem;
+  onClick: (item: NotificationItem) => void;
+}
+
+interface PortalShellProps {
+  access: PortalAccess;
+  children: ReactNode;
+  user?: PortalUser | null;
+}
+
+interface PortalNavProps {
+  navGroups: PortalNavGroup[];
+  navShortcuts?: PortalNavShortcuts;
+  onNavigate?: () => void;
+  pathname: string | null;
+}
+
+function readStoredSet(key: string): Set<string> {
   if (typeof window === "undefined") {
     return new Set();
   }
@@ -34,13 +111,15 @@ function readStoredSet(key) {
       return new Set();
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? new Set(parsed) : new Set();
+    return Array.isArray(parsed)
+      ? new Set(parsed.filter((value) => typeof value === "string"))
+      : new Set();
   } catch {
     return new Set();
   }
 }
 
-function writeStoredSet(key, valueSet) {
+function writeStoredSet(key: string, valueSet: Set<string>): void {
   if (typeof window === "undefined") {
     return;
   }
@@ -51,7 +130,7 @@ function writeStoredSet(key, valueSet) {
   }
 }
 
-function createPortalNavState() {
+function createPortalNavState(): PortalNavState {
   return {
     collapsedShortcuts: readStoredSet(NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY),
     expandedGroups: readStoredSet(NAV_EXPANDED_STORAGE_KEY),
@@ -61,7 +140,7 @@ function createPortalNavState() {
   };
 }
 
-function portalNavReducer(state, action) {
+function portalNavReducer(state: PortalNavState, action: PortalNavAction): PortalNavState {
   switch (action.type) {
     case "saveDialogOpen":
       return { ...state, saveDialogOpen: action.open };
@@ -89,7 +168,7 @@ const handleLogout = async () => {
   window.location.href = "/";
 };
 
-function NotificationListItem({ item, onClick }) {
+function NotificationListItem({ item, onClick }: NotificationListItemProps) {
   return (
     <button
       className="w-full border-brand-border border-b px-4 py-3 text-left transition-[background-color,transform] duration-150 ease-out last:border-b-0 hover:bg-brand-light active:scale-[0.96]"
@@ -114,7 +193,7 @@ function NotificationListItem({ item, onClick }) {
   );
 }
 
-export default function PortalShell({ access, user, children }) {
+export default function PortalShell({ access, user, children }: PortalShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -122,27 +201,28 @@ export default function PortalShell({ access, user, children }) {
   const { isAuthenticated } = useConvexAuth();
   const notifications = useQuery(
     api.crm.activity.listNotifications,
-    isAuthenticated && access?.allowed ? { limit: 8 } : "skip"
+    isAuthenticated && access.allowed ? { limit: 8 } : "skip"
   );
   const notificationSummary = useQuery(
     api.crm.activity.notificationSummary,
-    isAuthenticated && access?.allowed ? {} : "skip"
+    isAuthenticated && access.allowed ? {} : "skip"
   );
   const navShortcuts = useQuery(
     api.crm.navShortcuts.list,
-    isAuthenticated && access?.allowed ? {} : "skip"
-  );
+    isAuthenticated && access.allowed ? {} : "skip"
+  ) as PortalNavShortcuts | undefined;
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
-  const navGroups = getAccessibleNavGroups(access);
+  const navGroups = getAccessibleNavGroups(access) as PortalNavGroup[];
+  const notificationRows = (notifications ?? []) as NotificationItem[];
   const unreadCount =
-    notificationSummary?.unreadCount ?? (notifications || []).filter((item) => !item.readAt).length;
+    notificationSummary?.unreadCount ?? notificationRows.filter((item) => !item.readAt).length;
 
   const toggleNotifications = () => {
     setNotificationsOpen((open) => !open);
   };
 
-  const handleNotificationClick = async (item) => {
-    markNotificationRead({ notificationId: item.id }).catch(() => {});
+  const handleNotificationClick = (item: NotificationItem) => {
+    markNotificationRead({ notificationId: item.id }).catch(ignoreAsyncError);
     setNotificationsOpen(false);
     if (item.entityType && item.entityId) {
       router.push(
@@ -254,12 +334,12 @@ export default function PortalShell({ access, user, children }) {
                                 <ChevronDown className="text-brand-muted" size={16} />
                               </div>
                               <div className="max-h-80 overflow-y-auto">
-                                {(notifications || []).length === 0 ? (
+                                {notificationRows.length === 0 ? (
                                   <div className="px-4 py-6 text-brand-muted text-sm">
                                     No notifications yet.
                                   </div>
                                 ) : (
-                                  notifications.map((item) => (
+                                  notificationRows.map((item) => (
                                     <NotificationListItem
                                       item={item}
                                       key={item.id}
@@ -370,33 +450,33 @@ export default function PortalShell({ access, user, children }) {
   );
 }
 
-function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
+function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavProps) {
   const modShortcutLabel = useModShortcutLabel();
   const { savedViewActions } = usePortalChrome();
   const [navState, dispatchNavState] = useReducer(portalNavReducer, null, createPortalNavState);
   const { saveDialogOpen, savingView, expandedGroups, expandedShortcuts, collapsedShortcuts } =
     navState;
 
-  const isGroupActive = (group) =>
+  const isGroupActive = (group: PortalNavGroup) =>
     group.items.some((item) =>
       item.href === "/portal" ? pathname === "/portal" : pathname?.startsWith(item.href)
     );
 
-  const isGroupExpanded = (group) => {
+  const isGroupExpanded = (group: PortalNavGroup) => {
     if (group.items.length <= 1) {
       return true;
     }
     return expandedGroups.has(group.label) || isGroupActive(group);
   };
 
-  const isShortcutsExpanded = (itemHref, active) => {
+  const isShortcutsExpanded = (itemHref: string, active: boolean | undefined) => {
     if (collapsedShortcuts.has(itemHref)) {
       return false;
     }
     return expandedShortcuts.has(itemHref) || active;
   };
 
-  const toggleGroup = (label) => {
+  const toggleGroup = (label: string) => {
     const next = new Set(expandedGroups);
     if (next.has(label)) {
       next.delete(label);
@@ -407,7 +487,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
     dispatchNavState({ type: "expandedGroups", value: next });
   };
 
-  const toggleShortcuts = (href, currentlyExpanded) => {
+  const toggleShortcuts = (href: string, currentlyExpanded: boolean | undefined) => {
     const nextCollapsed = new Set(collapsedShortcuts);
     const nextExpanded = new Set(expandedShortcuts);
     if (currentlyExpanded) {
@@ -433,7 +513,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }) {
     (savedViewActions?.savedViews ?? []).filter((view) => view.isFavorite).length -
     pinnedViews.length;
 
-  const handleSaveView = async (name, options) => {
+  const handleSaveView = async (name: string, options?: Record<string, unknown>) => {
     if (!savedViewActions?.saveCurrentView) {
       return;
     }

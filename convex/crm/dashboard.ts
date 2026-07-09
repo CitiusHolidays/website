@@ -432,6 +432,7 @@ export const getPortalSummary = query({
 
     const ticketAttentionQueue = buildTicketAttentionQueue(tickets);
     const overdueInvoices = buildOverdueInvoices({ invoices, jobCards, nowDate });
+    const closedSalesStatuses = new Set(["Order Confirmed", "Order Lost"]);
     const capacityByRole = staff.reduce((map, member) => {
       if (!member.active) {
         return map;
@@ -440,20 +441,19 @@ export const getPortalSummary = query({
       const load =
         queries.filter(
           (query) =>
-            String(query.salesOwnerId) === staffId &&
-            !["Order Confirmed", "Order Lost"].includes(query.salesStatus)
+            String(query.salesOwnerId) === staffId && !closedSalesStatuses.has(query.salesStatus)
         ).length +
         queries.filter(
           (query) =>
             String(query.contractingOwnerId) === staffId &&
-            !["Order Confirmed", "Order Lost"].includes(query.salesStatus)
+            !closedSalesStatuses.has(query.salesStatus)
         ).length +
-        jobCards.filter(
-          (job) =>
-            [job.contractingOwnerId, job.operationsOwnerId, job.ticketingOwnerId]
-              .map(String)
-              .includes(staffId) && job.status !== "Closed"
-        ).length;
+        jobCards.filter((job) => {
+          const ownerIds = new Set(
+            [job.contractingOwnerId, job.operationsOwnerId, job.ticketingOwnerId].map(String)
+          );
+          return ownerIds.has(staffId) && job.status !== "Closed";
+        }).length;
       for (const role of member.roles) {
         const current = map.get(role) ?? { load: 0, role, staffCount: 0 };
         current.staffCount += 1;
@@ -572,9 +572,13 @@ export const getPortalSummary = query({
         proposalsSent: buildMetricTrend(last30ProposalsSent.length, prior30ProposalsSent.length),
       },
       myTeam: staff
-        .filter(
-          (member) => member.active && member.roles.some((role) => access.roles.includes(role))
-        )
+        .filter((member) => {
+          if (!member.active) {
+            return false;
+          }
+          const accessRoles = new Set(access.roles);
+          return member.roles.some((role) => accessRoles.has(role));
+        })
         .slice(0, 6)
         .map((member) => ({
           department: member.department ?? member.roles[0] ?? "",
