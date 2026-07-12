@@ -24,13 +24,14 @@ import {
   Upload,
   Users,
 } from "lucide-react";
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { cloneElement, isValidElement, Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { DashboardView } from "@/components/portal/dashboard/DashboardView";
 import { EntityModal } from "@/components/portal/EntityModal";
 import {
+  PortalChromeQuickActionSync,
   PortalChromeSavedViewsSync,
   usePortalChrome,
 } from "@/components/portal/PortalChromeContext";
@@ -43,6 +44,11 @@ import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import PortalListToolbar from "@/components/portal/PortalListToolbar";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
+import { QueryRowActions } from "@/components/portal/QueryRowActions";
+import {
+  desktopActionColumnClass,
+  ResponsiveDataCards,
+} from "@/components/portal/ResponsiveDataCards";
 import SaveViewDialog from "@/components/portal/SaveViewDialog";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { StaffWorkbookImportPanel } from "@/components/portal/settings/StaffWorkbookImportPanel";
@@ -86,6 +92,10 @@ import {
   proposalLinkedQueryLabel,
   proposalPrimaryQuery,
 } from "@/lib/portal/proposalLinks";
+import {
+  getQueryAttentionLabel,
+  getQueryPrimaryActionKind,
+} from "@/lib/portal/queryListPresentation";
 import { buildQueryStatusAction } from "@/lib/portal/queryStatusAction";
 import { runMutation } from "@/lib/portal/runMutation";
 import {
@@ -1002,6 +1012,9 @@ function PortalWorkspaceLayout({ workspace: w }) {
           savedViews={w.savedViews || []}
           toggleSavedViewFavorite={w.toggleSavedViewFavorite}
         />
+        {w.has(P.MANAGE_QUERIES) ? (
+          <PortalChromeQuickActionSync label="New query" onSelect={() => w.openModal("query")} />
+        ) : null}
         <PortalWorkspaceHeader workspace={w} />
         <PortalWorkspaceViews workspace={w} />
         <PortalWorkspaceSpreadsheetModals workspace={w} />
@@ -1222,26 +1235,17 @@ function DashboardSecondaryPanels({
 }) {
   return (
     <>
-      <m.div
-        animate={{ opacity: 1, y: 0 }}
-        className="grid gap-5 xl:grid-cols-[1.35fr_0.9fr]"
-        initial={{ opacity: 0, y: 12 }}
-        transition={{ delay: 0.05, duration: 0.4 }}
-      >
+      <div className="grid gap-5 xl:grid-cols-[1.35fr_0.9fr]">
         {has(P.VIEW_JOB_CARDS) && (
           <Panel title="Active tours">
             {(summary.activeTours || []).length === 0 ? (
               <EmptyState label="No active tours yet." />
             ) : (
               <div className="space-y-4">
-                {summary.activeTours.map((tour, index) => (
-                  <m.div
-                    animate={{ opacity: 1, y: 0 }}
+                {summary.activeTours.map((tour) => (
+                  <div
                     className="overflow-hidden rounded-xl border border-brand-border bg-brand-light p-4 transition-shadow hover:shadow-md"
-                    initial={{ opacity: 0, y: 12 }}
                     key={tour.id}
-                    transition={{ delay: index * 0.06, duration: 0.35 }}
-                    whileHover={{ y: -2 }}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
@@ -1256,7 +1260,7 @@ function DashboardSecondaryPanels({
                     </div>
                     <Progress label="Tickets issued" value={tour.ticketProgress} />
                     <Progress label="Visa approved" value={tour.visaProgress} />
-                  </m.div>
+                  </div>
                 ))}
               </div>
             )}
@@ -1267,22 +1271,19 @@ function DashboardSecondaryPanels({
             <EmptyState label="No urgent actions." />
           ) : (
             <div className="space-y-3">
-              {urgentActions.map((item, index) => (
-                <m.div
-                  animate={{ opacity: 1, x: 0 }}
+              {urgentActions.map((item) => (
+                <div
                   className="rounded-xl border border-brand-border bg-white p-3 text-sm"
-                  initial={{ opacity: 0, x: 12 }}
                   key={item.id}
-                  transition={{ delay: index * 0.06, duration: 0.35 }}
                 >
                   <div className="font-medium text-brand-dark">{item.label}</div>
                   <div className="mt-1 text-brand-muted text-xs">{item.type}</div>
-                </m.div>
+                </div>
               ))}
             </div>
           )}
         </Panel>
-      </m.div>
+      </div>
       {showOpsProgress && (
         <Panel title="Overall progress">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -1307,12 +1308,7 @@ function DashboardSecondaryPanels({
           </div>
         </Panel>
       )}
-      <m.div
-        animate={{ opacity: 1, y: 0 }}
-        className="grid gap-5 xl:grid-cols-2"
-        initial={{ opacity: 0, y: 12 }}
-        transition={{ delay: 0.12, duration: 0.4 }}
-      >
+      <div className="grid gap-5 xl:grid-cols-2">
         {has(P.VIEW_JOB_CARDS) && (
           <Panel title="Upcoming departures">
             {(summary.upcomingDepartures || []).length === 0 ? (
@@ -1361,7 +1357,7 @@ function DashboardSecondaryPanels({
             )}
           </Panel>
         )}
-      </m.div>
+      </div>
       {departmentWorkflow.length > 0 && (
         <Panel title="Department workflow">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -1402,66 +1398,121 @@ function queryModalEditInitial(row) {
   };
 }
 
-function formatQueryBatchCell(row) {
-  if (!row.travelInBatches) {
-    return "No";
+function queryTravelWindow(row) {
+  if (!row.travelStartDate) {
+    return "Travel dates TBD";
   }
-  const notes = (row.batchingNotes || "").trim();
-  if (!notes) {
-    return "Yes";
-  }
-  const preview = notes.length > 48 ? `${notes.slice(0, 48)}...` : notes;
-  return (
-    <div>
-      <div>Yes</div>
-      <div className="text-brand-muted text-xs">{preview}</div>
-    </div>
-  );
+  const start = formatDisplayDate(row.travelStartDate);
+  const end = row.travelEndDate ? formatDisplayDate(row.travelEndDate) : "";
+  return end ? `${start} – ${end}` : start;
 }
 
-function QueryManageActions({ row, openModal, has, deleteItem, removeQuery, submitToContracting }) {
-  if (!has(P.MANAGE_QUERIES)) {
+function queryAttentionClass(label) {
+  if (label === "No open exception") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+  if (label.startsWith("Lost")) {
+    return "border-rose-200 bg-rose-50 text-rose-800";
+  }
+  return "border-amber-200 bg-amber-50 text-amber-900";
+}
+
+function QueryActions({
+  access,
+  deleteItem,
+  has,
+  openModal,
+  removeQuery,
+  row,
+  submitToContracting,
+}) {
+  const canManageQueries = has(P.MANAGE_QUERIES);
+  const canAssignTeams = canShowAssignQueryTeamsButton(access, row);
+  const primaryActionKind = getQueryPrimaryActionKind({
+    canAssignTeams,
+    canManageQueries,
+    submittedToContractingAt: row.submittedToContractingAt,
+  });
+  if (!primaryActionKind) {
     return null;
   }
   const statusAction = buildQueryStatusAction(row, has);
-  const alreadySubmitted = Boolean(row.submittedToContractingAt);
+  const editAction = (
+    <button
+      className="portal-small-btn"
+      key="edit"
+      onClick={() => openModal("query", queryModalEditInitial(row))}
+      type="button"
+    >
+      Edit query
+    </button>
+  );
+  const filesAction = (
+    <button
+      className="portal-small-btn"
+      key="reference-itinerary"
+      onClick={() => openModal("queryAttachments", { queryCode: row.queryCode, queryId: row.id })}
+      type="button"
+    >
+      Reference Itinerary
+    </button>
+  );
+  const statusButton = (
+    <button
+      className={primaryActionKind === "status" ? "portal-primary-btn" : "portal-small-btn"}
+      key="status"
+      onClick={() => openModal(statusAction.modal, statusAction.initial)}
+      type="button"
+    >
+      {statusAction.label}
+    </button>
+  );
+  const assignButton = canAssignTeams ? (
+    <button
+      className={primaryActionKind === "assign" ? "portal-primary-btn" : "portal-small-btn"}
+      key="assign"
+      onClick={() => openModal("assignQueryTeams", { queryId: row.id })}
+      type="button"
+    >
+      {assignQueryTeamsButtonLabel(access)}
+    </button>
+  ) : null;
+  const submitButton = (
+    <button
+      className="portal-primary-btn"
+      key="submit"
+      onClick={() => submitToContracting({ queryId: row.id })}
+      type="button"
+    >
+      Submit to Contracting
+    </button>
+  );
+  let primaryAction = statusButton;
+  if (primaryActionKind === "submit") {
+    primaryAction = submitButton;
+  } else if (primaryActionKind === "assign") {
+    primaryAction = assignButton;
+  }
+  const overflowActions = canManageQueries
+    ? [
+        editAction,
+        filesAction,
+        primaryActionKind === "status" ? null : statusButton,
+        primaryActionKind === "assign" ? null : assignButton,
+        <DeleteButton
+          key="delete"
+          label={row.queryCode}
+          onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })}
+        />,
+      ]
+    : [];
+
   return (
-    <>
-      <button
-        className="portal-small-btn"
-        onClick={() => openModal("query", queryModalEditInitial(row))}
-        type="button"
-      >
-        Edit
-      </button>
-      <button
-        className="portal-small-btn"
-        onClick={() => openModal("queryAttachments", { queryCode: row.queryCode, queryId: row.id })}
-        type="button"
-      >
-        Reference Itinerary
-      </button>
-      {!alreadySubmitted && (
-        <button
-          className="portal-small-btn"
-          onClick={() => submitToContracting({ queryId: row.id })}
-          type="button"
-        >
-          Submit to Contracting
-        </button>
-      )}
-      <button
-        className="portal-small-btn"
-        onClick={() => openModal(statusAction.modal, statusAction.initial)}
-        type="button"
-      >
-        {statusAction.label}
-      </button>
-      <DeleteButton
-        label={row.queryCode}
-        onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })}
-      />
-    </>
+    <QueryRowActions
+      label={row.queryCode}
+      overflowActions={overflowActions}
+      primaryAction={primaryAction}
+    />
   );
 }
 
@@ -1479,39 +1530,91 @@ function QueriesView({
   return (
     <DataTable
       columns={[
-        ["Query ID", (row) => row.queryCode],
-        ["Client", (row) => strong(row.clientName)],
         [
-          "Dates",
+          "Query",
+          (row) => (
+            <div className="min-w-24">
+              <div className="font-heading font-semibold text-citius-blue">{row.queryCode}</div>
+              <div className="mt-1 text-[length:var(--portal-label-size)] text-brand-muted">
+                Created {formatDate(row.createdAt)}
+              </div>
+            </div>
+          ),
+        ],
+        [
+          "Client / travel",
+          (row) => (
+            <div className="min-w-48 max-w-60">
+              <div className="truncate font-semibold text-brand-dark" title={row.clientName}>
+                {row.clientName}
+              </div>
+              <div className="mt-1 truncate text-brand-muted text-xs">
+                {row.destination || "Destination TBD"} · {queryTravelWindow(row)}
+              </div>
+              {row.travelInBatches ? (
+                <div className="mt-1 truncate text-[length:var(--portal-label-size)] text-citius-blue">
+                  Travel in Series
+                  {(row.batchingNotes || "").trim() ? ` · ${(row.batchingNotes || "").trim()}` : ""}
+                </div>
+              ) : null}
+            </div>
+          ),
+        ],
+        [
+          "Lifecycle",
           (row) => (
             <LifecycleDates
               compact
               items={[
-                { label: "Created", value: row.createdAt },
                 { label: "Submitted", value: row.submittedToContractingAt },
                 { label: "Confirmed", value: row.confirmedAt },
               ]}
             />
           ),
         ],
-        ["Destination", (row) => row.destination || "TBD"],
         [
-          "Pax",
+          "Pax / budget",
           (row) => (
-            <div>
-              <div>{row.paxCount}</div>
-              <div className="text-brand-muted text-xs">
-                {money(row.budgetAmount)}
-                {isQueryConfirmed(row) && row.approxMargin != null
-                  ? ` · ${money(row.approxMargin)} margin`
-                  : ""}
-              </div>
+            <div className="min-w-28">
+              <div className="font-semibold text-brand-dark">{row.paxCount} pax</div>
+              <div className="mt-1 text-brand-muted text-xs">{money(row.budgetAmount)}</div>
+              {isQueryConfirmed(row) &&
+              row.approxMargin !== null &&
+              row.approxMargin !== undefined ? (
+                <div className="mt-1 text-[length:var(--portal-label-size)] text-emerald-700">
+                  {money(row.approxMargin)} margin
+                </div>
+              ) : null}
             </div>
           ),
         ],
         [
           "Stage",
-          (row) => <Badge label={row.leadStage || "Inquiry"} tone={statusTone(row.leadStage)} />,
+          (row) => {
+            const attention = getQueryAttentionLabel(row);
+            return (
+              <div className="min-w-36">
+                <Badge label={row.leadStage || "Inquiry"} tone={statusTone(row.leadStage)} />
+                <div
+                  className={`mt-2 rounded-md border px-2 py-1 text-[length:var(--portal-label-size)] ${queryAttentionClass(attention)}`}
+                >
+                  {attention}
+                </div>
+              </div>
+            );
+          },
+          { kind: "status" },
+        ],
+        [
+          "Sales / ticketing",
+          (row) => (
+            <div className="min-w-32 text-xs">
+              <div className="font-medium text-brand-dark">
+                {row.salesOwnerName || "Unassigned"}
+              </div>
+              <div className="mt-1 text-brand-muted">{row.ticketingScope || "Scope pending"}</div>
+            </div>
+          ),
         ],
         [
           "Files",
@@ -1526,48 +1629,97 @@ function QueriesView({
             />
           ),
         ],
-        ["Sales", (row) => row.salesOwnerName || "-"],
-        ["Ticketing Scope", (row) => row.ticketingScope || "-"],
-        ["Batches", (row) => formatQueryBatchCell(row)],
         [
           "Action",
           (row) => (
-            <m.div className="hidden flex-wrap gap-2 md:flex">
-              {has(P.MANAGE_QUERIES) && (
-                <QueryManageActions
-                  deleteItem={deleteItem}
-                  has={has}
-                  openModal={openModal}
-                  removeQuery={removeQuery}
-                  row={row}
-                  submitToContracting={submitToContracting}
-                />
-              )}
-              {canShowAssignQueryTeamsButton(access, row) && (
-                <button
-                  className="portal-small-btn"
-                  onClick={() => openModal("assignQueryTeams", { queryId: row.id })}
-                  type="button"
-                >
-                  {assignQueryTeamsButtonLabel(access)}
-                </button>
-              )}
-            </m.div>
+            <QueryActions
+              access={access}
+              deleteItem={deleteItem}
+              has={has}
+              openModal={openModal}
+              removeQuery={removeQuery}
+              row={row}
+              submitToContracting={submitToContracting}
+            />
           ),
+          { kind: "action" },
         ],
       ]}
       empty="No queries yet."
       filtersActive={filtersActive}
+      mobileCardIncludesActions
       mobileCardRender={(row) => {
-        const statusAction = buildQueryStatusAction(row, has);
+        const attention = getQueryAttentionLabel(row);
         return (
-          <div className="space-y-3">
+          <article className="space-y-4">
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="font-semibold text-brand-dark">{row.queryCode}</div>
-                <div className="text-brand-muted text-sm">{row.clientName}</div>
+              <div className="min-w-0">
+                <div className="font-bold text-[length:var(--portal-label-size)] text-citius-blue uppercase tracking-[0.12em]">
+                  {row.queryCode}
+                </div>
+                <h3 className="mt-1 truncate font-heading font-semibold text-brand-dark text-lg">
+                  {row.clientName}
+                </h3>
+                <div className="mt-1 truncate text-brand-muted text-sm">
+                  {row.destination || "Destination TBD"}
+                </div>
               </div>
               <Badge label={row.leadStage || "Inquiry"} tone={statusTone(row.leadStage)} />
+            </div>
+
+            <div className={`rounded-xl border px-3 py-2.5 ${queryAttentionClass(attention)}`}>
+              <div className="font-bold text-[length:var(--portal-label-size)] uppercase tracking-[0.12em]">
+                Attention
+              </div>
+              <div className="mt-0.5 font-medium text-sm">{attention}</div>
+            </div>
+
+            <QueryActions
+              access={access}
+              deleteItem={deleteItem}
+              has={has}
+              openModal={openModal}
+              removeQuery={removeQuery}
+              row={row}
+              submitToContracting={submitToContracting}
+            />
+
+            <div className="grid grid-cols-2 gap-3 border-brand-border/70 border-t pt-3 text-sm">
+              <div className="col-span-2">
+                <span className="text-brand-muted text-xs">Travel</span>
+                <div className="font-medium text-brand-dark">{queryTravelWindow(row)}</div>
+              </div>
+              <div>
+                <span className="text-brand-muted text-xs">Travellers</span>
+                <div className="font-medium text-brand-dark">{row.paxCount} pax</div>
+              </div>
+              <div>
+                <span className="text-brand-muted text-xs">Budget</span>
+                <div className="font-medium text-brand-dark">{money(row.budgetAmount)}</div>
+              </div>
+              <div>
+                <span className="text-brand-muted text-xs">Sales</span>
+                <div className="font-medium text-brand-dark">
+                  {row.salesOwnerName || "Unassigned"}
+                </div>
+              </div>
+              <div>
+                <span className="text-brand-muted text-xs">Ticketing</span>
+                <div className="font-medium text-brand-dark">
+                  {row.ticketingScope || "Scope pending"}
+                </div>
+              </div>
+              {row.travelInBatches ? (
+                <div className="col-span-2">
+                  <span className="text-brand-muted text-xs">Travel in Series</span>
+                  <div className="font-medium text-brand-dark">
+                    Yes
+                    {(row.batchingNotes || "").trim()
+                      ? ` · ${(row.batchingNotes || "").trim()}`
+                      : ""}
+                  </div>
+                </div>
+              ) : null}
             </div>
             <LifecycleDates
               compact
@@ -1577,96 +1729,11 @@ function QueriesView({
                 { label: "Confirmed", value: row.confirmedAt },
               ]}
             />
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="text-brand-muted">Destination</span>
-                <div className="font-medium">{row.destination || "TBD"}</div>
-              </div>
-              <div>
-                <span className="text-brand-muted">Pax</span>
-                <div className="font-medium">{row.paxCount}</div>
-              </div>
-              <div>
-                <span className="text-brand-muted">Budget</span>
-                <div className="font-medium">{money(row.budgetAmount)}</div>
-              </div>
-              <div>
-                <span className="text-brand-muted">Sales</span>
-                <div className="font-medium">{row.salesOwnerName || "-"}</div>
-              </div>
-              {row.travelInBatches ? (
-                <div className="col-span-2">
-                  <span className="text-brand-muted">Travel in Series</span>
-                  <div className="font-medium">
-                    Yes
-                    {(row.batchingNotes || "").trim()
-                      ? ` - ${(row.batchingNotes || "").trim()}`
-                      : ""}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-            {has(P.MANAGE_QUERIES) && (
-              <QueryRowActions
-                overflowActions={[
-                  <button
-                    className="portal-small-btn w-full"
-                    key="ref"
-                    onClick={() =>
-                      openModal("queryAttachments", { queryCode: row.queryCode, queryId: row.id })
-                    }
-                    type="button"
-                  >
-                    Reference Itinerary
-                  </button>,
-                  row.submittedToContractingAt ? null : (
-                    <button
-                      className="portal-small-btn w-full"
-                      key="submit"
-                      onClick={() => submitToContracting({ queryId: row.id })}
-                      type="button"
-                    >
-                      Submit to Contracting
-                    </button>
-                  ),
-                  <button
-                    className="portal-small-btn w-full"
-                    key="update"
-                    onClick={() => openModal(statusAction.modal, statusAction.initial)}
-                    type="button"
-                  >
-                    {statusAction.label}
-                  </button>,
-                  <DeleteButton
-                    key="delete"
-                    label={row.queryCode}
-                    onClick={() => deleteItem(row.queryCode, removeQuery, { queryId: row.id })}
-                  />,
-                ]}
-                primaryAction={
-                  <button
-                    className="portal-small-btn"
-                    onClick={() => openModal("query", queryModalEditInitial(row))}
-                    type="button"
-                  >
-                    Edit
-                  </button>
-                }
-              />
-            )}
-            {canShowAssignQueryTeamsButton(access, row) && (
-              <button
-                className="portal-small-btn"
-                onClick={() => openModal("assignQueryTeams", { queryId: row.id })}
-                type="button"
-              >
-                {assignQueryTeamsButtonLabel(access)}
-              </button>
-            )}
-          </div>
+          </article>
         );
       }}
       rows={rows}
+      tableClassName="min-w-[68rem]"
     />
   );
 }
@@ -1718,12 +1785,7 @@ function ContractingView({
   }));
 
   return (
-    <m.div
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-5"
-      initial={{ opacity: 0, y: 12 }}
-      transition={{ duration: 0.35 }}
-    >
+    <div className="space-y-5">
       {canAssign && (
         <Panel title="Contracting team">
           <DataTable
@@ -1766,6 +1828,7 @@ function ContractingView({
             (row) => (
               <Badge label={row.contractingStatus} tone={statusTone(row.contractingStatus)} />
             ),
+            { kind: "status" },
           ],
           [
             "Proposal Cost",
@@ -1843,13 +1906,68 @@ function ContractingView({
                 </div>
               );
             },
+            {
+              cellClassName: "min-w-56",
+              headerClassName: "min-w-56",
+              kind: "action",
+            },
           ],
         ]}
         empty="No contracting queries yet."
         filtersActive={filtersActive}
+        mobileCardRender={(row) => {
+          const proposal = proposalsByQueryId.get(row.id);
+          return (
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-bold text-[length:var(--portal-label-size)] text-citius-blue uppercase tracking-[0.12em]">
+                    {row.queryCode}
+                  </div>
+                  <div className="mt-1 truncate font-heading font-semibold text-base text-brand-dark">
+                    {row.clientName}
+                  </div>
+                </div>
+                <Badge label={row.contractingStatus} tone={statusTone(row.contractingStatus)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3 border-brand-border/70 border-t pt-3 text-sm">
+                <div>
+                  <span className="text-brand-muted text-xs">Received</span>
+                  <div className="font-medium text-brand-dark">
+                    {formatDate(row.submittedToContractingAt || row.createdAt)}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-brand-muted text-xs">Contracting SPOC</span>
+                  <div className="font-medium text-brand-dark">
+                    {row.contractingOwnerName || "Unassigned"}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-brand-muted text-xs">Ticketing</span>
+                  <div className="font-medium text-brand-dark">
+                    {row.ticketingScope || "Scope pending"}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-brand-muted text-xs">Proposal CP</span>
+                  <div className="font-medium text-brand-dark">
+                    {proposal ? `${money(proposal.costPrice)}/pax` : "Not started"}
+                  </div>
+                </div>
+              </div>
+              {row.notes ? (
+                <div className="rounded-xl bg-brand-light px-3 py-2 text-brand-muted text-sm">
+                  {row.notes}
+                </div>
+              ) : null}
+            </div>
+          );
+        }}
         rows={rows}
+        tableClassName="min-w-[78rem]"
       />
-    </m.div>
+    </div>
   );
 }
 
@@ -1877,13 +1995,10 @@ function PipelineView({ rows, mode, setMode }) {
         ))}
       </div>
       <div className="grid grid-flow-dense gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {Object.entries(buckets).map(([stage, items], index) => (
-          <m.div
-            animate={{ opacity: 1, y: 0 }}
+        {Object.entries(buckets).map(([stage, items]) => (
+          <div
             className="min-h-36 rounded-2xl border border-brand-border bg-white p-4 shadow-sm"
-            initial={{ opacity: 0, y: 16 }}
             key={stage}
-            transition={{ delay: index * 0.05, duration: 0.35 }}
           >
             <div className="mb-3 flex items-center justify-between font-heading font-semibold text-citius-blue text-sm">
               {stage}
@@ -1907,7 +2022,7 @@ function PipelineView({ rows, mode, setMode }) {
                 </div>
               ))}
             </div>
-          </m.div>
+          </div>
         ))}
       </div>
     </div>
@@ -1991,7 +2106,11 @@ function ProposalsView({
               ],
             ]
           : []),
-        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+        [
+          "Status",
+          (row) => <Badge label={row.status} tone={statusTone(row.status)} />,
+          { kind: "status" },
+        ],
         [
           "Action",
           (row) =>
@@ -2063,6 +2182,11 @@ function ProposalsView({
                 )}
               </div>
             ),
+          {
+            cellClassName: "min-w-60",
+            headerClassName: "min-w-60",
+            kind: "action",
+          },
         ],
       ]}
       empty="No proposals yet."
@@ -2091,10 +2215,50 @@ function ProposalsView({
               <span className="text-brand-muted">CP/Pax</span>
               <div className="font-medium">{money(row.costPrice)}</div>
             </div>
+            <div>
+              <span className="text-brand-muted">Selling</span>
+              <div className="font-medium">{money(row.sellingPrice)}</div>
+            </div>
+            <div>
+              <span className="text-brand-muted">Last edit</span>
+              <div className="font-medium">
+                {row.lastEditedByName
+                  ? `${row.lastEditedByName} · ${formatDate(row.lastEditedAt)}`
+                  : "Not edited"}
+              </div>
+            </div>
+          </div>
+          <div className="space-y-3 border-brand-border/70 border-t pt-3">
+            <FinalizedProposalPdfSummary
+              canSend={canSend}
+              finalizedPdf={row.finalizedPdf}
+              onDownload={() => openFinalizedProposalPdf(row.id, getFinalizedPdfUrl)}
+              onManage={() =>
+                openModal("proposalFinalizedPdf", {
+                  proposalId: row.id,
+                  queryCode: row.proposalCode,
+                })
+              }
+            />
+            {canManage ? (
+              <QueryAttachmentSummary
+                attachmentKind="proposal"
+                attachments={row.attachments || []}
+                canManage={canManage}
+                getQueryAttachmentUrl={getProposalAttachmentUrl}
+                onManage={() =>
+                  openModal("proposalAttachments", {
+                    proposalId: row.id,
+                    queryCode: row.proposalCode,
+                  })
+                }
+              />
+            ) : null}
           </div>
         </div>
       )}
       rows={rows}
+      tableClassName="min-w-[88rem]"
     />
   );
 }
@@ -2164,6 +2328,7 @@ function AccountsJobCardView({
                 ) : (
                   <span className="font-semibold text-brand-muted text-xs">Managed by head</span>
                 ),
+              { kind: "action" },
             ],
           ]}
           compact
@@ -2289,6 +2454,7 @@ function AccountsJobCardView({
                 </button>
               );
             },
+            { kind: "action" },
           ],
         ]}
         empty="No confirmed orders waiting for Job Card creation."
@@ -2374,7 +2540,11 @@ function JobCardsView({
         ["Job code", (row) => strong(row.jobCode)],
         ["Client", (row) => row.clientName],
         ["Destination", (row) => row.destination || "-"],
-        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+        [
+          "Status",
+          (row) => <Badge label={row.status} tone={statusTone(row.status)} />,
+          { kind: "status" },
+        ],
         [
           "Owners",
           (row) => (
@@ -2431,6 +2601,7 @@ function JobCardsView({
               }}
             />
           ),
+          { kind: "action" },
         ],
       ]}
       compact
@@ -2452,9 +2623,6 @@ function JobCardsView({
             job={job}
             openModal={openModal}
           />
-          <Link className="portal-small-btn inline-flex" href={`/portal/job-cards/${job.id}`}>
-            Open
-          </Link>
         </div>
       )}
       rows={rows}
@@ -2718,6 +2886,7 @@ function TravellersView({
                   />
                 </div>
               ),
+            { kind: "action" },
           ],
         ]}
         empty="No travellers yet."
@@ -2778,7 +2947,11 @@ function VisaTrackingView({
         ["Job", (row) => row.jobCode],
         ["Travel Batch", (row) => travelBatchDisplayLabel(row)],
         ["Hub", (row) => row.travelHub || "-"],
-        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+        [
+          "Status",
+          (row) => <Badge label={row.status} tone={statusTone(row.status)} />,
+          { kind: "status" },
+        ],
         ["Appointment", (row) => formatDisplayDate(row.appointmentDate)],
         ["Notes", (row) => row.notes || "-"],
         [
@@ -2809,6 +2982,7 @@ function VisaTrackingView({
                 />
               </div>
             ),
+          { kind: "action" },
         ],
       ]}
       empty="No visa records yet."
@@ -3192,6 +3366,7 @@ function PassportDocumentsView({
                 )}
               </div>
             ),
+            { kind: "action" },
           ],
         ]}
         empty="No travellers on record."
@@ -3336,6 +3511,7 @@ function PnrView({
                     />
                   </div>
                 ),
+              { kind: "action" },
             ],
           ]}
           empty="No PNRs yet."
@@ -3438,7 +3614,11 @@ function TicketsView({
         ["PNR", (row) => row.pnrCode || "-"],
         ["Class", (row) => row.cabinClass || "Economy"],
         ["Seat", (row) => row.seatNumber || row.seatPreference || "-"],
-        ["Status", (row) => <Badge label={row.ticketStatus} tone={statusTone(row.ticketStatus)} />],
+        [
+          "Status",
+          (row) => <Badge label={row.ticketStatus} tone={statusTone(row.ticketStatus)} />,
+          { kind: "status" },
+        ],
         [
           "Action",
           (row) =>
@@ -3470,6 +3650,7 @@ function TicketsView({
                 />
               </div>
             ),
+          { kind: "action" },
         ],
       ]}
       empty="No tickets yet."
@@ -3504,7 +3685,11 @@ function SeatView({
         ["Seat", (row) => <span className="font-bold font-mono">{row.seatNumber}</span>],
         ["Traveller", (row) => row.travellerName || "Unassigned"],
         ["Job", (row) => row.jobCode],
-        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+        [
+          "Status",
+          (row) => <Badge label={row.status} tone={statusTone(row.status)} />,
+          { kind: "status" },
+        ],
         ["Notes", (row) => row.notes || "-"],
         [
           "Action",
@@ -3534,6 +3719,7 @@ function SeatView({
                 />
               </div>
             ),
+          { kind: "action" },
         ],
       ]}
       empty="No stored seat allocations yet."
@@ -3597,6 +3783,7 @@ function HotelsView({
                 />
               </div>
             ),
+          { kind: "action" },
         ],
       ]}
       empty="No hotel records yet. Add a hotel property or use Import Rooming for passenger assignments below."
@@ -3685,7 +3872,7 @@ function JobCardFilterPanel({ jobCards, jobCardFilter, setJobCardFilter, ariaLab
         <span className="mb-1 block font-semibold text-citius-blue text-xs">Job Card</span>
         <select
           aria-label={ariaLabel}
-          className="portal-toolbar-control portal-period-select h-11 w-full appearance-none rounded-lg border border-brand-border bg-white px-3 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-out focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
+          className="portal-toolbar-control portal-period-select h-11 w-full appearance-none rounded-lg border border-brand-border bg-white px-3 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
           onChange={(event) => setJobCardFilter(event.target.value)}
           value={jobCardFilter}
         >
@@ -4030,6 +4217,7 @@ function RoomingListView({
                 onClick={() => deleteItem(row.fullName, removeTraveller, { travellerId: row.id })}
               />
             ),
+          { kind: "action" },
         ],
       ]}
       empty="No rooming assignments yet. Import traveller master or rooming spreadsheet for this job card."
@@ -4133,7 +4321,11 @@ function TourManagersView({
           ["Job", (row) => row.jobCode || "-"],
           ["Calling", (row) => row.callingStatus],
           ["Available", (row) => formatDisplayDate(row.availabilityDate)],
-          ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+          [
+            "Status",
+            (row) => <Badge label={row.status} tone={statusTone(row.status)} />,
+            { kind: "status" },
+          ],
           [
             "Action",
             (row) =>
@@ -4163,6 +4355,7 @@ function TourManagersView({
                   />
                 </div>
               ),
+            { kind: "action" },
           ],
         ]}
         empty="No Tour Managers yet."
@@ -4226,6 +4419,7 @@ function TourManagersView({
                     ))}
                   </div>
                 ),
+              { kind: "action" },
             ],
           ]}
           compact
@@ -4261,12 +4455,7 @@ function FinanceView({ rows, overview, openModal, has, deleteItem, removeInvoice
           </div>
           {overview.fundProjections && (
             <Panel title="Fund projections">
-              <m.div
-                animate={{ opacity: 1, y: 0 }}
-                className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
-                initial={{ opacity: 0, y: 12 }}
-                transition={{ duration: 0.35 }}
-              >
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <StatCard
                   Icon={CircleDollarSign}
                   label="Expected collections"
@@ -4287,7 +4476,7 @@ function FinanceView({ rows, overview, openModal, has, deleteItem, removeInvoice
                   label="Expense approvals due"
                   value={money(overview.fundProjections.pendingExpenseApprovals)}
                 />
-              </m.div>
+              </div>
             </Panel>
           )}
           <Panel title="Tour-wise P&L">
@@ -4312,7 +4501,11 @@ function FinanceView({ rows, overview, openModal, has, deleteItem, removeInvoice
                 ["JC", (row) => row.jobCode],
                 ["Due", (row) => money(row.dueAmount)],
                 ["Due Date", (row) => formatDisplayDate(row.dueDate)],
-                ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+                [
+                  "Status",
+                  (row) => <Badge label={row.status} tone={statusTone(row.status)} />,
+                  { kind: "status" },
+                ],
               ]}
               compact
               empty="No outstanding balances."
@@ -4329,7 +4522,11 @@ function FinanceView({ rows, overview, openModal, has, deleteItem, removeInvoice
           ["Expected", (row) => money(row.expectedAmount)],
           ["Received", (row) => money(row.receivedAmount)],
           ["Balance", (row) => money(row.balanceAmount)],
-          ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+          [
+            "Status",
+            (row) => <Badge label={row.status} tone={statusTone(row.status)} />,
+            { kind: "status" },
+          ],
           [
             "Action",
             (row) =>
@@ -4355,6 +4552,7 @@ function FinanceView({ rows, overview, openModal, has, deleteItem, removeInvoice
                   />
                 </div>
               ),
+            { kind: "action" },
           ],
         ]}
         empty="No invoices yet."
@@ -4586,6 +4784,7 @@ function ExpensesView({
                 />
               </div>
             ),
+          { kind: "action" },
         ],
       ]}
       empty="No expenses yet."
@@ -4605,7 +4804,11 @@ function ApprovalsView({ rows, has, openModal, decideApproval, deleteItem, remov
         ["Requested By", (row) => row.requestedByName],
         ["Summary", (row) => row.summary],
         ["Amount", (row) => money(row.amount)],
-        ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+        [
+          "Status",
+          (row) => <Badge label={row.status} tone={statusTone(row.status)} />,
+          { kind: "status" },
+        ],
         ["Note", (row) => row.decisionNote || "-"],
         [
           "Action",
@@ -4668,6 +4871,7 @@ function ApprovalsView({ rows, has, openModal, decideApproval, deleteItem, remov
                 )}
               </div>
             ),
+          { kind: "action" },
         ],
       ]}
       empty="No approvals in the queue."
@@ -4971,7 +5175,11 @@ function LeaveView({
                 />
               ),
             ],
-            ["Status", (row) => <Badge label={row.status} tone={statusTone(row.status)} />],
+            [
+              "Status",
+              (row) => <Badge label={row.status} tone={statusTone(row.status)} />,
+              { kind: "status" },
+            ],
             [
               "Action",
               (row) => (
@@ -5050,6 +5258,7 @@ function LeaveView({
                   )}
                 </div>
               ),
+              { kind: "action" },
             ],
           ]}
           empty="No leave records yet."
@@ -5186,6 +5395,7 @@ function SettingsView({
                   />
                 </div>
               ),
+              { kind: "action" },
             ],
           ]}
           compact
@@ -5781,7 +5991,7 @@ function PassengerExportModal({
           <DataTable
             columns={[
               ["Passenger", (row) => strong(row.fullName)],
-              ["Status", (row) => row.willingToGo],
+              ["Status", (row) => row.willingToGo, { kind: "status" }],
               ["Hub", (row) => row.travelHub || "-"],
               ["Food", (row) => row.foodPreference],
               [
@@ -6035,7 +6245,9 @@ function DataTable({
   empty,
   compact = false,
   mobileCardRender,
+  mobileCardIncludesActions = false,
   filtersActive = false,
+  tableClassName = "",
 }) {
   if (!rows) {
     return <LoadingPanel />;
@@ -6045,34 +6257,20 @@ function DataTable({
     return <EmptyState label={emptyLabel} />;
   }
   return (
-    <m.div
-      animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-2xl border border-brand-border bg-white shadow-sm"
-      initial={{ opacity: 0, y: 12 }}
-      transition={{ duration: 0.35 }}
-    >
-      {mobileCardRender && (
-        <div className="divide-y divide-brand-border md:hidden">
-          {rows.map((row, rowIndex) => (
-            <m.div
-              animate={{ opacity: 1 }}
-              className="p-4"
-              initial={{ opacity: 0 }}
-              key={row.id}
-              transition={{ delay: Math.min(rowIndex * 0.02, 0.2) }}
-            >
-              {mobileCardRender(row)}
-            </m.div>
-          ))}
-        </div>
-      )}
-      <div className={`overflow-x-auto ${mobileCardRender ? "hidden md:block" : ""}`}>
-        <table className="min-w-full border-collapse">
+    <div className="space-y-3">
+      <ResponsiveDataCards
+        appendColumnActions={!mobileCardIncludesActions}
+        columns={columns}
+        mobileCardRender={mobileCardRender}
+        rows={rows}
+      />
+      <div className="hidden overflow-x-auto rounded-2xl border border-brand-border bg-white shadow-sm md:block">
+        <table className={`min-w-full border-collapse ${tableClassName}`}>
           <thead className="bg-brand-light/80">
             <tr>
-              {columns.map(([label]) => (
+              {columns.map(([label, , options]) => (
                 <th
-                  className="border-brand-border border-b px-4 py-3 text-left font-semibold text-citius-blue/80 text-xs"
+                  className={`border-brand-border border-b px-4 py-3 text-left font-semibold text-citius-blue/80 text-xs ${desktopActionColumnClass(options?.kind, "header")} ${options?.headerClassName || ""}`}
                   key={label}
                 >
                   {label}
@@ -6081,28 +6279,22 @@ function DataTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, rowIndex) => (
-              <m.tr
-                animate={{ opacity: 1 }}
-                className="transition-colors hover:bg-citius-blue/[0.03]"
-                initial={{ opacity: 0 }}
-                key={row.id}
-                transition={{ delay: Math.min(rowIndex * 0.02, 0.2) }}
-              >
-                {columns.map(([label, render]) => (
+            {rows.map((row) => (
+              <tr className="group transition-colors hover:bg-citius-blue/[0.03]" key={row.id}>
+                {columns.map(([label, render, options]) => (
                   <td
-                    className={`border-brand-border border-b px-4 ${compact ? "py-2" : "py-3"} text-brand-dark text-sm last:border-b-0`}
+                    className={`border-brand-border border-b px-4 ${compact ? "py-2" : "py-3"} text-brand-dark text-sm last:border-b-0 ${desktopActionColumnClass(options?.kind, "cell")} ${options?.cellClassName || ""}`}
                     key={label}
                   >
                     {render(row) || "-"}
                   </td>
                 ))}
-              </m.tr>
+              </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </m.div>
+    </div>
   );
 }
 
@@ -6130,19 +6322,15 @@ function DeleteButton({ label, onClick }) {
 
 function Panel({ title, subtitle, children, className = "" }) {
   return (
-    <m.section
+    <section
       className={`rounded-2xl border border-brand-border bg-white p-5 shadow-sm md:p-6 ${className}`}
-      initial={{ opacity: 0, y: 16 }}
-      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      viewport={{ margin: "-40px", once: true }}
-      whileInView={{ opacity: 1, y: 0 }}
     >
       <div className="mb-4">
         <h2 className="font-heading font-semibold text-citius-blue text-lg md:text-xl">{title}</h2>
         {subtitle ? <p className="mt-1 text-brand-muted text-sm">{subtitle}</p> : null}
       </div>
       {children}
-    </m.section>
+    </section>
   );
 }
 
@@ -6155,7 +6343,7 @@ function DashboardSectionHeading({ title, detail }) {
   );
 }
 
-function QueryTypeTile({ type, count, index = 0, variant = "active" }) {
+function QueryTypeTile({ type, count, variant = "active" }) {
   const tone = type.includes("Cement")
     ? "from-stone-500/10 to-stone-500/5 border-stone-200"
     : type.startsWith("MICE")
@@ -6177,35 +6365,27 @@ function QueryTypeTile({ type, count, index = 0, variant = "active" }) {
         : "";
 
   return (
-    <m.div
-      animate={{ opacity: 1, y: 0 }}
+    <div
       className={`rounded-xl border bg-linear-to-br p-4 shadow-sm transition-shadow hover:shadow-md ${tone} ${ringTone}`}
-      initial={{ opacity: 0, y: 12 }}
-      transition={{ delay: index * 0.03, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -2 }}
     >
-      <div className="font-semibold text-[11px] text-brand-muted uppercase tracking-wide">
+      <div className="font-semibold text-[length:var(--portal-label-size)] text-brand-muted uppercase tracking-wide">
         {type}
       </div>
       <div className={`mt-2 font-heading font-semibold text-2xl tabular-nums ${valueTone}`}>
         {count}
       </div>
-    </m.div>
+    </div>
   );
 }
 
-function StatCard({ label, value, Icon, index = 0, featured = false }) {
+function StatCard({ label, value, Icon, featured = false }) {
   return (
-    <m.div
-      animate={{ opacity: 1, y: 0 }}
+    <div
       className={`group w-48 overflow-hidden rounded-2xl border border-brand-border bg-white p-5 shadow-sm transition-shadow hover:border-citius-orange/30 hover:shadow-lg ${
         featured
           ? "bg-linear-to-br from-citius-blue to-citius-blue/90 text-white sm:col-span-2"
           : ""
       }`}
-      initial={{ opacity: 0, y: 20 }}
-      transition={{ delay: index * 0.05, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ scale: 1.01, y: -4 }}
     >
       <div className="flex items-center justify-between">
         <div className={`font-semibold text-xs ${featured ? "text-white/80" : "text-brand-muted"}`}>
@@ -6220,11 +6400,13 @@ function StatCard({ label, value, Icon, index = 0, featured = false }) {
       >
         {value}
       </div>
-    </m.div>
+    </div>
   );
 }
 
 function Progress({ label, value }) {
+  const shouldReduceMotion = useReducedMotion();
+  const scale = Math.min(value || 0, 100) / 100;
   return (
     <div>
       <div className="mt-3 flex justify-between text-brand-muted text-xs">
@@ -6233,10 +6415,10 @@ function Progress({ label, value }) {
       </div>
       <div className="mt-1 h-2 overflow-hidden rounded-full bg-brand-border">
         <m.div
-          animate={{ scaleX: Math.min(value || 0, 100) / 100 }}
+          animate={{ transform: `scaleX(${scale})` }}
           className="h-full w-full origin-left rounded-full bg-linear-to-r from-citius-orange to-citius-blue"
-          initial={{ scaleX: 0 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ transform: shouldReduceMotion ? `scaleX(${scale})` : "scaleX(0)" }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.23, 1, 0.32, 1] }}
         />
       </div>
     </div>
@@ -6378,7 +6560,7 @@ const BADGE_TONES = {
 function Badge({ label, tone = "gray" }) {
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-1 font-semibold text-[11px] ${BADGE_TONES[tone] || BADGE_TONES.gray}`}
+      className={`inline-flex rounded-full px-2.5 py-1 font-semibold text-[length:var(--portal-label-size)] ${BADGE_TONES[tone] || BADGE_TONES.gray}`}
     >
       {label}
     </span>
@@ -6435,65 +6617,6 @@ function formatConvexError(error, fallback) {
     return error.message;
   }
   return fallback;
-}
-
-const EMPTY_OVERFLOW_ACTIONS = [];
-
-function getOverflowActionKey(action) {
-  return action?.key || action?.props?.["aria-label"] || action?.props?.children || "action";
-}
-
-function QueryRowActions({ primaryAction, overflowActions = EMPTY_OVERFLOW_ACTIONS }) {
-  const [open, setOpen] = useState(false);
-  const closeAfterAction = (action) => {
-    if (!isValidElement(action)) {
-      return action;
-    }
-    return cloneElement(action, {
-      key: getOverflowActionKey(action),
-      onClick: (event) => {
-        action.props.onClick?.(event);
-        setOpen(false);
-      },
-    });
-  };
-
-  return (
-    <div className="flex items-center gap-2 md:hidden">
-      {primaryAction}
-      {overflowActions.length > 0 && (
-        <div className="relative">
-          <button
-            aria-expanded={open}
-            aria-label="More actions"
-            className="portal-small-btn inline-flex items-center gap-1"
-            onClick={() => setOpen((value) => !value)}
-            type="button"
-          >
-            <MoreHorizontal size={14} />
-            More
-          </button>
-          {open && (
-            <>
-              <button
-                aria-label="Close actions menu"
-                className={`fixed inset-0 ${PORTAL_Z.dropdownBackdrop} cursor-default bg-transparent`}
-                onClick={() => setOpen(false)}
-                type="button"
-              />
-              <div
-                className={`absolute right-0 ${PORTAL_Z.dropdown} mt-2 min-w-[180px] rounded-xl border border-brand-border bg-white p-2 shadow-lg`}
-              >
-                <div className="flex flex-col gap-2" role="menu" tabIndex={-1}>
-                  {overflowActions.map(closeAfterAction)}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function money(value) {
@@ -6696,7 +6819,9 @@ function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, onDownlo
         <span className="truncate">{finalizedPdf.fileName}</span>
       </button>
       {finalizedPdf.uploadedAt && (
-        <span className="text-[11px] text-brand-muted">{formatDate(finalizedPdf.uploadedAt)}</span>
+        <span className="text-[length:var(--portal-label-size)] text-brand-muted">
+          {formatDate(finalizedPdf.uploadedAt)}
+        </span>
       )}
       {canSend && (
         <button className="portal-small-btn mt-1 w-fit" onClick={onManage} type="button">
@@ -6884,7 +7009,9 @@ function QueryAttachmentSummary({
         </button>
       ))}
       {attachments.length > 2 && (
-        <span className="text-[11px] text-brand-muted">+{attachments.length - 2} more</span>
+        <span className="text-[length:var(--portal-label-size)] text-brand-muted">
+          +{attachments.length - 2} more
+        </span>
       )}
       {canManage && (
         <button className="portal-small-btn mt-1 w-fit" onClick={onManage} type="button">

@@ -212,7 +212,7 @@ export function buildDashboardSections({
     ),
     workQueue: (
       <div className="space-y-5">
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5 2xl:grid-cols-2">
           <DashboardWorkQueuesSummary rows={workQueueRows} />
           {persona.sections.includes("activity") && (
             <DashboardActivityStrip

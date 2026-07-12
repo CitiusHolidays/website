@@ -134,7 +134,18 @@ function Input({
     "h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10";
   return (
     <label className="block" htmlFor={fieldId}>
-      <span className="mb-1 block font-semibold text-brand-muted text-xs">{label}</span>
+      <span className="mb-1 block font-semibold text-brand-muted text-xs">
+        {label}
+        {required ? (
+          <>
+            <span aria-hidden="true" className="text-citius-orange">
+              {" "}
+              *
+            </span>
+            <span className="sr-only"> required</span>
+          </>
+        ) : null}
+      </span>
       {type === "date" ? (
         <PortalDateInput
           className="w-full"
@@ -168,7 +179,18 @@ function Select({ label, value, options, onChange, required = false }) {
   );
   return (
     <label className="block">
-      <span className="mb-1 block font-semibold text-brand-muted text-xs">{label}</span>
+      <span className="mb-1 block font-semibold text-brand-muted text-xs">
+        {label}
+        {required ? (
+          <>
+            <span aria-hidden="true" className="text-citius-orange">
+              {" "}
+              *
+            </span>
+            <span className="sr-only"> required</span>
+          </>
+        ) : null}
+      </span>
       <select
         className="h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
         onChange={(event) => onChange(event.target.value)}

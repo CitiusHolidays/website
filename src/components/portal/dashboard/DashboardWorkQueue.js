@@ -24,7 +24,7 @@ function statusTone(readiness) {
 function Badge({ label, tone }) {
   return (
     <span
-      className={`inline-flex rounded-full border px-2 py-0.5 font-semibold text-[11px] ${BADGE_TONES[tone] || BADGE_TONES.blue}`}
+      className={`inline-flex rounded-full border px-2 py-0.5 font-semibold text-[length:var(--portal-label-size)] ${BADGE_TONES[tone] || BADGE_TONES.blue}`}
     >
       {label}
     </span>
@@ -84,6 +84,7 @@ export function DashboardUpcomingDepartures({ departures, dateRange, hasJobCards
           View all job cards
         </Link>
       }
+      title="Upcoming departures"
     >
       {departures?.length ? (
         <div className="overflow-x-auto">

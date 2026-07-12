@@ -1,7 +1,8 @@
 "use client";
 
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, X } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
+import { useEffect, useRef } from "react";
 import { LifecycleDates } from "@/components/portal/PortalModalForm";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import { EntityModalFieldsPrimary } from "./EntityModalFieldsPrimary";
@@ -9,9 +10,6 @@ import { EntityModalFieldsSecondary } from "./EntityModalFieldsSecondary";
 
 export function EntityModalShell({
   modal,
-  form,
-  updateForm,
-  patchForm,
   submit,
   close,
   error,
@@ -23,6 +21,74 @@ export function EntityModalShell({
   primaryProps,
   secondaryProps,
 }) {
+  const formRef = useRef(null);
+  const errorRef = useRef(null);
+
+  useEffect(() => {
+    if (!modal) {
+      return;
+    }
+
+    const previouslyFocused = document.activeElement;
+    const frame = requestAnimationFrame(() => {
+      const preferredTarget = formRef.current?.querySelector(
+        "[data-entity-modal-autofocus], input:not([type='hidden']):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)"
+      );
+      preferredTarget?.focus({ preventScroll: true });
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      if (previouslyFocused instanceof HTMLElement) {
+        previouslyFocused.focus({ preventScroll: true });
+      }
+    };
+  }, [modal]);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      errorRef.current?.focus({ preventScroll: true });
+      errorRef.current?.scrollIntoView({ block: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [error]);
+
+  const handleDialogKeyDown = (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      close();
+      return;
+    }
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const focusable = Array.from(
+      formRef.current?.querySelectorAll(
+        "a[href], button:not(:disabled), input:not([type='hidden']):not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])"
+      ) || []
+    ).filter((element) => element.getClientRects().length > 0);
+    if (focusable.length === 0) {
+      return;
+    }
+
+    const [first] = focusable;
+    const last = focusable.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  const isQueryTaskSheet = modal === "query";
+
   return (
     <AnimatePresence>
       {modal && (
@@ -36,41 +102,52 @@ export function EntityModalShell({
         >
           <m.form
             animate={{ opacity: 1, scale: 1, y: 0 }}
+            aria-describedby={error ? "portal-entity-modal-error" : undefined}
             aria-labelledby="portal-entity-modal-title"
             aria-modal="true"
-            className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:fixed max-sm:inset-0 max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none"
+            className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden overscroll-contain rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none"
             exit={{ opacity: 0, scale: 0.98, y: 24 }}
             initial={{ opacity: 0, scale: 0.98, y: 24 }}
             onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => {
-              if (event.key === "Escape") {
-                event.preventDefault();
-                close();
-              }
-            }}
+            onKeyDown={handleDialogKeyDown}
             onSubmit={submit}
+            ref={formRef}
             role="dialog"
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
           >
-            <div className="flex items-center justify-between border-brand-border border-b px-5 py-4">
-              <div
-                className="font-heading font-semibold text-citius-blue text-lg"
-                id="portal-entity-modal-title"
-              >
-                {title}
+            <div className="flex shrink-0 items-center justify-between gap-4 border-brand-border border-b bg-white px-5 py-4 max-sm:px-4">
+              <div>
+                <div
+                  className="font-heading font-semibold text-citius-blue text-lg"
+                  id="portal-entity-modal-title"
+                >
+                  {title}
+                </div>
+                {isQueryTaskSheet ? (
+                  <p className="mt-0.5 text-brand-muted text-xs">
+                    Capture the client, trip brief, and delivery handoff.
+                  </p>
+                ) : null}
               </div>
               <button
                 aria-label="Close dialog"
-                className="rounded-full p-2 text-brand-muted hover:bg-brand-light"
+                className="grid size-11 shrink-0 place-items-center rounded-full text-brand-muted transition-colors hover:bg-brand-light hover:text-brand-dark"
                 onClick={close}
                 type="button"
               >
-                Close
+                <X aria-hidden="true" size={18} />
               </button>
             </div>
-            <div className="max-h-[calc(90vh-130px)] overflow-y-auto p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 max-sm:px-4 max-sm:py-5">
               {error && (
-                <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
+                <div
+                  aria-live="assertive"
+                  className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm outline-none focus:ring-2 focus:ring-red-300"
+                  id="portal-entity-modal-error"
+                  ref={errorRef}
+                  role="alert"
+                  tabIndex={-1}
+                >
                   {error}
                 </div>
               )}
@@ -108,8 +185,8 @@ export function EntityModalShell({
                 <EntityModalFieldsSecondary {...secondaryProps} />
               </div>
             </div>
-            <div className="flex justify-end gap-3 border-brand-border border-t px-5 py-4">
-              <button className="portal-outline-btn" onClick={close} type="button">
+            <div className="flex shrink-0 justify-end gap-3 border-brand-border border-t bg-white px-5 py-4 max-sm:grid max-sm:grid-cols-2 max-sm:px-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <button className="portal-outline-btn max-sm:w-full" onClick={close} type="button">
                 {["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(modal)
                   ? "Close"
                   : "Cancel"}
@@ -118,7 +195,7 @@ export function EntityModalShell({
                 modal
               ) && (
                 <button
-                  className="portal-primary-btn disabled:opacity-60"
+                  className="portal-primary-btn disabled:opacity-60 max-sm:w-full"
                   disabled={isSaving}
                   type="submit"
                 >
@@ -127,7 +204,7 @@ export function EntityModalShell({
                   ) : (
                     <CheckCircle2 size={16} />
                   )}
-                  Save
+                  {isQueryTaskSheet ? "Save query" : "Save"}
                 </button>
               )}
             </div>

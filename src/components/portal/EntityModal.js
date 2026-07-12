@@ -181,19 +181,15 @@ export function EntityModal({
     <EntityModalShell
       close={close}
       error={error}
-      form={form}
-      has={has}
       isSaving={isSaving}
       lifecycleJobCard={lifecycleJobCard}
       lifecycleProposal={lifecycleProposal}
       lifecycleQuery={lifecycleQuery}
       modal={modal}
-      patchForm={patchForm}
       primaryProps={primaryProps}
       secondaryProps={secondaryProps}
       submit={submit}
       title={title}
-      updateForm={updateForm}
     />
   );
 }

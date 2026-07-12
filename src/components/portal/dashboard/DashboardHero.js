@@ -17,7 +17,7 @@ export function DashboardHero({ displayName, dateRange, generatedAt }) {
           <span className="ml-2 inline-block size-2.5 rounded-full bg-citius-orange align-middle" />
         </h2>
         <p className="mt-1.5 max-w-2xl text-brand-muted text-sm leading-relaxed">
-          Here's what's happening across your workspace.
+          Start with what needs your attention, then move into the wider workspace picture.
           <span className="sr-only"> Current dashboard period: {period}.</span>
         </p>
       </div>

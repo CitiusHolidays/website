@@ -132,7 +132,7 @@ function CommandPaletteIcon({ name, active }) {
   return (
     <span
       aria-hidden
-      className={`grid size-8 shrink-0 place-items-center rounded-lg transition-[background-color,color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+      className={`grid size-8 shrink-0 place-items-center rounded-lg ${
         active ? "bg-citius-blue/12 text-citius-blue" : "bg-brand-light/80 text-brand-muted"
       }`}
     >
@@ -153,7 +153,7 @@ function CommandPaletteItem({ command, active, onSelect, onHover }) {
 
   return (
     <button
-      className={`group relative w-full rounded-lg px-2 py-1.5 text-left transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.96] ${
+      className={`group relative w-full rounded-lg px-2 py-1.5 text-left transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96] ${
         active
           ? "bg-citius-blue/8 text-brand-dark before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-citius-blue"
           : "text-brand-dark hover:bg-brand-light/70"
@@ -194,7 +194,7 @@ export function PortalCommandPaletteTrigger({ className = "" }) {
   return (
     <button
       aria-label={`Open command palette (${modShortcutLabel})`}
-      className={`portal-toolbar-btn border border-brand-border bg-white text-brand-muted transition-[transform,color,background-color,border-color] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:border-citius-blue/30 hover:text-citius-blue active:scale-[0.96] ${className}`}
+      className={`portal-toolbar-btn border border-brand-border bg-white text-brand-muted transition-[transform,color,background-color,border-color] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/30 hover:text-citius-blue active:scale-[0.96] ${className}`}
       onClick={() => context?.openPalette()}
       type="button"
     >
@@ -258,7 +258,7 @@ function CommandPaletteOverlay({
             />
             <button
               aria-label="Close"
-              className="grid size-8 shrink-0 place-items-center rounded-lg text-brand-muted transition-[background-color,color,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
+              className="grid size-8 shrink-0 place-items-center rounded-lg text-brand-muted transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
               onClick={closePalette}
               type="button"
             >

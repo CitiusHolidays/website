@@ -12,7 +12,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
@@ -87,28 +87,27 @@ const services = [
 
 const containerVariants = {
   hidden: {},
-  show: {
+  show: (shouldReduceMotion) => ({
     transition: {
-      delayChildren: 0.2,
-      staggerChildren: 0.07,
+      delayChildren: shouldReduceMotion ? 0 : 0.2,
+      staggerChildren: shouldReduceMotion ? 0 : 0.07,
     },
-  },
+  }),
 };
 
 const itemVariants = {
-  hidden: {
+  hidden: (service) => ({
     opacity: 0,
-    scale: 0,
-    x: "-50%",
-    y: "-50%",
-  },
+    scale: service.shouldReduceMotion ? 1 : 0.95,
+    x: `calc(-50% + ${service.x}px)`,
+    y: `calc(-50% + ${service.y}px)`,
+  }),
   show: (service) => ({
     opacity: 1,
     scale: 1,
     transition: {
-      damping: 12,
-      stiffness: 100,
-      type: "spring",
+      duration: service.shouldReduceMotion ? 0.15 : 0.25,
+      ease: [0.23, 1, 0.32, 1],
     },
     x: `calc(-50% + ${service.x}px)`,
     y: `calc(-50% + ${service.y}px)`,
@@ -127,6 +126,7 @@ function getServiceLayout() {
 }
 
 export default function CircularServicesMenu() {
+  const shouldReduceMotion = useReducedMotion();
   const [selectedService, setSelectedService] = useState(null);
   const [layout, setLayout] = useState(getServiceLayout);
   const containerRef = useRef(null);
@@ -274,13 +274,14 @@ export default function CircularServicesMenu() {
       <m.div
         animate="show"
         className="absolute inset-0"
+        custom={shouldReduceMotion}
         initial="hidden"
         variants={containerVariants}
       >
         {servicePositions.map((service, idx) => (
           <m.div
             className="absolute z-10 flex flex-col items-center"
-            custom={service}
+            custom={{ ...service, shouldReduceMotion }}
             key={service.title}
             onClick={() => layout.isMobile && handleServiceInteraction(service)}
             onHoverEnd={handleServiceLeave}

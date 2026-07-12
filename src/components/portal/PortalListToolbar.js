@@ -93,7 +93,7 @@ export default function PortalListToolbar({
           {collapsibleFilters && hasFilterControls ? (
             <button
               aria-expanded={filtersOpen}
-              className={`portal-toolbar-btn border border-brand-border bg-white text-brand-dark transition-[transform,color,background-color,border-color] duration-150 ease-out hover:border-citius-blue/30 active:scale-[0.96] ${
+              className={`portal-toolbar-btn border border-brand-border bg-white text-brand-dark transition-[transform,color,background-color,border-color] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/30 active:scale-[0.96] ${
                 filtersOpen ? "border-citius-blue text-citius-blue" : ""
               }`}
               onClick={() => setFiltersOpen((open) => !open)}
@@ -103,7 +103,7 @@ export default function PortalListToolbar({
               Filters
               <ChevronDown
                 aria-hidden
-                className={`transition-transform duration-200 ease-out ${filtersOpen ? "rotate-180" : ""}`}
+                className={`transition-transform duration-200 ease-[var(--portal-ease-out)] ${filtersOpen ? "rotate-180" : ""}`}
                 size={14}
               />
             </button>
@@ -119,7 +119,7 @@ export default function PortalListToolbar({
               />
               <input
                 aria-label="Search this page"
-                className="portal-toolbar-control h-11 w-full min-w-[10rem] rounded-lg border border-brand-border bg-white pr-3 pl-9 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-out focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-56"
+                className="portal-toolbar-control h-11 w-full min-w-[10rem] rounded-lg border border-brand-border bg-white pr-3 pl-9 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-56"
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search"
                 value={search}
@@ -159,7 +159,7 @@ export default function PortalListToolbar({
                   <span className="sr-only">Job card</span>
                   <select
                     aria-label="Filter by job card"
-                    className="portal-toolbar-control portal-period-select h-9 w-44 appearance-none rounded-lg border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-out focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
+                    className="portal-toolbar-control portal-period-select h-9 w-44 appearance-none rounded-lg border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
                     onChange={(event) => setJobCardFilter(event.target.value)}
                     value={jobCardFilter}
                   >
@@ -188,7 +188,7 @@ export default function PortalListToolbar({
               />
               {onClearAllFilters ? (
                 <button
-                  className={`portal-small-btn shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-out active:scale-[0.96] ${
+                  className={`portal-small-btn shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96] ${
                     filtersActive ? "" : "pointer-events-none invisible"
                   }`}
                   disabled={!filtersActive}

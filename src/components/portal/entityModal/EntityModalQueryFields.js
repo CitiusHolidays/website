@@ -25,172 +25,194 @@ const TRAVEL_IN_BATCHES_OPTIONS = [
   { label: "Yes", value: "Yes" },
 ];
 
+function QueryFieldSection({ children, description, eyebrow, title }) {
+  return (
+    <fieldset className="rounded-2xl border border-brand-border/80 bg-white p-4 shadow-[0_10px_32px_rgba(16,42,131,0.05)] sm:p-5">
+      <legend className="px-1">
+        <span className="block font-bold text-[length:var(--portal-label-size)] text-citius-orange uppercase tracking-[0.14em]">
+          {eyebrow}
+        </span>
+        <span className="mt-1 block font-heading font-semibold text-base text-brand-dark">
+          {title}
+        </span>
+      </legend>
+      <p className="mb-4 text-brand-muted text-xs leading-relaxed">{description}</p>
+      <div className="grid gap-4 md:grid-cols-2">{children}</div>
+    </fieldset>
+  );
+}
+
 export function EntityModalQueryFields({
   modal,
   form,
   updateForm,
   patchForm,
-  has,
   access,
-  queries,
-  proposals,
-  jobCards,
   team,
   contractingTeamOptions,
-  operationsTeamOptions,
-  ticketingTeamOptions,
   pendingQueryFiles,
   setPendingQueryFiles,
-  pendingProposalFiles,
-  setPendingProposalFiles,
-  generateQueryUploadUrl,
-  attachQueryFile,
-  getQueryAttachmentUrl,
-  removeQueryAttachment,
-  generateProposalUploadUrl,
-  attachProposalFile,
-  getProposalAttachmentUrl,
-  removeProposalAttachment,
-  generateFinalizedPdfUploadUrl,
-  attachFinalizedPdf,
-  getFinalizedPdfUrl,
-  removeFinalizedPdf,
-  handleProposalQuerySelect,
-  handleJobQuerySelect,
-  handleJobCardSelect,
-  handleTravellerSelect,
 }) {
+  if (modal !== "query") {
+    return null;
+  }
+
   return (
-    <>
-      {modal === "query" && (
-        <>
-          <Input
-            label="Client / Company"
-            onChange={(v) => updateForm("clientName", v)}
-            required
-            value={form.clientName}
-          />
-          <Input
-            label="Contact Person"
-            onChange={(v) => updateForm("contactPerson", v)}
-            value={form.contactPerson}
-          />
-          <Input
-            label="Mobile"
-            onChange={(v) => updateForm("contactMobile", v)}
-            value={form.contactMobile}
-          />
-          <Input
-            label="No. of Pax"
-            onChange={(v) => updateForm("paxCount", v)}
-            type="number"
-            value={form.paxCount}
-          />
-          <Input
-            label="Destination"
-            onChange={(v) => updateForm("destination", v)}
-            value={form.destination}
-          />
-          <Input
-            label="Travel Date From"
-            onChange={(v) => updateForm("travelStartDate", v)}
-            type="date"
-            value={form.travelStartDate}
-          />
-          <Input
-            label="Travel Date To"
-            onChange={(v) => updateForm("travelEndDate", v)}
-            type="date"
-            value={form.travelEndDate}
-          />
-          <Select
-            label="Query Type"
-            onChange={(v) => updateForm("queryType", v)}
-            options={getQueryTypeOptions(access)}
-            value={form.queryType}
-          />
-          <Select
-            label="Travel Type"
-            onChange={(v) => updateForm("travelType", v)}
-            options={TRAVEL_TYPES}
-            value={form.travelType}
-          />
-          <Input
-            label="Budget INR"
-            onChange={(v) => updateForm("budgetAmount", v)}
-            type="number"
-            value={form.budgetAmount}
-          />
-          <Select
-            label="Source"
-            onChange={(v) => updateForm("source", v)}
-            options={QUERY_SOURCES}
-            value={form.source}
-          />
-          <Select
-            label="Sales Rep"
-            onChange={(v) => updateForm("salesOwnerName", v)}
-            options={[
-              { label: "Current user", value: "" },
-              ...team.reduce((options, member) => {
-                if (member.roles.some((role) => SALES_REP_ROLES.includes(role))) {
-                  options.push({ label: member.name, value: member.name });
-                }
-                return options;
-              }, []),
-            ]}
-            value={form.salesOwnerName}
-          />
-          <Select
-            label="Contracting SPOC"
-            onChange={(v) => updateForm("staffId", v)}
-            options={[
-              { label: "Select Contracting SPOC...", value: "" },
-              ...contractingTeamOptions.map((o) => ({ label: o.label, value: o.value })),
-            ]}
-            value={form.staffId}
-          />
-          <Select
-            label="Ticketing Scope"
-            onChange={(v) => updateForm("ticketingScope", v)}
-            options={TICKETING_SCOPE_SELECT_OPTIONS}
-            value={form.ticketingScope}
-          />
-          <Select
-            label="Travel in Series"
-            onChange={(v) =>
-              patchForm({
-                travelInBatches: v,
-                ...(v === "Yes" ? {} : { batchingNotes: "" }),
-              })
-            }
-            options={TRAVEL_IN_BATCHES_OPTIONS}
-            value={form.travelInBatches || "No"}
-          />
-          {form.travelInBatches === "Yes" && (
-            <div className="md:col-span-2">
-              <Textarea
-                label="Batch Details"
-                onChange={(v) => updateForm("batchingNotes", v)}
-                value={form.batchingNotes}
-              />
-            </div>
-          )}
+    <div className="space-y-4 md:col-span-2">
+      <QueryFieldSection
+        description="Start with the person and source behind the enquiry. Required fields are marked with an asterisk."
+        eyebrow="01 · Enquiry"
+        title="Client and contact"
+      >
+        <Input
+          data-entity-modal-autofocus
+          label="Client / Company"
+          onChange={(v) => updateForm("clientName", v)}
+          required
+          value={form.clientName}
+        />
+        <Input
+          label="Contact Person"
+          onChange={(v) => updateForm("contactPerson", v)}
+          value={form.contactPerson}
+        />
+        <Input
+          label="Mobile"
+          onChange={(v) => updateForm("contactMobile", v)}
+          value={form.contactMobile}
+        />
+        <Select
+          label="Source"
+          onChange={(v) => updateForm("source", v)}
+          options={QUERY_SOURCES}
+          value={form.source}
+        />
+        <Select
+          label="Sales Rep"
+          onChange={(v) => updateForm("salesOwnerName", v)}
+          options={[
+            { label: "Current user", value: "" },
+            ...team.reduce((options, member) => {
+              if (member.roles.some((role) => SALES_REP_ROLES.includes(role))) {
+                options.push({ label: member.name, value: member.name });
+              }
+              return options;
+            }, []),
+          ]}
+          value={form.salesOwnerName}
+        />
+      </QueryFieldSection>
+
+      <QueryFieldSection
+        description="Describe the travel request at the level needed for an initial sales and contracting review."
+        eyebrow="02 · Trip brief"
+        title="Travel requirements"
+      >
+        <Select
+          label="Query Type"
+          onChange={(v) => updateForm("queryType", v)}
+          options={getQueryTypeOptions(access)}
+          value={form.queryType}
+        />
+        <Select
+          label="Travel Type"
+          onChange={(v) => updateForm("travelType", v)}
+          options={TRAVEL_TYPES}
+          value={form.travelType}
+        />
+        <Input
+          label="Destination"
+          onChange={(v) => updateForm("destination", v)}
+          value={form.destination}
+        />
+        <Input
+          label="No. of Pax"
+          onChange={(v) => updateForm("paxCount", v)}
+          type="number"
+          value={form.paxCount}
+        />
+        <Input
+          label="Travel Date From"
+          onChange={(v) => updateForm("travelStartDate", v)}
+          type="date"
+          value={form.travelStartDate}
+        />
+        <Input
+          label="Travel Date To"
+          onChange={(v) => updateForm("travelEndDate", v)}
+          type="date"
+          value={form.travelEndDate}
+        />
+        <Input
+          label="Budget INR"
+          onChange={(v) => updateForm("budgetAmount", v)}
+          type="number"
+          value={form.budgetAmount}
+        />
+      </QueryFieldSection>
+
+      <QueryFieldSection
+        description="Set the initial handoff context. These choices can still be updated through the existing assignment workflow."
+        eyebrow="03 · Handoff"
+        title="Delivery coordination"
+      >
+        <Select
+          label="Contracting SPOC"
+          onChange={(v) => updateForm("staffId", v)}
+          options={[
+            { label: "Select Contracting SPOC...", value: "" },
+            ...contractingTeamOptions.map((option) => ({
+              label: option.label,
+              value: option.value,
+            })),
+          ]}
+          value={form.staffId}
+        />
+        <Select
+          label="Ticketing Scope"
+          onChange={(v) => updateForm("ticketingScope", v)}
+          options={TICKETING_SCOPE_SELECT_OPTIONS}
+          value={form.ticketingScope}
+        />
+        <Select
+          label="Travel in Series"
+          onChange={(v) =>
+            patchForm({
+              travelInBatches: v,
+              ...(v === "Yes" ? {} : { batchingNotes: "" }),
+            })
+          }
+          options={TRAVEL_IN_BATCHES_OPTIONS}
+          value={form.travelInBatches || "No"}
+        />
+        {form.travelInBatches === "Yes" ? (
           <Textarea
-            label="Notes"
-            maxWords={MAX_QUERY_NOTES_WORDS}
-            onChange={(v) => updateForm("notes", v)}
-            value={form.notes}
+            label="Batch Details"
+            onChange={(v) => updateForm("batchingNotes", v)}
+            value={form.batchingNotes}
           />
-          <div className="md:col-span-2">
-            <QueryFilePicker
-              files={pendingQueryFiles}
-              inputId="new-query-files"
-              onChange={setPendingQueryFiles}
-            />
-          </div>
-        </>
-      )}
-    </>
+        ) : null}
+      </QueryFieldSection>
+
+      <QueryFieldSection
+        description="Add only the context and source documents the delivery teams need for their first pass."
+        eyebrow="04 · Context"
+        title="Notes and files"
+      >
+        <Textarea
+          label="Notes"
+          maxWords={MAX_QUERY_NOTES_WORDS}
+          onChange={(v) => updateForm("notes", v)}
+          value={form.notes}
+        />
+        <div className="md:col-span-2">
+          <QueryFilePicker
+            files={pendingQueryFiles}
+            inputId="new-query-files"
+            onChange={setPendingQueryFiles}
+          />
+        </div>
+      </QueryFieldSection>
+    </div>
   );
 }

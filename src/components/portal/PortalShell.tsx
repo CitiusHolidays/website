@@ -2,12 +2,31 @@
 
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { Bell, ChevronDown, ChevronRight, Circle, LogOut, Menu, X } from "lucide-react";
-import { AnimatePresence, m } from "motion/react";
+import {
+  Bell,
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  ExternalLink,
+  LogOut,
+  Menu,
+  Plus,
+  UserRound,
+  X,
+} from "lucide-react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { type ReactNode, useReducer, useState } from "react";
+import {
+  type ReactNode,
+  useEffect,
+  useEffectEvent,
+  useReducer,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   PortalChromeProvider,
   type PortalNavShortcuts,
@@ -20,16 +39,18 @@ import { logout } from "@/lib/auth-client";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
+import {
+  getPortalNavPreferencesSnapshot,
+  getPortalNavServerSnapshot,
+  subscribePortalNavPreferences,
+  updatePortalNavPreference,
+} from "@/lib/portal/portalNavPersistence";
+import { getCompactRoleLabel, getMobileQuickNavigation } from "@/lib/portal/portalNavPresentation";
 import { useModShortcutLabel } from "@/lib/portal/shortcutLabels";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import ConnectLogo from "@/static/logos/citiusconnect.png";
 
-const NAV_EXPANDED_STORAGE_KEY = "portal-nav-expanded-groups";
-const NAV_SHORTCUTS_STORAGE_KEY = "portal-nav-expanded-shortcuts";
-const NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY = "portal-nav-collapsed-shortcuts";
-
 const ignoreAsyncError = (): void => undefined;
-
 interface PortalAccess {
   allowed?: boolean;
   email?: string;
@@ -64,24 +85,13 @@ interface PortalNavGroup {
 }
 
 interface PortalNavState {
-  collapsedShortcuts: Set<string>;
-  expandedGroups: Set<string>;
-  expandedShortcuts: Set<string>;
   saveDialogOpen: boolean;
   savingView: boolean;
 }
 
 type PortalNavAction =
   | { open: boolean; type: "saveDialogOpen" }
-  | { saving: boolean; type: "savingView" }
-  | { type: "expandedGroups"; value: Set<string> }
-  | { type: "expandedShortcuts"; value: Set<string> }
-  | { type: "collapsedShortcuts"; value: Set<string> }
-  | {
-      collapsedShortcuts: Set<string>;
-      expandedShortcuts: Set<string>;
-      type: "shortcutSets";
-    };
+  | { saving: boolean; type: "savingView" };
 
 interface NotificationListItemProps {
   item: NotificationItem;
@@ -95,46 +105,15 @@ interface PortalShellProps {
 }
 
 interface PortalNavProps {
+  mobile?: boolean;
   navGroups: PortalNavGroup[];
   navShortcuts?: PortalNavShortcuts;
   onNavigate?: () => void;
   pathname: string | null;
 }
 
-function readStoredSet(key: string): Set<string> {
-  if (typeof window === "undefined") {
-    return new Set();
-  }
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) {
-      return new Set();
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? new Set(parsed.filter((value) => typeof value === "string"))
-      : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-function writeStoredSet(key: string, valueSet: Set<string>): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(key, JSON.stringify([...valueSet]));
-  } catch {
-    // ignore storage errors
-  }
-}
-
 function createPortalNavState(): PortalNavState {
   return {
-    collapsedShortcuts: readStoredSet(NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY),
-    expandedGroups: readStoredSet(NAV_EXPANDED_STORAGE_KEY),
-    expandedShortcuts: readStoredSet(NAV_SHORTCUTS_STORAGE_KEY),
     saveDialogOpen: false,
     savingView: false,
   };
@@ -146,18 +125,6 @@ function portalNavReducer(state: PortalNavState, action: PortalNavAction): Porta
       return { ...state, saveDialogOpen: action.open };
     case "savingView":
       return { ...state, savingView: action.saving };
-    case "expandedGroups":
-      return { ...state, expandedGroups: action.value };
-    case "expandedShortcuts":
-      return { ...state, expandedShortcuts: action.value };
-    case "collapsedShortcuts":
-      return { ...state, collapsedShortcuts: action.value };
-    case "shortcutSets":
-      return {
-        ...state,
-        collapsedShortcuts: action.collapsedShortcuts,
-        expandedShortcuts: action.expandedShortcuts,
-      };
     default:
       return state;
   }
@@ -171,7 +138,7 @@ const handleLogout = async () => {
 function NotificationListItem({ item, onClick }: NotificationListItemProps) {
   return (
     <button
-      className="w-full border-brand-border border-b px-4 py-3 text-left transition-[background-color,transform] duration-150 ease-out last:border-b-0 hover:bg-brand-light active:scale-[0.96]"
+      className="w-full border-brand-border border-b px-4 py-3 text-left transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] last:border-b-0 hover:bg-brand-light active:scale-[0.96]"
       onClick={() => onClick(item)}
       type="button"
     >
@@ -193,11 +160,193 @@ function NotificationListItem({ item, onClick }: NotificationListItemProps) {
   );
 }
 
+interface MobileQuickAccessProps {
+  action?: {
+    label: string;
+    run: () => void;
+  } | null;
+  items: PortalNavItem[];
+  onNavigate?: () => void;
+  pathname: string | null;
+}
+
+function MobileQuickAccess({ action, items, onNavigate, pathname }: MobileQuickAccessProps) {
+  if (items.length === 0 && !action) {
+    return null;
+  }
+
+  return (
+    <div className="mb-5 border-brand-border border-b pb-4">
+      <p className="px-3 pb-2 font-heading font-semibold text-citius-blue/70 text-xs">
+        Quick access
+      </p>
+      {action ? (
+        <button
+          className="mb-2 flex min-h-11 w-full items-center justify-center gap-2 rounded-[var(--portal-control-radius)] bg-citius-blue px-3 py-2 font-semibold text-sm text-white shadow-sm transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-citius-blue/90 active:scale-[0.96]"
+          onClick={() => {
+            action.run();
+            onNavigate?.();
+          }}
+          type="button"
+        >
+          <Plus aria-hidden="true" size={16} />
+          {action.label}
+        </button>
+      ) : null}
+      <div className="grid grid-cols-2 gap-2">
+        {items.map((item) => (
+          <Link
+            className={`flex min-h-11 items-center rounded-[var(--portal-control-radius)] border px-3 py-2 text-sm transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96] ${
+              item.href === pathname
+                ? "border-citius-blue/20 bg-citius-blue/10 font-semibold text-citius-blue"
+                : "border-brand-border bg-white text-brand-muted hover:border-citius-blue/25 hover:text-brand-dark"
+            }`}
+            href={item.href}
+            key={item.href}
+            onClick={onNavigate}
+          >
+            <span className="line-clamp-2">{item.label}</span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface AccountMenuProps {
+  email?: string | null;
+  name: string;
+  onClose: () => void;
+  onToggle: () => void;
+  open: boolean;
+}
+
+function AccountMenu({ email, name, onClose, onToggle, open }: AccountMenuProps) {
+  const shouldReduceMotion = useReducedMotion();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const closeOnEscape = useEffectEvent(() => {
+    onClose();
+    buttonRef.current?.focus();
+  });
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    menuRef.current?.querySelector<HTMLElement>("[role='menuitem']")?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeOnEscape();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open]);
+
+  const closeAndRestoreFocus = () => {
+    onClose();
+    buttonRef.current?.focus();
+  };
+
+  return (
+    <div className="relative">
+      <button
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={`Open account menu for ${name}`}
+        className="flex min-h-11 items-center gap-2 rounded-full border border-brand-border/80 bg-white p-1.5 pr-2.5 text-left shadow-sm transition-[border-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/40 active:scale-[0.96]"
+        onClick={onToggle}
+        ref={buttonRef}
+        type="button"
+      >
+        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-citius-blue/10 text-citius-blue">
+          <UserRound aria-hidden="true" size={16} />
+        </span>
+        <span className="hidden min-w-0 lg:block">
+          <span className="block max-w-40 truncate font-semibold text-brand-dark text-sm">
+            {name}
+          </span>
+          <span className="block max-w-40 truncate text-[length:var(--portal-label-size)] text-brand-muted">
+            {email}
+          </span>
+        </span>
+        <ChevronDown
+          aria-hidden="true"
+          className={`hidden text-brand-muted transition-transform sm:block ${open ? "rotate-180" : ""}`}
+          size={15}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open ? (
+          <>
+            <button
+              aria-label="Close account menu"
+              className={`fixed inset-0 ${PORTAL_Z.dropdownBackdrop} cursor-default bg-transparent`}
+              onClick={closeAndRestoreFocus}
+              tabIndex={-1}
+              type="button"
+            />
+            <m.div
+              animate={{ opacity: 1, transform: "translateY(0) scale(1)" }}
+              aria-label="Account"
+              className={`portal-shell-surface absolute right-0 ${PORTAL_Z.dropdown} mt-3 w-64 origin-top-right overflow-hidden border border-brand-border bg-white text-brand-dark shadow-xl`}
+              exit={{
+                opacity: 0,
+                transform: shouldReduceMotion ? "none" : "translateY(6px) scale(0.98)",
+                transition: { duration: 0.12, ease: [0.23, 1, 0.32, 1] },
+              }}
+              initial={{
+                opacity: 0,
+                transform: shouldReduceMotion ? "none" : "translateY(6px) scale(0.98)",
+              }}
+              ref={menuRef}
+              role="menu"
+              transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+            >
+              <div className="border-brand-border border-b px-4 py-3">
+                <div className="truncate font-semibold text-brand-dark text-sm">{name}</div>
+                <div className="mt-0.5 truncate text-[length:var(--portal-label-size)] text-brand-muted">
+                  {email}
+                </div>
+              </div>
+              <div className="p-2">
+                <Link
+                  className="flex min-h-11 items-center gap-3 rounded-xl px-3 font-semibold text-brand-muted text-sm transition-colors hover:bg-brand-light hover:text-citius-blue"
+                  href="/"
+                  onClick={onClose}
+                  role="menuitem"
+                >
+                  <ExternalLink aria-hidden="true" size={16} />
+                  <span>Back to site</span>
+                </Link>
+                <button
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 font-semibold text-brand-muted text-sm transition-colors hover:bg-brand-light hover:text-citius-blue"
+                  onClick={handleLogout}
+                  role="menuitem"
+                  type="button"
+                >
+                  <LogOut aria-hidden="true" size={16} />
+                  <span>Sign out</span>
+                </button>
+              </div>
+            </m.div>
+          </>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export default function PortalShell({ access, user, children }: PortalShellProps) {
+  const shouldReduceMotion = useReducedMotion();
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const { isAuthenticated } = useConvexAuth();
   const notifications = useQuery(
     api.crm.activity.listNotifications,
@@ -214,11 +363,24 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
   const navGroups = getAccessibleNavGroups(access) as PortalNavGroup[];
   const notificationRows = (notifications ?? []) as NotificationItem[];
+  const roles = access.roles ? access.roles.filter(Boolean) : [];
+  const roleLabel = roles.join(" / ") || "Staff";
+  const compactRoleLabel = getCompactRoleLabel(roles);
+  const accountName = access.name || user?.name || "Staff";
+  const accountEmail = access.email || user?.email;
   const unreadCount =
     notificationSummary?.unreadCount ?? notificationRows.filter((item) => !item.readAt).length;
 
+  const closeAccountMenu = () => setAccountMenuOpen(false);
+
   const toggleNotifications = () => {
+    setAccountMenuOpen(false);
     setNotificationsOpen((open) => !open);
+  };
+
+  const toggleAccountMenu = () => {
+    setNotificationsOpen(false);
+    setAccountMenuOpen((open) => !open);
   };
 
   const handleNotificationClick = (item: NotificationItem) => {
@@ -239,7 +401,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
     <PortalToastProvider>
       <PortalConfirmProvider>
         <PortalChromeProvider navShortcuts={navShortcuts}>
-          <div className="relative min-h-screen overflow-x-hidden bg-brand-light text-brand-dark">
+          <div className="portal-shell relative min-h-screen overflow-x-hidden bg-brand-light text-brand-dark">
             <a
               className={`sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 ${PORTAL_Z.skipLinkFocus} focus:rounded-full focus:bg-white focus:px-4 focus:py-2 focus:font-semibold focus:text-citius-blue focus:text-sm focus:shadow-lg`}
               href="#portal-main"
@@ -251,52 +413,46 @@ export default function PortalShell({ access, user, children }: PortalShellProps
               className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,42,131,0.08),transparent),radial-gradient(ellipse_60%_40%_at_100%_100%,rgba(245,130,32,0.06),transparent)]"
             />
 
-            <m.header
-              animate={{ opacity: 1, y: 0 }}
-              className={`sticky top-0 ${PORTAL_Z.chrome} border-brand-border border-b bg-white/95 shadow-sm backdrop-blur-xl`}
-              initial={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            <header
+              className={`sticky top-0 ${PORTAL_Z.chrome} border-brand-border/80 border-b bg-white/90 shadow-brand-dark/[0.03] shadow-sm backdrop-blur-xl`}
             >
-              <div className="flex h-16 items-center justify-between px-4 lg:px-6">
-                <div className="flex items-center gap-3">
+              <div className="flex h-[4.25rem] items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
+                <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
                   <button
                     aria-label="Open portal navigation"
-                    className="rounded-full p-2 text-brand-dark transition-[background-color,transform] duration-150 ease-out hover:bg-brand-light active:scale-[0.96] lg:hidden"
+                    className="grid min-h-11 min-w-11 place-items-center rounded-full text-brand-dark transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light active:scale-[0.96] lg:hidden"
                     onClick={() => setSidebarOpen(true)}
                     type="button"
                   >
                     <Menu size={20} />
                   </button>
-                  <Link className="flex items-center gap-3" href="/portal">
+                  <Link className="flex shrink-0 items-center" href="/portal">
                     <Image
                       alt="Citius Connect"
-                      className="h-9 w-auto sm:h-10"
+                      className="h-7 w-auto sm:h-9"
                       height={CITIUS_CONNECT_LOGO_HEIGHT}
                       priority
                       src={ConnectLogo}
                       width={CITIUS_CONNECT_LOGO_WIDTH}
                     />
                   </Link>
-                  <span className="inline-flex max-w-[120px] truncate rounded-full bg-citius-orange px-2 py-1 font-semibold text-[10px] text-white sm:max-w-none sm:px-3 sm:text-[11px] md:inline-flex">
-                    {access.roles?.join(" / ") || "Staff"}
+                  <span
+                    className="inline-flex min-h-8 max-w-[8rem] shrink-0 items-center rounded-full border border-citius-orange/20 bg-citius-orange/10 px-2.5 text-center font-semibold text-[length:var(--portal-label-size)] text-citius-orange leading-tight sm:max-w-none sm:px-3"
+                    title={roleLabel}
+                  >
+                    <span className="sr-only">Roles: {roleLabel}</span>
+                    <span aria-hidden className="min-w-0 whitespace-normal">
+                      {compactRoleLabel}
+                    </span>
                   </span>
                 </div>
 
-                <div className="flex items-center gap-4 lg:gap-5">
-                  <div className="flex items-center gap-5 rounded-full border border-brand-border bg-brand-light/70 py-1.5 pr-1.5 pl-5 md:gap-6 md:pl-6">
-                    <div className="hidden min-w-0 md:block">
-                      <div className="truncate font-semibold text-brand-dark text-sm">
-                        {access.name || user?.name}
-                      </div>
-                      <div className="truncate text-[11px] text-brand-muted">
-                        {access.email || user?.email}
-                      </div>
-                    </div>
-
+                <div className="flex shrink-0 items-center gap-1.5 sm:gap-3 lg:gap-5">
+                  <div className="flex items-center rounded-full border border-brand-border/80 bg-brand-light/70 p-1.5">
                     <div className="relative shrink-0">
                       <button
                         aria-label="Open notifications"
-                        className="relative grid size-9 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition-[color,transform] duration-150 ease-out hover:text-citius-blue active:scale-[0.96]"
+                        className="relative grid size-11 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-blue active:scale-[0.96] lg:size-9"
                         onClick={toggleNotifications}
                         type="button"
                       >
@@ -321,11 +477,28 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                               type="button"
                             />
                             <m.div
-                              animate={{ opacity: 1, scale: 1, y: 0 }}
-                              className={`absolute right-0 ${PORTAL_Z.dropdown} mt-3 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-brand-border bg-white text-brand-dark shadow-xl`}
-                              exit={{ opacity: 0, scale: 0.96, y: 8 }}
-                              initial={{ opacity: 0, scale: 0.96, y: 8 }}
-                              transition={{ duration: 0.15 }}
+                              animate={{ opacity: 1, transform: "translateY(0) scale(1)" }}
+                              className={`portal-shell-surface absolute right-0 ${PORTAL_Z.dropdown} mt-3 w-[min(20rem,calc(100vw-2rem))] origin-top-right overflow-hidden border border-brand-border bg-white text-brand-dark shadow-xl`}
+                              exit={{
+                                opacity: 0,
+                                transform: shouldReduceMotion
+                                  ? "none"
+                                  : "translateY(6px) scale(0.98)",
+                                transition: {
+                                  duration: 0.12,
+                                  ease: [0.23, 1, 0.32, 1],
+                                },
+                              }}
+                              initial={{
+                                opacity: 0,
+                                transform: shouldReduceMotion
+                                  ? "none"
+                                  : "translateY(6px) scale(0.98)",
+                              }}
+                              transition={{
+                                duration: 0.15,
+                                ease: [0.23, 1, 0.32, 1],
+                              }}
                             >
                               <div className="flex items-center justify-between border-brand-border border-b px-4 py-3">
                                 <div className="font-heading font-semibold text-citius-blue text-sm">
@@ -350,7 +523,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                               </div>
                               <div className="border-brand-border border-t px-4 py-3">
                                 <Link
-                                  className="font-semibold text-citius-blue text-xs transition-colors duration-150 ease-out hover:text-citius-orange"
+                                  className="font-semibold text-citius-blue text-xs transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange"
                                   href="/portal/activity"
                                   onClick={() => setNotificationsOpen(false)}
                                 >
@@ -364,30 +537,19 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                     </div>
                   </div>
 
-                  <span aria-hidden className="hidden h-8 w-px bg-brand-border md:block" />
-
-                  <div className="flex items-center gap-3">
-                    <Link
-                      className="hidden rounded-full border border-brand-border bg-white px-4 py-2 font-medium text-brand-muted text-xs transition-[border-color,color,transform] duration-150 ease-out hover:border-citius-blue hover:text-citius-blue active:scale-[0.96] md:inline-flex"
-                      href="/"
-                    >
-                      Back to site
-                    </Link>
-                    <button
-                      className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-white px-4 py-2 font-semibold text-brand-dark text-xs transition-[border-color,color,transform] duration-150 ease-out hover:border-citius-blue hover:text-citius-blue active:scale-[0.96]"
-                      onClick={handleLogout}
-                      type="button"
-                    >
-                      <span className="hidden sm:inline">Sign Out</span>
-                      <LogOut size={16} />
-                    </button>
-                  </div>
+                  <AccountMenu
+                    email={accountEmail}
+                    name={accountName}
+                    onClose={closeAccountMenu}
+                    onToggle={toggleAccountMenu}
+                    open={accountMenuOpen}
+                  />
                 </div>
               </div>
-            </m.header>
+            </header>
 
-            <div className="flex min-h-[calc(100vh-64px)]">
-              <aside className="sticky top-16 hidden h-[calc(100vh-64px)] w-64 shrink-0 flex-col overflow-hidden border-brand-border border-r bg-white/80 backdrop-blur-sm lg:flex">
+            <div className="flex min-h-[calc(100vh-68px)]">
+              <aside className="sticky top-[4.25rem] hidden h-[calc(100vh-68px)] w-64 shrink-0 flex-col overflow-hidden border-brand-border/80 border-r bg-white/80 backdrop-blur-sm lg:flex">
                 <PortalNav navGroups={navGroups} navShortcuts={navShortcuts} pathname={pathname} />
               </aside>
 
@@ -404,17 +566,17 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                       type="button"
                     />
                     <m.aside
-                      animate={{ x: 0 }}
-                      className={`fixed inset-y-0 left-0 ${PORTAL_Z.mobileDrawer} flex w-[280px] flex-col bg-white shadow-2xl lg:hidden`}
-                      exit={{ x: -280 }}
-                      initial={{ x: -280 }}
-                      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                      animate={{ transform: "translateX(0)" }}
+                      className={`portal-mobile-drawer fixed inset-y-0 left-0 ${PORTAL_Z.mobileDrawer} flex w-[min(20rem,calc(100vw-1.5rem))] flex-col bg-white shadow-2xl lg:hidden`}
+                      exit={{ transform: "translateX(-100%)" }}
+                      initial={{ transform: "translateX(-100%)" }}
+                      transition={{ bounce: 0, duration: 0.3, type: "spring" }}
                     >
                       <div className="flex h-16 items-center justify-between border-brand-border border-b px-4">
                         <span className="font-heading text-citius-blue text-lg">Navigation</span>
                         <button
                           aria-label="Close portal navigation"
-                          className="rounded-full p-2 text-brand-muted transition-[background-color,transform] duration-150 ease-out hover:bg-brand-light active:scale-[0.96]"
+                          className="grid min-h-11 min-w-11 place-items-center rounded-full text-brand-muted transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light active:scale-[0.96]"
                           onClick={() => setSidebarOpen(false)}
                           type="button"
                         >
@@ -422,6 +584,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                         </button>
                       </div>
                       <PortalNav
+                        mobile
                         navGroups={navGroups}
                         navShortcuts={navShortcuts}
                         onNavigate={() => setSidebarOpen(false)}
@@ -432,16 +595,9 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                 )}
               </AnimatePresence>
 
-              <m.main
-                animate={{ opacity: 1, y: 0 }}
-                className="min-w-0 flex-1 p-4 md:p-8 lg:p-10"
-                id="portal-main"
-                initial={{ opacity: 0, y: 12 }}
-                key={pathname}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              >
+              <main className="min-w-0 flex-1 p-4 sm:p-5 md:p-8 lg:p-10" id="portal-main">
                 {children}
-              </m.main>
+              </main>
             </div>
           </div>
         </PortalChromeProvider>
@@ -450,12 +606,23 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   );
 }
 
-function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavProps) {
+function PortalNav({
+  mobile = false,
+  navGroups,
+  pathname,
+  navShortcuts,
+  onNavigate,
+}: PortalNavProps) {
   const modShortcutLabel = useModShortcutLabel();
-  const { savedViewActions } = usePortalChrome();
+  const { quickAction, savedViewActions } = usePortalChrome();
   const [navState, dispatchNavState] = useReducer(portalNavReducer, null, createPortalNavState);
-  const { saveDialogOpen, savingView, expandedGroups, expandedShortcuts, collapsedShortcuts } =
-    navState;
+  const { saveDialogOpen, savingView } = navState;
+  const { collapsedShortcuts, expandedGroups, expandedShortcuts } = useSyncExternalStore(
+    subscribePortalNavPreferences,
+    getPortalNavPreferencesSnapshot,
+    getPortalNavServerSnapshot
+  );
+  const quickNavigation = mobile ? getMobileQuickNavigation(navGroups) : [];
 
   const isGroupActive = (group: PortalNavGroup) =>
     group.items.some((item) =>
@@ -483,8 +650,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
     } else {
       next.add(label);
     }
-    writeStoredSet(NAV_EXPANDED_STORAGE_KEY, next);
-    dispatchNavState({ type: "expandedGroups", value: next });
+    updatePortalNavPreference("expandedGroups", next);
   };
 
   const toggleShortcuts = (href: string, currentlyExpanded: boolean | undefined) => {
@@ -497,13 +663,8 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
       nextCollapsed.delete(href);
       nextExpanded.add(href);
     }
-    writeStoredSet(NAV_COLLAPSED_SHORTCUTS_STORAGE_KEY, nextCollapsed);
-    writeStoredSet(NAV_SHORTCUTS_STORAGE_KEY, nextExpanded);
-    dispatchNavState({
-      collapsedShortcuts: nextCollapsed,
-      expandedShortcuts: nextExpanded,
-      type: "shortcutSets",
-    });
+    updatePortalNavPreference("collapsedShortcuts", nextCollapsed);
+    updatePortalNavPreference("expandedShortcuts", nextExpanded);
   };
 
   const pinnedViews = (savedViewActions?.savedViews ?? [])
@@ -530,6 +691,14 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
   return (
     <nav className="flex min-h-0 flex-1 flex-col px-3 py-4">
       <div className="min-h-0 flex-1 scroll-pb-4 overflow-y-auto overscroll-contain pr-0.5 pb-4">
+        {mobile ? (
+          <MobileQuickAccess
+            action={quickAction}
+            items={quickNavigation}
+            onNavigate={onNavigate}
+            pathname={pathname}
+          />
+        ) : null}
         {navGroups.map((group, groupIndex) => {
           const collapsible = group.items.length > 1;
           const groupExpanded = isGroupExpanded(group);
@@ -539,13 +708,13 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
               {collapsible ? (
                 <button
                   aria-expanded={groupExpanded}
-                  className="flex min-h-10 w-full items-center justify-between rounded-lg px-3 pb-2 text-left font-heading font-semibold text-citius-blue/70 text-xs transition-[color,transform] duration-150 ease-out hover:text-citius-blue active:scale-[0.96]"
+                  className="flex min-h-11 w-full items-center justify-between rounded-lg px-3 pb-2 text-left font-heading font-semibold text-citius-blue/70 text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-blue active:scale-[0.96]"
                   onClick={() => toggleGroup(group.label)}
                   type="button"
                 >
                   <span>{group.label}</span>
                   <ChevronRight
-                    className={`transition-transform duration-150 ease-out ${groupExpanded ? "rotate-90" : ""}`}
+                    className={`transition-transform duration-150 ease-[var(--portal-ease-out)] ${groupExpanded ? "rotate-90" : ""}`}
                     size={14}
                   />
                 </button>
@@ -577,7 +746,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
                       <div key={item.href}>
                         <div className="flex items-stretch gap-0.5">
                           <Link
-                            className={`relative flex min-h-11 flex-1 items-center rounded-xl px-3 py-2.5 text-sm transition-[background-color,color,transform] duration-150 ease-out ${
+                            className={`relative flex min-h-11 flex-1 items-center rounded-xl px-3 py-2.5 text-sm transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] ${
                               active
                                 ? "bg-citius-blue/10 font-semibold text-citius-blue"
                                 : "text-brand-muted hover:bg-brand-light hover:text-brand-dark"
@@ -602,14 +771,14 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
                                   ? `Hide latest ${item.label}`
                                   : `Show latest ${item.label}`
                               }
-                              className={`grid min-h-11 min-w-11 place-items-center rounded-xl text-brand-muted transition-[background-color,color,transform] duration-150 ease-out hover:bg-brand-light hover:text-citius-blue active:scale-[0.96] ${
+                              className={`grid min-h-11 min-w-11 place-items-center rounded-xl text-brand-muted transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-citius-blue active:scale-[0.96] ${
                                 shortcutsExpanded ? "bg-brand-light text-citius-blue" : ""
                               }`}
                               onClick={() => toggleShortcuts(item.href, shortcutsExpanded)}
                               type="button"
                             >
                               <ChevronDown
-                                className={`transition-transform duration-150 ease-out ${shortcutsExpanded ? "rotate-180" : ""}`}
+                                className={`transition-transform duration-150 ease-[var(--portal-ease-out)] ${shortcutsExpanded ? "rotate-180" : ""}`}
                                 size={16}
                               />
                             </button>
@@ -620,7 +789,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
                           <div className="mt-0.5 ml-3 space-y-0.5 border-brand-border border-l pl-2">
                             {visibleShortcuts.map((shortcut) => (
                               <Link
-                                className="block min-h-9 rounded-lg p-2 text-brand-muted text-xs leading-snug transition-[background-color,color,transform] duration-150 ease-out hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
+                                className="block min-h-9 rounded-lg p-2 text-brand-muted text-xs leading-snug transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
                                 href={shortcut.href}
                                 key={shortcut.id}
                                 onClick={onNavigate}
@@ -631,7 +800,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
                             ))}
                             {hiddenShortcutCount > 0 ? (
                               <Link
-                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-out hover:text-citius-orange active:scale-[0.96]"
+                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange active:scale-[0.96]"
                                 href={item.href}
                                 onClick={onNavigate}
                               >
@@ -639,7 +808,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
                               </Link>
                             ) : (
                               <Link
-                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-out hover:text-citius-orange active:scale-[0.96]"
+                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange active:scale-[0.96]"
                                 href={item.href}
                                 onClick={onNavigate}
                               >
@@ -663,7 +832,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
               <span className="font-heading font-semibold text-citius-blue/70 text-xs">Pinned</span>
               {savedViewActions?.saveCurrentView ? (
                 <button
-                  className="font-semibold text-[11px] text-citius-blue transition-colors duration-150 ease-out hover:text-citius-orange"
+                  className="font-semibold text-[length:var(--portal-label-size)] text-citius-blue transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange"
                   onClick={() => dispatchNavState({ open: true, type: "saveDialogOpen" })}
                   type="button"
                 >
@@ -675,7 +844,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
               {pinnedViews.map((view) => (
                 <div className="flex items-center gap-1 rounded-lg px-2 py-1" key={view.id}>
                   <button
-                    className="min-h-9 flex-1 truncate rounded-md px-2 py-1.5 text-left text-brand-muted text-xs transition-[background-color,color,transform] duration-150 ease-out hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
+                    className="min-h-9 flex-1 truncate rounded-md px-2 py-1.5 text-left text-brand-muted text-xs transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
                     onClick={() => savedViewActions?.applySavedView?.(view)}
                     title={view.name}
                     type="button"
@@ -685,7 +854,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
                 </div>
               ))}
               {favoriteOverflow > 0 ? (
-                <p className="px-3 pt-1 text-[11px] text-brand-muted">
+                <p className="px-3 pt-1 text-[length:var(--portal-label-size)] text-brand-muted">
                   +{favoriteOverflow} more in {modShortcutLabel} palette
                 </p>
               ) : null}
@@ -695,7 +864,7 @@ function PortalNav({ navGroups, pathname, navShortcuts, onNavigate }: PortalNavP
       </div>
 
       <div className="shrink-0 border-brand-border border-t bg-white/80 pt-3 backdrop-blur-sm">
-        <p className="px-3 pb-1 text-[11px] text-brand-muted">
+        <p className="px-3 pb-1 text-[length:var(--portal-label-size)] text-brand-muted">
           Press{" "}
           <kbd className="rounded border border-brand-border/80 bg-brand-light/80 px-1 font-sans text-[10px]">
             {modShortcutLabel}

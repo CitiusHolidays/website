@@ -10,10 +10,9 @@ import {
   ShieldCheck,
   Ticket,
 } from "lucide-react";
-import { m } from "motion/react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import { resolveDashboardPersona } from "@/lib/portal/dashboardPersona";
+import { groupDashboardSections, resolveDashboardPersona } from "@/lib/portal/dashboardPersona";
 import { DashboardSectionSkeleton, DashboardStatsSkeleton } from "./DashboardSkeleton";
 import {
   buildDashboardSections,
@@ -221,8 +220,19 @@ function DashboardSectionBlock({ id, sections, persona }) {
 
 const EMPTY_CAPACITY_ROWS = [];
 
+function capacitySeverityClass(severity) {
+  if (severity === "overloaded") {
+    return "bg-red-100 text-red-700";
+  }
+  if (severity === "busy") {
+    return "bg-amber-100 text-amber-700";
+  }
+  return "bg-emerald-100 text-emerald-700";
+}
+
 function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
+  const toggleOpen = useCallback(() => setOpen((value) => !value), []);
   if (!rows.length) {
     return null;
   }
@@ -231,7 +241,7 @@ function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = tr
       <button
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 text-left"
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggleOpen}
         type="button"
       >
         <h2 className="font-heading text-base text-brand-dark">Capacity heatmap</h2>
@@ -244,13 +254,7 @@ function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = tr
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate font-heading text-brand-dark text-sm">{row.role}</p>
                 <span
-                  className={`rounded-full px-2 py-0.5 font-sans text-[11px] ${
-                    row.severity === "overloaded"
-                      ? "bg-red-100 text-red-700"
-                      : row.severity === "busy"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-emerald-100 text-emerald-700"
-                  }`}
+                  className={`rounded-full px-2 py-0.5 font-sans text-[length:var(--portal-label-size)] ${capacitySeverityClass(row.severity)}`}
                 >
                   {row.severity}
                 </span>
@@ -268,6 +272,7 @@ function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = tr
 
 function DashboardPipelineTypesCollapsible({ pipeline, queryTypes, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
+  const toggleOpen = useCallback(() => setOpen((value) => !value), []);
   if (!(pipeline || queryTypes)) {
     return null;
   }
@@ -276,7 +281,7 @@ function DashboardPipelineTypesCollapsible({ pipeline, queryTypes, defaultOpen =
       <button
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-2 text-left"
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggleOpen}
         type="button"
       >
         <h2 className="font-heading text-base text-brand-dark">Pipeline & types</h2>
@@ -290,6 +295,173 @@ function DashboardPipelineTypesCollapsible({ pipeline, queryTypes, defaultOpen =
       ) : null}
     </section>
   );
+}
+
+function DashboardSectionList({ ids, persona, sections, className = "space-y-4" }) {
+  if (!ids.length) {
+    return null;
+  }
+  return (
+    <div className={className}>
+      {ids.map((id) => (
+        <DashboardSectionBlock id={id} key={id} persona={persona} sections={sections} />
+      ))}
+    </div>
+  );
+}
+
+function DashboardActionBar({ visible, persona, sections }) {
+  if (!visible) {
+    return null;
+  }
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-brand-border/70 border-b pb-5">
+      <DashboardSectionBlock id="quickActions" persona={persona} sections={sections} />
+      <DashboardSectionBlock id="periodPresets" persona={persona} sections={sections} />
+    </div>
+  );
+}
+
+function urgentAlertLabel(count) {
+  if (!count) {
+    return "No urgent alerts";
+  }
+  return `${count} urgent ${count === 1 ? "alert" : "alerts"}`;
+}
+
+function DashboardToday({
+  attentionSections,
+  ownedWorkSections,
+  persona,
+  sections,
+  urgentActionCount,
+}) {
+  const hasAttention = attentionSections.length > 0;
+  const hasOwnedWork = ownedWorkSections.length > 0;
+  if (!(hasAttention || hasOwnedWork)) {
+    return null;
+  }
+  const splitLayout = hasAttention && hasOwnedWork;
+  const gridClassName = splitLayout
+    ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]"
+    : "grid gap-4";
+  return (
+    <section aria-labelledby="dashboard-today-heading" className="space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="font-bold text-[length:var(--portal-label-size)] text-citius-orange uppercase tracking-[0.16em]">
+            Command center
+          </p>
+          <h2
+            className="mt-1 font-heading font-semibold text-brand-dark text-xl sm:text-2xl"
+            id="dashboard-today-heading"
+          >
+            My work today
+          </h2>
+          <p className="mt-1 max-w-2xl text-brand-muted text-sm leading-relaxed">
+            Start with urgent exceptions and owned work before the wider workspace picture.
+          </p>
+        </div>
+        <span className="inline-flex min-h-8 w-fit items-center rounded-full bg-citius-orange/10 px-3 font-semibold text-citius-orange text-xs">
+          {urgentAlertLabel(urgentActionCount)}
+        </span>
+      </div>
+
+      <div className={gridClassName}>
+        <DashboardSectionList
+          className={`space-y-4 ${splitLayout ? "xl:order-2" : ""}`}
+          ids={attentionSections}
+          persona={persona}
+          sections={sections}
+        />
+        <DashboardSectionList
+          className={`space-y-4 ${splitLayout ? "xl:order-1" : ""}`}
+          ids={ownedWorkSections}
+          persona={persona}
+          sections={sections}
+        />
+      </div>
+    </section>
+  );
+}
+
+function DashboardOverview({ ids, persona, sections }) {
+  if (!ids.length) {
+    return null;
+  }
+  return (
+    <section
+      aria-labelledby="dashboard-overview-heading"
+      className="space-y-3 border-brand-border/70 border-b pb-5"
+    >
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <h2
+          className="font-heading font-semibold text-base text-brand-dark sm:text-lg"
+          id="dashboard-overview-heading"
+        >
+          Workspace overview
+        </h2>
+        <p className="text-brand-muted text-xs">Supporting signals for the selected period</p>
+      </div>
+      <DashboardSectionList className="space-y-3" ids={ids} persona={persona} sections={sections} />
+    </section>
+  );
+}
+
+function DashboardReporting({ expanded, ids, persona, sections }) {
+  if (!ids.length) {
+    return null;
+  }
+  return (
+    <section aria-labelledby="dashboard-reporting-heading" className="space-y-4">
+      <div>
+        <h2
+          className="font-heading font-semibold text-base text-brand-dark sm:text-lg"
+          id="dashboard-reporting-heading"
+        >
+          Performance & planning
+        </h2>
+        <p className="mt-1 text-brand-muted text-xs">
+          Pipeline, mix, and trend context after today's priorities.
+        </p>
+      </div>
+      {expanded ? (
+        <DashboardSectionList ids={ids} persona={persona} sections={sections} />
+      ) : (
+        <DashboardPipelineTypesCollapsible
+          defaultOpen={false}
+          pipeline={sections.pipeline}
+          queryTypes={sections.queryTypes}
+        />
+      )}
+    </section>
+  );
+}
+
+const OPS_PROGRESS_PERMISSIONS = [
+  P.VIEW_JOB_CARDS,
+  P.VIEW_TRAVELLERS,
+  P.VIEW_TICKETING,
+  P.VIEW_VISA,
+  P.VIEW_OPERATIONS,
+  P.VIEW_FINANCE,
+];
+
+function resolveDashboardLayout({ access, has, persona, sections }) {
+  const availableSectionIds = Object.entries(sections).flatMap(([id, node]) =>
+    node && persona.sections.includes(id) ? [id] : []
+  );
+  const groups = groupDashboardSections(persona, availableSectionIds);
+  const isHeadRole = Boolean(access?.roles?.some((role) => role.includes("Head")));
+  return {
+    attentionSections: groups.today.filter((id) => id !== "workQueue"),
+    groups,
+    hasActionBar: ["quickActions", "periodPresets"].some((id) => availableSectionIds.includes(id)),
+    isHeadRole,
+    ownedWorkSections: groups.today.filter((id) => id === "workQueue"),
+    showCapacity: has(P.VIEW_TEAM) || isHeadRole,
+    showExpandedReporting: persona.id === "director" || isHeadRole,
+  };
 }
 
 export function DashboardView({
@@ -321,13 +493,7 @@ export function DashboardView({
   const urgentActions = filterUrgentActions(summary, has);
   const departmentWorkflow = filterDepartmentWorkflow(summary, has);
   const queryTypeData = buildQueryTypeCounts(summary, has, access);
-  const showOpsProgress =
-    has(P.VIEW_JOB_CARDS) ||
-    has(P.VIEW_TRAVELLERS) ||
-    has(P.VIEW_TICKETING) ||
-    has(P.VIEW_VISA) ||
-    has(P.VIEW_OPERATIONS) ||
-    has(P.VIEW_FINANCE);
+  const showOpsProgress = OPS_PROGRESS_PERMISSIONS.some(has);
   const workQueueRows = buildWorkQueueRows({ dateRange, has, summary, urgentActions });
   const sections = buildDashboardSections({
     access,
@@ -345,88 +511,36 @@ export function DashboardView({
     workQueueRows,
   });
 
-  const hasSection = (id) => persona.sections.includes(id) && sections[id];
-  const isDirector = persona.id === "director";
-  const isHeadRole = access?.roles?.some((role) => role.includes("Head"));
-  const leftSections = isDirector
-    ? ["queryTypes", "pipeline", "workQueue", "collapsible"].filter(hasSection)
-    : ["workQueue", "collapsible"].filter(hasSection);
-  const rightSections = ["inbox", "ticketingQueue", "readiness"].filter(hasSection);
-  const showCombinedPipelineTypes =
-    !isDirector && (hasSection("pipeline") || hasSection("queryTypes"));
-  const renderedTopSections = new Set(["hero", "quickActions", "periodPresets", "stats"]);
-  for (const id of [...leftSections, ...rightSections]) {
-    renderedTopSections.add(id);
-  }
-  if (showCombinedPipelineTypes) {
-    renderedTopSections.add("pipeline");
-    renderedTopSections.add("queryTypes");
-  }
+  const layout = resolveDashboardLayout({ access, has, persona, sections });
 
   return (
-    <m.div
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-4"
-      initial={{ opacity: 0, y: 8 }}
-      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-    >
+    <div className="space-y-6">
       <DashboardSectionBlock id="hero" persona={persona} sections={sections} />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-brand-border/70 border-b pb-4">
-        <DashboardSectionBlock id="quickActions" persona={persona} sections={sections} />
-        <DashboardSectionBlock id="periodPresets" persona={persona} sections={sections} />
-      </div>
+      <DashboardActionBar persona={persona} sections={sections} visible={layout.hasActionBar} />
 
-      {hasSection("stats") ? (
-        <div className="border-brand-border/70 border-b pb-4">
-          <DashboardSectionBlock id="stats" persona={persona} sections={sections} />
-        </div>
+      <DashboardToday
+        attentionSections={layout.attentionSections}
+        ownedWorkSections={layout.ownedWorkSections}
+        persona={persona}
+        sections={sections}
+        urgentActionCount={urgentActions.length}
+      />
+
+      <DashboardOverview ids={layout.groups.overview} persona={persona} sections={sections} />
+
+      {layout.showCapacity ? (
+        <DashboardCapacityHeatmap defaultOpen={layout.isHeadRole} rows={summary.capacity} />
       ) : null}
 
-      <div
-        className={
-          rightSections.length ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]" : "grid gap-4"
-        }
-      >
-        <div className="space-y-4">
-          {showCombinedPipelineTypes ? (
-            <DashboardPipelineTypesCollapsible
-              defaultOpen={false}
-              pipeline={sections.pipeline}
-              queryTypes={sections.queryTypes}
-            />
-          ) : null}
-          {leftSections.map((id) => (
-            <DashboardSectionBlock id={id} key={id} persona={persona} sections={sections} />
-          ))}
-        </div>
-        {rightSections.length ? (
-          <aside className="hidden space-y-4 xl:block">
-            {rightSections.map((id) => (
-              <DashboardSectionBlock id={id} key={id} persona={persona} sections={sections} />
-            ))}
-          </aside>
-        ) : null}
-      </div>
+      <DashboardReporting
+        expanded={layout.showExpandedReporting}
+        ids={layout.groups.reporting}
+        persona={persona}
+        sections={sections}
+      />
 
-      {rightSections.length ? (
-        <div className="space-y-4 xl:hidden">
-          {rightSections.map((id) => (
-            <DashboardSectionBlock id={id} key={id} persona={persona} sections={sections} />
-          ))}
-        </div>
-      ) : null}
-
-      {has(P.VIEW_TEAM) || isHeadRole ? (
-        <DashboardCapacityHeatmap defaultOpen={Boolean(isHeadRole)} rows={summary.capacity} />
-      ) : null}
-
-      {persona.sections.flatMap((id) => {
-        if (renderedTopSections.has(id)) {
-          return [];
-        }
-        return [<DashboardSectionBlock id={id} key={id} persona={persona} sections={sections} />];
-      })}
-    </m.div>
+      <DashboardSectionList ids={layout.groups.supporting} persona={persona} sections={sections} />
+    </div>
   );
 }

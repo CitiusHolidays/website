@@ -47,6 +47,7 @@ export function DashboardTicketingQueue({ queue, dateRange, stats, metricTrends 
           View all
         </Link>
       }
+      title="Ticket attention"
     >
       <div className="grid grid-cols-2 divide-x divide-y divide-brand-border/80 overflow-hidden rounded-lg border border-brand-border/80 sm:grid-cols-4 sm:divide-y-0">
         {tiles.map(({ label, value, Icon, href, trend }) => (
@@ -59,7 +60,9 @@ export function DashboardTicketingQueue({ queue, dateRange, stats, metricTrends 
               {value}
             </div>
             {trend ? (
-              <div className="mt-1 text-[11px] text-brand-muted">{formatMetricTrend(trend)}</div>
+              <div className="mt-1 text-[length:var(--portal-label-size)] text-brand-muted">
+                {formatMetricTrend(trend)}
+              </div>
             ) : null}
           </Link>
         ))}

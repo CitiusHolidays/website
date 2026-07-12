@@ -1,28 +1,40 @@
 "use client";
 
-import { m } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
+
+function DashboardPanelSubtitle({ subtitle }) {
+  if (!subtitle) {
+    return null;
+  }
+  if (typeof subtitle === "string") {
+    return <p className="mt-1 text-brand-muted text-xs">{subtitle}</p>;
+  }
+  return <div className="mt-1 text-xs">{subtitle}</div>;
+}
+
+function progressFillClass(tone) {
+  if (tone === "orange") {
+    return "bg-citius-orange";
+  }
+  if (tone === "green") {
+    return "bg-emerald-600";
+  }
+  return "bg-citius-blue";
+}
 
 export function DashboardPanel({ title, subtitle, action, children, className = "" }) {
   return (
     <section
-      className={`rounded-xl border border-brand-border bg-white p-4 shadow-brand-dark/[0.03] shadow-sm md:p-5 ${className}`}
+      className={`rounded-2xl border border-brand-border/80 bg-white/95 p-4 shadow-brand-dark/[0.025] shadow-sm md:p-5 ${className}`}
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           {typeof title === "string" ? (
-            <h2 className="font-bold text-brand-dark text-sm uppercase tracking-tight">{title}</h2>
+            <h2 className="font-heading font-semibold text-brand-dark text-sm">{title}</h2>
           ) : (
-            <div className="font-bold text-brand-dark text-sm uppercase tracking-tight">
-              {title}
-            </div>
+            <div className="font-heading font-semibold text-brand-dark text-sm">{title}</div>
           )}
-          {subtitle ? (
-            typeof subtitle === "string" ? (
-              <p className="mt-1 text-brand-muted text-xs">{subtitle}</p>
-            ) : (
-              <div className="mt-1 text-xs">{subtitle}</div>
-            )
-          ) : null}
+          <DashboardPanelSubtitle subtitle={subtitle} />
         </div>
         {action}
       </div>
@@ -51,9 +63,9 @@ export function DashboardEmpty({ label }) {
 }
 
 export function DashboardProgress({ label, value, tone = "blue", meta }) {
+  const shouldReduceMotion = useReducedMotion();
   const pct = Math.min(value || 0, 100);
-  const fill =
-    tone === "orange" ? "bg-citius-orange" : tone === "green" ? "bg-emerald-600" : "bg-citius-blue";
+  const fill = progressFillClass(tone);
   return (
     <div>
       <div className="mt-3 flex justify-between gap-3 text-brand-muted text-xs">
@@ -65,10 +77,10 @@ export function DashboardProgress({ label, value, tone = "blue", meta }) {
       </div>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-brand-border/80">
         <m.div
-          animate={{ scaleX: pct / 100 }}
+          animate={{ transform: `scaleX(${pct / 100})` }}
           className={`h-full w-full origin-left rounded-full ${fill}`}
-          initial={{ scaleX: 0 }}
-          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ transform: shouldReduceMotion ? `scaleX(${pct / 100})` : "scaleX(0)" }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.23, 1, 0.32, 1] }}
         />
       </div>
     </div>

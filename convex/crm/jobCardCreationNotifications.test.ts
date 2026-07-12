@@ -93,6 +93,24 @@ function makeCreateJobCardCtx() {
         roles: ["Ticketing"],
       },
       {
+        _id: "staff_contracting_unassigned",
+        active: true,
+        authUserId: "auth_contracting_unassigned",
+        email: "contracting-unassigned@citius.in",
+        emailNormalized: "contracting-unassigned@citius.in",
+        name: "Unassigned Contracting User",
+        roles: ["Contracting"],
+      },
+      {
+        _id: "staff_operations",
+        active: true,
+        authUserId: "auth_operations",
+        email: "operations@citius.in",
+        emailNormalized: "operations@citius.in",
+        name: "Operations User",
+        roles: ["Operations"],
+      },
+      {
         _id: "staff_finance",
         active: true,
         authUserId: "auth_finance_head",
@@ -207,8 +225,8 @@ describe("Job Card creation notifications", () => {
     });
   });
 
-  test("notifies downstream roles, assigned SPOCs, and only the Finance Head staff member", async () => {
-    const { ctx, tables } = makeCreateJobCardCtx();
+  test("notifies downstream roles, emails assigned SPOCs instead of their whole teams, and emails only the Finance Head staff member", async () => {
+    const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
 
     await (createFromQuery as any)._handler(ctx, {
       confirmedPax: 24,
@@ -258,6 +276,22 @@ describe("Job Card creation notifications", () => {
     );
     expect(notifications.some((row) => row.recipientRole === "Finance")).toBe(false);
     expect(notifications.some((row) => row.recipientUserId === "auth_finance_user")).toBe(false);
+
+    const operationsEmail = scheduledEmails.find(
+      ({ args }) => args.title === "Job Card opened — start operations"
+    );
+    expect(operationsEmail?.args.recipients).toEqual(["operations@citius.in"]);
+    expect(
+      scheduledEmails.some(({ args }) =>
+        args.recipients.includes("contracting-unassigned@citius.in")
+      )
+    ).toBe(false);
+    expect(
+      scheduledEmails.some(({ args }) => args.recipients.includes("contracting@citius.in"))
+    ).toBe(true);
+    expect(
+      scheduledEmails.some(({ args }) => args.recipients.includes("ticketing@citius.in"))
+    ).toBe(true);
   });
 
   test("skips Ticketing notifications when the confirmed query scope says ticketing is not required", async () => {

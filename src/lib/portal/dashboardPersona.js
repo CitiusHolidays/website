@@ -152,3 +152,27 @@ export function orderDashboardSections(sections, personaConfig) {
   const sectionSet = new Set(sections);
   return order.filter((id) => sectionSet.has(id));
 }
+
+const TODAY_SECTION_ORDER = ["inbox", "workQueue", "ticketingQueue", "readiness"];
+const REPORTING_SECTION_ORDER = ["pipeline", "queryTypes"];
+const SUPPORTING_SECTION_ORDER = ["collapsible", "activity"];
+
+/**
+ * Keep the dashboard's action-first hierarchy explicit and testable without
+ * coupling it to a particular grid implementation.
+ *
+ * @param {{ sections: DashboardSectionId[] }} personaConfig
+ * @param {DashboardSectionId[]} availableSections
+ */
+export function groupDashboardSections(personaConfig, availableSections) {
+  const enabled = new Set(personaConfig.sections);
+  const available = new Set(availableSections);
+  const select = (order) => order.filter((id) => enabled.has(id) && available.has(id));
+
+  return {
+    overview: select(["stats"]),
+    reporting: select(REPORTING_SECTION_ORDER),
+    supporting: select(SUPPORTING_SECTION_ORDER),
+    today: select(TODAY_SECTION_ORDER),
+  };
+}

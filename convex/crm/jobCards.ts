@@ -689,6 +689,11 @@ export const createFromQuery = mutation({
       "Operations Head",
       ...(needsTicketingWork ? ["Ticketing", "Head of Ticketing"] : []),
     ];
+    const downstreamEmailRoles = [
+      ...(contractingStaffId ? [] : ["Contracting"]),
+      "Operations",
+      ...(needsTicketingWork && !ticketingStaffId ? ["Ticketing"] : []),
+    ];
 
     await Promise.all([
       createActivity(ctx, access, {
@@ -697,12 +702,17 @@ export const createFromQuery = mutation({
         entityType: "jobCard",
         message: `${jobCode} opened for ${linkedQuery?.clientName || args.clientName || "client"}`,
       }),
-      notifyRoles(ctx, downstreamRoles, {
-        body: `${jobCode} is live for ${linkedQuery?.queryCode || "the confirmed query"}. Begin traveller master, tickets, passport, visa, and tour manager work.`,
-        entityId: id,
-        entityType: "jobCard",
-        title: "Job Card opened — start operations",
-      }),
+      notifyRoles(
+        ctx,
+        downstreamRoles,
+        {
+          body: `${jobCode} is live for ${linkedQuery?.queryCode || "the confirmed query"}. Begin traveller master, tickets, passport, visa, and tour manager work.`,
+          entityId: id,
+          entityType: "jobCard",
+          title: "Job Card opened — start operations",
+        },
+        { emailRoles: downstreamEmailRoles }
+      ),
       ...ownerNotifications,
       notifyRoles(ctx, ["Sales", "Sales Head"], {
         body: `${jobCode} has been created and is ready for operations.`,

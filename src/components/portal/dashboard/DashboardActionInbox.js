@@ -25,7 +25,7 @@ export function DashboardActionInbox({ actions, dateRange }) {
             View all
           </Link>
         }
-        title="Action inbox"
+        title="Needs attention"
       >
         <DashboardEmpty label="You're clear — no urgent actions right now." />
       </DashboardPanel>
@@ -39,6 +39,7 @@ export function DashboardActionInbox({ actions, dateRange }) {
           View all
         </Link>
       }
+      title="Needs attention"
     >
       <ul className="-mt-1 divide-y divide-brand-border/80">
         {actions.slice(0, 5).map((item) => (
@@ -53,7 +54,7 @@ export function DashboardActionInbox({ actions, dateRange }) {
                 }`}
               />
               <span className="min-w-0">
-                <span className="block font-bold text-[11px] text-brand-muted uppercase tracking-wide">
+                <span className="block font-bold text-[length:var(--portal-label-size)] text-brand-muted uppercase tracking-wide">
                   {GROUP_LABELS[item.type] || item.type}
                 </span>
                 <span className="mt-0.5 block truncate font-medium text-brand-dark group-hover:text-citius-blue">
