@@ -1,7 +1,9 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalMutation, mutation, query } from "../_generated/server";
+import { internalMutation, type MutationCtx, mutation, query } from "../_generated/server";
+import { finalizedPdfRecordResultValidator } from "./fileReturnContracts";
 import {
   canEditProposalRecord,
   canSeeJobCardRecord,
@@ -19,7 +21,20 @@ import {
   requireAnyPermission,
   requireStaff,
 } from "./lib";
+import { assertListSearchReady, buildProposalListSearchText } from "./listSearch";
+import {
+  applyCrmCursorFilters,
+  boundedPaginationOptions,
+  compactPageItems,
+  mapInBoundedBatches,
+} from "./paginationPolicy";
 import { publicProposalAttachment } from "./proposalAttachments";
+import {
+  proposalCreateResultValidator,
+  proposalIdResultValidator,
+  proposalListPageResultValidator,
+  proposalListRowResultValidator,
+} from "./proposalReturnContracts";
 
 const publicFinalizedPdf = (proposal: any) =>
   proposal.finalizedPdfStorageId
@@ -112,6 +127,25 @@ async function linkedQueriesForProposal(ctx: any, proposal: any) {
   return linkedQueries;
 }
 
+async function boundedProposalRelations(ctx: any, proposal: any) {
+  const links = await ctx.db
+    .query("proposalQueryLinks")
+    .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposal._id))
+    .take(24);
+  const queryIds = Array.from(
+    new Set([proposal.queryId, ...links.map((link: any) => link.queryId)].filter(Boolean))
+  );
+  const linkedQueries = compactPageItems(
+    await mapInBoundedBatches(queryIds, async (queryId) => await ctx.db.get(queryId))
+  );
+  const attachments = await ctx.db
+    .query("proposalAttachments")
+    .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposal._id))
+    .order("desc")
+    .take(24);
+  return { attachments, linkedQueries };
+}
+
 async function syncProposalQueryLinks(
   ctx: any,
   proposalId: any,
@@ -152,6 +186,10 @@ const publicProposal = (proposal: any, linkedQueries: any[] = [], attachments: a
   const primaryQuery =
     linkedQueries.find((query) => query._id === proposal.queryId) ?? linkedQueries[0] ?? null;
   const queryIds = linkedQueries.map((query) => query._id);
+  const sentToClientAt = proposal.sentToClientAt;
+  const sentToSalesAt =
+    proposal.sentToSalesAt ??
+    (proposal.status === "Sent" && !sentToClientAt ? proposal.sentAt : undefined);
   return {
     airfarePerPax: proposal.airfarePerPax ?? 0,
     attachments: attachments
@@ -177,7 +215,9 @@ const publicProposal = (proposal: any, linkedQueries: any[] = [], attachments: a
     queryId: primaryQuery?._id ?? proposal.queryId ?? null,
     queryIds,
     sellingPrice: proposal.sellingPrice ?? 0,
-    sentAt: proposal.sentAt ? new Date(proposal.sentAt).toISOString() : null,
+    sentAt: sentToClientAt ? new Date(sentToClientAt).toISOString() : null,
+    sentToClientAt: sentToClientAt ? new Date(sentToClientAt).toISOString() : null,
+    sentToSalesAt: sentToSalesAt ? new Date(sentToSalesAt).toISOString() : null,
     status: proposal.status,
     taxRate: proposal.taxRate ?? null,
     updatedAt: new Date(proposal.updatedAt).toISOString(),
@@ -185,38 +225,61 @@ const publicProposal = (proposal: any, linkedQueries: any[] = [], attachments: a
   };
 };
 
-export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const [access, rows, attachments] = await Promise.all([
-      requireAnyPermission(ctx, [PERMISSIONS.VIEW_PROPOSALS, PERMISSIONS.MANAGE_JOB_CARDS]),
-      ctx.db.query("proposals").collect(),
-      ctx.db.query("proposalAttachments").collect(),
-    ]);
-    const attachmentsByProposal = new Map<string, typeof attachments>();
-    for (const attachment of attachments) {
-      const key = attachment.proposalId;
-      const bucket = attachmentsByProposal.get(key) ?? [];
-      bucket.push(attachment);
-      attachmentsByProposal.set(key, bucket);
-    }
-    const result = await Promise.all(
-      rows
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .map(async (proposal) => {
-          const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
-          if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
-            return null;
-          }
-          return publicProposal(
-            proposal,
-            linkedQueries,
-            attachmentsByProposal.get(proposal._id) ?? []
-          );
-        })
-    );
-    return result.filter(Boolean);
+export const listPage = query({
+  args: {
+    createdAtFrom: v.optional(v.number()),
+    createdAtTo: v.optional(v.number()),
+    paginationOpts: paginationOptsValidator,
+    search: v.optional(v.string()),
+    status: v.optional(v.string()),
   },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.VIEW_PROPOSALS,
+      PERMISSIONS.MANAGE_JOB_CARDS,
+    ]);
+    const search = args.search?.trim() ?? "";
+    await assertListSearchReady(ctx, "proposals", search);
+    const source = search
+      ? ctx.db
+          .query("proposals")
+          .withSearchIndex("search_list", (q) => q.search("listSearchText", search))
+      : ctx.db.query("proposals").withIndex("by_createdAt").order("desc");
+    const page = await applyCrmCursorFilters(source, {
+      createdAtFrom: args.createdAtFrom,
+      createdAtTo: args.createdAtTo,
+      equals: { status: args.status },
+    }).paginate(boundedPaginationOptions(args.paginationOpts));
+    const hydrated = await mapInBoundedBatches(page.page, async (proposal) => {
+      const { attachments, linkedQueries } = await boundedProposalRelations(ctx, proposal);
+      if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
+        return null;
+      }
+      return publicProposal(proposal, linkedQueries, attachments);
+    });
+    return { ...page, page: compactPageItems(hydrated) };
+  },
+  returns: proposalListPageResultValidator,
+});
+
+export const getListRow = query({
+  args: { proposalId: v.string() },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.VIEW_PROPOSALS,
+      PERMISSIONS.MANAGE_JOB_CARDS,
+    ]);
+    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
+    const proposal = proposalId ? await ctx.db.get(proposalId) : null;
+    if (!proposal) {
+      return null;
+    }
+    const { attachments, linkedQueries } = await boundedProposalRelations(ctx, proposal);
+    return canSeeProposalRecord(access, proposal, linkedQueries)
+      ? publicProposal(proposal, linkedQueries, attachments)
+      : null;
+  },
+  returns: proposalListRowResultValidator,
 });
 
 export const create = mutation({
@@ -264,6 +327,11 @@ export const create = mutation({
       costPrice,
       itinerarySummary: args.itinerarySummary?.trim() || "",
       landCostPerPax,
+      listSearchText: buildProposalListSearchText({
+        clientName,
+        preparedBy: access.name,
+        proposalCode,
+      }),
       preparedBy: access.name,
       pricingEnteredAt: hasPricing ? now : undefined,
       proposalCode,
@@ -283,6 +351,18 @@ export const create = mutation({
         linkedQueries.map((query) => query._id),
         access.authUserId ?? "unknown"
       ),
+      Promise.all(
+        linkedQueries.flatMap((linkedQuery) =>
+          linkedQuery.contractingStatus === "Query Received"
+            ? [
+                ctx.db.patch(linkedQuery._id, {
+                  contractingStatus: "Proposal in progress",
+                  updatedAt: now,
+                }),
+              ]
+            : []
+        )
+      ),
       createActivity(ctx, access, {
         action: "created",
         entityId: id,
@@ -293,6 +373,7 @@ export const create = mutation({
 
     return { id, proposalCode };
   },
+  returns: proposalCreateResultValidator,
 });
 
 export const update = mutation({
@@ -378,6 +459,7 @@ export const update = mutation({
       patch.costPrice = computeProposalCostPrice(landCostPerPax, airfarePerPax, visaCostPerPax);
       patch.pricingEnteredAt = Date.now();
     }
+    patch.listSearchText = buildProposalListSearchText({ ...proposal, ...patch });
 
     await ctx.db.patch(proposalId, patch);
     if (nextLinkedQueries !== null) {
@@ -396,6 +478,7 @@ export const update = mutation({
     });
     return { id: proposalId };
   },
+  returns: proposalIdResultValidator,
 });
 
 export const markSent = mutation({
@@ -438,6 +521,7 @@ export const markSent = mutation({
     await Promise.all([
       ctx.db.patch(proposalId, {
         sentAt: now,
+        sentToClientAt: now,
         status: "Sent",
         ...editorPatch(access, now),
       }),
@@ -453,7 +537,7 @@ export const markSent = mutation({
         action: "sent",
         entityId: proposalId,
         entityType: "proposal",
-        message: `${proposal.proposalCode} marked as sent`,
+        message: `${proposal.proposalCode} marked as sent to the client`,
       }),
       notifyRoles(ctx, ["Sales", "Sales Head"], {
         body: `${proposal.proposalCode} has been sent to the client.`,
@@ -464,109 +548,113 @@ export const markSent = mutation({
     ]);
     return { id: proposalId };
   },
+  returns: proposalIdResultValidator,
 });
+
+export async function handleSendProposalToSales(ctx: MutationCtx, args: { proposalId: string }) {
+  const access = await requireAnyPermission(ctx, [
+    PERMISSIONS.MANAGE_PROPOSALS,
+    PERMISSIONS.MANAGE_CONTRACTING,
+  ]);
+  const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
+  if (!proposalId) {
+    throw new ConvexError("Invalid proposal id");
+  }
+  const proposal = await ctx.db.get(proposalId);
+  if (!proposal) {
+    throw new ConvexError("Proposal not found");
+  }
+  const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
+  if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  if (!canEditProposalRecord(access, proposal, linkedQueries)) {
+    throw new ConvexError(
+      "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can send this proposal to Sales"
+    );
+  }
+  if (proposal.status === "Sent") {
+    throw new ConvexError("This proposal was already sent to Sales");
+  }
+  assertProposalPricingComplete(
+    proposal,
+    "Enter selling price and cost price on the proposal before sending it to Sales."
+  );
+  const now = Date.now();
+  const queryCodes = linkedQueries.map((query) => query.queryCode).join(", ") || "linked query";
+  const primaryQuery = linkedQueries[0] ?? null;
+  await Promise.all([
+    ctx.db.patch(proposalId, {
+      sentToSalesAt: now,
+      status: "Sent",
+      ...editorPatch(access, now),
+    }),
+    Promise.all(
+      linkedQueries.map((linkedQuery) =>
+        ctx.db.patch(linkedQuery._id, {
+          contractingStatus: "Proposal sent",
+          updatedAt: now,
+        })
+      )
+    ),
+    createActivity(ctx, access, {
+      action: "sent_to_sales",
+      entityId: proposalId,
+      entityType: "proposal",
+      message: `${proposal.proposalCode} sent to Sales for review (${queryCodes})`,
+    }),
+  ]);
+
+  const salesOwnerNotified = new Set<string>();
+  const salesOwnerNotifications = [];
+  for (const linkedQuery of linkedQueries) {
+    if (!linkedQuery.salesOwnerId || salesOwnerNotified.has(linkedQuery.salesOwnerId)) {
+      continue;
+    }
+    const salesStaffId = ctx.db.normalizeId("staffUsers", linkedQuery.salesOwnerId);
+    if (!salesStaffId) {
+      continue;
+    }
+    salesOwnerNotified.add(linkedQuery.salesOwnerId);
+    salesOwnerNotifications.push(
+      notifyStaffMember(ctx, salesStaffId, {
+        body: `${proposal.proposalCode} for ${linkedQuery.queryCode} is ready. Review costing and use Sales Decision on the query.`,
+        entityId: linkedQuery._id,
+        entityType: "query",
+        title: "Proposal ready for review",
+      })
+    );
+  }
+
+  await Promise.all([
+    ...salesOwnerNotifications,
+    ...(primaryQuery
+      ? [
+          notifyRoles(ctx, ["Sales", "Sales Head"], {
+            body: `${proposal.proposalCode} has been submitted by Contracting. Open the linked query to review and decide.`,
+            entityId: primaryQuery._id,
+            entityType: "query",
+            title: "Proposal ready for review",
+          }),
+        ]
+      : [
+          notifyRoles(ctx, ["Sales", "Sales Head"], {
+            body: `${proposal.proposalCode} has been submitted by Contracting. Open Proposals or the linked query to review and decide.`,
+            entityId: proposalId,
+            entityType: "proposal",
+            title: "Proposal ready for review",
+          }),
+        ]),
+  ]);
+  return { id: proposalId };
+}
 
 export const sendToSales = mutation({
   args: {
     proposalId: v.string(),
   },
-  handler: async (ctx, args) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.MANAGE_PROPOSALS,
-      PERMISSIONS.MANAGE_CONTRACTING,
-    ]);
-    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
-    if (!proposalId) {
-      throw new ConvexError("Invalid proposal id");
-    }
-    const proposal = await ctx.db.get(proposalId);
-    if (!proposal) {
-      throw new ConvexError("Proposal not found");
-    }
-    const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
-    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (!canEditProposalRecord(access, proposal, linkedQueries)) {
-      throw new ConvexError(
-        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can send this proposal to Sales"
-      );
-    }
-    if (proposal.status === "Sent") {
-      throw new ConvexError("This proposal was already sent to Sales");
-    }
-    assertProposalPricingComplete(
-      proposal,
-      "Enter selling price and cost price on the proposal before sending it to Sales."
-    );
-    const now = Date.now();
-    const queryCodes = linkedQueries.map((query) => query.queryCode).join(", ") || "linked query";
-    const primaryQuery = linkedQueries[0] ?? null;
-    await Promise.all([
-      ctx.db.patch(proposalId, {
-        sentAt: now,
-        status: "Sent",
-        ...editorPatch(access, now),
-      }),
-      Promise.all(
-        linkedQueries.map((linkedQuery) =>
-          ctx.db.patch(linkedQuery._id, {
-            contractingStatus: "Proposal sent",
-            updatedAt: now,
-          })
-        )
-      ),
-      createActivity(ctx, access, {
-        action: "sent_to_sales",
-        entityId: proposalId,
-        entityType: "proposal",
-        message: `${proposal.proposalCode} sent to Sales for review (${queryCodes})`,
-      }),
-    ]);
-
-    const salesOwnerNotified = new Set<string>();
-    const salesOwnerNotifications = [];
-    for (const linkedQuery of linkedQueries) {
-      if (!linkedQuery.salesOwnerId || salesOwnerNotified.has(linkedQuery.salesOwnerId)) {
-        continue;
-      }
-      const salesStaffId = ctx.db.normalizeId("staffUsers", linkedQuery.salesOwnerId);
-      if (!salesStaffId) {
-        continue;
-      }
-      salesOwnerNotified.add(linkedQuery.salesOwnerId);
-      salesOwnerNotifications.push(
-        notifyStaffMember(ctx, salesStaffId, {
-          body: `${proposal.proposalCode} for ${linkedQuery.queryCode} is ready. Review costing and use Sales Decision on the query.`,
-          entityId: linkedQuery._id,
-          entityType: "query",
-          title: "Proposal ready for review",
-        })
-      );
-    }
-
-    await Promise.all([
-      ...salesOwnerNotifications,
-      ...(primaryQuery
-        ? [
-            notifyRoles(ctx, ["Sales", "Sales Head"], {
-              body: `${proposal.proposalCode} has been submitted by Contracting. Open the linked query to review and decide.`,
-              entityId: primaryQuery._id,
-              entityType: "query",
-              title: "Proposal ready for review",
-            }),
-          ]
-        : [
-            notifyRoles(ctx, ["Sales", "Sales Head"], {
-              body: `${proposal.proposalCode} has been submitted by Contracting. Open Proposals or the linked query to review and decide.`,
-              entityId: proposalId,
-              entityType: "proposal",
-              title: "Proposal ready for review",
-            }),
-          ]),
-    ]);
-    return { id: proposalId };
-  },
+  handler: handleSendProposalToSales,
+  returns: proposalIdResultValidator,
 });
 
 export const markAccepted = mutation({
@@ -608,6 +696,7 @@ export const markAccepted = mutation({
     });
     return { id: proposalId };
   },
+  returns: proposalIdResultValidator,
 });
 
 export const remove = mutation({
@@ -662,6 +751,7 @@ export const remove = mutation({
     ]);
     return { id: proposalId };
   },
+  returns: proposalIdResultValidator,
 });
 
 export const addCollaborator = mutation({
@@ -713,6 +803,7 @@ export const addCollaborator = mutation({
     ]);
     return { id: proposalId };
   },
+  returns: proposalIdResultValidator,
 });
 
 export const removeCollaborator = mutation({
@@ -751,6 +842,7 @@ export const removeCollaborator = mutation({
     });
     return { id: proposalId };
   },
+  returns: proposalIdResultValidator,
 });
 
 export const saveFinalizedPdf = internalMutation({
@@ -839,4 +931,5 @@ export const getFinalizedPdfRecord = query({
       storageId: proposal.finalizedPdfStorageId,
     };
   },
+  returns: finalizedPdfRecordResultValidator,
 });

@@ -8,6 +8,9 @@
   "files": {
     "ignoreUnknown": false,
     "includes": [
+      "!.agents/skills/**/assets/icon.svg",
+      "!.claude/skills/**/assets/icon.svg",
+      "!convex/_exportSurface.ts",
       "!convex/_generated",
       "!convex/betterAuth/_generated",
       "!citius-blog/dist",

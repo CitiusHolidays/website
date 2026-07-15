@@ -1,5 +1,4 @@
 "use client";
-"use no memo";
 import { AlertCircle, FileText, Mail, MessageSquare, Phone, User } from "lucide-react";
 import { m } from "motion/react";
 import { useEffect, useReducer, useRef } from "react";
@@ -127,8 +126,6 @@ function contactFormReducer(state, action) {
 }
 
 export default function ModernContactForm() {
-  "use no memo";
-
   const [{ formValues, errors, focusedField, buttonState }, dispatch] = useReducer(
     contactFormReducer,
     INITIAL_FORM_STATE
@@ -282,7 +279,7 @@ export default function ModernContactForm() {
                     ? -40 // Adjusted for better positioning
                     : 0,
               }}
-              className="pointer-events-none absolute top-1/2 left-12 -translate-y-1/2 transform text-gray-500 transition-all duration-200"
+              className="pointer-events-none absolute top-1/2 left-12 -translate-y-1/2 transform text-gray-500 transition-[translate,color,font-size,top] duration-200"
               htmlFor={field.name}
               transition={{ duration: 0.2 }}
             >
@@ -292,7 +289,7 @@ export default function ModernContactForm() {
             <input
               aria-invalid={errors[field.name] ? "true" : "false"}
               aria-label={field.label}
-              className={`w-full rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-all duration-200 focus:outline-none ${
+              className={`w-full rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-[border-color,box-shadow] duration-200 focus:outline-none ${
                 errors[field.name]
                   ? "border-red-500 focus:border-red-500"
                   : "border-gray-300 focus:border-orange-500"
@@ -337,7 +334,7 @@ export default function ModernContactForm() {
               x: focusedField === "message" || formValues.message ? -8 : 0,
               y: focusedField === "message" || formValues.message ? -40 : 0,
             }}
-            className="pointer-events-none absolute top-5 left-12 text-gray-500 transition-all duration-200"
+            className="pointer-events-none absolute top-5 left-12 text-gray-500 transition-[translate,color,font-size,top] duration-200"
             htmlFor="message"
             transition={{ duration: 0.2 }}
           >
@@ -347,7 +344,7 @@ export default function ModernContactForm() {
           <textarea
             aria-invalid={errors.message ? "true" : "false"}
             aria-label="Message"
-            className={`w-full resize-none rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-all duration-200 focus:outline-none ${
+            className={`w-full resize-none rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-[border-color,box-shadow] duration-200 focus:outline-none ${
               errors.message
                 ? "border-red-500 focus:border-red-500"
                 : "border-gray-300 focus:border-orange-500"

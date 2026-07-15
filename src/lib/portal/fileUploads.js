@@ -33,13 +33,14 @@ export async function uploadEntityFiles({
   files,
   generateUploadUrl,
   attachFile,
+  generateUploadArgs = {},
 }) {
   await Promise.all(
     files.map(async (file) => {
       if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
         throw new Error(`${file.name} exceeds the 15 MB limit.`);
       }
-      const uploadUrl = await generateUploadUrl({});
+      const uploadUrl = await generateUploadUrl(generateUploadArgs);
       const uploadRes = await fetch(uploadUrl, {
         body: file,
         headers: { "Content-Type": file.type || "application/octet-stream" },
@@ -70,6 +71,7 @@ export async function uploadExpenseProofFiles({
     attachFile: attachExpenseProof,
     entityId: expenseId,
     files,
+    generateUploadArgs: { expenseId },
     generateUploadUrl,
     idField: "expenseId",
   });

@@ -1,4 +1,6 @@
 import { query } from "./_generated/server";
+import { stableProfileTimestamps } from "./lib/profileFallback";
+import { nullablePublicUserProfileValidator } from "./publicReturnContracts";
 
 export const getCurrentUser = query({
   args: {},
@@ -13,19 +15,18 @@ export const getCurrentUser = query({
       .withIndex("by_authUserId", (q) => q.eq("authUserId", identity.subject))
       .unique();
 
-    const nowIso = new Date().toISOString();
-    const createdAtIso = profile?.createdAt ? new Date(profile.createdAt).toISOString() : nowIso;
-    const updatedAtIso = profile?.updatedAt ? new Date(profile.updatedAt).toISOString() : nowIso;
+    const timestamps = stableProfileTimestamps(profile, identity);
 
     return {
-      createdAt: createdAtIso,
+      createdAt: timestamps.createdAt,
       email: profile?.email ?? identity.email ?? "",
       id: identity.subject,
-      image: profile?.image ?? identity.picture ?? null,
+      image: profile?.image ?? (typeof identity.picture === "string" ? identity.picture : null),
       name: profile?.name ?? identity.name ?? "Traveler",
       passportDetailsEncrypted: profile?.passportDetailsEncrypted ?? null,
       phoneNumber: profile?.phoneNumber ?? "",
-      updatedAt: updatedAtIso,
+      updatedAt: timestamps.updatedAt,
     };
   },
+  returns: nullablePublicUserProfileValidator,
 });

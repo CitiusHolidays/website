@@ -116,7 +116,9 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
           >
             <Image
               alt={item.alt || ""}
-              className={cn("object-cover transition-transform duration-300 group-hover:scale-105")}
+              className={cn(
+                "object-cover transition-transform duration-300 fine-hover:group-hover:scale-105"
+              )}
               fill
               sizes="(max-width: 768px) 50vw, 33vw"
               src={item.asset?.url || ""}
@@ -131,7 +133,7 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
             <m.button
               animate={{ opacity: 1 }}
               aria-label="Close gallery"
-              className="absolute inset-0 cursor-default border-0 bg-brand-dark/80 p-0 backdrop-blur-sm"
+              className="absolute inset-0 cursor-default border-0 bg-brand-dark/90 p-0"
               exit={{ opacity: 0 }}
               initial={{ opacity: 0 }}
               onClick={close}
@@ -195,7 +197,7 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
 
             <m.button
               aria-label="Close"
-              className="absolute top-4 right-4 z-10 text-white hover:scale-110"
+              className="absolute top-4 right-4 z-10 text-white transition-transform fine-hover:hover:scale-110"
               onClick={close}
             >
               <X className="size-8" />

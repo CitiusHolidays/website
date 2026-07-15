@@ -10,6 +10,21 @@ import {
   getLevelForScore,
   normalizeVisitedSet,
 } from "./lib/sacredBharatScoring";
+import {
+  groupCreateResultValidator,
+  groupIdResultValidator,
+  groupLeaderboardResultValidator,
+  leaderboardPreferenceResultValidator,
+  leaderboardResultValidator,
+  leaderboardWithMeResultValidator,
+  myGroupsResultValidator,
+  myLeaderboardRankResultValidator,
+  nullablePassportProfileValidator,
+  nullableSacredProgressValidator,
+  passportProfileIdResultValidator,
+  publicPassportResultValidator,
+  sacredProgressValidator,
+} from "./sacredBharatReturnContracts";
 
 const now = () => Date.now();
 const RESERVED_PASSPORT_SLUGS = new Set(["leaderboard", "trails", "groups", "challenges", "admin"]);
@@ -119,6 +134,7 @@ export const getMyProgress = query({
     }
     return await buildProgressPayload(ctx, identity.subject);
   },
+  returns: nullableSacredProgressValidator,
 });
 
 export const markTempleVisited = mutation({
@@ -155,6 +171,7 @@ export const markTempleVisited = mutation({
 
     return await buildProgressPayload(ctx, identity.subject);
   },
+  returns: sacredProgressValidator,
 });
 
 export const getMyPassportProfile = query({
@@ -178,6 +195,7 @@ export const getMyPassportProfile = query({
         }
       : null;
   },
+  returns: nullablePassportProfileValidator,
 });
 
 export const upsertMyPassportProfile = mutation({
@@ -225,6 +243,7 @@ export const upsertMyPassportProfile = mutation({
     });
     return { id, slug };
   },
+  returns: passportProfileIdResultValidator,
 });
 
 export const unmarkTempleVisited = mutation({
@@ -245,6 +264,7 @@ export const unmarkTempleVisited = mutation({
 
     return await buildProgressPayload(ctx, identity.subject);
   },
+  returns: sacredProgressValidator,
 });
 
 export const mergeGuestProgress = mutation({
@@ -271,6 +291,7 @@ export const mergeGuestProgress = mutation({
 
     return await buildProgressPayload(ctx, identity.subject);
   },
+  returns: sacredProgressValidator,
 });
 
 export const toggleWishlistItem = mutation({
@@ -280,10 +301,12 @@ export const toggleWishlistItem = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const itemId =
+      args.itemType === "temple" ? resolveCanonicalTempleId(args.itemId) : args.itemId.trim();
     const existing = await ctx.db
       .query("sacredBharatWishlist")
       .withIndex("by_authUserId_item", (q) =>
-        q.eq("authUserId", identity.subject).eq("itemType", args.itemType).eq("itemId", args.itemId)
+        q.eq("authUserId", identity.subject).eq("itemType", args.itemType).eq("itemId", itemId)
       )
       .unique();
 
@@ -293,13 +316,14 @@ export const toggleWishlistItem = mutation({
       await ctx.db.insert("sacredBharatWishlist", {
         authUserId: identity.subject,
         createdAt: now(),
-        itemId: args.itemId,
+        itemId,
         itemType: args.itemType,
       });
     }
 
     return await buildProgressPayload(ctx, identity.subject);
   },
+  returns: sacredProgressValidator,
 });
 
 export const setLeaderboardOptOut = mutation({
@@ -322,6 +346,7 @@ export const setLeaderboardOptOut = mutation({
 
     return { optOut: args.optOut };
   },
+  returns: leaderboardPreferenceResultValidator,
 });
 
 const getDisplayName = async (ctx: QueryCtx, authUserId: string) => {
@@ -422,6 +447,7 @@ export const getLeaderboard = query({
       templeCount: entry.templeCount,
     }));
   },
+  returns: leaderboardResultValidator,
 });
 
 export const getLeaderboardWithMe = query({
@@ -462,6 +488,7 @@ export const getLeaderboardWithMe = query({
 
     return { entries: top, myRank };
   },
+  returns: leaderboardWithMeResultValidator,
 });
 
 export const getMyLeaderboardRank = query({
@@ -490,6 +517,7 @@ export const getMyLeaderboardRank = query({
       totalPlayers: entries.length,
     };
   },
+  returns: myLeaderboardRankResultValidator,
 });
 
 function makeInviteCode() {
@@ -541,6 +569,7 @@ export const createGroup = mutation({
     });
     return { id: groupId, inviteCode };
   },
+  returns: groupCreateResultValidator,
 });
 
 export const joinGroupByInviteCode = mutation({
@@ -572,6 +601,7 @@ export const joinGroupByInviteCode = mutation({
     }
     return { id: group._id };
   },
+  returns: groupIdResultValidator,
 });
 
 export const listMyGroups = query({
@@ -602,6 +632,7 @@ export const listMyGroups = query({
         : []
     );
   },
+  returns: myGroupsResultValidator,
 });
 
 export const getGroupLeaderboard = query({
@@ -641,6 +672,7 @@ export const getGroupLeaderboard = query({
       },
     };
   },
+  returns: groupLeaderboardResultValidator,
 });
 
 export const renameGroup = mutation({
@@ -658,6 +690,7 @@ export const renameGroup = mutation({
     await ctx.db.patch(groupId, { name: args.name.trim(), updatedAt: now() });
     return { id: groupId };
   },
+  returns: groupIdResultValidator,
 });
 
 export const archiveGroup = mutation({
@@ -675,6 +708,7 @@ export const archiveGroup = mutation({
     await ctx.db.patch(groupId, { isArchived: true, updatedAt: now() });
     return { id: groupId };
   },
+  returns: groupIdResultValidator,
 });
 
 export const leaveGroup = mutation({
@@ -692,6 +726,7 @@ export const leaveGroup = mutation({
     await ctx.db.delete(membership._id);
     return { id: groupId };
   },
+  returns: groupIdResultValidator,
 });
 
 export const getPublicPassportBySlug = query({
@@ -738,4 +773,5 @@ export const getPublicPassportBySlug = query({
       },
     };
   },
+  returns: publicPassportResultValidator,
 });

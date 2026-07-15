@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
@@ -31,6 +32,17 @@ import {
   requireAnyPermission,
   requireStaff,
 } from "./lib";
+import {
+  applyCrmCursorFilters,
+  boundedPaginationOptions,
+  compactPageItems,
+  mapInBoundedBatches,
+} from "./paginationPolicy";
+import {
+  leaveBalanceListResultValidator,
+  leaveIdResultValidator,
+  leaveListPageResultValidator,
+} from "./peopleWorkflowReturnContracts";
 
 const leaveStatusValidator = v.union(
   v.literal("Pending"),
@@ -217,83 +229,89 @@ async function canSeeLeave(
 }
 
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const [access, leaves, staffRows] = await Promise.all([
+  args: {
+    paginationOpts: paginationOptsValidator,
+    staffId: v.optional(v.string()),
+    status: v.optional(leaveStatusValidator),
+  },
+  handler: async (ctx, args) => {
+    const [access, staffRows, page] = await Promise.all([
       requireStaff(ctx, PERMISSIONS.VIEW_LEAVE),
-      ctx.db.query("staffLeaveRecords").collect(),
-      ctx.db.query("staffUsers").collect(),
+      ctx.db.query("staffUsers").withIndex("by_name").take(500),
+      applyCrmCursorFilters(
+        ctx.db.query("staffLeaveRecords").withIndex("by_createdAt").order("desc"),
+        { equals: { staffId: args.staffId, status: args.status } }
+      ).paginate(boundedPaginationOptions(args.paginationOpts)),
     ]);
     const approverCache = new Map<string, any>();
 
-    const result = await Promise.all(
-      leaves.map(async (leave) => {
-        const staff = await ctx.db.get(leave.staffId);
-        if (!(staff && (await canSeeLeave(ctx, access, leave, staff, staffRows, approverCache)))) {
-          return null;
-        }
-        const resolvedApproverId = await resolveLeaveHeadApproverId(ctx, staff, staffRows);
-        const headApproverId = leave.headApproverStaffId ?? resolvedApproverId ?? undefined;
-        const finalAuthorityId =
-          leave.finalAuthorityStaffId ??
-          (await resolveLeaveFinalAuthorityId(ctx, staff, resolvedApproverId, staffRows)) ??
-          undefined;
-        const hrCopyStaffId =
-          leave.hrCopyStaffId ??
-          (await resolveLeaveHrCopyStaffId(ctx, staff, staffRows)) ??
-          undefined;
-        const headApprover = headApproverId ? await ctx.db.get(headApproverId) : null;
-        const finalAuthority = finalAuthorityId ? await ctx.db.get(finalAuthorityId) : null;
-        const hrCopyStaff = hrCopyStaffId ? await ctx.db.get(hrCopyStaffId) : null;
-        return {
-          days: inclusiveLeaveDays(leave.startDate, leave.endDate),
-          decisionNote: leave.decisionNote ?? "",
-          department: staff.department || "General",
-          endDate: leave.endDate,
-          finalAuthorityName:
-            leave.finalAuthorityName ??
-            finalAuthority?.name ??
-            (finalAuthorityId ? "Not assigned" : ""),
-          finalAuthorityStaffId: finalAuthorityId,
-          finalDecisionNote: leave.finalDecisionNote ?? "",
-          finalReviewedByName: leave.finalReviewedByName ?? "",
-          finalReviewStatus: finalAuthorityId
-            ? (leave.finalReviewStatus ?? "Pending")
-            : (leave.finalReviewStatus ?? "Approved"),
-          fiscalYear: fiscalYearForDate(leave.startDate),
-          headApproverName: leave.headApproverName ?? headApprover?.name ?? "Not assigned",
-          headApproverStaffId: headApproverId,
-          headDecisionNote: leave.headDecisionNote ?? "",
-          headReviewedByName: leave.headReviewedByName ?? "",
-          headReviewerRole: leave.headReviewerRole ?? primaryHeadRoleForStaff(staff),
-          headReviewStatus: leave.headReviewStatus ?? "Pending",
-          hrCopyName: leave.hrCopyName ?? hrCopyStaff?.name ?? "",
-          hrCopyStaffId,
-          hrReviewedByName: leave.hrReviewedByName ?? "",
-          hrReviewStatus: leave.hrReviewStatus ?? "Pending",
-          id: leave._id,
-          leaveType: leave.leaveType ?? "Casual",
-          reason: leave.reason,
-          staffEmail: staff.email,
-          staffId: leave.staffId,
-          staffName: staff.name,
-          startDate: leave.startDate,
-          status: leave.status ?? "Pending",
-          ...getLeaveApprovalActionsForApprover(
-            access,
-            leave,
-            staff,
-            resolvedApproverId,
-            finalAuthorityId ?? null,
-            isHrReviewer
-          ),
-          createdAt: new Date(leave.createdAt).toISOString(),
-        };
-      })
-    );
+    const result = await mapInBoundedBatches(page.page, async (leave) => {
+      const staff = await ctx.db.get(leave.staffId);
+      if (!(staff && (await canSeeLeave(ctx, access, leave, staff, staffRows, approverCache)))) {
+        return null;
+      }
+      const resolvedApproverId = await resolveLeaveHeadApproverId(ctx, staff, staffRows);
+      const headApproverId = leave.headApproverStaffId ?? resolvedApproverId ?? undefined;
+      const finalAuthorityId =
+        leave.finalAuthorityStaffId ??
+        (await resolveLeaveFinalAuthorityId(ctx, staff, resolvedApproverId, staffRows)) ??
+        undefined;
+      const hrCopyStaffId =
+        leave.hrCopyStaffId ??
+        (await resolveLeaveHrCopyStaffId(ctx, staff, staffRows)) ??
+        undefined;
+      const headApprover = headApproverId ? await ctx.db.get(headApproverId) : null;
+      const finalAuthority = finalAuthorityId ? await ctx.db.get(finalAuthorityId) : null;
+      const hrCopyStaff = hrCopyStaffId ? await ctx.db.get(hrCopyStaffId) : null;
+      return {
+        days: inclusiveLeaveDays(leave.startDate, leave.endDate),
+        decisionNote: leave.decisionNote ?? "",
+        department: staff.department || "General",
+        endDate: leave.endDate,
+        finalAuthorityName:
+          leave.finalAuthorityName ??
+          finalAuthority?.name ??
+          (finalAuthorityId ? "Not assigned" : ""),
+        finalAuthorityStaffId: finalAuthorityId,
+        finalDecisionNote: leave.finalDecisionNote ?? "",
+        finalReviewedByName: leave.finalReviewedByName ?? "",
+        finalReviewStatus: finalAuthorityId
+          ? (leave.finalReviewStatus ?? "Pending")
+          : (leave.finalReviewStatus ?? "Approved"),
+        fiscalYear: fiscalYearForDate(leave.startDate),
+        headApproverName: leave.headApproverName ?? headApprover?.name ?? "Not assigned",
+        headApproverStaffId: headApproverId,
+        headDecisionNote: leave.headDecisionNote ?? "",
+        headReviewedByName: leave.headReviewedByName ?? "",
+        headReviewerRole: leave.headReviewerRole ?? primaryHeadRoleForStaff(staff),
+        headReviewStatus: leave.headReviewStatus ?? "Pending",
+        hrCopyName: leave.hrCopyName ?? hrCopyStaff?.name ?? "",
+        hrCopyStaffId,
+        hrReviewedByName: leave.hrReviewedByName ?? "",
+        hrReviewStatus: leave.hrReviewStatus ?? "Pending",
+        id: leave._id,
+        leaveType: leave.leaveType ?? "Casual",
+        reason: leave.reason,
+        staffEmail: staff.email,
+        staffId: leave.staffId,
+        staffName: staff.name,
+        startDate: leave.startDate,
+        status: leave.status ?? "Pending",
+        ...getLeaveApprovalActionsForApprover(
+          access,
+          leave,
+          staff,
+          resolvedApproverId,
+          finalAuthorityId ?? null,
+          isHrReviewer
+        ),
+        createdAt: new Date(leave.createdAt).toISOString(),
+      };
+    });
 
-    return result.filter(isDefined).sort((a, b) => b.startDate.localeCompare(a.startDate));
+    return { ...page, page: compactPageItems(result.filter(isDefined)) };
   },
+  returns: leaveListPageResultValidator,
 });
 
 type CreateLeaveArgs = {
@@ -412,6 +430,7 @@ export const create = mutation({
     status: v.optional(leaveStatusValidator),
   },
   handler: createLeaveRequest,
+  returns: leaveIdResultValidator,
 });
 
 type DecideLeaveArgs = {
@@ -612,6 +631,7 @@ export const decide = mutation({
     status: leaveStatusValidator,
   },
   handler: decideLeaveRequest,
+  returns: leaveIdResultValidator,
 });
 
 export const balances = query({
@@ -661,6 +681,7 @@ export const balances = query({
       usedDays: row.usedDays,
     }));
   },
+  returns: leaveBalanceListResultValidator,
 });
 
 export const update = mutation({
@@ -716,6 +737,7 @@ export const update = mutation({
     });
     return { id: leaveId };
   },
+  returns: leaveIdResultValidator,
 });
 
 export const remove = mutation({
@@ -749,4 +771,5 @@ export const remove = mutation({
 
     return { id: leaveId };
   },
+  returns: leaveIdResultValidator,
 });

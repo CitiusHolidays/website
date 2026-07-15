@@ -1,15 +1,32 @@
 import { beforeAll, describe, expect, mock, spyOn, test } from "bun:test";
 
 beforeAll(() => {
+  const registeredFunction = (definition: { handler: unknown }) =>
+    Object.assign(definition.handler as object, { _handler: definition.handler });
   mock.module("../_generated/server", () => ({
-    mutation: (definition: { handler: unknown }) => definition.handler,
-    query: (definition: { handler: unknown }) => definition.handler,
+    internalMutation: registeredFunction,
+    mutation: registeredFunction,
+    query: registeredFunction,
   }));
   mock.module("../_generated/api", () => ({
     internal: {
       crm: {
+        jobCardDeletion: {
+          continueApprovalCleanup: "internal.crm.jobCardDeletion.continueApprovalCleanup",
+          continueJobCardCascade: "internal.crm.jobCardDeletion.continueJobCardCascade",
+        },
+        notificationCleanup: {
+          continueEntityCleanup: "internal.crm.notificationCleanup.continueEntityCleanup",
+          continueEntityGroupCleanup: "internal.crm.notificationCleanup.continueEntityGroupCleanup",
+        },
         notificationEmails: {
           sendNotificationEmail: "internal.crm.notificationEmails.sendNotificationEmail",
+        },
+        ticketing: {
+          continuePnrCleanup: "internal.crm.ticketing.continuePnrCleanup",
+        },
+        travellers: {
+          continueTravellerCleanup: "internal.crm.travellers.continueTravellerCleanup",
         },
       },
     },

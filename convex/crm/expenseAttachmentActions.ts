@@ -1,9 +1,15 @@
 "use node";
 
+import { createHash } from "node:crypto";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import { action } from "../_generated/server";
-import { PERMISSIONS } from "./lib";
+import {
+  downloadFileResultValidator,
+  fileOperationSuccessValidator,
+  uploadUrlResultValidator,
+} from "./fileReturnContracts";
+import { PERMISSIONS } from "./lib/rolePolicy";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -22,20 +28,12 @@ function isAllowedMimeType(mimeType: string) {
   );
 }
 
-function canManageExpenseFiles(access: any) {
-  return (
-    access?.allowed &&
-    (access.permissions.includes(PERMISSIONS.MANAGE_EXPENSES) ||
-      access.permissions.includes(PERMISSIONS.MANAGE_FINANCE))
-  );
-}
-
 function canPrepareExpenseFileUpload(access: any) {
   return (
     access?.allowed &&
     (access.permissions.includes(PERMISSIONS.CREATE_EXPENSES) ||
       access.permissions.includes(PERMISSIONS.MANAGE_EXPENSES) ||
-      access.permissions.includes(PERMISSIONS.MANAGE_FINANCE))
+      access.permissions.includes(PERMISSIONS.MANAGE_ALL_EXPENSES))
   );
 }
 
@@ -61,14 +59,20 @@ async function buildDownloadFile(
 }
 
 export const generateUploadUrl = action({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    expenseId: v.string(),
+  },
+  handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     if (!canPrepareExpenseFileUpload(access)) {
       throw new ConvexError("FORBIDDEN");
     }
+    await ctx.runQuery(api.crm.expenseAttachments.verifyExpenseProofMutationAccess, {
+      expenseId: args.expenseId,
+    });
     return await ctx.storage.generateUploadUrl();
   },
+  returns: uploadUrlResultValidator,
 });
 
 export const attachProof = action({
@@ -80,49 +84,56 @@ export const attachProof = action({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    if (!isAllowedMimeType(args.mimeType)) {
-      try {
-        await ctx.storage.delete(args.storageId);
-      } catch {
-        // ignore cleanup errors
-      }
-      throw new ConvexError("File type not allowed. Use PDF, Office, or image files.");
-    }
-
-    if (args.fileSize < 1 || args.fileSize > MAX_FILE_BYTES) {
-      try {
-        await ctx.storage.delete(args.storageId);
-      } catch {
-        // ignore cleanup errors
-      }
-      throw new ConvexError("Each file must be between 1 byte and 15 MB.");
-    }
-
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     if (!canPrepareExpenseFileUpload(access)) {
       throw new ConvexError("FORBIDDEN");
     }
+    const { id: expenseId } = await ctx.runQuery(
+      api.crm.expenseAttachments.verifyExpenseProofMutationAccess,
+      { expenseId: args.expenseId }
+    );
+    const cleanupRejectedUpload = async () => {
+      try {
+        await ctx.storage.delete(args.storageId);
+      } catch {
+        // ignore cleanup errors
+      }
+    };
 
-    const [{ id: expenseId }, blob] = await Promise.all([
-      ctx.runQuery(api.crm.expenseAttachments.verifyExpenseProofMutationAccess, {
-        expenseId: args.expenseId,
-      }),
-      ctx.storage.get(args.storageId),
-    ]);
+    if (!isAllowedMimeType(args.mimeType)) {
+      await cleanupRejectedUpload();
+      throw new ConvexError("File type not allowed. Use PDF, Office, or image files.");
+    }
+
+    const blob = await ctx.storage.get(args.storageId);
     if (!blob) {
       throw new ConvexError("Uploaded file not found in storage");
     }
+    const actualSize = blob.size ?? args.fileSize;
+    if (actualSize < 1 || actualSize > MAX_FILE_BYTES) {
+      await cleanupRejectedUpload();
+      throw new ConvexError("Each file must be between 1 byte and 15 MB.");
+    }
+    const bytes = Buffer.from(await blob.arrayBuffer());
+    const contentDigest = createHash("sha256").update(bytes).digest("hex");
 
-    const { previousStorageId } = await ctx.runMutation(
-      internal.crm.expenseAttachments.saveExpenseProof,
-      {
-        createdBy: access.authUserId || "unknown",
-        expenseId,
-        fileName: args.fileName.trim() || "expense proof",
-        mimeType: args.mimeType.trim() || "application/octet-stream",
-        storageId: args.storageId,
-      }
-    );
+    let previousStorageId: string | null = null;
+    try {
+      ({ previousStorageId } = await ctx.runMutation(
+        internal.crm.expenseAttachments.saveExpenseProof,
+        {
+          contentDigest,
+          createdBy: access.authUserId || "unknown",
+          expenseId,
+          fileName: args.fileName.trim() || "expense proof",
+          mimeType: args.mimeType.trim() || "application/octet-stream",
+          storageId: args.storageId,
+        }
+      ));
+    } catch (error) {
+      await cleanupRejectedUpload();
+      throw error;
+    }
 
     if (previousStorageId) {
       try {
@@ -134,6 +145,7 @@ export const attachProof = action({
 
     return { success: true };
   },
+  returns: fileOperationSuccessValidator,
 });
 
 export const getDownloadUrl = action({
@@ -158,6 +170,7 @@ export const getDownloadUrl = action({
 
     return await buildDownloadFile(ctx, record);
   },
+  returns: downloadFileResultValidator,
 });
 
 export const getDownloadFile = action({
@@ -182,6 +195,7 @@ export const getDownloadFile = action({
 
     return await buildDownloadFile(ctx, record);
   },
+  returns: downloadFileResultValidator,
 });
 
 export const removeProof = action({
@@ -189,17 +203,15 @@ export const removeProof = action({
     attachmentId: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!canManageExpenseFiles(access)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-
     const record = await ctx.runQuery(api.crm.expenseAttachments.getAttachmentRecord, {
       attachmentId: args.attachmentId,
     });
     if (!record) {
       throw new ConvexError("Attachment not found");
     }
+    await ctx.runQuery(api.crm.expenseAttachments.verifyExpenseProofMutationAccess, {
+      expenseId: record.expenseId,
+    });
 
     const { storageId } = await ctx.runMutation(
       internal.crm.expenseAttachments.deleteExpenseProof,
@@ -215,4 +227,5 @@ export const removeProof = action({
 
     return { success: true };
   },
+  returns: fileOperationSuccessValidator,
 });

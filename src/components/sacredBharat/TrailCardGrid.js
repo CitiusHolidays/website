@@ -41,10 +41,10 @@ export default function TrailCardGrid() {
               >
                 <Link
                   className={cn(
-                    "group flex h-full flex-col rounded-2xl border p-6 transition-all duration-300",
+                    "group flex h-full flex-col rounded-2xl border p-6 transition-[translate,border-color,box-shadow] duration-300",
                     complete
                       ? "border-citius-orange/40 bg-citius-orange/5"
-                      : "border-brand-light hover:-translate-y-0.5 hover:border-citius-blue/30 hover:shadow-lg"
+                      : "border-brand-light fine-hover:hover:-translate-y-0.5 hover:border-citius-blue/30 hover:shadow-lg"
                   )}
                   href={`/sacred-bharat/trails/${trail.slug}`}
                 >
@@ -63,7 +63,7 @@ export default function TrailCardGrid() {
                   <div className="mt-4">
                     <div className="h-1.5 overflow-hidden rounded-full bg-brand-light">
                       <div
-                        className="h-full rounded-full bg-citius-blue transition-all duration-500"
+                        className="h-full rounded-full bg-citius-blue transition-[width] duration-500"
                         style={{ width: `${percent}%` }}
                       />
                     </div>
@@ -73,7 +73,7 @@ export default function TrailCardGrid() {
                   </div>
                   <span className="mt-4 inline-flex items-center gap-1 font-medium text-citius-blue text-sm">
                     View trail
-                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                    <ArrowRight className="size-4 transition-transform fine-hover:group-hover:translate-x-0.5" />
                   </span>
                 </Link>
               </m.div>

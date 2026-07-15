@@ -1,7 +1,6 @@
 import { groq } from "next-sanity";
 import { getTrailSlugsForStaticParams } from "@/data/trails";
-import { client } from "@/sanity/client";
-import { sanityFetchOptions } from "@/sanity/fetchOptions";
+import { cachedSanityFetch } from "@/sanity/cachedFetch";
 
 export default async function sitemap() {
   const baseUrl = "https://www.citiusholidays.com";
@@ -11,7 +10,7 @@ export default async function sitemap() {
     "slug": slug.current,
     _updatedAt
   }`;
-  const posts = await client.fetch(postsQuery, {}, sanityFetchOptions.sitemap);
+  const posts = await cachedSanityFetch(postsQuery, {}, ["blog"]);
 
   const postUrls = posts.map((post) => ({
     changeFrequency: "daily",

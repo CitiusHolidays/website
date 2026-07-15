@@ -1,4 +1,7 @@
 import { normalizeTravellerGender } from "./travellerSummary";
+
+export { formatRoomSummaryText, summarizeRoomTypes } from "./roomSummary";
+
 import {
   parseExcelDateCode,
   type WorkbookCellValue,
@@ -1170,32 +1173,4 @@ export function parseFlightWorkbook(workbook: WorkbookRows): FlightWorkbookParse
       group.segments.length > 0 ? [group] : []
     ),
   };
-}
-
-/** Count passengers by room type for import preview / post-upload summary. */
-export function summarizeRoomTypes(
-  rows: Array<{ roomType?: unknown }> | undefined
-): Record<string, number> {
-  const summary: Record<string, number> = {};
-  for (const row of rows || []) {
-    const roomType = String(row?.roomType ?? "").trim();
-    if (!roomType) {
-      continue;
-    }
-    summary[roomType] = (summary[roomType] ?? 0) + 1;
-  }
-  return summary;
-}
-
-export function formatRoomSummaryText(
-  summary: Record<string, number> | undefined,
-  jobCode?: string
-): string {
-  const entries = Object.entries(summary || {}).sort(([a], [b]) => a.localeCompare(b));
-  if (entries.length === 0) {
-    return "";
-  }
-  const prefix = jobCode ? `${jobCode}: ` : "";
-  const parts = entries.map(([roomType, count]) => `${roomType} ${count}`);
-  return `${prefix}${parts.join(", ")}`;
 }

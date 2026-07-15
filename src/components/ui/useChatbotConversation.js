@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  applyClientAiStreamEvent,
+  createClientAiMessage,
+  markClientAiMessageTerminal,
+} from "@/lib/ai/uiMessageStream";
 import { streamChatResponse } from "./chatbotStream";
 
 const CHAT_HISTORY_KEY = "citius-chat-history:v4";
@@ -16,7 +21,32 @@ function loadStoredMessages() {
 
   try {
     const parsedMessages = JSON.parse(savedMessages);
-    return Array.isArray(parsedMessages) ? parsedMessages : [];
+    return Array.isArray(parsedMessages)
+      ? parsedMessages.flatMap((message, messageIndex) => {
+          if (!(message && (message.role === "assistant" || message.role === "user"))) {
+            return [];
+          }
+          const parts = Array.isArray(message.parts)
+            ? message.parts.map((part, partIndex) => ({
+                ...part,
+                id: part?.id || `${message.role}-${messageIndex}-part-${partIndex}`,
+              }))
+            : [];
+          return [
+            {
+              ...message,
+              parts,
+              requestId: message.requestId || message.id,
+              terminalState:
+                message.role === "assistant"
+                  ? message.terminalState === "generating"
+                    ? "interrupted"
+                    : message.terminalState || "complete"
+                  : undefined,
+            },
+          ];
+        })
+      : [];
   } catch (error) {
     console.error("Error loading chat history:", error);
     localStorage.removeItem(CHAT_HISTORY_KEY);
@@ -36,36 +66,18 @@ function persistMessages(messages) {
 }
 
 function createUserMessage(text) {
-  return {
-    id: `user-${Date.now()}`,
-    parts: [{ text, type: "text" }],
-    role: "user",
-  };
-}
-
-function createAssistantMessage(id, text) {
+  const id = `user-${crypto.randomUUID()}`;
   return {
     id,
-    parts: [{ text, type: "text" }],
-    role: "assistant",
+    parts: [{ id: `${id}-text`, text, type: "text" }],
+    role: "user",
   };
-}
-
-function upsertAssistantText(messages, assistantId, text) {
-  const existingIndex = messages.findIndex((message) => message.id === assistantId);
-  const assistantMessage = createAssistantMessage(assistantId, text);
-  if (existingIndex === -1) {
-    return [...messages, assistantMessage];
-  }
-
-  const nextMessages = [...messages];
-  nextMessages[existingIndex] = assistantMessage;
-  return nextMessages;
 }
 
 export function useChatbotConversation() {
   const messagesContainerRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const mountedRef = useRef(false);
   const [messages, setMessages] = useState(loadStoredMessages);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -83,6 +95,97 @@ export function useChatbotConversation() {
     setInputRows(Math.min(Math.max(1, lines), 3));
   };
 
+  const runRequest = async (requestMessages, userMessage) => {
+    if (abortControllerRef.current) {
+      return;
+    }
+    const assistantId = `assistant-${crypto.randomUUID()}`;
+    const assistantMessage = createClientAiMessage(assistantId);
+    setMessages([...requestMessages, assistantMessage]);
+    setErrorMessage("");
+    setIsLoading(true);
+
+    const abortController = new AbortController();
+    const activeRequest = { assistantId, controller: abortController };
+    abortControllerRef.current = activeRequest;
+
+    const finishRequest = () => {
+      if (abortControllerRef.current === activeRequest) {
+        abortControllerRef.current = null;
+      }
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
+    };
+
+    const result = await streamChatResponse({
+      assistantId,
+      messages: requestMessages,
+      onMessage: (nextAssistantMessage) => {
+        if (!(mountedRef.current && abortControllerRef.current === activeRequest)) {
+          return;
+        }
+        setMessages((currentMessages) => {
+          const existingIndex = currentMessages.findIndex(
+            (message) =>
+              message.requestId === assistantId ||
+              message.id === assistantId ||
+              message.id === nextAssistantMessage.id
+          );
+          if (existingIndex < 0) {
+            return currentMessages;
+          }
+          const nextMessages = [...currentMessages];
+          nextMessages[existingIndex] = nextAssistantMessage;
+          return nextMessages;
+        });
+      },
+      onStreamError: (message) => {
+        if (mountedRef.current && abortControllerRef.current === activeRequest) {
+          setErrorMessage(() => message);
+        }
+      },
+      signal: abortController.signal,
+      userMessage,
+    }).catch((error) => {
+      if (mountedRef.current && abortControllerRef.current === activeRequest) {
+        const terminalState = abortController.signal.aborted ? "cancelled" : "failed";
+        setMessages((currentMessages) =>
+          currentMessages.map((message) => {
+            if (message.requestId !== assistantId) {
+              return message;
+            }
+            if (terminalState === "cancelled") {
+              return markClientAiMessageTerminal(message, terminalState);
+            }
+            return applyClientAiStreamEvent(message, {
+              errorText: "Sorry, I encountered an error. Please try again.",
+              type: "error",
+            });
+          })
+        );
+        if (!abortController.signal.aborted) {
+          console.error("Error sending message:", error);
+          setErrorMessage("Sorry, I encountered an error. Please try again.");
+        }
+      }
+      return null;
+    });
+
+    if (
+      mountedRef.current &&
+      abortControllerRef.current === activeRequest &&
+      result &&
+      !result.streamedVisibleText &&
+      !result.streamHadError &&
+      result.message.terminalState === "complete"
+    ) {
+      setErrorMessage("Citius Concierge could not complete that response. Please try again.");
+    }
+
+    finishRequest();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const text = input.trim();
@@ -91,58 +194,68 @@ export function useChatbotConversation() {
     }
 
     const userMessage = createUserMessage(text);
-    const nextMessages = [...messages, userMessage];
-
-    setMessages(nextMessages);
+    const requestMessages = [...messages, userMessage];
     setInput("");
     setInputRows(1);
-    setErrorMessage("");
-    setIsLoading(true);
+    await runRequest(requestMessages, userMessage);
+  };
 
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    const finishRequest = () => {
-      if (abortControllerRef.current === abortController) {
-        abortControllerRef.current = null;
-      }
-      setIsLoading(false);
-    };
-
-    const assistantId = `assistant-${Date.now()}`;
-
-    const result = await streamChatResponse({
-      assistantId,
-      messages: nextMessages,
-      onStreamError: (message) => {
-        setErrorMessage(message);
-      },
-      onTextDelta: (visibleText) => {
-        setMessages((currentMessages) =>
-          upsertAssistantText(currentMessages, assistantId, visibleText)
-        );
-      },
-      signal: abortController.signal,
-      userMessage,
-    }).catch((error) => {
-      if (abortController.signal.aborted) {
-        return null;
-      }
-      console.error("Error sending message:", error);
-      setErrorMessage("Sorry, I encountered an error. Please try again.");
-      return null;
-    });
-
-    if (result && !result.streamedVisibleText && !result.streamHadError) {
-      setErrorMessage("Citius Concierge could not complete that response. Please try again.");
+  const cancelActiveRequest = () => {
+    const activeRequest = abortControllerRef.current;
+    if (!activeRequest) {
+      return;
     }
+    abortControllerRef.current = null;
+    activeRequest.controller.abort("user-cancelled");
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.requestId === activeRequest.assistantId
+          ? markClientAiMessageTerminal(message, "cancelled")
+          : message
+      )
+    );
+    setIsLoading(false);
+  };
 
-    finishRequest();
+  const clearConversation = () => {
+    cancelActiveRequest();
+    setMessages([]);
+    setErrorMessage("");
+  };
+
+  const retryLastResponse = async () => {
+    if (isLoading) {
+      return;
+    }
+    const assistantIndex = messages.findLastIndex(
+      (message) =>
+        message.role === "assistant" &&
+        ["cancelled", "failed", "interrupted"].includes(message.terminalState)
+    );
+    if (assistantIndex !== messages.length - 1) {
+      return;
+    }
+    const userMessage = messages
+      .slice(0, assistantIndex)
+      .findLast((message) => message.role === "user");
+    if (!userMessage) {
+      return;
+    }
+    await runRequest(messages.slice(0, assistantIndex), userMessage);
   };
 
   useEffect(() => {
     persistMessages(messages);
   }, [messages]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      abortControllerRef.current?.controller.abort("component-unmounted");
+      abortControllerRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     if (!messagesContainerRef.current) {
@@ -156,6 +269,8 @@ export function useChatbotConversation() {
   });
 
   return {
+    cancelActiveRequest,
+    clearConversation,
     errorMessage,
     handleInputChange,
     handleSubmit,
@@ -164,6 +279,7 @@ export function useChatbotConversation() {
     isLoading,
     messages,
     messagesContainerRef,
+    retryLastResponse,
     setInput,
     updateMessages,
   };

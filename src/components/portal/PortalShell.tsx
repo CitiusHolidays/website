@@ -11,7 +11,6 @@ import {
   LogOut,
   Menu,
   Plus,
-  UserRound,
   X,
 } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
@@ -27,13 +26,11 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import {
-  PortalChromeProvider,
-  type PortalNavShortcuts,
-  usePortalChrome,
-} from "@/components/portal/PortalChromeContext";
+import { PortalAccountAvatar } from "@/components/portal/PortalAccountAvatar";
+import { PortalChromeProvider } from "@/components/portal/PortalChromeContext";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
+import { type PortalNavShortcuts, usePortalChrome } from "@/components/portal/portalChromeState";
 import SaveViewDialog from "@/components/portal/SaveViewDialog";
 import { logout } from "@/lib/auth-client";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
@@ -61,6 +58,7 @@ interface PortalAccess {
 
 interface PortalUser {
   email?: string | null;
+  image?: string | null;
   name?: string | null;
 }
 
@@ -215,13 +213,14 @@ function MobileQuickAccess({ action, items, onNavigate, pathname }: MobileQuickA
 
 interface AccountMenuProps {
   email?: string | null;
+  image?: string | null;
   name: string;
   onClose: () => void;
   onToggle: () => void;
   open: boolean;
 }
 
-function AccountMenu({ email, name, onClose, onToggle, open }: AccountMenuProps) {
+function AccountMenu({ email, image, name, onClose, onToggle, open }: AccountMenuProps) {
   const shouldReduceMotion = useReducedMotion();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -261,9 +260,7 @@ function AccountMenu({ email, name, onClose, onToggle, open }: AccountMenuProps)
         ref={buttonRef}
         type="button"
       >
-        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-citius-blue/10 text-citius-blue">
-          <UserRound aria-hidden="true" size={16} />
-        </span>
+        <PortalAccountAvatar image={image} name={name} />
         <span className="hidden min-w-0 lg:block">
           <span className="block max-w-40 truncate font-semibold text-brand-dark text-sm">
             {name}
@@ -307,9 +304,14 @@ function AccountMenu({ email, name, onClose, onToggle, open }: AccountMenuProps)
               transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
             >
               <div className="border-brand-border border-b px-4 py-3">
-                <div className="truncate font-semibold text-brand-dark text-sm">{name}</div>
-                <div className="mt-0.5 truncate text-[length:var(--portal-label-size)] text-brand-muted">
-                  {email}
+                <div className="flex items-center gap-3">
+                  <PortalAccountAvatar image={image} name={name} />
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold text-brand-dark text-sm">{name}</div>
+                    <div className="mt-0.5 truncate text-[length:var(--portal-label-size)] text-brand-muted">
+                      {email}
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="p-2">
@@ -368,6 +370,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   const compactRoleLabel = getCompactRoleLabel(roles);
   const accountName = access.name || user?.name || "Staff";
   const accountEmail = access.email || user?.email;
+  const accountImage = user?.image;
   const unreadCount =
     notificationSummary?.unreadCount ?? notificationRows.filter((item) => !item.readAt).length;
 
@@ -410,7 +413,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
             </a>
             <div
               aria-hidden
-              className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,42,131,0.08),transparent),radial-gradient(ellipse_60%_40%_at_100%_100%,rgba(245,130,32,0.06),transparent)]"
+              className="pointer-events-none fixed inset-0 -z-10 bg-[url('/gallery/bgfooter.webp')] bg-brand-light bg-center bg-cover opacity-[0.06]"
             />
 
             <header
@@ -437,7 +440,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                     />
                   </Link>
                   <span
-                    className="inline-flex min-h-8 max-w-[8rem] shrink-0 items-center rounded-full border border-citius-orange/20 bg-citius-orange/10 px-2.5 text-center font-semibold text-[length:var(--portal-label-size)] text-citius-orange leading-tight sm:max-w-none sm:px-3"
+                    className="inline-flex min-h-8 max-w-[8rem] shrink-0 items-center rounded-full border border-citius-orange/20 bg-citius-orange/10 px-2.5 text-center font-semibold text-[length:var(--portal-label-size)] text-citius-orange-ink leading-tight sm:max-w-none sm:px-3"
                     title={roleLabel}
                   >
                     <span className="sr-only">Roles: {roleLabel}</span>
@@ -460,7 +463,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                         {unreadCount > 0 && (
                           <m.span
                             animate={{ opacity: 1, scale: 1 }}
-                            className="absolute -top-1 -right-1 min-w-5 rounded-full bg-citius-orange px-1.5 text-center font-bold text-[10px] text-white tabular-nums leading-5 shadow-sm"
+                            className="absolute -top-1 -right-1 min-w-5 rounded-full bg-citius-blue px-1.5 text-center font-bold text-[10px] text-white tabular-nums leading-5 shadow-sm"
                             initial={{ opacity: 0, scale: 0.95 }}
                           >
                             {unreadCount > 99 ? "99+" : unreadCount}
@@ -523,7 +526,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                               </div>
                               <div className="border-brand-border border-t px-4 py-3">
                                 <Link
-                                  className="font-semibold text-citius-blue text-xs transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange"
+                                  className="font-semibold text-citius-blue text-xs transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink"
                                   href="/portal/activity"
                                   onClick={() => setNotificationsOpen(false)}
                                 >
@@ -539,6 +542,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
 
                   <AccountMenu
                     email={accountEmail}
+                    image={accountImage}
                     name={accountName}
                     onClose={closeAccountMenu}
                     onToggle={toggleAccountMenu}
@@ -559,7 +563,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                     <m.button
                       animate={{ opacity: 1 }}
                       aria-label="Close portal navigation backdrop"
-                      className={`fixed inset-0 ${PORTAL_Z.mobileBackdrop} bg-slate-950/60 backdrop-blur-sm lg:hidden`}
+                      className={`fixed inset-0 ${PORTAL_Z.mobileBackdrop} bg-slate-950/70 lg:hidden`}
                       exit={{ opacity: 0 }}
                       initial={{ opacity: 0 }}
                       onClick={() => setSidebarOpen(false)}
@@ -800,7 +804,7 @@ function PortalNav({
                             ))}
                             {hiddenShortcutCount > 0 ? (
                               <Link
-                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange active:scale-[0.96]"
+                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink active:scale-[0.96]"
                                 href={item.href}
                                 onClick={onNavigate}
                               >
@@ -808,7 +812,7 @@ function PortalNav({
                               </Link>
                             ) : (
                               <Link
-                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange active:scale-[0.96]"
+                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink active:scale-[0.96]"
                                 href={item.href}
                                 onClick={onNavigate}
                               >
@@ -832,7 +836,7 @@ function PortalNav({
               <span className="font-heading font-semibold text-citius-blue/70 text-xs">Pinned</span>
               {savedViewActions?.saveCurrentView ? (
                 <button
-                  className="font-semibold text-[length:var(--portal-label-size)] text-citius-blue transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange"
+                  className="font-semibold text-[length:var(--portal-label-size)] text-citius-blue transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink"
                   onClick={() => dispatchNavState({ open: true, type: "saveDialogOpen" })}
                   type="button"
                 >

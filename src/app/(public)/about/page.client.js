@@ -213,7 +213,7 @@ export default function AboutPage() {
               </m.li>
 
               <m.li className="group relative" variants={timelineItemVariants}>
-                <span className="absolute top-6 -left-9 flex size-6 items-center justify-center rounded-full bg-citius-orange text-white shadow-md ring-4 ring-white">
+                <span className="absolute top-6 -left-9 flex size-6 items-center justify-center rounded-full bg-citius-orange text-brand-dark shadow-md ring-4 ring-white">
                   <Telescope className="size-3" />
                 </span>
                 <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition group-hover:shadow-lg">

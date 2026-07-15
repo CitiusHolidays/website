@@ -1,19 +1,69 @@
 "use client";
 
-import { Loader2, Sparkles } from "lucide-react";
-import { useRef, useState } from "react";
+import { Loader2, Sparkles, Square } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { MessageResponse } from "@/components/ai-elements/message";
+import { markClientAiMessageTerminal } from "@/lib/ai/uiMessageStream";
 import { suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
 import { streamJourneyPlannerResponse } from "@/lib/sacredBharat/journeyPlannerStream";
 import { cn } from "@/utils/cn";
 import { useSacredBharatContext } from "./SacredBharatProvider";
 
+export function JourneyPlanResponse({ message }) {
+  if (!message) {
+    return null;
+  }
+  const terminalCopy = {
+    cancelled: "Journey planning cancelled.",
+    failed: "Journey planning failed before completion.",
+    interrupted: "Journey planning was interrupted; the partial plan is preserved below.",
+  }[message.terminalState];
+
+  return (
+    <div className="mt-6 space-y-3 font-sans text-brand-dark">
+      {message.parts.map((part) => {
+        const key = `${message.id}-${part.type}-${part.id}`;
+        if (part.type === "text") {
+          return (
+            <MessageResponse className="prose prose-sm max-w-none" key={key}>
+              {part.text}
+            </MessageResponse>
+          );
+        }
+        if (part.type === "reasoning" || part.type === "status") {
+          return (
+            <p className="text-brand-muted text-sm" key={key} role="status">
+              {part.status === "complete"
+                ? "Journey details prepared"
+                : "Preparing journey details…"}
+            </p>
+          );
+        }
+        if (part.type === "error") {
+          return (
+            <p
+              className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-800 text-sm"
+              key={key}
+            >
+              {part.text}
+            </p>
+          );
+        }
+        return null;
+      })}
+      {terminalCopy ? <p className="text-brand-muted text-xs">{terminalCopy}</p> : null}
+    </div>
+  );
+}
+
 export default function JourneyPlannerPanel() {
   const { progress, visitedTempleIds } = useSacredBharatContext();
   const [focusTempleId, setFocusTempleId] = useState(null);
-  const [planText, setPlanText] = useState("");
+  const [planMessage, setPlanMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const abortRef = useRef(null);
+  const mountedRef = useRef(false);
 
   const suggestions = suggestNextJourneys(visitedTempleIds, { limit: 4 });
   const activeFocus = focusTempleId ?? suggestions[0]?.temple?.id ?? null;
@@ -23,7 +73,7 @@ export default function JourneyPlannerPanel() {
       return;
     }
 
-    setPlanText("");
+    setPlanMessage(null);
     setErrorMessage("");
     setIsLoading(true);
 
@@ -39,13 +89,21 @@ export default function JourneyPlannerPanel() {
 
     await streamJourneyPlannerResponse({
       focusTempleId: activeFocus,
-      onStreamError: (message) => setErrorMessage(message),
-      onTextDelta: (text) => setPlanText(text),
+      onMessage: (message) => {
+        if (mountedRef.current && abortRef.current === abortController) {
+          setPlanMessage(() => message);
+        }
+      },
+      onStreamError: (message) => {
+        if (mountedRef.current && abortRef.current === abortController) {
+          setErrorMessage(() => message);
+        }
+      },
       signal: abortController.signal,
       visitedTempleIds,
       wishlistTrailSlugs,
     }).catch(() => {
-      if (!abortController.signal.aborted) {
+      if (mountedRef.current && !abortController.signal.aborted) {
         setErrorMessage("Could not generate your journey plan. Please try again.");
       }
     });
@@ -53,8 +111,32 @@ export default function JourneyPlannerPanel() {
     if (abortRef.current === abortController) {
       abortRef.current = null;
     }
+    if (mountedRef.current) {
+      setIsLoading(false);
+    }
+  };
+
+  const cancelPlan = () => {
+    const abortController = abortRef.current;
+    if (!abortController) {
+      return;
+    }
+    abortRef.current = null;
+    abortController.abort("user-cancelled");
+    setPlanMessage((message) =>
+      message ? markClientAiMessageTerminal(message, "cancelled") : message
+    );
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      abortRef.current?.abort("component-unmounted");
+      abortRef.current = null;
+    };
+  }, []);
 
   if (suggestions.length === 0) {
     return (
@@ -80,6 +162,9 @@ export default function JourneyPlannerPanel() {
             Personalized pilgrimage ideas from your Soul Score progress — season, airport,
             mythology, and day-by-day outline.
           </p>
+          <p className="mt-1 font-sans text-brand-muted text-xs">
+            Do not include passport, payment, or other sensitive personal information.
+          </p>
         </div>
       </div>
 
@@ -101,15 +186,35 @@ export default function JourneyPlannerPanel() {
         ))}
       </div>
 
-      <button
-        className="inline-flex items-center gap-2 rounded-full bg-citius-blue px-5 py-2.5 font-medium text-sm text-white hover:bg-citius-blue/90 disabled:opacity-60"
-        disabled={isLoading || !activeFocus}
-        onClick={generatePlan}
-        type="button"
-      >
-        {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-        {isLoading ? "Planning your pilgrimage…" : "Plan my journey with AI"}
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          className="inline-flex items-center gap-2 rounded-full bg-citius-blue px-5 py-2.5 font-medium text-sm text-white hover:bg-citius-blue/90 disabled:opacity-60"
+          disabled={isLoading || !activeFocus}
+          onClick={generatePlan}
+          type="button"
+        >
+          {isLoading ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Sparkles className="size-4" />
+          )}
+          {isLoading
+            ? "Planning your pilgrimage…"
+            : ["cancelled", "failed", "interrupted"].includes(planMessage?.terminalState)
+              ? "Retry journey plan"
+              : "Plan my journey with AI"}
+        </button>
+        {isLoading ? (
+          <button
+            className="inline-flex items-center gap-2 rounded-full border border-citius-blue px-4 py-2.5 font-medium text-citius-blue text-sm hover:bg-citius-blue/5"
+            onClick={cancelPlan}
+            type="button"
+          >
+            <Square className="size-3.5 fill-current" />
+            Cancel
+          </button>
+        ) : null}
+      </div>
 
       {errorMessage ? (
         <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-800 text-sm">
@@ -117,11 +222,7 @@ export default function JourneyPlannerPanel() {
         </p>
       ) : null}
 
-      {planText ? (
-        <div className="prose prose-sm mt-6 max-w-none whitespace-pre-wrap font-sans text-brand-dark">
-          {planText}
-        </div>
-      ) : null}
+      <JourneyPlanResponse message={planMessage} />
     </div>
   );
 }

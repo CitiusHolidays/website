@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { deleteTravellerRecord } from "../../../convex/crm/travellers";
+import { deleteNotificationPage } from "../../../convex/crm/notificationCleanup";
+import { continueTravellerCleanup, deleteTravellerRecord } from "../../../convex/crm/travellers";
 
 type Row = { _id: string; [key: string]: unknown };
 type Tables = Record<string, Row[]>;
@@ -31,11 +32,21 @@ function makeCtx(initialTables: Tables) {
         tables[tableName] = [...(tables[tableName] ?? []), { _id: id, ...doc }];
         return id;
       },
-      patch: async () => {},
+      normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
+      patch: async (id: string, patch: Record<string, unknown>) => {
+        for (const [table, rows] of Object.entries(tables)) {
+          const index = rows.findIndex((row) => row._id === id);
+          if (index >= 0) {
+            tables[table][index] = { ...rows[index], ...patch };
+            return;
+          }
+        }
+      },
       query(tableName: string) {
         let rows = tables[tableName] ?? [];
         return {
           collect: async () => [...rows],
+          take: async (count: number) => rows.slice(0, count),
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const q = {
@@ -51,6 +62,35 @@ function makeCtx(initialTables: Tables) {
             return this;
           },
         };
+      },
+    },
+    scheduler: {
+      runAfter: async (
+        _delay: number,
+        _functionReference: unknown,
+        args: {
+          entityId?: string;
+          entityType?: string;
+          identities?: Array<{ entityId: string; entityType: string }>;
+          mode?: "all" | "private";
+          stage?: string;
+          travellerId?: string;
+        }
+      ) => {
+        if (args.travellerId && args.stage && args.mode) {
+          await (continueTravellerCleanup as any)._handler(ctx, args);
+          return;
+        }
+        const identities =
+          args.identities ??
+          (args.entityId && args.entityType
+            ? [{ entityId: args.entityId, entityType: args.entityType }]
+            : []);
+        await Promise.all(
+          identities.map((identity) =>
+            deleteNotificationPage(ctx as never, identity.entityType, identity.entityId)
+          )
+        );
       },
     },
     storage: {

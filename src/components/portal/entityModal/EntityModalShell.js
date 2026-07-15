@@ -4,9 +4,16 @@ import { CheckCircle2, Loader2, X } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import { useEffect, useRef } from "react";
 import { LifecycleDates } from "@/components/portal/PortalModalForm";
+import {
+  getEntityModalFieldColumns,
+  getEntityModalMaxWidthClass,
+  getEntityModalSize,
+} from "@/lib/portal/entityModalLayout";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
+import { EntityModalFieldSection } from "./EntityModalFieldSection";
 import { EntityModalFieldsPrimary } from "./EntityModalFieldsPrimary";
 import { EntityModalFieldsSecondary } from "./EntityModalFieldsSecondary";
+import { getEntityModalSectionMeta } from "./entityModalSectionMeta";
 
 export function EntityModalShell({
   modal,
@@ -88,13 +95,24 @@ export function EntityModalShell({
   };
 
   const isQueryTaskSheet = modal === "query";
+  const sectionMeta = getEntityModalSectionMeta(modal);
+  const modalMaxWidthClass = getEntityModalMaxWidthClass(modal);
+  const fieldColumns = getEntityModalFieldColumns(modal);
+  const isCompactModal = getEntityModalSize(modal) === "compact";
+
+  const fieldBody = (
+    <>
+      <EntityModalFieldsPrimary {...primaryProps} />
+      <EntityModalFieldsSecondary {...secondaryProps} />
+    </>
+  );
 
   return (
     <AnimatePresence>
       {modal && (
         <m.div
           animate={{ opacity: 1 }}
-          className={`fixed inset-0 ${PORTAL_Z.entityModal} grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm`}
+          className={`fixed inset-0 ${PORTAL_Z.entityModal} grid place-items-center bg-slate-950/65 p-4`}
           exit={{ opacity: 0 }}
           initial={{ opacity: 0 }}
           key={modal}
@@ -105,7 +123,7 @@ export function EntityModalShell({
             aria-describedby={error ? "portal-entity-modal-error" : undefined}
             aria-labelledby="portal-entity-modal-title"
             aria-modal="true"
-            className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden overscroll-contain rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none"
+            className={`flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none`}
             exit={{ opacity: 0, scale: 0.98, y: 24 }}
             initial={{ opacity: 0, scale: 0.98, y: 24 }}
             onClick={(event) => event.stopPropagation()}
@@ -167,7 +185,8 @@ export function EntityModalShell({
                 <LifecycleDates
                   items={[
                     { label: "Created", value: lifecycleProposal.createdAt },
-                    { label: "Sent", value: lifecycleProposal.sentAt },
+                    { label: "Sales handoff", value: lifecycleProposal.sentToSalesAt },
+                    { label: "Client delivery", value: lifecycleProposal.sentToClientAt },
                     { label: "Finalized PDF", value: lifecycleProposal.finalizedPdf?.uploadedAt },
                   ]}
                 />
@@ -180,12 +199,22 @@ export function EntityModalShell({
                   ]}
                 />
               )}
-              <div className="grid gap-4 md:grid-cols-2">
-                <EntityModalFieldsPrimary {...primaryProps} />
-                <EntityModalFieldsSecondary {...secondaryProps} />
-              </div>
+              {isQueryTaskSheet || !sectionMeta ? (
+                <div className="grid gap-4 md:grid-cols-2">{fieldBody}</div>
+              ) : isCompactModal ? (
+                <div className="grid grid-cols-1 gap-4">{fieldBody}</div>
+              ) : (
+                <EntityModalFieldSection
+                  columns={fieldColumns}
+                  description={sectionMeta.description}
+                  eyebrow={sectionMeta.eyebrow}
+                  title={sectionMeta.title}
+                >
+                  {fieldBody}
+                </EntityModalFieldSection>
+              )}
             </div>
-            <div className="flex shrink-0 justify-end gap-3 border-brand-border border-t bg-white px-5 py-4 max-sm:grid max-sm:grid-cols-2 max-sm:px-4 max-sm:pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div className="flex shrink-0 justify-end gap-3 border-brand-border border-t bg-white px-5 py-4 max-sm:grid max-sm:grid-cols-2 max-sm:px-4 max-sm:pb-[max(1rem,var(--safe-area-inset-bottom))]">
               <button className="portal-outline-btn max-sm:w-full" onClick={close} type="button">
                 {["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(modal)
                   ? "Close"

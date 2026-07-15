@@ -11,13 +11,20 @@
     "lint": "ultracite check",
     "lint:fix": "ultracite fix",
     "lint:doctor": "ultracite doctor",
+    "lint:ratchet": "bun config/release/lint-ratchet.ts",
+    "lint:ratchet:update": "bun config/release/lint-ratchet.ts --write-baseline",
     "format": "ultracite fix",
     "typecheck": "next typegen && tsc --noEmit --project tsconfig.json",
+    "convex:typecheck": "cd convex && bunx tsc --noEmit",
     "test": "bun test",
-    "check": "bun run lint && bun test",
-    "perf:hero-baseline": "node bin/perf-hero-baseline.mjs",
+    "check": "bun run lint && bun run lint:ratchet && bun test",
+    "config:check": "bun test config/release/release-contract.test.ts",
+    "diff:check": "bun config/release/check-diff-hygiene.ts",
+    "ai:benchmark": "bun scripts/benchmark-ai-runtime.ts",
+    "ai:config-check": "bun config/release/ai-runtime-config.ts",
+    "assets:check": "bun config/release/check-public-assets.ts",
+    "smoke:browser": "bun scripts/browser-smoke.ts",
     "optimize-images": "node scripts/full-optimize-images.mjs",
-    "encode:hero": "powershell -ExecutionPolicy Bypass -File ./bin/encode-hero.ps1",
     "convex:dev": "bunx convex dev",
     "convex:codegen": "bunx convex codegen",
     "auth:schema:generate": "bunx @better-auth/cli generate --config ./convex/betterAuth/auth.ts --output ./convex/betterAuth/schema.ts",
@@ -62,5 +69,8 @@
     "tailwindcss": "^4.3.2",
     "typescript": "^6.0.3",
     "ultracite": "7.9.0"
+  },
+  "overrides": {
+    "ws": "8.21.0"
   }
 }

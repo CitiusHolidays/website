@@ -14,7 +14,7 @@ function TestimonialCard({ testimonial, index }) {
       viewport={{ margin: "-50px", once: true }}
       whileInView={{ opacity: 1, y: 0 }}
     >
-      <div className="relative flex h-full flex-col rounded-2xl border border-brand-light/50 bg-white p-6 shadow-brand-dark/5 shadow-lg transition-all duration-500 hover:border-citius-orange/20 hover:shadow-brand-dark/10 hover:shadow-xl md:rounded-3xl md:p-10">
+      <div className="relative flex h-full flex-col rounded-2xl border border-brand-light/50 bg-white p-6 shadow-brand-dark/5 shadow-lg transition-[border-color,box-shadow] duration-500 hover:border-citius-orange/20 hover:shadow-brand-dark/10 hover:shadow-xl md:rounded-3xl md:p-10">
         {/* Quote Icon */}
         <div className="absolute -top-4 -left-2 flex size-10 items-center justify-center rounded-full bg-citius-orange shadow-lg md:-top-5 md:-left-3 md:h-12 md:w-12">
           <Quote className="size-4 text-white md:h-5 md:w-5" />
@@ -107,7 +107,7 @@ export default function TestimonialsSection({ className }) {
             Join hundreds of fulfilled yatris who have made this sacred journey with us.
           </p>
           <a
-            className="inline-flex items-center gap-2 rounded-full bg-citius-blue px-8 py-3.5 font-heading text-sm text-white tracking-wider shadow-citius-blue/20 shadow-lg transition-all duration-300 hover:-translate-y-0.5 hover:bg-citius-blue/90"
+            className="inline-flex items-center gap-2 rounded-full bg-citius-blue px-8 py-3.5 font-heading text-sm text-white tracking-wider shadow-citius-blue/20 shadow-lg transition-[translate,background-color] duration-300 fine-hover:hover:-translate-y-0.5 hover:bg-citius-blue/90"
             href="#journey-details"
           >
             Begin Your Journey

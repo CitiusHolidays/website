@@ -130,7 +130,7 @@ function ResetPasswordForm() {
             </label>
             <div className="relative">
               <input
-                className="w-full rounded-xl border border-[#e2e8f0] bg-white py-3.5 pr-11 pl-11 text-[#0f172a] text-lg outline-none transition-all duration-200 placeholder:font-light placeholder:text-[#94a3b8] focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20"
+                className="w-full rounded-xl border border-[#e2e8f0] bg-white py-3.5 pr-11 pl-11 text-[#0f172a] text-lg outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-light placeholder:text-[#94a3b8] focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20"
                 id="reset-password"
                 onChange={(e) =>
                   dispatch({ name: "password", type: "field", value: e.target.value })
@@ -161,7 +161,7 @@ function ResetPasswordForm() {
             </label>
             <div className="relative">
               <input
-                className="w-full rounded-xl border border-[#e2e8f0] bg-white py-3.5 pr-4 pl-11 text-[#0f172a] text-lg outline-none transition-all duration-200 placeholder:font-light placeholder:text-[#94a3b8] focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20"
+                className="w-full rounded-xl border border-[#e2e8f0] bg-white py-3.5 pr-4 pl-11 text-[#0f172a] text-lg outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-light placeholder:text-[#94a3b8] focus:border-[#d4af37] focus:ring-2 focus:ring-[#d4af37]/20"
                 id="reset-confirm-password"
                 onChange={(e) =>
                   dispatch({ name: "confirmPassword", type: "field", value: e.target.value })
@@ -176,14 +176,14 @@ function ResetPasswordForm() {
           </div>
 
           <button
-            className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#0B1026] py-4 font-medium text-lg text-white shadow-[#0B1026]/20 shadow-lg transition-all duration-300 hover:shadow-[#0B1026]/30 hover:shadow-xl"
+            className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#0B1026] py-4 font-medium text-lg text-white shadow-[#0B1026]/20 shadow-lg transition-shadow duration-300 hover:shadow-[#0B1026]/30 hover:shadow-xl"
             disabled={isLoading}
             type="submit"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 transition-opacity group-hover:opacity-90" />
             <span className="relative z-10">{isLoading ? "Saving…" : "Set password"}</span>
             {isLoading ? null : (
-              <ArrowRight className="relative z-10 size-5 transition-transform group-hover:translate-x-1" />
+              <ArrowRight className="relative z-10 size-5 transition-transform fine-hover:group-hover:translate-x-1" />
             )}
           </button>
         </form>

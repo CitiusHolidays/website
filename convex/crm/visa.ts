@@ -1,16 +1,31 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import {
-  assertBulkDeleteLimit,
+  assertBulkDeleteMutationBatch,
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
+  flushDeferredNotificationCleanup,
+  type NotificationEntityIdentity,
   PERMISSIONS,
   type PortalAccess,
   requireStaff,
 } from "./lib";
+import {
+  deletedCountResultValidator,
+  travellerWithoutVisaListResultValidator,
+  visaIdResultValidator,
+  visaListPageResultValidator,
+} from "./operationsReturnContracts";
+import {
+  applyCrmCursorFilters,
+  boundedPaginationOptions,
+  compactPageItems,
+  mapInBoundedBatches,
+} from "./paginationPolicy";
 
 const visaStatusValidator = v.union(
   v.literal("Not Required"),
@@ -51,35 +66,37 @@ const publicVisa = (record: any, traveller: any, job: any, travelBatch: any = nu
 });
 
 export const list = query({
-  args: {},
-  handler: async (ctx) => {
-    const [access, rows] = await Promise.all([
-      requireStaff(ctx, PERMISSIONS.VIEW_VISA),
-      ctx.db.query("visaRecords").collect(),
-    ]);
-    const result = await Promise.all(
-      rows
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .map(async (record) => {
-          const [traveller, job] = await Promise.all([
-            ctx.db.get(record.travellerId),
-            ctx.db.get(record.jobCardId),
-          ]);
-          if (!job) {
-            return null;
-          }
-          const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
-          if (!canSeeJobCardRecord(access, job, linkedQuery)) {
-            return null;
-          }
-          const travelBatch = traveller?.travelBatchId
-            ? await ctx.db.get(traveller.travelBatchId)
-            : null;
-          return publicVisa(record, traveller, job, travelBatch);
-        })
-    );
-    return result.filter(Boolean);
+  args: {
+    jobCardId: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+    status: v.optional(visaStatusValidator),
   },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
+    const page = await applyCrmCursorFilters(
+      ctx.db.query("visaRecords").withIndex("by_createdAt").order("desc"),
+      { equals: { jobCardId: args.jobCardId, status: args.status } }
+    ).paginate(boundedPaginationOptions(args.paginationOpts));
+    const rows = await mapInBoundedBatches(page.page, async (record) => {
+      const [traveller, job] = await Promise.all([
+        ctx.db.get(record.travellerId),
+        ctx.db.get(record.jobCardId),
+      ]);
+      if (!job) {
+        return null;
+      }
+      const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+      if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+        return null;
+      }
+      const travelBatch = traveller?.travelBatchId
+        ? await ctx.db.get(traveller.travelBatchId)
+        : null;
+      return publicVisa(record, traveller, job, travelBatch);
+    });
+    return { ...page, page: compactPageItems(rows) };
+  },
+  returns: visaListPageResultValidator,
 });
 
 export const updateStatus = mutation({
@@ -144,6 +161,7 @@ export const updateStatus = mutation({
     ]);
     return { id: visaRecordId };
   },
+  returns: visaIdResultValidator,
 });
 
 export const updateRecord = mutation({
@@ -219,12 +237,14 @@ export const updateRecord = mutation({
     ]);
     return { id: visaRecordId };
   },
+  returns: visaIdResultValidator,
 });
 
 async function deleteVisaRecord(
   ctx: MutationCtx,
   access: PortalAccess,
-  visaRecordId: Id<"visaRecords">
+  visaRecordId: Id<"visaRecords">,
+  deferredNotifications?: NotificationEntityIdentity[]
 ) {
   const record = await ctx.db.get(visaRecordId);
   if (!record) {
@@ -249,7 +269,7 @@ async function deleteVisaRecord(
       entityType: "visaRecord",
       message: "Visa record deleted",
     }),
-    deleteEntityNotifications(ctx, "visaRecord", visaRecordId),
+    deleteEntityNotifications(ctx, "visaRecord", visaRecordId, deferredNotifications),
     ctx.db.delete(visaRecordId),
   ]);
 }
@@ -267,6 +287,7 @@ export const remove = mutation({
     await deleteVisaRecord(ctx, access, visaRecordId);
     return { id: visaRecordId };
   },
+  returns: visaIdResultValidator,
 });
 
 export const removeMany = mutation({
@@ -275,7 +296,7 @@ export const removeMany = mutation({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_VISA);
-    assertBulkDeleteLimit(args.visaRecordIds.length);
+    assertBulkDeleteMutationBatch(args.visaRecordIds.length);
     const ids: Id<"visaRecords">[] = [];
     for (const raw of args.visaRecordIds) {
       const visaRecordId = ctx.db.normalizeId("visaRecords", raw);
@@ -284,9 +305,16 @@ export const removeMany = mutation({
       }
       ids.push(visaRecordId);
     }
-    await Promise.all(ids.map((visaRecordId) => deleteVisaRecord(ctx, access, visaRecordId)));
+    const notifications: NotificationEntityIdentity[] = [];
+    await mapInBoundedBatches(
+      ids,
+      async (visaRecordId) => await deleteVisaRecord(ctx, access, visaRecordId, notifications),
+      4
+    );
+    await flushDeferredNotificationCleanup(ctx, notifications);
     return { deletedCount: ids.length };
   },
+  returns: deletedCountResultValidator,
 });
 
 export const create = mutation({
@@ -347,6 +375,7 @@ export const create = mutation({
 
     return { id: recordId };
   },
+  returns: visaIdResultValidator,
 });
 
 export const listTravellersWithoutVisa = query({
@@ -380,6 +409,7 @@ export const listTravellersWithoutVisa = query({
         return null;
       })
     );
-    return result.filter(Boolean);
+    return result.filter((row): row is NonNullable<typeof row> => row !== null);
   },
+  returns: travellerWithoutVisaListResultValidator,
 });

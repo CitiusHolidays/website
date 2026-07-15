@@ -15,9 +15,10 @@ function jobCardSelectOptions(jobCards, { required = false, allowUnassigned = fa
 }
 
 function linkedTravellerOptions(travellers, jobCardId) {
+  const availableTravellers = travellers ?? [];
   const rows = jobCardId
-    ? travellers.filter((traveller) => traveller.jobCardId === jobCardId)
-    : travellers;
+    ? availableTravellers.filter((traveller) => traveller.jobCardId === jobCardId)
+    : availableTravellers;
   return [
     { label: jobCardId ? "Unassigned" : "Select job card first…", value: "" },
     ...rows.map((traveller) => ({
@@ -44,7 +45,10 @@ function travelBatchSelectOptions(jobCards, jobCardId) {
 }
 
 function linkedPnrOptions(pnrs, jobCardId) {
-  const rows = jobCardId ? pnrs.filter((pnr) => pnr.jobCardId === jobCardId) : pnrs;
+  const availablePnrs = pnrs ?? [];
+  const rows = jobCardId
+    ? availablePnrs.filter((pnr) => pnr.jobCardId === jobCardId)
+    : availablePnrs;
   return [
     { label: jobCardId ? "No PNR" : "Select job card first…", value: "" },
     ...rows.map((pnr) => ({

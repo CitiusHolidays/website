@@ -39,7 +39,7 @@ export const ACCOUNT_ITEM_VARIANTS = {
 export function NavButton({ active, onClick, icon, label }) {
   return (
     <button
-      className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-all duration-300 ${
+      className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-[background-color,color,box-shadow] duration-300 ${
         active
           ? "bg-[#0B1026] text-white shadow-[#0B1026]/20 shadow-lg"
           : "text-gray-500 hover:bg-gray-50 hover:text-[#0B1026]"
@@ -59,7 +59,7 @@ export function BookingCard({ booking, type }) {
 
   return (
     <m.div
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all duration-500 hover:shadow-[#0B1026]/10 hover:shadow-xl md:h-56 md:flex-row"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow duration-500 hover:shadow-[#0B1026]/10 hover:shadow-xl md:h-56 md:flex-row"
       variants={{
         hidden: { opacity: 0, y: 20 },
         visible: { opacity: 1, y: 0 },
@@ -69,7 +69,7 @@ export function BookingCard({ booking, type }) {
         {trip.coverImage ? (
           <Image
             alt={trip.name}
-            className="object-cover transition-transform duration-700 group-hover:scale-105"
+            className="object-cover transition-transform duration-700 fine-hover:group-hover:scale-105"
             fill
             sizes="(max-width: 768px) 100vw, 33vw"
             src={trip.coverImage}

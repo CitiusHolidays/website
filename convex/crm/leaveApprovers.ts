@@ -25,6 +25,10 @@ import {
   PERMISSIONS,
   requireStaff,
 } from "./lib";
+import {
+  leaveApproverCandidateListResultValidator,
+  leaveApproverSyncResultValidator,
+} from "./staffSettingsReturnContracts";
 
 const DIRECTOR_ROLES = new Set(["Directors", "Admin"]);
 
@@ -403,6 +407,7 @@ export const applyMatrixDefaults = mutation({
 
     return { skipped, updated };
   },
+  returns: leaveApproverSyncResultValidator,
 });
 
 export const listHeadApproverCandidates = query({
@@ -425,4 +430,5 @@ export const listHeadApproverCandidates = query({
         roles: staff.roles,
       }));
   },
+  returns: leaveApproverCandidateListResultValidator,
 });

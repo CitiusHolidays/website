@@ -1,60 +1,15 @@
 import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, query } from "../_generated/server";
-import { canSeeJobCardRecord, PERMISSIONS, requireAnyPermission } from "./lib";
-
-function canMutateExpenseProof(
-  access: any,
-  expense: { createdBy?: string; approvalStatus?: string }
-) {
-  if (
-    access.permissions.includes(PERMISSIONS.MANAGE_EXPENSES) ||
-    access.permissions.includes(PERMISSIONS.MANAGE_FINANCE)
-  ) {
-    return true;
-  }
-  return Boolean(
-    access.permissions.includes(PERMISSIONS.CREATE_EXPENSES) &&
-      expense.createdBy &&
-      expense.createdBy === access.authUserId &&
-      expense.approvalStatus !== "Approved"
-  );
-}
-
-async function requireVisibleExpense(ctx: any, expenseId: Id<"expenseEntries">) {
-  const [access, expense] = await Promise.all([
-    requireAnyPermission(ctx, [
-      PERMISSIONS.VIEW_EXPENSES,
-      PERMISSIONS.CREATE_EXPENSES,
-      PERMISSIONS.MANAGE_EXPENSES,
-      PERMISSIONS.MANAGE_FINANCE,
-    ]),
-    ctx.db.get(expenseId),
-  ]);
-  if (!expense) {
-    throw new ConvexError("Expense not found");
-  }
-  if (expense.jobCardId) {
-    const job = await ctx.db.get(expense.jobCardId);
-    if (!job) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
-    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    return { access, expense, job };
-  }
-  return { access, expense, job: null };
-}
-
-async function requireMutableExpenseProof(ctx: any, expenseId: Id<"expenseEntries">) {
-  const { access, expense } = await requireVisibleExpense(ctx, expenseId);
-  if (!canMutateExpenseProof(access, expense)) {
-    throw new ConvexError("FORBIDDEN");
-  }
-  return expense;
-}
+import {
+  invalidatePendingExpenseApprovals,
+  proofChangeResetPatch,
+} from "./expenseMaterialIntegrity";
+import { requireMutableExpenseProof, requireVisibleExpense } from "./expenseScope";
+import {
+  expenseAttachmentRecordResultValidator,
+  expenseIdResultValidator,
+} from "./miscReturnContracts";
 
 export const verifyExpenseAccess = query({
   args: {
@@ -68,6 +23,7 @@ export const verifyExpenseAccess = query({
     await requireVisibleExpense(ctx, expenseId);
     return { id: expenseId };
   },
+  returns: expenseIdResultValidator,
 });
 
 export const verifyExpenseProofMutationAccess = query({
@@ -82,6 +38,7 @@ export const verifyExpenseProofMutationAccess = query({
     await requireMutableExpenseProof(ctx, expenseId);
     return { id: expenseId };
   },
+  returns: expenseIdResultValidator,
 });
 
 export const getAttachmentRecord = query({
@@ -110,10 +67,12 @@ export const getAttachmentRecord = query({
       storageId: row.storageId ?? "",
     };
   },
+  returns: expenseAttachmentRecordResultValidator,
 });
 
 export const saveExpenseProof = internalMutation({
   args: {
+    contentDigest: v.string(),
     createdBy: v.string(),
     expenseId: v.id("expenseEntries"),
     fileName: v.string(),
@@ -121,30 +80,35 @@ export const saveExpenseProof = internalMutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const expense = await ctx.db.get(args.expenseId);
-    if (!expense) {
-      throw new ConvexError("Expense not found");
-    }
+    const { access, expense } = await requireMutableExpenseProof(ctx, args.expenseId);
     let previousStorageId: string | null = null;
     if (expense.proofAttachmentId) {
-      const previous = await ctx.db.get(expense.proofAttachmentId);
+      const previous = await ctx.db.get(expense.proofAttachmentId as Id<"attachments">);
       previousStorageId = previous?.storageId ?? null;
       if (previous) {
         await ctx.db.delete(previous._id);
       }
     }
     const attachmentId = await ctx.db.insert("attachments", {
+      contentDigest: args.contentDigest,
       createdAt: Date.now(),
-      createdBy: args.createdBy,
+      createdBy: access.authUserId ?? args.createdBy,
       entityId: args.expenseId,
       entityType: "expense",
       fileName: args.fileName,
       mimeType: args.mimeType,
       storageId: args.storageId,
     });
+    const now = Date.now();
+    const proofChanged = (expense.proofDigest ?? "") !== args.contentDigest;
+    if (proofChanged) {
+      await invalidatePendingExpenseApprovals(ctx, args.expenseId, now);
+    }
     await ctx.db.patch(args.expenseId, {
+      ...(proofChanged ? proofChangeResetPatch(expense, args.contentDigest, now) : {}),
       proofAttachmentId: attachmentId,
-      updatedAt: Date.now(),
+      proofDigest: args.contentDigest,
+      updatedAt: now,
     });
     return { attachmentId, previousStorageId };
   },
@@ -161,11 +125,18 @@ export const deleteExpenseProof = internalMutation({
     }
     const expenseId = ctx.db.normalizeId("expenseEntries", row.entityId);
     if (expenseId) {
-      const expense = await ctx.db.get(expenseId);
+      const { expense } = await requireMutableExpenseProof(ctx, expenseId);
       if (expense?.proofAttachmentId === args.attachmentId) {
+        const now = Date.now();
+        const proofChanged = Boolean(expense.proofDigest || row.storageId);
+        if (proofChanged) {
+          await invalidatePendingExpenseApprovals(ctx, expenseId, now);
+        }
         await ctx.db.patch(expenseId, {
+          ...(proofChanged ? proofChangeResetPatch(expense, "", now) : {}),
           proofAttachmentId: undefined,
-          updatedAt: Date.now(),
+          proofDigest: "",
+          updatedAt: now,
         });
       }
     }

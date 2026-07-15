@@ -5,6 +5,8 @@ import { Effect } from "effect";
  * - src/app/api/create-order/route.ts: external-io, typed-recoverable-errors.
  * - src/lib/paymentVerification.ts: external-io, typed-recoverable-errors.
  * - src/lib/razorpayWebhook.ts: external-io, typed-recoverable-errors.
+ * - src/lib/ai/runtimeService.ts: external-io, typed-recoverable-errors,
+ *   retry-or-throttle, test-time-dependency-substitution.
  * - convex/crm/notificationEmailDelivery.ts: external-io, retry-or-throttle,
  *   typed-recoverable-errors, test-time-dependency-substitution.
  * - src/lib/portal/spreadsheetImports.ts: no Effect; keep plain TypeScript until

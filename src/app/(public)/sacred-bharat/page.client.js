@@ -16,14 +16,14 @@ import YatriPassportProfilePanel from "@/components/sacredBharat/YatriPassportPr
 
 export default function SacredBharatPageClient() {
   return (
-    <div className="bg-[#fdfcfb]">
+    <div className="bg-public-paper">
       <SacredBharatHero />
 
       <section className="border-brand-light border-b py-10 md:py-12">
         <div className="mx-auto max-w-6xl space-y-6 px-4 sm:px-6 lg:px-8">
           <GuestSaveBanner />
           <YatriPassportProfilePanel />
-          <p className="mx-auto max-w-2xl text-center font-sans text-brand-muted text-xs">
+          <p className="mx-auto max-w-2xl text-center font-sans text-public-muted text-xs">
             Visits are self-declared on an honor system , a personal record of your spiritual
             journey, not verified darshan proof.
           </p>
@@ -43,8 +43,8 @@ export default function SacredBharatPageClient() {
       <AnimatedSection className="mx-auto max-w-6xl px-4 py-12">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="font-heading text-2xl text-brand-dark md:text-3xl">Challenges</h2>
-            <p className="mt-2 font-sans text-brand-muted text-sm">
+            <h2 className="font-heading text-2xl text-public-ink md:text-3xl">Challenges</h2>
+            <p className="mt-2 font-sans text-public-muted text-sm">
               Curated goals based on temple visits and trail progress.
             </p>
           </div>
@@ -61,11 +61,11 @@ export default function SacredBharatPageClient() {
       <AnimatedSection className="mx-auto max-w-6xl px-4 py-16 md:py-20">
         <div className="grid gap-12 lg:grid-cols-2">
           <div>
-            <h2 className="mb-6 font-heading text-2xl text-brand-dark md:text-3xl">Your badges</h2>
+            <h2 className="mb-6 font-heading text-2xl text-public-ink md:text-3xl">Your badges</h2>
             <BadgeShelf />
           </div>
           <div>
-            <h2 className="mb-6 font-heading text-2xl text-brand-dark md:text-3xl">
+            <h2 className="mb-6 font-heading text-2xl text-public-ink md:text-3xl">
               Pilgrimage legacy
             </h2>
             <PilgrimageLegacy />
@@ -77,14 +77,14 @@ export default function SacredBharatPageClient() {
         <PrivateGroupPanel />
       </AnimatedSection>
 
-      <section className="border-brand-light border-t bg-white py-16 md:py-24">
+      <section className="border-brand-light border-t bg-public-surface py-16 md:py-24">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <span className="font-heading text-citius-orange text-xs uppercase tracking-[0.3em]">
+              <span className="font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em]">
                 Leaderboard
               </span>
-              <h2 className="mt-2 font-heading text-2xl text-brand-dark md:text-3xl">
+              <h2 className="mt-2 font-heading text-2xl text-public-ink md:text-3xl">
                 Compare with fellow yatris
               </h2>
             </div>

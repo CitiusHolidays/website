@@ -4,7 +4,15 @@
     "overrides": [
       {
         "files": ["convex/**"],
-        "rules": ["deslop/unused-file", "react-doctor/async-defer-await"]
+        "rules": [
+          "deslop/unused-export",
+          "deslop/unused-file",
+          "react-doctor/async-defer-await"
+        ]
+      },
+      {
+        "files": ["convex/crm/metricAggregates.ts"],
+        "rules": ["react-doctor/async-await-in-loop"]
       },
       {
         "files": [

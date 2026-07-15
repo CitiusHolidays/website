@@ -146,7 +146,8 @@ describe("applyQueryTeamAssignments", () => {
       expect(notifyRoles).toHaveBeenCalledWith(
         expect.anything(),
         ["Contracting Head", "Operations Head", "Head of Ticketing"],
-        expect.objectContaining({ title: "Query team assigned by Sales" })
+        expect.objectContaining({ title: "Query team assigned by Sales" }),
+        { emailRoles: [] }
       );
     } finally {
       createActivity.mockRestore();
@@ -243,7 +244,8 @@ describe("applyQueryTeamAssignments", () => {
       expect(notifyRoles).toHaveBeenCalledWith(
         expect.anything(),
         ["Contracting Head", "Operations Head"],
-        expect.objectContaining({ title: "Query team assigned by Sales" })
+        expect.objectContaining({ title: "Query team assigned by Sales" }),
+        { emailRoles: [] }
       );
     } finally {
       createActivity.mockRestore();

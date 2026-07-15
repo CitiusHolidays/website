@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { deliverContactEmail } from "@/lib/contact/deliverContactEmail";
 import { checkContactRateLimit } from "@/lib/contact/rate-limit";
 import { renderContactFormEmail } from "@/lib/contact/renderContactEmail";
 import {
@@ -10,7 +11,6 @@ import {
 } from "@/lib/contact/spam-guard";
 import { isTurnstileConfigured, verifyTurnstileToken } from "@/lib/contact/turnstile";
 import { CONTACT_EMAIL_FROM, CONTACT_EMAIL_TO } from "@/lib/email/config";
-import { sendEmail } from "@/lib/email/send";
 
 function rejectSpam() {
   return NextResponse.json(
@@ -115,11 +115,15 @@ export async function POST(request) {
   });
 
   try {
-    await sendEmail({
+    await deliverContactEmail({
+      email: trimmedEmail,
+      formLoadedAt,
       from: CONTACT_EMAIL_FROM,
       html: emailHtml,
-      replyTo: trimmedEmail,
-      subject: `Contact Form Submission: ${trimmedSubject || "Contact Form Message"}`,
+      message: trimmedMessage,
+      name: trimmedName,
+      phone: trimmedPhone,
+      subject: trimmedSubject || "Contact Form Message",
       to: CONTACT_EMAIL_TO,
     });
     return NextResponse.json({ message: "Email sent successfully!" }, { status: 200 });

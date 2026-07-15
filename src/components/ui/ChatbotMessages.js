@@ -55,7 +55,7 @@ function CuratingIndicator() {
 }
 
 function getMessagePartKey(message, part) {
-  return `${message.id}-${part.type}-${part.text || part.toolCallId || "empty"}`;
+  return `${message.id}-${part.type}-${part.id}`;
 }
 
 function getTextParts(message) {
@@ -64,6 +64,76 @@ function getTextParts(message) {
 
 function hasVisibleText(message) {
   return getTextParts(message).some((part) => part.text?.trim());
+}
+
+const TOOL_LABELS = {
+  getCitiusContactOptions: "Citius contact options",
+  getCitiusProfile: "Citius company details",
+  getPilgrimageProgramDetails: "pilgrimage programme details",
+  searchCitiusOfferings: "Citius travel options",
+};
+
+function AssistantStructuredPart({ part }) {
+  if (part.type === "text") {
+    return (
+      <MessageResponse className="chatbot-formatted break-words text-sm leading-relaxed [&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:font-semibold [&_h3]:text-brand-dark [&_h3]:text-sm [&_h3]:first:mt-0 [&_li]:mb-0.5 [&_ol]:my-1 [&_p:last-child]:mb-0 [&_p]:mb-1.5 [&_ul]:my-1">
+        {part.text}
+      </MessageResponse>
+    );
+  }
+  if (part.type === "reasoning") {
+    return (
+      <p className="text-brand-muted text-xs" role="status">
+        {part.status === "complete"
+          ? "Relevant travel details considered"
+          : "Considering relevant travel details…"}
+      </p>
+    );
+  }
+  if (part.type === "tool") {
+    const label = TOOL_LABELS[part.toolName] || "Citius travel details";
+    const complete = part.status === "output-available";
+    return (
+      <p className="text-brand-muted text-xs" role="status">
+        {complete ? `${label} checked` : `Checking ${label}…`}
+      </p>
+    );
+  }
+  if (part.type === "status") {
+    return part.status === "working" ? (
+      <p className="text-brand-muted text-xs" role="status">
+        {part.text}…
+      </p>
+    ) : null;
+  }
+  if (part.type === "error") {
+    return <p className="text-red-700 text-sm">{part.text}</p>;
+  }
+  return null;
+}
+
+function TerminalNotice({ message, onRetry }) {
+  const copy = {
+    cancelled: "Response cancelled.",
+    failed: "Response failed before it could finish.",
+    interrupted: "Response interrupted before completion.",
+  }[message.terminalState];
+  if (!copy) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 border-brand-border/60 border-t pt-2 text-xs">
+      <span className="text-brand-muted">{copy}</span>
+      <button
+        className="font-medium text-citius-blue underline-offset-2 hover:underline"
+        onClick={onRetry}
+        type="button"
+      >
+        Retry
+      </button>
+    </div>
+  );
 }
 
 export function ChatbotSuggestions({ onSelectPrompt }) {
@@ -78,6 +148,9 @@ export function ChatbotSuggestions({ onSelectPrompt }) {
       <p className="mx-auto max-w-xs text-brand-muted text-sm leading-relaxed">
         Premium travel guidance for MICE, curated destinations, spiritual trails, and handing you
         over to our specialists with a clear brief.
+      </p>
+      <p className="mx-auto mt-2 max-w-xs text-brand-muted text-xs">
+        Please do not include passport, payment, or other sensitive personal information.
       </p>
       <div className="mt-5 space-y-2">
         {CHATBOT_SUGGESTIONS.map(({ prompt, label, icon: Icon }) => (
@@ -96,10 +169,11 @@ export function ChatbotSuggestions({ onSelectPrompt }) {
   );
 }
 
-export function ChatbotMessageList({ messages, isLoading, errorMessage }) {
+export function ChatbotMessageList({ messages, isLoading, errorMessage, onRetry }) {
   const lastMessage = messages[messages.length - 1];
   const hasStreamingAssistant = lastMessage?.role === "assistant" && isLoading;
   const showCuratingBubble = isLoading && !hasStreamingAssistant;
+  const hasStructuredError = lastMessage?.parts?.some((part) => part.type === "error");
 
   return (
     <>
@@ -124,19 +198,22 @@ export function ChatbotMessageList({ messages, isLoading, errorMessage }) {
             !hasVisibleText(message) ? (
               <CuratingIndicator />
             ) : (
-              getTextParts(message).map((part) => (
-                <div className="min-w-0 text-sm" key={getMessagePartKey(message, part)}>
-                  {message.role === "user" ? (
-                    <div className="whitespace-pre-wrap break-words leading-relaxed">
-                      {part.text}
-                    </div>
-                  ) : (
-                    <MessageResponse className="chatbot-formatted break-words text-sm leading-relaxed [&_h3]:mt-2 [&_h3]:mb-1 [&_h3]:font-semibold [&_h3]:text-brand-dark [&_h3]:text-sm [&_h3]:first:mt-0 [&_li]:mb-0.5 [&_ol]:my-1 [&_p:last-child]:mb-0 [&_p]:mb-1.5 [&_ul]:my-1">
-                      {part.text}
-                    </MessageResponse>
-                  )}
-                </div>
-              ))
+              <>
+                {(message.parts || []).map((part) => (
+                  <div className="min-w-0 text-sm" key={getMessagePartKey(message, part)}>
+                    {message.role === "user" && part.type === "text" ? (
+                      <div className="whitespace-pre-wrap break-words leading-relaxed">
+                        {part.text}
+                      </div>
+                    ) : (
+                      <AssistantStructuredPart part={part} />
+                    )}
+                  </div>
+                ))}
+                {message.role === "assistant" && message.id === lastMessage?.id ? (
+                  <TerminalNotice message={message} onRetry={onRetry} />
+                ) : null}
+              </>
             )}
           </div>
         </m.div>
@@ -152,7 +229,7 @@ export function ChatbotMessageList({ messages, isLoading, errorMessage }) {
           </div>
         </m.div>
       )}
-      {errorMessage && (
+      {errorMessage && !hasStructuredError && (
         <m.div
           animate={{ opacity: 1, y: 0 }}
           className="flex justify-start"

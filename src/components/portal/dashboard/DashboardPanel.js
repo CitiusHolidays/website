@@ -22,10 +22,26 @@ function progressFillClass(tone) {
   return "bg-citius-blue";
 }
 
-export function DashboardPanel({ title, subtitle, action, children, className = "" }) {
+const PANEL_TONES = {
+  attention:
+    "border-citius-orange/30 bg-[color-mix(in_srgb,var(--color-citius-orange)_3%,white)] shadow-[0_16px_40px_rgba(231,125,35,0.08)]",
+  default: "border-brand-border/70 bg-white/95 shadow-[0_12px_34px_rgba(16,42,131,0.045)]",
+  healthy:
+    "border-emerald-200/80 bg-[color-mix(in_srgb,#10b981_3%,white)] shadow-[0_12px_34px_rgba(5,150,105,0.05)]",
+  quiet: "border-transparent bg-white/70 shadow-none",
+};
+
+export function DashboardPanel({
+  title,
+  subtitle,
+  action,
+  children,
+  className = "",
+  tone = "default",
+}) {
   return (
     <section
-      className={`rounded-2xl border border-brand-border/80 bg-white/95 p-4 shadow-brand-dark/[0.025] shadow-sm md:p-5 ${className}`}
+      className={`rounded-2xl border p-4 md:p-5 ${PANEL_TONES[tone] || PANEL_TONES.default} ${className}`}
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>

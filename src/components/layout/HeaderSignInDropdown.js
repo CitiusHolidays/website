@@ -52,7 +52,7 @@ export function SignInDropdown({ isScrolled, variant = "desktop", onSelect }) {
   return (
     <div className="relative" ref={ref}>
       <button
-        className={`hidden items-center gap-2 rounded-full px-4 py-2.5 font-medium text-sm transition-all duration-300 sm:flex ${
+        className={`hidden items-center gap-2 rounded-full px-4 py-2.5 font-medium text-sm transition-[background-color,color,box-shadow] duration-300 sm:flex ${
           isScrolled
             ? "bg-white/10 text-white hover:bg-white/20"
             : "border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"

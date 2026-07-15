@@ -5,6 +5,11 @@ import { Resend } from "resend";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
 import { AUTH_EMAIL_FROM } from "../lib/emailConfig";
+import {
+  LEGACY_RESEND_ENV_NAME,
+  LEGACY_RESEND_ENV_SUNSET,
+  resolveNotificationResendKey,
+} from "./notificationEmailConfig";
 import { deliverNotificationEmailsSequentially } from "./notificationEmailDelivery";
 import { getNotificationHref } from "./notificationPaths";
 
@@ -186,14 +191,20 @@ export const sendNotificationEmail = internalAction({
     body: v.string(),
     entityId: v.optional(v.string()),
     entityType: v.optional(v.string()),
+    eventId: v.string(),
     recipients: v.array(v.string()),
     title: v.string(),
   },
   handler: async (ctx, args) => {
-    const resendKey = process.env.RESEND_API_KEY;
-    if (!resendKey) {
+    const resendConfig = resolveNotificationResendKey(process.env);
+    if (!resendConfig.key) {
       console.error("Skipping notification email: RESEND_API_KEY is not configured.");
       return { sent: 0, skipped: args.recipients.length };
+    }
+    if (resendConfig.source === LEGACY_RESEND_ENV_NAME) {
+      console.warn(
+        `Notification email is using legacy ${LEGACY_RESEND_ENV_NAME}; migrate to RESEND_API_KEY before ${LEGACY_RESEND_ENV_SUNSET}.`
+      );
     }
 
     const recipients = Array.from(
@@ -228,12 +239,13 @@ export const sendNotificationEmail = internalAction({
       href,
       title: args.title,
     });
-    const resend = new Resend(resendKey);
+    const resend = new Resend(resendConfig.key);
     const delivery = await deliverNotificationEmailsSequentially({
       config: {
         maxRetries: RESEND_MAX_RETRIES,
         minIntervalMs: RESEND_MIN_INTERVAL_MS,
       },
+      eventId: args.eventId,
       message: {
         from: AUTH_EMAIL_FROM,
         html,
@@ -241,7 +253,7 @@ export const sendNotificationEmail = internalAction({
         text,
       },
       recipients,
-      sendEmail: (message) => resend.emails.send(message),
+      sendEmail: (message, options) => resend.emails.send(message, options),
       sleep,
     });
 

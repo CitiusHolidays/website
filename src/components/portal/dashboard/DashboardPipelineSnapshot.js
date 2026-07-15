@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { buildPipelineStageHref } from "@/lib/portal/dashboardLinks";
 import { DashboardEmpty, DashboardPanel } from "./DashboardPanel";
 import { formatMoney } from "./utils";
+
+const PIPELINE_DOT_CLASSES = ["bg-citius-blue", "bg-citius-orange", "bg-emerald-600"];
 
 export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
   const rows = pipelineSnapshot || [];
@@ -20,6 +23,14 @@ export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
     );
   }
 
+  const gridRows = rows.map((row, index) => ({
+    ...row,
+    dot: PIPELINE_DOT_CLASSES[index] || "bg-slate-400",
+    id: row.stage,
+    share: total ? Math.round((row.count / total) * 100) : 0,
+    width: Math.round((row.count / max) * 100),
+  }));
+
   return (
     <DashboardPanel
       action={
@@ -31,78 +42,82 @@ export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
         </Link>
       }
     >
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-left text-sm">
-          <thead>
-            <tr className="border-brand-border border-b text-brand-muted text-xs">
-              <th className="py-2 pr-3 font-semibold">Stage</th>
-              <th className="py-2 pr-3 font-semibold">Share</th>
-              <th className="py-2 pr-3 text-right font-semibold">Queries</th>
-              <th className="py-2 pr-3 text-right font-semibold">Value (INR)</th>
-              <th className="py-2 text-right font-semibold">Weighted (INR)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, index) => {
-              const width = Math.round((row.count / max) * 100);
-              const share = total ? Math.round((row.count / total) * 100) : 0;
-              const dot =
-                index === 0
-                  ? "bg-citius-blue"
-                  : index === 1
-                    ? "bg-citius-orange"
-                    : index === 2
-                      ? "bg-emerald-600"
-                      : "bg-slate-400";
-              return (
-                <tr className="border-brand-border/70 border-b last:border-0" key={row.stage}>
-                  <td className="py-2.5 pr-3">
-                    <Link
-                      className="inline-flex items-center gap-2 font-medium text-brand-dark hover:text-citius-blue"
-                      href={buildPipelineStageHref(row.stage, dateRange)}
-                    >
-                      <span className={`size-2 rounded-full ${dot}`} />
-                      {row.stage}
-                    </Link>
-                  </td>
-                  <td className="py-2.5 pr-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-1.5 w-36 overflow-hidden rounded-full bg-brand-border/80">
-                        <div
-                          className="h-full rounded-full bg-citius-blue"
-                          style={{ width: `${width}%` }}
-                        />
-                      </div>
-                      <span className="text-brand-muted text-xs tabular-nums">{share}%</span>
-                    </div>
-                  </td>
-                  <td className="py-2.5 pr-3 text-right font-semibold text-brand-dark tabular-nums">
-                    {row.count}
-                  </td>
-                  <td className="py-2.5 pr-3 text-right text-brand-dark tabular-nums">
-                    {formatMoney(row.value || 0).replace("INR ", "₹")}
-                  </td>
-                  <td className="py-2.5 text-right text-brand-dark tabular-nums">
-                    {formatMoney(row.weighted || 0).replace("INR ", "₹")}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="border-brand-border border-t font-bold text-brand-dark text-sm">
-              <td className="pt-5 pr-3">Total</td>
-              <td className="pt-5 pr-3 text-brand-muted">—</td>
-              <td className="pt-5 pr-3 text-right tabular-nums">{total}</td>
-              <td className="pt-5 pr-3 text-right tabular-nums">
-                {formatMoney(totalValue).replace("INR ", "₹")}
-              </td>
-              <td className="pt-5 text-right tabular-nums">
-                {formatMoney(totalWeighted).replace("INR ", "₹")}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
+      <SelectableDataTable
+        columns={[
+          {
+            id: "stage",
+            kind: "identity",
+            label: "Stage",
+            render: (row) => (
+              <Link
+                className="inline-flex items-center gap-2 font-medium text-brand-dark hover:text-citius-blue"
+                href={buildPipelineStageHref(row.stage, dateRange)}
+              >
+                <span className={`size-2 rounded-full ${row.dot}`} />
+                {row.stage}
+              </Link>
+            ),
+            sortValue: (row) => row.stage,
+          },
+          {
+            id: "share",
+            label: "Share",
+            render: (row) => (
+              <div className="flex items-center gap-3">
+                <div className="h-1.5 w-36 overflow-hidden rounded-full bg-brand-border/80">
+                  <div
+                    className="h-full rounded-full bg-citius-blue"
+                    style={{ width: `${row.width}%` }}
+                  />
+                </div>
+                <span className="text-brand-muted text-xs tabular-nums">{row.share}%</span>
+              </div>
+            ),
+            sortValue: (row) => row.share,
+          },
+          {
+            align: "right",
+            id: "queries",
+            label: "Queries",
+            render: (row) => row.count,
+            sortValue: (row) => row.count,
+          },
+          {
+            align: "right",
+            id: "value",
+            label: "Value (INR)",
+            render: (row) => formatMoney(row.value || 0).replace("INR ", "₹"),
+            sortValue: (row) => row.value,
+          },
+          {
+            align: "right",
+            id: "weighted",
+            label: "Weighted (INR)",
+            render: (row) => formatMoney(row.weighted || 0).replace("INR ", "₹"),
+            sortValue: (row) => row.weighted,
+          },
+        ]}
+        compact
+        empty="No pipeline data for this period."
+        rows={gridRows}
+      />
+      <div className="mt-4 grid grid-cols-3 gap-3 border-brand-border border-t pt-4 text-right text-sm">
+        <div>
+          <span className="text-brand-muted">Queries</span>
+          <strong className="ml-2 tabular-nums">{total}</strong>
+        </div>
+        <div>
+          <span className="text-brand-muted">Value</span>
+          <strong className="ml-2 tabular-nums">
+            {formatMoney(totalValue).replace("INR ", "₹")}
+          </strong>
+        </div>
+        <div>
+          <span className="text-brand-muted">Weighted</span>
+          <strong className="ml-2 tabular-nums">
+            {formatMoney(totalWeighted).replace("INR ", "₹")}
+          </strong>
+        </div>
       </div>
     </DashboardPanel>
   );

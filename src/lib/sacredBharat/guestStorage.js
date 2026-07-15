@@ -13,6 +13,26 @@ function normalizeDraftTempleIds(templeIds) {
   ];
 }
 
+export function normalizeGuestWishlist(items) {
+  const seen = new Set();
+  return (items ?? []).flatMap((item) => {
+    if (!(item && (item.itemType === "temple" || item.itemType === "trail"))) {
+      return [];
+    }
+    const itemId = String(item.itemId ?? "").trim();
+    const canonicalItemId = item.itemType === "temple" ? resolveCanonicalTempleId(itemId) : itemId;
+    if (!canonicalItemId) {
+      return [];
+    }
+    const key = `${item.itemType}:${canonicalItemId}`;
+    if (seen.has(key)) {
+      return [];
+    }
+    seen.add(key);
+    return [{ itemId: canonicalItemId, itemType: item.itemType }];
+  });
+}
+
 /**
  * @returns {{ templeIds: string[], wishlist: { itemType: string, itemId: string }[] }}
  */
@@ -28,7 +48,7 @@ export function readGuestDraft() {
     const parsed = JSON.parse(raw);
     return {
       templeIds: normalizeDraftTempleIds(Array.isArray(parsed.templeIds) ? parsed.templeIds : []),
-      wishlist: Array.isArray(parsed.wishlist) ? parsed.wishlist : [],
+      wishlist: normalizeGuestWishlist(Array.isArray(parsed.wishlist) ? parsed.wishlist : []),
     };
   } catch {
     return { templeIds: [], wishlist: [] };
@@ -47,7 +67,7 @@ export function writeGuestDraft(draft) {
     SACRED_BHARAT_DRAFT_KEY,
     JSON.stringify({
       templeIds: normalizeDraftTempleIds(draft.templeIds ?? current.templeIds),
-      wishlist: draft.wishlist ?? current.wishlist,
+      wishlist: normalizeGuestWishlist(draft.wishlist ?? current.wishlist),
     })
   );
 }

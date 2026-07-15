@@ -15,6 +15,7 @@ import {
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import CitiusLogo from "@/static/logos/logo.webp";
 
 const services = [
   {
@@ -189,7 +190,7 @@ export default function CircularServicesMenu() {
     if (layout.isMobile) {
       setSelectedService(selectedService?.title === service.title ? null : service);
     } else {
-      setSelectedService(service);
+      setSelectedService(() => service);
     }
   };
 
@@ -243,7 +244,7 @@ export default function CircularServicesMenu() {
               className="mx-auto size-12 object-contain md:h-20 md:w-20"
               height={60}
               priority
-              src="/gallery/logo.webp"
+              src={CitiusLogo}
               style={{ objectFit: "contain" }}
               width={60}
             />

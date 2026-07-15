@@ -1,6 +1,6 @@
 import { components } from "../_generated/api";
 import type { ActionCtx } from "../_generated/server";
-import { normalizeEmail } from "../crm/lib";
+import { normalizeEmail } from "../crm/lib/staffAccess";
 
 export type BetterAuthUserRow = {
   _id: string;

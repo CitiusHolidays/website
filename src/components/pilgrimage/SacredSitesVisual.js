@@ -14,7 +14,7 @@ function SacredSiteCard({ site, index }) {
     <m.div
       className={cn(
         "group relative overflow-hidden rounded-2xl border border-brand-light/50 bg-white shadow-brand-dark/5 shadow-xl md:rounded-3xl",
-        "transition-all duration-500 hover:shadow-2xl hover:shadow-brand-dark/10"
+        "transition-shadow duration-500 hover:shadow-2xl hover:shadow-brand-dark/10"
       )}
       initial={{ opacity: 0, y: 40 }}
       transition={{ delay: index * 0.1, duration: 0.7, ease: "easeOut" }}
@@ -27,7 +27,7 @@ function SacredSiteCard({ site, index }) {
           {img?.src ? (
             <Image
               alt={img.alt || site.name}
-              className="object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+              className="object-cover transition-transform duration-700 fine-hover:group-hover:scale-[1.02]"
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
               src={img.src}

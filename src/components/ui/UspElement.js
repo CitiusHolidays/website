@@ -6,7 +6,7 @@ import { m } from "motion/react";
 export default function UspElement({ title }) {
   return (
     <m.div
-      className="group flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-300 hover:border-blue-100 hover:shadow-md"
+      className="group flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-[border-color,box-shadow] duration-300 hover:border-blue-100 hover:shadow-md"
       initial={{ opacity: 0, x: -20 }}
       viewport={{ once: true }}
       whileHover={{ x: 10 }}

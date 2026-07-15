@@ -48,11 +48,23 @@ const VIEW_PATHS = {
  * @param {{ from: string | null, to: string | null }} [dateRange]
  */
 export function buildKpiHref(label, dateRange) {
+  return buildDashboardKpiHref(label, dateRange);
+}
+
+/**
+ * Stable KPI-id based drill-downs. Display labels remain accepted temporarily
+ * so existing callers and saved snapshots do not break during migration.
+ * @param {string} metricId
+ * @param {{ from: string | null, to: string | null }} [dateRange]
+ */
+export function buildDashboardKpiHref(metricId, dateRange) {
   const range = dateRange || { from: null, to: null };
-  switch (label) {
+  switch (metricId) {
+    case "activeQueries":
     case "Active queries":
     case "Active Queries":
       return buildDashboardListUrl({ dateRange: range, view: "pipeline" });
+    case "proposalsSent":
     case "Proposals sent":
     case "Proposals Sent":
       return buildDashboardListUrl({
@@ -60,6 +72,7 @@ export function buildKpiHref(label, dateRange) {
         listFilters: { status: "Sent" },
         view: "proposals",
       });
+    case "confirmedJobs":
     case "Confirmed jobs":
     case "Confirmed Jobs":
       return buildDashboardListUrl({
@@ -67,6 +80,7 @@ export function buildKpiHref(label, dateRange) {
         listFilters: { salesStatus: "Order Confirmed" },
         view: "queries",
       });
+    case "jobCardsOpen":
     case "Open job cards":
     case "Open Job Cards":
       return buildDashboardListUrl({
@@ -74,6 +88,7 @@ export function buildKpiHref(label, dateRange) {
         listFilters: { status: "Open" },
         view: "job-cards",
       });
+    case "departures30d":
     case "Departures (30d)":
       return buildDashboardListUrl({
         dateRange: range,
@@ -86,6 +101,7 @@ export function buildKpiHref(label, dateRange) {
         listFilters: { ticketStatus: "Issued" },
         view: "tickets",
       });
+    case "ticketsPending":
     case "Tickets pending":
     case "Tickets Pending":
       return buildDashboardListUrl({
@@ -93,6 +109,7 @@ export function buildKpiHref(label, dateRange) {
         listFilters: { ticketStatus: "Pending Issue" },
         view: "tickets",
       });
+    case "visaPending":
     case "Visa pending":
     case "Visa Pending":
       return buildDashboardListUrl({
@@ -100,10 +117,13 @@ export function buildKpiHref(label, dateRange) {
         listFilters: { status: VISA_PENDING_STATUSES[0] },
         view: "visa",
       });
+    case "outstanding":
     case "Outstanding":
+    case "revenuePipeline":
     case "Revenue pipeline":
     case "Revenue Pipeline":
       return buildDashboardListUrl({ dateRange: range, view: "finance" });
+    case "pendingApprovals":
     case "Pending approvals":
     case "Pending Approvals":
       return buildDashboardListUrl({

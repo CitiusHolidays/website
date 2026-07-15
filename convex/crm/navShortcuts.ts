@@ -9,6 +9,7 @@ import {
   PERMISSIONS,
   requireStaff,
 } from "./lib";
+import { navShortcutListResultValidator } from "./miscReturnContracts";
 
 async function takeNewestByCreatedAt<TableName extends keyof DataModel>(
   ctx: QueryCtx,
@@ -170,4 +171,5 @@ export const list = query({
 
     return result;
   },
+  returns: navShortcutListResultValidator,
 });

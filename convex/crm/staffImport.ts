@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation, type MutationCtx, mutation } from "../_generated/server";
 import { ALL_ROLES, normalizeEmail } from "./lib";
+import { staffImportResultValidator } from "./staffSettingsReturnContracts";
 
 const assertMigrationSecret = (secret: string) => {
   const expected = process.env.MIGRATION_SECRET;
@@ -203,4 +204,5 @@ export const importStaffFromSpreadsheet = mutation({
     assertMigrationSecret(args.secret);
     return await importStaffRows(ctx, args);
   },
+  returns: staffImportResultValidator,
 });

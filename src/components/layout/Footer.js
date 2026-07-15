@@ -129,7 +129,7 @@ export default function Footer() {
             {quickLinks.map((link) => (
               <li key={link.href}>
                 <Link
-                  className="inline-block transition-transform duration-200 hover:translate-x-1 hover:text-brand-light"
+                  className="inline-block transition-[translate,color] duration-200 fine-hover:hover:translate-x-1 hover:text-brand-light"
                   href={link.href}
                 >
                   {link.label}
@@ -142,7 +142,7 @@ export default function Footer() {
         <div>
           <h3 className="mb-2 font-semibold text-lg">Follow Us</h3>
           <div className="flex gap-4">
-            <div className="transition-transform duration-200 hover:-translate-y-0.5">
+            <div className="transition-transform duration-200 fine-hover:hover:-translate-y-0.5">
               <Link
                 aria-label="Instagram"
                 className="text-brand-muted transition-colors hover:text-white"
@@ -151,7 +151,7 @@ export default function Footer() {
                 <InstagramIcon className="size-6" />
               </Link>
             </div>
-            <div className="transition-transform duration-200 hover:-translate-y-0.5">
+            <div className="transition-transform duration-200 fine-hover:hover:-translate-y-0.5">
               <Link
                 aria-label="Twitter"
                 className="text-brand-muted transition-colors hover:text-white"
@@ -160,7 +160,7 @@ export default function Footer() {
                 <XIcon className="size-6" />
               </Link>
             </div>
-            <div className="transition-transform duration-200 hover:-translate-y-0.5">
+            <div className="transition-transform duration-200 fine-hover:hover:-translate-y-0.5">
               <Link
                 aria-label="Facebook"
                 className="text-brand-muted transition-colors hover:text-white"
@@ -169,7 +169,7 @@ export default function Footer() {
                 <FacebookIcon className="size-6" />
               </Link>
             </div>
-            <div className="transition-transform duration-200 hover:-translate-y-0.5">
+            <div className="transition-transform duration-200 fine-hover:hover:-translate-y-0.5">
               <Link
                 aria-label="LinkedIn"
                 className="text-brand-muted transition-colors hover:text-white"

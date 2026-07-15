@@ -1,6 +1,6 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import { canReceiveNotification } from "./lib";
+import { canReceiveNotification } from "./lib/notifications";
 
 type NotificationAccess = {
   staffId?: Id<"staffUsers"> | null;

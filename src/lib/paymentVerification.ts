@@ -11,6 +11,8 @@ export interface VerifyPaymentPayload {
 export interface ConfirmBookingArgs {
   orderId: string;
   paymentId: string;
+  providerEventId: string;
+  reason: string;
   serverSecret: string;
   signature: string;
 }
@@ -110,6 +112,8 @@ export async function verifyPaymentRequest({
       confirmBooking({
         orderId: validated.orderId,
         paymentId: validated.paymentId,
+        providerEventId: `checkout:payment.confirmed:${validated.orderId}:${validated.paymentId}`,
+        reason: "Checkout signature verified",
         serverSecret,
         signature: validated.signature,
       })

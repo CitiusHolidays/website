@@ -3,7 +3,13 @@
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import { action } from "../_generated/server";
-import { PERMISSIONS } from "./lib";
+import {
+  downloadFileResultValidator,
+  fileOperationSuccessValidator,
+  nullableDownloadFileResultValidator,
+  uploadUrlResultValidator,
+} from "./fileReturnContracts";
+import { PERMISSIONS } from "./lib/rolePolicy";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -73,6 +79,7 @@ export const generateUploadUrl = action({
     }
     return await ctx.storage.generateUploadUrl();
   },
+  returns: uploadUrlResultValidator,
 });
 
 export const attachFile = action({
@@ -133,6 +140,7 @@ export const attachFile = action({
 
     return { success: true };
   },
+  returns: fileOperationSuccessValidator,
 });
 
 export const getDownloadUrl = action({
@@ -167,6 +175,7 @@ export const getDownloadUrl = action({
 
     return await buildDownloadFile(ctx, record);
   },
+  returns: downloadFileResultValidator,
 });
 
 export const getDownloadFile = action({
@@ -201,6 +210,7 @@ export const getDownloadFile = action({
 
     return await buildDownloadFile(ctx, record);
   },
+  returns: downloadFileResultValidator,
 });
 
 export const removeAttachment = action({
@@ -237,6 +247,7 @@ export const removeAttachment = action({
 
     return { success: true };
   },
+  returns: fileOperationSuccessValidator,
 });
 
 export const generateFinalizedPdfUploadUrl = action({
@@ -248,6 +259,7 @@ export const generateFinalizedPdfUploadUrl = action({
     }
     return await ctx.storage.generateUploadUrl();
   },
+  returns: uploadUrlResultValidator,
 });
 
 export const attachFinalizedPdf = action({
@@ -312,6 +324,7 @@ export const attachFinalizedPdf = action({
 
     return { success: true };
   },
+  returns: fileOperationSuccessValidator,
 });
 
 export const getFinalizedPdfUrl = action({
@@ -346,6 +359,7 @@ export const getFinalizedPdfUrl = action({
       storageId: record.storageId,
     });
   },
+  returns: nullableDownloadFileResultValidator,
 });
 
 export const getFinalizedPdfFile = action({
@@ -380,6 +394,7 @@ export const getFinalizedPdfFile = action({
       storageId: record.storageId,
     });
   },
+  returns: nullableDownloadFileResultValidator,
 });
 
 export const removeFinalizedPdf = action({
@@ -415,4 +430,5 @@ export const removeFinalizedPdf = action({
 
     return { success: true };
   },
+  returns: fileOperationSuccessValidator,
 });

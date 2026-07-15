@@ -29,7 +29,7 @@ export default function TempleChecklist({ templeIds, showAllTemples = false }) {
           <li key={temple.id}>
             <button
               className={cn(
-                "flex w-full items-center gap-4 rounded-xl border px-4 py-3 text-left transition-all",
+                "flex w-full items-center gap-4 rounded-xl border px-4 py-3 text-left transition-[border-color,background-color,color,box-shadow]",
                 visited
                   ? "border-citius-orange/35 bg-citius-orange/5"
                   : "border-brand-light bg-white hover:border-citius-blue/25"
@@ -41,7 +41,7 @@ export default function TempleChecklist({ templeIds, showAllTemples = false }) {
                 className={cn(
                   "flex size-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
                   visited
-                    ? "border-citius-orange bg-citius-orange text-white"
+                    ? "border-citius-orange bg-citius-orange text-brand-dark"
                     : "border-brand-light text-transparent"
                 )}
               >

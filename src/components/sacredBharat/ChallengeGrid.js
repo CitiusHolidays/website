@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { SACRED_BHARAT_CHALLENGES } from "@/data/sacredBharat/challenges";
 import { sortChallengesForUser } from "@/lib/sacredBharat/challenges";
-import { useSacredBharat } from "@/lib/sacredBharat/useSacredBharat";
+import { useSacredBharatContext } from "./SacredBharatProvider";
 
 export default function ChallengeGrid({ limit }) {
-  const { progress } = useSacredBharat();
+  const { progress } = useSacredBharatContext();
   const challenges = sortChallengesForUser(SACRED_BHARAT_CHALLENGES, progress).slice(
     0,
     limit ?? SACRED_BHARAT_CHALLENGES.length
@@ -20,11 +20,11 @@ export default function ChallengeGrid({ limit }) {
               <h3 className="font-heading text-brand-dark text-lg">{challenge.title}</h3>
               <p className="mt-1 font-sans text-brand-muted text-sm">{challenge.description}</p>
             </div>
-            {challenge.progress.complete && (
+            {challenge.progress.complete ? (
               <span className="rounded-full bg-citius-orange/10 px-2 py-1 font-sans font-semibold text-citius-orange text-xs">
                 Badge
               </span>
-            )}
+            ) : null}
           </div>
           <div className="mt-4 h-2 rounded-full bg-brand-light">
             <div
@@ -38,14 +38,14 @@ export default function ChallengeGrid({ limit }) {
           </p>
         </article>
       ))}
-      {limit && (
+      {limit ? (
         <Link
           className="rounded-lg border border-brand-light bg-brand-light/30 p-4 font-heading text-brand-dark hover:border-citius-orange"
           href="/sacred-bharat/challenges"
         >
           View all challenges
         </Link>
-      )}
+      ) : null}
     </div>
   );
 }

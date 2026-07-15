@@ -1,10 +1,20 @@
 "use client";
 
 import { AnimatePresence, m } from "motion/react";
-import { createContext, use, useState } from "react";
+import { createContext, use, useReducer } from "react";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const PortalToastContext = createContext(null);
+
+function toastReducer(state, action) {
+  if (action.type === "dismiss") {
+    return state.filter((toast) => toast.id !== action.id);
+  }
+  if (action.type === "enqueue") {
+    return [...state.slice(-4), action.toast];
+  }
+  return state;
+}
 
 function ToastItem({ toast, onDismiss }) {
   const toneClass =
@@ -41,23 +51,23 @@ function ToastItem({ toast, onDismiss }) {
 }
 
 export function PortalToastProvider({ children }) {
-  const [toasts, setToasts] = useState([]);
+  const [toasts, dispatchToasts] = useReducer(toastReducer, []);
 
   const dismiss = (id) => {
-    setToasts((current) => current.filter((toast) => toast.id !== id));
+    dispatchToasts({ id, type: "dismiss" });
   };
 
-  const push = (message, tone = "info") => {
+  const enqueueToast = (message, tone = "info") => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    setToasts((current) => [...current.slice(-4), { id, message, tone }]);
+    dispatchToasts({ toast: { id, message, tone }, type: "enqueue" });
     window.setTimeout(() => dismiss(id), tone === "error" ? 8000 : 5000);
     return id;
   };
 
   const api = {
-    error: (message) => push(message, "error"),
-    info: (message) => push(message, "info"),
-    success: (message) => push(message, "success"),
+    error: (message) => enqueueToast(message, "error"),
+    info: (message) => enqueueToast(message, "info"),
+    success: (message) => enqueueToast(message, "success"),
   };
 
   return (
@@ -65,7 +75,7 @@ export function PortalToastProvider({ children }) {
       {children}
       <section
         aria-label="Toast messages"
-        className={`pointer-events-none fixed right-4 bottom-4 ${PORTAL_Z.toast} flex w-full max-w-sm flex-col gap-2 px-4 sm:px-0`}
+        className={`portal-toast-safe-area pointer-events-none fixed ${PORTAL_Z.toast} flex w-auto max-w-sm flex-col gap-2 sm:w-full`}
       >
         <AnimatePresence mode="popLayout">
           {toasts.map((toast) => (

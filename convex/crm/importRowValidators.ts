@@ -32,6 +32,29 @@ const visaStatusValidator = v.union(
   v.literal("Re-applied")
 );
 
+const canonicalGenderValidator = v.optional(
+  v.union(v.literal(""), v.literal("Male"), v.literal("Female"))
+);
+
+const importedGenderValidator = v.optional(
+  v.union(
+    v.literal(""),
+    v.literal("Male"),
+    v.literal("Female"),
+    v.literal("M"),
+    v.literal("F"),
+    v.literal("male"),
+    v.literal("female")
+  )
+);
+
+const importedRoomTypeValidator = v.union(
+  roomTypeValidator,
+  v.literal("SGL"),
+  v.literal("TPL"),
+  v.literal("DBL")
+);
+
 const ticketingImportRow = v.optional(
   v.object({
     domesticPnr: v.optional(v.string()),
@@ -50,13 +73,14 @@ export const internalPassengerImportRow = v.object({
   encryptedPassportPayload: v.optional(v.string()),
   foodPreference: foodPreferenceValidator,
   fullName: v.string(),
-  gender: v.optional(v.string()),
+  gender: canonicalGenderValidator,
   givenName: v.optional(v.string()),
   guestType: v.union(v.literal("Employee"), v.literal("Client"), v.literal("VIP")),
   hotelAllocation: v.optional(v.string()),
   id: v.string(),
   importKey: v.string(),
   importKind: v.optional(importKindValidator),
+  passportContentFingerprint: v.optional(v.string()),
   passportExpiryDate: v.optional(v.string()),
   passportLastFour: v.optional(v.string()),
   passportNumberHash: v.optional(v.string()),
@@ -92,7 +116,7 @@ export const publicPassengerImportRow = v.object({
   domesticTravelRequired: v.optional(v.boolean()),
   foodPreference: foodPreferenceValidator,
   fullName: v.string(),
-  gender: v.optional(v.string()),
+  gender: importedGenderValidator,
   givenName: v.optional(v.string()),
   guestType: v.union(v.literal("Employee"), v.literal("Client"), v.literal("VIP")),
   hotelAllocation: v.optional(v.string()),
@@ -112,7 +136,7 @@ export const publicPassengerImportRow = v.object({
     v.literal("Self Paid"),
     v.literal("Upgraded Self Paid")
   ),
-  roomType: roomTypeValidator,
+  roomType: importedRoomTypeValidator,
   sourceDealerCode: v.optional(v.string()),
   sourceDealerName: v.optional(v.string()),
   sourceDescription: v.optional(v.string()),

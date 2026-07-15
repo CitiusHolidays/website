@@ -16,12 +16,12 @@ export default function PilgrimagePageClient({ images }) {
   const hubGroups = groupTrailsForHub(getTrailsForHub());
 
   return (
-    <div className="bg-white">
+    <div className="bg-public-surface">
       {/* Hero Section */}
       <SpiritualHero />
 
       {/* Introduction Section */}
-      <section className="relative overflow-hidden bg-[#fdfcfb] py-16 md:py-32">
+      <section className="relative overflow-hidden bg-public-paper py-16 md:py-32">
         {/* Subtle background texture */}
         <div className="pointer-events-none absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')] opacity-[0.03]" />
 
@@ -32,14 +32,14 @@ export default function PilgrimagePageClient({ images }) {
             viewport={{ once: true }}
             whileInView={{ opacity: 1, y: 0 }}
           >
-            <span className="mb-4 block font-heading text-citius-orange text-xs uppercase tracking-[0.3em] md:text-sm">
+            <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
               Citius Spiritual Trails
             </span>
-            <h2 className="mb-4 font-heading text-3xl text-brand-dark leading-tight md:mb-6 md:text-5xl lg:text-6xl">
+            <h2 className="mb-4 font-heading text-3xl text-public-ink leading-tight md:mb-6 md:text-5xl lg:text-6xl">
               The 2026 Kailash <br className="hidden md:block" />
-              <span className="text-citius-blue italic">Mansarovar Collection</span>
+              <span className="text-public-blue italic">Mansarovar Collection</span>
             </h2>
-            <p className="mx-auto max-w-3xl font-sans text-brand-muted text-lg leading-relaxed md:text-xl">
+            <p className="mx-auto max-w-3xl font-sans text-lg text-public-muted leading-relaxed md:text-xl">
               Flagship yatra and aerial darshan , plus specialised routes and programmes opening
               soon. Explore every trail below for galleries, dates, inclusions, and booking.
             </p>
@@ -48,7 +48,7 @@ export default function PilgrimagePageClient({ images }) {
 
           <div className="grid items-start gap-8 text-left md:gap-16 lg:grid-cols-2">
             <m.div
-              className="space-y-5 font-sans text-brand-muted text-lg leading-relaxed md:space-y-6 md:text-xl"
+              className="space-y-5 font-sans text-lg text-public-muted leading-relaxed md:space-y-6 md:text-xl"
               initial={{ opacity: 0, x: -30 }}
               viewport={{ once: true }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -97,7 +97,7 @@ export default function PilgrimagePageClient({ images }) {
                 },
               ].map((item, idx) => (
                 <m.div
-                  className="group flex gap-4 rounded-2xl border border-brand-light bg-white p-5 shadow-sm transition-all hover:border-citius-orange/20 hover:shadow-md md:gap-5 md:p-6"
+                  className="group flex gap-4 rounded-2xl border border-brand-light bg-white p-5 shadow-sm transition-[border-color,box-shadow] hover:border-citius-orange/20 hover:shadow-md md:gap-5 md:p-6"
                   initial={{ opacity: 0, x: 20 }}
                   key={item.title}
                   transition={{ delay: idx * 0.1 }}
@@ -111,7 +111,7 @@ export default function PilgrimagePageClient({ images }) {
                     <h3 className="mb-1 font-heading font-semibold text-base text-citius-blue md:text-lg">
                       {item.title}
                     </h3>
-                    <p className="text-brand-muted text-sm leading-relaxed md:text-base">
+                    <p className="text-public-muted text-sm leading-relaxed md:text-base">
                       {item.desc}
                     </p>
                   </div>
@@ -144,11 +144,11 @@ export default function PilgrimagePageClient({ images }) {
             viewport={{ once: true }}
             whileInView={{ opacity: 1, y: 0 }}
           >
-            <span className="mb-4 block font-heading text-citius-orange text-xs uppercase tracking-[0.3em] md:text-sm">
+            <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
               Why Choose Citius
             </span>
-            <h2 className="mb-4 font-heading text-3xl text-brand-dark md:text-4xl lg:text-5xl">
-              Your Trust, <span className="text-citius-blue italic">Our Commitment</span>
+            <h2 className="mb-4 font-heading text-3xl text-public-ink md:text-4xl lg:text-5xl">
+              Your Trust, <span className="text-public-blue italic">Our Commitment</span>
             </h2>
           </m.div>
 
@@ -174,7 +174,7 @@ export default function PilgrimagePageClient({ images }) {
               },
             ].map((item, idx) => (
               <m.div
-                className="rounded-2xl border border-brand-light bg-brand-light/50 p-6 text-center transition-all hover:border-citius-orange/30 md:p-8"
+                className="rounded-2xl border border-brand-light bg-brand-light/50 p-6 text-center transition-colors hover:border-citius-orange/30 md:p-8"
                 initial={{ opacity: 0, y: 20 }}
                 key={item.title}
                 transition={{ delay: idx * 0.1 }}
@@ -186,13 +186,13 @@ export default function PilgrimagePageClient({ images }) {
                     {item.stat}
                   </span>
                 </div>
-                <p className="mb-2 text-brand-muted text-xs uppercase tracking-wider">
+                <p className="mb-2 text-public-muted text-xs uppercase tracking-wider">
                   {item.statLabel}
                 </p>
                 <h3 className="mb-2 font-heading text-citius-blue text-lg md:text-xl">
                   {item.title}
                 </h3>
-                <p className="text-brand-muted text-sm leading-relaxed">{item.desc}</p>
+                <p className="text-public-muted text-sm leading-relaxed">{item.desc}</p>
               </m.div>
             ))}
           </div>
@@ -200,16 +200,16 @@ export default function PilgrimagePageClient({ images }) {
       </section>
 
       {/* Gallery Section */}
-      <AnimatedSection className="bg-brand-dark px-4 py-16 text-white md:py-32">
+      <AnimatedSection className="bg-public-night px-4 py-16 text-white md:py-32">
         <div className="mx-auto max-w-6xl">
           <div className="mb-10 flex flex-col items-start justify-between gap-6 text-center md:mb-14 md:flex-row md:items-end md:text-left">
             <div className="w-full md:w-auto">
-              <span className="mb-4 block font-heading text-citius-orange text-xs uppercase tracking-[0.3em] md:text-sm">
+              <span className="mb-4 block font-heading text-public-orange text-xs uppercase tracking-[0.3em] md:text-sm">
                 Visual Stories
               </span>
               <h2 className="font-heading text-3xl leading-tight md:text-5xl">
                 Glimpses of <br className="hidden md:block" />
-                <span className="text-citius-orange">the Sacred</span>
+                <span className="text-public-orange">the Sacred</span>
               </h2>
             </div>
             <p className="mx-auto max-w-md font-sans text-base text-white/60 md:mx-0 md:text-lg">
@@ -227,7 +227,7 @@ export default function PilgrimagePageClient({ images }) {
       </AnimatedSection>
 
       {/* Final CTA Section */}
-      <section className="bg-linear-to-b from-[#f8f5f2] to-white py-16 md:py-24">
+      <section className="bg-linear-to-b from-public-paper to-public-surface py-16 md:py-24">
         <div className="mx-auto max-w-4xl px-4 text-center">
           <m.div
             className="rounded-3xl border border-brand-light bg-white p-8 shadow-2xl shadow-brand-dark/10 md:p-12"
@@ -238,16 +238,16 @@ export default function PilgrimagePageClient({ images }) {
             <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-citius-orange/10">
               <Phone className="size-7 text-citius-orange" />
             </div>
-            <h2 className="mb-4 font-heading text-2xl text-brand-dark md:text-4xl">
+            <h2 className="mb-4 font-heading text-2xl text-public-ink md:text-4xl">
               Begin Your Sacred Journey
             </h2>
-            <p className="mx-auto mb-8 max-w-xl font-sans text-base text-brand-muted md:text-lg">
+            <p className="mx-auto mb-8 max-w-xl font-sans text-base text-public-muted md:text-lg">
               Speak with our yatra specialists to understand which journey suits you best.
               We&apos;re here to guide you every step of the way.
             </p>
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
               <Link
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-citius-orange px-8 py-4 font-heading text-sm text-white tracking-wider shadow-citius-orange/20 shadow-xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-citius-orange/40"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-citius-orange px-8 py-4 font-heading text-brand-dark text-sm tracking-wider shadow-citius-orange/20 shadow-xl transition-[translate,box-shadow] duration-300 fine-hover:hover:-translate-y-0.5 hover:shadow-citius-orange/40"
                 href="/contact"
               >
                 Request Detailed Brochure
@@ -255,13 +255,13 @@ export default function PilgrimagePageClient({ images }) {
               </Link>
               {/* <a 
                 href="tel:+91XXXXXXXXXX"
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-brand-dark text-white font-heading tracking-wider text-sm rounded-full hover:bg-brand-dark/90 transition-all duration-300"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-brand-dark px-8 py-4 font-heading text-sm text-white tracking-wider transition-colors duration-300 hover:bg-brand-dark/90"
               >
                 <Phone className="size-4" />
                 Call Our Team
               </a> */}
             </div>
-            <p className="mt-6 text-brand-muted text-xs">
+            <p className="mt-6 text-public-muted text-xs">
               Early registration recommended. 2026 departures filling fast.
             </p>
           </m.div>
@@ -269,7 +269,7 @@ export default function PilgrimagePageClient({ images }) {
       </section>
 
       {/* Sticky Mobile CTA */}
-      <div className="fixed right-0 bottom-0 left-0 z-50 flex gap-3 border-brand-light border-t bg-white p-3 px-4 shadow-lg md:hidden">
+      <div className="safe-area-bottom-bar fixed right-0 bottom-0 left-0 z-50 flex gap-3 border-brand-light border-t bg-white pt-3 shadow-lg md:hidden">
         <a
           className="flex-1 rounded-full bg-brand-dark py-3 text-center font-medium text-sm text-white"
           href="tel:+91XXXXXXXXXX"
@@ -277,7 +277,7 @@ export default function PilgrimagePageClient({ images }) {
           Call Now
         </a>
         <Link
-          className="flex-1 rounded-full bg-citius-orange py-3 text-center font-medium text-sm text-white"
+          className="flex-1 rounded-full bg-citius-orange py-3 text-center font-medium text-brand-dark text-sm"
           href="/contact"
         >
           Enquire

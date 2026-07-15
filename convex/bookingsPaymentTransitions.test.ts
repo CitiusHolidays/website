@@ -1,7 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { confirmBookingByOrderIdHandler, markPaymentFailedByOrderIdHandler } from "./bookings";
+import { readFileSync } from "node:fs";
+import {
+  confirmBookingByOrderIdHandler,
+  markPaymentFailedByOrderId,
+  markPaymentFailedByOrderIdHandler,
+} from "./bookings";
 
-type Row = { _id: string; [key: string]: unknown };
+interface Row {
+  _id: string;
+  [key: string]: unknown;
+}
 type Tables = Record<string, Row[]>;
 
 function makeBookingsCtx(initialTables: Tables) {
@@ -11,28 +19,37 @@ function makeBookingsCtx(initialTables: Tables) {
 
   const ctx = {
     db: {
-      get: async (id: string) => {
+      get: (id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
-            return row;
+            return Promise.resolve(row);
           }
         }
-        return null;
+        return Promise.resolve(null);
       },
-      patch: async (id: string, patch: Record<string, unknown>) => {
+      insert: (tableName: string, value: Record<string, unknown>) => {
+        const rows = tables[tableName] ?? [];
+        tables[tableName] = rows;
+        const id = `${tableName}_${rows.length + 1}`;
+        rows.push({ _id: id, ...value });
+        return Promise.resolve(id);
+      },
+      patch: (id: string, patch: Record<string, unknown>) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
             tables[table][index] = { ...rows[index], ...patch };
-            return;
+            return Promise.resolve();
           }
         }
+        return Promise.resolve();
       },
       query(tableName: string) {
         let rows = tables[tableName] ?? [];
         return {
-          take: async (limit: number) => rows.slice(0, limit),
+          take: (limit: number) => Promise.resolve(rows.slice(0, limit)),
+          unique: () => Promise.resolve(rows[0] ?? null),
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const q = {
@@ -58,6 +75,15 @@ function makeBookingsCtx(initialTables: Tables) {
 const tripId = "trips_1";
 const bookingId = "bookings_1";
 const orderId = "order_test_1";
+
+function paymentEventArgs(paymentId: string, event: string) {
+  return {
+    orderId,
+    paymentId,
+    providerEventId: `razorpay:${event}:${paymentId}`,
+    reason: `${event} test event`,
+  };
+}
 
 function baseBooking(overrides: Record<string, unknown> = {}) {
   return {
@@ -101,10 +127,10 @@ describe("markPaymentFailedByOrderId transitions", () => {
       trips: [baseTrip()],
     });
 
-    const result = await markPaymentFailedByOrderIdHandler(ctx as never, {
-      orderId,
-      paymentId: "pay_fail",
-    });
+    const result = await markPaymentFailedByOrderIdHandler(
+      ctx as never,
+      paymentEventArgs("pay_fail", "payment.failed")
+    );
 
     expect(result).toEqual({
       id: bookingId,
@@ -120,10 +146,10 @@ describe("markPaymentFailedByOrderId transitions", () => {
       trips: [baseTrip()],
     });
 
-    const result = await markPaymentFailedByOrderIdHandler(ctx as never, {
-      orderId,
-      paymentId: "pay_fail",
-    });
+    const result = await markPaymentFailedByOrderIdHandler(
+      ctx as never,
+      paymentEventArgs("pay_fail", "payment.failed")
+    );
 
     expect(result).toEqual({
       id: bookingId,
@@ -139,14 +165,59 @@ describe("markPaymentFailedByOrderId transitions", () => {
       trips: [baseTrip()],
     });
 
-    const result = await markPaymentFailedByOrderIdHandler(ctx as never, {
-      orderId,
-      paymentId: "pay_fail",
-    });
+    const result = await markPaymentFailedByOrderIdHandler(
+      ctx as never,
+      paymentEventArgs("pay_fail", "payment.failed")
+    );
 
     expect(result).toEqual({ id: bookingId, status: "failed" });
     expect(tables.bookings[0]?.status).toBe("failed");
     expect(tables.bookings[0]?.razorpayPaymentId).toBe("pay_fail");
+  });
+
+  test("records one auditable provider event and replays it without changing booking state", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookings: [baseBooking()],
+      trips: [baseTrip()],
+    });
+    const args = {
+      orderId,
+      paymentId: "pay_fail",
+      providerEventId: "razorpay:payment.failed:pay_fail",
+      reason: "payment.failed webhook",
+    };
+
+    const first = await markPaymentFailedByOrderIdHandler(ctx as never, args);
+    const updatedAt = tables.bookings[0]?.updatedAt;
+    const replay = await markPaymentFailedByOrderIdHandler(ctx as never, args);
+
+    expect(first).toMatchObject({ status: "failed" });
+    expect(replay).toMatchObject({ duplicateEvent: true, status: "failed" });
+    expect(tables.bookings[0]?.updatedAt).toBe(updatedAt);
+    expect(tables.bookingPaymentEvents).toHaveLength(1);
+    expect(tables.bookingPaymentEvents[0]).toMatchObject({
+      providerEventId: args.providerEventId,
+      reason: args.reason,
+      transition: "failed",
+    });
+  });
+
+  test("a new failure retry cannot rewrite an already failed booking", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookings: [baseBooking({ status: "failed", updatedAt: 42 })],
+      trips: [baseTrip()],
+    });
+
+    const result = await markPaymentFailedByOrderIdHandler(
+      ctx as never,
+      paymentEventArgs("pay_retry", "payment.failed.retry")
+    );
+
+    expect(result).toMatchObject({ ignored: true, status: "failed" });
+    expect(tables.bookings[0]?.updatedAt).toBe(42);
+    expect(tables.bookingPaymentEvents).toHaveLength(1);
   });
 });
 
@@ -163,10 +234,10 @@ describe("confirmBookingByOrderId transitions", () => {
       trips: [baseTrip({ availableSeats: 6 })],
     });
 
-    const result = await confirmBookingByOrderIdHandler(ctx as never, {
-      orderId,
-      paymentId: "pay_ok",
-    });
+    const result = await confirmBookingByOrderIdHandler(
+      ctx as never,
+      paymentEventArgs("pay_ok", "payment.captured")
+    );
 
     expect(result.success).toBe(true);
     expect(result.alreadyConfirmed).toBe(true);
@@ -178,15 +249,72 @@ describe("confirmBookingByOrderId transitions", () => {
       trips: [baseTrip({ availableSeats: 8 })],
     });
 
-    const result = await confirmBookingByOrderIdHandler(ctx as never, {
-      orderId,
-      paymentId: "pay_ok",
-    });
+    const result = await confirmBookingByOrderIdHandler(
+      ctx as never,
+      paymentEventArgs("pay_ok", "payment.captured")
+    );
 
     expect(result.success).toBe(true);
     expect(result.alreadyConfirmed).toBe(false);
     expect(tables.bookings[0]?.status).toBe("confirmed");
     expect(tables.trips[0]?.availableSeats).toBe(6);
+  });
+
+  test("does not confirm or debit inventory for a refunded booking", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookings: [baseBooking({ razorpayPaymentId: "pay_refunded", status: "refunded" })],
+      trips: [baseTrip({ availableSeats: 6 })],
+    });
+
+    const result = await confirmBookingByOrderIdHandler(ctx as never, {
+      orderId,
+      paymentId: "pay_retry",
+      providerEventId: "razorpay:payment.captured:pay_retry",
+      reason: "late capture retry",
+    });
+
+    expect(result).toMatchObject({ ignored: true, status: "refunded" });
+    expect(tables.bookings[0]?.status).toBe("refunded");
+    expect(tables.trips[0]?.availableSeats).toBe(6);
+  });
+
+  test("does not confirm a recoverable failed booking when inventory has expired", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookings: [baseBooking({ razorpayPaymentId: "pay_fail", status: "failed" })],
+      trips: [baseTrip({ availableSeats: 1 })],
+    });
+
+    await expect(
+      confirmBookingByOrderIdHandler(ctx as never, paymentEventArgs("pay_late", "payment.captured"))
+    ).rejects.toThrow("No seats available for confirmation");
+
+    expect(tables.bookings[0]?.status).toBe("failed");
+    expect(tables.trips[0]?.availableSeats).toBe(1);
+    expect(tables.bookingPaymentEvents).toHaveLength(0);
+  });
+
+  test("serialized concurrent capture retries debit inventory once", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookings: [baseBooking()],
+      trips: [baseTrip({ availableSeats: 8 })],
+    });
+    const args = paymentEventArgs("pay_race", "payment.captured");
+    let transactionLane = Promise.resolve<unknown>(undefined);
+    const runAsConvexTransaction = () => {
+      const result = transactionLane.then(() => confirmBookingByOrderIdHandler(ctx as never, args));
+      transactionLane = result;
+      return result;
+    };
+
+    const results = await Promise.all([runAsConvexTransaction(), runAsConvexTransaction()]);
+
+    expect(results.filter((result) => result.alreadyConfirmed === false)).toHaveLength(1);
+    expect(results.filter((result) => result.duplicateEvent === true)).toHaveLength(1);
+    expect(tables.trips[0]?.availableSeats).toBe(6);
+    expect(tables.bookingPaymentEvents).toHaveLength(1);
   });
 });
 
@@ -197,17 +325,17 @@ describe("captured-then-failed ordering", () => {
       trips: [baseTrip({ availableSeats: 8 })],
     });
 
-    await confirmBookingByOrderIdHandler(ctx as never, {
-      orderId,
-      paymentId: "pay_ok",
-    });
+    await confirmBookingByOrderIdHandler(
+      ctx as never,
+      paymentEventArgs("pay_ok", "payment.captured")
+    );
     expect(tables.bookings[0]?.status).toBe("confirmed");
     expect(tables.trips[0]?.availableSeats).toBe(6);
 
-    const failureResult = await markPaymentFailedByOrderIdHandler(ctx as never, {
-      orderId,
-      paymentId: "pay_fail_alt",
-    });
+    const failureResult = await markPaymentFailedByOrderIdHandler(
+      ctx as never,
+      paymentEventArgs("pay_fail_alt", "payment.failed")
+    );
 
     expect(failureResult).toEqual({
       id: bookingId,
@@ -216,5 +344,37 @@ describe("captured-then-failed ordering", () => {
     });
     expect(tables.bookings[0]?.status).toBe("confirmed");
     expect(tables.trips[0]?.availableSeats).toBe(6);
+  });
+});
+
+describe("booking transition capability", () => {
+  test("does not export a booking-id-only failure mutation", () => {
+    const source = readFileSync(new URL("./bookings.ts", import.meta.url), "utf8");
+    expect(source).not.toContain("export const markBookingFailedById = mutation");
+  });
+
+  test("the remaining payment failure mutation rejects an unauthenticated secret", async () => {
+    const previous = process.env.PAYMENT_MUTATION_SECRET;
+    process.env.PAYMENT_MUTATION_SECRET = "expected-secret";
+    try {
+      await expect(
+        (markPaymentFailedByOrderId as any)._handler(
+          {},
+          {
+            orderId,
+            paymentId: "pay_opaque",
+            providerEventId: "opaque-reuse",
+            reason: "anonymous opaque id attempt",
+            serverSecret: "wrong-secret",
+          }
+        )
+      ).rejects.toThrow("Invalid payment mutation secret");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.PAYMENT_MUTATION_SECRET;
+      } else {
+        process.env.PAYMENT_MUTATION_SECRET = previous;
+      }
+    }
   });
 });

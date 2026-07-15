@@ -1,6 +1,6 @@
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { normalizeEmail } from "../crm/lib";
+import { normalizeEmail } from "../crm/lib/staffAccess";
 
 export type AuthSyncInput = {
   authUserId: string;

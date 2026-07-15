@@ -1,5 +1,46 @@
 import { decryptPassportPayloadJson } from "../lib/passportPayloadCrypto";
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const SIX_MONTHS_MS = 183 * MS_PER_DAY;
+
+export type PassportExpiryUrgency = "critical" | "expired" | "ok" | "unknown" | "warning";
+
+function dateOnlyAtNoon(value?: string | null) {
+  const normalized = normalizePassportExpiryDate(value);
+  if (!normalized) {
+    return null;
+  }
+  const parsed = Date.parse(`${normalized}T12:00:00.000Z`);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+export function classifyPassportExpiryUrgency({
+  expiryDate,
+  referenceDate,
+  travelDate,
+}: {
+  expiryDate?: string | null;
+  referenceDate: string;
+  travelDate?: string | null;
+}): PassportExpiryUrgency {
+  const expiryMs = dateOnlyAtNoon(expiryDate);
+  const referenceMs = dateOnlyAtNoon(referenceDate);
+  const travelMs = dateOnlyAtNoon(travelDate);
+  if (expiryMs === null || referenceMs === null) {
+    return "unknown";
+  }
+  if (expiryMs < referenceMs) {
+    return "expired";
+  }
+  if (travelMs !== null && (expiryMs < travelMs + SIX_MONTHS_MS || expiryMs <= travelMs)) {
+    return "critical";
+  }
+  if (expiryMs <= referenceMs + SIX_MONTHS_MS) {
+    return "warning";
+  }
+  return "ok";
+}
+
 /** Strip encrypted passport sentinel values for display/export. */
 export function cleanPassportField(value?: string | null) {
   const text = String(value ?? "").trim();
@@ -37,7 +78,7 @@ export function passportExpiryFromDecrypted(
   return normalizePassportExpiryDate(cleanPassportField(decrypted.expiryDate)) ?? "";
 }
 
-/** Best-effort decrypt in query runtime; prefer passportActions.getTravellerPassportExpiryDates. */
+/** Best-effort decrypt for bounded internal backfill jobs. Portal lists use the denormalized date. */
 export async function resolvePassportExpiryForList(
   plainExpiry?: string | null,
   encryptedPayload?: string | null

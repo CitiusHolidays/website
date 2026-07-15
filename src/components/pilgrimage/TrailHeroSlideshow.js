@@ -135,7 +135,7 @@ export default function TrailHeroSlideshow({ trail }) {
               {slides.map((s, idx) => (
                 <button
                   aria-label={`Hero image ${idx + 1}`}
-                  className={`h-1 rounded-full transition-all duration-500 ${
+                  className={`h-1 rounded-full transition-[width,background-color] duration-500 ${
                     idx === index ? "w-10 bg-citius-orange" : "w-3 bg-white/25 hover:bg-white/45"
                   }`}
                   key={s.src}

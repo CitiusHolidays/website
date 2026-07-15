@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "replacements": [
+    {
+      "deletedPath": "src/components/portal/PortalWorkspace.js",
+      "successorPaths": ["src/components/portal/PortalWorkspace.tsx"]
+    },
+    {
+      "deletedPath": "src/components/portal/SelectableDataTable.js",
+      "successorPaths": ["src/components/portal/SelectableDataTable.tsx"]
+    }
+  ]
+}

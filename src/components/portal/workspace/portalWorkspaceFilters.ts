@@ -36,7 +36,6 @@ interface BuildPortalWorkspaceFiltersInput extends FilterSnapshot {
   allowed: boolean | undefined;
   createSavedView: unknown;
   listFilterConfig: any[] | undefined;
-  modal: string | null;
   pathname: string;
   removeSavedView: MutationLike;
   router: AppRouterInstance;
@@ -71,7 +70,6 @@ export function buildPortalWorkspaceFilters({
   jobCardFilter,
   listFilterConfig,
   listFilters,
-  modal,
   pathname,
   removeSavedView,
   router,
@@ -91,7 +89,7 @@ export function buildPortalWorkspaceFilters({
       return;
     }
     const params = serializeWorkspaceUrlFilterState(nextFilters, listFilterConfig, {
-      preserveDeepLink: Boolean(modal),
+      preserveRouteContext: true,
       searchParams,
     });
     const qs = params.toString();
@@ -104,7 +102,10 @@ export function buildPortalWorkspaceFilters({
   };
 
   const filterUrlForState = (nextFilters: FilterSnapshot) => {
-    const params = serializeWorkspaceUrlFilterState(nextFilters, listFilterConfig);
+    const params = serializeWorkspaceUrlFilterState(nextFilters, listFilterConfig, {
+      preserveTab: true,
+      searchParams,
+    });
     const qs = params.toString();
     return qs ? `${pathname}?${qs}` : pathname;
   };

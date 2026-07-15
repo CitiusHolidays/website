@@ -1,4 +1,22 @@
 const FILTER_PARAM_PREFIX = "f_";
+const HOTEL_ROOMING_TABS = new Set(["hotels", "rooming", "room-count"]);
+const ENTITY_DEEP_LINKS = new Set([
+  "approval",
+  "assignContracting",
+  "assignContractingOwner",
+  "assignOperationsOwner",
+  "assignQueryTeams",
+  "assignQueryTicketing",
+  "assignTicketingOwner",
+  "expense",
+  "jobCard",
+  "leave_create",
+  "proposal",
+  "query",
+  "queryStatus",
+  "salesDecision",
+  "ticket",
+]);
 
 export function parsePortalFilterParams(searchParams) {
   const search = searchParams.get("q") ?? "";
@@ -38,6 +56,7 @@ export function serializePortalFilterParams({
   jobCardFilter,
   listFilters,
   deepLink = null,
+  tab = null,
 }) {
   const params = new URLSearchParams();
   const term = (search || "").trim();
@@ -67,23 +86,37 @@ export function serializePortalFilterParams({
       params.set("queryId", deepLink.queryId);
     }
   }
+  if (HOTEL_ROOMING_TABS.has(tab)) {
+    params.set("tab", tab);
+  }
   return params;
+}
+
+function recognizedDeepLink(searchParams) {
+  const open = searchParams?.get("open") || "";
+  const id = searchParams?.get("id") || "";
+  const queryId = searchParams?.get("queryId") || "";
+  if (!(ENTITY_DEEP_LINKS.has(open) && (id || queryId))) {
+    return null;
+  }
+  return {
+    id: id || undefined,
+    open,
+    queryId: queryId || undefined,
+  };
 }
 
 /**
  * @param {{ search: string, dateRange: { from: string, to: string }, jobCardFilter: string, listFilters: Record<string, string> }} state
  * @param {Array<{ field: string }>} filterConfig
- * @param {{ preserveDeepLink?: boolean, searchParams?: URLSearchParams }} options
+ * @param {{ preserveDeepLink?: boolean, preserveRouteContext?: boolean, preserveTab?: boolean, searchParams?: URLSearchParams }} options
  */
 export function serializeUrlFilterState(state, filterConfig = [], options = {}) {
-  const deepLink =
-    options.preserveDeepLink && options.searchParams
-      ? {
-          id: options.searchParams.get("id") || undefined,
-          open: options.searchParams.get("open") || undefined,
-          queryId: options.searchParams.get("queryId") || undefined,
-        }
-      : null;
+  const preserveDeepLink = options.preserveRouteContext || options.preserveDeepLink;
+  const preserveTab = options.preserveRouteContext || options.preserveTab;
+  const deepLink = preserveDeepLink ? recognizedDeepLink(options.searchParams) : null;
+  const currentTab = options.searchParams?.get("tab") || "";
+  const tab = preserveTab && HOTEL_ROOMING_TABS.has(currentTab) ? currentTab : null;
   const allowed = new Set(filterConfig.map((def) => def.field));
   const listFilters = {};
   for (const [field, value] of Object.entries(state.listFilters || {})) {
@@ -97,6 +130,7 @@ export function serializeUrlFilterState(state, filterConfig = [], options = {}) 
     jobCardFilter: state.jobCardFilter,
     listFilters,
     search: state.search,
+    tab,
   });
 }
 

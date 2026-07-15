@@ -2,6 +2,11 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, query } from "../_generated/server";
 import {
+  proposalAccessResultValidator,
+  proposalAttachmentListResultValidator,
+  proposalAttachmentRecordResultValidator,
+} from "./fileReturnContracts";
+import {
   canSeeJobCardRecord,
   canSeeProposalRecord,
   PERMISSIONS,
@@ -85,6 +90,7 @@ export const listForProposal = query({
       .collect();
     return rows.sort((a, b) => b.createdAt - a.createdAt).map(publicProposalAttachment);
   },
+  returns: proposalAttachmentListResultValidator,
 });
 
 export const verifyProposalAccess = query({
@@ -99,6 +105,7 @@ export const verifyProposalAccess = query({
     await requireVisibleProposal(ctx, proposalId);
     return { id: proposalId };
   },
+  returns: proposalAccessResultValidator,
 });
 
 export const getAttachmentRecord = query({
@@ -123,6 +130,7 @@ export const getAttachmentRecord = query({
       storageId: row.storageId,
     };
   },
+  returns: proposalAttachmentRecordResultValidator,
 });
 
 export const resolveProposalId = internalMutation({

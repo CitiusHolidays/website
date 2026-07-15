@@ -3,11 +3,22 @@ import {
   applyJobCardLink,
   applyQueryLink,
   applyStaffLink,
+  linkedPnrOptions,
+  linkedTravellerOptions,
   reconcileTravelBatchSelection,
   travelBatchSelectOptions,
 } from "./entityModalLinks";
 
 describe("entityModalLinks", () => {
+  test("treats route-scoped collections as empty while they load", () => {
+    expect(linkedTravellerOptions(undefined, "")).toEqual([
+      { label: "Select job card first…", value: "" },
+    ]);
+    expect(linkedPnrOptions(undefined, "")).toEqual([
+      { label: "Select job card first…", value: "" },
+    ]);
+  });
+
   test("autofills proposal costs from linked query costing", () => {
     expect(
       applyQueryLink(

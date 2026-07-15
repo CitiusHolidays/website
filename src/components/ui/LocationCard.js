@@ -6,7 +6,7 @@ export default function LocationCard({ city, address, phone, mapUrl, index }) {
   return (
     <m.div
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-lg border border-brand-border bg-brand-light p-6 shadow-sm transition-all duration-200 hover:shadow-md"
+      className="rounded-lg border border-brand-border bg-brand-light p-6 shadow-sm transition-shadow duration-200 hover:shadow-md"
       initial={{ opacity: 0, y: 20 }}
       transition={{ delay: index * 0.1, duration: 0.5 }}
     >

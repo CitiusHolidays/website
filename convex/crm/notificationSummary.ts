@@ -1,4 +1,4 @@
-import { canReceiveNotification } from "./lib";
+import { canReceiveNotification } from "./lib/notifications";
 
 type NotificationAccess = {
   authUserId?: string | null;

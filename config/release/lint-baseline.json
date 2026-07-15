@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "tool": "@biomejs/biome@2.5.2",
+  "generatedAt": "2026-07-15T05:55:02.583Z",
+  "scope": ".",
+  "totals": {
+    "errors": 0,
+    "warnings": 1699
+  },
+  "diagnostics": {
+    "warning": {
+      "lint/style/useDestructuring": 39,
+      "lint/complexity/noVoid": 7,
+      "lint/suspicious/useAwait": 90,
+      "lint/style/noIncrementDecrement": 2,
+      "lint/style/useConsistentArrayType": 8,
+      "lint/performance/useTopLevelRegex": 49,
+      "lint/suspicious/noEvolvingTypes": 14,
+      "lint/complexity/noExcessiveCognitiveComplexity": 63,
+      "lint/correctness/noUnusedFunctionParameters": 327,
+      "lint/style/noNestedTernary": 69,
+      "lint/suspicious/noShadow": 33,
+      "lint/suspicious/noUnnecessaryConditions": 138,
+      "lint/performance/noBarrelFile": 9,
+      "lint/performance/noAwaitInLoops": 18,
+      "lint/performance/noNamespaceImport": 11,
+      "lint/style/useConsistentTypeDefinitions": 62,
+      "lint/suspicious/noEmptyBlockStatements": 43,
+      "lint/suspicious/noBitwiseOperators": 4,
+      "lint/style/useAtIndex": 5,
+      "lint/style/noExportedImports": 10,
+      "lint/complexity/useOptionalChain": 10,
+      "lint/suspicious/noEqualsToNull": 35,
+      "lint/style/useDefaultSwitchClause": 2,
+      "lint/correctness/noUnusedVariables": 6,
+      "lint/suspicious/useArraySortCompare": 2,
+      "lint/style/useErrorCause": 3,
+      "lint/style/useNodejsImportProtocol": 1,
+      "lint/performance/noJsxPropsBind": 511,
+      "lint/suspicious/noLeakedRender": 117,
+      "lint/correctness/useExhaustiveDependencies": 1,
+      "lint/suspicious/noReturnAssign": 3,
+      "lint/complexity/noUselessFragments": 2,
+      "lint/suspicious/noArrayIndexKey": 2,
+      "lint/style/useDefaultParameterLast": 3
+    }
+  }
+}

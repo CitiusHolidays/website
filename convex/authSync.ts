@@ -4,6 +4,7 @@ import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./_generated/server";
 import { normalizeEmail } from "./crm/lib";
 import { syncAuthRecords } from "./lib/authSync";
+import { authRepairResultValidator, authSyncResultValidator } from "./publicReturnContracts";
 
 const getIdentityOrThrow = async (ctx: MutationCtx) => {
   const identity = await ctx.auth.getUserIdentity();
@@ -36,6 +37,7 @@ export const syncMyAuthIdentity = mutation({
     const identity = await getIdentityOrThrow(ctx);
     return await syncAuthRecords(ctx, identityToSyncInput(identity));
   },
+  returns: authSyncResultValidator,
 });
 
 export const repairAuthLinks = mutation({
@@ -188,4 +190,5 @@ export const repairAuthLinks = mutation({
       staffTotal: staffRows.length,
     };
   },
+  returns: authRepairResultValidator,
 });

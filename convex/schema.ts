@@ -1,5 +1,10 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import {
+  importFailureValidator,
+  importRoomSummaryValidator,
+  travelBatchSummaryTransitionValidator,
+} from "./lib/importContractValidators";
 import { roomTypeValidator } from "./lib/roomTypeValidators";
 
 const bookingStatus = v.union(
@@ -189,7 +194,33 @@ export default defineSchema({
     jobCardId: v.id("jobCards"),
     notes: v.optional(v.string()),
     updatedAt: v.number(),
-  }).index("by_jobCardId", ["jobCardId"]),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_createdAt", ["createdAt"]),
+
+  aiRateLimits: defineTable({
+    count: v.number(),
+    expiresAt: v.number(),
+    feature: v.union(v.literal("concierge"), v.literal("journeyPlanner")),
+    keyHash: v.string(),
+    resetAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_feature_key", ["feature", "keyHash"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  aiTelemetry: defineTable({
+    createdAt: v.number(),
+    fallback: v.boolean(),
+    feature: v.union(v.literal("concierge"), v.literal("journeyPlanner")),
+    finishReason: v.optional(v.string()),
+    inputTokens: v.optional(v.number()),
+    latencyMs: v.number(),
+    model: v.string(),
+    outputTokens: v.optional(v.number()),
+    retentionUntil: v.number(),
+    terminalState: v.union(v.literal("completed"), v.literal("failed"), v.literal("interrupted")),
+  }).index("by_retentionUntil", ["retentionUntil"]),
 
   approvalRequests: defineTable({
     amount: v.optional(v.number()),
@@ -200,6 +231,8 @@ export default defineSchema({
     decisionNote: v.optional(v.string()),
     entityId: v.string(),
     entityType: v.string(),
+    expenseVersion: v.optional(v.number()),
+    proofDigest: v.optional(v.string()),
     requestCode: v.string(),
     requestedBy: v.string(),
     requestedByName: v.optional(v.string()),
@@ -210,9 +243,11 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_entity", ["entityType", "entityId"])
-    .index("by_type_status", ["type", "status"]),
+    .index("by_type_status", ["type", "status"])
+    .index("by_createdAt", ["createdAt"]),
 
   attachments: defineTable({
+    contentDigest: v.optional(v.string()),
     createdAt: v.number(),
     createdBy: v.string(),
     entityId: v.string(),
@@ -223,10 +258,31 @@ export default defineSchema({
     url: v.optional(v.string()),
   }).index("by_entity", ["entityType", "entityId"]),
 
+  bookingPaymentEvents: defineTable({
+    bookingId: v.id("bookings"),
+    createdAt: v.number(),
+    outcome: v.string(),
+    paymentId: v.optional(v.string()),
+    providerEventId: v.string(),
+    reason: v.string(),
+    statusAfter: bookingStatus,
+    statusBefore: bookingStatus,
+    transition: v.union(
+      v.literal("authorized"),
+      v.literal("confirmed"),
+      v.literal("failed"),
+      v.literal("refunded")
+    ),
+  })
+    .index("by_providerEventId", ["providerEventId"])
+    .index("by_bookingId_createdAt", ["bookingId", "createdAt"]),
+
   bookings: defineTable({
     confirmedAt: v.optional(v.number()),
     createdAt: v.number(),
     currency: v.string(),
+    inventoryDebitedAt: v.optional(v.number()),
+    inventoryDebitedEventId: v.optional(v.string()),
     legacyBookingId: v.optional(v.string()),
     notes: v.optional(v.string()),
     razorpayOrderId: v.string(),
@@ -285,6 +341,68 @@ export default defineSchema({
     .index("by_queryId", ["queryId"])
     .index("by_ownerId", ["ownerId"]),
 
+  crmImportBatches: defineTable({
+    accepted: v.number(),
+    attemptCount: v.number(),
+    batchId: v.string(),
+    completedAt: v.optional(v.number()),
+    created: v.number(),
+    createdAt: v.number(),
+    errors: v.array(importFailureValidator),
+    failed: v.number(),
+    jobCardId: v.id("jobCards"),
+    processed: v.number(),
+    remaining: v.number(),
+    roomSummary: importRoomSummaryValidator,
+    status: v.union(v.literal("processing"), v.literal("completed"), v.literal("retryable")),
+    updated: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_batchId", ["batchId"])
+    .index("by_jobCardId", ["jobCardId"]),
+
+  crmListSearchReadiness: defineTable({
+    generation: v.optional(v.number()),
+    ready: v.boolean(),
+    reconciling: v.optional(v.boolean()),
+    startedAt: v.optional(v.number()),
+    table: v.string(),
+    updatedAt: v.number(),
+    version: v.optional(v.number()),
+  }).index("by_table", ["table"]),
+
+  crmMetricBuckets: defineTable({
+    periodKey: v.string(),
+    periodType: v.union(v.literal("day"), v.literal("month")),
+    scope: v.string(),
+    updatedAt: v.number(),
+    values: v.any(),
+  }).index("by_scope_period", ["scope", "periodType", "periodKey"]),
+
+  crmMetricProjections: defineTable({
+    day: v.string(),
+    fingerprint: v.string(),
+    scopes: v.array(v.string()),
+    sourceId: v.string(),
+    sourceType: v.string(),
+    updatedAt: v.number(),
+    values: v.any(),
+  })
+    .index("by_source", ["sourceType", "sourceId"])
+    .index("by_sourceType", ["sourceType"]),
+
+  crmMetricReadiness: defineTable({
+    completedSourceTypes: v.array(v.string()),
+    generation: v.number(),
+    key: v.string(),
+    lastCompletedAt: v.optional(v.number()),
+    lastCompletedGeneration: v.optional(v.number()),
+    lastCompletedMetricVersion: v.optional(v.number()),
+    metricVersion: v.optional(v.number()),
+    startedAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
+
   dropdownOptions: defineTable({
     active: v.boolean(),
     category: v.string(),
@@ -310,6 +428,7 @@ export default defineSchema({
   expenseEntries: defineTable({
     amount: v.number(),
     approvalStatus,
+    approvalVersion: v.optional(v.number()),
     cardAmount: v.optional(v.number()),
     cashAmount: v.optional(v.number()),
     category: v.string(),
@@ -323,6 +442,8 @@ export default defineSchema({
     financeReviewedByName: v.optional(v.string()),
     financeReviewStatus: v.optional(reviewStatus),
     jobCardId: v.optional(v.id("jobCards")),
+    managerApprovedProofDigest: v.optional(v.string()),
+    managerApprovedVersion: v.optional(v.number()),
     managerApproverStaffId: v.optional(v.id("staffUsers")),
     managerReviewedAt: v.optional(v.number()),
     managerReviewedBy: v.optional(v.string()),
@@ -332,6 +453,7 @@ export default defineSchema({
     paidBy: v.string(),
     particulars: v.optional(v.string()),
     proofAttachmentId: v.optional(v.id("attachments")),
+    proofDigest: v.optional(v.string()),
     reimbursementStatus: v.union(
       v.literal("Not Submitted"),
       v.literal("Pending"),
@@ -342,7 +464,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_jobCardId", ["jobCardId"])
-    .index("by_approvalStatus", ["approvalStatus"]),
+    .index("by_approvalStatus", ["approvalStatus"])
+    .index("by_createdAt", ["createdAt"]),
 
   flightGroups: defineTable({
     airline: v.string(),
@@ -365,7 +488,8 @@ export default defineSchema({
     .index("by_jobCardId", ["jobCardId"])
     .index("by_travelBatchId", ["travelBatchId"])
     .index("by_jobCardId_and_travelBatchId", ["jobCardId", "travelBatchId"])
-    .index("by_jobCardId_importKey", ["jobCardId", "importKey"]),
+    .index("by_jobCardId_importKey", ["jobCardId", "importKey"])
+    .index("by_createdAt", ["createdAt"]),
 
   flightSegments: defineTable({
     airline: v.string(),
@@ -404,7 +528,9 @@ export default defineSchema({
     name: v.string(),
     specialInstructions: v.optional(v.string()),
     updatedAt: v.number(),
-  }).index("by_jobCardId", ["jobCardId"]),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_createdAt", ["createdAt"]),
 
   invoices: defineTable({
     balanceAmount: v.number(),
@@ -426,7 +552,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_jobCardId", ["jobCardId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_createdAt", ["createdAt"]),
 
   itineraries: defineTable({
     content: v.optional(v.string()),
@@ -438,6 +565,39 @@ export default defineSchema({
     updatedAt: v.number(),
     version: v.number(),
   }).index("by_jobCardId", ["jobCardId"]),
+
+  jobCardDeletionOperations: defineTable({
+    completedAt: v.optional(v.number()),
+    deletedCount: v.number(),
+    failedAt: v.optional(v.number()),
+    failureSummary: v.optional(v.string()),
+    initiatedBy: v.string(),
+    initiatedByStaffId: v.optional(v.id("staffUsers")),
+    jobCardId: v.string(),
+    jobCode: v.string(),
+    lastProgressAt: v.number(),
+    stage: v.string(),
+    stageCounts: v.array(
+      v.object({
+        count: v.number(),
+        stage: v.string(),
+      })
+    ),
+    startedAt: v.number(),
+    status: v.union(v.literal("running"), v.literal("complete"), v.literal("failed")),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_initiatedBy_startedAt", ["initiatedBy", "startedAt"]),
+
+  jobCardDeletionWorkers: defineTable({
+    completedAt: v.optional(v.number()),
+    kind: v.union(v.literal("traveller"), v.literal("approval")),
+    operationId: v.id("jobCardDeletionOperations"),
+    status: v.union(v.literal("running"), v.literal("complete")),
+    workerKey: v.string(),
+  })
+    .index("by_operation_status", ["operationId", "status"])
+    .index("by_operation_workerKey", ["operationId", "workerKey"]),
 
   jobCards: defineTable({
     clientName: v.string(),
@@ -452,6 +612,7 @@ export default defineSchema({
     lastEditedAt: v.optional(v.number()),
     lastEditedBy: v.optional(v.string()),
     lastEditedByName: v.optional(v.string()),
+    listSearchText: v.optional(v.string()),
     operationsOwnerId: v.optional(v.string()),
     operationsOwnerName: v.optional(v.string()),
     paymentTerms: v.optional(v.any()),
@@ -469,8 +630,12 @@ export default defineSchema({
     ),
     ticketingOwnerId: v.optional(v.string()),
     ticketingOwnerName: v.optional(v.string()),
+    ticketingRequired: v.optional(v.boolean()),
+    ticketingScope: v.optional(v.string()),
     tourManagerId: v.optional(v.id("tourManagerAssignments")),
     tourManagerName: v.optional(v.string()),
+    travelBatchCount: v.optional(v.number()),
+    travelBatchSummaries: v.optional(v.array(travelBatchSummaryTransitionValidator)),
     travelEndDate: v.optional(v.string()),
     travelStartDate: v.optional(v.string()),
     updatedAt: v.number(),
@@ -483,7 +648,8 @@ export default defineSchema({
     .index("by_operationsOwnerId", ["operationsOwnerId"])
     .index("by_ticketingOwnerId", ["ticketingOwnerId"])
     .index("by_status", ["status"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .searchIndex("search_list", { searchField: "listSearchText" }),
 
   mealPreferences: defineTable({
     createdAt: v.number(),
@@ -510,6 +676,7 @@ export default defineSchema({
     .index("by_recipientStaffId_createdAt", ["recipientStaffId", "createdAt"])
     .index("by_recipientUserId", ["recipientUserId"])
     .index("by_recipientRole", ["recipientRole"])
+    .index("by_entity", ["entityType", "entityId"])
     .index("by_createdAt", ["createdAt"])
     .index("by_recipientUserId_createdAt", ["recipientUserId", "createdAt"])
     .index("by_recipientRole_createdAt", ["recipientRole", "createdAt"]),
@@ -564,7 +731,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_jobCardId", ["jobCardId"])
-    .index("by_pnrCode", ["pnrCode"]),
+    .index("by_pnrCode", ["pnrCode"])
+    .index("by_createdAt", ["createdAt"]),
 
   portalSavedViews: defineTable({
     createdAt: v.number(),
@@ -640,12 +808,15 @@ export default defineSchema({
     lastEditedAt: v.optional(v.number()),
     lastEditedBy: v.optional(v.string()),
     lastEditedByName: v.optional(v.string()),
+    listSearchText: v.optional(v.string()),
     preparedBy: v.string(),
     pricingEnteredAt: v.optional(v.number()),
     proposalCode: v.string(),
     queryId: v.optional(v.id("queries")),
     sellingPrice: v.optional(v.number()),
     sentAt: v.optional(v.number()),
+    sentToClientAt: v.optional(v.number()),
+    sentToSalesAt: v.optional(v.number()),
     status: v.union(
       v.literal("Draft"),
       v.literal("Sent"),
@@ -659,10 +830,23 @@ export default defineSchema({
     .index("by_queryId", ["queryId"])
     .index("by_createdBy", ["createdBy"])
     .index("by_status", ["status"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .searchIndex("search_list", { searchField: "listSearchText" }),
 
   queries: defineTable({
     approxMargin: v.optional(v.number()),
+    attachmentCount: v.optional(v.number()),
+    attachmentPreview: v.optional(
+      v.array(
+        v.object({
+          createdAt: v.number(),
+          fileName: v.string(),
+          fileSize: v.number(),
+          id: v.id("queryAttachments"),
+          mimeType: v.string(),
+        })
+      )
+    ),
     batchingNotes: v.optional(v.string()),
     budgetAmount: v.optional(v.number()),
     clientId: v.optional(v.id("clients")),
@@ -682,6 +866,7 @@ export default defineSchema({
     jobCardCreatorName: v.optional(v.string()),
     jobCardCreatorStaffId: v.optional(v.id("staffUsers")),
     leadStage: v.optional(leadStage),
+    listSearchText: v.optional(v.string()),
     lostReason: v.optional(lostReason),
     lostReasonOther: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -711,7 +896,8 @@ export default defineSchema({
     .index("by_contractingOwnerId", ["contractingOwnerId"])
     .index("by_ticketingOwnerId", ["ticketingOwnerId"])
     .index("by_queryType_createdAt", ["queryType", "createdAt"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .searchIndex("search_list", { searchField: "listSearchText" }),
 
   queryAttachments: defineTable({
     createdAt: v.number(),
@@ -721,7 +907,9 @@ export default defineSchema({
     mimeType: v.string(),
     queryId: v.id("queries"),
     storageId: v.id("_storage"),
-  }).index("by_queryId", ["queryId"]),
+  })
+    .index("by_queryId", ["queryId"])
+    .index("by_queryId_createdAt", ["queryId", "createdAt"]),
 
   roleDefinitions: defineTable({
     createdAt: v.number(),
@@ -823,7 +1011,8 @@ export default defineSchema({
   })
     .index("by_jobCardId", ["jobCardId"])
     .index("by_pnrId", ["pnrId"])
-    .index("by_travellerId", ["travellerId"]),
+    .index("by_travellerId", ["travellerId"])
+    .index("by_createdAt", ["createdAt"]),
 
   staffLeaveBalances: defineTable({
     accruedDays: v.number(),
@@ -902,7 +1091,8 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_headReviewStatus", ["headReviewStatus"])
     .index("by_hrReviewStatus", ["hrReviewStatus"])
-    .index("by_startDate", ["startDate"]),
+    .index("by_startDate", ["startDate"])
+    .index("by_createdAt", ["createdAt"]),
 
   staffUsers: defineTable({
     active: v.boolean(),
@@ -944,7 +1134,8 @@ export default defineSchema({
   })
     .index("by_emailNormalized", ["emailNormalized"])
     .index("by_active", ["active"])
-    .index("by_authUserId", ["authUserId"]),
+    .index("by_authUserId", ["authUserId"])
+    .index("by_name", ["name"]),
 
   tickets: defineTable({
     cabinClass: v.optional(v.string()),
@@ -992,7 +1183,8 @@ export default defineSchema({
     .index("by_jobCardId", ["jobCardId"])
     .index("by_travelBatchId", ["travelBatchId"])
     .index("by_jobCardId_and_travelBatchId", ["jobCardId", "travelBatchId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_createdAt", ["createdAt"]),
 
   travelBatches: defineTable({
     batchCode: v.string(),
@@ -1030,6 +1222,7 @@ export default defineSchema({
   })
     .index("by_jobCardId", ["jobCardId"])
     .index("by_jobCardId_and_batchCode", ["jobCardId", "batchCode"])
+    .index("by_jobCardId_and_createdAt", ["jobCardId", "createdAt"])
     .index("by_batchReference", ["batchReference"])
     .index("by_status", ["status"])
     .index("by_createdAt", ["createdAt"]),
@@ -1058,11 +1251,14 @@ export default defineSchema({
     givenName: v.optional(v.string()),
     guestCompanions: v.optional(v.string()),
     guestType,
+    hasPassportScan: v.optional(v.boolean()),
     hotelAllocation: v.optional(v.string()),
     importKey: v.optional(v.string()),
     importSource: v.optional(v.string()),
     jobCardId: v.id("jobCards"),
     lastMinuteDrop: v.optional(v.boolean()),
+    listSearchText: v.optional(v.string()),
+    passportExpiryDate: v.optional(v.string()),
     passportStatus: v.optional(v.string()),
     paymentType,
     roomType,
@@ -1077,7 +1273,9 @@ export default defineSchema({
     specialRequests: v.optional(v.string()),
     surname: v.optional(v.string()),
     ticketStatus,
+    travelBatchCode: v.optional(v.string()),
     travelBatchId: v.optional(v.id("travelBatches")),
+    travelBatchReference: v.optional(v.string()),
     travelDate: v.optional(v.string()),
     travelHub: v.optional(v.string()),
     updatedAt: v.number(),
@@ -1085,11 +1283,14 @@ export default defineSchema({
     visaStatus,
   })
     .index("by_jobCardId", ["jobCardId"])
+    .index("by_jobCardId_createdAt", ["jobCardId", "createdAt"])
+    .index("by_createdAt", ["createdAt"])
     .index("by_travelBatchId", ["travelBatchId"])
     .index("by_jobCardId_and_travelBatchId", ["jobCardId", "travelBatchId"])
     .index("by_jobCardId_importKey", ["jobCardId", "importKey"])
     .index("by_visaStatus", ["visaStatus"])
-    .index("by_ticketStatus", ["ticketStatus"]),
+    .index("by_ticketStatus", ["ticketStatus"])
+    .searchIndex("search_list", { searchField: "listSearchText" }),
 
   trips: defineTable({
     availableSeats: v.number(),
@@ -1160,5 +1361,6 @@ export default defineSchema({
   })
     .index("by_travellerId", ["travellerId"])
     .index("by_jobCardId", ["jobCardId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_createdAt", ["createdAt"]),
 });

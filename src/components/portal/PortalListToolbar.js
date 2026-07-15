@@ -41,6 +41,7 @@ export default function PortalListToolbar({
   actions,
   view = "",
   resultCount = null,
+  resultsPartial = false,
   defaultFiltersOpen = false,
 }) {
   const filterControlCount = countFilterControls({
@@ -84,7 +85,8 @@ export default function PortalListToolbar({
           </h1>
           {filtersActive && resultCount !== null ? (
             <span className="shrink-0 text-brand-muted text-sm tabular-nums">
-              {resultCount} {resultCount === 1 ? "result" : "results"}
+              {resultCount} loaded {resultCount === 1 ? "result" : "results"}
+              {resultsPartial ? "; more available" : ""}
             </span>
           ) : null}
         </div>
@@ -93,7 +95,7 @@ export default function PortalListToolbar({
           {collapsibleFilters && hasFilterControls ? (
             <button
               aria-expanded={filtersOpen}
-              className={`portal-toolbar-btn border border-brand-border bg-white text-brand-dark transition-[transform,color,background-color,border-color] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/30 active:scale-[0.96] ${
+              className={`portal-toolbar-btn border border-brand-border bg-white text-brand-dark transition-[scale,color,background-color,border-color] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/30 active:scale-[0.96] ${
                 filtersOpen ? "border-citius-blue text-citius-blue" : ""
               }`}
               onClick={() => setFiltersOpen((open) => !open)}
@@ -156,7 +158,7 @@ export default function PortalListToolbar({
               ) : null}
               {showJobCardFilter ? (
                 <label className="relative shrink-0">
-                  <span className="sr-only">Job card</span>
+                  <span className="sr-only">Job Card</span>
                   <select
                     aria-label="Filter by job card"
                     className="portal-toolbar-control portal-period-select h-9 w-44 appearance-none rounded-lg border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"

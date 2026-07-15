@@ -1,7 +1,13 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, query } from "../_generated/server";
+import {
+  queryAttachmentListPageResultValidator,
+  queryAttachmentRecordResultValidator,
+} from "./fileReturnContracts";
 import { canSeeQueryRecord, PERMISSIONS, requireAnyPermission } from "./lib";
+import { boundedPaginationOptions } from "./paginationPolicy";
 
 export function publicQueryAttachment(row: {
   _id: Id<"queryAttachments">;
@@ -21,6 +27,7 @@ export function publicQueryAttachment(row: {
 
 export const listForQuery = query({
   args: {
+    paginationOpts: paginationOptsValidator,
     queryId: v.string(),
   },
   handler: async (ctx, args) => {
@@ -30,18 +37,20 @@ export const listForQuery = query({
     ]);
     const queryId = ctx.db.normalizeId("queries", args.queryId);
     if (!queryId) {
-      return [];
+      return { continueCursor: "", isDone: true, page: [] };
     }
     const query = await ctx.db.get(queryId);
     if (!(query && canSeeQueryRecord(access, query))) {
-      return [];
+      return { continueCursor: "", isDone: true, page: [] };
     }
-    const rows = await ctx.db
+    const page = await ctx.db
       .query("queryAttachments")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-      .collect();
-    return rows.sort((a, b) => b.createdAt - a.createdAt).map(publicQueryAttachment);
+      .withIndex("by_queryId_createdAt", (q) => q.eq("queryId", queryId))
+      .order("desc")
+      .paginate(boundedPaginationOptions(args.paginationOpts));
+    return { ...page, page: page.page.map(publicQueryAttachment) };
   },
+  returns: queryAttachmentListPageResultValidator,
 });
 
 export const getAttachmentRecord = query({
@@ -73,6 +82,7 @@ export const getAttachmentRecord = query({
       storageId: row.storageId,
     };
   },
+  returns: queryAttachmentRecordResultValidator,
 });
 
 export const resolveQueryId = internalMutation({
@@ -106,14 +116,35 @@ export const saveAttachment = internalMutation({
     if (!query) {
       throw new ConvexError("Query not found");
     }
-    await ctx.db.insert("queryAttachments", {
-      createdAt: Date.now(),
+    const createdAt = Date.now();
+    const legacyRows =
+      query.attachmentCount === undefined
+        ? await ctx.db
+            .query("queryAttachments")
+            .withIndex("by_queryId", (q) => q.eq("queryId", args.queryId))
+            .collect()
+        : null;
+    const id = await ctx.db.insert("queryAttachments", {
+      createdAt,
       createdBy: args.createdBy,
       fileName: args.fileName,
       fileSize: args.fileSize,
       mimeType: args.mimeType,
       queryId: args.queryId,
       storageId: args.storageId,
+    });
+    await ctx.db.patch(args.queryId, {
+      attachmentCount: (legacyRows?.length ?? query.attachmentCount ?? 0) + 1,
+      attachmentPreview: [
+        {
+          createdAt,
+          fileName: args.fileName,
+          fileSize: args.fileSize,
+          id,
+          mimeType: args.mimeType,
+        },
+        ...(query.attachmentPreview ?? []),
+      ].slice(0, 2),
     });
   },
 });
@@ -127,7 +158,34 @@ export const deleteAttachmentRecord = internalMutation({
     if (!row) {
       return { storageId: null as Id<"_storage"> | null };
     }
+    const query = await ctx.db.get(row.queryId);
     await ctx.db.delete(args.attachmentId);
+    if (query) {
+      const remaining = await ctx.db
+        .query("queryAttachments")
+        .withIndex("by_queryId_createdAt", (q) => q.eq("queryId", row.queryId))
+        .order("desc")
+        .take(2);
+      const attachmentCount =
+        query.attachmentCount === undefined
+          ? (
+              await ctx.db
+                .query("queryAttachments")
+                .withIndex("by_queryId", (q) => q.eq("queryId", row.queryId))
+                .collect()
+            ).length
+          : Math.max(0, query.attachmentCount - 1);
+      await ctx.db.patch(row.queryId, {
+        attachmentCount,
+        attachmentPreview: remaining.map((entry) => ({
+          createdAt: entry.createdAt,
+          fileName: entry.fileName,
+          fileSize: entry.fileSize,
+          id: entry._id,
+          mimeType: entry.mimeType,
+        })),
+      });
+    }
     return { storageId: row.storageId };
   },
 });

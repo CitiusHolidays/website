@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
 const PORTAL_COMPONENT_FILES = [
-  "src/components/portal/PortalWorkspace.js",
+  "src/components/portal/PortalWorkspace.tsx",
   "src/components/portal/PortalCommandPalette.js",
   "src/components/portal/PortalListToolbar.js",
 ];
@@ -108,7 +108,7 @@ function collectLocalBindings(source) {
 }
 
 function collectJsxComponents(source) {
-  return new Set([...source.matchAll(/<([A-Z][\w$]*)\b/g)].map((match) => match[1]));
+  return new Set([...source.matchAll(/<([A-Z][\w$]*)(?=[\s/>.])/g)].map((match) => match[1]));
 }
 
 describe("portal component imports", () => {

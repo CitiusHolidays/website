@@ -14,6 +14,47 @@ describe("validateVerifyPaymentPayload", () => {
 });
 
 describe("verifyPaymentRequest", () => {
+  test("confirms a valid checkout with a stable recovery event identity", async () => {
+    const previous = process.env.PAYMENT_MUTATION_SECRET;
+    process.env.PAYMENT_MUTATION_SECRET = "server-secret";
+    const calls = [];
+    try {
+      const result = await verifyPaymentRequest({
+        body: {
+          razorpay_order_id: "order_1",
+          razorpay_payment_id: "pay_1",
+          razorpay_signature: "good_sig",
+        },
+        confirmBooking: (args) => {
+          calls.push(args);
+          return Promise.resolve({
+            booking: { id: "booking_1", status: "confirmed" },
+            success: true,
+          });
+        },
+        verifySignature: () => true,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(calls).toEqual([
+        {
+          orderId: "order_1",
+          paymentId: "pay_1",
+          providerEventId: "checkout:payment.confirmed:order_1:pay_1",
+          reason: "Checkout signature verified",
+          serverSecret: "server-secret",
+          signature: "good_sig",
+        },
+      ]);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.PAYMENT_MUTATION_SECRET;
+      } else {
+        process.env.PAYMENT_MUTATION_SECRET = previous;
+      }
+    }
+  });
+
   test("returns 400 for invalid Razorpay signature before confirming", async () => {
     const result = await verifyPaymentRequest({
       body: {

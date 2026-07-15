@@ -68,7 +68,7 @@ function JobCardTourContext({ job, query, proposal }) {
     <section className="rounded-lg border border-brand-border bg-white p-4">
       <h2 className="font-heading text-base text-brand-dark">Tour context</h2>
       <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <ContextField label="Job card" value={job.jobCode} />
+        <ContextField label="Job Card" value={job.jobCode} />
         <ContextField label="Client" value={clientName} />
         <ContextField label="Destination" value={destination} />
         <ContextField

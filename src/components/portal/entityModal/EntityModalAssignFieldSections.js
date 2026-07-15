@@ -348,7 +348,7 @@ export function AssignOperationsOwnerFields({
         value={form.jobCardId}
       />
       <Select
-        label="Operations Owner"
+        label="Operations SPOC"
         onChange={(v) => updateForm("staffId", v)}
         options={[
           { label: "Select team member…", value: "" },
@@ -381,7 +381,7 @@ export function AssignTicketingOwnerFields({
       <div className="flex flex-wrap items-end gap-3 md:col-span-2">
         <div className="min-w-[240px] flex-1">
           <Select
-            label="Ticketing Owner"
+            label="Ticketing SPOC"
             onChange={(v) => updateForm("staffId", v)}
             options={[
               { label: "Select team member…", value: "" },

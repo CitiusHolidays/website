@@ -20,14 +20,14 @@ function DestinationCard({ destination, index }) {
     >
       <Image
         alt={destination.name}
-        className="object-cover transition-transform duration-700 group-hover:scale-105"
+        className="object-cover transition-transform duration-700 fine-hover:group-hover:scale-105"
         fill
         quality={90}
         // Wider than the 400px card: object-cover on landscape photos is height-limited
         // (500px tall); a width-only sizes hint made Next serve ~400px-wide assets whose
         // short side was upscaled — soft / “zoomed” look. Hint ~2× the long edge for cover + DPR.
         sizes="(max-width: 768px) 85vw, 1000px"
-        src={destination.image || "/placeholder.svg"}
+        src={destination.image || "/gallery/aboutus.webp"}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-90 transition-opacity group-hover:opacity-100" />
 
@@ -36,7 +36,7 @@ function DestinationCard({ destination, index }) {
         #{destination.rank} Trending
       </div>
 
-      <div className="absolute right-0 bottom-0 left-0 translate-y-4 transform p-8 transition-transform duration-500 group-hover:translate-y-0">
+      <div className="absolute right-0 bottom-0 left-0 translate-y-4 transform p-8 transition-transform duration-500 fine-hover:group-hover:translate-y-0">
         <h3 className="mb-2 font-bold font-heading text-4xl text-white">{destination.name}</h3>
         <div className="mb-4 flex items-center gap-2 text-sm text-white/80">
           <MapPin size={16} />
@@ -89,7 +89,7 @@ export default function TrendingDestinations({
 
         <div className="flex rounded-full bg-slate-100 p-1">
           <button
-            className={`rounded-full px-6 py-2.5 font-medium text-sm transition-all duration-300 ${
+            className={`rounded-full px-6 py-2.5 font-medium text-sm transition-[background-color,color,box-shadow] duration-300 ${
               activeTab === "international"
                 ? "bg-white text-brand-dark shadow-sm"
                 : "text-brand-muted hover:text-brand-dark"
@@ -100,7 +100,7 @@ export default function TrendingDestinations({
             International
           </button>
           <button
-            className={`rounded-full px-6 py-2.5 font-medium text-sm transition-all duration-300 ${
+            className={`rounded-full px-6 py-2.5 font-medium text-sm transition-[background-color,color,box-shadow] duration-300 ${
               activeTab === "domestic"
                 ? "bg-white text-brand-dark shadow-sm"
                 : "text-brand-muted hover:text-brand-dark"

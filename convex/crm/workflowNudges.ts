@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { isDirectorOrAdmin, notifyRoles, PERMISSIONS, requireStaff } from "./lib";
+import { loadMetricTotals } from "./metricAggregates";
 
 const HOUR_MS = 60 * 60 * 1000;
 const VISA_READY_STATUSES = new Set(["Approved", "Not Required"]);
@@ -334,67 +335,35 @@ async function collectRiskItems(ctx: any) {
 export const getCapacityOverview = query({
   args: {},
   handler: async (ctx) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
-    const [staff, queries, jobCards, tickets, visas, invoices] = await Promise.all([
-      ctx.db.query("staffUsers").collect(),
-      ctx.db.query("queries").collect(),
-      ctx.db.query("jobCards").collect(),
-      ctx.db.query("tickets").collect(),
-      ctx.db.query("visaRecords").collect(),
-      ctx.db.query("invoices").collect(),
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
+    assertCanManageRules(access);
+    const [staff, aggregate] = await Promise.all([
+      ctx.db
+        .query("staffUsers")
+        .withIndex("by_active", (q) => q.eq("active", true))
+        .take(200),
+      loadMetricTotals(ctx, "all", undefined),
     ]);
-    const activeStaff = [];
-    for (const member of staff) {
-      if (!member.active) {
-        continue;
-      }
-      activeStaff.push({
-        department: member.department ?? "",
-        id: member._id,
-        name: member.name,
-        roles: member.roles,
-      });
-    }
-    let activeSalesQueries = 0;
-    let activeJobCards = 0;
-    let ticketAttention = 0;
-    let visaBlockers = 0;
-    let overdueInvoices = 0;
-    const today = new Date().toISOString().slice(0, 10);
-    for (const queryRow of queries) {
-      if (!CLOSED_SALES_STATUSES.has(queryRow.salesStatus)) {
-        activeSalesQueries += 1;
-      }
-    }
-    for (const job of jobCards) {
-      if (job.status !== "Closed") {
-        activeJobCards += 1;
-      }
-    }
-    for (const ticket of tickets) {
-      if (TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus)) {
-        ticketAttention += 1;
-      }
-    }
-    for (const visa of visas) {
-      if (!VISA_READY_STATUSES.has(visa.status)) {
-        visaBlockers += 1;
-      }
-    }
-    for (const invoice of invoices) {
-      if ((invoice.balanceAmount ?? 0) > 0 && invoice.dueDate && invoice.dueDate < today) {
-        overdueInvoices += 1;
-      }
-    }
+    const activeStaff = staff.map((member) => ({
+      department: member.department ?? "",
+      id: member._id,
+      name: member.name,
+      roles: member.roles,
+    }));
+    const { values } = aggregate;
+    const ticketAttention = Array.from(TICKET_ATTENTION_STATUSES).reduce(
+      (total, status) => total + (values[`tickets.status.${status}`] ?? 0),
+      0
+    );
     return {
       counts: {
-        activeJobCards,
-        activeSalesQueries,
-        overdueInvoices,
+        activeJobCards: values["jobCards.open"] ?? 0,
+        activeSalesQueries: values["queries.active"] ?? 0,
+        overdueInvoices: values["invoices.overdue"] ?? 0,
         ticketAttention,
-        visaBlockers,
+        visaBlockers: values["visas.blockers"] ?? 0,
       },
-      generatedAt: new Date().toISOString(),
+      generatedAt: new Date(aggregate.updatedAt || 0).toISOString(),
       staff: activeStaff,
     };
   },

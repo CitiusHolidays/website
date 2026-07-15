@@ -34,6 +34,8 @@ describe("processRazorpayWebhookEvent", () => {
       {
         orderId: "order_1",
         paymentId: "pay_1",
+        providerEventId: "razorpay:payment.captured:pay_1",
+        reason: "Razorpay payment.captured webhook",
         serverSecret: "server-secret",
       },
     ]);

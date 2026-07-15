@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
@@ -12,6 +13,19 @@ import {
   requireStaff,
   TEAM_PICKER_PERMISSIONS,
 } from "./lib";
+import {
+  applyCrmCursorFilters,
+  boundedPaginationOptions,
+  mapInBoundedBatches,
+} from "./paginationPolicy";
+import {
+  accountsStaffListResultValidator,
+  portalAccessResultValidator,
+  staffDirectoryListPageResultValidator,
+  staffIdResultValidator,
+  staffListPageResultValidator,
+  staffUpsertResultValidator,
+} from "./staffSettingsReturnContracts";
 
 const validRoleSet = new Set<string>(ALL_ROLES);
 
@@ -23,16 +37,32 @@ const sanitizeRoles = (roles: string[]) => {
   return clean;
 };
 
+function onboardingStatus(staff: { authUserId?: string; pendingPasswordSetup?: boolean }) {
+  if (!staff.authUserId) {
+    return "not_started" as const;
+  }
+  return staff.pendingPasswordSetup ? ("pending" as const) : ("ready" as const);
+}
+
 export const getMyPortalAccess = query({
   args: {},
   handler: async (ctx) => await getPortalAccess(ctx),
+  returns: portalAccessResultValidator,
 });
 
 export const listStaff = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    active: v.optional(v.boolean()),
+    department: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
     await requireStaff(ctx, PERMISSIONS.MANAGE_STAFF);
-    const rows = await ctx.db.query("staffUsers").collect();
+    const page = await applyCrmCursorFilters(
+      ctx.db.query("staffUsers").withIndex("by_name").order("asc"),
+      { equals: { active: args.active, department: args.department } }
+    ).paginate(boundedPaginationOptions(args.paginationOpts));
+    const rows = page.page;
     const approverIds = [
       ...new Set(
         rows
@@ -40,13 +70,13 @@ export const listStaff = query({
           .filter((id): id is NonNullable<typeof id> => id != null)
       ),
     ];
-    const approvers = await Promise.all(approverIds.map((id) => ctx.db.get(id)));
+    const approvers = await mapInBoundedBatches(approverIds, async (id) => await ctx.db.get(id));
     const approverNameById = new Map(
       approverIds.map((id, index) => [id, approvers[index]?.name ?? ""])
     );
-    return rows
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((staff) => ({
+    return {
+      ...page,
+      page: rows.map((staff) => ({
         active: staff.active,
         authLinked: Boolean(staff.authUserId),
         confirmationDate: staff.confirmationDate ?? "",
@@ -76,34 +106,36 @@ export const listStaff = query({
         maternityEventsUsed: staff.maternityEventsUsed ?? 0,
         mobile: staff.mobile ?? "",
         name: staff.name,
-        onboardingStatus: staff.authUserId
-          ? staff.pendingPasswordSetup
-            ? "pending"
-            : "ready"
-          : "not_started",
+        onboardingStatus: onboardingStatus(staff),
         paternityEventsUsed: staff.paternityEventsUsed ?? 0,
         pendingOnboarding: Boolean(staff.pendingPasswordSetup),
         reportingManagerName: staff.reportingManagerName ?? "",
         reportingManagerStaffId: staff.reportingManagerStaffId ?? "",
         roles: staff.roles,
         updatedAt: new Date(staff.updatedAt).toISOString(),
-      }));
+      })),
+    };
   },
+  returns: staffListPageResultValidator,
 });
 
 export const listDirectory = query({
-  args: {},
-  handler: async (ctx) => {
-    const [access, offices, rows] = await Promise.all([
+  args: {
+    department: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
+    const [access, offices, page] = await Promise.all([
       requireAnyPermission(ctx, [PERMISSIONS.VIEW_TEAM]),
-      ctx.db.query("offices").collect(),
-      ctx.db.query("staffUsers").collect(),
+      ctx.db.query("offices").take(100),
+      applyCrmCursorFilters(ctx.db.query("staffUsers").withIndex("by_name").order("asc"), {
+        equals: { active: true, department: args.department },
+      }).paginate(boundedPaginationOptions(args.paginationOpts)),
     ]);
     const officeNames = new Map(offices.map((office) => [office._id, office.name]));
-    return rows
-      .filter((staff) => staff.active)
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((staff) => ({
+    return {
+      ...page,
+      page: page.page.map((staff) => ({
         confirmationDate: staff.confirmationDate ?? "",
         department: staff.department ?? staff.roles[0] ?? "",
         email: staff.email,
@@ -129,8 +161,10 @@ export const listDirectory = query({
         reportingManagerName: staff.reportingManagerName ?? "",
         reportingManagerStaffId: staff.reportingManagerStaffId ?? "",
         roles: staff.roles,
-      }));
+      })),
+    };
   },
+  returns: staffDirectoryListPageResultValidator,
 });
 
 /** Minimal staff list for assignment dropdowns (Sales query SPOC, modals) without full team-directory access. */
@@ -190,6 +224,7 @@ export const listAccountsForJobCards = query({
         roles: staff.roles,
       }));
   },
+  returns: accountsStaffListResultValidator,
 });
 
 export const setJobCardCreatorAccess = mutation({
@@ -216,6 +251,7 @@ export const setJobCardCreatorAccess = mutation({
     });
     return { id: staffId };
   },
+  returns: staffIdResultValidator,
 });
 
 export const upsertStaff = mutation({
@@ -379,6 +415,7 @@ export const upsertStaff = mutation({
 
     return { created: true, id };
   },
+  returns: staffUpsertResultValidator,
 });
 
 export const removeStaff = mutation({
@@ -401,6 +438,7 @@ export const removeStaff = mutation({
     await ctx.db.delete(staffId);
     return { id: staffId };
   },
+  returns: staffIdResultValidator,
 });
 
 export const linkAuthUserId = internalMutation({

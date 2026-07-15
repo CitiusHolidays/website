@@ -2,9 +2,11 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, mutation, type QueryCtx, query } from "../_generated/server";
 import { ALL_ROLES, normalizeEmail, PERMISSIONS, requireStaff } from "./lib";
+import { staffWorkbookResultValidator } from "./staffSettingsReturnContracts";
 
 type StaffRole = (typeof ALL_ROLES)[number];
 type StaffUser = Doc<"staffUsers">;
+type WorkbookValue = string | number | boolean | string[];
 
 type StaffWorkbookRow = {
   name: string;
@@ -48,9 +50,9 @@ type StaffWorkbookPreviewRow = {
   email: string;
   emailNormalized: string;
   name: string;
-  before: Record<string, unknown>;
-  after: Record<string, unknown>;
-  changes: Array<{ field: string; before: unknown; after: unknown }>;
+  before: Record<string, WorkbookValue>;
+  after: Record<string, WorkbookValue>;
+  changes: Array<{ field: string; before: WorkbookValue; after: WorkbookValue }>;
   message?: string;
   sourceSheet?: string;
   sourceRowNumber?: number;
@@ -272,20 +274,27 @@ function comparableValue(value: unknown) {
 }
 
 function buildChanges(existing: StaffUser | null, after: StaffWorkbookPatch) {
-  const changes = [];
+  const changes: StaffWorkbookPreviewRow["changes"] = [];
   for (const field of previewFields) {
     const before = existing ? (existing[field] ?? (Array.isArray(after[field]) ? [] : "")) : "";
     const afterValue = after[field] ?? "";
     if (comparableValue(before) === comparableValue(afterValue)) {
       continue;
     }
-    changes.push({ after: afterValue, before, field });
+    changes.push({
+      after: afterValue as WorkbookValue,
+      before: before as WorkbookValue,
+      field,
+    });
   }
   return changes;
 }
 
 function previewAfter(patch: StaffWorkbookPatch) {
-  return Object.fromEntries(previewFields.map((field) => [field, patch[field] ?? ""]));
+  return Object.fromEntries(previewFields.map((field) => [field, patch[field] ?? ""])) as Record<
+    string,
+    WorkbookValue
+  >;
 }
 
 function summarize(rows: StaffWorkbookPreviewRow[]) {
@@ -338,7 +347,7 @@ export async function buildStaffWorkbookPreviewForTest(
       return {
         action: existing ? (changes.length > 0 ? "updated" : "unchanged") : "created",
         after: previewAfter(after),
-        before: existing ?? {},
+        before: (existing ?? {}) as Record<string, WorkbookValue>,
         changes,
         email: after.email,
         emailNormalized: after.emailNormalized,
@@ -422,7 +431,7 @@ export async function applyStaffWorkbookRowsForTest(
         return {
           action: changes.length > 0 ? "updated" : "unchanged",
           after: previewAfter(patch),
-          before: existing,
+          before: existing as Record<string, WorkbookValue>,
           changes,
           email: patch.email,
           emailNormalized: patch.emailNormalized,
@@ -500,6 +509,7 @@ export const previewStaffWorkbookUpdates = query({
     await requireStaff(ctx, PERMISSIONS.MANAGE_STAFF);
     return buildStaffWorkbookPreviewForTest(ctx, args.rows);
   },
+  returns: staffWorkbookResultValidator,
 });
 
 export const applyStaffWorkbookUpdates = mutation({
@@ -511,4 +521,5 @@ export const applyStaffWorkbookUpdates = mutation({
     await requireStaff(ctx, PERMISSIONS.MANAGE_STAFF);
     return applyStaffWorkbookRowsForTest(ctx, args);
   },
+  returns: staffWorkbookResultValidator,
 });

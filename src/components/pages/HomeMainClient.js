@@ -73,14 +73,14 @@ const stats = [
 
 export default function HomeMainClient() {
   return (
-    <div className="relative w-full overflow-hidden bg-brand-light">
-      <AnimatedSection className="relative z-20 -mt-10 rounded-t-[3rem] border-brand-border/50 border-t bg-white py-24 shadow-[0_-20px_40px_rgba(0,0,0,0.02)]">
-        <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent opacity-50" />
+    <div className="relative w-full overflow-hidden bg-public-paper">
+      <AnimatedSection className="relative z-20 -mt-10 rounded-t-[3rem] border-brand-border/50 border-t bg-public-surface py-24 shadow-[0_-20px_40px_rgba(0,0,0,0.02)]">
+        <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-transparent via-public-blue/20 to-transparent opacity-50" />
         <div className="mb-16 text-center">
-          <p className="mb-2 font-medium text-citius-blue text-sm uppercase tracking-widest">
+          <p className="mb-2 font-medium text-public-blue text-sm uppercase tracking-widest">
             Our Impact
           </p>
-          <h2 className="font-heading font-semibold text-4xl text-brand-dark">
+          <h2 className="font-heading font-semibold text-4xl text-public-ink">
             A Legacy of Excellence
           </h2>
         </div>
@@ -91,12 +91,12 @@ export default function HomeMainClient() {
         </div>
       </AnimatedSection>
 
-      <div className="bg-slate-50/50">
+      <div className="bg-public-paper/50">
         <TrendingDestinations />
       </div>
 
-      <AnimatedSection className="relative overflow-hidden bg-brand-dark py-32 text-white">
-        <div className="absolute inset-0 bg-[radial-gradient(#4f46e5_1px,transparent_1px)] opacity-10 [background-size:32px_32px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
+      <AnimatedSection className="relative overflow-hidden bg-public-night py-32 text-white">
+        <div className="absolute inset-0 bg-[radial-gradient(var(--color-public-blue)_1px,transparent_1px)] opacity-10 [background-size:32px_32px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_70%)]" />
 
         <div className="relative z-10">
           <div className="mb-20 px-4 text-center">
@@ -121,7 +121,7 @@ export default function HomeMainClient() {
         </div>
       </AnimatedSection>
 
-      <AnimatedSection className="bg-white py-24">
+      <AnimatedSection className="bg-public-surface py-24">
         <ClientShowcase />
       </AnimatedSection>
 
@@ -129,13 +129,13 @@ export default function HomeMainClient() {
         <AwardsShowcase />
       </AnimatedSection>
 
-      <AnimatedSection className="bg-slate-50 py-24">
+      <AnimatedSection className="bg-public-paper py-24">
         <div className="mx-auto grid max-w-7xl items-center gap-16 px-4 lg:grid-cols-2">
           <div>
-            <h2 className="mb-6 font-bold font-heading text-4xl text-brand-dark">
+            <h2 className="mb-6 font-bold font-heading text-4xl text-public-ink">
               Why Choose Citius?
             </h2>
-            <p className="mb-8 text-brand-muted text-lg leading-relaxed">
+            <p className="mb-8 text-lg text-public-muted leading-relaxed">
               We create journeys with purpose, precision, and passion , delivering seamless,
               memorable travel experiences every single time
             </p>
@@ -146,8 +146,8 @@ export default function HomeMainClient() {
             </div>
           </div>
           <div className="group relative h-[500px] overflow-hidden rounded-3xl shadow-2xl">
-            <div className="absolute inset-0 z-10 bg-gradient-to-tr from-blue-900/40 to-transparent" />
-            <div className="absolute inset-0 bg-[url('/gallery/aboutus.webp')] bg-center bg-cover transition-transform duration-700 group-hover:scale-105" />
+            <div className="absolute inset-0 z-10 bg-gradient-to-tr from-public-night/40 to-transparent" />
+            <div className="absolute inset-0 bg-[url('/gallery/aboutus.webp')] bg-center bg-cover transition-transform duration-700 fine-hover:group-hover:scale-105" />
             <div className="absolute right-0 bottom-0 left-0 z-20 bg-gradient-to-t from-black/80 to-transparent p-8">
               <div className="font-heading text-2xl text-white italic">
                 &quot;Travel is the only thing you buy that makes you richer.&quot;
@@ -162,20 +162,20 @@ export default function HomeMainClient() {
       </AnimatedSection>
 
       <AnimatedSection className="relative overflow-hidden py-32 text-center text-white">
-        <div className="absolute inset-0 z-0 bg-blue-900" />
+        <div className="absolute inset-0 z-0 bg-public-night" />
         <div className="absolute inset-0 z-10 bg-[url('/noise.svg')] opacity-20 mix-blend-overlay" />
-        <div className="absolute inset-0 z-0 bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900" />
+        <div className="absolute inset-0 z-0 bg-gradient-to-br from-public-night via-public-blue to-public-night" />
 
         <div className="relative z-20 mx-auto max-w-3xl px-4">
           <h2 className="mb-8 font-bold font-heading text-4xl leading-tight md:text-5xl">
             Ready for your next <br />
-            <span className="text-emerald-100">extraordinary journey?</span>
+            <span className="text-public-green/80">extraordinary journey?</span>
           </h2>
-          <p className="mx-auto mb-10 max-w-xl text-blue-100 text-lg">
+          <p className="mx-auto mb-10 max-w-xl text-lg text-public-lime/70">
             Let our experts craft a personalized itinerary that exceeds your expectations.
           </p>
           <Link
-            className="inline-flex items-center gap-2 rounded-full bg-white px-10 py-5 font-semibold text-blue-950 shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl"
+            className="inline-flex items-center gap-2 rounded-full bg-public-surface px-10 py-5 font-semibold text-public-night shadow-lg transition-[scale,box-shadow] duration-300 fine-hover:hover:scale-105 hover:shadow-xl"
             href="/contact"
           >
             Start Planning Now <ArrowRight size={18} />

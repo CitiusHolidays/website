@@ -1,6 +1,9 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { convertToModelMessages, stepCountIs, streamText } from "ai";
-import { CITIUS_CHAT_MODEL, citiusChatTools, systemPrompt } from "@/lib/ai/citiusTravelAssistant";
+import { citiusChatTools, systemPrompt } from "@/lib/ai/citiusTravelAssistant";
+import { createAiProviderResponse } from "@/lib/ai/providerStream";
+import { AI_RUNTIME_POLICIES } from "@/lib/ai/runtimePolicy";
+import { consumeSharedAiRateLimit, recordAiTelemetry } from "@/lib/ai/runtimeService";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
 
 export const maxDuration = 60;
@@ -8,40 +11,7 @@ export const maxDuration = 60;
 const MAX_CHAT_BODY_BYTES = 64 * 1024;
 const MAX_CHAT_MESSAGES = 20;
 const MAX_CHAT_MESSAGE_CHARS = 4000;
-const CHAT_WINDOW_MS = 10 * 60 * 1000;
-const CHAT_MAX_REQUESTS = 20;
-const FALLBACK_MODELS_ENV = "OPENROUTER_FALLBACK_MODELS";
-const DEFAULT_FALLBACK_MODELS = ["google/gemma-4-31b-it:free", "openai/gpt-oss-120b:free"];
-
-/** @type {Map<string, { count: number; resetAt: number }>} */
-const chatBuckets = new Map();
-
-function checkChatRateLimit(key) {
-  const now = Date.now();
-  let bucket = chatBuckets.get(key);
-  if (!bucket || now > bucket.resetAt) {
-    bucket = { count: 0, resetAt: now + CHAT_WINDOW_MS };
-    chatBuckets.set(key, bucket);
-  }
-
-  bucket.count += 1;
-  if (bucket.count > CHAT_MAX_REQUESTS) {
-    return {
-      allowed: false,
-      retryAfterSec: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
-    };
-  }
-
-  if (chatBuckets.size > 10_000) {
-    for (const [bucketKey, value] of chatBuckets) {
-      if (now > value.resetAt) {
-        chatBuckets.delete(bucketKey);
-      }
-    }
-  }
-
-  return { allowed: true };
-}
+const CHAT_POLICY = AI_RUNTIME_POLICIES.concierge;
 
 function normalizeChatMessage(msg) {
   const role = msg?.role === "assistant" || msg?.role === "user" ? msg.role : "user";
@@ -61,16 +31,6 @@ function normalizeChatMessage(msg) {
     parts,
     role,
   };
-}
-
-function configuredOpenRouterModels() {
-  const fallbackModels = String(process.env[FALLBACK_MODELS_ENV] || "")
-    .split(",")
-    .flatMap((model) => {
-      const trimmed = model.trim();
-      return trimmed ? [trimmed] : [];
-    });
-  return [...new Set([CITIUS_CHAT_MODEL, ...DEFAULT_FALLBACK_MODELS, ...fallbackModels])];
 }
 
 function chatStreamErrorMessage(error) {
@@ -104,21 +64,6 @@ export async function POST(req) {
       });
     }
 
-    const clientIp = getClientIp(req);
-    const rateLimit = checkChatRateLimit(clientIp);
-    if (!rateLimit.allowed) {
-      return new Response(
-        JSON.stringify({ error: "Too many chat requests. Please try again shortly." }),
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "Retry-After": String(rateLimit.retryAfterSec),
-          },
-          status: 429,
-        }
-      );
-    }
-
     const contentLength = Number(req.headers.get("content-length") || 0);
     if (contentLength > MAX_CHAT_BODY_BYTES) {
       return new Response(JSON.stringify({ error: "Chat request is too large." }), {
@@ -132,6 +77,32 @@ export async function POST(req) {
         headers: { "Content-Type": "application/json" },
         status: 500,
       });
+    }
+
+    let rateLimit;
+    try {
+      rateLimit = await consumeSharedAiRateLimit({
+        feature: "concierge",
+        rawKey: getClientIp(req),
+      });
+    } catch (error) {
+      console.error("Chat rate-limit storage error:", error);
+      return new Response(JSON.stringify({ error: "Chat service is temporarily unavailable." }), {
+        headers: { "Content-Type": "application/json" },
+        status: 503,
+      });
+    }
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({ error: "Too many chat requests. Please try again shortly." }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(rateLimit.retryAfterSec),
+          },
+          status: 429,
+        }
+      );
     }
 
     const { messages } = await req.json();
@@ -148,29 +119,44 @@ export async function POST(req) {
     });
     const convertedMessages = await convertToModelMessages(uiMessages);
 
-    const result = streamText({
-      abortSignal: req.signal,
-      maxOutputTokens: 900,
-      maxRetries: 2,
-      messages: convertedMessages,
-      model: openrouter.chat(CITIUS_CHAT_MODEL),
-      providerOptions: {
-        openrouter: {
-          models: configuredOpenRouterModels(),
-          reasoning: {
-            effort: "none",
-            exclude: true,
-          },
-        },
-      },
-      stopWhen: stepCountIs(4),
-      system: systemPrompt,
-      temperature: 0.35,
-      tools: citiusChatTools,
-    });
-
-    return result.toUIMessageStreamResponse({
+    return createAiProviderResponse({
+      feature: "concierge",
+      minimumAttemptMs: CHAT_POLICY.minimumAttemptMs,
+      models: CHAT_POLICY.models,
       onError: chatStreamErrorMessage,
+      onTelemetry: recordAiTelemetry,
+      providerAttemptTimeoutMs: CHAT_POLICY.providerAttemptTimeoutMs,
+      signal: req.signal,
+      startAttempt: ({ model, signal, timeoutMs }) =>
+        streamText({
+          abortSignal: signal,
+          maxOutputTokens: CHAT_POLICY.maxOutputTokens,
+          maxRetries: CHAT_POLICY.maxRetries,
+          messages: convertedMessages,
+          model: openrouter.chat(model, {
+            extraBody: {
+              provider: { require_parameters: true },
+            },
+          }),
+          providerOptions: {
+            openrouter: {
+              reasoning: {
+                effort: "none",
+                exclude: true,
+              },
+              usage: { include: true },
+            },
+          },
+          stopWhen: stepCountIs(CHAT_POLICY.maxSteps),
+          system: systemPrompt,
+          temperature: 0.35,
+          timeout: {
+            chunkMs: Math.min(CHAT_POLICY.chunkTimeoutMs, timeoutMs),
+            totalMs: timeoutMs,
+          },
+          tools: citiusChatTools,
+        }),
+      totalTimeoutMs: CHAT_POLICY.totalTimeoutMs,
     });
   } catch (error) {
     console.error("Chat API error:", error);

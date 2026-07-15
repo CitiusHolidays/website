@@ -15,7 +15,7 @@ export default function GalleryGridSmall({ images = EMPTY_IMAGES, className }) {
         >
           <Image
             alt={item.alt || ""}
-            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            className="object-cover transition-transform duration-300 fine-hover:group-hover:scale-105"
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, 33vw"
             src={item.asset?.url || ""}

@@ -18,29 +18,52 @@ const betterAuth = convexBetterAuthNextJs({
 
 export const { handler, preloadAuthQuery } = betterAuth;
 
-const inferProtocol = (host, forwardedProto) => {
-  if (forwardedProto) {
-    return forwardedProto;
+export function resolveTrustedAppOrigin(env = process.env) {
+  const configuredUrl = env.BETTER_AUTH_URL ?? env.SITE_URL ?? env.NEXT_PUBLIC_APP_URL;
+  if (!configuredUrl) {
+    if (env.NODE_ENV === "production") {
+      throw new Error("Configure a trusted application origin for server authentication");
+    }
+    return "http://localhost:3000";
   }
-  if (!host) {
-    return "https";
+  let parsed;
+  try {
+    parsed = new URL(configuredUrl);
+  } catch (cause) {
+    throw new Error("Configure a valid trusted application origin for server authentication", {
+      cause,
+    });
   }
-  return host.includes("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
-};
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Configure an HTTP(S) trusted application origin for server authentication");
+  }
+  return parsed.origin;
+}
 
-const getRequestToken = async () => {
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-  const protocol = inferProtocol(host, requestHeaders.get("x-forwarded-proto"));
-  if (!host) {
-    return null;
-  }
+function authenticationCookieHeader(cookieHeader) {
+  return String(cookieHeader ?? "")
+    .split(";")
+    .map((part) => part.trim())
+    .filter((part) => {
+      const [name] = part.split("=", 1);
+      return (
+        name.startsWith("better-auth.") ||
+        name.startsWith("__Secure-better-auth.") ||
+        name.startsWith("__Host-better-auth.")
+      );
+    })
+    .join("; ");
+}
 
-  const tokenResponse = await fetch(`${protocol}://${host}/api/auth/convex/token`, {
+export async function fetchConvexTokenFromHeaders(
+  requestHeaders,
+  { fetchImpl = fetch, trustedOrigin = resolveTrustedAppOrigin() } = {}
+) {
+  const tokenResponse = await fetchImpl(`${trustedOrigin}/api/auth/convex/token`, {
     cache: "no-store",
     headers: {
       accept: "application/json",
-      cookie: requestHeaders.get("cookie") ?? "",
+      cookie: authenticationCookieHeader(requestHeaders.get("cookie")),
     },
     method: "GET",
   }).catch(() => null);
@@ -51,6 +74,11 @@ const getRequestToken = async () => {
 
   const data = await tokenResponse.json().catch(() => null);
   return typeof data?.token === "string" && data.token.length > 0 ? data.token : null;
+}
+
+const getRequestToken = async () => {
+  const requestHeaders = await headers();
+  return await fetchConvexTokenFromHeaders(requestHeaders);
 };
 
 export async function getToken() {

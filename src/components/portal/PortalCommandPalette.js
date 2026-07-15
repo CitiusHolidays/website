@@ -47,8 +47,8 @@ const subscribeToClientMount = (onStoreChange) => {
   onStoreChange();
   return () => {};
 };
-const getClientMountedSnapshot = () => true;
-const getServerMountedSnapshot = () => false;
+const getClientPortalTarget = () => document.body;
+const getServerPortalTarget = () => null;
 
 const initialPaletteState = {
   activeIndex: 0,
@@ -194,7 +194,7 @@ export function PortalCommandPaletteTrigger({ className = "" }) {
   return (
     <button
       aria-label={`Open command palette (${modShortcutLabel})`}
-      className={`portal-toolbar-btn border border-brand-border bg-white text-brand-muted transition-[transform,color,background-color,border-color] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/30 hover:text-citius-blue active:scale-[0.96] ${className}`}
+      className={`portal-toolbar-btn border border-brand-border bg-white text-brand-muted transition-[scale,color,background-color,border-color] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/30 hover:text-citius-blue active:scale-[0.96] ${className}`}
       onClick={() => context?.openPalette()}
       type="button"
     >
@@ -208,7 +208,7 @@ export function PortalCommandPaletteTrigger({ className = "" }) {
 
 function CommandPaletteOverlay({
   open,
-  mounted,
+  portalTarget,
   dialogRef,
   backdropStyle,
   panelStyle,
@@ -221,7 +221,7 @@ function CommandPaletteOverlay({
   boundedActiveIndex,
   runCommand,
 }) {
-  if (!(open && mounted)) {
+  if (!(open && portalTarget)) {
     return null;
   }
 
@@ -300,17 +300,17 @@ function CommandPaletteOverlay({
         </div>
       </div>
     </dialog>,
-    document.body
+    portalTarget
   );
 }
 
 export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
   const [paletteState, dispatchPalette] = useReducer(paletteReducer, initialPaletteState);
   const { open, term, activeIndex } = paletteState;
-  const mounted = useSyncExternalStore(
+  const portalTarget = useSyncExternalStore(
     subscribeToClientMount,
-    getClientMountedSnapshot,
-    getServerMountedSnapshot
+    getClientPortalTarget,
+    getServerPortalTarget
   );
   const inputRef = useRef(null);
   const dialogRef = useRef(null);
@@ -414,7 +414,7 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
   }, [open]);
 
   useEffect(() => {
-    if (!(open && mounted)) {
+    if (!(open && portalTarget)) {
       return;
     }
     const dialog = dialogRef.current;
@@ -426,7 +426,7 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
         dialog.close();
       }
     };
-  }, [mounted, open]);
+  }, [open, portalTarget]);
 
   const contextValue = { openPalette };
 
@@ -442,9 +442,9 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
         dispatchPalette={dispatchPalette}
         groupedWithIndex={groupedWithIndex}
         inputRef={inputRef}
-        mounted={mounted}
         open={open}
         panelStyle={panelStyle}
+        portalTarget={portalTarget}
         runCommand={runCommand}
         term={term}
       />

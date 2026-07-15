@@ -1,6 +1,5 @@
 import { getTrailsForHub } from "@/data/trails";
-import { client } from "@/sanity/client";
-import { sanityFetchOptions } from "@/sanity/fetchOptions";
+import { cachedSanityFetch } from "@/sanity/cachedFetch";
 import PilgrimagePageClient from "./page.client";
 
 export const generateMetadata = () => ({
@@ -58,7 +57,7 @@ function mergeSpiritualTrailImages(data) {
 }
 
 export default async function PilgrimagePage() {
-  const data = await client.fetch(GALLERY_QUERY, {}, sanityFetchOptions.spiritual);
+  const data = await cachedSanityFetch(GALLERY_QUERY, {}, ["spiritual"]);
   const images = mergeSpiritualTrailImages(data);
   return <PilgrimagePageClient images={images} />;
 }

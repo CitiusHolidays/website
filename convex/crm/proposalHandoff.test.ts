@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { markSent, sendToSales } from "./proposals";
+import { create, markSent, sendToSales } from "./proposals";
 
 interface Row {
   _id: string;
@@ -46,6 +46,7 @@ function makeProposalHandoffCtx() {
         clientName: "Acme Ltd",
         contractingOwnerId: "staff_contracting",
         contractingOwnerName: "Contracting SPOC",
+        contractingStatus: "Query Received",
         createdAt: 100,
         createdBy: "auth_sales",
         paxCount: 24,
@@ -148,6 +149,25 @@ function makeProposalHandoffCtx() {
 }
 
 describe("Proposal Handoff", () => {
+  test("proposal creation advances Query Received to Proposal in progress", async () => {
+    const { ctx, tables } = makeProposalHandoffCtx();
+
+    await (create as any)._handler(ctx, { queryId: "queries_1" });
+
+    expect(tables.queries[0].contractingStatus).toBe("Proposal in progress");
+    expect(tables.proposals.at(-1)?.status).toBe("Draft");
+  });
+
+  test("proposal creation does not overwrite a Sales Decision outcome", async () => {
+    const { ctx, tables } = makeProposalHandoffCtx();
+    tables.queries[0].contractingStatus = "Order Confirmed";
+    tables.queries[0].salesStatus = "Order Confirmed";
+
+    await (create as any)._handler(ctx, { queryId: "queries_1" });
+
+    expect(tables.queries[0].contractingStatus).toBe("Order Confirmed");
+  });
+
   test("blocks Send to Sales until Proposal Pricing Complete", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
@@ -174,6 +194,18 @@ describe("Proposal Handoff", () => {
     await (sendToSales as any)._handler(ctx, { proposalId: "proposals_2" });
 
     expect(tables.proposals[1].status).toBe("Sent");
+    expect(tables.proposals[1].sentToSalesAt).toBeNumber();
+    expect(tables.proposals[1].sentAt).toBeUndefined();
     expect(tables.queries[0].contractingStatus).toBe("Proposal sent");
+  });
+
+  test("records client delivery separately from the Sales handoff", async () => {
+    const { ctx, tables } = makeProposalHandoffCtx();
+    await (sendToSales as any)._handler(ctx, { proposalId: "proposals_2" });
+    await (markSent as any)._handler(ctx, { proposalId: "proposals_2" });
+
+    expect(tables.proposals[1].sentToSalesAt).toBeNumber();
+    expect(tables.proposals[1].sentToClientAt).toBeNumber();
+    expect(tables.proposals[1].sentAt).toBe(tables.proposals[1].sentToClientAt);
   });
 });

@@ -130,6 +130,15 @@ describe("processImportRows failed count", () => {
 
       expect(result.created).toBe(1);
       expect(result.failed).toBe(1);
+      expect(result.processed).toBe(2);
+      expect(result.remaining).toBe(0);
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          id: "row-2",
+          kind: "terminal",
+          message: "simulated insert failure",
+        }),
+      ]);
       expect(result.total).toBe(2);
     } finally {
       consoleError.mockRestore();

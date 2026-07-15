@@ -282,7 +282,7 @@ const Section = ({ data }) => (
 
     {data.contact && (
       <div className="group relative mt-6 overflow-hidden rounded-xl bg-brand-dark p-6 text-white">
-        <div className="absolute top-0 right-0 -mt-16 -mr-16 size-32 rounded-full bg-citius-orange/20 blur-3xl transition-all duration-500 group-hover:bg-citius-orange/30" />
+        <div className="absolute top-0 right-0 -mt-16 -mr-16 size-32 rounded-full bg-citius-orange/20 blur-3xl transition-colors duration-500 group-hover:bg-citius-orange/30" />
         <h4 className="relative z-10 mb-4 font-semibold text-lg">{data.contact.team}</h4>
         <div className="relative z-10 space-y-3 text-sm">
           <div className="flex items-center gap-3">
@@ -355,7 +355,7 @@ export default function PolicyContent() {
         </div>
       </header>
       {/* Navigation Tabs */}
-      <div className="sticky top-20 z-40 border-gray-200 border-b bg-[#FDFBF7]/90 shadow-sm backdrop-blur-md transition-all duration-300">
+      <div className="sticky top-20 z-40 border-gray-200 border-b bg-[#FDFBF7]/90 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300">
         <div className="mx-auto max-w-4xl px-6">
           <div className="flex justify-center gap-8 md:gap-16">
             {[
@@ -371,7 +371,7 @@ export default function PolicyContent() {
                 type="button"
               >
                 <tab.icon
-                  className={`size-5 transition-transform duration-300 ${activeTab === tab.id ? "scale-110" : "group-hover:scale-110"}`}
+                  className={`size-5 transition-transform duration-300 ${activeTab === tab.id ? "scale-110" : "fine-hover:group-hover:scale-110"}`}
                 />
                 <span className="font-semibold text-sm uppercase tracking-wide md:text-base">
                   {tab.label}
@@ -442,7 +442,7 @@ export default function PolicyContent() {
             Our support team is here to help you understand our terms and ensure a smooth journey.
           </p>
           <Link
-            className="inline-flex items-center gap-2 rounded-full bg-citius-orange px-8 py-3 font-semibold text-white transition-all duration-300 hover:bg-white hover:text-citius-orange"
+            className="inline-flex items-center gap-2 rounded-full bg-citius-orange px-8 py-3 font-semibold text-brand-dark transition-colors duration-300 hover:bg-white hover:text-citius-blue"
             href="/contact"
           >
             Contact Support

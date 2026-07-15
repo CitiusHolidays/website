@@ -8,7 +8,7 @@ export default function ServiceCard({ title, icon: Icon, description, className,
   return (
     <m.div
       className={cn(
-        "group relative overflow-hidden rounded-3xl p-8 transition-all duration-500",
+        "group relative overflow-hidden rounded-3xl p-8 transition-[background-color,box-shadow] duration-500",
         "border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10", // Glass effect for dark bg
         className
       )}
@@ -20,17 +20,17 @@ export default function ServiceCard({ title, icon: Icon, description, className,
       {...props}
     >
       {/* Gradient Blob on Hover */}
-      <div className="absolute -top-10 -right-10 size-32 rounded-full bg-blue-500/30 opacity-0 blur-3xl transition-transform duration-700 group-hover:scale-150 group-hover:opacity-100" />
+      <div className="absolute -top-10 -right-10 size-32 rounded-full bg-blue-500/30 opacity-0 blur-3xl transition-[scale,opacity] duration-700 fine-hover:group-hover:scale-150 group-hover:opacity-100" />
 
       <div className="relative z-10 flex h-full flex-col">
         <div className="mb-6 flex items-start justify-between">
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-3 transition-transform duration-300 group-hover:scale-110">
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-3 transition-transform duration-300 fine-hover:group-hover:scale-110">
             {Icon && (
               <Icon className="size-8 text-blue-300 transition-colors duration-300 group-hover:text-white" />
             )}
           </div>
           <ArrowUpRight
-            className="text-white/30 transition-all duration-300 group-hover:translate-x-1 group-hover:-translate-y-1 group-hover:text-white"
+            className="text-white/30 transition-[translate,color] duration-300 fine-hover:group-hover:translate-x-1 fine-hover:group-hover:-translate-y-1 group-hover:text-white"
             size={24}
           />
         </div>

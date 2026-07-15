@@ -38,4 +38,13 @@ describe("bulkSelection", () => {
     expect(someVisibleRowsSelected(selected, ["a", "b"])).toBe(true);
     expect(allVisibleRowsSelected(new Set(["a", "b"]), ["a", "b"])).toBe(true);
   });
+
+  test("page-only select all adds and removes only the current page", () => {
+    expect(toggleAllVisibleSelection(new Set(["a"]), ["b", "c"], { pageOnly: true })).toEqual(
+      new Set(["a", "b", "c"])
+    );
+    expect(
+      toggleAllVisibleSelection(new Set(["a", "b", "c"]), ["b", "c"], { pageOnly: true })
+    ).toEqual(new Set(["a"]));
+  });
 });

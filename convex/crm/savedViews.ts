@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import { PERMISSIONS, requireStaff } from "./lib";
+import { PERMISSIONS } from "./lib/rolePolicy";
+import { requireStaff } from "./lib/staffAccess";
 
 const savedViewPatchValidator = {
   filterState: v.optional(v.any()),

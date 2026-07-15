@@ -1,4 +1,5 @@
 {
+  "buildCommand": "bunx convex deploy --cmd 'bun --bun next build'",
   "headers": [
     {
       "source": "/(.*\\.mp4)",

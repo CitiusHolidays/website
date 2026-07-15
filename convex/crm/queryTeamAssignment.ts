@@ -250,16 +250,23 @@ export async function applyQueryTeamAssignments(
     ticketingAssigned: Boolean(ticketing),
     ticketingScope,
   });
-  await notifyRoles(ctx, headRoles, {
-    body: `${current.queryCode} was assigned to ${contracting?.staff.name.trim() || current.contractingOwnerName || "a Contracting SPOC"}${
-      ticketingScope ? ` with Ticketing Scope: ${ticketingScope}` : ""
-    }.`,
-    entityId: queryId,
-    entityType: "query",
-    title: isSalesAssignmentAccess(access)
-      ? "Query team assigned by Sales"
-      : "Query team assignment updated",
-  });
+  await notifyRoles(
+    ctx,
+    headRoles,
+    {
+      body: `${current.queryCode} was assigned to ${contracting?.staff.name.trim() || current.contractingOwnerName || "a Contracting SPOC"}${
+        ticketingScope ? ` with Ticketing Scope: ${ticketingScope}` : ""
+      }.`,
+      entityId: queryId,
+      entityType: "query",
+      title: isSalesAssignmentAccess(access)
+        ? "Query team assigned by Sales"
+        : "Query team assignment updated",
+    },
+    // Assignment oversight remains visible in the bell, but email belongs only to the selected
+    // SPOCs through notifyStaffMember above. This prevents department/email-alert-role fanout.
+    { emailRoles: [] }
+  );
 
   return { id: queryId };
 }

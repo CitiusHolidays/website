@@ -52,7 +52,7 @@ export default function TrailDetailClient({ trail }) {
             </div>
             <div className="mt-6 h-2 max-w-md overflow-hidden rounded-full bg-white/15">
               <div
-                className="h-full rounded-full bg-citius-orange transition-all duration-500"
+                className="h-full rounded-full bg-citius-orange transition-[width] duration-500"
                 style={{ width: `${trailProgress?.percent ?? 0}%` }}
               />
             </div>

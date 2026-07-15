@@ -40,7 +40,7 @@ export default function SacredBharatHero() {
           <div className="flex flex-wrap items-center gap-4">
             {!isLoading && <LevelBadge level={progress.level} score={progress.score} size="lg" />}
             <Link
-              className="inline-flex items-center gap-2 rounded-full bg-citius-orange px-6 py-3 font-medium text-sm text-white transition-colors hover:bg-citius-orange/90"
+              className="inline-flex items-center gap-2 rounded-full bg-citius-orange px-6 py-3 font-medium text-brand-dark text-sm transition-colors hover:bg-citius-orange/90"
               href="#trails"
             >
               <Sparkles size={18} />

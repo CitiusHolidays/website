@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "convexAwareBuildCommand": "bunx convex deploy --cmd 'bun --bun next build'",
+  "requiredCiCommands": [
+    "bun install --frozen-lockfile",
+    "bun test",
+    "bun run typecheck",
+    "bunx convex codegen --typecheck enable",
+    "bunx tsc --noEmit",
+    "bun audit --audit-level=high",
+    "bun run assets:check",
+    "bun run lint:ratchet",
+    "bun run diff:check"
+  ],
+  "dependencyAuditLevel": "high",
+  "generatedSurfaces": [
+    "convex/_exportSurface.ts",
+    "convex/_generated",
+    "convex/betterAuth/_generated"
+  ],
+  "lintBaseline": "config/release/lint-baseline.json"
+}

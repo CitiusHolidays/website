@@ -3,6 +3,7 @@
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import type { ActionCtx } from "../_generated/server";
 import { action, internalAction } from "../_generated/server";
 import {
   decryptBuffer,
@@ -10,27 +11,14 @@ import {
   encryptBuffer,
   encryptPassportDetails,
 } from "../lib/encryption";
-import { PERMISSIONS } from "./lib";
-import { normalizePassportExpiryDate, passportExpiryFromDecrypted } from "./passportExpiry";
-
-function resolvePassportExpiryFromEncrypted(
-  plainExpiry?: string | null,
-  encryptedPayload?: string | null
-) {
-  const fromPlain = normalizePassportExpiryDate(plainExpiry);
-  if (fromPlain) {
-    return fromPlain;
-  }
-  if (!encryptedPayload) {
-    return "";
-  }
-  try {
-    const decrypted = decryptPassportDetails(encryptedPayload);
-    return passportExpiryFromDecrypted(plainExpiry, decrypted);
-  } catch {
-    return "";
-  }
-}
+import {
+  downloadFileResultValidator,
+  fileOperationSuccessValidator,
+  uploadUrlResultValidator,
+} from "./fileReturnContracts";
+import { PERMISSIONS } from "./lib/rolePolicy";
+import { passportDocumentResultValidator } from "./operationsReturnContracts";
+import { normalizePassportExpiryDate } from "./passportExpiry";
 
 const MAX_PASSPORT_FILE_BYTES = 15 * 1024 * 1024;
 const ALLOWED_PASSPORT_MIME_TYPES = new Set([
@@ -75,14 +63,22 @@ function encryptPassportPayload(buffer: Buffer) {
 }
 
 export const generateUploadUrl = action({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    travellerId: v.string(),
+  },
+  handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
       throw new ConvexError("FORBIDDEN");
     }
+
+    await ctx.runQuery(api.crm.passport.getPassportMetadata, {
+      travellerId: args.travellerId,
+    });
+
     return await ctx.storage.generateUploadUrl();
   },
+  returns: uploadUrlResultValidator,
 });
 
 export const encryptAndStorePassport = action({
@@ -102,6 +98,10 @@ export const encryptAndStorePassport = action({
     if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.MANAGE_VISA))) {
       throw new ConvexError("FORBIDDEN");
     }
+
+    await ctx.runQuery(api.crm.passport.getPassportMetadata, {
+      travellerId: args.travellerId,
+    });
 
     const fileBlob = await ctx.storage.get(args.tempStorageId);
     if (!fileBlob) {
@@ -151,37 +151,44 @@ export const encryptAndStorePassport = action({
       });
     }
 
-    const existing = await ctx.runQuery(api.crm.passport.getPassportMetadata, {
-      travellerId: args.travellerId,
-    });
-
-    if (existing && existing.storageId) {
-      try {
-        await ctx.storage.delete(existing.storageId);
-      } catch (err) {
-        console.error("Failed to delete old passport storage file:", err);
-      }
-    }
-
     try {
       await ctx.storage.delete(args.tempStorageId);
     } catch (err) {
       console.error("Failed to delete temporary unencrypted file:", err);
     }
 
-    await ctx.runMutation(internal.crm.passport.savePassportMetadata, {
-      createdBy: access.authUserId || "unknown",
-      encryptedPayload,
-      expiryDate: normalizePassportExpiryDate(args.expiryDate),
-      fileName: args.fileName,
-      lastFour: lastFour || undefined,
-      mimeType: resolvedMimeType,
-      storageId: encryptedStorageId,
-      travellerId: args.travellerId,
-    });
+    let displacedStorageId: Id<"_storage"> | null = null;
+    try {
+      displacedStorageId = await ctx.runMutation(internal.crm.passport.savePassportMetadata, {
+        createdBy: access.authUserId || "unknown",
+        encryptedPayload,
+        expiryDate: normalizePassportExpiryDate(args.expiryDate),
+        fileName: args.fileName,
+        lastFour: lastFour || undefined,
+        mimeType: resolvedMimeType,
+        storageId: encryptedStorageId,
+        travellerId: args.travellerId,
+      });
+    } catch (error) {
+      try {
+        await ctx.storage.delete(encryptedStorageId);
+      } catch (cleanupError) {
+        console.error("Failed to clean up rejected encrypted passport file:", cleanupError);
+      }
+      throw error;
+    }
+
+    if (displacedStorageId) {
+      try {
+        await ctx.storage.delete(displacedStorageId);
+      } catch (err) {
+        console.error("Failed to delete old passport storage file:", err);
+      }
+    }
 
     return { success: true };
   },
+  returns: fileOperationSuccessValidator,
 });
 
 type PassportMetadata = {
@@ -190,7 +197,7 @@ type PassportMetadata = {
   fileName?: string;
 } | null;
 
-async function readPassportFile(ctx: any, travellerId: string) {
+async function readPassportFile(ctx: ActionCtx, travellerId: string) {
   const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
   if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.VIEW_VISA))) {
     throw new ConvexError("FORBIDDEN");
@@ -243,6 +250,7 @@ export const getPassportDocument = action({
       ...file,
     };
   },
+  returns: passportDocumentResultValidator,
 });
 
 export const getPassportFile = action({
@@ -251,6 +259,7 @@ export const getPassportFile = action({
   },
   handler: async (ctx, args): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> =>
     await readPassportFile(ctx, args.travellerId),
+  returns: downloadFileResultValidator,
 });
 
 export const removePassport = action({
@@ -263,77 +272,56 @@ export const removePassport = action({
       throw new ConvexError("FORBIDDEN");
     }
 
-    const existing = await ctx.runQuery(api.crm.passport.getPassportMetadata, {
+    await ctx.runQuery(api.crm.passport.getPassportMetadata, {
       travellerId: args.travellerId,
     });
 
-    if (existing && existing.storageId) {
+    const deletedStorageId: Id<"_storage"> | null = await ctx.runMutation(
+      internal.crm.passport.deletePassportMetadata,
+      {
+        travellerId: args.travellerId,
+      }
+    );
+
+    if (deletedStorageId) {
       try {
-        await ctx.storage.delete(existing.storageId);
+        await ctx.storage.delete(deletedStorageId);
       } catch (err) {
         console.error("Failed to delete passport storage file:", err);
       }
     }
 
-    await ctx.runMutation(internal.crm.passport.deletePassportMetadata, {
-      travellerId: args.travellerId,
-    });
-
     return { success: true };
   },
-});
-
-export const getTravellerPassportExpiryDates = action({
-  args: {
-    jobCardId: v.optional(v.string()),
-  },
-  handler: async (ctx, args): Promise<Record<string, string>> => {
-    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.VIEW_TRAVELLERS))) {
-      throw new ConvexError("FORBIDDEN");
-    }
-
-    const sources: Array<{
-      passportId: Id<"passportDetails">;
-      travellerId: Id<"travellers">;
-      expiryDate: string;
-      encryptedPayload: string;
-    }> = await ctx.runQuery(internal.crm.travellers.passportExpirySources, {
-      access,
-      jobCardId: args.jobCardId,
-    });
-
-    const result: Record<string, string> = {};
-    await Promise.all(
-      sources.map(async (row) => {
-        const expiry = resolvePassportExpiryFromEncrypted(row.expiryDate, row.encryptedPayload);
-        if (!expiry) {
-          return;
-        }
-        result[String(row.travellerId)] = expiry;
-        if (!normalizePassportExpiryDate(row.expiryDate)) {
-          await ctx.runMutation(internal.crm.passport.backfillPassportExpiryDate, {
-            expiryDate: expiry,
-            passportId: row.passportId,
-          });
-        }
-      })
-    );
-    return result;
-  },
+  returns: fileOperationSuccessValidator,
 });
 
 export const backfillPassportExpiryDates = internalAction({
   args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, args): Promise<{ processed: number; updated: number; skipped: number }> => {
-    const rows: Array<{ id: Id<"passportDetails">; encryptedPayload: string }> = await ctx.runQuery(
-      internal.crm.passport.listPassportDetailsForBackfill,
-      {
-        limit: args.limit ?? 100,
-      }
-    );
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    continueCursor: string;
+    isDone: boolean;
+    processed: number;
+    scanned: number;
+    skipped: number;
+    updated: number;
+  }> => {
+    const result: {
+      continueCursor: string;
+      isDone: boolean;
+      page: Array<{ id: Id<"passportDetails">; encryptedPayload: string }>;
+      scanned: number;
+    } = await ctx.runQuery(internal.crm.passport.listPassportDetailsForBackfill, {
+      cursor: args.cursor ?? null,
+      limit: args.limit ?? 100,
+    });
+    const rows = result.page;
     const outcomes = await Promise.all(
       rows.map(async (row) => {
         try {
@@ -355,6 +343,13 @@ export const backfillPassportExpiryDates = internalAction({
     const updated = outcomes.filter((outcome) => outcome === "updated").length;
     const skipped = outcomes.filter((outcome) => outcome === "skipped").length;
 
-    return { processed: rows.length, skipped, updated };
+    return {
+      continueCursor: result.continueCursor,
+      isDone: result.isDone,
+      processed: rows.length,
+      scanned: result.scanned,
+      skipped,
+      updated,
+    };
   },
 });

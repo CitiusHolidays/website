@@ -67,14 +67,14 @@ export default function Header() {
     <>
       <m.header
         animate={{ opacity: 1, y: 0 }}
-        className={`fixed top-0 right-0 left-0 z-50 flex justify-center transition-all duration-300 ${
+        className={`fixed top-0 right-0 left-0 z-50 flex justify-center transition-[background-color,box-shadow,padding] duration-300 ${
           isScrolled ? "pt-4" : "pt-0"
         }`}
         initial={{ opacity: 0, y: -100 }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
       >
         <m.div
-          className={`relative flex items-center justify-between transition-all duration-500 ease-[0.16,1,0.3,1] ${
+          className={`relative flex items-center justify-between transition-[width,border-radius,background-color,padding,box-shadow] duration-500 ease-[0.16,1,0.3,1] ${
             isScrolled
               ? "w-[90%] rounded-full bg-slate-900/40 px-6 py-3 shadow-2xl backdrop-blur-xl md:w-[80%] lg:w-[1200px]"
               : "w-[95%] bg-transparent px-0 py-4 md:w-[90%]"
@@ -83,12 +83,12 @@ export default function Header() {
         >
           <Link className="group relative z-10 flex items-center gap-2" href="/">
             <div
-              className={`relative transition-all duration-300 ${isScrolled ? "scale-90" : "scale-100"}`}
+              className={`relative transition-transform duration-300 ${isScrolled ? "scale-90" : "scale-100"}`}
             >
               <div className="rounded p-1">
                 <Image
                   alt="Citius"
-                  className="object-contain transition-all duration-300"
+                  className="object-contain transition-[width,height] duration-300"
                   height={40}
                   priority
                   src={Logo}
@@ -150,7 +150,7 @@ export default function Header() {
             )}
 
             <Link
-              className={`hidden items-center gap-2 rounded-full px-5 py-2.5 font-bold text-sm transition-all duration-300 sm:flex ${
+              className={`hidden items-center gap-2 rounded-full px-5 py-2.5 font-bold text-sm transition-[background-color,color,box-shadow] duration-300 sm:flex ${
                 isScrolled
                   ? "bg-white text-slate-900 hover:bg-blue-50"
                   : "border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"

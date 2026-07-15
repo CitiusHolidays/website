@@ -72,7 +72,17 @@ function ChatbotPanelHeader({ messages, isMinimized, onClear, onToggleMinimize, 
   );
 }
 
-export function ChatbotWindow({ isOpen, onClose }) {
+function chatPanelHeightClass(isMinimized, avoidsMobileBottomBar) {
+  if (isMinimized) {
+    return "h-20";
+  }
+  if (avoidsMobileBottomBar) {
+    return "safe-area-mobile-bottom-bar-panel";
+  }
+  return "h-[min(650px,85dvh)]";
+}
+
+export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose }) {
   const [isMinimized, setIsMinimized] = useState(false);
   const {
     messages,
@@ -81,15 +91,23 @@ export function ChatbotWindow({ isOpen, onClose }) {
     inputRows,
     errorMessage,
     messagesContainerRef,
-    updateMessages,
+    cancelActiveRequest,
+    clearConversation,
     handleInputChange,
     handleSubmit,
+    retryLastResponse,
     setInput,
   } = useChatbotConversation();
 
   const handleEscapeClose = useEffectEvent(() => {
+    cancelActiveRequest();
     onClose();
   });
+
+  const handleClose = () => {
+    cancelActiveRequest();
+    onClose();
+  };
 
   useEffect(() => {
     if (!isOpen) {
@@ -107,6 +125,7 @@ export function ChatbotWindow({ isOpen, onClose }) {
   if (!isOpen) {
     return null;
   }
+  const panelHeightClass = chatPanelHeightClass(isMinimized, avoidsMobileBottomBar);
 
   return (
     <AnimatePresence>
@@ -116,9 +135,9 @@ export function ChatbotWindow({ isOpen, onClose }) {
           scale: 1,
         }}
         aria-label="Citius Concierge chat"
-        className={`fixed right-4 bottom-4 left-4 z-50 flex w-auto max-w-[400px] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-brand-border/50 bg-white shadow-2xl backdrop-blur-sm sm:right-6 sm:bottom-6 sm:left-auto sm:w-[400px] ${
-          isMinimized ? "h-20" : "h-[min(650px,85dvh)]"
-        }`}
+        className={`safe-area-fixed-panel fixed z-50 flex w-auto max-w-[400px] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-brand-border/50 bg-white shadow-2xl sm:w-[400px] ${
+          avoidsMobileBottomBar ? "mobile-bottom-bar-offset" : ""
+        } ${panelHeightClass}`}
         exit={{ opacity: 0, scale: 0.95 }}
         initial={{ opacity: 0, scale: 0.95 }}
         role="dialog"
@@ -131,8 +150,8 @@ export function ChatbotWindow({ isOpen, onClose }) {
         <ChatbotPanelHeader
           isMinimized={isMinimized}
           messages={messages}
-          onClear={() => updateMessages([])}
-          onClose={onClose}
+          onClear={clearConversation}
+          onClose={handleClose}
           onToggleMinimize={() => setIsMinimized(!isMinimized)}
         />
 
@@ -160,6 +179,7 @@ export function ChatbotWindow({ isOpen, onClose }) {
                       errorMessage={errorMessage}
                       isLoading={isLoading}
                       messages={messages}
+                      onRetry={retryLastResponse}
                     />
                   )}
                 </div>
@@ -169,6 +189,7 @@ export function ChatbotWindow({ isOpen, onClose }) {
                 input={input}
                 inputRows={inputRows}
                 isLoading={isLoading}
+                onCancel={cancelActiveRequest}
                 onInputChange={handleInputChange}
                 onSubmit={handleSubmit}
               />

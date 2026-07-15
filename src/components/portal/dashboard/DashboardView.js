@@ -10,9 +10,12 @@ import {
   ShieldCheck,
   Ticket,
 } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { buildDashboardKpiHref } from "@/lib/portal/dashboardLinks";
+import { getVisibleDashboardMetricDefinitions } from "@/lib/portal/dashboardMetrics";
 import { groupDashboardSections, resolveDashboardPersona } from "@/lib/portal/dashboardPersona";
+import { DashboardCoverageNotice } from "./DashboardCoverageNotice";
 import { DashboardSectionSkeleton, DashboardStatsSkeleton } from "./DashboardSkeleton";
 import {
   buildDashboardSections,
@@ -29,128 +32,29 @@ function metricTrend(summary, key) {
   };
 }
 
-function buildDashboardMetrics(summary, has, persona) {
-  const m = summary.metrics;
-  const directorMetrics = [
-    {
-      Icon: ClipboardList,
-      label: "Active queries",
-      permission: P.VIEW_QUERIES,
-      trendKey: "activeQueries",
-      value: m.activeQueries,
-    },
-    {
-      Icon: FileText,
-      label: "Proposals sent",
-      permission: P.VIEW_PROPOSALS,
-      trendKey: "proposalsSent",
-      value: m.proposalsSent,
-    },
-    {
-      Icon: CheckCircle2,
-      label: "Confirmed jobs",
-      permission: P.VIEW_QUERIES,
-      trendKey: "confirmedJobs",
-      value: m.confirmedJobs,
-    },
-    {
-      Icon: BriefcaseIcon,
-      label: "Open job cards",
-      permission: P.VIEW_JOB_CARDS,
-      trendKey: "jobCardsOpen",
-      value: m.jobCardsOpen,
-    },
-    {
-      Icon: CalendarDays,
-      label: "Departures (30d)",
-      permission: P.VIEW_JOB_CARDS,
-      trendKey: "departures30d",
-      value: m.departures30d ?? 0,
-    },
-  ];
+const DASHBOARD_METRIC_ICONS = {
+  approvals: CheckCircle2,
+  confirmed: CheckCircle2,
+  departures: CalendarDays,
+  jobCards: BriefcaseIcon,
+  money: CircleDollarSign,
+  proposals: FileText,
+  queries: ClipboardList,
+  tickets: Ticket,
+  visa: ShieldCheck,
+};
 
-  if (persona.id === "director") {
-    return directorMetrics.reduce((metrics, metric) => {
-      if (!has(metric.permission)) {
-        return metrics;
-      }
-      metrics.push({
-        ...metric,
-        trend: metricTrend(summary, metric.trendKey),
-      });
-      return metrics;
-    }, []);
-  }
-
-  return [
-    {
-      Icon: ClipboardList,
-      label: "Active queries",
-      permission: P.VIEW_QUERIES,
-      trendKey: "activeQueries",
-      value: m.activeQueries,
-    },
-    {
-      Icon: FileText,
-      label: "Proposals sent",
-      permission: P.VIEW_PROPOSALS,
-      trendKey: "proposalsSent",
-      value: m.proposalsSent,
-    },
-    {
-      Icon: CheckCircle2,
-      label: "Confirmed jobs",
-      permission: P.VIEW_QUERIES,
-      trendKey: "confirmedJobs",
-      value: m.confirmedJobs,
-    },
-    {
-      Icon: BriefcaseIcon,
-      label: "Open job cards",
-      permission: P.VIEW_JOB_CARDS,
-      trendKey: "jobCardsOpen",
-      value: m.jobCardsOpen,
-    },
-    {
-      Icon: Ticket,
-      label: "Tickets pending",
-      permission: P.VIEW_TICKETING,
-      value: m.ticketsPending,
-    },
-    {
-      Icon: ShieldCheck,
-      label: "Visa pending",
-      permission: P.VIEW_VISA,
-      value: m.visaPending,
-    },
-    {
-      Icon: CircleDollarSign,
-      label: "Outstanding",
-      permission: P.VIEW_FINANCE,
-      value: formatMoney(m.outstandingAmount),
-    },
-    {
-      Icon: CheckCircle2,
-      label: "Pending approvals",
-      permission: P.VIEW_APPROVALS,
-      value: m.pendingApprovals,
-    },
-    {
-      Icon: CircleDollarSign,
-      label: "Revenue pipeline",
-      permission: P.VIEW_FINANCE,
-      value: formatMoney(m.revenuePipeline),
-    },
-  ].reduce((metrics, metric) => {
-    if (!has(metric.permission)) {
-      return metrics;
-    }
-    metrics.push({
-      ...metric,
-      trend: metric.trendKey ? metricTrend(summary, metric.trendKey) : undefined,
-    });
-    return metrics;
-  }, []);
+function buildDashboardMetrics(summary, has, persona, dateRange) {
+  return getVisibleDashboardMetricDefinitions(persona.id, has).map((metric) => ({
+    ...metric,
+    href: buildDashboardKpiHref(metric.id, dateRange),
+    Icon: DASHBOARD_METRIC_ICONS[metric.icon],
+    trend: metric.trendKey ? metricTrend(summary, metric.trendKey) : undefined,
+    value:
+      metric.format === "money"
+        ? formatMoney(summary.metrics[metric.valueKey])
+        : (summary.metrics[metric.valueKey] ?? 0),
+  }));
 }
 
 function BriefcaseIcon(props) {
@@ -232,7 +136,7 @@ function capacitySeverityClass(severity) {
 
 function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
-  const toggleOpen = useCallback(() => setOpen((value) => !value), []);
+  const toggleOpen = () => setOpen((value) => !value);
   if (!rows.length) {
     return null;
   }
@@ -272,7 +176,7 @@ function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = tr
 
 function DashboardPipelineTypesCollapsible({ pipeline, queryTypes, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
-  const toggleOpen = useCallback(() => setOpen((value) => !value), []);
+  const toggleOpen = () => setOpen((value) => !value);
   if (!(pipeline || queryTypes)) {
     return null;
   }
@@ -315,7 +219,7 @@ function DashboardActionBar({ visible, persona, sections }) {
     return null;
   }
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-brand-border/70 border-b pb-5">
+    <div className="grid gap-3 border-brand-border/70 border-b pb-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
       <DashboardSectionBlock id="quickActions" persona={persona} sections={sections} />
       <DashboardSectionBlock id="periodPresets" persona={persona} sections={sections} />
     </div>
@@ -349,7 +253,7 @@ function DashboardToday({
     <section aria-labelledby="dashboard-today-heading" className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-bold text-[length:var(--portal-label-size)] text-citius-orange uppercase tracking-[0.16em]">
+          <p className="font-bold text-[length:var(--portal-label-size)] text-citius-orange-ink uppercase tracking-[0.16em]">
             Command center
           </p>
           <h2
@@ -362,7 +266,7 @@ function DashboardToday({
             Start with urgent exceptions and owned work before the wider workspace picture.
           </p>
         </div>
-        <span className="inline-flex min-h-8 w-fit items-center rounded-full bg-citius-orange/10 px-3 font-semibold text-citius-orange text-xs">
+        <span className="inline-flex min-h-8 w-fit items-center rounded-full bg-citius-orange/10 px-3 font-semibold text-citius-orange-ink text-xs">
           {urgentAlertLabel(urgentActionCount)}
         </span>
       </div>
@@ -448,8 +352,9 @@ const OPS_PROGRESS_PERMISSIONS = [
 ];
 
 function resolveDashboardLayout({ access, has, persona, sections }) {
+  const personaSectionIds = new Set(persona.sections);
   const availableSectionIds = Object.entries(sections).flatMap(([id, node]) =>
-    node && persona.sections.includes(id) ? [id] : []
+    node && personaSectionIds.has(id) ? [id] : []
   );
   const groups = groupDashboardSections(persona, availableSectionIds);
   const isHeadRole = Boolean(access?.roles?.some((role) => role.includes("Head")));
@@ -489,7 +394,7 @@ export function DashboardView({
     return null;
   }
 
-  const metrics = buildDashboardMetrics(summary, has, persona);
+  const metrics = buildDashboardMetrics(summary, has, persona, dateRange);
   const urgentActions = filterUrgentActions(summary, has);
   const departmentWorkflow = filterDepartmentWorkflow(summary, has);
   const queryTypeData = buildQueryTypeCounts(summary, has, access);
@@ -516,6 +421,8 @@ export function DashboardView({
   return (
     <div className="space-y-6">
       <DashboardSectionBlock id="hero" persona={persona} sections={sections} />
+
+      <DashboardCoverageNotice coverage={summary.aggregateCoverage} />
 
       <DashboardActionBar persona={persona} sections={sections} visible={layout.hasActionBar} />
 

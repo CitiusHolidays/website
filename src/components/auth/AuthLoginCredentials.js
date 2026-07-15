@@ -203,12 +203,15 @@ export function AuthLoginCredentials({
 
         <m.div className="mb-8 space-y-4" variants={AUTH_ITEM_VARIANTS}>
           <button
-            className="group flex w-full items-center justify-center gap-3 rounded-xl border border-[#e2e8f0] bg-white p-4 text-[#0f172a] shadow-sm transition-all duration-300 hover:border-[#cbd5e1] hover:bg-[#f8fafc] hover:shadow-md"
+            className="group flex w-full items-center justify-center gap-3 rounded-xl border border-[#e2e8f0] bg-white p-4 text-[#0f172a] shadow-sm transition-[border-color,background-color,box-shadow] duration-300 hover:border-[#cbd5e1] hover:bg-[#f8fafc] hover:shadow-md"
             disabled={isLoading}
             onClick={handleGoogleSignIn}
             type="button"
           >
-            <svg className="size-5 transition-transform group-hover:scale-110" viewBox="0 0 24 24">
+            <svg
+              className="size-5 transition-transform fine-hover:group-hover:scale-110"
+              viewBox="0 0 24 24"
+            >
               <path
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                 fill="#4285F4"

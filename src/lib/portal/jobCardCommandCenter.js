@@ -84,8 +84,8 @@ export function buildJobCardCommandCenter(payload = {}) {
   );
   const ownerLanes = [
     { label: "Contracting SPOC", value: job.contractingOwnerName || "Unassigned" },
-    { label: "Ops Owner", value: job.operationsOwnerName || "Unassigned" },
-    { label: "Ticketing Owner", value: job.ticketingOwnerName || "Unassigned" },
+    { label: "Operations SPOC", value: job.operationsOwnerName || "Unassigned" },
+    { label: "Ticketing SPOC", value: job.ticketingOwnerName || "Unassigned" },
     { label: "Tour Manager", value: job.tourManagerName || "Unassigned" },
     { label: "Finance", value: invoices.length ? `${invoices.length} invoice(s)` : "No invoices" },
   ];

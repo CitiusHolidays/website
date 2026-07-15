@@ -1,7 +1,13 @@
 import { v } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
 import { internalMutation, mutation, query } from "../_generated/server";
-import { PERMISSIONS, requireStaff } from "./lib";
+import { PERMISSIONS } from "./lib/rolePolicy";
+import { requireStaff } from "./lib/staffAccess";
+import {
+  clearPresetsResultValidator,
+  dropdownsResultValidator,
+  nullableDropdownIdResultValidator,
+} from "./staffSettingsReturnContracts";
 
 const DROPDOWNS: Record<string, string[]> = {
   callingStatus: ["Pending", "Done", "No response"],
@@ -63,7 +69,11 @@ const DROPDOWNS: Record<string, string[]> = {
 const PRESET_TABLES = ["roleDefinitions", "dropdownOptions", "paymentTerms"] as const;
 
 async function deletePresetRows(ctx: MutationCtx) {
-  const deleted: Record<string, number> = {};
+  const deleted = {
+    dropdownOptions: 0,
+    paymentTerms: 0,
+    roleDefinitions: 0,
+  };
 
   await Promise.all(
     PRESET_TABLES.map(async (table) => {
@@ -82,6 +92,7 @@ export const listDropdowns = query({
     await requireStaff(ctx);
     return DROPDOWNS;
   },
+  returns: dropdownsResultValidator,
 });
 
 export const clearPortalPresetData = mutation({
@@ -90,6 +101,7 @@ export const clearPortalPresetData = mutation({
     await requireStaff(ctx, PERMISSIONS.MANAGE_STAFF);
     return await deletePresetRows(ctx);
   },
+  returns: clearPresetsResultValidator,
 });
 
 export const clearPortalPresetDataInternal = internalMutation({
@@ -111,4 +123,5 @@ export const setDropdownOptionActive = mutation({
     await ctx.db.patch(id, { active: args.active, updatedAt: Date.now() });
     return { id };
   },
+  returns: nullableDropdownIdResultValidator,
 });

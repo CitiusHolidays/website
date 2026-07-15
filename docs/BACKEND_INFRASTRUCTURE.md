@@ -167,8 +167,9 @@ Portal uploads use Convex generated upload URLs. Browser reads go through same-o
 - `bunx convex codegen` regenerates `convex/_generated` and should run after Convex API/schema changes.
 - `bunx convex codegen --typecheck enable` is part of the production build path and catches Convex TypeScript errors before Next.js builds.
 - `bun test` runs focused backend/frontend tests.
-- `bun run lint` runs Biome.
-- `bun run check` runs lint plus tests.
+- `bun run lint` runs the raw Ultracite/Biome check and must report zero errors.
+- `bun run lint:ratchet` enforces the checked-in per-rule warning baseline used by required CI.
+- `bun run check` runs raw lint, that same required-CI lint ratchet, and the full Bun test suite.
 - `bun run build` runs Convex codegen with typecheck before `next build`.
 - Portal UI changes should use browser verification when visual behavior matters.
 - React Doctor is available via `bunx react-doctor@latest --verbose` after portal frontend changes.
@@ -184,7 +185,6 @@ One-time migration scripts live in `scripts/migrations/`:
 - `verify-parity.mjs`
 
 Convex import/parity helpers are in `convex/migrations.ts`. Better Auth schema generation is exposed as `bun run auth:schema:generate`.
-
 
 
 

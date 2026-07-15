@@ -39,9 +39,9 @@ export function getPipelineBuckets(queries = []) {
   return buckets;
 }
 
-function getSalesPipelineStage(query) {
+export function getSalesPipelineStage(query) {
   if (query?.leadStage) {
-    return query.leadStage;
+    return query.leadStage === "Closed" ? "Lost" : query.leadStage;
   }
   if (query?.salesStatus === "Order Lost" || query?.contractingStatus === "Order Lost") {
     return "Lost";

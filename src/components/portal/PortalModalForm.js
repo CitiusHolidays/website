@@ -138,7 +138,7 @@ function Input({
         {label}
         {required ? (
           <>
-            <span aria-hidden="true" className="text-citius-orange">
+            <span aria-hidden="true" className="text-citius-orange-ink">
               {" "}
               *
             </span>
@@ -183,7 +183,7 @@ function Select({ label, value, options, onChange, required = false }) {
         {label}
         {required ? (
           <>
-            <span aria-hidden="true" className="text-citius-orange">
+            <span aria-hidden="true" className="text-citius-orange-ink">
               {" "}
               *
             </span>
@@ -419,21 +419,16 @@ function FinalizedProposalPdfPanel({
   };
 
   const handleRemove = async () => {
-    const ok = await confirm({
+    await confirm({
       confirmLabel: "Remove",
       danger: true,
       message: "Remove the finalized proposal PDF?",
+      onConfirm: async () => {
+        await removeFinalizedPdf({ proposalId });
+        toast.success("Finalized PDF removed.");
+      },
       title: "Remove finalized PDF",
     });
-    if (!ok) {
-      return;
-    }
-    try {
-      await removeFinalizedPdf({ proposalId });
-      toast.success("Finalized PDF removed.");
-    } catch (err) {
-      toast.error(err?.data || err?.message || "Unable to remove file.");
-    }
   };
 
   return (
@@ -453,7 +448,7 @@ function FinalizedProposalPdfPanel({
           <p className="mb-3 text-brand-muted text-xs">PDF only, up to 15 MB.</p>
           <input
             accept=".pdf,application/pdf"
-            className="block w-full text-brand-text text-sm file:mr-3 file:rounded-full file:border-0 file:bg-citius-orange file:px-4 file:py-2 file:font-semibold file:text-sm file:text-white"
+            className="block w-full text-brand-text text-sm file:mr-3 file:rounded-full file:border-0 file:bg-citius-orange file:px-4 file:py-2 file:font-semibold file:text-brand-dark file:text-sm"
             disabled={isUploading}
             id="finalized-proposal-pdf-upload"
             onChange={handleUpload}
@@ -576,8 +571,11 @@ function QueryAttachmentsPanel({
   generateQueryUploadUrl,
   attachQueryFile,
   getQueryAttachmentUrl,
+  isLoadingMore = false,
   attachmentKind = "query",
+  onLoadMore,
   removeQueryAttachment,
+  showLoadMore = false,
 }) {
   const toast = usePortalToast();
   const { confirm } = usePortalConfirm();
@@ -609,21 +607,16 @@ function QueryAttachmentsPanel({
   };
 
   const handleRemove = async (attachment) => {
-    const ok = await confirm({
+    await confirm({
       confirmLabel: "Remove",
       danger: true,
       message: `Remove ${attachment.fileName}?`,
+      onConfirm: async () => {
+        await removeQueryAttachment({ attachmentId: attachment.id });
+        toast.success("File removed.");
+      },
       title: "Remove file",
     });
-    if (!ok) {
-      return;
-    }
-    try {
-      await removeQueryAttachment({ attachmentId: attachment.id });
-      toast.success("File removed.");
-    } catch (err) {
-      toast.error(err?.data || err?.message || "Unable to remove file.");
-    }
   };
 
   return (
@@ -638,7 +631,7 @@ function QueryAttachmentsPanel({
           </label>
           <input
             accept={QUERY_ATTACHMENT_ACCEPT}
-            className="block w-full text-brand-text text-sm file:mr-3 file:rounded-full file:border-0 file:bg-citius-orange file:px-4 file:py-2 file:font-semibold file:text-sm file:text-white"
+            className="block w-full text-brand-text text-sm file:mr-3 file:rounded-full file:border-0 file:bg-citius-orange file:px-4 file:py-2 file:font-semibold file:text-brand-dark file:text-sm"
             disabled={isUploading}
             id="query-attachment-upload"
             multiple
@@ -698,6 +691,16 @@ function QueryAttachmentsPanel({
           ))}
         </ul>
       )}
+      {showLoadMore ? (
+        <button
+          className="portal-small-btn"
+          disabled={isLoadingMore}
+          onClick={onLoadMore}
+          type="button"
+        >
+          {isLoadingMore ? "Loading…" : "Load more files"}
+        </button>
+      ) : null}
     </m.div>
   );
 }

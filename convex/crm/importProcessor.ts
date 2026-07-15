@@ -1,6 +1,8 @@
 import type { Id } from "../_generated/dataModel";
 import { resolveRoomCategory, resolveTravellerRoomFields } from "../lib/roomTypes";
+import { classifyImportError, publicImportErrorMessage } from "./importWorkerPolicy";
 import { canSeeJobCardRecord, createActivity } from "./lib";
+import { buildTravellerListSearchText } from "./listSearch";
 
 export type TravellerDoc = {
   _id: Id<"travellers">;
@@ -396,7 +398,8 @@ function travellerPatchForImport(
   row: any,
   job: any,
   now: number,
-  travelBatchId?: Id<"travelBatches">
+  travelBatchId?: Id<"travelBatches">,
+  travelBatch?: any
 ) {
   const importKind = row.importKind ?? "passenger";
   const patch: Record<string, unknown> = {
@@ -405,6 +408,10 @@ function travellerPatchForImport(
     importKey: row.importKey,
     importSource: `${importKind}-spreadsheet`,
     jobCardId: job._id,
+    listSearchText: buildTravellerListSearchText(row, {
+      jobCode: job.jobCode,
+      travelBatchReference: travelBatch?.batchReference ?? row.travelBatchReference,
+    }),
     sourceRowNumber: row.sourceRowNumber,
     sourceSheet: row.sourceSheet,
     surname: row.surname?.trim() || "",
@@ -412,6 +419,8 @@ function travellerPatchForImport(
   };
   if (row.travelBatchId !== undefined || row.travelBatchReference !== undefined) {
     patch.travelBatchId = travelBatchId;
+    patch.travelBatchCode = travelBatch?.batchCode ?? "";
+    patch.travelBatchReference = travelBatch?.batchReference ?? "";
   }
 
   const includeSourceFields = () => {
@@ -491,7 +500,8 @@ function travellerCreateDefaults(
   job: any,
   access: any,
   now: number,
-  travelBatchId?: Id<"travelBatches">
+  travelBatchId?: Id<"travelBatches">,
+  travelBatch?: any
 ) {
   const visaStatus = row.visaStatus || (row.visaRequired ? "Not Started" : "Not Required");
   return {
@@ -512,10 +522,15 @@ function travellerCreateDefaults(
     givenName: row.givenName?.trim() || "",
     guestCompanions: "",
     guestType: row.guestType,
+    hasPassportScan: false,
     hotelAllocation: row.hotelAllocation?.trim() || "",
     importKey: row.importKey,
     importSource: `${row.importKind ?? "passenger"}-spreadsheet`,
     lastMinuteDrop: false,
+    listSearchText: buildTravellerListSearchText(row, {
+      jobCode: job.jobCode,
+      travelBatchReference: travelBatch?.batchReference ?? row.travelBatchReference,
+    }),
     passportStatus: row.passportStatus?.trim() || "Pending",
     paymentType: row.paymentType,
     roomType: row.roomType,
@@ -530,6 +545,8 @@ function travellerCreateDefaults(
     specialRequests: row.specialRequests?.trim() || "",
     surname: row.surname?.trim() || "",
     ticketStatus: "Pending Issue" as const,
+    travelBatchCode: travelBatch?.batchCode ?? "",
+    travelBatchReference: travelBatch?.batchReference ?? "",
     travelDate: job.travelStartDate ?? "",
     travelHub: row.travelHub?.trim() || "",
     updatedAt: now,
@@ -552,6 +569,14 @@ export async function processImportRows(
   let created = 0;
   let updated = 0;
   let failed = 0;
+  let processed = 0;
+  const errors: Array<{
+    id: string;
+    kind: "retryable" | "terminal";
+    message: string;
+    sourceRowNumber?: number;
+    sourceSheet?: string;
+  }> = [];
   const now = Date.now();
   const { jobCardId, rows, access, job, matchIndex } = args;
 
@@ -560,7 +585,8 @@ export async function processImportRows(
       const match = findTravellerMatchInIndex(matchIndex, row);
       const importKind = row.importKind ?? "passenger";
       const travelBatchId = await resolveImportTravelBatchId(ctx, jobCardId, row);
-      const travellerPatch = travellerPatchForImport(row, job, now, travelBatchId);
+      const travelBatch = travelBatchId ? await ctx.db.get(travelBatchId) : null;
+      const travellerPatch = travellerPatchForImport(row, job, now, travelBatchId, travelBatch);
 
       let travellerId: Id<"travellers">;
       let isNewTraveller = false;
@@ -579,7 +605,14 @@ export async function processImportRows(
         updated += 1;
         registerTravellerInIndex(matchIndex, { ...match, ...patch, _id: match._id });
       } else {
-        const newTraveller = travellerCreateDefaults(row, job, access, now, travelBatchId);
+        const newTraveller = travellerCreateDefaults(
+          row,
+          job,
+          access,
+          now,
+          travelBatchId,
+          travelBatch
+        );
         travellerId = await ctx.db.insert("travellers", newTraveller);
         isNewTraveller = true;
         created += 1;
@@ -682,6 +715,7 @@ export async function processImportRows(
           matchIndex.byPassportHash.set(row.passportNumberHash, travellerDoc);
         }
         await ctx.db.patch(travellerId, {
+          passportExpiryDate: row.passportExpiryDate,
           passportStatus: "Received",
           updatedAt: now,
         });
@@ -696,8 +730,22 @@ export async function processImportRows(
           travellerId,
         });
       }
+      processed += 1;
     } catch (error) {
       failed += 1;
+      const kind = classifyImportError(error);
+      if (kind === "terminal") {
+        processed += 1;
+      }
+      errors.push({
+        id: String(
+          row.id ?? row.importKey ?? `${row.sourceSheet ?? "row"}:${row.sourceRowNumber ?? ""}`
+        ),
+        kind,
+        message: publicImportErrorMessage(error),
+        sourceRowNumber: row.sourceRowNumber,
+        sourceSheet: row.sourceSheet,
+      });
       console.error("Import row failed:", error);
     }
   }
@@ -720,8 +768,12 @@ export async function processImportRows(
   }
 
   return {
+    accepted: rows.length,
     created,
+    errors,
     failed,
+    processed,
+    remaining: rows.length - processed,
     roomSummary: summarizeRoomTypesFromRows(rows),
     total: rows.length,
     updated,

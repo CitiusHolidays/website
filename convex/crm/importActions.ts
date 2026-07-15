@@ -5,6 +5,11 @@ import { api, internal } from "../_generated/api";
 import { action } from "../_generated/server";
 import { decryptPassportDetails } from "../lib/encryption";
 import {
+  passengerExportResultValidator,
+  passengerImportCommitResultValidator,
+  passengerImportPreviewResultValidator,
+} from "./importReturnContracts";
+import {
   chunkRows,
   exportKindValidator,
   IMPORT_BATCH_SIZE,
@@ -12,7 +17,15 @@ import {
   preparePassengerRows,
   publicPassengerImportRow,
 } from "./importRows";
-import { PERMISSIONS } from "./lib";
+import {
+  classifyImportError,
+  IMPORT_WORKER_CONCURRENCY,
+  mapWithConcurrency,
+  publicImportErrorMessage,
+  stableImportBatchId,
+  summarizeImportBatchResults,
+} from "./importWorkerPolicy";
+import { PERMISSIONS } from "./lib/rolePolicy";
 import { cleanPassportField } from "./passportExpiry";
 
 function clean(value?: string) {
@@ -200,14 +213,12 @@ export const previewPassengerImport = action({
     let mergedRows: Array<any> = [];
     let roomSummary: Record<string, number> = {};
 
-    const batchResults = await Promise.all(
-      batches.map((batch) =>
-        ctx.runQuery(internal.crm.imports.previewPassengerImportRows, {
-          access,
-          jobCardId: args.jobCardId,
-          rows: batch,
-        })
-      )
+    const batchResults = await mapWithConcurrency(batches, IMPORT_WORKER_CONCURRENCY, (batch) =>
+      ctx.runQuery(internal.crm.imports.previewPassengerImportRows, {
+        access,
+        jobCardId: args.jobCardId,
+        rows: batch,
+      })
     );
     for (const result of batchResults) {
       mergedRows = mergedRows.concat(result.rows);
@@ -216,6 +227,7 @@ export const previewPassengerImport = action({
 
     return { roomSummary, rows: mergedRows };
   },
+  returns: passengerImportPreviewResultValidator,
 });
 
 export const commitPassengerImport = action({
@@ -227,36 +239,50 @@ export const commitPassengerImport = action({
     const access = await requireImportAccess(ctx, args.rows);
     const preparedRows = preparePassengerRows(args.rows);
     const batches = chunkRows(preparedRows, IMPORT_BATCH_SIZE);
-    let created = 0;
-    let updated = 0;
-    let failed = 0;
-    let roomSummary: Record<string, number> = {};
-
-    const batchResults = await Promise.all(
-      batches.map((batch, index) =>
-        ctx.runMutation(internal.crm.imports.commitPassengerImportBatch, {
-          access,
-          jobCardId: args.jobCardId,
-          logActivity: index === batches.length - 1,
-          rows: batch,
-        })
-      )
+    const batchResults = await mapWithConcurrency(
+      batches,
+      IMPORT_WORKER_CONCURRENCY,
+      async (batch, index) => {
+        const batchId = stableImportBatchId(args.jobCardId, index, batch);
+        try {
+          return await ctx.runMutation(internal.crm.imports.commitPassengerImportBatch, {
+            access,
+            batchId,
+            jobCardId: args.jobCardId,
+            logActivity: index === batches.length - 1,
+            rows: batch,
+          });
+        } catch (error) {
+          return {
+            accepted: batch.length,
+            batchId,
+            created: 0,
+            errors: [
+              {
+                id: batchId,
+                kind: classifyImportError(error),
+                message: publicImportErrorMessage(error),
+              },
+            ],
+            failed: batch.length,
+            processed: 0,
+            remaining: batch.length,
+            roomSummary: {},
+            status: classifyImportError(error),
+            updated: 0,
+          };
+        }
+      }
     );
-    for (const result of batchResults) {
-      created += result.created;
-      updated += result.updated;
-      failed += result.failed ?? 0;
-      roomSummary = mergeRoomSummaries(roomSummary, result.roomSummary ?? {});
-    }
+    const summary = summarizeImportBatchResults(batchResults);
 
     return {
-      created,
-      failed,
-      roomSummary,
+      ...summary,
+      batches: batchResults.map(({ batchId, errors, status }) => ({ batchId, errors, status })),
       total: preparedRows.length,
-      updated,
     };
   },
+  returns: passengerImportCommitResultValidator,
 });
 
 export const getPassengerExportRows = action({
@@ -285,4 +311,5 @@ export const getPassengerExportRows = action({
       rows,
     };
   },
+  returns: passengerExportResultValidator,
 });

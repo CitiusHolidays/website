@@ -1,5 +1,4 @@
-import { client } from "@/sanity/client";
-import { sanityFetchOptions } from "@/sanity/fetchOptions";
+import { cachedSanityFetch } from "@/sanity/cachedFetch";
 import BlogPageClient from "./page.client";
 
 const POSTS_QUERY = `*[
@@ -13,7 +12,7 @@ export const metadata = {
 };
 
 export default async function IndexPage() {
-  const posts = await client.fetch(POSTS_QUERY, {}, sanityFetchOptions.blogIndex);
+  const posts = await cachedSanityFetch(POSTS_QUERY, {}, ["blog"]);
 
   return <BlogPageClient posts={posts} />;
 }

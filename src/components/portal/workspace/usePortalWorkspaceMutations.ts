@@ -1,6 +1,21 @@
 import { api } from "@convex/_generated/api";
 import { useAction, useMutation } from "convex/react";
 
+const PORTAL_BULK_DELETE_BATCH_SIZE = 32;
+
+async function runBatchedDelete(ids: string[], invoke: (batch: string[]) => Promise<unknown>) {
+  const batches = Array.from(
+    { length: Math.ceil(ids.length / PORTAL_BULK_DELETE_BATCH_SIZE) },
+    (_, index) =>
+      ids.slice(index * PORTAL_BULK_DELETE_BATCH_SIZE, (index + 1) * PORTAL_BULK_DELETE_BATCH_SIZE)
+  );
+  await batches.reduce<Promise<unknown>>(
+    (pending, batch) => pending.then(() => invoke(batch)),
+    Promise.resolve()
+  );
+  return { deletedCount: ids.length };
+}
+
 export function usePortalWorkspaceMutations() {
   const createQuery = useMutation(api.crm.queries.create);
   const updateQuery = useMutation(api.crm.queries.update);
@@ -14,6 +29,10 @@ export function usePortalWorkspaceMutations() {
   const assignOperationsOwner = useMutation(api.crm.jobCards.assignOperationsOwner);
   const assignTicketingOwner = useMutation(api.crm.ticketing.assignTicketingOwner);
   const updateQueryStatus = useMutation(api.crm.queries.updateStatus);
+  const moveContractingPipelineStageMutation = useMutation(
+    api.crm.queries.moveContractingPipelineStage
+  );
+  const moveSalesPipelineStageMutation = useMutation(api.crm.queries.moveSalesPipelineStage);
   const createProposal = useMutation(api.crm.proposals.create);
   const updateProposal = useMutation(api.crm.proposals.update);
   const addProposalCollaborator = useMutation(api.crm.proposals.addCollaborator);
@@ -62,9 +81,6 @@ export function usePortalWorkspaceMutations() {
   const previewPassengerImport = useAction(api.crm.importActions.previewPassengerImport);
   const commitPassengerImport = useAction(api.crm.importActions.commitPassengerImport);
   const getPassengerExportRows = useAction(api.crm.importActions.getPassengerExportRows);
-  const getTravellerPassportExpiryDates = useAction(
-    api.crm.passportActions.getTravellerPassportExpiryDates
-  );
   const commitFlightImport = useMutation(api.crm.imports.commitFlightImport);
   const createTicket = useMutation(api.crm.ticketing.createTicket);
   const updateTicket = useMutation(api.crm.ticketing.updateTicket);
@@ -88,24 +104,49 @@ export function usePortalWorkspaceMutations() {
   const removeProposal = useMutation(api.crm.proposals.remove);
   const removeJobCard = useMutation(api.crm.jobCards.remove);
   const removeTraveller = useMutation(api.crm.travellers.remove);
-  const removeManyTravellers = useMutation(api.crm.travellers.removeMany);
+  const removeManyTravellersMutation = useMutation(api.crm.travellers.removeMany);
   const removeVisa = useMutation(api.crm.visa.remove);
-  const removeManyVisas = useMutation(api.crm.visa.removeMany);
+  const removeManyVisasMutation = useMutation(api.crm.visa.removeMany);
   const removePnr = useMutation(api.crm.ticketing.removePnr);
-  const removeManyPnrs = useMutation(api.crm.ticketing.removeManyPnrs);
+  const removeManyPnrsMutation = useMutation(api.crm.ticketing.removeManyPnrs);
   const removeTicket = useMutation(api.crm.ticketing.removeTicket);
-  const removeManyTickets = useMutation(api.crm.ticketing.removeManyTickets);
+  const removeManyTicketsMutation = useMutation(api.crm.ticketing.removeManyTickets);
   const removeSeatAllocation = useMutation(api.crm.ticketing.removeSeatAllocation);
-  const removeManySeatAllocations = useMutation(api.crm.ticketing.removeManySeatAllocations);
+  const removeManySeatAllocationsMutation = useMutation(
+    api.crm.ticketing.removeManySeatAllocations
+  );
   const removeHotel = useMutation(api.crm.ops.removeHotel);
-  const removeManyHotels = useMutation(api.crm.ops.removeManyHotels);
+  const removeManyHotelsMutation = useMutation(api.crm.ops.removeManyHotels);
   const removeTourManager = useMutation(api.crm.ops.removeTourManager);
-  const removeManyTourManagers = useMutation(api.crm.ops.removeManyTourManagers);
+  const removeManyTourManagersMutation = useMutation(api.crm.ops.removeManyTourManagers);
   const removeInvoice = useMutation(api.crm.finance.removeInvoice);
   const removeExpense = useMutation(api.crm.finance.removeExpense);
   const removeStaff = useMutation(api.crm.staff.removeStaff);
   const removeNotification = useMutation(api.crm.activity.removeNotification);
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
+
+  const removeManyTravellers = (args: { travellerIds: string[] }) =>
+    runBatchedDelete(args.travellerIds, (travellerIds) =>
+      removeManyTravellersMutation({ travellerIds })
+    );
+  const removeManyVisas = (args: { visaRecordIds: string[] }) =>
+    runBatchedDelete(args.visaRecordIds, (visaRecordIds) =>
+      removeManyVisasMutation({ visaRecordIds })
+    );
+  const removeManyPnrs = (args: { pnrIds: string[] }) =>
+    runBatchedDelete(args.pnrIds, (pnrIds) => removeManyPnrsMutation({ pnrIds }));
+  const removeManyTickets = (args: { ticketIds: string[] }) =>
+    runBatchedDelete(args.ticketIds, (ticketIds) => removeManyTicketsMutation({ ticketIds }));
+  const removeManySeatAllocations = (args: { seatAllocationIds: string[] }) =>
+    runBatchedDelete(args.seatAllocationIds, (seatAllocationIds) =>
+      removeManySeatAllocationsMutation({ seatAllocationIds })
+    );
+  const removeManyHotels = (args: { hotelIds: string[] }) =>
+    runBatchedDelete(args.hotelIds, (hotelIds) => removeManyHotelsMutation({ hotelIds }));
+  const removeManyTourManagers = (args: { tourManagerIds: string[] }) =>
+    runBatchedDelete(args.tourManagerIds, (tourManagerIds) =>
+      removeManyTourManagersMutation({ tourManagerIds })
+    );
 
   return {
     addJobCardCollaborator,
@@ -151,9 +192,10 @@ export function usePortalWorkspaceMutations() {
     getPassportDocument,
     getProposalAttachmentUrl,
     getQueryAttachmentUrl,
-    getTravellerPassportExpiryDates,
     markNotificationRead,
     markProposalSent,
+    moveContractingPipelineStageMutation,
+    moveSalesPipelineStageMutation,
     previewPassengerImport,
     removeApproval,
     removeExpense,

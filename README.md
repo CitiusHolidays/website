@@ -40,6 +40,16 @@ Role-based CRM for sales through finance and operations:
 
 Operational details: [`docs/PORTAL_CRM_WORKFLOWS.md`](docs/PORTAL_CRM_WORKFLOWS.md), [`docs/PORTAL_ROLES_AND_ACCESS.md`](docs/PORTAL_ROLES_AND_ACCESS.md), [`docs/PORTAL_PERMISSIONS_ARCHITECTURE.md`](docs/PORTAL_PERMISSIONS_ARCHITECTURE.md).
 
+### Current local modernization work
+
+The current working tree contains the full 27-ticket remediation plus the 14 July media, email,
+CRM visual, pagination, and AI follow-ups. It is implemented and locally verified, but it has not
+been staged, committed, deployed, or used to mutate production configuration.
+
+See [`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md) for the stakeholder summary,
+verification results, remaining external activation work, and links to the detailed workflow and
+release references.
+
 ### Payments
 
 Razorpay integration for trip bookings: create order, verify payment, webhook handling. Convex stores booking state.
@@ -89,7 +99,7 @@ convex/
 citius-blog/           # Sanity Studio (blog + gallery schemas)
 docs/                  # Portal workflow and permissions documentation
 scripts/               # Image optimization utilities
-bin/                   # Perf baseline and hero encoding scripts
+bin/                   # Performance baseline utilities
 plans/                 # Implementation plans (status tracked in plans/README.md)
 ```
 
@@ -104,6 +114,10 @@ bun install
 ### 2. Environment variables
 
 Copy `.env.example` to `.env.local` and fill in values. Key groups:
+
+The canonical key-only scope list is [`config/environment.manifest.json`](config/environment.manifest.json).
+Release activation, preview isolation, deploy-key scope, and rollback are documented in
+[`RELEASE.md`](RELEASE.md).
 
 **Required for local dev**
 
@@ -143,6 +157,8 @@ TURNSTILE_SECRET_KEY=
 
 # AI chatbot and Sacred Bharat journey planner
 OPENROUTER_API_KEY=
+AI_RATE_LIMIT_SALT=
+AI_RUNTIME_SECRET=
 
 # Razorpay bookings
 RAZORPAY_KEY_ID=
@@ -161,6 +177,7 @@ MIGRATION_SECRET=
 `SITE_URL`, `BETTER_AUTH_URL`, and `NEXT_PUBLIC_APP_URL` must include the `http://` or `https://` scheme. Restart the Next.js dev server fully after changing auth-related env vars.
 
 Set Convex-side secrets with `bunx convex env set KEY value` (or the Convex dashboard).
+`AI_RUNTIME_SECRET` must be set to the same rotated value in both the Next.js server environment and Convex. Run `bun run ai:config-check` before deployment; it validates runtime grouping without reading or printing secret values.
 
 ### 3. Run development servers
 
@@ -213,13 +230,18 @@ bun run start
 | `lint:doctor` | Ultracite doctor |
 | `typecheck` | Next route typegen + `tsc` |
 | `test` | Bun test suite |
-| `check` | Lint + test |
+| `check` | Raw lint + the required-CI lint ratchet + tests |
+| `lint:ratchet` | Compare each lint rule family with the reviewed legacy baseline |
+| `lint:ratchet:update` | Refresh the per-rule baseline only after raw lint reaches zero errors and total warnings do not increase |
+| `config:check` | Validate environment and release contracts |
+| `diff:check` | Check whitespace, secret-file, generated-output, and size hygiene |
 | `doctor` | React Doctor analysis |
 | `convex:dev` | Convex dev deployment |
 | `convex:codegen` | Regenerate Convex API types |
+| `convex:typecheck` | Type-check the Convex project independently |
+| `ai:benchmark` | Run the fixed non-sensitive AI runtime benchmark |
 | `auth:schema:generate` | Regenerate Better Auth Convex schema |
 | `optimize-images` | Batch image optimization |
-| `perf:hero-baseline` | Hero video performance baseline |
 
 After Convex schema or API changes, run `bunx convex codegen`. After dependency changes, run `bun audit`.
 
@@ -251,8 +273,11 @@ The project targets Vercel `bom1` with Bun 1.x (`vercel.json`).
 
 1. Fork the repo and branch from `main`.
 2. `bun install`, then run `bun run convex:dev` and `bun run dev`.
-3. Verify changes with `bun run check` (lint + tests). For portal UI changes, also run `bun run doctor`.
-4. After Convex changes, run `bunx convex codegen` and relevant tests.
+3. Verify changes with `bun run check`, `bun run typecheck`, `bun run config:check`, and
+   `bun run diff:check`. `check` includes raw lint, the same per-rule lint ratchet required by CI,
+   and the full Bun test suite.
+4. After Convex changes, run `bunx convex codegen`, `bun run convex:typecheck`, and relevant tests.
+   For portal UI changes, also run `bun run doctor` and verify the affected routes in a browser.
 5. Open a pull request with a clear description.
 
 Agent and workspace conventions live in [`AGENTS.md`](AGENTS.md).

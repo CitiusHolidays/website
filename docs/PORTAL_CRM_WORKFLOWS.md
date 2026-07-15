@@ -6,16 +6,17 @@ This doc records the current Citius Connect behavior implemented across recent p
 
 | Workflow area | Primary files |
 | --- | --- |
-| Portal routing and list views | `src/components/portal/PortalWorkspace.js` |
-| Shared portal state and Convex hooks | `src/components/portal/usePortalWorkspaceState.js` |
+| Portal routing and list views | `src/components/portal/PortalWorkspace.tsx` |
+| Shared portal state and Convex hooks | `src/components/portal/usePortalWorkspaceState.ts` |
+| Shared lists, actions, and pagination | `src/components/portal/SelectableDataTable.tsx`, `src/components/portal/PortalActionMenu.tsx`, `src/components/portal/QueryRowActions.tsx` |
 | Modal form lifecycle and submit routing | `src/lib/portal/modalLifecycle.js`, `src/lib/portal/modalCommandExecutor.js` |
 | Query team assignment | `convex/crm/queryTeamAssignment.ts`, `src/lib/portal/permissions.js` |
 | Job cards and downstream operations | `convex/crm/jobCards.ts`, `src/components/portal/jobCard/JobCardCommandCenter.js` |
-| Spreadsheet import/export | `src/lib/portal/spreadsheetImports.js`, `src/lib/portal/spreadsheetExports.js`, `convex/crm/imports.ts`, `convex/crm/importActions.ts` |
+| Spreadsheet import/export | `src/lib/portal/spreadsheetImports.ts`, `src/lib/portal/spreadsheetExports.ts`, `convex/crm/imports.ts`, `convex/crm/importActions.ts` |
 | Notifications | `convex/crm/activity.ts`, `convex/crm/notificationReads.ts`, `convex/crm/notificationSummary.ts`, `convex/crm/notificationEmails.ts`, `convex/crm/notificationEmailDetails.ts` |
 | Leave | `convex/crm/leave.ts`, `convex/crm/leaveApprovers.ts`, `convex/crm/leavePolicy.ts`, `convex/crm/leaveLapse.ts` |
 | Expenses and finance | `convex/crm/finance.ts`, `convex/crm/expenseAttachments.ts`, `convex/crm/expenseAttachmentActions.ts` |
-| Saved views and command palette | `convex/crm/savedViews.ts`, `src/lib/portal/savedViews.js`, `src/components/portal/PortalCommandPalette.js`, `src/components/portal/PortalShell.js` |
+| Saved views and command palette | `convex/crm/savedViews.ts`, `src/lib/portal/savedViews.js`, `src/components/portal/PortalCommandPalette.js`, `src/components/portal/PortalShell.tsx` |
 | Portal chrome and stacking | `src/lib/portal/zIndex.js` |
 
 ## Query lifecycle
@@ -47,6 +48,13 @@ Head/director assignment can assign or reassign contracting and ticketing:
 Assignable contracting staff include `Contracting`, `Contracting Head`, and `Contracting Cement`. Assignable ticketing staff include `Ticketing` and `Head of Ticketing`.
 
 Assignments patch the query, mirror owner fields onto linked job cards, create assignment activity, notify assigned staff, and notify relevant heads. If ticketing is assigned or ticketing scope is not `Not required`, Head of Ticketing is included in head notifications.
+
+Email and bell delivery intentionally differ for this event:
+
+- Email goes only to the selected Contracting and Ticketing SPOCs through direct staff targeting.
+- Relevant heads can still receive oversight bell rows.
+- Head-role bell notifications use `emailRoles: []`, so they do not expand into department-wide or
+  email-alert-role email recipients.
 
 ## Proposals and sales handoff
 
@@ -108,6 +116,17 @@ Portal dashboard summary data comes from `convex/crm/dashboard.ts` `getPortalSum
 
 List views use one sticky `PortalListToolbar` with compact titles, search, filters, date range, save-view actions, and filtered result counts. Saved views live in sidebar Pinned and the command palette, not as a persistent chip row.
 
+The primary action for the current workflow remains visible. Secondary actions use an anchored
+**More** dropdown, not a modal. Query rows keep Sales Decision or the relevant workflow action
+visible; Edit query, Reference Itinerary, Assign teams, and Delete live under More. Traveller,
+Ticketing, Flights, Hotel/Rooming, Passport, and Visa keep their create action visible and place
+secondary import/export actions under the toolbar More menu.
+
+Shared data tables show 25 loaded rows per page. Selection can span pages; the visible select-all
+control applies only to the current page. Replacing rows after filters or search returns to page 1,
+while appending another server cursor page preserves the current page. When more authorized server
+records exist, the list exposes a separate **Load more records** action.
+
 Date ranges are stored as ISO values and displayed as DD/MM/YYYY. Inverted From/To ranges must error and skip filtering; they should not silently swap.
 
 The Pipeline page is available when the user can manage queries or view contracting.
@@ -144,6 +163,12 @@ Expense form labels should use Category with the `Select category...` placeholde
 ## Portal chrome
 
 Portal z-index values are centralized in `src/lib/portal/zIndex.js`.
+
+The header renders the signed-in Google profile image when available and falls back to the user
+icon. The shell uses the existing `/gallery/bgfooter.webp` texture at low opacity so light pages
+retain the established Citius visual language. Finance, Ticketing, dashboard, and other metric
+cards use fluid grids rather than fixed-width legacy cards, and entity forms share the sectioned
+hierarchy introduced by the Sales Query form.
 
 Current ordering principles:
 

@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { client } from "@/sanity/client";
-import { sanityFetchOptions } from "@/sanity/fetchOptions";
+import { cachedSanityFetch } from "@/sanity/cachedFetch";
 import { urlFor } from "@/sanity/imageUrl";
 import PostPageClient from "./page.client";
 
@@ -31,7 +30,7 @@ const POST_QUERY = `*[_type == "post" && slug.current == $slug][0]{
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const post = await client.fetch(POST_QUERY, { slug }, sanityFetchOptions.blogPost);
+  const post = await cachedSanityFetch(POST_QUERY, { slug }, ["blog"]);
 
   if (!post) {
     return {
@@ -40,7 +39,7 @@ export async function generateMetadata({ params }) {
   }
 
   const imageUrl = post.mainImage ? urlFor(post.mainImage).width(1200).height(630).url() : null;
-  const excerpt = post.excerpt || (post.body?.[0]?.children?.[0]?.text || "").substring(0, 160);
+  const excerpt = post.excerpt || (post.body?.[0]?.children?.[0]?.text || "").slice(0, 160);
 
   return {
     alternates: {
@@ -91,7 +90,7 @@ export default function PostPage({ params }) {
 
 async function PostContent({ params }) {
   const { slug } = await params;
-  const post = await client.fetch(POST_QUERY, { slug }, sanityFetchOptions.blogPost);
+  const post = await cachedSanityFetch(POST_QUERY, { slug }, ["blog"]);
 
   if (!post) {
     notFound();

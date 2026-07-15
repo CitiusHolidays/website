@@ -17,4 +17,25 @@ crons.daily(
   {}
 );
 
+crons.daily(
+  "clean expired ai runtime data",
+  { hourUTC: 2, minuteUTC: 15 },
+  internal.aiRuntime.cleanupExpired,
+  {}
+);
+
+crons.interval(
+  "reconcile bounded crm metrics",
+  { minutes: 15 },
+  internal.crm.metricAggregates.reconcileAll,
+  {}
+);
+
+crons.interval(
+  "reconcile crm list search text",
+  { hours: 1 },
+  internal.crm.listSearch.reconcileAll,
+  {}
+);
+
 export default crons;

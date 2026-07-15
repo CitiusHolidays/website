@@ -1,34 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { StatusBadge } from "@/components/portal/workspace/portalWorkspaceListUi";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { buildDashboardListUrl, buildJobCardHref } from "@/lib/portal/dashboardLinks";
+import { getStatusAttentionTone, getStatusPresentation } from "@/lib/portal/statusTones";
 import { DashboardEmpty, DashboardPanel, DashboardProgress } from "./DashboardPanel";
 
-const BADGE_TONES = {
-  amber: "bg-amber-50 text-amber-900 border-amber-200",
-  blue: "bg-blue-50 text-blue-800 border-blue-200",
-  green: "bg-emerald-50 text-emerald-800 border-emerald-200",
-};
-
-function statusTone(readiness) {
-  if (readiness === "Ready") {
-    return "green";
-  }
-  if (readiness === "Docs pending") {
-    return "amber";
-  }
-  return "blue";
+function departureRowAttention(row) {
+  const presentation = getStatusPresentation("dashboardReadiness", row.readiness);
+  const attentionTone = getStatusAttentionTone("dashboardReadiness", row.readiness);
+  return attentionTone ? { label: presentation.meaning, tone: attentionTone } : undefined;
 }
 
-function Badge({ label, tone }) {
-  return (
-    <span
-      className={`inline-flex rounded-full border px-2 py-0.5 font-semibold text-[length:var(--portal-label-size)] ${BADGE_TONES[tone] || BADGE_TONES.blue}`}
-    >
-      {label}
-    </span>
-  );
+function workQueueRowAttention(row) {
+  return (row.value ?? 0) > 0
+    ? { label: `${row.value} pending in ${row.label}`, tone: "warning" }
+    : undefined;
 }
 
 export function DashboardActiveTours({ tours, dateRange, hasJobCards }) {
@@ -55,7 +44,7 @@ export function DashboardActiveTours({ tours, dateRange, hasJobCards }) {
                     {tour.destination || "Destination pending"} - {tour.pax} pax
                   </div>
                 </div>
-                <Badge label={tour.status} tone="blue" />
+                <StatusBadge domain="jobCard" status={tour.status} />
               </div>
               <DashboardProgress label="Tickets issued" value={tour.ticketProgress} />
               <DashboardProgress label="Visa approved" value={tour.visaProgress} />
@@ -86,47 +75,61 @@ export function DashboardUpcomingDepartures({ departures, dateRange, hasJobCards
       }
       title="Upcoming departures"
     >
-      {departures?.length ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead>
-              <tr className="border-brand-border border-b text-brand-muted text-xs">
-                <th className="py-2 pr-3 font-semibold">JC</th>
-                <th className="py-2 pr-3 font-semibold">Client</th>
-                <th className="py-2 pr-3 font-semibold">Date</th>
-                <th className="py-2 pr-3 font-semibold">Pax</th>
-                <th className="py-2 pr-3 font-semibold">TM</th>
-                <th className="py-2 font-semibold">Readiness</th>
-              </tr>
-            </thead>
-            <tbody>
-              {departures.map((row) => (
-                <tr className="border-brand-border/60 border-b last:border-0" key={row.id}>
-                  <td className="py-2 pr-3">
-                    <Link
-                      className="font-semibold text-citius-blue hover:underline"
-                      href={buildJobCardHref(row.id, dateRange)}
-                    >
-                      {row.jobCode}
-                    </Link>
-                  </td>
-                  <td className="py-2 pr-3 font-medium text-brand-dark">{row.clientName}</td>
-                  <td className="py-2 pr-3 tabular-nums">
-                    {formatDisplayDate(row.travelStartDate)}
-                  </td>
-                  <td className="py-2 pr-3 tabular-nums">{row.pax}</td>
-                  <td className="py-2 pr-3">{row.tourManagerName || "—"}</td>
-                  <td className="py-2">
-                    <Badge label={row.readiness} tone={statusTone(row.readiness)} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <DashboardEmpty label="No upcoming departures." />
-      )}
+      <SelectableDataTable
+        columns={[
+          {
+            id: "job-card",
+            kind: "identity",
+            label: "JC",
+            render: (row) => (
+              <Link
+                className="font-semibold text-citius-blue hover:underline"
+                href={buildJobCardHref(row.id, dateRange)}
+              >
+                {row.jobCode}
+              </Link>
+            ),
+            sortValue: (row) => row.jobCode,
+          },
+          {
+            id: "client",
+            label: "Client",
+            render: (row) => row.clientName,
+            sortValue: (row) => row.clientName,
+          },
+          {
+            id: "date",
+            label: "Date",
+            render: (row) => formatDisplayDate(row.travelStartDate),
+            sortValue: (row) => row.travelStartDate,
+          },
+          {
+            align: "right",
+            id: "pax",
+            label: "Pax",
+            render: (row) => row.pax,
+            sortValue: (row) => row.pax,
+          },
+          {
+            hideable: true,
+            id: "tour-manager",
+            label: "TM",
+            render: (row) => row.tourManagerName || "—",
+            sortValue: (row) => row.tourManagerName,
+          },
+          {
+            id: "readiness",
+            kind: "status",
+            label: "Readiness",
+            render: (row) => <StatusBadge domain="dashboardReadiness" status={row.readiness} />,
+            sortValue: (row) => row.readiness,
+          },
+        ]}
+        compact
+        empty="No upcoming departures."
+        rowAttention={departureRowAttention}
+        rows={departures || []}
+      />
     </DashboardPanel>
   );
 }
@@ -136,43 +139,46 @@ export function DashboardWorkQueuesSummary({ rows }) {
 
   return (
     <DashboardPanel title="Work queues">
-      {visibleRows.length ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead>
-              <tr className="border-brand-border border-b text-brand-muted text-xs">
-                <th className="py-2 pr-3 font-semibold">Queue</th>
-                <th className="py-2 pr-3 text-right font-semibold">Pending</th>
-                <th className="py-2 pr-3 text-right font-semibold">Oldest item</th>
-                <th className="py-2 text-right font-semibold">Owner</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleRows.slice(0, 5).map((row) => (
-                <tr className="border-brand-border/70 border-b last:border-0" key={row.label}>
-                  <td className="py-2.5 pr-3">
-                    <Link
-                      className="font-semibold text-citius-blue hover:underline"
-                      href={row.href}
-                    >
-                      {row.label}
-                    </Link>
-                  </td>
-                  <td className="py-2.5 pr-3 text-right text-brand-dark tabular-nums">
-                    {row.value ?? 0}
-                  </td>
-                  <td className="py-2.5 pr-3 text-right text-brand-muted tabular-nums">
-                    {row.oldestLabel || "—"}
-                  </td>
-                  <td className="py-2.5 text-right text-brand-muted">{row.owner}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <DashboardEmpty label="No open work queues for this period." />
-      )}
+      <SelectableDataTable
+        columns={[
+          {
+            id: "queue",
+            kind: "identity",
+            label: "Queue",
+            render: (row) => (
+              <Link className="font-semibold text-citius-blue hover:underline" href={row.href}>
+                {row.label}
+              </Link>
+            ),
+            sortValue: (row) => row.label,
+          },
+          {
+            align: "right",
+            id: "pending",
+            label: "Pending",
+            render: (row) => row.value ?? 0,
+            sortValue: (row) => row.value,
+          },
+          {
+            align: "right",
+            id: "oldest",
+            label: "Oldest item",
+            render: (row) => row.oldestLabel || "—",
+            sortValue: (row) => row.oldestLabel,
+          },
+          {
+            align: "right",
+            id: "owner",
+            label: "Owner",
+            render: (row) => row.owner,
+            sortValue: (row) => row.owner,
+          },
+        ]}
+        compact
+        empty="No open work queues for this period."
+        rowAttention={workQueueRowAttention}
+        rows={visibleRows.slice(0, 5).map((row) => ({ ...row, id: row.label }))}
+      />
     </DashboardPanel>
   );
 }

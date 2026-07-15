@@ -44,7 +44,7 @@ export default function BlogPageClient({ posts }) {
                 const postImageUrl = post.mainImage ? urlFor(post.mainImage).url() : null;
                 return (
                   <m.article
-                    className="group overflow-hidden rounded-2xl border border-brand-border bg-white transition-all duration-300 hover:-translate-y-1 hover:border-citius-blue/30 hover:shadow-xl"
+                    className="group overflow-hidden rounded-2xl border border-brand-border bg-white transition-[translate,border-color,box-shadow] duration-300 fine-hover:hover:-translate-y-1 hover:border-citius-blue/30 hover:shadow-xl"
                     key={post._id}
                     variants={{
                       hidden: { opacity: 0, y: 20 },
@@ -104,11 +104,11 @@ export default function BlogPageClient({ posts }) {
                         </h2>
 
                         <div className="border-brand-border border-t pt-4">
-                          <span className="inline-flex items-center gap-2 font-medium text-citius-blue transition-all duration-300 group-hover:gap-3">
+                          <span className="inline-flex items-center gap-2 font-medium text-citius-blue transition-[gap] duration-300 group-hover:gap-3">
                             Read more
                             <svg
                               aria-hidden="true"
-                              className="size-4 transition-transform duration-300 group-hover:translate-x-1"
+                              className="size-4 transition-transform duration-300 fine-hover:group-hover:translate-x-1"
                               fill="none"
                               role="img"
                               stroke="currentColor"

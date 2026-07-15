@@ -1,5 +1,7 @@
 "use client";
 
+import { api } from "@convex/_generated/api";
+import { usePaginatedQuery } from "convex/react";
 import {
   FinalizedProposalPdfPanel,
   QueryAttachmentsPanel,
@@ -41,18 +43,29 @@ export function EntityModalMediaFields({
   handleJobCardSelect,
   handleTravellerSelect,
 }) {
+  const queryAttachmentPage = usePaginatedQuery(
+    api.crm.queryAttachments.listForQuery,
+    modal === "queryAttachments" && form.queryId ? { queryId: form.queryId } : "skip",
+    { initialNumItems: 50 }
+  );
+  const queryAttachments =
+    queryAttachmentPage.status === "LoadingFirstPage" ? [] : queryAttachmentPage.results;
+
   return (
     <>
       {modal === "queryAttachments" && (
         <div className="md:col-span-2">
           <QueryAttachmentsPanel
-            attachments={queries.find((q) => q.id === form.queryId)?.attachments || []}
+            attachments={queryAttachments}
             attachQueryFile={attachQueryFile}
             canManage={has(P.MANAGE_QUERIES)}
             generateQueryUploadUrl={generateQueryUploadUrl}
             getQueryAttachmentUrl={getQueryAttachmentUrl}
+            isLoadingMore={queryAttachmentPage.status === "LoadingMore"}
+            onLoadMore={() => queryAttachmentPage.loadMore(50)}
             queryId={form.queryId}
             removeQueryAttachment={removeQueryAttachment}
+            showLoadMore={queryAttachmentPage.status === "CanLoadMore"}
           />
         </div>
       )}

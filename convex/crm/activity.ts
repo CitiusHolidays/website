@@ -1,34 +1,50 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
-import { canReceiveNotification, PERMISSIONS, requireStaff } from "./lib";
+import { canReceiveNotification } from "./lib/notifications";
+import { PERMISSIONS } from "./lib/rolePolicy";
+import { requireStaff } from "./lib/staffAccess";
 import {
   fetchAllNotificationsForAccess,
   fetchNotificationsForAccess,
   notificationSummaryForAccessFromDb,
 } from "./notificationReads";
+import { applyCrmCursorFilters, boundedPaginationOptions } from "./paginationPolicy";
+import {
+  activityListPageResultValidator,
+  markedNotificationsResultValidator,
+  notificationIdResultValidator,
+  notificationListResultValidator,
+  notificationSummaryResultValidator,
+  nullableNotificationIdResultValidator,
+} from "./peopleWorkflowReturnContracts";
 
 export const listActivity = query({
   args: {
-    limit: v.optional(v.number()),
+    action: v.optional(v.string()),
+    entityType: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
     await requireStaff(ctx, PERMISSIONS.VIEW_ACTIVITY);
-    const limit = args.limit ?? 50;
-    const rows = await ctx.db
-      .query("activityLogs")
-      .withIndex("by_createdAt")
-      .order("desc")
-      .take(limit);
-    return rows.map((activity) => ({
-      action: activity.action,
-      actorName: activity.actorName,
-      createdAt: new Date(activity.createdAt).toISOString(),
-      entityId: activity.entityId ?? "",
-      entityType: activity.entityType,
-      id: activity._id,
-      message: activity.message,
-    }));
+    const page = await applyCrmCursorFilters(
+      ctx.db.query("activityLogs").withIndex("by_createdAt").order("desc"),
+      { equals: { action: args.action, entityType: args.entityType } }
+    ).paginate(boundedPaginationOptions(args.paginationOpts));
+    return {
+      ...page,
+      page: page.page.map((activity) => ({
+        action: activity.action,
+        actorName: activity.actorName,
+        createdAt: new Date(activity.createdAt).toISOString(),
+        entityId: activity.entityId ?? "",
+        entityType: activity.entityType,
+        id: activity._id,
+        message: activity.message,
+      })),
+    };
   },
+  returns: activityListPageResultValidator,
 });
 
 export const listNotifications = query({
@@ -48,6 +64,7 @@ export const listNotifications = query({
       title: notification.title,
     }));
   },
+  returns: notificationListResultValidator,
 });
 
 export const notificationSummary = query({
@@ -56,6 +73,7 @@ export const notificationSummary = query({
     const access = await requireStaff(ctx);
     return notificationSummaryForAccessFromDb(ctx, access);
   },
+  returns: notificationSummaryResultValidator,
 });
 
 export const markNotificationRead = mutation({
@@ -78,6 +96,7 @@ export const markNotificationRead = mutation({
     await ctx.db.patch(id, { readAt: Date.now() });
     return { id };
   },
+  returns: nullableNotificationIdResultValidator,
 });
 
 export const markAllNotificationsRead = mutation({
@@ -94,6 +113,7 @@ export const markAllNotificationsRead = mutation({
 
     return { marked: toMark.length };
   },
+  returns: markedNotificationsResultValidator,
 });
 
 export const removeNotification = mutation({
@@ -116,4 +136,5 @@ export const removeNotification = mutation({
     await ctx.db.delete(id);
     return { id };
   },
+  returns: notificationIdResultValidator,
 });

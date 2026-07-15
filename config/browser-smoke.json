@@ -1,0 +1,152 @@
+{
+  "profiles": {
+    "public": {},
+    "admin": { "sessionEnv": "BROWSER_SMOKE_ADMIN_SESSION" },
+    "sales": { "sessionEnv": "BROWSER_SMOKE_SALES_SESSION" },
+    "contracting": { "sessionEnv": "BROWSER_SMOKE_CONTRACTING_SESSION" },
+    "operations": { "sessionEnv": "BROWSER_SMOKE_OPERATIONS_SESSION" },
+    "ticketing": { "sessionEnv": "BROWSER_SMOKE_TICKETING_SESSION" },
+    "finance": { "sessionEnv": "BROWSER_SMOKE_FINANCE_SESSION" },
+    "hr": { "sessionEnv": "BROWSER_SMOKE_HR_SESSION" }
+  },
+  "viewports": {
+    "desktop": { "height": 1000, "width": 1440 },
+    "mobile": { "height": 844, "width": 390 }
+  },
+  "cases": [
+    {
+      "id": "public-home",
+      "path": "/",
+      "profile": "public",
+      "viewport": "desktop",
+      "expectText": "Your next great journey"
+    },
+    {
+      "id": "public-home-mobile",
+      "path": "/",
+      "profile": "public",
+      "viewport": "mobile",
+      "expectText": "Your next great journey"
+    },
+    {
+      "id": "pilgrimage",
+      "path": "/pilgrimage",
+      "profile": "public",
+      "viewport": "desktop",
+      "expectText": "Seek Stillness"
+    },
+    {
+      "id": "sacred-bharat",
+      "path": "/sacred-bharat",
+      "profile": "public",
+      "viewport": "mobile",
+      "expectText": "Sacred Bharat"
+    },
+    {
+      "id": "staff-sign-in",
+      "path": "/auth/connect",
+      "profile": "public",
+      "viewport": "desktop",
+      "expectText": "Welcome to Citius Connect"
+    },
+    {
+      "id": "account-redirect",
+      "path": "/account",
+      "profile": "public",
+      "viewport": "mobile",
+      "expectPath": "/auth/guest",
+      "expectText": "Welcome Back"
+    },
+    {
+      "id": "admin-dashboard",
+      "path": "/portal",
+      "profile": "admin",
+      "viewport": "desktop",
+      "expectText": "My work today"
+    },
+    {
+      "id": "admin-team",
+      "path": "/portal/team",
+      "profile": "admin",
+      "viewport": "desktop",
+      "expectText": "Team"
+    },
+    {
+      "id": "sales-pipeline",
+      "path": "/portal/pipeline",
+      "profile": "sales",
+      "viewport": "desktop",
+      "expectText": "Pipeline"
+    },
+    {
+      "id": "sales-queries-pagination",
+      "path": "/portal/queries",
+      "profile": "sales",
+      "viewport": "desktop",
+      "expectAnyText": ["Load more", "Showing", "Queries"]
+    },
+    {
+      "id": "contracting-proposals",
+      "path": "/portal/contracting",
+      "profile": "contracting",
+      "viewport": "desktop",
+      "expectText": "Contracting"
+    },
+    {
+      "id": "operations-travellers",
+      "path": "/portal/travellers",
+      "profile": "operations",
+      "viewport": "desktop",
+      "expectText": "Traveller Master"
+    },
+    {
+      "id": "ticketing-list",
+      "path": "/portal/tickets",
+      "profile": "ticketing",
+      "viewport": "desktop",
+      "expectText": "Tickets"
+    },
+    {
+      "id": "finance-approvals",
+      "path": "/portal/approvals",
+      "profile": "finance",
+      "viewport": "desktop",
+      "expectText": "Approvals"
+    },
+    {
+      "id": "hr-leave",
+      "path": "/portal/employees-on-leave",
+      "profile": "hr",
+      "viewport": "desktop",
+      "expectText": "Leave"
+    },
+    {
+      "id": "notification-deep-link",
+      "pathEnv": "BROWSER_SMOKE_NOTIFICATION_URL",
+      "profile": "admin",
+      "viewport": "desktop",
+      "expectAnyText": ["Activity", "Notification"]
+    },
+    {
+      "id": "job-card-deletion",
+      "pathEnv": "BROWSER_SMOKE_DELETE_JOB_CARD_URL",
+      "profile": "admin",
+      "viewport": "desktop",
+      "expectAnyText": ["Delete", "Job Card"]
+    },
+    {
+      "id": "ai-configured",
+      "pathEnv": "BROWSER_SMOKE_AI_CONFIGURED_URL",
+      "profile": "public",
+      "viewport": "desktop",
+      "expectAnyText": ["Citius Concierge", "Ask"]
+    },
+    {
+      "id": "ai-unconfigured",
+      "pathEnv": "BROWSER_SMOKE_AI_UNCONFIGURED_URL",
+      "profile": "public",
+      "viewport": "desktop",
+      "expectAnyText": ["temporarily unavailable", "not configured"]
+    }
+  ]
+}

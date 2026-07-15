@@ -20,27 +20,32 @@ function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
   };
 
   const activityTakeCalls: number[] = [];
+  const takeCalls: Array<{ limit: number; table: string }> = [];
   const getRows = (table: string) => (table === "staffUsers" ? [staff] : (tables[table] ?? []));
 
-  const queryBuilder = (table: string) => ({
-    collect: async () => getRows(table),
-    withIndex: (indexName: string) => {
-      if (table === "activityLogs" && indexName === "by_createdAt") {
-        return {
-          order: (_direction: string) => ({
-            take: async (limit: number) => {
-              activityTakeCalls.push(limit);
-              return [...getRows(table)].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
-            },
-          }),
-          unique: async () => getRows(table).find((row) => row.active) ?? null,
-        };
+  const orderedBuilder = (table: string, rows = getRows(table)) => ({
+    collect: async () => rows,
+    order: (direction: string) =>
+      orderedBuilder(
+        table,
+        [...rows].sort((left, right) =>
+          direction === "desc"
+            ? (right.createdAt ?? 0) - (left.createdAt ?? 0)
+            : (left.createdAt ?? 0) - (right.createdAt ?? 0)
+        )
+      ),
+    take: async (limit: number) => {
+      takeCalls.push({ limit, table });
+      if (table === "activityLogs") {
+        activityTakeCalls.push(limit);
       }
-      return {
-        unique: async () => getRows(table).find((row) => row.active) ?? null,
-      };
+      return rows.slice(0, limit);
     },
+    unique: async () => rows.find((row) => row.active) ?? rows[0] ?? null,
+    withIndex: (_indexName: string) => orderedBuilder(table, rows),
   });
+
+  const queryBuilder = (table: string) => orderedBuilder(table);
 
   return {
     activityTakeCalls,
@@ -54,6 +59,7 @@ function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
     db: {
       query: (table: string) => queryBuilder(table),
     },
+    takeCalls,
   };
 }
 
@@ -274,6 +280,115 @@ describe("getPortalSummary", () => {
       { count: 0, stage: "Lost", value: 0, weighted: 0 },
     ]);
   });
+
+  test("uses materialized totals beyond the bounded detail window", async () => {
+    const queryRows = Array.from({ length: 320 }, (_, index) => ({
+      _id: `query_${index}`,
+      contractingStatus: "Query Received",
+      createdAt: Date.UTC(2026, 0, index + 1),
+      createdBy: "auth_1",
+      leadStage: "Inquiry",
+      queryCode: `Q-${index}`,
+      queryType: "MICE",
+      salesStatus: "Proposal in discussion",
+    }));
+    const { takeCalls, ...ctx } = makeCtx({
+      activityLogs: [],
+      approvalRequests: [],
+      crmMetricBuckets: [
+        {
+          _id: "bucket_1",
+          periodKey: "2026-01",
+          periodType: "month",
+          scope: "all",
+          updatedAt: Date.UTC(2026, 1, 1),
+          values: {
+            "queries.active": 320,
+            "queries.stage.Inquiry.count": 320,
+            "queries.total": 320,
+            "queries.type.MICE.active": 320,
+          },
+        },
+      ],
+      crmMetricReadiness: [
+        {
+          _id: "metric_readiness",
+          completedSourceTypes: ["queries"],
+          generation: 2,
+          key: "global",
+          lastCompletedAt: Date.UTC(2026, 1, 1),
+          lastCompletedGeneration: 1,
+          lastCompletedMetricVersion: 2,
+          metricVersion: 2,
+          startedAt: Date.UTC(2026, 0, 1),
+          updatedAt: Date.UTC(2026, 1, 1),
+        },
+      ],
+      invoices: [],
+      jobCards: [],
+      proposalQueryLinks: [],
+      proposals: [],
+      queries: queryRows,
+      tickets: [],
+      travellers: [],
+      visaRecords: [],
+    });
+
+    const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
+    expect(summary.metrics.activeQueries).toBe(320);
+    expect(summary.queriesByType.find((row) => row.type === "MICE")?.count).toBe(320);
+    expect(takeCalls).toContainEqual({ limit: 240, table: "queries" });
+    expect(summary.aggregateCoverage).toMatchObject({ complete: true, detailRowLimit: 240 });
+  });
+
+  test("does not switch to partial aggregate values before reconciliation is complete", async () => {
+    const queryRows = Array.from({ length: 320 }, (_, index) => ({
+      _id: `query_${index}`,
+      contractingStatus: "Query Received",
+      createdAt: Date.UTC(2026, 0, index + 1),
+      createdBy: "auth_1",
+      leadStage: "Inquiry",
+      queryCode: `Q-${index}`,
+      queryType: "MICE",
+      salesStatus: "Proposal in discussion",
+    }));
+    const ctx = makeCtx({
+      activityLogs: [],
+      approvalRequests: [],
+      crmMetricBuckets: [
+        {
+          _id: "partial_bucket",
+          periodKey: "2026-01",
+          periodType: "month",
+          scope: "all",
+          updatedAt: Date.UTC(2026, 1, 1),
+          values: { "queries.active": 1, "queries.total": 1 },
+        },
+      ],
+      crmMetricReadiness: [
+        {
+          _id: "partial_readiness",
+          completedSourceTypes: ["queries"],
+          generation: 1,
+          key: "global",
+          startedAt: Date.UTC(2026, 0, 1),
+          updatedAt: Date.UTC(2026, 0, 1),
+        },
+      ],
+      invoices: [],
+      jobCards: [],
+      proposalQueryLinks: [],
+      proposals: [],
+      queries: queryRows,
+      tickets: [],
+      travellers: [],
+      visaRecords: [],
+    });
+
+    const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
+    expect(summary.aggregateCoverage.complete).toBe(false);
+    expect(summary.metrics.activeQueries).toBe(240);
+  });
 });
 
 describe("groupByJobCardId", () => {
@@ -319,6 +434,7 @@ describe("getPortalSummary response shape", () => {
     expect(Object.keys(summary).sort()).toEqual(
       [
         "activeTours",
+        "aggregateCoverage",
         "capacity",
         "closedQueriesByType",
         "confirmedQueriesByType",

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { groq } from "next-sanity";
 import { Suspense } from "react";
 import { getTrailBySlug, getTrailSlugsForStaticParams } from "@/data/trails";
-import { client } from "@/sanity/client";
+import { cachedSanityFetch } from "@/sanity/cachedFetch";
 import PilgrimageTrailPageClient from "./page.client";
 
 const RELATED_BLOGS = groq`*[_type == "post" && slug.current in $slugs]{
@@ -16,8 +16,6 @@ const TRAIL_CMS_GALLERY = groq`*[_type == "spiritualTrailGallery" && trailSlug =
     asset->{ url }
   }
 }`;
-
-const fetchOptions = { next: { revalidate: 30 } };
 
 function normalizeCmsGalleryRows(rows) {
   if (!rows?.length) {
@@ -87,14 +85,13 @@ async function PilgrimageTrailContent({ params }) {
 
   let relatedBlogPosts = [];
   if (trail.relatedBlogSlugs?.length) {
-    relatedBlogPosts = await client.fetch(
-      RELATED_BLOGS,
-      { slugs: trail.relatedBlogSlugs },
-      fetchOptions
-    );
+    relatedBlogPosts = await cachedSanityFetch(RELATED_BLOGS, { slugs: trail.relatedBlogSlugs }, [
+      "blog",
+      "spiritual",
+    ]);
   }
 
-  const cmsDoc = await client.fetch(TRAIL_CMS_GALLERY, { slug }, fetchOptions);
+  const cmsDoc = await cachedSanityFetch(TRAIL_CMS_GALLERY, { slug }, ["spiritual"]);
   const cmsGallery = normalizeCmsGalleryRows(cmsDoc?.images);
   const gallery = mergeTrailGalleries(cmsGallery, trail.gallery);
   const trailWithGallery = { ...trail, gallery };

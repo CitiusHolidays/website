@@ -113,7 +113,7 @@ export default function JourneyComparison({ className }) {
         <div className="mb-8 space-y-4 md:hidden">
           {/* 14-Day Card */}
           <Link
-            className="block rounded-2xl bg-linear-to-br from-citius-blue to-citius-blue/90 p-5 text-white shadow-md transition-all hover:brightness-110 focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
+            className="block rounded-2xl bg-linear-to-br from-citius-blue to-citius-blue/90 p-5 text-white shadow-md transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
             href="/pilgrimage/kailash-mansarovar-14day"
           >
             <m.div
@@ -135,7 +135,7 @@ export default function JourneyComparison({ className }) {
 
           {/* Aerial Card */}
           <Link
-            className="block rounded-2xl bg-linear-to-br from-citius-orange to-citius-orange/90 p-5 text-white shadow-md transition-all hover:brightness-110 focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"
+            className="block rounded-2xl bg-linear-to-br from-citius-orange to-citius-orange/90 p-5 text-white shadow-md transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"
             href="/pilgrimage/kailash-aerial-3day"
           >
             <m.div
@@ -163,7 +163,7 @@ export default function JourneyComparison({ className }) {
             <div className="col-span-3" />
             <div className="col-span-4 text-center">
               <Link
-                className="block rounded-xl bg-citius-blue px-6 py-4 text-white shadow-md transition-all hover:shadow-lg hover:brightness-110 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                className="block rounded-xl bg-citius-blue px-6 py-4 text-white shadow-md transition-[filter,box-shadow] hover:shadow-lg hover:brightness-110 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
                 href="/pilgrimage/kailash-mansarovar-14day"
               >
                 <h3 className="font-heading font-semibold text-lg">14-Day Yatra</h3>
@@ -175,7 +175,7 @@ export default function JourneyComparison({ className }) {
             </div>
             <div className="col-span-4 text-center">
               <Link
-                className="block rounded-xl bg-citius-orange px-6 py-4 text-white shadow-md transition-all hover:shadow-lg hover:brightness-110 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+                className="block rounded-xl bg-citius-orange px-6 py-4 text-brand-dark shadow-md transition-[filter,box-shadow] hover:shadow-lg hover:brightness-110 focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
                 href="/pilgrimage/kailash-aerial-3day"
               >
                 <h3 className="font-heading font-semibold text-lg">2N/3D Aerial</h3>

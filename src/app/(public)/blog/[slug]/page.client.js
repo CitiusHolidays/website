@@ -158,7 +158,7 @@ export default function PostPageClient({ post }) {
               <div className="flex flex-wrap justify-center gap-3">
                 {post.categories.map((category) => (
                   <span
-                    className="rounded-full border border-citius-orange/20 bg-gradient-to-r from-citius-orange/10 to-citius-orange/5 px-4 py-2 font-semibold text-citius-orange text-sm transition-all duration-300 hover:scale-105 hover:bg-citius-orange/20"
+                    className="rounded-full border border-citius-orange/20 bg-gradient-to-r from-citius-orange/10 to-citius-orange/5 px-4 py-2 font-semibold text-citius-orange text-sm transition-[scale,background-color] duration-300 fine-hover:hover:scale-105 hover:bg-citius-orange/20"
                     key={category._id}
                   >
                     {category.title}
@@ -169,7 +169,7 @@ export default function PostPageClient({ post }) {
           </m.header>
 
           <m.div
-            className="rounded-2xl border border-brand-border bg-gradient-to-r from-brand-light to-brand-light/50 p-8 shadow-lg transition-transform duration-300 hover:scale-102"
+            className="rounded-2xl border border-brand-border bg-gradient-to-r from-brand-light to-brand-light/50 p-8 shadow-lg transition-transform duration-300 fine-hover:hover:scale-102"
             variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
           >
             <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
@@ -181,7 +181,7 @@ export default function PostPageClient({ post }) {
                         alt={post.author.name || "Author"}
                         className="size-16 rounded-full border-3 border-citius-blue object-cover shadow-lg"
                         height="64"
-                        src={authorImageUrl || "/placeholder.svg"}
+                        src={authorImageUrl}
                         width="64"
                       />
                       <div className="absolute -right-1 -bottom-1 size-5 rounded-full border-2 border-brand-light bg-green-500" />
@@ -225,16 +225,16 @@ export default function PostPageClient({ post }) {
 
           {postImageUrl && (
             <m.div
-              className="relative aspect-video w-full overflow-hidden rounded-3xl border border-brand-border shadow-2xl transition-transform duration-300 hover:scale-102"
+              className="relative aspect-video w-full overflow-hidden rounded-3xl border border-brand-border shadow-2xl transition-transform duration-300 fine-hover:hover:scale-102"
               variants={{ hidden: { opacity: 0, scale: 0.95 }, show: { opacity: 1, scale: 1 } }}
             >
               <Image
                 alt={post.title || "Post image"}
-                className="transition-transform duration-700 hover:scale-105"
+                className="transition-transform duration-700 fine-hover:hover:scale-105"
                 fill
                 priority
                 sizes="(max-width: 768px) 100vw, 800px"
-                src={postImageUrl || "/placeholder.svg"}
+                src={postImageUrl}
                 style={{ objectFit: "cover" }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
@@ -271,7 +271,7 @@ export default function PostPageClient({ post }) {
                 </p>
               </div>
               <Link
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-citius-blue to-citius-blue/90 px-6 py-3 font-semibold text-brand-light shadow-lg transition-all duration-300 hover:scale-105 hover:from-citius-blue/90 hover:to-citius-blue hover:shadow-xl"
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-citius-blue to-citius-blue/90 px-6 py-3 font-semibold text-brand-light shadow-lg transition-[scale,background-color,box-shadow] duration-300 fine-hover:hover:scale-105 hover:from-citius-blue/90 hover:to-citius-blue hover:shadow-xl"
                 href="/blog"
               >
                 ← Back to all posts

@@ -62,6 +62,46 @@ describe("urlFilterState", () => {
     expect(serialized.get("q")).toBe("acme");
   });
 
+  test("preserves recognized hotel tabs and entity deep links for every filter writer", () => {
+    const incoming = new URLSearchParams(
+      "tab=rooming&open=ticket&id=t1&q=old&f_unknownField=stale"
+    );
+    const serialized = serializeUrlFilterState(
+      {
+        dateRange: { from: "2026-07-01", to: "2026-07-31" },
+        jobCardFilter: "jc1",
+        listFilters: { queryType: "MICE", unknownField: "stale" },
+        search: "new",
+      },
+      config,
+      { preserveRouteContext: true, searchParams: incoming }
+    );
+
+    expect(serialized.get("tab")).toBe("rooming");
+    expect(serialized.get("open")).toBe("ticket");
+    expect(serialized.get("id")).toBe("t1");
+    expect(serialized.get("q")).toBe("new");
+    expect(serialized.get("f_unknownField")).toBeNull();
+  });
+
+  test("drops unknown route context while retaining valid room count selection", () => {
+    const incoming = new URLSearchParams("tab=room-count&open=madeUp&id=x");
+    const serialized = serializeUrlFilterState(
+      {
+        dateRange: { from: "", to: "" },
+        jobCardFilter: "",
+        listFilters: {},
+        search: "",
+      },
+      config,
+      { preserveRouteContext: true, searchParams: incoming }
+    );
+
+    expect(serialized.get("tab")).toBe("room-count");
+    expect(serialized.get("open")).toBeNull();
+    expect(serialized.get("id")).toBeNull();
+  });
+
   test("hasAnyFilterState detects active filters", () => {
     expect(
       hasAnyFilterState({

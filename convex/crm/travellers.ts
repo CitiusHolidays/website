@@ -1,20 +1,48 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import { internalQuery, mutation, query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 import { roomTypeValidator } from "../lib/roomTypeValidators";
+import { completeJobCardDeletionWorker, failJobCardDeletionOperation } from "./jobCardDeletion";
 import {
-  assertBulkDeleteLimit,
+  assertBulkDeleteMutationBatch,
+  canSeeAllCementRecords,
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
   deleteStorageFile,
+  flushDeferredNotificationCleanup,
+  hasRole,
+  isDirectorOrAdmin,
   PERMISSIONS,
   type PortalAccess,
+  portalDateRangeValidator,
   requireAnyPermission,
   requireStaff,
+  shouldApplyCementScope,
 } from "./lib";
-import { normalizePassportExpiryDate } from "./passportExpiry";
+import { assertListSearchReady, buildTravellerListSearchText } from "./listSearch";
+import { loadMetricTotals, type MetricValues } from "./metricAggregates";
+import {
+  deletedCountResultValidator,
+  roomCountSummaryResultValidator,
+  travellerIdResultValidator,
+  travellerListPageResultValidator,
+  travellerListRowResultValidator,
+} from "./operationsReturnContracts";
+import {
+  applyCrmCursorFilters,
+  boundedPaginationOptions,
+  loadRowsByIdInBatches,
+  mapInBoundedBatches,
+} from "./paginationPolicy";
+import {
+  classifyPassportExpiryUrgency,
+  normalizePassportExpiryDate,
+  type PassportExpiryUrgency,
+} from "./passportExpiry";
 
 const foodPreferenceValidator = v.union(
   v.literal("Veg"),
@@ -51,8 +79,8 @@ const publicTraveller = (
   traveller: any,
   job: any,
   travelBatch: any = null,
-  hasPassportScan = false,
-  passportExpiryDate = ""
+  hasPassportScan = traveller.hasPassportScan ?? false,
+  passportExpiryDate = traveller.passportExpiryDate ?? ""
 ) => ({
   arrivingEarly: traveller.arrivingEarly ?? false,
   biometricAppointmentDate: traveller.biometricAppointmentDate ?? "",
@@ -92,112 +120,272 @@ const publicTraveller = (
   visaStatus: traveller.visaStatus,
 });
 
-export const list = query({
+export const listPage = query({
   args: {
+    callingStatus: v.optional(v.string()),
+    createdAtFrom: v.optional(v.number()),
+    createdAtTo: v.optional(v.number()),
     jobCardId: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+    passportExpiryUrgency: v.optional(
+      v.union(
+        v.literal("critical"),
+        v.literal("expired"),
+        v.literal("ok"),
+        v.literal("unknown"),
+        v.literal("warning")
+      )
+    ),
+    passportReferenceDate: v.optional(v.string()),
+    passportStatus: v.optional(v.string()),
+    roomType: v.optional(roomTypeValidator),
+    search: v.optional(v.string()),
+    ticketStatus: v.optional(v.string()),
+    visaStatus: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
     const normalizedJobCardId = args.jobCardId
       ? ctx.db.normalizeId("jobCards", args.jobCardId)
       : null;
-    const rows = normalizedJobCardId
-      ? await ctx.db
-          .query("travellers")
-          .withIndex("by_jobCardId", (q) => q.eq("jobCardId", normalizedJobCardId))
-          .collect()
-      : await ctx.db.query("travellers").collect();
-    const passportRows = await ctx.db.query("passportDetails").collect();
-    const passportScanByTraveller = new Map<string, boolean>();
-    const passportExpiryByTraveller = new Map<string, string>();
-    for (const row of passportRows) {
-      const travellerKey = String(row.travellerId);
-      if (row.storageId) {
-        passportScanByTraveller.set(travellerKey, true);
-      }
-      const expiryDate = normalizePassportExpiryDate(row.expiryDate);
-      if (expiryDate) {
-        passportExpiryByTraveller.set(travellerKey, expiryDate);
-      }
+    if (args.jobCardId && !normalizedJobCardId) {
+      throw new ConvexError("Invalid Job Card id");
     }
-    const result = await Promise.all(
-      rows
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .map(async (traveller) => {
-          const job = await ctx.db.get(traveller.jobCardId);
-          if (!job) {
-            return null;
-          }
-          const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
-          if (!canSeeJobCardRecord(access, job, linkedQuery)) {
-            return null;
-          }
-          return publicTraveller(
-            traveller,
-            job,
-            traveller.travelBatchId ? await ctx.db.get(traveller.travelBatchId) : null,
-            passportScanByTraveller.has(String(traveller._id)),
-            passportExpiryByTraveller.get(String(traveller._id)) ?? ""
-          );
-        })
+    const search = args.search?.trim();
+    await assertListSearchReady(ctx, "travellers", search);
+    const sourceQuery = search
+      ? ctx.db
+          .query("travellers")
+          .withSearchIndex("search_list", (q) => q.search("listSearchText", search))
+      : normalizedJobCardId
+        ? ctx.db
+            .query("travellers")
+            .withIndex("by_jobCardId_createdAt", (q) => q.eq("jobCardId", normalizedJobCardId))
+            .order("desc")
+        : ctx.db.query("travellers").withIndex("by_createdAt").order("desc");
+    const filteredSource = applyCrmCursorFilters(sourceQuery, {
+      createdAtFrom: args.createdAtFrom,
+      createdAtTo: args.createdAtTo,
+      equals: {
+        callingStatus: args.callingStatus,
+        ...(search && normalizedJobCardId ? { jobCardId: String(normalizedJobCardId) } : {}),
+        passportStatus: args.passportStatus,
+        roomType: args.roomType,
+        ticketStatus: args.ticketStatus,
+        visaStatus: args.visaStatus,
+      },
+    });
+    const sourcePage = await filteredSource.paginate(boundedPaginationOptions(args.paginationOpts));
+    const jobs = await loadRowsByIdInBatches<any>(
+      ctx,
+      sourcePage.page.map((traveller) => traveller.jobCardId),
+      sourcePage.page.length
     );
-    return result.filter(Boolean);
+    const jobById = new Map(jobs.map((job) => [String(job._id), job]));
+    const linkedQueries = await loadRowsByIdInBatches<any>(
+      ctx,
+      jobs.flatMap((job) => (job.queryId ? [job.queryId] : [])),
+      jobs.length
+    );
+    const queryById = new Map(linkedQueries.map((row) => [String(row._id), row]));
+    const visibleRows = sourcePage.page.filter((traveller) => {
+      const job = jobById.get(String(traveller.jobCardId));
+      if (!job) {
+        return false;
+      }
+      const linkedQuery = job.queryId ? queryById.get(String(job.queryId)) : null;
+      return canSeeJobCardRecord(access, job, linkedQuery);
+    });
+    let page = visibleRows.map((traveller) => {
+      const job = jobById.get(String(traveller.jobCardId));
+      return publicTraveller(
+        traveller,
+        job,
+        traveller.travelBatchId
+          ? {
+              batchCode: traveller.travelBatchCode,
+              batchReference: traveller.travelBatchReference,
+            }
+          : null
+      );
+    });
+    if (args.passportExpiryUrgency) {
+      const referenceDate = normalizePassportExpiryDate(args.passportReferenceDate);
+      if (!referenceDate) {
+        throw new ConvexError("A valid passport reference date is required");
+      }
+      const urgency = args.passportExpiryUrgency as PassportExpiryUrgency;
+      page = page.filter(
+        (traveller) =>
+          classifyPassportExpiryUrgency({
+            expiryDate: traveller.passportExpiryDate,
+            referenceDate,
+            travelDate: traveller.travelStartDate || traveller.travelDate,
+          }) === urgency
+      );
+    }
+    return { ...sourcePage, page };
   },
+  returns: travellerListPageResultValidator,
 });
 
-export const passportExpirySources = internalQuery({
+function canUseGlobalRoomingAggregate(access: PortalAccess) {
+  if (shouldApplyCementScope(access)) {
+    return canSeeAllCementRecords(access);
+  }
+  return (
+    isDirectorOrAdmin(access) ||
+    [
+      "Accounts",
+      "Accounts Head",
+      "Contracting Head",
+      "Finance",
+      "Head of Ticketing",
+      "Operations Head",
+    ].some((role) => hasRole(access, role))
+  );
+}
+
+function mergeRoomMetricValues(target: MetricValues, source: MetricValues) {
+  for (const [key, value] of Object.entries(source)) {
+    target[key] = (target[key] ?? 0) + value;
+  }
+  return target;
+}
+
+function roomTypeCounts(values: MetricValues) {
+  const prefix = "travellers.roomType.";
+  const suffix = ".assignments";
+  return Object.entries(values)
+    .flatMap(([key, assignments]) =>
+      key.startsWith(prefix) && key.endsWith(suffix) && assignments > 0
+        ? [{ assignments, roomType: key.slice(prefix.length, -suffix.length) }]
+        : []
+    )
+    .sort((left, right) => left.roomType.localeCompare(right.roomType));
+}
+
+export const getRoomCountSummary = query({
   args: {
-    access: v.any(),
+    dateRange: portalDateRangeValidator,
     jobCardId: v.optional(v.string()),
+    jobCardPageComplete: v.boolean(),
+    visibleJobCardIds: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    const access = args.access as PortalAccess;
-    if (!access?.allowed) {
-      return [];
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
+    if (args.visibleJobCardIds.length > 100) {
+      throw new ConvexError("Room Count can summarize at most 100 visible Job Cards per page");
     }
-
-    const normalizedJobCardId = args.jobCardId
-      ? ctx.db.normalizeId("jobCards", args.jobCardId)
+    const requestedIds = Array.from(
+      new Set([...(args.jobCardId ? [args.jobCardId] : []), ...args.visibleJobCardIds])
+    );
+    const normalizedIds = requestedIds.map((rawId) => {
+      const id = ctx.db.normalizeId("jobCards", rawId);
+      if (!id) {
+        throw new ConvexError("Invalid Job Card id");
+      }
+      return id;
+    });
+    const jobs = await loadRowsByIdInBatches<any>(
+      ctx,
+      normalizedIds,
+      Math.max(1, normalizedIds.length)
+    );
+    const linkedQueries = await loadRowsByIdInBatches<any>(
+      ctx,
+      jobs.flatMap((job) => (job.queryId ? [job.queryId] : [])),
+      Math.max(1, jobs.length)
+    );
+    const queryById = new Map(linkedQueries.map((row) => [String(row._id), row]));
+    const visibleJobs = jobs.filter((job) =>
+      canSeeJobCardRecord(access, job, job.queryId ? queryById.get(String(job.queryId)) : null)
+    );
+    if (args.jobCardId && !visibleJobs.some((job) => String(job._id) === args.jobCardId)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const dateRange = args.dateRange ?? undefined;
+    const jobAggregates = await mapInBoundedBatches(
+      visibleJobs,
+      async (job) => ({
+        aggregate: await loadMetricTotals(ctx, `job:${String(job._id)}`, dateRange),
+        job,
+      }),
+      8
+    );
+    const selectedJob = args.jobCardId
+      ? visibleJobs.find((job) => String(job._id) === args.jobCardId)
       : null;
-    const travellers = normalizedJobCardId
-      ? await ctx.db
-          .query("travellers")
-          .withIndex("by_jobCardId", (q) => q.eq("jobCardId", normalizedJobCardId))
-          .collect()
-      : await ctx.db.query("travellers").collect();
-
-    const sources = (
-      await Promise.all(
-        travellers.map(async (traveller) => {
-          const job = await ctx.db.get(traveller.jobCardId);
-          if (!job) {
-            return null;
-          }
-          const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
-          if (!canSeeJobCardRecord(access, job, linkedQuery)) {
-            return null;
-          }
-
-          const passport = await ctx.db
-            .query("passportDetails")
-            .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-            .unique();
-          if (!passport?.encryptedPayload) {
-            return null;
-          }
-
-          return {
-            encryptedPayload: passport.encryptedPayload,
-            expiryDate: passport.expiryDate ?? "",
-            passportId: passport._id,
-            travellerId: traveller._id,
-          };
-        })
-      )
-    ).filter((source): source is NonNullable<typeof source> => source != null);
-
-    return sources;
+    const useGlobal = !selectedJob && canUseGlobalRoomingAggregate(access);
+    const globalAggregate = useGlobal
+      ? await loadMetricTotals(ctx, shouldApplyCementScope(access) ? "cement" : "all", dateRange)
+      : null;
+    const totals = globalAggregate
+      ? globalAggregate.values
+      : jobAggregates.reduce(
+          (values, entry) => mergeRoomMetricValues(values, entry.aggregate.values),
+          {} as MetricValues
+        );
+    const scope = selectedJob
+      ? ("selected-job" as const)
+      : useGlobal
+        ? ("all-visible" as const)
+        : ("visible-job-page" as const);
+    return {
+      breakdownComplete: Boolean(selectedJob || args.jobCardPageComplete),
+      complete:
+        (globalAggregate?.complete ?? true) &&
+        jobAggregates.every((entry) => entry.aggregate.complete),
+      jobBreakdown: jobAggregates.map(({ aggregate, job }) => ({
+        assignments: aggregate.values["travellers.roomingAssignments"] ?? 0,
+        clientName: job.clientName,
+        id: job._id,
+        jobCode: job.jobCode,
+        roomTypes: roomTypeCounts(aggregate.values),
+      })),
+      roomTypes: roomTypeCounts(totals),
+      scope,
+      totalAssignments: totals["travellers.roomingAssignments"] ?? 0,
+      updatedAt: Math.max(
+        globalAggregate?.updatedAt ?? 0,
+        ...jobAggregates.map((entry) => entry.aggregate.updatedAt)
+      ),
+    };
   },
+  returns: roomCountSummaryResultValidator,
+});
+
+export const getListRow = query({
+  args: {
+    travellerId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
+    const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
+    if (!travellerId) {
+      return null;
+    }
+    const traveller = await ctx.db.get(travellerId);
+    if (!traveller) {
+      return null;
+    }
+    const job = await ctx.db.get(traveller.jobCardId);
+    if (!job) {
+      return null;
+    }
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+      return null;
+    }
+    const travelBatch = traveller.travelBatchId
+      ? {
+          batchCode: traveller.travelBatchCode,
+          batchReference: traveller.travelBatchReference,
+        }
+      : null;
+    return publicTraveller(traveller, job, travelBatch);
+  },
+  returns: travellerListRowResultValidator,
 });
 
 export const create = mutation({
@@ -241,7 +429,11 @@ export const create = mutation({
     if (!args.fullName.trim()) {
       throw new ConvexError("Traveller name is required");
     }
-    const { travelBatchId } = await normalizeTravelBatchForJob(ctx, jobCardId, args.travelBatchId);
+    const { travelBatch, travelBatchId } = await normalizeTravelBatchForJob(
+      ctx,
+      jobCardId,
+      args.travelBatchId
+    );
 
     const now = Date.now();
     const visaStatus = args.visaRequired ? "Not Started" : "Not Required";
@@ -262,14 +454,21 @@ export const create = mutation({
       givenName: args.givenName?.trim() || "",
       guestCompanions: args.guestCompanions?.trim() || "",
       guestType: args.guestType,
+      hasPassportScan: false,
       hotelAllocation: args.hotelAllocation?.trim() || "",
       lastMinuteDrop: false,
+      listSearchText: buildTravellerListSearchText(args, {
+        jobCode: job.jobCode,
+        travelBatchReference: travelBatch?.batchReference,
+      }),
       passportStatus: args.passportStatus?.trim() || "Pending",
       paymentType: args.paymentType,
       roomType: args.roomType,
       specialRequests: args.specialRequests?.trim() || "",
       surname: args.surname?.trim() || "",
       ticketStatus: "Pending Issue",
+      travelBatchCode: travelBatch?.batchCode ?? "",
+      travelBatchReference: travelBatch?.batchReference ?? "",
       travelDate: args.travelDate || "",
       travelHub: args.travelHub?.trim() || "",
       updatedAt: now,
@@ -295,6 +494,7 @@ export const create = mutation({
     ]);
     return { id };
   },
+  returns: travellerIdResultValidator,
 });
 
 export const update = mutation({
@@ -412,6 +612,19 @@ export const update = mutation({
     if (args.gender !== undefined) {
       patch.gender = args.gender.trim();
     }
+    const nextTravelBatchId = (patch.travelBatchId ?? traveller.travelBatchId) as
+      | Id<"travelBatches">
+      | undefined;
+    const nextTravelBatch = nextTravelBatchId ? await ctx.db.get(nextTravelBatchId) : null;
+    patch.travelBatchCode = nextTravelBatch?.batchCode ?? "";
+    patch.travelBatchReference = nextTravelBatch?.batchReference ?? "";
+    patch.listSearchText = buildTravellerListSearchText(
+      { ...traveller, ...patch },
+      {
+        jobCode: job.jobCode,
+        travelBatchReference: nextTravelBatch?.batchReference,
+      }
+    );
 
     await ctx.db.patch(travellerId, patch);
 
@@ -443,6 +656,7 @@ export const update = mutation({
     });
     return { id: travellerId };
   },
+  returns: travellerIdResultValidator,
 });
 
 export const updateCallingStatus = mutation({
@@ -480,6 +694,7 @@ export const updateCallingStatus = mutation({
     });
     return { id: travellerId };
   },
+  returns: travellerIdResultValidator,
 });
 
 export async function deleteTravellerRecord(
@@ -492,51 +707,10 @@ export async function deleteTravellerRecord(
     throw new ConvexError("Traveller not found");
   }
   const job = await ctx.db.get(traveller.jobCardId);
-  const [linkedQuery, passportDetails, visaRecords, tickets, seats, meals, rooms] =
-    await Promise.all([
-      job?.queryId ? ctx.db.get(job.queryId) : Promise.resolve(null),
-      ctx.db
-        .query("passportDetails")
-        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-        .collect(),
-      ctx.db
-        .query("visaRecords")
-        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-        .collect(),
-      ctx.db
-        .query("tickets")
-        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-        .collect(),
-      ctx.db
-        .query("seatAllocations")
-        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-        .collect(),
-      ctx.db
-        .query("mealPreferences")
-        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-        .collect(),
-      ctx.db
-        .query("roomingListEntries")
-        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
-        .collect(),
-    ]);
+  const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
   if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
     throw new ConvexError("FORBIDDEN");
   }
-
-  await Promise.all([
-    ...passportDetails.map((row) =>
-      Promise.all([deleteStorageFile(ctx, row.storageId, "passport scan"), ctx.db.delete(row._id)])
-    ),
-    ...visaRecords.map((row) => ctx.db.delete(row._id)),
-    ...tickets.flatMap((row) => [
-      deleteEntityNotifications(ctx, "ticket", row._id),
-      ctx.db.delete(row._id),
-    ]),
-    ...seats.map((row) => ctx.db.delete(row._id)),
-    ...meals.map((row) => ctx.db.delete(row._id)),
-    ...rooms.map((row) => ctx.db.delete(row._id)),
-  ]);
 
   await Promise.all([
     createActivity(ctx, access, {
@@ -547,8 +721,99 @@ export async function deleteTravellerRecord(
     }),
     deleteEntityNotifications(ctx, "traveller", travellerId),
     ctx.db.delete(travellerId),
+    ctx.scheduler.runAfter(0, internal.crm.travellers.continueTravellerCleanup, {
+      mode: "all",
+      stage: "passportDetails",
+      travellerId: String(travellerId),
+    }),
   ]);
 }
+
+const travellerCleanupStageValidator = v.union(
+  v.literal("mealPreferences"),
+  v.literal("passportDetails"),
+  v.literal("roomingListEntries"),
+  v.literal("seatAllocations"),
+  v.literal("tickets"),
+  v.literal("visaRecords")
+);
+type TravellerCleanupStage =
+  | "mealPreferences"
+  | "passportDetails"
+  | "roomingListEntries"
+  | "seatAllocations"
+  | "tickets"
+  | "visaRecords";
+const ALL_TRAVELLER_CLEANUP_STAGES: TravellerCleanupStage[] = [
+  "passportDetails",
+  "visaRecords",
+  "tickets",
+  "seatAllocations",
+  "mealPreferences",
+  "roomingListEntries",
+];
+const PRIVATE_TRAVELLER_CLEANUP_STAGES: TravellerCleanupStage[] = [
+  "passportDetails",
+  "mealPreferences",
+];
+const CASCADE_DELETE_PAGE_SIZE = 32;
+
+export const continueTravellerCleanup = internalMutation({
+  args: {
+    mode: v.union(v.literal("all"), v.literal("private")),
+    operationId: v.optional(v.id("jobCardDeletionOperations")),
+    stage: travellerCleanupStageValidator,
+    travellerId: v.string(),
+    workerId: v.optional(v.id("jobCardDeletionWorkers")),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
+      if (!travellerId) {
+        throw new Error("Invalid traveller cleanup identity");
+      }
+      const rows = await ctx.db
+        .query(args.stage)
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", travellerId))
+        .take(CASCADE_DELETE_PAGE_SIZE);
+      const notifications: Array<{ entityId: string; entityType: string }> = [];
+      await Promise.all(
+        rows.map(async (row: any) => {
+          if (args.stage === "passportDetails") {
+            await deleteStorageFile(ctx, row.storageId, "passport scan");
+          }
+          if (args.stage === "tickets") {
+            notifications.push({ entityId: String(row._id), entityType: "ticket" });
+          }
+          await ctx.db.delete(row._id);
+        })
+      );
+      if (notifications.length > 0) {
+        await flushDeferredNotificationCleanup(ctx, notifications);
+      }
+      const stages =
+        args.mode === "private" ? PRIVATE_TRAVELLER_CLEANUP_STAGES : ALL_TRAVELLER_CLEANUP_STAGES;
+      const stageIndex = stages.indexOf(args.stage);
+      const nextStage =
+        rows.length === CASCADE_DELETE_PAGE_SIZE ? args.stage : stages[stageIndex + 1];
+      if (nextStage) {
+        await ctx.scheduler.runAfter(0, internal.crm.travellers.continueTravellerCleanup, {
+          ...args,
+          stage: nextStage,
+        });
+      } else if (args.operationId && args.workerId) {
+        await completeJobCardDeletionWorker(ctx, args.operationId, args.workerId);
+      }
+      return { complete: !nextStage, deleted: rows.length };
+    } catch (error) {
+      if (args.operationId) {
+        await failJobCardDeletionOperation(ctx, args.operationId, error);
+        return { complete: false, deleted: 0 };
+      }
+      throw error;
+    }
+  },
+});
 
 export const remove = mutation({
   args: {
@@ -563,6 +828,7 @@ export const remove = mutation({
     await deleteTravellerRecord(ctx, access, travellerId);
     return { id: travellerId };
   },
+  returns: travellerIdResultValidator,
 });
 
 export const removeMany = mutation({
@@ -571,7 +837,7 @@ export const removeMany = mutation({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TRAVELLERS);
-    assertBulkDeleteLimit(args.travellerIds.length);
+    assertBulkDeleteMutationBatch(args.travellerIds.length);
     const ids: Id<"travellers">[] = [];
     for (const raw of args.travellerIds) {
       const travellerId = ctx.db.normalizeId("travellers", raw);
@@ -580,7 +846,12 @@ export const removeMany = mutation({
       }
       ids.push(travellerId);
     }
-    await Promise.all(ids.map((travellerId) => deleteTravellerRecord(ctx, access, travellerId)));
+    await mapInBoundedBatches(
+      ids,
+      async (travellerId) => await deleteTravellerRecord(ctx, access, travellerId),
+      4
+    );
     return { deletedCount: ids.length };
   },
+  returns: deletedCountResultValidator,
 });

@@ -16,7 +16,7 @@ export function HeaderMobileMenu({ isOpen, onClose, navLinks, user, canAccessPor
   return (
     <m.div
       animate={{ opacity: 1 }}
-      className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-slate-950/98 backdrop-blur-xl"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-slate-950/98 pt-[var(--safe-area-inset-top)] pr-[var(--safe-area-inset-right)] pb-[var(--safe-area-inset-bottom)] pl-[var(--safe-area-inset-left)]"
       exit={{ opacity: 0 }}
       initial={{ opacity: 0 }}
     >

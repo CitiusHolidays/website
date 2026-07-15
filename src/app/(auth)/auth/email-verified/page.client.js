@@ -53,12 +53,12 @@ export default function EmailVerifiedPageClient() {
         </m.div>
 
         <Link
-          className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#0B1026] p-4 font-medium text-lg text-white shadow-[#0B1026]/20 shadow-lg transition-all duration-300 hover:shadow-[#0B1026]/30 hover:shadow-xl"
+          className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#0B1026] p-4 font-medium text-lg text-white shadow-[#0B1026]/20 shadow-lg transition-shadow duration-300 hover:shadow-[#0B1026]/30 hover:shadow-xl"
           href="/auth/connect"
         >
           <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 transition-opacity group-hover:opacity-90" />
           <span className="relative z-10">Go to Citius Connect</span>
-          <ArrowRight className="relative z-10 size-5 transition-transform group-hover:translate-x-1" />
+          <ArrowRight className="relative z-10 size-5 transition-transform fine-hover:group-hover:translate-x-1" />
         </Link>
       </div>
     </AuthShell>

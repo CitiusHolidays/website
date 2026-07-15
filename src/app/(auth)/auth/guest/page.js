@@ -8,8 +8,7 @@ export const metadata = {
   title: variant.metadata.title,
 };
 
-// TODO: Cache Components adoption. This login form uses Convex client mutations during prerender;
-// keep it blocking until the auth provider/login shell can be adopted without losing context.
+// This request-sensitive boundary reads callback parameters and the current auth session.
 export const instant = false;
 
 export default function GuestAuthPage({ searchParams }) {

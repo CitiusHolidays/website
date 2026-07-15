@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
@@ -6,6 +7,17 @@ import {
   resolveRoomingEntryRoomType,
   resolveTravellerRoomFields,
 } from "./lib/roomTypes";
+import {
+  type TransitionalTravelBatchSummary,
+  travelBatchCountFromSummaries,
+  travelBatchSummaryVariant,
+} from "./lib/travelBatchSummary";
+import {
+  migrationImportSummaryValidator,
+  migrationStatsResultValidator,
+  travelBatchAuditResultValidator,
+  travelBatchMigrationResultValidator,
+} from "./publicReturnContracts";
 
 const toTimestamp = (value: unknown, fallback = Date.now()) => {
   if (!value) {
@@ -22,6 +34,75 @@ const assertMigrationSecret = (secret: string) => {
     throw new ConvexError("Invalid migration secret");
   }
 };
+
+const TRAVEL_BATCH_MIGRATION_LIMIT = 100;
+
+export const auditTravelBatchSummaries = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    secret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertMigrationSecret(args.secret);
+    const result = await ctx.db.query("jobCards").paginate(args.paginationOpts);
+    return {
+      ...result,
+      page: result.page.flatMap((job) => {
+        const summaries = (job.travelBatchSummaries ?? []) as TransitionalTravelBatchSummary[];
+        if (summaries.length === 0) {
+          return [];
+        }
+        return [
+          {
+            derivedCount: travelBatchCountFromSummaries(summaries),
+            id: job._id,
+            jobCode: job.jobCode,
+            storedCount: job.travelBatchCount ?? null,
+            variants: Array.from(new Set(summaries.map(travelBatchSummaryVariant))),
+          },
+        ];
+      }),
+    };
+  },
+  returns: travelBatchAuditResultValidator,
+});
+
+export const migrateTravelBatchSummaries = mutation({
+  args: {
+    jobCardIds: v.array(v.id("jobCards")),
+    secret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertMigrationSecret(args.secret);
+    if (args.jobCardIds.length > TRAVEL_BATCH_MIGRATION_LIMIT) {
+      throw new ConvexError(`Migrate at most ${TRAVEL_BATCH_MIGRATION_LIMIT} Job Cards per call`);
+    }
+    const uniqueJobCardIds = Array.from(new Set(args.jobCardIds));
+    const duplicateCount = args.jobCardIds.length - uniqueJobCardIds.length;
+    const outcomes = await Promise.all(
+      uniqueJobCardIds.map(async (jobCardId) => {
+        const job = await ctx.db.get(jobCardId);
+        const summaries = (job?.travelBatchSummaries ?? []) as TransitionalTravelBatchSummary[];
+        if (!job || summaries.length === 0) {
+          return "skipped" as const;
+        }
+        await ctx.db.patch(jobCardId, {
+          travelBatchCount: Math.max(
+            job.travelBatchCount ?? 0,
+            travelBatchCountFromSummaries(summaries)
+          ),
+          travelBatchSummaries: undefined,
+          updatedAt: Date.now(),
+        });
+        return "migrated" as const;
+      })
+    );
+    const migrated = outcomes.filter((outcome) => outcome === "migrated").length;
+    const skipped = outcomes.filter((outcome) => outcome === "skipped").length + duplicateCount;
+    return { migrated, skipped, total: args.jobCardIds.length };
+  },
+  returns: travelBatchMigrationResultValidator,
+});
 
 type BookingStatus = Doc<"bookings">["status"];
 
@@ -86,6 +167,7 @@ export const importUsers = mutation({
       updated: results.filter((result) => result === "updated").length,
     };
   },
+  returns: migrationImportSummaryValidator,
 });
 
 export const importTrips = mutation({
@@ -145,6 +227,7 @@ export const importTrips = mutation({
       updated: results.filter((result) => result === "updated").length,
     };
   },
+  returns: migrationImportSummaryValidator,
 });
 
 export const importBookings = mutation({
@@ -210,6 +293,7 @@ export const importBookings = mutation({
       updated: results.filter((result) => result === "updated").length,
     };
   },
+  returns: migrationImportSummaryValidator,
 });
 
 export const migrateRoomTypes = mutation({
@@ -326,9 +410,12 @@ export const migrateRoomTypes = mutation({
   }),
 });
 
-export const getStats = query({
-  args: {},
-  handler: async (ctx) => {
+export const getStats = mutation({
+  args: {
+    secret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertMigrationSecret(args.secret);
     const [users, trips, bookings] = await Promise.all([
       ctx.db.query("userProfiles").collect(),
       ctx.db.query("trips").collect(),
@@ -359,4 +446,5 @@ export const getStats = query({
       seatTotals,
     };
   },
+  returns: migrationStatsResultValidator,
 });

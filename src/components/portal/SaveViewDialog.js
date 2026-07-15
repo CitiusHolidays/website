@@ -8,15 +8,15 @@ const subscribeToClientMount = (onStoreChange) => {
   onStoreChange();
   return () => {};
 };
-const getClientMountedSnapshot = () => true;
-const getServerMountedSnapshot = () => false;
+const getClientPortalTarget = () => document.body;
+const getServerPortalTarget = () => null;
 
 export default function SaveViewDialog({ open, onClose, onSave, saving = false }) {
   const [name, setName] = useState("");
-  const mounted = useSyncExternalStore(
+  const portalTarget = useSyncExternalStore(
     subscribeToClientMount,
-    getClientMountedSnapshot,
-    getServerMountedSnapshot
+    getClientPortalTarget,
+    getServerPortalTarget
   );
   const inputId = useId();
   const inputRef = useRef(null);
@@ -44,7 +44,7 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
   }, [open]);
 
   useEffect(() => {
-    if (!(open && mounted)) {
+    if (!(open && portalTarget)) {
       return;
     }
     const dialog = dialogRef.current;
@@ -56,9 +56,9 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
         dialog.close();
       }
     };
-  }, [mounted, open]);
+  }, [open, portalTarget]);
 
-  if (!(open && mounted)) {
+  if (!(open && portalTarget)) {
     return null;
   }
 
@@ -139,6 +139,6 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
         </form>
       </div>
     </dialog>,
-    document.body
+    portalTarget
   );
 }

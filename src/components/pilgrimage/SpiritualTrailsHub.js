@@ -52,9 +52,9 @@ export default function SpiritualTrailsHub({ groups }) {
                   >
                     <Link
                       className={cn(
-                        "group flex h-full flex-col rounded-2xl border p-6 transition-all duration-300 md:p-7",
+                        "group flex h-full flex-col rounded-2xl border p-6 transition-[translate,border-color,box-shadow] duration-300 md:p-7",
                         "border-brand-light bg-linear-to-br from-white to-brand-light/30",
-                        "hover:-translate-y-0.5 hover:border-citius-orange/35 hover:shadow-lg"
+                        "fine-hover:hover:-translate-y-0.5 hover:border-citius-orange/35 hover:shadow-lg"
                       )}
                       href={`/pilgrimage/${trail.slug}`}
                     >
@@ -78,7 +78,7 @@ export default function SpiritualTrailsHub({ groups }) {
                       </p>
                       <span className="mt-5 inline-flex items-center gap-2 font-heading text-citius-orange text-sm tracking-wide">
                         View trail
-                        <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                        <ArrowRight className="size-4 transition-transform fine-hover:group-hover:translate-x-0.5" />
                       </span>
                     </Link>
                   </m.div>

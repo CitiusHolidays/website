@@ -165,8 +165,8 @@ export const LIST_FILTER_CONFIG = {
   pipeline: [
     {
       field: "salesStatus",
-      label: "Sales status",
-      options: staticOptions(SALES_STATUSES, "All sales statuses"),
+      label: "Sales Decision",
+      options: staticOptions(SALES_STATUSES, "All Sales Decisions"),
     },
     {
       field: "contractingStatus",
@@ -190,8 +190,8 @@ export const LIST_FILTER_CONFIG = {
   queries: [
     {
       field: "salesStatus",
-      label: "Sales status",
-      options: staticOptions(SALES_STATUSES, "All sales statuses"),
+      label: "Sales Decision",
+      options: staticOptions(SALES_STATUSES, "All Sales Decisions"),
     },
     {
       field: "contractingStatus",

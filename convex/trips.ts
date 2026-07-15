@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
+import { nullablePublicTripValidator, publicTripListValidator } from "./publicReturnContracts";
 
 const toApiTrip = (trip: Doc<"trips">) => ({
   availableSeats: trip.availableSeats,
@@ -42,6 +43,7 @@ export const getActiveTrips = query({
       .collect();
     return rows.map(toApiTrip);
   },
+  returns: publicTripListValidator,
 });
 
 export const getTripBySlug = query({
@@ -53,6 +55,7 @@ export const getTripBySlug = query({
       .unique();
     return trip ? toApiTrip(trip) : null;
   },
+  returns: nullablePublicTripValidator,
 });
 
 export const createTrip = mutation({
@@ -103,4 +106,5 @@ export const createTrip = mutation({
     const trip = await ctx.db.get(tripId);
     return trip ? toApiTrip(trip) : null;
   },
+  returns: nullablePublicTripValidator,
 });

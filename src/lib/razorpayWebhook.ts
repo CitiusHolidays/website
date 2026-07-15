@@ -29,18 +29,29 @@ export interface RazorpayWebhookDeps {
   confirmBookingByOrderId: (args: {
     orderId: string;
     paymentId: string;
+    providerEventId: string;
+    reason: string;
     serverSecret: string;
   }) => Promise<{ alreadyConfirmed?: boolean; booking?: { id?: unknown }; success?: boolean }>;
   getServerSecret: () => string | null;
   markPaymentFailedByOrderId: (args: {
     orderId: string;
     paymentId: string;
+    providerEventId: string;
+    reason: string;
     serverSecret: string;
   }) => Promise<{ id?: unknown; ignored?: boolean; status?: unknown }>;
-  markRefundedByPaymentId: (args: { paymentId: string; serverSecret: string }) => Promise<unknown>;
+  markRefundedByPaymentId: (args: {
+    paymentId: string;
+    providerEventId: string;
+    reason: string;
+    serverSecret: string;
+  }) => Promise<unknown>;
   recordPaymentAuthorized: (args: {
     orderId: string;
     paymentId: string;
+    providerEventId: string;
+    reason: string;
     serverSecret: string;
   }) => Promise<unknown>;
 }
@@ -68,6 +79,13 @@ async function runPaymentMutation<Result>(operation: string, run: () => Promise<
   return await Effect.runPromise(buildExternalIoEffect(operation, run));
 }
 
+function webhookEventMetadata(event: string, entityId: string) {
+  return {
+    providerEventId: `razorpay:${event}:${entityId}`,
+    reason: `Razorpay ${event} webhook`,
+  };
+}
+
 async function handlePaymentAuthorized(
   payment: RazorpayPaymentEntity | undefined,
   deps: RazorpayWebhookDeps
@@ -87,6 +105,7 @@ async function handlePaymentAuthorized(
     deps.recordPaymentAuthorized({
       orderId,
       paymentId,
+      ...webhookEventMetadata("payment.authorized", paymentId),
       serverSecret,
     })
   );
@@ -112,6 +131,7 @@ async function handlePaymentCaptured(
     deps.confirmBookingByOrderId({
       orderId,
       paymentId,
+      ...webhookEventMetadata("payment.captured", paymentId),
       serverSecret,
     })
   );
@@ -137,6 +157,7 @@ async function handlePaymentFailed(
     deps.markPaymentFailedByOrderId({
       orderId,
       paymentId,
+      ...webhookEventMetadata("payment.failed", paymentId),
       serverSecret,
     })
   );
@@ -160,6 +181,7 @@ async function handleRefundCreated(
   await runPaymentMutation("mark Razorpay payment refunded", () =>
     deps.markRefundedByPaymentId({
       paymentId,
+      ...webhookEventMetadata("refund.created", refund.id ?? paymentId),
       serverSecret,
     })
   );

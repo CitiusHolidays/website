@@ -42,11 +42,37 @@ function makeTravelBatchCtx(initialTables: Tables = {}) {
   };
   const queryBuilder = (table: string) => {
     let rows = getRows(table);
+    let indexName = "";
     const builder = {
       collect: async () => rows.map((row) => ({ ...row })),
       first: async () => rows[0] ?? null,
+      order(direction: "asc" | "desc") {
+        rows = [...rows].sort((left, right) => {
+          if (indexName === "by_jobCardId_and_createdAt") {
+            return Number(left.createdAt ?? 0) - Number(right.createdAt ?? 0);
+          }
+          return String(left.batchCode ?? left._id).localeCompare(
+            String(right.batchCode ?? right._id)
+          );
+        });
+        if (direction === "desc") {
+          rows.reverse();
+        }
+        return builder;
+      },
+      paginate: ({ cursor, numItems }: { cursor?: string | null; numItems: number }) => {
+        const start = cursor ? Number(cursor) : 0;
+        const end = Math.min(start + numItems, rows.length);
+        return Promise.resolve({
+          continueCursor: end < rows.length ? String(end) : "",
+          isDone: end >= rows.length,
+          page: rows.slice(start, end).map((row) => ({ ...row })),
+        });
+      },
+      take: async (count: number) => rows.slice(0, count).map((row) => ({ ...row })),
       unique: async () => rows[0] ?? null,
-      withIndex(_indexName: string, callback: (q: any) => unknown) {
+      withIndex(nextIndexName: string, callback: (q: any) => unknown) {
+        indexName = nextIndexName;
         const filters: Array<{ field: string; value: unknown }> = [];
         const q = {
           eq(field: string, value: unknown) {
@@ -115,6 +141,7 @@ const baseJobCard = {
   ticketingOwnerId: "staff_ticketing",
   ticketingOwnerName: "Ticketing SPOC",
   tourManagerName: "Tour Lead",
+  travelBatchCount: 0,
   travelEndDate: "2026-08-05",
   travelStartDate: "2026-08-01",
   updatedAt: 1000,
@@ -175,6 +202,44 @@ describe("Travel Batches on Job Cards", () => {
       entityType: "jobCard",
       message: "JC-0001-NS / B01 created",
     });
+    expect(tables.jobCards[0].travelBatchCount).toBe(1);
+  });
+
+  test("uses the transactional parent counter after B99 instead of lexical code ordering", async () => {
+    const { ctx, tables } = makeTravelBatchCtx({
+      jobCards: [{ ...baseJobCard, travelBatchCount: 100 }],
+      travelBatches: [
+        {
+          _id: "travelBatches_99",
+          batchCode: "B99",
+          batchReference: "JC-0001-NS / B99",
+          confirmedPax: 1,
+          createdAt: 99,
+          createdBy: "auth_ops_head",
+          destination: "Dubai",
+          jobCardId: "jobCards_1",
+          status: "Open",
+          updatedAt: 99,
+        },
+        {
+          _id: "travelBatches_100",
+          batchCode: "B100",
+          batchReference: "JC-0001-NS / B100",
+          confirmedPax: 1,
+          createdAt: 100,
+          createdBy: "auth_ops_head",
+          destination: "Dubai",
+          jobCardId: "jobCards_1",
+          status: "Open",
+          updatedAt: 100,
+        },
+      ],
+    });
+
+    const result = await (createTravelBatch as any)._handler(ctx, { jobCardId: "jobCards_1" });
+
+    expect(result.batchCode).toBe("B101");
+    expect(tables.jobCards[0].travelBatchCount).toBe(101);
   });
 
   test("supports zero or more Travel Batches per Job Card", async () => {
@@ -184,8 +249,11 @@ describe("Travel Batches on Job Cards", () => {
     });
 
     await expect(
-      (listTravelBatches as any)._handler(ctx, { jobCardId: "jobCards_1" })
-    ).resolves.toEqual([]);
+      (listTravelBatches as any)._handler(ctx, {
+        jobCardId: "jobCards_1",
+        paginationOpts: { cursor: null, numItems: 100 },
+      })
+    ).resolves.toMatchObject({ isDone: true, page: [] });
 
     await (createTravelBatch as any)._handler(ctx, {
       confirmedPax: 12,
@@ -198,7 +266,11 @@ describe("Travel Batches on Job Cards", () => {
       travelStartDate: "2026-08-06",
     });
 
-    const rows = await (listTravelBatches as any)._handler(ctx, { jobCardId: "jobCards_1" });
+    const result = await (listTravelBatches as any)._handler(ctx, {
+      jobCardId: "jobCards_1",
+      paginationOpts: { cursor: null, numItems: 100 },
+    });
+    const rows = result.page;
     expect(rows.map((row: any) => row.batchReference)).toEqual([
       "JC-0001-NS / B01",
       "JC-0001-NS / B02",
@@ -248,7 +320,11 @@ describe("Travel Batches on Job Cards", () => {
       ],
     });
 
-    const rows = await (listTravelBatches as any)._handler(ctx, { jobCardId: "jobCards_1" });
+    const result = await (listTravelBatches as any)._handler(ctx, {
+      jobCardId: "jobCards_1",
+      paginationOpts: { cursor: null, numItems: 100 },
+    });
+    const rows = result.page;
 
     expect(rows.map((row: any) => row.batchReference)).toEqual([
       "JC-0001-NS / B01",
@@ -260,6 +336,61 @@ describe("Travel Batches on Job Cards", () => {
       jobCardId: "jobCards_1",
       status: "In Operations",
     });
+  });
+
+  test("paginates B99, B100, and B101 in creation sequence instead of lexical code order", async () => {
+    const { ctx } = makeTravelBatchCtx({
+      jobCards: [{ ...baseJobCard, travelBatchCount: 101 }],
+      travelBatches: [
+        {
+          _id: "travelBatches_101",
+          batchCode: "B101",
+          batchReference: "JC-0001-NS / B101",
+          confirmedPax: 1,
+          createdAt: 101,
+          createdBy: "auth_ops_head",
+          jobCardId: "jobCards_1",
+          status: "Open",
+          updatedAt: 101,
+        },
+        {
+          _id: "travelBatches_99",
+          batchCode: "B99",
+          batchReference: "JC-0001-NS / B99",
+          confirmedPax: 1,
+          createdAt: 99,
+          createdBy: "auth_ops_head",
+          jobCardId: "jobCards_1",
+          status: "Open",
+          updatedAt: 99,
+        },
+        {
+          _id: "travelBatches_100",
+          batchCode: "B100",
+          batchReference: "JC-0001-NS / B100",
+          confirmedPax: 1,
+          createdAt: 100,
+          createdBy: "auth_ops_head",
+          jobCardId: "jobCards_1",
+          status: "Open",
+          updatedAt: 100,
+        },
+      ],
+    });
+
+    const firstPage = await (listTravelBatches as any)._handler(ctx, {
+      jobCardId: "jobCards_1",
+      paginationOpts: { cursor: null, numItems: 2 },
+    });
+    const secondPage = await (listTravelBatches as any)._handler(ctx, {
+      jobCardId: "jobCards_1",
+      paginationOpts: { cursor: firstPage.continueCursor, numItems: 2 },
+    });
+
+    expect(firstPage.page.map((row: any) => row.batchCode)).toEqual(["B99", "B100"]);
+    expect(firstPage.isDone).toBe(false);
+    expect(secondPage.page.map((row: any) => row.batchCode)).toEqual(["B101"]);
+    expect(secondPage.isDone).toBe(true);
   });
 
   test("updates Travel Batch operational fields without changing identity", async () => {

@@ -12,14 +12,29 @@ export function pruneSelectionToVisible(selectedIds, visibleIds) {
   return next;
 }
 
-/** @param {Set<string>} selectedIds @param {string[]} visibleIds */
-export function toggleAllVisibleSelection(selectedIds, visibleIds) {
+/** @param {Set<string>} selectedIds @param {string[]} visibleIds @param {{ pageOnly?: boolean }} [options] */
+export function toggleAllVisibleSelection(selectedIds, visibleIds, options = {}) {
+  const { pageOnly = false } = options;
   if (visibleIds.length === 0) {
     return selectedIds;
   }
   const allSelected = visibleIds.every((id) => selectedIds.has(id));
   if (allSelected) {
+    if (pageOnly) {
+      const next = new Set(selectedIds);
+      for (const id of visibleIds) {
+        next.delete(id);
+      }
+      return next;
+    }
     return new Set();
+  }
+  if (pageOnly) {
+    const next = new Set(selectedIds);
+    for (const id of visibleIds) {
+      next.add(id);
+    }
+    return next;
   }
   return new Set(visibleIds);
 }
@@ -34,14 +49,20 @@ export function someVisibleRowsSelected(selectedIds, visibleIds) {
   return visibleIds.some((id) => selectedIds.has(id));
 }
 
-export function useBulkSelection(visibleRows) {
-  const rowIds = (visibleRows || []).flatMap((row) => (row.id ? [row.id] : []));
+/**
+ * @param {Array<{ id?: unknown }>} rows
+ * @param {{ pageRowIds?: string[] }} [options]
+ */
+export function useBulkSelection(rows, options = {}) {
+  const { pageRowIds } = options;
+  const allRowIds = (rows || []).flatMap((row) => (row.id ? [String(row.id)] : []));
+  const visibleIds = pageRowIds ?? allRowIds;
   const [selectedIds, setSelectedIds] = useState(() => new Set());
-  const effectiveSelectedIds = pruneSelectionToVisible(selectedIds, rowIds);
+  const effectiveSelectedIds = pruneSelectionToVisible(selectedIds, allRowIds);
 
   const toggleOne = (id) => {
     setSelectedIds((current) => {
-      const next = new Set(pruneSelectionToVisible(current, rowIds));
+      const next = new Set(pruneSelectionToVisible(current, allRowIds));
       if (next.has(id)) {
         next.delete(id);
       } else {
@@ -53,7 +74,9 @@ export function useBulkSelection(visibleRows) {
 
   const toggleAllVisible = () => {
     setSelectedIds((current) =>
-      toggleAllVisibleSelection(pruneSelectionToVisible(current, rowIds), rowIds)
+      toggleAllVisibleSelection(pruneSelectionToVisible(current, allRowIds), visibleIds, {
+        pageOnly: Boolean(pageRowIds),
+      })
     );
   };
 
@@ -62,11 +85,11 @@ export function useBulkSelection(visibleRows) {
   };
 
   return {
-    allVisibleSelected: allVisibleRowsSelected(effectiveSelectedIds, rowIds),
+    allVisibleSelected: allVisibleRowsSelected(effectiveSelectedIds, visibleIds),
     clearSelection,
     selectedCount: effectiveSelectedIds.size,
     selectedIds: effectiveSelectedIds,
-    someVisibleSelected: someVisibleRowsSelected(effectiveSelectedIds, rowIds),
+    someVisibleSelected: someVisibleRowsSelected(effectiveSelectedIds, visibleIds),
     toggleAllVisible,
     toggleOne,
   };

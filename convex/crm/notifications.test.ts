@@ -163,6 +163,7 @@ describe("notifyRoles", () => {
       "accounts@example.com",
       "head@example.com",
     ]);
+    expect(scheduled[0].args.eventId).toBe("notifications_1");
   });
 
   test("uses staff email alert roles when present", async () => {
@@ -227,6 +228,62 @@ describe("notifyRoles", () => {
       "delegate@example.com",
       "ops-head@example.com",
     ]);
+    expect(scheduled[0].args.eventId).toBe("notifications_1");
+  });
+
+  test("can keep oversight bell rows without sending role emails", async () => {
+    const tables: Record<string, any[]> = {
+      notifications: [],
+      staffUsers: [
+        {
+          _id: "staff_contracting_head",
+          active: true,
+          email: "contracting-head@example.com",
+          roles: ["Contracting Head"],
+        },
+        {
+          _id: "staff_email_delegate",
+          active: true,
+          email: "delegate@example.com",
+          emailAlertRoles: ["Contracting Head"],
+          roles: ["Operations"],
+        },
+      ],
+    };
+    const scheduled: any[] = [];
+    const ctx = {
+      db: {
+        insert: (table: string, doc: Record<string, unknown>) => {
+          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
+          tables[table].push(row);
+          return Promise.resolve(row._id);
+        },
+        query: (table: string) => ({
+          collect: () => Promise.resolve(tables[table] ?? []),
+        }),
+      },
+      scheduler: {
+        runAfter: (_delay: number, fn: unknown, args: unknown) => {
+          scheduled.push({ args, fn });
+          return Promise.resolve();
+        },
+      },
+    };
+
+    await notifyRoles(
+      ctx as never,
+      ["Contracting Head"],
+      {
+        body: "Assignment updated",
+        entityId: "query_1",
+        entityType: "query",
+        title: "Query team assignment updated",
+      },
+      { emailRoles: [] }
+    );
+
+    expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Contracting Head"]);
+    expect(scheduled).toHaveLength(0);
   });
 });
 

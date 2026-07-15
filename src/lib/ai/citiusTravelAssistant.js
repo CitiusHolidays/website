@@ -1,7 +1,5 @@
 import { jsonSchema, tool } from "ai";
 
-export const CITIUS_CHAT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
-
 const COMPANY_PROFILE = {
   brand: "Citius Holidays",
   positioning:

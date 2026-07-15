@@ -4,24 +4,28 @@ import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { syncAuthRecords } from "./lib/authSync";
+import { stableProfileTimestamps } from "./lib/profileFallback";
+import {
+  nullablePublicUserProfileValidator,
+  publicUserProfileValidator,
+} from "./publicReturnContracts";
 
 const now = () => Date.now();
 const getIdentityImage = (identity: UserIdentity) =>
   typeof identity.picture === "string" ? identity.picture : "";
 
 const toApiUser = (profile: Doc<"userProfiles"> | null, identity: UserIdentity) => {
-  const createdAt = profile?.createdAt ?? now();
-  const updatedAt = profile?.updatedAt ?? createdAt;
+  const timestamps = stableProfileTimestamps(profile, identity);
 
   return {
-    createdAt: new Date(createdAt).toISOString(),
+    createdAt: timestamps.createdAt,
     email: profile?.email ?? identity.email ?? "",
     id: identity.subject,
     image: profile?.image ?? (getIdentityImage(identity) || null),
     name: profile?.name ?? identity.name ?? "Traveler",
     passportDetailsEncrypted: profile?.passportDetailsEncrypted ?? null,
     phoneNumber: profile?.phoneNumber ?? "",
-    updatedAt: new Date(updatedAt).toISOString(),
+    updatedAt: timestamps.updatedAt,
   };
 };
 
@@ -67,6 +71,7 @@ export const ensureMyProfile = mutation({
       updatedAt: new Date(createdAt).toISOString(),
     };
   },
+  returns: publicUserProfileValidator,
 });
 
 export const getMyProfile = query({
@@ -80,6 +85,7 @@ export const getMyProfile = query({
     const profile = await getProfileByAuthUserId(ctx, identity.subject);
     return toApiUser(profile, identity);
   },
+  returns: nullablePublicUserProfileValidator,
 });
 
 export const updateMyProfile = mutation({
@@ -136,4 +142,5 @@ export const updateMyProfile = mutation({
       updatedAt: new Date(updatedAt).toISOString(),
     };
   },
+  returns: publicUserProfileValidator,
 });

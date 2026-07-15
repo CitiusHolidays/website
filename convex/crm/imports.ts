@@ -1,7 +1,9 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
+import { portalAccessArgumentValidator } from "../lib/importContractValidators";
 import {
   buildTravellerMatchIndex,
   findTravellerMatchInIndex,
@@ -10,8 +12,18 @@ import {
   resolveImportTravelBatchId,
   summarizeRoomTypesFromRows,
 } from "./importProcessor";
+import {
+  flightImportResultValidator,
+  flightItineraryListPageResultValidator,
+} from "./importReturnContracts";
 import { exportKindValidator, internalPassengerImportRow } from "./importRowValidators";
 import { createActivity, PERMISSIONS, type PortalAccess, requireStaff } from "./lib";
+import {
+  applyCrmCursorFilters,
+  boundedPaginationOptions,
+  compactPageItems,
+  mapInBoundedBatches,
+} from "./paginationPolicy";
 
 const flightSegmentInput = v.object({
   airline: v.string(),
@@ -145,7 +157,7 @@ function summarizeGroup(group: {
 
 export const previewPassengerImportRows = internalQuery({
   args: {
-    access: v.any(),
+    access: portalAccessArgumentValidator,
     jobCardId: v.string(),
     rows: v.array(internalPassengerImportRow),
   },
@@ -175,7 +187,8 @@ export const previewPassengerImportRows = internalQuery({
 
 export const commitPassengerImportBatch = internalMutation({
   args: {
-    access: v.any(),
+    access: portalAccessArgumentValidator,
+    batchId: v.string(),
     jobCardId: v.string(),
     logActivity: v.optional(v.boolean()),
     rows: v.array(internalPassengerImportRow),
@@ -190,8 +203,57 @@ export const commitPassengerImportBatch = internalMutation({
       throw new ConvexError("FORBIDDEN");
     }
 
+    const existingBatch = await ctx.db
+      .query("crmImportBatches")
+      .withIndex("by_batchId", (q) => q.eq("batchId", args.batchId))
+      .unique();
+    if (existingBatch?.status === "completed") {
+      return {
+        accepted: existingBatch.accepted,
+        batchId: existingBatch.batchId,
+        created: existingBatch.created,
+        errors: existingBatch.errors.map((error) => ({
+          ...error,
+          kind: error.kind ?? ("terminal" as const),
+        })),
+        failed: existingBatch.failed,
+        processed: existingBatch.processed,
+        remaining: existingBatch.remaining,
+        roomSummary: existingBatch.roomSummary,
+        status: existingBatch.status,
+        updated: existingBatch.updated,
+      };
+    }
+
+    const now = Date.now();
+    const batchDocument = {
+      accepted: args.rows.length,
+      attemptCount: (existingBatch?.attemptCount ?? 0) + 1,
+      batchId: args.batchId,
+      completedAt: undefined,
+      created: 0,
+      errors: [],
+      failed: 0,
+      jobCardId,
+      processed: 0,
+      remaining: args.rows.length,
+      roomSummary: {},
+      status: "processing" as const,
+      updated: 0,
+      updatedAt: now,
+    };
+    const ledgerId =
+      existingBatch?._id ??
+      (await ctx.db.insert("crmImportBatches", {
+        ...batchDocument,
+        createdAt: now,
+      }));
+    if (existingBatch) {
+      await ctx.db.patch(existingBatch._id, batchDocument);
+    }
+
     const matchIndex = await buildTravellerMatchIndex(ctx, jobCardId);
-    return await processImportRows(ctx, {
+    const result = await processImportRows(ctx, {
       access: args.access,
       job,
       jobCardId,
@@ -199,12 +261,27 @@ export const commitPassengerImportBatch = internalMutation({
       matchIndex,
       rows: args.rows,
     });
+    const status = result.remaining > 0 ? ("retryable" as const) : ("completed" as const);
+    await ctx.db.patch(ledgerId, {
+      accepted: result.accepted,
+      completedAt: status === "completed" ? Date.now() : undefined,
+      created: result.created,
+      errors: result.errors,
+      failed: result.failed,
+      processed: result.processed,
+      remaining: result.remaining,
+      roomSummary: result.roomSummary,
+      status,
+      updated: result.updated,
+      updatedAt: Date.now(),
+    });
+    return { ...result, batchId: args.batchId, status };
   },
 });
 
 export const commitPassengerImportRows = internalMutation({
   args: {
-    access: v.any(),
+    access: portalAccessArgumentValidator,
     jobCardId: v.string(),
     rows: v.array(internalPassengerImportRow),
   },
@@ -377,11 +454,12 @@ export const commitFlightImport = mutation({
   },
   handler: async (ctx, args) =>
     commitFlightImportForTest(ctx, args, await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING)),
+  returns: flightImportResultValidator,
 });
 
 export const getPassengerExportSource = internalQuery({
   args: {
-    access: v.any(),
+    access: portalAccessArgumentValidator,
     jobCardId: v.string(),
   },
   handler: async (ctx, args) => {
@@ -493,7 +571,7 @@ export const getPassengerExportSource = internalQuery({
 
 export const logPassengerExport = internalMutation({
   args: {
-    access: v.any(),
+    access: portalAccessArgumentValidator,
     exportKind: v.optional(exportKindValidator),
     jobCardId: v.string(),
     rowCount: v.number(),
@@ -526,60 +604,61 @@ export const logPassengerExport = internalMutation({
 });
 
 export const listFlightItinerary = query({
-  args: {},
-  handler: async (ctx) => {
-    const [access, groups] = await Promise.all([
-      requireStaff(ctx, PERMISSIONS.VIEW_TICKETING),
-      ctx.db.query("flightGroups").collect(),
-    ]);
-    const result = await Promise.all(
-      groups
-        .sort((a, b) => b.updatedAt - a.updatedAt)
-        .map(async (group) => {
-          const job = await getVisibleJob(ctx, access, group.jobCardId);
-          if (!job) {
-            return null;
-          }
-          const segments = await ctx.db
-            .query("flightSegments")
-            .withIndex("by_flightGroupId", (q) => q.eq("flightGroupId", group._id))
-            .collect();
-          const travelBatch = group.travelBatchId ? await ctx.db.get(group.travelBatchId) : null;
-          return {
-            airline: group.airline,
-            arrivalDate: group.arrivalDate ?? "",
-            clientName: job.clientName,
-            departureDate: group.departureDate,
-            id: group._id,
-            importKey: group.importKey ?? "",
-            jobCardId: group.jobCardId,
-            jobCode: job.jobCode,
-            name: group.name,
-            route: group.route,
-            segments: segments
-              .sort((a, b) => a.segmentIndex - b.segmentIndex)
-              .map((segment) => ({
-                airline: segment.airline,
-                arriveTime: segment.arriveTime ?? "",
-                dateLabel: segment.dateLabel,
-                departTime: segment.departTime ?? "",
-                destination: segment.destination,
-                duration: segment.duration ?? "",
-                flightNumber: segment.flightNumber,
-                id: segment._id,
-                importKey: segment.importKey,
-                origin: segment.origin,
-                transit: segment.transit ?? "",
-              })),
-            sourceGroupIndex: group.sourceGroupIndex ?? 0,
-            sourceSheet: group.sourceSheet ?? "",
-            travelBatchCode: travelBatch?.batchCode ?? "",
-            travelBatchId: group.travelBatchId ?? "",
-            travelBatchReference: travelBatch?.batchReference ?? "",
-            updatedAt: new Date(group.updatedAt).toISOString(),
-          };
-        })
-    );
-    return result.filter(Boolean);
+  args: {
+    jobCardId: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
   },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
+    const page = await applyCrmCursorFilters(
+      ctx.db.query("flightGroups").withIndex("by_createdAt").order("desc"),
+      { equals: { jobCardId: args.jobCardId } }
+    ).paginate(boundedPaginationOptions(args.paginationOpts));
+    const rows = await mapInBoundedBatches(page.page, async (group) => {
+      const job = await getVisibleJob(ctx, access, group.jobCardId);
+      if (!job) {
+        return null;
+      }
+      const segments = await ctx.db
+        .query("flightSegments")
+        .withIndex("by_flightGroupId", (q) => q.eq("flightGroupId", group._id))
+        .take(64);
+      const travelBatch = group.travelBatchId ? await ctx.db.get(group.travelBatchId) : null;
+      return {
+        airline: group.airline,
+        arrivalDate: group.arrivalDate ?? "",
+        clientName: job.clientName,
+        departureDate: group.departureDate,
+        id: group._id,
+        importKey: group.importKey ?? "",
+        jobCardId: group.jobCardId,
+        jobCode: job.jobCode,
+        name: group.name,
+        route: group.route,
+        segments: segments
+          .sort((a, b) => a.segmentIndex - b.segmentIndex)
+          .map((segment) => ({
+            airline: segment.airline,
+            arriveTime: segment.arriveTime ?? "",
+            dateLabel: segment.dateLabel,
+            departTime: segment.departTime ?? "",
+            destination: segment.destination,
+            duration: segment.duration ?? "",
+            flightNumber: segment.flightNumber,
+            id: segment._id,
+            importKey: segment.importKey,
+            origin: segment.origin,
+            transit: segment.transit ?? "",
+          })),
+        sourceGroupIndex: group.sourceGroupIndex ?? 0,
+        sourceSheet: group.sourceSheet ?? "",
+        travelBatchCode: travelBatch?.batchCode ?? "",
+        travelBatchId: group.travelBatchId ?? "",
+        travelBatchReference: travelBatch?.batchReference ?? "",
+        updatedAt: new Date(group.updatedAt).toISOString(),
+      };
+    });
+    return { ...page, page: compactPageItems(rows) };
+  },
+  returns: flightItineraryListPageResultValidator,
 });

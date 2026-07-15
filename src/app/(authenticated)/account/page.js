@@ -1,10 +1,8 @@
 import { anyApi } from "convex/server";
-import { unstable_noStore } from "next/cache";
 import { fetchAuthMutation, fetchAuthQuery, requireAuth } from "@/lib/auth-server";
 import AccountClient from "./page.client.js";
 
-// TODO: Cache Components adoption. Refactor this route so this opt-out can be removed.
-// See: https://nextjs.org/docs/app/guides/migrating-to-cache-components
+// Account data is identity-scoped and must be resolved from request headers on every request.
 export const instant = false;
 
 export const metadata = {
@@ -13,9 +11,6 @@ export const metadata = {
 };
 
 export default async function AccountPage() {
-  // Prevent caching - auth state should be checked fresh each request
-  unstable_noStore();
-
   // Use requireAuth to ensure user is authenticated
   // This will redirect to /auth if not logged in
   return requireAuth("/account").then(async ({ user }) => {

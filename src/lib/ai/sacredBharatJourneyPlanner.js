@@ -1,10 +1,7 @@
 import { resolveCanonicalTempleId } from "@/data/sacredBharat/templeAliases";
 import { getTempleById, TEMPLES } from "@/data/sacredBharat/temples";
 import { getTrailBySlug } from "@/data/sacredBharat/trails";
-import { CITIUS_CHAT_MODEL } from "@/lib/ai/citiusTravelAssistant";
 import { getTempleJourneyPlan, suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
-
-export { CITIUS_CHAT_MODEL };
 
 /**
  * @param {{

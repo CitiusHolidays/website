@@ -26,6 +26,7 @@ export function DashboardActionInbox({ actions, dateRange }) {
           </Link>
         }
         title="Needs attention"
+        tone="healthy"
       >
         <DashboardEmpty label="You're clear — no urgent actions right now." />
       </DashboardPanel>
@@ -40,6 +41,7 @@ export function DashboardActionInbox({ actions, dateRange }) {
         </Link>
       }
       title="Needs attention"
+      tone="attention"
     >
       <ul className="-mt-1 divide-y divide-brand-border/80">
         {actions.slice(0, 5).map((item) => (

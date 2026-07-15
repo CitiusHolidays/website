@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { ConvexError } from "convex/values";
 import {
   assertBulkDeleteLimit,
+  assertBulkDeleteMutationBatch,
+  BULK_DELETE_MUTATION_BATCH_SIZE,
   filterRecordsByDateRange,
   requestedProposalQueryIds,
   resolvePortalDateRange,
@@ -56,5 +58,12 @@ describe("assertBulkDeleteLimit", () => {
     expect(() => assertBulkDeleteLimit(0)).toThrow(ConvexError);
     expect(() => assertBulkDeleteLimit(1)).not.toThrow();
     expect(() => assertBulkDeleteLimit(500)).not.toThrow();
+  });
+
+  test("keeps total selection uncapped while bounding each public mutation", () => {
+    expect(() => assertBulkDeleteMutationBatch(BULK_DELETE_MUTATION_BATCH_SIZE)).not.toThrow();
+    expect(() => assertBulkDeleteMutationBatch(BULK_DELETE_MUTATION_BATCH_SIZE + 1)).toThrow(
+      ConvexError
+    );
   });
 });

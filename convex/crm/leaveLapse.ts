@@ -3,6 +3,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, mutation } from "../_generated/server";
 import { fiscalYearForDate, type LeaveType } from "./leavePolicy";
 import { PERMISSIONS, requireStaff } from "./lib";
+import { leaveLapseResultValidator } from "./staffSettingsReturnContracts";
 
 const CL_SL_LAPSE_TYPES: LeaveType[] = ["Casual", "Sick"];
 const LAPSE_TIMEZONE = "Asia/Kolkata";
@@ -115,6 +116,7 @@ export const runClSlLapse = mutation({
       args.fiscalYear ?? fiscalYearEndingOn31March() ?? fiscalYearForDate("2025-03-31");
     return await lapseClSlForFiscalYear(ctx, fiscalYear);
   },
+  returns: leaveLapseResultValidator,
 });
 
 export const checkAndRunClSlLapse = internalMutation({

@@ -18,12 +18,12 @@ export function getEntityModalTitle(modal, form, has, access) {
       assignContracting: "Assign Contracting SPOC",
       assignContractingOwner: "Assign Contracting SPOC",
       assignJobCardCreator: "Assign Job Card Creator",
-      assignOperationsOwner: "Assign Operations Owner",
+      assignOperationsOwner: "Assign Operations SPOC",
       assignQueryTeams: usesSalesInitialAssignmentForm(access)
         ? "Assign Contracting SPOC & Ticketing Scope"
         : "Assign contracting & ticketing teams",
       assignQueryTicketing: "Assign Ticketing SPOC",
-      assignTicketingOwner: "Assign Ticketing Owner",
+      assignTicketingOwner: "Assign Ticketing SPOC",
       expense: form.entityId ? "Edit Expense" : "Add Expense",
       hotel: form.entityId ? "Edit Hotel" : "Add Hotel",
       invoice: form.entityId ? "Edit Invoice" : "Generate Invoice",

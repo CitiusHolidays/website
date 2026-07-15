@@ -44,7 +44,7 @@ export default function SpiritualHero() {
   }, []);
 
   return (
-    <section className="relative h-screen min-h-[700px] w-full overflow-hidden bg-brand-dark">
+    <section className="relative min-h-[100dvh] w-full overflow-hidden bg-public-night py-24 md:min-h-[700px]">
       {/* Background Slideshow */}
       <AnimatePresence initial={false}>
         <m.div
@@ -67,11 +67,11 @@ export default function SpiritualHero() {
       </AnimatePresence>
 
       {/* Atmospheric Gradients */}
-      <div className="absolute inset-0 z-10 bg-linear-to-b from-brand-dark/60 via-transparent to-brand-dark" />
-      <div className="absolute inset-0 z-10 bg-linear-to-r from-brand-dark/40 via-transparent to-transparent" />
+      <div className="absolute inset-0 z-10 bg-linear-to-b from-public-night/60 via-transparent to-public-night" />
+      <div className="absolute inset-0 z-10 bg-linear-to-r from-public-night/40 via-transparent to-transparent" />
 
       {/* Content */}
-      <div className="relative z-20 flex h-full items-center justify-center px-6">
+      <div className="relative z-20 flex min-h-[calc(100dvh-12rem)] items-center justify-center px-6 md:min-h-[calc(700px-12rem)]">
         <div className="max-w-4xl text-center">
           <AnimatePresence initial={false} mode="popLayout">
             <m.div
@@ -83,7 +83,7 @@ export default function SpiritualHero() {
             >
               <m.span
                 animate={{ letterSpacing: "0.5em", opacity: 1 }}
-                className="mb-4 block font-medium text-citius-orange text-xs uppercase tracking-[0.5em] md:text-sm"
+                className="mb-4 block font-medium text-public-orange text-xs uppercase tracking-[0.5em] md:text-sm"
                 initial={{ letterSpacing: "0.2em", opacity: 0 }}
               >
                 Citius Spiritual Trails
@@ -105,7 +105,7 @@ export default function SpiritualHero() {
             initial={{ opacity: 0 }}
             transition={{ delay: 1, duration: 1 }}
           >
-            <div className="h-24 w-px bg-linear-to-b from-citius-orange to-transparent" />
+            <div className="h-24 w-px bg-linear-to-b from-public-orange to-transparent" />
             <p className="font-sans text-sm text-white/50 uppercase tracking-widest">
               Scroll to Begin
             </p>
@@ -114,15 +114,21 @@ export default function SpiritualHero() {
       </div>
 
       {/* Navigation Indicators */}
-      <div className="absolute right-12 bottom-12 z-20 flex gap-3">
+      <div className="absolute right-[max(1rem,var(--safe-area-inset-right))] bottom-[max(1rem,var(--safe-area-inset-bottom))] z-20 flex gap-3 md:right-12 md:bottom-12">
         {images.map((image, idx) => (
           <button
             aria-label={`Go to slide ${idx + 1}`}
-            className={`h-1 transition-all duration-500 ${
-              idx === currentIndex ? "w-12 bg-citius-orange" : "w-4 bg-white/20 hover:bg-white/40"
+            className={`h-1 transition-[width,background-color] duration-500 ${
+              idx === currentIndex ? "w-12 bg-public-orange" : "w-4 bg-white/20 hover:bg-white/40"
             }`}
+            data-slide-index={idx}
             key={image.src}
-            onClick={() => setCurrentIndex(idx)}
+            onClick={(event) => {
+              const nextIndex = Number(event.currentTarget.dataset.slideIndex);
+              if (Number.isInteger(nextIndex)) {
+                setCurrentIndex(nextIndex);
+              }
+            }}
             type="button"
           />
         ))}

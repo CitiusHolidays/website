@@ -1,9 +1,11 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { streamText } from "ai";
+import { createAiProviderResponse } from "@/lib/ai/providerStream";
+import { AI_RUNTIME_POLICIES } from "@/lib/ai/runtimePolicy";
+import { consumeSharedAiRateLimit, recordAiTelemetry } from "@/lib/ai/runtimeService";
 import {
   buildDefaultPlannerUserMessage,
   buildSacredBharatPlannerContext,
-  CITIUS_CHAT_MODEL,
   sacredBharatJourneyPlannerSystemPrompt,
 } from "@/lib/ai/sacredBharatJourneyPlanner";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
@@ -11,30 +13,7 @@ import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
 export const maxDuration = 60;
 
 const MAX_BODY_BYTES = 16 * 1024;
-const PLANNER_WINDOW_MS = 10 * 60 * 1000;
-const PLANNER_MAX_REQUESTS = 12;
-
-/** @type {Map<string, { count: number; resetAt: number }>} */
-const plannerBuckets = new Map();
-
-function checkPlannerRateLimit(key) {
-  const now = Date.now();
-  let bucket = plannerBuckets.get(key);
-  if (!bucket || now > bucket.resetAt) {
-    bucket = { count: 0, resetAt: now + PLANNER_WINDOW_MS };
-    plannerBuckets.set(key, bucket);
-  }
-
-  bucket.count += 1;
-  if (bucket.count > PLANNER_MAX_REQUESTS) {
-    return {
-      allowed: false,
-      retryAfterSec: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
-    };
-  }
-
-  return { allowed: true };
-}
+const PLANNER_POLICY = AI_RUNTIME_POLICIES.journeyPlanner;
 
 export async function POST(req) {
   try {
@@ -43,21 +22,6 @@ export async function POST(req) {
         headers: { "Content-Type": "application/json" },
         status: 403,
       });
-    }
-
-    const clientIp = getClientIp(req);
-    const rateLimit = checkPlannerRateLimit(clientIp);
-    if (!rateLimit.allowed) {
-      return new Response(
-        JSON.stringify({ error: "Too many planner requests. Please try again shortly." }),
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "Retry-After": String(rateLimit.retryAfterSec),
-          },
-          status: 429,
-        }
-      );
     }
 
     const contentLength = Number(req.headers.get("content-length") || 0);
@@ -73,6 +37,35 @@ export async function POST(req) {
         headers: { "Content-Type": "application/json" },
         status: 500,
       });
+    }
+
+    let rateLimit;
+    try {
+      rateLimit = await consumeSharedAiRateLimit({
+        feature: "journeyPlanner",
+        rawKey: getClientIp(req),
+      });
+    } catch (error) {
+      console.error("Journey planner rate-limit storage error:", error);
+      return new Response(
+        JSON.stringify({ error: "Journey planner is temporarily unavailable." }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: 503,
+        }
+      );
+    }
+    if (!rateLimit.allowed) {
+      return new Response(
+        JSON.stringify({ error: "Too many planner requests. Please try again shortly." }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "Retry-After": String(rateLimit.retryAfterSec),
+          },
+          status: 429,
+        }
+      );
     }
 
     const body = await req.json();
@@ -95,18 +88,37 @@ export async function POST(req) {
     const openrouter = createOpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
     const userMessage = buildDefaultPlannerUserMessage(context);
 
-    const result = streamText({
-      abortSignal: req.signal,
-      maxOutputTokens: 1200,
-      maxRetries: 2,
-      messages: [{ content: userMessage, role: "user" }],
-      model: openrouter.chat(CITIUS_CHAT_MODEL),
-      system: sacredBharatJourneyPlannerSystemPrompt(context),
-      temperature: 0.4,
-    });
-
-    return result.toUIMessageStreamResponse({
+    return createAiProviderResponse({
+      feature: "journeyPlanner",
+      minimumAttemptMs: PLANNER_POLICY.minimumAttemptMs,
+      models: PLANNER_POLICY.models,
       onError: () => "Journey planner could not complete that response. Please try again.",
+      onTelemetry: recordAiTelemetry,
+      providerAttemptTimeoutMs: PLANNER_POLICY.providerAttemptTimeoutMs,
+      signal: req.signal,
+      startAttempt: ({ model, signal, timeoutMs }) =>
+        streamText({
+          abortSignal: signal,
+          maxOutputTokens: PLANNER_POLICY.maxOutputTokens,
+          maxRetries: PLANNER_POLICY.maxRetries,
+          messages: [{ content: userMessage, role: "user" }],
+          model: openrouter.chat(model, {
+            extraBody: { provider: { require_parameters: true } },
+          }),
+          providerOptions: {
+            openrouter: {
+              reasoning: { effort: "none", exclude: true },
+              usage: { include: true },
+            },
+          },
+          system: sacredBharatJourneyPlannerSystemPrompt(context),
+          temperature: 0.4,
+          timeout: {
+            chunkMs: Math.min(PLANNER_POLICY.chunkTimeoutMs, timeoutMs),
+            totalMs: timeoutMs,
+          },
+        }),
+      totalTimeoutMs: PLANNER_POLICY.totalTimeoutMs,
     });
   } catch (error) {
     console.error("Sacred Bharat journey planner error:", error);

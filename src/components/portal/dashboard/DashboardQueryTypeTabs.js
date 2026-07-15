@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PortalTabs } from "@/components/portal/PortalTabs";
 import { buildQueryTypeTileHref } from "@/lib/portal/dashboardLinks";
 import { DashboardEmpty, DashboardSectionHeading } from "./DashboardPanel";
 import { DashboardQueryTypeTile } from "./DashboardQueryTypeTile";
@@ -26,6 +27,16 @@ function groupQueryTypeRows(rows = []) {
     sourceTypes: group.types,
     type: group.label,
   }));
+}
+
+function queryTypeDetail(tab, totals) {
+  if (tab === "active") {
+    return `${totals.active.toLocaleString("en-IN")} open enquiries in this period`;
+  }
+  if (tab === "confirmed") {
+    return `${totals.confirmed.toLocaleString("en-IN")} order confirmed in this period`;
+  }
+  return `${totals.closed.toLocaleString("en-IN")} order lost in this period`;
 }
 
 export function DashboardQueryTypeTabs({
@@ -65,56 +76,46 @@ export function DashboardQueryTypeTabs({
     return null;
   }
 
-  const detail =
-    tab === "active"
-      ? `${activeQueryTotal.toLocaleString("en-IN")} open enquiries in this period`
-      : tab === "confirmed"
-        ? `${confirmedQueryTotal.toLocaleString("en-IN")} order confirmed in this period`
-        : `${closedQueryTotal.toLocaleString("en-IN")} order lost in this period`;
+  const detail = queryTypeDetail(tab, {
+    active: activeQueryTotal,
+    closed: closedQueryTotal,
+    confirmed: confirmedQueryTotal,
+  });
 
   return (
     <section className="space-y-3">
       <div className="rounded-xl border border-brand-border bg-white p-4 shadow-brand-dark/[0.03] shadow-sm">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
           <DashboardSectionHeading detail={detail} title="Query types by status" />
-          <div
-            aria-label="Query status bucket"
-            className="flex rounded-lg border border-brand-border bg-white p-1"
-            role="tablist"
+          <PortalTabs
+            ariaLabel="Query status bucket"
+            className="mt-3"
+            items={TABS}
+            onValueChange={setTab}
+            panelClassName="mt-3"
+            value={tab}
           >
-            {TABS.map((item) => (
-              <button
-                aria-selected={tab === item.id}
-                className={`rounded-md px-3 py-1.5 font-semibold text-xs transition ${
-                  tab === item.id
-                    ? "bg-citius-blue text-white shadow-sm"
-                    : "text-brand-muted hover:text-brand-dark"
-                }`}
-                key={item.id}
-                onClick={() => setTab(item.id)}
-                role="tab"
-                type="button"
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+            {current.rows?.length === 0 ? (
+              <DashboardEmpty label="No queries in this bucket for the selected period." />
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {current.rows.map((item) => (
+                  <DashboardQueryTypeTile
+                    count={item.count}
+                    href={buildQueryTypeTileHref(
+                      tab,
+                      item.sourceTypes?.[0] || item.type,
+                      dateRange
+                    )}
+                    key={`${tab}-${item.type}`}
+                    type={item.type}
+                    variant={current.variant}
+                  />
+                ))}
+              </div>
+            )}
+          </PortalTabs>
         </div>
-        {current.rows?.length === 0 ? (
-          <DashboardEmpty label="No queries in this bucket for the selected period." />
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {current.rows.map((item) => (
-              <DashboardQueryTypeTile
-                count={item.count}
-                href={buildQueryTypeTileHref(tab, item.sourceTypes?.[0] || item.type, dateRange)}
-                key={`${tab}-${item.type}`}
-                type={item.type}
-                variant={current.variant}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </section>
   );

@@ -53,10 +53,10 @@ export default function ValuesCard() {
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {values.map((value) => (
             <div
-              className="group relative overflow-hidden rounded-lg border border-brand-border bg-white p-6 text-center shadow-lg transition-all duration-300 ease-in-out hover:-translate-y-2 hover:shadow-2xl"
+              className="group relative overflow-hidden rounded-lg border border-brand-border bg-white p-6 text-center shadow-lg transition-[translate,box-shadow] duration-300 ease-out fine-hover:hover:-translate-y-2 hover:shadow-2xl"
               key={value.title}
             >
-              <div className="absolute inset-0 transform-gpu bg-gradient-to-r from-citius-orange to-citius-blue opacity-0 blur-2xl transition-opacity duration-500 group-hover:scale-150 group-hover:opacity-20" />
+              <div className="absolute inset-0 transform-gpu bg-gradient-to-r from-citius-orange to-citius-blue opacity-0 blur-2xl transition-[scale,opacity] duration-500 fine-hover:group-hover:scale-150 group-hover:opacity-20" />
               <div className="relative z-10">
                 <div className="mb-4 inline-flex size-10 items-center justify-center rounded-full bg-citius-blue text-brand-light">
                   {value.icon}

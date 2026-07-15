@@ -1,5 +1,4 @@
 "use client";
-"use no memo";
 
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
@@ -25,6 +24,10 @@ import { createInitialModalForm, JOB_CARD_MODALS } from "@/lib/portal/modalLifec
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg } from "@/lib/portal/periodFilter";
 import { canAccessPipeline } from "@/lib/portal/permissions";
+import {
+  canMoveContractingPipelineForAccess,
+  canMoveSalesPipelineForAccess,
+} from "@/lib/portal/pipelineMovementAccess";
 import { runMutation } from "@/lib/portal/runMutation";
 import { parseUrlFilterState } from "@/lib/portal/urlFilterState";
 import { INITIAL_FORM, VIEW_META } from "@/lib/portal/workspaceContract";
@@ -60,7 +63,6 @@ interface WorkspaceState {
   jobCardFilter: string;
   listFilters: ListFiltersState;
   modal: string | null;
-  passportExpiryByTraveller: Record<string, string>;
   pendingExpenseProofFiles: File[];
   pendingProposalFiles: File[];
   pendingQueryFiles: File[];
@@ -71,6 +73,7 @@ type ConfirmFn = (options: {
   confirmLabel?: string;
   danger?: boolean;
   message: string;
+  onConfirm?: () => Promise<unknown>;
   title: string;
 }) => Promise<boolean>;
 interface PortalToastApi {
@@ -81,8 +84,6 @@ interface PortalToastApi {
 const createInitialWorkspaceModalForm = createInitialModalForm as (input: AnyRecord) => AnyRecord;
 
 export function usePortalWorkspaceState(view: string, searchParams: URLSearchParams) {
-  "use no memo";
-
   const router = useRouter();
   const pathname = usePathname();
   const toast = usePortalToast() as PortalToastApi;
@@ -97,7 +98,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     jobCardFilter: initialUrlFilters.jobCardFilter,
     listFilters: initialUrlFilters.listFilters,
     modal: null,
-    passportExpiryByTraveller: {},
     pendingExpenseProofFiles: [],
     pendingProposalFiles: [],
     pendingQueryFiles: [],
@@ -122,7 +122,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     dateRange,
     jobCardFilter,
     listFilters,
-    passportExpiryByTraveller,
   } = workspace;
   const patchState = (patch: Partial<WorkspaceState>) => patchWorkspace(patch);
   const setModal = (value: StateUpdate<string | null>) =>
@@ -157,8 +156,27 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     patchState({ listFilters: resolveUpdate(value, listFilters) });
   const listFilterConfig = getListFilterConfig(view, { pipelineMode });
   const dateRangeArg = dateRangeQueryArg(dateRange);
+  const urlFilterSignature = searchParams.toString();
+  const deepLinkId = searchParams.get("id");
   const deepLinkOpen = searchParams.get("open");
+  const deepLinkQueryId = searchParams.get("queryId");
   const deepLinkHandledRef = useRef("");
+
+  useEffect(() => {
+    const restored = parseUrlFilterState(
+      new URLSearchParams(urlFilterSignature),
+      getListFilterConfig(view, { pipelineMode })
+    );
+    dispatchWorkspace({
+      patch: {
+        dateRange: restored.dateRange,
+        jobCardFilter: restored.jobCardFilter,
+        listFilters: restored.listFilters,
+        search: restored.search,
+      },
+      type: "patch",
+    });
+  }, [dispatchWorkspace, pipelineMode, urlFilterSignature, view]);
 
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
   const access = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
@@ -190,15 +208,19 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     flightItinerary,
     hotels,
     invoices,
+    jobCardDeletionOperations,
     jobCards,
     leaveBalances,
     leaveHeadApproverCandidates,
     leaves,
     notifications,
+    pagination,
     pnrs,
     proposals,
     queries,
     reports,
+    roomCountSummary,
+    searchPreparing,
     seats,
     staff,
     team,
@@ -212,10 +234,15 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     access,
     canFetch,
     dateRangeArg,
+    deepLinkId,
     deepLinkOpen,
+    deepLinkQueryId,
     form,
     has,
+    jobCardFilter,
+    listFilters,
     modal,
+    search,
     view,
   });
   const {
@@ -262,9 +289,10 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     getPassportDocument,
     getProposalAttachmentUrl,
     getQueryAttachmentUrl,
-    getTravellerPassportExpiryDates,
     markNotificationRead,
     markProposalSent: markProposalSentMutation,
+    moveContractingPipelineStageMutation,
+    moveSalesPipelineStageMutation,
     previewPassengerImport,
     removeApproval,
     removeExpense,
@@ -322,53 +350,16 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
   } = usePortalWorkspaceMutations();
 
   const canViewTravellers = Boolean(access?.permissions?.includes(P.VIEW_TRAVELLERS));
-
-  useEffect(() => {
-    if (!(canFetch && canViewTravellers)) {
-      return;
-    }
-    if (view !== "travellers" && view !== "passport") {
-      return;
-    }
-
-    let cancelled = false;
-    getTravellerPassportExpiryDates({ jobCardId: jobCardFilter || undefined })
-      .then((dates) => {
-        if (!cancelled) {
-          dispatchWorkspace({
-            patch: { passportExpiryByTraveller: dates || {} },
-            type: "patch",
-          });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          dispatchWorkspace({
-            patch: { passportExpiryByTraveller: {} },
-            type: "patch",
-          });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    canFetch,
-    canViewTravellers,
-    view,
-    jobCardFilter,
-    getTravellerPassportExpiryDates,
-    dispatchWorkspace,
-  ]);
-
+  const pipelineRoles = access?.roles ?? [];
+  const canMoveSalesPipeline = canMoveSalesPipelineForAccess(has(P.MANAGE_QUERIES), pipelineRoles);
+  const canMoveContractingPipeline = canMoveContractingPipelineForAccess(
+    has(P.MANAGE_PROPOSALS),
+    pipelineRoles
+  );
+  const moveContractingPipelineStage = moveContractingPipelineStageMutation;
+  const moveSalesPipelineStage = moveSalesPipelineStageMutation;
   const travellerRows = compactRows(travellers) as AnyRecord[];
-  const travellersWithPassportExpiry = Object.keys(passportExpiryByTraveller).length
-    ? travellerRows.map((row) => ({
-        ...row,
-        passportExpiryDate: passportExpiryByTraveller[row.id] ?? row.passportExpiryDate ?? "",
-      }))
-    : travellerRows;
+  const travellersWithPassportExpiry = travellerRows;
   const {
     filteredAccountsQueries,
     filteredActivity,
@@ -447,7 +438,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     jobCardFilter,
     listFilterConfig,
     listFilters,
-    modal,
     pathname,
     removeSavedView: removeSavedView as unknown as MutationLike,
     router,
@@ -529,22 +519,16 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
   ) => {
     setError("");
     const confirmMessage = options.confirmMessage || `Delete ${label}? This cannot be undone.`;
-    const ok = await confirm({
+    await confirm({
       confirmLabel: "Delete",
       danger: true,
       message: confirmMessage,
+      onConfirm: () =>
+        runMutation({ label, showToast: toast, successMessage: `${label} deleted` }, () =>
+          mutation(args)
+        ),
       title: "Delete record",
     });
-    if (!ok) {
-      return;
-    }
-    try {
-      await runMutation({ label, showToast: toast, successMessage: `${label} deleted` }, () =>
-        mutation(args)
-      );
-    } catch {
-      // Toast already shown by runMutation
-    }
   };
 
   const deleteSelected = async (
@@ -558,23 +542,16 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
       return false;
     }
     const noun = count === 1 ? entityLabel : `${entityLabel}s`;
-    const ok = await confirm({
+    return await confirm({
       confirmLabel: "Delete",
       danger: true,
       message: `Delete ${count} selected ${noun}? This cannot be undone.`,
+      onConfirm: () =>
+        runMutation({ showToast: toast, successMessage: `Deleted ${count} ${noun}` }, () =>
+          mutation(buildArgs())
+        ),
       title: "Delete selected",
     });
-    if (!ok) {
-      return false;
-    }
-    try {
-      await runMutation({ showToast: toast, successMessage: `Deleted ${count} ${noun}` }, () =>
-        mutation(buildArgs())
-      );
-      return true;
-    } catch {
-      return false;
-    }
   };
 
   const proposalById = (proposalId: string): AnyRecord | undefined =>
@@ -806,6 +783,8 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     attachProposalFile,
     attachQueryFile,
     canFetch,
+    canMoveContractingPipeline,
+    canMoveSalesPipeline,
     canViewTravellers,
     clearAllFilters,
     closeModal,
@@ -877,11 +856,11 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     getPassportDocument,
     getProposalAttachmentUrl,
     getQueryAttachmentUrl,
-    getTravellerPassportExpiryDates,
     has,
     hotels,
     invoices,
     isSaving,
+    jobCardDeletionOperations,
     jobCardFilter,
     jobCards,
     leaveBalances,
@@ -893,9 +872,11 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     markProposalSent,
     meta,
     modal,
+    moveContractingPipelineStage,
+    moveSalesPipelineStage,
     notifications,
     openModal,
-    passportExpiryByTraveller,
+    pagination,
     patchForm,
     pathname,
     pendingExpenseProofFiles,
@@ -939,6 +920,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     removeVisa,
     replaceFilterUrl,
     reports,
+    roomCountSummary,
     router,
     rows: workspaceRows,
     saveCurrentView,
@@ -946,6 +928,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     saveSeat,
     search,
     searchParams,
+    searchPreparing,
     seats,
     sendProposalToSales,
     session,

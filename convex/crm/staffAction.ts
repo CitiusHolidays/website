@@ -8,6 +8,10 @@ import { type ActionCtx, action, internalAction } from "../_generated/server";
 import { authComponent, createAuth } from "../betterAuth/auth";
 import { sendPasswordSetupEmail, sendVerificationEmail } from "../lib/betterAuthEmail";
 import { findAuthUserByEmail } from "../lib/betterAuthLookup";
+import {
+  staffOnboardingResultValidator,
+  successResultValidator,
+} from "./staffSettingsReturnContracts";
 
 function isExistingUserError(err: unknown) {
   const message =
@@ -202,7 +206,7 @@ export const startStaffOnboarding = action({
           result.step === "password_setup_sent"
             ? "Password setup email sent."
             : "Verification email sent. They must verify before setting a password.",
-        step: result.step,
+        step: result.step as "verification_sent" | "password_setup_sent",
       };
     }
 
@@ -238,7 +242,7 @@ export const startStaffOnboarding = action({
       });
       return {
         message: "Password setup email sent.",
-        step: "password_setup_sent",
+        step: "password_setup_sent" as const,
       };
     }
 
@@ -247,7 +251,7 @@ export const startStaffOnboarding = action({
       return {
         message:
           "Verification email sent. After they verify, they will receive a password setup link.",
-        step: "verification_sent",
+        step: "verification_sent" as const,
       };
     }
 
@@ -262,9 +266,10 @@ export const startStaffOnboarding = action({
 
     return {
       message: "Password setup email sent.",
-      step: "password_setup_sent",
+      step: "password_setup_sent" as const,
     };
   },
+  returns: staffOnboardingResultValidator,
 });
 
 /** @deprecated Use startStaffOnboarding — kept for compatibility */
@@ -285,6 +290,7 @@ export const adminSendResetEmail = action({
       throw new ConvexError("Failed to send reset password email");
     }
 
-    return { success: true };
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });

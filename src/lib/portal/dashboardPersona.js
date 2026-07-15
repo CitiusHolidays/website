@@ -4,6 +4,16 @@ import { PORTAL_PERMISSIONS as P } from "./constants";
 
 /** @typedef {'hero' | 'stats' | 'inbox' | 'pipeline' | 'workQueue' | 'readiness' | 'ticketingQueue' | 'queryTypes' | 'activity' | 'collapsible' | 'quickActions' | 'periodPresets'} DashboardSectionId */
 
+const FEATURED_METRIC_IDS = {
+  contracting: "proposalsSent",
+  director: "activeQueries",
+  finance: "outstanding",
+  hr: "pendingApprovals",
+  operations: "jobCardsOpen",
+  sales: "activeQueries",
+  ticketing: "ticketsPending",
+};
+
 /**
  * @param {(permission: string) => boolean} has
  * @param {{ permissions?: string[] }} [access]
@@ -139,6 +149,7 @@ export function resolveDashboardPersona(has, access = {}) {
 function persona(id, featuredMetricLabel, defaultQueryTab, sections) {
   return {
     defaultQueryTab,
+    featuredMetricId: FEATURED_METRIC_IDS[id],
     featuredMetricLabel,
     id,
     sections,

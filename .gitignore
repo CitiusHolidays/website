@@ -1,8 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
-/node_modules
-/.pnp
+# Dependencies
+node_modules/
+.pnp
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -10,61 +10,67 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+# Tests and reports
+coverage/
+playwright-report/
+test-results/
+blob-report/
 
-# next.js
+# Next.js and build output
 /.next/
 /out/
-
-# production
 /build
+dist/
+.turbo/
+.cache/
 
-# misc
+# OS and editor files
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.cursor/
+*.swp
+*.swo
+*~
+
+# Credentials and local environment
+.env*
+!.env.example
 *.pem
 
-# debug
+# Logs and process state
+*.log
+*.pid
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 .playwright-mcp/*
 
-# env files (can opt-in for committing if needed)
-.env
-.env.local
-!.env.example
-.cursor/*
-.vscode/*
-
-# worktrees
+# Local worktrees and planning evidence
 .worktrees/
 worktrees/
+.scratch/
 
-# vercel
-.vercel
+# Platform state
+.vercel/
+.sanity/
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
 
-# convex
-convex/_generated
-.convex
-docs/*
-!docs/PORTAL_ROLES_AND_ACCESS.md
-!docs/PORTAL_PERMISSIONS_ARCHITECTURE.md
-!docs/PORTAL_CRM_WORKFLOWS.md
-scripts
+# Convex
+convex/_generated/
+.convex/
 
-Agents.md
-.next-docs/*
-public/gallery/spiritual/newimages/*
+# Local agent/runtime state. Repository-owned settings and skills remain visible.
+.claude/hooks/
+.next-docs/
 
-bin/*
+# Local media staging inputs
+public/gallery/spiritual/newimages/
 
-.cursor/*
-.scratch/*
-.agents/*
-.claude/*
+.agents/
+.claude/

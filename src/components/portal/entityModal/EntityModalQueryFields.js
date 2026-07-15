@@ -14,6 +14,7 @@ import {
   TRAVEL_TYPES,
 } from "@/lib/portal/constants";
 import { getQueryTypeOptions } from "@/lib/portal/permissions";
+import { EntityModalFieldSection } from "./EntityModalFieldSection";
 
 const TICKETING_SCOPE_SELECT_OPTIONS = [
   { label: "Select Ticketing Scope...", value: "" },
@@ -24,23 +25,6 @@ const TRAVEL_IN_BATCHES_OPTIONS = [
   { label: "No", value: "No" },
   { label: "Yes", value: "Yes" },
 ];
-
-function QueryFieldSection({ children, description, eyebrow, title }) {
-  return (
-    <fieldset className="rounded-2xl border border-brand-border/80 bg-white p-4 shadow-[0_10px_32px_rgba(16,42,131,0.05)] sm:p-5">
-      <legend className="px-1">
-        <span className="block font-bold text-[length:var(--portal-label-size)] text-citius-orange uppercase tracking-[0.14em]">
-          {eyebrow}
-        </span>
-        <span className="mt-1 block font-heading font-semibold text-base text-brand-dark">
-          {title}
-        </span>
-      </legend>
-      <p className="mb-4 text-brand-muted text-xs leading-relaxed">{description}</p>
-      <div className="grid gap-4 md:grid-cols-2">{children}</div>
-    </fieldset>
-  );
-}
 
 export function EntityModalQueryFields({
   modal,
@@ -59,7 +43,7 @@ export function EntityModalQueryFields({
 
   return (
     <div className="space-y-4 md:col-span-2">
-      <QueryFieldSection
+      <EntityModalFieldSection
         description="Start with the person and source behind the enquiry. Required fields are marked with an asterisk."
         eyebrow="01 · Enquiry"
         title="Client and contact"
@@ -101,9 +85,9 @@ export function EntityModalQueryFields({
           ]}
           value={form.salesOwnerName}
         />
-      </QueryFieldSection>
+      </EntityModalFieldSection>
 
-      <QueryFieldSection
+      <EntityModalFieldSection
         description="Describe the travel request at the level needed for an initial sales and contracting review."
         eyebrow="02 · Trip brief"
         title="Travel requirements"
@@ -149,9 +133,9 @@ export function EntityModalQueryFields({
           type="number"
           value={form.budgetAmount}
         />
-      </QueryFieldSection>
+      </EntityModalFieldSection>
 
-      <QueryFieldSection
+      <EntityModalFieldSection
         description="Set the initial handoff context. These choices can still be updated through the existing assignment workflow."
         eyebrow="03 · Handoff"
         title="Delivery coordination"
@@ -192,9 +176,9 @@ export function EntityModalQueryFields({
             value={form.batchingNotes}
           />
         ) : null}
-      </QueryFieldSection>
+      </EntityModalFieldSection>
 
-      <QueryFieldSection
+      <EntityModalFieldSection
         description="Add only the context and source documents the delivery teams need for their first pass."
         eyebrow="04 · Context"
         title="Notes and files"
@@ -212,7 +196,7 @@ export function EntityModalQueryFields({
             onChange={setPendingQueryFiles}
           />
         </div>
-      </QueryFieldSection>
+      </EntityModalFieldSection>
     </div>
   );
 }

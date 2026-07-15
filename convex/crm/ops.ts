@@ -1,19 +1,35 @@
+import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import {
-  assertBulkDeleteLimit,
+  assertBulkDeleteMutationBatch,
   assertDateRangeOrder,
   canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
+  flushDeferredNotificationCleanup,
+  type NotificationEntityIdentity,
   notifyStaffMember,
   PERMISSIONS,
   type PortalAccess,
   requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
+import {
+  deletedCountResultValidator,
+  hotelIdResultValidator,
+  hotelListPageResultValidator,
+  tourManagerIdResultValidator,
+  tourManagerListPageResultValidator,
+} from "./operationsReturnContracts";
+import {
+  applyCrmCursorFilters,
+  boundedPaginationOptions,
+  compactPageItems,
+  mapInBoundedBatches,
+} from "./paginationPolicy";
 
 async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
   const job = await ctx.db.get(jobCardId);
@@ -57,38 +73,39 @@ function tourManagerNotificationBody(job: any, batch: any, reportingInstructions
 }
 
 export const listHotels = query({
-  args: {},
-  handler: async (ctx) => {
-    const [access, rows] = await Promise.all([
-      requireStaff(ctx, PERMISSIONS.VIEW_OPERATIONS),
-      ctx.db.query("hotels").collect(),
-    ]);
-    const result = await Promise.all(
-      rows
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .map(async (hotel) => {
-          const job = await getVisibleJob(ctx, access, hotel.jobCardId);
-          if (!job) {
-            return null;
-          }
-          return {
-            checkInDate: hotel.checkInDate ?? "",
-            checkOutDate: hotel.checkOutDate ?? "",
-            city: hotel.city ?? "",
-            clientName: job?.clientName ?? "",
-            createdAt: new Date(hotel.createdAt).toISOString(),
-            earlyCheckIn: hotel.earlyCheckIn ?? false,
-            id: hotel._id,
-            jobCardId: hotel.jobCardId,
-            jobCode: job?.jobCode ?? "",
-            lateCheckout: hotel.lateCheckout ?? false,
-            name: hotel.name,
-            specialInstructions: hotel.specialInstructions ?? "",
-          };
-        })
-    );
-    return result.filter(Boolean);
+  args: {
+    jobCardId: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
   },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_OPERATIONS);
+    const page = await applyCrmCursorFilters(
+      ctx.db.query("hotels").withIndex("by_createdAt").order("desc"),
+      { equals: { jobCardId: args.jobCardId } }
+    ).paginate(boundedPaginationOptions(args.paginationOpts));
+    const rows = await mapInBoundedBatches(page.page, async (hotel) => {
+      const job = await getVisibleJob(ctx, access, hotel.jobCardId);
+      if (!job) {
+        return null;
+      }
+      return {
+        checkInDate: hotel.checkInDate ?? "",
+        checkOutDate: hotel.checkOutDate ?? "",
+        city: hotel.city ?? "",
+        clientName: job?.clientName ?? "",
+        createdAt: new Date(hotel.createdAt).toISOString(),
+        earlyCheckIn: hotel.earlyCheckIn ?? false,
+        id: hotel._id,
+        jobCardId: hotel.jobCardId,
+        jobCode: job?.jobCode ?? "",
+        lateCheckout: hotel.lateCheckout ?? false,
+        name: hotel.name,
+        specialInstructions: hotel.specialInstructions ?? "",
+      };
+    });
+    return { ...page, page: compactPageItems(rows) };
+  },
+  returns: hotelListPageResultValidator,
 });
 
 export const createHotel = mutation({
@@ -133,6 +150,7 @@ export const createHotel = mutation({
     });
     return { id };
   },
+  returns: hotelIdResultValidator,
 });
 
 export const updateHotel = mutation({
@@ -202,9 +220,15 @@ export const updateHotel = mutation({
     });
     return { id: hotelId };
   },
+  returns: hotelIdResultValidator,
 });
 
-async function deleteHotelRecord(ctx: MutationCtx, access: PortalAccess, hotelId: Id<"hotels">) {
+async function deleteHotelRecord(
+  ctx: MutationCtx,
+  access: PortalAccess,
+  hotelId: Id<"hotels">,
+  deferredNotifications?: NotificationEntityIdentity[]
+) {
   const hotel = await ctx.db.get(hotelId);
   if (!hotel) {
     throw new ConvexError("Hotel not found");
@@ -220,7 +244,7 @@ async function deleteHotelRecord(ctx: MutationCtx, access: PortalAccess, hotelId
       entityType: "hotel",
       message: `${hotel.name} hotel deleted`,
     }),
-    deleteEntityNotifications(ctx, "hotel", hotelId),
+    deleteEntityNotifications(ctx, "hotel", hotelId, deferredNotifications),
     ctx.db.delete(hotelId),
   ]);
 }
@@ -238,6 +262,7 @@ export const removeHotel = mutation({
     await deleteHotelRecord(ctx, access, hotelId);
     return { id: hotelId };
   },
+  returns: hotelIdResultValidator,
 });
 
 export const removeManyHotels = mutation({
@@ -246,7 +271,7 @@ export const removeManyHotels = mutation({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.MANAGE_OPERATIONS);
-    assertBulkDeleteLimit(args.hotelIds.length);
+    assertBulkDeleteMutationBatch(args.hotelIds.length);
     const ids: Id<"hotels">[] = [];
     for (const raw of args.hotelIds) {
       const hotelId = ctx.db.normalizeId("hotels", raw);
@@ -255,48 +280,64 @@ export const removeManyHotels = mutation({
       }
       ids.push(hotelId);
     }
-    await Promise.all(ids.map((hotelId) => deleteHotelRecord(ctx, access, hotelId)));
+    const notifications: NotificationEntityIdentity[] = [];
+    await mapInBoundedBatches(
+      ids,
+      async (hotelId) => await deleteHotelRecord(ctx, access, hotelId, notifications),
+      4
+    );
+    await flushDeferredNotificationCleanup(ctx, notifications);
     return { deletedCount: ids.length };
   },
+  returns: deletedCountResultValidator,
 });
 
 export const listTourManagers = query({
-  args: {},
-  handler: async (ctx) => {
-    const [access, rows] = await Promise.all([
-      requireStaff(ctx, PERMISSIONS.VIEW_TOUR_MANAGERS),
-      ctx.db.query("tourManagerAssignments").collect(),
-    ]);
-    const result = await Promise.all(
-      rows
-        .sort((a, b) => b.createdAt - a.createdAt)
-        .map(async (row) => {
-          const job = row.jobCardId ? await getVisibleJob(ctx, access, row.jobCardId) : null;
-          if (row.jobCardId && !job) {
-            return null;
-          }
-          return {
-            availabilityDate: row.availabilityDate ?? "",
-            callingStatus: row.callingStatus,
-            createdAt: new Date(row.createdAt).toISOString(),
-            currentTour: job?.clientName ?? "",
-            email: row.email ?? "",
-            id: row._id,
-            jobCardId: row.jobCardId ?? null,
-            jobCode: job?.jobCode ?? "",
-            languages: row.languages ?? [],
-            name: row.name,
-            notes: row.notes ?? "",
-            phone: row.phone ?? "",
-            reportingInstructions: row.reportingInstructions ?? "",
-            staffId: row.staffId ?? "",
-            status: row.status,
-            travelBatchId: row.travelBatchId ?? null,
-          };
-        })
-    );
-    return result.filter(Boolean);
+  args: {
+    callingStatus: v.optional(v.string()),
+    jobCardId: v.optional(v.string()),
+    paginationOpts: paginationOptsValidator,
+    status: v.optional(v.string()),
   },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TOUR_MANAGERS);
+    const page = await applyCrmCursorFilters(
+      ctx.db.query("tourManagerAssignments").withIndex("by_createdAt").order("desc"),
+      {
+        equals: {
+          callingStatus: args.callingStatus,
+          jobCardId: args.jobCardId,
+          status: args.status,
+        },
+      }
+    ).paginate(boundedPaginationOptions(args.paginationOpts));
+    const rows = await mapInBoundedBatches(page.page, async (row) => {
+      const job = row.jobCardId ? await getVisibleJob(ctx, access, row.jobCardId) : null;
+      if (row.jobCardId && !job) {
+        return null;
+      }
+      return {
+        availabilityDate: row.availabilityDate ?? "",
+        callingStatus: row.callingStatus,
+        createdAt: new Date(row.createdAt).toISOString(),
+        currentTour: job?.clientName ?? "",
+        email: row.email ?? "",
+        id: row._id,
+        jobCardId: row.jobCardId ?? null,
+        jobCode: job?.jobCode ?? "",
+        languages: row.languages ?? [],
+        name: row.name,
+        notes: row.notes ?? "",
+        phone: row.phone ?? "",
+        reportingInstructions: row.reportingInstructions ?? "",
+        staffId: row.staffId ?? ("" as const),
+        status: row.status,
+        travelBatchId: row.travelBatchId ?? null,
+      };
+    });
+    return { ...page, page: compactPageItems(rows) };
+  },
+  returns: tourManagerListPageResultValidator,
 });
 
 export async function createTourManagerForTest(
@@ -407,6 +448,7 @@ export const createTourManager = mutation({
   },
   handler: async (ctx, args) =>
     createTourManagerForTest(ctx, args, await requireHeadOrAdmin(ctx, ["Operations Head"])),
+  returns: tourManagerIdResultValidator,
 });
 
 export async function updateTourManagerForTest(
@@ -613,12 +655,14 @@ export const updateTourManager = mutation({
   },
   handler: async (ctx, args) =>
     updateTourManagerForTest(ctx, args, await requireHeadOrAdmin(ctx, ["Operations Head"])),
+  returns: tourManagerIdResultValidator,
 });
 
 async function deleteTourManagerRecord(
   ctx: MutationCtx,
   access: PortalAccess,
-  id: Id<"tourManagerAssignments">
+  id: Id<"tourManagerAssignments">,
+  deferredNotifications?: NotificationEntityIdentity[]
 ) {
   const tourManager = await ctx.db.get(id);
   if (!tourManager) {
@@ -644,7 +688,7 @@ async function deleteTourManagerRecord(
       entityType: "tourManager",
       message: `${tourManager.name} deleted`,
     }),
-    deleteEntityNotifications(ctx, "tourManager", id),
+    deleteEntityNotifications(ctx, "tourManager", id, deferredNotifications),
     ctx.db.delete(id),
   ]);
 }
@@ -662,6 +706,7 @@ export const removeTourManager = mutation({
     await deleteTourManagerRecord(ctx, access, id);
     return { id };
   },
+  returns: tourManagerIdResultValidator,
 });
 
 export const removeManyTourManagers = mutation({
@@ -670,7 +715,7 @@ export const removeManyTourManagers = mutation({
   },
   handler: async (ctx, args) => {
     const access = await requireHeadOrAdmin(ctx, ["Operations Head"]);
-    assertBulkDeleteLimit(args.tourManagerIds.length);
+    assertBulkDeleteMutationBatch(args.tourManagerIds.length);
     const ids: Id<"tourManagerAssignments">[] = [];
     for (const raw of args.tourManagerIds) {
       const id = ctx.db.normalizeId("tourManagerAssignments", raw);
@@ -679,7 +724,14 @@ export const removeManyTourManagers = mutation({
       }
       ids.push(id);
     }
-    await Promise.all(ids.map((id) => deleteTourManagerRecord(ctx, access, id)));
+    const notifications: NotificationEntityIdentity[] = [];
+    await mapInBoundedBatches(
+      ids,
+      async (id) => await deleteTourManagerRecord(ctx, access, id, notifications),
+      4
+    );
+    await flushDeferredNotificationCleanup(ctx, notifications);
     return { deletedCount: ids.length };
   },
+  returns: deletedCountResultValidator,
 });
