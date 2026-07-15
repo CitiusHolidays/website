@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "convexAwareBuildCommand": "bunx convex deploy --cmd 'bun --bun next build'",
+  "convexAwareBuildCommand": "bunx convex deploy --cmd 'bun run build'",
   "requiredCiCommands": [
     "bun install --frozen-lockfile",
     "bun test",
