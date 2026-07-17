@@ -19,3 +19,9 @@ Color and shadow hover feedback may remain available on touch. Decorative transl
 The global `prefers-reduced-motion: reduce` rule collapses transition and animation duration and removes active-control transforms. The portal command palette is mounted and unmounted without backdrop or panel open/close animation; only direct hover, selection, and press feedback inside the already-open palette may transition.
 
 `src/transitionPolicy.contract.test.ts` enforces these boundaries.
+
+## Portal CRM motion
+
+Portal toasts, entity/import modals, confirm dialogs, and list-toolbar filter expand use Motion with **GPU `transform` strings** only — not `x`, `y`, `scale`, or `scaleY` shorthand props on `animate` / `initial` / `exit`. Toasts enter and exit from the same bottom edge (`translateY(100%)`). JS-driven portal motion must branch on `useReducedMotion()`; do not rely on the global 1ms CSS override alone.
+
+The command palette still mounts and unmounts **without** open/close animation. Sidebar active-route indication is static (no `layoutId` spring). Contract tests in `src/transitionPolicy.contract.test.ts` cover these portal rules.

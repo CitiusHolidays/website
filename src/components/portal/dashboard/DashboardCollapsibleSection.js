@@ -25,6 +25,18 @@ function persistCollapseOpen(key, open) {
   }
 }
 
+function CollapsiblePanelBody({ open, children }) {
+  return (
+    <div
+      className={`grid transition-[grid-template-rows,opacity] duration-200 ease-[var(--portal-ease-out)] motion-reduce-spatial ${
+        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+      }`}
+    >
+      <div className="min-h-0 overflow-hidden">{children}</div>
+    </div>
+  );
+}
+
 export function DashboardCollapsibleSection({
   departmentWorkflow,
   myTeam,
@@ -57,13 +69,13 @@ export function DashboardCollapsibleSection({
             >
               <span>Department workflow</span>
               <ChevronDown
-                className={`shrink-0 transition ${workflowOpen ? "rotate-180" : ""}`}
+                className={`shrink-0 transition-transform duration-200 ease-[var(--portal-ease-out)] ${workflowOpen ? "rotate-180" : ""}`}
                 size={18}
               />
             </button>
           }
         >
-          {workflowOpen ? (
+          <CollapsiblePanelBody open={workflowOpen}>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               {departmentWorkflow.map((item) => (
                 <DashboardProgress
@@ -73,7 +85,7 @@ export function DashboardCollapsibleSection({
                 />
               ))}
             </div>
-          ) : null}
+          </CollapsiblePanelBody>
         </DashboardPanel>
       ) : null}
       {showTeam && myTeam?.length > 0 ? (
@@ -93,13 +105,13 @@ export function DashboardCollapsibleSection({
             >
               <span>My team</span>
               <ChevronDown
-                className={`shrink-0 transition ${teamOpen ? "rotate-180" : ""}`}
+                className={`shrink-0 transition-transform duration-200 ease-[var(--portal-ease-out)] ${teamOpen ? "rotate-180" : ""}`}
                 size={18}
               />
             </button>
           }
         >
-          {teamOpen ? (
+          <CollapsiblePanelBody open={teamOpen}>
             <div className="grid gap-3 sm:grid-cols-2">
               {myTeam.map((member) => (
                 <div
@@ -116,7 +128,7 @@ export function DashboardCollapsibleSection({
                 </div>
               ))}
             </div>
-          ) : null}
+          </CollapsiblePanelBody>
         </DashboardPanel>
       ) : null}
     </div>

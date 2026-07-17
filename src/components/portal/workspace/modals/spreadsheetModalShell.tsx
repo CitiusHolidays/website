@@ -1,9 +1,11 @@
 "use client";
 
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import type { ChangeEvent, ReactNode } from "react";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import type { SpreadsheetImportIssueRow } from "./spreadsheetModalRuntime";
+
+const PORTAL_EASE_OUT = [0.23, 1, 0.32, 1];
 
 export function ImportModalShell({
   open,
@@ -18,6 +20,12 @@ export function ImportModalShell({
   subtitle?: string;
   title: string;
 }) {
+  const shouldReduceMotion = useReducedMotion();
+  const panelTransform = "translateY(0) scale(1)";
+  const panelHiddenTransform = shouldReduceMotion
+    ? panelTransform
+    : "translateY(18px) scale(0.96)";
+
   return (
     <AnimatePresence>
       {open && (
@@ -26,12 +34,15 @@ export function ImportModalShell({
           className={`fixed inset-0 ${PORTAL_Z.importModal} flex items-center justify-center bg-slate-950/65 p-4`}
           exit={{ opacity: 0 }}
           initial={{ opacity: 0 }}
+          key="import-modal"
+          transition={{ duration: 0.2, ease: PORTAL_EASE_OUT }}
         >
           <m.div
-            animate={{ opacity: 1, scale: 1, y: 0 }}
+            animate={{ opacity: 1, transform: panelTransform }}
             className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-brand-border bg-white p-5 shadow-2xl md:p-6"
-            exit={{ opacity: 0, scale: 0.96, y: 18 }}
-            initial={{ opacity: 0, scale: 0.96, y: 18 }}
+            exit={{ opacity: 0, transform: panelHiddenTransform }}
+            initial={{ opacity: 0, transform: panelHiddenTransform }}
+            transition={{ duration: 0.25, ease: PORTAL_EASE_OUT }}
           >
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>

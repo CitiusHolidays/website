@@ -534,7 +534,7 @@ export function PipelineView({
           // biome-ignore lint/a11y/noNoninteractiveElementInteractions: Native drop zones require drag events; cards retain separate native keyboard controls.
           <section
             aria-label={`${stage} stage`}
-            className={`min-h-36 rounded-2xl border bg-white p-4 shadow-sm ${
+            className={`min-h-36 rounded-2xl border bg-white p-4 shadow-sm transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] ${
               activeDropStage === stage
                 ? "border-citius-blue ring-2 ring-citius-blue/30"
                 : "border-brand-border"

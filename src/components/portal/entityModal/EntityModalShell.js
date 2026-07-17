@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2, Loader2, X } from "lucide-react";
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
 import { LifecycleDates } from "@/components/portal/PortalModalForm";
 import {
@@ -14,6 +14,8 @@ import { EntityModalFieldSection } from "./EntityModalFieldSection";
 import { EntityModalFieldsPrimary } from "./EntityModalFieldsPrimary";
 import { EntityModalFieldsSecondary } from "./EntityModalFieldsSecondary";
 import { getEntityModalSectionMeta } from "./entityModalSectionMeta";
+
+const PORTAL_EASE_OUT = [0.23, 1, 0.32, 1];
 
 export function EntityModalShell({
   modal,
@@ -28,8 +30,13 @@ export function EntityModalShell({
   primaryProps,
   secondaryProps,
 }) {
+  const shouldReduceMotion = useReducedMotion();
   const formRef = useRef(null);
   const errorRef = useRef(null);
+  const modalTransform = "translateY(0) scale(1)";
+  const modalHiddenTransform = shouldReduceMotion
+    ? modalTransform
+    : "translateY(24px) scale(0.98)";
 
   useEffect(() => {
     if (!modal) {
@@ -119,19 +126,19 @@ export function EntityModalShell({
           onClick={close}
         >
           <m.form
-            animate={{ opacity: 1, scale: 1, y: 0 }}
+            animate={{ opacity: 1, transform: modalTransform }}
             aria-describedby={error ? "portal-entity-modal-error" : undefined}
             aria-labelledby="portal-entity-modal-title"
             aria-modal="true"
             className={`flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none`}
-            exit={{ opacity: 0, scale: 0.98, y: 24 }}
-            initial={{ opacity: 0, scale: 0.98, y: 24 }}
+            exit={{ opacity: 0, transform: modalHiddenTransform }}
+            initial={{ opacity: 0, transform: modalHiddenTransform }}
             onClick={(event) => event.stopPropagation()}
             onKeyDown={handleDialogKeyDown}
             onSubmit={submit}
             ref={formRef}
             role="dialog"
-            transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+            transition={{ duration: 0.25, ease: PORTAL_EASE_OUT }}
           >
             <div className="flex shrink-0 items-center justify-between gap-4 border-brand-border border-b bg-white px-5 py-4 max-sm:px-4">
               <div>
@@ -157,18 +164,31 @@ export function EntityModalShell({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 max-sm:px-4 max-sm:py-5">
-              {error && (
-                <div
-                  aria-live="assertive"
-                  className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm outline-none focus:ring-2 focus:ring-red-300"
-                  id="portal-entity-modal-error"
-                  ref={errorRef}
-                  role="alert"
-                  tabIndex={-1}
-                >
-                  {error}
-                </div>
-              )}
+              <AnimatePresence>
+                {error ? (
+                  <m.div
+                    animate={{ opacity: 1, transform: "translateY(0)" }}
+                    aria-live="assertive"
+                    className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm outline-none focus:ring-2 focus:ring-red-300"
+                    exit={{
+                      opacity: 0,
+                      transform: shouldReduceMotion ? "translateY(0)" : "translateY(-4px)",
+                    }}
+                    id="portal-entity-modal-error"
+                    initial={{
+                      opacity: 0,
+                      transform: shouldReduceMotion ? "translateY(0)" : "translateY(-4px)",
+                    }}
+                    key="entity-modal-error"
+                    ref={errorRef}
+                    role="alert"
+                    tabIndex={-1}
+                    transition={{ duration: 0.16, ease: PORTAL_EASE_OUT }}
+                  >
+                    {error}
+                  </m.div>
+                ) : null}
+              </AnimatePresence>
               {(modal === "query" || modal === "queryStatus") && lifecycleQuery && (
                 <LifecycleDates
                   items={[

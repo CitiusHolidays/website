@@ -462,9 +462,10 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                         <Bell size={17} />
                         {unreadCount > 0 && (
                           <m.span
-                            animate={{ opacity: 1, scale: 1 }}
+                            animate={{ opacity: 1, transform: "scale(1)" }}
                             className="absolute -top-1 -right-1 min-w-5 rounded-full bg-citius-blue px-1.5 text-center font-bold text-[10px] text-white tabular-nums leading-5 shadow-sm"
-                            initial={{ opacity: 0, scale: 0.95 }}
+                            initial={{ opacity: 0, transform: "scale(0.95)" }}
+                            transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
                           >
                             {unreadCount > 99 ? "99+" : unreadCount}
                           </m.span>
@@ -759,11 +760,7 @@ function PortalNav({
                             onClick={onNavigate}
                           >
                             {active && (
-                              <m.span
-                                className="absolute inset-y-1 left-0 w-1 rounded-full bg-citius-orange"
-                                layoutId="portalNavActive"
-                                transition={{ damping: 30, stiffness: 380, type: "spring" }}
-                              />
+                              <span className="absolute inset-y-1 left-0 w-1 rounded-full bg-citius-orange" />
                             )}
                             <span className="pl-2">{item.label}</span>
                           </Link>

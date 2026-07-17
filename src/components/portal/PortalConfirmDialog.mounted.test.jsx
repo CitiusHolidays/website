@@ -16,9 +16,31 @@ beforeAll(() => {
   globalThis.Node = dom.window.Node;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  const matchMedia = (query) => ({
+    addEventListener: () => {},
+    addListener: () => {},
+    dispatchEvent: () => false,
+    matches: /prefers-reduced-motion:\s*reduce/.test(String(query)),
+    media: String(query),
+    onchange: null,
+    removeEventListener: () => {},
+    removeListener: () => {},
+  });
+  dom.window.matchMedia = matchMedia;
+  globalThis.matchMedia = matchMedia;
 });
 
 afterAll(() => dom.window.close());
+
+function renderHarness(root, props) {
+  return act(async () =>
+    root.render(
+      <PortalConfirmProvider>
+        <Harness {...props} />
+      </PortalConfirmProvider>
+    )
+  );
+}
 
 function deferred() {
   let reject;
@@ -59,13 +81,7 @@ describe("mounted portal confirmation", () => {
     document.body.append(container);
     const root = createRoot(container);
     let result;
-    await act(async () =>
-      root.render(
-        <PortalConfirmProvider>
-          <Harness action={undefined} onResult={(value) => (result = value)} />
-        </PortalConfirmProvider>
-      )
-    );
+    await renderHarness(root, { action: undefined, onResult: (value) => (result = value) });
     const trigger = container.querySelector("button");
     trigger.focus();
     await act(async () => trigger.click());
@@ -115,13 +131,10 @@ describe("mounted portal confirmation", () => {
       }
       await firstAttempt.promise;
     };
-    await act(async () =>
-      root.render(
-        <PortalConfirmProvider>
-          <Harness action={action} onResult={(value) => (result = value)} />
-        </PortalConfirmProvider>
-      )
-    );
+    await renderHarness(root, {
+      action,
+      onResult: (value) => (result = value),
+    });
     const trigger = container.querySelector("button");
     trigger.focus();
     await act(async () => trigger.click());

@@ -139,12 +139,12 @@ export default function PortalListToolbar({
       <AnimatePresence initial={false}>
         {showFilterRow ? (
           <m.div
-            animate={{ opacity: 1, scaleY: 1 }}
+            animate={{ opacity: 1, transform: "scaleY(1)" }}
             className="overflow-hidden"
-            exit={{ opacity: 0, scaleY: 0.96 }}
-            initial={{ opacity: 0, scaleY: 0.96 }}
+            exit={{ opacity: 0, transform: "scaleY(0.96)" }}
+            initial={{ opacity: 0, transform: "scaleY(0.96)" }}
             key="filters"
-            style={{ originY: 0 }}
+            style={{ transformOrigin: "top" }}
             transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
           >
             <div className="mt-2 flex flex-wrap items-center gap-2 border-brand-border/60 border-t pt-2">

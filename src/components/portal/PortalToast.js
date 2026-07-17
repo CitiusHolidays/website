@@ -1,8 +1,11 @@
 "use client";
 
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { createContext, use, useReducer } from "react";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
+
+const PORTAL_EASE_OUT = [0.23, 1, 0.32, 1];
+const TOAST_TRANSITION = { duration: 0.2, ease: PORTAL_EASE_OUT };
 
 const PortalToastContext = createContext(null);
 
@@ -17,6 +20,12 @@ function toastReducer(state, action) {
 }
 
 function ToastItem({ toast, onDismiss }) {
+  const shouldReduceMotion = useReducedMotion();
+  const settledTransform = "translateY(0) scale(1)";
+  const offscreenTransform = shouldReduceMotion
+    ? settledTransform
+    : "translateY(100%) scale(0.98)";
+
   const toneClass =
     toast.tone === "error"
       ? "border-red-200 bg-red-50 text-red-800"
@@ -26,14 +35,17 @@ function ToastItem({ toast, onDismiss }) {
 
   return (
     <m.div
-      animate={{ opacity: 1, scale: 1, y: 0 }}
+      animate={{ opacity: 1, transform: settledTransform }}
       aria-live="polite"
       className={`pointer-events-auto max-w-sm rounded-xl border px-4 py-3 text-sm shadow-lg ${toneClass}`}
-      exit={{ opacity: 0, scale: 0.98, y: -4 }}
-      initial={{ opacity: 0, scale: 0.98, y: 8 }}
-      layout
+      exit={{
+        opacity: 0,
+        transform: offscreenTransform,
+        transition: { duration: 0.15, ease: PORTAL_EASE_OUT },
+      }}
+      initial={{ opacity: 0, transform: offscreenTransform }}
       role="status"
-      transition={{ duration: 0.2 }}
+      transition={TOAST_TRANSITION}
     >
       <div className="flex items-start justify-between gap-3">
         <span>{toast.message}</span>
@@ -77,7 +89,7 @@ export function PortalToastProvider({ children }) {
         aria-label="Toast messages"
         className={`portal-toast-safe-area pointer-events-none fixed ${PORTAL_Z.toast} flex w-auto max-w-sm flex-col gap-2 sm:w-full`}
       >
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence>
           {toasts.map((toast) => (
             <ToastItem key={toast.id} onDismiss={dismiss} toast={toast} />
           ))}
