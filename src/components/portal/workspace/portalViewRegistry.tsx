@@ -1,27 +1,34 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { DashboardView } from "@/components/portal/dashboard/DashboardView";
 import type { PipelineMode } from "@/components/portal/pipeline/PipelineView";
-import { PipelineView } from "@/components/portal/pipeline/PipelineView";
 import { canAssignTourManagers, canHeadAssignQueryTeams } from "@/lib/portal/permissions";
-import { AccountsJobCardView } from "./accounts/AccountsJobCardView";
-import { ActivityView } from "./admin/ActivityView";
-import { ApprovalsView } from "./admin/ApprovalsView";
-import { ExpensesView } from "./admin/ExpensesView";
-import { FinanceView } from "./admin/FinanceView";
-import { LeaveView } from "./admin/LeaveView";
-import { ReportsView } from "./admin/ReportsView";
-import { SettingsView } from "./admin/SettingsView";
-import { TeamView } from "./admin/TeamView";
-import { ContractingView } from "./ContractingView";
-import { HotelRoomingView } from "./operations/HotelRoomingView";
-import { JobCardsView } from "./operations/JobCardsView";
-import { PassportDocumentsView } from "./operations/PassportDocumentsView";
-import { TourManagersView } from "./operations/TourManagersView";
-import { TravellersView } from "./operations/TravellersView";
-import { VisaTrackingView } from "./operations/VisaTrackingView";
-import { ProposalsView } from "./ProposalsView";
+import {
+  AccountsJobCardView,
+  ActivityView,
+  ApprovalsView,
+  ContractingView,
+  DashboardView,
+  ExpensesView,
+  FinanceView,
+  HotelRoomingView,
+  JobCardsView,
+  LeaveView,
+  PassportDocumentsView,
+  PipelineView,
+  PnrView,
+  ProposalsView,
+  QueriesView,
+  ReportsView,
+  SeatView,
+  SettingsView,
+  TeamView,
+  TicketDashboardView,
+  TicketsView,
+  TourManagersView,
+  TravellersView,
+  VisaTrackingView,
+} from "./portalLazyViews";
 import type { PortalViewRegistryInputs } from "./portalViewRegistryInputs";
 import type {
   AccountsJobCardViewProps,
@@ -63,11 +70,6 @@ import type {
   SettingsViewProps,
   TeamViewProps,
 } from "./portalViewTypes";
-import { QueriesView } from "./QueriesView";
-import { PnrView } from "./ticketing/PnrView";
-import { SeatView } from "./ticketing/SeatView";
-import { TicketDashboardView } from "./ticketing/TicketDashboardView";
-import { TicketsView } from "./ticketing/TicketsView";
 
 export const CORE_PORTAL_VIEW_IDS = ["dashboard", "pipeline", "accounts-job-cards"] as const;
 

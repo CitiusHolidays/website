@@ -84,6 +84,10 @@ export function getNotificationHref(args: NotificationPathInput) {
       params.set("open", "approval");
       params.set("id", args.entityId);
       return `/portal/approvals?${params}`;
+    case "inboundQueryIntent":
+      params.set("open", "query");
+      params.set("inboundIntentId", args.entityId);
+      return `/portal/queries?${params}`;
     default:
       return "/portal/activity";
   }

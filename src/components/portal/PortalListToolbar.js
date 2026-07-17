@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, Filter, Search } from "lucide-react";
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
 import { PortalListFilters } from "@/components/portal/PortalListFilters";
@@ -44,6 +44,7 @@ export default function PortalListToolbar({
   resultsPartial = false,
   defaultFiltersOpen = false,
 }) {
+  const shouldReduceMotion = useReducedMotion();
   const filterControlCount = countFilterControls({
     listFilterConfig,
     showJobCardFilter,
@@ -95,7 +96,7 @@ export default function PortalListToolbar({
           {collapsibleFilters && hasFilterControls ? (
             <button
               aria-expanded={filtersOpen}
-              className={`portal-toolbar-btn border border-brand-border bg-white text-brand-dark transition-[scale,color,background-color,border-color] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/30 active:scale-[0.96] ${
+              className={`portal-toolbar-btn h-11 border border-brand-border bg-white text-brand-dark transition-[scale,color,background-color,border-color] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/30 active:scale-[0.96] ${
                 filtersOpen ? "border-citius-blue text-citius-blue" : ""
               }`}
               onClick={() => setFiltersOpen((open) => !open)}
@@ -139,15 +140,27 @@ export default function PortalListToolbar({
       <AnimatePresence initial={false}>
         {showFilterRow ? (
           <m.div
-            animate={{ opacity: 1, transform: "scaleY(1)" }}
+            animate={
+              shouldReduceMotion
+                ? { opacity: 1 }
+                : { opacity: 1, transform: "scaleY(1)" }
+            }
             className="overflow-hidden"
-            exit={{ opacity: 0, transform: "scaleY(0.96)" }}
-            initial={{ opacity: 0, transform: "scaleY(0.96)" }}
+            exit={
+              shouldReduceMotion
+                ? { opacity: 0 }
+                : { opacity: 0, transform: "scaleY(0.96)" }
+            }
+            initial={
+              shouldReduceMotion
+                ? { opacity: 0 }
+                : { opacity: 0, transform: "scaleY(0.96)" }
+            }
             key="filters"
             style={{ transformOrigin: "top" }}
-            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+            transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
           >
-            <div className="mt-2 flex flex-wrap items-center gap-2 border-brand-border/60 border-t pt-2">
+            <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 border-brand-border/60 border-t pt-2">
               {showPeriodFilter ? (
                 <PortalDateRangeFilter
                   compact
@@ -161,7 +174,7 @@ export default function PortalListToolbar({
                   <span className="sr-only">Job Card</span>
                   <select
                     aria-label="Filter by job card"
-                    className="portal-toolbar-control portal-period-select h-9 w-44 appearance-none rounded-lg border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
+                    className="portal-toolbar-control portal-period-select h-11 min-w-[11rem] w-auto max-w-full appearance-none rounded-lg border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
                     onChange={(event) => setJobCardFilter(event.target.value)}
                     value={jobCardFilter}
                   >
@@ -190,7 +203,7 @@ export default function PortalListToolbar({
               />
               {onClearAllFilters ? (
                 <button
-                  className={`portal-small-btn shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96] ${
+                  className={`portal-small-btn h-11 shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96] ${
                     filtersActive ? "" : "pointer-events-none invisible"
                   }`}
                   disabled={!filtersActive}

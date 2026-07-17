@@ -1,4 +1,5 @@
 import type { Id } from "../_generated/dataModel";
+import { v } from "convex/values";
 import { query } from "../_generated/server";
 import type { JobCardStatus } from "./jobCardConstants";
 import {
@@ -11,6 +12,7 @@ import {
   requireStaff,
   resolvePortalDateRange,
   shouldApplyCementScope,
+  isHead,
 } from "./lib";
 import { aggregateMetric, loadMetricTotals, type MetricValues } from "./metricAggregates";
 import { getNotificationHref } from "./notificationPaths";
@@ -242,6 +244,185 @@ export function buildUrgentActions({
   return actions.slice(0, 8);
 }
 
+function daysSinceIso(iso: string | undefined, referenceNow: number) {
+  if (!iso) {
+    return null;
+  }
+  const timestamp = Date.parse(iso);
+  if (Number.isNaN(timestamp)) {
+    return null;
+  }
+  return Math.max(0, Math.floor((referenceNow - timestamp) / 86_400_000));
+}
+
+export function buildOwnedWorkSla(
+  urgentActions: ReturnType<typeof buildUrgentActions>,
+  referenceNow: number,
+  headItems: Array<{
+    count: number;
+    href: string;
+    label: string;
+    oldestDays: number | null;
+  }> = []
+) {
+  const typeLabels: Record<string, string> = {
+    accounts: "Job cards to open",
+    approvals: "Approvals pending",
+    finance: "Overdue invoices",
+    ticketing: "Ticketing follow-ups",
+  };
+  const buckets = new Map<
+    string,
+    { count: number; href: string; label: string; oldestDays: number | null }
+  >();
+
+  for (const action of urgentActions) {
+    const existing = buckets.get(action.type);
+    const oldestDays = daysSinceIso(action.createdAt, referenceNow);
+    if (!existing) {
+      buckets.set(action.type, {
+        count: 1,
+        href: action.href,
+        label: typeLabels[action.type] ?? action.type,
+        oldestDays,
+      });
+      continue;
+    }
+    existing.count += 1;
+    if (
+      oldestDays !== null &&
+      (existing.oldestDays === null || oldestDays > existing.oldestDays)
+    ) {
+      existing.oldestDays = oldestDays;
+    }
+  }
+
+  const items = [
+    ...headItems,
+    ...Array.from(buckets.values()).sort((left, right) => right.count - left.count),
+  ].slice(0, 5);
+  const oldestDays = items.reduce<number | null>((oldest, item) => {
+    if (item.oldestDays === null) {
+      return oldest;
+    }
+    return oldest === null ? item.oldestDays : Math.max(oldest, item.oldestDays);
+  }, null);
+
+  return {
+    items,
+    oldestDays,
+    totalOpen: items.reduce((sum, item) => sum + item.count, 0),
+  };
+}
+
+export function buildHeadAssignmentSlaItems(
+  access: { roles: string[] },
+  queries: Array<{
+    _id: string;
+    queryCode: string;
+    salesStatus: string;
+    contractingOwnerId?: string;
+    ticketingOwnerId?: string;
+  }>,
+  jobCards: Array<{
+    _id: string;
+    jobCode: string;
+    status: string;
+    operationsOwnerId?: string;
+  }>
+) {
+  if (!isHead(access as Parameters<typeof isHead>[0])) {
+    return [];
+  }
+  const items: Array<{
+    count: number;
+    entityId: string;
+    entityType: "query" | "jobCard";
+    href: string;
+    label: string;
+    oldestDays: null;
+  }> = [];
+  const closedSales = new Set(["Order Confirmed", "Order Lost"]);
+  const roles = new Set(access.roles);
+
+  if (roles.has("Contracting Head") || roles.has("Admin") || roles.has("Directors")) {
+    for (const query of queries) {
+      if (items.length >= 5) {
+        break;
+      }
+      if (closedSales.has(query.salesStatus) || query.contractingOwnerId) {
+        continue;
+      }
+      const entityId = String(query._id);
+      items.push({
+        count: 1,
+        entityId,
+        entityType: "query",
+        href: getNotificationHref({
+          entityId,
+          entityType: "query",
+          title: "Query ready for assignment",
+        }),
+        label: `${query.queryCode} — assign Contracting SPOC`,
+        oldestDays: null,
+      });
+    }
+  }
+
+  if (roles.has("Operations Head") || roles.has("Admin") || roles.has("Directors")) {
+    for (const job of jobCards) {
+      if (items.length >= 5) {
+        break;
+      }
+      if (job.status === "Closed" || job.operationsOwnerId) {
+        continue;
+      }
+      const entityId = String(job._id);
+      items.push({
+        count: 1,
+        entityId,
+        entityType: "jobCard",
+        href: getNotificationHref({
+          entityId,
+          entityType: "jobCard",
+          title: "Assign operations owner",
+        }),
+        label: `${job.jobCode} — assign Operations owner`,
+        oldestDays: null,
+      });
+    }
+  }
+
+  if (roles.has("Head of Ticketing") || roles.has("Admin") || roles.has("Directors")) {
+    for (const query of queries) {
+      if (items.length >= 5) {
+        break;
+      }
+      if (closedSales.has(query.salesStatus) || query.ticketingOwnerId) {
+        continue;
+      }
+      if (query.salesStatus !== "Order Confirmed") {
+        continue;
+      }
+      const entityId = String(query._id);
+      items.push({
+        count: 1,
+        entityId,
+        entityType: "query",
+        href: getNotificationHref({
+          entityId,
+          entityType: "query",
+          title: "Assign ticketing owner",
+        }),
+        label: `${query.queryCode} — assign Ticketing SPOC`,
+        oldestDays: null,
+      });
+    }
+  }
+
+  return items;
+}
+
 export function buildPipelineSnapshot(
   queries: Array<{ leadStage?: string; budgetAmount?: number }>
 ) {
@@ -307,6 +488,7 @@ export function buildOverdueInvoices({
 export const getPortalSummary = query({
   args: {
     dateRange: portalDateRangeValidator,
+    referenceNow: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
@@ -326,7 +508,7 @@ export const getPortalSummary = query({
       staff,
       activities,
     ] = await Promise.all([
-      loadMetricTotals(ctx, aggregateScope, dateRange),
+      loadMetricTotals(ctx, aggregateScope, dateRange, args.referenceNow),
       boundedDashboardRows(ctx, "queries", dateRange),
       boundedDashboardRows(ctx, "proposals", dateRange),
       boundedDashboardRows(ctx, "jobCards", dateRange),
@@ -343,6 +525,8 @@ export const getPortalSummary = query({
         .order("desc")
         .take(RECENT_ACTIVITY_LIMIT),
     ]);
+    const referenceNow =
+      args.referenceNow ?? aggregate.updatedAt ?? aggregate.readiness.lastCompletedAt ?? 0;
     let queries = filterRecordsByDateRange(allQueriesRaw, dateRange);
     let proposals = filterRecordsByDateRange(allProposalsRaw, dateRange);
     let jobCards = filterRecordsByDateRange(allJobCardsRaw, dateRange);
@@ -434,7 +618,7 @@ export const getPortalSummary = query({
       (sum, invoice) => sum + Math.max(invoice.balanceAmount ?? 0, 0),
       0
     );
-    const nowDate = new Date().toISOString().slice(0, 10);
+    const nowDate = new Date(referenceNow).toISOString().slice(0, 10);
     const revenuePipeline = invoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
     const activeQueryRecords = queries.filter(isActiveQuery);
     const confirmedQueryRecords = queries.filter(isConfirmedQuery);
@@ -480,8 +664,8 @@ export const getPortalSummary = query({
     const last30Range = { from: daysFromIso(nowDate, -30), to: nowDate };
     const prior30Range = { from: daysFromIso(nowDate, -60), to: daysFromIso(nowDate, -31) };
     const [last30Aggregate, prior30Aggregate] = await Promise.all([
-      loadMetricTotals(ctx, aggregateScope, last30Range),
-      loadMetricTotals(ctx, aggregateScope, prior30Range),
+      loadMetricTotals(ctx, aggregateScope, last30Range, referenceNow || undefined),
+      loadMetricTotals(ctx, aggregateScope, prior30Range, referenceNow || undefined),
     ]);
     const last30ActiveQueries = filterRecordsByDateRange(scopedAllQueries, last30Range).filter(
       isActiveQuery
@@ -536,6 +720,20 @@ export const getPortalSummary = query({
       }
       return map;
     }, new Map<string, { role: string; staffCount: number; load: number }>());
+
+    const urgentActions = buildUrgentActions({
+      approvals,
+      invoices,
+      jobCards,
+      nowDate,
+      queries,
+      tickets,
+    });
+    const ownedWorkSla = buildOwnedWorkSla(
+      urgentActions,
+      referenceNow,
+      buildHeadAssignmentSlaItems(access, queries, jobCards)
+    );
 
     return {
       activeTours: activeJobs.slice(0, 6).map((job) => {
@@ -636,7 +834,7 @@ export const getPortalSummary = query({
           value: aggregateOutstandingAmount,
         },
       ],
-      generatedAt: new Date().toISOString(),
+      generatedAt: new Date(referenceNow).toISOString(),
       metrics: {
         activeQueries: aggregateActiveQueries,
         confirmedJobs: aggregateConfirmedQueries,
@@ -731,6 +929,7 @@ export const getPortalSummary = query({
           name: member.name,
         })),
       overdueInvoices,
+      ownedWorkSla,
       pipelineSnapshot: aggregate.complete
         ? aggregatePipelineSnapshot(aggregate.values)
         : buildPipelineSnapshot(queries),
@@ -835,14 +1034,7 @@ export const getPortalSummary = query({
             travelStartDate: job.travelStartDate,
           };
         }),
-      urgentActions: buildUrgentActions({
-        approvals,
-        invoices,
-        jobCards,
-        nowDate,
-        queries,
-        tickets,
-      }),
+      urgentActions,
     };
   },
   returns: portalSummaryResultValidator,

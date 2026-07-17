@@ -5,12 +5,12 @@ function parseDate(value) {
   if (!value || value === "UNKNOWN") {
     return null;
   }
-  const parsed = Date.parse(`${value}T12:00:00`);
+  const parsed = Date.parse(`${value}T12:00:00.000Z`);
   return Number.isNaN(parsed) ? null : parsed;
 }
 
 function startOfTodayMs(today = new Date()) {
-  return Date.parse(`${today.toISOString().slice(0, 10)}T12:00:00`);
+  return Date.parse(`${today.toISOString().slice(0, 10)}T12:00:00.000Z`);
 }
 
 export function getPassportExpiryInfo({ expiryDate, travelDate, today = new Date() }) {

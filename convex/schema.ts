@@ -79,7 +79,9 @@ const querySource = v.union(
   v.literal("WhatsApp"),
   v.literal("Email"),
   v.literal("Client"),
-  v.literal("Referral")
+  v.literal("Referral"),
+  v.literal("Citius Concierge"),
+  v.literal("Sacred Bharat")
 );
 
 const contractingStatus = v.union(
@@ -402,6 +404,39 @@ export default defineSchema({
     startedAt: v.number(),
     updatedAt: v.number(),
   }).index("by_key", ["key"]),
+
+  crmMetricReadinessSourceCompletions: defineTable({
+    completedAt: v.number(),
+    generation: v.number(),
+    metricVersion: v.number(),
+    sourceType: v.string(),
+  })
+    .index("by_generation", ["generation"])
+    .index("by_generation_source", ["generation", "sourceType"]),
+
+  crmHandoffEvents: defineTable({
+    convertedQueryId: v.optional(v.string()),
+    createdAt: v.number(),
+    inboundIntentId: v.optional(v.id("inboundQueryIntents")),
+    source: v.union(v.literal("Citius Concierge"), v.literal("Sacred Bharat")),
+  }).index("by_createdAt", ["createdAt"]),
+
+  inboundQueryIntents: defineTable({
+    clientName: v.string(),
+    consentAt: v.number(),
+    contactEmail: v.optional(v.string()),
+    contactMobile: v.optional(v.string()),
+    convertedQueryId: v.optional(v.string()),
+    createdAt: v.number(),
+    destination: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    paxCount: v.optional(v.number()),
+    source: v.union(v.literal("Citius Concierge"), v.literal("Sacred Bharat")),
+    status: v.union(v.literal("pending"), v.literal("converted"), v.literal("dismissed")),
+    travelStartDate: v.optional(v.string()),
+  })
+    .index("by_status", ["status"])
+    .index("by_createdAt", ["createdAt"]),
 
   dropdownOptions: defineTable({
     active: v.boolean(),

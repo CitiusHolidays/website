@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import type { PassengerImportMutationResult } from "@/lib/portal/importResultMessages";
 import { buildPassengerImportResultMessage } from "@/lib/portal/importResultMessages";
+import { buildPassengerImportReportRows } from "@/lib/portal/importReconciliation";
 import { toPassengerImportInput } from "@/lib/portal/passengerImportRows";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { formatRoomSummaryText, summarizeRoomTypes } from "@/lib/portal/roomSummary";
@@ -25,6 +26,7 @@ import {
   ImportModalShell,
   ImportSummary,
 } from "./spreadsheetModalShell";
+import { ImportReconciliationModal } from "./ImportReconciliationModal";
 
 const useTypedPortalToast = usePortalToast as unknown as () => {
   error: (message: string) => unknown;
@@ -36,7 +38,14 @@ export interface PassengerImportModalProps {
   commitPassengerImport: (args: {
     jobCardId: string;
     rows: ReturnType<typeof toPassengerImportInput>[];
-  }) => Promise<PassengerImportMutationResult & { roomSummary?: Record<string, number> }>;
+  }) => Promise<PassengerImportMutationResult & { roomSummary?: Record<string, number>; rowResults?: Array<{
+    disposition: "created" | "failed" | "updated";
+    fullName: string;
+    id: string;
+    message?: string;
+    sourceRowNumber?: number;
+    sourceSheet?: string;
+  }> }>;
   emptyLabel?: string;
   fileLabel?: string;
   importKind?: string;
@@ -83,6 +92,12 @@ export function PassengerImportModal({
   importKind = "passenger",
 }: PassengerImportModalProps) {
   const toast = useTypedPortalToast();
+  const [reconciliation, setReconciliation] = useState<{
+    jobCode?: string;
+    roomSummaryText: string;
+    rows: ReturnType<typeof buildPassengerImportReportRows>;
+    summary: PassengerImportMutationResult;
+  } | null>(null);
   const [importState, patchImportState, , dispatchImport] =
     usePatchReducer(PASSENGER_IMPORT_INITIAL);
   const {
@@ -211,12 +226,22 @@ export function PassengerImportModal({
         successLabel,
         roomSummaryText
       );
+      const reportRows = buildPassengerImportReportRows(
+        previewRows,
+        result.batches,
+        result.rowResults
+      );
+      setReconciliation({
+        jobCode: selectedJob?.jobCode,
+        roomSummaryText,
+        rows: reportRows,
+        summary: result,
+      });
       if (isPartialFailure) {
         toast.error(message);
         setError(message);
       } else {
         toast.success(message);
-        closeAndReset();
       }
     } catch (err) {
       setError(formatConvexError(err, "Import failed."));
@@ -226,7 +251,8 @@ export function PassengerImportModal({
   };
 
   return (
-    <ImportModalShell close={closeAndReset} open={open} title={title}>
+    <>
+      <ImportModalShell close={closeAndReset} open={open} title={title}>
       <div className="space-y-4">
         <Select
           label="Job Card"
@@ -343,5 +369,17 @@ export function PassengerImportModal({
         </div>
       </div>
     </ImportModalShell>
+      <ImportReconciliationModal
+        jobCode={reconciliation?.jobCode}
+        onClose={() => {
+          setReconciliation(null);
+          closeAndReset();
+        }}
+        open={Boolean(reconciliation)}
+        roomSummaryText={reconciliation?.roomSummaryText}
+        rows={reconciliation?.rows ?? []}
+        summary={reconciliation?.summary}
+      />
+    </>
   );
 }

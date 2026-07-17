@@ -1,5 +1,10 @@
 # Citius product strategy: win the operating day
 
+**Status:** Approved  
+**Approved:** 2026-07-17  
+**Approver:** Product owner (Burn portfolio PF-21)  
+**Version:** 1.0
+
 ## Strategic choice
 
 Citius Connect is the revenue wedge. The target customer is a group-travel operator whose Sales, Contracting, Operations, Ticketing, Finance, and HR teams still coordinate a booking across spreadsheets, chat, email, and memory. Their painful status quo is not a lack of travel inspiration; it is the daily cost of missing ownership, duplicated data, slow handoffs, and unclear next actions.

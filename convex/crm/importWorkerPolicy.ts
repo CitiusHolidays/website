@@ -83,6 +83,14 @@ export type ImportBatchResult = {
   processed: number;
   remaining: number;
   roomSummary: Record<string, number>;
+  rowResults?: Array<{
+    disposition: "created" | "failed" | "updated";
+    fullName: string;
+    id: string;
+    message?: string;
+    sourceRowNumber?: number;
+    sourceSheet?: string;
+  }>;
   status: string;
   updated: number;
 };
@@ -96,6 +104,7 @@ export function summarizeImportBatchResults(batchResults: ImportBatchResult[]) {
     processed: 0,
     remaining: 0,
     roomSummary: {} as Record<string, number>,
+    rowResults: [] as NonNullable<ImportBatchResult["rowResults"]>,
     updated: 0,
   };
   for (const result of batchResults) {
@@ -105,6 +114,7 @@ export function summarizeImportBatchResults(batchResults: ImportBatchResult[]) {
     summary.failed += result.failed;
     summary.processed += result.processed;
     summary.remaining += result.remaining;
+    summary.rowResults = summary.rowResults.concat(result.rowResults ?? []);
     for (const [roomType, count] of Object.entries(result.roomSummary ?? {})) {
       summary.roomSummary[roomType] = (summary.roomSummary[roomType] ?? 0) + count;
     }

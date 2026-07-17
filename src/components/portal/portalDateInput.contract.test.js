@@ -77,8 +77,8 @@ describe("portal date input contract", () => {
     expect(rangeFilter).toContain("!min-w-[9.5rem]");
     expect(rangeFilter).toContain("!max-w-[9.5rem]");
     expect(rangeFilter).toMatch(/portal-small-btn shrink-0 whitespace-nowrap/);
-    expect(listToolbar).toContain("shrink-0 flex-nowrap");
-    expect(listToolbar).toMatch(/portal-small-btn shrink-0 whitespace-nowrap/);
+    expect(listToolbar).toContain("shrink-0 flex-wrap");
+    expect(listToolbar).toMatch(/portal-small-btn h-11 shrink-0 whitespace-nowrap/);
   });
 
   test("inverted ranges stay invalid and skip resolved filtering via shared period contracts", () => {

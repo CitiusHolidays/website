@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { preparePassengerRows } from "./importRows";
 import { internalPassengerImportRow, publicPassengerImportRow } from "./importRowValidators";
+import { withTestEncryptionKeySync } from "../../test-helpers/encryptionKey";
 import { assertMatchesReturnContract, expectReturnContractFailure } from "./validateReturnContract";
 
 function publicRow(overrides: Record<string, unknown> = {}) {
@@ -57,16 +58,18 @@ describe("spreadsheet import contracts", () => {
   });
 
   test("retains passport expiry while rejecting unsupported room and gender values", () => {
-    const [prepared] = preparePassengerRows([
-      publicRow({ passport: { expiryDate: "2032-04-09" } }),
-    ]);
-    expect(prepared.passportExpiryDate).toBe("2032-04-09");
-    expect(
-      expectReturnContractFailure(publicPassengerImportRow, publicRow({ gender: "Other" }))
-    ).toContain("did not match any union member");
-    expect(
-      expectReturnContractFailure(publicPassengerImportRow, publicRow({ roomType: "Quad" }))
-    ).toContain("did not match any union member");
+    withTestEncryptionKeySync(() => {
+      const [prepared] = preparePassengerRows([
+        publicRow({ passport: { expiryDate: "2032-04-09" } }),
+      ]);
+      expect(prepared.passportExpiryDate).toBe("2032-04-09");
+      expect(
+        expectReturnContractFailure(publicPassengerImportRow, publicRow({ gender: "Other" }))
+      ).toContain("did not match any union member");
+      expect(
+        expectReturnContractFailure(publicPassengerImportRow, publicRow({ roomType: "Quad" }))
+      ).toContain("did not match any union member");
+    });
   });
 
   test("removes broad validators from the targeted storage and access boundaries", () => {

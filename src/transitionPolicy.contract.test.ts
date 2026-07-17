@@ -19,7 +19,8 @@ const PORTAL_GPU_MOTION_TARGETS = [
 const motionShorthandProp = /\b(?:^|[,{]\s*)(?:x|y|scaleY|scale)\s*:/m;
 const toastLayoutProp = /\blayout\b/;
 const toastUpwardExit = /\by:\s*-/;
-const confirmBackdropFade = /animate=\{\{\s*opacity:\s*1/;
+const confirmAnimatePresence = /AnimatePresence/;
+const confirmExitProp = /exit=\{\{/;
 const toolbarScaleYShorthand = /scaleY:\s*1/;
 
 function collectMotionShorthandViolations(contents: string, file: string) {
@@ -118,7 +119,8 @@ describe("transition policy", () => {
       expect(source).toContain("useReducedMotion");
       expect(source).toContain("transform:");
     }
-    expect(confirm).toMatch(confirmBackdropFade);
+    expect(confirm).toMatch(confirmAnimatePresence);
+    expect(confirm).toMatch(confirmExitProp);
   });
 
   test("portal list toolbar filter expand uses transform not scaleY shorthand", async () => {

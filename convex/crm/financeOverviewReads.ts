@@ -7,13 +7,15 @@ import {
 } from "./lib";
 import { canSeeJobCardRecord } from "./lib/recordScope";
 
+const FINANCE_OVERVIEW_ROW_LIMIT = 2000;
+
 export async function handleGetFinanceOverview(ctx: any, args: { dateRange?: PortalDateRange }) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
   const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
   const [invoiceRows, expenseRows, jobCardRows] = await Promise.all([
-    ctx.db.query("invoices").collect(),
-    ctx.db.query("expenseEntries").collect(),
-    ctx.db.query("jobCards").collect(),
+    ctx.db.query("invoices").withIndex("by_createdAt").order("desc").take(FINANCE_OVERVIEW_ROW_LIMIT),
+    ctx.db.query("expenseEntries").withIndex("by_createdAt").order("desc").take(FINANCE_OVERVIEW_ROW_LIMIT),
+    ctx.db.query("jobCards").withIndex("by_createdAt").order("desc").take(FINANCE_OVERVIEW_ROW_LIMIT),
   ]);
   const invoices = filterRecordsByDateRange(invoiceRows, dateRange);
   const expenses = filterRecordsByDateRange(expenseRows, dateRange);

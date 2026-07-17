@@ -20,6 +20,15 @@ const importErrorValidator = v.object({
   kind: v.union(v.literal("retryable"), v.literal("terminal")),
   message: v.string(),
 });
+const importRowResultValidator = v.object({
+  disposition: v.union(v.literal("created"), v.literal("updated"), v.literal("failed")),
+  fullName: v.string(),
+  id: v.string(),
+  message: v.optional(v.string()),
+  sourceRowNumber: v.optional(v.number()),
+  sourceSheet: v.optional(v.string()),
+});
+
 export const passengerImportCommitResultValidator = v.object({
   accepted: v.number(),
   batches: v.array(
@@ -35,6 +44,7 @@ export const passengerImportCommitResultValidator = v.object({
   processed: v.number(),
   remaining: v.number(),
   roomSummary: v.record(v.string(), v.number()),
+  rowResults: v.array(importRowResultValidator),
   total: v.number(),
   updated: v.number(),
 });

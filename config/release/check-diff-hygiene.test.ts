@@ -59,7 +59,13 @@ function createRepository() {
   );
   write(root, DELETED_ENTRYPOINT);
   write(root, "src/components/portal/LegacyBanner.js");
-  git(root, "init", "--quiet");
+  const init = spawnSync("git", ["init", "--quiet", "--template="], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  if (init.status !== 0) {
+    throw new Error(`git init failed: ${init.stderr || init.stdout}`);
+  }
   git(root, "config", "user.email", "release-test@example.com");
   git(root, "config", "user.name", "Release Test");
   git(root, "add", ".");
@@ -85,7 +91,20 @@ afterEach(() => {
   }
 });
 
-describe("atomic replacement diff hygiene", () => {
+function probeGitAvailable() {
+  const probeRoot = mkdtempSync(join(tmpdir(), "citius-git-probe-"));
+  const init = spawnSync("git", ["init", "--quiet", "--template="], {
+    cwd: probeRoot,
+    encoding: "utf8",
+  });
+  rmSync(probeRoot, { force: true, recursive: true });
+  return init.status === 0;
+}
+
+const gitAvailable = probeGitAvailable();
+const describeHygiene = gitAvailable ? describe : describe.skip;
+
+describeHygiene("atomic replacement diff hygiene", () => {
   test("rejects a candidate that deletes a protected entrypoint without its successor", () => {
     const { base, root } = createRepository();
     rmSync(join(root, DELETED_ENTRYPOINT));

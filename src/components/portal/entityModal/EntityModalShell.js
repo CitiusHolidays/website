@@ -9,13 +9,12 @@ import {
   getEntityModalMaxWidthClass,
   getEntityModalSize,
 } from "@/lib/portal/entityModalLayout";
+import { portalMotionTransition } from "@/lib/portal/portalMotion";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import { EntityModalFieldSection } from "./EntityModalFieldSection";
 import { EntityModalFieldsPrimary } from "./EntityModalFieldsPrimary";
 import { EntityModalFieldsSecondary } from "./EntityModalFieldsSecondary";
 import { getEntityModalSectionMeta } from "./entityModalSectionMeta";
-
-const PORTAL_EASE_OUT = [0.23, 1, 0.32, 1];
 
 export function EntityModalShell({
   modal,
@@ -31,6 +30,8 @@ export function EntityModalShell({
   secondaryProps,
 }) {
   const shouldReduceMotion = useReducedMotion();
+  const modalTransition = portalMotionTransition(shouldReduceMotion, 0.25);
+  const errorTransition = portalMotionTransition(shouldReduceMotion, 0.16);
   const formRef = useRef(null);
   const errorRef = useRef(null);
   const modalTransform = "translateY(0) scale(1)";
@@ -130,7 +131,11 @@ export function EntityModalShell({
             aria-describedby={error ? "portal-entity-modal-error" : undefined}
             aria-labelledby="portal-entity-modal-title"
             aria-modal="true"
-            className={`flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none`}
+            className={`flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-2xl border border-brand-border bg-white shadow-2xl ${
+              isCompactModal
+                ? "max-sm:max-h-[min(85dvh,100%)] max-sm:rounded-2xl"
+                : "max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none"
+            }`}
             exit={{ opacity: 0, transform: modalHiddenTransform }}
             initial={{ opacity: 0, transform: modalHiddenTransform }}
             onClick={(event) => event.stopPropagation()}
@@ -138,7 +143,7 @@ export function EntityModalShell({
             onSubmit={submit}
             ref={formRef}
             role="dialog"
-            transition={{ duration: 0.25, ease: PORTAL_EASE_OUT }}
+            transition={modalTransition}
           >
             <div className="flex shrink-0 items-center justify-between gap-4 border-brand-border border-b bg-white px-5 py-4 max-sm:px-4">
               <div>
@@ -183,7 +188,7 @@ export function EntityModalShell({
                     ref={errorRef}
                     role="alert"
                     tabIndex={-1}
-                    transition={{ duration: 0.16, ease: PORTAL_EASE_OUT }}
+                    transition={errorTransition}
                   >
                     {error}
                   </m.div>

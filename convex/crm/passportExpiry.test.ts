@@ -6,6 +6,7 @@ import {
   normalizePassportExpiryDate,
   resolvePassportExpiryForList,
 } from "./passportExpiry";
+import { withTestEncryptionKey } from "../../test-helpers/encryptionKey";
 
 describe("classifyPassportExpiryUrgency", () => {
   const referenceDate = "2026-01-01";
@@ -56,9 +57,7 @@ describe("resolvePassportExpiryForList", () => {
   });
 
   test("reads expiry from encrypted payload when plain column is empty", async () => {
-    const previousKey = process.env.ENCRYPTION_KEY;
-    process.env.ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
-    try {
+    await withTestEncryptionKey(async () => {
       const encrypted = encryptPassportDetails({
         dateOfBirth: "1990-01-01",
         expiryDate: "2031-06-15",
@@ -67,12 +66,6 @@ describe("resolvePassportExpiryForList", () => {
         number: "Z1234567",
       });
       await expect(resolvePassportExpiryForList("", encrypted)).resolves.toBe("2031-06-15");
-    } finally {
-      if (previousKey === undefined) {
-        delete process.env.ENCRYPTION_KEY;
-      } else {
-        process.env.ENCRYPTION_KEY = previousKey;
-      }
-    }
+    });
   });
 });

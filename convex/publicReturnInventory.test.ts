@@ -15,13 +15,6 @@ const SERVER_TO_SERVER = new Set([
   "bookings.ts:markPaymentFailedByOrderId",
   "bookings.ts:markRefundedByPaymentId",
   "bookings.ts:recordPaymentAuthorized",
-  "migrations.ts:auditTravelBatchSummaries",
-  "migrations.ts:getStats",
-  "migrations.ts:importBookings",
-  "migrations.ts:importTrips",
-  "migrations.ts:importUsers",
-  "migrations.ts:migrateRoomTypes",
-  "migrations.ts:migrateTravelBatchSummaries",
   "trips.ts:createTrip",
 ]);
 

@@ -370,7 +370,7 @@ const isLeaderboardOptedOut = async (ctx: QueryCtx, authUserId: string) => {
 };
 
 async function buildLeaderboardEntries(ctx: QueryCtx) {
-  const allVisits = await ctx.db.query("sacredBharatVisits").collect();
+  const allVisits = await ctx.db.query("sacredBharatVisits").take(5000);
   const byUser = new Map<string, Set<string>>();
 
   for (const visit of allVisits) {

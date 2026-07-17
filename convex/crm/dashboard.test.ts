@@ -444,6 +444,7 @@ describe("getPortalSummary response shape", () => {
         "metrics",
         "myTeam",
         "overdueInvoices",
+        "ownedWorkSla",
         "pipelineSnapshot",
         "progress",
         "queriesByType",

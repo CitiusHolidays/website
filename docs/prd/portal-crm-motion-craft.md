@@ -89,7 +89,8 @@ Preserve deliberate restraint: no open/close animation on the command palette, n
 
 ## Further Notes
 
-- Audit verdict was **Block** until toast and modal shorthand issues are fixed; command palette discipline and dropdown patterns are already correct.
+- Audit verdict is **Pass on contract** — `src/transitionPolicy.contract.test.ts` portal motion assertions pass for toast, entity/import modal shells, confirm dialog, and list-toolbar filter expand. Remaining polish (feel-check, dashboard/pipeline additive motion, optional hold-to-confirm) is tracked as QA-open in `docs/issues/portal-crm-motion-craft-issues.md`.
+- Command palette discipline and dropdown patterns remain correct; do not regress instant palette mount.
 - `AGENTS.md` portal chrome rules explicitly require command palette to skip open/close animation—any ticket must not regress this.
 - Global CSS already sets `:active { transform: none !important }` under reduced motion and provides `.motion-reduce-spatial` for opacity-only feedback; new components should align with these utilities where appropriate.
 - Feel-check is mandatory for motion work: slow-motion DevTools playback, rapid toast spam during a save flow, and `prefers-reduced-motion` toggle in Rendering panel.

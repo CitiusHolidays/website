@@ -1,10 +1,15 @@
 "use client";
 
-import { m, useReducedMotion } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { createContext, use, useEffect, useId, useRef, useState } from "react";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
-
-const PORTAL_EASE_OUT = [0.23, 1, 0.32, 1];
+import {
+  PORTAL_EASE_OUT,
+  PORTAL_MODAL_VISIBLE_TRANSFORM,
+  portalModalExitTransform,
+  portalModalHiddenTransform,
+  portalMotionTransition,
+} from "@/lib/portal/portalMotion";
 
 const PortalConfirmContext = createContext(null);
 const FOCUSABLE_SELECTOR =
@@ -23,12 +28,43 @@ export function PortalConfirmProvider({ children }) {
   const dialogRef = useRef(null);
   const cancelRef = useRef(null);
   const actionInFlightRef = useRef(false);
+  const holdTimerRef = useRef(null);
+  const holdStartRef = useRef(0);
+  const [holdProgress, setHoldProgress] = useState(0);
+  const HOLD_MS = shouldReduceMotion ? 600 : 2000;
   const titleId = `${useId().replaceAll(":", "")}-confirm-title`;
   const messageId = `${useId().replaceAll(":", "")}-confirm-message`;
   const errorId = `${useId().replaceAll(":", "")}-confirm-error`;
   const isOpen = Boolean(state);
-  const dialogTransform = "scale(1)";
-  const dialogHiddenTransform = shouldReduceMotion ? dialogTransform : "scale(0.96)";
+  const dialogTransform = PORTAL_MODAL_VISIBLE_TRANSFORM;
+  const dialogHiddenTransform = portalModalHiddenTransform(shouldReduceMotion);
+  const dialogExitTransform = portalModalExitTransform(shouldReduceMotion);
+  const modalTransition = portalMotionTransition(shouldReduceMotion);
+
+  const clearHold = () => {
+    if (holdTimerRef.current) {
+      clearInterval(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    setHoldProgress(0);
+  };
+
+  const startDangerHold = () => {
+    if (!(state?.danger && !state.pending)) {
+      return;
+    }
+    clearHold();
+    holdStartRef.current = Date.now();
+    holdTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - holdStartRef.current;
+      const next = Math.min(1, elapsed / HOLD_MS);
+      setHoldProgress(next);
+      if (next >= 1) {
+        clearHold();
+        void runConfirmAction();
+      }
+    }, 32);
+  };
 
   const restoreOriginFocus = () => {
     const origin = originRef.current;
@@ -44,6 +80,7 @@ export function PortalConfirmProvider({ children }) {
     if (actionInFlightRef.current) {
       return;
     }
+    clearHold();
     const resolve = resolverRef.current;
     resolverRef.current = null;
     setState(null);
@@ -136,27 +173,35 @@ export function PortalConfirmProvider({ children }) {
     }
   };
 
-  const dialogLayer = state ? (
-    <m.div
-      animate={{ opacity: 1 }}
-      className={`fixed inset-0 ${PORTAL_Z.confirm} grid place-items-center bg-brand-dark/55 p-4`}
-      initial={{ opacity: 0 }}
-      key="portal-confirm"
-      transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.2, ease: PORTAL_EASE_OUT }}
-    >
-      <m.div
-        animate={{ opacity: 1, transform: dialogTransform }}
-        aria-describedby={`${messageId}${state.error ? ` ${errorId}` : ""}`}
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className="w-full max-w-md rounded-2xl border border-brand-border bg-white p-6 shadow-xl"
-        initial={{ opacity: 0, transform: dialogHiddenTransform }}
-        onKeyDown={handleDialogKeyDown}
-        ref={dialogRef}
-        role="alertdialog"
-        tabIndex={-1}
-        transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.2, ease: PORTAL_EASE_OUT }}
-      >
+  const dialogLayer = (
+    <AnimatePresence>
+      {state ? (
+        <m.div
+          animate={{ opacity: 1 }}
+          className={`fixed inset-0 ${PORTAL_Z.confirm} grid place-items-center bg-brand-dark/55 p-4`}
+          exit={{ opacity: 0 }}
+          initial={{ opacity: 0 }}
+          key="portal-confirm-backdrop"
+          transition={modalTransition}
+        >
+          <m.div
+            animate={{ opacity: 1, transform: dialogTransform }}
+            aria-describedby={`${messageId}${state.error ? ` ${errorId}` : ""}`}
+            aria-labelledby={titleId}
+            aria-modal="true"
+            className="w-full max-w-md rounded-2xl border border-brand-border bg-white p-6 shadow-xl"
+            exit={{
+              opacity: 0,
+              transform: shouldReduceMotion ? dialogTransform : dialogExitTransform,
+            }}
+            initial={{ opacity: 0, transform: dialogHiddenTransform }}
+            key="portal-confirm-panel"
+            onKeyDown={handleDialogKeyDown}
+            ref={dialogRef}
+            role="alertdialog"
+            tabIndex={-1}
+            transition={modalTransition}
+          >
         <h2 className="font-heading font-semibold text-citius-blue text-lg" id={titleId}>
           {state.title}
         </h2>
@@ -184,17 +229,37 @@ export function PortalConfirmProvider({ children }) {
           </button>
           <button
             aria-describedby={state.danger ? messageId : undefined}
-            className={`${state.danger ? "portal-danger-btn" : "portal-primary-btn"} min-h-11`}
+            className={`${state.danger ? "portal-danger-btn relative overflow-hidden" : "portal-primary-btn"} min-h-11`}
             disabled={state.pending}
-            onClick={runConfirmAction}
+            onClick={state.danger ? undefined : runConfirmAction}
+            onMouseDown={state.danger ? startDangerHold : undefined}
+            onMouseLeave={state.danger ? clearHold : undefined}
+            onMouseUp={state.danger ? clearHold : undefined}
+            onPointerCancel={state.danger ? clearHold : undefined}
+            onPointerDown={state.danger ? startDangerHold : undefined}
+            onPointerLeave={state.danger ? clearHold : undefined}
+            onPointerUp={state.danger ? clearHold : undefined}
+            style={
+              state.danger && holdProgress > 0
+                ? { clipPath: `inset(0 ${Math.round((1 - holdProgress) * 100)}% 0 0)` }
+                : undefined
+            }
             type="button"
           >
-            {state.pending ? `${state.confirmLabel}…` : state.confirmLabel}
+            {state.pending
+              ? `${state.confirmLabel}…`
+              : state.danger
+                ? holdProgress > 0
+                  ? "Keep holding…"
+                  : `Hold to ${state.confirmLabel.toLowerCase()}`
+                : state.confirmLabel}
           </button>
         </div>
-      </m.div>
-    </m.div>
-  ) : null;
+          </m.div>
+        </m.div>
+      ) : null}
+    </AnimatePresence>
+  );
 
   return (
     <PortalConfirmContext.Provider value={{ confirm }}>

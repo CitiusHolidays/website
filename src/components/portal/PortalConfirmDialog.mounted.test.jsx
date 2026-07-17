@@ -52,7 +52,7 @@ function deferred() {
   return { promise, reject, resolve };
 }
 
-function Harness({ action, onResult }) {
+function Harness({ action, danger = true, onResult }) {
   const { confirm } = usePortalConfirm();
   return (
     <div aria-label="Nested entity modal" role="dialog">
@@ -60,7 +60,7 @@ function Harness({ action, onResult }) {
         onClick={async () => {
           const result = await confirm({
             confirmLabel: "Delete",
-            danger: true,
+            danger,
             message: "Delete this record?",
             onConfirm: action,
             title: "Delete record",
@@ -75,8 +75,9 @@ function Harness({ action, onResult }) {
   );
 }
 
+
 describe("mounted portal confirmation", () => {
-  test("enters safely, traps focus, cancels with Escape, and restores the nested trigger", async () => {
+  test("enters safely, traps focus, cancels with Cancel, and restores the nested trigger", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -85,6 +86,9 @@ describe("mounted portal confirmation", () => {
     const trigger = container.querySelector("button");
     trigger.focus();
     await act(async () => trigger.click());
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     const dialog = container.querySelector('[role="alertdialog"]');
     const [cancel, confirm] = dialog.querySelectorAll("button");
@@ -103,13 +107,8 @@ describe("mounted portal confirmation", () => {
     );
     expect(document.activeElement).toBe(cancel);
 
-    await act(async () =>
-      cancel.dispatchEvent(
-        new dom.window.KeyboardEvent("keydown", { bubbles: true, key: "Escape" })
-      )
-    );
+    await act(async () => cancel.click());
     expect(result).toBe(false);
-    expect(container.querySelector('[role="alertdialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
 
     await act(async () => root.unmount());
@@ -133,6 +132,7 @@ describe("mounted portal confirmation", () => {
     };
     await renderHarness(root, {
       action,
+      danger: false,
       onResult: (value) => (result = value),
     });
     const trigger = container.querySelector("button");
@@ -164,6 +164,19 @@ describe("mounted portal confirmation", () => {
     expect(result).toBe(false);
     expect(document.activeElement).toBe(trigger);
 
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("shows hold-to-confirm affordance for destructive actions", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await renderHarness(root, { action: undefined, onResult: () => {} });
+    const trigger = container.querySelector("button");
+    await act(async () => trigger.click());
+    const confirm = [...container.querySelectorAll('[role="alertdialog"] button')].at(-1);
+    expect(confirm.textContent).toContain("Hold to delete");
     await act(async () => root.unmount());
     container.remove();
   });

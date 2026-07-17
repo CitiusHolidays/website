@@ -381,15 +381,20 @@ export const create = mutation({
 export const listTravellersWithoutVisa = query({
   args: {},
   handler: async (ctx) => {
-    const [access, allTravellers, allVisaRecords] = await Promise.all([
+    const [access, visaRecords] = await Promise.all([
       requireStaff(ctx, PERMISSIONS.VIEW_VISA),
-      ctx.db.query("travellers").collect(),
-      ctx.db.query("visaRecords").collect(),
+      ctx.db.query("visaRecords").withIndex("by_createdAt").order("desc").take(5000),
     ]);
-    const travellerIdsWithVisa = new Set(allVisaRecords.map((r) => r.travellerId.toString()));
+    const travellerIdsWithVisa = new Set(visaRecords.map((r) => r.travellerId.toString()));
+
+    const travellers = await ctx.db
+      .query("travellers")
+      .withIndex("by_createdAt")
+      .order("desc")
+      .take(5000);
 
     const result = await Promise.all(
-      allTravellers.map(async (traveller) => {
+      travellers.map(async (traveller) => {
         if (traveller.visaRequired && !travellerIdsWithVisa.has(traveller._id.toString())) {
           const job = await ctx.db.get(traveller.jobCardId);
           if (!job) {

@@ -436,6 +436,19 @@ const urgentActionValidator = v.object({
   ),
 });
 
+const ownedWorkSlaItemValidator = v.object({
+  count: v.number(),
+  href: v.string(),
+  label: v.string(),
+  oldestDays: v.union(v.number(), v.null()),
+});
+
+const ownedWorkSlaValidator = v.object({
+  items: v.array(ownedWorkSlaItemValidator),
+  oldestDays: v.union(v.number(), v.null()),
+  totalOpen: v.number(),
+});
+
 export const portalSummaryResultValidator = v.object({
   activeTours: v.array(activeTourValidator),
   aggregateCoverage: aggregateCoverageValidator,
@@ -454,6 +467,7 @@ export const portalSummaryResultValidator = v.object({
   }),
   myTeam: v.array(teamMemberValidator),
   overdueInvoices: v.array(overdueInvoiceValidator),
+  ownedWorkSla: ownedWorkSlaValidator,
   pipelineSnapshot: v.array(pipelineStageSnapshotValidator),
   progress: v.object({
     guestData: progressSliceValidator,

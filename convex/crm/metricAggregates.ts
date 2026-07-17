@@ -582,17 +582,43 @@ async function markReconciliationSourceComplete(
   ) {
     return { complete: false, stale: true };
   }
-  const completedSourceTypes = Array.from(
-    new Set([...state.completedSourceTypes, sourceType])
-  ).sort();
-  const complete = METRIC_SOURCE_TYPES.every((required) => completedSourceTypes.includes(required));
+  const existing = await ctx.db
+    .query("crmMetricReadinessSourceCompletions")
+    .withIndex("by_generation_source", (q) =>
+      q.eq("generation", generation).eq("sourceType", sourceType)
+    )
+    .unique();
+  if (!existing) {
+    await ctx.db.insert("crmMetricReadinessSourceCompletions", {
+      completedAt: Date.now(),
+      generation,
+      metricVersion,
+      sourceType,
+    });
+  }
+  const completions = await ctx.db
+    .query("crmMetricReadinessSourceCompletions")
+    .withIndex("by_generation", (q) => q.eq("generation", generation))
+    .collect();
+  const completedSourceTypes = completions.map((row) => row.sourceType).sort();
+  const complete = METRIC_SOURCE_TYPES.every((required) =>
+    completedSourceTypes.includes(required)
+  );
   const now = Date.now();
-  await ctx.db.patch(state._id, {
-    completedSourceTypes,
-    ...(complete ? { lastCompletedAt: now, lastCompletedGeneration: generation } : {}),
-    ...(complete ? { lastCompletedMetricVersion: metricVersion } : {}),
-    updatedAt: now,
-  });
+  if (complete) {
+    await ctx.db.patch(state._id, {
+      completedSourceTypes,
+      lastCompletedAt: now,
+      lastCompletedGeneration: generation,
+      lastCompletedMetricVersion: metricVersion,
+      updatedAt: now,
+    });
+  } else {
+    await ctx.db.patch(state._id, {
+      completedSourceTypes,
+      updatedAt: now,
+    });
+  }
   return { complete, stale: false };
 }
 
@@ -680,7 +706,8 @@ async function loadSegment(ctx: QueryCtx, scope: string, segment: AggregateSegme
 export async function loadMetricTotals(
   ctx: QueryCtx,
   scope: string,
-  dateRange: PortalDateRange | null | undefined
+  dateRange: PortalDateRange | null | undefined,
+  referenceNow?: number
 ) {
   const [readiness, rows] = await Promise.all([
     ctx.db
@@ -695,7 +722,7 @@ export async function loadMetricTotals(
   for (const row of rows) {
     mergeValues(values, row.values ?? {});
   }
-  const readinessSummary = summarizeMetricReadiness(readiness);
+  const readinessSummary = summarizeMetricReadiness(readiness, referenceNow);
   return {
     bucketCount: rows.length,
     complete: readinessSummary.complete,

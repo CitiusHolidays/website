@@ -119,7 +119,11 @@ export function usePortalWorkspaceData({
   const needs = (dependency: Parameters<typeof dependencies.has>[0]) =>
     dependencies.has(dependency);
   const normalizedSearch = search.trim();
-  const searchReadiness = useQuery(api.crm.listSearch.getReadiness, canFetch ? {} : "skip");
+  const [referenceNow] = useState(() => Date.now());
+  const searchReadiness = useQuery(
+    api.crm.listSearch.getReadiness,
+    canFetch ? { referenceNow } : "skip"
+  );
   const isQueryListView = ["accounts-job-cards", "contracting", "pipeline", "queries"].includes(
     view
   );

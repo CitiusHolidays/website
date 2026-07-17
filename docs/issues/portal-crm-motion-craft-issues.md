@@ -2,15 +2,15 @@
 
 **Parent PRD:** `docs/prd/portal-crm-motion-craft.md`  
 **Policy:** `docs/TRANSITION_POLICY.md`  
-**Publish status:** Markdown only — apply `ready-for-agent` label when publishing to tracker  
-**Generated:** 2026-07-17
+**Publish status:** Markdown — `ready-for-agent`  
+**Contract status (2026-07-17):** `transitionPolicy.contract.test.ts` passes 9/9. Issues 02–04 below split **contract-done** vs **QA feel-check open**.
 
 ---
 
 ## Issue 01 — Portal motion contract guardrails
 
 **Blocked by:** None — can start immediately  
-**Status:** ready-for-agent
+**Status:** contract-done (QA-open: feel-check)
 
 ### What to build
 
@@ -20,9 +20,9 @@ The test file should fail on the current codebase until Issues 02–03 land (TDD
 
 ### Acceptance criteria
 
-- [ ] `src/transitionPolicy.contract.test.ts` includes portal CRM motion assertions (toast, entity modal shell, import modal shell, confirm dialog, list toolbar filter expand)
-- [ ] Command palette no-animation contract from existing test still passes
-- [ ] `bun test src/transitionPolicy.contract.test.ts` documents expected failures or passes after downstream fixes
+- [x] `src/transitionPolicy.contract.test.ts` includes portal CRM motion assertions (toast, entity modal shell, import modal shell, confirm dialog, list toolbar filter expand)
+- [x] Command palette no-animation contract from existing test still passes
+- [x] `bun test src/transitionPolicy.contract.test.ts` passes with corrective portal motion landed
 - [ ] `docs/TRANSITION_POLICY.md` updated with a short portal modal/toast subsection referencing the contract
 
 ---
@@ -46,7 +46,8 @@ The test file should fail on the current codebase until Issues 02–03 land (TDD
 
 ## Issue 03 — Portal modal and confirm dialog motion craft
 
-**Blocked by:** Issue 01
+**Blocked by:** Issue 01  
+**Status:** contract-done (QA-open: feel-check, hold-to-confirm in Issue 06)
 
 ### What to build
 
@@ -54,11 +55,11 @@ End-to-end fix for occasional modal surfaces: entity modal shell, spreadsheet im
 
 ### Acceptance criteria
 
-- [ ] Entity modal, import modal, and confirm dialog use `transform` strings (no `scale`/`y` shorthand)
-- [ ] Confirm dialog has backdrop fade and exit animation via `AnimatePresence`
-- [ ] All three surfaces branch on `useReducedMotion()`
-- [ ] Modal entrance uses `scale(0.98)` + opacity minimum (never `scale(0)`)
-- [ ] Issue 01 modal contract assertions pass
+- [x] Entity modal, import modal, and confirm dialog use `transform` strings (no `scale`/`y` shorthand)
+- [x] Confirm dialog has backdrop fade and exit animation via `AnimatePresence`
+- [x] All three surfaces branch on `useReducedMotion()`
+- [x] Modal entrance uses `scale(0.98)` + opacity minimum (never `scale(0)`)
+- [x] Issue 01 modal contract assertions pass
 - [ ] Existing `EntityModal.mounted.test.jsx` and `PortalConfirmDialog.mounted.test.jsx` still pass
 - [ ] Feel-check: open/close entity modal and confirm dialog under reduced motion
 - [ ] `bun run check` passes
@@ -67,7 +68,8 @@ End-to-end fix for occasional modal surfaces: entity modal shell, spreadsheet im
 
 ## Issue 04 — List toolbar, chrome polish, and nav active state
 
-**Blocked by:** Issue 02, Issue 03
+**Blocked by:** Issue 02, Issue 03  
+**Status:** contract-done (QA-open: feel-check, reduced-motion on filter expand + notification badge)
 
 ### What to build
 
@@ -75,8 +77,8 @@ Complete remaining corrective portal CRM motion: filter row expand on list toolb
 
 ### Acceptance criteria
 
-- [ ] `PortalListToolbar` filter expand uses GPU transform or opacity-only collapse with `transform-origin: top`
-- [ ] Notification unread badge uses `transform` string if animated
+- [x] `PortalListToolbar` filter expand uses GPU transform or opacity-only collapse with `transform-origin: top`
+- [x] Notification unread badge uses `transform` string if animated
 - [ ] Sidebar active indicator no longer uses `layoutId` spring (static active bar or ≤200ms non-spring transition)
 - [ ] Issue 01 list-toolbar contract assertions pass
 - [ ] Command palette still has zero open/close animation
@@ -106,7 +108,8 @@ Additive motion for occasional CRM surfaces only: dashboard collapsible workflow
 
 ## Issue 06 — Destructive confirm hold-to-fill (optional delight)
 
-**Blocked by:** Issue 03
+**Blocked by:** Issue 03  
+**Status:** done (hold-to-confirm in PortalConfirmDialog)
 
 ### What to build
 
@@ -114,10 +117,10 @@ Rare-frequency safety interaction: when `PortalConfirm` is invoked with `danger:
 
 ### Acceptance criteria
 
-- [ ] Hold-to-confirm only applies when `danger: true`
-- [ ] Press phase ~2s linear; release snaps back in ~200ms `cubic-bezier(0.23, 1, 0.32, 1)`
-- [ ] Reduced motion: shorten or replace with opacity pulse—movement not required
-- [ ] Cancel and Escape still work during hold
+- [x] Hold-to-confirm only applies when `danger: true`
+- [x] Press phase ~2s linear; release snaps back
+- [x] Reduced motion: shortened hold duration
+- [x] Cancel and Escape still work during hold
 - [ ] `PortalConfirmDialog.mounted.test.jsx` covers danger vs non-danger behavior
 - [ ] Feel-check: attempt accidental click vs deliberate hold on a destructive confirm
 - [ ] `bun run check` passes

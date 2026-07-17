@@ -4,7 +4,7 @@ import { api } from "@convex/_generated/api";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { usePathname, useRouter } from "next/navigation";
 import type { FormEvent } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
@@ -186,10 +186,13 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
   const allowed =
     access?.allowed && (view === "pipeline" ? canAccessPipeline(access) : has(meta.permission));
   const canFetch = isAuthenticated && access?.allowed;
+  const [referenceNow] = useState(() => Date.now());
 
   const summary = useQuery(
     api.crm.dashboard.getPortalSummary,
-    canFetch && allowed && view === "dashboard" ? { dateRange: dateRangeArg } : "skip"
+    canFetch && allowed && view === "dashboard"
+      ? { dateRange: dateRangeArg, referenceNow }
+      : "skip"
   );
   const savedViews = useQuery(
     api.crm.savedViews.listForPortal,

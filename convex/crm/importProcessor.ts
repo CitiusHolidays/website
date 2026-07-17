@@ -577,6 +577,14 @@ export async function processImportRows(
     sourceRowNumber?: number;
     sourceSheet?: string;
   }> = [];
+  const rowResults: Array<{
+    disposition: "created" | "failed" | "updated";
+    fullName: string;
+    id: string;
+    message?: string;
+    sourceRowNumber?: number;
+    sourceSheet?: string;
+  }> = [];
   const now = Date.now();
   const { jobCardId, rows, access, job, matchIndex } = args;
 
@@ -731,17 +739,33 @@ export async function processImportRows(
         });
       }
       processed += 1;
+      rowResults.push({
+        disposition: isNewTraveller ? "created" : "updated",
+        fullName: String(row.fullName ?? "").trim(),
+        id: String(row.id ?? row.importKey ?? travellerId),
+        sourceRowNumber: row.sourceRowNumber,
+        sourceSheet: row.sourceSheet,
+      });
     } catch (error) {
       failed += 1;
       const kind = classifyImportError(error);
       if (kind === "terminal") {
         processed += 1;
       }
+      const rowId = String(
+        row.id ?? row.importKey ?? `${row.sourceSheet ?? "row"}:${row.sourceRowNumber ?? ""}`
+      );
       errors.push({
-        id: String(
-          row.id ?? row.importKey ?? `${row.sourceSheet ?? "row"}:${row.sourceRowNumber ?? ""}`
-        ),
+        id: rowId,
         kind,
+        message: publicImportErrorMessage(error),
+        sourceRowNumber: row.sourceRowNumber,
+        sourceSheet: row.sourceSheet,
+      });
+      rowResults.push({
+        disposition: "failed",
+        fullName: String(row.fullName ?? "").trim(),
+        id: rowId,
         message: publicImportErrorMessage(error),
         sourceRowNumber: row.sourceRowNumber,
         sourceSheet: row.sourceSheet,
@@ -775,6 +799,7 @@ export async function processImportRows(
     processed,
     remaining: rows.length - processed,
     roomSummary: summarizeRoomTypesFromRows(rows),
+    rowResults,
     total: rows.length,
     updated,
   };

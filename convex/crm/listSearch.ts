@@ -30,13 +30,15 @@ type SearchReadinessRow = {
   version?: number;
 } | null;
 
-export function summarizeListSearchReadiness(rows: SearchReadinessRow[], now = Date.now()) {
+export function summarizeListSearchReadiness(rows: SearchReadinessRow[], now?: number) {
   const details = Object.fromEntries(
     SEARCH_TABLES.map((table, index) => {
       const row = rows[index];
       const current = isCurrentListSearchReadiness(row);
       const stale = Boolean(
-        row && now - Number(row.updatedAt ?? row.startedAt ?? 0) >= SEARCH_RECONCILIATION_STALE_MS
+        now !== undefined &&
+          row &&
+          now - Number(row.updatedAt ?? row.startedAt ?? 0) >= SEARCH_RECONCILIATION_STALE_MS
       );
       const state = current
         ? stale
@@ -178,7 +180,7 @@ async function completeTableReconciliation(
   return true;
 }
 
-async function readSearchReadiness(ctx: any) {
+async function readSearchReadiness(ctx: any, now?: number) {
   const rows = await Promise.all(
     SEARCH_TABLES.map((table) =>
       ctx.db
@@ -187,14 +189,14 @@ async function readSearchReadiness(ctx: any) {
         .unique()
     )
   );
-  return summarizeListSearchReadiness(rows);
+  return summarizeListSearchReadiness(rows, now);
 }
 
 export const getReadiness = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { referenceNow: v.optional(v.number()) },
+  handler: async (ctx, args) => {
     await requireStaff(ctx);
-    return await readSearchReadiness(ctx);
+    return await readSearchReadiness(ctx, args.referenceNow);
   },
   returns: listSearchReadinessResultValidator,
 });

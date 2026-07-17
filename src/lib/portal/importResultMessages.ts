@@ -1,4 +1,14 @@
 export interface PassengerImportMutationResult {
+  batches?: Array<{
+    batchId: string;
+    errors: Array<{
+      id: string;
+      kind: string;
+      message: string;
+      sourceRowNumber?: number;
+    }>;
+    status: string;
+  }>;
   created: number;
   failed?: number;
   total: number;

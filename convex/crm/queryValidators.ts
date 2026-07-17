@@ -49,7 +49,9 @@ export const querySourceValidator = v.union(
   v.literal("WhatsApp"),
   v.literal("Email"),
   v.literal("Client"),
-  v.literal("Referral")
+  v.literal("Referral"),
+  v.literal("Citius Concierge"),
+  v.literal("Sacred Bharat")
 );
 
 export const contractingStatusValidator = v.union(

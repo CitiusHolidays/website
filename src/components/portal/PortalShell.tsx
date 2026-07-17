@@ -462,10 +462,22 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                         <Bell size={17} />
                         {unreadCount > 0 && (
                           <m.span
-                            animate={{ opacity: 1, transform: "scale(1)" }}
+                            animate={
+                              shouldReduceMotion
+                                ? { opacity: 1 }
+                                : { opacity: 1, transform: "scale(1)" }
+                            }
                             className="absolute -top-1 -right-1 min-w-5 rounded-full bg-citius-blue px-1.5 text-center font-bold text-[10px] text-white tabular-nums leading-5 shadow-sm"
-                            initial={{ opacity: 0, transform: "scale(0.95)" }}
-                            transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
+                            initial={
+                              shouldReduceMotion
+                                ? { opacity: 0 }
+                                : { opacity: 0, transform: "scale(0.95)" }
+                            }
+                            transition={
+                              shouldReduceMotion
+                                ? { duration: 0 }
+                                : { duration: 0.15, ease: [0.23, 1, 0.32, 1] }
+                            }
                           >
                             {unreadCount > 99 ? "99+" : unreadCount}
                           </m.span>

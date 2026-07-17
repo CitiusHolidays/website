@@ -163,6 +163,8 @@ export function buildDashboardSections({
         dateRange={dateRange}
         displayName={access?.name}
         generatedAt={summary?.generatedAt}
+        ownedWorkSla={summary?.ownedWorkSla}
+        showSlaStrip={persona.id === "director" || access?.roles?.some((role) => role.includes("Head"))}
       />
     ),
     inbox: <DashboardActionInbox actions={urgentActions} dateRange={dateRange} />,

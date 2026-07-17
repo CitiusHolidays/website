@@ -1,7 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import {
   isLegacyRoomCode,
   resolveRoomingEntryRoomType,
@@ -37,7 +37,7 @@ const assertMigrationSecret = (secret: string) => {
 
 const TRAVEL_BATCH_MIGRATION_LIMIT = 100;
 
-export const auditTravelBatchSummaries = query({
+export const auditTravelBatchSummaries = internalQuery({
   args: {
     paginationOpts: paginationOptsValidator,
     secret: v.string(),
@@ -67,7 +67,7 @@ export const auditTravelBatchSummaries = query({
   returns: travelBatchAuditResultValidator,
 });
 
-export const migrateTravelBatchSummaries = mutation({
+export const migrateTravelBatchSummaries = internalMutation({
   args: {
     jobCardIds: v.array(v.id("jobCards")),
     secret: v.string(),
@@ -120,7 +120,7 @@ const normalizeBookingStatus = (value: unknown): BookingStatus => {
   return "pending";
 };
 
-export const importUsers = mutation({
+export const importUsers = internalMutation({
   args: {
     rows: v.array(v.any()),
     secret: v.string(),
@@ -170,7 +170,7 @@ export const importUsers = mutation({
   returns: migrationImportSummaryValidator,
 });
 
-export const importTrips = mutation({
+export const importTrips = internalMutation({
   args: {
     rows: v.array(v.any()),
     secret: v.string(),
@@ -230,7 +230,7 @@ export const importTrips = mutation({
   returns: migrationImportSummaryValidator,
 });
 
-export const importBookings = mutation({
+export const importBookings = internalMutation({
   args: {
     rows: v.array(v.any()),
     secret: v.string(),
@@ -296,7 +296,7 @@ export const importBookings = mutation({
   returns: migrationImportSummaryValidator,
 });
 
-export const migrateRoomTypes = mutation({
+export const migrateRoomTypes = internalMutation({
   args: {
     secret: v.string(),
   },
@@ -410,7 +410,7 @@ export const migrateRoomTypes = mutation({
   }),
 });
 
-export const getStats = mutation({
+export const getStats = internalMutation({
   args: {
     secret: v.string(),
   },
