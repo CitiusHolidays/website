@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import type { PipelineMode } from "@/components/portal/pipeline/PipelineView";
 import { canAssignTourManagers, canHeadAssignQueryTeams } from "@/lib/portal/permissions";
 import {
@@ -136,7 +136,7 @@ export function renderCorePortalView({
         mode={workspace.pipelineMode}
         moveContractingPipelineStage={workspace.moveContractingPipelineStage}
         moveSalesPipelineStage={workspace.moveSalesPipelineStage}
-        rows={workspace.filteredPipelineQueries as Parameters<typeof PipelineView>[0]["rows"]}
+        rows={workspace.filteredPipelineQueries as ComponentProps<typeof PipelineView>["rows"]}
         setMode={workspace.setPipelineMode}
       />
     );

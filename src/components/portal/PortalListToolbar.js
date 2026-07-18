@@ -132,7 +132,12 @@ export default function PortalListToolbar({
 
           {commandPalette}
           {actions ? (
-            <div className="flex shrink-0 flex-nowrap items-center gap-2">{actions}</div>
+            <div
+              className="flex shrink-0 flex-nowrap items-center gap-2"
+              data-testid="portal-list-toolbar-actions"
+            >
+              {actions}
+            </div>
           ) : null}
         </div>
       </div>

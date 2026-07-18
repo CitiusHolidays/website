@@ -1,10 +1,8 @@
 "use client";
 
-import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { QueryRowActions } from "@/components/portal/QueryRowActions";
 import { buildTravelBatchModalInitial, TRAVEL_BATCH_MODAL } from "@/lib/portal/workspaceContract";
-import { PORTAL_Z } from "@/lib/portal/zIndex";
 import type {
   PortalDeleteHandler,
   PortalJobCardListRow,
@@ -33,7 +31,6 @@ export function JobCardRowActions({
     canManageTravelBatches: boolean;
   };
 }) {
-  const [open, setOpen] = useState(false);
   const { canManage, canManageTravelBatches, assignContracting, assignOps, assignTicketing } =
     visibility;
   const overflowActions = [
@@ -155,38 +152,14 @@ export function JobCardRowActions({
   ].filter(Boolean);
 
   return (
-    <div className="flex items-center gap-2">
-      <Link className="portal-small-btn" href={`/portal/job-cards/${String(job.id)}`}>
-        Open
-      </Link>
-      {overflowActions.length > 0 ? (
-        <div className="relative">
-          <button
-            aria-expanded={open}
-            aria-label="More job card actions"
-            className="portal-small-btn inline-flex items-center gap-1"
-            onClick={() => setOpen((value) => !value)}
-            type="button"
-          >
-            <MoreHorizontal size={14} />
-          </button>
-          {open ? (
-            <>
-              <button
-                aria-label="Close actions menu"
-                className={`fixed inset-0 ${PORTAL_Z.dropdownBackdrop} cursor-default bg-transparent`}
-                onClick={() => setOpen(false)}
-                type="button"
-              />
-              <div
-                className={`absolute right-0 ${PORTAL_Z.dropdown} z-10 mt-2 min-w-[180px] rounded-xl border border-brand-border bg-white p-2 shadow-lg`}
-              >
-                <div className="flex flex-col gap-2">{overflowActions}</div>
-              </div>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+    <QueryRowActions
+      label={job.jobCode}
+      overflowActions={overflowActions}
+      primaryAction={
+        <Link className="portal-small-btn" href={`/portal/job-cards/${String(job.id)}`}>
+          Open
+        </Link>
+      }
+    />
   );
 }

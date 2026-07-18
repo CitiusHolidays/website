@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createInitialModalForm } from "./modalLifecycle";
+import { createInitialModalForm, jobCardProposalLinkPatch } from "./modalLifecycle";
 
 const initialForm = {
   budgetAmount: "",
@@ -75,5 +75,39 @@ describe("createInitialModalForm", () => {
     });
 
     expect(form.queryType).toBe("Cement");
+  });
+});
+
+describe("jobCardProposalLinkPatch", () => {
+  const proposals = [
+    { id: "proposal_old", queryId: "query_1", updatedAt: "2026-01-01T00:00:00.000Z" },
+    { id: "proposal_new", queryIds: ["query_1"], updatedAt: "2026-02-01T00:00:00.000Z" },
+  ];
+
+  test("links the latest proposal when a job card modal opens with a prefilled query", () => {
+    expect(
+      jobCardProposalLinkPatch({
+        form: { queryId: "query_1" },
+        modal: "jobCard",
+        proposals,
+      })
+    ).toEqual({ proposalId: "proposal_new" });
+  });
+
+  test("skips when the form already has a proposal or is editing an existing job card", () => {
+    expect(
+      jobCardProposalLinkPatch({
+        form: { entityId: "job_1", queryId: "query_1" },
+        modal: "jobCard",
+        proposals,
+      })
+    ).toBeNull();
+    expect(
+      jobCardProposalLinkPatch({
+        form: { proposalId: "proposal_old", queryId: "query_1" },
+        modal: "jobCard",
+        proposals,
+      })
+    ).toBeNull();
   });
 });

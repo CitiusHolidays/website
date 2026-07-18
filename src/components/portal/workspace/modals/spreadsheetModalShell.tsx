@@ -5,7 +5,7 @@ import type { ChangeEvent, ReactNode } from "react";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import type { SpreadsheetImportIssueRow } from "./spreadsheetModalRuntime";
 
-const PORTAL_EASE_OUT = [0.23, 1, 0.32, 1];
+const PORTAL_EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
 export function ImportModalShell({
   open,

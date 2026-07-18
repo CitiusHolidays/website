@@ -1,13 +1,35 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  downloadPassengerImportReportCsv,
-  passengerImportReportToCsv,
-} from "@/lib/portal/importReconciliation";
+import { useState } from "react";
+import { downloadPassengerImportReportCsv } from "@/lib/portal/importReconciliation";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const PAGE_SIZE = 50;
+
+export type PassengerImportReportDisposition = "created" | "failed" | "updated";
+
+export interface PassengerImportReportRow {
+  disposition: PassengerImportReportDisposition;
+  message: string;
+  rowNumber: number;
+  travellerName: string;
+}
+
+export interface PassengerImportReportSummary {
+  created?: number;
+  failed?: number;
+  total?: number;
+  updated?: number;
+}
+
+export interface ImportReconciliationModalProps {
+  jobCode?: string;
+  onClose: () => void;
+  open: boolean;
+  roomSummaryText?: string;
+  rows?: PassengerImportReportRow[];
+  summary?: PassengerImportReportSummary;
+}
 
 export function ImportReconciliationModal({
   open,
@@ -16,14 +38,12 @@ export function ImportReconciliationModal({
   roomSummaryText,
   rows,
   summary,
-}) {
+}: ImportReconciliationModalProps) {
   const [page, setPage] = useState(0);
 
   const pageCount = Math.max(1, Math.ceil((rows?.length ?? 0) / PAGE_SIZE));
-  const pageRows = useMemo(() => {
-    const start = page * PAGE_SIZE;
-    return (rows ?? []).slice(start, start + PAGE_SIZE);
-  }, [page, rows]);
+  const start = page * PAGE_SIZE;
+  const pageRows = (rows ?? []).slice(start, start + PAGE_SIZE);
 
   if (!open) {
     return null;
@@ -119,5 +139,3 @@ export function ImportReconciliationModal({
     </div>
   );
 }
-
-export { passengerImportReportToCsv };

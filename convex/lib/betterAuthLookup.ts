@@ -10,6 +10,7 @@ export type BetterAuthUserRow = {
 };
 
 export type BetterAuthAccountRow = {
+  _id?: string;
   providerId: string;
   password?: string | null;
 };

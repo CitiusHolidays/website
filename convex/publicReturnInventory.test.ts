@@ -15,6 +15,8 @@ const SERVER_TO_SERVER = new Set([
   "bookings.ts:markPaymentFailedByOrderId",
   "bookings.ts:markRefundedByPaymentId",
   "bookings.ts:recordPaymentAuthorized",
+  "crm/e2eAssertions.ts:travellerExists",
+  "crm/e2eSeedActions.ts:run",
   "trips.ts:createTrip",
 ]);
 

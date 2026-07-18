@@ -137,7 +137,7 @@ export function ExpensesView({
           kind: "action",
           label: "Action",
           render: (row: ExpenseRow) =>
-            has(P.MANAGE_EXPENSES) && (
+            (has(P.MANAGE_EXPENSES) || has(P.CREATE_EXPENSES) || has(P.MANAGE_ALL_EXPENSES)) && (
               <div className="flex flex-wrap gap-2">
                 {row.approvalStatus !== "Approved" && (
                   <EditButton

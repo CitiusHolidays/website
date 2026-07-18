@@ -1,0 +1,47 @@
+{
+  "emailDomain": "citius-e2e.test",
+  "profiles": [
+    {
+      "key": "admin",
+      "localPart": "e2e-admin",
+      "name": "E2E Admin",
+      "roles": ["Directors"]
+    },
+    {
+      "key": "sales",
+      "localPart": "e2e-sales",
+      "name": "E2E Sales",
+      "roles": ["Sales"]
+    },
+    {
+      "key": "contracting",
+      "localPart": "e2e-contracting",
+      "name": "E2E Contracting",
+      "roles": ["Contracting"]
+    },
+    {
+      "key": "operations",
+      "localPart": "e2e-operations",
+      "name": "E2E Operations",
+      "roles": ["Operations"]
+    },
+    {
+      "key": "ticketing",
+      "localPart": "e2e-ticketing",
+      "name": "E2E Ticketing",
+      "roles": ["Ticketing"]
+    },
+    {
+      "key": "finance",
+      "localPart": "e2e-finance",
+      "name": "E2E Finance",
+      "roles": ["Finance"]
+    },
+    {
+      "key": "hr",
+      "localPart": "e2e-hr",
+      "name": "E2E HR",
+      "roles": ["HR"]
+    }
+  ]
+}

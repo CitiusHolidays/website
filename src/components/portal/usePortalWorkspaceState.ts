@@ -20,7 +20,11 @@ import {
 } from "@/lib/portal/formValidation";
 import { getListFilterConfig } from "@/lib/portal/listFilterConfig";
 import { executeModalCommand } from "@/lib/portal/modalCommandExecutor";
-import { createInitialModalForm, JOB_CARD_MODALS } from "@/lib/portal/modalLifecycle";
+import {
+  createInitialModalForm,
+  JOB_CARD_MODALS,
+  jobCardProposalLinkPatch,
+} from "@/lib/portal/modalLifecycle";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg } from "@/lib/portal/periodFilter";
 import { canAccessPipeline } from "@/lib/portal/permissions";
@@ -190,9 +194,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
 
   const summary = useQuery(
     api.crm.dashboard.getPortalSummary,
-    canFetch && allowed && view === "dashboard"
-      ? { dateRange: dateRangeArg, referenceNow }
-      : "skip"
+    canFetch && allowed && view === "dashboard" ? { dateRange: dateRangeArg, referenceNow } : "skip"
   );
   const savedViews = useQuery(
     api.crm.savedViews.listForPortal,
@@ -504,6 +506,15 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     setForm((current) => ({ ...current, ...patch }));
   };
 
+  const effectiveForm = (() => {
+    const patch = jobCardProposalLinkPatch({
+      form,
+      modal,
+      proposals: compactRows(proposals),
+    });
+    return patch ? { ...form, ...patch } : form;
+  })();
+
   const submitToContracting = async ({ queryId }: { queryId: string }) => {
     try {
       await runMutation({ showToast: toast, successMessage: "Submitted to Contracting" }, () =>
@@ -687,7 +698,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
               uploadQueryFiles,
               upsertStaff,
             },
-            form,
+            form: effectiveForm,
             modal,
           });
           closeModal();
@@ -734,7 +745,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
   const modalControls = {
     closeModal,
     error,
-    form,
+    form: effectiveForm,
     isSaving,
     modal,
     openModal,
@@ -846,7 +857,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     filtersActive,
     financeOverview,
     flightItinerary,
-    form,
+    form: effectiveForm,
     gate,
     generateExpenseUploadUrl,
     generateFinalizedPdfUploadUrl,

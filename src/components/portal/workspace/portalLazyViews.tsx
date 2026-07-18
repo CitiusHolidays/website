@@ -1,18 +1,20 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { ComponentType } from "react";
+import type { ComponentProps, ComponentType } from "react";
 
 function portalViewLoading() {
   return <div aria-hidden className="min-h-[12rem] animate-pulse rounded-xl bg-brand-light/60" />;
 }
 
-function lazyView<T extends Record<string, unknown>>(
-  loader: () => Promise<T>,
-  exportName: keyof T & string
-) {
-  return dynamic(
-    () => loader().then((module) => ({ default: module[exportName] as ComponentType<object> })),
+function lazyView<
+  TModule extends Record<string, ComponentType<any>>,
+  TExportName extends keyof TModule & string,
+>(loader: () => Promise<TModule>, exportName: TExportName) {
+  type Props = ComponentProps<TModule[TExportName]>;
+
+  return dynamic<Props>(
+    () => loader().then((module) => module[exportName] as ComponentType<Props>),
     { loading: portalViewLoading }
   );
 }

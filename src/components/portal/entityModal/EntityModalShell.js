@@ -136,6 +136,7 @@ export function EntityModalShell({
                 ? "max-sm:max-h-[min(85dvh,100%)] max-sm:rounded-2xl"
                 : "max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none"
             }`}
+            data-testid="portal-entity-modal"
             exit={{ opacity: 0, transform: modalHiddenTransform }}
             initial={{ opacity: 0, transform: modalHiddenTransform }}
             onClick={(event) => event.stopPropagation()}
@@ -240,7 +241,12 @@ export function EntityModalShell({
               )}
             </div>
             <div className="flex shrink-0 justify-end gap-3 border-brand-border border-t bg-white px-5 py-4 max-sm:grid max-sm:grid-cols-2 max-sm:px-4 max-sm:pb-[max(1rem,var(--safe-area-inset-bottom))]">
-              <button className="portal-outline-btn max-sm:w-full" onClick={close} type="button">
+              <button
+                className="portal-outline-btn max-sm:w-full"
+                data-testid="portal-entity-modal-cancel"
+                onClick={close}
+                type="button"
+              >
                 {["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(modal)
                   ? "Close"
                   : "Cancel"}
@@ -250,6 +256,7 @@ export function EntityModalShell({
               ) && (
                 <button
                   className="portal-primary-btn disabled:opacity-60 max-sm:w-full"
+                  data-testid="portal-entity-modal-save"
                   disabled={isSaving}
                   type="submit"
                 >

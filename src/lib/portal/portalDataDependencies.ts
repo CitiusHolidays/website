@@ -62,7 +62,7 @@ const MODAL_DEPENDENCIES: Record<string, readonly PortalDataDependency[]> = {
   leave_create: ["leaves", "team"],
   pnr: ["pnrs", "jobCards"],
   proposal: ["proposals", "queries"],
-  query: ["queries"],
+  query: ["queries", "team"],
   queryStatus: ["queries"],
   salesDecision: ["queries"],
   seat: ["seats", "tickets", "pnrs", "travellers", "jobCards"],

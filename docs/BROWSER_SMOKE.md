@@ -47,3 +47,9 @@ source.
 Failures capture route, role, screenshot, browser console, and network context under
 `.scratch/browser-smoke`. Text evidence is redacted for email addresses, authorization/cookie
 headers, and common secret-bearing query parameters.
+
+## Not covered here
+
+Browser smoke opens routes and asserts visible text only. It does **not** click Create/Edit/Delete,
+open entity modals, or submit forms. Use Playwright CRM interaction tests (`docs/E2E_TESTING.md`)
+for modal and CRUD coverage.

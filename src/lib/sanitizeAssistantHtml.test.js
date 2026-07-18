@@ -1,5 +1,21 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { JSDOM } from "jsdom";
 import { sanitizeAssistantHtml } from "./sanitizeAssistantHtml.js";
+
+const dom = new JSDOM("<!doctype html><html><body></body></html>", {
+  url: "https://citiusholidays.com",
+});
+
+beforeAll(() => {
+  globalThis.window = dom.window;
+  globalThis.document = dom.window.document;
+});
+
+afterAll(() => {
+  dom.window.close();
+  delete globalThis.window;
+  delete globalThis.document;
+});
 
 describe("sanitizeAssistantHtml", () => {
   test("strips script tags and event handlers", () => {

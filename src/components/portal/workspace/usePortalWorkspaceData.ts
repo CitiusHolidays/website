@@ -7,6 +7,7 @@ import {
   shouldContinueCursorPage,
 } from "@/lib/portal/cursorPagination";
 import { fiscalYearForDate } from "@/lib/portal/leavePolicy";
+import { resolveLinkedProposalForQuery } from "@/lib/portal/modalLifecycle";
 import { mergeFocusedRow } from "@/lib/portal/paginatedRows";
 import { endOfDateOnly, parseDateOnly } from "@/lib/portal/periodFilter";
 import { canUseTeamPicker } from "@/lib/portal/permissions";
@@ -184,7 +185,9 @@ export function usePortalWorkspaceData({
       )
     : undefined;
   const shouldLoadProposals = Boolean(
-    canFetch && needs("proposals") && (has(P.VIEW_PROPOSALS) || has(P.VIEW_CONTRACTING))
+    canFetch &&
+      needs("proposals") &&
+      (has(P.VIEW_PROPOSALS) || has(P.VIEW_CONTRACTING) || has(P.MANAGE_JOB_CARDS))
   );
   const proposalListArgs =
     view === "proposals"
@@ -206,10 +209,31 @@ export function usePortalWorkspaceData({
       ? { proposalId: deepLinkId }
       : "skip"
   );
+  const focusedJobCardProposalId = (() => {
+    if (modal !== "jobCard" || form.entityId || !form.queryId) {
+      return null;
+    }
+    if (form.proposalId) {
+      return String(form.proposalId);
+    }
+    const loadedProposals =
+      proposalPage.status === "LoadingFirstPage" ? [] : (proposalPage.results ?? []);
+    const linkedProposal = resolveLinkedProposalForQuery(loadedProposals, form.queryId);
+    return linkedProposal?.id ? String(linkedProposal.id) : null;
+  })();
+  const focusedJobCardProposal = useQuery(
+    api.crm.proposals.getListRow,
+    shouldLoadProposals && focusedJobCardProposalId
+      ? { proposalId: focusedJobCardProposalId }
+      : "skip"
+  );
   const proposals = shouldLoadProposals
     ? mergeFocusedRow(
-        proposalPage.status === "LoadingFirstPage" ? undefined : proposalPage.results,
-        focusedProposal
+        mergeFocusedRow(
+          proposalPage.status === "LoadingFirstPage" ? undefined : proposalPage.results,
+          focusedProposal
+        ),
+        focusedJobCardProposal
       )
     : undefined;
   const shouldLoadJobCards = Boolean(canFetch && needs("jobCards") && has(P.VIEW_JOB_CARDS));

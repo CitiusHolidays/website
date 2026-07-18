@@ -19,7 +19,15 @@ export const JOB_CARD_MODALS = new Set([
   "expense",
 ]);
 
-function latestProposalForQuery(proposals = [], queryId) {
+/**
+ * @typedef {{ id: string, queryId?: string, queryIds?: string[], updatedAt?: string | number | Date }} LinkedProposal
+ */
+
+/**
+ * @param {LinkedProposal[]} proposals
+ * @param {string} queryId
+ */
+export function resolveLinkedProposalForQuery(proposals, queryId) {
   return proposals.reduce((latest, proposal) => {
     const linkedQueryIds = new Set(proposalLinkedQueryIds(proposal));
     if (!linkedQueryIds.has(queryId)) {
@@ -30,6 +38,17 @@ function latestProposalForQuery(proposals = [], queryId) {
     }
     return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
   }, null);
+}
+
+/**
+ * @param {{ form: Record<string, any>, modal: string | null, proposals?: LinkedProposal[] }} args
+ */
+export function jobCardProposalLinkPatch({ form, modal, proposals = [] }) {
+  if (modal !== "jobCard" || form.entityId || !form.queryId || form.proposalId) {
+    return null;
+  }
+  const linkedProposal = resolveLinkedProposalForQuery(proposals, form.queryId);
+  return linkedProposal?.id ? { proposalId: linkedProposal.id } : null;
 }
 
 export function createInitialModalForm({
@@ -60,7 +79,7 @@ export function createInitialModalForm({
       Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
     }
     if (type === "jobCard" && !next.proposalId) {
-      next.proposalId = latestProposalForQuery(proposals, next.queryId)?.id || "";
+      next.proposalId = resolveLinkedProposalForQuery(proposals, next.queryId)?.id || "";
     }
   }
   if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {

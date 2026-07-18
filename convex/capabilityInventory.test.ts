@@ -14,7 +14,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "aff9f4052444e2d868874eddc1e498f6c8f1ccb543e5c68c8e98d0a50b64e94e";
+const EXPECTED_CAPABILITY_HASH = "2bd77b1de51a71fe5ceaf09240439b32167c4606213f10b790585ae7a3baccfa";
 const SOURCE_EXTENSION = /\.(?:js|ts)$/;
 const NON_SOURCE_FILE = /(?:\.test|\.config)\.[jt]s$/;
 const MODULE_EXTENSION = /\.[jt]s$/;
@@ -41,8 +41,14 @@ const PAYMENT_SERVER_ONLY_CAPABILITIES = new Set([
   "bookings.recordPaymentAuthorized",
 ]);
 
+const E2E_SERVER_ONLY_CAPABILITIES = new Set([
+  "crm/e2eAssertions.travellerExists",
+  "crm/e2eSeedActions.run",
+]);
+
 const SERVER_ONLY_CAPABILITIES = new Set([
   ...AI_SERVER_ONLY_CAPABILITIES,
+  ...E2E_SERVER_ONLY_CAPABILITIES,
   ...PAYMENT_SERVER_ONLY_CAPABILITIES,
 ]);
 
@@ -134,5 +140,12 @@ describe("Convex capability inventory", () => {
   test("server-only AI runtime writers retain their secret guard", () => {
     const source = readFileSync(join(CONVEX_ROOT, "aiRuntime.ts"), "utf8");
     expect(source.match(/assertRuntimeSecret\(args\.secret\)/g)).toHaveLength(2);
+  });
+
+  test("server-only E2E endpoints retain their secret guard", () => {
+    const assertions = readFileSync(join(CONVEX_ROOT, "crm/e2eAssertions.ts"), "utf8");
+    const seed = readFileSync(join(CONVEX_ROOT, "crm/e2eSeedActions.ts"), "utf8");
+    expect(assertions).toContain("assertE2eSecret(args.secret)");
+    expect(seed).toContain("assertE2eSecret(args.secret)");
   });
 });

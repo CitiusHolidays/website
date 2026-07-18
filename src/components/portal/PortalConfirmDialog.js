@@ -190,6 +190,7 @@ export function PortalConfirmProvider({ children }) {
             aria-labelledby={titleId}
             aria-modal="true"
             className="w-full max-w-md rounded-2xl border border-brand-border bg-white p-6 shadow-xl"
+            data-testid="portal-confirm-dialog"
             exit={{
               opacity: 0,
               transform: shouldReduceMotion ? dialogTransform : dialogExitTransform,
@@ -220,6 +221,7 @@ export function PortalConfirmProvider({ children }) {
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button
             className="portal-small-btn min-h-11"
+            data-testid="portal-confirm-cancel"
             disabled={state.pending}
             onClick={() => finish(false)}
             ref={cancelRef}
@@ -230,6 +232,7 @@ export function PortalConfirmProvider({ children }) {
           <button
             aria-describedby={state.danger ? messageId : undefined}
             className={`${state.danger ? "portal-danger-btn relative overflow-hidden" : "portal-primary-btn"} min-h-11`}
+            data-testid={state.danger ? "portal-confirm-hold" : "portal-confirm-submit"}
             disabled={state.pending}
             onClick={state.danger ? undefined : runConfirmAction}
             onMouseDown={state.danger ? startDangerHold : undefined}
