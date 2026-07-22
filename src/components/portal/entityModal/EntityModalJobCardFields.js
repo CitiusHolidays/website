@@ -116,11 +116,6 @@ export function EntityModalJobCardFields({
             type="date"
             value={form.travelEndDate}
           />
-          <Input
-            label="Tour Manager"
-            onChange={(v) => updateForm("tourManagerName", v)}
-            value={form.tourManagerName}
-          />
         </>
       )}
     </>

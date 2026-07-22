@@ -1,7 +1,9 @@
+import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { canSeeQueryRecord, PERMISSIONS, publicQuery, requireAnyPermission } from "./lib";
 import { assertListSearchReady } from "./listSearch";
 import { applyCrmCursorFilters, boundedPaginationOptions } from "./paginationPolicy";
+import { resolveProposalDocumentsByQueryId } from "./proposalDocument";
 
 export async function handleQueryListPage(
   ctx: QueryCtx,
@@ -40,6 +42,10 @@ export async function handleQueryListPage(
   });
   const sourcePage = await filteredSource.paginate(boundedPaginationOptions(args.paginationOpts));
   const visibleRows = sourcePage.page.filter((row) => canSeeQueryRecord(access, row));
+  const proposalDocuments = await resolveProposalDocumentsByQueryId(
+    ctx,
+    visibleRows.map((row) => row._id)
+  );
   const page = visibleRows.map((row) => ({
     ...publicQuery(row),
     attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,
@@ -47,6 +53,7 @@ export async function handleQueryListPage(
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
+    proposalDocument: proposalDocuments.get(String(row._id)) ?? null,
   }));
   return { ...sourcePage, page };
 }
@@ -70,6 +77,9 @@ export async function handleQueryGetListRow(
   if (!(row && canSeeQueryRecord(access, row))) {
     return null;
   }
+  const proposalDocuments = await resolveProposalDocumentsByQueryId(ctx, [
+    row._id as Id<"queries">,
+  ]);
   return {
     ...publicQuery(row),
     attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,
@@ -77,5 +87,6 @@ export async function handleQueryGetListRow(
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
+    proposalDocument: proposalDocuments.get(String(row._id)) ?? null,
   };
 }

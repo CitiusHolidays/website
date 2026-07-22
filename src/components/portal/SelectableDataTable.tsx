@@ -176,6 +176,106 @@ function LoadMoreButton({
   );
 }
 
+function TableHorizontalScrollContainer({
+  children,
+  contentKey,
+}: {
+  children: ReactNode;
+  contentKey: string;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [scrollState, setScrollState] = useState({
+    canScrollLeft: false,
+    canScrollRight: false,
+    overflow: false,
+  });
+
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) {
+      return;
+    }
+
+    const updateScrollState = () => {
+      const overflow = node.scrollWidth > node.clientWidth + 1;
+      setScrollState({
+        canScrollLeft: overflow && node.scrollLeft > 1,
+        canScrollRight: overflow && node.scrollLeft + node.clientWidth < node.scrollWidth - 1,
+        overflow,
+      });
+    };
+
+    updateScrollState();
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateScrollState);
+    resizeObserver?.observe(node);
+    node.addEventListener("scroll", updateScrollState, { passive: true });
+    window.addEventListener("resize", updateScrollState);
+
+    return () => {
+      resizeObserver?.disconnect();
+      node.removeEventListener("scroll", updateScrollState);
+      window.removeEventListener("resize", updateScrollState);
+    };
+  }, [contentKey]);
+
+  const scrollBy = (direction: "left" | "right") => {
+    const node = scrollRef.current;
+    if (!node) {
+      return;
+    }
+    const distance = Math.max(node.clientWidth * 0.7, 160);
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    node.scrollBy({
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+      left: direction === "left" ? -distance : distance,
+    });
+  };
+
+  return (
+    <div className="relative hidden md:block">
+      {scrollState.overflow && scrollState.canScrollLeft ? (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-linear-to-r from-white to-transparent"
+          />
+          <button
+            aria-label="Scroll table left"
+            className="absolute top-1/2 left-1 z-20 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-brand-border bg-white/95 text-brand-muted shadow-sm transition-colors hover:text-citius-blue"
+            onClick={() => scrollBy("left")}
+            type="button"
+          >
+            <ChevronLeft aria-hidden size={16} />
+          </button>
+        </>
+      ) : null}
+      {scrollState.overflow && scrollState.canScrollRight ? (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-linear-to-l from-white to-transparent"
+          />
+          <button
+            aria-label="Scroll table right"
+            className="absolute top-1/2 right-1 z-20 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-brand-border bg-white/95 text-brand-muted shadow-sm transition-colors hover:text-citius-blue"
+            onClick={() => scrollBy("right")}
+            type="button"
+          >
+            <ChevronRight aria-hidden size={16} />
+          </button>
+        </>
+      ) : null}
+      <div
+        className="overflow-x-auto rounded-2xl border border-brand-border bg-white shadow-sm"
+        ref={scrollRef}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({
   isLoadingMore,
   label,
@@ -528,7 +628,9 @@ export function SelectableDataTable<Row extends PortalDataRow>({
           </details>
         </div>
       ) : null}
-      <div className="hidden overflow-x-auto rounded-2xl border border-brand-border bg-white shadow-sm md:block">
+      <TableHorizontalScrollContainer
+        contentKey={`${pageRows.length}:${visibleGridColumns.length}`}
+      >
         <table className={`min-w-full border-collapse ${tableClassName}`}>
           <thead className="bg-brand-light/80">
             <tr>
@@ -596,7 +698,7 @@ export function SelectableDataTable<Row extends PortalDataRow>({
             })}
           </tbody>
         </table>
-      </div>
+      </TableHorizontalScrollContainer>
       <TablePaginationFooter
         canLoadMore={canLoadMore}
         currentPage={currentPage}

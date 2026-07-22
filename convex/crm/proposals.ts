@@ -29,6 +29,7 @@ import {
   mapInBoundedBatches,
 } from "./paginationPolicy";
 import { publicProposalAttachment } from "./proposalAttachments";
+import { notifyLinkedQuerySalesOwnersOfProposalDocument } from "./proposalDocument";
 import {
   proposalCreateResultValidator,
   proposalIdResultValidator,
@@ -540,10 +541,10 @@ export const markSent = mutation({
         message: `${proposal.proposalCode} marked as sent to the client`,
       }),
       notifyRoles(ctx, ["Sales", "Sales Head"], {
-        body: `${proposal.proposalCode} has been sent to the client.`,
+        body: `${proposal.proposalCode} was marked as sent to the client.`,
         entityId: proposalId,
         entityType: "proposal",
-        title: "Proposal sent",
+        title: "Proposal marked client sent",
       }),
     ]);
     return { id: proposalId };
@@ -865,6 +866,11 @@ export const saveFinalizedPdf = internalMutation({
       finalizedPdfUploadedAt: now,
       finalizedPdfUploadedBy: args.uploadedBy,
       updatedAt: now,
+    });
+    await notifyLinkedQuerySalesOwnersOfProposalDocument(ctx, {
+      isReplacement: Boolean(previousStorageId),
+      proposalCode: proposal.proposalCode,
+      proposalId: args.proposalId,
     });
     return { previousStorageId: previousStorageId ?? null };
   },

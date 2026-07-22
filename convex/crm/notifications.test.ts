@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { canReceiveNotification, expandNotificationEmailRoles, notifyRoles } from "./lib";
+import {
+  canReceiveNotification,
+  expandNotificationEmailRoles,
+  notifyRoles,
+  notifyStaffMatching,
+} from "./lib";
 import { getNotificationHref } from "./notificationPaths";
 
 describe("notification paths", () => {
@@ -119,12 +124,14 @@ describe("notifyRoles", () => {
           _id: "staff_accounts",
           active: true,
           email: "accounts@example.com",
+          emailAlertRoles: ["Accounts"],
           roles: ["Accounts"],
         },
         {
           _id: "staff_accounts_head",
           active: true,
           email: "head@example.com",
+          emailAlertRoles: ["Accounts Head"],
           roles: ["Accounts Head"],
         },
       ],
@@ -166,7 +173,7 @@ describe("notifyRoles", () => {
     expect(scheduled[0].args.eventId).toBe("notifications_1");
   });
 
-  test("uses staff email alert roles when present", async () => {
+  test("uses only staff email alert roles, never assigned portal roles", async () => {
     const tables: Record<string, any[]> = {
       notifications: [],
       staffUsers: [
@@ -189,6 +196,18 @@ describe("notifyRoles", () => {
           email: "optout@example.com",
           emailAlertRoles: ["Sales"],
           roles: ["Operations Head"],
+        },
+        {
+          _id: "staff_admin",
+          active: true,
+          email: "admin@example.com",
+          roles: ["Admin"],
+        },
+        {
+          _id: "staff_director",
+          active: true,
+          email: "director@example.com",
+          roles: ["Directors"],
         },
       ],
     };
@@ -224,11 +243,60 @@ describe("notifyRoles", () => {
     );
 
     expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Operations Head"]);
-    expect(scheduled[0].args.recipients.sort()).toEqual([
-      "delegate@example.com",
-      "ops-head@example.com",
-    ]);
-    expect(scheduled[0].args.eventId).toBe("notifications_1");
+    expect(scheduled[0].args.recipients).toEqual(["delegate@example.com"]);
+  });
+
+  test("does not send Admin or Directors emails without per-person settings opt-in", async () => {
+    const tables: Record<string, any[]> = {
+      notifications: [],
+      staffUsers: [
+        {
+          _id: "staff_admin",
+          active: true,
+          email: "admin@example.com",
+          roles: ["Admin"],
+        },
+        {
+          _id: "staff_director",
+          active: true,
+          email: "director@example.com",
+          roles: ["Directors"],
+        },
+        {
+          _id: "staff_sales",
+          active: true,
+          email: "sales@example.com",
+          roles: ["Sales"],
+        },
+      ],
+    };
+    const scheduled: any[] = [];
+    const ctx = {
+      db: {
+        insert: async (table: string, doc: Record<string, unknown>) => {
+          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
+          tables[table].push(row);
+          return row._id;
+        },
+        query: (table: string) => ({
+          collect: async () => tables[table] ?? [],
+        }),
+      },
+      scheduler: {
+        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
+          scheduled.push({ args, fn });
+        },
+      },
+    };
+
+    await notifyRoles(ctx as never, ["Admin", "Directors"], {
+      body: "Review",
+      entityId: "query_1",
+      entityType: "query",
+      title: "Executive alert",
+    });
+
+    expect(scheduled).toHaveLength(0);
   });
 
   test("can keep oversight bell rows without sending role emails", async () => {
@@ -247,6 +315,24 @@ describe("notifyRoles", () => {
           email: "delegate@example.com",
           emailAlertRoles: ["Contracting Head"],
           roles: ["Operations"],
+        },
+        {
+          _id: "staff_contracting_member",
+          active: true,
+          email: "contracting@example.com",
+          roles: ["Contracting"],
+        },
+        {
+          _id: "staff_admin",
+          active: true,
+          email: "admin@example.com",
+          roles: ["Admin"],
+        },
+        {
+          _id: "staff_director",
+          active: true,
+          email: "director@example.com",
+          roles: ["Directors"],
         },
       ],
     };
@@ -284,6 +370,59 @@ describe("notifyRoles", () => {
 
     expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Contracting Head"]);
     expect(scheduled).toHaveLength(0);
+  });
+});
+
+describe("notifyStaffMatching", () => {
+  test("keeps bell delivery but requires per-person email opt-in", async () => {
+    const tables: Record<string, any[]> = {
+      notifications: [],
+      staffUsers: [
+        {
+          _id: "staff_no_email",
+          active: true,
+          authUserId: "auth_no_email",
+          email: "no-email@example.com",
+          roles: ["Sales"],
+        },
+        {
+          _id: "staff_opted_in",
+          active: true,
+          authUserId: "auth_opted_in",
+          email: "opted-in@example.com",
+          emailAlertRoles: ["Sales"],
+          roles: ["Sales"],
+        },
+      ],
+    };
+    const scheduled: any[] = [];
+    const ctx = {
+      db: {
+        insert: async (table: string, doc: Record<string, unknown>) => {
+          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
+          tables[table].push(row);
+          return row._id;
+        },
+        query: (table: string) => ({
+          collect: async () => tables[table] ?? [],
+        }),
+      },
+      scheduler: {
+        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
+          scheduled.push({ args, fn });
+        },
+      },
+    };
+
+    await notifyStaffMatching(
+      ctx as never,
+      (staff) => staff.roles.includes("Sales"),
+      { body: "Decision updated", title: "Approval updated" },
+      { emailRoles: ["Sales"] }
+    );
+
+    expect(tables.notifications).toHaveLength(2);
+    expect(scheduled[0].args.recipients).toEqual(["opted-in@example.com"]);
   });
 });
 

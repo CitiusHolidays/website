@@ -92,9 +92,9 @@ export const ENTITY_MODAL_SECTION_META = {
     title: "Working files",
   },
   proposalFinalizedPdf: {
-    description: "Upload or replace the client-facing finalized PDF.",
+    description: "Upload or replace the proposal document for linked queries.",
     eyebrow: "Files",
-    title: "Finalized PDF",
+    title: "Proposal Document",
   },
   queryAttachments: {
     description: "Upload or remove supporting documents for this query.",

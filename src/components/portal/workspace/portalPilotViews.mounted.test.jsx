@@ -50,6 +50,7 @@ describe("mounted portal pilot views", () => {
       <QueriesView
         access={{ roles: ["Sales"] }}
         deleteItem={async () => undefined}
+        getFinalizedPdfUrl={noopUrl}
         getQueryAttachmentUrl={noopUrl}
         has={(permission) => permission === P.MANAGE_QUERIES}
         openModal={() => undefined}
@@ -62,6 +63,11 @@ describe("mounted portal pilot views", () => {
             id: "query-1",
             leadStage: "Inquiry",
             paxCount: 20,
+            proposalDocument: {
+              fileName: "proposal-doc.pdf",
+              proposalId: "proposal-1",
+              uploadedAt: "2026-07-14",
+            },
             queryCode: "Q-0001",
             salesOwnerName: "Nina Sales",
           },
@@ -72,6 +78,8 @@ describe("mounted portal pilot views", () => {
 
     expect(view.container.textContent).toContain("Q-0001");
     expect(view.container.textContent).toContain("Acme Group");
+    expect(view.container.textContent).toContain("proposal-doc.pdf");
+    expect(view.container.textContent).toContain("Add file");
     const submit = [...view.container.querySelectorAll("button")].find(
       (button) => button.textContent === "Submit to Contracting"
     );
@@ -122,7 +130,7 @@ describe("mounted portal pilot views", () => {
     await view.unmount();
   });
 
-  test("Proposals preserves With Sales and Finalized PDF presentation", async () => {
+  test("Proposals preserves With Sales and Proposal Doc presentation", async () => {
     const view = await mount(
       <ProposalsView
         deleteItem={async () => undefined}

@@ -70,6 +70,7 @@ function buildQueryListRow(overrides: Record<string, unknown> = {}) {
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
+    proposalDocument: null,
   };
 }
 

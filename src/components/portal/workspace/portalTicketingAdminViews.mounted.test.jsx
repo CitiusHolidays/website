@@ -325,6 +325,8 @@ describe("mounted portal ticketing and administration views", () => {
     expect(view.container.textContent).toContain("Open workbook import");
     expect(view.container.textContent).toContain("Resend verification");
     expect(view.container.textContent).toContain("Nina Sales");
+    expect(view.container.textContent).toContain("Email alert roles");
+    expect(view.container.textContent).toContain("No email alerts enabled");
 
     await view.unmount();
   });

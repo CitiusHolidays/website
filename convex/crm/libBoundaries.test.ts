@@ -260,6 +260,46 @@ describe("notification boundary parity", () => {
       recipientStaffId: staffId,
       recipientUserId: "user_a",
     });
+    expect(scheduled).toHaveLength(0);
+  });
+
+  test("notifyStaffMember emails only when the person enabled a matching alert role", async () => {
+    const tables: Record<string, unknown[]> = { notifications: [], staffUsers: [] };
+    const scheduled: unknown[] = [];
+    const staffId = "staff_email_opt_in" as Id<"staffUsers">;
+    tables.staffUsers = [
+      {
+        _id: staffId,
+        active: true,
+        authUserId: "user_email_opt_in",
+        email: "staff@example.com",
+        emailAlertRoles: ["Sales"],
+        roles: ["Sales"],
+      },
+    ];
+    const ctx = {
+      db: {
+        get: async (id: Id<"staffUsers">) =>
+          tables.staffUsers.find((row) => (row as { _id: string })._id === id) ?? null,
+        insert: async (table: string, doc: Record<string, unknown>) => {
+          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
+          tables[table].push(row);
+          return row._id;
+        },
+      },
+      scheduler: {
+        runAfter: async (_delay: number, _fn: unknown, args: unknown) => {
+          scheduled.push(args);
+        },
+      },
+    };
+
+    await notifications.notifyStaffMember(ctx as never, staffId, {
+      body: "Hello",
+      title: "Ping",
+    });
+
+    expect(tables.notifications).toHaveLength(1);
     expect(scheduled).toHaveLength(1);
   });
 });

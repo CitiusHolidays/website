@@ -176,7 +176,6 @@ export async function executeModalCommand({ modal, form, deps }) {
     await deps.updateQueryStatus(payload);
   }
   if (modal === "proposal") {
-    let proposalResult = null;
     const proposalQueryIds =
       Array.isArray(form.queryIds) && form.queryIds.length > 0
         ? form.queryIds
@@ -198,19 +197,9 @@ export async function executeModalCommand({ modal, form, deps }) {
       itinerarySummary: form.itinerarySummary,
     };
     if (form.entityId) {
-      proposalResult = await deps.updateProposal({ proposalId: form.entityId, ...proposalPayload });
+      await deps.updateProposal({ proposalId: form.entityId, ...proposalPayload });
     } else {
-      proposalResult = await deps.createProposal(proposalPayload);
-    }
-    const proposalId = form.entityId || proposalResult?.id;
-    if (proposalId && deps.pendingProposalFiles.length > 0) {
-      await deps.uploadEntityFiles({
-        attachFile: deps.attachProposalFile,
-        entityId: proposalId,
-        files: deps.pendingProposalFiles,
-        generateUploadUrl: deps.generateProposalUploadUrl,
-        idField: "proposalId",
-      });
+      await deps.createProposal(proposalPayload);
     }
   }
   if (modal === "travelBatch") {
@@ -249,7 +238,6 @@ export async function executeModalCommand({ modal, form, deps }) {
         destination: form.destination,
         jobCardId: form.entityId,
         roomCount: toNumber(form.roomCount, 0),
-        tourManagerName: form.tourManagerName,
         travelEndDate: form.travelEndDate,
         travelStartDate: form.travelStartDate,
       });
@@ -261,7 +249,6 @@ export async function executeModalCommand({ modal, form, deps }) {
         proposalId: form.proposalId || undefined,
         queryId: form.queryId,
         roomCount: toNumber(form.roomCount, 0),
-        tourManagerName: form.tourManagerName,
         travelEndDate: form.travelEndDate,
         travelStartDate: form.travelStartDate,
       });

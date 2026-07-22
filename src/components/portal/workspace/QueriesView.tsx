@@ -17,7 +17,7 @@ import {
 import { buildQueryStatusAction } from "@/lib/portal/queryStatusAction";
 import type { QueriesViewProps } from "./portalViewTypes";
 import { isQueryConfirmed, money } from "./portalWorkspaceListHelpers";
-import { DeleteButton, QueryAttachmentSummary, StatusBadge } from "./portalWorkspaceListUi";
+import { DeleteButton, QueryFilesSummary, StatusBadge } from "./portalWorkspaceListUi";
 
 type PortalQueryRow = QueriesViewProps["rows"][number];
 
@@ -192,6 +192,7 @@ export function QueriesView({
   removeQuery,
   submitToContracting,
   getQueryAttachmentUrl,
+  getFinalizedPdfUrl,
 }: QueriesViewProps) {
   return (
     <SelectableDataTable<PortalQueryRow>
@@ -308,14 +309,15 @@ export function QueriesView({
           id: "files",
           label: "Files",
           render: (row: PortalQueryRow) => (
-            <QueryAttachmentSummary
-              attachmentCount={row.attachmentCount}
+            <QueryFilesSummary
               attachments={row.attachments || []}
-              canManage={has(P.MANAGE_QUERIES)}
+              canManageReferenceItinerary={has(P.MANAGE_QUERIES)}
+              getFinalizedPdfUrl={getFinalizedPdfUrl}
               getQueryAttachmentUrl={getQueryAttachmentUrl}
-              onManage={() =>
+              onManageReferenceItinerary={() =>
                 openModal("queryAttachments", { queryCode: row.queryCode, queryId: String(row.id) })
               }
+              proposalDocument={row.proposalDocument}
             />
           ),
         },
@@ -416,6 +418,16 @@ export function QueriesView({
                 </div>
               ) : null}
             </div>
+            <QueryFilesSummary
+              attachments={row.attachments || []}
+              canManageReferenceItinerary={has(P.MANAGE_QUERIES)}
+              getFinalizedPdfUrl={getFinalizedPdfUrl}
+              getQueryAttachmentUrl={getQueryAttachmentUrl}
+              onManageReferenceItinerary={() =>
+                openModal("queryAttachments", { queryCode: row.queryCode, queryId: String(row.id) })
+              }
+              proposalDocument={row.proposalDocument}
+            />
             <LifecycleDates
               compact
               items={[

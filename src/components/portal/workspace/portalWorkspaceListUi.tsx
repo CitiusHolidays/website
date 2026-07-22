@@ -9,7 +9,7 @@ import {
   type SemanticTone,
   type StatusDomain,
 } from "@/lib/portal/statusTones";
-import { openQueryAttachment } from "./portalWorkspaceListHelpers";
+import { openFinalizedProposalPdf, openQueryAttachment } from "./portalWorkspaceListHelpers";
 
 const useTypedPortalToast = usePortalToast as unknown as () => {
   error: (message: string) => unknown;
@@ -71,7 +71,7 @@ export function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, o
   if (!finalizedPdf) {
     return canSend ? (
       <button className="portal-small-btn" onClick={onManage} type="button">
-        Upload PDF
+        Upload document
       </button>
     ) : (
       <span className="text-brand-muted text-xs">Not uploaded</span>
@@ -99,9 +99,94 @@ export function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, o
       )}
       {canSend && (
         <button className="portal-small-btn mt-1 w-fit" onClick={onManage} type="button">
-          Replace PDF
+          Replace document
         </button>
       )}
+    </div>
+  );
+}
+
+export function QueryFilesSummary({
+  attachments,
+  canManageReferenceItinerary,
+  proposalDocument,
+  getQueryAttachmentUrl,
+  getFinalizedPdfUrl,
+  onManageReferenceItinerary,
+}: {
+  attachments: Array<{ fileName: string; id: string }>;
+  canManageReferenceItinerary?: boolean;
+  getFinalizedPdfUrl: (proposalId: string) => Promise<string>;
+  getQueryAttachmentUrl: (attachmentId: string) => Promise<string>;
+  onManageReferenceItinerary?: () => void;
+  proposalDocument?: {
+    fileName: string;
+    proposalId: string;
+    uploadedAt?: string | null;
+  } | null;
+}) {
+  const toast = useTypedPortalToast();
+  const hasReferenceItinerary = attachments.length > 0 || canManageReferenceItinerary;
+  const hasProposalDocument = Boolean(proposalDocument?.proposalId);
+
+  if (!(hasReferenceItinerary || hasProposalDocument)) {
+    return <span className="text-brand-muted text-xs">-</span>;
+  }
+
+  return (
+    <div className="flex min-w-44 flex-col gap-3">
+      {hasReferenceItinerary ? (
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold text-[length:var(--portal-label-size)] text-brand-muted uppercase tracking-[0.08em]">
+            Reference itinerary
+          </span>
+          {attachments.slice(0, 2).map((file) => (
+            <button
+              className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
+              key={file.id}
+              onClick={() =>
+                openQueryAttachment(file.id, getQueryAttachmentUrl, "query").catch((err: any) => {
+                  toast.error(err?.data || err?.message || "Unable to open file.");
+                })
+              }
+              type="button"
+            >
+              <Paperclip className="shrink-0" size={12} />
+              <span className="truncate">{file.fileName}</span>
+            </button>
+          ))}
+          {canManageReferenceItinerary && onManageReferenceItinerary ? (
+            <button
+              className="portal-small-btn mt-1 w-fit"
+              onClick={onManageReferenceItinerary}
+              type="button"
+            >
+              {attachments.length > 0 ? "Manage" : "Add file"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {proposalDocument?.proposalId ? (
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold text-[length:var(--portal-label-size)] text-brand-muted uppercase tracking-[0.08em]">
+            Proposal doc
+          </span>
+          <button
+            className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
+            onClick={() =>
+              openFinalizedProposalPdf(proposalDocument.proposalId, getFinalizedPdfUrl).catch(
+                (err: any) => {
+                  toast.error(err?.data || err?.message || "Unable to open file.");
+                }
+              )
+            }
+            type="button"
+          >
+            <FileText className="shrink-0" size={12} />
+            <span className="truncate">{proposalDocument.fileName}</span>
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

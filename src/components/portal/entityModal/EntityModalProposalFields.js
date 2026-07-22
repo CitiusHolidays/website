@@ -5,45 +5,30 @@ import {
   MultiSelect,
   money,
   proposalCostPerPax,
-  QueryFilePicker,
   Textarea,
 } from "@/components/portal/PortalModalForm";
+import { proposalLinkedQueryOptions } from "@/lib/portal/proposalLinkedQueryOptions";
 
 export function EntityModalProposalFields({
   modal,
   form,
   updateForm,
-  patchForm,
-  has,
-  access,
   queries,
   proposals,
-  jobCards,
-  team,
-  contractingTeamOptions,
-  operationsTeamOptions,
-  ticketingTeamOptions,
-  pendingQueryFiles,
-  setPendingQueryFiles,
-  pendingProposalFiles,
-  setPendingProposalFiles,
-  generateQueryUploadUrl,
-  attachQueryFile,
-  getQueryAttachmentUrl,
-  removeQueryAttachment,
-  generateProposalUploadUrl,
-  attachProposalFile,
-  getProposalAttachmentUrl,
-  removeProposalAttachment,
-  generateFinalizedPdfUploadUrl,
-  attachFinalizedPdf,
-  getFinalizedPdfUrl,
-  removeFinalizedPdf,
   handleProposalQuerySelect,
-  handleJobQuerySelect,
-  handleJobCardSelect,
-  handleTravellerSelect,
 }) {
+  const selectedQueryIds = Array.isArray(form.queryIds)
+    ? form.queryIds
+    : form.queryId
+      ? [form.queryId]
+      : [];
+  const linkedQueryOptions = proposalLinkedQueryOptions(
+    queries,
+    proposals,
+    selectedQueryIds,
+    form.entityId
+  );
+
   return (
     <>
       {modal === "proposal" && (
@@ -51,13 +36,11 @@ export function EntityModalProposalFields({
           <MultiSelect
             label="Linked Queries"
             onChange={handleProposalQuerySelect}
-            options={queries.map((q) => ({
+            options={linkedQueryOptions.map((q) => ({
               label: `${q.queryCode} - ${q.clientName}`,
               value: q.id,
             }))}
-            value={
-              Array.isArray(form.queryIds) ? form.queryIds : form.queryId ? [form.queryId] : []
-            }
+            value={selectedQueryIds}
           />
           <Input
             label="Client Name"
@@ -120,13 +103,6 @@ export function EntityModalProposalFields({
             onChange={(v) => updateForm("itinerarySummary", v)}
             value={form.itinerarySummary}
           />
-          <div className="md:col-span-2">
-            <QueryFilePicker
-              files={pendingProposalFiles}
-              inputId="proposal-files"
-              onChange={setPendingProposalFiles}
-            />
-          </div>
         </>
       )}
     </>

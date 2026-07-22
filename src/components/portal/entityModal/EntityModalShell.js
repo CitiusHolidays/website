@@ -35,9 +35,7 @@ export function EntityModalShell({
   const formRef = useRef(null);
   const errorRef = useRef(null);
   const modalTransform = "translateY(0) scale(1)";
-  const modalHiddenTransform = shouldReduceMotion
-    ? modalTransform
-    : "translateY(24px) scale(0.98)";
+  const modalHiddenTransform = shouldReduceMotion ? modalTransform : "translateY(24px) scale(0.98)";
 
   useEffect(() => {
     if (!modal) {
@@ -213,7 +211,7 @@ export function EntityModalShell({
                     { label: "Created", value: lifecycleProposal.createdAt },
                     { label: "Sales handoff", value: lifecycleProposal.sentToSalesAt },
                     { label: "Client delivery", value: lifecycleProposal.sentToClientAt },
-                    { label: "Finalized PDF", value: lifecycleProposal.finalizedPdf?.uploadedAt },
+                    { label: "Proposal Doc", value: lifecycleProposal.finalizedPdf?.uploadedAt },
                   ]}
                 />
               )}

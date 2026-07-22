@@ -49,6 +49,7 @@ function makeTourManagerCtx(initialTables: Tables = {}) {
         active: true,
         authUserId: "auth_tm",
         email: "tour.manager@example.com",
+        emailAlertRoles: ["Tour Manager"],
         emailNormalized: "tour.manager@example.com",
         mobile: "+91 99999 00000",
         name: "Tour Manager",
@@ -245,6 +246,34 @@ describe("Tour Manager allocation notifications", () => {
       ]),
       title: "Tour manager details",
     });
+  });
+
+  test("keeps the Tour Manager bell notification but sends no email without opt-in", async () => {
+    const { ctx, tables, scheduledEmails } = makeTourManagerCtx();
+    const tourManager = tables.staffUsers.find((staff) => staff._id === "staff_tm");
+    if (tourManager) {
+      tourManager.emailAlertRoles = [];
+    }
+
+    await createTourManagerForTest(
+      ctx as never,
+      {
+        jobCardId: "jobCards_1",
+        name: "Manual Name",
+        staffId: "staff_tm",
+      },
+      opsHeadAccess as never
+    );
+
+    expect(tables.notifications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          recipientUserId: "auth_tm",
+          title: "Tour Manager allocated",
+        }),
+      ])
+    );
+    expect(scheduledEmails).toHaveLength(0);
   });
 
   test("notifies when an existing Tour Manager assignment is allocated to a Job Card", async () => {

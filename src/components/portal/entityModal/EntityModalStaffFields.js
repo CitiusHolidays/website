@@ -127,6 +127,7 @@ export function EntityModalStaffFields({
             value={form.staffRoles}
           />
           <MultiSelect
+            help="Emails are opt-in. This person receives email only for the alert roles selected here; portal roles and bell notifications are unaffected."
             label="Email alert roles"
             onChange={(v) => updateForm("emailAlertRoles", v)}
             options={PORTAL_ROLES}

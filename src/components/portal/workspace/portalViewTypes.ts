@@ -26,6 +26,11 @@ export interface PortalQueryListRow {
   leadStage?: string;
   notes?: string;
   paxCount?: number;
+  proposalDocument?: {
+    fileName: string;
+    proposalId: string;
+    uploadedAt?: string | null;
+  } | null;
   queryCode?: string;
   queryType?: string;
   salesOwnerName?: string;
@@ -114,6 +119,7 @@ export interface QueriesViewProps {
   access: PortalAccessSlice;
   deleteItem: PortalDeleteHandler;
   filtersActive?: boolean;
+  getFinalizedPdfUrl: (proposalId: string) => Promise<string>;
   getQueryAttachmentUrl: (attachmentId: string) => Promise<string>;
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;

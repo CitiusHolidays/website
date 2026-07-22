@@ -49,6 +49,15 @@ export const queryListAttachmentValidator = v.object({
   mimeType: v.string(),
 });
 
+export const queryProposalDocumentValidator = v.union(
+  v.null(),
+  v.object({
+    fileName: v.string(),
+    proposalId: v.id("proposals"),
+    uploadedAt: nullableIsoDateTimeValidator,
+  })
+);
+
 export const queryListRowValidator = v.object({
   approxMargin: v.union(v.null(), v.number()),
   attachmentCount: v.number(),
@@ -74,6 +83,7 @@ export const queryListRowValidator = v.object({
   lostReason: v.string(),
   notes: v.string(),
   paxCount: v.number(),
+  proposalDocument: queryProposalDocumentValidator,
   queryCode: v.string(),
   queryType: queryTypeValidator,
   salesOwnerName: v.string(),

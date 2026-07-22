@@ -36,7 +36,7 @@ export function getEntityModalTitle(modal, form, has, access) {
       pnr: form.entityId ? "Edit PNR" : "Add PNR",
       proposal: form.entityId ? "Edit Proposal" : "Create Proposal",
       proposalAttachments: `Working Files — ${form.queryCode || "Proposal"}`,
-      proposalFinalizedPdf: `Finalized Proposal PDF — ${form.queryCode || "Proposal"}`,
+      proposalFinalizedPdf: `Proposal Document — ${form.queryCode || "Proposal"}`,
       query: form.entityId ? "Edit Query" : "New Query / Enquiry",
       queryAttachments: `Attachments — ${form.queryCode || "Query"}`,
       queryStatus: "Update Query Status",

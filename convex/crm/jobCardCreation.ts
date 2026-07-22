@@ -221,7 +221,7 @@ export async function handleCreateFromQuery(
   ];
   const downstreamEmailRoles = [
     ...(contractingStaffId ? [] : ["Contracting"]),
-    "Operations",
+    "Operations Head",
     ...(needsTicketingWork && !ticketingStaffId ? ["Ticketing"] : []),
   ];
 

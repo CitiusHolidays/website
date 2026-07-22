@@ -362,7 +362,7 @@ export function ProposalsView({
         {
           hideable: true,
           id: "finalized-pdf",
-          label: "Finalized PDF",
+          label: "Proposal Doc",
           render: (row: PortalProposalRow) => (
             <FinalizedProposalPdfSummary
               canSend={canManageDocuments}

@@ -121,9 +121,7 @@ function JobCardTourContext({ job, query, proposal }) {
                     </span>
                   ) : null}
                 </a>
-                <span className="ml-5 block text-[11px] text-brand-muted">
-                  Finalized client PDF
-                </span>
+                <span className="ml-5 block text-[11px] text-brand-muted">Proposal document</span>
               </li>
             ) : null}
             {attachments.map((file) => (

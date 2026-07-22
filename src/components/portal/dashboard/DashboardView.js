@@ -246,6 +246,7 @@ function DashboardToday({
     return null;
   }
   const splitLayout = hasAttention && hasOwnedWork;
+  const attentionFirst = persona.id === "director";
   const gridClassName = splitLayout
     ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]"
     : "grid gap-4";
@@ -273,13 +274,13 @@ function DashboardToday({
 
       <div className={gridClassName}>
         <DashboardSectionList
-          className={`space-y-4 ${splitLayout ? "xl:order-2" : ""}`}
+          className={`space-y-4 ${splitLayout && !attentionFirst ? "xl:order-2" : ""}`}
           ids={attentionSections}
           persona={persona}
           sections={sections}
         />
         <DashboardSectionList
-          className={`space-y-4 ${splitLayout ? "xl:order-1" : ""}`}
+          className={`space-y-4 ${splitLayout && !attentionFirst ? "xl:order-1" : ""}`}
           ids={ownedWorkSections}
           persona={persona}
           sections={sections}
@@ -426,6 +427,10 @@ export function DashboardView({
 
       <DashboardActionBar persona={persona} sections={sections} visible={layout.hasActionBar} />
 
+      {persona.id === "director" ? (
+        <DashboardOverview ids={layout.groups.overview} persona={persona} sections={sections} />
+      ) : null}
+
       <DashboardToday
         attentionSections={layout.attentionSections}
         ownedWorkSections={layout.ownedWorkSections}
@@ -434,7 +439,9 @@ export function DashboardView({
         urgentActionCount={urgentActions.length}
       />
 
-      <DashboardOverview ids={layout.groups.overview} persona={persona} sections={sections} />
+      {persona.id === "director" ? null : (
+        <DashboardOverview ids={layout.groups.overview} persona={persona} sections={sections} />
+      )}
 
       {layout.showCapacity ? (
         <DashboardCapacityHeatmap defaultOpen={layout.isHeadRole} rows={summary.capacity} />

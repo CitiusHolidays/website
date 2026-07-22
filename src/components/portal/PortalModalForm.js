@@ -207,7 +207,7 @@ function Select({ label, value, options, onChange, required = false }) {
   );
 }
 
-function MultiSelect({ label, value, options, onChange }) {
+function MultiSelect({ label, value, options, onChange, help }) {
   const normalized = options.map((option) =>
     typeof option === "string" ? { label: option, value: option } : option
   );
@@ -215,6 +215,7 @@ function MultiSelect({ label, value, options, onChange }) {
   return (
     <div className="md:col-span-2">
       <span className="mb-2 block font-semibold text-brand-muted text-xs">{label}</span>
+      {help ? <p className="mb-2 text-brand-muted text-xs leading-relaxed">{help}</p> : null}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {normalized.map((option) => (
           <label
@@ -392,6 +393,7 @@ function FinalizedProposalPdfPanel({
 
     setIsUploading(true);
     setUploadError("");
+    let nextUploadError = "";
     try {
       const uploadUrl = await generateFinalizedPdfUploadUrl({});
       const uploadRes = await fetch(uploadUrl, {
@@ -400,21 +402,21 @@ function FinalizedProposalPdfPanel({
         method: "POST",
       });
       if (!uploadRes.ok) {
-        setUploadError(`Failed to upload ${file.name}.`);
-        setIsUploading(false);
-        return;
+        nextUploadError = `Failed to upload ${file.name}.`;
+      } else {
+        const { storageId } = await uploadRes.json();
+        await attachFinalizedPdf({
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type || "application/pdf",
+          proposalId,
+          storageId,
+        });
       }
-      const { storageId } = await uploadRes.json();
-      await attachFinalizedPdf({
-        fileName: file.name,
-        fileSize: file.size,
-        mimeType: file.type || "application/pdf",
-        proposalId,
-        storageId,
-      });
     } catch (err) {
-      setUploadError(err?.data || err?.message || "Upload failed.");
+      nextUploadError = err?.data || err?.message || "Upload failed.";
     }
+    setUploadError(nextUploadError);
     setIsUploading(false);
   };
 
@@ -422,20 +424,19 @@ function FinalizedProposalPdfPanel({
     await confirm({
       confirmLabel: "Remove",
       danger: true,
-      message: "Remove the finalized proposal PDF?",
+      message: "Remove the proposal document?",
       onConfirm: async () => {
         await removeFinalizedPdf({ proposalId });
-        toast.success("Finalized PDF removed.");
+        toast.success("Proposal document removed.");
       },
-      title: "Remove finalized PDF",
+      title: "Remove proposal document",
     });
   };
 
   return (
     <m.div className="space-y-4">
       <p className="text-brand-muted text-sm">
-        Upload the client-ready proposal PDF here. Sales can download it and send it to the client,
-        then mark the proposal as sent.
+        Upload the proposal document here. Sales can download it from Queries or Proposals.
       </p>
       {canSend && (
         <div className="rounded-xl border border-brand-border bg-brand-light/40 p-4">
@@ -443,7 +444,7 @@ function FinalizedProposalPdfPanel({
             className="mb-2 block font-medium text-brand-text text-sm"
             htmlFor="finalized-proposal-pdf-upload"
           >
-            {finalizedPdf ? "Replace Finalized Proposal PDF" : "Upload Finalized Proposal PDF"}
+            {finalizedPdf ? "Replace Proposal Document" : "Upload Proposal Document"}
           </label>
           <p className="mb-3 text-brand-muted text-xs">PDF only, up to 15 MB.</p>
           <input
@@ -494,7 +495,7 @@ function FinalizedProposalPdfPanel({
           </div>
         </div>
       ) : (
-        <p className="text-brand-muted text-sm">No finalized proposal PDF uploaded yet.</p>
+        <p className="text-brand-muted text-sm">No proposal document uploaded yet.</p>
       )}
     </m.div>
   );

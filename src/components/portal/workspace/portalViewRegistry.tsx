@@ -203,6 +203,7 @@ export function renderPilotPortalView({
         access={workspace.access}
         deleteItem={workspace.deleteItem}
         filtersActive={workspace.filtersActive}
+        getFinalizedPdfUrl={workspace.getFinalizedPdfUrl}
         getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
         has={workspace.has}
         openModal={workspace.openModal}

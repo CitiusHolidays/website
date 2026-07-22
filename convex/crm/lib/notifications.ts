@@ -36,10 +36,16 @@ export function expandNotificationEmailRoles(roles: string[]) {
   return Array.from(expanded);
 }
 
-function emailAlertRolesForStaff(member: { emailAlertRoles?: string[]; roles: string[] }) {
-  return member.emailAlertRoles && member.emailAlertRoles.length > 0
-    ? member.emailAlertRoles
-    : member.roles;
+function emailAlertRolesForStaff(member: { emailAlertRoles?: string[] }) {
+  return member.emailAlertRoles ?? [];
+}
+
+function staffWantsEmailForRoles(
+  member: { emailAlertRoles?: string[] },
+  eventEmailRoles: string[]
+) {
+  const enabledEmailRoles = new Set(emailAlertRolesForStaff(member));
+  return expandNotificationEmailRoles(eventEmailRoles).some((role) => enabledEmailRoles.has(role));
 }
 
 export const NOTIFICATION_EMAIL_STAGGER_MS = 600;
@@ -102,12 +108,8 @@ export async function notifyRoles(
     if (!member.active) {
       continue;
     }
-    const memberEmailRoles = new Set(emailAlertRolesForStaff(member));
-    for (const role of emailRecipientRoles) {
-      if (memberEmailRoles.has(role)) {
-        addNotificationEmailRecipient(emailRecipients, member.email);
-        break;
-      }
+    if (staffWantsEmailForRoles(member, Array.from(emailRecipientRoles))) {
+      addNotificationEmailRecipient(emailRecipients, member.email);
     }
   }
   const notificationIds = await Promise.all(
@@ -131,6 +133,7 @@ export async function notifyStaffMatching(
   shouldNotify: (staff: { roles: string[]; active: boolean; authUserId?: string }) => boolean,
   input: NotificationInput,
   options?: {
+    emailRoles?: string[];
     fallbackRoles?: string[];
   }
 ) {
@@ -149,7 +152,9 @@ export async function notifyStaffMatching(
     if (!(member.active && shouldNotify(member))) {
       continue;
     }
-    addNotificationEmailRecipient(emailRecipients, member.email);
+    if (staffWantsEmailForRoles(member, options?.emailRoles ?? member.roles)) {
+      addNotificationEmailRecipient(emailRecipients, member.email);
+    }
     if (member.authUserId) {
       if (notifiedUserIds.has(member.authUserId)) {
         continue;
@@ -189,7 +194,12 @@ export async function notifyStaffMatching(
     );
     if (!hasLinkedStaff) {
       for (const { member, roles: memberRoles } of staffRoleSets) {
-        if (member.active && memberRoles.has(role) && shouldNotify(member)) {
+        if (
+          member.active &&
+          memberRoles.has(role) &&
+          shouldNotify(member) &&
+          staffWantsEmailForRoles(member, options?.emailRoles ?? member.roles)
+        ) {
           addNotificationEmailRecipient(emailRecipients, member.email);
         }
       }
@@ -241,6 +251,7 @@ export async function notifyStaffMember(
   input: NotificationInput,
   options?: {
     emailDelayMs?: number;
+    emailRoles?: string[];
   }
 ) {
   const staff = await ctx.db.get(staffId);
@@ -250,7 +261,9 @@ export async function notifyStaffMember(
   const createdAt = Date.now();
   const entityId = notificationEntityId(input.entityId);
   const emailRecipients = new Set<string>();
-  addNotificationEmailRecipient(emailRecipients, staff.email);
+  if (staffWantsEmailForRoles(staff, options?.emailRoles ?? staff.roles)) {
+    addNotificationEmailRecipient(emailRecipients, staff.email);
+  }
 
   let eventId: Id<"notifications"> | undefined;
   if (staff.authUserId) {

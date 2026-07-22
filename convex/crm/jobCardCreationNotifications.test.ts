@@ -79,6 +79,7 @@ function makeCreateJobCardCtx() {
         active: true,
         authUserId: "auth_contracting",
         email: "contracting@citius.in",
+        emailAlertRoles: ["Contracting"],
         emailNormalized: "contracting@citius.in",
         name: "Contracting SPOC",
         roles: ["Contracting"],
@@ -88,6 +89,7 @@ function makeCreateJobCardCtx() {
         active: true,
         authUserId: "auth_ticketing",
         email: "ticketing@citius.in",
+        emailAlertRoles: ["Ticketing"],
         emailNormalized: "ticketing@citius.in",
         name: "Ticketing SPOC",
         roles: ["Ticketing"],
@@ -111,10 +113,21 @@ function makeCreateJobCardCtx() {
         roles: ["Operations"],
       },
       {
+        _id: "staff_operations_head",
+        active: true,
+        authUserId: "auth_operations_head",
+        email: "operations-head@citius.in",
+        emailAlertRoles: ["Operations Head"],
+        emailNormalized: "operations-head@citius.in",
+        name: "Operations Head",
+        roles: ["Operations Head"],
+      },
+      {
         _id: "staff_finance",
         active: true,
         authUserId: "auth_finance_head",
         email: "finance-head@citius.in",
+        emailAlertRoles: ["Finance"],
         emailNormalized: "finance-head@citius.in",
         function: "Finance Head",
         name: "Finance Head",
@@ -225,7 +238,7 @@ describe("Job Card creation notifications", () => {
     });
   });
 
-  test("notifies downstream roles, emails assigned SPOCs instead of their whole teams, and emails only the Finance Head staff member", async () => {
+  test("notifies downstream roles, emails assigned SPOCs and Operations Head, and emails only the Finance Head staff member", async () => {
     const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
 
     await (createFromQuery as any)._handler(ctx, {
@@ -280,7 +293,10 @@ describe("Job Card creation notifications", () => {
     const operationsEmail = scheduledEmails.find(
       ({ args }) => args.title === "Job Card opened — start operations"
     );
-    expect(operationsEmail?.args.recipients).toEqual(["operations@citius.in"]);
+    expect(operationsEmail?.args.recipients).toEqual(["operations-head@citius.in"]);
+    expect(
+      scheduledEmails.some(({ args }) => args.recipients.includes("operations@citius.in"))
+    ).toBe(false);
     expect(
       scheduledEmails.some(({ args }) =>
         args.recipients.includes("contracting-unassigned@citius.in")
@@ -292,6 +308,21 @@ describe("Job Card creation notifications", () => {
     expect(
       scheduledEmails.some(({ args }) => args.recipients.includes("ticketing@citius.in"))
     ).toBe(true);
+  });
+
+  test("sends no Job Card emails when every staff member has email alerts disabled", async () => {
+    const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
+    for (const staff of tables.staffUsers) {
+      staff.emailAlertRoles = [];
+    }
+
+    await (createFromQuery as any)._handler(ctx, {
+      confirmedPax: 24,
+      queryId: "queries_1",
+    });
+
+    expect(tables.notifications.length).toBeGreaterThan(0);
+    expect(scheduledEmails).toHaveLength(0);
   });
 
   test("skips Ticketing notifications when the confirmed query scope says ticketing is not required", async () => {
