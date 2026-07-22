@@ -438,6 +438,8 @@ const urgentActionValidator = v.object({
 
 const ownedWorkSlaItemValidator = v.object({
   count: v.number(),
+  entityId: v.optional(v.string()),
+  entityType: v.optional(v.string()),
   href: v.string(),
   label: v.string(),
   oldestDays: v.union(v.number(), v.null()),

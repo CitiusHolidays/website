@@ -1,7 +1,5 @@
 "use client";
 
-import { api } from "@convex/_generated/api";
-import { useMutation } from "convex/react";
 import { Compass } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
@@ -67,7 +65,6 @@ export function AuthLoginCredentials({
   error,
 }) {
   const router = useRouter();
-  const syncAuthIdentity = useMutation(api.authSync.syncMyAuthIdentity);
   const [state, dispatch] = useReducer(
     authReducer,
     { error, initialMode, variant },
@@ -113,11 +110,6 @@ export function AuthLoginCredentials({
             type: "patch",
           });
         } else {
-          try {
-            await syncAuthIdentity({});
-          } catch (syncError) {
-            console.error("Failed to sync auth identity after sign in:", syncError);
-          }
           router.push(variant.href);
           router.refresh();
         }

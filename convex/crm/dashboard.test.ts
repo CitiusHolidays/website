@@ -7,6 +7,7 @@ import {
   getPortalSummary,
   groupByJobCardId,
 } from "./dashboard";
+import { portalSummaryResultValidator } from "./returnContracts";
 
 function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
   const staff = {
@@ -415,6 +416,20 @@ describe("groupByJobCardId", () => {
 });
 
 describe("getPortalSummary response shape", () => {
+  test("allows head-assignment navigation metadata in owned-work SLA items", () => {
+    const summaryFields = (portalSummaryResultValidator.json as any).value;
+    const slaItemFields = summaryFields.ownedWorkSla.fieldType.value.items.fieldType.value.value;
+
+    expect(slaItemFields.entityId).toEqual({
+      fieldType: { type: "string" },
+      optional: true,
+    });
+    expect(slaItemFields.entityType).toEqual({
+      fieldType: { type: "string" },
+      optional: true,
+    });
+  });
+
   test("returns the dashboard top-level keys", async () => {
     const ctx = makeCtx({
       activityLogs: [],
