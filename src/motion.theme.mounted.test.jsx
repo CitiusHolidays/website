@@ -30,7 +30,6 @@ afterAll(() => dom.window.close());
 
 describe("mounted citius portal motion theme", () => {
   test("useMotionUITheme().motionMode is calm when prefers-reduced-motion is mocked", async () => {
-    const React = await import("react");
     const { MotionUIThemeProvider, useMotionUITheme } = await import(
       "@/components/motion-ui/ui-theme"
     );
@@ -48,7 +47,7 @@ describe("mounted citius portal motion theme", () => {
     act(() => {
       root.render(
         <LazyMotion features={domAnimation}>
-          <MotionConfig reducedMotion="always">
+          <MotionConfig reducedMotion="user">
             <MotionUIThemeProvider theme={citiusTheme}>
               <ThemeProbe />
             </MotionUIThemeProvider>
