@@ -1,7 +1,9 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
+import { m } from "motion/react";
 import { useState } from "react";
+import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
 import { DashboardPanel, DashboardProgress } from "./DashboardPanel";
 
 const STORAGE_PREFIX = "portal-dashboard-collapse-";
@@ -26,14 +28,19 @@ function persistCollapseOpen(key, open) {
 }
 
 function CollapsiblePanelBody({ open, children }) {
+  const uiTransition = useMotionUITransition("ui");
+
   return (
-    <div
-      className={`grid transition-[grid-template-rows,opacity] duration-200 ease-[var(--portal-ease-out)] motion-reduce-spatial ${
-        open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+    <m.div
+      animate={{ opacity: open ? 1 : 0 }}
+      className={`grid transition-[grid-template-rows] duration-200 ease-[var(--portal-ease-out)] motion-reduce-spatial ${
+        open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
       }`}
+      initial={false}
+      transition={{ duration: uiTransition.duration, ease: "linear" }}
     >
       <div className="min-h-0 overflow-hidden">{children}</div>
-    </div>
+    </m.div>
   );
 }
 
@@ -59,11 +66,9 @@ export function DashboardCollapsibleSection({
               aria-expanded={workflowOpen}
               className="flex w-full items-center justify-between gap-2 text-left"
               onClick={() => {
-                setWorkflowOpen((open) => {
-                  const next = !open;
-                  persistCollapseOpen("workflow", next);
-                  return next;
-                });
+                const next = !workflowOpen;
+                persistCollapseOpen("workflow", next);
+                setWorkflowOpen(next);
               }}
               type="button"
             >
@@ -95,11 +100,9 @@ export function DashboardCollapsibleSection({
               aria-expanded={teamOpen}
               className="flex w-full items-center justify-between gap-2 text-left"
               onClick={() => {
-                setTeamOpen((open) => {
-                  const next = !open;
-                  persistCollapseOpen("team", next);
-                  return next;
-                });
+                const next = !teamOpen;
+                persistCollapseOpen("team", next);
+                setTeamOpen(next);
               }}
               type="button"
             >

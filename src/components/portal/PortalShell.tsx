@@ -133,11 +133,14 @@ const handleLogout = async () => {
   window.location.href = "/";
 };
 
-function NotificationListItem({ item, onClick }: NotificationListItemProps) {
+function NotificationListItem({ index, item, onClick }: NotificationListItemProps & { index: number }) {
   return (
-    <button
-      className="w-full border-brand-border border-b px-4 py-3 text-left transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] last:border-b-0 hover:bg-brand-light active:scale-[0.96]"
+    <m.button
+      animate={{ opacity: 1, transform: "translateY(0)" }}
+      className="w-full border-brand-border border-b px-4 py-3 text-left last:border-b-0 hover:bg-brand-light active:scale-[0.99]"
+      initial={{ opacity: 0, transform: "translateY(6px)" }}
       onClick={() => onClick(item)}
+      transition={{ delay: index * 0.04, duration: 0.2, ease: "linear" }}
       type="button"
     >
       <div className="flex gap-2">
@@ -154,7 +157,7 @@ function NotificationListItem({ item, onClick }: NotificationListItemProps) {
           <div className="mt-1 text-brand-muted text-xs leading-5">{item.body}</div>
         </div>
       </div>
-    </button>
+    </m.button>
   );
 }
 
@@ -528,8 +531,9 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                                     No notifications yet.
                                   </div>
                                 ) : (
-                                  notificationRows.map((item) => (
+                                  notificationRows.map((item, index) => (
                                     <NotificationListItem
+                                      index={index}
                                       item={item}
                                       key={item.id}
                                       onClick={handleNotificationClick}

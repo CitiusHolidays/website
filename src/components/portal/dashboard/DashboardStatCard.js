@@ -1,8 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { AnimateNumber } from "motion-plus/react";
+import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
+
+function parseNumericValue(value) {
+  if (typeof value === "number") {
+    return value;
+  }
+  const normalized = String(value).replace(/,/g, "");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 export function DashboardStatCard({ label, value, Icon, featured = false, href, trend }) {
+  const livelyTransition = useMotionUITransition("lively");
+  const numericValue = parseNumericValue(value);
   const trendTone =
     trend?.direction === "up"
       ? "text-emerald-700"
@@ -25,7 +38,11 @@ export function DashboardStatCard({ label, value, Icon, featured = false, href, 
         </div>
       </div>
       <div className="mt-3 font-heading font-semibold text-3xl text-brand-dark tabular-nums leading-none">
-        {value}
+        {numericValue === null ? (
+          value
+        ) : (
+          <AnimateNumber transition={livelyTransition}>{numericValue}</AnimateNumber>
+        )}
       </div>
       <div className={`mt-2 text-xs ${trendTone}`}>{trend?.label || "— no change"}</div>
     </>
