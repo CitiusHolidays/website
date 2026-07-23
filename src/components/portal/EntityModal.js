@@ -19,6 +19,7 @@ export function EntityModal({
   close,
   error,
   isSaving,
+  saveFlash = false,
   queries = EMPTY_ARRAY,
   proposals = EMPTY_ARRAY,
   jobCards = EMPTY_ARRAY,
@@ -182,6 +183,7 @@ export function EntityModal({
       close={close}
       error={error}
       isSaving={isSaving}
+      saveFlash={saveFlash}
       lifecycleJobCard={lifecycleJobCard}
       lifecycleProposal={lifecycleProposal}
       lifecycleQuery={lifecycleQuery}

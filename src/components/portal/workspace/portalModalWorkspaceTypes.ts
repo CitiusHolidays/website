@@ -33,6 +33,7 @@ export interface PortalTravelBatchModalWorkspaceSlice {
   getQueryAttachmentUrl: (attachmentId: string) => Promise<string>;
   has: PortalPermissionChecker;
   isSaving: boolean;
+  saveFlash: boolean;
   jobCards: Array<{ clientName?: string; id: string; jobCode: string }>;
   leaveBalances?: PortalLeaveBalanceRow[];
   leaveHeadApproverCandidates: Array<{ id: string; name: string }>;

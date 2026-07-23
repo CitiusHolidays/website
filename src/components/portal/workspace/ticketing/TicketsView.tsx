@@ -1,5 +1,6 @@
 "use client";
 
+import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { getTicketAttention } from "@/lib/portal/ticketListPresentation";
@@ -60,7 +61,15 @@ export function TicketsView({
         {
           id: "pnr",
           label: "PNR",
-          render: (row: TicketRow) => row.pnrCode || "-",
+          render: (row: TicketRow) =>
+            row.pnrCode ? (
+              <div className="flex items-center gap-2">
+                <span>{row.pnrCode}</span>
+                <PortalCopyButton aria-label={`Copy PNR ${row.pnrCode}`} value={row.pnrCode} />
+              </div>
+            ) : (
+              "-"
+            ),
         },
         {
           id: "class",

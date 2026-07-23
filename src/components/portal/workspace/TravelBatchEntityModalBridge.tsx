@@ -28,6 +28,7 @@ export function TravelBatchEntityModalBridge({
   const updateTravelBatch = useMutation(api.crm.jobCards.updateTravelBatch);
   const [travelBatchError, setTravelBatchError] = useState("");
   const [travelBatchSaving, setTravelBatchSaving] = useState(false);
+  const [travelBatchSaveFlash, setTravelBatchSaveFlash] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     if (workspace.modal !== TRAVEL_BATCH_MODAL) {
@@ -58,13 +59,17 @@ export function TravelBatchEntityModalBridge({
             form: workspace.form,
             modal: TRAVEL_BATCH_MODAL,
           });
-          workspace.closeModal();
         }
       );
+      setTravelBatchSaveFlash(true);
+      await new Promise((resolve) => setTimeout(resolve, 420));
+      workspace.closeModal();
+      setTravelBatchSaveFlash(false);
+      setTravelBatchSaving(false);
     } catch (err) {
       setTravelBatchError(formatConvexError(err, "Unable to save."));
+      setTravelBatchSaving(false);
     }
-    setTravelBatchSaving(false);
   }
 
   return (
@@ -85,6 +90,9 @@ export function TravelBatchEntityModalBridge({
       getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
       has={workspace.has}
       isSaving={workspace.modal === TRAVEL_BATCH_MODAL ? travelBatchSaving : workspace.isSaving}
+      saveFlash={
+        workspace.modal === TRAVEL_BATCH_MODAL ? travelBatchSaveFlash : workspace.saveFlash
+      }
       jobCards={workspace.jobCards}
       leaveBalances={workspace.leaveBalances}
       leaveHeadApproverCandidates={workspace.leaveHeadApproverCandidates}

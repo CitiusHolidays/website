@@ -1,6 +1,7 @@
 "use client";
 
 import { MoreHorizontal } from "lucide-react";
+import { m, useMotionValue } from "motion/react";
 import {
   cloneElement,
   isValidElement,
@@ -73,6 +74,39 @@ function OverflowActionItem({
   });
 }
 
+function MobileSwipeActions({
+  actions,
+  primaryAction,
+}: {
+  actions: ActionElement[];
+  primaryAction?: ReactElement | null;
+}) {
+  const x = useMotionValue(0);
+  return (
+    <div className="relative overflow-hidden md:hidden">
+      <div className="absolute inset-y-0 right-0 flex items-center gap-2 bg-brand-light/95 px-2">
+        {actions.slice(0, 2).map((action) => (
+          <div className="shrink-0" key={actionKey(action)}>
+            {withActionClass(action, "portal-small-btn min-h-10 px-3")}
+          </div>
+        ))}
+      </div>
+      <m.div
+        className="relative flex items-center gap-2 bg-white"
+        drag="x"
+        dragConstraints={{ left: -120, right: 0 }}
+        dragElastic={0.08}
+        style={{ x }}
+      >
+        {primaryAction}
+        {actions.length > 0 ? (
+          <span className="text-brand-muted text-xs">Swipe for actions</span>
+        ) : null}
+      </m.div>
+    </div>
+  );
+}
+
 export function QueryRowActions({
   label,
   overflowActions = [],
@@ -80,40 +114,43 @@ export function QueryRowActions({
 }: QueryRowActionsProps) {
   const [open, setOpen] = useState(false);
   const actions = overflowActions.filter(isActionElement);
+  const primary = withActionClass(primaryAction, "min-h-11 whitespace-nowrap md:min-h-8");
 
   const closeMenu = () => setOpen(false);
 
   return (
     <div className="flex items-center gap-2">
-      {withActionClass(primaryAction, "min-h-11 whitespace-nowrap md:min-h-8")}
-      {actions.length > 0 ? (
-        <PortalActionMenu
-          aria-label={`More actions for ${label}`}
-          contentClassName="flex w-max flex-col gap-0.5 p-1.5"
-          fitContent
-          onOpenChange={setOpen}
-          open={open}
-          trigger={(props) => (
-            <button
-              {...props}
-              aria-label={`More actions for ${label}`}
-              className="portal-small-btn min-h-11 px-3 md:min-h-8"
-              type="button"
-            >
-              <MoreHorizontal size={15} />
-              {/* <span className="sr-only sm:not-sr-only">More</span> */}
-            </button>
-          )}
-        >
-          {actions.map((action) => (
-            <OverflowActionItem
-              action={action}
-              key={actionKey(action)}
-              onActionComplete={closeMenu}
-            />
-          ))}
-        </PortalActionMenu>
-      ) : null}
+      <div className="hidden md:flex md:items-center md:gap-2">
+        {primary}
+        {actions.length > 0 ? (
+          <PortalActionMenu
+            aria-label={`More actions for ${label}`}
+            contentClassName="flex w-max flex-col gap-0.5 p-1.5"
+            fitContent
+            onOpenChange={setOpen}
+            open={open}
+            trigger={(props) => (
+              <button
+                {...props}
+                aria-label={`More actions for ${label}`}
+                className="portal-small-btn min-h-11 px-3 md:min-h-8"
+                type="button"
+              >
+                <MoreHorizontal size={15} />
+              </button>
+            )}
+          >
+            {actions.map((action) => (
+              <OverflowActionItem
+                action={action}
+                key={actionKey(action)}
+                onActionComplete={closeMenu}
+              />
+            ))}
+          </PortalActionMenu>
+        ) : null}
+      </div>
+      <MobileSwipeActions actions={actions} primaryAction={primary} />
     </div>
   );
 }

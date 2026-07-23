@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
+import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { type OptionalAction, QueryRowActions } from "@/components/portal/QueryRowActions";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
@@ -203,7 +204,12 @@ export function QueriesView({
           label: "Query",
           render: (row: PortalQueryRow) => (
             <div className="min-w-24">
-              <div className="font-heading font-semibold text-citius-blue">{row.queryCode}</div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="font-heading font-semibold text-citius-blue">{row.queryCode}</div>
+                {row.queryCode ? (
+                  <PortalCopyButton aria-label={`Copy query ${row.queryCode}`} value={row.queryCode} />
+                ) : null}
+              </div>
               <div className="mt-1 text-[length:var(--portal-label-size)] text-brand-muted">
                 Created {formatDate(row.createdAt)}
               </div>

@@ -71,6 +71,7 @@ interface WorkspaceState {
   pendingProposalFiles: File[];
   pendingQueryFiles: File[];
   pipelineMode: string;
+  saveFlash: boolean;
   search: string;
 }
 type ConfirmFn = (options: {
@@ -106,6 +107,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     pendingProposalFiles: [],
     pendingQueryFiles: [],
     pipelineMode: "sales",
+    saveFlash: false,
     search: initialUrlFilters.search,
   }) as [
     WorkspaceState,
@@ -126,6 +128,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     dateRange,
     jobCardFilter,
     listFilters,
+    saveFlash,
   } = workspace;
   const patchState = (patch: Partial<WorkspaceState>) => patchWorkspace(patch);
   const setModal = (value: StateUpdate<string | null>) =>
@@ -701,14 +704,18 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
             form: effectiveForm,
             modal,
           });
-          closeModal();
         }
       );
+      setIsSaving(false);
+      patchState({ saveFlash: true });
+      await new Promise((resolve) => setTimeout(resolve, 420));
+      closeModal();
+      patchState({ saveFlash: false });
     } catch (err) {
       const submitError = err as { data?: string; message?: string };
       setError(submitError.data || submitError.message || "Unable to save.");
+      setIsSaving(false);
     }
-    setIsSaving(false);
   };
 
   let gate = "denied";
@@ -750,6 +757,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     modal,
     openModal,
     patchForm,
+    saveFlash,
     submit,
     updateForm,
   };
@@ -874,6 +882,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     hotels,
     invoices,
     isSaving,
+    saveFlash,
     jobCardDeletionOperations,
     jobCardFilter,
     jobCards,

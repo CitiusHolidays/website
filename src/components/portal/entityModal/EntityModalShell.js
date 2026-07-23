@@ -1,8 +1,10 @@
 "use client";
 
-import { CheckCircle2, Loader2, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
+import { MultiStateButton } from "@/components/motion-ui/multi-state-button";
+import { useScrollLock } from "@/components/motion-ui/overlay";
 import { LifecycleDates } from "@/components/portal/PortalModalForm";
 import {
   getEntityModalFieldColumns,
@@ -22,6 +24,7 @@ export function EntityModalShell({
   close,
   error,
   isSaving,
+  saveFlash = false,
   title,
   lifecycleQuery,
   lifecycleProposal,
@@ -36,6 +39,10 @@ export function EntityModalShell({
   const errorRef = useRef(null);
   const modalTransform = "translateY(0) scale(1)";
   const modalHiddenTransform = shouldReduceMotion ? modalTransform : "translateY(24px) scale(0.98)";
+
+  useScrollLock(Boolean(modal));
+
+  const saveButtonState = error ? "error" : isSaving ? "saving" : saveFlash ? "saved" : "idle";
 
   useEffect(() => {
     if (!modal) {
@@ -252,19 +259,17 @@ export function EntityModalShell({
               {!["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(
                 modal
               ) && (
-                <button
+                <MultiStateButton
                   className="portal-primary-btn disabled:opacity-60 max-sm:w-full"
                   data-testid="portal-entity-modal-save"
                   disabled={isSaving}
+                  savedLabel={isQueryTaskSheet ? "Query saved" : "Saved"}
+                  savingLabel={isQueryTaskSheet ? "Saving query…" : "Saving…"}
+                  state={saveButtonState}
                   type="submit"
                 >
-                  {isSaving ? (
-                    <Loader2 className="animate-spin" size={16} />
-                  ) : (
-                    <CheckCircle2 size={16} />
-                  )}
                   {isQueryTaskSheet ? "Save query" : "Save"}
-                </button>
+                </MultiStateButton>
               )}
             </div>
           </m.form>

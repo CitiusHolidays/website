@@ -1,5 +1,6 @@
 "use client";
 
+import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -44,7 +45,14 @@ export function JobCardsView({
             id: "job",
             kind: "identity",
             label: "Job code",
-            render: (row: JobCardRow) => strong(row.jobCode),
+            render: (row: JobCardRow) => (
+              <div className="flex items-center gap-2">
+                {strong(row.jobCode)}
+                {row.jobCode ? (
+                  <PortalCopyButton aria-label={`Copy job card ${row.jobCode}`} value={row.jobCode} />
+                ) : null}
+              </div>
+            ),
             sortValue: (row: JobCardRow) => row.jobCode,
           },
           {

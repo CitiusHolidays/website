@@ -9,6 +9,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { LayoutGroup, m } from "motion/react";
+import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
+import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { PIPELINE_STAGES, SALES_PIPELINE_STAGES } from "@/lib/portal/constants";
 import {
   getAllowedContractingPipelineBoardTargets,
@@ -200,6 +203,7 @@ function PipelineModeButton({
   onSelect,
   value,
 }: PipelineModeButtonProps) {
+  const snapTransition = useMotionUITransition("snap");
   const handleChange = () => onSelect(value);
   return (
     <label className="relative cursor-pointer">
@@ -218,13 +222,18 @@ function PipelineModeButton({
         value={value}
       />
       <span
-        className={`flex min-h-11 items-center rounded-full px-4 py-2 font-semibold text-xs transition peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-citius-blue peer-focus-visible:outline-offset-2 ${
-          active
-            ? "bg-citius-blue text-white ring-2 ring-citius-blue ring-offset-2"
-            : "text-brand-muted hover:text-citius-blue"
+        className={`relative flex min-h-11 items-center rounded-full px-4 py-2 font-semibold text-xs transition peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-citius-blue peer-focus-visible:outline-offset-2 ${
+          active ? "text-white" : "text-brand-muted hover:text-citius-blue"
         }`}
       >
-        {label}
+        {active ? (
+          <m.span
+            className="absolute inset-0 rounded-full bg-citius-blue ring-2 ring-citius-blue ring-offset-2"
+            layoutId="pipeline-mode-indicator"
+            transition={snapTransition}
+          />
+        ) : null}
+        <span className="relative z-10">{label}</span>
       </span>
     </label>
   );
@@ -299,6 +308,7 @@ interface PipelineCardProps {
 function PipelineCard({ canMove, item, moveTargets, onMove, stage }: PipelineCardProps) {
   const label = item.clientName || "Unnamed client";
   const draggable = canMove && moveTargets.length > 0;
+  const cardTransition = useMotionUITransition("ui");
 
   const handleDragStart: DragEventHandler<HTMLElement> = (event) => {
     if (!draggable) {
@@ -318,18 +328,25 @@ function PipelineCard({ canMove, item, moveTargets, onMove, stage }: PipelineCar
   };
 
   return (
-    // biome-ignore lint/a11y/noNoninteractiveElementInteractions: Native drag is pointer-only; the labeled select provides the equivalent keyboard command.
-    <article
+    <m.div
       className={`rounded-xl border border-brand-border bg-brand-light p-3 ${
         draggable ? "cursor-grab active:cursor-grabbing" : ""
       }`}
-      data-pipeline-card-id={item.id}
-      draggable={draggable}
-      onDragStart={handleDragStart}
+      layout
+      transition={cardTransition}
     >
+      {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Native drag is pointer-only; the labeled select provides the equivalent keyboard command. */}
+      <article data-pipeline-card-id={item.id} draggable={draggable} onDragStart={handleDragStart}>
       <div className="font-semibold text-brand-dark text-sm">{label}</div>
-      <div className="mt-1 text-brand-muted text-xs">
-        {item.queryCode || "No query code"} - {item.destination || "TBD"} - {item.paxCount ?? 0} pax
+      <div className="mt-1 flex flex-wrap items-center gap-2 text-brand-muted text-xs">
+        {item.queryCode ? (
+          <PortalCopyButton label={item.queryCode} value={item.queryCode} />
+        ) : (
+          <span>No query code</span>
+        )}
+        <span>
+          {item.destination || "TBD"} - {item.paxCount ?? 0} pax
+        </span>
       </div>
       <div className="mt-1 text-brand-muted text-xs">{item.salesOwnerName || "Unassigned"}</div>
       {draggable ? (
@@ -357,7 +374,8 @@ function PipelineCard({ canMove, item, moveTargets, onMove, stage }: PipelineCar
           </select>
         </label>
       ) : null}
-    </article>
+      </article>
+    </m.div>
   );
 }
 
@@ -553,7 +571,8 @@ export function PipelineView({
               </span>
             </h2>
             <div className="space-y-2">
-              {items.map((item) => {
+              <LayoutGroup>
+                {items.map((item) => {
                 const cardStage =
                   activeOptimisticStages[item.id] ??
                   (mode === "sales" ? getPipelineCardStage(item) : getPipelineStage(item));
@@ -577,6 +596,7 @@ export function PipelineView({
                   />
                 );
               })}
+              </LayoutGroup>
             </div>
           </section>
         ))}

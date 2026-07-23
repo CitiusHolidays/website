@@ -1,5 +1,6 @@
 "use client";
 
+import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { TicketingFlightItinerary } from "@/components/portal/ticketing/TicketingFlightItinerary";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -33,9 +34,12 @@ export function PnrView({
               kind: "identity",
               label: "PNR",
               render: (row: PnrRow) => (
-                <span className="font-bold font-mono text-citius-blue tracking-[0.14em]">
-                  {row.pnrCode}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold font-mono text-citius-blue tracking-[0.14em]">
+                    {row.pnrCode}
+                  </span>
+                  <PortalCopyButton aria-label={`Copy PNR ${row.pnrCode}`} value={row.pnrCode} />
+                </div>
               ),
               sortValue: (row: PnrRow) => row.pnrCode,
             },
