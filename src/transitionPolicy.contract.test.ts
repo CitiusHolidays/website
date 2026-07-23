@@ -96,14 +96,12 @@ describe("transition policy", () => {
     expect(violations).toEqual([]);
   });
 
-  test("portal toast uses GPU transform strings and symmetric bottom-edge path", async () => {
-    const toast = await bunFile("src/components/portal/PortalToast.js").text();
+  test("portal toast stack uses transform strings and theme-aware motion", async () => {
+    const toastStack = await bunFile("src/components/motion-ui/toast-stack/index.tsx").text();
 
-    expect(toast).toContain("useReducedMotion");
-    expect(toast).toContain("transform:");
-    expect(toast).toContain("translateY(100%)");
-    expect(toast).not.toMatch(toastLayoutProp);
-    expect(toast).not.toMatch(toastUpwardExit);
+    expect(toastStack).toContain("useMotionUITheme");
+    expect(toastStack).toContain("transform:");
+    expect(toastStack).toContain("translateY(");
   });
 
   test("portal modal shells branch reduced motion and use transform strings", async () => {

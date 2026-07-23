@@ -22,7 +22,9 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
-import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
+import { portalMotionTransition } from "@/lib/portal/portalMotion";
 import {
   buildCreateCommands,
   buildNavigationCommands,
@@ -31,6 +33,7 @@ import {
   filterCommands,
 } from "@/lib/portal/commandPalette";
 import { useModShortcutLabel } from "@/lib/portal/shortcutLabels";
+import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame";
 
 const PortalCommandPaletteContext = createContext(null);
 
@@ -143,6 +146,7 @@ function CommandPaletteIcon({ name, active }) {
 
 function CommandPaletteItem({ command, active, onSelect, onHover }) {
   const itemRef = useRef(null);
+  const selectionTransition = useMotionUITransition("snap");
 
   useLayoutEffect(() => {
     if (!active) {
@@ -153,17 +157,22 @@ function CommandPaletteItem({ command, active, onSelect, onHover }) {
 
   return (
     <button
-      className={`group relative w-full rounded-lg px-2 py-1.5 text-left transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96] ${
-        active
-          ? "bg-citius-blue/8 text-brand-dark before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-citius-blue"
-          : "text-brand-dark hover:bg-brand-light/70"
+      className={`group relative w-full rounded-lg px-2 py-1.5 text-left active:scale-[0.96] ${
+        active ? "text-brand-dark" : "text-brand-dark hover:bg-brand-light/70"
       }`}
       onClick={onSelect}
       onMouseEnter={onHover}
       ref={itemRef}
       type="button"
     >
-      <div className="flex items-center gap-3">
+      {active ? (
+        <m.div
+          className="absolute inset-0 rounded-lg bg-citius-blue/8 before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-citius-blue"
+          layoutId="portal-command-selection"
+          transition={selectionTransition}
+        />
+      ) : null}
+      <div className="relative flex items-center gap-3">
         <CommandPaletteIcon active={active} name={command.icon} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
@@ -221,6 +230,11 @@ function CommandPaletteOverlay({
   boundedActiveIndex,
   runCommand,
 }) {
+  const shouldReduceMotion = useReducedMotion();
+  const panelTransition = portalMotionTransition(shouldReduceMotion, undefined, "ui");
+  const hiddenTransform = shouldReduceMotion ? "scale(1)" : "scale(0.96) translateY(-8px)";
+  const visibleTransform = "scale(1) translateY(0)";
+
   if (!(open && portalTarget)) {
     return null;
   }
@@ -233,16 +247,31 @@ function CommandPaletteOverlay({
         event.preventDefault();
         closePalette();
       }}
+      open
       ref={dialogRef}
     >
-      <button
-        aria-label="Close command palette"
-        className="portal-command-backdrop"
-        onClick={closePalette}
-        style={backdropStyle}
-        type="button"
-      />
-      <div className="portal-command-panel" style={panelStyle}>
+      <AnimatePresence>
+        <m.button
+          animate={{ opacity: 1 }}
+          aria-label="Close command palette"
+          className="portal-command-backdrop"
+          exit={{ opacity: 0 }}
+          initial={{ opacity: 0 }}
+          key="portal-command-backdrop"
+          onClick={closePalette}
+          style={backdropStyle}
+          transition={panelTransition}
+          type="button"
+        />
+        <m.div
+          animate={{ opacity: 1, transform: visibleTransform }}
+          className="portal-command-panel"
+          exit={{ opacity: 0, transform: hiddenTransform }}
+          initial={{ opacity: 0, transform: hiddenTransform }}
+          key="portal-command-panel"
+          style={panelStyle}
+          transition={panelTransition}
+        >
         <div className="portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl">
           <div className="flex shrink-0 items-center gap-2 border-brand-border/80 border-b px-3 py-2">
             <Search aria-hidden className="shrink-0 text-brand-muted" size={16} />
@@ -298,7 +327,8 @@ function CommandPaletteOverlay({
             )}
           </div>
         </div>
-      </div>
+        </m.div>
+      </AnimatePresence>
     </dialog>,
     portalTarget
   );

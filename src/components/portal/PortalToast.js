@@ -1,8 +1,8 @@
 "use client";
 
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { createContext, use, useReducer } from "react";
-import { portalMotionTransition } from "@/lib/portal/portalMotion";
+import { Toast, ToastStack, useToast } from "@/components/motion-ui/toast-stack";
+import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const PortalToastContext = createContext(null);
@@ -17,12 +17,23 @@ function toastReducer(state, action) {
   return state;
 }
 
+function ToastDismissButton({ onDismiss, toastId }) {
+  const { isVisible } = useToast();
+  return (
+    <button
+      aria-label="Dismiss notification"
+      className="shrink-0 font-semibold text-xs opacity-70 transition hover:opacity-100"
+      onClick={() => onDismiss(toastId)}
+      tabIndex={isVisible ? undefined : -1}
+      type="button"
+    >
+      Dismiss
+    </button>
+  );
+}
+
 function ToastItem({ toast, onDismiss }) {
-  const shouldReduceMotion = useReducedMotion();
-  const settledTransform = "translateY(0) scale(1)";
-  const offscreenTransform = shouldReduceMotion ? settledTransform : "translateY(100%) scale(0.98)";
-  const enterTransition = portalMotionTransition(shouldReduceMotion, undefined, "ui");
-  const exitTransition = portalMotionTransition(shouldReduceMotion, undefined, "snap");
+  const successTransition = useMotionUITransition("lively");
 
   const toneClass =
     toast.tone === "error"
@@ -32,31 +43,19 @@ function ToastItem({ toast, onDismiss }) {
         : "border-brand-border bg-white text-brand-dark";
 
   return (
-    <m.div
-      animate={{ opacity: 1, transform: settledTransform }}
-      aria-live="polite"
-      className={`pointer-events-auto max-w-sm rounded-xl border px-4 py-3 text-sm shadow-lg ${toneClass}`}
-      exit={{
-        opacity: 0,
-        transform: offscreenTransform,
-        transition: exitTransition,
-      }}
-      initial={{ opacity: 0, transform: offscreenTransform }}
-      role="status"
-      transition={enterTransition}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <span>{toast.message}</span>
-        <button
-          aria-label="Dismiss notification"
-          className="shrink-0 font-semibold text-xs opacity-70 transition hover:opacity-100"
-          onClick={() => onDismiss(toast.id)}
-          type="button"
-        >
-          Dismiss
-        </button>
+    <Toast>
+      <div
+        aria-live="polite"
+        className={`pointer-events-auto max-w-sm rounded-xl border px-4 py-3 text-sm shadow-lg ${toneClass}`}
+        role="status"
+        style={toast.tone === "success" ? { transition: successTransition } : undefined}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <span>{toast.message}</span>
+          <ToastDismissButton onDismiss={onDismiss} toastId={toast.id} />
+        </div>
       </div>
-    </m.div>
+    </Toast>
   );
 }
 
@@ -83,16 +82,17 @@ export function PortalToastProvider({ children }) {
   return (
     <PortalToastContext.Provider value={api}>
       {children}
-      <section
-        aria-label="Toast messages"
-        className={`portal-toast-safe-area pointer-events-none fixed ${PORTAL_Z.toast} flex w-auto max-w-sm flex-col gap-2 sm:w-full`}
+      <ToastStack
+        className={`portal-toast-safe-area ${PORTAL_Z.toast}`}
+        maxVisible={5}
+        stackOffsetY={8}
+        stackOpacity={0.15}
+        stackScale={0.04}
       >
-        <AnimatePresence>
-          {toasts.map((toast) => (
-            <ToastItem key={toast.id} onDismiss={dismiss} toast={toast} />
-          ))}
-        </AnimatePresence>
-      </section>
+        {[...toasts].reverse().map((toast) => (
+          <ToastItem key={toast.id} onDismiss={dismiss} toast={toast} />
+        ))}
+      </ToastStack>
     </PortalToastContext.Provider>
   );
 }

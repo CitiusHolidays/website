@@ -2,6 +2,7 @@
 
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { createContext, use, useEffect, useId, useRef, useState } from "react";
+import { useScrollLock } from "@/components/motion-ui/overlay";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import {
   PORTAL_MODAL_VISIBLE_TRANSFORM,
@@ -35,6 +36,7 @@ export function PortalConfirmProvider({ children }) {
   const messageId = `${useId().replaceAll(":", "")}-confirm-message`;
   const errorId = `${useId().replaceAll(":", "")}-confirm-error`;
   const isOpen = Boolean(state);
+  useScrollLock(isOpen);
   const dialogTransform = PORTAL_MODAL_VISIBLE_TRANSFORM;
   const dialogHiddenTransform = portalModalHiddenTransform(shouldReduceMotion);
   const dialogExitTransform = portalModalExitTransform(shouldReduceMotion);
