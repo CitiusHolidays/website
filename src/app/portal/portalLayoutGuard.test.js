@@ -55,6 +55,10 @@ mock.module("@/components/providers/ReducedMotionProvider", () => ({
   default: ({ children }) => children,
 }));
 
+mock.module("@/components/providers/PortalMotionThemeProvider", () => ({
+  default: ({ children }) => children,
+}));
+
 const { default: PortalLayout } = await import("./layout.js");
 
 beforeEach(() => {
@@ -66,7 +70,7 @@ beforeEach(() => {
 
 async function getRenderedShellProps() {
   const layout = await PortalLayout({ children: null });
-  return layout.props.children.props;
+  return layout.props.children.props.children.props;
 }
 
 describe("portal layout guard", () => {

@@ -2,10 +2,9 @@
 
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import type { ChangeEvent, ReactNode } from "react";
+import { portalMotionTransition } from "@/lib/portal/portalMotion";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import type { SpreadsheetImportIssueRow } from "./spreadsheetModalRuntime";
-
-const PORTAL_EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
 export function ImportModalShell({
   open,
@@ -20,11 +19,11 @@ export function ImportModalShell({
   subtitle?: string;
   title: string;
 }) {
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = !!useReducedMotion();
   const panelTransform = "translateY(0) scale(1)";
-  const panelHiddenTransform = shouldReduceMotion
-    ? panelTransform
-    : "translateY(18px) scale(0.96)";
+  const panelHiddenTransform = shouldReduceMotion ? panelTransform : "translateY(18px) scale(0.96)";
+  const backdropTransition = portalMotionTransition(shouldReduceMotion, undefined, "ui");
+  const panelTransition = portalMotionTransition(shouldReduceMotion, undefined, "ui");
 
   return (
     <AnimatePresence>
@@ -35,14 +34,14 @@ export function ImportModalShell({
           exit={{ opacity: 0 }}
           initial={{ opacity: 0 }}
           key="import-modal"
-          transition={{ duration: 0.2, ease: PORTAL_EASE_OUT }}
+          transition={backdropTransition}
         >
           <m.div
             animate={{ opacity: 1, transform: panelTransform }}
             className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-brand-border bg-white p-5 shadow-2xl md:p-6"
             exit={{ opacity: 0, transform: panelHiddenTransform }}
             initial={{ opacity: 0, transform: panelHiddenTransform }}
-            transition={{ duration: 0.25, ease: PORTAL_EASE_OUT }}
+            transition={panelTransition}
           >
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>

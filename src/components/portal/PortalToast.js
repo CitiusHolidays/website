@@ -2,10 +2,8 @@
 
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { createContext, use, useReducer } from "react";
+import { portalMotionTransition } from "@/lib/portal/portalMotion";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
-
-const PORTAL_EASE_OUT = [0.23, 1, 0.32, 1];
-const TOAST_TRANSITION = { duration: 0.2, ease: PORTAL_EASE_OUT };
 
 const PortalToastContext = createContext(null);
 
@@ -22,9 +20,9 @@ function toastReducer(state, action) {
 function ToastItem({ toast, onDismiss }) {
   const shouldReduceMotion = useReducedMotion();
   const settledTransform = "translateY(0) scale(1)";
-  const offscreenTransform = shouldReduceMotion
-    ? settledTransform
-    : "translateY(100%) scale(0.98)";
+  const offscreenTransform = shouldReduceMotion ? settledTransform : "translateY(100%) scale(0.98)";
+  const enterTransition = portalMotionTransition(shouldReduceMotion, undefined, "ui");
+  const exitTransition = portalMotionTransition(shouldReduceMotion, undefined, "snap");
 
   const toneClass =
     toast.tone === "error"
@@ -41,11 +39,11 @@ function ToastItem({ toast, onDismiss }) {
       exit={{
         opacity: 0,
         transform: offscreenTransform,
-        transition: { duration: 0.15, ease: PORTAL_EASE_OUT },
+        transition: exitTransition,
       }}
       initial={{ opacity: 0, transform: offscreenTransform }}
       role="status"
-      transition={TOAST_TRANSITION}
+      transition={enterTransition}
     >
       <div className="flex items-start justify-between gap-3">
         <span>{toast.message}</span>

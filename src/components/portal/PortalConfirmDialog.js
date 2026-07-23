@@ -4,7 +4,6 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { createContext, use, useEffect, useId, useRef, useState } from "react";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import {
-  PORTAL_EASE_OUT,
   PORTAL_MODAL_VISIBLE_TRANSFORM,
   portalModalExitTransform,
   portalModalHiddenTransform,

@@ -1,6 +1,7 @@
 import { anyApi } from "convex/server";
 import { redirect } from "next/navigation";
 import PortalShell from "@/components/portal/PortalShell";
+import PortalMotionThemeProvider from "@/components/providers/PortalMotionThemeProvider";
 import ReducedMotionProvider from "@/components/providers/ReducedMotionProvider";
 import { fetchAuthMutation, fetchAuthQuery, requireAuth } from "@/lib/auth-server";
 
@@ -24,9 +25,11 @@ export default async function PortalLayout({ children }) {
 
   return (
     <ReducedMotionProvider>
-      <PortalShell access={access} user={user}>
-        {children}
-      </PortalShell>
+      <PortalMotionThemeProvider>
+        <PortalShell access={access} user={user}>
+          {children}
+        </PortalShell>
+      </PortalMotionThemeProvider>
     </ReducedMotionProvider>
   );
 }
