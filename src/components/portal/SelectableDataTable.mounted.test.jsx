@@ -24,6 +24,40 @@ beforeAll(() => {
 afterAll(() => dom.window.close());
 
 describe("SelectableDataTable horizontal scroll", () => {
+  test("shows skeleton loading when rows are undefined", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <SelectableDataTable
+          columns={[{ id: "query", label: "Query", render: (row) => row.id }]}
+          empty="No rows"
+        />
+      );
+    });
+
+    expect(container.querySelector('[role="progressbar"]')).not.toBeNull();
+    expect(container.querySelector("table")).toBeNull();
+
+    await act(async () => {
+      root.render(
+        <SelectableDataTable
+          columns={[{ id: "query", label: "Query", render: (row) => row.id }]}
+          empty="No rows"
+          rows={[{ id: "row-1", queryCode: "Q-0001" }]}
+        />
+      );
+    });
+
+    expect(container.querySelector('[role="progressbar"]')).toBeNull();
+    expect(container.querySelector("table")).not.toBeNull();
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
   test("renders accessible scroll controls when desktop table overflows", async () => {
     const container = document.createElement("div");
     document.body.append(container);

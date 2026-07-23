@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { AriaAttributes, ChangeEvent, Key, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { SkeletonMobileCards, SkeletonTable } from "@/components/motion-ui/skeleton";
 import { usePortalFilterActions } from "@/components/portal/portalFilterActionsState";
 import { ResponsiveDataCards } from "@/components/portal/ResponsiveDataCards";
 import { useBulkSelection } from "@/lib/portal/bulkSelection";
@@ -374,35 +375,12 @@ function TablePaginationFooter({
   );
 }
 
-function LoadingPanel() {
+function LoadingPanel({ columnCount = 4 }: { columnCount?: number }) {
   return (
-    <div aria-busy="true" aria-label="Loading records" className="space-y-3" role="progressbar">
-      <div className="space-y-3 md:hidden">
-        {["mobile-1", "mobile-2", "mobile-3"].map((id) => (
-          <div
-            className="animate-pulse rounded-2xl border border-brand-border bg-white p-4"
-            key={id}
-          >
-            <div className="h-4 w-2/5 rounded bg-brand-light" />
-            <div className="mt-3 h-5 w-4/5 rounded bg-brand-light" />
-            <div className="mt-5 grid grid-cols-2 gap-3">
-              <div className="h-10 rounded bg-brand-light" />
-              <div className="h-10 rounded bg-brand-light" />
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="hidden overflow-hidden rounded-2xl border border-brand-border bg-white md:block">
-        {["header", "row-1", "row-2", "row-3", "row-4"].map((id) => (
-          <div
-            className="grid animate-pulse grid-cols-4 gap-6 border-brand-border border-b px-4 py-4 last:border-b-0"
-            key={id}
-          >
-            {[`${id}-1`, `${id}-2`, `${id}-3`, `${id}-4`].map((cell) => (
-              <div className="h-4 rounded bg-brand-light" key={cell} />
-            ))}
-          </div>
-        ))}
+    <div className="space-y-3">
+      <SkeletonMobileCards />
+      <div className="hidden md:block">
+        <SkeletonTable columnCount={columnCount} />
       </div>
     </div>
   );
@@ -419,6 +397,35 @@ function BulkActionBar({
   onDeleteSelected: () => void;
   selectedCount: number;
 }) {
+  const [holdProgress, setHoldProgress] = useState(0);
+  const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const holdStartRef = useRef(0);
+  const HOLD_MS = 2000;
+
+  const clearHold = () => {
+    if (holdTimerRef.current) {
+      clearInterval(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    setHoldProgress(0);
+  };
+
+  const startHold = () => {
+    clearHold();
+    holdStartRef.current = Date.now();
+    holdTimerRef.current = setInterval(() => {
+      const elapsed = Date.now() - holdStartRef.current;
+      const next = Math.min(1, elapsed / HOLD_MS);
+      setHoldProgress(next);
+      if (next >= 1) {
+        clearHold();
+        void onDeleteSelected();
+      }
+    }, 32);
+  };
+
+  useEffect(() => () => clearHold(), []);
+
   if (selectedCount === 0) {
     return null;
   }
@@ -437,9 +444,25 @@ function BulkActionBar({
         <button className="portal-small-btn" onClick={onClear} type="button">
           Clear
         </button>
-        <button className="portal-danger-btn" onClick={onDeleteSelected} type="button">
+        <button
+          className="portal-danger-btn relative overflow-hidden"
+          data-testid="portal-bulk-delete-hold"
+          onMouseDown={startHold}
+          onMouseLeave={clearHold}
+          onMouseUp={clearHold}
+          onPointerCancel={clearHold}
+          onPointerDown={startHold}
+          onPointerLeave={clearHold}
+          onPointerUp={clearHold}
+          style={
+            holdProgress > 0
+              ? { clipPath: `inset(0 ${Math.round((1 - holdProgress) * 100)}% 0 0)` }
+              : undefined
+          }
+          type="button"
+        >
           <Trash2 size={13} />
-          Delete selected
+          {holdProgress > 0 ? "Keep holding…" : "Hold to delete selected"}
         </button>
       </div>
     </div>
@@ -572,7 +595,7 @@ export function SelectableDataTable<Row extends PortalDataRow>({
   );
 
   if (!rows) {
-    return <LoadingPanel />;
+    return <LoadingPanel columnCount={Math.min(Math.max(columns.length, 4), 8)} />;
   }
   if (rows.length === 0) {
     return (
