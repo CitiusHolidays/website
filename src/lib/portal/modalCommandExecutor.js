@@ -48,6 +48,7 @@ export async function executeModalCommand({ modal, form, deps }) {
         queryId: form.entityId,
         queryType: form.queryType,
         salesOwnerName: form.salesOwnerName,
+        salesOwnerStaffId: form.salesOwnerStaffId || undefined,
         source: form.source,
         travelEndDate: form.travelEndDate,
         travelInBatches,
@@ -67,6 +68,7 @@ export async function executeModalCommand({ modal, form, deps }) {
         paxCount: toNumber(form.paxCount, 1),
         queryType: form.queryType,
         salesOwnerName: form.salesOwnerName,
+        salesOwnerStaffId: form.salesOwnerStaffId || undefined,
         source: form.source,
         ticketingScope: normalizedTicketingScope(form.ticketingScope),
         travelEndDate: form.travelEndDate,
@@ -165,6 +167,22 @@ export async function executeModalCommand({ modal, form, deps }) {
       queryId: form.queryId,
       salesStatus: decision,
     };
+    if (decision === "Date/Destination Change Required") {
+      payload.destination = form.destination;
+      payload.travelEndDate = form.travelEndDate;
+      payload.travelStartDate = form.travelStartDate;
+    }
+    if (decision === "Order Confirmed") {
+      payload.airfarePerPax = toNumber(form.airfarePerPax, 0);
+      payload.confirmedPax = toNumber(form.confirmedPax, 1);
+      payload.destination = form.destination;
+      payload.landCostPerPax = toNumber(form.landCostPerPax, 0);
+      payload.proposalId = form.proposalId;
+      payload.sellingPricePerPax = toNumber(form.sellingPricePerPax, 0);
+      payload.travelEndDate = form.travelEndDate;
+      payload.travelStartDate = form.travelStartDate;
+      payload.visaCostPerPax = toNumber(form.visaCostPerPax, 0);
+    }
     const queryRow = deps.queries.find((query) => query.id === form.queryId);
     const confirmingNow = decision === "Order Confirmed";
     const alreadyConfirmed =

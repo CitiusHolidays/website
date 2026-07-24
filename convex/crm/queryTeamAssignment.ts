@@ -250,6 +250,10 @@ export async function applyQueryTeamAssignments(
     ticketingAssigned: Boolean(ticketing),
     ticketingScope,
   });
+  const ticketingAssignmentRequired =
+    isSalesAssignmentAccess(access) &&
+    !ticketing &&
+    Boolean(ticketingScope && ticketingScope !== "Not required");
   await notifyRoles(
     ctx,
     headRoles,
@@ -259,13 +263,17 @@ export async function applyQueryTeamAssignments(
       }.`,
       entityId: queryId,
       entityType: "query",
-      title: isSalesAssignmentAccess(access)
-        ? "Query team assigned by Sales"
-        : "Query team assignment updated",
+      title: ticketingAssignmentRequired
+        ? "Assign Ticketing SPOC"
+        : isSalesAssignmentAccess(access)
+          ? "Query team assigned by Sales"
+          : "Query team assignment updated",
     },
-    // Assignment oversight remains visible in the bell, but email belongs only to the selected
-    // SPOCs through notifyStaffMember above. This prevents department/email-alert-role fanout.
-    { emailRoles: [] }
+    {
+      // One actionable Head of Ticketing alert covers the initial unassigned intake.
+      // Selected SPOCs continue to receive their direct assignment email above.
+      emailRoles: ticketingAssignmentRequired ? ["Head of Ticketing"] : [],
+    }
   );
 
   return { id: queryId };

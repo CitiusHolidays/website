@@ -330,6 +330,27 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_name", ["name"]),
 
+  confirmedOffers: defineTable({
+    airfarePerPax: v.number(),
+    approxMargin: v.optional(v.number()),
+    confirmedPax: v.number(),
+    createdAt: v.number(),
+    createdBy: v.string(),
+    destination: v.optional(v.string()),
+    landCostPerPax: v.number(),
+    profitPerPax: v.number(),
+    proposalId: v.id("proposals"),
+    queryId: v.id("queries"),
+    sellingPricePerPax: v.number(),
+    taxRate: v.optional(v.number()),
+    travelEndDate: v.optional(v.string()),
+    travelStartDate: v.string(),
+    updatedAt: v.number(),
+    visaCostPerPax: v.number(),
+  })
+    .index("by_queryId", ["queryId"])
+    .index("by_proposalId", ["proposalId"]),
+
   contractingAssignments: defineTable({
     createdAt: v.number(),
     createdBy: v.string(),
@@ -635,8 +656,11 @@ export default defineSchema({
     .index("by_operation_workerKey", ["operationId", "workerKey"]),
 
   jobCards: defineTable({
+    airfarePerPax: v.optional(v.number()),
+    approxMargin: v.optional(v.number()),
     clientName: v.string(),
     collaboratorStaffIds: v.optional(v.array(v.id("staffUsers"))),
+    confirmedOfferId: v.optional(v.id("confirmedOffers")),
     confirmedPax: v.number(),
     contractingOwnerId: v.optional(v.string()),
     contractingOwnerName: v.optional(v.string()),
@@ -644,6 +668,7 @@ export default defineSchema({
     createdBy: v.string(),
     destination: v.optional(v.string()),
     jobCode: v.string(),
+    landCostPerPax: v.optional(v.number()),
     lastEditedAt: v.optional(v.number()),
     lastEditedBy: v.optional(v.string()),
     lastEditedByName: v.optional(v.string()),
@@ -652,10 +677,12 @@ export default defineSchema({
     operationsOwnerName: v.optional(v.string()),
     paymentTerms: v.optional(v.any()),
     preDepartureChecklist: v.optional(v.any()),
+    profitPerPax: v.optional(v.number()),
     proposalId: v.optional(v.id("proposals")),
     queryId: v.optional(v.id("queries")),
     queryType: v.optional(queryType),
     roomCount: v.optional(v.number()),
+    sellingPricePerPax: v.optional(v.number()),
     status: v.union(
       v.literal("Open"),
       v.literal("In Operations"),
@@ -674,6 +701,7 @@ export default defineSchema({
     travelEndDate: v.optional(v.string()),
     travelStartDate: v.optional(v.string()),
     updatedAt: v.number(),
+    visaCostPerPax: v.optional(v.number()),
   })
     .index("by_jobCode", ["jobCode"])
     .index("by_queryId", ["queryId"])
@@ -887,6 +915,7 @@ export default defineSchema({
     clientId: v.optional(v.id("clients")),
     clientName: v.string(),
     confirmedAt: v.optional(v.number()),
+    confirmedOfferId: v.optional(v.id("confirmedOffers")),
     contactMobile: v.optional(v.string()),
     contactPerson: v.optional(v.string()),
     contractingAirlinesCost: v.optional(v.number()),

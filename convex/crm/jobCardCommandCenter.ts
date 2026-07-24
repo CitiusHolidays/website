@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { loadCommercialChainFilesForEntryPoint } from "./commercialRecordChainReads";
 import { getChecklistTasksWithFallback } from "./jobCardChecklist";
 import { canSeeJobCardRecord, PERMISSIONS, publicJobCard, requireStaff } from "./lib";
 import { publicProposalAttachment } from "./proposalAttachments";
@@ -56,6 +57,7 @@ export async function handleGetCommandCenter(
     invoices,
     checklistTasks,
     proposalAttachments,
+    commercialFiles,
   ] = await Promise.all([
     linkedProposalId ? ctx.db.get(linkedProposalId) : null,
     ctx.db
@@ -89,6 +91,7 @@ export async function handleGetCommandCenter(
           .withIndex("by_proposalId", (q) => q.eq("proposalId", linkedProposalId))
           .collect()
       : Promise.resolve([]),
+    loadCommercialChainFilesForEntryPoint(ctx, "jobCard", String(jobCardId)),
   ]);
   return {
     checklistTasks: checklistTasks.map((task: Doc<"checklistTasks">) => ({
@@ -98,6 +101,7 @@ export async function handleGetCommandCenter(
       dueDate: task.dueDate,
       title: task.title,
     })),
+    commercialFiles,
     hotels: hotels.map((hotel) => ({ id: hotel._id })),
     invoices: invoices.map((invoice) => ({
       balanceAmount: invoice.balanceAmount,

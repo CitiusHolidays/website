@@ -73,17 +73,27 @@ export function EntityModalQueryFields({
         />
         <Select
           label="Sales Rep"
-          onChange={(v) => updateForm("salesOwnerName", v)}
+          onChange={(staffId) => {
+            const selected = team.find((member) => String(member.id) === String(staffId));
+            patchForm({
+              salesOwnerName: selected?.name || "",
+              salesOwnerStaffId: staffId,
+            });
+          }}
           options={[
             { label: "Current user", value: "" },
             ...team.reduce((options, member) => {
               if (member.roles.some((role) => SALES_REP_ROLES.includes(role))) {
-                options.push({ label: member.name, value: member.name });
+                options.push({ label: member.name, value: member.id });
               }
               return options;
             }, []),
           ]}
-          value={form.salesOwnerName}
+          value={
+            form.salesOwnerStaffId ||
+            team.find((member) => member.name === form.salesOwnerName)?.id ||
+            ""
+          }
         />
       </EntityModalFieldSection>
 
@@ -128,7 +138,7 @@ export function EntityModalQueryFields({
           value={form.travelEndDate}
         />
         <Input
-          label="Budget INR"
+          label="Budget per Person (INR, pre-tax)"
           onChange={(v) => updateForm("budgetAmount", v)}
           type="number"
           value={form.budgetAmount}

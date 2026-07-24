@@ -35,6 +35,10 @@ describe("portal data dependency declarations", () => {
     ]);
 
     expect(
+      [...getPortalDataDependencies({ modal: "salesDecision", view: "queries" })].sort()
+    ).toEqual(["proposals", "queries"]);
+
+    expect(
       [...getPortalDataDependencies({ modal: "jobCard", view: "accounts-job-cards" })].sort()
     ).toEqual(["jobCards", "proposals", "queries"]);
   });

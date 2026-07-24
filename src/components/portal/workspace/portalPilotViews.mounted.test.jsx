@@ -93,6 +93,7 @@ describe("mounted portal pilot views", () => {
   test("Contracting preserves Contracting SPOC and With Sales handoff presentation", async () => {
     const view = await mount(
       <ContractingView
+        access={{ roles: ["Contracting"] }}
         canAssign={false}
         deleteItem={async () => undefined}
         has={() => false}
@@ -109,6 +110,7 @@ describe("mounted portal pilot views", () => {
         removeQuery={noopMutation}
         rows={[
           {
+            batchingNotes: "Batch A then Batch B",
             clientName: "Acme Group",
             contractingOwnerName: "Cora Contracting",
             contractingStatus: "Proposal in progress",
@@ -117,6 +119,7 @@ describe("mounted portal pilot views", () => {
             queryCode: "Q-0001",
             ticketingOwnerName: "Tina Ticketing",
             ticketingScope: "International",
+            travelInBatches: true,
           },
         ]}
         team={[]}
@@ -126,6 +129,8 @@ describe("mounted portal pilot views", () => {
     expect(view.container.textContent).toContain("Contracting SPOC");
     expect(view.container.textContent).toContain("Cora Contracting");
     expect(view.container.textContent).toContain("With Sales");
+    expect(view.container.textContent).toContain("Travel in Series");
+    expect(view.container.textContent).toContain("Batch A then Batch B");
 
     await view.unmount();
   });

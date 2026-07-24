@@ -7,36 +7,9 @@ export function EntityModalJobCardFields({
   modal,
   form,
   updateForm,
-  patchForm,
-  has,
-  access,
   queries,
   proposals,
-  jobCards,
-  team,
-  contractingTeamOptions,
-  operationsTeamOptions,
-  ticketingTeamOptions,
-  pendingQueryFiles,
-  setPendingQueryFiles,
-  pendingProposalFiles,
-  setPendingProposalFiles,
-  generateQueryUploadUrl,
-  attachQueryFile,
-  getQueryAttachmentUrl,
-  removeQueryAttachment,
-  generateProposalUploadUrl,
-  attachProposalFile,
-  getProposalAttachmentUrl,
-  removeProposalAttachment,
-  generateFinalizedPdfUploadUrl,
-  attachFinalizedPdf,
-  getFinalizedPdfUrl,
-  removeFinalizedPdf,
-  handleProposalQuerySelect,
   handleJobQuerySelect,
-  handleJobCardSelect,
-  handleTravellerSelect,
 }) {
   return (
     <>
@@ -115,6 +88,24 @@ export function EntityModalJobCardFields({
             onChange={(v) => updateForm("travelEndDate", v)}
             type="date"
             value={form.travelEndDate}
+          />
+          <div className="rounded-xl border border-brand-border bg-brand-light/60 px-4 py-3 text-brand-muted text-sm md:col-span-2">
+            Commercial amounts come from the Confirmed Offer and cannot be changed on the Job Card.
+          </div>
+          <Input label="Land Cost per Person" readOnly type="number" value={form.landCostPerPax} />
+          <Input label="Airfare per Person" readOnly type="number" value={form.airfarePerPax} />
+          <Input label="Visa Cost per Person" readOnly type="number" value={form.visaCostPerPax} />
+          <Input
+            label="Selling Price per Person (pre-tax)"
+            readOnly
+            type="number"
+            value={form.sellingPricePerPax}
+          />
+          <Input
+            label="Profit per Person (pre-tax)"
+            readOnly
+            type="number"
+            value={form.profitPerPax}
           />
         </>
       )}

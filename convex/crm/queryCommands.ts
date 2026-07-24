@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import { snapshotNewlyConfirmedOffer } from "./confirmedOffer";
 import {
   assertCementQueryTypeAllowed,
   assertDateRangeOrder,
@@ -9,7 +10,6 @@ import {
   hasRole,
   isDirectorOrAdmin,
   MAX_QUERY_NOTES_WORDS,
-  nextCode,
   notifyRoles,
   notifyStaffMember,
   PERMISSIONS,
@@ -18,6 +18,7 @@ import {
   requireStaff,
 } from "./lib";
 import { buildQueryListSearchText } from "./listSearch";
+import { resolveSalesOwnerSelection } from "./queryCreation";
 import {
   notifyAssignedQueryOwners,
   notifyJobCardCreators,
@@ -25,127 +26,15 @@ import {
   notifyQueryAssignmentHeads,
   notifyQueryOwner,
 } from "./queryNotifications";
-import { buildQueryStatusNotificationPlan, buildQueryStatusPatch } from "./queryStatusPolicy";
-import { applyQueryTeamAssignments } from "./queryTeamAssignment";
-import type { QueryStatusArgs, QueryType, TravelType } from "./queryValidators";
+import {
+  assertConfirmedQueryIsTerminal,
+  assertRevisionHasActualChange,
+  buildQueryStatusNotificationPlan,
+  buildQueryStatusPatch,
+} from "./queryStatusPolicy";
+import type { QueryStatusArgs } from "./queryValidators";
 
-export async function handleQueryCreate(
-  ctx: MutationCtx,
-  args: {
-    batchingNotes?: string;
-    budgetAmount?: number;
-    clientName: string;
-    contactMobile?: string;
-    contactPerson?: string;
-    contractingStaffId?: string;
-    destination?: string;
-    notes?: string;
-    paxCount: number;
-    queryType: QueryType;
-    salesOwnerName?: string;
-    source?: string;
-    ticketingScope?: string;
-    travelEndDate?: string;
-    travelInBatches?: boolean;
-    travelStartDate?: string;
-    travelType: TravelType;
-  }
-) {
-  if (!args.clientName.trim()) {
-    throw new ConvexError("Client name is required");
-  }
-  if (args.paxCount < 1) {
-    throw new ConvexError("Pax count must be greater than zero");
-  }
-  assertMaxWordCount(args.notes, MAX_QUERY_NOTES_WORDS, "Notes");
-  assertDateRangeOrder(
-    args.travelStartDate,
-    args.travelEndDate,
-    "Travel start date",
-    "Travel end date"
-  );
-
-  const now = Date.now();
-  const [access, [queryCode, clientId]] = await Promise.all([
-    requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES),
-    Promise.all([
-      nextCode(ctx, "queries", "Q"),
-      ctx.db.insert("clients", {
-        contactPerson: args.contactPerson?.trim() || "",
-        createdAt: now,
-        name: args.clientName.trim(),
-        phone: args.contactMobile?.trim() || "",
-        updatedAt: now,
-      }),
-    ]),
-  ]);
-  assertCementQueryTypeAllowed(access, args.queryType);
-  const queryPayload = {
-    attachmentCount: 0,
-    attachmentPreview: [],
-    batchingNotes: args.batchingNotes?.trim() || "",
-    budgetAmount: Math.max(args.budgetAmount ?? 0, 0),
-    clientId,
-    clientName: args.clientName.trim(),
-    contactMobile: args.contactMobile?.trim() || "",
-    contactPerson: args.contactPerson?.trim() || "",
-    contractingStatus: "Query Received" as const,
-    createdAt: now,
-    createdBy: access.authUserId ?? "unknown",
-    destination: args.destination?.trim() || "",
-    leadStage: "Proposal" as const,
-    listSearchText: buildQueryListSearchText({
-      clientName: args.clientName,
-      destination: args.destination,
-      queryCode,
-      queryType: args.queryType,
-      salesOwnerName: args.salesOwnerName?.trim() || access.name,
-    }),
-    notes: args.notes?.trim() || "",
-    paxCount: args.paxCount,
-    queryCode,
-    queryType: args.queryType,
-    salesOwnerId: access.authUserId,
-    salesOwnerName: args.salesOwnerName?.trim() || access.name,
-    salesStatus: "Proposal in discussion" as const,
-    source: (args.source ?? "Client") as "Website" | "WhatsApp" | "Email" | "Client" | "Referral",
-    submittedToContractingAt: now,
-    travelEndDate: args.travelEndDate || "",
-    travelInBatches: Boolean(args.travelInBatches),
-    travelStartDate: args.travelStartDate || "",
-    travelType: args.travelType,
-    updatedAt: now,
-  };
-  const id = await ctx.db.insert("queries", queryPayload);
-
-  await createActivity(ctx, access, {
-    action: "created",
-    entityId: id,
-    entityType: "query",
-    message: `${queryCode} created for ${args.clientName.trim()}`,
-  });
-
-  if (args.contractingStaffId || args.ticketingScope) {
-    await applyQueryTeamAssignments(ctx, access, {
-      contractingStaffId: args.contractingStaffId,
-      queryId: id,
-      ticketingScope: args.ticketingScope,
-    });
-  } else {
-    await notifyQueryAssignmentHeads(
-      ctx,
-      { ticketingScope: args.ticketingScope },
-      {
-        body: `${queryCode} was raised by Sales. Review and assign contracting and ticketing teams.`,
-        entityId: id,
-        entityType: "query",
-        title: "Query ready for assignment",
-      }
-    );
-  }
-
-  return { id, queryCode };
-}
+export { handleQueryCreate } from "./queryCreation";
 
 export async function handleQueryUpdate(
   ctx: MutationCtx,
@@ -161,6 +50,7 @@ export async function handleQueryUpdate(
     queryId: string;
     queryType?: string;
     salesOwnerName?: string;
+    salesOwnerStaffId?: string;
     source?: string;
     travelEndDate?: string;
     travelInBatches?: boolean;
@@ -231,8 +121,15 @@ export async function handleQueryUpdate(
   if (args.source !== undefined) {
     patch.source = args.source;
   }
-  if (args.salesOwnerName !== undefined) {
-    patch.salesOwnerName = args.salesOwnerName.trim();
+  if (args.salesOwnerName !== undefined || args.salesOwnerStaffId !== undefined) {
+    const salesOwnerStaff = await resolveSalesOwnerSelection(
+      ctx,
+      access,
+      args.salesOwnerStaffId,
+      args.salesOwnerName
+    );
+    patch.salesOwnerId = salesOwnerStaff.authUserId;
+    patch.salesOwnerName = salesOwnerStaff.name.trim();
   }
   if (args.travelInBatches !== undefined) {
     patch.travelInBatches = args.travelInBatches;
@@ -404,9 +301,19 @@ export async function handleQueryUpdateStatus(
     throw new ConvexError("Only Sales can confirm or lose an order");
   }
 
+  assertConfirmedQueryIsTerminal(current, args);
+  assertRevisionHasActualChange(current, args);
+  assertDateRangeOrder(
+    args.travelStartDate ?? current.travelStartDate,
+    args.travelEndDate ?? current.travelEndDate,
+    "Travel start date",
+    "Travel end date"
+  );
+
+  const now = Date.now();
   const patch = buildQueryStatusPatch({
     args,
-    now: Date.now(),
+    now,
   });
 
   const willBeConfirmed =
@@ -425,13 +332,19 @@ export async function handleQueryUpdateStatus(
     patch.approxMargin = Math.max(args.approxMargin, 0);
   }
 
-  await ctx.db.patch(queryId, patch);
-
   const wasConfirmed =
     current.salesStatus === "Order Confirmed" || current.contractingStatus === "Order Confirmed";
   const isNewlyConfirmed =
     !wasConfirmed &&
     (args.salesStatus === "Order Confirmed" || args.contractingStatus === "Order Confirmed");
+
+  const confirmedOfferId = await snapshotNewlyConfirmedOffer(ctx, access, current, args);
+  if (confirmedOfferId) {
+    patch.confirmedOfferId = confirmedOfferId;
+  }
+
+  await ctx.db.patch(queryId, patch);
+
   const isLost = args.salesStatus === "Order Lost";
   const notificationPlan = buildQueryStatusNotificationPlan({
     args,
@@ -446,7 +359,7 @@ export async function handleQueryUpdateStatus(
       entityId: queryId,
       entityType: "query",
       message: `${current.queryCode} status updated`,
-      metadata: patch,
+      metadata: { ...patch, confirmedOfferId },
     }),
     ...(notificationPlan.notifyJobCardCreators
       ? [notifyJobCardCreators(ctx, current, queryId)]
@@ -455,12 +368,17 @@ export async function handleQueryUpdateStatus(
       ? [notifyOrderConfirmedWorkflow(ctx, current, queryId)]
       : []),
     ...notificationPlan.roleNotifications.map((notification) =>
-      notifyRoles(ctx, notification.roles, {
-        body: notification.body,
-        entityId: queryId,
-        entityType: "query",
-        title: notification.title,
-      })
+      notifyRoles(
+        ctx,
+        notification.roles,
+        {
+          body: notification.body,
+          entityId: queryId,
+          entityType: "query",
+          title: notification.title,
+        },
+        notification.emailRoles ? { emailRoles: notification.emailRoles } : undefined
+      )
     ),
     ...notificationPlan.ownerNotifications.map((notification) =>
       notifyQueryOwner(ctx, notification.ownerId, {

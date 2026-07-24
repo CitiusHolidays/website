@@ -79,7 +79,10 @@ export function createInitialModalForm({
       Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
     }
     if (type === "jobCard" && !next.proposalId) {
-      next.proposalId = resolveLinkedProposalForQuery(proposals, next.queryId)?.id || "";
+      next.proposalId =
+        linkedQuery?.confirmedOffer?.proposalId ||
+        resolveLinkedProposalForQuery(proposals, next.queryId)?.id ||
+        "";
     }
   }
   if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {

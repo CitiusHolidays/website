@@ -162,15 +162,17 @@ export function buildMetricValues(
     const type = String(source.queryType ?? "Unknown");
     const stage = String(source.leadStage || "Inquiry");
     const budget = Number(source.budgetAmount ?? 0);
+    const pax = Math.max(Number(source.paxCount ?? 0), 0);
+    const opportunityBudget = budget * (pax > 0 ? pax : 1);
     addValue(values, "queries.total", 1);
     addValue(values, `queries.type.${type}.count`, 1);
-    addValue(values, `queries.type.${type}.budget`, budget);
+    addValue(values, `queries.type.${type}.budget`, opportunityBudget);
     addValue(values, `queries.stage.${stage}.count`, 1);
-    addValue(values, `queries.stage.${stage}.budget`, budget);
+    addValue(values, `queries.stage.${stage}.budget`, opportunityBudget);
     if (status === "Order Confirmed") {
       addValue(values, "queries.confirmed", 1);
       addValue(values, `queries.type.${type}.confirmed`, 1);
-      addValue(values, `queries.type.${type}.confirmedBudget`, budget);
+      addValue(values, `queries.type.${type}.confirmedBudget`, opportunityBudget);
     } else if (status === "Order Lost") {
       addValue(values, "queries.lost", 1);
       addValue(values, `queries.type.${type}.lost`, 1);
@@ -601,9 +603,7 @@ async function markReconciliationSourceComplete(
     .withIndex("by_generation", (q) => q.eq("generation", generation))
     .collect();
   const completedSourceTypes = completions.map((row) => row.sourceType).sort();
-  const complete = METRIC_SOURCE_TYPES.every((required) =>
-    completedSourceTypes.includes(required)
-  );
+  const complete = METRIC_SOURCE_TYPES.every((required) => completedSourceTypes.includes(required));
   const now = Date.now();
   if (complete) {
     await ctx.db.patch(state._id, {

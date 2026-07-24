@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildHeadAssignmentSlaItems,
   buildOverdueInvoices,
   buildPipelineSnapshot,
   buildTicketAttentionQueue,
@@ -8,6 +9,30 @@ import {
   groupByJobCardId,
 } from "./dashboard";
 import { portalSummaryResultValidator } from "./returnContracts";
+
+describe("ticketing head intake dashboard", () => {
+  test("keeps relevant unassigned queries visible until a Ticketing SPOC is assigned", () => {
+    const access = { roles: ["Head of Ticketing"] };
+    const query = {
+      _id: "queries_1",
+      queryCode: "Q-0001",
+      salesStatus: "Proposal in discussion",
+      ticketingScope: "Both",
+    };
+
+    expect(buildHeadAssignmentSlaItems(access, [query], [])).toEqual([
+      expect.objectContaining({
+        label: "Q-0001 — assign Ticketing SPOC",
+      }),
+    ]);
+    expect(
+      buildHeadAssignmentSlaItems(access, [{ ...query, ticketingOwnerId: "staff_ticketing" }], [])
+    ).toEqual([]);
+    expect(
+      buildHeadAssignmentSlaItems(access, [{ ...query, ticketingScope: "Not required" }], [])
+    ).toEqual([]);
+  });
+});
 
 function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
   const staff = {

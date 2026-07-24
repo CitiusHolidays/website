@@ -1,23 +1,24 @@
-import type { Id } from "../_generated/dataModel";
 import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import type { JobCardStatus } from "./jobCardConstants";
 import {
   applyCementPortalScope,
   CEMENT_QUERY_TYPES,
   filterRecordsByDateRange,
+  isHead,
   PERMISSIONS,
   type PortalDateRange,
   portalDateRangeValidator,
   requireStaff,
   resolvePortalDateRange,
   shouldApplyCementScope,
-  isHead,
 } from "./lib";
 import { aggregateMetric, loadMetricTotals, type MetricValues } from "./metricAggregates";
 import { getNotificationHref } from "./notificationPaths";
 import type { QueryType } from "./queryValidators";
 import { portalSummaryResultValidator } from "./returnContracts";
+import { queryNeedsTicketingHeadIntakeAlert } from "./ticketingIntakePolicy";
 
 const RECENT_ACTIVITY_LIMIT = 8;
 const DASHBOARD_DETAIL_LIMIT = 240;
@@ -289,10 +290,7 @@ export function buildOwnedWorkSla(
       continue;
     }
     existing.count += 1;
-    if (
-      oldestDays !== null &&
-      (existing.oldestDays === null || oldestDays > existing.oldestDays)
-    ) {
+    if (oldestDays !== null && (existing.oldestDays === null || oldestDays > existing.oldestDays)) {
       existing.oldestDays = oldestDays;
     }
   }
@@ -323,6 +321,7 @@ export function buildHeadAssignmentSlaItems(
     salesStatus: string;
     contractingOwnerId?: string;
     ticketingOwnerId?: string;
+    ticketingScope?: string;
   }>,
   jobCards: Array<{
     _id: string;
@@ -398,10 +397,7 @@ export function buildHeadAssignmentSlaItems(
       if (items.length >= 5) {
         break;
       }
-      if (closedSales.has(query.salesStatus) || query.ticketingOwnerId) {
-        continue;
-      }
-      if (query.salesStatus !== "Order Confirmed") {
+      if (!queryNeedsTicketingHeadIntakeAlert(query)) {
         continue;
       }
       const entityId = String(query._id);
@@ -412,7 +408,7 @@ export function buildHeadAssignmentSlaItems(
         href: getNotificationHref({
           entityId,
           entityType: "query",
-          title: "Assign ticketing owner",
+          title: "Assign Ticketing SPOC",
         }),
         label: `${query.queryCode} — assign Ticketing SPOC`,
         oldestDays: null,
@@ -424,11 +420,14 @@ export function buildHeadAssignmentSlaItems(
 }
 
 export function buildPipelineSnapshot(
-  queries: Array<{ leadStage?: string; budgetAmount?: number }>
+  queries: Array<{ leadStage?: string; budgetAmount?: number; paxCount?: number }>
 ) {
   return SALES_PIPELINE_STAGES.map((stage) => {
     const stageQueries = queries.filter((q) => (q.leadStage || "Inquiry") === stage);
-    const value = stageQueries.reduce((sum, query) => sum + (query.budgetAmount ?? 0), 0);
+    const value = stageQueries.reduce(
+      (sum, query) => sum + (query.budgetAmount ?? 0) * Math.max(query.paxCount ?? 1, 1),
+      0
+    );
     const weight = PIPELINE_STAGE_WEIGHTS[stage];
     return {
       count: stageQueries.length,
@@ -604,6 +603,7 @@ export const getPortalSummary = query({
       : QUERY_TYPES;
 
     const activeJobs = jobCards.filter((job) => job.status !== "Closed");
+    const queriesById = new Map(queries.map((queryRow) => [String(queryRow._id), queryRow]));
     const ticketsIssued = tickets.filter((ticket) => ticket.ticketStatus === "Issued").length;
     const visaApproved = visas.filter((visa) =>
       ["Approved", "Not Required"].includes(visa.status)
@@ -737,6 +737,7 @@ export const getPortalSummary = query({
 
     return {
       activeTours: activeJobs.slice(0, 6).map((job) => {
+        const linkedQuery = job.queryId ? queriesById.get(String(job.queryId)) : null;
         const jobTravellers = travellersByJobCard.get(job._id) ?? [];
         const jobTicketsIssued = jobTravellers.filter(
           (traveller) => traveller.ticketStatus === "Issued"
@@ -746,12 +747,16 @@ export const getPortalSummary = query({
         ).length;
         return {
           clientName: job.clientName,
+          contractingOwnerName: linkedQuery?.contractingOwnerName ?? "",
           destination: job.destination ?? "",
           id: job._id as Id<"jobCards">,
           jobCode: job.jobCode,
           pax: job.confirmedPax,
+          queryCode: linkedQuery?.queryCode ?? "",
           status: job.status as JobCardStatus,
+          ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
           ticketProgress: percent(jobTicketsIssued, jobTravellers.length),
+          travelStartDate: job.travelStartDate ?? "",
           visaProgress: percent(jobVisasApproved, jobTravellers.length),
         };
       }),
@@ -1008,6 +1013,7 @@ export const getPortalSummary = query({
         .sort((a, b) => String(a.travelStartDate).localeCompare(String(b.travelStartDate)))
         .slice(0, 6)
         .map((job) => {
+          const linkedQuery = job.queryId ? queriesById.get(String(job.queryId)) : null;
           const jobTravellers = travellersByJobCard.get(job._id) ?? [];
           const ticketProgress = percent(
             jobTravellers.filter((traveller) => traveller.ticketStatus === "Issued").length,
@@ -1021,15 +1027,18 @@ export const getPortalSummary = query({
           );
           return {
             clientName: job.clientName,
+            contractingOwnerName: linkedQuery?.contractingOwnerName ?? "",
             destination: job.destination ?? "",
             id: job._id as Id<"jobCards">,
             jobCode: job.jobCode,
             pax: job.confirmedPax,
+            queryCode: linkedQuery?.queryCode ?? "",
             readiness: (ticketProgress >= 100 && visaProgress >= 100
               ? "Ready"
               : visaProgress < 100
                 ? "Docs pending"
                 : "Ticketing") as "Ready" | "Docs pending" | "Ticketing",
+            ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
             tourManagerName: job.tourManagerName ?? "",
             travelStartDate: job.travelStartDate,
           };

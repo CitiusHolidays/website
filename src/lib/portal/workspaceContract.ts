@@ -250,6 +250,7 @@ export const INITIAL_FORM = {
   route: "",
   salesDecision: "Proposal in discussion",
   salesOwnerName: "",
+  salesOwnerStaffId: "",
   salesStatus: "Proposal in discussion",
   seatNumber: "",
   seatPreference: "",

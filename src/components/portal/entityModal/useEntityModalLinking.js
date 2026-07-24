@@ -56,6 +56,7 @@ export function useEntityModalLinking({
     }
     const linkedQuery = queries.find((query) => query.id === queryId);
     const patch = applyQueryLink(form, linkedQuery);
+    const confirmedProposalId = linkedQuery?.confirmedOffer?.proposalId;
     const linkedProposal = proposals.reduce((latest, proposal) => {
       const linkedQueryIds = new Set(proposalLinkedQueryIds(proposal));
       if (!linkedQueryIds.has(queryId)) {
@@ -66,7 +67,7 @@ export function useEntityModalLinking({
       }
       return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
     }, null);
-    patch.proposalId = linkedProposal?.id || "";
+    patch.proposalId = confirmedProposalId || linkedProposal?.id || "";
     patchForm(patch);
   };
 

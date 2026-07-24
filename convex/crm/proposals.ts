@@ -486,68 +486,8 @@ export const markSent = mutation({
   args: {
     proposalId: v.string(),
   },
-  handler: async (ctx, args) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.MANAGE_PROPOSALS,
-      PERMISSIONS.MANAGE_CONTRACTING,
-      PERMISSIONS.SEND_PROPOSALS,
-    ]);
-    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
-    if (!proposalId) {
-      throw new ConvexError("Invalid proposal id");
-    }
-    const proposal = await ctx.db.get(proposalId);
-    if (!proposal) {
-      throw new ConvexError("Proposal not found");
-    }
-    const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
-    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (
-      !(
-        canEditProposalRecord(access, proposal, linkedQueries) ||
-        access.permissions.includes(PERMISSIONS.SEND_PROPOSALS)
-      )
-    ) {
-      throw new ConvexError(
-        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can send this proposal"
-      );
-    }
-    assertProposalPricingComplete(
-      proposal,
-      "Enter selling price and cost price on the proposal before marking it sent."
-    );
-    const now = Date.now();
-    await Promise.all([
-      ctx.db.patch(proposalId, {
-        sentAt: now,
-        sentToClientAt: now,
-        status: "Sent",
-        ...editorPatch(access, now),
-      }),
-      Promise.all(
-        linkedQueries.map((linkedQuery) =>
-          ctx.db.patch(linkedQuery._id, {
-            contractingStatus: "Proposal sent",
-            updatedAt: now,
-          })
-        )
-      ),
-      createActivity(ctx, access, {
-        action: "sent",
-        entityId: proposalId,
-        entityType: "proposal",
-        message: `${proposal.proposalCode} marked as sent to the client`,
-      }),
-      notifyRoles(ctx, ["Sales", "Sales Head"], {
-        body: `${proposal.proposalCode} was marked as sent to the client.`,
-        entityId: proposalId,
-        entityType: "proposal",
-        title: "Proposal marked client sent",
-      }),
-    ]);
-    return { id: proposalId };
+  handler: async () => {
+    throw new ConvexError("Mark client sent is no longer available. Use Send to Sales.");
   },
   returns: proposalIdResultValidator,
 });

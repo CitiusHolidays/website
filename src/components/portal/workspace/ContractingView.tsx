@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
-import { CONTRACTING_TEAM_ROLES, PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { CONTRACTING_TEAM_ROLES } from "@/lib/portal/constants";
 import { getContractingAttention } from "@/lib/portal/contractingListPresentation";
+import { buildContractingSurfaceStatusAction } from "@/lib/portal/contractingQueryActions";
 import { proposalLinkedQueryIds, proposalPrimaryQuery } from "@/lib/portal/proposalLinks";
-import { buildQueryStatusAction } from "@/lib/portal/queryStatusAction";
+import { canDeleteQuery } from "@/lib/portal/queryDeletionAccess";
 import type {
   ContractingViewProps,
   PortalContractingTeamRow,
@@ -13,12 +15,30 @@ import type {
   PortalQueryListRow,
 } from "./portalViewTypes";
 import { approximateMarginLabel, money, notesPreview, strong } from "./portalWorkspaceListHelpers";
-import { DeleteButton, Panel, StatusBadge } from "./portalWorkspaceListUi";
+import { DeleteButton, Panel, QueryFilesSummary, StatusBadge } from "./portalWorkspaceListUi";
 
 type PortalContractingQueryRow = PortalQueryListRow;
 type PortalContractingProposalRow = PortalProposalListRow;
 
+function ContractingJobCardHandoff({ row }: { row: PortalContractingQueryRow }) {
+  if (row.salesStatus !== "Order Confirmed") {
+    return null;
+  }
+  if (row.jobCardId) {
+    return (
+      <Link
+        className="font-medium text-citius-blue text-xs underline-offset-2 hover:underline"
+        href={`/portal/job-cards?open=jobCard&id=${row.jobCardId}`}
+      >
+        {row.jobCardCode}
+      </Link>
+    );
+  }
+  return <span className="font-medium text-amber-700 text-xs">Awaiting Job Card</span>;
+}
+
 export function ContractingView({
+  access,
   rows,
   proposals,
   filtersActive = false,
@@ -28,6 +48,8 @@ export function ContractingView({
   canAssign,
   deleteItem,
   removeQuery,
+  getFinalizedPdfUrl,
+  getQueryAttachmentUrl,
 }: ContractingViewProps) {
   const proposalsByQueryId = (() => {
     const map = new Map();
@@ -144,16 +166,45 @@ export function ContractingView({
           },
           {
             hideable: true,
+            id: "travel-in-series",
+            label: "Travel in Series",
+            render: (row: PortalContractingQueryRow) => (row.travelInBatches ? "Yes" : "No"),
+          },
+          {
+            hideable: true,
+            id: "batch-details",
+            label: "Batch Details",
+            render: (row: PortalContractingQueryRow) =>
+              row.travelInBatches ? row.batchingNotes || "-" : "-",
+          },
+          {
+            hideable: true,
             id: "notes",
             label: "Notes",
             render: (row: PortalContractingQueryRow) => notesPreview(row.notes),
+          },
+          {
+            hideable: true,
+            id: "files",
+            label: "Files",
+            render: (row: PortalContractingQueryRow) => (
+              <QueryFilesSummary
+                attachments={row.attachments || []}
+                getFinalizedPdfUrl={getFinalizedPdfUrl}
+                getQueryAttachmentUrl={getQueryAttachmentUrl}
+                proposalDocument={row.proposalDocument}
+              />
+            ),
           },
           {
             id: "status",
             kind: "status",
             label: "Status",
             render: (row: PortalContractingQueryRow) => (
-              <StatusBadge domain="queryContracting" status={row.contractingStatus} />
+              <div className="space-y-2">
+                <StatusBadge domain="queryContracting" status={row.contractingStatus} />
+                <ContractingJobCardHandoff row={row} />
+              </div>
             ),
             sortValue: (row: PortalContractingQueryRow) => row.contractingStatus || "",
           },
@@ -208,7 +259,7 @@ export function ContractingView({
             kind: "action",
             label: "Action",
             render: (row: PortalContractingQueryRow) => {
-              const statusAction = buildQueryStatusAction(row, has);
+              const statusAction = buildContractingSurfaceStatusAction(row, has);
               return (
                 <div className="flex gap-2">
                   {canAssign && (
@@ -220,22 +271,22 @@ export function ContractingView({
                       Assign
                     </button>
                   )}
-                  {has(P.MANAGE_CONTRACTING) && (
-                    <>
-                      <button
-                        className="portal-small-btn"
-                        onClick={() => openModal(statusAction.modal, statusAction.initial)}
-                        type="button"
-                      >
-                        {statusAction.label}
-                      </button>
-                      <DeleteButton
-                        label={row.queryCode}
-                        onClick={() =>
-                          deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) })
-                        }
-                      />
-                    </>
+                  {statusAction && (
+                    <button
+                      className="portal-small-btn"
+                      onClick={() => openModal(statusAction.modal, statusAction.initial)}
+                      type="button"
+                    >
+                      {statusAction.label}
+                    </button>
+                  )}
+                  {canDeleteQuery(access) && (
+                    <DeleteButton
+                      label={row.queryCode}
+                      onClick={() =>
+                        deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) })
+                      }
+                    />
                   )}
                 </div>
               );
@@ -287,12 +338,27 @@ export function ContractingView({
                     {proposal ? `${money(proposal.costPrice)}/pax` : "Not started"}
                   </div>
                 </div>
+                <div>
+                  <span className="text-brand-muted text-xs">Travel in Series</span>
+                  <div className="font-medium text-brand-dark">
+                    {row.travelInBatches ? "Yes" : "No"}
+                  </div>
+                </div>
+                {row.travelInBatches ? (
+                  <div className="col-span-2">
+                    <span className="text-brand-muted text-xs">Batch Details</span>
+                    <div className="font-medium text-brand-dark">
+                      {(row.batchingNotes || "").trim() || "-"}
+                    </div>
+                  </div>
+                ) : null}
               </div>
               {row.notes ? (
                 <div className="rounded-xl bg-brand-light px-3 py-2 text-brand-muted text-sm">
                   {row.notes}
                 </div>
               ) : null}
+              <ContractingJobCardHandoff row={row} />
             </div>
           );
         }}

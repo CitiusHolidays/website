@@ -70,6 +70,7 @@ const FOCUSED_MODULE_PATHS = [
   "./salesPipelinePolicy.ts",
   "./salesPipelineCommands.ts",
   "./queryNotifications.ts",
+  "./queryCreation.ts",
   "./queryReads.ts",
   "./queryCommands.ts",
   "./queryDeletion.ts",

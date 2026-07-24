@@ -178,11 +178,11 @@ describe("Proposal Handoff", () => {
     expect(tables.proposals[0].status).toBe("Draft");
   });
 
-  test("blocks Mark Sent until Proposal Pricing Complete", async () => {
+  test("removes the legacy Mark client sent transition", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
     await expect((markSent as any)._handler(ctx, { proposalId: "proposals_1" })).rejects.toThrow(
-      "Enter selling price and cost price on the proposal before marking it sent."
+      "Mark client sent is no longer available. Use Send to Sales."
     );
 
     expect(tables.proposals[0].status).toBe("Draft");
@@ -199,13 +199,12 @@ describe("Proposal Handoff", () => {
     expect(tables.queries[0].contractingStatus).toBe("Proposal sent");
   });
 
-  test("records client delivery separately from the Sales handoff", async () => {
+  test("keeps Send to Sales as the only proposal handoff transition", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
     await (sendToSales as any)._handler(ctx, { proposalId: "proposals_2" });
-    await (markSent as any)._handler(ctx, { proposalId: "proposals_2" });
 
     expect(tables.proposals[1].sentToSalesAt).toBeNumber();
-    expect(tables.proposals[1].sentToClientAt).toBeNumber();
-    expect(tables.proposals[1].sentAt).toBe(tables.proposals[1].sentToClientAt);
+    expect(tables.proposals[1].sentToClientAt).toBeUndefined();
+    expect(tables.proposals[1].sentAt).toBeUndefined();
   });
 });

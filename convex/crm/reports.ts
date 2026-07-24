@@ -116,7 +116,7 @@ export const overview = query({
         revenue: 0,
       };
       current.count += 1;
-      current.revenue += queryRow.budgetAmount ?? 0;
+      current.revenue += (queryRow.budgetAmount ?? 0) * Math.max(queryRow.paxCount ?? 1, 1);
       revenueByType.set(queryRow.queryType, current);
     }
 
@@ -161,7 +161,11 @@ export const overview = query({
           : queries.filter((queryRow) => queryRow.salesStatus === "Order Lost").length,
         totalPipelineBudget: aggregate.complete
           ? aggregateReport.totalPipelineBudget
-          : queries.reduce((sum, queryRow) => sum + (queryRow.budgetAmount ?? 0), 0),
+          : queries.reduce(
+              (sum, queryRow) =>
+                sum + (queryRow.budgetAmount ?? 0) * Math.max(queryRow.paxCount ?? 1, 1),
+              0
+            ),
       },
     };
   },

@@ -217,9 +217,12 @@ export function renderPilotPortalView({
   if (view === "contracting") {
     return (
       <ContractingView
+        access={workspace.access}
         canAssign={canHeadAssignQueryTeams(workspace.access)}
         deleteItem={workspace.deleteItem}
         filtersActive={workspace.filtersActive}
+        getFinalizedPdfUrl={workspace.getFinalizedPdfUrl}
+        getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
         has={workspace.has}
         openModal={workspace.openModal}
         proposals={workspace.filteredProposals}

@@ -1,5 +1,6 @@
 import type { Id } from "../_generated/dataModel";
 import { notifyRoles, notifyStaffMember } from "./lib";
+import { requiresTicketingSpocAssignment } from "./ticketingIntakePolicy";
 
 const OPS_START_ROLES = [
   "Contracting",
@@ -75,7 +76,7 @@ export async function notifyJobCardCreators(
   queryId: Id<"queries">
 ) {
   const staffRows = await ctx.db.query("staffUsers").collect();
-  const notifications = [];
+  const notifications: Promise<unknown>[] = [];
   for (const staff of staffRows) {
     if (!isJobCardCreatorNotificationTarget(staff)) {
       continue;
@@ -101,12 +102,36 @@ export async function notifyQueryAssignmentHeads(
   await notifyRoles(ctx, roles, notification, { emailRoles: roles });
 }
 
+export async function notifyTicketingHeadOnQueryIntake(
+  ctx: Parameters<typeof notifyRoles>[0],
+  query: {
+    queryCode: string;
+    ticketingScope?: string;
+  },
+  queryId: Id<"queries">
+) {
+  if (!requiresTicketingSpocAssignment(query.ticketingScope)) {
+    return;
+  }
+  await notifyRoles(
+    ctx,
+    ["Head of Ticketing"],
+    {
+      body: `${query.queryCode} was raised by Sales with Ticketing Scope ${query.ticketingScope}. Assign a Ticketing SPOC before proposal work completes.`,
+      entityId: queryId,
+      entityType: "query",
+      title: "Assign Ticketing SPOC",
+    },
+    { emailRoles: ["Head of Ticketing"] }
+  );
+}
+
 export async function notifyAssignedQueryOwners(
   ctx: NotificationCtx,
   query: { queryCode: string; contractingOwnerId?: string; ticketingOwnerId?: string },
   queryId: Id<"queries">
 ) {
-  const notifications = [];
+  const notifications: Promise<unknown>[] = [];
   if (query.contractingOwnerId) {
     notifications.push(
       notifyQueryOwner(ctx, query.contractingOwnerId, {

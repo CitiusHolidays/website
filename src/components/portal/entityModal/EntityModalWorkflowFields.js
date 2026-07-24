@@ -12,6 +12,32 @@ import {
   PORTAL_PERMISSIONS as P,
   SALES_DECISION_OPTIONS,
 } from "@/lib/portal/constants";
+import { proposalLinkedQueryIds } from "@/lib/portal/proposalLinks";
+
+function salesDecisionProfitPerPax(form) {
+  const selling = Number(form.sellingPricePerPax) || 0;
+  const costs =
+    (Number(form.landCostPerPax) || 0) +
+    (Number(form.airfarePerPax) || 0) +
+    (Number(form.visaCostPerPax) || 0);
+  return selling - costs;
+}
+
+function linkedProposalOptions(proposals, queryId) {
+  return proposals.reduce((options, proposal) => {
+    const linkedQueryIds = new Set(proposalLinkedQueryIds(proposal));
+    if (
+      (!queryId || linkedQueryIds.has(queryId)) &&
+      ["Accepted", "Sent"].includes(proposal.status)
+    ) {
+      options.push({
+        label: `${proposal.proposalCode} - ${proposal.status}`,
+        value: proposal.id,
+      });
+    }
+    return options;
+  }, []);
+}
 
 export function EntityModalWorkflowFields({
   modal,
@@ -48,6 +74,21 @@ export function EntityModalWorkflowFields({
   handleJobCardSelect,
   handleTravellerSelect,
 }) {
+  const handleSalesDecisionProposalSelect = (proposalId) => {
+    const proposal = proposals.find((entry) => String(entry.id) === String(proposalId));
+    if (!proposal) {
+      updateForm("proposalId", proposalId);
+      return;
+    }
+    patchForm({
+      airfarePerPax: String(proposal.airfarePerPax ?? ""),
+      landCostPerPax: String(proposal.landCostPerPax ?? ""),
+      proposalId,
+      sellingPricePerPax: String(proposal.sellingPrice ?? ""),
+      visaCostPerPax: String(proposal.visaCostPerPax ?? ""),
+    });
+  };
+
   return (
     <>
       {modal === "queryStatus" && (
@@ -87,6 +128,98 @@ export function EntityModalWorkflowFields({
               value={form.lostReason}
             />
           )}
+          {form.salesDecision === "Date/Destination Change Required" && (
+            <>
+              <Input
+                label="Destination"
+                onChange={(v) => updateForm("destination", v)}
+                value={form.destination}
+              />
+              <Input
+                label="Travel Start Date"
+                onChange={(v) => updateForm("travelStartDate", v)}
+                type="date"
+                value={form.travelStartDate}
+              />
+              <Input
+                label="Travel End Date"
+                onChange={(v) => updateForm("travelEndDate", v)}
+                type="date"
+                value={form.travelEndDate}
+              />
+              <div className="rounded-xl border border-brand-border bg-brand-light/70 px-4 py-3 text-brand-muted text-sm md:col-span-2">
+                Contracting and ticketing teams will be notified to prepare a revised proposal for
+                the changed dates or destination.
+              </div>
+            </>
+          )}
+          {form.salesDecision === "Order Confirmed" && (
+            <>
+              <Select
+                label="Accepted Proposal"
+                onChange={handleSalesDecisionProposalSelect}
+                options={[
+                  { label: "Select proposal…", value: "" },
+                  ...linkedProposalOptions(proposals, form.queryId),
+                ]}
+                required
+                value={form.proposalId}
+              />
+              <Input
+                label="Confirmed Pax"
+                onChange={(v) => updateForm("confirmedPax", v)}
+                type="number"
+                value={form.confirmedPax}
+              />
+              <Input
+                label="Destination"
+                onChange={(v) => updateForm("destination", v)}
+                value={form.destination}
+              />
+              <Input
+                label="Travel Start Date"
+                onChange={(v) => updateForm("travelStartDate", v)}
+                type="date"
+                value={form.travelStartDate}
+              />
+              <Input
+                label="Travel End Date"
+                onChange={(v) => updateForm("travelEndDate", v)}
+                type="date"
+                value={form.travelEndDate}
+              />
+              <Input
+                label="Land Cost per Person"
+                onChange={(v) => updateForm("landCostPerPax", v)}
+                type="number"
+                value={form.landCostPerPax}
+              />
+              <Input
+                label="Airfare per Person"
+                onChange={(v) => updateForm("airfarePerPax", v)}
+                type="number"
+                value={form.airfarePerPax}
+              />
+              <Input
+                label="Visa Cost per Person"
+                onChange={(v) => updateForm("visaCostPerPax", v)}
+                type="number"
+                value={form.visaCostPerPax}
+              />
+              <Input
+                label="Selling Price per Person (pre-tax)"
+                onChange={(v) => updateForm("sellingPricePerPax", v)}
+                type="number"
+                value={form.sellingPricePerPax}
+              />
+              <Input
+                label="Profit per Person (pre-tax)"
+                readOnly
+                type="number"
+                value={String(salesDecisionProfitPerPax(form))}
+              />
+            </>
+          )}
           {(form.salesDecision === "Order Confirmed" || isQueryConfirmed(form)) && (
             <Input
               label="Approx. Margin (INR)"
@@ -95,12 +228,6 @@ export function EntityModalWorkflowFields({
               type="number"
               value={form.approxMargin}
             />
-          )}
-          {form.salesDecision === "Date/Destination Change Required" && (
-            <div className="rounded-xl border border-brand-border bg-brand-light/70 px-4 py-3 text-brand-muted text-sm md:col-span-2">
-              Contracting and ticketing teams will be notified to prepare a revised proposal for the
-              changed dates or destination.
-            </div>
           )}
         </>
       )}

@@ -15,6 +15,18 @@ export interface PortalQueryListRow {
   budgetAmount?: number;
   clientName?: string;
   confirmedAt?: string | null;
+  confirmedOffer?: {
+    airfarePerPax: number;
+    confirmedPax: number;
+    destination: string;
+    landCostPerPax: number;
+    profitPerPax: number;
+    proposalId: string;
+    sellingPricePerPax: number;
+    travelEndDate: string;
+    travelStartDate: string;
+    visaCostPerPax: number;
+  } | null;
   contactMobile?: string;
   contactPerson?: string;
   contractingOwnerId?: string;
@@ -23,6 +35,8 @@ export interface PortalQueryListRow {
   createdAt?: string;
   destination?: string;
   id: Key;
+  jobCardCode?: string | null;
+  jobCardId?: string | null;
   leadStage?: string;
   notes?: string;
   paxCount?: number;
@@ -129,9 +143,12 @@ export interface QueriesViewProps {
 }
 
 export interface ContractingViewProps {
+  access: PortalAccessSlice;
   canAssign: boolean;
   deleteItem: PortalDeleteHandler;
   filtersActive?: boolean;
+  getFinalizedPdfUrl: (proposalId: string) => Promise<string>;
+  getQueryAttachmentUrl: (attachmentId: string) => Promise<string>;
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
   proposals: PortalProposalListRow[];

@@ -1,4 +1,5 @@
 const ASSIGNMENT_QUERY_TITLES = new Set([
+  "Assign Ticketing SPOC",
   "New query received",
   "Query submitted to Contracting",
   "Query ready for assignment",

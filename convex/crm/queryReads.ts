@@ -46,6 +46,40 @@ export async function handleQueryListPage(
     ctx,
     visibleRows.map((row) => row._id)
   );
+  const handoffRows = new Map(
+    await Promise.all(
+      visibleRows.map(async (row) => {
+        const [jobCard, confirmedOffer] = await Promise.all([
+          ctx.db
+            .query("jobCards")
+            .withIndex("by_queryId", (q) => q.eq("queryId", row._id))
+            .first(),
+          row.confirmedOfferId ? ctx.db.get(row.confirmedOfferId) : null,
+        ]);
+        return [
+          String(row._id),
+          {
+            confirmedOffer: confirmedOffer
+              ? {
+                  airfarePerPax: confirmedOffer.airfarePerPax,
+                  confirmedPax: confirmedOffer.confirmedPax,
+                  destination: confirmedOffer.destination ?? "",
+                  landCostPerPax: confirmedOffer.landCostPerPax,
+                  profitPerPax: confirmedOffer.profitPerPax,
+                  proposalId: confirmedOffer.proposalId,
+                  sellingPricePerPax: confirmedOffer.sellingPricePerPax,
+                  travelEndDate: confirmedOffer.travelEndDate ?? "",
+                  travelStartDate: confirmedOffer.travelStartDate,
+                  visaCostPerPax: confirmedOffer.visaCostPerPax,
+                }
+              : null,
+            jobCardCode: jobCard?.jobCode ?? null,
+            jobCardId: jobCard?._id ?? null,
+          },
+        ] as const;
+      })
+    )
+  );
   const page = visibleRows.map((row) => ({
     ...publicQuery(row),
     attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,
@@ -53,6 +87,9 @@ export async function handleQueryListPage(
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
+    confirmedOffer: handoffRows.get(String(row._id))?.confirmedOffer ?? null,
+    jobCardCode: handoffRows.get(String(row._id))?.jobCardCode ?? null,
+    jobCardId: handoffRows.get(String(row._id))?.jobCardId ?? null,
     proposalDocument: proposalDocuments.get(String(row._id)) ?? null,
   }));
   return { ...sourcePage, page };
@@ -77,8 +114,13 @@ export async function handleQueryGetListRow(
   if (!(row && canSeeQueryRecord(access, row))) {
     return null;
   }
-  const proposalDocuments = await resolveProposalDocumentsByQueryId(ctx, [
-    row._id as Id<"queries">,
+  const [proposalDocuments, jobCard, confirmedOffer] = await Promise.all([
+    resolveProposalDocumentsByQueryId(ctx, [row._id as Id<"queries">]),
+    ctx.db
+      .query("jobCards")
+      .withIndex("by_queryId", (q) => q.eq("queryId", row._id))
+      .first(),
+    row.confirmedOfferId ? ctx.db.get(row.confirmedOfferId) : null,
   ]);
   return {
     ...publicQuery(row),
@@ -87,6 +129,22 @@ export async function handleQueryGetListRow(
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
+    confirmedOffer: confirmedOffer
+      ? {
+          airfarePerPax: confirmedOffer.airfarePerPax,
+          confirmedPax: confirmedOffer.confirmedPax,
+          destination: confirmedOffer.destination ?? "",
+          landCostPerPax: confirmedOffer.landCostPerPax,
+          profitPerPax: confirmedOffer.profitPerPax,
+          proposalId: confirmedOffer.proposalId,
+          sellingPricePerPax: confirmedOffer.sellingPricePerPax,
+          travelEndDate: confirmedOffer.travelEndDate ?? "",
+          travelStartDate: confirmedOffer.travelStartDate,
+          visaCostPerPax: confirmedOffer.visaCostPerPax,
+        }
+      : null,
+    jobCardCode: jobCard?.jobCode ?? null,
+    jobCardId: jobCard?._id ?? null,
     proposalDocument: proposalDocuments.get(String(row._id)) ?? null,
   };
 }

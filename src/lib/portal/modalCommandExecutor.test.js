@@ -80,10 +80,19 @@ describe("executeModalCommand", () => {
     await executeModalCommand({
       deps,
       form: {
+        airfarePerPax: "8000",
         approxMargin: "",
+        confirmedPax: "12",
+        destination: "Ladakh",
+        landCostPerPax: "12000",
         lostReason: "Price",
+        proposalId: "proposal_1",
         queryId: "query_1",
         salesDecision: "Order Confirmed",
+        sellingPricePerPax: "25000",
+        travelEndDate: "2026-08-10",
+        travelStartDate: "2026-08-01",
+        visaCostPerPax: "1500",
       },
       modal: "salesDecision",
     });
@@ -92,10 +101,19 @@ describe("executeModalCommand", () => {
       [
         "updateQueryStatus",
         {
+          airfarePerPax: 8000,
+          confirmedPax: 12,
+          destination: "Ladakh",
+          landCostPerPax: 12_000,
           leadStage: "Confirmation",
           lostReason: undefined,
+          proposalId: "proposal_1",
           queryId: "query_1",
           salesStatus: "Order Confirmed",
+          sellingPricePerPax: 25_000,
+          travelEndDate: "2026-08-10",
+          travelStartDate: "2026-08-01",
+          visaCostPerPax: 1500,
         },
       ],
     ]);

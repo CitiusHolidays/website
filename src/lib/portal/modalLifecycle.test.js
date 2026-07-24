@@ -35,6 +35,18 @@ describe("createInitialModalForm", () => {
         {
           budgetAmount: 5000,
           clientName: "Acme",
+          confirmedOffer: {
+            airfarePerPax: 20_000,
+            confirmedPax: 18,
+            destination: "Baku",
+            landCostPerPax: 45_000,
+            profitPerPax: 12_000,
+            proposalId: "proposal_old",
+            sellingPricePerPax: 80_000,
+            travelEndDate: "2026-10-08",
+            travelStartDate: "2026-10-02",
+            visaCostPerPax: 3000,
+          },
           destination: "Dubai",
           id: "query_1",
           paxCount: 12,
@@ -50,12 +62,13 @@ describe("createInitialModalForm", () => {
 
     expect(form).toMatchObject({
       clientName: "Acme",
-      confirmedPax: "1",
-      destination: "Dubai",
-      proposalId: "proposal_new",
+      confirmedPax: "18",
+      destination: "Baku",
+      proposalId: "proposal_old",
       queryId: "query_1",
-      travelEndDate: "2026-08-06",
-      travelStartDate: "2026-08-01",
+      sellingPricePerPax: "80000",
+      travelEndDate: "2026-10-08",
+      travelStartDate: "2026-10-02",
     });
   });
 

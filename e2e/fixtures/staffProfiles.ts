@@ -40,6 +40,7 @@ export const E2E_ROLE_PROFILE_KEYS = [
   "contracting",
   "operations",
   "ticketing",
+  "ticketing-head",
   "finance",
   "hr",
 ] as const;

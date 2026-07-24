@@ -75,7 +75,6 @@ function Harness({ action, danger = true, onResult }) {
   );
 }
 
-
 describe("mounted portal confirmation", () => {
   test("enters safely, traps focus, cancels with Cancel, and restores the nested trigger", async () => {
     const container = document.createElement("div");
@@ -168,7 +167,7 @@ describe("mounted portal confirmation", () => {
     container.remove();
   });
 
-  test("shows hold-to-confirm affordance for destructive actions", async () => {
+  test("shows hold-to-delete affordance for destructive actions", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);

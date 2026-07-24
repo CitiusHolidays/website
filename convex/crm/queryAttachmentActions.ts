@@ -132,7 +132,8 @@ export const getDownloadUrl = action({
     const canView =
       access?.allowed &&
       (access.permissions.includes(PERMISSIONS.VIEW_QUERIES) ||
-        access.permissions.includes(PERMISSIONS.VIEW_CONTRACTING));
+        access.permissions.includes(PERMISSIONS.VIEW_CONTRACTING) ||
+        access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS));
     if (!canView) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -165,7 +166,8 @@ export const getDownloadFile = action({
     const canView =
       access?.allowed &&
       (access.permissions.includes(PERMISSIONS.VIEW_QUERIES) ||
-        access.permissions.includes(PERMISSIONS.VIEW_CONTRACTING));
+        access.permissions.includes(PERMISSIONS.VIEW_CONTRACTING) ||
+        access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS));
     if (!canView) {
       throw new ConvexError("FORBIDDEN");
     }

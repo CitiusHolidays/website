@@ -70,6 +70,9 @@ function buildQueryListRow(overrides: Record<string, unknown> = {}) {
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
+    confirmedOffer: null,
+    jobCardCode: null,
+    jobCardId: null,
     proposalDocument: null,
   };
 }
@@ -288,6 +291,7 @@ describe("job card return contracts", () => {
           title: "Confirm rooming",
         },
       ],
+      commercialFiles: [],
       hotels: [{ id: "hotels_1" }],
       invoices: [{ balanceAmount: 1000, id: "invoices_1" }],
       jobCard: publicJobCard(buildJobCardRecord() as never),

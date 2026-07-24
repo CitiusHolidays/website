@@ -42,9 +42,7 @@ function proposalRowAttention(row: PortalProposalRow) {
 
 interface ProposalRowActionsProps {
   canManage: boolean;
-  canSendToClient: boolean;
   deleteItem: ProposalsViewProps["deleteItem"];
-  markProposalSent: ProposalsViewProps["markProposalSent"];
   openModal: ProposalsViewProps["openModal"];
   removeProposal: ProposalsViewProps["removeProposal"];
   row: PortalProposalRow;
@@ -53,21 +51,19 @@ interface ProposalRowActionsProps {
 
 function ProposalRowActions({
   canManage,
-  canSendToClient,
   deleteItem,
-  markProposalSent,
   openModal,
   removeProposal,
   row,
   sendProposalToSales,
 }: ProposalRowActionsProps) {
-  if (!(canSendToClient || canManage)) {
+  if (!canManage) {
     return null;
   }
 
   return (
     <div className="flex flex-wrap gap-2">
-      {canManage && row.status === "Draft" && (
+      {row.status === "Draft" && (
         <button
           className="portal-small-btn"
           onClick={() => sendProposalToSales({ proposalId: String(row.id) })}
@@ -76,49 +72,36 @@ function ProposalRowActions({
           <Send size={13} /> Send to Sales
         </button>
       )}
-      {canSendToClient && row.status === "Sent" && !row.sentToClientAt && (
-        <button
-          className="portal-small-btn"
-          onClick={() => markProposalSent({ proposalId: String(row.id) })}
-          type="button"
-        >
-          <Send size={13} /> Mark client sent
-        </button>
-      )}
-      {canManage && (
-        <EditButton
-          onClick={() =>
-            openModal("proposal", {
-              airfarePerPax: String(row.airfarePerPax ?? ""),
-              clientName: row.clientName,
-              entityId: row.id,
-              itinerarySummary: row.itinerarySummary || "",
-              landCostPerPax: String(row.landCostPerPax ?? ""),
-              paxCount: String(proposalPrimaryQuery(row)?.paxCount ?? 1),
-              queryId: row.queryId || "",
-              queryIds: proposalLinkedQueryIds(row),
-              sellingPrice: String(row.sellingPrice ?? ""),
-              taxRate: row.taxRate == null ? "" : String(row.taxRate),
-              visaCostPerPax: String(row.visaCostPerPax ?? ""),
-            })
-          }
-        />
-      )}
-      {canManage && (
-        <button
-          className="portal-small-btn"
-          onClick={() =>
-            openModal("addProposalCollaborator", {
-              proposalId: String(row.id),
-              queryCode: row.proposalCode,
-            })
-          }
-          type="button"
-        >
-          Share
-        </button>
-      )}
-      {canManage && (row.collaboratorStaffIds ?? []).length > 0 && (
+      <EditButton
+        onClick={() =>
+          openModal("proposal", {
+            airfarePerPax: String(row.airfarePerPax ?? ""),
+            clientName: row.clientName,
+            entityId: row.id,
+            itinerarySummary: row.itinerarySummary || "",
+            landCostPerPax: String(row.landCostPerPax ?? ""),
+            paxCount: String(proposalPrimaryQuery(row)?.paxCount ?? 1),
+            queryId: row.queryId || "",
+            queryIds: proposalLinkedQueryIds(row),
+            sellingPrice: String(row.sellingPrice ?? ""),
+            taxRate: row.taxRate == null ? "" : String(row.taxRate),
+            visaCostPerPax: String(row.visaCostPerPax ?? ""),
+          })
+        }
+      />
+      <button
+        className="portal-small-btn"
+        onClick={() =>
+          openModal("addProposalCollaborator", {
+            proposalId: String(row.id),
+            queryCode: row.proposalCode,
+          })
+        }
+        type="button"
+      >
+        Invite collaborator
+      </button>
+      {(row.collaboratorStaffIds ?? []).length > 0 && (
         <button
           className="portal-small-btn"
           onClick={() =>
@@ -132,14 +115,12 @@ function ProposalRowActions({
           Unshare
         </button>
       )}
-      {canManage && (
-        <DeleteButton
-          label={row.proposalCode}
-          onClick={() =>
-            deleteItem(row.proposalCode ?? "", removeProposal, { proposalId: String(row.id) })
-          }
-        />
-      )}
+      <DeleteButton
+        label={row.proposalCode}
+        onClick={() =>
+          deleteItem(row.proposalCode ?? "", removeProposal, { proposalId: String(row.id) })
+        }
+      />
     </div>
   );
 }
@@ -240,7 +221,6 @@ function ProposalMobileCard({
 
 export function ProposalsView({
   rows,
-  markProposalSent,
   sendProposalToSales,
   openModal,
   has,
@@ -345,7 +325,7 @@ export function ProposalsView({
         {
           align: "right",
           id: "selling",
-          label: "Selling",
+          label: "Selling Price per Person",
           render: (row: PortalProposalRow) => money(row.sellingPrice),
           sortValue: (row: PortalProposalRow) => row.sellingPrice,
         },
@@ -431,9 +411,7 @@ export function ProposalsView({
           render: (row: PortalProposalRow) => (
             <ProposalRowActions
               canManage={canManage}
-              canSendToClient={canSendToClient}
               deleteItem={deleteItem}
-              markProposalSent={markProposalSent}
               openModal={openModal}
               removeProposal={removeProposal}
               row={row}

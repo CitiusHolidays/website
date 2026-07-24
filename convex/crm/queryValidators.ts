@@ -117,4 +117,13 @@ export type QueryStatusArgs = {
   contractingAirlinesCost?: number;
   contractingVisaCost?: number;
   approxMargin?: number;
+  destination?: string;
+  travelStartDate?: string;
+  travelEndDate?: string;
+  proposalId?: string;
+  confirmedPax?: number;
+  landCostPerPax?: number;
+  airfarePerPax?: number;
+  visaCostPerPax?: number;
+  sellingPricePerPax?: number;
 };

@@ -6,6 +6,7 @@ import {
   canSeeQueryRecord,
   createActivity,
   deleteEntityNotifications,
+  isDirectorOrAdmin,
   PERMISSIONS,
   requireStaff,
 } from "./lib";
@@ -17,6 +18,9 @@ export async function handleQueryRemove(
   }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES);
+  if (!isDirectorOrAdmin(access)) {
+    throw new ConvexError("Only Admin or Directors can delete queries");
+  }
   const queryId = ctx.db.normalizeId("queries", args.queryId);
   if (!queryId) {
     throw new ConvexError("Invalid query id");

@@ -1,16 +1,22 @@
 "use client";
 
-import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
+import Link from "next/link";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
+import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { type OptionalAction, QueryRowActions } from "@/components/portal/QueryRowActions";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import {
+  queryJobCardHandoffLabel,
+  shouldShowJobCardHandoff,
+} from "@/lib/portal/jobCardHandoffPresentation";
+import {
   assignQueryTeamsButtonLabel,
   canShowAssignQueryTeamsButton,
 } from "@/lib/portal/permissions";
 import type { PortalGridAttention } from "@/lib/portal/portalDataGrid";
+import { canDeleteQuery } from "@/lib/portal/queryDeletionAccess";
 import {
   getQueryAttentionLabel,
   getQueryPrimaryActionKind,
@@ -21,6 +27,27 @@ import { isQueryConfirmed, money } from "./portalWorkspaceListHelpers";
 import { DeleteButton, QueryFilesSummary, StatusBadge } from "./portalWorkspaceListUi";
 
 type PortalQueryRow = QueriesViewProps["rows"][number];
+
+function JobCardHandoff({ row }: { row: PortalQueryRow }) {
+  if (!shouldShowJobCardHandoff(row)) {
+    return null;
+  }
+  const label = queryJobCardHandoffLabel({
+    jobCardCode: row.jobCardCode,
+    salesStatus: row.salesStatus,
+    ticketingScope: row.ticketingScope,
+  });
+  return row.jobCardId ? (
+    <Link
+      className="font-medium text-citius-blue text-xs underline-offset-2 hover:underline"
+      href={`/portal/job-cards?open=jobCard&id=${row.jobCardId}`}
+    >
+      {label}
+    </Link>
+  ) : (
+    <div className="font-medium text-citius-blue text-xs">{label}</div>
+  );
+}
 
 function queryModalEditInitial(row: PortalQueryRow) {
   return {
@@ -124,7 +151,7 @@ function QueryActions({
       Reference Itinerary
     </button>
   );
-  const statusButton = (
+  const statusButton = statusAction ? (
     <button
       className={primaryActionKind === "status" ? "portal-primary-btn" : "portal-small-btn"}
       key="status"
@@ -133,7 +160,7 @@ function QueryActions({
     >
       {statusAction.label}
     </button>
-  );
+  ) : null;
   const assignButton = canAssignTeams ? (
     <button
       className={primaryActionKind === "assign" ? "portal-primary-btn" : "portal-small-btn"}
@@ -166,11 +193,15 @@ function QueryActions({
         filesAction,
         primaryActionKind === "status" ? null : statusButton,
         primaryActionKind === "assign" ? null : assignButton,
-        <DeleteButton
-          key="delete"
-          label={row.queryCode}
-          onClick={() => deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) })}
-        />,
+        canDeleteQuery(access) ? (
+          <DeleteButton
+            key="delete"
+            label={row.queryCode}
+            onClick={() =>
+              deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) })
+            }
+          />
+        ) : null,
       ]
     : [];
 
@@ -207,7 +238,10 @@ export function QueriesView({
               <div className="flex flex-wrap items-center gap-2">
                 <div className="font-heading font-semibold text-citius-blue">{row.queryCode}</div>
                 {row.queryCode ? (
-                  <PortalCopyButton aria-label={`Copy query ${row.queryCode}`} value={row.queryCode} />
+                  <PortalCopyButton
+                    aria-label={`Copy query ${row.queryCode}`}
+                    value={row.queryCode}
+                  />
                 ) : null}
               </div>
               <div className="mt-1 text-[length:var(--portal-label-size)] text-brand-muted">
@@ -257,7 +291,7 @@ export function QueriesView({
           align: "right",
           hideable: true,
           id: "pax-budget",
-          label: "Pax / budget",
+          label: "Pax / Budget per Person",
           render: (row: PortalQueryRow) => (
             <div className="min-w-28">
               <div className="font-semibold text-brand-dark">{row.paxCount} pax</div>
@@ -290,6 +324,9 @@ export function QueriesView({
                   className={`mt-2 rounded-md border px-2 py-1 text-[length:var(--portal-label-size)] ${queryAttentionClass(attention)}`}
                 >
                   {attention}
+                </div>
+                <div className="mt-2">
+                  <JobCardHandoff row={row} />
                 </div>
               </div>
             );
@@ -386,6 +423,7 @@ export function QueriesView({
               row={row}
               submitToContracting={submitToContracting}
             />
+            <JobCardHandoff row={row} />
 
             <div className="grid grid-cols-2 gap-3 border-brand-border/70 border-t pt-3 text-sm">
               <div className="col-span-2">
@@ -397,7 +435,7 @@ export function QueriesView({
                 <div className="font-medium text-brand-dark">{row.paxCount} pax</div>
               </div>
               <div>
-                <span className="text-brand-muted text-xs">Budget</span>
+                <span className="text-brand-muted text-xs">Budget per Person</span>
                 <div className="font-medium text-brand-dark">{money(row.budgetAmount)}</div>
               </div>
               <div>

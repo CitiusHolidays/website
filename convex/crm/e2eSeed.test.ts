@@ -10,13 +10,20 @@ const manifest = JSON.parse(readFileSync(join(ROOT, "config/e2e-staff-profiles.j
 };
 
 describe("e2e staff profile seeds", () => {
-  test("lists seven browser-smoke aligned profiles with stable emails", () => {
+  test("lists eight browser-smoke aligned profiles with stable emails", () => {
     const seeds = listE2eStaffProfileSeeds();
-    expect(seeds).toHaveLength(7);
+    expect(seeds).toHaveLength(8);
     expect([...seeds.map((seed) => seed.key)].sort((a, b) => a.localeCompare(b))).toEqual(
-      ["admin", "contracting", "finance", "hr", "operations", "sales", "ticketing"].sort((a, b) =>
-        a.localeCompare(b)
-      )
+      [
+        "admin",
+        "contracting",
+        "finance",
+        "hr",
+        "operations",
+        "sales",
+        "ticketing",
+        "ticketing-head",
+      ].sort((a, b) => a.localeCompare(b))
     );
     for (const seed of seeds) {
       expect(seed.email.endsWith(`@${manifest.emailDomain}`)).toBe(true);

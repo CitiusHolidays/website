@@ -178,6 +178,17 @@ function applyQueryLink(form, query, { onlyEmpty = false } = {}) {
     query.contractingAirlinesCost == null ? "" : String(query.contractingAirlinesCost)
   );
   set("visaCostPerPax", query.contractingVisaCost == null ? "" : String(query.contractingVisaCost));
+  if (query.confirmedOffer) {
+    patch.confirmedPax = String(query.confirmedOffer.confirmedPax);
+    patch.destination = query.confirmedOffer.destination;
+    patch.travelStartDate = query.confirmedOffer.travelStartDate;
+    patch.travelEndDate = query.confirmedOffer.travelEndDate;
+    patch.landCostPerPax = String(query.confirmedOffer.landCostPerPax);
+    patch.airfarePerPax = String(query.confirmedOffer.airfarePerPax);
+    patch.visaCostPerPax = String(query.confirmedOffer.visaCostPerPax);
+    patch.sellingPricePerPax = String(query.confirmedOffer.sellingPricePerPax);
+    patch.profitPerPax = String(query.confirmedOffer.profitPerPax);
+  }
   return patch;
 }
 

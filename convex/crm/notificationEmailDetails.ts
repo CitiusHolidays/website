@@ -111,7 +111,7 @@ function addQueryRows(rows: DetailRow[], query: Doc<"queries">) {
   addRow(rows, "Contracting SPOC", query.contractingOwnerName);
   addRow(rows, "Ticketing SPOC", query.ticketingOwnerName);
   addRow(rows, "Ticketing Scope", query.ticketingScope);
-  addRow(rows, "Budget", formatAmount(query.budgetAmount));
+  addRow(rows, "Budget per Person", formatAmount(query.budgetAmount));
   addRow(rows, "Notes", query.notes);
 }
 
@@ -163,7 +163,7 @@ async function proposalDetails(ctx: QueryCtx, entityId: string): Promise<DetailS
       .join("; ")
   );
   addRow(rows, "Cost price / pax", formatAmount(proposal.costPrice));
-  addRow(rows, "Selling price", formatAmount(proposal.sellingPrice));
+  addRow(rows, "Selling Price per Person", formatAmount(proposal.sellingPrice));
   addRow(rows, "Tax rate", formatPercent(proposal.taxRate));
   addRow(rows, "Itinerary summary", proposal.itinerarySummary);
   return { rows, title: "Proposal details" };

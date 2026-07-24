@@ -56,13 +56,10 @@ function ContextField({ label, value }) {
   );
 }
 
-function JobCardTourContext({ job, query, proposal }) {
+function JobCardTourContext({ commercialFiles, job, query, proposal }) {
   const clientName = job.clientName || query?.clientName || proposal?.clientName || "—";
   const destination = job.destination || query?.destination || "Destination pending";
-  const proposalId = proposal?.id ?? job.proposalId;
-  const attachments = proposal?.attachments ?? [];
-  const finalizedPdf = proposal?.finalizedPdf ?? null;
-  const hasDocuments = Boolean(finalizedPdf) || attachments.length > 0;
+  const hasDocuments = commercialFiles.length > 0;
 
   return (
     <section className="rounded-lg border border-brand-border bg-white p-4">
@@ -105,41 +102,36 @@ function JobCardTourContext({ job, query, proposal }) {
             Documents
           </p>
           <ul className="mt-2 space-y-2">
-            {finalizedPdf && proposalId ? (
-              <li>
-                <a
-                  className="inline-flex max-w-full items-center gap-1.5 font-medium font-sans text-citius-blue text-sm hover:underline"
-                  href={`/api/portal/files/proposal-finalized/${encodeURIComponent(proposalId)}`}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  <FileText className="shrink-0" size={14} />
-                  <span className="truncate">{finalizedPdf.fileName}</span>
-                  {finalizedPdf.uploadedAt ? (
+            {commercialFiles.map((file) => {
+              const route =
+                file.fileKind === "proposalDoc"
+                  ? `/api/portal/files/proposal-finalized/${encodeURIComponent(file.sourceId)}`
+                  : `/api/portal/files/${file.sourceType}/${encodeURIComponent(file.attachmentId)}`;
+              return (
+                <li key={`${file.sourceType}:${file.attachmentId}`}>
+                  <a
+                    className="inline-flex max-w-full items-center gap-1.5 font-medium font-sans text-citius-blue text-sm hover:underline"
+                    href={route}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    {file.fileKind === "proposalDoc" ? (
+                      <FileText className="shrink-0" size={14} />
+                    ) : (
+                      <Paperclip className="shrink-0" size={14} />
+                    )}
+                    <span className="truncate">{file.fileName}</span>
                     <span className="shrink-0 font-normal text-brand-muted text-xs">
-                      · {formatDisplayDate(finalizedPdf.uploadedAt)}
+                      · {formatFileSize(file.fileSize)}
                     </span>
-                  ) : null}
-                </a>
-                <span className="ml-5 block text-[11px] text-brand-muted">Proposal document</span>
-              </li>
-            ) : null}
-            {attachments.map((file) => (
-              <li key={file.id}>
-                <a
-                  className="inline-flex max-w-full items-center gap-1.5 font-medium font-sans text-citius-blue text-sm hover:underline"
-                  href={`/api/portal/files/proposal/${encodeURIComponent(file.id)}`}
-                  rel="noopener noreferrer"
-                  target="_blank"
-                >
-                  <Paperclip className="shrink-0" size={14} />
-                  <span className="truncate">{file.fileName}</span>
-                  <span className="shrink-0 font-normal text-brand-muted text-xs">
-                    · {formatFileSize(file.fileSize)}
+                  </a>
+                  <span className="ml-5 block text-[11px] text-brand-muted">
+                    {file.sourceLabel}
+                    {file.fileKind === "proposalDoc" ? " · Proposal document" : ""}
                   </span>
-                </a>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
@@ -182,7 +174,12 @@ export default function JobCardCommandCenter({ jobCardId }) {
           </div>
         </div>
       </section>
-      <JobCardTourContext job={job} proposal={payload.proposal} query={payload.query} />
+      <JobCardTourContext
+        commercialFiles={payload.commercialFiles ?? []}
+        job={job}
+        proposal={payload.proposal}
+        query={payload.query}
+      />
       <JobCardReadinessMap sections={model.readinessSections} />
       <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
         <section className="rounded-lg border border-brand-border bg-white">

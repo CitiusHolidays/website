@@ -66,7 +66,7 @@ export function EntityModalProposalFields({
             value={form.visaCostPerPax}
           />
           <Input
-            label="Selling Price"
+            label="Selling Price per Person (pre-tax)"
             onChange={(v) => updateForm("sellingPrice", v)}
             type="number"
             value={form.sellingPrice}

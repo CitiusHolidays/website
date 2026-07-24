@@ -5,7 +5,7 @@ export type StateUpdate<T> = T | ((current: T) => T);
 interface WorkspaceListRow extends Record<string, unknown> {
   createdAt?: number | string;
   id?: string;
-  jobCardId?: string;
+  jobCardId?: null | string;
   updatedAt?: number | string;
 }
 
@@ -55,6 +55,17 @@ export interface SaveCurrentViewOptions {
 }
 
 export type MutationLike = (args: AnyRecord) => Promise<unknown>;
+export type ConfirmFn = (options: {
+  confirmLabel?: string;
+  danger?: boolean;
+  message: string;
+  onConfirm?: () => Promise<unknown>;
+  title: string;
+}) => Promise<boolean>;
+export interface PortalToastApi {
+  error: (message: string) => unknown;
+  success: (message: string) => unknown;
+}
 
 export const compactRows = <T>(rows: readonly (T | null | undefined)[] | null | undefined): T[] =>
   (rows ?? []).filter((row): row is T => row !== null && row !== undefined);

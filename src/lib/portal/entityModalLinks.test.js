@@ -42,6 +42,39 @@ describe("entityModalLinks", () => {
     });
   });
 
+  test("autofills immutable Confirmed Offer values for Job Card creation", () => {
+    expect(
+      applyQueryLink(
+        {},
+        {
+          confirmedOffer: {
+            airfarePerPax: 20_000,
+            confirmedPax: 18,
+            destination: "Baku",
+            landCostPerPax: 45_000,
+            profitPerPax: 12_000,
+            sellingPricePerPax: 80_000,
+            travelEndDate: "2026-10-08",
+            travelStartDate: "2026-10-02",
+            visaCostPerPax: 3000,
+          },
+          id: "query_1",
+          paxCount: 12,
+        }
+      )
+    ).toMatchObject({
+      airfarePerPax: "20000",
+      confirmedPax: "18",
+      destination: "Baku",
+      landCostPerPax: "45000",
+      profitPerPax: "12000",
+      sellingPricePerPax: "80000",
+      travelEndDate: "2026-10-08",
+      travelStartDate: "2026-10-02",
+      visaCostPerPax: "3000",
+    });
+  });
+
   test("autofills travel batch operational fields from linked job card", () => {
     expect(
       applyJobCardLink(

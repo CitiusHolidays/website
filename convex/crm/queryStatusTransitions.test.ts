@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { ConvexError } from "convex/values";
 import {
+  assertConfirmedQueryIsTerminal,
   buildQueryStatusNotificationPlan,
   buildQueryStatusPatch,
   type QueryStatusArgs,
@@ -23,6 +24,25 @@ function patch(args: QueryStatusArgs) {
 }
 
 describe("query status transitions", () => {
+  test("keeps Order Confirmed terminal so the immutable offer cannot be replaced", () => {
+    const current = {
+      contractingStatus: "Order Confirmed",
+      salesStatus: "Order Confirmed",
+    };
+    expect(() =>
+      assertConfirmedQueryIsTerminal(current, {
+        queryId: "query_1",
+        salesStatus: "Date/Destination Change Required",
+      })
+    ).toThrow("Order Confirmed is final");
+    expect(() =>
+      assertConfirmedQueryIsTerminal(current, {
+        queryId: "query_1",
+        salesStatus: "Order Confirmed",
+      })
+    ).not.toThrow();
+  });
+
   test("maps Sales Decision outcomes to canonical status transitions", () => {
     expect(patch({ salesStatus: "Proposal in discussion" })).toMatchObject({
       leadStage: "Proposal",
@@ -71,6 +91,8 @@ describe("query status transitions", () => {
   });
 
   test("plans revision notifications for assigned SPOCs only", () => {
+    const revisionBody =
+      "Q-0001 needs a revised proposal. Destination: Not set → Not set. Travel dates: Not set → Not set.";
     expect(
       buildQueryStatusNotificationPlan({
         args: {
@@ -86,17 +108,33 @@ describe("query status transitions", () => {
       notifyOrderConfirmedWorkflow: false,
       ownerNotifications: [
         {
-          body: "Q-0001 was sent back by Sales for a date or destination change.",
+          body: revisionBody,
           ownerId: "staff_contracting",
           title: "Revise proposal",
         },
         {
-          body: "Q-0001 needs updated ticketing inputs for the revised proposal.",
+          body: revisionBody,
           ownerId: "staff_ticketing",
           title: "Revise proposal costing",
         },
       ],
-      roleNotifications: [],
+      roleNotifications: [
+        {
+          body: revisionBody,
+          roles: ["Head of Ticketing"],
+          title: "Sales revision — ticketing oversight",
+        },
+        {
+          body: revisionBody,
+          roles: ["Contracting Head"],
+          title: "Sales revision — contracting oversight",
+        },
+        {
+          body: revisionBody,
+          roles: ["Operations Head"],
+          title: "Sales revision — operations oversight",
+        },
+      ],
     });
   });
 });

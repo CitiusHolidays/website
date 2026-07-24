@@ -54,6 +54,7 @@ export {
   queryAssignmentHeadRoles,
 } from "./queryNotifications";
 export {
+  assertConfirmedQueryIsTerminal,
   buildQueryStatusNotificationPlan,
   buildQueryStatusPatch,
 } from "./queryStatusPolicy";
@@ -111,6 +112,7 @@ export const create = mutation({
     paxCount: v.number(),
     queryType: queryTypeValidator,
     salesOwnerName: v.optional(v.string()),
+    salesOwnerStaffId: v.optional(v.string()),
     source: v.optional(querySourceValidator),
     ticketingScope: v.optional(ticketingScopeValidator),
     travelEndDate: v.optional(v.string()),
@@ -135,6 +137,7 @@ export const update = mutation({
     queryId: v.string(),
     queryType: v.optional(queryTypeValidator),
     salesOwnerName: v.optional(v.string()),
+    salesOwnerStaffId: v.optional(v.string()),
     source: v.optional(querySourceValidator),
     travelEndDate: v.optional(v.string()),
     travelInBatches: v.optional(v.boolean()),
@@ -222,16 +225,25 @@ export const moveSalesPipelineStage = mutation({
 
 export const updateStatus = mutation({
   args: {
+    airfarePerPax: v.optional(v.number()),
     approxMargin: v.optional(v.number()),
+    confirmedPax: v.optional(v.number()),
     contractingAirlinesCost: v.optional(v.number()),
     contractingLandCost: v.optional(v.number()),
     contractingStatus: v.optional(contractingStatusValidator),
     contractingVisaCost: v.optional(v.number()),
+    destination: v.optional(v.string()),
+    landCostPerPax: v.optional(v.number()),
     leadStage: v.optional(leadStageValidator),
     lostReason: v.optional(lostReasonValidator),
     lostReasonOther: v.optional(v.string()),
+    proposalId: v.optional(v.string()),
     queryId: v.string(),
     salesStatus: v.optional(salesStatusValidator),
+    sellingPricePerPax: v.optional(v.number()),
+    travelEndDate: v.optional(v.string()),
+    travelStartDate: v.optional(v.string()),
+    visaCostPerPax: v.optional(v.number()),
   },
   handler: handleQueryUpdateStatus,
   returns: queryIdResultValidator,

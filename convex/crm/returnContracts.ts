@@ -66,6 +66,21 @@ export const queryListRowValidator = v.object({
   budgetAmount: v.number(),
   clientName: v.string(),
   confirmedAt: nullableIsoDateTimeValidator,
+  confirmedOffer: v.union(
+    v.null(),
+    v.object({
+      airfarePerPax: v.number(),
+      confirmedPax: v.number(),
+      destination: v.string(),
+      landCostPerPax: v.number(),
+      profitPerPax: v.number(),
+      proposalId: v.id("proposals"),
+      sellingPricePerPax: v.number(),
+      travelEndDate: v.string(),
+      travelStartDate: v.string(),
+      visaCostPerPax: v.number(),
+    })
+  ),
   contactMobile: v.string(),
   contactPerson: v.string(),
   contractingAirlinesCost: v.number(),
@@ -77,8 +92,10 @@ export const queryListRowValidator = v.object({
   createdAt: isoDateTimeStringValidator,
   destination: v.string(),
   id: v.id("queries"),
+  jobCardCode: v.union(v.null(), v.string()),
   jobCardCreatorName: v.string(),
   jobCardCreatorStaffId: v.string(),
+  jobCardId: v.union(v.null(), v.id("jobCards")),
   leadStage: v.string(),
   lostReason: v.string(),
   notes: v.string(),
@@ -231,6 +248,21 @@ const operationalProposalAttachmentValidator = v.object({
   mimeType: v.string(),
 });
 
+const commercialChainFileValidator = v.object({
+  attachmentId: v.string(),
+  createdAt: v.number(),
+  fileKind: v.union(v.literal("attachment"), v.literal("proposalDoc")),
+  fileName: v.string(),
+  fileSize: v.number(),
+  mimeType: v.string(),
+  readOnly: v.boolean(),
+  sourceCode: v.string(),
+  sourceId: v.string(),
+  sourceLabel: v.string(),
+  sourceType: v.union(v.literal("query"), v.literal("proposal")),
+  storageId: v.string(),
+});
+
 export const jobCardCommandCenterResultValidator = v.object({
   checklistTasks: v.array(
     v.object({
@@ -241,6 +273,7 @@ export const jobCardCommandCenterResultValidator = v.object({
       title: v.string(),
     })
   ),
+  commercialFiles: v.array(commercialChainFileValidator),
   hotels: v.array(v.object({ id: v.id("hotels") })),
   invoices: v.array(v.object({ balanceAmount: v.number(), id: v.id("invoices") })),
   jobCard: jobCardListRowValidator,
@@ -342,12 +375,16 @@ const aggregateCoverageValidator = v.object({
 
 const activeTourValidator = v.object({
   clientName: v.string(),
+  contractingOwnerName: v.string(),
   destination: v.string(),
   id: v.id("jobCards"),
   jobCode: v.string(),
   pax: v.number(),
+  queryCode: v.string(),
   status: JOB_CARD_STATUS,
+  ticketingOwnerName: v.string(),
   ticketProgress: v.number(),
+  travelStartDate: v.string(),
   visaProgress: v.number(),
 });
 
@@ -422,11 +459,14 @@ const ticketingStatsValidator = v.object({
 
 const upcomingDepartureValidator = v.object({
   clientName: v.string(),
+  contractingOwnerName: v.string(),
   destination: v.string(),
   id: v.id("jobCards"),
   jobCode: v.string(),
   pax: v.number(),
+  queryCode: v.string(),
   readiness: v.union(v.literal("Ready"), v.literal("Docs pending"), v.literal("Ticketing")),
+  ticketingOwnerName: v.string(),
   tourManagerName: v.string(),
   travelStartDate: v.string(),
 });

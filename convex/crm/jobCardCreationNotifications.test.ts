@@ -10,6 +10,27 @@ function makeCreateJobCardCtx() {
   const tables: Tables = {
     activityLogs: [],
     checklistTasks: [],
+    confirmedOffers: [
+      {
+        _id: "confirmedOffers_1",
+        airfarePerPax: 20_000,
+        approxMargin: 10_000,
+        confirmedPax: 24,
+        createdAt: 140,
+        createdBy: "auth_sales",
+        destination: "Dubai",
+        landCostPerPax: 45_000,
+        profitPerPax: 30_000,
+        proposalId: "proposals_1",
+        queryId: "queries_1",
+        sellingPricePerPax: 100_000,
+        taxRate: 5,
+        travelEndDate: "2026-08-05",
+        travelStartDate: "2026-08-01",
+        updatedAt: 140,
+        visaCostPerPax: 5000,
+      },
+    ],
     jobCards: [
       {
         _id: "jobCards_existing",
@@ -43,16 +64,20 @@ function makeCreateJobCardCtx() {
       {
         _id: "queries_1",
         clientName: "Acme Ltd",
+        confirmedOfferId: "confirmedOffers_1",
         contractingOwnerId: "staff_contracting",
         contractingOwnerName: "Contracting SPOC",
         contractingStatus: "Order Confirmed",
         createdAt: 100,
         createdBy: "auth_sales",
         destination: "Dubai",
+        jobCardCreatorName: "Nina Shah",
+        jobCardCreatorStaffId: "staff_accounts",
         paxCount: 24,
         queryCode: "Q-0001",
         queryType: "MICE",
-        salesOwnerName: "Sales Owner",
+        salesOwnerId: "auth_sales",
+        salesOwnerName: "Maya Kapoor",
         salesStatus: "Order Confirmed",
         ticketingOwnerId: "staff_ticketing",
         ticketingOwnerName: "Ticketing SPOC",
@@ -64,6 +89,15 @@ function makeCreateJobCardCtx() {
       },
     ],
     staffUsers: [
+      {
+        _id: "staff_sales",
+        active: true,
+        authUserId: "auth_sales",
+        email: "sales@citius.in",
+        emailNormalized: "sales@citius.in",
+        name: "Maya Kapoor",
+        roles: ["Sales"],
+      },
       {
         _id: "staff_accounts",
         active: true,
@@ -218,7 +252,7 @@ function makeCreateJobCardCtx() {
 }
 
 describe("Job Card creation notifications", () => {
-  test("allows any Accounts staff member to create for confirmed queries and uses creator initials", async () => {
+  test("allows Accounts to create from a Confirmed Offer and uses Assigned Sales Rep initials", async () => {
     const { ctx, tables } = makeCreateJobCardCtx();
 
     const result = await (createFromQuery as any)._handler(ctx, {
@@ -228,13 +262,16 @@ describe("Job Card creation notifications", () => {
 
     expect(result).toEqual({
       id: "jobCards_2",
-      jobCode: "JC-0004-NS",
+      jobCode: "JC-0004-MK",
     });
     expect(tables.jobCards[1]).toMatchObject({
+      confirmedOfferId: "confirmedOffers_1",
       createdBy: "auth_accounts",
-      jobCode: "JC-0004-NS",
+      jobCode: "JC-0004-MK",
+      landCostPerPax: 45_000,
       proposalId: "proposals_1",
       queryId: "queries_1",
+      sellingPricePerPax: 100_000,
     });
   });
 

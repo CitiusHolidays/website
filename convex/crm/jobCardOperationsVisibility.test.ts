@@ -4,6 +4,7 @@ import type { Id } from "../_generated/dataModel";
 import { getCommandCenter } from "./jobCards";
 import { getAttachmentRecord } from "./proposalAttachments";
 import { getFinalizedPdfRecord } from "./proposals";
+import { getAttachmentRecord as getQueryAttachmentRecord } from "./queryAttachments";
 
 type Row = { _id: string; [key: string]: any };
 type Tables = Record<string, Row[]>;
@@ -101,6 +102,17 @@ function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides:
         salesStatus: "Order Confirmed",
         travelEndDate: "2026-08-05",
         travelStartDate: "2026-08-01",
+      },
+    ],
+    queryAttachments: [
+      {
+        _id: "queryAttachments_1",
+        createdAt: 1_700_000_050_000,
+        fileName: "sales-sample.xlsx",
+        fileSize: 4096,
+        mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        queryId: "queries_1",
+        storageId: "storage_query_1",
       },
     ],
     roomingListEntries: [],
@@ -204,6 +216,15 @@ describe("Job Card command center Operations visibility", () => {
       proposalCode: "P-0001",
       status: "Accepted",
     });
+    expect(payload.commercialFiles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          fileName: "sales-sample.xlsx",
+          sourceLabel: "Query Q-0001",
+          sourceType: "query",
+        }),
+      ])
+    );
   });
 
   test("command center proposal summary hides finance-only fields", async () => {
@@ -239,6 +260,15 @@ describe("Job Card command center Operations visibility", () => {
       fileName: "client-final.pdf",
       proposalId: "proposals_1",
       storageId: "storage_final",
+    });
+    await expect(
+      (getQueryAttachmentRecord as any)._handler(ctx, {
+        attachmentId: "queryAttachments_1",
+      })
+    ).resolves.toMatchObject({
+      id: "queryAttachments_1",
+      queryId: "queries_1",
+      storageId: "storage_query_1",
     });
   });
 

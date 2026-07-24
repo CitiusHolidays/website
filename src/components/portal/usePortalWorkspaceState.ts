@@ -41,9 +41,11 @@ import { usePortalWorkspaceData } from "./workspace/usePortalWorkspaceData";
 import { usePortalWorkspaceMutations } from "./workspace/usePortalWorkspaceMutations";
 import type {
   AnyRecord,
+  ConfirmFn,
   DateRangeState,
   ListFiltersState,
   MutationLike,
+  PortalToastApi,
   StateUpdate,
 } from "./workspace/workspaceStateTypes";
 import { compactRows, resolveUpdate } from "./workspace/workspaceStateTypes";
@@ -74,18 +76,6 @@ interface WorkspaceState {
   saveFlash: boolean;
   search: string;
 }
-type ConfirmFn = (options: {
-  confirmLabel?: string;
-  danger?: boolean;
-  message: string;
-  onConfirm?: () => Promise<unknown>;
-  title: string;
-}) => Promise<boolean>;
-interface PortalToastApi {
-  error: (message: string) => unknown;
-  success: (message: string) => unknown;
-}
-
 const createInitialWorkspaceModalForm = createInitialModalForm as (input: AnyRecord) => AnyRecord;
 
 export function usePortalWorkspaceState(view: string, searchParams: URLSearchParams) {
@@ -882,7 +872,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     hotels,
     invoices,
     isSaving,
-    saveFlash,
     jobCardDeletionOperations,
     jobCardFilter,
     jobCards,
@@ -948,6 +937,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     rows: workspaceRows,
     saveCurrentView,
     savedViews: savedViewLinks,
+    saveFlash,
     saveSeat,
     search,
     searchParams,

@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { loadConfirmedOfferForQuery } from "./confirmedOffer";
 import { materializeDefaultChecklistTasks } from "./jobCardChecklist";
 import { DEFAULT_CHECKLIST } from "./jobCardConstants";
 import {
@@ -71,6 +72,12 @@ export async function handleCreateFromQuery(
   ) {
     throw new ConvexError("Accounts can open a Job Card only after order confirmation");
   }
+  const confirmedOffer =
+    (linkedQuery?.confirmedOfferId ? await ctx.db.get(linkedQuery.confirmedOfferId) : null) ??
+    (await loadConfirmedOfferForQuery(ctx, queryId));
+  if (!confirmedOffer) {
+    throw new ConvexError("A Confirmed Offer is required before opening a Job Card");
+  }
   const existing = await ctx.db
     .query("jobCards")
     .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
@@ -79,76 +86,47 @@ export async function handleCreateFromQuery(
     throw new ConvexError("This query already has a linked Job Card");
   }
 
-  let proposalId = args.proposalId ? ctx.db.normalizeId("proposals", args.proposalId) : null;
-  if (args.proposalId && !proposalId) {
-    throw new ConvexError("Invalid proposal id");
-  }
-  const [legacyProposalRows, proposalLinks] = await Promise.all([
-    ctx.db
-      .query("proposals")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-      .collect(),
-    ctx.db
-      .query("proposalQueryLinks")
-      .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
-      .collect(),
-  ]);
-  const proposalRowsById = new Map(legacyProposalRows.map((proposal) => [proposal._id, proposal]));
-  const missingLinkProposalIds = proposalLinks.flatMap((link) =>
-    proposalRowsById.has(link.proposalId) ? [] : [link.proposalId]
-  );
-  const missingLinkProposals = await Promise.all(
-    missingLinkProposalIds.map((proposalId) => ctx.db.get(proposalId))
-  );
-  for (const linkedProposal of missingLinkProposals) {
-    if (linkedProposal) {
-      proposalRowsById.set(linkedProposal._id, linkedProposal);
+  let proposalId = confirmedOffer.proposalId;
+  if (args.proposalId) {
+    const requestedProposalId = ctx.db.normalizeId("proposals", args.proposalId);
+    if (!requestedProposalId) {
+      throw new ConvexError("Invalid proposal id");
     }
-  }
-  const proposalRows = Array.from(proposalRowsById.values());
-  if (!proposalId) {
-    const sortedProposals = proposalRows.sort((a, b) => b.updatedAt - a.updatedAt);
-    proposalId =
-      sortedProposals.find((proposal) => ["Accepted", "Sent"].includes(proposal.status))?._id ??
-      sortedProposals[0]?._id ??
-      null;
+    proposalId = requestedProposalId;
   }
   const proposal = proposalId ? await ctx.db.get(proposalId) : null;
-  const selectedProposalLink =
-    proposalId &&
-    (await ctx.db
-      .query("proposalQueryLinks")
-      .withIndex("by_proposalId_and_queryId", (q) =>
-        q.eq("proposalId", proposalId).eq("queryId", queryId)
-      )
-      .first());
-  if (!proposal || (proposal.queryId !== queryId && !selectedProposalLink)) {
-    throw new ConvexError("Link a proposal for this confirmed query before opening a Job Card");
-  }
-  if (!["Accepted", "Sent"].includes(proposal.status)) {
-    throw new ConvexError("The linked proposal must be sent or accepted before opening a Job Card");
-  }
-  if ((proposal.sellingPrice ?? 0) <= 0 || (proposal.costPrice ?? 0) <= 0) {
-    throw new ConvexError(
-      "Enter selling price and cost price on the proposal before opening a Job Card"
-    );
+  if (!proposal || proposal._id !== confirmedOffer.proposalId) {
+    throw new ConvexError("Open the Job Card from the query's Confirmed Offer proposal");
   }
 
+  const salesRepStaff = linkedQuery.salesOwnerId
+    ? await ctx.db
+        .query("staffUsers")
+        .withIndex("by_authUserId", (q) => q.eq("authUserId", linkedQuery.salesOwnerId))
+        .unique()
+    : null;
+  const jobCodeSuffixName =
+    salesRepStaff?.name?.trim() || linkedQuery.salesOwnerName || access.name;
   const now = Date.now();
   const jobCode = await nextCode(ctx, "jobCards", "JC", {
-    suffix: creatorInitials(access.name),
+    suffix: creatorInitials(jobCodeSuffixName),
   });
-  const queryType = linkedQuery?.queryType;
+  const queryType = linkedQuery.queryType;
   const jobCardPayload = {
+    airfarePerPax: confirmedOffer.airfarePerPax,
+    approxMargin: confirmedOffer.approxMargin,
     clientName: linkedQuery.clientName || args.clientName?.trim() || "",
     collaboratorStaffIds: [] as Id<"staffUsers">[],
-    confirmedPax: args.confirmedPax,
-    contractingOwnerId: linkedQuery?.contractingOwnerId,
-    contractingOwnerName: linkedQuery?.contractingOwnerName ?? "",
+    confirmedOfferId: confirmedOffer._id,
+    confirmedPax: args.confirmedPax || confirmedOffer.confirmedPax,
+    contractingOwnerId: linkedQuery.contractingOwnerId,
+    contractingOwnerName: linkedQuery.contractingOwnerName ?? "",
     createdAt: now,
     createdBy: access.authUserId ?? "unknown",
-    destination: linkedQuery.destination || args.destination?.trim() || "",
+    destination:
+      linkedQuery.destination || confirmedOffer.destination || args.destination?.trim() || "",
     jobCode,
+    landCostPerPax: confirmedOffer.landCostPerPax,
     lastEditedAt: now,
     lastEditedBy: access.authUserId ?? access.email ?? "unknown",
     lastEditedByName: access.name,
@@ -160,20 +138,25 @@ export async function handleCreateFromQuery(
     }),
     paymentTerms: queryType ? paymentTermsFor(queryType) : null,
     preDepartureChecklist: DEFAULT_CHECKLIST,
+    profitPerPax: confirmedOffer.profitPerPax,
     proposalId,
     queryId,
     queryType: queryType as any,
     roomCount: args.roomCount ?? 0,
+    sellingPricePerPax: confirmedOffer.sellingPricePerPax,
     status: "Open" as const,
-    ticketingOwnerId: linkedQuery?.ticketingOwnerId,
-    ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
+    ticketingOwnerId: linkedQuery.ticketingOwnerId,
+    ticketingOwnerName: linkedQuery.ticketingOwnerName ?? "",
     ticketingRequired: queryRequiresTicketingWork(linkedQuery),
-    ticketingScope: linkedQuery?.ticketingScope ?? "",
+    ticketingScope: linkedQuery.ticketingScope ?? "",
     tourManagerName: args.tourManagerName?.trim() || "",
     travelBatchCount: 0,
-    travelEndDate: linkedQuery?.travelEndDate || args.travelEndDate || "",
-    travelStartDate: linkedQuery?.travelStartDate || args.travelStartDate || "",
+    travelEndDate:
+      args.travelEndDate || confirmedOffer.travelEndDate || linkedQuery.travelEndDate || "",
+    travelStartDate:
+      args.travelStartDate || confirmedOffer.travelStartDate || linkedQuery.travelStartDate || "",
     updatedAt: now,
+    visaCostPerPax: confirmedOffer.visaCostPerPax,
   };
   const id = await ctx.db.insert("jobCards", jobCardPayload);
   await materializeDefaultChecklistTasks(
@@ -231,12 +214,26 @@ export async function handleCreateFromQuery(
       entityId: id,
       entityType: "jobCard",
       message: `${jobCode} opened for ${linkedQuery?.clientName || args.clientName || "client"}`,
+      metadata: {
+        confirmedOfferId: confirmedOffer._id,
+        confirmedOfferPax: confirmedOffer.confirmedPax,
+        confirmedOfferTravelEndDate: confirmedOffer.travelEndDate ?? "",
+        confirmedOfferTravelStartDate: confirmedOffer.travelStartDate,
+        jobCardPax: args.confirmedPax || confirmedOffer.confirmedPax,
+        jobCardTravelEndDate:
+          args.travelEndDate || confirmedOffer.travelEndDate || linkedQuery.travelEndDate || "",
+        jobCardTravelStartDate:
+          args.travelStartDate ||
+          confirmedOffer.travelStartDate ||
+          linkedQuery.travelStartDate ||
+          "",
+      },
     }),
     notifyRoles(
       ctx,
       downstreamRoles,
       {
-        body: `${jobCode} is live for ${linkedQuery?.queryCode || "the confirmed query"}. Begin traveller master, tickets, passport, visa, and tour manager work.`,
+        body: `${jobCode} is live for ${linkedQuery.queryCode} (${linkedQuery.clientName}, ${linkedQuery.destination || confirmedOffer.destination || "destination TBD"}, ${args.confirmedPax || confirmedOffer.confirmedPax} pax, ${args.travelStartDate || confirmedOffer.travelStartDate || linkedQuery.travelStartDate || "dates TBD"}${linkedQuery.ticketingScope ? `, Ticketing Scope ${linkedQuery.ticketingScope}` : ""}, Contracting ${linkedQuery.contractingOwnerName || "unassigned"}, Ticketing ${linkedQuery.ticketingOwnerName || "unassigned"}). Begin traveller master, tickets, passport, visa, and tour manager work.`,
         entityId: id,
         entityType: "jobCard",
         title: "Job Card opened — start operations",

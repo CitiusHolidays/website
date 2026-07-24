@@ -2,14 +2,15 @@
 
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { createContext, use, useEffect, useId, useRef, useState } from "react";
+import { HoldToDeleteButton } from "@/components/motion-ui/hold-to-delete";
 import { useScrollLock } from "@/components/motion-ui/overlay";
-import { PORTAL_Z } from "@/lib/portal/zIndex";
 import {
   PORTAL_MODAL_VISIBLE_TRANSFORM,
   portalModalExitTransform,
   portalModalHiddenTransform,
   portalMotionTransition,
 } from "@/lib/portal/portalMotion";
+import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const PortalConfirmContext = createContext(null);
 const FOCUSABLE_SELECTOR =
@@ -28,10 +29,8 @@ export function PortalConfirmProvider({ children }) {
   const dialogRef = useRef(null);
   const cancelRef = useRef(null);
   const actionInFlightRef = useRef(false);
-  const holdTimerRef = useRef(null);
-  const holdStartRef = useRef(0);
-  const [holdProgress, setHoldProgress] = useState(0);
-  const HOLD_MS = shouldReduceMotion ? 600 : 2000;
+  const stateRef = useRef(null);
+  const HOLD_SECONDS = shouldReduceMotion ? 0.6 : 2;
   const titleId = `${useId().replaceAll(":", "")}-confirm-title`;
   const messageId = `${useId().replaceAll(":", "")}-confirm-message`;
   const errorId = `${useId().replaceAll(":", "")}-confirm-error`;
@@ -42,30 +41,9 @@ export function PortalConfirmProvider({ children }) {
   const dialogExitTransform = portalModalExitTransform(shouldReduceMotion);
   const modalTransition = portalMotionTransition(shouldReduceMotion);
 
-  const clearHold = () => {
-    if (holdTimerRef.current) {
-      clearInterval(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-    setHoldProgress(0);
-  };
-
-  const startDangerHold = () => {
-    if (!(state?.danger && !state.pending)) {
-      return;
-    }
-    clearHold();
-    holdStartRef.current = Date.now();
-    holdTimerRef.current = setInterval(() => {
-      const elapsed = Date.now() - holdStartRef.current;
-      const next = Math.min(1, elapsed / HOLD_MS);
-      setHoldProgress(next);
-      if (next >= 1) {
-        clearHold();
-        void runConfirmAction();
-      }
-    }, 32);
-  };
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const restoreOriginFocus = () => {
     const origin = originRef.current;
@@ -81,7 +59,6 @@ export function PortalConfirmProvider({ children }) {
     if (actionInFlightRef.current) {
       return;
     }
-    clearHold();
     const resolve = resolverRef.current;
     resolverRef.current = null;
     setState(null);
@@ -100,23 +77,24 @@ export function PortalConfirmProvider({ children }) {
     });
 
   const runConfirmAction = async () => {
-    if (!(state && !actionInFlightRef.current)) {
+    const current = stateRef.current;
+    if (!(current && !actionInFlightRef.current)) {
       return;
     }
-    if (!state.onConfirm) {
+    if (!current.onConfirm) {
       finish(true);
       return;
     }
     actionInFlightRef.current = true;
-    setState((current) => (current ? { ...current, error: "", pending: true } : current));
+    setState((previous) => (previous ? { ...previous, error: "", pending: true } : previous));
     try {
-      await state.onConfirm();
+      await current.onConfirm();
       actionInFlightRef.current = false;
       finish(true);
     } catch (error) {
       actionInFlightRef.current = false;
-      setState((current) =>
-        current ? { ...current, error: visibleError(error), pending: false } : current
+      setState((previous) =>
+        previous ? { ...previous, error: visibleError(error), pending: false } : previous
       );
       queueMicrotask(() => cancelRef.current?.focus());
     }
@@ -204,61 +182,61 @@ export function PortalConfirmProvider({ children }) {
             tabIndex={-1}
             transition={modalTransition}
           >
-        <h2 className="font-heading font-semibold text-citius-blue text-lg" id={titleId}>
-          {state.title}
-        </h2>
-        <p className="mt-2 text-brand-muted text-sm" id={messageId}>
-          {state.message}
-        </p>
-        {state.error ? (
-          <p
-            className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
-            id={errorId}
-            role="alert"
-          >
-            {state.error}
-          </p>
-        ) : null}
-        <div className="mt-6 flex flex-wrap justify-end gap-2">
-          <button
-            className="portal-small-btn min-h-11"
-            data-testid="portal-confirm-cancel"
-            disabled={state.pending}
-            onClick={() => finish(false)}
-            ref={cancelRef}
-            type="button"
-          >
-            Cancel
-          </button>
-          <button
-            aria-describedby={state.danger ? messageId : undefined}
-            className={`${state.danger ? "portal-danger-btn relative overflow-hidden" : "portal-primary-btn"} min-h-11`}
-            data-testid={state.danger ? "portal-confirm-hold" : "portal-confirm-submit"}
-            disabled={state.pending}
-            onClick={state.danger ? undefined : runConfirmAction}
-            onMouseDown={state.danger ? startDangerHold : undefined}
-            onMouseLeave={state.danger ? clearHold : undefined}
-            onMouseUp={state.danger ? clearHold : undefined}
-            onPointerCancel={state.danger ? clearHold : undefined}
-            onPointerDown={state.danger ? startDangerHold : undefined}
-            onPointerLeave={state.danger ? clearHold : undefined}
-            onPointerUp={state.danger ? clearHold : undefined}
-            style={
-              state.danger && holdProgress > 0
-                ? { clipPath: `inset(0 ${Math.round((1 - holdProgress) * 100)}% 0 0)` }
-                : undefined
-            }
-            type="button"
-          >
-            {state.pending
-              ? `${state.confirmLabel}…`
-              : state.danger
-                ? holdProgress > 0
-                  ? "Keep holding…"
-                  : `Hold to ${state.confirmLabel.toLowerCase()}`
-                : state.confirmLabel}
-          </button>
-        </div>
+            <h2 className="font-heading font-semibold text-citius-blue text-lg" id={titleId}>
+              {state.title}
+            </h2>
+            <p className="mt-2 text-brand-muted text-sm" id={messageId}>
+              {state.message}
+            </p>
+            {state.error ? (
+              <p
+                className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
+                id={errorId}
+                role="alert"
+              >
+                {state.error}
+              </p>
+            ) : null}
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <button
+                className="portal-small-btn min-h-11"
+                data-testid="portal-confirm-cancel"
+                disabled={state.pending}
+                onClick={() => finish(false)}
+                ref={cancelRef}
+                type="button"
+              >
+                Cancel
+              </button>
+              {state.danger ? (
+                <HoldToDeleteButton
+                  aria-describedby={messageId}
+                  data-testid="portal-confirm-hold"
+                  disabled={state.pending}
+                  holdSeconds={HOLD_SECONDS}
+                  key={state.error ? `retry-${state.error}` : "hold"}
+                  onConfirm={() => {
+                    void runConfirmAction();
+                  }}
+                >
+                  {state.pending
+                    ? `${state.confirmLabel}…`
+                    : `Hold to ${state.confirmLabel.toLowerCase()}`}
+                </HoldToDeleteButton>
+              ) : (
+                <button
+                  className="portal-primary-btn min-h-11"
+                  data-testid="portal-confirm-submit"
+                  disabled={state.pending}
+                  onClick={() => {
+                    void runConfirmAction();
+                  }}
+                  type="button"
+                >
+                  {state.pending ? `${state.confirmLabel}…` : state.confirmLabel}
+                </button>
+              )}
+            </div>
           </m.div>
         </m.div>
       ) : null}

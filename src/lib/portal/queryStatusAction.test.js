@@ -27,17 +27,26 @@ describe("buildQueryStatusAction", () => {
     expect(action.modal).toBe("salesDecision");
     expect(action.label).toBe("Sales Decision");
     expect(action.initial).toEqual({
+      airfarePerPax: "",
       approxMargin: "18000",
       budgetAmount: "250000",
+      confirmedPax: "",
       contractingAirlinesCost: "8000",
       contractingLandCost: "12000",
       contractingStatus: "Proposal in progress",
       contractingVisaCost: "1500",
+      destination: "",
+      landCostPerPax: "",
       leadStage: "Qualified",
       lostReason: "Budget",
+      proposalId: "",
       queryId: "query_1",
       salesDecision: "Proposal in discussion",
       salesStatus: "Proposal in discussion",
+      sellingPricePerPax: "",
+      travelEndDate: "",
+      travelStartDate: "",
+      visaCostPerPax: "",
     });
   });
 
@@ -63,5 +72,14 @@ describe("buildQueryStatusAction", () => {
     expect(action.label).toBe("Sales Decision");
     expect(action.initial.salesDecision).toBe("Proposal in discussion");
     expect(action.initial.lostReason).toBe("Budget");
+  });
+
+  test("confirmed orders expose no further Sales Decision", () => {
+    expect(
+      buildQueryStatusAction(
+        { ...sampleRow, salesStatus: "Order Confirmed" },
+        hasPermissions([P.MANAGE_QUERIES])
+      )
+    ).toBeNull();
   });
 });

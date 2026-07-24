@@ -1,12 +1,19 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
-import { internalMutation, query } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
+import { internalMutation, type QueryCtx, query } from "../_generated/server";
 import {
   queryAttachmentListPageResultValidator,
   queryAttachmentRecordResultValidator,
 } from "./fileReturnContracts";
-import { canSeeQueryRecord, PERMISSIONS, requireAnyPermission } from "./lib";
+import {
+  canSeeJobCardRecord,
+  canSeeProposalRecord,
+  canSeeQueryRecord,
+  PERMISSIONS,
+  type PortalAccess,
+  requireAnyPermission,
+} from "./lib";
 import { boundedPaginationOptions } from "./paginationPolicy";
 
 export function publicQueryAttachment(row: {
@@ -25,6 +32,39 @@ export function publicQueryAttachment(row: {
   };
 }
 
+async function canSeeQueryCommercialFiles(
+  ctx: QueryCtx,
+  access: PortalAccess,
+  query: Doc<"queries">
+) {
+  if (canSeeQueryRecord(access, query)) {
+    return true;
+  }
+  const jobCard = await ctx.db
+    .query("jobCards")
+    .withIndex("by_queryId", (q) => q.eq("queryId", query._id))
+    .first();
+  if (jobCard && canSeeJobCardRecord(access, jobCard, query)) {
+    return true;
+  }
+  const [directProposals, proposalLinks] = await Promise.all([
+    ctx.db
+      .query("proposals")
+      .withIndex("by_queryId", (q) => q.eq("queryId", query._id))
+      .collect(),
+    ctx.db
+      .query("proposalQueryLinks")
+      .withIndex("by_queryId", (q) => q.eq("queryId", query._id))
+      .collect(),
+  ]);
+  const linkedProposals = await Promise.all(
+    proposalLinks.map((link) => ctx.db.get(link.proposalId))
+  );
+  return [...directProposals, ...linkedProposals].some(
+    (proposal) => proposal && canSeeProposalRecord(access, proposal, [query])
+  );
+}
+
 export const listForQuery = query({
   args: {
     paginationOpts: paginationOptsValidator,
@@ -34,13 +74,14 @@ export const listForQuery = query({
     const access = await requireAnyPermission(ctx, [
       PERMISSIONS.VIEW_QUERIES,
       PERMISSIONS.VIEW_CONTRACTING,
+      PERMISSIONS.VIEW_JOB_CARDS,
     ]);
     const queryId = ctx.db.normalizeId("queries", args.queryId);
     if (!queryId) {
       return { continueCursor: "", isDone: true, page: [] };
     }
     const query = await ctx.db.get(queryId);
-    if (!(query && canSeeQueryRecord(access, query))) {
+    if (!(query && (await canSeeQueryCommercialFiles(ctx, access, query)))) {
       return { continueCursor: "", isDone: true, page: [] };
     }
     const page = await ctx.db
@@ -61,6 +102,7 @@ export const getAttachmentRecord = query({
     const access = await requireAnyPermission(ctx, [
       PERMISSIONS.VIEW_QUERIES,
       PERMISSIONS.VIEW_CONTRACTING,
+      PERMISSIONS.VIEW_JOB_CARDS,
     ]);
     const attachmentId = ctx.db.normalizeId("queryAttachments", args.attachmentId);
     if (!attachmentId) {
@@ -71,7 +113,7 @@ export const getAttachmentRecord = query({
       return null;
     }
     const query = await ctx.db.get(row.queryId);
-    if (!(query && canSeeQueryRecord(access, query))) {
+    if (!(query && (await canSeeQueryCommercialFiles(ctx, access, query)))) {
       return null;
     }
     return {

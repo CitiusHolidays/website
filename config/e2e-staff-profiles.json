@@ -32,6 +32,12 @@
       "roles": ["Ticketing"]
     },
     {
+      "key": "ticketing-head",
+      "localPart": "e2e-ticketing-head",
+      "name": "E2E Ticketing Head",
+      "roles": ["Head of Ticketing"]
+    },
+    {
       "key": "finance",
       "localPart": "e2e-finance",
       "name": "E2E Finance",
