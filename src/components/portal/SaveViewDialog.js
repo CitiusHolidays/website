@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame";
+import { lockBodyScroll } from "@/lib/portal/lockBodyScroll";
 
 const subscribeToClientMount = (onStoreChange) => {
   onStoreChange();
@@ -20,10 +21,7 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
   );
   const inputId = useId();
   const inputRef = useRef(null);
-  const dialogRef = useRef(null);
-  const { backdropStyle, panelStyle } = usePortalOverlayFrame({
-    panelTop: "calc(4rem + 3rem)",
-  });
+  const { backdropStyle, frameStyle, panelStyle } = usePortalOverlayFrame({ open });
 
   useEffect(() => {
     if (!open) {
@@ -36,27 +34,8 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
     if (!open) {
       return;
     }
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
+    return lockBodyScroll();
   }, [open]);
-
-  useEffect(() => {
-    if (!(open && portalTarget)) {
-      return;
-    }
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) {
-      dialog.showModal();
-    }
-    return () => {
-      if (dialog?.open) {
-        dialog.close();
-      }
-    };
-  }, [open, portalTarget]);
 
   if (!(open && portalTarget)) {
     return null;
@@ -79,15 +58,7 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
   };
 
   return createPortal(
-    <dialog
-      aria-labelledby={inputId}
-      className="portal-native-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        closeDialog();
-      }}
-      ref={dialogRef}
-    >
+    <div className="portal-command-overlay" role="presentation" style={frameStyle}>
       <button
         aria-label="Close save view dialog"
         className="portal-command-backdrop"
@@ -97,8 +68,10 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
       />
       <div className="portal-save-view-panel" style={panelStyle}>
         <form
+          aria-labelledby={inputId}
           className="portal-command-surface pointer-events-auto mx-auto w-full max-w-md rounded-xl border border-brand-border/80 bg-white/95 p-4 shadow-2xl backdrop-blur-xl"
           onSubmit={submit}
+          role="dialog"
         >
           <h2 className="font-heading font-semibold text-base text-citius-blue" id={inputId}>
             Save current view
@@ -138,7 +111,7 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
           </div>
         </form>
       </div>
-    </dialog>,
+    </div>,
     portalTarget
   );
 }

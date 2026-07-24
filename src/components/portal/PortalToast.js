@@ -3,7 +3,7 @@
 import { createContext, use, useReducer } from "react";
 import { Toast, ToastStack, useToast } from "@/components/motion-ui/toast-stack";
 import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
-import { PORTAL_Z } from "@/lib/portal/zIndex";
+import { PORTAL_Z, PORTAL_Z_INDEX } from "@/lib/portal/zIndex";
 
 const PortalToastContext = createContext(null);
 
@@ -84,6 +84,7 @@ export function PortalToastProvider({ children }) {
       {children}
       <ToastStack
         className={`portal-toast-safe-area ${PORTAL_Z.toast}`}
+        containerZIndex={PORTAL_Z_INDEX.toast}
         maxVisible={5}
         stackOffsetY={8}
         stackOpacity={0.15}

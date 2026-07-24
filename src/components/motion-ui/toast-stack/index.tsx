@@ -99,6 +99,8 @@ export function Toast({ children, className }: ToastProps) {
 export interface ToastStackProps {
   children?: ReactNode;
   className?: string;
+  /** Global stacking tier (portal: PORTAL_Z_INDEX.toast). Not the visible toast count. */
+  containerZIndex?: number;
   maxVisible?: number;
   stackOffsetY?: number;
   stackOpacity?: number;
@@ -108,6 +110,7 @@ export interface ToastStackProps {
 export function ToastStack({
   children,
   className,
+  containerZIndex,
   maxVisible = 4,
   stackOffsetY = 10,
   stackScale = 0.06,
@@ -136,7 +139,7 @@ export function ToastStack({
         "pointer-events-none fixed inset-x-0 bottom-6 mx-auto w-[min(22rem,calc(100vw-2rem))]",
         className
       )}
-      style={{ zIndex: maxVisible }}
+      style={containerZIndex === undefined ? undefined : { zIndex: containerZIndex }}
     >
       <ToastStackContext.Provider value={contextValue}>
         <AnimatePresence initial={false}>

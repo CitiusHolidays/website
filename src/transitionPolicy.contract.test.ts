@@ -76,11 +76,17 @@ describe("transition policy", () => {
 
   test("command palette overlay mounts without open or close animation classes", async () => {
     const palette = await bunFile("src/components/portal/PortalCommandPalette.js").text();
+    const overlayFrame = await bunFile("src/components/portal/usePortalOverlayFrame.js").text();
 
-    expect(palette).toContain('className="portal-native-dialog"');
+    expect(palette).toContain('className="portal-command-overlay"');
     expect(palette).toContain('className="portal-command-backdrop"');
     expect(palette).toContain('className="portal-command-panel"');
+    expect(palette).toContain("Backdrop");
+    expect(palette).toContain("useFocusTrap");
     expect(palette).not.toMatch(animatedPaletteOverlay);
+    expect(palette).toContain("lockBodyScroll");
+    expect(overlayFrame).toContain('getElementById("portal-main")');
+    expect(overlayFrame).toContain("frameStyle");
   });
 
   test("portal CRM motion surfaces avoid Motion x/y/scale shorthand", async () => {
@@ -98,10 +104,14 @@ describe("transition policy", () => {
 
   test("portal toast stack uses transform strings and theme-aware motion", async () => {
     const toastStack = await bunFile("src/components/motion-ui/toast-stack/index.tsx").text();
+    const portalToast = await bunFile("src/components/portal/PortalToast.js").text();
 
     expect(toastStack).toContain("useMotionUITheme");
     expect(toastStack).toContain("transform:");
     expect(toastStack).toContain("translateY(");
+    expect(toastStack).toContain("containerZIndex");
+    expect(toastStack).not.toMatch(/style=\{\{\s*zIndex:\s*maxVisible/);
+    expect(portalToast).toContain("containerZIndex={PORTAL_Z_INDEX.toast}");
   });
 
   test("portal modal shells branch reduced motion and use transform strings", async () => {

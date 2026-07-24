@@ -233,23 +233,10 @@ function urgentAlertLabel(count) {
   return `${count} urgent ${count === 1 ? "alert" : "alerts"}`;
 }
 
-function DashboardToday({
-  attentionSections,
-  ownedWorkSections,
-  persona,
-  sections,
-  urgentActionCount,
-}) {
-  const hasAttention = attentionSections.length > 0;
-  const hasOwnedWork = ownedWorkSections.length > 0;
-  if (!(hasAttention || hasOwnedWork)) {
+function DashboardToday({ persona, sections, todaySectionIds, urgentActionCount }) {
+  if (!todaySectionIds.length) {
     return null;
   }
-  const splitLayout = hasAttention && hasOwnedWork;
-  const attentionFirst = persona.id === "director";
-  const gridClassName = splitLayout
-    ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)]"
-    : "grid gap-4";
   return (
     <section aria-labelledby="dashboard-today-heading" className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -272,20 +259,12 @@ function DashboardToday({
         </span>
       </div>
 
-      <div className={gridClassName}>
-        <DashboardSectionList
-          className={`space-y-4 ${splitLayout && !attentionFirst ? "xl:order-2" : ""}`}
-          ids={attentionSections}
-          persona={persona}
-          sections={sections}
-        />
-        <DashboardSectionList
-          className={`space-y-4 ${splitLayout && !attentionFirst ? "xl:order-1" : ""}`}
-          ids={ownedWorkSections}
-          persona={persona}
-          sections={sections}
-        />
-      </div>
+      <DashboardSectionList
+        className="space-y-4"
+        ids={todaySectionIds}
+        persona={persona}
+        sections={sections}
+      />
     </section>
   );
 }
@@ -360,13 +339,12 @@ function resolveDashboardLayout({ access, has, persona, sections }) {
   const groups = groupDashboardSections(persona, availableSectionIds);
   const isHeadRole = Boolean(access?.roles?.some((role) => role.includes("Head")));
   return {
-    attentionSections: groups.today.filter((id) => id !== "workQueue"),
     groups,
     hasActionBar: ["quickActions", "periodPresets"].some((id) => availableSectionIds.includes(id)),
     isHeadRole,
-    ownedWorkSections: groups.today.filter((id) => id === "workQueue"),
     showCapacity: has(P.VIEW_TEAM) || isHeadRole,
     showExpandedReporting: persona.id === "director" || isHeadRole,
+    todaySectionIds: groups.today,
   };
 }
 
@@ -432,10 +410,9 @@ export function DashboardView({
       ) : null}
 
       <DashboardToday
-        attentionSections={layout.attentionSections}
-        ownedWorkSections={layout.ownedWorkSections}
         persona={persona}
         sections={sections}
+        todaySectionIds={layout.todaySectionIds}
         urgentActionCount={urgentActions.length}
       />
 

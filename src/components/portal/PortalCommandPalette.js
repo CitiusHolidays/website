@@ -23,8 +23,10 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { Backdrop, useFocusTrap } from "@/components/motion-ui/overlay";
 import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
-import { portalMotionTransition } from "@/lib/portal/portalMotion";
+import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame";
+import { lockBodyScroll } from "@/lib/portal/lockBodyScroll";
 import {
   buildCreateCommands,
   buildNavigationCommands,
@@ -32,8 +34,8 @@ import {
   buildSavedViewCommands,
   filterCommands,
 } from "@/lib/portal/commandPalette";
+import { portalMotionTransition } from "@/lib/portal/portalMotion";
 import { useModShortcutLabel } from "@/lib/portal/shortcutLabels";
-import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame";
 
 const PortalCommandPaletteContext = createContext(null);
 
@@ -218,7 +220,8 @@ export function PortalCommandPaletteTrigger({ className = "" }) {
 function CommandPaletteOverlay({
   open,
   portalTarget,
-  dialogRef,
+  surfaceRef,
+  frameStyle,
   backdropStyle,
   panelStyle,
   closePalette,
@@ -240,38 +243,33 @@ function CommandPaletteOverlay({
   }
 
   return createPortal(
-    <dialog
-      aria-label="Command palette"
-      className="portal-native-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        closePalette();
-      }}
-      open
-      ref={dialogRef}
-    >
+    <div aria-hidden={false} className="portal-command-overlay" role="presentation" style={frameStyle}>
       <AnimatePresence>
-        <m.button
-          animate={{ opacity: 1 }}
-          aria-label="Close command palette"
-          className="portal-command-backdrop"
-          exit={{ opacity: 0 }}
-          initial={{ opacity: 0 }}
-          key="portal-command-backdrop"
-          onClick={closePalette}
-          style={backdropStyle}
-          transition={panelTransition}
-          type="button"
-        />
-        <m.div
-          animate={{ opacity: 1, transform: visibleTransform }}
-          className="portal-command-panel"
-          exit={{ opacity: 0, transform: hiddenTransform }}
-          initial={{ opacity: 0, transform: hiddenTransform }}
-          key="portal-command-panel"
-          style={panelStyle}
-          transition={panelTransition}
-        >
+        {open ? (
+          <>
+            <Backdrop
+              animate={{ opacity: 1 }}
+              className="portal-command-backdrop"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              key="portal-command-backdrop"
+              label="Close command palette"
+              onClick={closePalette}
+              style={backdropStyle}
+              transition={panelTransition}
+            />
+            <m.div
+              animate={{ opacity: 1, transform: visibleTransform }}
+              aria-label="Command palette"
+              className="portal-command-panel"
+              exit={{ opacity: 0, transform: hiddenTransform }}
+              initial={{ opacity: 0, transform: hiddenTransform }}
+              key="portal-command-panel"
+              ref={surfaceRef}
+              role="dialog"
+              style={panelStyle}
+              transition={panelTransition}
+            >
         <div className="portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl">
           <div className="flex shrink-0 items-center gap-2 border-brand-border/80 border-b px-3 py-2">
             <Search aria-hidden className="shrink-0 text-brand-muted" size={16} />
@@ -328,8 +326,10 @@ function CommandPaletteOverlay({
           </div>
         </div>
         </m.div>
+          </>
+        ) : null}
       </AnimatePresence>
-    </dialog>,
+    </div>,
     portalTarget
   );
 }
@@ -343,8 +343,8 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
     getServerPortalTarget
   );
   const inputRef = useRef(null);
-  const dialogRef = useRef(null);
-  const { backdropStyle, panelStyle } = usePortalOverlayFrame();
+  const surfaceRef = useRef(null);
+  const { backdropStyle, frameStyle, panelStyle } = usePortalOverlayFrame({ open });
   const commands = useCommands(workspace, term, onSaveView);
   const grouped = groupCommands(commands);
   const groupedWithIndex = grouped.map((group, groupIndex) => ({
@@ -436,27 +436,15 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
     if (!open) {
       return;
     }
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previous;
-    };
+    return lockBodyScroll();
   }, [open]);
 
-  useEffect(() => {
-    if (!(open && portalTarget)) {
-      return;
-    }
-    const dialog = dialogRef.current;
-    if (dialog && !dialog.open) {
-      dialog.showModal();
-    }
-    return () => {
-      if (dialog?.open) {
-        dialog.close();
-      }
-    };
-  }, [open, portalTarget]);
+  useFocusTrap({
+    active: open,
+    container: surfaceRef,
+    initialFocus: inputRef,
+    onEscape: closePalette,
+  });
 
   const contextValue = { openPalette };
 
@@ -468,14 +456,15 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
         boundedActiveIndex={boundedActiveIndex}
         closePalette={closePalette}
         commands={commands}
-        dialogRef={dialogRef}
         dispatchPalette={dispatchPalette}
+        frameStyle={frameStyle}
         groupedWithIndex={groupedWithIndex}
         inputRef={inputRef}
         open={open}
         panelStyle={panelStyle}
         portalTarget={portalTarget}
         runCommand={runCommand}
+        surfaceRef={surfaceRef}
         term={term}
       />
     </PortalCommandPaletteContext.Provider>

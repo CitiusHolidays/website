@@ -327,15 +327,15 @@ body {
 
 .portal-command-backdrop {
   cursor: default;
-  background: rgb(15 23 42 / 0.34);
+  background: rgb(15 23 42 / 0.44);
   border: 0;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 @media (prefers-reduced-transparency: reduce) {
   .portal-command-backdrop {
-    background: rgb(15 23 42 / 0.3);
+    background: rgb(15 23 42 / 0.52);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -429,6 +429,10 @@ body {
   background: transparent;
 }
 
+.portal-command-overlay {
+  pointer-events: none;
+}
+
 .portal-command-panel,
 .portal-save-view-panel {
   pointer-events: none;
@@ -469,7 +473,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .portal-command-backdrop {
-    background: rgb(15 23 42 / 0.28);
+    background: rgb(15 23 42 / 0.48);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }

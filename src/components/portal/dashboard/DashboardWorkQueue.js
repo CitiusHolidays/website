@@ -134,13 +134,31 @@ export function DashboardUpcomingDepartures({ departures, dateRange, hasJobCards
   );
 }
 
-export function DashboardWorkQueuesSummary({ rows }) {
+export function DashboardWorkQueuesSummary({ rows, variant = "full" }) {
   const visibleRows = rows || [];
-
-  return (
-    <DashboardPanel title="Work queues">
-      <SelectableDataTable
-        columns={[
+  const columns =
+    variant === "rail"
+      ? [
+          {
+            id: "queue",
+            kind: "identity",
+            label: "Queue",
+            render: (row) => (
+              <Link className="font-semibold text-citius-blue hover:underline" href={row.href}>
+                {row.label}
+              </Link>
+            ),
+            sortValue: (row) => row.label,
+          },
+          {
+            align: "right",
+            id: "pending",
+            label: "Pending",
+            render: (row) => row.value ?? 0,
+            sortValue: (row) => row.value,
+          },
+        ]
+      : [
           {
             id: "queue",
             kind: "identity",
@@ -173,11 +191,17 @@ export function DashboardWorkQueuesSummary({ rows }) {
             render: (row) => row.owner,
             sortValue: (row) => row.owner,
           },
-        ]}
+        ];
+
+  return (
+    <DashboardPanel title="Work queues">
+      <SelectableDataTable
+        columns={columns}
         compact
         empty="No open work queues for this period."
         rowAttention={workQueueRowAttention}
         rows={visibleRows.slice(0, 5).map((row) => ({ ...row, id: row.label }))}
+        scrollHints={variant !== "rail"}
       />
     </DashboardPanel>
   );

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { AriaAttributes, ChangeEvent, Key, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { HoldToDeleteButton } from "@/components/motion-ui/hold-to-delete";
 import { SkeletonMobileCards, SkeletonTable } from "@/components/motion-ui/skeleton";
 import { usePortalFilterActions } from "@/components/portal/portalFilterActionsState";
 import { ResponsiveDataCards } from "@/components/portal/ResponsiveDataCards";
@@ -57,6 +58,7 @@ interface SelectableDataTableProps<Row extends PortalDataRow> {
   rowLabel?: (row: Row) => string;
   rows?: readonly Row[];
   rowTone?: (row: Row) => PortalRowTone | undefined;
+  scrollHints?: boolean;
   selectable?: boolean;
   tableClassName?: string;
 }
@@ -180,9 +182,11 @@ function LoadMoreButton({
 function TableHorizontalScrollContainer({
   children,
   contentKey,
+  scrollHints = true,
 }: {
   children: ReactNode;
   contentKey: string;
+  scrollHints?: boolean;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollState, setScrollState] = useState({
@@ -235,7 +239,7 @@ function TableHorizontalScrollContainer({
 
   return (
     <div className="relative hidden md:block">
-      {scrollState.overflow && scrollState.canScrollLeft ? (
+      {scrollHints && scrollState.overflow && scrollState.canScrollLeft ? (
         <>
           <div
             aria-hidden
@@ -251,7 +255,7 @@ function TableHorizontalScrollContainer({
           </button>
         </>
       ) : null}
-      {scrollState.overflow && scrollState.canScrollRight ? (
+      {scrollHints && scrollState.overflow && scrollState.canScrollRight ? (
         <>
           <div
             aria-hidden
@@ -394,37 +398,10 @@ function BulkActionBar({
 }: {
   entityLabel: string;
   onClear: () => void;
-  onDeleteSelected: () => void;
+  onDeleteSelected: () => boolean | Promise<boolean | undefined> | undefined;
   selectedCount: number;
 }) {
-  const [holdProgress, setHoldProgress] = useState(0);
-  const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const holdStartRef = useRef(0);
-  const HOLD_MS = 2000;
-
-  const clearHold = () => {
-    if (holdTimerRef.current) {
-      clearInterval(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-    setHoldProgress(0);
-  };
-
-  const startHold = () => {
-    clearHold();
-    holdStartRef.current = Date.now();
-    holdTimerRef.current = setInterval(() => {
-      const elapsed = Date.now() - holdStartRef.current;
-      const next = Math.min(1, elapsed / HOLD_MS);
-      setHoldProgress(next);
-      if (next >= 1) {
-        clearHold();
-        void onDeleteSelected();
-      }
-    }, 32);
-  };
-
-  useEffect(() => () => clearHold(), []);
+  const [holdKey, setHoldKey] = useState(0);
 
   if (selectedCount === 0) {
     return null;
@@ -444,26 +421,21 @@ function BulkActionBar({
         <button className="portal-small-btn" onClick={onClear} type="button">
           Clear
         </button>
-        <button
-          className="portal-danger-btn relative overflow-hidden"
+        <HoldToDeleteButton
+          className="min-h-8 px-3.5 text-xs"
           data-testid="portal-bulk-delete-hold"
-          onMouseDown={startHold}
-          onMouseLeave={clearHold}
-          onMouseUp={clearHold}
-          onPointerCancel={clearHold}
-          onPointerDown={startHold}
-          onPointerLeave={clearHold}
-          onPointerUp={clearHold}
-          style={
-            holdProgress > 0
-              ? { clipPath: `inset(0 ${Math.round((1 - holdProgress) * 100)}% 0 0)` }
-              : undefined
-          }
-          type="button"
+          key={holdKey}
+          onConfirm={() => {
+            void Promise.resolve(onDeleteSelected()).then((ok) => {
+              if (ok === false) {
+                setHoldKey((current) => current + 1);
+              }
+            });
+          }}
         >
           <Trash2 size={13} />
-          {holdProgress > 0 ? "Keep holding…" : "Hold to delete selected"}
-        </button>
+          Hold to delete selected
+        </HoldToDeleteButton>
       </div>
     </div>
   );
@@ -487,6 +459,7 @@ export function SelectableDataTable<Row extends PortalDataRow>({
   canLoadMore = false,
   isLoadingMore = false,
   onLoadMore,
+  scrollHints = true,
 }: SelectableDataTableProps<Row>) {
   const { clearAllFilters } = usePortalFilterActions();
   const [sort, setSort] = useState<PortalSortState | null>(null);
@@ -543,13 +516,14 @@ export function SelectableDataTable<Row extends PortalDataRow>({
 
   const handleBulkDelete = async () => {
     if (!onBulkDelete || bulk.selectedCount === 0) {
-      return;
+      return false;
     }
     const ids = [...bulk.selectedIds];
     const ok = await onBulkDelete(ids);
     if (ok) {
       bulk.clearSelection();
     }
+    return ok;
   };
 
   const handleSortColumn = (columnId: string) => {
@@ -653,6 +627,7 @@ export function SelectableDataTable<Row extends PortalDataRow>({
       ) : null}
       <TableHorizontalScrollContainer
         contentKey={`${pageRows.length}:${visibleGridColumns.length}`}
+        scrollHints={scrollHints}
       >
         <table className={`min-w-full border-collapse ${tableClassName}`}>
           <thead className="bg-brand-light/80">
