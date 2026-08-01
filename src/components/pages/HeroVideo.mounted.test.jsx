@@ -56,10 +56,10 @@ describe("poster-first home hero", () => {
     expect(video.querySelectorAll("source")).toHaveLength(0);
 
     await act(async () => intersectionCallback([{ isIntersecting: true }]));
-    expect(video.querySelectorAll("source")).toHaveLength(4);
-    expect(video.querySelector('source[media="(max-width: 768px)"]').src).toContain(
-      "/hero-sm.webm"
-    );
+    expect(video.querySelectorAll("source")).toHaveLength(2);
+    expect(video.querySelector('source[media="(max-width: 768px)"]').src).toContain("/hero-sm.mp4");
+    expect(video.querySelector("source:not([media])").src).toContain("/hero.mp4");
+    expect(video.querySelectorAll('source[type="video/webm"]')).toHaveLength(0);
 
     await act(async () => root.unmount());
   });

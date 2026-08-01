@@ -80,9 +80,7 @@ export default function HeroVideo({ className }) {
     >
       {loadMedia ? (
         <>
-          <source media="(max-width: 768px)" src="/hero-sm.webm" type="video/webm" />
           <source media="(max-width: 768px)" src="/hero-sm.mp4" type="video/mp4" />
-          <source src="/hero.webm" type="video/webm" />
           <source src="/hero.mp4" type="video/mp4" />
         </>
       ) : null}

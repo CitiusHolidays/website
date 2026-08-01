@@ -19,11 +19,11 @@ describe("public asset reference smoke", () => {
         [
           {
             path: "src/components/pages/HeroVideo.js",
-            source: '<video poster="/gallery/hero-poster.webp"><source src="/hero.webm" /></video>',
+            source: '<video poster="/gallery/hero-poster.webp"><source src="/hero.mp4" /></video>',
           },
           { path: "src/lib/example.ts", source: 'fetch("/api/portal/files/query/1")' },
         ],
-        new Set(["/gallery/hero-poster.webp", "/hero.webm"])
+        new Set(["/gallery/hero-poster.webp", "/hero.mp4"])
       )
     ).toEqual([]);
   });
