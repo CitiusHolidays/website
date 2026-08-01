@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CircleCheck, FolderOpen, Map, Pencil, Send, UsersRound } from "lucide-react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { type OptionalAction, QueryRowActions } from "@/components/portal/QueryRowActions";
@@ -125,8 +126,23 @@ function QueryActions({
     canManageQueries,
     submittedToContractingAt: row.submittedToContractingAt,
   });
+  const commercialFilesAction = (
+    <button
+      className="portal-small-btn"
+      key="commercial-files"
+      onClick={() =>
+        openModal("commercialFiles", { entityId: String(row.id), entryPoint: "query" })
+      }
+      type="button"
+    >
+      <FolderOpen aria-hidden="true" size={14} />
+      <span>Files</span>
+    </button>
+  );
   if (!primaryActionKind) {
-    return null;
+    return (
+      <QueryRowActions label={row.queryCode ?? ""} overflowActions={[commercialFilesAction]} />
+    );
   }
   const statusAction = buildQueryStatusAction(row, has);
   const editAction = (
@@ -136,10 +152,11 @@ function QueryActions({
       onClick={() => openModal("query", queryModalEditInitial(row))}
       type="button"
     >
-      Edit query
+      <Pencil aria-hidden="true" size={14} />
+      <span>Edit query</span>
     </button>
   );
-  const filesAction = (
+  const referenceItineraryAction = (
     <button
       className="portal-small-btn"
       key="reference-itinerary"
@@ -148,7 +165,8 @@ function QueryActions({
       }
       type="button"
     >
-      Reference Itinerary
+      <Map aria-hidden="true" size={14} />
+      <span>Reference Itinerary</span>
     </button>
   );
   const statusButton = statusAction ? (
@@ -158,7 +176,8 @@ function QueryActions({
       onClick={() => openModal(statusAction.modal, statusAction.initial)}
       type="button"
     >
-      {statusAction.label}
+      <CircleCheck aria-hidden="true" size={14} />
+      <span>{statusAction.label}</span>
     </button>
   ) : null;
   const assignButton = canAssignTeams ? (
@@ -168,7 +187,8 @@ function QueryActions({
       onClick={() => openModal("assignQueryTeams", { queryId: String(row.id) })}
       type="button"
     >
-      {assignQueryTeamsButtonLabel(access)}
+      <UsersRound aria-hidden="true" size={14} />
+      <span>{assignQueryTeamsButtonLabel(access)}</span>
     </button>
   ) : null;
   const submitButton = (
@@ -178,7 +198,8 @@ function QueryActions({
       onClick={() => submitToContracting({ queryId: String(row.id) })}
       type="button"
     >
-      Submit to Contracting
+      <Send aria-hidden="true" size={14} />
+      <span>Submit to Contracting</span>
     </button>
   );
   let primaryAction: OptionalAction = statusButton;
@@ -187,23 +208,26 @@ function QueryActions({
   } else if (primaryActionKind === "assign") {
     primaryAction = assignButton;
   }
-  const overflowActions = canManageQueries
-    ? [
-        editAction,
-        filesAction,
-        primaryActionKind === "status" ? null : statusButton,
-        primaryActionKind === "assign" ? null : assignButton,
-        canDeleteQuery(access) ? (
-          <DeleteButton
-            key="delete"
-            label={row.queryCode}
-            onClick={() =>
-              deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) })
-            }
-          />
-        ) : null,
-      ]
-    : [];
+  const overflowActions = [
+    commercialFilesAction,
+    ...(canManageQueries
+      ? [
+          editAction,
+          referenceItineraryAction,
+          primaryActionKind === "status" ? null : statusButton,
+          primaryActionKind === "assign" ? null : assignButton,
+          canDeleteQuery(access) ? (
+            <DeleteButton
+              key="delete"
+              label={row.queryCode}
+              onClick={() =>
+                deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) })
+              }
+            />
+          ) : null,
+        ]
+      : []),
+  ];
 
   return (
     <QueryRowActions

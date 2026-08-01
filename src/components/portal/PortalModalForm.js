@@ -401,9 +401,7 @@ function FinalizedProposalPdfPanel({
         headers: { "Content-Type": file.type || "application/pdf" },
         method: "POST",
       });
-      if (!uploadRes.ok) {
-        nextUploadError = `Failed to upload ${file.name}.`;
-      } else {
+      if (uploadRes.ok) {
         const { storageId } = await uploadRes.json();
         await attachFinalizedPdf({
           fileName: file.name,
@@ -412,6 +410,8 @@ function FinalizedProposalPdfPanel({
           proposalId,
           storageId,
         });
+      } else {
+        nextUploadError = `Failed to upload ${file.name}.`;
       }
     } catch (err) {
       nextUploadError = err?.data || err?.message || "Upload failed.";

@@ -663,15 +663,32 @@ export const remove = mutation({
         "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can delete this proposal"
       );
     }
+    await ctx.runMutation(internal.crm.commercialFiles.markFilesDeletedForSource, {
+      sourceId: String(proposalId),
+      sourceType: "proposal",
+    });
+    const commercialFiles = await ctx.db
+      .query("commercialFiles")
+      .withIndex("by_source", (q) =>
+        q.eq("sourceType", "proposal").eq("sourceId", String(proposalId))
+      )
+      .collect();
+    const recoverableStorageIds = new Set(commercialFiles.map((file) => String(file.storageId)));
     const { storageIds } = await ctx.runMutation(
       internal.crm.proposalAttachments.deleteAllForProposal,
       { proposalId }
     );
-    if (proposal.finalizedPdfStorageId) {
+    if (
+      proposal.finalizedPdfStorageId &&
+      !recoverableStorageIds.has(String(proposal.finalizedPdfStorageId))
+    ) {
       storageIds.push(proposal.finalizedPdfStorageId);
     }
     await Promise.all(
       storageIds.map(async (storageId: Id<"_storage">) => {
+        if (recoverableStorageIds.has(String(storageId))) {
+          return;
+        }
         try {
           await ctx.storage.delete(storageId);
         } catch (err) {

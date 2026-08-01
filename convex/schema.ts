@@ -258,7 +258,9 @@ export default defineSchema({
     mimeType: v.optional(v.string()),
     storageId: v.optional(v.string()),
     url: v.optional(v.string()),
-  }).index("by_entity", ["entityType", "entityId"]),
+  })
+    .index("by_entity", ["entityType", "entityId"])
+    .index("by_storageId", ["storageId"]),
 
   bookingPaymentEvents: defineTable({
     bookingId: v.id("bookings"),
@@ -329,6 +331,68 @@ export default defineSchema({
     phone: v.optional(v.string()),
     updatedAt: v.number(),
   }).index("by_name", ["name"]),
+
+  commercialFiles: defineTable({
+    category: v.union(v.literal("workingFile"), v.literal("proposalDoc")),
+    createdAt: v.number(),
+    createdBy: v.string(),
+    deletedAt: v.optional(v.number()),
+    deletedBy: v.optional(v.string()),
+    fileName: v.string(),
+    fileSize: v.number(),
+    historySourceId: v.optional(v.string()),
+    jobCardId: v.optional(v.id("jobCards")),
+    lifecycle: v.union(v.literal("active"), v.literal("history"), v.literal("deleted")),
+    mimeType: v.string(),
+    note: v.optional(v.string()),
+    priorLifecycle: v.optional(v.union(v.literal("active"), v.literal("history"))),
+    proposalId: v.optional(v.id("proposals")),
+    purgeAfter: v.optional(v.number()),
+    queryId: v.optional(v.id("queries")),
+    restoredAt: v.optional(v.number()),
+    sourceCode: v.string(),
+    sourceId: v.string(),
+    sourceLabel: v.string(),
+    sourceType: v.union(v.literal("query"), v.literal("proposal"), v.literal("jobCard")),
+    storageId: v.id("_storage"),
+    teamArea: v.union(
+      v.literal("sales"),
+      v.literal("contracting"),
+      v.literal("ticketing"),
+      v.literal("accounts"),
+      v.literal("operations"),
+      v.literal("tourManager")
+    ),
+    updatedAt: v.number(),
+    uploaderTeam: v.string(),
+  })
+    .index("by_source", ["sourceType", "sourceId"])
+    .index("by_proposal_lifecycle", ["proposalId", "lifecycle"])
+    .index("by_purgeAfter", ["purgeAfter"])
+    .index("by_storageId", ["storageId"])
+    .index("by_createdAt", ["createdAt"]),
+
+  commercialFileUploadSessions: defineTable({
+    authUserId: v.string(),
+    category: v.union(v.literal("workingFile"), v.literal("proposalDoc")),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    sourceId: v.string(),
+    sourceType: v.union(v.literal("query"), v.literal("proposal"), v.literal("jobCard")),
+    storageId: v.optional(v.id("_storage")),
+    teamArea: v.union(
+      v.literal("sales"),
+      v.literal("contracting"),
+      v.literal("ticketing"),
+      v.literal("accounts"),
+      v.literal("operations"),
+      v.literal("tourManager")
+    ),
+    token: v.string(),
+    usedAt: v.optional(v.number()),
+  })
+    .index("by_token", ["token"])
+    .index("by_expiresAt", ["expiresAt"]),
 
   confirmedOffers: defineTable({
     airfarePerPax: v.number(),
@@ -768,7 +832,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_travellerId", ["travellerId"])
-    .index("by_passportNumberHash", ["passportNumberHash"]),
+    .index("by_passportNumberHash", ["passportNumberHash"])
+    .index("by_storageId", ["storageId"]),
 
   paymentTerms: defineTable({
     createdAt: v.number(),
@@ -843,7 +908,9 @@ export default defineSchema({
     mimeType: v.string(),
     proposalId: v.id("proposals"),
     storageId: v.id("_storage"),
-  }).index("by_proposalId", ["proposalId"]),
+  })
+    .index("by_proposalId", ["proposalId"])
+    .index("by_storageId", ["storageId"]),
 
   proposalQueryLinks: defineTable({
     createdAt: v.number(),
@@ -893,6 +960,7 @@ export default defineSchema({
     .index("by_queryId", ["queryId"])
     .index("by_createdBy", ["createdBy"])
     .index("by_status", ["status"])
+    .index("by_finalizedPdfStorageId", ["finalizedPdfStorageId"])
     .index("by_createdAt", ["createdAt"])
     .searchIndex("search_list", { searchField: "listSearchText" }),
 
@@ -973,7 +1041,8 @@ export default defineSchema({
     storageId: v.id("_storage"),
   })
     .index("by_queryId", ["queryId"])
-    .index("by_queryId_createdAt", ["queryId", "createdAt"]),
+    .index("by_queryId_createdAt", ["queryId", "createdAt"])
+    .index("by_storageId", ["storageId"]),
 
   roleDefinitions: defineTable({
     createdAt: v.number(),

@@ -145,7 +145,7 @@ export function EntityModalMediaFields({
               proposals.find((proposal) => proposal.id === form.proposalId)?.attachments || []
             }
             attachQueryFile={attachProposalFile}
-            canManage={has(P.MANAGE_PROPOSALS)}
+            canManage={false}
             entityId={form.proposalId}
             generateQueryUploadUrl={generateProposalUploadUrl}
             getQueryAttachmentUrl={getProposalAttachmentUrl}
@@ -160,7 +160,7 @@ export function EntityModalMediaFields({
         <div className="md:col-span-2">
           <FinalizedProposalPdfPanel
             attachFinalizedPdf={attachFinalizedPdf}
-            canSend={has(P.SEND_PROPOSALS) || has(P.MANAGE_PROPOSALS)}
+            canSend={false}
             finalizedPdf={
               proposals.find((proposal) => proposal.id === form.proposalId)?.finalizedPdf || null
             }

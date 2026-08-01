@@ -82,9 +82,9 @@ export function DashboardHero({ displayName, dateRange, generatedAt, ownedWorkSl
               <span className="rounded-full bg-citius-blue/10 px-2 py-0.5 font-semibold text-citius-blue text-xs tabular-nums">
                 {item.count}
               </span>
-              {item.oldestDays !== null ? (
+              {item.oldestDays === null ? null : (
                 <span className="text-brand-muted text-xs">oldest {item.oldestDays}d</span>
-              ) : null}
+              )}
             </Link>
           ))}
         </div>

@@ -3,7 +3,6 @@ import type { Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { query } from "../_generated/server";
 import {
-  type CommercialChainFile,
   dedupeCommercialChainFiles,
   mapProposalCommercialFiles,
   mapQueryCommercialFiles,
@@ -33,7 +32,7 @@ const commercialChainFileValidator = v.object({
 
 type EntryPoint = "query" | "proposal" | "jobCard";
 
-async function linkedQueriesForProposal(
+export async function linkedQueriesForProposal(
   ctx: QueryCtx,
   proposal: { _id: Id<"proposals">; queryId?: Id<"queries"> }
 ) {
@@ -53,7 +52,7 @@ async function linkedQueriesForProposal(
   );
 }
 
-async function proposalsForQuery(ctx: QueryCtx, queryId: Id<"queries">) {
+export async function proposalsForQuery(ctx: QueryCtx, queryId: Id<"queries">) {
   const proposalIds = new Set<Id<"proposals">>();
   const direct = await ctx.db
     .query("proposals")
@@ -71,71 +70,104 @@ async function proposalsForQuery(ctx: QueryCtx, queryId: Id<"queries">) {
   }
   return (
     await Promise.all(Array.from(proposalIds, (proposalId) => ctx.db.get(proposalId)))
-  ).filter((row): row is NonNullable<typeof row> => row != null);
+  ).filter((row): row is NonNullable<typeof row> => row !== null);
 }
 
-async function resolveCommercialChain(ctx: QueryCtx, entryPoint: EntryPoint, entityId: string) {
+export async function resolveCommercialChain(
+  ctx: QueryCtx,
+  entryPoint: EntryPoint,
+  entityId: string
+) {
   const queries = new Map<string, NonNullable<Awaited<ReturnType<typeof ctx.db.get<"queries">>>>>();
   const proposals = new Map<
     string,
     NonNullable<Awaited<ReturnType<typeof ctx.db.get<"proposals">>>>
   >();
+  const jobCards = new Map<
+    string,
+    NonNullable<Awaited<ReturnType<typeof ctx.db.get<"jobCards">>>>
+  >();
+
+  const addQuery = async (
+    queryRow: NonNullable<Awaited<ReturnType<typeof ctx.db.get<"queries">>>>
+  ) => {
+    queries.set(String(queryRow._id), queryRow);
+    for (const jobCard of await ctx.db
+      .query("jobCards")
+      .withIndex("by_queryId", (q) => q.eq("queryId", queryRow._id))
+      .collect()) {
+      jobCards.set(String(jobCard._id), jobCard);
+    }
+  };
+
+  const addProposal = async (
+    proposal: NonNullable<Awaited<ReturnType<typeof ctx.db.get<"proposals">>>>
+  ) => {
+    proposals.set(String(proposal._id), proposal);
+    await Promise.all(
+      (await linkedQueriesForProposal(ctx, proposal)).map((queryRow) => addQuery(queryRow))
+    );
+    for (const jobCard of await ctx.db
+      .query("jobCards")
+      .withIndex("by_proposalId", (q) => q.eq("proposalId", proposal._id))
+      .collect()) {
+      jobCards.set(String(jobCard._id), jobCard);
+    }
+  };
 
   if (entryPoint === "query") {
     const queryId = ctx.db.normalizeId("queries", entityId);
     if (!queryId) {
-      return { proposals, queries };
+      return { jobCards, proposals, queries };
     }
     const queryRow = await ctx.db.get(queryId);
     if (queryRow) {
-      queries.set(String(queryRow._id), queryRow);
-      for (const proposal of await proposalsForQuery(ctx, queryId)) {
-        proposals.set(String(proposal._id), proposal);
-      }
+      await addQuery(queryRow);
+      await Promise.all(
+        (await proposalsForQuery(ctx, queryId)).map((proposal) => addProposal(proposal))
+      );
     }
   }
 
   if (entryPoint === "proposal") {
     const proposalId = ctx.db.normalizeId("proposals", entityId);
     if (!proposalId) {
-      return { proposals, queries };
+      return { jobCards, proposals, queries };
     }
     const proposal = await ctx.db.get(proposalId);
     if (proposal) {
-      proposals.set(String(proposal._id), proposal);
-      for (const queryRow of await linkedQueriesForProposal(ctx, proposal)) {
-        queries.set(String(queryRow._id), queryRow);
-      }
+      await addProposal(proposal);
     }
   }
 
   if (entryPoint === "jobCard") {
     const jobCardId = ctx.db.normalizeId("jobCards", entityId);
     if (!jobCardId) {
-      return { proposals, queries };
+      return { jobCards, proposals, queries };
     }
     const jobCard = await ctx.db.get(jobCardId);
     if (!jobCard) {
-      return { proposals, queries };
+      return { jobCards, proposals, queries };
     }
+    jobCards.set(String(jobCard._id), jobCard);
     if (jobCard.queryId) {
       const queryRow = await ctx.db.get(jobCard.queryId);
       if (queryRow) {
-        queries.set(String(queryRow._id), queryRow);
-        for (const proposal of await proposalsForQuery(ctx, jobCard.queryId)) {
-          proposals.set(String(proposal._id), proposal);
-        }
+        await addQuery(queryRow);
+        await Promise.all(
+          (await proposalsForQuery(ctx, jobCard.queryId)).map((proposal) => addProposal(proposal))
+        );
       }
     }
     if (jobCard.proposalId) {
       const proposal = await ctx.db.get(jobCard.proposalId);
       if (proposal) {
-        proposals.set(String(proposal._id), proposal);
+        await addProposal(proposal);
       }
     }
   }
 
-  return { proposals, queries };
+  return { jobCards, proposals, queries };
 }
 
 async function loadQueryCommercialFiles(
@@ -178,13 +210,19 @@ export async function loadCommercialChainFilesForEntryPoint(
   entityId: string
 ) {
   const chain = await resolveCommercialChain(ctx, entryPoint, entityId);
-  const files: CommercialChainFile[] = [];
-  for (const queryRow of chain.queries.values()) {
-    files.push(...(await loadQueryCommercialFiles(ctx, queryRow, entryPoint, entityId)));
-  }
-  for (const proposal of chain.proposals.values()) {
-    files.push(...(await loadProposalCommercialFiles(ctx, proposal, entryPoint, entityId)));
-  }
+  const [queryFiles, proposalFiles] = await Promise.all([
+    Promise.all(
+      Array.from(chain.queries.values(), (queryRow) =>
+        loadQueryCommercialFiles(ctx, queryRow, entryPoint, entityId)
+      )
+    ),
+    Promise.all(
+      Array.from(chain.proposals.values(), (proposal) =>
+        loadProposalCommercialFiles(ctx, proposal, entryPoint, entityId)
+      )
+    ),
+  ]);
+  const files = [...queryFiles.flat(), ...proposalFiles.flat()];
   return dedupeCommercialChainFiles(files);
 }
 
@@ -225,17 +263,19 @@ export const listForEntryPoint = query({
       return [];
     }
 
-    const files: CommercialChainFile[] = [];
-    for (const queryRow of chain.queries.values()) {
-      files.push(
-        ...(await loadQueryCommercialFiles(ctx, queryRow, args.entryPoint, args.entityId))
-      );
-    }
-    for (const proposal of chain.proposals.values()) {
-      files.push(
-        ...(await loadProposalCommercialFiles(ctx, proposal, args.entryPoint, args.entityId))
-      );
-    }
+    const [queryFiles, proposalFiles] = await Promise.all([
+      Promise.all(
+        Array.from(chain.queries.values(), (queryRow) =>
+          loadQueryCommercialFiles(ctx, queryRow, args.entryPoint, args.entityId)
+        )
+      ),
+      Promise.all(
+        Array.from(chain.proposals.values(), (proposal) =>
+          loadProposalCommercialFiles(ctx, proposal, args.entryPoint, args.entityId)
+        )
+      ),
+    ]);
+    const files = [...queryFiles.flat(), ...proposalFiles.flat()];
     return dedupeCommercialChainFiles(files);
   },
   returns: v.array(commercialChainFileValidator),

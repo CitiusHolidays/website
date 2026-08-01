@@ -1,7 +1,7 @@
 "use client";
 
-import { m, type MotionProps, type MotionStyle, type MotionValue } from "motion/react";
-import { useEffect, useRef, type ReactNode, type RefObject } from "react";
+import { type MotionProps, type MotionStyle, type MotionValue, m } from "motion/react";
+import { type ReactNode, type RefObject, useEffect, useRef } from "react";
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -119,8 +119,7 @@ export function Backdrop({
   style,
   transition,
 }: BackdropProps) {
-  const mergedStyle: MotionStyle =
-    opacity !== undefined ? { ...style, opacity } : { ...style };
+  const mergedStyle: MotionStyle = opacity === undefined ? { ...style } : { ...style, opacity };
   const surfaceClass = `absolute inset-0 ${className ?? "bg-black"}`;
 
   if (label) {

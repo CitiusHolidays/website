@@ -39,10 +39,7 @@ function canManageProposalFiles(access: any) {
 }
 
 function canSendProposalFiles(access: any) {
-  return (
-    access?.allowed &&
-    (canManageProposalFiles(access) || access.permissions.includes(PERMISSIONS.SEND_PROPOSALS))
-  );
+  return canManageProposalFiles(access);
 }
 
 function isPdfMimeType(mimeType: string) {
@@ -91,51 +88,63 @@ export const attachFile = action({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    if (!canManageProposalFiles(access)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const normalizedProposalId = await ctx.runMutation(
+      internal.crm.proposalAttachments.resolveProposalId,
+      { proposalId: args.proposalId }
+    );
+    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
+      entityId: String(normalizedProposalId),
+      entryPoint: "proposal",
+      limit: 1,
+    });
+    const writableProposal = sourceResult.writableSources.find(
+      (source) => source.sourceType === "proposal" && source.id === String(normalizedProposalId)
+    );
+    if (!(writableProposal && writableProposal.teamAreas.includes("contracting"))) {
+      throw new ConvexError("FORBIDDEN");
+    }
     if (!isAllowedMimeType(args.mimeType)) {
-      try {
-        await ctx.storage.delete(args.storageId);
-      } catch {
-        // ignore cleanup errors
-      }
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
 
-    if (args.fileSize < 1 || args.fileSize > MAX_FILE_BYTES) {
-      try {
-        await ctx.storage.delete(args.storageId);
-      } catch {
-        // ignore cleanup errors
-      }
-      throw new ConvexError("Each file must be between 1 byte and 15 MB.");
-    }
-
-    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!canManageProposalFiles(access)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-
-    const [, normalizedProposalId, blob] = await Promise.all([
-      ctx.runQuery(api.crm.proposalAttachments.verifyProposalAccess, {
-        proposalId: args.proposalId,
-      }),
-      ctx.runMutation(internal.crm.proposalAttachments.resolveProposalId, {
-        proposalId: args.proposalId,
-      }),
-      ctx.storage.get(args.storageId),
-    ]);
+    const blob = await ctx.storage.get(args.storageId);
     if (!blob) {
       throw new ConvexError("Uploaded file not found in storage");
     }
+    const actualMimeType = blob.type?.trim() || args.mimeType.trim();
+    if (!isAllowedMimeType(actualMimeType)) {
+      throw new ConvexError(
+        "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
+      );
+    }
+    if (blob.size < 1 || blob.size > MAX_FILE_BYTES || blob.size !== args.fileSize) {
+      throw new ConvexError("Each file must be between 1 byte and 15 MB.");
+    }
 
-    await ctx.runMutation(internal.crm.proposalAttachments.saveAttachment, {
-      createdBy: access.authUserId || "unknown",
+    await ctx.runMutation(internal.crm.commercialFiles.createFile, {
+      accessAuthUserId: access.authUserId || "unknown",
+      accessEmail: access.email,
+      accessName: access.name,
+      accessPermissions: access.permissions,
+      accessRoles: access.roles,
+      accessStaffId: access.staffId ? String(access.staffId) : undefined,
+      category: "workingFile",
+      createdBy: access.authUserId || access.email || "unknown",
       fileName: args.fileName.trim() || "proposal attachment",
-      fileSize: args.fileSize,
-      mimeType: args.mimeType.trim() || "application/octet-stream",
-      proposalId: normalizedProposalId,
+      fileSize: blob.size,
+      mimeType: actualMimeType,
+      proposalId: String(normalizedProposalId),
+      sourceId: String(normalizedProposalId),
+      sourceType: "proposal",
       storageId: args.storageId,
+      teamArea: "contracting",
+      uploaderTeam: access.roles.join(", ") || "Contracting",
     });
 
     return { success: true };
@@ -230,20 +239,9 @@ export const removeAttachment = action({
       throw new ConvexError("Attachment not found");
     }
 
-    const { storageId } = await ctx.runMutation(
-      internal.crm.proposalAttachments.deleteAttachmentRecord,
-      {
-        attachmentId: record.id,
-      }
-    );
-
-    if (storageId) {
-      try {
-        await ctx.storage.delete(storageId);
-      } catch (err) {
-        console.error("Failed to delete proposal attachment from storage:", err);
-      }
-    }
+    await ctx.runMutation(api.crm.commercialFiles.deleteFile, {
+      fileId: `legacy-proposal:${String(record.id)}`,
+    });
 
     return { success: true };
   },
@@ -271,56 +269,60 @@ export const attachFinalizedPdf = action({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    if (!isPdfMimeType(args.mimeType)) {
-      try {
-        await ctx.storage.delete(args.storageId);
-      } catch {
-        // ignore cleanup errors
-      }
-      throw new ConvexError("Only PDF files can be uploaded as the finalized proposal.");
-    }
-
-    if (args.fileSize < 1 || args.fileSize > MAX_FILE_BYTES) {
-      try {
-        await ctx.storage.delete(args.storageId);
-      } catch {
-        // ignore cleanup errors
-      }
-      throw new ConvexError("The PDF must be between 1 byte and 15 MB.");
-    }
-
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     if (!canSendProposalFiles(access)) {
       throw new ConvexError("FORBIDDEN");
     }
+    const normalizedProposalId = await ctx.runMutation(
+      internal.crm.proposalAttachments.resolveProposalId,
+      { proposalId: args.proposalId }
+    );
+    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
+      entityId: String(normalizedProposalId),
+      entryPoint: "proposal",
+      limit: 1,
+    });
+    const writableProposal = sourceResult.writableSources.find(
+      (source) => source.sourceType === "proposal" && source.id === String(normalizedProposalId)
+    );
+    if (!(writableProposal && writableProposal.teamAreas.includes("contracting"))) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    if (!isPdfMimeType(args.mimeType)) {
+      throw new ConvexError("Only PDF files can be uploaded as the finalized proposal.");
+    }
 
-    const [, normalizedProposalId, blob] = await Promise.all([
-      ctx.runQuery(api.crm.proposalAttachments.verifyProposalAccess, {
-        proposalId: args.proposalId,
-      }),
-      ctx.runMutation(internal.crm.proposalAttachments.resolveProposalId, {
-        proposalId: args.proposalId,
-      }),
-      ctx.storage.get(args.storageId),
-    ]);
+    const blob = await ctx.storage.get(args.storageId);
     if (!blob) {
       throw new ConvexError("Uploaded file not found in storage");
     }
-
-    const { previousStorageId } = await ctx.runMutation(internal.crm.proposals.saveFinalizedPdf, {
-      fileName: args.fileName.trim() || "proposal.pdf",
-      proposalId: normalizedProposalId,
-      storageId: args.storageId,
-      uploadedBy: access.authUserId || "unknown",
-    });
-
-    if (previousStorageId) {
-      try {
-        await ctx.storage.delete(previousStorageId);
-      } catch (err) {
-        console.error("Failed to delete previous finalized proposal PDF:", err);
-      }
+    const actualMimeType = blob.type?.trim() || args.mimeType.trim();
+    if (!isPdfMimeType(actualMimeType)) {
+      throw new ConvexError("Only PDF files can be uploaded as the finalized proposal.");
     }
+    if (blob.size < 1 || blob.size > MAX_FILE_BYTES || blob.size !== args.fileSize) {
+      throw new ConvexError("The PDF must be between 1 byte and 15 MB.");
+    }
+
+    await ctx.runMutation(internal.crm.commercialFiles.createFile, {
+      accessAuthUserId: access.authUserId || "unknown",
+      accessEmail: access.email,
+      accessName: access.name,
+      accessPermissions: access.permissions,
+      accessRoles: access.roles,
+      accessStaffId: access.staffId ? String(access.staffId) : undefined,
+      category: "proposalDoc",
+      createdBy: access.authUserId || "unknown",
+      fileName: args.fileName.trim() || "proposal.pdf",
+      fileSize: blob.size,
+      mimeType: actualMimeType,
+      proposalId: String(normalizedProposalId),
+      sourceId: String(normalizedProposalId),
+      sourceType: "proposal",
+      storageId: args.storageId,
+      teamArea: "contracting",
+      uploaderTeam: access.roles.join(", ") || "Contracting",
+    });
 
     return { success: true };
   },
@@ -416,17 +418,9 @@ export const removeFinalizedPdf = action({
       { proposalId: args.proposalId }
     );
 
-    const { previousStorageId } = await ctx.runMutation(internal.crm.proposals.clearFinalizedPdf, {
-      proposalId: normalizedProposalId,
+    await ctx.runMutation(api.crm.commercialFiles.deleteCurrentProposalDoc, {
+      proposalId: String(normalizedProposalId),
     });
-
-    if (previousStorageId) {
-      try {
-        await ctx.storage.delete(previousStorageId);
-      } catch (err) {
-        console.error("Failed to delete finalized proposal PDF from storage:", err);
-      }
-    }
 
     return { success: true };
   },

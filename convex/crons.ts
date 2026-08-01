@@ -38,4 +38,11 @@ crons.interval(
   {}
 );
 
+crons.daily(
+  "purge expired commercial files",
+  { hourUTC: 4, minuteUTC: 15 },
+  internal.crm.commercialFiles.purgeExpired,
+  {}
+);
+
 export default crons;

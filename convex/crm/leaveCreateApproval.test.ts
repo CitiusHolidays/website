@@ -11,6 +11,9 @@ beforeAll(() => {
   mock.module("../_generated/api", () => ({
     internal: {
       crm: {
+        commercialFiles: {
+          markFilesDeletedForSource: "internal.crm.commercialFiles.markFilesDeletedForSource",
+        },
         jobCardDeletion: {
           continueApprovalCleanup: "internal.crm.jobCardDeletion.continueApprovalCleanup",
           continueJobCardCascade: "internal.crm.jobCardDeletion.continueJobCardCascade",

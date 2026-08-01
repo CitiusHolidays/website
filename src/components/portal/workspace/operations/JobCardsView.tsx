@@ -49,7 +49,10 @@ export function JobCardsView({
               <div className="flex items-center gap-2">
                 {strong(row.jobCode)}
                 {row.jobCode ? (
-                  <PortalCopyButton aria-label={`Copy job card ${row.jobCode}`} value={row.jobCode} />
+                  <PortalCopyButton
+                    aria-label={`Copy job card ${row.jobCode}`}
+                    value={row.jobCode}
+                  />
                 ) : null}
               </div>
             ),

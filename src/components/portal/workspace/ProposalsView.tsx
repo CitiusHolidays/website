@@ -57,12 +57,25 @@ function ProposalRowActions({
   row,
   sendProposalToSales,
 }: ProposalRowActionsProps) {
+  const filesButton = (
+    <button
+      className="portal-small-btn"
+      onClick={() =>
+        openModal("commercialFiles", { entityId: String(row.id), entryPoint: "proposal" })
+      }
+      type="button"
+    >
+      Files
+    </button>
+  );
+
   if (!canManage) {
-    return null;
+    return filesButton;
   }
 
   return (
     <div className="flex flex-wrap gap-2">
+      {filesButton}
       {row.status === "Draft" && (
         <button
           className="portal-small-btn"
@@ -126,20 +139,14 @@ function ProposalRowActions({
 }
 
 interface ProposalMobileCardProps {
-  canManage: boolean;
-  canManageDocuments: boolean;
   getFinalizedPdfUrl: ProposalsViewProps["getFinalizedPdfUrl"];
   getProposalAttachmentUrl: ProposalsViewProps["getProposalAttachmentUrl"];
-  openModal: ProposalsViewProps["openModal"];
   row: PortalProposalRow;
 }
 
 function ProposalMobileCard({
-  canManage,
-  canManageDocuments,
   getFinalizedPdfUrl,
   getProposalAttachmentUrl,
-  openModal,
   row,
 }: ProposalMobileCardProps) {
   const attention = getProposalAttention(row);
@@ -189,31 +196,17 @@ function ProposalMobileCard({
       </div>
       <div className="space-y-3 border-brand-border/70 border-t pt-3">
         <FinalizedProposalPdfSummary
-          canSend={canManageDocuments}
+          canSend={false}
           finalizedPdf={row.finalizedPdf}
           onDownload={() => openFinalizedProposalPdf(String(row.id), getFinalizedPdfUrl)}
-          onManage={() =>
-            openModal("proposalFinalizedPdf", {
-              proposalId: String(row.id),
-              queryCode: row.proposalCode,
-            })
-          }
         />
-        {canManage ? (
-          <QueryAttachmentSummary
-            attachmentCount={row.attachmentCount}
-            attachmentKind="proposal"
-            attachments={row.attachments || []}
-            canManage={canManage}
-            getQueryAttachmentUrl={getProposalAttachmentUrl}
-            onManage={() =>
-              openModal("proposalAttachments", {
-                proposalId: String(row.id),
-                queryCode: row.proposalCode,
-              })
-            }
-          />
-        ) : null}
+        <QueryAttachmentSummary
+          attachmentCount={row.attachmentCount}
+          attachmentKind="proposal"
+          attachments={row.attachments || []}
+          canManage={false}
+          getQueryAttachmentUrl={getProposalAttachmentUrl}
+        />
       </div>
     </div>
   );
@@ -229,9 +222,7 @@ export function ProposalsView({
   getProposalAttachmentUrl,
   getFinalizedPdfUrl,
 }: ProposalsViewProps) {
-  const canSendToClient = has(P.SEND_PROPOSALS);
   const canManage = has(P.MANAGE_PROPOSALS);
-  const canManageDocuments = canSendToClient || canManage;
 
   return (
     <SelectableDataTable<PortalProposalRow>
@@ -345,42 +336,26 @@ export function ProposalsView({
           label: "Proposal Doc",
           render: (row: PortalProposalRow) => (
             <FinalizedProposalPdfSummary
-              canSend={canManageDocuments}
+              canSend={false}
               finalizedPdf={row.finalizedPdf}
               onDownload={() => openFinalizedProposalPdf(String(row.id), getFinalizedPdfUrl)}
-              onManage={() =>
-                openModal("proposalFinalizedPdf", {
-                  proposalId: String(row.id),
-                  queryCode: row.proposalCode,
-                })
-              }
             />
           ),
         },
-        ...(canManage
-          ? [
-              {
-                hideable: true,
-                id: "working-files",
-                label: "Working Files",
-                render: (row: PortalProposalRow) => (
-                  <QueryAttachmentSummary
-                    attachmentCount={row.attachmentCount}
-                    attachmentKind="proposal"
-                    attachments={row.attachments || []}
-                    canManage={canManage}
-                    getQueryAttachmentUrl={getProposalAttachmentUrl}
-                    onManage={() =>
-                      openModal("proposalAttachments", {
-                        proposalId: String(row.id),
-                        queryCode: row.proposalCode,
-                      })
-                    }
-                  />
-                ),
-              },
-            ]
-          : []),
+        {
+          hideable: true,
+          id: "working-files",
+          label: "Working Files",
+          render: (row: PortalProposalRow) => (
+            <QueryAttachmentSummary
+              attachmentCount={row.attachmentCount}
+              attachmentKind="proposal"
+              attachments={row.attachments || []}
+              canManage={false}
+              getQueryAttachmentUrl={getProposalAttachmentUrl}
+            />
+          ),
+        },
         {
           id: "status",
           kind: "status",
@@ -423,11 +398,8 @@ export function ProposalsView({
       empty="No proposals yet."
       mobileCardRender={(row: PortalProposalRow) => (
         <ProposalMobileCard
-          canManage={canManage}
-          canManageDocuments={canManageDocuments}
           getFinalizedPdfUrl={getFinalizedPdfUrl}
           getProposalAttachmentUrl={getProposalAttachmentUrl}
-          openModal={openModal}
           row={row}
         />
       )}

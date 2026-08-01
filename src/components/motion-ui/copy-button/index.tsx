@@ -51,7 +51,7 @@ export function PortalCopyButton({
       onClick={() => void handleCopy()}
       type="button"
     >
-      {label ? <span className="tabular-nums text-brand-dark">{label}</span> : null}
+      {label ? <span className="text-brand-dark tabular-nums">{label}</span> : null}
       <m.span
         animate={{ opacity: 1, transform: "scale(1)" }}
         initial={false}

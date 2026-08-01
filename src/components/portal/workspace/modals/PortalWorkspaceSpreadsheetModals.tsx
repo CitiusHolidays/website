@@ -1,6 +1,7 @@
 "use client";
 
 import { TravelBatchEntityModalBridge } from "../TravelBatchEntityModalBridge";
+import { CommercialFilesModal } from "./CommercialFilesModal";
 import { FlightExportModal } from "./FlightExportModal";
 import { FlightImportModal } from "./FlightImportModal";
 import { PassengerExportModal } from "./PassengerExportModal";
@@ -21,6 +22,11 @@ export function PortalWorkspaceSpreadsheetModals({
 }) {
   return (
     <>
+      <CommercialFilesModal
+        close={workspace.closeModal}
+        form={workspace.form}
+        modal={workspace.modal}
+      />
       <TravelBatchEntityModalBridge
         key={travelBatchEntityModalKey(workspace.modal, workspace.form)}
         workspace={workspace}

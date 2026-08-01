@@ -3,7 +3,7 @@
   "convexAwareBuildCommand": "bunx convex deploy --cmd 'bun run build'",
   "requiredCiCommands": [
     "bun install --frozen-lockfile",
-    "bun test",
+    "bun run test",
     "bun run typecheck",
     "bunx convex codegen --typecheck enable",
     "bunx tsc --noEmit",

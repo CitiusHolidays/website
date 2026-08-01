@@ -1,7 +1,7 @@
 "use client";
 
 import { m } from "motion/react";
-import { type CSSProperties, type ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useMotionUITheme, useMotionUITransition } from "@/components/motion-ui/ui-theme";
 
 function cx(...parts: Array<string | false | null | undefined>): string {
@@ -54,7 +54,10 @@ export function SkeletonTable({ columnCount = 4, rowCount = 4 }: SkeletonTablePr
       role="progressbar"
     >
       <div className="grid gap-6 border-brand-border border-b bg-brand-light/80 px-4 py-3">
-        <div className="grid gap-6" style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}>
+        <div
+          className="grid gap-6"
+          style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}
+        >
           {Array.from({ length: columnCount }, (_, index) => (
             <Skeleton className="h-3" key={`header-${index}`} />
           ))}
@@ -79,7 +82,10 @@ export function SkeletonMobileCards({ count = 3 }: { count?: number }) {
   return (
     <div className="space-y-3 md:hidden">
       {Array.from({ length: count }, (_, index) => (
-        <div className="rounded-2xl border border-brand-border bg-white p-4" key={`mobile-${index}`}>
+        <div
+          className="rounded-2xl border border-brand-border bg-white p-4"
+          key={`mobile-${index}`}
+        >
           <Skeleton className="h-4 w-2/5" />
           <Skeleton className="mt-3 h-5 w-4/5" />
           <div className="mt-5 grid grid-cols-2 gap-3">

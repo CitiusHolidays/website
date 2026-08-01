@@ -33,7 +33,7 @@ function CollapsiblePanelBody({ open, children }) {
   return (
     <m.div
       animate={{ opacity: open ? 1 : 0 }}
-      className={`grid transition-[grid-template-rows] duration-200 ease-[var(--portal-ease-out)] motion-reduce-spatial ${
+      className={`motion-reduce-spatial grid transition-[grid-template-rows] duration-200 ease-[var(--portal-ease-out)] ${
         open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
       }`}
       initial={false}

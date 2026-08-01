@@ -34,6 +34,16 @@ export function JobCardRowActions({
   const { canManage, canManageTravelBatches, assignContracting, assignOps, assignTicketing } =
     visibility;
   const overflowActions = [
+    <button
+      className="portal-small-btn w-full"
+      key="commercial-files"
+      onClick={() =>
+        openModal("commercialFiles", { entityId: String(job.id), entryPoint: "jobCard" })
+      }
+      type="button"
+    >
+      Files
+    </button>,
     assignContracting ? (
       <button
         className="portal-small-btn w-full"

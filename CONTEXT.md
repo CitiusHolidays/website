@@ -32,6 +32,46 @@ _Avoid_: Mark client sent, allowing Sales review or downstream Job Card opening 
 The linked Query, Proposal, and Job Card that carry a travel opportunity from enquiry through confirmed operational work. Commercial files are visible throughout this chain without being copied, while passport, visa, expense, finance, and HR files retain their separate sensitive-access boundaries.
 _Avoid_: Duplicating files between linked records, inheriting sensitive-document access through a commercial link
 
+**Commercial Files**:
+The non-sensitive files attached to a Query, Proposal, or Job Card and shared through the linked Commercial Record Chain, including proposal working files and the Proposal Doc. They are visible read-only outside the owning team while remaining managed at their source.
+_Avoid_: Working files as a separate record, copying files between linked records, sharing passport, visa, expense, finance, or HR files through the commercial chain
+
+**Client**:
+The person or organization record that receives Citius travel service and carries primary contact details; a Client may be associated with one or more Travellers.
+_Avoid_: Treating the Client record as the Traveller, using a Job Card as an identity factor, sharing every Traveller's documents with every Client contact
+
+**Traveller**:
+An individual person travelling under a Job Card. Traveller is the canonical unit for operational records and for customer document intake, even when several Travellers share one Client or booking.
+_Avoid_: Passenger as a separate domain entity, one document scope for an entire Job Card, assuming the Query creator is the Traveller
+
+**Customer Document Intake**:
+The time-limited, customer-facing workflow through which one Traveller submits requested sensitive travel documents to the Citius CRM without receiving staff portal access.
+_Avoid_: Commercial Files upload, open public upload, granting a customer CRM credentials
+
+**Intake Link**:
+A short-lived, single-use capability that identifies one Traveller's requested Customer Document Intake and expires after completion or its security window.
+_Avoid_: Reusable customer login, a bearer URL that authorizes a whole Job Card, treating the link alone as proof of identity
+
+**Sensitive Travel Document**:
+A passport, visa, identity, or travel document submitted through Customer Document Intake and governed by its own encryption, access, retention, and audit boundaries rather than the Commercial Record Chain.
+_Avoid_: Commercial File, unencrypted attachment, inheriting access from a linked Query or Proposal
+
+**Source-owning team**:
+The team authorized to upload and delete Commercial Files on their source record; all other teams with chain access can read and download those files but cannot change them.
+_Avoid_: Uploader-only ownership, per-file ad hoc sharing, granting write access to every team that can view the chain
+
+**Team File Area**:
+The team-owned portion of a Commercial Files source, allowing multiple participating teams to manage their own non-sensitive files on the same Job Card while everyone with chain access can read them together.
+_Avoid_: One shared write bucket, assigning Job Card files only to the last uploader, exposing sensitive team documents through the commercial chain
+
+**Recoverable Deletion**:
+The state entered when a user explicitly deletes a Commercial File: it leaves normal views, remains restorable for 14 days, and is then permanently purged by the system.
+_Avoid_: Immediate hard delete, administrator-driven purge, treating replaced Proposal Docs as deleted files
+
+**Proposal Doc History**:
+The retained, private collection of previously active Proposal Docs that can be restored as the current document; a replacement creates history and is not itself a deletion.
+_Avoid_: Overwriting the only Proposal Doc, exposing every historical version to read-only teams, moving replacements directly to Recoverable Deletion
+
 **Budget per Person**:
 The traveller's pre-tax target price per person recorded on a Query. Opportunity value is the Budget per Person multiplied by the number of passengers.
 _Avoid_: Total trip budget in the per-person field, tax-inclusive budget

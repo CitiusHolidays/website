@@ -262,6 +262,18 @@ export function ContractingView({
               const statusAction = buildContractingSurfaceStatusAction(row, has);
               return (
                 <div className="flex gap-2">
+                  <button
+                    className="portal-small-btn"
+                    onClick={() =>
+                      openModal("commercialFiles", {
+                        entityId: String(row.id),
+                        entryPoint: "query",
+                      })
+                    }
+                    type="button"
+                  >
+                    Files
+                  </button>
                   {canAssign && (
                     <button
                       className="portal-small-btn"

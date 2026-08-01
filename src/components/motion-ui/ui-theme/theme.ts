@@ -13,12 +13,16 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 function deepMerge<T>(base: T, override: unknown): T {
   // Only plain-object-over-plain-object recurses; anything else (primitive,
   // array/easing tuple) replaces the base value wholesale.
-  if (!isPlainObject(base) || !isPlainObject(override)) return override as T;
+  if (!(isPlainObject(base) && isPlainObject(override))) {
+    return override as T;
+  }
 
   const result: Record<string, unknown> = { ...base };
   for (const key of Object.keys(override)) {
     const overrideValue = override[key];
-    if (overrideValue === undefined) continue;
+    if (overrideValue === undefined) {
+      continue;
+    }
     result[key] = deepMerge((base as Record<string, unknown>)[key], overrideValue);
   }
   return result as T;

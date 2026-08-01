@@ -162,9 +162,23 @@ export function AccountsJobCardView({
               const linkedJob = jobByQuery.get(String(row.id));
               if (linkedJob) {
                 return (
-                  <span className="font-semibold text-brand-muted text-xs">
-                    Linked to {linkedJob.jobCode}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-brand-muted text-xs">
+                      Linked to {linkedJob.jobCode}
+                    </span>
+                    <button
+                      className="portal-small-btn"
+                      onClick={() =>
+                        openModal("commercialFiles", {
+                          entityId: linkedJob.id,
+                          entryPoint: "jobCard",
+                        })
+                      }
+                      type="button"
+                    >
+                      Files
+                    </button>
+                  </div>
                 );
               }
               if (!canCreateJobCards) {

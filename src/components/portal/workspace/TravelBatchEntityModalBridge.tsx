@@ -97,7 +97,8 @@ export function TravelBatchEntityModalBridge({
       leaveBalances={workspace.leaveBalances}
       leaveHeadApproverCandidates={workspace.leaveHeadApproverCandidates}
       modal={
-        SPREADSHEET_MODALS.includes(workspace.modal as (typeof SPREADSHEET_MODALS)[number])
+        SPREADSHEET_MODALS.includes(workspace.modal as (typeof SPREADSHEET_MODALS)[number]) ||
+        workspace.modal === "commercialFiles"
           ? null
           : workspace.modal
       }

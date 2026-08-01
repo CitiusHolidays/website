@@ -94,6 +94,12 @@ export async function deleteJobCardCascade(
     startedAt: now,
     status: "running",
   });
+  // Materialize legacy files and mark every chain file recoverable while the
+  // Job Card still exists; the cascade removes the source record immediately.
+  await ctx.runMutation(internal.crm.commercialFiles.markFilesDeletedForSource, {
+    sourceId: String(jobCardId),
+    sourceType: "jobCard",
+  });
   await Promise.all([
     deleteEntityNotifications(ctx, "jobCard", jobCardId),
     ctx.db.delete(jobCardId),

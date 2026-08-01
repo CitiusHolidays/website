@@ -71,46 +71,49 @@ export const attachFile = action({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.MANAGE_QUERIES))) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const normalizedQueryId = await ctx.runMutation(internal.crm.queryAttachments.resolveQueryId, {
+      queryId: args.queryId,
+    });
+    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
+      entityId: String(normalizedQueryId),
+      entryPoint: "query",
+      limit: 1,
+    });
+    const writableQuery = sourceResult.writableSources.find(
+      (source) => source.sourceType === "query" && source.id === String(normalizedQueryId)
+    );
+    if (!writableQuery?.teamAreas.includes("sales")) {
+      throw new ConvexError("FORBIDDEN");
+    }
     if (!isAllowedMimeType(args.mimeType)) {
-      try {
-        await ctx.storage.delete(args.storageId);
-      } catch {
-        // ignore cleanup errors
-      }
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
 
-    if (args.fileSize < 1 || args.fileSize > MAX_FILE_BYTES) {
-      try {
-        await ctx.storage.delete(args.storageId);
-      } catch {
-        // ignore cleanup errors
-      }
-      throw new ConvexError("Each file must be between 1 byte and 15 MB.");
-    }
-
-    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!(access?.allowed && access.permissions.includes(PERMISSIONS.MANAGE_QUERIES))) {
-      throw new ConvexError("FORBIDDEN");
-    }
-
-    const [normalizedQueryId, blob] = await Promise.all([
-      ctx.runMutation(internal.crm.queryAttachments.resolveQueryId, {
-        queryId: args.queryId,
-      }),
-      ctx.storage.get(args.storageId),
-    ]);
+    const blob = await ctx.storage.get(args.storageId);
     if (!blob) {
       throw new ConvexError("Uploaded file not found in storage");
+    }
+    const actualMimeType = blob.type?.trim() || args.mimeType.trim();
+    if (!isAllowedMimeType(actualMimeType)) {
+      throw new ConvexError(
+        "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
+      );
+    }
+    if (blob.size < 1 || blob.size > MAX_FILE_BYTES || blob.size !== args.fileSize) {
+      throw new ConvexError("Each file must be between 1 byte and 15 MB.");
     }
 
     await ctx.runMutation(internal.crm.queryAttachments.saveAttachment, {
       createdBy: access.authUserId || "unknown",
       fileName: args.fileName.trim() || "attachment",
-      fileSize: args.fileSize,
-      mimeType: args.mimeType.trim() || "application/octet-stream",
+      fileSize: blob.size,
+      mimeType: actualMimeType,
       queryId: normalizedQueryId,
       storageId: args.storageId,
     });
@@ -205,20 +208,9 @@ export const removeAttachment = action({
       throw new ConvexError("Attachment not found");
     }
 
-    const { storageId } = await ctx.runMutation(
-      internal.crm.queryAttachments.deleteAttachmentRecord,
-      {
-        attachmentId: record.id,
-      }
-    );
-
-    if (storageId) {
-      try {
-        await ctx.storage.delete(storageId);
-      } catch (err) {
-        console.error("Failed to delete query attachment from storage:", err);
-      }
-    }
+    await ctx.runMutation(api.crm.commercialFiles.deleteFile, {
+      fileId: `legacy-query:${String(record.id)}`,
+    });
 
     return { success: true };
   },

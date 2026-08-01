@@ -79,6 +79,7 @@ function makeCtx(initialTables: Tables) {
         return query;
       },
     },
+    runMutation: async (_reference: unknown, _args: Record<string, unknown>) => undefined,
     scheduler: {
       runAfter: async (
         _delay: number,

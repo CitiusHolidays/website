@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
 import { MultiStateButton } from "@/components/motion-ui/multi-state-button";

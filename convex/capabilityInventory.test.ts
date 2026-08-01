@@ -14,7 +14,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "72c116f53665e269e4b083f3aaef24bdbd79407b93db299fd9eda8e2cc984006";
+const EXPECTED_CAPABILITY_HASH = "d0ea405b6b591464712c4f75b76dbd7d9385de185b7ad120dae2359612104e2a";
 const SOURCE_EXTENSION = /\.(?:js|ts)$/;
 const NON_SOURCE_FILE = /(?:\.test|\.config)\.[jt]s$/;
 const MODULE_EXTENSION = /\.[jt]s$/;

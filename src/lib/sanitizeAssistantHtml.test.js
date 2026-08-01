@@ -13,8 +13,8 @@ beforeAll(() => {
 
 afterAll(() => {
   dom.window.close();
-  delete globalThis.window;
-  delete globalThis.document;
+  globalThis.window = undefined;
+  globalThis.document = undefined;
 });
 
 describe("sanitizeAssistantHtml", () => {
