@@ -490,6 +490,13 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_key", ["key"]),
 
+  crmMetricPublications: defineTable({
+    generation: v.number(),
+    key: v.string(),
+    metricVersion: v.number(),
+    publishedAt: v.number(),
+  }).index("by_key", ["key"]),
+
   crmMetricReadinessSourceCompletions: defineTable({
     completedAt: v.number(),
     generation: v.number(),
@@ -713,7 +720,7 @@ export default defineSchema({
     completedAt: v.optional(v.number()),
     kind: v.union(v.literal("traveller"), v.literal("approval")),
     operationId: v.id("jobCardDeletionOperations"),
-    status: v.union(v.literal("running"), v.literal("complete")),
+    status: v.union(v.literal("pending"), v.literal("running"), v.literal("complete")),
     workerKey: v.string(),
   })
     .index("by_operation_status", ["operationId", "status"])
@@ -1453,6 +1460,7 @@ export default defineSchema({
     authUserId: v.string(),
     createdAt: v.number(),
     email: v.string(),
+    emailNormalized: v.optional(v.string()),
     image: v.optional(v.string()),
     legacyUserId: v.optional(v.string()),
     name: v.string(),
@@ -1462,7 +1470,8 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_authUserId", ["authUserId"])
-    .index("by_email", ["email"]),
+    .index("by_email", ["email"])
+    .index("by_emailNormalized", ["emailNormalized"]),
 
   vendors: defineTable({
     contact: v.optional(v.string()),

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   continueApprovalCleanup,
   continueJobCardCascade,
+  continueTravellerWorkerQueue,
 } from "../../../convex/crm/jobCardDeletion";
 import { deleteJobCardCascade } from "../../../convex/crm/lib";
 import { deleteNotificationPage } from "../../../convex/crm/notificationCleanup";
@@ -17,6 +18,15 @@ function makeCtx(initialTables: Tables) {
   const deletedStorageIds: string[] = [];
   const takeCalls: Array<{ count: number; tableName: string }> = [];
   let insertedId = 0;
+  let maxRunningTravellerWorkers = 0;
+  const recordWorkerConcurrency = () => {
+    maxRunningTravellerWorkers = Math.max(
+      maxRunningTravellerWorkers,
+      (tables.jobCardDeletionWorkers ?? []).filter(
+        (worker) => worker.kind === "traveller" && worker.status === "running"
+      ).length
+    );
+  };
 
   const ctx = {
     db: {
@@ -38,6 +48,7 @@ function makeCtx(initialTables: Tables) {
         insertedId += 1;
         const id = `${tableName}_${insertedId}`;
         tables[tableName] = [...(tables[tableName] ?? []), { _id: id, ...value }];
+        recordWorkerConcurrency();
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
@@ -45,6 +56,7 @@ function makeCtx(initialTables: Tables) {
         for (const [table, rows] of Object.entries(tables)) {
           tables[table] = rows.map((row) => (row._id === id ? { ...row, ...value } : row));
         }
+        recordWorkerConcurrency();
       },
       query(tableName: string) {
         let rows = tables[tableName] ?? [];
@@ -110,6 +122,10 @@ function makeCtx(initialTables: Tables) {
           await (continueApprovalCleanup as any)._handler(ctx, args);
           return;
         }
+        if (args.operationId && !args.entityId && !args.identities) {
+          await (continueTravellerWorkerQueue as any)._handler(ctx, args);
+          return;
+        }
         const identities =
           args.identities ??
           (args.entityId && args.entityType
@@ -129,7 +145,13 @@ function makeCtx(initialTables: Tables) {
     },
   };
 
-  return { ctx, deletedStorageIds, tables, takeCalls };
+  return {
+    ctx,
+    deletedStorageIds,
+    getMaxRunningTravellerWorkers: () => maxRunningTravellerWorkers,
+    tables,
+    takeCalls,
+  };
 }
 
 describe("deleteJobCardCascade", () => {
@@ -283,7 +305,7 @@ describe("deleteJobCardCascade", () => {
       _id: `traveller_${index}`,
       jobCardId,
     }));
-    const { ctx, tables, deletedStorageIds } = makeCtx({
+    const { ctx, tables, deletedStorageIds, getMaxRunningTravellerWorkers } = makeCtx({
       jobCardDeletionOperations: [],
       jobCardDeletionWorkers: [],
       jobCards: [{ _id: jobCardId }],
@@ -313,6 +335,7 @@ describe("deleteJobCardCascade", () => {
     expect(tables.jobCardDeletionWorkers.every((worker) => worker.status === "complete")).toBe(
       true
     );
+    expect(getMaxRunningTravellerWorkers()).toBeLessThanOrEqual(1);
     expect(tables.jobCardDeletionOperations[0]).toEqual(
       expect.objectContaining({ deletedCount: 105, stage: "complete", status: "complete" })
     );

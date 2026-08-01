@@ -9,5 +9,7 @@ const portalLayoutSource = readFileSync(
 
 test("syncs the signed-in identity from the authenticated portal request, not the stale client token", () => {
   expect(loginSource).not.toContain("syncMyAuthIdentity");
-  expect(portalLayoutSource).toContain("fetchAuthMutation(anyApi.authSync.syncMyAuthIdentity, {})");
+  expect(portalLayoutSource).toContain(
+    "fetchAuthMutation(anyApi.authSync.syncMyAuthIdentity, {}, authOptions)"
+  );
 });

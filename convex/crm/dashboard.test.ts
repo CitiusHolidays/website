@@ -5,6 +5,8 @@ import {
   buildPipelineSnapshot,
   buildTicketAttentionQueue,
   buildUrgentActions,
+  getPortalDashboardCapacity,
+  getPortalDashboardActivity,
   getPortalSummary,
   groupByJobCardId,
 } from "./dashboard";
@@ -291,6 +293,8 @@ describe("getPortalSummary", () => {
     );
     const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
 
+    expect(activityTakeCalls).toEqual([]);
+    await getPortalDashboardActivity._handler(ctx as any, { dateRange: null });
     expect(activityTakeCalls).toEqual([8]);
     expect(Date.parse(summary.generatedAt)).not.toBeNaN();
     expect(summary.metrics.activeQueries).toBe(1);
@@ -336,6 +340,15 @@ describe("getPortalSummary", () => {
           },
         },
       ],
+      crmMetricPublications: [
+        {
+          _id: "metric_publication",
+          generation: 1,
+          key: "global",
+          metricVersion: 2,
+          publishedAt: Date.UTC(2026, 1, 1),
+        },
+      ],
       crmMetricReadiness: [
         {
           _id: "metric_readiness",
@@ -364,6 +377,11 @@ describe("getPortalSummary", () => {
     expect(summary.metrics.activeQueries).toBe(320);
     expect(summary.queriesByType.find((row) => row.type === "MICE")?.count).toBe(320);
     expect(takeCalls).toContainEqual({ limit: 240, table: "queries" });
+    expect(takeCalls).not.toContainEqual({ limit: 240, table: "proposals" });
+    expect(takeCalls).not.toContainEqual({ limit: 240, table: "travellers" });
+    expect(takeCalls).not.toContainEqual({ limit: 240, table: "visaRecords" });
+    expect(takeCalls).not.toContainEqual({ limit: 240, table: "staffUsers" });
+    expect(takeCalls).not.toContainEqual({ limit: 8, table: "activityLogs" });
     expect(summary.aggregateCoverage).toMatchObject({ complete: true, detailRowLimit: 240 });
   });
 
@@ -414,6 +432,57 @@ describe("getPortalSummary", () => {
     const summary = await getPortalSummary._handler(ctx as any, { dateRange: null });
     expect(summary.aggregateCoverage.complete).toBe(false);
     expect(summary.metrics.activeQueries).toBe(240);
+  });
+});
+
+describe("getPortalDashboardCapacity", () => {
+  test("bounds people reads and excludes non-Cement work from Cement capacity", async () => {
+    const { takeCalls, ...ctx } = makeCtx(
+      {
+        jobCards: [],
+        queries: [
+          {
+            _id: "query_cement",
+            createdAt: 2,
+            createdBy: "auth_1",
+            queryType: "Cement",
+            salesOwnerId: "staff_1",
+            salesStatus: "Proposal in discussion",
+          },
+          {
+            _id: "query_mice",
+            createdAt: 1,
+            createdBy: "auth_1",
+            queryType: "MICE",
+            salesOwnerId: "staff_1",
+            salesStatus: "Proposal in discussion",
+          },
+        ],
+      },
+      ["Sales Cement"]
+    );
+
+    const result = await getPortalDashboardCapacity._handler(ctx as any, { dateRange: null });
+
+    expect(result.capacity).toEqual([
+      {
+        averageLoad: 1,
+        load: 1,
+        role: "Sales Cement",
+        severity: "normal",
+        staffCount: 1,
+      },
+    ]);
+    expect(result.myTeam).toEqual([
+      expect.objectContaining({ id: "staff_1", name: "Admin User" }),
+    ]);
+    expect(takeCalls).toEqual(
+      expect.arrayContaining([
+        { limit: 240, table: "queries" },
+        { limit: 240, table: "jobCards" },
+        { limit: 240, table: "staffUsers" },
+      ])
+    );
   });
 });
 

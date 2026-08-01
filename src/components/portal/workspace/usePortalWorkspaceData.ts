@@ -121,27 +121,40 @@ export function usePortalWorkspaceData({
     dependencies.has(dependency);
   const normalizedSearch = search.trim();
   const [referenceNow] = useState(() => Date.now());
-  const searchReadiness = useQuery(
-    api.crm.listSearch.getReadiness,
-    canFetch ? { referenceNow } : "skip"
-  );
   const isQueryListView = ["accounts-job-cards", "contracting", "pipeline", "queries"].includes(
     view
   );
   const isJobCardSearchView = view === "job-cards";
   const isProposalSearchView = view === "proposals";
   const isTravellerSearchView = ["hotels", "passport", "travellers"].includes(view);
+  const isSearchableListView =
+    isQueryListView || isJobCardSearchView || isProposalSearchView || isTravellerSearchView;
+  const shouldLoadSearchReadiness = Boolean(
+    canFetch && normalizedSearch && isSearchableListView
+  );
+  const searchReadiness = useQuery(
+    api.crm.listSearch.getReadiness,
+    shouldLoadSearchReadiness ? { referenceNow } : "skip"
+  );
   const querySearchPreparing = Boolean(
-    normalizedSearch && isQueryListView && searchReadiness?.tables.queries !== true
+    shouldLoadSearchReadiness &&
+      isQueryListView &&
+      searchReadiness?.tables.queries !== true
   );
   const jobCardSearchPreparing = Boolean(
-    normalizedSearch && isJobCardSearchView && searchReadiness?.tables.jobCards !== true
+    shouldLoadSearchReadiness &&
+      isJobCardSearchView &&
+      searchReadiness?.tables.jobCards !== true
   );
   const proposalSearchPreparing = Boolean(
-    normalizedSearch && isProposalSearchView && searchReadiness?.tables.proposals !== true
+    shouldLoadSearchReadiness &&
+      isProposalSearchView &&
+      searchReadiness?.tables.proposals !== true
   );
   const travellerSearchPreparing = Boolean(
-    normalizedSearch && isTravellerSearchView && searchReadiness?.tables.travellers !== true
+    shouldLoadSearchReadiness &&
+      isTravellerSearchView &&
+      searchReadiness?.tables.travellers !== true
   );
   const searchPreparing =
     querySearchPreparing ||
@@ -573,7 +586,7 @@ export function usePortalWorkspaceData({
   const leaveBalances = useQuery(api.crm.leave.balances, leaveBalanceArgs ?? "skip");
   const notifications = useQuery(
     api.crm.activity.listNotifications,
-    canFetch ? { limit: 80 } : "skip"
+    canFetch && needs("activity") ? { limit: 80 } : "skip"
   );
   const dropdowns = useQuery(
     api.crm.settings.listDropdowns,

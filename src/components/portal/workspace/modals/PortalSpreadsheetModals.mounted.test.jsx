@@ -3,6 +3,7 @@ import { JSDOM } from "jsdom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
+import { PortalWorkspaceSpreadsheetModals } from "./PortalWorkspaceSpreadsheetModals";
 import { FlightExportModal } from "./FlightExportModal";
 import { FlightImportModal } from "./FlightImportModal";
 import { PassengerExportModal } from "./PassengerExportModal";
@@ -31,6 +32,35 @@ const returnImportResult = async () => ({ created: 0, updated: 0 });
 const returnFlightImportResult = async () => ({ createdSegments: 0, updatedSegments: 0 });
 
 describe("mounted spreadsheet modal loading boundary", () => {
+  test("keeps inactive spreadsheet modal host free of dialogs on the dashboard path", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    await act(async () =>
+      root.render(
+        <PortalToastProvider>
+          <PortalWorkspaceSpreadsheetModals
+            workspace={{
+              closeModal: doNothing,
+              commitFlightImport: returnFlightImportResult,
+              commitPassengerImport: returnImportResult,
+              flightItinerary: undefined,
+              form: {},
+              getPassengerExportRows: returnEmptyExport,
+              jobCards: undefined,
+              modal: null,
+              previewPassengerImport: returnEmptyPreview,
+            }}
+          />
+        </PortalToastProvider>
+      )
+    );
+
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+
+    await act(async () => root.unmount());
+  });
+
   test("keeps every closed spreadsheet dialog safe before job cards load", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);

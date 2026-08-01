@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import PortalShell from "@/components/portal/PortalShell";
 import PortalMotionThemeProvider from "@/components/providers/PortalMotionThemeProvider";
 import ReducedMotionProvider from "@/components/providers/ReducedMotionProvider";
-import { fetchAuthMutation, fetchAuthQuery, requireAuth } from "@/lib/auth-server";
+import { fetchAuthMutation, fetchAuthQuery, getToken, requireAuth } from "@/lib/auth-server";
 
 // Portal auth, role permissions, CRM identity, saved views, and notifications
 // resolve from request headers on every request and must stay outside use cache.
@@ -15,9 +15,11 @@ export const metadata = {
 };
 
 export default async function PortalLayout({ children }) {
-  const { user } = await requireAuth("/portal");
-  await fetchAuthMutation(anyApi.authSync.syncMyAuthIdentity, {});
-  const access = await fetchAuthQuery(anyApi.crm.staff.getMyPortalAccess, {});
+  const token = await getToken();
+  const authOptions = { token };
+  const { user } = await requireAuth("/portal", authOptions);
+  await fetchAuthMutation(anyApi.authSync.syncMyAuthIdentity, {}, authOptions);
+  const access = await fetchAuthQuery(anyApi.crm.staff.getMyPortalAccess, {}, authOptions);
 
   if (!access?.allowed) {
     redirect("/account?portal=unauthorized");

@@ -26,8 +26,23 @@ async function findProfileByAuthUserId(ctx: MutationCtx, authUserId: string) {
 }
 
 async function findProfilesByEmail(ctx: MutationCtx, emailNormalized: string) {
-  const profiles = await ctx.db.query("userProfiles").collect();
-  return profiles.filter((profile) => normalizeEmail(profile.email) === emailNormalized);
+  const [indexedProfiles, legacyProfiles] = await Promise.all([
+    ctx.db
+      .query("userProfiles")
+      .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
+      .collect(),
+    ctx.db
+      .query("userProfiles")
+      .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", undefined))
+      .collect(),
+  ]);
+  const matchingLegacyProfiles = legacyProfiles.filter(
+    (profile) => normalizeEmail(profile.email) === emailNormalized
+  );
+  await Promise.all(
+    matchingLegacyProfiles.map((profile) => ctx.db.patch(profile._id, { emailNormalized }))
+  );
+  return [...indexedProfiles, ...matchingLegacyProfiles];
 }
 
 function pickProfileName(preferred: string | undefined, existing: Doc<"userProfiles"> | undefined) {
@@ -72,6 +87,9 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
     if (email && normalizeEmail(profileByAuth.email) !== emailNormalized) {
       patch.email = email;
     }
+    if (emailNormalized && profileByAuth.emailNormalized !== emailNormalized) {
+      patch.emailNormalized = emailNormalized;
+    }
     const nextName = pickProfileName(input.name, profileByAuth);
     if (nextName !== profileByAuth.name) {
       patch.name = nextName;
@@ -97,6 +115,7 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
     await ctx.db.patch(orphanedProfile._id, {
       authUserId,
       email: email || orphanedProfile.email,
+      emailNormalized,
       image: getIdentityImage(input.image) || orphanedProfile.image || "",
       name: pickProfileName(input.name, orphanedProfile),
       updatedAt: now,
@@ -119,6 +138,7 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
     authUserId,
     createdAt: now,
     email,
+    emailNormalized,
     image: getIdentityImage(input.image),
     name: pickProfileName(input.name, undefined),
     passportDetailsEncrypted: "",

@@ -28,6 +28,8 @@ let currentUser = salesUser;
 let currentAccess = salesAccess;
 let requireAuthRedirect = null;
 const redirectUrls = [];
+let tokenAcquisitions = 0;
+const authOptions = [];
 
 mock.module("next/navigation", () => ({
   redirect: (url) => {
@@ -37,9 +39,19 @@ mock.module("next/navigation", () => ({
 }));
 
 mock.module("@/lib/auth-server", () => ({
-  fetchAuthMutation: async () => {},
-  fetchAuthQuery: async () => currentAccess,
-  requireAuth: async () => {
+  fetchAuthMutation: async (_mutation, _args, options) => {
+    authOptions.push(options);
+  },
+  fetchAuthQuery: async (_query, _args, options) => {
+    authOptions.push(options);
+    return currentAccess;
+  },
+  getToken: async () => {
+    tokenAcquisitions += 1;
+    return "request-token";
+  },
+  requireAuth: async (_callbackUrl, options) => {
+    authOptions.push(options);
     if (requireAuthRedirect) {
       throw new Error(`NEXT_REDIRECT:${requireAuthRedirect}`);
     }
@@ -66,6 +78,8 @@ beforeEach(() => {
   currentAccess = salesAccess;
   requireAuthRedirect = null;
   redirectUrls.length = 0;
+  tokenAcquisitions = 0;
+  authOptions.length = 0;
 });
 
 async function getRenderedShellProps() {
@@ -74,6 +88,17 @@ async function getRenderedShellProps() {
 }
 
 describe("portal layout guard", () => {
+  test("acquires one token and reuses it for every portal bootstrap call", async () => {
+    await getRenderedShellProps();
+
+    expect(tokenAcquisitions).toBe(1);
+    expect(authOptions).toEqual([
+      { token: "request-token" },
+      { token: "request-token" },
+      { token: "request-token" },
+    ]);
+  });
+
   test("evaluates Sales and Operations portal access separately per request", async () => {
     const salesShellProps = await getRenderedShellProps();
     expect(salesShellProps.user.id).toBe("auth_sales");

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { getPortalSummary } from "./dashboard";
+import { getPortalDashboardActivity, getPortalSummary } from "./dashboard";
 import { publicJobCard, publicQuery } from "./lib";
 import {
   jobCardCommandCenterResultValidator,
@@ -365,6 +365,15 @@ describe("dashboard return contracts", () => {
           },
         },
       ],
+      crmMetricPublications: [
+        {
+          _id: "crmMetricPublications_1",
+          generation: 1,
+          key: "global",
+          metricVersion: 2,
+          publishedAt: Date.parse(ISO),
+        },
+      ],
       crmMetricReadiness: [
         {
           _id: "crmMetricReadiness_1",
@@ -440,7 +449,11 @@ describe("dashboard return contracts", () => {
     });
     assertMatchesReturnContract(portalSummaryResultValidator, aggregateSummary);
     expect(aggregateSummary.aggregateCoverage.complete).toBe(true);
-    expect(aggregateSummary.recentActivity).toHaveLength(1);
+    expect(aggregateSummary.recentActivity).toEqual([]);
+    const recentActivity = await getPortalDashboardActivity._handler(aggregateCtx as any, {
+      dateRange: null,
+    });
+    expect(recentActivity).toHaveLength(1);
     expect(aggregateSummary.ticketAttentionQueue).toHaveLength(1);
   });
 

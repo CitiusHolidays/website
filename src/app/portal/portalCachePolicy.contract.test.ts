@@ -86,7 +86,7 @@ describe("portal Cache Components policy", () => {
     const source = read(PORTAL_LAYOUT);
 
     expect(source).toContain("export const instant = false");
-    expect(source).toContain('requireAuth("/portal")');
+    expect(source).toContain('requireAuth("/portal", authOptions)');
     expect(source).toContain("getMyPortalAccess");
     expect(source).toContain("portal=unauthorized");
     expect(source).not.toContain("unstable_noStore");

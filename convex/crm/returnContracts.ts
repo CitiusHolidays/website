@@ -354,7 +354,7 @@ const pipelineStageSnapshotValidator = v.object({
   weighted: v.number(),
 });
 
-const aggregateCoverageValidator = v.object({
+export const aggregateCoverageValidator = v.object({
   bucketCount: v.number(),
   complete: v.boolean(),
   completedSources: v.array(v.string()),
@@ -443,6 +443,13 @@ const recentActivityValidator = v.object({
   id: v.id("activityLogs"),
   message: v.string(),
 });
+
+export const portalDashboardCapacityResultValidator = v.object({
+  capacity: v.array(capacityRowValidator),
+  myTeam: v.array(teamMemberValidator),
+});
+
+export const portalDashboardActivityResultValidator = v.array(recentActivityValidator);
 
 const ticketAttentionValidator = v.object({
   id: v.id("tickets"),

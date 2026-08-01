@@ -1,11 +1,10 @@
 "use client";
 
-import { TravelBatchEntityModalBridge } from "../TravelBatchEntityModalBridge";
-import { CommercialFilesModal } from "./CommercialFilesModal";
-import { FlightExportModal } from "./FlightExportModal";
-import { FlightImportModal } from "./FlightImportModal";
-import { PassengerExportModal } from "./PassengerExportModal";
-import { PassengerImportModal } from "./PassengerImportModal";
+import dynamic from "next/dynamic";
+import {
+  SPREADSHEET_MODALS,
+  type SpreadsheetModalId,
+} from "@/lib/portal/workspaceContract";
 import type { PortalSpreadsheetModalWorkspaceSlice } from "./portalSpreadsheetModalTypes";
 import {
   PASSENGER_EXPORT_MODAL_CONFIGS,
@@ -15,56 +14,104 @@ import { travelBatchEntityModalKey } from "./travelBatchEntityModalKey";
 
 export type { PortalSpreadsheetModalWorkspaceSlice } from "./portalSpreadsheetModalTypes";
 
+const CommercialFilesModal = dynamic(
+  () => import("./CommercialFilesModal").then((module) => module.CommercialFilesModal),
+  { ssr: false }
+);
+const TravelBatchEntityModalBridge = dynamic(
+  () =>
+    import("../TravelBatchEntityModalBridge").then((module) => module.TravelBatchEntityModalBridge),
+  { ssr: false }
+);
+const PassengerImportModal = dynamic(
+  () => import("./PassengerImportModal").then((module) => module.PassengerImportModal),
+  { ssr: false }
+);
+const FlightImportModal = dynamic(
+  () => import("./FlightImportModal").then((module) => module.FlightImportModal),
+  { ssr: false }
+);
+const PassengerExportModal = dynamic(
+  () => import("./PassengerExportModal").then((module) => module.PassengerExportModal),
+  { ssr: false }
+);
+const FlightExportModal = dynamic(
+  () => import("./FlightExportModal").then((module) => module.FlightExportModal),
+  { ssr: false }
+);
+
+function isSpreadsheetModal(modal: string | null): modal is SpreadsheetModalId {
+  return modal != null && (SPREADSHEET_MODALS as readonly string[]).includes(modal);
+}
+
+function shouldLoadEntityModalBridge(modal: string | null) {
+  return modal != null && modal !== "commercialFiles" && !isSpreadsheetModal(modal);
+}
+
 export function PortalWorkspaceSpreadsheetModals({
   workspace,
 }: {
   workspace: PortalSpreadsheetModalWorkspaceSlice;
 }) {
+  const { modal } = workspace;
+
   return (
     <>
-      <CommercialFilesModal
-        close={workspace.closeModal}
-        form={workspace.form}
-        modal={workspace.modal}
-      />
-      <TravelBatchEntityModalBridge
-        key={travelBatchEntityModalKey(workspace.modal, workspace.form)}
-        workspace={workspace}
-      />
-      {PASSENGER_IMPORT_MODAL_CONFIGS.map((config) => (
-        <PassengerImportModal
+      {modal === "commercialFiles" ? (
+        <CommercialFilesModal
           close={workspace.closeModal}
-          commitPassengerImport={workspace.commitPassengerImport}
-          jobCards={workspace.jobCards}
-          key={config.modal}
-          open={workspace.modal === config.modal}
-          previewPassengerImport={workspace.previewPassengerImport}
-          {...config}
+          form={workspace.form}
+          modal={modal}
         />
-      ))}
-      <FlightImportModal
-        close={workspace.closeModal}
-        commitFlightImport={workspace.commitFlightImport}
-        itinerary={workspace.flightItinerary}
-        jobCards={workspace.jobCards}
-        open={workspace.modal === "flightImport"}
-      />
-      {PASSENGER_EXPORT_MODAL_CONFIGS.map((config) => (
-        <PassengerExportModal
+      ) : null}
+      {shouldLoadEntityModalBridge(modal) ? (
+        <TravelBatchEntityModalBridge
+          key={travelBatchEntityModalKey(modal, workspace.form)}
+          workspace={workspace}
+        />
+      ) : null}
+      {PASSENGER_IMPORT_MODAL_CONFIGS.map((config) =>
+        modal === config.modal ? (
+          <PassengerImportModal
+            close={workspace.closeModal}
+            commitPassengerImport={workspace.commitPassengerImport}
+            jobCards={workspace.jobCards}
+            key={config.modal}
+            open
+            previewPassengerImport={workspace.previewPassengerImport}
+            {...config}
+          />
+        ) : null
+      )}
+      {modal === "flightImport" ? (
+        <FlightImportModal
           close={workspace.closeModal}
-          getPassengerExportRows={workspace.getPassengerExportRows}
+          commitFlightImport={workspace.commitFlightImport}
+          itinerary={workspace.flightItinerary}
           jobCards={workspace.jobCards}
-          key={config.modal}
-          open={workspace.modal === config.modal}
-          {...config}
+          open
         />
-      ))}
-      <FlightExportModal
-        close={workspace.closeModal}
-        itinerary={workspace.flightItinerary}
-        jobCards={workspace.jobCards}
-        open={workspace.modal === "flightExport"}
-      />
+      ) : null}
+      {PASSENGER_EXPORT_MODAL_CONFIGS.map((config) =>
+        modal === config.modal ? (
+          <PassengerExportModal
+            close={workspace.closeModal}
+            getPassengerExportRows={workspace.getPassengerExportRows}
+            jobCards={workspace.jobCards}
+            key={config.modal}
+            open
+            {...config}
+          />
+        ) : null
+      )}
+      {modal === "flightExport" ? (
+        <FlightExportModal
+          close={workspace.closeModal}
+          itinerary={workspace.flightItinerary}
+          jobCards={workspace.jobCards}
+          open
+        />
+      ) : null}
     </>
   );
 }

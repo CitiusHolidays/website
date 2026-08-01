@@ -27,6 +27,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { PortalAccountAvatar } from "@/components/portal/PortalAccountAvatar";
+import { PortalAccessProvider } from "@/components/portal/PortalAccessContext";
 import { PortalChromeProvider } from "@/components/portal/PortalChromeContext";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
@@ -404,9 +405,10 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   };
 
   return (
-    <PortalToastProvider>
-      <PortalConfirmProvider>
-        <PortalChromeProvider navShortcuts={navShortcuts}>
+    <PortalAccessProvider access={access}>
+      <PortalToastProvider>
+        <PortalConfirmProvider>
+          <PortalChromeProvider navShortcuts={navShortcuts}>
           <div className="portal-shell relative min-h-screen overflow-x-hidden bg-brand-light text-brand-dark">
             <a
               className={`sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 ${PORTAL_Z.skipLinkFocus} focus:rounded-full focus:bg-white focus:px-4 focus:py-2 focus:font-semibold focus:text-citius-blue focus:text-sm focus:shadow-lg`}
@@ -621,9 +623,10 @@ export default function PortalShell({ access, user, children }: PortalShellProps
               </main>
             </div>
           </div>
-        </PortalChromeProvider>
-      </PortalConfirmProvider>
-    </PortalToastProvider>
+          </PortalChromeProvider>
+        </PortalConfirmProvider>
+      </PortalToastProvider>
+    </PortalAccessProvider>
   );
 }
 

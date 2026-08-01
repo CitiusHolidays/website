@@ -89,32 +89,36 @@ export async function isAuthenticated() {
   return !!(await getRequestToken());
 }
 
-export async function fetchAuthQuery(query, args = {}) {
-  const token = await getRequestToken();
+async function resolveRequestToken(options) {
+  return options && Object.hasOwn(options, "token") ? options.token : await getRequestToken();
+}
+
+export async function fetchAuthQuery(query, args = {}, options = undefined) {
+  const token = await resolveRequestToken(options);
   return await fetchQuery(query, args, {
     token: token ?? undefined,
     url: convexUrl,
   });
 }
 
-export async function fetchAuthMutation(mutation, args = {}) {
-  const token = await getRequestToken();
+export async function fetchAuthMutation(mutation, args = {}, options = undefined) {
+  const token = await resolveRequestToken(options);
   return await fetchMutation(mutation, args, {
     token: token ?? undefined,
     url: convexUrl,
   });
 }
 
-export async function fetchAuthAction(action, args = {}) {
-  const token = await getRequestToken();
+export async function fetchAuthAction(action, args = {}, options = undefined) {
+  const token = await resolveRequestToken(options);
   return await fetchAction(action, args, {
     token: token ?? undefined,
     url: convexUrl,
   });
 }
 
-export async function getServerUser() {
-  return await fetchAuthQuery(anyApi.auth.getCurrentUser, {});
+export async function getServerUser(options) {
+  return await fetchAuthQuery(anyApi.auth.getCurrentUser, {}, options);
 }
 
 export async function getServerSession() {
@@ -127,11 +131,11 @@ export async function getServerSession() {
 
 const getLoginUrl = (callbackUrl) => getLoginUrlForCallback(callbackUrl || "/account");
 
-export async function requireAuth(callbackUrl) {
+export async function requireAuth(callbackUrl, options) {
   const loginUrl = getLoginUrl(callbackUrl);
   // Only redirect for true unauthenticated states.
   // Let other errors bubble so we don't trap users in a login loop.
-  const user = await getServerUser();
+  const user = await getServerUser(options);
   if (!user) {
     redirect(loginUrl);
   }

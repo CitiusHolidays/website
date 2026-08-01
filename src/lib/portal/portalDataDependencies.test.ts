@@ -6,6 +6,10 @@ describe("portal data dependency declarations", () => {
     expect([...getPortalDataDependencies({ view: "dashboard" })]).toEqual([]);
   });
 
+  test("activity view declares the activity dependency for extended notification history", () => {
+    expect([...getPortalDataDependencies({ view: "activity" })]).toEqual(["activity"]);
+  });
+
   test("loads only the active view primary and support data", () => {
     expect([...getPortalDataDependencies({ view: "contracting" })].sort()).toEqual([
       "proposals",

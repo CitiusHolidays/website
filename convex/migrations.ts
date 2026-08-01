@@ -2,6 +2,7 @@ import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { normalizeEmail } from "./crm/lib/staffAccess";
 import {
   isLegacyRoomCode,
   resolveRoomingEntryRoomType,
@@ -143,6 +144,7 @@ export const importUsers = internalMutation({
           authUserId,
           createdAt: toTimestamp(row.created_at ?? row.createdAt),
           email: row.email ?? "",
+          emailNormalized: normalizeEmail(row.email ?? ""),
           image: row.image ?? "",
           legacyUserId: authUserId,
           name: row.name ?? "Traveler",

@@ -5,6 +5,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { usePathname, useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { usePortalServerAccess } from "@/components/portal/PortalAccessContext";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
@@ -37,6 +38,7 @@ import { parseUrlFilterState } from "@/lib/portal/urlFilterState";
 import { INITIAL_FORM, VIEW_META } from "@/lib/portal/workspaceContract";
 import { buildPortalWorkspaceFilters } from "./workspace/portalWorkspaceFilters";
 import { buildPortalWorkspaceRows } from "./workspace/portalWorkspaceRows";
+import { useDashboardSummary } from "./workspace/usePortalDashboardSummary";
 import { usePortalWorkspaceData } from "./workspace/usePortalWorkspaceData";
 import { usePortalWorkspaceMutations } from "./workspace/usePortalWorkspaceMutations";
 import type {
@@ -175,8 +177,10 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     });
   }, [dispatchWorkspace, pipelineMode, urlFilterSignature, view]);
 
-  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth();
-  const access = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
+  const { isAuthenticated } = useConvexAuth();
+  const serverAccess = usePortalServerAccess();
+  const liveAccess = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
+  const access = liveAccess ?? serverAccess;
   const has = (permission: string) => Boolean(access?.permissions?.includes(permission));
   const viewMetaKey = (view in VIEW_META ? view : "dashboard") as PortalViewId;
   const meta = VIEW_META[viewMetaKey];
@@ -185,10 +189,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
   const canFetch = isAuthenticated && access?.allowed;
   const [referenceNow] = useState(() => Date.now());
 
-  const summary = useQuery(
-    api.crm.dashboard.getPortalSummary,
-    canFetch && allowed && view === "dashboard" ? { dateRange: dateRangeArg, referenceNow } : "skip"
-  );
+  const summary = useDashboardSummary(allowed, canFetch, dateRangeArg, referenceNow, view);
   const savedViews = useQuery(
     api.crm.savedViews.listForPortal,
     canFetch && allowed ? { view } : "skip"
@@ -709,7 +710,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
   };
 
   let gate = "denied";
-  if (isAuthLoading || !isAuthenticated || access === undefined) {
+  if (access === undefined || !(isAuthenticated || serverAccess?.allowed)) {
     gate = "loading";
   } else if (allowed) {
     gate = "ready";

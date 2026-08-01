@@ -14,15 +14,62 @@ import {
   resolvePortalDateRange,
   shouldApplyCementScope,
 } from "./lib";
-import { aggregateMetric, loadMetricTotals, type MetricValues } from "./metricAggregates";
+import {
+  aggregateMetric,
+  loadMetricCoverage,
+  loadMetricTotals,
+  type MetricValues,
+} from "./metricAggregates";
 import { getNotificationHref } from "./notificationPaths";
 import type { QueryType } from "./queryValidators";
-import { portalSummaryResultValidator } from "./returnContracts";
+import {
+  aggregateCoverageValidator,
+  portalDashboardActivityResultValidator,
+  portalDashboardCapacityResultValidator,
+  portalSummaryResultValidator,
+} from "./returnContracts";
 import { queryNeedsTicketingHeadIntakeAlert } from "./ticketingIntakePolicy";
 
 const RECENT_ACTIVITY_LIMIT = 8;
 const DASHBOARD_DETAIL_LIMIT = 240;
 const DASHBOARD_RELATION_LIMIT = 480;
+
+function formatAggregateCoverage(aggregate: Awaited<ReturnType<typeof loadMetricCoverage>>) {
+  return {
+    bucketCount: aggregate.bucketCount,
+    complete: aggregate.complete,
+    completedSources: aggregate.readiness.completedSources,
+    detailRowLimit: DASHBOARD_DETAIL_LIMIT,
+    errorSummary: aggregate.readiness.errorSummary,
+    freshnessMinutes: 15,
+    generation: aggregate.readiness.generation,
+    lastCompletedAt: aggregate.readiness.lastCompletedAt
+      ? new Date(aggregate.readiness.lastCompletedAt).toISOString()
+      : null,
+    state: aggregate.readiness.state as "pending" | "ready" | "reconciling" | "stale",
+    updatedAt: aggregate.updatedAt ? new Date(aggregate.updatedAt).toISOString() : null,
+    version: aggregate.readiness.version,
+  };
+}
+
+export const getPortalMetricCoverage = query({
+  args: {
+    dateRange: portalDateRangeValidator,
+    referenceNow: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
+    const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+    const aggregate = await loadMetricCoverage(
+      ctx,
+      shouldApplyCementScope(access) ? "cement" : "all",
+      dateRange,
+      args.referenceNow
+    );
+    return formatAggregateCoverage(aggregate);
+  },
+  returns: aggregateCoverageValidator,
+});
 
 export async function boundedDashboardRows(
   ctx: any,
@@ -39,6 +86,117 @@ export async function boundedDashboardRows(
     : tableQuery.withIndex("by_createdAt");
   return (await indexed.order("desc").take(limit)) as any[];
 }
+
+function buildDashboardPeople(access: any, queries: any[], jobCards: any[], staff: any[]) {
+  const closedSalesStatuses = new Set(["Order Confirmed", "Order Lost"]);
+  const capacityByRole = staff.reduce((map, member) => {
+    if (!member.active) return map;
+    const staffId = String(member._id);
+    const load =
+      queries.filter(
+        (query) =>
+          String(query.salesOwnerId) === staffId && !closedSalesStatuses.has(query.salesStatus)
+      ).length +
+      queries.filter(
+        (query) =>
+          String(query.contractingOwnerId) === staffId &&
+          !closedSalesStatuses.has(query.salesStatus)
+      ).length +
+      jobCards.filter((job) => {
+        const ownerIds = new Set(
+          [job.contractingOwnerId, job.operationsOwnerId, job.ticketingOwnerId].map(String)
+        );
+        return ownerIds.has(staffId) && job.status !== "Closed";
+      }).length;
+    for (const role of member.roles) {
+      const current = map.get(role) ?? { load: 0, role, staffCount: 0 };
+      current.staffCount += 1;
+      current.load += load;
+      map.set(role, current);
+    }
+    return map;
+  }, new Map<string, { role: string; staffCount: number; load: number }>());
+  return {
+    capacity: (Array.from(capacityByRole.values()) as Array<{
+      load: number;
+      role: string;
+      staffCount: number;
+    }>)
+      .map((row) => ({
+        ...row,
+        averageLoad: row.staffCount ? Math.round(row.load / row.staffCount) : 0,
+        severity: (row.staffCount && row.load / row.staffCount >= 10
+          ? "overloaded"
+          : row.staffCount && row.load / row.staffCount >= 6
+            ? "busy"
+            : "normal") as "overloaded" | "busy" | "normal",
+      }))
+      .sort((a, b) => b.averageLoad - a.averageLoad)
+      .slice(0, 8),
+    myTeam: staff
+      .filter((member) => {
+        if (!member.active) return false;
+        const accessRoles = new Set(access.roles);
+        return member.roles.some((role: string) => accessRoles.has(role));
+      })
+      .slice(0, 6)
+      .map((member) => ({
+        department: member.department ?? member.roles[0] ?? "",
+        email: member.email,
+        function: member.function ?? member.roles.join(", "),
+        id: member._id,
+        location: member.location ?? "",
+        name: member.name,
+      })),
+  };
+}
+
+export const getPortalDashboardCapacity = query({
+  args: { dateRange: portalDateRangeValidator },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
+    const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+    const [queryRows, jobRows, staff] = await Promise.all([
+      boundedDashboardRows(ctx, "queries", dateRange),
+      boundedDashboardRows(ctx, "jobCards", dateRange),
+      ctx.db.query("staffUsers").take(DASHBOARD_DETAIL_LIMIT),
+    ]);
+    const scoped = applyCementPortalScope(access, {
+      invoices: [],
+      jobCards: jobRows,
+      proposals: [],
+      queries: queryRows,
+      tickets: [],
+      travellers: [],
+      visas: [],
+    });
+    return buildDashboardPeople(access, scoped.queries, scoped.jobCards, staff);
+  },
+  returns: portalDashboardCapacityResultValidator,
+});
+
+export const getPortalDashboardActivity = query({
+  args: { dateRange: portalDateRangeValidator },
+  handler: async (ctx, args) => {
+    await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
+    const rows = await boundedDashboardRows(
+      ctx,
+      "activityLogs",
+      args.dateRange,
+      RECENT_ACTIVITY_LIMIT
+    );
+    return rows.map((activity) => ({
+      action: activity.action,
+      actorName: activity.actorName,
+      createdAt: new Date(activity.createdAt).toISOString(),
+      entityId: activity.entityId ?? "",
+      entityType: activity.entityType,
+      id: activity._id,
+      message: activity.message,
+    }));
+  },
+  returns: portalDashboardActivityResultValidator,
+});
 
 function aggregatePipelineSnapshot(values: MetricValues) {
   return SALES_PIPELINE_STAGES.map((stage) => {
@@ -493,8 +651,9 @@ export const getPortalSummary = query({
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
     const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
     const aggregateScope = shouldApplyCementScope(access) ? "cement" : "all";
+    const aggregate = await loadMetricTotals(ctx, aggregateScope, dateRange, args.referenceNow);
+    const needsFallbackRows = !aggregate.complete;
     const [
-      aggregate,
       allQueriesRaw,
       allProposalsRaw,
       allJobCardsRaw,
@@ -504,25 +663,18 @@ export const getPortalSummary = query({
       invoiceRows,
       approvalRows,
       proposalQueryLinks,
-      staff,
-      activities,
     ] = await Promise.all([
-      loadMetricTotals(ctx, aggregateScope, dateRange, args.referenceNow),
       boundedDashboardRows(ctx, "queries", dateRange),
-      boundedDashboardRows(ctx, "proposals", dateRange),
+      needsFallbackRows ? boundedDashboardRows(ctx, "proposals", dateRange) : Promise.resolve([]),
       boundedDashboardRows(ctx, "jobCards", dateRange),
       boundedDashboardRows(ctx, "tickets", dateRange),
-      boundedDashboardRows(ctx, "travellers", dateRange),
-      boundedDashboardRows(ctx, "visaRecords", dateRange),
+      needsFallbackRows ? boundedDashboardRows(ctx, "travellers", dateRange) : Promise.resolve([]),
+      needsFallbackRows ? boundedDashboardRows(ctx, "visaRecords", dateRange) : Promise.resolve([]),
       boundedDashboardRows(ctx, "invoices", dateRange),
       boundedDashboardRows(ctx, "approvalRequests", dateRange),
-      ctx.db.query("proposalQueryLinks").take(DASHBOARD_RELATION_LIMIT),
-      ctx.db.query("staffUsers").take(DASHBOARD_DETAIL_LIMIT),
-      ctx.db
-        .query("activityLogs")
-        .withIndex("by_createdAt")
-        .order("desc")
-        .take(RECENT_ACTIVITY_LIMIT),
+      needsFallbackRows
+        ? ctx.db.query("proposalQueryLinks").take(DASHBOARD_RELATION_LIMIT)
+        : Promise.resolve([]),
     ]);
     const referenceNow =
       args.referenceNow ?? aggregate.updatedAt ?? aggregate.readiness.lastCompletedAt ?? 0;
@@ -534,7 +686,6 @@ export const getPortalSummary = query({
     let visas = filterRecordsByDateRange(visaRows, dateRange);
     let invoices = filterRecordsByDateRange(invoiceRows, dateRange);
     const approvals = filterRecordsByDateRange(approvalRows, dateRange);
-    const scopedActivities = filterRecordsByDateRange(activities, dateRange);
 
     const scopedRecords = applyCementPortalScope(access, {
       invoices,
@@ -603,6 +754,30 @@ export const getPortalSummary = query({
       : QUERY_TYPES;
 
     const activeJobs = jobCards.filter((job) => job.status !== "Closed");
+    const nowDate = new Date(referenceNow).toISOString().slice(0, 10);
+    const progressJobs = Array.from(
+      new Map(
+        [
+          ...activeJobs.slice(0, 6),
+          ...activeJobs
+            .filter((job) => job.travelStartDate && job.travelStartDate >= nowDate)
+            .sort((a, b) => String(a.travelStartDate).localeCompare(String(b.travelStartDate)))
+            .slice(0, 6),
+        ].map((job) => [String(job._id), job])
+      ).values()
+    );
+    const jobAggregateEntries = aggregate.complete
+      ? await Promise.all(
+          progressJobs.map(
+            async (job) =>
+              [
+                String(job._id),
+                await loadMetricTotals(ctx, `job:${String(job._id)}`, dateRange, referenceNow),
+              ] as const
+          )
+        )
+      : [];
+    const jobAggregateById = new Map(jobAggregateEntries);
     const queriesById = new Map(queries.map((queryRow) => [String(queryRow._id), queryRow]));
     const ticketsIssued = tickets.filter((ticket) => ticket.ticketStatus === "Issued").length;
     const visaApproved = visas.filter((visa) =>
@@ -618,7 +793,6 @@ export const getPortalSummary = query({
       (sum, invoice) => sum + Math.max(invoice.balanceAmount ?? 0, 0),
       0
     );
-    const nowDate = new Date(referenceNow).toISOString().slice(0, 10);
     const revenuePipeline = invoices.reduce((sum, invoice) => sum + invoice.expectedAmount, 0);
     const activeQueryRecords = queries.filter(isActiveQuery);
     const confirmedQueryRecords = queries.filter(isConfirmedQuery);
@@ -660,6 +834,12 @@ export const getPortalSummary = query({
     const aggregateReceivedPayment = aggregateValue("invoices.received", receivedPayment);
     const aggregateOutstandingAmount = aggregateValue("invoices.outstanding", outstandingAmount);
     const aggregateTicketsIssued = aggregateValue("tickets.issued", ticketsIssued);
+    const jobProgress = (jobId: string, key: string, fallback: number) => {
+      const jobAggregate = jobAggregateById.get(String(jobId));
+      return jobAggregate?.complete
+        ? aggregateMetric(jobAggregate.values, key, fallback)
+        : fallback;
+    };
 
     const last30Range = { from: daysFromIso(nowDate, -30), to: nowDate };
     const prior30Range = { from: daysFromIso(nowDate, -60), to: daysFromIso(nowDate, -31) };
@@ -690,37 +870,6 @@ export const getPortalSummary = query({
 
     const ticketAttentionQueue = buildTicketAttentionQueue(tickets);
     const overdueInvoices = buildOverdueInvoices({ invoices, jobCards, nowDate });
-    const closedSalesStatuses = new Set(["Order Confirmed", "Order Lost"]);
-    const capacityByRole = staff.reduce((map, member) => {
-      if (!member.active) {
-        return map;
-      }
-      const staffId = String(member._id);
-      const load =
-        queries.filter(
-          (query) =>
-            String(query.salesOwnerId) === staffId && !closedSalesStatuses.has(query.salesStatus)
-        ).length +
-        queries.filter(
-          (query) =>
-            String(query.contractingOwnerId) === staffId &&
-            !closedSalesStatuses.has(query.salesStatus)
-        ).length +
-        jobCards.filter((job) => {
-          const ownerIds = new Set(
-            [job.contractingOwnerId, job.operationsOwnerId, job.ticketingOwnerId].map(String)
-          );
-          return ownerIds.has(staffId) && job.status !== "Closed";
-        }).length;
-      for (const role of member.roles) {
-        const current = map.get(role) ?? { load: 0, role, staffCount: 0 };
-        current.staffCount += 1;
-        current.load += load;
-        map.set(role, current);
-      }
-      return map;
-    }, new Map<string, { role: string; staffCount: number; load: number }>());
-
     const urgentActions = buildUrgentActions({
       approvals,
       invoices,
@@ -739,12 +888,19 @@ export const getPortalSummary = query({
       activeTours: activeJobs.slice(0, 6).map((job) => {
         const linkedQuery = job.queryId ? queriesById.get(String(job.queryId)) : null;
         const jobTravellers = travellersByJobCard.get(job._id) ?? [];
-        const jobTicketsIssued = jobTravellers.filter(
-          (traveller) => traveller.ticketStatus === "Issued"
-        ).length;
-        const jobVisasApproved = jobTravellers.filter((traveller) =>
-          ["Approved", "Not Required"].includes(traveller.visaStatus)
-        ).length;
+        const jobTravellerTotal = jobProgress(job._id, "travellers.total", jobTravellers.length);
+        const jobTicketsIssued = jobProgress(
+          job._id,
+          "travellers.ticketIssued",
+          jobTravellers.filter((traveller) => traveller.ticketStatus === "Issued").length
+        );
+        const jobVisasApproved = jobProgress(
+          job._id,
+          "travellers.visaApproved",
+          jobTravellers.filter((traveller) =>
+            ["Approved", "Not Required"].includes(traveller.visaStatus)
+          ).length
+        );
         return {
           clientName: job.clientName,
           contractingOwnerName: linkedQuery?.contractingOwnerName ?? "",
@@ -755,38 +911,13 @@ export const getPortalSummary = query({
           queryCode: linkedQuery?.queryCode ?? "",
           status: job.status as JobCardStatus,
           ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
-          ticketProgress: percent(jobTicketsIssued, jobTravellers.length),
+          ticketProgress: percent(jobTicketsIssued, jobTravellerTotal),
           travelStartDate: job.travelStartDate ?? "",
-          visaProgress: percent(jobVisasApproved, jobTravellers.length),
+          visaProgress: percent(jobVisasApproved, jobTravellerTotal),
         };
       }),
-      aggregateCoverage: {
-        bucketCount: aggregate.bucketCount,
-        complete: aggregate.complete,
-        completedSources: aggregate.readiness.completedSources,
-        detailRowLimit: DASHBOARD_DETAIL_LIMIT,
-        errorSummary: aggregate.readiness.errorSummary,
-        freshnessMinutes: 15,
-        generation: aggregate.readiness.generation,
-        lastCompletedAt: aggregate.readiness.lastCompletedAt
-          ? new Date(aggregate.readiness.lastCompletedAt).toISOString()
-          : null,
-        state: aggregate.readiness.state as "pending" | "ready" | "reconciling" | "stale",
-        updatedAt: aggregate.updatedAt ? new Date(aggregate.updatedAt).toISOString() : null,
-        version: aggregate.readiness.version,
-      },
-      capacity: Array.from(capacityByRole.values())
-        .map((row) => ({
-          ...row,
-          averageLoad: row.staffCount ? Math.round(row.load / row.staffCount) : 0,
-          severity: (row.staffCount && row.load / row.staffCount >= 10
-            ? "overloaded"
-            : row.staffCount && row.load / row.staffCount >= 6
-              ? "busy"
-              : "normal") as "overloaded" | "busy" | "normal",
-        }))
-        .sort((a, b) => b.averageLoad - a.averageLoad)
-        .slice(0, 8),
+      aggregateCoverage: formatAggregateCoverage(aggregate),
+      capacity: [],
       closedQueriesByType: aggregate.complete
         ? queryTypesForCounts.map((type) => ({
             count: aggregateMetric(aggregate.values, `queries.type.${type}.lost`),
@@ -916,23 +1047,7 @@ export const getPortalSummary = query({
             : prior30ProposalsSent.length
         ),
       },
-      myTeam: staff
-        .filter((member) => {
-          if (!member.active) {
-            return false;
-          }
-          const accessRoles = new Set(access.roles);
-          return member.roles.some((role) => accessRoles.has(role));
-        })
-        .slice(0, 6)
-        .map((member) => ({
-          department: member.department ?? member.roles[0] ?? "",
-          email: member.email,
-          function: member.function ?? member.roles.join(", "),
-          id: member._id,
-          location: member.location ?? "",
-          name: member.name,
-        })),
+      myTeam: [],
       overdueInvoices,
       ownedWorkSla,
       pipelineSnapshot: aggregate.complete
@@ -981,15 +1096,7 @@ export const getPortalSummary = query({
             type: type as QueryType,
           }))
         : countQueriesByType(activeQueryRecords, queryTypesForCounts),
-      recentActivity: scopedActivities.map((activity) => ({
-        action: activity.action,
-        actorName: activity.actorName,
-        createdAt: new Date(activity.createdAt).toISOString(),
-        entityId: activity.entityId ?? "",
-        entityType: activity.entityType,
-        id: activity._id,
-        message: activity.message,
-      })),
+      recentActivity: [],
       ticketAttentionQueue,
       ticketingStats: {
         cancelReq: aggregate.complete
@@ -1015,15 +1122,24 @@ export const getPortalSummary = query({
         .map((job) => {
           const linkedQuery = job.queryId ? queriesById.get(String(job.queryId)) : null;
           const jobTravellers = travellersByJobCard.get(job._id) ?? [];
+          const jobTravellerTotal = jobProgress(job._id, "travellers.total", jobTravellers.length);
           const ticketProgress = percent(
-            jobTravellers.filter((traveller) => traveller.ticketStatus === "Issued").length,
-            jobTravellers.length
+            jobProgress(
+              job._id,
+              "travellers.ticketIssued",
+              jobTravellers.filter((traveller) => traveller.ticketStatus === "Issued").length
+            ),
+            jobTravellerTotal
           );
           const visaProgress = percent(
-            jobTravellers.filter((traveller) =>
-              ["Approved", "Not Required"].includes(traveller.visaStatus)
-            ).length,
-            jobTravellers.length
+            jobProgress(
+              job._id,
+              "travellers.visaApproved",
+              jobTravellers.filter((traveller) =>
+                ["Approved", "Not Required"].includes(traveller.visaStatus)
+              ).length
+            ),
+            jobTravellerTotal
           );
           return {
             clientName: job.clientName,

@@ -61,6 +61,7 @@ export function summarizeMetricReadiness(
   const complete = Boolean(
     row?.lastCompletedGeneration && row?.lastCompletedMetricVersion === METRIC_VERSION
   );
+  const reconciling = Boolean(row && row.generation !== row.lastCompletedGeneration);
   const stale = Boolean(
     row &&
       now - Number((complete ? row.lastCompletedAt : row.updatedAt) ?? row.startedAt ?? 0) >=
@@ -72,15 +73,7 @@ export function summarizeMetricReadiness(
     errorSummary: null,
     generation: Number(row?.generation ?? 0),
     lastCompletedAt: row?.lastCompletedAt ?? null,
-    state: complete
-      ? stale
-        ? "stale"
-        : "ready"
-      : stale
-        ? "stale"
-        : row
-          ? "reconciling"
-          : "pending",
+    state: stale ? "stale" : reconciling ? "reconciling" : complete ? "ready" : "pending",
     version: row?.metricVersion ?? null,
   };
 }
@@ -462,9 +455,16 @@ export const syncEntity = internalMutation({
   },
 });
 
-async function loadMetricReadiness(ctx: MutationCtx) {
+async function loadMetricReadiness(ctx: QueryCtx | MutationCtx) {
   return await ctx.db
     .query("crmMetricReadiness")
+    .withIndex("by_key", (q) => q.eq("key", READINESS_KEY))
+    .unique();
+}
+
+async function loadMetricPublication(ctx: QueryCtx | MutationCtx) {
+  return await ctx.db
+    .query("crmMetricPublications")
     .withIndex("by_key", (q) => q.eq("key", READINESS_KEY))
     .unique();
 }
@@ -495,17 +495,13 @@ async function startMetricReconciliation(ctx: MutationCtx) {
   } else {
     await ctx.db.insert("crmMetricReadiness", nextState);
   }
-  await Promise.all(
-    METRIC_SOURCE_TYPES.map((sourceType) =>
-      ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.reconcileSourcePage, {
-        cursor: null,
-        generation,
-        metricVersion: METRIC_VERSION,
-        sourceType,
-      })
-    )
-  );
-  return { alreadyRunning: false, generation, scheduled: METRIC_SOURCE_TYPES.length };
+  await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.reconcileSourcePage, {
+    cursor: null,
+    generation,
+    metricVersion: METRIC_VERSION,
+    sourceType: METRIC_SOURCE_TYPES[0],
+  });
+  return { alreadyRunning: false, generation, scheduled: 1 };
 }
 
 async function isRegisteredMetricGeneration(
@@ -604,8 +600,23 @@ async function markReconciliationSourceComplete(
     .collect();
   const completedSourceTypes = completions.map((row) => row.sourceType).sort();
   const complete = METRIC_SOURCE_TYPES.every((required) => completedSourceTypes.includes(required));
-  const now = Date.now();
   if (complete) {
+    const now = Date.now();
+    const publication = await loadMetricPublication(ctx);
+    if (!publication) {
+      await ctx.db.insert("crmMetricPublications", {
+        generation,
+        key: READINESS_KEY,
+        metricVersion,
+        publishedAt: now,
+      });
+    } else if (publication.metricVersion !== metricVersion) {
+      await ctx.db.patch(publication._id, {
+        generation,
+        metricVersion,
+        publishedAt: now,
+      });
+    }
     await ctx.db.patch(state._id, {
       completedSourceTypes,
       lastCompletedAt: now,
@@ -616,8 +627,19 @@ async function markReconciliationSourceComplete(
   } else {
     await ctx.db.patch(state._id, {
       completedSourceTypes,
-      updatedAt: now,
+      updatedAt: Date.now(),
     });
+    const nextSourceType = METRIC_SOURCE_TYPES.find(
+      (candidate) => !completedSourceTypes.includes(candidate)
+    );
+    if (nextSourceType) {
+      await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.reconcileSourcePage, {
+        cursor: null,
+        generation,
+        metricVersion,
+        sourceType: nextSourceType,
+      });
+    }
   }
   return { complete, stale: false };
 }
@@ -709,11 +731,8 @@ export async function loadMetricTotals(
   dateRange: PortalDateRange | null | undefined,
   referenceNow?: number
 ) {
-  const [readiness, rows] = await Promise.all([
-    ctx.db
-      .query("crmMetricReadiness")
-      .withIndex("by_key", (q) => q.eq("key", READINESS_KEY))
-      .unique(),
+  const [publication, rows] = await Promise.all([
+    loadMetricPublication(ctx),
     Promise.all(
       buildAggregateSegments(dateRange).map((segment) => loadSegment(ctx, scope, segment))
     ).then((segments) => segments.flat()),
@@ -722,13 +741,41 @@ export async function loadMetricTotals(
   for (const row of rows) {
     mergeValues(values, row.values ?? {});
   }
-  const readinessSummary = summarizeMetricReadiness(readiness, referenceNow);
+  const stableReadiness = publication
+    ? {
+        completedSourceTypes: [...METRIC_SOURCE_TYPES],
+        generation: publication.generation,
+        lastCompletedAt: publication.publishedAt,
+        lastCompletedGeneration: publication.generation,
+        lastCompletedMetricVersion: publication.metricVersion,
+        metricVersion: publication.metricVersion,
+        startedAt: publication.publishedAt,
+        updatedAt: publication.publishedAt,
+      }
+    : null;
+  const readinessSummary = summarizeMetricReadiness(stableReadiness, referenceNow);
   return {
     bucketCount: rows.length,
     complete: readinessSummary.complete,
     readiness: readinessSummary,
     updatedAt: rows.reduce((latest, row) => Math.max(latest, row.updatedAt), 0),
     values,
+  };
+}
+
+export async function loadMetricCoverage(
+  ctx: QueryCtx,
+  scope: string,
+  dateRange: PortalDateRange | null | undefined,
+  referenceNow?: number
+) {
+  const [totals, readiness] = await Promise.all([
+    loadMetricTotals(ctx, scope, dateRange, referenceNow),
+    loadMetricReadiness(ctx),
+  ]);
+  return {
+    ...totals,
+    readiness: summarizeMetricReadiness(readiness, referenceNow),
   };
 }
 
