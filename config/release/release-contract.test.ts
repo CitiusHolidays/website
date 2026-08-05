@@ -177,6 +177,16 @@ describe("release command contract", () => {
     expect(packageJson.scripts?.check).toContain("bun run test");
     expect(packageJson.scripts?.["diff:check"]).toBe("bun config/release/check-diff-hygiene.ts");
     expect(packageJson.scripts?.["policy:check"]).toBe("bun config/release/check-ci-policy.ts");
+    expect(packageJson.scripts?.["automation:check"]).toBe(
+      "bun config/release/agent-automation-policy.ts"
+    );
+  });
+
+  test("documents the explicit-consent boundary for destructive automation", () => {
+    const policy = readFileSync(join(ROOT, "docs/AGENT_AUTOMATION_CONSENT.md"), "utf8");
+    expect(policy).toContain("AUTOMATION_APPROVAL_RECORD");
+    expect(policy).toContain("never invokes the command");
+    expect(policy).toContain("exact command");
   });
 
   test("does not hide repository source and documentation behind broad ignore rules", () => {

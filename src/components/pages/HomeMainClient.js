@@ -145,7 +145,7 @@ export default function HomeMainClient() {
               ))}
             </div>
           </div>
-          <div className="group relative h-[500px] overflow-hidden rounded-3xl shadow-2xl">
+          <div className="public-media-edge group relative h-[500px] overflow-hidden">
             <div className="absolute inset-0 z-10 bg-gradient-to-tr from-public-night/40 to-transparent" />
             <div className="absolute inset-0 bg-[url('/gallery/aboutus.webp')] bg-center bg-cover transition-transform duration-700 fine-hover:group-hover:scale-105" />
             <div className="absolute right-0 bottom-0 left-0 z-20 bg-gradient-to-t from-black/80 to-transparent p-8">

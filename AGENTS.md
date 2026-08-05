@@ -1,6 +1,6 @@
 ## Learned User Preferences
 
-- Do not edit files under `plans/` when executing a plan; follow the plan, update code, and update plan status rows in `plans/README.md` only.
+- The historical `plans/` directory is not part of this checkout. Use [`docs/PLAN_MAP.md`](docs/PLAN_MAP.md) for legacy pointers, keep durable decisions in `docs/`/ADRs, and put implementation tickets/evidence in `.scratch/`; do not recreate a second plan system.
 - Mark a notification read only when the user clicks it—not when opening the bell dropdown or Activity panel.
 - Approx. margin on queries must stay empty until Order Confirmed and be entered manually by sales—not auto-calculated from budget or contracting costs.
 - Linked-entity selects in portal forms should autofill all dependent fields (job card, traveller, PNR, query, visa, and related records); portal form labels must match validation copy (e.g. expense **Category** with “Select category…” placeholder—not Expense Head).

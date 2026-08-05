@@ -40,6 +40,8 @@ const PUBLIC_HEADING_PATTERN = /font-heading/;
 const PUBLIC_LITERAL_BACKGROUND_PATTERN = /bg-\[#/;
 const PUBLIC_TOKEN_PATTERN = /public-(paper|surface|night|ink|blue|orange|green|lime|muted)/;
 const OKLCH_CHANNEL_PATTERN = /oklch\(([\d.]+) ([\d.]+) ([\d.]+)/;
+const PUBLIC_MEDIA_RADIUS_PATTERN = /--radius-public-media:\s*[^;]+;/;
+const PUBLIC_MEDIA_SHADOW_PATTERN = /--shadow-public-media:\s*[^;]+;/;
 
 function readOklchToken(source: string, token: string) {
   const tokenLine = source.split("\n").find((line) => line.includes(`${token}:`));
@@ -94,6 +96,16 @@ describe("public visual identity contract", () => {
     expect(source).toContain("font-synthesis: none");
     expect(source).toContain("-webkit-font-smoothing: antialiased");
     expect(source).toContain(".public-site ::selection");
+    expect(source).toContain(".public-site .public-media-edge");
+    expect(source).toContain("var(--radius-public-media)");
+    expect(source).toContain("var(--shadow-public-media)");
+  });
+
+  test("public media uses one bounded edge and shadow token pair", () => {
+    const source = read(GLOBALS_CSS);
+    expect(source).toMatch(PUBLIC_MEDIA_RADIUS_PATTERN);
+    expect(source).toMatch(PUBLIC_MEDIA_SHADOW_PATTERN);
+    expect(source).toContain("public-media-edge");
   });
 
   test("semantic text pairs meet WCAG AA for regular text", () => {

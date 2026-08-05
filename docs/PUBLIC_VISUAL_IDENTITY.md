@@ -4,6 +4,11 @@ The public route group owns an editorial display voice and perceptually coherent
 account, vendor, and portal routes remain outside the `public-site` wrapper and continue using the
 operational type system.
 
+This is a bounded foundation, not a permission to run a repository-wide color rewrite. The contract
+scope is the public layout, Home, Pilgrimage, and Sacred Bharat surfaces listed in
+`src/app/publicVisualIdentity.contract.test.ts`. Extend that list deliberately when a new public
+surface is reviewed; do not migrate authenticated or operational screens by search-and-replace.
+
 ## Color tokens
 
 | Before | After |
@@ -22,6 +27,22 @@ operational type system.
 All brand conversions stay inside sRGB because they originate from the existing Citius palette.
 The contract test calculates WCAG contrast from the OKLCH values; regular-text pairs range from
 5.81:1 to 18.82:1.
+
+## Migration checklist
+
+- [x] Semantic public surface roles are expressed in OKLCH and covered by a contract test.
+- [x] Literal-background checks are limited to the reviewed public surfaces; unrelated auth and
+  portal literals remain outside this migration.
+- [x] Public media cards share `--radius-public-media` and `--shadow-public-media` through the
+  `.public-media-edge` class. Full-bleed heroes intentionally keep their edge open.
+- [ ] Review new public routes against the same token and contrast contract before adding them to
+  the migration scope.
+- [ ] Re-check visual balance at desktop, 390px mobile, dark preference, reduced motion, and 20px
+  root text after any token value change.
+
+Use `bun test src/app/publicVisualIdentity.contract.test.ts` as the bounded migration check. A
+passing test proves token presence and representative source usage; it is not a substitute for a
+browser visual review.
 
 ## Typography
 

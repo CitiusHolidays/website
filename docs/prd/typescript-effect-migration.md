@@ -49,7 +49,10 @@ Land the migration using **Approach B — Guardrailed Completion**: commit TS re
 - **Notification seam:** `notificationEmails.ts` calls `notificationEmailDelivery.ts` for sequential send with retry/throttle.
 - **Webhook error semantics:** Invalid signature → 400. Transient processing failures → 5xx so Razorpay retries. Do not return 200 with `received: true` on unhandled processing errors (CEO review condition).
 - **Typing phase 1:** Replace `AnyRecord` in workspace row/filter modules with Convex `Doc<>` shapes incrementally after contract tests extend coverage.
-- **Plans execution:** Follow `plans/001`–`plans/005` in `plans/README.md`. Do not edit `plans/` files during execution except status rows.
+- **Execution map:** The historical `plans/001`–`plans/005` pointers are preserved in
+  [`docs/PLAN_MAP.md`](../PLAN_MAP.md). Use the current PRD/ADR documents for durable decisions and
+  the local `.scratch/` issue tracker for implementation evidence; do not recreate the deleted
+  `plans/` directory.
 
 ## Testing Decisions
 

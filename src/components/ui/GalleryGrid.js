@@ -103,7 +103,7 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
       >
         {images.map((item, index) => (
           <m.div
-            className="group relative aspect-[4/3] w-full cursor-pointer overflow-hidden rounded-lg bg-brand-light"
+            className="public-media-edge group relative aspect-[4/3] w-full cursor-pointer overflow-hidden bg-brand-light"
             key={item.asset?._id || item._key || index}
             layoutId={`image-container-${item.asset?._id || index}`}
             onClick={() => {
@@ -164,7 +164,7 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
               </m.button>
 
               <m.div
-                className="relative aspect-[4/3] w-full max-w-5xl overflow-hidden rounded-lg shadow-2xl"
+                className="public-media-edge relative aspect-[4/3] w-full max-w-5xl overflow-hidden"
                 layoutId={`image-container-${images[selectedIndex].asset?._id || selectedIndex}`}
                 onClick={(e) => e.stopPropagation()}
               >
