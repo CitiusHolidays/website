@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { syncAuthRecords } from "./authSync";
 
-function makeCtx(profileRows: Record<string, any>[]) {
+function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, any>[] = []) {
   const tables: Record<string, Record<string, any>[]> = {
-    staffUsers: [],
+    staffUsers: staffRows,
     userProfiles: profileRows,
   };
   let fullProfileScans = 0;
@@ -93,5 +93,39 @@ describe("syncAuthRecords normalized email lookup", () => {
     });
     expect(tables.userProfiles).toHaveLength(1);
     expect(getFullProfileScans()).toBe(0);
+  });
+
+  test("guest profile synchronization never claims a staff record by email", async () => {
+    const { ctx, tables } = makeCtx(
+      [],
+      [
+        {
+          _id: "staff_1",
+          active: true,
+          authUserId: "provisioned_staff_auth",
+          email: "staff@example.com",
+          emailNormalized: "staff@example.com",
+          name: "Staff User",
+          roles: ["Sales"],
+        },
+      ]
+    );
+
+    const result = await syncAuthRecords(ctx as any, {
+      authUserId: "guest_auth",
+      email: "staff@example.com",
+      name: "Guest User",
+    });
+
+    expect(result.linkedStaff).toBe(false);
+    expect(tables.staffUsers[0]).toMatchObject({
+      authUserId: "provisioned_staff_auth",
+      roles: ["Sales"],
+    });
+    expect(tables.userProfiles).toHaveLength(1);
+    expect(tables.userProfiles[0]).toMatchObject({
+      authUserId: "guest_auth",
+      emailNormalized: "staff@example.com",
+    });
   });
 });

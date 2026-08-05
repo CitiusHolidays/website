@@ -36,10 +36,10 @@ function isBootstrapAdmin(email: string) {
   return getBootstrapAdminEmails().includes(normalizeEmail(email));
 }
 
-async function resolveActiveStaff(
-  ctx: QueryCtx | MutationCtx,
-  identity: { subject: string; email?: string | null; name?: string | null }
-) {
+async function resolveActiveStaff(ctx: QueryCtx | MutationCtx, identity: { subject: string }) {
+  // Staff access is an authorization decision. An email match alone is not
+  // proof that this auth subject was provisioned for the staff record; public
+  // customer signup/profile sync must never be able to claim a staff role.
   if (identity.subject) {
     const byAuth = await ctx.db
       .query("staffUsers")
@@ -47,17 +47,6 @@ async function resolveActiveStaff(
       .unique();
     if (byAuth?.active) {
       return byAuth;
-    }
-  }
-
-  const email = normalizeEmail(identity.email);
-  if (email) {
-    const byEmail = await ctx.db
-      .query("staffUsers")
-      .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", email))
-      .unique();
-    if (byEmail?.active) {
-      return byEmail;
     }
   }
 

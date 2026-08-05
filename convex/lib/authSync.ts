@@ -11,13 +11,6 @@ export type AuthSyncInput = {
 
 const getIdentityImage = (image?: string) => (typeof image === "string" ? image : "");
 
-async function findStaffByEmail(ctx: MutationCtx, emailNormalized: string) {
-  return await ctx.db
-    .query("staffUsers")
-    .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
-    .unique();
-}
-
 async function findProfileByAuthUserId(ctx: MutationCtx, authUserId: string) {
   return await ctx.db
     .query("userProfiles")
@@ -66,18 +59,6 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
     return { linkedStaff: false, profileId: null as Doc<"userProfiles">["_id"] | null };
   }
 
-  let linkedStaff = false;
-  if (emailNormalized) {
-    const staff = await findStaffByEmail(ctx, emailNormalized);
-    if (staff && staff.authUserId !== authUserId) {
-      await ctx.db.patch(staff._id, {
-        authUserId,
-        updatedAt: now,
-      });
-      linkedStaff = true;
-    }
-  }
-
   const profileByAuth = await findProfileByAuthUserId(ctx, authUserId);
   const matchingProfiles = emailNormalized ? await findProfilesByEmail(ctx, emailNormalized) : [];
   const orphanedProfile = matchingProfiles.find((profile) => profile.authUserId !== authUserId);
@@ -108,7 +89,7 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
       )
     );
 
-    return { linkedStaff, profileId: profileByAuth._id };
+    return { linkedStaff: false, profileId: profileByAuth._id };
   }
 
   if (orphanedProfile) {
@@ -127,11 +108,11 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
       )
     );
 
-    return { linkedStaff, profileId: orphanedProfile._id };
+    return { linkedStaff: false, profileId: orphanedProfile._id };
   }
 
   if (!email) {
-    return { linkedStaff, profileId: null };
+    return { linkedStaff: false, profileId: null };
   }
 
   const profileId = await ctx.db.insert("userProfiles", {
@@ -146,5 +127,5 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
     updatedAt: now,
   });
 
-  return { linkedStaff, profileId };
+  return { linkedStaff: false, profileId };
 }
