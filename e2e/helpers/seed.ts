@@ -2,10 +2,7 @@ const TRAILING_SLASH_RE = /\/$/;
 
 export async function seedE2eStaffProfiles() {
   if (!process.env.E2E_SEED_SECRET) {
-    console.warn(
-      "E2E_SEED_SECRET unset — skipping Convex E2E staff seed (run e2eSeedActions manually)."
-    );
-    return;
+    throw new Error("E2E_SEED_SECRET is required before E2E staff provisioning can run.");
   }
 
   try {
@@ -22,8 +19,11 @@ export async function seedE2eStaffProfiles() {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.warn(
-      `Convex E2E staff seed failed — continuing with existing deployment data. ${message}`
+    throw new Error(
+      `Convex E2E staff seed failed; refusing to use existing deployment data. ${message}`,
+      {
+        cause: error,
+      }
     );
   }
 }

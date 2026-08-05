@@ -47,10 +47,10 @@ jobs:
         run: bun run performance:check
 
       - name: Generate fresh Convex types
-        # Fork pull requests stay on the credential-free lane. Internal pull requests and the
-        # protected main ref are trusted repository refs for the dedicated non-production key;
-        # manually dispatched runs on arbitrary branches never receive it.
-        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main')
+        # Every pull request stays on the credential-free lane. Only the protected main ref may
+        # receive the dedicated non-production Convex key; manually dispatched runs on arbitrary
+        # branches never receive it.
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_CI_DEPLOY_KEY }}
         run: |
@@ -58,20 +58,20 @@ jobs:
           bunx convex codegen --typecheck enable
 
       - name: Run application and contract tests
-        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main')
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         run: bun run test
 
       - name: Type-check Next.js application
-        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main')
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         run: bun run typecheck
 
       - name: Type-check Convex in its own project
-        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main')
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         run: bunx tsc --noEmit
         working-directory: convex
 
       - name: Run production build without deployment
-        if: (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main')
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_CI_DEPLOY_KEY }}
         run: bun run build

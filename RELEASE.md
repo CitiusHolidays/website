@@ -41,12 +41,13 @@ do not paste values into logs or tickets.
 2. diff hygiene, including atomic JavaScript-to-TypeScript entrypoint replacements
 3. the policy, asset, and performance checks on every pull request
 4. all Bun tests, application/Convex type checks, fresh Convex generation, and the production
-   build on pushes and pull requests opened from a branch in this repository
-5. a credential-free fork-pull-request lane that never receives the Convex deploy key
+   build on the protected `main` push/manual lane
+5. a credential-free pull-request lane that never receives the Convex deploy key (including
+   pull requests opened from this repository)
 6. a high/critical dependency audit and the per-rule lint ratchet
 
-The full lane uses a dedicated non-production Convex deploy key only for trusted repository refs;
-fork pull requests remain unable to access that secret and therefore receive the safe subset.
+The full lane uses a dedicated non-production Convex deploy key only for the protected `main`
+push/manual lane; every pull request receives the safe subset and cannot access that secret.
 
 The lint baseline is explicit in `config/release/lint-baseline.json`. Generated Convex surfaces are
 excluded by `biome.json`. A rule family may be burned down and then recorded with

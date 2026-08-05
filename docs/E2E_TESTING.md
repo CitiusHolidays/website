@@ -45,7 +45,9 @@ Tags: `@critical`, `@smoke`, `@workflow`.
 
 Staff emails are in `config/e2e-staff-profiles.json` (`e2e-{role}@citius-e2e.test`). Passwords are never committed.
 
-Set `E2E_STRICT=1` to fail fast when credentials are missing (optional; default is skip with warning).
+Set `E2E_STRICT=1` to fail fast when the staff password is missing. Once auth setup starts, the
+seed secret, Convex site URL, and provisioning request are always required; a failed seed aborts
+the run instead of falling back to existing deployment data.
 
 ## Auth storage
 
