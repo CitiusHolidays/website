@@ -1,12 +1,28 @@
+const turbopackEnabled = Boolean(process.env.TURBOPACK);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   cacheComponents: true,
+  // Next 16.3's app-shell prefetching avoids downloading request-time data
+  // for every visible link while keeping cached route content reusable.
+  partialPrefetching: true,
   env: {
     NEXT_PUBLIC_CONVEX_SITE_URL: process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
     NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
   },
   experimental: {
     optimizePackageImports: ["lucide-react"],
+    ...(turbopackEnabled
+      ? {
+          // Let Turbopack evict persisted compiler data when memory pressure
+          // makes it worthwhile, while retaining the warm filesystem cache.
+          turbopackMemoryEviction: "auto",
+          // Next 16.3's native compiler avoids the Babel transform on
+          // Turbopack's default dev/build path while keeping React Compiler
+          // enabled. Keep the webpack fallback path supported.
+          turbopackRustReactCompiler: true,
+        }
+      : {}),
   },
 
   // Security headers
