@@ -1,4 +1,5 @@
 import { revalidateTag } from "next/cache";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { timingSafeSecretEqual } from "@/lib/serverSecret";
 
 const ALLOWED_TAGS = new Set(["blog", "gallery", "spiritual"]);
@@ -42,5 +43,7 @@ export async function handleSanityRevalidation(request, revalidate = revalidateT
 }
 
 export async function POST(request) {
-  return await handleSanityRevalidation(request);
+  return await withApiRequestLogging(request, "/api/revalidate", () =>
+    handleSanityRevalidation(request)
+  );
 }

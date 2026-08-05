@@ -9,11 +9,12 @@
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation } from "@/lib/auth-server";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 import type { ConfirmBookingArgs, VerifyPaymentPayload } from "@/lib/paymentVerification";
 import { verifyPaymentRequest } from "@/lib/paymentVerification";
 import { verifyPaymentSignature } from "@/lib/razorpay";
 
-export async function POST(request: Request) {
+async function handleVerifyPayment(request: Request) {
   try {
     const body = (await request.json()) as VerifyPaymentPayload;
 
@@ -57,4 +58,10 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
+}
+
+export async function POST(request: Request) {
+  return await withApiRequestLogging(request, "/api/verify-payment", () =>
+    handleVerifyPayment(request)
+  );
 }

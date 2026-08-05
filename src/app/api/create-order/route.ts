@@ -12,6 +12,7 @@ import { Effect, Exit } from "effect";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation, fetchAuthQuery } from "@/lib/auth-server";
 import { buildExternalIoEffect } from "@/lib/effectAdoption";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { createOrder, razorpayKeyId } from "@/lib/razorpay";
 
 // Effect: external-io, typed-recoverable-errors (see effectAdoption.ts).
@@ -73,7 +74,7 @@ function mapCreateOrderError(error: unknown) {
   return NextResponse.json({ error: "Failed to create order. Please try again." }, { status: 500 });
 }
 
-export async function POST(request: Request) {
+async function handleCreateOrder(request: Request) {
   try {
     const body = (await request.json()) as CreateOrderBody;
     const { currency = "INR", notes = "", travelerDetails = [], travelers = 1, tripId } = body;
@@ -176,6 +177,12 @@ export async function POST(request: Request) {
     console.error("Create order error:", error);
     return mapCreateOrderError(error);
   }
+}
+
+export async function POST(request: Request) {
+  return await withApiRequestLogging(request, "/api/create-order", () =>
+    handleCreateOrder(request)
+  );
 }
 
 export function OPTIONS() {

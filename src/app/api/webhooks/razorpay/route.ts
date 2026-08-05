@@ -9,6 +9,7 @@
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation } from "@/lib/auth-server";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { getPaymentMutationSecret } from "@/lib/paymentVerification";
 import { verifyWebhookSignature } from "@/lib/razorpay";
 import {
@@ -17,7 +18,7 @@ import {
   type RazorpayWebhookPayload,
 } from "@/lib/razorpayWebhook";
 
-export async function POST(request: Request) {
+async function handleRazorpayWebhook(request: Request) {
   try {
     const rawBody = await request.text();
     const signature = request.headers.get("x-razorpay-signature");
@@ -73,4 +74,10 @@ export async function POST(request: Request) {
     const response = mapRazorpayWebhookProcessingError(error);
     return NextResponse.json(response.body, { status: response.status });
   }
+}
+
+export async function POST(request: Request) {
+  return await withApiRequestLogging(request, "/api/webhooks/razorpay", () =>
+    handleRazorpayWebhook(request)
+  );
 }

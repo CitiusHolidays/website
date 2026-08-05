@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "preview": {
+      "required": [
+        "BETTER_AUTH_URL",
+        "NEXT_PUBLIC_APP_URL",
+        "NEXT_PUBLIC_CONVEX_SITE_URL",
+        "NEXT_PUBLIC_CONVEX_URL",
+        "RESEND_API_KEY",
+        "SITE_URL"
+      ]
+    },
+    "production": {
+      "required": [
+        "BETTER_AUTH_URL",
+        "CONVEX_DEPLOYMENT",
+        "CONVEX_DEPLOY_KEY",
+        "NEXT_PUBLIC_APP_URL",
+        "NEXT_PUBLIC_CONVEX_SITE_URL",
+        "NEXT_PUBLIC_CONVEX_URL",
+        "RESEND_API_KEY",
+        "SITE_URL"
+      ]
+    }
+  }
+}

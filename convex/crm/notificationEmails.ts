@@ -10,7 +10,14 @@ import {
   LEGACY_RESEND_ENV_SUNSET,
   resolveNotificationResendKey,
 } from "./notificationEmailConfig";
-import { deliverNotificationEmailsSequentially } from "./notificationEmailDelivery";
+import {
+  deliverNotificationEmailsSequentially,
+  notificationEmailIdempotencyKey,
+} from "./notificationEmailDelivery";
+import {
+  normalizeNotificationEmailFailure,
+  notificationEmailRecipientHashFromIdempotencyKey,
+} from "./notificationEmailLedger";
 import { getNotificationHref } from "./notificationPaths";
 
 type EmailDetails = {
@@ -24,6 +31,14 @@ const TRAILING_SLASH_RE = /\/$/;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function safeErrorCode(error: unknown) {
+  const normalized = normalizeNotificationEmailFailure(error);
+  return {
+    failureCode: normalized.code,
+    providerStatus: normalized.providerStatus,
+  };
 }
 
 function siteUrl() {
@@ -197,16 +212,6 @@ export const sendNotificationEmail = internalAction({
   },
   handler: async (ctx, args) => {
     const resendConfig = resolveNotificationResendKey(process.env);
-    if (!resendConfig.key) {
-      console.error("Skipping notification email: RESEND_API_KEY is not configured.");
-      return { sent: 0, skipped: args.recipients.length };
-    }
-    if (resendConfig.source === LEGACY_RESEND_ENV_NAME) {
-      console.warn(
-        `Notification email is using legacy ${LEGACY_RESEND_ENV_NAME}; migrate to RESEND_API_KEY before ${LEGACY_RESEND_ENV_SUNSET}.`
-      );
-    }
-
     const recipients = Array.from(
       new Set(
         args.recipients.flatMap((email) => {
@@ -217,6 +222,73 @@ export const sendNotificationEmail = internalAction({
     );
     if (recipients.length === 0) {
       return { sent: 0, skipped: 0 };
+    }
+
+    const recordStatus = async (event: {
+      attempts: number;
+      error?: { name?: string; statusCode?: number | null };
+      idempotencyKey: string;
+      recipient: string;
+      status: "queued" | "sending" | "retrying" | "sent" | "skipped" | "exhausted";
+    }) => {
+      try {
+        const failure = event.error
+          ? safeErrorCode(event.error)
+          : { failureCode: undefined, providerStatus: undefined };
+        await ctx.runMutation(internal.crm.notificationEmailLedger.recordDeliveryOutcome, {
+          attempts: event.attempts,
+          eventId: args.eventId,
+          ...(failure.failureCode ? { failureCode: failure.failureCode } : {}),
+          idempotencyKey: event.idempotencyKey,
+          ...(failure.providerStatus === undefined
+            ? {}
+            : { providerStatus: failure.providerStatus }),
+          recipientHash: notificationEmailRecipientHashFromIdempotencyKey(event.idempotencyKey),
+          status: event.status,
+        });
+      } catch (error) {
+        // Ledger writes are observability best-effort and must never change
+        // recipient pacing or turn a successful provider send into a failure.
+        const code = safeErrorCode(error).failureCode;
+        console.error(
+          JSON.stringify({
+            errorCode: code,
+            event: "crm_notification_email_ledger_write_failed",
+            eventId: args.eventId,
+            recipientHash: notificationEmailRecipientHashFromIdempotencyKey(event.idempotencyKey),
+          })
+        );
+      }
+    };
+
+    if (!resendConfig.key) {
+      console.error(
+        JSON.stringify({
+          event: "crm_notification_email_skipped",
+          eventId: args.eventId,
+          reason: "provider_not_configured",
+          recipientCount: recipients.length,
+        })
+      );
+      await Promise.all(
+        recipients.map(async (recipient) => {
+          // Use the same privacy-safe idempotency derivation as configured
+          // sends; the raw address never enters the ledger or logs.
+          const hashedKey = await notificationEmailIdempotencyKey(args.eventId, recipient);
+          await recordStatus({
+            attempts: 0,
+            idempotencyKey: hashedKey,
+            recipient,
+            status: "skipped",
+          });
+        })
+      );
+      return { sent: 0, skipped: recipients.length };
+    }
+    if (resendConfig.source === LEGACY_RESEND_ENV_NAME) {
+      console.warn(
+        `Notification email is using legacy ${LEGACY_RESEND_ENV_NAME}; migrate to RESEND_API_KEY before ${LEGACY_RESEND_ENV_SUNSET}.`
+      );
     }
 
     const href = `${siteUrl()}${getNotificationHref(args)}`;
@@ -252,6 +324,7 @@ export const sendNotificationEmail = internalAction({
         subject: `Citius Connect: ${args.title}`,
         text,
       },
+      onStatus: recordStatus,
       recipients,
       sendEmail: (message, options) => resend.emails.send(message, options),
       sleep,

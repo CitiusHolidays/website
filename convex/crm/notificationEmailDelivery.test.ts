@@ -89,6 +89,28 @@ describe("deliverNotificationEmailsSequentially", () => {
     expect(new Set(identities).size).toBe(1);
   });
 
+  test("reports queued, retry, and terminal states without changing pacing", async () => {
+    const statuses: string[] = [];
+    let attempts = 0;
+    const result = await deliverNotificationEmailsSequentially({
+      config: { maxRetries: 2, minIntervalMs: 10 },
+      eventId: "notifications_statuses",
+      message,
+      onStatus: ({ status, attempts: statusAttempts }) => {
+        statuses.push(`${status}:${statusAttempts}`);
+      },
+      recipients: ["sales@example.com"],
+      sendEmail: () => {
+        attempts += 1;
+        return Promise.resolve(attempts === 1 ? { error: { statusCode: 429 } } : { error: null });
+      },
+      sleep: () => Promise.resolve(),
+    });
+
+    expect(result).toEqual({ sent: 1, skipped: 0 });
+    expect(statuses).toEqual(["queued:0", "sending:1", "retrying:1", "sending:2", "sent:2"]);
+  });
+
   test("scheduler replay keeps event-recipient identities stable and distinct", async () => {
     const identities: string[] = [];
     const deliver = () =>
