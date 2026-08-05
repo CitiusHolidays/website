@@ -14,7 +14,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "7fc49c5218e56cca8fa53b53513735ca65dc24c91872286d8ec4c26c49850675";
+const EXPECTED_CAPABILITY_HASH = "36f481256f7f77cfc71273b25380478bf71d194c8426bd16fe9ff8a33c17c35e";
 const SOURCE_EXTENSION = /\.(?:js|ts)$/;
 const NON_SOURCE_FILE = /(?:\.test|\.config)\.[jt]s$/;
 const MODULE_EXTENSION = /\.[jt]s$/;
@@ -41,6 +41,10 @@ const PAYMENT_SERVER_ONLY_CAPABILITIES = new Set([
   "bookings.recordPaymentAuthorized",
 ]);
 
+const RECONCILIATION_SERVER_ONLY_CAPABILITIES = new Set([
+  "crm/paymentReconciliation.recordProviderEvent",
+]);
+
 const E2E_SERVER_ONLY_CAPABILITIES = new Set([
   "crm/e2eAssertions.travellerExists",
   "crm/e2eSeedActions.run",
@@ -50,6 +54,7 @@ const SERVER_ONLY_CAPABILITIES = new Set([
   ...AI_SERVER_ONLY_CAPABILITIES,
   ...E2E_SERVER_ONLY_CAPABILITIES,
   ...PAYMENT_SERVER_ONLY_CAPABILITIES,
+  ...RECONCILIATION_SERVER_ONLY_CAPABILITIES,
 ]);
 
 function sourceFiles(directory: string): string[] {

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { ConvexError } from "convex/values";
-import { assertPaymentMutationSecret } from "./lib/paymentMutationAuth";
+import {
+  assertPaymentMutationSecret,
+  assertPaymentMutationSourceAllowed,
+} from "./lib/paymentMutationAuth";
 
 const TEST_SECRET = "test-secret";
 
@@ -47,5 +50,35 @@ describe("payment mutation authorization", () => {
     withPaymentSecretEnv(() => {
       expect(() => assertPaymentMutationSecret(TEST_SECRET)).not.toThrow();
     });
+  });
+});
+
+describe("payment fixture source", () => {
+  test("rejects fixture events in production", () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      expect(() => assertPaymentMutationSourceAllowed("fixture", true)).toThrow(ConvexError);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = previous;
+      }
+    }
+  });
+
+  test("allows fixture events outside production", () => {
+    const previous = process.env.NODE_ENV;
+    process.env.NODE_ENV = "test";
+    try {
+      expect(() => assertPaymentMutationSourceAllowed("fixture", true)).not.toThrow();
+    } finally {
+      if (previous === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = previous;
+      }
+    }
   });
 });

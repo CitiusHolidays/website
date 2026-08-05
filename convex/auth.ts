@@ -23,7 +23,6 @@ export const getCurrentUser = query({
       id: identity.subject,
       image: profile?.image ?? (typeof identity.picture === "string" ? identity.picture : null),
       name: profile?.name ?? identity.name ?? "Traveler",
-      passportDetailsEncrypted: profile?.passportDetailsEncrypted ?? null,
       phoneNumber: profile?.phoneNumber ?? "",
       updatedAt: timestamps.updatedAt,
     };

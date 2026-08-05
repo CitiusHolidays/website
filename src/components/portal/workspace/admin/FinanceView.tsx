@@ -15,10 +15,12 @@ import type {
 } from "../portalViewTypes";
 import { money, strong } from "../portalWorkspaceListHelpers";
 import { DeleteButton, EditButton, Panel, StatCard, StatusBadge } from "../portalWorkspaceListUi";
+import { PaymentReconciliationPanel } from "./PaymentReconciliationPanel";
 
 type InvoiceRow = PortalInvoiceListRow;
 
 export function FinanceView({
+  access,
   rows,
   overview,
   openModal,
@@ -26,6 +28,10 @@ export function FinanceView({
   deleteItem,
   removeInvoice,
 }: FinanceViewProps) {
+  const canViewPaymentReconciliation = (access?.roles ?? []).some((role) =>
+    ["Accounts", "Accounts Head", "Admin", "Directors", "Director Cement"].includes(role)
+  );
+
   return (
     <div className="space-y-5">
       {overview && (
@@ -174,6 +180,7 @@ export function FinanceView({
           </Panel>
         </>
       )}
+      {canViewPaymentReconciliation && <PaymentReconciliationPanel />}
       <SelectableDataTable
         columns={[
           {

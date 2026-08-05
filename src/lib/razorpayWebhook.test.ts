@@ -41,35 +41,104 @@ describe("processRazorpayWebhookEvent", () => {
     ]);
   });
 
-  test("skips payment mutations when the server secret is missing", async () => {
+  test("fails closed when the server secret is missing", async () => {
     let called = false;
 
-    const result = await processRazorpayWebhookEvent(
-      {
-        event: "payment.failed",
-        payload: {
-          payment: {
-            entity: {
-              id: "pay_1",
-              order_id: "order_1",
+    await expect(
+      processRazorpayWebhookEvent(
+        {
+          event: "payment.failed",
+          payload: {
+            payment: {
+              entity: {
+                id: "pay_1",
+                order_id: "order_1",
+              },
             },
           },
         },
-      },
-      {
-        confirmBookingByOrderId: () => Promise.resolve({ success: true }),
-        getServerSecret: () => null,
-        markPaymentFailedByOrderId: () => {
-          called = true;
-          return Promise.resolve({ id: "booking_1" });
-        },
-        markRefundedByPaymentId: () => Promise.resolve({}),
-        recordPaymentAuthorized: () => Promise.resolve({}),
-      }
-    );
-
-    expect(result).toEqual({ action: "payment.failed.skipped-missing-secret", received: true });
+        {
+          confirmBookingByOrderId: () => Promise.resolve({ success: true }),
+          getServerSecret: () => null,
+          markPaymentFailedByOrderId: () => {
+            called = true;
+            return Promise.resolve({ id: "booking_1" });
+          },
+          markRefundedByPaymentId: () => Promise.resolve({}),
+          recordPaymentAuthorized: () => Promise.resolve({}),
+        }
+      )
+    ).rejects.toThrow("Payment mutation secret is not configured");
     expect(called).toBe(false);
+  });
+
+  test("uses the provider webhook id for idempotency and records transition failures", async () => {
+    const providerEvents: unknown[] = [];
+
+    await expect(
+      processRazorpayWebhookEvent(
+        {
+          event: "payment.captured",
+          id: "evt_1",
+          payload: {
+            payment: { entity: { id: "pay_1", order_id: "order_1" } },
+          },
+        },
+        {
+          confirmBookingByOrderId: () => Promise.reject(new Error("Convex unavailable")),
+          getServerSecret: () => "server-secret",
+          markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+          markRefundedByPaymentId: () => Promise.resolve({}),
+          recordPaymentAuthorized: () => Promise.resolve({}),
+          recordProviderEvent: (args) => {
+            providerEvents.push(args);
+            return Promise.resolve({});
+          },
+        }
+      )
+    ).rejects.toThrow("Convex unavailable");
+
+    expect(providerEvents).toHaveLength(2);
+    expect(providerEvents[0]).toMatchObject({
+      eventType: "payment.captured",
+      providerEventId: "razorpay:webhook:evt_1",
+    });
+    expect(providerEvents[1]).toMatchObject({ providerEventId: "razorpay:webhook:evt_1" });
+    expect((providerEvents[1] as { errorMessage?: string }).errorMessage).toContain(
+      "Convex unavailable"
+    );
+  });
+
+  test("rejects incomplete supported payloads after recording a review event", async () => {
+    const providerEvents: unknown[] = [];
+
+    await expect(
+      processRazorpayWebhookEvent(
+        {
+          event: "payment.captured",
+          id: "evt_incomplete",
+          payload: { payment: { entity: { id: "pay_1" } } },
+        },
+        {
+          confirmBookingByOrderId: () => Promise.resolve({ success: true }),
+          getServerSecret: () => "server-secret",
+          markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+          markRefundedByPaymentId: () => Promise.resolve({}),
+          recordPaymentAuthorized: () => Promise.resolve({}),
+          recordProviderEvent: (args) => {
+            providerEvents.push(args);
+            return Promise.resolve({});
+          },
+        }
+      )
+    ).rejects.toThrow("Incomplete Razorpay payment.captured payload");
+
+    expect(providerEvents).toHaveLength(1);
+    expect(providerEvents[0]).toMatchObject({
+      errorMessage: "Incomplete Razorpay payment.captured payload",
+      eventType: "payment.captured",
+      providerEventId: "razorpay:webhook:evt_incomplete",
+    });
   });
 
   test("acknowledges unhandled events without calling payment mutations", async () => {

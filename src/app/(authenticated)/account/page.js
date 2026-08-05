@@ -14,11 +14,26 @@ export default async function AccountPage() {
   // Use requireAuth to ensure user is authenticated
   // This will redirect to /auth if not logged in
   return requireAuth("/account").then(async ({ user }) => {
-    const [, bookings] = await Promise.all([
-      fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}),
-      fetchAuthQuery(anyApi.bookings.getMyBookings, {}),
-    ]);
+    let bookings = [];
+    let bookingLoadError = "";
+    try {
+      [, bookings] = await Promise.all([
+        fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}),
+        fetchAuthQuery(anyApi.bookings.getMyBookings, {}),
+      ]);
+    } catch (error) {
+      console.error("Customer Account booking read failed:", error);
+      bookingLoadError = "BOOKING_READ_FAILED";
+    }
+    const referenceNow = Date.now();
 
-    return <AccountClient bookings={bookings} user={user} />;
+    return (
+      <AccountClient
+        bookingLoadError={bookingLoadError}
+        bookings={bookings}
+        referenceNow={referenceNow}
+        user={user}
+      />
+    );
   });
 }

@@ -2,7 +2,18 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
-import { assertPaymentMutationSecret } from "./lib/paymentMutationAuth";
+import {
+  eventTypeForTransition,
+  finalizeProviderEvent,
+  markProviderEventProcessingFailure,
+  type PaymentTransitionMetadata,
+  type PaymentTransitionResult,
+  upsertProviderEvent,
+} from "./crm/paymentReconciliationDomain";
+import {
+  assertPaymentMutationSecret,
+  assertPaymentMutationSourceAllowed,
+} from "./lib/paymentMutationAuth";
 import {
   bookingTransitionResultValidator,
   checkoutResultValidator,
@@ -11,6 +22,7 @@ import {
 } from "./publicReturnContracts";
 
 const VALID_CURRENCIES = new Set(["INR", "USD"]);
+const CUSTOMER_BOOKING_LIMIT = 100;
 
 const getIdentity = async (ctx: QueryCtx | MutationCtx) => await ctx.auth.getUserIdentity();
 
@@ -58,6 +70,7 @@ const toApiTrip = (trip: Doc<"trips">) => ({
   gallery: trip.gallery ?? [],
   id: trip._id,
   isActive: trip.isActive,
+  itinerary: trip.itinerary ?? [],
   name: trip.name,
   priceInr: trip.priceInr,
   priceUsd: trip.priceUsd,
@@ -83,6 +96,32 @@ const toApiBooking = (booking: Doc<"bookings">) => ({
   tripId: booking.tripId,
   updatedAt: new Date(booking.updatedAt).toISOString(),
   userId: booking.userId,
+});
+
+const toCustomerTravelDetails = (booking: Doc<"bookings">) => {
+  const flight = {
+    airline: booking.customerTravelDetails?.flight?.airline ?? "",
+    arrival: booking.customerTravelDetails?.flight?.arrival ?? "",
+    departure: booking.customerTravelDetails?.flight?.departure ?? "",
+    flightNumber: booking.customerTravelDetails?.flight?.flightNumber ?? "",
+  };
+  const stay = {
+    hotel: booking.customerTravelDetails?.stay?.hotel ?? "",
+    roomType: booking.customerTravelDetails?.stay?.roomType ?? "",
+  };
+  return Object.values({ ...flight, ...stay }).some(Boolean) ? { flight, stay } : null;
+};
+
+const toCustomerBooking = (booking: Doc<"bookings">) => ({
+  confirmedAt: booking.confirmedAt ? new Date(booking.confirmedAt).toISOString() : null,
+  createdAt: new Date(booking.createdAt).toISOString(),
+  currency: booking.currency,
+  customerTravelDetails: toCustomerTravelDetails(booking),
+  id: booking._id,
+  status: booking.status,
+  totalAmount: booking.totalAmount,
+  travelers: booking.travelers,
+  updatedAt: new Date(booking.updatedAt).toISOString(),
 });
 
 const getUserProfile = async (ctx: QueryCtx | MutationCtx, authUserId: string) =>
@@ -219,7 +258,7 @@ export const getMyBookings = query({
       .query("bookings")
       .withIndex("by_userId_createdAt", (q) => q.eq("userId", identity.subject))
       .order("desc")
-      .collect();
+      .take(CUSTOMER_BOOKING_LIMIT);
 
     const trips = await Promise.all(rows.map((booking) => ctx.db.get(booking.tripId)));
     return rows.flatMap((booking, index) => {
@@ -229,7 +268,7 @@ export const getMyBookings = query({
       }
       return [
         {
-          booking: toApiBooking(booking),
+          booking: toCustomerBooking(booking),
           trip: toApiTrip(trip),
         },
       ];
@@ -241,11 +280,18 @@ export const getMyBookings = query({
 type BookingTransition = "authorized" | "confirmed" | "failed" | "refunded";
 
 interface BookingTransitionArgs {
+  amount?: number;
+  currency?: string;
+  eventType?: string;
+  isFixture?: boolean;
   orderId?: string;
   paymentId?: string;
+  provider?: string;
   providerEventId: string;
+  providerStatus?: string;
   reason: string;
   signature?: string;
+  source?: "webhook" | "checkout" | "fixture" | "manual";
   transition: BookingTransition;
 }
 
@@ -415,34 +461,85 @@ async function applyConfirmedTransition(
 }
 
 export async function applyBookingPaymentTransition(ctx: MutationCtx, args: BookingTransitionArgs) {
+  const providerMetadata: PaymentTransitionMetadata = {
+    amount: args.amount,
+    currency: args.currency,
+    eventType: args.eventType ?? eventTypeForTransition(args.transition),
+    isFixture: args.isFixture,
+    orderId: args.orderId,
+    paymentId: args.paymentId,
+    provider: args.provider,
+    providerEventId: args.providerEventId,
+    providerStatus: args.providerStatus,
+    reason: args.reason,
+    source: args.source ?? (args.providerEventId.startsWith("checkout:") ? "checkout" : "webhook"),
+    transition: args.transition,
+  };
+  assertPaymentMutationSourceAllowed(providerMetadata.source, providerMetadata.isFixture);
+  await upsertProviderEvent(ctx, {
+    amount: providerMetadata.amount,
+    currency: providerMetadata.currency,
+    eventType: providerMetadata.eventType ?? eventTypeForTransition(args.transition),
+    isFixture: providerMetadata.isFixture,
+    orderId: providerMetadata.orderId,
+    paymentId: providerMetadata.paymentId,
+    provider: providerMetadata.provider,
+    providerEventId: providerMetadata.providerEventId,
+    providerStatus: providerMetadata.providerStatus,
+    source: providerMetadata.source,
+  });
+
   const existingEvent = await findPaymentEvent(ctx, args.providerEventId);
   if (existingEvent) {
     if (existingEvent.transition !== args.transition) {
       throw new ConvexError("Provider event identity was already used for another transition");
     }
     const existingBooking = await ctx.db.get(existingEvent.bookingId);
-    return existingBooking
+    const duplicateResult = existingBooking
       ? duplicateTransitionResult(existingBooking, args.transition)
       : { duplicateEvent: true, status: existingEvent.statusAfter };
+    await finalizeProviderEvent(ctx, providerMetadata, duplicateResult, existingBooking);
+    return duplicateResult;
   }
 
-  const booking = await resolveTransitionBooking(ctx, args);
+  let booking: Doc<"bookings"> | null;
+  try {
+    booking = await resolveTransitionBooking(ctx, args);
+  } catch (error) {
+    await markProviderEventProcessingFailure(ctx, args.providerEventId, error);
+    throw error;
+  }
   if (!booking) {
-    return { message: "Booking not found for this payment event", success: false };
+    const unmatched = { message: "Booking not found for this payment event", success: false };
+    await finalizeProviderEvent(ctx, providerMetadata, unmatched, null);
+    return unmatched;
   }
   const timestamp = Date.now();
 
-  switch (args.transition) {
-    case "authorized":
-      return await applyAuthorizedTransition(ctx, args, booking, timestamp);
-    case "failed":
-      return await applyFailedTransition(ctx, args, booking, timestamp);
-    case "refunded":
-      return await applyRefundedTransition(ctx, args, booking, timestamp);
-    case "confirmed":
-      return await applyConfirmedTransition(ctx, args, booking, timestamp);
-    default:
-      throw new ConvexError("Unsupported booking transition");
+  try {
+    let result: PaymentTransitionResult;
+    switch (args.transition) {
+      case "authorized":
+        result = await applyAuthorizedTransition(ctx, args, booking, timestamp);
+        break;
+      case "failed":
+        result = await applyFailedTransition(ctx, args, booking, timestamp);
+        break;
+      case "refunded":
+        result = await applyRefundedTransition(ctx, args, booking, timestamp);
+        break;
+      case "confirmed":
+        result = await applyConfirmedTransition(ctx, args, booking, timestamp);
+        break;
+      default:
+        throw new ConvexError("Unsupported booking transition");
+    }
+    const updatedBooking = await ctx.db.get(booking._id);
+    await finalizeProviderEvent(ctx, providerMetadata, result, updatedBooking);
+    return result;
+  } catch (error) {
+    await markProviderEventProcessingFailure(ctx, args.providerEventId, error);
+    throw error;
   }
 }
 
@@ -453,12 +550,26 @@ export const confirmBookingByOrderIdHandler = async (
 
 export const confirmBookingByOrderId = mutation({
   args: {
+    amount: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    eventType: v.optional(v.string()),
+    isFixture: v.optional(v.boolean()),
     orderId: v.string(),
     paymentId: v.string(),
+    provider: v.optional(v.string()),
     providerEventId: v.string(),
+    providerStatus: v.optional(v.string()),
     reason: v.string(),
     serverSecret: v.string(),
     signature: v.optional(v.string()),
+    source: v.optional(
+      v.union(
+        v.literal("webhook"),
+        v.literal("checkout"),
+        v.literal("fixture"),
+        v.literal("manual")
+      )
+    ),
   },
   handler: async (ctx, args) => {
     assertPaymentMutationSecret(args.serverSecret);
@@ -469,11 +580,25 @@ export const confirmBookingByOrderId = mutation({
 
 export const recordPaymentAuthorized = mutation({
   args: {
+    amount: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    eventType: v.optional(v.string()),
+    isFixture: v.optional(v.boolean()),
     orderId: v.string(),
     paymentId: v.string(),
+    provider: v.optional(v.string()),
     providerEventId: v.string(),
+    providerStatus: v.optional(v.string()),
     reason: v.string(),
     serverSecret: v.string(),
+    source: v.optional(
+      v.union(
+        v.literal("webhook"),
+        v.literal("checkout"),
+        v.literal("fixture"),
+        v.literal("manual")
+      )
+    ),
   },
   handler: async (ctx, args) => {
     assertPaymentMutationSecret(args.serverSecret);
@@ -492,11 +617,25 @@ export const markPaymentFailedByOrderIdHandler = async (
 
 export const markPaymentFailedByOrderId = mutation({
   args: {
+    amount: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    eventType: v.optional(v.string()),
+    isFixture: v.optional(v.boolean()),
     orderId: v.string(),
     paymentId: v.optional(v.string()),
+    provider: v.optional(v.string()),
     providerEventId: v.string(),
+    providerStatus: v.optional(v.string()),
     reason: v.string(),
     serverSecret: v.string(),
+    source: v.optional(
+      v.union(
+        v.literal("webhook"),
+        v.literal("checkout"),
+        v.literal("fixture"),
+        v.literal("manual")
+      )
+    ),
   },
   handler: async (ctx, args) => {
     assertPaymentMutationSecret(args.serverSecret);
@@ -507,10 +646,24 @@ export const markPaymentFailedByOrderId = mutation({
 
 export const markRefundedByPaymentId = mutation({
   args: {
+    amount: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    eventType: v.optional(v.string()),
+    isFixture: v.optional(v.boolean()),
     paymentId: v.string(),
+    provider: v.optional(v.string()),
     providerEventId: v.string(),
+    providerStatus: v.optional(v.string()),
     reason: v.string(),
     serverSecret: v.string(),
+    source: v.optional(
+      v.union(
+        v.literal("webhook"),
+        v.literal("checkout"),
+        v.literal("fixture"),
+        v.literal("manual")
+      )
+    ),
   },
   handler: async (ctx, args) => {
     assertPaymentMutationSecret(args.serverSecret);
