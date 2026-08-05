@@ -1,0 +1,75 @@
+name: Required quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: required-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Locked install and release gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76
+        with:
+          bun-version: 1.3.14
+
+      - name: Install locked dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check diff hygiene
+        env:
+          DIFF_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: bun run diff:check
+
+      - name: Check CI and secret policy
+        run: bun run policy:check
+
+      - name: Check public asset references
+        run: bun run assets:check
+
+      - name: Generate fresh Convex types
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_CI_DEPLOY_KEY }}
+        run: |
+          rm -rf convex/_generated
+          bunx convex codegen --typecheck enable
+
+      - name: Run application and contract tests
+        run: bun run test
+
+      - name: Type-check Next.js application
+        run: bun run typecheck
+
+      - name: Type-check Convex in its own project
+        run: bunx tsc --noEmit
+        working-directory: convex
+
+      - name: Run production build without deployment
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_CI_DEPLOY_KEY }}
+        run: bun run build
+
+      - name: Audit high and critical dependencies
+        run: bun audit --audit-level=high
+
+      - name: Run raw lint checks
+        run: bun run lint
+
+      - name: Enforce lint ratchet
+        run: bun run lint:ratchet

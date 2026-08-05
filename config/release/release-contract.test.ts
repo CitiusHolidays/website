@@ -36,6 +36,8 @@ const WORKFLOW_ONLY_KEYS = new Set(["CONVEX_DEPLOY_KEY", "CONVEX_DEPLOYMENT"]);
 const ENV_KEY_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const ENV_ENTRY_PATTERN = /^([A-Z][A-Z0-9_]*)=(.*)$/;
 const ENV_REFERENCE_PATTERN = /\b(?:process\.env|env)\.([A-Z][A-Z0-9_]*)\b/g;
+const RAW_BUN_TEST_PATTERN = /^\s*run:\s*bun test\s*$/m;
+const IMMUTABLE_ACTION_PATTERN = /@[0-9a-f]{40}$/;
 
 function extension(path: string) {
   const dot = path.lastIndexOf(".");
@@ -133,6 +135,30 @@ describe("release command contract", () => {
     expect(workflow).toContain("permissions:\n  contents: read");
   });
 
+  test("runs fresh Convex generation before the canonical unit-test command", () => {
+    const workflow = readFileSync(join(ROOT, ".github/workflows/required-quality.yml"), "utf8");
+    const codegenStep = workflow.indexOf("bunx convex codegen --typecheck enable");
+    const testStep = workflow.indexOf("run: bun run test");
+
+    expect(codegenStep).toBeGreaterThanOrEqual(0);
+    expect(testStep).toBeGreaterThan(codegenStep);
+    expect(workflow).not.toMatch(RAW_BUN_TEST_PATTERN);
+    expect(workflow).toContain("bun-version: 1.3.14");
+  });
+
+  test("pins every third-party workflow action to an immutable commit", () => {
+    const workflow = readFileSync(join(ROOT, ".github/workflows/required-quality.yml"), "utf8");
+    const actionRefs = [...workflow.matchAll(/^\s*uses:\s*([^\s#]+)\s*$/gm)].map(
+      (match) => match[1]
+    );
+
+    expect(actionRefs.length).toBeGreaterThan(0);
+    for (const actionRef of actionRefs) {
+      expect(actionRef).toMatch(IMMUTABLE_ACTION_PATTERN);
+    }
+    expect(workflow).not.toContain("pull_request_target");
+  });
+
   test("keeps generated Convex output outside lint scope", () => {
     const biome = JSON.parse(readFileSync(join(ROOT, "biome.json"), "utf8")) as {
       files?: { includes?: string[] };
@@ -149,8 +175,9 @@ describe("release command contract", () => {
     expect(packageJson.scripts?.["lint:ratchet"]).toBe("bun config/release/lint-ratchet.ts");
     expect(packageJson.scripts?.check).toContain("bun run lint");
     expect(packageJson.scripts?.check).toContain("bun run lint:ratchet");
-    expect(packageJson.scripts?.check).toContain("bun test");
+    expect(packageJson.scripts?.check).toContain("bun run test");
     expect(packageJson.scripts?.["diff:check"]).toBe("bun config/release/check-diff-hygiene.ts");
+    expect(packageJson.scripts?.["policy:check"]).toBe("bun config/release/check-ci-policy.ts");
   });
 
   test("does not hide repository source and documentation behind broad ignore rules", () => {
