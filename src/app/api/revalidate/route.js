@@ -1,8 +1,14 @@
 import { revalidateTag } from "next/cache";
-import { NextResponse } from "next/server";
 import { timingSafeSecretEqual } from "@/lib/serverSecret";
 
 const ALLOWED_TAGS = new Set(["blog", "gallery", "spiritual"]);
+
+function jsonResponse(payload, status) {
+  return new Response(JSON.stringify(payload), {
+    headers: { "Content-Type": "application/json" },
+    status,
+  });
+}
 
 /**
  * Sanity webhook target: POST JSON `{ "tag": "gallery" | "blog" | "spiritual" }`
@@ -11,12 +17,12 @@ const ALLOWED_TAGS = new Set(["blog", "gallery", "spiritual"]);
 export async function handleSanityRevalidation(request, revalidate = revalidateTag) {
   const configuredSecret = process.env.SANITY_REVALIDATE_SECRET;
   if (!configuredSecret) {
-    return NextResponse.json({ message: "Revalidation unavailable" }, { status: 503 });
+    return jsonResponse({ message: "Revalidation unavailable" }, 503);
   }
 
   const secret = request.headers.get("x-sanity-revalidate-secret");
   if (!timingSafeSecretEqual(configuredSecret, secret)) {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return jsonResponse({ message: "Unauthorized" }, 401);
   }
 
   let body = {};
@@ -28,11 +34,11 @@ export async function handleSanityRevalidation(request, revalidate = revalidateT
 
   const tag = typeof body?.tag === "string" ? body.tag.trim() : "";
   if (!ALLOWED_TAGS.has(tag)) {
-    return NextResponse.json({ message: "Invalid tag" }, { status: 400 });
+    return jsonResponse({ message: "Invalid tag" }, 400);
   }
 
   await revalidate(tag, "max");
-  return NextResponse.json({ revalidated: true, tag });
+  return jsonResponse({ revalidated: true, tag }, 200);
 }
 
 export async function POST(request) {

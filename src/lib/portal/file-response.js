@@ -1,8 +1,12 @@
-import { NextResponse } from "next/server";
-
 const DEFAULT_FILE_NAME = "download";
 const DEFAULT_MIME_TYPE = "application/octet-stream";
 const SAFE_MIME_TYPE = /^[a-z0-9!#$&^_.+*-]+\/[a-z0-9!#$&^_.+*-]+$/i;
+
+function jsonResponse(payload, init = {}) {
+  const headers = new Headers(init.headers);
+  headers.set("Content-Type", "application/json");
+  return new Response(JSON.stringify(payload), { ...init, headers });
+}
 
 function sanitizeFileName(fileName) {
   const cleaned = String(fileName || DEFAULT_FILE_NAME)
@@ -27,16 +31,16 @@ export function sanitizeFileMimeType(mimeType) {
 
 export function portalFileResponse(file, options = {}) {
   if (!(file?.base64 || file?.bytes)) {
-    return NextResponse.json({ error: "File not found" }, { status: 404 });
+    return jsonResponse({ error: "File not found" }, { status: 404 });
   }
 
   const body = file.bytes ? Buffer.from(file.bytes) : Buffer.from(file.base64, "base64");
   if (body.byteLength < 1) {
-    return NextResponse.json({ error: "File not found" }, { status: 404 });
+    return jsonResponse({ error: "File not found" }, { status: 404 });
   }
   const mimeType = sanitizeFileMimeType(file.mimeType);
 
-  return new NextResponse(body, {
+  return new Response(body, {
     headers: {
       "Cache-Control": "private, no-store, max-age=0",
       "Content-Disposition": contentDisposition(file.fileName, options.disposition),
@@ -56,5 +60,5 @@ export function portalFileErrorResponse(error) {
       : message.includes("not found") || message.includes("not available")
         ? 404
         : 500;
-  return NextResponse.json({ error: message }, { status });
+  return jsonResponse({ error: message }, { status });
 }

@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { fetchAuthAction, getServerUser, getToken } from "@/lib/auth-server";
 import { portalFileErrorResponse, portalFileResponse } from "@/lib/portal/file-response";
 
@@ -71,17 +70,16 @@ export function consumePortalFileDownload(userId, now = Date.now()) {
 }
 
 function rateLimitResponse(rateLimit) {
-  return NextResponse.json(
-    { error: "Too many file downloads. Please wait a minute and try again." },
-    {
-      headers: {
-        "Cache-Control": "private, no-store, max-age=0",
-        "Retry-After": String(rateLimit.retryAfterSeconds),
-        "X-RateLimit-Limit": String(PORTAL_FILE_DOWNLOAD_LIMIT),
-        "X-RateLimit-Remaining": "0",
-      },
-      status: 429,
-    }
+  const headers = new Headers({
+    "Cache-Control": "private, no-store, max-age=0",
+    "Content-Type": "application/json",
+    "Retry-After": String(rateLimit.retryAfterSeconds),
+    "X-RateLimit-Limit": String(PORTAL_FILE_DOWNLOAD_LIMIT),
+    "X-RateLimit-Remaining": "0",
+  });
+  return new Response(
+    JSON.stringify({ error: "Too many file downloads. Please wait a minute and try again." }),
+    { headers, status: 429 }
   );
 }
 
