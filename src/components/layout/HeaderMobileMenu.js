@@ -4,11 +4,76 @@ import { X } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useRef } from "react";
+import { useFocusTrap } from "@/components/motion-ui/overlay";
 import { getTrailsForHub } from "@/data/trails";
+import { lockBodyScroll } from "@/lib/portal/lockBodyScroll";
 import Logo from "@/static/logos/logo.webp";
 import { SignInDropdown } from "./HeaderSignInDropdown";
 
-export function HeaderMobileMenu({ isOpen, onClose, navLinks, user, canAccessPortal, onLogout }) {
+export function HeaderMobileMenu({
+  isOpen,
+  onClose,
+  navLinks,
+  user,
+  canAccessPortal,
+  onLogout,
+  id = "public-mobile-menu",
+}) {
+  const surfaceRef = useRef(null);
+  const closeRef = useRef(null);
+
+  useFocusTrap({
+    active: isOpen,
+    container: surfaceRef,
+    initialFocus: closeRef,
+    onEscape: onClose,
+  });
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const overlay = surfaceRef.current;
+    const parent = overlay?.parentElement;
+    if (!(overlay && parent)) {
+      return;
+    }
+
+    const siblings = [...parent.children].filter((child) => child !== overlay);
+    const previous = siblings.map((sibling) => ({
+      ariaHidden: sibling.getAttribute("aria-hidden"),
+      element: sibling,
+      inert: sibling.hasAttribute("inert"),
+    }));
+
+    for (const sibling of siblings) {
+      sibling.setAttribute("aria-hidden", "true");
+      sibling.setAttribute("inert", "");
+    }
+
+    return () => {
+      for (const item of previous) {
+        if (item.ariaHidden === null) {
+          item.element.removeAttribute("aria-hidden");
+        } else {
+          item.element.setAttribute("aria-hidden", item.ariaHidden);
+        }
+        if (!item.inert) {
+          item.element.removeAttribute("inert");
+        }
+      }
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    return lockBodyScroll();
+  }, [isOpen]);
+
   if (!isOpen) {
     return null;
   }
@@ -16,14 +81,21 @@ export function HeaderMobileMenu({ isOpen, onClose, navLinks, user, canAccessPor
   return (
     <m.div
       animate={{ opacity: 1 }}
+      aria-label="Mobile navigation"
+      aria-modal="true"
       className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-slate-950/98 pt-[var(--safe-area-inset-top)] pr-[var(--safe-area-inset-right)] pb-[var(--safe-area-inset-bottom)] pl-[var(--safe-area-inset-left)]"
       exit={{ opacity: 0 }}
+      id={id}
       initial={{ opacity: 0 }}
+      ref={surfaceRef}
+      role="dialog"
+      tabIndex={-1}
     >
       <button
         aria-label="Close menu"
         className="absolute top-8 right-8 p-4 text-white/50 transition-colors hover:text-white"
         onClick={onClose}
+        ref={closeRef}
         type="button"
       >
         <X size={32} />

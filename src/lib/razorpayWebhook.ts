@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { buildExternalIoEffect } from "./effectAdoption";
+import { buildExternalIoEffect, ExternalIoFailure } from "./effectAdoption";
 
 // Effect: external-io, typed-recoverable-errors (see effectAdoption.ts).
 export interface RazorpayPaymentEntity {
@@ -96,6 +96,15 @@ export function mapRazorpayWebhookProcessingError(error: unknown): RazorpayWebho
     return { body: { error: error.message }, status: 400 };
   }
   if (error instanceof RazorpayWebhookConfigurationError) {
+    return { body: { error: "Webhook not configured" }, status: 500 };
+  }
+  if (
+    error instanceof ExternalIoFailure &&
+    String(error.cause).toLowerCase().includes("payment mutation secret")
+  ) {
+    // Convex rejects a server-secret mismatch inside the external mutation.
+    // Keep the response safe while preserving the configuration diagnosis in
+    // logs (the route logs the original error).
     return { body: { error: "Webhook not configured" }, status: 500 };
   }
   return { body: { error: "Webhook processing failed" }, status: 500 };

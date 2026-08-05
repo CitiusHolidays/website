@@ -75,17 +75,23 @@ function OverflowActionItem({
 }
 
 function MobileSwipeActions({
+  label,
   actions,
   primaryAction,
 }: {
+  label: string;
   actions: ActionElement[];
   primaryAction?: ReactElement | null;
 }) {
   const x = useMotionValue(0);
+  const [open, setOpen] = useState(false);
+
+  const closeMenu = () => setOpen(false);
+
   return (
     <div className="relative overflow-hidden md:hidden">
       <div className="absolute inset-y-0 right-0 flex items-center gap-2 bg-brand-light/95 px-2">
-        {actions.slice(0, 2).map((action) => (
+        {actions.map((action) => (
           <div className="shrink-0" key={actionKey(action)}>
             {withActionClass(action, "portal-small-btn min-h-10 px-3")}
           </div>
@@ -100,7 +106,35 @@ function MobileSwipeActions({
       >
         {primaryAction}
         {actions.length > 0 ? (
-          <span className="text-brand-muted text-xs">Swipe for actions</span>
+          <>
+            <span className="text-brand-muted text-xs">Swipe or use More</span>
+            <PortalActionMenu
+              aria-label={`More actions for ${label}`}
+              contentClassName="flex w-max flex-col gap-0.5 p-1.5"
+              fitContent
+              onOpenChange={setOpen}
+              open={open}
+              trigger={(props) => (
+                <button
+                  {...props}
+                  aria-label={`More actions for ${label}`}
+                  className="portal-small-btn min-h-11 gap-1 px-3"
+                  type="button"
+                >
+                  <MoreHorizontal aria-hidden="true" size={15} />
+                  <span>More</span>
+                </button>
+              )}
+            >
+              {actions.map((action) => (
+                <OverflowActionItem
+                  action={action}
+                  key={actionKey(action)}
+                  onActionComplete={closeMenu}
+                />
+              ))}
+            </PortalActionMenu>
+          </>
         ) : null}
       </m.div>
     </div>
@@ -150,7 +184,7 @@ export function QueryRowActions({
           </PortalActionMenu>
         ) : null}
       </div>
-      <MobileSwipeActions actions={actions} primaryAction={primary} />
+      <MobileSwipeActions actions={actions} label={label} primaryAction={primary} />
     </div>
   );
 }

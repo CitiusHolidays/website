@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
+import { useFocusTrap } from "@/components/motion-ui/overlay";
 import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame";
 import { lockBodyScroll } from "@/lib/portal/lockBodyScroll";
 
@@ -21,14 +22,14 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
   );
   const inputId = useId();
   const inputRef = useRef(null);
+  const overlayRef = useRef(null);
+  const dialogRef = useRef(null);
   const { backdropStyle, frameStyle, panelStyle } = usePortalOverlayFrame({ open });
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    window.setTimeout(() => inputRef.current?.focus(), 0);
-  }, [open]);
+  const closeDialog = () => {
+    setName("");
+    onClose();
+  };
 
   useEffect(() => {
     if (!open) {
@@ -37,14 +38,57 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
     return lockBodyScroll();
   }, [open]);
 
+  useFocusTrap({
+    active: open,
+    container: dialogRef,
+    initialFocus: inputRef,
+    onEscape: () => {
+      if (!saving) {
+        closeDialog();
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const overlay = overlayRef.current;
+    const parent = overlay?.parentElement;
+    if (!(overlay && parent)) {
+      return;
+    }
+
+    const siblings = [...parent.children].filter((child) => child !== overlay);
+    const previous = siblings.map((sibling) => ({
+      ariaHidden: sibling.getAttribute("aria-hidden"),
+      element: sibling,
+      inert: sibling.hasAttribute("inert"),
+    }));
+
+    for (const sibling of siblings) {
+      sibling.setAttribute("aria-hidden", "true");
+      sibling.setAttribute("inert", "");
+    }
+
+    return () => {
+      for (const item of previous) {
+        if (item.ariaHidden === null) {
+          item.element.removeAttribute("aria-hidden");
+        } else {
+          item.element.setAttribute("aria-hidden", item.ariaHidden);
+        }
+        if (!item.inert) {
+          item.element.removeAttribute("inert");
+        }
+      }
+    };
+  }, [open]);
+
   if (!(open && portalTarget)) {
     return null;
   }
-
-  const closeDialog = () => {
-    setName("");
-    onClose();
-  };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -58,7 +102,7 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
   };
 
   return createPortal(
-    <div className="portal-command-overlay" role="presentation" style={frameStyle}>
+    <div className="portal-command-overlay" ref={overlayRef} role="presentation" style={frameStyle}>
       <button
         aria-label="Close save view dialog"
         className="portal-command-backdrop"
@@ -68,12 +112,18 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
       />
       <div className="portal-save-view-panel" style={panelStyle}>
         <form
-          aria-labelledby={inputId}
+          aria-labelledby={`${inputId}-title`}
+          aria-modal="true"
           className="portal-command-surface pointer-events-auto mx-auto w-full max-w-md rounded-xl border border-brand-border/80 bg-white/95 p-4 shadow-2xl backdrop-blur-xl"
           onSubmit={submit}
+          ref={dialogRef}
           role="dialog"
+          tabIndex={-1}
         >
-          <h2 className="font-heading font-semibold text-base text-citius-blue" id={inputId}>
+          <h2
+            className="font-heading font-semibold text-base text-citius-blue"
+            id={`${inputId}-title`}
+          >
             Save current view
           </h2>
           <label

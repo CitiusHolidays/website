@@ -87,4 +87,48 @@ describe("QueryRowActions", () => {
     await act(async () => root.unmount());
     container.remove();
   });
+
+  test("keeps every overflow action reachable from the mobile More menu", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () =>
+      root.render(
+        <QueryRowActions
+          label="Q-2002"
+          overflowActions={[
+            <button aria-label="Edit query" key="edit" type="button">
+              Edit query
+            </button>,
+            <button aria-label="Share query" key="share" type="button">
+              Share query
+            </button>,
+            <button aria-label="Delete query" key="delete" type="button">
+              Delete query
+            </button>,
+          ]}
+          primaryAction={
+            <button aria-label="Open query" type="button">
+              Open
+            </button>
+          }
+        />
+      )
+    );
+
+    const moreButtons = container.querySelectorAll('button[aria-label="More actions for Q-2002"]');
+    expect(moreButtons.length).toBe(2);
+
+    await act(async () => moreButtons.item(1)?.click());
+    const menuItems = [...document.querySelectorAll('[role="menuitem"]')];
+    expect(menuItems.map((item) => item.getAttribute("aria-label"))).toEqual([
+      "Edit query",
+      "Share query",
+      "Delete query",
+    ]);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
 });

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { ExternalIoFailure } from "./effectAdoption";
 import {
   mapRazorpayWebhookProcessingError,
   processRazorpayWebhookEvent,
@@ -176,6 +177,20 @@ describe("mapRazorpayWebhookProcessingError", () => {
     expect(result).toEqual({
       body: { error: "Unsupported Razorpay webhook event: unknown" },
       status: 400,
+    });
+  });
+
+  test("maps a Convex payment-secret rejection to a configuration response", () => {
+    const result = mapRazorpayWebhookProcessingError(
+      new ExternalIoFailure(
+        "confirm Razorpay booking",
+        new Error("Invalid payment mutation secret")
+      )
+    );
+
+    expect(result).toEqual({
+      body: { error: "Webhook not configured" },
+      status: 500,
     });
   });
 });
