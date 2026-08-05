@@ -39,6 +39,16 @@ function canPrepareExpenseFileUpload(access: any) {
   );
 }
 
+async function cleanupUnreferencedExpenseBlob(ctx: any, storageId: string, operation: string) {
+  try {
+    await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
+      storageId,
+    });
+  } catch (error) {
+    console.error(`Failed to clean up ${operation} expense proof:`, error);
+  }
+}
+
 async function buildDownloadFile(
   ctx: any,
   record: {
@@ -95,11 +105,7 @@ export const attachProof = action({
       { expenseId: args.expenseId }
     );
     const cleanupRejectedUpload = async () => {
-      try {
-        await ctx.storage.delete(args.storageId);
-      } catch {
-        // ignore cleanup errors
-      }
+      await cleanupUnreferencedExpenseBlob(ctx, args.storageId, "rejected");
     };
 
     if (!isAllowedMimeType(args.mimeType)) {
@@ -128,30 +134,18 @@ export const attachProof = action({
     const bytes = Buffer.from(await blob.arrayBuffer());
     const contentDigest = createHash("sha256").update(bytes).digest("hex");
 
-    let previousStorageId: string | null = null;
     try {
-      ({ previousStorageId } = await ctx.runMutation(
-        internal.crm.expenseAttachments.saveExpenseProof,
-        {
-          contentDigest,
-          createdBy: access.authUserId || "unknown",
-          expenseId,
-          fileName: args.fileName.trim() || "expense proof",
-          mimeType: normalizeMimeType(actualMimeType) || "application/octet-stream",
-          storageId: args.storageId,
-        }
-      ));
+      await ctx.runMutation(internal.crm.expenseAttachments.saveExpenseProof, {
+        contentDigest,
+        createdBy: access.authUserId || "unknown",
+        expenseId,
+        fileName: args.fileName.trim() || "expense proof",
+        mimeType: normalizeMimeType(actualMimeType) || "application/octet-stream",
+        storageId: args.storageId,
+      });
     } catch (error) {
       await cleanupRejectedUpload();
       throw error;
-    }
-
-    if (previousStorageId) {
-      try {
-        await ctx.storage.delete(previousStorageId);
-      } catch (err) {
-        console.error("Failed to delete previous expense proof:", err);
-      }
     }
 
     return { success: true };
@@ -224,17 +218,9 @@ export const removeProof = action({
       expenseId: record.expenseId,
     });
 
-    const { storageId } = await ctx.runMutation(
-      internal.crm.expenseAttachments.deleteExpenseProof,
-      { attachmentId: record.id }
-    );
-    if (storageId) {
-      try {
-        await ctx.storage.delete(storageId);
-      } catch (err) {
-        console.error("Failed to delete expense proof from storage:", err);
-      }
-    }
+    await ctx.runMutation(internal.crm.expenseAttachments.deleteExpenseProof, {
+      attachmentId: record.id,
+    });
 
     return { success: true };
   },

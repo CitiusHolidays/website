@@ -1,5 +1,8 @@
 import { v } from "convex/values";
+import { internal } from "../_generated/api";
 import { internalMutation, internalQuery } from "../_generated/server";
+
+const MAX_STORAGE_DELETE_RETRIES = 3;
 
 /**
  * Return whether a storage blob is already owned by an application record.
@@ -54,12 +57,31 @@ export const isStorageReferenced = internalQuery({
  * and leaves the blob intact.
  */
 export const deleteIfUnreferenced = internalMutation({
-  args: { storageId: v.id("_storage") },
+  args: {
+    attempt: v.optional(v.number()),
+    storageId: v.id("_storage"),
+  },
   handler: async (ctx, args) => {
     if (await hasStorageReference(ctx, String(args.storageId))) {
       return { deleted: false };
     }
-    await ctx.storage.delete(args.storageId);
-    return { deleted: true };
+    try {
+      await ctx.storage.delete(args.storageId);
+      return { deleted: true };
+    } catch (error) {
+      const attempt = args.attempt ?? 0;
+      if (attempt < MAX_STORAGE_DELETE_RETRIES) {
+        await ctx.scheduler.runAfter(
+          2 ** attempt * 1000,
+          internal.crm.storageReferences.deleteIfUnreferenced,
+          {
+            attempt: attempt + 1,
+            storageId: args.storageId,
+          }
+        );
+      }
+      console.error("Failed to delete unreferenced storage blob:", error);
+      return { deleted: false };
+    }
   },
 });

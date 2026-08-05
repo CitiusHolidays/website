@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, query } from "../_generated/server";
 import {
@@ -81,10 +82,10 @@ export const saveExpenseProof = internalMutation({
   },
   handler: async (ctx, args) => {
     const { access, expense } = await requireMutableExpenseProof(ctx, args.expenseId);
-    let previousStorageId: string | null = null;
+    let previousStorageId: Id<"_storage"> | null = null;
     if (expense.proofAttachmentId) {
       const previous = await ctx.db.get(expense.proofAttachmentId as Id<"attachments">);
-      previousStorageId = previous?.storageId ?? null;
+      previousStorageId = (previous?.storageId as Id<"_storage"> | undefined) ?? null;
       if (previous) {
         await ctx.db.delete(previous._id);
       }
@@ -110,6 +111,11 @@ export const saveExpenseProof = internalMutation({
       proofDigest: args.contentDigest,
       updatedAt: now,
     });
+    if (previousStorageId) {
+      await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
+        storageId: previousStorageId,
+      });
+    }
     return { attachmentId, previousStorageId };
   },
 });
@@ -141,6 +147,11 @@ export const deleteExpenseProof = internalMutation({
       }
     }
     await ctx.db.delete(args.attachmentId);
+    if (row.storageId) {
+      await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
+        storageId: row.storageId as Id<"_storage">,
+      });
+    }
     return { storageId: row.storageId ?? null };
   },
 });

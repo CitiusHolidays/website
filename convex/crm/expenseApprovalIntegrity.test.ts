@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { getFunctionName } from "convex/server";
 import type { Id } from "../_generated/dataModel";
 import { decide as decideApproval } from "./approvals";
-import { saveExpenseProof } from "./expenseAttachments";
+import { deleteExpenseProof, saveExpenseProof } from "./expenseAttachments";
 import {
   decideExpenseFinance,
   decideExpenseManager,
@@ -22,6 +23,8 @@ function makeExpenseCtx(initialTables: Tables, identitySubject: string) {
     Object.entries(initialTables).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
   ) as Tables;
   let subject = identitySubject;
+  const directStorageDeletes: string[] = [];
+  const scheduled: Array<{ args: Record<string, unknown>; name: string }> = [];
 
   const ctx = {
     auth: {
@@ -128,16 +131,22 @@ function makeExpenseCtx(initialTables: Tables, identitySubject: string) {
       },
     },
     scheduler: {
-      runAfter: async () => undefined,
+      runAfter: (_delay: number, reference: unknown, args: Record<string, unknown>) => {
+        scheduled.push({ args, name: getFunctionName(reference as never) });
+      },
     },
     storage: {
-      delete: async () => undefined,
+      delete: (storageId: string) => {
+        directStorageDeletes.push(storageId);
+      },
       get: async () => null,
     },
   };
 
   return {
     ctx,
+    directStorageDeletes,
+    scheduled,
     setIdentity(nextSubject: string) {
       subject = nextSubject;
     },
@@ -391,7 +400,7 @@ describe("expense approval integrity", () => {
   });
 
   test("proof replacement transactionally restarts approval and rejects a non-owner", async () => {
-    const { ctx, setIdentity, tables } = makeExpenseCtx(
+    const { ctx, scheduled, setIdentity, tables } = makeExpenseCtx(
       {
         approvalRequests: [
           {
@@ -461,6 +470,10 @@ describe("expense approval integrity", () => {
     });
 
     expect(result.previousStorageId).toBe("storage_old");
+    expect(scheduled).toContainEqual({
+      args: { storageId: "storage_old" },
+      name: "crm/storageReferences:deleteIfUnreferenced",
+    });
     expect(tables.expenseEntries[0]).toMatchObject({
       approvalVersion: 3,
       managerReviewStatus: "Pending",
@@ -493,6 +506,73 @@ describe("expense approval integrity", () => {
     setIdentity("auth_owner");
     await (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" });
     expect(tables.expenseEntries).toHaveLength(0);
+  });
+
+  test("draft deletion removes proof metadata before scheduling guarded blob cleanup", async () => {
+    const { ctx, directStorageDeletes, scheduled, tables } = makeExpenseCtx(
+      {
+        approvalRequests: [],
+        attachments: [
+          {
+            _id: "attachment_1",
+            entityId: "expense_owner",
+            entityType: "expense",
+            storageId: "storage_shared",
+          },
+        ],
+        expenseEntries: [
+          officeExpense("expense_owner", "auth_owner", {
+            proofAttachmentId: "attachment_1",
+          }),
+        ],
+        staffUsers: [ownerStaff],
+      },
+      "auth_owner"
+    );
+
+    await (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" });
+
+    expect(tables.expenseEntries).toHaveLength(0);
+    expect(tables.attachments).toHaveLength(0);
+    expect(directStorageDeletes).toEqual([]);
+    expect(scheduled).toContainEqual({
+      args: { storageId: "storage_shared" },
+      name: "crm/storageReferences:deleteIfUnreferenced",
+    });
+  });
+
+  test("proof removal transactionally clears metadata before scheduling guarded blob cleanup", async () => {
+    const { ctx, directStorageDeletes, scheduled, tables } = makeExpenseCtx(
+      {
+        approvalRequests: [],
+        attachments: [
+          {
+            _id: "attachment_1",
+            entityId: "expense_owner",
+            entityType: "expense",
+            storageId: "storage_shared",
+          },
+        ],
+        expenseEntries: [
+          officeExpense("expense_owner", "auth_owner", {
+            proofAttachmentId: "attachment_1",
+            proofDigest: "digest-a",
+          }),
+        ],
+        staffUsers: [ownerStaff],
+      },
+      "auth_owner"
+    );
+
+    await (deleteExpenseProof as any)._handler(ctx, { attachmentId: "attachment_1" });
+
+    expect(tables.attachments).toHaveLength(0);
+    expect(tables.expenseEntries[0]).toMatchObject({ proofDigest: "" });
+    expect(directStorageDeletes).toEqual([]);
+    expect(scheduled).toContainEqual({
+      args: { storageId: "storage_shared" },
+      name: "crm/storageReferences:deleteIfUnreferenced",
+    });
   });
 
   test("submitted and previously reviewed expenses remain audit records for creators and managers", async () => {

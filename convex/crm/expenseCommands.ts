@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { hasExpenseApprovalHistory, isNeverSubmittedExpenseDraft } from "./expenseLifecycle";
 import {
@@ -221,14 +222,11 @@ export async function handleRemoveExpense(ctx: any, args: { expenseId: string })
     entityType: "expense",
     message: `${expense.category} expense deleted`,
   });
+  let proofStorageId: Id<"_storage"> | null = null;
   if (expense.proofAttachmentId) {
     const proof = await ctx.db.get(expense.proofAttachmentId);
     if (proof?.storageId) {
-      try {
-        await ctx.storage.delete(proof.storageId);
-      } catch (err) {
-        console.error("Failed to delete expense proof from storage:", err);
-      }
+      proofStorageId = proof.storageId;
     }
     if (proof) {
       await ctx.db.delete(proof._id);
@@ -236,5 +234,10 @@ export async function handleRemoveExpense(ctx: any, args: { expenseId: string })
   }
   await deleteEntityNotifications(ctx, "expense", id);
   await ctx.db.delete(id);
+  if (proofStorageId) {
+    await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
+      storageId: proofStorageId,
+    });
+  }
   return { id };
 }
