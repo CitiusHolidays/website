@@ -1,18 +1,16 @@
 import { execFileSync } from "node:child_process";
 
-function e2eSeedSecret() {
-  const secret = process.env.E2E_SEED_SECRET;
-  if (!secret) {
+function requireE2eSeedConfiguration() {
+  if (!process.env.E2E_SEED_SECRET) {
     throw new Error("E2E_SEED_SECRET is required for Convex backend assertions.");
   }
-  return secret;
 }
 
 export function convexTravellerExists(args: { fullName: string; jobCardId?: string }) {
+  requireE2eSeedConfiguration();
   const payload = JSON.stringify({
     fullName: args.fullName,
     jobCardId: args.jobCardId,
-    secret: e2eSeedSecret(),
   });
   const output = execFileSync(
     "bunx",

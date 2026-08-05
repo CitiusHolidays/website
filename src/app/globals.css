@@ -368,6 +368,19 @@ body {
 }
 
 .portal-shell {
+  /* Citius Connect keeps the operational layout and density, but owns a
+     quieter premium palette so the CRM does not inherit the public site's
+     brighter marketing blue/orange treatment. */
+  --color-citius-blue: #173a5e;
+  --color-citius-orange: #b8873f;
+  --color-citius-orange-ink: #7d5628;
+  --color-citius-green: #39745b;
+  --color-citius-lime: #c5a261;
+  --color-brand-dark: #10263f;
+  --color-brand-muted: #627084;
+  --color-brand-light: #f7f6f2;
+  --color-brand-border: #dfe4e4;
+  --font-heading: Georgia, "Times New Roman", serif;
   --portal-toolbar-height: 2.75rem;
   --portal-page-title-size: clamp(1.25rem, 1.05rem + 0.55vw, 1.625rem);
   --portal-label-size: clamp(0.75rem, 0.72rem + 0.14vw, 0.8125rem);

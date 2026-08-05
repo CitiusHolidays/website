@@ -3,8 +3,10 @@ import { defineConfig } from "sanity";
 import { structureTool } from "sanity/structure";
 import { schemaTypes } from "./schemaTypes";
 
+const dataset = process.env.SANITY_DATASET ?? "development";
+
 export default defineConfig({
-  dataset: "production",
+  dataset,
   name: "default",
 
   plugins: [structureTool(), visionTool()],

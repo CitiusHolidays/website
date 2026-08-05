@@ -1,3 +1,5 @@
+const FORMULA_PREFIX_RE = /^[\t\n\r ]*[=+\-@]/;
+
 /** Build per-row import reconciliation rows from commit rowResults or preview + batch errors. */
 export function buildPassengerImportReportRows(previewRows, batches, rowResults) {
   if (rowResults?.length) {
@@ -41,7 +43,13 @@ export function passengerImportReportToCsv(rows) {
     header.join(","),
     ...rows.map((row) =>
       [row.rowNumber, row.travellerName, row.disposition, row.message]
-        .map((value) => `"${String(value ?? "").replace(/"/g, '""')}"`)
+        .map((value) => {
+          const text = String(value ?? "");
+          // Spreadsheet clients may execute cells beginning with formula prefixes.
+          // Prefixing the cell with an apostrophe keeps the value visible as text.
+          const safeText = FORMULA_PREFIX_RE.test(text) ? `'${text}` : text;
+          return `"${safeText.replace(/"/g, '""')}"`;
+        })
         .join(",")
     ),
   ];

@@ -11,6 +11,7 @@ import {
   Star,
   X,
 } from "lucide-react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   createContext,
   createElement,
@@ -22,11 +23,9 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { Backdrop, useFocusTrap } from "@/components/motion-ui/overlay";
 import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
 import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame";
-import { lockBodyScroll } from "@/lib/portal/lockBodyScroll";
 import {
   buildCreateCommands,
   buildNavigationCommands,
@@ -34,7 +33,9 @@ import {
   buildSavedViewCommands,
   filterCommands,
 } from "@/lib/portal/commandPalette";
+import { lockBodyScroll } from "@/lib/portal/lockBodyScroll";
 import { portalMotionTransition } from "@/lib/portal/portalMotion";
+import { isSafePortalHref } from "@/lib/portal/savedViews";
 import { useModShortcutLabel } from "@/lib/portal/shortcutLabels";
 
 const PortalCommandPaletteContext = createContext(null);
@@ -54,6 +55,13 @@ const subscribeToClientMount = (onStoreChange) => {
 };
 const getClientPortalTarget = () => document.body;
 const getServerPortalTarget = () => null;
+
+function navigateToPortalHref(href) {
+  if (!isSafePortalHref(href)) {
+    return;
+  }
+  window.location.assign(href);
+}
 
 const initialPaletteState = {
   activeIndex: 0,
@@ -243,7 +251,12 @@ function CommandPaletteOverlay({
   }
 
   return createPortal(
-    <div aria-hidden={false} className="portal-command-overlay" role="presentation" style={frameStyle}>
+    <div
+      aria-hidden={false}
+      className="portal-command-overlay"
+      role="presentation"
+      style={frameStyle}
+    >
       <AnimatePresence>
         {open ? (
           <>
@@ -270,62 +283,65 @@ function CommandPaletteOverlay({
               style={panelStyle}
               transition={panelTransition}
             >
-        <div className="portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl">
-          <div className="flex shrink-0 items-center gap-2 border-brand-border/80 border-b px-3 py-2">
-            <Search aria-hidden className="shrink-0 text-brand-muted" size={16} />
-            <input
-              aria-label="Search portal commands"
-              className="min-w-0 flex-1 bg-transparent py-2 font-sans text-brand-dark text-sm outline-none placeholder:text-brand-muted/70"
-              onChange={(event) => {
-                dispatchPalette({ term: event.target.value, type: "term" });
-              }}
-              placeholder="Search commands…"
-              ref={inputRef}
-              value={term}
-            />
-            <button
-              aria-label="Close"
-              className="grid size-8 shrink-0 place-items-center rounded-lg text-brand-muted transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
-              onClick={closePalette}
-              type="button"
-            >
-              <X size={16} />
-            </button>
-          </div>
-          <div className="portal-command-scroll p-2" onWheel={(event) => event.stopPropagation()}>
-            {commands.length === 0 ? (
-              <p className="px-3 py-6 text-center font-sans text-brand-muted text-sm">
-                No matching commands
-              </p>
-            ) : (
-              groupedWithIndex.map((group) => (
-                <div className="mb-1 last:mb-0" key={group.label}>
-                  <div className="px-3 pt-2 pb-1 font-sans font-semibold text-[10px] text-brand-muted uppercase tracking-wide">
-                    {group.label}
-                  </div>
-                  <div className="space-y-0.5">
-                    {group.items.map((command, indexInGroup) => {
-                      const index = group.start + indexInGroup;
-                      const active = index === boundedActiveIndex;
-                      return (
-                        <CommandPaletteItem
-                          active={active}
-                          command={command}
-                          key={command.id}
-                          onHover={() =>
-                            dispatchPalette({ activeIndex: index, type: "activeIndex" })
-                          }
-                          onSelect={() => runCommand(command)}
-                        />
-                      );
-                    })}
-                  </div>
+              <div className="portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl">
+                <div className="flex shrink-0 items-center gap-2 border-brand-border/80 border-b px-3 py-2">
+                  <Search aria-hidden className="shrink-0 text-brand-muted" size={16} />
+                  <input
+                    aria-label="Search portal commands"
+                    className="min-w-0 flex-1 bg-transparent py-2 font-sans text-brand-dark text-sm outline-none placeholder:text-brand-muted/70"
+                    onChange={(event) => {
+                      dispatchPalette({ term: event.target.value, type: "term" });
+                    }}
+                    placeholder="Search commands…"
+                    ref={inputRef}
+                    value={term}
+                  />
+                  <button
+                    aria-label="Close"
+                    className="grid size-8 shrink-0 place-items-center rounded-lg text-brand-muted transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
+                    onClick={closePalette}
+                    type="button"
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-        </m.div>
+                <div
+                  className="portal-command-scroll p-2"
+                  onWheel={(event) => event.stopPropagation()}
+                >
+                  {commands.length === 0 ? (
+                    <p className="px-3 py-6 text-center font-sans text-brand-muted text-sm">
+                      No matching commands
+                    </p>
+                  ) : (
+                    groupedWithIndex.map((group) => (
+                      <div className="mb-1 last:mb-0" key={group.label}>
+                        <div className="px-3 pt-2 pb-1 font-sans font-semibold text-[10px] text-brand-muted uppercase tracking-wide">
+                          {group.label}
+                        </div>
+                        <div className="space-y-0.5">
+                          {group.items.map((command, indexInGroup) => {
+                            const index = group.start + indexInGroup;
+                            const active = index === boundedActiveIndex;
+                            return (
+                              <CommandPaletteItem
+                                active={active}
+                                command={command}
+                                key={command.id}
+                                onHover={() =>
+                                  dispatchPalette({ activeIndex: index, type: "activeIndex" })
+                                }
+                                onSelect={() => runCommand(command)}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </m.div>
           </>
         ) : null}
       </AnimatePresence>
@@ -374,7 +390,7 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
       command.run();
     }
     if (command.href) {
-      window.location.assign(command.href);
+      navigateToPortalHref(command.href);
     }
   };
 
@@ -395,7 +411,7 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
         command.run();
       }
       if (command.href) {
-        window.location.assign(command.href);
+        navigateToPortalHref(command.href);
       }
     };
 

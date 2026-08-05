@@ -101,12 +101,9 @@ async function ensureCredentialAuthUser(
 }
 
 export const run = action({
-  args: {
-    secret: v.string(),
-  },
+  args: {},
   handler: async (
-    ctx,
-    args
+    ctx
   ): Promise<
     Array<{
       authLinked: boolean;
@@ -117,15 +114,13 @@ export const run = action({
       verified: boolean;
     }>
   > => {
-    assertE2eSecret(args.secret);
+    assertE2eSecret();
     const password = process.env.E2E_STAFF_PASSWORD;
     if (!password || password.length < 8) {
       throw new ConvexError("E2E_STAFF_PASSWORD must be set and at least 8 characters");
     }
 
-    const staffRows = await ctx.runMutation(internal.crm.e2eSeed.seedStaffProfiles, {
-      secret: args.secret,
-    });
+    const staffRows = await ctx.runMutation(internal.crm.e2eSeed.seedStaffProfiles, {});
 
     const profilesByKey = new Map(
       listE2eStaffProfileSeeds().map((profile) => [profile.key, profile])

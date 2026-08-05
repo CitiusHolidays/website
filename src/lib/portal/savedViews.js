@@ -1,5 +1,14 @@
 import { serializeUrlFilterState } from "./urlFilterState";
 
+const PORTAL_PATH_RE = /^\/portal(?:\/|$)/;
+
+function hasUnsafePathCharacters(value) {
+  return [...value].some((character) => {
+    const code = character.charCodeAt(0);
+    return character === "\\" || code < 32 || code === 127;
+  });
+}
+
 function emptySavedViewState() {
   return {
     columns: [],
@@ -33,10 +42,26 @@ export function normalizeSavedViewState(input = {}, filterConfig = []) {
   };
 }
 
+export function isSafePortalPathname(pathname) {
+  return (
+    typeof pathname === "string" &&
+    pathname.length > 0 &&
+    PORTAL_PATH_RE.test(pathname) &&
+    !hasUnsafePathCharacters(pathname) &&
+    !pathname.includes("?") &&
+    !pathname.includes("#")
+  );
+}
+
+export function isSafePortalHref(href) {
+  return typeof href === "string" && PORTAL_PATH_RE.test(href) && !hasUnsafePathCharacters(href);
+}
+
 export function savedViewToUrl(pathname, savedView, filterConfig = []) {
   const state = normalizeSavedViewState(savedView?.filterState ?? savedView ?? {}, filterConfig);
   const query = serializeUrlFilterState(state, filterConfig).toString();
-  return query ? `${pathname}?${query}` : pathname;
+  const safePathname = isSafePortalPathname(pathname) ? pathname : "/portal";
+  return query ? `${safePathname}?${query}` : safePathname;
 }
 
 export function currentFiltersToSavedViewInput({

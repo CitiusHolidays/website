@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { assertJobCardChildRelations, normalizeOptionalChildId } from "./jobCardRelations";
 import { getVisibleJob } from "./jobCardVisibility";
 import {
   assertBulkDeleteMutationBatch,
@@ -32,10 +33,17 @@ export async function handleSaveSeatAllocation(
   if (!jobCardId) {
     throw new ConvexError("Invalid Job Card id");
   }
+  if (args.travellerId && !travellerId) {
+    throw new ConvexError("Invalid traveller id");
+  }
+  if (args.pnrId && !pnrId) {
+    throw new ConvexError("Invalid PNR id");
+  }
   const job = await getVisibleJob(ctx, access, jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found or not assigned to you");
   }
+  await assertJobCardChildRelations(ctx, jobCardId, { pnrId, travellerId });
   const now = Date.now();
   const id = await ctx.db.insert("seatAllocations", {
     createdAt: now,
@@ -51,7 +59,8 @@ export async function handleSaveSeatAllocation(
   if (travellerId && args.status === "Assigned") {
     const tickets = await ctx.db
       .query("tickets")
-      .withIndex("by_travellerId", (q: any) => q.eq("travellerId", travellerId))
+      .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
+      .filter((q: any) => q.eq(q.field("travellerId"), travellerId))
       .collect();
     await Promise.all(
       tickets.map((ticket: any) =>
@@ -99,22 +108,19 @@ export async function handleUpdateSeatAllocation(
     throw new ConvexError("Seat number is required");
   }
 
-  const travellerId = args.travellerId
-    ? ctx.db.normalizeId("travellers", args.travellerId)
-    : args.travellerId === ""
-      ? null
-      : undefined;
+  const travellerId = normalizeOptionalChildId(ctx, "travellers", args.travellerId);
   if (args.travellerId && !travellerId) {
     throw new ConvexError("Invalid traveller id");
   }
-  const pnrId = args.pnrId
-    ? ctx.db.normalizeId("pnrs", args.pnrId)
-    : args.pnrId === ""
-      ? null
-      : undefined;
+  const pnrId = normalizeOptionalChildId(ctx, "pnrs", args.pnrId);
   if (args.pnrId && !pnrId) {
     throw new ConvexError("Invalid PNR id");
   }
+
+  await assertJobCardChildRelations(ctx, seat.jobCardId, {
+    pnrId: pnrId === undefined ? seat.pnrId : pnrId,
+    travellerId: travellerId === undefined ? seat.travellerId : travellerId,
+  });
 
   const now = Date.now();
   const nextSeatNumber = args.seatNumber?.trim().toUpperCase() ?? seat.seatNumber;
@@ -142,7 +148,8 @@ export async function handleUpdateSeatAllocation(
   if (linkedTravellerId && nextStatus === "Assigned") {
     const tickets = await ctx.db
       .query("tickets")
-      .withIndex("by_travellerId", (q: any) => q.eq("travellerId", linkedTravellerId))
+      .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", seat.jobCardId))
+      .filter((q: any) => q.eq(q.field("travellerId"), linkedTravellerId))
       .collect();
     await Promise.all(
       tickets.map((ticket: any) =>

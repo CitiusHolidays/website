@@ -2,7 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { m } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
 import { DashboardPanel, DashboardProgress } from "./DashboardPanel";
 
@@ -50,8 +50,15 @@ export function DashboardCollapsibleSection({
   showWorkflow,
   showTeam,
 }) {
-  const [workflowOpen, setWorkflowOpen] = useState(() => readCollapseOpen("workflow"));
-  const [teamOpen, setTeamOpen] = useState(() => readCollapseOpen("team"));
+  // Keep the server and first client render identical. The saved preference is
+  // request-local browser state and must be restored only after hydration.
+  const [workflowOpen, setWorkflowOpen] = useState(true);
+  const [teamOpen, setTeamOpen] = useState(true);
+
+  useEffect(() => {
+    setWorkflowOpen(readCollapseOpen("workflow"));
+    setTeamOpen(readCollapseOpen("team"));
+  }, []);
 
   if (!(showWorkflow || showTeam)) {
     return null;

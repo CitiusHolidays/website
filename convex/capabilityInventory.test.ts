@@ -145,7 +145,9 @@ describe("Convex capability inventory", () => {
   test("server-only E2E endpoints retain their secret guard", () => {
     const assertions = readFileSync(join(CONVEX_ROOT, "crm/e2eAssertions.ts"), "utf8");
     const seed = readFileSync(join(CONVEX_ROOT, "crm/e2eSeedActions.ts"), "utf8");
-    expect(assertions).toContain("assertE2eSecret(args.secret)");
-    expect(seed).toContain("assertE2eSecret(args.secret)");
+    expect(assertions).toContain("assertE2eSecret()");
+    expect(seed).toContain("assertE2eSecret()");
+    expect(assertions).not.toContain("secret: v.string()");
+    expect(seed).not.toContain("secret: v.string()");
   });
 });

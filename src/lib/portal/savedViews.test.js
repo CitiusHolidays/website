@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { getListFilterConfig } from "./listFilterConfig.js";
 import {
   currentFiltersToSavedViewInput,
+  isSafePortalHref,
+  isSafePortalPathname,
   normalizeSavedViewState,
   savedViewToUrl,
 } from "./savedViews.js";
@@ -38,6 +40,16 @@ describe("savedViews", () => {
       config
     );
     expect(href).toBe("/portal/queries?q=acme&from=2026-01-01&f_queryType=MICE");
+  });
+
+  test("keeps saved-view navigation on internal portal paths", () => {
+    expect(isSafePortalPathname("/portal/queries")).toBe(true);
+    expect(isSafePortalPathname("https://attacker.test/login")).toBe(false);
+    expect(isSafePortalHref("/portal/queries?q=acme")).toBe(true);
+    expect(isSafePortalHref("//attacker.test/login")).toBe(false);
+    expect(
+      savedViewToUrl("https://attacker.test/login", { filterState: { search: "acme" } }, config)
+    ).toBe("/portal?q=acme");
   });
 
   test("captures current filters as a saved view input", () => {

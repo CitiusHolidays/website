@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { assertJobCardChildRelations, normalizeOptionalChildId } from "./jobCardRelations";
 import { getVisibleJob } from "./jobCardVisibility";
 import {
   assertBulkDeleteMutationBatch,
@@ -51,11 +52,18 @@ export async function handleCreateTicket(
   if (!jobCardId) {
     throw new ConvexError("Invalid Job Card id");
   }
+  if (args.travellerId && !travellerId) {
+    throw new ConvexError("Invalid traveller id");
+  }
+  if (args.pnrId && !pnrId) {
+    throw new ConvexError("Invalid PNR id");
+  }
   const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
   const job = await getVisibleJob(ctx, access, jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found or not assigned to you");
   }
+  await assertJobCardChildRelations(ctx, jobCardId, { pnrId, travellerId });
   const now = Date.now();
   const id = await ctx.db.insert("tickets", {
     cabinClass: args.cabinClass?.trim() || "Economy",
@@ -129,22 +137,19 @@ export async function handleUpdateTicket(
     throw new ConvexError("FORBIDDEN");
   }
 
-  const travellerId = args.travellerId
-    ? ctx.db.normalizeId("travellers", args.travellerId)
-    : args.travellerId === ""
-      ? null
-      : undefined;
+  const travellerId = normalizeOptionalChildId(ctx, "travellers", args.travellerId);
   if (args.travellerId && !travellerId) {
     throw new ConvexError("Invalid traveller id");
   }
-  const pnrId = args.pnrId
-    ? ctx.db.normalizeId("pnrs", args.pnrId)
-    : args.pnrId === ""
-      ? null
-      : undefined;
+  const pnrId = normalizeOptionalChildId(ctx, "pnrs", args.pnrId);
   if (args.pnrId && !pnrId) {
     throw new ConvexError("Invalid PNR id");
   }
+
+  await assertJobCardChildRelations(ctx, ticket.jobCardId, {
+    pnrId: pnrId === undefined ? ticket.pnrId : pnrId,
+    travellerId: travellerId === undefined ? ticket.travellerId : travellerId,
+  });
 
   const now = Date.now();
   const nextStatus = args.ticketStatus ?? ticket.ticketStatus;
@@ -239,6 +244,10 @@ export async function handleUpdateTicketStatus(
   if (!job) {
     throw new ConvexError("FORBIDDEN");
   }
+  await assertJobCardChildRelations(ctx, ticket.jobCardId, {
+    pnrId: ticket.pnrId,
+    travellerId: ticket.travellerId,
+  });
   const now = Date.now();
   await ctx.db.patch(ticketId, {
     ticketStatus: args.ticketStatus,
@@ -268,6 +277,10 @@ export async function deleteTicketRecord(
   if (!job) {
     throw new ConvexError("FORBIDDEN");
   }
+  await assertJobCardChildRelations(ctx, ticket.jobCardId, {
+    pnrId: ticket.pnrId,
+    travellerId: ticket.travellerId,
+  });
   const now = Date.now();
   await adjustPnrIssuedSeatsOnStatusChange(ctx, {
     effectivePnrId: ticket.pnrId,

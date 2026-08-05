@@ -24,6 +24,7 @@ afterAll(() => dom.window.close());
 
 describe("mounted dashboard collapsible section", () => {
   test("persists workflow collapse preference in localStorage", async () => {
+    dom.window.localStorage.clear();
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -44,6 +45,28 @@ describe("mounted dashboard collapsible section", () => {
     await act(async () => toggle?.click());
     expect(dom.window.localStorage.getItem("portal-dashboard-collapse-workflow")).toBe("0");
 
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("restores a saved collapse preference after the first render", async () => {
+    dom.window.localStorage.setItem("portal-dashboard-collapse-workflow", "0");
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () =>
+      root.render(
+        <DashboardCollapsibleSection
+          departmentWorkflow={[{ label: "Sales", percent: 40, value: 4 }]}
+          myTeam={[]}
+          showTeam={false}
+          showWorkflow
+        />
+      )
+    );
+
+    expect(container.querySelector('button[aria-expanded="false"]')).not.toBeNull();
     await act(async () => root.unmount());
     container.remove();
   });

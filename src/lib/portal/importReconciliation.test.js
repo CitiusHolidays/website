@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  buildPassengerImportReportRows,
-  passengerImportReportToCsv,
-} from "./importReconciliation";
+import { buildPassengerImportReportRows, passengerImportReportToCsv } from "./importReconciliation";
 
 describe("buildPassengerImportReportRows", () => {
   test("maps preview actions and batch errors to dispositions", () => {
@@ -72,5 +69,19 @@ describe("passengerImportReportToCsv", () => {
       },
     ]);
     expect(csv).toContain('"Say ""hello"""');
+  });
+
+  test("neutralizes spreadsheet formula prefixes in imported values", () => {
+    const csv = passengerImportReportToCsv([
+      {
+        disposition: "failed",
+        message: '=HYPERLINK("https://attacker.test")',
+        rowNumber: 2,
+        travellerName: " +SUM(1,2)",
+      },
+    ]);
+
+    expect(csv).toContain('"\'=HYPERLINK(""https://attacker.test"")"');
+    expect(csv).toContain('"\' +SUM(1,2)"');
   });
 });

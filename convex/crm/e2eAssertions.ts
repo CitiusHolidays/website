@@ -10,10 +10,9 @@ export const travellerExists = query({
   args: {
     fullName: v.string(),
     jobCardId: v.optional(v.id("jobCards")),
-    secret: v.string(),
   },
   handler: async (ctx, args) => {
-    assertE2eSecret(args.secret);
+    assertE2eSecret();
 
     if (args.jobCardId) {
       const travellers = await ctx.db

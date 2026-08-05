@@ -46,6 +46,38 @@ function normalizeName(name: string) {
   return trimmed;
 }
 
+const PORTAL_PATH_RE = /^\/portal(?:\/|$)/;
+
+function hasUnsafePathCharacters(value: string) {
+  return [...value].some((character) => {
+    const code = character.charCodeAt(0);
+    return character === "\\" || code < 32 || code === 127;
+  });
+}
+
+function isSafePortalPathname(pathname: string) {
+  return (
+    pathname.length > 0 &&
+    PORTAL_PATH_RE.test(pathname) &&
+    !hasUnsafePathCharacters(pathname) &&
+    !pathname.includes("?") &&
+    !pathname.includes("#")
+  );
+}
+
+function requireSafePortalPathname(pathname: string) {
+  const normalized = pathname.trim();
+  if (!isSafePortalPathname(normalized)) {
+    throw new ConvexError("Saved view must point to an internal portal path");
+  }
+  return normalized;
+}
+
+function safeStoredPortalPathname(pathname: unknown) {
+  const normalized = typeof pathname === "string" ? pathname.trim() : "";
+  return isSafePortalPathname(normalized) ? normalized : "/portal";
+}
+
 async function getOwnedSavedView(ctx: any, access: any, savedViewId: string) {
   const id = ctx.db.normalizeId("portalSavedViews", savedViewId);
   if (!id) {
@@ -79,7 +111,7 @@ function toApi(row: any, access: any) {
     isFavorite: row.isFavorite,
     isPinnedToDashboard: row.isPinnedToDashboard,
     name: row.name,
-    pathname: row.pathname,
+    pathname: safeStoredPortalPathname(row.pathname),
     sharedRole: row.sharedRole ?? null,
     updatedAt: new Date(row.updatedAt).toISOString(),
     view: row.view,
@@ -147,7 +179,7 @@ export const create = mutation({
       name: normalizeName(args.name),
       ownerAuthUserId: args.sharedRole ? undefined : access.authUserId,
       ownerStaffId: args.sharedRole ? undefined : access.staffId,
-      pathname: args.pathname,
+      pathname: requireSafePortalPathname(args.pathname),
       sharedRole: args.sharedRole as any,
       updatedAt: timestamp,
       view: args.view,
@@ -176,7 +208,7 @@ export const update = mutation({
       patch.view = args.view;
     }
     if (args.pathname !== undefined) {
-      patch.pathname = args.pathname;
+      patch.pathname = requireSafePortalPathname(args.pathname);
     }
     if (args.filterState !== undefined) {
       patch.filterState = args.filterState;

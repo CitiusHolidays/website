@@ -89,13 +89,12 @@ export const upsertStaffProfile = internalMutation({
 });
 
 export const seedStaffProfiles = internalMutation({
-  args: {
-    secret: v.string(),
-  },
-  handler: async (ctx, args) => {
-    assertE2eSecret(args.secret);
-    const results = [];
+  args: {},
+  handler: async (ctx) => {
+    assertE2eSecret();
+    const results: Awaited<ReturnType<typeof upsertStaffProfileRow>>[] = [];
     for (const profile of listE2eStaffProfileSeeds()) {
+      // biome-ignore lint/performance/noAwaitInLoops: profile writes remain sequential for deterministic provisioning
       results.push(await upsertStaffProfileRow(ctx, profile));
     }
     return results;

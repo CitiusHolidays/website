@@ -159,6 +159,9 @@ export const getPortalDashboardCapacity = query({
   args: { dateRange: portalDateRangeValidator },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
+    if (!access.permissions.includes(PERMISSIONS.VIEW_TEAM)) {
+      return { capacity: [], myTeam: [] };
+    }
     const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
     const [queryRows, jobRows, staff] = await Promise.all([
       boundedDashboardRows(ctx, "queries", dateRange),
@@ -182,7 +185,10 @@ export const getPortalDashboardCapacity = query({
 export const getPortalDashboardActivity = query({
   args: { dateRange: portalDateRangeValidator },
   handler: async (ctx, args) => {
-    await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
+    const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
+    if (!access.permissions.includes(PERMISSIONS.VIEW_ACTIVITY)) {
+      return [];
+    }
     const rows = await boundedDashboardRows(
       ctx,
       "activityLogs",
@@ -653,6 +659,7 @@ export const getPortalSummary = query({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
+    const canViewFinance = access.permissions.includes(PERMISSIONS.VIEW_FINANCE);
     const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
     const aggregateScope = shouldApplyCementScope(access) ? "cement" : "all";
     const aggregate = await loadMetricTotals(ctx, aggregateScope, dateRange, args.referenceNow);
@@ -882,8 +889,11 @@ export const getPortalSummary = query({
       queries,
       tickets,
     });
+    const visibleUrgentActions = canViewFinance
+      ? urgentActions
+      : urgentActions.filter((action) => action.type !== "finance");
     const ownedWorkSla = buildOwnedWorkSla(
-      urgentActions,
+      visibleUrgentActions,
       referenceNow,
       buildHeadAssignmentSlaItems(access, queries, jobCards)
     );
@@ -968,10 +978,12 @@ export const getPortalSummary = query({
           percent: percent(aggregateTravellerTicketsIssued, aggregateTravellerTotal),
           value: aggregateTravellerTicketsIssued,
         },
-        {
-          label: "Finance pending",
-          percent: percent(aggregateReceivedPayment, aggregateExpectedPayment),
-          value: aggregateOutstandingAmount,
+          {
+            label: "Finance pending",
+            percent: canViewFinance
+              ? percent(aggregateReceivedPayment, aggregateExpectedPayment)
+              : 0,
+            value: canViewFinance ? aggregateOutstandingAmount : 0,
         },
       ],
       generatedAt: new Date(referenceNow).toISOString(),
@@ -980,11 +992,13 @@ export const getPortalSummary = query({
         confirmedJobs: aggregateConfirmedQueries,
         departures30d,
         jobCardsOpen: aggregateJobCardsOpen,
-        outstandingAmount: aggregateOutstandingAmount,
-        paymentPending: aggregateValue(
-          "invoices.pending",
-          invoices.filter((invoice) => invoice.balanceAmount > 0).length
-        ),
+        outstandingAmount: canViewFinance ? aggregateOutstandingAmount : 0,
+        paymentPending: canViewFinance
+          ? aggregateValue(
+              "invoices.pending",
+              invoices.filter((invoice) => invoice.balanceAmount > 0).length
+            )
+          : 0,
         pendingApprovals: aggregateValue(
           "approvals.pending",
           approvals.filter((approval) => approval.status === "Pending").length
@@ -993,7 +1007,7 @@ export const getPortalSummary = query({
           "proposals.sent",
           proposals.filter((proposal) => proposal.status === "Sent").length
         ),
-        revenuePipeline: aggregateValue("invoices.expected", revenuePipeline),
+        revenuePipeline: canViewFinance ? aggregateValue("invoices.expected", revenuePipeline) : 0,
         ticketsIssued: aggregateTicketsIssued,
         ticketsPending: aggregateValue(
           "tickets.pending",
@@ -1052,7 +1066,7 @@ export const getPortalSummary = query({
         ),
       },
       myTeam: [],
-      overdueInvoices,
+      overdueInvoices: canViewFinance ? overdueInvoices : [],
       ownedWorkSla,
       pipelineSnapshot: aggregate.complete
         ? aggregatePipelineSnapshot(aggregate.values)
@@ -1069,9 +1083,11 @@ export const getPortalSummary = query({
           total: aggregateTravellerTotal,
         },
         payment: {
-          done: aggregateReceivedPayment,
-          percent: percent(aggregateReceivedPayment, aggregateExpectedPayment),
-          total: aggregateExpectedPayment,
+          done: canViewFinance ? aggregateReceivedPayment : 0,
+          percent: canViewFinance
+            ? percent(aggregateReceivedPayment, aggregateExpectedPayment)
+            : 0,
+          total: canViewFinance ? aggregateExpectedPayment : 0,
         },
         rooming: {
           done: aggregateRoomingDone,
@@ -1163,7 +1179,7 @@ export const getPortalSummary = query({
             travelStartDate: job.travelStartDate,
           };
         }),
-      urgentActions,
+      urgentActions: visibleUrgentActions,
     };
   },
   returns: portalSummaryResultValidator,

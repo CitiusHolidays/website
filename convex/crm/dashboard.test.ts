@@ -5,8 +5,8 @@ import {
   buildPipelineSnapshot,
   buildTicketAttentionQueue,
   buildUrgentActions,
-  getPortalDashboardCapacity,
   getPortalDashboardActivity,
+  getPortalDashboardCapacity,
   getPortalSummary,
   groupByJobCardId,
 } from "./dashboard";
@@ -62,7 +62,7 @@ function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
             : (left.createdAt ?? 0) - (right.createdAt ?? 0)
         )
       ),
-    take: async (limit: number) => {
+    take: (limit: number) => {
       takeCalls.push({ limit, table });
       if (table === "activityLogs") {
         activityTakeCalls.push(limit);
@@ -295,7 +295,7 @@ describe("getPortalSummary", () => {
 
     expect(activityTakeCalls).toEqual([]);
     await getPortalDashboardActivity._handler(ctx as any, { dateRange: null });
-    expect(activityTakeCalls).toEqual([8]);
+    expect(activityTakeCalls).toEqual([]);
     expect(Date.parse(summary.generatedAt)).not.toBeNaN();
     expect(summary.metrics.activeQueries).toBe(1);
     expect(summary.queriesByType).toEqual([
@@ -436,7 +436,7 @@ describe("getPortalSummary", () => {
 });
 
 describe("getPortalDashboardCapacity", () => {
-  test("bounds people reads and excludes non-Cement work from Cement capacity", async () => {
+  test("redacts people data for Cement representatives without team permission", async () => {
     const { takeCalls, ...ctx } = makeCtx(
       {
         jobCards: [],
@@ -464,25 +464,8 @@ describe("getPortalDashboardCapacity", () => {
 
     const result = await getPortalDashboardCapacity._handler(ctx as any, { dateRange: null });
 
-    expect(result.capacity).toEqual([
-      {
-        averageLoad: 1,
-        load: 1,
-        role: "Sales Cement",
-        severity: "normal",
-        staffCount: 1,
-      },
-    ]);
-    expect(result.myTeam).toEqual([
-      expect.objectContaining({ id: "staff_1", name: "Admin User" }),
-    ]);
-    expect(takeCalls).toEqual(
-      expect.arrayContaining([
-        { limit: 240, table: "queries" },
-        { limit: 240, table: "jobCards" },
-        { limit: 240, table: "staffUsers" },
-      ])
-    );
+    expect(result).toEqual({ capacity: [], myTeam: [] });
+    expect(takeCalls).toEqual([]);
   });
 });
 

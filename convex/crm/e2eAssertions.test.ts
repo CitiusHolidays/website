@@ -13,6 +13,10 @@ describe("e2e assertions guard", () => {
     expect(() => assertE2eSecret("expected-secret", "expected-secret")).not.toThrow();
   });
 
+  test("accepts the deployment-configured secret without a function argument", () => {
+    expect(() => assertE2eSecret(undefined, "expected-secret")).not.toThrow();
+  });
+
   test("matches the exact traveller name returned by either indexed lookup", () => {
     const travellers = [{ fullName: "E2E Traveller 123" }, { fullName: "Another Traveller" }];
     expect(hasTravellerNamed(travellers, "E2E Traveller 123")).toBe(true);
