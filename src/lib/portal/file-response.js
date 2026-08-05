@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 const DEFAULT_FILE_NAME = "download";
 const DEFAULT_MIME_TYPE = "application/octet-stream";
+const SAFE_MIME_TYPE = /^[a-z0-9!#$&^_.+*-]+\/[a-z0-9!#$&^_.+*-]+$/i;
 
 function sanitizeFileName(fileName) {
   const cleaned = String(fileName || DEFAULT_FILE_NAME)
@@ -16,13 +17,24 @@ function contentDisposition(fileName, disposition = "attachment") {
   return `${disposition}; filename="${safeFileName}"; filename*=UTF-8''${encodeURIComponent(safeFileName)}`;
 }
 
+export function sanitizeFileMimeType(mimeType) {
+  const normalized = String(mimeType || "")
+    .split(";", 1)[0]
+    .trim()
+    .toLowerCase();
+  return SAFE_MIME_TYPE.test(normalized) ? normalized : DEFAULT_MIME_TYPE;
+}
+
 export function portalFileResponse(file, options = {}) {
   if (!(file?.base64 || file?.bytes)) {
     return NextResponse.json({ error: "File not found" }, { status: 404 });
   }
 
   const body = file.bytes ? Buffer.from(file.bytes) : Buffer.from(file.base64, "base64");
-  const mimeType = file.mimeType || DEFAULT_MIME_TYPE;
+  if (body.byteLength < 1) {
+    return NextResponse.json({ error: "File not found" }, { status: 404 });
+  }
+  const mimeType = sanitizeFileMimeType(file.mimeType);
 
   return new NextResponse(body, {
     headers: {

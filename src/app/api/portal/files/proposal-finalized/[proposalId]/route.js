@@ -1,15 +1,12 @@
 import { anyApi } from "convex/server";
-import { fetchAuthAction } from "@/lib/auth-server";
-import { portalFileErrorResponse, portalFileResponse } from "@/lib/portal/file-response";
+import { downloadPortalFile } from "@/lib/portal/file-download";
 
 export async function GET(_request, { params }) {
-  try {
-    const { proposalId } = await params;
-    const file = await fetchAuthAction(anyApi.crm.proposalAttachmentActions.getFinalizedPdfFile, {
+  const { proposalId } = await params;
+  return await downloadPortalFile({
+    action: anyApi.crm.proposalAttachmentActions.getFinalizedPdfFile,
+    args: {
       proposalId,
-    });
-    return portalFileResponse(file);
-  } catch (error) {
-    return portalFileErrorResponse(error);
-  }
+    },
+  });
 }

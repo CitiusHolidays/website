@@ -9,9 +9,14 @@ import {
   fileOperationSuccessValidator,
   uploadUrlResultValidator,
 } from "./fileReturnContracts";
+import {
+  isAllowedAttachmentMimeType,
+  isExactAttachmentSize,
+  normalizeMimeType,
+  resolveStorageMimeType,
+  storageMimeTypeMatchesClaim,
+} from "./fileValidation";
 import { PERMISSIONS } from "./lib/rolePolicy";
-
-const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
 const ALLOWED_MIME_PREFIXES = [
   "application/pdf",
@@ -22,10 +27,7 @@ const ALLOWED_MIME_PREFIXES = [
 ];
 
 function isAllowedMimeType(mimeType: string) {
-  const normalized = mimeType.trim().toLowerCase();
-  return Boolean(
-    normalized && ALLOWED_MIME_PREFIXES.some((prefix) => normalized.startsWith(prefix))
-  );
+  return isAllowedAttachmentMimeType(mimeType, ALLOWED_MIME_PREFIXES);
 }
 
 function canPrepareExpenseFileUpload(access: any) {
@@ -109,8 +111,17 @@ export const attachProof = action({
     if (!blob) {
       throw new ConvexError("Uploaded file not found in storage");
     }
-    const actualSize = blob.size ?? args.fileSize;
-    if (actualSize < 1 || actualSize > MAX_FILE_BYTES) {
+    const actualMimeType = resolveStorageMimeType(blob.type, args.mimeType);
+    if (!storageMimeTypeMatchesClaim(blob.type, args.mimeType)) {
+      await cleanupRejectedUpload();
+      throw new ConvexError("Uploaded file type does not match its declared MIME type.");
+    }
+    if (!isAllowedMimeType(actualMimeType)) {
+      await cleanupRejectedUpload();
+      throw new ConvexError("File type not allowed. Use PDF, Office, or image files.");
+    }
+    const actualSize = blob.size ?? 0;
+    if (!isExactAttachmentSize(actualSize, args.fileSize)) {
       await cleanupRejectedUpload();
       throw new ConvexError("Each file must be between 1 byte and 15 MB.");
     }
@@ -126,7 +137,7 @@ export const attachProof = action({
           createdBy: access.authUserId || "unknown",
           expenseId,
           fileName: args.fileName.trim() || "expense proof",
-          mimeType: args.mimeType.trim() || "application/octet-stream",
+          mimeType: normalizeMimeType(actualMimeType) || "application/octet-stream",
           storageId: args.storageId,
         }
       ));

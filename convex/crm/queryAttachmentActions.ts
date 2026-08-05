@@ -8,9 +8,14 @@ import {
   fileOperationSuccessValidator,
   uploadUrlResultValidator,
 } from "./fileReturnContracts";
+import {
+  isAllowedAttachmentMimeType,
+  isExactAttachmentSize,
+  normalizeMimeType,
+  resolveStorageMimeType,
+  storageMimeTypeMatchesClaim,
+} from "./fileValidation";
 import { PERMISSIONS } from "./lib/rolePolicy";
-
-const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
 const ALLOWED_MIME_PREFIXES = [
   "application/pdf",
@@ -22,11 +27,7 @@ const ALLOWED_MIME_PREFIXES = [
 ];
 
 function isAllowedMimeType(mimeType: string) {
-  const normalized = mimeType.trim().toLowerCase();
-  if (!normalized) {
-    return false;
-  }
-  return ALLOWED_MIME_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+  return isAllowedAttachmentMimeType(mimeType, ALLOWED_MIME_PREFIXES);
 }
 
 async function buildDownloadFile(
@@ -99,13 +100,16 @@ export const attachFile = action({
     if (!blob) {
       throw new ConvexError("Uploaded file not found in storage");
     }
-    const actualMimeType = blob.type?.trim() || args.mimeType.trim();
+    const actualMimeType = resolveStorageMimeType(blob.type, args.mimeType);
+    if (!storageMimeTypeMatchesClaim(blob.type, args.mimeType)) {
+      throw new ConvexError("Uploaded file type does not match its declared MIME type.");
+    }
     if (!isAllowedMimeType(actualMimeType)) {
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
-    if (blob.size < 1 || blob.size > MAX_FILE_BYTES || blob.size !== args.fileSize) {
+    if (!isExactAttachmentSize(blob.size, args.fileSize)) {
       throw new ConvexError("Each file must be between 1 byte and 15 MB.");
     }
 
@@ -113,7 +117,7 @@ export const attachFile = action({
       createdBy: access.authUserId || "unknown",
       fileName: args.fileName.trim() || "attachment",
       fileSize: blob.size,
-      mimeType: actualMimeType,
+      mimeType: normalizeMimeType(actualMimeType),
       queryId: normalizedQueryId,
       storageId: args.storageId,
     });
