@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { ConvexError } from "convex/values";
 import { hasTravellerNamed } from "./e2eAssertions";
-import { assertE2eSecret } from "./lib/e2eAuth";
+import { assertE2eSecret, assertProvidedE2eSecret } from "./lib/e2eAuth";
 
 describe("e2e assertions guard", () => {
   test("rejects missing or incorrect secrets", () => {
@@ -13,8 +13,10 @@ describe("e2e assertions guard", () => {
     expect(() => assertE2eSecret("expected-secret", "expected-secret")).not.toThrow();
   });
 
-  test("accepts the deployment-configured secret without a function argument", () => {
-    expect(() => assertE2eSecret(undefined, "expected-secret")).not.toThrow();
+  test("requires a provided secret at HTTP boundaries", () => {
+    expect(() => assertProvidedE2eSecret(undefined, "expected-secret")).toThrow(ConvexError);
+    expect(() => assertProvidedE2eSecret("wrong-secret", "expected-secret")).toThrow(ConvexError);
+    expect(() => assertProvidedE2eSecret("expected-secret", "expected-secret")).not.toThrow();
   });
 
   test("matches the exact traveller name returned by either indexed lookup", () => {

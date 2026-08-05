@@ -1,9 +1,9 @@
-# Working-tree change summary
+# Working-tree change summary (historical bundle)
 
-This document summarizes the complete local working tree as of 14 July 2026. It covers the full
-remediation and follow-up change set, not only the most recent edits. The work is implemented and
-verified locally, but it has not been staged, committed, deployed, or used to change production
-configuration.
+This document preserves the complete local working-tree bundle captured on 14 July 2026. It is an
+archive of the earlier remediation and follow-up change set, not the current release status. The
+current committed checkpoint, verification evidence, known debt, and external deployment blocker
+are tracked in [`.scratch/README.md`](../.scratch/README.md).
 
 ## Review bundles and dependencies
 
@@ -101,7 +101,8 @@ the wrong destination fails with both the deleted path and expected successor in
 - The signed-in Google profile image is shown in the CRM header with the existing user icon as a
   fallback.
 - The existing footer/contact texture (`/gallery/bgfooter.webp`) appears subtly behind the CRM shell
-  to reduce blank white surfaces without changing the Citius color system.
+  to reduce blank white surfaces. The current checkpoint additionally scopes a premium CRM palette
+  and heading treatment to `.portal-shell`; public and customer-account tokens remain unchanged.
 - Portal tabs, confirmation dialogs, toast stacking, focus handling, mobile target sizes, safe areas,
   and reduced-motion behavior were tightened and covered by mounted tests.
 
@@ -176,7 +177,22 @@ the wrong destination fails with both the deleted path and expected successor in
   media from being accidentally recompressed again.
 - Finder metadata and the generated TypeScript build-info cache were removed locally.
 
-## Verification snapshot
+## Current verification snapshot (5 August 2026)
+
+The latest committed checkpoint completed the following local gates:
+
+| Gate | Result |
+| --- | --- |
+| `bun run test` | 1,145 passed, 0 failed |
+| `bun run typecheck` | Passed |
+| `bun run convex:typecheck` | Passed |
+| `bunx convex codegen --typecheck disable` | Passed |
+| `bun run config:check` / `policy:check` / `performance:check` | Passed |
+| Focused security regression tests | Passed |
+| `bun audit --audit-level=high` | 17 transitive findings remain for dependency follow-up |
+| Live production `/portal` | Pending redeploy/cache purge and authenticated browser verification |
+
+## Historical verification snapshot (14 July 2026)
 
 The final local pass completed with:
 

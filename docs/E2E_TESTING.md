@@ -31,7 +31,8 @@ Tags: `@critical`, `@smoke`, `@workflow`.
 3. Seed staff + auth (once per deployment, or after password rotation):
 
    ```bash
-   bunx convex run crm/e2eSeedActions:run '{"secret":"YOUR_E2E_SEED_SECRET"}'
+   curl -X POST "$NEXT_PUBLIC_CONVEX_SITE_URL/e2e/seed" \
+     -H "x-e2e-seed-secret: $E2E_SEED_SECRET"
    ```
 
 4. Run tests:
@@ -64,7 +65,11 @@ Set `E2E_STRICT=1` to fail fast when credentials are missing (optional; default 
 | `settings` | `e2e/specs/admin-settings.spec.ts` |
 | `passport` | `e2e/specs/passport-modal.spec.ts` |
 
-`@workflow` delete specs call `convex run crm/e2eAssertions:travellerExists` and need `E2E_SEED_SECRET` in the shell environment.
+`@workflow` delete specs use a Convex developer-authenticated inline query for the traveller
+assertion. The old public `crm/e2eAssertions:travellerExists` oracle is now an internal helper and
+is not callable by browser clients. The staff/auth seed is an HTTP action protected by the
+`x-e2e-seed-secret` header. `E2E_SEED_SECRET` is never placed in a process argument or assertion
+payload.
 
 ## Failure artifacts
 

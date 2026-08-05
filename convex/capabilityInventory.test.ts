@@ -14,7 +14,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "6c4789c8eed724fdc5173783a6292d85947068010d4d7d079ab1b2e311dfe495";
+const EXPECTED_CAPABILITY_HASH = "2c31b4432a785069e45d3c493721f463b6f075c1435b06cde8afbaa820f07018";
 const SOURCE_EXTENSION = /\.(?:js|ts)$/;
 const NON_SOURCE_FILE = /(?:\.test|\.config)\.[jt]s$/;
 const MODULE_EXTENSION = /\.[jt]s$/;
@@ -145,7 +145,8 @@ describe("Convex capability inventory", () => {
   test("server-only E2E endpoints retain their secret guard", () => {
     const assertions = readFileSync(join(CONVEX_ROOT, "crm/e2eAssertions.ts"), "utf8");
     const seed = readFileSync(join(CONVEX_ROOT, "crm/e2eSeedActions.ts"), "utf8");
-    expect(assertions).toContain("assertE2eSecret()");
+    expect(assertions).toContain("export const travellerExists = internalQuery");
+    expect(seed).toContain("export const run = internalAction");
     expect(seed).toContain("assertE2eSecret()");
     expect(assertions).not.toContain("secret: v.string()");
     expect(seed).not.toContain("secret: v.string()");

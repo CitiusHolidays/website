@@ -1,19 +1,18 @@
 import { v } from "convex/values";
-import { query } from "../_generated/server";
-import { assertE2eSecret } from "./lib/e2eAuth";
+import { internalQuery } from "../_generated/server";
 
 export function hasTravellerNamed(travellers: Array<{ fullName: string }>, fullName: string) {
   return travellers.some((row) => row.fullName === fullName);
 }
 
-export const travellerExists = query({
+// This is intentionally internal. The E2E harness uses a developer-authenticated
+// Convex inline query instead of exposing a public traveller-existence oracle.
+export const travellerExists = internalQuery({
   args: {
     fullName: v.string(),
     jobCardId: v.optional(v.id("jobCards")),
   },
   handler: async (ctx, args) => {
-    assertE2eSecret();
-
     if (args.jobCardId) {
       const travellers = await ctx.db
         .query("travellers")

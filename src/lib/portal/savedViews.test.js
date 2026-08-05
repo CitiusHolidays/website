@@ -44,8 +44,12 @@ describe("savedViews", () => {
 
   test("keeps saved-view navigation on internal portal paths", () => {
     expect(isSafePortalPathname("/portal/queries")).toBe(true);
+    expect(isSafePortalPathname("/portal/../auth/connect")).toBe(false);
+    expect(isSafePortalPathname("/portal/%2e%2e/auth/connect")).toBe(false);
+    expect(isSafePortalPathname("/portal/%252e%252e/auth/connect")).toBe(false);
     expect(isSafePortalPathname("https://attacker.test/login")).toBe(false);
     expect(isSafePortalHref("/portal/queries?q=acme")).toBe(true);
+    expect(isSafePortalHref("/portal/../auth/connect?q=acme")).toBe(false);
     expect(isSafePortalHref("//attacker.test/login")).toBe(false);
     expect(
       savedViewToUrl("https://attacker.test/login", { filterState: { search: "acme" } }, config)

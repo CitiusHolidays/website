@@ -3,7 +3,7 @@
 import { hashPassword } from "better-auth/crypto";
 import { ConvexError, v } from "convex/values";
 import { components, internal } from "../_generated/api";
-import { action } from "../_generated/server";
+import { internalAction } from "../_generated/server";
 import { createAuth } from "../betterAuth/auth";
 import { findAuthAccountsByUserId, findAuthUserByEmail } from "../lib/betterAuthLookup";
 import { listE2eStaffProfileSeeds } from "./e2eStaffProfiles";
@@ -100,7 +100,7 @@ async function ensureCredentialAuthUser(
   return { authUserId: result.user.id, created: true, verified: true };
 }
 
-export const run = action({
+export const run = internalAction({
   args: {},
   handler: async (
     ctx

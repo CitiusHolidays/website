@@ -55,11 +55,37 @@ function hasUnsafePathCharacters(value: string) {
   });
 }
 
+function hasUnsafePathSegments(value: string) {
+  return value.split("/").some((segment) => {
+    let decoded = segment;
+    for (let pass = 0; pass < 3; pass += 1) {
+      let next: string;
+      try {
+        next = decodeURIComponent(decoded);
+      } catch {
+        return true;
+      }
+      if (next === decoded) {
+        break;
+      }
+      decoded = next;
+    }
+    return (
+      decoded === "." ||
+      decoded === ".." ||
+      decoded.includes("/") ||
+      decoded.includes("\\") ||
+      decoded.includes("\u0000")
+    );
+  });
+}
+
 function isSafePortalPathname(pathname: string) {
   return (
     pathname.length > 0 &&
     PORTAL_PATH_RE.test(pathname) &&
     !hasUnsafePathCharacters(pathname) &&
+    !hasUnsafePathSegments(pathname) &&
     !pathname.includes("?") &&
     !pathname.includes("#")
   );

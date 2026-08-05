@@ -9,6 +9,12 @@ scope is the public layout, Home, Pilgrimage, and Sacred Bharat surfaces listed 
 `src/app/publicVisualIdentity.contract.test.ts`. Extend that list deliberately when a new public
 surface is reviewed; do not migrate authenticated or operational screens by search-and-replace.
 
+The CRM has a separately approved premium treatment for Citius Connect. It is scoped to the
+`.portal-shell` boundary, keeps the operational layout and density, and may override the CRM's
+semantic brand tokens and heading stack without changing the public-site token contract or the
+customer Account surface. This is a deliberate portal-specific theme, not an extension of the
+public visual-identity migration.
+
 ## Color tokens
 
 | Before | After |
@@ -53,7 +59,9 @@ browser visual review.
 | Platform-dependent root smoothing | Root antialiasing via WebKit and Firefox font-smoothing properties |
 | Generic selection styling | Public-only, high-contrast Citius lime/ink selection pair |
 
-Body, navigation, controls, auth, and portal typography are unchanged.
+Body, navigation, controls, auth, and customer Account typography are unchanged by the public
+token migration. Citius Connect may use the separately documented `.portal-shell` premium heading
+stack described above.
 
 ## Verification
 

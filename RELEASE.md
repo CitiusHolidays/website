@@ -4,11 +4,10 @@ This file is the repository-owned release contract. It records commands and expe
 does not assert that Vercel, GitHub, Convex, DNS, or provider dashboards are already configured.
 
 The complete local change summary and latest evidence snapshot are in
-[`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md). As of 14 July 2026, the local release
-gates passed with 625 tests, application and Convex typechecks, a 17-error / 1,664-warning lint
-ratchet result below baseline, configuration and diff checks, React Doctor 100/100, and a successful
-84-page production build. These results are local evidence, not proof that external platform
-settings or production activation are complete.
+[`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md). The current release checkpoint is
+recorded in `.scratch/README.md`; local verification is current there, while Vercel/Convex
+deployment and live browser checks remain external activation work. These results are local
+evidence, not proof that external platform settings or production activation are complete.
 
 ## Environment ownership
 
@@ -40,13 +39,14 @@ do not paste values into logs or tickets.
 
 1. `bun install --frozen-lockfile`
 2. diff hygiene, including atomic JavaScript-to-TypeScript entrypoint replacements
-3. all Bun tests, including offline environment and deploy-contract tests
-4. Next.js application type checking
-5. fresh Convex generation and Convex-project type checking
-6. CRM search/metric readiness contracts and cron registration (`docs/CRM_READINESS_OPERATIONS.md`)
-7. public asset reference smoke (`bun run assets:check`)
-6. a high/critical dependency audit
-7. the per-rule lint ratchet
+3. the policy, asset, and performance checks on every pull request
+4. all Bun tests, application/Convex type checks, fresh Convex generation, and the production
+   build on pushes and pull requests opened from a branch in this repository
+5. a credential-free fork-pull-request lane that never receives the Convex deploy key
+6. a high/critical dependency audit and the per-rule lint ratchet
+
+The full lane uses a dedicated non-production Convex deploy key only for trusted repository refs;
+fork pull requests remain unable to access that secret and therefore receive the safe subset.
 
 The lint baseline is explicit in `config/release/lint-baseline.json`. Generated Convex surfaces are
 excluded by `biome.json`. A rule family may be burned down and then recorded with

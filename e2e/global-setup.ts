@@ -2,9 +2,9 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium, type FullConfig } from "@playwright/test";
 import { E2E_ROLE_PROFILE_KEYS } from "./fixtures/staffProfiles";
-import { loadE2eEnv } from "./loadEnv";
 import { seedE2eStaffProfiles } from "./helpers/seed";
 import { e2eStrictMode } from "./helpers/skip";
+import { loadE2eEnv } from "./loadEnv";
 
 loadE2eEnv();
 
@@ -17,7 +17,8 @@ async function globalSetup(config: FullConfig) {
   const baseURL = config.projects[0]?.use?.baseURL ?? "http://localhost:3000";
 
   if (!password) {
-    const message = "E2E_STAFF_PASSWORD is unset — skipping Playwright auth storageState generation.";
+    const message =
+      "E2E_STAFF_PASSWORD is unset — skipping Playwright auth storageState generation.";
     if (e2eStrictMode()) {
       throw new Error(message);
     }
@@ -25,7 +26,7 @@ async function globalSetup(config: FullConfig) {
     return;
   }
 
-  seedE2eStaffProfiles();
+  await seedE2eStaffProfiles();
 
   const { e2eStaffEmail } = await import("./fixtures/staffProfiles");
   const browser = await chromium.launch();

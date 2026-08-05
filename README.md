@@ -44,15 +44,13 @@ Historical `plans/` links are mapped to their current permanent documents in
 [`docs/PLAN_MAP.md`](docs/PLAN_MAP.md). New implementation tickets belong in the local `.scratch/`
 tracker; do not recreate a second `plans/` directory.
 
-### Current local modernization work
+### Current release checkpoint
 
-The current working tree contains the full 27-ticket remediation plus the 14 July media, email,
-CRM visual, pagination, and AI follow-ups. It is implemented and locally verified, but it has not
-been staged, committed, deployed, or used to mutate production configuration.
-
-See [`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md) for the stakeholder summary,
-verification results, remaining external activation work, and links to the detailed workflow and
-release references.
+The current security and portal-hardening checkpoint is committed on the active branch. Local
+verification, known audit debt, deferred work, scratch cleanup, and the exact production blocker
+are kept in [`.scratch/README.md`](.scratch/README.md). The tracked historical change summary in
+[`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md) is retained for context; it is not a
+claim that the current deployment has been activated.
 
 ### Payments
 

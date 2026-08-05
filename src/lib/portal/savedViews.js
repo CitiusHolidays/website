@@ -1,11 +1,37 @@
 import { serializeUrlFilterState } from "./urlFilterState";
 
 const PORTAL_PATH_RE = /^\/portal(?:\/|$)/;
+const HREF_DELIMITER_RE = /[?#]/;
 
 function hasUnsafePathCharacters(value) {
   return [...value].some((character) => {
     const code = character.charCodeAt(0);
     return character === "\\" || code < 32 || code === 127;
+  });
+}
+
+function hasUnsafePathSegments(value) {
+  return value.split("/").some((segment) => {
+    let decoded = segment;
+    for (let pass = 0; pass < 3; pass += 1) {
+      let next;
+      try {
+        next = decodeURIComponent(decoded);
+      } catch {
+        return true;
+      }
+      if (next === decoded) {
+        break;
+      }
+      decoded = next;
+    }
+    return (
+      decoded === "." ||
+      decoded === ".." ||
+      decoded.includes("/") ||
+      decoded.includes("\\") ||
+      decoded.includes("\u0000")
+    );
   });
 }
 
@@ -48,13 +74,19 @@ export function isSafePortalPathname(pathname) {
     pathname.length > 0 &&
     PORTAL_PATH_RE.test(pathname) &&
     !hasUnsafePathCharacters(pathname) &&
+    !hasUnsafePathSegments(pathname) &&
     !pathname.includes("?") &&
     !pathname.includes("#")
   );
 }
 
 export function isSafePortalHref(href) {
-  return typeof href === "string" && PORTAL_PATH_RE.test(href) && !hasUnsafePathCharacters(href);
+  if (typeof href !== "string" || hasUnsafePathCharacters(href)) {
+    return false;
+  }
+  const delimiter = href.search(HREF_DELIMITER_RE);
+  const pathname = delimiter === -1 ? href : href.slice(0, delimiter);
+  return isSafePortalPathname(pathname);
 }
 
 export function savedViewToUrl(pathname, savedView, filterConfig = []) {
