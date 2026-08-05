@@ -1,14 +1,9 @@
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, mutation, query } from "../_generated/server";
-import {
-  isDirectorOrAdmin,
-  notifyRoles,
-  PERMISSIONS,
-  requireStaff,
-} from "./lib";
+import { isDirectorOrAdmin, notifyRoles, PERMISSIONS, requireStaff } from "./lib";
 import { handleQueryCreate } from "./queryCreation";
 import { querySourceValidator, queryTypeValidator, travelTypeValidator } from "./queryValidators";
 
@@ -24,14 +19,15 @@ const MAX_CLIENT_NAME_LENGTH = 160;
 const MAX_CONTACT_EMAIL_LENGTH = 254;
 const MAX_CONTACT_MOBILE_LENGTH = 50;
 const MAX_DESTINATION_LENGTH = 240;
-const MAX_NOTES_LENGTH = 5_000;
-const MAX_PAX_COUNT = 1_000;
+const MAX_NOTES_LENGTH = 5000;
+const MAX_PAX_COUNT = 1000;
 const INBOUND_RATE_LIMIT = 5;
 const INBOUND_RATE_WINDOW_MS = 15 * 60 * 1000;
 const INBOUND_RATE_RETENTION_MS = 24 * 60 * 60 * 1000;
-const INBOUND_SALES_ROLES = new Set(["Sales", "Sales Head", "Sales Cement"]);
+const INBOUND_SALES_ROLES = new Set(["Sales", "Sales Head"]);
 
 const inboundIntentPublicValidator = v.object({
+  _creationTime: v.number(),
   _id: v.id("inboundQueryIntents"),
   clientName: v.string(),
   consentAt: v.number(),
@@ -46,6 +42,29 @@ const inboundIntentPublicValidator = v.object({
   status: inboundStatusValidator,
   travelStartDate: v.optional(v.string()),
 });
+
+function presentInboundIntent(intent: Doc<"inboundQueryIntents">) {
+  return {
+    _creationTime: intent._creationTime,
+    _id: intent._id,
+    clientName: intent.clientName,
+    consentAt: intent.consentAt,
+    ...(intent.contactEmail === undefined ? {} : { contactEmail: intent.contactEmail }),
+    ...(intent.contactMobile === undefined ? {} : { contactMobile: intent.contactMobile }),
+    ...(intent.convertedQueryId === undefined ? {} : { convertedQueryId: intent.convertedQueryId }),
+    createdAt: intent.createdAt,
+    ...(intent.destination === undefined ? {} : { destination: intent.destination }),
+    ...(intent.notes === undefined ? {} : { notes: intent.notes }),
+    ...(intent.paxCount === undefined ? {} : { paxCount: intent.paxCount }),
+    source: intent.source,
+    status: intent.status,
+    ...(intent.travelStartDate === undefined ? {} : { travelStartDate: intent.travelStartDate }),
+  };
+}
+
+function presentInboundIntentPage<T extends { page: Doc<"inboundQueryIntents">[] }>(page: T) {
+  return { ...page, page: page.page.map(presentInboundIntent) };
+}
 
 const gatewayResultValidator = v.object({
   intentId: v.union(v.id("inboundQueryIntents"), v.null()),
@@ -190,11 +209,11 @@ export const submitIntentInternal = internalMutation({
     submissionKeyHash: v.string(),
     travelStartDate: v.optional(v.string()),
   },
+  handler: async (ctx, args) => await createIntent(ctx, args),
   returns: v.object({
     duplicate: v.boolean(),
     id: v.id("inboundQueryIntents"),
   }),
-  handler: async (ctx, args) => await createIntent(ctx, args),
 });
 
 /**
@@ -216,7 +235,6 @@ export const submitIntentGateway = mutation({
     submissionKeyHash: v.string(),
     travelStartDate: v.optional(v.string()),
   },
-  returns: gatewayResultValidator,
   handler: async (ctx, args): Promise<GatewayResult> => {
     assertGatewaySecret(args.gatewaySecret);
     if (!HASH_PATTERN.test(args.rateLimitKeyHash)) {
@@ -260,16 +278,16 @@ export const submitIntentGateway = mutation({
     const created: { duplicate: boolean; id: Id<"inboundQueryIntents"> } = await ctx.runMutation(
       internal.crm.inboundQueryIntents.submitIntentInternal,
       {
-      clientName: args.clientName,
-      consent: true,
-      contactEmail: args.contactEmail,
-      contactMobile: args.contactMobile,
-      destination: args.destination,
-      notes: args.notes,
-      paxCount: args.paxCount,
-      source: args.source,
-      submissionKeyHash: args.submissionKeyHash,
-      travelStartDate: args.travelStartDate,
+        clientName: args.clientName,
+        consent: true,
+        contactEmail: args.contactEmail,
+        contactMobile: args.contactMobile,
+        destination: args.destination,
+        notes: args.notes,
+        paxCount: args.paxCount,
+        source: args.source,
+        submissionKeyHash: args.submissionKeyHash,
+        travelStartDate: args.travelStartDate,
       }
     );
     return {
@@ -277,6 +295,7 @@ export const submitIntentGateway = mutation({
       status: created.duplicate ? ("duplicate" as const) : ("created" as const),
     };
   },
+  returns: gatewayResultValidator,
 });
 
 export const list = query({
@@ -288,46 +307,50 @@ export const list = query({
     source: v.optional(inboundSourceValidator),
     status: v.optional(inboundStatusValidator),
   },
-  returns: paginationResultValidator(inboundIntentPublicValidator),
   handler: async (ctx, args) => {
     await requireInboundSales(ctx);
     const statusFilter = args.status ?? "pending";
     const sourceFilter = args.source;
     const searchTerm = args.search?.trim();
     if (searchTerm) {
-      const searchable = ctx.db
-        .query("inboundQueryIntents")
-        .withSearchIndex("search_list", (q) => {
-          let searchQuery = q.search("listSearchText", searchTerm);
-          if (statusFilter) {
-            searchQuery = searchQuery.eq("status", statusFilter);
-          }
-          if (sourceFilter) {
-            searchQuery = searchQuery.eq("source", sourceFilter);
-          }
-          return searchQuery;
-        });
+      const searchable = ctx.db.query("inboundQueryIntents").withSearchIndex("search_list", (q) => {
+        let searchQuery = q.search("listSearchText", searchTerm);
+        if (statusFilter) {
+          searchQuery = searchQuery.eq("status", statusFilter);
+        }
+        if (sourceFilter) {
+          searchQuery = searchQuery.eq("source", sourceFilter);
+        }
+        return searchQuery;
+      });
       if (args.createdAtFrom !== undefined || args.createdAtTo !== undefined) {
-        return await searchable
-          .filter((q) => {
-            if (args.createdAtFrom !== undefined && args.createdAtTo !== undefined) {
-              return q.and(
-                q.gte(q.field("createdAt"), args.createdAtFrom),
-                q.lte(q.field("createdAt"), args.createdAtTo)
-              );
-            }
-            if (args.createdAtFrom !== undefined) {
-              return q.gte(q.field("createdAt"), args.createdAtFrom);
-            }
-            return q.lte(q.field("createdAt"), args.createdAtTo as number);
-          })
-          .paginate(args.paginationOpts);
+        return presentInboundIntentPage(
+          await searchable
+            .filter((q) => {
+              if (args.createdAtFrom !== undefined && args.createdAtTo !== undefined) {
+                return q.and(
+                  q.gte(q.field("createdAt"), args.createdAtFrom),
+                  q.lte(q.field("createdAt"), args.createdAtTo)
+                );
+              }
+              if (args.createdAtFrom !== undefined) {
+                return q.gte(q.field("createdAt"), args.createdAtFrom);
+              }
+              return q.lte(q.field("createdAt"), args.createdAtTo as number);
+            })
+            .paginate(args.paginationOpts)
+        );
       }
-      return await searchable.paginate(args.paginationOpts);
+      return presentInboundIntentPage(await searchable.paginate(args.paginationOpts));
     }
 
     let intentsQuery = ctx.db.query("inboundQueryIntents").order("desc");
-    if (statusFilter || sourceFilter || args.createdAtFrom !== undefined || args.createdAtTo !== undefined) {
+    if (
+      statusFilter ||
+      sourceFilter ||
+      args.createdAtFrom !== undefined ||
+      args.createdAtTo !== undefined
+    ) {
       intentsQuery = intentsQuery.filter((q) => {
         const clauses = [];
         if (statusFilter) {
@@ -348,32 +371,36 @@ export const list = query({
         return q.and(...clauses);
       });
     }
-    return await intentsQuery.paginate(args.paginationOpts);
+    return presentInboundIntentPage(await intentsQuery.paginate(args.paginationOpts));
   },
+  returns: paginationResultValidator(inboundIntentPublicValidator),
 });
 
-async function getSalesIntent(ctx: Parameters<typeof requireStaff>[0], intentId: Id<"inboundQueryIntents">) {
+async function getSalesIntent(
+  ctx: Parameters<typeof requireStaff>[0],
+  intentId: Id<"inboundQueryIntents">
+) {
   await requireInboundSales(ctx);
   return await ctx.db.get(intentId);
 }
 
 export const getForSales = query({
   args: { intentId: v.id("inboundQueryIntents") },
-  returns: v.union(inboundIntentPublicValidator, v.null()),
   handler: async (ctx, args) => {
     const intent = await getSalesIntent(ctx, args.intentId);
-    return intent;
+    return intent ? presentInboundIntent(intent) : null;
   },
+  returns: v.union(inboundIntentPublicValidator, v.null()),
 });
 
 /** Compatibility name retained for existing notification consumers. */
 export const getPendingIntent = query({
   args: { intentId: v.id("inboundQueryIntents") },
-  returns: v.union(inboundIntentPublicValidator, v.null()),
   handler: async (ctx, args) => {
     const intent = await getSalesIntent(ctx, args.intentId);
-    return intent?.status === "pending" ? intent : null;
+    return intent?.status === "pending" ? presentInboundIntent(intent) : null;
   },
+  returns: v.union(inboundIntentPublicValidator, v.null()),
 });
 
 function markIntentConvertedPatch(intentId: Id<"inboundQueryIntents">, queryId: Id<"queries">) {
@@ -400,7 +427,6 @@ export const convertToQuery = mutation({
     travelStartDate: v.optional(v.string()),
     travelType: travelTypeValidator,
   },
-  returns: convertResultValidator,
   handler: async (ctx, args) => {
     await requireInboundSales(ctx);
     const intent = await ctx.db.get(args.intentId);
@@ -417,6 +443,7 @@ export const convertToQuery = mutation({
       contactMobile: args.contactMobile?.trim() || intent.contactMobile,
       contactPerson: args.contactPerson?.trim(),
       destination: args.destination?.trim() || intent.destination,
+      inboundIntentId: args.intentId,
       notes: args.notes?.trim() || intent.notes,
       paxCount: args.paxCount,
       queryType: args.queryType,
@@ -426,7 +453,6 @@ export const convertToQuery = mutation({
       travelEndDate: args.travelEndDate,
       travelStartDate: args.travelStartDate || intent.travelStartDate,
       travelType: args.travelType,
-      inboundIntentId: args.intentId,
     });
 
     await ctx.db.patch(args.intentId, markIntentConvertedPatch(args.intentId, created.id));
@@ -441,6 +467,7 @@ export const convertToQuery = mutation({
     }
     return { intentId: args.intentId, queryCode: created.queryCode, queryId: created.id };
   },
+  returns: convertResultValidator,
 });
 
 /** Legacy administrative mark; conversion should use convertToQuery. */
@@ -450,7 +477,6 @@ export const markConverted = mutation({
     queryId: v.string(),
     source: querySourceValidator,
   },
-  returns: v.null(),
   handler: async (ctx, args) => {
     await requireInboundSales(ctx);
     const intent = await ctx.db.get(args.intentId);
@@ -467,14 +493,11 @@ export const markConverted = mutation({
     await ctx.db.patch(args.intentId, markIntentConvertedPatch(args.intentId, queryId));
     return null;
   },
+  returns: v.null(),
 });
 
 export const handoffSummary = query({
   args: { sinceMs: v.number() },
-  returns: v.object({
-    converted: v.number(),
-    total: v.number(),
-  }),
   handler: async (ctx, args) => {
     await requireInboundSales(ctx);
     const events = await ctx.db
@@ -486,4 +509,8 @@ export const handoffSummary = query({
       total: events.length,
     };
   },
+  returns: v.object({
+    converted: v.number(),
+    total: v.number(),
+  }),
 });

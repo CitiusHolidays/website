@@ -27,7 +27,7 @@ const roleExpectations = JSON.parse(
 );
 
 function pagesForRoles(roles) {
-  return getAccessibleNavGroups({ permissions: getPermissionsForRoles(roles) })
+  return getAccessibleNavGroups({ permissions: getPermissionsForRoles(roles), roles })
     .flatMap((group) => group.items)
     .map((item) => item.page);
 }
@@ -181,6 +181,17 @@ describe("portal permissions", () => {
     expect(pages).not.toEqual(
       expect.arrayContaining(["finance", "ticketing", "contracting", "job-cards", "team"])
     );
+  });
+
+  test("inbound lead navigation matches the backend role boundary", () => {
+    for (const role of ["Sales", "Sales Head", "Admin", "Directors", "Director Cement"]) {
+      expect(pagesForRoles([role]), `${role} should see inbound leads`).toContain("inbound-leads");
+    }
+    for (const role of ["Sales Cement", "Operations", "Ticketing"]) {
+      expect(pagesForRoles([role]), `${role} should not see inbound leads`).not.toContain(
+        "inbound-leads"
+      );
+    }
   });
 
   test("hr can manage leave without staff settings access", () => {

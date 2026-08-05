@@ -2,10 +2,12 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   convertToQuery,
   getForSales,
+  getPendingIntent,
   list,
-  submitIntentInternal,
   submitIntentGateway,
+  submitIntentInternal,
 } from "./inboundQueryIntents";
+import { assertMatchesRegisteredReturnContract } from "./validateReturnContract";
 
 type Row = { _id: string; [key: string]: unknown };
 
@@ -43,7 +45,8 @@ function makeContext(
     },
     insert: async (table: string, document: Record<string, unknown>) => {
       const id = `${table}_${(tables[table]?.length ?? 0) + 1}`;
-      (tables[table] ||= []).push({ _id: id, ...document });
+      tables[table] ||= [];
+      tables[table].push({ _id: id, ...document });
       return id;
     },
     normalizeId: (table: string, id: string) =>
@@ -66,11 +69,6 @@ function makeContext(
           return builder;
         },
         first: async () => rows[0] ?? null,
-        paginate: async (opts: { numItems?: number }) => ({
-          continueCursor: "",
-          isDone: true,
-          page: rows.slice(0, opts.numItems ?? 50),
-        }),
         order: (direction: "asc" | "desc") => {
           rows.sort((left, right) => {
             const leftTime = Number(left.createdAt ?? left._creationTime ?? 0);
@@ -79,6 +77,11 @@ function makeContext(
           });
           return builder;
         },
+        paginate: async (opts: { numItems?: number }) => ({
+          continueCursor: "",
+          isDone: true,
+          page: rows.slice(0, opts.numItems ?? 50),
+        }),
         unique: async () => rows[0] ?? null,
         withIndex: (_index: string, callback?: (q: any) => unknown) => {
           if (callback) {
@@ -136,9 +139,8 @@ function makeContext(
   const ctx = {
     auth: { getUserIdentity: async () => identity },
     db,
-    runMutation: async (_reference: unknown, args: Record<string, unknown>) => {
-      return await (submitIntentInternal as any)._handler(ctx, args);
-    },
+    runMutation: async (_reference: unknown, args: Record<string, unknown>) =>
+      await (submitIntentInternal as any)._handler(ctx, args),
     scheduler: { runAfter: async () => undefined },
   };
 
@@ -172,6 +174,7 @@ const salesStaff = {
 
 function inboundRow(overrides: Record<string, unknown> = {}) {
   return {
+    _creationTime: 1,
     _id: "inboundQueryIntents_1",
     clientName: "A Traveller",
     consentAt: 1,
@@ -186,7 +189,7 @@ function inboundRow(overrides: Record<string, unknown> = {}) {
 describe("protected inbound intent Convex boundaries", () => {
   test("rejects direct gateway calls without the server secret", async () => {
     process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
-    const { ctx, tables } = makeContext({ inboundQueryIntents: [], inboundIntentRateLimits: [] });
+    const { ctx, tables } = makeContext({ inboundIntentRateLimits: [], inboundQueryIntents: [] });
 
     await expect(
       (submitIntentGateway as any)._handler(ctx, {
@@ -258,11 +261,20 @@ describe("protected inbound intent Convex boundaries", () => {
     const page = await (list as any)._handler(ctx, {
       paginationOpts: { cursor: null, numItems: 50 },
     });
+    assertMatchesRegisteredReturnContract(list, page);
     expect(page.page).toHaveLength(1);
     expect(page.page[0].clientName).toBe("A Traveller");
+    expect(page.page[0]).not.toHaveProperty("listSearchText");
+    expect(page.page[0]).not.toHaveProperty("submissionKeyHash");
 
     const opened = await (getForSales as any)._handler(ctx, { intentId: "inboundQueryIntents_1" });
+    assertMatchesRegisteredReturnContract(getForSales, opened);
     expect(opened.clientName).toBe("A Traveller");
+
+    const pending = await (getPendingIntent as any)._handler(ctx, {
+      intentId: "inboundQueryIntents_1",
+    });
+    assertMatchesRegisteredReturnContract(getPendingIntent, pending);
 
     const convertedCtx = makeContext(
       {
@@ -302,5 +314,31 @@ describe("protected inbound intent Convex boundaries", () => {
         paginationOpts: { cursor: null, numItems: 50 },
       })
     ).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("matches the approved inbound lead role matrix", async () => {
+    for (const role of ["Sales", "Sales Head", "Admin", "Directors", "Director Cement"]) {
+      const allowed = makeContext({
+        inboundQueryIntents: [inboundRow()],
+        staffUsers: [{ ...salesStaff, roles: [role] }],
+      });
+      await expect(
+        (list as any)._handler(allowed.ctx, {
+          paginationOpts: { cursor: null, numItems: 50 },
+        })
+      ).resolves.toBeDefined();
+    }
+
+    for (const role of ["Sales Cement", "Operations", "Ticketing"]) {
+      const denied = makeContext({
+        inboundQueryIntents: [inboundRow()],
+        staffUsers: [{ ...salesStaff, roles: [role] }],
+      });
+      await expect(
+        (list as any)._handler(denied.ctx, {
+          paginationOpts: { cursor: null, numItems: 50 },
+        })
+      ).rejects.toThrow("FORBIDDEN");
+    }
   });
 });

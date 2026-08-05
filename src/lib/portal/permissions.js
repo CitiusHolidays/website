@@ -43,7 +43,22 @@ export function canAccessPipeline(access) {
   );
 }
 
+const INBOUND_LEAD_ROLES = new Set([
+  "Sales",
+  "Sales Head",
+  "Admin",
+  "Directors",
+  "Director Cement",
+]);
+
+export function canAccessInboundLeads(access) {
+  return Boolean(access?.roles?.some((role) => INBOUND_LEAD_ROLES.has(role)));
+}
+
 function navItemAllowed(access, item) {
+  if (item.page === "inbound-leads") {
+    return canAccessInboundLeads(access);
+  }
   if (item.page === "pipeline") {
     return canAccessPipeline(access);
   }
@@ -58,6 +73,9 @@ export function getAccessibleNavGroups(access) {
 }
 
 export function canAccessPage(access, page) {
+  if (page === "inbound-leads") {
+    return canAccessInboundLeads(access);
+  }
   if (page === "pipeline") {
     return canAccessPipeline(access);
   }
