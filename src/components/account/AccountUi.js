@@ -148,7 +148,7 @@ export function JourneyOverviewCard({ booking, onOpen }) {
     >
       <div className="relative min-h-56 overflow-hidden bg-[var(--account-night)] lg:min-h-72">
         <CoverImage
-          className="transition-transform duration-700 group-hover:scale-[1.03]"
+          className="transition-transform duration-700 fine-hover:group-hover:scale-[1.03]"
           trip={trip}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#062341]/70 via-transparent to-transparent" />
@@ -293,7 +293,7 @@ export function PastJourneyCard({ booking }) {
   const { trip, booking: bookingData } = booking;
   return (
     <Link
-      className="account-focus account-card group flex items-center gap-4 rounded-sm p-3 transition-transform hover:-translate-y-0.5 sm:gap-5 sm:p-4"
+      className="account-focus account-card group flex items-center gap-4 rounded-sm p-3 transition-transform fine-hover:hover:-translate-y-0.5 sm:gap-5 sm:p-4"
       href={`/services/${trip.slug}`}
     >
       <div className="relative size-20 shrink-0 overflow-hidden rounded-sm bg-[var(--account-night)] sm:size-24">
