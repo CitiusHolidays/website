@@ -244,19 +244,25 @@ export function QueryAttachmentSummary({
   );
 }
 
-export function EditButton({ onClick, label = "Edit" }: any) {
+export function EditButton({ className, onClick, label = "Edit", ...buttonProps }: any) {
   return (
-    <button className="portal-small-btn" onClick={onClick} type="button">
+    <button
+      {...buttonProps}
+      className={className || "portal-small-btn"}
+      onClick={onClick}
+      type="button"
+    >
       {label}
     </button>
   );
 }
 
-export function DeleteButton({ label, onClick }: any) {
+export function DeleteButton({ className, label, onClick, ...buttonProps }: any) {
   return (
     <button
+      {...buttonProps}
       aria-label={`Delete ${label}`}
-      className="portal-danger-btn"
+      className={className || "portal-danger-btn"}
       onClick={onClick}
       type="button"
     >
