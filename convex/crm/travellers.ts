@@ -5,6 +5,7 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { roomTypeValidator } from "../lib/roomTypeValidators";
+import { resolveRoomCategory } from "../lib/roomTypes";
 import { completeJobCardDeletionWorker, failJobCardDeletionOperation } from "./jobCardDeletion";
 import {
   assertBulkDeleteMutationBatch,
@@ -105,7 +106,9 @@ const publicTraveller = (
   passportExpiryDate,
   passportStatus: traveller.passportStatus ?? "",
   paymentType: traveller.paymentType,
-  roomType: traveller.roomType,
+  // Storage is widened during the room-type migration. Keep the public
+  // contract canonical even if a legacy row is read before its page runs.
+  roomType: resolveRoomCategory(traveller.roomType) ?? "Twin",
   specialRequests: traveller.specialRequests ?? "",
   surname: traveller.surname ?? "",
   ticketStatus: traveller.ticketStatus,

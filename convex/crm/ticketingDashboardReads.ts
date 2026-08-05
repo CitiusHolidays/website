@@ -8,12 +8,31 @@ import {
 } from "./lib";
 import { isTicketAttentionStatus } from "./ticketStatusPolicy";
 
+const TICKETING_PAGE_SIZE = 100;
+
+export async function collectAllTicketingPages(ctx: any, table: string) {
+  const rows: any[] = [];
+  let cursor: string | null = null;
+  for (;;) {
+    const page: { page: any[]; isDone: boolean; continueCursor: string } = await ctx.db
+      .query(table)
+      .withIndex("by_createdAt")
+      .order("desc")
+      .paginate({ cursor, numItems: TICKETING_PAGE_SIZE });
+    rows.push(...page.page);
+    if (page.isDone) {
+      return rows;
+    }
+    cursor = page.continueCursor;
+  }
+}
+
 export async function handleDashboard(ctx: any, args: { dateRange?: PortalDateRange }) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
   const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
   const [ticketRows, pnrRows] = await Promise.all([
-    ctx.db.query("tickets").collect(),
-    ctx.db.query("pnrs").collect(),
+    collectAllTicketingPages(ctx, "tickets"),
+    collectAllTicketingPages(ctx, "pnrs"),
   ]);
   const tickets = filterRecordsByDateRange(ticketRows, dateRange);
   const pnrs = filterRecordsByDateRange(pnrRows, dateRange);

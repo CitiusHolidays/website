@@ -7,15 +7,34 @@ import {
 } from "./lib";
 import { canSeeJobCardRecord } from "./lib/recordScope";
 
-const FINANCE_OVERVIEW_ROW_LIMIT = 2000;
+const FINANCE_DETAIL_ROW_LIMIT = 240;
+const FINANCE_PAGE_SIZE = 100;
+
+/** Read in bounded pages so totals do not silently stop at a fixed row cap. */
+export async function collectAllCreatedAtPages(ctx: any, table: string) {
+  const rows: any[] = [];
+  let cursor: string | null = null;
+  for (;;) {
+    const page: { page: any[]; isDone: boolean; continueCursor: string } = await ctx.db
+      .query(table)
+      .withIndex("by_createdAt")
+      .order("desc")
+      .paginate({ cursor, numItems: FINANCE_PAGE_SIZE });
+    rows.push(...page.page);
+    if (page.isDone) {
+      return rows;
+    }
+    cursor = page.continueCursor;
+  }
+}
 
 export async function handleGetFinanceOverview(ctx: any, args: { dateRange?: PortalDateRange }) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
   const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
   const [invoiceRows, expenseRows, jobCardRows] = await Promise.all([
-    ctx.db.query("invoices").withIndex("by_createdAt").order("desc").take(FINANCE_OVERVIEW_ROW_LIMIT),
-    ctx.db.query("expenseEntries").withIndex("by_createdAt").order("desc").take(FINANCE_OVERVIEW_ROW_LIMIT),
-    ctx.db.query("jobCards").withIndex("by_createdAt").order("desc").take(FINANCE_OVERVIEW_ROW_LIMIT),
+    collectAllCreatedAtPages(ctx, "invoices"),
+    collectAllCreatedAtPages(ctx, "expenseEntries"),
+    collectAllCreatedAtPages(ctx, "jobCards"),
   ]);
   const invoices = filterRecordsByDateRange(invoiceRows, dateRange);
   const expenses = filterRecordsByDateRange(expenseRows, dateRange);
@@ -112,8 +131,8 @@ export async function handleGetFinanceOverview(ctx: any, args: { dateRange?: Por
       pendingExpenseApprovals,
       pendingReimbursements,
     },
-    outstanding,
-    pnl: rows,
+    outstanding: outstanding.slice(0, FINANCE_DETAIL_ROW_LIMIT),
+    pnl: rows.slice(0, FINANCE_DETAIL_ROW_LIMIT),
     summary: {
       approvedExpenses: visibleExpenses
         .filter((expense: any) => expense.approvalStatus === "Approved")

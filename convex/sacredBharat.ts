@@ -112,7 +112,56 @@ async function getPassportProfileForUser(ctx: QueryCtx | MutationCtx, authUserId
     .unique();
 }
 
+/** Refresh one compact leaderboard row after a visit/profile mutation. */
+async function refreshLeaderboardSummary(ctx: MutationCtx, authUserId: string, updatedAt = now()) {
+  const [visits, passport, profile, existing] = await Promise.all([
+    getVisitsForUser(ctx, authUserId),
+    getPassportProfileForUser(ctx, authUserId),
+    ctx.db
+      .query("userProfiles")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+      .unique(),
+    ctx.db
+      .query("sacredBharatLeaderboardSummaries")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+      .unique(),
+  ]);
+  const summary = computeProgressSummary(visits.map((visit) => visit.templeId));
+  const payload = {
+    authUserId,
+    completedTrailCount: summary.completedTrailCount,
+    displayName: passport?.displayName || profile?.name || "Sacred Yatri",
+    levelSlug: summary.levelSlug,
+    levelTitle: summary.levelTitle,
+    optedOut: profile?.sacredBharatLeaderboardOptOut === true,
+    passportSlug: passport?.isPublic ? passport.slug : null,
+    score: summary.score,
+    templeCount: summary.templeCount,
+    updatedAt,
+  };
+  if (existing) {
+    await ctx.db.patch(existing._id, payload);
+  } else {
+    await ctx.db.insert("sacredBharatLeaderboardSummaries", payload);
+  }
+}
+
 async function buildGroupMemberSummary(ctx: QueryCtx, authUserId: string) {
+  const materialized = await ctx.db
+    .query("sacredBharatLeaderboardSummaries")
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+    .unique();
+  if (materialized) {
+    return {
+      authUserId,
+      badges: [],
+      displayName: materialized.displayName,
+      levelTitle: materialized.levelTitle,
+      score: materialized.score,
+      slug: materialized.passportSlug,
+      templeCount: materialized.templeCount,
+    };
+  }
   const [passport, profile, progress] = await Promise.all([
     getPassportProfileForUser(ctx, authUserId),
     ctx.db
@@ -175,6 +224,8 @@ export const markTempleVisited = mutation({
         visitedOn: args.visitedOn,
       });
     }
+
+    await refreshLeaderboardSummary(ctx, identity.subject);
 
     return await buildProgressPayload(ctx, identity.subject);
   },
@@ -241,6 +292,7 @@ export const upsertMyPassportProfile = mutation({
     };
     if (existing) {
       await ctx.db.patch(existing._id, patch);
+      await refreshLeaderboardSummary(ctx, identity.subject, timestamp);
       return { id: existing._id, slug };
     }
     const id = await ctx.db.insert("sacredBharatProfiles", {
@@ -248,6 +300,7 @@ export const upsertMyPassportProfile = mutation({
       ...patch,
       createdAt: timestamp,
     });
+    await refreshLeaderboardSummary(ctx, identity.subject, timestamp);
     return { id, slug };
   },
   returns: passportProfileIdResultValidator,
@@ -268,6 +321,8 @@ export const unmarkTempleVisited = mutation({
     if (existing) {
       await ctx.db.delete(existing._id);
     }
+
+    await refreshLeaderboardSummary(ctx, identity.subject);
 
     return await buildProgressPayload(ctx, identity.subject);
   },
@@ -295,6 +350,8 @@ export const mergeGuestProgress = mutation({
       { templeIds: args.templeIds, wishlist: args.wishlist },
       { createdAt: timestamp, visitedAt: timestamp }
     );
+
+    await refreshLeaderboardSummary(ctx, identity.subject, timestamp);
 
     return await buildProgressPayload(ctx, identity.subject);
   },
@@ -328,6 +385,8 @@ export const toggleWishlistItem = mutation({
       });
     }
 
+    await refreshLeaderboardSummary(ctx, identity.subject);
+
     return await buildProgressPayload(ctx, identity.subject);
   },
   returns: sacredProgressValidator,
@@ -346,10 +405,12 @@ export const setLeaderboardOptOut = mutation({
       throw new ConvexError("PROFILE_NOT_FOUND");
     }
 
+    const updatedAt = now();
     await ctx.db.patch(profile._id, {
       sacredBharatLeaderboardOptOut: args.optOut,
-      updatedAt: now(),
+      updatedAt,
     });
+    await refreshLeaderboardSummary(ctx, identity.subject, updatedAt);
 
     return { optOut: args.optOut };
   },
@@ -377,6 +438,35 @@ const isLeaderboardOptedOut = async (ctx: QueryCtx, authUserId: string) => {
 };
 
 async function buildLeaderboardEntries(ctx: QueryCtx) {
+  const materialized = await ctx.db
+    .query("sacredBharatLeaderboardSummaries")
+    .withIndex("by_score")
+    .order("desc")
+    .collect();
+  if (materialized.length > 0) {
+    return materialized
+      .filter((entry) => !entry.optedOut && entry.templeCount > 0)
+      .map((entry) => ({
+        authUserId: entry.authUserId,
+        completedTrailCount: entry.completedTrailCount,
+        displayName: entry.displayName,
+        levelSlug: entry.levelSlug,
+        levelTitle: entry.levelTitle,
+        passportSlug: entry.passportSlug,
+        score: entry.score,
+        templeCount: entry.templeCount,
+      }))
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          b.templeCount - a.templeCount ||
+          a.displayName.localeCompare(b.displayName)
+      );
+  }
+
+  // Compatibility path for existing deployments before the backfill has
+  // populated summary rows. New writes create a materialized row, so this
+  // bounded fallback disappears naturally as users return.
   const allVisits = await ctx.db.query("sacredBharatVisits").take(5000);
   const byUser = new Map<string, Set<string>>();
 

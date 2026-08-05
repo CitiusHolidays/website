@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { internal } from "../_generated/api";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { isDirectorOrAdmin, notifyRoles, PERMISSIONS, requireStaff } from "./lib";
 import { loadMetricTotals } from "./metricAggregates";
@@ -11,6 +12,17 @@ const TICKET_ATTENTION_STATUSES = new Set([
   "Refund Pending",
 ]);
 const CLOSED_SALES_STATUSES = new Set(["Order Confirmed", "Order Lost"]);
+const NUDGE_PAGE_SIZE = 50;
+const NUDGE_RUN_KEY = "scheduled";
+const NUDGE_STAGES = ["queries", "jobCards", "tickets", "invoices"] as const;
+type NudgeStage = (typeof NUDGE_STAGES)[number];
+type NudgeRisk = {
+  body: string;
+  entityId: string;
+  entityType: string;
+  ruleKey: string;
+  title: string;
+};
 
 export const WORKFLOW_RULE_CATALOG = [
   {
@@ -192,7 +204,8 @@ export const updateRule = mutation({
 async function shouldTrigger(
   ctx: any,
   item: { ruleKey: string; entityType: string; entityId: string },
-  quietHours = 24
+  quietHours = 24,
+  referenceNow = Date.now()
 ) {
   const existing = await ctx.db
     .query("portalWorkflowRuleRuns")
@@ -200,12 +213,13 @@ async function shouldTrigger(
       q.eq("ruleKey", item.ruleKey).eq("entityType", item.entityType).eq("entityId", item.entityId)
     )
     .first();
-  return !existing || Date.now() - existing.lastTriggeredAt > quietHours * HOUR_MS;
+  return !existing || referenceNow - existing.lastTriggeredAt > quietHours * HOUR_MS;
 }
 
 async function markTriggered(
   ctx: any,
-  item: { ruleKey: string; entityType: string; entityId: string }
+  item: { ruleKey: string; entityType: string; entityId: string },
+  referenceNow = Date.now()
 ) {
   const existing = await ctx.db
     .query("portalWorkflowRuleRuns")
@@ -213,7 +227,7 @@ async function markTriggered(
       q.eq("ruleKey", item.ruleKey).eq("entityType", item.entityType).eq("entityId", item.entityId)
     )
     .first();
-  const timestamp = Date.now();
+  const timestamp = referenceNow;
   if (existing) {
     await ctx.db.patch(existing._id, { lastTriggeredAt: timestamp });
     return existing._id;
@@ -224,112 +238,133 @@ async function markTriggered(
   });
 }
 
-async function collectRiskItems(ctx: any) {
-  const [queries, jobCards, travellers, tickets, invoices] = await Promise.all([
-    ctx.db.query("queries").collect(),
-    ctx.db.query("jobCards").collect(),
-    ctx.db.query("travellers").collect(),
-    ctx.db.query("tickets").collect(),
-    ctx.db.query("invoices").collect(),
-  ]);
-  const now = Date.now();
-  const today = new Date().toISOString().slice(0, 10);
-  const in14Days = new Date(now + 14 * 24 * HOUR_MS).toISOString().slice(0, 10);
-  const jobCardsByQuery = new Set(
-    jobCards.flatMap((job: any) => (job.queryId ? [String(job.queryId)] : []))
-  );
-  const travellersByJob = new Map<string, any[]>();
-  for (const traveller of travellers) {
-    const bucket = travellersByJob.get(String(traveller.jobCardId)) ?? [];
-    bucket.push(traveller);
-    travellersByJob.set(String(traveller.jobCardId), bucket);
+async function loadNudgePage(ctx: any, stage: NudgeStage, cursor: string | null) {
+  const paginationOpts = { cursor, numItems: NUDGE_PAGE_SIZE };
+  switch (stage) {
+    case "queries":
+      return await ctx.db.query("queries").order("asc").paginate(paginationOpts);
+    case "jobCards":
+      return await ctx.db.query("jobCards").order("asc").paginate(paginationOpts);
+    case "tickets":
+      return await ctx.db.query("tickets").order("asc").paginate(paginationOpts);
+    case "invoices":
+      return await ctx.db.query("invoices").order("asc").paginate(paginationOpts);
+  }
+}
+
+export async function collectRiskItemsPage(
+  ctx: any,
+  stage: NudgeStage,
+  rows: any[],
+  referenceNow: number
+): Promise<NudgeRisk[]> {
+  const today = new Date(referenceNow).toISOString().slice(0, 10);
+  const in14Days = new Date(referenceNow + 14 * 24 * HOUR_MS).toISOString().slice(0, 10);
+  const risks: NudgeRisk[] = [];
+
+  if (stage === "queries") {
+    for (const queryRow of rows) {
+      const hasJobCard = Boolean(
+        await ctx.db
+          .query("jobCards")
+          .withIndex("by_queryId", (q: any) => q.eq("queryId", queryRow._id))
+          .first()
+      );
+      if (queryRow.salesStatus === "Order Confirmed" && !hasJobCard) {
+        risks.push({
+          body: `${queryRow.queryCode} is confirmed but no Job Card has been opened.`,
+          entityId: String(queryRow._id),
+          entityType: "query",
+          ruleKey: "confirmed_query_without_job_card",
+          title: "Confirmed query needs Job Card",
+        });
+      }
+      if (
+        !(queryRow.contractingOwnerId || CLOSED_SALES_STATUSES.has(queryRow.salesStatus)) &&
+        referenceNow - queryRow.createdAt >= 24 * HOUR_MS
+      ) {
+        risks.push({
+          body: `${queryRow.queryCode} has no Contracting SPOC after 24 hours.`,
+          entityId: String(queryRow._id),
+          entityType: "query",
+          ruleKey: "query_without_contracting_owner_after_24h",
+          title: "Query needs Contracting SPOC",
+        });
+      }
+    }
+    return risks;
   }
 
-  const risks: Array<{
-    ruleKey: string;
-    entityType: string;
-    entityId: string;
-    title: string;
-    body: string;
-  }> = [];
-  for (const queryRow of queries) {
-    if (queryRow.salesStatus === "Order Confirmed" && !jobCardsByQuery.has(String(queryRow._id))) {
-      risks.push({
-        body: `${queryRow.queryCode} is confirmed but no Job Card has been opened.`,
-        entityId: String(queryRow._id),
-        entityType: "query",
-        ruleKey: "confirmed_query_without_job_card",
-        title: "Confirmed query needs Job Card",
-      });
-    }
-    if (
-      !(queryRow.contractingOwnerId || CLOSED_SALES_STATUSES.has(queryRow.salesStatus)) &&
-      now - queryRow.createdAt >= 24 * HOUR_MS
-    ) {
-      risks.push({
-        body: `${queryRow.queryCode} has no Contracting SPOC after 24 hours.`,
-        entityId: String(queryRow._id),
-        entityType: "query",
-        ruleKey: "query_without_contracting_owner_after_24h",
-        title: "Query needs Contracting SPOC",
-      });
-    }
-  }
-  for (const job of jobCards) {
-    if (!job.operationsOwnerId && now - job.createdAt >= 24 * HOUR_MS) {
-      risks.push({
-        body: `${job.jobCode} has no operations owner after 24 hours.`,
-        entityId: String(job._id),
-        entityType: "jobCard",
-        ruleKey: "job_card_without_operations_owner_after_24h",
-        title: "Job Card needs operations owner",
-      });
-    }
-    if (job.travelStartDate && job.travelStartDate >= today && job.travelStartDate <= in14Days) {
-      const jobTravellers = travellersByJob.get(String(job._id)) ?? [];
-      if (jobTravellers.some((row) => !VISA_READY_STATUSES.has(row.visaStatus))) {
+  if (stage === "jobCards") {
+    for (const job of rows) {
+      if (!job.operationsOwnerId && referenceNow - job.createdAt >= 24 * HOUR_MS) {
         risks.push({
-          body: `${job.jobCode} departs within 14 days and visa readiness is incomplete.`,
+          body: `${job.jobCode} has no operations owner after 24 hours.`,
           entityId: String(job._id),
           entityType: "jobCard",
-          ruleKey: "departure_14d_visa_not_ready",
-          title: "Visa blockers before departure",
+          ruleKey: "job_card_without_operations_owner_after_24h",
+          title: "Job Card needs operations owner",
         });
       }
-      if (jobTravellers.some((row) => row.ticketStatus !== "Issued")) {
-        risks.push({
-          body: `${job.jobCode} departs within 14 days and tickets are not fully issued.`,
-          entityId: String(job._id),
-          entityType: "jobCard",
-          ruleKey: "departure_14d_ticket_not_ready",
-          title: "Ticket blockers before departure",
-        });
+      if (job.travelStartDate && job.travelStartDate >= today && job.travelStartDate <= in14Days) {
+        // A Job Card is the bounded parent for its travellers; the page never
+        // collects the entire traveller table.
+        const travellers = await ctx.db
+          .query("travellers")
+          .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", job._id))
+          .take(500);
+        if (travellers.some((row: any) => !VISA_READY_STATUSES.has(row.visaStatus))) {
+          risks.push({
+            body: `${job.jobCode} departs within 14 days and visa readiness is incomplete.`,
+            entityId: String(job._id),
+            entityType: "jobCard",
+            ruleKey: "departure_14d_visa_not_ready",
+            title: "Visa blockers before departure",
+          });
+        }
+        if (travellers.some((row: any) => row.ticketStatus !== "Issued")) {
+          risks.push({
+            body: `${job.jobCode} departs within 14 days and tickets are not fully issued.`,
+            entityId: String(job._id),
+            entityType: "jobCard",
+            ruleKey: "departure_14d_ticket_not_ready",
+            title: "Ticket blockers before departure",
+          });
+        }
       }
     }
+    return risks;
   }
-  for (const ticket of tickets) {
-    if (TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus)) {
-      risks.push({
-        body: `Ticket ${ticket.ticketNumber || ticket._id} is marked ${ticket.ticketStatus}.`,
-        entityId: String(ticket._id),
-        entityType: "ticket",
-        ruleKey: "ticket_attention_status",
-        title: "Ticket needs attention",
-      });
-    }
+
+  if (stage === "tickets") {
+    return rows.flatMap((ticket) =>
+      TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus)
+        ? [
+            {
+              body: `Ticket ${ticket.ticketNumber || ticket._id} is marked ${ticket.ticketStatus}.`,
+              entityId: String(ticket._id),
+              entityType: "ticket",
+              ruleKey: "ticket_attention_status",
+              title: "Ticket needs attention",
+            },
+          ]
+        : []
+    );
   }
-  for (const invoice of invoices) {
-    if ((invoice.balanceAmount ?? 0) > 0 && invoice.dueDate && invoice.dueDate < today) {
-      risks.push({
-        body: `${invoice.invoiceNumber} has an overdue balance.`,
-        entityId: String(invoice._id),
-        entityType: "invoice",
-        ruleKey: "invoice_overdue_balance",
-        title: "Invoice has overdue balance",
-      });
-    }
-  }
-  return risks;
+
+  return rows.flatMap((invoice) =>
+    (invoice.balanceAmount ?? 0) > 0 && invoice.dueDate && invoice.dueDate < today
+      ? [
+          {
+            body: `${invoice.invoiceNumber} has an overdue balance.`,
+            entityId: String(invoice._id),
+            entityType: "invoice",
+            ruleKey: "invoice_overdue_balance",
+            title: "Invoice has overdue balance",
+          },
+        ]
+      : []
+  );
 }
 
 export const getCapacityOverview = query({
@@ -372,12 +407,18 @@ export const getCapacityOverview = query({
 
 async function dispatchWorkflowNudges(
   ctx: any,
-  risks: Awaited<ReturnType<typeof collectRiskItems>>
+  risks: NudgeRisk[],
+  referenceNow: number
 ) {
+  const rules = new Map<string, Awaited<ReturnType<typeof getEffectiveRule>>>();
   const results = await Promise.all(
     risks.map(async (risk) => {
-      const rule = await getEffectiveRule(ctx, risk.ruleKey);
-      if (!(rule?.enabled && (await shouldTrigger(ctx, risk, 24)))) {
+      let rule = rules.get(risk.ruleKey);
+      if (rule === undefined) {
+        rule = await getEffectiveRule(ctx, risk.ruleKey);
+        rules.set(risk.ruleKey, rule);
+      }
+      if (!(rule?.enabled && (await shouldTrigger(ctx, risk, 24, referenceNow)))) {
         return 0;
       }
       await notifyRoles(ctx, [rule.recipientRole], {
@@ -386,20 +427,74 @@ async function dispatchWorkflowNudges(
         entityType: risk.entityType,
         title: risk.title,
       });
-      await markTriggered(ctx, risk);
+      await markTriggered(ctx, risk, referenceNow);
       return 1;
     })
   );
   return results.reduce<number>((total, sent) => total + sent, 0);
 }
 
+async function loadOrStartNudgeRun(ctx: any, key: string, referenceNow: number) {
+  const existing = await ctx.db
+    .query("portalWorkflowNudgeRuns")
+    .withIndex("by_key", (q: any) => q.eq("key", key))
+    .unique();
+  if (existing?.status === "running") {
+    return existing;
+  }
+  const payload = {
+    checked: 0,
+    cursor: null,
+    key,
+    referenceNow,
+    sent: 0,
+    stage: "queries" as const,
+    startedAt: referenceNow,
+    status: "running" as const,
+    updatedAt: referenceNow,
+  };
+  if (existing) {
+    await ctx.db.patch(existing._id, payload);
+    return { ...existing, ...payload };
+  }
+  const id = await ctx.db.insert("portalWorkflowNudgeRuns", payload);
+  return { _id: id, ...payload };
+}
+
+async function runNudgePage(ctx: any, key: string, referenceNow = Date.now()) {
+  const run = await loadOrStartNudgeRun(ctx, key, referenceNow);
+  if (run.stage === "complete" || run.status === "completed") {
+    return { checked: 0, sent: 0 };
+  }
+  const stage = run.stage as NudgeStage;
+  const page = await loadNudgePage(ctx, stage, run.cursor);
+  const risks = await collectRiskItemsPage(ctx, stage, page.page, run.referenceNow);
+  const sent = await dispatchWorkflowNudges(ctx, risks, run.referenceNow);
+  const checked = page.page.length;
+  const nextStage = (page.isDone
+    ? NUDGE_STAGES[NUDGE_STAGES.indexOf(stage) + 1] ?? "complete"
+    : stage) as NudgeStage | "complete";
+  const nextCursor = page.isDone ? null : page.continueCursor;
+  const status = nextStage === "complete" ? "completed" : "running";
+  await ctx.db.patch(run._id, {
+    checked: run.checked + checked,
+    cursor: nextCursor,
+    sent: run.sent + sent,
+    stage: nextStage,
+    status,
+    updatedAt: Date.now(),
+  });
+  if (status === "running") {
+    await ctx.scheduler.runAfter(0, internal.crm.workflowNudges.runScheduledNudges, {
+      runKey: key,
+    });
+  }
+  return { checked, sent };
+}
+
 export const runScheduledNudges = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const risks = await collectRiskItems(ctx);
-    const sent = await dispatchWorkflowNudges(ctx, risks);
-    return { checked: risks.length, sent };
-  },
+  args: { runKey: v.optional(v.string()) },
+  handler: async (ctx, args) => await runNudgePage(ctx, args.runKey ?? NUDGE_RUN_KEY),
   returns: nudgeRunResultValidator,
 });
 
@@ -408,9 +503,8 @@ export const runNudgesNow = mutation({
   handler: async (ctx) => {
     const access = await requireStaff(ctx);
     assertCanManageRules(access);
-    const risks = await collectRiskItems(ctx);
-    const sent = await dispatchWorkflowNudges(ctx, risks);
-    return { checked: risks.length, sent };
+    const key = `manual:${access.authUserId ?? access.email}`;
+    return await runNudgePage(ctx, key);
   },
   returns: nudgeRunResultValidator,
 });

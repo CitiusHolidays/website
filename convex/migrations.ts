@@ -37,6 +37,41 @@ const assertMigrationSecret = (secret: string) => {
 };
 
 const TRAVEL_BATCH_MIGRATION_LIMIT = 100;
+const ROOM_TYPE_MIGRATION_KEY = "room-type-v2";
+const ROOM_TYPE_MIGRATION_LIMIT = 100;
+
+const migrationStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("running"),
+  v.literal("verified"),
+  v.literal("failed")
+);
+const roomTypeMigrationResultValidator = v.object({
+  converted: v.number(),
+  cursor: v.union(v.string(), v.null()),
+  legacyRemaining: v.number(),
+  legacyRoomingRoomTypes: v.number(),
+  legacyTravellerRoomTypes: v.number(),
+  mismatchedTravellers: v.number(),
+  processed: v.number(),
+  roomingEntriesUpdated: v.number(),
+  stage: v.string(),
+  status: migrationStatusValidator,
+  travellerRoomTypesUpdated: v.number(),
+  travellersUpdated: v.number(),
+});
+const roomTypeMigrationStatusValidator = v.object({
+  converted: v.number(),
+  cursor: v.union(v.string(), v.null()),
+  key: v.string(),
+  legacyRemaining: v.number(),
+  processed: v.number(),
+  stage: v.string(),
+  status: migrationStatusValidator,
+  updatedAt: v.number(),
+  verified: v.boolean(),
+  verifiedAt: v.union(v.number(), v.null()),
+});
 
 export const auditTravelBatchSummaries = internalQuery({
   args: {
@@ -300,116 +335,194 @@ export const importBookings = internalMutation({
 
 export const migrateRoomTypes = internalMutation({
   args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    limit: v.optional(v.number()),
     secret: v.string(),
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
+    const limit = Math.min(Math.max(Math.trunc(args.limit ?? ROOM_TYPE_MIGRATION_LIMIT), 1), 100);
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("dataMigrationRegistry")
+      .withIndex("by_key", (q) => q.eq("key", ROOM_TYPE_MIGRATION_KEY))
+      .unique();
 
-    const travellers = await ctx.db.query("travellers").collect();
+    if (existing?.status === "verified") {
+      return {
+        converted: existing.converted,
+        cursor: null,
+        legacyRemaining: existing.legacyRemaining,
+        legacyRoomingRoomTypes: 0,
+        legacyTravellerRoomTypes: 0,
+        mismatchedTravellers: 0,
+        processed: 0,
+        roomingEntriesUpdated: 0,
+        stage: "complete",
+        status: "verified" as const,
+        travellerRoomTypesUpdated: 0,
+        travellersUpdated: 0,
+      };
+    }
+
+    let stage = existing?.stage === "roomingListEntries" ? "roomingListEntries" : "travellers";
+    let cursor = args.cursor !== undefined ? args.cursor : (existing?.cursor ?? null);
+    const startedAt = existing?.startedAt ?? now;
+    let converted = existing?.converted ?? 0;
+    let processed = existing?.processed ?? 0;
+    let legacyRemaining = existing?.legacyRemaining ?? 0;
+    let registryId = existing?._id;
+    if (!existing) {
+      registryId = await ctx.db.insert("dataMigrationRegistry", {
+        converted: 0,
+        cursor: null,
+        key: ROOM_TYPE_MIGRATION_KEY,
+        legacyRemaining: 0,
+        processed: 0,
+        stage,
+        startedAt,
+        status: "running",
+        updatedAt: now,
+      });
+    } else if (existing.status !== "running") {
+      await ctx.db.patch(existing._id, { status: "running", updatedAt: now });
+    }
+
+    const page =
+      stage === "travellers"
+        ? await ctx.db.query("travellers").order("asc").paginate({ cursor, numItems: limit })
+        : await ctx.db
+            .query("roomingListEntries")
+            .order("asc")
+            .paginate({ cursor, numItems: limit });
+
     let legacyTravellerRoomTypes = 0;
+    let legacyRoomingRoomTypes = 0;
     let mismatchedTravellers = 0;
     let travellersUpdated = 0;
     let travellerRoomTypesUpdated = 0;
-
-    const travellerPatches: Array<{
-      id: (typeof travellers)[number]["_id"];
-      patch: Partial<Doc<"travellers">>;
-    }> = [];
-
-    for (const traveller of travellers) {
-      if (isLegacyRoomCode(traveller.roomType)) {
-        legacyTravellerRoomTypes += 1;
-      }
-
-      const resolved = resolveTravellerRoomFields(traveller.roomType, traveller.hotelAllocation);
-      if (resolved.roomType && String(traveller.roomType) !== resolved.roomType) {
-        mismatchedTravellers += 1;
-      }
-
-      const patch: Partial<Doc<"travellers">> = {};
-
-      if (resolved.roomType && String(traveller.roomType) !== resolved.roomType) {
-        patch.roomType = resolved.roomType;
-      }
-      if (
-        resolved.hotelAllocation !== undefined &&
-        (traveller.hotelAllocation ?? "") !== resolved.hotelAllocation
-      ) {
-        patch.hotelAllocation = resolved.hotelAllocation;
-      }
-
-      if (Object.keys(patch).length === 0) {
-        continue;
-      }
-
-      patch.updatedAt = Date.now();
-      travellerPatches.push({ id: traveller._id, patch });
-    }
-
-    await Promise.all(
-      travellerPatches.map(async ({ id, patch }) => {
-        await ctx.db.patch(id, patch);
-      })
-    );
-
-    travellersUpdated = travellerPatches.length;
-    travellerRoomTypesUpdated = travellerPatches.filter(
-      ({ patch }) => patch.roomType !== undefined
-    ).length;
-
-    const roomingEntries = await ctx.db.query("roomingListEntries").collect();
-    let legacyRoomingRoomTypes = 0;
     let roomingEntriesUpdated = 0;
-
-    const roomingPatches: Array<{
-      id: (typeof roomingEntries)[number]["_id"];
-      patch: Pick<Doc<"roomingListEntries">, "roomType" | "updatedAt">;
-    }> = [];
-
-    for (const entry of roomingEntries) {
-      if (isLegacyRoomCode(entry.roomType)) {
-        legacyRoomingRoomTypes += 1;
+    for (const row of page.page) {
+      processed += 1;
+      if (stage === "travellers") {
+        const traveller = row as Doc<"travellers">;
+        if (isLegacyRoomCode(traveller.roomType)) {
+          legacyTravellerRoomTypes += 1;
+        }
+        const resolved = resolveTravellerRoomFields(traveller.roomType, traveller.hotelAllocation);
+        if (resolved.roomType && String(traveller.roomType) !== resolved.roomType) {
+          mismatchedTravellers += 1;
+        }
+        const patch: Partial<Doc<"travellers">> = {};
+        if (resolved.roomType && String(traveller.roomType) !== resolved.roomType) {
+          patch.roomType = resolved.roomType;
+        }
+        if (
+          resolved.hotelAllocation !== undefined &&
+          (traveller.hotelAllocation ?? "") !== resolved.hotelAllocation
+        ) {
+          patch.hotelAllocation = resolved.hotelAllocation;
+        }
+        if (Object.keys(patch).length > 0) {
+          patch.updatedAt = now;
+          await ctx.db.patch(traveller._id, patch);
+          travellersUpdated += 1;
+          if (patch.roomType !== undefined) {
+            travellerRoomTypesUpdated += 1;
+          }
+        }
+      } else {
+        const entry = row as Doc<"roomingListEntries">;
+        if (isLegacyRoomCode(entry.roomType)) {
+          legacyRoomingRoomTypes += 1;
+        }
+        const roomType = resolveRoomingEntryRoomType(entry.roomType);
+        if (roomType && String(entry.roomType) !== roomType) {
+          await ctx.db.patch(entry._id, { roomType, updatedAt: now });
+          roomingEntriesUpdated += 1;
+        }
       }
+    }
+    const pageLegacy = legacyTravellerRoomTypes + legacyRoomingRoomTypes;
+    const pageConverted = travellerRoomTypesUpdated + roomingEntriesUpdated;
+    converted += pageConverted;
+    legacyRemaining = Math.max(0, legacyRemaining + pageLegacy - pageConverted);
 
-      const roomType = resolveRoomingEntryRoomType(entry.roomType);
-      if (!roomType || String(entry.roomType) === roomType) {
-        continue;
+    if (page.isDone) {
+      if (stage === "travellers") {
+        stage = "roomingListEntries";
+        cursor = null;
+      } else {
+        stage = "complete";
+        cursor = null;
       }
-
-      roomingPatches.push({
-        id: entry._id,
-        patch: {
-          roomType,
-          updatedAt: Date.now(),
-        },
-      });
+    } else {
+      cursor = page.continueCursor;
+    }
+    const status: "verified" | "running" = stage === "complete" ? "verified" : "running";
+    const registryPatch = {
+      converted,
+      cursor,
+      legacyRemaining,
+      processed,
+      stage,
+      status,
+      updatedAt: now,
+      ...(status === "verified" ? { verifiedAt: now } : {}),
+    };
+    if (registryId) {
+      await ctx.db.patch(registryId, registryPatch);
     }
 
-    await Promise.all(
-      roomingPatches.map(async ({ id, patch }) => {
-        await ctx.db.patch(id, patch);
-      })
-    );
-
-    roomingEntriesUpdated = roomingPatches.length;
-
+    // A page is intentionally the unit of work. Operators can call this
+    // mutation again with the returned cursor, or rely on the scheduler in a
+    // deployment runner, without a full-table collect or Promise.all burst.
     return {
+      converted: pageConverted,
+      cursor,
+      legacyRemaining,
       legacyRoomingRoomTypes,
       legacyTravellerRoomTypes,
       mismatchedTravellers,
+      processed: page.page.length,
       roomingEntriesUpdated,
+      stage,
+      status,
       travellerRoomTypesUpdated,
       travellersUpdated,
     };
   },
-  returns: v.object({
-    legacyRoomingRoomTypes: v.number(),
-    legacyTravellerRoomTypes: v.number(),
-    mismatchedTravellers: v.number(),
-    roomingEntriesUpdated: v.number(),
-    travellerRoomTypesUpdated: v.number(),
-    travellersUpdated: v.number(),
-  }),
+  returns: roomTypeMigrationResultValidator,
+});
+
+/**
+ * Deployment verification gate for the room-type migration.  The schema may
+ * be narrowed only after this reports `verified: true` and
+ * `legacyRemaining: 0` in the target deployment.
+ */
+export const getRoomTypeMigrationStatus = internalQuery({
+  args: { secret: v.string() },
+  handler: async (ctx, args) => {
+    assertMigrationSecret(args.secret);
+    const row = await ctx.db
+      .query("dataMigrationRegistry")
+      .withIndex("by_key", (q) => q.eq("key", ROOM_TYPE_MIGRATION_KEY))
+      .unique();
+    const status = row?.status ?? "pending";
+    return {
+      converted: row?.converted ?? 0,
+      cursor: row?.cursor ?? null,
+      key: ROOM_TYPE_MIGRATION_KEY,
+      legacyRemaining: row?.legacyRemaining ?? 0,
+      processed: row?.processed ?? 0,
+      stage: row?.stage ?? "travellers",
+      status,
+      updatedAt: row?.updatedAt ?? 0,
+      verified: status === "verified" && (row?.legacyRemaining ?? 0) === 0,
+      verifiedAt: row?.verifiedAt ?? null,
+    };
+  },
+  returns: roomTypeMigrationStatusValidator,
 });
 
 export const getStats = internalMutation({
