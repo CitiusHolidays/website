@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
 import {
   convertToQuery,
   getForSales,
@@ -14,6 +14,7 @@ type Row = { _id: string; [key: string]: unknown };
 const previousGatewaySecret = process.env.INBOUND_INTENT_GATEWAY_SECRET;
 
 afterEach(() => {
+  setSystemTime();
   if (previousGatewaySecret === undefined) {
     delete process.env.INBOUND_INTENT_GATEWAY_SECRET;
   } else {
@@ -250,6 +251,37 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.inboundQueryIntents).toHaveLength(5);
   });
 
+  test("deduplicates retries for twenty-four hours but accepts a later submission", async () => {
+    const now = Date.parse("2026-08-05T12:00:00.000Z");
+    setSystemTime(new Date(now));
+    process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
+    const submissionKeyHash = "e".repeat(64);
+    const { ctx, tables } = makeContext({
+      crmHandoffEvents: [],
+      inboundIntentRateLimits: [],
+      inboundQueryIntents: [
+        inboundRow({
+          createdAt: now - 24 * 60 * 60 * 1000 - 1,
+          submissionKeyHash,
+        }),
+      ],
+      notifications: [],
+      staffUsers: [salesStaff],
+    });
+
+    const result = await (submitIntentGateway as any)._handler(ctx, {
+      clientName: "A Traveller",
+      consent: true,
+      gatewaySecret: "expected-secret",
+      rateLimitKeyHash: "f".repeat(64),
+      source: "Citius Concierge",
+      submissionKeyHash,
+    });
+
+    expect(result.status).toBe("created");
+    expect(tables.inboundQueryIntents).toHaveLength(2);
+  });
+
   test("lists and opens intents only for Sales, and conversion rejects replayed intents", async () => {
     const { ctx } = makeContext({
       inboundQueryIntents: [
@@ -340,5 +372,38 @@ describe("protected inbound intent Convex boundaries", () => {
         })
       ).rejects.toThrow("FORBIDDEN");
     }
+  });
+
+  test("keeps long source notes on the lead without copying them into Query Notes", async () => {
+    const sourceNotes = Array.from({ length: 31 }, (_, index) => `source${index + 1}`).join(" ");
+    const { ctx, tables } = makeContext({
+      activities: [],
+      clients: [],
+      crmHandoffEvents: [
+        {
+          _id: "crmHandoffEvents_1",
+          createdAt: 1,
+          inboundIntentId: "inboundQueryIntents_1",
+          source: "Citius Concierge",
+        },
+      ],
+      inboundQueryIntents: [inboundRow({ notes: sourceNotes })],
+      notifications: [],
+      queries: [],
+      staffUsers: [salesStaff],
+    });
+
+    await expect(
+      (convertToQuery as any)._handler(ctx, {
+        intentId: "inboundQueryIntents_1",
+        notes: undefined,
+        paxCount: 2,
+        queryType: "FIT",
+        travelType: "International Travel",
+      })
+    ).resolves.toMatchObject({ queryCode: "Q-0001" });
+
+    expect(tables.inboundQueryIntents[0].notes).toBe(sourceNotes);
+    expect(tables.queries[0].notes).toBe("");
   });
 });

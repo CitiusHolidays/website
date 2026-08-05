@@ -24,6 +24,7 @@ const MAX_PAX_COUNT = 1000;
 const INBOUND_RATE_LIMIT = 5;
 const INBOUND_RATE_WINDOW_MS = 15 * 60 * 1000;
 const INBOUND_RATE_RETENTION_MS = 24 * 60 * 60 * 1000;
+const INBOUND_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const INBOUND_SALES_ROLES = new Set(["Sales", "Sales Head"]);
 
 const inboundIntentPublicValidator = v.object({
@@ -148,6 +149,20 @@ function assertGatewaySecret(gatewaySecret: string) {
   }
 }
 
+async function findRecentDuplicate(
+  ctx: Parameters<typeof notifyRoles>[0],
+  submissionKeyHash: string,
+  now: number
+) {
+  return await ctx.db
+    .query("inboundQueryIntents")
+    .withIndex("by_submissionKeyHash_createdAt", (q) =>
+      q.eq("submissionKeyHash", submissionKeyHash).gte("createdAt", now - INBOUND_DEDUPE_WINDOW_MS)
+    )
+    .order("desc")
+    .first();
+}
+
 async function requireInboundSales(ctx: Parameters<typeof requireStaff>[0]) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_QUERIES);
   if (isDirectorOrAdmin(access) || access.roles.some((role) => INBOUND_SALES_ROLES.has(role))) {
@@ -158,15 +173,12 @@ async function requireInboundSales(ctx: Parameters<typeof requireStaff>[0]) {
 
 async function createIntent(ctx: Parameters<typeof notifyRoles>[0], args: InboundIntentInput) {
   const { clientName } = validateIntentInput(args);
-  const existing = await ctx.db
-    .query("inboundQueryIntents")
-    .withIndex("by_submissionKeyHash", (q) => q.eq("submissionKeyHash", args.submissionKeyHash))
-    .unique();
+  const now = Date.now();
+  const existing = await findRecentDuplicate(ctx, args.submissionKeyHash, now);
   if (existing) {
     return { duplicate: true, id: existing._id } as const;
   }
 
-  const now = Date.now();
   const intentId = await ctx.db.insert("inboundQueryIntents", {
     clientName,
     consentAt: now,
@@ -242,15 +254,12 @@ export const submitIntentGateway = mutation({
     }
     validateIntentInput(args);
 
-    const existing = await ctx.db
-      .query("inboundQueryIntents")
-      .withIndex("by_submissionKeyHash", (q) => q.eq("submissionKeyHash", args.submissionKeyHash))
-      .unique();
+    const now = Date.now();
+    const existing = await findRecentDuplicate(ctx, args.submissionKeyHash, now);
     if (existing) {
       return { intentId: existing._id, status: "duplicate" as const };
     }
 
-    const now = Date.now();
     const rateLimit = await ctx.db
       .query("inboundIntentRateLimits")
       .withIndex("by_keyHash", (q) => q.eq("keyHash", args.rateLimitKeyHash))
@@ -444,7 +453,7 @@ export const convertToQuery = mutation({
       contactPerson: args.contactPerson?.trim(),
       destination: args.destination?.trim() || intent.destination,
       inboundIntentId: args.intentId,
-      notes: args.notes?.trim() || intent.notes,
+      notes: args.notes?.trim() || undefined,
       paxCount: args.paxCount,
       queryType: args.queryType,
       salesOwnerName: args.salesOwnerName,

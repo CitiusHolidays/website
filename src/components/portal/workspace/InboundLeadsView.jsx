@@ -17,6 +17,13 @@ const SOURCE_OPTIONS = [
 ];
 const QUERY_TYPES = ["FIT", "Family Group", "MICE", "MICE Bidding", "B2B", "Spiritual"];
 const TRAVEL_TYPES = ["Domestic Travel", "International Travel"];
+const MAX_QUERY_NOTES_WORDS = 30;
+const WORD_SEPARATOR = /\s+/;
+
+function countWords(value) {
+  const normalized = String(value || "").trim();
+  return normalized ? normalized.split(WORD_SEPARATOR).length : 0;
+}
 
 function formatCreatedAt(value) {
   if (!value) {
@@ -30,13 +37,15 @@ function formatCreatedAt(value) {
 }
 
 function formFromIntent(intent) {
+  const sourceNotes = intent?.notes || "";
   return {
     budgetAmount: "",
     clientName: intent?.clientName || "",
     contactMobile: intent?.contactMobile || "",
     contactPerson: "",
     destination: intent?.destination || "",
-    notes: intent?.notes || "",
+    intentId: intent?._id || null,
+    notes: countWords(sourceNotes) <= MAX_QUERY_NOTES_WORDS ? sourceNotes : "",
     paxCount: String(intent?.paxCount || 1),
     queryType: "FIT",
     salesOwnerName: "",
@@ -47,20 +56,21 @@ function formFromIntent(intent) {
   };
 }
 
-function fieldLabel(label, children) {
+function fieldLabel(id, label, children) {
   return (
-    <label className="grid gap-1 text-brand-dark text-sm">
-      <span className="font-medium">{label}</span>
+    <div className="grid gap-1 text-brand-dark text-sm">
+      <label className="font-medium" htmlFor={id}>
+        {label}
+      </label>
       {children}
-    </label>
+    </div>
   );
 }
 
 export function InboundLeadsView({ allowed, canFetch }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const deepLinkedId =
-    searchParams.get("open") === "inboundIntent" ? searchParams.get("id") : null;
+  const deepLinkedId = searchParams.get("open") === "inboundIntent" ? searchParams.get("id") : null;
   const [status, setStatus] = useState("pending");
   const [source, setSource] = useState("");
   const [search, setSearch] = useState("");
@@ -94,23 +104,30 @@ export function InboundLeadsView({ allowed, canFetch }) {
   }, [deepLinkedId]);
 
   useEffect(() => {
-    if (selected) {
+    if (selected && selected._id !== form.intentId) {
       setForm(formFromIntent(selected));
       setError("");
       setMessage("");
     }
-  }, [selected]);
+  }, [form.intentId, selected]);
 
   if (!shouldFetch) {
     return null;
   }
 
   const rows = page.results || [];
+  const notesWordCount = countWords(form.notes);
+  const notesOverLimit = notesWordCount > MAX_QUERY_NOTES_WORDS;
+  const sourceNotesOverLimit = countWords(selected?.notes) > MAX_QUERY_NOTES_WORDS;
   const setField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
 
   async function handleConvert(event) {
     event.preventDefault();
     if (!selectedId || selected?.status !== "pending") {
+      return;
+    }
+    if (notesOverLimit) {
+      setError(`Query Notes must be ${MAX_QUERY_NOTES_WORDS} words or fewer.`);
       return;
     }
     setSaving(true);
@@ -126,9 +143,7 @@ export function InboundLeadsView({ allowed, canFetch }) {
       setMessage(`${result.queryCode} created and linked to this inbound lead.`);
       router.replace("/portal/inbound-leads");
     } catch (conversionError) {
-      setError(
-        conversionError?.data || conversionError?.message || "Unable to convert this lead."
-      );
+      setError(conversionError?.data || conversionError?.message || "Unable to convert this lead.");
     } finally {
       setSaving(false);
     }
@@ -231,9 +246,7 @@ export function InboundLeadsView({ allowed, canFetch }) {
       </div>
 
       <aside className="rounded-2xl border border-brand-border bg-white p-5 shadow-sm">
-        {!selected ? (
-          <div className="py-8 text-brand-muted text-sm">Select a lead to review its details.</div>
-        ) : (
+        {selected ? (
           <>
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -260,13 +273,20 @@ export function InboundLeadsView({ allowed, canFetch }) {
                 <dd className="whitespace-pre-wrap text-brand-dark">{selected.notes || "—"}</dd>
               </div>
             </dl>
+            {message ? (
+              <p aria-live="polite" className="mt-4 text-emerald-700 text-sm" role="status">
+                {message}
+              </p>
+            ) : null}
             {selected.status === "pending" ? (
               <form className="mt-5 grid gap-3" onSubmit={handleConvert}>
                 <p className="font-semibold text-brand-dark">Convert to Sales Query</p>
                 {fieldLabel(
+                  "inbound-client-name",
                   "Client name",
                   <input
                     className="portal-input"
+                    id="inbound-client-name"
                     onChange={(event) => setField("clientName", event.target.value)}
                     required
                     value={form.clientName}
@@ -274,17 +294,21 @@ export function InboundLeadsView({ allowed, canFetch }) {
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   {fieldLabel(
+                    "inbound-destination",
                     "Destination",
                     <input
                       className="portal-input"
+                      id="inbound-destination"
                       onChange={(event) => setField("destination", event.target.value)}
                       value={form.destination}
                     />
                   )}
                   {fieldLabel(
+                    "inbound-pax-count",
                     "Pax",
                     <input
                       className="portal-input"
+                      id="inbound-pax-count"
                       min="1"
                       onChange={(event) => setField("paxCount", event.target.value)}
                       required
@@ -295,9 +319,11 @@ export function InboundLeadsView({ allowed, canFetch }) {
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {fieldLabel(
+                    "inbound-query-type",
                     "Query type",
                     <select
                       className="portal-input"
+                      id="inbound-query-type"
                       onChange={(event) => setField("queryType", event.target.value)}
                       value={form.queryType}
                     >
@@ -307,9 +333,11 @@ export function InboundLeadsView({ allowed, canFetch }) {
                     </select>
                   )}
                   {fieldLabel(
+                    "inbound-travel-type",
                     "Travel type",
                     <select
                       className="portal-input"
+                      id="inbound-travel-type"
                       onChange={(event) => setField("travelType", event.target.value)}
                       value={form.travelType}
                     >
@@ -321,18 +349,22 @@ export function InboundLeadsView({ allowed, canFetch }) {
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   {fieldLabel(
+                    "inbound-travel-start",
                     "Travel start",
                     <input
                       className="portal-input"
+                      id="inbound-travel-start"
                       onChange={(event) => setField("travelStartDate", event.target.value)}
                       type="date"
                       value={form.travelStartDate}
                     />
                   )}
                   {fieldLabel(
+                    "inbound-travel-end",
                     "Travel end",
                     <input
                       className="portal-input"
+                      id="inbound-travel-end"
                       onChange={(event) => setField("travelEndDate", event.target.value)}
                       type="date"
                       value={form.travelEndDate}
@@ -340,18 +372,45 @@ export function InboundLeadsView({ allowed, canFetch }) {
                   )}
                 </div>
                 {fieldLabel(
+                  "inbound-query-notes",
                   "Notes",
-                  <textarea
-                    className="portal-input min-h-24"
-                    onChange={(event) => setField("notes", event.target.value)}
-                    value={form.notes}
-                  />
+                  <>
+                    <textarea
+                      aria-describedby={`inbound-query-notes-help${notesOverLimit ? " inbound-query-notes-error" : ""}`}
+                      aria-invalid={notesOverLimit || undefined}
+                      className="portal-input min-h-24"
+                      id="inbound-query-notes"
+                      onChange={(event) => setField("notes", event.target.value)}
+                      value={form.notes}
+                    />
+                    <span className="text-brand-muted text-xs" id="inbound-query-notes-help">
+                      {sourceNotesOverLimit
+                        ? "Source notes exceed the 30-word Query Notes limit and remain available on this lead. Add a concise query note here."
+                        : `${notesWordCount}/${MAX_QUERY_NOTES_WORDS} words`}
+                    </span>
+                    {notesOverLimit ? (
+                      <span
+                        className="text-red-700 text-xs"
+                        id="inbound-query-notes-error"
+                        role="alert"
+                      >
+                        Query Notes must be 30 words or fewer.
+                      </span>
+                    ) : null}
+                  </>
                 )}
-                <button className="portal-primary-btn justify-center" disabled={saving} type="submit">
+                <button
+                  className="portal-primary-btn justify-center"
+                  disabled={saving}
+                  type="submit"
+                >
                   {saving ? "Converting…" : "Convert to Query"}
                 </button>
-                {error ? <p className="text-red-700 text-sm">{error}</p> : null}
-                {message ? <p className="text-emerald-700 text-sm">{message}</p> : null}
+                {error && !notesOverLimit ? (
+                  <p aria-live="assertive" className="text-red-700 text-sm" role="alert">
+                    {error}
+                  </p>
+                ) : null}
               </form>
             ) : (
               <p className="mt-5 text-brand-muted text-sm">
@@ -359,6 +418,8 @@ export function InboundLeadsView({ allowed, canFetch }) {
               </p>
             )}
           </>
+        ) : (
+          <div className="py-8 text-brand-muted text-sm">Select a lead to review its details.</div>
         )}
       </aside>
     </section>

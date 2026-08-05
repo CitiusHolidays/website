@@ -694,6 +694,7 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_createdAt", ["createdAt"])
     .index("by_submissionKeyHash", ["submissionKeyHash"])
+    .index("by_submissionKeyHash_createdAt", ["submissionKeyHash", "createdAt"])
     .searchIndex("search_list", {
       filterFields: ["source", "status"],
       searchField: "listSearchText",
