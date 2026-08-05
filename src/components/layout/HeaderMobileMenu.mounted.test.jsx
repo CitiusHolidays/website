@@ -1,3 +1,5 @@
+// biome-ignore-all lint/performance/noJsxPropsBind: mounted test callbacks stay close to their harness.
+
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act, useState } from "react";

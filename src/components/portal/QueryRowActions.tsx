@@ -1,5 +1,7 @@
 "use client";
 
+// biome-ignore-all lint/performance/noJsxPropsBind: action menus use the required render-prop trigger API.
+
 import { MoreHorizontal } from "lucide-react";
 import { m, useMotionValue } from "motion/react";
 import {

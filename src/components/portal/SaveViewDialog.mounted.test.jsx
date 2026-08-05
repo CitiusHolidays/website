@@ -1,3 +1,6 @@
+// biome-ignore-all lint/performance/noJsxPropsBind: mounted test callbacks stay close to their harness.
+// biome-ignore-all lint/suspicious/useAwait: React act callbacks intentionally flush synchronously.
+
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act, useState } from "react";
