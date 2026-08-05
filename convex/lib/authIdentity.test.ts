@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { canonicalAuthUserId, legacyAuthUserId } from "./authIdentity";
+import { authIdentityCandidates, canonicalAuthUserId, legacyAuthUserId } from "./authIdentity";
 
 describe("canonical auth identity seam", () => {
   test("prefers the issuer-qualified token identifier", () => {
@@ -12,5 +12,15 @@ describe("canonical auth identity seam", () => {
     expect(canonicalAuthUserId({ subject: "legacy-subject" })).toBe("legacy-subject");
     expect(canonicalAuthUserId({ subject: "", tokenIdentifier: " " })).toBeNull();
     expect(legacyAuthUserId({ tokenIdentifier: "issuer|subject" })).toBeNull();
+  });
+
+  test("returns canonical then legacy candidates once each", () => {
+    expect(
+      authIdentityCandidates({ subject: "legacy-subject", tokenIdentifier: "issuer|subject" })
+    ).toEqual(["issuer|subject", "legacy-subject"]);
+    expect(
+      authIdentityCandidates({ subject: "same-subject", tokenIdentifier: "same-subject" })
+    ).toEqual(["same-subject"]);
+    expect(authIdentityCandidates({ subject: " ", tokenIdentifier: "" })).toEqual([]);
   });
 });

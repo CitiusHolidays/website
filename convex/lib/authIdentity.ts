@@ -23,3 +23,10 @@ export function legacyAuthUserId(identity: AuthIdentityLike): string | null {
   const subject = identity.subject?.trim();
   return subject || null;
 }
+
+export function authIdentityCandidates(identity: AuthIdentityLike): string[] {
+  const candidates = [canonicalAuthUserId(identity), legacyAuthUserId(identity)].filter(
+    (candidate): candidate is string => Boolean(candidate)
+  );
+  return Array.from(new Set(candidates));
+}

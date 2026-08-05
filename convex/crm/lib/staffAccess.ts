@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { type AuthIdentityLike, authIdentityCandidates } from "../../lib/authIdentity";
 import { isBootstrapAdmin as isActiveBootstrapAdmin } from "../../lib/bootstrapAuthority";
 import { getRolePermissions, HEAD_ROLES } from "./rolePolicy";
 
@@ -26,18 +27,24 @@ export type PortalAccess = {
   permissions: string[];
 };
 
-async function resolveActiveStaff(ctx: QueryCtx | MutationCtx, identity: { subject: string }) {
+async function resolveActiveStaff(ctx: QueryCtx | MutationCtx, identity: AuthIdentityLike) {
   // Staff access is an authorization decision. An email match alone is not
   // proof that this auth subject was provisioned for the staff record; public
   // customer signup/profile sync must never be able to claim a staff role.
-  if (identity.subject) {
-    const byAuth = await ctx.db
-      .query("staffUsers")
-      .withIndex("by_authUserId", (q) => q.eq("authUserId", identity.subject))
-      .unique();
-    if (byAuth?.active) {
-      return byAuth;
-    }
+  const candidates = authIdentityCandidates(identity);
+  const matchesByCandidate = await Promise.all(
+    candidates.map((candidate) =>
+      ctx.db
+        .query("staffUsers")
+        .withIndex("by_authUserId", (q) => q.eq("authUserId", candidate))
+        .take(2)
+    )
+  );
+  const matches = Array.from(
+    new Map(matchesByCandidate.flat().map((staff) => [String(staff._id), staff])).values()
+  );
+  if (matches.length === 1 && matches[0]?.active) {
+    return matches[0];
   }
 
   return null;

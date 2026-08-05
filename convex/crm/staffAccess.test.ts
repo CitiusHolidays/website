@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { getPortalAccess } from "./lib/staffAccess";
+import { getMyPortalAccess } from "./staff";
 
 type Row = { _id: string; [key: string]: unknown };
 
@@ -13,6 +14,7 @@ function makeCtx(identity: Record<string, unknown> | null, staffRows: Row[]) {
       query(table: keyof typeof tables) {
         let rows = [...(tables[table] ?? [])];
         const builder = {
+          take: async (count: number) => rows.slice(0, count),
           unique: async () => rows[0] ?? null,
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];
@@ -88,5 +90,137 @@ describe("portal staff identity scope", () => {
     expect(access.staffId).toBe("staff_1");
     expect(access.roles).toEqual(["Sales"]);
     expect(access.permissions.length).toBeGreaterThan(0);
+  });
+
+  test("allows a canonical-only explicit staff link while retaining legacy write identity", async () => {
+    const ctx = makeCtx(
+      {
+        email: "canonical@example.invalid",
+        name: "Canonical staff",
+        subject: "legacy-subject",
+        tokenIdentifier: "issuer|canonical-subject",
+      },
+      [
+        {
+          _id: "staff_canonical",
+          active: true,
+          authUserId: "issuer|canonical-subject",
+          email: "canonical@example.invalid",
+          emailNormalized: "canonical@example.invalid",
+          name: "Canonical staff",
+          roles: ["Sales"],
+        },
+      ]
+    );
+
+    const access = await (getMyPortalAccess as any)._handler(ctx, {});
+
+    expect(access.allowed).toBe(true);
+    expect(access.staffId).toBe("staff_canonical");
+    expect(access.authUserId).toBe("legacy-subject");
+  });
+
+  test("allows a legacy-only explicit staff link during the expansion window", async () => {
+    const ctx = makeCtx(
+      {
+        email: "legacy@example.invalid",
+        subject: "legacy-subject",
+        tokenIdentifier: "issuer|canonical-subject",
+      },
+      [
+        {
+          _id: "staff_legacy",
+          active: true,
+          authUserId: "legacy-subject",
+          email: "legacy@example.invalid",
+          emailNormalized: "legacy@example.invalid",
+          name: "Legacy staff",
+          roles: ["Sales"],
+        },
+      ]
+    );
+
+    const access = await getPortalAccess(ctx as never);
+
+    expect(access.allowed).toBe(true);
+    expect(access.staffId).toBe("staff_legacy");
+  });
+
+  test("deduplicates equal canonical and legacy links", async () => {
+    const ctx = makeCtx(
+      {
+        email: "same@example.invalid",
+        subject: "same-subject",
+        tokenIdentifier: "same-subject",
+      },
+      [
+        {
+          _id: "staff_same",
+          active: true,
+          authUserId: "same-subject",
+          email: "same@example.invalid",
+          emailNormalized: "same@example.invalid",
+          name: "Same staff",
+          roles: ["Sales"],
+        },
+      ]
+    );
+
+    const access = await getPortalAccess(ctx as never);
+
+    expect(access.allowed).toBe(true);
+    expect(access.staffId).toBe("staff_same");
+  });
+
+  test("fails closed when canonical and legacy candidates link different staff rows", async () => {
+    const ctx = makeCtx(
+      {
+        email: "ambiguous@example.invalid",
+        subject: "legacy-subject",
+        tokenIdentifier: "issuer|canonical-subject",
+      },
+      [
+        {
+          _id: "staff_canonical",
+          active: true,
+          authUserId: "issuer|canonical-subject",
+          email: "canonical@example.invalid",
+          emailNormalized: "canonical@example.invalid",
+          name: "Canonical staff",
+          roles: ["Sales"],
+        },
+        {
+          _id: "staff_legacy",
+          active: true,
+          authUserId: "legacy-subject",
+          email: "legacy@example.invalid",
+          emailNormalized: "legacy@example.invalid",
+          name: "Legacy staff",
+          roles: ["Finance"],
+        },
+      ]
+    );
+
+    const access = await getPortalAccess(ctx as never);
+
+    expect(access.allowed).toBe(false);
+    expect(access.reason).toBe("NOT_STAFF");
+    expect(access.roles).toEqual([]);
+  });
+
+  test("fails closed when neither explicit identity candidate is linked", async () => {
+    const ctx = makeCtx(
+      {
+        email: "missing@example.invalid",
+        subject: "legacy-missing",
+        tokenIdentifier: "issuer|canonical-missing",
+      },
+      []
+    );
+
+    const access = await getPortalAccess(ctx as never);
+
+    expect(access.allowed).toBe(false);
+    expect(access.reason).toBe("NOT_STAFF");
   });
 });
