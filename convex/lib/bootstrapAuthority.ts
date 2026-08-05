@@ -32,7 +32,7 @@ export function getBootstrapAdminEmails(env: BootstrapEnv = process.env) {
 
 export function getBootstrapAuthority(env: BootstrapEnv = process.env, at = Date.now()) {
   const emails = getBootstrapAdminEmails(env);
-  const expiresAt = parseExpiry(env[BOOTSTRAP_EXPIRY_ENV]);
+  const expiresAt = parseExpiry(env.PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT);
   const configured = emails.length > 0;
   const active = configured && expiresAt !== null && expiresAt > at;
 
@@ -50,5 +50,5 @@ export function isBootstrapAdmin(email: string, env: BootstrapEnv = process.env,
 }
 
 export function getBootstrapAuthorityExpiry(env: BootstrapEnv = process.env) {
-  return parseExpiry(env[BOOTSTRAP_EXPIRY_ENV]);
+  return parseExpiry(env.PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT);
 }

@@ -25,6 +25,9 @@ beforeAll(() => {
         notificationEmails: {
           sendNotificationEmail: "internal.crm.notificationEmails.sendNotificationEmail",
         },
+        inboundQueryIntents: {
+          submitIntentInternal: "internal.crm.inboundQueryIntents.submitIntentInternal",
+        },
         ticketing: {
           continuePnrCleanup: "internal.crm.ticketing.continuePnrCleanup",
         },
