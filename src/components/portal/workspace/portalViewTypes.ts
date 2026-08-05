@@ -733,6 +733,7 @@ export interface PortalExpenseListRow {
   approvalStatus?: string;
   canApproveFinance?: boolean;
   canApproveManager?: boolean;
+  canDelete?: boolean;
   cardAmount?: number;
   cashAmount?: number;
   category: string;

@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { hasExpenseApprovalHistory, isNeverSubmittedExpenseDraft } from "./expenseLifecycle";
 import {
   hasMaterialExpenseChange,
   invalidatePendingExpenseApprovals,
@@ -208,6 +209,12 @@ export async function handleRemoveExpense(ctx: any, args: { expenseId: string })
     throw new ConvexError("Expense not found");
   }
   await assertExpenseAccess(ctx, access, expense, "mutate");
+  const hasApprovalHistory = await hasExpenseApprovalHistory(ctx, id);
+  if (!isNeverSubmittedExpenseDraft(expense, hasApprovalHistory)) {
+    throw new ConvexError(
+      "Expenses that entered approval cannot be deleted; retain them for audit"
+    );
+  }
   await createActivity(ctx, access, {
     action: "deleted",
     entityId: id,

@@ -53,6 +53,7 @@ export const expenseOutputValidator = v.object({
   approvalStatus: reviewStatusValidator,
   canApproveFinance: v.boolean(),
   canApproveManager: v.boolean(),
+  canDelete: v.boolean(),
   cardAmount: v.number(),
   cashAmount: v.number(),
   category: v.string(),

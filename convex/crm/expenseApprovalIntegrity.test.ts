@@ -470,7 +470,7 @@ describe("expense approval integrity", () => {
     expect(tables.approvalRequests[0]?.status).toBe("Needs Info");
   });
 
-  test("only the creator can submit or delete an unlinked expense without manage-all", async () => {
+  test("only the creator can submit or delete an unlinked draft without manage-all", async () => {
     const { ctx, setIdentity, tables } = makeExpenseCtx(
       {
         expenseEntries: [officeExpense("expense_owner", "auth_owner")],
@@ -486,14 +486,6 @@ describe("expense approval integrity", () => {
     await expect(
       (submitExpenseForApproval as any)._handler(ctx, { expenseId: "expense_owner" })
     ).rejects.toThrow("FORBIDDEN");
-    tables.expenseEntries[0] = {
-      ...tables.expenseEntries[0],
-      managerReviewStatus: "Pending",
-      submittedForApprovalAt: 1_700_000_000_100,
-    };
-    await expect(
-      (submitExpenseForApproval as any)._handler(ctx, { expenseId: "expense_owner" })
-    ).rejects.toThrow("FORBIDDEN");
     await expect(
       (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" })
     ).rejects.toThrow("FORBIDDEN");
@@ -501,6 +493,89 @@ describe("expense approval integrity", () => {
     setIdentity("auth_owner");
     await (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" });
     expect(tables.expenseEntries).toHaveLength(0);
+  });
+
+  test("submitted and previously reviewed expenses remain audit records for creators and managers", async () => {
+    const lifecycleCases = [
+      {
+        label: "submitted",
+        patch: {
+          managerReviewStatus: "Pending",
+          submittedForApprovalAt: 1_700_000_000_100,
+        },
+      },
+      {
+        label: "rejected",
+        patch: {
+          approvalStatus: "Rejected",
+          managerReviewStatus: "Rejected",
+          submittedForApprovalAt: 1_700_000_000_100,
+        },
+      },
+      {
+        label: "approved",
+        patch: {
+          approvalStatus: "Approved",
+          financeReviewStatus: "Approved",
+          managerReviewStatus: "Approved",
+          reimbursementStatus: "Pending",
+          submittedForApprovalAt: 1_700_000_000_100,
+        },
+      },
+      {
+        label: "reimbursed",
+        patch: {
+          approvalStatus: "Approved",
+          financeReviewStatus: "Approved",
+          managerReviewStatus: "Approved",
+          reimbursementStatus: "Reimbursed",
+          submittedForApprovalAt: 1_700_000_000_100,
+        },
+      },
+      {
+        label: "edited after review",
+        patch: {
+          approvalVersion: 2,
+          financeReviewStatus: "Pending",
+          managerReviewStatus: "Pending",
+        },
+      },
+    ];
+
+    for (const lifecycleCase of lifecycleCases) {
+      const approvalId = `approval_${lifecycleCase.label}`;
+      const { ctx, setIdentity, tables } = makeExpenseCtx(
+        {
+          approvalRequests: [
+            {
+              _id: approvalId,
+              createdAt: 1_700_000_000_100,
+              entityId: "expense_owner",
+              entityType: "expense",
+              requestCode: "APR-001",
+              requestedBy: "auth_owner",
+              status: "Pending",
+              summary: "Expense review",
+              type: "Expense",
+              updatedAt: 1_700_000_000_100,
+            },
+          ],
+          expenseEntries: [officeExpense("expense_owner", "auth_owner", lifecycleCase.patch)],
+          staffUsers: [ownerStaff, financeStaff],
+        },
+        "auth_owner"
+      );
+
+      await expect(
+        (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" })
+      ).rejects.toThrow("Expenses that entered approval cannot be deleted");
+      setIdentity("auth_finance");
+      await expect(
+        (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" })
+      ).rejects.toThrow("Expenses that entered approval cannot be deleted");
+      expect(tables.expenseEntries).toHaveLength(1);
+      expect(tables.approvalRequests.map((row) => row._id)).toContain(approvalId);
+    }
   });
 
   test("Job Card visibility never grants mutation authority over another creator's expense", async () => {

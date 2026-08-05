@@ -291,14 +291,23 @@ export function ExpensesView({
                     Remove expense proof
                   </button>
                 )}
-                <DeleteButton
-                  label={`${row.category} expense`}
-                  onClick={() =>
-                    deleteItem(`${row.category} expense`, removeExpense, {
-                      expenseId: String(row.id),
-                    })
-                  }
-                />
+                {row.canDelete ? (
+                  <DeleteButton
+                    label={`${row.category} expense`}
+                    onClick={() =>
+                      deleteItem(`${row.category} expense`, removeExpense, {
+                        expenseId: String(row.id),
+                      })
+                    }
+                  />
+                ) : (
+                  <span
+                    className="self-center text-brand-muted text-xs"
+                    title="Expenses that entered approval are retained as audit records."
+                  >
+                    Retained for audit
+                  </span>
+                )}
               </div>
             ),
         },

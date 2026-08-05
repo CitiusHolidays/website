@@ -159,7 +159,7 @@ describe("mounted portal ticketing and administration views", () => {
     await view.unmount();
   });
 
-  test("Expenses preserve expense dates and finance decision actions", async () => {
+  test("Expenses preserve dates and expose deletion only for never-submitted drafts", async () => {
     const view = await mount(
       <ExpensesView
         decideExpenseFinance={noopMutation}
@@ -175,10 +175,21 @@ describe("mounted portal ticketing and administration views", () => {
             amount: 1200,
             approvalStatus: "Pending",
             canApproveFinance: true,
+            canDelete: false,
             category: "Meals",
             expenseDate: "2026-07-14",
             id: "exp-1",
             jobCode: "JC-0001-NS",
+            submittedForApprovalAt: "2026-07-14T00:00:00.000Z",
+          },
+          {
+            amount: 600,
+            approvalStatus: "Pending",
+            canDelete: true,
+            category: "Transport",
+            expenseDate: "2026-07-15",
+            id: "exp-2",
+            jobCode: "Office",
           },
         ]}
         submitExpenseForApproval={noopMutation}
@@ -187,6 +198,11 @@ describe("mounted portal ticketing and administration views", () => {
 
     expect(view.container.textContent).toContain("14/07/2026");
     expect(view.container.textContent).toContain("Finance approve");
+    expect(view.container.textContent).toContain("Retained for audit");
+    expect(view.container.querySelectorAll('[aria-label="Delete Transport expense"]')).toHaveLength(
+      2
+    );
+    expect(view.container.querySelector('[aria-label="Delete Meals expense"]')).toBeNull();
 
     await view.unmount();
   });

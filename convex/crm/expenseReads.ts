@@ -1,3 +1,4 @@
+import { hasExpenseApprovalHistory, isNeverSubmittedExpenseDraft } from "./expenseLifecycle";
 import { canManageAllExpenses } from "./expensePolicy";
 import { canApproveExpenseAsManager } from "./expenseScope";
 import { getVisibleJob } from "./jobCardVisibility";
@@ -15,9 +16,10 @@ export async function presentExpenseListRow(ctx: any, access: any, expense: any)
   const canApproveFinancePermission =
     permissionSet.has(PERMISSIONS.APPROVE_EXPENSES) ||
     permissionSet.has(PERMISSIONS.MANAGE_FINANCE);
-  const [job, proofAttachment] = await Promise.all([
+  const [job, proofAttachment, hasApprovalHistory] = await Promise.all([
     expense.jobCardId ? getVisibleJob(ctx, access, expense.jobCardId) : null,
     expense.proofAttachmentId ? ctx.db.get(expense.proofAttachmentId) : null,
+    hasExpenseApprovalHistory(ctx, expense._id),
   ]);
   if (expense.jobCardId && !job) {
     return null;
@@ -40,6 +42,7 @@ export async function presentExpenseListRow(ctx: any, access: any, expense: any)
       Boolean(expense.submittedForApprovalAt) &&
       (expense.managerReviewStatus ?? "Pending") === "Pending" &&
       canApproveExpenseAsManager(access, expense),
+    canDelete: isNeverSubmittedExpenseDraft(expense, hasApprovalHistory),
     cardAmount: expense.cardAmount ?? 0,
     cashAmount: expense.cashAmount ?? 0,
     category: expense.category,
