@@ -91,6 +91,14 @@ export const groupCreateResultValidator = v.object({
   inviteCode: v.string(),
 });
 export const groupIdResultValidator = v.object({ id: v.id("sacredBharatGroups") });
+export const groupJoinResultValidator = v.union(
+  groupIdResultValidator,
+  v.object({
+    rateLimited: v.literal(true),
+    retryAfterMs: v.number(),
+  }),
+  v.object({ notFound: v.literal(true) })
+);
 const groupRoleValidator = v.union(v.literal("owner"), v.literal("member"));
 export const myGroupsResultValidator = v.array(
   v.object({

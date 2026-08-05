@@ -5,6 +5,12 @@ import { mutation, query } from "./_generated/server";
 import { resolveCanonicalTempleId } from "./lib/sacredBharatAliases";
 import { applyGuestProgressMerge } from "./lib/sacredBharatGuestMerge";
 import {
+  consumeInviteAttempt,
+  isStrongInviteCode,
+  makeInviteCode,
+  normalizeInviteCode,
+} from "./lib/sacredBharatInvites";
+import {
   computeProgressSummary,
   computeScore,
   getLevelForScore,
@@ -13,6 +19,7 @@ import {
 import {
   groupCreateResultValidator,
   groupIdResultValidator,
+  groupJoinResultValidator,
   groupLeaderboardResultValidator,
   leaderboardPreferenceResultValidator,
   leaderboardResultValidator,
@@ -520,8 +527,29 @@ export const getMyLeaderboardRank = query({
   returns: myLeaderboardRankResultValidator,
 });
 
-function makeInviteCode() {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
+async function consumeGroupInviteAttempt(ctx: MutationCtx, authUserId: string, at: number) {
+  const existing = await ctx.db
+    .query("sacredBharatInviteAttempts")
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+    .unique();
+  const result = consumeInviteAttempt(
+    existing
+      ? { attemptCount: existing.attemptCount, windowStartedAt: existing.windowStartedAt }
+      : null,
+    at
+  );
+  const nextRow = {
+    attemptCount: result.nextState.attemptCount,
+    authUserId,
+    updatedAt: at,
+    windowStartedAt: result.nextState.windowStartedAt,
+  };
+  if (existing) {
+    await ctx.db.patch(existing._id, nextRow);
+  } else {
+    await ctx.db.insert("sacredBharatInviteAttempts", nextRow);
+  }
+  return result;
 }
 
 async function requireGroupMember(ctx: QueryCtx | MutationCtx, groupId: any, authUserId: string) {
@@ -572,18 +600,65 @@ export const createGroup = mutation({
   returns: groupCreateResultValidator,
 });
 
+export const rotateGroupInviteCode = mutation({
+  args: { groupId: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await getIdentityOrThrow(ctx);
+    const groupId = ctx.db.normalizeId("sacredBharatGroups", args.groupId);
+    if (!groupId) {
+      throw new ConvexError("Invalid group id");
+    }
+    const group = await ctx.db.get(groupId);
+    if (!group || group.isArchived) {
+      throw new ConvexError("GROUP_NOT_FOUND");
+    }
+    const membership = await requireGroupMember(ctx, groupId, identity.subject);
+    if (membership.role !== "owner") {
+      throw new ConvexError("FORBIDDEN");
+    }
+
+    let inviteCode = makeInviteCode();
+    // Invite collisions are cryptographically negligible; keep the bounded
+    // retry sequential so each candidate is checked before the next is used.
+    // biome-ignore lint/performance/noAwaitInLoops: bounded uniqueness check
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const existing = await ctx.db
+        .query("sacredBharatGroups")
+        .withIndex("by_inviteCode", (q) => q.eq("inviteCode", inviteCode))
+        .first();
+      if (!existing || existing._id === groupId) {
+        break;
+      }
+      inviteCode = makeInviteCode();
+    }
+    await ctx.db.patch(groupId, { inviteCode, updatedAt: now() });
+    return { id: groupId, inviteCode };
+  },
+  returns: groupCreateResultValidator,
+});
+
 export const joinGroupByInviteCode = mutation({
   args: { inviteCode: v.string() },
   handler: async (ctx, args) => {
-    const [identity, group] = await Promise.all([
-      getIdentityOrThrow(ctx),
-      ctx.db
-        .query("sacredBharatGroups")
-        .withIndex("by_inviteCode", (q) => q.eq("inviteCode", args.inviteCode.trim().toUpperCase()))
-        .unique(),
-    ]);
+    const identity = await getIdentityOrThrow(ctx);
+    const attempt = await consumeGroupInviteAttempt(ctx, identity.subject, now());
+    if (!attempt.allowed) {
+      return { rateLimited: true as const, retryAfterMs: attempt.retryAfterMs };
+    }
+
+    const normalizedInviteCode = normalizeInviteCode(args.inviteCode);
+    const group = await ctx.db
+      .query("sacredBharatGroups")
+      .withIndex("by_inviteCode", (q) => q.eq("inviteCode", normalizedInviteCode))
+      .unique();
     if (!group || group.isArchived) {
-      throw new ConvexError("GROUP_NOT_FOUND");
+      return { notFound: true as const };
+    }
+    // New groups use a 128-bit code. Legacy rows remain readable during the
+    // migration window, but are visible to operators as a rotation candidate.
+    // Do not silently downgrade newly generated invite codes.
+    if (!isStrongInviteCode(group.inviteCode)) {
+      throw new ConvexError("GROUP_INVITE_REQUIRES_ROTATION");
     }
     const existing = await ctx.db
       .query("sacredBharatGroupMembers")
@@ -601,7 +676,7 @@ export const joinGroupByInviteCode = mutation({
     }
     return { id: group._id };
   },
-  returns: groupIdResultValidator,
+  returns: groupJoinResultValidator,
 });
 
 export const listMyGroups = query({

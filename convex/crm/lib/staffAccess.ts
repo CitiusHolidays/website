@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
+import { isBootstrapAdmin as isActiveBootstrapAdmin } from "../../lib/bootstrapAuthority";
 import { getRolePermissions, HEAD_ROLES } from "./rolePolicy";
 
 export function isDefined<T>(value: T | null | undefined | false): value is T {
@@ -24,17 +25,6 @@ export type PortalAccess = {
   roles: string[];
   permissions: string[];
 };
-
-function getBootstrapAdminEmails() {
-  return (process.env.PORTAL_BOOTSTRAP_ADMINS ?? "").split(",").flatMap((email) => {
-    const normalized = normalizeEmail(email);
-    return normalized ? [normalized] : [];
-  });
-}
-
-function isBootstrapAdmin(email: string) {
-  return getBootstrapAdminEmails().includes(normalizeEmail(email));
-}
 
 async function resolveActiveStaff(ctx: QueryCtx | MutationCtx, identity: { subject: string }) {
   // Staff access is an authorization decision. An email match alone is not
@@ -83,7 +73,9 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
     };
   }
 
-  if (email && isBootstrapAdmin(email)) {
+  // Break-glass Admin access is fail-closed: an allowlisted email is not enough
+  // without a future PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT value.
+  if (email && isActiveBootstrapAdmin(email)) {
     return {
       allowed: true,
       authUserId: identity.subject,

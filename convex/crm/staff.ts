@@ -1,8 +1,10 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
 import { syncAuthRecords } from "../lib/authSync";
+import { getBootstrapAuthorityExpiry } from "../lib/bootstrapAuthority";
 import {
   ALL_ROLES,
   getPortalAccess,
@@ -13,6 +15,7 @@ import {
   requireStaff,
   TEAM_PICKER_PERMISSIONS,
 } from "./lib";
+import { createActivity } from "./lib/activity";
 import {
   applyCrmCursorFilters,
   boundedPaginationOptions,
@@ -42,6 +45,26 @@ function onboardingStatus(staff: { authUserId?: string; pendingPasswordSetup?: b
     return "not_started" as const;
   }
   return staff.pendingPasswordSetup ? ("pending" as const) : ("ready" as const);
+}
+
+async function recordBootstrapProvisioning(
+  ctx: Parameters<typeof createActivity>[0],
+  access: Awaited<ReturnType<typeof requireStaff>>,
+  staffId: Id<"staffUsers">,
+  action: "bootstrap_staff_created" | "bootstrap_staff_updated"
+) {
+  if (!access.bootstrap) {
+    return;
+  }
+  await createActivity(ctx, access, {
+    action,
+    entityId: String(staffId),
+    entityType: "staffUser",
+    message: "Bootstrap authority changed a staff access record.",
+    metadata: {
+      bootstrapAuthorityExpiresAt: getBootstrapAuthorityExpiry(),
+    },
+  });
 }
 
 export const getMyPortalAccess = query({
@@ -352,6 +375,8 @@ export const upsertStaff = mutation({
         updatedAt: now,
       });
 
+      await recordBootstrapProvisioning(ctx, access, normalizedStaffId, "bootstrap_staff_updated");
+
       return { created: false, id: normalizedStaffId };
     }
 
@@ -377,6 +402,12 @@ export const upsertStaff = mutation({
         roles: roles as any,
         updatedAt: now,
       });
+      await recordBootstrapProvisioning(
+        ctx,
+        access,
+        existingByEmail._id,
+        "bootstrap_staff_updated"
+      );
       return { created: false, id: existingByEmail._id };
     }
 
@@ -412,6 +443,8 @@ export const upsertStaff = mutation({
       name: args.name.trim(),
       staffId: id,
     });
+
+    await recordBootstrapProvisioning(ctx, access, id, "bootstrap_staff_created");
 
     return { created: true, id };
   },

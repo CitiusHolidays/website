@@ -13,6 +13,7 @@ export default function PrivateGroupPanel() {
   const joinGroup = useMutation(api.sacredBharat.joinGroupByInviteCode);
   const [name, setName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [joinMessage, setJoinMessage] = useState("");
 
   if (!isAuthenticated) {
     return (
@@ -36,8 +37,15 @@ export default function PrivateGroupPanel() {
     if (!inviteCode.trim()) {
       return;
     }
-    await joinGroup({ inviteCode });
+    const result = await joinGroup({ inviteCode });
     setInviteCode("");
+    if (result?.rateLimited) {
+      setJoinMessage("Too many attempts. Please wait a few minutes and try again.");
+    } else if (result?.notFound) {
+      setJoinMessage("That invite code is not available. Check the code and try again.");
+    } else {
+      setJoinMessage("");
+    }
   };
 
   return (
@@ -76,6 +84,11 @@ export default function PrivateGroupPanel() {
           >
             Join group
           </button>
+          {joinMessage ? (
+            <p aria-live="polite" className="font-sans text-brand-muted text-xs">
+              {joinMessage}
+            </p>
+          ) : null}
         </form>
       </div>
       <div className="mt-5 grid gap-2">
