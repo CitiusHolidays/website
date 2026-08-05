@@ -38,6 +38,7 @@ const ENV_ENTRY_PATTERN = /^([A-Z][A-Z0-9_]*)=(.*)$/;
 const ENV_REFERENCE_PATTERN = /\b(?:process\.env|env)\.([A-Z][A-Z0-9_]*)\b/g;
 const RAW_BUN_TEST_PATTERN = /^\s*run:\s*bun test\s*$/m;
 const IMMUTABLE_ACTION_PATTERN = /@[0-9a-f]{40}$/;
+const ACTION_REFERENCE_PATTERN = /^\s*(?:-\s*)?uses:\s*([^\s#]+)\s*$/gm;
 
 function extension(path: string) {
   const dot = path.lastIndexOf(".");
@@ -148,9 +149,7 @@ describe("release command contract", () => {
 
   test("pins every third-party workflow action to an immutable commit", () => {
     const workflow = readFileSync(join(ROOT, ".github/workflows/required-quality.yml"), "utf8");
-    const actionRefs = [...workflow.matchAll(/^\s*uses:\s*([^\s#]+)\s*$/gm)].map(
-      (match) => match[1]
-    );
+    const actionRefs = [...workflow.matchAll(ACTION_REFERENCE_PATTERN)].map((match) => match[1]);
 
     expect(actionRefs.length).toBeGreaterThan(0);
     for (const actionRef of actionRefs) {
