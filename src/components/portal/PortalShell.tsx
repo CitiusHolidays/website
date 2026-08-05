@@ -18,7 +18,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
+  type SyntheticEvent,
   useEffect,
   useEffectEvent,
   useReducer,
@@ -26,15 +28,21 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { PortalAccountAvatar } from "@/components/portal/PortalAccountAvatar";
 import { PortalAccessProvider } from "@/components/portal/PortalAccessContext";
+import { PortalAccountAvatar } from "@/components/portal/PortalAccountAvatar";
 import { PortalChromeProvider } from "@/components/portal/PortalChromeContext";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
+import PortalNavLinkPending from "@/components/portal/PortalNavLinkPending";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
 import { type PortalNavShortcuts, usePortalChrome } from "@/components/portal/portalChromeState";
 import SaveViewDialog from "@/components/portal/SaveViewDialog";
+import { preloadQueriesView } from "@/components/portal/workspace/portalLazyViews";
 import { logout } from "@/lib/auth-client";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
+import {
+  markPortalNavigationRouteReady,
+  markPortalNavigationStart,
+} from "@/lib/portal/navigationPerformance";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
 import {
@@ -49,6 +57,14 @@ import { PORTAL_Z } from "@/lib/portal/zIndex";
 import ConnectLogo from "@/static/logos/citiusconnect.png";
 
 const ignoreAsyncError = (): void => undefined;
+
+function preloadPortalNavigationTarget(event: SyntheticEvent<HTMLAnchorElement>) {
+  if (event.currentTarget.getAttribute("href") !== "/portal/queries") {
+    return;
+  }
+  preloadQueriesView().catch(ignoreAsyncError);
+}
+
 interface PortalAccess {
   allowed?: boolean;
   email?: string;
@@ -206,8 +222,14 @@ function MobileQuickAccess({ action, items, onNavigate, pathname }: MobileQuickA
             href={item.href}
             key={item.href}
             onClick={onNavigate}
+            onFocus={preloadPortalNavigationTarget}
+            onMouseEnter={preloadPortalNavigationTarget}
+            onTouchStart={preloadPortalNavigationTarget}
           >
-            <span className="line-clamp-2">{item.label}</span>
+            <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
+              <span className="line-clamp-2">{item.label}</span>
+              <PortalNavLinkPending label={item.label} />
+            </span>
           </Link>
         ))}
       </div>
@@ -377,6 +399,12 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   const accountImage = user?.image;
   const unreadCount =
     notificationSummary?.unreadCount ?? notificationRows.filter((item) => !item.readAt).length;
+
+  useEffect(() => {
+    if (pathname === "/portal/queries") {
+      markPortalNavigationRouteReady();
+    }
+  }, [pathname]);
 
   const closeAccountMenu = () => setAccountMenuOpen(false);
 
@@ -648,6 +676,19 @@ function PortalNav({
   );
   const quickNavigation = mobile ? getMobileQuickNavigation(navGroups) : [];
 
+  const handleNavigationClick = (event: SyntheticEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('a[href="/portal/queries"]')) {
+      markPortalNavigationStart();
+    }
+  };
+
+  const handleNavigationKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      handleNavigationClick(event);
+    }
+  };
+
   const isGroupActive = (group: PortalNavGroup) =>
     group.items.some((item) =>
       item.href === "/portal" ? pathname === "/portal" : pathname?.startsWith(item.href)
@@ -713,7 +754,11 @@ function PortalNav({
   };
 
   return (
-    <nav className="flex min-h-0 flex-1 flex-col px-3 py-4">
+    <nav
+      className="flex min-h-0 flex-1 flex-col px-3 py-4"
+      onClickCapture={handleNavigationClick}
+      onKeyDownCapture={handleNavigationKeyDown}
+    >
       <div className="min-h-0 flex-1 scroll-pb-4 overflow-y-auto overscroll-contain pr-0.5 pb-4">
         {mobile ? (
           <MobileQuickAccess
@@ -777,11 +822,15 @@ function PortalNav({
                             } active:scale-[0.96]`}
                             href={item.href}
                             onClick={onNavigate}
+                            onFocus={preloadPortalNavigationTarget}
+                            onMouseEnter={preloadPortalNavigationTarget}
+                            onTouchStart={preloadPortalNavigationTarget}
                           >
                             {active && (
                               <span className="absolute inset-y-1 left-0 w-1 rounded-full bg-citius-orange" />
                             )}
                             <span className="pl-2">{item.label}</span>
+                            <PortalNavLinkPending label={item.label} />
                           </Link>
                           {hasShortcuts && (
                             <button

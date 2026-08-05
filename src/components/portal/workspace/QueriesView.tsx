@@ -1,7 +1,8 @@
 "use client";
 
+import { CircleCheck, FolderOpen, Map as MapIcon, Pencil, Send, UsersRound } from "lucide-react";
 import Link from "next/link";
-import { CircleCheck, FolderOpen, Map, Pencil, Send, UsersRound } from "lucide-react";
+import { useEffect } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { type OptionalAction, QueryRowActions } from "@/components/portal/QueryRowActions";
@@ -12,6 +13,7 @@ import {
   queryJobCardHandoffLabel,
   shouldShowJobCardHandoff,
 } from "@/lib/portal/jobCardHandoffPresentation";
+import { markPortalNavigationFirstQueryRow } from "@/lib/portal/navigationPerformance";
 import {
   assignQueryTeamsButtonLabel,
   canShowAssignQueryTeamsButton,
@@ -165,7 +167,7 @@ function QueryActions({
       }
       type="button"
     >
-      <Map aria-hidden="true" size={14} />
+      <MapIcon aria-hidden="true" size={14} />
       <span>Reference Itinerary</span>
     </button>
   );
@@ -250,6 +252,12 @@ export function QueriesView({
   getQueryAttachmentUrl,
   getFinalizedPdfUrl,
 }: QueriesViewProps) {
+  useEffect(() => {
+    if (rows.length > 0) {
+      markPortalNavigationFirstQueryRow();
+    }
+  });
+
   return (
     <SelectableDataTable<PortalQueryRow>
       columns={[

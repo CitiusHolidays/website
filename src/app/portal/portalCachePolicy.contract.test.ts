@@ -8,6 +8,7 @@ const portalRoot = join(root, "src/app/portal");
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 
 const PORTAL_LAYOUT = "src/app/portal/layout.js";
+const PORTAL_AUTH_BOUNDARY = "src/app/portal/PortalAuthBoundary.js";
 const PORTAL_OPT_OUT_PATTERN = /export const instant = false/;
 const PORTAL_CACHE_TODO_PATTERN = /TODO: Cache Components adoption/;
 
@@ -84,16 +85,21 @@ const deepLinkRoutes = [
 describe("portal Cache Components policy", () => {
   test("layout keeps one request-sensitive instant boundary without obsolete noStore", () => {
     const source = read(PORTAL_LAYOUT);
+    const authBoundarySource = read(PORTAL_AUTH_BOUNDARY);
 
     expect(source).toContain("export const instant = false");
-    expect(source).toContain('requireAuth("/portal", authOptions)');
-    expect(source).toContain("getMyPortalAccess");
-    expect(source).toContain("portal=unauthorized");
+    expect(source).toContain("PortalAuthBoundary");
+    expect(source).toContain("Suspense");
     expect(source).not.toContain("unstable_noStore");
     expect(source).not.toContain('"use cache"');
     expect(source).not.toContain("cachedSanityFetch");
     expect(source).not.toMatch(PORTAL_CACHE_TODO_PATTERN);
-    expect(source).toMatch(/must stay outside use cache/);
+
+    expect(authBoundarySource).toContain('requireAuth("/portal", authOptions)');
+    expect(authBoundarySource).toContain("getMyPortalAccess");
+    expect(authBoundarySource).toContain("syncMyAuthIdentity");
+    expect(authBoundarySource).toContain("portal=unauthorized");
+    expect(authBoundarySource).toMatch(/must stay outside use cache/);
   });
 
   test("portal leaves inherit the layout boundary and do not export redundant opt-outs", () => {
