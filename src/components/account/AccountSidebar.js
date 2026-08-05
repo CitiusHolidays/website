@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, MapPinned as MapIcon, Settings, UserRound } from "lucide-react";
+import { LogOut, MapIcon, Settings, UserRound } from "lucide-react";
 import { AccountMark, NavButton } from "./AccountUi";
 
 const NAV_ITEMS = [

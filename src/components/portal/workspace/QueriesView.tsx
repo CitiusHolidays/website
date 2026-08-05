@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CircleCheck, FolderOpen, MapPinned as MapIcon, Pencil, Send, UsersRound } from "lucide-react";
+import { CircleCheck, FolderOpen, MapIcon, Pencil, Send, UsersRound } from "lucide-react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { type OptionalAction, QueryRowActions } from "@/components/portal/QueryRowActions";
