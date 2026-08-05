@@ -1,5 +1,6 @@
-import AppChrome from "@/components/layout/AppChrome";
-
 export default function AuthenticatedLayout({ children }) {
-  return <AppChrome>{children}</AppChrome>;
+  // Authenticated customer/vendor surfaces own their chrome. Reusing the
+  // marketing header/footer here makes private dashboards look like public
+  // pages and can layer a light header over the account's dark rail.
+  return children;
 }

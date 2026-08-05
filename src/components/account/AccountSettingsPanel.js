@@ -7,17 +7,17 @@ export function AccountSettingsPanel() {
   return (
     <m.div
       animate="visible"
-      className="overflow-hidden rounded-3xl bg-white shadow-[#0B1026]/5 shadow-xl"
+      className="account-card overflow-hidden rounded-sm"
       exit={{ opacity: 0, y: 10 }}
       initial="hidden"
       key="settings"
       variants={ACCOUNT_CONTAINER_VARIANTS}
     >
       <div className="border-gray-100 border-b p-8">
-        <h2 className="font-heading text-3xl text-[#0B1026]">Account Settings</h2>
+        <h2 className="account-display text-3xl text-[var(--account-ink)]">Account Settings</h2>
       </div>
 
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-[var(--account-border)]">
         <SettingRow
           action={<Toggle />}
           description="Receive updates about your bookings and exclusive offers."
@@ -25,7 +25,10 @@ export function AccountSettingsPanel() {
         />
         <SettingRow
           action={
-            <button className="font-medium text-[#d4af37] text-sm" type="button">
+            <button
+              className="account-focus font-medium text-[var(--account-gold)] text-sm"
+              type="button"
+            >
               Enable
             </button>
           }

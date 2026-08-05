@@ -84,6 +84,39 @@ body {
   background: var(--background);
 }
 
+/* The authenticated customer account has its own editorial travel palette.
+   Keeping these tokens scoped prevents the account refresh from changing the
+   public marketing site or the staff CRM chrome. */
+.account-shell {
+  --account-night: #062341;
+  --account-ink: #0a1e3b;
+  --account-paper: #faf8f3;
+  --account-surface: #fffefa;
+  --account-gold: #b8873f;
+  --account-gold-soft: #f1e6d2;
+  --account-muted: #657080;
+  --account-border: #e7e0d5;
+  --account-success: #356b55;
+  color: var(--account-ink);
+  background: var(--account-paper);
+}
+
+.account-display {
+  font-family: Georgia, "Times New Roman", serif;
+  letter-spacing: -0.025em;
+}
+
+.account-card {
+  background: var(--account-surface);
+  border: 1px solid var(--account-border);
+  box-shadow: 0 16px 42px rgb(6 35 65 / 0.06);
+}
+
+.account-focus:focus-visible {
+  outline: 2px solid var(--account-gold);
+  outline-offset: 3px;
+}
+
 .font-heading {
   font-family: var(--font-heading), sans-serif;
 }

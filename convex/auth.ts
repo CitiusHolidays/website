@@ -20,10 +20,10 @@ export const getCurrentUser = query({
     return {
       createdAt: timestamps.createdAt,
       email: profile?.email ?? identity.email ?? "",
+      hasPassportDetails: Boolean(profile?.passportDetailsEncrypted),
       id: identity.subject,
       image: profile?.image ?? (typeof identity.picture === "string" ? identity.picture : null),
       name: profile?.name ?? identity.name ?? "Traveler",
-      passportDetailsEncrypted: profile?.passportDetailsEncrypted ?? null,
       phoneNumber: profile?.phoneNumber ?? "",
       updatedAt: timestamps.updatedAt,
     };

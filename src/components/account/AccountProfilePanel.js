@@ -170,7 +170,7 @@ export function AccountProfilePanel({ user }) {
   return (
     <m.div
       animate="visible"
-      className="overflow-hidden rounded-3xl bg-white shadow-[#0B1026]/5 shadow-xl"
+      className="account-card overflow-hidden rounded-sm"
       exit={{ opacity: 0, y: 10 }}
       initial="hidden"
       key="profile"
@@ -179,15 +179,15 @@ export function AccountProfilePanel({ user }) {
       <div className="border-gray-100 border-b p-8">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <h2 className="font-heading text-3xl text-[#0B1026]">Personal Details</h2>
-            <p className="font-light text-gray-500 text-sm">
+            <h2 className="account-display text-3xl text-[var(--account-ink)]">Personal Details</h2>
+            <p className="text-[var(--account-muted)] text-sm">
               Update how we reach you and what shows on bookings.
             </p>
           </div>
           {isEditingProfile ? (
             <div className="flex items-center gap-3">
               <button
-                className="rounded-full border border-gray-200 px-4 py-2 font-medium text-gray-600 text-sm transition-colors hover:bg-gray-50"
+                className="account-focus rounded-full border border-[var(--account-border)] px-4 py-2 font-medium text-[var(--account-muted)] text-sm transition-colors hover:bg-[#f7f3ed]"
                 onClick={resetProfileForm}
                 type="button"
               >
@@ -196,8 +196,8 @@ export function AccountProfilePanel({ user }) {
               <button
                 className={`rounded-full px-4 py-2 font-semibold text-sm transition-colors ${
                   isSavingProfile
-                    ? "cursor-not-allowed bg-[#0B1026]/60 text-white"
-                    : "bg-[#0B1026] text-white hover:bg-[#1a2c4e]"
+                    ? "cursor-not-allowed bg-[var(--account-night)]/60 text-white"
+                    : "bg-[var(--account-night)] text-white hover:bg-[var(--account-ink)]"
                 }`}
                 disabled={isSavingProfile}
                 onClick={handleProfileSave}
@@ -208,7 +208,7 @@ export function AccountProfilePanel({ user }) {
             </div>
           ) : (
             <button
-              className="rounded-full border border-[#0B1026] px-4 py-2 font-semibold text-[#0B1026] text-sm transition-colors hover:bg-[#0B1026] hover:text-white"
+              className="account-focus rounded-full border border-[var(--account-night)] px-4 py-2 font-semibold text-[var(--account-night)] text-sm transition-colors hover:bg-[var(--account-night)] hover:text-white"
               onClick={() => {
                 dispatch({
                   patch: { isEditingProfile: true, profileAlert: null },
@@ -251,15 +251,16 @@ export function AccountProfilePanel({ user }) {
         </div>
       )}
 
-      <div className="border-gray-100 border-t bg-[#f8fafc] p-8">
-        <h3 className="mb-4 font-heading text-[#0B1026] text-xl">Passport Details</h3>
-        <p className="mb-4 font-light text-gray-500 text-sm">
-          Your passport details are securely encrypted. We only decrypt them when necessary for
-          booking arrangements.
+      <div className="border-[var(--account-border)] border-t bg-[#f7f3ed] p-8">
+        <h3 className="account-display mb-4 text-2xl text-[var(--account-ink)]">
+          Passport Details
+        </h3>
+        <p className="mb-4 text-[var(--account-muted)] text-sm">
+          Passport information is kept securely by the Citius travel desk and is not shown here.
         </p>
-        <div className="flex max-w-md items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 text-gray-500 text-sm">
+        <div className="flex max-w-md items-center gap-3 rounded-sm border border-[var(--account-border)] bg-white p-4 text-[var(--account-muted)] text-sm">
           <div className="size-2 rounded-full bg-green-500" />
-          {profileData.passportDetailsEncrypted
+          {profileData.hasPassportDetails
             ? "Passport details on file"
             : "No passport details provided"}
         </div>

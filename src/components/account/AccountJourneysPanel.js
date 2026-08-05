@@ -1,70 +1,175 @@
 "use client";
 
-import { ChevronRight, Plane } from "lucide-react";
+import { BedDouble, ChevronLeft, Compass, Plane } from "lucide-react";
 import { m } from "motion/react";
-import Link from "next/link";
-import { ACCOUNT_CONTAINER_VARIANTS, ACCOUNT_ITEM_VARIANTS, BookingCard } from "./AccountUi";
+import { useState } from "react";
+import {
+  ACCOUNT_CONTAINER_VARIANTS,
+  EmptyInfoCard,
+  ItinerarySnapshot,
+  JourneyOverviewCard,
+  normalizeItinerary,
+  PastJourneyCard,
+  TravelInfoCard,
+} from "./AccountUi";
 
-export function AccountJourneysPanel({ upcomingBookings, pastBookings }) {
+function JourneyDetail({ booking, onBack }) {
+  const { trip, booking: bookingData } = booking;
+  const itinerary = normalizeItinerary(trip.itinerary);
+  const firstStay = itinerary.find((entry) => entry.accommodation)?.accommodation;
   return (
     <m.div
       animate="visible"
-      className="space-y-12"
-      exit={{ opacity: 0, y: 10 }}
+      className="space-y-10"
+      exit={{ opacity: 0, y: 8 }}
       initial="hidden"
-      key="journeys"
+      variants={ACCOUNT_CONTAINER_VARIANTS}
+    >
+      <button
+        className="account-focus inline-flex items-center gap-2 font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.12em] hover:text-[var(--account-ink)]"
+        onClick={onBack}
+        type="button"
+      >
+        <ChevronLeft size={16} /> Back to journeys
+      </button>
+      <div>
+        <p className="mb-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.2em]">
+          Journey details
+        </p>
+        <h2 className="account-display text-4xl text-[var(--account-ink)] sm:text-5xl">
+          {trip.name}
+        </h2>
+        <p className="mt-3 text-[var(--account-muted)] text-sm">
+          {trip.startDate} — {trip.endDate} · {bookingData.travelers} traveler
+          {bookingData.travelers === 1 ? "" : "s"}
+        </p>
+      </div>
+      <ItinerarySnapshot trip={trip} />
+      <div className="grid gap-5 md:grid-cols-2">
+        <TravelInfoCard eyebrow="Flights & PNR" icon={<Plane size={17} />} title="Travel details">
+          <p>Your flight and PNR details will appear here once the travel desk confirms them.</p>
+          <p className="mt-3 text-[var(--account-muted)] text-xs">
+            We&apos;ll keep this page current as your plans progress.
+          </p>
+        </TravelInfoCard>
+        <TravelInfoCard eyebrow="Stay" icon={<BedDouble size={17} />} title="Accommodation">
+          <p>{firstStay || "Your stay details are being arranged by the Citius travel desk."}</p>
+          <p className="mt-3 text-[var(--account-muted)] text-xs">
+            Room and check-in information will be added here when confirmed.
+          </p>
+        </TravelInfoCard>
+      </div>
+    </m.div>
+  );
+}
+
+export function AccountJourneysPanel({ upcomingBookings, pastBookings, cancelledBookings = [] }) {
+  const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const selectedBooking = upcomingBookings.find((item) => item.booking.id === selectedBookingId);
+  const closeDetail = () => setSelectedBookingId(null);
+  const openFirstBooking = () => setSelectedBookingId(upcomingBookings[0]?.booking.id ?? null);
+
+  if (selectedBooking) {
+    return <JourneyDetail booking={selectedBooking} onBack={closeDetail} />;
+  }
+
+  return (
+    <m.div
+      animate="visible"
+      className="space-y-14"
+      exit={{ opacity: 0, y: 8 }}
+      initial="hidden"
       variants={ACCOUNT_CONTAINER_VARIANTS}
     >
       <section>
-        <m.h2
-          className="mb-6 flex items-center gap-3 font-heading text-3xl text-[#0B1026]"
-          variants={ACCOUNT_ITEM_VARIANTS}
-        >
-          Upcoming Journeys
-          <span className="rounded-full bg-gray-100 px-2 py-1 font-normal font-sans text-gray-400 text-sm">
-            {upcomingBookings.length}
-          </span>
-        </m.h2>
-
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <p className="mb-1 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.2em]">
+              The next chapter
+            </p>
+            <h2 className="account-display text-3xl text-[var(--account-ink)]">Upcoming journey</h2>
+          </div>
+          {upcomingBookings.length > 1 && (
+            <span className="text-[var(--account-muted)] text-xs">
+              {upcomingBookings.length} journeys
+            </span>
+          )}
+        </div>
         {upcomingBookings.length > 0 ? (
-          <div className="grid gap-6">
-            {upcomingBookings.map((booking) => (
-              <BookingCard booking={booking} key={booking.booking.id} type="upcoming" />
+          <div className="space-y-5">
+            {upcomingBookings.slice(0, 1).map((booking) => (
+              <JourneyOverviewCard
+                booking={booking}
+                key={booking.booking.id}
+                onOpen={openFirstBooking}
+              />
             ))}
+            {upcomingBookings.length > 1 && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {upcomingBookings.slice(1).map((booking) => (
+                  <PastJourneyCard booking={booking} key={booking.booking.id} />
+                ))}
+              </div>
+            )}
           </div>
         ) : (
-          <m.div
-            className="rounded-2xl border border-gray-200 border-dashed bg-white p-12 text-center"
-            variants={ACCOUNT_ITEM_VARIANTS}
-          >
-            <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-[#0B1026]/5 text-[#0B1026]">
-              <Plane size={24} />
-            </div>
-            <h3 className="mb-2 font-heading text-[#0B1026] text-xl">No upcoming journeys</h3>
-            <p className="mb-6 font-light text-gray-500">
-              You haven&apos;t booked any trips yet. The world is waiting.
-            </p>
-            <Link
-              className="inline-flex items-center gap-2 rounded-full bg-[#0B1026] px-6 py-3 text-white transition-colors hover:bg-[#1a2c4e]"
-              href="/services"
-            >
-              Explore Destinations <ChevronRight size={16} />
-            </Link>
-          </m.div>
+          <EmptyInfoCard
+            icon={<Compass size={21} />}
+            text="When you book your next Citius journey, its dates and itinerary will live here."
+            title="No upcoming journeys"
+          />
         )}
       </section>
 
-      {pastBookings.length > 0 && (
+      {!!upcomingBookings[0] && (
         <section>
-          <m.h2
-            className="mt-12 mb-6 font-heading text-3xl text-[#0B1026] opacity-80"
-            variants={ACCOUNT_ITEM_VARIANTS}
-          >
-            Past Memories
-          </m.h2>
-          <div className="grid gap-6 opacity-80 transition-opacity duration-300 hover:opacity-100">
+          <ItinerarySnapshot trip={upcomingBookings[0].trip} />
+          <div className="mt-5 grid gap-5 md:grid-cols-2">
+            <TravelInfoCard
+              eyebrow="Flights & PNR"
+              icon={<Plane size={17} />}
+              title="Travel details"
+            >
+              <p>Flight details will appear here once confirmed by your travel desk.</p>
+            </TravelInfoCard>
+            <TravelInfoCard eyebrow="Stay" icon={<BedDouble size={17} />} title="Accommodation">
+              <p>Stay details will appear here as your itinerary is finalized.</p>
+            </TravelInfoCard>
+          </div>
+        </section>
+      )}
+
+      <section>
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <p className="mb-1 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.2em]">
+              A look back
+            </p>
+            <h2 className="account-display text-3xl text-[var(--account-ink)]">Past journeys</h2>
+          </div>
+          <span className="text-[var(--account-muted)] text-xs">{pastBookings.length}</span>
+        </div>
+        {pastBookings.length ? (
+          <div className="grid gap-3">
             {pastBookings.map((booking) => (
-              <BookingCard booking={booking} key={booking.booking.id} type="past" />
+              <PastJourneyCard booking={booking} key={booking.booking.id} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-[var(--account-muted)] text-sm">
+            Your completed journeys will collect here.
+          </p>
+        )}
+      </section>
+
+      {cancelledBookings.length > 0 && (
+        <section>
+          <p className="mb-3 font-semibold text-[10px] text-[var(--account-muted)] uppercase tracking-[0.2em]">
+            Cancelled
+          </p>
+          <div className="grid gap-3 opacity-70">
+            {cancelledBookings.map((booking) => (
+              <PastJourneyCard booking={booking} key={booking.booking.id} />
             ))}
           </div>
         </section>

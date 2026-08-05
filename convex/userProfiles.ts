@@ -20,10 +20,10 @@ const toApiUser = (profile: Doc<"userProfiles"> | null, identity: UserIdentity) 
   return {
     createdAt: timestamps.createdAt,
     email: profile?.email ?? identity.email ?? "",
+    hasPassportDetails: Boolean(profile?.passportDetailsEncrypted),
     id: identity.subject,
     image: profile?.image ?? (getIdentityImage(identity) || null),
     name: profile?.name ?? identity.name ?? "Traveler",
-    passportDetailsEncrypted: profile?.passportDetailsEncrypted ?? null,
     phoneNumber: profile?.phoneNumber ?? "",
     updatedAt: timestamps.updatedAt,
   };
@@ -63,10 +63,10 @@ export const ensureMyProfile = mutation({
     return {
       createdAt: new Date(createdAt).toISOString(),
       email: identity.email ?? "",
+      hasPassportDetails: false,
       id: identity.subject,
       image: getIdentityImage(identity) || null,
       name: identity.name ?? "Traveler",
-      passportDetailsEncrypted: "",
       phoneNumber: "",
       updatedAt: new Date(createdAt).toISOString(),
     };
@@ -116,10 +116,10 @@ export const updateMyProfile = mutation({
       return {
         createdAt: new Date(updatedAt).toISOString(),
         email: identity.email ?? "",
+        hasPassportDetails: false,
         id: identity.subject,
         image: getIdentityImage(identity) || null,
         name: args.name,
-        passportDetailsEncrypted: "",
         phoneNumber: args.phoneNumber ?? "",
         updatedAt: new Date(updatedAt).toISOString(),
       };
@@ -134,10 +134,10 @@ export const updateMyProfile = mutation({
     return {
       createdAt: new Date(current.createdAt).toISOString(),
       email: current.email,
+      hasPassportDetails: Boolean(current.passportDetailsEncrypted),
       id: identity.subject,
       image: current.image ?? null,
       name: args.name,
-      passportDetailsEncrypted: current.passportDetailsEncrypted ?? "",
       phoneNumber: args.phoneNumber ?? "",
       updatedAt: new Date(updatedAt).toISOString(),
     };

@@ -4,10 +4,10 @@ import { v } from "convex/values";
 export const publicUserProfileValidator = v.object({
   createdAt: v.union(v.string(), v.null()),
   email: v.string(),
+  hasPassportDetails: v.boolean(),
   id: v.string(),
   image: v.union(v.string(), v.null()),
   name: v.string(),
-  passportDetailsEncrypted: v.union(v.string(), v.null()),
   phoneNumber: v.string(),
   updatedAt: v.union(v.string(), v.null()),
 });
@@ -75,9 +75,13 @@ export const bookingTripValidator = v.object({
   description: v.string(),
   difficulty: v.string(),
   endDate: v.string(),
+  exclusions: legacyTripContentValidator,
   gallery: legacyTripContentValidator,
   id: v.id("trips"),
+  inclusions: legacyTripContentValidator,
   isActive: v.boolean(),
+  itinerary: legacyTripContentValidator,
+  legacyTripId: v.union(v.string(), v.null()),
   name: v.string(),
   priceInr: v.number(),
   priceUsd: v.number(),
@@ -103,6 +107,17 @@ export const bookingOutputValidator = v.object({
   updatedAt: v.string(),
   userId: v.string(),
 });
+export const customerBookingOutputValidator = v.object({
+  confirmedAt: v.union(v.string(), v.null()),
+  createdAt: v.string(),
+  currency: v.string(),
+  id: v.id("bookings"),
+  status: bookingStatusValidator,
+  totalAmount: v.number(),
+  travelers: v.number(),
+  tripId: v.id("trips"),
+  updatedAt: v.string(),
+});
 export const checkoutResultValidator = v.object({
   currency: v.string(),
   pricePerPerson: v.number(),
@@ -123,7 +138,7 @@ export const pendingBookingResultValidator = v.object({
   trip: bookingTripValidator,
 });
 export const myBookingsResultValidator = v.array(
-  v.object({ booking: bookingOutputValidator, trip: bookingTripValidator })
+  v.object({ booking: customerBookingOutputValidator, trip: bookingTripValidator })
 );
 export const bookingTransitionResultValidator = v.object({
   alreadyConfirmed: v.optional(v.boolean()),

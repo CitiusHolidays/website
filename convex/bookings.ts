@@ -55,9 +55,13 @@ const toApiTrip = (trip: Doc<"trips">) => ({
   description: trip.description ?? "",
   difficulty: trip.difficulty ?? "",
   endDate: trip.endDate,
+  exclusions: trip.exclusions ?? [],
   gallery: trip.gallery ?? [],
   id: trip._id,
+  inclusions: trip.inclusions ?? [],
   isActive: trip.isActive,
+  itinerary: trip.itinerary ?? [],
+  legacyTripId: trip.legacyTripId ?? null,
   name: trip.name,
   priceInr: trip.priceInr,
   priceUsd: trip.priceUsd,
@@ -83,6 +87,20 @@ const toApiBooking = (booking: Doc<"bookings">) => ({
   tripId: booking.tripId,
   updatedAt: new Date(booking.updatedAt).toISOString(),
   userId: booking.userId,
+});
+
+// Keep customer reads allow-listed. Payment-provider identifiers, internal
+// notes, traveler details, and auth ownership never cross the public boundary.
+export const toCustomerBooking = (booking: Doc<"bookings">) => ({
+  confirmedAt: booking.confirmedAt ? new Date(booking.confirmedAt).toISOString() : null,
+  createdAt: new Date(booking.createdAt).toISOString(),
+  currency: booking.currency,
+  id: booking._id,
+  status: booking.status,
+  totalAmount: booking.totalAmount,
+  travelers: booking.travelers,
+  tripId: booking.tripId,
+  updatedAt: new Date(booking.updatedAt).toISOString(),
 });
 
 const getUserProfile = async (ctx: QueryCtx | MutationCtx, authUserId: string) =>
@@ -219,7 +237,7 @@ export const getMyBookings = query({
       .query("bookings")
       .withIndex("by_userId_createdAt", (q) => q.eq("userId", identity.subject))
       .order("desc")
-      .collect();
+      .take(100);
 
     const trips = await Promise.all(rows.map((booking) => ctx.db.get(booking.tripId)));
     return rows.flatMap((booking, index) => {
@@ -229,7 +247,7 @@ export const getMyBookings = query({
       }
       return [
         {
-          booking: toApiBooking(booking),
+          booking: toCustomerBooking(booking),
           trip: toApiTrip(trip),
         },
       ];

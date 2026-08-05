@@ -59,10 +59,10 @@ export async function PUT(request) {
     const responseUser = {
       createdAt: updated.createdAt,
       email: updated.email,
+      hasPassportDetails: updated.hasPassportDetails,
       id: updated.id,
       image: updated.image,
       name: updated.name,
-      passportDetailsEncrypted: updated.passportDetailsEncrypted,
       phoneNumber: updated.phoneNumber || "",
       updatedAt: updated.updatedAt,
     };
