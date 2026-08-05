@@ -98,6 +98,7 @@ describe("server authentication origin", () => {
     });
     expect(isRetryableAuthTokenExchangeError(error)).toBe(true);
     expect(error.message).not.toContain("secret");
+    expect(error.cause).toBeUndefined();
     expect(attempts).toBe(2);
   });
 

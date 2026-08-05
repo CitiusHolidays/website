@@ -24,9 +24,12 @@ const RETRYABLE_TOKEN_EXCHANGE_KINDS = new Set([
  * correlation id. It never carries the request cookie or the exchanged JWT.
  */
 export class AuthTokenExchangeError extends Error {
-  constructor(kind, message, { cause, correlationId = randomUUID(), status } = {}) {
+  constructor(kind, message, { correlationId = randomUUID(), status } = {}) {
     const safeCorrelationId = String(correlationId || randomUUID());
-    super(`${message} Reference: ${safeCorrelationId}.`, { cause });
+    // Do not attach transport errors as `cause`: adapters can accidentally
+    // include request headers in their error text. The correlation id is the
+    // safe handle for server-side diagnostics.
+    super(`${message} Reference: ${safeCorrelationId}.`);
     this.name = "AuthTokenExchangeError";
     this.code = `AUTH_TOKEN_EXCHANGE_${String(kind).toUpperCase()}`;
     this.correlationId = safeCorrelationId;
