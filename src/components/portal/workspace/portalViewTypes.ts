@@ -720,7 +720,6 @@ export interface PortalInvoiceListRow {
 }
 
 export interface FinanceViewProps {
-  access?: PortalAccessSlice;
   deleteItem: PortalDeleteHandler;
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;

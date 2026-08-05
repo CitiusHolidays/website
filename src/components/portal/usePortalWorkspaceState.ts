@@ -50,9 +50,11 @@ import type {
   PortalToastApi,
   StateUpdate,
 } from "./workspace/workspaceStateTypes";
-import { compactRows, resetWorkspaceView, resolveUpdate } from "./workspace/workspaceStateTypes";
+import { compactRows, resolveUpdate } from "./workspace/workspaceStateTypes";
 
 const P = PORTAL_PERMISSIONS;
+const _EMPTY_ARRAY: never[] = [];
+const _EMPTY_OBJECT: Record<string, never> = {};
 
 type PortalViewId = keyof typeof VIEW_META;
 
@@ -158,7 +160,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
   const deepLinkOpen = searchParams.get("open");
   const deepLinkQueryId = searchParams.get("queryId");
   const deepLinkHandledRef = useRef("");
-  const previousViewRef = useRef(view);
 
   useEffect(() => {
     const restored = parseUrlFilterState(
@@ -167,7 +168,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     );
     dispatchWorkspace({
       patch: {
-        ...resetWorkspaceView(previousViewRef, view),
         dateRange: restored.dateRange,
         jobCardFilter: restored.jobCardFilter,
         listFilters: restored.listFilters,

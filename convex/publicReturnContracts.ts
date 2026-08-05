@@ -7,6 +7,7 @@ export const publicUserProfileValidator = v.object({
   id: v.string(),
   image: v.union(v.string(), v.null()),
   name: v.string(),
+  passportDetailsEncrypted: v.union(v.string(), v.null()),
   phoneNumber: v.string(),
   updatedAt: v.union(v.string(), v.null()),
 });
@@ -77,7 +78,6 @@ export const bookingTripValidator = v.object({
   gallery: legacyTripContentValidator,
   id: v.id("trips"),
   isActive: v.boolean(),
-  itinerary: legacyTripContentValidator,
   name: v.string(),
   priceInr: v.number(),
   priceUsd: v.number(),
@@ -103,38 +103,6 @@ export const bookingOutputValidator = v.object({
   updatedAt: v.string(),
   userId: v.string(),
 });
-
-const customerTravelDetailsValidator = v.union(
-  v.object({
-    flight: v.object({
-      airline: v.string(),
-      arrival: v.string(),
-      departure: v.string(),
-      flightNumber: v.string(),
-    }),
-    stay: v.object({
-      hotel: v.string(),
-      roomType: v.string(),
-    }),
-  }),
-  v.null()
-);
-
-// Customer Account reads intentionally expose a narrower projection than the
-// payment transition contract above. Provider identifiers, auth ownership,
-// checkout notes, and traveler-entered payloads stay server-side.
-export const customerBookingOutputValidator = bookingOutputValidator
-  .pick(
-    "confirmedAt",
-    "createdAt",
-    "currency",
-    "id",
-    "status",
-    "totalAmount",
-    "travelers",
-    "updatedAt"
-  )
-  .extend({ customerTravelDetails: customerTravelDetailsValidator });
 export const checkoutResultValidator = v.object({
   currency: v.string(),
   pricePerPerson: v.number(),
@@ -155,7 +123,7 @@ export const pendingBookingResultValidator = v.object({
   trip: bookingTripValidator,
 });
 export const myBookingsResultValidator = v.array(
-  v.object({ booking: customerBookingOutputValidator, trip: bookingTripValidator })
+  v.object({ booking: bookingOutputValidator, trip: bookingTripValidator })
 );
 export const bookingTransitionResultValidator = v.object({
   alreadyConfirmed: v.optional(v.boolean()),

@@ -1,5 +1,3 @@
-import { INITIAL_FORM } from "@/lib/portal/workspaceContract";
-
 export type AnyRecord = Record<string, any>;
 export type ListFiltersState = Record<string, any>;
 export type StateUpdate<T> = T | ((current: T) => T);
@@ -74,20 +72,3 @@ export const compactRows = <T>(rows: readonly (T | null | undefined)[] | null | 
 
 export const resolveUpdate = <T>(value: StateUpdate<T>, current: T): T =>
   typeof value === "function" ? (value as (currentValue: T) => T)(current) : value;
-
-export function resetWorkspaceView(viewRef: { current: string }, view: string) {
-  if (viewRef.current === view) {
-    return {};
-  }
-  viewRef.current = view;
-  return {
-    error: "",
-    form: INITIAL_FORM,
-    isSaving: false,
-    modal: null,
-    pendingExpenseProofFiles: [],
-    pendingProposalFiles: [],
-    pendingQueryFiles: [],
-    saveFlash: false,
-  };
-}

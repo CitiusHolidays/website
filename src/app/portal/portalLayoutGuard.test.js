@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { Suspense } from "react";
 
 const salesUser = {
   email: "sales@citiusholidays.com",
@@ -73,8 +72,6 @@ mock.module("@/components/providers/PortalMotionThemeProvider", () => ({
 }));
 
 const { default: PortalLayout } = await import("./layout.js");
-const { default: PortalAuthBoundary } = await import("./PortalAuthBoundary.js");
-const { default: PortalLoadingShell } = await import("@/components/portal/PortalLoadingShell");
 
 beforeEach(() => {
   currentUser = salesUser;
@@ -86,20 +83,11 @@ beforeEach(() => {
 });
 
 async function getRenderedShellProps() {
-  const shell = await PortalAuthBoundary({ children: null });
-  return shell.props;
+  const layout = await PortalLayout({ children: null });
+  return layout.props.children.props.children.props;
 }
 
 describe("portal layout guard", () => {
-  test("wraps request-time portal auth in a loading boundary", () => {
-    const layout = PortalLayout({ children: null });
-    const suspense = layout.props.children.props.children;
-
-    expect(suspense.type).toBe(Suspense);
-    expect(suspense.props.children.type).toBe(PortalAuthBoundary);
-    expect(suspense.props.fallback.type).toBe(PortalLoadingShell);
-  });
-
   test("acquires one token and reuses it for every portal bootstrap call", async () => {
     await getRenderedShellProps();
 
@@ -128,7 +116,7 @@ describe("portal layout guard", () => {
   test("redirects unauthorized staff away from portal deep links", async () => {
     currentAccess = { allowed: false, permissions: [], roles: [] };
 
-    await expect(PortalAuthBoundary({ children: null })).rejects.toThrow(
+    await expect(PortalLayout({ children: null })).rejects.toThrow(
       "NEXT_REDIRECT:/account?portal=unauthorized"
     );
     expect(redirectUrls).toEqual(["/account?portal=unauthorized"]);
@@ -138,9 +126,7 @@ describe("portal layout guard", () => {
     requireAuthRedirect =
       "/auth/connect?callbackUrl=%2Fportal%2Fqueries%3Fopen%3DsalesDecision%26id%3Dquery_1";
 
-    await expect(PortalAuthBoundary({ children: null })).rejects.toThrow(
-      "NEXT_REDIRECT:/auth/connect"
-    );
+    await expect(PortalLayout({ children: null })).rejects.toThrow("NEXT_REDIRECT:/auth/connect");
     expect(redirectUrls).toHaveLength(0);
   });
 });

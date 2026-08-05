@@ -15,9 +15,6 @@ import { selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 import { ProposalsPage, QueriesPage, TravellersPage } from "../pages";
 
-const PORTAL_QUERIES_URL_PATTERN = /\/portal\/queries(?:\?.*)?$/;
-const PORTAL_DASHBOARD_URL_PATTERN = /\/portal\/?$/;
-
 test.describe
   .serial("@critical CRM critical path", () => {
     test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
@@ -90,65 +87,6 @@ test.describe
         assignedHeadPage.getByText(new RegExp(`${e2eChain.queryCode}.*assign Ticketing SPOC`, "i"))
       ).toHaveCount(0);
       await assignedHeadContext.close();
-    });
-
-    test("05b dashboard to All Sales Queries records progressive navigation marks", async ({
-      browser,
-    }, testInfo) => {
-      const { context, page } = await openPortalAs(browser, "sales");
-      await page.route("**/portal/queries**", async (route) => {
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        await route.continue();
-      });
-      await page.goto("/portal");
-      const queriesLink = page.getByRole("link", { exact: true, name: "All Sales Queries" });
-      await expect(queriesLink).toBeVisible();
-
-      await page.evaluate(() => performance.clearMarks());
-      const navigation = queriesLink.click();
-      await expect(page.getByTestId("portal-nav-link-pending")).toBeVisible({ timeout: 2000 });
-      await expect(page.getByTestId("queries-loading-panel")).toBeVisible({ timeout: 2000 });
-      await navigation;
-      await expect(page).toHaveURL(PORTAL_QUERIES_URL_PATTERN);
-      await expect(
-        page.getByRole("heading", { exact: true, name: "All Sales Queries" })
-      ).toBeVisible({ timeout: 15_000 });
-      await expect(page.locator("tbody tr").filter({ hasText: e2eChain.clientName })).toBeVisible({
-        timeout: 15_000,
-      });
-
-      const marks = await page.evaluate(() =>
-        performance.getEntriesByType("mark").map(({ name, startTime }) => ({ name, startTime }))
-      );
-      await testInfo.attach("portal-navigation-marks", {
-        body: JSON.stringify(marks, null, 2),
-        contentType: "application/json",
-      });
-      expect(marks.map(({ name }) => name)).toEqual(
-        expect.arrayContaining([
-          "citius-portal-navigation-start",
-          "citius-portal-navigation-pending",
-          "citius-portal-navigation-route-ready",
-          "citius-portal-navigation-first-query-row",
-        ])
-      );
-
-      await page.goBack();
-      await expect(page).toHaveURL(PORTAL_DASHBOARD_URL_PATTERN);
-      await expect(
-        page.getByRole("link", { exact: true, name: "All Sales Queries" })
-      ).toBeVisible();
-      await page.goForward();
-      await expect(page).toHaveURL(PORTAL_QUERIES_URL_PATTERN);
-      await expect(
-        page.getByRole("heading", { exact: true, name: "All Sales Queries" })
-      ).toBeVisible({ timeout: 15_000 });
-      await page.goto("/portal/queries");
-      await expect(page).toHaveURL(PORTAL_QUERIES_URL_PATTERN);
-      await expect(
-        page.getByRole("heading", { exact: true, name: "All Sales Queries" })
-      ).toBeVisible({ timeout: 15_000 });
-      await context.close();
     });
 
     test("06 contracting drafts proposal and sends to sales", async ({ browser }) => {

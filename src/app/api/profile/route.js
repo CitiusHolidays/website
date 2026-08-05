@@ -62,6 +62,7 @@ export async function PUT(request) {
       id: updated.id,
       image: updated.image,
       name: updated.name,
+      passportDetailsEncrypted: updated.passportDetailsEncrypted,
       phoneNumber: updated.phoneNumber || "",
       updatedAt: updated.updatedAt,
     };

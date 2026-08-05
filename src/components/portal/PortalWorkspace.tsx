@@ -37,7 +37,7 @@ const P = PORTAL_PERMISSIONS;
 export default function PortalWorkspace(props: { view?: string }) {
   return (
     <Suspense fallback={<LoadingPanel />}>
-      <PortalWorkspaceInner {...props} />
+      <PortalWorkspaceInner key={props.view || "dashboard"} {...props} />
     </Suspense>
   );
 }

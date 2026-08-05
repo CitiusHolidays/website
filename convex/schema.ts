@@ -285,24 +285,6 @@ export default defineSchema({
     confirmedAt: v.optional(v.number()),
     createdAt: v.number(),
     currency: v.string(),
-    customerTravelDetails: v.optional(
-      v.object({
-        flight: v.optional(
-          v.object({
-            airline: v.optional(v.string()),
-            arrival: v.optional(v.string()),
-            departure: v.optional(v.string()),
-            flightNumber: v.optional(v.string()),
-          })
-        ),
-        stay: v.optional(
-          v.object({
-            hotel: v.optional(v.string()),
-            roomType: v.optional(v.string()),
-          })
-        ),
-      })
-    ),
     inventoryDebitedAt: v.optional(v.number()),
     inventoryDebitedEventId: v.optional(v.string()),
     legacyBookingId: v.optional(v.string()),
@@ -859,74 +841,6 @@ export default defineSchema({
     .index("by_travellerId", ["travellerId"])
     .index("by_passportNumberHash", ["passportNumberHash"])
     .index("by_storageId", ["storageId"]),
-
-  paymentProviderEvents: defineTable({
-    amount: v.optional(v.number()),
-    bookingId: v.optional(v.id("bookings")),
-    currency: v.optional(v.string()),
-    errorMessage: v.optional(v.string()),
-    eventType: v.string(),
-    expectedStatus: v.optional(bookingStatus),
-    isFixture: v.boolean(),
-    mismatchCategory: v.union(
-      v.literal("none"),
-      v.literal("unmatched_provider_event"),
-      v.literal("missing_provider_event"),
-      v.literal("amount_currency_mismatch"),
-      v.literal("status_mismatch"),
-      v.literal("duplicate_replayed_event"),
-      v.literal("processing_failure"),
-      v.literal("stale_pending_state")
-    ),
-    orderId: v.optional(v.string()),
-    outcome: v.union(
-      v.literal("received"),
-      v.literal("processed"),
-      v.literal("ignored"),
-      v.literal("unmatched"),
-      v.literal("failed")
-    ),
-    paymentId: v.optional(v.string()),
-    processedAt: v.optional(v.number()),
-    provider: v.string(),
-    providerEventId: v.string(),
-    providerStatus: v.optional(v.string()),
-    receivedAt: v.number(),
-    refundId: v.optional(v.string()),
-    retryCount: v.number(),
-    source: v.union(
-      v.literal("webhook"),
-      v.literal("checkout"),
-      v.literal("fixture"),
-      v.literal("manual")
-    ),
-    statusAfter: v.optional(bookingStatus),
-    statusBefore: v.optional(bookingStatus),
-    updatedAt: v.number(),
-  })
-    .index("by_providerEventId", ["providerEventId"])
-    .index("by_orderId_receivedAt", ["orderId", "receivedAt"])
-    .index("by_bookingId_receivedAt", ["bookingId", "receivedAt"])
-    .index("by_outcome_receivedAt", ["outcome", "receivedAt"]),
-
-  paymentReconciliationAudits: defineTable({
-    action: v.union(
-      v.literal("reprocess_requested"),
-      v.literal("reprocess_completed"),
-      v.literal("reprocess_failed")
-    ),
-    actorAuthUserId: v.string(),
-    actorName: v.string(),
-    afterOutcome: v.optional(v.string()),
-    beforeOutcome: v.optional(v.string()),
-    bookingId: v.optional(v.id("bookings")),
-    createdAt: v.number(),
-    providerEventId: v.string(),
-    reason: v.string(),
-    result: v.optional(v.string()),
-  })
-    .index("by_providerEventId_createdAt", ["providerEventId", "createdAt"])
-    .index("by_createdAt", ["createdAt"]),
 
   paymentTerms: defineTable({
     createdAt: v.number(),

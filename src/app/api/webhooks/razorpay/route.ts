@@ -55,8 +55,6 @@ export async function POST(request: Request) {
         fetchAuthMutation(anyApi.bookings.markRefundedByPaymentId, args),
       recordPaymentAuthorized: (args) =>
         fetchAuthMutation(anyApi.bookings.recordPaymentAuthorized, args),
-      recordProviderEvent: (args) =>
-        fetchAuthMutation(anyApi.crm.paymentReconciliation.recordProviderEvent, args),
     });
 
     console.log(`Razorpay webhook action: ${result.action}`);

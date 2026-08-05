@@ -3,10 +3,6 @@
 import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
 
-type PreloadableComponent<Props> = ComponentType<Props> & {
-  preload?: () => Promise<unknown>;
-};
-
 function portalViewLoading() {
   return <div aria-hidden className="min-h-[12rem] animate-pulse rounded-xl bg-brand-light/60" />;
 }
@@ -20,7 +16,7 @@ function lazyView<
   return dynamic<Props>(
     () => loader().then((module) => module[exportName] as ComponentType<Props>),
     { loading: portalViewLoading }
-  ) as PreloadableComponent<Props>;
+  );
 }
 
 export const DashboardView = lazyView(
@@ -67,11 +63,6 @@ export const VisaTrackingView = lazyView(
 );
 export const ProposalsView = lazyView(() => import("./ProposalsView"), "ProposalsView");
 export const QueriesView = lazyView(() => import("./QueriesView"), "QueriesView");
-
-export function preloadQueriesView() {
-  return QueriesView.preload?.() ?? Promise.resolve();
-}
-
 export const PnrView = lazyView(() => import("./ticketing/PnrView"), "PnrView");
 export const SeatView = lazyView(() => import("./ticketing/SeatView"), "SeatView");
 export const TicketDashboardView = lazyView(

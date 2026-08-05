@@ -610,7 +610,6 @@ export function renderAdministrationPortalView({
   if (view === "finance") {
     return (
       <FinanceView
-        access={workspace.access}
         deleteItem={workspace.deleteItem}
         has={workspace.has}
         openModal={workspace.openModal}

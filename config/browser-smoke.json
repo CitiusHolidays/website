@@ -83,7 +83,7 @@
       "path": "/portal/queries",
       "profile": "sales",
       "viewport": "desktop",
-      "expectAnyText": ["All Sales Queries", "Load more", "Showing", "Queries"]
+      "expectAnyText": ["Load more", "Showing", "Queries"]
     },
     {
       "id": "contracting-proposals",

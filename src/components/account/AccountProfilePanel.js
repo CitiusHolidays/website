@@ -1,10 +1,9 @@
 "use client";
 
-import { LockKeyhole, Pencil, ShieldCheck } from "lucide-react";
+import { m } from "motion/react";
 import { useReducer } from "react";
 import { formatDisplayDate } from "@/lib/formatDate";
-import { cn } from "@/lib/utils";
-import { ProfileAlert, ProfileField, ProfileInput } from "./AccountUi";
+import { ACCOUNT_CONTAINER_VARIANTS, ProfileAlert, ProfileField, ProfileInput } from "./AccountUi";
 
 const PHONE_REGEX = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
 
@@ -14,8 +13,8 @@ function createProfileState(user) {
     isSavingProfile: false,
     profileAlert: null,
     profileForm: {
-      name: user?.name || "",
-      phoneNumber: user?.phoneNumber || "",
+      name: user.name || "",
+      phoneNumber: user.phoneNumber || "",
     },
     savedProfileData: undefined,
   };
@@ -38,8 +37,9 @@ function profileReducer(state, action) {
 export function AccountProfilePanel({ user }) {
   const [state, dispatch] = useReducer(profileReducer, user, createProfileState);
   const { savedProfileData, profileForm, isEditingProfile, isSavingProfile, profileAlert } = state;
-  const profileData = savedProfileData ?? user ?? {};
-  const memberSince = profileData.createdAt
+  const profileData = savedProfileData ?? user;
+
+  const memberSince = profileData?.createdAt
     ? formatDisplayDate(profileData.createdAt)
     : "Not available";
 
@@ -112,28 +112,22 @@ export function AccountProfilePanel({ user }) {
           name: trimmedName,
           phoneNumber: trimmedPhone,
         }),
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         method: "PUT",
       });
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        dispatch({
-          patch: {
-            isSavingProfile: false,
-            profileAlert: { message: data?.error || "Unable to update profile.", type: "error" },
-          },
-          type: "patch",
-        });
-        return;
-      }
+      const data = await response.json();
 
-      const data = await response.json().catch(() => null);
-      if (!data?.user) {
+      if (!response.ok) {
         dispatch({
           patch: {
             isSavingProfile: false,
-            profileAlert: { message: "Unable to update profile.", type: "error" },
+            profileAlert: {
+              message: data?.error || "Unable to update profile.",
+              type: "error",
+            },
           },
           type: "patch",
         });
@@ -144,12 +138,18 @@ export function AccountProfilePanel({ user }) {
         patch: {
           isEditingProfile: false,
           isSavingProfile: false,
-          profileAlert: { message: "Profile updated successfully.", type: "success" },
+          profileAlert: {
+            message: "Profile updated successfully.",
+            type: "success",
+          },
           profileForm: {
             name: data.user?.name || "",
             phoneNumber: data.user?.phoneNumber || "",
           },
-          savedProfileData: { ...profileData, ...data.user },
+          savedProfileData: {
+            ...profileData,
+            ...data.user,
+          },
         },
         type: "patch",
       });
@@ -158,7 +158,7 @@ export function AccountProfilePanel({ user }) {
         patch: {
           isSavingProfile: false,
           profileAlert: {
-            message: error instanceof Error ? error.message : "Unable to update profile.",
+            message: error.message || "Unable to update profile.",
             type: "error",
           },
         },
@@ -168,114 +168,102 @@ export function AccountProfilePanel({ user }) {
   };
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm">
-      <div className="border-slate-100 border-b p-6 sm:p-8">
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
+    <m.div
+      animate="visible"
+      className="overflow-hidden rounded-3xl bg-white shadow-[#0B1026]/5 shadow-xl"
+      exit={{ opacity: 0, y: 10 }}
+      initial="hidden"
+      key="profile"
+      variants={ACCOUNT_CONTAINER_VARIANTS}
+    >
+      <div className="border-gray-100 border-b p-8">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <p className="font-semibold text-citius-orange text-xs uppercase tracking-[0.12em]">
-              Your details
-            </p>
-            <h2 className="mt-2 font-heading text-3xl text-brand-dark">Profile</h2>
-            <p className="mt-2 max-w-xl text-pretty text-slate-600 text-sm leading-relaxed">
-              Keep your contact details current so your Citius travel team knows how to reach you.
+            <h2 className="font-heading text-3xl text-[#0B1026]">Personal Details</h2>
+            <p className="font-light text-gray-500 text-sm">
+              Update how we reach you and what shows on bookings.
             </p>
           </div>
           {isEditingProfile ? (
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-3">
               <button
-                className="inline-flex min-h-11 items-center rounded-full border border-slate-300 px-4 py-2 font-semibold text-brand-dark text-sm transition-colors duration-150 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"
+                className="rounded-full border border-gray-200 px-4 py-2 font-medium text-gray-600 text-sm transition-colors hover:bg-gray-50"
                 onClick={resetProfileForm}
                 type="button"
               >
                 Cancel
               </button>
               <button
-                className={cn(
-                  "inline-flex min-h-11 items-center rounded-full px-4 py-2 font-semibold text-sm transition-[background-color,transform] duration-150 focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2",
+                className={`rounded-full px-4 py-2 font-semibold text-sm transition-colors ${
                   isSavingProfile
-                    ? "cursor-not-allowed bg-slate-300 text-slate-600"
-                    : "bg-brand-dark text-white fine-hover:hover:-translate-y-px hover:bg-slate-800"
-                )}
+                    ? "cursor-not-allowed bg-[#0B1026]/60 text-white"
+                    : "bg-[#0B1026] text-white hover:bg-[#1a2c4e]"
+                }`}
                 disabled={isSavingProfile}
                 onClick={handleProfileSave}
                 type="button"
               >
-                {isSavingProfile ? "Saving…" : "Save changes"}
+                {isSavingProfile ? "Saving…" : "Save Changes"}
               </button>
             </div>
           ) : (
             <button
-              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-brand-dark px-4 py-2 font-semibold text-brand-dark text-sm transition-[background-color,color,transform] duration-150 fine-hover:hover:-translate-y-px hover:bg-brand-dark hover:text-white focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"
-              onClick={() =>
-                dispatch({ patch: { isEditingProfile: true, profileAlert: null }, type: "patch" })
-              }
+              className="rounded-full border border-[#0B1026] px-4 py-2 font-semibold text-[#0B1026] text-sm transition-colors hover:bg-[#0B1026] hover:text-white"
+              onClick={() => {
+                dispatch({
+                  patch: { isEditingProfile: true, profileAlert: null },
+                  type: "patch",
+                });
+              }}
               type="button"
             >
-              <Pencil aria-hidden="true" size={15} />
-              Edit details
+              Edit Details
             </button>
           )}
         </div>
-        {Boolean(profileAlert) && (
-          <ProfileAlert message={profileAlert.message} type={profileAlert.type} />
-        )}
+        {profileAlert && <ProfileAlert message={profileAlert.message} type={profileAlert.type} />}
       </div>
 
       {isEditingProfile ? (
-        <div className="grid gap-6 p-6 sm:grid-cols-2 sm:gap-x-10 sm:gap-y-8 sm:p-8">
+        <div className="grid gap-x-12 gap-y-8 p-8 md:grid-cols-2">
           <ProfileInput
-            label="Full name"
+            label="Full Name"
             onChange={(value) => handleProfileInput("name", value)}
             placeholder="Enter your full name"
             value={profileForm.name}
           />
-          <ProfileInput disabled label="Email address" value={profileData.email} />
+          <ProfileInput disabled label="Email Address" value={profileData.email} />
           <ProfileInput
-            label="Phone number"
+            label="Phone Number"
             onChange={(value) => handleProfileInput("phoneNumber", value)}
             placeholder="+1 555-123-4567"
             type="tel"
             value={profileForm.phoneNumber}
           />
-          <ProfileField label="Member since" value={memberSince} />
+          <ProfileField label="Member Since" value={memberSince} />
         </div>
       ) : (
-        <div className="grid gap-6 p-6 sm:grid-cols-2 sm:gap-x-10 sm:gap-y-8 sm:p-8">
-          <ProfileField label="Full name" value={profileData.name} />
-          <ProfileField label="Email address" value={profileData.email} />
-          <ProfileField label="Phone number" value={profileData.phoneNumber || "Not provided"} />
-          <ProfileField label="Member since" value={memberSince} />
+        <div className="grid gap-x-12 gap-y-8 p-8 md:grid-cols-2">
+          <ProfileField label="Full Name" value={profileData.name} />
+          <ProfileField label="Email Address" value={profileData.email} />
+          <ProfileField label="Phone Number" value={profileData.phoneNumber || "Not provided"} />
+          <ProfileField label="Member Since" value={memberSince} />
         </div>
       )}
 
-      <div className="grid gap-4 border-slate-100 border-t bg-slate-50 p-6 sm:grid-cols-2 sm:p-8">
-        <div className="flex items-start gap-3">
-          <ShieldCheck
-            aria-hidden="true"
-            className="mt-0.5 shrink-0 text-citius-orange"
-            size={20}
-          />
-          <div>
-            <h3 className="font-semibold text-brand-dark">Your account stays private</h3>
-            <p className="mt-1 text-pretty text-slate-600 text-sm leading-relaxed">
-              Personal details are only shown to you and the Citius team supporting your booking.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-start gap-3">
-          <LockKeyhole
-            aria-hidden="true"
-            className="mt-0.5 shrink-0 text-citius-orange"
-            size={20}
-          />
-          <div>
-            <h3 className="font-semibold text-brand-dark">Sensitive documents stay separate</h3>
-            <p className="mt-1 text-pretty text-slate-600 text-sm leading-relaxed">
-              Document sharing is handled through a separate secure process when it is available.
-            </p>
-          </div>
+      <div className="border-gray-100 border-t bg-[#f8fafc] p-8">
+        <h3 className="mb-4 font-heading text-[#0B1026] text-xl">Passport Details</h3>
+        <p className="mb-4 font-light text-gray-500 text-sm">
+          Your passport details are securely encrypted. We only decrypt them when necessary for
+          booking arrangements.
+        </p>
+        <div className="flex max-w-md items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 text-gray-500 text-sm">
+          <div className="size-2 rounded-full bg-green-500" />
+          {profileData.passportDetailsEncrypted
+            ? "Passport details on file"
+            : "No passport details provided"}
         </div>
       </div>
-    </div>
+    </m.div>
   );
 }
