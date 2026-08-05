@@ -68,9 +68,35 @@ export interface RazorpayWebhookErrorResponse {
   status: 400 | 500;
 }
 
+/** A signed request whose provider payload cannot be safely interpreted. */
+export class RazorpayWebhookPayloadError extends Error {
+  readonly code = "invalid_webhook_payload";
+
+  constructor(message: string) {
+    super(message);
+    this.name = "RazorpayWebhookPayloadError";
+  }
+}
+
+/** Server configuration is unavailable, so no payment mutation may run. */
+export class RazorpayWebhookConfigurationError extends Error {
+  readonly code = "webhook_not_configured";
+
+  constructor() {
+    super("Payment mutation secret is not configured");
+    this.name = "RazorpayWebhookConfigurationError";
+  }
+}
+
 export function mapRazorpayWebhookProcessingError(error: unknown): RazorpayWebhookErrorResponse {
   if (error instanceof SyntaxError) {
     return { body: { error: "Invalid webhook payload" }, status: 400 };
+  }
+  if (error instanceof RazorpayWebhookPayloadError) {
+    return { body: { error: error.message }, status: 400 };
+  }
+  if (error instanceof RazorpayWebhookConfigurationError) {
+    return { body: { error: "Webhook not configured" }, status: 500 };
   }
   return { body: { error: "Webhook processing failed" }, status: 500 };
 }
@@ -86,20 +112,58 @@ function webhookEventMetadata(event: string, entityId: string) {
   };
 }
 
+function requirePaymentEntity(
+  event: string,
+  payment: RazorpayPaymentEntity | undefined
+): { orderId: string; paymentId: string } {
+  const orderId = payment?.order_id;
+  const paymentId = payment?.id;
+  if (typeof orderId !== "string" || orderId.trim().length === 0) {
+    throw new RazorpayWebhookPayloadError(
+      `Invalid Razorpay webhook payload: ${event} requires payment.entity.order_id`
+    );
+  }
+  if (typeof paymentId !== "string" || paymentId.trim().length === 0) {
+    throw new RazorpayWebhookPayloadError(
+      `Invalid Razorpay webhook payload: ${event} requires payment.entity.id`
+    );
+  }
+  return { orderId, paymentId };
+}
+
+function requireRefundEntity(
+  event: string,
+  refund: RazorpayRefundEntity | undefined
+): { paymentId: string; refundId: string } {
+  const paymentId = refund?.payment_id;
+  const refundId = refund?.id;
+  if (typeof paymentId !== "string" || paymentId.trim().length === 0) {
+    throw new RazorpayWebhookPayloadError(
+      `Invalid Razorpay webhook payload: ${event} requires refund.entity.payment_id`
+    );
+  }
+  if (typeof refundId !== "string" || refundId.trim().length === 0) {
+    throw new RazorpayWebhookPayloadError(
+      `Invalid Razorpay webhook payload: ${event} requires refund.entity.id`
+    );
+  }
+  return { paymentId, refundId };
+}
+
+function requireServerSecret(deps: RazorpayWebhookDeps) {
+  const serverSecret = deps.getServerSecret();
+  if (typeof serverSecret !== "string" || serverSecret.trim().length === 0) {
+    throw new RazorpayWebhookConfigurationError();
+  }
+  return serverSecret;
+}
+
 async function handlePaymentAuthorized(
   payment: RazorpayPaymentEntity | undefined,
   deps: RazorpayWebhookDeps
 ): Promise<RazorpayWebhookResult> {
-  if (!(payment?.order_id && payment.id)) {
-    return { action: "payment.authorized.skipped-missing-payment", received: true };
-  }
-  const orderId = payment.order_id;
-  const paymentId = payment.id;
-
-  const serverSecret = deps.getServerSecret();
-  if (!serverSecret) {
-    return { action: "payment.authorized.skipped-missing-secret", received: true };
-  }
+  const { orderId, paymentId } = requirePaymentEntity("payment.authorized", payment);
+  const serverSecret = requireServerSecret(deps);
 
   await runPaymentMutation("record Razorpay payment authorization", () =>
     deps.recordPaymentAuthorized({
@@ -116,16 +180,8 @@ async function handlePaymentCaptured(
   payment: RazorpayPaymentEntity | undefined,
   deps: RazorpayWebhookDeps
 ): Promise<RazorpayWebhookResult> {
-  if (!(payment?.order_id && payment.id)) {
-    return { action: "payment.captured.skipped-missing-payment", received: true };
-  }
-  const orderId = payment.order_id;
-  const paymentId = payment.id;
-
-  const serverSecret = deps.getServerSecret();
-  if (!serverSecret) {
-    return { action: "payment.captured.skipped-missing-secret", received: true };
-  }
+  const { orderId, paymentId } = requirePaymentEntity("payment.captured", payment);
+  const serverSecret = requireServerSecret(deps);
 
   await runPaymentMutation("confirm Razorpay booking from webhook", () =>
     deps.confirmBookingByOrderId({
@@ -142,16 +198,8 @@ async function handlePaymentFailed(
   payment: RazorpayPaymentEntity | undefined,
   deps: RazorpayWebhookDeps
 ): Promise<RazorpayWebhookResult> {
-  if (!(payment?.order_id && payment.id)) {
-    return { action: "payment.failed.skipped-missing-payment", received: true };
-  }
-  const orderId = payment.order_id;
-  const paymentId = payment.id;
-
-  const serverSecret = deps.getServerSecret();
-  if (!serverSecret) {
-    return { action: "payment.failed.skipped-missing-secret", received: true };
-  }
+  const { orderId, paymentId } = requirePaymentEntity("payment.failed", payment);
+  const serverSecret = requireServerSecret(deps);
 
   await runPaymentMutation("mark Razorpay booking failed", () =>
     deps.markPaymentFailedByOrderId({
@@ -168,20 +216,13 @@ async function handleRefundCreated(
   refund: RazorpayRefundEntity | undefined,
   deps: RazorpayWebhookDeps
 ): Promise<RazorpayWebhookResult> {
-  if (!refund?.payment_id) {
-    return { action: "refund.created.skipped-missing-refund", received: true };
-  }
-  const paymentId = refund.payment_id;
-
-  const serverSecret = deps.getServerSecret();
-  if (!serverSecret) {
-    return { action: "refund.created.skipped-missing-secret", received: true };
-  }
+  const { paymentId, refundId } = requireRefundEntity("refund.created", refund);
+  const serverSecret = requireServerSecret(deps);
 
   await runPaymentMutation("mark Razorpay payment refunded", () =>
     deps.markRefundedByPaymentId({
       paymentId,
-      ...webhookEventMetadata("refund.created", refund.id ?? paymentId),
+      ...webhookEventMetadata("refund.created", refundId),
       serverSecret,
     })
   );
@@ -193,6 +234,9 @@ export async function processRazorpayWebhookEvent(
   deps: RazorpayWebhookDeps
 ): Promise<RazorpayWebhookResult> {
   const event = typeof payload.event === "string" ? payload.event : "";
+  if (!event) {
+    throw new RazorpayWebhookPayloadError("Invalid Razorpay webhook payload: event is required");
+  }
   const paymentEntity = payload.payload?.payment?.entity;
 
   switch (event) {
@@ -205,6 +249,6 @@ export async function processRazorpayWebhookEvent(
     case "refund.created":
       return await handleRefundCreated(payload.payload?.refund?.entity, deps);
     default:
-      return { action: "unhandled", received: true };
+      throw new RazorpayWebhookPayloadError(`Unsupported Razorpay webhook event: ${event}`);
   }
 }

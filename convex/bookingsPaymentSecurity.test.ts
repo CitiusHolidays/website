@@ -48,4 +48,18 @@ describe("payment mutation authorization", () => {
       expect(() => assertPaymentMutationSecret(TEST_SECRET)).not.toThrow();
     });
   });
+
+  test("rejects a whitespace-only configured server secret", () => {
+    const previous = process.env.PAYMENT_MUTATION_SECRET;
+    process.env.PAYMENT_MUTATION_SECRET = "   ";
+    try {
+      expect(() => assertPaymentMutationSecret("   ")).toThrow("Invalid payment mutation secret");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.PAYMENT_MUTATION_SECRET;
+      } else {
+        process.env.PAYMENT_MUTATION_SECRET = previous;
+      }
+    }
+  });
 });

@@ -71,8 +71,14 @@ export function validateVerifyPaymentPayload(
   };
 }
 
-export function getPaymentMutationSecret() {
-  return process.env.PAYMENT_MUTATION_SECRET ?? null;
+export function getPaymentMutationSecret(env = process.env) {
+  const secret = env.PAYMENT_MUTATION_SECRET;
+
+  // An empty/whitespace-only value is not a usable server-to-server secret.
+  // Treat it the same as an absent value so callers fail closed before making
+  // a payment mutation call. Do not trim a configured secret: the exact value
+  // must still be passed to Convex for equality checking.
+  return typeof secret === "string" && secret.trim().length > 0 ? secret : null;
 }
 
 export async function verifyPaymentRequest({

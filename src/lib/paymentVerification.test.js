@@ -94,6 +94,20 @@ describe("verifyPaymentRequest", () => {
     }
   });
 
+  test("treats a whitespace-only PAYMENT_MUTATION_SECRET as missing", () => {
+    const previous = process.env.PAYMENT_MUTATION_SECRET;
+    process.env.PAYMENT_MUTATION_SECRET = "   ";
+    try {
+      expect(getPaymentMutationSecret()).toBeNull();
+    } finally {
+      if (previous === undefined) {
+        delete process.env.PAYMENT_MUTATION_SECRET;
+      } else {
+        process.env.PAYMENT_MUTATION_SECRET = previous;
+      }
+    }
+  });
+
   test("returns 500 when booking confirmation fails after signature verification", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "server-secret";

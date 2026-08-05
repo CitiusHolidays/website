@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { mapRazorpayWebhookProcessingError, processRazorpayWebhookEvent } from "./razorpayWebhook";
+import {
+  mapRazorpayWebhookProcessingError,
+  processRazorpayWebhookEvent,
+  RazorpayWebhookConfigurationError,
+  RazorpayWebhookPayloadError,
+} from "./razorpayWebhook";
 
 describe("processRazorpayWebhookEvent", () => {
   test("confirms captured payments with the configured server secret", async () => {
@@ -41,56 +46,97 @@ describe("processRazorpayWebhookEvent", () => {
     ]);
   });
 
-  test("skips payment mutations when the server secret is missing", async () => {
+  test("fails closed when the server secret is missing", async () => {
     let called = false;
 
-    const result = await processRazorpayWebhookEvent(
-      {
-        event: "payment.failed",
-        payload: {
-          payment: {
-            entity: {
-              id: "pay_1",
-              order_id: "order_1",
+    await expect(
+      processRazorpayWebhookEvent(
+        {
+          event: "payment.failed",
+          payload: {
+            payment: {
+              entity: {
+                id: "pay_1",
+                order_id: "order_1",
+              },
             },
           },
         },
-      },
-      {
-        confirmBookingByOrderId: () => Promise.resolve({ success: true }),
-        getServerSecret: () => null,
-        markPaymentFailedByOrderId: () => {
-          called = true;
-          return Promise.resolve({ id: "booking_1" });
-        },
-        markRefundedByPaymentId: () => Promise.resolve({}),
-        recordPaymentAuthorized: () => Promise.resolve({}),
-      }
-    );
+        {
+          confirmBookingByOrderId: () => Promise.resolve({ success: true }),
+          getServerSecret: () => null,
+          markPaymentFailedByOrderId: () => {
+            called = true;
+            return Promise.resolve({ id: "booking_1" });
+          },
+          markRefundedByPaymentId: () => Promise.resolve({}),
+          recordPaymentAuthorized: () => Promise.resolve({}),
+        }
+      )
+    ).rejects.toBeInstanceOf(RazorpayWebhookConfigurationError);
 
-    expect(result).toEqual({ action: "payment.failed.skipped-missing-secret", received: true });
     expect(called).toBe(false);
   });
 
-  test("acknowledges unhandled events without calling payment mutations", async () => {
+  test("rejects unknown provider events without calling payment mutations", async () => {
     let called = false;
 
-    const result = await processRazorpayWebhookEvent(
-      { event: "subscription.charged", payload: {} },
-      {
-        confirmBookingByOrderId: () => {
-          called = true;
-          return Promise.resolve({ success: true });
-        },
-        getServerSecret: () => "server-secret",
-        markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
-        markRefundedByPaymentId: () => Promise.resolve({}),
-        recordPaymentAuthorized: () => Promise.resolve({}),
-      }
+    await expect(
+      processRazorpayWebhookEvent(
+        { event: "subscription.charged", payload: {} },
+        {
+          confirmBookingByOrderId: () => {
+            called = true;
+            return Promise.resolve({ success: true });
+          },
+          getServerSecret: () => "server-secret",
+          markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+          markRefundedByPaymentId: () => Promise.resolve({}),
+          recordPaymentAuthorized: () => Promise.resolve({}),
+        }
+      )
+    ).rejects.toEqual(
+      new RazorpayWebhookPayloadError("Unsupported Razorpay webhook event: subscription.charged")
     );
 
-    expect(result).toEqual({ action: "unhandled", received: true });
     expect(called).toBe(false);
+  });
+
+  test("rejects incomplete provider payloads without attempting a mutation", async () => {
+    let called = false;
+
+    await expect(
+      processRazorpayWebhookEvent(
+        { event: "payment.captured", payload: { payment: { entity: { id: "pay_1" } } } },
+        {
+          confirmBookingByOrderId: () => {
+            called = true;
+            return Promise.resolve({ success: true });
+          },
+          getServerSecret: () => "server-secret",
+          markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+          markRefundedByPaymentId: () => Promise.resolve({}),
+          recordPaymentAuthorized: () => Promise.resolve({}),
+        }
+      )
+    ).rejects.toThrow("payment.captured requires payment.entity.order_id");
+
+    expect(called).toBe(false);
+  });
+
+  test("rejects a missing event name before inspecting provider entities", async () => {
+    await expect(
+      processRazorpayWebhookEvent(
+        { payload: {} },
+        {
+          confirmBookingByOrderId: () => Promise.resolve({ success: true }),
+          getServerSecret: () => "server-secret",
+          markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+          markRefundedByPaymentId: () => Promise.resolve({}),
+          recordPaymentAuthorized: () => Promise.resolve({}),
+        }
+      )
+    ).rejects.toThrow("event is required");
   });
 });
 
@@ -110,6 +156,26 @@ describe("mapRazorpayWebhookProcessingError", () => {
     expect(result).toEqual({
       body: { error: "Webhook processing failed" },
       status: 500,
+    });
+  });
+
+  test("maps missing webhook configuration to a non-success response", () => {
+    const result = mapRazorpayWebhookProcessingError(new RazorpayWebhookConfigurationError());
+
+    expect(result).toEqual({
+      body: { error: "Webhook not configured" },
+      status: 500,
+    });
+  });
+
+  test("maps unknown provider payloads to a non-success response", () => {
+    const result = mapRazorpayWebhookProcessingError(
+      new RazorpayWebhookPayloadError("Unsupported Razorpay webhook event: unknown")
+    );
+
+    expect(result).toEqual({
+      body: { error: "Unsupported Razorpay webhook event: unknown" },
+      status: 400,
     });
   });
 });

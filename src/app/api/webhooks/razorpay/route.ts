@@ -41,6 +41,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
+    // The webhook signature authenticates Razorpay, but the Convex mutation
+    // still requires a separate server-to-server secret. Never acknowledge a
+    // signed provider event when that second trust boundary is unavailable.
+    if (!getPaymentMutationSecret()) {
+      console.error("PAYMENT_MUTATION_SECRET not configured");
+      return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+    }
+
     const payload = JSON.parse(rawBody) as RazorpayWebhookPayload;
     const event = typeof payload.event === "string" ? payload.event : "unknown";
     console.log(`Razorpay webhook received: ${event}`);
