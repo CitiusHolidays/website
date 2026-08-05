@@ -146,6 +146,26 @@ describe("server authentication origin", () => {
     expect(error.message).not.toContain("secret");
   });
 
+  test("classifies a malformed transport response instead of throwing a raw TypeError", async () => {
+    let error;
+    try {
+      await fetchConvexTokenFromHeaders(new Headers(), {
+        correlationId: "corr-transport",
+        fetchImpl: () => Promise.resolve({ ok: true, status: 200 }),
+        trustedOrigin: "https://travel.citius.in",
+      });
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(error).toMatchObject({
+      code: "AUTH_TOKEN_EXCHANGE_MALFORMED",
+      correlationId: "corr-transport",
+      kind: AUTH_TOKEN_EXCHANGE_KINDS.MALFORMED,
+      retryable: true,
+    });
+  });
+
   test("classifies malformed origins as configuration failures", async () => {
     await expect(
       fetchConvexTokenFromHeaders(new Headers(), {

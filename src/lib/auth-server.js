@@ -154,6 +154,15 @@ function validConvexToken(data) {
   return typeof token === "string" && token.length > 0 && token.trim() === token;
 }
 
+function validTokenResponse(response) {
+  return (
+    response &&
+    Number.isInteger(response.status) &&
+    typeof response.ok === "boolean" &&
+    typeof response.json === "function"
+  );
+}
+
 async function exchangeConvexToken({
   attempt,
   attempts,
@@ -179,6 +188,21 @@ async function exchangeConvexToken({
       });
     }
     throw transientError({ cause, correlationId });
+  }
+
+  if (!validTokenResponse(tokenResponse)) {
+    if (attempt < attempts) {
+      return exchangeConvexToken({
+        attempt: attempt + 1,
+        attempts,
+        correlationId,
+        fetchImpl,
+        requestCookie,
+        timeoutMs,
+        tokenUrl,
+      });
+    }
+    throw malformedResponseError({ correlationId });
   }
 
   // Better Auth's session middleware uses 401/403 for a missing or expired
