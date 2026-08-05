@@ -21,7 +21,9 @@ function makeCtx(profileRows: Record<string, any>[]) {
         patch: async (id: string, value: Record<string, unknown>) => {
           for (const table of Object.values(tables)) {
             const row = table.find((candidate) => candidate._id === id);
-            if (row) Object.assign(row, value);
+            if (row) {
+              Object.assign(row, value);
+            }
           }
         },
         query: (table: string) => {
@@ -29,7 +31,9 @@ function makeCtx(profileRows: Record<string, any>[]) {
           let indexed = false;
           const query = {
             collect: async () => {
-              if (table === "userProfiles" && !indexed) fullProfileScans += 1;
+              if (table === "userProfiles" && !indexed) {
+                fullProfileScans += 1;
+              }
               return rows;
             },
             unique: async () => rows[0] ?? null,

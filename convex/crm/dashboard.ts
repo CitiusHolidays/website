@@ -90,7 +90,9 @@ export async function boundedDashboardRows(
 function buildDashboardPeople(access: any, queries: any[], jobCards: any[], staff: any[]) {
   const closedSalesStatuses = new Set(["Order Confirmed", "Order Lost"]);
   const capacityByRole = staff.reduce((map, member) => {
-    if (!member.active) return map;
+    if (!member.active) {
+      return map;
+    }
     const staffId = String(member._id);
     const load =
       queries.filter(
@@ -135,7 +137,9 @@ function buildDashboardPeople(access: any, queries: any[], jobCards: any[], staf
       .slice(0, 8),
     myTeam: staff
       .filter((member) => {
-        if (!member.active) return false;
+        if (!member.active) {
+          return false;
+        }
         const accessRoles = new Set(access.roles);
         return member.roles.some((role: string) => accessRoles.has(role));
       })

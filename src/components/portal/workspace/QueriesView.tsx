@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CircleCheck, FolderOpen, Map, Pencil, Send, UsersRound } from "lucide-react";
+import { CircleCheck, FolderOpen, MapPinned as MapIcon, Pencil, Send, UsersRound } from "lucide-react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { type OptionalAction, QueryRowActions } from "@/components/portal/QueryRowActions";
@@ -165,7 +165,7 @@ function QueryActions({
       }
       type="button"
     >
-      <Map aria-hidden="true" size={14} />
+      <MapIcon aria-hidden="true" size={14} />
       <span>Reference Itinerary</span>
     </button>
   );
