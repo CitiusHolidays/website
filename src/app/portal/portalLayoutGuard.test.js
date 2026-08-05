@@ -38,6 +38,10 @@ mock.module("next/navigation", () => ({
   },
 }));
 
+mock.module("next/server", () => ({
+  connection: async () => {},
+}));
+
 mock.module("@/lib/auth-server", () => ({
   fetchAuthMutation: async (_mutation, _args, options) => {
     authOptions.push(options);

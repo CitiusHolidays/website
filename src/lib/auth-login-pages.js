@@ -1,10 +1,14 @@
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import AuthLoginPageClient from "@/components/auth/AuthLoginPageClient";
 import { formatAuthCallbackError } from "@/lib/auth-errors";
 import { getServerUser } from "@/lib/auth-server";
 import { getAuthVariant, getAuthVariantFromCallbackUrl } from "@/lib/auth-sign-in-targets";
 
 export async function createAuthLoginPage({ variantId, searchParams }) {
+  // Login pages read both callback parameters and the current session. Keep
+  // that response at request time so it cannot become a shared shell.
+  await connection();
   const params = await searchParams;
   const variant = getAuthVariant(variantId);
   const user = await getServerUser().catch(() => null);

@@ -1,5 +1,6 @@
 import { anyApi } from "convex/server";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import PortalShell from "@/components/portal/PortalShell";
 import PortalMotionThemeProvider from "@/components/providers/PortalMotionThemeProvider";
 import ReducedMotionProvider from "@/components/providers/ReducedMotionProvider";
@@ -15,6 +16,10 @@ export const metadata = {
 };
 
 export default async function PortalLayout({ children }) {
+  // Never let Cache Components produce a reusable shell for a request whose
+  // auth state comes from cookies. This intentionally blocks the segment at
+  // the request boundary instead of adding a Suspense auth shell.
+  await connection();
   const token = await getToken();
   const authOptions = { token };
   const { user } = await requireAuth("/portal", authOptions);

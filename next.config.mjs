@@ -12,6 +12,62 @@ const nextConfig = {
   // Security headers
   async headers() {
     return [
+      // Authenticated and session-aware routes must never be stored by a CDN
+      // or replayed across users. Keep this explicit even when Cache Components
+      // is enabled; request-time rendering and response caching are separate
+      // controls at the hosting edge.
+      {
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, max-age=0, must-revalidate",
+          },
+          {
+            key: "Vary",
+            value: "Cookie",
+          },
+        ],
+        source: "/portal/:path*",
+      },
+      {
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, max-age=0, must-revalidate",
+          },
+          {
+            key: "Vary",
+            value: "Cookie",
+          },
+        ],
+        source: "/account/:path*",
+      },
+      {
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, max-age=0, must-revalidate",
+          },
+          {
+            key: "Vary",
+            value: "Cookie",
+          },
+        ],
+        source: "/auth/:path*",
+      },
+      {
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, max-age=0, must-revalidate",
+          },
+          {
+            key: "Vary",
+            value: "Cookie",
+          },
+        ],
+        source: "/api/auth/:path*",
+      },
       {
         headers: [
           {
