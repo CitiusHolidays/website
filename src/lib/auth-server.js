@@ -288,7 +288,7 @@ export async function fetchConvexTokenFromHeaders(
   const requestCookie = authenticationCookieHeader(requestHeaders.get("cookie"));
   const tokenUrl = `${parsedOrigin.origin}/api/auth/convex/token`;
 
-  return exchangeConvexToken({
+  return await exchangeConvexToken({
     attempt: 1,
     attempts,
     correlationId,
