@@ -163,6 +163,7 @@ export default function Header() {
             <button
               aria-controls="public-mobile-menu"
               aria-expanded={isOpen}
+              aria-haspopup="dialog"
               aria-label={isOpen ? "Close menu" : "Open menu"}
               className={`rounded-full p-2 transition-colors lg:hidden ${
                 isScrolled ? "text-white hover:bg-white/10" : "text-white hover:bg-white/10"
