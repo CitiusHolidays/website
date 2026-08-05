@@ -14,7 +14,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "2c31b4432a785069e45d3c493721f463b6f075c1435b06cde8afbaa820f07018";
+const EXPECTED_CAPABILITY_HASH = "29b667b612caadaa9205045ed63a91da552bab485511b5ba16e04791854671cb";
 const SOURCE_EXTENSION = /\.(?:js|ts)$/;
 const NON_SOURCE_FILE = /(?:\.test|\.config)\.[jt]s$/;
 const MODULE_EXTENSION = /\.[jt]s$/;
@@ -117,7 +117,8 @@ describe("Convex capability inventory", () => {
   });
 
   test("distinguishes public, server, internal, admin, and migration capabilities", () => {
-    const classes = new Set(discoverCapabilities().map((entry) => entry.classification));
+    const capabilities = discoverCapabilities();
+    const classes = new Set(capabilities.map((entry) => entry.classification));
     expect(classes).toEqual(
       new Set<CapabilityClass>([
         "admin-only",
@@ -127,6 +128,18 @@ describe("Convex capability inventory", () => {
         "server-only",
       ])
     );
+    for (const name of [
+      "backfillSacredBharatLeaderboard",
+      "verifySacredBharatLeaderboard",
+      "getSacredBharatLeaderboardMigrationStatus",
+    ]) {
+      expect(capabilities).toContainEqual({
+        classification: "internal",
+        kind: name.startsWith("get") ? "internalQuery" : "internalMutation",
+        module: "migrations",
+        name,
+      });
+    }
   });
 
   test("server-only payment writers retain the secret guard", () => {

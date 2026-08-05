@@ -1,6 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { normalizeEmail } from "./crm/lib/staffAccess";
 import {
@@ -8,6 +9,10 @@ import {
   resolveRoomingEntryRoomType,
   resolveTravellerRoomFields,
 } from "./lib/roomTypes";
+import {
+  refreshSacredBharatLeaderboardSummary,
+  SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY,
+} from "./lib/sacredBharatLeaderboard";
 import {
   type TransitionalTravelBatchSummary,
   travelBatchCountFromSummaries,
@@ -39,6 +44,7 @@ const assertMigrationSecret = (secret: string) => {
 const TRAVEL_BATCH_MIGRATION_LIMIT = 100;
 const ROOM_TYPE_MIGRATION_KEY = "room-type-v2";
 const ROOM_TYPE_MIGRATION_LIMIT = 100;
+const SACRED_BHARAT_LEADERBOARD_MIGRATION_LIMIT = 100;
 
 const migrationStatusValidator = v.union(
   v.literal("pending"),
@@ -71,6 +77,230 @@ const roomTypeMigrationStatusValidator = v.object({
   updatedAt: v.number(),
   verified: v.boolean(),
   verifiedAt: v.union(v.number(), v.null()),
+});
+const sacredBharatLeaderboardMigrationResultValidator = v.object({
+  cursor: v.union(v.string(), v.null()),
+  legacyRemaining: v.number(),
+  processed: v.number(),
+  stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+  status: migrationStatusValidator,
+  summariesUpdated: v.number(),
+});
+const sacredBharatLeaderboardMigrationStatusValidator = v.object({
+  cursor: v.union(v.string(), v.null()),
+  key: v.string(),
+  legacyRemaining: v.number(),
+  processed: v.number(),
+  stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+  status: migrationStatusValidator,
+  updatedAt: v.number(),
+  verified: v.boolean(),
+  verifiedAt: v.union(v.number(), v.null()),
+});
+
+function boundedLeaderboardMigrationLimit(limit?: number) {
+  return Math.min(
+    Math.max(Math.trunc(limit ?? SACRED_BHARAT_LEADERBOARD_MIGRATION_LIMIT), 1),
+    SACRED_BHARAT_LEADERBOARD_MIGRATION_LIMIT
+  );
+}
+
+async function getSacredBharatLeaderboardMigration(ctx: MutationCtx | QueryCtx) {
+  return await ctx.db
+    .query("dataMigrationRegistry")
+    .withIndex("by_key", (q) => q.eq("key", SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY))
+    .unique();
+}
+
+export const backfillSacredBharatLeaderboard = internalMutation({
+  args: {
+    limit: v.optional(v.number()),
+    secret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertMigrationSecret(args.secret);
+    const limit = boundedLeaderboardMigrationLimit(args.limit);
+    const timestamp = Date.now();
+    let registry = await getSacredBharatLeaderboardMigration(ctx);
+
+    if (registry?.status === "verified") {
+      return {
+        cursor: null,
+        legacyRemaining: 0,
+        processed: 0,
+        stage: "complete" as const,
+        status: "verified" as const,
+        summariesUpdated: 0,
+      };
+    }
+    if (registry?.stage === "verify" && registry.status === "running") {
+      return {
+        cursor: registry.cursor,
+        legacyRemaining: registry.legacyRemaining,
+        processed: 0,
+        stage: "verify" as const,
+        status: "running" as const,
+        summariesUpdated: 0,
+      };
+    }
+
+    if (!registry) {
+      const id = await ctx.db.insert("dataMigrationRegistry", {
+        converted: 0,
+        cursor: null,
+        key: SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY,
+        legacyRemaining: 0,
+        processed: 0,
+        stage: "backfill",
+        startedAt: timestamp,
+        status: "running",
+        updatedAt: timestamp,
+      });
+      registry = await ctx.db.get(id);
+    } else if (registry.status === "failed") {
+      await ctx.db.patch(registry._id, {
+        converted: 0,
+        cursor: null,
+        legacyRemaining: 0,
+        processed: 0,
+        stage: "backfill",
+        startedAt: timestamp,
+        status: "running",
+        updatedAt: timestamp,
+        verifiedAt: undefined,
+      });
+      registry = await ctx.db.get(registry._id);
+    }
+    if (!registry) {
+      throw new ConvexError("Unable to initialize Sacred Bharat leaderboard migration");
+    }
+
+    const page = await ctx.db
+      .query("sacredBharatVisits")
+      .order("asc")
+      .paginate({ cursor: registry.cursor, numItems: limit });
+    const authUserIds = [...new Set(page.page.map((visit) => visit.authUserId))];
+    await Promise.all(
+      authUserIds.map(async (authUserId) => {
+        await refreshSacredBharatLeaderboardSummary(ctx, authUserId, timestamp);
+      })
+    );
+
+    const stage = page.isDone ? ("verify" as const) : ("backfill" as const);
+    const cursor = page.isDone ? null : page.continueCursor;
+    await ctx.db.patch(registry._id, {
+      converted: registry.converted + authUserIds.length,
+      cursor,
+      legacyRemaining: 0,
+      processed: page.isDone ? 0 : registry.processed + page.page.length,
+      stage,
+      status: "running",
+      updatedAt: timestamp,
+    });
+    return {
+      cursor,
+      legacyRemaining: 0,
+      processed: page.page.length,
+      stage,
+      status: "running" as const,
+      summariesUpdated: authUserIds.length,
+    };
+  },
+  returns: sacredBharatLeaderboardMigrationResultValidator,
+});
+
+export const verifySacredBharatLeaderboard = internalMutation({
+  args: {
+    limit: v.optional(v.number()),
+    secret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertMigrationSecret(args.secret);
+    const limit = boundedLeaderboardMigrationLimit(args.limit);
+    const timestamp = Date.now();
+    const registry = await getSacredBharatLeaderboardMigration(ctx);
+    if (!registry) {
+      throw new ConvexError("Run the Sacred Bharat leaderboard backfill first");
+    }
+    if (registry.status === "verified") {
+      return {
+        cursor: null,
+        legacyRemaining: 0,
+        processed: 0,
+        stage: "complete" as const,
+        status: "verified" as const,
+        summariesUpdated: 0,
+      };
+    }
+    if (registry.stage !== "verify" || registry.status === "failed") {
+      throw new ConvexError("Sacred Bharat leaderboard backfill is not ready for verification");
+    }
+
+    const page = await ctx.db
+      .query("sacredBharatVisits")
+      .order("asc")
+      .paginate({ cursor: registry.cursor, numItems: limit });
+    const authUserIds = [...new Set(page.page.map((visit) => visit.authUserId))];
+    const summaries = await Promise.all(
+      authUserIds.map(
+        async (authUserId) =>
+          await ctx.db
+            .query("sacredBharatLeaderboardSummaries")
+            .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+            .unique()
+      )
+    );
+    const legacyRemaining =
+      registry.legacyRemaining + summaries.filter((summary) => summary === null).length;
+    let status: "failed" | "running" | "verified" = "running";
+    if (page.isDone) {
+      status = legacyRemaining === 0 ? "verified" : "failed";
+    }
+    const stage = status === "verified" ? ("complete" as const) : ("verify" as const);
+    const cursor = page.isDone ? null : page.continueCursor;
+    await ctx.db.patch(registry._id, {
+      cursor,
+      legacyRemaining,
+      processed: registry.processed + page.page.length,
+      stage,
+      status,
+      updatedAt: timestamp,
+      ...(status === "verified" ? { verifiedAt: timestamp } : {}),
+    });
+    return {
+      cursor,
+      legacyRemaining,
+      processed: page.page.length,
+      stage,
+      status,
+      summariesUpdated: 0,
+    };
+  },
+  returns: sacredBharatLeaderboardMigrationResultValidator,
+});
+
+export const getSacredBharatLeaderboardMigrationStatus = internalQuery({
+  args: { secret: v.string() },
+  handler: async (ctx, args) => {
+    assertMigrationSecret(args.secret);
+    const registry = await getSacredBharatLeaderboardMigration(ctx);
+    const status = registry?.status ?? "pending";
+    const stage: "backfill" | "complete" | "verify" =
+      registry?.stage === "verify" || registry?.stage === "complete" ? registry.stage : "backfill";
+    const legacyRemaining = registry?.legacyRemaining ?? 0;
+    return {
+      cursor: registry?.cursor ?? null,
+      key: SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY,
+      legacyRemaining,
+      processed: registry?.processed ?? 0,
+      stage,
+      status,
+      updatedAt: registry?.updatedAt ?? 0,
+      verified: status === "verified" && stage === "complete" && legacyRemaining === 0,
+      verifiedAt: registry?.verifiedAt ?? null,
+    };
+  },
+  returns: sacredBharatLeaderboardMigrationStatusValidator,
 });
 
 export const auditTravelBatchSummaries = internalQuery({
@@ -366,7 +596,7 @@ export const migrateRoomTypes = internalMutation({
     }
 
     let stage = existing?.stage === "roomingListEntries" ? "roomingListEntries" : "travellers";
-    let cursor = args.cursor !== undefined ? args.cursor : (existing?.cursor ?? null);
+    let cursor = args.cursor === undefined ? (existing?.cursor ?? null) : args.cursor;
     const startedAt = existing?.startedAt ?? now;
     let converted = existing?.converted ?? 0;
     let processed = existing?.processed ?? 0;

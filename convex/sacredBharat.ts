@@ -11,6 +11,10 @@ import {
   normalizeInviteCode,
 } from "./lib/sacredBharatInvites";
 import {
+  refreshSacredBharatLeaderboardSummary,
+  SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY,
+} from "./lib/sacredBharatLeaderboard";
+import {
   computeProgressSummary,
   computeScore,
   getLevelForScore,
@@ -112,40 +116,6 @@ async function getPassportProfileForUser(ctx: QueryCtx | MutationCtx, authUserId
     .unique();
 }
 
-/** Refresh one compact leaderboard row after a visit/profile mutation. */
-async function refreshLeaderboardSummary(ctx: MutationCtx, authUserId: string, updatedAt = now()) {
-  const [visits, passport, profile, existing] = await Promise.all([
-    getVisitsForUser(ctx, authUserId),
-    getPassportProfileForUser(ctx, authUserId),
-    ctx.db
-      .query("userProfiles")
-      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
-      .unique(),
-    ctx.db
-      .query("sacredBharatLeaderboardSummaries")
-      .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
-      .unique(),
-  ]);
-  const summary = computeProgressSummary(visits.map((visit) => visit.templeId));
-  const payload = {
-    authUserId,
-    completedTrailCount: summary.completedTrailCount,
-    displayName: passport?.displayName || profile?.name || "Sacred Yatri",
-    levelSlug: summary.levelSlug,
-    levelTitle: summary.levelTitle,
-    optedOut: profile?.sacredBharatLeaderboardOptOut === true,
-    passportSlug: passport?.isPublic ? passport.slug : null,
-    score: summary.score,
-    templeCount: summary.templeCount,
-    updatedAt,
-  };
-  if (existing) {
-    await ctx.db.patch(existing._id, payload);
-  } else {
-    await ctx.db.insert("sacredBharatLeaderboardSummaries", payload);
-  }
-}
-
 async function buildGroupMemberSummary(ctx: QueryCtx, authUserId: string) {
   const materialized = await ctx.db
     .query("sacredBharatLeaderboardSummaries")
@@ -225,7 +195,7 @@ export const markTempleVisited = mutation({
       });
     }
 
-    await refreshLeaderboardSummary(ctx, identity.subject);
+    await refreshSacredBharatLeaderboardSummary(ctx, identity.subject);
 
     return await buildProgressPayload(ctx, identity.subject);
   },
@@ -292,7 +262,7 @@ export const upsertMyPassportProfile = mutation({
     };
     if (existing) {
       await ctx.db.patch(existing._id, patch);
-      await refreshLeaderboardSummary(ctx, identity.subject, timestamp);
+      await refreshSacredBharatLeaderboardSummary(ctx, identity.subject, timestamp);
       return { id: existing._id, slug };
     }
     const id = await ctx.db.insert("sacredBharatProfiles", {
@@ -300,7 +270,7 @@ export const upsertMyPassportProfile = mutation({
       ...patch,
       createdAt: timestamp,
     });
-    await refreshLeaderboardSummary(ctx, identity.subject, timestamp);
+    await refreshSacredBharatLeaderboardSummary(ctx, identity.subject, timestamp);
     return { id, slug };
   },
   returns: passportProfileIdResultValidator,
@@ -322,7 +292,7 @@ export const unmarkTempleVisited = mutation({
       await ctx.db.delete(existing._id);
     }
 
-    await refreshLeaderboardSummary(ctx, identity.subject);
+    await refreshSacredBharatLeaderboardSummary(ctx, identity.subject);
 
     return await buildProgressPayload(ctx, identity.subject);
   },
@@ -351,7 +321,7 @@ export const mergeGuestProgress = mutation({
       { createdAt: timestamp, visitedAt: timestamp }
     );
 
-    await refreshLeaderboardSummary(ctx, identity.subject, timestamp);
+    await refreshSacredBharatLeaderboardSummary(ctx, identity.subject, timestamp);
 
     return await buildProgressPayload(ctx, identity.subject);
   },
@@ -385,7 +355,7 @@ export const toggleWishlistItem = mutation({
       });
     }
 
-    await refreshLeaderboardSummary(ctx, identity.subject);
+    await refreshSacredBharatLeaderboardSummary(ctx, identity.subject);
 
     return await buildProgressPayload(ctx, identity.subject);
   },
@@ -410,7 +380,7 @@ export const setLeaderboardOptOut = mutation({
       sacredBharatLeaderboardOptOut: args.optOut,
       updatedAt,
     });
-    await refreshLeaderboardSummary(ctx, identity.subject, updatedAt);
+    await refreshSacredBharatLeaderboardSummary(ctx, identity.subject, updatedAt);
 
     return { optOut: args.optOut };
   },
@@ -438,36 +408,45 @@ const isLeaderboardOptedOut = async (ctx: QueryCtx, authUserId: string) => {
 };
 
 async function buildLeaderboardEntries(ctx: QueryCtx) {
-  const materialized = await ctx.db
-    .query("sacredBharatLeaderboardSummaries")
-    .withIndex("by_score")
-    .order("desc")
-    .collect();
-  if (materialized.length > 0) {
-    return materialized
-      .filter((entry) => !entry.optedOut && entry.templeCount > 0)
-      .map((entry) => ({
-        authUserId: entry.authUserId,
-        completedTrailCount: entry.completedTrailCount,
-        displayName: entry.displayName,
-        levelSlug: entry.levelSlug,
-        levelTitle: entry.levelTitle,
-        passportSlug: entry.passportSlug,
-        score: entry.score,
-        templeCount: entry.templeCount,
-      }))
-      .sort(
-        (a, b) =>
-          b.score - a.score ||
-          b.templeCount - a.templeCount ||
-          a.displayName.localeCompare(b.displayName)
-      );
+  const [materialized, readiness] = await Promise.all([
+    ctx.db.query("sacredBharatLeaderboardSummaries").withIndex("by_score").order("desc").collect(),
+    ctx.db
+      .query("dataMigrationRegistry")
+      .withIndex("by_key", (q) => q.eq("key", SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY))
+      .unique(),
+  ]);
+  const materializedEntries = materialized
+    .filter((entry) => !entry.optedOut && entry.templeCount > 0)
+    .map((entry) => ({
+      authUserId: entry.authUserId,
+      completedTrailCount: entry.completedTrailCount,
+      displayName: entry.displayName,
+      levelSlug: entry.levelSlug,
+      levelTitle: entry.levelTitle,
+      passportSlug: entry.passportSlug,
+      score: entry.score,
+      templeCount: entry.templeCount,
+    }));
+  const sortEntries = <T extends { displayName: string; score: number; templeCount: number }>(
+    rowsToSort: T[]
+  ) =>
+    rowsToSort.sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.templeCount - a.templeCount ||
+        a.displayName.localeCompare(b.displayName)
+    );
+  if (
+    readiness?.status === "verified" &&
+    readiness.stage === "complete" &&
+    readiness.legacyRemaining === 0
+  ) {
+    return sortEntries(materializedEntries);
   }
 
-  // Compatibility path for existing deployments before the backfill has
-  // populated summary rows. New writes create a materialized row, so this
-  // bounded fallback disappears naturally as users return.
-  const allVisits = await ctx.db.query("sacredBharatVisits").take(5000);
+  // Compatibility path remains authoritative until a separate residual scan
+  // proves every participant has a materialized summary.
+  const allVisits = await ctx.db.query("sacredBharatVisits").collect();
   const byUser = new Map<string, Set<string>>();
 
   for (const visit of allVisits) {
@@ -514,17 +493,13 @@ async function buildLeaderboardEntries(ctx: QueryCtx) {
     }
   }
 
-  entries.sort((a, b) => {
-    if (b.score !== a.score) {
-      return b.score - a.score;
+  const merged = new Map(materializedEntries.map((entry) => [entry.authUserId, entry]));
+  for (const entry of entries) {
+    if (!merged.has(entry.authUserId)) {
+      merged.set(entry.authUserId, entry);
     }
-    if (b.templeCount !== a.templeCount) {
-      return b.templeCount - a.templeCount;
-    }
-    return a.displayName.localeCompare(b.displayName);
-  });
-
-  return entries;
+  }
+  return sortEntries([...merged.values()]);
 }
 
 export const getLeaderboard = query({
