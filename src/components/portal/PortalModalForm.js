@@ -26,12 +26,13 @@ const QUERY_ATTACHMENT_ACCEPT =
   ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.webp,.gif";
 
 async function uploadEntityFiles({ entityId, idField, files, generateUploadUrl, attachFile }) {
+  const uploadArgs = { [idField]: entityId };
   await Promise.all(
     files.map(async (file) => {
       if (file.size > MAX_QUERY_ATTACHMENT_BYTES) {
         throw new Error(`${file.name} exceeds the 15 MB limit.`);
       }
-      const uploadUrl = await generateUploadUrl({});
+      const uploadUrl = await generateUploadUrl(uploadArgs);
       const uploadRes = await fetch(uploadUrl, {
         body: file,
         headers: { "Content-Type": file.type || "application/octet-stream" },
@@ -395,7 +396,7 @@ function FinalizedProposalPdfPanel({
     setUploadError("");
     let nextUploadError = "";
     try {
-      const uploadUrl = await generateFinalizedPdfUploadUrl({});
+      const uploadUrl = await generateFinalizedPdfUploadUrl({ proposalId });
       const uploadRes = await fetch(uploadUrl, {
         body: file,
         headers: { "Content-Type": file.type || "application/pdf" },

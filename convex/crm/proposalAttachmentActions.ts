@@ -31,6 +31,21 @@ function isAllowedMimeType(mimeType: string) {
   return isAllowedAttachmentMimeType(mimeType, ALLOWED_MIME_PREFIXES);
 }
 
+/**
+ * Clean rejected uploads only when the blob is not referenced by any file
+ * record.  This keeps the validation path fail-closed without allowing a
+ * malformed retry to delete an existing proposal document.
+ */
+async function cleanupUnreferencedUpload(ctx: any, storageId: string) {
+  try {
+    await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
+      storageId,
+    });
+  } catch (error) {
+    console.error("Failed to clean up rejected proposal attachment upload:", error);
+  }
+}
+
 function canManageProposalFiles(access: any) {
   return (
     access?.allowed &&
@@ -69,10 +84,25 @@ async function buildDownloadFile(
 }
 
 export const generateUploadUrl = action({
-  args: {},
-  handler: async (ctx) => {
+  args: { proposalId: v.string() },
+  handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     if (!canManageProposalFiles(access)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const normalizedProposalId = await ctx.runMutation(
+      internal.crm.proposalAttachments.resolveProposalId,
+      { proposalId: args.proposalId }
+    );
+    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
+      entityId: String(normalizedProposalId),
+      entryPoint: "proposal",
+      limit: 1,
+    });
+    const writableProposal = sourceResult.writableSources.find(
+      (source) => source.sourceType === "proposal" && source.id === String(normalizedProposalId)
+    );
+    if (!writableProposal?.teamAreas.includes("contracting")) {
       throw new ConvexError("FORBIDDEN");
     }
     return await ctx.storage.generateUploadUrl();
@@ -105,10 +135,11 @@ export const attachFile = action({
     const writableProposal = sourceResult.writableSources.find(
       (source) => source.sourceType === "proposal" && source.id === String(normalizedProposalId)
     );
-    if (!(writableProposal && writableProposal.teamAreas.includes("contracting"))) {
+    if (!writableProposal?.teamAreas.includes("contracting")) {
       throw new ConvexError("FORBIDDEN");
     }
     if (!isAllowedMimeType(args.mimeType)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
@@ -120,36 +151,44 @@ export const attachFile = action({
     }
     const actualMimeType = resolveStorageMimeType(blob.type, args.mimeType);
     if (!storageMimeTypeMatchesClaim(blob.type, args.mimeType)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError("Uploaded file type does not match its declared MIME type.");
     }
     if (!isAllowedMimeType(actualMimeType)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
     if (!isExactAttachmentSize(blob.size, args.fileSize)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError("Each file must be between 1 byte and 15 MB.");
     }
 
-    await ctx.runMutation(internal.crm.commercialFiles.createFile, {
-      accessAuthUserId: access.authUserId || "unknown",
-      accessEmail: access.email,
-      accessName: access.name,
-      accessPermissions: access.permissions,
-      accessRoles: access.roles,
-      accessStaffId: access.staffId ? String(access.staffId) : undefined,
-      category: "workingFile",
-      createdBy: access.authUserId || access.email || "unknown",
-      fileName: args.fileName.trim() || "proposal attachment",
-      fileSize: blob.size,
-      mimeType: normalizeMimeType(actualMimeType),
-      proposalId: String(normalizedProposalId),
-      sourceId: String(normalizedProposalId),
-      sourceType: "proposal",
-      storageId: args.storageId,
-      teamArea: "contracting",
-      uploaderTeam: access.roles.join(", ") || "Contracting",
-    });
+    try {
+      await ctx.runMutation(internal.crm.commercialFiles.createFile, {
+        accessAuthUserId: access.authUserId || "unknown",
+        accessEmail: access.email,
+        accessName: access.name,
+        accessPermissions: access.permissions,
+        accessRoles: access.roles,
+        accessStaffId: access.staffId ? String(access.staffId) : undefined,
+        category: "workingFile",
+        createdBy: access.authUserId || access.email || "unknown",
+        fileName: args.fileName.trim() || "proposal attachment",
+        fileSize: blob.size,
+        mimeType: normalizeMimeType(actualMimeType),
+        proposalId: String(normalizedProposalId),
+        sourceId: String(normalizedProposalId),
+        sourceType: "proposal",
+        storageId: args.storageId,
+        teamArea: "contracting",
+        uploaderTeam: access.roles.join(", ") || "Contracting",
+      });
+    } catch (error) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
+      throw error;
+    }
 
     return { success: true };
   },
@@ -253,10 +292,25 @@ export const removeAttachment = action({
 });
 
 export const generateFinalizedPdfUploadUrl = action({
-  args: {},
-  handler: async (ctx) => {
+  args: { proposalId: v.string() },
+  handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     if (!canSendProposalFiles(access)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const normalizedProposalId = await ctx.runMutation(
+      internal.crm.proposalAttachments.resolveProposalId,
+      { proposalId: args.proposalId }
+    );
+    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
+      entityId: String(normalizedProposalId),
+      entryPoint: "proposal",
+      limit: 1,
+    });
+    const writableProposal = sourceResult.writableSources.find(
+      (source) => source.sourceType === "proposal" && source.id === String(normalizedProposalId)
+    );
+    if (!writableProposal?.teamAreas.includes("contracting")) {
       throw new ConvexError("FORBIDDEN");
     }
     return await ctx.storage.generateUploadUrl();
@@ -289,10 +343,11 @@ export const attachFinalizedPdf = action({
     const writableProposal = sourceResult.writableSources.find(
       (source) => source.sourceType === "proposal" && source.id === String(normalizedProposalId)
     );
-    if (!(writableProposal && writableProposal.teamAreas.includes("contracting"))) {
+    if (!writableProposal?.teamAreas.includes("contracting")) {
       throw new ConvexError("FORBIDDEN");
     }
     if (!isPdfMimeType(args.mimeType)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError("Only PDF files can be uploaded as the finalized proposal.");
     }
 
@@ -302,34 +357,42 @@ export const attachFinalizedPdf = action({
     }
     const actualMimeType = resolveStorageMimeType(blob.type, args.mimeType);
     if (!storageMimeTypeMatchesClaim(blob.type, args.mimeType)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError("Uploaded file type does not match its declared MIME type.");
     }
     if (!isPdfMimeType(actualMimeType)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError("Only PDF files can be uploaded as the finalized proposal.");
     }
     if (!isExactAttachmentSize(blob.size, args.fileSize)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError("The PDF must be between 1 byte and 15 MB.");
     }
 
-    await ctx.runMutation(internal.crm.commercialFiles.createFile, {
-      accessAuthUserId: access.authUserId || "unknown",
-      accessEmail: access.email,
-      accessName: access.name,
-      accessPermissions: access.permissions,
-      accessRoles: access.roles,
-      accessStaffId: access.staffId ? String(access.staffId) : undefined,
-      category: "proposalDoc",
-      createdBy: access.authUserId || "unknown",
-      fileName: args.fileName.trim() || "proposal.pdf",
-      fileSize: blob.size,
-      mimeType: normalizeMimeType(actualMimeType),
-      proposalId: String(normalizedProposalId),
-      sourceId: String(normalizedProposalId),
-      sourceType: "proposal",
-      storageId: args.storageId,
-      teamArea: "contracting",
-      uploaderTeam: access.roles.join(", ") || "Contracting",
-    });
+    try {
+      await ctx.runMutation(internal.crm.commercialFiles.createFile, {
+        accessAuthUserId: access.authUserId || "unknown",
+        accessEmail: access.email,
+        accessName: access.name,
+        accessPermissions: access.permissions,
+        accessRoles: access.roles,
+        accessStaffId: access.staffId ? String(access.staffId) : undefined,
+        category: "proposalDoc",
+        createdBy: access.authUserId || "unknown",
+        fileName: args.fileName.trim() || "proposal.pdf",
+        fileSize: blob.size,
+        mimeType: normalizeMimeType(actualMimeType),
+        proposalId: String(normalizedProposalId),
+        sourceId: String(normalizedProposalId),
+        sourceType: "proposal",
+        storageId: args.storageId,
+        teamArea: "contracting",
+        uploaderTeam: access.roles.join(", ") || "Contracting",
+      });
+    } catch (error) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
+      throw error;
+    }
 
     return { success: true };
   },

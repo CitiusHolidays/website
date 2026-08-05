@@ -30,6 +30,23 @@ function isAllowedMimeType(mimeType: string) {
   return isAllowedAttachmentMimeType(mimeType, ALLOWED_MIME_PREFIXES);
 }
 
+/**
+ * Rejecting an upload must not leave an unreferenced blob in Convex Storage.
+ * Check every attachment owner first so a retry that names an existing blob
+ * cannot delete a document that another record already uses.  Cleanup is
+ * best-effort: the original validation/authorization error remains the one
+ * returned to the caller and the scheduled orphan sweep can retry later.
+ */
+async function cleanupUnreferencedUpload(ctx: any, storageId: string) {
+  try {
+    await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
+      storageId,
+    });
+  } catch (error) {
+    console.error("Failed to clean up rejected query attachment upload:", error);
+  }
+}
+
 async function buildDownloadFile(
   ctx: any,
   record: {
@@ -52,10 +69,24 @@ async function buildDownloadFile(
 }
 
 export const generateUploadUrl = action({
-  args: {},
-  handler: async (ctx) => {
+  args: { queryId: v.string() },
+  handler: async (ctx, args) => {
     const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
     if (!(access?.allowed && access.permissions.includes(PERMISSIONS.MANAGE_QUERIES))) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const normalizedQueryId = await ctx.runMutation(internal.crm.queryAttachments.resolveQueryId, {
+      queryId: args.queryId,
+    });
+    const sourceResult = await ctx.runQuery(api.crm.commercialFiles.listForEntryPoint, {
+      entityId: String(normalizedQueryId),
+      entryPoint: "query",
+      limit: 1,
+    });
+    const writableQuery = sourceResult.writableSources.find(
+      (source) => source.sourceType === "query" && source.id === String(normalizedQueryId)
+    );
+    if (!writableQuery?.teamAreas.includes("sales")) {
       throw new ConvexError("FORBIDDEN");
     }
     return await ctx.storage.generateUploadUrl();
@@ -91,6 +122,7 @@ export const attachFile = action({
       throw new ConvexError("FORBIDDEN");
     }
     if (!isAllowedMimeType(args.mimeType)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
@@ -102,25 +134,33 @@ export const attachFile = action({
     }
     const actualMimeType = resolveStorageMimeType(blob.type, args.mimeType);
     if (!storageMimeTypeMatchesClaim(blob.type, args.mimeType)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError("Uploaded file type does not match its declared MIME type.");
     }
     if (!isAllowedMimeType(actualMimeType)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
     if (!isExactAttachmentSize(blob.size, args.fileSize)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError("Each file must be between 1 byte and 15 MB.");
     }
 
-    await ctx.runMutation(internal.crm.queryAttachments.saveAttachment, {
-      createdBy: access.authUserId || "unknown",
-      fileName: args.fileName.trim() || "attachment",
-      fileSize: blob.size,
-      mimeType: normalizeMimeType(actualMimeType),
-      queryId: normalizedQueryId,
-      storageId: args.storageId,
-    });
+    try {
+      await ctx.runMutation(internal.crm.queryAttachments.saveAttachment, {
+        createdBy: access.authUserId || "unknown",
+        fileName: args.fileName.trim() || "attachment",
+        fileSize: blob.size,
+        mimeType: normalizeMimeType(actualMimeType),
+        queryId: normalizedQueryId,
+        storageId: args.storageId,
+      });
+    } catch (error) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
+      throw error;
+    }
 
     return { success: true };
   },

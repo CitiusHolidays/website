@@ -73,6 +73,16 @@ function canUploadCommercialFiles(
   );
 }
 
+async function cleanupUnreferencedUpload(ctx: any, storageId: string) {
+  try {
+    await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
+      storageId,
+    });
+  } catch (error) {
+    console.error("Failed to clean up rejected commercial upload:", error);
+  }
+}
+
 export const generateUploadUrl = action({
   args: {
     category: categoryValidator,
@@ -148,11 +158,13 @@ export const uploadFile = action({
       throw new ConvexError("FORBIDDEN");
     }
     if (!isAllowedMimeType(args.mimeType)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
     if (args.category === "proposalDoc" && args.teamArea !== "contracting") {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError(
         "Proposal Docs can only be uploaded to the Contracting Team File Area."
       );
@@ -163,44 +175,52 @@ export const uploadFile = action({
     }
     const actualMimeType = blob.type?.trim() || args.mimeType.trim();
     if (!isAllowedMimeType(actualMimeType)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
     if (args.category === "proposalDoc" && !isPdfMimeType(actualMimeType)) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError("Proposal Docs must be PDF files.");
     }
     if (blob.size < 1 || blob.size > MAX_FILE_BYTES || blob.size !== args.fileSize) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
       throw new ConvexError("Each file must be between 1 byte and 15 MB.");
     }
-    await ctx.runMutation(internal.crm.commercialFiles.claimUploadSession, {
-      accessAuthUserId: access.authUserId || access.email,
-      category: args.category,
-      sourceId: args.sourceId,
-      sourceType: args.sourceType,
-      storageId: args.storageId,
-      teamArea: args.teamArea,
-      token: args.uploadToken,
-    });
-    await ctx.runMutation(internal.crm.commercialFiles.createFile, {
-      accessAuthUserId: access.authUserId || "unknown",
-      accessEmail: access.email,
-      accessName: access.name,
-      accessPermissions: access.permissions,
-      accessRoles: access.roles,
-      accessStaffId: access.staffId ? String(access.staffId) : undefined,
-      category: args.category,
-      createdBy: access.authUserId || access.email || "unknown",
-      fileName: args.fileName.trim() || "commercial file",
-      fileSize: blob.size,
-      mimeType: actualMimeType,
-      note: args.note,
-      sourceId: args.sourceId,
-      sourceType: args.sourceType,
-      storageId: args.storageId,
-      teamArea: args.teamArea,
-      uploaderTeam: access.roles.join(", ") || "Portal user",
-    });
+    try {
+      await ctx.runMutation(internal.crm.commercialFiles.claimUploadSession, {
+        accessAuthUserId: access.authUserId || access.email,
+        category: args.category,
+        sourceId: args.sourceId,
+        sourceType: args.sourceType,
+        storageId: args.storageId,
+        teamArea: args.teamArea,
+        token: args.uploadToken,
+      });
+      await ctx.runMutation(internal.crm.commercialFiles.createFile, {
+        accessAuthUserId: access.authUserId || "unknown",
+        accessEmail: access.email,
+        accessName: access.name,
+        accessPermissions: access.permissions,
+        accessRoles: access.roles,
+        accessStaffId: access.staffId ? String(access.staffId) : undefined,
+        category: args.category,
+        createdBy: access.authUserId || access.email || "unknown",
+        fileName: args.fileName.trim() || "commercial file",
+        fileSize: blob.size,
+        mimeType: actualMimeType,
+        note: args.note,
+        sourceId: args.sourceId,
+        sourceType: args.sourceType,
+        storageId: args.storageId,
+        teamArea: args.teamArea,
+        uploaderTeam: access.roles.join(", ") || "Portal user",
+      });
+    } catch (error) {
+      await cleanupUnreferencedUpload(ctx, args.storageId);
+      throw error;
+    }
     return { success: true };
   },
   returns: v.object({ success: v.boolean() }),

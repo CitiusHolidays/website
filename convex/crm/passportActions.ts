@@ -62,6 +62,55 @@ function encryptPassportPayload(buffer: Buffer) {
   }
 }
 
+function passportUploadValidationError(
+  fileBlob: Blob,
+  args: { fileSize?: number; mimeType: string; fileName: string }
+) {
+  const resolvedMimeType = inferPassportMimeType(args.fileName, args.mimeType);
+  if (!isAllowedPassportMimeType(resolvedMimeType)) {
+    return {
+      message: "Passport scans must be PDF, JPEG, PNG, or WebP files.",
+      resolvedMimeType,
+    };
+  }
+  const actualSize = fileBlob.size ?? args.fileSize ?? 0;
+  if (actualSize < 1 || actualSize > MAX_PASSPORT_FILE_BYTES) {
+    return {
+      message: "Passport scans must be between 1 byte and 15 MB.",
+      resolvedMimeType,
+    };
+  }
+  return { message: null, resolvedMimeType };
+}
+
+function encryptPassportDetailsPayload(args: {
+  dateOfBirth?: string;
+  expiryDate?: string;
+  nationality?: string;
+  number?: string;
+}) {
+  if (args.number && args.expiryDate && args.nationality && args.dateOfBirth) {
+    return {
+      encryptedPayload: encryptPassportDetails({
+        dateOfBirth: args.dateOfBirth,
+        expiryDate: args.expiryDate,
+        nationality: args.nationality,
+        number: args.number,
+      }),
+      lastFour: args.number.trim().slice(-4),
+    };
+  }
+  return {
+    encryptedPayload: encryptPassportDetails({
+      dateOfBirth: "UNKNOWN",
+      expiryDate: "UNKNOWN",
+      nationality: "UNKNOWN",
+      number: "UNKNOWN",
+    }),
+    lastFour: "",
+  };
+}
+
 export const generateUploadUrl = action({
   args: {
     travellerId: v.string(),
@@ -111,54 +160,31 @@ export const encryptAndStorePassport = action({
     const cleanupTempUpload = async () => {
       try {
         await ctx.storage.delete(args.tempStorageId);
-      } catch {
-        // ignore cleanup errors
+      } catch (error) {
+        // Cleanup is best effort.  Do not replace the validation/processing
+        // error with a storage-provider error; the scheduled orphan sweep can
+        // retry a transient delete failure.
+        console.error("Failed to delete temporary passport upload:", error);
       }
     };
 
-    const resolvedMimeType = inferPassportMimeType(args.fileName, args.mimeType);
-    if (!isAllowedPassportMimeType(resolvedMimeType)) {
+    const validation = passportUploadValidationError(fileBlob, args);
+    if (validation.message) {
       await cleanupTempUpload();
-      throw new ConvexError("Passport scans must be PDF, JPEG, PNG, or WebP files.");
+      throw new ConvexError(validation.message);
     }
+    const { resolvedMimeType } = validation;
 
-    const actualSize = fileBlob.size ?? args.fileSize ?? 0;
-    if (actualSize < 1 || actualSize > MAX_PASSPORT_FILE_BYTES) {
-      await cleanupTempUpload();
-      throw new ConvexError("Passport scans must be between 1 byte and 15 MB.");
-    }
-
-    const fileBytes = new Uint8Array(await fileBlob.arrayBuffer());
-    const encryptedBuffer = encryptPassportPayload(Buffer.from(fileBytes));
-    const encryptedStorageId = await ctx.storage.store(new Blob([new Uint8Array(encryptedBuffer)]));
-
-    let encryptedPayload = "";
-    let lastFour = "";
-    if (args.number && args.expiryDate && args.nationality && args.dateOfBirth) {
-      encryptedPayload = encryptPassportDetails({
-        dateOfBirth: args.dateOfBirth,
-        expiryDate: args.expiryDate,
-        nationality: args.nationality,
-        number: args.number,
-      });
-      lastFour = args.number.trim().slice(-4);
-    } else {
-      encryptedPayload = encryptPassportDetails({
-        dateOfBirth: "UNKNOWN",
-        expiryDate: "UNKNOWN",
-        nationality: "UNKNOWN",
-        number: "UNKNOWN",
-      });
-    }
-
-    try {
-      await ctx.storage.delete(args.tempStorageId);
-    } catch (err) {
-      console.error("Failed to delete temporary unencrypted file:", err);
-    }
-
+    let encryptedStorageId: Id<"_storage"> | null = null;
+    let committed = false;
     let displacedStorageId: Id<"_storage"> | null = null;
     try {
+      const fileBytes = new Uint8Array(await fileBlob.arrayBuffer());
+      const encryptedBuffer = encryptPassportPayload(Buffer.from(fileBytes));
+      encryptedStorageId = await ctx.storage.store(new Blob([new Uint8Array(encryptedBuffer)]));
+
+      const { encryptedPayload, lastFour } = encryptPassportDetailsPayload(args);
+
       displacedStorageId = await ctx.runMutation(internal.crm.passport.savePassportMetadata, {
         createdBy: access.authUserId || "unknown",
         encryptedPayload,
@@ -169,16 +195,25 @@ export const encryptAndStorePassport = action({
         storageId: encryptedStorageId,
         travellerId: args.travellerId,
       });
+      committed = true;
     } catch (error) {
-      try {
-        await ctx.storage.delete(encryptedStorageId);
-      } catch (cleanupError) {
-        console.error("Failed to clean up rejected encrypted passport file:", cleanupError);
+      if (encryptedStorageId) {
+        try {
+          await ctx.storage.delete(encryptedStorageId);
+        } catch (cleanupError) {
+          console.error("Failed to clean up rejected encrypted passport file:", cleanupError);
+        }
       }
       throw error;
+    } finally {
+      // Delete plaintext regardless of which processing step failed, including
+      // encryption, metadata encryption, and the final authorization check.
+      // A failure here is logged and left for the orphan sweep rather than
+      // masking the original operation result.
+      await cleanupTempUpload();
     }
 
-    if (displacedStorageId) {
+    if (committed && displacedStorageId) {
       try {
         await ctx.storage.delete(displacedStorageId);
       } catch (err) {

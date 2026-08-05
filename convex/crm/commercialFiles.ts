@@ -471,6 +471,68 @@ async function registryRowsForSource(ctx: QueryCtx, source: SourceDescriptor) {
     .collect();
 }
 
+/**
+ * Upload sessions are the quarantine boundary for Commercial Files.  A
+ * session can hold a storage id before the metadata transaction succeeds; an
+ * expiry sweep may delete that blob only when no attachment table references
+ * it.  Keep the check local to the mutation so cleanup is atomic with session
+ * removal and cannot be bypassed by a stale upload retry.
+ */
+async function hasStorageReference(ctx: MutationCtx, storageId: Id<"_storage">) {
+  const storageKey = String(storageId);
+  const [commercial, queryAttachment, proposalAttachment, passport, generic, proposalPdf] =
+    await Promise.all([
+      ctx.db
+        .query("commercialFiles")
+        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+        .first(),
+      ctx.db
+        .query("queryAttachments")
+        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+        .first(),
+      ctx.db
+        .query("proposalAttachments")
+        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+        .first(),
+      ctx.db
+        .query("passportDetails")
+        .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+        .first(),
+      ctx.db
+        .query("attachments")
+        .withIndex("by_storageId", (q) => q.eq("storageId", storageKey))
+        .first(),
+      ctx.db
+        .query("proposals")
+        .withIndex("by_finalizedPdfStorageId", (q) => q.eq("finalizedPdfStorageId", storageId))
+        .first(),
+    ]);
+  return Boolean(
+    commercial || queryAttachment || proposalAttachment || passport || generic || proposalPdf
+  );
+}
+
+async function purgeExpiredUploadSessions(ctx: MutationCtx, now: number) {
+  const sessions = await ctx.db
+    .query("commercialFileUploadSessions")
+    .withIndex("by_expiresAt", (q) => q.lt("expiresAt", now))
+    .collect();
+  let cleaned = 0;
+  for (const session of sessions) {
+    if (session.storageId && !(await hasStorageReference(ctx, session.storageId))) {
+      try {
+        await ctx.storage.delete(session.storageId);
+      } catch (error) {
+        console.error("Failed to purge quarantined commercial upload:", error);
+        continue;
+      }
+    }
+    await ctx.db.delete(session._id);
+    cleaned += 1;
+  }
+  return cleaned;
+}
+
 function sourceForFileRow(ctx: QueryCtx | MutationCtx, row: Doc<"commercialFiles">) {
   return descriptorForSource(ctx, row.sourceType, row.sourceId);
 }
@@ -1432,6 +1494,7 @@ export const purgeExpired = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
+    await purgeExpiredUploadSessions(ctx, now);
     const rows = await ctx.db
       .query("commercialFiles")
       .withIndex("by_purgeAfter", (q) => q.lt("purgeAfter", now))

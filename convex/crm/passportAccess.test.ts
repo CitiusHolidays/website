@@ -446,6 +446,7 @@ describe("passport metadata access scope", () => {
       ).rejects.toEqual(new ConvexError("FORBIDDEN"));
       expect(effects.storageDeletes).not.toContain("storage_1");
       expect(effects.storageDeletes).toContain("storage_new");
+      expect(effects.storageDeletes).toContain("storage_temp");
 
       Object.assign(tables.jobCards[0], job);
       Object.assign(tables.queries[0], linkedQuery);
@@ -506,6 +507,39 @@ describe("passport metadata access scope", () => {
         process.env.ENCRYPTION_KEY = previousKey;
       }
     }
+  });
+
+  test("encryption failure still removes the uploaded plaintext", async () => {
+    const { ctx: queryCtx } = makePassportCtx({
+      jobCards: [{ ...job }],
+      passportDetails: [],
+      queries: [{ ...linkedQuery }],
+      travellers: [{ ...traveller }],
+    });
+    const { ctx, effects } = makePassportActionCtx(queryCtx, {
+      storage_temp: new Blob(["passport plaintext"]),
+    });
+    const previousKey = process.env.ENCRYPTION_KEY;
+    delete process.env.ENCRYPTION_KEY;
+    try {
+      await expect(
+        (encryptAndStorePassport as any)._handler(ctx, {
+          fileName: "passport.pdf",
+          fileSize: 18,
+          mimeType: "application/pdf",
+          tempStorageId: "storage_temp",
+          travellerId,
+        })
+      ).rejects.toThrow("Encryption is not configured");
+    } finally {
+      if (previousKey === undefined) {
+        delete process.env.ENCRYPTION_KEY;
+      } else {
+        process.env.ENCRYPTION_KEY = previousKey;
+      }
+    }
+    expect(effects.storageDeletes).toContain("storage_temp");
+    expect(effects.storageStores).toBe(0);
   });
 
   test("deletion rechecks scope before commit and preserves the current document", async () => {

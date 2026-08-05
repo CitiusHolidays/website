@@ -24,9 +24,9 @@ export interface PortalTravelBatchModalWorkspaceSlice {
   closeModal: () => void;
   error: string;
   form: PortalEntityModalFormState;
-  generateFinalizedPdfUploadUrl: (args: Record<string, never>) => Promise<string>;
-  generateProposalUploadUrl: (args: Record<string, never>) => Promise<string>;
-  generateQueryUploadUrl: (args: Record<string, never>) => Promise<string>;
+  generateFinalizedPdfUploadUrl: (args: { proposalId: string }) => Promise<string>;
+  generateProposalUploadUrl: (args: { proposalId: string }) => Promise<string>;
+  generateQueryUploadUrl: (args: { queryId: string }) => Promise<string>;
   getExpenseAttachmentUrl: (attachmentId: string) => Promise<string>;
   getFinalizedPdfUrl: (proposalId: string) => Promise<string>;
   getProposalAttachmentUrl: (attachmentId: string) => Promise<string>;
