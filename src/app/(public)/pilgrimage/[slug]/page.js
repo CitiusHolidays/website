@@ -83,15 +83,15 @@ async function PilgrimageTrailContent({ params }) {
     notFound();
   }
 
-  let relatedBlogPosts = [];
-  if (trail.relatedBlogSlugs?.length) {
-    relatedBlogPosts = await cachedSanityFetch(RELATED_BLOGS, { slugs: trail.relatedBlogSlugs }, [
-      "blog",
-      "spiritual",
-    ]);
-  }
-
-  const cmsDoc = await cachedSanityFetch(TRAIL_CMS_GALLERY, { slug }, ["spiritual"]);
+  const relatedBlogPostsPromise = trail.relatedBlogSlugs?.length
+    ? cachedSanityFetch(RELATED_BLOGS, { slugs: trail.relatedBlogSlugs }, ["blog", "spiritual"])
+    : Promise.resolve([]);
+  // The gallery and related posts are independent Sanity reads. Resolve them together so a
+  // trail page is not gated by two serial network round trips.
+  const [relatedBlogPosts, cmsDoc] = await Promise.all([
+    relatedBlogPostsPromise,
+    cachedSanityFetch(TRAIL_CMS_GALLERY, { slug }, ["spiritual"]),
+  ]);
   const cmsGallery = normalizeCmsGalleryRows(cmsDoc?.images);
   const gallery = mergeTrailGalleries(cmsGallery, trail.gallery);
   const trailWithGallery = { ...trail, gallery };

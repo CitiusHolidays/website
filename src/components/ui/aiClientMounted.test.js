@@ -112,6 +112,9 @@ describe("mounted AI clients", () => {
     await act(async () => {
       root.render(React.createElement(JourneyPlanResponse, { message }));
     });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
     expect(container.querySelector("script")).toBeNull();
     expect(container.textContent).toContain("Recommended journey");
     await act(async () => root.unmount());

@@ -2,12 +2,44 @@
 
 import { Loader2, Sparkles, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { MessageResponse } from "@/components/ai-elements/message";
 import { markClientAiMessageTerminal } from "@/lib/ai/uiMessageStream";
 import { suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
 import { streamJourneyPlannerResponse } from "@/lib/sacredBharat/journeyPlannerStream";
 import { cn } from "@/utils/cn";
 import { useSacredBharatContext } from "./SacredBharatProvider";
+
+// Streamdown plus the optional code/math/mermaid plugins are only useful after a plan has
+// arrived. Keep that renderer out of the Sacred Bharat first paint and fetch it when the
+// response's markdown is first rendered.
+let messageResponseModulePromise;
+
+function LazyMessageResponse({ children, className }) {
+  const [MessageResponse, setMessageResponse] = useState(null);
+
+  useEffect(() => {
+    messageResponseModulePromise ??= import("@/components/ai-elements/message").then(
+      (module) => module.MessageResponse
+    );
+    let active = true;
+    messageResponseModulePromise.then((module) => {
+      if (active) {
+        setMessageResponse(() => module);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!MessageResponse) {
+    return (
+      <p className="text-brand-muted text-sm" role="status">
+        Formatting your journey details…
+      </p>
+    );
+  }
+  return <MessageResponse className={className}>{children}</MessageResponse>;
+}
 
 export function JourneyPlanResponse({ message }) {
   if (!message) {
@@ -25,9 +57,9 @@ export function JourneyPlanResponse({ message }) {
         const key = `${message.id}-${part.type}-${part.id}`;
         if (part.type === "text") {
           return (
-            <MessageResponse className="prose prose-sm max-w-none" key={key}>
+            <LazyMessageResponse className="prose prose-sm max-w-none" key={key}>
               {part.text}
-            </MessageResponse>
+            </LazyMessageResponse>
           );
         }
         if (part.type === "reasoning" || part.type === "status") {

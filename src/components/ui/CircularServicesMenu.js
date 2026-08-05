@@ -129,12 +129,17 @@ function getServiceLayout() {
 export default function CircularServicesMenu() {
   const shouldReduceMotion = useReducedMotion();
   const [selectedService, setSelectedService] = useState(null);
-  const [layout, setLayout] = useState(getServiceLayout);
+  // Keep the first render deterministic for SSR/hydration. The viewport-aware layout is
+  // applied after mount so mobile and desktop can still use their tuned orbit radius without
+  // producing different markup between the server and browser.
+  const [layout, setLayout] = useState({ isMobile: false, radius: 200 });
   const containerRef = useRef(null);
   const serviceRefs = useRef([]);
   const [linePos, setLinePos] = useState(null);
 
   useEffect(() => {
+    setLayout(getServiceLayout());
+
     function handleResize() {
       setLayout(getServiceLayout());
     }

@@ -1,4 +1,13 @@
+import { citiusChatTools, systemPrompt } from "../src/lib/ai/citiusTravelAssistant";
 import { AI_MODEL_SELECTION_EVIDENCE, AI_RUNTIME_POLICIES } from "../src/lib/ai/runtimePolicy";
+import {
+  buildDefaultPlannerUserMessage,
+  buildSacredBharatPlannerContext,
+  sacredBharatJourneyPlannerSystemPrompt,
+} from "../src/lib/ai/sacredBharatJourneyPlanner";
+
+export const AI_BENCHMARK_VERSION = "2026-08-05";
+export const AI_BENCHMARK_CONTRACT_VERSION = 2;
 
 interface BenchmarkSample {
   expectedHeadings?: string[];
@@ -10,22 +19,26 @@ interface BenchmarkSample {
   tools?: unknown[];
 }
 
-const destinationTool = {
-  function: {
-    description: "Search Citius destination and service fit before answering.",
-    name: "searchCitiusOfferings",
-    parameters: {
-      additionalProperties: false,
-      properties: {
-        category: { enum: ["mice", "international", "domestic"], type: "string" },
-        query: { type: "string" },
-      },
-      required: ["category", "query"],
-      type: "object",
+function openRouterToolDefinitions() {
+  return Object.entries(citiusChatTools).map(([name, definition]) => ({
+    function: {
+      description: definition.description,
+      name,
+      parameters: definition.inputSchema.jsonSchema,
     },
-  },
-  type: "function",
-};
+    type: "function",
+  }));
+}
+
+const productionTools = openRouterToolDefinitions();
+const kashiContext = buildSacredBharatPlannerContext({
+  focusTempleId: "kashi-vishwanath",
+  visitedTempleIds: ["kedarnath", "somnath"],
+});
+const southernTrailContext = buildSacredBharatPlannerContext({
+  trailSlug: "divine-south-trail",
+  visitedTempleIds: ["tirupati"],
+});
 
 export const AI_BENCHMARK_PROMPTS: BenchmarkSample[] = [
   {
@@ -33,18 +46,16 @@ export const AI_BENCHMARK_PROMPTS: BenchmarkSample[] = [
     feature: "concierge",
     name: "mice-destination-tool",
     prompt: "Shortlist two premium destinations near India for an 80-person Q4 leadership retreat.",
-    system:
-      "You are the concise Citius Holidays Concierge. Call searchCitiusOfferings before answering destination questions.",
-    tools: [destinationTool],
+    system: systemPrompt,
+    tools: productionTools,
   },
   {
     expectedTool: "searchCitiusOfferings",
     feature: "concierge",
     name: "domestic-offsite-tool",
     prompt: "What should Citius handle for a 120-person three-night corporate offsite in Goa?",
-    system:
-      "You are the concise Citius Holidays Concierge. Call searchCitiusOfferings before answering service questions.",
-    tools: [destinationTool],
+    system: systemPrompt,
+    tools: productionTools,
   },
   {
     expectedHeadings: [
@@ -55,9 +66,8 @@ export const AI_BENCHMARK_PROMPTS: BenchmarkSample[] = [
     ],
     feature: "journeyPlanner",
     name: "kashi-itinerary",
-    prompt: "Plan a 3-day pilgrimage to Kashi Vishwanath for a traveler arriving from Kolkata.",
-    system:
-      "Return concise, respectful pilgrimage guidance with these exact markdown headings: ## Recommended journey; ## Best season & duration; ## Suggested itinerary (day-by-day); ## Soul score opportunity. Do not invent prices or guaranteed darshan slots.",
+    prompt: buildDefaultPlannerUserMessage(kashiContext),
+    system: sacredBharatJourneyPlannerSystemPrompt(kashiContext),
   },
   {
     expectedHeadings: [
@@ -68,9 +78,8 @@ export const AI_BENCHMARK_PROMPTS: BenchmarkSample[] = [
     ],
     feature: "journeyPlanner",
     name: "southern-trail-itinerary",
-    prompt: "Plan a practical 4-day Madurai and Rameswaram sacred journey from Bengaluru.",
-    system:
-      "Return concise, respectful pilgrimage guidance with these exact markdown headings: ## Recommended journey; ## Best season & duration; ## Suggested itinerary (day-by-day); ## Soul score opportunity. Do not invent prices or guaranteed darshan slots.",
+    prompt: buildDefaultPlannerUserMessage(southernTrailContext),
+    system: sacredBharatJourneyPlannerSystemPrompt(southernTrailContext),
   },
 ];
 
@@ -202,78 +211,122 @@ async function probeModel(
   };
 }
 
-const apiKey = process.env.OPENROUTER_API_KEY;
-if (!apiKey) {
-  throw new Error("OPENROUTER_API_KEY is required to run the AI benchmark");
+export function selectBenchmarkPrompts(feature?: string) {
+  if (feature === undefined) {
+    return AI_BENCHMARK_PROMPTS;
+  }
+  if (feature !== "concierge" && feature !== "journeyPlanner") {
+    throw new Error(
+      `Invalid benchmark feature filter: ${feature}. Use concierge or journeyPlanner.`
+    );
+  }
+  const selected = AI_BENCHMARK_PROMPTS.filter((sample) => sample.feature === feature);
+  if (selected.length === 0) {
+    throw new Error(`Benchmark feature has no configured cases: ${feature}`);
+  }
+  return selected;
 }
 
-const results: Awaited<ReturnType<typeof probeModel>>[] = [];
-const featureArgument = process.argv.find((argument) => argument.startsWith("--feature="));
-const selectedFeature = featureArgument?.slice("--feature=".length);
-const selectedPrompts = selectedFeature
-  ? AI_BENCHMARK_PROMPTS.filter((sample) => sample.feature === selectedFeature)
-  : AI_BENCHMARK_PROMPTS;
-if (process.argv.includes("--all-models")) {
-  const models = [
-    ...new Set(Object.values(AI_RUNTIME_POLICIES).flatMap((policy) => [...policy.models])),
-  ];
-  for (const model of models) {
-    for (const sample of selectedPrompts) {
-      // biome-ignore lint/performance/noAwaitInLoops: Live provider probes are intentionally serialized to avoid rate-limit distortion.
-      results.push(await probeModel(apiKey, model, sample, 18_000));
-    }
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Benchmark execution keeps the production fallback order and compact report assembly in one auditable entrypoint.
+export async function runBenchmark({
+  allModels = false,
+  feature,
+  openRouterApiKey = process.env.OPENROUTER_API_KEY,
+}: {
+  allModels?: boolean;
+  feature?: string;
+  openRouterApiKey?: string;
+} = {}) {
+  const selectedPrompts = selectBenchmarkPrompts(feature);
+  if (!openRouterApiKey) {
+    throw new Error("OPENROUTER_API_KEY is required to run the AI benchmark");
   }
-} else {
-  for (const sample of selectedPrompts) {
-    const policy = AI_RUNTIME_POLICIES[sample.feature];
-    for (const model of policy.models) {
-      // biome-ignore lint/performance/noAwaitInLoops: Fallback order must be measured sequentially exactly as production executes it.
-      const result = await probeModel(apiKey, model, sample, policy.providerAttemptTimeoutMs);
-      results.push(result);
-      process.stderr.write(
-        `${sample.name}: ${model} ${result.answerQualityPassed ? "passed" : "failed"}\n`
-      );
-      if (result.answerQualityPassed) {
-        break;
+
+  const results: Awaited<ReturnType<typeof probeModel>>[] = [];
+  if (allModels) {
+    const models = [
+      ...new Set(Object.values(AI_RUNTIME_POLICIES).flatMap((policy) => [...policy.models])),
+    ];
+    for (const model of models) {
+      for (const sample of selectedPrompts) {
+        // biome-ignore lint/performance/noAwaitInLoops: Live provider probes are intentionally serialized to avoid rate-limit distortion.
+        results.push(await probeModel(openRouterApiKey, model, sample, 18_000));
+      }
+    }
+  } else {
+    for (const sample of selectedPrompts) {
+      const policy = AI_RUNTIME_POLICIES[sample.feature];
+      for (const model of policy.models) {
+        // biome-ignore lint/performance/noAwaitInLoops: Fallback order must be measured sequentially exactly as production executes it.
+        const result = await probeModel(
+          openRouterApiKey,
+          model,
+          sample,
+          policy.providerAttemptTimeoutMs
+        );
+        results.push(result);
+        process.stderr.write(
+          `${sample.name}: ${model} ${result.answerQualityPassed ? "passed" : "failed"}\n`
+        );
+        if (result.answerQualityPassed) {
+          break;
+        }
       }
     }
   }
+
+  const fallbackSelections = selectedPrompts.map((sample) => {
+    const policy = AI_RUNTIME_POLICIES[sample.feature];
+    const attempts = policy.models.map((model) =>
+      results.find((result) => result.model === model && result.case === sample.name)
+    );
+    const selectedIndex = attempts.findIndex((attempt) => attempt?.answerQualityPassed);
+    return {
+      attempts: attempts
+        .slice(0, selectedIndex < 0 ? attempts.length : selectedIndex + 1)
+        .map((attempt) => ({
+          error: attempt?.error,
+          model: attempt?.model,
+          passed: attempt?.answerQualityPassed ?? false,
+          status: attempt?.status,
+        })),
+      case: sample.name,
+      fallback: selectedIndex > 0,
+      selectedModel: selectedIndex < 0 ? undefined : attempts[selectedIndex]?.model,
+    };
+  });
+
+  return {
+    benchmarkContractVersion: AI_BENCHMARK_CONTRACT_VERSION,
+    benchmarkVersion: AI_BENCHMARK_VERSION,
+    costAndPrivacyDecision: AI_MODEL_SELECTION_EVIDENCE.privacyDecision,
+    fallbackSelections,
+    measuredAt: new Date().toISOString(),
+    results,
+  };
 }
 
-const fallbackSelections = selectedPrompts.map((sample) => {
-  const policy = AI_RUNTIME_POLICIES[sample.feature];
-  const attempts = policy.models.map((model) =>
-    results.find((result) => result.model === model && result.case === sample.name)
-  );
-  const selectedIndex = attempts.findIndex((attempt) => attempt?.answerQualityPassed);
-  return {
-    attempts: attempts
-      .slice(0, selectedIndex < 0 ? attempts.length : selectedIndex + 1)
-      .map((attempt) => ({
-        error: attempt?.error,
-        model: attempt?.model,
-        passed: attempt?.answerQualityPassed ?? false,
-        status: attempt?.status,
-      })),
-    case: sample.name,
-    fallback: selectedIndex > 0,
-    selectedModel: selectedIndex < 0 ? undefined : attempts[selectedIndex]?.model,
-  };
-});
-
-const report = {
-  costAndPrivacyDecision: AI_MODEL_SELECTION_EVIDENCE.privacyDecision,
-  fallbackSelections,
-  measuredAt: new Date().toISOString(),
-  results,
-};
-const output = process.argv.includes("--compact")
-  ? {
-      ...report,
-      results: report.results.map((result) => ({
-        ...result,
-        error: result.error?.slice(0, 160),
-      })),
-    }
-  : report;
-process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+if (import.meta.main) {
+  const featureArgument = process.argv.find((argument) => argument.startsWith("--feature="));
+  const feature = featureArgument?.slice("--feature=".length);
+  runBenchmark({
+    allModels: process.argv.includes("--all-models"),
+    feature,
+  })
+    .then((report) => {
+      const output = process.argv.includes("--compact")
+        ? {
+            ...report,
+            results: report.results.map((result) => ({
+              ...result,
+              error: result.error?.slice(0, 160),
+            })),
+          }
+        : report;
+      process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+    })
+    .catch((error) => {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
+    });
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "budgets": [
+    {
+      "path": "public/gallery/hero-poster.webp",
+      "maxBytes": 250000,
+      "purpose": "LCP poster"
+    },
+    {
+      "path": "public/hero-sm.mp4",
+      "maxBytes": 40000000,
+      "purpose": "mobile hero video"
+    },
+    {
+      "path": "public/hero.mp4",
+      "maxBytes": 75000000,
+      "purpose": "desktop hero video"
+    }
+  ]
+}

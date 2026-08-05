@@ -9,6 +9,31 @@ import {
 import { streamChatResponse } from "./chatbotStream";
 
 const CHAT_HISTORY_KEY = "citius-chat-history:v4";
+const MAX_STORED_MESSAGES = 20;
+const MAX_STORED_PART_CHARS = 8000;
+const MAX_STORED_HISTORY_CHARS = 96_000;
+
+export function boundStoredMessages(messages) {
+  const bounded = messages.slice(-MAX_STORED_MESSAGES).map((message) => ({
+    ...message,
+    parts: Array.isArray(message.parts)
+      ? message.parts.flatMap((part) => {
+          if (!part || typeof part !== "object") {
+            return [];
+          }
+          if (typeof part.text !== "string") {
+            return [part];
+          }
+          return [{ ...part, text: part.text.slice(0, MAX_STORED_PART_CHARS) }];
+        })
+      : [],
+  }));
+
+  while (bounded.length > 1 && JSON.stringify(bounded).length > MAX_STORED_HISTORY_CHARS) {
+    bounded.shift();
+  }
+  return bounded;
+}
 
 function loadStoredMessages() {
   if (typeof window === "undefined") {
@@ -22,30 +47,32 @@ function loadStoredMessages() {
   try {
     const parsedMessages = JSON.parse(savedMessages);
     return Array.isArray(parsedMessages)
-      ? parsedMessages.flatMap((message, messageIndex) => {
-          if (!(message && (message.role === "assistant" || message.role === "user"))) {
-            return [];
-          }
-          const parts = Array.isArray(message.parts)
-            ? message.parts.map((part, partIndex) => ({
-                ...part,
-                id: part?.id || `${message.role}-${messageIndex}-part-${partIndex}`,
-              }))
-            : [];
-          return [
-            {
-              ...message,
-              parts,
-              requestId: message.requestId || message.id,
-              terminalState:
-                message.role === "assistant"
-                  ? message.terminalState === "generating"
-                    ? "interrupted"
-                    : message.terminalState || "complete"
-                  : undefined,
-            },
-          ];
-        })
+      ? boundStoredMessages(
+          parsedMessages.flatMap((message, messageIndex) => {
+            if (!(message && (message.role === "assistant" || message.role === "user"))) {
+              return [];
+            }
+            const parts = Array.isArray(message.parts)
+              ? message.parts.map((part, partIndex) => ({
+                  ...part,
+                  id: part?.id || `${message.role}-${messageIndex}-part-${partIndex}`,
+                }))
+              : [];
+            return [
+              {
+                ...message,
+                parts,
+                requestId: message.requestId || message.id,
+                terminalState:
+                  message.role === "assistant"
+                    ? message.terminalState === "generating"
+                      ? "interrupted"
+                      : message.terminalState || "complete"
+                    : undefined,
+              },
+            ];
+          })
+        )
       : [];
   } catch (error) {
     console.error("Error loading chat history:", error);
@@ -58,8 +85,9 @@ function persistMessages(messages) {
   if (typeof window === "undefined") {
     return;
   }
-  if (messages.length > 0) {
-    localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(messages));
+  const bounded = boundStoredMessages(messages);
+  if (bounded.length > 0) {
+    localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(bounded));
   } else {
     localStorage.removeItem(CHAT_HISTORY_KEY);
   }
