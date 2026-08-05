@@ -5,7 +5,7 @@ import {
   importRoomSummaryValidator,
   travelBatchSummaryTransitionValidator,
 } from "./lib/importContractValidators";
-import { roomTypeValidator } from "./lib/roomTypeValidators";
+import { roomTypeMigrationValidator } from "./lib/roomTypeValidators";
 
 const bookingStatus = v.union(
   v.literal("pending"),
@@ -131,7 +131,10 @@ const paymentType = v.union(
   v.literal("Upgraded Self Paid")
 );
 
-const roomType = roomTypeValidator;
+// Keep storage widened during the room-type migration window.  All public
+// writers still use the canonical validator and the migration narrows this
+// back to `roomTypeValidator` only after a zero-legacy verification.
+const roomType = roomTypeMigrationValidator;
 
 const foodPreference = v.union(
   v.literal("Veg"),
@@ -428,6 +431,13 @@ export default defineSchema({
     .index("by_queryId", ["queryId"])
     .index("by_ownerId", ["ownerId"]),
 
+  crmHandoffEvents: defineTable({
+    convertedQueryId: v.optional(v.string()),
+    createdAt: v.number(),
+    inboundIntentId: v.optional(v.id("inboundQueryIntents")),
+    source: v.union(v.literal("Citius Concierge"), v.literal("Sacred Bharat")),
+  }).index("by_createdAt", ["createdAt"]),
+
   crmImportBatches: defineTable({
     accepted: v.number(),
     attemptCount: v.number(),
@@ -478,6 +488,13 @@ export default defineSchema({
     .index("by_source", ["sourceType", "sourceId"])
     .index("by_sourceType", ["sourceType"]),
 
+  crmMetricPublications: defineTable({
+    generation: v.number(),
+    key: v.string(),
+    metricVersion: v.number(),
+    publishedAt: v.number(),
+  }).index("by_key", ["key"]),
+
   crmMetricReadiness: defineTable({
     completedSourceTypes: v.array(v.string()),
     generation: v.number(),
@@ -490,13 +507,6 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_key", ["key"]),
 
-  crmMetricPublications: defineTable({
-    generation: v.number(),
-    key: v.string(),
-    metricVersion: v.number(),
-    publishedAt: v.number(),
-  }).index("by_key", ["key"]),
-
   crmMetricReadinessSourceCompletions: defineTable({
     completedAt: v.number(),
     generation: v.number(),
@@ -506,29 +516,26 @@ export default defineSchema({
     .index("by_generation", ["generation"])
     .index("by_generation_source", ["generation", "sourceType"]),
 
-  crmHandoffEvents: defineTable({
-    convertedQueryId: v.optional(v.string()),
-    createdAt: v.number(),
-    inboundIntentId: v.optional(v.id("inboundQueryIntents")),
-    source: v.union(v.literal("Citius Concierge"), v.literal("Sacred Bharat")),
-  }).index("by_createdAt", ["createdAt"]),
-
-  inboundQueryIntents: defineTable({
-    clientName: v.string(),
-    consentAt: v.number(),
-    contactEmail: v.optional(v.string()),
-    contactMobile: v.optional(v.string()),
-    convertedQueryId: v.optional(v.string()),
-    createdAt: v.number(),
-    destination: v.optional(v.string()),
-    notes: v.optional(v.string()),
-    paxCount: v.optional(v.number()),
-    source: v.union(v.literal("Citius Concierge"), v.literal("Sacred Bharat")),
-    status: v.union(v.literal("pending"), v.literal("converted"), v.literal("dismissed")),
-    travelStartDate: v.optional(v.string()),
-  })
-    .index("by_status", ["status"])
-    .index("by_createdAt", ["createdAt"]),
+  // Small, durable checkpoints for deploy-time data repairs.  The registry
+  // deliberately stores cursors and counters instead of an unbounded list so
+  // a retry can resume without re-reading an entire table in one mutation.
+  dataMigrationRegistry: defineTable({
+    converted: v.number(),
+    cursor: v.union(v.string(), v.null()),
+    key: v.string(),
+    legacyRemaining: v.number(),
+    processed: v.number(),
+    stage: v.string(),
+    startedAt: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("running"),
+      v.literal("verified"),
+      v.literal("failed")
+    ),
+    updatedAt: v.number(),
+    verifiedAt: v.optional(v.number()),
+  }).index("by_key", ["key"]),
 
   dropdownOptions: defineTable({
     active: v.boolean(),
@@ -658,6 +665,39 @@ export default defineSchema({
   })
     .index("by_jobCardId", ["jobCardId"])
     .index("by_createdAt", ["createdAt"]),
+
+  inboundIntentRateLimits: defineTable({
+    count: v.number(),
+    expiresAt: v.number(),
+    keyHash: v.string(),
+    resetAt: v.number(),
+  })
+    .index("by_keyHash", ["keyHash"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  inboundQueryIntents: defineTable({
+    clientName: v.string(),
+    consentAt: v.number(),
+    contactEmail: v.optional(v.string()),
+    contactMobile: v.optional(v.string()),
+    convertedQueryId: v.optional(v.string()),
+    createdAt: v.number(),
+    destination: v.optional(v.string()),
+    listSearchText: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    paxCount: v.optional(v.number()),
+    source: v.union(v.literal("Citius Concierge"), v.literal("Sacred Bharat")),
+    status: v.union(v.literal("pending"), v.literal("converted"), v.literal("dismissed")),
+    submissionKeyHash: v.optional(v.string()),
+    travelStartDate: v.optional(v.string()),
+  })
+    .index("by_status", ["status"])
+    .index("by_createdAt", ["createdAt"])
+    .index("by_submissionKeyHash", ["submissionKeyHash"])
+    .searchIndex("search_list", {
+      filterFields: ["source", "status"],
+      searchField: "listSearchText",
+    }),
 
   invoices: defineTable({
     balanceAmount: v.number(),
@@ -795,6 +835,33 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_travellerId", ["travellerId"]),
 
+  // Privacy-safe per-recipient delivery state for CRM email. Recipient
+  // addresses are never stored here; the hash is derived from the provider
+  // idempotency key and is only useful for distinguishing failed recipients.
+  notificationEmailDeliveries: defineTable({
+    attempts: v.number(),
+    createdAt: v.number(),
+    eventId: v.string(),
+    failureCode: v.optional(v.string()),
+    idempotencyKey: v.string(),
+    providerStatus: v.optional(v.number()),
+    recipientHash: v.string(),
+    sentAt: v.optional(v.number()),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("sending"),
+      v.literal("retrying"),
+      v.literal("sent"),
+      v.literal("skipped"),
+      v.literal("exhausted")
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_deliveryKey", ["idempotencyKey"])
+    .index("by_eventId", ["eventId"])
+    .index("by_status_updatedAt", ["status", "updatedAt"])
+    .index("by_updatedAt", ["updatedAt"]),
+
   notifications: defineTable({
     body: v.string(),
     createdAt: v.number(),
@@ -887,6 +954,27 @@ export default defineSchema({
     .index("by_sharedRole", ["sharedRole"])
     .index("by_view", ["view"])
     .index("by_createdBy", ["createdBy"]),
+
+  // A single daily nudge run advances through bounded pages. Keeping the
+  // cursor and counters in a row makes retries resumable and prevents a
+  // cron invocation from collecting every CRM table in one transaction.
+  portalWorkflowNudgeRuns: defineTable({
+    checked: v.number(),
+    cursor: v.union(v.string(), v.null()),
+    key: v.string(),
+    referenceNow: v.number(),
+    sent: v.number(),
+    stage: v.union(
+      v.literal("queries"),
+      v.literal("jobCards"),
+      v.literal("tickets"),
+      v.literal("invoices"),
+      v.literal("complete")
+    ),
+    startedAt: v.number(),
+    status: v.union(v.literal("running"), v.literal("completed")),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
 
   portalWorkflowRuleRuns: defineTable({
     entityId: v.string(),
@@ -1002,6 +1090,7 @@ export default defineSchema({
     createdAt: v.number(),
     createdBy: v.string(),
     destination: v.optional(v.string()),
+    inboundIntentId: v.optional(v.id("inboundQueryIntents")),
     jobCardCreatorName: v.optional(v.string()),
     jobCardCreatorStaffId: v.optional(v.id("staffUsers")),
     leadStage: v.optional(leadStage),
@@ -1084,6 +1173,24 @@ export default defineSchema({
     .index("by_authUserId", ["authUserId"])
     .index("by_groupId_authUserId", ["groupId", "authUserId"]),
 
+  // One compact row per participant keeps leaderboard reads proportional to
+  // the number of players rather than every visit event. Rows are refreshed
+  // by the visit/profile mutations and can be backfilled independently.
+  sacredBharatLeaderboardSummaries: defineTable({
+    authUserId: v.string(),
+    completedTrailCount: v.number(),
+    displayName: v.string(),
+    levelSlug: v.string(),
+    levelTitle: v.string(),
+    optedOut: v.boolean(),
+    passportSlug: v.union(v.string(), v.null()),
+    score: v.number(),
+    templeCount: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_authUserId", ["authUserId"])
+    .index("by_score", ["score", "templeCount", "authUserId"]),
+
   sacredBharatGroups: defineTable({
     createdAt: v.number(),
     inviteCode: v.string(),
@@ -1094,6 +1201,13 @@ export default defineSchema({
   })
     .index("by_ownerAuthUserId", ["ownerAuthUserId"])
     .index("by_inviteCode", ["inviteCode"]),
+
+  sacredBharatInviteAttempts: defineTable({
+    attemptCount: v.number(),
+    authUserId: v.string(),
+    updatedAt: v.number(),
+    windowStartedAt: v.number(),
+  }).index("by_authUserId", ["authUserId"]),
 
   sacredBharatProfiles: defineTable({
     authUserId: v.string(),

@@ -43,6 +43,9 @@ jobs:
       - name: Check public asset references
         run: bun run assets:check
 
+      - name: Check performance budgets
+        run: bun run performance:check
+
       - name: Generate fresh Convex types
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_CI_DEPLOY_KEY }}

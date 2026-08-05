@@ -58,7 +58,7 @@ Fix webhook route so transient processing failures return 5xx (Razorpay retries)
 - [ ] Invalid/missing signature → 400
 - [ ] Transient processing error → 5xx (not 200)
 - [ ] `razorpayWebhook.test.ts` covers error classification
-- [ ] CEO review gap closed (see `ceo-plans/20260708-ts-effect-migration-review.md`)
+- [ ] CEO review gap closed (historical review pointer is mapped in [`docs/PLAN_MAP.md`](../PLAN_MAP.md))
 - [ ] The current status is recorded in the release evidence and local issue tracker; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
 
 **Maps to:** [`docs/PLAN_MAP.md`](../PLAN_MAP.md) → `plans/002-razorpay-webhook-error-responses.md`

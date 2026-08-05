@@ -84,7 +84,8 @@ Preserve deliberate restraint: no open/close animation on the command palette, n
 - Pipeline card drag physics / spring dismissal (native HTML5 DnD stays; only drop-zone highlight transition is in scope).
 - Migrating portal components from JavaScript to TypeScript solely for this work.
 - Effect library adoption for animation orchestration.
-- `plans/` animation plan files from the improve-animations skill (this PRD supersedes ad-hoc plan numbering unless explicitly linked later).
+- Historical animation-plan pointers are mapped in [`docs/PLAN_MAP.md`](../PLAN_MAP.md); this PRD
+  supersedes ad-hoc plan numbering unless a replacement document is explicitly linked.
 - Visual regression screenshot infrastructure.
 
 ## Further Notes

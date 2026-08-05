@@ -40,6 +40,10 @@ Role-based CRM for sales through finance and operations:
 
 Operational details: [`docs/PORTAL_CRM_WORKFLOWS.md`](docs/PORTAL_CRM_WORKFLOWS.md), [`docs/PORTAL_ROLES_AND_ACCESS.md`](docs/PORTAL_ROLES_AND_ACCESS.md), [`docs/PORTAL_PERMISSIONS_ARCHITECTURE.md`](docs/PORTAL_PERMISSIONS_ARCHITECTURE.md).
 
+Historical `plans/` links are mapped to their current permanent documents in
+[`docs/PLAN_MAP.md`](docs/PLAN_MAP.md). New implementation tickets belong in the local `.scratch/`
+tracker; do not recreate a second `plans/` directory.
+
 ### Current local modernization work
 
 The current working tree contains the full 27-ticket remediation plus the 14 July media, email,
@@ -97,10 +101,9 @@ convex/
   bookings.ts          # Razorpay booking mutations
 
 citius-blog/           # Sanity Studio (blog + gallery schemas)
-docs/                  # Portal workflow and permissions documentation
+docs/                  # Product, domain, release, and operational documentation
 scripts/               # Image optimization utilities
 bin/                   # Performance baseline utilities
-plans/                 # Implementation plans (status tracked in plans/README.md)
 ```
 
 ## Getting started
@@ -173,6 +176,8 @@ SANITY_REVALIDATE_SECRET=
 
 # Staff bootstrap and one-off migrations
 PORTAL_BOOTSTRAP_ADMINS=admin@example.com
+# Required while the allowlist is populated; ISO timestamp or epoch milliseconds.
+PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT=
 MIGRATION_SECRET=
 ```
 
@@ -236,6 +241,7 @@ bun run start
 | `lint:ratchet` | Compare each lint rule family with the reviewed legacy baseline |
 | `lint:ratchet:update` | Refresh the per-rule baseline only after raw lint reaches zero errors and total warnings do not increase |
 | `config:check` | Validate environment and release contracts |
+| `automation:check` | Require a recorded human approval before destructive agent automation |
 | `diff:check` | Check whitespace, secret-file, generated-output, and size hygiene |
 | `doctor` | React Doctor analysis |
 | `convex:dev` | Convex dev deployment |

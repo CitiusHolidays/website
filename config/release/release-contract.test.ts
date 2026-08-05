@@ -177,6 +177,9 @@ describe("release command contract", () => {
     expect(packageJson.scripts?.check).toContain("bun run test");
     expect(packageJson.scripts?.["diff:check"]).toBe("bun config/release/check-diff-hygiene.ts");
     expect(packageJson.scripts?.["policy:check"]).toBe("bun config/release/check-ci-policy.ts");
+    expect(packageJson.scripts?.["performance:check"]).toBe(
+      "bun config/release/check-performance-budgets.ts"
+    );
     expect(packageJson.scripts?.["automation:check"]).toBe(
       "bun config/release/agent-automation-policy.ts"
     );
