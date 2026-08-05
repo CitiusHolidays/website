@@ -316,7 +316,7 @@ async function resolveRequestToken(options) {
   return options && Object.hasOwn(options, "token") ? options.token : await getRequestToken();
 }
 
-export async function fetchAuthQuery(query, args = {}, options = undefined) {
+export async function fetchAuthQuery(query, args = {}, options) {
   const token = await resolveRequestToken(options);
   return await fetchQuery(query, args, {
     token: token ?? undefined,
@@ -324,7 +324,7 @@ export async function fetchAuthQuery(query, args = {}, options = undefined) {
   });
 }
 
-export async function fetchAuthMutation(mutation, args = {}, options = undefined) {
+export async function fetchAuthMutation(mutation, args = {}, options) {
   const token = await resolveRequestToken(options);
   return await fetchMutation(mutation, args, {
     token: token ?? undefined,
@@ -332,7 +332,7 @@ export async function fetchAuthMutation(mutation, args = {}, options = undefined
   });
 }
 
-export async function fetchAuthAction(action, args = {}, options = undefined) {
+export async function fetchAuthAction(action, args = {}, options) {
   const token = await resolveRequestToken(options);
   return await fetchAction(action, args, {
     token: token ?? undefined,
