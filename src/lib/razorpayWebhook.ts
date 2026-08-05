@@ -239,14 +239,14 @@ async function handleRefundCreated(
 }
 
 export async function processRazorpayWebhookEvent(
-  payload: RazorpayWebhookPayload,
+  payload: RazorpayWebhookPayload | null | undefined,
   deps: RazorpayWebhookDeps
 ): Promise<RazorpayWebhookResult> {
-  const event = typeof payload.event === "string" ? payload.event : "";
+  const event = typeof payload?.event === "string" ? payload.event : "";
   if (!event) {
     throw new RazorpayWebhookPayloadError("Invalid Razorpay webhook payload: event is required");
   }
-  const paymentEntity = payload.payload?.payment?.entity;
+  const paymentEntity = payload?.payload?.payment?.entity;
 
   switch (event) {
     case "payment.authorized":
@@ -256,7 +256,7 @@ export async function processRazorpayWebhookEvent(
     case "payment.failed":
       return await handlePaymentFailed(paymentEntity, deps);
     case "refund.created":
-      return await handleRefundCreated(payload.payload?.refund?.entity, deps);
+      return await handleRefundCreated(payload?.payload?.refund?.entity, deps);
     default:
       throw new RazorpayWebhookPayloadError(`Unsupported Razorpay webhook event: ${event}`);
   }

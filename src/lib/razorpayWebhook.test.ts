@@ -139,6 +139,18 @@ describe("processRazorpayWebhookEvent", () => {
       )
     ).rejects.toThrow("event is required");
   });
+
+  test("rejects a null webhook body as an invalid provider payload", async () => {
+    await expect(
+      processRazorpayWebhookEvent(null, {
+        confirmBookingByOrderId: () => Promise.resolve({ success: true }),
+        getServerSecret: () => "server-secret",
+        markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+        markRefundedByPaymentId: () => Promise.resolve({}),
+        recordPaymentAuthorized: () => Promise.resolve({}),
+      })
+    ).rejects.toThrow("event is required");
+  });
 });
 
 describe("mapRazorpayWebhookProcessingError", () => {
