@@ -40,6 +40,7 @@ export const ReportsView = lazyView(() => import("./admin/ReportsView"), "Report
 export const SettingsView = lazyView(() => import("./admin/SettingsView"), "SettingsView");
 export const TeamView = lazyView(() => import("./admin/TeamView"), "TeamView");
 export const ContractingView = lazyView(() => import("./ContractingView"), "ContractingView");
+export const InboundLeadsView = lazyView(() => import("./InboundLeadsView"), "InboundLeadsView");
 export const HotelRoomingView = lazyView(
   () => import("./operations/HotelRoomingView"),
   "HotelRoomingView"

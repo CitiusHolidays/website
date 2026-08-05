@@ -3,6 +3,7 @@ import type { usePortalWorkspaceState } from "@/components/portal/usePortalWorks
 import type {
   AdministrationPortalWorkspaceSlice,
   CorePortalWorkspaceSlice,
+  InboundLeadsPortalWorkspaceSlice,
   OperationsPortalWorkspaceSlice,
   PilotPortalWorkspaceSlice,
   TicketingPortalWorkspaceSlice,
@@ -13,6 +14,7 @@ export type PortalWorkspaceHookState = ReturnType<typeof usePortalWorkspaceState
 export interface PortalViewRegistryInputs {
   administration: Omit<AdministrationPortalWorkspaceSlice, "view">;
   core: Omit<CorePortalWorkspaceSlice, "view">;
+  inbound: Omit<InboundLeadsPortalWorkspaceSlice, "view">;
   operations: Omit<OperationsPortalWorkspaceSlice, "view">;
   pilot: Omit<PilotPortalWorkspaceSlice, "view">;
   ticketing: Omit<TicketingPortalWorkspaceSlice, "view">;
@@ -59,6 +61,10 @@ export function buildPortalViewRegistryInputs(
       startStaffOnboarding: workspace.startStaffOnboarding,
       submitExpenseForApproval: workspace.submitExpenseForApproval,
       team: workspace.team || [],
+    },
+    inbound: {
+      allowed: workspace.allowed,
+      canFetch: workspace.canFetch,
     },
     core: {
       access: workspace.access ?? {},

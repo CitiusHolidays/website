@@ -82,9 +82,9 @@ function buildNotificationPath({ entityType, entityId, title }) {
       params.set("id", entityId);
       return `/portal/approvals?${params}`;
     case "inboundQueryIntent":
-      params.set("open", "query");
-      params.set("inboundIntentId", entityId);
-      return `/portal/queries?${params}`;
+      params.set("open", "inboundIntent");
+      params.set("id", entityId);
+      return `/portal/inbound-leads?${params}`;
     default:
       return "/portal/activity";
   }

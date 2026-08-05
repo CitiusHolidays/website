@@ -72,6 +72,7 @@ export async function handleQueryCreate(
     travelInBatches?: boolean;
     travelStartDate?: string;
     travelType: TravelType;
+    inboundIntentId?: Id<"inboundQueryIntents">;
   }
 ) {
   if (!args.clientName.trim()) {
@@ -123,6 +124,7 @@ export async function handleQueryCreate(
     createdAt: now,
     createdBy: access.authUserId ?? "unknown",
     destination: args.destination?.trim() || "",
+    inboundIntentId: args.inboundIntentId,
     leadStage: "Proposal" as const,
     listSearchText: buildQueryListSearchText({
       clientName: args.clientName,

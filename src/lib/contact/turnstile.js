@@ -54,3 +54,15 @@ export async function verifyTurnstileToken(token, remoteip) {
 export function isTurnstileConfigured() {
   return Boolean(process.env.TURNSTILE_SECRET_KEY && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 }
+
+/**
+ * A single Turnstile variable is not a usable configuration. Callers that
+ * protect a write path should reject partial configuration instead of
+ * silently downgrading to an unverified request.
+ */
+export function isTurnstilePartiallyConfigured() {
+  return Boolean(
+    Boolean(process.env.TURNSTILE_SECRET_KEY) !==
+      Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY)
+  );
+}

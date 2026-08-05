@@ -11,6 +11,7 @@ import {
   DashboardView,
   ExpensesView,
   FinanceView,
+  InboundLeadsView,
   HotelRoomingView,
   JobCardsView,
   LeaveView,
@@ -246,6 +247,28 @@ export function renderPilotPortalView({
       sendProposalToSales={workspace.sendProposalToSales}
     />
   );
+}
+
+export interface InboundLeadsPortalWorkspaceSlice {
+  allowed: boolean | undefined;
+  canFetch: boolean | undefined;
+  view: string;
+}
+
+export function renderInboundLeadsPortalView({
+  view,
+  workspace,
+}: {
+  view: string;
+  workspace?: InboundLeadsPortalWorkspaceSlice;
+}): ReactNode {
+  if (view !== "inbound-leads") {
+    return null;
+  }
+  if (!workspace) {
+    throw new Error("Inbound leads view requires its workspace slice");
+  }
+  return <InboundLeadsView allowed={workspace.allowed} canFetch={workspace.canFetch} />;
 }
 
 export const OPERATIONS_PORTAL_VIEW_IDS = [
@@ -703,6 +726,7 @@ export function renderAdministrationPortalView({
 export const ALL_PORTAL_VIEW_IDS = [
   ...CORE_PORTAL_VIEW_IDS,
   ...PILOT_PORTAL_VIEW_IDS,
+  "inbound-leads",
   ...OPERATIONS_PORTAL_VIEW_IDS,
   ...TICKETING_PORTAL_VIEW_IDS,
   ...ADMINISTRATION_PORTAL_VIEW_IDS,
@@ -715,6 +739,7 @@ export function renderPortalView(inputs: PortalViewRegistryInputs): ReactNode {
   return (
     renderCorePortalView({ view, workspace: { view, ...inputs.core } }) ??
     renderPilotPortalView({ view, workspace: { view, ...inputs.pilot } }) ??
+    renderInboundLeadsPortalView({ view, workspace: { view, ...inputs.inbound } }) ??
     renderOperationsPortalView({ view, workspace: { view, ...inputs.operations } }) ??
     renderTicketingPortalView({ view, workspace: { view, ...inputs.ticketing } }) ??
     renderAdministrationPortalView({ view, workspace: { view, ...inputs.administration } })

@@ -38,6 +38,14 @@ export function syncNotificationDeepLink({
     return;
   }
 
+  // The inbound-leads workspace owns this deep link and loads its own
+  // staff-scoped record. Do not route it through the generic entity-modal
+  // resolver, which has no public-lead collection and would report a false
+  // "record not found" error.
+  if (open === "inboundIntent") {
+    return;
+  }
+
   const deepLinkCollections = {
     approvals,
     expenses,

@@ -58,6 +58,16 @@ describe("notificationTargets", () => {
     ).toBe("/portal/job-cards");
   });
 
+  test("maps inbound intent notifications to the inbound lead review workspace", () => {
+    expect(
+      getNotificationHref({
+        entityId: "inbound123",
+        entityType: "inboundQueryIntent",
+        title: "New inbound enquiry",
+      })
+    ).toBe("/portal/inbound-leads?open=inboundIntent&id=inbound123");
+  });
+
   test("maps job card notifications to job card modal", () => {
     expect(
       getNotificationHref({

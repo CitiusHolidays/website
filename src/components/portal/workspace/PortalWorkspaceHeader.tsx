@@ -303,6 +303,13 @@ export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspac
     ) : null;
   }
 
+  // Inbound leads own their status/source/search controls so the review and
+  // conversion panel stay together instead of rendering a second generic
+  // toolbar with unrelated Query filters.
+  if (workspace.view === "inbound-leads") {
+    return null;
+  }
+
   const filterSourceRowsByView: Record<string, unknown[] | undefined> = {
     activity: workspace.periodFiltered.activity,
     approvals: workspace.periodFiltered.approvals,

@@ -319,6 +319,12 @@ export const PORTAL_NAV_GROUPS = [
         shortcutKey: "queries",
       },
       {
+        href: "/portal/inbound-leads",
+        label: "Inbound Leads",
+        page: "inbound-leads",
+        permission: P.VIEW_QUERIES,
+      },
+      {
         href: "/portal/pipeline",
         label: "Pipeline View",
         page: "pipeline",

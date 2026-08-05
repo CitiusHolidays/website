@@ -78,6 +78,11 @@ export const VIEW_META = {
     subtitle: "Hotel arrangements, rooming, special instructions, and ground planning.",
     title: "Hotel / Rooming List",
   },
+  "inbound-leads": {
+    permission: P.VIEW_QUERIES,
+    subtitle: "Review validated public enquiries before they become Sales Queries.",
+    title: "Inbound Leads",
+  },
   "job-cards": {
     permission: P.VIEW_JOB_CARDS,
     subtitle: "Operational file control, progress, and pre-departure checklist status.",
