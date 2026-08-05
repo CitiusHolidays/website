@@ -44,6 +44,10 @@ describe("private route cache policy", () => {
       expect(source).not.toContain("PortalAuthBoundary");
       expect(source).not.toContain("<Suspense");
     }
+
+    const authLoginSource = read("src/lib/auth-login-pages.js");
+    expect(authLoginSource).toContain("const user = await getServerUser();");
+    expect(authLoginSource).not.toContain("getServerUser().catch(() => null)");
   });
 
   test("provides a retry boundary without echoing auth transport details", () => {

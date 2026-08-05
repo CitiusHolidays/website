@@ -11,7 +11,10 @@ export async function createAuthLoginPage({ variantId, searchParams }) {
   await connection();
   const params = await searchParams;
   const variant = getAuthVariant(variantId);
-  const user = await getServerUser().catch(() => null);
+  // `getServerUser` returns null for a reviewed unauthenticated session. Do
+  // not swallow token-exchange infrastructure failures as if the user logged
+  // out; the route error boundary must offer a retry instead.
+  const user = await getServerUser();
 
   if (user) {
     redirect(variant.href);
