@@ -9,6 +9,7 @@ import {
   sacredBharatJourneyPlannerSystemPrompt,
 } from "@/lib/ai/sacredBharatJourneyPlanner";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
+import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 
 export const maxDuration = 60;
 
@@ -24,11 +25,23 @@ export async function POST(req) {
       });
     }
 
-    const contentLength = Number(req.headers.get("content-length") || 0);
-    if (contentLength > MAX_BODY_BYTES) {
-      return new Response(JSON.stringify({ error: "Request is too large." }), {
+    const bodyResult = await readJsonBodyWithinLimit(req, MAX_BODY_BYTES);
+    if (!bodyResult.ok) {
+      return new Response(
+        JSON.stringify({
+          error: bodyResult.reason === "too_large" ? "Request is too large." : "Invalid request.",
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: bodyResult.reason === "too_large" ? 413 : 400,
+        }
+      );
+    }
+
+    if (!isJsonObject(bodyResult.value)) {
+      return new Response(JSON.stringify({ error: "Invalid request." }), {
         headers: { "Content-Type": "application/json" },
-        status: 413,
+        status: 400,
       });
     }
 
@@ -68,7 +81,7 @@ export async function POST(req) {
       );
     }
 
-    const body = await req.json();
+    const body = bodyResult.value;
     const visitedTempleIds = Array.isArray(body.visitedTempleIds)
       ? body.visitedTempleIds.slice(0, 40).map(String)
       : [];

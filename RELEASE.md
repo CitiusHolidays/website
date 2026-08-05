@@ -68,8 +68,9 @@ unrelated local branch.
 GitHub must provide a repository secret named `CONVEX_CI_DEPLOY_KEY`; the workflow maps it to the
 standard `CONVEX_DEPLOY_KEY` name only for `convex codegen`. Use a dedicated non-production CI
 deployment credential with the minimum permissions proven sufficient for generation. Do not reuse
-the production deployment key in the quality workflow. Secrets are not sent to untrusted fork pull
-requests, so those contributions require a trusted-branch run before merge.
+the production deployment key in the quality workflow. Every pull request is credential-free and
+uses the safe quality subset; the full Convex/typecheck/build lane runs only on protected `main`
+pushes or an explicitly dispatched `main` run.
 
 External activation still required: make **Required quality / Locked install and release gates** a
 required branch check after the workflow succeeds on the repository, and confirm the GitHub secret
@@ -102,7 +103,8 @@ before production activation.
 
 1. Confirm the current release commit and retain the previous known-good commit identifier.
 2. Confirm backup/restore readiness and use widen-migrate-narrow for stored-value/schema changes.
-3. Run the complete local release evidence command set recorded in the current `.scratch` report.
+3. Run the complete local release evidence command set recorded in the current verification section
+   of [`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md).
 4. Configure manifest keys independently for Preview and Production; verify auth callback origins,
    mail sender/domain, payment webhooks, CAPTCHA, and Convex runtime values.
 5. Run and inspect a Vercel Preview. Verify its frontend points to the preview Convex deployment and

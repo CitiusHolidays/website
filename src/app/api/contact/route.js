@@ -11,6 +11,12 @@ import {
 } from "@/lib/contact/spam-guard";
 import { isTurnstileConfigured, verifyTurnstileToken } from "@/lib/contact/turnstile";
 import { CONTACT_EMAIL_FROM, CONTACT_EMAIL_TO } from "@/lib/email/config";
+import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
+
+const MAX_CONTACT_BODY_BYTES = 16 * 1024;
+const CONTACT_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CONTACT_PHONE_PATTERN =
+  /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
 
 function rejectSpam() {
   return NextResponse.json(
@@ -22,6 +28,18 @@ function rejectSpam() {
 export async function POST(request) {
   if (!isAllowedSiteOrigin(request)) {
     return rejectSpam();
+  }
+
+  const bodyResult = await readJsonBodyWithinLimit(request, MAX_CONTACT_BODY_BYTES);
+  if (!bodyResult.ok) {
+    return NextResponse.json(
+      { error: bodyResult.reason === "too_large" ? "Message is too large." : "Invalid request." },
+      { status: bodyResult.reason === "too_large" ? 413 : 400 }
+    );
+  }
+
+  if (!isJsonObject(bodyResult.value)) {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
   const clientIp = getClientIp(request);
@@ -36,7 +54,7 @@ export async function POST(request) {
     );
   }
 
-  const body = await request.json();
+  const body = bodyResult.value;
   const { name, email, phone, subject, message, company, formLoadedAt, turnstileToken } = body;
 
   if (isHoneypotTripped(company)) {
@@ -78,19 +96,15 @@ export async function POST(request) {
     );
   }
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(trimmedEmail)) {
+  if (!CONTACT_EMAIL_PATTERN.test(trimmedEmail)) {
     return NextResponse.json({ error: "Please provide a valid email address." }, { status: 400 });
   }
 
-  if (trimmedPhone) {
-    const phoneRegex = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
-    if (!phoneRegex.test(trimmedPhone)) {
-      return NextResponse.json(
-        { error: "Please provide a valid phone number (e.g., +1 555-123-4567)." },
-        { status: 400 }
-      );
-    }
+  if (trimmedPhone && !CONTACT_PHONE_PATTERN.test(trimmedPhone)) {
+    return NextResponse.json(
+      { error: "Please provide a valid phone number (e.g., +1 555-123-4567)." },
+      { status: 400 }
+    );
   }
 
   if (trimmedMessage.length > 5000) {

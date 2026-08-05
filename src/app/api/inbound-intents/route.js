@@ -14,6 +14,7 @@ import {
   isTurnstilePartiallyConfigured,
   verifyTurnstileToken,
 } from "@/lib/contact/turnstile";
+import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
@@ -21,8 +22,8 @@ const CLIENT_NAME_MAX = 160;
 const EMAIL_MAX = 254;
 const MOBILE_MAX = 50;
 const DESTINATION_MAX = 240;
-const NOTES_MAX = 5_000;
-const MAX_PAX_COUNT = 1_000;
+const NOTES_MAX = 5000;
+const MAX_PAX_COUNT = 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOBILE_PATTERN = /^[+()\d][\d\s().-]{5,49}$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -70,8 +71,7 @@ function normalizeBody(body) {
     typeof body.contactEmail === "string" ? body.contactEmail.trim().toLowerCase() : undefined;
   const contactMobile =
     typeof body.contactMobile === "string" ? body.contactMobile.trim() : undefined;
-  const destination =
-    typeof body.destination === "string" ? body.destination.trim() : undefined;
+  const destination = typeof body.destination === "string" ? body.destination.trim() : undefined;
   const notes = typeof body.notes === "string" ? body.notes.trim() : undefined;
   const source = typeof body.source === "string" ? body.source.trim() : "";
   const travelStartDate =
@@ -81,10 +81,16 @@ function normalizeBody(body) {
   if (body.consent !== true || !clientName || clientName.length > CLIENT_NAME_MAX) {
     return { error: "Please provide your name and consent to be contacted." };
   }
-  if (contactEmail !== undefined && (!EMAIL_PATTERN.test(contactEmail) || contactEmail.length > EMAIL_MAX)) {
+  if (
+    contactEmail !== undefined &&
+    (!EMAIL_PATTERN.test(contactEmail) || contactEmail.length > EMAIL_MAX)
+  ) {
     return { error: "Please provide a valid email address." };
   }
-  if (contactMobile !== undefined && (!MOBILE_PATTERN.test(contactMobile) || contactMobile.length > MOBILE_MAX)) {
+  if (
+    contactMobile !== undefined &&
+    (!MOBILE_PATTERN.test(contactMobile) || contactMobile.length > MOBILE_MAX)
+  ) {
     return { error: "Please provide a valid mobile number." };
   }
   if (destination !== undefined && destination.length > DESTINATION_MAX) {
@@ -114,7 +120,7 @@ function normalizeBody(body) {
       ...(contactMobile ? { contactMobile } : {}),
       ...(destination ? { destination } : {}),
       ...(notes ? { notes } : {}),
-      ...(paxCount !== undefined ? { paxCount } : {}),
+      ...(paxCount === undefined ? {} : { paxCount }),
       source,
       ...(travelStartDate ? { travelStartDate } : {}),
     },
@@ -153,19 +159,15 @@ export async function handleInboundIntentRequest(
     return jsonResponse({ error: "Enquiry service is temporarily unavailable." }, 503);
   }
 
-  const declaredLength = Number(request.headers.get("content-length") || 0);
-  if (declaredLength > MAX_BODY_BYTES) {
-    return reject("Request is too large.", 413);
+  const bodyResult = await readJsonBodyWithinLimit(request, MAX_BODY_BYTES);
+  if (!bodyResult.ok) {
+    return reject(
+      bodyResult.reason === "too_large" ? "Request is too large." : "Invalid request body.",
+      bodyResult.reason === "too_large" ? 413 : 400
+    );
   }
-
-  let body;
-  try {
-    const bytes = await request.arrayBuffer();
-    if (bytes.byteLength > MAX_BODY_BYTES) {
-      return reject("Request is too large.", 413);
-    }
-    body = JSON.parse(new TextDecoder().decode(bytes));
-  } catch {
+  const body = bodyResult.value;
+  if (!isJsonObject(body)) {
     return reject("Invalid request body.");
   }
 

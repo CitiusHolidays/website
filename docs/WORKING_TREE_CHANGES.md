@@ -146,6 +146,10 @@ the wrong destination fails with both the deleted path and expected successor in
 - Maintenance migrations and capability inventory endpoints require explicit authorization.
 - Portal files continue through authenticated same-origin routes instead of exposing raw storage
   URLs.
+- Public Portable Text links are restricted to relative, HTTP(S), mailto, and tel destinations;
+  unsafe CMS schemes render as inert text in both post bodies and author bios.
+- The chat, Journey Planner, contact, and inbound-intent JSON endpoints enforce streamed byte
+  limits and reject malformed or non-object bodies before downstream validation or provider work.
 - The missing-profile path has a deterministic fallback, and the `ws` dependency is overridden to
   8.21.0.
 
@@ -184,13 +188,16 @@ The latest committed checkpoint completed the following local gates:
 
 | Gate | Result |
 | --- | --- |
-| `bun run test` | 1,145 passed, 0 failed |
+| `bun run test` | 1,152 passed, 0 failed |
 | `bun run typecheck` | Passed |
 | `bun run convex:typecheck` | Passed |
 | `bunx convex codegen --typecheck disable` | Passed |
 | `bun run config:check` / `policy:check` / `performance:check` | Passed |
 | Focused security regression tests | Passed |
+| `bun run lint` | Fails on the existing backlog: 96 errors and 1,867 warnings |
+| `bun run lint:ratchet` | Fails because current diagnostics exceed the checked-in baseline |
 | `bun audit --audit-level=high` | 17 transitive findings remain for dependency follow-up |
+| `(cd citius-blog && bun audit --audit-level=high)` | 44 blog-workspace findings remain for separate dependency follow-up |
 | Live production `/portal` | Pending redeploy/cache purge and authenticated browser verification |
 
 ## Historical verification snapshot (14 July 2026)
@@ -215,7 +222,7 @@ non-submitted sectioned Traveller form. The original hero assets and full-viewpo
 checked in the live browser. A raw Concierge tool-call probe completed in 2.593 seconds, and a
 browser retry returned a context-grounded MICE answer.
 
-## What remains outside the working tree
+## Historical activation notes (14 July 2026 snapshot)
 
 - Restricted-role deny paths still need separate non-production accounts. The available browser
   identity has broad Admin plus departmental roles and cannot prove those denials.
@@ -223,7 +230,9 @@ browser retry returned a context-grounded MICE answer.
   corrected recipient behavior is covered by focused Convex tests.
 - GitHub branch protection, Vercel environment ownership, Convex deploy-key scope, backup settings,
   and production provider configuration still require explicit external inspection and authority.
-- Four moderate transitive advisories remain accepted; the high/critical audit is clear.
+- The archived 14 July snapshot reported four moderate transitive advisories. The current
+  checkpoint records 17 high/critical transitive findings above; do not use this historical line
+  as a current dependency-clearance statement.
 - Free OpenRouter endpoints can be capacity constrained, so transient model failures remain possible.
 
 ## Related documentation

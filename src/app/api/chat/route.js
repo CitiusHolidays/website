@@ -5,6 +5,7 @@ import { createAiProviderResponse } from "@/lib/ai/providerStream";
 import { AI_RUNTIME_POLICIES } from "@/lib/ai/runtimePolicy";
 import { consumeSharedAiRateLimit, recordAiTelemetry } from "@/lib/ai/runtimeService";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
+import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 
 export const maxDuration = 60;
 
@@ -64,11 +65,24 @@ export async function POST(req) {
       });
     }
 
-    const contentLength = Number(req.headers.get("content-length") || 0);
-    if (contentLength > MAX_CHAT_BODY_BYTES) {
-      return new Response(JSON.stringify({ error: "Chat request is too large." }), {
+    const body = await readJsonBodyWithinLimit(req, MAX_CHAT_BODY_BYTES);
+    if (!body.ok) {
+      return new Response(
+        JSON.stringify({
+          error:
+            body.reason === "too_large" ? "Chat request is too large." : "Invalid chat request.",
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+          status: body.reason === "too_large" ? 413 : 400,
+        }
+      );
+    }
+
+    if (!isJsonObject(body.value)) {
+      return new Response(JSON.stringify({ error: "Invalid chat request." }), {
         headers: { "Content-Type": "application/json" },
-        status: 413,
+        status: 400,
       });
     }
 
@@ -105,7 +119,7 @@ export async function POST(req) {
       );
     }
 
-    const { messages } = await req.json();
+    const { messages } = body.value;
     if (!Array.isArray(messages) || messages.length > MAX_CHAT_MESSAGES) {
       return new Response(JSON.stringify({ error: "Invalid chat request." }), {
         headers: { "Content-Type": "application/json" },

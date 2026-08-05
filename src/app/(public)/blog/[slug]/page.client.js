@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { PortableText } from "next-sanity";
 import { formatDisplayDate } from "@/lib/formatDate";
+import { safePublicHref } from "@/lib/publicHref";
 import { urlFor } from "@/sanity/imageUrl";
 
 const portableTextComponents = {
@@ -56,16 +57,22 @@ const portableTextComponents = {
   },
   marks: {
     em: ({ children }) => <em className="font-medium text-citius-blue italic">{children}</em>,
-    link: ({ children, value }) => (
-      <a
-        className="font-medium text-citius-blue underline decoration-2 decoration-citius-orange/30 transition-colors hover:decoration-citius-orange"
-        href={value.href}
-        rel={value.blank ? "noopener noreferrer" : undefined}
-        target={value.blank ? "_blank" : "_self"}
-      >
-        {children}
-      </a>
-    ),
+    link: ({ children, value }) => {
+      const href = safePublicHref(value?.href);
+      if (!href) {
+        return <span>{children}</span>;
+      }
+      return (
+        <a
+          className="font-medium text-citius-blue underline decoration-2 decoration-citius-orange/30 transition-colors hover:decoration-citius-orange"
+          href={href}
+          rel={value?.blank ? "noopener noreferrer" : undefined}
+          target={value?.blank ? "_blank" : "_self"}
+        >
+          {children}
+        </a>
+      );
+    },
     strong: ({ children }) => (
       <strong className="rounded bg-citius-orange/10 px-1 py-0.5 font-bold text-brand-dark">
         {children}
@@ -217,7 +224,7 @@ export default function PostPageClient({ post }) {
             {post.author?.bio && (
               <div className="mt-4 border-brand-border/50 border-t pt-4">
                 <div className="rounded-lg bg-white/30 p-4 text-brand-muted text-sm leading-relaxed">
-                  <PortableText value={post.author.bio} />
+                  <PortableText components={portableTextComponents} value={post.author.bio} />
                 </div>
               </div>
             )}
