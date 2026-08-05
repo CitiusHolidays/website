@@ -139,6 +139,8 @@ NEXT_PUBLIC_SANITY_DATASET=production
 
 # Email
 RESEND_API_KEY=
+# Temporary legacy alias; migrate to RESEND_API_KEY before 2026-09-30.
+RESEND_KEY=
 
 # Passport scan encryption (also set in Convex: bunx convex env set ENCRYPTION_KEY <value>)
 ENCRYPTION_KEY=              # node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
