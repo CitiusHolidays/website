@@ -52,7 +52,15 @@ describe("lint ratchet safety contract", () => {
   });
 
   test("allows Biome status 1 only when the report is valid and policy comparison rejects increases", () => {
-    expect(parseBiomeResult({ status: 1 }, JSON.stringify({ diagnostics: [] }))).toEqual({});
+    expect(
+      parseBiomeResult(
+        { status: 1 },
+        JSON.stringify({ diagnostics: [{ category: "lint/style/example", severity: "warning" }] })
+      )
+    ).toEqual({ warning: { "lint/style/example": 1 } });
+    expect(() => parseBiomeResult({ status: 1 }, JSON.stringify({ diagnostics: [] }))).toThrow(
+      "did not report diagnostics"
+    );
     const comparison = compareDiagnostics(
       { warning: { "lint/style/example": 2 } },
       { warning: { "lint/style/example": 3 } }

@@ -96,12 +96,17 @@ export function parseBiomeResult(result: BiomeProcessResult, serializedReport: s
   if (result.status === null) {
     throw new Error("Biome terminated without an exit status");
   }
-  // Biome uses status 1 for a valid report containing diagnostics. Any other non-zero status is
-  // a runner/configuration failure and must not be interpreted as a lint report.
+  // Biome uses status 1 for a valid report containing diagnostics. Any other non-zero status (or
+  // status 1 without diagnostics) is a runner/configuration failure and must not be interpreted as
+  // a lint report.
   if (result.status !== 0 && result.status !== 1) {
     throw new Error(`Biome exited unexpectedly with status ${result.status}`);
   }
-  return countDiagnostics(parseBiomeReport(serializedReport));
+  const report = parseBiomeReport(serializedReport);
+  if (result.status === 1 && report.diagnostics.length === 0) {
+    throw new Error("Biome exited with status 1 but did not report diagnostics");
+  }
+  return countDiagnostics(report);
 }
 
 export function parseLintBaseline(value: unknown): LintBaseline {
