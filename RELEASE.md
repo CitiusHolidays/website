@@ -60,6 +60,10 @@ candidate change. CI evaluates the committed range; the local command evaluates 
 and untracked state so the complete working tree can be checked before staging. A passing local
 check does not make a partial staged commit safe—the committed range must pass in CI as well.
 
+To reproduce the committed-range check locally, provide an explicit base commit:
+`DIFF_BASE=<base-sha> bun run diff:check`. Never infer a deployment or release base from an
+unrelated local branch.
+
 GitHub must provide a repository secret named `CONVEX_CI_DEPLOY_KEY`; the workflow maps it to the
 standard `CONVEX_DEPLOY_KEY` name only for `convex codegen`. Use a dedicated non-production CI
 deployment credential with the minimum permissions proven sufficient for generation. Do not reuse
@@ -75,7 +79,7 @@ is present. This task does not change branch protection.
 The protected Vercel build command in `vercel.json` is:
 
 ```bash
-bunx convex deploy --cmd 'bun --bun next build'
+bunx convex deploy --cmd 'bun run build'
 ```
 
 The same command selects its target through `CONVEX_DEPLOY_KEY`:

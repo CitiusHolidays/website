@@ -258,7 +258,7 @@ Examples: `src/lib/effectAdoption.ts`. Run `bun run typecheck` for app/source Ty
 Deploy on [Vercel](https://vercel.com/). Recommended Convex hosting pattern:
 
 ```bash
-bunx convex deploy --cmd 'bun --bun next build'
+bunx convex deploy --cmd 'bun run build'
 ```
 
 On Vercel:
