@@ -18,11 +18,26 @@ export const authSyncResultValidator = v.object({
   profileId: v.union(v.id("userProfiles"), v.null()),
 });
 export const authRepairResultValidator = v.object({
-  duplicatesRemoved: v.number(),
-  profilesRelinked: v.number(),
-  profileTotal: v.number(),
-  staffRelinked: v.number(),
-  staffTotal: v.number(),
+  continueCursor: v.string(),
+  counts: v.object({
+    ambiguous: v.number(),
+    inspected: v.number(),
+    linked: v.number(),
+    missing: v.number(),
+    repairable: v.number(),
+    repaired: v.number(),
+    skipped: v.number(),
+  }),
+  isDone: v.boolean(),
+  mode: v.union(v.literal("inventory"), v.literal("repair")),
+  review: v.array(
+    v.object({
+      email: v.string(),
+      reason: v.string(),
+      staffId: v.id("staffUsers"),
+      status: v.union(v.literal("ambiguous"), v.literal("missing"), v.literal("skipped")),
+    })
+  ),
 });
 
 export const aiRateLimitResultValidator = v.object({
