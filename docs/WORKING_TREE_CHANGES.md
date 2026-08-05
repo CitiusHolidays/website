@@ -3,7 +3,8 @@
 This document preserves the complete local working-tree bundle captured on 14 July 2026. It is an
 archive of the earlier remediation and follow-up change set, not the current release status. The
 current committed checkpoint, verification evidence, known debt, and external deployment blocker
-are tracked in [`.scratch/README.md`](../.scratch/README.md).
+are recorded in the current verification section below; `.scratch/README.md` is only a local,
+gitignored mirror.
 
 ## Review bundles and dependencies
 
@@ -231,4 +232,5 @@ browser retry returned a context-grounded MICE answer.
 - [Portal roles and access](PORTAL_ROLES_AND_ACCESS.md)
 - [Portal permissions architecture](PORTAL_PERMISSIONS_ARCHITECTURE.md)
 - [Release operations](../RELEASE.md)
-- Local evidence pack: `.scratch/2026-07-13-burn-remediation/evidence/`
+- Local evidence pack: the dated scratch bundle was intentionally removed after reconciliation;
+  the current verification section above is the durable summary.

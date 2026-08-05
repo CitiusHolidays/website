@@ -48,9 +48,9 @@ tracker; do not recreate a second `plans/` directory.
 
 The current security and portal-hardening checkpoint is committed on the active branch. Local
 verification, known audit debt, deferred work, scratch cleanup, and the exact production blocker
-are kept in [`.scratch/README.md`](.scratch/README.md). The tracked historical change summary in
-[`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md) is retained for context; it is not a
-claim that the current deployment has been activated.
+are recorded in the tracked [working-tree summary](docs/WORKING_TREE_CHANGES.md). The local
+`.scratch/README.md` is an optional workspace mirror and is intentionally gitignored; it is not
+required to understand or release the repository.
 
 ### Payments
 

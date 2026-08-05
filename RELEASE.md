@@ -5,7 +5,7 @@ does not assert that Vercel, GitHub, Convex, DNS, or provider dashboards are alr
 
 The complete local change summary and latest evidence snapshot are in
 [`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md). The current release checkpoint is
-recorded in `.scratch/README.md`; local verification is current there, while Vercel/Convex
+recorded in that tracked document; local verification is current there, while Vercel/Convex
 deployment and live browser checks remain external activation work. These results are local
 evidence, not proof that external platform settings or production activation are complete.
 

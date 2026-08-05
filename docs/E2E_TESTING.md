@@ -85,10 +85,11 @@ Not wired today. When you want PR/nightly gates, you will need:
 - `CONVEX_E2E_DEPLOY_KEY` for seeding a dedicated test Convex deployment
 - GitHub secrets: `E2E_STAFF_PASSWORD`, `E2E_SEED_SECRET`, and optionally `E2E_BASE_URL`
 
-Track in `.scratch/crm-e2e-testing/issues/17-ci-pr-critical-gate.md` and related tickets. `bun run check` and `required-quality.yml` stay unchanged (no Playwright in CI).
+Track future Playwright CI activation in a repository-owned issue or change plan. The removed
+scratch backlog is not a source of truth; `bun run check` and `required-quality.yml` currently do
+not run Playwright interaction specs.
 
 ## Related docs
 
 - `docs/BROWSER_SMOKE.md` — navigation-only smoke
 - `docs/adr/0005-playwright-crm-interaction-tests.md` — harness decision
-- `.scratch/crm-e2e-testing/PRD.md` — full spec
