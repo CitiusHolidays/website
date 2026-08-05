@@ -18,7 +18,10 @@ const CONTACT_EMAIL_MAX_RETRIES = 4;
 const CONTACT_EMAIL_RETRY_INTERVAL_MS = 550;
 
 export async function deliverContactEmail(input: DeliverContactEmailInput) {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
+  // Keep the legacy key usable during the documented Resend environment
+  // migration. RESEND_API_KEY remains the canonical name and wins when both
+  // values are present.
+  const apiKey = (process.env.RESEND_API_KEY || process.env.RESEND_KEY)?.trim();
   if (!apiKey) {
     throw new Error("Resend API key is not configured.");
   }

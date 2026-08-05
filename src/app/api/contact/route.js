@@ -58,7 +58,10 @@ export async function POST(request) {
     }
   }
 
-  if (!process.env.RESEND_API_KEY) {
+  // RESEND_API_KEY is canonical; RESEND_KEY remains a temporary deployment
+  // alias so existing contact forms do not fail during key migration.
+  const resendKey = process.env.RESEND_API_KEY?.trim() || process.env.RESEND_KEY?.trim();
+  if (!resendKey) {
     return NextResponse.json({ error: "Email service not configured." }, { status: 500 });
   }
 

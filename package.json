@@ -60,7 +60,7 @@
     "lucide-react": "^1.23.0",
     "motion": "^12.42.2",
     "motion-plus": "^1.5.1",
-    "next": "^16.3.0-preview.5",
+    "next": "16.3.0-preview.5",
     "next-sanity": "^13.1.1",
     "razorpay": "^2.9.6",
     "react": "^19.2.7",
@@ -81,6 +81,7 @@
     "ultracite": "7.9.0"
   },
   "overrides": {
+    "dompurify": "3.4.13",
     "ws": "8.21.0"
   }
 }

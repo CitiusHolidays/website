@@ -8,5 +8,6 @@ describe("contact email delivery boundary", () => {
     expect(source).toContain('idempotencyNamespace: "contact-form"');
     expect(source).toContain("replyTo: message.replyTo");
     expect(source).toContain("to: message.to");
+    expect(source).toContain("process.env.RESEND_KEY");
   });
 });
