@@ -79,28 +79,30 @@ describe("processRazorpayWebhookEvent", () => {
     expect(called).toBe(false);
   });
 
-  test("rejects unknown provider events without calling payment mutations", async () => {
+  test("acknowledges unknown provider events without calling payment mutations or reading secrets", async () => {
     let called = false;
+    let secretReads = 0;
 
-    await expect(
-      processRazorpayWebhookEvent(
-        { event: "subscription.charged", payload: {} },
-        {
-          confirmBookingByOrderId: () => {
-            called = true;
-            return Promise.resolve({ success: true });
-          },
-          getServerSecret: () => "server-secret",
-          markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
-          markRefundedByPaymentId: () => Promise.resolve({}),
-          recordPaymentAuthorized: () => Promise.resolve({}),
-        }
-      )
-    ).rejects.toEqual(
-      new RazorpayWebhookPayloadError("Unsupported Razorpay webhook event: subscription.charged")
+    const result = await processRazorpayWebhookEvent(
+      { event: "subscription.charged", payload: {} },
+      {
+        confirmBookingByOrderId: () => {
+          called = true;
+          return Promise.resolve({ success: true });
+        },
+        getServerSecret: () => {
+          secretReads += 1;
+          return null;
+        },
+        markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+        markRefundedByPaymentId: () => Promise.resolve({}),
+        recordPaymentAuthorized: () => Promise.resolve({}),
+      }
     );
 
+    expect(result).toEqual({ action: "ignored", event: "subscription.charged", received: true });
     expect(called).toBe(false);
+    expect(secretReads).toBe(0);
   });
 
   test("rejects incomplete provider payloads without attempting a mutation", async () => {
@@ -181,13 +183,17 @@ describe("mapRazorpayWebhookProcessingError", () => {
     });
   });
 
-  test("maps unknown provider payloads to a non-success response", () => {
+  test("maps malformed supported provider payloads to a non-success response", () => {
     const result = mapRazorpayWebhookProcessingError(
-      new RazorpayWebhookPayloadError("Unsupported Razorpay webhook event: unknown")
+      new RazorpayWebhookPayloadError(
+        "Invalid Razorpay webhook payload: payment.captured requires payment.entity.id"
+      )
     );
 
     expect(result).toEqual({
-      body: { error: "Unsupported Razorpay webhook event: unknown" },
+      body: {
+        error: "Invalid Razorpay webhook payload: payment.captured requires payment.entity.id",
+      },
       status: 400,
     });
   });

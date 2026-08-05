@@ -15,10 +15,32 @@ import { verifyWebhookSignature } from "@/lib/razorpay";
 import {
   mapRazorpayWebhookProcessingError,
   processRazorpayWebhookEvent,
+  type RazorpayWebhookDeps,
   type RazorpayWebhookPayload,
 } from "@/lib/razorpayWebhook";
 
-async function handleRazorpayWebhook(request: Request) {
+interface RazorpayWebhookRouteOptions {
+  deps?: RazorpayWebhookDeps;
+}
+
+function defaultWebhookDeps(): RazorpayWebhookDeps {
+  return {
+    confirmBookingByOrderId: (args) =>
+      fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, args),
+    getServerSecret: getPaymentMutationSecret,
+    markPaymentFailedByOrderId: (args) =>
+      fetchAuthMutation(anyApi.bookings.markPaymentFailedByOrderId, args),
+    markRefundedByPaymentId: (args) =>
+      fetchAuthMutation(anyApi.bookings.markRefundedByPaymentId, args),
+    recordPaymentAuthorized: (args) =>
+      fetchAuthMutation(anyApi.bookings.recordPaymentAuthorized, args),
+  };
+}
+
+export async function handleRazorpayWebhook(
+  request: Request,
+  options: RazorpayWebhookRouteOptions = {}
+) {
   try {
     const rawBody = await request.text();
     const signature = request.headers.get("x-razorpay-signature");
@@ -42,33 +64,15 @@ async function handleRazorpayWebhook(request: Request) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
-    // The webhook signature authenticates Razorpay, but the Convex mutation
-    // still requires a separate server-to-server secret. Never acknowledge a
-    // signed provider event when that second trust boundary is unavailable.
-    if (!getPaymentMutationSecret()) {
-      console.error("PAYMENT_MUTATION_SECRET not configured");
-      return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
-    }
-
     const payload = JSON.parse(rawBody) as RazorpayWebhookPayload;
     const event = typeof payload.event === "string" ? payload.event : "unknown";
     console.log(`Razorpay webhook received: ${event}`);
 
-    const result = await processRazorpayWebhookEvent(payload, {
-      confirmBookingByOrderId: (args) =>
-        fetchAuthMutation(anyApi.bookings.confirmBookingByOrderId, args),
-      getServerSecret: getPaymentMutationSecret,
-      markPaymentFailedByOrderId: (args) =>
-        fetchAuthMutation(anyApi.bookings.markPaymentFailedByOrderId, args),
-      markRefundedByPaymentId: (args) =>
-        fetchAuthMutation(anyApi.bookings.markRefundedByPaymentId, args),
-      recordPaymentAuthorized: (args) =>
-        fetchAuthMutation(anyApi.bookings.recordPaymentAuthorized, args),
-    });
+    const result = await processRazorpayWebhookEvent(payload, options.deps ?? defaultWebhookDeps());
 
     console.log(`Razorpay webhook action: ${result.action}`);
 
-    return NextResponse.json({ received: true });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Webhook processing error:", error);
     const response = mapRazorpayWebhookProcessingError(error);

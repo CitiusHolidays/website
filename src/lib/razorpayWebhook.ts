@@ -58,6 +58,7 @@ export interface RazorpayWebhookDeps {
 
 export interface RazorpayWebhookResult {
   action: string;
+  event?: string;
   received: true;
 }
 
@@ -258,6 +259,6 @@ export async function processRazorpayWebhookEvent(
     case "refund.created":
       return await handleRefundCreated(payload?.payload?.refund?.entity, deps);
     default:
-      throw new RazorpayWebhookPayloadError(`Unsupported Razorpay webhook event: ${event}`);
+      return { action: "ignored", event, received: true };
   }
 }
