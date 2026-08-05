@@ -33,12 +33,14 @@ export function makeInviteCode() {
     bits += 8;
     while (bits >= 5) {
       bits -= 5;
-      const index = Math.floor(buffer / 2 ** bits) % INVITE_CODE_ALPHABET.length;
+      const divisor = 2 ** bits;
+      const index = Math.floor(buffer / divisor);
       code += INVITE_CODE_ALPHABET[index];
+      buffer -= index * divisor;
     }
   }
   if (bits > 0) {
-    const index = Math.floor(buffer * 2 ** (5 - bits)) % INVITE_CODE_ALPHABET.length;
+    const index = Math.floor(buffer * 2 ** (5 - bits));
     code += INVITE_CODE_ALPHABET[index];
   }
   return code;

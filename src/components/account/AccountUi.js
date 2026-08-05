@@ -1,19 +1,26 @@
 "use client";
 
 import {
+  BedDouble,
   CalendarDays,
   CheckCircle2,
   ChevronRight,
   Clock3,
   Compass,
+  Plane,
   UsersRound,
   XCircle,
 } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useId, useState } from "react";
-import { formatDisplayDate } from "@/lib/formatDate";
+import { useCallback, useId, useState } from "react";
+import {
+  formatAccountDateRange,
+  getDepartureLabel,
+  getTripDestination,
+  getTripNights,
+} from "./accountPresentation";
 
 export const ACCOUNT_CONTAINER_VARIANTS = {
   // Keep the first paint visible even if Motion is deferred by the server
@@ -35,22 +42,39 @@ export const ACCOUNT_ITEM_VARIANTS = {
 const ACCOUNT_INK = "var(--account-ink)";
 const ACCOUNT_NIGHT = "var(--account-night)";
 const ACCOUNT_GOLD = "var(--account-gold)";
+const ITINERARY_FLIGHT_RE = /flight|airport|arrival|departure/i;
+
+function getEntryLocation(entry) {
+  if (typeof entry.location === "string") {
+    return entry.location;
+  }
+  if (typeof entry.destination === "string") {
+    return entry.destination;
+  }
+  return "";
+}
 
 export function AccountMark({ compact = false, inverse = false }) {
   return (
-    <div className={`flex items-center gap-2 ${compact ? "" : "flex-col items-start gap-0"}`}>
-      <span
-        className={`account-display text-xl tracking-[0.18em] ${inverse ? "text-white" : "text-[var(--account-ink)]"}`}
-      >
-        CITIUS
-      </span>
-      {!compact && (
+    <div className="flex flex-col items-start gap-0">
+      <div className="flex items-center gap-2">
+        <Plane
+          aria-hidden="true"
+          className="text-[var(--account-gold)]"
+          size={compact ? 14 : 17}
+          strokeWidth={1.5}
+        />
         <span
-          className={`font-medium text-[9px] uppercase tracking-[0.35em] ${inverse ? "text-white/55" : "text-[var(--account-muted)]"}`}
+          className={`account-display text-xl tracking-[0.18em] ${inverse ? "text-white" : "text-[var(--account-ink)]"}`}
         >
-          Holidays
+          CITIUS
         </span>
-      )}
+      </div>
+      <span
+        className={`font-medium text-[9px] uppercase tracking-[0.35em] ${compact ? "ml-6" : ""} ${inverse ? "text-[var(--account-gold)]" : "text-[var(--account-muted)]"}`}
+      >
+        Holidays
+      </span>
     </div>
   );
 }
@@ -106,18 +130,10 @@ export function normalizeItinerary(itinerary) {
       day: typeof entry.day === "string" ? entry.day : `Day ${index + 1}`,
       desc: typeof entry.desc === "string" ? entry.desc : "",
       key: `${typeof entry.day === "string" ? entry.day : `day-${index + 1}`}-${typeof entry.title === "string" ? entry.title : "highlight"}`,
+      location: getEntryLocation(entry),
       meals: typeof entry.meals === "string" ? entry.meals : "",
       title: typeof entry.title === "string" ? entry.title : "Journey highlight",
     }));
-}
-
-function tripDays(trip) {
-  const start = Date.parse(trip?.startDate || "");
-  const end = Date.parse(trip?.endDate || "");
-  if (!(Number.isFinite(start) && Number.isFinite(end)) || end < start) {
-    return null;
-  }
-  return Math.max(1, Math.ceil((end - start) / 86_400_000));
 }
 
 function CoverImage({ trip, className = "" }) {
@@ -140,10 +156,11 @@ function CoverImage({ trip, className = "" }) {
 
 export function JourneyOverviewCard({ booking, onOpen }) {
   const { trip, booking: bookingData } = booking;
-  const days = tripDays(trip);
+  const destination = getTripDestination(trip);
+  const nights = getTripNights(trip);
   return (
     <m.article
-      className="account-card group grid overflow-hidden rounded-sm lg:grid-cols-[minmax(230px,0.88fr)_1.5fr]"
+      className="account-card group grid overflow-hidden rounded-sm lg:grid-cols-[minmax(220px,0.82fr)_1.3fr_minmax(180px,0.68fr)]"
       variants={ACCOUNT_ITEM_VARIANTS}
     >
       <div className="relative min-h-56 overflow-hidden bg-[var(--account-night)] lg:min-h-72">
@@ -151,34 +168,21 @@ export function JourneyOverviewCard({ booking, onOpen }) {
           className="transition-transform duration-700 fine-hover:group-hover:scale-[1.03]"
           trip={trip}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#062341]/70 via-transparent to-transparent" />
-        <div className="absolute bottom-5 left-5 text-white">
-          <p className="mb-1 text-[10px] text-white/65 uppercase tracking-[0.2em]">
-            Your next escape
-          </p>
-          <p className="account-display max-w-[14rem] text-2xl leading-tight">{trip.name}</p>
-        </div>
       </div>
       <div className="flex flex-col justify-between p-6 sm:p-8">
         <div>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <StatusPill status={bookingData.status} />
-              <h2 className="account-display mt-4 text-3xl text-[var(--account-ink)] leading-tight sm:text-4xl">
-                {trip.name}
-              </h2>
-            </div>
-            <div className="text-right text-[var(--account-muted)] text-xs">
-              <span className="block uppercase tracking-[0.15em]">Booking</span>
-              <span className="font-mono text-[var(--account-ink)]">
-                {bookingData.id.slice(0, 8)}…
-              </span>
-            </div>
-          </div>
+          <p className="mb-3 flex items-center gap-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.16em]">
+            <Plane size={14} />
+            {getDepartureLabel(trip.startDate)}
+          </p>
+          <h2 className="account-display text-3xl text-[var(--account-ink)] leading-tight sm:text-4xl">
+            {trip.name}
+          </h2>
+          <p className="mt-2 text-[var(--account-muted)] text-sm">{destination}</p>
           <div className="mt-6 grid gap-3 text-[var(--account-muted)] text-sm sm:grid-cols-3">
             <div className="flex items-center gap-2">
               <CalendarDays className="text-[var(--account-gold)]" size={16} />
-              {formatDisplayDate(trip.startDate)}
+              {formatAccountDateRange(trip.startDate, trip.endDate)}
             </div>
             <div className="flex items-center gap-2">
               <UsersRound className="text-[var(--account-gold)]" size={16} />
@@ -186,7 +190,7 @@ export function JourneyOverviewCard({ booking, onOpen }) {
             </div>
             <div className="flex items-center gap-2">
               <Clock3 className="text-[var(--account-gold)]" size={16} />
-              {days ? `${days} days` : "Dates to follow"}
+              {nights ? `${nights} night${nights === 1 ? "" : "s"}` : "Nights to follow"}
             </div>
           </div>
           <p className="mt-5 max-w-xl text-[var(--account-muted)] text-sm leading-6">
@@ -195,9 +199,7 @@ export function JourneyOverviewCard({ booking, onOpen }) {
           </p>
         </div>
         <div className="mt-7 flex flex-wrap items-center justify-between gap-4 border-[var(--account-border)] border-t pt-5">
-          <p className="text-[var(--account-muted)] text-xs">
-            {formatDisplayDate(trip.startDate)} — {formatDisplayDate(trip.endDate)}
-          </p>
+          <StatusPill status={bookingData.status} />
           <button
             className="account-focus inline-flex items-center gap-2 font-semibold text-[var(--account-ink)] text-xs uppercase tracking-[0.12em] hover:text-[var(--account-gold)]"
             onClick={onOpen}
@@ -207,12 +209,46 @@ export function JourneyOverviewCard({ booking, onOpen }) {
           </button>
         </div>
       </div>
+      <aside className="border-[var(--account-border)] border-t p-6 lg:border-t-0 lg:border-l">
+        <p className="mb-4 font-semibold text-[10px] text-[var(--account-muted)] uppercase tracking-[0.15em]">
+          Journey summary
+        </p>
+        <dl className="space-y-4 text-sm">
+          <div>
+            <dt className="text-[var(--account-muted)] text-xs">Destination</dt>
+            <dd className="mt-1 font-medium text-[var(--account-ink)]">{destination}</dd>
+          </div>
+          <div>
+            <dt className="text-[var(--account-muted)] text-xs">Travellers</dt>
+            <dd className="mt-1 font-medium text-[var(--account-ink)]">
+              {bookingData.travelers} traveler{bookingData.travelers === 1 ? "" : "s"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[var(--account-muted)] text-xs">Dates</dt>
+            <dd className="mt-1 font-medium text-[var(--account-ink)]">
+              {formatAccountDateRange(trip.startDate, trip.endDate)}
+            </dd>
+          </div>
+        </dl>
+      </aside>
     </m.article>
   );
 }
 
 export function ItinerarySnapshot({ trip }) {
   const entries = normalizeItinerary(trip?.itinerary).slice(0, 4);
+
+  const getEntryIcon = (entry) => {
+    if (entry.accommodation) {
+      return <BedDouble aria-hidden="true" size={15} strokeWidth={1.6} />;
+    }
+    if (ITINERARY_FLIGHT_RE.test(`${entry.title} ${entry.desc}`)) {
+      return <Plane aria-hidden="true" size={15} strokeWidth={1.6} />;
+    }
+    return <Compass aria-hidden="true" size={15} strokeWidth={1.6} />;
+  };
+
   return (
     <section>
       <div className="mb-5 flex items-end justify-between gap-4">
@@ -227,25 +263,32 @@ export function ItinerarySnapshot({ trip }) {
         </span>
       </div>
       {entries.length ? (
-        <div className="account-card divide-y divide-[var(--account-border)] rounded-sm">
-          {entries.map((entry) => (
-            <div className="grid gap-3 px-5 py-5 sm:grid-cols-[74px_1fr] sm:gap-6" key={entry.key}>
-              <p className="font-semibold text-[var(--account-gold)] text-xs uppercase tracking-[0.13em]">
-                {entry.day}
-              </p>
-              <div>
-                <p className="font-medium text-[var(--account-ink)]">{entry.title}</p>
-                <p className="mt-1 text-[var(--account-muted)] text-sm leading-6">
-                  {entry.desc || entry.accommodation || "Details will be shared shortly."}
-                </p>
-                {!!(entry.accommodation || entry.meals) && (
-                  <p className="mt-2 text-[var(--account-muted)] text-xs">
-                    {[entry.accommodation, entry.meals].filter(Boolean).join(" · ")}
+        <div className="account-card rounded-sm p-5 sm:p-6">
+          <ol className="account-timeline">
+            {entries.map((entry) => (
+              <li className="account-timeline-item" key={entry.key}>
+                <span className="account-timeline-marker flex size-8 items-center justify-center rounded-full border border-[var(--account-gold)] bg-[var(--account-surface)] text-[var(--account-gold)]">
+                  {getEntryIcon(entry)}
+                </span>
+                <div className="min-w-0 pt-1 md:pt-3">
+                  <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.13em]">
+                    {entry.day}
                   </p>
-                )}
-              </div>
-            </div>
-          ))}
+                  <p className="mt-1 font-medium text-[var(--account-ink)]">{entry.title}</p>
+                  <p className="mt-1 text-[var(--account-muted)] text-sm leading-6">
+                    {entry.desc || entry.accommodation || "Details will be shared shortly."}
+                  </p>
+                  {!!(entry.location || entry.accommodation || entry.meals) && (
+                    <p className="mt-2 text-[var(--account-muted)] text-xs">
+                      {[entry.location, entry.accommodation, entry.meals]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
         </div>
       ) : (
         <EmptyInfoCard
@@ -261,19 +304,57 @@ export function ItinerarySnapshot({ trip }) {
 export function TravelInfoCard({ icon, eyebrow, title, children }) {
   return (
     <article className="account-card rounded-sm p-5 sm:p-6">
-      <div className="flex items-start gap-3">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--account-gold-soft)] text-[var(--account-gold)]">
-          {icon}
-        </span>
-        <div>
-          <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.17em]">
-            {eyebrow}
-          </p>
-          <h3 className="account-display mt-1 text-2xl text-[var(--account-ink)]">{title}</h3>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--account-gold-soft)] text-[var(--account-gold)]">
+            {icon}
+          </span>
+          <div>
+            <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.17em]">
+              {eyebrow}
+            </p>
+            <h3 className="account-display mt-1 text-2xl text-[var(--account-ink)]">{title}</h3>
+          </div>
         </div>
+        <span className="shrink-0 rounded-full bg-[var(--account-gold-soft)] px-2.5 py-1 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.1em]">
+          Planned
+        </span>
       </div>
       <div className="mt-5 text-[var(--account-muted)] text-sm leading-6">{children}</div>
     </article>
+  );
+}
+
+export function TravelInfoPlaceholder({ kind }) {
+  const isFlight = kind === "flight";
+  const rows = isFlight
+    ? [
+        ["Departure", "To be confirmed"],
+        ["Arrival", "To be confirmed"],
+        ["PNR", "Added after ticketing"],
+      ]
+    : [
+        ["Property", "To be confirmed"],
+        ["Check-in", "Added with stay details"],
+        ["Room", "Added after confirmation"],
+      ];
+
+  return (
+    <div className="space-y-4">
+      <dl className="divide-y divide-[var(--account-border)] rounded-sm border border-[var(--account-border)] bg-[var(--account-paper)]">
+        {rows.map(([label, value]) => (
+          <div className="flex items-center justify-between gap-4 px-4 py-3" key={label}>
+            <dt className="font-medium text-[var(--account-ink)] text-xs">{label}</dt>
+            <dd className="text-right text-[var(--account-muted)] text-xs">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-[var(--account-muted)] text-xs leading-5">
+        {isFlight
+          ? "Flight and PNR details will appear here after the travel desk confirms your tickets."
+          : "Room and check-in details will appear here once your stays are confirmed."}
+      </p>
+    </div>
   );
 }
 
@@ -289,24 +370,47 @@ export function EmptyInfoCard({ icon, title, text }) {
   );
 }
 
-export function PastJourneyCard({ booking }) {
+export function PastJourneyCard({ booking, bookingId, onOpen }) {
   const { trip, booking: bookingData } = booking;
-  return (
-    <Link
-      className="account-focus account-card group flex items-center gap-4 rounded-sm p-3 transition-transform fine-hover:hover:-translate-y-0.5 sm:gap-5 sm:p-4"
-      href={`/services/${trip.slug}`}
-    >
+  const content = (
+    <>
       <div className="relative size-20 shrink-0 overflow-hidden rounded-sm bg-[var(--account-night)] sm:size-24">
         <CoverImage trip={trip} />
       </div>
       <div className="min-w-0 flex-1">
         <p className="account-display truncate text-[var(--account-ink)] text-xl">{trip.name}</p>
         <p className="mt-1 text-[var(--account-muted)] text-xs">
-          {formatDisplayDate(trip.startDate)} · {bookingData.travelers} traveler
+          {formatAccountDateRange(trip.startDate, trip.endDate)} · {bookingData.travelers} traveler
           {bookingData.travelers === 1 ? "" : "s"}
         </p>
+        <p className="mt-1 text-[var(--account-muted)] text-xs">{getTripDestination(trip)}</p>
       </div>
-      <ChevronRight className="shrink-0 text-[var(--account-gold)]" size={18} />
+      <span className="flex shrink-0 items-center gap-1 font-semibold text-[var(--account-ink)] text-xs uppercase tracking-[0.1em]">
+        {onOpen ? "View itinerary" : "View summary"}
+        <ChevronRight className="text-[var(--account-gold)]" size={18} />
+      </span>
+    </>
+  );
+
+  if (onOpen) {
+    return (
+      <button
+        className="account-focus account-card group flex w-full items-center gap-4 rounded-sm p-3 text-left transition-transform fine-hover:hover:-translate-y-0.5 sm:gap-5 sm:p-4"
+        data-booking-id={bookingId}
+        onClick={onOpen}
+        type="button"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link
+      className="account-focus account-card group flex items-center gap-4 rounded-sm p-3 transition-transform fine-hover:hover:-translate-y-0.5 sm:gap-5 sm:p-4"
+      href={`/services/${trip.slug}`}
+    >
+      {content}
     </Link>
   );
 }
@@ -320,7 +424,10 @@ export function ProfileAlert({ type = "success", message }) {
   const Icon = isSuccess ? CheckCircle2 : XCircle;
   return (
     <div
+      aria-atomic="true"
+      aria-live="polite"
       className={`mt-4 flex items-center gap-3 rounded-sm border px-4 py-3 text-sm ${isSuccess ? "border-[#c7ddcf] bg-[#eff7f1] text-[#2d6349]" : "border-[#e7c8c3] bg-[#fff2f0] text-[#9b3d32]"}`}
+      role={isSuccess ? "status" : "alert"}
     >
       <Icon size={18} />
       <span className="font-medium">{message}</span>
@@ -337,7 +444,7 @@ export function ProfileInput({
   disabled = false,
 }) {
   const fieldId = useId();
-  const handleChange = (event) => onChange?.(event.target.value);
+  const handleChange = useCallback((event) => onChange?.(event.target.value), [onChange]);
   return (
     <div>
       <label
@@ -374,7 +481,7 @@ export function ProfileField({ label, value }) {
 
 export function SettingRow({ title, description, action }) {
   return (
-    <div className="flex items-center justify-between gap-5 p-6 transition-colors hover:bg-[#fcfaf6]">
+    <div className="flex flex-col items-start justify-between gap-4 p-6 transition-colors hover:bg-[#fcfaf6] sm:flex-row sm:items-center">
       <div>
         <h4 className="font-medium text-[var(--account-ink)]">{title}</h4>
         <p className="mt-1 text-[var(--account-muted)] text-sm leading-5">{description}</p>
@@ -384,14 +491,27 @@ export function SettingRow({ title, description, action }) {
   );
 }
 
-export function Toggle() {
+export function Toggle({ disabled = false, label = "Account notifications" }) {
   const [isOn, setIsOn] = useState(true);
-  const handleToggle = () => setIsOn((value) => !value);
+  const handleToggle = useCallback(() => {
+    if (!disabled) {
+      setIsOn((value) => !value);
+    }
+  }, [disabled]);
+  let toggleClassName = "bg-[#d8d4cc]";
+  if (disabled) {
+    toggleClassName = "cursor-not-allowed bg-[#d8d4cc] opacity-60";
+  } else if (isOn) {
+    toggleClassName = "bg-[var(--account-night)]";
+  }
   return (
     <button
-      aria-label={isOn ? "Turn off" : "Turn on"}
-      className={`account-focus h-6 w-11 rounded-full p-1 transition-colors ${isOn ? "bg-[var(--account-night)]" : "bg-[#d8d4cc]"}`}
+      aria-checked={isOn}
+      aria-label={`${label}: ${isOn ? "On" : "Off"}${disabled ? ". Planned" : ""}`}
+      className={`account-focus h-6 w-11 rounded-full p-1 transition-colors ${toggleClassName}`}
+      disabled={disabled}
       onClick={handleToggle}
+      role="switch"
       type="button"
     >
       <m.div

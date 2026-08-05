@@ -19,28 +19,30 @@ export function AccountSettingsPanel() {
 
       <div className="divide-y divide-[var(--account-border)]">
         <SettingRow
-          action={<Toggle />}
-          description="Receive updates about your bookings and exclusive offers."
+          action={<Toggle disabled label="Email notifications" />}
+          description="Receive updates about your bookings and exclusive offers. This preference will be available when notification settings are connected."
           title="Email Notifications"
         />
         <SettingRow
           action={
             <button
-              className="account-focus font-medium text-[var(--account-gold)] text-sm"
+              aria-label="Two-step verification. Planned"
+              className="cursor-not-allowed font-medium text-[var(--account-muted)] text-sm"
+              disabled
               type="button"
             >
-              Enable
+              Planned
             </button>
           }
-          description="Add an extra layer of security to your account."
+          description="Add an extra layer of security to your account. Two-step verification is planned for a future account update."
+          title="Two-step verification"
         />
         <SettingRow
           action={
-            <button className="font-medium text-red-500 text-sm" type="button">
-              Delete
-            </button>
+            <span className="font-medium text-[var(--account-muted)] text-sm">Contact team</span>
           }
-          description="Permanently remove your account and all data."
+          description="Account deletion is handled by the Citius travel team so we can confirm any active journeys first."
+          title="Delete account"
         />
       </div>
     </m.div>

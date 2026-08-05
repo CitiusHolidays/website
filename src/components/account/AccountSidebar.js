@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut, MapIcon, Settings, UserRound } from "lucide-react";
+import { ChevronDown, LogOut, MapIcon, Menu, Settings, UserRound, X } from "lucide-react";
+import { useCallback, useState } from "react";
 import { AccountMark, NavButton } from "./AccountUi";
 
 const NAV_ITEMS = [
@@ -9,11 +10,74 @@ const NAV_ITEMS = [
   { icon: <Settings size={17} />, id: "settings", label: "Settings" },
 ];
 
-export function AccountSidebar({ activeTab, onTabChange, onLogout, isLoggingOut }) {
+export function AccountControl({ user, onLogout, isLoggingOut, compact = false }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const initials = (user?.name || user?.email || "T").slice(0, 1).toUpperCase();
+  const toggleMenu = useCallback(() => setIsOpen((value) => !value), []);
+
+  return (
+    <div className="relative">
+      <button
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        aria-label={isOpen ? "Close account menu" : "Open account menu"}
+        className={`account-focus flex items-center gap-2 rounded-full ${compact ? "p-0.5" : "border border-[var(--account-border)] bg-[var(--account-surface)] px-2 py-1.5"}`}
+        onClick={toggleMenu}
+        type="button"
+      >
+        <span className="flex size-8 items-center justify-center rounded-full bg-[var(--account-night)] font-medium text-sm text-white">
+          {initials}
+        </span>
+        {!compact && (
+          <span className="hidden max-w-36 truncate text-[var(--account-ink)] text-xs sm:block">
+            {user?.name || user?.email || "Account"}
+          </span>
+        )}
+        <ChevronDown
+          aria-hidden="true"
+          className="text-[var(--account-muted)]"
+          size={14}
+          strokeWidth={1.6}
+        />
+      </button>
+      {isOpen ? (
+        <div
+          className="absolute top-[calc(100%+0.6rem)] right-0 z-50 w-60 rounded-sm border border-[var(--account-border)] bg-[var(--account-surface)] p-3 shadow-[0_18px_44px_rgb(6_35_65_/_0.16)]"
+          role="menu"
+        >
+          <p className="truncate px-2 pb-3 text-[var(--account-muted)] text-xs">{user?.email}</p>
+          <button
+            className="account-focus flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-[var(--account-ink)] text-xs hover:bg-[var(--account-paper)]"
+            disabled={isLoggingOut}
+            onClick={onLogout}
+            role="menuitem"
+            type="button"
+          >
+            <LogOut size={15} />
+            {isLoggingOut ? "Signing out…" : "Sign out"}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function AccountSidebar({ activeTab, onTabChange, onLogout, isLoggingOut, user }) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const toggleMobileMenu = useCallback(() => setIsMobileMenuOpen((value) => !value), []);
   const navHandlers = {
-    journeys: () => onTabChange("journeys"),
-    profile: () => onTabChange("profile"),
-    settings: () => onTabChange("settings"),
+    journeys: () => {
+      onTabChange("journeys");
+      setIsMobileMenuOpen(false);
+    },
+    profile: () => {
+      onTabChange("profile");
+      setIsMobileMenuOpen(false);
+    },
+    settings: () => {
+      onTabChange("settings");
+      setIsMobileMenuOpen(false);
+    },
   };
 
   return (
@@ -42,17 +106,33 @@ export function AccountSidebar({ activeTab, onTabChange, onLogout, isLoggingOut 
           >
             Speak with our team <span aria-hidden="true">↗</span>
           </a>
-          <button
-            className="account-focus flex w-full items-center gap-2 py-2 text-left text-white/55 text-xs transition-colors hover:text-white"
-            disabled={isLoggingOut}
-            onClick={onLogout}
-            type="button"
-          >
-            <LogOut size={15} />
-            {isLoggingOut ? "Signing out…" : "Sign out"}
-          </button>
         </div>
       </aside>
+
+      <header className="relative z-50 flex items-center justify-between bg-[var(--account-night)] px-5 py-3.5 text-white lg:hidden">
+        <button
+          aria-expanded={isMobileMenuOpen}
+          aria-label={isMobileMenuOpen ? "Close account menu" : "Open account menu"}
+          className="account-focus flex size-9 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white"
+          onClick={toggleMobileMenu}
+          type="button"
+        >
+          {isMobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
+        </button>
+        <AccountMark compact inverse />
+        <AccountControl compact isLoggingOut={isLoggingOut} onLogout={onLogout} user={user} />
+        {isMobileMenuOpen ? (
+          <div className="absolute inset-x-4 top-[calc(100%+0.5rem)] rounded-sm border border-white/10 bg-[var(--account-night)] p-4 text-white shadow-[0_18px_44px_rgb(6_35_65_/_0.28)]">
+            <p className="text-white/60 text-xs">Need a hand with your journey?</p>
+            <a
+              className="account-focus mt-2 inline-block text-[var(--account-gold)] text-xs hover:text-white"
+              href="mailto:hello@citiusholidays.com"
+            >
+              Speak with our team <span aria-hidden="true">↗</span>
+            </a>
+          </div>
+        ) : null}
+      </header>
 
       <div className="fixed inset-x-0 bottom-0 z-50 flex border-[var(--account-border)] border-t bg-[var(--account-night)] px-3 pt-2 pb-[calc(0.45rem+var(--safe-area-inset-bottom))] lg:hidden">
         <nav aria-label="Account navigation" className="flex w-full items-stretch justify-around">
@@ -66,16 +146,6 @@ export function AccountSidebar({ activeTab, onTabChange, onLogout, isLoggingOut 
               onClick={navHandlers[item.id]}
             />
           ))}
-          <button
-            aria-label="Sign out"
-            className="account-focus flex min-w-16 flex-1 flex-col items-center justify-center gap-1 px-3 py-2 text-[10px] text-white/55"
-            disabled={isLoggingOut}
-            onClick={onLogout}
-            type="button"
-          >
-            <LogOut size={17} />
-            {isLoggingOut ? "Signing out" : "Sign out"}
-          </button>
         </nav>
       </div>
     </>

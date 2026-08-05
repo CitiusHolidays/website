@@ -34,6 +34,10 @@
   --color-public-green: oklch(0.761 0.174 129.577);
   --color-public-lime: oklch(0.82 0.176 120.498);
 
+  /* Public media geometry is intentionally bounded to one edge/shadow pair. */
+  --radius-public-media: 1.25rem;
+  --shadow-public-media: 0 24px 60px rgb(11 16 38 / 0.14);
+
   --font-sans: var(--font-inter);
   --font-heading: var(--font-poppins);
 }
@@ -117,6 +121,55 @@ body {
   outline-offset: 3px;
 }
 
+.account-timeline {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.account-timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  column-gap: 0.75rem;
+  min-width: 0;
+}
+
+.account-timeline-item:not(:last-child)::after {
+  position: absolute;
+  top: 2rem;
+  bottom: -1.25rem;
+  left: 1rem;
+  width: 1px;
+  content: "";
+  background: var(--account-border);
+}
+
+.account-timeline-marker {
+  position: relative;
+  z-index: 1;
+}
+
+@media (min-width: 768px) {
+  .account-timeline {
+    grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .account-timeline-item {
+    display: block;
+    padding-right: 1.25rem;
+  }
+
+  .account-timeline-item:not(:last-child)::after {
+    top: 1rem;
+    right: 0;
+    bottom: auto;
+    left: 1rem;
+    width: auto;
+    height: 1px;
+  }
+}
+
 .font-heading {
   font-family: var(--font-heading), sans-serif;
 }
@@ -124,6 +177,11 @@ body {
 .public-site ::selection {
   color: var(--color-public-ink);
   background-color: oklch(0.82 0.176 120.498 / 0.45);
+}
+
+.public-site .public-media-edge {
+  border-radius: var(--radius-public-media);
+  box-shadow: var(--shadow-public-media);
 }
 
 .formatted-content h1,
