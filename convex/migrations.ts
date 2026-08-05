@@ -565,7 +565,6 @@ export const importBookings = internalMutation({
 
 export const migrateRoomTypes = internalMutation({
   args: {
-    cursor: v.optional(v.union(v.string(), v.null())),
     limit: v.optional(v.number()),
     secret: v.string(),
   },
@@ -578,7 +577,7 @@ export const migrateRoomTypes = internalMutation({
       .withIndex("by_key", (q) => q.eq("key", ROOM_TYPE_MIGRATION_KEY))
       .unique();
 
-    if (existing?.status === "verified") {
+    if (existing?.status === "verified" && existing.stage === "complete") {
       return {
         converted: existing.converted,
         cursor: null,
@@ -594,13 +593,34 @@ export const migrateRoomTypes = internalMutation({
         travellersUpdated: 0,
       };
     }
+    if (
+      existing?.status === "running" &&
+      (existing.stage === "verifyTravellers" || existing.stage === "verifyRoomingListEntries")
+    ) {
+      return {
+        converted: 0,
+        cursor: existing.cursor,
+        legacyRemaining: existing.legacyRemaining,
+        legacyRoomingRoomTypes: 0,
+        legacyTravellerRoomTypes: 0,
+        mismatchedTravellers: 0,
+        processed: 0,
+        roomingEntriesUpdated: 0,
+        stage: existing.stage,
+        status: "running" as const,
+        travellerRoomTypesUpdated: 0,
+        travellersUpdated: 0,
+      };
+    }
 
-    let stage = existing?.stage === "roomingListEntries" ? "roomingListEntries" : "travellers";
-    let cursor = args.cursor === undefined ? (existing?.cursor ?? null) : args.cursor;
+    const restarting = existing?.status === "failed";
+    let stage =
+      !restarting && existing?.stage === "roomingListEntries" ? "roomingListEntries" : "travellers";
+    let cursor = restarting ? null : (existing?.cursor ?? null);
     const startedAt = existing?.startedAt ?? now;
-    let converted = existing?.converted ?? 0;
-    let processed = existing?.processed ?? 0;
-    let legacyRemaining = existing?.legacyRemaining ?? 0;
+    let converted = restarting ? 0 : (existing?.converted ?? 0);
+    let processed = restarting ? 0 : (existing?.processed ?? 0);
+    let legacyRemaining = restarting ? 0 : (existing?.legacyRemaining ?? 0);
     let registryId = existing?._id;
     if (!existing) {
       registryId = await ctx.db.insert("dataMigrationRegistry", {
@@ -614,8 +634,22 @@ export const migrateRoomTypes = internalMutation({
         status: "running",
         updatedAt: now,
       });
-    } else if (existing.status !== "running") {
-      await ctx.db.patch(existing._id, { status: "running", updatedAt: now });
+    } else if (restarting || existing.status !== "running") {
+      await ctx.db.patch(existing._id, {
+        ...(restarting
+          ? {
+              converted: 0,
+              cursor: null,
+              legacyRemaining: 0,
+              processed: 0,
+              stage: "travellers",
+              startedAt: now,
+              verifiedAt: undefined,
+            }
+          : {}),
+        status: "running",
+        updatedAt: now,
+      });
     }
 
     const page =
@@ -683,13 +717,15 @@ export const migrateRoomTypes = internalMutation({
         stage = "roomingListEntries";
         cursor = null;
       } else {
-        stage = "complete";
+        stage = "verifyTravellers";
         cursor = null;
+        legacyRemaining = 0;
+        processed = 0;
       }
     } else {
       cursor = page.continueCursor;
     }
-    const status: "verified" | "running" = stage === "complete" ? "verified" : "running";
+    const status = "running" as const;
     const registryPatch = {
       converted,
       cursor,
@@ -698,15 +734,14 @@ export const migrateRoomTypes = internalMutation({
       stage,
       status,
       updatedAt: now,
-      ...(status === "verified" ? { verifiedAt: now } : {}),
     };
     if (registryId) {
       await ctx.db.patch(registryId, registryPatch);
     }
 
-    // A page is intentionally the unit of work. Operators can call this
-    // mutation again with the returned cursor, or rely on the scheduler in a
-    // deployment runner, without a full-table collect or Promise.all burst.
+    // A page is intentionally the unit of work. The next call resumes only
+    // from the server-owned registry cursor; caller-supplied cursors are not
+    // part of this capability.
     return {
       converted: pageConverted,
       cursor,
@@ -720,6 +755,130 @@ export const migrateRoomTypes = internalMutation({
       status,
       travellerRoomTypesUpdated,
       travellersUpdated,
+    };
+  },
+  returns: roomTypeMigrationResultValidator,
+});
+
+export const verifyRoomTypes = internalMutation({
+  args: {
+    limit: v.optional(v.number()),
+    secret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    assertMigrationSecret(args.secret);
+    const limit = Math.min(Math.max(Math.trunc(args.limit ?? ROOM_TYPE_MIGRATION_LIMIT), 1), 100);
+    const now = Date.now();
+    const registry = await ctx.db
+      .query("dataMigrationRegistry")
+      .withIndex("by_key", (q) => q.eq("key", ROOM_TYPE_MIGRATION_KEY))
+      .unique();
+    if (!registry) {
+      throw new ConvexError("Run the room-type migration first");
+    }
+    if (registry.status === "verified" && registry.stage === "complete") {
+      return {
+        converted: 0,
+        cursor: null,
+        legacyRemaining: 0,
+        legacyRoomingRoomTypes: 0,
+        legacyTravellerRoomTypes: 0,
+        mismatchedTravellers: 0,
+        processed: 0,
+        roomingEntriesUpdated: 0,
+        stage: "complete",
+        status: "verified" as const,
+        travellerRoomTypesUpdated: 0,
+        travellersUpdated: 0,
+      };
+    }
+    if (registry.status === "failed") {
+      throw new ConvexError("Room-type verification found residuals; rerun migration first");
+    }
+    if (registry.stage !== "verifyTravellers" && registry.stage !== "verifyRoomingListEntries") {
+      throw new ConvexError("Room-type migration is not ready for verification");
+    }
+
+    let stage = registry.stage;
+    const page =
+      stage === "verifyTravellers"
+        ? await ctx.db
+            .query("travellers")
+            .order("asc")
+            .paginate({ cursor: registry.cursor, numItems: limit })
+        : await ctx.db
+            .query("roomingListEntries")
+            .order("asc")
+            .paginate({ cursor: registry.cursor, numItems: limit });
+    let legacyTravellerRoomTypes = 0;
+    let legacyRoomingRoomTypes = 0;
+    let mismatchedTravellers = 0;
+    let pageResiduals = 0;
+    if (stage === "verifyTravellers") {
+      for (const row of page.page) {
+        const traveller = row as Doc<"travellers">;
+        const legacyRoomType = isLegacyRoomCode(traveller.roomType);
+        if (legacyRoomType) {
+          legacyTravellerRoomTypes += 1;
+        }
+        const resolved = resolveTravellerRoomFields(traveller.roomType, traveller.hotelAllocation);
+        const mismatch =
+          Boolean(resolved.roomType && String(traveller.roomType) !== resolved.roomType) ||
+          (resolved.hotelAllocation !== undefined &&
+            (traveller.hotelAllocation ?? "") !== resolved.hotelAllocation);
+        if (mismatch) {
+          mismatchedTravellers += 1;
+        }
+        if (legacyRoomType || mismatch) {
+          pageResiduals += 1;
+        }
+      }
+    } else {
+      for (const row of page.page) {
+        const entry = row as Doc<"roomingListEntries">;
+        if (isLegacyRoomCode(entry.roomType)) {
+          legacyRoomingRoomTypes += 1;
+          pageResiduals += 1;
+        }
+      }
+    }
+
+    const legacyRemaining = registry.legacyRemaining + pageResiduals;
+    let status: "failed" | "running" | "verified" = "running";
+    let cursor = page.isDone ? null : page.continueCursor;
+    if (page.isDone) {
+      if (stage === "verifyTravellers") {
+        stage = "verifyRoomingListEntries";
+      } else {
+        status = legacyRemaining === 0 ? "verified" : "failed";
+        if (status === "verified") {
+          stage = "complete";
+        }
+      }
+      cursor = null;
+    }
+    await ctx.db.patch(registry._id, {
+      cursor,
+      legacyRemaining,
+      processed: registry.processed + page.page.length,
+      stage,
+      status,
+      updatedAt: now,
+      ...(status === "verified" ? { verifiedAt: now } : {}),
+    });
+    return {
+      converted: 0,
+      cursor,
+      legacyRemaining,
+      legacyRoomingRoomTypes,
+      legacyTravellerRoomTypes,
+      mismatchedTravellers,
+      processed: page.page.length,
+      roomingEntriesUpdated: 0,
+      stage,
+      status,
+      travellerRoomTypesUpdated: 0,
+      travellersUpdated: 0,
     };
   },
   returns: roomTypeMigrationResultValidator,
@@ -748,7 +907,8 @@ export const getRoomTypeMigrationStatus = internalQuery({
       stage: row?.stage ?? "travellers",
       status,
       updatedAt: row?.updatedAt ?? 0,
-      verified: status === "verified" && (row?.legacyRemaining ?? 0) === 0,
+      verified:
+        status === "verified" && row?.stage === "complete" && (row?.legacyRemaining ?? 0) === 0,
       verifiedAt: row?.verifiedAt ?? null,
     };
   },

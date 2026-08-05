@@ -14,7 +14,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "29b667b612caadaa9205045ed63a91da552bab485511b5ba16e04791854671cb";
+const EXPECTED_CAPABILITY_HASH = "97af57d2d4a34987ba9519217f662c90d8a89bdeef7ec102a18ab76be18f2f9b";
 const SOURCE_EXTENSION = /\.(?:js|ts)$/;
 const NON_SOURCE_FILE = /(?:\.test|\.config)\.[jt]s$/;
 const MODULE_EXTENSION = /\.[jt]s$/;
@@ -132,6 +132,9 @@ describe("Convex capability inventory", () => {
       "backfillSacredBharatLeaderboard",
       "verifySacredBharatLeaderboard",
       "getSacredBharatLeaderboardMigrationStatus",
+      "migrateRoomTypes",
+      "verifyRoomTypes",
+      "getRoomTypeMigrationStatus",
     ]) {
       expect(capabilities).toContainEqual({
         classification: "internal",
