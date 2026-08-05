@@ -129,8 +129,10 @@ describe("mounted PortalDateInput", () => {
     const textInput = container.querySelector('input[type="text"]');
     const nativeInput = container.querySelector('input[type="date"]');
     expect(textInput.className).toContain("text-sm");
-    expect(getComputedStyle(textInput).fontSize).toBe("1rem");
-    expect(getComputedStyle(nativeInput).fontSize).toBe("1rem");
+    // Browser computed styles may preserve the relative unit while JSDOM
+    // resolves the same 1rem rule to its 16px default root size.
+    expect(["1rem", "16px"]).toContain(getComputedStyle(textInput).fontSize);
+    expect(["1rem", "16px"]).toContain(getComputedStyle(nativeInput).fontSize);
 
     await act(async () => root.unmount());
     container.remove();
