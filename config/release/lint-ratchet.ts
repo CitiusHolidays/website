@@ -367,7 +367,7 @@ function main() {
   }
 
   console.log(
-    `Lint ratchet passed: ${totals.errors} errors and ${totals.warnings} warnings do not exceed the per-rule baseline.`
+    `Lint ratchet passed: ${totals.errors} errors, ${totals.warnings} warnings; configured debt ceiling: ${baseline.totals.errors} errors, ${baseline.totals.warnings} warnings.`
   );
 }
 

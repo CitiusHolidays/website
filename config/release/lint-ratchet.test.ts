@@ -68,6 +68,21 @@ describe("lint ratchet safety contract", () => {
     expect(comparison.increases).toEqual(["warning lint/style/example: 3/2"]);
   });
 
+  test("rejects a new warning family and every lint error from a zero-error baseline", () => {
+    const comparison = compareDiagnostics(baseline.diagnostics, {
+      error: { "lint/correctness/new-error": 1 },
+      warning: {
+        "lint/performance/new-debt": 1,
+        "lint/style/example": 2,
+      },
+    });
+
+    expect(comparison.increases).toEqual([
+      "warning lint/performance/new-debt: 1/0",
+      "error lint/correctness/new-error: 1/0",
+    ]);
+  });
+
   test("rejects malformed or internally inconsistent baselines", () => {
     expect(parseLintBaseline(baseline)).toEqual(baseline);
     expect(() => parseLintBaseline({ ...baseline, totals: { errors: 0, warnings: 3 } })).toThrow(
