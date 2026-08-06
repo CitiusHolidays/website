@@ -92,6 +92,7 @@ describe("SaveViewDialog", () => {
         new dom.window.KeyboardEvent("keydown", { bubbles: true, key: "Escape" })
       )
     );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(container.hasAttribute("inert")).toBe(false);
     expect(document.body.style.overflow).toBe("");

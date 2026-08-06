@@ -16,6 +16,7 @@ beforeAll(() => {
   globalThis.Node = dom.window.Node;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
   const matchMedia = (query) => ({
     addEventListener: () => {},
     addListener: () => {},
@@ -52,6 +53,10 @@ function deferred() {
   return { promise, reject, resolve };
 }
 
+function flushFocusFrame() {
+  return act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+}
+
 function Harness({ action, danger = true, onResult }) {
   const { confirm } = usePortalConfirm();
   return (
@@ -85,9 +90,7 @@ describe("mounted portal confirmation", () => {
     const trigger = container.querySelector("button");
     trigger.focus();
     await act(async () => trigger.click());
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await flushFocusFrame();
 
     const dialog = container.querySelector('[role="alertdialog"]');
     const [cancel, confirm] = dialog.querySelectorAll("button");
@@ -107,6 +110,7 @@ describe("mounted portal confirmation", () => {
     expect(document.activeElement).toBe(cancel);
 
     await act(async () => cancel.click());
+    await flushFocusFrame();
     expect(result).toBe(false);
     expect(document.activeElement).toBe(trigger);
 
@@ -146,11 +150,13 @@ describe("mounted portal confirmation", () => {
     expect(confirm.disabled).toBe(true);
     expect(confirm.textContent).toContain("Delete");
     await act(async () => firstAttempt.resolve());
+    await flushFocusFrame();
     expect(result).toBe(true);
     expect(document.activeElement).toBe(trigger);
 
     shouldFail = true;
     await act(async () => trigger.click());
+    await flushFocusFrame();
     confirm = [...container.querySelectorAll('[role="alertdialog"] button')].at(-1);
     await act(async () => confirm.click());
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(
@@ -160,6 +166,7 @@ describe("mounted portal confirmation", () => {
     expect(document.activeElement?.textContent).toBe("Cancel");
 
     await act(async () => container.querySelector('[role="alertdialog"] button').click());
+    await flushFocusFrame();
     expect(result).toBe(false);
     expect(document.activeElement).toBe(trigger);
 

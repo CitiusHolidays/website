@@ -5,6 +5,7 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
 import { MultiStateButton } from "@/components/motion-ui/multi-state-button";
 import { useScrollLock } from "@/components/motion-ui/overlay";
+import { restoreFocusAfterOverlayTeardown } from "@/components/motion-ui/overlay/focus";
 import { LifecycleDates } from "@/components/portal/PortalModalForm";
 import {
   getEntityModalFieldColumns,
@@ -50,6 +51,7 @@ export function EntityModalShell({
     }
 
     const previouslyFocused = document.activeElement;
+    const fallbackRoot = previouslyFocused?.closest?.('[role="dialog"], [role="alertdialog"]');
     const frame = requestAnimationFrame(() => {
       const preferredTarget = formRef.current?.querySelector(
         "[data-entity-modal-autofocus], input:not([type='hidden']):not(:disabled), select:not(:disabled), textarea:not(:disabled), button:not(:disabled)"
@@ -60,7 +62,7 @@ export function EntityModalShell({
     return () => {
       cancelAnimationFrame(frame);
       if (previouslyFocused instanceof HTMLElement) {
-        previouslyFocused.focus({ preventScroll: true });
+        restoreFocusAfterOverlayTeardown(previouslyFocused, fallbackRoot);
       }
     };
   }, [modal]);

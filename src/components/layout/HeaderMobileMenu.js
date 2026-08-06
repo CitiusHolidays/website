@@ -26,46 +26,10 @@ export function HeaderMobileMenu({
   useFocusTrap({
     active: isOpen,
     container: surfaceRef,
+    inertSiblingsOf: surfaceRef,
     initialFocus: closeRef,
     onEscape: onClose,
   });
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const overlay = surfaceRef.current;
-    const parent = overlay?.parentElement;
-    if (!(overlay && parent)) {
-      return;
-    }
-
-    const siblings = [...parent.children].filter((child) => child !== overlay);
-    const previous = siblings.map((sibling) => ({
-      ariaHidden: sibling.getAttribute("aria-hidden"),
-      element: sibling,
-      inert: sibling.hasAttribute("inert"),
-    }));
-
-    for (const sibling of siblings) {
-      sibling.setAttribute("aria-hidden", "true");
-      sibling.setAttribute("inert", "");
-    }
-
-    return () => {
-      for (const item of previous) {
-        if (item.ariaHidden === null) {
-          item.element.removeAttribute("aria-hidden");
-        } else {
-          item.element.setAttribute("aria-hidden", item.ariaHidden);
-        }
-        if (!item.inert) {
-          item.element.removeAttribute("inert");
-        }
-      }
-    };
-  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {

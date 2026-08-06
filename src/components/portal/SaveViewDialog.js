@@ -41,6 +41,7 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
   useFocusTrap({
     active: open,
     container: dialogRef,
+    inertSiblingsOf: overlayRef,
     initialFocus: inputRef,
     onEscape: () => {
       if (!saving) {
@@ -48,43 +49,6 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
       }
     },
   });
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const overlay = overlayRef.current;
-    const parent = overlay?.parentElement;
-    if (!(overlay && parent)) {
-      return;
-    }
-
-    const siblings = [...parent.children].filter((child) => child !== overlay);
-    const previous = siblings.map((sibling) => ({
-      ariaHidden: sibling.getAttribute("aria-hidden"),
-      element: sibling,
-      inert: sibling.hasAttribute("inert"),
-    }));
-
-    for (const sibling of siblings) {
-      sibling.setAttribute("aria-hidden", "true");
-      sibling.setAttribute("inert", "");
-    }
-
-    return () => {
-      for (const item of previous) {
-        if (item.ariaHidden === null) {
-          item.element.removeAttribute("aria-hidden");
-        } else {
-          item.element.setAttribute("aria-hidden", item.ariaHidden);
-        }
-        if (!item.inert) {
-          item.element.removeAttribute("inert");
-        }
-      }
-    };
-  }, [open]);
 
   if (!(open && portalTarget)) {
     return null;

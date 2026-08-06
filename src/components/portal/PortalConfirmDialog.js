@@ -3,7 +3,7 @@
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { createContext, use, useEffect, useId, useRef, useState } from "react";
 import { HoldToDeleteButton } from "@/components/motion-ui/hold-to-delete";
-import { useScrollLock } from "@/components/motion-ui/overlay";
+import { useFocusTrap, useScrollLock } from "@/components/motion-ui/overlay";
 import {
   PORTAL_MODAL_VISIBLE_TRANSFORM,
   portalModalExitTransform,
@@ -13,8 +13,6 @@ import {
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const PortalConfirmContext = createContext(null);
-const FOCUSABLE_SELECTOR =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 function visibleError(error) {
   return error?.data || error?.message || "The action could not be completed. Please try again.";
@@ -26,6 +24,7 @@ export function PortalConfirmProvider({ children }) {
   const resolverRef = useRef(null);
   const originRef = useRef(null);
   const backgroundRef = useRef(null);
+  const overlayRef = useRef(null);
   const dialogRef = useRef(null);
   const cancelRef = useRef(null);
   const actionInFlightRef = useRef(false);
@@ -45,16 +44,6 @@ export function PortalConfirmProvider({ children }) {
     stateRef.current = state;
   }, [state]);
 
-  const restoreOriginFocus = () => {
-    const origin = originRef.current;
-    originRef.current = null;
-    queueMicrotask(() => {
-      if (origin?.isConnected) {
-        origin.focus();
-      }
-    });
-  };
-
   const finish = (result) => {
     if (actionInFlightRef.current) {
       return;
@@ -63,7 +52,6 @@ export function PortalConfirmProvider({ children }) {
     resolverRef.current = null;
     setState(null);
     resolve?.(result);
-    restoreOriginFocus();
   };
 
   const confirm = ({ title, message, confirmLabel = "Confirm", danger = false, onConfirm }) =>
@@ -100,57 +88,27 @@ export function PortalConfirmProvider({ children }) {
     }
   };
 
-  useEffect(() => {
-    const background = backgroundRef.current;
-    if (!isOpen) {
-      background?.removeAttribute("inert");
-      background?.removeAttribute("aria-hidden");
-      return;
-    }
-    background?.setAttribute("inert", "");
-    background?.setAttribute("aria-hidden", "true");
-    queueMicrotask(() => cancelRef.current?.focus());
-    return () => {
-      background?.removeAttribute("inert");
-      background?.removeAttribute("aria-hidden");
-    };
-  }, [isOpen]);
+  useFocusTrap({
+    active: isOpen,
+    container: dialogRef,
+    inertSiblingsOf: overlayRef,
+    initialFocus: cancelRef,
+    onEscape: () => {
+      if (!state?.pending) {
+        finish(false);
+      }
+    },
+    restoreFocusTarget: originRef,
+  });
 
   useEffect(
     () => () => {
       resolverRef.current?.(false);
       resolverRef.current = null;
       actionInFlightRef.current = false;
-      restoreOriginFocus();
     },
     []
   );
-
-  const handleDialogKeyDown = (event) => {
-    if (event.key === "Escape" && !state?.pending) {
-      event.preventDefault();
-      finish(false);
-      return;
-    }
-    if (event.key !== "Tab") {
-      return;
-    }
-    const focusable = [...(dialogRef.current?.querySelectorAll(FOCUSABLE_SELECTOR) || [])];
-    if (focusable.length === 0) {
-      event.preventDefault();
-      dialogRef.current?.focus();
-      return;
-    }
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last?.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first?.focus();
-    }
-  };
 
   const dialogLayer = (
     <AnimatePresence>
@@ -161,6 +119,7 @@ export function PortalConfirmProvider({ children }) {
           exit={{ opacity: 0 }}
           initial={{ opacity: 0 }}
           key="portal-confirm-backdrop"
+          ref={overlayRef}
           transition={modalTransition}
         >
           <m.div
@@ -176,7 +135,6 @@ export function PortalConfirmProvider({ children }) {
             }}
             initial={{ opacity: 0, transform: dialogHiddenTransform }}
             key="portal-confirm-panel"
-            onKeyDown={handleDialogKeyDown}
             ref={dialogRef}
             role="alertdialog"
             tabIndex={-1}
