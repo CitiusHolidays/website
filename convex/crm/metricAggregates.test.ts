@@ -9,6 +9,7 @@ import {
   reconcileSourcePage,
   summarizeMetricReadiness,
   sweepProjectionPage,
+  syncJobInvoicePage,
 } from "./metricAggregates";
 
 describe("bounded CRM metric aggregates", () => {
@@ -181,17 +182,43 @@ describe("bounded CRM metric aggregates", () => {
 
   test("projects finance and traveller updates without reading sibling tables", () => {
     expect(
-      buildMetricValues("invoices", {
-        balanceAmount: 400,
-        expectedAmount: 1000,
-        receivedAmount: 600,
-      })
+      buildMetricValues(
+        "invoices",
+        {
+          balanceAmount: 400,
+          expectedAmount: 1000,
+          receivedAmount: 600,
+        },
+        { jobOpen: true, minAdvancePercent: 70 }
+      )
     ).toEqual({
+      "invoices.advancePipeline": 700,
       "invoices.expected": 1000,
       "invoices.outstanding": 400,
       "invoices.pending": 1,
       "invoices.received": 600,
     });
+    expect(
+      buildMetricValues(
+        "expenseEntries",
+        {
+          amount: 850,
+          approvalStatus: "Approved",
+          reimbursementStatus: "Pending",
+        },
+        { jobOpen: true }
+      )
+    ).toEqual({
+      "expenseEntries.approved": 850,
+      "expenseEntries.pendingReimbursement": 850,
+    });
+    expect(
+      buildMetricValues("expenseEntries", {
+        amount: 500,
+        approvalStatus: "Pending",
+        reimbursementStatus: "Not Submitted",
+      })
+    ).toEqual({ "expenseEntries.pendingApproval": 500 });
     expect(
       buildMetricValues(
         "invoices",
@@ -243,6 +270,45 @@ describe("bounded CRM metric aggregates", () => {
       "travellers.tourManagerDone": 1,
       "travellers.visaApproved": 1,
     });
+  });
+
+  test("refreshes job invoice metrics in bounded cursor pages", async () => {
+    const scheduled: Array<{ args: any; delay: number }> = [];
+    const result = await (syncJobInvoicePage as any)._handler(
+      {
+        db: {
+          query: (table: string) => {
+            expect(table).toBe("invoices");
+            const builder = {
+              paginate: (options: { cursor: string | null; numItems: number }) => {
+                expect(options).toEqual({ cursor: "page-1", numItems: 20 });
+                return {
+                  continueCursor: "page-2",
+                  isDone: false,
+                  page: [],
+                };
+              },
+              withIndex: (name: string, callback: (q: any) => unknown) => {
+                expect(name).toBe("by_jobCardId");
+                const q = { eq: () => q };
+                callback(q);
+                return builder;
+              },
+            };
+            return builder;
+          },
+        },
+        scheduler: {
+          runAfter: (delay: number, _reference: unknown, args: any) => {
+            scheduled.push({ args, delay });
+          },
+        },
+      },
+      { cursor: "page-1", jobCardId: "job-1" }
+    );
+
+    expect(result).toEqual({ changed: 0, isDone: false, processed: 0 });
+    expect(scheduled).toEqual([{ args: { cursor: "page-2", jobCardId: "job-1" }, delay: 0 }]);
   });
 
   test("an old in-flight metric page aborts and restarts one serialized source at the current version", async () => {

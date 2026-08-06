@@ -14,12 +14,18 @@ import {
 } from "./expenseApprovalWorkflow";
 import { handleCreateExpense, handleRemoveExpense, handleUpdateExpense } from "./expenseCommands";
 import { handleListExpenses, presentExpenseListRow } from "./expenseReads";
-import { handleGetFinanceOverview } from "./financeOverviewReads";
+import {
+  handleGetFinanceOverview,
+  handleListFinanceOutstanding,
+  handleListFinancePnl,
+} from "./financeOverviewReads";
 import {
   expenseIdResultValidator,
   expenseListPageResultValidator,
   expenseListRowResultValidator,
+  financeOutstandingPageResultValidator,
   financeOverviewResultValidator,
+  financePnlPageResultValidator,
   invoiceIdResultValidator,
   invoiceListPageResultValidator,
 } from "./financeTicketingReturnContracts";
@@ -144,6 +150,24 @@ export const getFinanceOverview = query({
   },
   handler: handleGetFinanceOverview,
   returns: financeOverviewResultValidator,
+});
+
+export const listFinancePnl = query({
+  args: {
+    dateRange: portalDateRangeValidator,
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: handleListFinancePnl,
+  returns: financePnlPageResultValidator,
+});
+
+export const listFinanceOutstanding = query({
+  args: {
+    dateRange: portalDateRangeValidator,
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: handleListFinanceOutstanding,
+  returns: financeOutstandingPageResultValidator,
 });
 
 export const submitExpenseForApproval = mutation({

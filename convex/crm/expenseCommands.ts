@@ -9,6 +9,7 @@ import {
   splitTotal,
 } from "./expenseMaterialIntegrity";
 import { assertExpenseAccess } from "./expenseScope";
+import { scheduleFinanceMetricSync } from "./financeMetricSync";
 import { getVisibleJob } from "./jobCardVisibility";
 import {
   createActivity,
@@ -79,12 +80,15 @@ export async function handleCreateExpense(
     tourManagerName: args.tourManagerName?.trim() || access.name,
     updatedAt: now,
   });
-  await createActivity(ctx, access, {
-    action: "created",
-    entityId: id,
-    entityType: "expense",
-    message: `${args.category.trim()} expense submitted`,
-  });
+  await Promise.all([
+    createActivity(ctx, access, {
+      action: "created",
+      entityId: id,
+      entityType: "expense",
+      message: `${args.category.trim()} expense submitted`,
+    }),
+    scheduleFinanceMetricSync(ctx, "expenseEntries", id),
+  ]);
   return { id };
 }
 
@@ -186,12 +190,15 @@ export async function handleUpdateExpense(
   }
 
   await ctx.db.patch(id, patch);
-  await createActivity(ctx, access, {
-    action: "updated",
-    entityId: id,
-    entityType: "expense",
-    message: `${(args.category ?? expense.category).trim()} expense updated`,
-  });
+  await Promise.all([
+    createActivity(ctx, access, {
+      action: "updated",
+      entityId: id,
+      entityType: "expense",
+      message: `${(args.category ?? expense.category).trim()} expense updated`,
+    }),
+    scheduleFinanceMetricSync(ctx, "expenseEntries", id),
+  ]);
   return { id };
 }
 
@@ -234,6 +241,7 @@ export async function handleRemoveExpense(ctx: any, args: { expenseId: string })
   }
   await deleteEntityNotifications(ctx, "expense", id);
   await ctx.db.delete(id);
+  await scheduleFinanceMetricSync(ctx, "expenseEntries", id);
   if (proofStorageId) {
     await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
       storageId: proofStorageId,

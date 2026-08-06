@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { getPortalDashboardActivity, getPortalSummary } from "./dashboard";
 import { publicJobCard, publicQuery } from "./lib";
+import { METRIC_VERSION } from "./metricAggregates";
 import {
   jobCardCommandCenterResultValidator,
   jobCardGetListRowResultValidator,
@@ -370,7 +371,7 @@ describe("dashboard return contracts", () => {
           _id: "crmMetricPublications_1",
           generation: 1,
           key: "global",
-          metricVersion: 2,
+          metricVersion: METRIC_VERSION,
           publishedAt: Date.parse(ISO),
         },
       ],
@@ -382,8 +383,8 @@ describe("dashboard return contracts", () => {
           key: "global",
           lastCompletedAt: Date.parse(ISO),
           lastCompletedGeneration: 1,
-          lastCompletedMetricVersion: 2,
-          metricVersion: 2,
+          lastCompletedMetricVersion: METRIC_VERSION,
+          metricVersion: METRIC_VERSION,
           startedAt: Date.parse(ISO),
           updatedAt: Date.parse(ISO),
         },

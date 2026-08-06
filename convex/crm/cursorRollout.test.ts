@@ -19,6 +19,8 @@ const cursorRegistrations = [
   ["./imports.ts", "listFlightItinerary"],
   ["./finance.ts", "listInvoices"],
   ["./finance.ts", "listExpenses"],
+  ["./finance.ts", "listFinancePnl"],
+  ["./finance.ts", "listFinanceOutstanding"],
   ["./approvals.ts", "list"],
   ["./leave.ts", "list"],
   ["./activity.ts", "listActivity"],
@@ -52,6 +54,7 @@ describe("CRM cursor rollout", () => {
       "./seatReads.ts",
       "./invoiceReads.ts",
       "./expenseReads.ts",
+      "./financeOverviewReads.ts",
     ]) {
       const source = read(path);
       expect(source, path).toContain(".paginate(boundedPaginationOptions(");

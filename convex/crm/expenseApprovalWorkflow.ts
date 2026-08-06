@@ -5,6 +5,7 @@ import {
   matchesManagerApprovedSnapshot,
 } from "./expensePolicy";
 import { assertExpenseAccess, canApproveExpenseAsManager } from "./expenseScope";
+import { scheduleFinanceMetricSync } from "./financeMetricSync";
 import {
   createActivity,
   isDirectorOrAdmin,
@@ -152,6 +153,7 @@ export async function handleSubmitExpenseForApproval(ctx: any, args: { expenseId
   if (manager?._id) {
     submitPatch.managerApproverStaffId = manager._id;
     await ctx.db.patch(expenseId, submitPatch);
+    await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
     await Promise.all([
       createActivity(ctx, access, {
         action: "submitted_for_approval",
@@ -172,6 +174,7 @@ export async function handleSubmitExpenseForApproval(ctx: any, args: { expenseId
   submitPatch.managerReviewedByName = access.name;
   submitPatch.managerReviewedAt = now;
   await ctx.db.patch(expenseId, submitPatch);
+  await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
   await createActivity(ctx, access, {
     action: "submitted_for_approval",
     entityId: expenseId,
@@ -222,6 +225,7 @@ export async function handleDecideExpenseManager(
     patch.reimbursementStatus = "Not Submitted";
   }
   await ctx.db.patch(expenseId, patch);
+  await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
   await createActivity(ctx, access, {
     action: `manager_${args.status.toLowerCase()}`,
     entityId: expenseId,
@@ -279,6 +283,7 @@ export async function handleDecideExpenseFinance(
       args.reimbursementStatus ?? (args.status === "Approved" ? "Pending" : "Not Submitted"),
     updatedAt: now,
   });
+  await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
   await Promise.all(
     approvalRows.flatMap((approval: any) =>
       approval.status === "Pending"
@@ -348,6 +353,7 @@ export async function handleUpdateExpenseStatus(
     expensePatch.financeReviewedAt = now;
   }
   await ctx.db.patch(id, expensePatch);
+  await scheduleFinanceMetricSync(ctx, "expenseEntries", id);
   await Promise.all(
     approvalRows.flatMap((approval: any) => {
       if (approval.status !== "Pending") {

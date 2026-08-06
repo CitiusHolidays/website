@@ -129,27 +129,19 @@ export function usePortalWorkspaceData({
   const isTravellerSearchView = ["hotels", "passport", "travellers"].includes(view);
   const isSearchableListView =
     isQueryListView || isJobCardSearchView || isProposalSearchView || isTravellerSearchView;
-  const shouldLoadSearchReadiness = Boolean(
-    canFetch && normalizedSearch && isSearchableListView
-  );
+  const shouldLoadSearchReadiness = Boolean(canFetch && normalizedSearch && isSearchableListView);
   const searchReadiness = useQuery(
     api.crm.listSearch.getReadiness,
     shouldLoadSearchReadiness ? { referenceNow } : "skip"
   );
   const querySearchPreparing = Boolean(
-    shouldLoadSearchReadiness &&
-      isQueryListView &&
-      searchReadiness?.tables.queries !== true
+    shouldLoadSearchReadiness && isQueryListView && searchReadiness?.tables.queries !== true
   );
   const jobCardSearchPreparing = Boolean(
-    shouldLoadSearchReadiness &&
-      isJobCardSearchView &&
-      searchReadiness?.tables.jobCards !== true
+    shouldLoadSearchReadiness && isJobCardSearchView && searchReadiness?.tables.jobCards !== true
   );
   const proposalSearchPreparing = Boolean(
-    shouldLoadSearchReadiness &&
-      isProposalSearchView &&
-      searchReadiness?.tables.proposals !== true
+    shouldLoadSearchReadiness && isProposalSearchView && searchReadiness?.tables.proposals !== true
   );
   const travellerSearchPreparing = Boolean(
     shouldLoadSearchReadiness &&
@@ -501,10 +493,45 @@ export function usePortalWorkspaceData({
     expensePage.status === "LoadingFirstPage" ? undefined : expensePage.results,
     focusedExpense
   );
-  const financeOverview = useQuery(
+  const financeOverviewSummary = useQuery(
     api.crm.finance.getFinanceOverview,
     canFetch && has(P.VIEW_FINANCE) && view === "finance" ? { dateRange: dateRangeArg } : "skip"
   );
+  const financeDetailsReady = Boolean(financeOverviewSummary?.aggregateCoverage.complete);
+  const financePnlPage = usePaginatedQuery(
+    api.crm.finance.listFinancePnl,
+    canFetch && has(P.VIEW_FINANCE) && view === "finance" && financeDetailsReady
+      ? { dateRange: dateRangeArg }
+      : "skip",
+    { initialNumItems: PAGE_SIZE }
+  );
+  const financePnlPagination = usePaginationControl(
+    financePnlPage,
+    JSON.stringify({ dateRangeArg, detail: "pnl", view })
+  );
+  const financeOutstandingPage = usePaginatedQuery(
+    api.crm.finance.listFinanceOutstanding,
+    canFetch && has(P.VIEW_FINANCE) && view === "finance" && financeDetailsReady
+      ? { dateRange: dateRangeArg }
+      : "skip",
+    { initialNumItems: PAGE_SIZE }
+  );
+  const financeOutstandingPagination = usePaginationControl(
+    financeOutstandingPage,
+    JSON.stringify({ dateRangeArg, detail: "outstanding", view })
+  );
+  const financeOverview = financeOverviewSummary
+    ? {
+        ...financeOverviewSummary,
+        outstanding:
+          financeOutstandingPage.status === "LoadingFirstPage"
+            ? undefined
+            : financeOutstandingPage.results,
+        outstandingPagination: financeOutstandingPagination,
+        pnl: financePnlPage.status === "LoadingFirstPage" ? undefined : financePnlPage.results,
+        pnlPagination: financePnlPagination,
+      }
+    : undefined;
   const approvalPage = usePaginatedQuery(
     api.crm.approvals.list,
     canFetch && needs("approvals") && has(P.VIEW_APPROVALS)

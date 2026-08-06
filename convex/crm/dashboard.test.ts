@@ -10,6 +10,7 @@ import {
   getPortalSummary,
   groupByJobCardId,
 } from "./dashboard";
+import { METRIC_VERSION } from "./metricAggregates";
 import { portalSummaryResultValidator } from "./returnContracts";
 
 describe("ticketing head intake dashboard", () => {
@@ -345,7 +346,7 @@ describe("getPortalSummary", () => {
           _id: "metric_publication",
           generation: 1,
           key: "global",
-          metricVersion: 2,
+          metricVersion: METRIC_VERSION,
           publishedAt: Date.UTC(2026, 1, 1),
         },
       ],
@@ -357,8 +358,8 @@ describe("getPortalSummary", () => {
           key: "global",
           lastCompletedAt: Date.UTC(2026, 1, 1),
           lastCompletedGeneration: 1,
-          lastCompletedMetricVersion: 2,
-          metricVersion: 2,
+          lastCompletedMetricVersion: METRIC_VERSION,
+          metricVersion: METRIC_VERSION,
           startedAt: Date.UTC(2026, 0, 1),
           updatedAt: Date.UTC(2026, 1, 1),
         },

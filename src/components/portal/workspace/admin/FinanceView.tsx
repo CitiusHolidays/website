@@ -26,9 +26,18 @@ export function FinanceView({
   deleteItem,
   removeInvoice,
 }: FinanceViewProps) {
+  const aggregateReady = overview?.aggregateCoverage?.complete ?? true;
   return (
     <div className="space-y-5">
-      {overview && (
+      {overview && !aggregateReady ? (
+        <Panel title="Finance totals are preparing">
+          <p className="text-brand-muted text-sm">
+            Bounded finance aggregates are being reconciled. Totals and detail rows will appear
+            automatically when the complete snapshot is ready.
+          </p>
+        </Panel>
+      ) : null}
+      {overview && aggregateReady ? (
         <>
           <div className="grid gap-4 sm:grid-cols-3">
             <StatCard
@@ -47,7 +56,7 @@ export function FinanceView({
               value={money(overview.summary.approvedExpenses)}
             />
           </div>
-          {overview.fundProjections && (
+          {overview.fundProjections ? (
             <Panel title="Fund projections">
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <StatCard
@@ -72,9 +81,10 @@ export function FinanceView({
                 />
               </div>
             </Panel>
-          )}
+          ) : null}
           <Panel title="Tour-wise P&L">
             <SelectableDataTable
+              canLoadMore={overview.pnlPagination?.canLoadMore}
               columns={[
                 {
                   id: "job",
@@ -120,11 +130,14 @@ export function FinanceView({
               ]}
               compact
               empty="No Job Cards available."
+              isLoadingMore={overview.pnlPagination?.isLoadingMore}
+              onLoadMore={overview.pnlPagination?.loadMore}
               rows={overview.pnl || []}
             />
           </Panel>
           <Panel title="Outstanding payments">
             <SelectableDataTable
+              canLoadMore={overview.outstandingPagination?.canLoadMore}
               columns={[
                 {
                   id: "client",
@@ -169,11 +182,13 @@ export function FinanceView({
               ]}
               compact
               empty="No outstanding balances."
+              isLoadingMore={overview.outstandingPagination?.isLoadingMore}
+              onLoadMore={overview.outstandingPagination?.loadMore}
               rows={overview.outstanding || []}
             />
           </Panel>
         </>
-      )}
+      ) : null}
       <SelectableDataTable
         columns={[
           {

@@ -29,6 +29,8 @@ const FINANCE_PUBLIC_EXPORTS = [
   "createExpense",
   "updateExpense",
   "getFinanceOverview",
+  "listFinancePnl",
+  "listFinanceOutstanding",
   "submitExpenseForApproval",
   "decideExpenseManager",
   "decideExpenseFinance",

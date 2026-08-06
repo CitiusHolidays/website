@@ -159,6 +159,97 @@ describe("mounted portal ticketing and administration views", () => {
     await view.unmount();
   });
 
+  test("Finance hides partial aggregate values while the bounded snapshot is preparing", async () => {
+    const view = await mount(
+      <FinanceView
+        deleteItem={noopDelete}
+        has={manageFinance}
+        openModal={() => undefined}
+        overview={{
+          aggregateCoverage: { complete: false },
+          fundProjections: {
+            advancePipeline: 999,
+            expectedCollections: 999,
+            pendingExpenseApprovals: 999,
+            pendingReimbursements: 999,
+          },
+          summary: {
+            approvedExpenses: 999,
+            clientOutstanding: 999,
+            totalRevenue: 999,
+          },
+        }}
+        removeInvoice={noopMutation}
+        rows={[]}
+      />
+    );
+
+    expect(view.container.textContent).toContain("Finance totals are preparing");
+    expect(view.container.textContent).not.toContain("Total Revenue");
+
+    await view.unmount();
+  });
+
+  test("Finance exposes independent cursor controls for P&L and outstanding details", async () => {
+    const loadPnl = mock(() => undefined);
+    const loadOutstanding = mock(() => undefined);
+    const view = await mount(
+      <FinanceView
+        deleteItem={noopDelete}
+        has={manageFinance}
+        openModal={() => undefined}
+        overview={{
+          aggregateCoverage: { complete: true },
+          fundProjections: {
+            advancePipeline: 3500,
+            expectedCollections: 1000,
+            pendingExpenseApprovals: 0,
+            pendingReimbursements: 0,
+          },
+          outstanding: [
+            {
+              clientName: "Acme Group",
+              dueAmount: 1000,
+              dueDate: "2026-07-14",
+              id: "inv-1",
+              jobCode: "JC-0001-NS",
+              status: "Overdue",
+            },
+          ],
+          outstandingPagination: { canLoadMore: true, loadMore: loadOutstanding },
+          pnl: [
+            {
+              clientName: "Acme Group",
+              expense: 1000,
+              id: "job-1",
+              jobCode: "JC-0001-NS",
+              marginPercent: 80,
+              profit: 4000,
+              revenue: 5000,
+            },
+          ],
+          pnlPagination: { canLoadMore: true, loadMore: loadPnl },
+          summary: {
+            approvedExpenses: 1000,
+            clientOutstanding: 1000,
+            totalRevenue: 5000,
+          },
+        }}
+        removeInvoice={noopMutation}
+        rows={[]}
+      />
+    );
+
+    const loadMoreButtons = [...view.container.querySelectorAll("button")].filter(
+      (button) => button.textContent?.trim() === "Load more records"
+    );
+    expect(loadMoreButtons.length).toBeGreaterThanOrEqual(2);
+    await act(async () => loadMoreButtons[0]?.click());
+    expect(loadPnl).toHaveBeenCalledTimes(1);
+
+    await view.unmount();
+  });
+
   test("Expenses preserve dates and expose deletion only for never-submitted drafts", async () => {
     const view = await mount(
       <ExpensesView

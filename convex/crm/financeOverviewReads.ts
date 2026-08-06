@@ -1,150 +1,139 @@
+import type { PaginationOptions } from "convex/server";
+import { getVisibleJob } from "./jobCardVisibility";
 import {
-  filterRecordsByDateRange,
-  isDefined,
   PERMISSIONS,
   type PortalDateRange,
   requireStaff,
+  resolvePortalDateRange,
+  shouldApplyCementScope,
 } from "./lib";
 import { canSeeJobCardRecord } from "./lib/recordScope";
+import { aggregateMetric, loadMetricTotals, type MetricValues } from "./metricAggregates";
+import {
+  boundedPaginationOptions,
+  compactPageItems,
+  mapInBoundedBatches,
+} from "./paginationPolicy";
 
-const FINANCE_DETAIL_ROW_LIMIT = 240;
-const FINANCE_PAGE_SIZE = 100;
+function createdAtRangeQuery(
+  ctx: any,
+  table: "invoices" | "jobCards",
+  dateRange?: PortalDateRange
+) {
+  const range = resolvePortalDateRange(dateRange);
+  const query = range
+    ? ctx.db
+        .query(table)
+        .withIndex("by_createdAt", (q: any) =>
+          q.gte("createdAt", range.sinceMs).lte("createdAt", range.untilMs)
+        )
+    : ctx.db.query(table).withIndex("by_createdAt");
+  return query.order("desc");
+}
 
-/** Read in bounded pages so totals do not silently stop at a fixed row cap. */
-export async function collectAllCreatedAtPages(ctx: any, table: string) {
-  const rows: any[] = [];
-  let cursor: string | null = null;
-  for (;;) {
-    const page: { page: any[]; isDone: boolean; continueCursor: string } = await ctx.db
-      .query(table)
-      .withIndex("by_createdAt")
-      .order("desc")
-      .paginate({ cursor, numItems: FINANCE_PAGE_SIZE });
-    rows.push(...page.page);
-    if (page.isDone) {
-      return rows;
-    }
-    cursor = page.continueCursor;
+export function buildFinanceOverviewFromMetrics(values: MetricValues) {
+  const outstanding = aggregateMetric(values, "invoices.outstanding");
+  return {
+    fundProjections: {
+      advancePipeline: Math.round(aggregateMetric(values, "invoices.advancePipeline")),
+      expectedCollections: outstanding,
+      pendingExpenseApprovals: aggregateMetric(values, "expenseEntries.pendingApproval"),
+      pendingReimbursements: aggregateMetric(values, "expenseEntries.pendingReimbursement"),
+    },
+    summary: {
+      approvedExpenses: aggregateMetric(values, "expenseEntries.approved"),
+      clientOutstanding: outstanding,
+      totalRevenue: aggregateMetric(values, "invoices.expected"),
+    },
+  };
+}
+
+function outstandingStatus(dueDate: string | undefined, today: string) {
+  if (dueDate && dueDate < today) {
+    return "Overdue" as const;
   }
+  if (dueDate === today) {
+    return "Upcoming" as const;
+  }
+  return "Future" as const;
 }
 
 export async function handleGetFinanceOverview(ctx: any, args: { dateRange?: PortalDateRange }) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
   const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
-  const [invoiceRows, expenseRows, jobCardRows] = await Promise.all([
-    collectAllCreatedAtPages(ctx, "invoices"),
-    collectAllCreatedAtPages(ctx, "expenseEntries"),
-    collectAllCreatedAtPages(ctx, "jobCards"),
-  ]);
-  const invoices = filterRecordsByDateRange(invoiceRows, dateRange);
-  const expenses = filterRecordsByDateRange(expenseRows, dateRange);
-  const allJobCards = filterRecordsByDateRange(jobCardRows, dateRange);
-  const jobCards = (
-    await Promise.all(
-      allJobCards.map(async (job: any) => {
-        const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
-        return canSeeJobCardRecord(access, job, linkedQuery) ? job : null;
-      })
-    )
-  ).filter(isDefined);
-  const visibleJobIds = new Set(jobCards.map((job: any) => job._id));
-  const visibleInvoices = invoices.filter((invoice: any) => visibleJobIds.has(invoice.jobCardId));
-  const visibleExpenses = expenses.filter((expense: any) =>
-    expense.jobCardId ? visibleJobIds.has(expense.jobCardId) : true
+  const aggregate = await loadMetricTotals(
+    ctx,
+    shouldApplyCementScope(access) ? "cement" : "all",
+    dateRange
   );
-  const rows = [];
-  for (const job of jobCards.sort((a: any, b: any) => b.createdAt - a.createdAt)) {
-    const jobInvoices = visibleInvoices.filter((invoice: any) => invoice.jobCardId === job._id);
-    const jobExpenses = visibleExpenses.filter(
-      (expense: any) => expense.jobCardId === job._id && expense.approvalStatus === "Approved"
-    );
-    const revenue = jobInvoices.reduce(
-      (sum: number, invoice: any) => sum + invoice.expectedAmount,
-      0
-    );
-    const expenseTotal = jobExpenses.reduce((sum: number, expense: any) => sum + expense.amount, 0);
-    const profit = revenue - expenseTotal;
-    rows.push({
+  const overview = buildFinanceOverviewFromMetrics(aggregate.complete ? aggregate.values : {});
+  return {
+    aggregateCoverage: {
+      bucketCount: aggregate.bucketCount,
+      complete: aggregate.complete,
+      updatedAt: aggregate.updatedAt ? new Date(aggregate.updatedAt).toISOString() : null,
+    },
+    ...overview,
+  };
+}
+
+export async function handleListFinancePnl(
+  ctx: any,
+  args: { dateRange?: PortalDateRange; paginationOpts: PaginationOptions }
+) {
+  const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
+  const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+  const page = await createdAtRangeQuery(ctx, "jobCards", dateRange).paginate(
+    boundedPaginationOptions(args.paginationOpts)
+  );
+  const rows = await mapInBoundedBatches(page.page, async (job: any) => {
+    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+      return null;
+    }
+    const aggregate = await loadMetricTotals(ctx, `job:${String(job._id)}`, dateRange);
+    if (!aggregate.complete) {
+      return null;
+    }
+    const revenue = aggregateMetric(aggregate.values, "invoices.expected");
+    const expense = aggregateMetric(aggregate.values, "expenseEntries.approved");
+    const profit = revenue - expense;
+    return {
       clientName: job.clientName,
-      expense: expenseTotal,
+      expense,
       id: job._id,
       jobCode: job.jobCode,
       marginPercent: revenue > 0 ? Math.round((profit / revenue) * 100) : 0,
       profit,
       revenue,
-    });
-  }
-  const today = new Date().toISOString().slice(0, 10);
-  const pendingReimbursements = visibleExpenses
-    .filter(
-      (expense: any) =>
-        expense.approvalStatus === "Approved" && expense.reimbursementStatus === "Pending"
-    )
-    .reduce((sum: number, expense: any) => sum + (expense.amount ?? 0), 0);
-  const pendingExpenseApprovals = visibleExpenses
-    .filter((expense: any) => expense.approvalStatus === "Pending")
-    .reduce((sum: number, expense: any) => sum + (expense.amount ?? 0), 0);
-  const expectedCollections = visibleInvoices.reduce(
-    (sum: number, invoice: any) => sum + Math.max(invoice.balanceAmount ?? 0, 0),
-    0
-  );
-  const advancePipeline = jobCards
-    .filter((job: any) => job.status !== "Closed")
-    .reduce((sum: number, job: any) => {
-      const jobInvoices = visibleInvoices.filter((invoice: any) => invoice.jobCardId === job._id);
-      const revenue = jobInvoices.reduce(
-        (total: number, invoice: any) => total + invoice.expectedAmount,
-        0
-      );
-      const terms = job.paymentTerms as { minAdvancePercent?: number } | null;
-      const advancePercent = terms?.minAdvancePercent ?? 70;
-      return sum + Math.round((revenue * advancePercent) / 100);
-    }, 0);
+    };
+  });
+  return { ...page, page: compactPageItems(rows) };
+}
 
-  const jobCardsById = new Map(jobCards.map((job: any) => [job._id, job]));
-  const outstanding = [];
-  for (const invoice of visibleInvoices as any[]) {
-    if (invoice.balanceAmount <= 0) {
-      continue;
+export async function handleListFinanceOutstanding(
+  ctx: any,
+  args: { dateRange?: PortalDateRange; paginationOpts: PaginationOptions }
+) {
+  const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
+  const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+  const page = await createdAtRangeQuery(ctx, "invoices", dateRange)
+    .filter((q: any) => q.gt(q.field("balanceAmount"), 0))
+    .paginate(boundedPaginationOptions(args.paginationOpts));
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = await mapInBoundedBatches(page.page, async (invoice: any) => {
+    const job = await getVisibleJob(ctx, access, invoice.jobCardId);
+    if (!job) {
+      return null;
     }
-    const job = jobCardsById.get(invoice.jobCardId);
-    const status =
-      invoice.dueDate && invoice.dueDate < today
-        ? ("Overdue" as const)
-        : invoice.dueDate === today
-          ? ("Upcoming" as const)
-          : ("Future" as const);
-    outstanding.push({
-      clientName: job?.clientName ?? "",
+    return {
+      clientName: job.clientName ?? "",
       dueAmount: invoice.balanceAmount,
       dueDate: invoice.dueDate ?? "",
       id: invoice._id,
-      jobCode: job?.jobCode ?? "",
-      status,
-    });
-  }
-
-  return {
-    fundProjections: {
-      advancePipeline,
-      expectedCollections,
-      pendingExpenseApprovals,
-      pendingReimbursements,
-    },
-    outstanding: outstanding.slice(0, FINANCE_DETAIL_ROW_LIMIT),
-    pnl: rows.slice(0, FINANCE_DETAIL_ROW_LIMIT),
-    summary: {
-      approvedExpenses: visibleExpenses
-        .filter((expense: any) => expense.approvalStatus === "Approved")
-        .reduce((sum: number, expense: any) => sum + expense.amount, 0),
-      clientOutstanding: visibleInvoices.reduce(
-        (sum: number, invoice: any) => sum + invoice.balanceAmount,
-        0
-      ),
-      totalRevenue: visibleInvoices.reduce(
-        (sum: number, invoice: any) => sum + invoice.expectedAmount,
-        0
-      ),
-    },
-  };
+      jobCode: job.jobCode ?? "",
+      status: outstandingStatus(invoice.dueDate, today),
+    };
+  });
+  return { ...page, page: compactPageItems(rows) };
 }

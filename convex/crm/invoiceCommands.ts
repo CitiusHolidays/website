@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import { scheduleFinanceMetricSync } from "./financeMetricSync";
 import { getVisibleJob } from "./jobCardVisibility";
 import { createActivity, deleteEntityNotifications, PERMISSIONS, requireStaff } from "./lib";
 
@@ -36,12 +37,15 @@ export async function handleCreateInvoice(
     status: balanceAmount === 0 ? "Paid" : receivedAmount > 0 ? "Part Paid" : "Generated",
     updatedAt: now,
   });
-  await createActivity(ctx, access, {
-    action: "created",
-    entityId: id,
-    entityType: "invoice",
-    message: `${args.invoiceNumber.trim()} invoice generated`,
-  });
+  await Promise.all([
+    createActivity(ctx, access, {
+      action: "created",
+      entityId: id,
+      entityType: "invoice",
+      message: `${args.invoiceNumber.trim()} invoice generated`,
+    }),
+    scheduleFinanceMetricSync(ctx, "invoices", id),
+  ]);
   return { id };
 }
 
@@ -96,12 +100,15 @@ export async function handleUpdateInvoice(
   }
 
   await ctx.db.patch(invoiceId, patch);
-  await createActivity(ctx, access, {
-    action: "updated",
-    entityId: invoiceId,
-    entityType: "invoice",
-    message: `${(args.invoiceNumber ?? invoice.invoiceNumber).trim()} invoice updated`,
-  });
+  await Promise.all([
+    createActivity(ctx, access, {
+      action: "updated",
+      entityId: invoiceId,
+      entityType: "invoice",
+      message: `${(args.invoiceNumber ?? invoice.invoiceNumber).trim()} invoice updated`,
+    }),
+    scheduleFinanceMetricSync(ctx, "invoices", invoiceId),
+  ]);
   return { id: invoiceId };
 }
 
@@ -127,6 +134,7 @@ export async function handleRemoveInvoice(ctx: any, args: { invoiceId: string })
     }),
     deleteEntityNotifications(ctx, "invoice", invoiceId),
     ctx.db.delete(invoiceId),
+    scheduleFinanceMetricSync(ctx, "invoices", invoiceId),
   ]);
   return { id: invoiceId };
 }

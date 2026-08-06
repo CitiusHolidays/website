@@ -691,6 +691,11 @@ export interface PortalFinanceOutstandingRow {
 }
 
 export interface PortalFinanceOverview {
+  aggregateCoverage?: {
+    bucketCount?: number;
+    complete?: boolean;
+    updatedAt?: null | string;
+  };
   fundProjections?: {
     advancePipeline?: number;
     expectedCollections?: number;
@@ -698,7 +703,9 @@ export interface PortalFinanceOverview {
     pendingReimbursements?: number;
   };
   outstanding?: PortalFinanceOutstandingRow[];
+  outstandingPagination?: PortalPaginationSlice;
   pnl?: PortalFinancePnlRow[];
+  pnlPagination?: PortalPaginationSlice;
   summary: {
     approvedExpenses?: number;
     clientOutstanding?: number;

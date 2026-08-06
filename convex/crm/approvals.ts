@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, mutation, query } from "../_generated/server";
 import { matchesExpenseApprovalRequest, matchesManagerApprovedSnapshot } from "./expensePolicy";
+import { scheduleFinanceMetricSync } from "./financeMetricSync";
 import {
   createActivity,
   notifyStaffMatching,
@@ -185,6 +186,7 @@ export const decide = mutation({
         expenseContext.expenseId as Id<"expenseEntries">,
         expenseDecisionPatch(args.status, access, now)
       );
+      await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseContext.expenseId);
     }
     await createActivity(ctx, access, {
       action: args.status.toLowerCase().replace(/\s+/g, "_"),

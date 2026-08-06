@@ -6,6 +6,7 @@ import { isCementQueryType, type PortalDateRange } from "./lib";
 
 export const METRIC_SOURCE_TYPES = [
   "approvalRequests",
+  "expenseEntries",
   "invoices",
   "jobCards",
   "proposals",
@@ -27,6 +28,7 @@ export interface AggregateSegment {
 
 const sourceTypeValidator = v.union(
   v.literal("approvalRequests"),
+  v.literal("expenseEntries"),
   v.literal("invoices"),
   v.literal("jobCards"),
   v.literal("proposals"),
@@ -40,7 +42,7 @@ const RECONCILE_PAGE_SIZE = 20;
 const MAX_MONTH_BUCKETS = 600;
 const MAX_DAY_BUCKETS = 64;
 const READINESS_KEY = "global";
-export const METRIC_VERSION = 2;
+export const METRIC_VERSION = 3;
 const METRIC_RECONCILIATION_STALE_MS = 60 * 60 * 1000;
 
 interface MetricReadinessRow {
@@ -147,7 +149,12 @@ function addValue(values: MetricValues, key: string, amount: number | undefined)
 export function buildMetricValues(
   sourceType: MetricSourceType,
   source: Record<string, any>,
-  context: { referenceDate?: string; tourManagerAssigned?: boolean } = {}
+  context: {
+    jobOpen?: boolean;
+    minAdvancePercent?: number;
+    referenceDate?: string;
+    tourManagerAssigned?: boolean;
+  } = {}
 ): MetricValues {
   const values: MetricValues = {};
   if (sourceType === "queries") {
@@ -226,9 +233,17 @@ export function buildMetricValues(
     }
   } else if (sourceType === "invoices") {
     const balanceAmount = Math.max(Number(source.balanceAmount ?? 0), 0);
-    addValue(values, "invoices.expected", Number(source.expectedAmount ?? 0));
+    const expectedAmount = Number(source.expectedAmount ?? 0);
+    addValue(values, "invoices.expected", expectedAmount);
     addValue(values, "invoices.received", Number(source.receivedAmount ?? 0));
     addValue(values, "invoices.outstanding", balanceAmount);
+    if (context.jobOpen) {
+      addValue(
+        values,
+        "invoices.advancePipeline",
+        (expectedAmount * (context.minAdvancePercent ?? 70)) / 100
+      );
+    }
     if (balanceAmount > 0) {
       addValue(values, "invoices.pending", 1);
     }
@@ -238,6 +253,16 @@ export function buildMetricValues(
       ((source.dueDate && source.dueDate < referenceDate) || source.status === "Overdue")
     ) {
       addValue(values, "invoices.overdue", 1);
+    }
+  } else if (sourceType === "expenseEntries") {
+    const amount = Number(source.amount ?? 0);
+    if (source.approvalStatus === "Approved") {
+      addValue(values, "expenseEntries.approved", amount);
+      if (source.reimbursementStatus === "Pending") {
+        addValue(values, "expenseEntries.pendingReimbursement", amount);
+      }
+    } else if (source.approvalStatus === "Pending") {
+      addValue(values, "expenseEntries.pendingApproval", amount);
     }
   } else if (sourceType === "approvalRequests" && source.status === "Pending") {
     addValue(values, "approvals.pending", 1);
@@ -339,7 +364,9 @@ async function resolveProjectionContext(
 
   if (sourceType === "jobCards") {
     job = source;
-  } else if (["travellers", "tickets", "visaRecords", "invoices"].includes(sourceType)) {
+  } else if (
+    ["travellers", "tickets", "visaRecords", "invoices", "expenseEntries"].includes(sourceType)
+  ) {
     job = source.jobCardId
       ? ((await ctx.db.get(source.jobCardId)) as Record<string, any> | null)
       : null;
@@ -354,6 +381,8 @@ async function resolveProjectionContext(
   return {
     cement: isCementQueryType(query?.queryType ?? job?.queryType),
     jobCardId: job?._id ? String(job._id) : undefined,
+    jobOpen: Boolean(job && job.status !== "Closed"),
+    minAdvancePercent: Number(job?.paymentTerms?.minAdvancePercent ?? 70),
     referenceDate: new Date(Date.now()).toISOString().slice(0, 10),
     tourManagerAssigned: Boolean(job?.tourManagerName || job?.tourManagerId),
   };
@@ -388,7 +417,7 @@ async function syncProjection(
   const context = await resolveProjectionContext(ctx, sourceType, source);
   const day = utcDay(Number(source.createdAt ?? source._creationTime));
   const scopes = context.cement ? ["all", "cement"] : ["all"];
-  if (sourceType === "travellers" && context.jobCardId) {
+  if (["expenseEntries", "invoices", "travellers"].includes(sourceType) && context.jobCardId) {
     scopes.push(`job:${context.jobCardId}`);
   }
   const values = buildMetricValues(sourceType, source, context);
@@ -430,6 +459,8 @@ async function loadSourcePage(
   switch (sourceType) {
     case "approvalRequests":
       return await ctx.db.query("approvalRequests").order("asc").paginate(paginationOpts);
+    case "expenseEntries":
+      return await ctx.db.query("expenseEntries").order("asc").paginate(paginationOpts);
     case "invoices":
       return await ctx.db.query("invoices").order("asc").paginate(paginationOpts);
     case "jobCards":
@@ -452,6 +483,31 @@ export const syncEntity = internalMutation({
   handler: async (ctx, args) => {
     const source = await loadSourceDocument(ctx, args.sourceType, args.sourceId);
     return await syncProjection(ctx, args.sourceType, args.sourceId, source);
+  },
+});
+
+export const syncJobInvoicePage = internalMutation({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    jobCardId: v.id("jobCards"),
+  },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query("invoices")
+      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", args.jobCardId))
+      .paginate({ cursor: args.cursor, numItems: RECONCILE_PAGE_SIZE });
+    let changed = 0;
+    for (const invoice of page.page) {
+      const result = await syncProjection(ctx, "invoices", String(invoice._id), invoice);
+      changed += result.changed ? 1 : 0;
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.syncJobInvoicePage, {
+        cursor: page.continueCursor,
+        jobCardId: args.jobCardId,
+      });
+    }
+    return { changed, isDone: page.isDone, processed: page.page.length };
   },
 });
 

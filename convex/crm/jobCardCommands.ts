@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleJobInvoiceMetricSync } from "./financeMetricSync";
 import { JOB_CARD_STATUS } from "./jobCardConstants";
 import {
   assertDateRangeOrder,
@@ -135,12 +136,15 @@ export async function handleJobCardUpdateStatus(
     );
   }
   await ctx.db.patch(id, { status: args.status, ...editorPatch(access) });
-  await createActivity(ctx, access, {
-    action: "status_updated",
-    entityId: id,
-    entityType: "jobCard",
-    message: `${job.jobCode} moved to ${args.status}`,
-  });
+  await Promise.all([
+    createActivity(ctx, access, {
+      action: "status_updated",
+      entityId: id,
+      entityType: "jobCard",
+      message: `${job.jobCode} moved to ${args.status}`,
+    }),
+    scheduleJobInvoiceMetricSync(ctx, id),
+  ]);
   return { id };
 }
 

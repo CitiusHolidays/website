@@ -89,34 +89,42 @@ export const expenseListPageResultValidator = paginationResultValidator(expenseO
 export const expenseListRowResultValidator = v.union(expenseOutputValidator, v.null());
 export const expenseIdResultValidator = v.object({ id: v.id("expenseEntries") });
 
+const financePnlRowValidator = v.object({
+  clientName: v.string(),
+  expense: v.number(),
+  id: v.id("jobCards"),
+  jobCode: v.string(),
+  marginPercent: v.number(),
+  profit: v.number(),
+  revenue: v.number(),
+});
+
+const financeOutstandingRowValidator = v.object({
+  clientName: v.string(),
+  dueAmount: v.number(),
+  dueDate: v.string(),
+  id: v.id("invoices"),
+  jobCode: v.string(),
+  status: v.union(v.literal("Overdue"), v.literal("Upcoming"), v.literal("Future")),
+});
+
+export const financePnlPageResultValidator = paginationResultValidator(financePnlRowValidator);
+export const financeOutstandingPageResultValidator = paginationResultValidator(
+  financeOutstandingRowValidator
+);
+
 export const financeOverviewResultValidator = v.object({
+  aggregateCoverage: v.object({
+    bucketCount: v.number(),
+    complete: v.boolean(),
+    updatedAt: v.union(isoDateTimeValidator, v.null()),
+  }),
   fundProjections: v.object({
     advancePipeline: v.number(),
     expectedCollections: v.number(),
     pendingExpenseApprovals: v.number(),
     pendingReimbursements: v.number(),
   }),
-  outstanding: v.array(
-    v.object({
-      clientName: v.string(),
-      dueAmount: v.number(),
-      dueDate: v.string(),
-      id: v.id("invoices"),
-      jobCode: v.string(),
-      status: v.union(v.literal("Overdue"), v.literal("Upcoming"), v.literal("Future")),
-    })
-  ),
-  pnl: v.array(
-    v.object({
-      clientName: v.string(),
-      expense: v.number(),
-      id: v.id("jobCards"),
-      jobCode: v.string(),
-      marginPercent: v.number(),
-      profit: v.number(),
-      revenue: v.number(),
-    })
-  ),
   summary: v.object({
     approvedExpenses: v.number(),
     clientOutstanding: v.number(),

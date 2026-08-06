@@ -7,6 +7,7 @@ import {
   proofChangeResetPatch,
 } from "./expenseMaterialIntegrity";
 import { requireMutableExpenseProof, requireVisibleExpense } from "./expenseScope";
+import { scheduleFinanceMetricSync } from "./financeMetricSync";
 import {
   expenseAttachmentRecordResultValidator,
   expenseIdResultValidator,
@@ -111,6 +112,7 @@ export const saveExpenseProof = internalMutation({
       proofDigest: args.contentDigest,
       updatedAt: now,
     });
+    await scheduleFinanceMetricSync(ctx, "expenseEntries", args.expenseId);
     if (previousStorageId) {
       await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
         storageId: previousStorageId,
@@ -144,6 +146,7 @@ export const deleteExpenseProof = internalMutation({
           proofDigest: "",
           updatedAt: now,
         });
+        await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
       }
     }
     await ctx.db.delete(args.attachmentId);
