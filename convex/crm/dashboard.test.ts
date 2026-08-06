@@ -466,7 +466,7 @@ describe("getPortalDashboardCapacity", () => {
     const result = await getPortalDashboardCapacity._handler(ctx as any, { dateRange: null });
 
     expect(result).toEqual({ capacity: [], myTeam: [] });
-    expect(takeCalls).toEqual([]);
+    expect(takeCalls).toEqual([{ limit: 2, table: "staffUsers" }]);
   });
 });
 

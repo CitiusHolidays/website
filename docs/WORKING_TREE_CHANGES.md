@@ -184,21 +184,26 @@ the wrong destination fails with both the deleted path and expected successor in
 
 ## Current verification snapshot (5 August 2026)
 
-The latest committed checkpoint completed the following local gates:
+The post-MP4 remediation checkpoint completed the following local gates:
 
 | Gate | Result |
 | --- | --- |
-| `bun run test` | 1,152 passed, 0 failed |
+| `bun run test` | 1,231 passed, 0 failed across 261 files; every test file runs in an isolated global/JSDOM context |
 | `bun run typecheck` | Passed |
 | `bun run convex:typecheck` | Passed |
-| `bunx convex codegen --typecheck disable` | Passed |
-| `bun run config:check` / `policy:check` / `performance:check` | Passed |
-| Focused security regression tests | Passed |
-| `bun run lint` | Fails on the existing backlog: 96 errors and 1,867 warnings |
-| `bun run lint:ratchet` | Fails because current diagnostics exceed the checked-in baseline |
-| `bun audit --audit-level=high` | 17 transitive findings remain for dependency follow-up |
-| `(cd citius-blog && bun audit --audit-level=high)` | 44 blog-workspace findings remain for separate dependency follow-up |
-| Live production `/portal` | Pending redeploy/cache purge and authenticated browser verification |
+| Fresh `bunx convex codegen --typecheck enable` | Passed against the configured development deployment; no production deployment was run |
+| Focused integrated regression suite | 273 security, authorization, lifecycle, migration, payment, storage, browser, and workflow tests passed |
+| `bun run build` | Passed with Next.js 16.3.0; 86 static pages generated; no deployment was run |
+| `bun run config:check` / `policy:check` / `assets:check` / `performance:check` | Passed |
+| Preview and production environment-contract preflight | Passed with safe `.invalid` placeholders and all E2E provisioning values disabled |
+| `DIFF_BASE=696d066 bun run diff:check` | Passed for the full post-MP4 range |
+| `bun run lint` | Passed with 0 errors; 1,867 acknowledged legacy warnings were reported |
+| `bun run lint:ratchet` | Passed at 0 errors / 1,865 warnings, exactly at the checked-in debt ceiling |
+| `bun audit --audit-level=high` | Passed with no high or critical advisories in the application workspace |
+| `(cd citius-blog && bun audit --audit-level=high)` | Separate Sanity workspace still reports 44 advisories (1 critical, 43 high) and is not cleared by the application audit |
+| Authenticated local `/portal` browser evidence | Dashboard to All Sales Queries presented pending feedback in about 3 ms, route readiness in about 105 ms, and the first real row in about 404 ms |
+| Local command-palette focus evidence | Search received focus on open; Escape closed the dialog and restored focus to the exact trigger |
+| Live production `/portal` | Still pending authorized deployment/cache activation and production browser verification |
 
 ## Historical verification snapshot (14 July 2026)
 
@@ -230,9 +235,9 @@ browser retry returned a context-grounded MICE answer.
   corrected recipient behavior is covered by focused Convex tests.
 - GitHub branch protection, Vercel environment ownership, Convex deploy-key scope, backup settings,
   and production provider configuration still require explicit external inspection and authority.
-- The archived 14 July snapshot reported four moderate transitive advisories. The current
-  checkpoint records 17 high/critical transitive findings above; do not use this historical line
-  as a current dependency-clearance statement.
+- The archived 14 July snapshot reported four moderate transitive advisories. The application
+  workspace is now clear at the high/critical audit threshold, while the separately versioned
+  `citius-blog` Sanity workspace retains the 44 advisories recorded above.
 - Free OpenRouter endpoints can be capacity constrained, so transient model failures remain possible.
 
 ## Related documentation

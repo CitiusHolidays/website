@@ -34,7 +34,7 @@
     "policy:check": "bun config/release/check-ci-policy.ts",
     "smoke:browser": "bun scripts/browser-smoke.ts",
     "start": "bun --bun next start",
-    "test": "bun test --path-ignore-patterns='e2e/specs/**'",
+    "test": "bun test --isolate --path-ignore-patterns='e2e/specs/**'",
     "test:e2e": "playwright test",
     "test:e2e:critical": "playwright test --grep @critical",
     "test:e2e:smoke": "playwright test --grep @smoke",

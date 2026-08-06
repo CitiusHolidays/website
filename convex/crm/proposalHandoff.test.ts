@@ -95,6 +95,7 @@ function makeProposalHandoffCtx() {
     const builder = {
       collect: async () => rows.map((row) => ({ ...row })),
       first: async () => rows[0] ?? null,
+      take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
       withIndex(_indexName: string, callback: (q: any) => unknown) {
         const filters: Array<{ field: string; value: unknown }> = [];

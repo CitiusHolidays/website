@@ -83,6 +83,7 @@ function makeContext(
           isDone: true,
           page: rows.slice(0, opts.numItems ?? 50),
         }),
+        take: async (limit: number) => rows.slice(0, limit),
         unique: async () => rows[0] ?? null,
         withIndex: (_index: string, callback?: (q: any) => unknown) => {
           if (callback) {

@@ -17,7 +17,10 @@ function makeCtx(tables: Record<string, unknown[]>) {
 
   const withIndex = (table: string, indexName: string) => {
     if (table === "staffUsers" && indexName === "by_authUserId") {
-      return { unique: async () => getRows(table)[0] ?? null };
+      return {
+        take: async (take: number) => getRows(table).slice(0, take),
+        unique: async () => getRows(table)[0] ?? null,
+      };
     }
     return {
       order: (_direction: string) => ({

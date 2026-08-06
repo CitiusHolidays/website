@@ -91,6 +91,7 @@ function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
         let rows = allTables[table] ?? [];
         return {
           collect: async () => [...rows],
+          take: async (limit: number) => rows.slice(0, limit),
           unique: async () => rows[0] ?? null,
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];

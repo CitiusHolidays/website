@@ -14,7 +14,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "97af57d2d4a34987ba9519217f662c90d8a89bdeef7ec102a18ab76be18f2f9b";
+const EXPECTED_CAPABILITY_HASH = "dc878653928402eda10313cf2dc424fc181d1110e0f2fe101a21b41e9c9f0a08";
 const SOURCE_EXTENSION = /\.(?:js|ts)$/;
 const NON_SOURCE_FILE = /(?:\.test|\.config)\.[jt]s$/;
 const MODULE_EXTENSION = /\.[jt]s$/;
@@ -142,6 +142,46 @@ describe("Convex capability inventory", () => {
         module: "migrations",
         name,
       });
+    }
+    for (const capability of [
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/finance",
+        name: "listFinanceOutstanding",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/finance",
+        name: "listFinancePnl",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/metricAggregates",
+        name: "syncJobInvoicePage",
+      },
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/workflowNudges",
+        name: "classifyStaleNudgeRun",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/workflowNudges",
+        name: "getNudgeRun",
+      },
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/workflowNudges",
+        name: "retryNudgeRun",
+      },
+    ] satisfies Capability[]) {
+      expect(capabilities).toContainEqual(capability);
     }
   });
 
