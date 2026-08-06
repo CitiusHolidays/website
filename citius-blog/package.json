@@ -1,20 +1,26 @@
 {
   "name": "blog",
-  "private": true,
   "version": "1.0.0",
-  "main": "package.json",
-  "license": "UNLICENSED",
-  "scripts": {
-    "dev": "bun --bun sanity dev",
-    "start": "bun --bun sanity start",
-    "build": "bun --bun sanity build",
-    "build:production": "SANITY_DATASET=production bun --bun sanity build",
-    "deploy": "SANITY_DATASET=production sanity deploy",
-    "deploy-graphql": "sanity graphql deploy"
-  },
+  "private": true,
   "keywords": [
     "sanity"
   ],
+  "license": "UNLICENSED",
+  "main": "package.json",
+  "scripts": {
+    "build": "bun --bun sanity build",
+    "build:production": "SANITY_DATASET=production bun --bun sanity build",
+    "deploy": "SANITY_DATASET=production sanity deploy",
+    "deploy-graphql": "sanity graphql deploy",
+    "dev": "bun --bun sanity dev",
+    "start": "bun --bun sanity start"
+  },
+  "prettier": {
+    "bracketSpacing": false,
+    "printWidth": 100,
+    "semi": false,
+    "singleQuote": true
+  },
   "dependencies": {
     "@sanity/vision": "^4.22.0",
     "react": "^19.1",
@@ -28,11 +34,5 @@
     "eslint": "^9.28",
     "prettier": "^3.5",
     "typescript": "^5.8"
-  },
-  "prettier": {
-    "semi": false,
-    "printWidth": 100,
-    "bracketSpacing": false,
-    "singleQuote": true
   }
 }

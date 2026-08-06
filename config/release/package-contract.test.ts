@@ -4,11 +4,16 @@ import { resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "../..");
 
+function readPackageJson() {
+  return JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as {
+    dependencies: Record<string, string>;
+    scripts: Record<string, string>;
+  };
+}
+
 describe("package and test discovery contract", () => {
   test("every local file referenced by a package script exists", () => {
-    const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as {
-      scripts: Record<string, string>;
-    };
+    const packageJson = readPackageJson();
     const missing: string[] = [];
 
     for (const [name, command] of Object.entries(packageJson.scripts)) {
@@ -29,5 +34,18 @@ describe("package and test discovery contract", () => {
       true
     );
     expect(existsSync(resolve(root, "src/lib/portal/workflowPresentation.test.ts"))).toBe(false);
+  });
+
+  test("pins stable Next and keeps patched multi-major dependency floors explicit", () => {
+    const { dependencies } = readPackageJson();
+
+    expect(dependencies.next).toBe("16.3.0");
+    expect(dependencies.next).not.toContain("preview");
+    expect(dependencies["next-sanity"]).toBeUndefined();
+    expect(dependencies["@sanity/client"]).toBeDefined();
+    expect(dependencies["@portabletext/react"]).toBeDefined();
+    expect(dependencies.groq).toBeUndefined();
+    expect(dependencies["brace-expansion"]).toBe("1.1.18");
+    expect(dependencies.undici).toBe("7.29.0");
   });
 });

@@ -1,4 +1,3 @@
-import { groq } from "next-sanity";
 import { getTrailSlugsForStaticParams } from "@/data/trails";
 import { cachedSanityFetch } from "@/sanity/cachedFetch";
 
@@ -6,7 +5,7 @@ export default async function sitemap() {
   const baseUrl = "https://www.citiusholidays.com";
 
   // Get all posts
-  const postsQuery = groq`*[_type == "post" && defined(slug.current)]{
+  const postsQuery = `*[_type == "post" && defined(slug.current)]{
     "slug": slug.current,
     _updatedAt
   }`;

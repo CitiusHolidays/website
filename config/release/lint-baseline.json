@@ -3,16 +3,16 @@
     "warning": {
       "lint/style/useDestructuring": 45,
       "lint/complexity/noVoid": 15,
+      "lint/suspicious/useAwait": 119,
       "lint/style/useConsistentArrayType": 17,
       "lint/style/noIncrementDecrement": 3,
-      "lint/suspicious/useAwait": 119,
       "lint/performance/useTopLevelRegex": 99,
-      "lint/style/noNestedTernary": 78,
       "lint/correctness/noUnusedFunctionParameters": 272,
-      "lint/performance/noAwaitInLoops": 34,
+      "lint/style/noNestedTernary": 78,
       "lint/complexity/noExcessiveCognitiveComplexity": 76,
+      "lint/performance/noAwaitInLoops": 34,
       "lint/suspicious/noShadow": 34,
-      "lint/suspicious/noUnnecessaryConditions": 146,
+      "lint/suspicious/noUnnecessaryConditions": 144,
       "lint/performance/noBarrelFile": 12,
       "lint/performance/noNamespaceImport": 12,
       "lint/style/useConsistentTypeDefinitions": 71,
@@ -37,12 +37,12 @@
       "lint/style/useDefaultParameterLast": 5
     }
   },
-  "generatedAt": "2026-08-06T01:12:39.508Z",
+  "generatedAt": "2026-08-06T01:32:40.658Z",
   "schemaVersion": 1,
   "scope": ".",
   "tool": "@biomejs/biome@2.5.2",
   "totals": {
     "errors": 0,
-    "warnings": 1867
+    "warnings": 1865
   }
 }

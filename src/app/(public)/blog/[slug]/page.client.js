@@ -1,8 +1,8 @@
 "use client";
+import { PortableText } from "@portabletext/react";
 import { m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { PortableText } from "next-sanity";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { safePublicHref } from "@/lib/publicHref";
 import { urlFor } from "@/sanity/imageUrl";

@@ -1,16 +1,15 @@
 import { notFound } from "next/navigation";
-import { groq } from "next-sanity";
 import { Suspense } from "react";
 import { getTrailBySlug, getTrailSlugsForStaticParams } from "@/data/trails";
 import { cachedSanityFetch } from "@/sanity/cachedFetch";
 import PilgrimageTrailPageClient from "./page.client";
 
-const RELATED_BLOGS = groq`*[_type == "post" && slug.current in $slugs]{
+const RELATED_BLOGS = `*[_type == "post" && slug.current in $slugs]{
   "slug": slug.current,
   title
 }`;
 
-const TRAIL_CMS_GALLERY = groq`*[_type == "spiritualTrailGallery" && trailSlug == $slug][0]{
+const TRAIL_CMS_GALLERY = `*[_type == "spiritualTrailGallery" && trailSlug == $slug][0]{
   images[]{
     alt,
     asset->{ url }
