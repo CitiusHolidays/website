@@ -93,4 +93,3 @@ authenticated when the second-factor challenge is pending.
   in the dependency) and the staff recovery/override owner before implementation.
 - Inventory and classify every privileged mutation so “sensitive” has an
   enforceable, testable definition rather than an informal UI label.
-
