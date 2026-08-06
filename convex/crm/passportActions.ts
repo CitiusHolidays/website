@@ -16,6 +16,7 @@ import {
   fileOperationSuccessValidator,
   uploadUrlResultValidator,
 } from "./fileReturnContracts";
+import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 import { PERMISSIONS } from "./lib/rolePolicy";
 import { passportDocumentResultValidator } from "./operationsReturnContracts";
 import { normalizePassportExpiryDate } from "./passportExpiry";
@@ -237,6 +238,7 @@ async function readPassportFile(ctx: ActionCtx, travellerId: string) {
   if (!(access && access.allowed && access.permissions.includes(PERMISSIONS.VIEW_VISA))) {
     throw new ConvexError("FORBIDDEN");
   }
+  await enforcePortalFileDownloadLimit(ctx, access);
 
   const existing: PassportMetadata = await ctx.runQuery(api.crm.passport.getPassportMetadata, {
     travellerId,

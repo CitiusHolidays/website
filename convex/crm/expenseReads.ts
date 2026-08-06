@@ -1,5 +1,5 @@
 import { hasExpenseApprovalHistory, isNeverSubmittedExpenseDraft } from "./expenseLifecycle";
-import { canManageAllExpenses } from "./expensePolicy";
+import { canManageAllExpenses, canMutateUnlinkedExpense } from "./expensePolicy";
 import { canApproveExpenseAsManager } from "./expenseScope";
 import { getVisibleJob } from "./jobCardVisibility";
 import { PERMISSIONS, requireStaff } from "./lib";
@@ -42,7 +42,9 @@ export async function presentExpenseListRow(ctx: any, access: any, expense: any)
       Boolean(expense.submittedForApprovalAt) &&
       (expense.managerReviewStatus ?? "Pending") === "Pending" &&
       canApproveExpenseAsManager(access, expense),
-    canDelete: isNeverSubmittedExpenseDraft(expense, hasApprovalHistory),
+    canDelete:
+      canMutateUnlinkedExpense(access, expense) &&
+      isNeverSubmittedExpenseDraft(expense, hasApprovalHistory),
     cardAmount: expense.cardAmount ?? 0,
     cashAmount: expense.cashAmount ?? 0,
     category: expense.category,

@@ -25,6 +25,13 @@ crons.daily(
 );
 
 crons.interval(
+  "clean expired portal rate limits",
+  { hours: 1 },
+  internal.crm.rateLimitMaintenance.cleanupExpired,
+  {}
+);
+
+crons.interval(
   "reconcile bounded crm metrics",
   { minutes: 15 },
   internal.crm.metricAggregates.reconcileAll,

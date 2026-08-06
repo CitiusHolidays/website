@@ -16,6 +16,7 @@ import {
   resolveStorageMimeType,
   storageMimeTypeMatchesClaim,
 } from "./fileValidation";
+import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 import { PERMISSIONS } from "./lib/rolePolicy";
 
 const ALLOWED_MIME_PREFIXES = [
@@ -165,6 +166,7 @@ export const getDownloadUrl = action({
     if (!(access?.allowed && access.permissions.includes(PERMISSIONS.VIEW_EXPENSES))) {
       throw new ConvexError("FORBIDDEN");
     }
+    await enforcePortalFileDownloadLimit(ctx, access);
 
     const record = await ctx.runQuery(api.crm.expenseAttachments.getAttachmentRecord, {
       attachmentId: args.attachmentId,
@@ -190,6 +192,7 @@ export const getDownloadFile = action({
     if (!(access?.allowed && access.permissions.includes(PERMISSIONS.VIEW_EXPENSES))) {
       throw new ConvexError("FORBIDDEN");
     }
+    await enforcePortalFileDownloadLimit(ctx, access);
 
     const record = await ctx.runQuery(api.crm.expenseAttachments.getAttachmentRecord, {
       attachmentId: args.attachmentId,

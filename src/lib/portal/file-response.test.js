@@ -24,6 +24,14 @@ describe("portal file responses", () => {
     expect(response.status).toBe(403);
   });
 
+  test("maps the shared Convex download limit to 429", () => {
+    const response = portalFileErrorResponse({
+      data: { code: "PORTAL_FILE_RATE_LIMITED", retryAfterSeconds: 17 },
+    });
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("17");
+  });
+
   test("normalizes MIME parameters and falls back for header-injection input", () => {
     expect(sanitizeFileMimeType("Application/PDF; charset=binary")).toBe("application/pdf");
     expect(sanitizeFileMimeType("text/plain\r\nX-Injected: true")).toBe("application/octet-stream");

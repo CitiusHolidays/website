@@ -43,6 +43,7 @@ describe("storage reference guard", () => {
   test("recognizes every supported attachment owner", async () => {
     const tables = [
       "commercialFiles",
+      "commercialFileUploadSessions",
       "queryAttachments",
       "proposalAttachments",
       "passportDetails",

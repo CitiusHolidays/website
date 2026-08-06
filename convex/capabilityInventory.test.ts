@@ -14,7 +14,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "dc878653928402eda10313cf2dc424fc181d1110e0f2fe101a21b41e9c9f0a08";
+const EXPECTED_CAPABILITY_HASH = "58d9c40763a06ebdfd9442de3a6af593d1ba5fd118b1fd77eae30a609c89ab46";
 const SOURCE_EXTENSION = /\.(?:js|ts)$/;
 const NON_SOURCE_FILE = /(?:\.test|\.config)\.[jt]s$/;
 const MODULE_EXTENSION = /\.[jt]s$/;
@@ -179,6 +179,18 @@ describe("Convex capability inventory", () => {
         kind: "mutation",
         module: "crm/workflowNudges",
         name: "retryNudgeRun",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/rateLimitMaintenance",
+        name: "cleanupExpired",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/rateLimitMaintenance",
+        name: "consumePortalFileDownload",
       },
     ] satisfies Capability[]) {
       expect(capabilities).toContainEqual(capability);

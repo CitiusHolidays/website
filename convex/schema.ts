@@ -396,6 +396,7 @@ export default defineSchema({
     usedAt: v.optional(v.number()),
   })
     .index("by_token", ["token"])
+    .index("by_storageId", ["storageId"])
     .index("by_expiresAt", ["expiresAt"]),
 
   confirmedOffers: defineTable({
@@ -956,6 +957,15 @@ export default defineSchema({
     .index("by_sharedRole", ["sharedRole"])
     .index("by_view", ["view"])
     .index("by_createdBy", ["createdBy"]),
+
+  portalFileDownloadRateLimits: defineTable({
+    authUserId: v.string(),
+    count: v.number(),
+    expiresAt: v.number(),
+    startedAt: v.number(),
+  })
+    .index("by_authUserId", ["authUserId"])
+    .index("by_expiresAt", ["expiresAt"]),
 
   // A single daily nudge run advances through bounded pages. Keeping the
   // cursor and counters in a row makes retries resumable and prevents a

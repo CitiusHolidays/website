@@ -139,6 +139,9 @@ function makePassportActionCtx(
       if (name === "crm/passport:deletePassportMetadata") {
         return await (deletePassportMetadata as any)._handler(queryCtx, args);
       }
+      if (name === "crm/rateLimitMaintenance:consumePortalFileDownload") {
+        return { allowed: true, remaining: 29, retryAfterSeconds: null };
+      }
       throw new Error(`Unexpected mutation: ${name}`);
     },
     runQuery: async (reference: unknown, args: Record<string, unknown>) => {
@@ -300,7 +303,10 @@ describe("passport metadata access scope", () => {
     }
 
     expect(effects).toEqual({
-      mutations: [],
+      mutations: [
+        "crm/rateLimitMaintenance:consumePortalFileDownload",
+        "crm/rateLimitMaintenance:consumePortalFileDownload",
+      ],
       storageDeletes: [],
       storageReads: [],
       storageStores: 0,

@@ -11,9 +11,12 @@ import {
 function operationDownloadContext(permission: string) {
   let calls = 0;
   return {
+    runMutation: () => ({ allowed: true, remaining: 29, retryAfterSeconds: null }),
     runQuery: () => {
       calls += 1;
-      return calls === 1 ? { allowed: true, permissions: [permission] } : null;
+      return calls === 1
+        ? { allowed: true, authUserId: "auth_operations", permissions: [permission] }
+        : null;
     },
   };
 }

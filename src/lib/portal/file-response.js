@@ -53,7 +53,18 @@ export function portalFileResponse(file, options = {}) {
 }
 
 export function portalFileErrorResponse(error) {
-  const message = error?.data || error?.message || "Unable to access file";
+  const data = error?.data;
+  if (data?.code === "PORTAL_FILE_RATE_LIMITED") {
+    const retryAfterSeconds = Math.max(1, Number(data.retryAfterSeconds) || 1);
+    return jsonResponse(
+      { error: "Too many file downloads. Please wait a minute and try again." },
+      {
+        headers: { "Retry-After": String(retryAfterSeconds) },
+        status: 429,
+      }
+    );
+  }
+  const message = typeof data === "string" ? data : error?.message || "Unable to access file";
   const status =
     message === "FORBIDDEN" || message.includes("UNAUTHORIZED")
       ? 403

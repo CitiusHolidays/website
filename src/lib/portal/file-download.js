@@ -1,23 +1,27 @@
+import {
+  PORTAL_FILE_DOWNLOAD_LIMIT as SHARED_DOWNLOAD_LIMIT,
+  PORTAL_FILE_DOWNLOAD_WINDOW_MS as SHARED_DOWNLOAD_WINDOW_MS,
+} from "@convex/crm/lib/portalFileDownloadPolicy";
 import { fetchAuthAction, getServerUser, getToken } from "@/lib/auth-server";
 import { portalFileErrorResponse, portalFileResponse } from "@/lib/portal/file-response";
+
+export const PORTAL_FILE_DOWNLOAD_LIMIT = SHARED_DOWNLOAD_LIMIT;
+export const PORTAL_FILE_DOWNLOAD_WINDOW_MS = SHARED_DOWNLOAD_WINDOW_MS;
 
 /**
  * File downloads return the complete bytes in one authenticated action. Keep
  * accidental retries (and a compromised staff session) from turning that
  * endpoint into an unbounded storage egress path.
  *
- * This is deliberately a small, process-local guard. Convex actions still
- * enforce the record-level permission checks; a distributed limit should be
- * added at the edge when the deployment has a shared rate-limit service.
+ * This process-local guard provides fast edge feedback. The Convex actions
+ * independently consume the shared per-identity limit before reading bytes,
+ * so direct action calls and identity-lookup failures cannot bypass the cap.
  */
-export const PORTAL_FILE_DOWNLOAD_LIMIT = 30;
-export const PORTAL_FILE_DOWNLOAD_WINDOW_MS = 60_000;
-
 const downloadWindows = new Map();
 
 function pruneExpiredWindows(now) {
   for (const [key, window] of downloadWindows) {
-    if (now - window.startedAt >= PORTAL_FILE_DOWNLOAD_WINDOW_MS) {
+    if (now - window.startedAt >= SHARED_DOWNLOAD_WINDOW_MS) {
       downloadWindows.delete(key);
     }
   }
@@ -41,22 +45,22 @@ export function consumePortalFileDownload(userId, now = Date.now()) {
 
   pruneExpiredWindows(now);
   const existing = downloadWindows.get(key);
-  if (!existing || now - existing.startedAt >= PORTAL_FILE_DOWNLOAD_WINDOW_MS) {
+  if (!existing || now - existing.startedAt >= SHARED_DOWNLOAD_WINDOW_MS) {
     downloadWindows.set(key, { count: 1, startedAt: now });
     return {
       allowed: true,
-      remaining: PORTAL_FILE_DOWNLOAD_LIMIT - 1,
+      remaining: SHARED_DOWNLOAD_LIMIT - 1,
       retryAfterSeconds: null,
     };
   }
 
-  if (existing.count >= PORTAL_FILE_DOWNLOAD_LIMIT) {
+  if (existing.count >= SHARED_DOWNLOAD_LIMIT) {
     return {
       allowed: false,
       remaining: 0,
       retryAfterSeconds: Math.max(
         1,
-        Math.ceil((existing.startedAt + PORTAL_FILE_DOWNLOAD_WINDOW_MS - now) / 1000)
+        Math.ceil((existing.startedAt + SHARED_DOWNLOAD_WINDOW_MS - now) / 1000)
       ),
     };
   }
@@ -64,7 +68,7 @@ export function consumePortalFileDownload(userId, now = Date.now()) {
   existing.count += 1;
   return {
     allowed: true,
-    remaining: PORTAL_FILE_DOWNLOAD_LIMIT - existing.count,
+    remaining: SHARED_DOWNLOAD_LIMIT - existing.count,
     retryAfterSeconds: null,
   };
 }
@@ -74,7 +78,7 @@ function rateLimitResponse(rateLimit) {
     "Cache-Control": "private, no-store, max-age=0",
     "Content-Type": "application/json",
     "Retry-After": String(rateLimit.retryAfterSeconds),
-    "X-RateLimit-Limit": String(PORTAL_FILE_DOWNLOAD_LIMIT),
+    "X-RateLimit-Limit": String(SHARED_DOWNLOAD_LIMIT),
     "X-RateLimit-Remaining": "0",
   });
   return new Response(

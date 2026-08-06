@@ -15,6 +15,7 @@ import {
   resolveStorageMimeType,
   storageMimeTypeMatchesClaim,
 } from "./fileValidation";
+import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 import { PERMISSIONS } from "./lib/rolePolicy";
 
 const ALLOWED_MIME_PREFIXES = [
@@ -184,6 +185,7 @@ export const getDownloadUrl = action({
     if (!canView) {
       throw new ConvexError("FORBIDDEN");
     }
+    await enforcePortalFileDownloadLimit(ctx, access);
 
     const record: {
       storageId: string;
@@ -218,6 +220,7 @@ export const getDownloadFile = action({
     if (!canView) {
       throw new ConvexError("FORBIDDEN");
     }
+    await enforcePortalFileDownloadLimit(ctx, access);
 
     const record: {
       storageId: string;

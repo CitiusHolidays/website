@@ -685,6 +685,12 @@ describe("expense approval integrity", () => {
       "auth_other"
     );
 
+    const visibleRows = await (listExpenses as any)._handler(ctx, {
+      paginationOpts: { cursor: null, numItems: 50 },
+    });
+    expect(visibleRows.page).toHaveLength(1);
+    expect(visibleRows.page[0]?.canDelete).toBe(false);
+
     await expect(
       (updateExpense as any)._handler(ctx, {
         category: "Cross-record edit",

@@ -8,6 +8,7 @@ import {
   COMMERCIAL_FILE_SOURCE_TYPES,
   COMMERCIAL_FILE_TEAM_AREAS,
 } from "./commercialFilePolicy";
+import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 import { PERMISSIONS } from "./lib/rolePolicy";
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
@@ -232,6 +233,11 @@ export const getDownloadFile = action({
     ctx,
     args
   ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
+    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
+    if (!access?.allowed) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    await enforcePortalFileDownloadLimit(ctx, access);
     const record: { fileName: string; mimeType: string; storageId: string } | null =
       await ctx.runQuery(api.crm.commercialFiles.getDownloadRecord, args);
     if (!record) {

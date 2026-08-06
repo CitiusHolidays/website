@@ -13,35 +13,52 @@ const MAX_STORAGE_DELETE_RETRIES = 3;
  * checked in one place before a temporary blob is removed.
  */
 async function hasStorageReference(ctx: any, storageId: string) {
-  const [commercial, queryAttachment, proposalAttachment, passport, generic, proposalPdf] =
-    await Promise.all([
-      ctx.db
-        .query("commercialFiles")
-        .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
-        .first(),
-      ctx.db
-        .query("queryAttachments")
-        .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
-        .first(),
-      ctx.db
-        .query("proposalAttachments")
-        .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
-        .first(),
-      ctx.db
-        .query("passportDetails")
-        .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
-        .first(),
-      ctx.db
-        .query("attachments")
-        .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
-        .first(),
-      ctx.db
-        .query("proposals")
-        .withIndex("by_finalizedPdfStorageId", (q: any) => q.eq("finalizedPdfStorageId", storageId))
-        .first(),
-    ]);
+  const [
+    commercial,
+    commercialUploadSession,
+    queryAttachment,
+    proposalAttachment,
+    passport,
+    generic,
+    proposalPdf,
+  ] = await Promise.all([
+    ctx.db
+      .query("commercialFiles")
+      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("commercialFileUploadSessions")
+      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("queryAttachments")
+      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("proposalAttachments")
+      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("passportDetails")
+      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("attachments")
+      .withIndex("by_storageId", (q: any) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("proposals")
+      .withIndex("by_finalizedPdfStorageId", (q: any) => q.eq("finalizedPdfStorageId", storageId))
+      .first(),
+  ]);
   return Boolean(
-    commercial || queryAttachment || proposalAttachment || passport || generic || proposalPdf
+    commercial ||
+      commercialUploadSession ||
+      queryAttachment ||
+      proposalAttachment ||
+      passport ||
+      generic ||
+      proposalPdf
   );
 }
 
