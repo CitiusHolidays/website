@@ -1,22 +1,71 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { ConvexError } from "convex/values";
 import { hasTravellerNamed } from "./e2eAssertions";
 import { assertE2eSecret, assertProvidedE2eSecret } from "./lib/e2eAuth";
 
 describe("e2e assertions guard", () => {
-  test("rejects missing or incorrect secrets", () => {
-    expect(() => assertE2eSecret("", "expected-secret")).toThrow(ConvexError);
-    expect(() => assertE2eSecret("wrong-secret", "expected-secret")).toThrow(ConvexError);
+  const allowedPreviewEnvironment = {
+    E2E_PROVISIONING_TARGET: "preview",
+    E2E_SEED_SECRET: "expected-secret",
+  };
+
+  test("rejects production even when its target and secret would otherwise allow provisioning", () => {
+    expect(() =>
+      assertProvidedE2eSecret("expected-secret", {
+        ...allowedPreviewEnvironment,
+        VERCEL_ENV: "production",
+      })
+    ).toThrow(ConvexError);
+    expect(() =>
+      assertProvidedE2eSecret("expected-secret", {
+        E2E_PROVISIONING_TARGET: "production",
+        E2E_SEED_SECRET: "expected-secret",
+      })
+    ).toThrow(ConvexError);
   });
 
-  test("accepts the configured secret", () => {
-    expect(() => assertE2eSecret("expected-secret", "expected-secret")).not.toThrow();
+  test("rejects missing, invalid, or unclassified HTTP boundary secrets", () => {
+    expect(() => assertProvidedE2eSecret(undefined, allowedPreviewEnvironment)).toThrow(
+      ConvexError
+    );
+    expect(() => assertProvidedE2eSecret("wrong-secret", allowedPreviewEnvironment)).toThrow(
+      ConvexError
+    );
+    expect(() =>
+      assertProvidedE2eSecret("expected-secret", {
+        E2E_SEED_SECRET: "expected-secret",
+      })
+    ).toThrow(ConvexError);
   });
 
-  test("requires a provided secret at HTTP boundaries", () => {
-    expect(() => assertProvidedE2eSecret(undefined, "expected-secret")).toThrow(ConvexError);
-    expect(() => assertProvidedE2eSecret("wrong-secret", "expected-secret")).toThrow(ConvexError);
-    expect(() => assertProvidedE2eSecret("expected-secret", "expected-secret")).not.toThrow();
+  test("accepts explicitly classified preview and development environments", () => {
+    expect(() =>
+      assertProvidedE2eSecret("expected-secret", allowedPreviewEnvironment)
+    ).not.toThrow();
+    expect(() =>
+      assertProvidedE2eSecret("expected-secret", {
+        E2E_PROVISIONING_TARGET: "development",
+        E2E_SEED_SECRET: "expected-secret",
+      })
+    ).not.toThrow();
+  });
+
+  test("allows the internal guard only when an allowed target and secret are configured", () => {
+    expect(() => assertE2eSecret(undefined, allowedPreviewEnvironment)).not.toThrow();
+    expect(() =>
+      assertE2eSecret(undefined, {
+        E2E_PROVISIONING_TARGET: "preview",
+      })
+    ).toThrow(ConvexError);
+  });
+
+  test("keeps HTTP denials generic and does not accept a request-controlled target", () => {
+    const httpSource = readFileSync(join(import.meta.dir, "../http.ts"), "utf8");
+    expect(httpSource).toContain('{ error: "E2E seed is not authorized" }');
+    expect(httpSource).not.toContain("error.message");
+    expect(httpSource).not.toContain('headers.get("x-e2e-target")');
   });
 
   test("matches the exact traveller name returned by either indexed lookup", () => {

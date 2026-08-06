@@ -16,6 +16,11 @@ const URL_KEYS = new Set([
   "NEXT_PUBLIC_CONVEX_URL",
   "SITE_URL",
 ]);
+const E2E_PROVISIONING_KEYS = [
+  "E2E_PROVISIONING_TARGET",
+  "E2E_SEED_SECRET",
+  "E2E_STAFF_PASSWORD",
+] as const;
 
 const root = resolve(import.meta.dir, "../..");
 
@@ -69,6 +74,18 @@ export function evaluateEnvironmentPreflight(
     if (value && authOrigin && originFor(value) !== authOrigin) {
       errors.push(`${key} must resolve to the same origin as the authentication origin`);
     }
+  }
+
+  const configuredE2eKeys = E2E_PROVISIONING_KEYS.filter((key) => env[key]?.trim());
+  if (target === "production" && configuredE2eKeys.length > 0) {
+    errors.push("Production must not configure E2E provisioning variables");
+  }
+  if (
+    target === "preview" &&
+    configuredE2eKeys.length > 0 &&
+    env.E2E_PROVISIONING_TARGET?.trim() !== "preview"
+  ) {
+    errors.push("Preview E2E provisioning requires E2E_PROVISIONING_TARGET=preview");
   }
 
   return {

@@ -26,6 +26,52 @@ describe("target-aware environment preflight", () => {
     expect(result.errors[0]).not.toContain("redacted");
   });
 
+  test("rejects E2E provisioning configuration from production releases", () => {
+    const result = evaluateEnvironmentPreflight(
+      {
+        ...urls,
+        CONVEX_DEPLOY_KEY: "redacted",
+        CONVEX_DEPLOYMENT: "prod:example",
+        E2E_PROVISIONING_TARGET: "preview",
+        E2E_SEED_SECRET: "redacted",
+        E2E_STAFF_PASSWORD: "redacted",
+        RESEND_API_KEY: "redacted",
+      },
+      "production"
+    );
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain("Production must not configure E2E provisioning variables");
+    expect(result.errors.join("\n")).not.toContain("redacted");
+  });
+
+  test("requires an explicit preview classification when preview provisioning is configured", () => {
+    const missingTarget = evaluateEnvironmentPreflight(
+      {
+        ...urls,
+        E2E_SEED_SECRET: "redacted",
+        E2E_STAFF_PASSWORD: "redacted",
+        RESEND_API_KEY: "redacted",
+      },
+      "preview"
+    );
+    expect(missingTarget.ok).toBe(false);
+    expect(missingTarget.errors).toContain(
+      "Preview E2E provisioning requires E2E_PROVISIONING_TARGET=preview"
+    );
+
+    const allowed = evaluateEnvironmentPreflight(
+      {
+        ...urls,
+        E2E_PROVISIONING_TARGET: "preview",
+        E2E_SEED_SECRET: "redacted",
+        E2E_STAFF_PASSWORD: "redacted",
+        RESEND_API_KEY: "redacted",
+      },
+      "preview"
+    );
+    expect(allowed.ok).toBe(true);
+  });
+
   test("rejects an auth-origin mismatch before domain cutover", () => {
     const result = evaluateEnvironmentPreflight(
       { ...urls, RESEND_API_KEY: "redacted", SITE_URL: "https://old.citiusholidays.com" },
