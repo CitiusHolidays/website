@@ -15,6 +15,7 @@ import { m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useId, useState } from "react";
+import Logo from "@/static/logos/logo.webp";
 import {
   formatAccountDateRange,
   getDepartureLabel,
@@ -54,27 +55,18 @@ function getEntryLocation(entry) {
   return "";
 }
 
-export function AccountMark({ compact = false, inverse = false }) {
+export function AccountMark({ compact = false }) {
   return (
-    <div className="flex flex-col items-start gap-0">
-      <div className="flex items-center gap-2">
-        <Plane
-          aria-hidden="true"
-          className="text-[var(--account-gold)]"
-          size={compact ? 14 : 17}
-          strokeWidth={1.5}
-        />
-        <span
-          className={`account-display text-xl tracking-[0.18em] ${inverse ? "text-white" : "text-[var(--account-ink)]"}`}
-        >
-          CITIUS
-        </span>
-      </div>
-      <span
-        className={`font-medium text-[9px] uppercase tracking-[0.35em] ${compact ? "ml-6" : ""} ${inverse ? "text-[var(--account-gold)]" : "text-[var(--account-muted)]"}`}
-      >
-        Holidays
-      </span>
+    <div
+      className={`inline-flex items-center rounded-md bg-[var(--account-surface)] shadow-sm ring-1 ring-black/5 ${compact ? "px-2 py-1" : "px-3 py-2"}`}
+    >
+      <Image
+        alt="Citius Holidays"
+        className="h-auto object-contain"
+        height={compact ? 28 : 42}
+        src={Logo}
+        width={compact ? 80 : 120}
+      />
     </div>
   );
 }
@@ -85,16 +77,16 @@ export function NavButton({ active, onClick, icon, label, mobile = false }) {
       aria-current={active ? "page" : undefined}
       className={`account-focus flex items-center transition-colors ${
         mobile
-          ? `min-w-16 flex-1 flex-col justify-center gap-1 px-3 py-2 text-[10px] ${active ? "text-[var(--account-gold)]" : "text-white/55"}`
+          ? `min-w-16 flex-1 flex-col justify-center gap-1 px-3 py-2 text-[10px] ${active ? "text-[var(--account-gold-on-night)]" : "text-white/55"}`
           : `w-full gap-3 rounded-sm px-3 py-3 text-left text-xs tracking-[0.04em] ${active ? "bg-white/10 text-white" : "text-white/55 hover:bg-white/7 hover:text-white"}`
       }`}
       onClick={onClick}
       type="button"
     >
-      <span className={active ? "text-[var(--account-gold)]" : ""}>{icon}</span>
+      <span className={active ? "text-[var(--account-gold-on-night)]" : ""}>{icon}</span>
       <span>{label}</span>
       {!mobile && active && (
-        <span className="ml-auto size-1.5 rounded-full bg-[var(--account-gold)]" />
+        <span className="ml-auto size-1.5 rounded-full bg-[var(--account-gold-on-night)]" />
       )}
     </button>
   );
@@ -107,7 +99,7 @@ function StatusPill({ status }) {
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium text-[10px] uppercase tracking-[0.13em] ${
         isConfirmed
-          ? "bg-[#e9f1ea] text-[var(--account-success)]"
+          ? "bg-[var(--account-success-soft)] text-[var(--account-success)]"
           : "bg-[var(--account-gold-soft)] text-[var(--account-gold)]"
       }`}
     >
@@ -454,7 +446,7 @@ export function ProfileInput({
         {label}
       </label>
       <input
-        className={`account-focus w-full rounded-sm border border-[var(--account-border)] px-4 py-3 text-[var(--account-ink)] shadow-sm transition focus:border-[var(--account-gold)] focus:outline-none ${disabled ? "cursor-not-allowed bg-[#f4f1eb] text-[var(--account-muted)]" : "bg-white"}`}
+        className={`account-focus w-full rounded-sm border border-[var(--account-border)] px-4 py-3 text-[var(--account-ink)] shadow-sm transition focus:border-[var(--account-gold)] focus:outline-none ${disabled ? "cursor-not-allowed bg-[var(--account-paper)] text-[var(--account-muted)]" : "bg-white"}`}
         disabled={disabled}
         id={fieldId}
         onChange={handleChange}
@@ -481,7 +473,7 @@ export function ProfileField({ label, value }) {
 
 export function SettingRow({ title, description, action }) {
   return (
-    <div className="flex flex-col items-start justify-between gap-4 p-6 transition-colors hover:bg-[#fcfaf6] sm:flex-row sm:items-center">
+    <div className="flex flex-col items-start justify-between gap-4 p-6 transition-colors hover:bg-[var(--account-paper)] sm:flex-row sm:items-center">
       <div>
         <h4 className="font-medium text-[var(--account-ink)]">{title}</h4>
         <p className="mt-1 text-[var(--account-muted)] text-sm leading-5">{description}</p>
@@ -498,9 +490,9 @@ export function Toggle({ disabled = false, label = "Account notifications" }) {
       setIsOn((value) => !value);
     }
   }, [disabled]);
-  let toggleClassName = "bg-[#d8d4cc]";
+  let toggleClassName = "bg-[var(--account-border)]";
   if (disabled) {
-    toggleClassName = "cursor-not-allowed bg-[#d8d4cc] opacity-60";
+    toggleClassName = "cursor-not-allowed bg-[var(--account-border)] opacity-60";
   } else if (isOn) {
     toggleClassName = "bg-[var(--account-night)]";
   }

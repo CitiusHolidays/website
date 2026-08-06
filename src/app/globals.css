@@ -88,32 +88,47 @@ body {
   background: var(--background);
 }
 
-/* The authenticated customer account has its own editorial travel palette.
-   Keeping these tokens scoped prevents the account refresh from changing the
-   public marketing site or the staff CRM chrome. */
+/* The authenticated customer account is scoped from the staff CRM, but it
+   aliases the established customer-facing Citius palette and typography. */
 .account-shell {
-  --account-night: #062341;
-  --account-ink: #0a1e3b;
-  --account-paper: #faf8f3;
-  --account-surface: #fffefa;
-  --account-gold: #b8873f;
-  --account-gold-soft: #f1e6d2;
-  --account-muted: #657080;
-  --account-border: #e7e0d5;
-  --account-success: #356b55;
+  --account-night: var(--color-public-night);
+  --account-ink: var(--color-public-ink);
+  --account-paper: var(--color-public-paper);
+  --account-surface: var(--color-public-surface);
+  --account-gold: var(--color-public-orange-ink);
+  --account-gold-on-night: var(--color-public-orange);
+  --account-gold-soft: color-mix(
+    in oklch,
+    var(--color-public-orange) 14%,
+    var(--color-public-surface)
+  );
+  --account-muted: var(--color-public-muted);
+  --account-border: var(--color-brand-border);
+  --account-success: color-mix(
+    in oklch,
+    var(--color-public-green) 55%,
+    var(--color-public-ink)
+  );
+  --account-success-soft: color-mix(
+    in oklch,
+    var(--color-public-green) 16%,
+    var(--color-public-surface)
+  );
+  font-family: var(--font-inter), system-ui, sans-serif;
   color: var(--account-ink);
   background: var(--account-paper);
 }
 
 .account-display {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-poppins), sans-serif;
   letter-spacing: -0.025em;
 }
 
 .account-card {
   background: var(--account-surface);
   border: 1px solid var(--account-border);
-  box-shadow: 0 16px 42px rgb(6 35 65 / 0.06);
+  box-shadow: 0 16px 42px
+    color-mix(in srgb, var(--color-public-night) 6%, transparent);
 }
 
 .account-focus:focus-visible {

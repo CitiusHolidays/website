@@ -187,7 +187,7 @@ export function AccountProfilePanel({ user }) {
           {isEditingProfile ? (
             <div className="flex items-center gap-3">
               <button
-                className="account-focus rounded-full border border-[var(--account-border)] px-4 py-2 font-medium text-[var(--account-muted)] text-sm transition-colors hover:bg-[#f7f3ed]"
+                className="account-focus rounded-full border border-[var(--account-border)] px-4 py-2 font-medium text-[var(--account-muted)] text-sm transition-colors hover:bg-[var(--account-paper)]"
                 onClick={resetProfileForm}
                 type="button"
               >
@@ -251,7 +251,7 @@ export function AccountProfilePanel({ user }) {
         </div>
       )}
 
-      <div className="border-[var(--account-border)] border-t bg-[#f7f3ed] p-8">
+      <div className="border-[var(--account-border)] border-t bg-[var(--account-paper)] p-8">
         <h3 className="account-display mb-4 text-2xl text-[var(--account-ink)]">
           Passport Details
         </h3>

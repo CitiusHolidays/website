@@ -42,7 +42,7 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
       </button>
       {isOpen ? (
         <div
-          className="absolute top-[calc(100%+0.6rem)] right-0 z-50 w-60 rounded-sm border border-[var(--account-border)] bg-[var(--account-surface)] p-3 shadow-[0_18px_44px_rgb(6_35_65_/_0.16)]"
+          className="absolute top-[calc(100%+0.6rem)] right-0 z-50 w-60 rounded-sm border border-[var(--account-border)] bg-[var(--account-surface)] p-3 shadow-xl"
           role="menu"
         >
           <p className="truncate px-2 pb-3 text-[var(--account-muted)] text-xs">{user?.email}</p>
@@ -83,7 +83,7 @@ export function AccountSidebar({ activeTab, onTabChange, onLogout, isLoggingOut,
   return (
     <>
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[236px] flex-col bg-[var(--account-night)] px-6 py-8 text-white lg:flex">
-        <AccountMark inverse />
+        <AccountMark />
         <p className="mt-16 font-semibold text-[9px] text-white/35 uppercase tracking-[0.22em]">
           Your account
         </p>
@@ -101,7 +101,7 @@ export function AccountSidebar({ activeTab, onTabChange, onLogout, isLoggingOut,
         <div className="mt-auto border-white/10 border-t pt-5">
           <p className="mb-4 text-white/45 text-xs leading-5">Need a hand with your journey?</p>
           <a
-            className="account-focus mb-5 block text-[var(--account-gold)] text-xs hover:text-white"
+            className="account-focus mb-5 block text-[var(--account-gold-on-night)] text-xs hover:text-white"
             href="mailto:hello@citiusholidays.com"
           >
             Speak with our team <span aria-hidden="true">↗</span>
@@ -119,13 +119,13 @@ export function AccountSidebar({ activeTab, onTabChange, onLogout, isLoggingOut,
         >
           {isMobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
         </button>
-        <AccountMark compact inverse />
+        <AccountMark compact />
         <AccountControl compact isLoggingOut={isLoggingOut} onLogout={onLogout} user={user} />
         {isMobileMenuOpen ? (
-          <div className="absolute inset-x-4 top-[calc(100%+0.5rem)] rounded-sm border border-white/10 bg-[var(--account-night)] p-4 text-white shadow-[0_18px_44px_rgb(6_35_65_/_0.28)]">
+          <div className="absolute inset-x-4 top-[calc(100%+0.5rem)] rounded-sm border border-white/10 bg-[var(--account-night)] p-4 text-white shadow-xl">
             <p className="text-white/60 text-xs">Need a hand with your journey?</p>
             <a
-              className="account-focus mt-2 inline-block text-[var(--account-gold)] text-xs hover:text-white"
+              className="account-focus mt-2 inline-block text-[var(--account-gold-on-night)] text-xs hover:text-white"
               href="mailto:hello@citiusholidays.com"
             >
               Speak with our team <span aria-hidden="true">↗</span>
