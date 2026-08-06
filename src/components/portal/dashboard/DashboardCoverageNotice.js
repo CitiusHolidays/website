@@ -15,16 +15,16 @@ export function shouldShowDashboardCoverageNotice(coverage) {
 
 function coverageNoticeTitle(coverage) {
   if (coverage.state === "stale") {
-    return "Dashboard totals may be out of date";
+    return "Totals may be out of date";
   }
-  return "Some dashboard totals are still being prepared";
+  return "Some totals are still updating";
 }
 
 function coverageNoticeBody(coverage) {
   if (coverage.state === "stale") {
-    return "Refresh this page for the latest figures. Numbers shown may not reflect recent activity.";
+    return "Refresh to load the latest figures.";
   }
-  return "Totals may be incomplete until the refresh finishes. Check back shortly for the full picture.";
+  return "Check back shortly for complete figures.";
 }
 
 export function DashboardCoverageNotice({ coverage }) {
@@ -40,11 +40,11 @@ export function DashboardCoverageNotice({ coverage }) {
   return (
     <div
       aria-labelledby={titleId}
-      className="flex gap-3 rounded-lg border border-citius-orange/25 bg-citius-orange/10 px-4 py-3 text-citius-orange-ink"
+      className="flex gap-3 rounded-lg border border-citius-blue/15 bg-citius-blue/[0.04] px-4 py-3 text-brand-dark"
       data-testid="dashboard-coverage-notice"
       role="status"
     >
-      <Info aria-hidden className="mt-0.5 shrink-0" size={18} />
+      <Info aria-hidden className="mt-0.5 shrink-0 text-citius-blue" size={18} />
       <div className="min-w-0 space-y-1">
         <p className="font-heading font-semibold text-sm" id={titleId}>
           {title}

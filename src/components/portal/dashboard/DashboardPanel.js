@@ -13,9 +13,6 @@ function DashboardPanelSubtitle({ subtitle }) {
 }
 
 function progressFillClass(tone) {
-  if (tone === "orange") {
-    return "bg-citius-orange";
-  }
   if (tone === "green") {
     return "bg-emerald-600";
   }
@@ -23,12 +20,8 @@ function progressFillClass(tone) {
 }
 
 const PANEL_TONES = {
-  attention:
-    "border-citius-orange/30 bg-[color-mix(in_srgb,var(--color-citius-orange)_3%,white)] shadow-[0_16px_40px_rgba(231,125,35,0.08)]",
-  default: "border-brand-border/70 bg-white/95 shadow-[0_12px_34px_rgba(16,42,131,0.045)]",
-  healthy:
-    "border-emerald-200/80 bg-[color-mix(in_srgb,#10b981_3%,white)] shadow-[0_12px_34px_rgba(5,150,105,0.05)]",
-  quiet: "border-transparent bg-white/70 shadow-none",
+  default: "border-brand-border/70 bg-white shadow-[0_12px_34px_rgba(16,42,131,0.045)]",
+  quiet: "border-transparent bg-white shadow-none",
 };
 
 export function DashboardPanel({

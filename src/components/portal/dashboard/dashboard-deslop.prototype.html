@@ -1,0 +1,1996 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Citius Dashboard Deslop Prototype</title>
+    <!-- PROTOTYPE - throwaway. Three structurally different dashboard directions, switchable via ?variant=A|B|C. -->
+    <style>
+      :root {
+        --paper: #f8fafc;
+        --surface: #ffffff;
+        --surface-muted: #f3f6fb;
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --navy: #102a83;
+        --navy-strong: #0b2068;
+        --navy-2: #2447a7;
+        --navy-soft: #eef1fb;
+        --green: #356b1c;
+        --green-brand: #8dc63f;
+        --amber: #815b00;
+        --red: #b42318;
+        --neutral-status: #64748b;
+        --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+        --p-density: 1;
+        --sidebar: 236px;
+        --topbar: 66px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-synthesis: none;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        min-height: 100vh;
+        background: var(--paper);
+        padding-bottom: 104px;
+      }
+
+      ::selection {
+        background: #dfe5f8;
+        color: var(--ink);
+      }
+
+      button,
+      input {
+        font: inherit;
+      }
+
+      button,
+      a {
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      :focus-visible {
+        outline: 3px solid rgba(16, 42, 131, 0.3);
+        outline-offset: 3px;
+      }
+
+      .skip-link {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        z-index: 200;
+        transform: translateY(-160%);
+        border-radius: 6px;
+        background: var(--navy);
+        padding: 9px 12px;
+        color: #fff;
+        font-size: 12px;
+        font-weight: 700;
+        transition: transform 140ms var(--ease-out);
+      }
+
+      .skip-link:focus-visible {
+        transform: translateY(0);
+      }
+
+      .icon-sprite {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+
+      .icon {
+        display: block;
+        width: 17px;
+        height: 17px;
+        flex: 0 0 auto;
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 1.8;
+      }
+
+      .appbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        height: var(--topbar);
+        display: grid;
+        grid-template-columns: var(--sidebar) 1fr auto;
+        align-items: center;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(12px);
+      }
+
+      .brand {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        border-right: 1px solid var(--line);
+        overflow: hidden;
+      }
+
+      .brand-logo {
+        display: block;
+        width: auto;
+        height: 36px;
+        mix-blend-mode: multiply;
+      }
+
+      .app-context {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 0 24px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .app-context .icon {
+        width: 13px;
+        height: 13px;
+        color: #a3adb4;
+      }
+
+      .app-context strong {
+        color: var(--ink);
+        font-weight: 650;
+      }
+
+      .header-tools {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 16px 0 12px;
+      }
+
+      .command-button,
+      .icon-button {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--muted);
+        cursor: pointer;
+        transition: transform 140ms var(--ease-out), background-color 140ms var(--ease-out), border-color 140ms var(--ease-out), color 140ms var(--ease-out);
+      }
+
+      .command-button {
+        display: flex;
+        min-width: 210px;
+        height: 36px;
+        align-items: center;
+        gap: 9px;
+        padding: 0 8px 0 11px;
+        border-radius: 8px;
+        font-size: 11px;
+        text-align: left;
+      }
+
+      .command-button .command-copy {
+        flex: 1;
+      }
+
+      .command-button kbd {
+        min-width: 28px;
+        border: 1px solid #d5dbde;
+        border-radius: 5px;
+        background: var(--surface-muted);
+        padding: 2px 5px;
+        color: #74808a;
+        font-family: inherit;
+        font-size: 10px;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      .icon-button {
+        position: relative;
+        display: grid;
+        width: 36px;
+        height: 36px;
+        place-items: center;
+        border-radius: 8px;
+      }
+
+      .notification-dot {
+        position: absolute;
+        top: 7px;
+        right: 7px;
+        width: 6px;
+        height: 6px;
+        border: 1.5px solid var(--surface);
+        border-radius: 50%;
+        background: var(--navy);
+      }
+
+      .account {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 42px;
+        padding: 3px 5px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--ink);
+        cursor: pointer;
+        font-size: 12px;
+        text-align: left;
+        transition: transform 140ms var(--ease-out), background-color 140ms var(--ease-out);
+      }
+
+      .account-avatar {
+        display: grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        background: var(--navy);
+        color: white;
+        border-radius: 50%;
+        font-weight: 800;
+      }
+
+      .account .icon {
+        width: 14px;
+        height: 14px;
+        color: #8c979f;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: var(--sidebar) minmax(0, 1fr);
+        min-height: calc(100vh - var(--topbar));
+      }
+
+      .sidebar {
+        position: sticky;
+        top: var(--topbar);
+        align-self: start;
+        height: calc(100vh - var(--topbar));
+        padding: 18px 12px;
+        border-right: 1px solid var(--line);
+        background: #ffffff;
+        overflow: auto;
+        scrollbar-color: #cfd6da transparent;
+        scrollbar-width: thin;
+      }
+
+      .nav-label {
+        padding: 11px 10px 6px;
+        color: #7b8797;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+      }
+
+      .nav-item {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr) auto;
+        min-height: 40px;
+        align-items: center;
+        gap: 10px;
+        margin: 1px 0;
+        padding: 0 10px;
+        border-radius: 8px;
+        color: #64727e;
+        font-size: 12px;
+        transition: transform 140ms var(--ease-out), background-color 140ms var(--ease-out), color 140ms var(--ease-out);
+      }
+
+      .nav-item.active {
+        box-shadow: inset 3px 0 0 var(--navy);
+        background: var(--navy-soft);
+        color: var(--navy);
+        font-weight: 750;
+      }
+
+      .nav-item .icon {
+        width: 17px;
+        height: 17px;
+        color: #86939d;
+        stroke-width: 1.7;
+      }
+
+      .nav-item.active .icon {
+        color: var(--navy-2);
+        stroke-width: 2;
+      }
+
+      .nav-item small {
+        min-width: 20px;
+        color: #97a1a9;
+        font-size: 10px;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
+      .sidebar-note {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        margin: 22px 10px 0;
+        padding-top: 15px;
+        border-top: 1px solid var(--line);
+        color: #8a939c;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+
+      .sidebar-note .icon {
+        width: 15px;
+        height: 15px;
+        margin-top: 2px;
+        color: #89969f;
+      }
+
+      .workspace {
+        min-width: 0;
+        padding: calc(30px * var(--p-density)) clamp(24px, 4vw, 62px) 72px;
+        scroll-margin-top: calc(var(--topbar) + 12px);
+      }
+
+      .variant {
+        width: min(100%, 1380px);
+        margin: 0 auto;
+      }
+
+      .variant[hidden] {
+        display: none;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        margin-bottom: 8px;
+        color: var(--ink);
+        font-size: clamp(27px, 3vw, 39px);
+        line-height: 1.08;
+        letter-spacing: -0.04em;
+        text-wrap: balance;
+      }
+
+      h2 {
+        color: var(--ink);
+        font-size: 17px;
+        letter-spacing: -0.02em;
+      }
+
+      h3 {
+        font-size: 13px;
+      }
+
+      .page-summary {
+        max-width: 62ch;
+        margin-bottom: 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.5;
+        text-wrap: pretty;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      .tabular {
+        font-variant-numeric: tabular-nums;
+      }
+
+      .status {
+        display: inline-flex;
+        min-height: 20px;
+        align-items: center;
+        gap: 6px;
+        padding: 0;
+        border-radius: 0;
+        background: transparent;
+        font-size: 10px;
+        font-weight: 750;
+        white-space: nowrap;
+      }
+
+      .status::before {
+        content: "";
+        width: 5px;
+        height: 5px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .status.danger {
+        color: var(--red);
+      }
+
+      .status.warning {
+        color: var(--amber);
+      }
+
+      .status.good {
+        color: var(--green);
+      }
+
+      .status.neutral {
+        color: var(--neutral-status);
+      }
+
+      .button {
+        display: inline-flex;
+        min-height: 40px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: 1px solid var(--navy);
+        border-radius: 8px;
+        padding: 0 15px;
+        background: var(--navy);
+        color: #fff;
+        cursor: pointer;
+        font-weight: 750;
+        transition: transform 140ms var(--ease-out), background-color 140ms var(--ease-out), border-color 140ms var(--ease-out), color 140ms var(--ease-out);
+      }
+
+      .button .icon {
+        width: 16px;
+        height: 16px;
+        stroke-width: 2;
+      }
+
+      .button.secondary {
+        border-color: var(--line);
+        background: var(--surface);
+        color: var(--navy);
+      }
+
+      .text-link {
+        display: inline-flex;
+        align-items: center;
+        color: var(--navy-2);
+        font-size: 12px;
+        font-weight: 750;
+        text-underline-offset: 3px;
+        transition: color 140ms var(--ease-out);
+      }
+
+      .button:active,
+      .period:active,
+      .command-button:active,
+      .icon-button:active,
+      .account:active,
+      .nav-item:active,
+      .scope-tabs button:active,
+      .switcher-arrow:active {
+        transform: scale(0.96);
+      }
+
+      .section-top {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 18px;
+        margin-bottom: calc(14px * var(--p-density));
+      }
+
+      .section-top h2,
+      .section-top p {
+        margin-bottom: 0;
+      }
+
+      /* Variant A - queue-first desk */
+      .a-header {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 30px;
+        padding-bottom: calc(18px * var(--p-density));
+        border-bottom: 1px solid var(--line);
+      }
+
+      .a-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+      }
+
+      .period {
+        display: inline-flex;
+        min-height: 40px;
+        align-items: center;
+        gap: 5px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        padding: 0 8px;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 12px;
+        transition: transform 140ms var(--ease-out), background-color 140ms var(--ease-out), color 140ms var(--ease-out);
+      }
+
+      .period .icon {
+        width: 14px;
+        height: 14px;
+      }
+
+      .shift-brief {
+        display: grid;
+        grid-template-columns: 3px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 18px;
+        padding: calc(20px * var(--p-density)) 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .shift-brief::before {
+        content: "";
+        align-self: stretch;
+        background: var(--navy);
+        border-radius: 2px;
+      }
+
+      .shift-brief strong {
+        display: block;
+        max-width: 900px;
+        font-size: clamp(17px, 2vw, 24px);
+        line-height: 1.35;
+        letter-spacing: -0.025em;
+      }
+
+      .brief-actions {
+        display: flex;
+        gap: 16px;
+        white-space: nowrap;
+      }
+
+      .metric-ribbon {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1px;
+        overflow: hidden;
+        margin: calc(22px * var(--p-density)) 0 calc(28px * var(--p-density));
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--line);
+      }
+
+      .metric {
+        min-width: 0;
+        padding: calc(16px * var(--p-density)) 20px;
+        background: var(--surface);
+      }
+
+      .metric:first-child {
+        padding-left: 20px;
+      }
+
+      .metric-label {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .metric-value {
+        display: block;
+        margin: 6px 0 5px;
+        font-size: 25px;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+      }
+
+      .metric-note {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .a-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 0.34fr);
+        gap: clamp(22px, 3vw, 42px);
+        align-items: start;
+      }
+
+      .work-surface {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        border-radius: 12px;
+      }
+
+      .work-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 15px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .scope-tabs {
+        display: flex;
+        gap: 4px;
+      }
+
+      .scope-tabs button {
+        min-height: 32px;
+        border: 0;
+        border-radius: 6px;
+        padding: 0 10px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 700;
+        transition: transform 140ms var(--ease-out), background-color 140ms var(--ease-out), color 140ms var(--ease-out);
+      }
+
+      .scope-tabs button.active {
+        background: var(--navy-soft);
+        color: var(--navy);
+      }
+
+      .queue-head,
+      .queue-row {
+        display: grid;
+        grid-template-columns: 74px minmax(220px, 1.4fr) minmax(160px, 0.8fr) 86px 116px;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .queue-head {
+        padding: 10px 18px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface-muted);
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .queue-row {
+        min-height: calc(62px * var(--p-density));
+        padding: 11px 18px;
+        border-bottom: 1px solid #eaeded;
+        font-size: 12px;
+      }
+
+      .queue-row:last-child {
+        border-bottom: 0;
+      }
+
+      .queue-subject strong,
+      .departure strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+      }
+
+      .queue-subject small,
+      .queue-reason,
+      .departure small {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .row-action {
+        justify-self: end;
+        color: var(--navy-2);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .watchlist {
+        padding-left: clamp(18px, 2vw, 28px);
+        border-left: 1px solid var(--line);
+      }
+
+      .departure {
+        display: grid;
+        grid-template-columns: 44px 1fr;
+        gap: 14px;
+        padding: calc(15px * var(--p-density)) 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .departure-date {
+        text-align: center;
+      }
+
+      .departure-date strong {
+        margin: 0;
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      .departure-date small {
+        display: block;
+        margin-top: 4px;
+        color: var(--navy);
+        font-size: 10px;
+        font-weight: 850;
+        letter-spacing: 0.08em;
+      }
+
+      .exceptions {
+        display: flex;
+        flex-wrap: wrap;
+        column-gap: 14px;
+        row-gap: 5px;
+        margin-top: 8px;
+      }
+
+      .reporting-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: calc(30px * var(--p-density));
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      /* Variant B - cross-team briefing */
+      .b-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.6fr);
+        gap: clamp(28px, 5vw, 80px);
+        align-items: end;
+        padding-bottom: calc(28px * var(--p-density));
+        border-bottom: 1px solid var(--line);
+      }
+
+      .b-head h1 {
+        max-width: 760px;
+        font-size: clamp(32px, 4.4vw, 58px);
+        line-height: 1.04;
+      }
+
+      .b-head-aside {
+        padding-left: 22px;
+        border-left: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.7;
+      }
+
+      .b-head-aside strong {
+        color: var(--ink);
+      }
+
+      .b-head-aside p {
+        margin: 6px 0 0;
+      }
+
+      .b-main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 300px;
+        gap: clamp(28px, 4vw, 56px);
+        margin-top: calc(30px * var(--p-density));
+      }
+
+      .matrix {
+        border-top: 2px solid var(--ink);
+      }
+
+      .matrix-row {
+        display: grid;
+        grid-template-columns: 150px repeat(3, minmax(0, 1fr));
+        border-bottom: 1px solid var(--line);
+      }
+
+      .matrix-cell {
+        min-height: calc(82px * var(--p-density));
+        padding: 14px;
+        border-right: 1px solid var(--line);
+        font-size: 11px;
+        line-height: 1.45;
+      }
+
+      .matrix-cell:last-child {
+        border-right: 0;
+      }
+
+      .matrix-row.matrix-header .matrix-cell {
+        min-height: auto;
+        padding-block: 10px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 850;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .matrix-team {
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .matrix-number {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--navy);
+        font-size: 24px;
+        font-weight: 850;
+        line-height: 1;
+      }
+
+      .decision-rail {
+        border-top: 2px solid var(--navy);
+      }
+
+      .decision-rail h2 {
+        margin: 13px 0 6px;
+      }
+
+      .decision-item {
+        padding: calc(16px * var(--p-density)) 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .decision-item small {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .decision-item strong {
+        display: block;
+        margin-bottom: 7px;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .decision-item a {
+        color: var(--navy-2);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .b-kpis {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        margin-top: calc(36px * var(--p-density));
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .b-kpi {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 11px;
+        align-items: center;
+        padding: 16px;
+        border-right: 1px solid var(--line);
+      }
+
+      .b-kpi:last-child {
+        border-right: 0;
+      }
+
+      .b-kpi strong {
+        font-size: 26px;
+      }
+
+      .b-kpi span {
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.4;
+      }
+
+      /* Variant C - departure timeline */
+      .c-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 24px;
+        align-items: end;
+        margin-bottom: calc(28px * var(--p-density));
+      }
+
+      .c-head-copy {
+        max-width: 760px;
+      }
+
+      .c-head-meta {
+        display: flex;
+        gap: 24px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .c-head-meta strong {
+        display: block;
+        margin-top: 4px;
+        color: var(--ink);
+        font-size: 14px;
+      }
+
+      .c-now {
+        display: grid;
+        grid-template-columns: 120px repeat(3, minmax(0, 1fr));
+        gap: 1px;
+        overflow: hidden;
+        margin-bottom: calc(32px * var(--p-density));
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--line);
+      }
+
+      .c-now-label,
+      .c-now-item {
+        padding: calc(15px * var(--p-density)) 15px;
+        background: var(--surface);
+      }
+
+      .c-now-item:last-child {
+        border-right: 0;
+      }
+
+      .c-now-label {
+        display: flex;
+        align-items: center;
+        padding-inline: 15px;
+        background: var(--navy-soft);
+        color: var(--navy);
+        font-size: 10px;
+        font-weight: 850;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .c-now-item strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+      }
+
+      .c-now-item small {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .c-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 280px;
+        gap: clamp(30px, 5vw, 72px);
+      }
+
+      .timeline {
+        position: relative;
+      }
+
+      .timeline::before {
+        content: "";
+        position: absolute;
+        top: 11px;
+        bottom: 0;
+        left: 76px;
+        width: 1px;
+        background: #cbd5e1;
+      }
+
+      .timeline-item {
+        position: relative;
+        display: grid;
+        grid-template-columns: 58px 22px minmax(0, 1fr) 120px;
+        gap: 8px;
+        align-items: start;
+        min-height: calc(116px * var(--p-density));
+        padding-bottom: calc(22px * var(--p-density));
+      }
+
+      .timeline-date {
+        text-align: right;
+      }
+
+      .timeline-date strong {
+        display: block;
+        font-size: 19px;
+      }
+
+      .timeline-date small {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .timeline-node {
+        position: relative;
+        z-index: 1;
+        width: 11px;
+        height: 11px;
+        margin: 5px auto 0;
+        border: 3px solid var(--paper);
+        border-radius: 50%;
+        background: var(--navy);
+        box-shadow: 0 0 0 1px var(--navy);
+      }
+
+      .timeline-item.safe .timeline-node {
+        background: var(--green);
+        box-shadow: 0 0 0 1px var(--green);
+      }
+
+      .timeline-body {
+        padding: 0 18px 16px 8px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .timeline-body strong {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 14px;
+      }
+
+      .timeline-body p {
+        margin-bottom: 9px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .timeline-action {
+        justify-self: end;
+        color: var(--navy-2);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .risk-rail {
+        border-top: 2px solid var(--ink);
+      }
+
+      .risk-rail h2 {
+        margin: 13px 0 4px;
+      }
+
+      .risk-group {
+        padding: calc(16px * var(--p-density)) 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .risk-group-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .risk-group p {
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.5;
+      }
+
+      /* Prototype controls */
+      .switcher {
+        position: fixed;
+        left: 50%;
+        bottom: 18px;
+        z-index: 100;
+        display: grid;
+        grid-template-columns: 42px minmax(210px, 1fr) 42px auto;
+        align-items: center;
+        width: min(calc(100vw - 28px), 620px);
+        min-height: 58px;
+        transform: translateX(-50%);
+        border: 1px solid #284195;
+        border-radius: 14px;
+        background: #0b1f5f;
+        color: #fff;
+        box-shadow: 0 16px 44px rgba(14, 18, 22, 0.28);
+      }
+
+      .switcher-arrow {
+        display: grid;
+        height: 100%;
+        place-items: center;
+        border: 0;
+        background: transparent;
+        color: #fff;
+        cursor: pointer;
+        transition: transform 140ms var(--ease-out), background-color 140ms var(--ease-out);
+      }
+
+      .switcher-arrow .icon {
+        width: 18px;
+        height: 18px;
+      }
+
+      .switcher-state {
+        min-width: 0;
+        padding: 8px 14px;
+        border-inline: 1px solid #343940;
+      }
+
+      .switcher-state strong {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12px;
+      }
+
+      .switcher-state small {
+        display: block;
+        margin-top: 3px;
+        color: #aeb6bf;
+        font-size: 10px;
+      }
+
+      .density-control {
+        display: grid;
+        grid-template-columns: auto 86px;
+        gap: 8px;
+        align-items: center;
+        padding: 0 13px;
+        color: #bdc4cc;
+        font-size: 10px;
+        font-weight: 750;
+        text-transform: uppercase;
+      }
+
+      .density-control input {
+        accent-color: var(--green-brand);
+        width: 86px;
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .nav-item:hover {
+          background: var(--surface-muted);
+          color: var(--ink);
+        }
+
+        .nav-item.active:hover {
+          background: #e3e8f7;
+          color: var(--navy);
+        }
+
+        .command-button:hover,
+        .icon-button:hover {
+          border-color: #c9d2d7;
+          background: var(--surface-muted);
+          color: var(--ink);
+        }
+
+        .account:hover {
+          background: var(--surface-muted);
+        }
+
+        .button:hover {
+          border-color: var(--navy-strong);
+          background: var(--navy-strong);
+        }
+
+        .button.secondary:hover {
+          border-color: #c8d1d5;
+          background: var(--surface-muted);
+          color: var(--navy-strong);
+        }
+
+        .period:hover {
+          background: var(--surface-muted);
+          color: var(--navy);
+        }
+
+        .scope-tabs button:hover {
+          background: var(--surface-muted);
+          color: var(--ink);
+        }
+
+        .queue-row:hover {
+          background: #f8faf9;
+        }
+
+        .text-link:hover,
+        .decision-item a:hover,
+        .timeline-action:hover,
+        .row-action:hover {
+          color: var(--navy-strong);
+          text-decoration: underline;
+        }
+
+        .switcher-arrow:hover {
+          background: #173487;
+        }
+      }
+
+      @media (max-width: 1100px) {
+        :root {
+          --sidebar: 205px;
+        }
+
+        .queue-head,
+        .queue-row {
+          grid-template-columns: 70px minmax(180px, 1.2fr) minmax(140px, 0.8fr) 76px;
+        }
+
+        .queue-head > :nth-child(5),
+        .queue-row > :nth-child(5) {
+          display: none;
+        }
+
+        .b-main,
+        .c-layout {
+          grid-template-columns: minmax(0, 1fr) 240px;
+        }
+
+        .matrix-row {
+          grid-template-columns: 120px repeat(3, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 820px) {
+        :root {
+          --topbar: 58px;
+        }
+
+        .appbar {
+          grid-template-columns: 1fr auto;
+        }
+
+        .brand {
+          border-right: 0;
+        }
+
+        .brand-logo {
+          height: 28px;
+        }
+
+        .app-context,
+        .account-name,
+        .sidebar {
+          display: none;
+        }
+
+        .command-button {
+          min-width: 36px;
+          width: 36px;
+          padding: 0;
+          justify-content: center;
+        }
+
+        .command-copy,
+        .command-button kbd {
+          display: none;
+        }
+
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .workspace {
+          padding: 28px 18px 64px;
+        }
+
+        .a-header,
+        .b-head,
+        .c-head {
+          grid-template-columns: 1fr;
+          display: grid;
+        }
+
+        .a-header {
+          gap: 18px;
+        }
+
+        .a-header-actions {
+          justify-content: space-between;
+        }
+
+        .shift-brief {
+          grid-template-columns: 4px 1fr;
+        }
+
+        .brief-actions {
+          grid-column: 2;
+          flex-wrap: wrap;
+        }
+
+        .metric-ribbon,
+        .b-kpis {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .metric:nth-child(2),
+        .b-kpi:nth-child(2) {
+          border-right: 0;
+        }
+
+        .metric:nth-child(-n + 2),
+        .b-kpi:nth-child(-n + 2) {
+          border-bottom: 1px solid var(--line);
+        }
+
+        .metric:nth-child(3) {
+          padding-left: 0;
+        }
+
+        .a-grid,
+        .b-main,
+        .c-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .variant[data-variant="A"]:not([hidden]) {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .variant[data-variant="A"] .a-header {
+          order: 1;
+        }
+
+        .variant[data-variant="A"] .shift-brief {
+          order: 2;
+        }
+
+        .variant[data-variant="A"] .a-grid {
+          order: 3;
+          margin-top: 26px;
+        }
+
+        .variant[data-variant="A"] .metric-ribbon {
+          order: 4;
+        }
+
+        .variant[data-variant="A"] .reporting-footer {
+          order: 5;
+        }
+
+        .watchlist {
+          padding: 26px 0 0;
+          border-top: 1px solid var(--line);
+          border-left: 0;
+        }
+
+        .queue-head {
+          display: none;
+        }
+
+        .queue-row {
+          grid-template-columns: auto 1fr auto;
+          gap: 10px;
+          padding: 14px;
+        }
+
+        .queue-row .queue-reason {
+          grid-column: 2 / 4;
+        }
+
+        .queue-row > :nth-child(4) {
+          grid-column: 3;
+          grid-row: 1;
+        }
+
+        .queue-row > :nth-child(5) {
+          display: none;
+        }
+
+        .b-head-aside {
+          padding: 15px 0 0;
+          border-top: 1px solid var(--line);
+          border-left: 0;
+        }
+
+        .matrix {
+          overflow: visible;
+        }
+
+        .matrix-row {
+          display: block;
+          min-width: 0;
+        }
+
+        .matrix-row.matrix-header {
+          display: none;
+        }
+
+        .matrix-cell {
+          min-height: 0;
+          border-right: 0;
+        }
+
+        .matrix-team {
+          padding: 14px 0 9px;
+          border-bottom: 1px solid var(--line);
+          color: var(--navy);
+        }
+
+        .matrix-row:not(.matrix-header) .matrix-cell:not(.matrix-team) {
+          min-height: 0;
+          padding: 12px 0 14px;
+          border-bottom: 1px solid #eaeded;
+        }
+
+        .matrix-row:not(.matrix-header) .matrix-cell:not(.matrix-team)::before {
+          display: block;
+          margin-bottom: 6px;
+          color: var(--muted);
+          font-size: 10px;
+          font-weight: 850;
+          letter-spacing: 0.07em;
+          text-transform: uppercase;
+        }
+
+        .matrix-row:not(.matrix-header) .matrix-cell:nth-child(2)::before {
+          content: "Intervention";
+        }
+
+        .matrix-row:not(.matrix-header) .matrix-cell:nth-child(3)::before {
+          content: "Due today";
+        }
+
+        .matrix-row:not(.matrix-header) .matrix-cell:nth-child(4)::before {
+          content: "This week";
+        }
+
+        .c-now {
+          grid-template-columns: 1fr;
+        }
+
+        .c-now-label,
+        .c-now-item {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+          padding-left: 0;
+        }
+
+        .c-now-item:last-child {
+          border-bottom: 0;
+        }
+
+        .switcher {
+          grid-template-columns: 42px minmax(0, 1fr) 42px;
+        }
+
+        .density-control {
+          display: none;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .account {
+          padding-inline: 14px;
+        }
+
+        .brand {
+          padding-inline: 14px;
+        }
+
+        h1,
+        .b-head h1 {
+          font-size: 30px;
+        }
+
+        .a-header-actions {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .b-kpis {
+          grid-template-columns: 1fr;
+        }
+
+        .metric-ribbon {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .b-kpi {
+          padding-left: 0;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .b-kpi:last-child {
+          border-bottom: 0;
+        }
+
+        .work-toolbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .queue-row {
+          grid-template-columns: 1fr auto;
+        }
+
+        .queue-row .status {
+          grid-column: 1 / 3;
+          justify-self: start;
+        }
+
+        .queue-row .queue-subject {
+          grid-column: 1;
+        }
+
+        .queue-row .queue-reason {
+          grid-column: 1 / 3;
+        }
+
+        .queue-row > :nth-child(4) {
+          grid-column: 2;
+          grid-row: 2;
+        }
+
+        .timeline::before {
+          left: 53px;
+        }
+
+        .timeline-item {
+          grid-template-columns: 38px 20px 1fr;
+        }
+
+        .timeline-action {
+          grid-column: 3;
+          justify-self: start;
+          margin-top: -12px;
+        }
+
+        .switcher-state small {
+          display: none;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .account > .icon {
+          display: none;
+        }
+
+        .header-tools {
+          gap: 4px;
+          padding-left: 4px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+        }
+
+        .button:active,
+        .period:active,
+        .command-button:active,
+        .icon-button:active,
+        .account:active,
+        .nav-item:active,
+        .scope-tabs button:active,
+        .switcher-arrow:active {
+          transform: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#dashboard-content">Skip to dashboard</a>
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="icon-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="4" rx="1.5"/><rect x="14" y="11" width="7" height="10" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></symbol>
+      <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 8.5h18C21 16 18 16 18 9Z"/><path d="M10 21h4"/></symbol>
+      <symbol id="icon-chevron-down" viewBox="0 0 24 24"><path d="m7 9.5 5 5 5-5"/></symbol>
+      <symbol id="icon-chevron-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+      <symbol id="icon-query" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-5 4v-4.5A2.5 2.5 0 0 1 4 13.5Z"/><path d="M8 8h8M8 12h5"/></symbol>
+      <symbol id="icon-file" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6Z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></symbol>
+      <symbol id="icon-pipeline" viewBox="0 0 24 24"><path d="M4 19V5M4 19h16"/><path d="m7 15 4-4 3 2 5-6"/><path d="M16 7h3v3"/></symbol>
+      <symbol id="icon-briefcase" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V4h8v3M3 12h18M10 12v2h4v-2"/></symbol>
+      <symbol id="icon-plane" viewBox="0 0 24 24"><path d="m3 11 18-7-7 18-2.5-8.5ZM11.5 13.5 21 4"/></symbol>
+      <symbol id="icon-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2"/><path d="M16 14.2a4.5 4.5 0 0 1 4.5 4.5"/></symbol>
+      <symbol id="icon-passport" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="11" r="3"/><path d="M9.2 11h5.6M12 8v6M9 17h6"/></symbol>
+      <symbol id="icon-wallet" viewBox="0 0 24 24"><path d="M4 7h15a2 2 0 0 1 2 2v10H5a2 2 0 0 1-2-2V6a3 3 0 0 1 3-3h11v4"/><path d="M16 12h5v4h-5a2 2 0 1 1 0-4Z"/></symbol>
+      <symbol id="icon-team" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M6 20a6 6 0 0 1 12 0"/><path d="M18 5.5a2.5 2.5 0 0 1 0 5M6 5.5a2.5 2.5 0 0 0 0 5M19 14a4 4 0 0 1 3 4M5 14a4 4 0 0 0-3 4"/></symbol>
+      <symbol id="icon-activity" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+      <symbol id="icon-command" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m8 9-2 3 2 3M11 15h5"/></symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+      <symbol id="icon-arrow-left" viewBox="0 0 24 24"><path d="m14 6-6 6 6 6"/></symbol>
+      <symbol id="icon-arrow-right" viewBox="0 0 24 24"><path d="m10 6 6 6-6 6"/></symbol>
+    </svg>
+
+    <header class="appbar">
+      <div class="brand">
+        <img class="brand-logo" src="../../../static/logos/citiusconnect.png" alt="Citius Connect" />
+      </div>
+      <div class="app-context">
+        <strong>Dashboard</strong>
+        <svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"></use></svg>
+        <span>Director workspace</span>
+        <svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"></use></svg>
+        <span>All time</span>
+      </div>
+      <div class="header-tools">
+        <button class="command-button" type="button" aria-label="Search or jump to a record">
+          <svg class="icon" aria-hidden="true"><use href="#icon-search"></use></svg>
+          <span class="command-copy">Search or jump to…</span>
+          <kbd>⌘K</kbd>
+        </button>
+        <button class="icon-button" type="button" aria-label="Open notifications">
+          <svg class="icon" aria-hidden="true"><use href="#icon-bell"></use></svg>
+          <span class="notification-dot" aria-hidden="true"></span>
+        </button>
+        <button class="account" type="button" aria-label="Open account menu">
+          <span class="account-avatar">NS</span>
+          <span class="account-name"><strong>Nishit Sharma</strong><br /><span class="muted">Admin +5 roles</span></span>
+          <svg class="icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="shell">
+      <aside class="sidebar" aria-label="Prototype portal navigation">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item active" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-dashboard"></use></svg><span>Dashboard</span><small>01</small></a>
+        <div class="nav-label">Revenue</div>
+        <a class="nav-item" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-query"></use></svg><span>Sales queries</span><small>21</small></a>
+        <a class="nav-item" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-file"></use></svg><span>Proposals</span><small>33</small></a>
+        <a class="nav-item" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-pipeline"></use></svg><span>Pipeline</span><small></small></a>
+        <div class="nav-label">Delivery</div>
+        <a class="nav-item" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-briefcase"></use></svg><span>Job cards</span><small>18</small></a>
+        <a class="nav-item" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-plane"></use></svg><span>Ticketing</span><small></small></a>
+        <a class="nav-item" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-users"></use></svg><span>Travellers</span><small></small></a>
+        <a class="nav-item" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-passport"></use></svg><span>Visa & rooming</span><small></small></a>
+        <div class="nav-label">Control</div>
+        <a class="nav-item" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-wallet"></use></svg><span>Finance</span><small></small></a>
+        <a class="nav-item" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-team"></use></svg><span>Team</span><small></small></a>
+        <a class="nav-item" href="#"><svg class="icon" aria-hidden="true"><use href="#icon-activity"></use></svg><span>Activity</span><small></small></a>
+        <p class="sidebar-note"><svg class="icon" aria-hidden="true"><use href="#icon-command"></use></svg><span>Press <strong>⌘K</strong> for commands.<br />Pinned views appear above Control.</span></p>
+      </aside>
+
+      <main class="workspace" id="dashboard-content" tabindex="-1">
+        <article class="variant" data-variant="A">
+          <header class="a-header">
+            <div>
+              <h1>Good morning, Nishit</h1>
+              <p class="muted">Updated 09:42</p>
+            </div>
+            <div class="a-header-actions">
+              <button class="period" type="button">All time<svg class="icon" aria-hidden="true"><use href="#icon-chevron-down"></use></svg></button>
+              <button class="button" type="button"><svg class="icon" aria-hidden="true"><use href="#icon-plus"></use></svg><span>Create query</span></button>
+              <button class="button secondary" type="button" aria-label="More create actions"><span>More</span><svg class="icon" aria-hidden="true"><use href="#icon-more"></use></svg></button>
+            </div>
+          </header>
+
+          <section class="shift-brief" aria-labelledby="a-brief">
+            <div>
+              <strong id="a-brief">Four handoffs are overdue. Jaipur departs in 4 days with 7 visas still pending.</strong>
+            </div>
+            <div class="brief-actions">
+              <a class="text-link" href="#">Review overdue work →</a>
+              <a class="text-link" href="#">Open Jaipur JC →</a>
+            </div>
+          </section>
+
+          <section class="metric-ribbon" aria-label="Role-specific context metrics">
+            <div class="metric">
+              <span class="metric-label">Confirmed without job card</span>
+              <strong class="metric-value tabular">4</strong>
+              <span class="metric-note">Oldest 63 days</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Proposals awaiting Sales</span>
+              <strong class="metric-value tabular">6</strong>
+              <span class="metric-note">2 added this week</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Departures in 30 days</span>
+              <strong class="metric-value tabular">3</strong>
+              <span class="metric-note">2 have blockers</span>
+            </div>
+            <div class="metric">
+              <span class="metric-label">Cash exposure</span>
+              <strong class="metric-value tabular">₹8.4L</strong>
+              <span class="metric-note">Across 5 overdue invoices</span>
+            </div>
+          </section>
+
+          <div class="a-grid">
+            <section>
+              <div class="section-top">
+                <h2>My work today</h2>
+                <a class="text-link" href="#">Open full queue →</a>
+              </div>
+
+              <div class="work-surface">
+                <div class="work-toolbar">
+                  <div class="scope-tabs" aria-label="Queue scope">
+                    <button aria-pressed="true" class="active" type="button">My team</button>
+                    <button aria-pressed="false" type="button">Assigned to me</button>
+                    <button aria-pressed="false" type="button">Unassigned</button>
+                  </div>
+                  <span class="muted" style="font-size: 11px">4 overdue, 3 due today</span>
+                </div>
+                <div class="queue-head" aria-hidden="true">
+                  <span>Priority</span><span>Subject</span><span>Why now</span><span>Age</span><span>Action</span>
+                </div>
+                <a class="queue-row" href="#">
+                  <span class="status danger">Overdue</span>
+                  <span class="queue-subject"><strong>Q-0019, Jaipur Leadership Summit</strong><small>Accounts · Confirmed offer</small></span>
+                  <span class="queue-reason">Job card not created; delivery work cannot begin.</span>
+                  <span class="tabular">19d</span>
+                  <span class="row-action">Create JC →</span>
+                </a>
+                <a class="queue-row" href="#">
+                  <span class="status danger">Overdue</span>
+                  <span class="queue-subject"><strong>Q-0009, Kerala Incentive Group</strong><small>Contracting · MICE</small></span>
+                  <span class="queue-reason">Contracting SPOC remains unassigned.</span>
+                  <span class="tabular">2d</span>
+                  <span class="row-action">Assign →</span>
+                </a>
+                <a class="queue-row" href="#">
+                  <span class="status warning">Today</span>
+                  <span class="queue-subject"><strong>P-0033, Dubai Partner Meet</strong><small>Sales · Proposal</small></span>
+                  <span class="queue-reason">Costing returned; Sales decision required.</span>
+                  <span class="tabular">6h</span>
+                  <span class="row-action">Decide →</span>
+                </a>
+                <a class="queue-row" href="#">
+                  <span class="status warning">4 days</span>
+                  <span class="queue-subject"><strong>JC-0019-ES, Jaipur Group</strong><small>Operations · 42 travellers</small></span>
+                  <span class="queue-reason">7 visas and 3 room allocations incomplete.</span>
+                  <span class="tabular">10 Aug</span>
+                  <span class="row-action">Resolve →</span>
+                </a>
+                <a class="queue-row" href="#">
+                  <span class="status neutral">Waiting</span>
+                  <span class="queue-subject"><strong>PNR 7KQ2D8, Singapore Delegation</strong><small>Ticketing · 18 passengers</small></span>
+                  <span class="queue-reason">Fare approval waiting on Accounts.</span>
+                  <span class="tabular">3h</span>
+                  <span class="row-action">View →</span>
+                </a>
+              </div>
+            </section>
+
+            <aside class="watchlist" aria-labelledby="a-watchlist">
+              <div class="section-top">
+                <h2 id="a-watchlist">Next departures</h2>
+              </div>
+              <a class="departure" href="#">
+                <span class="departure-date"><strong>10</strong><small>AUG</small></span>
+                <span><strong>Jaipur Leadership Summit</strong><small>JC-0019-ES, 42 pax, Neha S.</small><span class="exceptions"><span class="status danger">7 visas</span><span class="status warning">3 rooms</span></span></span>
+              </a>
+              <a class="departure" href="#">
+                <span class="departure-date"><strong>18</strong><small>AUG</small></span>
+                <span><strong>Singapore Delegation</strong><small>JC-0018-ES, 18 pax, Amit K.</small><span class="exceptions"><span class="status warning">Fare approval</span></span></span>
+              </a>
+              <a class="departure" href="#">
+                <span class="departure-date"><strong>03</strong><small>SEP</small></span>
+                <span><strong>Dubai Partner Meet</strong><small>JC-0017-ES, 26 pax, Rohan P.</small><span class="exceptions"><span class="status good">On track</span></span></span>
+              </a>
+            </aside>
+          </div>
+
+          <footer class="reporting-footer">
+            <span>Performance & planning is secondary to today’s delivery work.</span>
+            <a class="text-link" href="#">Open reporting overview →</a>
+          </footer>
+        </article>
+
+        <article class="variant" data-variant="B" hidden>
+          <header class="b-head">
+            <div>
+              <h1>Four handoffs need intervention</h1>
+              <p class="page-summary">Delivery is stable across the remaining teams.</p>
+            </div>
+            <div class="b-head-aside">
+              <strong>Director brief</strong><p>Prioritize ownership gaps before volume. Contracting holds the oldest unresolved queue; Jaipur is the only imminent departure with customer-delivery risk.</p>
+            </div>
+          </header>
+
+          <div class="b-main">
+            <section aria-labelledby="b-matrix">
+              <div class="section-top">
+                <h2 id="b-matrix">Exception matrix</h2>
+                <span class="muted" style="font-size: 11px">Sorted by customer impact</span>
+              </div>
+              <div class="matrix" role="table" aria-label="Cross-team exception matrix">
+                <div class="matrix-row matrix-header" role="row">
+                  <div class="matrix-cell" role="columnheader">Team</div><div class="matrix-cell" role="columnheader">Needs intervention</div><div class="matrix-cell" role="columnheader">Due today</div><div class="matrix-cell" role="columnheader">Watch this week</div>
+                </div>
+                <div class="matrix-row" role="row">
+                  <div class="matrix-cell matrix-team" role="rowheader">Accounts</div>
+                  <a class="matrix-cell" href="#" role="cell"><span class="matrix-number">4</span>Confirmed queries have no job card.<br /><span class="muted">Oldest: 63 days</span></a>
+                  <a class="matrix-cell" href="#" role="cell"><span class="matrix-number">2</span>Expense approvals waiting.</a>
+                  <div class="matrix-cell" role="cell"><span class="matrix-number">₹8.4L</span>Cash exposure across five invoices.</div>
+                </div>
+                <div class="matrix-row" role="row">
+                  <div class="matrix-cell matrix-team" role="rowheader">Contracting</div>
+                  <a class="matrix-cell" href="#" role="cell"><span class="matrix-number">3</span>Queries missing a Contracting SPOC.</a>
+                  <a class="matrix-cell" href="#" role="cell"><span class="matrix-number">6</span>Costings ready for Sales decision.</a>
+                  <div class="matrix-cell" role="cell"><span class="matrix-number">12</span>Proposals remain in progress.</div>
+                </div>
+                <div class="matrix-row" role="row">
+                  <div class="matrix-cell matrix-team" role="rowheader">Operations</div>
+                  <a class="matrix-cell" href="#" role="cell"><span class="matrix-number">1</span>Departure at customer-delivery risk.</a>
+                  <a class="matrix-cell" href="#" role="cell"><span class="matrix-number">10</span>Readiness exceptions across two groups.</a>
+                  <div class="matrix-cell" role="cell"><span class="matrix-number">3</span>Departures inside 30 days.</div>
+                </div>
+                <div class="matrix-row" role="row">
+                  <div class="matrix-cell matrix-team" role="rowheader">Ticketing</div>
+                  <a class="matrix-cell" href="#" role="cell"><span class="matrix-number">1</span>Fare approval blocks issuance.</a>
+                  <div class="matrix-cell" role="cell"><span class="matrix-number">0</span>No deadline breaches today.</div>
+                  <div class="matrix-cell" role="cell"><span class="matrix-number">18</span>Passengers awaiting issuance.</div>
+                </div>
+              </div>
+            </section>
+
+            <aside class="decision-rail" aria-labelledby="b-decisions">
+              <h2 id="b-decisions">Intervene now</h2>
+              <div class="decision-item"><small>Delivery risk</small><strong>Assign an owner for Jaipur’s seven pending visas.</strong><a href="#">Open readiness →</a></div>
+              <div class="decision-item"><small>Ownership gap</small><strong>Q-0009 has waited two days for a Contracting SPOC.</strong><a href="#">Assign SPOC →</a></div>
+              <div class="decision-item"><small>Cash risk</small><strong>Five overdue invoices total ₹8.4 lakh.</strong><a href="#">Review finance →</a></div>
+              <div class="decision-item"><small>Decision load</small><strong>Six proposals are ready for Sales decision.</strong><a href="#">Open queue →</a></div>
+            </aside>
+          </div>
+
+          <section class="b-kpis" aria-label="Supporting business context">
+            <div class="b-kpi"><strong class="tabular">21</strong><span>Active queries<br />all time</span></div>
+            <div class="b-kpi"><strong class="tabular">33</strong><span>Proposals sent<br />all time</span></div>
+            <div class="b-kpi"><strong class="tabular">22</strong><span>Confirmed jobs<br />all time</span></div>
+            <div class="b-kpi"><strong class="tabular">18</strong><span>Open job cards<br />current</span></div>
+          </section>
+        </article>
+
+        <article class="variant" data-variant="C" hidden>
+          <header class="c-head">
+            <div class="c-head-copy">
+              <h1>The next 30 days</h1>
+              <p class="page-summary">Urgent work is organized by departure, deadline, and handoff.</p>
+            </div>
+            <div class="c-head-meta">
+              <span>Updated<strong>09:42</strong></span><span>Open risks<strong>4</strong></span><span>Departures<strong>3</strong></span>
+            </div>
+          </header>
+
+          <section class="c-now" aria-label="Immediate actions">
+            <div class="c-now-label">Act now</div>
+            <a class="c-now-item" href="#"><strong>Assign Contracting SPOC</strong><small>Q-0009, overdue 2 days</small></a>
+            <a class="c-now-item" href="#"><strong>Create four job cards</strong><small>Oldest confirmed offer: 63 days</small></a>
+            <a class="c-now-item" href="#"><strong>Review five invoices</strong><small>₹8.4 lakh overdue</small></a>
+          </section>
+
+          <div class="c-layout">
+            <section aria-labelledby="c-timeline">
+              <div class="section-top">
+                <h2 id="c-timeline">Departure timeline</h2>
+                <a class="text-link" href="#">Open calendar →</a>
+              </div>
+              <div class="timeline">
+                <div class="timeline-item">
+                  <div class="timeline-date"><strong>10</strong><small>AUG / 4D</small></div><span class="timeline-node"></span>
+                  <div class="timeline-body"><strong>Jaipur Leadership Summit, JC-0019-ES</strong><p>42 travellers, Neha S., customer-delivery risk</p><div class="exceptions"><span class="status danger">7 visas pending</span><span class="status warning">3 rooms open</span><span class="status good">Tickets issued</span></div></div>
+                  <a class="timeline-action" href="#">Resolve 10 items →</a>
+                </div>
+                <div class="timeline-item">
+                  <div class="timeline-date"><strong>18</strong><small>AUG / 12D</small></div><span class="timeline-node"></span>
+                  <div class="timeline-body"><strong>Singapore Delegation, JC-0018-ES</strong><p>18 travellers, Amit K., commercial handoff</p><div class="exceptions"><span class="status warning">Fare approval</span><span class="status good">Documents clear</span></div></div>
+                  <a class="timeline-action" href="#">Review fare →</a>
+                </div>
+                <div class="timeline-item safe">
+                  <div class="timeline-date"><strong>03</strong><small>SEP / 28D</small></div><span class="timeline-node"></span>
+                  <div class="timeline-body"><strong>Dubai Partner Meet, JC-0017-ES</strong><p>26 travellers, Rohan P., on track</p><div class="exceptions"><span class="status good">No current blockers</span></div></div>
+                  <a class="timeline-action" href="#">Open job card →</a>
+                </div>
+                <div class="timeline-item">
+                  <div class="timeline-date"><strong>12</strong><small>SEP / 37D</small></div><span class="timeline-node"></span>
+                  <div class="timeline-body"><strong>Kerala Incentive Group, proposal stage</strong><p>60 travellers, Contracting owner missing</p><div class="exceptions"><span class="status danger">SPOC unassigned</span><span class="status neutral">Costing in progress</span></div></div>
+                  <a class="timeline-action" href="#">Assign owner →</a>
+                </div>
+              </div>
+            </section>
+
+            <aside class="risk-rail" aria-labelledby="c-risks">
+              <h2 id="c-risks">Readiness by consequence</h2>
+              <div class="risk-group"><div class="risk-group-top"><span>Visa</span><span class="tabular">7 open</span></div><p>All seven block Jaipur travellers departing within four days.</p></div>
+              <div class="risk-group"><div class="risk-group-top"><span>Rooming</span><span class="tabular">3 open</span></div><p>Three Jaipur room allocations need confirmation.</p></div>
+              <div class="risk-group"><div class="risk-group-top"><span>Ticketing</span><span class="tabular">18 waiting</span></div><p>Singapore issuance waits on one fare approval.</p></div>
+              <div class="risk-group"><div class="risk-group-top"><span>Passports</span><span class="tabular">Clear</span></div><p>No passport expiry blocks in the next 30 days.</p></div>
+            </aside>
+          </div>
+        </article>
+      </main>
+    </div>
+
+    <div class="switcher" role="group" aria-label="Prototype variant switcher">
+      <button class="switcher-arrow" id="previous-variant" type="button" aria-label="Previous variant"><svg class="icon" aria-hidden="true"><use href="#icon-arrow-left"></use></svg></button>
+      <div class="switcher-state" aria-live="polite">
+        <strong id="variant-label">A: Queue-first operations desk</strong>
+        <small id="variant-state">Owned work | Departures | Density 1.00</small>
+      </div>
+      <button class="switcher-arrow" id="next-variant" type="button" aria-label="Next variant"><svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"></use></svg></button>
+      <label class="density-control">Density <input id="density" type="range" min="0.75" max="1.2" step="0.05" value="1" /></label>
+    </div>
+
+    <script>
+      const variants = [
+        { key: "A", name: "Queue-first operations desk", state: "Owned work | Departures" },
+        { key: "B", name: "Cross-team briefing", state: "Exception matrix | Interventions" },
+        { key: "C", name: "Departure watch", state: "Timeline | Readiness consequence" },
+      ];
+
+      const params = new URLSearchParams(window.location.search);
+      let current = Math.max(0, variants.findIndex((item) => item.key === (params.get("variant") || "A").toUpperCase()));
+      let density = Number(params.get("density") || 1);
+      if (!Number.isFinite(density) || density < 0.75 || density > 1.2) density = 1;
+
+      const label = document.getElementById("variant-label");
+      const state = document.getElementById("variant-state");
+      const densityInput = document.getElementById("density");
+      densityInput.value = String(density);
+
+      function syncUrl() {
+        const url = new URL(window.location.href);
+        url.searchParams.set("variant", variants[current].key);
+        url.searchParams.set("density", density.toFixed(2));
+        window.history.replaceState({}, "", url);
+      }
+
+      function render() {
+        const active = variants[current];
+        document.querySelectorAll("[data-variant]").forEach((node) => {
+          node.hidden = node.dataset.variant !== active.key;
+        });
+        document.documentElement.style.setProperty("--p-density", density);
+        label.textContent = `${active.key}: ${active.name}`;
+        state.textContent = `${active.state} | Density ${density.toFixed(2)}`;
+        document.title = `${active.key}: ${active.name} | Citius prototype`;
+        syncUrl();
+      }
+
+      function cycle(delta) {
+        current = (current + delta + variants.length) % variants.length;
+        render();
+      }
+
+      document.getElementById("previous-variant").addEventListener("click", () => cycle(-1));
+      document.getElementById("next-variant").addEventListener("click", () => cycle(1));
+      densityInput.addEventListener("input", (event) => {
+        density = Number(event.target.value);
+        render();
+      });
+
+      document.addEventListener("keydown", (event) => {
+        const target = event.target;
+        if (target.matches("input, textarea, [contenteditable='true']")) return;
+        if (event.key === "ArrowLeft") cycle(-1);
+        if (event.key === "ArrowRight") cycle(1);
+      });
+
+      render();
+    </script>
+  </body>
+</html>

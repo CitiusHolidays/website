@@ -54,10 +54,7 @@ export default function AccountClient({ user, bookings = EMPTY_BOOKINGS }) {
         user={user}
       />
       <div className="mx-auto min-h-screen max-w-[1240px] px-5 py-5 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
-        <div className="hidden items-center justify-between border-[var(--account-border)] border-b pb-5 lg:flex">
-          <p className="font-semibold text-[10px] text-[var(--account-muted)] uppercase tracking-[0.2em]">
-            Citius Holidays · Private account
-          </p>
+        <div className="hidden items-center justify-end border-[var(--account-border)] border-b pb-5 lg:flex">
           <AccountControl isLoggingOut={isLoggingOut} onLogout={handleLogout} user={user} />
         </div>
         <main className="pt-7 lg:pt-12">

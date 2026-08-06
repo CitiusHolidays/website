@@ -71,8 +71,8 @@ describe("DashboardCoverageNotice", () => {
     const notice = container.querySelector('[data-testid="dashboard-coverage-notice"]');
     expect(notice).not.toBeNull();
     expect(notice?.getAttribute("role")).toBe("status");
-    expect(notice?.textContent).toContain("still being prepared");
-    expect(notice?.textContent).toContain("incomplete");
+    expect(notice?.textContent).toContain("still updating");
+    expect(notice?.textContent).toContain("complete figures");
     expect(container.querySelector("button")).toBeNull();
     expect(notice?.textContent).not.toContain("error");
     expect(notice?.textContent).not.toContain("reconcil");

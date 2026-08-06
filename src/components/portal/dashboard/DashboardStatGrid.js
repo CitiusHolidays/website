@@ -3,7 +3,7 @@
 import { DashboardSectionHeading } from "./DashboardPanel";
 import { DashboardStatCard } from "./DashboardStatCard";
 
-export function DashboardStatGrid({ metrics, featuredMetricId }) {
+export function DashboardStatGrid({ metrics }) {
   if (!metrics?.length) {
     return null;
   }
@@ -17,7 +17,6 @@ export function DashboardStatGrid({ metrics, featuredMetricId }) {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {metrics.map(({ href, id, label, value, Icon, trend }) => (
           <DashboardStatCard
-            featured={id === featuredMetricId}
             href={href}
             Icon={Icon}
             key={id}

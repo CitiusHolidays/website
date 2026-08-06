@@ -21,7 +21,7 @@ export function PortalNavLinkPendingIndicator({
       className="ml-auto inline-flex items-center gap-1.5"
       data-testid="portal-nav-link-pending"
     >
-      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-citius-orange" />
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-brand-muted/45" />
       <span className="sr-only">Loading {label}</span>
     </span>
   );

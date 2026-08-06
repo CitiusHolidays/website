@@ -57,8 +57,10 @@ function getEntryLocation(entry) {
 
 export function AccountMark({ compact = false }) {
   return (
-    <div
-      className={`inline-flex items-center rounded-md bg-[var(--account-surface)] shadow-sm ring-1 ring-black/5 ${compact ? "px-2 py-1" : "px-3 py-2"}`}
+    <Link
+      aria-label="Back to Citius Holidays home"
+      className={`account-focus inline-flex items-center rounded-sm transition-opacity hover:opacity-80 ${compact ? "p-1" : "py-1"}`}
+      href="/"
     >
       <Image
         alt="Citius Holidays"
@@ -67,7 +69,7 @@ export function AccountMark({ compact = false }) {
         src={Logo}
         width={compact ? 80 : 120}
       />
-    </div>
+    </Link>
   );
 }
 

@@ -5,16 +5,6 @@ import { getNotificationHref } from "@/lib/portal/notificationPaths";
 import { DashboardEmpty, DashboardPanel } from "./DashboardPanel";
 import { formatRelativeTime } from "./utils";
 
-function activityDot(message = "") {
-  if (/confirmed|approved|issued/i.test(message)) {
-    return "bg-emerald-500";
-  }
-  if (/lost|cancel|overdue|pending/i.test(message)) {
-    return "bg-citius-orange";
-  }
-  return "bg-citius-blue";
-}
-
 export function DashboardActivityStrip({ activities, canView }) {
   if (!canView) {
     return null;
@@ -50,7 +40,7 @@ export function DashboardActivityStrip({ activities, canView }) {
                   className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-2 text-sm hover:text-citius-blue"
                   href={href}
                 >
-                  <span className={`size-2 rounded-full ${activityDot(row.message)}`} />
+                  <span className="size-2 rounded-full bg-citius-blue/60" />
                   <span className="min-w-0 truncate font-medium text-brand-dark">
                     {row.message}
                   </span>

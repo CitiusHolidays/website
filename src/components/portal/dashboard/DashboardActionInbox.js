@@ -26,9 +26,8 @@ export function DashboardActionInbox({ actions, dateRange }) {
           </Link>
         }
         title="Needs attention"
-        tone="healthy"
       >
-        <DashboardEmpty label="You're clear — no urgent actions right now." />
+        <DashboardEmpty label="No urgent work right now." />
       </DashboardPanel>
     );
   }
@@ -41,7 +40,6 @@ export function DashboardActionInbox({ actions, dateRange }) {
         </Link>
       }
       title="Needs attention"
-      tone="attention"
     >
       <ul className="-mt-1 divide-y divide-brand-border/80">
         {actions.slice(0, 5).map((item) => (
@@ -50,11 +48,7 @@ export function DashboardActionInbox({ actions, dateRange }) {
               className="group grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
               href={buildUrgentActionHref(item)}
             >
-              <span
-                className={`mt-0.5 size-2 rounded-full ${
-                  item.type === "ticketing" ? "bg-citius-blue" : "bg-citius-orange"
-                }`}
-              />
+              <span className="mt-0.5 size-2 rounded-full bg-citius-blue/60" />
               <span className="min-w-0">
                 <span className="block font-bold text-[length:var(--portal-label-size)] text-brand-muted uppercase tracking-wide">
                   {GROUP_LABELS[item.type] || item.type}

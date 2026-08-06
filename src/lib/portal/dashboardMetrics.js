@@ -17,7 +17,7 @@ const METRICS = {
   },
   departures30d: {
     icon: "departures",
-    label: "Departures (30d)",
+    label: "Departures in 30 days",
     permission: P.VIEW_JOB_CARDS,
     trendKey: "departures30d",
     valueKey: "departures30d",

@@ -13,7 +13,7 @@ function parseNumericValue(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function DashboardStatCard({ label, value, Icon, featured = false, href, trend }) {
+export function DashboardStatCard({ label, value, Icon, href, trend }) {
   const livelyTransition = useMotionUITransition("lively");
   const numericValue = parseNumericValue(value);
   const trendTone =
@@ -29,11 +29,7 @@ export function DashboardStatCard({ label, value, Icon, featured = false, href, 
         <div className="max-w-[8rem] font-medium text-brand-dark text-xs leading-tight">
           {label}
         </div>
-        <div
-          className={`rounded-lg p-1.5 ${
-            featured ? "bg-citius-blue/10 text-citius-blue" : "bg-citius-blue/5 text-citius-blue"
-          }`}
-        >
+        <div className="rounded-lg bg-brand-light p-1.5 text-citius-blue">
           <Icon size={17} />
         </div>
       </div>
@@ -44,13 +40,12 @@ export function DashboardStatCard({ label, value, Icon, featured = false, href, 
           <AnimateNumber transition={livelyTransition}>{numericValue}</AnimateNumber>
         )}
       </div>
-      <div className={`mt-2 text-xs ${trendTone}`}>{trend?.label || "— no change"}</div>
+      <div className={`mt-2 text-xs ${trendTone}`}>{trend?.label || "No change"}</div>
     </>
   );
 
-  const className = `block min-h-32 overflow-hidden rounded-xl border border-brand-border bg-white p-4 shadow-sm shadow-brand-dark/[0.03] transition-shadow hover:border-citius-orange/30 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citius-blue ${
-    featured ? "border-l-4 border-l-citius-orange" : ""
-  }`;
+  const className =
+    "block min-h-32 overflow-hidden rounded-xl border border-brand-border bg-white p-4 shadow-sm shadow-brand-dark/[0.03] transition-[border-color,box-shadow] hover:border-citius-blue/25 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-citius-blue";
 
   if (href) {
     return (

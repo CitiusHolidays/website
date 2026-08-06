@@ -1,6 +1,8 @@
 "use client";
 
-import { ChevronDown, LogOut, MapIcon, Menu, Settings, UserRound, X } from "lucide-react";
+import { ChevronDown, House, LogOut, MapIcon, Menu, Settings, UserRound, X } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 import { useCallback, useState } from "react";
 import { AccountMark, NavButton } from "./AccountUi";
 
@@ -13,6 +15,7 @@ const NAV_ITEMS = [
 export function AccountControl({ user, onLogout, isLoggingOut, compact = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const initials = (user?.name || user?.email || "T").slice(0, 1).toUpperCase();
+  const closeMenu = useCallback(() => setIsOpen(false), []);
   const toggleMenu = useCallback(() => setIsOpen((value) => !value), []);
 
   return (
@@ -25,9 +28,19 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
         onClick={toggleMenu}
         type="button"
       >
-        <span className="flex size-8 items-center justify-center rounded-full bg-[var(--account-night)] font-medium text-sm text-white">
-          {initials}
-        </span>
+        {user?.image ? (
+          <Image
+            alt={`${user.name || "Account"} profile photo`}
+            className="size-8 rounded-full object-cover"
+            height={32}
+            src={user.image}
+            width={32}
+          />
+        ) : (
+          <span className="flex size-8 items-center justify-center rounded-full bg-[var(--account-night)] font-medium text-sm text-white">
+            {initials}
+          </span>
+        )}
         {!compact && (
           <span className="hidden max-w-36 truncate text-[var(--account-ink)] text-xs sm:block">
             {user?.name || user?.email || "Account"}
@@ -45,7 +58,21 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
           className="absolute top-[calc(100%+0.6rem)] right-0 z-50 w-60 rounded-sm border border-[var(--account-border)] bg-[var(--account-surface)] p-3 shadow-xl"
           role="menu"
         >
-          <p className="truncate px-2 pb-3 text-[var(--account-muted)] text-xs">{user?.email}</p>
+          <div className="border-[var(--account-border)] border-b px-2 pb-3">
+            <p className="truncate font-medium text-[var(--account-ink)] text-sm">
+              {user?.name || "Your account"}
+            </p>
+            <p className="mt-0.5 truncate text-[var(--account-muted)] text-xs">{user?.email}</p>
+          </div>
+          <Link
+            className="account-focus mt-2 flex items-center gap-2 rounded-sm px-2 py-2 text-[var(--account-ink)] text-xs hover:bg-[var(--account-paper)]"
+            href="/"
+            onClick={closeMenu}
+            role="menuitem"
+          >
+            <House size={15} />
+            Back to main site
+          </Link>
           <button
             className="account-focus flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-[var(--account-ink)] text-xs hover:bg-[var(--account-paper)]"
             disabled={isLoggingOut}

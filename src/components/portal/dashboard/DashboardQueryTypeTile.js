@@ -16,39 +16,28 @@ function QueryTypeIcon({ type }) {
   return <Globe2 className="shrink-0" size={18} />;
 }
 
-function queryTypeTone(type) {
-  if (type.includes("Cement") || type === "Cement types") {
-    return "bg-stone-50 border-stone-300 text-stone-700";
-  }
-  if (type.startsWith("MICE")) {
-    return "bg-blue-50 border-citius-blue/25 text-citius-blue";
-  }
-  if (type.includes("FIT") || type === "Family Group") {
-    return "bg-emerald-50 border-emerald-300 text-emerald-700";
-  }
-  return "bg-orange-50 border-citius-orange/30 text-brand-dark";
-}
-
 function variantTones(variant) {
   if (variant === "confirmed") {
-    return { ring: "ring-1 ring-emerald-500/15", value: "text-emerald-700" };
+    return { value: "text-citius-blue" };
   }
   if (variant === "closed") {
-    return { ring: "ring-1 ring-stone-400/20", value: "text-stone-600" };
+    return { value: "text-brand-muted" };
   }
-  return { ring: "", value: "text-citius-blue" };
+  return { value: "text-citius-blue" };
 }
 
 export function DashboardQueryTypeTile({ type, count, variant = "active", href }) {
-  const tone = queryTypeTone(type);
-  const { ring: ringTone, value: valueTone } = variantTones(variant);
+  const { value: valueTone } = variantTones(variant);
 
-  const className = `rounded-xl border p-4 shadow-sm shadow-brand-dark/[0.03] transition-shadow hover:shadow-md hover:border-citius-orange/30 ${tone} ${ringTone}`;
+  const className =
+    "rounded-xl border border-brand-border bg-white p-4 shadow-sm shadow-brand-dark/[0.03] transition-[border-color,box-shadow] hover:border-citius-blue/25 hover:shadow-md";
 
   const inner = (
     <>
       <div className="flex items-center gap-2 font-medium text-brand-muted text-xs">
-        <QueryTypeIcon type={type} />
+        <span className="text-citius-blue">
+          <QueryTypeIcon type={type} />
+        </span>
         <span className="truncate" title={type}>
           {type}
         </span>

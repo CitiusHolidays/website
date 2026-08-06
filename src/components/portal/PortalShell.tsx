@@ -824,10 +824,7 @@ function PortalNav({
                             onNavigate={() => markPortalNavigationTarget(item.href)}
                             onTouchStart={preloadPortalNavigationTarget}
                           >
-                            {active && (
-                              <span className="absolute inset-y-1 left-0 w-1 rounded-full bg-citius-orange" />
-                            )}
-                            <span className="pl-2">{item.label}</span>
+                            <span className="ps-2">{item.label}</span>
                             <PortalNavLinkPending label={item.label} />
                           </Link>
                           {hasShortcuts && (
@@ -853,7 +850,7 @@ function PortalNav({
                         </div>
 
                         {hasShortcuts && shortcutsExpanded && (
-                          <div className="mt-0.5 ml-3 space-y-0.5 border-brand-border border-l pl-2">
+                          <div className="ms-3 mt-0.5 space-y-0.5 border-brand-border border-s ps-2">
                             {visibleShortcuts.map((shortcut) => (
                               <Link
                                 className="block min-h-9 rounded-lg p-2 text-brand-muted text-xs leading-snug transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
@@ -867,7 +864,7 @@ function PortalNav({
                             ))}
                             {hiddenShortcutCount > 0 ? (
                               <Link
-                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink active:scale-[0.96]"
+                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-brand-dark active:scale-[0.96]"
                                 href={item.href}
                                 onClick={onNavigate}
                               >
@@ -875,7 +872,7 @@ function PortalNav({
                               </Link>
                             ) : (
                               <Link
-                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink active:scale-[0.96]"
+                                className="block min-h-9 rounded-lg p-2 font-semibold text-citius-blue text-xs transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-brand-dark active:scale-[0.96]"
                                 href={item.href}
                                 onClick={onNavigate}
                               >
@@ -899,7 +896,7 @@ function PortalNav({
               <span className="font-heading font-semibold text-citius-blue/70 text-xs">Pinned</span>
               {savedViewActions?.saveCurrentView ? (
                 <button
-                  className="font-semibold text-[length:var(--portal-label-size)] text-citius-blue transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink"
+                  className="font-semibold text-[length:var(--portal-label-size)] text-citius-blue transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-brand-dark"
                   onClick={() => dispatchNavState({ open: true, type: "saveDialogOpen" })}
                   type="button"
                 >

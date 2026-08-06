@@ -126,12 +126,22 @@ const EMPTY_CAPACITY_ROWS = [];
 
 function capacitySeverityClass(severity) {
   if (severity === "overloaded") {
-    return "bg-red-100 text-red-700";
+    return "text-red-700";
   }
   if (severity === "busy") {
-    return "bg-amber-100 text-amber-700";
+    return "text-amber-700";
   }
-  return "bg-emerald-100 text-emerald-700";
+  return "text-emerald-700";
+}
+
+function capacitySeverityDotClass(severity) {
+  if (severity === "overloaded") {
+    return "bg-red-600";
+  }
+  if (severity === "busy") {
+    return "bg-amber-600";
+  }
+  return "bg-emerald-600";
 }
 
 function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = true }) {
@@ -148,18 +158,22 @@ function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = tr
         onClick={toggleOpen}
         type="button"
       >
-        <h2 className="font-heading text-base text-brand-dark">Capacity heatmap</h2>
-        <span className="font-sans text-brand-muted text-xs">Role load</span>
+        <h2 className="font-heading text-base text-brand-dark">Team workload</h2>
+        <span className="font-sans text-brand-muted text-xs">Average open work</span>
       </button>
       {open ? (
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {rows.map((row) => (
-            <div className="rounded-lg bg-brand-light/40 p-3" key={row.role}>
+            <div className="rounded-lg border border-brand-border bg-white p-3" key={row.role}>
               <div className="flex items-center justify-between gap-2">
                 <p className="truncate font-heading text-brand-dark text-sm">{row.role}</p>
                 <span
-                  className={`rounded-full px-2 py-0.5 font-sans text-[length:var(--portal-label-size)] ${capacitySeverityClass(row.severity)}`}
+                  className={`inline-flex items-center gap-1.5 font-medium font-sans text-xs capitalize ${capacitySeverityClass(row.severity)}`}
                 >
+                  <span
+                    aria-hidden
+                    className={`size-1.5 rounded-full ${capacitySeverityDotClass(row.severity)}`}
+                  />
                   {row.severity}
                 </span>
               </div>
@@ -188,7 +202,7 @@ function DashboardPipelineTypesCollapsible({ pipeline, queryTypes, defaultOpen =
         onClick={toggleOpen}
         type="button"
       >
-        <h2 className="font-heading text-base text-brand-dark">Pipeline & types</h2>
+        <h2 className="font-heading text-base text-brand-dark">Pipeline and query types</h2>
         <ChevronDown className={`shrink-0 transition ${open ? "rotate-180" : ""}`} size={18} />
       </button>
       {open ? (
@@ -241,20 +255,17 @@ function DashboardToday({ persona, sections, todaySectionIds, urgentActionCount 
     <section aria-labelledby="dashboard-today-heading" className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="font-bold text-[length:var(--portal-label-size)] text-citius-orange-ink uppercase tracking-[0.16em]">
-            Command center
-          </p>
           <h2
-            className="mt-1 font-heading font-semibold text-brand-dark text-xl sm:text-2xl"
+            className="font-heading font-semibold text-brand-dark text-xl sm:text-2xl"
             id="dashboard-today-heading"
           >
             My work today
           </h2>
           <p className="mt-1 max-w-2xl text-brand-muted text-sm leading-relaxed">
-            Start with urgent exceptions and owned work before the wider workspace picture.
+            Review urgent items and assigned work.
           </p>
         </div>
-        <span className="inline-flex min-h-8 w-fit items-center rounded-full bg-citius-orange/10 px-3 font-semibold text-citius-orange-ink text-xs">
+        <span className="font-medium text-brand-muted text-xs">
           {urgentAlertLabel(urgentActionCount)}
         </span>
       </div>
@@ -285,7 +296,7 @@ function DashboardOverview({ ids, persona, sections }) {
         >
           Workspace overview
         </h2>
-        <p className="text-brand-muted text-xs">Supporting signals for the selected period</p>
+        <p className="text-brand-muted text-xs">Totals for the selected period</p>
       </div>
       <DashboardSectionList className="space-y-3" ids={ids} persona={persona} sections={sections} />
     </section>
@@ -303,11 +314,9 @@ function DashboardReporting({ expanded, ids, persona, sections }) {
           className="font-heading font-semibold text-base text-brand-dark sm:text-lg"
           id="dashboard-reporting-heading"
         >
-          Performance & planning
+          Pipeline and trends
         </h2>
-        <p className="mt-1 text-brand-muted text-xs">
-          Pipeline, mix, and trend context after today's priorities.
-        </p>
+        <p className="mt-1 text-brand-muted text-xs">Pipeline and query-type details.</p>
       </div>
       {expanded ? (
         <DashboardSectionList ids={ids} persona={persona} sections={sections} />

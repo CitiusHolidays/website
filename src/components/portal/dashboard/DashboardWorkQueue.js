@@ -5,20 +5,7 @@ import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { StatusBadge } from "@/components/portal/workspace/portalWorkspaceListUi";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { buildDashboardListUrl, buildJobCardHref } from "@/lib/portal/dashboardLinks";
-import { getStatusAttentionTone, getStatusPresentation } from "@/lib/portal/statusTones";
 import { DashboardEmpty, DashboardPanel, DashboardProgress } from "./DashboardPanel";
-
-function departureRowAttention(row) {
-  const presentation = getStatusPresentation("dashboardReadiness", row.readiness);
-  const attentionTone = getStatusAttentionTone("dashboardReadiness", row.readiness);
-  return attentionTone ? { label: presentation.meaning, tone: attentionTone } : undefined;
-}
-
-function workQueueRowAttention(row) {
-  return (row.value ?? 0) > 0
-    ? { label: `${row.value} pending in ${row.label}`, tone: "warning" }
-    : undefined;
-}
 
 export function DashboardActiveTours({ tours, dateRange, hasJobCards }) {
   if (!hasJobCards) {
@@ -31,7 +18,7 @@ export function DashboardActiveTours({ tours, dateRange, hasJobCards }) {
         <div className="space-y-4">
           {tours.map((tour) => (
             <Link
-              className="block overflow-hidden rounded-xl border border-brand-border bg-brand-light p-4 transition-shadow hover:border-citius-orange/30 hover:shadow-md"
+              className="block overflow-hidden rounded-xl border border-brand-border bg-white p-4 transition-[border-color,box-shadow] hover:border-citius-blue/25 hover:shadow-md"
               href={buildJobCardHref(tour.id, dateRange)}
               key={tour.id}
             >
@@ -127,7 +114,6 @@ export function DashboardUpcomingDepartures({ departures, dateRange, hasJobCards
         ]}
         compact
         empty="No upcoming departures."
-        rowAttention={departureRowAttention}
         rows={departures || []}
       />
     </DashboardPanel>
@@ -199,7 +185,6 @@ export function DashboardWorkQueuesSummary({ rows, variant = "full" }) {
         columns={columns}
         compact
         empty="No open work queues for this period."
-        rowAttention={workQueueRowAttention}
         rows={visibleRows.slice(0, 5).map((row) => ({ ...row, id: row.label }))}
         scrollHints={variant !== "rail"}
       />

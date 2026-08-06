@@ -6,11 +6,13 @@ import { getFilterDateRangeError } from "@/lib/portal/periodFilter";
 import { buildPortalWorkspaceRows } from "./workspace/portalWorkspaceRows";
 
 const WORKSPACE_FILE = "src/components/portal/PortalWorkspace.tsx";
+const PORTAL_SHELL_FILE = "src/components/portal/PortalShell.tsx";
 const WORKSPACE_HEADER_FILE = "src/components/portal/workspace/PortalWorkspaceHeader.tsx";
 const REGISTRY_FILE = "src/components/portal/workspace/portalViewRegistry.tsx";
 const TRAVEL_BATCH_BRIDGE_FILE = "src/components/portal/workspace/TravelBatchEntityModalBridge.tsx";
 const WORKSPACE_STATE_FILE = "src/components/portal/usePortalWorkspaceState.ts";
 const WORKSPACE_CONTRACT_FILE = "src/lib/portal/workspaceContract.ts";
+const GLOBAL_STYLES_FILE = "src/app/globals.css";
 const DATE_INPUT_FILE = "src/components/portal/PortalDateInput.js";
 const EXPENSE_COMMANDS_FILE = "convex/crm/expenseCommands.ts";
 const EXPENSE_ATTACHMENT_ACTIONS_FILE = "convex/crm/expenseAttachmentActions.ts";
@@ -32,6 +34,8 @@ const DASHBOARD_VIEW_PATTERN = /<DashboardView[\s\S]*?\/>/;
 const PERMISSION_ALIAS_USE_PATTERN = /\bP\./;
 const PERMISSION_ALIAS_DEFINITION_PATTERN = /PORTAL_PERMISSIONS as P|const P = PORTAL_PERMISSIONS/;
 const ENTITY_MODAL_PATTERN = /<EntityModal[\s\S]*?\/>/;
+const PORTAL_SHELL_BLOCK_PATTERN = /\.portal-shell \{([\s\S]*?)\n\}/;
+const LEGACY_PORTAL_FONT_PATTERN = /Georgia|Times New Roman/;
 const LEAVE_FINAL_APPROVAL_PATTERN =
   /row\.canApproveFinal[\s\S]*?handleLeaveDecision\(row\.id, "Approved"\)/;
 
@@ -141,6 +145,32 @@ describe("portal workspace modularization contract", () => {
     expect(header).not.toContain("text-3xl md:text-4xl");
     expect(header).not.toContain("function PageHeader");
     expect(read(WORKSPACE_FILE)).not.toContain("function DashboardQueryTypeBreakdown");
+  });
+
+  test("portal shell preserves the chosen global fonts", () => {
+    const globalStyles = read(GLOBAL_STYLES_FILE);
+    const portalShell = globalStyles.match(PORTAL_SHELL_BLOCK_PATTERN)?.[1] ?? "";
+
+    expect(globalStyles).toContain("--font-heading: var(--font-poppins)");
+    expect(portalShell).toContain("font-family: var(--font-inter), system-ui, sans-serif");
+    expect(portalShell).not.toContain("--font-heading");
+    expect(portalShell).not.toMatch(LEGACY_PORTAL_FONT_PATTERN);
+  });
+
+  test("portal shell uses canonical Citius blue for primary actions", () => {
+    const globalStyles = read(GLOBAL_STYLES_FILE);
+    const portalShell = globalStyles.match(PORTAL_SHELL_BLOCK_PATTERN)?.[1] ?? "";
+    const portalShellComponent = read(PORTAL_SHELL_FILE);
+
+    expect(globalStyles).toContain("--color-citius-blue: #102a83");
+    expect(portalShell).toContain("--color-citius-blue: #102a83");
+    expect(portalShell).not.toContain("--color-citius-blue: #173a5e");
+    expect(portalShellComponent).not.toContain(
+      'className="absolute inset-y-1 left-0 w-1 rounded-full bg-citius-orange"'
+    );
+    expect(portalShellComponent).not.toContain(
+      'className="absolute inset-y-1 start-0 w-1 rounded-full bg-citius-blue"'
+    );
   });
 
   test("dashboard skips duplicate workspace header band", () => {

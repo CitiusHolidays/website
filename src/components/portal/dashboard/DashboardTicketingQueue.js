@@ -18,20 +18,20 @@ export function DashboardTicketingQueue({ queue, dateRange, stats, metricTrends 
     {
       href: buildDashboardListUrl({ dateRange, view: "tickets" }),
       Icon: RotateCw,
-      label: "Reissue",
+      label: "Reissues",
       value: stats?.reissue ?? 0,
     },
     {
       href: buildDashboardListUrl({ dateRange, view: "tickets" }),
       Icon: AlertCircle,
-      label: "Cancel req.",
+      label: "Cancellation requests",
       trend: metricTrends?.departures30d,
       value: stats?.cancelReq ?? 0,
     },
     {
       href: buildDashboardListUrl({ dateRange, view: "job-cards" }),
       Icon: CalendarDays,
-      label: "Upcoming dep.",
+      label: "Upcoming departures",
       trend: metricTrends?.departures30d,
       value: stats?.upcomingDep ?? 0,
     },

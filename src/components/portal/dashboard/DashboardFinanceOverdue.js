@@ -3,10 +3,7 @@
 import Link from "next/link";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { buildDashboardListUrl } from "@/lib/portal/dashboardLinks";
-import {
-  getInvoiceAttention,
-  invoiceDueDatePresentation,
-} from "@/lib/portal/invoiceListPresentation";
+import { invoiceDueDatePresentation } from "@/lib/portal/invoiceListPresentation";
 import { DashboardPanel } from "./DashboardPanel";
 import { formatMoney } from "./utils";
 
@@ -57,9 +54,6 @@ export function DashboardFinanceOverdue({ invoices, dateRange }) {
         ]}
         compact
         empty="No overdue balances in this period."
-        rowAttention={(row) =>
-          getInvoiceAttention({ ...row, balanceAmount: Number(row.balanceAmount) || 1 })
-        }
         rows={rows}
       />
     </DashboardPanel>

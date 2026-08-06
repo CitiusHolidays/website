@@ -51,10 +51,9 @@ export function DashboardHero({ displayName, dateRange, generatedAt, ownedWorkSl
         <div className="min-w-0">
           <h2 className="font-heading font-semibold text-brand-dark text-xl md:text-2xl">
             {greeting}
-            <span className="ml-2 inline-block size-2.5 rounded-full bg-citius-orange align-middle" />
           </h2>
           <p className="mt-1.5 max-w-2xl text-brand-muted text-sm leading-relaxed">
-            Start with what needs your attention, then move into the wider workspace picture.
+            Review urgent work and current results.
             <span className="sr-only"> Current dashboard period: {period}.</span>
           </p>
         </div>
@@ -68,25 +67,33 @@ export function DashboardHero({ displayName, dateRange, generatedAt, ownedWorkSl
         ) : null}
       </div>
       {showSlaStrip && slaItems.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-brand-border/70 bg-white/80 px-3 py-2">
-          <span className="font-semibold text-[length:var(--portal-label-size)] text-citius-orange-ink uppercase tracking-[0.14em]">
-            Owned-work SLA
-          </span>
-          {slaItems.map((item) => (
-            <Link
-              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-brand-border bg-brand-light/60 px-3 py-1.5 text-brand-dark text-sm transition-colors hover:border-citius-blue/30 hover:text-citius-blue"
-              href={mergeDashboardPeriod(item.href, dateRange)}
-              key={item.label}
-            >
-              <span className="font-medium">{item.label}</span>
-              <span className="rounded-full bg-citius-blue/10 px-2 py-0.5 font-semibold text-citius-blue text-xs tabular-nums">
-                {item.count}
-              </span>
-              {item.oldestDays === null ? null : (
-                <span className="text-brand-muted text-xs">oldest {item.oldestDays}d</span>
-              )}
-            </Link>
-          ))}
+        <div className="grid gap-x-5 gap-y-2 border-brand-border border-y py-3 md:grid-cols-[10.5rem_minmax(0,1fr)] md:items-center">
+          <div className="min-w-0">
+            <span className="block font-semibold text-brand-dark text-sm">Assigned work</span>
+            <span className="mt-0.5 block text-brand-muted text-xs">Oldest open item by queue</span>
+          </div>
+          <div className="flex min-w-0 flex-wrap md:gap-y-2">
+            {slaItems.map((item) => (
+              <Link
+                className="group grid min-h-11 w-full grid-cols-[minmax(0,1fr)_auto] content-center gap-x-3 border-brand-border/80 border-t py-2 first:border-t-0 focus-visible:rounded-md md:w-auto md:min-w-[9.5rem] md:border-s md:border-t-0 md:px-4 md:py-0 md:first:border-s-0 md:first:ps-0"
+                href={mergeDashboardPeriod(item.href, dateRange)}
+                key={item.label}
+              >
+                <span className="font-medium text-brand-dark text-sm transition-colors group-hover:text-citius-blue">
+                  {item.label}
+                </span>
+                <span className="font-semibold text-citius-blue text-sm tabular-nums">
+                  {item.count}
+                  <span className="sr-only"> {item.count === 1 ? "item" : "items"}</span>
+                </span>
+                {item.oldestDays === null ? null : (
+                  <span className="col-span-2 mt-0.5 text-brand-muted text-xs tabular-nums">
+                    Oldest: {item.oldestDays} {item.oldestDays === 1 ? "day" : "days"}
+                  </span>
+                )}
+              </Link>
+            ))}
+          </div>
         </div>
       ) : null}
     </header>

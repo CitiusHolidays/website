@@ -27,7 +27,11 @@ describe("PortalNavLinkPending", () => {
 
     expect(container.querySelector('[data-testid="portal-nav-link-pending"]')).not.toBeNull();
     expect(container.textContent).toContain("Loading All Sales Queries");
-    expect(container.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    const indicator = container.querySelector('[aria-hidden="true"]');
+    expect(indicator).not.toBeNull();
+    expect(indicator?.className).toContain("bg-brand-muted/45");
+    expect(indicator?.className).not.toContain("bg-citius-blue");
+    expect(indicator?.className).not.toContain("bg-citius-orange");
 
     await act(async () => root.unmount());
   });

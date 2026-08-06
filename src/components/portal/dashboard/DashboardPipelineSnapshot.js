@@ -6,8 +6,6 @@ import { buildPipelineStageHref } from "@/lib/portal/dashboardLinks";
 import { DashboardEmpty, DashboardPanel } from "./DashboardPanel";
 import { formatMoney } from "./utils";
 
-const PIPELINE_DOT_CLASSES = ["bg-citius-blue", "bg-citius-orange", "bg-emerald-600"];
-
 export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
   const rows = pipelineSnapshot || [];
   const max = Math.max(...rows.map((r) => r.count), 1);
@@ -23,9 +21,8 @@ export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
     );
   }
 
-  const gridRows = rows.map((row, index) => ({
+  const gridRows = rows.map((row) => ({
     ...row,
-    dot: PIPELINE_DOT_CLASSES[index] || "bg-slate-400",
     id: row.stage,
     share: total ? Math.round((row.count / total) * 100) : 0,
     width: Math.round((row.count / max) * 100),
@@ -53,7 +50,7 @@ export function DashboardPipelineSnapshot({ pipelineSnapshot, dateRange }) {
                 className="inline-flex items-center gap-2 font-medium text-brand-dark hover:text-citius-blue"
                 href={buildPipelineStageHref(row.stage, dateRange)}
               >
-                <span className={`size-2 rounded-full ${row.dot}`} />
+                <span className="size-2 rounded-full bg-citius-blue/60" />
                 {row.stage}
               </Link>
             ),

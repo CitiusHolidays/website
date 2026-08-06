@@ -199,7 +199,7 @@ export function buildDashboardSections({
         summary={summary}
       />
     ),
-    stats: <DashboardStatGrid featuredMetricId={persona.featuredMetricId} metrics={metrics} />,
+    stats: <DashboardStatGrid metrics={metrics} />,
     ticketingQueue: (
       <DashboardTicketingQueue
         dateRange={dateRange}

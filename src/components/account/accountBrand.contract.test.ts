@@ -4,6 +4,14 @@ import { resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "../../..");
 const globals = readFileSync(resolve(root, "src/app/globals.css"), "utf8");
+const accountClient = readFileSync(
+  resolve(root, "src/app/(authenticated)/account/page.client.js"),
+  "utf8"
+);
+const accountSidebar = readFileSync(
+  resolve(root, "src/components/account/AccountSidebar.js"),
+  "utf8"
+);
 const accountUi = readFileSync(resolve(root, "src/components/account/AccountUi.js"), "utf8");
 const rootLayout = readFileSync(resolve(root, "src/app/layout.js"), "utf8");
 const RAW_HEX_COLOR_PATTERN = /#[0-9a-f]{3,8}/i;
@@ -53,7 +61,27 @@ describe("customer Account brand contract", () => {
     expect(accountMark).toContain("<Image");
     expect(accountMark).toContain('alt="Citius Holidays"');
     expect(accountMark).toContain("src={Logo}");
+    expect(accountMark).toContain('href="/"');
+    expect(accountMark).not.toContain("bg-[var(--account-surface)]");
+    expect(accountMark).not.toContain("shadow-sm");
     expect(accountMark).not.toContain("CITIUS");
     expect(accountMark).not.toContain("<Plane");
+  });
+
+  test("uses the signed-in profile photo and reconnects the account menu to the main site", () => {
+    const accountControl = sourceBetween(
+      accountSidebar,
+      "export function AccountControl",
+      "export function AccountSidebar"
+    );
+
+    expect(accountControl).toContain("user?.image");
+    expect(accountControl).toContain("src={user.image}");
+    expect(accountControl).toContain("Back to main site");
+    expect(accountControl).toContain('href="/"');
+  });
+
+  test("omits the redundant private-account label above customer content", () => {
+    expect(accountClient).not.toContain("Private account");
   });
 });

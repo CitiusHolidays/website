@@ -36,12 +36,12 @@ export function DashboardOpsReadiness({
     has(P.VIEW_JOB_CARDS) && {
       label: "Tour Manager",
       progress: summary.progress.tourManager,
-      tone: "orange",
+      tone: "blue",
     },
     has(P.VIEW_FINANCE) && {
       label: "Payment",
       progress: summary.progress.payment,
-      tone: "orange",
+      tone: "blue",
     },
   ].filter(Boolean);
 

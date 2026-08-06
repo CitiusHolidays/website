@@ -53,9 +53,7 @@ describe("mounted dashboard persona metrics", () => {
       const root = createRoot(container);
 
       act(() => {
-        root.render(
-          <DashboardStatGrid featuredMetricId={persona.featuredMetricId} metrics={metrics} />
-        );
+        root.render(<DashboardStatGrid metrics={metrics} />);
       });
 
       const links = [...container.querySelectorAll("a")];
@@ -64,6 +62,8 @@ describe("mounted dashboard persona metrics", () => {
       expect(links.length).toBeLessThanOrEqual(6);
       expect(links.every((link) => link.href.includes("from=2026-07-01"))).toBe(true);
       expect(links.every((link) => link.href.includes("to=2026-07-14"))).toBe(true);
+      expect(links.every((link) => !link.className.includes("citius-orange"))).toBe(true);
+      expect(links.every((link) => !link.className.includes("border-l-4"))).toBe(true);
 
       act(() => root.unmount());
     });
