@@ -5,8 +5,7 @@ import { ChevronDown } from "lucide-react";
 export function PortalSelectFilter({ label, value, onChange, options, className = "", id }) {
   const selectId = id || `portal-filter-${label.replace(/\s+/g, "-").toLowerCase()}`;
   const sizeClass =
-    className ||
-    "min-w-[9rem] max-w-[14rem] w-auto xl:min-w-[10rem] xl:max-w-none xl:w-44";
+    className || "min-w-[9rem] max-w-[14rem] w-auto xl:min-w-[10rem] xl:max-w-none xl:w-44";
   return (
     <label className="relative max-w-full shrink-0" htmlFor={selectId}>
       <span className="sr-only">{label}</span>

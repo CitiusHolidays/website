@@ -1,5 +1,5 @@
 import { test } from "@playwright/test";
-import { PORTAL_E2E_MATRIX, PORTAL_E2E_IMPLEMENTED_VIEWS } from "../../registry/portalViews";
+import { PORTAL_E2E_IMPLEMENTED_VIEWS, PORTAL_E2E_MATRIX } from "../../registry/portalViews";
 
 const VIEW_PATHS: Record<string, string> = {
   "accounts-job-cards": "/portal/accounts/job-cards",

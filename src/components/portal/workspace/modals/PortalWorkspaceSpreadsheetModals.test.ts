@@ -19,15 +19,11 @@ describe("PortalWorkspaceSpreadsheetModals loading boundary", () => {
     expect(source).not.toMatch(
       /^import \{ PassengerImportModal \} from "\.\/PassengerImportModal";/m
     );
-    expect(source).not.toMatch(
-      /^import \{ FlightImportModal \} from "\.\/FlightImportModal";/m
-    );
+    expect(source).not.toMatch(/^import \{ FlightImportModal \} from "\.\/FlightImportModal";/m);
     expect(source).not.toMatch(
       /^import \{ PassengerExportModal \} from "\.\/PassengerExportModal";/m
     );
-    expect(source).not.toMatch(
-      /^import \{ FlightExportModal \} from "\.\/FlightExportModal";/m
-    );
+    expect(source).not.toMatch(/^import \{ FlightExportModal \} from "\.\/FlightExportModal";/m);
     expect(source).not.toMatch(
       /^import \{ TravelBatchEntityModalBridge \} from "\.\.\/TravelBatchEntityModalBridge";/m
     );
@@ -50,6 +46,8 @@ describe("PortalWorkspaceSpreadsheetModals loading boundary", () => {
     expect(source).not.toMatch(
       /<PassengerImportModal[\s\S]*open=\{workspace\.modal === config\.modal\}/
     );
-    expect(source).not.toMatch(/<FlightImportModal[\s\S]*open=\{workspace\.modal === "flightImport"\}/);
+    expect(source).not.toMatch(
+      /<FlightImportModal[\s\S]*open=\{workspace\.modal === "flightImport"\}/
+    );
   });
 });

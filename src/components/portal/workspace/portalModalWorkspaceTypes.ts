@@ -33,7 +33,6 @@ export interface PortalTravelBatchModalWorkspaceSlice {
   getQueryAttachmentUrl: (attachmentId: string) => Promise<string>;
   has: PortalPermissionChecker;
   isSaving: boolean;
-  saveFlash: boolean;
   jobCards: Array<{ clientName?: string; id: string; jobCode: string }>;
   leaveBalances?: PortalLeaveBalanceRow[];
   leaveHeadApproverCandidates: Array<{ id: string; name: string }>;
@@ -49,6 +48,7 @@ export interface PortalTravelBatchModalWorkspaceSlice {
   removeFinalizedPdf: (args: { proposalId: string }) => Promise<unknown>;
   removeProposalAttachment: (args: { attachmentId: string }) => Promise<unknown>;
   removeQueryAttachment: (args: { attachmentId: string }) => Promise<unknown>;
+  saveFlash: boolean;
   setPendingExpenseProofFiles: (files: File[]) => void;
   setPendingProposalFiles: (files: File[]) => void;
   setPendingQueryFiles: (files: File[]) => void;

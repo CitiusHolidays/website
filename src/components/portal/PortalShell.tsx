@@ -27,8 +27,8 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { PortalAccountAvatar } from "@/components/portal/PortalAccountAvatar";
 import { PortalAccessProvider } from "@/components/portal/PortalAccessContext";
+import { PortalAccountAvatar } from "@/components/portal/PortalAccountAvatar";
 import { PortalChromeProvider } from "@/components/portal/PortalChromeContext";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
 import PortalNavLinkPending from "@/components/portal/PortalNavLinkPending";
@@ -38,11 +38,11 @@ import SaveViewDialog from "@/components/portal/SaveViewDialog";
 import { preloadQueriesView } from "@/components/portal/workspace/portalLazyViews";
 import { logout } from "@/lib/auth-client";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
-import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import {
   markPortalNavigationRouteReady,
   markPortalNavigationStart,
 } from "@/lib/portal/navigationPerformance";
+import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
 import {
   getPortalNavPreferencesSnapshot,
@@ -155,7 +155,11 @@ const handleLogout = async () => {
   window.location.href = "/";
 };
 
-function NotificationListItem({ index, item, onClick }: NotificationListItemProps & { index: number }) {
+function NotificationListItem({
+  index,
+  item,
+  onClick,
+}: NotificationListItemProps & { index: number }) {
   return (
     <m.button
       animate={{ opacity: 1, transform: "translateY(0)" }}
@@ -443,220 +447,224 @@ export default function PortalShell({ access, user, children }: PortalShellProps
       <PortalToastProvider>
         <PortalConfirmProvider>
           <PortalChromeProvider navShortcuts={navShortcuts}>
-          <div className="portal-shell relative min-h-screen overflow-x-hidden bg-brand-light text-brand-dark">
-            <a
-              className={`sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 ${PORTAL_Z.skipLinkFocus} focus:rounded-full focus:bg-white focus:px-4 focus:py-2 focus:font-semibold focus:text-citius-blue focus:text-sm focus:shadow-lg`}
-              href="#portal-main"
-            >
-              Skip to main content
-            </a>
-            <div
-              aria-hidden
-              className="pointer-events-none fixed inset-0 -z-10 bg-[url('/gallery/bgfooter.webp')] bg-brand-light bg-center bg-cover opacity-[0.06]"
-            />
+            <div className="portal-shell relative min-h-screen overflow-x-hidden bg-brand-light text-brand-dark">
+              <a
+                className={`sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 ${PORTAL_Z.skipLinkFocus} focus:rounded-full focus:bg-white focus:px-4 focus:py-2 focus:font-semibold focus:text-citius-blue focus:text-sm focus:shadow-lg`}
+                href="#portal-main"
+              >
+                Skip to main content
+              </a>
+              <div
+                aria-hidden
+                className="pointer-events-none fixed inset-0 -z-10 bg-[url('/gallery/bgfooter.webp')] bg-brand-light bg-center bg-cover opacity-[0.06]"
+              />
 
-            <header
-              className={`sticky top-0 ${PORTAL_Z.chrome} border-brand-border/80 border-b bg-white/90 shadow-brand-dark/[0.03] shadow-sm backdrop-blur-xl`}
-            >
-              <div className="flex h-[4.25rem] items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
-                <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
-                  <button
-                    aria-label="Open portal navigation"
-                    className="grid min-h-11 min-w-11 place-items-center rounded-full text-brand-dark transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light active:scale-[0.96] lg:hidden"
-                    onClick={() => setSidebarOpen(true)}
-                    type="button"
-                  >
-                    <Menu size={20} />
-                  </button>
-                  <Link className="flex shrink-0 items-center" href="/portal">
-                    <Image
-                      alt="Citius Connect"
-                      className="h-7 w-auto sm:h-9"
-                      height={CITIUS_CONNECT_LOGO_HEIGHT}
-                      priority
-                      src={ConnectLogo}
-                      width={CITIUS_CONNECT_LOGO_WIDTH}
-                    />
-                  </Link>
-                  <span
-                    className="inline-flex min-h-8 max-w-[8rem] shrink-0 items-center rounded-full border border-citius-orange/20 bg-citius-orange/10 px-2.5 text-center font-semibold text-[length:var(--portal-label-size)] text-citius-orange-ink leading-tight sm:max-w-none sm:px-3"
-                    title={roleLabel}
-                  >
-                    <span className="sr-only">Roles: {roleLabel}</span>
-                    <span aria-hidden className="min-w-0 whitespace-normal">
-                      {compactRoleLabel}
+              <header
+                className={`sticky top-0 ${PORTAL_Z.chrome} border-brand-border/80 border-b bg-white/90 shadow-brand-dark/[0.03] shadow-sm backdrop-blur-xl`}
+              >
+                <div className="flex h-[4.25rem] items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
+                  <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
+                    <button
+                      aria-label="Open portal navigation"
+                      className="grid min-h-11 min-w-11 place-items-center rounded-full text-brand-dark transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light active:scale-[0.96] lg:hidden"
+                      onClick={() => setSidebarOpen(true)}
+                      type="button"
+                    >
+                      <Menu size={20} />
+                    </button>
+                    <Link className="flex shrink-0 items-center" href="/portal">
+                      <Image
+                        alt="Citius Connect"
+                        className="h-7 w-auto sm:h-9"
+                        height={CITIUS_CONNECT_LOGO_HEIGHT}
+                        priority
+                        src={ConnectLogo}
+                        width={CITIUS_CONNECT_LOGO_WIDTH}
+                      />
+                    </Link>
+                    <span
+                      className="inline-flex min-h-8 max-w-[8rem] shrink-0 items-center rounded-full border border-citius-orange/20 bg-citius-orange/10 px-2.5 text-center font-semibold text-[length:var(--portal-label-size)] text-citius-orange-ink leading-tight sm:max-w-none sm:px-3"
+                      title={roleLabel}
+                    >
+                      <span className="sr-only">Roles: {roleLabel}</span>
+                      <span aria-hidden className="min-w-0 whitespace-normal">
+                        {compactRoleLabel}
+                      </span>
                     </span>
-                  </span>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-1.5 sm:gap-3 lg:gap-5">
-                  <div className="flex items-center rounded-full border border-brand-border/80 bg-brand-light/70 p-1.5">
-                    <div className="relative shrink-0">
-                      <button
-                        aria-label="Open notifications"
-                        className="relative grid size-11 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-blue active:scale-[0.96] lg:size-9"
-                        onClick={toggleNotifications}
-                        type="button"
-                      >
-                        <Bell size={17} />
-                        {unreadCount > 0 && (
-                          <m.span
-                            animate={
-                              shouldReduceMotion
-                                ? { opacity: 1 }
-                                : { opacity: 1, transform: "scale(1)" }
-                            }
-                            className="absolute -top-1 -right-1 min-w-5 rounded-full bg-citius-blue px-1.5 text-center font-bold text-[10px] text-white tabular-nums leading-5 shadow-sm"
-                            initial={
-                              shouldReduceMotion
-                                ? { opacity: 0 }
-                                : { opacity: 0, transform: "scale(0.95)" }
-                            }
-                            transition={
-                              shouldReduceMotion
-                                ? { duration: 0 }
-                                : { duration: 0.15, ease: [0.23, 1, 0.32, 1] }
-                            }
-                          >
-                            {unreadCount > 99 ? "99+" : unreadCount}
-                          </m.span>
-                        )}
-                      </button>
-                      <AnimatePresence>
-                        {notificationsOpen && (
-                          <>
-                            <button
-                              aria-label="Close notifications"
-                              className={`fixed inset-0 ${PORTAL_Z.dropdownBackdrop} cursor-default bg-transparent`}
-                              onClick={() => setNotificationsOpen(false)}
-                              type="button"
-                            />
-                            <m.div
-                              animate={{ opacity: 1, transform: "translateY(0) scale(1)" }}
-                              className={`portal-shell-surface absolute right-0 ${PORTAL_Z.dropdown} mt-3 w-[min(20rem,calc(100vw-2rem))] origin-top-right overflow-hidden border border-brand-border bg-white text-brand-dark shadow-xl`}
-                              exit={{
-                                opacity: 0,
-                                transform: shouldReduceMotion
-                                  ? "none"
-                                  : "translateY(6px) scale(0.98)",
-                                transition: {
-                                  duration: 0.12,
-                                  ease: [0.23, 1, 0.32, 1],
-                                },
-                              }}
-                              initial={{
-                                opacity: 0,
-                                transform: shouldReduceMotion
-                                  ? "none"
-                                  : "translateY(6px) scale(0.98)",
-                              }}
-                              transition={{
-                                duration: 0.15,
-                                ease: [0.23, 1, 0.32, 1],
-                              }}
-                            >
-                              <div className="flex items-center justify-between border-brand-border border-b px-4 py-3">
-                                <div className="font-heading font-semibold text-citius-blue text-sm">
-                                  Notifications
-                                </div>
-                                <ChevronDown className="text-brand-muted" size={16} />
-                              </div>
-                              <div className="max-h-80 overflow-y-auto">
-                                {notificationRows.length === 0 ? (
-                                  <div className="px-4 py-6 text-brand-muted text-sm">
-                                    No notifications yet.
-                                  </div>
-                                ) : (
-                                  notificationRows.map((item, index) => (
-                                    <NotificationListItem
-                                      index={index}
-                                      item={item}
-                                      key={item.id}
-                                      onClick={handleNotificationClick}
-                                    />
-                                  ))
-                                )}
-                              </div>
-                              <div className="border-brand-border border-t px-4 py-3">
-                                <Link
-                                  className="font-semibold text-citius-blue text-xs transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink"
-                                  href="/portal/activity"
-                                  onClick={() => setNotificationsOpen(false)}
-                                >
-                                  View all notifications
-                                </Link>
-                              </div>
-                            </m.div>
-                          </>
-                        )}
-                      </AnimatePresence>
-                    </div>
                   </div>
 
-                  <AccountMenu
-                    email={accountEmail}
-                    image={accountImage}
-                    name={accountName}
-                    onClose={closeAccountMenu}
-                    onToggle={toggleAccountMenu}
-                    open={accountMenuOpen}
-                  />
-                </div>
-              </div>
-            </header>
-
-            <div className="flex min-h-[calc(100vh-68px)]">
-              <aside className="sticky top-[4.25rem] hidden h-[calc(100vh-68px)] w-64 shrink-0 flex-col overflow-hidden border-brand-border/80 border-r bg-white/80 backdrop-blur-sm lg:flex">
-                <PortalNav navGroups={navGroups} navShortcuts={navShortcuts} pathname={pathname} />
-              </aside>
-
-              <AnimatePresence>
-                {sidebarOpen && (
-                  <>
-                    <m.button
-                      animate={{ opacity: 1 }}
-                      aria-label="Close portal navigation backdrop"
-                      className={`fixed inset-0 ${PORTAL_Z.mobileBackdrop} bg-slate-950/70 lg:hidden`}
-                      exit={{ opacity: 0 }}
-                      initial={{ opacity: 0 }}
-                      onClick={() => setSidebarOpen(false)}
-                      type="button"
-                    />
-                    <m.aside
-                      animate={{ transform: "translateX(0)" }}
-                      className={`portal-mobile-drawer fixed inset-y-0 left-0 ${PORTAL_Z.mobileDrawer} flex w-[min(20rem,calc(100vw-1.5rem))] flex-col bg-white shadow-2xl lg:hidden`}
-                      exit={{ transform: "translateX(-100%)" }}
-                      initial={{ transform: "translateX(-100%)" }}
-                      transition={{ bounce: 0, duration: 0.3, type: "spring" }}
-                    >
-                      <div className="flex h-16 items-center justify-between border-brand-border border-b px-4">
-                        <span className="font-heading text-citius-blue text-lg">Navigation</span>
+                  <div className="flex shrink-0 items-center gap-1.5 sm:gap-3 lg:gap-5">
+                    <div className="flex items-center rounded-full border border-brand-border/80 bg-brand-light/70 p-1.5">
+                      <div className="relative shrink-0">
                         <button
-                          aria-label="Close portal navigation"
-                          className="grid min-h-11 min-w-11 place-items-center rounded-full text-brand-muted transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light active:scale-[0.96]"
-                          onClick={() => setSidebarOpen(false)}
+                          aria-label="Open notifications"
+                          className="relative grid size-11 place-items-center rounded-full bg-white text-brand-muted shadow-sm transition-[color,transform] duration-150 ease-[var(--portal-ease-out)] hover:text-citius-blue active:scale-[0.96] lg:size-9"
+                          onClick={toggleNotifications}
                           type="button"
                         >
-                          <X size={20} />
+                          <Bell size={17} />
+                          {unreadCount > 0 && (
+                            <m.span
+                              animate={
+                                shouldReduceMotion
+                                  ? { opacity: 1 }
+                                  : { opacity: 1, transform: "scale(1)" }
+                              }
+                              className="absolute -top-1 -right-1 min-w-5 rounded-full bg-citius-blue px-1.5 text-center font-bold text-[10px] text-white tabular-nums leading-5 shadow-sm"
+                              initial={
+                                shouldReduceMotion
+                                  ? { opacity: 0 }
+                                  : { opacity: 0, transform: "scale(0.95)" }
+                              }
+                              transition={
+                                shouldReduceMotion
+                                  ? { duration: 0 }
+                                  : { duration: 0.15, ease: [0.23, 1, 0.32, 1] }
+                              }
+                            >
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </m.span>
+                          )}
                         </button>
+                        <AnimatePresence>
+                          {notificationsOpen && (
+                            <>
+                              <button
+                                aria-label="Close notifications"
+                                className={`fixed inset-0 ${PORTAL_Z.dropdownBackdrop} cursor-default bg-transparent`}
+                                onClick={() => setNotificationsOpen(false)}
+                                type="button"
+                              />
+                              <m.div
+                                animate={{ opacity: 1, transform: "translateY(0) scale(1)" }}
+                                className={`portal-shell-surface absolute right-0 ${PORTAL_Z.dropdown} mt-3 w-[min(20rem,calc(100vw-2rem))] origin-top-right overflow-hidden border border-brand-border bg-white text-brand-dark shadow-xl`}
+                                exit={{
+                                  opacity: 0,
+                                  transform: shouldReduceMotion
+                                    ? "none"
+                                    : "translateY(6px) scale(0.98)",
+                                  transition: {
+                                    duration: 0.12,
+                                    ease: [0.23, 1, 0.32, 1],
+                                  },
+                                }}
+                                initial={{
+                                  opacity: 0,
+                                  transform: shouldReduceMotion
+                                    ? "none"
+                                    : "translateY(6px) scale(0.98)",
+                                }}
+                                transition={{
+                                  duration: 0.15,
+                                  ease: [0.23, 1, 0.32, 1],
+                                }}
+                              >
+                                <div className="flex items-center justify-between border-brand-border border-b px-4 py-3">
+                                  <div className="font-heading font-semibold text-citius-blue text-sm">
+                                    Notifications
+                                  </div>
+                                  <ChevronDown className="text-brand-muted" size={16} />
+                                </div>
+                                <div className="max-h-80 overflow-y-auto">
+                                  {notificationRows.length === 0 ? (
+                                    <div className="px-4 py-6 text-brand-muted text-sm">
+                                      No notifications yet.
+                                    </div>
+                                  ) : (
+                                    notificationRows.map((item, index) => (
+                                      <NotificationListItem
+                                        index={index}
+                                        item={item}
+                                        key={item.id}
+                                        onClick={handleNotificationClick}
+                                      />
+                                    ))
+                                  )}
+                                </div>
+                                <div className="border-brand-border border-t px-4 py-3">
+                                  <Link
+                                    className="font-semibold text-citius-blue text-xs transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink"
+                                    href="/portal/activity"
+                                    onClick={() => setNotificationsOpen(false)}
+                                  >
+                                    View all notifications
+                                  </Link>
+                                </div>
+                              </m.div>
+                            </>
+                          )}
+                        </AnimatePresence>
                       </div>
-                      <PortalNav
-                        mobile
-                        navGroups={navGroups}
-                        navShortcuts={navShortcuts}
-                        onNavigate={() => setSidebarOpen(false)}
-                        pathname={pathname}
-                      />
-                    </m.aside>
-                  </>
-                )}
-              </AnimatePresence>
+                    </div>
 
-              <main className="min-w-0 flex-1 p-4 sm:p-5 md:p-8 lg:p-10" id="portal-main">
-                {children}
-              </main>
+                    <AccountMenu
+                      email={accountEmail}
+                      image={accountImage}
+                      name={accountName}
+                      onClose={closeAccountMenu}
+                      onToggle={toggleAccountMenu}
+                      open={accountMenuOpen}
+                    />
+                  </div>
+                </div>
+              </header>
+
+              <div className="flex min-h-[calc(100vh-68px)]">
+                <aside className="sticky top-[4.25rem] hidden h-[calc(100vh-68px)] w-64 shrink-0 flex-col overflow-hidden border-brand-border/80 border-r bg-white/80 backdrop-blur-sm lg:flex">
+                  <PortalNav
+                    navGroups={navGroups}
+                    navShortcuts={navShortcuts}
+                    pathname={pathname}
+                  />
+                </aside>
+
+                <AnimatePresence>
+                  {sidebarOpen && (
+                    <>
+                      <m.button
+                        animate={{ opacity: 1 }}
+                        aria-label="Close portal navigation backdrop"
+                        className={`fixed inset-0 ${PORTAL_Z.mobileBackdrop} bg-slate-950/70 lg:hidden`}
+                        exit={{ opacity: 0 }}
+                        initial={{ opacity: 0 }}
+                        onClick={() => setSidebarOpen(false)}
+                        type="button"
+                      />
+                      <m.aside
+                        animate={{ transform: "translateX(0)" }}
+                        className={`portal-mobile-drawer fixed inset-y-0 left-0 ${PORTAL_Z.mobileDrawer} flex w-[min(20rem,calc(100vw-1.5rem))] flex-col bg-white shadow-2xl lg:hidden`}
+                        exit={{ transform: "translateX(-100%)" }}
+                        initial={{ transform: "translateX(-100%)" }}
+                        transition={{ bounce: 0, duration: 0.3, type: "spring" }}
+                      >
+                        <div className="flex h-16 items-center justify-between border-brand-border border-b px-4">
+                          <span className="font-heading text-citius-blue text-lg">Navigation</span>
+                          <button
+                            aria-label="Close portal navigation"
+                            className="grid min-h-11 min-w-11 place-items-center rounded-full text-brand-muted transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light active:scale-[0.96]"
+                            onClick={() => setSidebarOpen(false)}
+                            type="button"
+                          >
+                            <X size={20} />
+                          </button>
+                        </div>
+                        <PortalNav
+                          mobile
+                          navGroups={navGroups}
+                          navShortcuts={navShortcuts}
+                          onNavigate={() => setSidebarOpen(false)}
+                          pathname={pathname}
+                        />
+                      </m.aside>
+                    </>
+                  )}
+                </AnimatePresence>
+
+                <main className="min-w-0 flex-1 p-4 sm:p-5 md:p-8 lg:p-10" id="portal-main">
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
           </PortalChromeProvider>
         </PortalConfirmProvider>
       </PortalToastProvider>

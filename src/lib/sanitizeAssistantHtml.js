@@ -3,8 +3,8 @@ import createDOMPurify from "dompurify";
 /** Sanitize assistant HTML to AGENTS.md allowlist before render. */
 const ALLOWED_TAGS = ["p", "h3", "ul", "ol", "li", "strong", "b", "em", "i", "br"];
 const SANITIZE_OPTIONS = {
-  ALLOWED_TAGS,
   ALLOWED_ATTR: [],
+  ALLOWED_TAGS,
 };
 
 let browserPurifier;

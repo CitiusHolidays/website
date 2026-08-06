@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
-import { storageStatePath } from "../helpers/auth";
 import { E2E_ROLE_PROFILE_KEYS } from "../fixtures/staffProfiles";
-import { hasE2eCredentials, E2E_SKIP_REASON } from "../helpers/skip";
+import { storageStatePath } from "../helpers/auth";
+import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 
 test.describe("@critical @smoke portal auth", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);

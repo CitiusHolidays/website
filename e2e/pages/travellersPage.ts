@@ -1,5 +1,5 @@
-import { firstSelectableOptionLabel, selectOptionByMatchingLabel } from "../helpers/select";
 import { modalCombobox, modalField } from "../helpers/modal";
+import { firstSelectableOptionLabel, selectOptionByMatchingLabel } from "../helpers/select";
 import { PortalPage } from "./portalPage";
 
 export class TravellersPage extends PortalPage {

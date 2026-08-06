@@ -1,10 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import {
-  SPREADSHEET_MODALS,
-  type SpreadsheetModalId,
-} from "@/lib/portal/workspaceContract";
+import { SPREADSHEET_MODALS, type SpreadsheetModalId } from "@/lib/portal/workspaceContract";
 import type { PortalSpreadsheetModalWorkspaceSlice } from "./portalSpreadsheetModalTypes";
 import {
   PASSENGER_EXPORT_MODAL_CONFIGS,
@@ -58,11 +55,7 @@ export function PortalWorkspaceSpreadsheetModals({
   return (
     <>
       {modal === "commercialFiles" ? (
-        <CommercialFilesModal
-          close={workspace.closeModal}
-          form={workspace.form}
-          modal={modal}
-        />
+        <CommercialFilesModal close={workspace.closeModal} form={workspace.form} modal={modal} />
       ) : null}
       {shouldLoadEntityModalBridge(modal) ? (
         <TravelBatchEntityModalBridge

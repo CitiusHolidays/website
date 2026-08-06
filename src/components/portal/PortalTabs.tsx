@@ -98,7 +98,9 @@ export function PortalTabs({
               aria-disabled={item.disabled || undefined}
               aria-selected={selected}
               className={`relative min-h-11 shrink-0 rounded-lg px-3.5 font-semibold text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 ${
-                selected ? "text-white" : "text-brand-muted hover:bg-brand-light hover:text-brand-dark"
+                selected
+                  ? "text-white"
+                  : "text-brand-muted hover:bg-brand-light hover:text-brand-dark"
               }`}
               data-tab-id={item.id}
               disabled={item.disabled}

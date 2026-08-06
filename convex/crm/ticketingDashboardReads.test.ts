@@ -3,13 +3,10 @@ import { collectAllTicketingPages } from "./ticketingDashboardReads";
 
 describe("ticketing dashboard pagination", () => {
   test("keeps totals complete when ticket rows exceed a single page", async () => {
-    const rows = Array.from({ length: 2_001 }, (_, index) => ({ id: index }));
+    const rows = Array.from({ length: 2001 }, (_, index) => ({ id: index }));
     const ctx = {
       db: {
         query: () => ({
-          withIndex() {
-            return this;
-          },
           order() {
             return this;
           },
@@ -23,6 +20,9 @@ describe("ticketing dashboard pagination", () => {
               page,
             });
           },
+          withIndex() {
+            return this;
+          },
         }),
       },
     };
@@ -30,6 +30,6 @@ describe("ticketing dashboard pagination", () => {
     const result = await collectAllTicketingPages(ctx, "tickets");
 
     expect(result).toHaveLength(rows.length);
-    expect(result.at(-1)).toEqual({ id: 2_000 });
+    expect(result.at(-1)).toEqual({ id: 2000 });
   });
 });

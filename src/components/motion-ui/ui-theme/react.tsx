@@ -1,11 +1,11 @@
 "use client";
 
 import { useReducedMotion } from "motion/react";
-import { createContext, createElement, useContext, useMemo } from "react";
 import type { ReactNode } from "react";
+import { createContext, createElement, useContext, useMemo } from "react";
 import { defaultTheme } from "./presets";
-import { resolveReducedMotion } from "./reduced-motion";
 import type { MotionMode } from "./reduced-motion";
+import { resolveReducedMotion } from "./reduced-motion";
 import type { MotionUITheme, TransitionName, UITransition } from "./types";
 
 // React bindings. Everything falls back to the bundled `defaultTheme` when no
@@ -15,8 +15,8 @@ import type { MotionUITheme, TransitionName, UITransition } from "./types";
 const UIThemeContext = createContext<MotionUITheme | null>(null);
 
 export interface MotionUIThemeProviderProps {
-  theme?: MotionUITheme;
   children: ReactNode;
+  theme?: MotionUITheme;
 }
 
 /**
@@ -24,10 +24,7 @@ export interface MotionUIThemeProviderProps {
  * the default (`productive`), which is also what `useMotionUITheme` returns
  * with no provider present, so wrapping is optional.
  */
-export function MotionUIThemeProvider({
-  theme,
-  children,
-}: MotionUIThemeProviderProps) {
+export function MotionUIThemeProvider({ theme, children }: MotionUIThemeProviderProps) {
   const value = theme ?? defaultTheme;
   return createElement(UIThemeContext.Provider, { value }, children);
 }
@@ -82,8 +79,6 @@ export function useMotionUITransition(name: TransitionName): UITransition {
   return useMemo(() => {
     const { duration, stiffness, damping, ease } = token;
     return {
-      type: "spring",
-      stiffness,
       damping,
       duration,
       ease,
@@ -91,7 +86,9 @@ export function useMotionUITransition(name: TransitionName): UITransition {
       // times, ...) reach the opacity channel; without it Motion resolves a
       // per-value transition INSTEAD of the top level, so a spread pulse
       // would play its fade exactly once.
-      opacity: { type: "tween", duration, ease: "linear", inherit: true },
+      opacity: { duration, ease: "linear", inherit: true, type: "tween" },
+      stiffness,
+      type: "spring",
     };
   }, [token]);
 }

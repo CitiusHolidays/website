@@ -19,32 +19,32 @@ export type CubicBezier = readonly [number, number, number, number];
  * timing for non-physics channels and CSS output.
  */
 export interface TransitionToken {
-  type: "spring";
-  /** Spring stiffness, resolved from the preset's former visual duration. */
-  stiffness: number;
   /** Spring damping, resolved from the preset's former bounce. */
   damping: number;
   /** Companion fade/colour duration in seconds. */
   duration: number;
   /** Companion curve for fades (opacity/colour), over `duration`. */
   ease: CubicBezier;
+  /** Spring stiffness, resolved from the preset's former visual duration. */
+  stiffness: number;
+  type: "spring";
 }
 
 /** The five feel-vocabulary transitions every section resolves by name. */
 export interface TransitionTokens {
-  /** Instant feedback: toggles, tabs, hovers. */
-  snap: TransitionToken;
-  /** Default: menus, cards, reveals. */
-  ui: TransitionToken;
-  /** Large surfaces: sections, sheets, curtains. */
-  gentle: TransitionToken;
-  /** Celebratory: confetti, badges, counters. */
-  lively: TransitionToken;
   /**
    * Continuous background motion: pulses, sweeps, blinks. `duration` is the
    * cycle length; consumers usually pair it with `repeat: Infinity`.
    */
   ambient: TransitionToken;
+  /** Large surfaces: sections, sheets, curtains. */
+  gentle: TransitionToken;
+  /** Celebratory: confetti, badges, counters. */
+  lively: TransitionToken;
+  /** Instant feedback: toggles, tabs, hovers. */
+  snap: TransitionToken;
+  /** Default: menus, cards, reveals. */
+  ui: TransitionToken;
 }
 
 /** Names of the transitions, usable as `useMotionUITransition(name)`. */
@@ -78,17 +78,17 @@ export interface UITransition extends TransitionToken {
 
 /** Orchestration: stagger between children, in seconds. */
 export interface StaggerTokens {
-  tight: number;
   base: number;
   relaxed: number;
+  tight: number;
 }
 
 export type StaggerName = keyof StaggerTokens;
 
 /** How far things travel on enter/hover, in pixels. */
 export interface TravelTokens {
-  hover: number;
   enter: number;
+  hover: number;
   section: number;
 }
 
@@ -111,11 +111,11 @@ export type ReducedMotionStrategy = "calm" | "off";
 
 /** The full, resolved theme. `defineTheme` always returns this complete shape. */
 export interface MotionUITheme {
-  transitions: TransitionTokens;
-  stagger: StaggerTokens;
-  travel: TravelTokens;
   inView: InViewTokens;
   reducedMotion: ReducedMotionStrategy;
+  stagger: StaggerTokens;
+  transitions: TransitionTokens;
+  travel: TravelTokens;
 }
 
 /** Recursive partial: any subtree of a theme may be omitted in a config. */

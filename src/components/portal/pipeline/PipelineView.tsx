@@ -1,5 +1,6 @@
 "use client";
 
+import { LayoutGroup, m } from "motion/react";
 import {
   type DragEventHandler,
   type KeyboardEventHandler,
@@ -9,9 +10,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { LayoutGroup, m } from "motion/react";
-import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
+import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
 import { PIPELINE_STAGES, SALES_PIPELINE_STAGES } from "@/lib/portal/constants";
 import {
   getAllowedContractingPipelineBoardTargets,
@@ -337,43 +337,43 @@ function PipelineCard({ canMove, item, moveTargets, onMove, stage }: PipelineCar
     >
       {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Native drag is pointer-only; the labeled select provides the equivalent keyboard command. */}
       <article data-pipeline-card-id={item.id} draggable={draggable} onDragStart={handleDragStart}>
-      <div className="font-semibold text-brand-dark text-sm">{label}</div>
-      <div className="mt-1 flex flex-wrap items-center gap-2 text-brand-muted text-xs">
-        {item.queryCode ? (
-          <PortalCopyButton label={item.queryCode} value={item.queryCode} />
-        ) : (
-          <span>No query code</span>
-        )}
-        <span>
-          {item.destination || "TBD"} - {item.paxCount ?? 0} pax
-        </span>
-      </div>
-      <div className="mt-1 text-brand-muted text-xs">{item.salesOwnerName || "Unassigned"}</div>
-      {draggable ? (
-        <label className="mt-3 block text-brand-muted text-xs">
-          <span className="sr-only">Move {label} to stage</span>
-          <span aria-hidden="true">Move to</span>
-          <select
-            className="mt-1 w-full rounded-lg border border-brand-border bg-white px-2 py-1.5 text-brand-dark text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
-            defaultValue=""
-            onChange={(event) => {
-              const targetStage = event.target.value;
-              if (!targetStage) {
-                return;
-              }
-              event.target.value = "";
-              onMove(item, targetStage).catch(() => undefined);
-            }}
-          >
-            <option value="">Select stage…</option>
-            {moveTargets.map((target) => (
-              <option key={target} value={target}>
-                {target}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
+        <div className="font-semibold text-brand-dark text-sm">{label}</div>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-brand-muted text-xs">
+          {item.queryCode ? (
+            <PortalCopyButton label={item.queryCode} value={item.queryCode} />
+          ) : (
+            <span>No query code</span>
+          )}
+          <span>
+            {item.destination || "TBD"} - {item.paxCount ?? 0} pax
+          </span>
+        </div>
+        <div className="mt-1 text-brand-muted text-xs">{item.salesOwnerName || "Unassigned"}</div>
+        {draggable ? (
+          <label className="mt-3 block text-brand-muted text-xs">
+            <span className="sr-only">Move {label} to stage</span>
+            <span aria-hidden="true">Move to</span>
+            <select
+              className="mt-1 w-full rounded-lg border border-brand-border bg-white px-2 py-1.5 text-brand-dark text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
+              defaultValue=""
+              onChange={(event) => {
+                const targetStage = event.target.value;
+                if (!targetStage) {
+                  return;
+                }
+                event.target.value = "";
+                onMove(item, targetStage).catch(() => undefined);
+              }}
+            >
+              <option value="">Select stage…</option>
+              {moveTargets.map((target) => (
+                <option key={target} value={target}>
+                  {target}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </article>
     </m.div>
   );
@@ -573,29 +573,29 @@ export function PipelineView({
             <div className="space-y-2">
               <LayoutGroup>
                 {items.map((item) => {
-                const cardStage =
-                  activeOptimisticStages[item.id] ??
-                  (mode === "sales" ? getPipelineCardStage(item) : getPipelineStage(item));
-                const moveTargets =
-                  mode === "sales"
-                    ? getAllowedSalesPipelineBoardTargets(cardStage)
-                    : getAllowedContractingPipelineBoardTargets(cardStage);
-                const locked =
-                  mode === "sales"
-                    ? isSalesPipelineBoardLocked(item)
-                    : isContractingPipelineBoardLocked(item);
-                const canMove = moveEnabled && !locked && moveTargets.length > 0;
-                return (
-                  <PipelineCard
-                    canMove={canMove}
-                    item={item}
-                    key={item.id}
-                    moveTargets={moveTargets}
-                    onMove={handleMove}
-                    stage={cardStage}
-                  />
-                );
-              })}
+                  const cardStage =
+                    activeOptimisticStages[item.id] ??
+                    (mode === "sales" ? getPipelineCardStage(item) : getPipelineStage(item));
+                  const moveTargets =
+                    mode === "sales"
+                      ? getAllowedSalesPipelineBoardTargets(cardStage)
+                      : getAllowedContractingPipelineBoardTargets(cardStage);
+                  const locked =
+                    mode === "sales"
+                      ? isSalesPipelineBoardLocked(item)
+                      : isContractingPipelineBoardLocked(item);
+                  const canMove = moveEnabled && !locked && moveTargets.length > 0;
+                  return (
+                    <PipelineCard
+                      canMove={canMove}
+                      item={item}
+                      key={item.id}
+                      moveTargets={moveTargets}
+                      onMove={handleMove}
+                      stage={cardStage}
+                    />
+                  );
+                })}
               </LayoutGroup>
             </div>
           </section>

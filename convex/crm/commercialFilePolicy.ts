@@ -41,7 +41,6 @@ export const COMMERCIAL_FILE_TEAM_LABELS: Record<CommercialFileTeamArea, string>
 export const COMMERCIAL_FILE_RETENTION_MS = 14 * 24 * 60 * 60 * 1000;
 
 interface QuerySource {
-  sourceType: "query";
   query: {
     contractingOwnerId?: string | null;
     contractingOwnerName?: string | null;
@@ -52,10 +51,10 @@ interface QuerySource {
     ticketingOwnerId?: string | null;
     ticketingOwnerName?: string | null;
   };
+  sourceType: "query";
 }
 
 interface ProposalSource {
-  sourceType: "proposal";
   linkedQueries: Array<{
     contractingOwnerId?: string | null;
     contractingOwnerName?: string | null;
@@ -68,10 +67,10 @@ interface ProposalSource {
     createdBy?: string | null;
     preparedBy?: string | null;
   };
+  sourceType: "proposal";
 }
 
 interface JobCardSource {
-  sourceType: "jobCard";
   jobCard: {
     collaboratorStaffIds?: unknown[] | null;
     contractingOwnerId?: string | null;
@@ -84,6 +83,7 @@ interface JobCardSource {
     tourManagerName?: string | null;
   };
   linkedQuery?: { queryType?: string | null } | null;
+  sourceType: "jobCard";
 }
 
 export type CommercialFileSource = QuerySource | ProposalSource | JobCardSource;

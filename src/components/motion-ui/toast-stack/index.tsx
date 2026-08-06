@@ -1,13 +1,7 @@
 "use client";
 
 import { AnimatePresence, m } from "motion/react";
-import {
-  Children,
-  createContext,
-  isValidElement,
-  useContext,
-  type ReactNode,
-} from "react";
+import { Children, createContext, isValidElement, type ReactNode, useContext } from "react";
 import { useMotionUITheme, useMotionUITransition } from "@/components/motion-ui/ui-theme";
 
 function cx(...parts: Array<string | false | null | undefined>): string {

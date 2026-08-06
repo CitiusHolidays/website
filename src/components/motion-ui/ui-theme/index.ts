@@ -1,35 +1,33 @@
 // @motion/ui-theme — the motion vocabulary for Motion UI sections.
 // One file sets the feel of an entire site; sections resolve tokens by name.
 
-export { defineTheme } from "./theme";
-export { defaultTheme, productive, editorial, playful, presets } from "./presets";
+export { cssVarsToStyleString, themeToCssVars, transitionToLinear } from "./css";
 export type { PresetName } from "./presets";
-
+export { defaultTheme, editorial, playful, presets, productive } from "./presets";
+export type { MotionUIThemeProviderProps, ResolvedMotionUITheme } from "./react";
 export {
   MotionUIThemeProvider,
   useMotionUITheme,
   useMotionUITransition,
 } from "./react";
-export type { MotionUIThemeProviderProps, ResolvedMotionUITheme } from "./react";
-
-export { themeToCssVars, cssVarsToStyleString, transitionToLinear } from "./css";
-
-export { resolveReducedMotion } from "./reduced-motion";
 export type { MotionMode, ResolvedReducedMotion } from "./reduced-motion";
 
+export { resolveReducedMotion } from "./reduced-motion";
+export { defineTheme } from "./theme";
+
 export type {
+  CubicBezier,
+  DeepPartial,
+  InViewTokens,
   MotionUITheme,
   MotionUIThemeConfig,
-  DeepPartial,
-  CubicBezier,
+  ReducedMotionStrategy,
+  StaggerName,
+  StaggerTokens,
+  TransitionName,
   TransitionToken,
   TransitionTokens,
-  TransitionName,
-  UITransition,
-  StaggerTokens,
-  StaggerName,
-  TravelTokens,
   TravelName,
-  InViewTokens,
-  ReducedMotionStrategy,
+  TravelTokens,
+  UITransition,
 } from "./types";

@@ -148,11 +148,9 @@ async function completeWorker(
   const now = Date.now();
   await ctx.db.patch(workerId, { completedAt: now, status: "complete" });
   if (worker.kind === "traveller") {
-    await ctx.scheduler.runAfter(
-      0,
-      internal.crm.jobCardDeletion.continueTravellerWorkerQueue,
-      { operationId }
-    );
+    await ctx.scheduler.runAfter(0, internal.crm.jobCardDeletion.continueTravellerWorkerQueue, {
+      operationId,
+    });
     return;
   }
   await finalizeIfReady(ctx, operationId);
@@ -301,11 +299,9 @@ export const continueJobCardCascade = internalMutation({
       );
       await flushDeferredNotificationCleanup(ctx, notifications);
       if (args.stage === "travellers") {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.crm.jobCardDeletion.continueTravellerWorkerQueue,
-          { operationId: args.operationId }
-        );
+        await ctx.scheduler.runAfter(0, internal.crm.jobCardDeletion.continueTravellerWorkerQueue, {
+          operationId: args.operationId,
+        });
       }
 
       const followingStage =

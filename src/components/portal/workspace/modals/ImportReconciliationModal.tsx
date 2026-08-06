@@ -84,7 +84,10 @@ export function ImportReconciliationModal({
             </thead>
             <tbody>
               {pageRows.map((row) => (
-                <tr className="border-brand-border/50 border-t" key={`${row.rowNumber}-${row.travellerName}`}>
+                <tr
+                  className="border-brand-border/50 border-t"
+                  key={`${row.rowNumber}-${row.travellerName}`}
+                >
                   <td className="py-2 pr-3 tabular-nums">{row.rowNumber}</td>
                   <td className="py-2 pr-3">{row.travellerName || "—"}</td>
                   <td className="py-2 pr-3 capitalize">{row.disposition}</td>

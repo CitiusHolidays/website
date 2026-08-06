@@ -90,9 +90,6 @@ export function TravelBatchEntityModalBridge({
       getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
       has={workspace.has}
       isSaving={workspace.modal === TRAVEL_BATCH_MODAL ? travelBatchSaving : workspace.isSaving}
-      saveFlash={
-        workspace.modal === TRAVEL_BATCH_MODAL ? travelBatchSaveFlash : workspace.saveFlash
-      }
       jobCards={workspace.jobCards}
       leaveBalances={workspace.leaveBalances}
       leaveHeadApproverCandidates={workspace.leaveHeadApproverCandidates}
@@ -113,6 +110,9 @@ export function TravelBatchEntityModalBridge({
       removeFinalizedPdf={workspace.removeFinalizedPdf}
       removeProposalAttachment={workspace.removeProposalAttachment}
       removeQueryAttachment={workspace.removeQueryAttachment}
+      saveFlash={
+        workspace.modal === TRAVEL_BATCH_MODAL ? travelBatchSaveFlash : workspace.saveFlash
+      }
       setPendingExpenseProofFiles={workspace.setPendingExpenseProofFiles}
       setPendingProposalFiles={workspace.setPendingProposalFiles}
       setPendingQueryFiles={workspace.setPendingQueryFiles}

@@ -1,10 +1,5 @@
 import { createGeneratorEasing, generateLinearEasing, spring } from "motion";
-import type {
-  CubicBezier,
-  MotionUITheme,
-  TransitionName,
-  TransitionToken,
-} from "./types";
+import type { CubicBezier, MotionUITheme, TransitionName, TransitionToken } from "./types";
 
 // CSS emit: mirror the JS vocabulary as `--motion-ui-*` custom properties so
 // pure-CSS states (`:hover`, `[data-state]`) share the exact same feel as the
@@ -34,14 +29,14 @@ export function transitionToLinear(token: TransitionToken): {
   duration: number;
 } {
   const easing = createGeneratorEasing(
-    { stiffness: token.stiffness, damping: token.damping },
+    { damping: token.damping, stiffness: token.stiffness },
     100,
     spring
   );
   return {
+    duration: easing.duration,
     // generateLinearEasing takes duration in milliseconds.
     easing: generateLinearEasing(easing.ease, easing.duration * 1000),
-    duration: easing.duration,
   };
 }
 

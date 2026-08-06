@@ -14,6 +14,9 @@ beforeAll(() => {
         commercialFiles: {
           markFilesDeletedForSource: "internal.crm.commercialFiles.markFilesDeletedForSource",
         },
+        inboundQueryIntents: {
+          submitIntentInternal: "internal.crm.inboundQueryIntents.submitIntentInternal",
+        },
         jobCardDeletion: {
           continueApprovalCleanup: "internal.crm.jobCardDeletion.continueApprovalCleanup",
           continueJobCardCascade: "internal.crm.jobCardDeletion.continueJobCardCascade",
@@ -24,9 +27,6 @@ beforeAll(() => {
         },
         notificationEmails: {
           sendNotificationEmail: "internal.crm.notificationEmails.sendNotificationEmail",
-        },
-        inboundQueryIntents: {
-          submitIntentInternal: "internal.crm.inboundQueryIntents.submitIntentInternal",
         },
         ticketing: {
           continuePnrCleanup: "internal.crm.ticketing.continuePnrCleanup",
@@ -110,6 +110,7 @@ function makeLeaveCtx(
         return {
           collect: async () => [...rows],
           first: async () => rows[0] ?? null,
+          take: async (limit: number) => rows.slice(0, limit),
           unique: async () => (rows.length === 1 ? rows[0] : null),
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];

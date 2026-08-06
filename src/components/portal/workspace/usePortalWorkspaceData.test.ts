@@ -13,9 +13,7 @@ describe("usePortalWorkspaceData subscription gates", () => {
 
     expect(source).toContain("shouldLoadSearchReadiness");
     expect(source).toContain("isSearchableListView");
-    expect(source).toMatch(
-      /shouldLoadSearchReadiness\s*\?\s*\{\s*referenceNow\s*\}\s*:\s*"skip"/
-    );
+    expect(source).toMatch(/shouldLoadSearchReadiness\s*\?\s*\{\s*referenceNow\s*\}\s*:\s*"skip"/);
     expect(source).not.toMatch(
       /useQuery\(\s*api\.crm\.listSearch\.getReadiness,\s*canFetch\s*\?\s*\{\s*referenceNow/
     );

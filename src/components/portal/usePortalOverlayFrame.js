@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import {
-  PORTAL_COMMAND_PALETTE_PANEL_TOP,
-} from "@/lib/portal/portalOverlayLayout";
+import { PORTAL_COMMAND_PALETTE_PANEL_TOP } from "@/lib/portal/portalOverlayLayout";
 import { PORTAL_Z_INDEX } from "@/lib/portal/zIndex";
 
 const DESKTOP_QUERY = "(min-width: 1024px)";
@@ -66,11 +64,12 @@ export function usePortalOverlayFrame({
   open = false,
   panelTop = PORTAL_COMMAND_PALETTE_PANEL_TOP,
 } = {}) {
-  const hasDesktopSidebar = useSyncExternalStore(
-    subscribeToDesktopSidebar,
-    getDesktopSidebarSnapshot,
-    () => SERVER_MEDIA_SNAPSHOT
-  ) === "true";
+  const hasDesktopSidebar =
+    useSyncExternalStore(
+      subscribeToDesktopSidebar,
+      getDesktopSidebarSnapshot,
+      () => SERVER_MEDIA_SNAPSHOT
+    ) === "true";
   const measuredBounds = usePortalMainBounds(open);
   const fallbackLeft = hasDesktopSidebar ? 256 : 0;
   const left = measuredBounds.width > 0 ? measuredBounds.left : fallbackLeft;

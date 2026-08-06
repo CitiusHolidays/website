@@ -119,11 +119,13 @@ function buildDashboardPeople(access: any, queries: any[], jobCards: any[], staf
     return map;
   }, new Map<string, { role: string; staffCount: number; load: number }>());
   return {
-    capacity: (Array.from(capacityByRole.values()) as Array<{
-      load: number;
-      role: string;
-      staffCount: number;
-    }>)
+    capacity: (
+      Array.from(capacityByRole.values()) as Array<{
+        load: number;
+        role: string;
+        staffCount: number;
+      }>
+    )
       .map((row) => ({
         ...row,
         averageLoad: row.staffCount ? Math.round(row.load / row.staffCount) : 0,
@@ -978,12 +980,10 @@ export const getPortalSummary = query({
           percent: percent(aggregateTravellerTicketsIssued, aggregateTravellerTotal),
           value: aggregateTravellerTicketsIssued,
         },
-          {
-            label: "Finance pending",
-            percent: canViewFinance
-              ? percent(aggregateReceivedPayment, aggregateExpectedPayment)
-              : 0,
-            value: canViewFinance ? aggregateOutstandingAmount : 0,
+        {
+          label: "Finance pending",
+          percent: canViewFinance ? percent(aggregateReceivedPayment, aggregateExpectedPayment) : 0,
+          value: canViewFinance ? aggregateOutstandingAmount : 0,
         },
       ],
       generatedAt: new Date(referenceNow).toISOString(),
@@ -1084,9 +1084,7 @@ export const getPortalSummary = query({
         },
         payment: {
           done: canViewFinance ? aggregateReceivedPayment : 0,
-          percent: canViewFinance
-            ? percent(aggregateReceivedPayment, aggregateExpectedPayment)
-            : 0,
+          percent: canViewFinance ? percent(aggregateReceivedPayment, aggregateExpectedPayment) : 0,
           total: canViewFinance ? aggregateExpectedPayment : 0,
         },
         rooming: {

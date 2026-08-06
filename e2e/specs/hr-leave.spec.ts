@@ -1,8 +1,13 @@
 import { expect, test } from "@playwright/test";
 import { openPortalAs } from "../helpers/auth";
 import { uniqueE2eLabel } from "../helpers/chainState";
-import { isoDate, fillPortalDate } from "../helpers/date";
-import { expectEntityModalOpen, modalCombobox, modalField, saveEntityModal } from "../helpers/modal";
+import { fillPortalDate, isoDate } from "../helpers/date";
+import {
+  expectEntityModalOpen,
+  modalCombobox,
+  modalField,
+  saveEntityModal,
+} from "../helpers/modal";
 import { selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 

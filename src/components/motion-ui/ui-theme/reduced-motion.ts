@@ -5,14 +5,14 @@ export type MotionMode = "full" | ReducedMotionStrategy;
 
 /** The resolved motion posture a section should render with. */
 export interface ResolvedReducedMotion {
-  /** Which posture is in effect. */
-  strategy: MotionMode;
   /** Whether to animate at all (`false` only under `"off"`). */
   animate: boolean;
-  /** Whether positional/scale travel is permitted (`false` under `"calm"`/`"off"`). */
-  travel: boolean;
   /** Whether only opacity (duration-based fades) should animate. */
   opacityOnly: boolean;
+  /** Which posture is in effect. */
+  strategy: MotionMode;
+  /** Whether positional/scale travel is permitted (`false` under `"calm"`/`"off"`). */
+  travel: boolean;
 }
 
 /**
@@ -31,10 +31,10 @@ export function resolveReducedMotion(
   prefersReducedMotion: boolean
 ): ResolvedReducedMotion {
   if (!prefersReducedMotion) {
-    return { strategy: "full", animate: true, travel: true, opacityOnly: false };
+    return { animate: true, opacityOnly: false, strategy: "full", travel: true };
   }
   if (theme.reducedMotion === "off") {
-    return { strategy: "off", animate: false, travel: false, opacityOnly: false };
+    return { animate: false, opacityOnly: false, strategy: "off", travel: false };
   }
-  return { strategy: "calm", animate: true, travel: false, opacityOnly: true };
+  return { animate: true, opacityOnly: true, strategy: "calm", travel: false };
 }

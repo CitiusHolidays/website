@@ -183,12 +183,12 @@ export function EntityModal({
       close={close}
       error={error}
       isSaving={isSaving}
-      saveFlash={saveFlash}
       lifecycleJobCard={lifecycleJobCard}
       lifecycleProposal={lifecycleProposal}
       lifecycleQuery={lifecycleQuery}
       modal={modal}
       primaryProps={primaryProps}
+      saveFlash={saveFlash}
       secondaryProps={secondaryProps}
       submit={submit}
       title={title}

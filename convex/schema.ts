@@ -176,6 +176,7 @@ const leaveType = v.union(
 
 const reviewStatus = v.union(v.literal("Pending"), v.literal("Approved"), v.literal("Rejected"));
 
+// biome-ignore assist/source/useSortedKeys: tables stay grouped by product domain and migration history
 export default defineSchema({
   activityLogs: defineTable({
     action: v.string(),

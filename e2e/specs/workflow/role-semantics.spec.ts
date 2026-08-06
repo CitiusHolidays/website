@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { openPortalAs } from "../../helpers/auth";
-import { hasE2eCredentials, E2E_SKIP_REASON } from "../../helpers/skip";
+import { E2E_SKIP_REASON, hasE2eCredentials } from "../../helpers/skip";
 
 test.describe("@workflow sales decision is sales-only", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);

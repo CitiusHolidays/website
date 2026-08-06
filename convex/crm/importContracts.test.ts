@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { withTestEncryptionKeySync } from "../../test-helpers/encryptionKey";
 import { preparePassengerRows } from "./importRows";
 import { internalPassengerImportRow, publicPassengerImportRow } from "./importRowValidators";
-import { withTestEncryptionKeySync } from "../../test-helpers/encryptionKey";
 import { assertMatchesReturnContract, expectReturnContractFailure } from "./validateReturnContract";
 
 function publicRow(overrides: Record<string, unknown> = {}) {

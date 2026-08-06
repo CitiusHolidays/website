@@ -1,11 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { openPortalAs } from "../helpers/auth";
-import { holdToConfirmDelete, expectConfirmDialog } from "../helpers/confirm";
-import { expectEntityModalOpen, modalCombobox, modalField, saveEntityModal } from "../helpers/modal";
-import { convexTravellerExists } from "../helpers/convexAssert";
-import { firstSelectableOptionLabel } from "../helpers/select";
-import { hasE2eCredentials, E2E_SKIP_REASON } from "../helpers/skip";
 import { uniqueE2eLabel } from "../helpers/chainState";
+import { expectConfirmDialog, holdToConfirmDelete } from "../helpers/confirm";
+import { convexTravellerExists } from "../helpers/convexAssert";
+import {
+  expectEntityModalOpen,
+  modalCombobox,
+  modalField,
+  saveEntityModal,
+} from "../helpers/modal";
+import { firstSelectableOptionLabel } from "../helpers/select";
+import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 import { TravellersPage } from "../pages";
 
 test.describe("@workflow convex delete assertion", () => {

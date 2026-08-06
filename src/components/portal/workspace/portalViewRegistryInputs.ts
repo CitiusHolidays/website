@@ -62,10 +62,6 @@ export function buildPortalViewRegistryInputs(
       submitExpenseForApproval: workspace.submitExpenseForApproval,
       team: workspace.team || [],
     },
-    inbound: {
-      allowed: workspace.allowed,
-      canFetch: workspace.canFetch,
-    },
     core: {
       access: workspace.access ?? {},
       accountsJobCardCreators: workspace.accountsJobCardCreators || [],
@@ -87,6 +83,10 @@ export function buildPortalViewRegistryInputs(
       setJobCardCreatorAccess: workspace.setJobCardCreatorAccess,
       setPipelineMode: workspace.setPipelineMode as (value: PipelineMode) => void,
       summary: workspace.summary,
+    },
+    inbound: {
+      allowed: workspace.allowed,
+      canFetch: workspace.canFetch,
     },
     operations: {
       access: workspace.access ?? {},

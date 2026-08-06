@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { AnimateNumber } from "motion-plus/react";
+import Link from "next/link";
 import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
 
 function parseNumericValue(value) {

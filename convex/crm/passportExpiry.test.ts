@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { withTestEncryptionKey } from "../../test-helpers/encryptionKey";
 import { encryptPassportDetails } from "../lib/encryption";
 import {
   classifyPassportExpiryUrgency,
@@ -6,7 +7,6 @@ import {
   normalizePassportExpiryDate,
   resolvePassportExpiryForList,
 } from "./passportExpiry";
-import { withTestEncryptionKey } from "../../test-helpers/encryptionKey";
 
 describe("classifyPassportExpiryUrgency", () => {
   const referenceDate = "2026-01-01";

@@ -1,4 +1,4 @@
 export { PortalPage } from "./portalPage";
-export { QueriesPage } from "./queriesPage";
 export { ProposalsPage } from "./proposalsPage";
+export { QueriesPage } from "./queriesPage";
 export { TravellersPage } from "./travellersPage";
