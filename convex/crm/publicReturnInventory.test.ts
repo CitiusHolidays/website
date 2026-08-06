@@ -34,9 +34,11 @@ const MIGRATED_MODULES = [
   "travellers.ts",
   "ticketing.ts",
   "visa.ts",
+  "workflowNudges.ts",
 ] as const;
 
 const PUBLIC_REGISTRATION = /export\s+const\s+(\w+)\s*=\s*(query|mutation|action)\s*\(\{/g;
+const BROAD_RETURN_VALIDATOR = /returns:\s*v\.(?:any|optional)\(v\.any\(\)\)/;
 
 function registeredBlocks(source: string) {
   return Array.from(source.matchAll(PUBLIC_REGISTRATION), (match) => {
@@ -67,7 +69,7 @@ describe("migrated CRM public return inventory", () => {
       for (const registration of registrations) {
         expect(registration.block, `${moduleName}:${registration.name}`).toContain("returns:");
         expect(registration.block, `${moduleName}:${registration.name}`).not.toMatch(
-          /returns:\s*v\.(?:any|optional)\(v\.any\(\)\)/
+          BROAD_RETURN_VALIDATOR
         );
       }
     });
