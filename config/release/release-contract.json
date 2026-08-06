@@ -17,6 +17,11 @@
     "bun run diff:check",
     "bun run build"
   ],
+  "sanityStudioCiCommands": [
+    "bun install --frozen-lockfile",
+    "bun run build",
+    "bun audit --audit-level=high"
+  ],
   "dependencyAuditLevel": "high",
   "generatedSurfaces": [
     "convex/_exportSurface.ts",

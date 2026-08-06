@@ -8,12 +8,12 @@
   "license": "UNLICENSED",
   "main": "package.json",
   "scripts": {
-    "build": "bun --bun sanity build",
-    "build:production": "SANITY_DATASET=production bun --bun sanity build",
+    "build": "sanity build",
+    "build:production": "SANITY_DATASET=production sanity build",
     "deploy": "SANITY_DATASET=production sanity deploy",
     "deploy-graphql": "sanity graphql deploy",
-    "dev": "bun --bun sanity dev",
-    "start": "bun --bun sanity start"
+    "dev": "sanity dev",
+    "start": "sanity start"
   },
   "prettier": {
     "bracketSpacing": false,
@@ -22,17 +22,26 @@
     "singleQuote": true
   },
   "dependencies": {
-    "@sanity/vision": "^4.22.0",
-    "react": "^19.1",
-    "react-dom": "^19.1",
-    "sanity": "^4.22.0",
-    "styled-components": "^6.1.18"
+    "@sanity/vision": "6.9.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sanity": "6.9.0",
+    "styled-components": "6.5.0"
   },
   "devDependencies": {
-    "@sanity/eslint-config-studio": "^5.0.2",
-    "@types/react": "^19.1",
-    "eslint": "^9.28",
-    "prettier": "^3.5",
-    "typescript": "^5.8"
+    "@sanity/eslint-config-studio": "6.0.0",
+    "@types/react": "19.2.18",
+    "brace-expansion": "1.1.18",
+    "eslint": "9.39.5",
+    "flatted": "3.4.4",
+    "form-data": "4.0.6",
+    "js-yaml": "3.15.1",
+    "lodash": "4.18.1",
+    "lodash-es": "4.18.1",
+    "minimatch": "3.1.5",
+    "picomatch": "2.3.2",
+    "prettier": "3.9.6",
+    "typescript": "^5.9.3",
+    "undici": "7.29.0"
   }
 }

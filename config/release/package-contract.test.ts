@@ -11,6 +11,13 @@ function readPackageJson() {
   };
 }
 
+function readBlogPackageJson() {
+  return JSON.parse(readFileSync(resolve(root, "citius-blog/package.json"), "utf8")) as {
+    dependencies: Record<string, string>;
+    scripts: Record<string, string>;
+  };
+}
+
 describe("package and test discovery contract", () => {
   test("every local file referenced by a package script exists", () => {
     const packageJson = readPackageJson();
@@ -47,5 +54,15 @@ describe("package and test discovery contract", () => {
     expect(dependencies.groq).toBeUndefined();
     expect(dependencies["brace-expansion"]).toBe("1.1.18");
     expect(dependencies.undici).toBe("7.29.0");
+  });
+
+  test("keeps the standalone Sanity Studio on its reviewed runtime contract", () => {
+    const { dependencies, scripts } = readBlogPackageJson();
+
+    expect(dependencies.sanity).toBe("6.9.0");
+    expect(dependencies["@sanity/vision"]).toBe("6.9.0");
+    expect(dependencies.react).toBe("19.2.8");
+    expect(scripts.build).toBe("sanity build");
+    expect(scripts.build).not.toContain("bun --bun");
   });
 });

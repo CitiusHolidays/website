@@ -19,6 +19,7 @@ interface ReleaseContract {
   convexAwareBuildCommand: string;
   generatedSurfaces: string[];
   requiredCiCommands: string[];
+  sanityStudioCiCommands: string[];
 }
 
 const ROOT = resolve(import.meta.dir, "../..");
@@ -146,6 +147,18 @@ describe("release command contract", () => {
     expect(testStep).toBeGreaterThan(codegenStep);
     expect(workflow).not.toMatch(RAW_BUN_TEST_PATTERN);
     expect(workflow).toContain("bun-version: 1.3.14");
+  });
+
+  test("installs, builds, and audits the standalone Sanity Studio", () => {
+    const workflow = readFileSync(join(ROOT, ".github/workflows/required-quality.yml"), "utf8");
+
+    for (const command of releaseContract.sanityStudioCiCommands) {
+      expect(workflow).toContain(`working-directory: citius-blog\n        run: ${command}`);
+    }
+    expect(workflow.match(/working-directory: citius-blog/g)).toHaveLength(
+      releaseContract.sanityStudioCiCommands.length
+    );
+    expect(workflow).toContain("node-version: 22.12.0");
   });
 
   test("runs the same core gates on trusted pull requests and main pushes", () => {

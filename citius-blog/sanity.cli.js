@@ -7,12 +7,12 @@ export default defineCliConfig({
     dataset,
     projectId: "469zdu2i",
   },
-  /**
-   * Enable auto-updates for studios.
-   * Learn more at https://www.sanity.io/docs/cli#auto-updates
-   */
-  autoUpdates: true,
   deployment: {
     appId: "br3hzr6tzrsasp1suvmvtc89",
+    /**
+     * Enable auto-updates for studios.
+     * Learn more at https://www.sanity.io/docs/cli#auto-updates
+     */
+    autoUpdates: true,
   },
 });

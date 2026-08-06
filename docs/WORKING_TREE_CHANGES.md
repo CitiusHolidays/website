@@ -188,11 +188,12 @@ The post-MP4 remediation checkpoint completed the following local gates:
 
 | Gate | Result |
 | --- | --- |
-| `bun run test` | 1,231 passed, 0 failed across 261 files; every test file runs in an isolated global/JSDOM context |
+| `bun run test` | 1,236 passed, 0 failed with 5,771 expectations across 262 files; every test file runs in an isolated global/JSDOM context |
 | `bun run typecheck` | Passed |
 | `bun run convex:typecheck` | Passed |
 | Fresh `bunx convex codegen --typecheck enable` | Passed against the configured development deployment; no production deployment was run |
 | Focused integrated regression suite | 273 security, authorization, lifecycle, migration, payment, storage, browser, and workflow tests passed |
+| Final-review security/data-integrity suite | 57 shared-rate-limit, cleanup, storage-reference, expense-authority, and file-response tests passed |
 | `bun run build` | Passed with Next.js 16.3.0; 86 static pages generated; no deployment was run |
 | `bun run config:check` / `policy:check` / `assets:check` / `performance:check` | Passed |
 | Preview and production environment-contract preflight | Passed with safe `.invalid` placeholders and all E2E provisioning values disabled |
@@ -200,7 +201,7 @@ The post-MP4 remediation checkpoint completed the following local gates:
 | `bun run lint` | Passed with 0 errors; 1,867 acknowledged legacy warnings were reported |
 | `bun run lint:ratchet` | Passed at 0 errors / 1,865 warnings, exactly at the checked-in debt ceiling |
 | `bun audit --audit-level=high` | Passed with no high or critical advisories in the application workspace |
-| `(cd citius-blog && bun audit --audit-level=high)` | Separate Sanity workspace still reports 44 advisories (1 critical, 43 high) and is not cleared by the application audit |
+| `(cd citius-blog && bun install --frozen-lockfile && bun run build && bun audit --audit-level=high)` | Passed on Sanity 6.9.0 with Node 22.12+; the static Studio build succeeded and no high or critical advisories remain; no deployment was run |
 | Authenticated local `/portal` browser evidence | Dashboard to All Sales Queries presented pending feedback in about 3 ms, route readiness in about 105 ms, and the first real row in about 404 ms |
 | Local command-palette focus evidence | Search received focus on open; Escape closed the dialog and restored focus to the exact trigger |
 | Live production `/portal` | Still pending authorized deployment/cache activation and production browser verification |
@@ -235,9 +236,9 @@ browser retry returned a context-grounded MICE answer.
   corrected recipient behavior is covered by focused Convex tests.
 - GitHub branch protection, Vercel environment ownership, Convex deploy-key scope, backup settings,
   and production provider configuration still require explicit external inspection and authority.
-- The archived 14 July snapshot reported four moderate transitive advisories. The application
-  workspace is now clear at the high/critical audit threshold, while the separately versioned
-  `citius-blog` Sanity workspace retains the 44 advisories recorded above.
+- The archived 14 July snapshot reported four moderate transitive advisories. The application and
+  separately versioned `citius-blog` Studio workspaces are now both clear at the high/critical
+  audit threshold.
 - Free OpenRouter endpoints can be capacity constrained, so transient model failures remain possible.
 
 ## Related documentation

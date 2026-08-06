@@ -44,12 +44,20 @@ do not paste values into logs or tickets.
    production build on trusted same-repository pull requests and protected `main` runs
 5. a pre-checkout fail-closed guard for fork pull requests, so fork code is never run with a
    repository credential
-6. a high/critical dependency audit, raw lint, and the per-rule lint ratchet
+6. a Node 22.12-backed frozen install, static build, and separate high/critical audit for the
+   independently locked `citius-blog` Sanity Studio; these checks never deploy it
+7. a high/critical dependency audit, raw lint, and the per-rule lint ratchet
 
 The full lane uses a dedicated deployment-scoped development key. It is mapped to
 `CONVEX_DEPLOY_KEY` only on the credential validation, fresh codegen, and build steps. Fork pull
 requests fail before checkout and never receive the key; a maintainer must reproduce the branch in
 this repository before Required Quality can evaluate it.
+
+Reproduce the Studio lane locally with
+`cd citius-blog && bun install --frozen-lockfile && bun run build && bun audit --audit-level=high`.
+The Sanity CLI itself runs under Node because Studio 6 requires Node 22.12 or newer; Bun remains the
+package manager. See
+[`docs/adr/0011-secure-the-standalone-sanity-studio.md`](docs/adr/0011-secure-the-standalone-sanity-studio.md).
 
 The lint baseline is explicit in `config/release/lint-baseline.json`. Generated Convex surfaces are
 excluded by `biome.json`. A rule family may be burned down and then recorded with
