@@ -129,6 +129,19 @@ describe("release command contract", () => {
     expect(vercel.buildCommand).toBe(releaseContract.convexAwareBuildCommand);
   });
 
+  test("keeps production Next builds and functions on the Node runtime", () => {
+    const vercel = JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")) as {
+      bunVersion?: string;
+    };
+    const packageJson = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as {
+      scripts?: Record<string, string>;
+    };
+
+    expect(vercel.bunVersion).toBeUndefined();
+    expect(packageJson.scripts?.build).toBe("bunx convex codegen --typecheck enable && next build");
+    expect(packageJson.scripts?.start).toBe("next start");
+  });
+
   test("keeps every required gate in the read-only quality workflow", () => {
     const workflow = readFileSync(join(ROOT, ".github/workflows/required-quality.yml"), "utf8");
     for (const command of releaseContract.requiredCiCommands) {
