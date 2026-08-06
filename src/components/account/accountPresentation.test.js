@@ -11,6 +11,7 @@ describe("customer account presentation helpers", () => {
   test("formats date-only journey values without a timezone shift", () => {
     expect(formatAccountDate("2025-05-24")).toBe("24 May 2025");
     expect(formatAccountDateRange("2025-05-24", "2025-05-30")).toBe("24 May 2025 – 30 May 2025");
+    expect(formatAccountDate("2026-09-04")).toBe("4 Sept 2026");
   });
 
   test("uses safe fallbacks for missing dates and destination metadata", () => {

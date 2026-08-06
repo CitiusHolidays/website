@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, House, LogOut, MapIcon, Menu, Settings, UserRound, X } from "lucide-react";
+import { ChevronDown, House, LogOut, MapIcon, Settings, UserRound } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useState } from "react";
@@ -55,7 +55,7 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
       </button>
       {isOpen ? (
         <div
-          className="absolute top-[calc(100%+0.6rem)] right-0 z-50 w-60 rounded-sm border border-[var(--account-border)] bg-[var(--account-surface)] p-3 shadow-xl"
+          className="absolute top-[calc(100%+0.6rem)] right-0 z-50 w-60 rounded-xl border border-[var(--account-border)] bg-[var(--account-surface)] p-3 shadow-xl"
           role="menu"
         >
           <div className="border-[var(--account-border)] border-b px-2 pb-3">
@@ -65,7 +65,7 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
             <p className="mt-0.5 truncate text-[var(--account-muted)] text-xs">{user?.email}</p>
           </div>
           <Link
-            className="account-focus mt-2 flex items-center gap-2 rounded-sm px-2 py-2 text-[var(--account-ink)] text-xs hover:bg-[var(--account-paper)]"
+            className="account-focus mt-2 flex items-center gap-2 rounded-lg px-2 py-2 text-[var(--account-ink)] text-xs hover:bg-[var(--account-paper)]"
             href="/"
             onClick={closeMenu}
             role="menuitem"
@@ -74,7 +74,7 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
             Back to main site
           </Link>
           <button
-            className="account-focus flex w-full items-center gap-2 rounded-sm px-2 py-2 text-left text-[var(--account-ink)] text-xs hover:bg-[var(--account-paper)]"
+            className="account-focus flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[var(--account-ink)] text-xs hover:bg-[var(--account-paper)]"
             disabled={isLoggingOut}
             onClick={onLogout}
             role="menuitem"
@@ -89,79 +89,37 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
   );
 }
 
-export function AccountSidebar({ activeTab, onTabChange, onLogout, isLoggingOut, user }) {
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const toggleMobileMenu = useCallback(() => setIsMobileMenuOpen((value) => !value), []);
+export function AccountHeader({ activeTab, onTabChange, onLogout, isLoggingOut, user }) {
   const navHandlers = {
-    journeys: () => {
-      onTabChange("journeys");
-      setIsMobileMenuOpen(false);
-    },
-    profile: () => {
-      onTabChange("profile");
-      setIsMobileMenuOpen(false);
-    },
-    settings: () => {
-      onTabChange("settings");
-      setIsMobileMenuOpen(false);
-    },
+    journeys: () => onTabChange("journeys"),
+    profile: () => onTabChange("profile"),
+    settings: () => onTabChange("settings"),
   };
 
   return (
     <>
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[236px] flex-col bg-[var(--account-night)] px-6 py-8 text-white lg:flex">
-        <AccountMark />
-        <p className="mt-16 font-semibold text-[9px] text-white/35 uppercase tracking-[0.22em]">
-          Your account
-        </p>
-        <nav aria-label="Account navigation" className="mt-4 flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => (
-            <NavButton
-              active={activeTab === item.id}
-              icon={item.icon}
-              key={item.id}
-              label={item.label}
-              onClick={navHandlers[item.id]}
-            />
-          ))}
-        </nav>
-        <div className="mt-auto border-white/10 border-t pt-5">
-          <p className="mb-4 text-white/45 text-xs leading-5">Need a hand with your journey?</p>
-          <a
-            className="account-focus mb-5 block text-[var(--account-gold-on-night)] text-xs hover:text-white"
-            href="mailto:hello@citiusholidays.com"
-          >
-            Speak with our team <span aria-hidden="true">↗</span>
-          </a>
-        </div>
-      </aside>
-
-      <header className="relative z-50 flex items-center justify-between bg-[var(--account-night)] px-5 py-3.5 text-white lg:hidden">
-        <button
-          aria-expanded={isMobileMenuOpen}
-          aria-label={isMobileMenuOpen ? "Close account menu" : "Open account menu"}
-          className="account-focus flex size-9 items-center justify-center rounded-full text-white/80 hover:bg-white/10 hover:text-white"
-          onClick={toggleMobileMenu}
-          type="button"
-        >
-          {isMobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
-        </button>
-        <AccountMark compact />
-        <AccountControl compact isLoggingOut={isLoggingOut} onLogout={onLogout} user={user} />
-        {isMobileMenuOpen ? (
-          <div className="absolute inset-x-4 top-[calc(100%+0.5rem)] rounded-sm border border-white/10 bg-[var(--account-night)] p-4 text-white shadow-xl">
-            <p className="text-white/60 text-xs">Need a hand with your journey?</p>
-            <a
-              className="account-focus mt-2 inline-block text-[var(--account-gold-on-night)] text-xs hover:text-white"
-              href="mailto:hello@citiusholidays.com"
-            >
-              Speak with our team <span aria-hidden="true">↗</span>
-            </a>
+      <header className="sticky top-0 z-40 border-[var(--account-border)] border-b bg-[color-mix(in_srgb,var(--account-surface)_94%,transparent)] backdrop-blur-xl">
+        <div className="mx-auto grid min-h-20 max-w-[1440px] grid-cols-[1fr_auto] items-center px-5 sm:px-8 md:grid-cols-[1fr_auto_1fr] lg:px-12">
+          <AccountMark />
+          <nav aria-label="Account navigation" className="hidden h-20 items-stretch md:flex">
+            {NAV_ITEMS.map((item) => (
+              <NavButton
+                active={activeTab === item.id}
+                header
+                icon={item.icon}
+                key={item.id}
+                label={item.label}
+                onClick={navHandlers[item.id]}
+              />
+            ))}
+          </nav>
+          <div className="justify-self-end">
+            <AccountControl compact isLoggingOut={isLoggingOut} onLogout={onLogout} user={user} />
           </div>
-        ) : null}
+        </div>
       </header>
 
-      <div className="fixed inset-x-0 bottom-0 z-50 flex border-[var(--account-border)] border-t bg-[var(--account-night)] px-3 pt-2 pb-[calc(0.45rem+var(--safe-area-inset-bottom))] lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-50 flex border-[var(--account-border)] border-t bg-[var(--account-night)] px-3 pt-2 pb-[calc(0.45rem+var(--safe-area-inset-bottom))] md:hidden">
         <nav aria-label="Account navigation" className="flex w-full items-stretch justify-around">
           {NAV_ITEMS.map((item) => (
             <NavButton
@@ -178,3 +136,6 @@ export function AccountSidebar({ activeTab, onTabChange, onLogout, isLoggingOut,
     </>
   );
 }
+
+// Preserve the old export for focused consumers while the component is now a header.
+export const AccountSidebar = AccountHeader;

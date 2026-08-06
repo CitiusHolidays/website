@@ -16,7 +16,7 @@ Convex agent skills for common tasks can be installed by running
 
 ### Issue tracker
 
-Specs and implementation tickets are tracked as local Markdown under `.scratch/<feature-slug>/`. See `docs/agents/issue-tracker.md`.
+Issues and specs for this repo live as GitHub issues. Use the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

@@ -31,6 +31,7 @@ import { PortalAccessProvider } from "@/components/portal/PortalAccessContext";
 import { PortalAccountAvatar } from "@/components/portal/PortalAccountAvatar";
 import { PortalChromeProvider } from "@/components/portal/PortalChromeContext";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
+import PortalNavIcon from "@/components/portal/PortalNavIcon";
 import PortalNavLinkPending from "@/components/portal/PortalNavLinkPending";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
 import { type PortalNavShortcuts, usePortalChrome } from "@/components/portal/portalChromeState";
@@ -236,8 +237,9 @@ function MobileQuickAccess({ action, items, onNavigate, pathname }: MobileQuickA
             onNavigate={() => markPortalNavigationTarget(item.href)}
             onTouchStart={preloadPortalNavigationTarget}
           >
-            <span className="flex min-w-0 flex-1 items-center justify-between gap-2">
-              <span className="line-clamp-2">{item.label}</span>
+            <span className="flex min-w-0 flex-1 items-center gap-2.5">
+              <PortalNavIcon href={item.href} />
+              <span className="line-clamp-2 min-w-0 flex-1">{item.label}</span>
               <PortalNavLinkPending label={item.label} />
             </span>
           </Link>
@@ -824,7 +826,8 @@ function PortalNav({
                             onNavigate={() => markPortalNavigationTarget(item.href)}
                             onTouchStart={preloadPortalNavigationTarget}
                           >
-                            <span className="ps-2">{item.label}</span>
+                            <PortalNavIcon href={item.href} />
+                            <span className="min-w-0 flex-1 truncate ps-2.5">{item.label}</span>
                             <PortalNavLinkPending label={item.label} />
                           </Link>
                           {hasShortcuts && (

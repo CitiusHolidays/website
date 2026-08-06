@@ -72,13 +72,22 @@ describe("customer Account brand contract", () => {
     const accountControl = sourceBetween(
       accountSidebar,
       "export function AccountControl",
-      "export function AccountSidebar"
+      "export function AccountHeader"
     );
 
     expect(accountControl).toContain("user?.image");
     expect(accountControl).toContain("src={user.image}");
     expect(accountControl).toContain("Back to main site");
     expect(accountControl).toContain('href="/"');
+  });
+
+  test("uses a top account header instead of a persistent desktop sidebar", () => {
+    expect(accountSidebar).toContain("export function AccountHeader");
+    expect(accountSidebar).toContain('aria-label="Account navigation"');
+    expect(accountSidebar).toContain("md:grid-cols-[1fr_auto_1fr]");
+    expect(accountSidebar).toContain('className="justify-self-end"');
+    expect(accountSidebar).not.toContain("fixed inset-y-0 left-0");
+    expect(accountClient).not.toContain("lg:pl-[236px]");
   });
 
   test("omits the redundant private-account label above customer content", () => {

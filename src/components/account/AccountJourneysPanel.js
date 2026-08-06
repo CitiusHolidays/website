@@ -5,6 +5,7 @@ import { m } from "motion/react";
 import { useCallback, useState } from "react";
 import {
   ACCOUNT_CONTAINER_VARIANTS,
+  CoverImage,
   EmptyInfoCard,
   ItinerarySnapshot,
   JourneyOverviewCard,
@@ -12,14 +13,16 @@ import {
   TravelInfoCard,
   TravelInfoPlaceholder,
 } from "./AccountUi";
-import { formatAccountDateRange } from "./accountPresentation";
+import { formatAccountDateRange, getTripDestination, getTripNights } from "./accountPresentation";
 
 function JourneyDetail({ booking, onBack }) {
   const { trip, booking: bookingData } = booking;
+  const nights = getTripNights(trip);
+
   return (
     <m.div
       animate="visible"
-      className="space-y-10"
+      className="space-y-8 sm:space-y-10"
       exit={{ opacity: 0, y: 8 }}
       initial="hidden"
       variants={ACCOUNT_CONTAINER_VARIANTS}
@@ -31,25 +34,29 @@ function JourneyDetail({ booking, onBack }) {
       >
         <ChevronLeft size={16} /> Back to journeys
       </button>
-      <div>
-        <p className="mb-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.2em]">
-          Journey details
-        </p>
-        <h2 className="account-display text-4xl text-[var(--account-ink)] sm:text-5xl">
-          {trip.name}
-        </h2>
-        <p className="mt-3 text-[var(--account-muted)] text-sm">
-          {formatAccountDateRange(trip.startDate, trip.endDate)} · {bookingData.travelers} traveler
-          {bookingData.travelers === 1 ? "" : "s"}
-        </p>
-      </div>
+
+      <section className="relative min-h-[330px] overflow-hidden rounded-2xl bg-[var(--account-night)] sm:min-h-[460px]">
+        <CoverImage sizes="100vw" trip={trip} />
+        <div className="absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--account-night)_92%,transparent)] via-transparent to-black/10" />
+        <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-9">
+          <p className="text-sm text-white/70">{getTripDestination(trip)}</p>
+          <h2 className="account-display mt-2 text-4xl sm:text-5xl">{trip.name}</h2>
+          <p className="mt-3 text-sm text-white/75">
+            {formatAccountDateRange(trip.startDate, trip.endDate)} · {bookingData.travelers}{" "}
+            traveler
+            {bookingData.travelers === 1 ? "" : "s"}
+            {nights ? ` · ${nights} night${nights === 1 ? "" : "s"}` : ""}
+          </p>
+        </div>
+      </section>
+
       <ItinerarySnapshot trip={trip} />
-      <div className="grid gap-5 md:grid-cols-2">
-        <TravelInfoCard eyebrow="Flights & PNR" icon={<Plane size={17} />} title="Travel details">
-          <TravelInfoPlaceholder kind="flight" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <TravelInfoCard eyebrow="Flights & PNR" icon={<Plane size={18} />} title="Travel details">
+          <TravelInfoPlaceholder kind="flight" trip={trip} />
         </TravelInfoCard>
-        <TravelInfoCard eyebrow="Stay" icon={<BedDouble size={17} />} title="Accommodation">
-          <TravelInfoPlaceholder kind="stay" />
+        <TravelInfoCard eyebrow="Stay" icon={<BedDouble size={18} />} title="Accommodation">
+          <TravelInfoPlaceholder kind="stay" trip={trip} />
         </TravelInfoCard>
       </div>
     </m.div>
@@ -58,16 +65,16 @@ function JourneyDetail({ booking, onBack }) {
 
 export function AccountJourneysPanel({ upcomingBookings, pastBookings, cancelledBookings = [] }) {
   const [selectedBookingId, setSelectedBookingId] = useState(null);
-  const selectedBooking = upcomingBookings.find((item) => item.booking.id === selectedBookingId);
+  const selectedBooking = [...upcomingBookings, ...pastBookings, ...cancelledBookings].find(
+    (item) => item.booking.id === selectedBookingId
+  );
   const closeDetail = useCallback(() => setSelectedBookingId(null), []);
   const openFirstBooking = useCallback(
     () => setSelectedBookingId(upcomingBookings[0]?.booking.id ?? null),
     [upcomingBookings]
   );
   const openBookingFromEvent = useCallback((event) => {
-    const { currentTarget } = event;
-    const { dataset } = currentTarget;
-    const { bookingId } = dataset;
+    const { bookingId } = event.currentTarget.dataset;
     if (bookingId) {
       setSelectedBookingId(bookingId);
     }
@@ -77,39 +84,36 @@ export function AccountJourneysPanel({ upcomingBookings, pastBookings, cancelled
     return <JourneyDetail booking={selectedBooking} onBack={closeDetail} />;
   }
 
+  const [primaryJourney] = upcomingBookings;
+
   return (
     <m.div
       animate="visible"
-      className="space-y-14"
+      className="space-y-10 sm:space-y-12"
       exit={{ opacity: 0, y: 8 }}
       initial="hidden"
       variants={ACCOUNT_CONTAINER_VARIANTS}
     >
-      <section>
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <p className="mb-1 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.2em]">
-              The next chapter
-            </p>
-            <h2 className="account-display text-3xl text-[var(--account-ink)]">Upcoming journey</h2>
-          </div>
-          {upcomingBookings.length > 1 && (
+      <section aria-labelledby="upcoming-journey-heading">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <h2
+            className="account-display text-2xl text-[var(--account-ink)] sm:text-3xl"
+            id="upcoming-journey-heading"
+          >
+            Upcoming journey
+          </h2>
+          {upcomingBookings.length > 1 ? (
             <span className="text-[var(--account-muted)] text-xs">
               {upcomingBookings.length} journeys
             </span>
-          )}
+          ) : null}
         </div>
-        {upcomingBookings.length > 0 ? (
-          <div className="space-y-5">
-            {upcomingBookings.slice(0, 1).map((booking) => (
-              <JourneyOverviewCard
-                booking={booking}
-                key={booking.booking.id}
-                onOpen={openFirstBooking}
-              />
-            ))}
-            {upcomingBookings.length > 1 && (
-              <div className="grid gap-3 sm:grid-cols-2">
+
+        {primaryJourney ? (
+          <div className="space-y-4">
+            <JourneyOverviewCard booking={primaryJourney} onOpen={openFirstBooking} />
+            {upcomingBookings.length > 1 ? (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {upcomingBookings.slice(1).map((booking) => (
                   <PastJourneyCard
                     booking={booking}
@@ -119,7 +123,7 @@ export function AccountJourneysPanel({ upcomingBookings, pastBookings, cancelled
                   />
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
         ) : (
           <EmptyInfoCard
@@ -130,59 +134,65 @@ export function AccountJourneysPanel({ upcomingBookings, pastBookings, cancelled
         )}
       </section>
 
-      {!!upcomingBookings[0] && (
-        <section>
-          <ItinerarySnapshot trip={upcomingBookings[0].trip} />
-          <div className="mt-5 grid gap-5 md:grid-cols-2">
-            <TravelInfoCard
-              eyebrow="Flights & PNR"
-              icon={<Plane size={17} />}
-              title="Travel details"
-            >
-              <TravelInfoPlaceholder kind="flight" />
-            </TravelInfoCard>
-            <TravelInfoCard eyebrow="Stay" icon={<BedDouble size={17} />} title="Accommodation">
-              <TravelInfoPlaceholder kind="stay" />
-            </TravelInfoCard>
-          </div>
+      {primaryJourney ? (
+        <section aria-label="Upcoming journey travel details" className="grid gap-4 lg:grid-cols-2">
+          <TravelInfoCard eyebrow="Flights & PNR" icon={<Plane size={18} />} title="Travel details">
+            <TravelInfoPlaceholder kind="flight" trip={primaryJourney.trip} />
+          </TravelInfoCard>
+          <TravelInfoCard eyebrow="Stay" icon={<BedDouble size={18} />} title="Accommodation">
+            <TravelInfoPlaceholder kind="stay" trip={primaryJourney.trip} />
+          </TravelInfoCard>
         </section>
-      )}
+      ) : null}
 
-      <section>
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <p className="mb-1 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.2em]">
-              A look back
-            </p>
-            <h2 className="account-display text-3xl text-[var(--account-ink)]">Past journeys</h2>
-          </div>
+      <section aria-labelledby="past-journeys-heading">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <h2
+            className="account-display text-2xl text-[var(--account-ink)] sm:text-3xl"
+            id="past-journeys-heading"
+          >
+            Past journeys
+          </h2>
           <span className="text-[var(--account-muted)] text-xs">{pastBookings.length}</span>
         </div>
         {pastBookings.length ? (
-          <div className="grid gap-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {pastBookings.map((booking) => (
-              <PastJourneyCard booking={booking} key={booking.booking.id} />
+              <PastJourneyCard
+                booking={booking}
+                bookingId={booking.booking.id}
+                key={booking.booking.id}
+                onOpen={openBookingFromEvent}
+              />
             ))}
           </div>
         ) : (
-          <p className="text-[var(--account-muted)] text-sm">
+          <p className="border-[var(--account-border)] border-t py-5 text-[var(--account-muted)] text-sm">
             Your completed journeys will collect here.
           </p>
         )}
       </section>
 
-      {cancelledBookings.length > 0 && (
-        <section>
-          <p className="mb-3 font-semibold text-[10px] text-[var(--account-muted)] uppercase tracking-[0.2em]">
-            Cancelled
-          </p>
-          <div className="grid gap-3 opacity-70">
+      {cancelledBookings.length > 0 ? (
+        <section aria-labelledby="cancelled-journeys-heading">
+          <h2
+            className="mb-4 font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.16em]"
+            id="cancelled-journeys-heading"
+          >
+            Cancelled journeys
+          </h2>
+          <div className="grid gap-4 opacity-70 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {cancelledBookings.map((booking) => (
-              <PastJourneyCard booking={booking} key={booking.booking.id} />
+              <PastJourneyCard
+                booking={booking}
+                bookingId={booking.booking.id}
+                key={booking.booking.id}
+                onOpen={openBookingFromEvent}
+              />
             ))}
           </div>
         </section>
-      )}
+      ) : null}
     </m.div>
   );
 }

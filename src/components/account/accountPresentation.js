@@ -1,4 +1,18 @@
 const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})/;
+const ACCOUNT_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sept",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 function parseAccountDate(value) {
   if (value === null || value === undefined || value === "") {
@@ -26,11 +40,7 @@ export function formatAccountDate(value) {
     return "Date to follow";
   }
 
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
+  return `${date.getDate()} ${ACCOUNT_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 export function formatAccountDateRange(start, end) {

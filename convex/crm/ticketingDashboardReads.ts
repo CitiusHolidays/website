@@ -1,3 +1,5 @@
+import type { Doc } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
 import { getVisibleJob } from "./jobCardVisibility";
 import {
   filterRecordsByDateRange,
@@ -8,32 +10,24 @@ import {
 } from "./lib";
 import { isTicketAttentionStatus } from "./ticketStatusPolicy";
 
-const TICKETING_PAGE_SIZE = 100;
-
-export async function collectAllTicketingPages(ctx: any, table: string) {
-  const rows: any[] = [];
-  let cursor: string | null = null;
-  for (;;) {
-    const page: { page: any[]; isDone: boolean; continueCursor: string } = await ctx.db
-      .query(table)
-      .withIndex("by_createdAt")
-      .order("desc")
-      .paginate({ cursor, numItems: TICKETING_PAGE_SIZE });
-    rows.push(...page.page);
-    if (page.isDone) {
-      return rows;
-    }
-    cursor = page.continueCursor;
+export async function collectTicketingDashboardRows(ctx: Pick<QueryCtx, "db">) {
+  const tickets: Doc<"tickets">[] = [];
+  for await (const ticket of ctx.db.query("tickets").withIndex("by_createdAt").order("desc")) {
+    tickets.push(ticket);
   }
+
+  const pnrs: Doc<"pnrs">[] = [];
+  for await (const pnr of ctx.db.query("pnrs").withIndex("by_createdAt").order("desc")) {
+    pnrs.push(pnr);
+  }
+
+  return { pnrs, tickets };
 }
 
-export async function handleDashboard(ctx: any, args: { dateRange?: PortalDateRange }) {
+export async function handleDashboard(ctx: QueryCtx, args: { dateRange?: PortalDateRange }) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
   const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
-  const [ticketRows, pnrRows] = await Promise.all([
-    collectAllTicketingPages(ctx, "tickets"),
-    collectAllTicketingPages(ctx, "pnrs"),
-  ]);
+  const { pnrs: pnrRows, tickets: ticketRows } = await collectTicketingDashboardRows(ctx);
   const tickets = filterRecordsByDateRange(ticketRows, dateRange);
   const pnrs = filterRecordsByDateRange(pnrRows, dateRange);
   const visibleTickets = (

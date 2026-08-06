@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { AccountJourneysPanel } from "@/components/account/AccountJourneysPanel";
 import { AccountProfilePanel } from "@/components/account/AccountProfilePanel";
 import { AccountSettingsPanel } from "@/components/account/AccountSettingsPanel";
-import { AccountControl, AccountSidebar } from "@/components/account/AccountSidebar";
+import { AccountHeader } from "@/components/account/AccountSidebar";
 import { AccountHero } from "@/components/account/AccountUi";
 import { logout } from "@/lib/auth-client";
 
@@ -45,19 +45,16 @@ export default function AccountClient({ user, bookings = EMPTY_BOOKINGS }) {
   };
 
   return (
-    <div className="account-shell min-h-screen pb-24 lg:pb-0 lg:pl-[236px]">
-      <AccountSidebar
+    <div className="account-shell min-h-screen pb-24 md:pb-0">
+      <AccountHeader
         activeTab={activeTab}
         isLoggingOut={isLoggingOut}
         onLogout={handleLogout}
         onTabChange={setActiveTab}
         user={user}
       />
-      <div className="mx-auto min-h-screen max-w-[1240px] px-5 py-5 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
-        <div className="hidden items-center justify-end border-[var(--account-border)] border-b pb-5 lg:flex">
-          <AccountControl isLoggingOut={isLoggingOut} onLogout={handleLogout} user={user} />
-        </div>
-        <main className="pt-7 lg:pt-12">
+      <div className="mx-auto min-h-[calc(100vh-5rem)] max-w-[1440px] px-5 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
+        <main>
           {activeTab === "journeys" && <AccountHero user={user} />}
           <AnimatePresence mode="wait">
             {activeTab === "journeys" && (

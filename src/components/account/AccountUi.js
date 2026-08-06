@@ -5,7 +5,6 @@ import {
   CalendarDays,
   CheckCircle2,
   ChevronRight,
-  Clock3,
   Compass,
   Plane,
   UsersRound,
@@ -64,30 +63,46 @@ export function AccountMark({ compact = false }) {
     >
       <Image
         alt="Citius Holidays"
-        className="h-auto object-contain"
-        height={compact ? 28 : 42}
+        className="object-contain"
         src={Logo}
-        width={compact ? 80 : 120}
+        style={{ height: "auto", width: compact ? 80 : 120 }}
       />
     </Link>
   );
 }
 
-export function NavButton({ active, onClick, icon, label, mobile = false }) {
+export function NavButton({ active, onClick, icon, label, mobile = false, header = false }) {
+  let className = `min-w-16 flex-1 flex-col justify-center gap-1 px-3 py-2 text-[10px] ${
+    active ? "text-[var(--account-gold-on-night)]" : "text-white/55"
+  }`;
+  if (header) {
+    className = `relative min-w-28 justify-center gap-2 px-5 text-sm ${
+      active
+        ? "text-[var(--account-ink)] after:absolute after:inset-x-5 after:bottom-0 after:h-0.5 after:bg-[var(--account-gold)]"
+        : "text-[var(--account-muted)] hover:text-[var(--account-ink)]"
+    }`;
+  } else if (!mobile) {
+    className = `w-full gap-3 rounded-sm px-3 py-3 text-left text-xs tracking-[0.04em] ${
+      active ? "bg-white/10 text-white" : "text-white/55 hover:bg-white/7 hover:text-white"
+    }`;
+  }
+
   return (
     <button
       aria-current={active ? "page" : undefined}
-      className={`account-focus flex items-center transition-colors ${
-        mobile
-          ? `min-w-16 flex-1 flex-col justify-center gap-1 px-3 py-2 text-[10px] ${active ? "text-[var(--account-gold-on-night)]" : "text-white/55"}`
-          : `w-full gap-3 rounded-sm px-3 py-3 text-left text-xs tracking-[0.04em] ${active ? "bg-white/10 text-white" : "text-white/55 hover:bg-white/7 hover:text-white"}`
-      }`}
+      className={`account-focus flex items-center transition-colors ${className}`}
       onClick={onClick}
       type="button"
     >
-      <span className={active ? "text-[var(--account-gold-on-night)]" : ""}>{icon}</span>
+      <span
+        className={
+          active && !header ? "text-[var(--account-gold-on-night)]" : "text-[var(--account-gold)]"
+        }
+      >
+        {icon}
+      </span>
       <span>{label}</span>
-      {!mobile && active && (
+      {!(mobile || header) && active && (
         <span className="ml-auto size-1.5 rounded-full bg-[var(--account-gold-on-night)]" />
       )}
     </button>
@@ -130,14 +145,58 @@ export function normalizeItinerary(itinerary) {
     }));
 }
 
-function CoverImage({ trip, className = "" }) {
-  return trip?.coverImage ? (
+function getItineraryIcon(entry) {
+  if (entry.accommodation) {
+    return BedDouble;
+  }
+  if (ITINERARY_FLIGHT_RE.test(`${entry.title} ${entry.desc}`)) {
+    return Plane;
+  }
+  return Compass;
+}
+
+function normalizeGalleryImage(image, tripName) {
+  if (typeof image === "string" && image.trim()) {
+    return { alt: `${tripName || "Journey"} highlight`, src: image.trim() };
+  }
+  if (image && typeof image === "object" && typeof image.src === "string" && image.src.trim()) {
+    return {
+      alt:
+        typeof image.alt === "string" && image.alt.trim()
+          ? image.alt.trim()
+          : `${tripName || "Journey"} highlight`,
+      src: image.src.trim(),
+    };
+  }
+  return null;
+}
+
+export function getJourneyImages(trip) {
+  const images = [];
+  if (typeof trip?.coverImage === "string" && trip.coverImage.trim()) {
+    images.push({ alt: trip.name || "Journey", src: trip.coverImage.trim() });
+  }
+  if (Array.isArray(trip?.gallery)) {
+    for (const image of trip.gallery) {
+      const normalized = normalizeGalleryImage(image, trip?.name);
+      if (normalized && !images.some((candidate) => candidate.src === normalized.src)) {
+        images.push(normalized);
+      }
+    }
+  }
+  return images;
+}
+
+export function CoverImage({ trip, image, className = "", sizes = "100vw", eager = false }) {
+  const source = image ?? getJourneyImages(trip)[0];
+  return source?.src ? (
     <Image
-      alt={trip.name || "Journey"}
+      alt={source.alt || trip?.name || "Journey"}
       className={`object-cover ${className}`}
       fill
-      sizes="(max-width: 1024px) 100vw, 38vw"
-      src={trip.coverImage}
+      loading={eager ? "eager" : undefined}
+      sizes={sizes}
+      src={source.src}
     />
   ) : (
     <div
@@ -152,75 +211,109 @@ export function JourneyOverviewCard({ booking, onOpen }) {
   const { trip, booking: bookingData } = booking;
   const destination = getTripDestination(trip);
   const nights = getTripNights(trip);
+  const itinerary = normalizeItinerary(trip?.itinerary).slice(0, 4);
+
   return (
     <m.article
-      className="account-card group grid overflow-hidden rounded-sm lg:grid-cols-[minmax(220px,0.82fr)_1.3fr_minmax(180px,0.68fr)]"
+      className="grid gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)]"
       variants={ACCOUNT_ITEM_VARIANTS}
     >
-      <div className="relative min-h-56 overflow-hidden bg-[var(--account-night)] lg:min-h-72">
+      <div className="group relative min-h-[360px] overflow-hidden rounded-2xl bg-[var(--account-night)] sm:min-h-[430px] lg:min-h-[500px]">
         <CoverImage
-          className="transition-transform duration-700 fine-hover:group-hover:scale-[1.03]"
+          className="transition-transform duration-700 fine-hover:group-hover:scale-[1.025]"
+          eager
+          sizes="(max-width: 1024px) 100vw, 58vw"
           trip={trip}
         />
-      </div>
-      <div className="flex flex-col justify-between p-6 sm:p-8">
-        <div>
-          <p className="mb-3 flex items-center gap-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.16em]">
-            <Plane size={14} />
-            {getDepartureLabel(trip.startDate)}
-          </p>
-          <h2 className="account-display text-3xl text-[var(--account-ink)] leading-tight sm:text-4xl">
+        <div className="absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--account-night)_92%,transparent)] via-[color-mix(in_srgb,var(--account-night)_18%,transparent)] to-black/10" />
+        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-5 sm:p-7">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[var(--account-surface)]/95 px-3 py-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.13em] shadow-sm backdrop-blur">
+            <Plane size={14} /> {getDepartureLabel(trip.startDate)}
+          </span>
+          <StatusPill status={bookingData.status} />
+        </div>
+        <div className="absolute inset-x-0 bottom-0 p-6 text-white sm:p-8">
+          <p className="text-sm text-white/72">{destination}</p>
+          <h2 className="account-display mt-2 max-w-2xl text-3xl leading-tight sm:text-5xl">
             {trip.name}
           </h2>
-          <p className="mt-2 text-[var(--account-muted)] text-sm">{destination}</p>
-          <div className="mt-6 grid gap-3 text-[var(--account-muted)] text-sm sm:grid-cols-3">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="text-[var(--account-gold)]" size={16} />
-              {formatAccountDateRange(trip.startDate, trip.endDate)}
-            </div>
-            <div className="flex items-center gap-2">
-              <UsersRound className="text-[var(--account-gold)]" size={16} />
-              {bookingData.travelers} traveler{bookingData.travelers === 1 ? "" : "s"}
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock3 className="text-[var(--account-gold)]" size={16} />
-              {nights ? `${nights} night${nights === 1 ? "" : "s"}` : "Nights to follow"}
-            </div>
-          </div>
-          <p className="mt-5 max-w-xl text-[var(--account-muted)] text-sm leading-6">
-            Your Citius travel desk is preparing the details for this journey. We&apos;ll keep the
-            latest itinerary and stay information here as it is confirmed.
+          <p className="mt-3 text-sm text-white/78">
+            {formatAccountDateRange(trip.startDate, trip.endDate)}
+            {nights ? ` · ${nights} night${nights === 1 ? "" : "s"}` : ""}
           </p>
-        </div>
-        <div className="mt-7 flex flex-wrap items-center justify-between gap-4 border-[var(--account-border)] border-t pt-5">
-          <StatusPill status={bookingData.status} />
           <button
-            className="account-focus inline-flex items-center gap-2 font-semibold text-[var(--account-ink)] text-xs uppercase tracking-[0.12em] hover:text-[var(--account-gold)]"
+            className="account-focus mt-6 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--account-night)] px-5 font-semibold text-sm text-white shadow-lg transition-colors hover:bg-[var(--account-ink)]"
             onClick={onOpen}
             type="button"
           >
-            Open itinerary <ChevronRight size={15} />
+            View itinerary <ChevronRight size={17} />
           </button>
         </div>
       </div>
-      <aside className="border-[var(--account-border)] border-t p-6 lg:border-t-0 lg:border-l">
-        <p className="mb-4 font-semibold text-[10px] text-[var(--account-muted)] uppercase tracking-[0.15em]">
-          Journey summary
-        </p>
-        <dl className="space-y-4 text-sm">
-          <div>
-            <dt className="text-[var(--account-muted)] text-xs">Destination</dt>
-            <dd className="mt-1 font-medium text-[var(--account-ink)]">{destination}</dd>
+
+      <aside className="account-card flex flex-col rounded-2xl p-6 sm:p-8">
+        <div>
+          <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.16em]">
+            Your route
+          </p>
+          <h3 className="account-display mt-2 text-2xl text-[var(--account-ink)]">
+            Itinerary preview
+          </h3>
+        </div>
+
+        {itinerary.length ? (
+          <ol className="mt-7 flex-1 space-y-0">
+            {itinerary.map((entry, index) => {
+              const EntryIcon = getItineraryIcon(entry);
+              return (
+                <li
+                  className="relative grid grid-cols-[2rem_minmax(0,1fr)] gap-3 pb-6 last:pb-0"
+                  key={entry.key}
+                >
+                  {index < itinerary.length - 1 ? (
+                    <span className="absolute top-8 bottom-0 left-[0.95rem] w-px bg-[var(--account-border)]" />
+                  ) : null}
+                  <span className="relative z-10 flex size-8 items-center justify-center rounded-full border border-[var(--account-gold)] bg-[var(--account-surface)] text-[var(--account-gold)]">
+                    <EntryIcon size={14} />
+                  </span>
+                  <div className="min-w-0 pt-0.5">
+                    <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.12em]">
+                      {entry.day}
+                    </p>
+                    <p className="mt-1 font-medium text-[var(--account-ink)] text-sm">
+                      {entry.title}
+                    </p>
+                    <p className="mt-1 line-clamp-2 text-[var(--account-muted)] text-xs leading-5">
+                      {entry.desc || entry.accommodation || entry.location || "Details to follow"}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <div className="my-8 flex flex-1 items-center border-[var(--account-border)] border-y py-6">
+            <p className="text-[var(--account-muted)] text-sm leading-6">
+              Your Citius travel desk is preparing the day-by-day route. Confirmed details will
+              appear here.
+            </p>
           </div>
+        )}
+
+        <dl className="mt-7 grid grid-cols-2 gap-4 border-[var(--account-border)] border-t pt-5 text-sm">
           <div>
-            <dt className="text-[var(--account-muted)] text-xs">Travellers</dt>
-            <dd className="mt-1 font-medium text-[var(--account-ink)]">
+            <dt className="flex items-center gap-2 text-[var(--account-muted)] text-xs">
+              <UsersRound size={14} /> Travellers
+            </dt>
+            <dd className="mt-1.5 font-medium text-[var(--account-ink)]">
               {bookingData.travelers} traveler{bookingData.travelers === 1 ? "" : "s"}
             </dd>
           </div>
           <div>
-            <dt className="text-[var(--account-muted)] text-xs">Dates</dt>
-            <dd className="mt-1 font-medium text-[var(--account-ink)]">
+            <dt className="flex items-center gap-2 text-[var(--account-muted)] text-xs">
+              <CalendarDays size={14} /> Dates
+            </dt>
+            <dd className="mt-1.5 font-medium text-[var(--account-ink)]">
               {formatAccountDateRange(trip.startDate, trip.endDate)}
             </dd>
           </div>
@@ -297,30 +390,77 @@ export function ItinerarySnapshot({ trip }) {
 
 export function TravelInfoCard({ icon, eyebrow, title, children }) {
   return (
-    <article className="account-card rounded-sm p-5 sm:p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--account-gold-soft)] text-[var(--account-gold)]">
-            {icon}
-          </span>
-          <div>
-            <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.17em]">
-              {eyebrow}
-            </p>
-            <h3 className="account-display mt-1 text-2xl text-[var(--account-ink)]">{title}</h3>
-          </div>
+    <article className="account-card overflow-hidden rounded-2xl">
+      <div className="flex items-center gap-3 border-[var(--account-border)] border-b px-5 py-4 sm:px-6">
+        <span className="text-[var(--account-gold)]">{icon}</span>
+        <div>
+          <p className="text-[10px] text-[var(--account-muted)] uppercase tracking-[0.14em]">
+            {eyebrow}
+          </p>
+          <h3 className="account-display mt-0.5 text-[var(--account-ink)] text-xl">{title}</h3>
         </div>
-        <span className="shrink-0 rounded-full bg-[var(--account-gold-soft)] px-2.5 py-1 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.1em]">
-          Planned
-        </span>
       </div>
-      <div className="mt-5 text-[var(--account-muted)] text-sm leading-6">{children}</div>
+      <div className="text-[var(--account-muted)] text-sm leading-6">{children}</div>
     </article>
   );
 }
 
-export function TravelInfoPlaceholder({ kind }) {
+export function TravelInfoPlaceholder({ kind, trip }) {
   const isFlight = kind === "flight";
+  const itinerary = normalizeItinerary(trip?.itinerary);
+  const matchingEntries = itinerary
+    .filter((entry) =>
+      isFlight
+        ? ITINERARY_FLIGHT_RE.test(`${entry.title} ${entry.desc}`)
+        : Boolean(entry.accommodation)
+    )
+    .slice(0, 2);
+  const journeyImages = getJourneyImages(trip).slice(1);
+
+  if (matchingEntries.length) {
+    return (
+      <div className="divide-y divide-[var(--account-border)]">
+        {matchingEntries.map((entry, index) => {
+          const image = isFlight ? null : journeyImages[index];
+          return (
+            <div
+              className={`grid gap-4 p-4 sm:p-5 ${image ? "grid-cols-[7rem_minmax(0,1fr)]" : "grid-cols-[5rem_minmax(0,1fr)]"}`}
+              key={entry.key}
+            >
+              {image ? (
+                <div className="relative min-h-20 overflow-hidden rounded-xl bg-[var(--account-night)]">
+                  <CoverImage image={image} sizes="112px" trip={trip} />
+                </div>
+              ) : (
+                <div className="border-[var(--account-border)] border-r pr-4">
+                  <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.12em]">
+                    {entry.day}
+                  </p>
+                  <span className="mt-3 flex size-8 items-center justify-center rounded-full bg-[var(--account-gold-soft)] text-[var(--account-gold)]">
+                    <Plane size={15} />
+                  </span>
+                </div>
+              )}
+              <div className="min-w-0 self-center">
+                {image ? (
+                  <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.12em]">
+                    {entry.day}
+                  </p>
+                ) : null}
+                <p className="mt-1 font-medium text-[var(--account-ink)]">
+                  {isFlight ? entry.title : entry.accommodation || entry.title}
+                </p>
+                <p className="mt-1 line-clamp-2 text-[var(--account-muted)] text-xs">
+                  {entry.location || entry.desc || "Confirmed details will appear here."}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   const rows = isFlight
     ? [
         ["Departure", "To be confirmed"],
@@ -334,8 +474,8 @@ export function TravelInfoPlaceholder({ kind }) {
       ];
 
   return (
-    <div className="space-y-4">
-      <dl className="divide-y divide-[var(--account-border)] rounded-sm border border-[var(--account-border)] bg-[var(--account-paper)]">
+    <div>
+      <dl className="divide-y divide-[var(--account-border)]">
         {rows.map(([label, value]) => (
           <div className="flex items-center justify-between gap-4 px-4 py-3" key={label}>
             <dt className="font-medium text-[var(--account-ink)] text-xs">{label}</dt>
@@ -343,7 +483,7 @@ export function TravelInfoPlaceholder({ kind }) {
           </div>
         ))}
       </dl>
-      <p className="text-[var(--account-muted)] text-xs leading-5">
+      <p className="border-[var(--account-border)] border-t px-4 py-3 text-[var(--account-muted)] text-xs leading-5">
         {isFlight
           ? "Flight and PNR details will appear here after the travel desk confirms your tickets."
           : "Room and check-in details will appear here once your stays are confirmed."}
@@ -365,31 +505,39 @@ export function EmptyInfoCard({ icon, title, text }) {
 }
 
 export function PastJourneyCard({ booking, bookingId, onOpen }) {
-  const { trip, booking: bookingData } = booking;
+  const { trip } = booking;
   const content = (
     <>
-      <div className="relative size-20 shrink-0 overflow-hidden rounded-sm bg-[var(--account-night)] sm:size-24">
-        <CoverImage trip={trip} />
+      <CoverImage
+        className="transition-transform duration-700 fine-hover:group-hover:scale-[1.035]"
+        sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
+        trip={trip}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--account-night)_92%,transparent)] via-[color-mix(in_srgb,var(--account-night)_14%,transparent)] to-transparent" />
+      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-5 text-left text-white">
+        <div className="min-w-0">
+          <p className="account-display truncate text-xl sm:text-2xl">{trip.name}</p>
+          <p className="mt-1 text-white/75 text-xs">
+            {formatAccountDateRange(trip.startDate, trip.endDate)}
+            {getTripNights(trip) ? ` · ${getTripNights(trip)} nights` : ""}
+          </p>
+          <p className="mt-1 truncate text-white/62 text-xs">{getTripDestination(trip)}</p>
+        </div>
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/10 backdrop-blur-sm transition-colors group-hover:bg-white group-hover:text-[var(--account-night)]">
+          <ChevronRight size={18} />
+        </span>
       </div>
-      <div className="min-w-0 flex-1">
-        <p className="account-display truncate text-[var(--account-ink)] text-xl">{trip.name}</p>
-        <p className="mt-1 text-[var(--account-muted)] text-xs">
-          {formatAccountDateRange(trip.startDate, trip.endDate)} · {bookingData.travelers} traveler
-          {bookingData.travelers === 1 ? "" : "s"}
-        </p>
-        <p className="mt-1 text-[var(--account-muted)] text-xs">{getTripDestination(trip)}</p>
-      </div>
-      <span className="flex shrink-0 items-center gap-1 font-semibold text-[var(--account-ink)] text-xs uppercase tracking-[0.1em]">
-        {onOpen ? "View itinerary" : "View summary"}
-        <ChevronRight className="text-[var(--account-gold)]" size={18} />
-      </span>
     </>
   );
+
+  const className =
+    "account-focus group relative block aspect-[16/10] w-full overflow-hidden rounded-2xl bg-[var(--account-night)] text-left shadow-sm";
 
   if (onOpen) {
     return (
       <button
-        className="account-focus account-card group flex w-full items-center gap-4 rounded-sm p-3 text-left transition-transform fine-hover:hover:-translate-y-0.5 sm:gap-5 sm:p-4"
+        aria-label={`Open itinerary for ${trip.name}`}
+        className={className}
         data-booking-id={bookingId}
         onClick={onOpen}
         type="button"
@@ -400,10 +548,7 @@ export function PastJourneyCard({ booking, bookingId, onOpen }) {
   }
 
   return (
-    <Link
-      className="account-focus account-card group flex items-center gap-4 rounded-sm p-3 transition-transform fine-hover:hover:-translate-y-0.5 sm:gap-5 sm:p-4"
-      href={`/services/${trip.slug}`}
-    >
+    <Link aria-label={`View ${trip.name}`} className={className} href={`/services/${trip.slug}`}>
       {content}
     </Link>
   );
@@ -519,16 +664,17 @@ export function Toggle({ disabled = false, label = "Account notifications" }) {
 
 export function AccountHero({ user }) {
   return (
-    <header className="mb-10">
-      <p className="mb-2 flex items-center gap-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.2em]">
-        <Compass size={14} /> Your personal travel desk
-      </p>
-      <h1 className="account-display text-4xl text-[var(--account-ink)] leading-tight sm:text-6xl">
-        Good to see you,{" "}
-        <em className="text-[var(--account-gold)]">{user.name?.split(" ")[0] || "traveller"}.</em>
-      </h1>
-      <p className="mt-3 max-w-xl text-[var(--account-muted)] text-sm leading-6">
-        Your journeys, thoughtfully arranged in one quiet place.
+    <header className="mb-8 flex flex-col gap-2 sm:mb-10 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
+      <div>
+        <p className="mb-2 flex items-center gap-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.16em]">
+          <Compass size={14} /> Your personal travel desk
+        </p>
+        <h1 className="account-display text-3xl text-[var(--account-ink)] leading-tight sm:text-4xl">
+          Good to see you, {user.name?.split(" ")[0] || "traveller"}.
+        </h1>
+      </div>
+      <p className="max-w-md text-[var(--account-muted)] text-sm leading-6 sm:text-right">
+        Your journeys, itinerary, flights, and stays in one place.
       </p>
     </header>
   );
