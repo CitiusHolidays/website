@@ -1,11 +1,17 @@
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import { evaluateEnvironmentPreflight, readEnvironmentRegistry } from "./environment-preflight";
+
+const root = resolve(import.meta.dir, "../..");
 
 const urls = {
   BETTER_AUTH_URL: "https://preview.citiusholidays.com",
   NEXT_PUBLIC_APP_URL: "https://preview.citiusholidays.com",
   NEXT_PUBLIC_CONVEX_SITE_URL: "https://example.convex.site",
   NEXT_PUBLIC_CONVEX_URL: "https://example.convex.cloud",
+  NEXT_PUBLIC_SANITY_DATASET: "production",
+  NEXT_PUBLIC_SANITY_PROJECT_ID: "example-project",
   SITE_URL: "https://preview.citiusholidays.com",
 };
 
@@ -87,5 +93,31 @@ describe("target-aware environment preflight", () => {
     const registry = readEnvironmentRegistry();
     expect(Object.keys(registry.targets)).toEqual(["preview", "production"]);
     expect(registry.schemaVersion).toBe(1);
+  });
+
+  test("the CLI fails production closed without printing provisioning secrets", () => {
+    const provisioningSecret = "production-provisioning-must-stay-private";
+    const result = spawnSync(
+      "bun",
+      ["config/release/environment-preflight.ts", "--target", "production"],
+      {
+        cwd: root,
+        encoding: "utf8",
+        env: {
+          PATH: process.env.PATH,
+          ...urls,
+          CONVEX_DEPLOY_KEY: "prod:example|redacted",
+          CONVEX_DEPLOYMENT: "prod:example",
+          E2E_PROVISIONING_TARGET: "preview",
+          E2E_SEED_SECRET: provisioningSecret,
+          E2E_STAFF_PASSWORD: provisioningSecret,
+          RESEND_API_KEY: "redacted",
+        },
+      }
+    );
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Production must not configure E2E provisioning variables");
+    expect(`${result.stdout}\n${result.stderr}`).not.toContain(provisioningSecret);
   });
 });

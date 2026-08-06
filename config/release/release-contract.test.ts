@@ -37,6 +37,7 @@ const ENV_KEY_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const ENV_ENTRY_PATTERN = /^([A-Z][A-Z0-9_]*)=(.*)$/;
 const ENV_REFERENCE_PATTERN = /\b(?:process\.env|env)\.([A-Z][A-Z0-9_]*)\b/g;
 const RAW_BUN_TEST_PATTERN = /^\s*run:\s*bun test\s*$/m;
+const GLOBAL_CONVEX_CREDENTIAL_PATTERN = /^env:\s*\n\s+CONVEX_DEPLOY_KEY:/m;
 const IMMUTABLE_ACTION_PATTERN = /@[0-9a-f]{40}$/;
 const ACTION_REFERENCE_PATTERN = /^\s*(?:-\s*)?uses:\s*([^\s#]+)\s*$/gm;
 
@@ -145,6 +146,19 @@ describe("release command contract", () => {
     expect(testStep).toBeGreaterThan(codegenStep);
     expect(workflow).not.toMatch(RAW_BUN_TEST_PATTERN);
     expect(workflow).toContain("bun-version: 1.3.14");
+  });
+
+  test("runs the same core gates on trusted pull requests and main pushes", () => {
+    const workflow = readFileSync(join(ROOT, ".github/workflows/required-quality.yml"), "utf8");
+
+    expect(workflow).toContain("  pull_request:\n");
+    expect(workflow).toContain("  push:\n    branches: [main]");
+    expect(workflow).toContain("bun run env:preflight -- --target preview");
+    expect(workflow).toContain(
+      "github.event.pull_request.head.repo.full_name != github.repository"
+    );
+    expect(workflow).not.toContain("github.ref == 'refs/heads/main'");
+    expect(workflow).not.toMatch(GLOBAL_CONVEX_CREDENTIAL_PATTERN);
   });
 
   test("pins every third-party workflow action to an immutable commit", () => {

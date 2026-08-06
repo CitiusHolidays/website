@@ -8,6 +8,7 @@
     "bunx convex codegen --typecheck enable",
     "bunx tsc --noEmit",
     "bun audit --audit-level=high",
+    "bun run env:preflight -- --target preview",
     "bun run assets:check",
     "bun run performance:check",
     "bun run policy:check",

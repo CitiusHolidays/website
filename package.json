@@ -11,6 +11,7 @@
     "build": "bunx convex codegen --typecheck enable && bun --bun next build",
     "check": "bun run lint && bun run lint:ratchet && bun run test",
     "check:fast": "bun run test",
+    "ci:convex-key-check": "bun config/release/convex-ci-credentials.ts",
     "config:check": "bun run test -- config/release/release-contract.test.ts",
     "convex:codegen": "bunx convex codegen",
     "convex:dev": "bunx convex dev",

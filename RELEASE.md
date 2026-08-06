@@ -39,15 +39,17 @@ do not paste values into logs or tickets.
 
 1. `bun install --frozen-lockfile`
 2. diff hygiene, including atomic JavaScript-to-TypeScript entrypoint replacements
-3. the policy, asset, and performance checks on every pull request
-4. all Bun tests, application/Convex type checks, fresh Convex generation, and the production
-   build on the protected `main` push/manual lane
-5. a credential-free pull-request lane that never receives the Convex deploy key (including
-   pull requests opened from this repository)
-6. a high/critical dependency audit and the per-rule lint ratchet
+3. the policy, asset, performance, and preview-environment preflight checks
+4. fresh Convex generation followed by all Bun tests, application/Convex type checks, and the
+   production build on trusted same-repository pull requests and protected `main` runs
+5. a pre-checkout fail-closed guard for fork pull requests, so fork code is never run with a
+   repository credential
+6. a high/critical dependency audit, raw lint, and the per-rule lint ratchet
 
-The full lane uses a dedicated non-production Convex deploy key only for the protected `main`
-push/manual lane; every pull request receives the safe subset and cannot access that secret.
+The full lane uses a dedicated deployment-scoped development key. It is mapped to
+`CONVEX_DEPLOY_KEY` only on the credential validation, fresh codegen, and build steps. Fork pull
+requests fail before checkout and never receive the key; a maintainer must reproduce the branch in
+this repository before Required Quality can evaluate it.
 
 The lint baseline is explicit in `config/release/lint-baseline.json`. Generated Convex surfaces are
 excluded by `biome.json`. A rule family may be burned down and then recorded with
@@ -65,12 +67,13 @@ To reproduce the committed-range check locally, provide an explicit base commit:
 `DIFF_BASE=<base-sha> bun run diff:check`. Never infer a deployment or release base from an
 unrelated local branch.
 
-GitHub must provide a repository secret named `CONVEX_CI_DEPLOY_KEY`; the workflow maps it to the
-standard `CONVEX_DEPLOY_KEY` name only for `convex codegen`. Use a dedicated non-production CI
-deployment credential with the minimum permissions proven sufficient for generation. Do not reuse
-the production deployment key in the quality workflow. Every pull request is credential-free and
-uses the safe quality subset; the full Convex/typecheck/build lane runs only on protected `main`
-pushes or an explicitly dispatched `main` run.
+GitHub must provide a repository secret named `CONVEX_CI_DEPLOY_KEY`; the workflow validates that it
+is a deployment-scoped `dev:` key and maps it to the standard `CONVEX_DEPLOY_KEY` name only on the
+three credentialed steps. Use a dedicated non-production CI deployment credential with the minimum
+permissions proven sufficient for generation. Do not reuse the production deployment key in the
+quality workflow. GitHub repository variables must provide `NEXT_PUBLIC_CONVEX_URL`,
+`NEXT_PUBLIC_CONVEX_SITE_URL`, `NEXT_PUBLIC_SANITY_PROJECT_ID`, and
+`NEXT_PUBLIC_SANITY_DATASET`; the environment preflight fails clearly when any is missing.
 
 External activation still required: make **Required quality / Locked install and release gates** a
 required branch check after the workflow succeeds on the repository, and confirm the GitHub secret

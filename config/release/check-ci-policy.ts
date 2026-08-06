@@ -9,6 +9,12 @@ const ACTION_REFERENCE_PATTERN = /^\s*(?:-\s*)?uses:\s*([^\s#]+)\s*$/gm;
 const IMMUTABLE_ACTION_PATTERN = /@[0-9a-f]{40}$/;
 const BUN_VERSION_PATTERN = /^\s*bun-version:\s*(\S+)\s*$/m;
 const RAW_BUN_TEST_PATTERN = /^\s*(?:-\s*)?run:\s*bun test\s*$/m;
+const PULL_REQUEST_TRIGGER_PATTERN = /^\s{2}pull_request:\s*$/m;
+const PROTECTED_BRANCH_TRIGGER_PATTERN = /^\s{2}push:\s*\n\s{4}branches:\s*\[main\]\s*$/m;
+const GLOBAL_CONVEX_CREDENTIAL_PATTERN = /^env:\s*\n\s+CONVEX_DEPLOY_KEY:/m;
+const PREVIEW_PREFLIGHT_COMMAND = "bun run env:preflight -- --target preview";
+const FORK_PULL_REQUEST_CONDITION =
+  "github.event.pull_request.head.repo.full_name != github.repository";
 
 interface SourceFile {
   path: string;
@@ -97,6 +103,36 @@ export function findWorkflowPolicyViolations(workflow: string, bunVersion = EXAC
   }
   if (workflow.includes("pull_request_target")) {
     violations.push("required-quality workflow must not use pull_request_target");
+  }
+  if (!PULL_REQUEST_TRIGGER_PATTERN.test(workflow)) {
+    violations.push("required-quality workflow must run for pull requests");
+  }
+  if (!PROTECTED_BRANCH_TRIGGER_PATTERN.test(workflow)) {
+    violations.push("required-quality workflow must run for pushes to main");
+  }
+  const forkGuard = workflow.indexOf(FORK_PULL_REQUEST_CONDITION);
+  const checkoutStep = workflow.indexOf("uses: actions/checkout@");
+  const forkGuardStepEnd = workflow.indexOf("\n      - name:", forkGuard);
+  const forkGuardBlock =
+    forkGuard >= 0
+      ? workflow.slice(forkGuard, forkGuardStepEnd >= 0 ? forkGuardStepEnd : workflow.length)
+      : "";
+  if (
+    forkGuard < 0 ||
+    checkoutStep < 0 ||
+    forkGuard >= checkoutStep ||
+    !forkGuardBlock.includes("exit 1")
+  ) {
+    violations.push("fork pull requests must fail closed before repository checkout");
+  }
+  if (!workflow.includes(PREVIEW_PREFLIGHT_COMMAND)) {
+    violations.push("required-quality workflow must run the preview environment preflight");
+  }
+  if (workflow.includes("github.ref == 'refs/heads/main'")) {
+    violations.push("required quality gates must not be restricted to the main ref");
+  }
+  if (GLOBAL_CONVEX_CREDENTIAL_PATTERN.test(workflow)) {
+    violations.push("Convex CI credentials must be scoped to individual steps");
   }
   for (const actionRef of actionReferences(workflow)) {
     if (
