@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 interface EnvironmentManifest {
@@ -18,8 +18,6 @@ interface AtomicReplacementManifest {
 interface ReleaseContract {
   convexAwareBuildCommand: string;
   generatedSurfaces: string[];
-  requiredCiCommands: string[];
-  sanityStudioCiCommands: string[];
 }
 
 const ROOT = resolve(import.meta.dir, "../..");
@@ -33,14 +31,10 @@ const atomicReplacements = JSON.parse(
   readFileSync(join(ROOT, "config/release/atomic-replacements.json"), "utf8")
 ) as AtomicReplacementManifest;
 const SOURCE_EXTENSIONS = new Set([".cjs", ".js", ".jsx", ".mjs", ".ts", ".tsx"]);
-const WORKFLOW_ONLY_KEYS = new Set(["CONVEX_DEPLOY_KEY", "CONVEX_DEPLOYMENT"]);
+const RELEASE_ONLY_KEYS = new Set(["CONVEX_DEPLOY_KEY", "CONVEX_DEPLOYMENT"]);
 const ENV_KEY_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const ENV_ENTRY_PATTERN = /^([A-Z][A-Z0-9_]*)=(.*)$/;
 const ENV_REFERENCE_PATTERN = /\b(?:process\.env|env)\.([A-Z][A-Z0-9_]*)\b/g;
-const RAW_BUN_TEST_PATTERN = /^\s*run:\s*bun test\s*$/m;
-const GLOBAL_CONVEX_CREDENTIAL_PATTERN = /^env:\s*\n\s+CONVEX_DEPLOY_KEY:/m;
-const IMMUTABLE_ACTION_PATTERN = /@[0-9a-f]{40}$/;
-const ACTION_REFERENCE_PATTERN = /^\s*(?:-\s*)?uses:\s*([^\s#]+)\s*$/gm;
 
 function extension(path: string) {
   const dot = path.lastIndexOf(".");
@@ -77,7 +71,7 @@ function manifestKeys() {
 }
 
 describe("environment contract", () => {
-  test("contains sorted key names only and covers source plus workflow usage exactly", () => {
+  test("contains sorted key names only and covers source plus release usage exactly", () => {
     for (const [scope, keys] of Object.entries(manifest)) {
       expect(keys).toEqual([...keys].sort());
       expect(new Set(keys).size).toBe(keys.length);
@@ -87,7 +81,7 @@ describe("environment contract", () => {
       expect(scope.length).toBeGreaterThan(0);
     }
 
-    expect(manifestKeys()).toEqual(new Set([...sourceEnvironmentKeys(), ...WORKFLOW_ONLY_KEYS]));
+    expect(manifestKeys()).toEqual(new Set([...sourceEnvironmentKeys(), ...RELEASE_ONLY_KEYS]));
   });
 
   test("keeps the checked-in example key-only and in parity with the manifest", () => {
@@ -142,62 +136,6 @@ describe("release command contract", () => {
     expect(packageJson.scripts?.start).toBe("next start");
   });
 
-  test("keeps every required gate in the read-only quality workflow", () => {
-    const workflow = readFileSync(join(ROOT, ".github/workflows/required-quality.yml"), "utf8");
-    for (const command of releaseContract.requiredCiCommands) {
-      expect(workflow).toContain(command);
-    }
-    expect(workflow).not.toContain("bunx convex deploy");
-    expect(workflow).toContain("permissions:\n  contents: read");
-  });
-
-  test("runs fresh Convex generation before the canonical unit-test command", () => {
-    const workflow = readFileSync(join(ROOT, ".github/workflows/required-quality.yml"), "utf8");
-    const codegenStep = workflow.indexOf("bunx convex codegen --typecheck enable");
-    const testStep = workflow.indexOf("run: bun run test");
-
-    expect(codegenStep).toBeGreaterThanOrEqual(0);
-    expect(testStep).toBeGreaterThan(codegenStep);
-    expect(workflow).not.toMatch(RAW_BUN_TEST_PATTERN);
-    expect(workflow).toContain("bun-version: 1.3.14");
-  });
-
-  test("installs, builds, and audits the standalone Sanity Studio", () => {
-    const workflow = readFileSync(join(ROOT, ".github/workflows/required-quality.yml"), "utf8");
-
-    for (const command of releaseContract.sanityStudioCiCommands) {
-      expect(workflow).toContain(`working-directory: citius-blog\n        run: ${command}`);
-    }
-    expect(workflow.match(/working-directory: citius-blog/g)).toHaveLength(
-      releaseContract.sanityStudioCiCommands.length
-    );
-    expect(workflow).toContain("node-version: 22.12.0");
-  });
-
-  test("runs the same core gates on trusted pull requests and main pushes", () => {
-    const workflow = readFileSync(join(ROOT, ".github/workflows/required-quality.yml"), "utf8");
-
-    expect(workflow).toContain("  pull_request:\n");
-    expect(workflow).toContain("  push:\n    branches: [main]");
-    expect(workflow).toContain("bun run env:preflight -- --target preview");
-    expect(workflow).toContain(
-      "github.event.pull_request.head.repo.full_name != github.repository"
-    );
-    expect(workflow).not.toContain("github.ref == 'refs/heads/main'");
-    expect(workflow).not.toMatch(GLOBAL_CONVEX_CREDENTIAL_PATTERN);
-  });
-
-  test("pins every third-party workflow action to an immutable commit", () => {
-    const workflow = readFileSync(join(ROOT, ".github/workflows/required-quality.yml"), "utf8");
-    const actionRefs = [...workflow.matchAll(ACTION_REFERENCE_PATTERN)].map((match) => match[1]);
-
-    expect(actionRefs.length).toBeGreaterThan(0);
-    for (const actionRef of actionRefs) {
-      expect(actionRef).toMatch(IMMUTABLE_ACTION_PATTERN);
-    }
-    expect(workflow).not.toContain("pull_request_target");
-  });
-
   test("keeps generated Convex output outside lint scope", () => {
     const biome = JSON.parse(readFileSync(join(ROOT, "biome.json"), "utf8")) as {
       files?: { includes?: string[] };
@@ -218,13 +156,15 @@ describe("release command contract", () => {
     expect(packageJson.scripts?.test).toContain("--isolate");
     expect(packageJson.scripts?.test).toContain("--path-ignore-patterns='e2e/specs/**'");
     expect(packageJson.scripts?.["diff:check"]).toBe("bun config/release/check-diff-hygiene.ts");
-    expect(packageJson.scripts?.["policy:check"]).toBe("bun config/release/check-ci-policy.ts");
     expect(packageJson.scripts?.["performance:check"]).toBe(
       "bun config/release/check-performance-budgets.ts"
     );
     expect(packageJson.scripts?.["automation:check"]).toBe(
       "bun config/release/agent-automation-policy.ts"
     );
+    expect(packageJson.scripts?.["policy:check"]).toBeUndefined();
+    expect(packageJson.scripts?.["ci:convex-key-check"]).toBeUndefined();
+    expect(existsSync(join(ROOT, ".github/workflows/required-quality.yml"))).toBe(false);
   });
 
   test("documents the explicit-consent boundary for destructive automation", () => {

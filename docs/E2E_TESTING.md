@@ -86,8 +86,8 @@ Not wired today. When you want PR/nightly gates, you will need:
 - GitHub secrets: `E2E_STAFF_PASSWORD`, `E2E_SEED_SECRET`, and optionally `E2E_BASE_URL`
 
 Track future Playwright CI activation in a repository-owned issue or change plan. The removed
-scratch backlog is not a source of truth; `bun run check` and `required-quality.yml` currently do
-not run Playwright interaction specs.
+scratch backlog is not a source of truth; `bun run check` currently does not run Playwright
+interaction specs.
 
 ## Related docs
 

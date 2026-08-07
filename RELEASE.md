@@ -20,7 +20,7 @@ either file.
 | `browser` | Next.js/Vercel environment. Every key is intentionally browser-visible. Never put a secret in a `NEXT_PUBLIC_*` key. |
 | `nextServer` | Next.js server/Vercel environment only. |
 | `convexRuntime` | The selected Convex deployment's environment settings. Preview and production are separate. |
-| `ciDeploy` | GitHub/Vercel secret or platform/Convex CLI-provided value. |
+| `ciDeploy` | Vercel secret or platform/Convex CLI-provided value. |
 | `oneTimeOperations` | Convex environment only while the reviewed maintenance/bootstrap operation needs it; rotate or remove afterward when safe. |
 
 Keys listed in more than one scope must be configured in each runtime that consumes them.
@@ -33,25 +33,16 @@ Before activation, compare the key names in the manifest with Vercel Preview, Ve
 the Convex preview defaults, and the Convex production deployment. Compare names and presence only;
 do not paste values into logs or tickets.
 
-## Required CI
+## Local quality gates
 
-`.github/workflows/required-quality.yml` is the required read-only quality workflow. It performs:
+The repository does not run a GitHub Actions quality workflow. The previous Required Quality lane
+was retired because it depended on repository variables and a non-production Convex credential
+that were never configured, so every push failed before application tests ran.
 
-1. `bun install --frozen-lockfile`
-2. diff hygiene, including atomic JavaScript-to-TypeScript entrypoint replacements
-3. the policy, asset, performance, and preview-environment preflight checks
-4. fresh Convex generation followed by all Bun tests, application/Convex type checks, and the
-   production build on trusted same-repository pull requests and protected `main` runs
-5. a pre-checkout fail-closed guard for fork pull requests, so fork code is never run with a
-   repository credential
-6. a Node 22.12-backed frozen install, static build, and separate high/critical audit for the
-   independently locked `citius-blog` Sanity Studio; these checks never deploy it
-7. a high/critical dependency audit, raw lint, and the per-rule lint ratchet
-
-The full lane uses a dedicated deployment-scoped development key. It is mapped to
-`CONVEX_DEPLOY_KEY` only on the credential validation, fresh codegen, and build steps. Fork pull
-requests fail before checkout and never receive the key; a maintainer must reproduce the branch in
-this repository before Required Quality can evaluate it.
+Before merging or deploying, run `bun run diff:check`, `bun run check`, `bun run typecheck`,
+`bun run convex:typecheck`, `bun run assets:check`, `bun run performance:check`, and
+`bun audit --audit-level=high`. Run a fresh Convex codegen and the configured build only after
+identifying the exact non-production deployment target.
 
 Reproduce the Studio lane locally with
 `cd citius-blog && bun install --frozen-lockfile && bun run build && bun audit --audit-level=high`.
@@ -67,25 +58,12 @@ weakening the repository-wide comparison.
 
 Run `bun run diff:check` before committing a migration bundle. The atomic replacement manifest
 lists entrypoints that may be deleted only when an allowed successor is present in the same
-candidate change. CI evaluates the committed range; the local command evaluates tracked, staged,
-and untracked state so the complete working tree can be checked before staging. A passing local
-check does not make a partial staged commit safe—the committed range must pass in CI as well.
+candidate change. The local command evaluates tracked, staged, and untracked state so the complete
+working tree can be checked before staging.
 
 To reproduce the committed-range check locally, provide an explicit base commit:
 `DIFF_BASE=<base-sha> bun run diff:check`. Never infer a deployment or release base from an
 unrelated local branch.
-
-GitHub must provide a repository secret named `CONVEX_CI_DEPLOY_KEY`; the workflow validates that it
-is a deployment-scoped `dev:` key and maps it to the standard `CONVEX_DEPLOY_KEY` name only on the
-three credentialed steps. Use a dedicated non-production CI deployment credential with the minimum
-permissions proven sufficient for generation. Do not reuse the production deployment key in the
-quality workflow. GitHub repository variables must provide `NEXT_PUBLIC_CONVEX_URL`,
-`NEXT_PUBLIC_CONVEX_SITE_URL`, `NEXT_PUBLIC_SANITY_PROJECT_ID`, and
-`NEXT_PUBLIC_SANITY_DATASET`; the environment preflight fails clearly when any is missing.
-
-External activation still required: make **Required quality / Locked install and release gates** a
-required branch check after the workflow succeeds on the repository, and confirm the GitHub secret
-is present. This task does not change branch protection.
 
 ## Preview and production deployment
 
@@ -122,7 +100,7 @@ before production activation.
    that it does not contain production data.
 6. Run any reviewed one-time migration against the intended deployment explicitly. Never infer the
    target from a local shell session.
-7. Promote only after required CI, signed-in workflow checks, and preview smoke tests are green.
+7. Promote only after local quality gates, signed-in workflow checks, and preview smoke tests are green.
 8. After production activation, verify auth, one read/write CRM smoke path, mail, payment webhook
    health, AI terminal states, logs, and scheduled jobs without using destructive test data.
 

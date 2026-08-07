@@ -157,9 +157,9 @@ the wrong destination fails with both the deleted path and expected successor in
 
 - `config/environment.manifest.json` is the canonical key-only environment inventory, with
   `.env.example` kept value-free.
-- `.github/workflows/required-quality.yml` adds a locked, read-only CI path for install, diff
-  hygiene, tests, application typecheck, fresh Convex generation/typecheck, high/critical audit, and
-  the lint ratchet.
+- The locked Required Quality workflow described by this historical snapshot was later retired
+  because its repository variables and non-production Convex credential were never configured.
+  The same checks remain available as explicit local and deployment-target-aware commands.
 - `config/release/release-contract.json`, `vercel.json`, and `RELEASE.md` protect and explain the
   Convex-aware Vercel build command, preview/production key separation, activation, and rollback.
 - The lint ratchet blocks per-rule regressions while the older all-files lint backlog is burned down.

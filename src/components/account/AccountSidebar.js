@@ -14,6 +14,15 @@ const NAV_ITEMS = [
   { icon: <Settings size={17} />, id: "settings", label: "Settings" },
 ];
 
+const ACCOUNT_MENU_STYLE = {
+  "--account-border": "var(--color-brand-border)",
+  "--account-gold": "var(--color-public-orange-ink)",
+  "--account-ink": "var(--color-public-ink)",
+  "--account-muted": "var(--color-public-muted)",
+  "--account-paper": "var(--color-public-paper)",
+  "--account-surface": "var(--color-public-surface)",
+};
+
 export function AccountControl({ user, onLogout, isLoggingOut, compact = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const initials = (user?.name || user?.email || "T").slice(0, 1).toUpperCase();
@@ -70,6 +79,7 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
       }
       headerClassName="border-[var(--account-border)] border-b px-2 pb-3"
       menuClassName="w-60 rounded-xl border-[var(--account-border)] bg-[var(--account-surface)] p-3 shadow-xl"
+      menuStyle={ACCOUNT_MENU_STYLE}
       onOpenChange={setIsOpen}
       open={isOpen}
       sideOffset={9.6}

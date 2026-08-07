@@ -1,27 +1,6 @@
 {
   "schemaVersion": 1,
   "convexAwareBuildCommand": "bunx convex deploy --cmd 'bun run build'",
-  "requiredCiCommands": [
-    "bun install --frozen-lockfile",
-    "bun run test",
-    "bun run typecheck",
-    "bunx convex codegen --typecheck enable",
-    "bunx tsc --noEmit",
-    "bun audit --audit-level=high",
-    "bun run env:preflight -- --target preview",
-    "bun run assets:check",
-    "bun run performance:check",
-    "bun run policy:check",
-    "bun run lint",
-    "bun run lint:ratchet",
-    "bun run diff:check",
-    "bun run build"
-  ],
-  "sanityStudioCiCommands": [
-    "bun install --frozen-lockfile",
-    "bun run build",
-    "bun audit --audit-level=high"
-  ],
   "dependencyAuditLevel": "high",
   "generatedSurfaces": [
     "convex/_exportSurface.ts",

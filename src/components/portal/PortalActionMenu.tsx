@@ -3,6 +3,7 @@
 
 import {
   Children,
+  type CSSProperties,
   isValidElement,
   type MouseEventHandler,
   type ReactElement,
@@ -24,6 +25,7 @@ interface PortalActionMenuProps {
   header?: ReactNode;
   headerClassName?: string;
   menuClassName?: string;
+  menuStyle?: CSSProperties & Partial<Record<`--${string}`, string | number>>;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   sideOffset?: number;
@@ -79,6 +81,7 @@ export function PortalActionMenu({
   header,
   headerClassName = "border-brand-border border-b px-4 py-3",
   menuClassName = "",
+  menuStyle,
   onOpenChange,
   open,
   sideOffset = 8,
@@ -171,6 +174,7 @@ export function PortalActionMenu({
             style={(state) => {
               const duration = state.open ? 150 : 120;
               return {
+                ...menuStyle,
                 display: state.open ? undefined : "none",
                 opacity: state.open ? 1 : 0,
                 pointerEvents: state.open ? undefined : "none",

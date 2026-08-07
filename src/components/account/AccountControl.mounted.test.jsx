@@ -103,6 +103,9 @@ describe("AccountControl", () => {
     expect(popup?.className).toContain("border-[var(--account-border)]");
     expect(popup?.className).toContain("bg-[var(--account-surface)]");
     expect(popup?.className).toContain("p-3");
+    expect(popup?.style.getPropertyValue("--account-surface")).toBe("var(--color-public-surface)");
+    expect(popup?.style.getPropertyValue("--account-ink")).toBe("var(--color-public-ink)");
+    expect(popup?.style.getPropertyValue("--account-gold")).toBe("var(--color-public-orange-ink)");
 
     await act(async () => {
       document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
