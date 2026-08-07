@@ -1,6 +1,7 @@
 "use client";
 
 import { Select } from "@/components/portal/PortalModalForm";
+import { Button } from "@/components/ui/application-button";
 import { TICKETING_SCOPE_OPTIONS } from "@/lib/portal/constants";
 import { jobCardSelectOptions } from "@/lib/portal/entityModalLinks";
 import {
@@ -395,13 +396,13 @@ export function AssignTicketingOwnerFields({
           />
         </div>
         {canAssignTicketing(access) && access?.staffId && (
-          <button
+          <Button
             className="portal-outline-btn mb-1 transition-transform duration-150 ease-out active:scale-[0.96]"
             onClick={() => updateForm("staffId", access.staffId)}
             type="button"
           >
             Assign to me
-          </button>
+          </Button>
         )}
       </div>
     </>

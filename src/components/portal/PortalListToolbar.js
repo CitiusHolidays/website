@@ -5,6 +5,9 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { PortalDateRangeFilter } from "@/components/portal/PortalDateRangeFilter";
 import { PortalListFilters } from "@/components/portal/PortalListFilters";
+import { Button } from "@/components/ui/application-button";
+import { Input } from "@/components/ui/application-field";
+import { Select } from "@/components/ui/application-select";
 import { getViewFilterSearchKeys } from "@/lib/portal/listFilterConfig";
 import { enrichJobCardFilterOptions, filterScopeRows } from "@/lib/portal/listFilters";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
@@ -94,7 +97,7 @@ export default function PortalListToolbar({
 
         <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
           {collapsibleFilters && hasFilterControls ? (
-            <button
+            <Button
               aria-expanded={filtersOpen}
               className={`portal-toolbar-btn h-11 border border-brand-border bg-white text-brand-dark transition-[scale,color,background-color,border-color] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/30 active:scale-[0.96] ${
                 filtersOpen ? "border-citius-blue text-citius-blue" : ""
@@ -109,20 +112,21 @@ export default function PortalListToolbar({
                 className={`transition-transform duration-200 ease-[var(--portal-ease-out)] ${filtersOpen ? "rotate-180" : ""}`}
                 size={14}
               />
-            </button>
+            </Button>
           ) : null}
 
           {showSearch ? (
-            <label className="relative min-w-0 shrink">
+            <label className="relative min-w-0 shrink" htmlFor="portal-list-search">
               <span className="sr-only">Search this page</span>
               <Search
                 aria-hidden
                 className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-brand-muted/60"
                 size={16}
               />
-              <input
+              <Input
                 aria-label="Search this page"
                 className="portal-toolbar-control h-11 w-full min-w-[10rem] rounded-lg border border-brand-border bg-white pr-3 pl-9 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 sm:w-56"
+                id="portal-list-search"
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search"
                 value={search}
@@ -167,26 +171,20 @@ export default function PortalListToolbar({
                 />
               ) : null}
               {showJobCardFilter ? (
-                <label className="relative shrink-0">
-                  <span className="sr-only">Job Card</span>
-                  <select
+                <div className="relative shrink-0">
+                  <label className="sr-only" htmlFor="portal-list-job-card-filter">
+                    Job Card
+                  </label>
+                  <Select
                     aria-label="Filter by job card"
                     className="portal-toolbar-control portal-period-select h-11 w-auto min-w-[11rem] max-w-full appearance-none rounded-lg border border-brand-border bg-white px-2 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
-                    onChange={(event) => setJobCardFilter(event.target.value)}
+                    iconClassName="pointer-events-none absolute top-1/2 right-3 m-0 -translate-y-1/2 text-brand-muted/60"
+                    id="portal-list-job-card-filter"
+                    onValueChange={setJobCardFilter}
+                    options={jobCardOptions}
                     value={jobCardFilter}
-                  >
-                    {jobCardOptions.map((option) => (
-                      <option key={option.value || "all"} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    aria-hidden
-                    className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-brand-muted/60"
-                    size={16}
                   />
-                </label>
+                </div>
               ) : null}
               <PortalListFilters
                 config={listFilterConfig}
@@ -199,7 +197,7 @@ export default function PortalListToolbar({
                 view={view}
               />
               {onClearAllFilters ? (
-                <button
+                <Button
                   className={`portal-small-btn h-11 shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96] ${
                     filtersActive ? "" : "pointer-events-none invisible"
                   }`}
@@ -209,7 +207,7 @@ export default function PortalListToolbar({
                   type="button"
                 >
                   Clear filters
-                </button>
+                </Button>
               ) : null}
             </div>
           </m.div>

@@ -2,8 +2,9 @@
 
 import { ChevronDown, Plus } from "lucide-react";
 import { useState } from "react";
+import { PortalActionMenu } from "@/components/portal/PortalActionMenu";
+import { Button } from "@/components/ui/application-button";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 export function DashboardQuickActions({ has, openModal }) {
   const actions = [
@@ -39,53 +40,45 @@ export function DashboardQuickActions({ has, openModal }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <button
+      <Button
         className="portal-primary-btn inline-flex gap-2"
         onClick={primary.onClick}
         type="button"
       >
         <Plus size={16} />
         {primary.label}
-      </button>
+      </Button>
       {secondary.length > 0 ? (
-        <div className="relative">
-          <button
-            aria-expanded={menuOpen}
-            className="portal-outline-btn inline-flex items-center gap-2"
-            onClick={() => setMenuOpen((open) => !open)}
-            type="button"
-          >
-            Create
-            <ChevronDown size={14} />
-          </button>
-          {menuOpen ? (
-            <>
-              <button
-                aria-label="Close create menu"
-                className={`fixed inset-0 ${PORTAL_Z.dropdownBackdrop} cursor-default bg-transparent`}
-                onClick={() => setMenuOpen(false)}
-                type="button"
-              />
-              <div
-                className={`absolute left-0 ${PORTAL_Z.dropdown} z-10 mt-2 min-w-[12rem] rounded-lg border border-brand-border bg-white p-2 shadow-lg`}
-              >
-                {secondary.map((item) => (
-                  <button
-                    className="block w-full rounded-md px-3 py-2 text-left text-brand-dark text-sm hover:bg-brand-light"
-                    key={item.label}
-                    onClick={() => {
-                      setMenuOpen(false);
-                      item.onClick();
-                    }}
-                    type="button"
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : null}
-        </div>
+        <PortalActionMenu
+          align="left"
+          aria-label="Create actions"
+          contentClassName="p-2"
+          fitContent
+          menuClassName="min-w-[12rem] rounded-lg"
+          onOpenChange={setMenuOpen}
+          open={menuOpen}
+          trigger={(props) => (
+            <Button
+              {...props}
+              className="portal-outline-btn inline-flex items-center gap-2"
+              type="button"
+            >
+              Create
+              <ChevronDown size={14} />
+            </Button>
+          )}
+        >
+          {secondary.map((item) => (
+            <Button
+              className="block w-full rounded-md px-3 py-2 text-left text-brand-dark text-sm hover:bg-brand-light"
+              key={item.label}
+              onClick={item.onClick}
+              type="button"
+            >
+              {item.label}
+            </Button>
+          ))}
+        </PortalActionMenu>
       ) : null}
     </div>
   );

@@ -3,6 +3,8 @@
 import { api } from "@convex/_generated/api";
 import { usePaginatedQuery } from "convex/react";
 import { useState } from "react";
+import { PortalTooltip } from "@/components/portal/PortalTooltip";
+import { Button } from "@/components/ui/application-button";
 import { formatDisplayDate } from "@/lib/formatDate";
 import {
   buildTravelBatchModalInitial,
@@ -30,7 +32,7 @@ export function JobCardTravelBatchesCell({
   const batches = expanded ? batchPage.results : [];
   return (
     <div className="min-w-[220px] space-y-1.5 text-xs">
-      <button
+      <Button
         aria-expanded={expanded}
         className="portal-small-btn"
         onClick={() => setExpanded((current) => !current)}
@@ -39,7 +41,7 @@ export function JobCardTravelBatchesCell({
         {expanded
           ? "Hide Travel Batches"
           : `View Travel Batches${job.travelBatchCount ? ` (${job.travelBatchCount})` : ""}`}
-      </button>
+      </Button>
       {expanded && batchPage.status === "LoadingFirstPage" ? (
         <span className="block text-brand-muted">Loading Travel Batches…</span>
       ) : null}
@@ -60,14 +62,16 @@ export function JobCardTravelBatchesCell({
                 {batch.travelStartDate ? formatDisplayDate(batch.travelStartDate) : "—"}
                 {batch.travelEndDate ? ` – ${formatDisplayDate(batch.travelEndDate)}` : ""}
               </div>
-              <div className="text-brand-muted" title={formatTravelBatchOwnerSummary(batch)}>
-                {formatTravelBatchOwnerSummary(batch)}
-                {batch.tourManagerName ? ` · TM ${batch.tourManagerName}` : ""}
-              </div>
+              <PortalTooltip content={formatTravelBatchOwnerSummary(batch)}>
+                <div className="text-brand-muted">
+                  {formatTravelBatchOwnerSummary(batch)}
+                  {batch.tourManagerName ? ` · TM ${batch.tourManagerName}` : ""}
+                </div>
+              </PortalTooltip>
               <div className="flex flex-wrap items-center gap-2 pt-0.5">
                 <StatusBadge domain="jobCard" status={batch.status} />
                 {canManage ? (
-                  <button
+                  <Button
                     className="portal-small-btn"
                     onClick={() =>
                       openModal(
@@ -78,22 +82,22 @@ export function JobCardTravelBatchesCell({
                     type="button"
                   >
                     Edit
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             </div>
           ))
         : null}
       {expanded && batchPage.status === "CanLoadMore" ? (
-        <button className="portal-small-btn" onClick={() => batchPage.loadMore(4)} type="button">
+        <Button className="portal-small-btn" onClick={() => batchPage.loadMore(4)} type="button">
           Load more Travel Batches
-        </button>
+        </Button>
       ) : null}
       {expanded && batchPage.status === "LoadingMore" ? (
         <span className="block text-brand-muted">Loading more…</span>
       ) : null}
       {canManage ? (
-        <button
+        <Button
           className="portal-small-btn mt-1"
           onClick={() =>
             openModal(
@@ -104,7 +108,7 @@ export function JobCardTravelBatchesCell({
           type="button"
         >
           + Batch
-        </button>
+        </Button>
       ) : null}
     </div>
   );

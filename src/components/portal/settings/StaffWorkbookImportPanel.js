@@ -5,6 +5,7 @@ import { useConvex, useMutation } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useReducer } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
+import { Checkbox } from "@/components/ui/application-checkbox";
 import { parseStaffWorkbookFile } from "@/lib/portal/staffWorkbookImport";
 
 const ACCEPTABLE_ACTIONS = new Set(["created", "updated"]);
@@ -117,15 +118,15 @@ function PreviewRowCard({ row, accepted, onToggle }) {
   return (
     <div className="rounded-lg border border-brand-border bg-brand-light/30 p-3 text-sm">
       <div className="flex flex-wrap items-start gap-3">
-        <label className="mt-1 flex items-center gap-2">
-          <input
-            checked={canAccept && accepted}
-            disabled={!canAccept}
-            onChange={(event) => onToggle(row.emailNormalized, event.target.checked)}
-            type="checkbox"
-          />
+        <Checkbox
+          aria-label={`Accept ${row.email || row.name || "row"}`}
+          checked={canAccept && accepted}
+          className="mt-1 flex items-center gap-2"
+          disabled={!canAccept}
+          onCheckedChange={(checked) => onToggle(row.emailNormalized, checked)}
+        >
           <span className="sr-only">Accept row</span>
-        </label>
+        </Checkbox>
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <ActionBadge action={row.action} />
@@ -483,15 +484,15 @@ export function StaffWorkbookImportPanel() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="font-semibold text-citius-blue text-sm">Review changes</div>
               {applicableRows.length > 0 ? (
-                <label className="flex items-center gap-2 text-brand-dark text-sm">
-                  <input
-                    checked={allApplicableAccepted}
-                    disabled={busy}
-                    onChange={(event) => toggleAllApplicable(event.target.checked)}
-                    type="checkbox"
-                  />
+                <Checkbox
+                  aria-label={`Accept all created/updated rows (${applicableRows.length})`}
+                  checked={allApplicableAccepted}
+                  className="flex items-center gap-2 text-brand-dark text-sm"
+                  disabled={busy}
+                  onCheckedChange={toggleAllApplicable}
+                >
                   Accept all created/updated rows ({applicableRows.length})
-                </label>
+                </Checkbox>
               ) : null}
             </div>
             <div className="max-h-[32rem] space-y-3 overflow-y-auto pr-1">

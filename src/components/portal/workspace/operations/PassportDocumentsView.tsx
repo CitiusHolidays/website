@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { Button } from "@/components/ui/application-button";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { runMutation } from "@/lib/portal/runMutation";
@@ -188,7 +189,7 @@ export function PassportDocumentsView({
               <div className="flex flex-wrap gap-2">
                 {row.hasPassportScan ? (
                   <>
-                    <button
+                    <Button
                       className="portal-small-btn inline-flex items-center gap-1 bg-citius-blue text-white hover:bg-citius-blue/90"
                       disabled={viewingTravellerId !== null}
                       onClick={() => handleView(String(row.id))}
@@ -202,20 +203,20 @@ export function PassportDocumentsView({
                       ) : (
                         "Decrypt & View"
                       )}
-                    </button>
+                    </Button>
                     {has(P.MANAGE_VISA) && (
-                      <button
+                      <Button
                         className="portal-small-btn border-red-200 text-red-600 hover:bg-red-50"
                         onClick={() => handleDeletePassport(String(row.fullName), String(row.id))}
                         type="button"
                       >
                         Delete Document
-                      </button>
+                      </Button>
                     )}
                   </>
                 ) : (
                   has(P.MANAGE_VISA) && (
-                    <button
+                    <Button
                       className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
                       onClick={() =>
                         setUploadTraveller(row as PassportDocumentsViewProps["travellers"][number])
@@ -223,7 +224,7 @@ export function PassportDocumentsView({
                       type="button"
                     >
                       {row.passportStatus === "Received" ? "Upload Scan" : "Upload Passport Scan"}
-                    </button>
+                    </Button>
                   )
                 )}
                 {has(P.MANAGE_TRAVELLERS) && (

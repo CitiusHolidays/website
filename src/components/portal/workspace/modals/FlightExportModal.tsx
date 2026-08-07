@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { Button } from "@/components/ui/application-button";
 import type { PortalFlightItineraryGroup, PortalJobCardOption } from "../portalViewTypes";
 import { formatConvexError } from "../portalWorkspaceListHelpers";
 import {
@@ -137,21 +138,21 @@ export function FlightExportModal({
           </div>
         )}
         <div className="flex justify-end gap-2">
-          <button
+          <Button
             className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
             onClick={closeAndReset}
             type="button"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             className="portal-primary-btn disabled:opacity-60"
             disabled={!jobCardId || groups.length === 0}
             onClick={handleExport}
             type="button"
           >
             Download Spreadsheet
-          </button>
+          </Button>
         </div>
       </div>
     </ImportModalShell>

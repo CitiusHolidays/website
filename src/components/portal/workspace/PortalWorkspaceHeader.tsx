@@ -7,6 +7,7 @@ import { PortalActionMenu } from "@/components/portal/PortalActionMenu";
 import { PortalCommandPaletteTrigger } from "@/components/portal/PortalCommandPalette";
 import PortalListToolbar from "@/components/portal/PortalListToolbar";
 import { jobCardFilterOptions } from "@/components/portal/workspace/portalOperationsHelpers";
+import { Button } from "@/components/ui/application-button";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import { canAssignTourManagers, canHeadAssignQueryTeams } from "@/lib/portal/permissions";
 import type { PortalViewMeta } from "@/lib/portal/workspaceContract";
@@ -80,14 +81,14 @@ function HeaderMoreMenu({
       onOpenChange={setOpen}
       open={open}
       trigger={(props) => (
-        <button {...props} className="portal-small-btn bg-white" type="button">
+        <Button {...props} className="portal-small-btn bg-white" type="button">
           <MoreHorizontal size={16} />
           More
-        </button>
+        </Button>
       )}
     >
       {actions.map((action) => (
-        <button
+        <Button
           className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-brand-dark text-sm hover:bg-brand-light"
           key={action.label}
           onClick={() => {
@@ -99,7 +100,7 @@ function HeaderMoreMenu({
         >
           {action.icon}
           {action.label}
-        </button>
+        </Button>
       ))}
     </PortalActionMenu>
   );
@@ -134,10 +135,10 @@ function HeaderActions({
           ]}
           label="Traveller list actions"
         />
-        <button className="portal-primary-btn" onClick={() => openModal("traveller")} type="button">
+        <Button className="portal-primary-btn" onClick={() => openModal("traveller")} type="button">
           <Plus size={16} />
           Add Traveller
-        </button>
+        </Button>
       </div>
     );
   }
@@ -159,10 +160,10 @@ function HeaderActions({
           ]}
           label="Ticketing list actions"
         />
-        <button className="portal-primary-btn" onClick={() => openModal("ticket")} type="button">
+        <Button className="portal-primary-btn" onClick={() => openModal("ticket")} type="button">
           <Plus size={16} />
           Issue Ticket
-        </button>
+        </Button>
       </div>
     );
   }
@@ -184,10 +185,10 @@ function HeaderActions({
           ]}
           label="Flights list actions"
         />
-        <button className="portal-primary-btn" onClick={() => openModal("pnr")} type="button">
+        <Button className="portal-primary-btn" onClick={() => openModal("pnr")} type="button">
           <Plus size={16} />
           Add PNR
-        </button>
+        </Button>
       </div>
     );
   }
@@ -209,10 +210,10 @@ function HeaderActions({
           ]}
           label="Hotels and rooming actions"
         />
-        <button className="portal-primary-btn" onClick={() => openModal("hotel")} type="button">
+        <Button className="portal-primary-btn" onClick={() => openModal("hotel")} type="button">
           <Plus size={16} />
           Add Hotel
-        </button>
+        </Button>
       </div>
     );
   }
@@ -253,14 +254,14 @@ function HeaderActions({
           ]}
           label="Visa list actions"
         />
-        <button
+        <Button
           className="portal-primary-btn"
           onClick={() => openModal("visa_create")}
           type="button"
         >
           <Plus size={16} />
           Create Visa Record
-        </button>
+        </Button>
       </div>
     );
   }
@@ -283,14 +284,14 @@ function HeaderActions({
     return null;
   }
   return (
-    <button
+    <Button
       className="portal-primary-btn shrink-0 whitespace-nowrap"
       onClick={() => openModal(action[0])}
       type="button"
     >
       <Plus size={16} />
       {action[1]}
-    </button>
+    </Button>
   );
 }
 
@@ -403,7 +404,7 @@ export function WorkspacePagination({ pagination }: { pagination?: PortalPaginat
         {pagination.canLoadMore ? "; more are available." : "; all available records are loaded."}
       </span>
       {pagination.canLoadMore || pagination.isLoadingMore ? (
-        <button
+        <Button
           aria-busy={pagination.isLoadingMore || undefined}
           className="portal-small-btn bg-white"
           disabled={pagination.isLoadingMore}
@@ -411,7 +412,7 @@ export function WorkspacePagination({ pagination }: { pagination?: PortalPaginat
           type="button"
         >
           {pagination.isLoadingMore ? "Loading more…" : "Load more records"}
-        </button>
+        </Button>
       ) : null}
     </div>
   );

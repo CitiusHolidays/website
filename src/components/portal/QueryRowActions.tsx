@@ -1,6 +1,5 @@
-"use client";
-
 // biome-ignore-all lint/performance/noJsxPropsBind: action menus use the required render-prop trigger API.
+"use client";
 
 import { MoreHorizontal } from "lucide-react";
 import { m, useMotionValue } from "motion/react";
@@ -59,19 +58,9 @@ function menuItemClassName(action: ActionElement): string {
     : `${base} text-brand-dark hover:bg-brand-light`;
 }
 
-function OverflowActionItem({
-  action,
-  onActionComplete,
-}: {
-  action: ActionElement;
-  onActionComplete: () => void;
-}) {
+function overflowActionItem(action: ActionElement) {
   return cloneElement(action, {
     className: menuItemClassName(action),
-    onClick: (event: MouseEvent<HTMLElement>) => {
-      action.props.onClick?.(event);
-      onActionComplete();
-    },
     role: "menuitem",
   });
 }
@@ -87,8 +76,6 @@ function MobileSwipeActions({
 }) {
   const x = useMotionValue(0);
   const [open, setOpen] = useState(false);
-
-  const closeMenu = () => setOpen(false);
 
   return (
     <div className="relative overflow-hidden md:hidden">
@@ -128,13 +115,7 @@ function MobileSwipeActions({
                 </button>
               )}
             >
-              {actions.map((action) => (
-                <OverflowActionItem
-                  action={action}
-                  key={actionKey(action)}
-                  onActionComplete={closeMenu}
-                />
-              ))}
+              {actions.map(overflowActionItem)}
             </PortalActionMenu>
           </>
         ) : null}
@@ -151,8 +132,6 @@ export function QueryRowActions({
   const [open, setOpen] = useState(false);
   const actions = overflowActions.filter(isActionElement);
   const primary = withActionClass(primaryAction, "min-h-11 whitespace-nowrap md:min-h-8");
-
-  const closeMenu = () => setOpen(false);
 
   return (
     <div className="flex items-center gap-2">
@@ -176,13 +155,7 @@ export function QueryRowActions({
               </button>
             )}
           >
-            {actions.map((action) => (
-              <OverflowActionItem
-                action={action}
-                key={actionKey(action)}
-                onActionComplete={closeMenu}
-              />
-            ))}
+            {actions.map(overflowActionItem)}
           </PortalActionMenu>
         ) : null}
       </div>

@@ -14,6 +14,10 @@ import { m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useId, useState } from "react";
+import { Button } from "@/components/ui/application-button";
+import { Field, Input } from "@/components/ui/application-field";
+import { Status } from "@/components/ui/application-status";
+import { Switch } from "@/components/ui/application-switch";
 import Logo from "@/static/logos/logo.webp";
 import {
   formatAccountDateRange,
@@ -88,10 +92,11 @@ export function NavButton({ active, onClick, icon, label, mobile = false, header
   }
 
   return (
-    <button
+    <Button
       aria-current={active ? "page" : undefined}
-      className={`account-focus flex items-center transition-colors ${className}`}
+      className={`flex min-h-0 items-center transition-colors ${className}`}
       onClick={onClick}
+      surface="account"
       type="button"
     >
       <span
@@ -105,7 +110,7 @@ export function NavButton({ active, onClick, icon, label, mobile = false, header
       {!(mobile || header) && active && (
         <span className="ml-auto size-1.5 rounded-full bg-[var(--account-gold-on-night)]" />
       )}
-    </button>
+    </Button>
   );
 }
 
@@ -113,18 +118,9 @@ function StatusPill({ status }) {
   const normalized = status === "confirmed" ? "Confirmed" : status || "Pending";
   const isConfirmed = normalized === "Confirmed";
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium text-[10px] uppercase tracking-[0.13em] ${
-        isConfirmed
-          ? "bg-[var(--account-success-soft)] text-[var(--account-success)]"
-          : "bg-[var(--account-gold-soft)] text-[var(--account-gold)]"
-      }`}
-    >
-      <span
-        className={`size-1.5 rounded-full ${isConfirmed ? "bg-[var(--account-success)]" : "bg-[var(--account-gold)]"}`}
-      />
+    <Status surface="account" tone={isConfirmed ? "success" : "neutral"}>
       {normalized}
-    </span>
+    </Status>
   );
 }
 
@@ -241,13 +237,14 @@ export function JourneyOverviewCard({ booking, onOpen }) {
             {formatAccountDateRange(trip.startDate, trip.endDate)}
             {nights ? ` · ${nights} night${nights === 1 ? "" : "s"}` : ""}
           </p>
-          <button
-            className="account-focus mt-6 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--account-night)] px-5 font-semibold text-sm text-white shadow-lg transition-colors hover:bg-[var(--account-ink)]"
+          <Button
+            className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-lg bg-[var(--account-night)] px-5 font-semibold text-sm text-white shadow-lg transition-colors hover:bg-[var(--account-ink)]"
             onClick={onOpen}
+            surface="account"
             type="button"
           >
             View itinerary <ChevronRight size={17} />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -535,15 +532,16 @@ export function PastJourneyCard({ booking, bookingId, onOpen }) {
 
   if (onOpen) {
     return (
-      <button
+      <Button
         aria-label={`Open itinerary for ${trip.name}`}
-        className={className}
+        className={`min-h-0 ${className}`}
         data-booking-id={bookingId}
         onClick={onOpen}
+        surface="account"
         type="button"
       >
         {content}
-      </button>
+      </Button>
     );
   }
 
@@ -585,23 +583,18 @@ export function ProfileInput({
   const fieldId = useId();
   const handleChange = useCallback((event) => onChange?.(event.target.value), [onChange]);
   return (
-    <div>
-      <label
-        className="mb-1 block font-semibold text-[10px] text-[var(--account-muted)] uppercase tracking-[0.14em]"
-        htmlFor={fieldId}
-      >
-        {label}
-      </label>
-      <input
-        className={`account-focus w-full rounded-sm border border-[var(--account-border)] px-4 py-3 text-[var(--account-ink)] shadow-sm transition focus:border-[var(--account-gold)] focus:outline-none ${disabled ? "cursor-not-allowed bg-[var(--account-paper)] text-[var(--account-muted)]" : "bg-white"}`}
+    <Field label={label} surface="account">
+      <Input
+        className={disabled ? undefined : "bg-white"}
         disabled={disabled}
         id={fieldId}
         onChange={handleChange}
         placeholder={placeholder}
+        surface="account"
         type={type}
         value={value ?? ""}
       />
-    </div>
+    </Field>
   );
 }
 
@@ -644,21 +637,20 @@ export function Toggle({ disabled = false, label = "Account notifications" }) {
     toggleClassName = "bg-[var(--account-night)]";
   }
   return (
-    <button
-      aria-checked={isOn}
+    <Switch
       aria-label={`${label}: ${isOn ? "On" : "Off"}${disabled ? ". Planned" : ""}`}
+      checked={isOn}
       className={`account-focus h-6 w-11 rounded-full p-1 transition-colors ${toggleClassName}`}
       disabled={disabled}
-      onClick={handleToggle}
-      role="switch"
-      type="button"
+      onCheckedChange={handleToggle}
+      surface="account"
     >
       <m.div
         animate={{ x: isOn ? 20 : 0 }}
         className="size-4 rounded-full bg-white shadow-sm"
         layout
       />
-    </button>
+    </Switch>
   );
 }
 

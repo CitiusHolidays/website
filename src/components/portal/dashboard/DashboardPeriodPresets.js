@@ -1,5 +1,7 @@
 "use client";
 
+import { Button } from "@/components/ui/application-button";
+
 function daysAgo(n) {
   const d = new Date();
   d.setDate(d.getDate() - n);
@@ -26,7 +28,7 @@ export function DashboardPeriodPresets({ dateRange, setDateRange }) {
 
   return (
     <div className="flex flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-brand-border bg-white p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      <button
+      <Button
         className={`${PRESET_BUTTON_CLASS} shrink-0 ${
           allTime
             ? "border-citius-blue bg-citius-blue text-white"
@@ -36,9 +38,9 @@ export function DashboardPeriodPresets({ dateRange, setDateRange }) {
         type="button"
       >
         All time
-      </button>
+      </Button>
       {PRESETS.map((preset) => (
-        <button
+        <Button
           className={`${PRESET_BUTTON_CLASS} shrink-0 ${
             active(preset)
               ? "border-citius-blue bg-citius-blue text-white"
@@ -49,7 +51,7 @@ export function DashboardPeriodPresets({ dateRange, setDateRange }) {
           type="button"
         >
           {preset.label}
-        </button>
+        </Button>
       ))}
     </div>
   );

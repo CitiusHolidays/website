@@ -2,6 +2,7 @@
 
 import { m } from "motion/react";
 import { useReducer } from "react";
+import { Button } from "@/components/ui/application-button";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { ACCOUNT_CONTAINER_VARIANTS, ProfileAlert, ProfileField, ProfileInput } from "./AccountUi";
 
@@ -186,39 +187,42 @@ export function AccountProfilePanel({ user }) {
           </div>
           {isEditingProfile ? (
             <div className="flex items-center gap-3">
-              <button
-                className="account-focus rounded-full border border-[var(--account-border)] px-4 py-2 font-medium text-[var(--account-muted)] text-sm transition-colors hover:bg-[var(--account-paper)]"
+              <Button
+                className="inline-block min-h-0 rounded-full border border-[var(--account-border)] px-4 py-2 font-medium text-[var(--account-muted)] text-sm transition-colors hover:bg-[var(--account-paper)]"
                 onClick={resetProfileForm}
+                surface="account"
                 type="button"
               >
                 Cancel
-              </button>
-              <button
-                className={`rounded-full px-4 py-2 font-semibold text-sm transition-colors ${
+              </Button>
+              <Button
+                className={`inline-block min-h-0 rounded-full px-4 py-2 font-semibold text-sm transition-colors disabled:opacity-100 ${
                   isSavingProfile
                     ? "cursor-not-allowed bg-[var(--account-night)]/60 text-white"
                     : "bg-[var(--account-night)] text-white hover:bg-[var(--account-ink)]"
                 }`}
-                disabled={isSavingProfile}
+                loading={isSavingProfile}
                 onClick={handleProfileSave}
+                surface="account"
                 type="button"
               >
                 {isSavingProfile ? "Saving…" : "Save Changes"}
-              </button>
+              </Button>
             </div>
           ) : (
-            <button
-              className="account-focus rounded-full border border-[var(--account-night)] px-4 py-2 font-semibold text-[var(--account-night)] text-sm transition-colors hover:bg-[var(--account-night)] hover:text-white"
+            <Button
+              className="inline-block min-h-0 rounded-full border border-[var(--account-night)] px-4 py-2 font-semibold text-[var(--account-night)] text-sm transition-colors hover:bg-[var(--account-night)] hover:text-white"
               onClick={() => {
                 dispatch({
                   patch: { isEditingProfile: true, profileAlert: null },
                   type: "patch",
                 });
               }}
+              surface="account"
               type="button"
             >
               Edit Details
-            </button>
+            </Button>
           )}
         </div>
         {profileAlert && <ProfileAlert message={profileAlert.message} type={profileAlert.type} />}

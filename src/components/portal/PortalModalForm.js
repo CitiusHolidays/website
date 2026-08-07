@@ -6,6 +6,14 @@ import { useId, useState } from "react";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { usePortalToast } from "@/components/portal/PortalToast";
+import { Button } from "@/components/ui/application-button";
+import { Checkbox } from "@/components/ui/application-checkbox";
+import {
+  inputVariants,
+  Input as StaffInput,
+  Textarea as StaffTextarea,
+} from "@/components/ui/application-field";
+import { Select as StaffSelect } from "@/components/ui/application-select";
 import { formatDisplayDate as formatDate } from "@/lib/formatDate";
 
 function formatFileSize(bytes) {
@@ -131,8 +139,34 @@ function Input({
 }) {
   const autoId = useId();
   const fieldId = idProp || autoId;
-  const fieldClass =
-    "h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10";
+  if (type === "date") {
+    return (
+      <label className="block" htmlFor={fieldId}>
+        <span className="mb-1 block font-semibold text-brand-muted text-xs">
+          {label}
+          {required ? (
+            <>
+              <span aria-hidden="true" className="text-citius-orange-ink">
+                {" "}
+                *
+              </span>
+              <span className="sr-only"> required</span>
+            </>
+          ) : null}
+        </span>
+        <PortalDateInput
+          className="w-full"
+          id={fieldId}
+          inputClassName="!bg-brand-light focus:!bg-white"
+          onChange={onChange}
+          placeholder={placeholder || "DD/MM/YYYY"}
+          required={required}
+          value={value}
+          {...rest}
+        />
+      </label>
+    );
+  }
   return (
     <label className="block" htmlFor={fieldId}>
       <span className="mb-1 block font-semibold text-brand-muted text-xs">
@@ -147,40 +181,27 @@ function Input({
           </>
         ) : null}
       </span>
-      {type === "date" ? (
-        <PortalDateInput
-          className="w-full"
-          id={fieldId}
-          inputClassName="!bg-brand-light focus:!bg-white"
-          onChange={onChange}
-          placeholder={placeholder || "DD/MM/YYYY"}
-          required={required}
-          value={value}
-          {...rest}
-        />
-      ) : (
-        <input
-          className={fieldClass}
-          id={fieldId}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          required={required}
-          type={type}
-          value={value}
-          {...rest}
-        />
-      )}
+      <StaffInput
+        id={fieldId}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        required={required}
+        type={type}
+        value={value}
+        {...rest}
+      />
     </label>
   );
 }
 
 function Select({ label, value, options, onChange, required = false }) {
+  const fieldId = useId();
   const normalized = options.map((option) =>
     typeof option === "string" ? { label: option, value: option } : option
   );
   return (
-    <label className="block">
-      <span className="mb-1 block font-semibold text-brand-muted text-xs">
+    <div className="block">
+      <label className="mb-1 block font-semibold text-brand-muted text-xs" htmlFor={fieldId}>
         {label}
         {required ? (
           <>
@@ -191,20 +212,16 @@ function Select({ label, value, options, onChange, required = false }) {
             <span className="sr-only"> required</span>
           </>
         ) : null}
-      </span>
-      <select
-        className="h-11 w-full rounded-xl border border-brand-border bg-brand-light px-3 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
-        onChange={(event) => onChange(event.target.value)}
+      </label>
+      <StaffSelect
+        className={inputVariants({ surface: "staff" })}
+        id={fieldId}
+        onValueChange={onChange}
+        options={normalized}
         required={required}
         value={value}
-      >
-        {normalized.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+      />
+    </div>
   );
 }
 
@@ -219,25 +236,23 @@ function MultiSelect({ label, value, options, onChange, help }) {
       {help ? <p className="mb-2 text-brand-muted text-xs leading-relaxed">{help}</p> : null}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {normalized.map((option) => (
-          <label
+          <Checkbox
+            aria-label={typeof option.label === "string" ? option.label : option.value}
+            checked={selected.has(option.value)}
             className="flex items-center gap-2 rounded-md border border-brand-border bg-brand-light px-3 py-2 text-sm"
             key={option.value}
+            onCheckedChange={(checked) => {
+              const next = new Set(selected);
+              if (checked) {
+                next.add(option.value);
+              } else {
+                next.delete(option.value);
+              }
+              onChange(Array.from(next));
+            }}
           >
-            <input
-              checked={selected.has(option.value)}
-              onChange={(event) => {
-                const next = new Set(selected);
-                if (event.target.checked) {
-                  next.add(option.value);
-                } else {
-                  next.delete(option.value);
-                }
-                onChange(Array.from(next));
-              }}
-              type="checkbox"
-            />
             {option.label}
-          </label>
+          </Checkbox>
         ))}
       </div>
     </div>
@@ -245,6 +260,7 @@ function MultiSelect({ label, value, options, onChange, help }) {
 }
 
 function Textarea({ label, value, onChange, maxWords }) {
+  const fieldId = useId();
   const wordCount = countWords(value);
   const updateTextareaValue = (event) => {
     let next = event.target.value;
@@ -255,14 +271,9 @@ function Textarea({ label, value, onChange, maxWords }) {
   };
 
   return (
-    <label className="block md:col-span-2">
+    <label className="block md:col-span-2" htmlFor={fieldId}>
       <span className="mb-1 block font-semibold text-brand-muted text-xs">{label}</span>
-      <textarea
-        className="w-full rounded-xl border border-brand-border bg-brand-light px-3 py-2 text-sm outline-none transition focus:border-citius-blue focus:bg-white focus:ring-2 focus:ring-citius-blue/10"
-        onChange={updateTextareaValue}
-        rows={4}
-        value={value}
-      />
+      <StaffTextarea id={fieldId} onChange={updateTextareaValue} rows={4} value={value} />
       {maxWords ? (
         <span
           className={`mt-1 block text-xs ${wordCount >= maxWords ? "text-amber-700" : "text-brand-muted"}`}
@@ -477,7 +488,7 @@ function FinalizedProposalPdfPanel({
             )}
           </div>
           <div className="flex shrink-0 gap-2">
-            <button
+            <Button
               className="portal-small-btn"
               onClick={() =>
                 openFinalizedProposalPdf(proposalId, getFinalizedPdfUrl).catch((err) => {
@@ -487,11 +498,11 @@ function FinalizedProposalPdfPanel({
               type="button"
             >
               Download
-            </button>
+            </Button>
             {canSend && (
-              <button className="portal-danger-btn" onClick={handleRemove} type="button">
+              <Button className="portal-danger-btn" onClick={handleRemove} type="button">
                 Remove
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -537,7 +548,7 @@ function QueryFilePicker({ files, onChange, inputId }) {
                 <div className="truncate font-medium text-brand-text">{file.name}</div>
                 <div className="text-brand-muted text-xs">{formatFileSize(file.size)}</div>
               </div>
-              <button
+              <Button
                 className="shrink-0 font-semibold text-red-600 text-xs hover:underline"
                 onClick={() =>
                   onChange(
@@ -554,7 +565,7 @@ function QueryFilePicker({ files, onChange, inputId }) {
                 type="button"
               >
                 Remove
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
@@ -666,7 +677,7 @@ function QueryAttachmentsPanel({
                 </div>
               </div>
               <div className="flex shrink-0 gap-2">
-                <button
+                <Button
                   className="portal-small-btn"
                   onClick={() =>
                     openQueryAttachment(file.id, getQueryAttachmentUrl, attachmentKind).catch(
@@ -678,15 +689,15 @@ function QueryAttachmentsPanel({
                   type="button"
                 >
                   Open
-                </button>
+                </Button>
                 {canManage && (
-                  <button
+                  <Button
                     className="portal-small-btn text-red-600"
                     onClick={() => handleRemove(file)}
                     type="button"
                   >
                     Remove
-                  </button>
+                  </Button>
                 )}
               </div>
             </li>
@@ -694,14 +705,14 @@ function QueryAttachmentsPanel({
         </ul>
       )}
       {showLoadMore ? (
-        <button
+        <Button
           className="portal-small-btn"
           disabled={isLoadingMore}
           onClick={onLoadMore}
           type="button"
         >
           {isLoadingMore ? "Loading…" : "Load more files"}
-        </button>
+        </Button>
       ) : null}
     </m.div>
   );

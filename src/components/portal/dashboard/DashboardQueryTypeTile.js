@@ -2,6 +2,7 @@
 
 import { Boxes, Building2, Globe2, UsersRound } from "lucide-react";
 import Link from "next/link";
+import { PortalTooltip } from "@/components/portal/PortalTooltip";
 
 function QueryTypeIcon({ type }) {
   if (type.includes("Cement") || type === "Cement types") {
@@ -38,9 +39,9 @@ export function DashboardQueryTypeTile({ type, count, variant = "active", href }
         <span className="text-citius-blue">
           <QueryTypeIcon type={type} />
         </span>
-        <span className="truncate" title={type}>
-          {type}
-        </span>
+        <PortalTooltip content={type}>
+          <span className="truncate">{type}</span>
+        </PortalTooltip>
       </div>
       <div className={`mt-4 font-heading font-semibold text-3xl tabular-nums ${valueTone}`}>
         {count}

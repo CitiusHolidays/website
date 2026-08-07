@@ -1,6 +1,7 @@
 "use client";
 
 import { usePortalToast } from "@/components/portal/PortalToast";
+import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
@@ -301,12 +302,9 @@ export function ExpensesView({
                     }
                   />
                 ) : (
-                  <span
-                    className="self-center text-brand-muted text-xs"
-                    title="Expenses that entered approval are retained as audit records."
-                  >
-                    Retained for audit
-                  </span>
+                  <PortalTooltip content="Expenses that entered approval are retained as audit records.">
+                    <span className="self-center text-brand-muted text-xs">Retained for audit</span>
+                  </PortalTooltip>
                 )}
               </div>
             ),

@@ -4,6 +4,14 @@ This glossary names business concepts in the Citius CRM portal so implementation
 
 ## Language
 
+**Staff Workspace**:
+The internal Citius application experience used by staff to carry out CRM and travel-operations work. Its current layout and presentation are the canonical baseline and it is never exposed to customers. Shared-component adoption may standardize implementation internals but must preserve its visible composition and workflow behavior.
+_Avoid_: Customer-facing account, marketing site, forcing customer presentation patterns onto staff workflows, treating foundation adoption as permission to redesign the workspace
+
+**Customer Travel Account**:
+The authenticated customer-facing experience for viewing journeys and managing personal or account information. Its current layout and presentation are the canonical baseline. It may share implementation foundations with the Staff Workspace, but it remains visually distinct and grants no staff CRM access.
+_Avoid_: Staff Workspace, public marketing site, treating shared interface foundations as shared permissions or identical presentation, redesigning the account merely to adopt shared primitives
+
 **Travel Series / Travel Batch**:
 A full trip instance under one Job Card for group travel where different passenger groups go to the same place on different dates or schedules. The portal UI calls this "Travel in Series"; backend fields and import/export columns still use travel batch terminology (`travelBatchId`, Travel Batch). A Travel Batch has the same operational fields the trip would have if it were not split into series; the batch only separates people by time and day while preserving one Job Card.
 _Avoid_: Batch identity as loose document fields, reduced batch metadata, separate Job Card per batch, changing storage fields only to match the UI label

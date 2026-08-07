@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { Button } from "@/components/ui/application-button";
 import { buildPassengerImportReportRows } from "@/lib/portal/importReconciliation";
 import type { PassengerImportMutationResult } from "@/lib/portal/importResultMessages";
 import { buildPassengerImportResultMessage } from "@/lib/portal/importResultMessages";
@@ -256,127 +257,122 @@ export function PassengerImportModal({
   };
 
   return (
-    <>
-      <ImportModalShell close={closeAndReset} open={open} title={title}>
-        <div className="space-y-4">
-          <Select
-            label="Job Card"
-            onChange={setJobCardId}
-            options={jobCardSelectOptions(jobCards, { required: true })}
-            required
-            value={jobCardId}
-          />
-          <ImportFileInput
-            accept=".xlsx,.xls"
-            fileName={fileName}
-            label={fileLabel}
-            onChange={handleFile}
-          />
-          <ImportSummary
-            isBusy={isParsing || isPreviewing}
-            totals={[
-              ["Ready", rows.length],
-              ["Create", preview ? createCount : "-"],
-              ["Update", preview ? updateCount : "-"],
-              ["Skipped", skipped.length],
-              ["Errors", errors.length],
-            ]}
-          />
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-          {errors.length > 0 && <ImportIssueList rows={errors} title="Rows needing correction" />}
-          {skipped.length > 0 && (
-            <ImportIssueList rows={skipped.slice(0, 8)} title="Skipped rows" />
-          )}
-          {showRoomSummary && Object.keys(previewRoomSummary).length > 0 && (
-            <RoomSummaryPanel jobCode={selectedJob?.jobCode} summary={previewRoomSummary} />
-          )}
-          {importProgress && (
-            <div className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm">
-              {importProgress.label ||
-                `Importing batch ${importProgress.current} of ${importProgress.total}…`}
-            </div>
-          )}
-          {rows.length > 0 && (
-            <SelectableDataTable
-              columns={[
-                {
-                  id: "action",
-                  label: "Action",
-                  render: (row) => (
-                    <Badge
-                      label={row.action}
-                      tone={
-                        row.action === "update"
-                          ? "blue"
-                          : row.action === "create"
-                            ? "green"
-                            : "orange"
-                      }
-                    />
-                  ),
-                },
-                {
-                  id: "passenger",
-                  label: "Passenger",
-                  render: (row) => strong(row.fullName),
-                },
-                {
-                  id: "travel-batch",
-                  label: "Travel Batch",
-                  render: (row) => row.travelBatchReference || "-",
-                },
-                { id: "hub", label: "Hub", render: (row) => row.travelHub || "-" },
-                { id: "room", label: "Room", render: (row) => row.roomType || "-" },
-                {
-                  id: "visa",
-                  label: "Visa",
-                  render: (row) =>
-                    row.visaStatus || (row.visaRequired ? "Required" : "Not Required"),
-                },
-                {
-                  id: "passport",
-                  label: "Passport",
-                  render: (row) =>
-                    row.passport?.number ? `****${row.passport.number.slice(-4)}` : "Pending",
-                },
-                {
-                  id: "source",
-                  label: "Source",
-                  render: (row) => `${row.sourceSheet} row ${row.sourceRowNumber}`,
-                },
-              ]}
-              compact
-              empty={emptyLabel}
-              rows={rows.slice(0, 50).map((row: SpreadsheetImportPreviewRow) => ({
-                ...row,
-                action:
-                  previewById.get(String(row.id))?.action || (isPreviewing ? "checking" : "upsert"),
-              }))}
-            />
-          )}
-          <div className="flex justify-end gap-2">
-            <button
-              className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
-              onClick={closeAndReset}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="portal-primary-btn disabled:opacity-60"
-              disabled={!jobCardId || rows.length === 0 || isPreviewing || isSaving}
-              onClick={handleCommit}
-              type="button"
-            >
-              {isSaving ? importProgress?.label || "Uploading…" : uploadLabel}
-            </button>
+    <ImportModalShell close={closeAndReset} open={open} title={title}>
+      <div className="space-y-4">
+        <Select
+          label="Job Card"
+          onChange={setJobCardId}
+          options={jobCardSelectOptions(jobCards, { required: true })}
+          required
+          value={jobCardId}
+        />
+        <ImportFileInput
+          accept=".xlsx,.xls"
+          fileName={fileName}
+          label={fileLabel}
+          onChange={handleFile}
+        />
+        <ImportSummary
+          isBusy={isParsing || isPreviewing}
+          totals={[
+            ["Ready", rows.length],
+            ["Create", preview ? createCount : "-"],
+            ["Update", preview ? updateCount : "-"],
+            ["Skipped", skipped.length],
+            ["Errors", errors.length],
+          ]}
+        />
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
+            {error}
           </div>
+        )}
+        {errors.length > 0 && <ImportIssueList rows={errors} title="Rows needing correction" />}
+        {skipped.length > 0 && <ImportIssueList rows={skipped.slice(0, 8)} title="Skipped rows" />}
+        {showRoomSummary && Object.keys(previewRoomSummary).length > 0 && (
+          <RoomSummaryPanel jobCode={selectedJob?.jobCode} summary={previewRoomSummary} />
+        )}
+        {importProgress && (
+          <div className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm">
+            {importProgress.label ||
+              `Importing batch ${importProgress.current} of ${importProgress.total}…`}
+          </div>
+        )}
+        {rows.length > 0 && (
+          <SelectableDataTable
+            columns={[
+              {
+                id: "action",
+                label: "Action",
+                render: (row) => (
+                  <Badge
+                    label={row.action}
+                    tone={
+                      row.action === "update"
+                        ? "blue"
+                        : row.action === "create"
+                          ? "green"
+                          : "orange"
+                    }
+                  />
+                ),
+              },
+              {
+                id: "passenger",
+                label: "Passenger",
+                render: (row) => strong(row.fullName),
+              },
+              {
+                id: "travel-batch",
+                label: "Travel Batch",
+                render: (row) => row.travelBatchReference || "-",
+              },
+              { id: "hub", label: "Hub", render: (row) => row.travelHub || "-" },
+              { id: "room", label: "Room", render: (row) => row.roomType || "-" },
+              {
+                id: "visa",
+                label: "Visa",
+                render: (row) => row.visaStatus || (row.visaRequired ? "Required" : "Not Required"),
+              },
+              {
+                id: "passport",
+                label: "Passport",
+                render: (row) =>
+                  row.passport?.number ? `****${row.passport.number.slice(-4)}` : "Pending",
+              },
+              {
+                id: "source",
+                label: "Source",
+                render: (row) => `${row.sourceSheet} row ${row.sourceRowNumber}`,
+              },
+            ]}
+            compact
+            empty={emptyLabel}
+            rows={rows.slice(0, 50).map((row: SpreadsheetImportPreviewRow) => ({
+              ...row,
+              action:
+                previewById.get(String(row.id))?.action || (isPreviewing ? "checking" : "upsert"),
+            }))}
+          />
+        )}
+        <div className="flex justify-end gap-2">
+          <Button
+            className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
+            onClick={closeAndReset}
+            type="button"
+          >
+            Cancel
+          </Button>
+          <Button
+            className="portal-primary-btn disabled:opacity-60"
+            disabled={!jobCardId || rows.length === 0 || isPreviewing || isSaving}
+            onClick={handleCommit}
+            type="button"
+          >
+            {isSaving ? importProgress?.label || "Uploading…" : uploadLabel}
+          </Button>
         </div>
-      </ImportModalShell>
+      </div>
       <ImportReconciliationModal
         jobCode={reconciliation?.jobCode}
         onClose={() => {
@@ -388,6 +384,6 @@ export function PassengerImportModal({
         rows={reconciliation?.rows ?? []}
         summary={reconciliation?.summary}
       />
-    </>
+    </ImportModalShell>
   );
 }

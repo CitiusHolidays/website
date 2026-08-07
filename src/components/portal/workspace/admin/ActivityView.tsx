@@ -1,12 +1,51 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import type { KeyboardEvent, MouseEvent } from "react";
+import type { MouseEvent } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
+import { Button } from "@/components/ui/application-button";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { EmptyState, Timeline } from "../portalAdminHelpers";
-import type { ActivityViewProps, PortalNotificationRow } from "../portalViewTypes";
+import type {
+  ActivityViewProps,
+  PortalDeleteHandler,
+  PortalNotificationRow,
+} from "../portalViewTypes";
 import { DeleteButton, Panel } from "../portalWorkspaceListUi";
+
+interface NotificationItemContentProps {
+  deleteItem: PortalDeleteHandler;
+  item: PortalNotificationRow;
+  removeNotification: ActivityViewProps["removeNotification"];
+}
+
+function NotificationItemContent({
+  deleteItem,
+  item,
+  removeNotification,
+}: NotificationItemContentProps) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <div className="font-semibold text-sm">
+          {item.title}: {item.body}
+        </div>
+        <div className="mt-1 text-brand-muted text-xs">
+          {item.readAt ? "Read" : "Unread"} - {formatDate(item.createdAt)}
+        </div>
+      </div>
+      <DeleteButton
+        label={item.title || "notification"}
+        onClick={(event: MouseEvent<HTMLButtonElement>) => {
+          event.stopPropagation();
+          deleteItem(item.title || "notification", removeNotification, {
+            notificationId: String(item.id),
+          });
+        }}
+      />
+    </div>
+  );
+}
 
 export function ActivityView({
   activity,
@@ -45,43 +84,27 @@ export function ActivityView({
                 isInteractive ? "cursor-pointer transition hover:bg-white" : ""
               }`;
 
-              return (
-                <div
+              return isInteractive ? (
+                <Button
                   className={itemClassName}
-                  {...(isInteractive
-                    ? {
-                        onClick: () => handleNotificationClick(item),
-                        onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => {
-                          if (event.key === "Enter" || event.key === " ") {
-                            event.preventDefault();
-                            handleNotificationClick(item);
-                          }
-                        },
-                        role: "button",
-                        tabIndex: 0,
-                      }
-                    : {})}
                   key={item.id}
+                  nativeButton={false}
+                  onClick={() => handleNotificationClick(item)}
+                  render={<div />}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-semibold text-sm">
-                        {item.title}: {item.body}
-                      </div>
-                      <div className="mt-1 text-brand-muted text-xs">
-                        {item.readAt ? "Read" : "Unread"} - {formatDate(item.createdAt)}
-                      </div>
-                    </div>
-                    <DeleteButton
-                      label={item.title || "notification"}
-                      onClick={(event: MouseEvent<HTMLButtonElement>) => {
-                        event.stopPropagation();
-                        deleteItem(item.title || "notification", removeNotification, {
-                          notificationId: String(item.id),
-                        });
-                      }}
-                    />
-                  </div>
+                  <NotificationItemContent
+                    deleteItem={deleteItem}
+                    item={item}
+                    removeNotification={removeNotification}
+                  />
+                </Button>
+              ) : (
+                <div className={itemClassName} key={item.id}>
+                  <NotificationItemContent
+                    deleteItem={deleteItem}
+                    item={item}
+                    removeNotification={removeNotification}
+                  />
                 </div>
               );
             })}

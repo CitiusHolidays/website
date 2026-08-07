@@ -282,13 +282,15 @@ describe("mounted portal route boundary", () => {
 
     const details = container.querySelector("details");
     details.open = true;
-    const dueVisibility = [...details.querySelectorAll("label")]
-      .find((label) => label.textContent.includes("Due"))
-      ?.querySelector("input");
+    const dueVisibility = [...details.querySelectorAll('[role="checkbox"]')].find((checkbox) =>
+      checkbox.textContent.includes("Due")
+    );
     await act(async () => dueVisibility.click());
     expect(container.querySelector('th[aria-sort="descending"]')).toBeNull();
 
-    const firstSelection = container.querySelector('tbody input[aria-label^="Select "]');
+    const firstSelection = container.querySelector(
+      'tbody [role="checkbox"][aria-label^="Select "]'
+    );
     await act(async () => firstSelection.click());
     expect(container.querySelector('[role="status"]')?.textContent).toContain("1 record selected");
 
@@ -311,7 +313,9 @@ describe("mounted portal route boundary", () => {
     await act(async () => nameHeader.click());
     expect(rowOrder(container)[0]).toContain("Row 1");
 
-    const firstSelection = container.querySelector('tbody input[aria-label="Select Row 1"]');
+    const firstSelection = container.querySelector(
+      'tbody [role="checkbox"][aria-label="Select Row 1"]'
+    );
     await act(async () => firstSelection.click());
     expect(container.querySelector('[role="status"]')?.textContent).toContain("1 record selected");
 
@@ -322,7 +326,9 @@ describe("mounted portal route boundary", () => {
     expect(container.textContent).toContain("Page 2 of 2");
     expect(container.textContent).toContain("Showing 26–30 of 30 loaded");
 
-    const selectAll = container.querySelector('thead input[aria-label="Select all visible rows"]');
+    const selectAll = container.querySelector(
+      'thead [role="checkbox"][aria-label="Select all visible rows"]'
+    );
     await act(async () => selectAll?.click());
     expect(container.querySelector('[role="status"]')?.textContent).toContain("6 records selected");
 

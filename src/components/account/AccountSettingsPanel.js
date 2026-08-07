@@ -1,6 +1,7 @@
 "use client";
 
 import { m } from "motion/react";
+import { Button } from "@/components/ui/application-button";
 import { ACCOUNT_CONTAINER_VARIANTS, SettingRow, Toggle } from "./AccountUi";
 
 export function AccountSettingsPanel() {
@@ -25,14 +26,15 @@ export function AccountSettingsPanel() {
         />
         <SettingRow
           action={
-            <button
+            <Button
               aria-label="Two-step verification. Planned"
-              className="cursor-not-allowed font-medium text-[var(--account-muted)] text-sm"
+              className="inline-block min-h-0 cursor-not-allowed font-medium text-[var(--account-muted)] text-sm disabled:opacity-100"
               disabled
+              surface="account"
               type="button"
             >
               Planned
-            </button>
+            </Button>
           }
           description="Add an extra layer of security to your account. Two-step verification is planned for a future account update."
           title="Two-step verification"

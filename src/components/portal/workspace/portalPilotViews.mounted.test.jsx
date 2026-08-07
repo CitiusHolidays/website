@@ -17,6 +17,7 @@ beforeAll(() => {
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
+  globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
   globalThis.MouseEvent = dom.window.MouseEvent;

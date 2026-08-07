@@ -17,8 +17,6 @@ const PORTAL_GPU_MOTION_TARGETS = [
 
 /** Motion x/y/scale/scaleY shorthand props — use transform strings instead. */
 const motionShorthandProp = /\b(?:^|[,{]\s*)(?:x|y|scaleY|scale)\s*:/m;
-const toastLayoutProp = /\blayout\b/;
-const toastUpwardExit = /\by:\s*-/;
 const confirmAnimatePresence = /AnimatePresence/;
 const confirmExitProp = /exit=\{\{/;
 const toolbarScaleYShorthand = /scaleY:\s*1/;
@@ -78,13 +76,16 @@ describe("transition policy", () => {
     const palette = await bunFile("src/components/portal/PortalCommandPalette.js").text();
     const overlayFrame = await bunFile("src/components/portal/usePortalOverlayFrame.js").text();
 
-    expect(palette).toContain('className="portal-command-overlay"');
-    expect(palette).toContain('className="portal-command-backdrop"');
-    expect(palette).toContain('className="portal-command-panel"');
-    expect(palette).toContain("Backdrop");
-    expect(palette).toContain("useFocusTrap");
+    expect(palette).toContain('viewportClassName="portal-command-overlay"');
+    expect(palette).toContain('backdropClassName="portal-command-backdrop"');
+    expect(palette).toContain('panelClassName="portal-command-panel"');
+    expect(palette).toContain("ControlledDialog");
+    expect(palette).toContain("<Command");
     expect(palette).not.toMatch(animatedPaletteOverlay);
-    expect(palette).toContain("lockBodyScroll");
+    expect(palette).not.toContain("createPortal");
+    expect(palette).not.toContain("useFocusTrap");
+    expect(palette).not.toContain("lockBodyScroll");
+    expect(palette).not.toContain("<Command.Dialog");
     expect(overlayFrame).toContain('getElementById("portal-main")');
     expect(overlayFrame).toContain("frameStyle");
   });
@@ -102,19 +103,20 @@ describe("transition policy", () => {
     expect(violations).toEqual([]);
   });
 
-  test("portal toast stack uses transform strings and theme-aware motion", async () => {
-    const toastStack = await bunFile("src/components/motion-ui/toast-stack/index.tsx").text();
+  test("portal toast stack delegates transient rendering and reduced motion to Sonner", async () => {
     const portalToast = await bunFile("src/components/portal/PortalToast.js").text();
+    const globalCss = await bunFile("src/app/globals.css").text();
 
-    expect(toastStack).toContain("useMotionUITheme");
-    expect(toastStack).toContain("transform:");
-    expect(toastStack).toContain("translateY(");
-    expect(toastStack).toContain("containerZIndex");
-    expect(toastStack).not.toMatch(/style=\{\{\s*zIndex:\s*maxVisible/);
-    expect(portalToast).toContain("containerZIndex={PORTAL_Z_INDEX.toast}");
+    expect(portalToast).toContain('from "@/components/ui/foundation/toast"');
+    expect(portalToast).toContain("<Toaster");
+    expect(portalToast).toContain("zIndex: PORTAL_Z_INDEX.toast");
+    expect(portalToast).toContain("visibleToasts={MAX_VISIBLE_TOASTS}");
+    expect(portalToast).not.toContain("motion-ui/toast-stack");
+    expect(portalToast).not.toContain("useMotionUITransition");
+    expect(globalCss).toContain(".portal-toast-safe-area [data-sonner-toast]");
   });
 
-  test("portal modal shells branch reduced motion and use transform strings", async () => {
+  test("animated portal modal shells use transform strings while Base confirm stays static", async () => {
     const entityModal = await bunFile(
       "src/components/portal/entityModal/EntityModalShell.js"
     ).text();
@@ -123,10 +125,14 @@ describe("transition policy", () => {
     ).text();
     const confirm = await bunFile("src/components/portal/PortalConfirmDialog.js").text();
 
-    for (const source of [entityModal, importModal, confirm]) {
+    for (const source of [entityModal, importModal]) {
       expect(source).toContain("useReducedMotion");
       expect(source).toContain("transform:");
     }
+    expect(confirm).toContain("useReducedMotion");
+    expect(confirm).not.toContain("transitionStatus");
+    expect(confirm).not.toContain("popupStyle=");
+    expect(confirm).not.toContain("backdropStyle=");
     expect(confirm).toMatch(confirmAnimatePresence);
     expect(confirm).toMatch(confirmExitProp);
   });

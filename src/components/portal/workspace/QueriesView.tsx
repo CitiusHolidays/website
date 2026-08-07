@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
+import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { type OptionalAction, QueryRowActions } from "@/components/portal/QueryRowActions";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
@@ -288,9 +289,9 @@ export function QueriesView({
           label: "Client / travel",
           render: (row: PortalQueryRow) => (
             <div className="min-w-48 max-w-60">
-              <div className="truncate font-semibold text-brand-dark" title={row.clientName}>
-                {row.clientName}
-              </div>
+              <PortalTooltip content={row.clientName}>
+                <div className="truncate font-semibold text-brand-dark">{row.clientName}</div>
+              </PortalTooltip>
               <div className="mt-1 truncate text-brand-muted text-xs">
                 {row.destination || "Destination TBD"} · {queryTravelWindow(row)}
               </div>

@@ -4,6 +4,7 @@ import { api } from "@convex/_generated/api";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Select } from "@/components/ui/application-select";
 
 const STATUS_OPTIONS = [
   ["pending", "Pending"],
@@ -19,6 +20,11 @@ const QUERY_TYPES = ["FIT", "Family Group", "MICE", "MICE Bidding", "B2B", "Spir
 const TRAVEL_TYPES = ["Domestic Travel", "International Travel"];
 const MAX_QUERY_NOTES_WORDS = 30;
 const WORD_SEPARATOR = /\s+/;
+const CREATED_AT_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
 
 function countWords(value) {
   const normalized = String(value || "").trim();
@@ -29,11 +35,7 @@ function formatCreatedAt(value) {
   if (!value) {
     return "—";
   }
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value));
+  return CREATED_AT_FORMATTER.format(new Date(value));
 }
 
 function formFromIntent(intent) {
@@ -54,6 +56,16 @@ function formFromIntent(intent) {
     travelStartDate: intent?.travelStartDate || "",
     travelType: "International Travel",
   };
+}
+
+async function runInboundConversion({ args, convert, onSuccess }) {
+  try {
+    const result = await convert(args);
+    onSuccess(result);
+    return "";
+  } catch (conversionError) {
+    return conversionError?.data || conversionError?.message || "Unable to convert this lead.";
+  }
 }
 
 function fieldLabel(id, label, children) {
@@ -133,54 +145,55 @@ export function InboundLeadsView({ allowed, canFetch }) {
     setSaving(true);
     setError("");
     setMessage("");
-    try {
-      const result = await convert({
+    const conversionError = await runInboundConversion({
+      args: {
         ...form,
         budgetAmount: form.budgetAmount ? Number(form.budgetAmount) : undefined,
         intentId: selectedId,
         paxCount: Number(form.paxCount),
-      });
-      setMessage(`${result.queryCode} created and linked to this inbound lead.`);
-      router.replace("/portal/inbound-leads");
-    } catch (conversionError) {
-      setError(conversionError?.data || conversionError?.message || "Unable to convert this lead.");
-    } finally {
-      setSaving(false);
+      },
+      convert,
+      onSuccess: (result) => {
+        setMessage(`${result.queryCode} created and linked to this inbound lead.`);
+        router.replace("/portal/inbound-leads");
+      },
+    });
+    if (conversionError) {
+      setError(conversionError);
     }
+    setSaving(false);
   }
 
   return (
     <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]">
       <div className="rounded-2xl border border-brand-border bg-white shadow-sm">
         <div className="flex flex-wrap items-end gap-3 border-brand-border border-b p-4">
-          <label className="grid min-w-36 gap-1 text-brand-dark text-sm">
-            <span className="font-medium">Status</span>
-            <select
+          <div className="grid min-w-36 gap-1 text-brand-dark text-sm">
+            <label className="font-medium" htmlFor="inbound-status-filter">
+              Status
+            </label>
+            <Select
+              aria-label="Status"
               className="portal-input"
-              onChange={(event) => setStatus(event.target.value)}
+              id="inbound-status-filter"
+              onValueChange={setStatus}
+              options={STATUS_OPTIONS.map(([value, label]) => ({ label, value }))}
               value={status}
-            >
-              {STATUS_OPTIONS.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid min-w-44 gap-1 text-brand-dark text-sm">
-            <span className="font-medium">Source</span>
-            <select
+            />
+          </div>
+          <div className="grid min-w-44 gap-1 text-brand-dark text-sm">
+            <label className="font-medium" htmlFor="inbound-source-filter">
+              Source
+            </label>
+            <Select
+              aria-label="Source"
               className="portal-input"
-              onChange={(event) => setSource(event.target.value)}
+              id="inbound-source-filter"
+              onValueChange={setSource}
+              options={SOURCE_OPTIONS.map(([value, label]) => ({ label, value }))}
               value={source}
-            >
-              {SOURCE_OPTIONS.map(([value, label]) => (
-                <option key={label} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
+            />
+          </div>
           <label className="grid min-w-52 flex-1 gap-1 text-brand-dark text-sm">
             <span className="font-medium">Search</span>
             <input
@@ -321,30 +334,24 @@ export function InboundLeadsView({ allowed, canFetch }) {
                   {fieldLabel(
                     "inbound-query-type",
                     "Query type",
-                    <select
+                    <Select
                       className="portal-input"
                       id="inbound-query-type"
-                      onChange={(event) => setField("queryType", event.target.value)}
+                      onValueChange={(value) => setField("queryType", value)}
+                      options={QUERY_TYPES.map((option) => ({ label: option, value: option }))}
                       value={form.queryType}
-                    >
-                      {QUERY_TYPES.map((option) => (
-                        <option key={option}>{option}</option>
-                      ))}
-                    </select>
+                    />
                   )}
                   {fieldLabel(
                     "inbound-travel-type",
                     "Travel type",
-                    <select
+                    <Select
                       className="portal-input"
                       id="inbound-travel-type"
-                      onChange={(event) => setField("travelType", event.target.value)}
+                      onValueChange={(value) => setField("travelType", value)}
+                      options={TRAVEL_TYPES.map((option) => ({ label: option, value: option }))}
                       value={form.travelType}
-                    >
-                      {TRAVEL_TYPES.map((option) => (
-                        <option key={option}>{option}</option>
-                      ))}
-                    </select>
+                    />
                   )}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">

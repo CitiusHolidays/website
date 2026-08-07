@@ -11,21 +11,19 @@ import {
   Star,
   X,
 } from "lucide-react";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import {
   createContext,
   createElement,
   use,
+  useCallback,
   useEffect,
-  useLayoutEffect,
-  useReducer,
+  useMemo,
   useRef,
-  useSyncExternalStore,
+  useState,
 } from "react";
-import { createPortal } from "react-dom";
-import { Backdrop, useFocusTrap } from "@/components/motion-ui/overlay";
-import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
 import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame";
+import { ControlledDialog, ControlledDialogClose } from "@/components/ui/application-dialog";
+import { Command } from "@/components/ui/foundation/command";
 import {
   buildCreateCommands,
   buildNavigationCommands,
@@ -33,8 +31,6 @@ import {
   buildSavedViewCommands,
   filterCommands,
 } from "@/lib/portal/commandPalette";
-import { lockBodyScroll } from "@/lib/portal/lockBodyScroll";
-import { portalMotionTransition } from "@/lib/portal/portalMotion";
 import { isSafePortalHref } from "@/lib/portal/savedViews";
 import { useModShortcutLabel } from "@/lib/portal/shortcutLabels";
 
@@ -49,39 +45,11 @@ const COMMAND_ICONS = {
   Star,
 };
 
-const subscribeToClientMount = (onStoreChange) => {
-  onStoreChange();
-  return () => {};
-};
-const getClientPortalTarget = () => document.body;
-const getServerPortalTarget = () => null;
-
 function navigateToPortalHref(href) {
   if (!isSafePortalHref(href)) {
     return;
   }
   window.location.assign(href);
-}
-
-const initialPaletteState = {
-  activeIndex: 0,
-  open: false,
-  term: "",
-};
-
-function paletteReducer(state, action) {
-  switch (action.type) {
-    case "open":
-      return { ...state, open: true };
-    case "close":
-      return initialPaletteState;
-    case "term":
-      return { ...state, activeIndex: 0, term: action.term };
-    case "activeIndex":
-      return { ...state, activeIndex: action.activeIndex };
-    default:
-      return state;
-  }
 }
 
 function useCommands(workspace, term, onSaveView) {
@@ -130,7 +98,7 @@ function useCommands(workspace, term, onSaveView) {
 function groupCommands(commands) {
   const groups = [];
   for (const command of commands) {
-    const last = groups[groups.length - 1];
+    const last = groups.at(-1);
     if (last?.label === command.group) {
       last.items.push(command);
     } else {
@@ -140,65 +108,43 @@ function groupCommands(commands) {
   return groups;
 }
 
-function CommandPaletteIcon({ name, active }) {
+function CommandPaletteIcon({ name }) {
   const IconComponent = COMMAND_ICONS[name] ?? Navigation;
   return (
     <span
       aria-hidden
-      className={`grid size-8 shrink-0 place-items-center rounded-lg ${
-        active ? "bg-citius-blue/12 text-citius-blue" : "bg-brand-light/80 text-brand-muted"
-      }`}
+      className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-light/80 text-brand-muted group-data-[selected=true]:bg-citius-blue/12 group-data-[selected=true]:text-citius-blue"
     >
       {createElement(IconComponent, { size: 15, strokeWidth: 2 })}
     </span>
   );
 }
 
-function CommandPaletteItem({ command, active, onSelect, onHover }) {
-  const itemRef = useRef(null);
-  const selectionTransition = useMotionUITransition("snap");
-
-  useLayoutEffect(() => {
-    if (!active) {
-      return;
-    }
-    itemRef.current?.scrollIntoView({ block: "nearest" });
-  }, [active]);
+function CommandPaletteItem({ command, runCommand }) {
+  const handleSelect = useCallback(() => runCommand(command), [command, runCommand]);
 
   return (
-    <button
-      className={`group relative w-full rounded-lg px-2 py-1.5 text-left active:scale-[0.96] ${
-        active ? "text-brand-dark" : "text-brand-dark hover:bg-brand-light/70"
-      }`}
-      onClick={onSelect}
-      onMouseEnter={onHover}
-      ref={itemRef}
-      type="button"
+    <Command.Item
+      className="group relative w-full cursor-default rounded-lg px-2 py-1.5 text-left text-brand-dark outline-none hover:bg-brand-light/70 active:scale-[0.96] data-[selected=true]:bg-citius-blue/8"
+      onSelect={handleSelect}
+      value={command.id}
     >
-      {active ? (
-        <m.div
-          className="absolute inset-0 rounded-lg bg-citius-blue/8 before:absolute before:inset-y-1 before:left-0 before:w-0.5 before:rounded-full before:bg-citius-blue"
-          layoutId="portal-command-selection"
-          transition={selectionTransition}
-        />
-      ) : null}
+      <span className="pointer-events-none absolute inset-y-1 left-0 hidden w-0.5 rounded-full bg-citius-blue group-data-[selected=true]:block" />
       <div className="relative flex items-center gap-3">
-        <CommandPaletteIcon active={active} name={command.icon} />
+        <CommandPaletteIcon name={command.icon} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
             <span className="truncate font-medium font-sans text-sm">{command.label}</span>
-            {active ? (
-              <kbd className="hidden shrink-0 items-center gap-0.5 rounded border border-brand-border/80 bg-white/90 px-1.5 py-0.5 font-medium font-sans text-[10px] text-brand-muted sm:inline-flex">
-                <CornerDownLeft aria-hidden size={10} />
-              </kbd>
-            ) : null}
+            <kbd className="hidden shrink-0 items-center gap-0.5 rounded border border-brand-border/80 bg-white/90 px-1.5 py-0.5 font-medium font-sans text-[10px] text-brand-muted group-data-[selected=true]:sm:inline-flex">
+              <CornerDownLeft aria-hidden size={10} />
+            </kbd>
           </div>
           {command.subtitle ? (
             <p className="mt-0.5 truncate font-sans text-brand-muted text-xs">{command.subtitle}</p>
           ) : null}
         </div>
       </div>
-    </button>
+    </Command.Item>
   );
 }
 
@@ -214,7 +160,7 @@ export function PortalCommandPaletteTrigger({ className = "" }) {
     <button
       aria-label={`Open command palette (${modShortcutLabel})`}
       className={`portal-toolbar-btn border border-brand-border bg-white text-brand-muted transition-[scale,color,background-color,border-color] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/30 hover:text-citius-blue active:scale-[0.96] ${className}`}
-      onClick={() => context?.openPalette()}
+      onClick={context?.openPalette}
       type="button"
     >
       <Search aria-hidden size={15} />
@@ -227,262 +173,147 @@ export function PortalCommandPaletteTrigger({ className = "" }) {
 
 function CommandPaletteOverlay({
   open,
-  portalTarget,
-  surfaceRef,
   frameStyle,
   backdropStyle,
   panelStyle,
-  closePalette,
+  handleOpenChange,
   inputRef,
   term,
-  dispatchPalette,
-  commands,
-  groupedWithIndex,
-  boundedActiveIndex,
+  onTermChange,
+  grouped,
   runCommand,
 }) {
-  const shouldReduceMotion = useReducedMotion();
-  const panelTransition = portalMotionTransition(shouldReduceMotion, undefined, "ui");
-  const hiddenTransform = shouldReduceMotion ? "scale(1)" : "scale(0.96) translateY(-8px)";
-  const visibleTransform = "scale(1) translateY(0)";
-
-  if (!(open && portalTarget)) {
-    return null;
-  }
-
-  return createPortal(
-    <div
-      aria-hidden={false}
-      className="portal-command-overlay"
-      role="presentation"
-      style={frameStyle}
+  return (
+    <ControlledDialog
+      backdropClassName="portal-command-backdrop"
+      backdropStyle={backdropStyle}
+      initialFocus={inputRef}
+      onOpenChange={handleOpenChange}
+      open={open}
+      panelClassName="portal-command-panel"
+      panelStyle={panelStyle}
+      popupClassName="portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl"
+      popupRender={<Command aria-label="Command palette" shouldFilter={false} />}
+      triggerless
+      viewportClassName="portal-command-overlay"
+      viewportStyle={frameStyle}
     >
-      <AnimatePresence>
-        {open ? (
-          <>
-            <Backdrop
-              animate={{ opacity: 1 }}
-              className="portal-command-backdrop"
-              exit={{ opacity: 0 }}
-              initial={{ opacity: 0 }}
-              key="portal-command-backdrop"
-              label="Close command palette"
-              onClick={closePalette}
-              style={backdropStyle}
-              transition={panelTransition}
-            />
-            <m.div
-              animate={{ opacity: 1, transform: visibleTransform }}
-              aria-label="Command palette"
-              className="portal-command-panel"
-              exit={{ opacity: 0, transform: hiddenTransform }}
-              initial={{ opacity: 0, transform: hiddenTransform }}
-              key="portal-command-panel"
-              ref={surfaceRef}
-              role="dialog"
-              style={panelStyle}
-              transition={panelTransition}
-            >
-              <div className="portal-command-surface pointer-events-auto mx-auto w-full max-w-xl overflow-hidden rounded-xl border border-brand-border/80 bg-white/95 shadow-2xl backdrop-blur-xl">
-                <div className="flex shrink-0 items-center gap-2 border-brand-border/80 border-b px-3 py-2">
-                  <Search aria-hidden className="shrink-0 text-brand-muted" size={16} />
-                  <input
-                    aria-label="Search portal commands"
-                    className="min-w-0 flex-1 bg-transparent py-2 font-sans text-brand-dark text-sm outline-none placeholder:text-brand-muted/70"
-                    onChange={(event) => {
-                      dispatchPalette({ term: event.target.value, type: "term" });
-                    }}
-                    placeholder="Search commands…"
-                    ref={inputRef}
-                    value={term}
-                  />
-                  <button
-                    aria-label="Close"
-                    className="grid size-8 shrink-0 place-items-center rounded-lg text-brand-muted transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
-                    onClick={closePalette}
-                    type="button"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-                <div
-                  className="portal-command-scroll p-2"
-                  onWheel={(event) => event.stopPropagation()}
-                >
-                  {commands.length === 0 ? (
-                    <p className="px-3 py-6 text-center font-sans text-brand-muted text-sm">
-                      No matching commands
-                    </p>
-                  ) : (
-                    groupedWithIndex.map((group) => (
-                      <div className="mb-1 last:mb-0" key={group.label}>
-                        <div className="px-3 pt-2 pb-1 font-sans font-semibold text-[10px] text-brand-muted uppercase tracking-wide">
-                          {group.label}
-                        </div>
-                        <div className="space-y-0.5">
-                          {group.items.map((command, indexInGroup) => {
-                            const index = group.start + indexInGroup;
-                            const active = index === boundedActiveIndex;
-                            return (
-                              <CommandPaletteItem
-                                active={active}
-                                command={command}
-                                key={command.id}
-                                onHover={() =>
-                                  dispatchPalette({ activeIndex: index, type: "activeIndex" })
-                                }
-                                onSelect={() => runCommand(command)}
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </m.div>
-          </>
-        ) : null}
-      </AnimatePresence>
-    </div>,
-    portalTarget
+      <div className="flex shrink-0 items-center gap-2 border-brand-border/80 border-b px-3 py-2">
+        <Search aria-hidden className="shrink-0 text-brand-muted" size={16} />
+        <Command.Input
+          aria-label="Search portal commands"
+          className="min-w-0 flex-1 bg-transparent py-2 font-sans text-brand-dark text-sm outline-none placeholder:text-brand-muted/70"
+          onValueChange={onTermChange}
+          placeholder="Search commands…"
+          ref={inputRef}
+          value={term}
+        />
+        <ControlledDialogClose
+          aria-label="Close"
+          className="grid size-8 shrink-0 place-items-center rounded-lg text-brand-muted transition-[background-color,color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light hover:text-brand-dark active:scale-[0.96]"
+          type="button"
+        >
+          <X size={16} />
+        </ControlledDialogClose>
+      </div>
+      <Command.List className="portal-command-scroll p-2" onWheel={stopWheelPropagation}>
+        <Command.Empty className="px-3 py-6 text-center font-sans text-brand-muted text-sm">
+          No matching commands
+        </Command.Empty>
+        {grouped.map((group) => (
+          <Command.Group
+            className="mb-1 last:mb-0 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:font-sans [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:text-brand-muted [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-items]]:space-y-0.5"
+            heading={group.label}
+            key={group.label}
+          >
+            {group.items.map((command) => (
+              <CommandPaletteItem command={command} key={command.id} runCommand={runCommand} />
+            ))}
+          </Command.Group>
+        ))}
+      </Command.List>
+    </ControlledDialog>
   );
 }
 
 export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
-  const [paletteState, dispatchPalette] = useReducer(paletteReducer, initialPaletteState);
-  const { open, term, activeIndex } = paletteState;
-  const portalTarget = useSyncExternalStore(
-    subscribeToClientMount,
-    getClientPortalTarget,
-    getServerPortalTarget
-  );
+  const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState("");
   const inputRef = useRef(null);
-  const surfaceRef = useRef(null);
   const { backdropStyle, frameStyle, panelStyle } = usePortalOverlayFrame({ open });
   const commands = useCommands(workspace, term, onSaveView);
   const grouped = groupCommands(commands);
-  const groupedWithIndex = grouped.map((group, groupIndex) => ({
-    ...group,
-    start: grouped
-      .slice(0, groupIndex)
-      .reduce((total, previousGroup) => total + previousGroup.items.length, 0),
-  }));
-  const maxActiveIndex = Math.max(commands.length - 1, 0);
-  const boundedActiveIndex = Math.min(activeIndex, maxActiveIndex);
 
-  const closePalette = () => {
-    dispatchPalette({ type: "close" });
-  };
+  const closePalette = useCallback(() => {
+    setOpen(false);
+    setTerm("");
+  }, []);
 
-  const openPalette = () => {
-    dispatchPalette({ type: "open" });
-    window.setTimeout(() => inputRef.current?.focus(), 0);
-  };
+  const openPalette = useCallback(() => setOpen(true), []);
 
-  const runCommand = (command) => {
-    if (!command) {
-      return;
-    }
-    closePalette();
-    if (command.run) {
-      command.run();
-    }
-    if (command.href) {
-      navigateToPortalHref(command.href);
-    }
-  };
+  const handleOpenChange = useCallback(
+    (nextOpen) => {
+      if (nextOpen) {
+        openPalette();
+      } else {
+        closePalette();
+      }
+    },
+    [closePalette, openPalette]
+  );
 
-  useEffect(() => {
-    const closeFromKey = () => {
-      dispatchPalette({ type: "close" });
-    };
-    const openFromKey = () => {
-      dispatchPalette({ type: "open" });
-      window.setTimeout(() => inputRef.current?.focus(), 0);
-    };
-    const runFromKey = (command) => {
+  const runCommand = useCallback(
+    (command) => {
       if (!command) {
         return;
       }
-      closeFromKey();
+      closePalette();
       if (command.run) {
         command.run();
       }
       if (command.href) {
         navigateToPortalHref(command.href);
       }
-    };
+    },
+    [closePalette]
+  );
 
+  useEffect(() => {
     const onKeyDown = (event) => {
-      const tagName = event.target?.tagName;
-      const isEditable = Boolean(event.target?.isContentEditable);
-      const isTyping = isEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(tagName);
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         if (open) {
-          closeFromKey();
+          closePalette();
         } else {
-          openFromKey();
+          openPalette();
         }
-      } else if (event.key === "Escape" && open) {
-        event.preventDefault();
-        closeFromKey();
-      } else if (open && event.key === "ArrowDown") {
-        event.preventDefault();
-        dispatchPalette({
-          activeIndex: Math.min(activeIndex + 1, maxActiveIndex),
-          type: "activeIndex",
-        });
-      } else if (open && event.key === "ArrowUp") {
-        event.preventDefault();
-        dispatchPalette({ activeIndex: Math.max(activeIndex - 1, 0), type: "activeIndex" });
-      } else if (open && event.key === "Enter") {
-        event.preventDefault();
-        runFromKey(commands[boundedActiveIndex]);
-      } else if (!open && isTyping) {
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeIndex, boundedActiveIndex, commands, maxActiveIndex, open]);
+  }, [closePalette, open, openPalette]);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    return lockBodyScroll();
-  }, [open]);
-
-  useFocusTrap({
-    active: open,
-    container: surfaceRef,
-    initialFocus: inputRef,
-    onEscape: closePalette,
-  });
-
-  const contextValue = { openPalette };
+  const contextValue = useMemo(() => ({ openPalette }), [openPalette]);
 
   return (
     <PortalCommandPaletteContext.Provider value={contextValue}>
       {children}
       <CommandPaletteOverlay
         backdropStyle={backdropStyle}
-        boundedActiveIndex={boundedActiveIndex}
-        closePalette={closePalette}
-        commands={commands}
-        dispatchPalette={dispatchPalette}
         frameStyle={frameStyle}
-        groupedWithIndex={groupedWithIndex}
+        grouped={grouped}
+        handleOpenChange={handleOpenChange}
         inputRef={inputRef}
+        onTermChange={setTerm}
         open={open}
         panelStyle={panelStyle}
-        portalTarget={portalTarget}
         runCommand={runCommand}
-        surfaceRef={surfaceRef}
         term={term}
       />
     </PortalCommandPaletteContext.Provider>
   );
+}
+
+function stopWheelPropagation(event) {
+  event.stopPropagation();
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { PortalTooltip } from "@/components/portal/PortalTooltip";
+
 type PortalGridRow = {
   approxMargin?: number | null;
   contractingStatus?: string;
@@ -43,12 +45,11 @@ export function formatNotesPreview(value: any, maxWords: any = MAX_QUERY_NOTES_W
   const words = text.split(/\s+/).filter(Boolean);
   const display = words.length > maxWords ? `${words.slice(0, maxWords).join(" ")}…` : text;
   return (
-    <span
-      className="block max-w-[220px] whitespace-normal break-words text-brand-muted text-xs leading-snug"
-      title={text}
-    >
-      {display}
-    </span>
+    <PortalTooltip content={text}>
+      <span className="block max-w-[220px] whitespace-normal break-words text-brand-muted text-xs leading-snug">
+        {display}
+      </span>
+    </PortalTooltip>
   );
 }
 

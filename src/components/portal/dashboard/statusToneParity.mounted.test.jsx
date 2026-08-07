@@ -14,6 +14,7 @@ beforeAll(() => {
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
+  globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
   globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
@@ -55,6 +56,13 @@ describe("mounted status tone parity", () => {
       "Documents pending before departure",
       "Documents pending before departure",
     ]);
+    expect(badges.every((badge) => badge.getAttribute("role") === "status")).toBe(true);
+    expect(
+      badges.every(
+        (badge) =>
+          badge.className.includes("rounded-full") && badge.className.includes("font-semibold")
+      )
+    ).toBe(true);
 
     act(() => root.unmount());
   });

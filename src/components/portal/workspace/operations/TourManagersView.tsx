@@ -3,6 +3,7 @@
 import { CheckCircle2, ShieldCheck, Users } from "lucide-react";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { Button } from "@/components/ui/application-button";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { CALLING_STATUSES, PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { runMutation } from "@/lib/portal/runMutation";
@@ -185,7 +186,7 @@ export function TourManagersView({
                 has(P.MANAGE_TOUR_MANAGERS) && (
                   <div className="flex flex-wrap gap-2">
                     {CALLING_STATUSES.map((status) => (
-                      <button
+                      <Button
                         className="portal-small-btn"
                         key={status}
                         onClick={() =>
@@ -205,7 +206,7 @@ export function TourManagersView({
                         type="button"
                       >
                         {status}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 ),

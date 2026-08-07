@@ -32,11 +32,13 @@ beforeAll(async () => {
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
+  globalThis.Element = dom.window.Element;
   globalThis.HTMLTextAreaElement = dom.window.HTMLTextAreaElement;
   globalThis.InputEvent = dom.window.InputEvent;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
   globalThis.MouseEvent = dom.window.MouseEvent;
+  globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   ({ createRoot } = await import("react-dom/client"));
 
   mock.module("convex/react", () => ({

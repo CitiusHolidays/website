@@ -4,6 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { m } from "motion/react";
 import { useEffect, useState } from "react";
 import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
+import { Button } from "@/components/ui/application-button";
 import { DashboardPanel, DashboardProgress } from "./DashboardPanel";
 
 const STORAGE_PREFIX = "portal-dashboard-collapse-";
@@ -69,7 +70,7 @@ export function DashboardCollapsibleSection({
       {showWorkflow && departmentWorkflow?.length > 0 ? (
         <DashboardPanel
           title={
-            <button
+            <Button
               aria-expanded={workflowOpen}
               className="flex w-full items-center justify-between gap-2 text-left"
               onClick={() => {
@@ -84,7 +85,7 @@ export function DashboardCollapsibleSection({
                 className={`shrink-0 transition-transform duration-200 ease-[var(--portal-ease-out)] ${workflowOpen ? "rotate-180" : ""}`}
                 size={18}
               />
-            </button>
+            </Button>
           }
         >
           <CollapsiblePanelBody open={workflowOpen}>
@@ -103,7 +104,7 @@ export function DashboardCollapsibleSection({
       {showTeam && myTeam?.length > 0 ? (
         <DashboardPanel
           title={
-            <button
+            <Button
               aria-expanded={teamOpen}
               className="flex w-full items-center justify-between gap-2 text-left"
               onClick={() => {
@@ -118,7 +119,7 @@ export function DashboardCollapsibleSection({
                 className={`shrink-0 transition-transform duration-200 ease-[var(--portal-ease-out)] ${teamOpen ? "rotate-180" : ""}`}
                 size={18}
               />
-            </button>
+            </Button>
           }
         >
           <CollapsiblePanelBody open={teamOpen}>

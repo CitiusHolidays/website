@@ -1,58 +1,28 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
-import { useFocusTrap } from "@/components/motion-ui/overlay";
+import { useCallback, useId, useRef, useState } from "react";
 import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame";
-import { lockBodyScroll } from "@/lib/portal/lockBodyScroll";
-
-const subscribeToClientMount = (onStoreChange) => {
-  onStoreChange();
-  return () => {};
-};
-const getClientPortalTarget = () => document.body;
-const getServerPortalTarget = () => null;
+import {
+  ControlledDialog,
+  ControlledDialogClose,
+  ControlledDialogTitle,
+} from "@/components/ui/application-dialog";
 
 export default function SaveViewDialog({ open, onClose, onSave, saving = false }) {
   const [name, setName] = useState("");
-  const portalTarget = useSyncExternalStore(
-    subscribeToClientMount,
-    getClientPortalTarget,
-    getServerPortalTarget
-  );
   const inputId = useId();
   const inputRef = useRef(null);
-  const overlayRef = useRef(null);
-  const dialogRef = useRef(null);
   const { backdropStyle, frameStyle, panelStyle } = usePortalOverlayFrame({ open });
-
-  const closeDialog = () => {
-    setName("");
-    onClose();
-  };
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    return lockBodyScroll();
-  }, [open]);
-
-  useFocusTrap({
-    active: open,
-    container: dialogRef,
-    inertSiblingsOf: overlayRef,
-    initialFocus: inputRef,
-    onEscape: () => {
-      if (!saving) {
-        closeDialog();
+  const handleNameChange = useCallback((event) => setName(event.target.value), []);
+  const handleOpenChange = useCallback(
+    (nextOpen) => {
+      if (!nextOpen) {
+        setName("");
+        onClose();
       }
     },
-  });
-
-  if (!(open && portalTarget)) {
-    return null;
-  }
+    [onClose]
+  );
 
   const submit = async (event) => {
     event.preventDefault();
@@ -65,67 +35,56 @@ export default function SaveViewDialog({ open, onClose, onSave, saving = false }
     onClose();
   };
 
-  return createPortal(
-    <div className="portal-command-overlay" ref={overlayRef} role="presentation" style={frameStyle}>
-      <button
-        aria-label="Close save view dialog"
-        className="portal-command-backdrop"
-        onClick={closeDialog}
-        style={backdropStyle}
-        type="button"
+  return (
+    <ControlledDialog
+      backdropClassName="portal-command-backdrop"
+      backdropStyle={backdropStyle}
+      closeDisabled={saving}
+      initialFocus={inputRef}
+      onOpenChange={handleOpenChange}
+      open={open}
+      panelClassName="portal-save-view-panel"
+      panelStyle={panelStyle}
+      popupClassName="portal-command-surface pointer-events-auto mx-auto w-full max-w-md rounded-xl border border-brand-border/80 bg-white/95 p-4 shadow-2xl backdrop-blur-xl"
+      popupRender={<form onSubmit={submit} />}
+      viewportClassName="portal-command-overlay"
+      viewportStyle={frameStyle}
+    >
+      <ControlledDialogTitle className="font-heading font-semibold text-base text-citius-blue">
+        Save current view
+      </ControlledDialogTitle>
+      <label
+        className="mt-3 block font-medium text-brand-muted text-xs"
+        htmlFor={`${inputId}-name`}
+      >
+        View name
+      </label>
+      <input
+        aria-label="View name"
+        className="portal-toolbar-control mt-1 w-full rounded-lg border border-brand-border px-3 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-out focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
+        id={`${inputId}-name`}
+        maxLength={80}
+        onChange={handleNameChange}
+        placeholder="e.g. My open queries"
+        ref={inputRef}
+        value={name}
       />
-      <div className="portal-save-view-panel" style={panelStyle}>
-        <form
-          aria-labelledby={`${inputId}-title`}
-          aria-modal="true"
-          className="portal-command-surface pointer-events-auto mx-auto w-full max-w-md rounded-xl border border-brand-border/80 bg-white/95 p-4 shadow-2xl backdrop-blur-xl"
-          onSubmit={submit}
-          ref={dialogRef}
-          role="dialog"
-          tabIndex={-1}
+      <div className="mt-4 flex justify-end gap-2">
+        <ControlledDialogClose
+          className="portal-outline-btn transition-transform duration-150 ease-out active:scale-[0.96]"
+          disabled={saving}
+          type="button"
         >
-          <h2
-            className="font-heading font-semibold text-base text-citius-blue"
-            id={`${inputId}-title`}
-          >
-            Save current view
-          </h2>
-          <label
-            className="mt-3 block font-medium text-brand-muted text-xs"
-            htmlFor={`${inputId}-name`}
-          >
-            View name
-          </label>
-          <input
-            aria-label="View name"
-            className="portal-toolbar-control mt-1 w-full rounded-lg border border-brand-border px-3 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-out focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10"
-            id={`${inputId}-name`}
-            maxLength={80}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="e.g. My open queries"
-            ref={inputRef}
-            value={name}
-          />
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              className="portal-outline-btn transition-transform duration-150 ease-out active:scale-[0.96]"
-              disabled={saving}
-              onClick={closeDialog}
-              type="button"
-            >
-              Cancel
-            </button>
-            <button
-              className="portal-primary-btn transition-transform duration-150 ease-out active:scale-[0.96]"
-              disabled={!name.trim() || saving}
-              type="submit"
-            >
-              Save
-            </button>
-          </div>
-        </form>
+          Cancel
+        </ControlledDialogClose>
+        <button
+          className="portal-primary-btn transition-transform duration-150 ease-out active:scale-[0.96]"
+          disabled={!name.trim() || saving}
+          type="submit"
+        >
+          Save
+        </button>
       </div>
-    </div>,
-    portalTarget
+    </ControlledDialog>
   );
 }

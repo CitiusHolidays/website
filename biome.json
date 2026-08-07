@@ -15,6 +15,7 @@
       "!convex/betterAuth/_generated",
       "!citius-blog/dist",
       "!citius-blog/.next",
+      "!src/components/portal/dashboard/dashboard-deslop.prototype.html",
       "!tools"
     ]
   },

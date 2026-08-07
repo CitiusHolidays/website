@@ -1,6 +1,7 @@
 "use client";
 
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { Button } from "@/components/ui/application-button";
 import { estimateRoomCount } from "../portalOperationsHelpers";
 import type {
   PortalJobCardOption,
@@ -103,14 +104,14 @@ export function RoomCountView({
               : "Counts and the Job Card Breakdown currently cover the bounded loaded Job Card set available to you."}
           </span>
           {pagination?.canLoadMore ? (
-            <button
+            <Button
               className="portal-small-btn"
               disabled={pagination.isLoadingMore}
               onClick={pagination.loadMore}
               type="button"
             >
               {pagination.isLoadingMore ? "Loading…" : "Load more Job Cards"}
-            </button>
+            </Button>
           ) : null}
         </div>
       ) : null}

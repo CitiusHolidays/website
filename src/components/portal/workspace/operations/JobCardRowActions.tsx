@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { QueryRowActions } from "@/components/portal/QueryRowActions";
+import { Button } from "@/components/ui/application-button";
 import { buildTravelBatchModalInitial, TRAVEL_BATCH_MODAL } from "@/lib/portal/workspaceContract";
 import type {
   PortalDeleteHandler,
@@ -34,7 +35,7 @@ export function JobCardRowActions({
   const { canManage, canManageTravelBatches, assignContracting, assignOps, assignTicketing } =
     visibility;
   const overflowActions = [
-    <button
+    <Button
       className="portal-small-btn w-full"
       key="commercial-files"
       onClick={() =>
@@ -43,39 +44,39 @@ export function JobCardRowActions({
       type="button"
     >
       Files
-    </button>,
+    </Button>,
     assignContracting ? (
-      <button
+      <Button
         className="portal-small-btn w-full"
         key="assign-contracting"
         onClick={() => openModal("assignContractingOwner", { jobCardId: job.id })}
         type="button"
       >
         Assign Contracting
-      </button>
+      </Button>
     ) : null,
     assignOps ? (
-      <button
+      <Button
         className="portal-small-btn w-full"
         key="assign-ops"
         onClick={() => openModal("assignOperationsOwner", { jobCardId: job.id })}
         type="button"
       >
         Assign Ops
-      </button>
+      </Button>
     ) : null,
     assignTicketing ? (
-      <button
+      <Button
         className="portal-small-btn w-full"
         key="assign-ticketing"
         onClick={() => openModal("assignTicketingOwner", { jobCardId: job.id })}
         type="button"
       >
         Assign Ticketing
-      </button>
+      </Button>
     ) : null,
     canManageTravelBatches ? (
-      <button
+      <Button
         className="portal-small-btn w-full"
         key="add-batch"
         onClick={() =>
@@ -87,7 +88,7 @@ export function JobCardRowActions({
         type="button"
       >
         Add Travel Batch
-      </button>
+      </Button>
     ) : null,
     canManage ? (
       <EditButton
@@ -109,27 +110,27 @@ export function JobCardRowActions({
       />
     ) : null,
     canManage ? (
-      <button
+      <Button
         className="portal-small-btn w-full"
         key="share"
         onClick={() => openModal("addJobCardCollaborator", { jobCardId: job.id })}
         type="button"
       >
         Share
-      </button>
+      </Button>
     ) : null,
     canManage && (job.collaboratorStaffIds ?? []).length > 0 ? (
-      <button
+      <Button
         className="portal-small-btn w-full"
         key="unshare"
         onClick={() => openModal("removeJobCardCollaborator", { jobCardId: job.id })}
         type="button"
       >
         Unshare
-      </button>
+      </Button>
     ) : null,
     canManage ? (
-      <button
+      <Button
         className="portal-small-btn w-full"
         key="advance"
         onClick={() =>
@@ -141,7 +142,7 @@ export function JobCardRowActions({
         type="button"
       >
         Advance Status
-      </button>
+      </Button>
     ) : null,
     canManage ? (
       <DeleteButton

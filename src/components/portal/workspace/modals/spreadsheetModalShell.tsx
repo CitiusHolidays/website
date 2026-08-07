@@ -1,7 +1,9 @@
 "use client";
 
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
-import type { ChangeEvent, ReactNode } from "react";
+import { m, useReducedMotion } from "motion/react";
+import { type ChangeEvent, type ReactNode, useCallback } from "react";
+import { Button } from "@/components/ui/application-button";
+import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { portalMotionTransition } from "@/lib/portal/portalMotion";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import type { SpreadsheetImportIssueRow } from "./spreadsheetModalRuntime";
@@ -24,43 +26,62 @@ export function ImportModalShell({
   const panelHiddenTransform = shouldReduceMotion ? panelTransform : "translateY(18px) scale(0.96)";
   const backdropTransition = portalMotionTransition(shouldReduceMotion, undefined, "ui");
   const panelTransition = portalMotionTransition(shouldReduceMotion, undefined, "ui");
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) {
+        close();
+      }
+    },
+    [close]
+  );
 
   return (
-    <AnimatePresence>
-      {open && (
+    <ControlledDialog
+      backdropClassName="absolute inset-0 bg-slate-950/65"
+      backdropRender={
         <m.div
           animate={{ opacity: 1 }}
-          className={`fixed inset-0 ${PORTAL_Z.importModal} flex items-center justify-center bg-slate-950/65 p-4`}
           exit={{ opacity: 0 }}
           initial={{ opacity: 0 }}
-          key="import-modal"
           transition={backdropTransition}
-        >
-          <m.div
-            animate={{ opacity: 1, transform: panelTransform }}
-            className="max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-brand-border bg-white p-5 shadow-2xl md:p-6"
-            exit={{ opacity: 0, transform: panelHiddenTransform }}
-            initial={{ opacity: 0, transform: panelHiddenTransform }}
-            transition={panelTransition}
-          >
-            <div className="mb-5 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="font-heading font-semibold text-2xl text-citius-blue">{title}</h2>
-                <p className="mt-1 text-brand-muted text-sm">{subtitle}</p>
-              </div>
-              <button
-                className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
-                onClick={close}
-                type="button"
-              >
-                Close
-              </button>
+        />
+      }
+      closeDisabled={open}
+      onOpenChange={handleOpenChange}
+      open={open}
+      popupClassName="relative max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-brand-border bg-white p-5 shadow-2xl md:p-6"
+      popupRender={
+        <m.div
+          animate={{ opacity: 1, transform: panelTransform }}
+          exit={{ opacity: 0, transform: panelHiddenTransform }}
+          initial={{ opacity: 0, transform: panelHiddenTransform }}
+          transition={panelTransition}
+        />
+      }
+      triggerless
+      viewportClassName={`fixed inset-0 ${PORTAL_Z.importModal} flex items-center justify-center p-4`}
+    >
+      {open ? (
+        <>
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <ControlledDialogTitle className="font-heading font-semibold text-2xl text-citius-blue">
+                {title}
+              </ControlledDialogTitle>
+              <p className="mt-1 text-brand-muted text-sm">{subtitle}</p>
             </div>
-            {children}
-          </m.div>
-        </m.div>
-      )}
-    </AnimatePresence>
+            <Button
+              className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
+              onClick={close}
+              type="button"
+            >
+              Close
+            </Button>
+          </div>
+          {children}
+        </>
+      ) : null}
+    </ControlledDialog>
   );
 }
 

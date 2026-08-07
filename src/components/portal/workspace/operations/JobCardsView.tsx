@@ -2,6 +2,7 @@
 
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate } from "@/components/portal/PortalModalForm";
+import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { getJobCardAttention } from "@/lib/portal/jobCardListPresentation";
@@ -83,17 +84,18 @@ export function JobCardsView({
             id: "owners",
             label: "Owners",
             render: (row: JobCardRow) => (
-              <span
-                className="text-brand-muted text-xs"
-                title={`Contracting: ${row.contractingOwnerName || "Unassigned"} · Ops: ${row.operationsOwnerName || "Unassigned"} · Ticketing: ${row.ticketingOwnerName || "Unassigned"}`}
+              <PortalTooltip
+                content={`Contracting: ${row.contractingOwnerName || "Unassigned"} · Ops: ${row.operationsOwnerName || "Unassigned"} · Ticketing: ${row.ticketingOwnerName || "Unassigned"}`}
               >
-                {row.contractingOwnerName || row.operationsOwnerName || row.ticketingOwnerName
-                  ? [row.contractingOwnerName, row.operationsOwnerName, row.ticketingOwnerName]
-                      .filter(Boolean)
-                      .slice(0, 2)
-                      .join(" · ")
-                  : "Unassigned"}
-              </span>
+                <span className="text-brand-muted text-xs">
+                  {row.contractingOwnerName || row.operationsOwnerName || row.ticketingOwnerName
+                    ? [row.contractingOwnerName, row.operationsOwnerName, row.ticketingOwnerName]
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .join(" · ")
+                    : "Unassigned"}
+                </span>
+              </PortalTooltip>
             ),
           },
           {

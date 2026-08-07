@@ -4,6 +4,9 @@ import { FileText, Paperclip, Trash2 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
+import { PortalTooltip } from "@/components/portal/PortalTooltip";
+import { Button } from "@/components/ui/application-button";
+import { Badge as ApplicationBadge } from "@/components/ui/application-status";
 import {
   getStatusPresentation,
   type SemanticTone,
@@ -34,16 +37,20 @@ interface BadgeProps {
 export function Badge({ label, meaning, semanticTone, tone = "gray" }: BadgeProps) {
   const labelText = String(label ?? "");
   const accessibleLabel = meaning && meaning !== labelText ? meaning : labelText;
-  return (
-    <span
+  const badge = (
+    <ApplicationBadge
       aria-label={accessibleLabel}
-      className={`inline-flex rounded-full px-2.5 py-1 font-semibold text-[length:var(--portal-label-size)] ${BADGE_TONES[tone] || BADGE_TONES.gray}`}
+      className={`border-0 font-semibold text-[length:var(--portal-label-size)] ${BADGE_TONES[tone] || BADGE_TONES.gray}`}
       data-status-tone={semanticTone}
       role="status"
-      title={meaning && meaning !== labelText ? meaning : undefined}
     >
       {label}
-    </span>
+    </ApplicationBadge>
+  );
+  return meaning && meaning !== labelText ? (
+    <PortalTooltip content={meaning}>{badge}</PortalTooltip>
+  ) : (
+    badge
   );
 }
 
@@ -70,9 +77,9 @@ export function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, o
   const toast = useTypedPortalToast();
   if (!finalizedPdf) {
     return canSend ? (
-      <button className="portal-small-btn" onClick={onManage} type="button">
+      <Button className="portal-small-btn" onClick={onManage} type="button">
         Upload document
-      </button>
+      </Button>
     ) : (
       <span className="text-brand-muted text-xs">Not uploaded</span>
     );
@@ -80,7 +87,7 @@ export function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, o
 
   return (
     <div className="flex flex-col gap-1">
-      <button
+      <Button
         className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
         onClick={() =>
           onDownload().catch((err: any) => {
@@ -91,16 +98,16 @@ export function FinalizedProposalPdfSummary({ finalizedPdf, canSend, onManage, o
       >
         <FileText className="shrink-0" size={12} />
         <span className="truncate">{finalizedPdf.fileName}</span>
-      </button>
+      </Button>
       {finalizedPdf.uploadedAt && (
         <span className="text-[length:var(--portal-label-size)] text-brand-muted">
           {formatDate(finalizedPdf.uploadedAt)}
         </span>
       )}
       {canSend && (
-        <button className="portal-small-btn mt-1 w-fit" onClick={onManage} type="button">
+        <Button className="portal-small-btn mt-1 w-fit" onClick={onManage} type="button">
           Replace document
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -141,7 +148,7 @@ export function QueryFilesSummary({
             Reference itinerary
           </span>
           {attachments.slice(0, 2).map((file) => (
-            <button
+            <Button
               className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
               key={file.id}
               onClick={() =>
@@ -153,16 +160,16 @@ export function QueryFilesSummary({
             >
               <Paperclip className="shrink-0" size={12} />
               <span className="truncate">{file.fileName}</span>
-            </button>
+            </Button>
           ))}
           {canManageReferenceItinerary && onManageReferenceItinerary ? (
-            <button
+            <Button
               className="portal-small-btn mt-1 w-fit"
               onClick={onManageReferenceItinerary}
               type="button"
             >
               {attachments.length > 0 ? "Manage" : "Add file"}
-            </button>
+            </Button>
           ) : null}
         </div>
       ) : null}
@@ -171,7 +178,7 @@ export function QueryFilesSummary({
           <span className="font-semibold text-[length:var(--portal-label-size)] text-brand-muted uppercase tracking-[0.08em]">
             Proposal doc
           </span>
-          <button
+          <Button
             className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
             onClick={() =>
               openFinalizedProposalPdf(proposalDocument.proposalId, getFinalizedPdfUrl).catch(
@@ -184,7 +191,7 @@ export function QueryFilesSummary({
           >
             <FileText className="shrink-0" size={12} />
             <span className="truncate">{proposalDocument.fileName}</span>
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>
@@ -203,9 +210,9 @@ export function QueryAttachmentSummary({
   const totalAttachments = Math.max(attachmentCount ?? 0, attachments.length);
   if (totalAttachments === 0) {
     return canManage ? (
-      <button className="portal-small-btn" onClick={onManage} type="button">
+      <Button className="portal-small-btn" onClick={onManage} type="button">
         Add files
-      </button>
+      </Button>
     ) : (
       <span className="text-brand-muted text-xs">-</span>
     );
@@ -214,7 +221,7 @@ export function QueryAttachmentSummary({
   return (
     <div className="flex flex-col gap-1">
       {attachments.slice(0, 2).map((file: any) => (
-        <button
+        <Button
           className="inline-flex max-w-[180px] items-center gap-1 truncate text-left font-medium text-citius-blue text-xs hover:underline"
           key={file.id}
           onClick={() =>
@@ -228,7 +235,7 @@ export function QueryAttachmentSummary({
         >
           <Paperclip className="shrink-0" size={12} />
           <span className="truncate">{file.fileName}</span>
-        </button>
+        </Button>
       ))}
       {totalAttachments > attachments.slice(0, 2).length && (
         <span className="text-[length:var(--portal-label-size)] text-brand-muted">
@@ -236,9 +243,9 @@ export function QueryAttachmentSummary({
         </span>
       )}
       {canManage && (
-        <button className="portal-small-btn mt-1 w-fit" onClick={onManage} type="button">
+        <Button className="portal-small-btn mt-1 w-fit" onClick={onManage} type="button">
           Manage
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -246,20 +253,20 @@ export function QueryAttachmentSummary({
 
 export function EditButton({ className, onClick, label = "Edit", ...buttonProps }: any) {
   return (
-    <button
+    <Button
       {...buttonProps}
       className={className || "portal-small-btn"}
       onClick={onClick}
       type="button"
     >
       {label}
-    </button>
+    </Button>
   );
 }
 
 export function DeleteButton({ className, label, onClick, ...buttonProps }: any) {
   return (
-    <button
+    <Button
       {...buttonProps}
       aria-label={`Delete ${label}`}
       className={className || "portal-danger-btn"}
@@ -268,7 +275,7 @@ export function DeleteButton({ className, label, onClick, ...buttonProps }: any)
     >
       <Trash2 size={13} />
       Delete
-    </button>
+    </Button>
   );
 }
 

@@ -101,6 +101,11 @@ describe("customer Account journey composition", () => {
     );
 
     expect(view.container.textContent).toContain("Kailash Journey");
+    const status = [...view.container.querySelectorAll('[data-surface="account"]')].find(
+      (element) => element.textContent === "Confirmed"
+    );
+    expect(status).not.toBeNull();
+    expect(status.className).toContain("account-success");
     expect(view.container.textContent).toContain("Itinerary preview");
     expect(view.container.textContent).toContain("Lake View Guest House");
     expect(view.container.textContent).toContain("Kathmandu Discovery");

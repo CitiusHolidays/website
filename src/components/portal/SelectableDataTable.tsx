@@ -10,26 +10,22 @@ import {
   Columns3,
   Trash2,
 } from "lucide-react";
-import type { AriaAttributes, ChangeEvent, Key, ReactNode } from "react";
+import type { AriaAttributes, Key, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { HoldToDeleteButton } from "@/components/motion-ui/hold-to-delete";
 import { SkeletonMobileCards, SkeletonTable } from "@/components/motion-ui/skeleton";
 import { usePortalFilterActions } from "@/components/portal/portalFilterActionsState";
 import { ResponsiveDataCards } from "@/components/portal/ResponsiveDataCards";
-import { useBulkSelection } from "@/lib/portal/bulkSelection";
-import { shouldResetLoadedPage } from "@/lib/portal/paginatedRows";
+import { Checkbox } from "@/components/ui/application-checkbox";
 import {
   desktopPinnedColumnClass,
-  nextSortState,
   type PortalGridAttention,
   type PortalGridColumn,
   type PortalSortDirection,
   type PortalSortState,
   preparePortalColumns,
-  reconcilePortalSort,
-  sortPortalRows,
-  visiblePortalColumns,
 } from "@/lib/portal/portalDataGrid";
+import { usePortalTanStackTableEquivalence } from "@/lib/portal/portalTanStackTableEquivalence";
 
 type PortalRowTone = NonNullable<PortalGridAttention["tone"]>;
 
@@ -68,8 +64,6 @@ const ROW_TONE_CLASSES: Record<PortalRowTone, string> = {
   info: "bg-citius-blue/[0.025]",
   warning: "bg-amber-50/45",
 };
-
-const PAGE_SIZE = 25;
 
 function columnAriaSort<Row>(
   column: PortalGridColumn<Row>,
@@ -144,15 +138,14 @@ function ColumnVisibilityToggle<Row>({
 }) {
   const handleChange = () => onToggle(column.id);
   return (
-    <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-2 text-brand-dark text-sm hover:bg-brand-light">
-      <input
-        checked={!hidden}
-        className="size-5 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
-        onChange={handleChange}
-        type="checkbox"
-      />
+    <Checkbox
+      aria-label={`${column.label} column`}
+      checked={!hidden}
+      className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-2 text-brand-dark text-sm hover:bg-brand-light"
+      onCheckedChange={handleChange}
+    >
       {column.label}
-    </label>
+    </Checkbox>
   );
 }
 
@@ -195,6 +188,7 @@ function TableHorizontalScrollContainer({
     overflow: false,
   });
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Recheck overflow whenever paged or visible table content changes.
   useEffect(() => {
     const node = scrollRef.current;
     if (!node) {
@@ -426,7 +420,7 @@ function BulkActionBar({
           data-testid="portal-bulk-delete-hold"
           key={holdKey}
           onConfirm={() => {
-            void Promise.resolve(onDeleteSelected()).then((ok) => {
+            Promise.resolve(onDeleteSelected()).then((ok) => {
               if (ok === false) {
                 setHoldKey((current) => current + 1);
               }
@@ -462,35 +456,19 @@ export function SelectableDataTable<Row extends PortalDataRow>({
   scrollHints = true,
 }: SelectableDataTableProps<Row>) {
   const { clearAllFilters } = usePortalFilterActions();
-  const [sort, setSort] = useState<PortalSortState | null>(null);
-  const [hiddenColumnIds, setHiddenColumnIds] = useState<Set<string>>(() => new Set());
-  const [requestedPage, setCurrentPage] = useState(1);
-  const previousRowIdsRef = useRef<string[] | null>(null);
   const gridColumns = preparePortalColumns(columns);
-  const visibleGridColumns = visiblePortalColumns(gridColumns, hiddenColumnIds);
-  const reconciledSort = reconcilePortalSort(sort, visibleGridColumns);
-  const sortedRows = sortPortalRows(rows || [], gridColumns, reconciledSort);
-  const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
-  const currentPage = Math.min(requestedPage, totalPages);
-  const pageStart = sortedRows.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
-  const pageEnd = Math.min(currentPage * PAGE_SIZE, sortedRows.length);
-  const pageRows = sortedRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const pageRowIds = pageRows.map((row) => String(row.id));
-  const bulk = useBulkSelection(selectable ? [...(rows || [])] : [], {
-    pageRowIds: selectable ? pageRowIds : undefined,
+  const table = usePortalTanStackTableEquivalence({
+    columns,
+    rows: rows || [],
+    selectable,
   });
-
-  const rowIds = (rows || []).map((row) => String(row.id));
-  const rowIdentity = rowIds.join("\0");
-
-  useEffect(() => {
-    const currentRowIds = rowIdentity ? rowIdentity.split("\0") : [];
-    const previousRowIds = previousRowIdsRef.current;
-    if (shouldResetLoadedPage(previousRowIds, currentRowIds)) {
-      setCurrentPage(1);
-    }
-    previousRowIdsRef.current = currentRowIds;
-  }, [rowIdentity]);
+  const visibleColumnIds = new Set(table.visibleColumnIds);
+  const visibleGridColumns = gridColumns.filter((column) => visibleColumnIds.has(column.id));
+  const { currentPage, pageRows, sort, totalPages } = table;
+  const loadedCount = rows?.length ?? 0;
+  const pageStart = loadedCount === 0 ? 0 : (currentPage - 1) * 25 + 1;
+  const pageEnd = pageRows.length === 0 ? 0 : pageStart + pageRows.length - 1;
+  const selectedIds = new Set(table.selectedIds);
   const visibleResponsiveColumns = [...visibleGridColumns]
     .filter((column) => column.mobile !== "hidden")
     .sort((left, right) => (left.priority ?? 50) - (right.priority ?? 50));
@@ -505,46 +483,16 @@ export function SelectableDataTable<Row extends PortalDataRow>({
     return String(row.fullName || row.queryCode || row.jobCode || row.invoiceNumber || row.id);
   };
 
-  const handleRowSelection = (event: ChangeEvent<HTMLInputElement>) =>
-    bulk.toggleOne(event.currentTarget.dataset.rowId ?? "");
-
-  const setSelectAllIndeterminate = (input: HTMLInputElement | null) => {
-    if (input) {
-      input.indeterminate = bulk.someVisibleSelected && !bulk.allVisibleSelected;
-    }
-  };
-
-  const handleBulkDelete = async () => {
-    if (!onBulkDelete || bulk.selectedCount === 0) {
+  const handleBulkDelete = () => {
+    if (!onBulkDelete || table.selectedIds.length === 0) {
       return false;
     }
-    const ids = [...bulk.selectedIds];
-    const ok = await onBulkDelete(ids);
-    if (ok) {
-      bulk.clearSelection();
-    }
-    return ok;
+    return table.deleteSelected(onBulkDelete);
   };
 
-  const handleSortColumn = (columnId: string) => {
-    setCurrentPage(1);
-    setSort((current) => nextSortState(current, columnId));
-  };
+  const handleSortColumn = table.toggleSort;
 
-  const handleToggleColumn = (columnId: string) => {
-    if (sort?.columnId === columnId) {
-      setSort(null);
-    }
-    setHiddenColumnIds((current) => {
-      const next = new Set(current);
-      if (next.has(columnId)) {
-        next.delete(columnId);
-      } else {
-        next.add(columnId);
-      }
-      return next;
-    });
-  };
+  const handleToggleColumn = table.toggleColumn;
 
   const responsiveRowAttention = (row: Row) => {
     const attention = rowAttention?.(row);
@@ -556,16 +504,13 @@ export function SelectableDataTable<Row extends PortalDataRow>({
   };
 
   const renderSelectionControl = (row: Row) => (
-    <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center">
-      <input
-        aria-label={`Select ${selectionLabel(row)}`}
-        checked={bulk.selectedIds.has(String(row.id))}
-        className="size-5 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
-        data-row-id={String(row.id)}
-        onChange={handleRowSelection}
-        type="checkbox"
-      />
-    </label>
+    <Checkbox
+      aria-label={`Select ${selectionLabel(row)}`}
+      checked={selectedIds.has(String(row.id))}
+      className="flex size-11 shrink-0 cursor-pointer items-center justify-center"
+      data-row-id={String(row.id)}
+      onCheckedChange={() => table.toggleRow(String(row.id))}
+    />
   );
 
   if (!rows) {
@@ -589,9 +534,9 @@ export function SelectableDataTable<Row extends PortalDataRow>({
       {selectable ? (
         <BulkActionBar
           entityLabel={entityLabel}
-          onClear={bulk.clearSelection}
+          onClear={table.clearSelection}
           onDeleteSelected={handleBulkDelete}
-          selectedCount={bulk.selectedCount}
+          selectedCount={table.selectedIds.length}
         />
       ) : null}
       <ResponsiveDataCards
@@ -616,7 +561,7 @@ export function SelectableDataTable<Row extends PortalDataRow>({
               {hideableColumns.map((column) => (
                 <ColumnVisibilityToggle
                   column={column}
-                  hidden={hiddenColumnIds.has(column.id)}
+                  hidden={!visibleColumnIds.has(column.id)}
                   key={column.id}
                   onToggle={handleToggleColumn}
                 />
@@ -634,16 +579,13 @@ export function SelectableDataTable<Row extends PortalDataRow>({
             <tr>
               {selectable ? (
                 <th className="w-10 border-brand-border border-b px-4 py-3 text-left">
-                  <label className="flex size-11 cursor-pointer items-center justify-center">
-                    <input
-                      aria-label="Select all visible rows"
-                      checked={bulk.allVisibleSelected}
-                      className="size-5 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
-                      onChange={bulk.toggleAllVisible}
-                      ref={setSelectAllIndeterminate}
-                      type="checkbox"
-                    />
-                  </label>
+                  <Checkbox
+                    aria-label="Select all visible rows"
+                    checked={table.allPageRowsSelected}
+                    className="flex size-11 cursor-pointer items-center justify-center"
+                    indeterminate={table.somePageRowsSelected && !table.allPageRowsSelected}
+                    onCheckedChange={table.togglePageSelection}
+                  />
                 </th>
               ) : null}
               {visibleGridColumns.map((column) => (
@@ -651,7 +593,7 @@ export function SelectableDataTable<Row extends PortalDataRow>({
                   column={column}
                   key={column.id}
                   onSort={handleSortColumn}
-                  sort={reconciledSort}
+                  sort={sort}
                 />
               ))}
             </tr>
@@ -670,16 +612,13 @@ export function SelectableDataTable<Row extends PortalDataRow>({
                 >
                   {selectable ? (
                     <td className="border-brand-border border-b px-4 py-3 last:border-b-0">
-                      <label className="flex size-11 cursor-pointer items-center justify-center">
-                        <input
-                          aria-label={`Select ${selectionLabel(row)}`}
-                          checked={bulk.selectedIds.has(String(row.id))}
-                          className="size-5 rounded border-brand-border text-citius-blue focus:ring-citius-blue/20"
-                          data-row-id={String(row.id)}
-                          onChange={handleRowSelection}
-                          type="checkbox"
-                        />
-                      </label>
+                      <Checkbox
+                        aria-label={`Select ${selectionLabel(row)}`}
+                        checked={selectedIds.has(String(row.id))}
+                        className="flex size-11 cursor-pointer items-center justify-center"
+                        data-row-id={String(row.id)}
+                        onCheckedChange={() => table.toggleRow(String(row.id))}
+                      />
                     </td>
                   ) : null}
                   {visibleGridColumns.map((column) => (
@@ -701,9 +640,9 @@ export function SelectableDataTable<Row extends PortalDataRow>({
         canLoadMore={canLoadMore}
         currentPage={currentPage}
         isLoadingMore={isLoadingMore}
-        loadedCount={rows.length}
+        loadedCount={loadedCount}
         onLoadMore={canLoadMore ? onLoadMore : undefined}
-        onPageChange={setCurrentPage}
+        onPageChange={table.setPage}
         pageEnd={pageEnd}
         pageStart={pageStart}
         totalPages={totalPages}

@@ -1,9 +1,13 @@
+// biome-ignore-all lint/a11y/noNoninteractiveElementInteractions lint/performance/noJsxPropsBind: dnd-kit makes movable article cards keyboard-operable; React Compiler memoizes local Pipeline handlers.
 "use client";
 
 import { LayoutGroup, m } from "motion/react";
 import {
-  type DragEventHandler,
   type KeyboardEventHandler,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  type PointerEvent as ReactPointerEvent,
+  type TouchEvent as ReactTouchEvent,
   type RefCallback,
   useCallback,
   useMemo,
@@ -12,6 +16,23 @@ import {
 } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
+import { Radio, RadioGroup } from "@/components/ui/application-radio";
+import { Select } from "@/components/ui/application-select";
+import {
+  type CollisionDetection,
+  CSS,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  pointerWithin,
+  rectIntersection,
+  TouchSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from "@/components/ui/foundation/dnd";
 import { PIPELINE_STAGES, SALES_PIPELINE_STAGES } from "@/lib/portal/constants";
 import {
   getAllowedContractingPipelineBoardTargets,
@@ -27,6 +48,7 @@ import {
   type SalesPipelineBoardStage,
 } from "@/lib/portal/salesPipelinePolicy";
 import { getPipelineStage, getSalesPipelineStage } from "@/lib/portal/workflow";
+import { pipelineKeyboardCoordinates } from "./pipelineKeyboardCoordinates";
 
 export type PipelineMode = "sales" | "contracting";
 
@@ -165,21 +187,6 @@ async function invokePipelineMove({
   });
 }
 
-interface PipelineDragPayload {
-  expectedLeadStage: string;
-  id: string;
-  label: string;
-  sourceStage: string;
-}
-
-function readPipelineDragPayload(raw: string): PipelineDragPayload | null {
-  try {
-    return JSON.parse(raw) as PipelineDragPayload;
-  } catch {
-    return null;
-  }
-}
-
 function isPipelineTargetForMode(mode: PipelineMode, stage: string) {
   return mode === "sales"
     ? isSalesPipelineBoardStage(stage)
@@ -188,10 +195,9 @@ function isPipelineTargetForMode(mode: PipelineMode, stage: string) {
 
 interface PipelineModeButtonProps {
   active: boolean;
-  buttonRef: RefCallback<HTMLInputElement>;
+  buttonRef: RefCallback<HTMLElement>;
   label: string;
-  onKeyDown: KeyboardEventHandler<HTMLInputElement>;
-  onSelect: (mode: PipelineMode) => void;
+  onKeyDown: KeyboardEventHandler<HTMLElement>;
   value: PipelineMode;
 }
 
@@ -200,25 +206,19 @@ function PipelineModeButton({
   buttonRef,
   label,
   onKeyDown,
-  onSelect,
   value,
 }: PipelineModeButtonProps) {
   const snapTransition = useMotionUITransition("snap");
-  const handleChange = () => onSelect(value);
   return (
+    // biome-ignore lint/a11y/noLabelWithoutControl: Base UI renders the native radio input inside this full-hit-area label.
     <label className="relative cursor-pointer">
-      <input
-        aria-checked={active}
+      <Radio
+        appearance="hidden"
         aria-label={label}
-        checked={active}
-        className="peer sr-only"
         data-mode={value}
-        name="pipeline-perspective"
-        onChange={handleChange}
         onKeyDown={onKeyDown}
         ref={buttonRef}
         tabIndex={active ? 0 : -1}
-        type="radio"
         value={value}
       />
       <span
@@ -246,9 +246,9 @@ export function PipelineModeSelector({
   mode: PipelineMode;
   setMode: (mode: PipelineMode) => void;
 }) {
-  const refs = useRef(new Map<PipelineMode, HTMLInputElement>());
-  const handleKeyDown: KeyboardEventHandler<HTMLInputElement> = (event) => {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+  const refs = useRef(new Map<PipelineMode, HTMLElement>());
+  const handleKeyDown: KeyboardEventHandler<HTMLElement> = (event) => {
+    if (!["Home", "End"].includes(event.key)) {
       return;
     }
     event.preventDefault();
@@ -261,9 +261,6 @@ export function PipelineModeSelector({
       nextIndex = 0;
     } else if (event.key === "End") {
       nextIndex = PIPELINE_MODES.length - 1;
-    } else {
-      const delta = event.key === "ArrowRight" ? 1 : -1;
-      nextIndex = (currentIndex + delta + PIPELINE_MODES.length) % PIPELINE_MODES.length;
     }
     const nextMode = PIPELINE_MODES[nextIndex]?.[0] ?? "sales";
     setMode(nextMode);
@@ -271,10 +268,12 @@ export function PipelineModeSelector({
   };
 
   return (
-    <div
+    <RadioGroup
       aria-label="Pipeline perspective"
       className="inline-flex rounded-full border border-brand-border bg-white p-1 shadow-sm"
-      role="radiogroup"
+      name="pipeline-perspective"
+      onValueChange={setMode}
+      value={mode}
     >
       {PIPELINE_MODES.map(([value, label]) => (
         <PipelineModeButton
@@ -289,11 +288,10 @@ export function PipelineModeSelector({
           key={value}
           label={label}
           onKeyDown={handleKeyDown}
-          onSelect={setMode}
           value={value}
         />
       ))}
-    </div>
+    </RadioGroup>
   );
 }
 
@@ -305,26 +303,53 @@ interface PipelineCardProps {
   stage: string;
 }
 
+const PIPELINE_INTERACTIVE_DESCENDANT_SELECTOR =
+  'a, button, input, select, textarea, [role="button"], [role="combobox"], [contenteditable="true"]';
+
+function isPipelineDragActivatorEvent(event: { currentTarget: EventTarget; target: EventTarget }) {
+  if (!(event.target instanceof Element)) {
+    return true;
+  }
+  const interactiveTarget = event.target.closest(PIPELINE_INTERACTIVE_DESCENDANT_SELECTOR);
+  return !(interactiveTarget && interactiveTarget !== event.currentTarget);
+}
+
 function PipelineCard({ canMove, item, moveTargets, onMove, stage }: PipelineCardProps) {
   const label = item.clientName || "Unnamed client";
   const draggable = canMove && moveTargets.length > 0;
   const cardTransition = useMotionUITransition("ui");
+  const { attributes, listeners, setActivatorNodeRef, setNodeRef, transform, isDragging } =
+    useDraggable({
+      attributes: { role: "group", roleDescription: "draggable pipeline card" },
+      data: { label, moveTargets, sourceStage: stage },
+      disabled: !draggable,
+      id: item.id,
+    });
 
-  const handleDragStart: DragEventHandler<HTMLElement> = (event) => {
-    if (!draggable) {
-      event.preventDefault();
+  const setCardRef = useCallback(
+    (node: HTMLElement | null) => {
+      setNodeRef(node);
+      setActivatorNodeRef(node);
+    },
+    [setActivatorNodeRef, setNodeRef]
+  );
+  const handlePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    if (event.pointerType === "touch" || !isPipelineDragActivatorEvent(event)) {
       return;
     }
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData(
-      "application/x-citius-pipeline-card",
-      JSON.stringify({
-        expectedLeadStage: stage,
-        id: item.id,
-        label,
-        sourceStage: stage,
-      })
-    );
+    listeners?.onPointerDown?.(event);
+  };
+  const handleTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
+    if (!isPipelineDragActivatorEvent(event)) {
+      return;
+    }
+    listeners?.onTouchStart?.(event);
+  };
+  const handleDragKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (!isPipelineDragActivatorEvent(event)) {
+      return;
+    }
+    listeners?.onKeyDown?.(event);
   };
 
   return (
@@ -335,8 +360,18 @@ function PipelineCard({ canMove, item, moveTargets, onMove, stage }: PipelineCar
       layout
       transition={cardTransition}
     >
-      {/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Native drag is pointer-only; the labeled select provides the equivalent keyboard command. */}
-      <article data-pipeline-card-id={item.id} draggable={draggable} onDragStart={handleDragStart}>
+      <article
+        {...(draggable ? { ...attributes, "aria-pressed": undefined } : {})}
+        data-dnd-dragging={isDragging || undefined}
+        data-pipeline-card-id={item.id}
+        onKeyDown={draggable ? handleDragKeyDown : undefined}
+        onPointerDown={draggable ? handlePointerDown : undefined}
+        onTouchStart={draggable ? handleTouchStart : undefined}
+        ref={setCardRef}
+        style={{
+          transform: CSS.Translate.toString(transform),
+        }}
+      >
         <div className="font-semibold text-brand-dark text-sm">{label}</div>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-brand-muted text-xs">
           {item.queryCode ? (
@@ -350,34 +385,63 @@ function PipelineCard({ canMove, item, moveTargets, onMove, stage }: PipelineCar
         </div>
         <div className="mt-1 text-brand-muted text-xs">{item.salesOwnerName || "Unassigned"}</div>
         {draggable ? (
-          <label className="mt-3 block text-brand-muted text-xs">
-            <span className="sr-only">Move {label} to stage</span>
+          <div className="mt-3 block text-brand-muted text-xs">
+            <label className="sr-only" htmlFor={`pipeline-stage-${item.id}`}>
+              Move {label} to stage
+            </label>
             <span aria-hidden="true">Move to</span>
-            <select
+            <Select
+              aria-label={`Move ${label} to stage`}
               className="mt-1 w-full rounded-lg border border-brand-border bg-white px-2 py-1.5 text-brand-dark text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
-              defaultValue=""
-              onChange={(event) => {
-                const targetStage = event.target.value;
+              id={`pipeline-stage-${item.id}`}
+              onValueChange={(targetStage) => {
                 if (!targetStage) {
                   return;
                 }
-                event.target.value = "";
                 onMove(item, targetStage).catch(() => undefined);
               }}
-            >
-              <option value="">Select stage…</option>
-              {moveTargets.map((target) => (
-                <option key={target} value={target}>
-                  {target}
-                </option>
-              ))}
-            </select>
-          </label>
+              options={[
+                { label: "Select stage…", value: "" },
+                ...moveTargets.map((target) => ({ label: target, value: target })),
+              ]}
+              value=""
+            />
+          </div>
         ) : null}
       </article>
     </m.div>
   );
 }
+
+function PipelineStage({
+  children,
+  stage,
+  stageIndex,
+}: {
+  children: ReactNode;
+  stage: string;
+  stageIndex: number;
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    data: { stage, stageIndex },
+    id: `pipeline-stage:${stage}`,
+  });
+
+  return (
+    <section
+      aria-label={`${stage} stage`}
+      className={`min-h-36 rounded-2xl border bg-white p-4 shadow-sm transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] ${
+        isOver ? "border-citius-blue ring-2 ring-citius-blue/30" : "border-brand-border"
+      }`}
+      ref={setNodeRef}
+    >
+      {children}
+    </section>
+  );
+}
+
+const pipelineCollisionDetection: CollisionDetection = (args) =>
+  args.pointerCoordinates ? pointerWithin(args) : rectIntersection(args);
 
 export function PipelineView({
   canMoveContractingPipeline = false,
@@ -398,8 +462,12 @@ export function PipelineView({
 }) {
   const [announcement, setAnnouncement] = useState("");
   const [optimisticStages, setOptimisticStages] = useState<Record<string, string>>({});
-  const [activeDropStage, setActiveDropStage] = useState<string | null>(null);
   const moveInFlight = useRef(new Set<string>());
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: pipelineKeyboardCoordinates })
+  );
 
   const salesMoveEnabled = Boolean(
     canMoveSalesPipeline && moveSalesPipelineStage && mode === "sales"
@@ -496,50 +564,32 @@ export function PipelineView({
     ]
   );
 
-  const handleDragOver =
-    (stage: string): DragEventHandler<HTMLElement> =>
-    (event) => {
-      if (!moveEnabled) {
-        return;
-      }
-      event.preventDefault();
-      event.dataTransfer.dropEffect = "move";
-      setActiveDropStage(stage);
-    };
-
-  const handleDrop =
-    (stage: string): DragEventHandler<HTMLElement> =>
-    async (event) => {
-      event.preventDefault();
-      setActiveDropStage(null);
-      if (!moveEnabled) {
-        return;
-      }
-      const raw = event.dataTransfer.getData("application/x-citius-pipeline-card");
-      if (!raw) {
-        return;
-      }
-      const payload = readPipelineDragPayload(raw);
-      if (!payload) {
-        announce("Could not read the dragged pipeline card.");
-        return;
-      }
-      const item = rows.find((row) => row.id === payload.id);
-      if (!item) {
-        announce("Pipeline card is out of date. Refresh and try again.");
-        return;
-      }
-      const currentStage = activeOptimisticStages[item.id] ?? pipelineStageForMode(mode, item);
-      if (payload.expectedLeadStage !== currentStage) {
-        announce("Pipeline card is out of date. Refresh and try again.");
-        return;
-      }
-      if (!isPipelineTargetForMode(mode, stage)) {
-        announce(`Cannot drop on ${stage}. Use the required workflow action.`);
-        return;
-      }
-      await handleMove(item, stage, payload.sourceStage);
-    };
+  const handleDndDragEnd = async ({ active, over }: DragEndEvent) => {
+    if (!(moveEnabled && over)) {
+      return;
+    }
+    const item = rows.find((row) => row.id === String(active.id));
+    if (!item) {
+      announce("Pipeline card is out of date. Refresh and try again.");
+      return;
+    }
+    const sourceStage = active.data.current?.sourceStage;
+    const targetStage = over.data.current?.stage;
+    if (!(typeof sourceStage === "string" && typeof targetStage === "string")) {
+      announce("Could not read the dragged pipeline card.");
+      return;
+    }
+    const currentStage = activeOptimisticStages[item.id] ?? pipelineStageForMode(mode, item);
+    if (sourceStage !== currentStage) {
+      announce("Pipeline card is out of date. Refresh and try again.");
+      return;
+    }
+    if (!isPipelineTargetForMode(mode, targetStage)) {
+      announce(`Cannot drop on ${targetStage}. Use the required workflow action.`);
+      return;
+    }
+    await handleMove(item, targetStage, sourceStage);
+  };
 
   return (
     <div className="space-y-4">
@@ -547,60 +597,52 @@ export function PipelineView({
       <p aria-live="polite" className="sr-only" role="status">
         {announcement}
       </p>
-      <div className="grid grid-flow-dense gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {Object.entries(buckets).map(([stage, items]) => (
-          // biome-ignore lint/a11y/noNoninteractiveElementInteractions: Native drop zones require drag events; cards retain separate native keyboard controls.
-          <section
-            aria-label={`${stage} stage`}
-            className={`min-h-36 rounded-2xl border bg-white p-4 shadow-sm transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] ${
-              activeDropStage === stage
-                ? "border-citius-blue ring-2 ring-citius-blue/30"
-                : "border-brand-border"
-            }`}
-            key={stage}
-            onDragLeave={() =>
-              setActiveDropStage((current) => (current === stage ? null : current))
-            }
-            onDragOver={handleDragOver(stage)}
-            onDrop={handleDrop(stage)}
-          >
-            <h2 className="mb-3 flex items-center justify-between font-heading font-semibold text-citius-blue text-sm">
-              {stage}
-              <span className="grid size-7 place-items-center rounded-full bg-citius-orange font-bold text-brand-dark text-xs">
-                {items.length}
-              </span>
-            </h2>
-            <div className="space-y-2">
-              <LayoutGroup>
-                {items.map((item) => {
-                  const cardStage =
-                    activeOptimisticStages[item.id] ??
-                    (mode === "sales" ? getPipelineCardStage(item) : getPipelineStage(item));
-                  const moveTargets =
-                    mode === "sales"
-                      ? getAllowedSalesPipelineBoardTargets(cardStage)
-                      : getAllowedContractingPipelineBoardTargets(cardStage);
-                  const locked =
-                    mode === "sales"
-                      ? isSalesPipelineBoardLocked(item)
-                      : isContractingPipelineBoardLocked(item);
-                  const canMove = moveEnabled && !locked && moveTargets.length > 0;
-                  return (
-                    <PipelineCard
-                      canMove={canMove}
-                      item={item}
-                      key={item.id}
-                      moveTargets={moveTargets}
-                      onMove={handleMove}
-                      stage={cardStage}
-                    />
-                  );
-                })}
-              </LayoutGroup>
-            </div>
-          </section>
-        ))}
-      </div>
+      <DndContext
+        collisionDetection={pipelineCollisionDetection}
+        onDragEnd={handleDndDragEnd}
+        sensors={sensors}
+      >
+        <div className="grid grid-flow-dense gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          {Object.entries(buckets).map(([stage, items], stageIndex) => (
+            <PipelineStage key={stage} stage={stage} stageIndex={stageIndex}>
+              <h2 className="mb-3 flex items-center justify-between font-heading font-semibold text-citius-blue text-sm">
+                {stage}
+                <span className="grid size-7 place-items-center rounded-full bg-citius-orange font-bold text-brand-dark text-xs">
+                  {items.length}
+                </span>
+              </h2>
+              <div className="space-y-2">
+                <LayoutGroup>
+                  {items.map((item) => {
+                    const cardStage =
+                      activeOptimisticStages[item.id] ??
+                      (mode === "sales" ? getPipelineCardStage(item) : getPipelineStage(item));
+                    const moveTargets =
+                      mode === "sales"
+                        ? getAllowedSalesPipelineBoardTargets(cardStage)
+                        : getAllowedContractingPipelineBoardTargets(cardStage);
+                    const locked =
+                      mode === "sales"
+                        ? isSalesPipelineBoardLocked(item)
+                        : isContractingPipelineBoardLocked(item);
+                    const canMove = moveEnabled && !locked && moveTargets.length > 0;
+                    return (
+                      <PipelineCard
+                        canMove={canMove}
+                        item={item}
+                        key={item.id}
+                        moveTargets={moveTargets}
+                        onMove={handleMove}
+                        stage={cardStage}
+                      />
+                    );
+                  })}
+                </LayoutGroup>
+              </div>
+            </PipelineStage>
+          ))}
+        </div>
+      </DndContext>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { Button } from "@/components/ui/application-button";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import type { PortalJobCardOption } from "../portalViewTypes";
 import { formatConvexError, strong } from "../portalWorkspaceListHelpers";
@@ -184,21 +185,21 @@ export function PassengerExportModal({
           />
         )}
         <div className="flex justify-end gap-2">
-          <button
+          <Button
             className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
             onClick={closeAndReset}
             type="button"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             className="portal-primary-btn disabled:opacity-60"
             disabled={!jobCardId || isLoading || rows.length === 0 || isExporting}
             onClick={handleExport}
             type="button"
           >
             {isExporting ? "Exporting…" : "Download Spreadsheet"}
-          </button>
+          </Button>
         </div>
       </div>
     </ImportModalShell>

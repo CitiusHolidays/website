@@ -13,7 +13,7 @@ function visaRowLabel(row: VisaRow) {
 
 import { travelBatchDisplayLabel } from "../portalOperationsHelpers";
 import { strong } from "../portalWorkspaceListHelpers";
-import { DeleteButton, StatusBadge } from "../portalWorkspaceListUi";
+import { DeleteButton, EditButton, StatusBadge } from "../portalWorkspaceListUi";
 
 export function VisaTrackingView({
   rows,
@@ -60,8 +60,7 @@ export function VisaTrackingView({
           render: (row: VisaRow) =>
             canManage && (
               <div className="flex flex-wrap gap-2">
-                <button
-                  className="portal-small-btn"
+                <EditButton
                   onClick={() =>
                     openModal("visa", {
                       appointmentDate: row.appointmentDate,
@@ -71,10 +70,7 @@ export function VisaTrackingView({
                       visaStatus: row.status,
                     })
                   }
-                  type="button"
-                >
-                  Edit
-                </button>
+                />
                 <DeleteButton
                   label={`${row.travellerName} visa`}
                   onClick={() =>

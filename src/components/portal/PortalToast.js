@@ -1,30 +1,62 @@
 "use client";
 
-import { createContext, use, useReducer } from "react";
-import { Toast, ToastStack, useToast } from "@/components/motion-ui/toast-stack";
-import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
+import { createContext, use, useCallback, useEffect, useMemo, useRef } from "react";
+import { toast as sonnerToast, Toaster } from "@/components/ui/foundation/toast";
 import { PORTAL_Z, PORTAL_Z_INDEX } from "@/lib/portal/zIndex";
 
 const PortalToastContext = createContext(null);
 
-function toastReducer(state, action) {
-  if (action.type === "dismiss") {
-    return state.filter((toast) => toast.id !== action.id);
-  }
-  if (action.type === "enqueue") {
-    return [...state.slice(-4), action.toast];
-  }
-  return state;
+const TOASTER_ID = "portal";
+const MAX_VISIBLE_TOASTS = 5;
+const PORTAL_TOAST_DURATION = {
+  error: 8000,
+  info: 5000,
+  success: 5000,
+};
+const SONNER_TOAST_BY_TONE = {
+  error: sonnerToast.error,
+  info: sonnerToast.info,
+  success: sonnerToast.success,
+};
+const PORTAL_TOAST_ICONS = {
+  error: null,
+  info: null,
+  success: null,
+};
+const PORTAL_TOAST_OFFSET = {
+  bottom: "max(1rem, var(--safe-area-inset-bottom))",
+  right: "max(1rem, var(--safe-area-inset-right))",
+};
+const PORTAL_TOAST_MOBILE_OFFSET = {
+  bottom: "max(1rem, var(--safe-area-inset-bottom))",
+  left: "max(1rem, var(--safe-area-inset-left))",
+  right: "max(1rem, var(--safe-area-inset-right))",
+};
+const PORTAL_TOASTER_STYLE = {
+  "--width": "min(22rem, calc(100vw - 2rem))",
+  zIndex: PORTAL_Z_INDEX.toast,
+};
+const PORTAL_TOAST_OPTIONS = {
+  classNames: {
+    content: "portal-sonner-content",
+    title: "portal-sonner-title",
+    toast: "portal-sonner-toast",
+  },
+  unstyled: true,
+};
+
+function createToastId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function ToastDismissButton({ onDismiss, toastId }) {
-  const { isVisible } = useToast();
+function ToastDismissButton({ dismissToast, toastId }) {
+  const handleDismiss = useCallback(() => dismissToast(toastId), [dismissToast, toastId]);
+
   return (
     <button
       aria-label="Dismiss notification"
-      className="shrink-0 font-semibold text-xs opacity-70 transition hover:opacity-100"
-      onClick={() => onDismiss(toastId)}
-      tabIndex={isVisible ? undefined : -1}
+      className="portal-sonner-dismiss"
+      onClick={handleDismiss}
       type="button"
     >
       Dismiss
@@ -32,68 +64,79 @@ function ToastDismissButton({ onDismiss, toastId }) {
   );
 }
 
-function ToastItem({ toast, onDismiss }) {
-  const successTransition = useMotionUITransition("lively");
-
-  const toneClass =
-    toast.tone === "error"
-      ? "border-red-200 bg-red-50 text-red-800"
-      : toast.tone === "success"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-900"
-        : "border-brand-border bg-white text-brand-dark";
-
-  return (
-    <Toast>
-      <div
-        aria-live="polite"
-        className={`pointer-events-auto max-w-sm rounded-xl border px-4 py-3 text-sm shadow-lg ${toneClass}`}
-        role="status"
-        style={toast.tone === "success" ? { transition: successTransition } : undefined}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <span>{toast.message}</span>
-          <ToastDismissButton onDismiss={onDismiss} toastId={toast.id} />
-        </div>
-      </div>
-    </Toast>
-  );
-}
-
 export function PortalToastProvider({ children }) {
-  const [toasts, dispatchToasts] = useReducer(toastReducer, []);
+  const activeToastIdsRef = useRef([]);
 
-  const dismiss = (id) => {
-    dispatchToasts({ id, type: "dismiss" });
-  };
+  const retireToast = useCallback((id) => {
+    activeToastIdsRef.current = activeToastIdsRef.current.filter((activeId) => activeId !== id);
+  }, []);
 
-  const enqueueToast = (message, tone = "info") => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    dispatchToasts({ toast: { id, message, tone }, type: "enqueue" });
-    window.setTimeout(() => dismiss(id), tone === "error" ? 8000 : 5000);
-    return id;
-  };
+  const dismissToast = useCallback(
+    (id) => {
+      retireToast(id);
+      sonnerToast.dismiss(id);
+    },
+    [retireToast]
+  );
 
-  const api = {
-    error: (message) => enqueueToast(message, "error"),
-    info: (message) => enqueueToast(message, "info"),
-    success: (message) => enqueueToast(message, "success"),
-  };
+  const enqueueToast = useCallback(
+    (message, tone) => {
+      if (activeToastIdsRef.current.length >= MAX_VISIBLE_TOASTS) {
+        dismissToast(activeToastIdsRef.current[0]);
+      }
+
+      const id = createToastId();
+      activeToastIdsRef.current.push(id);
+      const handleRemoval = () => retireToast(id);
+
+      return SONNER_TOAST_BY_TONE[tone](<span>{message}</span>, {
+        action: <ToastDismissButton dismissToast={dismissToast} toastId={id} />,
+        duration: PORTAL_TOAST_DURATION[tone],
+        id,
+        onAutoClose: handleRemoval,
+        onDismiss: handleRemoval,
+        toasterId: TOASTER_ID,
+      });
+    },
+    [dismissToast, retireToast]
+  );
+
+  const api = useMemo(
+    () => ({
+      error: (message) => enqueueToast(message, "error"),
+      info: (message) => enqueueToast(message, "info"),
+      success: (message) => enqueueToast(message, "success"),
+    }),
+    [enqueueToast]
+  );
+
+  useEffect(
+    () => () => {
+      for (const id of activeToastIdsRef.current) {
+        sonnerToast.dismiss(id);
+      }
+      activeToastIdsRef.current = [];
+    },
+    []
+  );
 
   return (
     <PortalToastContext.Provider value={api}>
       {children}
-      <ToastStack
+      <Toaster
         className={`portal-toast-safe-area ${PORTAL_Z.toast}`}
-        containerZIndex={PORTAL_Z_INDEX.toast}
-        maxVisible={5}
-        stackOffsetY={8}
-        stackOpacity={0.15}
-        stackScale={0.04}
-      >
-        {[...toasts].reverse().map((toast) => (
-          <ToastItem key={toast.id} onDismiss={dismiss} toast={toast} />
-        ))}
-      </ToastStack>
+        containerAriaLabel="Portal notifications"
+        expand={false}
+        gap={8}
+        icons={PORTAL_TOAST_ICONS}
+        id={TOASTER_ID}
+        mobileOffset={PORTAL_TOAST_MOBILE_OFFSET}
+        offset={PORTAL_TOAST_OFFSET}
+        position="bottom-right"
+        style={PORTAL_TOASTER_STYLE}
+        toastOptions={PORTAL_TOAST_OPTIONS}
+        visibleToasts={MAX_VISIBLE_TOASTS}
+      />
     </PortalToastContext.Provider>
   );
 }

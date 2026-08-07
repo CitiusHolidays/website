@@ -11,6 +11,7 @@ import {
   Ticket,
 } from "lucide-react";
 import { useState } from "react";
+import { Button } from "@/components/ui/application-button";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { buildDashboardKpiHref } from "@/lib/portal/dashboardLinks";
 import { getVisibleDashboardMetricDefinitions } from "@/lib/portal/dashboardMetrics";
@@ -152,7 +153,7 @@ function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = tr
   }
   return (
     <section className="border-brand-border/70 border-b pb-4">
-      <button
+      <Button
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 text-left"
         onClick={toggleOpen}
@@ -160,7 +161,7 @@ function DashboardCapacityHeatmap({ rows = EMPTY_CAPACITY_ROWS, defaultOpen = tr
       >
         <h2 className="font-heading text-base text-brand-dark">Team workload</h2>
         <span className="font-sans text-brand-muted text-xs">Average open work</span>
-      </button>
+      </Button>
       {open ? (
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {rows.map((row) => (
@@ -196,7 +197,7 @@ function DashboardPipelineTypesCollapsible({ pipeline, queryTypes, defaultOpen =
   }
   return (
     <section className="border-brand-border/70 border-b pb-4">
-      <button
+      <Button
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-2 text-left"
         onClick={toggleOpen}
@@ -204,7 +205,7 @@ function DashboardPipelineTypesCollapsible({ pipeline, queryTypes, defaultOpen =
       >
         <h2 className="font-heading text-base text-brand-dark">Pipeline and query types</h2>
         <ChevronDown className={`shrink-0 transition ${open ? "rotate-180" : ""}`} size={18} />
-      </button>
+      </Button>
       {open ? (
         <div className="mt-4 space-y-4">
           {pipeline}

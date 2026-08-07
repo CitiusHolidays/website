@@ -3,6 +3,7 @@
 import { BedDouble, ChevronLeft, Compass, Plane } from "lucide-react";
 import { m } from "motion/react";
 import { useCallback, useState } from "react";
+import { Button } from "@/components/ui/application-button";
 import {
   ACCOUNT_CONTAINER_VARIANTS,
   CoverImage,
@@ -27,13 +28,14 @@ function JourneyDetail({ booking, onBack }) {
       initial="hidden"
       variants={ACCOUNT_CONTAINER_VARIANTS}
     >
-      <button
-        className="account-focus inline-flex items-center gap-2 font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.12em] hover:text-[var(--account-ink)]"
+      <Button
+        className="inline-flex min-h-0 items-center gap-2 font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.12em] hover:text-[var(--account-ink)]"
         onClick={onBack}
+        surface="account"
         type="button"
       >
         <ChevronLeft size={16} /> Back to journeys
-      </button>
+      </Button>
 
       <section className="relative min-h-[330px] overflow-hidden rounded-2xl bg-[var(--account-night)] sm:min-h-[460px]">
         <CoverImage sizes="100vw" trip={trip} />

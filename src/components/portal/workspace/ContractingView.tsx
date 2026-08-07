@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { formatDate } from "@/components/portal/PortalModalForm";
+import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { CONTRACTING_TEAM_ROLES } from "@/lib/portal/constants";
 import { getContractingAttention } from "@/lib/portal/contractingListPresentation";
@@ -316,12 +317,11 @@ export function ContractingView({
                   <div className="font-bold text-[length:var(--portal-label-size)] text-citius-blue uppercase tracking-[0.12em]">
                     {row.queryCode}
                   </div>
-                  <div
-                    className="mt-1 truncate font-heading font-semibold text-base text-brand-dark"
-                    title={row.clientName}
-                  >
-                    {row.clientName}
-                  </div>
+                  <PortalTooltip content={row.clientName}>
+                    <div className="mt-1 truncate font-heading font-semibold text-base text-brand-dark">
+                      {row.clientName}
+                    </div>
+                  </PortalTooltip>
                 </div>
                 <StatusBadge domain="queryContracting" status={row.contractingStatus} />
               </div>

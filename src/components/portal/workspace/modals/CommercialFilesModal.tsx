@@ -4,11 +4,16 @@ import { api } from "@convex/_generated/api";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { anyApi } from "convex/server";
 import { FileText, History, Paperclip, RotateCcw, Search, Trash2, Upload, X } from "lucide-react";
-import { AnimatePresence, m } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
-import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
+import { m } from "motion/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePortalConfirm, usePortalConfirmActive } from "@/components/portal/PortalConfirmDialog";
 import { formatDate, formatFileSize } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
+import { Button } from "@/components/ui/application-button";
+import { Checkbox } from "@/components/ui/application-checkbox";
+import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
+import { Input as StaffInput } from "@/components/ui/application-field";
+import { Select } from "@/components/ui/application-select";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const FILE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.webp,.gif";
@@ -152,6 +157,25 @@ function errorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+async function runCommercialUploads(
+  files: File[],
+  uploadOne: (file: File) => Promise<void>,
+  onSuccess: () => void,
+  onSettled: () => void
+) {
+  try {
+    for (const file of files) {
+      await uploadOne(file);
+    }
+    onSuccess();
+    return "";
+  } catch (uploadError) {
+    return errorMessage(uploadError, "Upload failed.");
+  } finally {
+    onSettled();
+  }
+}
+
 export function CommercialFilesModal({
   close,
   form = EMPTY_FORM,
@@ -175,6 +199,8 @@ export function CommercialFilesModal({
       title: string;
     }) => Promise<unknown>;
   };
+  const confirmActive = usePortalConfirmActive();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const entryPoint = sourceTypeForForm(form);
   const entityId = sourceIdForForm(form);
   const [search, setSearch] = useState("");
@@ -256,8 +282,13 @@ export function CommercialFilesModal({
     });
   }, [cursor, result]);
 
-  const sourceOptions = (result?.writableSources || []) as SourceOption[];
-  const allSourceOptions = (result?.sourceOptions || []) as SourceOption[];
+  const writableSources = result?.writableSources;
+  const availableSources = result?.sourceOptions;
+  const sourceOptions = useMemo(() => (writableSources || []) as SourceOption[], [writableSources]);
+  const allSourceOptions = useMemo(
+    () => (availableSources || []) as SourceOption[],
+    [availableSources]
+  );
   const selectedSource = sourceOptions.find(
     (source) => `${source.sourceType}:${source.id}` === selectedSourceKey
   );
@@ -359,8 +390,9 @@ export function CommercialFilesModal({
     }
     setBusy(true);
     setError("");
-    try {
-      for (const file of pendingFiles) {
+    const uploadError = await runCommercialUploads(
+      pendingFiles,
+      async (file) => {
         const { uploadToken, uploadUrl } = await generateUploadUrl({
           category: uploadCategory,
           sourceId: selectedSource.id,
@@ -374,7 +406,7 @@ export function CommercialFilesModal({
           method: "POST",
         });
         if (!response.ok) {
-          throw new Error(`Failed to upload ${file.name}.`);
+          return Promise.reject(new Error(`Failed to upload ${file.name}.`));
         }
         const { storageId } = await response.json();
         await uploadFile({
@@ -389,14 +421,18 @@ export function CommercialFilesModal({
           teamArea: selectedTeamArea,
           uploadToken,
         });
-      }
-      toast.success(`${pendingFiles.length} file${pendingFiles.length === 1 ? "" : "s"} uploaded.`);
-      setPendingFiles([]);
-      setNote("");
-    } catch (uploadError) {
-      setError(errorMessage(uploadError, "Upload failed."));
-    } finally {
-      setBusy(false);
+      },
+      () => {
+        toast.success(
+          `${pendingFiles.length} file${pendingFiles.length === 1 ? "" : "s"} uploaded.`
+        );
+        setPendingFiles([]);
+        setNote("");
+      },
+      () => setBusy(false)
+    );
+    if (uploadError) {
+      setError(uploadError);
     }
   };
 
@@ -443,405 +479,408 @@ export function CommercialFilesModal({
       toast.error(errorMessage(noteError, "Unable to update note."));
     }
   };
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) {
+        close();
+      }
+    },
+    [close]
+  );
 
   return (
-    <AnimatePresence>
-      {open ? (
+    <ControlledDialog
+      backdropClassName="absolute inset-0 bg-slate-950/65"
+      backdropRender={
+        <m.div animate={{ opacity: 1 }} exit={{ opacity: 0 }} initial={{ opacity: 0 }} />
+      }
+      closeDisabled={confirmActive}
+      escapeDisabled
+      initialFocus={closeButtonRef}
+      modal={!confirmActive}
+      onOpenChange={handleOpenChange}
+      open={open}
+      popupClassName="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:!transform-none max-sm:!opacity-100"
+      popupRender={
         <m.div
-          animate={{ opacity: 1 }}
-          className={`fixed inset-0 ${PORTAL_Z.entityModal} grid place-items-center bg-slate-950/65 p-4`}
-          exit={{ opacity: 0 }}
-          initial={{ opacity: 0 }}
-          onClick={close}
-        >
-          <m.div
-            animate={{ opacity: 1, transform: "translateY(0) scale(1)" }}
-            aria-labelledby="commercial-files-title"
-            aria-modal="true"
-            className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none"
-            initial={{ opacity: 0, transform: "translateY(18px) scale(0.98)" }}
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-          >
-            <div className="flex shrink-0 items-start justify-between gap-4 border-brand-border border-b px-5 py-4 max-sm:px-4">
-              <div>
-                <h2
-                  className="font-heading font-semibold text-citius-blue text-xl"
-                  id="commercial-files-title"
-                >
-                  Commercial Files
-                </h2>
-                <p className="mt-1 text-brand-muted text-sm">
-                  Shared working files across this Query, Proposal, and Job Card chain.
+          animate={{ opacity: 1, transform: "translateY(0) scale(1)" }}
+          initial={{ opacity: 0, transform: "translateY(18px) scale(0.98)" }}
+        />
+      }
+      triggerless
+      viewportClassName={`fixed inset-0 ${PORTAL_Z.entityModal} grid place-items-center p-4`}
+    >
+      {open ? (
+        <>
+          <div className="flex shrink-0 items-start justify-between gap-4 border-brand-border border-b px-5 py-4 max-sm:px-4">
+            <div>
+              <ControlledDialogTitle className="font-heading font-semibold text-citius-blue text-xl">
+                Commercial Files
+              </ControlledDialogTitle>
+              <p className="mt-1 text-brand-muted text-sm">
+                Shared working files across this Query, Proposal, and Job Card chain.
+              </p>
+            </div>
+            <Button
+              aria-label="Close Commercial Files"
+              className="portal-small-btn"
+              onClick={close}
+              ref={closeButtonRef}
+              type="button"
+            >
+              <X size={15} /> Close
+            </Button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-5 max-sm:px-4">
+            <div className="grid gap-3 rounded-xl border border-brand-border bg-brand-light/40 p-4 md:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
+              <label className="relative block" htmlFor="commercial-files-search">
+                <span className="sr-only">Search Commercial Files</span>
+                <Search
+                  className="pointer-events-none absolute top-3 left-3 text-brand-muted"
+                  size={16}
+                />
+                <StaffInput
+                  className="h-11 w-full rounded-xl border border-brand-border bg-white pr-3 pl-9 text-sm outline-none focus:border-citius-blue"
+                  id="commercial-files-search"
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search files, notes, teams, or sources"
+                  value={search}
+                />
+              </label>
+              <Select
+                aria-label="File category"
+                className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
+                onValueChange={(value) => setCategory(value as Category | "")}
+                options={[
+                  { label: "All categories", value: "" },
+                  { label: "Working File", value: "workingFile" },
+                  { label: "Proposal Doc", value: "proposalDoc" },
+                ]}
+                value={category}
+              />
+              <Select
+                aria-label="Team area"
+                className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
+                onValueChange={(value) => setTeamArea(value as TeamArea | "")}
+                options={[{ label: "All teams", value: "" }, ...TEAM_AREA_OPTIONS]}
+                value={teamArea}
+              />
+              <Select
+                aria-label="File source"
+                className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
+                onValueChange={setSourceFilter}
+                options={[
+                  { label: "All sources", value: "" },
+                  ...allSourceOptions.map((source) => ({
+                    label: source.label,
+                    value: `${source.sourceType}:${source.id}`,
+                  })),
+                ]}
+                value={sourceFilter}
+              />
+              <Checkbox
+                aria-label="Recoverable deletions"
+                checked={showDeleted}
+                className="flex h-11 items-center gap-2 rounded-xl border border-brand-border bg-white px-3 text-brand-muted text-xs"
+                onCheckedChange={setShowDeleted}
+              >
+                Recoverable deletions
+              </Checkbox>
+            </div>
+
+            {sourceOptions.length > 0 ? (
+              <div className="mt-4 rounded-xl border border-citius-blue/20 bg-citius-blue/[0.03] p-4">
+                <div className="flex items-center gap-2 font-semibold text-brand-dark text-sm">
+                  <Upload size={15} /> Add to a Team File Area
+                </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-4">
+                  <Select
+                    aria-label="Upload source"
+                    className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
+                    onValueChange={(value) => {
+                      if (value !== selectedSourceKey) {
+                        setPendingFiles([]);
+                        setNote("");
+                      }
+                      setSelectedSourceKey(value);
+                    }}
+                    options={sourceOptions.map((source) => ({
+                      label: source.label,
+                      value: `${source.sourceType}:${source.id}`,
+                    }))}
+                    value={selectedSourceKey}
+                  />
+                  <Select
+                    aria-label="Upload team area"
+                    className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
+                    onValueChange={(value) => {
+                      const nextTeamArea = value as TeamArea;
+                      if (nextTeamArea !== selectedTeamArea) {
+                        setPendingFiles([]);
+                        setNote("");
+                      }
+                      setSelectedTeamArea(nextTeamArea);
+                    }}
+                    options={selectedAreas.map((area) => ({
+                      label: area
+                        .replace(/([A-Z])/g, " $1")
+                        .replace(/^./, (letter) => letter.toUpperCase()),
+                      value: area,
+                    }))}
+                    value={selectedTeamArea}
+                  />
+                  <Select
+                    aria-label="Upload category"
+                    className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
+                    onValueChange={(value) => {
+                      const nextCategory = value as Category;
+                      if (nextCategory !== uploadCategory) {
+                        setPendingFiles([]);
+                      }
+                      setUploadCategory(nextCategory);
+                    }}
+                    options={[
+                      { label: "Working File", value: "workingFile" },
+                      ...(selectedSource?.sourceType === "proposal" &&
+                      selectedAreas.includes("contracting")
+                        ? [{ label: "Proposal Doc (PDF)", value: "proposalDoc" }]
+                        : []),
+                    ]}
+                    value={uploadCategory}
+                  />
+                  <label className="flex h-11 cursor-pointer items-center justify-center rounded-xl border border-citius-blue border-dashed bg-white px-3 font-semibold text-citius-blue text-sm hover:bg-citius-blue/[0.04]">
+                    <input
+                      accept={
+                        uploadCategory === "proposalDoc" ? ".pdf,application/pdf" : FILE_ACCEPT
+                      }
+                      className="sr-only"
+                      multiple={uploadCategory === "workingFile"}
+                      onChange={(event) => {
+                        handleFilesSelected(Array.from(event.target.files || []));
+                        event.target.value = "";
+                      }}
+                      type="file"
+                    />
+                    Choose file{uploadCategory === "workingFile" ? "s" : ""}
+                  </label>
+                </div>
+                {pendingFiles.length > 0 ? (
+                  <div className="mt-3 rounded-lg border border-brand-border bg-white p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <span className="font-medium">
+                        {pendingFiles.length} file{pendingFiles.length === 1 ? "" : "s"} ready
+                      </span>
+                      <Button
+                        className="text-brand-muted text-xs hover:underline"
+                        onClick={() => setPendingFiles([])}
+                        type="button"
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                    <div className="mt-2 space-y-1 text-brand-muted text-xs">
+                      {pendingFiles.map((file) => (
+                        <div
+                          className="flex justify-between gap-3"
+                          key={`${file.name}-${file.lastModified}`}
+                        >
+                          <span className="truncate">{file.name}</span>
+                          <span>{formatFileSize(file.size)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+                  <StaffInput
+                    className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder="Optional note or description"
+                    value={note}
+                  />
+                  <Button
+                    className="portal-primary-btn"
+                    disabled={busy || pendingFiles.length === 0}
+                    onClick={() => void handleUpload()}
+                    type="button"
+                  >
+                    {busy ? "Uploading…" : "Upload files"}
+                  </Button>
+                </div>
+                <p className="mt-2 text-brand-muted text-xs">
+                  Working Files accept PDF, Office documents, images, and text up to 15 MB each.
+                  Proposal Docs are PDF-only.
                 </p>
               </div>
-              <button
-                aria-label="Close Commercial Files"
-                className="portal-small-btn"
-                onClick={close}
-                type="button"
-              >
-                <X size={15} /> Close
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto p-5 max-sm:px-4">
-              <div className="grid gap-3 rounded-xl border border-brand-border bg-brand-light/40 p-4 md:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]">
-                <label className="relative block">
-                  <span className="sr-only">Search Commercial Files</span>
-                  <Search
-                    className="pointer-events-none absolute top-3 left-3 text-brand-muted"
-                    size={16}
-                  />
-                  <input
-                    className="h-11 w-full rounded-xl border border-brand-border bg-white pr-3 pl-9 text-sm outline-none focus:border-citius-blue"
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search files, notes, teams, or sources"
-                    value={search}
-                  />
-                </label>
-                <select
-                  className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
-                  onChange={(event) => setCategory(event.target.value as Category | "")}
-                  value={category}
-                >
-                  <option value="">All categories</option>
-                  <option value="workingFile">Working File</option>
-                  <option value="proposalDoc">Proposal Doc</option>
-                </select>
-                <select
-                  className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
-                  onChange={(event) => setTeamArea(event.target.value as TeamArea | "")}
-                  value={teamArea}
-                >
-                  <option value="">All teams</option>
-                  {TEAM_AREA_OPTIONS.map((area) => (
-                    <option key={area.value} value={area.value}>
-                      {area.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
-                  onChange={(event) => setSourceFilter(event.target.value)}
-                  value={sourceFilter}
-                >
-                  <option value="">All sources</option>
-                  {allSourceOptions.map((source) => (
-                    <option
-                      key={`${source.sourceType}:${source.id}`}
-                      value={`${source.sourceType}:${source.id}`}
-                    >
-                      {source.label}
-                    </option>
-                  ))}
-                </select>
-                <label className="flex h-11 items-center gap-2 rounded-xl border border-brand-border bg-white px-3 text-brand-muted text-xs">
-                  <input
-                    checked={showDeleted}
-                    onChange={(event) => setShowDeleted(event.target.checked)}
-                    type="checkbox"
-                  />
-                  Recoverable deletions
-                </label>
+            ) : (
+              <div className="mt-4 rounded-xl border border-brand-border bg-brand-light/40 px-4 py-3 text-brand-muted text-sm">
+                You have read-only access to the linked sources. Files can still be downloaded
+                below.
               </div>
+            )}
 
-              {sourceOptions.length > 0 ? (
-                <div className="mt-4 rounded-xl border border-citius-blue/20 bg-citius-blue/[0.03] p-4">
-                  <div className="flex items-center gap-2 font-semibold text-brand-dark text-sm">
-                    <Upload size={15} /> Add to a Team File Area
-                  </div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-4">
-                    <select
-                      className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
-                      onChange={(event) => {
-                        if (event.target.value !== selectedSourceKey) {
-                          setPendingFiles([]);
-                          setNote("");
-                        }
-                        setSelectedSourceKey(event.target.value);
-                      }}
-                      value={selectedSourceKey}
-                    >
-                      {sourceOptions.map((source) => (
-                        <option
-                          key={`${source.sourceType}:${source.id}`}
-                          value={`${source.sourceType}:${source.id}`}
-                        >
-                          {source.label}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
-                      onChange={(event) => {
-                        const nextTeamArea = event.target.value as TeamArea;
-                        if (nextTeamArea !== selectedTeamArea) {
-                          setPendingFiles([]);
-                          setNote("");
-                        }
-                        setSelectedTeamArea(nextTeamArea);
-                      }}
-                      value={selectedTeamArea}
-                    >
-                      {selectedAreas.map((area) => (
-                        <option key={area} value={area}>
-                          {area
-                            .replace(/([A-Z])/g, " $1")
-                            .replace(/^./, (letter) => letter.toUpperCase())}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
-                      onChange={(event) => {
-                        const nextCategory = event.target.value as Category;
-                        if (nextCategory !== uploadCategory) {
-                          setPendingFiles([]);
-                        }
-                        setUploadCategory(nextCategory);
-                      }}
-                      value={uploadCategory}
-                    >
-                      <option value="workingFile">Working File</option>
-                      {selectedSource?.sourceType === "proposal" &&
-                      selectedAreas.includes("contracting") ? (
-                        <option value="proposalDoc">Proposal Doc (PDF)</option>
-                      ) : null}
-                    </select>
-                    <label className="flex h-11 cursor-pointer items-center justify-center rounded-xl border border-citius-blue border-dashed bg-white px-3 font-semibold text-citius-blue text-sm hover:bg-citius-blue/[0.04]">
-                      <input
-                        accept={
-                          uploadCategory === "proposalDoc" ? ".pdf,application/pdf" : FILE_ACCEPT
-                        }
-                        className="sr-only"
-                        multiple={uploadCategory === "workingFile"}
-                        onChange={(event) => {
-                          handleFilesSelected(Array.from(event.target.files || []));
-                          event.target.value = "";
-                        }}
-                        type="file"
-                      />
-                      Choose file{uploadCategory === "workingFile" ? "s" : ""}
-                    </label>
-                  </div>
-                  {pendingFiles.length > 0 ? (
-                    <div className="mt-3 rounded-lg border border-brand-border bg-white p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                        <span className="font-medium">
-                          {pendingFiles.length} file{pendingFiles.length === 1 ? "" : "s"} ready
-                        </span>
-                        <button
-                          className="text-brand-muted text-xs hover:underline"
-                          onClick={() => setPendingFiles([])}
-                          type="button"
-                        >
-                          Clear
-                        </button>
-                      </div>
-                      <div className="mt-2 space-y-1 text-brand-muted text-xs">
-                        {pendingFiles.map((file) => (
+            {error ? (
+              <div
+                className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm"
+                role="alert"
+              >
+                {error}
+              </div>
+            ) : null}
+            {result ? (
+              rows.length === 0 ? (
+                <div className="mt-6 rounded-xl border border-brand-border border-dashed px-4 py-8 text-center text-brand-muted text-sm">
+                  No Commercial Files match this view yet.
+                </div>
+              ) : (
+                <div className="mt-6 space-y-5">
+                  {groupedRows.map((group) => (
+                    <section key={group.key}>
+                      <h3 className="mb-2 font-heading font-semibold text-brand-dark text-sm">
+                        {group.label}
+                      </h3>
+                      <div className="space-y-2">
+                        {group.items.map((row) => (
                           <div
-                            className="flex justify-between gap-3"
-                            key={`${file.name}-${file.lastModified}`}
+                            className={`rounded-xl border px-4 py-3 ${row.lifecycle === "deleted" ? "border-amber-200 bg-amber-50/40" : row.lifecycle === "history" ? "border-blue-200 bg-blue-50/40" : "border-brand-border bg-white"}`}
+                            key={row.id}
                           >
-                            <span className="truncate">{file.name}</span>
-                            <span>{formatFileSize(file.size)}</span>
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="flex min-w-0 items-start gap-2">
+                                {row.fileKind === "proposalDoc" ? (
+                                  <FileText
+                                    className="mt-0.5 shrink-0 text-citius-blue"
+                                    size={16}
+                                  />
+                                ) : (
+                                  <Paperclip
+                                    className="mt-0.5 shrink-0 text-citius-blue"
+                                    size={16}
+                                  />
+                                )}
+                                <div className="min-w-0">
+                                  <div className="truncate font-medium text-brand-dark">
+                                    {row.fileName}
+                                  </div>
+                                  <div className="mt-1 text-brand-muted text-xs">
+                                    {row.category === "proposalDoc"
+                                      ? "Proposal Doc"
+                                      : "Working File"}{" "}
+                                    · {row.teamLabel} · {formatFileSize(row.fileSize)} ·{" "}
+                                    {formatLifecycle(row)}
+                                  </div>
+                                  {editingNoteId === row.id ? (
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                      <StaffInput
+                                        className="h-9 min-w-56 flex-1 rounded-lg border border-brand-border bg-white px-2 text-xs outline-none focus:border-citius-blue"
+                                        onChange={(event) => setEditingNote(event.target.value)}
+                                        value={editingNote}
+                                      />
+                                      <Button
+                                        className="portal-small-btn"
+                                        onClick={() => void handleNote(row)}
+                                        type="button"
+                                      >
+                                        Save note
+                                      </Button>
+                                      <Button
+                                        className="portal-outline-btn"
+                                        onClick={() => setEditingNoteId(null)}
+                                        type="button"
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  ) : row.note ? (
+                                    <div className="mt-2 whitespace-pre-wrap text-brand-muted text-xs">
+                                      {row.note}
+                                    </div>
+                                  ) : null}
+                                  <div className="mt-1 text-brand-muted text-xs">
+                                    Uploaded by {row.uploaderTeam} · {row.createdBy}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 flex-wrap gap-2">
+                                {row.lifecycle === "deleted" ? null : (
+                                  <Button
+                                    className="portal-small-btn"
+                                    onClick={() => openFile(row.id)}
+                                    type="button"
+                                  >
+                                    Open
+                                  </Button>
+                                )}
+                                {row.canEditNote && editingNoteId !== row.id ? (
+                                  <Button
+                                    aria-label={`Edit note for ${row.fileName}`}
+                                    className="portal-small-btn"
+                                    onClick={() => beginNoteEdit(row)}
+                                    type="button"
+                                  >
+                                    Note
+                                  </Button>
+                                ) : null}
+                                {row.canDelete ? (
+                                  <Button
+                                    aria-label={`Delete ${row.fileName}`}
+                                    className="portal-danger-btn"
+                                    onClick={() => handleDelete(row)}
+                                    type="button"
+                                  >
+                                    <Trash2 size={14} /> Delete
+                                  </Button>
+                                ) : null}
+                                {row.canRestore || row.canRestoreHistory ? (
+                                  <Button
+                                    className="portal-small-btn"
+                                    onClick={() => void handleRestore(row)}
+                                    type="button"
+                                  >
+                                    {row.lifecycle === "history" ? (
+                                      <>
+                                        <History size={14} /> Restore version
+                                      </>
+                                    ) : (
+                                      <>
+                                        <RotateCcw size={14} /> Restore
+                                      </>
+                                    )}
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  ) : null}
-                  <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-                    <input
-                      className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
-                      onChange={(event) => setNote(event.target.value)}
-                      placeholder="Optional note or description"
-                      value={note}
-                    />
-                    <button
-                      className="portal-primary-btn"
-                      disabled={busy || pendingFiles.length === 0}
-                      onClick={() => void handleUpload()}
-                      type="button"
-                    >
-                      {busy ? "Uploading…" : "Upload files"}
-                    </button>
-                  </div>
-                  <p className="mt-2 text-brand-muted text-xs">
-                    Working Files accept PDF, Office documents, images, and text up to 15 MB each.
-                    Proposal Docs are PDF-only.
-                  </p>
+                    </section>
+                  ))}
                 </div>
-              ) : (
-                <div className="mt-4 rounded-xl border border-brand-border bg-brand-light/40 px-4 py-3 text-brand-muted text-sm">
-                  You have read-only access to the linked sources. Files can still be downloaded
-                  below.
-                </div>
-              )}
-
-              {error ? (
-                <div
-                  className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm"
-                  role="alert"
-                >
-                  {error}
-                </div>
-              ) : null}
-              {result ? (
-                rows.length === 0 ? (
-                  <div className="mt-6 rounded-xl border border-brand-border border-dashed px-4 py-8 text-center text-brand-muted text-sm">
-                    No Commercial Files match this view yet.
-                  </div>
-                ) : (
-                  <div className="mt-6 space-y-5">
-                    {groupedRows.map((group) => (
-                      <section key={group.key}>
-                        <h3 className="mb-2 font-heading font-semibold text-brand-dark text-sm">
-                          {group.label}
-                        </h3>
-                        <div className="space-y-2">
-                          {group.items.map((row) => (
-                            <div
-                              className={`rounded-xl border px-4 py-3 ${row.lifecycle === "deleted" ? "border-amber-200 bg-amber-50/40" : row.lifecycle === "history" ? "border-blue-200 bg-blue-50/40" : "border-brand-border bg-white"}`}
-                              key={row.id}
-                            >
-                              <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div className="flex min-w-0 items-start gap-2">
-                                  {row.fileKind === "proposalDoc" ? (
-                                    <FileText
-                                      className="mt-0.5 shrink-0 text-citius-blue"
-                                      size={16}
-                                    />
-                                  ) : (
-                                    <Paperclip
-                                      className="mt-0.5 shrink-0 text-citius-blue"
-                                      size={16}
-                                    />
-                                  )}
-                                  <div className="min-w-0">
-                                    <div className="truncate font-medium text-brand-dark">
-                                      {row.fileName}
-                                    </div>
-                                    <div className="mt-1 text-brand-muted text-xs">
-                                      {row.category === "proposalDoc"
-                                        ? "Proposal Doc"
-                                        : "Working File"}{" "}
-                                      · {row.teamLabel} · {formatFileSize(row.fileSize)} ·{" "}
-                                      {formatLifecycle(row)}
-                                    </div>
-                                    {editingNoteId === row.id ? (
-                                      <div className="mt-2 flex flex-wrap gap-2">
-                                        <input
-                                          className="h-9 min-w-56 flex-1 rounded-lg border border-brand-border bg-white px-2 text-xs outline-none focus:border-citius-blue"
-                                          onChange={(event) => setEditingNote(event.target.value)}
-                                          value={editingNote}
-                                        />
-                                        <button
-                                          className="portal-small-btn"
-                                          onClick={() => void handleNote(row)}
-                                          type="button"
-                                        >
-                                          Save note
-                                        </button>
-                                        <button
-                                          className="portal-outline-btn"
-                                          onClick={() => setEditingNoteId(null)}
-                                          type="button"
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    ) : row.note ? (
-                                      <div className="mt-2 whitespace-pre-wrap text-brand-muted text-xs">
-                                        {row.note}
-                                      </div>
-                                    ) : null}
-                                    <div className="mt-1 text-brand-muted text-xs">
-                                      Uploaded by {row.uploaderTeam} · {row.createdBy}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className="flex shrink-0 flex-wrap gap-2">
-                                  {row.lifecycle === "deleted" ? null : (
-                                    <button
-                                      className="portal-small-btn"
-                                      onClick={() => openFile(row.id)}
-                                      type="button"
-                                    >
-                                      Open
-                                    </button>
-                                  )}
-                                  {row.canEditNote && editingNoteId !== row.id ? (
-                                    <button
-                                      aria-label={`Edit note for ${row.fileName}`}
-                                      className="portal-small-btn"
-                                      onClick={() => beginNoteEdit(row)}
-                                      type="button"
-                                    >
-                                      Note
-                                    </button>
-                                  ) : null}
-                                  {row.canDelete ? (
-                                    <button
-                                      aria-label={`Delete ${row.fileName}`}
-                                      className="portal-danger-btn"
-                                      onClick={() => handleDelete(row)}
-                                      type="button"
-                                    >
-                                      <Trash2 size={14} /> Delete
-                                    </button>
-                                  ) : null}
-                                  {row.canRestore || row.canRestoreHistory ? (
-                                    <button
-                                      className="portal-small-btn"
-                                      onClick={() => void handleRestore(row)}
-                                      type="button"
-                                    >
-                                      {row.lifecycle === "history" ? (
-                                        <>
-                                          <History size={14} /> Restore version
-                                        </>
-                                      ) : (
-                                        <>
-                                          <RotateCcw size={14} /> Restore
-                                        </>
-                                      )}
-                                    </button>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </section>
-                    ))}
-                  </div>
-                )
-              ) : (
-                <div className="mt-6 text-brand-muted text-sm">Loading Commercial Files…</div>
-              )}
-              {result?.nextCursor ? (
-                <button
-                  className="portal-outline-btn mt-5 w-full"
-                  disabled={!result}
-                  onClick={() => setCursor(result.nextCursor || undefined)}
-                  type="button"
-                >
-                  Load more files
-                </button>
-              ) : null}
-            </div>
-            <div className="flex shrink-0 items-center justify-between gap-3 border-brand-border border-t bg-white px-5 py-3 text-brand-muted text-xs max-sm:px-4">
-              <span>
-                {result?.total ?? 0} file{result?.total === 1 ? "" : "s"} in this view
-              </span>
-              <button className="portal-outline-btn" onClick={close} type="button">
-                Done
-              </button>
-            </div>
-          </m.div>
-        </m.div>
+              )
+            ) : (
+              <div className="mt-6 text-brand-muted text-sm">Loading Commercial Files…</div>
+            )}
+            {result?.nextCursor ? (
+              <Button
+                className="portal-outline-btn mt-5 w-full"
+                disabled={!result}
+                onClick={() => setCursor(result.nextCursor || undefined)}
+                type="button"
+              >
+                Load more files
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 items-center justify-between gap-3 border-brand-border border-t bg-white px-5 py-3 text-brand-muted text-xs max-sm:px-4">
+            <span>
+              {result?.total ?? 0} file{result?.total === 1 ? "" : "s"} in this view
+            </span>
+            <Button className="portal-outline-btn" onClick={close} type="button">
+              Done
+            </Button>
+          </div>
+        </>
       ) : null}
-    </AnimatePresence>
+    </ControlledDialog>
   );
 }

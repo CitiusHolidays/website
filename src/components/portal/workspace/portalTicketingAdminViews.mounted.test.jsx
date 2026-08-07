@@ -23,6 +23,7 @@ beforeAll(() => {
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
+  globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
   globalThis.MouseEvent = dom.window.MouseEvent;
@@ -366,6 +367,7 @@ describe("mounted portal ticketing and administration views", () => {
   });
 
   test("Activity notifications stay unread until clicked and support deep links", async () => {
+    const deleteCalls = [];
     const pushed = [];
     const readCalls = [];
 
@@ -378,9 +380,13 @@ describe("mounted portal ticketing and administration views", () => {
         activity={[
           { actorName: "System", createdAt: "2026-07-14", id: "act-1", message: "Updated" },
         ]}
-        deleteItem={noopDelete}
-        markNotificationRead={async (args) => {
+        deleteItem={(...args) => {
+          deleteCalls.push(args);
+          return Promise.resolve();
+        }}
+        markNotificationRead={(args) => {
           readCalls.push(args);
+          return Promise.resolve();
         }}
         notifications={[
           {
@@ -397,11 +403,23 @@ describe("mounted portal ticketing and administration views", () => {
     );
 
     expect(view.container.textContent).toContain("Unread");
+    expect(readCalls).toEqual([]);
+    await act(async () =>
+      view.container
+        .querySelector('button[aria-label="Delete Proposal ready"]')
+        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    );
+    expect(deleteCalls).toHaveLength(1);
+    expect(readCalls).toEqual([]);
+    expect(pushed).toEqual([]);
     const row = view.container.querySelector('[role="button"]');
     expect(row).toBeTruthy();
     await act(async () => row?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
     expect(readCalls).toEqual([{ notificationId: "notif-1" }]);
-    expect(pushed.length).toBe(1);
+    expect(pushed).toHaveLength(1);
+    expect(pushed[0]).toContain("/portal/proposals");
+    expect(pushed[0]).toContain("open=proposal");
+    expect(pushed[0]).toContain("id=proposal-1");
 
     await view.unmount();
     mock.restore();
