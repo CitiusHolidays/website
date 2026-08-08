@@ -2,7 +2,10 @@
 
 import { useLinkStatus } from "next/link";
 import { useEffect, useRef } from "react";
-import { markPortalNavigationPending } from "@/lib/portal/navigationPerformance";
+import {
+  markPortalNavigationPending,
+  type PortalPerformanceTarget,
+} from "@/lib/portal/navigationPerformance";
 
 export function PortalNavLinkPendingIndicator({
   label,
@@ -27,18 +30,24 @@ export function PortalNavLinkPendingIndicator({
   );
 }
 
-export default function PortalNavLinkPending({ label }: { label: string }) {
+export default function PortalNavLinkPending({
+  label,
+  performanceTarget,
+}: {
+  label: string;
+  performanceTarget?: PortalPerformanceTarget | null;
+}) {
   const { pending } = useLinkStatus();
   const wasPending = useRef(false);
 
   useEffect(() => {
-    if (pending && !wasPending.current) {
+    if (pending && !wasPending.current && performanceTarget) {
       wasPending.current = true;
-      markPortalNavigationPending();
+      markPortalNavigationPending(performanceTarget);
     } else if (!pending) {
       wasPending.current = false;
     }
-  }, [pending]);
+  }, [pending, performanceTarget]);
 
   return <PortalNavLinkPendingIndicator label={label} pending={pending} />;
 }

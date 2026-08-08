@@ -96,16 +96,8 @@ export function JobCardRowActions({
         key="edit"
         onClick={() =>
           openModal("jobCard", {
-            clientName: job.clientName,
-            confirmedPax: String(job.confirmedPax),
-            destination: job.destination,
             entityId: job.id,
-            proposalId: job.proposalId || "",
-            queryId: job.queryId || "",
-            roomCount: String(job.roomCount || ""),
-            tourManagerName: job.tourManagerName,
-            travelEndDate: job.travelEndDate,
-            travelStartDate: job.travelStartDate,
+            focusedDetailType: "jobCard",
           })
         }
       />
@@ -120,7 +112,7 @@ export function JobCardRowActions({
         Share
       </Button>
     ) : null,
-    canManage && (job.collaboratorStaffIds ?? []).length > 0 ? (
+    canManage && job.hasCollaborators ? (
       <Button
         className="portal-small-btn w-full"
         key="unshare"

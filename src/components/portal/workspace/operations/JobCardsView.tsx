@@ -1,11 +1,13 @@
 "use client";
 
+import { useEffect } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { getJobCardAttention } from "@/lib/portal/jobCardListPresentation";
+import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
 import {
   canAssignContracting,
   canAssignOperations,
@@ -30,7 +32,14 @@ export function JobCardsView({
   deleteItem,
   removeJobCard,
   jobCardDeletionOperations,
+  loading = false,
 }: JobCardsViewProps) {
+  useEffect(() => {
+    if (!loading) {
+      markPortalNavigationFirstContent("job-cards", rows.length > 0 ? "row" : "empty");
+    }
+  }, [loading, rows]);
+
   const showAssignContracting = canAssignContracting(access) || canAssignOperations(access);
   const showAssignOps = canAssignOperations(access);
   const showAssignTicketing = canAssignTicketing(access);

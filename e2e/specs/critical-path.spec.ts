@@ -127,7 +127,7 @@ test.describe
           "citius-portal-navigation-start",
           "citius-portal-navigation-pending",
           "citius-portal-navigation-route-ready",
-          "citius-portal-navigation-first-query-row",
+          "citius-portal-navigation-first-content",
         ])
       );
 

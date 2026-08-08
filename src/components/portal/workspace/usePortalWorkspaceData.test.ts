@@ -23,7 +23,7 @@ describe("usePortalWorkspaceData subscription gates", () => {
     const source = read(DATA_HOOK_FILE);
 
     expect(source).toMatch(
-      /canFetch\s*&&\s*needs\("activity"\)\s*\?\s*\{\s*limit:\s*80\s*\}\s*:\s*"skip"/
+      /canFetch\s*&&\s*needs\("activity"\)\s*&&\s*has\(P\.VIEW_ACTIVITY\)\s*\?\s*\{\s*limit:\s*80\s*\}\s*:\s*"skip"/
     );
     expect(source).not.toMatch(
       /useQuery\(\s*api\.crm\.activity\.listNotifications,\s*canFetch\s*\?\s*\{\s*limit:\s*80/

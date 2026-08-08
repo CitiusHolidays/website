@@ -20,6 +20,7 @@ import { getListFilterConfig } from "@/lib/portal/listFilterConfig";
 import { createProductionModalCommandAdapter } from "@/lib/portal/modalCommandAdapter";
 import { executeModalCommand } from "@/lib/portal/modalCommandExecutor";
 import {
+  createFocusedEditModalForm,
   createInitialModalForm,
   JOB_CARD_MODALS,
   jobCardProposalLinkPatch,
@@ -73,6 +74,21 @@ interface WorkspaceState {
   search: string;
 }
 const createInitialWorkspaceModalForm = createInitialModalForm as (input: AnyRecord) => AnyRecord;
+
+function resolveFocusedDetail(
+  type: unknown,
+  details: { jobCard: unknown; proposal: unknown; query: unknown }
+) {
+  if (type === "query") {
+    return details.query;
+  }
+  if (type === "proposal") {
+    return details.proposal;
+  }
+  if (type === "jobCard") {
+    return details.jobCard;
+  }
+}
 
 export function usePortalWorkspaceState(view: string, searchParams: URLSearchParams) {
   const router = useRouter();
@@ -202,9 +218,13 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     activity,
     approvals,
     dropdowns,
+    emailDeliverySummaries,
     expenses,
     financeOverview,
     flightItinerary,
+    focusedJobCard,
+    focusedProposal,
+    focusedQuery,
     hotels,
     invoices,
     jobCardDeletionOperations,
@@ -213,6 +233,8 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     leaveHeadApproverCandidates,
     leaves,
     notifications,
+    passengerExportOperations,
+    passengerImportOperations,
     pagination,
     pnrs,
     proposals,
@@ -284,7 +306,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     generateUploadUrl,
     getExpenseAttachmentUrl,
     getFinalizedPdfUrl,
-    getPassengerExportRows,
+    getPassengerExportDownload,
     getPassportDocument,
     getProposalAttachmentUrl,
     getQueryAttachmentUrl,
@@ -327,6 +349,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     sendProposalToSales: sendProposalToSalesMutation,
     setJobCardCreatorAccess,
     startStaffOnboarding,
+    startPassengerExport,
     submitExpenseForApproval,
     submitToContractingMutation,
     updateCallingStatus,
@@ -453,19 +476,21 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
 
   const openModal = (type: string, initial: AnyRecord = {}) => {
     setError("");
-    const next = createInitialWorkspaceModalForm({
-      access,
-      initial,
-      initialForm: INITIAL_FORM,
-      jobCards: compactRows(jobCards),
-      pnrs: compactRows(pnrs),
-      proposals: compactRows(proposals),
-      queries: compactRows(queries),
-      travellers: compactRows(travellers),
-      travellersWithoutVisa: compactRows(travellersWithoutVisa),
-      type,
-      visas: compactRows(visas),
-    });
+    const next = initial.focusedDetailType
+      ? { ...initial }
+      : createInitialWorkspaceModalForm({
+          access,
+          initial,
+          initialForm: INITIAL_FORM,
+          jobCards: compactRows(jobCards),
+          pnrs: compactRows(pnrs),
+          proposals: compactRows(proposals),
+          queries: compactRows(queries),
+          travellers: compactRows(travellers),
+          travellersWithoutVisa: compactRows(travellersWithoutVisa),
+          type,
+          visas: compactRows(visas),
+        });
     setForm(next);
     setModal(type);
     if (type !== "query") {
@@ -499,13 +524,37 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     setForm((current) => ({ ...current, ...patch }));
   };
 
+  const focusedDetail = resolveFocusedDetail(form.focusedDetailType, {
+    jobCard: focusedJobCard,
+    proposal: focusedProposal,
+    query: focusedQuery,
+  });
+  const focusedDetailForm = (() => {
+    if (!form.focusedDetailType) {
+      return form;
+    }
+    const { focusedDetailType, ...draftOverrides } = form;
+    if (focusedDetail === undefined) {
+      return { ...draftOverrides, _focusedDetailState: "loading", focusedDetailType };
+    }
+    if (focusedDetail === null) {
+      return { ...draftOverrides, _focusedDetailState: "missing", focusedDetailType };
+    }
+    const initial = createFocusedEditModalForm(focusedDetailType, focusedDetail);
+    return {
+      ...(initial ?? {}),
+      ...draftOverrides,
+      _focusedDetailState: "ready",
+      focusedDetailType,
+    };
+  })();
   const effectiveForm = (() => {
     const patch = jobCardProposalLinkPatch({
-      form,
+      form: focusedDetailForm,
       modal,
       proposals: compactRows(proposals),
     });
-    return patch ? { ...form, ...patch } : form;
+    return patch ? { ...focusedDetailForm, ...patch } : focusedDetailForm;
   })();
 
   const submitToContracting = async ({ queryId }: { queryId: string }) => {
@@ -619,6 +668,10 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (["loading", "missing"].includes(String(effectiveForm._focusedDetailState ?? ""))) {
+      setError("Wait for the current record to load before saving.");
+      return;
+    }
     setIsSaving(true);
     setError("");
     try {
@@ -768,6 +821,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     deleteSavedView,
     deleteSelected,
     dropdowns,
+    emailDeliverySummaries,
     encryptAndStorePassport,
     error,
     expenses,
@@ -806,7 +860,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     generateUploadUrl,
     getExpenseAttachmentUrl,
     getFinalizedPdfUrl,
-    getPassengerExportRows,
+    getPassengerExportDownload,
     getPassportDocument,
     getProposalAttachmentUrl,
     getQueryAttachmentUrl,
@@ -831,6 +885,8 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     notifications,
     openModal,
     pagination,
+    passengerExportOperations,
+    passengerImportOperations,
     patchForm,
     pathname,
     pendingExpenseProofFiles,
@@ -896,6 +952,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     setSearchWithUrl,
     showJobCardFilter,
     staff,
+    startPassengerExport,
     startStaffOnboarding,
     submit,
     submitExpenseForApproval,

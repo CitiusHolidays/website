@@ -19,16 +19,11 @@ import { handleQueryRemove } from "./queryDeletion";
 import { handleQueryGetListRow, handleQueryListPage } from "./queryReads";
 import { applyQueryTeamAssignments } from "./queryTeamAssignment";
 import {
-  type ContractingStatus,
   contractingStatusValidator,
-  type LeadStage,
-  type LostReason,
   leadStageValidator,
   lostReasonValidator,
-  type QueryStatusArgs,
   querySourceValidator,
   queryTypeValidator,
-  type SalesStatus,
   salesStatusValidator,
   ticketingScopeValidator,
   travelTypeValidator,
@@ -58,13 +53,19 @@ export {
   buildQueryStatusNotificationPlan,
   buildQueryStatusPatch,
 } from "./queryStatusPolicy";
+export type {
+  ContractingStatus,
+  LeadStage,
+  LostReason,
+  QueryStatusArgs,
+  SalesStatus,
+} from "./queryValidators";
 export {
   assertSalesPipelineBoardMove,
   getAllowedSalesPipelineBoardTargets,
   isSalesPipelineBoardLocked,
   resolveSalesPipelineStage,
 } from "./salesPipelinePolicy";
-export type { ContractingStatus, LeadStage, LostReason, QueryStatusArgs, SalesStatus };
 
 export const listPage = query({
   args: {
@@ -82,6 +83,14 @@ export const listPage = query({
 });
 
 export const getListRow = query({
+  args: {
+    queryId: v.string(),
+  },
+  handler: handleQueryGetListRow,
+  returns: queryGetListRowResultValidator,
+});
+
+export const getDetail = query({
   args: {
     queryId: v.string(),
   },
@@ -227,6 +236,7 @@ export const updateStatus = mutation({
   args: {
     airfarePerPax: v.optional(v.number()),
     approxMargin: v.optional(v.number()),
+    commandId: v.optional(v.string()),
     confirmedPax: v.optional(v.number()),
     contractingAirlinesCost: v.optional(v.number()),
     contractingLandCost: v.optional(v.number()),

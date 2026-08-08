@@ -1,5 +1,11 @@
 import { api } from "@convex/_generated/api";
 import { useAction, useMutation } from "convex/react";
+import { useRef } from "react";
+import {
+  chunkPassengerImportRows,
+  combinePassengerImportBatchResults,
+  digestPassengerImportSource,
+} from "@/lib/portal/passengerImportClient";
 
 const PORTAL_BULK_DELETE_BATCH_SIZE = 32;
 
@@ -17,6 +23,7 @@ async function runBatchedDelete(ids: string[], invoke: (batch: string[]) => Prom
 }
 
 export function usePortalWorkspaceMutations() {
+  const commandIdsBySubmission = useRef(new Map<string, string>());
   const createQuery = useMutation(api.crm.queries.create);
   const updateQuery = useMutation(api.crm.queries.update);
   const submitToContractingMutation = useMutation(api.crm.queries.submitToContracting);
@@ -28,7 +35,7 @@ export function usePortalWorkspaceMutations() {
   const assignContractingOwner = useMutation(api.crm.jobCards.assignContractingOwner);
   const assignOperationsOwner = useMutation(api.crm.jobCards.assignOperationsOwner);
   const assignTicketingOwner = useMutation(api.crm.ticketing.assignTicketingOwner);
-  const updateQueryStatus = useMutation(api.crm.queries.updateStatus);
+  const updateQueryStatusMutation = useMutation(api.crm.queries.updateStatus);
   const moveContractingPipelineStageMutation = useMutation(
     api.crm.queries.moveContractingPipelineStage
   );
@@ -37,7 +44,7 @@ export function usePortalWorkspaceMutations() {
   const updateProposal = useMutation(api.crm.proposals.update);
   const addProposalCollaborator = useMutation(api.crm.proposals.addCollaborator);
   const removeProposalCollaborator = useMutation(api.crm.proposals.removeCollaborator);
-  const sendProposalToSales = useMutation(api.crm.proposals.sendToSales);
+  const sendProposalToSalesMutation = useMutation(api.crm.proposals.sendToSales);
   const markProposalSent = useMutation(api.crm.proposals.markSent);
   const createJobCard = useMutation(api.crm.jobCards.createFromQuery);
   const updateJobCard = useMutation(api.crm.jobCards.update);
@@ -78,9 +85,10 @@ export function usePortalWorkspaceMutations() {
   const startStaffOnboarding = useAction(api.crm.staffAction.startStaffOnboarding);
   const createPnr = useMutation(api.crm.ticketing.createPnr);
   const updatePnr = useMutation(api.crm.ticketing.updatePnr);
-  const previewPassengerImport = useAction(api.crm.importActions.previewPassengerImport);
-  const commitPassengerImport = useAction(api.crm.importActions.commitPassengerImport);
-  const getPassengerExportRows = useAction(api.crm.importActions.getPassengerExportRows);
+  const previewPassengerImportBatch = useAction(api.crm.importActions.previewPassengerImport);
+  const commitPassengerImportBatch = useAction(api.crm.importActions.commitPassengerImport);
+  const startPassengerExportAction = useAction(api.crm.importActions.startPassengerExport);
+  const getPassengerExportDownload = useAction(api.crm.importActions.getPassengerExportDownload);
   const commitFlightImport = useMutation(api.crm.imports.commitFlightImport);
   const createTicket = useMutation(api.crm.ticketing.createTicket);
   const updateTicket = useMutation(api.crm.ticketing.updateTicket);
@@ -148,6 +156,112 @@ export function usePortalWorkspaceMutations() {
       removeManyTourManagersMutation({ tourManagerIds })
     );
 
+  const replaySafeCommandId = (signature: string) => {
+    const existing = commandIdsBySubmission.current.get(signature);
+    if (existing) {
+      return existing;
+    }
+    const commandId = crypto.randomUUID();
+    commandIdsBySubmission.current.set(signature, commandId);
+    if (commandIdsBySubmission.current.size > 20) {
+      const oldest = commandIdsBySubmission.current.keys().next().value;
+      if (oldest) {
+        commandIdsBySubmission.current.delete(oldest);
+      }
+    }
+    return commandId;
+  };
+
+  const sendProposalToSales = async (args: { proposalId: string }) => {
+    const signature = `proposal.send_to_sales:${args.proposalId}`;
+    const result = await sendProposalToSalesMutation({
+      ...args,
+      commandId: replaySafeCommandId(signature),
+    });
+    commandIdsBySubmission.current.delete(signature);
+    return result;
+  };
+
+  const updateQueryStatus = async (
+    args: Omit<Parameters<typeof updateQueryStatusMutation>[0], "commandId">
+  ) => {
+    const confirmationRequested =
+      args.salesStatus === "Order Confirmed" || args.contractingStatus === "Order Confirmed";
+    if (!confirmationRequested) {
+      return await updateQueryStatusMutation(args);
+    }
+    const signature = `query.order_confirmed:${args.queryId}:${JSON.stringify(args)}`;
+    const result = await updateQueryStatusMutation({
+      ...args,
+      commandId: replaySafeCommandId(signature),
+    });
+    commandIdsBySubmission.current.delete(signature);
+    return result;
+  };
+
+  const startPassengerExport = async (
+    args: Omit<Parameters<typeof startPassengerExportAction>[0], "commandId"> & {
+      commandId?: string;
+    }
+  ) => {
+    const { commandId: persistedCommandId, ...exportArgs } = args;
+    const signature = `passenger.export:${exportArgs.exportKind}:${exportArgs.jobCardId}`;
+    const result = await startPassengerExportAction({
+      ...exportArgs,
+      commandId: persistedCommandId ?? replaySafeCommandId(signature),
+    });
+    commandIdsBySubmission.current.delete(signature);
+    return result;
+  };
+
+  const previewPassengerImport = async (
+    args: Parameters<typeof previewPassengerImportBatch>[0]
+  ) => {
+    const batches = chunkPassengerImportRows(args.rows);
+    const results = await Promise.all(
+      batches.map((rows) => previewPassengerImportBatch({ jobCardId: args.jobCardId, rows }))
+    );
+    const roomSummary: Record<string, number> = {};
+    for (const result of results) {
+      for (const [roomType, count] of Object.entries(
+        result.roomSummary as Record<string, number>
+      )) {
+        roomSummary[roomType] = (roomSummary[roomType] ?? 0) + count;
+      }
+    }
+    return { roomSummary, rows: results.flatMap((result) => result.rows) };
+  };
+
+  const commitPassengerImport = async (args: Parameters<typeof commitPassengerImportBatch>[0]) => {
+    const batches = chunkPassengerImportRows(args.rows);
+    if (batches.length === 0) {
+      throw new Error("Passenger import requires at least one row");
+    }
+    const sourceDigest = await digestPassengerImportSource(args.jobCardId, args.rows);
+    const importKinds = Array.from(
+      new Set(args.rows.map((row) => String(row.importKind ?? "passenger")))
+    ).sort();
+    const results: Awaited<ReturnType<typeof commitPassengerImportBatch>>[] = [];
+    for (const [batchIndex, rows] of batches.entries()) {
+      results.push(
+        // biome-ignore lint/performance/noAwaitInLoops: import batches must commit in manifest order.
+        await commitPassengerImportBatch({
+          jobCardId: args.jobCardId,
+          operation: {
+            batchIndex,
+            batchTotal: batches.length,
+            complete: batchIndex === batches.length - 1,
+            importKinds,
+            sourceDigest,
+            total: args.rows.length,
+          },
+          rows,
+        })
+      );
+    }
+    return combinePassengerImportBatchResults(results, args.rows.length);
+  };
+
   return {
     addJobCardCollaborator,
     addProposalCollaborator,
@@ -188,7 +302,7 @@ export function usePortalWorkspaceMutations() {
     generateUploadUrl,
     getExpenseAttachmentUrl,
     getFinalizedPdfUrl,
-    getPassengerExportRows,
+    getPassengerExportDownload,
     getPassportDocument,
     getProposalAttachmentUrl,
     getQueryAttachmentUrl,
@@ -230,6 +344,7 @@ export function usePortalWorkspaceMutations() {
     saveSeat,
     sendProposalToSales,
     setJobCardCreatorAccess,
+    startPassengerExport,
     startStaffOnboarding,
     submitExpenseForApproval,
     submitToContractingMutation,

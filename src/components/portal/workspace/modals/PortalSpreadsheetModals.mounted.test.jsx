@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act, useCallback, useState } from "react";
 
@@ -7,6 +7,7 @@ let FlightExportModal;
 let FlightImportModal;
 let PassengerExportModal;
 let PassengerImportModal;
+let PASSENGER_IMPORT_MODAL_CONFIGS;
 let PortalToastProvider;
 let PortalWorkspaceSpreadsheetModals;
 
@@ -50,6 +51,7 @@ beforeAll(async () => {
   ({ FlightImportModal } = await import("./FlightImportModal"));
   ({ PassengerExportModal } = await import("./PassengerExportModal"));
   ({ PassengerImportModal } = await import("./PassengerImportModal"));
+  ({ PASSENGER_IMPORT_MODAL_CONFIGS } = await import("./spreadsheetModalConfigs"));
   ({ PortalWorkspaceSpreadsheetModals } = await import("./PortalWorkspaceSpreadsheetModals"));
 });
 
@@ -57,7 +59,11 @@ afterEach(() => document.body.replaceChildren());
 afterAll(() => dom.window.close());
 
 const doNothing = () => undefined;
-const returnEmptyExport = async () => ({ rows: [] });
+const returnExportOperation = async () => ({ operationId: "passengerExportOperations_1" });
+const returnExportDownload = async () => ({
+  fileName: "JC-0001-passengers.xlsx",
+  url: "https://example.com/export.xlsx",
+});
 const returnEmptyPreview = async () => ({ rows: [] });
 const returnImportResult = async () => ({ created: 0, updated: 0 });
 const returnFlightImportResult = async () => ({ createdSegments: 0, updatedSegments: 0 });
@@ -88,6 +94,17 @@ function SpreadsheetHarness({ onClose }) {
 const flushDialog = () => act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
 
 describe("mounted spreadsheet modal loading boundary", () => {
+  test("maps all passenger-family imports to durable operation kinds", () => {
+    expect(
+      PASSENGER_IMPORT_MODAL_CONFIGS.map(({ importKind, modal }) => [modal, importKind])
+    ).toEqual([
+      ["passengerImport", "passenger"],
+      ["travellerImport", "traveller"],
+      ["roomingImport", "rooming"],
+      ["passportImport", "passport"],
+      ["visaImport", "visa"],
+    ]);
+  });
   test("keeps spreadsheet imports as native file inputs with exact workbook acceptance", async () => {
     const container = document.createElement("div");
     document.body.append(container);
@@ -190,10 +207,13 @@ describe("mounted spreadsheet modal loading boundary", () => {
               commitPassengerImport: returnImportResult,
               flightItinerary: undefined,
               form: {},
-              getPassengerExportRows: returnEmptyExport,
+              getPassengerExportDownload: returnExportDownload,
               jobCards: undefined,
               modal: null,
+              passengerExportOperations: undefined,
+              passengerImportOperations: undefined,
               previewPassengerImport: returnEmptyPreview,
+              startPassengerExport: returnExportOperation,
             }}
           />
         </PortalToastProvider>
@@ -228,9 +248,10 @@ describe("mounted spreadsheet modal loading boundary", () => {
           />
           <PassengerExportModal
             close={doNothing}
-            getPassengerExportRows={returnEmptyExport}
+            getPassengerExportDownload={returnExportDownload}
             jobCards={undefined}
             open={false}
+            startPassengerExport={returnExportOperation}
           />
           <FlightExportModal
             close={doNothing}
@@ -245,5 +266,62 @@ describe("mounted spreadsheet modal loading boundary", () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull();
 
     await act(async () => root.unmount());
+  });
+
+  test("shows durable export completion and downloads the stored workbook", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const anchorClick = spyOn(dom.window.HTMLAnchorElement.prototype, "click").mockImplementation(
+      () => undefined
+    );
+    try {
+      await act(async () =>
+        root.render(
+          <PortalToastProvider>
+            <PassengerExportModal
+              close={doNothing}
+              getPassengerExportDownload={returnExportDownload}
+              jobCards={[{ id: "jobCards_1", jobCode: "JC-0001" }]}
+              open
+              operations={[
+                {
+                  exportKind: "passenger",
+                  id: "passengerExportOperations_1",
+                  jobCardId: "jobCards_1",
+                  rowsProcessed: 325,
+                  stalled: false,
+                  status: "completed",
+                },
+              ]}
+              startPassengerExport={returnExportOperation}
+            />
+          </PortalToastProvider>
+        )
+      );
+      await flushDialog();
+      const select = document.querySelector('[role="combobox"]');
+      await act(async () => {
+        select.focus();
+        select.dispatchEvent(
+          new dom.window.KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" })
+        );
+        await Promise.resolve();
+      });
+      const option = Array.from(document.body.querySelectorAll('[role="option"]')).find(
+        (candidate) => candidate.textContent.includes("JC-0001")
+      );
+      await act(async () => option.click());
+      expect(document.body.textContent).toContain("325 rows are ready to download");
+      const download = Array.from(document.querySelectorAll("button")).find((button) =>
+        button.textContent.includes("Download Spreadsheet")
+      );
+      await act(async () => download.click());
+      expect(anchorClick).toHaveBeenCalledTimes(1);
+    } finally {
+      anchorClick.mockRestore();
+      await act(async () => root.unmount());
+      container.remove();
+    }
   });
 });

@@ -6,9 +6,10 @@ import { requireStaff } from "./lib/staffAccess";
 import { listSearchReadinessResultValidator } from "./miscReturnContracts";
 import { mapInBoundedBatches } from "./paginationPolicy";
 import { normalizePassportExpiryDate } from "./passportExpiry";
+import { proposalLinkProjection, storedProposalQueryProjection } from "./proposalLinkProjection";
 
 const SEARCH_RECONCILE_PAGE_SIZE = 50;
-export const LIST_SEARCH_PROJECTION_VERSION = 1;
+export const LIST_SEARCH_PROJECTION_VERSION = 2;
 const SEARCH_RECONCILIATION_STALE_MS = 60 * 60 * 1000;
 const TRAVEL_BATCH_CODE_PATTERN = /^B(\d+)$/;
 const searchTableValidator = v.union(
@@ -299,6 +300,61 @@ async function buildJobCardProjection(ctx: any, row: any) {
   return patch;
 }
 
+async function buildProposalProjection(ctx: any, row: any) {
+  const patch: Record<string, unknown> = {
+    listSearchText: buildProposalListSearchText(row),
+  };
+  if (row.attachmentCount === undefined || row.attachmentPreview === undefined) {
+    const attachments = await ctx.db
+      .query("proposalAttachments")
+      .withIndex("by_proposalId", (q: any) => q.eq("proposalId", row._id))
+      .collect();
+    patch.attachmentCount = attachments.length;
+    patch.attachmentPreview = attachments
+      .sort((left: any, right: any) => right.createdAt - left.createdAt)
+      .slice(0, 3)
+      .map((attachment: any) => ({
+        createdAt: attachment.createdAt,
+        fileName: attachment.fileName,
+        fileSize: attachment.fileSize,
+        id: attachment._id,
+        mimeType: attachment.mimeType,
+      }));
+  }
+  if (row.queryId) {
+    const [linkedQueryRecord, existingLink] = await Promise.all([
+      ctx.db.get(row.queryId),
+      ctx.db
+        .query("proposalQueryLinks")
+        .withIndex("by_proposalId_and_queryId", (q: any) =>
+          q.eq("proposalId", row._id).eq("queryId", row.queryId)
+        )
+        .unique(),
+    ]);
+    if (linkedQueryRecord) {
+      const projection = proposalLinkProjection(linkedQueryRecord);
+      patch.linkedQueryProjection = [
+        ...(row.linkedQueryProjection ?? []).filter(
+          (entry: any) => String(entry.queryId) !== String(linkedQueryRecord._id)
+        ),
+        storedProposalQueryProjection(linkedQueryRecord),
+      ];
+      if (existingLink) {
+        await ctx.db.patch(existingLink._id, projection);
+      } else {
+        await ctx.db.insert("proposalQueryLinks", {
+          ...projection,
+          createdAt: row.createdAt,
+          createdBy: row.createdBy,
+          proposalId: row._id,
+          queryId: row.queryId,
+        });
+      }
+    }
+  }
+  return patch;
+}
+
 async function buildListProjection(ctx: any, table: SearchTable, row: any) {
   if (table === "queries") {
     return await buildQueryProjection(ctx, row);
@@ -307,7 +363,7 @@ async function buildListProjection(ctx: any, table: SearchTable, row: any) {
     return await buildJobCardProjection(ctx, row);
   }
   if (table === "proposals") {
-    return { listSearchText: buildProposalListSearchText(row) };
+    return await buildProposalProjection(ctx, row);
   }
   const needsPassportProjection = row.hasPassportScan === undefined;
   const [job, batch, passport] = await Promise.all([

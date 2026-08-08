@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "environment": "authenticated local Next.js development server",
+  "sourceFiles": [
+    "convex/crm/jobCardReads.ts",
+    "convex/crm/jobCards.ts",
+    "convex/crm/proposalLinkProjection.ts",
+    "convex/crm/proposals.ts",
+    "convex/crm/queryReads.ts",
+    "convex/crm/queries.ts",
+    "src/components/portal/workspace/usePortalWorkspaceData.ts",
+    "src/lib/portal/navigationPerformance.ts",
+    "src/lib/portal/portalRouteManifest.ts"
+  ],
+  "sourceHash": "23c3b550ad6374756f392813634ed58f1cab6ce5571829406b4a7b91bdbb4aff",
+  "samples": [
+    {
+      "applicationPayloadBytes": 45520,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 576,
+      "logicalSubscriptions": 1,
+      "routeReadyMs": 69,
+      "routeResourceTransferBytes": 172318,
+      "target": "queries",
+      "warm": false
+    },
+    {
+      "applicationPayloadBytes": 45520,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 714,
+      "logicalSubscriptions": 1,
+      "routeReadyMs": 30,
+      "routeResourceTransferBytes": 12378,
+      "target": "queries",
+      "warm": true
+    },
+    {
+      "applicationPayloadBytes": 77607,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 544,
+      "logicalSubscriptions": 2,
+      "routeReadyMs": 145,
+      "routeResourceTransferBytes": 167009,
+      "target": "proposals",
+      "warm": false
+    },
+    {
+      "applicationPayloadBytes": 77607,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 764,
+      "logicalSubscriptions": 2,
+      "routeReadyMs": 30,
+      "routeResourceTransferBytes": 7948,
+      "target": "proposals",
+      "warm": true
+    },
+    {
+      "applicationPayloadBytes": 19198,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 580,
+      "logicalSubscriptions": 1,
+      "routeReadyMs": 118,
+      "routeResourceTransferBytes": 174090,
+      "target": "job-cards",
+      "warm": false
+    },
+    {
+      "applicationPayloadBytes": 19198,
+      "duplicateSubscriptions": 0,
+      "firstContentMs": 550,
+      "logicalSubscriptions": 1,
+      "routeReadyMs": 35,
+      "routeResourceTransferBytes": 1612,
+      "target": "job-cards",
+      "warm": true
+    }
+  ]
+}

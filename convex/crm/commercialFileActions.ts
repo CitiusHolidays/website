@@ -51,6 +51,12 @@ const uploadTicketResultValidator = v.object({
   uploadUrl: v.string(),
 });
 
+interface WritableCommercialSource {
+  id: string;
+  sourceType: string;
+  teamAreas: string[];
+}
+
 function isAllowedMimeType(mimeType: string) {
   const normalized = mimeType.trim().toLowerCase();
   return (
@@ -102,7 +108,8 @@ export const generateUploadUrl = action({
       limit: 1,
     });
     const writableSource = sourceResult.writableSources.find(
-      (source) => source.id === args.sourceId && source.sourceType === args.sourceType
+      (source: WritableCommercialSource) =>
+        source.id === args.sourceId && source.sourceType === args.sourceType
     );
     if (!writableSource?.teamAreas.includes(args.teamArea)) {
       throw new ConvexError("FORBIDDEN");
@@ -153,7 +160,8 @@ export const uploadFile = action({
       limit: 1,
     });
     const writableSource = sourceResult.writableSources.find(
-      (source) => source.id === args.sourceId && source.sourceType === args.sourceType
+      (source: WritableCommercialSource) =>
+        source.id === args.sourceId && source.sourceType === args.sourceType
     );
     if (!writableSource?.teamAreas.includes(args.teamArea)) {
       throw new ConvexError("FORBIDDEN");

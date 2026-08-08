@@ -38,14 +38,16 @@ import { PortalToastProvider } from "@/components/portal/PortalToast";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { type PortalNavShortcuts, usePortalChrome } from "@/components/portal/portalChromeState";
 import SaveViewDialog from "@/components/portal/SaveViewDialog";
-import { preloadQueriesView } from "@/components/portal/workspace/portalLazyViews";
+import { preloadPerformanceView } from "@/components/portal/workspace/portalLazyViews";
 import { Button, buttonVariants } from "@/components/ui/application-button";
 import { Dialog as BaseDialog } from "@/components/ui/foundation/base";
 import { logout } from "@/lib/auth-client";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
 import {
+  getPortalPerformanceTarget,
   markPortalNavigationRouteReady,
   markPortalNavigationStart,
+  trackPortalNavigationPreload,
 } from "@/lib/portal/navigationPerformance";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
@@ -63,15 +65,19 @@ import ConnectLogo from "@/static/logos/citiusconnect.png";
 const ignoreAsyncError = (): void => undefined;
 
 function preloadPortalNavigationTarget(event: SyntheticEvent<HTMLAnchorElement>) {
-  if (event.currentTarget.getAttribute("href") !== "/portal/queries") {
+  const target = getPortalPerformanceTarget(event.currentTarget.getAttribute("href") ?? "");
+  if (!target) {
     return;
   }
-  preloadQueriesView().catch(ignoreAsyncError);
+  const preload = preloadPerformanceView(target);
+  trackPortalNavigationPreload(target, preload);
+  preload.catch(ignoreAsyncError);
 }
 
 function markPortalNavigationTarget(href: string) {
-  if (href === "/portal/queries") {
-    markPortalNavigationStart();
+  const target = getPortalPerformanceTarget(href);
+  if (target) {
+    markPortalNavigationStart(target);
   }
 }
 
@@ -244,7 +250,10 @@ function MobileQuickAccess({ action, items, onNavigate, pathname }: MobileQuickA
             <span className="flex min-w-0 flex-1 items-center gap-2.5">
               <PortalNavIcon href={item.href} />
               <span className="line-clamp-2 min-w-0 flex-1">{item.label}</span>
-              <PortalNavLinkPending label={item.label} />
+              <PortalNavLinkPending
+                label={item.label}
+                performanceTarget={getPortalPerformanceTarget(item.href)}
+              />
             </span>
           </Link>
         ))}
@@ -368,8 +377,9 @@ export default function PortalShell({ access, user, children }: PortalShellProps
     notificationSummary?.unreadCount ?? notificationRows.filter((item) => !item.readAt).length;
 
   useEffect(() => {
-    if (pathname === "/portal/queries") {
-      markPortalNavigationRouteReady();
+    const target = getPortalPerformanceTarget(pathname ?? "");
+    if (target) {
+      markPortalNavigationRouteReady(target);
     }
   }, [pathname]);
 
@@ -774,7 +784,10 @@ function PortalNav({
                           >
                             <PortalNavIcon href={item.href} />
                             <span className="min-w-0 flex-1 truncate ps-2.5">{item.label}</span>
-                            <PortalNavLinkPending label={item.label} />
+                            <PortalNavLinkPending
+                              label={item.label}
+                              performanceTarget={getPortalPerformanceTarget(item.href)}
+                            />
                           </Link>
                           {hasShortcuts && (
                             <Button

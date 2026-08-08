@@ -28,6 +28,12 @@ const ALLOWED_MIME_PREFIXES = [
   "application/vnd.openxmlformats-officedocument.",
 ];
 
+interface WritableCommercialSource {
+  id: string;
+  sourceType: string;
+  teamAreas: string[];
+}
+
 function isAllowedMimeType(mimeType: string) {
   return isAllowedAttachmentMimeType(mimeType, ALLOWED_MIME_PREFIXES);
 }
@@ -101,7 +107,8 @@ export const generateUploadUrl = action({
       limit: 1,
     });
     const writableProposal = sourceResult.writableSources.find(
-      (source) => source.sourceType === "proposal" && source.id === String(normalizedProposalId)
+      (source: WritableCommercialSource) =>
+        source.sourceType === "proposal" && source.id === String(normalizedProposalId)
     );
     if (!writableProposal?.teamAreas.includes("contracting")) {
       throw new ConvexError("FORBIDDEN");
@@ -134,7 +141,8 @@ export const attachFile = action({
       limit: 1,
     });
     const writableProposal = sourceResult.writableSources.find(
-      (source) => source.sourceType === "proposal" && source.id === String(normalizedProposalId)
+      (source: WritableCommercialSource) =>
+        source.sourceType === "proposal" && source.id === String(normalizedProposalId)
     );
     if (!writableProposal?.teamAreas.includes("contracting")) {
       throw new ConvexError("FORBIDDEN");
@@ -311,7 +319,8 @@ export const generateFinalizedPdfUploadUrl = action({
       limit: 1,
     });
     const writableProposal = sourceResult.writableSources.find(
-      (source) => source.sourceType === "proposal" && source.id === String(normalizedProposalId)
+      (source: WritableCommercialSource) =>
+        source.sourceType === "proposal" && source.id === String(normalizedProposalId)
     );
     if (!writableProposal?.teamAreas.includes("contracting")) {
       throw new ConvexError("FORBIDDEN");
@@ -344,7 +353,8 @@ export const attachFinalizedPdf = action({
       limit: 1,
     });
     const writableProposal = sourceResult.writableSources.find(
-      (source) => source.sourceType === "proposal" && source.id === String(normalizedProposalId)
+      (source: WritableCommercialSource) =>
+        source.sourceType === "proposal" && source.id === String(normalizedProposalId)
     );
     if (!writableProposal?.teamAreas.includes("contracting")) {
       throw new ConvexError("FORBIDDEN");

@@ -466,6 +466,75 @@ export default defineSchema({
     .index("by_batchId", ["batchId"])
     .index("by_jobCardId", ["jobCardId"]),
 
+  passengerImportOperations: defineTable({
+    batchTotal: v.number(),
+    completedAt: v.optional(v.number()),
+    completedBatches: v.number(),
+    created: v.number(),
+    errorSummary: v.object({ retryable: v.number(), terminal: v.number() }),
+    failed: v.number(),
+    importKinds: v.array(v.string()),
+    initiatedBy: v.string(),
+    initiatedByStaffId: v.optional(v.id("staffUsers")),
+    jobCardId: v.id("jobCards"),
+    processed: v.number(),
+    remaining: v.number(),
+    roomSummary: importRoomSummaryValidator,
+    sourceDigest: v.string(),
+    startedAt: v.number(),
+    status: v.union(v.literal("running"), v.literal("completed"), v.literal("partial")),
+    total: v.number(),
+    updated: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_initiatedBy_updatedAt", ["initiatedBy", "updatedAt"])
+    .index("by_actor_job_source", ["initiatedBy", "jobCardId", "sourceDigest"]),
+
+  passengerImportOperationBatches: defineTable({
+    accepted: v.number(),
+    batchId: v.string(),
+    created: v.number(),
+    createdAt: v.number(),
+    errorSummary: v.object({ retryable: v.number(), terminal: v.number() }),
+    failed: v.number(),
+    operationId: v.id("passengerImportOperations"),
+    processed: v.number(),
+    remaining: v.number(),
+    roomSummary: importRoomSummaryValidator,
+    updated: v.number(),
+  })
+    .index("by_operation_batch", ["operationId", "batchId"])
+    .index("by_operation", ["operationId"]),
+
+  passengerExportOperations: defineTable({
+    attemptCount: v.number(),
+    commandId: v.string(),
+    completedAt: v.optional(v.number()),
+    errorCode: v.optional(v.string()),
+    expiresAt: v.optional(v.number()),
+    exportKind: v.string(),
+    fileName: v.optional(v.string()),
+    initiatedBy: v.string(),
+    initiatedByStaffId: v.optional(v.id("staffUsers")),
+    jobCardId: v.id("jobCards"),
+    leaseExpiresAt: v.optional(v.number()),
+    leaseId: v.optional(v.string()),
+    rowsProcessed: v.number(),
+    startedAt: v.number(),
+    status: v.union(
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("expired")
+    ),
+    storageId: v.optional(v.id("_storage")),
+    updatedAt: v.number(),
+  })
+    .index("by_actor_export_command", ["initiatedBy", "exportKind", "jobCardId", "commandId"])
+    .index("by_initiatedBy_updatedAt", ["initiatedBy", "updatedAt"])
+    .index("by_status_expiresAt", ["status", "expiresAt"])
+    .index("by_storageId", ["storageId"]),
+
   crmListSearchReadiness: defineTable({
     generation: v.optional(v.number()),
     ready: v.boolean(),
@@ -746,6 +815,18 @@ export default defineSchema({
     updatedAt: v.number(),
     version: v.number(),
   }).index("by_jobCardId", ["jobCardId"]),
+
+  commandReceipts: defineTable({
+    actorKey: v.string(),
+    commandId: v.string(),
+    createdAt: v.number(),
+    operation: v.string(),
+    payloadDigest: v.string(),
+    resultId: v.string(),
+    targetId: v.string(),
+  })
+    .index("by_actor_operation_command", ["actorKey", "operation", "commandId"])
+    .index("by_createdAt", ["createdAt"]),
 
   jobCardDeletionOperations: defineTable({
     completedAt: v.optional(v.number()),
@@ -1058,10 +1139,24 @@ export default defineSchema({
     .index("by_storageId", ["storageId"]),
 
   proposalQueryLinks: defineTable({
+    clientName: v.optional(v.string()),
+    contractingOwnerId: v.optional(v.string()),
+    contractingOwnerName: v.optional(v.string()),
+    contractingStatus: v.optional(v.string()),
     createdAt: v.number(),
     createdBy: v.string(),
+    paxCount: v.optional(v.number()),
     proposalId: v.id("proposals"),
+    queryCode: v.optional(v.string()),
+    queryCreatedBy: v.optional(v.string()),
     queryId: v.id("queries"),
+    queryType: v.optional(v.string()),
+    salesOwnerId: v.optional(v.string()),
+    salesOwnerName: v.optional(v.string()),
+    salesStatus: v.optional(v.string()),
+    ticketingOwnerId: v.optional(v.string()),
+    ticketingOwnerName: v.optional(v.string()),
+    ticketingScope: v.optional(v.string()),
   })
     .index("by_proposalId", ["proposalId"])
     .index("by_queryId", ["queryId"])
@@ -1069,6 +1164,18 @@ export default defineSchema({
 
   proposals: defineTable({
     airfarePerPax: v.optional(v.number()),
+    attachmentCount: v.optional(v.number()),
+    attachmentPreview: v.optional(
+      v.array(
+        v.object({
+          createdAt: v.number(),
+          fileName: v.string(),
+          fileSize: v.number(),
+          id: v.id("proposalAttachments"),
+          mimeType: v.string(),
+        })
+      )
+    ),
     clientName: v.string(),
     collaboratorStaffIds: v.optional(v.array(v.id("staffUsers"))),
     costPrice: v.optional(v.number()),
@@ -1083,6 +1190,27 @@ export default defineSchema({
     lastEditedAt: v.optional(v.number()),
     lastEditedBy: v.optional(v.string()),
     lastEditedByName: v.optional(v.string()),
+    linkedQueryProjection: v.optional(
+      v.array(
+        v.object({
+          clientName: v.string(),
+          contractingOwnerId: v.string(),
+          contractingOwnerName: v.string(),
+          contractingStatus: v.string(),
+          paxCount: v.number(),
+          queryCode: v.string(),
+          queryCreatedBy: v.string(),
+          queryId: v.id("queries"),
+          queryType: v.string(),
+          salesOwnerId: v.string(),
+          salesOwnerName: v.string(),
+          salesStatus: v.string(),
+          ticketingOwnerId: v.string(),
+          ticketingOwnerName: v.string(),
+          ticketingScope: v.string(),
+        })
+      )
+    ),
     listSearchText: v.optional(v.string()),
     preparedBy: v.string(),
     pricingEnteredAt: v.optional(v.number()),

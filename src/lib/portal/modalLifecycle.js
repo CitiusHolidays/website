@@ -51,6 +51,62 @@ export function jobCardProposalLinkPatch({ form, modal, proposals = [] }) {
   return linkedProposal?.id ? { proposalId: linkedProposal.id } : null;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: this adapter maps three focused entity contracts explicitly.
+export function createFocusedEditModalForm(type, detail) {
+  if (type === "query") {
+    return {
+      batchingNotes: detail.batchingNotes || "",
+      budgetAmount: String(detail.budgetAmount || ""),
+      clientName: detail.clientName || "",
+      contactMobile: detail.contactMobile || "",
+      contactPerson: detail.contactPerson || "",
+      destination: detail.destination || "",
+      entityId: detail.id,
+      notes: detail.notes || "",
+      paxCount: String(detail.paxCount || 1),
+      queryType: detail.queryType || "MICE",
+      salesOwnerName: detail.salesOwnerName || "",
+      source: detail.source || "",
+      staffId: detail.contractingOwnerId || "",
+      ticketingScope: detail.ticketingScope || "",
+      travelEndDate: detail.travelEndDate || "",
+      travelInBatches: detail.travelInBatches ? "Yes" : "No",
+      travelStartDate: detail.travelStartDate || "",
+      travelType: detail.travelType || "International Travel",
+    };
+  }
+  if (type === "proposal") {
+    return {
+      airfarePerPax: String(detail.airfarePerPax ?? ""),
+      clientName: detail.clientName || "",
+      entityId: detail.id,
+      itinerarySummary: detail.itinerarySummary || "",
+      landCostPerPax: String(detail.landCostPerPax ?? ""),
+      paxCount: String(detail.query?.paxCount ?? 1),
+      queryId: detail.queryId || "",
+      queryIds: proposalLinkedQueryIds(detail),
+      sellingPrice: String(detail.sellingPrice ?? ""),
+      taxRate: detail.taxRate == null ? "" : String(detail.taxRate),
+      visaCostPerPax: String(detail.visaCostPerPax ?? ""),
+    };
+  }
+  if (type === "jobCard") {
+    return {
+      clientName: detail.clientName || "",
+      confirmedPax: String(detail.confirmedPax || 1),
+      destination: detail.destination || "",
+      entityId: detail.id,
+      proposalId: detail.proposalId || "",
+      queryId: detail.queryId || "",
+      roomCount: String(detail.roomCount || ""),
+      tourManagerName: detail.tourManagerName || "",
+      travelEndDate: detail.travelEndDate || "",
+      travelStartDate: detail.travelStartDate || "",
+    };
+  }
+  return null;
+}
+
 export function createInitialModalForm({
   type,
   initial = {},
@@ -66,11 +122,9 @@ export function createInitialModalForm({
 }) {
   const next = { ...initialForm, ...initial };
   if (type === "proposal") {
-    next.queryIds = Array.isArray(next.queryIds)
-      ? next.queryIds
-      : next.queryId
-        ? [next.queryId]
-        : [];
+    if (!Array.isArray(next.queryIds)) {
+      next.queryIds = next.queryId ? [next.queryId] : [];
+    }
     next.queryId = next.queryIds[0] || next.queryId || "";
   }
   if (next.queryId && (type === "jobCard" || type === "proposal")) {

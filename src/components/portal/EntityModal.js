@@ -181,6 +181,7 @@ export function EntityModal({
   return (
     <EntityModalShell
       close={close}
+      detailState={form._focusedDetailState}
       error={error}
       isSaving={isSaving}
       lifecycleJobCard={lifecycleJobCard}

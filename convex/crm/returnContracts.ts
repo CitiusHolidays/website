@@ -58,7 +58,7 @@ export const queryProposalDocumentValidator = v.union(
   })
 );
 
-export const queryListRowValidator = v.object({
+export const queryDetailRowValidator = v.object({
   approxMargin: v.union(v.null(), v.number()),
   attachmentCount: v.number(),
   attachments: v.array(queryListAttachmentValidator),
@@ -117,8 +117,46 @@ export const queryListRowValidator = v.object({
   updatedAt: isoDateTimeStringValidator,
 });
 
+export const queryListRowValidator = v.object({
+  approxMargin: v.union(v.null(), v.number()),
+  attachmentCount: v.number(),
+  attachments: v.array(queryListAttachmentValidator),
+  batchingNotes: v.string(),
+  budgetAmount: v.number(),
+  clientName: v.string(),
+  confirmedAt: nullableIsoDateTimeValidator,
+  contractingAirlinesCost: v.number(),
+  contractingLandCost: v.number(),
+  contractingOwnerId: v.string(),
+  contractingOwnerName: v.string(),
+  contractingStatus: contractingStatusValidator,
+  contractingVisaCost: v.number(),
+  createdAt: isoDateTimeStringValidator,
+  destination: v.string(),
+  id: v.id("queries"),
+  jobCardCode: v.union(v.null(), v.string()),
+  jobCardId: v.union(v.null(), v.id("jobCards")),
+  leadStage: v.string(),
+  lostReason: v.string(),
+  notes: v.string(),
+  paxCount: v.number(),
+  proposalDocument: queryProposalDocumentValidator,
+  queryCode: v.string(),
+  queryType: queryTypeValidator,
+  salesOwnerName: v.string(),
+  salesStatus: salesStatusValidator,
+  submittedToContractingAt: nullableIsoDateTimeValidator,
+  ticketingOwnerId: v.string(),
+  ticketingOwnerName: v.string(),
+  ticketingScope: emptyOrTicketingScopeValidator,
+  travelEndDate: v.string(),
+  travelInBatches: v.boolean(),
+  travelStartDate: v.string(),
+  travelType: travelTypeValidator,
+});
+
 export const queryListPageResultValidator = paginationResultValidator(queryListRowValidator);
-export const queryGetListRowResultValidator = v.union(queryListRowValidator, v.null());
+export const queryGetListRowResultValidator = v.union(queryDetailRowValidator, v.null());
 export const queryIdResultValidator = v.object({ id: v.id("queries") });
 export const salesPipelineMoveResultValidator = v.object({
   fromStage: v.string(),
@@ -136,7 +174,7 @@ export const queryCreateResultValidator = v.object({
   queryCode: v.string(),
 });
 
-export const jobCardListRowValidator = v.object({
+export const jobCardDetailRowValidator = v.object({
   clientName: v.string(),
   collaboratorStaffIds: v.array(v.string()),
   confirmedPax: v.number(),
@@ -168,8 +206,38 @@ export const jobCardListRowValidator = v.object({
   updatedAt: isoDateTimeStringValidator,
 });
 
+export const jobCardListRowValidator = v.object({
+  clientName: v.string(),
+  confirmedPax: v.number(),
+  contractingOwnerId: v.string(),
+  contractingOwnerName: v.string(),
+  createdAt: isoDateTimeStringValidator,
+  destination: v.string(),
+  hasCollaborators: v.boolean(),
+  id: v.id("jobCards"),
+  jobCode: v.string(),
+  lastEditedAt: nullableIsoDateTimeValidator,
+  lastEditedByName: v.string(),
+  operationsOwnerId: v.string(),
+  operationsOwnerName: v.string(),
+  proposalId: v.union(v.null(), v.id("proposals")),
+  queryId: v.union(v.null(), v.id("queries")),
+  queryType: v.string(),
+  roomCount: v.number(),
+  status: JOB_CARD_STATUS,
+  ticketingOwnerId: v.string(),
+  ticketingOwnerName: v.string(),
+  ticketingRequired: v.boolean(),
+  ticketingScope: v.string(),
+  tourManagerName: v.string(),
+  travelBatchCount: v.number(),
+  travelEndDate: v.string(),
+  travelStartDate: v.string(),
+  updatedAt: isoDateTimeStringValidator,
+});
+
 export const jobCardListPageResultValidator = paginationResultValidator(jobCardListRowValidator);
-export const jobCardGetListRowResultValidator = v.union(jobCardListRowValidator, v.null());
+export const jobCardGetListRowResultValidator = v.union(jobCardDetailRowValidator, v.null());
 export const jobCardIdResultValidator = v.object({ id: v.id("jobCards") });
 export const jobCardDeletionStatusValidator = v.union(
   v.literal("running"),
@@ -276,7 +344,7 @@ export const jobCardCommandCenterResultValidator = v.object({
   commercialFiles: v.array(commercialChainFileValidator),
   hotels: v.array(v.object({ id: v.id("hotels") })),
   invoices: v.array(v.object({ balanceAmount: v.number(), id: v.id("invoices") })),
-  jobCard: jobCardListRowValidator,
+  jobCard: jobCardDetailRowValidator,
   proposal: v.union(
     v.null(),
     v.object({

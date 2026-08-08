@@ -8,6 +8,11 @@ import {
 } from "@/lib/portal/cursorPagination";
 import { fiscalYearForDate } from "@/lib/portal/leavePolicy";
 import { resolveLinkedProposalForQuery } from "@/lib/portal/modalLifecycle";
+import {
+  measurePortalNavigationWorkload,
+  type PortalPerformanceTarget,
+  recordPortalNavigationWorkload,
+} from "@/lib/portal/navigationPerformance";
 import { mergeFocusedRow } from "@/lib/portal/paginatedRows";
 import { endOfDateOnly, parseDateOnly } from "@/lib/portal/periodFilter";
 import { canUseTeamPicker } from "@/lib/portal/permissions";
@@ -86,7 +91,7 @@ function usePaginationControl(
   };
 }
 
-function combinePaginationControls(...controls: Array<ReturnType<typeof usePaginationControl>>) {
+function combinePaginationControls(...controls: ReturnType<typeof usePaginationControl>[]) {
   return {
     canLoadMore: controls.some((control) => control.canLoadMore),
     isLoadingMore: controls.some((control) => control.isLoadingMore),
@@ -178,9 +183,12 @@ export function usePortalWorkspaceData({
     { initialNumItems: PAGE_SIZE }
   );
   const queryPagination = usePaginationControl(queryPage, JSON.stringify(queryListArgs));
-  const focusedQueryId = deepLinkQueryId || (deepLinkOpen === "query" ? deepLinkId : null);
+  const focusedQueryId =
+    deepLinkQueryId ||
+    (deepLinkOpen === "query" ? deepLinkId : null) ||
+    (modal === "query" && form.focusedDetailType === "query" ? String(form.entityId || "") : null);
   const focusedQuery = useQuery(
-    api.crm.queries.getListRow,
+    api.crm.queries.getDetail,
     shouldLoadQueries && focusedQueryId ? { queryId: focusedQueryId } : "skip"
   );
   const queries = shouldLoadQueries
@@ -208,11 +216,17 @@ export function usePortalWorkspaceData({
     { initialNumItems: PAGE_SIZE }
   );
   const proposalPagination = usePaginationControl(proposalPage, JSON.stringify(proposalListArgs));
+  const focusedProposalId =
+    (deepLinkOpen === "proposal" ? deepLinkId : null) ||
+    (modal === "proposal" && form.focusedDetailType === "proposal"
+      ? String(form.entityId || "")
+      : null) ||
+    (modal && ["addProposalCollaborator", "removeProposalCollaborator"].includes(modal)
+      ? String(form.proposalId || form.entityId || "")
+      : null);
   const focusedProposal = useQuery(
-    api.crm.proposals.getListRow,
-    shouldLoadProposals && deepLinkOpen === "proposal" && deepLinkId
-      ? { proposalId: deepLinkId }
-      : "skip"
+    api.crm.proposals.getDetail,
+    shouldLoadProposals && focusedProposalId ? { proposalId: focusedProposalId } : "skip"
   );
   const focusedJobCardProposalId = (() => {
     if (modal !== "jobCard" || form.entityId || !form.queryId) {
@@ -227,7 +241,7 @@ export function usePortalWorkspaceData({
     return linkedProposal?.id ? String(linkedProposal.id) : null;
   })();
   const focusedJobCardProposal = useQuery(
-    api.crm.proposals.getListRow,
+    api.crm.proposals.getDetail,
     shouldLoadProposals && focusedJobCardProposalId
       ? { proposalId: focusedJobCardProposalId }
       : "skip"
@@ -264,12 +278,20 @@ export function usePortalWorkspaceData({
     { initialNumItems: PAGE_SIZE }
   );
   const jobCardPagination = usePaginationControl(jobCardPage, JSON.stringify(jobCardListArgs));
+  const focusedJobCardId =
+    (deepLinkOpen === "jobCard" ? deepLinkId : null) ||
+    (modal === "jobCard" && form.focusedDetailType === "jobCard"
+      ? String(form.entityId || "")
+      : null) ||
+    (modal && ["addJobCardCollaborator", "removeJobCardCollaborator"].includes(modal)
+      ? String(form.jobCardId || form.entityId || "")
+      : null);
   const focusedJobCard = useQuery(
-    api.crm.jobCards.getListRow,
-    shouldLoadJobCards && deepLinkOpen === "jobCard" && (deepLinkId || deepLinkQueryId)
+    api.crm.jobCards.getDetail,
+    shouldLoadJobCards && ((deepLinkOpen === "jobCard" && deepLinkQueryId) || focusedJobCardId)
       ? {
-          ...(deepLinkId ? { jobCardId: deepLinkId } : {}),
-          ...(deepLinkQueryId ? { queryId: deepLinkQueryId } : {}),
+          ...(focusedJobCardId ? { jobCardId: focusedJobCardId } : {}),
+          ...(deepLinkOpen === "jobCard" && deepLinkQueryId ? { queryId: deepLinkQueryId } : {}),
         }
       : "skip"
   );
@@ -279,6 +301,102 @@ export function usePortalWorkspaceData({
         focusedJobCard
       )
     : undefined;
+  const performanceTarget = (
+    ["job-cards", "proposals", "queries"] as PortalPerformanceTarget[]
+  ).includes(view as PortalPerformanceTarget)
+    ? (view as PortalPerformanceTarget)
+    : null;
+
+  useEffect(() => {
+    if (!performanceTarget) {
+      return;
+    }
+    const workload = measurePortalNavigationWorkload([
+      {
+        active: shouldLoadSearchReadiness,
+        name: "crm.listSearch.getReadiness",
+        payload: searchReadiness,
+        ready: searchReadiness !== undefined,
+      },
+      {
+        active: shouldLoadQueries && !querySearchPreparing,
+        name: "crm.queries.listPage",
+        payload: queryPage.results,
+        ready: queryPage.status !== "LoadingFirstPage",
+      },
+      {
+        active: shouldLoadQueries && Boolean(focusedQueryId),
+        name: "crm.queries.getDetail",
+        payload: focusedQuery,
+        ready: focusedQuery !== undefined,
+      },
+      {
+        active: shouldLoadProposals && !proposalSearchPreparing,
+        name: "crm.proposals.listPage",
+        payload: proposalPage.results,
+        ready: proposalPage.status !== "LoadingFirstPage",
+      },
+      {
+        active: shouldLoadProposals && Boolean(focusedProposalId),
+        name: "crm.proposals.getDetail",
+        payload: focusedProposal,
+        ready: focusedProposal !== undefined,
+      },
+      {
+        active: shouldLoadProposals && Boolean(focusedJobCardProposalId),
+        name: "crm.proposals.getDetail",
+        payload: focusedJobCardProposal,
+        ready: focusedJobCardProposal !== undefined,
+      },
+      {
+        active: shouldLoadJobCards && !jobCardSearchPreparing,
+        name: "crm.jobCards.listPage",
+        payload: jobCardPage.results,
+        ready: jobCardPage.status !== "LoadingFirstPage",
+      },
+      {
+        active: shouldLoadJobCards && Boolean(focusedJobCardId),
+        name: "crm.jobCards.getDetail",
+        payload: focusedJobCard,
+        ready: focusedJobCard !== undefined,
+      },
+      {
+        active: shouldLoadJobCardDeletionOperations,
+        name: "crm.jobCards.listMyDeletionOperations",
+        payload: jobCardDeletionOperations,
+        ready: jobCardDeletionOperations !== undefined,
+      },
+    ]);
+    if (workload) {
+      recordPortalNavigationWorkload({ ...workload, target: performanceTarget });
+    }
+  }, [
+    focusedJobCard,
+    focusedJobCardId,
+    focusedJobCardProposal,
+    focusedJobCardProposalId,
+    focusedProposal,
+    focusedProposalId,
+    focusedQuery,
+    focusedQueryId,
+    jobCardDeletionOperations,
+    jobCardPage.results,
+    jobCardPage.status,
+    jobCardSearchPreparing,
+    performanceTarget,
+    proposalPage.results,
+    proposalPage.status,
+    proposalSearchPreparing,
+    queryPage.results,
+    queryPage.status,
+    querySearchPreparing,
+    searchReadiness,
+    shouldLoadJobCardDeletionOperations,
+    shouldLoadJobCards,
+    shouldLoadProposals,
+    shouldLoadQueries,
+    shouldLoadSearchReadiness,
+  ]);
   const shouldLoadTravellers = Boolean(canFetch && needs("travellers") && has(P.VIEW_TRAVELLERS));
   const travellerPage = usePaginatedQuery(
     api.crm.travellers.listPage,
@@ -591,6 +709,37 @@ export function usePortalWorkspaceData({
     JSON.stringify({ listFilters, view })
   );
   const activity = activityPage.status === "LoadingFirstPage" ? undefined : activityPage.results;
+  const canViewEmailDeliverySummaries = has(P.VIEW_EMAIL_DELIVERY_STATUS);
+  const emailDeliverySummaries = useQuery(
+    api.crm.notificationEmailLedger.listDeliverySummary,
+    canFetch && needs("activity") && canViewEmailDeliverySummaries ? { limit: 25 } : "skip"
+  );
+  const passengerImportOperations = useQuery(
+    api.crm.imports.listMyPassengerImportOperations,
+    canFetch &&
+      [
+        "passengerImport",
+        "passportImport",
+        "roomingImport",
+        "travellerImport",
+        "visaImport",
+      ].includes(modal ?? "")
+      ? {}
+      : "skip"
+  );
+  const passengerExportOperations = useQuery(
+    api.crm.imports.listMyPassengerExportOperations,
+    canFetch &&
+      [
+        "passengerExport",
+        "passportExport",
+        "roomingExport",
+        "travellerExport",
+        "visaExport",
+      ].includes(modal ?? "")
+      ? {}
+      : "skip"
+  );
   const leavePage = usePaginatedQuery(
     api.crm.leave.list,
     canFetch && needs("leaves") && has(P.VIEW_LEAVE)
@@ -617,7 +766,7 @@ export function usePortalWorkspaceData({
   const leaveBalances = useQuery(api.crm.leave.balances, leaveBalanceArgs ?? "skip");
   const notifications = useQuery(
     api.crm.activity.listNotifications,
-    canFetch && needs("activity") ? { limit: 80 } : "skip"
+    canFetch && needs("activity") && has(P.VIEW_ACTIVITY) ? { limit: 80 } : "skip"
   );
   const dropdowns = useQuery(
     api.crm.settings.listDropdowns,
@@ -658,9 +807,13 @@ export function usePortalWorkspaceData({
     activity,
     approvals,
     dropdowns,
+    emailDeliverySummaries,
     expenses,
     financeOverview,
     flightItinerary,
+    focusedJobCard,
+    focusedProposal,
+    focusedQuery,
     hotels,
     invoices,
     jobCardDeletionOperations,
@@ -691,6 +844,8 @@ export function usePortalWorkspaceData({
       travellers: travellerPagination,
       visas: visaPagination,
     },
+    passengerExportOperations,
+    passengerImportOperations,
     pnrs,
     proposals,
     queries,

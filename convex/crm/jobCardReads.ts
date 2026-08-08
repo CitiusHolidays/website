@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import {
   canSeeJobCardRecord,
@@ -13,6 +14,19 @@ import {
   boundedPaginationOptions,
   loadRowsByIdInBatches,
 } from "./paginationPolicy";
+
+export function projectJobCardListRow(
+  job: Parameters<typeof publicJobCard>[0],
+  linkedQuery?: Parameters<typeof publicJobCard>[1]
+) {
+  const {
+    collaboratorStaffIds,
+    paymentTerms: _paymentTerms,
+    preDepartureChecklist: _checklist,
+    ...listRow
+  } = publicJobCard(job, linkedQuery);
+  return { ...listRow, hasCollaborators: collaboratorStaffIds.length > 0 };
+}
 
 export async function handleJobCardListPage(
   ctx: QueryCtx,
@@ -49,7 +63,7 @@ export async function handleJobCardListPage(
     canSeeJobCardRecord(access, job, job.queryId ? queryById.get(String(job.queryId)) : null)
   );
   const page = visibleRows.map((job) =>
-    publicJobCard(job, job.queryId ? queryById.get(String(job.queryId)) : null)
+    projectJobCardListRow(job, job.queryId ? queryById.get(String(job.queryId)) : null)
   );
   return { ...sourcePage, page };
 }
@@ -66,7 +80,7 @@ export async function handleJobCardGetListRow(
     ? ctx.db.normalizeId("jobCards", args.jobCardId)
     : null;
   const normalizedQueryId = args.queryId ? ctx.db.normalizeId("queries", args.queryId) : null;
-  let job = null;
+  let job: Doc<"jobCards"> | null = null;
   if (normalizedJobCardId) {
     job = await ctx.db.get(normalizedJobCardId);
   } else if (normalizedQueryId) {

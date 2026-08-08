@@ -231,24 +231,35 @@ export const sendNotificationEmail = internalAction({
       recipient: string;
       status: "queued" | "sending" | "retrying" | "sent" | "skipped" | "exhausted";
     }) => {
+      const failure = event.error
+        ? safeErrorCode(event.error)
+        : { failureCode: undefined, providerStatus: undefined };
+      const ledgerArgs = {
+        attempts: event.attempts,
+        eventId: args.eventId,
+        ...(failure.failureCode ? { failureCode: failure.failureCode } : {}),
+        idempotencyKey: event.idempotencyKey,
+        ...(failure.providerStatus === undefined ? {} : { providerStatus: failure.providerStatus }),
+        recipientHash: notificationEmailRecipientHashFromIdempotencyKey(event.idempotencyKey),
+        status: event.status,
+      };
       try {
-        const failure = event.error
-          ? safeErrorCode(event.error)
-          : { failureCode: undefined, providerStatus: undefined };
-        await ctx.runMutation(internal.crm.notificationEmailLedger.recordDeliveryOutcome, {
-          attempts: event.attempts,
-          eventId: args.eventId,
-          ...(failure.failureCode ? { failureCode: failure.failureCode } : {}),
-          idempotencyKey: event.idempotencyKey,
-          ...(failure.providerStatus === undefined
-            ? {}
-            : { providerStatus: failure.providerStatus }),
-          recipientHash: notificationEmailRecipientHashFromIdempotencyKey(event.idempotencyKey),
-          status: event.status,
-        });
+        await ctx.runMutation(
+          internal.crm.notificationEmailLedger.recordDeliveryOutcome,
+          ledgerArgs
+        );
       } catch (error) {
         // Ledger writes are observability best-effort and must never change
         // recipient pacing or turn a successful provider send into a failure.
+        try {
+          await ctx.scheduler.runAfter(
+            1000,
+            internal.crm.notificationEmailLedger.retryDeliveryOutcome,
+            { ...ledgerArgs, writeAttempt: 1 }
+          );
+        } catch {
+          // The delivery result remains authoritative; log only privacy-safe identifiers below.
+        }
         const code = safeErrorCode(error).failureCode;
         console.error(
           JSON.stringify({

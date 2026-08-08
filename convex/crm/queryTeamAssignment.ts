@@ -11,6 +11,7 @@ import {
   type PortalAccess,
   TICKETING_TEAM_ROLES,
 } from "./lib";
+import { refreshProposalLinkProjections } from "./proposalLinkProjection";
 
 const TICKETING_SCOPE_VALUES = ["Domestic", "International", "Both", "Not required"] as const;
 type TicketingScope = (typeof TICKETING_SCOPE_VALUES)[number];
@@ -213,6 +214,7 @@ export async function applyQueryTeamAssignments(
   }
 
   await Promise.all(writes);
+  await refreshProposalLinkProjections(ctx, queryId);
 
   if (contracting) {
     const ownerName = contracting.staff.name.trim();
@@ -254,6 +256,12 @@ export async function applyQueryTeamAssignments(
     isSalesAssignmentAccess(access) &&
     !ticketing &&
     Boolean(ticketingScope && ticketingScope !== "Not required");
+  let assignmentTitle = "Query team assignment updated";
+  if (ticketingAssignmentRequired) {
+    assignmentTitle = "Assign Ticketing SPOC";
+  } else if (isSalesAssignmentAccess(access)) {
+    assignmentTitle = "Query team assigned by Sales";
+  }
   await notifyRoles(
     ctx,
     headRoles,
@@ -263,11 +271,7 @@ export async function applyQueryTeamAssignments(
       }.`,
       entityId: queryId,
       entityType: "query",
-      title: ticketingAssignmentRequired
-        ? "Assign Ticketing SPOC"
-        : isSalesAssignmentAccess(access)
-          ? "Query team assigned by Sales"
-          : "Query team assignment updated",
+      title: assignmentTitle,
     },
     {
       // One actionable Head of Ticketing alert covers the initial unassigned intake.

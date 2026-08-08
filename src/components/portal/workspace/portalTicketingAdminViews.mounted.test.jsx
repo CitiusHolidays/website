@@ -380,6 +380,7 @@ describe("mounted portal ticketing and administration views", () => {
         activity={[
           { actorName: "System", createdAt: "2026-07-14", id: "act-1", message: "Updated" },
         ]}
+        canViewActivityLog
         deleteItem={(...args) => {
           deleteCalls.push(args);
           return Promise.resolve();

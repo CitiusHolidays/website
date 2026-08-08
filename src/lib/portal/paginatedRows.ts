@@ -15,10 +15,10 @@ export function shouldResetLoadedPage(
   );
 }
 
-export function mergeFocusedRow<Row extends IdentifiedRow>(
+export function mergeFocusedRow<Row extends IdentifiedRow, FocusedRow extends IdentifiedRow = Row>(
   rows: readonly Row[] | undefined,
-  focused: Row | null | undefined
-): Row[] | undefined {
+  focused: FocusedRow | null | undefined
+): Array<Row | FocusedRow> | undefined {
   if (!rows) {
     return focused ? [focused] : undefined;
   }

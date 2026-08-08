@@ -1,5 +1,6 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
@@ -15,6 +16,8 @@ import {
 import {
   flightImportResultValidator,
   flightItineraryListPageResultValidator,
+  passengerExportOperationListValidator,
+  passengerImportOperationListValidator,
 } from "./importReturnContracts";
 import { exportKindValidator, internalPassengerImportRow } from "./importRowValidators";
 import { createActivity, PERMISSIONS, type PortalAccess, requireStaff } from "./lib";
@@ -24,6 +27,62 @@ import {
   compactPageItems,
   mapInBoundedBatches,
 } from "./paginationPolicy";
+
+const PASSENGER_EXPORT_ARTIFACT_TTL_MS = 15 * 60 * 1000;
+const PASSENGER_EXPORT_CLEANUP_BATCH_SIZE = 50;
+const PASSENGER_EXPORT_LEASE_MS = 120_000;
+
+function hasPortalPermission(access: PortalAccess, permission: string) {
+  return access.permissions.includes(permission);
+}
+
+function canManagePassengerImportKinds(access: PortalAccess, importKinds: string[]) {
+  return importKinds.every((kind) => {
+    if (kind === "passenger") {
+      return (
+        hasPortalPermission(access, PERMISSIONS.MANAGE_TICKETING) ||
+        (hasPortalPermission(access, PERMISSIONS.MANAGE_TRAVELLERS) &&
+          hasPortalPermission(access, PERMISSIONS.MANAGE_VISA))
+      );
+    }
+    if (kind === "traveller") {
+      return (
+        hasPortalPermission(access, PERMISSIONS.MANAGE_TRAVELLERS) &&
+        hasPortalPermission(access, PERMISSIONS.MANAGE_VISA)
+      );
+    }
+    if (kind === "rooming") {
+      return hasPortalPermission(access, PERMISSIONS.MANAGE_OPERATIONS);
+    }
+    if (kind === "passport" || kind === "visa") {
+      return hasPortalPermission(access, PERMISSIONS.MANAGE_VISA);
+    }
+    return false;
+  });
+}
+
+function canViewPassengerExportKind(access: PortalAccess, exportKind: string) {
+  if (exportKind === "passenger") {
+    return (
+      hasPortalPermission(access, PERMISSIONS.VIEW_TICKETING) ||
+      (hasPortalPermission(access, PERMISSIONS.VIEW_TRAVELLERS) &&
+        hasPortalPermission(access, PERMISSIONS.VIEW_VISA))
+    );
+  }
+  if (exportKind === "traveller") {
+    return (
+      hasPortalPermission(access, PERMISSIONS.VIEW_TRAVELLERS) &&
+      hasPortalPermission(access, PERMISSIONS.VIEW_VISA)
+    );
+  }
+  if (exportKind === "rooming") {
+    return hasPortalPermission(access, PERMISSIONS.VIEW_OPERATIONS);
+  }
+  if (exportKind === "passport" || exportKind === "visa") {
+    return hasPortalPermission(access, PERMISSIONS.VIEW_VISA);
+  }
+  return false;
+}
 
 const flightSegmentInput = v.object({
   airline: v.string(),
@@ -81,27 +140,6 @@ type CommitFlightImportArgs = {
     }>;
   }>;
 };
-
-function travellerExportOrder(a: any, b: any) {
-  const aImported = typeof a.sourceRowNumber === "number";
-  const bImported = typeof b.sourceRowNumber === "number";
-  if (aImported !== bImported) {
-    return aImported ? -1 : 1;
-  }
-  if (aImported && bImported) {
-    const sheetCompare = String(a.sourceSheet ?? "").localeCompare(String(b.sourceSheet ?? ""));
-    if (sheetCompare !== 0) {
-      return sheetCompare;
-    }
-    if (a.sourceRowNumber !== b.sourceRowNumber) {
-      return a.sourceRowNumber - b.sourceRowNumber;
-    }
-  }
-  if (a.createdAt !== b.createdAt) {
-    return a.createdAt - b.createdAt;
-  }
-  return a.fullName.localeCompare(b.fullName);
-}
 
 function groupImportKey(sheet: string, groupIndex: number) {
   return `${sheet.trim().toLowerCase()}|${groupIndex}`;
@@ -276,6 +314,168 @@ export const commitPassengerImportBatch = internalMutation({
       updatedAt: Date.now(),
     });
     return { ...result, batchId: args.batchId, status };
+  },
+});
+
+export const beginPassengerImportOperation = internalMutation({
+  args: {
+    access: portalAccessArgumentValidator,
+    batchTotal: v.number(),
+    importKinds: v.array(v.string()),
+    jobCardId: v.string(),
+    sourceDigest: v.string(),
+    total: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!jobCardId) {
+      throw new ConvexError("Invalid Job Card id");
+    }
+    const job = await getVisibleJob(ctx, args.access, jobCardId);
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const initiatedBy = args.access.authUserId ?? args.access.email;
+    const existing = await ctx.db
+      .query("passengerImportOperations")
+      .withIndex("by_actor_job_source", (q) =>
+        q
+          .eq("initiatedBy", initiatedBy)
+          .eq("jobCardId", jobCardId)
+          .eq("sourceDigest", args.sourceDigest)
+      )
+      .unique();
+    if (existing) {
+      const existingKinds = Array.from(new Set(existing.importKinds)).sort();
+      const requestedKinds = Array.from(new Set(args.importKinds)).sort();
+      if (
+        existing.batchTotal !== args.batchTotal ||
+        existing.total !== args.total ||
+        JSON.stringify(existingKinds) !== JSON.stringify(requestedKinds)
+      ) {
+        throw new ConvexError("Passenger import source manifest conflicts with its receipt");
+      }
+      if (existing.status !== "completed") {
+        await ctx.db.patch(existing._id, { status: "running", updatedAt: Date.now() });
+      }
+      return existing._id;
+    }
+    const now = Date.now();
+    return await ctx.db.insert("passengerImportOperations", {
+      batchTotal: args.batchTotal,
+      completedBatches: 0,
+      created: 0,
+      errorSummary: { retryable: 0, terminal: 0 },
+      failed: 0,
+      importKinds: Array.from(new Set(args.importKinds)).sort(),
+      initiatedBy,
+      ...(args.access.staffId ? { initiatedByStaffId: args.access.staffId } : {}),
+      jobCardId,
+      processed: 0,
+      remaining: args.total,
+      roomSummary: {},
+      sourceDigest: args.sourceDigest,
+      startedAt: now,
+      status: "running",
+      total: args.total,
+      updated: 0,
+      updatedAt: now,
+    });
+  },
+});
+
+export const recordPassengerImportOperationBatch = internalMutation({
+  args: {
+    accepted: v.number(),
+    batchId: v.string(),
+    created: v.number(),
+    errorSummary: v.object({ retryable: v.number(), terminal: v.number() }),
+    failed: v.number(),
+    operationId: v.id("passengerImportOperations"),
+    processed: v.number(),
+    remaining: v.number(),
+    roomSummary: v.record(v.string(), v.number()),
+    updated: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const operation = await ctx.db.get(args.operationId);
+    if (!operation) {
+      throw new ConvexError("Import operation not found");
+    }
+    const existingBatch = await ctx.db
+      .query("passengerImportOperationBatches")
+      .withIndex("by_operation_batch", (q) =>
+        q.eq("operationId", args.operationId).eq("batchId", args.batchId)
+      )
+      .unique();
+    const roomSummary = { ...operation.roomSummary } as Record<string, number>;
+    for (const [roomType, count] of Object.entries(existingBatch?.roomSummary ?? {})) {
+      roomSummary[roomType] = Math.max(0, (roomSummary[roomType] ?? 0) - count);
+    }
+    for (const [roomType, count] of Object.entries(args.roomSummary)) {
+      roomSummary[roomType] = (roomSummary[roomType] ?? 0) + count;
+    }
+    const now = Date.now();
+    const previousResolved = existingBatch ? existingBatch.accepted - existingBatch.remaining : 0;
+    const nextResolved = args.accepted - args.remaining;
+    const wasCompleted = existingBatch?.remaining === 0 ? 1 : 0;
+    const isCompleted = args.remaining === 0 ? 1 : 0;
+    const batchDocument = {
+      accepted: args.accepted,
+      batchId: args.batchId,
+      created: args.created,
+      errorSummary: args.errorSummary,
+      failed: args.failed,
+      operationId: args.operationId,
+      processed: args.processed,
+      remaining: args.remaining,
+      roomSummary: args.roomSummary,
+      updated: args.updated,
+    };
+    await Promise.all([
+      existingBatch
+        ? ctx.db.patch(existingBatch._id, batchDocument)
+        : ctx.db.insert("passengerImportOperationBatches", {
+            ...batchDocument,
+            createdAt: now,
+          }),
+      ctx.db.patch(args.operationId, {
+        completedBatches: operation.completedBatches + isCompleted - wasCompleted,
+        created: operation.created + args.created - (existingBatch?.created ?? 0),
+        errorSummary: {
+          retryable:
+            operation.errorSummary.retryable +
+            args.errorSummary.retryable -
+            (existingBatch?.errorSummary.retryable ?? 0),
+          terminal:
+            operation.errorSummary.terminal +
+            args.errorSummary.terminal -
+            (existingBatch?.errorSummary.terminal ?? 0),
+        },
+        failed: operation.failed + args.failed - (existingBatch?.failed ?? 0),
+        processed: operation.processed + args.processed - (existingBatch?.processed ?? 0),
+        remaining: Math.max(0, operation.remaining - (nextResolved - previousResolved)),
+        roomSummary,
+        updated: operation.updated + args.updated - (existingBatch?.updated ?? 0),
+        updatedAt: now,
+      }),
+    ]);
+  },
+});
+
+export const completePassengerImportOperation = internalMutation({
+  args: { operationId: v.id("passengerImportOperations") },
+  handler: async (ctx, args) => {
+    const operation = await ctx.db.get(args.operationId);
+    if (!operation) {
+      throw new ConvexError("Import operation not found");
+    }
+    const now = Date.now();
+    await ctx.db.patch(args.operationId, {
+      completedAt: now,
+      status: operation.failed > 0 || operation.remaining > 0 ? "partial" : "completed",
+      updatedAt: now,
+    });
   },
 });
 
@@ -457,10 +657,58 @@ export const commitFlightImport = mutation({
   returns: flightImportResultValidator,
 });
 
-export const getPassengerExportSource = internalQuery({
+export const listMyPassengerImportOperations = query({
+  args: { referenceNow: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx);
+    const initiatedBy = access.authUserId ?? access.email;
+    const referenceNow = args.referenceNow ?? Date.now();
+    const operations = await ctx.db
+      .query("passengerImportOperations")
+      .withIndex("by_initiatedBy_updatedAt", (q) => q.eq("initiatedBy", initiatedBy))
+      .order("desc")
+      .take(12);
+    const visibleOperations = await Promise.all(
+      operations.map(async (operation) => {
+        if (!canManagePassengerImportKinds(access, operation.importKinds)) {
+          return null;
+        }
+        const job = await getVisibleJob(ctx, access, operation.jobCardId);
+        if (!job) {
+          return null;
+        }
+        return {
+          batchTotal: operation.batchTotal,
+          completedAt: operation.completedAt,
+          completedBatches: operation.completedBatches,
+          created: operation.created,
+          errorSummary: operation.errorSummary,
+          failed: operation.failed,
+          id: operation._id,
+          importKinds: operation.importKinds,
+          jobCardId: operation.jobCardId,
+          processed: operation.processed,
+          remaining: operation.remaining,
+          roomSummary: operation.roomSummary,
+          stalled: operation.status === "running" && referenceNow - operation.updatedAt > 120_000,
+          startedAt: operation.startedAt,
+          status: operation.status,
+          total: operation.total,
+          updated: operation.updated,
+          updatedAt: operation.updatedAt,
+        };
+      })
+    );
+    return visibleOperations.filter((operation) => operation !== null);
+  },
+  returns: passengerImportOperationListValidator,
+});
+
+export const getPassengerExportSourcePage = internalQuery({
   args: {
     access: portalAccessArgumentValidator,
     jobCardId: v.string(),
+    paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
@@ -471,102 +719,380 @@ export const getPassengerExportSource = internalQuery({
     if (!job) {
       throw new ConvexError("FORBIDDEN");
     }
-
-    const [travellers, travelBatches] = await Promise.all([
-      ctx.db
-        .query("travellers")
-        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
-        .collect(),
-      ctx.db
-        .query("travelBatches")
-        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
-        .collect(),
-    ]);
-    const travelBatchById = new Map(travelBatches.map((batch) => [String(batch._id), batch]));
-
-    const rows = await Promise.all(
-      travellers.sort(travellerExportOrder).map(async (traveller) => {
-        const [passport, visaRecord, ticketRows] = await Promise.all([
-          ctx.db
-            .query("passportDetails")
-            .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-            .unique(),
-          ctx.db
-            .query("visaRecords")
-            .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-            .unique(),
-          ctx.db
-            .query("tickets")
-            .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-            .collect(),
-        ]);
-        const ticketRowsWithPnr = await Promise.all(
-          ticketRows.map(async (ticket) => {
-            const pnr = ticket.pnrId ? await ctx.db.get(ticket.pnrId) : null;
-            return {
-              airline: pnr?.airline ?? "",
-              fareType: pnr?.fareType ?? "",
-              pnrCode: pnr?.pnrCode ?? "",
-              route: pnr?.route ?? "",
-              ticketNumber: ticket.ticketNumber ?? "",
-              ticketType: ticket.ticketType ?? "",
-            };
-          })
-        );
-
+    const page = await ctx.db
+      .query("travellers")
+      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+      .paginate(boundedPaginationOptions(args.paginationOpts));
+    const rows = await mapInBoundedBatches(page.page, async (traveller) => {
+      const [passport, visaRecord, ticketRows, travelBatch] = await Promise.all([
+        ctx.db
+          .query("passportDetails")
+          .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
+          .unique(),
+        ctx.db
+          .query("visaRecords")
+          .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
+          .unique(),
+        ctx.db
+          .query("tickets")
+          .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
+          .collect(),
+        traveller.travelBatchId ? ctx.db.get(traveller.travelBatchId) : null,
+      ]);
+      const tickets = await mapInBoundedBatches(ticketRows, async (ticket) => {
+        const pnr = ticket.pnrId ? await ctx.db.get(ticket.pnrId) : null;
         return {
-          cancellation: traveller.cancellation ?? false,
-          contactNo: traveller.contactNo ?? "",
-          encryptedPassportPayload: passport?.encryptedPayload ?? "",
-          foodPreference: traveller.foodPreference,
-          fullName: traveller.fullName,
-          gender: traveller.gender ?? "",
-          givenName: traveller.givenName ?? "",
-          hotelAllocation: traveller.hotelAllocation ?? "",
-          lastMinuteDrop: traveller.lastMinuteDrop ?? false,
-          paymentType: traveller.paymentType,
-          roomType: traveller.roomType,
-          sourceDealerCode: traveller.sourceDealerCode ?? "",
-          sourceDealerName: traveller.sourceDealerName ?? "",
-          sourceDescription: traveller.sourceDescription ?? "",
-          sourceGroup: traveller.sourceGroup ?? "",
-          sourceRowNumber: traveller.sourceRowNumber ?? null,
-          sourceRsoName: traveller.sourceRsoName ?? "",
-          sourceSheet: traveller.sourceSheet ?? "",
-          sourceSoName: traveller.sourceSoName ?? "",
-          specialRequests: traveller.specialRequests ?? "",
-          surname: traveller.surname ?? "",
-          tickets: ticketRowsWithPnr,
-          travelBatchCode:
-            travelBatchById.get(String(traveller.travelBatchId ?? ""))?.batchCode ?? "",
-          travelBatchId: traveller.travelBatchId ?? "",
-          travelBatchReference:
-            travelBatchById.get(String(traveller.travelBatchId ?? ""))?.batchReference ?? "",
-          travelHub: traveller.travelHub ?? "",
-          travellerId: traveller._id,
-          visa: visaRecord
-            ? {
-                appointmentDate: visaRecord.appointmentDate ?? "",
-                notes: visaRecord.notes ?? "",
-                status: visaRecord.status,
-              }
-            : {
-                appointmentDate: traveller.biometricAppointmentDate ?? "",
-                notes: "",
-                status: traveller.visaStatus,
-              },
-          visaRequired: traveller.visaRequired,
-          visaStatus: traveller.visaStatus,
+          airline: pnr?.airline ?? "",
+          fareType: pnr?.fareType ?? "",
+          pnrCode: pnr?.pnrCode ?? "",
+          route: pnr?.route ?? "",
+          ticketNumber: ticket.ticketNumber ?? "",
+          ticketType: ticket.ticketType ?? "",
+        };
+      });
+      return {
+        cancellation: traveller.cancellation ?? false,
+        contactNo: traveller.contactNo ?? "",
+        createdAt: traveller.createdAt,
+        encryptedPassportPayload: passport?.encryptedPayload ?? "",
+        foodPreference: traveller.foodPreference,
+        fullName: traveller.fullName,
+        gender: traveller.gender ?? "",
+        givenName: traveller.givenName ?? "",
+        hotelAllocation: traveller.hotelAllocation ?? "",
+        lastMinuteDrop: traveller.lastMinuteDrop ?? false,
+        paymentType: traveller.paymentType,
+        roomType: traveller.roomType,
+        sourceDealerCode: traveller.sourceDealerCode ?? "",
+        sourceDealerName: traveller.sourceDealerName ?? "",
+        sourceDescription: traveller.sourceDescription ?? "",
+        sourceGroup: traveller.sourceGroup ?? "",
+        sourceRowNumber: traveller.sourceRowNumber ?? null,
+        sourceRsoName: traveller.sourceRsoName ?? "",
+        sourceSheet: traveller.sourceSheet ?? "",
+        sourceSoName: traveller.sourceSoName ?? "",
+        specialRequests: traveller.specialRequests ?? "",
+        surname: traveller.surname ?? "",
+        tickets,
+        travelBatchCode: travelBatch?.batchCode ?? "",
+        travelBatchId: traveller.travelBatchId ?? "",
+        travelBatchReference: travelBatch?.batchReference ?? "",
+        travelHub: traveller.travelHub ?? "",
+        travellerId: traveller._id,
+        visa: visaRecord
+          ? {
+              appointmentDate: visaRecord.appointmentDate ?? "",
+              notes: visaRecord.notes ?? "",
+              status: visaRecord.status,
+            }
+          : {
+              appointmentDate: traveller.biometricAppointmentDate ?? "",
+              notes: "",
+              status: traveller.visaStatus,
+            },
+        visaRequired: traveller.visaRequired,
+        visaStatus: traveller.visaStatus,
+      };
+    });
+    return {
+      ...page,
+      clientName: job.clientName,
+      jobCode: job.jobCode,
+      page: rows,
+    };
+  },
+});
+
+export const beginPassengerExportOperation = internalMutation({
+  args: {
+    access: portalAccessArgumentValidator,
+    commandId: v.string(),
+    exportKind: exportKindValidator,
+    jobCardId: v.string(),
+    leaseId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!jobCardId) {
+      throw new ConvexError("Invalid Job Card id");
+    }
+    const job = await getVisibleJob(ctx, args.access, jobCardId);
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const now = Date.now();
+    const initiatedBy = args.access.authUserId ?? args.access.email;
+    const existing = await ctx.db
+      .query("passengerExportOperations")
+      .withIndex("by_actor_export_command", (indexQuery) =>
+        indexQuery
+          .eq("initiatedBy", initiatedBy)
+          .eq("exportKind", args.exportKind)
+          .eq("jobCardId", jobCardId)
+          .eq("commandId", args.commandId)
+      )
+      .unique();
+    if (existing) {
+      const canTakeOver =
+        existing.status === "failed" ||
+        (existing.status === "running" && (existing.leaseExpiresAt ?? 0) <= now);
+      if (canTakeOver) {
+        const rejectedStorageId = existing.storageId;
+        await ctx.db.patch(existing._id, {
+          attemptCount: (existing.attemptCount ?? 0) + 1,
+          completedAt: undefined,
+          errorCode: undefined,
+          expiresAt: undefined,
+          fileName: undefined,
+          leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
+          leaseId: args.leaseId,
+          rowsProcessed: 0,
+          startedAt: now,
+          status: "running",
+          storageId: undefined,
+          updatedAt: now,
+        });
+        if (rejectedStorageId) {
+          await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
+            storageId: rejectedStorageId,
+          });
+        }
+        return { operationId: existing._id, replayed: false };
+      }
+      return { operationId: existing._id, replayed: true };
+    }
+    const operationId = await ctx.db.insert("passengerExportOperations", {
+      attemptCount: 1,
+      commandId: args.commandId,
+      exportKind: args.exportKind,
+      initiatedBy,
+      ...(args.access.staffId ? { initiatedByStaffId: args.access.staffId } : {}),
+      jobCardId,
+      leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
+      leaseId: args.leaseId,
+      rowsProcessed: 0,
+      startedAt: now,
+      status: "running",
+      updatedAt: now,
+    });
+    return { operationId, replayed: false };
+  },
+});
+
+export const updatePassengerExportOperation = internalMutation({
+  args: {
+    leaseId: v.string(),
+    operationId: v.id("passengerExportOperations"),
+    rowsProcessed: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const operation = await ctx.db.get(args.operationId);
+    if (!operation || operation.leaseId !== args.leaseId || operation.status !== "running") {
+      throw new ConvexError("Export operation lease was superseded");
+    }
+    await ctx.db.patch(args.operationId, {
+      leaseExpiresAt: Date.now() + PASSENGER_EXPORT_LEASE_MS,
+      rowsProcessed: args.rowsProcessed,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const completePassengerExportOperation = internalMutation({
+  args: {
+    leaseId: v.string(),
+    operationId: v.id("passengerExportOperations"),
+    rowsProcessed: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const operation = await ctx.db.get(args.operationId);
+    if (
+      !(operation?.storageId && operation.fileName) ||
+      operation.leaseId !== args.leaseId ||
+      operation.status !== "running"
+    ) {
+      throw new ConvexError("Export artifact was not staged");
+    }
+    const now = Date.now();
+    await ctx.db.patch(args.operationId, {
+      completedAt: now,
+      expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
+      leaseExpiresAt: undefined,
+      leaseId: undefined,
+      rowsProcessed: args.rowsProcessed,
+      status: "completed",
+      updatedAt: now,
+    });
+  },
+});
+
+export const stagePassengerExportArtifact = internalMutation({
+  args: {
+    fileName: v.string(),
+    leaseId: v.string(),
+    operationId: v.id("passengerExportOperations"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const operation = await ctx.db.get(args.operationId);
+    if (operation?.status !== "running" || operation.leaseId !== args.leaseId) {
+      throw new ConvexError("Export operation is not running");
+    }
+    const now = Date.now();
+    await ctx.db.patch(args.operationId, {
+      expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
+      fileName: args.fileName,
+      leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
+      storageId: args.storageId,
+      updatedAt: now,
+    });
+  },
+});
+
+export const failPassengerExportOperation = internalMutation({
+  args: {
+    artifactDeleted: v.boolean(),
+    errorCode: v.string(),
+    leaseId: v.string(),
+    operationId: v.id("passengerExportOperations"),
+  },
+  handler: async (ctx, args) => {
+    const operation = await ctx.db.get(args.operationId);
+    if (!operation || operation.leaseId !== args.leaseId) {
+      return;
+    }
+    const now = Date.now();
+    await ctx.db.patch(args.operationId, {
+      errorCode: args.errorCode,
+      expiresAt: args.artifactDeleted ? undefined : now,
+      status: "failed",
+      ...(args.artifactDeleted ? { storageId: undefined } : {}),
+      leaseExpiresAt: undefined,
+      leaseId: undefined,
+      updatedAt: now,
+    });
+  },
+});
+
+export const getPassengerExportOperation = internalQuery({
+  args: { operationId: v.id("passengerExportOperations") },
+  handler: async (ctx, args) => await ctx.db.get(args.operationId),
+});
+
+export const getAuthorizedPassengerExportOperation = internalQuery({
+  args: {
+    access: portalAccessArgumentValidator,
+    operationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const operationId = ctx.db.normalizeId("passengerExportOperations", args.operationId);
+    const operation = operationId ? await ctx.db.get(operationId) : null;
+    if (
+      !operation ||
+      operation.initiatedBy !== (args.access.authUserId ?? args.access.email) ||
+      !canViewPassengerExportKind(args.access, operation.exportKind)
+    ) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const job = await getVisibleJob(ctx, args.access, operation.jobCardId);
+    if (!job) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    return operation;
+  },
+});
+
+export const purgeExpiredPassengerExports = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const cleanupStatuses = ["completed", "failed", "running"] as const;
+    const expired = (
+      await Promise.all(
+        cleanupStatuses.map((status) =>
+          ctx.db
+            .query("passengerExportOperations")
+            .withIndex("by_status_expiresAt", (indexQuery) =>
+              indexQuery.eq("status", status).gte("expiresAt", 0).lt("expiresAt", now)
+            )
+            .take(PASSENGER_EXPORT_CLEANUP_BATCH_SIZE)
+        )
+      )
+    )
+      .flat()
+      .slice(0, PASSENGER_EXPORT_CLEANUP_BATCH_SIZE) as Doc<"passengerExportOperations">[];
+    await Promise.all(
+      expired.map(async (operation) => {
+        const expiredStorageId = operation.storageId;
+        await ctx.db.patch(operation._id, {
+          expiresAt: undefined,
+          fileName: undefined,
+          leaseExpiresAt: undefined,
+          leaseId: undefined,
+          status: "expired",
+          storageId: undefined,
+          updatedAt: now,
+        });
+        if (expiredStorageId) {
+          await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
+            storageId: expiredStorageId,
+          });
+        }
+      })
+    );
+    const scheduled = expired.length === PASSENGER_EXPORT_CLEANUP_BATCH_SIZE;
+    if (scheduled) {
+      await ctx.scheduler.runAfter(0, internal.crm.imports.purgeExpiredPassengerExports, {});
+    }
+    return { expired: expired.length, scheduled };
+  },
+  returns: v.object({ expired: v.number(), scheduled: v.boolean() }),
+});
+
+export const listMyPassengerExportOperations = query({
+  args: { referenceNow: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx);
+    const initiatedBy = access.authUserId ?? access.email;
+    const referenceNow = args.referenceNow ?? Date.now();
+    const operations = await ctx.db
+      .query("passengerExportOperations")
+      .withIndex("by_initiatedBy_updatedAt", (q) => q.eq("initiatedBy", initiatedBy))
+      .order("desc")
+      .take(12);
+    const visibleOperations = await Promise.all(
+      operations.map(async (operation) => {
+        if (!canViewPassengerExportKind(access, operation.exportKind)) {
+          return null;
+        }
+        const job = await getVisibleJob(ctx, access, operation.jobCardId);
+        if (!job) {
+          return null;
+        }
+        return {
+          commandId: operation.commandId,
+          completedAt: operation.completedAt,
+          errorCode: operation.errorCode,
+          exportKind: operation.exportKind,
+          fileName: operation.fileName,
+          id: operation._id,
+          jobCardId: operation.jobCardId,
+          rowsProcessed: operation.rowsProcessed,
+          stalled: operation.status === "running" && referenceNow - operation.updatedAt > 120_000,
+          startedAt: operation.startedAt,
+          status:
+            operation.status === "completed" &&
+            operation.expiresAt !== undefined &&
+            operation.expiresAt <= referenceNow
+              ? ("expired" as const)
+              : operation.status,
+          updatedAt: operation.updatedAt,
         };
       })
     );
-
-    return {
-      clientName: job.clientName,
-      jobCode: job.jobCode,
-      rows,
-    };
+    return visibleOperations.filter((operation) => operation !== null);
   },
+  returns: passengerExportOperationListValidator,
 });
 
 export const logPassengerExport = internalMutation({
@@ -587,12 +1113,12 @@ export const logPassengerExport = internalMutation({
     }
 
     const exportedKind = args.exportKind ?? "passenger";
-    const exportedLabel =
-      exportedKind === "passenger"
-        ? "passengers"
-        : exportedKind === "traveller"
-          ? "travellers"
-          : `${exportedKind} rows`;
+    let exportedLabel = `${exportedKind} rows`;
+    if (exportedKind === "passenger") {
+      exportedLabel = "passengers";
+    } else if (exportedKind === "traveller") {
+      exportedLabel = "travellers";
+    }
 
     await createActivity(ctx, args.access, {
       action: "exported",
