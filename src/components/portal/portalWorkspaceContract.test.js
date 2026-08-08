@@ -3,12 +3,13 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getListFilterConfig } from "@/lib/portal/listFilterConfig";
 import { getFilterDateRangeError } from "@/lib/portal/periodFilter";
+import { PORTAL_ROUTES } from "@/lib/portal/portalRouteManifest";
+import { INITIAL_FORM, SPREADSHEET_MODALS } from "@/lib/portal/workspaceContract";
 import { buildPortalWorkspaceRows } from "./workspace/portalWorkspaceRows";
 
 const WORKSPACE_FILE = "src/components/portal/PortalWorkspace.tsx";
 const PORTAL_SHELL_FILE = "src/components/portal/PortalShell.tsx";
 const WORKSPACE_HEADER_FILE = "src/components/portal/workspace/PortalWorkspaceHeader.tsx";
-const REGISTRY_FILE = "src/components/portal/workspace/portalViewRegistry.tsx";
 const TRAVEL_BATCH_BRIDGE_FILE = "src/components/portal/workspace/TravelBatchEntityModalBridge.tsx";
 const WORKSPACE_STATE_FILE = "src/components/portal/usePortalWorkspaceState.ts";
 const WORKSPACE_CONTRACT_FILE = "src/lib/portal/workspaceContract.ts";
@@ -27,10 +28,8 @@ const DASHBOARD_OPERATIONAL_TABLE_FILES = [
 ];
 const HOOK_RETURN_PATTERN = /\n {2}return \{([\s\S]*?)\n {2}\};\n\}/;
 const HOOK_RETURN_KEY_PATTERN = /^([A-Za-z_$][\w$]*)(?:,|:)/;
-const WORKSPACE_META_CONSTANT_PATTERN = /\bconst VIEW_META\b|\bconst INITIAL_FORM\b/;
 const DASHBOARD_HEADER_PATTERN =
   /if \(workspace\.view === "dashboard"\)[\s\S]*return workspace\.error && !workspace\.modal \?/;
-const DASHBOARD_VIEW_PATTERN = /<DashboardView[\s\S]*?\/>/;
 const PERMISSION_ALIAS_USE_PATTERN = /\bP\./;
 const PERMISSION_ALIAS_DEFINITION_PATTERN = /PORTAL_PERMISSIONS as P|const P = PORTAL_PERMISSIONS/;
 const ENTITY_MODAL_PATTERN = /<EntityModal[\s\S]*?\/>/;
@@ -99,17 +98,14 @@ function workspaceRowsInput(overrides = {}) {
 }
 
 describe("portal workspace modularization contract", () => {
-  test("workspace view metadata and form defaults live in the shared contract", () => {
-    const workspace = read(WORKSPACE_FILE);
-    const hook = read(WORKSPACE_STATE_FILE);
-    const contract = read(WORKSPACE_CONTRACT_FILE);
-
-    expect(contract).toContain("export const VIEW_META");
-    expect(contract).toContain("export const INITIAL_FORM");
-    expect(contract).toContain("export const SPREADSHEET_MODALS");
-    expect(hook).toContain("@/lib/portal/workspaceContract");
-    expect(workspace).not.toMatch(WORKSPACE_META_CONSTANT_PATTERN);
-    expect(hook).not.toMatch(WORKSPACE_META_CONSTANT_PATTERN);
+  test("workspace route metadata and form defaults have one public contract", () => {
+    expect(PORTAL_ROUTES.dashboard).toMatchObject({
+      component: "DashboardView",
+      family: "core",
+      title: "Dashboard",
+    });
+    expect(INITIAL_FORM.queryType).toBe("MICE");
+    expect(SPREADSHEET_MODALS).toContain("passengerImport");
   });
 
   test("PortalWorkspace only reads properties returned by usePortalWorkspaceState", () => {
@@ -179,15 +175,6 @@ describe("portal workspace modularization contract", () => {
     expect(headerBlock).toMatch(DASHBOARD_HEADER_PATTERN);
   });
 
-  test("dashboard receives the handlers used by quick actions and period presets", () => {
-    const registry = read(REGISTRY_FILE);
-    const dashboardCall = registry.match(DASHBOARD_VIEW_PATTERN)?.[0] || "";
-
-    expect(dashboardCall).toContain("dateRange={workspace.dateRange}");
-    expect(dashboardCall).toContain("setDateRange={workspace.setDateRangeWithUrl}");
-    expect(dashboardCall).toContain("openModal={workspace.openModal}");
-  });
-
   test("table-backed views pass rows to their table component", () => {
     const workspace = read(WORKSPACE_FILE);
     const contracts = [
@@ -216,11 +203,7 @@ describe("portal workspace modularization contract", () => {
       expect(block).toContain(rowsProp);
     }
 
-    expect(workspace).toContain("renderPortalView");
-    expect(read(REGISTRY_FILE)).toContain("renderPilotPortalView");
-    expect(read(REGISTRY_FILE)).toContain("renderOperationsPortalView");
-    expect(read(REGISTRY_FILE)).toContain("renderTicketingPortalView");
-    expect(read(REGISTRY_FILE)).toContain("renderAdministrationPortalView");
+    expect(workspace).toContain("renderPortalRoute");
   });
 
   test("CRM tables use typed columns and one shared table renderer", () => {
@@ -228,7 +211,7 @@ describe("portal workspace modularization contract", () => {
 
     expect(read(GRID_CONTRACT_FILE)).not.toContain("LegacyPortalGridColumn");
     expect(workspace).not.toContain("function PipelineView");
-    expect(read(REGISTRY_FILE)).toContain("@/components/portal/pipeline/PipelineView");
+    expect(PORTAL_ROUTES.pipeline.component).toBe("PipelineView");
     for (const file of DASHBOARD_OPERATIONAL_TABLE_FILES) {
       const source = read(file);
       expect(source).not.toContain("<table");
@@ -316,7 +299,6 @@ describe("portal workspace modularization contract", () => {
     );
     const jobCardsView = read("src/components/portal/workspace/operations/JobCardsView.tsx");
     const contract = read(WORKSPACE_CONTRACT_FILE);
-    const executor = read("src/lib/portal/modalCommandExecutor.js");
     const primaryFields = read("src/components/portal/entityModal/EntityModalFieldsPrimary.js");
 
     expect(contract).toContain("export const TRAVEL_BATCH_MODAL");
@@ -329,7 +311,6 @@ describe("portal workspace modularization contract", () => {
     expect(travelBatchBridge).toContain("api.crm.jobCards.createTravelBatch");
     expect(travelBatchBridge).toContain("api.crm.jobCards.updateTravelBatch");
     expect(primaryFields).toContain("EntityModalTravelBatchFields");
-    expect(executor).toContain('modal === "travelBatch"');
     expect(jobCardsView).toContain("Travel Batches");
     expect(jobCardRowActions).toContain("Add Travel Batch");
   });

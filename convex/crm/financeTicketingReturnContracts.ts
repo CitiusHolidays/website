@@ -200,6 +200,12 @@ export const seatAllocationListPageResultValidator = paginationResultValidator(
 export const seatAllocationIdResultValidator = v.object({ id: v.id("seatAllocations") });
 
 export const ticketingDashboardResultValidator = v.object({
+  aggregateCoverage: v.object({
+    bucketCount: v.number(),
+    complete: v.boolean(),
+    scope: v.string(),
+    updatedAt: v.union(isoDateTimeValidator, v.null()),
+  }),
   attention: v.number(),
   cancelled: v.number(),
   fitTickets: v.number(),
@@ -208,8 +214,17 @@ export const ticketingDashboardResultValidator = v.object({
   issuedSeats: v.number(),
   pending: v.number(),
   pnrCount: v.number(),
+  preview: v.array(ticketOutputValidator),
   refunded: v.number(),
   totalSeats: v.number(),
+  workCoverage: v.object({
+    distinctJobCount: v.number(),
+    from: isoDateTimeValidator,
+    pnrRowsRead: v.number(),
+    ticketRowsRead: v.number(),
+    to: isoDateTimeValidator,
+    truncated: v.boolean(),
+  }),
 });
 
 export const jobCardIdResultValidator = v.object({ id: v.id("jobCards") });

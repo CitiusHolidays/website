@@ -158,7 +158,15 @@ describe("mounted spreadsheet modal loading boundary", () => {
     const closeButton = [...dialog.querySelectorAll("button")].find(
       (button) => button.textContent === "Close"
     );
-    await act(async () => closeButton.click());
+    await act(async () => {
+      closeButton.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(document.querySelector('[role="dialog"]')).toBe(dialog);
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    await act(async () => {
+      dialog.dispatchEvent(new dom.window.Event("animationend", { bubbles: true }));
+    });
     await flushDialog();
     expect(closeCount).toBe(1);
     expect(document.querySelector('[role="dialog"]')).toBeNull();

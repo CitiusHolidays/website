@@ -36,6 +36,13 @@
       "expectText": "Seek Stillness"
     },
     {
+      "id": "kailash-trail-mobile",
+      "path": "/pilgrimage/kailash-mansarovar-14day",
+      "profile": "public",
+      "viewport": "mobile",
+      "expectText": "Kailash Mansarovar Yatra 2026"
+    },
+    {
       "id": "sacred-bharat",
       "path": "/sacred-bharat",
       "profile": "public",

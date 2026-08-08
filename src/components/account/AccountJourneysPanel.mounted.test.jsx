@@ -90,11 +90,20 @@ async function mount(element) {
   };
 }
 
+function deferred() {
+  let resolve;
+  const promise = new Promise((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 describe("customer Account journey composition", () => {
   test("uses journey photography across the upcoming, stay, and past journey sections", async () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
+        loadJourneyDetail={async () => upcomingJourney}
         pastBookings={[pastJourney]}
         upcomingBookings={[upcomingJourney]}
       />
@@ -118,7 +127,10 @@ describe("customer Account journey composition", () => {
     const itineraryButton = [...view.container.querySelectorAll("button")].find((button) =>
       button.textContent.includes("View itinerary")
     );
-    await act(async () => itineraryButton.click());
+    await act(async () => {
+      itineraryButton.click();
+      await Promise.resolve();
+    });
     expect(view.container.textContent).toContain("Back to journeys");
     expect(view.container.textContent).toContain("Itinerary snapshot");
 
@@ -129,6 +141,7 @@ describe("customer Account journey composition", () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
+        loadJourneyDetail={async () => pastJourney}
         pastBookings={[pastJourney]}
         upcomingBookings={[]}
       />
@@ -137,7 +150,10 @@ describe("customer Account journey composition", () => {
     const pastJourneyButton = view.container.querySelector(
       'button[aria-label="Open itinerary for Kathmandu Discovery"]'
     );
-    await act(async () => pastJourneyButton.click());
+    await act(async () => {
+      pastJourneyButton.click();
+      await Promise.resolve();
+    });
 
     expect(view.container.textContent).toContain("Back to journeys");
     expect(view.container.textContent).toContain("Itinerary snapshot");
@@ -153,6 +169,135 @@ describe("customer Account journey composition", () => {
     expect(view.container.textContent).toContain("No upcoming journeys");
     expect(view.container.textContent).toContain("Your completed journeys will collect here.");
 
+    await view.unmount();
+  });
+
+  test("renders an authoritative read-only confirmed trip packet", async () => {
+    const view = await mount(
+      <AccountJourneysPanel
+        cancelledBookings={[]}
+        confirmedTrips={[
+          {
+            confirmedOfferId: "confirmedOffers_1",
+            confirmedPax: 3,
+            destination: "Kyoto",
+            itinerary: { content: "Day 1: Arrival", title: "Confirmed itinerary", version: 2 },
+            jobCode: "JC-0001-AS",
+            jobStatus: "In Operations",
+            queryCode: "Q-0001",
+            travelEndDate: "2026-11-10",
+            travelStartDate: "2026-11-01",
+          },
+        ]}
+        pastBookings={[]}
+        upcomingBookings={[]}
+      />
+    );
+    expect(view.container.textContent).toContain("Confirmed trip packet");
+    expect(view.container.textContent).toContain("Kyoto");
+    expect(view.container.textContent).toContain("JC-0001-AS");
+    expect(view.container.textContent).toContain("cannot change staff, payment, passport, or visa");
+    expect(view.container.querySelector("input, textarea, select")).toBeNull();
+    await view.unmount();
+  });
+
+  test("loads only the selected journey detail and reports a recoverable failure", async () => {
+    const requested = [];
+    const view = await mount(
+      <AccountJourneysPanel
+        cancelledBookings={[]}
+        loadJourneyDetail={async (bookingId) => {
+          requested.push(bookingId);
+          throw new Error("offline");
+        }}
+        pastBookings={[pastJourney]}
+        referenceNow={123}
+        upcomingBookings={[upcomingJourney]}
+      />
+    );
+
+    expect(requested).toEqual([]);
+    const itineraryButton = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent.includes("View itinerary")
+    );
+    await act(async () => {
+      itineraryButton.click();
+      await Promise.resolve();
+    });
+    expect(requested).toEqual(["booking_upcoming"]);
+    expect(view.container.textContent).toContain(
+      "Journey details could not be loaded. Please try again."
+    );
+    expect(view.container.textContent).toContain("Back to journeys");
+
+    await view.unmount();
+  });
+
+  test("does not reopen a journey when a pending detail request finishes after Back", async () => {
+    const request = deferred();
+    const view = await mount(
+      <AccountJourneysPanel
+        cancelledBookings={[]}
+        loadJourneyDetail={() => request.promise}
+        pastBookings={[]}
+        upcomingBookings={[upcomingJourney]}
+      />
+    );
+
+    const itineraryButton = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent.includes("View itinerary")
+    );
+    await act(async () => itineraryButton.click());
+    const backButton = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent.includes("Back to journeys")
+    );
+    await act(async () => backButton.click());
+    await act(async () => {
+      request.resolve(upcomingJourney);
+      await request.promise;
+    });
+
+    expect(view.container.textContent).toContain("Upcoming journey");
+    expect(view.container.textContent).not.toContain("Itinerary snapshot");
+    await view.unmount();
+  });
+
+  test("ignores an older detail response when two journey requests overlap", async () => {
+    const upcomingRequest = deferred();
+    const pastRequest = deferred();
+    const view = await mount(
+      <AccountJourneysPanel
+        cancelledBookings={[]}
+        loadJourneyDetail={(bookingId) =>
+          bookingId === "booking_upcoming" ? upcomingRequest.promise : pastRequest.promise
+        }
+        pastBookings={[pastJourney]}
+        upcomingBookings={[upcomingJourney]}
+      />
+    );
+
+    const upcomingButton = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent.includes("View itinerary")
+    );
+    const pastButton = view.container.querySelector(
+      'button[aria-label="Open itinerary for Kathmandu Discovery"]'
+    );
+    await act(async () => {
+      upcomingButton.click();
+      pastButton.click();
+    });
+    await act(async () => {
+      pastRequest.resolve(pastJourney);
+      await pastRequest.promise;
+    });
+    await act(async () => {
+      upcomingRequest.resolve(upcomingJourney);
+      await upcomingRequest.promise;
+    });
+
+    expect(view.container.querySelector("section.relative h2")?.textContent).toBe(
+      "Kathmandu Discovery"
+    );
     await view.unmount();
   });
 });

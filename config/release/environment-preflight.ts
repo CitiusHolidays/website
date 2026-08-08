@@ -9,6 +9,44 @@ interface EnvironmentRegistry {
   targets: Record<EnvironmentTarget, { required: string[] }>;
 }
 
+const ENVIRONMENT_KEY = /^[A-Z][A-Z0-9_]*$/;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+export function validateEnvironmentRegistry(value: unknown): EnvironmentRegistry {
+  if (!(isRecord(value) && value.schemaVersion === 1 && isRecord(value.targets))) {
+    throw new Error("Environment registry must use schemaVersion 1 and define targets");
+  }
+  const targetNames = Object.keys(value.targets);
+  if (
+    targetNames.length !== ENVIRONMENT_TARGETS.length ||
+    targetNames.some((target) => !ENVIRONMENT_TARGETS.includes(target as EnvironmentTarget))
+  ) {
+    throw new Error("Environment registry must define only preview and production targets");
+  }
+
+  for (const target of ENVIRONMENT_TARGETS) {
+    const definition = value.targets[target];
+    if (!(isRecord(definition) && Array.isArray(definition.required))) {
+      throw new Error(`Environment registry target ${target} must define required variables`);
+    }
+    const { required } = definition;
+    if (required.length === 0) {
+      throw new Error(`Environment registry target ${target} must require at least one variable`);
+    }
+    if (required.some((key) => typeof key !== "string" || !ENVIRONMENT_KEY.test(key))) {
+      throw new Error(`Environment registry target ${target} contains an invalid variable name`);
+    }
+    if (new Set(required).size !== required.length) {
+      throw new Error(`Environment registry target ${target} contains duplicate variables`);
+    }
+  }
+
+  return value as unknown as EnvironmentRegistry;
+}
+
 const URL_KEYS = new Set([
   "BETTER_AUTH_URL",
   "NEXT_PUBLIC_APP_URL",
@@ -28,9 +66,9 @@ export function readEnvironmentRegistry(
   readFile: (path: string, encoding: "utf8") => string = (path, encoding) =>
     readFileSync(path, encoding)
 ) {
-  return JSON.parse(
-    readFile(resolve(root, "config/environment.registry.json"), "utf8")
-  ) as EnvironmentRegistry;
+  return validateEnvironmentRegistry(
+    JSON.parse(readFile(resolve(root, "config/environment.registry.json"), "utf8"))
+  );
 }
 
 function originFor(value: string | undefined) {
@@ -53,7 +91,11 @@ export function evaluateEnvironmentPreflight(
   target: EnvironmentTarget,
   registry = readEnvironmentRegistry()
 ) {
-  const required = registry.targets[target]?.required ?? [];
+  const validatedRegistry = validateEnvironmentRegistry(registry);
+  if (!ENVIRONMENT_TARGETS.includes(target)) {
+    throw new Error(`Unknown environment target: ${target}`);
+  }
+  const { required } = validatedRegistry.targets[target];
   const errors: string[] = [];
   const missing = required.filter((key) => !env[key]?.trim());
   if (missing.length > 0) {

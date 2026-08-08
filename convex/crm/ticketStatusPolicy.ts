@@ -1,3 +1,4 @@
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { notifyRoles } from "./lib";
 
 export const TICKET_ATTENTION_STATUSES = [
@@ -44,24 +45,29 @@ export async function adjustPnrIssuedSeatsOnStatusChange(
     willBeIssued: boolean;
   }
 ) {
-  if (effectivePnrId && wasIssued !== willBeIssued) {
-    const pnr = await ctx.db.get(effectivePnrId);
+  const adjustPnr = async (pnrId: any, delta: 1 | -1) => {
+    const pnr = await ctx.db.get(pnrId);
     if (pnr) {
-      const delta = willBeIssued ? 1 : -1;
-      await ctx.db.patch(effectivePnrId, {
+      await ctx.db.patch(pnrId, {
         issuedSeats: Math.max((pnr.issuedSeats ?? 0) + delta, 0),
         updatedAt: now,
       });
+      await scheduleCrmMetricSync(ctx, "pnrs", String(pnrId));
     }
+  };
+
+  if (previousPnrId !== effectivePnrId) {
+    if (previousPnrId && wasIssued) {
+      await adjustPnr(previousPnrId, -1);
+    }
+    if (effectivePnrId && willBeIssued) {
+      await adjustPnr(effectivePnrId, 1);
+    }
+    return;
   }
-  if (previousPnrId && previousPnrId !== effectivePnrId && wasIssued) {
-    const oldPnr = await ctx.db.get(previousPnrId);
-    if (oldPnr) {
-      await ctx.db.patch(previousPnrId, {
-        issuedSeats: Math.max((oldPnr.issuedSeats ?? 0) - 1, 0),
-        updatedAt: now,
-      });
-    }
+
+  if (effectivePnrId && wasIssued !== willBeIssued) {
+    await adjustPnr(effectivePnrId, willBeIssued ? 1 : -1);
   }
 }
 
@@ -76,5 +82,40 @@ export async function syncTravellerTicketStatus(
       ticketStatus,
       updatedAt: now,
     });
+  }
+}
+
+export async function applyTicketStatusTransitionEffects(
+  ctx: any,
+  {
+    effectivePnrId,
+    entityId,
+    jobCode,
+    nextStatus,
+    now,
+    previousPnrId,
+    previousStatus,
+    travellerId,
+  }: {
+    effectivePnrId?: any;
+    entityId: any;
+    jobCode: string;
+    nextStatus: string;
+    now: number;
+    previousPnrId?: any;
+    previousStatus?: string;
+    travellerId?: any;
+  }
+) {
+  await syncTravellerTicketStatus(ctx, travellerId, nextStatus, now);
+  await adjustPnrIssuedSeatsOnStatusChange(ctx, {
+    effectivePnrId,
+    now,
+    previousPnrId,
+    wasIssued: previousStatus === "Issued",
+    willBeIssued: nextStatus === "Issued",
+  });
+  if (previousStatus !== nextStatus) {
+    await notifyTicketAttentionIfNeeded(ctx, nextStatus, jobCode, entityId);
   }
 }

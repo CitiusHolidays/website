@@ -162,6 +162,7 @@ describe("release command contract", () => {
     expect(packageJson.scripts?.["automation:check"]).toBe(
       "bun config/release/agent-automation-policy.ts"
     );
+    expect(packageJson.scripts?.["verify:local"]).toBe("bun config/release/verify-local.ts");
     expect(packageJson.scripts?.["policy:check"]).toBeUndefined();
     expect(packageJson.scripts?.["ci:convex-key-check"]).toBeUndefined();
     expect(existsSync(join(ROOT, ".github/workflows/required-quality.yml"))).toBe(false);
@@ -186,6 +187,6 @@ describe("release command contract", () => {
     expect(ignoredLines).not.toContain(".agents/*");
     expect(ignoredLines).not.toContain(".claude/*");
     expect(ignoredLines).toContain(".scratch/");
-    expect(ignoredLines).toContain(".claude/hooks/");
+    expect(ignoredLines).not.toContain(".claude/hooks/");
   });
 });

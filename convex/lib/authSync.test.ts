@@ -36,7 +36,12 @@ function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, a
               }
               return rows;
             },
-            unique: async () => rows[0] ?? null,
+            unique: async () => {
+              if (rows.length > 1) {
+                throw new Error("unique() query matched more than one document");
+              }
+              return rows[0] ?? null;
+            },
             withIndex: (_name: string, callback: (q: any) => unknown) => {
               indexed = true;
               const filters: Array<[string, unknown]> = [];
@@ -127,5 +132,186 @@ describe("syncAuthRecords normalized email lookup", () => {
       authUserId: "guest_auth",
       emailNormalized: "staff@example.com",
     });
+  });
+
+  test("merges durable Customer fields before removing a duplicate profile", async () => {
+    const { ctx, tables } = makeCtx([
+      {
+        _id: "profile_auth",
+        authUserId: "auth_foo",
+        createdAt: 200,
+        email: "foo@example.com",
+        emailNormalized: "foo@example.com",
+        name: "Traveler",
+        passportDetailsEncrypted: "",
+        phoneNumber: "",
+      },
+      {
+        _id: "profile_legacy",
+        authUserId: "legacy_foo",
+        createdAt: 100,
+        email: "Foo@Example.com",
+        emailNormalized: "foo@example.com",
+        legacyUserId: "legacy-user-7",
+        name: "Legacy Name",
+        passportDetailsEncrypted: "encrypted-passport",
+        phoneNumber: "+91 99999 11111",
+        sacredBharatLeaderboardOptOut: true,
+      },
+    ]);
+
+    await syncAuthRecords(ctx as any, {
+      authUserId: "auth_foo",
+      email: "foo@example.com",
+    });
+
+    expect(tables.userProfiles).toHaveLength(1);
+    expect(tables.userProfiles[0]).toMatchObject({
+      _id: "profile_auth",
+      legacyUserId: "legacy-user-7",
+      name: "Legacy Name",
+      passportDetailsEncrypted: "encrypted-passport",
+      phoneNumber: "+91 99999 11111",
+      sacredBharatLeaderboardOptOut: true,
+    });
+  });
+
+  test("selects the oldest orphan deterministically regardless of query order", async () => {
+    const { ctx, tables } = makeCtx([
+      {
+        _id: "profile_newer",
+        authUserId: "legacy_newer",
+        createdAt: 200,
+        email: "foo@example.com",
+        emailNormalized: "foo@example.com",
+        name: "Newer",
+      },
+      {
+        _id: "profile_older",
+        authUserId: "legacy_older",
+        createdAt: 100,
+        email: "foo@example.com",
+        emailNormalized: "foo@example.com",
+        name: "Older",
+      },
+    ]);
+
+    const result = await syncAuthRecords(ctx as any, {
+      authUserId: "auth_foo",
+      email: "foo@example.com",
+    });
+
+    expect(result.profileId).toBe("profile_older");
+    expect(tables.userProfiles).toHaveLength(1);
+    expect(tables.userProfiles[0]._id).toBe("profile_older");
+  });
+
+  test("archives a conflicting duplicate instead of deleting durable data", async () => {
+    const { ctx, tables } = makeCtx([
+      {
+        _id: "profile_auth",
+        authUserId: "auth_foo",
+        createdAt: 100,
+        email: "foo@example.com",
+        emailNormalized: "foo@example.com",
+        name: "Foo",
+        phoneNumber: "+91 11111 11111",
+      },
+      {
+        _id: "profile_conflict",
+        authUserId: "legacy_foo",
+        createdAt: 200,
+        email: "foo@example.com",
+        emailNormalized: "foo@example.com",
+        name: "Foo legacy",
+        phoneNumber: "+91 22222 22222",
+      },
+    ]);
+
+    await syncAuthRecords(ctx as any, {
+      authUserId: "auth_foo",
+      email: "foo@example.com",
+    });
+
+    expect(tables.userProfiles).toHaveLength(2);
+    expect(tables.userProfiles.find((row) => row._id === "profile_conflict")).toMatchObject({
+      archivedAuthUserId: "legacy_foo",
+      authUserId: undefined,
+      mergeConflictFields: ["phoneNumber"],
+      mergedIntoProfileId: "profile_auth",
+    });
+    expect(
+      tables.userProfiles.find((row) => row._id === "profile_conflict")?.archivedAt
+    ).toBeNumber();
+  });
+
+  test("repairs duplicate rows sharing one auth identity without a unique lookup", async () => {
+    const { ctx, tables } = makeCtx([
+      {
+        _id: "profile_older",
+        authUserId: "auth_foo",
+        createdAt: 100,
+        email: "foo@example.com",
+        emailNormalized: "foo@example.com",
+        name: "Traveler",
+        phoneNumber: "",
+      },
+      {
+        _id: "profile_newer",
+        authUserId: "auth_foo",
+        createdAt: 200,
+        email: "foo@example.com",
+        emailNormalized: "foo@example.com",
+        name: "Foo",
+        phoneNumber: "+91 99999 11111",
+      },
+    ]);
+
+    const result = await syncAuthRecords(ctx as any, {
+      authUserId: "auth_foo",
+      email: "foo@example.com",
+    });
+
+    expect(result.profileId).toBe("profile_older");
+    expect(tables.userProfiles).toHaveLength(1);
+    expect(tables.userProfiles[0]).toMatchObject({
+      _id: "profile_older",
+      authUserId: "auth_foo",
+      name: "Foo",
+      phoneNumber: "+91 99999 11111",
+    });
+  });
+
+  test("does not let a retired auth identity take over the canonical profile", async () => {
+    const { ctx, tables } = makeCtx([
+      {
+        _id: "profile_canonical",
+        authUserId: "auth_current",
+        createdAt: 100,
+        email: "foo@example.com",
+        emailNormalized: "foo@example.com",
+        name: "Foo",
+      },
+      {
+        _id: "profile_archived",
+        archivedAt: 200,
+        archivedAuthUserId: "auth_retired",
+        createdAt: 150,
+        email: "foo@example.com",
+        emailNormalized: "foo@example.com",
+        mergedIntoProfileId: "profile_canonical",
+        name: "Old Foo",
+      },
+    ]);
+
+    await expect(
+      syncAuthRecords(ctx as any, {
+        authUserId: "auth_retired",
+        email: "foo@example.com",
+      })
+    ).rejects.toThrow("PROFILE_IDENTITY_CONFLICT");
+    expect(tables.userProfiles.find((row) => row._id === "profile_canonical")?.authUserId).toBe(
+      "auth_current"
+    );
   });
 });

@@ -8,7 +8,6 @@ import { TicketsView } from "./TicketsView";
 
 export function TicketDashboardView({
   summary,
-  tickets,
   openModal,
   has,
   deleteItem,
@@ -42,7 +41,7 @@ export function TicketDashboardView({
         openModal={openModal}
         removeManyTickets={removeManyTickets}
         removeTicket={removeTicket}
-        rows={tickets.slice(0, 8)}
+        rows={summary.preview}
       />
     </div>
   );

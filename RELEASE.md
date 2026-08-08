@@ -3,11 +3,10 @@
 This file is the repository-owned release contract. It records commands and expected scopes; it
 does not assert that Vercel, GitHub, Convex, DNS, or provider dashboards are already configured.
 
-The complete local change summary and latest evidence snapshot are in
-[`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md). The current release checkpoint is
-recorded in that tracked document; local verification is current there, while Vercel/Convex
-deployment and live browser checks remain external activation work. These results are local
-evidence, not proof that external platform settings or production activation are complete.
+The complete local change summary and dated evidence snapshots are in
+[`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md). Those entries record the last known
+result for their stated date and commit; they are not current proof. Vercel/Convex deployment and
+live browser checks remain separate external activation work.
 
 ## Environment ownership
 
@@ -39,10 +38,11 @@ The repository does not run a GitHub Actions quality workflow. The previous Requ
 was retired because it depended on repository variables and a non-production Convex credential
 that were never configured, so every push failed before application tests ran.
 
-Before merging or deploying, run `bun run diff:check`, `bun run check`, `bun run typecheck`,
-`bun run convex:typecheck`, `bun run assets:check`, `bun run performance:check`, and
-`bun audit --audit-level=high`. Run a fresh Convex codegen and the configured build only after
-identifying the exact non-production deployment target.
+Before merging or deploying, run `bun run verify:local`. It runs the target-neutral local gates in
+order, stops on the first failure, and labels its local-only evidence with the current commit and
+timestamp. Run environment preflight, a fresh Convex codegen, the configured Next build,
+deployment, and browser proof separately after identifying the exact target; a green local verifier
+is not deployment or production proof.
 
 Reproduce the Studio lane locally with
 `cd citius-blog && bun install --frozen-lockfile && bun run build && bun audit --audit-level=high`.

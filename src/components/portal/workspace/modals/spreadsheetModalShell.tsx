@@ -1,7 +1,7 @@
 "use client";
 
 import { m, useReducedMotion } from "motion/react";
-import { type ChangeEvent, type ReactNode, useCallback } from "react";
+import { type ChangeEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { portalMotionTransition } from "@/lib/portal/portalMotion";
@@ -22,6 +22,8 @@ export function ImportModalShell({
   title: string;
 }) {
   const shouldReduceMotion = !!useReducedMotion();
+  const [renderedOpen, setRenderedOpen] = useState(open);
+  const panelRef = useRef<HTMLDivElement>(null);
   const panelTransform = "translateY(0) scale(1)";
   const panelHiddenTransform = shouldReduceMotion ? panelTransform : "translateY(18px) scale(0.96)";
   const backdropTransition = portalMotionTransition(shouldReduceMotion, undefined, "ui");
@@ -35,12 +37,35 @@ export function ImportModalShell({
     [close]
   );
 
+  useEffect(() => {
+    if (open) {
+      setRenderedOpen(true);
+    }
+  }, [open]);
+  const finishPanelAnimation = useCallback(() => {
+    if (!open) {
+      setRenderedOpen(false);
+    }
+  }, [open]);
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) {
+      return;
+    }
+    panel.addEventListener("animationend", finishPanelAnimation);
+    panel.addEventListener("transitionend", finishPanelAnimation);
+    return () => {
+      panel.removeEventListener("animationend", finishPanelAnimation);
+      panel.removeEventListener("transitionend", finishPanelAnimation);
+    };
+  }, [finishPanelAnimation]);
+
   return (
     <ControlledDialog
       backdropClassName="absolute inset-0 bg-slate-950/65"
       backdropRender={
         <m.div
-          animate={{ opacity: 1 }}
+          animate={{ opacity: open ? 1 : 0 }}
           exit={{ opacity: 0 }}
           initial={{ opacity: 0 }}
           transition={backdropTransition}
@@ -48,39 +73,40 @@ export function ImportModalShell({
       }
       closeDisabled={open}
       onOpenChange={handleOpenChange}
-      open={open}
+      open={renderedOpen}
       popupClassName="relative max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-brand-border bg-white p-5 shadow-2xl md:p-6"
       popupRender={
         <m.div
-          animate={{ opacity: 1, transform: panelTransform }}
+          animate={{
+            opacity: open ? 1 : 0,
+            transform: open ? panelTransform : panelHiddenTransform,
+          }}
           exit={{ opacity: 0, transform: panelHiddenTransform }}
           initial={{ opacity: 0, transform: panelHiddenTransform }}
+          onAnimationComplete={finishPanelAnimation}
+          ref={panelRef}
           transition={panelTransition}
         />
       }
       triggerless
       viewportClassName={`fixed inset-0 ${PORTAL_Z.importModal} flex items-center justify-center p-4`}
     >
-      {open ? (
-        <>
-          <div className="mb-5 flex items-start justify-between gap-4">
-            <div>
-              <ControlledDialogTitle className="font-heading font-semibold text-2xl text-citius-blue">
-                {title}
-              </ControlledDialogTitle>
-              <p className="mt-1 text-brand-muted text-sm">{subtitle}</p>
-            </div>
-            <Button
-              className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
-              onClick={close}
-              type="button"
-            >
-              Close
-            </Button>
-          </div>
-          {children}
-        </>
-      ) : null}
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <ControlledDialogTitle className="font-heading font-semibold text-2xl text-citius-blue">
+            {title}
+          </ControlledDialogTitle>
+          <p className="mt-1 text-brand-muted text-sm">{subtitle}</p>
+        </div>
+        <Button
+          className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
+          onClick={close}
+          type="button"
+        >
+          Close
+        </Button>
+      </div>
+      {children}
     </ControlledDialog>
   );
 }
@@ -105,7 +131,7 @@ export function ImportFileInput({
         onChange={onChange}
         type="file"
       />
-      {fileName && <span className="mt-2 block text-brand-muted text-xs">{fileName}</span>}
+      {fileName ? <span className="mt-2 block text-brand-muted text-xs">{fileName}</span> : null}
     </label>
   );
 }
@@ -115,7 +141,7 @@ export function ImportSummary({
   totals,
 }: {
   isBusy: boolean;
-  totals: Array<[string, number | string]>;
+  totals: [string, number | string][];
 }) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
@@ -125,7 +151,7 @@ export function ImportSummary({
             {label}
           </div>
           <div className="mt-1 font-semibold text-2xl text-citius-blue">
-            {isBusy && value === "-" ? "…" : value}
+            {isBusy && value === "-" ? "…" : String(value)}
           </div>
         </div>
       ))}

@@ -358,6 +358,7 @@ function PipelineCard({ canMove, item, moveTargets, onMove, stage }: PipelineCar
         draggable ? "cursor-grab active:cursor-grabbing" : ""
       }`}
       layout
+      layoutId={`pipeline-card-${item.id}`}
       transition={cardTransition}
     >
       <article
@@ -479,8 +480,9 @@ export function PipelineView({
 
   const activeOptimisticStages = useMemo(() => {
     const active: Record<string, string> = {};
+    const rowsById = new Map(rows.map((row) => [row.id, row]));
     for (const [queryId, stage] of Object.entries(optimisticStages)) {
-      const row = rows.find((candidate) => candidate.id === queryId);
+      const row = rowsById.get(queryId);
       if (row && pipelineStageForMode(mode, row) !== stage) {
         active[queryId] = stage;
       }
@@ -602,17 +604,17 @@ export function PipelineView({
         onDragEnd={handleDndDragEnd}
         sensors={sensors}
       >
-        <div className="grid grid-flow-dense gap-4 sm:grid-cols-2 xl:grid-cols-5">
-          {Object.entries(buckets).map(([stage, items], stageIndex) => (
-            <PipelineStage key={stage} stage={stage} stageIndex={stageIndex}>
-              <h2 className="mb-3 flex items-center justify-between font-heading font-semibold text-citius-blue text-sm">
-                {stage}
-                <span className="grid size-7 place-items-center rounded-full bg-citius-orange font-bold text-brand-dark text-xs">
-                  {items.length}
-                </span>
-              </h2>
-              <div className="space-y-2">
-                <LayoutGroup>
+        <LayoutGroup id={`pipeline-${mode}`}>
+          <div className="grid grid-flow-dense gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            {Object.entries(buckets).map(([stage, items], stageIndex) => (
+              <PipelineStage key={stage} stage={stage} stageIndex={stageIndex}>
+                <h2 className="mb-3 flex items-center justify-between font-heading font-semibold text-citius-blue text-sm">
+                  {stage}
+                  <span className="grid size-7 place-items-center rounded-full bg-citius-orange font-bold text-brand-dark text-xs">
+                    {items.length}
+                  </span>
+                </h2>
+                <div className="space-y-2">
                   {items.map((item) => {
                     const cardStage =
                       activeOptimisticStages[item.id] ??
@@ -637,11 +639,11 @@ export function PipelineView({
                       />
                     );
                   })}
-                </LayoutGroup>
-              </div>
-            </PipelineStage>
-          ))}
-        </div>
+                </div>
+              </PipelineStage>
+            ))}
+          </div>
+        </LayoutGroup>
       </DndContext>
     </div>
   );

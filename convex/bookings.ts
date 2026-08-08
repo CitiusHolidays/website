@@ -2,10 +2,17 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
+import {
+  projectCustomerJourneyDetail,
+  projectCustomerJourneySummary,
+  sortCustomerJourneySummaries,
+} from "./customerJourneyModel";
 import { assertPaymentMutationSecret } from "./lib/paymentMutationAuth";
 import {
   bookingTransitionResultValidator,
   checkoutResultValidator,
+  customerJourneyDetailResultValidator,
+  customerJourneySummariesResultValidator,
   myBookingsResultValidator,
   pendingBookingResultValidator,
 } from "./publicReturnContracts";
@@ -254,6 +261,49 @@ export const getMyBookings = query({
     });
   },
   returns: myBookingsResultValidator,
+});
+
+export const getMyJourneySummaries = query({
+  args: { referenceNow: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const identity = await getIdentity(ctx);
+    const referenceNow = args.referenceNow ?? Date.now();
+    if (!identity) {
+      return { referenceNow, summaries: [] };
+    }
+    const rows = await ctx.db
+      .query("bookings")
+      .withIndex("by_userId_createdAt", (q) => q.eq("userId", identity.subject))
+      .order("desc")
+      .take(100);
+    const trips = await Promise.all(rows.map((booking) => ctx.db.get(booking.tripId)));
+    return {
+      referenceNow,
+      summaries: sortCustomerJourneySummaries(
+        rows.map((booking, index) =>
+          projectCustomerJourneySummary(booking, trips[index] ?? null, referenceNow)
+        )
+      ),
+    };
+  },
+  returns: customerJourneySummariesResultValidator,
+});
+
+export const getMyJourneyDetail = query({
+  args: { bookingId: v.id("bookings"), referenceNow: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const identity = await getIdentity(ctx);
+    if (!identity) {
+      return null;
+    }
+    const booking = await ctx.db.get(args.bookingId);
+    if (!booking || booking.userId !== identity.subject) {
+      return null;
+    }
+    const trip = await ctx.db.get(booking.tripId);
+    return projectCustomerJourneyDetail(booking, trip, args.referenceNow ?? Date.now());
+  },
+  returns: customerJourneyDetailResultValidator,
 });
 
 type BookingTransition = "authorized" | "confirmed" | "failed" | "refunded";

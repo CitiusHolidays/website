@@ -43,11 +43,17 @@ export interface DateRangeState {
 }
 
 export interface SavedViewRecord {
+  canMutate?: boolean;
+  createdAt?: string;
   filterState: unknown;
   id: string;
   isFavorite?: boolean;
   isPinnedToDashboard?: boolean;
+  name: string;
   pathname?: string;
+  sharedRole?: null | string;
+  updatedAt?: string;
+  view?: string;
 }
 
 export interface SaveCurrentViewOptions {
@@ -56,7 +62,7 @@ export interface SaveCurrentViewOptions {
   sharedRole?: string;
 }
 
-export type MutationLike = (args: AnyRecord) => Promise<unknown>;
+export type MutationLike<Args extends AnyRecord = AnyRecord> = (args: Args) => Promise<unknown>;
 export type ConfirmFn = (options: {
   confirmLabel?: string;
   danger?: boolean;

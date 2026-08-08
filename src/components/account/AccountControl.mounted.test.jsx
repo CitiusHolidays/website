@@ -106,9 +106,13 @@ describe("AccountControl", () => {
     expect(popup?.style.getPropertyValue("--account-surface")).toBe("var(--color-public-surface)");
     expect(popup?.style.getPropertyValue("--account-ink")).toBe("var(--color-public-ink)");
     expect(popup?.style.getPropertyValue("--account-gold")).toBe("var(--color-public-orange-ink)");
+    expect(popup?.style.transition).toContain("cubic-bezier(0.16, 1, 0.3, 1)");
 
     await act(async () => {
       document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+      await Promise.resolve();
+      const exitingPopup = document.querySelector('[data-slot="portal-action-menu-popup"]');
+      expect(exitingPopup?.style.display).not.toBe("none");
       await new Promise((resolve) => setTimeout(resolve, 180));
     });
     expect(trigger.getAttribute("aria-expanded")).toBe("false");

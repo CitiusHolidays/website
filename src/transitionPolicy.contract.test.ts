@@ -129,7 +129,7 @@ describe("transition policy", () => {
       expect(source).toContain("useReducedMotion");
       expect(source).toContain("transform:");
     }
-    expect(confirm).toContain("useReducedMotion");
+    expect(confirm).not.toContain("useReducedMotion");
     expect(confirm).not.toContain("transitionStatus");
     expect(confirm).not.toContain("popupStyle=");
     expect(confirm).not.toContain("backdropStyle=");

@@ -23,7 +23,7 @@ export function LeaveView({
   removeLeave,
   decideLeave,
 }: LeaveViewProps) {
-  const today = new Date().toISOString().split("T")[0];
+  const [today] = new Date().toISOString().split("T");
   const activeCount = rows.filter(
     (row) =>
       row.startDate &&
@@ -41,7 +41,10 @@ export function LeaveView({
   const balanceRows = leaveBalanceRowsForDisplay(leaveBalances);
   const [decidingLeaveId, setDecidingLeaveId] = useState<string | null>(null);
 
-  const handleLeaveDecision = async (leaveId: Key, status: string) => {
+  const handleLeaveDecision = async (
+    leaveId: Key,
+    status: Parameters<LeaveViewProps["decideLeave"]>[0]["status"]
+  ) => {
     if (decidingLeaveId) {
       return;
     }

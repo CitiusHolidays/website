@@ -1,6 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../../_generated/dataModel";
-import { CEMENT_QUERY_TYPES, CEMENT_ROLES } from "./rolePolicy";
+import { CEMENT_QUERY_TYPES, CEMENT_ROLES, PERMISSIONS } from "./rolePolicy";
 import {
   hasRole,
   isAdminDirectorOrRole,
@@ -307,6 +307,78 @@ export type CementPortalRecords<
   invoices: TInvoice[];
   proposalQueryLinks?: Array<{ proposalId: Id<"proposals">; queryId: Id<"queries"> }>;
 };
+
+export function applyPortalRecordScope<
+  TQuery extends QueryVisibilityRecord,
+  TProposal extends ProposalVisibilityRecord,
+  TJob extends JobCardVisibilityRecord,
+  TTraveller extends JobCardLinkedRecord,
+  TTicket extends JobCardLinkedRecord,
+  TVisa extends JobCardLinkedRecord,
+  TInvoice extends JobCardLinkedRecord,
+>(
+  access: PortalAccess,
+  records: CementPortalRecords<TQuery, TProposal, TJob, TTraveller, TTicket, TVisa, TInvoice>
+): CementPortalRecords<TQuery, TProposal, TJob, TTraveller, TTicket, TVisa, TInvoice> {
+  const permissionSet = new Set(access.permissions);
+  const queryById = new Map(records.queries.map((query) => [String(query._id), query]));
+  const proposalLinksByProposalId = new Map<string, TQuery[]>();
+  for (const link of records.proposalQueryLinks ?? []) {
+    const linkedQuery = queryById.get(String(link.queryId));
+    if (!linkedQuery) {
+      continue;
+    }
+    const bucket = proposalLinksByProposalId.get(String(link.proposalId)) ?? [];
+    bucket.push(linkedQuery);
+    proposalLinksByProposalId.set(String(link.proposalId), bucket);
+  }
+
+  const visibleQueries = permissionSet.has(PERMISSIONS.VIEW_QUERIES)
+    ? records.queries.filter((query) => canSeeQueryRecord(access, query))
+    : [];
+  const visibleJobCards = permissionSet.has(PERMISSIONS.VIEW_JOB_CARDS)
+    ? records.jobCards.filter((job) => {
+        const linkedQuery = job.queryId ? queryById.get(String(job.queryId)) : undefined;
+        return canSeeJobCardRecord(access, job, linkedQuery);
+      })
+    : [];
+  const visibleJobIds = new Set(visibleJobCards.map((job) => String(job._id)));
+  const visibleProposals = permissionSet.has(PERMISSIONS.VIEW_PROPOSALS)
+    ? records.proposals.filter((proposal) => {
+        const linkedQueries = [...(proposalLinksByProposalId.get(String(proposal._id)) ?? [])];
+        const legacyLinkedQuery = proposal.queryId
+          ? queryById.get(String(proposal.queryId))
+          : undefined;
+        if (
+          legacyLinkedQuery &&
+          !linkedQueries.some((query) => String(query._id) === String(legacyLinkedQuery._id))
+        ) {
+          linkedQueries.push(legacyLinkedQuery);
+        }
+        return canSeeProposalRecord(access, proposal, linkedQueries);
+      })
+    : [];
+
+  return {
+    invoices: permissionSet.has(PERMISSIONS.VIEW_FINANCE)
+      ? records.invoices.filter(
+          (invoice) => !invoice.jobCardId || visibleJobIds.has(String(invoice.jobCardId))
+        )
+      : [],
+    jobCards: visibleJobCards,
+    proposals: visibleProposals,
+    queries: visibleQueries,
+    tickets: permissionSet.has(PERMISSIONS.VIEW_TICKETING)
+      ? records.tickets.filter((ticket) => visibleJobIds.has(String(ticket.jobCardId)))
+      : [],
+    travellers: permissionSet.has(PERMISSIONS.VIEW_TRAVELLERS)
+      ? records.travellers.filter((traveller) => visibleJobIds.has(String(traveller.jobCardId)))
+      : [],
+    visas: permissionSet.has(PERMISSIONS.VIEW_VISA)
+      ? records.visas.filter((visa) => visibleJobIds.has(String(visa.jobCardId)))
+      : [],
+  };
+}
 
 export function applyCementPortalScope<
   TQuery extends QueryVisibilityRecord,

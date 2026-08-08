@@ -7,6 +7,7 @@ import {
   submitIntentGateway,
   submitIntentInternal,
 } from "./inboundQueryIntents";
+import { assertInboundQuerySourceUnchanged } from "./queryCommands";
 import { assertMatchesRegisteredReturnContract } from "./validateReturnContract";
 
 type Row = { _id: string; [key: string]: unknown };
@@ -20,6 +21,21 @@ afterEach(() => {
   } else {
     process.env.INBOUND_INTENT_GATEWAY_SECRET = previousGatewaySecret;
   }
+});
+
+test("inbound-linked Query provenance cannot be edited away from its consent source", () => {
+  expect(() =>
+    assertInboundQuerySourceUnchanged(
+      { inboundIntentId: "intent_1", source: "Citius Concierge" } as any,
+      "Referral"
+    )
+  ).toThrow("Inbound Query source is immutable");
+  expect(() =>
+    assertInboundQuerySourceUnchanged(
+      { inboundIntentId: "intent_1", source: "Citius Concierge" } as any,
+      "Citius Concierge"
+    )
+  ).not.toThrow();
 });
 
 function makeContext(
@@ -388,7 +404,9 @@ describe("protected inbound intent Convex boundaries", () => {
           source: "Citius Concierge",
         },
       ],
-      inboundQueryIntents: [inboundRow({ notes: sourceNotes })],
+      inboundQueryIntents: [
+        inboundRow({ contactEmail: "traveller@example.com", notes: sourceNotes }),
+      ],
       notifications: [],
       queries: [],
       staffUsers: [salesStaff],
@@ -406,5 +424,11 @@ describe("protected inbound intent Convex boundaries", () => {
 
     expect(tables.inboundQueryIntents[0].notes).toBe(sourceNotes);
     expect(tables.queries[0].notes).toBe("");
+    expect(tables.queries[0]).toMatchObject({
+      inboundIntentId: "inboundQueryIntents_1",
+      source: "Citius Concierge",
+      sourceConsentAt: 1,
+    });
+    expect(tables.clients[0].email).toBe("traveller@example.com");
   });
 });

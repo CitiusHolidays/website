@@ -518,6 +518,9 @@ body {
   box-shadow:
     0 10px 15px -3px rgb(15 23 42 / 0.1),
     0 4px 6px -4px rgb(15 23 42 / 0.1);
+  transition:
+    transform 180ms var(--portal-ease-out),
+    opacity 180ms var(--portal-ease-out) !important;
 }
 
 .portal-toast-safe-area .portal-sonner-toast[data-type="error"] {

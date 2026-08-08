@@ -399,6 +399,50 @@ describe("expense approval integrity", () => {
     expect(tables.expenseEntries[0]?.approvalStatus).toBe("Pending");
   });
 
+  test("Finance rejects impossible approval and reimbursement combinations", async () => {
+    const { ctx, tables } = makeExpenseCtx(
+      {
+        approvalRequests: [
+          {
+            _id: "approval_current",
+            createdAt: 1_700_000_000_000,
+            entityId: "expense_owner",
+            entityType: "expense",
+            expenseVersion: 1,
+            proofDigest: "",
+            requestCode: "APR-0001",
+            requestedBy: "auth_owner",
+            status: "Pending",
+            summary: "Meals expense",
+            type: "Expense",
+            updatedAt: 1_700_000_000_000,
+          },
+        ],
+        expenseEntries: [
+          officeExpense("expense_owner", "auth_owner", {
+            approvalVersion: 1,
+            managerApprovedProofDigest: "",
+            managerApprovedVersion: 1,
+            managerReviewStatus: "Approved",
+            proofDigest: "",
+          }),
+        ],
+        staffUsers: [ownerStaff, financeStaff],
+      },
+      "auth_finance"
+    );
+
+    await expect(
+      (decideExpenseFinance as any)._handler(ctx, {
+        expenseId: "expense_owner",
+        reimbursementStatus: "Reimbursed",
+        status: "Rejected",
+      })
+    ).rejects.toThrow("Invalid expense lifecycle");
+    expect(tables.expenseEntries[0]?.approvalStatus).toBe("Pending");
+    expect(tables.approvalRequests[0]?.status).toBe("Pending");
+  });
+
   test("proof replacement transactionally restarts approval and rejects a non-owner", async () => {
     const { ctx, scheduled, setIdentity, tables } = makeExpenseCtx(
       {
@@ -622,40 +666,42 @@ describe("expense approval integrity", () => {
       },
     ];
 
-    for (const lifecycleCase of lifecycleCases) {
-      const approvalId = `approval_${lifecycleCase.label}`;
-      const { ctx, setIdentity, tables } = makeExpenseCtx(
-        {
-          approvalRequests: [
-            {
-              _id: approvalId,
-              createdAt: 1_700_000_000_100,
-              entityId: "expense_owner",
-              entityType: "expense",
-              requestCode: "APR-001",
-              requestedBy: "auth_owner",
-              status: "Pending",
-              summary: "Expense review",
-              type: "Expense",
-              updatedAt: 1_700_000_000_100,
-            },
-          ],
-          expenseEntries: [officeExpense("expense_owner", "auth_owner", lifecycleCase.patch)],
-          staffUsers: [ownerStaff, financeStaff],
-        },
-        "auth_owner"
-      );
+    await Promise.all(
+      lifecycleCases.map(async (lifecycleCase) => {
+        const approvalId = `approval_${lifecycleCase.label}`;
+        const { ctx, setIdentity, tables } = makeExpenseCtx(
+          {
+            approvalRequests: [
+              {
+                _id: approvalId,
+                createdAt: 1_700_000_000_100,
+                entityId: "expense_owner",
+                entityType: "expense",
+                requestCode: "APR-001",
+                requestedBy: "auth_owner",
+                status: "Pending",
+                summary: "Expense review",
+                type: "Expense",
+                updatedAt: 1_700_000_000_100,
+              },
+            ],
+            expenseEntries: [officeExpense("expense_owner", "auth_owner", lifecycleCase.patch)],
+            staffUsers: [ownerStaff, financeStaff],
+          },
+          "auth_owner"
+        );
 
-      await expect(
-        (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" })
-      ).rejects.toThrow("Expenses that entered approval cannot be deleted");
-      setIdentity("auth_finance");
-      await expect(
-        (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" })
-      ).rejects.toThrow("Expenses that entered approval cannot be deleted");
-      expect(tables.expenseEntries).toHaveLength(1);
-      expect(tables.approvalRequests.map((row) => row._id)).toContain(approvalId);
-    }
+        await expect(
+          (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" })
+        ).rejects.toThrow("Expenses that entered approval cannot be deleted");
+        setIdentity("auth_finance");
+        await expect(
+          (removeExpense as any)._handler(ctx, { expenseId: "expense_owner" })
+        ).rejects.toThrow("Expenses that entered approval cannot be deleted");
+        expect(tables.expenseEntries).toHaveLength(1);
+        expect(tables.approvalRequests.map((row) => row._id)).toContain(approvalId);
+      })
+    );
   });
 
   test("Job Card visibility never grants mutation authority over another creator's expense", async () => {

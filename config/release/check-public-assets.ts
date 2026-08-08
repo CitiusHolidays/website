@@ -14,7 +14,7 @@ export function findMissingPublicAssetReferences(sources: SourceFile[], publicAs
   const missing = new Set<string>();
   for (const file of sources) {
     for (const match of file.source.matchAll(ASSET_REFERENCE_PATTERN)) {
-      const asset = match[1];
+      const [, asset] = match;
       if (asset && !publicAssets.has(asset)) {
         missing.add(`${file.path} references missing public asset ${asset}`);
       }

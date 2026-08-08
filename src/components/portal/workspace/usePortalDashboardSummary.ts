@@ -6,9 +6,9 @@ export function useDashboardSummary(
   canFetch: boolean | undefined,
   dateRange: { from?: string; to?: string } | undefined,
   referenceNow: number,
-  view: string
+  shouldLoad: boolean
 ) {
-  const args = canFetch && allowed && view === "dashboard" ? { dateRange, referenceNow } : "skip";
+  const args = canFetch && allowed && shouldLoad ? { dateRange, referenceNow } : "skip";
   const summary = useQuery(api.crm.dashboard.getPortalSummary, args);
   const coverage = useQuery(api.crm.dashboard.getPortalMetricCoverage, args);
   const sectionArgs = args === "skip" ? "skip" : { dateRange };

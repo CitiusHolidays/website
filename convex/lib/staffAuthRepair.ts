@@ -88,7 +88,7 @@ async function assessStaffAuthLink(
   }
 
   const [profile] = profilesWithEmail;
-  const candidateAuthUserId = profile?.authUserId.trim();
+  const candidateAuthUserId = profile?.authUserId?.trim();
   if (!candidateAuthUserId) {
     return { reason: "matching profile has no auth identity", staff, status: "missing" };
   }

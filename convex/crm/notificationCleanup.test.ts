@@ -63,6 +63,10 @@ describe("indexed notification cleanup", () => {
       entityType: "query",
     }));
     const deleted: string[] = [];
+    const readRows = [
+      { _id: "read_1", notificationId: "notification_0" },
+      { _id: "read_2", notificationId: "notification_64" },
+    ];
     const takeCalls: number[] = [];
     const ctx = {
       db: {
@@ -72,8 +76,12 @@ describe("indexed notification cleanup", () => {
           if (index >= 0) {
             rows.splice(index, 1);
           }
+          const readIndex = readRows.findIndex((row) => row._id === id);
+          if (readIndex >= 0) {
+            readRows.splice(readIndex, 1);
+          }
         },
-        query: () => ({
+        query: (table: string) => ({
           withIndex: (_name: string, callback: (builder: any) => any) => {
             const filters: Record<string, string> = {};
             const builder = {
@@ -84,6 +92,10 @@ describe("indexed notification cleanup", () => {
             };
             callback(builder);
             return {
+              collect: () =>
+                table === "notificationReads"
+                  ? readRows.filter((row) => row.notificationId === filters.notificationId)
+                  : [],
               take: async (limit: number) => {
                 takeCalls.push(limit);
                 return rows
@@ -102,10 +114,12 @@ describe("indexed notification cleanup", () => {
     const first = await deleteNotificationPage(ctx as any, "query", "query_1");
     expect(first).toEqual({ deleted: NOTIFICATION_CLEANUP_PAGE_SIZE, hasMore: true });
     expect(takeCalls).toEqual([NOTIFICATION_CLEANUP_PAGE_SIZE]);
+    expect(readRows.map((row) => row._id)).toEqual(["read_2"]);
     expect(rows.filter((row) => row.entityId === "query_2")).toHaveLength(5);
 
     const second = await deleteNotificationPage(ctx as any, "query", "query_1");
     expect(second.deleted).toBe(NOTIFICATION_CLEANUP_PAGE_SIZE);
-    expect(deleted).toHaveLength(NOTIFICATION_CLEANUP_PAGE_SIZE * 2);
+    expect(deleted).toHaveLength(NOTIFICATION_CLEANUP_PAGE_SIZE * 2 + 2);
+    expect(readRows).toEqual([]);
   });
 });

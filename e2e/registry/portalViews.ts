@@ -13,6 +13,7 @@ export const PORTAL_E2E_MATRIX = {
   finance: { actions: ["smoke"], roles: ["finance"] },
   flights: { actions: ["smoke"], roles: ["ticketing"] },
   hotels: { actions: ["smoke"], roles: ["operations"] },
+  "inbound-leads": { actions: ["readOnly"], roles: ["sales"] },
   "job-cards": { actions: ["readOnly"], roles: ["operations"] },
   passport: { actions: ["uploadModal"], roles: ["operations"] },
   pipeline: { actions: ["workflow"], roles: ["sales", "contracting"] },

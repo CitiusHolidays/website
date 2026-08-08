@@ -26,6 +26,7 @@ interface PortalActionMenuProps {
   headerClassName?: string;
   menuClassName?: string;
   menuStyle?: CSSProperties & Partial<Record<`--${string}`, string | number>>;
+  motionEasing?: string;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   sideOffset?: number;
@@ -81,6 +82,7 @@ export function PortalActionMenu({
   header,
   headerClassName = "border-brand-border border-b px-4 py-3",
   menuClassName = "",
+  motionEasing = "var(--portal-ease-out)",
   menuStyle,
   onOpenChange,
   open,
@@ -175,11 +177,10 @@ export function PortalActionMenu({
               const duration = state.open ? 150 : 120;
               return {
                 ...menuStyle,
-                display: state.open ? undefined : "none",
                 opacity: state.open ? 1 : 0,
                 pointerEvents: state.open ? undefined : "none",
                 transform: state.open ? "translateY(0) scale(1)" : "translateY(6px) scale(0.98)",
-                transition: `opacity ${duration}ms var(--portal-ease-out), transform ${duration}ms var(--portal-ease-out)`,
+                transition: `opacity ${duration}ms ${motionEasing}, transform ${duration}ms ${motionEasing}`,
               };
             }}
           >

@@ -54,6 +54,7 @@ function validBody() {
   return {
     clientName: "A Traveller",
     consent: true,
+    contactEmail: "traveller@example.com",
     destination: "Kerala",
     formLoadedAt: Date.now() - 4000,
     notes: "A private journey enquiry.",

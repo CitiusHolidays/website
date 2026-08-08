@@ -1,6 +1,10 @@
 "use client";
 
 import { createContext, use } from "react";
+import type {
+  SaveCurrentViewOptions,
+  SavedViewRecord,
+} from "@/components/portal/workspace/workspaceStateTypes";
 
 export interface PortalNavShortcut {
   href: string;
@@ -10,16 +14,12 @@ export interface PortalNavShortcut {
 
 export type PortalNavShortcuts = Record<string, PortalNavShortcut[]>;
 
-export interface PortalSavedView {
-  id: string;
-  isFavorite?: boolean;
-  name: string;
-}
+export type PortalSavedView = SavedViewRecord;
 
 export interface PortalChromeSavedViewActions {
   applySavedView?: (view: PortalSavedView) => void;
   deleteSavedView?: (view: PortalSavedView) => void | Promise<void>;
-  saveCurrentView?: (name: string, options?: Record<string, unknown>) => Promise<void>;
+  saveCurrentView?: (name: string, options?: SaveCurrentViewOptions) => Promise<void>;
   savedViews?: PortalSavedView[];
   toggleSavedViewFavorite?: (view: PortalSavedView) => void | Promise<void>;
 }

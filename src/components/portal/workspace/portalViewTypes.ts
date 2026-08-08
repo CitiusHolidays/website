@@ -1,6 +1,9 @@
 import type { Key, ReactNode } from "react";
 import type { PipelineMode } from "@/components/portal/pipeline/PipelineView";
+import type { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
 import type { PortalPermission } from "@/lib/portal/workspaceContract";
+
+type PortalWorkspaceState = ReturnType<typeof usePortalWorkspaceState>;
 
 export interface PortalAttachmentSummary {
   fileName: string;
@@ -116,14 +119,9 @@ export interface PortalContractingTeamRow {
 
 export type PortalPermissionChecker = (permission: PortalPermission | string) => boolean;
 
-export type PortalModalOpener = (modal: string, initial?: unknown) => void;
+export type PortalModalOpener = PortalWorkspaceState["openModal"];
 
-export type PortalDeleteHandler = (
-  label: string,
-  remover: (args: Record<string, string | undefined>) => Promise<unknown>,
-  args: Record<string, string | undefined>,
-  options?: { confirmMessage?: string }
-) => Promise<void>;
+export type PortalDeleteHandler = PortalWorkspaceState["deleteItem"];
 
 export interface PortalAccessSlice {
   roles?: string[];
@@ -133,13 +131,13 @@ export interface QueriesViewProps {
   access: PortalAccessSlice;
   deleteItem: PortalDeleteHandler;
   filtersActive?: boolean;
-  getFinalizedPdfUrl: (proposalId: string) => Promise<string>;
-  getQueryAttachmentUrl: (attachmentId: string) => Promise<string>;
+  getFinalizedPdfUrl: PortalWorkspaceState["getFinalizedPdfUrl"];
+  getQueryAttachmentUrl: PortalWorkspaceState["getQueryAttachmentUrl"];
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
-  removeQuery: (args: { queryId?: string }) => Promise<unknown>;
+  removeQuery: PortalWorkspaceState["removeQuery"];
   rows: PortalQueryListRow[];
-  submitToContracting: (args: { queryId: string }) => Promise<unknown>;
+  submitToContracting: PortalWorkspaceState["submitToContracting"];
 }
 
 export interface ContractingViewProps {
@@ -147,26 +145,26 @@ export interface ContractingViewProps {
   canAssign: boolean;
   deleteItem: PortalDeleteHandler;
   filtersActive?: boolean;
-  getFinalizedPdfUrl: (proposalId: string) => Promise<string>;
-  getQueryAttachmentUrl: (attachmentId: string) => Promise<string>;
+  getFinalizedPdfUrl: PortalWorkspaceState["getFinalizedPdfUrl"];
+  getQueryAttachmentUrl: PortalWorkspaceState["getQueryAttachmentUrl"];
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
   proposals: PortalProposalListRow[];
-  removeQuery: (args: { queryId?: string }) => Promise<unknown>;
+  removeQuery: PortalWorkspaceState["removeQuery"];
   rows: PortalQueryListRow[];
   team: PortalTeamMemberRow[];
 }
 
 export interface ProposalsViewProps {
   deleteItem: PortalDeleteHandler;
-  getFinalizedPdfUrl: (proposalId: string) => Promise<string>;
-  getProposalAttachmentUrl: (attachmentId: string) => Promise<string>;
+  getFinalizedPdfUrl: PortalWorkspaceState["getFinalizedPdfUrl"];
+  getProposalAttachmentUrl: PortalWorkspaceState["getProposalAttachmentUrl"];
   has: PortalPermissionChecker;
-  markProposalSent: (args: { proposalId: string }) => Promise<unknown>;
+  markProposalSent: PortalWorkspaceState["markProposalSent"];
   openModal: PortalModalOpener;
-  removeProposal: (args: { proposalId?: string }) => Promise<unknown>;
+  removeProposal: PortalWorkspaceState["removeProposal"];
   rows: PortalProposalListRow[];
-  sendProposalToSales: (args: { proposalId: string }) => Promise<unknown>;
+  sendProposalToSales: PortalWorkspaceState["sendProposalToSales"];
 }
 
 export type PilotPortalViewComponent = (
@@ -233,16 +231,8 @@ export interface PipelineViewProps {
   canMoveContractingPipeline?: boolean;
   canMoveSalesPipeline?: boolean;
   mode: PipelineMode;
-  moveContractingPipelineStage?: (args: {
-    expectedContractingStatus: string;
-    queryId: string;
-    targetStage: "Proposal sent";
-  }) => Promise<unknown>;
-  moveSalesPipelineStage?: (args: {
-    expectedLeadStage: "Inquiry" | "Proposal" | "Negotiation";
-    queryId: string;
-    targetStage: string;
-  }) => Promise<unknown>;
+  moveContractingPipelineStage?: PortalWorkspaceState["moveContractingPipelineStage"];
+  moveSalesPipelineStage?: PortalWorkspaceState["moveSalesPipelineStage"];
   rows: PortalQueryListRow[];
   setMode: (value: PipelineMode) => void;
 }
@@ -413,12 +403,7 @@ export interface PortalCallingBoardRow extends PortalTravellerListRow {
   lastMinuteDrop?: boolean;
 }
 
-export type PortalBulkDeleteHandler = <T extends Record<string, string[]>>(
-  count: number,
-  entityLabel: string,
-  remover: (args: T) => Promise<unknown>,
-  buildArgs: () => T
-) => Promise<void>;
+export type PortalBulkDeleteHandler = PortalWorkspaceState["deleteSelected"];
 
 export type PortalGridRow = Record<string, unknown> & { id?: Key };
 
@@ -447,9 +432,9 @@ export interface JobCardsViewProps {
   has: PortalPermissionChecker;
   jobCardDeletionOperations?: PortalJobCardDeletionOperation[];
   openModal: PortalModalOpener;
-  removeJobCard: (args: { jobCardId?: string }) => Promise<unknown>;
+  removeJobCard: PortalWorkspaceState["removeJobCard"];
   rows: PortalJobCardListRow[];
-  updateJobStatus: (args: { jobCardId: string; status: string }) => Promise<unknown>;
+  updateJobStatus: PortalWorkspaceState["updateJobStatus"];
 }
 
 export interface TravellersViewProps {
@@ -461,8 +446,8 @@ export interface TravellersViewProps {
   jobCardFilter: string;
   jobCards: PortalJobCardOption[];
   openModal: PortalModalOpener;
-  removeManyTravellers: (args: { travellerIds: string[] }) => Promise<unknown>;
-  removeTraveller: (args: { travellerId?: string }) => Promise<unknown>;
+  removeManyTravellers: PortalWorkspaceState["removeManyTravellers"];
+  removeTraveller: PortalWorkspaceState["removeTraveller"];
   rows: PortalTravellerListRow[];
   setJobCardFilter: (value: string) => void;
 }
@@ -476,24 +461,14 @@ export interface PortalJobCardOption {
 export interface PassportDocumentsViewProps {
   deleteItem: PortalDeleteHandler;
   deleteSelected: PortalBulkDeleteHandler;
-  encryptAndStorePassport: (args: {
-    dateOfBirth?: string;
-    expiryDate?: string;
-    fileName: string;
-    fileSize: number;
-    mimeType: string;
-    nationality?: string;
-    number?: string;
-    tempStorageId: string;
-    travellerId: string;
-  }) => Promise<unknown>;
+  encryptAndStorePassport: PortalWorkspaceState["encryptAndStorePassport"];
   filtersActive?: boolean;
-  generateUploadUrl: (args: { travellerId: string }) => Promise<string>;
-  getPassportDocument: (travellerId: string) => Promise<string>;
+  generateUploadUrl: PortalWorkspaceState["generateUploadUrl"];
+  getPassportDocument: PortalWorkspaceState["getPassportDocument"];
   has: PortalPermissionChecker;
-  removeManyTravellers: (args: { travellerIds: string[] }) => Promise<unknown>;
-  removePassport: (args: { travellerId: string }) => Promise<unknown>;
-  removeTraveller: (args: { travellerId?: string }) => Promise<unknown>;
+  removeManyTravellers: PortalWorkspaceState["removeManyTravellers"];
+  removePassport: PortalWorkspaceState["removePassport"];
+  removeTraveller: PortalWorkspaceState["removeTraveller"];
   travellers: PortalPassportTravellerRow[];
 }
 
@@ -503,8 +478,8 @@ export interface VisaTrackingViewProps {
   filtersActive?: boolean;
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
-  removeManyVisas: (args: { visaRecordIds: string[] }) => Promise<unknown>;
-  removeVisa: (args: { visaRecordId?: string }) => Promise<unknown>;
+  removeManyVisas: PortalWorkspaceState["removeManyVisas"];
+  removeVisa: PortalWorkspaceState["removeVisa"];
   rows: PortalVisaListRow[];
 }
 
@@ -517,10 +492,10 @@ export interface HotelRoomingViewProps {
   jobCardFilter: string;
   jobCards: PortalJobCardOption[];
   openModal: PortalModalOpener;
-  removeHotel: (args: { hotelId?: string }) => Promise<unknown>;
-  removeManyHotels: (args: { hotelIds: string[] }) => Promise<unknown>;
-  removeManyTravellers: (args: { travellerIds: string[] }) => Promise<unknown>;
-  removeTraveller: (args: { travellerId?: string }) => Promise<unknown>;
+  removeHotel: PortalWorkspaceState["removeHotel"];
+  removeManyHotels: PortalWorkspaceState["removeManyHotels"];
+  removeManyTravellers: PortalWorkspaceState["removeManyTravellers"];
+  removeTraveller: PortalWorkspaceState["removeTraveller"];
   roomCountPagination?: PortalPaginationSlice;
   roomCountSummary?: PortalRoomCountSummary;
   roomingRows: PortalTravellerListRow[];
@@ -534,11 +509,11 @@ export interface TourManagersViewProps {
   deleteSelected: PortalBulkDeleteHandler;
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
-  removeManyTourManagers: (args: { tourManagerIds: string[] }) => Promise<unknown>;
-  removeTourManager: (args: { tourManagerId?: string }) => Promise<unknown>;
+  removeManyTourManagers: PortalWorkspaceState["removeManyTourManagers"];
+  removeTourManager: PortalWorkspaceState["removeTourManager"];
   rows: PortalTourManagerListRow[];
   travellers: PortalCallingBoardRow[];
-  updateCallingStatus: (args: { callingStatus: string; travellerId: string }) => Promise<unknown>;
+  updateCallingStatus: PortalWorkspaceState["updateCallingStatus"];
 }
 
 export type OperationsPortalViewComponent = (
@@ -552,14 +527,31 @@ export type OperationsPortalViewComponent = (
 ) => ReactNode;
 
 export interface PortalTicketDashboardSummary {
+  aggregateCoverage?: {
+    bucketCount: number;
+    complete: boolean;
+    scope: string;
+    updatedAt: string | null;
+  };
   attention?: number;
+  cancelled?: number;
   fitTickets?: number;
   groupTickets?: number;
   issued?: number;
   issuedSeats?: number;
   pending?: number;
   pnrCount?: number;
+  preview: PortalTicketListRow[];
+  refunded?: number;
   totalSeats?: number;
+  workCoverage?: {
+    distinctJobCount: number;
+    from: string;
+    pnrRowsRead: number;
+    ticketRowsRead: number;
+    to: string;
+    truncated: boolean;
+  };
 }
 
 export interface PortalTicketListRow {
@@ -634,10 +626,9 @@ export interface TicketDashboardViewProps {
   deleteSelected: PortalBulkDeleteHandler;
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
-  removeManyTickets: (args: { ticketIds: string[] }) => Promise<unknown>;
-  removeTicket: (args: { ticketId?: string }) => Promise<unknown>;
+  removeManyTickets: PortalWorkspaceState["removeManyTickets"];
+  removeTicket: PortalWorkspaceState["removeTicket"];
   summary?: PortalTicketDashboardSummary;
-  tickets: PortalTicketListRow[];
 }
 
 export interface TicketsViewProps {
@@ -645,8 +636,8 @@ export interface TicketsViewProps {
   deleteSelected: PortalBulkDeleteHandler;
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
-  removeManyTickets: (args: { ticketIds: string[] }) => Promise<unknown>;
-  removeTicket: (args: { ticketId?: string }) => Promise<unknown>;
+  removeManyTickets: PortalWorkspaceState["removeManyTickets"];
+  removeTicket: PortalWorkspaceState["removeTicket"];
   rows: PortalTicketListRow[];
 }
 
@@ -656,8 +647,8 @@ export interface PnrViewProps {
   has: PortalPermissionChecker;
   itinerary: PortalFlightItineraryGroup[];
   openModal: PortalModalOpener;
-  removeManyPnrs: (args: { pnrIds: string[] }) => Promise<unknown>;
-  removePnr: (args: { pnrId?: string }) => Promise<unknown>;
+  removeManyPnrs: PortalWorkspaceState["removeManyPnrs"];
+  removePnr: PortalWorkspaceState["removePnr"];
   rows: PortalPnrListRow[];
 }
 
@@ -666,8 +657,8 @@ export interface SeatViewProps {
   deleteSelected: PortalBulkDeleteHandler;
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
-  removeManySeatAllocations: (args: { seatAllocationIds: string[] }) => Promise<unknown>;
-  removeSeatAllocation: (args: { seatAllocationId?: string }) => Promise<unknown>;
+  removeManySeatAllocations: PortalWorkspaceState["removeManySeatAllocations"];
+  removeSeatAllocation: PortalWorkspaceState["removeSeatAllocation"];
   rows: PortalSeatListRow[];
 }
 
@@ -731,7 +722,7 @@ export interface FinanceViewProps {
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
   overview?: PortalFinanceOverview;
-  removeInvoice: (args: { invoiceId?: string }) => Promise<unknown>;
+  removeInvoice: PortalWorkspaceState["removeInvoice"];
   rows: PortalInvoiceListRow[];
 }
 
@@ -762,21 +753,17 @@ export interface PortalExpenseListRow {
 }
 
 export interface ExpensesViewProps {
-  decideExpenseFinance: (args: {
-    expenseId: string;
-    reimbursementStatus: string;
-    status: string;
-  }) => Promise<unknown>;
-  decideExpenseManager: (args: { expenseId: string; status: string }) => Promise<unknown>;
+  decideExpenseFinance: PortalWorkspaceState["decideExpenseFinance"];
+  decideExpenseManager: PortalWorkspaceState["decideExpenseManager"];
   deleteItem: PortalDeleteHandler;
   filtersActive?: boolean;
-  getExpenseAttachmentUrl: (attachmentId: string) => Promise<string>;
+  getExpenseAttachmentUrl: PortalWorkspaceState["getExpenseAttachmentUrl"];
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
-  removeExpense: (args: { expenseId?: string }) => Promise<unknown>;
-  removeExpenseProof: (args: { attachmentId: string }) => Promise<unknown>;
+  removeExpense: PortalWorkspaceState["removeExpense"];
+  removeExpenseProof: PortalWorkspaceState["removeExpenseProof"];
   rows: PortalExpenseListRow[];
-  submitExpenseForApproval: (args: { expenseId: string }) => Promise<unknown>;
+  submitExpenseForApproval: PortalWorkspaceState["submitExpenseForApproval"];
 }
 
 export interface PortalApprovalListRow {
@@ -791,11 +778,11 @@ export interface PortalApprovalListRow {
 }
 
 export interface ApprovalsViewProps {
-  decideApproval: (args: { approvalId: string; status: string }) => Promise<unknown>;
+  decideApproval: PortalWorkspaceState["decideApproval"];
   deleteItem: PortalDeleteHandler;
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
-  removeApproval: (args: { approvalId?: string }) => Promise<unknown>;
+  removeApproval: PortalWorkspaceState["removeApproval"];
   rows: PortalApprovalListRow[];
 }
 
@@ -857,9 +844,9 @@ export interface PortalNotificationRow {
 export interface ActivityViewProps {
   activity: PortalActivityRow[];
   deleteItem: PortalDeleteHandler;
-  markNotificationRead: (args: { notificationId: string }) => Promise<unknown>;
+  markNotificationRead: PortalWorkspaceState["markNotificationRead"];
   notifications: PortalNotificationRow[];
-  removeNotification: (args: { notificationId?: string }) => Promise<unknown>;
+  removeNotification: PortalWorkspaceState["removeNotification"];
 }
 
 export interface PortalLeaveBalanceRow {
@@ -889,12 +876,12 @@ export interface PortalLeaveListRow {
 
 export interface LeaveViewProps {
   access: PortalAccessSlice & { staffId?: string };
-  decideLeave: (args: { leaveId: string; status: string }) => Promise<unknown>;
+  decideLeave: PortalWorkspaceState["decideLeave"];
   deleteItem: PortalDeleteHandler;
   has: PortalPermissionChecker;
   leaveBalances?: PortalLeaveBalanceRow[];
   openModal: PortalModalOpener;
-  removeLeave: (args: { leaveId?: string }) => Promise<unknown>;
+  removeLeave: PortalWorkspaceState["removeLeave"];
   rows: PortalLeaveListRow[];
   staff?: Array<{ id: string; name: string }>;
 }
@@ -928,10 +915,10 @@ export interface SettingsViewProps {
   deleteItem: PortalDeleteHandler;
   dropdowns: Record<string, string[]>;
   openModal: PortalModalOpener;
-  removeStaff: (args: { staffId?: string }) => Promise<unknown>;
+  removeStaff: PortalWorkspaceState["removeStaff"];
   search: string;
   staff: PortalStaffSettingsRow[];
-  startStaffOnboarding: (args: { staffId: string }) => Promise<{ message?: string }>;
+  startStaffOnboarding: PortalWorkspaceState["startStaffOnboarding"];
 }
 
 export type TicketingPortalViewComponent = (

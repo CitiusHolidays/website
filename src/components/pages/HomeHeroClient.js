@@ -13,7 +13,11 @@ export default function HomeHeroClient() {
     target: heroRef,
   });
 
-  const y = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
+  const transform = useTransform(
+    scrollYProgress,
+    [0, 1],
+    ["translate3d(0, 0%, 0)", "translate3d(0, 50%, 0)"]
+  );
   const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   return (
@@ -21,7 +25,7 @@ export default function HomeHeroClient() {
       className="relative flex h-screen min-h-[700px] items-center justify-center overflow-hidden text-center"
       ref={heroRef}
     >
-      <m.div className="absolute inset-0 size-full" style={{ opacity, y }}>
+      <m.div className="absolute inset-0 size-full" style={{ opacity, transform }}>
         <HeroVideo className="size-full object-cover object-center brightness-[0.65]" />
         <div className="absolute inset-0 bg-gradient-to-b from-public-night/60" />
         <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-30 mix-blend-overlay" />

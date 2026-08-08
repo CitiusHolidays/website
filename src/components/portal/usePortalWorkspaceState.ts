@@ -8,18 +8,16 @@ import { useEffect, useRef, useState } from "react";
 import { usePortalServerAccess } from "@/components/portal/PortalAccessContext";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { usePortalToast } from "@/components/portal/PortalToast";
+import type { PipelineMode } from "@/components/portal/pipeline/PipelineView";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
-import {
-  uploadEntityFiles,
-  uploadExpenseProofFiles,
-  uploadQueryFiles,
-} from "@/lib/portal/fileUploads";
+import { uploadExpenseProofFiles, uploadQueryFiles } from "@/lib/portal/fileUploads";
 import {
   isProposalPricingComplete,
   PROPOSAL_HANDOFF_TO_SALES_ERROR,
   PROPOSAL_MARK_SENT_ERROR,
 } from "@/lib/portal/formValidation";
 import { getListFilterConfig } from "@/lib/portal/listFilterConfig";
+import { createProductionModalCommandAdapter } from "@/lib/portal/modalCommandAdapter";
 import { executeModalCommand } from "@/lib/portal/modalCommandExecutor";
 import {
   createInitialModalForm,
@@ -28,14 +26,14 @@ import {
 } from "@/lib/portal/modalLifecycle";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg } from "@/lib/portal/periodFilter";
-import { canAccessPipeline } from "@/lib/portal/permissions";
 import {
   canMoveContractingPipelineForAccess,
   canMoveSalesPipelineForAccess,
 } from "@/lib/portal/pipelineMovementAccess";
+import { canAccessPortalRoute, getPortalRouteDefinition } from "@/lib/portal/portalRouteManifest";
 import { runMutation } from "@/lib/portal/runMutation";
 import { parseUrlFilterState } from "@/lib/portal/urlFilterState";
-import { INITIAL_FORM, VIEW_META } from "@/lib/portal/workspaceContract";
+import { INITIAL_FORM } from "@/lib/portal/workspaceContract";
 import { buildPortalWorkspaceFilters } from "./workspace/portalWorkspaceFilters";
 import { buildPortalWorkspaceRows } from "./workspace/portalWorkspaceRows";
 import { useDashboardSummary } from "./workspace/usePortalDashboardSummary";
@@ -54,8 +52,6 @@ import { compactRows, resetWorkspaceView, resolveUpdate } from "./workspace/work
 
 const P = PORTAL_PERMISSIONS;
 
-type PortalViewId = keyof typeof VIEW_META;
-
 interface PatchAction {
   patch: Partial<WorkspaceState>;
   type: "patch";
@@ -72,7 +68,7 @@ interface WorkspaceState {
   pendingExpenseProofFiles: File[];
   pendingProposalFiles: File[];
   pendingQueryFiles: File[];
-  pipelineMode: string;
+  pipelineMode: PipelineMode;
   saveFlash: boolean;
   search: string;
 }
@@ -141,7 +137,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     patchState({ error: resolveUpdate(value, error) });
   const setIsSaving = (value: StateUpdate<boolean>) =>
     patchState({ isSaving: resolveUpdate(value, isSaving) });
-  const _setPipelineMode = (value: StateUpdate<string>) =>
+  const _setPipelineMode = (value: StateUpdate<PipelineMode>) =>
     patchState({ pipelineMode: resolveUpdate(value, pipelineMode) });
   const setSearch = (value: StateUpdate<string>) =>
     patchState({ search: resolveUpdate(value, search) });
@@ -182,14 +178,18 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
   const liveAccess = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
   const access = liveAccess ?? serverAccess;
   const has = (permission: string) => Boolean(access?.permissions?.includes(permission));
-  const viewMetaKey = (view in VIEW_META ? view : "dashboard") as PortalViewId;
-  const meta = VIEW_META[viewMetaKey];
-  const allowed =
-    access?.allowed && (view === "pipeline" ? canAccessPipeline(access) : has(meta.permission));
+  const meta = getPortalRouteDefinition(view);
+  const allowed = canAccessPortalRoute({ access, has, view });
   const canFetch = isAuthenticated && access?.allowed;
   const [referenceNow] = useState(() => Date.now());
 
-  const summary = useDashboardSummary(allowed, canFetch, dateRangeArg, referenceNow, view);
+  const summary = useDashboardSummary(
+    allowed,
+    canFetch,
+    dateRangeArg,
+    referenceNow,
+    meta.dependencies.includes("dashboard")
+  );
   const savedViews = useQuery(
     api.crm.savedViews.listForPortal,
     canFetch && allowed ? { view } : "skip"
@@ -385,7 +385,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     filteredVisas,
     periodFiltered,
     viewResultCount,
-    workspaceRows,
   } = buildPortalWorkspaceRows({
     activity,
     approvals,
@@ -519,10 +518,10 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     }
   };
 
-  const deleteItem = async (
+  const deleteItem = async <Args extends AnyRecord>(
     label: string,
-    mutation: MutationLike,
-    args: AnyRecord,
+    mutation: MutationLike<Args>,
+    args: Args,
     options: { confirmMessage?: string } = {}
   ) => {
     setError("");
@@ -539,11 +538,11 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     });
   };
 
-  const deleteSelected = async (
+  const deleteSelected = async <Args extends AnyRecord>(
     count: number,
     entityLabel: string,
-    mutation: MutationLike,
-    buildArgs: () => AnyRecord
+    mutation: MutationLike<Args>,
+    buildArgs: () => Args
   ) => {
     setError("");
     if (count === 0) {
@@ -633,65 +632,71 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
         },
         async () => {
           saveSuccessMessage = await executeModalCommand({
-            deps: {
-              access,
-              addJobCardCollaborator,
-              addProposalCollaborator,
-              assignContracting,
-              assignContractingOwner,
-              assignJobCardCreator,
-              assignOperationsOwner,
-              assignQueryTeams,
-              assignQueryTicketing,
-              assignTicketingOwner,
-              attachExpenseProof,
-              attachProposalFile,
-              attachQueryFile,
-              createExpense,
-              createHotel,
-              createInvoice,
-              createJobCard,
-              createLeave,
-              createPnr,
-              createProposal,
-              createQuery,
-              createTicket,
-              createTourManager,
-              createTraveller,
-              createVisa,
-              decideApproval,
-              generateExpenseUploadUrl,
-              generateProposalUploadUrl,
-              generateQueryUploadUrl,
-              has,
-              jobCardModals: JOB_CARD_MODALS,
-              pendingExpenseProofFiles,
-              pendingProposalFiles,
-              pendingQueryFiles,
-              queries: queries || [],
-              removeJobCardCollaborator,
-              removeProposalCollaborator,
-              saveSeat,
-              team: team || [],
-              updateExpense,
-              updateHotel,
-              updateInvoice,
-              updateJobCard,
-              updateLeave,
-              updatePnr,
-              updateProposal,
-              updateQuery,
-              updateQueryStatus,
-              updateSeatAllocation,
-              updateTicket,
-              updateTourManager,
-              updateTraveller,
-              updateVisaRecord,
-              uploadEntityFiles,
-              uploadExpenseProofFiles,
-              uploadQueryFiles,
-              upsertStaff,
-            },
+            adapter: createProductionModalCommandAdapter({
+              administration: {
+                attachExpenseProof,
+                createExpense,
+                createInvoice,
+                createLeave,
+                decideApproval,
+                generateExpenseUploadUrl,
+                has,
+                pendingExpenseProofFiles,
+                updateExpense,
+                updateInvoice,
+                updateLeave,
+                uploadExpenseProofFiles,
+                upsertStaff,
+              },
+              commercial: {
+                addJobCardCollaborator,
+                addProposalCollaborator,
+                assignContracting,
+                assignContractingOwner,
+                assignJobCardCreator,
+                assignOperationsOwner,
+                assignQueryTeams,
+                assignQueryTicketing,
+                assignTicketingOwner,
+                attachQueryFile,
+                createJobCard,
+                createProposal,
+                createQuery,
+                generateQueryUploadUrl,
+                has,
+                pendingQueryFiles,
+                queries: queries || [],
+                removeJobCardCollaborator,
+                removeProposalCollaborator,
+                updateJobCard,
+                updateProposal,
+                updateQuery,
+                updateQueryStatus,
+                uploadQueryFiles,
+              },
+              operations: {
+                createHotel,
+                createPnr,
+                createTicket,
+                createTourManager,
+                createTraveller,
+                createVisa,
+                saveSeat,
+                team: team || [],
+                updateHotel,
+                updatePnr,
+                updateSeatAllocation,
+                updateTicket,
+                updateTourManager,
+                updateTraveller,
+                updateVisaRecord,
+              },
+              policy: {
+                access,
+                has,
+                jobCardModals: JOB_CARD_MODALS,
+              },
+            }),
             form: effectiveForm,
             modal,
           });
@@ -716,68 +721,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     gate = "ready";
   }
 
-  const session = {
-    access,
-    allowed,
-    canFetch,
-    canViewTravellers,
-    gate,
-    has,
-  };
-  const filterState = {
-    clearAllFilters,
-    dateRange,
-    filtersActive,
-    jobCardFilter,
-    listFilterConfig,
-    listFilters,
-    periodFiltered,
-    replaceFilterUrl,
-    search,
-    setDateRangeWithUrl,
-    setJobCardFilterWithUrl,
-    setListFilterValue,
-    setSearchWithUrl,
-    showJobCardFilter,
-  };
-  const modalControls = {
-    closeModal,
-    error,
-    form: effectiveForm,
-    isSaving,
-    modal,
-    openModal,
-    patchForm,
-    saveFlash,
-    submit,
-    updateForm,
-  };
-  const commands = {
-    applySavedView,
-    clearAllFilters,
-    closeModal,
-    deleteItem,
-    deleteSavedView,
-    deleteSelected,
-    openModal,
-    saveCurrentView,
-    setDateRangeWithUrl,
-    setJobCardFilterWithUrl,
-    setListFilterValue,
-    setSearchWithUrl,
-    submit,
-    toggleSavedViewFavorite,
-    toggleSavedViewPinned,
-  };
-  const workspaceFacade = {
-    commands,
-    filters: filterState,
-    modal: modalControls,
-    rows: workspaceRows,
-    savedViews: savedViewLinks,
-    session,
-  };
-
   return {
     access,
     accountsJobCardCreators,
@@ -801,7 +744,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     canViewTravellers,
     clearAllFilters,
     closeModal,
-    commands,
     commitFlightImport,
     commitPassengerImport,
     createExpense,
@@ -852,7 +794,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     filteredTourManagers,
     filteredTravellers,
     filteredVisas,
-    filters: filterState,
     filtersActive,
     financeOverview,
     flightItinerary,
@@ -935,7 +876,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     reports,
     roomCountSummary,
     router,
-    rows: workspaceRows,
     saveCurrentView,
     savedViews: savedViewLinks,
     saveFlash,
@@ -945,7 +885,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     searchPreparing,
     seats,
     sendProposalToSales,
-    session,
     setDateRangeWithUrl,
     setJobCardCreatorAccess,
     setJobCardFilterWithUrl,
@@ -994,6 +933,5 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     view,
     viewResultCount,
     visas,
-    workspace: workspaceFacade,
   };
 }

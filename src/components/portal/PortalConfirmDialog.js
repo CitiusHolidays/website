@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { createContext, use, useCallback, useEffect, useId, useRef, useState } from "react";
 import { HoldToDeleteButton } from "@/components/motion-ui/hold-to-delete";
 import {
@@ -9,6 +9,7 @@ import {
   ControlledAlertDialogDescription,
   ControlledAlertDialogTitle,
 } from "@/components/ui/application-dialog";
+import { DESTRUCTIVE_HOLD_SECONDS } from "@/lib/portal/destructiveSafetyPolicy";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const PortalConfirmContext = createContext(null);
@@ -27,7 +28,6 @@ function canReceiveRestoredFocus(element) {
 }
 
 export function PortalConfirmProvider({ children }) {
-  const shouldReduceMotion = useReducedMotion();
   const [state, setState] = useState(null);
   const resolverRef = useRef(null);
   const originRef = useRef(null);
@@ -35,7 +35,6 @@ export function PortalConfirmProvider({ children }) {
   const cancelRef = useRef(null);
   const actionInFlightRef = useRef(false);
   const stateRef = useRef(null);
-  const HOLD_SECONDS = shouldReduceMotion ? 0.6 : 2;
   const errorId = `${useId().replaceAll(":", "")}-confirm-error`;
   const isOpen = Boolean(state);
 
@@ -177,7 +176,7 @@ export function PortalConfirmProvider({ children }) {
                 <HoldToDeleteButton
                   data-testid="portal-confirm-hold"
                   disabled={state.pending}
-                  holdSeconds={HOLD_SECONDS}
+                  holdSeconds={DESTRUCTIVE_HOLD_SECONDS}
                   key={state.error ? `retry-${state.error}` : "hold"}
                   onConfirm={handleConfirm}
                 >

@@ -23,6 +23,7 @@ beforeAll(async () => {
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
+  globalThis.SVGElement = dom.window.SVGElement;
   globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
@@ -326,6 +327,34 @@ describe("mounted portal confirmation", () => {
     await flushFocusFrame();
     const confirm = [...document.querySelectorAll('[role="alertdialog"] button')].at(-1);
     expect(confirm.textContent).toContain("Hold to delete");
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("keeps the two-second destructive hold under reduced motion", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    let result;
+    await renderHarness(root, {
+      action: undefined,
+      onResult: (value) => {
+        result = value;
+      },
+    });
+    await act(async () => container.querySelector('[data-testid="confirm-trigger"]').click());
+    await flushFocusFrame();
+    const hold = document.querySelector('[data-testid="portal-confirm-hold"]');
+
+    act(() => {
+      hold.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 1 }));
+    });
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 800)));
+
+    expect(result).toBeUndefined();
+    act(() => {
+      hold.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, pointerId: 1 }));
+    });
     await act(async () => root.unmount());
     container.remove();
   });

@@ -51,6 +51,17 @@ export function PortalWorkspaceSpreadsheetModals({
   workspace: PortalSpreadsheetModalWorkspaceSlice;
 }) {
   const { modal } = workspace;
+  const access = workspace.access ?? {};
+  const flightItinerary = workspace.flightItinerary ?? [];
+  const jobCards = workspace.jobCards ?? [];
+  const leaveHeadApproverCandidates = workspace.leaveHeadApproverCandidates ?? [];
+  const pnrs = workspace.pnrs ?? [];
+  const proposals = workspace.proposals ?? [];
+  const queries = workspace.queries ?? [];
+  const team = workspace.team ?? [];
+  const travellers = workspace.travellers ?? [];
+  const travellersWithoutVisa = workspace.travellersWithoutVisa ?? [];
+  const visas = workspace.visas ?? [];
 
   return (
     <>
@@ -60,7 +71,19 @@ export function PortalWorkspaceSpreadsheetModals({
       {shouldLoadEntityModalBridge(modal) ? (
         <TravelBatchEntityModalBridge
           key={travelBatchEntityModalKey(modal, workspace.form)}
-          workspace={workspace}
+          workspace={{
+            ...workspace,
+            access,
+            jobCards,
+            leaveHeadApproverCandidates,
+            pnrs,
+            proposals,
+            queries,
+            team,
+            travellers,
+            travellersWithoutVisa,
+            visas,
+          }}
         />
       ) : null}
       {PASSENGER_IMPORT_MODAL_CONFIGS.map((config) =>
@@ -68,7 +91,7 @@ export function PortalWorkspaceSpreadsheetModals({
           <PassengerImportModal
             close={workspace.closeModal}
             commitPassengerImport={workspace.commitPassengerImport}
-            jobCards={workspace.jobCards}
+            jobCards={jobCards}
             key={config.modal}
             open
             previewPassengerImport={workspace.previewPassengerImport}
@@ -80,8 +103,8 @@ export function PortalWorkspaceSpreadsheetModals({
         <FlightImportModal
           close={workspace.closeModal}
           commitFlightImport={workspace.commitFlightImport}
-          itinerary={workspace.flightItinerary}
-          jobCards={workspace.jobCards}
+          itinerary={flightItinerary}
+          jobCards={jobCards}
           open
         />
       ) : null}
@@ -90,7 +113,7 @@ export function PortalWorkspaceSpreadsheetModals({
           <PassengerExportModal
             close={workspace.closeModal}
             getPassengerExportRows={workspace.getPassengerExportRows}
-            jobCards={workspace.jobCards}
+            jobCards={jobCards}
             key={config.modal}
             open
             {...config}
@@ -100,8 +123,8 @@ export function PortalWorkspaceSpreadsheetModals({
       {modal === "flightExport" ? (
         <FlightExportModal
           close={workspace.closeModal}
-          itinerary={workspace.flightItinerary}
-          jobCards={workspace.jobCards}
+          itinerary={flightItinerary}
+          jobCards={jobCards}
           open
         />
       ) : null}

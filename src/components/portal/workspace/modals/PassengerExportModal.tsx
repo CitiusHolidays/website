@@ -22,10 +22,10 @@ export interface PassengerExportModalProps {
     options: { sheetName: string }
   ) => Promise<unknown>;
   close: () => void;
-  exportKind?: string;
+  exportKind?: "passport" | "passenger" | "rooming" | "traveller" | "visa";
   filenameSuffix?: string;
   getPassengerExportRows: (args: {
-    exportKind?: string;
+    exportKind?: "passport" | "passenger" | "rooming" | "traveller" | "visa";
     jobCardId: string;
   }) => Promise<{ clientName?: string; jobCode?: string; rows: SpreadsheetImportPreviewRow[] }>;
   jobCards: PortalJobCardOption[];

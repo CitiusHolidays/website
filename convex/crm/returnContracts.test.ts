@@ -419,6 +419,7 @@ describe("dashboard return contracts", () => {
         {
           _id: "tickets_1",
           createdAt: Date.parse(ISO),
+          jobCardId: JOB_CARD_ID,
           ticketNumber: "TKT-1",
           ticketStatus: "Reissue Required",
           updatedAt: Date.parse(ISO),

@@ -14,7 +14,7 @@ import {
 import { buildQueryListSearchText } from "./listSearch";
 import { notifyQueryAssignmentHeads, notifyTicketingHeadOnQueryIntake } from "./queryNotifications";
 import { applyQueryTeamAssignments } from "./queryTeamAssignment";
-import type { QueryType, TravelType } from "./queryValidators";
+import type { QuerySource, QueryType, TravelType } from "./queryValidators";
 
 const SALES_REP_ROLES = new Set(["Sales", "Sales Head", "Sales Cement"]);
 
@@ -57,6 +57,7 @@ export async function handleQueryCreate(
     batchingNotes?: string;
     budgetAmount?: number;
     clientName: string;
+    contactEmail?: string;
     contactMobile?: string;
     contactPerson?: string;
     contractingStaffId?: string;
@@ -66,7 +67,8 @@ export async function handleQueryCreate(
     queryType: QueryType;
     salesOwnerName?: string;
     salesOwnerStaffId?: string;
-    source?: string;
+    source?: QuerySource;
+    sourceConsentAt?: number;
     ticketingScope?: string;
     travelEndDate?: string;
     travelInBatches?: boolean;
@@ -97,6 +99,8 @@ export async function handleQueryCreate(
       ctx.db.insert("clients", {
         contactPerson: args.contactPerson?.trim() || "",
         createdAt: now,
+        email: args.contactEmail?.trim().toLowerCase() || "",
+        emailNormalized: args.contactEmail?.trim().toLowerCase() || undefined,
         name: args.clientName.trim(),
         phone: args.contactMobile?.trim() || "",
         updatedAt: now,
@@ -140,7 +144,8 @@ export async function handleQueryCreate(
     salesOwnerId: salesOwnerStaff?.authUserId ?? access.authUserId,
     salesOwnerName,
     salesStatus: "Proposal in discussion" as const,
-    source: (args.source ?? "Client") as "Website" | "WhatsApp" | "Email" | "Client" | "Referral",
+    source: args.source ?? "Client",
+    sourceConsentAt: args.sourceConsentAt,
     submittedToContractingAt: now,
     travelEndDate: args.travelEndDate || "",
     travelInBatches: Boolean(args.travelInBatches),

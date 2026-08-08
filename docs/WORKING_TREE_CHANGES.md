@@ -163,8 +163,8 @@ the wrong destination fails with both the deleted path and expected successor in
 - `config/release/release-contract.json`, `vercel.json`, and `RELEASE.md` protect and explain the
   Convex-aware Vercel build command, preview/production key separation, activation, and rollback.
 - The lint ratchet blocks per-rule regressions while the older all-files lint backlog is burned down.
-- React Compiler opt-outs were removed from active portal paths, stable boundaries were extracted,
-  and React Doctor reports a clean result.
+- React Compiler opt-outs were removed from active portal paths and stable boundaries were
+  extracted. The historical React Doctor run reported a clean result for that snapshot.
 
 ## Repository cleanup
 
@@ -182,9 +182,36 @@ the wrong destination fails with both the deleted path and expected successor in
   media from being accidentally recompressed again.
 - Finder metadata and the generated TypeScript build-info cache were removed locally.
 
-## Current verification snapshot (5 August 2026)
+## Current implementation snapshot (7 August 2026)
 
-The post-MP4 remediation checkpoint completed the following local gates:
+Architecture review #43 was implemented on branch `codex/review-remediation-43` from base
+`7a1fc00f5773d7fa8902839f8bf7e79789f36e03`. This is local implementation proof only. The branch
+has not been pushed or deployed, and no production environment was changed.
+
+The implementation covers the review's correctness, authorization, bounded-read, account journey,
+public motion/accessibility, repository visibility, environment preflight, modal-command, and portal
+route-lifecycle work. The customer-attribution indexes remain a staged rollout: follow
+[`migrations/customer-attribution-backfill.md`](migrations/customer-attribution-backfill.md) before
+activating index-only reads in any deployment.
+
+| Gate | Result |
+| --- | --- |
+| `bun run verify:local` | Passed all target-neutral gates at dirty evidence revision `7a1fc00f5773d7fa8902839f8bf7e79789f36e03+dirty.6ee38a4b2626` before this documentation-only evidence update |
+| Test suite | 1,352 passed, 0 failed with 6,749 expectations across 306 files |
+| Application and Convex typechecks | Passed |
+| `bun run lint:ratchet` | Passed at 0 errors / 1,807 warnings, below the 1,865-warning ceiling |
+| Assets and performance budgets | 54 deployed assets checked across 711 source files; all three budgeted assets passed |
+| Application and Studio dependency audits | No vulnerabilities found; frozen Studio install and static build passed |
+| `bun --bun next build` | Passed with Next.js 16.3.0; 86 static pages generated; no deployment was run |
+| Fresh `bunx convex codegen` | Passed against the already identified development deployment and uploaded development functions; no production target was touched |
+| Public browser smoke | Seven available desktop/mobile cases passed: home, Pilgrimage, Kailash, Sacred Bharat, staff sign-in, and account redirect; authenticated role cases were skipped because no role sessions were supplied |
+| React Doctor 0.9.5 changed-file review | 44 advisory findings reviewed: 35 stable-reference memos, three intentional mount/exit synchronizers, two helper-export heuristics, one confirm-error exit heuristic, one prop-synchronization duplicate, and two existing Sacred Bharat compiler limitations |
+| Preview and production verification | Not run; deployment, signed-in role smoke, and production proof remain separate authorized work |
+
+## Last verified snapshot (5 August 2026)
+
+The post-MP4 remediation checkpoint completed the following local gates on its recorded commit.
+This historical snapshot may be stale and is not evidence for later source changes:
 
 | Gate | Result |
 | --- | --- |

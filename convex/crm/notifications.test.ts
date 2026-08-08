@@ -453,6 +453,11 @@ describe("notificationReads bounded fetch", () => {
     return {
       db: {
         query: (table: string) => {
+          if (table === "notificationReads") {
+            return {
+              withIndex: () => ({ collect: async () => [] }),
+            };
+          }
           if (table !== "notifications") {
             throw new Error(`Unexpected table ${table}`);
           }

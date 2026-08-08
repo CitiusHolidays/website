@@ -9,19 +9,17 @@ import { AccountHeader } from "@/components/account/AccountSidebar";
 import { AccountHero } from "@/components/account/AccountUi";
 import { logout } from "@/lib/auth-client";
 
-const EMPTY_BOOKINGS = [];
+const EMPTY_JOURNEYS = Object.freeze({ referenceNow: 0, summaries: [] });
 
-function splitBookings(bookings) {
-  const now = Date.now();
-  return bookings.reduce(
+function splitJourneys(summaries) {
+  return summaries.reduce(
     (groups, item) => {
-      const start = Date.parse(item.trip?.startDate || "");
-      if (item.booking?.status === "cancelled") {
+      if (item.category === "cancelled") {
         groups.cancelled.push(item);
-      } else if (Number.isFinite(start) && start >= now) {
-        groups.upcoming.push(item);
-      } else {
+      } else if (item.category === "past") {
         groups.past.push(item);
+      } else {
+        groups.upcoming.push(item);
       }
       return groups;
     },
@@ -29,10 +27,10 @@ function splitBookings(bookings) {
   );
 }
 
-export default function AccountClient({ user, bookings = EMPTY_BOOKINGS }) {
+export default function AccountClient({ user, journeys = EMPTY_JOURNEYS, confirmedTrips = [] }) {
   const [activeTab, setActiveTab] = useState("journeys");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const groups = useMemo(() => splitBookings(bookings), [bookings]);
+  const groups = useMemo(() => splitJourneys(journeys.summaries), [journeys.summaries]);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -56,12 +54,14 @@ export default function AccountClient({ user, bookings = EMPTY_BOOKINGS }) {
       <div className="mx-auto min-h-[calc(100vh-5rem)] max-w-[1440px] px-5 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
         <main>
           {activeTab === "journeys" && <AccountHero user={user} />}
-          <AnimatePresence mode="wait">
+          <AnimatePresence initial={false} mode="sync">
             {activeTab === "journeys" && (
               <AccountJourneysPanel
                 cancelledBookings={groups.cancelled}
+                confirmedTrips={confirmedTrips}
                 key="journeys"
                 pastBookings={groups.past}
+                referenceNow={journeys.referenceNow}
                 upcomingBookings={groups.upcoming}
               />
             )}

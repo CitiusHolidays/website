@@ -331,10 +331,13 @@ export default defineSchema({
     corporateDetails: v.optional(v.string()),
     createdAt: v.number(),
     email: v.optional(v.string()),
+    emailNormalized: v.optional(v.string()),
     name: v.string(),
     phone: v.optional(v.string()),
     updatedAt: v.number(),
-  }).index("by_name", ["name"]),
+  })
+    .index("by_name", ["name"])
+    .index("by_emailNormalized", { fields: ["emailNormalized"], staged: true }),
 
   commercialFiles: defineTable({
     category: v.union(v.literal("workingFile"), v.literal("proposalDoc")),
@@ -411,6 +414,9 @@ export default defineSchema({
     proposalId: v.id("proposals"),
     queryId: v.id("queries"),
     sellingPricePerPax: v.number(),
+    source: v.optional(querySource),
+    sourceConsentAt: v.optional(v.number()),
+    sourceInboundIntentId: v.optional(v.id("inboundQueryIntents")),
     taxRate: v.optional(v.number()),
     travelEndDate: v.optional(v.string()),
     travelStartDate: v.string(),
@@ -681,6 +687,7 @@ export default defineSchema({
     clientName: v.string(),
     consentAt: v.number(),
     contactEmail: v.optional(v.string()),
+    contactEmailNormalized: v.optional(v.string()),
     contactMobile: v.optional(v.string()),
     convertedQueryId: v.optional(v.string()),
     createdAt: v.number(),
@@ -695,6 +702,10 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_createdAt", ["createdAt"])
+    .index("by_contactEmailNormalized", {
+      fields: ["contactEmailNormalized"],
+      staged: true,
+    })
     .index("by_submissionKeyHash", ["submissionKeyHash"])
     .index("by_submissionKeyHash_createdAt", ["submissionKeyHash", "createdAt"])
     .searchIndex("search_list", {
@@ -884,6 +895,18 @@ export default defineSchema({
     .index("by_createdAt", ["createdAt"])
     .index("by_recipientUserId_createdAt", ["recipientUserId", "createdAt"])
     .index("by_recipientRole_createdAt", ["recipientRole", "createdAt"]),
+
+  notificationReads: defineTable({
+    authUserId: v.optional(v.string()),
+    notificationId: v.id("notifications"),
+    readAt: v.number(),
+    staffId: v.optional(v.id("staffUsers")),
+  })
+    .index("by_notificationId", ["notificationId"])
+    .index("by_notification_staff", ["notificationId", "staffId"])
+    .index("by_notification_user", ["notificationId", "authUserId"])
+    .index("by_staffId", ["staffId"])
+    .index("by_authUserId", ["authUserId"]),
 
   offices: defineTable({
     active: v.boolean(),
@@ -1133,6 +1156,7 @@ export default defineSchema({
     salesOwnerName: v.optional(v.string()),
     salesStatus,
     source: v.optional(querySource),
+    sourceConsentAt: v.optional(v.number()),
     submittedToContractingAt: v.optional(v.number()),
     ticketingOwnerId: v.optional(v.string()),
     ticketingOwnerName: v.optional(v.string()),
@@ -1144,6 +1168,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_queryCode", ["queryCode"])
+    .index("by_clientId", { fields: ["clientId"], staged: true })
     .index("by_salesStatus", ["salesStatus"])
     .index("by_contractingStatus", ["contractingStatus"])
     .index("by_createdBy", ["createdBy"])
@@ -1598,12 +1623,16 @@ export default defineSchema({
     .index("by_legacyTripId", ["legacyTripId"])
     .index("by_isActive_startDate", ["isActive", "startDate"]),
   userProfiles: defineTable({
-    authUserId: v.string(),
+    archivedAt: v.optional(v.number()),
+    archivedAuthUserId: v.optional(v.string()),
+    authUserId: v.optional(v.string()),
     createdAt: v.number(),
     email: v.string(),
     emailNormalized: v.optional(v.string()),
     image: v.optional(v.string()),
     legacyUserId: v.optional(v.string()),
+    mergeConflictFields: v.optional(v.array(v.string())),
+    mergedIntoProfileId: v.optional(v.id("userProfiles")),
     name: v.string(),
     passportDetailsEncrypted: v.optional(v.string()),
     phoneNumber: v.optional(v.string()),

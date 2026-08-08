@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { assertJobCardChildRelations, normalizeOptionalChildId } from "./jobCardRelations";
 import { getVisibleJob } from "./jobCardVisibility";
 import {
@@ -16,8 +17,7 @@ import {
 import { mapInBoundedBatches } from "./paginationPolicy";
 import {
   adjustPnrIssuedSeatsOnStatusChange,
-  notifyTicketAttentionIfNeeded,
-  syncTravellerTicketStatus,
+  applyTicketStatusTransitionEffects,
 } from "./ticketStatusPolicy";
 
 export async function handleCreateTicket(
@@ -82,13 +82,15 @@ export async function handleCreateTicket(
     updatedAt: now,
   });
 
-  await syncTravellerTicketStatus(ctx, travellerId, args.ticketStatus, now);
-  await adjustPnrIssuedSeatsOnStatusChange(ctx, {
+  await applyTicketStatusTransitionEffects(ctx, {
     effectivePnrId: pnrId,
+    entityId: id,
+    jobCode: job.jobCode,
+    nextStatus: args.ticketStatus,
     now,
-    wasIssued: false,
-    willBeIssued: args.ticketStatus === "Issued",
+    travellerId,
   });
+  await scheduleCrmMetricSync(ctx, "tickets", String(id));
 
   await createActivity(ctx, access, {
     action: "created",
@@ -96,7 +98,6 @@ export async function handleCreateTicket(
     entityType: "ticket",
     message: `Ticket ${args.ticketNumber?.trim() || id} added to ${job.jobCode}`,
   });
-  await notifyTicketAttentionIfNeeded(ctx, args.ticketStatus, job.jobCode, id);
   return { id };
 }
 
@@ -186,21 +187,20 @@ export async function handleUpdateTicket(
   }
 
   const effectivePnrId = (pnrId === undefined ? ticket.pnrId : pnrId) ?? null;
-  const wasIssued = ticket.ticketStatus === "Issued";
-  const willBeIssued = nextStatus === "Issued";
-
   await ctx.db.patch(ticketId, patch);
 
   const linkedTravellerId = travellerId === undefined ? ticket.travellerId : travellerId;
-  await syncTravellerTicketStatus(ctx, linkedTravellerId, nextStatus, now);
-
-  await adjustPnrIssuedSeatsOnStatusChange(ctx, {
+  await applyTicketStatusTransitionEffects(ctx, {
     effectivePnrId,
+    entityId: ticketId,
+    jobCode: job.jobCode,
+    nextStatus,
     now,
     previousPnrId: ticket.pnrId,
-    wasIssued,
-    willBeIssued,
+    previousStatus: ticket.ticketStatus,
+    travellerId: linkedTravellerId,
   });
+  await scheduleCrmMetricSync(ctx, "tickets", String(ticketId));
 
   await createActivity(ctx, access, {
     action: "updated",
@@ -208,12 +208,6 @@ export async function handleUpdateTicket(
     entityType: "ticket",
     message: `Ticket ${ticket.ticketNumber || ticketId} updated`,
   });
-  if (args.ticketStatus) {
-    const notifyJob = await ctx.db.get(ticket.jobCardId);
-    if (notifyJob) {
-      await notifyTicketAttentionIfNeeded(ctx, args.ticketStatus, notifyJob.jobCode, ticketId);
-    }
-  }
   return { id: ticketId };
 }
 
@@ -253,7 +247,17 @@ export async function handleUpdateTicketStatus(
     ticketStatus: args.ticketStatus,
     updatedAt: now,
   });
-  await syncTravellerTicketStatus(ctx, ticket.travellerId, args.ticketStatus, now);
+  await applyTicketStatusTransitionEffects(ctx, {
+    effectivePnrId: ticket.pnrId,
+    entityId: ticketId,
+    jobCode: job.jobCode,
+    nextStatus: args.ticketStatus,
+    now,
+    previousPnrId: ticket.pnrId,
+    previousStatus: ticket.ticketStatus,
+    travellerId: ticket.travellerId,
+  });
+  await scheduleCrmMetricSync(ctx, "tickets", String(ticketId));
   await createActivity(ctx, access, {
     action: "status_updated",
     entityId: ticketId,
@@ -303,6 +307,7 @@ export async function deleteTicketRecord(
     }),
     deleteEntityNotifications(ctx, "ticket", ticketId, deferredNotifications),
     ctx.db.delete(ticketId),
+    scheduleCrmMetricSync(ctx, "tickets", String(ticketId)),
   ]);
 }
 

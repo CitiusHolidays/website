@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 
 const PIPELINE_SOURCE = readFileSync("src/components/portal/pipeline/PipelineView.tsx", "utf8");
 const NATIVE_DRAG_ATTRIBUTE_PATTERN = /\sdraggable=\{/;
+const PIPELINE_LAYOUT_GROUP_PATTERN = /pipeline-\$\{mode\}/;
+const PIPELINE_LAYOUT_ID_PATTERN = /pipeline-card-\$\{item\.id\}/;
 
 describe("Pipeline dnd-kit ownership", () => {
   test("installs pointer, touch, and keyboard sensors through the code-owned boundary", () => {
@@ -18,6 +20,13 @@ describe("Pipeline dnd-kit ownership", () => {
   test("renders drag translation without scaling a card to its stage", () => {
     expect(PIPELINE_SOURCE).toContain("CSS.Translate.toString(transform)");
     expect(PIPELINE_SOURCE).not.toContain("CSS.Transform.toString(transform)");
+  });
+
+  test("shares an interruptible layout identity when a card settles into a new stage", () => {
+    expect(PIPELINE_SOURCE).toContain("<LayoutGroup id=");
+    expect(PIPELINE_SOURCE).toMatch(PIPELINE_LAYOUT_GROUP_PATTERN);
+    expect(PIPELINE_SOURCE).toContain("layoutId=");
+    expect(PIPELINE_SOURCE).toMatch(PIPELINE_LAYOUT_ID_PATTERN);
   });
 
   test("keeps dnd-kit private to Pipeline and retires native drag transfer ownership", () => {

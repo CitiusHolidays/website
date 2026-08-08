@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { snapshotNewlyConfirmedOffer } from "./confirmedOffer";
 import {
@@ -36,6 +37,15 @@ import type { QueryStatusArgs } from "./queryValidators";
 
 export { handleQueryCreate } from "./queryCreation";
 
+export function assertInboundQuerySourceUnchanged(
+  current: Pick<Doc<"queries">, "inboundIntentId" | "source">,
+  nextSource: string | undefined
+) {
+  if (current.inboundIntentId && nextSource !== undefined && nextSource !== current.source) {
+    throw new ConvexError("Inbound Query source is immutable");
+  }
+}
+
 export async function handleQueryUpdate(
   ctx: MutationCtx,
   args: {
@@ -70,6 +80,7 @@ export async function handleQueryUpdate(
   if (!canSeeQueryRecord(access, current)) {
     throw new ConvexError("FORBIDDEN");
   }
+  assertInboundQuerySourceUnchanged(current, args.source);
   if (args.clientName !== undefined && !args.clientName.trim()) {
     throw new ConvexError("Client name is required");
   }

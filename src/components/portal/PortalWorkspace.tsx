@@ -8,29 +8,24 @@ import {
 } from "@/components/portal/PortalChromeContext";
 import { PortalCommandPaletteRoot } from "@/components/portal/PortalCommandPalette";
 import { PortalFilterActionsProvider } from "@/components/portal/PortalFilterActions";
-import { type PortalSavedView, usePortalChrome } from "@/components/portal/portalChromeState";
+import { usePortalChrome } from "@/components/portal/portalChromeState";
 import SaveViewDialog from "@/components/portal/SaveViewDialog";
 import { usePortalNotificationDeepLink } from "@/components/portal/usePortalNotificationDeepLink";
 import { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
 import { PortalWorkspaceSpreadsheetModals } from "@/components/portal/workspace/modals/PortalWorkspaceSpreadsheetModals";
-import type { PortalSpreadsheetModalWorkspaceSlice } from "@/components/portal/workspace/modals/portalSpreadsheetModalTypes";
 import {
   PortalWorkspaceHeader,
-  type PortalWorkspaceHeaderSlice,
   WorkspacePagination,
 } from "@/components/portal/workspace/PortalWorkspaceHeader";
 import { LoadingPanel } from "@/components/portal/workspace/portalAdminHelpers";
-import { renderPortalView } from "@/components/portal/workspace/portalViewRegistry";
 import {
-  buildPortalViewRegistryInputs,
-  resolveViewPagination,
-} from "@/components/portal/workspace/portalViewRegistryInputs";
-import type {
-  SaveCurrentViewOptions,
-  SavedViewRecord,
-} from "@/components/portal/workspace/workspaceStateTypes";
+  PortalRouteLifecycleBoundary,
+  renderPortalRoute,
+} from "@/components/portal/workspace/portalRouteLifecycle";
+import type { SaveCurrentViewOptions } from "@/components/portal/workspace/workspaceStateTypes";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
+import { resolvePortalRoutePagination } from "@/lib/portal/portalRouteManifest";
 
 const P = PORTAL_PERMISSIONS;
 
@@ -47,24 +42,11 @@ function PortalWorkspaceInner({ view = "dashboard" }: { view?: string }) {
   const workspace = usePortalWorkspaceState(view, searchParams);
   usePortalNotificationDeepLink(workspace);
 
-  if (workspace.gate === "loading") {
-    return <LoadingPanel />;
-  }
-
-  if (workspace.gate === "denied") {
-    return (
-      <div className="rounded-2xl border border-brand-border bg-white p-8 shadow-sm">
-        <div className="font-heading font-semibold text-citius-blue text-xl">
-          No access to this portal page
-        </div>
-        <p className="mt-2 text-brand-muted text-sm">
-          Your account is signed in, but your staff role does not include this module.
-        </p>
-      </div>
-    );
-  }
-
-  return <PortalWorkspaceLayout workspace={workspace} />;
+  return (
+    <PortalRouteLifecycleBoundary gate={workspace.gate} view={workspace.view}>
+      <PortalWorkspaceLayout workspace={workspace} />
+    </PortalRouteLifecycleBoundary>
+  );
 }
 
 function PortalWorkspaceViews({
@@ -72,11 +54,11 @@ function PortalWorkspaceViews({
 }: {
   workspace: ReturnType<typeof usePortalWorkspaceState>;
 }) {
-  const activePagination = resolveViewPagination(workspace.view, workspace.pagination);
+  const activePagination = resolvePortalRoutePagination(workspace.view, workspace.pagination);
 
   return (
     <PortalFilterActionsProvider clearAllFilters={workspace.clearAllFilters}>
-      {renderPortalView(buildPortalViewRegistryInputs(workspace))}
+      {renderPortalRoute(workspace.view, workspace)}
       <WorkspacePagination pagination={activePagination} />
     </PortalFilterActionsProvider>
   );
@@ -99,16 +81,16 @@ function PortalWorkspaceLayout({
     >
       <div className="mx-auto max-w-[1500px]">
         <PortalChromeSavedViewsSync
-          applySavedView={(view) => workspace.applySavedView(view as unknown as SavedViewRecord)}
+          applySavedView={workspace.applySavedView}
           deleteSavedView={async (view) => {
             await workspace.deleteSavedView(view.id);
           }}
           saveCurrentView={async (name, options) => {
-            await workspace.saveCurrentView(name, options as SaveCurrentViewOptions);
+            await workspace.saveCurrentView(name, options);
           }}
-          savedViews={(workspace.savedViews || []) as unknown as PortalSavedView[]}
+          savedViews={workspace.savedViews || []}
           toggleSavedViewFavorite={async (view) => {
-            await workspace.toggleSavedViewFavorite(view as unknown as SavedViewRecord);
+            await workspace.toggleSavedViewFavorite(view);
           }}
         />
         {workspace.has(P.MANAGE_QUERIES) ? (
@@ -117,11 +99,9 @@ function PortalWorkspaceLayout({
             onSelect={() => workspace.openModal("query")}
           />
         ) : null}
-        <PortalWorkspaceHeader workspace={workspace as unknown as PortalWorkspaceHeaderSlice} />
+        <PortalWorkspaceHeader workspace={workspace} />
         <PortalWorkspaceViews workspace={workspace} />
-        <PortalWorkspaceSpreadsheetModals
-          workspace={workspace as unknown as PortalSpreadsheetModalWorkspaceSlice}
-        />
+        <PortalWorkspaceSpreadsheetModals workspace={workspace} />
       </div>
       <SaveViewDialog
         onClose={() => setSaveDialogOpen(false)}

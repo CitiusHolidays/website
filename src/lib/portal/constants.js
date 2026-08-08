@@ -515,7 +515,15 @@ export const SALES_DECISION_OPTIONS = [
 
 export const LEAD_STAGES = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Lost"];
 
-export const QUERY_SOURCES = ["Website", "WhatsApp", "Email", "Client", "Referral"];
+export const QUERY_SOURCES = [
+  "Website",
+  "WhatsApp",
+  "Email",
+  "Client",
+  "Referral",
+  "Citius Concierge",
+  "Sacred Bharat",
+];
 
 export const CONTRACTING_STATUSES = [
   "Query Received",
@@ -560,7 +568,7 @@ export const PAYMENT_TYPES = ["Company Paid", "Self Paid", "Upgraded Self Paid"]
 export const ROOM_TYPES = ["Single", "Twin", "Double", "Triple", "Child with Bed", "Family Room"];
 export const FOOD_PREFERENCES = ["Veg", "Non-Veg", "Jain", "Vegan"];
 export const GENDER_OPTIONS = ["Male", "Female"];
-export const CALLING_STATUSES = ["Pending", "Done", "No response"];
+export const CALLING_STATUSES = /** @type {const} */ (["Pending", "Done", "No response"]);
 export const GUEST_TYPES = ["Employee", "Client", "VIP"];
 export const EXPENSE_HEADS = [
   "F&B",

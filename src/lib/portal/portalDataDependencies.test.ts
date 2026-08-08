@@ -3,7 +3,7 @@ import { getPortalDataDependencies } from "./portalDataDependencies";
 
 describe("portal data dependency declarations", () => {
   test("a dashboard route does not subscribe to operational domain lists", () => {
-    expect([...getPortalDataDependencies({ view: "dashboard" })]).toEqual([]);
+    expect([...getPortalDataDependencies({ view: "dashboard" })]).toEqual(["dashboard"]);
   });
 
   test("activity view declares the activity dependency for extended notification history", () => {
@@ -31,7 +31,7 @@ describe("portal data dependency declarations", () => {
           view: "dashboard",
         }),
       ].sort()
-    ).toEqual(["approvals", "expenses", "jobCards", "pnrs", "tickets", "travellers"]);
+    ).toEqual(["approvals", "dashboard", "expenses", "jobCards", "pnrs", "tickets", "travellers"]);
 
     expect([...getPortalDataDependencies({ modal: "query", view: "queries" })].sort()).toEqual([
       "queries",
@@ -44,6 +44,6 @@ describe("portal data dependency declarations", () => {
 
     expect(
       [...getPortalDataDependencies({ modal: "jobCard", view: "accounts-job-cards" })].sort()
-    ).toEqual(["jobCards", "proposals", "queries"]);
+    ).toEqual(["accountsJobCardCreators", "jobCards", "proposals", "queries"]);
   });
 });

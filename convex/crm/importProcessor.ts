@@ -1,5 +1,6 @@
 import type { Id } from "../_generated/dataModel";
 import { resolveRoomCategory, resolveTravellerRoomFields } from "../lib/roomTypes";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { classifyImportError, publicImportErrorMessage } from "./importWorkerPolicy";
 import { canSeeJobCardRecord, createActivity } from "./lib";
 import { buildTravellerListSearchText } from "./listSearch";
@@ -210,6 +211,7 @@ async function upsertTicketingPnr(
     }
     if (Object.keys(patch).length > 1) {
       await ctx.db.patch(existing._id, patch);
+      await scheduleCrmMetricSync(ctx, "pnrs", String(existing._id));
     }
     return existing;
   }
@@ -227,6 +229,7 @@ async function upsertTicketingPnr(
     totalSeats: 1,
     updatedAt: now,
   });
+  await scheduleCrmMetricSync(ctx, "pnrs", String(pnrId));
   return await ctx.db.get(pnrId);
 }
 
@@ -309,6 +312,7 @@ async function patchPnrIssuedSeatsFromImport(
     totalSeats: Math.max(pnr.totalSeats ?? 0, nextIssuedSeats),
     updatedAt: now,
   });
+  await scheduleCrmMetricSync(ctx, "pnrs", String(pnr._id));
 }
 
 async function upsertTicketingRowsForTraveller(
@@ -356,10 +360,11 @@ async function upsertTicketingRowsForTraveller(
           ticketStatus: "Issued",
           updatedAt: now,
         });
+        await scheduleCrmMetricSync(ctx, "tickets", String(existingTicket._id));
         return;
       }
 
-      await ctx.db.insert("tickets", {
+      const ticketId = await ctx.db.insert("tickets", {
         cabinClass: "Economy",
         createdAt: now,
         createdBy: access.authUserId ?? "unknown",
@@ -375,6 +380,7 @@ async function upsertTicketingRowsForTraveller(
         travellerId,
         updatedAt: now,
       });
+      await scheduleCrmMetricSync(ctx, "tickets", String(ticketId));
 
       if (pnr?._id) {
         const pnrKey = String(pnr._id);

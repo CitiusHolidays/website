@@ -81,17 +81,17 @@ describe("mounted portal ticketing and administration views", () => {
           issuedSeats: 5,
           pending: 2,
           pnrCount: 1,
+          preview: [
+            {
+              id: "ticket-1",
+              jobCode: "JC-0001-NS",
+              ticketNumber: "999-111",
+              ticketStatus: "Pending Issue",
+              travellerName: "Asha Patel",
+            },
+          ],
           totalSeats: 8,
         }}
-        tickets={[
-          {
-            id: "ticket-1",
-            jobCode: "JC-0001-NS",
-            ticketNumber: "999-111",
-            ticketStatus: "Pending Issue",
-            travellerName: "Asha Patel",
-          },
-        ]}
       />
     );
 

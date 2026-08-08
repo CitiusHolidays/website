@@ -2,7 +2,7 @@ import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { profitPerPerson } from "./commercialRecordChain";
-import type { QueryStatusArgs } from "./queryValidators";
+import type { QuerySource, QueryStatusArgs } from "./queryValidators";
 
 export interface ConfirmedOfferInput {
   airfarePerPax: number;
@@ -13,6 +13,9 @@ export interface ConfirmedOfferInput {
   proposalId: string;
   queryId: string;
   sellingPricePerPax: number;
+  source?: QuerySource;
+  sourceConsentAt?: number;
+  sourceInboundIntentId?: Id<"inboundQueryIntents">;
   travelEndDate?: string;
   travelStartDate: string;
   visaCostPerPax: number;
@@ -115,6 +118,9 @@ export async function createConfirmedOfferSnapshot(
     proposalId: proposal._id,
     queryId,
     sellingPricePerPax: Math.max(input.sellingPricePerPax, 0),
+    source: input.source,
+    sourceConsentAt: input.sourceConsentAt,
+    sourceInboundIntentId: input.sourceInboundIntentId,
     taxRate: proposal.taxRate ?? 0,
     travelEndDate: input.travelEndDate || "",
     travelStartDate: input.travelStartDate,
@@ -133,6 +139,9 @@ export async function snapshotNewlyConfirmedOffer(
     destination?: string;
     paxCount: number;
     salesStatus: string;
+    source?: QuerySource;
+    sourceConsentAt?: number;
+    inboundIntentId?: Id<"inboundQueryIntents">;
     travelEndDate?: string;
     travelStartDate?: string;
   },
@@ -158,6 +167,9 @@ export async function snapshotNewlyConfirmedOffer(
     proposalId: args.proposalId,
     queryId: args.queryId,
     sellingPricePerPax: args.sellingPricePerPax ?? 0,
+    source: current.source,
+    sourceConsentAt: current.sourceConsentAt,
+    sourceInboundIntentId: current.inboundIntentId,
     travelEndDate: args.travelEndDate ?? current.travelEndDate,
     travelStartDate: args.travelStartDate ?? current.travelStartDate ?? "",
     visaCostPerPax: args.visaCostPerPax ?? 0,

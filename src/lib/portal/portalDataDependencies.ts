@@ -1,49 +1,9 @@
-export type PortalDataDependency =
-  | "activity"
-  | "approvals"
-  | "expenses"
-  | "flightItinerary"
-  | "hotels"
-  | "invoices"
-  | "jobCards"
-  | "leaves"
-  | "pnrs"
-  | "proposals"
-  | "queries"
-  | "seats"
-  | "staff"
-  | "team"
-  | "tickets"
-  | "tourManagers"
-  | "travellers"
-  | "visas";
+import {
+  getPortalRouteDataDependencies,
+  type PortalDataDependency,
+} from "@/lib/portal/portalRouteManifest";
 
-const VIEW_DEPENDENCIES: Record<string, readonly PortalDataDependency[]> = {
-  "accounts-job-cards": ["queries", "jobCards"],
-  activity: ["activity"],
-  approvals: ["approvals", "expenses"],
-  contracting: ["queries", "proposals", "team"],
-  dashboard: [],
-  "employees-on-leave": ["leaves", "team"],
-  expenses: ["expenses", "jobCards"],
-  finance: ["invoices", "jobCards"],
-  flights: ["pnrs", "flightItinerary", "jobCards"],
-  hotels: ["hotels", "travellers", "jobCards"],
-  "job-cards": ["jobCards"],
-  passport: ["travellers", "jobCards"],
-  pipeline: ["queries"],
-  proposals: ["proposals", "queries"],
-  queries: ["queries"],
-  reports: [],
-  "seat-allocation": ["seats", "jobCards"],
-  settings: ["staff"],
-  team: ["team"],
-  ticketing: ["tickets", "jobCards"],
-  tickets: ["tickets", "jobCards"],
-  "tour-managers": ["tourManagers", "jobCards"],
-  travellers: ["travellers", "jobCards"],
-  visa: ["visas", "travellers", "jobCards"],
-};
+export type { PortalDataDependency } from "@/lib/portal/portalRouteManifest";
 
 const MODAL_DEPENDENCIES: Record<string, readonly PortalDataDependency[]> = {
   addJobCardCollaborator: ["jobCards", "team"],
@@ -70,7 +30,7 @@ const MODAL_DEPENDENCIES: Record<string, readonly PortalDataDependency[]> = {
   tourManager: ["tourManagers", "jobCards"],
   traveller: ["travellers", "jobCards"],
   visa: ["visas", "travellers", "jobCards"],
-  visa_create: ["visas", "travellers", "jobCards"],
+  visa_create: ["visas", "travellers", "jobCards", "travellersWithoutVisa"],
 };
 
 export function getPortalDataDependencies({
@@ -83,7 +43,7 @@ export function getPortalDataDependencies({
   view: string;
 }): ReadonlySet<PortalDataDependency> {
   return new Set([
-    ...(VIEW_DEPENDENCIES[view] ?? []),
+    ...getPortalRouteDataDependencies(view),
     ...(modal ? (MODAL_DEPENDENCIES[modal] ?? []) : []),
     ...(deepLinkOpen ? (MODAL_DEPENDENCIES[deepLinkOpen] ?? []) : []),
   ]);

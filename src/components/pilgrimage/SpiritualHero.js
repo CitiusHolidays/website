@@ -2,7 +2,8 @@
 
 import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useSlideshowPlayback } from "./useSlideshowPlayback";
 
 const images = [
   {
@@ -35,16 +36,27 @@ const transitionConfig = { duration: 1.5, ease: [0.4, 0, 0.2, 1] };
 
 export default function SpiritualHero() {
   const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % images.length);
-    }, 6000);
-    return () => clearInterval(timer);
+  const advance = useCallback(
+    () => setCurrentIndex((previous) => (previous + 1) % images.length),
+    []
+  );
+  const { isPlaying, sectionRef, togglePlayback } = useSlideshowPlayback({
+    intervalMs: 6000,
+    itemCount: images.length,
+    onAdvance: advance,
+  });
+  const selectSlide = useCallback((event) => {
+    const nextIndex = Number(event.currentTarget.dataset.slideIndex);
+    if (Number.isInteger(nextIndex)) {
+      setCurrentIndex(nextIndex);
+    }
   }, []);
 
   return (
-    <section className="relative min-h-[100dvh] w-full overflow-hidden bg-public-night py-24 md:min-h-[700px]">
+    <section
+      className="relative min-h-[100dvh] w-full overflow-hidden bg-public-night py-24 md:min-h-[700px]"
+      ref={sectionRef}
+    >
       {/* Background Slideshow */}
       <AnimatePresence initial={false}>
         <m.div
@@ -114,7 +126,15 @@ export default function SpiritualHero() {
       </div>
 
       {/* Navigation Indicators */}
-      <div className="absolute right-[max(1rem,var(--safe-area-inset-right))] bottom-[max(1rem,var(--safe-area-inset-bottom))] z-20 flex gap-3 md:right-12 md:bottom-12">
+      <div className="absolute right-[max(1rem,var(--safe-area-inset-right))] bottom-[max(1rem,var(--safe-area-inset-bottom))] z-20 flex items-center gap-3 md:right-12 md:bottom-12">
+        <button
+          aria-pressed={isPlaying}
+          className="min-h-11 rounded-full border border-white/30 bg-public-night/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-public-night/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
+          onClick={togglePlayback}
+          type="button"
+        >
+          {isPlaying ? "Pause slideshow" : "Play slideshow"}
+        </button>
         {images.map((image, idx) => (
           <button
             aria-label={`Go to slide ${idx + 1}`}
@@ -123,12 +143,7 @@ export default function SpiritualHero() {
             }`}
             data-slide-index={idx}
             key={image.src}
-            onClick={(event) => {
-              const nextIndex = Number(event.currentTarget.dataset.slideIndex);
-              if (Number.isInteger(nextIndex)) {
-                setCurrentIndex(nextIndex);
-              }
-            }}
+            onClick={selectSlide}
             type="button"
           />
         ))}

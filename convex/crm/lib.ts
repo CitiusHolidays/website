@@ -40,6 +40,7 @@ export {
 } from "./lib/presentation";
 export {
   applyCementPortalScope,
+  applyPortalRecordScope,
   assertCementQueryTypeAllowed,
   canEditContractingRecord,
   canEditOperationsRecord,

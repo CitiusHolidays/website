@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import { assertValidExpenseLifecycle } from "./expenseLifecycle";
 import {
   getExpenseApprovalSnapshot,
   matchesExpenseApprovalRequest,
@@ -273,14 +274,16 @@ export async function handleDecideExpenseFinance(
   await assertExpenseAccess(ctx, access, expense);
   const approvalRows = await requireCurrentExpenseApprovalRequest(ctx, expenseId, expense);
   const now = Date.now();
+  const reimbursementStatus =
+    args.reimbursementStatus ?? (args.status === "Approved" ? "Pending" : "Not Submitted");
+  assertValidExpenseLifecycle(args.status, reimbursementStatus);
   await ctx.db.patch(expenseId, {
     approvalStatus: args.status,
     financeReviewedAt: now,
     financeReviewedBy: access.authUserId ?? "unknown",
     financeReviewedByName: access.name,
     financeReviewStatus: args.status,
-    reimbursementStatus:
-      args.reimbursementStatus ?? (args.status === "Approved" ? "Pending" : "Not Submitted"),
+    reimbursementStatus,
     updatedAt: now,
   });
   await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
@@ -340,6 +343,7 @@ export async function handleUpdateExpenseStatus(
   }
   await assertExpenseAccess(ctx, access, expense);
   const approvalRows = await requireCurrentExpenseApprovalRequest(ctx, id, expense);
+  assertValidExpenseLifecycle(args.approvalStatus, args.reimbursementStatus);
   const now = Date.now();
   const expensePatch: Record<string, unknown> = {
     approvalStatus: args.approvalStatus,

@@ -155,6 +155,60 @@ export const pendingBookingResultValidator = v.object({
 export const myBookingsResultValidator = v.array(
   v.object({ booking: customerBookingOutputValidator, trip: bookingTripValidator })
 );
+const customerJourneyItineraryValidator = v.object({
+  accommodation: v.string(),
+  day: v.string(),
+  desc: v.string(),
+  key: v.string(),
+  location: v.string(),
+  meals: v.string(),
+  title: v.string(),
+});
+const customerJourneyImageValidator = v.object({ alt: v.string(), src: v.string() });
+const customerJourneySummaryTripValidator = v.object({
+  coverImage: v.string(),
+  endDate: v.string(),
+  gallery: v.array(customerJourneyImageValidator),
+  itinerary: v.array(customerJourneyItineraryValidator),
+  name: v.string(),
+  slug: v.string(),
+  startDate: v.string(),
+});
+const customerJourneyCategoryValidator = v.union(
+  v.literal("cancelled"),
+  v.literal("past"),
+  v.literal("upcoming")
+);
+export const customerJourneySummaryValidator = v.object({
+  booking: customerBookingOutputValidator,
+  category: customerJourneyCategoryValidator,
+  detailAvailable: v.boolean(),
+  trip: customerJourneySummaryTripValidator,
+});
+export const customerJourneySummariesResultValidator = v.object({
+  referenceNow: v.number(),
+  summaries: v.array(customerJourneySummaryValidator),
+});
+export const customerJourneyDetailResultValidator = v.union(
+  v.object({
+    booking: customerBookingOutputValidator,
+    category: customerJourneyCategoryValidator,
+    detailAvailable: v.boolean(),
+    trip: v.object({
+      coverImage: v.string(),
+      description: v.string(),
+      endDate: v.string(),
+      exclusions: v.array(v.string()),
+      gallery: v.array(customerJourneyImageValidator),
+      inclusions: v.array(v.string()),
+      itinerary: v.array(customerJourneyItineraryValidator),
+      name: v.string(),
+      slug: v.string(),
+      startDate: v.string(),
+    }),
+  }),
+  v.null()
+);
 export const bookingTransitionResultValidator = v.object({
   alreadyConfirmed: v.optional(v.boolean()),
   booking: v.optional(v.union(bookingOutputValidator, v.null())),

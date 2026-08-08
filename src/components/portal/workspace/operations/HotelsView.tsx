@@ -4,6 +4,7 @@ import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import type {
+  HotelRoomingViewProps,
   PortalBulkDeleteHandler,
   PortalDeleteHandler,
   PortalHotelListRow,
@@ -19,7 +20,7 @@ export interface HotelsViewProps {
   filtersActive?: boolean;
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
-  removeHotel: (args: { hotelId?: string }) => Promise<unknown>;
+  removeHotel: HotelRoomingViewProps["removeHotel"];
   removeManyHotels: (args: { hotelIds: string[] }) => Promise<unknown>;
   rows: PortalHotelListRow[];
 }

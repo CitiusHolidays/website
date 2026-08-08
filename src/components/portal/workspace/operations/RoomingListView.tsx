@@ -4,6 +4,7 @@ import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { travelBatchDisplayLabel } from "../portalOperationsHelpers";
 import type {
+  HotelRoomingViewProps,
   PortalBulkDeleteHandler,
   PortalDeleteHandler,
   PortalPermissionChecker,
@@ -18,7 +19,7 @@ export interface RoomingListViewProps {
   filtersActive?: boolean;
   has: PortalPermissionChecker;
   removeManyTravellers: (args: { travellerIds: string[] }) => Promise<unknown>;
-  removeTraveller: (args: { travellerId?: string }) => Promise<unknown>;
+  removeTraveller: HotelRoomingViewProps["removeTraveller"];
   rows: PortalTravellerListRow[];
 }
 

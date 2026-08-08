@@ -128,9 +128,12 @@ export function normalizeItinerary(itinerary) {
   if (!Array.isArray(itinerary)) {
     return [];
   }
-  return itinerary
-    .filter((entry) => entry && typeof entry === "object")
-    .map((entry, index) => ({
+  const normalized = [];
+  for (const [index, entry] of itinerary.entries()) {
+    if (!(entry && typeof entry === "object")) {
+      continue;
+    }
+    normalized.push({
       accommodation: typeof entry.accommodation === "string" ? entry.accommodation : "",
       day: typeof entry.day === "string" ? entry.day : `Day ${index + 1}`,
       desc: typeof entry.desc === "string" ? entry.desc : "",
@@ -138,7 +141,9 @@ export function normalizeItinerary(itinerary) {
       location: getEntryLocation(entry),
       meals: typeof entry.meals === "string" ? entry.meals : "",
       title: typeof entry.title === "string" ? entry.title : "Journey highlight",
-    }));
+    });
+  }
+  return normalized;
 }
 
 function getItineraryIcon(entry) {
@@ -216,7 +221,7 @@ export function JourneyOverviewCard({ booking, onOpen }) {
     >
       <div className="group relative min-h-[360px] overflow-hidden rounded-2xl bg-[var(--account-night)] sm:min-h-[430px] lg:min-h-[500px]">
         <CoverImage
-          className="transition-transform duration-700 fine-hover:group-hover:scale-[1.025]"
+          className="transition-transform duration-200 fine-hover:group-hover:scale-[1.025]"
           eager
           sizes="(max-width: 1024px) 100vw, 58vw"
           trip={trip}
@@ -506,7 +511,7 @@ export function PastJourneyCard({ booking, bookingId, onOpen }) {
   const content = (
     <>
       <CoverImage
-        className="transition-transform duration-700 fine-hover:group-hover:scale-[1.035]"
+        className="transition-transform duration-200 fine-hover:group-hover:scale-[1.035]"
         sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
         trip={trip}
       />

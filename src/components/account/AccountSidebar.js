@@ -80,6 +80,7 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
       headerClassName="border-[var(--account-border)] border-b px-2 pb-3"
       menuClassName="w-60 rounded-xl border-[var(--account-border)] bg-[var(--account-surface)] p-3 shadow-xl"
       menuStyle={ACCOUNT_MENU_STYLE}
+      motionEasing="cubic-bezier(0.16, 1, 0.3, 1)"
       onOpenChange={setIsOpen}
       open={isOpen}
       sideOffset={9.6}

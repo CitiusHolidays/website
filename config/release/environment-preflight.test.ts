@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
-import { evaluateEnvironmentPreflight, readEnvironmentRegistry } from "./environment-preflight";
+import {
+  evaluateEnvironmentPreflight,
+  readEnvironmentRegistry,
+  validateEnvironmentRegistry,
+} from "./environment-preflight";
 
 const root = resolve(import.meta.dir, "../..");
 
@@ -93,6 +97,40 @@ describe("target-aware environment preflight", () => {
     const registry = readEnvironmentRegistry();
     expect(Object.keys(registry.targets)).toEqual(["preview", "production"]);
     expect(registry.schemaVersion).toBe(1);
+  });
+
+  test("fails closed for malformed, incomplete, empty, duplicate, and invalid registries", () => {
+    const cases = [
+      null,
+      { schemaVersion: 2, targets: {} },
+      { schemaVersion: 1, targets: { preview: { required: [] }, production: { required: [] } } },
+      {
+        schemaVersion: 1,
+        targets: {
+          preview: { required: ["SITE_URL", "SITE_URL"] },
+          production: { required: ["SITE_URL"] },
+        },
+      },
+      {
+        schemaVersion: 1,
+        targets: {
+          preview: { required: ["site-url"] },
+          production: { required: ["SITE_URL"] },
+        },
+      },
+      {
+        schemaVersion: 1,
+        targets: {
+          preview: { required: ["SITE_URL"] },
+          production: { required: ["SITE_URL"] },
+          staging: { required: ["SITE_URL"] },
+        },
+      },
+    ];
+
+    for (const registry of cases) {
+      expect(() => validateEnvironmentRegistry(registry)).toThrow();
+    }
   });
 
   test("the CLI fails production closed without printing provisioning secrets", () => {

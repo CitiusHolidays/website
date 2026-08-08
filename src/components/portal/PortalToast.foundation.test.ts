@@ -31,6 +31,9 @@ describe("Portal toast Sonner foundation boundary", () => {
     expect(portalToast).toContain("portal-toast-safe-area");
     expect(globalStyles).toContain(".portal-sonner-toast");
     expect(globalStyles).toContain('[data-sonner-toast][data-visible="false"]');
+    expect(globalStyles).toContain("transform 180ms var(--portal-ease-out)");
+    expect(globalStyles).toContain("opacity 180ms var(--portal-ease-out) !important");
+    expect(globalStyles).not.toContain("height 180ms var(--portal-ease-out)");
     expect(globalStyles).toContain("@media (prefers-reduced-motion: reduce)");
   });
 });

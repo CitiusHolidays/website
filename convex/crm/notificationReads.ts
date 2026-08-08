@@ -2,15 +2,64 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { canReceiveNotification } from "./lib/notifications";
 
-type NotificationAccess = {
-  staffId?: Id<"staffUsers"> | null;
+interface NotificationAccess {
   authUserId?: string | null;
   roles: string[];
-};
+  staffId?: Id<"staffUsers"> | null;
+}
 
 type NotificationRow = Doc<"notifications">;
 
 const SUMMARY_SCAN_CAP = 500;
+
+export async function notificationReadTimesForAccess(
+  ctx: QueryCtx,
+  access: NotificationAccess,
+  notifications: NotificationRow[]
+) {
+  const ids = new Set(notifications.map((notification) => String(notification._id)));
+  const batches: Doc<"notificationReads">[][] = [];
+  if (access.staffId) {
+    batches.push(
+      await ctx.db
+        .query("notificationReads")
+        .withIndex("by_staffId", (q) => q.eq("staffId", access.staffId ?? undefined))
+        .collect()
+    );
+  } else if (access.authUserId) {
+    batches.push(
+      await ctx.db
+        .query("notificationReads")
+        .withIndex("by_authUserId", (q) => q.eq("authUserId", access.authUserId ?? undefined))
+        .collect()
+    );
+  }
+  const readTimes = new Map<string, number>();
+  for (const receipts of batches) {
+    for (const receipt of receipts) {
+      const notificationId = String(receipt.notificationId);
+      if (ids.has(notificationId)) {
+        readTimes.set(notificationId, receipt.readAt);
+      }
+    }
+  }
+  return readTimes;
+}
+
+export function notificationReadAtForAccess(
+  notification: NotificationRow,
+  access: NotificationAccess,
+  receiptTimes: Map<string, number>
+) {
+  const receipt = receiptTimes.get(String(notification._id));
+  if (receipt) {
+    return receipt;
+  }
+  const individuallyTargeted =
+    (access.staffId && notification.recipientStaffId === access.staffId) ||
+    (access.authUserId && notification.recipientUserId === access.authUserId);
+  return individuallyTargeted && !notification.recipientRole ? notification.readAt : undefined;
+}
 
 function dedupeNotifications(rows: NotificationRow[]) {
   const seen = new Set<Id<"notifications">>();
@@ -140,7 +189,10 @@ export async function notificationSummaryForAccessFromDb(
 ) {
   const { rows, hitCap } = await fetchIndexedNotificationBatches(ctx, access, SUMMARY_SCAN_CAP);
   const visible = rows.filter((row) => canReceiveNotification(row, access));
-  const unreadCount = visible.filter((row) => !row.readAt).length;
+  const receiptTimes = await notificationReadTimesForAccess(ctx, access, visible);
+  const unreadCount = visible.filter(
+    (row) => !notificationReadAtForAccess(row, access, receiptTimes)
+  ).length;
   const hasMoreUnread = hitCap && unreadCount > 0;
 
   return {

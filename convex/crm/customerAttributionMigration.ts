@@ -1,0 +1,127 @@
+import { v } from "convex/values";
+import { internalMutation } from "../_generated/server";
+
+const PAGE_SIZE = 100;
+const stageValidator = v.union(
+  v.literal("clients"),
+  v.literal("intents"),
+  v.literal("queries"),
+  v.literal("offers")
+);
+
+function normalizeEmail(value: string | undefined) {
+  return value?.trim().toLowerCase() || undefined;
+}
+
+function tableForStage(stage: "clients" | "intents" | "offers" | "queries") {
+  switch (stage) {
+    case "intents":
+      return "inboundQueryIntents";
+    case "offers":
+      return "confirmedOffers";
+    default:
+      return stage;
+  }
+}
+
+export const backfillCustomerAttribution = internalMutation({
+  args: {
+    cursor: v.optional(v.string()),
+    dryRun: v.boolean(),
+    stage: stageValidator,
+  },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query(tableForStage(args.stage))
+      .order("asc")
+      .paginate({ cursor: args.cursor ?? null, numItems: PAGE_SIZE });
+    const changes = await Promise.all(
+      page.page.map(async (row) => {
+        if (args.stage === "clients") {
+          const client = row as typeof row & { email?: string; emailNormalized?: string };
+          const emailNormalized = normalizeEmail(client.email);
+          if (emailNormalized && emailNormalized !== client.emailNormalized) {
+            if (!args.dryRun) {
+              await ctx.db.patch(client._id, { emailNormalized });
+            }
+            return 1;
+          }
+        } else if (args.stage === "intents") {
+          const intent = row as typeof row & {
+            contactEmail?: string;
+            contactEmailNormalized?: string;
+          };
+          const contactEmailNormalized = normalizeEmail(intent.contactEmail);
+          if (contactEmailNormalized && contactEmailNormalized !== intent.contactEmailNormalized) {
+            if (!args.dryRun) {
+              await ctx.db.patch(intent._id, { contactEmailNormalized });
+            }
+            return 1;
+          }
+        } else if (args.stage === "queries") {
+          const queryRow = row as typeof row & {
+            inboundIntentId?: string;
+            source?: string;
+            sourceConsentAt?: number;
+          };
+          const intentId = queryRow.inboundIntentId
+            ? ctx.db.normalizeId("inboundQueryIntents", queryRow.inboundIntentId)
+            : null;
+          const intent = intentId ? await ctx.db.get(intentId) : null;
+          if (
+            intent &&
+            (queryRow.source !== intent.source || queryRow.sourceConsentAt !== intent.consentAt)
+          ) {
+            if (!args.dryRun) {
+              await ctx.db.patch(queryRow._id, {
+                source: intent.source,
+                sourceConsentAt: intent.consentAt,
+              });
+            }
+            return 1;
+          }
+        } else {
+          const offer = row as typeof row & {
+            queryId: string;
+            source?: string;
+            sourceConsentAt?: number;
+            sourceInboundIntentId?: string;
+          };
+          const queryId = ctx.db.normalizeId("queries", offer.queryId);
+          const queryRow = queryId ? await ctx.db.get(queryId) : null;
+          if (
+            queryRow &&
+            (offer.source !== queryRow.source ||
+              offer.sourceConsentAt !== queryRow.sourceConsentAt ||
+              offer.sourceInboundIntentId !== queryRow.inboundIntentId)
+          ) {
+            if (!args.dryRun) {
+              await ctx.db.patch(offer._id, {
+                source: queryRow.source,
+                sourceConsentAt: queryRow.sourceConsentAt,
+                sourceInboundIntentId: queryRow.inboundIntentId,
+              });
+            }
+            return 1;
+          }
+        }
+        return 0;
+      })
+    );
+    const changed = changes.reduce<number>((total, value) => total + value, 0);
+    return {
+      changed,
+      continueCursor: page.continueCursor,
+      isDone: page.isDone,
+      scanned: page.page.length,
+      stage: args.stage,
+    };
+  },
+  returns: v.object({
+    changed: v.number(),
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+    scanned: v.number(),
+    stage: stageValidator,
+  }),
+});

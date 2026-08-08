@@ -243,7 +243,7 @@ export function usePortalWorkspaceData({
     : undefined;
   const shouldLoadJobCards = Boolean(canFetch && needs("jobCards") && has(P.VIEW_JOB_CARDS));
   const shouldLoadJobCardDeletionOperations = Boolean(
-    canFetch && view === "job-cards" && has(P.MANAGE_JOB_CARDS)
+    canFetch && needs("jobCardDeletionOperations") && has(P.MANAGE_JOB_CARDS)
   );
   const jobCardDeletionOperations = useQuery(
     api.crm.jobCards.listMyDeletionOperations,
@@ -349,7 +349,9 @@ export function usePortalWorkspaceData({
   const visas = visaPage.status === "LoadingFirstPage" ? undefined : visaPage.results;
   const ticketDashboard = useQuery(
     api.crm.ticketing.dashboard,
-    canFetch && view === "ticketing" && has(P.VIEW_TICKETING) ? { dateRange: dateRangeArg } : "skip"
+    canFetch && needs("ticketDashboard") && has(P.VIEW_TICKETING)
+      ? { dateRange: dateRangeArg }
+      : "skip"
   );
   const pnrPage = usePaginatedQuery(
     api.crm.ticketing.listPnrs,
@@ -495,12 +497,14 @@ export function usePortalWorkspaceData({
   );
   const financeOverviewSummary = useQuery(
     api.crm.finance.getFinanceOverview,
-    canFetch && has(P.VIEW_FINANCE) && view === "finance" ? { dateRange: dateRangeArg } : "skip"
+    canFetch && has(P.VIEW_FINANCE) && needs("financeOverview")
+      ? { dateRange: dateRangeArg }
+      : "skip"
   );
   const financeDetailsReady = Boolean(financeOverviewSummary?.aggregateCoverage.complete);
   const financePnlPage = usePaginatedQuery(
     api.crm.finance.listFinancePnl,
-    canFetch && has(P.VIEW_FINANCE) && view === "finance" && financeDetailsReady
+    canFetch && has(P.VIEW_FINANCE) && needs("financeOverview") && financeDetailsReady
       ? { dateRange: dateRangeArg }
       : "skip",
     { initialNumItems: PAGE_SIZE }
@@ -511,7 +515,7 @@ export function usePortalWorkspaceData({
   );
   const financeOutstandingPage = usePaginatedQuery(
     api.crm.finance.listFinanceOutstanding,
-    canFetch && has(P.VIEW_FINANCE) && view === "finance" && financeDetailsReady
+    canFetch && has(P.VIEW_FINANCE) && needs("financeOverview") && financeDetailsReady
       ? { dateRange: dateRangeArg }
       : "skip",
     { initialNumItems: PAGE_SIZE }
@@ -552,7 +556,7 @@ export function usePortalWorkspaceData({
   );
   const reports = useQuery(
     api.crm.reports.overview,
-    canFetch && has(P.VIEW_REPORTS) && view === "reports" ? { dateRange: dateRangeArg } : "skip"
+    canFetch && has(P.VIEW_REPORTS) && needs("reports") ? { dateRange: dateRangeArg } : "skip"
   );
   const teamDirectoryPage = usePaginatedQuery(
     api.crm.staff.listDirectory,
@@ -617,7 +621,7 @@ export function usePortalWorkspaceData({
   );
   const dropdowns = useQuery(
     api.crm.settings.listDropdowns,
-    canFetch && view === "settings" && has(P.MANAGE_STAFF) ? {} : "skip"
+    canFetch && needs("dropdowns") && has(P.MANAGE_STAFF) ? {} : "skip"
   );
   const staffPage = usePaginatedQuery(
     api.crm.staff.listStaff,
@@ -638,15 +642,15 @@ export function usePortalWorkspaceData({
   const staff = staffPage.status === "LoadingFirstPage" ? undefined : staffPage.results;
   const accountsJobCardCreators = useQuery(
     api.crm.staff.listAccountsForJobCards,
-    canFetch && view === "accounts-job-cards" && has(P.MANAGE_JOB_CARDS) ? {} : "skip"
+    canFetch && needs("accountsJobCardCreators") && has(P.MANAGE_JOB_CARDS) ? {} : "skip"
   );
   const leaveHeadApproverCandidates = useQuery(
     api.crm.leaveApprovers.listHeadApproverCandidates,
-    canFetch && view === "settings" && has(P.MANAGE_STAFF) ? {} : "skip"
+    canFetch && needs("leaveHeadApproverCandidates") && has(P.MANAGE_STAFF) ? {} : "skip"
   );
   const travellersWithoutVisa = useQuery(
     api.crm.visa.listTravellersWithoutVisa,
-    canFetch && has(P.VIEW_VISA) && (modal === "visa_create" || view === "visa") ? {} : "skip"
+    canFetch && has(P.VIEW_VISA) && needs("travellersWithoutVisa") ? {} : "skip"
   );
 
   return {

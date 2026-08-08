@@ -7,7 +7,10 @@ export const NOTIFICATION_CLEANUP_PAGE_SIZE = 64;
 export const NOTIFICATION_ENTITY_GROUP_SIZE = 8;
 export const NOTIFICATION_CLEANUP_MAX_IDENTITIES_PER_REQUEST = 32;
 
-export type NotificationEntityIdentity = { entityId: string; entityType: string };
+export interface NotificationEntityIdentity {
+  entityId: string;
+  entityType: string;
+}
 
 export function groupNotificationIdentities(identities: NotificationEntityIdentity[]) {
   const unique = Array.from(
@@ -60,7 +63,16 @@ export async function deleteNotificationPage(
     .query("notifications")
     .withIndex("by_entity", (q) => q.eq("entityType", entityType).eq("entityId", entityId))
     .take(NOTIFICATION_CLEANUP_PAGE_SIZE);
-  await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+  await Promise.all(
+    rows.map(async (row) => {
+      const receipts = await ctx.db
+        .query("notificationReads")
+        .withIndex("by_notificationId", (q) => q.eq("notificationId", row._id))
+        .collect();
+      await Promise.all(receipts.map((receipt) => ctx.db.delete(receipt._id)));
+      await ctx.db.delete(row._id);
+    })
+  );
   return {
     deleted: rows.length,
     hasMore: rows.length === NOTIFICATION_CLEANUP_PAGE_SIZE,

@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import CitiusLogo from "@/static/logos/logo.webp";
 
 const services = [
@@ -126,6 +126,21 @@ function getServiceLayout() {
   };
 }
 
+export function sameLinePosition(previous, next) {
+  if (previous === next) {
+    return true;
+  }
+  if (!(previous && next)) {
+    return false;
+  }
+  return (
+    previous.x1 === next.x1 &&
+    previous.x2 === next.x2 &&
+    previous.y1 === next.y1 &&
+    previous.y2 === next.y2
+  );
+}
+
 export default function CircularServicesMenu() {
   const shouldReduceMotion = useReducedMotion();
   const [selectedService, setSelectedService] = useState(null);
@@ -141,7 +156,12 @@ export default function CircularServicesMenu() {
     setLayout(getServiceLayout());
 
     function handleResize() {
-      setLayout(getServiceLayout());
+      const nextLayout = getServiceLayout();
+      setLayout((previous) =>
+        previous.isMobile === nextLayout.isMobile && previous.radius === nextLayout.radius
+          ? previous
+          : nextLayout
+      );
     }
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -149,17 +169,21 @@ export default function CircularServicesMenu() {
 
   const totalServices = services.length;
   const angleStep = (2 * Math.PI) / totalServices;
-  const servicePositions = services.map((service, index) => {
-    const angle = index * angleStep - Math.PI / 2; // Start from top
-    const x = Math.cos(angle) * layout.radius;
-    const y = Math.sin(angle) * layout.radius;
-    return {
-      ...service,
-      angle,
-      x,
-      y,
-    };
-  });
+  const servicePositions = useMemo(
+    () =>
+      services.map((service, index) => {
+        const angle = index * angleStep - Math.PI / 2; // Start from top
+        const x = Math.cos(angle) * layout.radius;
+        const y = Math.sin(angle) * layout.radius;
+        return {
+          ...service,
+          angle,
+          x,
+          y,
+        };
+      }),
+    [angleStep, layout.radius]
+  );
 
   // Calculate line position from center to hovered/tapped service
   useEffect(() => {
@@ -186,7 +210,7 @@ export default function CircularServicesMenu() {
           nextLinePos = { x1: centerX, x2: serviceX, y1: centerY, y2: serviceY };
         }
       }
-      setLinePos(nextLinePos);
+      setLinePos((previous) => (sameLinePosition(previous, nextLinePos) ? previous : nextLinePos));
     });
     return () => cancelAnimationFrame(frame);
   }, [selectedService, servicePositions]);

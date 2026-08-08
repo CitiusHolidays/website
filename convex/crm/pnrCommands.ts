@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { getVisibleJob } from "./jobCardVisibility";
 import {
   assertBulkDeleteMutationBatch,
@@ -47,6 +48,7 @@ export async function handleCreatePnr(
     totalSeats: args.totalSeats,
     updatedAt: now,
   });
+  await scheduleCrmMetricSync(ctx, "pnrs", String(id));
   await createActivity(ctx, access, {
     action: "created",
     entityId: id,
@@ -109,6 +111,7 @@ export async function handleUpdatePnr(
   }
 
   await ctx.db.patch(pnrId, patch);
+  await scheduleCrmMetricSync(ctx, "pnrs", String(pnrId));
   await createActivity(ctx, access, {
     action: "updated",
     entityId: pnrId,
@@ -136,6 +139,7 @@ export async function deletePnrRecord(ctx: MutationCtx, access: PortalAccess, pn
     }),
     deleteEntityNotifications(ctx, "pnr", pnrId),
     ctx.db.delete(pnrId),
+    scheduleCrmMetricSync(ctx, "pnrs", String(pnrId)),
     ctx.scheduler.runAfter(0, internal.crm.ticketing.continuePnrCleanup, {
       pnrId: String(pnrId),
       stage: "tickets",

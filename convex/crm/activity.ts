@@ -7,6 +7,8 @@ import { requireStaff } from "./lib/staffAccess";
 import {
   fetchAllNotificationsForAccess,
   fetchNotificationsForAccess,
+  notificationReadAtForAccess,
+  notificationReadTimesForAccess,
   notificationSummaryForAccessFromDb,
 } from "./notificationReads";
 import { applyCrmCursorFilters, boundedPaginationOptions } from "./paginationPolicy";
@@ -54,13 +56,18 @@ export const listNotifications = query({
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
     const rows = await fetchNotificationsForAccess(ctx, access, args.limit ?? 20);
+    const receiptTimes = await notificationReadTimesForAccess(ctx, access, rows);
     return rows.map((notification) => ({
       body: notification.body,
       createdAt: new Date(notification.createdAt).toISOString(),
       entityId: notification.entityId ?? "",
       entityType: notification.entityType ?? "",
       id: notification._id,
-      readAt: notification.readAt ? new Date(notification.readAt).toISOString() : null,
+      readAt: notificationReadAtForAccess(notification, access, receiptTimes)
+        ? new Date(
+            notificationReadAtForAccess(notification, access, receiptTimes) as number
+          ).toISOString()
+        : null,
       title: notification.title,
     }));
   },
@@ -93,7 +100,30 @@ export const markNotificationRead = mutation({
     if (!canReceiveNotification(notification, access)) {
       throw new ConvexError("FORBIDDEN");
     }
-    await ctx.db.patch(id, { readAt: Date.now() });
+    const existing = access.staffId
+      ? await ctx.db
+          .query("notificationReads")
+          .withIndex("by_notification_staff", (q) =>
+            q.eq("notificationId", id).eq("staffId", access.staffId)
+          )
+          .unique()
+      : await ctx.db
+          .query("notificationReads")
+          .withIndex("by_notification_user", (q) =>
+            q.eq("notificationId", id).eq("authUserId", access.authUserId)
+          )
+          .unique();
+    const readAt = Date.now();
+    if (existing) {
+      await ctx.db.patch(existing._id, { readAt });
+    } else {
+      await ctx.db.insert("notificationReads", {
+        authUserId: access.staffId ? undefined : access.authUserId,
+        notificationId: id,
+        readAt,
+        staffId: access.staffId,
+      });
+    }
     return { id };
   },
   returns: nullableNotificationIdResultValidator,
@@ -104,11 +134,20 @@ export const markAllNotificationsRead = mutation({
   handler: async (ctx) => {
     const access = await requireStaff(ctx);
     const now = Date.now();
-    const toMark = (await fetchAllNotificationsForAccess(ctx, access)).filter(
-      (notification) => !notification.readAt
+    const visible = await fetchAllNotificationsForAccess(ctx, access);
+    const receiptTimes = await notificationReadTimesForAccess(ctx, access, visible);
+    const toMark = visible.filter(
+      (notification) => !notificationReadAtForAccess(notification, access, receiptTimes)
     );
     await Promise.all(
-      toMark.map((notification) => ctx.db.patch(notification._id, { readAt: now }))
+      toMark.map((notification) =>
+        ctx.db.insert("notificationReads", {
+          authUserId: access.staffId ? undefined : access.authUserId,
+          notificationId: notification._id,
+          readAt: now,
+          staffId: access.staffId,
+        })
+      )
     );
 
     return { marked: toMark.length };
@@ -121,7 +160,7 @@ export const removeNotification = mutation({
     notificationId: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    await requireStaff(ctx, PERMISSIONS.VIEW_ACTIVITY);
     const id = ctx.db.normalizeId("notifications", args.notificationId);
     if (!id) {
       throw new ConvexError("Invalid notification id");
@@ -130,9 +169,11 @@ export const removeNotification = mutation({
     if (!notification) {
       throw new ConvexError("Notification not found");
     }
-    if (!canReceiveNotification(notification, access)) {
-      throw new ConvexError("FORBIDDEN");
-    }
+    const receipts = await ctx.db
+      .query("notificationReads")
+      .withIndex("by_notificationId", (q) => q.eq("notificationId", id))
+      .collect();
+    await Promise.all(receipts.map((receipt) => ctx.db.delete(receipt._id)));
     await ctx.db.delete(id);
     return { id };
   },

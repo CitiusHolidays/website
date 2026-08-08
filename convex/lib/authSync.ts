@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { normalizeEmail } from "../crm/lib/staffAccess";
@@ -11,11 +12,12 @@ export type AuthSyncInput = {
 
 const getIdentityImage = (image?: string) => (typeof image === "string" ? image : "");
 
-async function findProfileByAuthUserId(ctx: MutationCtx, authUserId: string) {
-  return await ctx.db
+async function findProfilesByAuthUserId(ctx: MutationCtx, authUserId: string) {
+  const profiles = await ctx.db
     .query("userProfiles")
     .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
-    .unique();
+    .collect();
+  return profiles.filter((profile) => !profile.archivedAt).sort(compareProfiles);
 }
 
 async function findProfilesByEmail(ctx: MutationCtx, emailNormalized: string) {
@@ -29,13 +31,109 @@ async function findProfilesByEmail(ctx: MutationCtx, emailNormalized: string) {
       .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", undefined))
       .collect(),
   ]);
-  const matchingLegacyProfiles = legacyProfiles.filter(
-    (profile) => normalizeEmail(profile.email) === emailNormalized
-  );
-  await Promise.all(
-    matchingLegacyProfiles.map((profile) => ctx.db.patch(profile._id, { emailNormalized }))
-  );
+  const matchingLegacyProfiles: Doc<"userProfiles">[] = [];
+  const normalizationPatches: Promise<void>[] = [];
+  for (const profile of legacyProfiles) {
+    if (normalizeEmail(profile.email) !== emailNormalized) {
+      continue;
+    }
+    matchingLegacyProfiles.push(profile);
+    if (!profile.archivedAt) {
+      normalizationPatches.push(ctx.db.patch(profile._id, { emailNormalized }));
+    }
+  }
+  await Promise.all(normalizationPatches);
   return [...indexedProfiles, ...matchingLegacyProfiles];
+}
+
+function compareProfiles(left: Doc<"userProfiles">, right: Doc<"userProfiles">) {
+  return left.createdAt - right.createdAt || String(left._id).localeCompare(String(right._id));
+}
+
+function dedupeProfiles(profiles: Doc<"userProfiles">[]) {
+  return [...new Map(profiles.map((profile) => [String(profile._id), profile])).values()];
+}
+
+function firstNonEmpty(
+  profiles: Doc<"userProfiles">[],
+  field: "image" | "legacyUserId" | "passportDetailsEncrypted" | "phoneNumber"
+) {
+  return profiles.map((profile) => profile[field]).find((value) => Boolean(value?.trim())) ?? "";
+}
+
+function firstPreference(profiles: Doc<"userProfiles">[]) {
+  return profiles.find((profile) => profile.sacredBharatLeaderboardOptOut !== undefined)
+    ?.sacredBharatLeaderboardOptOut;
+}
+
+function mergedProfilePatch(
+  canonical: Doc<"userProfiles">,
+  profiles: Doc<"userProfiles">[],
+  input: AuthSyncInput,
+  now: number
+) {
+  const ordered = [...profiles].sort(compareProfiles);
+  const existingName = ordered.find((profile) => profile.name && profile.name !== "Traveler")?.name;
+  return {
+    image: getIdentityImage(input.image) || canonical.image || firstNonEmpty(ordered, "image"),
+    legacyUserId: canonical.legacyUserId || firstNonEmpty(ordered, "legacyUserId") || undefined,
+    name: pickProfileName(input.name, {
+      ...canonical,
+      name: canonical.name === "Traveler" && existingName ? existingName : canonical.name,
+    }),
+    passportDetailsEncrypted:
+      canonical.passportDetailsEncrypted || firstNonEmpty(ordered, "passportDetailsEncrypted"),
+    phoneNumber: canonical.phoneNumber || firstNonEmpty(ordered, "phoneNumber"),
+    sacredBharatLeaderboardOptOut:
+      canonical.sacredBharatLeaderboardOptOut ?? firstPreference(ordered),
+    updatedAt: now,
+  } satisfies Partial<Doc<"userProfiles">>;
+}
+
+const DURABLE_CONFLICT_FIELDS = [
+  "legacyUserId",
+  "passportDetailsEncrypted",
+  "phoneNumber",
+  "sacredBharatLeaderboardOptOut",
+] as const;
+
+function conflictFields(duplicate: Doc<"userProfiles">, merged: Partial<Doc<"userProfiles">>) {
+  return DURABLE_CONFLICT_FIELDS.filter((field) => {
+    const duplicateValue = duplicate[field];
+    const mergedValue = merged[field];
+    const duplicateHasValue =
+      typeof duplicateValue === "boolean" ? true : Boolean(duplicateValue?.trim());
+    return duplicateHasValue && mergedValue !== undefined && duplicateValue !== mergedValue;
+  });
+}
+
+async function retireMergedProfiles(
+  ctx: MutationCtx,
+  canonical: Doc<"userProfiles">,
+  profiles: Doc<"userProfiles">[],
+  merged: Partial<Doc<"userProfiles">>,
+  now: number
+) {
+  await ctx.db.patch(canonical._id, merged);
+  const duplicates = profiles
+    .filter((profile) => profile._id !== canonical._id)
+    .sort(compareProfiles);
+  await Promise.all(
+    duplicates.map((duplicate) => {
+      const conflicts = conflictFields(duplicate, merged);
+      if (conflicts.length > 0) {
+        return ctx.db.patch(duplicate._id, {
+          archivedAt: now,
+          archivedAuthUserId: duplicate.authUserId ?? duplicate.archivedAuthUserId,
+          authUserId: undefined,
+          mergeConflictFields: conflicts,
+          mergedIntoProfileId: canonical._id,
+          updatedAt: now,
+        });
+      }
+      return ctx.db.delete(duplicate._id);
+    })
+  );
 }
 
 function pickProfileName(preferred: string | undefined, existing: Doc<"userProfiles"> | undefined) {
@@ -59,54 +157,49 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
     return { linkedStaff: false, profileId: null as Doc<"userProfiles">["_id"] | null };
   }
 
-  const profileByAuth = await findProfileByAuthUserId(ctx, authUserId);
-  const matchingProfiles = emailNormalized ? await findProfilesByEmail(ctx, emailNormalized) : [];
-  const orphanedProfile = matchingProfiles.find((profile) => profile.authUserId !== authUserId);
+  const [profilesByAuth, profilesByEmail] = await Promise.all([
+    findProfilesByAuthUserId(ctx, authUserId),
+    emailNormalized ? findProfilesByEmail(ctx, emailNormalized) : Promise.resolve([]),
+  ]);
+  const profileByAuth = profilesByAuth[0] ?? null;
+  const matchingProfiles = profilesByEmail.filter((profile) => !profile.archivedAt);
+  const retiredIdentity = profilesByEmail.find(
+    (profile) => profile.archivedAt && profile.archivedAuthUserId === authUserId
+  );
+  if (!profileByAuth && retiredIdentity) {
+    throw new ConvexError("PROFILE_IDENTITY_CONFLICT");
+  }
+  const orphanedProfile = matchingProfiles
+    .filter((profile) => profile.authUserId !== authUserId)
+    .sort(compareProfiles)[0];
 
   if (profileByAuth) {
-    const patch: Partial<Doc<"userProfiles">> = { updatedAt: now };
+    const mergeCandidates = dedupeProfiles([profileByAuth, ...profilesByAuth, ...matchingProfiles]);
+    const patch: Partial<Doc<"userProfiles">> = mergedProfilePatch(
+      profileByAuth,
+      mergeCandidates,
+      input,
+      now
+    );
     if (email && normalizeEmail(profileByAuth.email) !== emailNormalized) {
       patch.email = email;
     }
     if (emailNormalized && profileByAuth.emailNormalized !== emailNormalized) {
       patch.emailNormalized = emailNormalized;
     }
-    const nextName = pickProfileName(input.name, profileByAuth);
-    if (nextName !== profileByAuth.name) {
-      patch.name = nextName;
-    }
-    const nextImage = getIdentityImage(input.image);
-    if (nextImage && !profileByAuth.image) {
-      patch.image = nextImage;
-    }
-    if (Object.keys(patch).length > 1) {
-      await ctx.db.patch(profileByAuth._id, patch);
-    }
-
-    await Promise.all(
-      matchingProfiles.flatMap((duplicate) =>
-        duplicate._id === profileByAuth._id ? [] : [ctx.db.delete(duplicate._id)]
-      )
-    );
+    await retireMergedProfiles(ctx, profileByAuth, mergeCandidates, patch, now);
 
     return { linkedStaff: false, profileId: profileByAuth._id };
   }
 
   if (orphanedProfile) {
-    await ctx.db.patch(orphanedProfile._id, {
+    const patch = {
+      ...mergedProfilePatch(orphanedProfile, matchingProfiles, input, now),
       authUserId,
       email: email || orphanedProfile.email,
       emailNormalized,
-      image: getIdentityImage(input.image) || orphanedProfile.image || "",
-      name: pickProfileName(input.name, orphanedProfile),
-      updatedAt: now,
-    });
-
-    await Promise.all(
-      matchingProfiles.flatMap((duplicate) =>
-        duplicate._id === orphanedProfile._id ? [] : [ctx.db.delete(duplicate._id)]
-      )
-    );
+    } satisfies Partial<Doc<"userProfiles">>;
+    await retireMergedProfiles(ctx, orphanedProfile, matchingProfiles, patch, now);
 
     return { linkedStaff: false, profileId: orphanedProfile._id };
   }

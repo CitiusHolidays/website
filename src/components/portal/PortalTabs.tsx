@@ -55,13 +55,16 @@ export function PortalTabs({
   const uiTransition = useMotionUITransition("ui");
   const still = motionMode === "off";
   const motionAllowed = motionMode === "full";
-  const slide = motionAllowed ? 24 : 0;
+  const automatic = selectionMode === "automatic";
+  const slide = automatic || !motionAllowed ? 0 : 24;
   const selectedIndex = items.findIndex((item) => item.id === value);
   const handleValueChange = useCallback(
     (nextValue: string) => onValueChange(nextValue),
     [onValueChange]
   );
-  const panelTransition = still ? { duration: 0 } : { duration: uiTransition.duration };
+  const panelTransition = still
+    ? { duration: 0 }
+    : { duration: automatic ? 0.12 : uiTransition.duration };
 
   return (
     <Tabs.Root className={className} onValueChange={handleValueChange} value={value}>
@@ -119,12 +122,16 @@ export function PortalTabs({
               key={item.id}
               render={
                 <m.div
-                  className="transition-[filter,opacity,transform] ease-[var(--portal-ease-out)]"
+                  className={
+                    automatic
+                      ? "transition-opacity ease-[var(--portal-ease-out)]"
+                      : "transition-[filter,opacity,transform] ease-[var(--portal-ease-out)]"
+                  }
                   style={{
                     ...(selected
                       ? { filter: "blur(0px)", opacity: 1, transform: "translateX(0)" }
                       : {
-                          filter: still ? "blur(0px)" : "blur(4px)",
+                          filter: still || automatic ? "blur(0px)" : "blur(4px)",
                           opacity: still ? 1 : 0,
                           transform: `translateX(${hiddenDirection * slide}px)`,
                         }),

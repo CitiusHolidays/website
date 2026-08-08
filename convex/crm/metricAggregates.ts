@@ -9,6 +9,7 @@ export const METRIC_SOURCE_TYPES = [
   "expenseEntries",
   "invoices",
   "jobCards",
+  "pnrs",
   "proposals",
   "queries",
   "tickets",
@@ -31,6 +32,7 @@ const sourceTypeValidator = v.union(
   v.literal("expenseEntries"),
   v.literal("invoices"),
   v.literal("jobCards"),
+  v.literal("pnrs"),
   v.literal("proposals"),
   v.literal("queries"),
   v.literal("tickets"),
@@ -42,7 +44,7 @@ const RECONCILE_PAGE_SIZE = 20;
 const MAX_MONTH_BUCKETS = 600;
 const MAX_DAY_BUCKETS = 64;
 const READINESS_KEY = "global";
-export const METRIC_VERSION = 3;
+export const METRIC_VERSION = 4;
 const METRIC_RECONCILIATION_STALE_MS = 60 * 60 * 1000;
 
 interface MetricReadinessRow {
@@ -215,13 +217,24 @@ export function buildMetricValues(
       addValue(values, "travellers.tourManagerDone", 1);
     }
   } else if (sourceType === "tickets") {
+    addValue(values, "tickets.total", 1);
     addValue(values, `tickets.status.${String(source.ticketStatus ?? "Unknown")}`, 1);
+    addValue(values, `tickets.type.${String(source.ticketType ?? "Unknown")}`, 1);
     if (source.ticketStatus === "Issued") {
       addValue(values, "tickets.issued", 1);
     }
     if (source.ticketStatus === "Pending Issue") {
       addValue(values, "tickets.pending", 1);
     }
+    if (
+      ["Name Change Required", "Reissue Required", "Refund Pending"].includes(source.ticketStatus)
+    ) {
+      addValue(values, "tickets.attention", 1);
+    }
+  } else if (sourceType === "pnrs") {
+    addValue(values, "pnrs.count", 1);
+    addValue(values, "pnrs.issuedSeats", Number(source.issuedSeats ?? 0));
+    addValue(values, "pnrs.totalSeats", Number(source.totalSeats ?? 0));
   } else if (sourceType === "visaRecords") {
     if (!["Approved", "Not Required"].includes(source.status)) {
       addValue(values, "visas.blockers", 1);
@@ -365,7 +378,9 @@ async function resolveProjectionContext(
   if (sourceType === "jobCards") {
     job = source;
   } else if (
-    ["travellers", "tickets", "visaRecords", "invoices", "expenseEntries"].includes(sourceType)
+    ["travellers", "tickets", "pnrs", "visaRecords", "invoices", "expenseEntries"].includes(
+      sourceType
+    )
   ) {
     job = source.jobCardId
       ? ((await ctx.db.get(source.jobCardId)) as Record<string, any> | null)
@@ -384,6 +399,7 @@ async function resolveProjectionContext(
     jobOpen: Boolean(job && job.status !== "Closed"),
     minAdvancePercent: Number(job?.paymentTerms?.minAdvancePercent ?? 70),
     referenceDate: new Date(Date.now()).toISOString().slice(0, 10),
+    ticketingOwnerId: job?.ticketingOwnerId ? String(job.ticketingOwnerId) : undefined,
     tourManagerAssigned: Boolean(job?.tourManagerName || job?.tourManagerId),
   };
 }
@@ -417,8 +433,17 @@ async function syncProjection(
   const context = await resolveProjectionContext(ctx, sourceType, source);
   const day = utcDay(Number(source.createdAt ?? source._creationTime));
   const scopes = context.cement ? ["all", "cement"] : ["all"];
-  if (["expenseEntries", "invoices", "travellers"].includes(sourceType) && context.jobCardId) {
+  if (
+    ["expenseEntries", "invoices", "travellers", "tickets", "pnrs"].includes(sourceType) &&
+    context.jobCardId
+  ) {
     scopes.push(`job:${context.jobCardId}`);
+  }
+  if (["tickets", "pnrs"].includes(sourceType) && context.ticketingOwnerId) {
+    scopes.push(`ticketing:${context.ticketingOwnerId}`);
+    if (context.cement) {
+      scopes.push(`ticketing-cement:${context.ticketingOwnerId}`);
+    }
   }
   const values = buildMetricValues(sourceType, source, context);
   const fingerprint = stableFingerprint(day, scopes, values);
@@ -465,6 +490,8 @@ async function loadSourcePage(
       return await ctx.db.query("invoices").order("asc").paginate(paginationOpts);
     case "jobCards":
       return await ctx.db.query("jobCards").order("asc").paginate(paginationOpts);
+    case "pnrs":
+      return await ctx.db.query("pnrs").order("asc").paginate(paginationOpts);
     case "proposals":
       return await ctx.db.query("proposals").order("asc").paginate(paginationOpts);
     case "queries":

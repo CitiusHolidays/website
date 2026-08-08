@@ -14,7 +14,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "58d9c40763a06ebdfd9442de3a6af593d1ba5fd118b1fd77eae30a609c89ab46";
+const EXPECTED_CAPABILITY_HASH = "c56a530ae87cc267c49d47a04e2937d03d3ab17ffcef8b79b6ae3cdaf40465ed";
 const SOURCE_EXTENSION = /\.(?:js|ts)$/;
 const NON_SOURCE_FILE = /(?:\.test|\.config)\.[jt]s$/;
 const MODULE_EXTENSION = /\.[jt]s$/;
@@ -193,6 +193,44 @@ describe("Convex capability inventory", () => {
         name: "consumePortalFileDownload",
       },
     ] satisfies Capability[]) {
+      expect(capabilities).toContainEqual(capability);
+    }
+  });
+
+  test("classifies the reviewed customer and repair capabilities explicitly", () => {
+    const capabilities = discoverCapabilities();
+    for (const capability of [
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "bookings",
+        name: "getMyJourneyDetail",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "bookings",
+        name: "getMyJourneySummaries",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "customerConfirmedTrips",
+        name: "getMyConfirmedTripPackets",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/customerAttributionMigration",
+        name: "backfillCustomerAttribution",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/expenseLifecycleMigration",
+        name: "repairExpenseLifecycle",
+      },
+    ] as const) {
       expect(capabilities).toContainEqual(capability);
     }
   });

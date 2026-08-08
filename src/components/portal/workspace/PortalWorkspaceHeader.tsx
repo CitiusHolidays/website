@@ -10,28 +10,31 @@ import { jobCardFilterOptions } from "@/components/portal/workspace/portalOperat
 import { Button } from "@/components/ui/application-button";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import { canAssignTourManagers, canHeadAssignQueryTeams } from "@/lib/portal/permissions";
-import type { PortalViewMeta } from "@/lib/portal/workspaceContract";
-import { resolveViewPagination } from "./portalViewRegistryInputs";
+import {
+  type PortalRouteDefinition,
+  resolvePortalRoutePagination,
+} from "@/lib/portal/portalRouteManifest";
 import type {
   PortalAccessSlice,
   PortalPaginationSlice,
   PortalPermissionChecker,
+  PortalTicketDashboardSummary,
 } from "./portalViewTypes";
 
 const P = PORTAL_PERMISSIONS;
 
 export interface PortalWorkspaceHeaderSlice {
-  access: PortalAccessSlice;
+  access?: PortalAccessSlice;
   clearAllFilters: () => void;
-  dateRange: { from: string | null; to: string | null };
+  dateRange: { from?: string | null; to?: string | null };
   error: string;
   filtersActive: boolean;
   has: PortalPermissionChecker;
   jobCardFilter: string;
-  jobCards: Array<{ clientName?: string; id: string; jobCode: string }>;
+  jobCards?: Array<{ clientName?: string; id: string; jobCode: string }>;
   listFilterConfig: Array<{ id: string; label: string; options?: string[] }>;
   listFilters: Record<string, string>;
-  meta: PortalViewMeta;
+  meta: PortalRouteDefinition;
   modal: string | null;
   openModal: (modal: string, initial?: Record<string, unknown>) => void;
   pagination: Record<string, PortalPaginationSlice>;
@@ -59,6 +62,7 @@ export interface PortalWorkspaceHeaderSlice {
   setSearchWithUrl: (value: string) => void;
   showJobCardFilter: boolean;
   team: unknown[];
+  ticketDashboard?: PortalTicketDashboardSummary;
   view: string;
   viewResultCount: number | null;
 }
@@ -326,7 +330,7 @@ export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspac
     proposals: workspace.periodFiltered.proposals,
     "seat-allocation": workspace.periodFiltered.seats,
     team: workspace.team,
-    ticketing: workspace.periodFiltered.tickets,
+    ticketing: workspace.ticketDashboard?.preview,
     tickets: workspace.periodFiltered.tickets,
     "tour-managers": workspace.periodFiltered.tourManagers,
     travellers: workspace.periodFiltered.travellers,
@@ -334,17 +338,14 @@ export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspac
   };
   const filterSourceRows =
     filterSourceRowsByView[workspace.view] ?? workspace.periodFiltered.queries;
-  const viewPagination = resolveViewPagination(
-    workspace.view,
-    workspace.pagination as Parameters<typeof resolveViewPagination>[1]
-  );
+  const viewPagination = resolvePortalRoutePagination(workspace.view, workspace.pagination);
 
   return (
     <>
       <PortalListToolbar
         actions={
           <HeaderActions
-            access={workspace.access}
+            access={workspace.access ?? {}}
             has={workspace.has}
             openModal={workspace.openModal}
             view={workspace.view}

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
+import { PORTAL_ROUTES } from "../../src/lib/portal/portalRouteManifest";
 import { serializeUrlFilterState } from "../../src/lib/portal/urlFilterState.js";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -67,29 +68,31 @@ describe("CRM cursor rollout", () => {
   });
 
   test("portal load-more routing covers every migrated list surface", () => {
-    const source = read("../../src/components/portal/workspace/portalViewRegistryInputs.ts");
-    for (const view of [
-      "queries",
-      "contracting",
-      "proposals",
-      "job-cards",
-      "travellers",
-      "passport",
-      "visa",
-      "hotels",
-      "tour-managers",
-      "flights",
-      "tickets",
-      "seat-allocation",
-      "finance",
-      "expenses",
-      "approvals",
-      "leave",
-      "activity",
-      "team",
-      "settings",
-    ]) {
-      expect(source, view).toContain(view.includes("-") ? `${JSON.stringify(view)}:` : `${view}:`);
+    const expected = {
+      activity: "activity",
+      approvals: "approvals",
+      contracting: "queries",
+      "employees-on-leave": "leaves",
+      expenses: "expenses",
+      finance: "invoices",
+      flights: "flightOperations",
+      hotels: "hotelOperations",
+      "job-cards": "jobCards",
+      passport: "travellers",
+      proposals: "proposals",
+      queries: "queries",
+      "seat-allocation": "seats",
+      settings: "staff",
+      team: "team",
+      tickets: "tickets",
+      "tour-managers": "tourManagers",
+      travellers: "travellers",
+      visa: "visas",
+    } as const;
+    for (const [view, paginationKey] of Object.entries(expected)) {
+      expect(PORTAL_ROUTES[view as keyof typeof PORTAL_ROUTES].paginationKey, view).toBe(
+        paginationKey
+      );
     }
   });
 

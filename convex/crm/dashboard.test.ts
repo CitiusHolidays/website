@@ -255,6 +255,207 @@ describe("dashboard summary slices", () => {
 });
 
 describe("getPortalSummary", () => {
+  test("scopes the raw dashboard response to the Sales caller's authorized records", async () => {
+    const { takeCalls, ...ctx } = makeCtx(
+      {
+        activityLogs: [],
+        approvalRequests: [
+          {
+            _id: "approval_other",
+            createdAt: Date.UTC(2026, 0, 1),
+            requestCode: "APR-OTHER",
+            requestedBy: "auth_2",
+            status: "Pending",
+            summary: "Private approval",
+            type: "Expense",
+            updatedAt: Date.UTC(2026, 0, 1),
+          },
+        ],
+        crmMetricBuckets: [
+          {
+            _id: "bucket_global",
+            periodKey: "all",
+            periodType: "all",
+            scope: "all",
+            updatedAt: Date.UTC(2026, 0, 2),
+            values: {
+              "approvals.pending": 70,
+              "jobCards.open": 80,
+              "queries.active": 90,
+              "queries.stage.Inquiry.count": 40,
+              "queries.stage.Proposal.count": 50,
+              "queries.total": 90,
+            },
+          },
+        ],
+        crmMetricPublications: [
+          {
+            _id: "publication_global",
+            generation: 1,
+            key: "global",
+            metricVersion: METRIC_VERSION,
+            publishedAt: Date.UTC(2026, 0, 2),
+          },
+        ],
+        crmMetricReadiness: [
+          {
+            _id: "readiness_global",
+            completedSourceTypes: ["approvalRequests", "jobCards", "queries"],
+            generation: 2,
+            key: "global",
+            lastCompletedAt: Date.UTC(2026, 0, 2),
+            lastCompletedGeneration: 1,
+            lastCompletedMetricVersion: METRIC_VERSION,
+            metricVersion: METRIC_VERSION,
+            startedAt: Date.UTC(2026, 0, 1),
+            updatedAt: Date.UTC(2026, 0, 2),
+          },
+        ],
+        invoices: [
+          {
+            _id: "invoice_other",
+            balanceAmount: 500,
+            createdAt: Date.UTC(2026, 0, 1),
+            dueDate: "2026-01-01",
+            expectedAmount: 500,
+            invoiceNumber: "INV-OTHER",
+            receivedAmount: 0,
+            updatedAt: Date.UTC(2026, 0, 1),
+          },
+        ],
+        jobCards: [
+          {
+            _id: "job_other",
+            clientName: "Private Client",
+            confirmedPax: 4,
+            createdAt: Date.UTC(2026, 0, 1),
+            createdBy: "auth_2",
+            destination: "Private Destination",
+            jobCode: "JC-OTHER",
+            status: "Open",
+          },
+        ],
+        proposalQueryLinks: [],
+        proposals: [],
+        queries: [
+          {
+            _id: "query_mine",
+            contractingStatus: "Query Received",
+            createdAt: Date.UTC(2026, 0, 1),
+            createdBy: "auth_1",
+            leadStage: "Inquiry",
+            queryCode: "Q-MINE",
+            queryType: "MICE",
+            salesStatus: "Proposal in discussion",
+          },
+          {
+            _id: "query_other",
+            contractingStatus: "Query Received",
+            createdAt: Date.UTC(2026, 0, 1),
+            createdBy: "auth_2",
+            leadStage: "Proposal",
+            queryCode: "Q-OTHER",
+            queryType: "MICE",
+            salesStatus: "Proposal in discussion",
+          },
+        ],
+        tickets: [
+          {
+            _id: "ticket_other",
+            createdAt: Date.UTC(2026, 0, 1),
+            jobCardId: "job_other",
+            ticketNumber: "TKT-OTHER",
+            ticketStatus: "Refund Pending",
+          },
+        ],
+        travellers: [],
+        visaRecords: [],
+      },
+      ["Sales"]
+    );
+
+    const summary = await getPortalSummary._handler(ctx as any, {
+      dateRange: null,
+      referenceNow: Date.UTC(2026, 0, 2),
+    });
+
+    expect(summary.metrics).toMatchObject({
+      activeQueries: 1,
+      jobCardsOpen: 0,
+      outstandingAmount: 0,
+      paymentPending: 0,
+      pendingApprovals: 0,
+      ticketsPending: 0,
+    });
+    expect(summary.pipelineSnapshot).toEqual([
+      { count: 1, stage: "Inquiry", value: 0, weighted: 0 },
+      { count: 0, stage: "Proposal", value: 0, weighted: 0 },
+      { count: 0, stage: "Negotiation", value: 0, weighted: 0 },
+      { count: 0, stage: "Confirmation", value: 0, weighted: 0 },
+      { count: 0, stage: "Lost", value: 0, weighted: 0 },
+    ]);
+    expect(summary.activeTours).toEqual([]);
+    expect(summary.urgentActions).toEqual([]);
+    expect(takeCalls).not.toContainEqual({ limit: 240, table: "approvalRequests" });
+    expect(takeCalls).not.toContainEqual({ limit: 240, table: "invoices" });
+    expect(takeCalls).not.toContainEqual({ limit: 240, table: "jobCards" });
+    expect(takeCalls).not.toContainEqual({ limit: 240, table: "tickets" });
+  });
+
+  test("loads only the dashboard collections allowed for each staff role", async () => {
+    const cases = [
+      { roles: ["Sales"], tables: ["proposals", "queries"] },
+      { roles: ["HR"], tables: ["approvalRequests"] },
+      {
+        roles: ["Operations"],
+        tables: ["jobCards", "tickets", "travellers", "visaRecords"],
+      },
+      { roles: ["Finance"], tables: ["approvalRequests", "invoices", "jobCards"] },
+      {
+        roles: ["Directors"],
+        tables: [
+          "approvalRequests",
+          "invoices",
+          "jobCards",
+          "proposals",
+          "queries",
+          "tickets",
+          "travellers",
+          "visaRecords",
+        ],
+      },
+    ];
+
+    await Promise.all(
+      cases.map(async (testCase) => {
+        const { takeCalls, ...ctx } = makeCtx(
+          {
+            activityLogs: [],
+            approvalRequests: [],
+            invoices: [],
+            jobCards: [],
+            proposalQueryLinks: [],
+            proposals: [],
+            queries: [],
+            tickets: [],
+            travellers: [],
+            visaRecords: [],
+          },
+          testCase.roles
+        );
+
+        await getPortalSummary._handler(ctx as any, { dateRange: null });
+
+        expect(
+          takeCalls
+            .filter((call) => call.limit === 240 && call.table !== "staffUsers")
+            .map((call) => call.table)
+            .sort((left, right) => left.localeCompare(right))
+        ).toEqual(testCase.tables);
+      })
+    );
+  });
+
   test("returns generatedAt and keeps cement scope on query counts", async () => {
     const { activityTakeCalls, ...ctx } = makeCtx(
       {

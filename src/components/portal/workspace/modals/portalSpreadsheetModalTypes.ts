@@ -1,15 +1,54 @@
-import type { PortalTravelBatchModalWorkspaceSlice } from "../portalModalWorkspaceTypes";
-import type { PortalFlightItineraryGroup, PortalJobCardOption } from "../portalViewTypes";
-import type { FlightImportModalProps } from "./FlightImportModal";
-import type { PassengerExportModalProps } from "./PassengerExportModal";
-import type { PassengerImportModalProps } from "./PassengerImportModal";
+import type { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
 
-export interface PortalSpreadsheetModalWorkspaceSlice
-  extends Omit<PortalTravelBatchModalWorkspaceSlice, "jobCards"> {
-  commitFlightImport: FlightImportModalProps["commitFlightImport"];
-  commitPassengerImport: PassengerImportModalProps["commitPassengerImport"];
-  flightItinerary: PortalFlightItineraryGroup[];
-  getPassengerExportRows: PassengerExportModalProps["getPassengerExportRows"];
-  jobCards: PortalJobCardOption[];
-  previewPassengerImport: PassengerImportModalProps["previewPassengerImport"];
-}
+type PortalWorkspaceState = ReturnType<typeof usePortalWorkspaceState>;
+
+/** Exact workspace fields used by the modal host before query arrays are normalized. */
+export type PortalSpreadsheetModalWorkspaceSlice = Pick<
+  PortalWorkspaceState,
+  | "access"
+  | "attachFinalizedPdf"
+  | "attachProposalFile"
+  | "attachQueryFile"
+  | "closeModal"
+  | "commitFlightImport"
+  | "commitPassengerImport"
+  | "error"
+  | "flightItinerary"
+  | "form"
+  | "generateFinalizedPdfUploadUrl"
+  | "generateProposalUploadUrl"
+  | "generateQueryUploadUrl"
+  | "getExpenseAttachmentUrl"
+  | "getFinalizedPdfUrl"
+  | "getPassengerExportRows"
+  | "getProposalAttachmentUrl"
+  | "getQueryAttachmentUrl"
+  | "has"
+  | "isSaving"
+  | "jobCards"
+  | "leaveBalances"
+  | "leaveHeadApproverCandidates"
+  | "modal"
+  | "patchForm"
+  | "pendingExpenseProofFiles"
+  | "pendingProposalFiles"
+  | "pendingQueryFiles"
+  | "pnrs"
+  | "previewPassengerImport"
+  | "proposals"
+  | "queries"
+  | "removeExpenseProof"
+  | "removeFinalizedPdf"
+  | "removeProposalAttachment"
+  | "removeQueryAttachment"
+  | "saveFlash"
+  | "setPendingExpenseProofFiles"
+  | "setPendingProposalFiles"
+  | "setPendingQueryFiles"
+  | "submit"
+  | "team"
+  | "travellers"
+  | "travellersWithoutVisa"
+  | "updateForm"
+  | "visas"
+>;

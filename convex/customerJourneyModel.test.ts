@@ -1,0 +1,215 @@
+import { describe, expect, test } from "bun:test";
+import type { Doc } from "./_generated/dataModel";
+import { getMyJourneyDetail, getMyJourneySummaries } from "./bookings";
+import {
+  classifyCustomerJourney,
+  normalizeJourneyImages,
+  normalizeJourneyItinerary,
+} from "./customerJourneyModel";
+
+const REFERENCE_NOW = Date.parse("2026-08-07T18:00:00.000Z");
+
+function booking(overrides: Partial<Doc<"bookings">> = {}) {
+  return {
+    _creationTime: 1,
+    _id: "bookings_1",
+    createdAt: 1,
+    currency: "INR",
+    razorpayOrderId: "order_1",
+    razorpayPaymentId: "payment_1",
+    status: "confirmed",
+    totalAmount: 100,
+    travelers: 2,
+    tripId: "trips_1",
+    updatedAt: 1,
+    userId: "customer_1",
+    ...overrides,
+  } as Doc<"bookings">;
+}
+
+function trip(overrides: Partial<Doc<"trips">> = {}) {
+  return {
+    _creationTime: 1,
+    _id: "trips_1",
+    availableSeats: 4,
+    createdAt: 1,
+    endDate: "2026-08-10",
+    isActive: true,
+    name: "Ladakh Journey",
+    priceInr: 100,
+    priceUsd: 2,
+    slug: "ladakh",
+    startDate: "2026-08-07",
+    totalSeats: 10,
+    updatedAt: 1,
+    ...overrides,
+  } as Doc<"trips">;
+}
+
+function context({
+  identitySubject = "customer_1",
+  bookings = [booking()],
+  trips = [trip()],
+}: {
+  identitySubject?: string | null;
+  bookings?: Doc<"bookings">[];
+  trips?: Doc<"trips">[];
+} = {}) {
+  let indexedUserId = "";
+  const db = {
+    get: async (id: string) =>
+      bookings.find((row) => row._id === id) ?? trips.find((row) => row._id === id) ?? null,
+    query: (table: string) => {
+      if (table !== "bookings") {
+        throw new Error(`Unexpected query: ${table}`);
+      }
+      const chain = {
+        order: () => chain,
+        take: async (limit: number) =>
+          bookings.filter((row) => row.userId === indexedUserId).slice(0, limit),
+        withIndex: (
+          _index: string,
+          callback: (q: { eq: (_field: string, value: string) => void }) => void
+        ) => {
+          callback({
+            eq: (_field, value) => {
+              indexedUserId = value;
+            },
+          });
+          return chain;
+        },
+      };
+      return chain;
+    },
+  };
+  return {
+    auth: {
+      getUserIdentity: async () =>
+        identitySubject
+          ? { email: `${identitySubject}@example.com`, subject: identitySubject }
+          : null,
+    },
+    db,
+  };
+}
+
+describe("Customer Journey model", () => {
+  test("uses cancellation precedence and date-only end boundaries at a fixed clock", () => {
+    expect(classifyCustomerJourney(booking(), trip(), REFERENCE_NOW)).toBe("upcoming");
+    expect(classifyCustomerJourney(booking(), trip({ endDate: "2026-08-06" }), REFERENCE_NOW)).toBe(
+      "past"
+    );
+    expect(
+      classifyCustomerJourney(
+        booking({ status: "cancelled" }),
+        trip({ endDate: "2099-01-01" }),
+        REFERENCE_NOW
+      )
+    ).toBe("cancelled");
+    expect(
+      classifyCustomerJourney(booking(), trip({ endDate: "", startDate: "" }), REFERENCE_NOW)
+    ).toBe("upcoming");
+  });
+
+  test("normalizes malformed itinerary and de-duplicates images", () => {
+    expect(
+      normalizeJourneyItinerary([null, "bad", { accommodation: 4 }, { title: "Flight" }])
+    ).toEqual([
+      {
+        accommodation: "",
+        day: "Day 3",
+        desc: "",
+        key: "Day 3-Journey highlight-3",
+        location: "",
+        meals: "",
+        title: "Journey highlight",
+      },
+      {
+        accommodation: "",
+        day: "Day 4",
+        desc: "",
+        key: "Day 4-Flight-4",
+        location: "",
+        meals: "",
+        title: "Flight",
+      },
+    ]);
+    expect(
+      normalizeJourneyImages(
+        trip({ coverImage: "/cover.jpg", gallery: ["/cover.jpg", { src: "/stay.jpg" }, 42] })
+      )
+    ).toEqual([
+      { alt: "Ladakh Journey", src: "/cover.jpg" },
+      { alt: "Ladakh Journey highlight", src: "/stay.jpg" },
+    ]);
+  });
+});
+
+describe("authenticated Customer Journey queries", () => {
+  test("returns compact, ordered summaries only for the authenticated identity", async () => {
+    const ownUpcoming = booking({ _id: "bookings_upcoming", tripId: "trips_upcoming" });
+    const ownPast = booking({ _id: "bookings_past", tripId: "trips_past" });
+    const other = booking({ _id: "bookings_other", tripId: "trips_other", userId: "other" });
+    const ctx = context({
+      bookings: [ownPast, other, ownUpcoming],
+      trips: [
+        trip({
+          _id: "trips_upcoming",
+          itinerary: Array.from({ length: 9 }, (_, i) => ({ title: `Day ${i}` })),
+        }),
+        trip({ _id: "trips_past", endDate: "2026-01-01" }),
+        trip({ _id: "trips_other" }),
+      ],
+    });
+    const result = await (getMyJourneySummaries as any)._handler(ctx, {
+      referenceNow: REFERENCE_NOW,
+    });
+    expect(result.summaries.map((item: any) => item.booking.id)).toEqual([
+      "bookings_upcoming",
+      "bookings_past",
+    ]);
+    expect(result.summaries[0].trip.itinerary).toHaveLength(4);
+    expect(result.summaries[0].trip).not.toHaveProperty("description");
+  });
+
+  test("keeps a missing Trip visible but blocks another customer's selected detail", async () => {
+    const missingTripBooking = booking({ _id: "bookings_missing", tripId: "trips_missing" });
+    const otherBooking = booking({ _id: "bookings_other", userId: "other" });
+    const ctx = context({ bookings: [missingTripBooking, otherBooking], trips: [] });
+    const summaries = await (getMyJourneySummaries as any)._handler(ctx, {
+      referenceNow: REFERENCE_NOW,
+    });
+    expect(summaries.summaries[0]).toMatchObject({
+      detailAvailable: false,
+      trip: { name: "Journey details unavailable" },
+    });
+    expect(
+      await (getMyJourneyDetail as any)._handler(ctx, {
+        bookingId: "bookings_other",
+        referenceNow: REFERENCE_NOW,
+      })
+    ).toBeNull();
+  });
+
+  test("loads authoritative normalized detail only for the selected owned booking", async () => {
+    const ctx = context({
+      trips: [
+        trip({
+          exclusions: ["Insurance", 2],
+          inclusions: ["Transfers"],
+          itinerary: [
+            { day: "Day 1", title: "Arrival" },
+            { day: "Day 2", title: "Tour" },
+          ],
+        }),
+      ],
+    });
+    const detail = await (getMyJourneyDetail as any)._handler(ctx, {
+      bookingId: "bookings_1",
+      referenceNow: REFERENCE_NOW,
+    });
+    expect(detail.trip.itinerary).toHaveLength(2);
+    expect(detail.trip.inclusions).toEqual(["Transfers"]);
+    expect(detail.trip.exclusions).toEqual(["Insurance"]);
+  });
+});

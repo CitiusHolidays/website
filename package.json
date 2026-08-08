@@ -38,7 +38,8 @@
     "test:e2e:smoke": "playwright test --grep @smoke",
     "test:e2e:workflow": "playwright test --grep @workflow",
     "test:local": "bun run test && bun run test:e2e",
-    "typecheck": "next typegen && tsc --noEmit --project tsconfig.json"
+    "typecheck": "next typegen && tsc --noEmit --project tsconfig.json",
+    "verify:local": "bun config/release/verify-local.ts"
   },
   "overrides": {
     "dompurify": "3.4.13",

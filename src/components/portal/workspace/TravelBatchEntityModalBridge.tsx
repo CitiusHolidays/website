@@ -6,6 +6,7 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { EntityModal } from "@/components/portal/EntityModal";
 import { usePortalToast } from "@/components/portal/PortalToast";
+import { createProductionModalCommandAdapter } from "@/lib/portal/modalCommandAdapter";
 import { executeModalCommand } from "@/lib/portal/modalCommandExecutor";
 import { JOB_CARD_MODALS } from "@/lib/portal/modalLifecycle";
 import { runMutation } from "@/lib/portal/runMutation";
@@ -30,46 +31,55 @@ export function TravelBatchEntityModalBridge({
   const [travelBatchSaving, setTravelBatchSaving] = useState(false);
   const [travelBatchSaveFlash, setTravelBatchSaveFlash] = useState(false);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  function submit(event: FormEvent<HTMLFormElement>) {
     if (workspace.modal !== TRAVEL_BATCH_MODAL) {
       return workspace.submit(event);
     }
     event.preventDefault();
     setTravelBatchSaving(true);
     setTravelBatchError("");
-    try {
-      await runMutation(
-        {
-          label: "Save",
-          onError: (message: string) => setTravelBatchError(message),
-          showToast: toast,
-          successMessage: "Saved",
-        },
-        async () => {
-          await executeModalCommand({
-            deps: {
-              access: workspace.access,
+    return runMutation(
+      {
+        label: "Save",
+        onError: (message: string) => setTravelBatchError(message),
+        showToast: toast,
+        successMessage: "Saved",
+      },
+      () =>
+        executeModalCommand({
+          adapter: createProductionModalCommandAdapter({
+            administration: {},
+            commercial: {},
+            operations: {
               createTravelBatch,
-              has: workspace.has,
-              jobCardModals: JOB_CARD_MODALS,
-              queries: workspace.queries,
               team: workspace.team,
               updateTravelBatch,
             },
-            form: workspace.form,
-            modal: TRAVEL_BATCH_MODAL,
-          });
-        }
-      );
-      setTravelBatchSaveFlash(true);
-      await new Promise((resolve) => setTimeout(resolve, 420));
-      workspace.closeModal();
-      setTravelBatchSaveFlash(false);
-      setTravelBatchSaving(false);
-    } catch (err) {
-      setTravelBatchError(formatConvexError(err, "Unable to save."));
-      setTravelBatchSaving(false);
-    }
+            policy: {
+              access: workspace.access,
+              has: workspace.has,
+              jobCardModals: JOB_CARD_MODALS,
+            },
+          }),
+          form: workspace.form,
+          modal: TRAVEL_BATCH_MODAL,
+        })
+    )
+      .then(
+        () =>
+          new Promise<void>((resolve) => {
+            setTravelBatchSaveFlash(true);
+            setTimeout(resolve, 420);
+          })
+      )
+      .then(() => workspace.closeModal())
+      .catch((err) => {
+        setTravelBatchError(formatConvexError(err, "Unable to save."));
+      })
+      .finally(() => {
+        setTravelBatchSaveFlash(false);
+        setTravelBatchSaving(false);
+      });
   }
 
   return (

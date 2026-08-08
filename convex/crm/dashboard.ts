@@ -3,8 +3,9 @@ import type { Id } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import type { JobCardStatus } from "./jobCardConstants";
 import {
-  applyCementPortalScope,
+  applyPortalRecordScope,
   CEMENT_QUERY_TYPES,
+  canSeeAllPortalRecords,
   filterRecordsByDateRange,
   isHead,
   PERMISSIONS,
@@ -165,12 +166,14 @@ export const getPortalDashboardCapacity = query({
       return { capacity: [], myTeam: [] };
     }
     const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
+    const canViewQueries = access.permissions.includes(PERMISSIONS.VIEW_QUERIES);
+    const canViewJobCards = access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS);
     const [queryRows, jobRows, staff] = await Promise.all([
-      boundedDashboardRows(ctx, "queries", dateRange),
-      boundedDashboardRows(ctx, "jobCards", dateRange),
+      canViewQueries ? boundedDashboardRows(ctx, "queries", dateRange) : Promise.resolve([]),
+      canViewJobCards ? boundedDashboardRows(ctx, "jobCards", dateRange) : Promise.resolve([]),
       ctx.db.query("staffUsers").take(DASHBOARD_DETAIL_LIMIT),
     ]);
-    const scoped = applyCementPortalScope(access, {
+    const scoped = applyPortalRecordScope(access, {
       invoices: [],
       jobCards: jobRows,
       proposals: [],
@@ -661,11 +664,19 @@ export const getPortalSummary = query({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD);
+    const canViewApprovals = access.permissions.includes(PERMISSIONS.VIEW_APPROVALS);
     const canViewFinance = access.permissions.includes(PERMISSIONS.VIEW_FINANCE);
+    const canViewJobCards = access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS);
+    const canViewProposals = access.permissions.includes(PERMISSIONS.VIEW_PROPOSALS);
+    const canViewQueries = access.permissions.includes(PERMISSIONS.VIEW_QUERIES);
+    const canViewTickets = access.permissions.includes(PERMISSIONS.VIEW_TICKETING);
+    const canViewTravellers = access.permissions.includes(PERMISSIONS.VIEW_TRAVELLERS);
+    const canViewVisa = access.permissions.includes(PERMISSIONS.VIEW_VISA);
     const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
     const aggregateScope = shouldApplyCementScope(access) ? "cement" : "all";
     const aggregate = await loadMetricTotals(ctx, aggregateScope, dateRange, args.referenceNow);
-    const needsFallbackRows = !aggregate.complete;
+    const canUseOrganizationAggregates = canSeeAllPortalRecords(access) || isHead(access);
+    const needsFallbackRows = !(aggregate.complete && canUseOrganizationAggregates);
     const [
       allQueriesRaw,
       allProposalsRaw,
@@ -677,15 +688,23 @@ export const getPortalSummary = query({
       approvalRows,
       proposalQueryLinks,
     ] = await Promise.all([
-      boundedDashboardRows(ctx, "queries", dateRange),
-      needsFallbackRows ? boundedDashboardRows(ctx, "proposals", dateRange) : Promise.resolve([]),
-      boundedDashboardRows(ctx, "jobCards", dateRange),
-      boundedDashboardRows(ctx, "tickets", dateRange),
-      needsFallbackRows ? boundedDashboardRows(ctx, "travellers", dateRange) : Promise.resolve([]),
-      needsFallbackRows ? boundedDashboardRows(ctx, "visaRecords", dateRange) : Promise.resolve([]),
-      boundedDashboardRows(ctx, "invoices", dateRange),
-      boundedDashboardRows(ctx, "approvalRequests", dateRange),
-      needsFallbackRows
+      canViewQueries ? boundedDashboardRows(ctx, "queries", dateRange) : Promise.resolve([]),
+      needsFallbackRows && canViewProposals
+        ? boundedDashboardRows(ctx, "proposals", dateRange)
+        : Promise.resolve([]),
+      canViewJobCards ? boundedDashboardRows(ctx, "jobCards", dateRange) : Promise.resolve([]),
+      canViewTickets ? boundedDashboardRows(ctx, "tickets", dateRange) : Promise.resolve([]),
+      needsFallbackRows && canViewTravellers
+        ? boundedDashboardRows(ctx, "travellers", dateRange)
+        : Promise.resolve([]),
+      needsFallbackRows && canViewVisa
+        ? boundedDashboardRows(ctx, "visaRecords", dateRange)
+        : Promise.resolve([]),
+      canViewFinance ? boundedDashboardRows(ctx, "invoices", dateRange) : Promise.resolve([]),
+      canViewApprovals
+        ? boundedDashboardRows(ctx, "approvalRequests", dateRange)
+        : Promise.resolve([]),
+      needsFallbackRows && canViewProposals && canViewQueries
         ? ctx.db.query("proposalQueryLinks").take(DASHBOARD_RELATION_LIMIT)
         : Promise.resolve([]),
     ]);
@@ -698,9 +717,9 @@ export const getPortalSummary = query({
     let tickets = filterRecordsByDateRange(allTicketsRaw, dateRange);
     let visas = filterRecordsByDateRange(visaRows, dateRange);
     let invoices = filterRecordsByDateRange(invoiceRows, dateRange);
-    const approvals = filterRecordsByDateRange(approvalRows, dateRange);
+    const approvals = canViewApprovals ? filterRecordsByDateRange(approvalRows, dateRange) : [];
 
-    const scopedRecords = applyCementPortalScope(access, {
+    const scopedRecords = applyPortalRecordScope(access, {
       invoices,
       jobCards,
       proposalQueryLinks,
@@ -721,7 +740,7 @@ export const getPortalSummary = query({
     const jobCardByIdForTravellers = new Map(jobCards.map((job) => [job._id, job]));
     const travellersByJobCard = groupByJobCardId(travellers);
 
-    const scopedAllQueries = applyCementPortalScope(access, {
+    const scopedAllRecords = applyPortalRecordScope(access, {
       invoices: [],
       jobCards: allJobCardsRaw,
       proposalQueryLinks,
@@ -730,37 +749,11 @@ export const getPortalSummary = query({
       tickets: allTicketsRaw,
       travellers: [],
       visas: [],
-    }).queries;
-    const scopedAllProposals = applyCementPortalScope(access, {
-      invoices: [],
-      jobCards: allJobCardsRaw,
-      proposalQueryLinks,
-      proposals: allProposalsRaw,
-      queries: allQueriesRaw,
-      tickets: allTicketsRaw,
-      travellers: [],
-      visas: [],
-    }).proposals;
-    const scopedAllJobCards = applyCementPortalScope(access, {
-      invoices: [],
-      jobCards: allJobCardsRaw,
-      proposalQueryLinks,
-      proposals: allProposalsRaw,
-      queries: allQueriesRaw,
-      tickets: allTicketsRaw,
-      travellers: [],
-      visas: [],
-    }).jobCards;
-    const scopedAllTickets = applyCementPortalScope(access, {
-      invoices: [],
-      jobCards: allJobCardsRaw,
-      proposalQueryLinks,
-      proposals: allProposalsRaw,
-      queries: allQueriesRaw,
-      tickets: allTicketsRaw,
-      travellers: [],
-      visas: [],
-    }).tickets;
+    });
+    const scopedAllQueries = scopedAllRecords.queries;
+    const scopedAllProposals = scopedAllRecords.proposals;
+    const scopedAllJobCards = scopedAllRecords.jobCards;
+    const scopedAllTickets = scopedAllRecords.tickets;
 
     const queryTypesForCounts = shouldApplyCementScope(access)
       ? [...CEMENT_QUERY_TYPES]
@@ -825,8 +818,24 @@ export const getPortalSummary = query({
       return Boolean(job?.tourManagerName || job?.tourManagerId);
     }).length;
 
+    const canUseAggregateKey = (key: string) => {
+      if (!(aggregate.complete && canUseOrganizationAggregates)) {
+        return false;
+      }
+      const domain = key.split(".")[0];
+      return (
+        (domain === "queries" && canViewQueries) ||
+        (domain === "proposals" && canViewProposals) ||
+        (domain === "jobCards" && canViewJobCards) ||
+        (domain === "travellers" && canViewTravellers) ||
+        (domain === "tickets" && canViewTickets) ||
+        (domain === "visas" && canViewVisa) ||
+        (domain === "invoices" && canViewFinance) ||
+        (domain === "approvals" && canViewApprovals)
+      );
+    };
     const aggregateValue = (key: string, fallback: number) =>
-      aggregate.complete ? aggregateMetric(aggregate.values, key, fallback) : fallback;
+      canUseAggregateKey(key) ? aggregateMetric(aggregate.values, key, fallback) : fallback;
     const aggregateActiveQueries = aggregateValue("queries.active", activeQueryRecords.length);
     const aggregateConfirmedQueries = aggregateValue(
       "queries.confirmed",
@@ -934,13 +943,13 @@ export const getPortalSummary = query({
       }),
       aggregateCoverage: formatAggregateCoverage(aggregate),
       capacity: [],
-      closedQueriesByType: aggregate.complete
+      closedQueriesByType: canUseAggregateKey("queries.active")
         ? queryTypesForCounts.map((type) => ({
             count: aggregateMetric(aggregate.values, `queries.type.${type}.lost`),
             type: type as QueryType,
           }))
         : countQueriesByType(closedQueryRecords, queryTypesForCounts),
-      confirmedQueriesByType: aggregate.complete
+      confirmedQueriesByType: canUseAggregateKey("queries.active")
         ? queryTypesForCounts.map((type) => ({
             count: aggregateMetric(aggregate.values, `queries.type.${type}.confirmed`),
             type: type as QueryType,
@@ -1024,18 +1033,18 @@ export const getPortalSummary = query({
       },
       metricTrends: {
         activeQueries: buildMetricTrend(
-          last30Aggregate.complete
+          canUseAggregateKey("queries.active") && last30Aggregate.complete
             ? aggregateMetric(last30Aggregate.values, "queries.active")
             : last30ActiveQueries.length,
-          prior30Aggregate.complete
+          canUseAggregateKey("queries.active") && prior30Aggregate.complete
             ? aggregateMetric(prior30Aggregate.values, "queries.active")
             : prior30ActiveQueries.length
         ),
         confirmedJobs: buildMetricTrend(
-          last30Aggregate.complete
+          canUseAggregateKey("queries.active") && last30Aggregate.complete
             ? aggregateMetric(last30Aggregate.values, "queries.confirmed")
             : last30Confirmed.length,
-          prior30Aggregate.complete
+          canUseAggregateKey("queries.active") && prior30Aggregate.complete
             ? aggregateMetric(prior30Aggregate.values, "queries.confirmed")
             : prior30Confirmed.length
         ),
@@ -1049,18 +1058,18 @@ export const getPortalSummary = query({
           ).length
         ),
         jobCardsOpen: buildMetricTrend(
-          last30Aggregate.complete
+          canUseAggregateKey("jobCards.open") && last30Aggregate.complete
             ? aggregateMetric(last30Aggregate.values, "jobCards.open")
             : last30OpenJobs.length,
-          prior30Aggregate.complete
+          canUseAggregateKey("jobCards.open") && prior30Aggregate.complete
             ? aggregateMetric(prior30Aggregate.values, "jobCards.open")
             : prior30OpenJobs.length
         ),
         proposalsSent: buildMetricTrend(
-          last30Aggregate.complete
+          canUseAggregateKey("proposals.sent") && last30Aggregate.complete
             ? aggregateMetric(last30Aggregate.values, "proposals.sent")
             : last30ProposalsSent.length,
-          prior30Aggregate.complete
+          canUseAggregateKey("proposals.sent") && prior30Aggregate.complete
             ? aggregateMetric(prior30Aggregate.values, "proposals.sent")
             : prior30ProposalsSent.length
         ),
@@ -1068,7 +1077,7 @@ export const getPortalSummary = query({
       myTeam: [],
       overdueInvoices: canViewFinance ? overdueInvoices : [],
       ownedWorkSla,
-      pipelineSnapshot: aggregate.complete
+      pipelineSnapshot: canUseAggregateKey("queries.active")
         ? aggregatePipelineSnapshot(aggregate.values)
         : buildPipelineSnapshot(queries),
       progress: {
@@ -1108,7 +1117,7 @@ export const getPortalSummary = query({
           total: aggregateTravellerTotal,
         },
       },
-      queriesByType: aggregate.complete
+      queriesByType: canUseAggregateKey("queries.active")
         ? queryTypesForCounts.map((type) => ({
             count: aggregateMetric(aggregate.values, `queries.type.${type}.active`),
             type: type as QueryType,
@@ -1117,7 +1126,7 @@ export const getPortalSummary = query({
       recentActivity: [],
       ticketAttentionQueue,
       ticketingStats: {
-        cancelReq: aggregate.complete
+        cancelReq: canUseAggregateKey("tickets.pending")
           ? aggregateMetric(aggregate.values, "tickets.status.Refund Pending") +
             aggregateMetric(aggregate.values, "tickets.status.Cancelled")
           : scopedAllTickets.filter((ticket) =>

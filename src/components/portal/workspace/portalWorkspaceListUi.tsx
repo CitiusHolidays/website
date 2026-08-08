@@ -12,6 +12,7 @@ import {
   type SemanticTone,
   type StatusDomain,
 } from "@/lib/portal/statusTones";
+import type { QueriesViewProps } from "./portalViewTypes";
 import { openFinalizedProposalPdf, openQueryAttachment } from "./portalWorkspaceListHelpers";
 
 const useTypedPortalToast = usePortalToast as unknown as () => {
@@ -123,8 +124,8 @@ export function QueryFilesSummary({
 }: {
   attachments: Array<{ fileName: string; id: string }>;
   canManageReferenceItinerary?: boolean;
-  getFinalizedPdfUrl: (proposalId: string) => Promise<string>;
-  getQueryAttachmentUrl: (attachmentId: string) => Promise<string>;
+  getFinalizedPdfUrl: QueriesViewProps["getFinalizedPdfUrl"];
+  getQueryAttachmentUrl: QueriesViewProps["getQueryAttachmentUrl"];
   onManageReferenceItinerary?: () => void;
   proposalDocument?: {
     fileName: string;

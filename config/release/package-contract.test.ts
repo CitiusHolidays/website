@@ -59,9 +59,11 @@ describe("package and test discovery contract", () => {
   test("keeps the standalone Sanity Studio on its reviewed runtime contract", () => {
     const { dependencies, scripts } = readBlogPackageJson();
 
-    expect(dependencies.sanity).toBe("6.9.0");
-    expect(dependencies["@sanity/vision"]).toBe("6.9.0");
+    expect(dependencies.sanity).toBe("6.9.1");
+    expect(dependencies["@sanity/sdk"]).toBe("^2.19.0");
+    expect(dependencies["@sanity/vision"]).toBe("6.9.1");
     expect(dependencies.react).toBe("19.2.8");
+    expect(dependencies["styled-components"]).toBe("6.5.1");
     expect(scripts.build).toBe("sanity build");
     expect(scripts.build).not.toContain("bun --bun");
   });

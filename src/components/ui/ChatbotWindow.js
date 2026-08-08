@@ -2,9 +2,10 @@
 
 import { Compass, Trash2, X } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useState } from "react";
 import { ChatbotComposer } from "./ChatbotComposer";
 import { ChatbotMessageList, ChatbotSuggestions } from "./ChatbotMessages";
+import { ConciergeContactHandoff } from "./ConciergeContactHandoff";
 import { useChatbotConversation } from "./useChatbotConversation";
 
 function ChatbotPanelHeader({ messages, isMinimized, onClear, onToggleMinimize, onClose }) {
@@ -104,10 +105,11 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose }
     onClose();
   });
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     cancelActiveRequest();
     onClose();
-  };
+  }, [cancelActiveRequest, onClose]);
+  const toggleMinimized = useCallback(() => setIsMinimized((current) => !current), []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -122,81 +124,81 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose }
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen]);
 
-  if (!isOpen) {
-    return null;
-  }
   const panelHeightClass = chatPanelHeightClass(isMinimized, avoidsMobileBottomBar);
 
   return (
-    <AnimatePresence>
-      <m.div
-        animate={{
-          opacity: 1,
-          scale: 1,
-        }}
-        aria-label="Citius Concierge chat"
-        className={`safe-area-fixed-panel fixed z-50 flex w-auto max-w-[400px] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-brand-border/50 bg-white shadow-2xl sm:w-[400px] ${
-          avoidsMobileBottomBar ? "mobile-bottom-bar-offset" : ""
-        } ${panelHeightClass}`}
-        exit={{ opacity: 0, scale: 0.95 }}
-        initial={{ opacity: 0, scale: 0.95 }}
-        role="dialog"
-        transition={{
-          damping: 25,
-          stiffness: 400,
-          type: "spring",
-        }}
-      >
-        <ChatbotPanelHeader
-          isMinimized={isMinimized}
-          messages={messages}
-          onClear={clearConversation}
-          onClose={handleClose}
-          onToggleMinimize={() => setIsMinimized(!isMinimized)}
-        />
+    <AnimatePresence initial={false}>
+      {isOpen ? (
+        <m.div
+          animate={{
+            opacity: 1,
+            scale: 1,
+          }}
+          aria-label="Citius Concierge chat"
+          className={`safe-area-fixed-panel fixed z-50 flex w-auto max-w-[400px] origin-bottom-right flex-col overflow-hidden rounded-2xl border border-brand-border/50 bg-white shadow-2xl sm:w-[400px] ${
+            avoidsMobileBottomBar ? "mobile-bottom-bar-offset" : ""
+          } ${panelHeightClass}`}
+          exit={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          role="dialog"
+          transition={{
+            damping: 25,
+            stiffness: 400,
+            type: "spring",
+          }}
+        >
+          <ChatbotPanelHeader
+            isMinimized={isMinimized}
+            messages={messages}
+            onClear={clearConversation}
+            onClose={handleClose}
+            onToggleMinimize={toggleMinimized}
+          />
 
-        <AnimatePresence mode="wait">
-          {!isMinimized && (
-            <m.div
-              animate={{ opacity: 1, scaleY: 1 }}
-              className="flex min-h-0 flex-1 flex-col"
-              exit={{ opacity: 0, scaleY: 0.98 }}
-              initial={{ opacity: 0, scaleY: 0.98 }}
-              style={{ originY: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-            >
-              <div
-                className="flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-b from-slate-50/80 to-white"
-                ref={messagesContainerRef}
+          <AnimatePresence mode="wait">
+            {!isMinimized && (
+              <m.div
+                animate={{ opacity: 1, scaleY: 1 }}
+                className="flex min-h-0 flex-1 flex-col"
+                exit={{ opacity: 0, scaleY: 0.98 }}
+                initial={{ opacity: 0, scaleY: 0.98 }}
+                style={{ originY: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
               >
                 <div
-                  className={messages.length === 0 ? "p-6" : "space-y-3 p-4 sm:space-y-4 sm:p-5"}
+                  className="flex-1 overflow-y-auto overflow-x-hidden bg-gradient-to-b from-slate-50/80 to-white"
+                  ref={messagesContainerRef}
                 >
-                  {messages.length === 0 ? (
-                    <ChatbotSuggestions onSelectPrompt={setInput} />
-                  ) : (
-                    <ChatbotMessageList
-                      errorMessage={errorMessage}
-                      isLoading={isLoading}
-                      messages={messages}
-                      onRetry={retryLastResponse}
-                    />
-                  )}
+                  <div
+                    className={messages.length === 0 ? "p-6" : "space-y-3 p-4 sm:space-y-4 sm:p-5"}
+                  >
+                    {messages.length === 0 ? (
+                      <ChatbotSuggestions onSelectPrompt={setInput} />
+                    ) : (
+                      <ChatbotMessageList
+                        errorMessage={errorMessage}
+                        isLoading={isLoading}
+                        messages={messages}
+                        onRetry={retryLastResponse}
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <ChatbotComposer
-                input={input}
-                inputRows={inputRows}
-                isLoading={isLoading}
-                onCancel={cancelActiveRequest}
-                onInputChange={handleInputChange}
-                onSubmit={handleSubmit}
-              />
-            </m.div>
-          )}
-        </AnimatePresence>
-      </m.div>
+                <ConciergeContactHandoff />
+                <ChatbotComposer
+                  input={input}
+                  inputRows={inputRows}
+                  isLoading={isLoading}
+                  onCancel={cancelActiveRequest}
+                  onInputChange={handleInputChange}
+                  onSubmit={handleSubmit}
+                />
+              </m.div>
+            )}
+          </AnimatePresence>
+        </m.div>
+      ) : null}
     </AnimatePresence>
   );
 }

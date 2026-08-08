@@ -43,6 +43,9 @@ describe("Confirmed Offer snapshot", () => {
         proposalId: "proposals_1",
         queryId: "queries_1",
         sellingPricePerPax: 80_000,
+        source: "Citius Concierge",
+        sourceConsentAt: 1_786_123_456_000,
+        sourceInboundIntentId: "inboundQueryIntents_1",
         travelEndDate: "2026-10-08",
         travelStartDate: "2026-10-02",
         visaCostPerPax: 3000,
@@ -56,6 +59,9 @@ describe("Confirmed Offer snapshot", () => {
       landCostPerPax: 45_000,
       profitPerPax: 12_000,
       sellingPricePerPax: 80_000,
+      source: "Citius Concierge",
+      sourceConsentAt: 1_786_123_456_000,
+      sourceInboundIntentId: "inboundQueryIntents_1",
       visaCostPerPax: 3000,
     });
     expect(inserted()?.approxMargin).toBeUndefined();

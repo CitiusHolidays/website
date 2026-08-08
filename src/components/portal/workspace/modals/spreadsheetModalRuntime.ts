@@ -1,4 +1,5 @@
 import type { Key } from "react";
+import type { ImportedFlightGroup } from "@/lib/portal/spreadsheetImports";
 import {
   loadSpreadsheetExportRuntime,
   loadSpreadsheetImportRuntime,
@@ -68,21 +69,7 @@ export interface SpreadsheetImportPreviewRow {
   willingToGo?: string;
 }
 
-export interface FlightImportGroup {
-  id: string;
-  name: string;
-  segments: Array<{
-    airline: string;
-    arriveTime?: string;
-    dateLabel: string;
-    departTime?: string;
-    destination: string;
-    flightNumber: string;
-    importKey: string;
-    origin: string;
-  }>;
-  sourceSheet?: string;
-}
+export type FlightImportGroup = ImportedFlightGroup;
 
 export interface PassengerExportData {
   clientName?: string;

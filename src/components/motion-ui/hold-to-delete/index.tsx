@@ -4,6 +4,7 @@ import type { AnimationPlaybackControls, MotionValue } from "motion/react";
 import { AnimatePresence, animate, m, useMotionValue, useTransform } from "motion/react";
 import { type ReactNode, useRef, useState } from "react";
 import { useMotionUITheme, useMotionUITransition } from "@/components/motion-ui/ui-theme";
+import { DESTRUCTIVE_HOLD_EASING } from "@/lib/portal/destructiveSafetyPolicy";
 
 /** shadcn's ring utilities, the shared focus-visible treatment for the styled
  *  button. */
@@ -80,12 +81,12 @@ export function useHoldToDelete({
     holding.current = true;
     holdAnim.current?.stop();
     progress.set(0);
-    // A deterministic easeOut ramp: progress must reach full exactly when the
+    // A deterministic linear ramp: progress must match elapsed hold time and
     // hold completes, so this is a functional ramp, not a feel spring (which
     // would overshoot a progress meter).
     holdAnim.current = animate(progress, 1, {
       duration: holdSeconds,
-      ease: "easeOut",
+      ease: DESTRUCTIVE_HOLD_EASING,
       onComplete: () => {
         holding.current = false;
         done.current = true;

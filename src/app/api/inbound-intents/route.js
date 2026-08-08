@@ -93,6 +93,9 @@ function normalizeBody(body) {
   ) {
     return { error: "Please provide a valid mobile number." };
   }
+  if (!(contactEmail || contactMobile)) {
+    return { error: "Please provide an email address or mobile number." };
+  }
   if (destination !== undefined && destination.length > DESTINATION_MAX) {
     return { error: "Destination is too long." };
   }

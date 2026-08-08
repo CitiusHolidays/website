@@ -2,7 +2,8 @@
 
 import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useSlideshowPlayback } from "./useSlideshowPlayback";
 
 const FALLBACK_HERO = {
   alt: "Lake Mansarovar",
@@ -45,20 +46,28 @@ function buildSlides(trail) {
 export default function TrailHeroSlideshow({ trail }) {
   const slides = buildSlides(trail);
   const [index, setIndex] = useState(0);
-
-  useEffect(() => {
-    if (slides.length <= 1) {
-      return;
+  const advance = useCallback(
+    () => setIndex((previous) => (previous + 1) % slides.length),
+    [slides.length]
+  );
+  const { isPlaying, sectionRef, togglePlayback } = useSlideshowPlayback({
+    intervalMs: 5500,
+    itemCount: slides.length,
+    onAdvance: advance,
+  });
+  const selectSlide = useCallback((event) => {
+    const nextIndex = Number(event.currentTarget.dataset.slideIndex);
+    if (Number.isInteger(nextIndex)) {
+      setIndex(nextIndex);
     }
-    const t = setInterval(() => {
-      setIndex((prev) => (prev + 1) % slides.length);
-    }, 5500);
-    return () => clearInterval(t);
-  }, [slides.length]);
+  }, []);
 
   const current = slides[index] ?? slides[0];
   return (
-    <section className="relative h-screen min-h-[700px] w-full overflow-hidden bg-brand-dark">
+    <section
+      className="relative h-screen min-h-[700px] w-full overflow-hidden bg-brand-dark"
+      ref={sectionRef}
+    >
       <AnimatePresence initial={false} mode="sync">
         <m.div
           animate={{ opacity: 0.6, scale: 1 }}
@@ -112,37 +121,51 @@ export default function TrailHeroSlideshow({ trail }) {
                 Coming soon
               </span>
             )}
-            {trail.tagline && (
+            {trail.tagline ? (
               <p className="mb-2 line-clamp-2 font-heading text-citius-orange text-xs uppercase tracking-[0.2em] drop-shadow-sm md:text-sm">
                 {trail.tagline}
               </p>
-            )}
+            ) : null}
             <h1 className="mb-3 font-heading text-3xl text-white leading-tight drop-shadow-md md:text-5xl">
               {trail.title}
             </h1>
             <p className="line-clamp-3 max-w-3xl font-sans text-lg text-white/90 italic drop-shadow md:line-clamp-none md:text-xl">
               {trail.subtitle}
             </p>
-            {trail.positioning && (
+            {trail.positioning ? (
               <p className="mt-4 line-clamp-3 max-w-2xl text-sm text-white/80 md:text-base">
                 {trail.positioning}
               </p>
-            )}
+            ) : null}
           </m.div>
 
           {slides.length > 1 && (
-            <div className="mt-6 flex justify-center gap-2 pb-1 md:justify-start">
-              {slides.map((s, idx) => (
-                <button
-                  aria-label={`Hero image ${idx + 1}`}
-                  className={`h-1 rounded-full transition-[width,background-color] duration-500 ${
-                    idx === index ? "w-10 bg-citius-orange" : "w-3 bg-white/25 hover:bg-white/45"
-                  }`}
-                  key={s.src}
-                  onClick={() => setIndex(idx)}
-                  type="button"
-                />
-              ))}
+            <div className="mt-6 flex max-w-full flex-col items-center gap-3 pb-1 md:flex-row md:justify-start">
+              <button
+                aria-pressed={isPlaying}
+                className="min-h-11 rounded-full border border-white/30 bg-brand-dark/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-brand-dark/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"
+                onClick={togglePlayback}
+                type="button"
+              >
+                {isPlaying ? "Pause slideshow" : "Play slideshow"}
+              </button>
+              <fieldset
+                aria-label="Slideshow images"
+                className="m-0 flex min-w-0 max-w-full items-center gap-2 overflow-x-auto border-0 px-1 py-2"
+              >
+                {slides.map((s, idx) => (
+                  <button
+                    aria-label={`Hero image ${idx + 1}`}
+                    className={`h-1 shrink-0 rounded-full transition-[width,background-color] duration-500 ${
+                      idx === index ? "w-10 bg-citius-orange" : "w-3 bg-white/25 hover:bg-white/45"
+                    }`}
+                    data-slide-index={idx}
+                    key={s.src}
+                    onClick={selectSlide}
+                    type="button"
+                  />
+                ))}
+              </fieldset>
             </div>
           )}
         </div>

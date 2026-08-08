@@ -22,11 +22,12 @@
     "singleQuote": true
   },
   "dependencies": {
-    "@sanity/vision": "6.9.0",
+    "@sanity/sdk": "^2.19.0",
+    "@sanity/vision": "6.9.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "sanity": "6.9.0",
-    "styled-components": "6.5.0"
+    "sanity": "6.9.1",
+    "styled-components": "6.5.1"
   },
   "devDependencies": {
     "@sanity/eslint-config-studio": "6.0.0",

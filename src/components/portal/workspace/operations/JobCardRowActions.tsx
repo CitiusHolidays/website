@@ -5,6 +5,7 @@ import { QueryRowActions } from "@/components/portal/QueryRowActions";
 import { Button } from "@/components/ui/application-button";
 import { buildTravelBatchModalInitial, TRAVEL_BATCH_MODAL } from "@/lib/portal/workspaceContract";
 import type {
+  JobCardsViewProps,
   PortalDeleteHandler,
   PortalJobCardListRow,
   PortalModalOpener,
@@ -22,8 +23,8 @@ export function JobCardRowActions({
   deleteItem: PortalDeleteHandler;
   job: PortalJobCardListRow;
   openModal: PortalModalOpener;
-  removeJobCard: (args: { jobCardId?: string }) => Promise<unknown>;
-  updateJobStatus: (args: { jobCardId: string; status: string }) => Promise<unknown>;
+  removeJobCard: JobCardsViewProps["removeJobCard"];
+  updateJobStatus: JobCardsViewProps["updateJobStatus"];
   visibility: {
     assignContracting: boolean;
     assignOps: boolean;
