@@ -12,7 +12,7 @@ import type {
   TravelType,
 } from "../queryValidators";
 import type {
-  jobCardListRowValidator,
+  jobCardDetailRowValidator,
   paymentTermsOutputValidator,
   preDepartureChecklistOutputValidator,
 } from "../returnContracts";
@@ -137,7 +137,7 @@ type JobCardPresentationRecord = JobCardVisibilityRecord & {
 export function publicJobCard(
   job: JobCardPresentationRecord,
   linkedQuery?: QueryVisibilityRecord | null
-): Infer<typeof jobCardListRowValidator> {
+): Infer<typeof jobCardDetailRowValidator> {
   const ticketingScope = job.ticketingScope ?? linkedQuery?.ticketingScope ?? "";
   const ticketingRequired =
     job.ticketingRequired ??

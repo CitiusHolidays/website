@@ -68,28 +68,35 @@ export interface PortalProposalListRow {
   attachmentCount?: number;
   attachments?: PortalAttachmentSummary[];
   clientName?: string;
-  collaboratorStaffIds?: string[];
   costPrice?: number;
   createdAt?: string;
   finalizedPdf?: {
     fileName: string;
     uploadedAt?: string;
   } | null;
+  hasCollaborators?: boolean;
   id: Key;
   itinerarySummary?: string;
   landCostPerPax?: number;
   lastEditedAt?: string | null;
   lastEditedByName?: string | null;
+  linkedQueryCount?: number;
   preparedBy?: string;
   pricingEnteredAt?: string | null;
   proposalCode?: string;
   queries?: Array<{
+    clientName?: string;
     contractingOwnerId?: string | null;
+    id?: string;
     paxCount?: number;
+    queryCode?: string;
   }>;
   query?: {
+    clientName?: string;
     contractingOwnerId?: string | null;
+    id?: string;
     paxCount?: number;
+    queryCode?: string;
   } | null;
   queryId?: string;
   sellingPrice?: number;
@@ -134,6 +141,7 @@ export interface QueriesViewProps {
   getFinalizedPdfUrl: PortalWorkspaceState["getFinalizedPdfUrl"];
   getQueryAttachmentUrl: PortalWorkspaceState["getQueryAttachmentUrl"];
   has: PortalPermissionChecker;
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeQuery: PortalWorkspaceState["removeQuery"];
   rows: PortalQueryListRow[];
@@ -160,6 +168,7 @@ export interface ProposalsViewProps {
   getFinalizedPdfUrl: PortalWorkspaceState["getFinalizedPdfUrl"];
   getProposalAttachmentUrl: PortalWorkspaceState["getProposalAttachmentUrl"];
   has: PortalPermissionChecker;
+  loading?: boolean;
   markProposalSent: PortalWorkspaceState["markProposalSent"];
   openModal: PortalModalOpener;
   removeProposal: PortalWorkspaceState["removeProposal"];
@@ -268,11 +277,11 @@ export type CorePortalViewComponent = (
 
 export interface PortalJobCardListRow {
   clientName?: string;
-  collaboratorStaffIds?: string[];
   confirmedPax?: number;
   contractingOwnerName?: string;
   createdAt?: string;
   destination?: string;
+  hasCollaborators?: boolean;
   id: Key;
   jobCode: string;
   lastEditedAt?: string | null;
@@ -431,6 +440,7 @@ export interface JobCardsViewProps {
   filtersActive?: boolean;
   has: PortalPermissionChecker;
   jobCardDeletionOperations?: PortalJobCardDeletionOperation[];
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeJobCard: PortalWorkspaceState["removeJobCard"];
   rows: PortalJobCardListRow[];
@@ -843,7 +853,20 @@ export interface PortalNotificationRow {
 
 export interface ActivityViewProps {
   activity: PortalActivityRow[];
+  canViewActivityLog: boolean;
   deleteItem: PortalDeleteHandler;
+  emailDeliverySummaries?: Array<{
+    eventId: string;
+    exhausted: number;
+    origin?: { href: string; label: string };
+    queued: number;
+    retrying: number;
+    sending: number;
+    sent: number;
+    skipped: number;
+    total: number;
+    updatedAt: number;
+  }>;
   markNotificationRead: PortalWorkspaceState["markNotificationRead"];
   notifications: PortalNotificationRow[];
   removeNotification: PortalWorkspaceState["removeNotification"];

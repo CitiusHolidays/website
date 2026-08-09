@@ -14,7 +14,7 @@ import {
   queryJobCardHandoffLabel,
   shouldShowJobCardHandoff,
 } from "@/lib/portal/jobCardHandoffPresentation";
-import { markPortalNavigationFirstQueryRow } from "@/lib/portal/navigationPerformance";
+import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
 import {
   assignQueryTeamsButtonLabel,
   canShowAssignQueryTeamsButton,
@@ -51,29 +51,6 @@ function JobCardHandoff({ row }: { row: PortalQueryRow }) {
   ) : (
     <div className="font-medium text-citius-blue text-xs">{label}</div>
   );
-}
-
-function queryModalEditInitial(row: PortalQueryRow) {
-  return {
-    batchingNotes: row.batchingNotes || "",
-    budgetAmount: String(row.budgetAmount || ""),
-    clientName: row.clientName,
-    contactMobile: row.contactMobile,
-    contactPerson: row.contactPerson,
-    destination: row.destination,
-    entityId: row.id,
-    notes: row.notes,
-    paxCount: String(row.paxCount),
-    queryType: row.queryType,
-    salesOwnerName: row.salesOwnerName,
-    source: row.source,
-    staffId: row.contractingOwnerId || "",
-    ticketingScope: row.ticketingScope || "",
-    travelEndDate: row.travelEndDate,
-    travelInBatches: row.travelInBatches ? "Yes" : "No",
-    travelStartDate: row.travelStartDate,
-    travelType: row.travelType,
-  };
 }
 
 function queryTravelWindow(row: PortalQueryRow) {
@@ -152,7 +129,7 @@ function QueryActions({
     <button
       className="portal-small-btn"
       key="edit"
-      onClick={() => openModal("query", queryModalEditInitial(row))}
+      onClick={() => openModal("query", { entityId: String(row.id), focusedDetailType: "query" })}
       type="button"
     >
       <Pencil aria-hidden="true" size={14} />
@@ -252,12 +229,13 @@ export function QueriesView({
   submitToContracting,
   getQueryAttachmentUrl,
   getFinalizedPdfUrl,
+  loading = false,
 }: QueriesViewProps) {
   useEffect(() => {
-    if (rows.length > 0) {
-      markPortalNavigationFirstQueryRow();
+    if (!loading) {
+      markPortalNavigationFirstContent("queries", rows.length > 0 ? "row" : "empty");
     }
-  }, [rows.length]);
+  }, [loading, rows]);
 
   return (
     <SelectableDataTable<PortalQueryRow>

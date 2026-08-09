@@ -69,8 +69,14 @@ export const VisaTrackingView = lazyView(
 export const ProposalsView = lazyView(() => import("./ProposalsView"), "ProposalsView");
 export const QueriesView = lazyView(() => import("./QueriesView"), "QueriesView");
 
-export function preloadQueriesView() {
-  return QueriesView.preload?.() ?? Promise.resolve();
+const PERFORMANCE_VIEW_PRELOADERS = {
+  "job-cards": () => JobCardsView.preload?.(),
+  proposals: () => ProposalsView.preload?.(),
+  queries: () => QueriesView.preload?.(),
+} as const;
+
+export function preloadPerformanceView(target: keyof typeof PERFORMANCE_VIEW_PRELOADERS) {
+  return PERFORMANCE_VIEW_PRELOADERS[target]() ?? Promise.resolve();
 }
 
 export const PnrView = lazyView(() => import("./ticketing/PnrView"), "PnrView");

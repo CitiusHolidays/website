@@ -1,8 +1,4 @@
 import {
-  buildPassportWorkbook,
-  buildRoomingWorkbook,
-  buildTravellerMasterWorkbook,
-  buildVisaWorkbook,
   parsePassportWorkbookFile,
   parseRoomingWorkbookFile,
   parseTravellerMasterWorkbookFile,
@@ -12,6 +8,7 @@ import {
 export const PASSENGER_IMPORT_MODAL_CONFIGS = [
   {
     fileLabel: "Ticketing passenger spreadsheet",
+    importKind: "passenger",
     modal: "passengerImport",
     successLabel: "Ticketing passenger import complete",
     title: "Import Ticketing Passenger List",
@@ -40,6 +37,7 @@ export const PASSENGER_IMPORT_MODAL_CONFIGS = [
   {
     emptyLabel: "No passport rows found.",
     fileLabel: "Passport spreadsheet",
+    importKind: "passport",
     modal: "passportImport",
     parseWorkbookFile: parsePassportWorkbookFile,
     successLabel: "Passport import complete",
@@ -49,6 +47,7 @@ export const PASSENGER_IMPORT_MODAL_CONFIGS = [
   {
     emptyLabel: "No visa rows found.",
     fileLabel: "Visa spreadsheet",
+    importKind: "visa",
     modal: "visaImport",
     parseWorkbookFile: parseVisaWorkbookFile,
     successLabel: "Visa import complete",
@@ -60,44 +59,31 @@ export const PASSENGER_IMPORT_MODAL_CONFIGS = [
 export const PASSENGER_EXPORT_MODAL_CONFIGS = [
   {
     exportKind: "passenger",
-    filenameSuffix: "ticketing-passengers",
     modal: "passengerExport",
     subtitle: "Select a job card to download the ticketing passenger spreadsheet.",
     title: "Export Ticketing Passenger List",
   },
   {
-    buildWorkbook: buildTravellerMasterWorkbook,
     exportKind: "traveller",
-    filenameSuffix: "traveller-master",
     modal: "travellerExport",
-    sheetName: "Master list",
     subtitle: "Select a job card to download the Master list sheet in the traveller master format.",
     title: "Export Traveller Master",
   },
   {
-    buildWorkbook: buildRoomingWorkbook,
     exportKind: "rooming",
-    filenameSuffix: "rooming",
     modal: "roomingExport",
-    sheetName: "Rooming",
     subtitle: "Select a job card to download the Rooming sheet in the master-list format.",
     title: "Export Rooming List",
   },
   {
-    buildWorkbook: buildPassportWorkbook,
     exportKind: "passport",
-    filenameSuffix: "passport",
     modal: "passportExport",
-    sheetName: "Passport",
     subtitle: "Select a job card to download the Passport sheet in the master-list format.",
     title: "Export Passport List",
   },
   {
-    buildWorkbook: buildVisaWorkbook,
     exportKind: "visa",
-    filenameSuffix: "visa",
     modal: "visaExport",
-    sheetName: "Visa",
     subtitle: "Select a job card to download the Visa sheet in the master-list format.",
     title: "Export Visa List",
   },

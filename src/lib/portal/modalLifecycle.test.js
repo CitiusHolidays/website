@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { createInitialModalForm, jobCardProposalLinkPatch } from "./modalLifecycle";
+import {
+  createFocusedEditModalForm,
+  createInitialModalForm,
+  jobCardProposalLinkPatch,
+} from "./modalLifecycle";
 
 const initialForm = {
   budgetAmount: "",
@@ -122,5 +126,60 @@ describe("jobCardProposalLinkPatch", () => {
         proposals,
       })
     ).toBeNull();
+  });
+});
+
+describe("createFocusedEditModalForm", () => {
+  test("hydrates Query edit-only contact fields from focused detail", () => {
+    expect(
+      createFocusedEditModalForm("query", {
+        clientName: "Acme",
+        contactMobile: "+91 90000 00000",
+        contactPerson: "Nina",
+        id: "query_1",
+        paxCount: 12,
+        queryType: "MICE",
+        source: "Referral",
+        travelType: "International Travel",
+      })
+    ).toMatchObject({
+      clientName: "Acme",
+      contactMobile: "+91 90000 00000",
+      contactPerson: "Nina",
+      entityId: "query_1",
+      source: "Referral",
+    });
+  });
+
+  test("hydrates Proposal and Job Card edit forms from focused detail", () => {
+    expect(
+      createFocusedEditModalForm("proposal", {
+        airfarePerPax: 20_000,
+        id: "proposal_1",
+        queries: [{ id: "query_1" }, { id: "query_2" }],
+        query: { id: "query_1", paxCount: 12 },
+        queryId: "query_1",
+        queryIds: ["query_1", "query_2"],
+        sellingPrice: 80_000,
+      })
+    ).toMatchObject({
+      entityId: "proposal_1",
+      paxCount: "12",
+      queryIds: ["query_1", "query_2"],
+      sellingPrice: "80000",
+    });
+    expect(
+      createFocusedEditModalForm("jobCard", {
+        clientName: "Acme",
+        confirmedPax: 12,
+        id: "job_1",
+        queryId: "query_1",
+      })
+    ).toMatchObject({
+      clientName: "Acme",
+      confirmedPax: "12",
+      entityId: "job_1",
+      queryId: "query_1",
+    });
   });
 });

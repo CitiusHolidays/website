@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation, query } from "../_generated/server";
+import { resolveCommandReceipt, storeCommandReceipt } from "./commandReceipts";
 import { finalizedPdfRecordResultValidator } from "./fileReturnContracts";
 import {
   canEditProposalRecord,
@@ -30,6 +31,12 @@ import {
 } from "./paginationPolicy";
 import { publicProposalAttachment } from "./proposalAttachments";
 import { notifyLinkedQuerySalesOwnersOfProposalDocument } from "./proposalDocument";
+import {
+  proposalLinkProjection,
+  queryVisibilityFromProposalLink,
+  refreshProposalLinkProjections,
+  storedProposalQueryProjection,
+} from "./proposalLinkProjection";
 import {
   proposalCreateResultValidator,
   proposalIdResultValidator,
@@ -62,6 +69,21 @@ function normalizeTaxRate(value: number) {
   return value;
 }
 
+export function mergeProposalLinkedQueriesForUpdate(
+  access: any,
+  currentLinkedQueries: any[],
+  requestedLinkedQueries: any[]
+) {
+  return Array.from(
+    new Map(
+      [
+        ...requestedLinkedQueries,
+        ...currentLinkedQueries.filter((linkedQuery) => !canSeeQueryRecord(access, linkedQuery)),
+      ].map((linkedQuery) => [String(linkedQuery._id), linkedQuery])
+    ).values()
+  );
+}
+
 function isProposalPricingComplete(proposal: any) {
   return (proposal.sellingPrice ?? 0) > 0 && (proposal.costPrice ?? 0) > 0;
 }
@@ -73,7 +95,7 @@ function assertProposalPricingComplete(proposal: any, message: string) {
 }
 
 async function resolveLinkedQueries(ctx: any, access: any, queryIdStrings: string[]) {
-  const normalizedIds = [];
+  const normalizedIds: Id<"queries">[] = [];
   const seen = new Set<string>();
   for (const value of queryIdStrings) {
     if (!value) {
@@ -132,7 +154,7 @@ async function boundedProposalRelations(ctx: any, proposal: any) {
   const links = await ctx.db
     .query("proposalQueryLinks")
     .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposal._id))
-    .take(24);
+    .collect();
   const queryIds = Array.from(
     new Set([proposal.queryId, ...links.map((link: any) => link.queryId)].filter(Boolean))
   );
@@ -143,32 +165,48 @@ async function boundedProposalRelations(ctx: any, proposal: any) {
     .query("proposalAttachments")
     .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposal._id))
     .order("desc")
-    .take(24);
+    .collect();
   return { attachments, linkedQueries };
+}
+
+function projectedProposalListRelations(proposals: any[]): Map<string, any[]> {
+  return new Map<string, any[]>(
+    proposals.map((proposal) => [
+      String(proposal._id),
+      (proposal.linkedQueryProjection ?? []).map(queryVisibilityFromProposalLink),
+    ])
+  );
 }
 
 async function syncProposalQueryLinks(
   ctx: any,
   proposalId: any,
-  queryIds: string[],
+  linkedQueries: any[],
   createdBy: string
 ) {
   const existingLinks = await proposalQueryLinks(ctx, proposalId);
-  const target = new Set(queryIds);
+  const queryById = new Map(
+    linkedQueries.map((linkedQuery) => [String(linkedQuery._id), linkedQuery])
+  );
   await Promise.all(
-    existingLinks.map((link: any) =>
-      target.has(link.queryId) ? Promise.resolve() : ctx.db.delete(link._id)
-    )
+    existingLinks.map((link: any) => {
+      const linkedQuery = queryById.get(String(link.queryId));
+      return linkedQuery
+        ? ctx.db.patch(link._id, proposalLinkProjection(linkedQuery))
+        : ctx.db.delete(link._id);
+    })
   );
 
   const existing = new Set(existingLinks.map((link: any) => link.queryId));
   const now = Date.now();
   await Promise.all(
-    queryIds.map(async (queryId) => {
+    linkedQueries.map(async (linkedQuery) => {
+      const queryId = linkedQuery._id;
       if (existing.has(queryId)) {
         return;
       }
       await ctx.db.insert("proposalQueryLinks", {
+        ...proposalLinkProjection(linkedQuery),
         createdAt: now,
         createdBy,
         proposalId,
@@ -185,14 +223,17 @@ async function deleteProposalQueryLinks(ctx: any, proposalId: any) {
 
 const publicProposal = (proposal: any, linkedQueries: any[] = [], attachments: any[] = []) => {
   const primaryQuery =
-    linkedQueries.find((query) => query._id === proposal.queryId) ?? linkedQueries[0] ?? null;
-  const queryIds = linkedQueries.map((query) => query._id);
+    linkedQueries.find((linkedQuery) => linkedQuery._id === proposal.queryId) ??
+    linkedQueries[0] ??
+    null;
+  const queryIds = linkedQueries.map((linkedQuery) => linkedQuery._id);
   const sentToClientAt = proposal.sentToClientAt;
   const sentToSalesAt =
     proposal.sentToSalesAt ??
     (proposal.status === "Sent" && !sentToClientAt ? proposal.sentAt : undefined);
   return {
     airfarePerPax: proposal.airfarePerPax ?? 0,
+    attachmentCount: attachments.length,
     attachments: attachments
       .sort((a, b) => b.createdAt - a.createdAt)
       .map(publicProposalAttachment),
@@ -213,7 +254,7 @@ const publicProposal = (proposal: any, linkedQueries: any[] = [], attachments: a
     proposalCode: proposal.proposalCode,
     queries: linkedQueries.map(publicQuery),
     query: primaryQuery ? publicQuery(primaryQuery) : null,
-    queryId: primaryQuery?._id ?? proposal.queryId ?? null,
+    queryId: primaryQuery?._id ?? null,
     queryIds,
     sellingPrice: proposal.sellingPrice ?? 0,
     sentAt: sentToClientAt ? new Date(sentToClientAt).toISOString() : null,
@@ -225,6 +266,60 @@ const publicProposal = (proposal: any, linkedQueries: any[] = [], attachments: a
     visaCostPerPax: proposal.visaCostPerPax ?? 0,
   };
 };
+
+export function projectProposalListRow(
+  proposal: any,
+  linkedQueries: any[] = [],
+  attachments: any[] = []
+) {
+  const detail = publicProposal(proposal, [], attachments);
+  const attachmentPreview = proposal.attachmentPreview
+    ? proposal.attachmentPreview.map((attachment: any) =>
+        publicProposalAttachment({ ...attachment, _id: attachment.id })
+      )
+    : detail.attachments.slice(0, 3);
+  const visibleLinkedQueryCount = linkedQueries.length;
+  const queries = linkedQueries.slice(0, 3).map((query) => ({
+    clientName: query.clientName,
+    contractingOwnerId: query.contractingOwnerId ?? "",
+    id: query._id,
+    paxCount: query.paxCount,
+    queryCode: query.queryCode,
+  }));
+  const primaryQuery =
+    queries.find((query) => String(query.id) === String(proposal.queryId)) ?? queries[0] ?? null;
+  return {
+    airfarePerPax: detail.airfarePerPax,
+    attachmentCount: proposal.attachmentCount ?? detail.attachmentCount,
+    attachments: attachmentPreview,
+    clientName: detail.clientName,
+    costPrice: detail.costPrice,
+    createdAt: detail.createdAt,
+    finalizedPdf: detail.finalizedPdf,
+    hasCollaborators: detail.collaboratorStaffIds.length > 0,
+    id: detail.id,
+    itinerarySummary: detail.itinerarySummary,
+    landCostPerPax: detail.landCostPerPax,
+    lastEditedAt: detail.lastEditedAt,
+    lastEditedByName: detail.lastEditedByName,
+    linkedQueryCount: visibleLinkedQueryCount,
+    preparedBy: detail.preparedBy,
+    pricingEnteredAt: detail.pricingEnteredAt,
+    proposalCode: detail.proposalCode,
+    queries,
+    query: primaryQuery,
+    queryId: primaryQuery?.id ?? detail.queryId,
+    queryIds: queries.map((linkedQuery) => linkedQuery.id),
+    sellingPrice: detail.sellingPrice,
+    sentAt: detail.sentAt,
+    sentToClientAt: detail.sentToClientAt,
+    sentToSalesAt: detail.sentToSalesAt,
+    status: detail.status,
+    taxRate: detail.taxRate,
+    updatedAt: detail.updatedAt,
+    visaCostPerPax: detail.visaCostPerPax,
+  };
+}
 
 export const listPage = query({
   args: {
@@ -251,12 +346,16 @@ export const listPage = query({
       createdAtTo: args.createdAtTo,
       equals: { status: args.status },
     }).paginate(boundedPaginationOptions(args.paginationOpts));
+    const relationsByProposal = projectedProposalListRelations(page.page);
     const hydrated = await mapInBoundedBatches(page.page, async (proposal) => {
-      const { attachments, linkedQueries } = await boundedProposalRelations(ctx, proposal);
+      const linkedQueries = relationsByProposal.get(String(proposal._id)) ?? [];
       if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
         return null;
       }
-      return publicProposal(proposal, linkedQueries, attachments);
+      return projectProposalListRow(
+        proposal,
+        linkedQueries.filter((linkedQuery) => canSeeQueryRecord(access, linkedQuery))
+      );
     });
     return { ...page, page: compactPageItems(hydrated) };
   },
@@ -276,9 +375,37 @@ export const getListRow = query({
       return null;
     }
     const { attachments, linkedQueries } = await boundedProposalRelations(ctx, proposal);
-    return canSeeProposalRecord(access, proposal, linkedQueries)
-      ? publicProposal(proposal, linkedQueries, attachments)
-      : null;
+    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
+      return null;
+    }
+    const visibleLinkedQueries = linkedQueries.filter((linkedQuery) =>
+      canSeeQueryRecord(access, linkedQuery)
+    );
+    return publicProposal(proposal, visibleLinkedQueries, attachments);
+  },
+  returns: proposalListRowResultValidator,
+});
+
+export const getDetail = query({
+  args: { proposalId: v.string() },
+  handler: async (ctx, args) => {
+    const access = await requireAnyPermission(ctx, [
+      PERMISSIONS.VIEW_PROPOSALS,
+      PERMISSIONS.MANAGE_JOB_CARDS,
+    ]);
+    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
+    const proposal = proposalId ? await ctx.db.get(proposalId) : null;
+    if (!proposal) {
+      return null;
+    }
+    const { attachments, linkedQueries } = await boundedProposalRelations(ctx, proposal);
+    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
+      return null;
+    }
+    const visibleLinkedQueries = linkedQueries.filter((linkedQuery) =>
+      canSeeQueryRecord(access, linkedQuery)
+    );
+    return publicProposal(proposal, visibleLinkedQueries, attachments);
   },
   returns: proposalListRowResultValidator,
 });
@@ -328,6 +455,7 @@ export const create = mutation({
       costPrice,
       itinerarySummary: args.itinerarySummary?.trim() || "",
       landCostPerPax,
+      linkedQueryProjection: linkedQueries.map(storedProposalQueryProjection),
       listSearchText: buildProposalListSearchText({
         clientName,
         preparedBy: access.name,
@@ -346,12 +474,7 @@ export const create = mutation({
       createdBy: access.authUserId ?? "unknown",
     });
     await Promise.all([
-      syncProposalQueryLinks(
-        ctx,
-        id,
-        linkedQueries.map((query) => query._id),
-        access.authUserId ?? "unknown"
-      ),
+      syncProposalQueryLinks(ctx, id, linkedQueries, access.authUserId ?? "unknown"),
       Promise.all(
         linkedQueries.flatMap((linkedQuery) =>
           linkedQuery.contractingStatus === "Query Received"
@@ -371,6 +494,9 @@ export const create = mutation({
         message: `${proposalCode} created for ${clientName}`,
       }),
     ]);
+    await Promise.all(
+      linkedQueries.map((linkedQuery) => refreshProposalLinkProjections(ctx, linkedQuery._id))
+    );
 
     return { id, proposalCode };
   },
@@ -414,9 +540,21 @@ export const update = mutation({
     const requestedQueryIds = requestedProposalQueryIds(args);
     let nextLinkedQueries: any[] | null = null;
     if (requestedQueryIds !== null) {
-      nextLinkedQueries = await resolveLinkedQueries(ctx, access, requestedQueryIds);
-      const primaryQuery = nextLinkedQueries[0] ?? null;
+      const requestedLinkedQueries = await resolveLinkedQueries(ctx, access, requestedQueryIds);
+      const inaccessibleLinkedQueries = currentLinkedQueries.filter(
+        (linkedQuery) => !canSeeQueryRecord(access, linkedQuery)
+      );
+      nextLinkedQueries = mergeProposalLinkedQueriesForUpdate(
+        access,
+        currentLinkedQueries,
+        requestedLinkedQueries
+      );
+      const inaccessiblePrimaryQuery = inaccessibleLinkedQueries.find(
+        (linkedQuery) => String(linkedQuery._id) === String(proposal.queryId)
+      );
+      const primaryQuery = inaccessiblePrimaryQuery ?? requestedLinkedQueries[0] ?? null;
       patch.queryId = primaryQuery?._id;
+      patch.linkedQueryProjection = nextLinkedQueries.map(storedProposalQueryProjection);
       if (primaryQuery) {
         patch.clientName = primaryQuery.clientName;
       }
@@ -467,7 +605,7 @@ export const update = mutation({
       await syncProposalQueryLinks(
         ctx,
         proposalId,
-        nextLinkedQueries.map((query) => query._id),
+        nextLinkedQueries,
         access.authUserId ?? "unknown"
       );
     }
@@ -492,7 +630,10 @@ export const markSent = mutation({
   returns: proposalIdResultValidator,
 });
 
-export async function handleSendProposalToSales(ctx: MutationCtx, args: { proposalId: string }) {
+export async function handleSendProposalToSales(
+  ctx: MutationCtx,
+  args: { commandId?: string; proposalId: string }
+) {
   const access = await requireAnyPermission(ctx, [
     PERMISSIONS.MANAGE_PROPOSALS,
     PERMISSIONS.MANAGE_CONTRACTING,
@@ -514,6 +655,22 @@ export async function handleSendProposalToSales(ctx: MutationCtx, args: { propos
       "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can send this proposal to Sales"
     );
   }
+  const receipt = args.commandId
+    ? await resolveCommandReceipt(ctx, {
+        access,
+        commandId: args.commandId,
+        operation: "proposal.send_to_sales",
+        payload: { proposalId: String(proposalId) },
+        targetId: String(proposalId),
+      })
+    : null;
+  if (receipt?.replayedResultId) {
+    const replayedId = ctx.db.normalizeId("proposals", receipt.replayedResultId);
+    if (!replayedId) {
+      throw new ConvexError("Stored command result is no longer valid");
+    }
+    return { id: replayedId };
+  }
   if (proposal.status === "Sent") {
     throw new ConvexError("This proposal was already sent to Sales");
   }
@@ -522,7 +679,8 @@ export async function handleSendProposalToSales(ctx: MutationCtx, args: { propos
     "Enter selling price and cost price on the proposal before sending it to Sales."
   );
   const now = Date.now();
-  const queryCodes = linkedQueries.map((query) => query.queryCode).join(", ") || "linked query";
+  const queryCodes =
+    linkedQueries.map((linkedQuery) => linkedQuery.queryCode).join(", ") || "linked query";
   const primaryQuery = linkedQueries[0] ?? null;
   await Promise.all([
     ctx.db.patch(proposalId, {
@@ -545,6 +703,9 @@ export async function handleSendProposalToSales(ctx: MutationCtx, args: { propos
       message: `${proposal.proposalCode} sent to Sales for review (${queryCodes})`,
     }),
   ]);
+  await Promise.all(
+    linkedQueries.map((linkedQuery) => refreshProposalLinkProjections(ctx, linkedQuery._id))
+  );
 
   const salesOwnerNotified = new Set<string>();
   const salesOwnerNotifications = [];
@@ -587,11 +748,22 @@ export async function handleSendProposalToSales(ctx: MutationCtx, args: { propos
           }),
         ]),
   ]);
+  if (receipt && args.commandId) {
+    await storeCommandReceipt(ctx, {
+      actorKey: receipt.actorKey,
+      commandId: args.commandId,
+      operation: "proposal.send_to_sales",
+      payloadDigest: receipt.payloadDigest,
+      resultId: String(proposalId),
+      targetId: String(proposalId),
+    });
+  }
   return { id: proposalId };
 }
 
 export const sendToSales = mutation({
   args: {
+    commandId: v.string(),
     proposalId: v.string(),
   },
   handler: handleSendProposalToSales,
@@ -881,7 +1053,9 @@ export const getFinalizedPdfRecord = query({
         .withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId))
         .collect();
       const visibleJob = linkedJobs.some((job) => {
-        const linkedQuery = linkedQueries.find((query) => query._id === job.queryId);
+        const linkedQuery = linkedQueries.find(
+          (candidateQuery) => candidateQuery._id === job.queryId
+        );
         return canSeeJobCardRecord(access, job, linkedQuery);
       });
       if (!visibleJob) {

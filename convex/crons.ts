@@ -32,6 +32,13 @@ crons.interval(
 );
 
 crons.interval(
+  "clean expired passenger exports",
+  { minutes: 15 },
+  internal.crm.imports.purgeExpiredPassengerExports,
+  {}
+);
+
+crons.interval(
   "reconcile bounded crm metrics",
   { minutes: 15 },
   internal.crm.metricAggregates.reconcileAll,
@@ -42,6 +49,13 @@ crons.interval(
   "reconcile crm list search text",
   { hours: 1 },
   internal.crm.listSearch.reconcileAll,
+  {}
+);
+
+crons.interval(
+  "reconcile proposal link projections",
+  { hours: 1 },
+  internal.crm.proposalLinkProjection.reconcileProposalLinkProjections,
   {}
 );
 

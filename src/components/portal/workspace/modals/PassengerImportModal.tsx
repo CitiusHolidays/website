@@ -42,6 +42,7 @@ export interface PassengerImportModalProps {
   }) => Promise<
     PassengerImportMutationResult & {
       roomSummary?: Record<string, number>;
+      operationId: string;
       rowResults?: Array<{
         disposition: "created" | "failed" | "updated";
         fullName: string;
@@ -57,6 +58,17 @@ export interface PassengerImportModalProps {
   importKind?: string;
   jobCards: PortalJobCardOption[];
   open: boolean;
+  operations?: Array<{
+    batchTotal: number;
+    completedBatches: number;
+    failed: number;
+    importKinds: string[];
+    jobCardId: string;
+    processed: number;
+    stalled: boolean;
+    status: "completed" | "partial" | "running";
+    total: number;
+  }>;
   parseWorkbookFile?: (file: File) => Promise<{
     errors?: Array<{
       id?: string;
@@ -83,6 +95,14 @@ export interface PassengerImportModalProps {
   uploadLabel?: string;
 }
 
+function importActionTone(action: string) {
+  if (action === "update") {
+    return "blue";
+  }
+  return action === "create" ? "green" : "orange";
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: the bounded import lifecycle is intentionally colocated with its modal state.
 export function PassengerImportModal({
   open,
   close,
@@ -96,6 +116,7 @@ export function PassengerImportModal({
   successLabel = "Passenger import complete",
   uploadLabel = "Upload Passengers",
   importKind = "passenger",
+  operations: importOperations = [],
 }: PassengerImportModalProps) {
   const toast = useTypedPortalToast();
   const [reconciliation, setReconciliation] = useState<{
@@ -145,6 +166,12 @@ export function PassengerImportModal({
     (row: SpreadsheetImportPreviewRow) => row.action === "update"
   ).length;
   const selectedJob = (jobCards || []).find((job: any) => job.id === jobCardId);
+  const recentOperation = importOperations?.find((operation) =>
+    operation.importKinds.includes(importKind)
+  );
+  const recentOperationJob = jobCards.find(
+    (job) => String(job.id) === String(recentOperation?.jobCardId)
+  );
   const showRoomSummary = importKind === "traveller" || importKind === "rooming";
   const parsedRoomSummary = showRoomSummary ? summarizeRoomTypes(rows) : {};
   const previewRoomSummary = showRoomSummary
@@ -282,6 +309,25 @@ export function PassengerImportModal({
             ["Errors", errors.length],
           ]}
         />
+        {recentOperation ? (
+          <div
+            aria-live="polite"
+            className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm"
+          >
+            <div className="font-semibold text-brand-dark">
+              {recentOperationJob?.jobCode || "Recent import"}: {recentOperation.status}
+            </div>
+            <div className="mt-1">
+              {recentOperation.completedBatches} of {recentOperation.batchTotal} batches ·{" "}
+              {recentOperation.processed} processed · {recentOperation.failed} failed
+            </div>
+            {recentOperation.stalled ? (
+              <div className="mt-1 text-amber-800">
+                Progress paused. Re-select the same file to resume safely.
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
             {error}
@@ -304,18 +350,7 @@ export function PassengerImportModal({
               {
                 id: "action",
                 label: "Action",
-                render: (row) => (
-                  <Badge
-                    label={row.action}
-                    tone={
-                      row.action === "update"
-                        ? "blue"
-                        : row.action === "create"
-                          ? "green"
-                          : "orange"
-                    }
-                  />
-                ),
+                render: (row) => <Badge label={row.action} tone={importActionTone(row.action)} />,
               },
               {
                 id: "passenger",

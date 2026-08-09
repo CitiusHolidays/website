@@ -1,14 +1,12 @@
 "use client";
 
 import { Send } from "lucide-react";
+import { useEffect } from "react";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import {
-  proposalLinkedQueryIds,
-  proposalLinkedQueryLabel,
-  proposalPrimaryQuery,
-} from "@/lib/portal/proposalLinks";
+import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
+import { proposalLinkedQueryLabel } from "@/lib/portal/proposalLinks";
 import { getProposalAttention, proposalWorkflowLabel } from "@/lib/portal/proposalListPresentation";
 import type { ProposalsViewProps } from "./portalViewTypes";
 import { money, openFinalizedProposalPdf, strong } from "./portalWorkspaceListHelpers";
@@ -88,17 +86,8 @@ function ProposalRowActions({
       <EditButton
         onClick={() =>
           openModal("proposal", {
-            airfarePerPax: String(row.airfarePerPax ?? ""),
-            clientName: row.clientName,
             entityId: row.id,
-            itinerarySummary: row.itinerarySummary || "",
-            landCostPerPax: String(row.landCostPerPax ?? ""),
-            paxCount: String(proposalPrimaryQuery(row)?.paxCount ?? 1),
-            queryId: row.queryId || "",
-            queryIds: proposalLinkedQueryIds(row),
-            sellingPrice: String(row.sellingPrice ?? ""),
-            taxRate: row.taxRate == null ? "" : String(row.taxRate),
-            visaCostPerPax: String(row.visaCostPerPax ?? ""),
+            focusedDetailType: "proposal",
           })
         }
       />
@@ -114,7 +103,7 @@ function ProposalRowActions({
       >
         Invite collaborator
       </button>
-      {(row.collaboratorStaffIds ?? []).length > 0 && (
+      {row.hasCollaborators && (
         <button
           className="portal-small-btn"
           onClick={() =>
@@ -221,7 +210,14 @@ export function ProposalsView({
   removeProposal,
   getProposalAttachmentUrl,
   getFinalizedPdfUrl,
+  loading = false,
 }: ProposalsViewProps) {
+  useEffect(() => {
+    if (!loading) {
+      markPortalNavigationFirstContent("proposals", rows.length > 0 ? "row" : "empty");
+    }
+  }, [loading, rows]);
+
   const canManage = has(P.MANAGE_PROPOSALS);
 
   return (

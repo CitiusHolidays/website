@@ -68,7 +68,7 @@ export interface PortalPaginationControl {
 type PortalLazyViewModule = typeof import("@/components/portal/workspace/portalLazyViews");
 export type PortalLazyViewKey = Exclude<
   Extract<keyof PortalLazyViewModule, string>,
-  "preloadQueriesView"
+  "preloadPerformanceView"
 >;
 
 export interface PortalRouteDefinition {
@@ -96,7 +96,7 @@ export const PORTAL_ROUTES = {
     dependencies: ["activity"],
     family: "administration",
     paginationKey: "activity",
-    permission: P.VIEW_ACTIVITY,
+    permission: P.VIEW_EMAIL_DELIVERY_STATUS,
     subtitle: "Audit trail for CRM status changes and workflow triggers.",
     title: "Notifications / Activity Log",
   },

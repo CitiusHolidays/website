@@ -77,7 +77,21 @@ function makeProposalHandoffCtx() {
         name: "Sales Owner",
         roles: ["Sales"],
       },
+      {
+        _id: "staff_other_contracting",
+        active: true,
+        authUserId: "auth_other_contracting",
+        email: "other-contracting@citius.in",
+        emailNormalized: "other-contracting@citius.in",
+        name: "Other Contracting SPOC",
+        roles: ["Contracting"],
+      },
     ],
+  };
+  let identity = {
+    email: "contracting@citius.in",
+    name: "Contracting SPOC",
+    subject: "auth_contracting",
   };
 
   const getRows = (table: string) => tables[table] ?? [];
@@ -115,11 +129,7 @@ function makeProposalHandoffCtx() {
 
   const ctx = {
     auth: {
-      getUserIdentity: async () => ({
-        email: "contracting@citius.in",
-        name: "Contracting SPOC",
-        subject: "auth_contracting",
-      }),
+      getUserIdentity: async () => identity,
     },
     db: {
       get: findById,
@@ -146,7 +156,13 @@ function makeProposalHandoffCtx() {
     },
   };
 
-  return { ctx, tables };
+  return {
+    ctx,
+    setIdentity: (nextIdentity: typeof identity) => {
+      identity = nextIdentity;
+    },
+    tables,
+  };
 }
 
 describe("Proposal Handoff", () => {
@@ -172,7 +188,12 @@ describe("Proposal Handoff", () => {
   test("blocks Send to Sales until Proposal Pricing Complete", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
-    await expect((sendToSales as any)._handler(ctx, { proposalId: "proposals_1" })).rejects.toThrow(
+    await expect(
+      (sendToSales as any)._handler(ctx, {
+        commandId: "11111111-1111-4111-8111-111111111111",
+        proposalId: "proposals_1",
+      })
+    ).rejects.toThrow(
       "Enter selling price and cost price on the proposal before sending it to Sales."
     );
 
@@ -192,7 +213,10 @@ describe("Proposal Handoff", () => {
   test("allows Proposal Handoff when pricing is complete", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
 
-    await (sendToSales as any)._handler(ctx, { proposalId: "proposals_2" });
+    await (sendToSales as any)._handler(ctx, {
+      commandId: "22222222-2222-4222-8222-222222222222",
+      proposalId: "proposals_2",
+    });
 
     expect(tables.proposals[1].status).toBe("Sent");
     expect(tables.proposals[1].sentToSalesAt).toBeNumber();
@@ -202,10 +226,57 @@ describe("Proposal Handoff", () => {
 
   test("keeps Send to Sales as the only proposal handoff transition", async () => {
     const { ctx, tables } = makeProposalHandoffCtx();
-    await (sendToSales as any)._handler(ctx, { proposalId: "proposals_2" });
+    await (sendToSales as any)._handler(ctx, {
+      commandId: "33333333-3333-4333-8333-333333333333",
+      proposalId: "proposals_2",
+    });
 
     expect(tables.proposals[1].sentToSalesAt).toBeNumber();
     expect(tables.proposals[1].sentToClientAt).toBeUndefined();
     expect(tables.proposals[1].sentAt).toBeUndefined();
+  });
+
+  test("replays an identical Proposal Handoff without duplicate effects", async () => {
+    const { ctx, tables } = makeProposalHandoffCtx();
+    const args = {
+      commandId: "44444444-4444-4444-8444-444444444444",
+      proposalId: "proposals_2",
+    };
+
+    const first = await (sendToSales as any)._handler(ctx, args);
+    const replay = await (sendToSales as any)._handler(ctx, args);
+
+    expect(replay).toEqual(first);
+    expect(tables.commandReceipts).toHaveLength(1);
+    expect(tables.activityLogs.filter((entry) => entry.action === "sent_to_sales")).toHaveLength(1);
+    expect(tables.proposals[1].status).toBe("Sent");
+  });
+
+  test("rejects conflicting Proposal Handoff command reuse", async () => {
+    const { ctx } = makeProposalHandoffCtx();
+    const commandId = "55555555-5555-4555-8555-555555555555";
+
+    await (sendToSales as any)._handler(ctx, { commandId, proposalId: "proposals_2" });
+
+    await expect(
+      (sendToSales as any)._handler(ctx, { commandId, proposalId: "proposals_1" })
+    ).rejects.toThrow("Command ID was already used with different input");
+  });
+
+  test("rechecks current record access before returning an identical replay", async () => {
+    const { ctx, setIdentity, tables } = makeProposalHandoffCtx();
+    const args = {
+      commandId: "77777777-7777-4777-8777-777777777777",
+      proposalId: "proposals_2",
+    };
+    await (sendToSales as any)._handler(ctx, args);
+    setIdentity({
+      email: "other-contracting@citius.in",
+      name: "Other Contracting SPOC",
+      subject: "auth_other_contracting",
+    });
+
+    await expect((sendToSales as any)._handler(ctx, args)).rejects.toThrow("FORBIDDEN");
+    expect(tables.activityLogs.filter((entry) => entry.action === "sent_to_sales")).toHaveLength(1);
   });
 });

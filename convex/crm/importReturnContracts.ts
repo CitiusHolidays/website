@@ -1,7 +1,5 @@
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
-import { roomTypeValidator } from "../lib/roomTypeValidators";
-import { foodPreferenceValidator, paymentTypeValidator } from "./ticketingValidators";
 
 export const passengerImportPreviewResultValidator = v.object({
   roomSummary: v.record(v.string(), v.number()),
@@ -41,6 +39,7 @@ export const passengerImportCommitResultValidator = v.object({
   completed: v.boolean(),
   created: v.number(),
   failed: v.number(),
+  operationId: v.id("passengerImportOperations"),
   processed: v.number(),
   remaining: v.number(),
   roomSummary: v.record(v.string(), v.number()),
@@ -49,60 +48,58 @@ export const passengerImportCommitResultValidator = v.object({
   updated: v.number(),
 });
 
-const passportExportValidator = v.object({
-  dateOfBirth: v.string(),
-  expiryDate: v.string(),
-  issueDate: v.string(),
-  number: v.string(),
+export const passengerImportOperationValidator = v.object({
+  batchTotal: v.number(),
+  completedAt: v.optional(v.number()),
+  completedBatches: v.number(),
+  created: v.number(),
+  errorSummary: v.object({ retryable: v.number(), terminal: v.number() }),
+  failed: v.number(),
+  id: v.id("passengerImportOperations"),
+  importKinds: v.array(v.string()),
+  jobCardId: v.id("jobCards"),
+  processed: v.number(),
+  remaining: v.number(),
+  roomSummary: v.record(v.string(), v.number()),
+  stalled: v.boolean(),
+  startedAt: v.number(),
+  status: v.union(v.literal("running"), v.literal("completed"), v.literal("partial")),
+  total: v.number(),
+  updated: v.number(),
+  updatedAt: v.number(),
 });
-const ticketingExportValidator = v.object({
-  domesticPnr: v.string(),
-  domesticTicket: v.string(),
-  domesticVendor: v.string(),
-  internationalFare: v.string(),
-  internationalPnr: v.string(),
-  internationalVendor: v.string(),
+
+export const passengerImportOperationListValidator = v.array(passengerImportOperationValidator);
+
+export const passengerExportOperationResultValidator = v.object({
+  operationId: v.id("passengerExportOperations"),
 });
-const visaExportValidator = v.object({
-  appointmentDate: v.string(),
-  notes: v.string(),
-  status: v.string(),
-});
-export const passengerExportResultValidator = v.object({
-  clientName: v.string(),
-  jobCode: v.string(),
-  rows: v.array(
-    v.object({
-      contactNo: v.string(),
-      foodPreference: foodPreferenceValidator,
-      fullName: v.string(),
-      gender: v.string(),
-      givenName: v.string(),
-      hotelAllocation: v.string(),
-      passport: passportExportValidator,
-      paymentType: paymentTypeValidator,
-      roomType: roomTypeValidator,
-      sourceDealerCode: v.string(),
-      sourceDealerName: v.string(),
-      sourceDescription: v.string(),
-      sourceGroup: v.string(),
-      sourceRowNumber: v.union(v.number(), v.null()),
-      sourceRsoName: v.string(),
-      sourceSheet: v.string(),
-      sourceSoName: v.string(),
-      specialRequests: v.string(),
-      surname: v.string(),
-      ticketing: ticketingExportValidator,
-      travelBatchCode: v.string(),
-      travelBatchId: v.string(),
-      travelBatchReference: v.string(),
-      travelHub: v.string(),
-      visa: visaExportValidator,
-      visaRequired: v.boolean(),
-      visaStatus: v.string(),
-      willingToGo: v.union(v.literal("UNABLE TO GO"), v.literal("CONFIRMED")),
-    })
+
+export const passengerExportOperationValidator = v.object({
+  commandId: v.string(),
+  completedAt: v.optional(v.number()),
+  errorCode: v.optional(v.string()),
+  exportKind: v.string(),
+  fileName: v.optional(v.string()),
+  id: v.id("passengerExportOperations"),
+  jobCardId: v.id("jobCards"),
+  rowsProcessed: v.number(),
+  stalled: v.boolean(),
+  startedAt: v.number(),
+  status: v.union(
+    v.literal("running"),
+    v.literal("completed"),
+    v.literal("failed"),
+    v.literal("expired")
   ),
+  updatedAt: v.number(),
+});
+
+export const passengerExportOperationListValidator = v.array(passengerExportOperationValidator);
+
+export const passengerExportDownloadValidator = v.object({
+  fileName: v.string(),
+  url: v.string(),
 });
 
 export const flightImportResultValidator = v.object({

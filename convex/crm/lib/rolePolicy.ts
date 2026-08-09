@@ -23,6 +23,7 @@ export const PERMISSIONS = {
   VIEW_APPROVALS: "view:approvals",
   VIEW_CONTRACTING: "view:contracting",
   VIEW_DASHBOARD: "view:dashboard",
+  VIEW_EMAIL_DELIVERY_STATUS: "view:emailDeliveryStatus",
   VIEW_EXPENSES: "view:expenses",
   VIEW_FINANCE: "view:finance",
   VIEW_JOB_CARDS: "view:jobCards",
@@ -107,6 +108,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   "Accounts Head": [
     P.VIEW_DASHBOARD,
+    P.VIEW_EMAIL_DELIVERY_STATUS,
     P.VIEW_QUERIES,
     P.VIEW_JOB_CARDS,
     P.MANAGE_JOB_CARDS,
@@ -140,6 +142,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   "Contracting Head": [
     P.VIEW_DASHBOARD,
+    P.VIEW_EMAIL_DELIVERY_STATUS,
     P.VIEW_QUERIES,
     P.VIEW_CONTRACTING,
     P.MANAGE_CONTRACTING,
@@ -166,6 +169,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   "Head of Ticketing": [
     P.VIEW_DASHBOARD,
+    P.VIEW_EMAIL_DELIVERY_STATUS,
     P.VIEW_QUERIES,
     P.VIEW_PROPOSALS,
     P.VIEW_JOB_CARDS,
@@ -179,6 +183,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   HR: [
     P.VIEW_DASHBOARD,
+    P.VIEW_EMAIL_DELIVERY_STATUS,
     P.VIEW_TEAM,
     P.VIEW_LEAVE,
     P.MANAGE_LEAVE,
@@ -215,6 +220,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   "Operations Head": [
     P.VIEW_DASHBOARD,
+    P.VIEW_EMAIL_DELIVERY_STATUS,
     P.VIEW_QUERIES,
     P.VIEW_CONTRACTING,
     P.VIEW_PROPOSALS,
@@ -254,6 +260,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   "Sales Head": [
     P.VIEW_DASHBOARD,
+    P.VIEW_EMAIL_DELIVERY_STATUS,
     P.VIEW_QUERIES,
     P.MANAGE_QUERIES,
     P.VIEW_PROPOSALS,

@@ -24,10 +24,70 @@ import { EntityModalFieldsPrimary } from "./EntityModalFieldsPrimary";
 import { EntityModalFieldsSecondary } from "./EntityModalFieldsSecondary";
 import { getEntityModalSectionMeta } from "./entityModalSectionMeta";
 
+function resolveSaveButtonState({ error, isSaving, saveFlash }) {
+  if (error) {
+    return "error";
+  }
+  if (isSaving) {
+    return "saving";
+  }
+  return saveFlash ? "saved" : "idle";
+}
+
+function renderFieldContent({
+  fieldBody,
+  fieldColumns,
+  isCompactModal,
+  isDetailLoading,
+  isDetailMissing,
+  isQueryTaskSheet,
+  sectionMeta,
+}) {
+  if (isDetailLoading) {
+    return (
+      <div
+        aria-live="polite"
+        className="rounded-xl border border-brand-border bg-brand-light/40 px-4 py-8 text-center text-brand-muted text-sm"
+        role="status"
+      >
+        Loading the current record…
+      </div>
+    );
+  }
+  if (isDetailMissing) {
+    return (
+      <div
+        className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-red-700 text-sm"
+        role="alert"
+      >
+        This record is no longer available or you do not have access.
+      </div>
+    );
+  }
+  if (isQueryTaskSheet || !sectionMeta) {
+    return <div className="grid gap-4 md:grid-cols-2">{fieldBody}</div>;
+  }
+  if (isCompactModal) {
+    return <div className="grid grid-cols-1 gap-4">{fieldBody}</div>;
+  }
+  return (
+    <EntityModalFieldSection
+      columns={fieldColumns}
+      description={sectionMeta.description}
+      eyebrow={sectionMeta.eyebrow}
+      title={sectionMeta.title}
+    >
+      {fieldBody}
+    </EntityModalFieldSection>
+  );
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: modal lifecycle behavior is intentionally centralized.
 export function EntityModalShell({
   modal,
   submit,
   close,
+  detailState,
   error,
   isSaving,
   saveFlash = false,
@@ -44,7 +104,7 @@ export function EntityModalShell({
   const formRef = useRef(null);
   const errorRef = useRef(null);
 
-  const saveButtonState = error ? "error" : isSaving ? "saving" : saveFlash ? "saved" : "idle";
+  const saveButtonState = resolveSaveButtonState({ error, isSaving, saveFlash });
 
   useEffect(() => {
     if (!error) {
@@ -79,6 +139,8 @@ export function EntityModalShell({
   const modalMaxWidthClass = getEntityModalMaxWidthClass(modal);
   const fieldColumns = getEntityModalFieldColumns(modal);
   const isCompactModal = getEntityModalSize(modal) === "compact";
+  const isDetailLoading = detailState === "loading";
+  const isDetailMissing = detailState === "missing";
 
   const fieldBody = (
     <>
@@ -193,20 +255,15 @@ export function EntityModalShell({
                 ]}
               />
             )}
-            {isQueryTaskSheet || !sectionMeta ? (
-              <div className="grid gap-4 md:grid-cols-2">{fieldBody}</div>
-            ) : isCompactModal ? (
-              <div className="grid grid-cols-1 gap-4">{fieldBody}</div>
-            ) : (
-              <EntityModalFieldSection
-                columns={fieldColumns}
-                description={sectionMeta.description}
-                eyebrow={sectionMeta.eyebrow}
-                title={sectionMeta.title}
-              >
-                {fieldBody}
-              </EntityModalFieldSection>
-            )}
+            {renderFieldContent({
+              fieldBody,
+              fieldColumns,
+              isCompactModal,
+              isDetailLoading,
+              isDetailMissing,
+              isQueryTaskSheet,
+              sectionMeta,
+            })}
           </div>
           <div className="flex shrink-0 justify-end gap-3 border-brand-border border-t bg-white px-5 py-4 max-sm:grid max-sm:grid-cols-2 max-sm:px-4 max-sm:pb-[max(1rem,var(--safe-area-inset-bottom))]">
             <ControlledDialogClose
@@ -228,7 +285,7 @@ export function EntityModalShell({
               <MultiStateButton
                 className="portal-primary-btn disabled:opacity-60 max-sm:w-full"
                 data-testid="portal-entity-modal-save"
-                disabled={isSaving}
+                disabled={isSaving || isDetailLoading || isDetailMissing}
                 savedLabel={isQueryTaskSheet ? "Query saved" : "Saved"}
                 savingLabel={isQueryTaskSheet ? "Saving query…" : "Saving…"}
                 state={saveButtonState}

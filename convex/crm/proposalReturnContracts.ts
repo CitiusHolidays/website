@@ -56,8 +56,9 @@ const finalizedPdfOutputValidator = v.union(
   v.object({ fileName: v.string(), uploadedAt: nullableString })
 );
 
-export const proposalOutputValidator = v.object({
+export const proposalDetailOutputValidator = v.object({
   airfarePerPax: v.number(),
+  attachmentCount: v.number(),
   attachments: v.array(proposalAttachmentOutputValidator),
   clientName: v.string(),
   collaboratorStaffIds: v.array(v.id("staffUsers")),
@@ -91,9 +92,56 @@ export const proposalOutputValidator = v.object({
   visaCostPerPax: v.number(),
 });
 
-export const proposalListResultValidator = v.array(proposalOutputValidator);
-export const proposalListPageResultValidator = paginationResultValidator(proposalOutputValidator);
-export const proposalListRowResultValidator = v.union(proposalOutputValidator, v.null());
+const proposalListQueryValidator = v.object({
+  clientName: v.string(),
+  contractingOwnerId: v.string(),
+  id: v.id("queries"),
+  paxCount: v.number(),
+  queryCode: v.string(),
+});
+
+export const proposalListOutputValidator = v.object({
+  airfarePerPax: v.number(),
+  attachmentCount: v.number(),
+  attachments: v.array(proposalAttachmentOutputValidator),
+  clientName: v.string(),
+  costPrice: v.number(),
+  createdAt: v.string(),
+  finalizedPdf: finalizedPdfOutputValidator,
+  hasCollaborators: v.boolean(),
+  id: v.id("proposals"),
+  itinerarySummary: v.string(),
+  landCostPerPax: v.number(),
+  lastEditedAt: nullableString,
+  lastEditedByName: v.string(),
+  linkedQueryCount: v.number(),
+  preparedBy: v.string(),
+  pricingEnteredAt: nullableString,
+  proposalCode: v.string(),
+  queries: v.array(proposalListQueryValidator),
+  query: v.union(v.null(), proposalListQueryValidator),
+  queryId: v.union(v.null(), v.id("queries")),
+  queryIds: v.array(v.id("queries")),
+  sellingPrice: v.number(),
+  sentAt: nullableString,
+  sentToClientAt: nullableString,
+  sentToSalesAt: nullableString,
+  status: v.union(
+    v.literal("Draft"),
+    v.literal("Sent"),
+    v.literal("Accepted"),
+    v.literal("Rejected")
+  ),
+  taxRate: v.union(v.null(), v.number()),
+  updatedAt: v.string(),
+  visaCostPerPax: v.number(),
+});
+
+export const proposalListResultValidator = v.array(proposalListOutputValidator);
+export const proposalListPageResultValidator = paginationResultValidator(
+  proposalListOutputValidator
+);
+export const proposalListRowResultValidator = v.union(proposalDetailOutputValidator, v.null());
 export const proposalCreateResultValidator = v.object({
   id: v.id("proposals"),
   proposalCode: v.string(),

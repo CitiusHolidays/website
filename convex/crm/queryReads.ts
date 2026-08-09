@@ -5,6 +5,42 @@ import { assertListSearchReady } from "./listSearch";
 import { applyCrmCursorFilters, boundedPaginationOptions } from "./paginationPolicy";
 import { resolveProposalDocumentsByQueryId } from "./proposalDocument";
 
+export function projectQueryListRow(row: Parameters<typeof publicQuery>[0]) {
+  const query = publicQuery(row);
+  return {
+    approxMargin: query.approxMargin,
+    batchingNotes: query.batchingNotes,
+    budgetAmount: query.budgetAmount,
+    clientName: query.clientName,
+    confirmedAt: query.confirmedAt,
+    contractingAirlinesCost: query.contractingAirlinesCost,
+    contractingLandCost: query.contractingLandCost,
+    contractingOwnerId: query.contractingOwnerId,
+    contractingOwnerName: query.contractingOwnerName,
+    contractingStatus: query.contractingStatus,
+    contractingVisaCost: query.contractingVisaCost,
+    createdAt: query.createdAt,
+    destination: query.destination,
+    id: query.id,
+    leadStage: query.leadStage,
+    lostReason: query.lostReason,
+    notes: query.notes,
+    paxCount: query.paxCount,
+    queryCode: query.queryCode,
+    queryType: query.queryType,
+    salesOwnerName: query.salesOwnerName,
+    salesStatus: query.salesStatus,
+    submittedToContractingAt: query.submittedToContractingAt,
+    ticketingOwnerId: query.ticketingOwnerId,
+    ticketingOwnerName: query.ticketingOwnerName,
+    ticketingScope: query.ticketingScope,
+    travelEndDate: query.travelEndDate,
+    travelInBatches: query.travelInBatches,
+    travelStartDate: query.travelStartDate,
+    travelType: query.travelType,
+  };
+}
+
 export async function handleQueryListPage(
   ctx: QueryCtx,
   args: {
@@ -49,30 +85,13 @@ export async function handleQueryListPage(
   const handoffRows = new Map(
     await Promise.all(
       visibleRows.map(async (row) => {
-        const [jobCard, confirmedOffer] = await Promise.all([
-          ctx.db
-            .query("jobCards")
-            .withIndex("by_queryId", (q) => q.eq("queryId", row._id))
-            .first(),
-          row.confirmedOfferId ? ctx.db.get(row.confirmedOfferId) : null,
-        ]);
+        const jobCard = await ctx.db
+          .query("jobCards")
+          .withIndex("by_queryId", (q) => q.eq("queryId", row._id))
+          .first();
         return [
           String(row._id),
           {
-            confirmedOffer: confirmedOffer
-              ? {
-                  airfarePerPax: confirmedOffer.airfarePerPax,
-                  confirmedPax: confirmedOffer.confirmedPax,
-                  destination: confirmedOffer.destination ?? "",
-                  landCostPerPax: confirmedOffer.landCostPerPax,
-                  profitPerPax: confirmedOffer.profitPerPax,
-                  proposalId: confirmedOffer.proposalId,
-                  sellingPricePerPax: confirmedOffer.sellingPricePerPax,
-                  travelEndDate: confirmedOffer.travelEndDate ?? "",
-                  travelStartDate: confirmedOffer.travelStartDate,
-                  visaCostPerPax: confirmedOffer.visaCostPerPax,
-                }
-              : null,
             jobCardCode: jobCard?.jobCode ?? null,
             jobCardId: jobCard?._id ?? null,
           },
@@ -81,13 +100,12 @@ export async function handleQueryListPage(
     )
   );
   const page = visibleRows.map((row) => ({
-    ...publicQuery(row),
+    ...projectQueryListRow(row),
     attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,
     attachments: (row.attachmentPreview ?? []).map((attachment) => ({
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
-    confirmedOffer: handoffRows.get(String(row._id))?.confirmedOffer ?? null,
     jobCardCode: handoffRows.get(String(row._id))?.jobCardCode ?? null,
     jobCardId: handoffRows.get(String(row._id))?.jobCardId ?? null,
     proposalDocument: proposalDocuments.get(String(row._id)) ?? null,

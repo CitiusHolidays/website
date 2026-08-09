@@ -13,14 +13,19 @@ export function proposalPrimaryQuery(proposal) {
 }
 
 export function proposalLinkedQueryLabel(proposal) {
-  const linkedQueries =
-    Array.isArray(proposal?.queries) && proposal.queries.length > 0
-      ? proposal.queries
-      : proposal?.query
-        ? [proposal.query]
-        : [];
+  let linkedQueries = [];
+  if (Array.isArray(proposal?.queries) && proposal.queries.length > 0) {
+    linkedQueries = proposal.queries;
+  } else if (proposal?.query) {
+    linkedQueries = [proposal.query];
+  }
   if (linkedQueries.length === 0) {
     return "-";
   }
-  return linkedQueries.map((query) => query.queryCode).join(", ");
+  const preview = linkedQueries.map((query) => query.queryCode).join(", ");
+  const remaining = Math.max(
+    0,
+    Number(proposal.linkedQueryCount ?? linkedQueries.length) - linkedQueries.length
+  );
+  return remaining > 0 ? `${preview} +${remaining} more` : preview;
 }

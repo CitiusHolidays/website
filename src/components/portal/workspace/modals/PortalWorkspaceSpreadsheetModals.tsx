@@ -94,6 +94,7 @@ export function PortalWorkspaceSpreadsheetModals({
             jobCards={jobCards}
             key={config.modal}
             open
+            operations={workspace.passengerImportOperations}
             previewPassengerImport={workspace.previewPassengerImport}
             {...config}
           />
@@ -112,10 +113,12 @@ export function PortalWorkspaceSpreadsheetModals({
         modal === config.modal ? (
           <PassengerExportModal
             close={workspace.closeModal}
-            getPassengerExportRows={workspace.getPassengerExportRows}
+            getPassengerExportDownload={workspace.getPassengerExportDownload}
             jobCards={jobCards}
             key={config.modal}
             open
+            operations={workspace.passengerExportOperations}
+            startPassengerExport={workspace.startPassengerExport}
             {...config}
           />
         ) : null

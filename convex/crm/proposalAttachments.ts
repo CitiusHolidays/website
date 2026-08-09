@@ -63,7 +63,9 @@ async function requireVisibleProposal(ctx: any, proposalId: Id<"proposals">) {
       .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposalId))
       .collect();
     const visibleJob = jobs.some((job: any) => {
-      const linkedQuery = linkedQueries.find((query) => query._id === job.queryId);
+      const linkedQuery = linkedQueries.find(
+        (candidateQuery) => candidateQuery._id === job.queryId
+      );
       return canSeeJobCardRecord(access, job, linkedQuery);
     });
     if (visibleJob) {
@@ -164,14 +166,56 @@ export const saveAttachment = internalMutation({
     if (!proposal) {
       throw new ConvexError("Proposal not found");
     }
-    await ctx.db.insert("proposalAttachments", {
-      createdAt: Date.now(),
+    const createdAt = Date.now();
+    const legacyRows =
+      proposal.attachmentCount === undefined
+        ? await ctx.db
+            .query("proposalAttachments")
+            .withIndex("by_proposalId", (q) => q.eq("proposalId", args.proposalId))
+            .collect()
+        : null;
+    const id = await ctx.db.insert("proposalAttachments", {
+      createdAt,
       createdBy: args.createdBy,
       fileName: args.fileName,
       fileSize: args.fileSize,
       mimeType: args.mimeType,
       proposalId: args.proposalId,
       storageId: args.storageId,
+    });
+    const attachmentPreviewSource = legacyRows
+      ? [
+          ...legacyRows,
+          {
+            _id: id,
+            createdAt,
+            fileName: args.fileName,
+            fileSize: args.fileSize,
+            mimeType: args.mimeType,
+          },
+        ]
+          .sort((left, right) => right.createdAt - left.createdAt)
+          .slice(0, 3)
+          .map((entry) => ({
+            createdAt: entry.createdAt,
+            fileName: entry.fileName,
+            fileSize: entry.fileSize,
+            id: entry._id,
+            mimeType: entry.mimeType,
+          }))
+      : [
+          {
+            createdAt,
+            fileName: args.fileName,
+            fileSize: args.fileSize,
+            id,
+            mimeType: args.mimeType,
+          },
+          ...(proposal.attachmentPreview ?? []),
+        ].slice(0, 3);
+    await ctx.db.patch(args.proposalId, {
+      attachmentCount: (legacyRows?.length ?? proposal.attachmentCount ?? 0) + 1,
+      attachmentPreview: attachmentPreviewSource,
     });
   },
 });
@@ -185,7 +229,34 @@ export const deleteAttachmentRecord = internalMutation({
     if (!row) {
       return { storageId: null as Id<"_storage"> | null };
     }
+    const proposal = await ctx.db.get(row.proposalId);
     await ctx.db.delete(args.attachmentId);
+    if (proposal) {
+      const remaining = await ctx.db
+        .query("proposalAttachments")
+        .withIndex("by_proposalId", (q) => q.eq("proposalId", row.proposalId))
+        .order("desc")
+        .take(3);
+      const attachmentCount =
+        proposal.attachmentCount === undefined
+          ? (
+              await ctx.db
+                .query("proposalAttachments")
+                .withIndex("by_proposalId", (q) => q.eq("proposalId", row.proposalId))
+                .collect()
+            ).length
+          : Math.max(0, proposal.attachmentCount - 1);
+      await ctx.db.patch(row.proposalId, {
+        attachmentCount,
+        attachmentPreview: remaining.map((entry) => ({
+          createdAt: entry.createdAt,
+          fileName: entry.fileName,
+          fileSize: entry.fileSize,
+          id: entry._id,
+          mimeType: entry.mimeType,
+        })),
+      });
+    }
     return { storageId: row.storageId };
   },
 });

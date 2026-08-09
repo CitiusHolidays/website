@@ -92,7 +92,7 @@ export const __convexExportSurface = [
   crm_imports.previewPassengerImportRows,
   crm_imports.commitPassengerImportRows,
   crm_imports.commitFlightImport,
-  crm_imports.getPassengerExportSource,
+  crm_imports.getPassengerExportSourcePage,
   crm_imports.logPassengerExport,
   crm_imports.listFlightItinerary,
   crm_jobCards.createFromQuery,

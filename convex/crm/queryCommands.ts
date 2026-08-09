@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { resolveCommandReceipt, storeCommandReceipt } from "./commandReceipts";
 import { snapshotNewlyConfirmedOffer } from "./confirmedOffer";
 import {
   assertCementQueryTypeAllowed,
@@ -19,6 +20,7 @@ import {
   requireStaff,
 } from "./lib";
 import { buildQueryListSearchText } from "./listSearch";
+import { refreshProposalLinkProjections } from "./proposalLinkProjection";
 import { resolveSalesOwnerSelection } from "./queryCreation";
 import {
   notifyAssignedQueryOwners,
@@ -154,6 +156,7 @@ export async function handleQueryUpdate(
   patch.listSearchText = buildQueryListSearchText({ ...current, ...patch });
 
   await ctx.db.patch(queryId, patch);
+  await refreshProposalLinkProjections(ctx, queryId);
   await createActivity(ctx, access, {
     action: "updated",
     entityId: queryId,
@@ -244,6 +247,7 @@ export async function handleSubmitToContracting(
     submittedToContractingAt: now,
     updatedAt: now,
   });
+  await refreshProposalLinkProjections(ctx, queryId);
   const hasAssignedTeam = Boolean(
     current.contractingOwnerId || current.ticketingOwnerId || current.ticketingScope
   );
@@ -271,6 +275,7 @@ export async function handleQueryUpdateStatus(
   ctx: MutationCtx,
   args: QueryStatusArgs & {
     approxMargin?: number;
+    commandId?: string;
     contractingAirlinesCost?: number;
     contractingLandCost?: number;
     contractingStatus?: string;
@@ -289,6 +294,12 @@ export async function handleQueryUpdateStatus(
   if (!queryId) {
     throw new ConvexError("Invalid query id");
   }
+  const confirmationRequested =
+    args.salesStatus === "Order Confirmed" || args.contractingStatus === "Order Confirmed";
+  if (confirmationRequested && !args.commandId) {
+    throw new ConvexError("Command ID is required to confirm an order");
+  }
+  const { commandId: _commandId, ...commandPayload } = args;
   const current = await ctx.db.get(queryId);
   if (!current) {
     throw new ConvexError("Query not found");
@@ -310,6 +321,23 @@ export async function handleQueryUpdateStatus(
     args.contractingStatus === "Order Lost";
   if (salesOutcomeRequested && !canSetSalesOutcome) {
     throw new ConvexError("Only Sales can confirm or lose an order");
+  }
+  const receipt =
+    confirmationRequested && args.commandId
+      ? await resolveCommandReceipt(ctx, {
+          access,
+          commandId: args.commandId,
+          operation: "query.order_confirmed",
+          payload: commandPayload,
+          targetId: String(queryId),
+        })
+      : null;
+  if (receipt?.replayedResultId) {
+    const replayedId = ctx.db.normalizeId("queries", receipt.replayedResultId);
+    if (!replayedId) {
+      throw new ConvexError("Stored command result is no longer valid");
+    }
+    return { id: replayedId };
   }
 
   assertConfirmedQueryIsTerminal(current, args);
@@ -355,6 +383,7 @@ export async function handleQueryUpdateStatus(
   }
 
   await ctx.db.patch(queryId, patch);
+  await refreshProposalLinkProjections(ctx, queryId);
 
   const isLost = args.salesStatus === "Order Lost";
   const notificationPlan = buildQueryStatusNotificationPlan({
@@ -363,10 +392,16 @@ export async function handleQueryUpdateStatus(
     isNewlyConfirmed,
     wasConfirmed,
   });
+  let activityAction = "status_updated";
+  if (isNewlyConfirmed) {
+    activityAction = "confirmed";
+  } else if (isLost) {
+    activityAction = "lost";
+  }
 
   await Promise.all([
     createActivity(ctx, access, {
-      action: isNewlyConfirmed ? "confirmed" : isLost ? "lost" : "status_updated",
+      action: activityAction,
       entityId: queryId,
       entityType: "query",
       message: `${current.queryCode} status updated`,
@@ -400,6 +435,17 @@ export async function handleQueryUpdateStatus(
       })
     ),
   ]);
+
+  if (receipt && args.commandId) {
+    await storeCommandReceipt(ctx, {
+      actorKey: receipt.actorKey,
+      commandId: args.commandId,
+      operation: "query.order_confirmed",
+      payloadDigest: receipt.payloadDigest,
+      resultId: String(queryId),
+      targetId: String(queryId),
+    });
+  }
 
   return { id: queryId };
 }

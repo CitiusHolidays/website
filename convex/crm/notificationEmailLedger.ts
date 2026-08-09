@@ -1,6 +1,10 @@
 import { ConvexError, v } from "convex/values";
-import { internalMutation, query } from "../_generated/server";
-import { requireHeadOrAdmin } from "./lib/staffAccess";
+import { internal } from "../_generated/api";
+import { internalAction, internalMutation, query } from "../_generated/server";
+import { canReceiveNotification } from "./lib/notifications";
+import { PERMISSIONS } from "./lib/rolePolicy";
+import { requireStaff } from "./lib/staffAccess";
+import { getNotificationHref } from "./notificationPaths";
 
 export const NOTIFICATION_EMAIL_DELIVERY_STATUSES = [
   "queued",
@@ -22,8 +26,26 @@ const deliveryStatus = v.union(
 
 type DeliveryStatus = (typeof NOTIFICATION_EMAIL_DELIVERY_STATUSES)[number];
 
-const TERMINAL_STATUSES = new Set<DeliveryStatus>(["sent", "skipped", "exhausted"]);
+export function canViewNotificationEmailDeliverySummary(access: {
+  roles: string[];
+  allowed: boolean;
+  permissions: string[];
+  email: string;
+  name: string;
+}) {
+  return access.allowed && access.permissions.includes(PERMISSIONS.VIEW_EMAIL_DELIVERY_STATUS);
+}
+
+const DELIVERY_STATUS_RANK: Record<DeliveryStatus, number> = {
+  exhausted: 3,
+  queued: 0,
+  retrying: 2,
+  sending: 1,
+  sent: 4,
+  skipped: 3,
+};
 const RECIPIENT_HASH_PATTERN = /^[a-z0-9-]{8,128}$/i;
+const MAX_LEDGER_WRITE_ATTEMPTS = 5;
 
 /**
  * Keep error data useful for operators without persisting provider response
@@ -80,14 +102,13 @@ export function shouldApplyDeliveryOutcome(
   if (existing.status === "sent" && incoming.status !== "sent") {
     return false;
   }
-  if (
-    existing.status === "exhausted" &&
-    incoming.status !== "sent" &&
-    incoming.attempts < existing.attempts
-  ) {
+  if (incoming.attempts < existing.attempts) {
     return false;
   }
-  return incoming.attempts >= existing.attempts || !TERMINAL_STATUSES.has(existing.status);
+  if (incoming.attempts > existing.attempts) {
+    return true;
+  }
+  return DELIVERY_STATUS_RANK[incoming.status] >= DELIVERY_STATUS_RANK[existing.status];
 }
 
 export const recordDeliveryOutcome = internalMutation({
@@ -143,10 +164,45 @@ export const recordDeliveryOutcome = internalMutation({
   },
 });
 
+export const retryDeliveryOutcome = internalAction({
+  args: {
+    attempts: v.number(),
+    eventId: v.string(),
+    failureCode: v.optional(v.string()),
+    idempotencyKey: v.string(),
+    providerStatus: v.optional(v.number()),
+    recipientHash: v.string(),
+    status: deliveryStatus,
+    writeAttempt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { writeAttempt, ...ledgerArgs } = args;
+    try {
+      await ctx.runMutation(internal.crm.notificationEmailLedger.recordDeliveryOutcome, ledgerArgs);
+    } catch {
+      if (writeAttempt < MAX_LEDGER_WRITE_ATTEMPTS) {
+        await ctx.scheduler.runAfter(
+          2 ** writeAttempt * 1000,
+          internal.crm.notificationEmailLedger.retryDeliveryOutcome,
+          { ...ledgerArgs, writeAttempt: writeAttempt + 1 }
+        );
+      } else {
+        console.error(
+          JSON.stringify({
+            event: "crm_notification_email_ledger_retry_exhausted",
+            eventId: args.eventId,
+            recipientHash: args.recipientHash,
+          })
+        );
+      }
+    }
+  },
+});
+
 const summaryValidator = v.object({
   eventId: v.string(),
   exhausted: v.number(),
-  failedRecipientHashes: v.array(v.string()),
+  origin: v.optional(v.object({ href: v.string(), label: v.string() })),
   queued: v.number(),
   retrying: v.number(),
   sending: v.number(),
@@ -157,8 +213,8 @@ const summaryValidator = v.object({
 });
 
 /**
- * Failure summaries are intentionally restricted to leadership/admin access.
- * Recipient hashes distinguish failures without disclosing staff addresses.
+ * Delivery summaries are intentionally restricted to department heads and
+ * directors/admin. They never expose recipient identifiers or provider bodies.
  */
 export const listDeliverySummary = query({
   args: {
@@ -166,7 +222,10 @@ export const listDeliverySummary = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireHeadOrAdmin(ctx, ["Sales Head", "HR"]);
+    const access = await requireStaff(ctx);
+    if (!canViewNotificationEmailDeliverySummary(access)) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const limit = Math.min(100, Math.max(1, Math.trunc(args.limit ?? 25)));
     const { eventId } = args;
     const rows = eventId
@@ -185,35 +244,51 @@ export const listDeliverySummary = query({
       group.push(row);
       groups.set(row.eventId, group);
     }
-    return Array.from(groups.values())
+    const selectedGroups = Array.from(groups.values())
       .sort(
         (left, right) =>
           Math.max(...right.map((row) => row.updatedAt)) -
           Math.max(...left.map((row) => row.updatedAt))
       )
-      .slice(0, limit)
-      .map((group) => {
-        const counts = Object.fromEntries(
-          NOTIFICATION_EMAIL_DELIVERY_STATUSES.map((status) => [
-            status,
-            group.filter((row) => row.status === status).length,
-          ])
-        ) as Record<DeliveryStatus, number>;
+      .slice(0, limit);
+    const origins = await Promise.all(
+      selectedGroups.map(async (group) => {
+        const originEventId = group[0]?.eventId ?? "";
+        const notificationId = ctx.db.normalizeId("notifications", originEventId);
+        const notification = notificationId ? await ctx.db.get(notificationId) : null;
+        if (!(notification && canReceiveNotification(notification, access))) {
+          return;
+        }
         return {
-          eventId: group[0]?.eventId ?? "",
-          exhausted: counts.exhausted,
-          failedRecipientHashes: group
-            .filter((row) => row.status === "exhausted" || row.status === "retrying")
-            .map((row) => row.recipientHash),
-          queued: counts.queued,
-          retrying: counts.retrying,
-          sending: counts.sending,
-          sent: counts.sent,
-          skipped: counts.skipped,
-          total: group.length,
-          updatedAt: Math.max(...group.map((row) => row.updatedAt)),
+          href: getNotificationHref({
+            entityId: notification.entityId,
+            entityType: notification.entityType,
+            title: notification.title,
+          }),
+          label: notification.title,
         };
-      });
+      })
+    );
+    return selectedGroups.map((group, index) => {
+      const counts = Object.fromEntries(
+        NOTIFICATION_EMAIL_DELIVERY_STATUSES.map((status) => [
+          status,
+          group.filter((row) => row.status === status).length,
+        ])
+      ) as Record<DeliveryStatus, number>;
+      return {
+        eventId: group[0]?.eventId ?? "",
+        exhausted: counts.exhausted,
+        ...(origins[index] ? { origin: origins[index] } : {}),
+        queued: counts.queued,
+        retrying: counts.retrying,
+        sending: counts.sending,
+        sent: counts.sent,
+        skipped: counts.skipped,
+        total: group.length,
+        updatedAt: Math.max(...group.map((row) => row.updatedAt)),
+      };
+    });
   },
   returns: v.array(summaryValidator),
 });

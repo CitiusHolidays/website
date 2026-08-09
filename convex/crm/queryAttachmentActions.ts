@@ -27,6 +27,12 @@ const ALLOWED_MIME_PREFIXES = [
   "application/vnd.openxmlformats-officedocument.",
 ];
 
+interface WritableCommercialSource {
+  id: string;
+  sourceType: string;
+  teamAreas: string[];
+}
+
 function isAllowedMimeType(mimeType: string) {
   return isAllowedAttachmentMimeType(mimeType, ALLOWED_MIME_PREFIXES);
 }
@@ -85,7 +91,8 @@ export const generateUploadUrl = action({
       limit: 1,
     });
     const writableQuery = sourceResult.writableSources.find(
-      (source) => source.sourceType === "query" && source.id === String(normalizedQueryId)
+      (source: WritableCommercialSource) =>
+        source.sourceType === "query" && source.id === String(normalizedQueryId)
     );
     if (!writableQuery?.teamAreas.includes("sales")) {
       throw new ConvexError("FORBIDDEN");
@@ -117,7 +124,8 @@ export const attachFile = action({
       limit: 1,
     });
     const writableQuery = sourceResult.writableSources.find(
-      (source) => source.sourceType === "query" && source.id === String(normalizedQueryId)
+      (source: WritableCommercialSource) =>
+        source.sourceType === "query" && source.id === String(normalizedQueryId)
     );
     if (!writableQuery?.teamAreas.includes("sales")) {
       throw new ConvexError("FORBIDDEN");

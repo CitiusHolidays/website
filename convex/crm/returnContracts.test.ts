@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { getPortalDashboardActivity, getPortalSummary } from "./dashboard";
+import { projectJobCardListRow } from "./jobCardReads";
 import { publicJobCard, publicQuery } from "./lib";
 import { METRIC_VERSION } from "./metricAggregates";
+import { projectQueryListRow } from "./queryReads";
 import {
   jobCardCommandCenterResultValidator,
   jobCardGetListRowResultValidator,
@@ -65,9 +67,24 @@ function buildQueryRecord(overrides: Record<string, unknown> = {}) {
 function buildQueryListRow(overrides: Record<string, unknown> = {}) {
   const row = buildQueryRecord(overrides);
   return {
+    ...projectQueryListRow(row as never),
+    attachmentCount: Number(row.attachmentCount),
+    attachments: row.attachmentPreview.map((attachment: any) => ({
+      ...attachment,
+      createdAt: new Date(attachment.createdAt).toISOString(),
+    })),
+    jobCardCode: null,
+    jobCardId: null,
+    proposalDocument: null,
+  };
+}
+
+function buildQueryDetailRow(overrides: Record<string, unknown> = {}) {
+  const row = buildQueryRecord(overrides);
+  return {
     ...publicQuery(row as never),
-    attachmentCount: Number(row.attachmentCount ?? row.attachmentPreview?.length ?? 0),
-    attachments: (row.attachmentPreview ?? []).map((attachment: any) => ({
+    attachmentCount: Number(row.attachmentCount),
+    attachments: row.attachmentPreview.map((attachment: any) => ({
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
@@ -202,7 +219,7 @@ describe("query return contracts", () => {
 
   test("accepts null and populated getListRow payloads", () => {
     assertMatchesReturnContract(queryGetListRowResultValidator, null);
-    assertMatchesReturnContract(queryGetListRowResultValidator, buildQueryListRow());
+    assertMatchesReturnContract(queryGetListRowResultValidator, buildQueryDetailRow());
   });
 
   test("rejects malformed query list payloads", () => {
@@ -216,7 +233,7 @@ describe("query return contracts", () => {
 
     expect(
       expectReturnContractFailure(queryGetListRowResultValidator, {
-        ...buildQueryListRow(),
+        ...buildQueryDetailRow(),
         salesStatus: "Definitely Lost",
       })
     ).toContain("did not match any union member");
@@ -234,14 +251,14 @@ describe("job card return contracts", () => {
     assertMatchesReturnContract(jobCardListPageResultValidator, {
       continueCursor: "cursor_3",
       isDone: false,
-      page: [publicJobCard(buildJobCardRecord() as never)],
+      page: [projectJobCardListRow(buildJobCardRecord() as never)],
     });
 
     assertMatchesReturnContract(jobCardListPageResultValidator, {
       continueCursor: "",
       isDone: true,
       page: [
-        publicJobCard(
+        projectJobCardListRow(
           buildJobCardRecord({
             collaboratorStaffIds: ["staffUsers_2"],
             lastEditedAt: Date.parse(ISO),
@@ -277,7 +294,7 @@ describe("job card return contracts", () => {
       expectReturnContractFailure(jobCardListPageResultValidator, {
         continueCursor: "",
         isDone: true,
-        page: [{ ...publicJobCard(buildJobCardRecord() as never), status: "Archived" }],
+        page: [{ ...projectJobCardListRow(buildJobCardRecord() as never), status: "Archived" }],
       })
     ).toContain("did not match any union member");
   });

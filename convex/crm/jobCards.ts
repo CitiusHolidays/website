@@ -78,6 +78,15 @@ export const getListRow = query({
   returns: jobCardGetListRowResultValidator,
 });
 
+export const getDetail = query({
+  args: {
+    jobCardId: v.optional(v.string()),
+    queryId: v.optional(v.string()),
+  },
+  handler: handleJobCardGetListRow,
+  returns: jobCardGetListRowResultValidator,
+});
+
 export const listTravelBatches = query({
   args: {
     jobCardId: v.string(),

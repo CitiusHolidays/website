@@ -223,12 +223,14 @@ describe("portal permissions", () => {
     );
   });
 
-  test("activity log nav is admin and director only", () => {
+  test("activity route exposes email status to authorized leaders without granting audit access", () => {
     expect(pagesForRoles(["Admin"])).toContain("activity");
     expect(pagesForRoles(["Directors"])).toContain("activity");
-    expect(pagesForRoles(["Sales Head"])).not.toContain("activity");
+    expect(pagesForRoles(["Sales Head"])).toContain("activity");
+    expect(pagesForRoles(["Operations Head"])).toContain("activity");
+    expect(pagesForRoles(["HR"])).toContain("activity");
     expect(pagesForRoles(["Finance"])).not.toContain("activity");
-    expect(pagesForRoles(["Operations Head"])).not.toContain("activity");
+    expect(getPermissionsForRoles(["Sales Head"])).not.toContain(PORTAL_PERMISSIONS.VIEW_ACTIVITY);
   });
 
   test("cement roles only get cement query type options", () => {

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
+import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { canAssignTourManagers, canHeadAssignQueryTeams } from "@/lib/portal/permissions";
 import { getPortalRouteDefinition } from "@/lib/portal/portalRouteManifest";
 import { LoadingPanel } from "./portalAdminHelpers";
@@ -92,7 +93,9 @@ export function renderPortalRoute(view: string, workspace: PortalWorkspaceState)
       return (
         <ActivityView
           activity={workspace.filteredActivity}
+          canViewActivityLog={workspace.has(P.VIEW_ACTIVITY)}
           deleteItem={workspace.deleteItem}
+          emailDeliverySummaries={workspace.emailDeliverySummaries}
           markNotificationRead={workspace.markNotificationRead}
           notifications={workspace.periodFiltered.notifications}
           removeNotification={workspace.removeNotification}
@@ -223,6 +226,7 @@ export function renderPortalRoute(view: string, workspace: PortalWorkspaceState)
           filtersActive={workspace.filtersActive}
           has={workspace.has}
           jobCardDeletionOperations={workspace.jobCardDeletionOperations}
+          loading={workspace.jobCards === undefined}
           openModal={workspace.openModal}
           removeJobCard={workspace.removeJobCard}
           rows={workspace.filteredJobCards}
@@ -264,6 +268,7 @@ export function renderPortalRoute(view: string, workspace: PortalWorkspaceState)
           getFinalizedPdfUrl={workspace.getFinalizedPdfUrl}
           getProposalAttachmentUrl={workspace.getProposalAttachmentUrl}
           has={workspace.has}
+          loading={workspace.proposals === undefined}
           markProposalSent={workspace.markProposalSent}
           openModal={workspace.openModal}
           removeProposal={workspace.removeProposal}
@@ -280,6 +285,7 @@ export function renderPortalRoute(view: string, workspace: PortalWorkspaceState)
           getFinalizedPdfUrl={workspace.getFinalizedPdfUrl}
           getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
           has={workspace.has}
+          loading={workspace.queries === undefined}
           openModal={workspace.openModal}
           removeQuery={workspace.removeQuery}
           rows={workspace.filteredQueries}

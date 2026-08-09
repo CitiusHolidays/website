@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "budgets": {
+    "queries": {
+      "cold": {
+        "maxApplicationPayloadBytes": 60000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 1,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 60000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 1,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 25000
+      }
+    },
+    "proposals": {
+      "cold": {
+        "maxApplicationPayloadBytes": 100000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 2,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 100000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 2,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 25000
+      }
+    },
+    "job-cards": {
+      "cold": {
+        "maxApplicationPayloadBytes": 30000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 1,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 30000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 1,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 25000
+      }
+    }
+  }
+}
