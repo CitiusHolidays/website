@@ -126,7 +126,11 @@ function makeCommandCenterCtx(staffOverrides: Partial<Row> = {}, tableOverrides:
   };
 
   const getRows = (table: string) => tables[table] ?? [];
-  const findById = async (id: string) => {
+  const findById = async (tableOrId: string, explicitId?: string) => {
+    if (explicitId) {
+      return getRows(tableOrId).find((entry) => entry._id === explicitId) ?? null;
+    }
+    const id = tableOrId;
     for (const rows of Object.values(tables)) {
       const row = rows.find((entry) => entry._id === id);
       if (row) {
