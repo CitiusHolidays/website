@@ -51,27 +51,26 @@ test.describe("@workflow exact role semantics", () => {
     await saveEntityModal(hrCreatePage);
     const hrPendingRow = hrCreatePage.locator("tr").filter({ hasText: reason });
     await expect(hrPendingRow).toBeVisible({ timeout: 15_000 });
-    await expect(hrPendingRow.getByRole("button", { name: /Approve \(Head\)/i })).toHaveCount(0);
-    await expect(hrPendingRow.getByRole("button", { name: /Approve \(HR\)/i })).toHaveCount(0);
+    await expect(hrPendingRow.getByRole("button", { exact: true, name: "Approve" })).toHaveCount(0);
     await hrCreateContext.close();
 
     const { context: headContext, page: headPage } = await openPortalAs(browser, "leave-head");
     await headPage.goto("/portal/employees-on-leave");
     const headRow = headPage.locator("tr").filter({ hasText: reason });
     await expect(headRow).toBeVisible({ timeout: 15_000 });
-    await headRow.getByRole("button", { name: "Approve (Head)" }).click();
+    await headRow.getByRole("button", { exact: true, name: "Approve" }).click();
     await expect(headRow.getByText("Approved", { exact: true }).first()).toBeVisible();
-    await expect(headRow.getByRole("button", { name: /Approve \(HR\)/i })).toHaveCount(0);
+    await expect(headRow.getByRole("button", { exact: true, name: "Approve" })).toHaveCount(0);
     await headContext.close();
 
     const { context: hrFinalContext, page: hrFinalPage } = await openPortalAs(browser, "hr");
     await hrFinalPage.goto("/portal/employees-on-leave");
     const hrFinalRow = hrFinalPage.locator("tr").filter({ hasText: reason });
-    await expect(hrFinalRow.getByRole("button", { name: "Approve (HR)" })).toBeVisible({
+    await expect(hrFinalRow.getByRole("button", { exact: true, name: "Approve" })).toBeVisible({
       timeout: 15_000,
     });
-    await hrFinalRow.getByRole("button", { name: "Approve (HR)" }).click();
-    await expect(hrFinalRow.getByRole("button", { name: "Approve (HR)" })).toHaveCount(0);
+    await hrFinalRow.getByRole("button", { exact: true, name: "Approve" }).click();
+    await expect(hrFinalRow.getByRole("button", { exact: true, name: "Approve" })).toHaveCount(0);
     await expect(hrFinalRow.getByText("Approved", { exact: true })).toHaveCount(3);
     await hrFinalRow.getByRole("button", { name: /Delete leave for E2E HR/i }).click();
     await expectConfirmDialog(hrFinalPage);
@@ -84,10 +83,12 @@ test.describe("@workflow exact role semantics", () => {
     for (const role of ["sales-cement", "contracting-cement"] as const) {
       const { context, page } = await openPortalAs(browser, role);
       await page.goto("/portal/queries");
-      await expect(page.getByText("E2E Cement Visible", { exact: true })).toBeVisible({
+      await expect(page.locator("tbody tr").filter({ hasText: "E2E Cement Visible" })).toBeVisible({
         timeout: 15_000,
       });
-      await expect(page.getByText("E2E Non Cement Hidden", { exact: true })).toHaveCount(0);
+      await expect(
+        page.locator("tbody tr").filter({ hasText: "E2E Non Cement Hidden" })
+      ).toHaveCount(0);
       await context.close();
     }
   });
@@ -100,11 +101,9 @@ test.describe("@workflow exact role semantics", () => {
     const row = page.locator("tr").filter({ hasText: "E2E Incomplete Proposal Guard" });
     await expect(row).toBeVisible({ timeout: 15_000 });
     await row.getByRole("button", { name: "Send to Sales" }).click();
-    await expect(
-      page.getByText(
-        "Enter selling price and cost price on the proposal before sending it to Sales."
-      )
-    ).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveText(
+      "Enter selling price and cost price on the proposal before sending it to Sales."
+    );
     await expect(row.getByText("Draft", { exact: true })).toBeVisible();
     await row.getByRole("button", { name: "Edit" }).click();
     await expectEntityModalOpen(page);

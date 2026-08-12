@@ -9,7 +9,7 @@ import {
   modalField,
   saveEntityModal,
 } from "../helpers/modal";
-import { firstSelectableOptionLabel, selectOptionByMatchingLabel } from "../helpers/select";
+import { selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 import { TravellersPage } from "../pages";
 
@@ -26,9 +26,7 @@ test.describe("@workflow convex delete assertion", () => {
     await travellers.toolbarAction("Add Traveller").click();
     await expectEntityModalOpen(page);
     const jobCardField = modalCombobox(page, "Job Card");
-    const jobLabel = await firstSelectableOptionLabel(jobCardField);
-    test.skip(!jobLabel, "No job cards available for traveller workflow assertion.");
-    await selectOptionByMatchingLabel(jobCardField, jobLabel!);
+    await selectOptionByMatchingLabel(jobCardField, "JC-E2E-WORKFLOW-EO");
     await modalField(page, "Full Name").fill(travellerName);
     await saveEntityModal(page);
     const row = travellers.travellerRow(travellerName);

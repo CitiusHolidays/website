@@ -56,4 +56,12 @@ describe("e2e staff profile seeds", () => {
     expect(source).toContain("components.betterAuth.adapter.updateOne");
     expect(source).toContain("components.betterAuth.adapter.create");
   });
+
+  test("seeds an operations-owned Job Card for isolated traveller workflows", () => {
+    const source = readFileSync(join(ROOT, "convex/crm/e2eFixtures.ts"), "utf8");
+
+    expect(source).toContain('jobCode: "JC-E2E-WORKFLOW-EO"');
+    expect(source).toContain("operationsOwnerId: operations.authUserId");
+    expect(source).toContain('insertE2eFixtureWithOwnership(ctx, args.runId, "jobCards"');
+  });
 });

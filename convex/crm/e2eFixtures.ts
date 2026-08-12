@@ -88,18 +88,20 @@ export const createIncompleteProposalHandoff = internalMutation({
     if (!label.startsWith("E2E ")) {
       throw new ConvexError("E2E fixture labels must begin with E2E");
     }
-    const [sales, contracting, salesCement, contractingCement] = await Promise.all([
+    const [sales, contracting, salesCement, contractingCement, operations] = await Promise.all([
       staffByKey(ctx, "e2e-sales"),
       staffByKey(ctx, "e2e-contracting"),
       staffByKey(ctx, "e2e-sales-cement"),
       staffByKey(ctx, "e2e-contracting-cement"),
+      staffByKey(ctx, "e2e-operations"),
     ]);
     if (
       !(
         sales?.authUserId &&
         contracting?.authUserId &&
         salesCement?.authUserId &&
-        contractingCement?.authUserId
+        contractingCement?.authUserId &&
+        operations?.authUserId
       )
     ) {
       throw new ConvexError("E2E staff profiles must be provisioned before workflow fixtures");
@@ -219,6 +221,18 @@ export const createIncompleteProposalHandoff = internalMutation({
       runId: args.runId,
       salesOwnerId: salesCement.authUserId,
       salesOwnerName: salesCement.name,
+    });
+    await insertE2eFixtureWithOwnership(ctx, args.runId, "jobCards", {
+      clientName: "E2E Workflow Job Card",
+      confirmedPax: 2,
+      createdAt: now,
+      createdBy: operations.authUserId,
+      destination: "Fixture Destination",
+      jobCode: "JC-E2E-WORKFLOW-EO",
+      operationsOwnerId: operations.authUserId,
+      operationsOwnerName: operations.name,
+      status: "Open",
+      updatedAt: now,
     });
     return { cementClientName, clientName, nonCementClientName, proposalId, queryCode, queryId };
   },
