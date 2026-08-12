@@ -578,6 +578,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
       form: focusedDetailForm,
       modal,
       proposals: compactRows(proposals),
+      queries: compactRows(queries),
     });
     return patch ? { ...focusedDetailForm, ...patch } : focusedDetailForm;
   })();

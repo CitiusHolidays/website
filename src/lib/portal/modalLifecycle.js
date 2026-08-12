@@ -41,14 +41,22 @@ export function resolveLinkedProposalForQuery(proposals, queryId) {
 }
 
 /**
- * @param {{ form: Record<string, any>, modal: string | null, proposals?: LinkedProposal[] }} args
+ * @param {{ form: Record<string, any>, modal: string | null, proposals?: LinkedProposal[], queries?: Record<string, any>[] }} args
  */
-export function jobCardProposalLinkPatch({ form, modal, proposals = [] }) {
-  if (modal !== "jobCard" || form.entityId || !form.queryId || form.proposalId) {
+export function jobCardProposalLinkPatch({ form, modal, proposals = [], queries = [] }) {
+  if (modal !== "jobCard" || form.entityId || !form.queryId) {
     return null;
   }
-  const linkedProposal = resolveLinkedProposalForQuery(proposals, form.queryId);
-  return linkedProposal?.id ? { proposalId: linkedProposal.id } : null;
+  const linkedQuery = queries.find((query) => query.id === form.queryId);
+  const patch = linkedQuery ? applyQueryLink(form, linkedQuery, { onlyEmpty: true }) : {};
+  if (!form.proposalId) {
+    const linkedProposal = resolveLinkedProposalForQuery(proposals, form.queryId);
+    patch.proposalId = linkedQuery?.confirmedOffer?.proposalId || linkedProposal?.id || "";
+  }
+  const changedPatch = Object.fromEntries(
+    Object.entries(patch).filter(([field, value]) => form[field] !== value)
+  );
+  return Object.keys(changedPatch).length > 0 ? changedPatch : null;
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: this adapter maps three focused entity contracts explicitly.

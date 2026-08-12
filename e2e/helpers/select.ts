@@ -74,6 +74,18 @@ export async function firstSelectableOptionLabel(select: Locator) {
   return matched?.trim() ?? null;
 }
 
+export async function selectedOptionLabel(select: Locator) {
+  if (await isNativeSelect(select)) {
+    if (!(await select.inputValue())) {
+      return null;
+    }
+    return (await select.locator("option:checked").textContent())?.trim() || null;
+  }
+
+  const label = (await select.textContent())?.trim() ?? "";
+  return label && !isPlaceholderOption(label) ? label : null;
+}
+
 export async function selectFirstSelectableOption(select: Locator) {
   const label = await firstSelectableOptionLabel(select);
   if (!label) {

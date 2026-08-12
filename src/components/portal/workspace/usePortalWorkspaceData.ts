@@ -186,7 +186,10 @@ export function usePortalWorkspaceData({
   const focusedQueryId =
     deepLinkQueryId ||
     (deepLinkOpen === "query" ? deepLinkId : null) ||
-    (modal === "query" && form.focusedDetailType === "query" ? String(form.entityId || "") : null);
+    (modal === "query" && form.focusedDetailType === "query"
+      ? String(form.entityId || "")
+      : null) ||
+    (modal === "jobCard" && !form.entityId ? String(form.queryId || "") : null);
   const focusedQuery = useQuery(
     api.crm.queries.getDetail,
     shouldLoadQueries && focusedQueryId ? { queryId: focusedQueryId } : "skip"

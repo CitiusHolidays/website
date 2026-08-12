@@ -1,20 +1,25 @@
 import { describe, expect, test } from "bun:test";
 import {
   firstSelectableOptionLabel,
+  selectedOptionLabel,
   selectFirstSelectableOption,
   selectOptionByMatchingLabel,
 } from "./select";
 
 function mockSelect(options: string[]) {
+  let selected: string | null = null;
   return {
     evaluate: async () => true,
-    locator: () => ({
+    inputValue: async () => selected ?? "",
+    locator: (selector: string) => ({
       allTextContents: async () => options,
+      textContent: async () => (selector === "option:checked" ? selected : null),
     }),
     selectOption: ({ label }: { label: string }) => {
       if (!options.includes(label)) {
         throw new Error(`missing option ${label}`);
       }
+      selected = label;
     },
   };
 }
@@ -50,6 +55,7 @@ function mockBaseUiSelect(options: string[]) {
       },
     }),
     selected: () => selected,
+    textContent: async () => selected,
   };
 }
 
@@ -74,5 +80,15 @@ describe("selectOptionByMatchingLabel", () => {
     const select = mockBaseUiSelect(["Proposal One", "Proposal Two"]);
     await selectFirstSelectableOption(select as never);
     expect(select.selected()).toBe("Proposal One");
+  });
+
+  test("reads selected labels from native and Base UI selects", async () => {
+    const native = mockSelect(["Select proposal...", "P-0001 - Sent"]);
+    await selectOptionByMatchingLabel(native as never, "P-0001");
+    await expect(selectedOptionLabel(native as never)).resolves.toBe("P-0001 - Sent");
+
+    const baseUi = mockBaseUiSelect(["P-0002 - Sent"]);
+    await selectFirstSelectableOption(baseUi as never);
+    await expect(selectedOptionLabel(baseUi as never)).resolves.toBe("P-0002 - Sent");
   });
 });

@@ -38,4 +38,12 @@ describe("usePortalWorkspaceData subscription gates", () => {
     );
     expect(shell).toContain("api.crm.activity.notificationSummary");
   });
+
+  test("loads focused query detail while creating a job card", () => {
+    const source = read(DATA_HOOK_FILE);
+
+    expect(source).toContain(
+      '(modal === "jobCard" && !form.entityId ? String(form.queryId || "") : null)'
+    );
+  });
 });

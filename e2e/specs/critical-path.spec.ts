@@ -11,7 +11,11 @@ import {
   modalSpinbutton,
   saveEntityModal,
 } from "../helpers/modal";
-import { selectFirstSelectableOption, selectOptionByMatchingLabel } from "../helpers/select";
+import {
+  selectedOptionLabel,
+  selectFirstSelectableOption,
+  selectOptionByMatchingLabel,
+} from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 import { ProposalsPage, QueriesPage, TravellersPage } from "../pages";
 
@@ -231,7 +235,9 @@ test.describe
       await row.getByRole("button", { name: "Open JC" }).click();
       await expectEntityModalOpen(page);
       const proposalSelect = modalCombobox(page, "Linked Proposal");
-      await expect(proposalSelect).not.toHaveValue("");
+      await expect
+        .poll(() => selectedOptionLabel(proposalSelect), { timeout: 15_000 })
+        .toMatch(/^P-\d+\s+-\s+Sent$/);
       await expect(modalSpinbutton(page, "Selling Price per Person")).toHaveValue("2500");
       await expect(modalSpinbutton(page, "Selling Price per Person")).toHaveAttribute(
         "readonly",

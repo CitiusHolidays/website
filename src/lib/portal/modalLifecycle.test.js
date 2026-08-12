@@ -111,6 +111,37 @@ describe("jobCardProposalLinkPatch", () => {
     ).toEqual({ proposalId: "proposal_new" });
   });
 
+  test("hydrates immutable Confirmed Offer values when focused query detail arrives", () => {
+    expect(
+      jobCardProposalLinkPatch({
+        form: { confirmedPax: "2", queryId: "query_1", sellingPricePerPax: "" },
+        modal: "jobCard",
+        proposals,
+        queries: [
+          {
+            confirmedOffer: {
+              airfarePerPax: 20_000,
+              confirmedPax: 18,
+              destination: "Baku",
+              landCostPerPax: 45_000,
+              profitPerPax: 12_000,
+              proposalId: "proposal_old",
+              sellingPricePerPax: 80_000,
+              travelEndDate: "2026-10-08",
+              travelStartDate: "2026-10-02",
+              visaCostPerPax: 3000,
+            },
+            id: "query_1",
+          },
+        ],
+      })
+    ).toMatchObject({
+      confirmedPax: "18",
+      proposalId: "proposal_old",
+      sellingPricePerPax: "80000",
+    });
+  });
+
   test("skips when the form already has a proposal or is editing an existing job card", () => {
     expect(
       jobCardProposalLinkPatch({
