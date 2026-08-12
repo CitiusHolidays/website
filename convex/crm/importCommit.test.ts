@@ -1,10 +1,10 @@
 import { describe, expect, spyOn, test } from "bun:test";
+import { commitFlightImportForTest } from "./flightImports";
 import { processImportRows } from "./importProcessor";
 import {
   beginPassengerExportOperation,
   beginPassengerImportOperation,
   claimPassengerImportOperationBatch,
-  commitFlightImportForTest,
   commitPassengerImportRow,
   completePassengerImportOperation,
   getPassengerExportSourcePage,
