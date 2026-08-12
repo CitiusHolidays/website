@@ -51,6 +51,35 @@ describe("server authentication origin", () => {
     ).toThrow("trusted application origin");
   });
 
+  test("forwards a Vercel protection bypass only to the configured token route", async () => {
+    const requests = [];
+    await fetchConvexTokenFromHeaders(
+      new Headers({
+        cookie: "better-auth.session_token=session-secret",
+        "x-vercel-protection-bypass": "preview-bypass",
+      }),
+      {
+        fetchImpl: (url, init) => {
+          requests.push({ init, url });
+          return Promise.resolve(Response.json({ token: "convex-token" }));
+        },
+        trustedOrigin: "https://preview.example.test",
+      }
+    );
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toEqual({
+      init: expect.objectContaining({
+        headers: {
+          accept: "application/json",
+          cookie: "better-auth.session_token=session-secret",
+          "x-vercel-protection-bypass": "preview-bypass",
+        },
+      }),
+      url: "https://preview.example.test/api/auth/convex/token",
+    });
+  });
+
   test("returns null only for a reviewed unauthenticated response", async () => {
     const requests = [];
     const token = await fetchConvexTokenFromHeaders(

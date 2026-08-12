@@ -128,13 +128,19 @@ function authenticationCookieHeader(cookieHeader) {
     .join("; ");
 }
 
-function tokenRequestOptions(requestCookie, timeoutMs) {
+function tokenRequestHeaders(requestHeaders) {
+  const protectionBypass = requestHeaders.get("x-vercel-protection-bypass")?.trim();
+  return {
+    accept: "application/json",
+    cookie: authenticationCookieHeader(requestHeaders.get("cookie")),
+    ...(protectionBypass ? { "x-vercel-protection-bypass": protectionBypass } : {}),
+  };
+}
+
+function tokenRequestOptions(requestHeaders, timeoutMs) {
   return {
     cache: "no-store",
-    headers: {
-      accept: "application/json",
-      cookie: requestCookie,
-    },
+    headers: requestHeaders,
     method: "GET",
     ...(timeoutMs > 0 &&
     typeof AbortSignal !== "undefined" &&
@@ -171,13 +177,13 @@ async function exchangeConvexToken({
   attempts,
   correlationId,
   fetchImpl,
-  requestCookie,
+  requestHeaders,
   timeoutMs,
   tokenUrl,
 }) {
   let tokenResponse;
   try {
-    tokenResponse = await fetchImpl(tokenUrl, tokenRequestOptions(requestCookie, timeoutMs));
+    tokenResponse = await fetchImpl(tokenUrl, tokenRequestOptions(requestHeaders, timeoutMs));
   } catch (cause) {
     if (attempt < attempts) {
       return exchangeConvexToken({
@@ -185,7 +191,7 @@ async function exchangeConvexToken({
         attempts,
         correlationId,
         fetchImpl,
-        requestCookie,
+        requestHeaders,
         timeoutMs,
         tokenUrl,
       });
@@ -200,7 +206,7 @@ async function exchangeConvexToken({
         attempts,
         correlationId,
         fetchImpl,
-        requestCookie,
+        requestHeaders,
         timeoutMs,
         tokenUrl,
       });
@@ -223,7 +229,7 @@ async function exchangeConvexToken({
         attempts,
         correlationId,
         fetchImpl,
-        requestCookie,
+        requestHeaders,
         timeoutMs,
         tokenUrl,
       });
@@ -248,7 +254,7 @@ async function exchangeConvexToken({
         attempts,
         correlationId,
         fetchImpl,
-        requestCookie,
+        requestHeaders,
         timeoutMs,
         tokenUrl,
       });
@@ -265,7 +271,7 @@ async function exchangeConvexToken({
       attempts,
       correlationId,
       fetchImpl,
-      requestCookie,
+      requestHeaders,
       timeoutMs,
       tokenUrl,
     });
@@ -312,7 +318,7 @@ export async function fetchConvexTokenFromHeaders(
     3,
     Math.max(1, Number.isFinite(Number(maxAttempts)) ? Number(maxAttempts) : 2)
   );
-  const requestCookie = authenticationCookieHeader(requestHeaders.get("cookie"));
+  const forwardedHeaders = tokenRequestHeaders(requestHeaders);
   const tokenUrl = `${parsedOrigin.origin}/api/auth/convex/token`;
 
   return await exchangeConvexToken({
@@ -320,7 +326,7 @@ export async function fetchConvexTokenFromHeaders(
     attempts,
     correlationId,
     fetchImpl,
-    requestCookie,
+    requestHeaders: forwardedHeaders,
     timeoutMs,
     tokenUrl,
   });
