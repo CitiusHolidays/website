@@ -113,7 +113,7 @@ test.describe
       await navigation;
       await expect(page).toHaveURL(PORTAL_QUERIES_URL_PATTERN);
       await expect(
-        page.getByRole("heading", { exact: true, name: "All Sales Queries" })
+        page.getByRole("heading", { exact: true, level: 2, name: "All Sales Queries" })
       ).toBeVisible({ timeout: 15_000 });
       await expect(page.locator("tbody tr").first()).toBeVisible({ timeout: 15_000 });
 
@@ -141,12 +141,12 @@ test.describe
       await page.goForward();
       await expect(page).toHaveURL(PORTAL_QUERIES_URL_PATTERN);
       await expect(
-        page.getByRole("heading", { exact: true, name: "All Sales Queries" })
+        page.getByRole("heading", { exact: true, level: 2, name: "All Sales Queries" })
       ).toBeVisible({ timeout: 15_000 });
       await page.goto("/portal/queries");
       await expect(page).toHaveURL(PORTAL_QUERIES_URL_PATTERN);
       await expect(
-        page.getByRole("heading", { exact: true, name: "All Sales Queries" })
+        page.getByRole("heading", { exact: true, level: 2, name: "All Sales Queries" })
       ).toBeVisible({ timeout: 15_000 });
       await context.close();
     });

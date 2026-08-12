@@ -79,7 +79,7 @@ test.describe("@smoke @mobile-quality authenticated portal", () => {
     const { context, page } = await openPortalAs(browser, "sales");
     await page.setViewportSize(MOBILE_VIEWPORT);
     await page.goto("/portal/queries");
-    await expect(page.getByRole("heading", { name: /All Sales Queries/i })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: /All Sales Queries/i })).toBeVisible();
     const more = page.getByRole("button", { name: /More actions for/i }).first();
     test.skip(
       !(await more.isVisible()),

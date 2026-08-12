@@ -21,7 +21,9 @@ test.describe("@workflow exact role semantics", () => {
   }) => {
     const { context, page } = await openPortalAs(browser, "contracting");
     await page.goto("/portal/queries");
-    await expect(page.getByRole("heading", { name: "All Sales Queries" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { exact: true, level: 2, name: "All Sales Queries" })
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Sales Decision" })).toHaveCount(0);
     await context.close();
   });
