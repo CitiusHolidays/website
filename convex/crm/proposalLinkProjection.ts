@@ -48,9 +48,25 @@ export function isProposalLinkProjectionComplete(link: Doc<"proposalQueryLinks">
   );
 }
 
-export function queryVisibilityFromProposalLink(
-  link: Doc<"proposalQueryLinks"> | ReturnType<typeof storedProposalQueryProjection>
-) {
+interface ProposalQueryVisibilitySource {
+  clientName?: string;
+  contractingOwnerId?: string;
+  contractingOwnerName?: string;
+  contractingStatus?: string;
+  paxCount?: number;
+  queryCode?: string;
+  queryCreatedBy?: string;
+  queryId: Id<"queries">;
+  queryType?: string;
+  salesOwnerId?: string;
+  salesOwnerName?: string;
+  salesStatus?: string;
+  ticketingOwnerId?: string;
+  ticketingOwnerName?: string;
+  ticketingScope?: string;
+}
+
+export function queryVisibilityFromProposalLink(link: ProposalQueryVisibilitySource) {
   return {
     _id: link.queryId,
     clientName: link.clientName ?? "",
