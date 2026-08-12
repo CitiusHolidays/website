@@ -1,23 +1,27 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act } from "react";
-import { createRoot } from "react-dom/client";
-import ModernContactForm from "./ModernContactForm";
+
+let createRoot;
+let ModernContactForm;
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   pretendToBeVisual: true,
   url: "https://citiusholidays.com/contact?intent=pilgrimage-callback",
 });
 
-beforeAll(() => {
+beforeAll(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
+  globalThis.FocusEvent = dom.window.FocusEvent;
   globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  ({ createRoot } = await import("react-dom/client"));
+  ({ default: ModernContactForm } = await import("./ModernContactForm"));
 });
 
 afterAll(() => dom.window.close());
@@ -54,6 +58,40 @@ describe("mounted contact intent", () => {
     expect(subject.value).toBe("Edited pilgrimage request");
 
     await act(() => root.unmount());
+    container.remove();
+  });
+
+  test("labels retarget one transform channel across focus, value, and textarea states", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<ModernContactForm />));
+
+    const name = container.querySelector('input[name="name"]');
+    const nameLabel = container.querySelector('label[for="name"]');
+    const message = container.querySelector('textarea[name="message"]');
+    const messageLabel = container.querySelector('label[for="message"]');
+    expect(nameLabel.style.transform).toBe("translate3d(0, -50%, 0) scale(1)");
+    expect(nameLabel.className).toContain("transition-[color,transform]");
+    expect(nameLabel.className).toContain("duration-[160ms]");
+    expect(messageLabel.style.transform).toBe("translate3d(0, 0, 0) scale(1)");
+
+    await act(async () => name.focus());
+    expect(nameLabel.style.transform).toContain("calc(-50% - 40px)");
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      dom.window.HTMLInputElement.prototype,
+      "value"
+    ).set;
+    await act(() => {
+      valueSetter.call(name, "A traveller");
+      name.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+      name.blur();
+    });
+    expect(nameLabel.style.transform).toContain("calc(-50% - 40px)");
+
+    await act(async () => message.focus());
+    expect(messageLabel.style.transform).toBe("translate3d(-8px, -40px, 0) scale(0.85)");
+    await act(async () => root.unmount());
     container.remove();
   });
 });

@@ -19,7 +19,6 @@
           "src/lib/auth-client.js",
           "src/lib/auth-server.js",
           "src/lib/auth-sign-in-targets.js",
-          "src/lib/email/send.js",
           "src/lib/razorpay.js",
           "src/lib/portal/**",
           "src/data/**"

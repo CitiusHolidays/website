@@ -81,4 +81,11 @@ describe("mounted status tone parity", () => {
     expect(getStatusPresentation("querySales", "Order Confirmed").semanticTone).toBe("positive");
     expect(getStatusPresentation("querySales", "Order Lost").semanticTone).toBe("danger");
   });
+
+  test("shows the legacy discussion status with current Sales Decision language", async () => {
+    const list = await mount(<StatusBadge domain="querySales" status="Proposal in discussion" />);
+    expect(list.container.textContent).toContain("Under Discussion");
+    expect(list.container.textContent).not.toContain("Proposal in discussion");
+    await list.unmount();
+  });
 });

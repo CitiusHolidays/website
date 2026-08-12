@@ -514,7 +514,7 @@ export const SALES_STATUSES = [
 ];
 
 export const SALES_DECISION_OPTIONS = [
-  { label: "Proposal Under Discussion", value: "Proposal in discussion" },
+  { label: "Under Discussion", value: "Proposal in discussion" },
   { label: "Date/Destination Change Required", value: "Date/Destination Change Required" },
   { label: "Order Confirmed", value: "Order Confirmed" },
   { label: "Order Lost", value: "Order Lost" },

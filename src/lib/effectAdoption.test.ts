@@ -1,10 +1,38 @@
 import { describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
+import { extname, join, relative, resolve } from "node:path";
 import { Effect, Exit } from "effect";
 import {
   buildExternalIoEffect,
+  EFFECT_ADOPTION_INVENTORY,
   EFFECT_ADOPTION_PRESSURES,
   evaluateEffectAdoption,
 } from "./effectAdoption";
+
+const root = resolve(import.meta.dir, "../..");
+const sourceExtensions = new Set([".js", ".jsx", ".mjs", ".ts", ".tsx"]);
+const effectImportPattern =
+  /^\s*import\s+(?:type\s+)?[^;\n]*?\sfrom\s+["']effect(?:\/[^"']*)?["']/m;
+
+function productionSourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === "_generated" || entry.name === "node_modules") {
+        return [];
+      }
+      return productionSourceFiles(path);
+    }
+    if (!(sourceExtensions.has(extname(entry.name)) && !entry.name.includes(".test."))) {
+      return [];
+    }
+    return [path];
+  });
+}
+
+function scanEffectImports(files: readonly { path: string; source: string }[]) {
+  return files.filter(({ source }) => effectImportPattern.test(source)).map(({ path }) => path);
+}
 
 describe("evaluateEffectAdoption", () => {
   test("approves Effect only when at least two distinct orchestration pressures apply", () => {
@@ -56,6 +84,38 @@ describe("evaluateEffectAdoption", () => {
     for (const pressures of Object.values(seams)) {
       expect(evaluateEffectAdoption(pressures).appropriate).toBe(true);
     }
+  });
+
+  test("accounts exactly once for every production Effect import under the v3 convention", () => {
+    const productionEffectImports = scanEffectImports(
+      ["config", "convex", "scripts", "src"].flatMap((directory) =>
+        productionSourceFiles(resolve(root, directory)).map((path) => ({
+          path: relative(root, path),
+          source: readFileSync(path, "utf8"),
+        }))
+      )
+    ).sort();
+
+    expect(EFFECT_ADOPTION_INVENTORY.map((entry) => entry.path).sort()).toEqual(
+      productionEffectImports
+    );
+    expect(new Set(EFFECT_ADOPTION_INVENTORY.map((entry) => entry.path)).size).toBe(
+      EFFECT_ADOPTION_INVENTORY.length
+    );
+    for (const entry of EFFECT_ADOPTION_INVENTORY) {
+      expect(entry.effectMajor).toBe(3);
+      expect(entry.materialSimplification.length).toBeGreaterThan(24);
+      expect(evaluateEffectAdoption(entry.matchedPressures).appropriate).toBe(true);
+    }
+  });
+
+  test("detects an unlisted production import without treating comments as adoption", () => {
+    expect(
+      scanEffectImports([
+        { path: "src/comment.ts", source: '// import { Effect } from "effect"' },
+        { path: "src/new-seam.ts", source: 'import { Effect } from "effect";' },
+      ])
+    ).toEqual(["src/new-seam.ts"]);
   });
 });
 

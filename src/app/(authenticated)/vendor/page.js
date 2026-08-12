@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { requireAuth } from "@/lib/auth-server";
 import VendorPageClient from "./page.client";
 
@@ -10,6 +11,7 @@ export const metadata = {
 };
 
 export default async function VendorPage() {
+  await connection();
   const { user } = await requireAuth("/vendor");
 
   return <VendorPageClient user={user} />;

@@ -61,12 +61,16 @@ describe("mounted PortalDateRangeFilter", () => {
     const alert = container.querySelector('[role="alert"]');
     expect(alert?.textContent).toBe("From must be on or before To.");
     expect(alert?.id).toMatch(/-error$/);
+    expect(alert?.className).not.toContain("absolute");
+    const toInput = container.querySelector('[aria-label="Filter to date"]');
+    expect(toInput?.getAttribute("aria-describedby")).toBe(alert?.id);
+    expect(toInput?.getAttribute("aria-invalid")).toBe("true");
 
     await act(async () => root.unmount());
     container.remove();
   });
 
-  test("keeps fixed-width non-shrinking toolbar controls for date inputs and clear action", async () => {
+  test("stacks controls at narrow widths while retaining bounded desktop input widths", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -75,20 +79,21 @@ describe("mounted PortalDateRangeFilter", () => {
     );
 
     const wrapper = container.firstElementChild;
-    expect(wrapper?.className).toContain("shrink-0");
-    expect(container.querySelector(".flex.flex-nowrap")).not.toBeNull();
-    expect(container.querySelector("label.shrink-0")).not.toBeNull();
+    expect(wrapper?.className).toContain("min-w-0");
+    expect(wrapper?.className).toContain("max-w-full");
+    expect(container.querySelector(".grid.grid-cols-1")).not.toBeNull();
+    expect(container.querySelector(".overflow-x-auto")).toBeNull();
 
     for (const textInput of container.querySelectorAll('input[type="text"]')) {
-      expect(textInput.className).toContain("!w-[9.5rem]");
-      expect(textInput.className).toContain("!min-w-[9.5rem]");
+      expect(textInput.className).toContain("!w-[min(9.5rem,calc(100vw-6rem))]");
+      expect(textInput.className).toContain("!min-w-0");
       expect(textInput.className).toContain("!max-w-[9.5rem]");
     }
 
     const clearButton = [...container.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("Clear dates")
     );
-    expect(clearButton?.className).toContain("shrink-0");
+    expect(clearButton?.className).toContain("justify-self-start");
 
     await act(async () => root.unmount());
     container.remove();

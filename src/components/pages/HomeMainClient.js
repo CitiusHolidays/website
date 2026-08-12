@@ -3,73 +3,42 @@
 import { ArrowRight, Briefcase, Globe, MapPinned, Trophy } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { PUBLIC_COMPANY_STATS, PUBLIC_COMPANY_STRENGTHS } from "@/data/publicCompanyFacts";
+import { PUBLIC_HOME_SERVICES } from "@/data/publicServices";
 import AnimatedSection from "../layout/AnimatedSection";
-import AnimatedCounter from "../ui/AnimatedCounter";
+import NumberTicker from "../ui/NumberTicker";
+import PublicGrain from "../ui/PublicGrain";
 import ServiceCard from "../ui/ServiceCard";
 import UspElement from "../ui/UspElement";
 
 const ClientShowcase = dynamic(() => import("../ui/ClientShowcase"), {
   loading: () => <div className="h-28 w-full" />,
-  ssr: false,
 });
 
 const PartnerShowcase = dynamic(() => import("../ui/PartnerShowcase"), {
   loading: () => <div className="h-28 w-full" />,
-  ssr: false,
 });
 
 const TrendingDestinations = dynamic(() => import("../ui/TrendingDestinations"), {
   loading: () => <div className="h-[460px] w-full" />,
-  ssr: false,
 });
 
 const AwardsShowcase = dynamic(() => import("../ui/AwardsShowcase"), {
   loading: () => <div className="h-24 w-full" />,
-  ssr: false,
 });
 
-const services = [
-  {
-    description: "End-to-end management for Meetings, Incentives, Conferences & Exhibitions.",
-    icon: Briefcase,
-    title: "MICE Excellence",
-  },
-  {
-    description: "Curated global itineraries for corporate & leisure travelers.",
-    icon: Globe,
-    title: "Global Voyages",
-  },
-  {
-    description: "Discover India with bespoke experiential journeys.",
-    icon: MapPinned,
-    title: "Domestic Gems",
-  },
-  {
-    description: "Access to the world's premier sporting spectacles with VIP hospitality.",
-    icon: Trophy,
-    title: "Elite Sports",
-  },
-];
+const homeServiceIcons = {
+  "domestic-travel": MapPinned,
+  "international-travel": Globe,
+  mice: Briefcase,
+  "sporting-events": Trophy,
+};
 
-const usps = [
-  "Personalized Travel Plans",
-  "Experiential Travel",
-  "Eco-Friendly Journeys",
-  "Smart Travel Planning",
-  "Local Expert Support",
-  "Worldwide Connections",
-  "24/7 Assistance",
-  "Trusted by the Best",
-  "Curated Experiences",
-  "Luxury Concierge",
-];
-
-const stats = [
-  { label: "Years of Excellence", value: 15 },
-  { label: "Global Destinations", value: 75 },
-  { label: "Corporate Partners", value: 52 },
-  { label: "Happy Travelers", value: 99_768 },
-];
+const services = PUBLIC_HOME_SERVICES.map((service) => ({
+  description: service.home.description,
+  icon: homeServiceIcons[service.id],
+  title: service.home.title,
+}));
 
 export default function HomeMainClient() {
   return (
@@ -85,8 +54,8 @@ export default function HomeMainClient() {
           </h2>
         </div>
         <div className="mx-auto grid max-w-6xl place-items-center gap-12 px-4 sm:grid-cols-2 md:grid-cols-4">
-          {stats.map((s) => (
-            <AnimatedCounter key={s.label} label={s.label} value={s.value} />
+          {PUBLIC_COMPANY_STATS.map((s) => (
+            <NumberTicker key={s.label} label={s.label} value={s.value} />
           ))}
         </div>
       </AnimatedSection>
@@ -118,6 +87,14 @@ export default function HomeMainClient() {
               />
             ))}
           </div>
+          <div className="mt-12 text-center">
+            <Link
+              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-public-surface px-6 py-3 font-semibold text-public-night transition-colors hover:bg-public-paper focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
+              href="/services"
+            >
+              Explore all services <ArrowRight aria-hidden="true" size={18} />
+            </Link>
+          </div>
         </div>
       </AnimatedSection>
 
@@ -140,7 +117,7 @@ export default function HomeMainClient() {
               memorable travel experiences every single time
             </p>
             <div className="grid grid-cols-2 gap-4">
-              {usps.map((usp) => (
+              {PUBLIC_COMPANY_STRENGTHS.map((usp) => (
                 <UspElement key={usp} title={usp} />
               ))}
             </div>
@@ -163,7 +140,7 @@ export default function HomeMainClient() {
 
       <AnimatedSection className="relative overflow-hidden py-32 text-center text-white">
         <div className="absolute inset-0 z-0 bg-public-night" />
-        <div className="absolute inset-0 z-10 bg-[url('/noise.svg')] opacity-20 mix-blend-overlay" />
+        <PublicGrain className="z-10" />
         <div className="absolute inset-0 z-0 bg-gradient-to-br from-public-night via-public-blue to-public-night" />
 
         <div className="relative z-20 mx-auto max-w-3xl px-4">

@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { profitPerPerson } from "./commercialRecordChain";
+import { insertWithE2eOwnership } from "./lib/e2eOwnership";
 import type { QuerySource, QueryStatusArgs } from "./queryValidators";
 
 export interface ConfirmedOfferInput {
@@ -106,7 +107,7 @@ export async function createConfirmedOfferSnapshot(
 
   const now = Date.now();
   const profitPerPax = calculateConfirmedOfferProfitPerPax(input);
-  const offerId = await ctx.db.insert("confirmedOffers", {
+  const offerId = await insertWithE2eOwnership(ctx, "confirmedOffers", {
     airfarePerPax: Math.max(input.airfarePerPax, 0),
     approxMargin: input.approxMargin === undefined ? undefined : Math.max(input.approxMargin, 0),
     confirmedPax: input.confirmedPax,

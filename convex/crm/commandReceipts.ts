@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import { insertWithE2eOwnership } from "./lib/e2eOwnership";
 
 const COMMAND_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -83,7 +84,7 @@ export async function storeCommandReceipt(
     targetId: string;
   }
 ) {
-  await ctx.db.insert("commandReceipts", {
+  await insertWithE2eOwnership(ctx, "commandReceipts", {
     actorKey: args.actorKey,
     commandId: args.commandId,
     createdAt: Date.now(),

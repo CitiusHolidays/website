@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { formatCliHelp, parseCliArguments } from "../commands/cli";
 
 export interface BiomeDiagnostic {
   category?: string;
@@ -34,9 +35,15 @@ interface BiomeProcessResult {
 const ROOT = resolve(import.meta.dir, "../..");
 const BASELINE_PATH = join(ROOT, "config/release/lint-baseline.json");
 const BIOME_PATH = join(ROOT, "node_modules/.bin/biome");
-const writeBaseline = process.argv.includes("--write-baseline");
-const familyArgument = process.argv.find((argument) => argument.startsWith("--family="));
-const family = familyArgument?.slice("--family=".length) ?? "lint/";
+const LINT_RATCHET_CLI = {
+  command: "bun run lint:ratchet --",
+  description:
+    "Compare the current machine-readable Biome report with the monotonic reviewed warning baseline.",
+  options: [
+    { name: "family", type: "string" },
+    { name: "write-baseline", type: "boolean" },
+  ],
+} as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -286,7 +293,7 @@ function runBiomeSafely() {
   }
 }
 
-function printReductions(reductions: string[]) {
+function printReductions(reductions: string[], family: string) {
   if (reductions.length === 0) {
     return;
   }
@@ -329,7 +336,7 @@ function updateBaseline(
   return true;
 }
 
-function main() {
+function main({ family = "lint/", writeBaseline = false } = {}) {
   const baseline = loadBaselineSafely();
   if (!baseline) {
     return;
@@ -346,7 +353,7 @@ function main() {
   );
   const totals = diagnosticTotals(currentDiagnostics);
 
-  printReductions(reductions);
+  printReductions(reductions, family);
 
   if (writeBaseline) {
     if (!canWriteBaseline({ baseline, current: currentDiagnostics, increases })) {
@@ -372,5 +379,18 @@ function main() {
 }
 
 if (import.meta.main) {
-  main();
+  try {
+    const parsed = parseCliArguments(process.argv.slice(2), LINT_RATCHET_CLI);
+    if (parsed.help) {
+      console.log(formatCliHelp(LINT_RATCHET_CLI));
+    } else {
+      main({
+        family: typeof parsed.values.family === "string" ? parsed.values.family : "lint/",
+        writeBaseline: parsed.values["write-baseline"] === true,
+      });
+    }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "Lint ratchet failed");
+    process.exitCode = 1;
+  }
 }

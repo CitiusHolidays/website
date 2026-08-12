@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { validateModalForm } from "./formValidation.js";
+import { PortalValidationError, validateModalForm } from "./formValidation.js";
 
 describe("validateModalForm", () => {
   test("rejects inverted travel dates on queries", () => {
@@ -10,16 +10,39 @@ describe("validateModalForm", () => {
         travelEndDate: "2026-08-01",
         travelStartDate: "2026-08-10",
       })
-    ).toThrow("Travel start date must be on or before Travel end date.");
+    ).toThrow("Travel Date From must be on or before Travel Date To.");
   });
 
   test("rejects zero pax on queries", () => {
-    expect(() =>
+    let error;
+    try {
       validateModalForm("query", {
         clientName: "Acme",
         paxCount: "0",
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(PortalValidationError);
+    expect(error).toMatchObject({
+      field: "paxCount",
+      message: "Enter No. of Pax as 1 or more.",
+    });
+  });
+
+  test("matches Query and Expense validation copy to visible field labels", () => {
+    expect(() => validateModalForm("query", { clientName: "", paxCount: "2" })).toThrow(
+      "Enter a Client / Company."
+    );
+    expect(() =>
+      validateModalForm("expense", {
+        cardAmount: "100",
+        category: "",
+        expenseDate: "2026-06-15",
+        expenseType: "office",
+        paidBy: "Staff",
       })
-    ).toThrow("Pax count must be at least 1.");
+    ).toThrow("Select Category.");
   });
 
   test("rejects inverted leave dates", () => {
@@ -51,7 +74,7 @@ describe("validateModalForm", () => {
         expenseType: "office",
         paidBy: "Staff",
       })
-    ).toThrow("Select a category.");
+    ).toThrow("Select Category.");
   });
 
   test("office expenses do not require a job card", () => {
@@ -128,7 +151,7 @@ describe("validateModalForm", () => {
         expenseType: "office",
         paidBy: "",
       })
-    ).toThrow("Paid by is required.");
+    ).toThrow("Enter Paid By.");
     expect(() =>
       validateModalForm("approvalDecide", {
         approvalStatus: "Rejected",

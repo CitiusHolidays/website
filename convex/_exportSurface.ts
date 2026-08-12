@@ -71,7 +71,6 @@ export const __convexExportSurface = [
   crm_approvals.list,
   crm_approvals.decide,
   crm_approvals.remove,
-  crm_approvals.pendingCount,
   crm_dashboard.getPortalSummary,
   crm_expenseAttachments.verifyExpenseAccess,
   crm_expenseAttachments.verifyExpenseProofMutationAccess,

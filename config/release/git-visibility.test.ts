@@ -25,5 +25,11 @@ describe("repository source visibility", () => {
     expect(isIgnored(".worktrees/local-branch")).toBe(true);
     expect(isIgnored(".gstack/runtime.json")).toBe(true);
     expect(isIgnored(".playwright-mcp/session.json")).toBe(true);
+    expect(isIgnored(".context/retros/2026-08-12.md")).toBe(true);
+  });
+
+  test("does not hide unrelated context files", () => {
+    expect(isIgnored(".context/unrelated.json")).toBe(false);
+    expect(isIgnored(".context/decisions/ownership.md")).toBe(false);
   });
 });

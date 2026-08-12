@@ -1,48 +1,27 @@
 "use client";
 
-import { ArrowUpRight } from "lucide-react";
-import { m } from "motion/react";
-import { cn } from "../../utils/cn";
+import { cn } from "@/lib/utils";
 
 export default function ServiceCard({ title, icon: Icon, description, className, ...props }) {
   return (
-    <m.div
+    <div
       className={cn(
-        "group relative overflow-hidden rounded-3xl p-8 transition-[background-color,box-shadow] duration-500",
-        "border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10", // Glass effect for dark bg
+        "public-service-card relative overflow-hidden rounded-3xl border border-white/15 bg-public-blue/45 p-1",
         className
       )}
-      initial={{ opacity: 0, y: 20 }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
-      viewport={{ margin: "-50px", once: true }}
-      whileHover={{ y: -10 }}
-      whileInView={{ opacity: 1, y: 0 }}
       {...props}
     >
-      {/* Gradient Blob on Hover */}
-      <div className="absolute -top-10 -right-10 size-32 rounded-full bg-blue-500/30 opacity-0 blur-3xl transition-[scale,opacity] duration-700 fine-hover:group-hover:scale-150 group-hover:opacity-100" />
-
-      <div className="relative z-10 flex h-full flex-col">
-        <div className="mb-6 flex items-start justify-between">
-          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-3 transition-transform duration-300 fine-hover:group-hover:scale-110">
-            {Icon && (
-              <Icon className="size-8 text-blue-300 transition-colors duration-300 group-hover:text-white" />
-            )}
+      <div className="public-service-card__core flex h-full flex-col rounded-[1.25rem] border border-white/10 bg-public-night p-7">
+        <div className="mb-6 flex items-start">
+          <div className="rounded-2xl border border-white/15 bg-public-blue/35 p-3">
+            {Icon ? <Icon aria-hidden="true" className="size-8 text-blue-200" /> : null}
           </div>
-          <ArrowUpRight
-            className="text-white/30 transition-[translate,color] duration-300 fine-hover:group-hover:translate-x-1 fine-hover:group-hover:-translate-y-1 group-hover:text-white"
-            size={24}
-          />
         </div>
 
         <h3 className="mb-3 font-heading font-semibold text-2xl text-white">{title}</h3>
 
-        {description && (
-          <p className="text-slate-400 leading-relaxed transition-colors duration-300 group-hover:text-slate-200">
-            {description}
-          </p>
-        )}
+        {description ? <p className="text-slate-300 leading-relaxed">{description}</p> : null}
       </div>
-    </m.div>
+    </div>
   );
 }

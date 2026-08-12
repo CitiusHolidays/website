@@ -5,7 +5,7 @@ import {
   toUIMessageChunk,
   type UIMessageChunk,
 } from "ai";
-import type { AiFeature } from "./runtimePolicy";
+import { type AiFeature, planProviderAttempt } from "./runtimePolicy";
 
 interface ProviderRawPart {
   type: string;
@@ -130,8 +130,16 @@ export function createAiProviderUiStream(options: ProviderStreamOptions) {
       writer.write({ messageId: responseMessageId, type: "start" });
 
       for (const [index, configuredModel] of models.entries()) {
-        const remainingMs = totalTimeoutMs - (now() - startedAt);
-        if (remainingMs < minimumAttemptMs) {
+        const attemptPlan = planProviderAttempt({
+          index,
+          minimumAttemptMs,
+          model: configuredModel,
+          now: now(),
+          providerAttemptTimeoutMs,
+          startedAt,
+          totalTimeoutMs,
+        });
+        if (!attemptPlan) {
           lastError = new Error("AI route budget exhausted", { cause: lastError });
           break;
         }
@@ -147,7 +155,7 @@ export function createAiProviderUiStream(options: ProviderStreamOptions) {
           return;
         }
 
-        const fallback = index > 0;
+        const { fallback, remainingMs, timeoutMs } = attemptPlan;
         lastModel = configuredModel;
         lastFallback = fallback;
         let committed = false;
@@ -158,12 +166,12 @@ export function createAiProviderUiStream(options: ProviderStreamOptions) {
 
         try {
           const result = await startAttempt({
-            attempt: index + 1,
+            attempt: attemptPlan.attempt,
             fallback,
             model: configuredModel,
             remainingMs,
             signal,
-            timeoutMs: Math.min(providerAttemptTimeoutMs, remainingMs),
+            timeoutMs,
           });
 
           for await (const part of result.stream) {

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { formatCliHelp, parseCliArguments } from "../commands/cli";
 
 export const ENVIRONMENT_TARGETS = ["preview", "production"] as const;
 export type EnvironmentTarget = (typeof ENVIRONMENT_TARGETS)[number];
@@ -58,9 +59,16 @@ const E2E_PROVISIONING_KEYS = [
   "E2E_PROVISIONING_TARGET",
   "E2E_SEED_SECRET",
   "E2E_STAFF_PASSWORD",
+  "E2E_TARGET_ID",
 ] as const;
 
 const root = resolve(import.meta.dir, "../..");
+const ENVIRONMENT_PREFLIGHT_CLI = {
+  command: "bun run env:preflight --",
+  description:
+    "Validate one explicit hosted environment without printing values or contacting a deployment.",
+  options: [{ choices: ENVIRONMENT_TARGETS, name: "target", type: "string" }],
+} as const;
 
 export function readEnvironmentRegistry(
   readFile: (path: string, encoding: "utf8") => string = (path, encoding) =>
@@ -138,19 +146,27 @@ export function evaluateEnvironmentPreflight(
   };
 }
 
-function targetFromArgs(args: string[], env: Record<string, string | undefined>) {
-  const flagIndex = args.indexOf("--target");
-  const explicit = flagIndex >= 0 ? args[flagIndex + 1] : undefined;
-  const inferred = explicit || (env.VERCEL_ENV === "production" ? "production" : "preview");
+function targetFromCli(
+  value: boolean | string | undefined,
+  env: Record<string, string | undefined>
+) {
+  const inferred = typeof value === "string" ? value : env.VERCEL_ENV;
   if (!ENVIRONMENT_TARGETS.includes(inferred as EnvironmentTarget)) {
-    throw new Error(`Unknown environment target: ${inferred}`);
+    throw new Error(
+      "Environment preflight requires --target preview|production when VERCEL_ENV is not explicit. Example: bun run env:preflight -- --target preview"
+    );
   }
   return inferred as EnvironmentTarget;
 }
 
 if (import.meta.main) {
   try {
-    const target = targetFromArgs(process.argv.slice(2), process.env);
+    const parsed = parseCliArguments(process.argv.slice(2), ENVIRONMENT_PREFLIGHT_CLI);
+    if (parsed.help) {
+      console.log(formatCliHelp(ENVIRONMENT_PREFLIGHT_CLI));
+      process.exit(0);
+    }
+    const target = targetFromCli(parsed.values.target, process.env);
     const result = evaluateEnvironmentPreflight(process.env, target);
     if (result.ok) {
       console.log(`Environment preflight passed for ${target}.`);

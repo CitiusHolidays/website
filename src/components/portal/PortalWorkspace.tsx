@@ -19,13 +19,14 @@ import {
 } from "@/components/portal/workspace/PortalWorkspaceHeader";
 import { LoadingPanel } from "@/components/portal/workspace/portalAdminHelpers";
 import {
+  PortalRouteAccessibility,
   PortalRouteLifecycleBoundary,
   renderPortalRoute,
 } from "@/components/portal/workspace/portalRouteLifecycle";
+import type { PortalWorkspaceModel } from "@/components/portal/workspace/portalWorkspaceModel";
 import type { SaveCurrentViewOptions } from "@/components/portal/workspace/workspaceStateTypes";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
-import { resolvePortalRoutePagination } from "@/lib/portal/portalRouteManifest";
 
 const P = PORTAL_PERMISSIONS;
 
@@ -40,36 +41,29 @@ export default function PortalWorkspace(props: { view?: string }) {
 function PortalWorkspaceInner({ view = "dashboard" }: { view?: string }) {
   const searchParams = useSearchParams();
   const workspace = usePortalWorkspaceState(view, searchParams);
-  usePortalNotificationDeepLink(workspace);
+  usePortalNotificationDeepLink(workspace.chrome.deepLink);
 
   return (
-    <PortalRouteLifecycleBoundary gate={workspace.gate} view={workspace.view}>
-      <PortalWorkspaceLayout workspace={workspace} />
-    </PortalRouteLifecycleBoundary>
+    <>
+      <PortalRouteAccessibility gate={workspace.lifecycle.gate} view={workspace.lifecycle.view} />
+      <PortalRouteLifecycleBoundary gate={workspace.lifecycle.gate} view={workspace.lifecycle.view}>
+        <PortalWorkspaceLayout workspace={workspace} />
+      </PortalRouteLifecycleBoundary>
+    </>
   );
 }
 
-function PortalWorkspaceViews({
-  workspace,
-}: {
-  workspace: ReturnType<typeof usePortalWorkspaceState>;
-}) {
-  const activePagination = resolvePortalRoutePagination(workspace.view, workspace.pagination);
-
+function PortalWorkspaceViews({ workspace }: { workspace: PortalWorkspaceModel }) {
   return (
-    <PortalFilterActionsProvider clearAllFilters={workspace.clearAllFilters}>
-      {renderPortalRoute(workspace.view, workspace)}
-      <WorkspacePagination pagination={activePagination} />
+    <PortalFilterActionsProvider clearAllFilters={workspace.chrome.header.clearAllFilters}>
+      {renderPortalRoute(workspace.route)}
+      <WorkspacePagination pagination={workspace.route.pagination} />
     </PortalFilterActionsProvider>
   );
 }
 
-function PortalWorkspaceLayout({
-  workspace,
-}: {
-  workspace: ReturnType<typeof usePortalWorkspaceState>;
-}) {
-  const navGroups = getAccessibleNavGroups(workspace.access);
+function PortalWorkspaceLayout({ workspace }: { workspace: PortalWorkspaceModel }) {
+  const navGroups = getAccessibleNavGroups(workspace.chrome.access);
   const { navShortcuts } = usePortalChrome();
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [savingView, setSavingView] = useState(false);
@@ -77,38 +71,38 @@ function PortalWorkspaceLayout({
   return (
     <PortalCommandPaletteRoot
       onSaveView={() => setSaveDialogOpen(true)}
-      workspace={{ ...workspace, navGroups, navShortcuts }}
+      workspace={{ ...workspace.chrome.palette, navGroups, navShortcuts }}
     >
       <div className="mx-auto max-w-[1500px]">
         <PortalChromeSavedViewsSync
-          applySavedView={workspace.applySavedView}
+          applySavedView={workspace.chrome.savedViews.applySavedView}
           deleteSavedView={async (view) => {
-            await workspace.deleteSavedView(view.id);
+            await workspace.chrome.savedViews.deleteSavedView(view.id);
           }}
           saveCurrentView={async (name, options) => {
-            await workspace.saveCurrentView(name, options);
+            await workspace.chrome.savedViews.saveCurrentView(name, options);
           }}
-          savedViews={workspace.savedViews || []}
+          savedViews={workspace.chrome.savedViews.savedViews || []}
           toggleSavedViewFavorite={async (view) => {
-            await workspace.toggleSavedViewFavorite(view);
+            await workspace.chrome.savedViews.toggleSavedViewFavorite(view);
           }}
         />
-        {workspace.has(P.MANAGE_QUERIES) ? (
+        {workspace.chrome.palette.has(P.MANAGE_QUERIES) ? (
           <PortalChromeQuickActionSync
             label="New query"
-            onSelect={() => workspace.openModal("query")}
+            onSelect={() => workspace.chrome.palette.openModal("query")}
           />
         ) : null}
-        <PortalWorkspaceHeader workspace={workspace} />
+        <PortalWorkspaceHeader workspace={workspace.chrome.header} />
         <PortalWorkspaceViews workspace={workspace} />
-        <PortalWorkspaceSpreadsheetModals workspace={workspace} />
+        <PortalWorkspaceSpreadsheetModals workspace={workspace.modal} />
       </div>
       <SaveViewDialog
         onClose={() => setSaveDialogOpen(false)}
         onSave={async (name: string, options?: SaveCurrentViewOptions) => {
           setSavingView(true);
           try {
-            await workspace.saveCurrentView(name, options);
+            await workspace.chrome.savedViews.saveCurrentView(name, options);
             setSaveDialogOpen(false);
             setSavingView(false);
           } catch (error) {

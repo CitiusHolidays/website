@@ -59,7 +59,7 @@ const timelineItemVariants = {
 export default function AboutPage() {
   return (
     <>
-      <section className="relative flex h-[60vh] items-center justify-center overflow-hidden bg-[#0B1026] text-center">
+      <section className="relative flex h-[60vh] items-center justify-center overflow-hidden bg-public-night text-center">
         <m.div
           animate={{ opacity: 1, scale: 1 }}
           className="absolute inset-0 mt-3"
@@ -75,12 +75,17 @@ export default function AboutPage() {
             src="/gallery/aboutus.webp"
           />
         </m.div>
+        <div className="relative z-10 max-w-3xl px-4 text-white">
+          <h1 className="font-bold font-heading text-4xl tracking-tight md:text-6xl">
+            About Citius Holidays
+          </h1>
+        </div>
       </section>
 
-      <section className="bg-brand-light px-4 pt-16 text-center">
+      <section className="bg-public-paper px-4 pt-16 text-center">
         <div className="mx-auto max-w-4xl text-center">
-          <h2 className="mb-4 font-semibold text-3xl text-citius-blue">Our Team</h2>
-          <p className="mx-auto mb-12 max-w-3xl text-brand-muted">
+          <h2 className="mb-4 font-heading font-semibold text-3xl text-public-blue">Our Team</h2>
+          <p className="mx-auto mb-12 max-w-3xl text-public-muted">
             Our greatest strength lies in our people. A passionate team committed to guest
             engagement, armed with deep industry knowledge and global exposure.
           </p>
@@ -88,7 +93,7 @@ export default function AboutPage() {
       </section>
 
       <div>
-        <section className="bg-brand-light px-4">
+        <section className="bg-public-paper px-4">
           <div className="mx-auto max-w-4xl text-center">
             <m.div
               className="rounded-2xl border border-brand-border bg-[url('/gallery/bgaboutus.webp')] bg-white p-8 shadow-lg md:p-12"
@@ -160,10 +165,12 @@ export default function AboutPage() {
       </div>
 
       <AnimatedSection>
-        <section className="bg-brand-light px-4 pt-16 pb-8 text-center">
+        <section className="bg-public-paper px-4 pt-16 pb-8 text-center">
           <div className="mx-auto max-w-4xl text-center">
-            <h3 className="mb-4 font-semibold text-2xl text-citius-blue">Our Directors</h3>
-            <p className="mx-auto mb-12 max-w-3xl text-brand-muted">
+            <h2 className="mb-4 font-heading font-semibold text-2xl text-public-blue">
+              Our Directors
+            </h2>
+            <p className="mx-auto mb-12 max-w-3xl text-public-muted">
               Our Directors are the driving force behind Citius Holidays. They are the ones who make
               the decisions that shape the company&apos;s future.
             </p>
@@ -172,7 +179,7 @@ export default function AboutPage() {
       </AnimatedSection>
 
       <AnimatedSection>
-        <section className="bg-brand-light px-4 pb-16 text-center">
+        <section className="bg-public-paper px-4 pb-16 text-center">
           <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
             {teamMembers.map((member, i) => (
               <TeamMember image={member.image} index={i} key={member.name} member={member} />
@@ -182,12 +189,14 @@ export default function AboutPage() {
       </AnimatedSection>
 
       <AnimatedSection>
-        <section className="bg-brand-light px-4 pt-16 text-center">
+        <section className="bg-public-paper px-4 pt-16 text-center">
           <div className="mx-auto max-w-4xl text-center">
-            <h2 className="mb-4 font-semibold text-3xl text-citius-blue">Our Beliefs</h2>
+            <h2 className="mb-4 font-heading font-semibold text-3xl text-public-blue">
+              Our Beliefs
+            </h2>
           </div>
         </section>
-        <section className="relative overflow-hidden bg-brand-light via-brand-light/40 px-4 pb-14">
+        <section className="relative overflow-hidden bg-public-paper px-4 pb-14">
           <div className="pointer-events-none absolute top-0 -left-40 size-96 rounded-full bg-citius-blue/10 blur-3xl" />
           <div className="pointer-events-none absolute -right-40 bottom-0 size-96 rounded-full bg-citius-orange/10 blur-3xl" />
           <div className="relative mx-auto max-w-5xl">
@@ -202,7 +211,7 @@ export default function AboutPage() {
                 <span className="absolute top-6 -left-9 flex size-6 items-center justify-center rounded-full bg-citius-blue text-white shadow-md ring-4 ring-white">
                   <PlaneTakeoffIcon className="size-3" />
                 </span>
-                <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition group-hover:shadow-lg">
+                <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
                   <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Goal</h3>
                   <p className="text-brand-muted leading-relaxed">
                     To positively shape the future of the travel industry by creating standout
@@ -216,7 +225,7 @@ export default function AboutPage() {
                 <span className="absolute top-6 -left-9 flex size-6 items-center justify-center rounded-full bg-citius-orange text-brand-dark shadow-md ring-4 ring-white">
                   <Telescope className="size-3" />
                 </span>
-                <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition group-hover:shadow-lg">
+                <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
                   <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Vision</h3>
                   <p className="text-brand-muted leading-relaxed">
                     To be recognized as a trusted industry leader in MICE travel , known for our
@@ -231,7 +240,7 @@ export default function AboutPage() {
                 <span className="absolute top-6 -left-9 flex size-6 items-center justify-center rounded-full bg-citius-lime text-white shadow-md ring-4 ring-white">
                   <Sparkle className="size-3" />
                 </span>
-                <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition group-hover:shadow-lg">
+                <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
                   <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Mission</h3>
                   <p className="text-brand-muted leading-relaxed">
                     At Citius Holidays, we believe travel is more than just movement , it&apos;s

@@ -1,10 +1,10 @@
 # Working-tree change summary (historical bundle)
 
 This document preserves the complete local working-tree bundle captured on 14 July 2026. It is an
-archive of the earlier remediation and follow-up change set, not the current release status. The
-current committed checkpoint, verification evidence, known debt, and external deployment blocker
-are recorded in the current verification section below; `.scratch/README.md` is only a local,
-gitignored mirror.
+archive of the earlier remediation and follow-up change set, not the current release status. Every
+result below applies only to its stated date and revision. Current local evidence is produced by
+`bun run verify:local -- --evidence auto`; deploy and authenticated proof require their own adapters.
+`.scratch/README.md` is only a local, gitignored mirror.
 
 ## Review bundles and dependencies
 
@@ -115,9 +115,10 @@ the wrong destination fails with both the deleted path and expected successor in
   unchanged.
 - Query assignment keeps separate Contracting SPOC and Ticketing Scope/SPOC semantics and mirrors
   owners onto linked job cards.
-- Assignment email is now sent only to the staff members selected as Contracting or Ticketing SPOCs.
-  Department heads can still receive oversight bell notifications, but those role notifications no
-  longer expand into department-wide or email-alert-role email fanout.
+- Assignment email is sent directly to selected Contracting and Ticketing SPOCs. Department heads
+  can still receive oversight bell notifications; the initial ticketing-required intake also sends
+  an actionable email to Head of Ticketing, while other oversight-only head rows explicitly suppress
+  email.
 - Proposal, Contracting, Ticketing, Job Card, and invoice lists share canonical attention and status
   presentation. Pipeline tabs are keyboard-accessible.
 
@@ -182,11 +183,51 @@ the wrong destination fails with both the deleted path and expected successor in
   media from being accidentally recompressed again.
 - Finder metadata and the generated TypeScript build-info cache were removed locally.
 
-## Current implementation snapshot (7 August 2026)
+## Latest committed checkpoint (9 August 2026)
+
+`main` is at `7fa38a0a8eb9c1e05b4946e111f23218b34bc925` (`feat(portal): harden staff workspace
+scale and retries`, PR #95). This is the current code checkpoint; the deployment and authenticated
+production boundary remains separate.
+
+The release adds a bounded, measurable Staff Workspace path for Queries, Proposals, and Job Cards:
+
+- Route data loading now separates bounded list pages from focused detail reads, tracks cold/warm
+  navigation lifecycle, and records privacy-safe payload/subscription measurements.
+- `config/release/staff-workspace-performance-budgets.json` enforces route-ready, first-content,
+  payload, resource-transfer, logical-subscription, and duplicate-subscription limits. The checked-in
+  baseline fails closed when its monitored source hash is stale.
+- Proposal handoff, order confirmation, and passenger export commands use UUID receipts and
+  canonical payload digests. A same-input retry returns the original result; a reused command ID
+  with different input is rejected. Passenger import commits use a source digest, operation
+  manifest, and stable batch IDs for the same replay-safe outcome.
+- Passenger workbooks remain uncapped at the user-facing upload boundary while Convex processes
+  50-row backend batches with durable operation progress, retryable/terminal error counts, and room
+  summaries. Exports use durable operations and a private download step after completion.
+- Notification email outcomes are recorded in a privacy-safe, monotonic ledger so permitted heads,
+  Admin, Directors, and Director Cement can see queued/retrying/sent/exhausted counts without
+  recipient addresses or provider response bodies.
+
+The clean-checkpoint local release pass completed on 10 August 2026 UTC:
+
+| Gate | Result |
+| --- | --- |
+| `bun run verify:local` | Passed all target-neutral gates; local proof only |
+| Bun test suite | 1,391 passed, 0 failed with 6,868 expectations across 311 files |
+| Application and Convex typechecks | Passed |
+| Public assets | 54 deployed assets checked across 716 source files |
+| Performance budgets | Three public asset budgets and six authenticated Staff Workspace samples passed |
+| Root and Studio dependency audits | No vulnerabilities found at the high/critical threshold; frozen Studio install and static build passed |
+| Preview, production, and authenticated production browser proof | Not run; these require separate target selection and authorized credentials |
+
+See [`docs/STAFF_WORKSPACE_PERFORMANCE.md`](STAFF_WORKSPACE_PERFORMANCE.md) for the budget table,
+replay-safe command contract, and focused Playwright command. The local pass does not prove a Vercel
+deployment, Convex production target, or signed-in production workflow.
+
+## Architecture Review #43 snapshot (7 August 2026, superseded)
 
 Architecture review #43 was implemented on branch `codex/review-remediation-43` from base
 `7a1fc00f5773d7fa8902839f8bf7e79789f36e03`. This is local implementation proof only. The branch
-has not been pushed or deployed, and no production environment was changed.
+is retained as historical evidence; it is not the current `main` checkpoint and was not deployed.
 
 The implementation covers the review's correctness, authorization, bounded-read, account journey,
 public motion/accessibility, repository visibility, environment preflight, modal-command, and portal
@@ -270,6 +311,7 @@ browser retry returned a context-grounded MICE answer.
 
 ## Related documentation
 
+- [Staff Workspace performance and replay safety](STAFF_WORKSPACE_PERFORMANCE.md)
 - [Portal CRM workflows](PORTAL_CRM_WORKFLOWS.md)
 - [Portal roles and access](PORTAL_ROLES_AND_ACCESS.md)
 - [Portal permissions architecture](PORTAL_PERMISSIONS_ARCHITECTURE.md)

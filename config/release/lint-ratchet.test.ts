@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import {
   canWriteBaseline,
   compareDiagnostics,
@@ -7,6 +9,8 @@ import {
   parseBiomeResult,
   parseLintBaseline,
 } from "./lint-ratchet";
+
+const root = resolve(import.meta.dir, "../..");
 
 const baseline = {
   diagnostics: { warning: { "lint/style/example": 2 } },
@@ -115,5 +119,24 @@ describe("lint ratchet safety contract", () => {
         increases: ["warning lint/style/example: 3/2"],
       })
     ).toBe(false);
+  });
+
+  test("help and invalid flags exit before Biome or baseline work", () => {
+    const run = (args: string[]) =>
+      spawnSync("bun", ["config/release/lint-ratchet.ts", ...args], {
+        cwd: root,
+        encoding: "utf8",
+        env: { PATH: process.env.PATH },
+      });
+
+    const help = run(["--help"]);
+    expect(help.status).toBe(0);
+    expect(help.stdout).toContain("Usage: bun run lint:ratchet");
+    expect(help.stdout).not.toContain("Lint ratchet passed");
+
+    const invalid = run(["--wat"]);
+    expect(invalid.status).toBe(1);
+    expect(invalid.stderr).toContain("Unknown flag --wat");
+    expect(invalid.stdout).not.toContain("Lint ratchet passed");
   });
 });

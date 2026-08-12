@@ -14,14 +14,14 @@ import {
   deleteEntityNotifications,
   editorPatch,
   nextCode,
-  notifyRoles,
-  notifyStaffMember,
   PERMISSIONS,
   publicQuery,
+  publishWorkflowNotification,
   requestedProposalQueryIds,
   requireAnyPermission,
   requireStaff,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { assertListSearchReady, buildProposalListSearchText } from "./listSearch";
 import {
   applyCrmCursorFilters,
@@ -192,7 +192,12 @@ async function syncProposalQueryLinks(
     existingLinks.map((link: any) => {
       const linkedQuery = queryById.get(String(link.queryId));
       return linkedQuery
-        ? ctx.db.patch(link._id, proposalLinkProjection(linkedQuery))
+        ? patchWithE2eOwnership(
+            ctx,
+            "proposalQueryLinks",
+            link._id,
+            proposalLinkProjection(linkedQuery)
+          )
         : ctx.db.delete(link._id);
     })
   );
@@ -205,7 +210,7 @@ async function syncProposalQueryLinks(
       if (existing.has(queryId)) {
         return;
       }
-      await ctx.db.insert("proposalQueryLinks", {
+      await insertWithE2eOwnership(ctx, "proposalQueryLinks", {
         ...proposalLinkProjection(linkedQuery),
         createdAt: now,
         createdBy,
@@ -448,7 +453,7 @@ export const create = mutation({
       visaCostPerPax > 0;
     const proposalCode = await nextCode(ctx, "proposals", "P");
     const clientName = primaryQuery?.clientName || args.clientName?.trim() || "Unlinked client";
-    const id = await ctx.db.insert("proposals", {
+    const id = await insertWithE2eOwnership(ctx, "proposals", {
       airfarePerPax,
       clientName,
       collaboratorStaffIds: [],
@@ -479,7 +484,7 @@ export const create = mutation({
         linkedQueries.flatMap((linkedQuery) =>
           linkedQuery.contractingStatus === "Query Received"
             ? [
-                ctx.db.patch(linkedQuery._id, {
+                patchWithE2eOwnership(ctx, "queries", linkedQuery._id, {
                   contractingStatus: "Proposal in progress",
                   updatedAt: now,
                 }),
@@ -600,7 +605,7 @@ export const update = mutation({
     }
     patch.listSearchText = buildProposalListSearchText({ ...proposal, ...patch });
 
-    await ctx.db.patch(proposalId, patch);
+    await patchWithE2eOwnership(ctx, "proposals", proposalId, patch);
     if (nextLinkedQueries !== null) {
       await syncProposalQueryLinks(
         ctx,
@@ -683,14 +688,14 @@ export async function handleSendProposalToSales(
     linkedQueries.map((linkedQuery) => linkedQuery.queryCode).join(", ") || "linked query";
   const primaryQuery = linkedQueries[0] ?? null;
   await Promise.all([
-    ctx.db.patch(proposalId, {
+    patchWithE2eOwnership(ctx, "proposals", proposalId, {
       sentToSalesAt: now,
       status: "Sent",
       ...editorPatch(access, now),
     }),
     Promise.all(
       linkedQueries.map((linkedQuery) =>
-        ctx.db.patch(linkedQuery._id, {
+        patchWithE2eOwnership(ctx, "queries", linkedQuery._id, {
           contractingStatus: "Proposal sent",
           updatedAt: now,
         })
@@ -719,11 +724,15 @@ export async function handleSendProposalToSales(
     }
     salesOwnerNotified.add(linkedQuery.salesOwnerId);
     salesOwnerNotifications.push(
-      notifyStaffMember(ctx, salesStaffId, {
-        body: `${proposal.proposalCode} for ${linkedQuery.queryCode} is ready. Review costing and use Sales Decision on the query.`,
-        entityId: linkedQuery._id,
-        entityType: "query",
-        title: "Proposal ready for review",
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "staff", staffIds: [salesStaffId] },
+        content: {
+          body: `${proposal.proposalCode} for ${linkedQuery.queryCode} is ready. Review costing and use Sales Decision on the query.`,
+          entityId: linkedQuery._id,
+          entityType: "query",
+          title: "Proposal ready for review",
+        },
+        emailTargets: { kind: "staff", staffIds: [salesStaffId] },
       })
     );
   }
@@ -732,19 +741,27 @@ export async function handleSendProposalToSales(
     ...salesOwnerNotifications,
     ...(primaryQuery
       ? [
-          notifyRoles(ctx, ["Sales", "Sales Head"], {
-            body: `${proposal.proposalCode} has been submitted by Contracting. Open the linked query to review and decide.`,
-            entityId: primaryQuery._id,
-            entityType: "query",
-            title: "Proposal ready for review",
+          publishWorkflowNotification(ctx, {
+            bellTargets: { kind: "roles", roles: ["Sales", "Sales Head"] },
+            content: {
+              body: `${proposal.proposalCode} has been submitted by Contracting. Open the linked query to review and decide.`,
+              entityId: primaryQuery._id,
+              entityType: "query",
+              title: "Proposal ready for review",
+            },
+            emailTargets: { kind: "roles", roles: ["Sales", "Sales Head"] },
           }),
         ]
       : [
-          notifyRoles(ctx, ["Sales", "Sales Head"], {
-            body: `${proposal.proposalCode} has been submitted by Contracting. Open Proposals or the linked query to review and decide.`,
-            entityId: proposalId,
-            entityType: "proposal",
-            title: "Proposal ready for review",
+          publishWorkflowNotification(ctx, {
+            bellTargets: { kind: "roles", roles: ["Sales", "Sales Head"] },
+            content: {
+              body: `${proposal.proposalCode} has been submitted by Contracting. Open Proposals or the linked query to review and decide.`,
+              entityId: proposalId,
+              entityType: "proposal",
+              title: "Proposal ready for review",
+            },
+            emailTargets: { kind: "roles", roles: ["Sales", "Sales Head"] },
           }),
         ]),
   ]);
@@ -797,7 +814,7 @@ export const markAccepted = mutation({
       );
     }
     const now = Date.now();
-    await ctx.db.patch(proposalId, {
+    await patchWithE2eOwnership(ctx, "proposals", proposalId, {
       status: "Accepted",
       ...editorPatch(access, now),
     });
@@ -918,17 +935,21 @@ export const addCollaborator = mutation({
     const collaborators = new Set((proposal.collaboratorStaffIds ?? []).map(String));
     collaborators.add(String(staffId));
     await Promise.all([
-      ctx.db.patch(proposalId, {
+      patchWithE2eOwnership(ctx, "proposals", proposalId, {
         collaboratorStaffIds: Array.from(collaborators).map(
           (id) => ctx.db.normalizeId("staffUsers", id)!
         ),
         ...editorPatch(access),
       }),
-      notifyStaffMember(ctx, staffId, {
-        body: `${proposal.proposalCode} was shared with you for collaboration.`,
-        entityId: proposalId,
-        entityType: "proposal",
-        title: "Proposal access shared",
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "staff", staffIds: [staffId] },
+        content: {
+          body: `${proposal.proposalCode} was shared with you for collaboration.`,
+          entityId: proposalId,
+          entityType: "proposal",
+          title: "Proposal access shared",
+        },
+        emailTargets: { kind: "staff", staffIds: [staffId] },
       }),
     ]);
     return { id: proposalId };
@@ -964,7 +985,7 @@ export const removeCollaborator = mutation({
         "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can remove collaborators"
       );
     }
-    await ctx.db.patch(proposalId, {
+    await patchWithE2eOwnership(ctx, "proposals", proposalId, {
       collaboratorStaffIds: (proposal.collaboratorStaffIds ?? []).filter(
         (id: any) => String(id) !== String(staffId)
       ),
@@ -989,7 +1010,7 @@ export const saveFinalizedPdf = internalMutation({
     }
     const now = Date.now();
     const previousStorageId = proposal.finalizedPdfStorageId;
-    await ctx.db.patch(args.proposalId, {
+    await patchWithE2eOwnership(ctx, "proposals", args.proposalId, {
       finalizedPdfFileName: args.fileName.trim() || "proposal.pdf",
       finalizedPdfStorageId: args.storageId,
       finalizedPdfUploadedAt: now,
@@ -1015,7 +1036,7 @@ export const clearFinalizedPdf = internalMutation({
       throw new ConvexError("Proposal not found");
     }
     const previousStorageId = proposal.finalizedPdfStorageId ?? null;
-    await ctx.db.patch(args.proposalId, {
+    await patchWithE2eOwnership(ctx, "proposals", args.proposalId, {
       finalizedPdfFileName: undefined,
       finalizedPdfStorageId: undefined,
       finalizedPdfUploadedAt: undefined,

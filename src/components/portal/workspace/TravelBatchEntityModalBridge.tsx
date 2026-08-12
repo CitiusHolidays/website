@@ -90,6 +90,7 @@ export function TravelBatchEntityModalBridge({
       attachQueryFile={workspace.attachQueryFile}
       close={workspace.closeModal}
       error={workspace.modal === TRAVEL_BATCH_MODAL ? travelBatchError : workspace.error}
+      fieldErrors={workspace.modal === TRAVEL_BATCH_MODAL ? {} : workspace.fieldErrors}
       form={workspace.form}
       generateFinalizedPdfUploadUrl={workspace.generateFinalizedPdfUploadUrl}
       generateProposalUploadUrl={workspace.generateProposalUploadUrl}

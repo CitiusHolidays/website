@@ -89,6 +89,7 @@ export function EntityModalShell({
   close,
   detailState,
   error,
+  fieldErrors = {},
   isSaving,
   saveFlash = false,
   title,
@@ -103,6 +104,7 @@ export function EntityModalShell({
   const errorTransition = portalMotionTransition(shouldReduceMotion, 0.16);
   const formRef = useRef(null);
   const errorRef = useRef(null);
+  const fieldErrorSignature = JSON.stringify(fieldErrors);
 
   const saveButtonState = resolveSaveButtonState({ error, isSaving, saveFlash });
 
@@ -117,6 +119,21 @@ export function EntityModalShell({
     });
     return () => cancelAnimationFrame(frame);
   }, [error]);
+
+  useEffect(() => {
+    if (fieldErrorSignature === "{}") {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      const invalidField = formRef.current?.querySelector(
+        '[aria-invalid="true"]:not([aria-hidden="true"]):not([type="hidden"])'
+      );
+      invalidField?.focus({ preventScroll: true });
+      invalidField?.scrollIntoView?.({ block: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [fieldErrorSignature]);
 
   const handleOpenChange = useCallback(
     (nextOpen) => {

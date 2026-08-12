@@ -73,6 +73,7 @@ const FACADE_EXPORTS = [
   "notifyRoles",
   "notifyStaffMatching",
   "notifyStaffMember",
+  "publishWorkflowNotification",
   "ownsAuthRecord",
   "ownsNamedRecord",
   "ownsStaffRecord",
@@ -242,6 +243,7 @@ describe("notification boundary parity", () => {
           tables[table].push(row);
           return row._id;
         },
+        query: (table: string) => ({ collect: async () => tables[table] ?? [] }),
       },
       scheduler: {
         runAfter: async (_delay: number, _fn: unknown, args: unknown) => {
@@ -260,10 +262,10 @@ describe("notification boundary parity", () => {
       recipientStaffId: staffId,
       recipientUserId: "user_a",
     });
-    expect(scheduled).toHaveLength(0);
+    expect(scheduled).toHaveLength(1);
   });
 
-  test("notifyStaffMember emails only when the person enabled a matching alert role", async () => {
+  test("notifyStaffMember keeps additional email roles compatible with role-default delivery", async () => {
     const tables: Record<string, unknown[]> = { notifications: [], staffUsers: [] };
     const scheduled: unknown[] = [];
     const staffId = "staff_email_opt_in" as Id<"staffUsers">;
@@ -286,6 +288,7 @@ describe("notification boundary parity", () => {
           tables[table].push(row);
           return row._id;
         },
+        query: (table: string) => ({ collect: async () => tables[table] ?? [] }),
       },
       scheduler: {
         runAfter: async (_delay: number, _fn: unknown, args: unknown) => {

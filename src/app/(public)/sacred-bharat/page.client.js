@@ -49,7 +49,7 @@ export default function SacredBharatPageClient() {
             </p>
           </div>
           <Link
-            className="font-medium text-citius-blue text-sm hover:text-citius-orange"
+            className="font-medium text-citius-blue text-sm hover:text-public-orange-ink"
             href="/sacred-bharat/challenges"
           >
             All challenges →
@@ -89,7 +89,7 @@ export default function SacredBharatPageClient() {
               </h2>
             </div>
             <Link
-              className="font-medium text-citius-blue text-sm hover:text-citius-orange"
+              className="font-medium text-citius-blue text-sm hover:text-public-orange-ink"
               href="/sacred-bharat/leaderboard"
             >
               Full leaderboard →

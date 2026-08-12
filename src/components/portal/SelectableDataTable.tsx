@@ -405,7 +405,7 @@ function BulkActionBar({
       <span
         aria-atomic="true"
         aria-live="polite"
-        className="font-medium text-citius-blue text-sm"
+        className="font-medium text-citius-blue text-sm tabular-nums"
         role="status"
       >
         {selectedCount} {entityLabel}

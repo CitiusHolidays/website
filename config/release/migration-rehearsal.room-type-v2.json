@@ -1,0 +1,44 @@
+{
+  "approval": {
+    "rollbackDecisionOwner": "Director and release owner",
+    "snapshotExport": "pending",
+    "rehearsalImport": "pending",
+    "productionPromotion": "pending",
+    "state": "draft"
+  },
+  "eventualTarget": {
+    "deployment": "prod",
+    "deploymentClass": "production"
+  },
+  "fileStorage": {
+    "decision": "include"
+  },
+  "functions": {
+    "backfill": "migrations:migrateRoomTypes",
+    "status": "migrations:getRoomTypeMigrationStatus",
+    "verify": "migrations:verifyRoomTypes"
+  },
+  "migrationName": "room-type-v2",
+  "ordinaryPreviewNames": ["main", "preview"],
+  "rehearsal": {
+    "deployment": "record-after-preview-create",
+    "deploymentClass": "dedicated-preview",
+    "previewName": "migration-rehearsal-room-type-v2-20260812"
+  },
+  "revisions": {
+    "narrow": "pending-room-type-v2-narrow",
+    "preChange": "7fa38a0a8eb9c1e05b4946e111f23218b34bc925",
+    "widen": "a045fd1b87689b6283a379422be5808148eb90bb"
+  },
+  "runId": "room-type-v2-20260812",
+  "schemaVersion": 1,
+  "snapshot": {
+    "path": ".scratch/migration-rehearsal/room-type-v2-20260812/snapshot.zip",
+    "retentionHours": 24,
+    "retentionOwner": "Release owner"
+  },
+  "source": {
+    "deployment": "prod",
+    "deploymentClass": "production"
+  }
+}

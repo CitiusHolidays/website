@@ -72,7 +72,7 @@ export default function GuestSaveBanner({ className = "" }) {
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="mb-1 font-heading text-citius-orange text-sm uppercase tracking-[0.2em]">
+          <p className="mb-1 font-heading text-public-orange-ink text-sm uppercase tracking-[0.2em]">
             Save your pilgrimage
           </p>
           <p className="font-sans text-brand-muted text-sm md:text-base">
@@ -87,7 +87,7 @@ export default function GuestSaveBanner({ className = "" }) {
         >
           <LogIn aria-hidden="true" size={16} />
           Sign in to save
-          <Trophy aria-hidden="true" className="text-citius-orange" size={16} />
+          <Trophy aria-hidden="true" className="text-public-orange-ink" size={16} />
         </Link>
       </div>
     </div>

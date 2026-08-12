@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { buildJobCardCommandCenter } from "@/lib/portal/jobCardCommandCenter";
+import { displayPortalTerm } from "@/lib/portal/productTerminology";
 import JobCardReadinessMap from "./JobCardReadinessMap";
 import JobCardTaskBoard from "./JobCardTaskBoard";
 
@@ -42,7 +43,7 @@ function formatQueryContext(query) {
     query.contractingStatus && query.contractingStatus !== query.salesStatus
       ? ` · Contracting ${query.contractingStatus}`
       : "";
-  return `${query.queryCode} · Sales ${query.salesStatus}${contracting}`;
+  return `${query.queryCode} · Sales ${displayPortalTerm(query.salesStatus)}${contracting}`;
 }
 
 function ContextField({ label, value }) {
@@ -196,7 +197,7 @@ export default function JobCardCommandCenter({ jobCardId }) {
               </p>
             </div>
             <ChevronDown
-              className={`shrink-0 text-brand-muted transition ${tasksOpen ? "rotate-180" : ""}`}
+              className={`shrink-0 text-brand-muted transition-transform duration-150 ease-[var(--portal-ease-out)] ${tasksOpen ? "rotate-180" : ""}`}
               size={18}
             />
           </button>

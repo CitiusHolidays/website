@@ -53,8 +53,10 @@ describe("pickBestProposalDocument", () => {
 
 describe("notifyLinkedQuerySalesOwnersOfProposalDocument", () => {
   test("notifies each unique linked query sales owner and skips role fallback", async () => {
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
-    const notifyRoles = spyOn(lib, "notifyRoles").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
     const ctx = {
       db: {
         get: async (id: string) =>
@@ -105,17 +107,25 @@ describe("notifyLinkedQuerySalesOwnersOfProposalDocument", () => {
         proposalId: "proposals_1" as never,
       });
 
-      expect(notifyStaffMember).toHaveBeenCalledTimes(1);
-      expect(notifyRoles).not.toHaveBeenCalled();
+      expect(publishWorkflowNotification).toHaveBeenCalledTimes(1);
+      expect(publishWorkflowNotification).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          bellTargets: { kind: "staff", staffIds: ["staff_sales"] },
+          content: expect.objectContaining({ title: "Proposal document uploaded" }),
+          emailTargets: { kind: "staff", staffIds: ["staff_sales"] },
+        })
+      );
     } finally {
-      notifyStaffMember.mockRestore();
-      notifyRoles.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 
   test("falls back to Sales roles when the stored auth owner has no active staff record", async () => {
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
-    const notifyRoles = spyOn(lib, "notifyRoles").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
     const ctx = {
       db: {
         get: async (id: string) =>
@@ -145,15 +155,16 @@ describe("notifyLinkedQuerySalesOwnersOfProposalDocument", () => {
         proposalId: "proposals_1" as never,
       });
 
-      expect(notifyStaffMember).not.toHaveBeenCalled();
-      expect(notifyRoles).toHaveBeenCalledWith(
+      expect(publishWorkflowNotification).toHaveBeenCalledWith(
         expect.anything(),
-        ["Sales", "Sales Head"],
-        expect.objectContaining({ title: "Proposal document revised" })
+        expect.objectContaining({
+          bellTargets: { kind: "roles", roles: ["Sales", "Sales Head"] },
+          content: expect.objectContaining({ title: "Proposal document revised" }),
+          emailTargets: { kind: "roles", roles: ["Sales", "Sales Head"] },
+        })
       );
     } finally {
-      notifyStaffMember.mockRestore();
-      notifyRoles.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 });

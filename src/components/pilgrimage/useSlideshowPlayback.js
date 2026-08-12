@@ -14,7 +14,9 @@ export function useSlideshowPlayback({ intervalMs, itemCount, onAdvance }) {
   const [pageVisible, setPageVisible] = useState(
     () => typeof document === "undefined" || document.visibilityState !== "hidden"
   );
-  const [userWantsPlayback, setUserWantsPlayback] = useState(!shouldReduceMotion);
+  // Keep the server and first client render identical. Motion cannot know the
+  // browser preference during SSR, so reduced motion is applied after hydration.
+  const [userWantsPlayback, setUserWantsPlayback] = useState(true);
 
   useEffect(() => {
     if (shouldReduceMotion) {

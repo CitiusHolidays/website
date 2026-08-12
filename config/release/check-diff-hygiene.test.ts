@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { classifyIntegrationUnit } from "./check-diff-hygiene";
 
 const SOURCE_SCRIPT = resolve(import.meta.dir, "check-diff-hygiene.ts");
 const DELETED_ENTRYPOINT = "src/components/portal/PortalWorkspace.js";
@@ -160,5 +161,40 @@ describeHygiene("atomic replacement diff hygiene", () => {
     commit(root, "rename unrelated file");
 
     expect(check(root, base).status).toBe(0);
+  });
+});
+
+describe("agent-tool integration-unit advisory", () => {
+  const mixedPaths = [
+    ".agents/skills/convex/SKILL.md",
+    ".claude/hooks/react-doctor.mjs",
+    "src/app/page.tsx",
+    "convex/schema.ts",
+  ];
+
+  test("flags the mixed toolchain and product shape seen in a broad integration range", () => {
+    expect(classifyIntegrationUnit(mixedPaths)).toMatchObject({
+      advisory: true,
+      couplingAcknowledged: false,
+      mixed: true,
+    });
+  });
+
+  test("accepts an explicit coupling note without hiding the mixed range", () => {
+    expect(
+      classifyIntegrationUnit(mixedPaths, "hook is required by the runtime check")
+    ).toMatchObject({
+      advisory: false,
+      couplingAcknowledged: true,
+      mixed: true,
+    });
+  });
+
+  test("does not flag an isolated product range", () => {
+    expect(classifyIntegrationUnit(["src/app/page.tsx", "convex/schema.ts"])).toMatchObject({
+      advisory: false,
+      couplingAcknowledged: false,
+      mixed: false,
+    });
   });
 });

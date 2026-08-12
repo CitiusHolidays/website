@@ -12,12 +12,15 @@ describe("PortalTabs Base UI behavior boundary", () => {
     expect(source).toContain("<Tabs.Panel");
   });
 
-  test("keeps Motion visual-only and explicitly reduced-motion safe", () => {
-    expect(source).toContain('motionMode === "full"');
-    expect(source).toContain("layoutId=");
-    expect(source).toContain("portal-tabs-indicator-");
-    expect(source).toContain("transition={motionAllowed ? snapTransition : { duration: 0 }}");
-    expect(source).toContain("transition-[filter,opacity,transform]");
-    expect(source).toContain("transitionDuration:");
+  test("keeps automatic and manual selection motionless", () => {
+    expect(source).not.toContain('from "motion/react"');
+    expect(source).not.toContain("useMotionUITheme");
+    expect(source).not.toContain("useMotionUITransition");
+    expect(source).toContain("selected ? (");
+    expect(source).not.toContain("layoutId=");
+    expect(source).not.toContain("portal-tabs-indicator-");
+    expect(source).not.toContain("transition-[filter,opacity,transform]");
+    expect(source).not.toContain("transitionDuration:");
+    expect(source).not.toContain("<m.");
   });
 });

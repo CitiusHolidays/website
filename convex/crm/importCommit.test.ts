@@ -8,6 +8,7 @@ import {
   getPassengerExportSourcePage,
   recordPassengerImportOperationBatch,
 } from "./imports";
+import { getRolePermissions } from "./lib/rolePolicy";
 
 type Row = { _id: string; [key: string]: unknown };
 type Tables = Record<string, Row[]>;
@@ -20,14 +21,14 @@ function makeImportCtx(initialTables: Tables, options?: { failInsertNames?: Set<
 
   const ctx = {
     auth: {
-      getUserIdentity: async () => ({
+      getUserIdentity: () => ({
         email: "ticketing@example.com",
         name: "Ticketing User",
         subject: "auth_ticketing",
       }),
     },
     db: {
-      get: async (id: string) => {
+      get: (id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -36,7 +37,7 @@ function makeImportCtx(initialTables: Tables, options?: { failInsertNames?: Set<
         }
         return null;
       },
-      insert: async (tableName: string, doc: Record<string, unknown>) => {
+      insert: (tableName: string, doc: Record<string, unknown>) => {
         if (tableName === "travellers" && failInsertNames.has(String(doc.fullName))) {
           throw new Error("simulated insert failure");
         }
@@ -176,7 +177,7 @@ describe("passenger import operation receipts", () => {
         allowed: true,
         authUserId: "user_1",
         email: "user@example.com",
-        permissions: [],
+        permissions: getRolePermissions(["Admin"]),
         roles: ["Admin"],
       },
       batchTotal: 1,
@@ -230,7 +231,7 @@ describe("passenger import operation receipts", () => {
         allowed: true,
         authUserId: "user_1",
         email: "user@example.com",
-        permissions: [],
+        permissions: getRolePermissions(["Admin"]),
         roles: ["Admin"],
       },
       batchTotal: 1,
@@ -296,7 +297,7 @@ describe("passenger export operation receipts", () => {
         allowed: true,
         authUserId: "user_1",
         email: "user@example.com",
-        permissions: [],
+        permissions: getRolePermissions(["Admin"]),
         roles: ["Admin"],
       },
       commandId: "11111111-1111-4111-8111-111111111111",
@@ -322,7 +323,7 @@ describe("passenger export operation receipts", () => {
         allowed: true,
         authUserId: "user_1",
         email: "user@example.com",
-        permissions: [],
+        permissions: getRolePermissions(["Admin"]),
         roles: ["Admin"],
       },
       commandId: "11111111-1111-4111-8111-111111111111",
@@ -464,6 +465,53 @@ describe("processImportRows Travel Batch context", () => {
 });
 
 describe("getPassengerExportSourcePage Travel Batch context", () => {
+  test("forwards every validated native pagination option unchanged", async () => {
+    const jobCardId = "jobCards_1";
+    const { ctx } = makeImportCtx({
+      jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
+      travellers: [],
+    });
+    const originalQuery = ctx.db.query.bind(ctx.db);
+    let forwardedOptions: unknown;
+    ctx.db.query = ((tableName: string) => {
+      if (tableName !== "travellers") {
+        return originalQuery(tableName);
+      }
+      return {
+        withIndex: (_indexName: string, callback: (q: any) => unknown) => {
+          const q = { eq: () => q };
+          callback(q);
+          return {
+            paginate: (options: unknown) => {
+              forwardedOptions = options;
+              return Promise.resolve({ continueCursor: "", isDone: true, page: [] });
+            },
+          };
+        },
+      };
+    }) as typeof ctx.db.query;
+    const paginationOpts = {
+      cursor: "cursor-start",
+      endCursor: "cursor-end",
+      maximumBytesRead: 65_536,
+      maximumRowsRead: 37,
+      numItems: 13,
+    };
+
+    await (getPassengerExportSourcePage as any)._handler(ctx, {
+      access: {
+        allowed: true,
+        permissions: getRolePermissions(["Admin"]),
+        roles: ["Admin"],
+      },
+      exportKind: "passenger",
+      jobCardId,
+      paginationOpts,
+    });
+
+    expect(forwardedOptions).toBe(paginationOpts);
+  });
+
   test("returns bounded pages with batch display fields for batched and unbatched rows", async () => {
     const jobCardId = "jobCards_1";
     const { ctx } = makeImportCtx({
@@ -509,7 +557,12 @@ describe("getPassengerExportSourcePage Travel Batch context", () => {
     });
 
     const result = await (getPassengerExportSourcePage as any)._handler(ctx, {
-      access: { allowed: true, permissions: [], roles: ["Operations Head"] },
+      access: {
+        allowed: true,
+        permissions: getRolePermissions(["Operations Head"]),
+        roles: ["Operations Head"],
+      },
+      exportKind: "passenger",
       jobCardId,
       paginationOpts: { cursor: null, numItems: 100 },
     });

@@ -13,7 +13,7 @@ export function PortalSelectFilter({ label, value, onChange, options, className 
       </label>
       <Select
         aria-label={label}
-        className={`portal-period-select h-11 appearance-none rounded-full border border-brand-border bg-white px-3 pr-10 text-sm outline-none transition focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 ${sizeClass}`}
+        className={`portal-period-select h-11 appearance-none rounded-full border border-brand-border bg-white px-3 pr-10 text-sm outline-none transition-[border-color,box-shadow] duration-150 ease-[var(--portal-ease-out)] focus:border-citius-blue focus:ring-2 focus:ring-citius-blue/10 ${sizeClass}`}
         iconClassName="pointer-events-none absolute top-1/2 right-3 m-0 -translate-y-1/2 text-brand-muted/60"
         id={selectId}
         onValueChange={onChange}

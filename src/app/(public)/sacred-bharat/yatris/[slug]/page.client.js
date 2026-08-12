@@ -10,7 +10,7 @@ export default function YatriPassportPageClient({ slug }) {
     typeof window === "undefined" ? "" : `${window.location.origin}/sacred-bharat/yatris/${slug}`;
 
   return (
-    <main className="min-h-screen bg-[#fdfcfb] px-4 py-8 md:py-12">
+    <section className="min-h-screen bg-[#fdfcfb] px-4 py-8 md:py-12">
       <div className="mx-auto max-w-6xl">
         {passport === undefined ? (
           <div className="h-64 animate-pulse rounded-lg bg-brand-light" />
@@ -18,6 +18,6 @@ export default function YatriPassportPageClient({ slug }) {
           <YatriPassportCard currentUrl={currentUrl} passport={passport} />
         )}
       </div>
-    </main>
+    </section>
   );
 }

@@ -9,7 +9,7 @@ const PortalToastContext = createContext(null);
 const TOASTER_ID = "portal";
 const MAX_VISIBLE_TOASTS = 5;
 const PORTAL_TOAST_DURATION = {
-  error: 8000,
+  error: Number.POSITIVE_INFINITY,
   info: 5000,
   success: 5000,
 };
@@ -66,9 +66,20 @@ function ToastDismissButton({ dismissToast, toastId }) {
 
 export function PortalToastProvider({ children }) {
   const activeToastIdsRef = useRef([]);
+  const pendingToastsRef = useRef([]);
+  const showToastRef = useRef(null);
 
   const retireToast = useCallback((id) => {
+    if (!activeToastIdsRef.current.includes(id)) {
+      return;
+    }
     activeToastIdsRef.current = activeToastIdsRef.current.filter((activeId) => activeId !== id);
+    queueMicrotask(() => {
+      const nextToast = pendingToastsRef.current.shift();
+      if (nextToast) {
+        showToastRef.current?.(nextToast);
+      }
+    });
   }, []);
 
   const dismissToast = useCallback(
@@ -79,17 +90,12 @@ export function PortalToastProvider({ children }) {
     [retireToast]
   );
 
-  const enqueueToast = useCallback(
-    (message, tone) => {
-      if (activeToastIdsRef.current.length >= MAX_VISIBLE_TOASTS) {
-        dismissToast(activeToastIdsRef.current[0]);
-      }
-
-      const id = createToastId();
+  const showToast = useCallback(
+    ({ id, message, tone }) => {
       activeToastIdsRef.current.push(id);
       const handleRemoval = () => retireToast(id);
 
-      return SONNER_TOAST_BY_TONE[tone](<span>{message}</span>, {
+      SONNER_TOAST_BY_TONE[tone](<span>{message}</span>, {
         action: <ToastDismissButton dismissToast={dismissToast} toastId={id} />,
         duration: PORTAL_TOAST_DURATION[tone],
         id,
@@ -97,8 +103,22 @@ export function PortalToastProvider({ children }) {
         onDismiss: handleRemoval,
         toasterId: TOASTER_ID,
       });
+      return id;
     },
     [dismissToast, retireToast]
+  );
+  showToastRef.current = showToast;
+
+  const enqueueToast = useCallback(
+    (message, tone) => {
+      const toastEntry = { id: createToastId(), message, tone };
+      if (activeToastIdsRef.current.length >= MAX_VISIBLE_TOASTS) {
+        pendingToastsRef.current.push(toastEntry);
+        return toastEntry.id;
+      }
+      return showToast(toastEntry);
+    },
+    [showToast]
   );
 
   const api = useMemo(
@@ -116,6 +136,7 @@ export function PortalToastProvider({ children }) {
         sonnerToast.dismiss(id);
       }
       activeToastIdsRef.current = [];
+      pendingToastsRef.current = [];
     },
     []
   );

@@ -12,13 +12,13 @@ import {
   hasRole,
   isDirectorOrAdmin,
   MAX_QUERY_NOTES_WORDS,
-  notifyRoles,
-  notifyStaffMember,
   PERMISSIONS,
+  publishWorkflowNotification,
   requireAnyPermission,
   requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
+import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildQueryListSearchText } from "./listSearch";
 import { refreshProposalLinkProjections } from "./proposalLinkProjection";
 import { resolveSalesOwnerSelection } from "./queryCreation";
@@ -155,7 +155,7 @@ export async function handleQueryUpdate(
   }
   patch.listSearchText = buildQueryListSearchText({ ...current, ...patch });
 
-  await ctx.db.patch(queryId, patch);
+  await patchWithE2eOwnership(ctx, "queries", queryId, patch);
   await refreshProposalLinkProjections(ctx, queryId);
   await createActivity(ctx, access, {
     action: "updated",
@@ -201,7 +201,7 @@ export async function handleAssignJobCardCreator(
   }
   const now = Date.now();
   await Promise.all([
-    ctx.db.patch(queryId, {
+    patchWithE2eOwnership(ctx, "queries", queryId, {
       jobCardCreatorName: staff.name.trim(),
       jobCardCreatorStaffId: staffId,
       updatedAt: now,
@@ -212,11 +212,15 @@ export async function handleAssignJobCardCreator(
       entityType: "query",
       message: `${query.queryCode} Job Card creator assigned to ${staff.name.trim()}`,
     }),
-    notifyStaffMember(ctx, staffId, {
-      body: `${query.queryCode} is assigned to you for Job Card creation.`,
-      entityId: queryId,
-      entityType: "query",
-      title: "Job Card assigned",
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [staffId] },
+      content: {
+        body: `${query.queryCode} is assigned to you for Job Card creation.`,
+        entityId: queryId,
+        entityType: "query",
+        title: "Job Card assigned",
+      },
+      emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
   return { id: queryId };
@@ -241,7 +245,7 @@ export async function handleSubmitToContracting(
     throw new ConvexError("FORBIDDEN");
   }
   const now = Date.now();
-  await ctx.db.patch(queryId, {
+  await patchWithE2eOwnership(ctx, "queries", queryId, {
     contractingStatus: "Query Received",
     leadStage: current.leadStage === "Inquiry" ? "Proposal" : current.leadStage,
     submittedToContractingAt: now,
@@ -382,7 +386,7 @@ export async function handleQueryUpdateStatus(
     patch.confirmedOfferId = confirmedOfferId;
   }
 
-  await ctx.db.patch(queryId, patch);
+  await patchWithE2eOwnership(ctx, "queries", queryId, patch);
   await refreshProposalLinkProjections(ctx, queryId);
 
   const isLost = args.salesStatus === "Order Lost";
@@ -414,17 +418,19 @@ export async function handleQueryUpdateStatus(
       ? [notifyOrderConfirmedWorkflow(ctx, current, queryId)]
       : []),
     ...notificationPlan.roleNotifications.map((notification) =>
-      notifyRoles(
-        ctx,
-        notification.roles,
-        {
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "roles", roles: notification.roles },
+        content: {
           body: notification.body,
           entityId: queryId,
           entityType: "query",
           title: notification.title,
         },
-        notification.emailRoles ? { emailRoles: notification.emailRoles } : undefined
-      )
+        emailTargets: {
+          kind: "roles",
+          roles: notification.emailRoles ?? notification.roles,
+        },
+      })
     ),
     ...notificationPlan.ownerNotifications.map((notification) =>
       notifyQueryOwner(ctx, notification.ownerId, {

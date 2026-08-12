@@ -45,7 +45,7 @@ export function AuthLoginHero({ copy, brandLogo, brandLogoAlt, isConnect }) {
               </span>
             )}
           </div>
-          <h1 className="mt-6 font-heading font-medium text-5xl leading-[1.1] tracking-tight lg:text-6xl">
+          <p className="mt-6 font-heading font-medium text-5xl leading-[1.1] tracking-tight lg:text-6xl">
             {heroLines.map((line, index) => (
               <span key={typeof line === "string" ? line : `${line.highlight}-${line.rest}`}>
                 {typeof line === "string" ? (
@@ -59,7 +59,7 @@ export function AuthLoginHero({ copy, brandLogo, brandLogoAlt, isConnect }) {
                 {index < heroLines.length - 1 && <br />}
               </span>
             ))}
-          </h1>
+          </p>
         </m.div>
 
         <m.div
@@ -72,7 +72,7 @@ export function AuthLoginHero({ copy, brandLogo, brandLogoAlt, isConnect }) {
             const Icon = HIGHLIGHT_ICONS[index] ?? Sparkles;
             return (
               <div
-                className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm"
+                className="material-decorative-glass flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm"
                 key={highlight.title}
               >
                 <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">

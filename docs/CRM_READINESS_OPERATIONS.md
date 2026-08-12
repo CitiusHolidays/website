@@ -6,7 +6,13 @@ Portal list search and dashboard totals use bounded Convex projections. They are
 
 `convex/crons.ts` starts metric reconciliation every 15 minutes and list-search reconciliation hourly. After a first deployment or projection-version change, do not interpret an empty search result or sampled dashboard detail as authoritative until readiness is current.
 
-Before release, confirm the cron registrations are present and run the focused readiness tests. After an authorized deployment, operators may invoke the internal reconciliation entrypoints through the approved Convex operational workflow; do not expose them as public mutations. Re-running them is safe: an active current generation is reused, an interrupted/stale generation is replaced, and old pages abort.
+Before release, run `bun run test -- convex/crons.test.ts` for the exact local nine-job registry and
+IST boundary contract. Local serialization does not prove installation. After an authorized
+deployment, confirm the names, internal targets, arguments, and schedules in that deployment's
+Convex dashboard. Operators may then invoke the internal reconciliation entrypoints through the
+approved Convex operational workflow; do not expose them as public mutations. Re-running them is
+safe: an active current generation is reused, an interrupted/stale generation is replaced, and old
+pages abort.
 
 ## User-visible states
 

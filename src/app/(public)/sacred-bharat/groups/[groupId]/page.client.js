@@ -6,7 +6,7 @@ import { useQuery } from "convex/react";
 export default function SacredBharatGroupPageClient({ groupId }) {
   const data = useQuery(api.sacredBharat.getGroupLeaderboard, { groupId });
   return (
-    <main className="min-h-screen bg-[#fdfcfb] px-4 py-10">
+    <section className="min-h-screen bg-[#fdfcfb] px-4 py-10">
       <div className="mx-auto max-w-4xl">
         {data === undefined ? (
           <div className="h-48 animate-pulse rounded-lg bg-brand-light" />
@@ -46,6 +46,6 @@ export default function SacredBharatGroupPageClient({ groupId }) {
           </div>
         )}
       </div>
-    </main>
+    </section>
   );
 }

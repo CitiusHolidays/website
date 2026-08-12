@@ -2,7 +2,7 @@
 
 import { m, useInView } from "motion/react";
 import { useRef } from "react";
-import { cn } from "../../utils/cn";
+import { cn } from "@/lib/utils";
 
 export default function AnimatedSection({ children, className, ...props }) {
   const ref = useRef(null);

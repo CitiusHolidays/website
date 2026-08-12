@@ -125,7 +125,7 @@ export function AccountHeader({ activeTab, onTabChange, onLogout, isLoggingOut, 
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-[var(--account-border)] border-b bg-[color-mix(in_srgb,var(--account-surface)_94%,transparent)] backdrop-blur-xl">
+      <header className="material-structural sticky top-0 z-40 border-[var(--account-border)] border-b bg-[color-mix(in_srgb,var(--account-surface)_94%,transparent)] backdrop-blur-xl">
         <div className="mx-auto grid min-h-20 max-w-[1440px] grid-cols-[1fr_auto] items-center px-5 sm:px-8 md:grid-cols-[1fr_auto_1fr] lg:px-12">
           <AccountMark />
           <nav aria-label="Account navigation" className="hidden h-20 items-stretch md:flex">

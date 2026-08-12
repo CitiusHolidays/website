@@ -1,11 +1,18 @@
-import { httpRouter } from "convex/server";
+import { httpRouter, makeFunctionReference } from "convex/server";
 import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { authComponent, createAuth } from "./betterAuth/auth";
-import { assertProvidedE2eSecret } from "./crm/lib/e2eAuth";
+import { assertE2eTargetIdentity, assertProvidedE2eSecret } from "./crm/lib/e2eAuth";
 import { enforcePortalFileDownloadLimit } from "./crm/lib/portalFileDownloadLimit";
 
 const http = httpRouter();
+
+const runE2eSeed = makeFunctionReference<"action", { runId: string; targetId: string }, unknown>(
+  "crm/e2eSeedActions:run"
+);
+const cleanupE2eRun = makeFunctionReference<"action", { runId: string; targetId: string }, unknown>(
+  "crm/e2eSeedActions:cleanup"
+);
 
 authComponent.registerRoutes(http, createAuth);
 
@@ -13,11 +20,44 @@ const e2eSeed = httpAction(async (ctx, request) => {
   const secret = request.headers.get("x-e2e-seed-secret") ?? undefined;
   try {
     assertProvidedE2eSecret(secret);
-    const result = await ctx.runAction(internal.crm.e2eSeedActions.run, {});
+    const body = (await request.json()) as { runId?: unknown; targetId?: unknown };
+    if (!(typeof body.runId === "string" && typeof body.targetId === "string")) {
+      throw new Error("Missing run or target identity");
+    }
+    assertE2eTargetIdentity(body.targetId);
+    const result = await ctx.runAction(runE2eSeed, {
+      runId: body.runId,
+      targetId: body.targetId,
+    });
     return Response.json(result);
   } catch {
     return Response.json({ error: "E2E seed is not authorized" }, { status: 401 });
   }
+});
+
+const e2eCleanup = httpAction(async (ctx, request) => {
+  const secret = request.headers.get("x-e2e-seed-secret") ?? undefined;
+  try {
+    assertProvidedE2eSecret(secret);
+    const body = (await request.json()) as { runId?: unknown; targetId?: unknown };
+    if (!(typeof body.runId === "string" && typeof body.targetId === "string")) {
+      throw new Error("Missing run or target identity");
+    }
+    assertE2eTargetIdentity(body.targetId);
+    const result = await ctx.runAction(cleanupE2eRun, {
+      runId: body.runId,
+      targetId: body.targetId,
+    });
+    return Response.json(result);
+  } catch {
+    return Response.json({ error: "E2E cleanup is not authorized" }, { status: 401 });
+  }
+});
+
+http.route({
+  handler: e2eCleanup,
+  method: "POST",
+  path: "/e2e/cleanup",
 });
 
 http.route({

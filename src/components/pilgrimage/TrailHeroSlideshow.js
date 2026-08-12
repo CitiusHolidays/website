@@ -65,7 +65,7 @@ export default function TrailHeroSlideshow({ trail }) {
   const current = slides[index] ?? slides[0];
   return (
     <section
-      className="relative h-screen min-h-[700px] w-full overflow-hidden bg-brand-dark"
+      className="relative min-h-[max(100dvh,700px)] w-full overflow-hidden bg-brand-dark"
       ref={sectionRef}
     >
       <AnimatePresence initial={false} mode="sync">
@@ -117,12 +117,12 @@ export default function TrailHeroSlideshow({ trail }) {
             transition={{ delay: 0.05 }}
           >
             {trail.status === "comingSoon" && (
-              <span className="mb-3 inline-block rounded-full border border-amber-200/40 bg-amber-500/25 px-3 py-1 font-heading text-amber-100 text-xs uppercase tracking-wider backdrop-blur-sm">
+              <span className="material-decorative-glass mb-3 inline-block rounded-full border border-amber-200/40 bg-amber-500/25 px-3 py-1 font-heading text-amber-100 text-xs uppercase tracking-wider backdrop-blur-sm">
                 Coming soon
               </span>
             )}
             {trail.tagline ? (
-              <p className="mb-2 line-clamp-2 font-heading text-citius-orange text-xs uppercase tracking-[0.2em] drop-shadow-sm md:text-sm">
+              <p className="mb-2 line-clamp-2 font-heading text-public-orange text-xs uppercase tracking-[0.2em] drop-shadow-sm md:text-sm">
                 {trail.tagline}
               </p>
             ) : null}
@@ -143,7 +143,7 @@ export default function TrailHeroSlideshow({ trail }) {
             <div className="mt-6 flex max-w-full flex-col items-center gap-3 pb-1 md:flex-row md:justify-start">
               <button
                 aria-pressed={isPlaying}
-                className="min-h-11 rounded-full border border-white/30 bg-brand-dark/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-brand-dark/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"
+                className="material-floating min-h-11 rounded-full border border-white/30 bg-brand-dark/55 px-4 font-medium text-white text-xs backdrop-blur-sm transition-colors hover:bg-brand-dark/75 focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2"
                 onClick={togglePlayback}
                 type="button"
               >
@@ -155,15 +155,24 @@ export default function TrailHeroSlideshow({ trail }) {
               >
                 {slides.map((s, idx) => (
                   <button
+                    aria-current={idx === index ? "true" : undefined}
                     aria-label={`Hero image ${idx + 1}`}
-                    className={`h-1 shrink-0 rounded-full transition-[width,background-color] duration-500 ${
-                      idx === index ? "w-10 bg-citius-orange" : "w-3 bg-white/25 hover:bg-white/45"
-                    }`}
+                    className="group grid min-h-11 min-w-11 shrink-0 place-items-center rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-public-orange focus-visible:outline-offset-2"
                     data-slide-index={idx}
                     key={s.src}
                     onClick={selectSlide}
                     type="button"
-                  />
+                  >
+                    <span
+                      aria-hidden
+                      className={`h-1 rounded-full transition-[width,background-color] duration-500 motion-reduce:transition-none ${
+                        idx === index
+                          ? "w-10 bg-public-orange"
+                          : "w-3 bg-white/25 fine-hover:group-hover:bg-white/45"
+                      }`}
+                      data-slide-indicator-bar
+                    />
+                  </button>
                 ))}
               </fieldset>
             </div>

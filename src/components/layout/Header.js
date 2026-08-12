@@ -3,16 +3,15 @@
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
 import { ArrowRight, Menu } from "lucide-react";
-import { AnimatePresence, m, useScroll, useTransform } from "motion/react";
+import { m, useMotionValueEvent, useScroll } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { logout, useSession } from "@/lib/auth-client";
 import Logo from "@/static/logos/logo.webp";
 import { HeaderMobileMenu } from "./HeaderMobileMenu";
-import { SignInDropdown } from "./HeaderSignInDropdown";
+import { HeaderSessionControl } from "./HeaderSessionControl";
 import { SpiritualTrailsDropdown } from "./HeaderSpiritualTrailsDropdown";
-import { HeaderUserMenu } from "./HeaderUserMenu";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -37,15 +36,10 @@ export default function Header() {
   const portalAccess = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
   const canAccessPortal = Boolean(portalAccess?.allowed);
 
-  useTransform(scrollY, [0, 100], [0, 1]);
-
-  useEffect(() => {
-    const updateScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", updateScroll, { passive: true });
-    return () => window.removeEventListener("scroll", updateScroll);
-  }, []);
+  useMotionValueEvent(scrollY, "change", (latest) => {
+    const nextScrolled = latest > 20;
+    setIsScrolled((current) => (current === nextScrolled ? current : nextScrolled));
+  });
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -57,11 +51,13 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     await logout();
     setUserMenuOpen(false);
     window.location.href = "/";
-  };
+  }, []);
+  const openMobileMenu = useCallback(() => setIsOpen(true), []);
+  const closeMobileMenu = useCallback(() => setIsOpen(false), []);
 
   return (
     <>
@@ -76,8 +72,8 @@ export default function Header() {
         <m.div
           className={`relative flex items-center justify-between transition-[width,border-radius,background-color,padding,box-shadow] duration-500 ease-[0.16,1,0.3,1] ${
             isScrolled
-              ? "w-[90%] rounded-full bg-slate-900/40 px-6 py-3 shadow-2xl backdrop-blur-xl md:w-[80%] lg:w-[1200px]"
-              : "w-[95%] bg-transparent px-0 py-4 md:w-[90%]"
+              ? "material-structural w-[calc(100%-2rem)] max-w-[1200px] rounded-full bg-slate-900/40 px-4 py-3 shadow-2xl backdrop-blur-xl sm:w-[calc(100%-3rem)] sm:px-6"
+              : "w-[calc(100%-2rem)] max-w-[1200px] bg-transparent px-0 py-4 sm:w-[calc(100%-3rem)]"
           }`}
           layout="position"
         >
@@ -98,7 +94,7 @@ export default function Header() {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-1 lg:flex">
+          <nav className="hidden items-center gap-1 xl:flex">
             {navLinks.slice(0, 4).map((link) => (
               <Link
                 className={`group relative overflow-hidden rounded-full px-4 py-2 font-medium text-sm transition-colors duration-200 ${
@@ -108,10 +104,7 @@ export default function Header() {
                 key={link.href}
               >
                 <span className="relative z-10">{link.label}</span>
-                <m.div
-                  className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                  layoutId="navHover"
-                />
+                <div className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
               </Link>
             ))}
             <SpiritualTrailsDropdown isScrolled={isScrolled} />
@@ -124,36 +117,28 @@ export default function Header() {
                 key={link.href}
               >
                 <span className="relative z-10">{link.label}</span>
-                <m.div
-                  className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-                  layoutId="navHover"
-                />
+                <div className="absolute inset-0 rounded-full bg-white/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
               </Link>
             ))}
           </nav>
 
           <div className="flex items-center gap-3">
-            {isPending ? (
-              <div className="hidden size-8 animate-pulse rounded-full bg-white/10 sm:block" />
-            ) : user ? (
-              <HeaderUserMenu
-                canAccessPortal={canAccessPortal}
-                isScrolled={isScrolled}
-                onLogout={handleLogout}
-                setUserMenuOpen={setUserMenuOpen}
-                user={user}
-                userMenuOpen={userMenuOpen}
-                userMenuRef={userMenuRef}
-              />
-            ) : (
-              <SignInDropdown isScrolled={isScrolled} />
-            )}
+            <HeaderSessionControl
+              canAccessPortal={canAccessPortal}
+              isPending={isPending}
+              isScrolled={isScrolled}
+              onLogout={handleLogout}
+              setUserMenuOpen={setUserMenuOpen}
+              user={user}
+              userMenuOpen={userMenuOpen}
+              userMenuRef={userMenuRef}
+            />
 
             <Link
               className={`hidden items-center gap-2 rounded-full px-5 py-2.5 font-bold text-sm transition-[background-color,color,box-shadow] duration-300 sm:flex ${
                 isScrolled
                   ? "bg-white text-slate-900 hover:bg-blue-50"
-                  : "border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"
+                  : "material-floating border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"
               }`}
               href="/contact"
             >
@@ -165,10 +150,10 @@ export default function Header() {
               aria-expanded={isOpen}
               aria-haspopup="dialog"
               aria-label={isOpen ? "Close menu" : "Open menu"}
-              className={`rounded-full p-2 transition-colors lg:hidden ${
+              className={`rounded-full p-2 transition-colors xl:hidden ${
                 isScrolled ? "text-white hover:bg-white/10" : "text-white hover:bg-white/10"
               }`}
-              onClick={() => setIsOpen(true)}
+              onClick={openMobileMenu}
               type="button"
             >
               <Menu size={24} />
@@ -177,18 +162,16 @@ export default function Header() {
         </m.div>
       </m.header>
 
-      <AnimatePresence>
-        {isOpen && (
-          <HeaderMobileMenu
-            canAccessPortal={canAccessPortal}
-            isOpen={isOpen}
-            navLinks={navLinks}
-            onClose={() => setIsOpen(false)}
-            onLogout={handleLogout}
-            user={user}
-          />
-        )}
-      </AnimatePresence>
+      {isOpen ? (
+        <HeaderMobileMenu
+          canAccessPortal={canAccessPortal}
+          isOpen={isOpen}
+          navLinks={navLinks}
+          onClose={closeMobileMenu}
+          onLogout={handleLogout}
+          user={user}
+        />
+      ) : null}
     </>
   );
 }

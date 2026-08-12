@@ -11,6 +11,7 @@ import {
   PERMISSIONS,
   requireStaff,
 } from "./lib";
+import { insertWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildQueryListSearchText } from "./listSearch";
 import { notifyQueryAssignmentHeads, notifyTicketingHeadOnQueryIntake } from "./queryNotifications";
 import { applyQueryTeamAssignments } from "./queryTeamAssignment";
@@ -96,7 +97,7 @@ export async function handleQueryCreate(
     requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES),
     Promise.all([
       nextCode(ctx, "queries", "Q"),
-      ctx.db.insert("clients", {
+      insertWithE2eOwnership(ctx, "clients", {
         contactPerson: args.contactPerson?.trim() || "",
         createdAt: now,
         email: args.contactEmail?.trim().toLowerCase() || "",
@@ -153,7 +154,7 @@ export async function handleQueryCreate(
     travelType: args.travelType,
     updatedAt: now,
   };
-  const id = await ctx.db.insert("queries", queryPayload);
+  const id = await insertWithE2eOwnership(ctx, "queries", queryPayload);
 
   await createActivity(ctx, access, {
     action: "created",

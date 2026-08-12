@@ -197,10 +197,7 @@ const DOMAIN_STATUS_MAP: Record<StatusDomain, Record<string, StatusPresentation>
     "Date/Destination Change Required": presentation("danger", "Blocked — sales revision required"),
     "Order Confirmed": presentation("positive", "Order confirmed"),
     "Order Lost": presentation("danger", "Order lost — sales closed"),
-    "Proposal in discussion": presentation(
-      "progress",
-      "Proposal in discussion — sales review underway"
-    ),
+    "Proposal in discussion": presentation("progress", "Under Discussion — sales review underway"),
   },
   seat: {
     Assigned: presentation("positive", "Assigned — seat allocated"),

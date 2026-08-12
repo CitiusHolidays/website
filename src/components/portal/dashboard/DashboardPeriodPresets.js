@@ -18,13 +18,21 @@ const PRESETS = [
   { id: "mtd", label: "MTD", range: () => ({ from: startOfMonth(), to: daysAgo(0) }) },
 ];
 
+export function getDashboardPeriodPresetId(dateRange) {
+  if (!(dateRange?.from || dateRange?.to)) {
+    return "all";
+  }
+  return PRESETS.find(
+    (preset) => dateRange?.from === preset.range().from && dateRange?.to === preset.range().to
+  )?.id;
+}
+
 const PRESET_BUTTON_CLASS =
   "rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors";
 
 export function DashboardPeriodPresets({ dateRange, setDateRange }) {
-  const active = (preset) =>
-    dateRange?.from === preset.range().from && dateRange?.to === preset.range().to;
-  const allTime = !(dateRange?.from || dateRange?.to);
+  const activePresetId = getDashboardPeriodPresetId(dateRange);
+  const allTime = activePresetId === "all";
 
   return (
     <div className="flex flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border border-brand-border bg-white p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -42,7 +50,7 @@ export function DashboardPeriodPresets({ dateRange, setDateRange }) {
       {PRESETS.map((preset) => (
         <Button
           className={`${PRESET_BUTTON_CLASS} shrink-0 ${
-            active(preset)
+            activePresetId === preset.id
               ? "border-citius-blue bg-citius-blue text-white"
               : "border-transparent bg-white text-brand-muted hover:text-brand-dark"
           }`}

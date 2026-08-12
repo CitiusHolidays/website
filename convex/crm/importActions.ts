@@ -1,6 +1,7 @@
 "use node";
 
 import { createHash, randomUUID } from "node:crypto";
+import type { PaginationOptions } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -29,8 +30,9 @@ import {
   stableImportBatchId,
   summarizeImportBatchResults,
 } from "./importWorkerPolicy";
-import { PERMISSIONS } from "./lib/rolePolicy";
+import { CRM_LIST_MAX_ROWS_READ } from "./paginationPolicy";
 import { buildPassengerExportFile } from "./passengerExportWorkbook";
+import { canManagePassengerKinds, canViewPassengerKinds } from "./passengerKindPolicy";
 import { cleanPassportField } from "./passportExpiry";
 
 const PASSENGER_EXPORT_PAGE_SIZE = 100;
@@ -41,81 +43,36 @@ function clean(value?: string) {
   return String(value ?? "").trim();
 }
 
-function hasPermission(access: any, permission: string) {
-  return access?.permissions?.includes(permission);
-}
-
-function hasAllPermissions(access: any, permissions: string[]) {
-  return permissions.every((permission) => hasPermission(access, permission));
-}
-
-async function requireImportAccess(ctx: any, rows: any[]) {
+async function requireImportAccess(ctx: any, rows: Array<{ importKind?: unknown }>) {
   const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
   if (!access?.allowed) {
     throw new ConvexError("FORBIDDEN");
   }
 
-  const kinds = new Set(rows.map((row) => row.importKind ?? "passenger"));
-  for (const kind of kinds) {
-    if (
-      kind === "passenger" &&
-      !(
-        hasPermission(access, PERMISSIONS.MANAGE_TICKETING) ||
-        hasAllPermissions(access, [PERMISSIONS.MANAGE_TRAVELLERS, PERMISSIONS.MANAGE_VISA])
-      )
-    ) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (
-      kind === "traveller" &&
-      !hasAllPermissions(access, [PERMISSIONS.MANAGE_TRAVELLERS, PERMISSIONS.MANAGE_VISA])
-    ) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (kind === "rooming" && !hasPermission(access, PERMISSIONS.MANAGE_OPERATIONS)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (
-      (kind === "passport" || kind === "visa") &&
-      !hasPermission(access, PERMISSIONS.MANAGE_VISA)
-    ) {
-      throw new ConvexError("FORBIDDEN");
-    }
+  const kinds = Array.from(new Set(rows.map((row) => row.importKind ?? "passenger")));
+  if (!canManagePassengerKinds(access, kinds)) {
+    throw new ConvexError("FORBIDDEN");
   }
   return access;
 }
 
-async function requireExportAccess(ctx: any, exportKind: string) {
+async function requireExportAccess(ctx: any, exportKind: unknown) {
   const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
   if (!access?.allowed) {
     throw new ConvexError("FORBIDDEN");
   }
-
-  if (
-    exportKind === "passenger" &&
-    !(
-      hasPermission(access, PERMISSIONS.VIEW_TICKETING) ||
-      hasAllPermissions(access, [PERMISSIONS.VIEW_TRAVELLERS, PERMISSIONS.VIEW_VISA])
-    )
-  ) {
-    throw new ConvexError("FORBIDDEN");
-  }
-  if (
-    exportKind === "traveller" &&
-    !hasAllPermissions(access, [PERMISSIONS.VIEW_TRAVELLERS, PERMISSIONS.VIEW_VISA])
-  ) {
-    throw new ConvexError("FORBIDDEN");
-  }
-  if (exportKind === "rooming" && !hasPermission(access, PERMISSIONS.VIEW_OPERATIONS)) {
-    throw new ConvexError("FORBIDDEN");
-  }
-  if (
-    (exportKind === "passport" || exportKind === "visa") &&
-    !hasPermission(access, PERMISSIONS.VIEW_VISA)
-  ) {
+  if (!canViewPassengerKinds(access, [exportKind])) {
     throw new ConvexError("FORBIDDEN");
   }
   return access;
+}
+
+export function passengerExportPaginationOptions(cursor: string | null): PaginationOptions {
+  return {
+    cursor,
+    maximumRowsRead: CRM_LIST_MAX_ROWS_READ,
+    numItems: PASSENGER_EXPORT_PAGE_SIZE,
+  };
 }
 
 function mapPassengerExportRow(row: any) {
@@ -433,8 +390,9 @@ export const startPassengerExport = action({
         // biome-ignore lint/performance/noAwaitInLoops: cursor pages must be read in order.
         const page: any = await ctx.runQuery(internal.crm.imports.getPassengerExportSourcePage, {
           access,
+          exportKind: args.exportKind,
           jobCardId: args.jobCardId,
-          paginationOpts: { cursor, numItems: PASSENGER_EXPORT_PAGE_SIZE },
+          paginationOpts: passengerExportPaginationOptions(cursor),
         });
         const { continueCursor, isDone: pageIsDone, jobCode: pageJobCode, page: pageRows } = page;
         sourceRows.push(...pageRows);

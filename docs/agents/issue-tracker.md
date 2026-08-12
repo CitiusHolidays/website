@@ -15,6 +15,22 @@ Infer the repo from `git remote -v` — `gh` does this automatically when run in
 
 Local `.scratch/` artifacts remain useful for audit evidence, handoffs, and working notes; GitHub Issues are the canonical issue and ticket records.
 
+A local planning, documentation, or evidence request does not by itself
+authorize a GitHub write. Publish, edit, label, assign, or close issues only when
+the task grants that external authority.
+
+## Local handoff synchronization
+
+- Before implementation, read the current GitHub issue, labels, dependencies,
+  assignee, and comments. A dated local copy never overrides live status.
+- After publication, put the canonical issue URL/number in any retained local
+  brief or handoff. Do not copy GitHub checklists back into a maintained mirror.
+- Keep red/green output, screenshots, and local review evidence in `.scratch/`.
+  Summarize the result on the issue when authorized; do not treat the artifact
+  directory as completion state.
+- After handoff, delete or archive disposable local ticket drafts. If retained
+  for history, label them with the date and “non-authoritative snapshot.”
+
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** _(Set to `yes` if this repo treats external PRs as feature requests; `/triage` reads this flag.)_

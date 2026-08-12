@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 import {
   evaluateStaffWorkspacePerformanceBudget,
@@ -170,6 +172,15 @@ test.describe("@performance authenticated Staff Workspace performance", () => {
         body: JSON.stringify({ cold, warm }, null, 2),
         contentType: "application/json",
       });
+      const runDir = process.env.E2E_PERFORMANCE_RUN_DIR;
+      const revision = process.env.E2E_EVIDENCE_REVISION;
+      if (runDir && revision) {
+        mkdirSync(runDir, { recursive: true });
+        writeFileSync(
+          resolve(runDir, `${scenario.target}.json`),
+          `${JSON.stringify({ cold, revision, target: scenario.target, warm }, null, 2)}\n`
+        );
+      }
       await context.close();
     });
   }

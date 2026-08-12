@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "browser": "Chromium 151.0.7922.34",
+  "buildMode": "local Next production server",
+  "measuredAt": "2026-08-12T10:12:49.906Z",
+  "revision": "a045fd1b87689b6283a379422be5808148eb90bb+dirty.b0c4920bd963",
+  "sourceFiles": [
+    "src/app/(public)/layout.js",
+    "src/app/(public)/page.js",
+    "src/app/(public)/pilgrimage/page.client.js",
+    "src/app/(public)/pilgrimage/page.js",
+    "src/app/(public)/sacred-bharat/page.client.js",
+    "src/app/(public)/sacred-bharat/page.js",
+    "src/components/pages/HeroVideo.js",
+    "src/components/pages/HomeHeroClient.js",
+    "src/lib/publicMediaPolicy.ts"
+  ],
+  "sourceHash": "8c413eaa382eb9d8491e5e2f76cd0f53baf55112fc42cb4a609e5f6000428655",
+  "samples": [
+    {
+      "id": "home-desktop",
+      "path": "/",
+      "variant": "default",
+      "viewport": { "height": 1000, "width": 1440 },
+      "network": "loopback-unthrottled",
+      "cache": "cold",
+      "trials": 3,
+      "ttfbMs": 3.5,
+      "fcpMs": 56,
+      "lcpMs": 56,
+      "domInteractiveMs": 23.7,
+      "domCompleteMs": 50.5,
+      "loadMs": 50.5,
+      "requests": 86,
+      "criticalTransferBytes": 2509031,
+      "jsTransferBytes": 882387,
+      "cssTransferBytes": 585385,
+      "firstPartyTransferBytes": 2665683,
+      "thirdPartyTransferBytes": 0,
+      "gatedMediaTransferBytes": 300,
+      "heroVideoRequests": 2,
+      "slowestFirstPartyResources": [
+        {
+          "path": "/",
+          "durationMs": 51,
+          "transferBytes": 12767,
+          "type": "navigation"
+        }
+      ]
+    },
+    {
+      "id": "home-mobile",
+      "path": "/",
+      "variant": "default",
+      "viewport": { "height": 844, "width": 390 },
+      "network": "loopback-unthrottled",
+      "cache": "cold",
+      "trials": 3,
+      "ttfbMs": 2.8,
+      "fcpMs": 36,
+      "lcpMs": 36,
+      "domInteractiveMs": 23.4,
+      "domCompleteMs": 41.9,
+      "loadMs": 41.9,
+      "requests": 67,
+      "criticalTransferBytes": 1906078,
+      "jsTransferBytes": 859103,
+      "cssTransferBytes": 585385,
+      "firstPartyTransferBytes": 2062730,
+      "thirdPartyTransferBytes": 0,
+      "gatedMediaTransferBytes": 300,
+      "heroVideoRequests": 2,
+      "slowestFirstPartyResources": [
+        {
+          "path": "/",
+          "durationMs": 44.7,
+          "transferBytes": 12767,
+          "type": "navigation"
+        }
+      ]
+    },
+    {
+      "id": "pilgrimage-desktop",
+      "path": "/pilgrimage",
+      "variant": "default",
+      "viewport": { "height": 1000, "width": 1440 },
+      "network": "loopback-unthrottled",
+      "cache": "cold",
+      "trials": 3,
+      "ttfbMs": 3.8,
+      "fcpMs": 36,
+      "lcpMs": 36,
+      "domInteractiveMs": 28.4,
+      "domCompleteMs": 129.3,
+      "loadMs": 130,
+      "requests": 70,
+      "criticalTransferBytes": 1350685,
+      "jsTransferBytes": 870628,
+      "cssTransferBytes": 306018,
+      "firstPartyTransferBytes": 1350685,
+      "thirdPartyTransferBytes": 0,
+      "gatedMediaTransferBytes": 0,
+      "heroVideoRequests": 0,
+      "slowestFirstPartyResources": [
+        {
+          "path": "/pilgrimage",
+          "durationMs": 130.5,
+          "transferBytes": 22783,
+          "type": "navigation"
+        }
+      ]
+    },
+    {
+      "id": "sacred-bharat-mobile",
+      "path": "/sacred-bharat",
+      "variant": "default",
+      "viewport": { "height": 844, "width": 390 },
+      "network": "loopback-unthrottled",
+      "cache": "cold",
+      "trials": 3,
+      "ttfbMs": 2.6,
+      "fcpMs": 40,
+      "lcpMs": 80,
+      "domInteractiveMs": 35.6,
+      "domCompleteMs": 54.8,
+      "loadMs": 54.8,
+      "requests": 67,
+      "criticalTransferBytes": 1302243,
+      "jsTransferBytes": 882805,
+      "cssTransferBytes": 306018,
+      "firstPartyTransferBytes": 1302243,
+      "thirdPartyTransferBytes": 0,
+      "gatedMediaTransferBytes": 0,
+      "heroVideoRequests": 0,
+      "slowestFirstPartyResources": [
+        {
+          "path": "/sacred-bharat",
+          "durationMs": 55,
+          "transferBytes": 12751,
+          "type": "navigation"
+        }
+      ]
+    },
+    {
+      "id": "home-reduced-motion",
+      "path": "/",
+      "variant": "reduced-motion",
+      "viewport": { "height": 1000, "width": 1440 },
+      "network": "loopback-unthrottled",
+      "cache": "cold",
+      "trials": 3,
+      "ttfbMs": 2.5,
+      "fcpMs": 56,
+      "lcpMs": 56,
+      "domInteractiveMs": 25.3,
+      "domCompleteMs": 53.6,
+      "loadMs": 53.6,
+      "requests": 102,
+      "criticalTransferBytes": 2548535,
+      "jsTransferBytes": 882387,
+      "cssTransferBytes": 585385,
+      "firstPartyTransferBytes": 2704887,
+      "thirdPartyTransferBytes": 0,
+      "gatedMediaTransferBytes": 0,
+      "heroVideoRequests": 0,
+      "slowestFirstPartyResources": [
+        {
+          "path": "/",
+          "durationMs": 53.7,
+          "transferBytes": 12767,
+          "type": "navigation"
+        }
+      ]
+    },
+    {
+      "id": "home-data-saver",
+      "path": "/",
+      "variant": "data-saver",
+      "viewport": { "height": 1000, "width": 1440 },
+      "network": "loopback-unthrottled",
+      "cache": "cold",
+      "trials": 3,
+      "ttfbMs": 2.9,
+      "fcpMs": 56,
+      "lcpMs": 56,
+      "domInteractiveMs": 25.4,
+      "domCompleteMs": 53.6,
+      "loadMs": 53.6,
+      "requests": 84,
+      "criticalTransferBytes": 2509031,
+      "jsTransferBytes": 882387,
+      "cssTransferBytes": 585385,
+      "firstPartyTransferBytes": 2665383,
+      "thirdPartyTransferBytes": 0,
+      "gatedMediaTransferBytes": 0,
+      "heroVideoRequests": 0,
+      "slowestFirstPartyResources": [
+        {
+          "path": "/",
+          "durationMs": 54.3,
+          "transferBytes": 12767,
+          "type": "navigation"
+        }
+      ]
+    }
+  ]
+}

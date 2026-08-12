@@ -1,5 +1,5 @@
 import { scheduleCrmMetricSync } from "./financeMetricSync";
-import { notifyRoles } from "./lib";
+import { publishWorkflowNotification } from "./lib";
 
 export const TICKET_ATTENTION_STATUSES = [
   "Name Change Required",
@@ -20,11 +20,16 @@ export async function notifyTicketAttentionIfNeeded(
   entityId: any
 ) {
   if ((TICKET_ACTION_NOTIFICATION_STATUSES as readonly string[]).includes(ticketStatus)) {
-    await notifyRoles(ctx, ["Operations", "Operations Head"], {
-      body: `A ticket in ${jobCode} needs ${ticketStatus.toLowerCase()}.`,
-      entityId,
-      entityType: "ticket",
-      title: "Ticketing action needed",
+    const recipientRoles = ["Operations", "Operations Head"];
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "roles", roles: recipientRoles },
+      content: {
+        body: `A ticket in ${jobCode} needs ${ticketStatus.toLowerCase()}.`,
+        entityId,
+        entityType: "ticket",
+        title: "Ticketing action needed",
+      },
+      emailTargets: { kind: "roles", roles: recipientRoles },
     });
   }
 }

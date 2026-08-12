@@ -1,0 +1,57 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "entry": [
+    ".claude/hooks/*.mjs",
+    "config/**/*.ts",
+    "convex/**/*.ts",
+    "e2e/**/*.ts",
+    "lint-staged.config.mjs",
+    "next.config.mjs",
+    "playwright.config.ts",
+    "postcss.config.mjs",
+    "scripts/**/*.{js,mjs,ts}",
+    "scripts/generate-public-brand-assets.ts",
+    "src/**/*.test.{js,jsx,ts,tsx}",
+    "src/**/*.mounted.test.{js,jsx,ts,tsx}",
+    "src/app/**/{default,error,layout,loading,not-found,page,route,template}.{js,jsx,ts,tsx}"
+  ],
+  "project": [
+    ".claude/hooks/*.mjs",
+    "config/**/*.{js,mjs,ts}",
+    "convex/**/*.ts",
+    "e2e/**/*.ts",
+    "scripts/**/*.{js,mjs,ts}",
+    "src/**/*.{js,jsx,ts,tsx}"
+  ],
+  "ignore": [
+    ".next/**",
+    ".scratch/**",
+    "convex/_generated/**",
+    "node_modules/**",
+    "public/**"
+  ],
+  "ignoreFiles": [
+    "playwright.preview-public.config.ts",
+    "src/components/ui/AnimatedCounter.js"
+  ],
+  "ignoreDependencies": ["@types/.*"],
+  "ignoreUnresolved": ["config/test/run-target-neutral-tests.ts"],
+  "ignoreExportsUsedInFile": { "interface": true, "type": true },
+  "next": true,
+  "playwright": { "config": ["playwright.config.ts"] },
+  "postcss": { "config": ["postcss.config.mjs"] },
+  "treatConfigHintsAsErrors": true,
+  "workspaces": {
+    "citius-blog": {
+      "entry": [
+        "eslint.config.mjs",
+        "postcss.config.mjs",
+        "sanity.cli.js",
+        "sanity.config.js",
+        "schemaTypes/index.js"
+      ],
+      "project": ["*.{js,mjs}", "schemaTypes/**/*.js"],
+      "postcss": { "config": ["postcss.config.mjs"] }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation, mutation, query } from "../_generated/server";
-import { isDirectorOrAdmin, notifyRoles, PERMISSIONS, requireStaff } from "./lib";
+import { isDirectorOrAdmin, PERMISSIONS, publishWorkflowNotification, requireStaff } from "./lib";
 import { loadMetricTotals } from "./metricAggregates";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -479,11 +479,16 @@ async function dispatchWorkflowNudges(ctx: any, risks: NudgeRisk[], referenceNow
       if (!(rule?.enabled && (await shouldTrigger(ctx, risk, 24, referenceNow)))) {
         return 0;
       }
-      await notifyRoles(ctx, [rule.recipientRole], {
-        body: risk.body,
-        entityId: risk.entityId,
-        entityType: risk.entityType,
-        title: risk.title,
+      const recipientRoles = [rule.recipientRole];
+      await publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "roles", roles: recipientRoles },
+        content: {
+          body: risk.body,
+          entityId: risk.entityId,
+          entityType: risk.entityType,
+          title: risk.title,
+        },
+        emailTargets: { kind: "roles", roles: recipientRoles },
       });
       await markTriggered(ctx, risk, referenceNow);
       return 1;

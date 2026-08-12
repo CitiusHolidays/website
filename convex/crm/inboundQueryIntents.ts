@@ -2,8 +2,8 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, mutation, query } from "../_generated/server";
-import { isDirectorOrAdmin, notifyRoles, PERMISSIONS, requireStaff } from "./lib";
+import { internalMutation, type MutationCtx, mutation, query } from "../_generated/server";
+import { isDirectorOrAdmin, PERMISSIONS, publishWorkflowNotification, requireStaff } from "./lib";
 import { handleQueryCreate } from "./queryCreation";
 import { querySourceValidator, queryTypeValidator, travelTypeValidator } from "./queryValidators";
 
@@ -149,11 +149,7 @@ function assertGatewaySecret(gatewaySecret: string) {
   }
 }
 
-async function findRecentDuplicate(
-  ctx: Parameters<typeof notifyRoles>[0],
-  submissionKeyHash: string,
-  now: number
-) {
+async function findRecentDuplicate(ctx: MutationCtx, submissionKeyHash: string, now: number) {
   return await ctx.db
     .query("inboundQueryIntents")
     .withIndex("by_submissionKeyHash_createdAt", (q) =>
@@ -171,7 +167,7 @@ async function requireInboundSales(ctx: Parameters<typeof requireStaff>[0]) {
   throw new ConvexError("FORBIDDEN");
 }
 
-async function createIntent(ctx: Parameters<typeof notifyRoles>[0], args: InboundIntentInput) {
+async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
   const { clientName } = validateIntentInput(args);
   const now = Date.now();
   const existing = await findRecentDuplicate(ctx, args.submissionKeyHash, now);
@@ -200,11 +196,16 @@ async function createIntent(ctx: Parameters<typeof notifyRoles>[0], args: Inboun
     inboundIntentId: intentId,
     source: args.source,
   });
-  await notifyRoles(ctx, ["Sales", "Sales Head"], {
-    body: `New inbound lead from ${args.source}: ${clientName}`,
-    entityId: String(intentId),
-    entityType: "inboundQueryIntent",
-    title: "Qualified inbound query",
+  const recipientRoles = ["Sales", "Sales Head"];
+  await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "roles", roles: recipientRoles },
+    content: {
+      body: `New inbound lead from ${args.source}: ${clientName}`,
+      entityId: String(intentId),
+      entityType: "inboundQueryIntent",
+      title: "Qualified inbound query",
+    },
+    emailTargets: { kind: "roles", roles: recipientRoles },
   });
   return { duplicate: false, id: intentId } as const;
 }

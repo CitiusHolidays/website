@@ -67,16 +67,16 @@ describe("portal date input contract", () => {
     expect(modalForm).toMatch(/type === "date"[\s\S]*<PortalDateInput/);
   });
 
-  test("date range toolbar controls use non-shrinking fixed-width geometry", () => {
+  test("date range toolbar controls reflow without losing bounded desktop geometry", () => {
     const rangeFilter = read(DATE_RANGE_FILTER_FILE);
     const listToolbar = read(LIST_TOOLBAR_FILE);
 
-    expect(rangeFilter).toContain("flex flex-nowrap");
-    expect(rangeFilter).toContain("shrink-0");
-    expect(rangeFilter).toContain("!w-[9.5rem]");
-    expect(rangeFilter).toContain("!min-w-[9.5rem]");
+    expect(rangeFilter).toContain("grid grid-cols-1");
+    expect(rangeFilter).toContain("sm:flex sm:flex-wrap");
+    expect(rangeFilter).toContain("!w-[min(9.5rem,calc(100vw-6rem))]");
+    expect(rangeFilter).toContain("!min-w-0");
     expect(rangeFilter).toContain("!max-w-[9.5rem]");
-    expect(rangeFilter).toMatch(/portal-small-btn shrink-0 whitespace-nowrap/);
+    expect(rangeFilter).toMatch(/portal-small-btn justify-self-start whitespace-nowrap/);
     expect(listToolbar).toContain("shrink-0 flex-wrap");
     expect(listToolbar).toMatch(/portal-small-btn h-11 shrink-0 whitespace-nowrap/);
   });

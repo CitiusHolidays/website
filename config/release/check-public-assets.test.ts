@@ -27,4 +27,16 @@ describe("public asset reference smoke", () => {
       )
     ).toEqual([]);
   });
+
+  test("ignores synthetic asset URLs in unit and browser fixtures", () => {
+    expect(
+      findMissingPublicAssetReferences(
+        [
+          { path: "src/components/Gallery.test.jsx", source: 'url: "/fixture.webp"' },
+          { path: "e2e/gallery.spec.ts", source: 'page.goto("/fixture.webp")' },
+        ],
+        new Set()
+      )
+    ).toEqual([]);
+  });
 });

@@ -127,7 +127,7 @@ export function PackageDetailsTab({ trail }) {
       {/* Accommodation */}
       <div className="rounded-2xl border border-brand-light bg-brand-light/50 p-6">
         <h4 className="mb-5 flex items-center gap-2 font-heading text-citius-blue text-lg">
-          <Mountain className="size-5 text-citius-orange" />
+          <Mountain className="size-5 text-public-orange-ink" />
           Accommodation Details
         </h4>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -136,7 +136,7 @@ export function PackageDetailsTab({ trail }) {
               className="rounded-xl border border-brand-light bg-white p-4 shadow-sm"
               key={item.type}
             >
-              <p className="mb-1 font-bold text-[10px] text-citius-orange uppercase tracking-wider">
+              <p className="mb-1 font-bold text-[10px] text-public-orange-ink uppercase tracking-wider">
                 {item.type}
               </p>
               <p className="text-brand-dark text-sm">{item.desc}</p>
@@ -149,7 +149,7 @@ export function PackageDetailsTab({ trail }) {
       {trail.layoutVariant === "aerial" && trail.details.transport && (
         <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-6">
           <h4 className="mb-4 flex items-center gap-2 font-heading text-citius-blue text-lg">
-            <Users className="size-5 text-citius-orange" />
+            <Users className="size-5 text-public-orange-ink" />
             Transport Details
           </h4>
           <div className="space-y-2 text-brand-muted text-sm">
@@ -206,7 +206,7 @@ export function InfoTab({ info, layoutVariant }) {
         <div className="space-y-6">
           <div>
             <h4 className="mb-4 flex items-center gap-2 font-heading text-citius-blue text-lg">
-              <Heart className="size-5 text-citius-orange" />
+              <Heart className="size-5 text-public-orange-ink" />
               Eligibility & Health
             </h4>
             <ul className="space-y-2">
@@ -225,7 +225,7 @@ export function InfoTab({ info, layoutVariant }) {
           {info.medicalRequirements && (
             <div>
               <h4 className="mb-4 flex items-center gap-2 font-heading text-citius-blue text-lg">
-                <Shield className="size-5 text-citius-orange" />
+                <Shield className="size-5 text-public-orange-ink" />
                 Medical Requirements
               </h4>
               <ul className="space-y-2">
@@ -248,7 +248,7 @@ export function InfoTab({ info, layoutVariant }) {
           {info.whatToPack && (
             <div>
               <h4 className="mb-4 flex items-center gap-2 font-heading text-citius-blue text-lg">
-                <FileText className="size-5 text-citius-orange" />
+                <FileText className="size-5 text-public-orange-ink" />
                 What to Pack
               </h4>
               <ul className="space-y-2">
@@ -268,7 +268,7 @@ export function InfoTab({ info, layoutVariant }) {
           {/* Best Time */}
           <div className="rounded-xl border border-citius-blue/10 bg-citius-blue/5 p-5">
             <h4 className="mb-2 flex items-center gap-2 font-heading text-base text-citius-blue">
-              <Calendar className="size-4 text-citius-orange" />
+              <Calendar className="size-4 text-public-orange-ink" />
               Best Time to Visit
             </h4>
             <p className="text-brand-muted text-sm">{info.bestTime}</p>
@@ -277,7 +277,7 @@ export function InfoTab({ info, layoutVariant }) {
           {/* Border Info (aerial / border-heavy trips) */}
           {isAerialLayout && info.borderInfo && (
             <div className="rounded-xl border border-citius-orange/10 bg-citius-orange/5 p-5">
-              <h4 className="mb-2 flex items-center gap-2 font-heading text-base text-citius-orange">
+              <h4 className="mb-2 flex items-center gap-2 font-heading text-base text-public-orange-ink">
                 <Info className="size-4" />
                 Border Information
               </h4>
@@ -321,7 +321,7 @@ export function InfoTab({ info, layoutVariant }) {
       {info.visa && (
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="rounded-xl bg-brand-dark p-5 text-white">
-            <p className="mb-2 text-citius-orange text-xs uppercase tracking-wider">
+            <p className="mb-2 text-public-orange-ink text-xs uppercase tracking-wider">
               Travel Documents
             </p>
             <p className="text-sm text-white/80">{info.visa.title}</p>
@@ -345,7 +345,7 @@ export function DeparturesBlock({ departures }) {
   return (
     <div className="mt-8 rounded-2xl border border-citius-blue/15 bg-citius-blue/5 p-6 md:p-8">
       <h4 className="mb-4 flex items-center gap-2 font-heading text-citius-blue text-lg">
-        <Calendar className="size-5 text-citius-orange" />
+        <Calendar className="size-5 text-public-orange-ink" />
         Departure dates
       </h4>
       <div className="space-y-6">
@@ -355,7 +355,7 @@ export function DeparturesBlock({ departures }) {
             <ul className="mt-2 space-y-2">
               {batch.dates.map((d) => (
                 <li className="flex items-start gap-2 text-brand-muted text-sm" key={d}>
-                  <span className="shrink-0 text-citius-orange">•</span>
+                  <span className="shrink-0 text-public-orange-ink">•</span>
                   <span>{d}</span>
                 </li>
               ))}

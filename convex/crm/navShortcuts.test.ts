@@ -24,7 +24,7 @@ function makeCtx(tables: Record<string, unknown[]>) {
     }
     return {
       order: (_direction: string) => ({
-        take: async (take: number) => {
+        take: (take: number) => {
           takeCalls.push({ table, take });
           return [...getRows(table)]
             .sort(
@@ -41,7 +41,7 @@ function makeCtx(tables: Record<string, unknown[]>) {
   return {
     ctx: {
       auth: {
-        getUserIdentity: async () => ({
+        getUserIdentity: () => ({
           email: "admin@example.com",
           name: "Admin User",
           subject: "auth_1",

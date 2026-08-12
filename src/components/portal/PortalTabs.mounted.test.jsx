@@ -31,8 +31,6 @@ const ITEMS = [
   { id: "rooming", label: "Rooming" },
   { id: "room-count", label: "Room Count" },
 ];
-const NONZERO_TRANSLATE_X = /translateX\([^0]/;
-
 function Harness({ label = "Rooms", selectionMode = "automatic" }) {
   const [value, setValue] = useState("rooming");
   return (
@@ -103,7 +101,7 @@ describe("mounted portal tabs", () => {
     await act(async () => root.unmount());
   });
 
-  test("moves visible Motion content into only the newly selected owned panel", async () => {
+  test("moves content synchronously into only the newly selected owned panel", async () => {
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -116,16 +114,9 @@ describe("mounted portal tabs", () => {
     const roomingPanel = container.querySelector(`#${roomingTab?.getAttribute("aria-controls")}`);
 
     await act(async () => hotelsTab?.click());
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 500)));
-
-    const visibleMotionNode = hotelsPanel?.matches("[style]")
-      ? hotelsPanel
-      : hotelsPanel?.firstElementChild;
     expect(hotelsPanel?.hasAttribute("hidden")).toBe(false);
     expect(hotelsPanel?.textContent).toContain("hotels content");
-    expect(visibleMotionNode?.style.filter).not.toBe("blur(4px)");
-    expect(visibleMotionNode?.style.opacity).not.toBe("0");
-    expect(visibleMotionNode?.style.transform).not.toMatch(NONZERO_TRANSLATE_X);
+    expect(hotelsPanel?.querySelector("[style]")).toBeNull();
     expect(roomingPanel?.hasAttribute("hidden")).toBe(true);
     expect(roomingPanel?.textContent).not.toContain("rooming content");
 

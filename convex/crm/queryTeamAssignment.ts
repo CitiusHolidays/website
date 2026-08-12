@@ -6,11 +6,11 @@ import {
   createActivity,
   hasRole,
   isDirectorOrAdmin,
-  notifyRoles,
-  notifyStaffMember,
   type PortalAccess,
+  publishWorkflowNotification,
   TICKETING_TEAM_ROLES,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { refreshProposalLinkProjections } from "./proposalLinkProjection";
 
 const TICKETING_SCOPE_VALUES = ["Domestic", "International", "Both", "Not required"] as const;
@@ -183,7 +183,7 @@ export async function applyQueryTeamAssignments(
     queryPatch.ticketingScope = ticketingScope;
   }
 
-  const writes: Promise<unknown>[] = [ctx.db.patch(queryId, queryPatch)];
+  const writes: Promise<unknown>[] = [patchWithE2eOwnership(ctx, "queries", queryId, queryPatch)];
 
   for (const jobCard of jobCards) {
     const jobPatch: Record<string, unknown> = { updatedAt: now };
@@ -195,13 +195,13 @@ export async function applyQueryTeamAssignments(
       jobPatch.ticketingOwnerId = ticketing.staffId;
       jobPatch.ticketingOwnerName = ticketing.staff.name.trim();
     }
-    writes.push(ctx.db.patch(jobCard._id, jobPatch));
+    writes.push(patchWithE2eOwnership(ctx, "jobCards", jobCard._id, jobPatch));
   }
 
   if (contracting) {
     const ownerName = contracting.staff.name.trim();
     writes.push(
-      ctx.db.insert("contractingAssignments", {
+      insertWithE2eOwnership(ctx, "contractingAssignments", {
         createdAt: now,
         createdBy: access.authUserId ?? "unknown",
         ownerId: contracting.staffId,
@@ -224,11 +224,15 @@ export async function applyQueryTeamAssignments(
       entityType: "query",
       message: `${current.queryCode} assigned to ${ownerName}`,
     });
-    await notifyStaffMember(ctx, contracting.staffId, {
-      body: `You were assigned as contracting SPOC for ${current.queryCode}.`,
-      entityId: queryId,
-      entityType: "query",
-      title: "Assign contracting owner",
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [contracting.staffId] },
+      content: {
+        body: `You were assigned as contracting SPOC for ${current.queryCode}.`,
+        entityId: queryId,
+        entityType: "query",
+        title: "Assign contracting owner",
+      },
+      emailTargets: { kind: "staff", staffIds: [contracting.staffId] },
     });
   }
 
@@ -240,11 +244,15 @@ export async function applyQueryTeamAssignments(
       entityType: "query",
       message: `${current.queryCode} ticketing assigned to ${ownerName}`,
     });
-    await notifyStaffMember(ctx, ticketing.staffId, {
-      body: `You were assigned as ticketing SPOC for ${current.queryCode}.`,
-      entityId: queryId,
-      entityType: "query",
-      title: "Assign ticketing owner",
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [ticketing.staffId] },
+      content: {
+        body: `You were assigned as ticketing SPOC for ${current.queryCode}.`,
+        entityId: queryId,
+        entityType: "query",
+        title: "Assign ticketing owner",
+      },
+      emailTargets: { kind: "staff", staffIds: [ticketing.staffId] },
     });
   }
 
@@ -262,10 +270,9 @@ export async function applyQueryTeamAssignments(
   } else if (isSalesAssignmentAccess(access)) {
     assignmentTitle = "Query team assigned by Sales";
   }
-  await notifyRoles(
-    ctx,
-    headRoles,
-    {
+  await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "roles", roles: headRoles },
+    content: {
       body: `${current.queryCode} was assigned to ${contracting?.staff.name.trim() || current.contractingOwnerName || "a Contracting SPOC"}${
         ticketingScope ? ` with Ticketing Scope: ${ticketingScope}` : ""
       }.`,
@@ -273,12 +280,12 @@ export async function applyQueryTeamAssignments(
       entityType: "query",
       title: assignmentTitle,
     },
-    {
-      // One actionable Head of Ticketing alert covers the initial unassigned intake.
-      // Selected SPOCs continue to receive their direct assignment email above.
-      emailRoles: ticketingAssignmentRequired ? ["Head of Ticketing"] : [],
-    }
-  );
+    // One actionable Head of Ticketing email covers the initial unassigned intake.
+    // Selected SPOCs continue to receive their direct assignment email above.
+    emailTargets: ticketingAssignmentRequired
+      ? { kind: "roles", roles: ["Head of Ticketing"] }
+      : { kind: "none" },
+  });
 
   return { id: queryId };
 }

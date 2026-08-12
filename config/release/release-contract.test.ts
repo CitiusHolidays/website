@@ -152,12 +152,27 @@ describe("release command contract", () => {
     expect(packageJson.scripts?.["lint:ratchet"]).toBe("bun config/release/lint-ratchet.ts");
     expect(packageJson.scripts?.check).toContain("bun run lint");
     expect(packageJson.scripts?.check).toContain("bun run lint:ratchet");
-    expect(packageJson.scripts?.check).toContain("bun run test");
-    expect(packageJson.scripts?.test).toContain("--isolate");
-    expect(packageJson.scripts?.test).toContain("--path-ignore-patterns='e2e/specs/**'");
+    expect(packageJson.scripts?.check).toContain("bun run coverage:check");
+    expect(packageJson.scripts?.["coverage:check"]).toBe("bun config/release/coverage-ratchet.ts");
+    expect(packageJson.scripts?.test).toBe("bun config/test/run-target-neutral-tests.ts");
+    expect(packageJson.scripts?.["test:bun"]).toContain("--isolate");
+    expect(packageJson.scripts?.["test:bun"]).toContain("--path-ignore-patterns='e2e/specs/**'");
+    expect(packageJson.scripts?.["test:bun"]).toContain("--path-ignore-patterns='e2e/public/**'");
+    expect(packageJson.scripts?.["test:convex"]).toBe(
+      "vitest run --config vitest.convex.config.mts"
+    );
     expect(packageJson.scripts?.["diff:check"]).toBe("bun config/release/check-diff-hygiene.ts");
     expect(packageJson.scripts?.["performance:check"]).toBe(
       "bun config/release/check-performance-budgets.ts"
+    );
+    expect(packageJson.scripts?.["performance:public:collect"]).toBe(
+      "bun scripts/public-runtime-performance.ts"
+    );
+    expect(packageJson.scripts?.["release:scope"]).toBe(
+      "bun config/release/summarize-change-range.ts"
+    );
+    expect(packageJson.scripts?.["migration:rehearsal"]).toBe(
+      "bun config/release/migration-rehearsal.ts"
     );
     expect(packageJson.scripts?.["automation:check"]).toBe(
       "bun config/release/agent-automation-policy.ts"

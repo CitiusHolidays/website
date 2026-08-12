@@ -2,7 +2,10 @@
 
 **Parent PRD:** `docs/prd/typescript-effect-migration.md`  
 **Historical plan map:** [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
-**Publish status:** Markdown only — `gh` token invalid; run `gh auth login` then publish with `ready-for-agent` label.
+**Status:** Historical issue breakdown. The guardrailed migration slices were landed and later
+Staff Workspace scale/retry work absorbed the pagination, replay-safety, import/export, and
+notification-delivery follow-ons. The checkboxes below are retained as acceptance criteria, not an
+active queue. See [`docs/WORKING_TREE_CHANGES.md`](../WORKING_TREE_CHANGES.md) for current evidence.
 
 ---
 
@@ -12,15 +15,15 @@
 
 ### What to build
 
-Commit the TypeScript migration branch with all JS counterparts removed for migrated modules (portal workspace state, payment routes, portal lib utilities). Ensure `bun run typecheck`, `bun test`, and `bun run lint` pass. No duplicate `.js`/`.ts` pairs for deleted modules.
+Commit the TypeScript migration branch with all JS counterparts removed for migrated modules (portal workspace state, payment routes, portal lib utilities). Ensure `bun run typecheck`, `bun run test`, and `bun run lint` pass. No duplicate `.js`/`.ts` pairs for deleted modules.
 
 ### Acceptance criteria
 
 - [ ] `bun run typecheck` exits 0
-- [ ] `bun test` exits 0 (439+ tests)
+- [ ] `bun run test` exits 0 (439+ tests at this snapshot)
 - [ ] `bun run lint` exits 0
 - [ ] No duplicate module pairs for payment routes, `usePortalWorkspaceState`, migrated `src/lib/portal/*`
-- [ ] The current status is recorded in the release evidence and local issue tracker; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
+- [ ] The current status is recorded in GitHub Issues and local evidence remains in `.scratch/`; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
 
 **Maps to:** [`docs/PLAN_MAP.md`](../PLAN_MAP.md) → `plans/001-land-ts-migration-branch.md`
 
@@ -59,7 +62,7 @@ Fix webhook route so transient processing failures return 5xx (Razorpay retries)
 - [ ] Transient processing error → 5xx (not 200)
 - [ ] `razorpayWebhook.test.ts` covers error classification
 - [ ] CEO review gap closed (historical review pointer is mapped in [`docs/PLAN_MAP.md`](../PLAN_MAP.md))
-- [ ] The current status is recorded in the release evidence and local issue tracker; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
+- [ ] The current status is recorded in GitHub Issues and local evidence remains in `.scratch/`; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
 
 **Maps to:** [`docs/PLAN_MAP.md`](../PLAN_MAP.md) → `plans/002-razorpay-webhook-error-responses.md`
 
@@ -97,7 +100,7 @@ Extend `portalWorkspaceContract.test.js` to lock filter/row/mutation contracts f
 - [ ] Contract test covers workspace filter and row shaping for at least queries, proposals, job cards list views
 - [ ] `runMutation(options, fn)` call-site contract still scanned
 - [ ] Lazy import integrity test passes (`portalComponentImports.test.js`)
-- [ ] The current status is recorded in the release evidence and local issue tracker; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
+- [ ] The current status is recorded in GitHub Issues and local evidence remains in `.scratch/`; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
 
 **Maps to:** [`docs/PLAN_MAP.md`](../PLAN_MAP.md) → `plans/005-portal-workspace-contract-tests.md`
 
@@ -116,7 +119,7 @@ Replace `AnyRecord` / loose `Record<string, unknown>` in `portalWorkspaceRows.ts
 - [ ] Phase-1 entities typed (queries, proposals, job cards minimum)
 - [ ] `bun run typecheck` and contract tests pass
 - [ ] No Effect added to workspace hooks
-- [ ] The current status is recorded in the release evidence and local issue tracker; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
+- [ ] The current status is recorded in GitHub Issues and local evidence remains in `.scratch/`; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
 
 **Maps to:** [`docs/PLAN_MAP.md`](../PLAN_MAP.md) → `plans/003-workspace-anyrecord-phase1.md`
 
@@ -135,7 +138,7 @@ Run `evaluateEffectAdoption` checklist across payment, webhook, notification, an
 - [ ] Audit table in PR or `src/lib/effectAdoption.ts` comments listing each integration seam
 - [ ] `effectAdoption.test.ts` passes
 - [ ] No new Effect usage in portal UI or simple Convex mutations
-- [ ] The current status is recorded in the release evidence and local issue tracker; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
+- [ ] The current status is recorded in GitHub Issues and local evidence remains in `.scratch/`; see [`docs/PLAN_MAP.md`](../PLAN_MAP.md)
 
 **Maps to:** [`docs/PLAN_MAP.md`](../PLAN_MAP.md) → `plans/004-effect-adoption-audit.md`
 

@@ -4,10 +4,42 @@ import {
   AI_RUNTIME_POLICIES,
   assertRuntimePolicy,
   type ProviderAttempt,
+  planProviderAttempt,
   runProviderFallback,
 } from "./runtimePolicy";
 
 describe("AI runtime policy", () => {
+  test("plans one bounded attempt from the shared route budget", () => {
+    expect(
+      planProviderAttempt({
+        index: 1,
+        minimumAttemptMs: 100,
+        model: "fallback:free",
+        now: 450,
+        providerAttemptTimeoutMs: 300,
+        startedAt: 100,
+        totalTimeoutMs: 1000,
+      })
+    ).toEqual({
+      attempt: 2,
+      fallback: true,
+      model: "fallback:free",
+      remainingMs: 650,
+      timeoutMs: 300,
+    });
+    expect(
+      planProviderAttempt({
+        index: 2,
+        minimumAttemptMs: 100,
+        model: "last:free",
+        now: 1001,
+        providerAttemptTimeoutMs: 300,
+        startedAt: 0,
+        totalTimeoutMs: 1000,
+      })
+    ).toBeNull();
+  });
+
   test("uses measured free tool-capable models and leaves route headroom", () => {
     for (const policy of Object.values(AI_RUNTIME_POLICIES)) {
       expect(policy.models.length).toBeGreaterThanOrEqual(2);

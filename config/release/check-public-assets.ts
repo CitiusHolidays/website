@@ -8,11 +8,15 @@ interface SourceFile {
 
 const ASSET_REFERENCE_PATTERN =
   /["'`](\/(?!api\/|_next\/)[^"'`?#]+\.[a-zA-Z0-9]{2,5})(?:[?#][^"'`]*)?["'`]/g;
+const TEST_SOURCE_PATTERN = /(?:\.test|\.spec)\.[cm]?[jt]sx?$/;
 const SOURCE_EXTENSIONS = new Set([".css", ".js", ".jsx", ".mjs", ".ts", ".tsx"]);
 
 export function findMissingPublicAssetReferences(sources: SourceFile[], publicAssets: Set<string>) {
   const missing = new Set<string>();
   for (const file of sources) {
+    if (TEST_SOURCE_PATTERN.test(file.path)) {
+      continue;
+    }
     for (const match of file.source.matchAll(ASSET_REFERENCE_PATTERN)) {
       const [, asset] = match;
       if (asset && !publicAssets.has(asset)) {

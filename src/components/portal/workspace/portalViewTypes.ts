@@ -1,9 +1,9 @@
 import type { Key, ReactNode } from "react";
 import type { PipelineMode } from "@/components/portal/pipeline/PipelineView";
-import type { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
+import type { PortalWorkspaceImplementationState } from "@/components/portal/usePortalWorkspaceState";
 import type { PortalPermission } from "@/lib/portal/workspaceContract";
 
-type PortalWorkspaceState = ReturnType<typeof usePortalWorkspaceState>;
+type PortalWorkspaceState = PortalWorkspaceImplementationState;
 
 export interface PortalAttachmentSummary {
   fileName: string;
@@ -169,7 +169,6 @@ export interface ProposalsViewProps {
   getProposalAttachmentUrl: PortalWorkspaceState["getProposalAttachmentUrl"];
   has: PortalPermissionChecker;
   loading?: boolean;
-  markProposalSent: PortalWorkspaceState["markProposalSent"];
   openModal: PortalModalOpener;
   removeProposal: PortalWorkspaceState["removeProposal"];
   rows: PortalProposalListRow[];

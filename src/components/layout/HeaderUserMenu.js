@@ -1,9 +1,13 @@
 "use client";
 
 import { BriefcaseBusiness, ChevronDown, LogOut, User } from "lucide-react";
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
+import { useCallback, useEffect, useRef } from "react";
+import { publicDisclosureMotion } from "@/lib/publicInteractionMotion";
+
+const PANEL_ID = "public-account-disclosure";
 
 export function HeaderUserMenu({
   user,
@@ -14,15 +18,48 @@ export function HeaderUserMenu({
   canAccessPortal,
   onLogout,
 }) {
+  const triggerRef = useRef(null);
+  const shouldReduceMotion = !!useReducedMotion();
+  const motion = publicDisclosureMotion(shouldReduceMotion, "right");
+  const close = useCallback(() => setUserMenuOpen(false), [setUserMenuOpen]);
+  const toggle = useCallback(() => setUserMenuOpen((current) => !current), [setUserMenuOpen]);
+  useEffect(() => {
+    if (!userMenuOpen) {
+      return;
+    }
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+        triggerRef.current?.focus({ preventScroll: true });
+      }
+    };
+    const handleFocusIn = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        close();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("focusin", handleFocusIn);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("focusin", handleFocusIn);
+    };
+  }, [close, userMenuOpen, userMenuRef]);
+
   return (
     <div className="relative" ref={userMenuRef}>
       <button
+        aria-controls={PANEL_ID}
+        aria-expanded={userMenuOpen}
+        aria-label="Account menu"
         className={`hidden items-center gap-2 rounded-full px-3 py-2 font-medium text-sm transition-[background-color,color,box-shadow] duration-300 sm:flex ${
           isScrolled
             ? "bg-white/10 text-white hover:bg-white/20"
-            : "border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"
+            : "material-floating border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"
         }`}
-        onClick={() => setUserMenuOpen(!userMenuOpen)}
+        onClick={toggle}
+        ref={triggerRef}
         type="button"
       >
         {user.image ? (
@@ -52,13 +89,15 @@ export function HeaderUserMenu({
       </button>
 
       <AnimatePresence>
-        {userMenuOpen && (
+        {userMenuOpen ? (
           <m.div
-            animate={{ opacity: 1, scale: 1, y: 0 }}
+            animate={motion.animate}
             className="absolute top-full right-0 z-50 mt-2 w-56 rounded-xl border border-gray-100 bg-white py-2 shadow-xl"
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ duration: 0.15 }}
+            exit={motion.exit}
+            id={PANEL_ID}
+            initial={motion.initial}
+            style={motion.style}
+            transition={motion.transition}
           >
             <div className="border-gray-100 border-b px-4 py-3">
               <p className="truncate font-semibold text-gray-900 text-sm">{user.name}</p>
@@ -66,20 +105,20 @@ export function HeaderUserMenu({
             </div>
 
             <div className="py-1">
-              {canAccessPortal && (
+              {canAccessPortal ? (
                 <Link
                   className="flex items-center gap-3 px-4 py-2.5 text-gray-700 text-sm transition-colors hover:bg-gray-50"
                   href="/portal"
-                  onClick={() => setUserMenuOpen(false)}
+                  onClick={close}
                 >
                   <BriefcaseBusiness size={16} />
                   Employee Portal
                 </Link>
-              )}
+              ) : null}
               <Link
                 className="flex items-center gap-3 px-4 py-2.5 text-gray-700 text-sm transition-colors hover:bg-gray-50"
                 href="/account"
-                onClick={() => setUserMenuOpen(false)}
+                onClick={close}
               >
                 <User size={16} />
                 My Account
@@ -94,7 +133,7 @@ export function HeaderUserMenu({
               </button>
             </div>
           </m.div>
-        )}
+        ) : null}
       </AnimatePresence>
     </div>
   );

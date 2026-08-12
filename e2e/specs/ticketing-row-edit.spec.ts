@@ -8,7 +8,7 @@ import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 test.describe("@smoke ticketing row edit", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
-  test("ticketing opens edit modal and saves", async ({ browser }) => {
+  test("[ticketing-ticket-edit] ticketing opens edit modal and saves", async ({ browser }) => {
     const { context, page } = await openPortalAs(browser, "ticketing");
     await page.goto("/portal/tickets");
     const toolbar = page.getByTestId("portal-list-toolbar-actions");

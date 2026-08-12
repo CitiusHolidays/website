@@ -45,7 +45,6 @@ export function usePortalWorkspaceMutations() {
   const addProposalCollaborator = useMutation(api.crm.proposals.addCollaborator);
   const removeProposalCollaborator = useMutation(api.crm.proposals.removeCollaborator);
   const sendProposalToSalesMutation = useMutation(api.crm.proposals.sendToSales);
-  const markProposalSent = useMutation(api.crm.proposals.markSent);
   const createJobCard = useMutation(api.crm.jobCards.createFromQuery);
   const updateJobCard = useMutation(api.crm.jobCards.update);
   const updateJobStatus = useMutation(api.crm.jobCards.updateStatus);
@@ -307,7 +306,6 @@ export function usePortalWorkspaceMutations() {
     getProposalAttachmentUrl,
     getQueryAttachmentUrl,
     markNotificationRead,
-    markProposalSent,
     moveContractingPipelineStageMutation,
     moveSalesPipelineStageMutation,
     previewPassengerImport,

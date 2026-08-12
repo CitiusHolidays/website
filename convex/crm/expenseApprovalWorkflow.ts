@@ -11,12 +11,13 @@ import {
   createActivity,
   isDirectorOrAdmin,
   nextCode,
-  notifyRoles,
-  notifyStaffMember,
   PERMISSIONS,
+  publishWorkflowNotification,
   requireAnyPermission,
   requireStaff,
+  type WorkflowNotificationPlan,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 
 async function staffByAuthUserId(ctx: any, authUserId?: string) {
   if (!authUserId) {
@@ -49,11 +50,15 @@ async function resolveExpenseSubmitterAndManager(ctx: any, access: any, expense:
 async function notifyExpenseSubmitter(
   ctx: any,
   expense: any,
-  input: Parameters<typeof notifyRoles>[2]
+  input: WorkflowNotificationPlan["content"]
 ) {
   const submitter = await staffByAuthUserId(ctx, expense.createdBy);
   if (submitter?._id) {
-    await notifyStaffMember(ctx, submitter._id, input);
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [submitter._id] },
+      content: input,
+      emailTargets: { kind: "staff", staffIds: [submitter._id] },
+    });
   }
 }
 
@@ -72,7 +77,7 @@ async function createFinanceExpenseApproval(ctx: any, access: any, expenseId: an
   }
   const now = Date.now();
   const requestCode = await nextCode(ctx, "approvalRequests", "APR");
-  const approvalId = await ctx.db.insert("approvalRequests", {
+  const approvalId = await insertWithE2eOwnership(ctx, "approvalRequests", {
     amount: expense.amount ?? 0,
     createdAt: now,
     entityId: expenseId,
@@ -87,11 +92,16 @@ async function createFinanceExpenseApproval(ctx: any, access: any, expenseId: an
     type: "Expense",
     updatedAt: now,
   });
-  await notifyRoles(ctx, ["Finance", "Directors"], {
-    body: `${requestCode}: ${expense.category} expense is manager-approved and needs Finance approval.`,
-    entityId: approvalId,
-    entityType: "approval",
-    title: "Expense finance approval requested",
+  const recipientRoles = ["Finance", "Directors"];
+  await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "roles", roles: recipientRoles },
+    content: {
+      body: `${requestCode}: ${expense.category} expense is manager-approved and needs Finance approval.`,
+      entityId: approvalId,
+      entityType: "approval",
+      title: "Expense finance approval requested",
+    },
+    emailTargets: { kind: "roles", roles: recipientRoles },
   });
   return { id: approvalId };
 }
@@ -153,7 +163,7 @@ export async function handleSubmitExpenseForApproval(ctx: any, args: { expenseId
   const activityMessage = `${expense.category} expense submitted for manager approval`;
   if (manager?._id) {
     submitPatch.managerApproverStaffId = manager._id;
-    await ctx.db.patch(expenseId, submitPatch);
+    await patchWithE2eOwnership(ctx, "expenseEntries", expenseId, submitPatch);
     await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
     await Promise.all([
       createActivity(ctx, access, {
@@ -162,11 +172,15 @@ export async function handleSubmitExpenseForApproval(ctx: any, args: { expenseId
         entityType: "expense",
         message: activityMessage,
       }),
-      notifyStaffMember(ctx, manager._id, {
-        body: `${expense.category} expense for ${(expense.amount ?? 0).toLocaleString("en-IN")} needs your approval.`,
-        entityId: expenseId,
-        entityType: "expense",
-        title: "Expense manager approval requested",
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "staff", staffIds: [manager._id] },
+        content: {
+          body: `${expense.category} expense for ${(expense.amount ?? 0).toLocaleString("en-IN")} needs your approval.`,
+          entityId: expenseId,
+          entityType: "expense",
+          title: "Expense manager approval requested",
+        },
+        emailTargets: { kind: "staff", staffIds: [manager._id] },
       }),
     ]);
     return { id: expenseId };
@@ -174,7 +188,7 @@ export async function handleSubmitExpenseForApproval(ctx: any, args: { expenseId
   submitPatch.managerReviewedBy = access.authUserId;
   submitPatch.managerReviewedByName = access.name;
   submitPatch.managerReviewedAt = now;
-  await ctx.db.patch(expenseId, submitPatch);
+  await patchWithE2eOwnership(ctx, "expenseEntries", expenseId, submitPatch);
   await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
   await createActivity(ctx, access, {
     action: "submitted_for_approval",
@@ -225,7 +239,7 @@ export async function handleDecideExpenseManager(
     patch.approvalStatus = "Rejected";
     patch.reimbursementStatus = "Not Submitted";
   }
-  await ctx.db.patch(expenseId, patch);
+  await patchWithE2eOwnership(ctx, "expenseEntries", expenseId, patch);
   await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
   await createActivity(ctx, access, {
     action: `manager_${args.status.toLowerCase()}`,
@@ -277,7 +291,7 @@ export async function handleDecideExpenseFinance(
   const reimbursementStatus =
     args.reimbursementStatus ?? (args.status === "Approved" ? "Pending" : "Not Submitted");
   assertValidExpenseLifecycle(args.status, reimbursementStatus);
-  await ctx.db.patch(expenseId, {
+  await patchWithE2eOwnership(ctx, "expenseEntries", expenseId, {
     approvalStatus: args.status,
     financeReviewedAt: now,
     financeReviewedBy: access.authUserId ?? "unknown",
@@ -291,7 +305,7 @@ export async function handleDecideExpenseFinance(
     approvalRows.flatMap((approval: any) =>
       approval.status === "Pending"
         ? [
-            ctx.db.patch(approval._id, {
+            patchWithE2eOwnership(ctx, "approvalRequests", approval._id, {
               decidedAt: now,
               decidedBy: access.authUserId ?? "unknown",
               decidedByName: access.name,
@@ -356,7 +370,7 @@ export async function handleUpdateExpenseStatus(
     expensePatch.financeReviewedByName = access.name;
     expensePatch.financeReviewedAt = now;
   }
-  await ctx.db.patch(id, expensePatch);
+  await patchWithE2eOwnership(ctx, "expenseEntries", id, expensePatch);
   await scheduleFinanceMetricSync(ctx, "expenseEntries", id);
   await Promise.all(
     approvalRows.flatMap((approval: any) => {
@@ -372,7 +386,7 @@ export async function handleUpdateExpenseStatus(
         approvalPatch.decidedByName = access.name;
         approvalPatch.decidedAt = now;
       }
-      return [ctx.db.patch(approval._id, approvalPatch)];
+      return [patchWithE2eOwnership(ctx, "approvalRequests", approval._id, approvalPatch)];
     })
   );
   await createActivity(ctx, access, {

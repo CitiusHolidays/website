@@ -1,15 +1,17 @@
 "use client";
 
-import { domAnimation, LazyMotion, MotionConfig, useReducedMotion } from "motion/react";
+import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
+import { useEffect, useState } from "react";
 
 export default function ReducedMotionProvider({ children }) {
-  const prefersReducedMotion = useReducedMotion();
+  const [isHydrated, setIsHydrated] = useState(false);
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   return (
     <LazyMotion features={domAnimation}>
-      <MotionConfig reducedMotion={prefersReducedMotion ? "always" : "user"}>
-        {children}
-      </MotionConfig>
+      <MotionConfig reducedMotion={isHydrated ? "user" : "always"}>{children}</MotionConfig>
     </LazyMotion>
   );
 }

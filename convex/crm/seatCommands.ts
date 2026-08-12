@@ -16,7 +16,7 @@ import {
 import { mapInBoundedBatches } from "./paginationPolicy";
 
 export async function handleSaveSeatAllocation(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     jobCardId: string;
     notes?: string;
@@ -59,12 +59,12 @@ export async function handleSaveSeatAllocation(
   if (travellerId && args.status === "Assigned") {
     const tickets = await ctx.db
       .query("tickets")
-      .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
-      .filter((q: any) => q.eq(q.field("travellerId"), travellerId))
+      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+      .filter((q) => q.eq(q.field("travellerId"), travellerId))
       .collect();
     await Promise.all(
-      tickets.map((ticket: any) =>
-        ctx.db.patch(ticket._id, {
+      tickets.map((ticket) =>
+        ctx.db.patch("tickets", ticket._id, {
           seatNumber: args.seatNumber.trim().toUpperCase(),
           updatedAt: now,
         })
@@ -81,7 +81,7 @@ export async function handleSaveSeatAllocation(
 }
 
 export async function handleUpdateSeatAllocation(
-  ctx: any,
+  ctx: MutationCtx,
   args: {
     notes?: string;
     pnrId?: string;
@@ -96,7 +96,7 @@ export async function handleUpdateSeatAllocation(
   if (!id) {
     throw new ConvexError("Invalid seat allocation id");
   }
-  const seat = await ctx.db.get(id);
+  const seat = await ctx.db.get("seatAllocations", id);
   if (!seat) {
     throw new ConvexError("Seat allocation not found");
   }
@@ -142,18 +142,18 @@ export async function handleUpdateSeatAllocation(
     patch.notes = args.notes.trim();
   }
 
-  await ctx.db.patch(id, patch);
+  await ctx.db.patch("seatAllocations", id, patch);
 
   const linkedTravellerId = travellerId === undefined ? seat.travellerId : travellerId;
   if (linkedTravellerId && nextStatus === "Assigned") {
     const tickets = await ctx.db
       .query("tickets")
-      .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", seat.jobCardId))
-      .filter((q: any) => q.eq(q.field("travellerId"), linkedTravellerId))
+      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", seat.jobCardId))
+      .filter((q) => q.eq(q.field("travellerId"), linkedTravellerId))
       .collect();
     await Promise.all(
-      tickets.map((ticket: any) =>
-        ctx.db.patch(ticket._id, {
+      tickets.map((ticket) =>
+        ctx.db.patch("tickets", ticket._id, {
           seatNumber: nextSeatNumber,
           updatedAt: now,
         })
@@ -176,7 +176,7 @@ export async function deleteSeatAllocationRecord(
   id: Id<"seatAllocations">,
   deferredNotifications?: NotificationEntityIdentity[]
 ) {
-  const seat = await ctx.db.get(id);
+  const seat = await ctx.db.get("seatAllocations", id);
   if (!seat) {
     throw new ConvexError("Seat allocation not found");
   }
@@ -192,11 +192,14 @@ export async function deleteSeatAllocationRecord(
       message: `Seat ${seat.seatNumber} deleted`,
     }),
     deleteEntityNotifications(ctx, "seatAllocation", id, deferredNotifications),
-    ctx.db.delete(id),
+    ctx.db.delete("seatAllocations", id),
   ]);
 }
 
-export async function handleRemoveSeatAllocation(ctx: any, args: { seatAllocationId: string }) {
+export async function handleRemoveSeatAllocation(
+  ctx: MutationCtx,
+  args: { seatAllocationId: string }
+) {
   const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);
   const id = ctx.db.normalizeId("seatAllocations", args.seatAllocationId);
   if (!id) {
@@ -207,7 +210,7 @@ export async function handleRemoveSeatAllocation(ctx: any, args: { seatAllocatio
 }
 
 export async function handleRemoveManySeatAllocations(
-  ctx: any,
+  ctx: MutationCtx,
   args: { seatAllocationIds: string[] }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING);

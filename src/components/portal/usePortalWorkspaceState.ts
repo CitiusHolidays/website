@@ -12,9 +12,10 @@ import type { PipelineMode } from "@/components/portal/pipeline/PipelineView";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import { uploadExpenseProofFiles, uploadQueryFiles } from "@/lib/portal/fileUploads";
 import {
+  isPortalValidationError,
   isProposalPricingComplete,
   PROPOSAL_HANDOFF_TO_SALES_ERROR,
-  PROPOSAL_MARK_SENT_ERROR,
+  validateModalForm,
 } from "@/lib/portal/formValidation";
 import { getListFilterConfig } from "@/lib/portal/listFilterConfig";
 import { createProductionModalCommandAdapter } from "@/lib/portal/modalCommandAdapter";
@@ -36,6 +37,7 @@ import { runMutation } from "@/lib/portal/runMutation";
 import { parseUrlFilterState } from "@/lib/portal/urlFilterState";
 import { INITIAL_FORM } from "@/lib/portal/workspaceContract";
 import { buildPortalWorkspaceFilters } from "./workspace/portalWorkspaceFilters";
+import { createPortalWorkspaceModel } from "./workspace/portalWorkspaceModel";
 import { buildPortalWorkspaceRows } from "./workspace/portalWorkspaceRows";
 import { useDashboardSummary } from "./workspace/usePortalDashboardSummary";
 import { usePortalWorkspaceData } from "./workspace/usePortalWorkspaceData";
@@ -61,6 +63,7 @@ interface PatchAction {
 interface WorkspaceState {
   dateRange: DateRangeState;
   error: string;
+  fieldErrors: Record<string, string>;
   form: AnyRecord;
   isSaving: boolean;
   jobCardFilter: string;
@@ -90,7 +93,7 @@ function resolveFocusedDetail(
   }
 }
 
-export function usePortalWorkspaceState(view: string, searchParams: URLSearchParams) {
+function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchParams) {
   const router = useRouter();
   const pathname = usePathname();
   const toast = usePortalToast() as PortalToastApi;
@@ -100,6 +103,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
   const [workspace, patchWorkspace, , dispatchWorkspace] = usePatchReducer({
     dateRange: initialUrlFilters.dateRange,
     error: "",
+    fieldErrors: {},
     form: INITIAL_FORM,
     isSaving: false,
     jobCardFilter: initialUrlFilters.jobCardFilter,
@@ -124,6 +128,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     pendingProposalFiles,
     pendingExpenseProofFiles,
     error,
+    fieldErrors,
     isSaving,
     pipelineMode,
     search,
@@ -151,6 +156,8 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     });
   const setError = (value: StateUpdate<string>) =>
     patchState({ error: resolveUpdate(value, error) });
+  const setFieldErrors = (value: StateUpdate<Record<string, string>>) =>
+    patchState({ fieldErrors: resolveUpdate(value, fieldErrors) });
   const setIsSaving = (value: StateUpdate<boolean>) =>
     patchState({ isSaving: resolveUpdate(value, isSaving) });
   const _setPipelineMode = (value: StateUpdate<PipelineMode>) =>
@@ -311,7 +318,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     getProposalAttachmentUrl,
     getQueryAttachmentUrl,
     markNotificationRead,
-    markProposalSent: markProposalSentMutation,
     moveContractingPipelineStageMutation,
     moveSalesPipelineStageMutation,
     previewPassengerImport,
@@ -476,6 +482,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
 
   const openModal = (type: string, initial: AnyRecord = {}) => {
     setError("");
+    setFieldErrors({});
     const next = initial.focusedDetailType
       ? { ...initial }
       : createInitialWorkspaceModalForm({
@@ -511,6 +518,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     setPendingProposalFiles([]);
     setPendingExpenseProofFiles([]);
     setError("");
+    setFieldErrors({});
     router.replace(filterUrlForState({ dateRange, jobCardFilter, listFilters, search }), {
       scroll: false,
     });
@@ -518,10 +526,27 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
 
   const updateForm = (field: string, value: unknown) => {
     setForm((current) => ({ ...current, [field]: value }));
+    if (fieldErrors[field]) {
+      setFieldErrors((current) => {
+        const next = { ...current };
+        delete next[field];
+        return next;
+      });
+    }
   };
 
   const patchForm = (patch: AnyRecord) => {
     setForm((current) => ({ ...current, ...patch }));
+    const patchedErrorFields = Object.keys(patch).filter((field) => fieldErrors[field]);
+    if (patchedErrorFields.length > 0) {
+      setFieldErrors((current) => {
+        const next = { ...current };
+        for (const field of patchedErrorFields) {
+          delete next[field];
+        }
+        return next;
+      });
+    }
   };
 
   const focusedDetail = resolveFocusedDetail(form.focusedDetailType, {
@@ -622,27 +647,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     return true;
   };
 
-  const markProposalSent = async ({ proposalId }: { proposalId: string }) => {
-    setError("");
-    if (rejectIncompleteProposalHandoff(proposalById(proposalId), PROPOSAL_MARK_SENT_ERROR)) {
-      return false;
-    }
-    try {
-      await runMutation(
-        {
-          label: "Mark sent",
-          onError: (message) => setError(message),
-          showToast: toast,
-          successMessage: "Proposal marked sent.",
-        },
-        () => markProposalSentMutation({ proposalId })
-      );
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
   const sendProposalToSales = async ({ proposalId }: { proposalId: string }) => {
     setError("");
     if (
@@ -672,8 +676,23 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
       setError("Wait for the current record to load before saving.");
       return;
     }
-    setIsSaving(true);
     setError("");
+    setFieldErrors({});
+    try {
+      validateModalForm(modal ?? "", effectiveForm, {
+        access,
+        has,
+        jobCardModals: JOB_CARD_MODALS,
+      });
+    } catch (validationError) {
+      if (isPortalValidationError(validationError)) {
+        setFieldErrors({ [validationError.field]: validationError.message });
+      } else {
+        setError(validationError instanceof Error ? validationError.message : "Unable to save.");
+      }
+      return;
+    }
+    setIsSaving(true);
     try {
       let saveSuccessMessage = "Saved";
       await runMutation(
@@ -825,6 +844,7 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     encryptAndStorePassport,
     error,
     expenses,
+    fieldErrors,
     filteredAccountsQueries,
     filteredActivity,
     filteredAllTickets,
@@ -877,7 +897,6 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     listFilterConfig,
     listFilters,
     markNotificationRead,
-    markProposalSent,
     meta,
     modal,
     moveContractingPipelineStage,
@@ -991,4 +1010,12 @@ export function usePortalWorkspaceState(view: string, searchParams: URLSearchPar
     viewResultCount,
     visas,
   };
+}
+
+export type PortalWorkspaceImplementationState = ReturnType<
+  typeof usePortalWorkspaceImplementation
+>;
+
+export function usePortalWorkspaceState(view: string, searchParams: URLSearchParams) {
+  return createPortalWorkspaceModel(usePortalWorkspaceImplementation(view, searchParams));
 }

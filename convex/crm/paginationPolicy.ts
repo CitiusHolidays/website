@@ -20,7 +20,8 @@ export function applyCrmCursorFilters<QueryBuilder extends { filter: (predicate:
   source: QueryBuilder,
   filters: CrmCursorFilters
 ): QueryBuilder {
-  const equalities = Object.entries(filters.equals ?? {}).filter((entry) => Boolean(entry[1]));
+  // Undefined means "no filter". False, zero, and the empty string are valid exact values.
+  const equalities = Object.entries(filters.equals ?? {}).filter((entry) => entry[1] !== undefined);
   if (
     !(filters.createdAtFrom !== undefined || filters.createdAtTo !== undefined || equalities.length)
   ) {

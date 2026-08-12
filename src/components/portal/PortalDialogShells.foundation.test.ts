@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 const adapter = readFileSync("src/components/ui/application-dialog.tsx", "utf8");
 const confirm = readFileSync("src/components/portal/PortalConfirmDialog.js", "utf8");
 const entity = readFileSync("src/components/portal/entityModal/EntityModalShell.js", "utf8");
+const RENDER_TIME_INITIAL_FOCUS_ASSIGNMENT = /^\s*initialFocusRef\.current\s*=\s*initialFocus;/m;
+const TRY_WRAPPED_EXTERNAL_SYNC = /syncingExternalStateRef\.current = true;\s*try/;
 
 describe("primary portal dialog foundation boundary", () => {
   test("provides shared Base UI Dialog and AlertDialog controlled adapters", () => {
@@ -20,6 +22,12 @@ describe("primary portal dialog foundation boundary", () => {
     expect(adapter).toContain("<BaseAlertDialog.Backdrop");
     expect(adapter).toContain("<BaseAlertDialog.Viewport");
     expect(adapter).toContain("<BaseAlertDialog.Popup");
+  });
+
+  test("reads changing focus inputs without mutating refs during render", () => {
+    expect(adapter).toContain("useEffectEvent");
+    expect(adapter).not.toMatch(RENDER_TIME_INITIAL_FOCUS_ASSIGNMENT);
+    expect(adapter).not.toMatch(TRY_WRAPPED_EXTERNAL_SYNC);
   });
 
   test("leaves Base UI as the confirmation shell's sole modal behavior owner", () => {

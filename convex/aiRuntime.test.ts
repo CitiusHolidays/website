@@ -19,12 +19,12 @@ function makeSharedCtx(nowRef: { value: number }) {
           }
         }
       },
-      insert: async (table: string, value: Record<string, unknown>) => {
+      insert: (table: string, value: Record<string, unknown>) => {
         const id = `${table}_${nextId++}`;
         tables[table].push({ _id: id, ...value });
         return id;
       },
-      patch: async (id: string, value: Record<string, unknown>) => {
+      patch: (id: string, value: Record<string, unknown>) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

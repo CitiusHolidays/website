@@ -42,6 +42,16 @@ scope are tested in `src/app/publicVisualIdentity.contract.test.ts`.
 - Avoid heavy glassmorphism, excessive pills, and motion that obscures progress or makes reading
   difficult. Honour reduced-motion preferences.
 
+### Asset provenance boundary
+
+| Asset | Provenance status | Approved use |
+| --- | --- | --- |
+| `/gallery/spiritual/varanasi-sunset.webp` | **Unknown origin**; location and authorship are unverified | **Decorative only**, with empty alternative text. It must not substantiate a place, event, customer record, Citius journey, or other documentary claim. |
+
+Unknown-origin artwork must not be captioned or described as authenticated photography. Replacing
+this asset with documentary imagery requires recorded source, location, usage rights, and content
+review.
+
 ## Release gate
 
 Before publishing a new Sacred Bharat surface, confirm: approved asset provenance, parent endorsement,

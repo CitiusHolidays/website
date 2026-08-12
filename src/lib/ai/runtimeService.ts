@@ -1,8 +1,6 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { fetchMutation } from "convex/nextjs";
 import { anyApi } from "convex/server";
-import { Effect } from "effect";
-import { buildExternalIoEffect } from "@/lib/effectAdoption";
 import type { AiFeature } from "./runtimePolicy";
 
 const RATE_LIMITS = {
@@ -21,7 +19,7 @@ type FetchMutationImplementation = (
   mutation: unknown,
   args: Record<string, unknown>,
   options?: { url?: string }
-) => Promise<any>;
+) => Promise<unknown>;
 
 interface RuntimeDependencies {
   env?: RuntimeEnvironment;
@@ -34,6 +32,30 @@ export interface AiRateLimitResult {
   allowed: boolean;
   remaining: number;
   retryAfterSec: number;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function parseAiRateLimitResult(value: unknown): AiRateLimitResult {
+  if (!(value && typeof value === "object")) {
+    throw new Error("AI shared rate-limit storage returned an invalid result");
+  }
+  const result = value as Record<string, unknown>;
+  if (
+    Object.keys(result).sort().join(",") !== "allowed,remaining,retryAfterSec" ||
+    typeof result.allowed !== "boolean" ||
+    !isNonNegativeInteger(result.remaining) ||
+    !isNonNegativeInteger(result.retryAfterSec)
+  ) {
+    throw new Error("AI shared rate-limit storage returned an invalid result");
+  }
+  return {
+    allowed: result.allowed,
+    remaining: result.remaining,
+    retryAfterSec: result.retryAfterSec,
+  };
 }
 
 interface DevelopmentRateLimitBucket {
@@ -130,23 +152,18 @@ export async function consumeSharedAiRateLimit(
   const keyHash = hashAiRateLimitKey(feature, rawKey, env);
   const policy = RATE_LIMITS[feature];
 
-  return await Effect.runPromise(
-    buildExternalIoEffect(
-      "consume shared AI rate limit",
-      async () =>
-        await fetchMutationImpl(
-          anyApi.aiRuntime.consumeRateLimit,
-          {
-            feature,
-            keyHash,
-            limit: policy.limit,
-            secret,
-            windowMs: policy.windowMs,
-          },
-          { url }
-        )
-    )
+  const result = await fetchMutationImpl(
+    anyApi.aiRuntime.consumeRateLimit,
+    {
+      feature,
+      keyHash,
+      limit: policy.limit,
+      secret,
+      windowMs: policy.windowMs,
+    },
+    { url }
   );
+  return parseAiRateLimitResult(result);
 }
 
 export async function recordAiTelemetry(
@@ -159,13 +176,7 @@ export async function recordAiTelemetry(
 
   try {
     const { secret, url } = runtimeConfiguration(env);
-    await Effect.runPromise(
-      buildExternalIoEffect(
-        "record AI telemetry",
-        async () =>
-          await fetchMutationImpl(anyApi.aiRuntime.recordTelemetry, { ...event, secret }, { url })
-      )
-    );
+    await fetchMutationImpl(anyApi.aiRuntime.recordTelemetry, { ...event, secret }, { url });
     return true;
   } catch (error) {
     logger.error("AI telemetry write failed", error);

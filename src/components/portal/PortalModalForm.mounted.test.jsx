@@ -59,6 +59,53 @@ describe("mounted portal modal form contracts", () => {
     await act(async () => root.unmount());
   });
 
+  test("associates adjacent validation messages with text, date, and select controls", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () =>
+      root.render(
+        <>
+          <Input
+            error="Enter a Client / Company."
+            fieldKey="clientName"
+            label="Client / Company"
+            onChange={() => undefined}
+            value=""
+          />
+          <Input
+            error="Travel Date From must be on or before Travel Date To."
+            fieldKey="travelEndDate"
+            label="Travel Date To"
+            onChange={() => undefined}
+            type="date"
+            value="2026-08-01"
+          />
+          <Select
+            error="Select Category."
+            fieldKey="category"
+            label="Category"
+            onChange={() => undefined}
+            options={[{ label: "Select category…", value: "" }]}
+            value=""
+          />
+        </>
+      )
+    );
+
+    const invalidControls = [...container.querySelectorAll('[aria-invalid="true"]')];
+    expect(invalidControls).toHaveLength(3);
+    for (const control of invalidControls) {
+      const descriptionId = control.getAttribute("aria-describedby");
+      expect(descriptionId).not.toBeNull();
+      expect(container.querySelector(`#${descriptionId}`)?.textContent).not.toBe("");
+    }
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
   test("keeps DD/MM/YYYY editing plus the native calendar input", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);

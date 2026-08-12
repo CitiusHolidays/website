@@ -122,8 +122,10 @@ describe("applyQueryTeamAssignments", () => {
       staffUsers: [contractingStaff],
     });
     const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
-    const notifyRoles = spyOn(lib, "notifyRoles").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
 
     try {
       await applyQueryTeamAssignments(ctx as never, salesAccess(), {
@@ -138,21 +140,27 @@ describe("applyQueryTeamAssignments", () => {
         contractingStatus: "Query Received",
         ticketingScope: "Both",
       });
-      expect(notifyStaffMember).toHaveBeenCalledWith(
+      expect(publishWorkflowNotification).toHaveBeenCalledWith(
         expect.anything(),
-        "staffUsers_contracting",
-        expect.objectContaining({ title: "Assign contracting owner" })
+        expect.objectContaining({
+          bellTargets: { kind: "staff", staffIds: ["staffUsers_contracting"] },
+          content: expect.objectContaining({ title: "Assign contracting owner" }),
+        })
       );
-      expect(notifyRoles).toHaveBeenCalledWith(
+      expect(publishWorkflowNotification).toHaveBeenCalledWith(
         expect.anything(),
-        ["Contracting Head", "Operations Head", "Head of Ticketing"],
-        expect.objectContaining({ title: "Assign Ticketing SPOC" }),
-        { emailRoles: ["Head of Ticketing"] }
+        expect.objectContaining({
+          bellTargets: {
+            kind: "roles",
+            roles: ["Contracting Head", "Operations Head", "Head of Ticketing"],
+          },
+          content: expect.objectContaining({ title: "Assign Ticketing SPOC" }),
+          emailTargets: { kind: "roles", roles: ["Head of Ticketing"] },
+        })
       );
     } finally {
       createActivity.mockRestore();
-      notifyStaffMember.mockRestore();
-      notifyRoles.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 
@@ -164,7 +172,10 @@ describe("applyQueryTeamAssignments", () => {
       staffUsers: [contractingStaff, ticketingStaff],
     });
     const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
 
     try {
       const result = await applyQueryTeamAssignments(ctx as never, headAccess(), {
@@ -189,10 +200,10 @@ describe("applyQueryTeamAssignments", () => {
       });
       expect(tables.contractingAssignments).toHaveLength(1);
       expect(createActivity).toHaveBeenCalledTimes(2);
-      expect(notifyStaffMember).toHaveBeenCalledTimes(2);
+      expect(publishWorkflowNotification).toHaveBeenCalledTimes(3);
     } finally {
       createActivity.mockRestore();
-      notifyStaffMember.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 
@@ -204,7 +215,10 @@ describe("applyQueryTeamAssignments", () => {
       staffUsers: [contractingStaff],
     });
     const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
 
     try {
       await applyQueryTeamAssignments(ctx as never, headAccess(), {
@@ -216,10 +230,10 @@ describe("applyQueryTeamAssignments", () => {
       expect(tables.queries[0]).not.toHaveProperty("ticketingOwnerId");
       expect(tables.contractingAssignments).toHaveLength(1);
       expect(createActivity).toHaveBeenCalledTimes(1);
-      expect(notifyStaffMember).toHaveBeenCalledTimes(1);
+      expect(publishWorkflowNotification).toHaveBeenCalledTimes(2);
     } finally {
       createActivity.mockRestore();
-      notifyStaffMember.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 
@@ -231,8 +245,10 @@ describe("applyQueryTeamAssignments", () => {
       staffUsers: [contractingStaff],
     });
     const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
-    const notifyRoles = spyOn(lib, "notifyRoles").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
 
     try {
       await applyQueryTeamAssignments(ctx as never, salesAccess(), {
@@ -241,16 +257,20 @@ describe("applyQueryTeamAssignments", () => {
         ticketingScope: "Not required",
       });
 
-      expect(notifyRoles).toHaveBeenCalledWith(
+      expect(publishWorkflowNotification).toHaveBeenCalledWith(
         expect.anything(),
-        ["Contracting Head", "Operations Head"],
-        expect.objectContaining({ title: "Query team assigned by Sales" }),
-        { emailRoles: [] }
+        expect.objectContaining({
+          bellTargets: {
+            kind: "roles",
+            roles: ["Contracting Head", "Operations Head"],
+          },
+          content: expect.objectContaining({ title: "Query team assigned by Sales" }),
+          emailTargets: { kind: "none" },
+        })
       );
     } finally {
       createActivity.mockRestore();
-      notifyStaffMember.mockRestore();
-      notifyRoles.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 
@@ -293,8 +313,10 @@ describe("applyQueryTeamAssignments", () => {
       staffUsers: [contractingStaff],
     });
     const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
-    const notifyRoles = spyOn(lib, "notifyRoles").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
 
     try {
       await applyQueryTeamAssignments(ctx as never, salesAccess(), {
@@ -307,15 +329,16 @@ describe("applyQueryTeamAssignments", () => {
         contractingOwnerId: "staffUsers_contracting",
         ticketingScope: "Domestic",
       });
-      expect(notifyStaffMember).toHaveBeenCalledWith(
+      expect(publishWorkflowNotification).toHaveBeenCalledWith(
         expect.anything(),
-        "staffUsers_contracting",
-        expect.objectContaining({ title: "Assign contracting owner" })
+        expect.objectContaining({
+          bellTargets: { kind: "staff", staffIds: ["staffUsers_contracting"] },
+          content: expect.objectContaining({ title: "Assign contracting owner" }),
+        })
       );
     } finally {
       createActivity.mockRestore();
-      notifyStaffMember.mockRestore();
-      notifyRoles.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 
@@ -343,7 +366,10 @@ describe("applyQueryTeamAssignments", () => {
       staffUsers: [ticketingStaff],
     });
     const createActivity = spyOn(lib, "createActivity").mockImplementation(async () => {});
-    const notifyStaffMember = spyOn(lib, "notifyStaffMember").mockImplementation(async () => {});
+    const publishWorkflowNotification = spyOn(
+      lib,
+      "publishWorkflowNotification"
+    ).mockImplementation(async () => {});
 
     try {
       await applyQueryTeamAssignments(ctx as never, headAccess(), {
@@ -355,10 +381,10 @@ describe("applyQueryTeamAssignments", () => {
       expect(tables.queries[0]).not.toHaveProperty("contractingOwnerId");
       expect(tables.contractingAssignments ?? []).toHaveLength(0);
       expect(createActivity).toHaveBeenCalledTimes(1);
-      expect(notifyStaffMember).toHaveBeenCalledTimes(1);
+      expect(publishWorkflowNotification).toHaveBeenCalledTimes(2);
     } finally {
       createActivity.mockRestore();
-      notifyStaffMember.mockRestore();
+      publishWorkflowNotification.mockRestore();
     }
   });
 

@@ -20,9 +20,8 @@ import {
   isDirectorOrAdmin,
   NOTIFICATION_EMAIL_STAGGER_MS,
   normalizeEmail,
-  notifyRoles,
-  notifyStaffMember,
   PERMISSIONS,
+  publishWorkflowNotification,
   requireStaff,
 } from "./lib";
 import {
@@ -223,7 +222,12 @@ export async function notifyLeaveRequestSubmitted(
       return;
     }
     notifiedStaffIds.add(key);
-    await notifyStaffMember(ctx, staffId, notification, { emailDelayMs });
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [staffId] },
+      content: notification,
+      emailDelayMs,
+      emailTargets: { kind: "staff", staffIds: [staffId] },
+    });
     emailDelayMs += NOTIFICATION_EMAIL_STAGGER_MS;
   };
 
@@ -241,7 +245,12 @@ export async function notifyLeaveRequestSubmitted(
   if (args.hrCopyStaffId) {
     await notifyUniqueStaff(args.hrCopyStaffId, hrCopyPayload);
   } else {
-    await notifyRoles(ctx, ["HR"], hrCopyPayload, { emailDelayMs });
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "roles", roles: ["HR"] },
+      content: hrCopyPayload,
+      emailDelayMs,
+      emailTargets: { kind: "roles", roles: ["HR"] },
+    });
   }
 }
 
@@ -253,11 +262,15 @@ export async function notifyLeaveReadyForFinalAuthority(
     finalAuthorityId: Id<"staffUsers">;
   }
 ) {
-  await notifyStaffMember(ctx, args.finalAuthorityId, {
-    body: `${args.staff.name}'s leave request has Level 1 approval and needs your final authority review.`,
-    entityId: args.leaveId,
-    entityType: "leave",
-    title: "Leave awaiting final authority approval",
+  await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "staff", staffIds: [args.finalAuthorityId] },
+    content: {
+      body: `${args.staff.name}'s leave request has Level 1 approval and needs your final authority review.`,
+      entityId: args.leaveId,
+      entityType: "leave",
+      title: "Leave awaiting final authority approval",
+    },
+    emailTargets: { kind: "staff", staffIds: [args.finalAuthorityId] },
   });
 }
 
@@ -276,9 +289,17 @@ export async function notifyLeaveReadyForHr(
     title: "Leave ready for HR approval",
   };
   if (args.hrCopyStaffId) {
-    await notifyStaffMember(ctx, args.hrCopyStaffId, payload);
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [args.hrCopyStaffId] },
+      content: payload,
+      emailTargets: { kind: "staff", staffIds: [args.hrCopyStaffId] },
+    });
   } else {
-    await notifyRoles(ctx, ["HR"], payload);
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "roles", roles: ["HR"] },
+      content: payload,
+      emailTargets: { kind: "roles", roles: ["HR"] },
+    });
   }
 }
 

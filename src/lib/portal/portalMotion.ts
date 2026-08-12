@@ -12,6 +12,23 @@ export type PortalMotionTransition =
   | { duration: number; ease: "linear" }
   | { duration: 0 };
 
+export type PortalOverlayOrigin = "center" | "left" | "static" | "top-left" | "top-right";
+
+const PORTAL_OVERLAY_HIDDEN_TRANSFORMS: Record<PortalOverlayOrigin, string> = {
+  center: "translate3d(0, 12px, 0) scale(0.98)",
+  left: "translate3d(-100%, 0, 0)",
+  static: "none",
+  "top-left": "translate3d(0, -6px, 0) scale(0.98)",
+  "top-right": "translate3d(0, -6px, 0) scale(0.98)",
+};
+
+function portalOverlayVisibleTransform(origin: PortalOverlayOrigin) {
+  if (origin === "static") {
+    return "none";
+  }
+  return origin === "left" ? "translate3d(0, 0, 0)" : "translate3d(0, 0, 0) scale(1)";
+}
+
 /** Build a Motion-compatible transition from the Citius portal theme. */
 export function resolveMotionUITransition(
   name: TransitionName,
@@ -55,6 +72,27 @@ export function portalMotionTransition(
   }
 
   return resolveMotionUITransition(name, duration);
+}
+
+/** Paired visible/hidden targets for reversible Base UI overlay lifecycles. */
+export function portalOverlayMotion(
+  prefersReducedMotion: boolean,
+  origin: PortalOverlayOrigin,
+  durationOverride?: number,
+  name: TransitionName = "ui"
+) {
+  const spatiallyStill = prefersReducedMotion;
+  return {
+    hidden: {
+      opacity: 0,
+      transform: spatiallyStill ? "none" : PORTAL_OVERLAY_HIDDEN_TRANSFORMS[origin],
+    },
+    transition: portalMotionTransition(prefersReducedMotion, durationOverride, name),
+    visible: {
+      opacity: 1,
+      transform: spatiallyStill ? "none" : portalOverlayVisibleTransform(origin),
+    },
+  };
 }
 
 export function portalModalHiddenTransform(prefersReducedMotion: boolean, scale = 0.96) {

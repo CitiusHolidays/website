@@ -208,7 +208,6 @@ function PipelineModeButton({
   onKeyDown,
   value,
 }: PipelineModeButtonProps) {
-  const snapTransition = useMotionUITransition("snap");
   return (
     // biome-ignore lint/a11y/noLabelWithoutControl: Base UI renders the native radio input inside this full-hit-area label.
     <label className="relative cursor-pointer">
@@ -222,16 +221,12 @@ function PipelineModeButton({
         value={value}
       />
       <span
-        className={`relative flex min-h-11 items-center rounded-full px-4 py-2 font-semibold text-xs transition peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-citius-blue peer-focus-visible:outline-offset-2 ${
+        className={`relative flex min-h-11 items-center rounded-full px-4 py-2 font-semibold text-xs peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-citius-blue peer-focus-visible:outline-offset-2 ${
           active ? "text-white" : "text-brand-muted hover:text-citius-blue"
         }`}
       >
         {active ? (
-          <m.span
-            className="absolute inset-0 rounded-full bg-citius-blue ring-2 ring-citius-blue ring-offset-2"
-            layoutId="pipeline-mode-indicator"
-            transition={snapTransition}
-          />
+          <span className="absolute inset-0 rounded-full bg-citius-blue ring-2 ring-citius-blue ring-offset-2" />
         ) : null}
         <span className="relative z-10">{label}</span>
       </span>

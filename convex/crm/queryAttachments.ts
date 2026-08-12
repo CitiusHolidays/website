@@ -14,6 +14,7 @@ import {
   type PortalAccess,
   requireAnyPermission,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { boundedPaginationOptions } from "./paginationPolicy";
 
 export function publicQueryAttachment(row: {
@@ -166,7 +167,7 @@ export const saveAttachment = internalMutation({
             .withIndex("by_queryId", (q) => q.eq("queryId", args.queryId))
             .collect()
         : null;
-    const id = await ctx.db.insert("queryAttachments", {
+    const id = await insertWithE2eOwnership(ctx, "queryAttachments", {
       createdAt,
       createdBy: args.createdBy,
       fileName: args.fileName,
@@ -175,7 +176,7 @@ export const saveAttachment = internalMutation({
       queryId: args.queryId,
       storageId: args.storageId,
     });
-    await ctx.db.patch(args.queryId, {
+    await patchWithE2eOwnership(ctx, "queries", args.queryId, {
       attachmentCount: (legacyRows?.length ?? query.attachmentCount ?? 0) + 1,
       attachmentPreview: [
         {
@@ -217,7 +218,7 @@ export const deleteAttachmentRecord = internalMutation({
                 .collect()
             ).length
           : Math.max(0, query.attachmentCount - 1);
-      await ctx.db.patch(row.queryId, {
+      await patchWithE2eOwnership(ctx, "queries", row.queryId, {
         attachmentCount,
         attachmentPreview: remaining.map((entry) => ({
           createdAt: entry.createdAt,

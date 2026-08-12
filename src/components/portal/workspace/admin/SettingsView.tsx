@@ -121,11 +121,11 @@ export function SettingsView({
             },
             {
               id: "email-alerts",
-              label: "Email alert roles",
+              label: "Additional email alert roles",
               render: (row: StaffRow) =>
                 row.emailAlertRoles && row.emailAlertRoles.length > 0
                   ? row.emailAlertRoles.join(", ")
-                  : "No email alerts enabled",
+                  : "No additional email alert roles",
             },
             {
               id: "onboarding",

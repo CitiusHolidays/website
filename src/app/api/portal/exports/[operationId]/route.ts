@@ -1,6 +1,17 @@
 import { getToken } from "@/lib/auth-server";
 
-function privateJson(error, status, headers = {}) {
+const TRAILING_SLASH = /\/$/;
+
+export type ExportProxyFetch = (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
+
+interface ExportProxyDependencies {
+  fetchUpstream: ExportProxyFetch;
+  getAuthToken: () => Promise<string | null>;
+}
+
+type ExportProxyOptions = Partial<ExportProxyDependencies>;
+
+function privateJson(error: string, status: number, headers: HeadersInit = {}) {
   return Response.json(
     { error },
     {
@@ -10,19 +21,32 @@ function privateJson(error, status, headers = {}) {
   );
 }
 
-export async function GET(_request, { params }) {
-  const token = await getToken();
+function unavailableStatus(status: number) {
+  if (status === 429) {
+    return 429;
+  }
+  if (status === 403) {
+    return 403;
+  }
+  return 404;
+}
+
+export async function handlePortalExportDownload(
+  params: Promise<{ operationId: string }>,
+  options: ExportProxyOptions = {}
+) {
+  const token = await (options.getAuthToken ?? getToken)();
   if (!token) {
     return privateJson("Authentication required", 401);
   }
-  const siteUrl = String(process.env.NEXT_PUBLIC_CONVEX_SITE_URL || "").replace(/\/$/, "");
+  const siteUrl = String(process.env.NEXT_PUBLIC_CONVEX_SITE_URL || "").replace(TRAILING_SLASH, "");
   if (!siteUrl) {
     return privateJson("Export service is not configured", 503);
   }
   const { operationId } = await params;
-  let upstream;
+  let upstream: Response;
   try {
-    upstream = await fetch(
+    upstream = await (options.fetchUpstream ?? fetch)(
       `${siteUrl}/portal/exports/${encodeURIComponent(String(operationId || ""))}`,
       {
         cache: "no-store",
@@ -37,7 +61,7 @@ export async function GET(_request, { params }) {
     const retryAfter = upstream.headers.get("Retry-After");
     return privateJson(
       upstream.status === 403 ? "Export access denied" : "Export file is not available",
-      upstream.status === 429 ? 429 : upstream.status === 403 ? 403 : 404,
+      unavailableStatus(upstream.status),
       retryAfter ? { "Retry-After": retryAfter } : {}
     );
   }
@@ -55,4 +79,11 @@ export async function GET(_request, { params }) {
     }
   }
   return new Response(upstream.body, { headers, status: 200 });
+}
+
+export async function GET(
+  _request: Request,
+  { params }: RouteContext<"/api/portal/exports/[operationId]">
+) {
+  return await handlePortalExportDownload(params);
 }

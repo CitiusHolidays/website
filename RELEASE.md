@@ -8,6 +8,11 @@ The complete local change summary and dated evidence snapshots are in
 result for their stated date and commit; they are not current proof. Vercel/Convex deployment and
 live browser checks remain separate external activation work.
 
+The current `main` checkpoint is `7fa38a0` (Staff Workspace scale and retry safety). Its bounded
+route budgets, source-hash freshness rule, replay-safe command IDs, durable import/export operations,
+and notification delivery ledger are described in
+[`docs/STAFF_WORKSPACE_PERFORMANCE.md`](docs/STAFF_WORKSPACE_PERFORMANCE.md).
+
 ## Environment ownership
 
 [`config/environment.manifest.json`](config/environment.manifest.json) is the canonical key-only
@@ -32,17 +37,49 @@ Before activation, compare the key names in the manifest with Vercel Preview, Ve
 the Convex preview defaults, and the Convex production deployment. Compare names and presence only;
 do not paste values into logs or tickets.
 
-## Local quality gates
+## Local and hosted quality gates
 
-The repository does not run a GitHub Actions quality workflow. The previous Required Quality lane
-was retired because it depended on repository variables and a non-production Convex credential
-that were never configured, so every push failed before application tests ran.
+`.github/workflows/hosted-quality.yml` runs a credential-free, target-neutral subset on pull
+requests and `main`. Its third-party actions are commit-pinned, its permissions are read-only, and
+concurrency cancels superseded runs. It never runs Convex codegen/deploy, Vercel operations,
+authenticated browser tests, migrations, or provider commands. Branch-rule status is an external
+setting and remains unverified; do not call this check required until GitHub protection is inspected.
+
+The hosted lane complements rather than replaces the complete local gate because a clean clone has
+no generated Convex API surface or authenticated non-production sessions. It records its exact Git
+revision and scope in the job summary.
 
 Before merging or deploying, run `bun run verify:local`. It runs the target-neutral local gates in
 order, stops on the first failure, and labels its local-only evidence with the current commit and
 timestamp. Run environment preflight, a fresh Convex codegen, the configured Next build,
 deployment, and browser proof separately after identifying the exact target; a green local verifier
 is not deployment or production proof.
+
+`verify:local` includes the public asset/runtime check, authenticated Staff Workspace performance
+budget check, and high-risk coverage ratchet through `bun run check`. The performance check
+validates all declared scenarios and both baseline source hashes;
+it does not replace credentialed Playwright or production browser proof. Follow
+[`docs/STAFF_WORKSPACE_PERFORMANCE.md`](docs/STAFF_WORKSPACE_PERFORMANCE.md) when a monitored read
+or route lifecycle changes, and
+[`docs/PUBLIC_RUNTIME_PERFORMANCE.md`](docs/PUBLIC_RUNTIME_PERFORMANCE.md) when a monitored public
+route or hero-media policy changes.
+
+Optional local feedback-loop evidence can be retained without telemetry:
+
+```bash
+bun run verify:local -- --metrics .scratch/dx-metrics/verify.json
+```
+
+For typed release-scope evidence, use `bun run verify:local -- --evidence auto`. The resulting
+ignored JSON records the exact clean revision or dirty fingerprint, every local gate result, and
+explicit `not_run` rows for push, deployment, migration, and public/authenticated smoke scopes. Its
+human summary is generated from the same JSON; it is not a deployment record.
+
+The JSON includes schema version, dirty revision fingerprint, gate IDs, monotonic durations,
+outcomes, and the first failure/skipped reason. It never includes command output, environment
+values, customer data, machine identity, or an upload destination. Measure several representative
+runs before proposing any duration budget; do not skip, reorder, or parallelize gates to improve a
+number.
 
 Reproduce the Studio lane locally with
 `cd citius-blog && bun install --frozen-lockfile && bun run build && bun audit --audit-level=high`.
@@ -56,6 +93,17 @@ excluded by `biome.json`. A rule family may be burned down and then recorded wit
 Use `bun run lint:ratchet -- --family=lint/performance` to focus the reduction report without
 weakening the repository-wide comparison.
 
+The report-only dead-code inventory is pinned by `knip.jsonc` and
+`config/release/deadcode-baseline.json`. Run `bun run deadcode` to triage and
+`bun run deadcode:ratchet` to reject new findings. The update command can only
+initialize or shrink the reviewed allowlist; Knip output is never deletion
+authority. See `docs/DEAD_CODE_INVENTORY.md`.
+
+First-party TypeScript commands expose `--help` without reading targets, starting
+services, running audits, or writing evidence. `bun run help` derives the package
+command inventory from `package.json`. Environment preflight requires an
+explicit `--target preview|production`; help/list discovery never infers one.
+
 Run `bun run diff:check` before committing a migration bundle. The atomic replacement manifest
 lists entrypoints that may be deleted only when an allowed successor is present in the same
 candidate change. The local command evaluates tracked, staged, and untracked state so the complete
@@ -64,6 +112,41 @@ working tree can be checked before staging.
 To reproduce the committed-range check locally, provide an explicit base commit:
 `DIFF_BASE=<base-sha> bun run diff:check`. Never infer a deployment or release base from an
 unrelated local branch.
+
+For a richer advisory review-load report, use
+`bun run release:scope -- --base <base-sha>`. It reports commit typing, files/raw lines, ownership,
+test ratio, renames/binaries, recent hotspots, tool/product mixing, and path-explained risk tags.
+Its suggested commands remain target-neutral; the report reads Git metadata only and never reads
+file contents, environment values, or deployment state.
+
+For schema/data work, validate the target-explicit planning manifest with
+`bun run migration:rehearsal -- --manifest <path>`. The planner only prints
+blocked command templates; it has no execution mode and never reads a target or
+secret. The protected snapshot lifecycle, exact Convex Preview/import flags,
+content-free evidence contract, restore-loss warning, and Production authority
+gate are defined in
+[`docs/migrations/rehearsal.md`](docs/migrations/rehearsal.md).
+
+`convex/crons.test.ts` is the local source proof for exactly nine unique internal registrations:
+four daily UTC cron expressions and five intervals, all with `{}` arguments. Its IST calendar
+assertions prove the 31 March leave-lapse boundary. This does not prove the schedule is installed;
+after an authorized deployment, separately confirm names, targets, and schedules in the named
+Convex deployment dashboard.
+
+## Agent-tool integration units
+
+Broad synchronization under `.agents/skills/` or `.claude/skills/` should land
+in a dedicated buildable, revertible commit or pull request, separate from
+changes under `src/`, `convex/`, application configuration, or domain docs.
+Generated/vendor-like bulk and hand-authored runtime files should be named
+separately in the change description.
+
+Path separation is advisory, not permission to split an atomic replacement into
+broken commits. If a product change directly requires a hook or agent-tool
+change, keep the unit buildable and add an **explicit coupling note** naming the
+dependency and why separate reversion would be unsafe. Inspect the exact range
+with `DIFF_BASE=<base-sha> bun run diff:check`; this local report never implies
+publication or deployment.
 
 ## Preview and production deployment
 
@@ -92,8 +175,8 @@ before production activation.
 
 1. Confirm the current release commit and retain the previous known-good commit identifier.
 2. Confirm backup/restore readiness and use widen-migrate-narrow for stored-value/schema changes.
-3. Run the complete local release evidence command set recorded in the current verification section
-   of [`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md).
+3. Run `bun run verify:local -- --evidence auto` for the exact candidate revision. Treat
+   [`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md) only as dated historical context.
 4. Configure manifest keys independently for Preview and Production; verify auth callback origins,
    mail sender/domain, payment webhooks, CAPTCHA, and Convex runtime values.
 5. Run and inspect a Vercel Preview. Verify its frontend points to the preview Convex deployment and

@@ -8,16 +8,19 @@ This doc records the current Citius Connect behavior implemented across recent p
 | --- | --- |
 | Portal routing and list views | `src/components/portal/PortalWorkspace.tsx` |
 | Shared portal state and Convex hooks | `src/components/portal/usePortalWorkspaceState.ts` |
+| Bounded route data and navigation measurements | `src/components/portal/workspace/usePortalWorkspaceData.ts`, `src/lib/portal/navigationPerformance.ts` |
 | Shared lists, actions, and pagination | `src/components/portal/SelectableDataTable.tsx`, `src/components/portal/PortalActionMenu.tsx`, `src/components/portal/QueryRowActions.tsx` |
-| Modal form lifecycle and submit routing | `src/lib/portal/modalLifecycle.js`, `src/lib/portal/modalCommandExecutor.js` |
+| Modal form lifecycle and submit routing | `src/lib/portal/modalLifecycle.js`, `src/lib/portal/modalCommandExecutor.ts` |
 | Query team assignment | `convex/crm/queryTeamAssignment.ts`, `src/lib/portal/permissions.js` |
+| Replay-safe command receipts | `convex/crm/commandReceipts.ts`, `src/components/portal/workspace/usePortalWorkspaceMutations.ts` |
 | Job cards and downstream operations | `convex/crm/jobCards.ts`, `src/components/portal/jobCard/JobCardCommandCenter.js` |
 | Spreadsheet import/export | `src/lib/portal/spreadsheetImports.ts`, `src/lib/portal/spreadsheetExports.ts`, `convex/crm/imports.ts`, `convex/crm/importActions.ts` |
 | Notifications | `convex/crm/activity.ts`, `convex/crm/notificationReads.ts`, `convex/crm/notificationSummary.ts`, `convex/crm/notificationEmails.ts`, `convex/crm/notificationEmailDetails.ts` |
+| Notification delivery ledger | `convex/crm/notificationEmailLedger.ts` |
 | Leave | `convex/crm/leave.ts`, `convex/crm/leaveApprovers.ts`, `convex/crm/leavePolicy.ts`, `convex/crm/leaveLapse.ts` |
 | Expenses and finance | `convex/crm/finance.ts`, `convex/crm/expenseAttachments.ts`, `convex/crm/expenseAttachmentActions.ts` |
 | Saved views and command palette | `convex/crm/savedViews.ts`, `src/lib/portal/savedViews.js`, `src/components/portal/PortalCommandPalette.js`, `src/components/portal/PortalShell.tsx` |
-| Portal chrome and stacking | `src/lib/portal/zIndex.js` |
+| Portal chrome and stacking | `src/lib/portal/zIndex.ts` |
 
 ## Query lifecycle
 
@@ -36,6 +39,14 @@ Approx. margin stays empty until Order Confirmed and is entered manually by Sale
 
 Contracting owner labels in portal UI read Contracting SPOC. The database fields remain `contractingOwnerId` and `contractingOwnerName`.
 
+## Replay-safe commands
+
+Durable side-effect commands receive a UUID command ID. Convex stores the actor, operation, target,
+and canonical payload digest in a receipt. Repeating the same command returns the original result;
+reusing the command ID with a different target or payload is rejected. The current UUID-guarded
+flows are proposal handoff to Sales, Order Confirmed, and passenger export. Passenger import
+batches use a source digest and stable batch IDs under their durable operation manifest.
+
 ## Query team assignment
 
 Sales, Sales Head, and Sales Cement can do the initial Sales assignment when they have `manage:queries`. That initial form requires a Contracting SPOC and Ticketing Scope, and it cannot assign ticketing SPOCs or reassign existing teams.
@@ -49,12 +60,13 @@ Assignable contracting staff include `Contracting`, `Contracting Head`, and `Con
 
 Assignments patch the query, mirror owner fields onto linked job cards, create assignment activity, notify assigned staff, and notify relevant heads. If ticketing is assigned or ticketing scope is not `Not required`, Head of Ticketing is included in head notifications.
 
-Email and bell delivery intentionally differ for this event:
+Email and bell delivery intentionally differ for query-team assignment:
 
 - Email goes only to the selected Contracting and Ticketing SPOCs through direct staff targeting.
 - Relevant heads can still receive oversight bell rows.
-- Head-role bell notifications use `emailRoles: []`, so they do not expand into department-wide or
-  email-alert-role email recipients.
+- When Sales submits a ticketing-scoped query without a Ticketing SPOC, Head of Ticketing also gets
+  the actionable assignment email. Other head-role oversight rows use an explicit `emailTargets:
+  { kind: "none" }` plan.
 
 ## Proposals and sales handoff
 
@@ -62,13 +74,17 @@ Contracting sends costing to Sales through Send to Sales. The query shows as Wit
 
 Proposal cost price is per person and auto-calculated from land, airfare, and visa cost per pax. Contracting enters `visaCostPerPax`; manual CP entry is not part of the workflow. Tax supports 5%, 18%, or a custom rate.
 
-Finalized PDF is separate from the sales proposal send action. Query rows keep Reference Itinerary editable; Finalized PDF actions are view/download-only from the linked proposal.
+Proposal Pricing Complete means ready for Proposal Handoff to Sales only. It does not authorize client delivery or Job Card creation; Sales must record Order Confirmed before Accounts can open a Job Card.
+
+Proposal Doc is separate from the sales proposal handoff action. Query rows keep Reference Itinerary editable; Proposal Doc actions are view/download-only from the linked proposal. The `finalizedPdf` storage/API name remains only for compatibility.
 
 ## Job-card creation
 
 Order Confirmed alerts Accounts plus the assigned contracting, operations, and ticketing teams. Any Accounts team member can create a job card for a confirmed query, and Accounts Head/Admin/Directors/Director Cement can manage the job-card creator allowlist.
 
-Job card numbers append the creator initials after the sequence number, for example `JC-0001-NS`.
+Job card numbers append the linked Assigned Sales Rep's initials after the
+sequence number, for example `JC-0001-NS`; they do not use the Accounts creator
+or approver.
 
 After Accounts opens a job card, downstream teams are notified to start traveller master, ticketing, passport, visa, hotel/rooming, tour manager, and finance work.
 
@@ -97,6 +113,11 @@ Linked-entity selects in portal forms should autofill dependent fields such as j
 
 Spreadsheet flows run through parser -> portal row mapper -> Convex validators -> import processor. Total row count is not capped. Passenger commit work is batched internally, but the user-facing upload can cover the whole workbook.
 
+The client sends passenger preview and commit work in 50-row requests. The Convex operation record
+tracks completed batches, created/updated/failed rows, retryable versus terminal errors, remaining
+work, and room summaries. Stable batch IDs make a retry reconcile the same rows instead of creating
+duplicates. A partial operation remains visible until all retryable work completes.
+
 Passenger import/export supports:
 
 - Travel Batch
@@ -109,6 +130,9 @@ Traveller master, rooming, passport, visa, and ticketing templates include Trave
 Room type labels are canonicalized as Single, Twin, Double, Triple, Child with Bed, and Family Room. Legacy `SGL`, `DBL`, and `TPL` values map into the canonical labels.
 
 Flight import/export uses a flight itinerary workbook grouped by job card and optional Travel Batch. `commitFlightImport` upserts flight groups and segments using import keys so repeated imports update existing rows instead of blindly duplicating them.
+
+Passenger-family exports run as durable operations. The UI shows running, completed, failed, or
+expired state and requests the private download only after the operation is complete.
 
 ## Dashboard and list views
 
@@ -127,13 +151,29 @@ control applies only to the current page. Replacing rows after filters or search
 while appending another server cursor page preserves the current page. When more authorized server
 records exist, the list exposes a separate **Load more records** action.
 
+Queries, Proposals, and Job Cards also record a privacy-safe navigation snapshot. The release gate
+checks cold and warm route-ready time, first content time, payload bytes, resource transfer bytes,
+logical subscriptions, and duplicate subscriptions. See
+[`STAFF_WORKSPACE_PERFORMANCE.md`](STAFF_WORKSPACE_PERFORMANCE.md) for the budgets and evidence
+command.
+
 Date ranges are stored as ISO values and displayed as DD/MM/YYYY. Inverted From/To ranges must error and skip filtering; they should not silently swap.
 
 The Pipeline page is available when the user can manage queries or view contracting.
 
 ## Notifications
 
-Bell notifications and email notifications are separate. Bell rows target exact roles or auth users; email expansion resolves staff email addresses and can include department heads.
+Bell notifications and email notifications are separate. Every workflow calls
+`publishWorkflowNotification` with explicit `bellTargets` and `emailTargets`. Bell rows target exact
+roles, staff IDs, or auth users; a role email target resolves both the staff member's portal roles
+and additive **Additional email alert roles**, then expands base department roles to their head role.
+An explicit `{ kind: "none" }` email target suppresses email without removing bell delivery.
+
+CRM email delivery writes a privacy-safe ledger with monotonic `queued`, `sending`, `retrying`,
+`sent`, `skipped`, and `exhausted` states. Delivery summaries are restricted to the
+`view:emailDeliveryStatus` permission (department heads, Admin, Directors, and Director Cement),
+and expose counts plus permitted notification links without recipient addresses or provider
+response bodies. Scheduler or provider retries cannot move a sent row backwards.
 
 Unread state changes only when a user clicks a notification. Opening the bell dropdown or Activity panel must not mark rows read.
 
@@ -156,13 +196,13 @@ Unused Casual/Sick leave lapses automatically on 31 March IST through `convex/cr
 
 Every staff user with a portal role can view and create expenses. Tour Managers can manage their own expenses. Finance can approve expenses.
 
-Expense files use Convex storage and authenticated same-origin portal file routes. The same pattern applies to query/proposal files and finalized proposal PDFs. Browser-visible Convex storage URLs should not be exposed for portal documents.
+Expense files use Convex storage and authenticated same-origin portal file routes. The same pattern applies to query/proposal files and Proposal Docs. Browser-visible Convex storage URLs should not be exposed for portal documents.
 
 Expense form labels should use Category with the `Select category...` placeholder. Do not reintroduce Expense Head terminology in portal forms.
 
 ## Portal chrome
 
-Portal z-index values are centralized in `src/lib/portal/zIndex.js`.
+Portal z-index values are centralized in `src/lib/portal/zIndex.ts`.
 
 The header renders the signed-in Google profile image when available and falls back to the user
 icon. The shell uses the existing `/gallery/bgfooter.webp` texture at low opacity so light pages

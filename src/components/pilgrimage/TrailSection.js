@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { getTrailTestimonials, toYoutubeEmbedUrl } from "@/data/trails";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { TrailCta, TrailHeader, TrailTabContent, TrailTabs } from "./trailSection/TrailShell";
 
 const EMPTY_RELATED_BLOG_POSTS = [];

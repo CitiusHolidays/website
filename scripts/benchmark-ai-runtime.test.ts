@@ -1,10 +1,14 @@
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import {
   AI_BENCHMARK_CONTRACT_VERSION,
   AI_BENCHMARK_PROMPTS,
   AI_BENCHMARK_VERSION,
   selectBenchmarkPrompts,
 } from "./benchmark-ai-runtime";
+
+const root = resolve(import.meta.dir, "..");
 
 describe("production AI benchmark configuration", () => {
   test("uses a versioned prompt contract with both production features", () => {
@@ -28,5 +32,24 @@ describe("production AI benchmark configuration", () => {
       "Invalid benchmark feature filter: unknown"
     );
     expect(selectBenchmarkPrompts("journeyPlanner").length).toBeGreaterThan(0);
+  });
+
+  test("help and invalid flags never contact the provider", () => {
+    const run = (args: string[]) =>
+      spawnSync("bun", ["scripts/benchmark-ai-runtime.ts", ...args], {
+        cwd: root,
+        encoding: "utf8",
+        env: { PATH: process.env.PATH },
+      });
+
+    const help = run(["--help"]);
+    expect(help.status).toBe(0);
+    expect(help.stdout).toContain("Usage: bun run ai:benchmark");
+    expect(help.stderr).not.toContain("OPENROUTER_API_KEY");
+
+    const invalid = run(["--feature", "unknown"]);
+    expect(invalid.status).toBe(1);
+    expect(invalid.stderr).toContain("Valid choices: concierge, journeyPlanner");
+    expect(invalid.stderr).not.toContain("OPENROUTER_API_KEY");
   });
 });

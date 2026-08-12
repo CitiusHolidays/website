@@ -1,6 +1,7 @@
 "use node";
 
 import { hashPassword } from "better-auth/crypto";
+import { makeFunctionReference } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { components, internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
@@ -17,6 +18,59 @@ const seedProfileResultValidator = v.object({
   staffId: v.id("staffUsers"),
   verified: v.boolean(),
 });
+
+const seedRunResultValidator = v.object({
+  profiles: v.array(seedProfileResultValidator),
+  run: v.object({
+    runId: v.string(),
+    target: v.union(v.literal("development"), v.literal("preview")),
+    targetId: v.string(),
+  }),
+  workflowFixtures: v.object({
+    cementClientName: v.string(),
+    clientName: v.string(),
+    nonCementClientName: v.string(),
+    proposalId: v.id("proposals"),
+    queryCode: v.string(),
+    queryId: v.id("queries"),
+  }),
+});
+
+interface SeedProfileResult {
+  authLinked: boolean;
+  created: boolean;
+  email: string;
+  key: string;
+  staffId: import("../_generated/dataModel").Id<"staffUsers">;
+  verified: boolean;
+}
+
+interface WorkflowFixtureResult {
+  cementClientName: string;
+  clientName: string;
+  nonCementClientName: string;
+  proposalId: import("../_generated/dataModel").Id<"proposals">;
+  queryCode: string;
+  queryId: import("../_generated/dataModel").Id<"queries">;
+}
+
+const createIncompleteProposalHandoff = makeFunctionReference<
+  "mutation",
+  { label: string; runId: string },
+  WorkflowFixtureResult
+>("crm/e2eFixtures:createIncompleteProposalHandoff");
+
+const beginE2eRun = makeFunctionReference<
+  "mutation",
+  { authUserIds: string[]; runId: string; targetId: string },
+  { runId: string; target: "development" | "preview"; targetId: string }
+>("crm/e2eRunOwnership:begin");
+
+const cleanupE2eRunPage = makeFunctionReference<
+  "mutation",
+  { pageSize: number; runId: string; targetId: string },
+  { complete: boolean; deleted: number; residualCount: number; runId: string }
+>("crm/e2eRunOwnership:cleanupPage");
 
 async function markAuthUserVerified(
   ctx: Parameters<typeof findAuthUserByEmail>[0],
@@ -101,19 +155,15 @@ async function ensureCredentialAuthUser(
 }
 
 export const run = internalAction({
-  args: {},
+  args: { runId: v.string(), targetId: v.string() },
   handler: async (
-    ctx
-  ): Promise<
-    Array<{
-      authLinked: boolean;
-      created: boolean;
-      email: string;
-      key: string;
-      staffId: import("../_generated/dataModel").Id<"staffUsers">;
-      verified: boolean;
-    }>
-  > => {
+    ctx,
+    args
+  ): Promise<{
+    profiles: SeedProfileResult[];
+    run: { runId: string; target: "development" | "preview"; targetId: string };
+    workflowFixtures: WorkflowFixtureResult;
+  }> => {
     assertE2eSecret();
     const password = process.env.E2E_STAFF_PASSWORD;
     if (!password || password.length < 8) {
@@ -125,14 +175,8 @@ export const run = internalAction({
     const profilesByKey = new Map(
       listE2eStaffProfileSeeds().map((profile) => [profile.key, profile])
     );
-    const results: Array<{
-      authLinked: boolean;
-      created: boolean;
-      email: string;
-      key: string;
-      staffId: import("../_generated/dataModel").Id<"staffUsers">;
-      verified: boolean;
-    }> = [];
+    const results: SeedProfileResult[] = [];
+    const authUserIds: string[] = [];
 
     for (const staffRow of staffRows) {
       const profile = profilesByKey.get(staffRow.key);
@@ -166,9 +210,49 @@ export const run = internalAction({
         staffId: staffRow.staffId,
         verified: auth.verified,
       });
+      authUserIds.push(auth.authUserId);
     }
 
-    return results;
+    const runRegistration = await ctx.runMutation(beginE2eRun, {
+      authUserIds,
+      runId: args.runId,
+      targetId: args.targetId,
+    });
+    const workflowFixtures = await ctx.runMutation(createIncompleteProposalHandoff, {
+      label: "E2E Incomplete Proposal Guard",
+      runId: args.runId,
+    });
+    return { profiles: results, run: runRegistration, workflowFixtures };
   },
-  returns: v.array(seedProfileResultValidator),
+  returns: seedRunResultValidator,
+});
+
+export const cleanup = internalAction({
+  args: { runId: v.string(), targetId: v.string() },
+  handler: async (ctx, args) => {
+    assertE2eSecret();
+    let deleted = 0;
+    let result = await ctx.runMutation(cleanupE2eRunPage, {
+      pageSize: 50,
+      runId: args.runId,
+      targetId: args.targetId,
+    });
+    deleted += result.deleted;
+    for (let page = 1; page < 20 && !result.complete; page += 1) {
+      // biome-ignore lint/performance/noAwaitInLoops: cleanup pages are intentionally sequential
+      result = await ctx.runMutation(cleanupE2eRunPage, {
+        pageSize: 50,
+        runId: args.runId,
+        targetId: args.targetId,
+      });
+      deleted += result.deleted;
+    }
+    return { ...result, deleted };
+  },
+  returns: v.object({
+    complete: v.boolean(),
+    deleted: v.number(),
+    residualCount: v.number(),
+    runId: v.string(),
+  }),
 });

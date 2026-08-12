@@ -1,6 +1,5 @@
 "use client";
 import { AlertCircle, FileText, Mail, MessageSquare, Phone, User } from "lucide-react";
-import { m } from "motion/react";
 import { useEffect, useReducer, useRef } from "react";
 import AnimatedSubmitButton from "./AnimatedSubmitButton";
 import TurnstileWidget from "./TurnstileWidget";
@@ -58,6 +57,26 @@ function resizeMessageInput(event) {
   const textarea = event.target;
   textarea.style.height = "auto";
   textarea.style.height = `${textarea.scrollHeight}px`;
+}
+
+function floatingLabelStyle({ error, focused, raised, textarea = false }) {
+  const idleTransform = textarea
+    ? "translate3d(0, 0, 0) scale(1)"
+    : "translate3d(0, -50%, 0) scale(1)";
+  const raisedTransform = textarea
+    ? "translate3d(-8px, -40px, 0) scale(0.85)"
+    : "translate3d(-8px, calc(-50% - 40px), 0) scale(0.85)";
+  let color = "#6B7280";
+  if (error) {
+    color = "#EF4444";
+  } else if (focused) {
+    color = "#F58220";
+  }
+  return {
+    color,
+    transform: raised ? raisedTransform : idleTransform,
+    transformOrigin: "left center",
+  };
 }
 
 function validateContactForm(values) {
@@ -159,6 +178,8 @@ export default function ModernContactForm({ initialValues }) {
     const { name, value } = event.target;
     dispatch({ name, type: "SET_FIELD", value });
   };
+  const clearFocusedField = () => dispatch({ field: null, type: "SET_FOCUSED" });
+  const focusField = (event) => dispatch({ field: event.currentTarget.name, type: "SET_FOCUSED" });
 
   useEffect(() => {
     formLoadedAtRef.current = Date.now();
@@ -260,98 +281,73 @@ export default function ModernContactForm({ initialValues }) {
           />
         </div>
 
-        {INPUT_FIELDS.map((field) => (
-          <div className="relative" key={field.name}>
-            <m.div
-              animate={{
-                scale: focusedField === field.name || formValues[field.name] ? 0.8 : 1,
-              }}
-              className="absolute top-1/2 left-4 z-10 -translate-y-1/2 transform"
-              transition={{ duration: 0.2 }}
-            >
-              <field.icon
-                className={`size-5 ${errors[field.name] ? "text-red-500" : "text-gray-400"}`}
+        {INPUT_FIELDS.map((field) => {
+          const focused = focusedField === field.name;
+          const raised = focused || Boolean(formValues[field.name]);
+          return (
+            <div className="relative" key={field.name}>
+              <div className="absolute top-1/2 left-4 z-10 -translate-y-1/2 transform">
+                <field.icon
+                  className={`size-5 ${errors[field.name] ? "text-red-500" : "text-gray-400"}`}
+                />
+              </div>
+
+              <label
+                className="pointer-events-none absolute top-1/2 left-12 text-gray-500 transition-[color,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+                htmlFor={field.name}
+                style={floatingLabelStyle({
+                  error: Boolean(errors[field.name]),
+                  focused,
+                  raised,
+                })}
+              >
+                {field.label}
+              </label>
+
+              <input
+                aria-invalid={errors[field.name] ? "true" : "false"}
+                aria-label={field.label}
+                className={`w-full rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-[border-color,box-shadow] duration-200 focus:outline-none ${
+                  errors[field.name]
+                    ? "border-red-500 focus:border-red-500"
+                    : "border-gray-300 focus:border-orange-500"
+                }`}
+                id={field.name}
+                name={field.name}
+                onBlur={clearFocusedField}
+                onChange={updateFormValue}
+                onFocus={focusField}
+                type={field.type}
+                value={formValues[field.name]}
               />
-            </m.div>
-
-            <m.label
-              animate={{
-                color: errors[field.name]
-                  ? "#EF4444" // red-500
-                  : focusedField === field.name
-                    ? "#F58220" // Example: orange-500
-                    : "#6B7280", // gray-500
-                scale: focusedField === field.name || formValues[field.name] ? 0.85 : 1,
-                x:
-                  focusedField === field.name || formValues[field.name]
-                    ? -8 // Adjusted for better positioning
-                    : 0,
-                y:
-                  focusedField === field.name || formValues[field.name]
-                    ? -40 // Adjusted for better positioning
-                    : 0,
-              }}
-              className="pointer-events-none absolute top-1/2 left-12 -translate-y-1/2 transform text-gray-500 transition-[translate,color,font-size,top] duration-200"
-              htmlFor={field.name}
-              transition={{ duration: 0.2 }}
-            >
-              {field.label}
-            </m.label>
-
-            <input
-              aria-invalid={errors[field.name] ? "true" : "false"}
-              aria-label={field.label}
-              className={`w-full rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-[border-color,box-shadow] duration-200 focus:outline-none ${
-                errors[field.name]
-                  ? "border-red-500 focus:border-red-500"
-                  : "border-gray-300 focus:border-orange-500"
-              }`}
-              id={field.name}
-              name={field.name}
-              onBlur={() => dispatch({ field: null, type: "SET_FOCUSED" })}
-              onChange={updateFormValue}
-              onFocus={() => dispatch({ field: field.name, type: "SET_FOCUSED" })}
-              type={field.type}
-              value={formValues[field.name]}
-            />
-            {errors[field.name] && (
-              <p className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm">
-                <AlertCircle size={14} /> {errors[field.name]}
-              </p>
-            )}
-          </div>
-        ))}
+              {errors[field.name] ? (
+                <p className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm">
+                  <AlertCircle size={14} /> {errors[field.name]}
+                </p>
+              ) : null}
+            </div>
+          );
+        })}
 
         <div className="relative">
-          <m.div
-            animate={{
-              scale: focusedField === "message" || formValues.message ? 0.8 : 1,
-            }}
-            className="absolute top-5 left-4 z-10"
-            transition={{ duration: 0.2 }}
-          >
+          <div className="absolute top-5 left-4 z-10">
             <MessageSquare
               className={`size-5 ${errors.message ? "text-red-500" : "text-gray-400"}`}
             />
-          </m.div>
+          </div>
 
-          <m.label
-            animate={{
-              color: errors.message
-                ? "#EF4444"
-                : focusedField === "message"
-                  ? "#F58220"
-                  : "#6B7280",
-              scale: focusedField === "message" || formValues.message ? 0.85 : 1,
-              x: focusedField === "message" || formValues.message ? -8 : 0,
-              y: focusedField === "message" || formValues.message ? -40 : 0,
-            }}
-            className="pointer-events-none absolute top-5 left-12 text-gray-500 transition-[translate,color,font-size,top] duration-200"
+          <label
+            className="pointer-events-none absolute top-5 left-12 text-gray-500 transition-[color,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
             htmlFor="message"
-            transition={{ duration: 0.2 }}
+            style={floatingLabelStyle({
+              error: Boolean(errors.message),
+              focused: focusedField === "message",
+              raised: focusedField === "message" || Boolean(formValues.message),
+              textarea: true,
+            })}
           >
             Message
-          </m.label>
+          </label>
 
           <textarea
             aria-invalid={errors.message ? "true" : "false"}
@@ -363,26 +359,26 @@ export default function ModernContactForm({ initialValues }) {
             }`}
             id="message"
             name="message"
-            onBlur={() => dispatch({ field: null, type: "SET_FOCUSED" })}
+            onBlur={clearFocusedField}
             onChange={updateFormValue}
-            onFocus={() => dispatch({ field: "message", type: "SET_FOCUSED" })}
+            onFocus={focusField}
             onInput={resizeMessageInput}
             ref={messageRef}
             rows={4}
             value={formValues.message}
           />
-          {errors.message && (
+          {errors.message ? (
             <p className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm">
               <AlertCircle size={14} /> {errors.message}
             </p>
-          )}
+          ) : null}
         </div>
 
-        {(errors.form || errors.turnstile) && (
+        {errors.form || errors.turnstile ? (
           <p className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm">
             <AlertCircle size={14} /> {errors.form || errors.turnstile}
           </p>
-        )}
+        ) : null}
 
         {TURNSTILE_SITE_KEY ? (
           <TurnstileWidget

@@ -23,6 +23,24 @@ import type {
 
 const P = PORTAL_PERMISSIONS;
 
+function WorkspaceErrorBanner({ message }: { message: string }) {
+  return (
+    <>
+      <div aria-atomic="true" aria-live="assertive" className="sr-only" role="alert">
+        {message}
+      </div>
+      {message ? (
+        <div
+          aria-hidden="true"
+          className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
+        >
+          {message}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export interface PortalWorkspaceHeaderSlice {
   access?: PortalAccessSlice;
   clearAllFilters: () => void;
@@ -301,18 +319,14 @@ function HeaderActions({
 
 export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspaceHeaderSlice }) {
   if (workspace.view === "dashboard") {
-    return workspace.error && !workspace.modal ? (
-      <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
-        {workspace.error}
-      </div>
-    ) : null;
+    return <WorkspaceErrorBanner message={workspace.modal ? "" : workspace.error} />;
   }
 
   // Inbound leads own their status/source/search controls so the review and
   // conversion panel stay together instead of rendering a second generic
   // toolbar with unrelated Query filters.
   if (workspace.view === "inbound-leads") {
-    return null;
+    return <WorkspaceErrorBanner message={workspace.modal ? "" : workspace.error} />;
   }
 
   const filterSourceRowsByView: Record<string, unknown[] | undefined> = {
@@ -385,11 +399,7 @@ export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspac
         </div>
       ) : null}
 
-      {workspace.error && !workspace.modal && (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
-          {workspace.error}
-        </div>
-      )}
+      <WorkspaceErrorBanner message={workspace.modal ? "" : workspace.error} />
     </>
   );
 }

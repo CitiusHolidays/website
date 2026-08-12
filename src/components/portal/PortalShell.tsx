@@ -13,7 +13,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -52,6 +52,7 @@ import {
 } from "@/lib/portal/navigationPerformance";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { getAccessibleNavGroups } from "@/lib/portal/permissions";
+import { portalOverlayMotion } from "@/lib/portal/portalMotion";
 import {
   getPortalNavPreferencesSnapshot,
   getPortalNavServerSnapshot,
@@ -376,6 +377,8 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   const accountImage = user?.image;
   const unreadCount =
     notificationSummary?.unreadCount ?? notificationRows.filter((item) => !item.readAt).length;
+  const drawerMotion = portalOverlayMotion(!!shouldReduceMotion, "left", 0.2, "snap");
+  const drawerBackdropMotion = portalOverlayMotion(!!shouldReduceMotion, "static", 0.15, "snap");
 
   useEffect(() => {
     const target = getPortalPerformanceTarget(pathname ?? "");
@@ -431,9 +434,9 @@ export default function PortalShell({ access, user, children }: PortalShellProps
               />
 
               <header
-                className={`sticky top-0 ${PORTAL_Z.chrome} border-brand-border/80 border-b bg-white/90 shadow-brand-dark/[0.03] shadow-sm backdrop-blur-xl`}
+                className={`material-structural sticky top-0 ${PORTAL_Z.chrome} border-brand-border/80 border-b bg-white/90 shadow-brand-dark/[0.03] shadow-sm backdrop-blur-xl`}
               >
-                <div className="flex h-[4.25rem] items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
+                <div className="flex h-[var(--portal-chrome-height)] items-center justify-between gap-2 px-3 sm:px-4 lg:px-6">
                   <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
                     <Button
                       aria-label="Open portal navigation"
@@ -553,8 +556,8 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                 </div>
               </header>
 
-              <div className="flex min-h-[calc(100vh-68px)]">
-                <aside className="sticky top-[4.25rem] hidden h-[calc(100vh-68px)] w-64 shrink-0 flex-col overflow-hidden border-brand-border/80 border-r bg-white/80 backdrop-blur-sm lg:flex">
+              <div className="flex min-h-[calc(100dvh-var(--portal-chrome-height))]">
+                <aside className="material-structural sticky top-[var(--portal-chrome-height)] hidden h-[calc(100dvh-var(--portal-chrome-height))] w-64 shrink-0 flex-col overflow-hidden border-brand-border/80 border-r bg-white/80 backdrop-blur-sm lg:flex">
                   <PortalNav
                     navGroups={navGroups}
                     navShortcuts={navShortcuts}
@@ -563,61 +566,62 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                 </aside>
 
                 <BaseDialog.Root onOpenChange={setSidebarOpen} open={sidebarOpen}>
-                  <AnimatePresence>
-                    {sidebarOpen && (
-                      <BaseDialog.Portal>
-                        <BaseDialog.Backdrop
+                  <BaseDialog.Portal>
+                    <BaseDialog.Backdrop
+                      className="data-ending-style:pointer-events-none"
+                      render={(props, state) => (
+                        <m.button
+                          {...(props as React.ComponentProps<typeof m.button>)}
+                          animate={
+                            state.open ? drawerBackdropMotion.visible : drawerBackdropMotion.hidden
+                          }
+                          aria-label="Close portal navigation backdrop"
+                          className={`${buttonVariants({ surface: "staff" })} fixed inset-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileBackdrop} bg-slate-950/70 lg:hidden`}
+                          initial={drawerBackdropMotion.hidden}
+                          transition={drawerBackdropMotion.transition}
+                          type="button"
+                        />
+                      )}
+                    />
+                    <BaseDialog.Popup
+                      aria-hidden={sidebarOpen ? undefined : "true"}
+                      aria-label="Navigation"
+                      className="data-ending-style:pointer-events-none"
+                      finalFocus={sidebarTriggerRef}
+                      inert={sidebarOpen ? undefined : true}
+                      render={(props, state) => (
+                        <m.aside
+                          {...(props as React.ComponentProps<typeof m.aside>)}
+                          animate={state.open ? drawerMotion.visible : drawerMotion.hidden}
+                          className={`portal-mobile-drawer fixed inset-y-0 left-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileDrawer} flex w-[min(20rem,calc(100vw-1.5rem))] flex-col bg-white shadow-2xl lg:hidden`}
+                          initial={drawerMotion.hidden}
+                          transition={drawerMotion.transition}
+                        />
+                      )}
+                    >
+                      <div className="flex h-16 items-center justify-between border-brand-border border-b px-4">
+                        <span className="font-heading text-citius-blue text-lg">Navigation</span>
+                        <BaseDialog.Close
                           render={
-                            <m.button
-                              animate={{ opacity: 1 }}
-                              aria-label="Close portal navigation backdrop"
-                              className={`${buttonVariants({ surface: "staff" })} fixed inset-0 ${PORTAL_Z.mobileBackdrop} bg-slate-950/70 lg:hidden`}
-                              exit={{ opacity: 0 }}
-                              initial={{ opacity: 0 }}
+                            <Button
+                              aria-label="Close portal navigation"
+                              className="grid min-h-11 min-w-11 place-items-center rounded-full text-brand-muted transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light active:scale-[0.96]"
                               type="button"
                             />
                           }
-                        />
-                        <BaseDialog.Popup
-                          aria-label="Navigation"
-                          finalFocus={sidebarTriggerRef}
-                          render={
-                            <m.aside
-                              animate={{ transform: "translateX(0)" }}
-                              className={`portal-mobile-drawer fixed inset-y-0 left-0 ${PORTAL_Z.mobileDrawer} flex w-[min(20rem,calc(100vw-1.5rem))] flex-col bg-white shadow-2xl lg:hidden`}
-                              exit={{ transform: "translateX(-100%)" }}
-                              initial={{ transform: "translateX(-100%)" }}
-                              transition={{ bounce: 0, duration: 0.3, type: "spring" }}
-                            />
-                          }
                         >
-                          <div className="flex h-16 items-center justify-between border-brand-border border-b px-4">
-                            <span className="font-heading text-citius-blue text-lg">
-                              Navigation
-                            </span>
-                            <BaseDialog.Close
-                              render={
-                                <Button
-                                  aria-label="Close portal navigation"
-                                  className="grid min-h-11 min-w-11 place-items-center rounded-full text-brand-muted transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light active:scale-[0.96]"
-                                  type="button"
-                                />
-                              }
-                            >
-                              <X size={20} />
-                            </BaseDialog.Close>
-                          </div>
-                          <PortalNav
-                            mobile
-                            navGroups={navGroups}
-                            navShortcuts={navShortcuts}
-                            onNavigate={() => setSidebarOpen(false)}
-                            pathname={pathname}
-                          />
-                        </BaseDialog.Popup>
-                      </BaseDialog.Portal>
-                    )}
-                  </AnimatePresence>
+                          <X size={20} />
+                        </BaseDialog.Close>
+                      </div>
+                      <PortalNav
+                        mobile
+                        navGroups={navGroups}
+                        navShortcuts={navShortcuts}
+                        onNavigate={() => setSidebarOpen(false)}
+                        pathname={pathname}
+                      />
+                    </BaseDialog.Popup>
+                  </BaseDialog.Portal>
                 </BaseDialog.Root>
 
                 <main className="min-w-0 flex-1 p-4 sm:p-5 md:p-8 lg:p-10" id="portal-main">
@@ -892,7 +896,7 @@ function PortalNav({
         ) : null}
       </div>
 
-      <div className="shrink-0 border-brand-border border-t bg-white/80 pt-3 backdrop-blur-sm">
+      <div className="material-structural shrink-0 border-brand-border border-t bg-white/80 pt-3 backdrop-blur-sm">
         <p className="px-3 pb-1 text-[length:var(--portal-label-size)] text-brand-muted">
           Press{" "}
           <kbd className="rounded border border-brand-border/80 bg-brand-light/80 px-1 font-sans text-[10px]">

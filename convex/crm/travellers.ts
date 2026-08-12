@@ -24,6 +24,7 @@ import {
   requireStaff,
   shouldApplyCementScope,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { assertListSearchReady, buildTravellerListSearchText } from "./listSearch";
 import { loadMetricTotals, type MetricValues } from "./metricAggregates";
 import {
@@ -440,7 +441,7 @@ export const create = mutation({
 
     const now = Date.now();
     const visaStatus = args.visaRequired ? "Not Started" : "Not Required";
-    const id = await ctx.db.insert("travellers", {
+    const id = await insertWithE2eOwnership(ctx, "travellers", {
       jobCardId,
       ...(travelBatchId ? { travelBatchId } : {}),
       arrivingEarly: args.arrivingEarly ?? false,
@@ -480,7 +481,7 @@ export const create = mutation({
     });
 
     await Promise.all([
-      ctx.db.insert("visaRecords", {
+      insertWithE2eOwnership(ctx, "visaRecords", {
         createdAt: now,
         jobCardId,
         status: visaStatus,
@@ -629,7 +630,7 @@ export const update = mutation({
       }
     );
 
-    await ctx.db.patch(travellerId, patch);
+    await patchWithE2eOwnership(ctx, "travellers", travellerId, patch);
 
     if (args.visaRequired !== undefined || args.biometricAppointmentDate !== undefined) {
       const visaRecord = await ctx.db
@@ -647,7 +648,7 @@ export const update = mutation({
         if (args.biometricAppointmentDate !== undefined) {
           visaPatch.appointmentDate = args.biometricAppointmentDate;
         }
-        await ctx.db.patch(visaRecord._id, visaPatch);
+        await patchWithE2eOwnership(ctx, "visaRecords", visaRecord._id, visaPatch);
       }
     }
 
@@ -685,7 +686,7 @@ export const updateCallingStatus = mutation({
     if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
       throw new ConvexError("FORBIDDEN");
     }
-    await ctx.db.patch(travellerId, {
+    await patchWithE2eOwnership(ctx, "travellers", travellerId, {
       callingStatus: args.callingStatus,
       updatedAt: Date.now(),
     });

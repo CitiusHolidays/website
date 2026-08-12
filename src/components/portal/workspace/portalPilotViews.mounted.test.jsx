@@ -43,18 +43,22 @@ async function mount(element) {
 
 const noopMutation = async () => undefined;
 const noopUrl = async () => "https://example.com/file";
+const denyPermission = () => false;
+const hasManageQueries = (permission) => permission === P.MANAGE_QUERIES;
+const noop = () => undefined;
 
 describe("mounted portal pilot views", () => {
   test("Queries preserves the Sales submit action and typed query identity", async () => {
     const submitted = [];
+    const submitToContracting = async (args) => submitted.push(args);
     const view = await mount(
       <QueriesView
         access={{ roles: ["Sales"] }}
-        deleteItem={async () => undefined}
+        deleteItem={noopMutation}
         getFinalizedPdfUrl={noopUrl}
         getQueryAttachmentUrl={noopUrl}
-        has={(permission) => permission === P.MANAGE_QUERIES}
-        openModal={() => undefined}
+        has={hasManageQueries}
+        openModal={noop}
         removeQuery={noopMutation}
         rows={[
           {
@@ -73,7 +77,7 @@ describe("mounted portal pilot views", () => {
             salesOwnerName: "Nina Sales",
           },
         ]}
-        submitToContracting={async (args) => submitted.push(args)}
+        submitToContracting={submitToContracting}
       />
     );
 
@@ -96,9 +100,9 @@ describe("mounted portal pilot views", () => {
       <ContractingView
         access={{ roles: ["Contracting"] }}
         canAssign={false}
-        deleteItem={async () => undefined}
-        has={() => false}
-        openModal={() => undefined}
+        deleteItem={noopMutation}
+        has={denyPermission}
+        openModal={noop}
         proposals={[
           {
             id: "proposal-1",
@@ -139,12 +143,11 @@ describe("mounted portal pilot views", () => {
   test("Proposals preserves With Sales and Proposal Doc presentation", async () => {
     const view = await mount(
       <ProposalsView
-        deleteItem={async () => undefined}
+        deleteItem={noopMutation}
         getFinalizedPdfUrl={noopUrl}
         getProposalAttachmentUrl={noopUrl}
-        has={() => false}
-        markProposalSent={noopMutation}
-        openModal={() => undefined}
+        has={denyPermission}
+        openModal={noop}
         removeProposal={noopMutation}
         rows={[
           {

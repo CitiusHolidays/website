@@ -14,6 +14,7 @@ import {
   type PortalAccess,
   requireStaff,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { mapInBoundedBatches } from "./paginationPolicy";
 import {
   adjustPnrIssuedSeatsOnStatusChange,
@@ -65,7 +66,7 @@ export async function handleCreateTicket(
   }
   await assertJobCardChildRelations(ctx, jobCardId, { pnrId, travellerId });
   const now = Date.now();
-  const id = await ctx.db.insert("tickets", {
+  const id = await insertWithE2eOwnership(ctx, "tickets", {
     cabinClass: args.cabinClass?.trim() || "Economy",
     createdAt: now,
     createdBy: access.authUserId ?? "unknown",
@@ -187,7 +188,7 @@ export async function handleUpdateTicket(
   }
 
   const effectivePnrId = (pnrId === undefined ? ticket.pnrId : pnrId) ?? null;
-  await ctx.db.patch(ticketId, patch);
+  await patchWithE2eOwnership(ctx, "tickets", ticketId, patch);
 
   const linkedTravellerId = travellerId === undefined ? ticket.travellerId : travellerId;
   await applyTicketStatusTransitionEffects(ctx, {
@@ -243,7 +244,7 @@ export async function handleUpdateTicketStatus(
     travellerId: ticket.travellerId,
   });
   const now = Date.now();
-  await ctx.db.patch(ticketId, {
+  await patchWithE2eOwnership(ctx, "tickets", ticketId, {
     ticketStatus: args.ticketStatus,
     updatedAt: now,
   });
@@ -293,7 +294,7 @@ export async function deleteTicketRecord(
     willBeIssued: false,
   });
   if (ticket.travellerId) {
-    await ctx.db.patch(ticket.travellerId, {
+    await patchWithE2eOwnership(ctx, "travellers", ticket.travellerId, {
       ticketStatus: "Pending Issue",
       updatedAt: now,
     });

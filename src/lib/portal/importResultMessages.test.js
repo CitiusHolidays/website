@@ -20,7 +20,7 @@ describe("buildPassengerImportResultMessage", () => {
     );
     expect(output.failed).toBe(2);
     expect(output.isPartialFailure).toBe(true);
-    expect(output.message).toContain("2 row(s) failed");
+    expect(output.message).toContain("2 rows failed");
     expect(output.message).toContain("Created 3, updated 1, total processed 4.");
   });
 
@@ -40,7 +40,7 @@ describe("buildPassengerImportResultMessage", () => {
       "Twin: 2"
     );
     expect(output.isPartialFailure).toBe(true);
-    expect(output.message).toContain("1 row(s) failed");
+    expect(output.message).toContain("1 row failed");
     expect(output.message).toContain("Room summary: Twin: 2");
   });
 });

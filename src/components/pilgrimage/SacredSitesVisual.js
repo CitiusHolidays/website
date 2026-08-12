@@ -3,8 +3,8 @@
 import { MapPin, Mountain, Sparkles } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 import { sacredSites } from "../../data/trails";
-import { cn } from "../../utils/cn";
 
 function SacredSiteCard({ site, index }) {
   const isEven = index % 2 === 0;
@@ -52,24 +52,24 @@ function SacredSiteCard({ site, index }) {
           <div className="absolute inset-0 bg-gradient-to-t from-brand-dark/60 via-transparent to-transparent" />
 
           {/* Location Badge */}
-          <div className="absolute top-4 left-4 flex items-center gap-2 rounded-full bg-white/95 px-3 py-2 shadow-lg backdrop-blur-sm">
-            <MapPin className="size-3.5 text-citius-orange" />
+          <div className="material-floating absolute top-4 left-4 flex items-center gap-2 rounded-full bg-white/95 px-3 py-2 shadow-lg backdrop-blur-sm">
+            <MapPin className="size-3.5 text-public-orange-ink" />
             <span className="font-medium text-brand-dark text-xs">{site.location}</span>
           </div>
 
           {/* Elevation Badge */}
-          <div className="absolute right-4 bottom-4 rounded-lg bg-brand-dark/80 px-3 py-2 backdrop-blur-sm">
+          <div className="material-floating absolute right-4 bottom-4 rounded-lg bg-brand-dark/80 px-3 py-2 backdrop-blur-sm">
             <span className="font-medium text-white/90 text-xs">{site.elevation}</span>
           </div>
 
           {/* Hover Reveal */}
           <m.div
-            className="absolute inset-0 flex items-center justify-center bg-citius-blue/10 opacity-0 backdrop-blur-sm transition-opacity duration-500 group-hover:opacity-100"
+            className="material-decorative-glass absolute inset-0 flex items-center justify-center bg-citius-blue/10 opacity-0 backdrop-blur-sm transition-opacity duration-500 group-hover:opacity-100"
             initial={{ opacity: 0 }}
             whileHover={{ opacity: 1 }}
           >
             <div className="text-center">
-              <Sparkles className="mx-auto mb-2 size-8 text-citius-orange" />
+              <Sparkles className="mx-auto mb-2 size-8 text-public-orange-ink" />
               <p className="font-heading text-sm text-white">Sacred Site</p>
             </div>
           </m.div>
@@ -83,7 +83,7 @@ function SacredSiteCard({ site, index }) {
           )}
         >
           <div className="mb-4">
-            <span className="mb-3 inline-block rounded-full bg-citius-orange/10 px-3 py-1 font-medium text-citius-orange text-xs">
+            <span className="mb-3 inline-block rounded-full bg-citius-orange/10 px-3 py-1 font-medium text-public-orange-ink text-xs">
               {site.significance}
             </span>
             <h3 className="mb-2 font-heading text-citius-blue text-xl md:text-2xl lg:text-3xl">
@@ -102,7 +102,7 @@ function SacredSiteCard({ site, index }) {
           {/* Decorative Line */}
           <div className="mt-6 flex items-center gap-3 md:mt-8">
             <div className="h-px flex-grow bg-gradient-to-r from-citius-orange/30 to-transparent" />
-            <Sparkles className="size-4 text-citius-orange/50" />
+            <Sparkles className="size-4 text-public-orange-ink/50" />
             <div className="h-px flex-grow bg-gradient-to-l from-citius-orange/30 to-transparent" />
           </div>
         </div>
@@ -122,7 +122,7 @@ export default function SacredSitesVisual({ className }) {
           viewport={{ once: true }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <span className="mb-4 block font-heading text-citius-orange text-xs uppercase tracking-[0.3em] md:text-sm">
+          <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
             Sacred Geography
           </span>
           <h2 className="mb-4 font-heading text-3xl text-brand-dark leading-tight md:mb-6 md:text-5xl">

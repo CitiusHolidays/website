@@ -11,9 +11,9 @@ import {
   deleteEntityNotifications,
   flushDeferredNotificationCleanup,
   type NotificationEntityIdentity,
-  notifyStaffMember,
   PERMISSIONS,
   type PortalAccess,
+  publishWorkflowNotification,
   requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
@@ -419,15 +419,19 @@ export async function createTourManagerForTest(
       message: `${name} added as Tour Manager`,
     }),
     staffId && jobCardId
-      ? notifyStaffMember(ctx, staffId, {
-          body: tourManagerNotificationBody(
-            await ctx.db.get(jobCardId),
-            travelBatch,
-            args.reportingInstructions
-          ),
-          entityId: id,
-          entityType: "tourManager",
-          title: "Tour Manager allocated",
+      ? publishWorkflowNotification(ctx, {
+          bellTargets: { kind: "staff", staffIds: [staffId] },
+          content: {
+            body: tourManagerNotificationBody(
+              await ctx.db.get(jobCardId),
+              travelBatch,
+              args.reportingInstructions
+            ),
+            entityId: id,
+            entityType: "tourManager",
+            title: "Tour Manager allocated",
+          },
+          emailTargets: { kind: "staff", staffIds: [staffId] },
         })
       : null,
   ]);
@@ -618,15 +622,19 @@ export async function updateTourManagerForTest(
       message: `${name} tour manager updated`,
     }),
     notifyOnAllocation && allocationStaffId && allocationJobCardId
-      ? notifyStaffMember(ctx, allocationStaffId, {
-          body: tourManagerNotificationBody(
-            await ctx.db.get(allocationJobCardId),
-            travelBatch,
-            args.reportingInstructions ?? tourManager.reportingInstructions
-          ),
-          entityId: id,
-          entityType: "tourManager",
-          title: "Tour Manager allocation updated",
+      ? publishWorkflowNotification(ctx, {
+          bellTargets: { kind: "staff", staffIds: [allocationStaffId] },
+          content: {
+            body: tourManagerNotificationBody(
+              await ctx.db.get(allocationJobCardId),
+              travelBatch,
+              args.reportingInstructions ?? tourManager.reportingInstructions
+            ),
+            entityId: id,
+            entityType: "tourManager",
+            title: "Tour Manager allocation updated",
+          },
+          emailTargets: { kind: "staff", staffIds: [allocationStaffId] },
         })
       : null,
   ]);

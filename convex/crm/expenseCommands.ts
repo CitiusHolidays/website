@@ -18,6 +18,7 @@ import {
   requireAnyPermission,
   requireStaff,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 
 type ExpenseCurrency = "INR" | "USD" | "AED" | "EUR" | "THB" | "SGD";
 
@@ -59,7 +60,7 @@ export async function handleCreateExpense(
   const hasSplit =
     args.cardAmount !== undefined || args.cashAmount !== undefined || args.epayAmount !== undefined;
   const amount = hasSplit ? splitTotal(args) : (args.amount ?? 0);
-  const id = await ctx.db.insert("expenseEntries", {
+  const id = await insertWithE2eOwnership(ctx, "expenseEntries", {
     amount,
     approvalStatus: "Pending",
     approvalVersion: 1,
@@ -189,7 +190,7 @@ export async function handleUpdateExpense(
     await invalidatePendingExpenseApprovals(ctx, id, now);
   }
 
-  await ctx.db.patch(id, patch);
+  await patchWithE2eOwnership(ctx, "expenseEntries", id, patch);
   await Promise.all([
     createActivity(ctx, access, {
       action: "updated",

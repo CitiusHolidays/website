@@ -348,7 +348,7 @@ describe("Job Card creation notifications", () => {
     ).toBe(true);
   });
 
-  test("sends no Job Card emails when every staff member has email alerts disabled", async () => {
+  test("keeps role-default Job Card emails when additional alert roles are empty", async () => {
     const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
     for (const staff of tables.staffUsers) {
       staff.emailAlertRoles = [];
@@ -360,7 +360,14 @@ describe("Job Card creation notifications", () => {
     });
 
     expect(tables.notifications.length).toBeGreaterThan(0);
-    expect(scheduledEmails).toHaveLength(0);
+    expect(scheduledEmails).toHaveLength(5);
+    expect(scheduledEmails.flatMap(({ args }) => args.recipients).sort()).toEqual([
+      "contracting@citius.in",
+      "finance-head@citius.in",
+      "operations-head@citius.in",
+      "sales@citius.in",
+      "ticketing@citius.in",
+    ]);
   });
 
   test("skips Ticketing notifications when the confirmed query scope says ticketing is not required", async () => {

@@ -1,5 +1,11 @@
 export type StaffWorkspacePerformanceTarget = "job-cards" | "proposals" | "queries";
 
+export const STAFF_WORKSPACE_PERFORMANCE_TARGETS = [
+  "queries",
+  "proposals",
+  "job-cards",
+] as const satisfies readonly StaffWorkspacePerformanceTarget[];
+
 export interface StaffWorkspacePerformanceSample {
   applicationPayloadBytes: number;
   duplicateSubscriptions: number;
@@ -20,6 +26,44 @@ interface StaffWorkspaceRouteBudget {
   maxRouteResourceTransferBytes: number;
 }
 
+function assertRecord(value: unknown, field: string): asserts value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${field} must be an object`);
+  }
+}
+
+function readFiniteNonnegativeNumber(record: Record<string, unknown>, field: string, path: string) {
+  const value = record[field];
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new Error(`${path}.${field} must be a finite nonnegative number`);
+  }
+  return value;
+}
+
+function parseRouteBudget(value: unknown, path: string): StaffWorkspaceRouteBudget {
+  assertRecord(value, path);
+  return {
+    maxApplicationPayloadBytes: readFiniteNonnegativeNumber(
+      value,
+      "maxApplicationPayloadBytes",
+      path
+    ),
+    maxDuplicateSubscriptions: readFiniteNonnegativeNumber(
+      value,
+      "maxDuplicateSubscriptions",
+      path
+    ),
+    maxFirstContentMs: readFiniteNonnegativeNumber(value, "maxFirstContentMs", path),
+    maxLogicalSubscriptions: readFiniteNonnegativeNumber(value, "maxLogicalSubscriptions", path),
+    maxRouteReadyMs: readFiniteNonnegativeNumber(value, "maxRouteReadyMs", path),
+    maxRouteResourceTransferBytes: readFiniteNonnegativeNumber(
+      value,
+      "maxRouteResourceTransferBytes",
+      path
+    ),
+  };
+}
+
 export interface StaffWorkspacePerformanceBudgetManifest {
   budgets: Record<
     StaffWorkspacePerformanceTarget,
@@ -34,6 +78,38 @@ export interface StaffWorkspacePerformanceFinding {
   metric: keyof StaffWorkspaceRouteBudget;
   target: StaffWorkspacePerformanceTarget;
   warm: boolean;
+}
+
+export function parseStaffWorkspacePerformanceBudgetManifest(
+  value: unknown
+): StaffWorkspacePerformanceBudgetManifest {
+  assertRecord(value, "manifest");
+  if (value.schemaVersion !== 1) {
+    throw new Error(
+      `schemaVersion must be 1; migrate unsupported version ${String(value.schemaVersion)}`
+    );
+  }
+  assertRecord(value.budgets, "budgets");
+  const knownTargets = new Set<string>(STAFF_WORKSPACE_PERFORMANCE_TARGETS);
+  for (const target of Object.keys(value.budgets)) {
+    if (!knownTargets.has(target)) {
+      throw new Error(`budgets.${target} is not a known Staff Workspace target`);
+    }
+  }
+  const budgets = Object.fromEntries(
+    STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) => {
+      const targetValue = value.budgets[target];
+      assertRecord(targetValue, `budgets.${target}`);
+      return [
+        target,
+        {
+          cold: parseRouteBudget(targetValue.cold, `budgets.${target}.cold`),
+          warm: parseRouteBudget(targetValue.warm, `budgets.${target}.warm`),
+        },
+      ];
+    })
+  ) as StaffWorkspacePerformanceBudgetManifest["budgets"];
+  return { budgets, schemaVersion: 1 };
 }
 
 export function evaluateStaffWorkspacePerformanceBudget(

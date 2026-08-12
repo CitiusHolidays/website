@@ -81,6 +81,14 @@ export interface PortalRouteDefinition {
   title: string;
 }
 
+export const PORTAL_ROUTE_HEADING_ID = "portal-page-heading";
+
+export interface PortalRouteAccessibilityMetadata {
+  documentTitle: string;
+  headingId: typeof PORTAL_ROUTE_HEADING_ID;
+  headingText: string;
+}
+
 export const PORTAL_ROUTES = {
   "accounts-job-cards": {
     component: "AccountsJobCardView",
@@ -319,6 +327,17 @@ export function resolvePortalViewId(view: string): PortalViewId {
 
 export function getPortalRouteDefinition(view: string): PortalRouteDefinition {
   return PORTAL_ROUTES[resolvePortalViewId(view)];
+}
+
+export function getPortalRouteAccessibilityMetadata(
+  view: string
+): PortalRouteAccessibilityMetadata {
+  const route = getPortalRouteDefinition(view);
+  return {
+    documentTitle: `${route.title} | Citius Connect`,
+    headingId: PORTAL_ROUTE_HEADING_ID,
+    headingText: route.title,
+  };
 }
 
 export function getPortalRouteDataDependencies(view: string) {

@@ -6,17 +6,15 @@ import { matchesExpenseApprovalRequest, matchesManagerApprovedSnapshot } from ".
 import { scheduleFinanceMetricSync } from "./financeMetricSync";
 import {
   createActivity,
-  notifyStaffMatching,
   PERMISSIONS,
+  publishWorkflowNotification,
   requireAnyPermission,
-  requireStaff,
 } from "./lib";
 import { applyCrmCursorFilters, boundedPaginationOptions } from "./paginationPolicy";
 import {
   approvalIdResultValidator,
   approvalListPageResultValidator,
   approvalListRowResultValidator,
-  countResultValidator,
 } from "./peopleWorkflowReturnContracts";
 
 const decisionValidator = v.union(
@@ -195,11 +193,17 @@ export const decide = mutation({
       message: `${approval.requestCode} ${args.status.toLowerCase()}`,
     });
     if (approval.requestedBy) {
-      await notifyStaffMatching(ctx, (member) => member.authUserId === approval.requestedBy, {
-        body: `${approval.requestCode}: ${approval.summary}`,
-        entityId: approvalId,
-        entityType: "approval",
-        title: `Approval ${args.status}`,
+      const matchesRequester = (member: Doc<"staffUsers">) =>
+        member.authUserId === approval.requestedBy;
+      await publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "matching", matches: matchesRequester },
+        content: {
+          body: `${approval.requestCode}: ${approval.summary}`,
+          entityId: approvalId,
+          entityType: "approval",
+          title: `Approval ${args.status}`,
+        },
+        emailTargets: { kind: "matching", matches: matchesRequester },
       });
     }
     return { id: approvalId };
@@ -234,17 +238,4 @@ export const remove = mutation({
     return { id: approvalId };
   },
   returns: approvalIdResultValidator,
-});
-
-export const pendingCount = query({
-  args: {},
-  handler: async (ctx) => {
-    await requireStaff(ctx);
-    const rows = await ctx.db
-      .query("approvalRequests")
-      .withIndex("by_status", (q) => q.eq("status", "Pending"))
-      .collect();
-    return rows.length;
-  },
-  returns: countResultValidator,
 });

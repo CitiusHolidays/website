@@ -50,7 +50,7 @@ export default function ProgressSummary() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <LevelBadge level={progress.level} score={progress.score} size="lg" />
         <Link
-          className="font-medium text-citius-blue text-sm transition-colors hover:text-citius-orange"
+          className="font-medium text-citius-blue text-sm transition-colors hover:text-public-orange-ink"
           href="/sacred-bharat/leaderboard"
         >
           View leaderboard →
@@ -59,7 +59,7 @@ export default function ProgressSummary() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon, hint }) => (
           <div className="rounded-2xl border border-brand-light bg-white p-5 shadow-sm" key={label}>
-            <Icon className="mb-3 size-5 text-citius-orange" />
+            <Icon className="mb-3 size-5 text-public-orange-ink" />
             <p className="font-heading text-2xl text-brand-dark tabular-nums">{value}</p>
             <p className="mt-1 font-sans text-brand-muted text-sm">{label}</p>
             {hint ? (

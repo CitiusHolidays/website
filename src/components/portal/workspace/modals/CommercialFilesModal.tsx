@@ -4,7 +4,7 @@ import { api } from "@convex/_generated/api";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { anyApi } from "convex/server";
 import { FileText, History, Paperclip, RotateCcw, Search, Trash2, Upload, X } from "lucide-react";
-import { m } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePortalConfirm, usePortalConfirmActive } from "@/components/portal/PortalConfirmDialog";
 import { formatDate, formatFileSize } from "@/components/portal/PortalModalForm";
@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/application-checkbox";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import { Input as StaffInput } from "@/components/ui/application-field";
 import { Select } from "@/components/ui/application-select";
+import { portalOverlayMotion } from "@/lib/portal/portalMotion";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const FILE_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.webp,.gif";
@@ -186,6 +187,9 @@ export function CommercialFilesModal({
   modal: string | null;
 }) {
   const open = modal === "commercialFiles";
+  const shouldReduceMotion = !!useReducedMotion();
+  const backdropMotion = portalOverlayMotion(shouldReduceMotion, "static", 0.15, "snap");
+  const panelMotion = portalOverlayMotion(shouldReduceMotion, "center", 0.2, "snap");
   const toast = usePortalToast() as {
     error: (message: string) => unknown;
     success: (message: string) => unknown;
@@ -491,22 +495,29 @@ export function CommercialFilesModal({
   return (
     <ControlledDialog
       backdropClassName="absolute inset-0 bg-slate-950/65"
-      backdropRender={
-        <m.div animate={{ opacity: 1 }} exit={{ opacity: 0 }} initial={{ opacity: 0 }} />
-      }
+      backdropRender={(props, state) => (
+        <m.div
+          {...(props as React.ComponentProps<typeof m.div>)}
+          animate={state.open ? backdropMotion.visible : backdropMotion.hidden}
+          initial={backdropMotion.hidden}
+          transition={backdropMotion.transition}
+        />
+      )}
       closeDisabled={confirmActive}
       escapeDisabled
       initialFocus={closeButtonRef}
       modal={!confirmActive}
       onOpenChange={handleOpenChange}
       open={open}
-      popupClassName="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:!transform-none max-sm:!opacity-100"
-      popupRender={
+      popupClassName="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-brand-border bg-white shadow-2xl max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:rounded-none max-sm:!transform-none"
+      popupRender={(props, state) => (
         <m.div
-          animate={{ opacity: 1, transform: "translateY(0) scale(1)" }}
-          initial={{ opacity: 0, transform: "translateY(18px) scale(0.98)" }}
+          {...(props as React.ComponentProps<typeof m.div>)}
+          animate={state.open ? panelMotion.visible : panelMotion.hidden}
+          initial={panelMotion.hidden}
+          transition={panelMotion.transition}
         />
-      }
+      )}
       triggerless
       viewportClassName={`fixed inset-0 ${PORTAL_Z.entityModal} grid place-items-center p-4`}
     >
@@ -693,6 +704,7 @@ export function CommercialFilesModal({
                 ) : null}
                 <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
                   <StaffInput
+                    aria-label="Upload note (optional)"
                     className="h-11 rounded-xl border border-brand-border bg-white px-3 text-sm"
                     onChange={(event) => setNote(event.target.value)}
                     placeholder="Optional note or description"
@@ -772,6 +784,7 @@ export function CommercialFilesModal({
                                   {editingNoteId === row.id ? (
                                     <div className="mt-2 flex flex-wrap gap-2">
                                       <StaffInput
+                                        aria-label={`Edit note for ${row.fileName}`}
                                         className="h-9 min-w-56 flex-1 rounded-lg border border-brand-border bg-white px-2 text-xs outline-none focus:border-citius-blue"
                                         onChange={(event) => setEditingNote(event.target.value)}
                                         value={editingNote}

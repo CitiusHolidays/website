@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
-import { internalMutation, query } from "../_generated/server";
+import type { Doc, Id } from "../_generated/dataModel";
+import { internalMutation, type MutationCtx, query } from "../_generated/server";
 import { requireStaff } from "./lib/staffAccess";
 import { listSearchReadinessResultValidator } from "./miscReturnContracts";
 import { mapInBoundedBatches } from "./paginationPolicy";
@@ -300,20 +300,30 @@ async function buildJobCardProjection(ctx: any, row: any) {
   return patch;
 }
 
-async function buildProposalProjection(ctx: any, row: any) {
-  const patch: Record<string, unknown> = {
+interface ProposalProjectionPatch {
+  attachmentCount?: number;
+  attachmentPreview?: NonNullable<Doc<"proposals">["attachmentPreview"]>;
+  linkedQueryProjection?: NonNullable<Doc<"proposals">["linkedQueryProjection"]>;
+  listSearchText: string;
+}
+
+export async function buildProposalProjection(
+  ctx: MutationCtx,
+  row: Doc<"proposals">
+): Promise<ProposalProjectionPatch> {
+  const patch: ProposalProjectionPatch = {
     listSearchText: buildProposalListSearchText(row),
   };
   if (row.attachmentCount === undefined || row.attachmentPreview === undefined) {
     const attachments = await ctx.db
       .query("proposalAttachments")
-      .withIndex("by_proposalId", (q: any) => q.eq("proposalId", row._id))
+      .withIndex("by_proposalId", (q) => q.eq("proposalId", row._id))
       .collect();
     patch.attachmentCount = attachments.length;
     patch.attachmentPreview = attachments
-      .sort((left: any, right: any) => right.createdAt - left.createdAt)
+      .sort((left, right) => right.createdAt - left.createdAt)
       .slice(0, 3)
-      .map((attachment: any) => ({
+      .map((attachment) => ({
         createdAt: attachment.createdAt,
         fileName: attachment.fileName,
         fileSize: attachment.fileSize,
@@ -321,13 +331,14 @@ async function buildProposalProjection(ctx: any, row: any) {
         mimeType: attachment.mimeType,
       }));
   }
-  if (row.queryId) {
+  const { queryId } = row;
+  if (queryId) {
     const [linkedQueryRecord, existingLink] = await Promise.all([
-      ctx.db.get(row.queryId),
+      ctx.db.get(queryId),
       ctx.db
         .query("proposalQueryLinks")
-        .withIndex("by_proposalId_and_queryId", (q: any) =>
-          q.eq("proposalId", row._id).eq("queryId", row.queryId)
+        .withIndex("by_proposalId_and_queryId", (q) =>
+          q.eq("proposalId", row._id).eq("queryId", queryId)
         )
         .unique(),
     ]);
@@ -335,7 +346,7 @@ async function buildProposalProjection(ctx: any, row: any) {
       const projection = proposalLinkProjection(linkedQueryRecord);
       patch.linkedQueryProjection = [
         ...(row.linkedQueryProjection ?? []).filter(
-          (entry: any) => String(entry.queryId) !== String(linkedQueryRecord._id)
+          (entry) => String(entry.queryId) !== String(linkedQueryRecord._id)
         ),
         storedProposalQueryProjection(linkedQueryRecord),
       ];
@@ -347,7 +358,7 @@ async function buildProposalProjection(ctx: any, row: any) {
           createdAt: row.createdAt,
           createdBy: row.createdBy,
           proposalId: row._id,
-          queryId: row.queryId,
+          queryId,
         });
       }
     }
@@ -363,7 +374,7 @@ async function buildListProjection(ctx: any, table: SearchTable, row: any) {
     return await buildJobCardProjection(ctx, row);
   }
   if (table === "proposals") {
-    return await buildProposalProjection(ctx, row);
+    return await buildProposalProjection(ctx, row as Doc<"proposals">);
   }
   const needsPassportProjection = row.hasPassportScan === undefined;
   const [job, batch, passport] = await Promise.all([

@@ -1,6 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { canReceiveNotification } from "./lib/notifications";
 import { PERMISSIONS } from "./lib/rolePolicy";
 import { requireStaff } from "./lib/staffAccess";
@@ -115,9 +116,9 @@ export const markNotificationRead = mutation({
           .unique();
     const readAt = Date.now();
     if (existing) {
-      await ctx.db.patch(existing._id, { readAt });
+      await patchWithE2eOwnership(ctx, "notificationReads", existing._id, { readAt });
     } else {
-      await ctx.db.insert("notificationReads", {
+      await insertWithE2eOwnership(ctx, "notificationReads", {
         authUserId: access.staffId ? undefined : access.authUserId,
         notificationId: id,
         readAt,
@@ -141,7 +142,7 @@ export const markAllNotificationsRead = mutation({
     );
     await Promise.all(
       toMark.map((notification) =>
-        ctx.db.insert("notificationReads", {
+        insertWithE2eOwnership(ctx, "notificationReads", {
           authUserId: access.staffId ? undefined : access.authUserId,
           notificationId: notification._id,
           readAt: now,

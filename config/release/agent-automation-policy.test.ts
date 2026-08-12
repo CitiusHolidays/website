@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import {
   APPROVAL_POLICY_VERSION,
   authorizeAutomation,
@@ -6,6 +8,8 @@ import {
   isDestructiveCommand,
   normalizeCommand,
 } from "./agent-automation-policy";
+
+const root = resolve(import.meta.dir, "../..");
 
 const NOW = Date.parse("2026-08-05T12:00:00.000Z");
 
@@ -66,5 +70,25 @@ describe("agent automation consent policy", () => {
         NOW
       ).allowed
     ).toBe(false);
+  });
+
+  test("help exits before reading an approval record and an empty command fails with usage", () => {
+    const run = (args: string[]) =>
+      spawnSync("bun", ["config/release/agent-automation-policy.ts", ...args], {
+        cwd: root,
+        encoding: "utf8",
+        env: {
+          AUTOMATION_APPROVAL_RECORD: "/path/that/must/not/be/read",
+          PATH: process.env.PATH,
+        },
+      });
+
+    const help = run(["--help"]);
+    expect(help.status).toBe(0);
+    expect(help.stdout).toContain("Usage: bun run automation:check");
+
+    const empty = run([]);
+    expect(empty.status).toBe(1);
+    expect(empty.stderr).toContain("requires a command");
   });
 });

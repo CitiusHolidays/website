@@ -196,7 +196,9 @@ export const retryDeliveryOutcome = internalAction({
         );
       }
     }
+    return null;
   },
+  returns: v.null(),
 });
 
 const summaryValidator = v.object({

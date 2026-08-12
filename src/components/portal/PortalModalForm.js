@@ -128,6 +128,8 @@ function notesPreview(value) {
 }
 
 function Input({
+  error = "",
+  fieldKey = "",
   label,
   value,
   onChange,
@@ -139,6 +141,7 @@ function Input({
 }) {
   const autoId = useId();
   const fieldId = idProp || autoId;
+  const errorId = error ? `${fieldId}-error` : undefined;
   if (type === "date") {
     return (
       <label className="block" htmlFor={fieldId}>
@@ -155,6 +158,8 @@ function Input({
           ) : null}
         </span>
         <PortalDateInput
+          aria-describedby={errorId}
+          aria-invalid={Boolean(error) || undefined}
           className="w-full"
           id={fieldId}
           inputClassName="!bg-brand-light focus:!bg-white"
@@ -164,6 +169,11 @@ function Input({
           value={value}
           {...rest}
         />
+        {error ? (
+          <p className="mt-1 text-red-700 text-xs" id={errorId}>
+            {error}
+          </p>
+        ) : null}
       </label>
     );
   }
@@ -182,6 +192,9 @@ function Input({
         ) : null}
       </span>
       <StaffInput
+        aria-describedby={errorId}
+        aria-invalid={Boolean(error) || undefined}
+        data-field-key={fieldKey}
         id={fieldId}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
@@ -190,12 +203,18 @@ function Input({
         value={value}
         {...rest}
       />
+      {error ? (
+        <p className="mt-1 text-red-700 text-xs" id={errorId}>
+          {error}
+        </p>
+      ) : null}
     </label>
   );
 }
 
-function Select({ label, value, options, onChange, required = false }) {
+function Select({ error = "", fieldKey = "", label, value, options, onChange, required = false }) {
   const fieldId = useId();
+  const errorId = error ? `${fieldId}-error` : undefined;
   const normalized = options.map((option) =>
     typeof option === "string" ? { label: option, value: option } : option
   );
@@ -214,6 +233,8 @@ function Select({ label, value, options, onChange, required = false }) {
         ) : null}
       </label>
       <StaffSelect
+        aria-describedby={errorId}
+        aria-invalid={Boolean(error) || undefined}
         className={inputVariants({ surface: "staff" })}
         id={fieldId}
         onValueChange={onChange}
@@ -221,6 +242,11 @@ function Select({ label, value, options, onChange, required = false }) {
         required={required}
         value={value}
       />
+      {error ? (
+        <p className="mt-1 text-red-700 text-xs" id={errorId}>
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -259,8 +285,9 @@ function MultiSelect({ label, value, options, onChange, help }) {
   );
 }
 
-function Textarea({ label, value, onChange, maxWords }) {
+function Textarea({ error = "", fieldKey = "", label, value, onChange, maxWords }) {
   const fieldId = useId();
+  const errorId = error ? `${fieldId}-error` : undefined;
   const wordCount = countWords(value);
   const updateTextareaValue = (event) => {
     let next = event.target.value;
@@ -273,7 +300,20 @@ function Textarea({ label, value, onChange, maxWords }) {
   return (
     <label className="block md:col-span-2" htmlFor={fieldId}>
       <span className="mb-1 block font-semibold text-brand-muted text-xs">{label}</span>
-      <StaffTextarea id={fieldId} onChange={updateTextareaValue} rows={4} value={value} />
+      <StaffTextarea
+        aria-describedby={errorId}
+        aria-invalid={Boolean(error) || undefined}
+        data-field-key={fieldKey}
+        id={fieldId}
+        onChange={updateTextareaValue}
+        rows={4}
+        value={value}
+      />
+      {error ? (
+        <p className="mt-1 text-red-700 text-xs" id={errorId}>
+          {error}
+        </p>
+      ) : null}
       {maxWords ? (
         <span
           className={`mt-1 block text-xs ${wordCount >= maxWords ? "text-amber-700" : "text-brand-muted"}`}

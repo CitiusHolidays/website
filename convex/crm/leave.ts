@@ -32,6 +32,7 @@ import {
   requireAnyPermission,
   requireStaff,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import {
   applyCrmCursorFilters,
   boundedPaginationOptions,
@@ -156,10 +157,10 @@ async function upsertLeaveBalance(
     usedDays,
   };
   if (existing) {
-    await ctx.db.patch(existing._id, patch);
+    await patchWithE2eOwnership(ctx, "staffLeaveBalances", existing._id, patch);
     return;
   }
-  await ctx.db.insert("staffLeaveBalances", {
+  await insertWithE2eOwnership(ctx, "staffLeaveBalances", {
     fiscalYear,
     leaveType,
     staffId: staff._id,
@@ -178,7 +179,7 @@ async function ledgerUsageForApprovedLeave(ctx: any, access: any, leave: any, st
     return;
   }
   const days = inclusiveLeaveDays(leave.startDate, leave.endDate);
-  await ctx.db.insert("staffLeaveLedger", {
+  await insertWithE2eOwnership(ctx, "staffLeaveLedger", {
     createdAt: Date.now(),
     createdBy: access.authUserId ?? "system",
     days,
@@ -377,7 +378,7 @@ export async function createLeaveRequest(ctx: MutationCtx, args: CreateLeaveArgs
     throw new ConvexError(decision.reason);
   }
 
-  const id = await ctx.db.insert("staffLeaveRecords", {
+  const id = await insertWithE2eOwnership(ctx, "staffLeaveRecords", {
     createdAt: now,
     createdBy: access.authUserId || "system",
     endDate: args.endDate,
@@ -578,7 +579,7 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
     }
   }
 
-  await ctx.db.patch(leaveId, patch);
+  await patchWithE2eOwnership(ctx, "staffLeaveRecords", leaveId, patch);
   const patchedLeave = await ctx.db.get(leaveId);
   if (patchedLeave && patch.status === "Approved") {
     await ledgerUsageForApprovedLeave(ctx, access, patchedLeave, staff);
@@ -728,7 +729,7 @@ export const update = mutation({
     if (args.reason !== undefined) {
       patch.reason = args.reason.trim();
     }
-    await ctx.db.patch(leaveId, patch);
+    await patchWithE2eOwnership(ctx, "staffLeaveRecords", leaveId, patch);
     await createActivity(ctx, access, {
       action: "updated",
       entityId: leaveId,

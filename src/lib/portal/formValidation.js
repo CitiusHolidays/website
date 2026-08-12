@@ -1,14 +1,33 @@
 import { PORTAL_PERMISSIONS as P, TICKETING_SCOPE_OPTIONS } from "@/lib/portal/constants";
-import { assertDateRangeOrder } from "@/lib/portal/dateValidation";
+import { assertDateRangeOrder, getDateRangeError } from "@/lib/portal/dateValidation";
 import { canHeadAssignQueryTeams, isSalesQueryAssigner } from "@/lib/portal/permissions";
 import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
-function assertValidTicketingScope(value) {
+export class PortalValidationError extends Error {
+  constructor(field, message) {
+    super(message);
+    this.name = "PortalValidationError";
+    this.field = field;
+  }
+}
+
+export function isPortalValidationError(error) {
+  return error instanceof PortalValidationError;
+}
+
+function failField(field, message) {
+  throw new PortalValidationError(field, message);
+}
+
+function assertValidTicketingScope(value, field) {
   const trimmed = String(value ?? "").trim();
   if (!trimmed) {
     return;
   }
   if (!TICKETING_SCOPE_OPTIONS.includes(trimmed)) {
+    if (field) {
+      failField(field, "Select a valid Ticketing Scope.");
+    }
     throw new Error("Select a valid Ticketing Scope.");
   }
   return trimmed;
@@ -18,8 +37,6 @@ const MAX_QUERY_NOTES_WORDS = 30;
 const WORD_SPLIT_RE = /\s+/;
 export const PROPOSAL_HANDOFF_TO_SALES_ERROR =
   "Enter selling price and cost price on the proposal before sending it to Sales.";
-export const PROPOSAL_MARK_SENT_ERROR =
-  "Enter selling price and cost price on the proposal before marking it sent.";
 
 function countWords(value) {
   const trimmed = String(value ?? "").trim();
@@ -29,20 +46,26 @@ function countWords(value) {
   return trimmed.split(WORD_SPLIT_RE).length;
 }
 
-function assertPositiveInt(value, label, { min = 1 } = {}) {
+function assertPositiveInt(value, label, { field, message, min = 1 } = {}) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < min) {
-    throw new Error(`${label} must be at least ${min}.`);
+    if (field) {
+      failField(field, message || `${label} must be at least ${min}.`);
+    }
+    throw new Error(message || `${label} must be at least ${min}.`);
   }
 }
 
-function assertNonNegativeNumber(value, label) {
+function assertNonNegativeNumber(value, label, { field, message } = {}) {
   const parsed = Number(value);
   if (value === "" || value === null || value === undefined) {
     return;
   }
   if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error(`${label} cannot be negative.`);
+    if (field) {
+      failField(field, message || `${label} cannot be negative.`);
+    }
+    throw new Error(message || `${label} cannot be negative.`);
   }
 }
 
@@ -67,8 +90,11 @@ export function assertProposalPricingComplete(form, message = PROPOSAL_HANDOFF_T
   }
 }
 
-function assertMaxWords(value, maxWords, label) {
+function assertMaxWords(value, maxWords, label, field) {
   if (countWords(value) > maxWords) {
+    if (field) {
+      failField(field, `${label} must be ${maxWords} words or fewer.`);
+    }
     throw new Error(`${label} must be ${maxWords} words or fewer.`);
   }
 }
@@ -77,29 +103,37 @@ function assertMaxWords(value, maxWords, label) {
  * Client-side validation before portal modal mutations run.
  * @param {string} modal
  * @param {Record<string, unknown>} form
- * @param {{ has?: (permission: string) => boolean }} [deps]
+ * @param {{ access?: unknown, has?: (permission: string) => boolean, jobCardModals?: ReadonlySet<string> }} [deps]
  */
 export function validateModalForm(modal, form, deps = {}) {
   const has = deps.has || (() => false);
 
   if (modal === "query") {
     if (!String(form.clientName ?? "").trim()) {
-      throw new Error("Client name is required.");
+      failField("clientName", "Enter a Client / Company.");
     }
-    assertPositiveInt(form.paxCount, "Pax count");
-    assertMaxWords(form.notes, MAX_QUERY_NOTES_WORDS, "Notes");
-    assertDateRangeOrder(form.travelStartDate, form.travelEndDate, {
-      endLabel: "Travel end date",
-      startLabel: "Travel start date",
+    assertPositiveInt(form.paxCount, "No. of Pax", {
+      field: "paxCount",
+      message: "Enter No. of Pax as 1 or more.",
     });
-    assertNonNegativeNumber(form.budgetAmount, "Budget");
+    assertMaxWords(form.notes, MAX_QUERY_NOTES_WORDS, "Notes", "notes");
+    const queryDateError = getDateRangeError(form.travelStartDate, form.travelEndDate, {
+      endLabel: "Travel Date To",
+      startLabel: "Travel Date From",
+    });
+    if (queryDateError) {
+      failField("travelEndDate", queryDateError);
+    }
+    assertNonNegativeNumber(form.budgetAmount, "Budget per Person (INR, pre-tax)", {
+      field: "budgetAmount",
+    });
     const contractingStaffId = String(form.staffId ?? "").trim();
     const ticketingScope = assertValidTicketingScope(form.ticketingScope);
     if (contractingStaffId && !ticketingScope) {
-      throw new Error("Select a Ticketing Scope.");
+      failField("ticketingScope", "Select a Ticketing Scope.");
     }
     if (!contractingStaffId && ticketingScope) {
-      throw new Error("Select a Contracting SPOC.");
+      failField("staffId", "Select a Contracting SPOC.");
     }
   }
 
@@ -288,27 +322,27 @@ export function validateModalForm(modal, form, deps = {}) {
 
   if (modal === "expense") {
     if (form.expenseType === "jobCard" && !String(form.jobCardId ?? "").trim()) {
-      throw new Error("Select a job card.");
+      failField("jobCardId", "Select Job Card.");
     }
     if (!String(form.expenseDate ?? "").trim()) {
-      throw new Error("Expense date is required.");
+      failField("expenseDate", "Enter Expense Date.");
     }
     if (!String(form.category ?? "").trim()) {
-      throw new Error("Select a category.");
+      failField("category", "Select Category.");
     }
     if (!String(form.paidBy ?? "").trim()) {
-      throw new Error("Paid by is required.");
+      failField("paidBy", "Enter Paid By.");
     }
-    assertNonNegativeNumber(form.cardAmount, "Card amount");
-    assertNonNegativeNumber(form.cashAmount, "Cash amount");
-    assertNonNegativeNumber(form.epayAmount, "E-pay amount");
+    assertNonNegativeNumber(form.cardAmount, "Card Amount", { field: "cardAmount" });
+    assertNonNegativeNumber(form.cashAmount, "Cash Amount", { field: "cashAmount" });
+    assertNonNegativeNumber(form.epayAmount, "E-Pay Amount", { field: "epayAmount" });
     const total = getExpenseSplitTotal({
       cardAmount: form.cardAmount,
       cashAmount: form.cashAmount,
       epayAmount: form.epayAmount,
     });
     if (total <= 0) {
-      throw new Error("Enter at least one expense amount greater than zero.");
+      failField("cardAmount", "Enter at least one expense amount greater than zero.");
     }
   }
 

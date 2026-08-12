@@ -2,7 +2,7 @@
 import { MapPin, Phone } from "lucide-react";
 import { m } from "motion/react";
 
-export default function LocationCard({ city, address, phone, mapUrl, index }) {
+export default function LocationCard({ city, address, phone, dialPhone = phone, mapUrl, index }) {
   return (
     <m.div
       animate={{ opacity: 1, y: 0 }}
@@ -14,15 +14,15 @@ export default function LocationCard({ city, address, phone, mapUrl, index }) {
 
       <div className="space-y-3">
         <div className="flex items-start gap-3">
-          <MapPin className="mt-0.5 size-5 flex-shrink-0 text-citius-orange" />
+          <MapPin className="mt-0.5 size-5 flex-shrink-0 text-public-orange-ink" />
           <p className="text-brand-muted text-sm leading-relaxed">{address}</p>
         </div>
 
         <div className="flex items-center gap-3">
-          <Phone className="size-5 flex-shrink-0 text-citius-orange" />
+          <Phone className="size-5 flex-shrink-0 text-public-orange-ink" />
           <a
-            className="text-brand-dark text-sm transition-colors duration-200 hover:text-citius-orange"
-            href={`tel:${phone}`}
+            className="text-brand-dark text-sm transition-colors duration-200 hover:text-public-orange-ink"
+            href={`tel:${dialPhone}`}
           >
             {phone}
           </a>

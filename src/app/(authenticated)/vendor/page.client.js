@@ -17,7 +17,7 @@ export default function VendorPageClient({ user }) {
   return (
     <div className="min-h-screen bg-[#FDFBF7]">
       <VendorSkipLink />
-      <header className="border-[#e2e8f0] border-b bg-white/80 backdrop-blur-sm">
+      <header className="material-structural border-[#e2e8f0] border-b bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Link className="flex items-center gap-3" href="/">
             <Image alt="Citius Holidays" height={72} src={citiusLogo} width={72} />

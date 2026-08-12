@@ -87,6 +87,50 @@ describe("CRM list pagination policy", () => {
     ]);
   });
 
+  test("preserves false, zero, and empty-string equality predicates", () => {
+    const cases = [
+      { expected: ["eq", "active", false], field: "active", value: false },
+      { expected: ["eq", "attemptCount", 0], field: "attemptCount", value: 0 },
+      { expected: ["eq", "department", ""], field: "department", value: "" },
+    ] as const;
+
+    for (const testCase of cases) {
+      let expression: unknown;
+      const source = {
+        filter(predicate: (q: any) => unknown) {
+          expression = predicate({
+            and: (...values: unknown[]) => ["and", ...values],
+            eq: (field: unknown, value: unknown) => ["eq", field, value],
+            field: (field: string) => field,
+            gte: (field: unknown, value: unknown) => ["gte", field, value],
+            lte: (field: unknown, value: unknown) => ["lte", field, value],
+          });
+          return this;
+        },
+      };
+
+      expect(
+        applyCrmCursorFilters(source, {
+          equals: { [testCase.field]: testCase.value },
+        })
+      ).toBe(source);
+      expect(expression).toEqual(testCase.expected);
+    }
+  });
+
+  test("continues to omit only undefined equality predicates", () => {
+    let filtered = false;
+    const source = {
+      filter() {
+        filtered = true;
+        return this;
+      },
+    };
+
+    expect(applyCrmCursorFilters(source, { equals: { active: undefined } })).toBe(source);
+    expect(filtered).toBe(false);
+  });
+
   test("hydrates relation ids with bounded direct reads", async () => {
     let active = 0;
     let peak = 0;

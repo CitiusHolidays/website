@@ -15,12 +15,12 @@ import {
   createActivity,
   creatorInitials,
   nextCode,
-  notifyRoles,
-  notifyStaffMember,
   PERMISSIONS,
   paymentTermsFor,
+  publishWorkflowNotification,
   requireStaff,
 } from "./lib";
+import { insertWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildJobCardListSearchText } from "./listSearch";
 
 export async function handleCreateFromQuery(
@@ -158,7 +158,7 @@ export async function handleCreateFromQuery(
     updatedAt: now,
     visaCostPerPax: confirmedOffer.visaCostPerPax,
   };
-  const id = await ctx.db.insert("jobCards", jobCardPayload);
+  const id = await insertWithE2eOwnership(ctx, "jobCards", jobCardPayload);
   await materializeDefaultChecklistTasks(
     ctx,
     id,
@@ -173,11 +173,15 @@ export async function handleCreateFromQuery(
     : null;
   if (contractingStaffId) {
     ownerNotifications.push(
-      notifyStaffMember(ctx, contractingStaffId, {
-        body: `${jobCode} is ready. Continue contracting and coordinate operations deliverables.`,
-        entityId: id,
-        entityType: "jobCard",
-        title: "Job Card opened on your query",
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "staff", staffIds: [contractingStaffId] },
+        content: {
+          body: `${jobCode} is ready. Continue contracting and coordinate operations deliverables.`,
+          entityId: id,
+          entityType: "jobCard",
+          title: "Job Card opened on your query",
+        },
+        emailTargets: { kind: "staff", staffIds: [contractingStaffId] },
       })
     );
   }
@@ -187,11 +191,15 @@ export async function handleCreateFromQuery(
   const needsTicketingWork = queryRequiresTicketingWork(linkedQuery);
   if (ticketingStaffId && needsTicketingWork) {
     ownerNotifications.push(
-      notifyStaffMember(ctx, ticketingStaffId, {
-        body: `${jobCode} is ready. Begin ticketing for this departure.`,
-        entityId: id,
-        entityType: "jobCard",
-        title: "Job Card opened on your query",
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "staff", staffIds: [ticketingStaffId] },
+        content: {
+          body: `${jobCode} is ready. Begin ticketing for this departure.`,
+          entityId: id,
+          entityType: "jobCard",
+          title: "Job Card opened on your query",
+        },
+        emailTargets: { kind: "staff", staffIds: [ticketingStaffId] },
       })
     );
   }
@@ -229,23 +237,26 @@ export async function handleCreateFromQuery(
           "",
       },
     }),
-    notifyRoles(
-      ctx,
-      downstreamRoles,
-      {
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "roles", roles: downstreamRoles },
+      content: {
         body: `${jobCode} is live for ${linkedQuery.queryCode} (${linkedQuery.clientName}, ${linkedQuery.destination || confirmedOffer.destination || "destination TBD"}, ${args.confirmedPax || confirmedOffer.confirmedPax} pax, ${args.travelStartDate || confirmedOffer.travelStartDate || linkedQuery.travelStartDate || "dates TBD"}${linkedQuery.ticketingScope ? `, Ticketing Scope ${linkedQuery.ticketingScope}` : ""}, Contracting ${linkedQuery.contractingOwnerName || "unassigned"}, Ticketing ${linkedQuery.ticketingOwnerName || "unassigned"}). Begin traveller master, tickets, passport, visa, and tour manager work.`,
         entityId: id,
         entityType: "jobCard",
         title: "Job Card opened — start operations",
       },
-      { emailRoles: downstreamEmailRoles }
-    ),
+      emailTargets: { kind: "roles", roles: downstreamEmailRoles },
+    }),
     ...ownerNotifications,
-    notifyRoles(ctx, ["Sales", "Sales Head"], {
-      body: `${jobCode} has been created and is ready for operations.`,
-      entityId: id,
-      entityType: "jobCard",
-      title: "Job Card opened",
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "roles", roles: ["Sales", "Sales Head"] },
+      content: {
+        body: `${jobCode} has been created and is ready for operations.`,
+        entityId: id,
+        entityType: "jobCard",
+        title: "Job Card opened",
+      },
+      emailTargets: { kind: "roles", roles: ["Sales", "Sales Head"] },
     }),
     notifyFinanceHeadsOnJobCardCreation(ctx, jobCode, id),
   ]);

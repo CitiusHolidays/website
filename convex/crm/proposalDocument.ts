@@ -1,6 +1,6 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { notifyRoles, notifyStaffMember } from "./lib";
+import { publishWorkflowNotification } from "./lib";
 
 const PREFERRED_STATUSES = new Set(["Accepted", "Sent"]);
 const STATUS_RANK: Record<string, number> = { Accepted: 0, Sent: 1 };
@@ -216,13 +216,17 @@ export async function notifyLinkedQuerySalesOwnersOfProposalDocument(
     const salesOwnerId = staff._id;
     notifiedOwnerIds.add(String(salesOwnerId));
     ownerNotifications.push(
-      notifyStaffMember(ctx, salesOwnerId, {
-        body: args.isReplacement
-          ? `${args.proposalCode} proposal document was revised for ${linkedQuery.queryCode}.`
-          : `${args.proposalCode} proposal document is available for ${linkedQuery.queryCode}.`,
-        entityId: linkedQuery._id,
-        entityType: "query",
-        title: args.isReplacement ? "Proposal document revised" : "Proposal document uploaded",
+      publishWorkflowNotification(ctx, {
+        bellTargets: { kind: "staff", staffIds: [salesOwnerId] },
+        content: {
+          body: args.isReplacement
+            ? `${args.proposalCode} proposal document was revised for ${linkedQuery.queryCode}.`
+            : `${args.proposalCode} proposal document is available for ${linkedQuery.queryCode}.`,
+          entityId: linkedQuery._id,
+          entityType: "query",
+          title: args.isReplacement ? "Proposal document revised" : "Proposal document uploaded",
+        },
+        emailTargets: { kind: "staff", staffIds: [salesOwnerId] },
       })
     );
   }
@@ -235,12 +239,17 @@ export async function notifyLinkedQuerySalesOwnersOfProposalDocument(
 
   const fallbackEntityId = linkedQueries[0]?._id ?? args.proposalId;
   const fallbackEntityType = linkedQueries[0] ? "query" : "proposal";
-  await notifyRoles(ctx, ["Sales", "Sales Head"], {
-    body: args.isReplacement
-      ? `${args.proposalCode} proposal document was revised.`
-      : `${args.proposalCode} proposal document is available for review.`,
-    entityId: fallbackEntityId,
-    entityType: fallbackEntityType,
-    title: args.isReplacement ? "Proposal document revised" : "Proposal document uploaded",
+  const fallbackRoles = ["Sales", "Sales Head"];
+  await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "roles", roles: fallbackRoles },
+    content: {
+      body: args.isReplacement
+        ? `${args.proposalCode} proposal document was revised.`
+        : `${args.proposalCode} proposal document is available for review.`,
+      entityId: fallbackEntityId,
+      entityType: fallbackEntityType,
+      title: args.isReplacement ? "Proposal document revised" : "Proposal document uploaded",
+    },
+    emailTargets: { kind: "roles", roles: fallbackRoles },
   });
 }

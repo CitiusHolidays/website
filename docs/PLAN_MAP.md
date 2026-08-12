@@ -2,20 +2,24 @@
 
 The repository no longer carries the historical `plans/` directory. Those files were local
 execution notes, not a release artifact, and were removed when the work was consolidated into
-permanent product documentation and the `.scratch/` issue tracker. This map keeps old links
+permanent product documentation and GitHub Issues. This map keeps old links
 actionable without recreating a second plan system.
 
 ## Canonical locations
 
 | Need | Use | Lifetime |
 | --- | --- | --- |
-| Domain vocabulary and invariants | [`CONTEXT.md`](../CONTEXT.md) and [`docs/adr/`](adr/) | Permanent, reviewed with code |
+| Domain vocabulary and invariants | [`CONTEXT-MAP.md`](../CONTEXT-MAP.md), its linked glossaries, and [`docs/adr/`](adr/) | Permanent, reviewed with code |
 | Product or technical rationale | [`docs/prd/`](prd/) and [`docs/`](./) | Permanent |
-| Implementation tickets and evidence | `.scratch/<feature>/` following [`docs/agents/issue-tracker.md`](agents/issue-tracker.md) | Local, disposable after handoff |
+| Design authority | [`DESIGN.md`](../DESIGN.md) | Permanent router to scoped design owners |
+| Staff Workspace performance and replay-safety contract | [`STAFF_WORKSPACE_PERFORMANCE.md`](STAFF_WORKSPACE_PERFORMANCE.md) and `config/release/staff-workspace-performance-*.json` | Permanent, refreshed with monitored code |
+| Published specifications and implementation tickets | GitHub Issues following [`docs/agents/issue-tracker.md`](agents/issue-tracker.md) | Canonical live status |
+| Local briefs, evidence, handoffs, and working notes | `.scratch/<feature>/` following the [change-program brief](agents/change-program-brief.md) | Local and disposable after handoff |
 | Release and deployment contract | [`RELEASE.md`](../RELEASE.md) and [`config/release/`](../config/release/) | Permanent |
 
 Do not add a new `plans/` directory. If a workflow asks for a plan, publish the durable decision
-in a PRD/ADR or docs page and put implementation-ready tickets and evidence in `.scratch/`.
+in a PRD/ADR or docs page, publish implementation-ready tickets to GitHub when
+authorized, and keep local evidence/handoffs in `.scratch/`.
 
 ## Legacy plan pointers
 

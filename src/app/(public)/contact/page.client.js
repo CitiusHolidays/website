@@ -4,42 +4,23 @@ import { m } from "motion/react";
 import AnimatedSection from "@/components/layout/AnimatedSection";
 import LocationCard from "@/components/ui/LocationCard";
 import ModernContactForm from "@/components/ui/ModernContactForm";
+import { getPublicOffices } from "@/data/publicContacts";
 import { getContactIntentPrefill } from "@/lib/public/contactIntent";
 
-const offices = [
-  {
-    address: "1865, Rajdanga Main Rd, Rajdanga, Kasba, Kolkata, West Bengal 700107",
-    city: "Kolkata",
-    map: "https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d7371.453129369134!2d88.38764907014604!3d22.514440031478962!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a02715301f75725%3A0xf1aa2145e95e1dca!2sCitius%20Holidays%20Private%20Limited!5e0!3m2!1sen!2sin!4v1752329121013!5m2!1sen!2sin",
-    phone: "+91 98310 82929",
-  },
-  {
-    address: "214 Swastik Plaza, Pokhran Road No 2, Thane West 400610",
-    city: "Mumbai",
-    map: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3767.508557808548!2d72.972286!3d19.2166556!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7b9424c041a6b%3A0x25adaf1c8857d238!2sSwastik%20Plaza!5e0!3m2!1sen!2sin!4v1751708328548!5m2!1sen!2sin",
-    phone: "+91 9920993259",
-  },
-  {
-    address:
-      "Pachie's 3rd Floor, Building Number: 982, 3rd Cross Road, Kalyan Nagar, Bengaluru 560043",
-    city: "Bengaluru",
-    map: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3887.265385803619!2d77.6521246!3d13.0187647!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bae170035730c9f%3A0xc369a6eb1011ce3c!2sPachies!5e0!3m2!1sen!2sin!4v1751708405258!5m2!1sen!2sin",
-    phone: "+91 99008 14292",
-  },
-];
+const offices = getPublicOffices("contact");
 
 export default function ContactPage({ contactIntent = null }) {
   const initialValues = getContactIntentPrefill(contactIntent);
 
   return (
     <>
-      <div className="h-19 bg-[#0B1026]" />
+      <div className="h-19 bg-public-night" />
       <AnimatedSection className="bg-[url('/gallery/bgfooter.webp')] bg-center px-4 py-16">
         <div className="mx-auto max-w-7xl">
           <div className="mb-16 text-center">
             <m.h1
               animate={{ opacity: 1, y: 0 }}
-              className="mb-4 font-bold text-4xl text-citius-blue md:text-5xl"
+              className="mb-4 font-bold font-heading text-4xl text-public-blue md:text-5xl"
               initial={{ opacity: 0, y: 20 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
             >
@@ -47,7 +28,7 @@ export default function ContactPage({ contactIntent = null }) {
             </m.h1>
             <m.p
               animate={{ opacity: 1, y: 0 }}
-              className="mx-auto max-w-2xl text-brand-muted text-lg"
+              className="mx-auto max-w-2xl text-lg text-public-muted"
               initial={{ opacity: 0, y: 20 }}
               transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
             >
@@ -74,7 +55,9 @@ export default function ContactPage({ contactIntent = null }) {
                 viewport={{ amount: 0.2, once: true }}
                 whileInView={{ opacity: 1, x: 0 }}
               >
-                <h2 className="mb-6 font-semibold text-2xl text-citius-blue">Our Offices</h2>
+                <h2 className="mb-6 font-heading font-semibold text-2xl text-public-blue">
+                  Our Offices
+                </h2>
                 <m.div
                   className="space-y-8"
                   initial="hidden"
@@ -92,7 +75,13 @@ export default function ContactPage({ contactIntent = null }) {
                         show: { opacity: 1, y: 0 },
                       }}
                     >
-                      <LocationCard {...office} index={index} />
+                      <LocationCard
+                        address={office.address.contact}
+                        city={office.city}
+                        dialPhone={office.dialPhone}
+                        index={index}
+                        phone={office.displayPhone}
+                      />
                       <div className="mt-4 overflow-hidden rounded-lg border border-brand-border shadow">
                         <iframe
                           allowFullScreen=""
@@ -101,7 +90,7 @@ export default function ContactPage({ contactIntent = null }) {
                           loading="lazy"
                           referrerPolicy="no-referrer-when-downgrade"
                           sandbox="allow-scripts allow-popups allow-presentation"
-                          src={office.map}
+                          src={office.mapEmbedUrl}
                           style={{ minHeight: 180 }}
                           title={`${office.city} map`}
                           width="100%"

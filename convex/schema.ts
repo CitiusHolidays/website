@@ -488,7 +488,11 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_initiatedBy_updatedAt", ["initiatedBy", "updatedAt"])
-    .index("by_actor_job_source", ["initiatedBy", "jobCardId", "sourceDigest"]),
+    .index("by_actor_job_source", ["initiatedBy", "jobCardId", "sourceDigest"])
+    .index("by_initiatedBy_jobCardId_sourceDigest", {
+      fields: ["initiatedBy", "jobCardId", "sourceDigest"],
+      staged: true,
+    }),
 
   passengerImportOperationBatches: defineTable({
     accepted: v.number(),
@@ -504,7 +508,9 @@ export default defineSchema({
     updated: v.number(),
   })
     .index("by_operation_batch", ["operationId", "batchId"])
-    .index("by_operation", ["operationId"]),
+    .index("by_operation", ["operationId"])
+    .index("by_operationId_batchId", { fields: ["operationId", "batchId"], staged: true })
+    .index("by_operationId", { fields: ["operationId"], staged: true }),
 
   passengerExportOperations: defineTable({
     attemptCount: v.number(),
@@ -531,6 +537,10 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_actor_export_command", ["initiatedBy", "exportKind", "jobCardId", "commandId"])
+    .index("by_initiatedBy_exportKind_jobCardId_commandId", {
+      fields: ["initiatedBy", "exportKind", "jobCardId", "commandId"],
+      staged: true,
+    })
     .index("by_initiatedBy_updatedAt", ["initiatedBy", "updatedAt"])
     .index("by_status_expiresAt", ["status", "expiresAt"])
     .index("by_storageId", ["storageId"]),
@@ -677,6 +687,51 @@ export default defineSchema({
     .index("by_jobCardId", ["jobCardId"])
     .index("by_approvalStatus", ["approvalStatus"])
     .index("by_createdAt", ["createdAt"]),
+
+  e2eRuns: defineTable({
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    mutatedCount: v.number(),
+    ownedCount: v.number(),
+    runId: v.string(),
+    status: v.union(v.literal("active"), v.literal("cleaning"), v.literal("complete")),
+    target: v.union(v.literal("development"), v.literal("preview")),
+    targetId: v.string(),
+    updatedAt: v.number(),
+  })
+    .index("by_runId", ["runId"])
+    .index("by_status_updatedAt", ["status", "updatedAt"]),
+
+  e2eRunActors: defineTable({
+    authUserId: v.string(),
+    createdAt: v.number(),
+    runId: v.string(),
+    status: v.union(v.literal("active"), v.literal("complete")),
+  })
+    .index("by_authUserId_status", ["authUserId", "status"])
+    .index("by_runId", ["runId"]),
+
+  e2eOwnedRecords: defineTable({
+    cleanupOrder: v.number(),
+    createdAt: v.number(),
+    documentId: v.string(),
+    runId: v.string(),
+    storageIds: v.array(v.id("_storage")),
+    tableName: v.string(),
+  })
+    .index("by_runId_createdAt", ["runId", "createdAt"])
+    .index("by_runId_cleanupOrder_createdAt", ["runId", "cleanupOrder", "createdAt"])
+    .index("by_runId_tableName_documentId", ["runId", "tableName", "documentId"]),
+
+  e2eMutatedRecords: defineTable({
+    createdAt: v.number(),
+    documentId: v.string(),
+    originalValue: v.any(),
+    runId: v.string(),
+    tableName: v.string(),
+  })
+    .index("by_runId_createdAt", ["runId", "createdAt"])
+    .index("by_runId_tableName_documentId", ["runId", "tableName", "documentId"]),
 
   flightGroups: defineTable({
     airline: v.string(),
@@ -826,6 +881,10 @@ export default defineSchema({
     targetId: v.string(),
   })
     .index("by_actor_operation_command", ["actorKey", "operation", "commandId"])
+    .index("by_actorKey_operation_commandId", {
+      fields: ["actorKey", "operation", "commandId"],
+      staged: true,
+    })
     .index("by_createdAt", ["createdAt"]),
 
   jobCardDeletionOperations: defineTable({

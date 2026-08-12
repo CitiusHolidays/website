@@ -180,14 +180,14 @@ export function AuthLoginCredentials({
             )}
           </div>
           {isConnect ? null : (
-            <h1 className="font-heading text-4xl text-[#0B1026]">{copy.mobileTitle}</h1>
+            <p className="font-heading text-4xl text-[#0B1026]">{copy.mobileTitle}</p>
           )}
         </div>
 
         <m.div className="mb-8" variants={AUTH_ITEM_VARIANTS}>
-          <h2 className="mb-3 font-heading text-4xl text-[#0B1026] md:text-5xl">
+          <h1 className="mb-3 font-heading text-4xl text-[#0B1026] md:text-5xl">
             {mode === "signin" ? copy.signInTitle : copy.signUpTitle}
-          </h2>
+          </h1>
           <p className="font-light text-[#0B1026]/60 text-lg">
             {mode === "signin" ? copy.signInSubtitle : copy.signUpSubtitle}
           </p>

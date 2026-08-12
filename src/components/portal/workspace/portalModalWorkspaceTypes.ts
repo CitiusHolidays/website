@@ -1,7 +1,7 @@
-import type { usePortalWorkspaceState } from "@/components/portal/usePortalWorkspaceState";
+import type { PortalWorkspaceImplementationState } from "@/components/portal/usePortalWorkspaceState";
 import type { PortalAccessSlice } from "./portalViewTypes";
 
-type PortalWorkspaceState = ReturnType<typeof usePortalWorkspaceState>;
+type PortalWorkspaceState = PortalWorkspaceImplementationState;
 
 /**
  * Dynamic form state shared by the heterogeneous entity-modal commands.
@@ -19,6 +19,7 @@ type PortalTravelBatchModalWorkspaceBase = Pick<
   | "attachQueryFile"
   | "closeModal"
   | "error"
+  | "fieldErrors"
   | "form"
   | "generateFinalizedPdfUploadUrl"
   | "generateProposalUploadUrl"

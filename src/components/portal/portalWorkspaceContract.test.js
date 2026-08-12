@@ -26,10 +26,8 @@ const DASHBOARD_OPERATIONAL_TABLE_FILES = [
   "src/components/portal/dashboard/DashboardPipelineSnapshot.js",
   "src/components/portal/dashboard/DashboardWorkQueue.js",
 ];
-const HOOK_RETURN_PATTERN = /\n {2}return \{([\s\S]*?)\n {2}\};\n\}/;
-const HOOK_RETURN_KEY_PATTERN = /^([A-Za-z_$][\w$]*)(?:,|:)/;
 const DASHBOARD_HEADER_PATTERN =
-  /if \(workspace\.view === "dashboard"\)[\s\S]*return workspace\.error && !workspace\.modal \?/;
+  /if \(workspace\.view === "dashboard"\)[\s\S]*<WorkspaceErrorBanner message=/;
 const PERMISSION_ALIAS_USE_PATTERN = /\bP\./;
 const PERMISSION_ALIAS_DEFINITION_PATTERN = /PORTAL_PERMISSIONS as P|const P = PORTAL_PERMISSIONS/;
 const ENTITY_MODAL_PATTERN = /<EntityModal[\s\S]*?\/>/;
@@ -37,24 +35,22 @@ const PORTAL_SHELL_BLOCK_PATTERN = /\.portal-shell \{([\s\S]*?)\n\}/;
 const LEGACY_PORTAL_FONT_PATTERN = /Georgia|Times New Roman/;
 const LEAVE_FINAL_APPROVAL_PATTERN =
   /row\.canApproveFinal[\s\S]*?handleLeaveDecision\(row\.id, "Approved"\)/;
+const PORTAL_SOURCE_FILE_PATTERN = /\.[cm]?[jt]sx?$/;
 
 function read(file) {
   return readFileSync(file, "utf8");
 }
 
-function workspaceHookReturnKeys() {
-  const hook = read(WORKSPACE_STATE_FILE);
-  const match = hook.match(HOOK_RETURN_PATTERN);
-  if (!match) {
-    return new Set();
-  }
-
-  return new Set(
-    match[1]
-      .split("\n")
-      .map((line) => line.trim().match(HOOK_RETURN_KEY_PATTERN)?.[1])
-      .filter(Boolean)
-  );
+function productionPortalFiles(path = "src/components/portal") {
+  return readdirSync(path, { withFileTypes: true }).flatMap((entry) => {
+    const child = join(path, entry.name);
+    if (entry.isDirectory()) {
+      return productionPortalFiles(child);
+    }
+    return PORTAL_SOURCE_FILE_PATTERN.test(entry.name) && !entry.name.includes(".test.")
+      ? [child]
+      : [];
+  });
 }
 
 function functionBlock(source, name) {
@@ -98,6 +94,31 @@ function workspaceRowsInput(overrides = {}) {
 }
 
 describe("portal workspace modularization contract", () => {
+  test("the public workspace boundary is grouped and ReturnType stays inside composition", () => {
+    const workspace = read(WORKSPACE_FILE);
+    const offenders = productionPortalFiles()
+      .filter((file) => file !== WORKSPACE_STATE_FILE)
+      .filter((file) => read(file).includes("ReturnType<typeof usePortalWorkspaceState>"));
+
+    expect(workspace).toContain("workspace.lifecycle");
+    expect(workspace).toContain("workspace.chrome");
+    expect(workspace).toContain("workspace.route");
+    expect(workspace).toContain("workspace.modal");
+    expect(workspace).not.toContain("workspace.gate");
+    expect(offenders).toEqual([]);
+  });
+
+  test("route rendering receives only the selected route model", () => {
+    const lifecycle = read("src/components/portal/workspace/portalRouteLifecycle.tsx");
+
+    expect(lifecycle).toContain("export interface PortalRouteModel");
+    expect(lifecycle).toContain("createPortalRouteModel");
+    expect(lifecycle).toContain("renderPortalRoute(route: PortalRouteModel)");
+    expect(lifecycle).not.toContain(
+      "renderPortalRoute(view: string, workspace: PortalWorkspaceState)"
+    );
+  });
+
   test("workspace route metadata and form defaults have one public contract", () => {
     expect(PORTAL_ROUTES.dashboard).toMatchObject({
       component: "DashboardView",
@@ -106,18 +127,17 @@ describe("portal workspace modularization contract", () => {
     });
     expect(INITIAL_FORM.queryType).toBe("MICE");
     expect(SPREADSHEET_MODALS).toContain("passengerImport");
+    expect(read("src/components/portal/PortalListToolbar.js")).not.toContain("<h1");
+    expect(read("src/components/portal/workspace/portalRouteLifecycle.tsx")).toContain("<h1");
   });
 
-  test("PortalWorkspace only reads properties returned by usePortalWorkspaceState", () => {
+  test("PortalWorkspace only reads the four public workspace modules", () => {
     const workspace = read(WORKSPACE_FILE);
-    const usedKeys = new Set(
-      [...workspace.matchAll(/\bworkspace\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1])
-    );
-    const returnedKeys = workspaceHookReturnKeys();
+    const usedKeys = [
+      ...new Set([...workspace.matchAll(/\bworkspace\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1])),
+    ].sort();
 
-    const missingKeys = [...usedKeys].filter((key) => !returnedKeys.has(key)).sort();
-
-    expect(missingKeys).toEqual([]);
+    expect(usedKeys).toEqual(["chrome", "lifecycle", "modal", "route"]);
   });
 
   test("All Sales Query delete actions use the existing confirmation flow with the row id", () => {
@@ -143,6 +163,28 @@ describe("portal workspace modularization contract", () => {
     expect(read(WORKSPACE_FILE)).not.toContain("function DashboardQueryTypeBreakdown");
   });
 
+  test("workspace failures have one stable assertive announcement plus a visual banner", () => {
+    const header = read(WORKSPACE_HEADER_FILE);
+
+    expect(header).toContain("function WorkspaceErrorBanner");
+    expect(header).toContain('aria-live="assertive"');
+    expect(header).toContain('role="alert"');
+    expect(header).toContain('aria-hidden="true"');
+  });
+
+  test("field validation blocks modal mutations before the toast-backed save path", () => {
+    const state = read(WORKSPACE_STATE_FILE);
+    const validationIndex = state.indexOf("validateModalForm(modal ??");
+    const savingIndex = state.indexOf("setIsSaving(true)", validationIndex);
+    const mutationIndex = state.indexOf("await runMutation(", validationIndex);
+
+    expect(state).toContain("isPortalValidationError(validationError)");
+    expect(state).toContain("fieldErrors");
+    expect(validationIndex).toBeGreaterThan(-1);
+    expect(savingIndex).toBeGreaterThan(validationIndex);
+    expect(mutationIndex).toBeGreaterThan(savingIndex);
+  });
+
   test("portal shell preserves the chosen global fonts", () => {
     const globalStyles = read(GLOBAL_STYLES_FILE);
     const portalShell = globalStyles.match(PORTAL_SHELL_BLOCK_PATTERN)?.[1] ?? "";
@@ -158,8 +200,8 @@ describe("portal workspace modularization contract", () => {
     const portalShell = globalStyles.match(PORTAL_SHELL_BLOCK_PATTERN)?.[1] ?? "";
     const portalShellComponent = read(PORTAL_SHELL_FILE);
 
-    expect(globalStyles).toContain("--color-citius-blue: #102a83");
-    expect(portalShell).toContain("--color-citius-blue: #102a83");
+    expect(globalStyles).toContain("--color-citius-blue: oklch(0.335 0.152 265.502)");
+    expect(portalShell).toContain("--color-citius-blue: oklch(0.335 0.152 265.502)");
     expect(portalShell).not.toContain("--color-citius-blue: #173a5e");
     expect(portalShellComponent).not.toContain(
       'className="absolute inset-y-1 left-0 w-1 rounded-full bg-citius-orange"'

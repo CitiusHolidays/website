@@ -106,7 +106,7 @@ export default function PilgrimagePageClient({ images }) {
                   whileInView={{ opacity: 1, x: 0 }}
                 >
                   <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-light transition-colors group-hover:bg-citius-orange/10 md:h-12 md:w-12">
-                    <item.icon className="size-5 text-citius-orange md:h-6 md:w-6" />
+                    <item.icon className="size-5 text-public-orange-ink md:h-6 md:w-6" />
                   </div>
                   <div>
                     <h3 className="mb-1 font-heading font-semibold text-base text-citius-blue md:text-lg">
@@ -237,7 +237,7 @@ export default function PilgrimagePageClient({ images }) {
             whileInView={{ opacity: 1, y: 0 }}
           >
             <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-citius-orange/10">
-              <Phone className="size-7 text-citius-orange" />
+              <Phone className="size-7 text-public-orange-ink" />
             </div>
             <h2 className="mb-4 font-heading text-2xl text-public-ink md:text-4xl">
               Begin Your Sacred Journey

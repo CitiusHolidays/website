@@ -2,6 +2,7 @@
 
 import { m } from "motion/react";
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 import Acer from "@/static/clients/acer.webp";
 import Adani from "@/static/clients/adani.webp";
 import Aditya from "@/static/clients/aditya.webp";
@@ -27,43 +28,13 @@ import Titan from "@/static/clients/titan.webp";
 import Volvo from "@/static/clients/volvo.webp";
 import Wockhardt from "@/static/clients/wockhardt.webp";
 import YesBank from "@/static/clients/yesbank.webp";
-import { cn } from "../../utils/cn";
-import LogoTicker from "./LogoTicker";
+import LogoMarquee from "./LogoMarquee";
 
 function ClientBox({ src, alt }) {
   return (
-    <m.div
-      className="relative flex items-center justify-center overflow-hidden"
-      initial="hideInfo"
-      style={{ height: 100, width: 180 }}
-      whileHover="showInfo"
-    >
-      <m.div
-        className="flex size-full items-center justify-center"
-        variants={{
-          hideInfo: { filter: "blur(0px)", opacity: 1, scale: 1 },
-          showInfo: { filter: "blur(5px)", opacity: 0.3, scale: 0.9 },
-        }}
-      >
-        <Image
-          alt={alt}
-          height={60}
-          src={src}
-          style={{ height: "100%", objectFit: "contain", width: "100%" }}
-          width={120}
-        />
-      </m.div>
-      <m.div
-        className="absolute inset-0 flex items-center justify-center bg-white/70 p-2 font-semibold text-[#222] text-[16px] uppercase"
-        style={{ textShadow: "1px 1px 0px #fff" }}
-        variants={{
-          hideInfo: { opacity: 0, scale: 1.2 },
-          showInfo: { opacity: 1, scale: 1 },
-        }}
-      >
-        {alt}
-      </m.div>
-    </m.div>
+    <div className="flex h-[100px] w-[180px] items-center justify-center overflow-hidden">
+      <Image alt={alt} className="size-full object-contain" height={60} src={src} width={120} />
+    </div>
   );
 }
 
@@ -109,7 +80,7 @@ export default function ClientShowcase({ className }) {
       <h2 className="mb-8 text-center font-semibold text-2xl text-citius-blue">
         Trusted by Industry Leaders
       </h2>
-      <LogoTicker
+      <LogoMarquee
         gap={48}
         items={items}
         style={{

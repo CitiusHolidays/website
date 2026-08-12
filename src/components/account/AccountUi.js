@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/application-button";
 import { Field, Input } from "@/components/ui/application-field";
 import { Status } from "@/components/ui/application-status";
 import { Switch } from "@/components/ui/application-switch";
+import { formatCount } from "@/lib/countMessage";
 import Logo from "@/static/logos/logo.webp";
 import {
   formatAccountDateRange,
@@ -228,7 +229,7 @@ export function JourneyOverviewCard({ booking, onOpen }) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[color-mix(in_srgb,var(--account-night)_92%,transparent)] via-[color-mix(in_srgb,var(--account-night)_18%,transparent)] to-black/10" />
         <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-5 sm:p-7">
-          <span className="inline-flex items-center gap-2 rounded-full bg-[var(--account-surface)]/95 px-3 py-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.13em] shadow-sm backdrop-blur">
+          <span className="material-decorative-glass inline-flex items-center gap-2 rounded-full bg-[var(--account-surface)]/95 px-3 py-2 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.13em] shadow-sm backdrop-blur">
             <Plane size={14} /> {getDepartureLabel(trip.startDate)}
           </span>
           <StatusPill status={bookingData.status} />
@@ -508,6 +509,7 @@ export function EmptyInfoCard({ icon, title, text }) {
 
 export function PastJourneyCard({ booking, bookingId, onOpen }) {
   const { trip } = booking;
+  const nights = getTripNights(trip);
   const content = (
     <>
       <CoverImage
@@ -521,11 +523,11 @@ export function PastJourneyCard({ booking, bookingId, onOpen }) {
           <p className="account-display truncate text-xl sm:text-2xl">{trip.name}</p>
           <p className="mt-1 text-white/75 text-xs">
             {formatAccountDateRange(trip.startDate, trip.endDate)}
-            {getTripNights(trip) ? ` · ${getTripNights(trip)} nights` : ""}
+            {nights ? ` · ${formatCount(nights, "night")}` : ""}
           </p>
           <p className="mt-1 truncate text-white/62 text-xs">{getTripDestination(trip)}</p>
         </div>
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/10 backdrop-blur-sm transition-colors group-hover:bg-white group-hover:text-[var(--account-night)]">
+        <span className="material-decorative-glass flex size-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/10 backdrop-blur-sm transition-colors group-hover:bg-white group-hover:text-[var(--account-night)]">
           <ChevronRight size={18} />
         </span>
       </div>

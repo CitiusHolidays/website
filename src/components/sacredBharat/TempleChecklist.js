@@ -5,7 +5,7 @@ import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { useState } from "react";
 import { REGION_LABELS } from "@/data/sacredBharat/regions";
 import { getTempleById, TEMPLES } from "@/data/sacredBharat/temples";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { useSacredBharatContext } from "./SacredBharatProvider";
 import TempleJourneyCard from "./TempleJourneyCard";
 

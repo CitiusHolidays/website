@@ -76,7 +76,7 @@ export default function AuthShell({
             initial={{ opacity: 0 }}
             transition={{ delay: 0.6 }}
           >
-            <div className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+            <div className="material-decorative-glass flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
               <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">
                 <Sparkles className="size-5" />
               </div>
@@ -91,7 +91,7 @@ export default function AuthShell({
               </div>
             </div>
 
-            <div className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+            <div className="material-decorative-glass flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
               <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">
                 <MapIcon className="size-5" />
               </div>
@@ -106,7 +106,7 @@ export default function AuthShell({
               </div>
             </div>
 
-            <div className="flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+            <div className="material-decorative-glass flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
               <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">
                 <Sparkles className="size-5" />
               </div>

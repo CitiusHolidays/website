@@ -139,24 +139,95 @@ describe("controlled application primitives", () => {
     await view.unmount();
   });
 
-  test("Checkbox preserves controlled, disabled, and native indeterminate state", async () => {
+  test("Checkbox preserves controlled, disabled, form, and native indeterminate state", async () => {
     const changes = [];
+    const disabledChanges = [];
     const inputRef = { current: null };
-    const view = await mount(
-      <Checkbox
-        aria-label="Select all visible rows"
-        checked={false}
-        indeterminate
-        inputRef={inputRef}
-        onCheckedChange={(checked) => changes.push(checked)}
-      />
-    );
+    function Harness() {
+      const [checked, setChecked] = useState(false);
+      const [indeterminate, setIndeterminate] = useState(true);
+      return (
+        <form>
+          <Checkbox
+            aria-label="Select all visible rows"
+            checked={checked}
+            indeterminate={indeterminate}
+            inputRef={inputRef}
+            name="selectedRows"
+            onCheckedChange={(nextChecked) => {
+              changes.push(nextChecked);
+              setChecked(nextChecked);
+              setIndeterminate(false);
+            }}
+            value="row-1"
+          />
+          <Checkbox
+            aria-label="Unavailable row"
+            checked
+            disabled
+            name="disabledRows"
+            onCheckedChange={(nextChecked) => disabledChanges.push(nextChecked)}
+            value="row-disabled"
+          />
+        </form>
+      );
+    }
+    const view = await mount(<Harness />);
     const checkbox = view.container.querySelector('[role="checkbox"]');
+    const form = view.container.querySelector("form");
+    const disabledCheckbox = view.container.querySelector(
+      '[role="checkbox"][aria-label="Unavailable row"]'
+    );
+    const disabledInput = view.container.querySelector('input[name="disabledRows"]');
     expect(checkbox?.getAttribute("aria-checked")).toBe("mixed");
+    expect(inputRef.current?.name).toBe("selectedRows");
+    expect(inputRef.current?.value).toBe("row-1");
     expect(inputRef.current?.indeterminate).toBe(true);
+    expect(new dom.window.FormData(form).has("selectedRows")).toBe(false);
+    expect(disabledInput?.disabled).toBe(true);
+    expect(new dom.window.FormData(form).has("disabledRows")).toBe(false);
+
     await act(async () => checkbox.click());
     expect(changes).toEqual([true]);
+    expect(checkbox?.getAttribute("aria-checked")).toBe("true");
+    expect(inputRef.current?.checked).toBe(true);
+    expect(inputRef.current?.indeterminate).toBe(false);
+    expect(new dom.window.FormData(form).get("selectedRows")).toBe("row-1");
+
+    await act(async () => checkbox.click());
+    expect(changes).toEqual([true, false]);
+    expect(checkbox?.getAttribute("aria-checked")).toBe("false");
+    expect(new dom.window.FormData(form).has("selectedRows")).toBe(false);
+
+    await act(async () => disabledCheckbox.click());
+    expect(disabledChanges).toEqual([]);
     await view.unmount();
+    expect(inputRef.current).toBeNull();
+  });
+
+  test("Checkbox forwards callback and object input refs through mount and unmount", async () => {
+    const callbackValues = [];
+    const callbackRef = (input) => callbackValues.push(input);
+    const objectRef = { current: null };
+    const view = await mount(
+      <>
+        <Checkbox aria-label="Callback ref checkbox" inputRef={callbackRef} />
+        <Checkbox aria-label="Object ref checkbox" inputRef={objectRef} />
+      </>
+    );
+    const callbackCheckbox = view.container.querySelector(
+      '[role="checkbox"][aria-label="Callback ref checkbox"]'
+    );
+    const objectCheckbox = view.container.querySelector(
+      '[role="checkbox"][aria-label="Object ref checkbox"]'
+    );
+    const callbackInput = callbackCheckbox.nextElementSibling;
+    expect(callbackValues).toEqual([callbackInput]);
+    expect(objectRef.current).toBe(objectCheckbox.nextElementSibling);
+
+    await view.unmount();
+    expect(callbackValues).toEqual([callbackInput, null]);
+    expect(objectRef.current).toBeNull();
   });
 
   test("RadioGroup and Switch keep their controlled ownership", async () => {

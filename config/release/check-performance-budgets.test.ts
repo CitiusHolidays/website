@@ -2,8 +2,13 @@ import { describe, expect, test } from "bun:test";
 import {
   evaluatePerformanceBudgets,
   isStaffWorkspacePerformanceBaselineFresh,
+  parsePerformanceBudgetManifest,
+  parseStaffWorkspacePerformanceBaseline,
 } from "./check-performance-budgets";
-import { evaluateStaffWorkspacePerformanceBudget } from "./staff-workspace-performance-budget";
+import {
+  evaluateStaffWorkspacePerformanceBudget,
+  parseStaffWorkspacePerformanceBudgetManifest,
+} from "./staff-workspace-performance-budget";
 
 const manifest = {
   budgets: [
@@ -13,7 +18,37 @@ const manifest = {
   schemaVersion: 1,
 };
 
+const validPublicManifest = {
+  budgets: [
+    { maxBytes: 250_000, path: "public/gallery/hero-poster.webp", purpose: "LCP poster" },
+    { maxBytes: 40_000_000, path: "public/hero-sm.mp4", purpose: "mobile hero video" },
+    { maxBytes: 75_000_000, path: "public/hero.mp4", purpose: "desktop hero video" },
+  ],
+  schemaVersion: 1,
+};
+
 describe("versioned public performance budgets", () => {
+  test("rejects unsupported, incomplete, duplicate, and invalid public manifests", () => {
+    expect(() => parsePerformanceBudgetManifest({ budgets: [], schemaVersion: 2 })).toThrow(
+      "schemaVersion"
+    );
+    expect(() => parsePerformanceBudgetManifest({ budgets: [], schemaVersion: 1 })).toThrow(
+      "budgets"
+    );
+    expect(() =>
+      parsePerformanceBudgetManifest({
+        ...validPublicManifest,
+        budgets: [validPublicManifest.budgets[0], validPublicManifest.budgets[0]],
+      })
+    ).toThrow("duplicate");
+    expect(() =>
+      parsePerformanceBudgetManifest({
+        ...validPublicManifest,
+        budgets: [{ ...validPublicManifest.budgets[0], maxBytes: -1 }],
+      })
+    ).toThrow("maxBytes");
+  });
+
   test("passes assets at or below their declared limits", () => {
     expect(
       evaluatePerformanceBudgets(manifest, {
@@ -105,5 +140,74 @@ describe("authenticated Staff Workspace performance budgets", () => {
     expect(
       isStaffWorkspacePerformanceBaselineFresh({ ...baseline, sourceFiles: [] }, "measured-hash")
     ).toBe(false);
+  });
+
+  test("rejects incomplete or invalid Staff Workspace budget manifests", () => {
+    expect(() =>
+      parseStaffWorkspacePerformanceBudgetManifest({ budgets: {}, schemaVersion: 1 })
+    ).toThrow("budgets.queries");
+    expect(() =>
+      parseStaffWorkspacePerformanceBudgetManifest({
+        budgets: {
+          ...staffManifest.budgets,
+          queries: {
+            cold: {
+              maxApplicationPayloadBytes: Number.NaN,
+            },
+            warm: {},
+          },
+        },
+        schemaVersion: 1,
+      })
+    ).toThrow("budgets.queries.cold.maxApplicationPayloadBytes");
+  });
+
+  test("rejects empty, duplicate, missing, unknown, and incomplete baseline samples", () => {
+    const sample = {
+      applicationPayloadBytes: 1,
+      duplicateSubscriptions: 0,
+      firstContentMs: 1,
+      logicalSubscriptions: 1,
+      routeReadyMs: 1,
+      routeResourceTransferBytes: 1,
+      target: "queries",
+      warm: false,
+    };
+    const baseline = {
+      environment: "authenticated local",
+      samples: [],
+      schemaVersion: 1,
+      sourceFiles: ["convex/crm/queries.ts"],
+      sourceHash: "hash",
+    };
+
+    expect(() => parseStaffWorkspacePerformanceBaseline(baseline)).toThrow("samples");
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({ ...baseline, samples: [sample, sample] })
+    ).toThrow("duplicate");
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({
+        ...baseline,
+        samples: [{ ...sample, target: "unknown" }],
+      })
+    ).toThrow("samples[0].target");
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({
+        ...baseline,
+        samples: [{ ...sample, routeReadyMs: -1 }],
+      })
+    ).toThrow("samples[0].routeReadyMs");
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({
+        ...baseline,
+        samples: [
+          sample,
+          { ...sample, warm: true },
+          { ...sample, target: "proposals" },
+          { ...sample, target: "proposals", warm: true },
+          { ...sample, target: "job-cards" },
+        ],
+      })
+    ).toThrow("job-cards warm");
   });
 });

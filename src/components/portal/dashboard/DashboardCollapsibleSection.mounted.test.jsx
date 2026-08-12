@@ -42,8 +42,14 @@ describe("mounted dashboard collapsible section", () => {
 
     const toggle = container.querySelector('button[aria-expanded="true"]');
     expect(toggle).not.toBeNull();
+    const panel = container.querySelector(`#${toggle?.getAttribute("aria-controls")}`);
+    expect(panel?.hidden).toBe(false);
     await act(async () => toggle?.click());
     expect(dom.window.localStorage.getItem("portal-dashboard-collapse-workflow")).toBe("0");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(panel?.hidden).toBe(true);
+    expect(panel?.getAttribute("aria-hidden")).toBe("true");
+    expect(panel?.querySelector("[tabindex],button,a,input,select,textarea")).toBeNull();
 
     await act(async () => root.unmount());
     container.remove();
@@ -66,7 +72,11 @@ describe("mounted dashboard collapsible section", () => {
       )
     );
 
-    expect(container.querySelector('button[aria-expanded="false"]')).not.toBeNull();
+    const toggle = container.querySelector('button[aria-expanded="false"]');
+    expect(toggle).not.toBeNull();
+    const panel = container.querySelector(`#${toggle?.getAttribute("aria-controls")}`);
+    expect(panel?.hidden).toBe(true);
+    expect(panel?.getAttribute("aria-hidden")).toBe("true");
     await act(async () => root.unmount());
     container.remove();
   });

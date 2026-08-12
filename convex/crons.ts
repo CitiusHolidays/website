@@ -3,26 +3,21 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
-crons.daily(
+crons.cron(
   "check cl-sl leave lapse",
-  { hourUTC: 18, minuteUTC: 30 },
+  "30 18 * * *",
   internal.crm.leaveLapse.checkAndRunClSlLapse,
   {}
 );
 
-crons.daily(
+crons.cron(
   "run portal workflow nudges",
-  { hourUTC: 3, minuteUTC: 30 },
+  "30 3 * * *",
   internal.crm.workflowNudges.runScheduledNudges,
   {}
 );
 
-crons.daily(
-  "clean expired ai runtime data",
-  { hourUTC: 2, minuteUTC: 15 },
-  internal.aiRuntime.cleanupExpired,
-  {}
-);
+crons.cron("clean expired ai runtime data", "15 2 * * *", internal.aiRuntime.cleanupExpired, {});
 
 crons.interval(
   "clean expired portal rate limits",
@@ -59,9 +54,9 @@ crons.interval(
   {}
 );
 
-crons.daily(
+crons.cron(
   "purge expired commercial files",
-  { hourUTC: 4, minuteUTC: 15 },
+  "15 4 * * *",
   internal.crm.commercialFiles.purgeExpired,
   {}
 );

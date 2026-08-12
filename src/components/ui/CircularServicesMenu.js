@@ -12,79 +12,54 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { PUBLIC_SERVICES } from "@/data/publicServices";
 import CitiusLogo from "@/static/logos/logo.webp";
 
-const services = [
-  {
-    description: "Meetings, Incentives, Conferences & Exhibitions worldwide.",
-    icon: Briefcase,
-    path: "/mice",
-    title: "MICE",
-  },
-  {
-    description: "End-to-end visa processing and support services.",
-    icon: FileBadge,
-    path: "/services",
-    title: "VISA Assistance",
-  },
-  {
-    description: "From concept to execution of corporate events.",
-    icon: Users,
-    path: "/services",
-    title: "Event Management",
-  },
-  {
-    description: "Curated global itineraries and travel experiences.",
-    icon: Globe,
-    path: "/services",
-    title: "International Travel",
-  },
-  {
-    description: "Explore India with bespoke domestic journeys.",
-    icon: MapPinned,
-    path: "/services",
-    title: "Domestic Travel",
-  },
-  {
-    description: "Comprehensive travel insurance and protection.",
-    icon: ShieldCheck,
-    path: "/services",
-    title: "Travel Insurance",
-  },
-  {
-    description: "Event branding and collateral design services.",
-    icon: Star,
-    path: "/services",
-    title: "Branding",
-  },
-  {
-    description: "Book celebrities and performers for events.",
-    icon: Medal,
-    path: "/services",
-    title: "Celebrity Management",
-  },
-  {
-    description: "Access to premier sports hospitality packages.",
-    icon: Trophy,
-    path: "/services",
-    title: "Sporting Events",
-  },
-  {
-    description: "Dedicated travel desks for large corporate events.",
-    icon: Plane,
-    path: "/services",
-    title: "Onsite Travel Desk",
-  },
-  {
-    description: "Sacred journeys to spiritual destinations worldwide.",
-    icon: Sun,
-    path: "/pilgrimage",
-    title: "Spiritual Trails",
-  },
-];
+const serviceIcons = {
+  branding: Star,
+  "celebrity-management": Medal,
+  "domestic-travel": MapPinned,
+  "event-management": Users,
+  "international-travel": Globe,
+  mice: Briefcase,
+  "onsite-travel-desk": Plane,
+  "spiritual-trails": Sun,
+  "sporting-events": Trophy,
+  "travel-insurance": ShieldCheck,
+  "visa-assistance": FileBadge,
+};
+
+const services = PUBLIC_SERVICES.map((service) => ({
+  ...service,
+  icon: serviceIcons[service.id],
+}));
+
+const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+function subscribeToReducedMotion(onStoreChange) {
+  const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
+  mediaQuery.addEventListener("change", onStoreChange);
+  return () => mediaQuery.removeEventListener("change", onStoreChange);
+}
+
+function getReducedMotionSnapshot() {
+  return window.matchMedia(REDUCED_MOTION_QUERY).matches;
+}
+
+export function getReducedMotionServerSnapshot() {
+  return false;
+}
+
+function useHydrationSafeReducedMotion() {
+  return useSyncExternalStore(
+    subscribeToReducedMotion,
+    getReducedMotionSnapshot,
+    getReducedMotionServerSnapshot
+  );
+}
 
 const containerVariants = {
   hidden: {},
@@ -126,6 +101,18 @@ function getServiceLayout() {
   };
 }
 
+function roundOrbitCoordinate(value) {
+  return Math.round(value * 1000) / 1000;
+}
+
+export function getServiceOrbitPosition(index, totalServices, radius) {
+  const angle = (index * 2 * Math.PI) / totalServices - Math.PI / 2;
+  return {
+    x: roundOrbitCoordinate(Math.cos(angle) * radius),
+    y: roundOrbitCoordinate(Math.sin(angle) * radius),
+  };
+}
+
 export function sameLinePosition(previous, next) {
   if (previous === next) {
     return true;
@@ -142,7 +129,7 @@ export function sameLinePosition(previous, next) {
 }
 
 export default function CircularServicesMenu() {
-  const shouldReduceMotion = useReducedMotion();
+  const shouldReduceMotion = useHydrationSafeReducedMotion();
   const [selectedService, setSelectedService] = useState(null);
   // Keep the first render deterministic for SSR/hydration. The viewport-aware layout is
   // applied after mount so mobile and desktop can still use their tuned orbit radius without
@@ -167,22 +154,13 @@ export default function CircularServicesMenu() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const totalServices = services.length;
-  const angleStep = (2 * Math.PI) / totalServices;
   const servicePositions = useMemo(
     () =>
-      services.map((service, index) => {
-        const angle = index * angleStep - Math.PI / 2; // Start from top
-        const x = Math.cos(angle) * layout.radius;
-        const y = Math.sin(angle) * layout.radius;
-        return {
-          ...service,
-          angle,
-          x,
-          y,
-        };
-      }),
-    [angleStep, layout.radius]
+      services.map((service, index) => ({
+        ...service,
+        ...getServiceOrbitPosition(index, services.length, layout.radius),
+      })),
+    [layout.radius]
   );
 
   // Calculate line position from center to hovered/tapped service
@@ -234,31 +212,29 @@ export default function CircularServicesMenu() {
       className="relative flex h-[400px] w-full items-center justify-center md:h-[520px] lg:h-[600px]"
       ref={containerRef}
     >
-      {/* Animated line from center to hovered/tapped service */}
+      {/* Complete connector geometry is measured once; only its opacity transitions. */}
       <AnimatePresence>
-        {linePos && (
+        {linePos ? (
           <m.svg
             animate={{ opacity: 1 }}
             className="pointer-events-none absolute top-0 left-0 z-10 size-full"
             exit={{ opacity: 0 }}
             initial={{ opacity: 0 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.15, ease: [0.23, 1, 0.32, 1] }}
           >
-            <m.line
-              animate={{ x2: linePos.x2, y2: linePos.y2 }}
-              initial={{ x2: linePos.x1, y2: linePos.y1 }}
+            <line
               opacity={0.3}
               stroke="#9ca3af"
               strokeDasharray="6,6"
               strokeLinecap="round"
               strokeWidth="3"
-              transition={{ damping: 30, stiffness: 300, type: "spring" }}
               x1={linePos.x1}
               x2={linePos.x2}
               y1={linePos.y1}
               y2={linePos.y2}
             />
           </m.svg>
-        )}
+        ) : null}
       </AnimatePresence>
       <m.div
         animate={{ opacity: 1, scale: 1 }}
@@ -280,12 +256,18 @@ export default function CircularServicesMenu() {
           </div>
           <AnimatePresence mode="wait">
             <m.div
-              animate={{ opacity: 1, y: 0 }}
+              animate={{ opacity: 1, transform: "translate3d(0, 0, 0)" }}
               className="flex flex-1 flex-col justify-center text-center"
-              exit={{ opacity: 0, y: -10 }}
-              initial={{ opacity: 0, y: 10 }}
+              exit={{
+                opacity: 0,
+                transform: shouldReduceMotion ? "none" : "translate3d(0, -10px, 0)",
+              }}
+              initial={{
+                opacity: 0,
+                transform: shouldReduceMotion ? "none" : "translate3d(0, 10px, 0)",
+              }}
               key={selectedService?.title || "default"}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
             >
               <h3 className="mb-1 font-bold text-brand-dark text-xs leading-tight md:text-base">
                 {selectedService?.title || "Our Services"}
@@ -329,7 +311,7 @@ export default function CircularServicesMenu() {
               tabIndex={0}
               type="button"
             >
-              <service.icon className="size-6 text-citius-blue transition-colors duration-200 group-hover:text-citius-orange md:h-8 md:w-8 lg:h-9 lg:w-9" />
+              <service.icon className="size-6 text-citius-blue transition-colors duration-200 group-hover:text-public-orange-ink md:h-8 md:w-8 lg:h-9 lg:w-9" />
             </button>
             <span
               aria-hidden="true"

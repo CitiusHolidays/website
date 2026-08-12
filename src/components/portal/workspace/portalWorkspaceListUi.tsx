@@ -7,6 +7,7 @@ import { usePortalToast } from "@/components/portal/PortalToast";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { Button } from "@/components/ui/application-button";
 import { Badge as ApplicationBadge } from "@/components/ui/application-status";
+import { displayPortalTerm } from "@/lib/portal/productTerminology";
 import {
   getStatusPresentation,
   type SemanticTone,
@@ -63,7 +64,7 @@ interface StatusBadgeProps {
 
 export function StatusBadge({ domain, label, status }: StatusBadgeProps) {
   const presentation = getStatusPresentation(domain, status);
-  const displayLabel = label ?? (status?.trim() || "—");
+  const displayLabel = displayPortalTerm(label ?? status) || "—";
   return (
     <Badge
       label={displayLabel}

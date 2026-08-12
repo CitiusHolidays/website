@@ -3,6 +3,7 @@ import {
   portalModalExitTransform,
   portalModalHiddenTransform,
   portalMotionTransition,
+  portalOverlayMotion,
   resolveMotionUITransition,
 } from "@/lib/portal/portalMotion";
 
@@ -34,6 +35,18 @@ describe("portalMotion theme helpers", () => {
       ease: "linear",
       inherit: true,
       type: "tween",
+    });
+  });
+
+  test("portal overlay lifecycle keeps reduced motion spatially still", () => {
+    expect(portalOverlayMotion(true, "left", 0.18)).toEqual({
+      hidden: { opacity: 0, transform: "none" },
+      transition: { duration: 0.18, ease: "linear" },
+      visible: { opacity: 1, transform: "none" },
+    });
+    expect(portalOverlayMotion(false, "top-right", 0.15)).toMatchObject({
+      hidden: { opacity: 0, transform: "translate3d(0, -6px, 0) scale(0.98)" },
+      visible: { opacity: 1, transform: "translate3d(0, 0, 0) scale(1)" },
     });
   });
 });

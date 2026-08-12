@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
+// biome-ignore assist/source/useSortedKeys: Cache Components and Partial Prefetching stay adjacent for adoption review.
 const nextConfig = {
   cacheComponents: true,
+  partialPrefetching: true,
   env: {
     NEXT_PUBLIC_CONVEX_SITE_URL: process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
     NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,

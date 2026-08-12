@@ -1,5 +1,9 @@
 import { test } from "@playwright/test";
-import { PORTAL_E2E_IMPLEMENTED_VIEWS, PORTAL_E2E_MATRIX } from "../../registry/portalViews";
+import {
+  PORTAL_E2E_COVERED_CELL_IDS,
+  PORTAL_E2E_MATRIX,
+  portalE2eCellId,
+} from "../../registry/portalViews";
 
 const VIEW_PATHS: Record<string, string> = {
   "accounts-job-cards": "/portal/accounts/job-cards",
@@ -12,6 +16,7 @@ const VIEW_PATHS: Record<string, string> = {
   finance: "/portal/finance",
   flights: "/portal/flights",
   hotels: "/portal/hotels",
+  "inbound-leads": "/portal/inbound-leads",
   "job-cards": "/portal/job-cards",
   passport: "/portal/passport",
   pipeline: "/portal/pipeline",
@@ -28,19 +33,19 @@ const VIEW_PATHS: Record<string, string> = {
   visa: "/portal/visa",
 };
 
-for (const [viewId, cell] of Object.entries(PORTAL_E2E_MATRIX)) {
-  if (PORTAL_E2E_IMPLEMENTED_VIEWS.has(viewId as keyof typeof PORTAL_E2E_MATRIX)) {
-    continue;
-  }
+for (const [viewId, entry] of Object.entries(PORTAL_E2E_MATRIX)) {
+  for (const cell of entry.cells) {
+    const cellId = portalE2eCellId(viewId as keyof typeof PORTAL_E2E_MATRIX, cell);
+    if (PORTAL_E2E_COVERED_CELL_IDS.has(cellId)) {
+      continue;
+    }
 
-  test.describe(`@smoke matrix backlog: ${viewId}`, () => {
-    test.skip(
-      true,
-      `Matrix cell ${viewId} (${cell.actions.join(", ")}) — see e2e/registry/portalViews.ts`
-    );
+    test.describe(`@smoke matrix backlog: ${cellId}`, () => {
+      test.skip(true, `Planned matrix coverage stub ${cellId} — not implemented`);
 
-    test(`opens ${VIEW_PATHS[viewId] ?? viewId}`, async () => {
-      // Implemented in dedicated specs when the matrix cell is promoted.
+      test(`opens ${VIEW_PATHS[viewId] ?? viewId}`, async () => {
+        // Implemented in a dedicated spec when this exact role/action cell is promoted.
+      });
     });
-  });
+  }
 }

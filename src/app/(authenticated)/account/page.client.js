@@ -44,6 +44,12 @@ export default function AccountClient({ user, journeys = EMPTY_JOURNEYS, confirm
 
   return (
     <div className="account-shell min-h-screen pb-24 md:pb-0">
+      <a
+        className="account-focus fixed top-3 left-3 z-[100] -translate-y-24 rounded-sm bg-[var(--account-surface)] px-4 py-2 font-semibold text-[var(--account-ink)] shadow-lg transition-transform focus:translate-y-0"
+        href="#account-main"
+      >
+        Skip to main content
+      </a>
       <AccountHeader
         activeTab={activeTab}
         isLoggingOut={isLoggingOut}
@@ -52,7 +58,7 @@ export default function AccountClient({ user, journeys = EMPTY_JOURNEYS, confirm
         user={user}
       />
       <div className="mx-auto min-h-[calc(100vh-5rem)] max-w-[1440px] px-5 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
-        <main>
+        <main className="scroll-mt-24 outline-none" id="account-main" tabIndex={-1}>
           {activeTab === "journeys" && <AccountHero user={user} />}
           <AnimatePresence initial={false} mode="sync">
             {activeTab === "journeys" && (

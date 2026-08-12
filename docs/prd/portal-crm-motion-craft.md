@@ -10,7 +10,7 @@
 
 Citius Connect staff use the CRM portal hundreds of times per day for queries, proposals, job cards, imports, and approvals. Motion in the portal is mostly restrained and intentional—the command palette opens instantly, press feedback is consistent, and dropdowns scale from their triggers—but several high-traffic feedback surfaces still use Motion shorthand properties (`scale`, `y`, `scaleY`) that run on the main thread instead of the GPU, and portal toasts enter from below but exit upward, breaking spatial consistency.
 
-Staff experience this as subtle sluggishness when toasts stack during saves and bulk actions, and as polish gaps when modals, filter panels, and dashboard sections snap between states. The product already documents a transition policy and enforces it with contract tests for the command palette and global CSS, but portal modal and toast motion is not yet covered by the same guardrails—so regressions can slip in without CI signal.
+Staff experience this as subtle sluggishness when toasts stack during saves and bulk actions, and as polish gaps when modal and filter feedback is inconsistent. Dashboard disclosures are deliberately discrete: content becomes present or absent immediately while a short chevron cue communicates state without animating page geometry. The product already documents a transition policy and enforces it with contract tests for the command palette and global CSS, but portal modal and toast motion is not yet covered by the same guardrails—so regressions can slip in without CI signal.
 
 ## Solution
 
@@ -58,7 +58,7 @@ Preserve deliberate restraint: no open/close animation on the command palette, n
 - **Filter toolbar:** Replace `scaleY` shorthand on collapsible filter row with `transform: scaleY(...)` and explicit `transform-origin: top`, or simplify to opacity-only collapse if height animation risks layout cost.
 - **Navigation active indicator:** Remove or drastically shorten `layoutId` spring on sidebar active bar (tens-of-times-per-day frequency). Prefer static active styles.
 - **Command palette:** No change to instant mount/unmount; contract test must continue to pass.
-- **Additive surfaces:** Dashboard collapsible sections use height/opacity transition (occasional). Pipeline drop zones use border/ring color transition only (no scale). Entity modal validation errors use short opacity + subtle translate fade-in.
+- **Additive surfaces:** Dashboard collapsible sections never animate height or other layout geometry. Their content is removed from interaction and accessibility immediately on collapse, with only a ≤200ms chevron/opacity cue; restored preferences apply after hydration. Pipeline drop zones use border/ring color transition only (no scale). Entity modal validation errors use short opacity + subtle translate fade-in.
 - **Accessibility:** Branch JS motion with `useReducedMotion()` per component; do not rely solely on global `prefers-reduced-motion` 1ms override for Framer/Motion props. Keep global CSS reduced-motion rules intact.
 - **Duration budgets:** UI feedback 100–200ms; modals/drawers 200–250ms; hold-to-confirm deliberate phase up to 2s linear on press only.
 
@@ -73,7 +73,7 @@ Preserve deliberate restraint: no open/close animation on the command palette, n
   - Optional: portal list toolbar filter expand does not use `scaleY` shorthand.
 - **Prior art:** `src/transitionPolicy.contract.test.ts` (palette, reduced-motion CSS, `transition-all` ban); `src/components/portal/PortalConfirmDialog.mounted.test.jsx` and `EntityModal.mounted.test.jsx` for mounted portal dialog patterns.
 - **Out of test scope:** Pixel-perfect animation timing, spring bounce feel, and visual regression of motion curves—cover with manual feel-check steps in ticket acceptance criteria instead.
-- **Verification commands:** `bun test src/transitionPolicy.contract.test.ts`, `bun run check` before merge.
+- **Verification commands:** `bun run test -- src/transitionPolicy.contract.test.ts`, `bun run check` before merge.
 
 ## Out of Scope
 

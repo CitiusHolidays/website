@@ -5,6 +5,7 @@ import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { Button } from "@/components/ui/application-button";
+import { formatCount } from "@/lib/countMessage";
 import { buildPassengerImportReportRows } from "@/lib/portal/importReconciliation";
 import type { PassengerImportMutationResult } from "@/lib/portal/importResultMessages";
 import { buildPassengerImportResultMessage } from "@/lib/portal/importResultMessages";
@@ -312,14 +313,16 @@ export function PassengerImportModal({
         {recentOperation ? (
           <div
             aria-live="polite"
-            className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm"
+            className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm tabular-nums"
           >
             <div className="font-semibold text-brand-dark">
               {recentOperationJob?.jobCode || "Recent import"}: {recentOperation.status}
             </div>
             <div className="mt-1">
-              {recentOperation.completedBatches} of {recentOperation.batchTotal} batches ·{" "}
-              {recentOperation.processed} processed · {recentOperation.failed} failed
+              {recentOperation.completedBatches} of{" "}
+              {formatCount(recentOperation.batchTotal, "batch")} complete ·{" "}
+              {formatCount(recentOperation.processed, "row")} processed ·{" "}
+              {formatCount(recentOperation.failed, "row")} failed
             </div>
             {recentOperation.stalled ? (
               <div className="mt-1 text-amber-800">
@@ -339,7 +342,7 @@ export function PassengerImportModal({
           <RoomSummaryPanel jobCode={selectedJob?.jobCode} summary={previewRoomSummary} />
         )}
         {importProgress && (
-          <div className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm">
+          <div className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm tabular-nums">
             {importProgress.label ||
               `Importing batch ${importProgress.current} of ${importProgress.total}…`}
           </div>

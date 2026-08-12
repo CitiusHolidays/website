@@ -175,7 +175,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       },
       sendOnSignIn: true,
       sendOnSignUp: true,
-      sendVerificationEmail: async ({ user, url, token }) => {
+      sendVerificationEmail: async ({ user, url }) => {
         const html = buildAuthEmailHtml({
           bodyParagraphs: [
             `Thank you for signing up with ${AUTH_EMAIL_BRAND}. Click the button below to verify your email address and activate your account.`,

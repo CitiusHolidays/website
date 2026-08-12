@@ -144,7 +144,7 @@ describe("executeModalCommand", () => {
         },
         modal: "query",
       })
-    ).rejects.toThrow("Travel start date must be on or before Travel end date.");
+    ).rejects.toThrow("Travel Date From must be on or before Travel Date To.");
 
     expect(calls).toEqual([]);
   });
@@ -252,7 +252,7 @@ describe("executeModalCommand", () => {
         },
         modal: "expense",
       })
-    ).rejects.toThrow("Paid by is required.");
+    ).rejects.toThrow("Enter Paid By.");
 
     expect(calls).toEqual([]);
   });

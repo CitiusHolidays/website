@@ -1,9 +1,10 @@
 "use client";
 
 import { Building2, Compass, FileText, Mountain } from "lucide-react";
-import { m } from "motion/react";
-import { useEffect, useState } from "react";
+import { m, useReducedMotion } from "motion/react";
+import { useCallback, useEffect, useState } from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
+import { PUBLIC_EASE_OUT } from "@/lib/publicInteractionMotion";
 
 const CHATBOT_SUGGESTIONS = [
   {
@@ -37,22 +38,28 @@ function CuratingIndicator() {
     <span className="inline-flex items-center gap-2 text-brand-muted text-sm">
       <span aria-hidden="true" className="flex items-center gap-1">
         {[0, 0.2, 0.4].map((delay) => (
-          <m.span
-            animate={{ opacity: [0.5, 1, 0.5], scale: [1, 1.2, 1] }}
-            className="size-1.5 rounded-full bg-brand-muted/60"
+          <span
+            className="chatbot-curating-dot size-1.5 rounded-full bg-brand-muted/60"
             key={delay}
-            transition={{
-              delay,
-              duration: 1,
-              ease: "easeInOut",
-              repeat: Number.POSITIVE_INFINITY,
-            }}
+            style={{ "--chatbot-curating-delay": `${delay}s` }}
           />
         ))}
       </span>
       Curating…
     </span>
   );
+}
+
+function useChatbotEntrance() {
+  const shouldReduceMotion = !!useReducedMotion();
+  return {
+    animate: { opacity: 1, transform: "translate3d(0, 0, 0) scale(1)" },
+    initial: {
+      opacity: 0,
+      transform: shouldReduceMotion ? "none" : "translate3d(0, 10px, 0) scale(0.98)",
+    },
+    transition: { duration: shouldReduceMotion ? 0 : 0.18, ease: PUBLIC_EASE_OUT },
+  };
 }
 
 function getMessagePartKey(message, part) {
@@ -222,12 +229,17 @@ function TerminalNotice({ message, onRetry }) {
 }
 
 export function ChatbotSuggestions({ onSelectPrompt }) {
+  const entrance = useChatbotEntrance();
+  const selectPrompt = useCallback(
+    (event) => onSelectPrompt(event.currentTarget.dataset.prompt),
+    [onSelectPrompt]
+  );
   return (
     <m.div
-      animate={{ opacity: 1, y: 0 }}
+      animate={entrance.animate}
       className="mt-4 text-center"
-      initial={{ opacity: 0, y: 20 }}
-      transition={{ delay: 0.1 }}
+      initial={entrance.initial}
+      transition={{ ...entrance.transition, delay: 0.1 }}
     >
       <h4 className="mb-2 font-semibold text-brand-dark text-lg">Citius Concierge</h4>
       <p className="mx-auto max-w-xs text-brand-muted text-sm leading-relaxed">
@@ -241,8 +253,9 @@ export function ChatbotSuggestions({ onSelectPrompt }) {
         {CHATBOT_SUGGESTIONS.map(({ prompt, label, icon: Icon }) => (
           <button
             className="flex w-full items-start gap-3 rounded-xl border border-brand-border bg-white px-4 py-3 text-left text-brand-dark text-sm transition-colors hover:bg-gray-50"
+            data-prompt={prompt}
             key={prompt}
-            onClick={() => onSelectPrompt(prompt)}
+            onClick={selectPrompt}
             type="button"
           >
             <Icon aria-hidden="true" className="mt-0.5 shrink-0 text-citius-blue" size={16} />
@@ -255,6 +268,7 @@ export function ChatbotSuggestions({ onSelectPrompt }) {
 }
 
 export function ChatbotMessageList({ messages, isLoading, errorMessage, onRetry }) {
+  const entrance = useChatbotEntrance();
   const lastMessage = messages.at(-1);
   const hasStreamingAssistant = lastMessage?.role === "assistant" && isLoading;
   const showCuratingBubble = isLoading && !hasStreamingAssistant;
@@ -269,11 +283,11 @@ export function ChatbotMessageList({ messages, isLoading, errorMessage, onRetry 
     >
       {messages.map((message) => (
         <m.div
-          animate={{ opacity: 1, scale: 1, y: 0 }}
+          animate={entrance.animate}
           className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+          initial={entrance.initial}
           key={message.id}
-          transition={{ duration: 0.2 }}
+          transition={entrance.transition}
         >
           <div
             className={`min-w-0 max-w-[96%] rounded-2xl px-4 py-3 ${
@@ -310,9 +324,10 @@ export function ChatbotMessageList({ messages, isLoading, errorMessage, onRetry 
       ))}
       {showCuratingBubble ? (
         <m.div
-          animate={{ opacity: 1, y: 0 }}
+          animate={entrance.animate}
           className="flex justify-start"
-          initial={{ opacity: 0, y: 10 }}
+          initial={entrance.initial}
+          transition={entrance.transition}
         >
           <div className="mr-auto rounded-2xl rounded-bl-md border border-brand-border/60 bg-gray-50 px-4 py-3 shadow-sm">
             <CuratingIndicator />
@@ -321,9 +336,10 @@ export function ChatbotMessageList({ messages, isLoading, errorMessage, onRetry 
       ) : null}
       {errorMessage && !hasStructuredError ? (
         <m.div
-          animate={{ opacity: 1, y: 0 }}
+          animate={entrance.animate}
           className="flex justify-start"
-          initial={{ opacity: 0, y: 10 }}
+          initial={entrance.initial}
+          transition={entrance.transition}
         >
           <div className="mr-auto rounded-2xl rounded-bl-md border border-red-100 bg-red-50 px-4 py-3 text-red-700 text-sm shadow-sm">
             {errorMessage}

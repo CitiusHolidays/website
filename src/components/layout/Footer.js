@@ -1,6 +1,7 @@
 import { createLucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { getPublicOffices } from "@/data/publicContacts";
 
 import Logo from "@/static/logos/logo.webp";
 import IATA from "@/static/partners/iata.webp";
@@ -62,24 +63,7 @@ const LinkedinIcon = createLucideIcon("LinkedinBrand", [
   ],
 ]);
 
-const offices = [
-  {
-    address: "214 Swastik Plaza\nPokhran Road No 2\nThane West 400610",
-    city: "Mumbai",
-    phone: "+91 9920993259",
-  },
-  {
-    address:
-      "Pachie's 3rd Floor\nBuilding Number: 982\n3rd Cross Road\nKalyan Nagar\nBengaluru 560043",
-    city: "Bengaluru",
-    phone: "+91 99008 14292",
-  },
-  {
-    address: "207, The Chambers, 1865 Rajdanga\nMain Road Kolkata, West\nBengal 700107",
-    city: "Kolkata",
-    phone: "+91 98310 82929",
-  },
-];
+const offices = getPublicOffices("footer");
 
 const quickLinks = [
   { href: "/", label: "Home" },
@@ -95,7 +79,7 @@ const quickLinks = [
 
 export default function Footer() {
   return (
-    <footer className="bg-[url('/gallery/bgfooter.webp')] bg-brand-dark bg-center bg-cover bg-blend-multiply text-brand-light">
+    <footer className="bg-[url('/gallery/bgfooter.webp')] bg-brand-dark bg-center bg-cover text-brand-light bg-blend-multiply">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-4 py-16 sm:grid-cols-2 sm:px-6 md:grid-cols-4 lg:px-8">
         <div>
           <Image alt="Citius Logo" className="mb-2" height={48} src={Logo} width={140} />
@@ -116,8 +100,12 @@ export default function Footer() {
             {offices.map((office) => (
               <li key={office.city}>
                 <p className="font-medium text-brand-light">{office.city}</p>
-                <p className="whitespace-pre-line text-brand-muted-on-dark">{office.address}</p>
-                <p className="text-brand-muted-on-dark">{office.phone}</p>
+                <p className="whitespace-pre-line text-brand-muted-on-dark">
+                  {office.address.footer}
+                </p>
+                <a className="block text-brand-muted-on-dark" href={`tel:${office.dialPhone}`}>
+                  {office.displayPhone}
+                </a>
               </li>
             ))}
           </ul>
@@ -188,14 +176,14 @@ export default function Footer() {
           <div className="mt-2 flex gap-4 sm:mt-0 sm:gap-6">
             <Link
               className="transition-colors hover:text-citius-orange"
-              href="/policies"
+              href="/policies?view=terms"
               target="_blank"
             >
               Terms & Conditions
             </Link>
             <Link
               className="transition-colors hover:text-citius-orange"
-              href="/policies"
+              href="/policies?view=billing"
               target="_blank"
             >
               Billing Policy

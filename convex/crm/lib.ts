@@ -31,6 +31,8 @@ export {
   notifyRoles,
   notifyStaffMatching,
   notifyStaffMember,
+  publishWorkflowNotification,
+  type WorkflowNotificationPlan,
 } from "./lib/notifications";
 export {
   deleteJobCardCascade,

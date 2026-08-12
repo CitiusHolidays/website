@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
+import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { mapInBoundedBatches } from "./paginationPolicy";
 
 const PROJECTION_TABLE = "proposalQueryLinks";
@@ -79,7 +80,10 @@ export async function refreshProposalLinkProjections(ctx: MutationCtx, queryId: 
     .withIndex("by_queryId", (builder) => builder.eq("queryId", queryId))
     .collect();
   const projection = proposalLinkProjection(query);
-  await mapInBoundedBatches(links, async (link) => await ctx.db.patch(link._id, projection));
+  await mapInBoundedBatches(
+    links,
+    async (link) => await patchWithE2eOwnership(ctx, "proposalQueryLinks", link._id, projection)
+  );
   const proposalIds = Array.from(new Set(links.map((link) => String(link.proposalId))));
   await mapInBoundedBatches(proposalIds, async (proposalIdString) => {
     const proposalId = ctx.db.normalizeId("proposals", proposalIdString);
@@ -88,7 +92,7 @@ export async function refreshProposalLinkProjections(ctx: MutationCtx, queryId: 
       return;
     }
     const current = proposal.linkedQueryProjection ?? [];
-    await ctx.db.patch(proposal._id, {
+    await patchWithE2eOwnership(ctx, "proposals", proposal._id, {
       linkedQueryProjection: [
         ...current.filter((entry) => String(entry.queryId) !== String(queryId)),
         storedProposalQueryProjection(query),
@@ -141,6 +145,7 @@ export const reconcileProposalLinkProjections = internalMutation({
     });
     return { scheduled: true };
   },
+  returns: v.object({ scheduled: v.boolean() }),
 });
 
 export const reconcileProposalLinkPage = internalMutation({
@@ -210,4 +215,9 @@ export const reconcileProposalLinkPage = internalMutation({
     }
     return { isDone: page.isDone, processed: page.page.length, stale: false };
   },
+  returns: v.object({
+    isDone: v.boolean(),
+    processed: v.number(),
+    stale: v.boolean(),
+  }),
 });

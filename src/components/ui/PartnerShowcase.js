@@ -2,6 +2,7 @@
 
 import { m } from "motion/react";
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 import AbuDhabi from "@/static/partners/abudhabi.webp";
 import Accor from "@/static/partners/accor.webp";
 import AirIndia from "@/static/partners/airindia.webp";
@@ -51,8 +52,8 @@ import USATourism from "@/static/partners/USA.webp";
 import VietJet from "@/static/partners/vietjet.webp";
 import Vietnam from "@/static/partners/vietnam.webp";
 import VietnamAirlines from "@/static/partners/vietnamairlines.webp";
-import { cn } from "../../utils/cn";
-import LogoTicker from "./LogoTicker";
+
+const PARTNER_PREVIEW_COUNT = 12;
 
 const partners = [
   { alt: "Abu Dhabi", src: AbuDhabi },
@@ -108,43 +109,15 @@ const partners = [
 
 function PartnerBox({ src, alt }) {
   return (
-    <m.div
-      className="relative flex items-center justify-center overflow-hidden"
-      initial="hideInfo"
-      style={{ height: 100, width: 180 }}
-      whileHover="showInfo"
-    >
-      <m.div
-        className="flex size-full items-center justify-center"
-        variants={{
-          hideInfo: { filter: "blur(0px)", opacity: 1, scale: 1 },
-          showInfo: { filter: "blur(5px)", opacity: 0.3, scale: 0.9 },
-        }}
-      >
-        <Image
-          alt={alt}
-          height={60}
-          src={src}
-          style={{ height: "100%", objectFit: "contain", width: "100%" }}
-          width={120}
-        />
-      </m.div>
-      <m.div
-        className="absolute inset-0 flex items-center justify-center bg-white/70 p-2 font-semibold text-[#222] text-[16px] uppercase"
-        style={{ textShadow: "1px 1px 0px #fff" }}
-        variants={{
-          hideInfo: { opacity: 0, scale: 1.2 },
-          showInfo: { opacity: 1, scale: 1 },
-        }}
-      >
-        {alt}
-      </m.div>
-    </m.div>
+    <div className="flex h-24 min-w-0 items-center justify-center rounded-xl border border-brand-border/70 bg-white p-4">
+      <Image alt={alt} className="size-full object-contain" height={60} src={src} width={120} />
+    </div>
   );
 }
 
 export default function PartnerShowcase({ className }) {
-  const items = partners.map((logo) => <PartnerBox alt={logo.alt} key={logo.alt} src={logo.src} />);
+  const preview = partners.slice(0, PARTNER_PREVIEW_COUNT);
+  const remaining = partners.slice(PARTNER_PREVIEW_COUNT);
 
   return (
     <m.section
@@ -157,15 +130,22 @@ export default function PartnerShowcase({ className }) {
       <h2 className="mb-8 text-center font-semibold text-2xl text-brand-dark">
         Our Global Hospitality, Tourism, and Airline Partners
       </h2>
-      <LogoTicker
-        gap={24}
-        items={items}
-        style={{
-          alignItems: "center",
-          display: "flex",
-        }}
-        velocity={65}
-      />
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3 px-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        {preview.map((logo) => (
+          <PartnerBox alt={logo.alt} key={logo.alt} src={logo.src} />
+        ))}
+      </div>
+      <details className="group mx-auto mt-6 max-w-6xl px-4">
+        <summary className="mx-auto flex min-h-11 w-fit cursor-pointer list-none items-center rounded-full border border-citius-blue px-5 font-semibold text-citius-blue text-sm transition-colors hover:bg-citius-blue hover:text-white focus-visible:outline-2 focus-visible:outline-citius-orange focus-visible:outline-offset-2">
+          <span className="group-open:hidden">Show all partners</span>
+          <span className="hidden group-open:inline">Show fewer partners</span>
+        </summary>
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          {remaining.map((logo) => (
+            <PartnerBox alt={logo.alt} key={logo.alt} src={logo.src} />
+          ))}
+        </div>
+      </details>
     </m.section>
   );
 }

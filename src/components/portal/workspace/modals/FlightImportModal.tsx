@@ -4,6 +4,7 @@ import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { Button } from "@/components/ui/application-button";
+import { formatCount } from "@/lib/countMessage";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import type { PortalFlightItineraryGroup, PortalJobCardOption } from "../portalViewTypes";
 import { formatConvexError } from "../portalWorkspaceListHelpers";
@@ -111,7 +112,7 @@ export function FlightImportModal({
     try {
       const result = await commitFlightImport({ groups, jobCardId });
       toast.success(
-        `Flight import complete. Created ${result.createdSegments}, updated ${result.updatedSegments} segments.`
+        `Flight import complete. Created ${formatCount(result.createdSegments, "segment")}; updated ${formatCount(result.updatedSegments, "segment")}.`
       );
       closeAndReset();
     } catch (err) {

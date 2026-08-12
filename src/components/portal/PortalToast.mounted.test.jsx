@@ -145,14 +145,14 @@ describe("PortalToast public contract", () => {
     expect(active.map((toast) => [toast.type, toast.duration])).toEqual([
       ["info", 5000],
       ["success", 5000],
-      ["error", 8000],
+      ["error", Number.POSITIVE_INFINITY],
     ]);
 
     await act(async () => root.unmount());
     container.remove();
   });
 
-  test("caps multiple active toasts at five and dismisses through the unchanged UI", async () => {
+  test("caps active toasts at five, queues overflow, and reveals it after dismissal", async () => {
     const { container, root } = await mountHarness();
     const [info, success, error] = container.querySelectorAll("button");
     await act(async () => {
@@ -173,15 +173,19 @@ describe("PortalToast public contract", () => {
     );
     expect(activeBeforeDismiss).toHaveLength(5);
     expect(visibleBeforeDismiss).toHaveLength(5);
-    expect(visibleBeforeDismiss[0].textContent).toContain("Save failed");
-
-    const dismiss = visibleBeforeDismiss[0].querySelector(
-      'button[aria-label="Dismiss notification"]'
+    const dismissibleToast = [...visibleBeforeDismiss].find(
+      (toast) => toast.dataset.type !== "error"
     );
+
+    const dismiss = dismissibleToast.querySelector('button[aria-label="Dismiss notification"]');
     await act(async () => dismiss.click());
     await settle();
 
-    expect(sonnerToast.getToasts().filter((toast) => toast.toasterId === "portal")).toHaveLength(4);
+    const activeAfterDismiss = sonnerToast
+      .getToasts()
+      .filter((toast) => toast.toasterId === "portal");
+    expect(activeAfterDismiss).toHaveLength(5);
+    expect(activeAfterDismiss.some((toast) => toast.type === "error")).toBe(true);
     expect(dismiss.closest("[data-sonner-toast]").dataset.removed).toBe("true");
 
     await act(async () => root.unmount());

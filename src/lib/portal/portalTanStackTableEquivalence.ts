@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef } from "react";
 import {
   type ColumnDef,
   columnVisibilityFeature,
@@ -135,14 +135,13 @@ export function usePortalTanStackTableEquivalence<Row extends PortalTanStackRow>
     initialState: { pagination: { pageIndex: 0, pageSize: PORTAL_PAGE_SIZE } },
     sortDescFirst: false,
   });
-  const tableRef = useRef(table);
-  tableRef.current = table;
+  const getLatestTable = useEffectEvent(() => table);
   const previousRowIdsRef = useRef<string[] | null>(null);
   const rowIds = useMemo(() => rows.map((row) => String(row.id)), [rows]);
   const rowIdentity = rowIds.join("\0");
 
   useEffect(() => {
-    const currentTable = tableRef.current;
+    const currentTable = getLatestTable();
     const previousRowIds = previousRowIdsRef.current;
     const currentRowIds = rowIdentity ? rowIdentity.split("\0") : [];
     if (shouldResetLoadedPage(previousRowIds, currentRowIds)) {

@@ -248,7 +248,7 @@ describe("Tour Manager allocation notifications", () => {
     });
   });
 
-  test("keeps the Tour Manager bell notification but sends no email without opt-in", async () => {
+  test("keeps direct Tour Manager bell and email delivery without an extra role opt-in", async () => {
     const { ctx, tables, scheduledEmails } = makeTourManagerCtx();
     const tourManager = tables.staffUsers.find((staff) => staff._id === "staff_tm");
     if (tourManager) {
@@ -273,7 +273,7 @@ describe("Tour Manager allocation notifications", () => {
         }),
       ])
     );
-    expect(scheduledEmails).toHaveLength(0);
+    expect(scheduledEmails).toHaveLength(1);
   });
 
   test("notifies when an existing Tour Manager assignment is allocated to a Job Card", async () => {

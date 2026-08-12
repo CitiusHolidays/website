@@ -2,8 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   canReceiveNotification,
   expandNotificationEmailRoles,
-  notifyRoles,
-  notifyStaffMatching,
+  publishWorkflowNotification,
 } from "./lib";
 import { getNotificationHref } from "./notificationPaths";
 
@@ -115,8 +114,8 @@ describe("expandNotificationEmailRoles", () => {
   });
 });
 
-describe("notifyRoles", () => {
-  test("uses expanded role recipients for bell rows and email recipients", async () => {
+describe("publishWorkflowNotification", () => {
+  test("keeps bell roles exact while expanding role email recipients", async () => {
     const tables: Record<string, any[]> = {
       notifications: [],
       staffUsers: [
@@ -124,14 +123,12 @@ describe("notifyRoles", () => {
           _id: "staff_accounts",
           active: true,
           email: "accounts@example.com",
-          emailAlertRoles: ["Accounts"],
           roles: ["Accounts"],
         },
         {
           _id: "staff_accounts_head",
           active: true,
           email: "head@example.com",
-          emailAlertRoles: ["Accounts Head"],
           roles: ["Accounts Head"],
         },
       ],
@@ -155,17 +152,18 @@ describe("notifyRoles", () => {
       },
     };
 
-    await notifyRoles(ctx as never, ["Accounts"], {
-      body: "Check this",
-      entityId: "query_1",
-      entityType: "query",
-      title: "Accounts ping",
+    await publishWorkflowNotification(ctx as never, {
+      bellTargets: { kind: "roles", roles: ["Accounts"] },
+      content: {
+        body: "Check this",
+        entityId: "query_1",
+        entityType: "query",
+        title: "Accounts ping",
+      },
+      emailTargets: { kind: "roles", roles: ["Accounts"] },
     });
 
-    expect(tables.notifications.map((row) => row.recipientRole).sort()).toEqual([
-      "Accounts",
-      "Accounts Head",
-    ]);
+    expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Accounts"]);
     expect(scheduled[0].args.recipients.sort()).toEqual([
       "accounts@example.com",
       "head@example.com",
@@ -173,7 +171,7 @@ describe("notifyRoles", () => {
     expect(scheduled[0].args.eventId).toBe("notifications_1");
   });
 
-  test("uses only staff email alert roles, never assigned portal roles", async () => {
+  test("uses portal roles by default and additional alert roles add email-only coverage", async () => {
     const tables: Record<string, any[]> = {
       notifications: [],
       staffUsers: [
@@ -191,11 +189,11 @@ describe("notifyRoles", () => {
           roles: ["Finance"],
         },
         {
-          _id: "staff_email_optout",
+          _id: "staff_other_head",
           active: true,
-          email: "optout@example.com",
+          email: "other@example.com",
           emailAlertRoles: ["Sales"],
-          roles: ["Operations Head"],
+          roles: ["Finance"],
         },
         {
           _id: "staff_admin",
@@ -230,23 +228,25 @@ describe("notifyRoles", () => {
       },
     };
 
-    await notifyRoles(
-      ctx as never,
-      ["Operations Head"],
-      {
+    await publishWorkflowNotification(ctx as never, {
+      bellTargets: { kind: "roles", roles: ["Operations Head"] },
+      content: {
         body: "Review",
         entityId: "query_1",
         entityType: "query",
         title: "Query ready for assignment",
       },
-      { emailRoles: ["Operations Head"] }
-    );
+      emailTargets: { kind: "roles", roles: ["Operations Head"] },
+    });
 
     expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Operations Head"]);
-    expect(scheduled[0].args.recipients).toEqual(["delegate@example.com"]);
+    expect(scheduled[0].args.recipients.sort()).toEqual([
+      "delegate@example.com",
+      "ops-head@example.com",
+    ]);
   });
 
-  test("does not send Admin or Directors emails without per-person settings opt-in", async () => {
+  test("keeps Admin and Directors role-default email delivery", async () => {
     const tables: Record<string, any[]> = {
       notifications: [],
       staffUsers: [
@@ -289,17 +289,24 @@ describe("notifyRoles", () => {
       },
     };
 
-    await notifyRoles(ctx as never, ["Admin", "Directors"], {
-      body: "Review",
-      entityId: "query_1",
-      entityType: "query",
-      title: "Executive alert",
+    await publishWorkflowNotification(ctx as never, {
+      bellTargets: { kind: "roles", roles: ["Admin", "Directors"] },
+      content: {
+        body: "Review",
+        entityId: "query_1",
+        entityType: "query",
+        title: "Executive alert",
+      },
+      emailTargets: { kind: "roles", roles: ["Admin", "Directors"] },
     });
 
-    expect(scheduled).toHaveLength(0);
+    expect(scheduled[0].args.recipients.sort()).toEqual([
+      "admin@example.com",
+      "director@example.com",
+    ]);
   });
 
-  test("can keep oversight bell rows without sending role emails", async () => {
+  test("supports an explicit no-email target without suppressing bell delivery", async () => {
     const tables: Record<string, any[]> = {
       notifications: [],
       staffUsers: [
@@ -356,41 +363,36 @@ describe("notifyRoles", () => {
       },
     };
 
-    await notifyRoles(
-      ctx as never,
-      ["Contracting Head"],
-      {
+    await publishWorkflowNotification(ctx as never, {
+      bellTargets: { kind: "roles", roles: ["Contracting Head"] },
+      content: {
         body: "Assignment updated",
         entityId: "query_1",
         entityType: "query",
         title: "Query team assignment updated",
       },
-      { emailRoles: [] }
-    );
+      emailTargets: { kind: "none" },
+    });
 
     expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Contracting Head"]);
     expect(scheduled).toHaveLength(0);
   });
-});
-
-describe("notifyStaffMatching", () => {
-  test("keeps bell delivery but requires per-person email opt-in", async () => {
+  test("uses the same explicit matcher independently for bell and email", async () => {
     const tables: Record<string, any[]> = {
       notifications: [],
       staffUsers: [
         {
-          _id: "staff_no_email",
+          _id: "staff_sales_one",
           active: true,
-          authUserId: "auth_no_email",
-          email: "no-email@example.com",
+          authUserId: "auth_sales_one",
+          email: "sales-one@example.com",
           roles: ["Sales"],
         },
         {
-          _id: "staff_opted_in",
+          _id: "staff_sales_two",
           active: true,
-          authUserId: "auth_opted_in",
-          email: "opted-in@example.com",
-          emailAlertRoles: ["Sales"],
+          authUserId: "auth_sales_two",
+          email: "sales-two@example.com",
           roles: ["Sales"],
         },
       ],
@@ -414,15 +416,18 @@ describe("notifyStaffMatching", () => {
       },
     };
 
-    await notifyStaffMatching(
-      ctx as never,
-      (staff) => staff.roles.includes("Sales"),
-      { body: "Decision updated", title: "Approval updated" },
-      { emailRoles: ["Sales"] }
-    );
+    const salesMatcher = (staff: { roles: string[] }) => staff.roles.includes("Sales");
+    await publishWorkflowNotification(ctx as never, {
+      bellTargets: { kind: "matching", matches: salesMatcher },
+      content: { body: "Decision updated", title: "Approval updated" },
+      emailTargets: { kind: "matching", matches: salesMatcher },
+    });
 
     expect(tables.notifications).toHaveLength(2);
-    expect(scheduled[0].args.recipients).toEqual(["opted-in@example.com"]);
+    expect(scheduled[0].args.recipients.sort()).toEqual([
+      "sales-one@example.com",
+      "sales-two@example.com",
+    ]);
   });
 });
 

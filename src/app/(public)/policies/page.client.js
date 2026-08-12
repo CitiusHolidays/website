@@ -301,18 +301,18 @@ const Section = ({ data }) => (
         <h4 className="relative z-10 mb-4 font-semibold text-lg">{data.contact.team}</h4>
         <div className="relative z-10 space-y-3 text-sm">
           <div className="flex items-center gap-3">
-            <Mail className="size-4 text-citius-orange" />
+            <Mail className="size-4 text-public-orange" />
             <a
-              className="transition-colors hover:text-citius-orange"
+              className="transition-colors hover:text-public-orange"
               href={`mailto:${data.contact.email}`}
             >
               {data.contact.email}
             </a>
           </div>
           <div className="flex items-center gap-3">
-            <Phone className="size-4 text-citius-orange" />
+            <Phone className="size-4 text-public-orange" />
             <a
-              className="transition-colors hover:text-citius-orange"
+              className="transition-colors hover:text-public-orange"
               href={`tel:${data.contact.phone.replace(/\s/g, "")}`}
             >
               {data.contact.phone}
@@ -320,7 +320,7 @@ const Section = ({ data }) => (
           </div>
           {data.contact.address && (
             <div className="flex items-center gap-3">
-              <MapPin className="size-4 text-citius-orange" />
+              <MapPin className="size-4 text-public-orange" />
               <span>{data.contact.address}</span>
             </div>
           )}
@@ -371,7 +371,7 @@ function PolicyPage({ activeTab }) {
       {/* Navigation Tabs */}
       <nav
         aria-label="Policy documents"
-        className="sticky top-20 z-40 border-gray-200 border-b bg-[#FDFBF7]/90 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300"
+        className="material-structural sticky top-20 z-40 border-gray-200 border-b bg-[#FDFBF7]/90 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300"
       >
         <div className="mx-auto max-w-4xl px-6">
           <div className="flex justify-center gap-8 md:gap-16">
@@ -405,7 +405,7 @@ function PolicyPage({ activeTab }) {
         </div>
       </nav>
       {/* Content Area */}
-      <main className="mx-auto max-w-3xl px-6 py-16" id="policy-document">
+      <section className="mx-auto max-w-3xl px-6 py-16" id="policy-document">
         <div className="font-sans text-lg">
           <m.div
             animate={{ opacity: 1, x: 0 }}
@@ -446,11 +446,11 @@ function PolicyPage({ activeTab }) {
             )}
           </m.div>
         </div>
-      </main>
+      </section>
       {/* Footer CTA */}
       <section className="mt-12 bg-brand-dark px-6 py-16">
         <div className="mx-auto max-w-4xl text-center">
-          <Shield className="mx-auto mb-6 size-12 text-citius-orange" />
+          <Shield className="mx-auto mb-6 size-12 text-public-orange" />
           <h2 className="mb-4 font-heading text-2xl text-white md:text-3xl">
             Have questions about our policies?
           </h2>

@@ -27,62 +27,93 @@ import {
   compactPageItems,
   mapInBoundedBatches,
 } from "./paginationPolicy";
+import { canManagePassengerKinds, canViewPassengerKinds } from "./passengerKindPolicy";
 
 const PASSENGER_EXPORT_ARTIFACT_TTL_MS = 15 * 60 * 1000;
 const PASSENGER_EXPORT_CLEANUP_BATCH_SIZE = 50;
 const PASSENGER_EXPORT_LEASE_MS = 120_000;
 
-function hasPortalPermission(access: PortalAccess, permission: string) {
-  return access.permissions.includes(permission);
-}
+const passengerExportOperationDocumentValidator = v.object({
+  _creationTime: v.number(),
+  _id: v.id("passengerExportOperations"),
+  attemptCount: v.number(),
+  commandId: v.string(),
+  completedAt: v.optional(v.number()),
+  errorCode: v.optional(v.string()),
+  expiresAt: v.optional(v.number()),
+  exportKind: v.string(),
+  fileName: v.optional(v.string()),
+  initiatedBy: v.string(),
+  initiatedByStaffId: v.optional(v.id("staffUsers")),
+  jobCardId: v.id("jobCards"),
+  leaseExpiresAt: v.optional(v.number()),
+  leaseId: v.optional(v.string()),
+  rowsProcessed: v.number(),
+  startedAt: v.number(),
+  status: v.union(
+    v.literal("running"),
+    v.literal("completed"),
+    v.literal("failed"),
+    v.literal("expired")
+  ),
+  storageId: v.optional(v.id("_storage")),
+  updatedAt: v.number(),
+});
 
-function canManagePassengerImportKinds(access: PortalAccess, importKinds: string[]) {
-  return importKinds.every((kind) => {
-    if (kind === "passenger") {
-      return (
-        hasPortalPermission(access, PERMISSIONS.MANAGE_TICKETING) ||
-        (hasPortalPermission(access, PERMISSIONS.MANAGE_TRAVELLERS) &&
-          hasPortalPermission(access, PERMISSIONS.MANAGE_VISA))
-      );
-    }
-    if (kind === "traveller") {
-      return (
-        hasPortalPermission(access, PERMISSIONS.MANAGE_TRAVELLERS) &&
-        hasPortalPermission(access, PERMISSIONS.MANAGE_VISA)
-      );
-    }
-    if (kind === "rooming") {
-      return hasPortalPermission(access, PERMISSIONS.MANAGE_OPERATIONS);
-    }
-    if (kind === "passport" || kind === "visa") {
-      return hasPortalPermission(access, PERMISSIONS.MANAGE_VISA);
-    }
-    return false;
-  });
-}
+const passengerExportSourceRowValidator = v.object({
+  cancellation: v.boolean(),
+  contactNo: v.string(),
+  createdAt: v.number(),
+  encryptedPassportPayload: v.string(),
+  foodPreference: v.string(),
+  fullName: v.string(),
+  gender: v.string(),
+  givenName: v.string(),
+  hotelAllocation: v.string(),
+  lastMinuteDrop: v.boolean(),
+  paymentType: v.string(),
+  roomType: v.string(),
+  sourceDealerCode: v.string(),
+  sourceDealerName: v.string(),
+  sourceDescription: v.string(),
+  sourceGroup: v.string(),
+  sourceRowNumber: v.union(v.number(), v.null()),
+  sourceRsoName: v.string(),
+  sourceSheet: v.string(),
+  sourceSoName: v.string(),
+  specialRequests: v.string(),
+  surname: v.string(),
+  tickets: v.array(
+    v.object({
+      airline: v.string(),
+      fareType: v.string(),
+      pnrCode: v.string(),
+      route: v.string(),
+      ticketNumber: v.string(),
+      ticketType: v.string(),
+    })
+  ),
+  travelBatchCode: v.string(),
+  travelBatchId: v.string(),
+  travelBatchReference: v.string(),
+  travelHub: v.string(),
+  travellerId: v.id("travellers"),
+  visa: v.object({ appointmentDate: v.string(), notes: v.string(), status: v.string() }),
+  visaRequired: v.boolean(),
+  visaStatus: v.string(),
+});
 
-function canViewPassengerExportKind(access: PortalAccess, exportKind: string) {
-  if (exportKind === "passenger") {
-    return (
-      hasPortalPermission(access, PERMISSIONS.VIEW_TICKETING) ||
-      (hasPortalPermission(access, PERMISSIONS.VIEW_TRAVELLERS) &&
-        hasPortalPermission(access, PERMISSIONS.VIEW_VISA))
-    );
-  }
-  if (exportKind === "traveller") {
-    return (
-      hasPortalPermission(access, PERMISSIONS.VIEW_TRAVELLERS) &&
-      hasPortalPermission(access, PERMISSIONS.VIEW_VISA)
-    );
-  }
-  if (exportKind === "rooming") {
-    return hasPortalPermission(access, PERMISSIONS.VIEW_OPERATIONS);
-  }
-  if (exportKind === "passport" || exportKind === "visa") {
-    return hasPortalPermission(access, PERMISSIONS.VIEW_VISA);
-  }
-  return false;
-}
+const passengerExportSourcePageValidator = v.object({
+  clientName: v.string(),
+  continueCursor: v.string(),
+  isDone: v.boolean(),
+  jobCode: v.string(),
+  page: v.array(passengerExportSourceRowValidator),
+  pageStatus: v.optional(
+    v.union(v.literal("SplitRecommended"), v.literal("SplitRequired"), v.null())
+  ),
+  splitCursor: v.optional(v.union(v.string(), v.null())),
+});
 
 const flightSegmentInput = v.object({
   airline: v.string(),
@@ -200,6 +231,14 @@ export const previewPassengerImportRows = internalQuery({
     rows: v.array(internalPassengerImportRow),
   },
   handler: async (ctx, args) => {
+    if (
+      !canManagePassengerKinds(
+        args.access,
+        args.rows.map((row) => row.importKind ?? "passenger")
+      )
+    ) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
@@ -232,6 +271,14 @@ export const commitPassengerImportBatch = internalMutation({
     rows: v.array(internalPassengerImportRow),
   },
   handler: async (ctx, args) => {
+    if (
+      !canManagePassengerKinds(
+        args.access,
+        args.rows.map((row) => row.importKind ?? "passenger")
+      )
+    ) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
@@ -327,6 +374,9 @@ export const beginPassengerImportOperation = internalMutation({
     total: v.number(),
   },
   handler: async (ctx, args) => {
+    if (!canManagePassengerKinds(args.access, args.importKinds)) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
@@ -382,6 +432,7 @@ export const beginPassengerImportOperation = internalMutation({
       updatedAt: now,
     });
   },
+  returns: v.id("passengerImportOperations"),
 });
 
 export const recordPassengerImportOperationBatch = internalMutation({
@@ -460,7 +511,9 @@ export const recordPassengerImportOperationBatch = internalMutation({
         updatedAt: now,
       }),
     ]);
+    return null;
   },
+  returns: v.null(),
 });
 
 export const completePassengerImportOperation = internalMutation({
@@ -476,7 +529,9 @@ export const completePassengerImportOperation = internalMutation({
       status: operation.failed > 0 || operation.remaining > 0 ? "partial" : "completed",
       updatedAt: now,
     });
+    return null;
   },
+  returns: v.null(),
 });
 
 export const commitPassengerImportRows = internalMutation({
@@ -486,6 +541,14 @@ export const commitPassengerImportRows = internalMutation({
     rows: v.array(internalPassengerImportRow),
   },
   handler: async (ctx, args) => {
+    if (
+      !canManagePassengerKinds(
+        args.access,
+        args.rows.map((row) => row.importKind ?? "passenger")
+      )
+    ) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
@@ -670,7 +733,7 @@ export const listMyPassengerImportOperations = query({
       .take(12);
     const visibleOperations = await Promise.all(
       operations.map(async (operation) => {
-        if (!canManagePassengerImportKinds(access, operation.importKinds)) {
+        if (!canManagePassengerKinds(access, operation.importKinds)) {
           return null;
         }
         const job = await getVisibleJob(ctx, access, operation.jobCardId);
@@ -707,10 +770,14 @@ export const listMyPassengerImportOperations = query({
 export const getPassengerExportSourcePage = internalQuery({
   args: {
     access: portalAccessArgumentValidator,
+    exportKind: exportKindValidator,
     jobCardId: v.string(),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
+    if (!canViewPassengerKinds(args.access, [args.exportKind])) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
@@ -722,7 +789,7 @@ export const getPassengerExportSourcePage = internalQuery({
     const page = await ctx.db
       .query("travellers")
       .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
-      .paginate(boundedPaginationOptions(args.paginationOpts));
+      .paginate(args.paginationOpts);
     const rows = await mapInBoundedBatches(page.page, async (traveller) => {
       const [passport, visaRecord, ticketRows, travelBatch] = await Promise.all([
         ctx.db
@@ -801,6 +868,7 @@ export const getPassengerExportSourcePage = internalQuery({
       page: rows,
     };
   },
+  returns: passengerExportSourcePageValidator,
 });
 
 export const beginPassengerExportOperation = internalMutation({
@@ -812,6 +880,9 @@ export const beginPassengerExportOperation = internalMutation({
     leaseId: v.string(),
   },
   handler: async (ctx, args) => {
+    if (!canViewPassengerKinds(args.access, [args.exportKind])) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
@@ -877,6 +948,10 @@ export const beginPassengerExportOperation = internalMutation({
     });
     return { operationId, replayed: false };
   },
+  returns: v.object({
+    operationId: v.id("passengerExportOperations"),
+    replayed: v.boolean(),
+  }),
 });
 
 export const updatePassengerExportOperation = internalMutation({
@@ -895,7 +970,9 @@ export const updatePassengerExportOperation = internalMutation({
       rowsProcessed: args.rowsProcessed,
       updatedAt: Date.now(),
     });
+    return null;
   },
+  returns: v.null(),
 });
 
 export const completePassengerExportOperation = internalMutation({
@@ -923,7 +1000,9 @@ export const completePassengerExportOperation = internalMutation({
       status: "completed",
       updatedAt: now,
     });
+    return null;
   },
+  returns: v.null(),
 });
 
 export const stagePassengerExportArtifact = internalMutation({
@@ -946,7 +1025,9 @@ export const stagePassengerExportArtifact = internalMutation({
       storageId: args.storageId,
       updatedAt: now,
     });
+    return null;
   },
+  returns: v.null(),
 });
 
 export const failPassengerExportOperation = internalMutation({
@@ -959,7 +1040,7 @@ export const failPassengerExportOperation = internalMutation({
   handler: async (ctx, args) => {
     const operation = await ctx.db.get(args.operationId);
     if (!operation || operation.leaseId !== args.leaseId) {
-      return;
+      return null;
     }
     const now = Date.now();
     await ctx.db.patch(args.operationId, {
@@ -971,12 +1052,15 @@ export const failPassengerExportOperation = internalMutation({
       leaseId: undefined,
       updatedAt: now,
     });
+    return null;
   },
+  returns: v.null(),
 });
 
 export const getPassengerExportOperation = internalQuery({
   args: { operationId: v.id("passengerExportOperations") },
   handler: async (ctx, args) => await ctx.db.get(args.operationId),
+  returns: v.union(passengerExportOperationDocumentValidator, v.null()),
 });
 
 export const getAuthorizedPassengerExportOperation = internalQuery({
@@ -990,7 +1074,7 @@ export const getAuthorizedPassengerExportOperation = internalQuery({
     if (
       !operation ||
       operation.initiatedBy !== (args.access.authUserId ?? args.access.email) ||
-      !canViewPassengerExportKind(args.access, operation.exportKind)
+      !canViewPassengerKinds(args.access, [operation.exportKind])
     ) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -1000,6 +1084,7 @@ export const getAuthorizedPassengerExportOperation = internalQuery({
     }
     return operation;
   },
+  returns: passengerExportOperationDocumentValidator,
 });
 
 export const purgeExpiredPassengerExports = internalMutation({
@@ -1062,7 +1147,7 @@ export const listMyPassengerExportOperations = query({
       .take(12);
     const visibleOperations = await Promise.all(
       operations.map(async (operation) => {
-        if (!canViewPassengerExportKind(access, operation.exportKind)) {
+        if (!canViewPassengerKinds(access, [operation.exportKind])) {
           return null;
         }
         const job = await getVisibleJob(ctx, access, operation.jobCardId);

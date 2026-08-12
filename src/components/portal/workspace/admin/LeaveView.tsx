@@ -83,7 +83,9 @@ export function LeaveView({
                 key={row.leaveType}
               >
                 <div className="font-medium text-brand-muted text-xs">{row.leaveType}</div>
-                <div className="mt-1 font-semibold text-brand-dark text-xl">{row.value}</div>
+                <div className="mt-1 font-semibold text-brand-dark text-xl tabular-nums">
+                  {row.value}
+                </div>
                 <div className="mt-1 text-brand-muted text-xs">{row.detail}</div>
               </div>
             ))}

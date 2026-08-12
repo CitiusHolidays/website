@@ -1,4 +1,11 @@
-import { ConvexError, v } from "convex/values";
+import {
+  ConvexError,
+  type GenericValidator,
+  type Infer,
+  type ObjectType,
+  type PropertyValidators,
+  v,
+} from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   internalMutation,
@@ -49,6 +56,7 @@ const teamAreaValidator = v.union(
   v.literal("operations"),
   v.literal("tourManager")
 );
+const successResultValidator = v.object({ success: v.literal(true) });
 
 const sourceOptionValidator = v.object({
   code: v.string(),
@@ -938,7 +946,7 @@ export const createUploadSession = internalMutation({
       teamArea: args.teamArea,
       token: args.token,
     });
-    return { success: true };
+    return { success: true as const };
   },
 });
 
@@ -970,7 +978,7 @@ export const claimUploadSession = internalMutation({
       throw new ConvexError("Upload session is invalid or expired");
     }
     await ctx.db.patch(session._id, { storageId: args.storageId, usedAt: Date.now() });
-    return { success: true };
+    return { success: true as const };
   },
 });
 
@@ -1138,8 +1146,9 @@ export const updateNote = mutationWithAccess({
       message: `${row.fileName} note updated`,
       metadata: { fileId: String(row._id) },
     });
-    return { success: true };
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const deleteFile = mutationWithAccess({
@@ -1176,8 +1185,9 @@ export const deleteFile = mutationWithAccess({
       message: `${row.fileName} moved to Recoverable Deletion`,
       metadata: { fileId: String(row._id), purgeAfter: timestamp + COMMERCIAL_FILE_RETENTION_MS },
     });
-    return { success: true };
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const deleteCurrentProposalDoc = mutationWithAccess({
@@ -1229,8 +1239,9 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
       message: `${row.fileName} moved to Recoverable Deletion`,
       metadata: { category: "proposalDoc", fileId: String(row._id) },
     });
-    return { success: true };
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const restoreFile = mutationWithAccess({
@@ -1289,8 +1300,9 @@ export const restoreFile = mutationWithAccess({
       message: `${row.fileName} restored`,
       metadata: { fileId: String(row._id), lifecycle },
     });
-    return { success: true };
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const restoreProposalHistory = mutationWithAccess({
@@ -1332,8 +1344,9 @@ export const restoreProposalHistory = mutationWithAccess({
       message: `${row.fileName} restored as the active Proposal Doc`,
       metadata: { fileId: String(row._id) },
     });
-    return { success: true };
+    return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const markFilesDeletedForSource = internalMutation({
@@ -1547,14 +1560,17 @@ export const purgeExpired = internalMutation({
   },
 });
 
-type MutationHandler<TResult> = (
+type MutationHandler<TArgs extends PropertyValidators, TReturns extends GenericValidator> = (
   ctx: MutationCtx,
-  args: any,
+  args: ObjectType<TArgs>,
   access: PortalAccess
-) => Promise<TResult>;
+) => Promise<Infer<TReturns>>;
 
-function mutationWithAccess<TResult>(config: { args: any; handler: MutationHandler<TResult> }) {
-  return mutation({
+function mutationWithAccess<
+  TArgs extends PropertyValidators,
+  TReturns extends GenericValidator,
+>(config: { args: TArgs; handler: MutationHandler<TArgs, TReturns>; returns: TReturns }) {
+  return mutation<TArgs, TReturns, Infer<TReturns>, [ObjectType<TArgs>]>({
     args: config.args,
     handler: async (ctx, args) => {
       const access = await getPortalAccess(ctx);
@@ -1563,5 +1579,6 @@ function mutationWithAccess<TResult>(config: { args: any; handler: MutationHandl
       }
       return await config.handler(ctx, args, access);
     },
+    returns: config.returns,
   });
 }

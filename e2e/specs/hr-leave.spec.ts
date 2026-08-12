@@ -14,7 +14,7 @@ import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 test.describe("@smoke HR leave submit", () => {
   test.skip(!hasE2eCredentials(), E2E_SKIP_REASON);
 
-  test("hr submits leave request", async ({ browser }) => {
+  test("[hr-leave-create] HR submits leave request", async ({ browser }) => {
     const reason = uniqueE2eLabel("E2E leave request");
     const { context, page } = await openPortalAs(browser, "hr");
     await page.goto("/portal/employees-on-leave");

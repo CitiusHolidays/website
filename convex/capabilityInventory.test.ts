@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative, sep } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  discoverConvexRegistrations,
+  registrationsInSource,
+} from "../config/release/convex-registration-inventory";
 
 type CapabilityClass = "admin-only" | "internal" | "migration" | "public-product" | "server-only";
 
@@ -14,12 +18,8 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "077ca754f492b9f81aef91ae80174df5ba61d09b7dcc55fa579be7a3d9dff696";
-const SOURCE_EXTENSION = /\.(?:js|ts)$/;
-const NON_SOURCE_FILE = /(?:\.test|\.config)\.[jt]s$/;
-const MODULE_EXTENSION = /\.[jt]s$/;
-const CAPABILITY_DECLARATION =
-  /export\s+const\s+([A-Za-z0-9_]+)\s*=\s*(query|mutation|action|internalQuery|internalMutation|internalAction)\s*\(/g;
+const EXPECTED_CAPABILITY_HASH = "87b53832232deb453fa44543b90e1c8af3e4eacc47bfe3f29fd7914e322f646b";
+const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
   "crm/leaveApprovers",
@@ -43,6 +43,7 @@ const PAYMENT_SERVER_ONLY_CAPABILITIES = new Set([
 
 const E2E_SERVER_ONLY_CAPABILITIES = new Set([
   "crm/e2eAssertions.travellerExists",
+  "crm/e2eSeedActions.cleanup",
   "crm/e2eSeedActions.run",
 ]);
 
@@ -51,22 +52,6 @@ const SERVER_ONLY_CAPABILITIES = new Set([
   ...E2E_SERVER_ONLY_CAPABILITIES,
   ...PAYMENT_SERVER_ONLY_CAPABILITIES,
 ]);
-
-function sourceFiles(directory: string): string[] {
-  return readdirSync(directory).flatMap((name) => {
-    if (name === "_generated" || name === "node_modules") {
-      return [];
-    }
-    const path = join(directory, name);
-    if (statSync(path).isDirectory()) {
-      return sourceFiles(path);
-    }
-    if (!SOURCE_EXTENSION.test(name) || NON_SOURCE_FILE.test(name)) {
-      return [];
-    }
-    return [path];
-  });
-}
 
 function classify(module: string, name: string, kind: string): CapabilityClass {
   if (kind.startsWith("internal")) {
@@ -86,17 +71,13 @@ function classify(module: string, name: string, kind: string): CapabilityClass {
 }
 
 function discoverCapabilities(): Capability[] {
-  return sourceFiles(CONVEX_ROOT)
-    .flatMap((path) => {
-      const module = relative(CONVEX_ROOT, path).split(sep).join("/").replace(MODULE_EXTENSION, "");
-      const source = readFileSync(path, "utf8");
-      return Array.from(source.matchAll(CAPABILITY_DECLARATION), (match) => ({
-        classification: classify(module, match[1], match[2]),
-        kind: match[2],
-        module,
-        name: match[1],
-      }));
-    })
+  return discoverConvexRegistrations(CONVEX_ROOT, ALLOWED_REGISTRATION_FACTORIES)
+    .map(({ kind, module, name }) => ({
+      classification: classify(module, name, kind),
+      kind,
+      module,
+      name,
+    }))
     .sort((left, right) =>
       `${left.module}.${left.name}`.localeCompare(`${right.module}.${right.name}`)
     );
@@ -110,6 +91,17 @@ function capabilityHash(capabilities: Capability[]) {
 }
 
 describe("Convex capability inventory", () => {
+  test("fails closed when an exported capability uses an unrecognized registration factory", () => {
+    const source = `
+      import { mutation } from "./_generated/server";
+      function hiddenRegistration(config: object) { return mutation(config as never); }
+      export const hiddenCapability = hiddenRegistration({ args: {}, returns: {}, handler() {} });
+    `;
+    expect(() => registrationsInSource(source, "fixture.ts")).toThrow(
+      "Unrecognized Convex registration factory fixture.ts:hiddenRegistration"
+    );
+  });
+
   test("every registered backend function is classified by the reviewed snapshot", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities.length).toBeGreaterThan(200);
@@ -197,6 +189,21 @@ describe("Convex capability inventory", () => {
     }
   });
 
+  test("retires the unused pending approval counter from the public export surface", () => {
+    const capabilities = discoverCapabilities();
+    const approvalsSource = readFileSync(join(CONVEX_ROOT, "crm/approvals.ts"), "utf8");
+    const exportSurface = readFileSync(join(CONVEX_ROOT, "_exportSurface.ts"), "utf8");
+
+    expect(capabilities).not.toContainEqual({
+      classification: "public-product",
+      kind: "query",
+      module: "crm/approvals",
+      name: "pendingCount",
+    });
+    expect(approvalsSource).not.toContain("pendingCount");
+    expect(exportSurface).not.toContain("crm_approvals.pendingCount");
+  });
+
   test("classifies the reviewed customer and repair capabilities explicitly", () => {
     const capabilities = discoverCapabilities();
     for (const capability of [
@@ -232,6 +239,24 @@ describe("Convex capability inventory", () => {
       },
     ] as const) {
       expect(capabilities).toContainEqual(capability);
+    }
+  });
+
+  test("includes wrapped Commercial Files mutations as public-product capabilities", () => {
+    const capabilities = discoverCapabilities();
+    for (const name of [
+      "updateNote",
+      "deleteFile",
+      "deleteCurrentProposalDoc",
+      "restoreFile",
+      "restoreProposalHistory",
+    ]) {
+      expect(capabilities).toContainEqual({
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/commercialFiles",
+        name,
+      });
     }
   });
 

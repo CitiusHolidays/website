@@ -27,6 +27,9 @@ describe("Portal toast Sonner foundation boundary", () => {
     const globalStyles = readFileSync(GLOBAL_STYLES_PATH, "utf8");
 
     expect(portalToast).toContain("visibleToasts={MAX_VISIBLE_TOASTS}");
+    expect(portalToast).toContain("pendingToastsRef");
+    expect(portalToast).toContain("error: Number.POSITIVE_INFINITY");
+    expect(portalToast).not.toContain("dismissToast(activeToastIdsRef.current[0])");
     expect(portalToast).toContain("zIndex: PORTAL_Z_INDEX.toast");
     expect(portalToast).toContain("portal-toast-safe-area");
     expect(globalStyles).toContain(".portal-sonner-toast");

@@ -78,6 +78,31 @@ describe("AI runtime service", () => {
     ).rejects.toThrow("AI shared runtime storage is not configured");
   });
 
+  test("rejects malformed shared rate-limit results instead of trusting storage", async () => {
+    const malformedResults = [
+      null,
+      { allowed: "yes", remaining: 3, retryAfterSec: 0 },
+      { allowed: true, remaining: -1, retryAfterSec: 0 },
+      { allowed: true, remaining: 3.5, retryAfterSec: 0 },
+      { allowed: true, remaining: 3, retryAfterSec: Number.NaN },
+      { allowed: true, extra: "untrusted", remaining: 3, retryAfterSec: 0 },
+    ];
+
+    await Promise.all(
+      malformedResults.map((malformed) =>
+        expect(
+          consumeSharedAiRateLimit(
+            { feature: "concierge", rawKey: "production-client" },
+            {
+              env: { ...env, NODE_ENV: "production" },
+              fetchMutationImpl: async () => malformed,
+            }
+          )
+        ).rejects.toThrow("AI shared rate-limit storage returned an invalid result")
+      )
+    );
+  });
+
   test("telemetry storage failure never breaks the user stream", async () => {
     await expect(
       recordAiTelemetry(

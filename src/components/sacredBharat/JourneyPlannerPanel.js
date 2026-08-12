@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { markClientAiMessageTerminal } from "@/lib/ai/uiMessageStream";
 import { suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
 import { streamJourneyPlannerResponse } from "@/lib/sacredBharat/journeyPlannerStream";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 import { useSacredBharatContext } from "./SacredBharatProvider";
 
 // Streamdown plus the optional code/math/mermaid plugins are only useful after a plan has
@@ -185,7 +185,7 @@ export default function JourneyPlannerPanel() {
   return (
     <div className="rounded-2xl border border-brand-light bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-citius-orange/10 text-citius-orange">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-citius-orange/10 text-public-orange-ink">
           <Sparkles className="size-5" />
         </span>
         <div>
@@ -206,7 +206,7 @@ export default function JourneyPlannerPanel() {
             className={cn(
               "rounded-full border px-3 py-1.5 font-medium text-sm transition-colors",
               activeFocus === plan.temple.id
-                ? "border-citius-orange bg-citius-orange/10 text-citius-orange"
+                ? "border-citius-orange bg-citius-orange/10 text-public-orange-ink"
                 : "border-brand-light text-brand-muted hover:border-citius-blue"
             )}
             key={plan.temple.id}

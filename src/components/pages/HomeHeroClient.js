@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { m, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 import { useRef } from "react";
+import PublicGrain from "../ui/PublicGrain";
 import HeroVideo from "./HeroVideo";
 
 export default function HomeHeroClient() {
@@ -22,25 +23,16 @@ export default function HomeHeroClient() {
 
   return (
     <section
-      className="relative flex h-screen min-h-[700px] items-center justify-center overflow-hidden text-center"
+      className="relative flex min-h-[max(100dvh,700px)] items-center justify-center overflow-hidden text-center"
       ref={heroRef}
     >
-      <m.div className="absolute inset-0 size-full" style={{ opacity, transform }}>
+      <m.div className="absolute inset-0 z-0 size-full" style={{ opacity, transform }}>
         <HeroVideo className="size-full object-cover object-center brightness-[0.65]" />
         <div className="absolute inset-0 bg-gradient-to-b from-public-night/60" />
-        <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-30 mix-blend-overlay" />
       </m.div>
+      <PublicGrain className="z-[1]" />
 
       <div className="relative z-10 mx-auto flex max-w-5xl flex-col items-center px-4">
-        <m.div
-          animate={{ opacity: 1, scale: 1 }}
-          className="mb-6 inline-block rounded-full border border-white/20 bg-white/10 px-4 py-1.5 font-medium text-white text-xs uppercase tracking-wider backdrop-blur-md"
-          initial={{ opacity: 0, scale: 0.9 }}
-          transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-        >
-          Premium Travel Partners
-        </m.div>
-
         <h1 className="mb-8 font-heading font-semibold text-4xl text-white leading-[1.1] tracking-tight drop-shadow-2xl md:text-6xl lg:text-7xl">
           Your next great journey <br />
           <span className="text-blue-100 italic">starts here.</span>
@@ -76,23 +68,13 @@ export default function HomeHeroClient() {
           </Link>
 
           <Link
-            className="rounded-full border border-white/30 bg-transparent px-8 py-4 font-semibold text-sm text-white backdrop-blur-sm transition-colors duration-300 hover:bg-white/10"
+            className="material-decorative-glass rounded-full border border-white/30 bg-transparent px-8 py-4 font-semibold text-sm text-white backdrop-blur-sm transition-colors duration-300 hover:bg-white/10"
             href="/services"
           >
             Explore Services
           </Link>
         </m.div>
       </div>
-
-      <m.div
-        animate={{ opacity: 1 }}
-        className="absolute bottom-10 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2 text-white/50"
-        initial={{ opacity: 0 }}
-        transition={{ delay: 1, duration: 1 }}
-      >
-        <span className="text-[10px] uppercase tracking-widest">Scroll</span>
-        <div className="h-12 w-[1px] bg-gradient-to-b from-white/50 to-transparent" />
-      </m.div>
     </section>
   );
 }

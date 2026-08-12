@@ -9,7 +9,7 @@ import { useSacredBharatContext } from "@/components/sacredBharat/SacredBharatPr
 import TempleChecklist from "@/components/sacredBharat/TempleChecklist";
 import { REGION_LABELS, REGIONS } from "@/data/sacredBharat/regions";
 import { TEMPLES } from "@/data/sacredBharat/temples";
-import { cn } from "@/utils/cn";
+import { cn } from "@/lib/utils";
 
 export default function TrailDetailClient({ trail }) {
   const { progress, toggleWishlist, isWishlisted } = useSacredBharatContext();
@@ -37,7 +37,7 @@ export default function TrailDetailClient({ trail }) {
             <h1 className="mb-4 font-heading text-3xl md:text-4xl lg:text-5xl">{trail.title}</h1>
             <p className="mb-6 max-w-2xl font-sans text-white/75">
               Complete this trail to earn the{" "}
-              <strong className="text-citius-orange">{trail.badgeName}</strong> badge and a{" "}
+              <strong className="text-public-orange-ink">{trail.badgeName}</strong> badge and a{" "}
               <strong>+{trail.completionBonus}</strong> trail bonus (plus each site's Temple
               Points).
             </p>
@@ -68,7 +68,7 @@ export default function TrailDetailClient({ trail }) {
             className={cn(
               "inline-flex items-center gap-2 rounded-full border px-4 py-2 font-medium text-sm transition-colors",
               wishlisted
-                ? "border-citius-orange bg-citius-orange/10 text-citius-orange"
+                ? "border-citius-orange bg-citius-orange/10 text-public-orange-ink"
                 : "border-brand-light text-brand-muted hover:border-citius-blue"
             )}
             onClick={() => toggleWishlist("trail", trail.slug)}

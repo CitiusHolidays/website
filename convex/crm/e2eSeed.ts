@@ -39,7 +39,7 @@ async function upsertStaffProfileRow(
     .unique();
 
   if (existing) {
-    await ctx.db.patch(existing._id, {
+    await ctx.db.patch("staffUsers", existing._id, {
       active: true,
       email: args.email,
       emailNormalized: args.emailNormalized,
@@ -96,6 +96,16 @@ export const seedStaffProfiles = internalMutation({
     for (const profile of listE2eStaffProfileSeeds()) {
       // biome-ignore lint/performance/noAwaitInLoops: profile writes remain sequential for deterministic provisioning
       results.push(await upsertStaffProfileRow(ctx, profile));
+    }
+    const byKey = new Map(results.map((result) => [result.key, result.staffId]));
+    const hrId = byKey.get("hr");
+    const leaveHeadId = byKey.get("leave-head");
+    if (hrId && leaveHeadId) {
+      await ctx.db.patch("staffUsers", hrId, {
+        leaveHeadApproverId: leaveHeadId,
+        leaveHrCopyStaffId: hrId,
+        updatedAt: Date.now(),
+      });
     }
     return results;
   },

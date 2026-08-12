@@ -1,7 +1,14 @@
 "use client";
 
 import { Check, Minus } from "lucide-react";
-import { type ComponentProps, type ReactNode, type Ref, useLayoutEffect, useRef } from "react";
+import {
+  type ComponentProps,
+  type ReactNode,
+  type Ref,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import { cn } from "@/lib/utils";
 import { Checkbox as BaseCheckbox } from "./foundation/base";
 
@@ -30,23 +37,12 @@ export function Checkbox({
   ...props
 }: CheckboxProps) {
   const nativeInputRef = useRef<HTMLInputElement>(null);
+  useImperativeHandle(inputRef, () => nativeInputRef.current as HTMLInputElement, []);
   useLayoutEffect(() => {
     if (nativeInputRef.current) {
       nativeInputRef.current.indeterminate = Boolean(indeterminate);
     }
-    if (typeof inputRef === "function") {
-      inputRef(nativeInputRef.current);
-    } else if (inputRef) {
-      inputRef.current = nativeInputRef.current;
-    }
-    return () => {
-      if (typeof inputRef === "function") {
-        inputRef(null);
-      } else if (inputRef) {
-        inputRef.current = null;
-      }
-    };
-  }, [indeterminate, inputRef]);
+  }, [indeterminate]);
   return (
     <BaseCheckbox.Root
       checked={checked}
@@ -63,7 +59,7 @@ export function Checkbox({
       <span
         aria-hidden="true"
         className={cn(
-          "grid size-5 shrink-0 place-items-center rounded border border-brand-border bg-white text-white transition group-focus-visible:ring-2 group-focus-visible:ring-citius-blue/20 group-data-[checked]:border-citius-blue group-data-[indeterminate]:border-citius-blue group-data-[checked]:bg-citius-blue group-data-[indeterminate]:bg-citius-blue",
+          "grid size-5 shrink-0 place-items-center rounded border border-brand-border bg-white text-white transition-[background-color,border-color,box-shadow,color] duration-150 ease-[var(--portal-ease-out)] group-focus-visible:ring-2 group-focus-visible:ring-citius-blue/20 group-data-[checked]:border-citius-blue group-data-[indeterminate]:border-citius-blue group-data-[checked]:bg-citius-blue group-data-[indeterminate]:bg-citius-blue",
           controlClassName
         )}
       >

@@ -1,8 +1,14 @@
 "use client";
 
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import {
+  contextualIconMotion,
+  PUBLIC_PRESS_TRANSITION,
+  publicPressTarget,
+} from "@/lib/publicInteractionMotion";
 
 const AUTH_ITEM_VARIANTS = {
   hidden: { opacity: 0, y: 20 },
@@ -54,6 +60,14 @@ export function AuthLoginForm({
   onTogglePassword,
   onToggleMode,
 }) {
+  const prefersReducedMotion = useReducedMotion();
+  const [shouldReduceMotion, setShouldReduceMotion] = useState(false);
+  useEffect(() => {
+    setShouldReduceMotion(!!prefersReducedMotion);
+  }, [prefersReducedMotion]);
+  const iconMotion = contextualIconMotion(shouldReduceMotion);
+  const pressTarget = publicPressTarget(shouldReduceMotion);
+
   return (
     <>
       <form className="space-y-5" onSubmit={onSubmit}>
@@ -139,14 +153,31 @@ export function AuthLoginForm({
               value={formData.password}
             />
             <Lock className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-[#d4af37]" />
-            <button
+            <m.button
               aria-label={showPassword ? "Hide password" : "Show password"}
               className="absolute top-1/2 right-4 -translate-y-1/2 text-[#94a3b8] transition-colors hover:text-[#0f172a] focus:outline-none"
               onClick={onTogglePassword}
+              transition={PUBLIC_PRESS_TRANSITION}
               type="button"
+              whileTap={pressTarget}
             >
-              {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
-            </button>
+              <AnimatePresence initial={false} mode="wait">
+                <m.span
+                  animate={iconMotion.animate}
+                  className="block"
+                  exit={iconMotion.exit}
+                  initial={iconMotion.initial}
+                  key={showPassword ? "visible" : "hidden"}
+                  transition={iconMotion.transition}
+                >
+                  {showPassword ? (
+                    <EyeOff aria-hidden="true" className="size-5" />
+                  ) : (
+                    <Eye aria-hidden="true" className="size-5" />
+                  )}
+                </m.span>
+              </AnimatePresence>
+            </m.button>
           </div>
         </m.div>
 
@@ -167,7 +198,7 @@ export function AuthLoginForm({
           type="submit"
           variants={AUTH_ITEM_VARIANTS}
           whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileTap={pressTarget}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-[#0B1026] to-[#1a2c4e] opacity-100 transition-opacity group-hover:opacity-90" />
           <div className="absolute inset-0 bg-[url('/noise.svg')] opacity-10 mix-blend-overlay" />

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import PolicyContent from "./page.client";
 import { resolvePolicyView } from "./policyView";
 
@@ -7,10 +8,7 @@ export const metadata = {
   title: "Policies & Terms | Citius Holidays",
 };
 
-// The selected policy must be resolved before any UI is rendered so loading and final content agree.
-export const instant = false;
-
-export default async function PoliciesPage({ searchParams }) {
+async function PoliciesPageContent({ searchParams }) {
   const query = await searchParams;
   const activeView = resolvePolicyView(query?.view);
 
@@ -18,5 +16,17 @@ export default async function PoliciesPage({ searchParams }) {
     <div>
       <PolicyContent activeView={activeView} />
     </div>
+  );
+}
+
+export default function PoliciesPage({ searchParams }) {
+  return (
+    <Suspense
+      fallback={
+        <div aria-label="Loading policy" className="min-h-[640px] bg-public-paper" role="status" />
+      }
+    >
+      <PoliciesPageContent searchParams={searchParams} />
+    </Suspense>
   );
 }

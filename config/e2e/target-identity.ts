@@ -1,0 +1,162 @@
+import { readFileSync } from "node:fs";
+import { relative, resolve } from "node:path";
+import type { E2eProvisioningTarget } from "./preflight";
+
+export interface ApprovedE2eTarget {
+  convexSiteOrigin: string;
+  frontendOrigin: string;
+  id: string;
+  target: E2eProvisioningTarget;
+}
+
+interface ApprovedE2eTargetManifest {
+  schemaVersion: 1;
+  targets: ApprovedE2eTarget[];
+}
+
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
+const TARGET_ID_PATTERNS: Record<E2eProvisioningTarget, RegExp> = {
+  development: /^development-[A-Za-z0-9._:+-]+$/,
+  preview: /^preview-[A-Za-z0-9._:+-]+$/,
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function exactKeys(value: Record<string, unknown>, keys: readonly string[], path: string) {
+  const expected = new Set(keys);
+  if (Object.keys(value).some((key) => !expected.has(key))) {
+    throw new Error(`${path} contains an undeclared field`);
+  }
+}
+
+function origin(value: unknown, path: string) {
+  if (typeof value !== "string") {
+    throw new Error(`${path} must be an absolute HTTP(S) origin`);
+  }
+  const parsed = new URL(value);
+  if (
+    !(parsed.protocol === "http:" || parsed.protocol === "https:") ||
+    parsed.origin !== value ||
+    parsed.username ||
+    parsed.password
+  ) {
+    throw new Error(`${path} must be an absolute HTTP(S) origin`);
+  }
+  return parsed;
+}
+
+export function validateApprovedE2eTargetManifest(value: unknown): ApprovedE2eTargetManifest {
+  if (!isRecord(value)) {
+    throw new Error("E2E target manifest must be an object");
+  }
+  exactKeys(value, ["schemaVersion", "targets"], "E2E target manifest");
+  if (value.schemaVersion !== 1 || !Array.isArray(value.targets) || value.targets.length === 0) {
+    throw new Error("E2E target manifest must use schemaVersion 1 and define targets");
+  }
+  const ids = new Set<string>();
+  const targets = value.targets.map((entry, index): ApprovedE2eTarget => {
+    const path = `E2E target manifest.targets[${index}]`;
+    if (!isRecord(entry)) {
+      throw new Error(`${path} must be an object`);
+    }
+    exactKeys(entry, ["convexSiteOrigin", "frontendOrigin", "id", "target"], path);
+    if (!(entry.target === "development" || entry.target === "preview")) {
+      throw new Error(`${path}.target must be development or preview`);
+    }
+    if (typeof entry.id !== "string" || !TARGET_ID_PATTERNS[entry.target].test(entry.id)) {
+      throw new Error(`${path}.id must begin with ${entry.target}- and be redaction-safe`);
+    }
+    if (ids.has(entry.id)) {
+      throw new Error(`${path}.id is duplicated`);
+    }
+    ids.add(entry.id);
+    const frontend = origin(entry.frontendOrigin, `${path}.frontendOrigin`);
+    const convex = origin(entry.convexSiteOrigin, `${path}.convexSiteOrigin`);
+    const expectsLoopback = entry.target === "development";
+    if (
+      LOOPBACK_HOSTS.has(frontend.hostname) !== expectsLoopback ||
+      LOOPBACK_HOSTS.has(convex.hostname) !== expectsLoopback
+    ) {
+      throw new Error(`${path} origins do not match the ${entry.target} target class`);
+    }
+    if (
+      entry.target === "preview" &&
+      (frontend.protocol !== "https:" || convex.protocol !== "https:")
+    ) {
+      throw new Error(`${path} Preview origins must use HTTPS`);
+    }
+    return {
+      convexSiteOrigin: convex.origin,
+      frontendOrigin: frontend.origin,
+      id: entry.id,
+      target: entry.target,
+    };
+  });
+  return { schemaVersion: 1, targets };
+}
+
+export function readApprovedE2eTarget(args: {
+  baseUrl: string;
+  convexSiteUrl?: string;
+  manifestPath?: string;
+  root?: string;
+  target: E2eProvisioningTarget;
+  targetId?: string;
+}) {
+  const root = resolve(args.root ?? process.cwd());
+  const manifestRoot = resolve(root, ".scratch/e2e");
+  const manifestPath = resolve(root, args.manifestPath ?? ".scratch/e2e/approved-targets.json");
+  const relativePath = relative(manifestRoot, manifestPath);
+  if (!relativePath || relativePath.startsWith("..")) {
+    throw new Error("E2E_TARGET_MANIFEST must name a file below .scratch/e2e");
+  }
+  const targetId = args.targetId?.trim();
+  if (!targetId) {
+    throw new Error("E2E_TARGET_ID is required and must name an approved non-production target");
+  }
+  let manifest: ApprovedE2eTargetManifest;
+  try {
+    manifest = validateApprovedE2eTargetManifest(
+      JSON.parse(readFileSync(manifestPath, "utf8")) as unknown
+    );
+  } catch (error) {
+    throw new Error(`Unable to validate approved E2E target manifest ${relativePath}`, {
+      cause: error,
+    });
+  }
+  const approved = manifest.targets.find((candidate) => candidate.id === targetId);
+  if (!approved || approved.target !== args.target) {
+    throw new Error(`E2E target ${targetId} is not approved for ${args.target}`);
+  }
+  if (new URL(args.baseUrl).origin !== approved.frontendOrigin) {
+    throw new Error("BROWSER_SMOKE_BASE_URL does not match the approved frontend origin");
+  }
+  if (args.convexSiteUrl && new URL(args.convexSiteUrl).origin !== approved.convexSiteOrigin) {
+    throw new Error("NEXT_PUBLIC_CONVEX_SITE_URL does not match the approved Convex site origin");
+  }
+  return approved;
+}
+
+export async function verifyFrontendE2eIdentity(
+  approved: ApprovedE2eTarget,
+  fetchIdentity: typeof fetch = fetch
+) {
+  const response = await fetchIdentity(`${approved.frontendOrigin}/api/e2e/identity`, {
+    headers: { accept: "application/json" },
+    redirect: "error",
+  });
+  if (!response.ok) {
+    throw new Error(`Frontend E2E identity returned HTTP ${response.status}`);
+  }
+  const identity = (await response.json()) as Record<string, unknown>;
+  if (
+    identity.id !== approved.id ||
+    identity.target !== approved.target ||
+    identity.convexSiteOrigin !== approved.convexSiteOrigin
+  ) {
+    throw new Error("Frontend E2E identity does not match the approved target manifest");
+  }
+  return approved;
+}

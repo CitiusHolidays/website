@@ -1,6 +1,11 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
-import { canSeeJobCardRecord, createActivity, notifyStaffMember, requireHeadOrAdmin } from "./lib";
+import {
+  canSeeJobCardRecord,
+  createActivity,
+  publishWorkflowNotification,
+  requireHeadOrAdmin,
+} from "./lib";
 
 export async function assertTicketingTeamStaff(ctx: any, staffId: Id<"staffUsers">) {
   const staff = await ctx.db.get(staffId);
@@ -54,11 +59,15 @@ export async function handleAssignTicketingOwner(
       entityType: "jobCard",
       message: `${job.jobCode} assigned to ${ownerName} (Ticketing)`,
     }),
-    notifyStaffMember(ctx, staffId, {
-      body: `You were assigned as ticketing owner for ${job.jobCode}.`,
-      entityId: jobCardId,
-      entityType: "jobCard",
-      title: "Assign ticketing owner",
+    publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [staffId] },
+      content: {
+        body: `You were assigned as ticketing owner for ${job.jobCode}.`,
+        entityId: jobCardId,
+        entityType: "jobCard",
+        title: "Assign ticketing owner",
+      },
+      emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
   return { id: jobCardId };

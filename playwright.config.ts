@@ -16,6 +16,7 @@ export default defineConfig({
   forbidOnly: isCi,
   fullyParallel: workers > 1,
   globalSetup: "./e2e/global-setup.ts",
+  globalTeardown: "./e2e/global-teardown.ts",
   outputDir: ".scratch/playwright-results",
   projects: [
     {
@@ -25,7 +26,9 @@ export default defineConfig({
       },
     },
   ],
-  reporter: isCi ? [["github"], ["html", { open: "never" }]] : [["list"]],
+  reporter: isCi
+    ? [["github"], ["html", { open: "never" }], ["./e2e/reporters/evidenceReporter.ts"]]
+    : [["list"], ["./e2e/reporters/evidenceReporter.ts"]],
   retries: isCi ? 1 : 0,
   testDir: "./e2e",
   testMatch: "**/*.spec.ts",

@@ -3,6 +3,7 @@
 import type { Id } from "@convex/_generated/dataModel";
 import { Select } from "@/components/portal/PortalModalForm";
 import { Button } from "@/components/ui/application-button";
+import { formatCount } from "@/lib/countMessage";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import type { PortalJobCardOption } from "../portalViewTypes";
 import { formatConvexError } from "../portalWorkspaceListHelpers";
@@ -103,10 +104,10 @@ function exportStatusMessage(operation: ExportOperation) {
     return "The last run stopped reporting progress. Retry to create a fresh export.";
   }
   if (operation.status === "running") {
-    return `Processed ${operation.rowsProcessed} rows. You can close this dialog; processing will continue.`;
+    return `Processed ${formatCount(operation.rowsProcessed, "row")}. You can close this dialog; processing will continue.`;
   }
   if (operation.status === "completed") {
-    return `${operation.rowsProcessed} rows are ready to download.`;
+    return `${formatCount(operation.rowsProcessed, "row")} ${operation.rowsProcessed === 1 ? "is" : "are"} ready to download.`;
   }
   if (operation.status === "expired") {
     return "The previous download expired. Generate a fresh private export.";

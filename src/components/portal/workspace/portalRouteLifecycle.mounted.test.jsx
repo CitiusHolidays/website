@@ -3,10 +3,19 @@ import { JSDOM } from "jsdom";
 import { act, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { getPortalDataDependencies } from "@/lib/portal/portalDataDependencies";
-import { PORTAL_ROUTES, resolvePortalRoutePagination } from "@/lib/portal/portalRouteManifest";
+import {
+  getPortalRouteAccessibilityMetadata,
+  PORTAL_ROUTES,
+  resolvePortalRoutePagination,
+} from "@/lib/portal/portalRouteManifest";
 import { PortalLoadingAnnouncement } from "../PortalLoadingAnnouncement";
 import { WorkspacePagination } from "./PortalWorkspaceHeader";
-import { PortalRouteLifecycleBoundary, renderPortalRoute } from "./portalRouteLifecycle";
+import {
+  createPortalRouteModel,
+  PortalRouteAccessibility,
+  PortalRouteLifecycleBoundary,
+  renderPortalRoute,
+} from "./portalRouteLifecycle";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/portal/dashboard",
@@ -74,6 +83,63 @@ const PAGINATION = {
 };
 
 describe("mounted portal route lifecycle", () => {
+  test("gives every route a unique title and one forward-navigation focus target", async () => {
+    const titles = Object.keys(PORTAL_ROUTES).map(
+      (view) => getPortalRouteAccessibilityMetadata(view).documentTitle
+    );
+    expect(new Set(titles).size).toBe(titles.length);
+
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    globalThis.requestAnimationFrame = (callback) => {
+      callback();
+      return 1;
+    };
+    globalThis.cancelAnimationFrame = () => undefined;
+
+    await act(async () =>
+      root.render(
+        <>
+          <button type="button">Before route</button>
+          <PortalRouteAccessibility gate="ready" view="queries" />
+        </>
+      )
+    );
+    const priorControl = container.querySelector("button");
+    priorControl.focus();
+    expect(document.title).toBe("All Sales Queries | Citius Connect");
+    expect(container.querySelectorAll("h1")).toHaveLength(1);
+
+    await act(async () => {
+      root.render(
+        <>
+          <button type="button">Before route</button>
+          <PortalRouteAccessibility gate="ready" view="proposals" />
+        </>
+      );
+    });
+    const heading = container.querySelector("h1");
+    expect(document.title).toBe("Proposals | Citius Connect");
+    expect(heading?.textContent).toBe("Proposals");
+    expect(document.activeElement?.id).toBe("portal-page-heading");
+
+    container.querySelector("button").focus();
+    window.dispatchEvent(new window.PopStateEvent("popstate"));
+    await act(async () => {
+      root.render(
+        <>
+          <button type="button">Before route</button>
+          <PortalRouteAccessibility gate="ready" view="queries" />
+        </>
+      );
+    });
+    expect(document.activeElement?.tagName).toBe("BUTTON");
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
   test("renders loading and denied gates before ready route content", async () => {
     const loading = await mount(
       <>
@@ -133,7 +199,9 @@ describe("mounted portal route lifecycle", () => {
     const mounted = await mount(
       <PortalRouteLifecycleBoundary gate="ready" view="reports">
         <Suspense fallback={<span>Loading report route</span>}>
-          {renderPortalRoute("reports", { reports: report })}
+          {renderPortalRoute(
+            createPortalRouteModel("reports", { pagination: {}, reports: report })
+          )}
         </Suspense>
       </PortalRouteLifecycleBoundary>
     );

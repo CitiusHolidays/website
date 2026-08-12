@@ -1,18 +1,43 @@
 import { describe, expect, test } from "bun:test";
 import { file as bunFile, Glob } from "bun";
+import { scanTransitionPolicySource } from "../config/release/transition-policy-scanner";
 
 const sourceGlob = new Glob("src/**/*.{js,jsx,ts,tsx,css}");
+const TEST_FILE_PATTERN = /\.(?:test|spec)\.[^.]+$/;
 const unguardedTransform =
   /(?<!fine-hover:)(?<!group-)(?:group-hover|hover):(?:-?translate|scale|rotate|skew)[^\s"'`]*/g;
 const animatedPaletteOverlay =
   /portal-(?:native-dialog|command-backdrop|command-panel)[^"\n]*(?:animate-|transition-|duration-)/;
 
 const PORTAL_GPU_MOTION_TARGETS = [
+  "src/components/portal/PortalPopover.tsx",
+  "src/components/portal/PortalShell.tsx",
   "src/components/portal/PortalToast.js",
   "src/components/portal/entityModal/EntityModalShell.js",
   "src/components/portal/workspace/modals/spreadsheetModalShell.tsx",
+  "src/components/portal/workspace/modals/CommercialFilesModal.tsx",
   "src/components/portal/PortalConfirmDialog.js",
   "src/components/portal/PortalListToolbar.js",
+] as const;
+
+const INTENTIONAL_RENDER_TIER_EXCEPTIONS = [
+  "src/app/(public)/sacred-bharat/trails/[slug]/page.client.js::layout-transition::width",
+  "src/components/auth/AuthLoginForm.js::layout-transition::width",
+  "src/components/layout/Header.js::layout-transition::height",
+  "src/components/layout/Header.js::layout-transition::padding",
+  "src/components/layout/Header.js::layout-transition::padding",
+  "src/components/layout/Header.js::layout-transition::width",
+  "src/components/layout/Header.js::layout-transition::width",
+  "src/components/pilgrimage/SpiritualHero.js::layout-transition::width",
+  "src/components/pilgrimage/TrailHeroSlideshow.js::layout-transition::width",
+  "src/components/sacredBharat/TrailCardGrid.js::layout-transition::width",
+  "src/components/ui/AnimatedSubmitButton.js::layout-motion::position",
+  "src/components/ui/AnimatedSubmitButton.js::layout-motion::position",
+  "src/components/ui/AnimatedSubmitButton.js::layout-motion::position",
+] as const;
+
+const TEMPORARY_RENDER_TIER_DEBT = [
+  "src/components/ui/TrendingDestinations.js::layout-transition::grid-template-rows",
 ] as const;
 
 /** Motion x/y/scale/scaleY shorthand props — use transform strings instead. */
@@ -32,7 +57,9 @@ function collectMotionShorthandViolations(contents: string, file: string) {
 }
 
 function readSources() {
-  const files = Array.from(sourceGlob.scanSync({ cwd: process.cwd(), onlyFiles: true })).sort();
+  const files = Array.from(sourceGlob.scanSync({ cwd: process.cwd(), onlyFiles: true }))
+    .filter((file) => !TEST_FILE_PATTERN.test(file))
+    .sort((left, right) => left.localeCompare(right));
   return Promise.all(
     files.map(async (file) => ({
       contents: await bunFile(file).text(),
@@ -42,6 +69,82 @@ function readSources() {
 }
 
 describe("transition policy", () => {
+  test("parser-backed policy distinguishes broad, layout, and global animation hazards", () => {
+    const violations = scanTransitionPolicySource({
+      contents: `
+        export function Fixture() {
+          return <>
+            <div className="transition transition-all transition-[grid-template-rows] will-change-transform" />
+            <m.div animate={{ letterSpacing: "0.5em" }} initial={{ letterSpacing: "0.2em" }} />
+          </>
+        }
+        document.documentElement.style.setProperty("--motion-progress", String(progress));
+      `,
+      file: "fixture.tsx",
+    });
+
+    expect(violations.map(({ kind }) => kind)).toEqual([
+      "bare-transition",
+      "broad-transition",
+      "layout-transition",
+      "permanent-will-change",
+      "layout-motion",
+      "layout-motion",
+      "global-css-variable-motion",
+    ]);
+  });
+
+  test("intentional progress and static geometry do not false-positive", () => {
+    const violations = scanTransitionPolicySource({
+      allowedLayoutProperties: new Set(["width"]),
+      contents: `
+        export function Progress({ value }) {
+          const prose = "transition transition-all";
+          return <div style={{ width: 320 }}>
+            <m.div
+              className="transition-[width]"
+              style={{ width: value + "%" }}
+              transition={{ width: { duration: 0.2 } }}
+            />
+          </div>
+        }
+      `,
+      file: "fixture-progress.tsx",
+    });
+
+    expect(violations).toEqual([]);
+  });
+
+  test("the render-tier census accepts only intentional exceptions and ratcheted downstream debt", async () => {
+    const violations = (await readSources())
+      .flatMap(({ contents, file }) => scanTransitionPolicySource({ contents, file }))
+      .filter(({ kind }) =>
+        [
+          "global-css-variable-motion",
+          "layout-motion",
+          "layout-transition",
+          "permanent-will-change",
+        ].includes(kind)
+      )
+      .map(({ detail, file, kind }) => `${file}::${kind}::${detail}`)
+      .sort((left, right) => left.localeCompare(right));
+    const approved = [...INTENTIONAL_RENDER_TIER_EXCEPTIONS, ...TEMPORARY_RENDER_TIER_DEBT].sort(
+      (left, right) => left.localeCompare(right)
+    );
+
+    expect(violations).toEqual(approved);
+  });
+
+  test("executable application class strings contain no broad transition utility", async () => {
+    const violations = (await readSources()).flatMap(({ contents, file }) =>
+      scanTransitionPolicySource({ contents, file }).filter(
+        ({ kind }) => kind === "bare-transition" || kind === "broad-transition"
+      )
+    );
+
+    expect(violations).toEqual([]);
+  });
+
   test("broad transitions are not used", async () => {
     const prohibitedUtility = ["transition", "all"].join("-");
     const violations = (await readSources())
@@ -148,5 +251,44 @@ describe("transition policy", () => {
     const shell = await bunFile("src/components/portal/PortalShell.tsx").text();
 
     expect(shell).not.toContain('layoutId="portalNavActive"');
+  });
+
+  test("portal dashboard disclosures and Staff selection avoid layout animation", async () => {
+    const dashboardDisclosure = await bunFile(
+      "src/components/portal/dashboard/DashboardCollapsibleSection.js"
+    ).text();
+    const dashboardView = await bunFile("src/components/portal/dashboard/DashboardView.js").text();
+    const portalTabs = await bunFile("src/components/portal/PortalTabs.tsx").text();
+    const pipeline = await bunFile("src/components/portal/pipeline/PipelineView.tsx").text();
+    const modeSelector = pipeline.slice(
+      pipeline.indexOf("function PipelineModeButton"),
+      pipeline.indexOf("interface PipelineCardProps")
+    );
+
+    for (const source of [dashboardDisclosure, dashboardView]) {
+      expect(source).not.toContain("grid-template-rows");
+      expect(source).not.toContain("grid-rows-");
+      expect(source).toContain("aria-controls");
+    }
+    expect(portalTabs).not.toContain('from "motion/react"');
+    expect(modeSelector).not.toContain("<m.");
+    expect(modeSelector).not.toContain("transition-colors");
+  });
+
+  test("portal overlay families use the shared reversible lifecycle", async () => {
+    const applicationDialog = await bunFile("src/components/ui/application-dialog.tsx").text();
+    const popover = await bunFile("src/components/portal/PortalPopover.tsx").text();
+    const shell = await bunFile("src/components/portal/PortalShell.tsx").text();
+    const commercialFiles = await bunFile(
+      "src/components/portal/workspace/modals/CommercialFilesModal.tsx"
+    ).text();
+
+    for (const source of [popover, shell, commercialFiles]) {
+      expect(source).toContain("portalOverlayMotion");
+    }
+    expect(shell).not.toContain("<AnimatePresence>");
+    expect(applicationDialog).not.toContain("actionsRef.current?.unmount()");
+    expect(applicationDialog).toContain('aria-hidden={open ? undefined : "true"}');
+    expect(applicationDialog).toContain("inert={open ? undefined : true}");
   });
 });

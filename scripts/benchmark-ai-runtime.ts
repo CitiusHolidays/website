@@ -1,3 +1,4 @@
+import { formatCliHelp, parseCliArguments } from "../config/commands/cli";
 import { citiusChatTools, systemPrompt } from "../src/lib/ai/citiusTravelAssistant";
 import { AI_MODEL_SELECTION_EVIDENCE, AI_RUNTIME_POLICIES } from "../src/lib/ai/runtimePolicy";
 import {
@@ -8,6 +9,17 @@ import {
 
 export const AI_BENCHMARK_VERSION = "2026-08-05";
 export const AI_BENCHMARK_CONTRACT_VERSION = 2;
+
+const AI_BENCHMARK_CLI = {
+  command: "bun run ai:benchmark --",
+  description:
+    "Run the live OpenRouter benchmark. This contacts an external provider and requires OPENROUTER_API_KEY.",
+  options: [
+    { name: "all-models", type: "boolean" },
+    { name: "compact", type: "boolean" },
+    { choices: ["concierge", "journeyPlanner"], name: "feature", type: "string" },
+  ],
+} as const;
 
 interface BenchmarkSample {
   expectedHeadings?: string[];
@@ -307,26 +319,35 @@ export async function runBenchmark({
 }
 
 if (import.meta.main) {
-  const featureArgument = process.argv.find((argument) => argument.startsWith("--feature="));
-  const feature = featureArgument?.slice("--feature=".length);
-  runBenchmark({
-    allModels: process.argv.includes("--all-models"),
-    feature,
-  })
-    .then((report) => {
-      const output = process.argv.includes("--compact")
-        ? {
-            ...report,
-            results: report.results.map((result) => ({
-              ...result,
-              error: result.error?.slice(0, 160),
-            })),
-          }
-        : report;
-      process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
-    })
-    .catch((error) => {
-      console.error(error instanceof Error ? error.message : String(error));
-      process.exitCode = 1;
-    });
+  try {
+    const parsed = parseCliArguments(process.argv.slice(2), AI_BENCHMARK_CLI);
+    if (parsed.help) {
+      console.log(formatCliHelp(AI_BENCHMARK_CLI));
+    } else {
+      const feature = typeof parsed.values.feature === "string" ? parsed.values.feature : undefined;
+      runBenchmark({
+        allModels: parsed.values["all-models"] === true,
+        feature,
+      })
+        .then((report) => {
+          const output = parsed.values.compact
+            ? {
+                ...report,
+                results: report.results.map((result) => ({
+                  ...result,
+                  error: result.error?.slice(0, 160),
+                })),
+              }
+            : report;
+          process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+        })
+        .catch((error) => {
+          console.error(error instanceof Error ? error.message : String(error));
+          process.exitCode = 1;
+        });
+    }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : "AI benchmark failed");
+    process.exitCode = 1;
+  }
 }

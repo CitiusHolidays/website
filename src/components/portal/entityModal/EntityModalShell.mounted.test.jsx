@@ -63,7 +63,14 @@ function flushDialogFrame() {
   return act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
 }
 
-function Harness({ isSaving = false, modalType = "proposal", onClose, onSubmit }) {
+function Harness({
+  fieldErrors = {},
+  form = {},
+  isSaving = false,
+  modalType = "proposal",
+  onClose,
+  onSubmit,
+}) {
   const [modal, setModal] = useState(null);
   const close = useCallback(() => {
     setModal(null);
@@ -79,11 +86,13 @@ function Harness({ isSaving = false, modalType = "proposal", onClose, onSubmit }
         access={{}}
         close={close}
         error=""
-        form={{}}
+        fieldErrors={fieldErrors}
+        form={form}
         has={hasNoPermission}
         isSaving={isSaving}
         modal={modal}
         patchForm={doNothing}
+        pendingExpenseProofFiles={[]}
         submit={onSubmit}
         updateForm={doNothing}
       />
@@ -136,6 +145,34 @@ async function verifyEntityClose(closeMethod) {
 }
 
 describe("mounted entity modal shell", () => {
+  test("focuses the first inline-invalid field without creating a modal error alert", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const validationProps = {
+      form: { category: "", expenseType: "office" },
+      modalType: "expense",
+      onClose: doNothing,
+      onSubmit: doNothing,
+    };
+    await renderHarness(root, validationProps);
+    await act(async () => container.querySelector('[data-testid="entity-trigger"]').click());
+    await flushDialogFrame();
+    await renderHarness(root, {
+      ...validationProps,
+      fieldErrors: { category: "Select Category." },
+    });
+    await flushDialogFrame();
+
+    const invalid = document.querySelector('[role="combobox"][aria-invalid="true"]');
+    expect(invalid?.textContent).toContain("Select category");
+    expect(document.activeElement).toBe(invalid);
+    expect(document.querySelector("#portal-entity-modal-error")).toBeNull();
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
   test("preserves the shell geometry, responsive recipes, semantic labelling, and focus loop", async () => {
     const container = document.createElement("div");
     document.body.append(container);

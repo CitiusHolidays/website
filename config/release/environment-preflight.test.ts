@@ -158,4 +158,30 @@ describe("target-aware environment preflight", () => {
     expect(result.stderr).toContain("Production must not configure E2E provisioning variables");
     expect(`${result.stdout}\n${result.stderr}`).not.toContain(provisioningSecret);
   });
+
+  test("help is side-effect-free and missing, unknown, or invalid targets fail before validation", () => {
+    const run = (args: string[]) =>
+      spawnSync("bun", ["config/release/environment-preflight.ts", ...args], {
+        cwd: root,
+        encoding: "utf8",
+        env: { PATH: process.env.PATH },
+      });
+
+    const help = run(["--help"]);
+    expect(help.status).toBe(0);
+    expect(help.stdout).toContain("Usage: bun run env:preflight");
+    expect(help.stdout).not.toContain("Missing required");
+
+    for (const [args, message] of [
+      [[], "requires --target"],
+      [["--target"], "--target requires a value"],
+      [["--target", "local"], "Valid choices: preview, production"],
+      [["--wat"], "Unknown flag --wat"],
+    ] as const) {
+      const result = run([...args]);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(message);
+      expect(result.stderr).not.toContain("Missing required");
+    }
+  });
 });

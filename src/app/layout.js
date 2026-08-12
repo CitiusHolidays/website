@@ -25,9 +25,9 @@ export const metadata = {
       "Citius Holidays offers bespoke travel experiences, from luxury getaways to adventurous expeditions. Discover your next journey with us.",
     images: [
       {
-        alt: "Citius Holidays",
+        alt: "Citius Holidays travel across Santorini",
         height: 630,
-        url: "/gallery/aboutus.webp",
+        url: "/social/citius-holidays-social-card.jpg",
         width: 1200,
       },
     ],
@@ -45,14 +45,14 @@ export const metadata = {
     card: "summary_large_image",
     description:
       "Citius Holidays offers bespoke travel experiences, from luxury getaways to adventurous expeditions. Discover your next journey with us.",
-    images: ["/gallery/aboutus.webp"],
+    images: ["/social/citius-holidays-social-card.jpg"],
     title: "Citius Holidays - Your Trusted Travel Partner",
   },
 };
 
 export default async function RootLayout({ children }) {
   return (
-    <html className={`${poppins.variable} font-heading`} lang="en" suppressHydrationWarning>
+    <html className={poppins.variable} lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} bg-brand-light font-sans text-brand-dark`}>
         <ConvexClientProvider>
           {children}

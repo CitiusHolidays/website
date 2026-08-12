@@ -1,94 +1,100 @@
 "use client";
 
 import { ArrowLeft, ArrowRight, X } from "lucide-react";
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
-import { useEffect, useReducer } from "react";
-import { cn } from "../../utils/cn";
-
-const variants = {
-  center: {
-    opacity: 1,
-    x: 0,
-    zIndex: 1,
-  },
-  enter: (direction) => ({
-    opacity: 0,
-    x: direction > 0 ? "100%" : "-100%",
-  }),
-  exit: (direction) => ({
-    opacity: 0,
-    x: direction < 0 ? "100%" : "-100%",
-    zIndex: 0,
-  }),
-};
+import { useCallback, useRef, useState } from "react";
+import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
+import { cn } from "@/lib/utils";
 
 const EMPTY_IMAGES = [];
 
-function galleryReducer(state, action) {
-  switch (action.type) {
-    case "open":
-      return { direction: 0, selectedIndex: action.index };
-    case "close":
-      return { ...state, selectedIndex: null };
-    case "next":
-      return {
-        direction: 1,
-        selectedIndex:
-          state.selectedIndex === null
-            ? state.selectedIndex
-            : (state.selectedIndex + 1) % action.length,
-      };
-    case "prev":
-      return {
-        direction: -1,
-        selectedIndex:
-          state.selectedIndex === null
-            ? state.selectedIndex
-            : (state.selectedIndex - 1 + action.length) % action.length,
-      };
-    default:
-      return state;
-  }
+function imageIdentity(item) {
+  return item.asset?._id || item._key || item.asset?.url || null;
+}
+
+function imageLabel(item, index) {
+  return item.alt?.trim() || `Gallery image ${index + 1}`;
 }
 
 export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
-  const [{ selectedIndex, direction }, dispatch] = useReducer(galleryReducer, {
+  const [{ selectedIndex, direction }, setGallery] = useState({
     direction: 0,
     selectedIndex: null,
   });
+  const closeButtonRef = useRef(null);
+  const shouldReduceMotion = !!useReducedMotion();
+  const selectedImage = selectedIndex === null ? null : images[selectedIndex];
 
-  const handleNext = () => {
-    dispatch({ length: images.length, type: "next" });
-  };
-
-  const handlePrev = () => {
-    dispatch({ length: images.length, type: "prev" });
-  };
-
-  const close = () => {
-    dispatch({ type: "close" });
-  };
-
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === "Escape") {
-        dispatch({ type: "close" });
+  const close = useCallback(
+    () => setGallery((current) => ({ ...current, selectedIndex: null })),
+    []
+  );
+  const handleNext = useCallback(
+    () =>
+      setGallery((current) => ({
+        direction: 1,
+        selectedIndex:
+          current.selectedIndex === null ? null : (current.selectedIndex + 1) % images.length,
+      })),
+    [images.length]
+  );
+  const handlePrev = useCallback(
+    () =>
+      setGallery((current) => ({
+        direction: -1,
+        selectedIndex:
+          current.selectedIndex === null
+            ? null
+            : (current.selectedIndex - 1 + images.length) % images.length,
+      })),
+    [images.length]
+  );
+  const handleOpenChange = useCallback(
+    (nextOpen) => {
+      if (!nextOpen) {
+        close();
       }
-      if (e.key === "ArrowRight") {
-        dispatch({ length: images.length, type: "next" });
+    },
+    [close]
+  );
+  const handleTileClick = useCallback((event) => {
+    setGallery({
+      direction: 0,
+      selectedIndex: Number(event.currentTarget.dataset.galleryIndex),
+    });
+  }, []);
+  const handleDialogKeyDown = useCallback(
+    (event) => {
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        handleNext();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        handlePrev();
       }
-      if (e.key === "ArrowLeft") {
-        dispatch({ length: images.length, type: "prev" });
+    },
+    [handleNext, handlePrev]
+  );
+
+  const slideVariants = shouldReduceMotion
+    ? {
+        center: { opacity: 1, transform: "translateX(0)" },
+        enter: { opacity: 0, transform: "translateX(0)" },
+        exit: { opacity: 0, transform: "translateX(0)" },
       }
-    };
-    if (selectedIndex !== null) {
-      window.addEventListener("keydown", handleKey);
-    }
-    return () => {
-      window.removeEventListener("keydown", handleKey);
-    };
-  }, [selectedIndex, images.length]);
+    : {
+        center: { opacity: 1, transform: "translateX(0)", zIndex: 1 },
+        enter: (nextDirection) => ({
+          opacity: 0,
+          transform: `translateX(${nextDirection > 0 ? "100%" : "-100%"})`,
+        }),
+        exit: (nextDirection) => ({
+          opacity: 0,
+          transform: `translateX(${nextDirection < 0 ? "100%" : "-100%"})`,
+          zIndex: 0,
+        }),
+      };
 
   return (
     <>
@@ -96,115 +102,126 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
         className={cn("grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3", className)}
         initial="hidden"
         variants={{
-          show: { transition: { staggerChildren: 0.07 } },
+          show: { transition: { staggerChildren: shouldReduceMotion ? 0 : 0.07 } },
         }}
         viewport={{ amount: 0.1, once: true }}
         whileInView="show"
       >
-        {images.map((item, index) => (
-          <m.div
-            className="public-media-edge group relative aspect-[4/3] w-full cursor-pointer overflow-hidden bg-brand-light"
-            key={item.asset?._id || item._key || index}
-            layoutId={`image-container-${item.asset?._id || index}`}
-            onClick={() => {
-              dispatch({ index, type: "open" });
-            }}
-            // variants={{
-            //   hidden: { opacity: 0, y: 20 },
-            //   show: { opacity: 1, y: 0 },
-            // }}
-          >
-            <Image
-              alt={item.alt || ""}
-              className={cn(
-                "object-cover transition-transform duration-300 fine-hover:group-hover:scale-105"
-              )}
-              fill
-              sizes="(max-width: 768px) 50vw, 33vw"
-              src={item.asset?.url || ""}
-            />
-          </m.div>
-        ))}
+        {images.map((item, index) => {
+          const identity = imageIdentity(item);
+          const label = imageLabel(item, index);
+          return (
+            <m.button
+              aria-expanded={selectedIndex === index}
+              aria-haspopup="dialog"
+              aria-label={`Open ${label}`}
+              className="public-media-edge group relative aspect-[4/3] w-full cursor-pointer overflow-hidden bg-brand-light focus-visible:outline-2 focus-visible:outline-public-orange-ink focus-visible:outline-offset-4"
+              data-gallery-index={index}
+              key={identity || `${label}-${index}`}
+              layoutId={shouldReduceMotion || !identity ? undefined : `image-container-${identity}`}
+              onClick={handleTileClick}
+              type="button"
+            >
+              <Image
+                alt={item.alt || ""}
+                className="object-cover transition-transform duration-300 fine-hover:group-hover:scale-105 motion-reduce:transform-none"
+                fill
+                sizes="(max-width: 768px) 50vw, 33vw"
+                src={item.asset?.url || ""}
+              />
+            </m.button>
+          );
+        })}
       </m.div>
 
-      <AnimatePresence>
-        {selectedIndex !== null && images[selectedIndex] && (
-          <div className="fixed inset-0 z-50">
-            <m.button
-              animate={{ opacity: 1 }}
-              aria-label="Close gallery"
-              className="absolute inset-0 cursor-default border-0 bg-brand-dark/90 p-0"
-              exit={{ opacity: 0 }}
-              initial={{ opacity: 0 }}
-              onClick={close}
-              transition={{ duration: 0.3 }}
+      <ControlledDialog
+        backdropClassName="fixed inset-0 bg-public-night/90"
+        initialFocus={closeButtonRef}
+        onOpenChange={handleOpenChange}
+        open={selectedImage !== null}
+        popupClassName="pointer-events-auto relative z-10 flex size-full items-center justify-center outline-none"
+        popupRender={
+          <m.div
+            animate={{ opacity: 1 }}
+            initial={{ opacity: 0 }}
+            onKeyDown={handleDialogKeyDown}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.2 }}
+          />
+        }
+        triggerless
+        viewportClassName="fixed inset-0 z-50 flex items-center justify-center p-4"
+      >
+        <ControlledDialogTitle className="sr-only">Gallery viewer</ControlledDialogTitle>
+        {selectedImage ? (
+          <>
+            <button
+              aria-label="Previous image"
+              className="absolute top-1/2 left-1 z-20 min-h-11 min-w-11 -translate-y-1/2 rounded-full p-2 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 sm:left-4"
+              onClick={handlePrev}
               type="button"
-            />
+            >
+              <ArrowLeft aria-hidden="true" className="size-8" />
+            </button>
+            <button
+              aria-label="Next image"
+              className="absolute top-1/2 right-1 z-20 min-h-11 min-w-11 -translate-y-1/2 rounded-full p-2 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 sm:right-4"
+              onClick={handleNext}
+              type="button"
+            >
+              <ArrowRight aria-hidden="true" className="size-8" />
+            </button>
 
-            <div className="absolute inset-0 flex items-center justify-center p-4">
-              <m.button
-                aria-label="Previous Image"
-                className="absolute top-1/2 left-4 z-10 -translate-y-1/2 rounded-full p-2 text-white transition-colors hover:bg-white/20 sm:left-8"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePrev();
-                }}
-              >
-                <ArrowLeft className="size-8" />
-              </m.button>
-              <m.button
-                aria-label="Next Image"
-                className="absolute top-1/2 right-4 z-10 -translate-y-1/2 rounded-full p-2 text-white transition-colors hover:bg-white/20 sm:right-8"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleNext();
-                }}
-              >
-                <ArrowRight className="size-8" />
-              </m.button>
-
-              <m.div
-                className="public-media-edge relative aspect-[4/3] w-full max-w-5xl overflow-hidden"
-                layoutId={`image-container-${images[selectedIndex].asset?._id || selectedIndex}`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <AnimatePresence custom={direction} initial={false}>
-                  <m.div
-                    animate="center"
-                    className="absolute inset-0"
-                    custom={direction}
-                    exit="exit"
-                    initial="enter"
-                    key={selectedIndex}
-                    transition={{
-                      opacity: { duration: 0.2 },
-                      x: { damping: 30, stiffness: 300, type: "spring" },
-                    }}
-                    variants={variants}
-                  >
-                    <Image
-                      alt={images[selectedIndex].alt || ""}
-                      className="object-contain"
-                      fill
-                      priority
-                      sizes="(max-width: 1024px) 100vw, 1024px"
-                      src={images[selectedIndex].asset?.url || ""}
-                    />
-                  </m.div>
-                </AnimatePresence>
-              </m.div>
+            <div className="public-media-edge relative aspect-[4/3] w-full max-w-5xl overflow-hidden">
+              <AnimatePresence custom={direction} initial={false} mode="popLayout">
+                <m.div
+                  animate="center"
+                  className="absolute inset-0"
+                  custom={direction}
+                  exit="exit"
+                  initial="enter"
+                  key={imageIdentity(selectedImage) || imageLabel(selectedImage, selectedIndex)}
+                  layoutId={
+                    shouldReduceMotion || !imageIdentity(selectedImage)
+                      ? undefined
+                      : `image-container-${imageIdentity(selectedImage)}`
+                  }
+                  transition={
+                    shouldReduceMotion
+                      ? { duration: 0 }
+                      : {
+                          opacity: { duration: 0.2 },
+                          transform: { damping: 30, stiffness: 300, type: "spring" },
+                        }
+                  }
+                  variants={slideVariants}
+                >
+                  <Image
+                    alt={selectedImage.alt || ""}
+                    className="object-contain"
+                    fill
+                    priority
+                    sizes="(max-width: 1024px) 100vw, 1024px"
+                    src={selectedImage.asset?.url || ""}
+                  />
+                </m.div>
+              </AnimatePresence>
             </div>
 
-            <m.button
-              aria-label="Close"
-              className="absolute top-4 right-4 z-10 text-white transition-transform fine-hover:hover:scale-110"
+            <p className="sr-only" role="status">
+              {imageLabel(selectedImage, selectedIndex)}
+            </p>
+            <button
+              aria-label="Close gallery"
+              className="absolute top-[max(1rem,var(--safe-area-inset-top))] right-[max(1rem,var(--safe-area-inset-right))] z-20 min-h-11 min-w-11 rounded-full p-2 text-white transition-colors hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
               onClick={close}
+              ref={closeButtonRef}
+              type="button"
             >
-              <X className="size-8" />
-            </m.button>
-          </div>
-        )}
-      </AnimatePresence>
+              <X aria-hidden="true" className="size-8" />
+            </button>
+          </>
+        ) : null}
+      </ControlledDialog>
     </>
   );
 }

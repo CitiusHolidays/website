@@ -28,7 +28,9 @@ test.describe
       e2eChain.travellerName = uniqueE2eLabel("E2E Traveller");
     });
 
-    test("05 sales creates and submits query to contracting", async ({ browser }) => {
+    test("[crm-critical-05] sales creates and submits query to contracting", async ({
+      browser,
+    }) => {
       const { context, page } = await openPortalAs(browser, "sales");
       const queries = new QueriesPage(page);
       await queries.open();
@@ -149,7 +151,9 @@ test.describe
       await context.close();
     });
 
-    test("06 contracting drafts proposal and sends to sales", async ({ browser }) => {
+    test("[crm-critical-06] contracting drafts proposal and sends to sales", async ({
+      browser,
+    }) => {
       const { context, page } = await openPortalAs(browser, "contracting");
       await page.goto("/portal/contracting");
       const queryRow = page.locator("tr").filter({ hasText: e2eChain.clientName });
@@ -185,7 +189,9 @@ test.describe
       await ticketingContext.close();
     });
 
-    test("07 sales revises dates and then records the Confirmed Offer", async ({ browser }) => {
+    test("[crm-critical-07] sales revises dates and records the Confirmed Offer", async ({
+      browser,
+    }) => {
       const { context, page } = await openPortalAs(browser, "sales");
       const queries = new QueriesPage(page);
       await queries.open();
@@ -216,7 +222,7 @@ test.describe
       await context.close();
     });
 
-    test("08 admin opens job card from confirmed query", async ({ browser }) => {
+    test("[crm-critical-08] admin opens job card from confirmed query", async ({ browser }) => {
       const { context, page } = await openPortalAs(browser, "admin");
       await page.goto("/portal/accounts/job-cards");
       const row = page.locator("tr").filter({ hasText: e2eChain.clientName });
@@ -247,7 +253,7 @@ test.describe
       await context.close();
     });
 
-    test("09 operations creates and edits traveller", async ({ browser }) => {
+    test("[crm-critical-09] operations creates and edits traveller", async ({ browser }) => {
       const { context, page } = await openPortalAs(browser, "operations");
       const travellers = new TravellersPage(page);
       await travellers.open();
@@ -270,7 +276,7 @@ test.describe
       await context.close();
     });
 
-    test("10 destructive delete requires hold-to-confirm", async ({ browser }) => {
+    test("[crm-critical-10] destructive delete requires hold-to-confirm", async ({ browser }) => {
       const { context, page } = await openPortalAs(browser, "operations");
       const travellers = new TravellersPage(page);
       await travellers.open();

@@ -33,7 +33,7 @@ Public, AI, and Sacred Bharat investments therefore compete on how clearly they 
 ## Non-goals
 
 - Replacing the CRM with a generic admin dashboard or redesigning settled workflows for visual novelty.
-- Treating the public site, Concierge, and Sacred Bharat as four independent businesses.
+- Treating Citius Connect, the public site, Concierge, and Sacred Bharat as four independent businesses.
 - Automating financial or approval judgment that must remain accountable to staff.
 - Expanding broad Admin power when assigned ownership, reporting hierarchy, or a narrow permission expresses the real rule.
 - Chasing consumer engagement while core operational handoffs are unreliable.
@@ -59,4 +59,7 @@ Measures: qualified inquiry conversion, confirmed-order conversion, repeat trave
 
 ## Governance
 
-This document is a proposed planning anchor until the product owner approves it. Approval makes it authoritative for prioritization; it does not override explicit workflow contracts, security rules, or separately approved implementation specifications.
+Version 1.0 has been the authoritative prioritization anchor since the recorded
+product-owner approval on 17 July 2026. It does not override explicit workflow
+contracts, executable authorization/security policy, or separately approved
+implementation specifications.

@@ -1,9 +1,7 @@
 "use client";
 
 import { ChevronDown } from "lucide-react";
-import { m } from "motion/react";
-import { useEffect, useState } from "react";
-import { useMotionUITransition } from "@/components/motion-ui/ui-theme";
+import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { DashboardPanel, DashboardProgress } from "./DashboardPanel";
 
@@ -28,20 +26,11 @@ function persistCollapseOpen(key, open) {
   }
 }
 
-function CollapsiblePanelBody({ open, children }) {
-  const uiTransition = useMotionUITransition("ui");
-
+function CollapsiblePanelBody({ id, open, children }) {
   return (
-    <m.div
-      animate={{ opacity: open ? 1 : 0 }}
-      className={`motion-reduce-spatial grid transition-[grid-template-rows] duration-200 ease-[var(--portal-ease-out)] ${
-        open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-      }`}
-      initial={false}
-      transition={{ duration: uiTransition.duration, ease: "linear" }}
-    >
-      <div className="min-h-0 overflow-hidden">{children}</div>
-    </m.div>
+    <div aria-hidden={open ? undefined : "true"} className="overflow-hidden" hidden={!open} id={id}>
+      {children}
+    </div>
   );
 }
 
@@ -55,6 +44,8 @@ export function DashboardCollapsibleSection({
   // request-local browser state and must be restored only after hydration.
   const [workflowOpen, setWorkflowOpen] = useState(true);
   const [teamOpen, setTeamOpen] = useState(true);
+  const workflowPanelId = `${useId().replaceAll(":", "")}-workflow`;
+  const teamPanelId = `${useId().replaceAll(":", "")}-team`;
 
   useEffect(() => {
     setWorkflowOpen(readCollapseOpen("workflow"));
@@ -71,6 +62,7 @@ export function DashboardCollapsibleSection({
         <DashboardPanel
           title={
             <Button
+              aria-controls={workflowPanelId}
               aria-expanded={workflowOpen}
               className="flex w-full items-center justify-between gap-2 text-left"
               onClick={() => {
@@ -82,13 +74,14 @@ export function DashboardCollapsibleSection({
             >
               <span>Department workflow</span>
               <ChevronDown
-                className={`shrink-0 transition-transform duration-200 ease-[var(--portal-ease-out)] ${workflowOpen ? "rotate-180" : ""}`}
+                aria-hidden
+                className={`shrink-0 transition-transform duration-200 ease-[var(--portal-ease-out)] motion-reduce:transition-none ${workflowOpen ? "rotate-180" : ""}`}
                 size={18}
               />
             </Button>
           }
         >
-          <CollapsiblePanelBody open={workflowOpen}>
+          <CollapsiblePanelBody id={workflowPanelId} open={workflowOpen}>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               {departmentWorkflow.map((item) => (
                 <DashboardProgress
@@ -105,6 +98,7 @@ export function DashboardCollapsibleSection({
         <DashboardPanel
           title={
             <Button
+              aria-controls={teamPanelId}
               aria-expanded={teamOpen}
               className="flex w-full items-center justify-between gap-2 text-left"
               onClick={() => {
@@ -116,13 +110,14 @@ export function DashboardCollapsibleSection({
             >
               <span>My team</span>
               <ChevronDown
-                className={`shrink-0 transition-transform duration-200 ease-[var(--portal-ease-out)] ${teamOpen ? "rotate-180" : ""}`}
+                aria-hidden
+                className={`shrink-0 transition-transform duration-200 ease-[var(--portal-ease-out)] motion-reduce:transition-none ${teamOpen ? "rotate-180" : ""}`}
                 size={18}
               />
             </Button>
           }
         >
-          <CollapsiblePanelBody open={teamOpen}>
+          <CollapsiblePanelBody id={teamPanelId} open={teamOpen}>
             <div className="grid gap-3 sm:grid-cols-2">
               {myTeam.map((member) => (
                 <div

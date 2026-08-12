@@ -3,12 +3,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ConvexError } from "convex/values";
 import { hasTravellerNamed } from "./e2eAssertions";
-import { assertE2eSecret, assertProvidedE2eSecret } from "./lib/e2eAuth";
+import { assertE2eSecret, assertE2eTargetIdentity, assertProvidedE2eSecret } from "./lib/e2eAuth";
 
 describe("e2e assertions guard", () => {
   const allowedPreviewEnvironment = {
     E2E_PROVISIONING_TARGET: "preview",
     E2E_SEED_SECRET: "expected-secret",
+    E2E_TARGET_ID: "preview-fixture",
   };
 
   test("rejects production even when its target and secret would otherwise allow provisioning", () => {
@@ -48,8 +49,19 @@ describe("e2e assertions guard", () => {
       assertProvidedE2eSecret("expected-secret", {
         E2E_PROVISIONING_TARGET: "development",
         E2E_SEED_SECRET: "expected-secret",
+        E2E_TARGET_ID: "development-local",
       })
     ).not.toThrow();
+  });
+
+  test("binds protected requests to the server-configured target identity", () => {
+    expect(assertE2eTargetIdentity("preview-fixture", allowedPreviewEnvironment)).toEqual({
+      target: "preview",
+      targetId: "preview-fixture",
+    });
+    expect(() => assertE2eTargetIdentity("preview-other", allowedPreviewEnvironment)).toThrow(
+      ConvexError
+    );
   });
 
   test("allows the internal guard only when an allowed target and secret are configured", () => {

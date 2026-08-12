@@ -139,7 +139,7 @@ function buildNotificationText(args: {
     "Open in portal:",
     args.href,
     "",
-    "This email mirrors an in-app notification in Citius Connect.",
+    "Sign in to review the full record and take action.",
   ].join("\n");
 }
 
@@ -185,7 +185,7 @@ function buildNotificationHtml(args: {
                     </td>
                   </tr>
                 </table>
-                <p style="margin:22px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:${EMAIL_MUTED};">This email mirrors an in-app notification in Citius Connect. Sign in to review the full record and take action.</p>
+                <p style="margin:22px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:${EMAIL_MUTED};">Sign in to review the full record and take action.</p>
               </td>
             </tr>
             <tr>

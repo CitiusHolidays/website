@@ -4,29 +4,15 @@
 
 The application backend is a Convex-first system with Next.js API routes for browser-facing HTTP edges, Better Auth for identity, Resend for email, and Razorpay for public trip payments. The public site, guest account area, and Citius Connect portal share the same Convex deployment.
 
-```mermaid
-flowchart LR
-  nextApp["Next.js App Router"]
-  authRoute["app/api/auth/[...all]/route.js"]
-  portalRoutes["app/api/portal/files/*"]
-  convexUploadUrls["Convex generated upload URLs"]
-  convexHttp["convex/http.ts"]
-  betterAuthComponent["convex/betterAuth/auth.ts"]
-  convexData["Convex functions"]
-  crm["convex/crm/*"]
-  paymentRoutes["create-order + verify-payment + webhook routes"]
-  email["Resend email actions"]
-  razorpay["Razorpay"]
+![Citius runtime trust boundaries](../diagrams/citius-runtime-trust-boundaries.svg)
 
-  nextApp --> authRoute --> convexHttp --> betterAuthComponent
-  nextApp --> portalRoutes --> convexData
-  nextApp --> convexUploadUrls
-  nextApp --> paymentRoutes --> convexData
-  convexData --> crm
-  crm --> email
-  paymentRoutes --> razorpay
-  convexData --> convexHttp
-```
+The Mermaid
+[source](../diagrams/citius-runtime-trust-boundaries.mmd), editable
+[Excalidraw scene](../diagrams/citius-runtime-trust-boundaries.excalidraw), and
+[PNG render](../diagrams/citius-runtime-trust-boundaries.png) are tracked
+together. The diagram separates direct authenticated Convex clients from
+request-bound Next HTTP edges and does not assert provider configuration or
+Production state.
 
 ## Core stack
 
@@ -36,7 +22,7 @@ flowchart LR
 | Auth proxy in Next.js | `convexBetterAuthNextJs` helpers |
 | App database | Convex tables (`userProfiles`, `staffUsers`, `trips`, `bookings`, CRM tables) |
 | Citius Connect backend | Convex CRM modules under `convex/crm/` |
-| Portal frontend state | `src/components/portal/usePortalWorkspaceState.js` |
+| Portal frontend state | `src/components/portal/usePortalWorkspaceState.ts` |
 | Payments | Razorpay |
 | Transactional email | Resend |
 | CMS content | Sanity |
@@ -57,20 +43,25 @@ flowchart LR
 - `convex/crm/lib.ts`
 - `convex/crm/staff.ts`
 - `convex/crm/queryTeamAssignment.ts`
+- `convex/crm/proposals.ts`
 - `convex/crm/dashboard.ts`
 - `convex/crm/activity.ts`
 - `convex/crm/notificationSummary.ts`
 - `convex/crm/notificationEmails.ts`
 - `convex/crm/imports.ts`
 - `convex/crm/importActions.ts`
+- `convex/crm/commandReceipts.ts`
+- `convex/crm/notificationEmailLedger.ts`
+- `convex/crm/passengerExportWorkbook.ts`
 - `convex/crm/savedViews.ts`
 - `convex/migrations.ts`
 - `src/lib/auth-client.js`
 - `src/lib/auth-server.js`
-- `src/app/api/create-order/route.js`
-- `src/app/api/verify-payment/route.js`
-- `src/app/api/webhooks/razorpay/route.js`
+- `src/app/api/create-order/route.ts`
+- `src/app/api/verify-payment/route.ts`
+- `src/app/api/webhooks/razorpay/route.ts`
 - `src/app/api/portal/files/*`
+- `src/app/api/portal/exports/[operationId]/route.ts`
 
 ## Data model
 
@@ -99,7 +90,10 @@ flowchart LR
 ### CRM tables
 - Sales query, proposal, job-card, traveller, passport, visa, ticketing, operations, hotel/rooming, tour-manager, finance, expense, leave, saved-view, and notification data live in Convex CRM tables.
 - Attachments use Convex storage IDs and are served through authenticated same-origin portal file routes instead of browser-visible storage URLs.
-- Spreadsheet import flows are batch-oriented and do not cap total row count; parser and validator seams are under `src/lib/portal/spreadsheetImports.js`, `convex/crm/importActions.ts`, and `convex/crm/imports.ts`.
+- Spreadsheet import flows are batch-oriented and do not cap total row count; parser and validator seams are under `src/lib/portal/spreadsheetImports.ts`, `convex/crm/importActions.ts`, and `convex/crm/imports.ts`.
+- `commandReceipts`, `passengerImportOperations`, and `passengerExportOperations` persist replay
+  identity and long-running import/export progress. `notificationEmailDeliveries` stores a
+  privacy-safe, monotonic outcome ledger for CRM email sends.
 
 ## Auth and session flow
 
@@ -114,12 +108,17 @@ Admin-provisioned staff sign in through Forgot password rather than sign-up. Goo
 
 ## Portal authorization
 
-Portal role definitions and backend guards live in `convex/crm/lib.ts`. The mirrored client constants live in `src/lib/portal/constants.js`, while UI affordance helpers live in `src/lib/portal/permissions.js`.
+Portal role definitions live in `convex/crm/lib/rolePolicy.ts`; backend guards
+consume them through `convex/crm/lib.ts`. The mirrored client constants live in
+`src/lib/portal/constants.js`, while UI affordance helpers live in
+`src/lib/portal/permissions.js`.
 
 Important current rules:
 
 - Admin has every permission.
-- Directors and Director Cement have all operational permissions except staff management, dropdown/settings management, and activity-log access.
+- Directors receive every portal permission. Director Cement has all
+  permissions except staff management, dropdown/settings management, and
+  activity-log access.
 - Any provisioned staff user with at least one role gets leave request, expense view, and expense creation baseline permissions.
 - `listDirectory` requires Team Directory access. `listTeamOptions` is the narrower active-staff picker for assignment dropdowns and is guarded by `TEAM_PICKER_PERMISSIONS`.
 - Cement base roles are scoped to Cement and Cement Bidding query types; Admin, Directors, and Director Cement are not restricted by cement query-type filtering.
@@ -128,7 +127,8 @@ See `docs/PORTAL_ROLES_AND_ACCESS.md` and `docs/PORTAL_PERMISSIONS_ARCHITECTURE.
 
 ## Portal CRM surfaces
 
-The portal is routed by `src/components/portal/PortalWorkspace.js`, with shared data/state in `src/components/portal/usePortalWorkspaceState.js`.
+The portal is routed by `src/components/portal/PortalWorkspace.tsx`, with shared data/state in
+`src/components/portal/usePortalWorkspaceState.ts`.
 
 Key backend modules:
 
@@ -138,6 +138,9 @@ Key backend modules:
 - `convex/crm/queryTeamAssignment.ts`: sales/head/director query-team assignment workflow.
 - `convex/crm/jobCards.ts`: job-card creation, downstream handoff, collaborator-aware access, travel series/travel batch operations.
 - `convex/crm/imports.ts` and `importActions.ts`: spreadsheet preview/commit/export.
+- `convex/crm/commandReceipts.ts`: actor-scoped command IDs and canonical payload digests for
+  replay-safe writes.
+- `convex/crm/notificationEmailLedger.ts`: monotonic delivery outcomes and permissioned summaries.
 - `convex/crm/savedViews.ts`: portal saved views, favorites, pinned sidebar links, and command-palette integration.
 
 See `docs/PORTAL_CRM_WORKFLOWS.md` for the current operational workflow contract.
@@ -146,8 +149,12 @@ See `docs/PORTAL_CRM_WORKFLOWS.md` for the current operational workflow contract
 
 Bell notifications and email notifications are separate channels:
 
-- Bell rows target an exact `recipientRole` or `authUserId`.
-- Email expansion uses staff email addresses and expands department notifications to the corresponding head role in `expandNotificationEmailRoles`.
+- `publishWorkflowNotification` requires an explicit target plan for both channels.
+- Bell rows target an exact `recipientRole`, `recipientStaffId`, or `authUserId`.
+- Role email expansion uses portal roles plus additive additional alert roles and expands department
+  notifications to the corresponding head role in `expandNotificationEmailRoles`; direct staff
+  email targets resolve only the selected active staff records.
+- `{ kind: "none" }` suppresses email for a workflow event without changing its bell rows.
 - Notification read state should change only when the user clicks a notification, not merely when opening the bell dropdown or Activity panel.
 
 ## Payment flow
@@ -156,7 +163,12 @@ Bell notifications and email notifications are separate channels:
 2. `POST /api/verify-payment` verifies Razorpay signature and calls Convex mutation to idempotently confirm booking + decrement seats.
 3. `POST /api/webhooks/razorpay` replays status transitions into Convex (`authorized`, `captured`, `failed`, `refunded`).
 
-Payment status mutations still contain a visible TODO for stricter server-only enforcement once Razorpay webhook secrets are fully configured.
+All four public payment-status mutations call
+`assertPaymentMutationSecret(args.serverSecret)` before changing booking state.
+Next payment routes and the Razorpay webhook obtain that server capability from
+`PAYMENT_MUTATION_SECRET` and fail closed when it is missing or invalid. See
+[`BOOKING_PAYMENT_TRANSITIONS.md`](BOOKING_PAYMENT_TRANSITIONS.md) and
+`convex/bookingsPaymentSecurity.test.ts`.
 
 ## Files and storage
 
@@ -166,29 +178,26 @@ Portal uploads use Convex generated upload URLs. Browser reads go through same-o
 
 - `bunx convex codegen` regenerates `convex/_generated` and should run after Convex API/schema changes.
 - `bunx convex codegen --typecheck enable` is part of the production build path and catches Convex TypeScript errors before Next.js builds.
-- `bun test` runs focused backend/frontend tests.
+- `bun run test -- <path...>` runs focused backend/frontend tests through the
+  repository's isolated test configuration.
 - `bun run lint` runs the raw Ultracite/Biome check and must report zero errors.
-- `bun run lint:ratchet` enforces the checked-in per-rule warning baseline used by required CI.
-- `bun run check` runs raw lint, that same required-CI lint ratchet, and the full Bun test suite.
+- `bun run lint:ratchet` enforces the checked-in per-rule warning baseline.
+- `bun run check` runs raw lint, the same lint ratchet, and the full Bun test suite.
+- `bun run performance:check` validates public asset budgets and the authenticated Staff Workspace
+  performance baseline, including source-hash freshness.
+- `bun run verify:local` runs the target-neutral release gate, including the performance check.
 - `bun run build` runs Convex codegen with typecheck before `next build`.
 - Portal UI changes should use browser verification when visual behavior matters.
-- React Doctor is available via `bunx react-doctor@latest --verbose` after portal frontend changes.
+- React Doctor is available through the repository-pinned `bun run doctor -- --verbose --scope changed --include-untracked --no-score` after portal frontend changes.
 
 `convex/_generated` is gitignored. CI/Vercel should generate it fresh before build.
+See [`VERIFICATION.md`](VERIFICATION.md) for the distinction between focused,
+target-neutral, deployment, and authenticated-production evidence.
 
 ## Migration tooling
 
-One-time migration scripts live in `scripts/migrations/`:
-
-- `export-postgres-to-json.mjs`
-- `import-json-to-convex.mjs`
-- `verify-parity.mjs`
-
-Convex import/parity helpers are in `convex/migrations.ts`. Better Auth schema generation is exposed as `bun run auth:schema:generate`.
-
-
-
-
-
-
-
+Reviewed Convex migration and parity helpers live in `convex/migrations.ts`.
+Active migration runbooks live under `docs/migrations/`, and Better Auth schema
+generation is exposed as `bun run auth:schema:generate`. The earlier local
+Postgres export/import scripts are no longer in this checkout; do not follow
+stale references to a root migration-script directory.

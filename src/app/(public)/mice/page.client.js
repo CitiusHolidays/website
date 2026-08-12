@@ -31,7 +31,7 @@ const commitments = [
 export default function MicePageClient({ images }) {
   return (
     <>
-      <section className="relative flex h-[50vh] items-center justify-center overflow-hidden bg-[#0B1026] text-center">
+      <section className="relative flex h-[50vh] items-center justify-center overflow-hidden bg-public-night text-center">
         <m.div
           animate={{ opacity: 1, scale: 1 }}
           className="absolute inset-0 mt-3"
@@ -49,7 +49,7 @@ export default function MicePageClient({ images }) {
         </m.div>
         <m.h1
           animate={{ opacity: 1, y: 0 }}
-          className="relative z-10 font-bold text-4xl text-white md:text-5xl"
+          className="relative z-10 font-bold font-heading text-4xl text-white md:text-5xl"
           initial={{ opacity: 0, y: 20 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
@@ -59,7 +59,7 @@ export default function MicePageClient({ images }) {
 
       <AnimatedSection>
         <section className="mx-auto max-w-3xl px-4 py-16 text-center">
-          <p className="text-brand-muted text-lg">
+          <p className="text-lg text-public-muted">
             For over <strong>15 glorious years</strong>, Citius has delivered world-class Meetings,
             Incentives, Conferences, and Exhibitions. Our team is empowered by quality training,
             rich travel exposure, and an unwavering commitment to guest engagement.
@@ -69,7 +69,7 @@ export default function MicePageClient({ images }) {
 
       <AnimatedSection>
         <section className="bg-[url('/gallery/bgmice.webp')] bg-center bg-cover px-4 py-16 text-center">
-          <h2 className="mb-8 font-semibold text-3xl text-citius-blue">
+          <h2 className="mb-8 font-heading font-semibold text-3xl text-public-blue">
             Successfully Executed MICE Programs Across the Globe
           </h2>
           <m.div
@@ -84,8 +84,8 @@ export default function MicePageClient({ images }) {
       </AnimatedSection>
 
       <AnimatedSection>
-        <section className="bg-white px-4 py-16">
-          <h2 className="mb-12 text-center font-semibold text-3xl text-citius-blue">
+        <section className="bg-public-surface px-4 py-16">
+          <h2 className="mb-12 text-center font-heading font-semibold text-3xl text-public-blue">
             Our Commitment
           </h2>
           <m.div
@@ -106,8 +106,8 @@ export default function MicePageClient({ images }) {
                   show: { opacity: 1, y: 0 },
                 }}
               >
-                <Icon className="mx-auto mb-4 size-10 text-citius-orange" />
-                <p className="font-medium text-brand-dark">{title}</p>
+                <Icon className="mx-auto mb-4 size-10 text-public-orange-ink" />
+                <p className="font-medium text-public-ink">{title}</p>
               </m.div>
             ))}
           </m.div>
@@ -115,8 +115,8 @@ export default function MicePageClient({ images }) {
       </AnimatedSection>
 
       <AnimatedSection>
-        <section className="bg-brand-light px-4 py-8">
-          <h2 className="mb-8 text-center font-semibold text-3xl text-citius-blue">
+        <section className="bg-public-paper px-4 py-8">
+          <h2 className="mb-8 text-center font-heading font-semibold text-3xl text-public-blue">
             A Glimpse Into Our Events
           </h2>
           <GalleryGridSmall className="mx-auto max-w-6xl" images={images} />
@@ -124,13 +124,11 @@ export default function MicePageClient({ images }) {
       </AnimatedSection>
 
       <AnimatedSection className="flex justify-center pb-8">
-        <Link href="/gallery">
-          <button
-            className="mx-auto rounded-md bg-citius-orange px-6 py-3 font-semibold text-brand-light shadow hover:brightness-110"
-            type="button"
-          >
-            View More
-          </button>
+        <Link
+          className="mx-auto rounded-md bg-public-orange-ink px-6 py-3 font-semibold text-public-surface shadow hover:brightness-110 focus-visible:outline-2 focus-visible:outline-public-orange-ink focus-visible:outline-offset-2"
+          href="/gallery"
+        >
+          View More
         </Link>
       </AnimatedSection>
     </>
