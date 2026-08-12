@@ -80,4 +80,13 @@ describe("spreadsheet import contracts", () => {
     expect(schema).not.toContain("travelBatchSummaries: v.optional(v.array(v.any()))");
     expect(imports).not.toContain("access: v.any()");
   });
+
+  test("validates Job Card identifiers at every import and export registration boundary", () => {
+    const imports = readFileSync(join(import.meta.dir, "imports.ts"), "utf8");
+    const actions = readFileSync(join(import.meta.dir, "importActions.ts"), "utf8");
+    expect(imports).not.toContain("jobCardId: v.string()");
+    expect(imports).not.toContain("jobCardId: v.optional(v.string())");
+    expect(actions).not.toContain("jobCardId: v.string()");
+    expect(actions.match(/jobCardId: v\.id\("jobCards"\)/g)).toHaveLength(3);
+  });
 });

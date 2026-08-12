@@ -15,6 +15,38 @@ import {
 } from "./lib";
 import { mapInBoundedBatches } from "./paginationPolicy";
 
+export const MAX_TICKETS_PER_TRAVELLER_SEAT_PROPAGATION = 64;
+
+export async function updateTravellerTicketSeats(
+  ctx: MutationCtx,
+  args: {
+    jobCardId: Id<"jobCards">;
+    seatNumber: string;
+    travellerId: Id<"travellers">;
+    updatedAt: number;
+  }
+) {
+  const tickets = await ctx.db
+    .query("tickets")
+    .withIndex("by_travellerId", (q) => q.eq("travellerId", args.travellerId))
+    .take(MAX_TICKETS_PER_TRAVELLER_SEAT_PROPAGATION + 1);
+  if (tickets.length > MAX_TICKETS_PER_TRAVELLER_SEAT_PROPAGATION) {
+    throw new ConvexError("Traveller has too many tickets for immediate seat propagation");
+  }
+  if (tickets.some((ticket) => ticket.jobCardId !== args.jobCardId)) {
+    throw new ConvexError("Traveller ticket relation crosses the selected Job Card");
+  }
+  await Promise.all(
+    tickets.map((ticket) =>
+      ctx.db.patch("tickets", ticket._id, {
+        seatNumber: args.seatNumber,
+        updatedAt: args.updatedAt,
+      })
+    )
+  );
+  return tickets.length;
+}
+
 export async function handleSaveSeatAllocation(
   ctx: MutationCtx,
   args: {
@@ -57,19 +89,12 @@ export async function handleSaveSeatAllocation(
     updatedAt: now,
   });
   if (travellerId && args.status === "Assigned") {
-    const tickets = await ctx.db
-      .query("tickets")
-      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
-      .filter((q) => q.eq(q.field("travellerId"), travellerId))
-      .collect();
-    await Promise.all(
-      tickets.map((ticket) =>
-        ctx.db.patch("tickets", ticket._id, {
-          seatNumber: args.seatNumber.trim().toUpperCase(),
-          updatedAt: now,
-        })
-      )
-    );
+    await updateTravellerTicketSeats(ctx, {
+      jobCardId,
+      seatNumber: args.seatNumber.trim().toUpperCase(),
+      travellerId,
+      updatedAt: now,
+    });
   }
   await createActivity(ctx, access, {
     action: "saved",
@@ -80,6 +105,7 @@ export async function handleSaveSeatAllocation(
   return { id };
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: relation validation and the atomic seat/ticket update remain one transaction.
 export async function handleUpdateSeatAllocation(
   ctx: MutationCtx,
   args: {
@@ -146,19 +172,12 @@ export async function handleUpdateSeatAllocation(
 
   const linkedTravellerId = travellerId === undefined ? seat.travellerId : travellerId;
   if (linkedTravellerId && nextStatus === "Assigned") {
-    const tickets = await ctx.db
-      .query("tickets")
-      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", seat.jobCardId))
-      .filter((q) => q.eq(q.field("travellerId"), linkedTravellerId))
-      .collect();
-    await Promise.all(
-      tickets.map((ticket) =>
-        ctx.db.patch("tickets", ticket._id, {
-          seatNumber: nextSeatNumber,
-          updatedAt: now,
-        })
-      )
-    );
+    await updateTravellerTicketSeats(ctx, {
+      jobCardId: seat.jobCardId,
+      seatNumber: nextSeatNumber,
+      travellerId: linkedTravellerId,
+      updatedAt: now,
+    });
   }
 
   await createActivity(ctx, access, {

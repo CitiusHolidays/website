@@ -1,5 +1,6 @@
 "use client";
 
+import type { Id } from "@convex/_generated/dataModel";
 import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -30,7 +31,7 @@ export interface FlightImportModalProps {
   close: () => void;
   commitFlightImport: (args: {
     groups: FlightImportGroup[];
-    jobCardId: string;
+    jobCardId: Id<"jobCards">;
   }) => Promise<{ createdSegments: number; updatedSegments: number }>;
   itinerary: PortalFlightItineraryGroup[];
   jobCards: PortalJobCardOption[];
@@ -110,7 +111,10 @@ export function FlightImportModal({
     setIsSaving(true);
     setError("");
     try {
-      const result = await commitFlightImport({ groups, jobCardId });
+      const result = await commitFlightImport({
+        groups,
+        jobCardId: jobCardId as Id<"jobCards">,
+      });
       toast.success(
         `Flight import complete. Created ${formatCount(result.createdSegments, "segment")}; updated ${formatCount(result.updatedSegments, "segment")}.`
       );

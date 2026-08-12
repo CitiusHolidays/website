@@ -95,11 +95,6 @@ const lazyWorkbookBuilder =
   async (...args: unknown[]) =>
     Reflect.apply((await loadSpreadsheetExportRuntime())[name], null, args);
 
-export const buildPassengerWorkbook = lazyWorkbookBuilder("buildPassengerWorkbook");
-export const buildTravellerMasterWorkbook = lazyWorkbookBuilder("buildTravellerMasterWorkbook");
-export const buildRoomingWorkbook = lazyWorkbookBuilder("buildRoomingWorkbook");
-export const buildPassportWorkbook = lazyWorkbookBuilder("buildPassportWorkbook");
-export const buildVisaWorkbook = lazyWorkbookBuilder("buildVisaWorkbook");
 export const buildFlightWorkbook = lazyWorkbookBuilder("buildFlightWorkbook");
 export const downloadWorkbook = async (...args: unknown[]) =>
   Reflect.apply((await loadSpreadsheetExportRuntime()).downloadWorkbook, null, args);

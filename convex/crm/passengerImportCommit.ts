@@ -31,7 +31,7 @@ interface PassengerImportOperationManifest {
 }
 
 export interface PassengerImportCommitArgs {
-  jobCardId: string;
+  jobCardId: Id<"jobCards">;
   operation?: PassengerImportOperationManifest;
   rows: any[];
 }
@@ -184,7 +184,7 @@ function recordFailedRow(
 async function commitPreparedRow(
   ctx: any,
   access: any,
-  jobCardId: string,
+  jobCardId: Id<"jobCards">,
   batchId: string,
   rowIndex: number,
   row: any,
@@ -207,7 +207,7 @@ async function commitPreparedRow(
 
 async function recordBatchResult(
   ctx: any,
-  jobCardId: string,
+  jobCardId: Id<"jobCards">,
   operationId: Id<"passengerImportOperations">,
   batchIndex: number,
   result: ImportBatchResult
@@ -251,7 +251,7 @@ async function recordBatchResult(
 async function processClaimedBatch(
   ctx: any,
   access: any,
-  jobCardId: string,
+  jobCardId: Id<"jobCards">,
   operationId: Id<"passengerImportOperations">,
   batchIndex: number,
   batchId: string,

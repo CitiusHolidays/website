@@ -187,7 +187,7 @@ function buildTicketingExport(tickets: any[]) {
 
 export const previewPassengerImport = action({
   args: {
-    jobCardId: v.string(),
+    jobCardId: v.id("jobCards"),
     rows: v.array(publicPassengerImportRow),
   },
   handler: async (ctx, args): Promise<any> => {
@@ -219,7 +219,7 @@ export const previewPassengerImport = action({
 
 export const commitPassengerImport = action({
   args: {
-    jobCardId: v.string(),
+    jobCardId: v.id("jobCards"),
     operation: v.optional(
       v.object({
         batchIndex: v.number(),
@@ -243,7 +243,7 @@ export const startPassengerExport = action({
   args: {
     commandId: v.string(),
     exportKind: exportKindValidator,
-    jobCardId: v.string(),
+    jobCardId: v.id("jobCards"),
   },
   handler: async (ctx, args): Promise<{ operationId: Id<"passengerExportOperations"> }> => {
     if (!COMMAND_ID_PATTERN.test(args.commandId)) {

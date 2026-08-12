@@ -1,5 +1,6 @@
 "use client";
 
+import type { Id } from "@convex/_generated/dataModel";
 import { useEffect, useState } from "react";
 import { Select } from "@/components/portal/PortalModalForm";
 import { usePortalToast } from "@/components/portal/PortalToast";
@@ -38,7 +39,7 @@ const useTypedPortalToast = usePortalToast as unknown as () => {
 export interface PassengerImportModalProps {
   close: () => void;
   commitPassengerImport: (args: {
-    jobCardId: string;
+    jobCardId: Id<"jobCards">;
     rows: ReturnType<typeof toPassengerImportInput>[];
   }) => Promise<
     PassengerImportMutationResult & {
@@ -64,7 +65,7 @@ export interface PassengerImportModalProps {
     completedBatches: number;
     failed: number;
     importKinds: string[];
-    jobCardId: string;
+    jobCardId: Id<"jobCards">;
     processed: number;
     stalled: boolean;
     status: "completed" | "partial" | "running";
@@ -88,7 +89,7 @@ export interface PassengerImportModalProps {
     }>;
   }>;
   previewPassengerImport: (args: {
-    jobCardId: string;
+    jobCardId: Id<"jobCards">;
     rows: ReturnType<typeof toPassengerImportInput>[];
   }) => Promise<{ roomSummary?: Record<string, number>; rows?: SpreadsheetImportPreviewRow[] }>;
   successLabel?: string;
@@ -196,7 +197,10 @@ export function PassengerImportModal({
       }
       dispatchImport({ patch: { error: "", isPreviewing: true }, type: "patch" });
       try {
-        const result = await previewPassengerImport({ jobCardId, rows: importRows });
+        const result = await previewPassengerImport({
+          jobCardId: jobCardId as Id<"jobCards">,
+          rows: importRows,
+        });
         if (!cancelled) {
           dispatchImport({ patch: { preview: result }, type: "patch" });
         }
@@ -250,7 +254,10 @@ export function PassengerImportModal({
     try {
       setImportProgress({ current: 0, label: "Uploading…", total: 1 });
       const importRows = rows.map(toPassengerImportInput);
-      const result = await commitPassengerImport({ jobCardId, rows: importRows });
+      const result = await commitPassengerImport({
+        jobCardId: jobCardId as Id<"jobCards">,
+        rows: importRows,
+      });
       let roomSummaryText = "";
       if (showRoomSummary && result.roomSummary) {
         roomSummaryText = formatRoomSummaryText(result.roomSummary, selectedJob?.jobCode) || "";

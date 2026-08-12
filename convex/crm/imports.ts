@@ -149,7 +149,7 @@ const flightGroupInput = v.object({
 });
 
 type CommitFlightImportArgs = {
-  jobCardId: string;
+  jobCardId: Id<"jobCards">;
   groups: Array<{
     id?: string;
     sourceSheet: string;
@@ -232,7 +232,7 @@ function summarizeGroup(group: {
 export const previewPassengerImportRows = internalQuery({
   args: {
     access: portalAccessArgumentValidator,
-    jobCardId: v.string(),
+    jobCardId: v.id("jobCards"),
     rows: v.array(internalPassengerImportRow),
   },
   handler: async (ctx, args) => {
@@ -365,7 +365,7 @@ export const commitPassengerImportRow = internalMutation({
   args: {
     access: portalAccessArgumentValidator,
     expectedTravellerId: v.optional(v.id("travellers")),
-    jobCardId: v.string(),
+    jobCardId: v.id("jobCards"),
     row: internalPassengerImportRow,
   },
   handler: async (ctx, args) => {
@@ -512,7 +512,7 @@ export const claimPassengerImportOperationBatch = internalMutation({
 });
 
 export const getPassengerImportBatchResult = internalQuery({
-  args: { batchId: v.string(), jobCardId: v.string() },
+  args: { batchId: v.string(), jobCardId: v.id("jobCards") },
   handler: async (ctx, args) => {
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     if (!jobCardId) {
@@ -555,7 +555,7 @@ export const finalizePassengerImportBatch = internalMutation({
     created: v.number(),
     errors: v.array(importFailureValidator),
     failed: v.number(),
-    jobCardId: v.string(),
+    jobCardId: v.id("jobCards"),
     processed: v.number(),
     remaining: v.number(),
     roomSummary: v.record(v.string(), v.number()),
@@ -606,7 +606,7 @@ export const beginPassengerImportOperation = internalMutation({
     access: portalAccessArgumentValidator,
     batchTotal: v.number(),
     importKinds: v.array(v.string()),
-    jobCardId: v.string(),
+    jobCardId: v.id("jobCards"),
     sourceDigest: v.string(),
     total: v.number(),
   },
@@ -834,7 +834,7 @@ export const logPassengerImportActivity = internalMutation({
     access: portalAccessArgumentValidator,
     importedCount: v.number(),
     importKind: v.string(),
-    jobCardId: v.string(),
+    jobCardId: v.id("jobCards"),
   },
   handler: async (ctx, args) => {
     if (!canManagePassengerKinds(args.access, [args.importKind])) {
@@ -1009,7 +1009,7 @@ export async function commitFlightImportForTest(
 export const commitFlightImport = mutation({
   args: {
     groups: v.array(flightGroupInput),
-    jobCardId: v.string(),
+    jobCardId: v.id("jobCards"),
   },
   handler: async (ctx, args) =>
     commitFlightImportForTest(ctx, args, await requireStaff(ctx, PERMISSIONS.MANAGE_TICKETING)),
@@ -1067,7 +1067,7 @@ export const getPassengerExportSourcePage = internalQuery({
   args: {
     access: portalAccessArgumentValidator,
     exportKind: exportKindValidator,
-    jobCardId: v.string(),
+    jobCardId: v.id("jobCards"),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
@@ -1172,7 +1172,7 @@ export const beginPassengerExportOperation = internalMutation({
     access: portalAccessArgumentValidator,
     commandId: v.string(),
     exportKind: exportKindValidator,
-    jobCardId: v.string(),
+    jobCardId: v.id("jobCards"),
     leaseId: v.string(),
   },
   handler: async (ctx, args) => {
@@ -1480,7 +1480,7 @@ export const logPassengerExport = internalMutation({
   args: {
     access: portalAccessArgumentValidator,
     exportKind: v.optional(exportKindValidator),
-    jobCardId: v.string(),
+    jobCardId: v.id("jobCards"),
     rowCount: v.number(),
   },
   handler: async (ctx, args) => {
@@ -1512,7 +1512,7 @@ export const logPassengerExport = internalMutation({
 
 export const listFlightItinerary = query({
   args: {
-    jobCardId: v.optional(v.string()),
+    jobCardId: v.optional(v.id("jobCards")),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {

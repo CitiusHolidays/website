@@ -37,7 +37,7 @@ export interface PassengerExportModalProps {
   startPassengerExport: (args: {
     commandId?: string;
     exportKind: ExportKind;
-    jobCardId: string;
+    jobCardId: Id<"jobCards">;
   }) => Promise<{ operationId: string }>;
   subtitle?: string;
   title?: string;
@@ -56,7 +56,7 @@ function downloadExport(url: string, fileName: string) {
 async function generatePassengerExport(
   startPassengerExport: PassengerExportModalProps["startPassengerExport"],
   exportKind: ExportKind,
-  jobCardId: string,
+  jobCardId: Id<"jobCards">,
   commandId?: string
 ) {
   try {
@@ -172,7 +172,7 @@ export function PassengerExportModal({
     const nextError = await generatePassengerExport(
       startPassengerExport,
       exportKind,
-      jobCardId,
+      jobCardId as Id<"jobCards">,
       retryCommandId
     );
     patchExport({ error: nextError, isExporting: false });

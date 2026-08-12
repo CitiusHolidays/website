@@ -1,4 +1,5 @@
 import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 import { usePaginatedQuery, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
@@ -565,7 +566,7 @@ export function usePortalWorkspaceData({
   const flightItineraryPage = usePaginatedQuery(
     api.crm.imports.listFlightItinerary,
     canFetch && needs("flightItinerary") && has(P.VIEW_TICKETING)
-      ? { jobCardId: jobCardFilter || undefined }
+      ? { jobCardId: (jobCardFilter || undefined) as Id<"jobCards"> | undefined }
       : "skip",
     { initialNumItems: PAGE_SIZE }
   );
