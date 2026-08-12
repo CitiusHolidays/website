@@ -13,6 +13,8 @@ import {
 import {
   deliverNotificationEmailsSequentially,
   notificationEmailIdempotencyKey,
+  RESEND_DELIVERY_MAX_ATTEMPTS,
+  RESEND_DELIVERY_MIN_INTERVAL_MS,
 } from "./notificationEmailDelivery";
 import {
   normalizeNotificationEmailFailure,
@@ -25,13 +27,7 @@ type EmailDetails = {
   rows: Array<{ label: string; value: string }>;
 } | null;
 
-const RESEND_MIN_INTERVAL_MS = 550;
-const RESEND_MAX_RETRIES = 4;
 const TRAILING_SLASH_RE = /\/$/;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function safeErrorCode(error: unknown) {
   const normalized = normalizeNotificationEmailFailure(error);
@@ -325,8 +321,8 @@ export const sendNotificationEmail = internalAction({
     const resend = new Resend(resendConfig.key);
     const delivery = await deliverNotificationEmailsSequentially({
       config: {
-        maxRetries: RESEND_MAX_RETRIES,
-        minIntervalMs: RESEND_MIN_INTERVAL_MS,
+        maxAttempts: RESEND_DELIVERY_MAX_ATTEMPTS,
+        minIntervalMs: RESEND_DELIVERY_MIN_INTERVAL_MS,
       },
       eventId: args.eventId,
       message: {
@@ -338,7 +334,6 @@ export const sendNotificationEmail = internalAction({
       onStatus: recordStatus,
       recipients,
       sendEmail: (message, options) => resend.emails.send(message, options),
-      sleep,
     });
 
     return delivery;
