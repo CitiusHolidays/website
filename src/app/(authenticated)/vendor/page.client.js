@@ -4,6 +4,7 @@ import { ArrowLeft, Building2, LogOut, Package } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
+import { VENDOR_MAIN_ID, VendorSkipLink } from "@/components/vendor/VendorSkipLink";
 import { logout } from "@/lib/auth-client";
 import citiusLogo from "@/static/logos/logo.webp";
 
@@ -15,6 +16,7 @@ const handleLogout = async () => {
 export default function VendorPageClient({ user }) {
   return (
     <div className="min-h-screen bg-[#FDFBF7]">
+      <VendorSkipLink />
       <header className="border-[#e2e8f0] border-b bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Link className="flex items-center gap-3" href="/">
@@ -37,7 +39,11 @@ export default function VendorPageClient({ user }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-16">
+      <main
+        className="mx-auto max-w-5xl scroll-mt-24 px-6 py-16 outline-none"
+        id={VENDOR_MAIN_ID}
+        tabIndex={-1}
+      >
         <m.div
           animate={{ opacity: 1, y: 0 }}
           className="rounded-3xl border border-[#e2e8f0] bg-white p-8 shadow-sm md:p-12"

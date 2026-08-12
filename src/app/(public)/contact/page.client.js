@@ -4,6 +4,7 @@ import { m } from "motion/react";
 import AnimatedSection from "@/components/layout/AnimatedSection";
 import LocationCard from "@/components/ui/LocationCard";
 import ModernContactForm from "@/components/ui/ModernContactForm";
+import { getContactIntentPrefill } from "@/lib/public/contactIntent";
 
 const offices = [
   {
@@ -27,7 +28,9 @@ const offices = [
   },
 ];
 
-export default function ContactPage() {
+export default function ContactPage({ contactIntent = null }) {
+  const initialValues = getContactIntentPrefill(contactIntent);
+
   return (
     <>
       <div className="h-19 bg-[#0B1026]" />
@@ -61,7 +64,7 @@ export default function ContactPage() {
               viewport={{ amount: 0.2, once: true }}
               whileInView={{ opacity: 1, x: 0 }}
             >
-              <ModernContactForm />
+              <ModernContactForm initialValues={initialValues} />
             </m.div>
 
             <div className="order-1 space-y-8 lg:order-2">

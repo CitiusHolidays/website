@@ -51,7 +51,7 @@ export default function AuthRecoveryLayout({
               {panelHeading}
             </h1>
             {panelSubtext ? (
-              <p className="mt-5 max-w-md font-light text-sm text-white/60 leading-relaxed">
+              <p className="mt-5 max-w-md font-light text-brand-muted-on-dark text-sm leading-relaxed">
                 {panelSubtext}
               </p>
             ) : null}
@@ -69,7 +69,7 @@ export default function AuthRecoveryLayout({
               </div>
               <div>
                 <h3 className="mb-1 font-heading font-medium text-lg text-white">Secure access</h3>
-                <p className="font-light text-sm text-white/60 leading-relaxed">
+                <p className="font-light text-brand-muted-on-dark text-sm leading-relaxed">
                   Your account stays protected with encrypted sign-in and verified recovery links.
                 </p>
               </div>
@@ -83,7 +83,7 @@ export default function AuthRecoveryLayout({
                 <h3 className="mb-1 font-heading font-medium text-lg text-white">
                   Curated journeys
                 </h3>
-                <p className="font-light text-sm text-white/60 leading-relaxed">
+                <p className="font-light text-brand-muted-on-dark text-sm leading-relaxed">
                   Pilgrimages and bespoke travel, crafted by the {BRAND_NAME} team you already
                   trust.
                 </p>
@@ -98,7 +98,7 @@ export default function AuthRecoveryLayout({
                 <h3 className="mb-1 font-heading font-medium text-lg text-white">
                   Seamless support
                 </h3>
-                <p className="font-light text-sm text-white/60 leading-relaxed">
+                <p className="font-light text-brand-muted-on-dark text-sm leading-relaxed">
                   Questions about your trip or account? Our team is only a message away.
                 </p>
               </div>
@@ -107,7 +107,7 @@ export default function AuthRecoveryLayout({
 
           <m.p
             animate={{ opacity: 1 }}
-            className="font-light text-white/30 text-xs"
+            className="font-light text-brand-muted-on-dark text-xs"
             initial={{ opacity: 0 }}
             transition={{ delay: 0.75 }}
           >

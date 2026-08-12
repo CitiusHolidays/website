@@ -95,7 +95,7 @@ const quickLinks = [
 
 export default function Footer() {
   return (
-    <footer className="bg-[url('/gallery/bgfooter.webp')] bg-brand-dark bg-center bg-cover text-brand-light">
+    <footer className="bg-[url('/gallery/bgfooter.webp')] bg-brand-dark bg-center bg-cover bg-blend-multiply text-brand-light">
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-4 py-16 sm:grid-cols-2 sm:px-6 md:grid-cols-4 lg:px-8">
         <div>
           <Image alt="Citius Logo" className="mb-2" height={48} src={Logo} width={140} />
@@ -116,8 +116,8 @@ export default function Footer() {
             {offices.map((office) => (
               <li key={office.city}>
                 <p className="font-medium text-brand-light">{office.city}</p>
-                <p className="whitespace-pre-line text-brand-muted">{office.address}</p>
-                <p className="text-brand-muted">{office.phone}</p>
+                <p className="whitespace-pre-line text-brand-muted-on-dark">{office.address}</p>
+                <p className="text-brand-muted-on-dark">{office.phone}</p>
               </li>
             ))}
           </ul>
@@ -145,7 +145,7 @@ export default function Footer() {
             <div className="transition-transform duration-200 fine-hover:hover:-translate-y-0.5">
               <Link
                 aria-label="Instagram"
-                className="text-brand-muted transition-colors hover:text-white"
+                className="text-brand-muted-on-dark transition-colors hover:text-white"
                 href="https://www.instagram.com/citius_holidays/?hl=en"
               >
                 <InstagramIcon className="size-6" />
@@ -154,7 +154,7 @@ export default function Footer() {
             <div className="transition-transform duration-200 fine-hover:hover:-translate-y-0.5">
               <Link
                 aria-label="Twitter"
-                className="text-brand-muted transition-colors hover:text-white"
+                className="text-brand-muted-on-dark transition-colors hover:text-white"
                 href="https://x.com/citiusholidays"
               >
                 <XIcon className="size-6" />
@@ -163,7 +163,7 @@ export default function Footer() {
             <div className="transition-transform duration-200 fine-hover:hover:-translate-y-0.5">
               <Link
                 aria-label="Facebook"
-                className="text-brand-muted transition-colors hover:text-white"
+                className="text-brand-muted-on-dark transition-colors hover:text-white"
                 href="https://www.facebook.com/citiusholidays"
               >
                 <FacebookIcon className="size-6" />
@@ -172,7 +172,7 @@ export default function Footer() {
             <div className="transition-transform duration-200 fine-hover:hover:-translate-y-0.5">
               <Link
                 aria-label="LinkedIn"
-                className="text-brand-muted transition-colors hover:text-white"
+                className="text-brand-muted-on-dark transition-colors hover:text-white"
                 href="https://linkedin.com/company/citius-holidays"
               >
                 <LinkedinIcon className="size-6" />
@@ -183,7 +183,7 @@ export default function Footer() {
       </div>
 
       <div className="bg-brand-dark/20 py-4">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between px-4 text-brand-muted text-sm sm:flex-row">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between px-4 text-brand-muted-on-dark text-sm sm:flex-row">
           <p>© {CURRENT_YEAR} Citius. All Rights Reserved.</p>
           <div className="mt-2 flex gap-4 sm:mt-0 sm:gap-6">
             <Link

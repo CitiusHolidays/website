@@ -4,6 +4,7 @@ import { act, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { getPortalDataDependencies } from "@/lib/portal/portalDataDependencies";
 import { PORTAL_ROUTES, resolvePortalRoutePagination } from "@/lib/portal/portalRouteManifest";
+import { PortalLoadingAnnouncement } from "../PortalLoadingAnnouncement";
 import { WorkspacePagination } from "./PortalWorkspaceHeader";
 import { PortalRouteLifecycleBoundary, renderPortalRoute } from "./portalRouteLifecycle";
 
@@ -75,10 +76,18 @@ const PAGINATION = {
 describe("mounted portal route lifecycle", () => {
   test("renders loading and denied gates before ready route content", async () => {
     const loading = await mount(
-      <RouteLifecycleHarness gate="loading" pagination={PAGINATION} view="queries" />
+      <>
+        <PortalLoadingAnnouncement />
+        <RouteLifecycleHarness gate="loading" pagination={PAGINATION} view="queries" />
+      </>
     );
     expect(loading.container.textContent).not.toContain("Ready route");
     expect(loading.container.textContent).toContain("Loading portal data");
+    expect(loading.container.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(loading.container.querySelectorAll("[data-portal-loading-announcer]")).toHaveLength(1);
+    expect(loading.container.querySelector("[data-portal-loading-announcer]")?.textContent).toBe(
+      "Loading Staff Workspace view"
+    );
     await loading.unmount();
 
     const denied = await mount(

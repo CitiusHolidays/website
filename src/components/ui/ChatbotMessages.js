@@ -2,6 +2,7 @@
 
 import { Building2, Compass, FileText, Mountain } from "lucide-react";
 import { m } from "motion/react";
+import { useEffect, useState } from "react";
 import { MessageResponse } from "@/components/ai-elements/message";
 
 const CHATBOT_SUGGESTIONS = [
@@ -66,6 +67,92 @@ function hasVisibleText(message) {
   return getTextParts(message).some((part) => part.text?.trim());
 }
 
+function getMessageText(message) {
+  return getTextParts(message)
+    .map((part) => part.text?.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function getTerminalAnnouncement(message, messages) {
+  if (message.terminalState === "complete") {
+    const completedResponseCount = messages.filter(
+      (candidate) => candidate.role === "assistant" && candidate.terminalState === "complete"
+    ).length;
+    const responseText = getMessageText(message);
+    return responseText
+      ? `Citius Concierge response ${completedResponseCount}: ${responseText}`
+      : `Citius Concierge response ${completedResponseCount} is ready.`;
+  }
+  if (message.terminalState === "cancelled") {
+    return "Citius Concierge response was cancelled.";
+  }
+  if (["failed", "interrupted"].includes(message.terminalState)) {
+    return "Citius Concierge response could not be completed.";
+  }
+  return "";
+}
+
+export function ChatbotAnnouncement({
+  announcedTerminalKeys,
+  errorMessage,
+  isActive,
+  isLoading,
+  messages,
+}) {
+  const [announcement, setAnnouncement] = useState("");
+
+  useEffect(() => {
+    if (!isActive) {
+      setAnnouncement("");
+      return;
+    }
+
+    const lastMessage = messages.at(-1);
+    if (isLoading) {
+      setAnnouncement("Citius Concierge is preparing a response.");
+      return;
+    }
+
+    if (errorMessage) {
+      const errorKey = lastMessage
+        ? `${lastMessage.id}:${lastMessage.terminalState || "error"}:error`
+        : `error:${errorMessage}`;
+      if (announcedTerminalKeys.current.has(errorKey)) {
+        setAnnouncement("");
+        return;
+      }
+      announcedTerminalKeys.current.add(errorKey);
+      setAnnouncement("Citius Concierge response could not be completed.");
+      return;
+    }
+
+    if (lastMessage?.role === "assistant" && lastMessage.terminalState) {
+      const terminalKey = `${lastMessage.id}:${lastMessage.terminalState}`;
+      if (announcedTerminalKeys.current.has(terminalKey)) {
+        setAnnouncement("");
+        return;
+      }
+
+      const nextAnnouncement = getTerminalAnnouncement(lastMessage, messages);
+
+      if (nextAnnouncement) {
+        announcedTerminalKeys.current.add(terminalKey);
+        setAnnouncement(nextAnnouncement);
+        return;
+      }
+    }
+
+    setAnnouncement("");
+  }, [announcedTerminalKeys, errorMessage, isActive, isLoading, messages]);
+
+  return (
+    <div aria-atomic="true" className="sr-only" role="status">
+      {announcement}
+    </div>
+  );
+}
+
 const TOOL_LABELS = {
   getCitiusContactOptions: "Citius contact options",
   getCitiusProfile: "Citius company details",
@@ -83,7 +170,7 @@ function AssistantStructuredPart({ part }) {
   }
   if (part.type === "reasoning") {
     return (
-      <p className="text-brand-muted text-xs" role="status">
+      <p className="text-brand-muted text-xs">
         {part.status === "complete"
           ? "Relevant travel details considered"
           : "Considering relevant travel details…"}
@@ -94,16 +181,14 @@ function AssistantStructuredPart({ part }) {
     const label = TOOL_LABELS[part.toolName] || "Citius travel details";
     const complete = part.status === "output-available";
     return (
-      <p className="text-brand-muted text-xs" role="status">
+      <p className="text-brand-muted text-xs">
         {complete ? `${label} checked` : `Checking ${label}…`}
       </p>
     );
   }
   if (part.type === "status") {
     return part.status === "working" ? (
-      <p className="text-brand-muted text-xs" role="status">
-        {part.text}…
-      </p>
+      <p className="text-brand-muted text-xs">{part.text}…</p>
     ) : null;
   }
   if (part.type === "error") {
@@ -170,13 +255,18 @@ export function ChatbotSuggestions({ onSelectPrompt }) {
 }
 
 export function ChatbotMessageList({ messages, isLoading, errorMessage, onRetry }) {
-  const lastMessage = messages[messages.length - 1];
+  const lastMessage = messages.at(-1);
   const hasStreamingAssistant = lastMessage?.role === "assistant" && isLoading;
   const showCuratingBubble = isLoading && !hasStreamingAssistant;
   const hasStructuredError = lastMessage?.parts?.some((part) => part.type === "error");
-
   return (
-    <>
+    <div
+      aria-busy={isLoading ? "true" : "false"}
+      aria-label="Citius Concierge conversation"
+      aria-live="off"
+      className="space-y-3 sm:space-y-4"
+      role="log"
+    >
       {messages.map((message) => (
         <m.div
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -218,7 +308,7 @@ export function ChatbotMessageList({ messages, isLoading, errorMessage, onRetry 
           </div>
         </m.div>
       ))}
-      {showCuratingBubble && (
+      {showCuratingBubble ? (
         <m.div
           animate={{ opacity: 1, y: 0 }}
           className="flex justify-start"
@@ -228,8 +318,8 @@ export function ChatbotMessageList({ messages, isLoading, errorMessage, onRetry 
             <CuratingIndicator />
           </div>
         </m.div>
-      )}
-      {errorMessage && !hasStructuredError && (
+      ) : null}
+      {errorMessage && !hasStructuredError ? (
         <m.div
           animate={{ opacity: 1, y: 0 }}
           className="flex justify-start"
@@ -239,7 +329,7 @@ export function ChatbotMessageList({ messages, isLoading, errorMessage, onRetry 
             {errorMessage}
           </div>
         </m.div>
-      )}
-    </>
+      ) : null}
+    </div>
   );
 }

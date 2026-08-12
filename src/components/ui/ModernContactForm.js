@@ -86,6 +86,17 @@ const INITIAL_FORM_STATE = {
   formValues: EMPTY_FORM_VALUES,
 };
 
+function createInitialFormState(initialValues) {
+  return {
+    ...INITIAL_FORM_STATE,
+    formValues: {
+      ...EMPTY_FORM_VALUES,
+      message: initialValues?.message || "",
+      subject: initialValues?.subject || "",
+    },
+  };
+}
+
 function contactFormReducer(state, action) {
   switch (action.type) {
     case "SET_FIELD": {
@@ -125,10 +136,11 @@ function contactFormReducer(state, action) {
   }
 }
 
-export default function ModernContactForm() {
+export default function ModernContactForm({ initialValues }) {
   const [{ formValues, errors, focusedField, buttonState }, dispatch] = useReducer(
     contactFormReducer,
-    INITIAL_FORM_STATE
+    initialValues,
+    createInitialFormState
   );
   const turnstileTokenRef = useRef("");
   const formLoadedAtRef = useRef(0);

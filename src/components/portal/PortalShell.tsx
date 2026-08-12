@@ -31,6 +31,7 @@ import { PortalAccountAvatar } from "@/components/portal/PortalAccountAvatar";
 import { PortalActionMenu } from "@/components/portal/PortalActionMenu";
 import { PortalChromeProvider } from "@/components/portal/PortalChromeContext";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
+import { PortalLoadingAnnouncement } from "@/components/portal/PortalLoadingAnnouncement";
 import PortalNavIcon from "@/components/portal/PortalNavIcon";
 import PortalNavLinkPending from "@/components/portal/PortalNavLinkPending";
 import { PortalPopover } from "@/components/portal/PortalPopover";
@@ -417,6 +418,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
         <PortalConfirmProvider>
           <PortalChromeProvider navShortcuts={navShortcuts}>
             <div className="portal-shell relative min-h-screen overflow-x-hidden bg-brand-light text-brand-dark">
+              <PortalLoadingAnnouncement />
               <a
                 className={`sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 ${PORTAL_Z.skipLinkFocus} focus:rounded-full focus:bg-white focus:px-4 focus:py-2 focus:font-semibold focus:text-citius-blue focus:text-sm focus:shadow-lg`}
                 href="#portal-main"

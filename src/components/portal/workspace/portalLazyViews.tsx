@@ -2,13 +2,14 @@
 
 import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
+import { PortalViewLoading } from "./portalAdminHelpers";
 
 type PreloadableComponent<Props> = ComponentType<Props> & {
   preload?: () => Promise<unknown>;
 };
 
 function portalViewLoading() {
-  return <div aria-hidden className="min-h-[12rem] animate-pulse rounded-xl bg-brand-light/60" />;
+  return <PortalViewLoading />;
 }
 
 function lazyView<

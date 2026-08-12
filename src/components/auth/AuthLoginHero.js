@@ -82,7 +82,7 @@ export function AuthLoginHero({ copy, brandLogo, brandLogoAlt, isConnect }) {
                   <h3 className="mb-1 font-heading font-medium text-lg text-white">
                     {highlight.title}
                   </h3>
-                  <p className="font-light text-sm text-white/60 leading-relaxed">
+                  <p className="font-light text-brand-muted-on-dark text-sm leading-relaxed">
                     {highlight.description}
                   </p>
                 </div>
@@ -93,7 +93,7 @@ export function AuthLoginHero({ copy, brandLogo, brandLogoAlt, isConnect }) {
 
         <m.div
           animate={{ opacity: 1 }}
-          className="font-light text-white/30 text-xs"
+          className="font-light text-brand-muted-on-dark text-xs"
           initial={{ opacity: 0 }}
           transition={{ delay: 0.8 }}
         >

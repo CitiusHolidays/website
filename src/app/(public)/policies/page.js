@@ -1,4 +1,5 @@
 import PolicyContent from "./page.client";
+import { resolvePolicyView } from "./policyView";
 
 export const metadata = {
   description:
@@ -6,10 +7,16 @@ export const metadata = {
   title: "Policies & Terms | Citius Holidays",
 };
 
-export default function PoliciesPage() {
+// The selected policy must be resolved before any UI is rendered so loading and final content agree.
+export const instant = false;
+
+export default async function PoliciesPage({ searchParams }) {
+  const query = await searchParams;
+  const activeView = resolvePolicyView(query?.view);
+
   return (
     <div>
-      <PolicyContent />
+      <PolicyContent activeView={activeView} />
     </div>
   );
 }

@@ -84,7 +84,7 @@ export default function AuthShell({
                 <h3 className="mb-1 font-heading font-medium text-lg text-white">
                   Curated Pilgrimages
                 </h3>
-                <p className="font-light text-sm text-white/60 leading-relaxed">
+                <p className="font-light text-brand-muted-on-dark text-sm leading-relaxed">
                   Discover destinations that speak to your soul, from the peaks of Kailash to the
                   temples of Kyoto.
                 </p>
@@ -99,7 +99,7 @@ export default function AuthShell({
                 <h3 className="mb-1 font-heading font-medium text-lg text-white">
                   Seamless Exploration
                 </h3>
-                <p className="font-light text-sm text-white/60 leading-relaxed">
+                <p className="font-light text-brand-muted-on-dark text-sm leading-relaxed">
                   Let us handle the details while you focus on the experience. Expert guides, luxury
                   stays, peace of mind.
                 </p>
@@ -112,7 +112,7 @@ export default function AuthShell({
               </div>
               <div>
                 <h3 className="mb-1 font-heading font-medium text-lg text-white">Citius Connect</h3>
-                <p className="font-light text-sm text-white/60 leading-relaxed">
+                <p className="font-light text-brand-muted-on-dark text-sm leading-relaxed">
                   Access the {BRAND_NAME} CRM to manage enquiries, proposals, and job cards.
                 </p>
               </div>
@@ -121,7 +121,7 @@ export default function AuthShell({
 
           <m.p
             animate={{ opacity: 1 }}
-            className="font-light text-white/30 text-xs"
+            className="font-light text-brand-muted-on-dark text-xs"
             initial={{ opacity: 0 }}
             transition={{ delay: 0.8 }}
           >
