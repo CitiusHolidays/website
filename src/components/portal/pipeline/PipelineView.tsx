@@ -54,11 +54,17 @@ export type PipelineMode = "sales" | "contracting";
 
 interface PipelineRow {
   clientName?: string;
+  commercialProjectionState?: "preparing" | "ready";
   contractingStatus?: string;
   destination?: string;
   id: string;
   leadStage?: string;
   paxCount?: number;
+  proposalPreview?: {
+    handedOffRevision?: number | null;
+    proposalId: string;
+    proposalRevision: number;
+  } | null;
   queryCode?: string;
   salesOwnerName?: string;
   salesStatus?: string;
@@ -73,6 +79,8 @@ export interface MoveSalesPipelineStageArgs {
 
 export interface MoveContractingPipelineStageArgs {
   expectedContractingStatus: string;
+  proposalId: string;
+  proposalRevision: number;
   queryId: string;
   targetStage: "Proposal sent";
 }
@@ -126,6 +134,15 @@ function pipelineStageForMode(mode: PipelineMode, item: PipelineRow) {
   return mode === "sales" ? getPipelineCardStage(item) : getPipelineStage(item);
 }
 
+function hasCurrentProposalHandoffTarget(item: PipelineRow) {
+  const proposal = item.proposalPreview;
+  return Boolean(
+    item.commercialProjectionState !== "preparing" &&
+      proposal &&
+      proposal.handedOffRevision !== proposal.proposalRevision
+  );
+}
+
 function pipelineMoveValidationMessage({
   fromStage,
   item,
@@ -151,6 +168,7 @@ function pipelineMoveValidationMessage({
   if (
     !isContractingPipelineBoardStage(targetStage) ||
     isContractingPipelineBoardLocked(item) ||
+    !hasCurrentProposalHandoffTarget(item) ||
     !getAllowedContractingPipelineBoardTargets(fromStage).includes(targetStage)
   ) {
     return `Cannot move ${label} to ${targetStage}. Use the required workflow action.`;
@@ -180,8 +198,14 @@ async function invokePipelineMove({
       targetStage: targetStage as SalesPipelineBoardStage,
     });
   }
+  const proposal = item.proposalPreview;
+  if (!(proposal && hasCurrentProposalHandoffTarget(item))) {
+    throw new Error("The current Proposal revision is not ready to send. Refresh the Pipeline.");
+  }
   return await moveContractingPipelineStage?.({
     expectedContractingStatus: fromStage,
+    proposalId: proposal.proposalId,
+    proposalRevision: proposal.proposalRevision,
     queryId: item.id,
     targetStage: "Proposal sent",
   });
@@ -621,7 +645,8 @@ export function PipelineView({
                     const locked =
                       mode === "sales"
                         ? isSalesPipelineBoardLocked(item)
-                        : isContractingPipelineBoardLocked(item);
+                        : isContractingPipelineBoardLocked(item) ||
+                          !hasCurrentProposalHandoffTarget(item);
                     const canMove = moveEnabled && !locked && moveTargets.length > 0;
                     return (
                       <PipelineCard

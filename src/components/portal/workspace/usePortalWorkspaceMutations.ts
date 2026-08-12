@@ -171,9 +171,25 @@ export function usePortalWorkspaceMutations() {
     return commandId;
   };
 
-  const sendProposalToSales = async (args: { proposalId: string }) => {
-    const signature = `proposal.send_to_sales:${args.proposalId}`;
+  const sendProposalToSales = async (args: {
+    proposalId: string;
+    proposalRevision: number;
+    queryId: string;
+  }) => {
+    const signature = `proposal.query_handoff:${args.proposalId}:${args.queryId}:${args.proposalRevision}`;
     const result = await sendProposalToSalesMutation({
+      ...args,
+      commandId: replaySafeCommandId(signature),
+    });
+    commandIdsBySubmission.current.delete(signature);
+    return result;
+  };
+
+  const moveContractingPipelineStage = async (
+    args: Omit<Parameters<typeof moveContractingPipelineStageMutation>[0], "commandId">
+  ) => {
+    const signature = `proposal.query_handoff:${args.proposalId}:${args.queryId}:${args.proposalRevision}`;
+    const result = await moveContractingPipelineStageMutation({
       ...args,
       commandId: replaySafeCommandId(signature),
     });
@@ -306,7 +322,7 @@ export function usePortalWorkspaceMutations() {
     getProposalAttachmentUrl,
     getQueryAttachmentUrl,
     markNotificationRead,
-    moveContractingPipelineStageMutation,
+    moveContractingPipelineStageMutation: moveContractingPipelineStage,
     moveSalesPipelineStageMutation,
     previewPassengerImport,
     removeApproval,

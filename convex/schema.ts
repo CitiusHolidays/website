@@ -1208,12 +1208,15 @@ export default defineSchema({
     contractingStatus: v.optional(v.string()),
     createdAt: v.number(),
     createdBy: v.string(),
+    handedOffAt: v.optional(v.number()),
+    handedOffRevision: v.optional(v.number()),
     paxCount: v.optional(v.number()),
     proposalId: v.id("proposals"),
     queryCode: v.optional(v.string()),
     queryCreatedBy: v.optional(v.string()),
     queryId: v.id("queries"),
     queryType: v.optional(v.string()),
+    revisionRequestedAt: v.optional(v.number()),
     salesOwnerId: v.optional(v.string()),
     salesOwnerName: v.optional(v.string()),
     salesOwnerNameNormalized: v.optional(v.string()),
@@ -1294,6 +1297,26 @@ export default defineSchema({
       fields: ["proposalId", "queryType", "ticketingOwnerNameNormalized"],
       staged: true,
     }),
+
+  proposalQueryHandoffs: defineTable({
+    airfarePerPax: v.number(),
+    clientName: v.string(),
+    commandId: v.string(),
+    costPrice: v.number(),
+    handedOffAt: v.number(),
+    handedOffBy: v.string(),
+    itinerarySummary: v.string(),
+    landCostPerPax: v.number(),
+    proposalCode: v.string(),
+    proposalId: v.id("proposals"),
+    proposalRevision: v.number(),
+    queryId: v.id("queries"),
+    sellingPrice: v.number(),
+    taxRate: v.optional(v.number()),
+    visaCostPerPax: v.number(),
+  })
+    .index("by_proposalId_queryId_revision", ["proposalId", "queryId", "proposalRevision"])
+    .index("by_queryId_handedOffAt", ["queryId", "handedOffAt"]),
 
   proposals: defineTable({
     airfarePerPax: v.optional(v.number()),
@@ -1380,6 +1403,7 @@ export default defineSchema({
     preparedBy: v.string(),
     pricingEnteredAt: v.optional(v.number()),
     proposalCode: v.string(),
+    proposalRevision: v.optional(v.number()),
     queryId: v.optional(v.id("queries")),
     sellingPrice: v.optional(v.number()),
     sentAt: v.optional(v.number()),
@@ -1464,8 +1488,10 @@ export default defineSchema({
     proposalPreview: v.optional(
       v.object({
         costPrice: v.number(),
+        handedOffRevision: v.optional(v.number()),
         proposalCode: v.string(),
         proposalId: v.id("proposals"),
+        proposalRevision: v.optional(v.number()),
         status: v.string(),
         updatedAt: v.number(),
       })
@@ -1517,8 +1543,10 @@ export default defineSchema({
     bestAcceptedProposal: v.optional(
       v.object({
         costPrice: v.number(),
+        handedOffRevision: v.optional(v.number()),
         proposalCode: v.string(),
         proposalId: v.id("proposals"),
+        proposalRevision: v.optional(v.number()),
         status: v.string(),
         updatedAt: v.number(),
       })
@@ -1535,8 +1563,10 @@ export default defineSchema({
     bestProposal: v.optional(
       v.object({
         costPrice: v.number(),
+        handedOffRevision: v.optional(v.number()),
         proposalCode: v.string(),
         proposalId: v.id("proposals"),
+        proposalRevision: v.optional(v.number()),
         status: v.string(),
         updatedAt: v.number(),
       })

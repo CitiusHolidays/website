@@ -100,7 +100,10 @@ export const getDetail = query({
 
 export const moveContractingPipelineStage = mutation({
   args: {
+    commandId: v.string(),
     expectedContractingStatus: v.string(),
+    proposalId: v.string(),
+    proposalRevision: v.number(),
     queryId: v.string(),
     targetStage: v.literal("Proposal sent"),
   },

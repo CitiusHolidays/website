@@ -74,13 +74,19 @@ function ProposalRowActions({
   return (
     <div className="flex flex-wrap gap-2">
       {filesButton}
-      {row.status === "Draft" && (
+      {row.status === "Draft" && row.queryId && (
         <button
           className="portal-small-btn"
-          onClick={() => sendProposalToSales({ proposalId: String(row.id) })}
+          onClick={() =>
+            sendProposalToSales({
+              proposalId: String(row.id),
+              proposalRevision: row.proposalRevision,
+              queryId: row.queryId as string,
+            })
+          }
           type="button"
         >
-          <Send size={13} /> Send to Sales
+          <Send size={13} /> Send to Sales for {row.query?.queryCode ?? "Query"}
         </button>
       )}
       <EditButton

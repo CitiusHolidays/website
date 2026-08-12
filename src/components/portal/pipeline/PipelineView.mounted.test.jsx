@@ -117,6 +117,11 @@ async function mountContracting(moveContractingPipelineStage) {
             clientName: "Ready Group",
             contractingStatus: "Proposal in progress",
             id: "query-c1",
+            proposalPreview: {
+              handedOffRevision: null,
+              proposalId: "proposal-c1",
+              proposalRevision: 3,
+            },
             queryCode: "Q-0101",
           },
           {
@@ -448,6 +453,8 @@ describe("mounted Contracting Pipeline movement", () => {
     expect(calls).toEqual([
       {
         expectedContractingStatus: "Proposal in progress",
+        proposalId: "proposal-c1",
+        proposalRevision: 3,
         queryId: "query-c1",
         targetStage: "Proposal sent",
       },

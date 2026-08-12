@@ -648,7 +648,15 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     return true;
   };
 
-  const sendProposalToSales = async ({ proposalId }: { proposalId: string }) => {
+  const sendProposalToSales = async ({
+    proposalId,
+    proposalRevision,
+    queryId,
+  }: {
+    proposalId: string;
+    proposalRevision: number;
+    queryId: string;
+  }) => {
     setError("");
     if (
       rejectIncompleteProposalHandoff(proposalById(proposalId), PROPOSAL_HANDOFF_TO_SALES_ERROR)
@@ -663,7 +671,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
           showToast: toast,
           successMessage: "Proposal sent to Sales.",
         },
-        () => sendProposalToSalesMutation({ proposalId })
+        () => sendProposalToSalesMutation({ proposalId, proposalRevision, queryId })
       );
       return true;
     } catch {

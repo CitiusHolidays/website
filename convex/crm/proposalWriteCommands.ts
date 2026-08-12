@@ -105,6 +105,7 @@ export async function handleCreateProposal(ctx: MutationCtx, args: CreateProposa
     preparedBy: access.name,
     pricingEnteredAt: hasPricing ? now : undefined,
     proposalCode,
+    proposalRevision: 1,
     queryId: primaryQuery?._id,
     sellingPrice: Math.max(args.sellingPrice ?? 0, 0),
     status: "Draft",
@@ -168,6 +169,11 @@ export async function handleUpdateProposal(ctx: MutationCtx, args: UpdateProposa
   }
 
   const patch: Record<string, unknown> = editorPatch(access);
+  patch.proposalRevision = (proposal.proposalRevision ?? 1) + 1;
+  if (proposal.status === "Sent") {
+    patch.sentToSalesAt = undefined;
+    patch.status = "Draft";
+  }
   const requestedQueryIds = requestedProposalQueryIds(args);
   let nextLinkedQueries: typeof currentLinkedQueries | null = null;
   if (requestedQueryIds !== null) {

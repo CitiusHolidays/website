@@ -6,18 +6,23 @@ import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnershi
 import { mapInBoundedBatches } from "./paginationPolicy";
 
 const PROJECTION_KEY = "queries";
-export const QUERY_COMMERCIAL_PROJECTION_VERSION = 1;
+export const QUERY_COMMERCIAL_PROJECTION_VERSION = 2;
 const RECONCILE_PAGE_SIZE = 50;
 const STALE_AFTER_MS = 60 * 60 * 1000;
 
 type ProposalPreview = NonNullable<Doc<"queries">["proposalPreview"]>;
 type DocumentCandidate = NonNullable<Doc<"queryCommercialProjectionWorkers">["bestDocument"]>;
 
-function proposalPreview(proposal: Doc<"proposals">): ProposalPreview {
+function proposalPreview(
+  proposal: Doc<"proposals">,
+  handedOffRevision: number | undefined
+): ProposalPreview {
   return {
     costPrice: proposal.costPrice ?? 0,
+    handedOffRevision,
     proposalCode: proposal.proposalCode,
     proposalId: proposal._id,
+    proposalRevision: proposal.proposalRevision ?? 1,
     status: proposal.status,
     updatedAt: proposal.updatedAt,
   };
@@ -205,15 +210,16 @@ export const reconcileQueryCommercialProjection = internalMutation({
       .query("proposalQueryLinks")
       .withIndex("by_queryId", (builder) => builder.eq("queryId", worker.queryId))
       .paginate({ cursor: worker.cursor ?? null, numItems: RECONCILE_PAGE_SIZE });
-    const proposals = (
-      await mapInBoundedBatches(
-        page.page,
-        async (link) => await ctx.db.get("proposals", link.proposalId)
-      )
-    ).filter((proposal): proposal is Doc<"proposals"> => proposal !== null);
+    const candidates = await mapInBoundedBatches(page.page, async (link) => ({
+      link,
+      proposal: await ctx.db.get("proposals", link.proposalId),
+    }));
     let { bestAcceptedProposal, bestDocument, bestProposal } = worker;
-    for (const proposal of proposals) {
-      const preview = proposalPreview(proposal);
+    for (const { link, proposal } of candidates) {
+      if (!proposal) {
+        continue;
+      }
+      const preview = proposalPreview(proposal, link.handedOffRevision);
       bestProposal = selectLatestProposal(bestProposal, preview);
       if (proposal.status === "Accepted") {
         bestAcceptedProposal = selectLatestProposal(bestAcceptedProposal, preview);

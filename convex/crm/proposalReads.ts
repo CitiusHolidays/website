@@ -35,6 +35,10 @@ export const publicFinalizedPdf = (proposal: Doc<"proposals">) =>
       }
     : null;
 
+function proposalRevision(proposal: Doc<"proposals">) {
+  return proposal.proposalRevision ?? 1;
+}
+
 async function proposalAttachments(ctx: QueryCtx, proposal: Doc<"proposals">) {
   const attachments = await ctx.db
     .query("proposalAttachments")
@@ -109,6 +113,7 @@ export function publicProposal(
       ? new Date(proposal.pricingEnteredAt).toISOString()
       : null,
     proposalCode: proposal.proposalCode,
+    proposalRevision: proposalRevision(proposal),
     queries: linkedQueries.map(publicQuery),
     query: primaryQuery ? publicQuery(primaryQuery) : null,
     queryId: primaryQuery?._id ?? null,
@@ -167,6 +172,7 @@ export function projectProposalListRow(
     previewQueryIds: queryPreview.map((linkedQuery) => linkedQuery.id),
     pricingEnteredAt: detail.pricingEnteredAt,
     proposalCode: detail.proposalCode,
+    proposalRevision: detail.proposalRevision,
     query: primaryQuery,
     queryId: primaryQuery?.id ?? detail.queryId,
     queryPreview,

@@ -21,6 +21,7 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   jobCards: 50,
   notificationReads: 100,
   notifications: 100,
+  proposalQueryHandoffs: 95,
   proposalQueryLinks: 90,
   proposals: 50,
   queries: 30,

@@ -62,8 +62,10 @@ export const queryProposalPreviewValidator = v.union(
   v.null(),
   v.object({
     costPrice: v.number(),
+    handedOffRevision: v.union(v.null(), v.number()),
     proposalCode: v.string(),
     proposalId: v.id("proposals"),
+    proposalRevision: v.number(),
     status: v.string(),
     updatedAt: v.number(),
   })

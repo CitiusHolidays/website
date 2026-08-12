@@ -52,8 +52,10 @@ export interface PortalQueryListRow {
   } | null;
   proposalPreview?: {
     costPrice: number;
+    handedOffRevision?: number | null;
     proposalCode: string;
     proposalId: string;
+    proposalRevision: number;
     status: string;
     updatedAt: number;
   } | null;
@@ -94,6 +96,7 @@ export interface PortalProposalListRow {
   previewQueryIds?: string[];
   pricingEnteredAt?: string | null;
   proposalCode?: string;
+  proposalRevision: number;
   query?: {
     clientName?: string;
     contractingOwnerId?: string | null;

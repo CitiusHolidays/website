@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { handleMoveContractingPipelineStage } from "./contractingPipelineCommands";
+import { handleSendProposalToSales } from "./proposalHandoffCommands";
 
 interface Row {
   _id: string;
@@ -19,7 +20,9 @@ function makeCtx({
   const actorId = "staff_actor";
   const tables: Tables = {
     activityLogs: [],
+    commandReceipts: [],
     notifications: [],
+    proposalQueryHandoffs: [],
     proposalQueryLinks: Array.from({ length: proposalCount }, (_, index) => ({
       _id: `link_${index + 1}`,
       createdAt: 100,
@@ -35,6 +38,7 @@ function makeCtx({
       createdBy: "auth_actor",
       preparedBy: "Workflow User",
       proposalCode: `P-000${index + 1}`,
+      proposalRevision: 1,
       queryId: "query_1",
       sellingPrice: 100_000,
       status: "Draft",
@@ -115,7 +119,7 @@ function makeCtx({
       }),
     },
     db: {
-      get: findById,
+      get: (...args: string[]) => findById(args.at(-1) ?? ""),
       insert: (table: string, document: Record<string, unknown>) => {
         const id = `${table}_${rowsFor(table).length + 1}`;
         tables[table] = [...rowsFor(table), { _id: id, ...document }];
@@ -140,7 +144,10 @@ function makeCtx({
 }
 
 const moveArgs = {
+  commandId: "88888888-8888-4888-8888-888888888888",
   expectedContractingStatus: "Proposal in progress",
+  proposalId: "proposal_1",
+  proposalRevision: 1,
   queryId: "query_1",
   targetStage: "Proposal sent" as const,
 };
@@ -177,16 +184,16 @@ describe("Contracting Pipeline Command", () => {
     );
   });
 
-  test("rejects missing and ambiguous draft proposals", async () => {
+  test("rejects missing and ambiguous Proposal targets", async () => {
     const missing = makeCtx({ proposalCount: 0 });
     await expect(handleMoveContractingPipelineStage(missing.ctx as any, moveArgs)).rejects.toThrow(
-      "No draft proposal"
+      "Proposal not found"
     );
 
     const ambiguous = makeCtx({ proposalCount: 2 });
     await expect(
       handleMoveContractingPipelineStage(ambiguous.ctx as any, moveArgs)
-    ).rejects.toThrow("More than one draft proposal");
+    ).rejects.toThrow("More than one Proposal");
   });
 
   test("rejects a role without Contracting handoff authority", async () => {
@@ -205,5 +212,24 @@ describe("Contracting Pipeline Command", () => {
     const allowed = makeCtx({ queryType: "Cement Bidding", role: "Contracting Cement" });
     await handleMoveContractingPipelineStage(allowed.ctx as any, moveArgs);
     expect(allowed.tables.queries[0].contractingStatus).toBe("Proposal sent");
+  });
+
+  test("replays one command through either public adapter without duplicate effects", async () => {
+    const { ctx, tables } = makeCtx();
+    const pipelineResult = await handleMoveContractingPipelineStage(ctx as any, moveArgs);
+    const directResult = await handleSendProposalToSales(ctx as any, {
+      commandId: moveArgs.commandId,
+      proposalId: moveArgs.proposalId,
+      proposalRevision: moveArgs.proposalRevision,
+      queryId: moveArgs.queryId,
+    });
+    const pipelineReplay = await handleMoveContractingPipelineStage(ctx as any, moveArgs);
+
+    expect(pipelineResult.proposalId).toBe(directResult.id);
+    expect(pipelineReplay).toEqual(pipelineResult);
+    expect(tables.commandReceipts).toHaveLength(1);
+    expect(tables.proposalQueryHandoffs).toHaveLength(1);
+    expect(tables.activityLogs.filter((row) => row.action === "sent_to_sales")).toHaveLength(1);
+    expect(tables.notifications).toHaveLength(1);
   });
 });

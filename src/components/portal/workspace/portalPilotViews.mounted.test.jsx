@@ -107,6 +107,7 @@ describe("mounted portal pilot views", () => {
           {
             id: "proposal-1",
             proposalCode: "P-0001",
+            proposalRevision: 1,
             queryId: "query-1",
             status: "Sent",
             updatedAt: "2026-07-14",
@@ -123,8 +124,10 @@ describe("mounted portal pilot views", () => {
             createdAt: "2026-07-14",
             id: "query-1",
             proposalPreview: {
+              handedOffRevision: 1,
               proposalCode: "P-0001",
               proposalId: "proposal-1",
+              proposalRevision: 1,
               status: "Sent",
               updatedAt: "2026-07-14",
             },
@@ -163,6 +166,7 @@ describe("mounted portal pilot views", () => {
             finalizedPdf: { fileName: "acme-final.pdf", uploadedAt: "2026-07-14" },
             id: "proposal-1",
             proposalCode: "P-0001",
+            proposalRevision: 1,
             sentToSalesAt: "2026-07-14",
             status: "Sent",
           },
@@ -175,6 +179,44 @@ describe("mounted portal pilot views", () => {
     expect(view.container.textContent).toContain("With Sales");
     expect(view.container.textContent).toContain("acme-final.pdf");
     expect(view.container.textContent).not.toContain("Upload PDF");
+
+    await view.unmount();
+  });
+
+  test("Proposals sends one explicit Proposal, Query, and revision target", async () => {
+    const calls = [];
+    const view = await mount(
+      <ProposalsView
+        deleteItem={noopMutation}
+        getFinalizedPdfUrl={noopUrl}
+        getProposalAttachmentUrl={noopUrl}
+        has={(permission) => permission === P.MANAGE_PROPOSALS}
+        openModal={noop}
+        removeProposal={noopMutation}
+        rows={[
+          {
+            clientName: "Acme Group",
+            costPrice: 70_000,
+            createdAt: "2026-07-14",
+            id: "proposal-1",
+            proposalCode: "P-0001",
+            proposalRevision: 4,
+            query: { id: "query-1", queryCode: "Q-0001" },
+            queryId: "query-1",
+            sellingPrice: 100_000,
+            status: "Draft",
+          },
+        ]}
+        sendProposalToSales={async (args) => calls.push(args)}
+      />
+    );
+
+    const button = [...view.container.querySelectorAll("button")].find((candidate) =>
+      candidate.textContent?.includes("Send to Sales for Q-0001")
+    );
+    expect(button).toBeDefined();
+    await act(async () => button?.click());
+    expect(calls).toEqual([{ proposalId: "proposal-1", proposalRevision: 4, queryId: "query-1" }]);
 
     await view.unmount();
   });

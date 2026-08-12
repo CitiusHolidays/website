@@ -3,8 +3,10 @@ import { selectLatestProposal, selectProposalDocument } from "./queryCommercialP
 
 const proposal = (proposalId: string, updatedAt: number) => ({
   costPrice: 10,
+  handedOffRevision: undefined,
   proposalCode: proposalId,
   proposalId: proposalId as never,
+  proposalRevision: 1,
   status: "Draft",
   updatedAt,
 });

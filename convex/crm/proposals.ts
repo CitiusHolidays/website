@@ -127,6 +127,8 @@ export const sendToSales = mutation({
   args: {
     commandId: v.string(),
     proposalId: v.string(),
+    proposalRevision: v.number(),
+    queryId: v.string(),
   },
   handler: handleSendProposalToSales,
   returns: proposalIdResultValidator,

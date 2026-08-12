@@ -35,7 +35,14 @@ function queryCommercialProjection(
               : null,
           }
         : null,
-    proposalPreview: ready ? (row.proposalPreview ?? null) : null,
+    proposalPreview:
+      ready && row.proposalPreview
+        ? {
+            ...row.proposalPreview,
+            handedOffRevision: row.proposalPreview.handedOffRevision ?? null,
+            proposalRevision: row.proposalPreview.proposalRevision ?? 1,
+          }
+        : null,
   };
 }
 
