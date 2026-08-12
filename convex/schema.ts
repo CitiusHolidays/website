@@ -1182,11 +1182,26 @@ export default defineSchema({
     fileName: v.string(),
     fileSize: v.number(),
     mimeType: v.string(),
+    orderId: v.optional(v.string()),
     proposalId: v.id("proposals"),
     storageId: v.id("_storage"),
   })
     .index("by_proposalId", ["proposalId"])
+    .index("by_proposalId_and_createdAt_and_orderId", {
+      fields: ["proposalId", "createdAt", "orderId"],
+      staged: true,
+    })
     .index("by_storageId", ["storageId"]),
+
+  proposalAttachmentSummaryReadiness: defineTable({
+    generation: v.number(),
+    key: v.string(),
+    ready: v.boolean(),
+    reconciling: v.boolean(),
+    startedAt: v.number(),
+    updatedAt: v.number(),
+    version: v.number(),
+  }).index("by_key", ["key"]),
 
   proposalQueryLinks: defineTable({
     clientName: v.optional(v.string()),
@@ -1226,6 +1241,11 @@ export default defineSchema({
         })
       )
     ),
+    attachmentSummaryGeneration: v.optional(v.number()),
+    attachmentSummaryState: v.optional(
+      v.union(v.literal("pending"), v.literal("reconciling"), v.literal("ready"))
+    ),
+    attachmentSummaryVersion: v.optional(v.number()),
     clientName: v.string(),
     collaboratorStaffIds: v.optional(v.array(v.id("staffUsers"))),
     costPrice: v.optional(v.number()),
