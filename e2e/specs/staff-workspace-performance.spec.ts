@@ -110,7 +110,9 @@ async function openScenarioLink(
   await expect(link).toBeVisible();
   await link.click();
   await expect(page).toHaveURL(new RegExp(`${scenario.href.replaceAll("/", "\\/")}(?:\\?.*)?$`));
-  await expect(page.getByRole("heading", { exact: true, name: scenario.heading })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { exact: true, level: 2, name: scenario.heading })
+  ).toBeVisible();
   await expect
     .poll(async () => (await readPrivacySafeSample(page, false))?.firstContent ?? null)
     .toMatch(FIRST_CONTENT_PATTERN);
