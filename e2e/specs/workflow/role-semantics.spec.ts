@@ -66,11 +66,15 @@ test.describe("@workflow exact role semantics", () => {
     const { context: hrFinalContext, page: hrFinalPage } = await openPortalAs(browser, "hr");
     await hrFinalPage.goto("/portal/employees-on-leave");
     const hrFinalRow = hrFinalPage.locator("tr").filter({ hasText: reason });
-    await expect(hrFinalRow.getByRole("button", { exact: true, name: "Approve" })).toBeVisible({
-      timeout: 15_000,
-    });
-    await hrFinalRow.getByRole("button", { exact: true, name: "Approve" }).click();
-    await expect(hrFinalRow.getByRole("button", { exact: true, name: "Approve" })).toHaveCount(0);
+    await expect(hrFinalRow.getByRole("button", { exact: true, name: "Approve (HR)" })).toBeVisible(
+      {
+        timeout: 15_000,
+      }
+    );
+    await hrFinalRow.getByRole("button", { exact: true, name: "Approve (HR)" }).click();
+    await expect(hrFinalRow.getByRole("button", { exact: true, name: "Approve (HR)" })).toHaveCount(
+      0
+    );
     await expect(hrFinalRow.getByText("Approved", { exact: true })).toHaveCount(3);
     await hrFinalRow.getByRole("button", { name: /Delete leave for E2E HR/i }).click();
     await expectConfirmDialog(hrFinalPage);
@@ -101,9 +105,11 @@ test.describe("@workflow exact role semantics", () => {
     const row = page.locator("tr").filter({ hasText: "E2E Incomplete Proposal Guard" });
     await expect(row).toBeVisible({ timeout: 15_000 });
     await row.getByRole("button", { name: "Send to Sales" }).click();
-    await expect(page.getByRole("alert")).toHaveText(
-      "Enter selling price and cost price on the proposal before sending it to Sales."
-    );
+    await expect(
+      page.getByRole("alert").filter({
+        hasText: "Enter selling price and cost price on the proposal before sending it to Sales.",
+      })
+    ).toHaveText("Enter selling price and cost price on the proposal before sending it to Sales.");
     await expect(row.getByText("Draft", { exact: true })).toBeVisible();
     await row.getByRole("button", { name: "Edit" }).click();
     await expectEntityModalOpen(page);
