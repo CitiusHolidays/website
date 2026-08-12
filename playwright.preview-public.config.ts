@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { vercelProtectionHeaders } from "./config/e2e/vercel-protection";
 
 const baseURL = process.env.BROWSER_SMOKE_BASE_URL;
 if (!baseURL) {
@@ -23,6 +24,7 @@ export default defineConfig({
   timeout: 60_000,
   use: {
     baseURL,
+    extraHTTPHeaders: vercelProtectionHeaders(),
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",

@@ -16,6 +16,7 @@ describe("Preview public browser evidence adapter", () => {
     expect(config).not.toContain("globalTeardown");
     expect(config).not.toContain("loadE2eEnv");
     expect(config).not.toContain("webServer");
+    expect(config).toContain("vercelProtectionHeaders()");
   });
 
   test("accepts an explicit HTTPS Preview and rejects local/production-shaped input", () => {
