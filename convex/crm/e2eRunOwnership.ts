@@ -109,8 +109,11 @@ export const cleanupPage = internalMutation({
       }
       const tableName = record.tableName as E2eCleanupTableName;
       const documentId = ctx.db.normalizeId(tableName, record.documentId);
-      if (documentId) {
-        // biome-ignore lint/performance/noAwaitInLoops: reviewed table order preserves dependencies
+      // The workflow may intentionally delete an owned record before teardown.
+      // Treat that as already-clean instead of stranding the resumable ledger.
+      // biome-ignore lint/performance/noAwaitInLoops: reviewed table order preserves dependencies
+      const existingDocument = documentId ? await ctx.db.get(tableName, documentId) : null;
+      if (documentId && existingDocument) {
         await ctx.db.delete(tableName, documentId);
       }
       await Promise.all(

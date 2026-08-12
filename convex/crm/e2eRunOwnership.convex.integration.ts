@@ -203,4 +203,50 @@ describe("durable E2E run ownership", () => {
       expect(await ctx.db.query("e2eMutatedRecords").collect()).toEqual([]);
     });
   });
+
+  test("cleans ledger rows for owned documents already deleted by the workflow", async () => {
+    const t = createHarness();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("staffUsers", {
+        active: true,
+        authUserId: ACTOR,
+        createdAt: 1,
+        email: "ownership@citius-e2e.test",
+        emailNormalized: "ownership@citius-e2e.test",
+        name: "Ownership Fixture",
+        roles: ["Finance"],
+        updatedAt: 1,
+      });
+    });
+    await t.mutation(beginRun, {
+      authUserIds: [ACTOR],
+      runId: RUN_ID,
+      targetId: "development-integration",
+    });
+    const asFinance = t.withIdentity({
+      email: "ownership@citius-e2e.test",
+      issuer: "https://auth.citius.test",
+      subject: ACTOR,
+      tokenIdentifier: `https://auth.citius.test|${ACTOR}`,
+    });
+    const { id: expenseId } = await asFinance.mutation(api.crm.finance.createExpense, {
+      amount: 25,
+      category: "Deleted before cleanup",
+      paidBy: "E2E actor",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.delete(expenseId);
+    });
+
+    const result = await t.mutation(cleanupPage, {
+      pageSize: 50,
+      runId: RUN_ID,
+      targetId: "development-integration",
+    });
+
+    expect(result).toMatchObject({ complete: true, residualCount: 0 });
+    await t.run(async (ctx) => {
+      expect(await ctx.db.query("e2eOwnedRecords").collect()).toEqual([]);
+    });
+  });
 });
