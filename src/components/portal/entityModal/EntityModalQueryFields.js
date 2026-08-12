@@ -45,7 +45,7 @@ export function EntityModalQueryFields({
   return (
     <div className="space-y-4 md:col-span-2">
       <EntityModalFieldSection
-        description="Start with the person and source behind the enquiry. Required fields are marked with an asterisk."
+        description="Identify the client and enquiry source."
         eyebrow="01 · Enquiry"
         title="Client and contact"
       >
@@ -101,7 +101,7 @@ export function EntityModalQueryFields({
       </EntityModalFieldSection>
 
       <EntityModalFieldSection
-        description="Describe the travel request at the level needed for an initial sales and contracting review."
+        description="Summarize the request for initial Sales and Contracting review."
         eyebrow="02 · Trip brief"
         title="Travel requirements"
       >
@@ -157,7 +157,7 @@ export function EntityModalQueryFields({
       </EntityModalFieldSection>
 
       <EntityModalFieldSection
-        description="Set the initial handoff context. These choices can still be updated through the existing assignment workflow."
+        description="Choose the initial Contracting and Ticketing handoff."
         eyebrow="03 · Handoff"
         title="Delivery coordination"
       >

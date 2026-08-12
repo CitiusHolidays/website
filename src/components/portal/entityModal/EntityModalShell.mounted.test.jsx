@@ -93,6 +93,8 @@ function Harness({
         modal={modal}
         patchForm={doNothing}
         pendingExpenseProofFiles={[]}
+        pendingQueryFiles={[]}
+        setPendingQueryFiles={doNothing}
         submit={onSubmit}
         updateForm={doNothing}
       />
@@ -267,6 +269,37 @@ describe("mounted entity modal shell", () => {
       dialog.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
     expect(submits).toBe(1);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("keeps New Query guidance concise without changing labels or required semantics", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await renderHarness(root, {
+      form: { travelInBatches: "No" },
+      modalType: "query",
+      onClose: doNothing,
+      onSubmit: doNothing,
+    });
+    await act(async () => container.querySelector('[data-testid="entity-trigger"]').click());
+    await flushDialogFrame();
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain("Identify the client and enquiry source.");
+    expect(dialog?.textContent).toContain(
+      "Summarize the request for initial Sales and Contracting review."
+    );
+    expect(dialog?.textContent).toContain("Choose the initial Contracting and Ticketing handoff.");
+    expect(dialog?.textContent).not.toContain("Required fields are marked with an asterisk");
+    expect(dialog?.textContent).not.toContain(
+      "Capture the client, trip brief, and delivery handoff."
+    );
+    expect(dialog?.textContent).toContain("Client / Company");
+    expect(dialog?.textContent).toContain("Budget per Person (INR, pre-tax)");
+    expect(dialog?.querySelector("[required]")).not.toBeNull();
 
     await act(async () => root.unmount());
     container.remove();

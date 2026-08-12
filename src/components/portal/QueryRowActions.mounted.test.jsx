@@ -200,6 +200,12 @@ describe("QueryRowActions", () => {
 
     const moreButtons = container.querySelectorAll('button[aria-label="More actions for Q-2002"]');
     expect(moreButtons.length).toBe(2);
+    const mobileActions = container.querySelector('[data-slot="mobile-query-actions"]');
+    expect(mobileActions?.className).toContain("flex-wrap");
+    expect(mobileActions?.textContent).not.toContain("Swipe");
+    expect(mobileActions?.querySelectorAll("button").length).toBe(2);
+    expect(mobileActions?.querySelector('[aria-label="Open query"]')).not.toBeNull();
+    expect(mobileActions?.querySelector('[aria-label="More actions for Q-2002"]')).not.toBeNull();
 
     await press(moreButtons.item(1));
     const menuItems = [...document.querySelectorAll('[role="menuitem"]')];
@@ -314,5 +320,14 @@ describe("QueryRowActions", () => {
     expect(source).toContain('eventDetails.reason === "outside-press"');
     expect(source).toContain("triggerElement.isConnected");
     expect(source).toContain("triggerElement.disabled");
+  });
+
+  test("keeps mobile query actions static and gesture-free", async () => {
+    const source = await readFile(new URL("./QueryRowActions.tsx", import.meta.url), "utf8");
+    expect(source).not.toContain('from "motion/react"');
+    expect(source).not.toContain("useMotionValue");
+    expect(source).not.toContain('drag="x"');
+    expect(source).not.toContain("Swipe or use More");
+    expect(source).toContain('data-slot="mobile-query-actions"');
   });
 });

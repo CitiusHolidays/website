@@ -198,11 +198,6 @@ export function EntityModalShell({
               <ControlledDialogTitle className="font-heading font-semibold text-citius-blue text-lg">
                 {title}
               </ControlledDialogTitle>
-              {isQueryTaskSheet ? (
-                <p className="mt-0.5 text-brand-muted text-xs">
-                  Capture the client, trip brief, and delivery handoff.
-                </p>
-              ) : null}
             </div>
             <ControlledDialogClose
               render={

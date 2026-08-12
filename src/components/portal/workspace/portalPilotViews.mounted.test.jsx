@@ -95,6 +95,53 @@ describe("mounted portal pilot views", () => {
     await view.unmount();
   });
 
+  test("Queries reserves prominent attention treatment for real exceptions", async () => {
+    const view = await mount(
+      <QueriesView
+        access={{ roles: ["Sales"] }}
+        deleteItem={noopMutation}
+        getFinalizedPdfUrl={noopUrl}
+        getQueryAttachmentUrl={noopUrl}
+        has={hasManageQueries}
+        openModal={noop}
+        removeQuery={noopMutation}
+        rows={[
+          {
+            clientName: "Healthy Group",
+            contractingOwnerId: "staff-contracting",
+            createdAt: "2026-07-14",
+            destination: "Goa",
+            id: "query-healthy",
+            leadStage: "Proposal",
+            paxCount: 12,
+            queryCode: "Q-HEALTHY",
+            submittedToContractingAt: 1,
+            ticketingOwnerId: "staff-ticketing",
+            ticketingScope: "Required",
+            travelStartDate: "2026-08-01",
+          },
+          {
+            clientName: "Needs Assignment Group",
+            createdAt: "2026-07-14",
+            destination: "Goa",
+            id: "query-warning",
+            leadStage: "Proposal",
+            paxCount: 12,
+            queryCode: "Q-WARNING",
+            submittedToContractingAt: 1,
+          },
+        ]}
+        submitToContracting={noopMutation}
+      />
+    );
+
+    expect(view.container.textContent).not.toContain("No open exception");
+    expect(view.container.textContent).toContain("Contracting SPOC unassigned");
+    expect(view.container.querySelectorAll('[data-attention="warning"]')).toHaveLength(2);
+
+    await view.unmount();
+  });
+
   test("Contracting preserves Contracting SPOC and With Sales handoff presentation", async () => {
     const view = await mount(
       <ContractingView

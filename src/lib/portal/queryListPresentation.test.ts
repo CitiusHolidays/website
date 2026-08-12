@@ -70,6 +70,6 @@ describe("query list presentation", () => {
         ticketingScope: "Required",
         travelStartDate: "2026-08-01",
       })
-    ).toBe("No open exception");
+    ).toBeNull();
   });
 });
