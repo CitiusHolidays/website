@@ -11,7 +11,7 @@ import {
   modalSpinbutton,
   saveEntityModal,
 } from "../helpers/modal";
-import { selectOptionByMatchingLabel } from "../helpers/select";
+import { selectFirstSelectableOption, selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 import { ProposalsPage, QueriesPage, TravellersPage } from "../pages";
 
@@ -40,7 +40,7 @@ test.describe
       await modalField(page, "Travel Date From").fill("2026-10-02");
       await modalField(page, "Travel Date To").fill("2026-10-08");
       await modalSpinbutton(page, "Budget per Person").fill("75000");
-      await modalCombobox(page, "Travel in Series").selectOption({ label: "Yes" });
+      await selectOptionByMatchingLabel(modalCombobox(page, "Travel in Series"), "Yes");
       await modalField(page, "Batch Details").fill("Two departures, one week apart");
       await entityModal(page)
         .getByLabel("Attachments")
@@ -198,9 +198,10 @@ test.describe
       const row = queries.queryRow(e2eChain.clientName);
       await row.getByRole("button", { name: "Sales Decision" }).click();
       await expectEntityModalOpen(page);
-      await modalCombobox(page, "Sales Decision").selectOption({
-        label: "Date/Destination Change Required",
-      });
+      await selectOptionByMatchingLabel(
+        modalCombobox(page, "Sales Decision"),
+        "Date/Destination Change Required"
+      );
       await modalField(page, /^Destination$/).fill("Tbilisi");
       await fillPortalDate(modalField(page, "Travel Start Date"), "2026-10-03");
       await fillPortalDate(modalField(page, "Travel End Date"), "2026-10-09");
@@ -209,8 +210,8 @@ test.describe
 
       await row.getByRole("button", { name: "Sales Decision" }).click();
       await expectEntityModalOpen(page);
-      await modalCombobox(page, "Sales Decision").selectOption({ label: "Order Confirmed" });
-      await modalCombobox(page, "Accepted Proposal").selectOption({ index: 1 });
+      await selectOptionByMatchingLabel(modalCombobox(page, "Sales Decision"), "Order Confirmed");
+      await selectFirstSelectableOption(modalCombobox(page, "Accepted Proposal"));
       await modalSpinbutton(page, "Confirmed Pax").fill("2");
       await modalSpinbutton(page, "Selling Price per Person").fill("2500");
       await fillPortalDate(modalField(page, "Travel Start Date"), "2026-10-03");
@@ -257,9 +258,7 @@ test.describe
       const { context, page } = await openPortalAs(browser, "operations");
       const travellers = new TravellersPage(page);
       await travellers.open();
-      if (e2eChain.jobCode) {
-        await travellers.filterByJobCard(e2eChain.jobCode);
-      }
+      await travellers.filterByJobCard(e2eChain.jobCode);
       await travellers.createTraveller(e2eChain.jobCode, e2eChain.travellerName);
       await expectEntityModalOpen(page);
       await saveEntityModal(page);

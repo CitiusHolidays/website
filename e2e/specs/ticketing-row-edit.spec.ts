@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { openPortalAs } from "../helpers/auth";
 import { uniqueE2eLabel } from "../helpers/chainState";
 import { expectEntityModalOpen, saveEntityModal } from "../helpers/modal";
-import { firstSelectableOptionLabel } from "../helpers/select";
+import { firstSelectableOptionLabel, selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 
 test.describe("@smoke ticketing row edit", () => {
@@ -21,7 +21,7 @@ test.describe("@smoke ticketing row edit", () => {
     const firstJob = await firstSelectableOptionLabel(jobCardSelect);
     test.skip(!firstJob, "No Job Card options available for ticketing create precondition.");
 
-    await jobCardSelect.selectOption({ label: firstJob! });
+    await selectOptionByMatchingLabel(jobCardSelect, firstJob!);
     const initialTicketNumber = uniqueE2eLabel("E2E-TKT-INITIAL");
     await page.getByLabel("Ticket Number").fill(initialTicketNumber);
     await saveEntityModal(page);

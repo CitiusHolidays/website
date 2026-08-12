@@ -3,6 +3,7 @@ import { openPortalAs } from "../helpers/auth";
 import { uniqueE2eLabel } from "../helpers/chainState";
 import { fillPortalDate, isoDate } from "../helpers/date";
 import { expectEntityModalOpen, modalField, saveEntityModal } from "../helpers/modal";
+import { selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 
 test.describe("@smoke finance expense flow", () => {
@@ -18,9 +19,9 @@ test.describe("@smoke finance expense flow", () => {
       .click();
     await expectEntityModalOpen(page);
 
-    await modalField(page, "Expense Type").selectOption({ label: "Office / General" });
+    await selectOptionByMatchingLabel(modalField(page, "Expense Type"), "Office / General");
     await fillPortalDate(modalField(page, "Expense Date"), isoDate());
-    await modalField(page, "Category").selectOption({ label: "F&B" });
+    await selectOptionByMatchingLabel(modalField(page, "Category"), "F&B");
     await modalField(page, "Paid By").fill(paidBy);
     await modalField(page, "Card Amount").fill("100");
     await saveEntityModal(page);

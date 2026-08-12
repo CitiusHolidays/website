@@ -39,7 +39,10 @@ test.describe("@workflow exact role semantics", () => {
       .click();
     await expectEntityModalOpen(hrCreatePage);
     await selectOptionByMatchingLabel(modalCombobox(hrCreatePage, "Employee"), "E2E HR");
-    await modalCombobox(hrCreatePage, "Leave Type").selectOption({ label: "Leave Without Pay" });
+    await selectOptionByMatchingLabel(
+      modalCombobox(hrCreatePage, "Leave Type"),
+      "Leave Without Pay"
+    );
     await fillPortalDate(modalField(hrCreatePage, "Start Date"), isoDate(21));
     await fillPortalDate(modalField(hrCreatePage, "End Date"), isoDate(22));
     await modalField(hrCreatePage, /reason for leave/i).fill(reason);

@@ -5,13 +5,29 @@ function isPlaceholderOption(text: string) {
   return !normalized || normalized.includes("select");
 }
 
-/** Wait until async Convex team/job-card options have rendered in a native `<select>`. */
+function isNativeSelect(select: Locator) {
+  return select.evaluate((element) => element.tagName === "SELECT");
+}
+
+async function optionLabels(select: Locator, openCustomSelect: boolean) {
+  if (await isNativeSelect(select)) {
+    return select.locator("option").allTextContents();
+  }
+
+  if (openCustomSelect && (await select.getAttribute("aria-expanded")) !== "true") {
+    await select.click();
+  }
+
+  return select.page().getByRole("option").allTextContents();
+}
+
+/** Wait until async Convex options have rendered in a native or Base UI select. */
 export async function waitForSelectableOptions(select: Locator, timeout = 15_000) {
   const deadline = Date.now() + timeout;
   let lastOptions: string[] = [];
 
   while (Date.now() < deadline) {
-    lastOptions = await select.locator("option").allTextContents();
+    lastOptions = await optionLabels(select, true);
     if (lastOptions.some((option) => !isPlaceholderOption(option))) {
       return;
     }
@@ -25,7 +41,7 @@ export async function waitForSelectableOptions(select: Locator, timeout = 15_000
 
 export async function selectOptionByMatchingLabel(select: Locator, labelMatch: string | RegExp) {
   await waitForSelectableOptions(select);
-  const options = await select.locator("option").allTextContents();
+  const options = await optionLabels(select, false);
   const matched = options.find((option) => {
     const text = option.trim();
     if (isPlaceholderOption(text)) {
@@ -42,11 +58,26 @@ export async function selectOptionByMatchingLabel(select: Locator, labelMatch: s
     throw new Error(`No option matching ${String(labelMatch)}`);
   }
 
-  await select.selectOption({ label: matched.trim() });
+  const label = matched.trim();
+  if (await isNativeSelect(select)) {
+    await select.selectOption({ label });
+    return;
+  }
+
+  await select.page().getByRole("option", { exact: true, name: label }).click();
 }
 
 export async function firstSelectableOptionLabel(select: Locator) {
-  const options = await select.locator("option").allTextContents();
+  await waitForSelectableOptions(select);
+  const options = await optionLabels(select, false);
   const matched = options.find((option) => !isPlaceholderOption(option));
   return matched?.trim() ?? null;
+}
+
+export async function selectFirstSelectableOption(select: Locator) {
+  const label = await firstSelectableOptionLabel(select);
+  if (!label) {
+    throw new Error("No selectable option available");
+  }
+  await selectOptionByMatchingLabel(select, label);
 }
