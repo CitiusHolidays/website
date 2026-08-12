@@ -488,11 +488,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_initiatedBy_updatedAt", ["initiatedBy", "updatedAt"])
-    .index("by_actor_job_source", ["initiatedBy", "jobCardId", "sourceDigest"])
-    .index("by_initiatedBy_jobCardId_sourceDigest", {
-      fields: ["initiatedBy", "jobCardId", "sourceDigest"],
-      staged: true,
-    }),
+    .index("by_initiatedBy_jobCardId_sourceDigest", ["initiatedBy", "jobCardId", "sourceDigest"]),
 
   passengerImportOperationBatches: defineTable({
     accepted: v.number(),
@@ -507,10 +503,8 @@ export default defineSchema({
     roomSummary: importRoomSummaryValidator,
     updated: v.number(),
   })
-    .index("by_operation_batch", ["operationId", "batchId"])
-    .index("by_operation", ["operationId"])
-    .index("by_operationId_batchId", { fields: ["operationId", "batchId"], staged: true })
-    .index("by_operationId", { fields: ["operationId"], staged: true }),
+    .index("by_operationId_batchId", ["operationId", "batchId"])
+    .index("by_operationId", ["operationId"]),
 
   passengerExportOperations: defineTable({
     attemptCount: v.number(),
@@ -536,11 +530,12 @@ export default defineSchema({
     storageId: v.optional(v.id("_storage")),
     updatedAt: v.number(),
   })
-    .index("by_actor_export_command", ["initiatedBy", "exportKind", "jobCardId", "commandId"])
-    .index("by_initiatedBy_exportKind_jobCardId_commandId", {
-      fields: ["initiatedBy", "exportKind", "jobCardId", "commandId"],
-      staged: true,
-    })
+    .index("by_initiatedBy_exportKind_jobCardId_commandId", [
+      "initiatedBy",
+      "exportKind",
+      "jobCardId",
+      "commandId",
+    ])
     .index("by_initiatedBy_updatedAt", ["initiatedBy", "updatedAt"])
     .index("by_status_expiresAt", ["status", "expiresAt"])
     .index("by_storageId", ["storageId"]),
@@ -880,11 +875,7 @@ export default defineSchema({
     resultId: v.string(),
     targetId: v.string(),
   })
-    .index("by_actor_operation_command", ["actorKey", "operation", "commandId"])
-    .index("by_actorKey_operation_commandId", {
-      fields: ["actorKey", "operation", "commandId"],
-      staged: true,
-    })
+    .index("by_actorKey_operation_commandId", ["actorKey", "operation", "commandId"])
     .index("by_createdAt", ["createdAt"]),
 
   jobCardDeletionOperations: defineTable({

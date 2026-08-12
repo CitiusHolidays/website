@@ -56,7 +56,7 @@ export async function resolveCommandReceipt(
   const resolvedActorKey = actorKey(args.access);
   const receipt = await ctx.db
     .query("commandReceipts")
-    .withIndex("by_actor_operation_command", (q) =>
+    .withIndex("by_actorKey_operation_commandId", (q) =>
       q
         .eq("actorKey", resolvedActorKey)
         .eq("operation", args.operation)

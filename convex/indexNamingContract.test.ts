@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
 const schema = readFileSync("convex/schema.ts", "utf8");
-const compactSchema = schema.replaceAll(/\s+/g, "");
+const compactSchema = schema.replaceAll(/\s+/g, "").replaceAll(",]", "]");
 
-const stagedFieldCompleteIndexes = [
+const fieldCompleteIndexes = [
   ["by_initiatedBy_jobCardId_sourceDigest", '["initiatedBy", "jobCardId", "sourceDigest"]'],
   ["by_operationId_batchId", '["operationId", "batchId"]'],
   ["by_operationId", '["operationId"]'],
@@ -16,15 +16,13 @@ const stagedFieldCompleteIndexes = [
 ] as const;
 
 describe("Convex index naming rollout", () => {
-  test("adds staged, field-complete aliases before any call-site migration", () => {
-    for (const [name, fields] of stagedFieldCompleteIndexes) {
-      expect(compactSchema).toContain(
-        `.index("${name}",{fields:${fields},staged:true`.replaceAll(/\s+/g, "")
-      );
+  test("defines one active field-complete index for each migrated lookup", () => {
+    for (const [name, fields] of fieldCompleteIndexes) {
+      expect(compactSchema).toContain(`.index("${name}",${fields.replaceAll(/\s+/g, "")})`);
     }
   });
 
-  test("retains the deployed legacy aliases until every target reports readiness", () => {
+  test("does not retain duplicate-field legacy aliases", () => {
     for (const name of [
       "by_actor_job_source",
       "by_operation_batch",
@@ -32,7 +30,7 @@ describe("Convex index naming rollout", () => {
       "by_actor_export_command",
       "by_actor_operation_command",
     ]) {
-      expect(schema).toContain(`.index("${name}"`);
+      expect(schema).not.toContain(`.index("${name}"`);
     }
   });
 });

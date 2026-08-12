@@ -388,7 +388,7 @@ export const beginPassengerImportOperation = internalMutation({
     const initiatedBy = args.access.authUserId ?? args.access.email;
     const existing = await ctx.db
       .query("passengerImportOperations")
-      .withIndex("by_actor_job_source", (q) =>
+      .withIndex("by_initiatedBy_jobCardId_sourceDigest", (q) =>
         q
           .eq("initiatedBy", initiatedBy)
           .eq("jobCardId", jobCardId)
@@ -455,7 +455,7 @@ export const recordPassengerImportOperationBatch = internalMutation({
     }
     const existingBatch = await ctx.db
       .query("passengerImportOperationBatches")
-      .withIndex("by_operation_batch", (q) =>
+      .withIndex("by_operationId_batchId", (q) =>
         q.eq("operationId", args.operationId).eq("batchId", args.batchId)
       )
       .unique();
@@ -895,7 +895,7 @@ export const beginPassengerExportOperation = internalMutation({
     const initiatedBy = args.access.authUserId ?? args.access.email;
     const existing = await ctx.db
       .query("passengerExportOperations")
-      .withIndex("by_actor_export_command", (indexQuery) =>
+      .withIndex("by_initiatedBy_exportKind_jobCardId_commandId", (indexQuery) =>
         indexQuery
           .eq("initiatedBy", initiatedBy)
           .eq("exportKind", args.exportKind)
