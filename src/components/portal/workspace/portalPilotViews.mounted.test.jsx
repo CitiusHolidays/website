@@ -117,10 +117,17 @@ describe("mounted portal pilot views", () => {
           {
             batchingNotes: "Batch A then Batch B",
             clientName: "Acme Group",
+            commercialProjectionState: "ready",
             contractingOwnerName: "Cora Contracting",
             contractingStatus: "Proposal in progress",
             createdAt: "2026-07-14",
             id: "query-1",
+            proposalPreview: {
+              proposalCode: "P-0001",
+              proposalId: "proposal-1",
+              status: "Sent",
+              updatedAt: "2026-07-14",
+            },
             queryCode: "Q-0001",
             ticketingOwnerName: "Tina Ticketing",
             ticketingScope: "International",

@@ -37,6 +37,7 @@ import {
   type PortalAccess,
   requireAnyPermission,
 } from "./lib";
+import { enqueueProposalQueryCommercialProjections } from "./queryCommercialProjection";
 
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_PAGE_SIZE = 25;
@@ -1102,6 +1103,7 @@ export const createFile = internalMutation({
         finalizedPdfUploadedAt: timestamp,
         finalizedPdfUploadedBy: args.createdBy,
       });
+      await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
     }
     await createActivity(ctx, access, {
       action: "commercial_file_uploaded",
@@ -1177,6 +1179,7 @@ export const deleteFile = mutationWithAccess({
         finalizedPdfUploadedAt: undefined,
         finalizedPdfUploadedBy: undefined,
       });
+      await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
     }
     await createActivity(ctx, access, {
       action: "commercial_file_deleted",
@@ -1232,6 +1235,7 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
       finalizedPdfUploadedAt: undefined,
       finalizedPdfUploadedBy: undefined,
     });
+    await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
     await createActivity(ctx, access, {
       action: "commercial_file_deleted",
       entityId: source.id,
@@ -1292,6 +1296,7 @@ export const restoreFile = mutationWithAccess({
         finalizedPdfUploadedAt: row.createdAt,
         finalizedPdfUploadedBy: row.createdBy,
       });
+      await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
     }
     await createActivity(ctx, access, {
       action: "commercial_file_restored",
@@ -1337,6 +1342,7 @@ export const restoreProposalHistory = mutationWithAccess({
       finalizedPdfUploadedAt: row.createdAt,
       finalizedPdfUploadedBy: row.createdBy,
     });
+    await enqueueProposalQueryCommercialProjections(ctx, proposalSource.proposal);
     await createActivity(ctx, access, {
       action: "proposal_doc_history_restored",
       entityId: proposalSource.id,

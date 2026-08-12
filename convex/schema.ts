@@ -1403,6 +1403,7 @@ export default defineSchema({
     .searchIndex("search_list", { searchField: "listSearchText" }),
 
   queries: defineTable({
+    acceptedProposalId: v.optional(v.id("proposals")),
     approxMargin: v.optional(v.number()),
     attachmentCount: v.optional(v.number()),
     attachmentPreview: v.optional(
@@ -1500,10 +1501,12 @@ export default defineSchema({
     .searchIndex("search_list", { searchField: "listSearchText" }),
 
   queryCommercialProjectionReadiness: defineTable({
+    completedCount: v.optional(v.number()),
     generation: v.number(),
     key: v.string(),
     ready: v.boolean(),
     reconciling: v.boolean(),
+    scheduledCount: v.optional(v.number()),
     schedulingComplete: v.boolean(),
     startedAt: v.number(),
     updatedAt: v.number(),
@@ -1511,6 +1514,15 @@ export default defineSchema({
   }).index("by_key", ["key"]),
 
   queryCommercialProjectionWorkers: defineTable({
+    bestAcceptedProposal: v.optional(
+      v.object({
+        costPrice: v.number(),
+        proposalCode: v.string(),
+        proposalId: v.id("proposals"),
+        status: v.string(),
+        updatedAt: v.number(),
+      })
+    ),
     bestDocument: v.optional(
       v.object({
         fileName: v.string(),

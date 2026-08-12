@@ -7,20 +7,16 @@ import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { CONTRACTING_TEAM_ROLES } from "@/lib/portal/constants";
 import { getContractingAttention } from "@/lib/portal/contractingListPresentation";
 import { buildContractingSurfaceStatusAction } from "@/lib/portal/contractingQueryActions";
-import { proposalLinkedQueryIds, proposalPrimaryQuery } from "@/lib/portal/proposalLinks";
 import { canDeleteQuery } from "@/lib/portal/queryDeletionAccess";
 import type {
   ContractingViewProps,
   PortalContractingTeamRow,
-  PortalProposalListRow,
   PortalQueryListRow,
 } from "./portalViewTypes";
 import { approximateMarginLabel, money, notesPreview, strong } from "./portalWorkspaceListHelpers";
 import { DeleteButton, Panel, QueryFilesSummary, StatusBadge } from "./portalWorkspaceListUi";
 
 type PortalContractingQueryRow = PortalQueryListRow;
-type PortalContractingProposalRow = PortalProposalListRow;
-
 function ContractingJobCardHandoff({ row }: { row: PortalContractingQueryRow }) {
   if (row.salesStatus !== "Order Confirmed") {
     return null;
@@ -41,7 +37,6 @@ function ContractingJobCardHandoff({ row }: { row: PortalContractingQueryRow }) 
 export function ContractingView({
   access,
   rows,
-  proposals,
   filtersActive = false,
   team,
   openModal,
@@ -52,26 +47,6 @@ export function ContractingView({
   getFinalizedPdfUrl,
   getQueryAttachmentUrl,
 }: ContractingViewProps) {
-  const proposalsByQueryId = (() => {
-    const map = new Map();
-    for (const proposal of proposals) {
-      const queryIds = proposalLinkedQueryIds(proposal);
-      if (queryIds.length === 0) {
-        continue;
-      }
-      for (const queryId of queryIds) {
-        const existing = map.get(queryId);
-        if (
-          !existing ||
-          new Date(proposal.updatedAt ?? 0).getTime() > new Date(existing.updatedAt ?? 0).getTime()
-        ) {
-          map.set(queryId, proposal);
-        }
-      }
-    }
-    return map;
-  })();
-
   const contractingTeam = team.filter((member) =>
     member.roles.some((role) => CONTRACTING_TEAM_ROLES.includes(role))
   );
@@ -215,7 +190,10 @@ export function ContractingView({
             id: "proposal-cost",
             label: "Proposal Cost",
             render: (row: PortalContractingQueryRow) => {
-              const proposal = proposalsByQueryId.get(row.id);
+              const proposal = row.proposalPreview;
+              if (row.commercialProjectionState === "preparing") {
+                return <span className="text-brand-muted text-xs">Preparing…</span>;
+              }
               if (!proposal) {
                 return "-";
               }
@@ -224,19 +202,8 @@ export function ContractingView({
                   className="font-semibold text-citius-blue underline-offset-2 hover:underline"
                   onClick={() =>
                     openModal("proposal", {
-                      airfarePerPax: String(proposal.airfarePerPax ?? ""),
-                      clientName: proposal.clientName,
-                      entityId: proposal.id,
-                      itinerarySummary: proposal.itinerarySummary || "",
-                      landCostPerPax: String(proposal.landCostPerPax ?? ""),
-                      paxCount: String(
-                        proposalPrimaryQuery(proposal)?.paxCount ?? row.paxCount ?? 1
-                      ),
-                      queryId: proposal.queryId || "",
-                      queryIds: proposalLinkedQueryIds(proposal),
-                      sellingPrice: String(proposal.sellingPrice ?? ""),
-                      taxRate: proposal.taxRate == null ? "" : String(proposal.taxRate),
-                      visaCostPerPax: String(proposal.visaCostPerPax ?? ""),
+                      entityId: proposal.proposalId,
+                      focusedDetailType: "proposal",
                     })
                   }
                   type="button"
@@ -309,7 +276,7 @@ export function ContractingView({
         empty="No contracting queries yet."
         filtersActive={filtersActive}
         mobileCardRender={(row: PortalContractingQueryRow) => {
-          const proposal = proposalsByQueryId.get(row.id);
+          const proposal = row.proposalPreview;
           return (
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-3">
@@ -347,7 +314,11 @@ export function ContractingView({
                 <div>
                   <span className="text-brand-muted text-xs">Cost Price per person</span>
                   <div className="font-medium text-brand-dark">
-                    {proposal ? `${money(proposal.costPrice)}/pax` : "Not started"}
+                    {row.commercialProjectionState === "preparing"
+                      ? "Preparing…"
+                      : proposal
+                        ? `${money(proposal.costPrice)}/pax`
+                        : "Not started"}
                   </div>
                 </div>
                 <div>
@@ -375,7 +346,7 @@ export function ContractingView({
           );
         }}
         rowAttention={(row: PortalContractingQueryRow) =>
-          getContractingAttention({ ...row, proposal: proposalsByQueryId.get(row.id) })
+          getContractingAttention({ ...row, proposal: row.proposalPreview ?? undefined })
         }
         rows={rows}
         tableClassName="min-w-[78rem]"

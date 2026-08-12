@@ -111,6 +111,22 @@ describe("jobCardProposalLinkPatch", () => {
     ).toEqual({ proposalId: "proposal_new" });
   });
 
+  test("prefers the query-side bounded proposal projection over list fallback data", () => {
+    expect(
+      jobCardProposalLinkPatch({
+        form: { queryId: "query_1" },
+        modal: "jobCard",
+        proposals,
+        queries: [
+          {
+            id: "query_1",
+            proposalPreview: { proposalId: "proposal_projected" },
+          },
+        ],
+      })
+    ).toMatchObject({ proposalId: "proposal_projected" });
+  });
+
   test("hydrates immutable Confirmed Offer values when focused query detail arrives", () => {
     expect(
       jobCardProposalLinkPatch({
@@ -211,6 +227,22 @@ describe("createFocusedEditModalForm", () => {
       confirmedPax: "12",
       entityId: "job_1",
       queryId: "query_1",
+    });
+  });
+
+  test("preserves every linked query when focused Proposal detail exceeds the list preview", () => {
+    const queryIds = Array.from({ length: 8 }, (_, index) => `query_${index + 1}`);
+    expect(
+      createFocusedEditModalForm("proposal", {
+        id: "proposal_many",
+        queries: queryIds.map((id) => ({ id })),
+        query: { id: queryIds[0], paxCount: 24 },
+        queryId: queryIds[0],
+        queryIds,
+      })
+    ).toMatchObject({
+      entityId: "proposal_many",
+      queryIds,
     });
   });
 });

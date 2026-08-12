@@ -119,7 +119,7 @@ export const PORTAL_ROUTES = {
   },
   contracting: {
     component: "ContractingView",
-    dependencies: ["queries", "proposals", "team"],
+    dependencies: ["queries", "team"],
     family: "pilot",
     paginationKey: "queries",
     permission: P.VIEW_CONTRACTING,

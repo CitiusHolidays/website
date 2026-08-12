@@ -25,6 +25,7 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   proposals: 50,
   queries: 30,
   queryAttachments: 90,
+  queryCommercialProjectionWorkers: 95,
   staffLeaveBalances: 90,
   staffLeaveLedger: 90,
   staffLeaveRecords: 50,

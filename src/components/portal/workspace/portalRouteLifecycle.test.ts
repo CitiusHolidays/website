@@ -96,7 +96,6 @@ describe("portal route lifecycle manifest", () => {
   test("combines route, modal, and deep-link subscriptions without all-domain fan-out", () => {
     expect([...getPortalDataDependencies({ view: "dashboard" })]).toEqual(["dashboard"]);
     expect([...getPortalDataDependencies({ view: "contracting" })].sort()).toEqual([
-      "proposals",
       "queries",
       "team",
     ]);

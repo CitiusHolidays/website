@@ -42,4 +42,14 @@ describe("proposalLinkedQueryOptions", () => {
   test("ignores the proposal currently being edited when checking eligibility", () => {
     expect(isProposalLinkedQueryEligible(queries[1], proposals, "p_accepted")).toBe(true);
   });
+
+  test("uses the query-side accepted proposal projection as authoritative eligibility", () => {
+    const projected = {
+      acceptedProposalId: "p_accepted",
+      id: "q_confirmed",
+      salesStatus: "Order Confirmed",
+    };
+    expect(isProposalLinkedQueryEligible(projected, [], "p_accepted")).toBe(true);
+    expect(isProposalLinkedQueryEligible(projected, proposals, "p_other")).toBe(false);
+  });
 });

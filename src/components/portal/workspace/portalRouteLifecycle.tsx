@@ -176,7 +176,6 @@ function selectPortalRouteContent(
           getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
           has={workspace.has}
           openModal={workspace.openModal}
-          proposals={workspace.filteredProposals}
           removeQuery={workspace.removeQuery}
           rows={workspace.filteredContractingQueries}
           team={workspace.team || []}

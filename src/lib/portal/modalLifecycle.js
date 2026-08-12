@@ -51,7 +51,11 @@ export function jobCardProposalLinkPatch({ form, modal, proposals = [], queries 
   const patch = linkedQuery ? applyQueryLink(form, linkedQuery, { onlyEmpty: true }) : {};
   if (!form.proposalId) {
     const linkedProposal = resolveLinkedProposalForQuery(proposals, form.queryId);
-    patch.proposalId = linkedQuery?.confirmedOffer?.proposalId || linkedProposal?.id || "";
+    patch.proposalId =
+      linkedQuery?.confirmedOffer?.proposalId ||
+      linkedQuery?.proposalPreview?.proposalId ||
+      linkedProposal?.id ||
+      "";
   }
   const changedPatch = Object.fromEntries(
     Object.entries(patch).filter(([field, value]) => form[field] !== value)
@@ -143,6 +147,7 @@ export function createInitialModalForm({
     if (type === "jobCard" && !next.proposalId) {
       next.proposalId =
         linkedQuery?.confirmedOffer?.proposalId ||
+        linkedQuery?.proposalPreview?.proposalId ||
         resolveLinkedProposalForQuery(proposals, next.queryId)?.id ||
         "";
     }

@@ -87,6 +87,9 @@ function makeAssignmentCtx(initialTables: Tables) {
         };
       },
     },
+    scheduler: {
+      runAfter: async () => undefined,
+    },
   };
 
   return { ctx, tables };

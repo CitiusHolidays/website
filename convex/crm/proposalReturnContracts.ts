@@ -12,7 +12,7 @@ import {
 
 const nullableString = v.union(v.null(), v.string());
 
-const proposalQueryOutputValidator = v.object({
+export const proposalQueryOutputValidator = v.object({
   approxMargin: v.union(v.null(), v.number()),
   batchingNotes: v.string(),
   budgetAmount: v.number(),
@@ -116,12 +116,12 @@ export const proposalListOutputValidator = v.object({
   lastEditedByName: v.string(),
   linkedQueryCount: v.number(),
   preparedBy: v.string(),
+  previewQueryIds: v.array(v.id("queries")),
   pricingEnteredAt: nullableString,
   proposalCode: v.string(),
-  queries: v.array(proposalListQueryValidator),
   query: v.union(v.null(), proposalListQueryValidator),
   queryId: v.union(v.null(), v.id("queries")),
-  queryIds: v.array(v.id("queries")),
+  queryPreview: v.array(proposalListQueryValidator),
   sellingPrice: v.number(),
   sentAt: nullableString,
   sentToClientAt: nullableString,
@@ -140,6 +140,9 @@ export const proposalListOutputValidator = v.object({
 export const proposalListResultValidator = v.array(proposalListOutputValidator);
 export const proposalListPageResultValidator = paginationResultValidator(
   proposalListOutputValidator
+);
+export const proposalLinkedQueriesPageResultValidator = paginationResultValidator(
+  proposalQueryOutputValidator
 );
 export const proposalListRowResultValidator = v.union(proposalDetailOutputValidator, v.null());
 export const proposalCreateResultValidator = v.object({

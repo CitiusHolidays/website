@@ -54,6 +54,20 @@ crons.interval(
   {}
 );
 
+crons.interval(
+  "reconcile proposal relation summaries",
+  { hours: 1 },
+  internal.crm.proposalRelationSummary.reconcileAll,
+  {}
+);
+
+crons.interval(
+  "reconcile query commercial projections",
+  { hours: 1 },
+  internal.crm.queryCommercialProjection.reconcileAll,
+  {}
+);
+
 crons.cron(
   "purge expired commercial files",
   "15 4 * * *",

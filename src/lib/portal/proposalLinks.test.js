@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   proposalLinkedQueryIds,
   proposalLinkedQueryLabel,
+  proposalPreviewQueryIds,
   proposalPrimaryQuery,
 } from "./proposalLinks.js";
 
@@ -19,6 +20,15 @@ describe("proposalLinks", () => {
     expect(proposalLinkedQueryIds({ queryId: "q1", queryIds: [] })).toEqual(["q1"]);
     expect(proposalLinkedQueryIds({ queryId: "q1" })).toEqual(["q1"]);
     expect(proposalLinkedQueryIds({})).toEqual([]);
+  });
+
+  test("never treats bounded list preview ids as edit authority", () => {
+    const proposal = {
+      previewQueryIds: ["q1", "q2", "q3"],
+      queryPreview: [{ id: "q1" }, { id: "q2" }, { id: "q3" }],
+    };
+    expect(proposalLinkedQueryIds(proposal)).toEqual([]);
+    expect(proposalPreviewQueryIds(proposal)).toEqual(["q1", "q2", "q3"]);
   });
 
   test("labels linked queries from queries array", () => {

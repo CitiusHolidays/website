@@ -20,7 +20,7 @@ import {
   publishWorkflowNotification,
   requireStaff,
 } from "./lib";
-import { insertWithE2eOwnership } from "./lib/e2eOwnership";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildJobCardListSearchText } from "./listSearch";
 
 export async function handleCreateFromQuery(
@@ -159,6 +159,9 @@ export async function handleCreateFromQuery(
     visaCostPerPax: confirmedOffer.visaCostPerPax,
   };
   const id = await insertWithE2eOwnership(ctx, "jobCards", jobCardPayload);
+  await patchWithE2eOwnership(ctx, "queries", queryId, {
+    jobCardPreview: { jobCardCode: jobCode, jobCardId: id },
+  });
   await materializeDefaultChecklistTasks(
     ctx,
     id,

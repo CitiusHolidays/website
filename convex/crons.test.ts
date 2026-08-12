@@ -49,6 +49,16 @@ const EXPECTED_CRONS: Record<string, SerializedCron> = {
     name: "crm/proposalLinkProjection:reconcileProposalLinkProjections",
     schedule: { hours: 1, type: "interval" },
   },
+  "reconcile proposal relation summaries": {
+    args: [{}],
+    name: "crm/proposalRelationSummary:reconcileAll",
+    schedule: { hours: 1, type: "interval" },
+  },
+  "reconcile query commercial projections": {
+    args: [{}],
+    name: "crm/queryCommercialProjection:reconcileAll",
+    schedule: { hours: 1, type: "interval" },
+  },
   "run portal workflow nudges": {
     args: [{}],
     name: "crm/workflowNudges:runScheduledNudges",
@@ -57,12 +67,12 @@ const EXPECTED_CRONS: Record<string, SerializedCron> = {
 };
 
 describe("Convex cron registry", () => {
-  test("registers the exact nine internal jobs, arguments, and schedules", () => {
+  test("registers the exact eleven internal jobs, arguments, and schedules", () => {
     const registry = (crons as unknown as { crons: Record<string, SerializedCron> }).crons;
 
     expect(Object.keys(registry).sort()).toEqual(Object.keys(EXPECTED_CRONS).sort());
     expect(registry).toEqual(EXPECTED_CRONS);
-    expect(new Set(Object.keys(registry)).size).toBe(9);
+    expect(new Set(Object.keys(registry)).size).toBe(11);
     expect(Object.values(registry).every((job) => !job.name.startsWith("api."))).toBe(true);
   });
 

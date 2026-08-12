@@ -96,16 +96,18 @@ describe("compact Staff Workspace list projections", () => {
     expect(row.attachmentCount).toBe(8);
     expect(row.hasCollaborators).toBe(true);
     expect(row.linkedQueryCount).toBe(8);
-    expect(row.queries).toHaveLength(3);
+    expect(row.queryPreview).toHaveLength(3);
+    expect(row.previewQueryIds).toEqual(["query-1", "query-2", "query-3"]);
+    expect(row).not.toHaveProperty("queryIds");
     expect(row).not.toHaveProperty("collaboratorStaffIds");
-    expect(row.queries[0]).toMatchObject({
+    expect(row.queryPreview[0]).toMatchObject({
       contractingOwnerId: "staff-contracting",
       id: "query-1",
       paxCount: 10,
       queryCode: "Q-0001",
     });
-    expect(row.queries[0]).not.toHaveProperty("contactMobile");
-    expect(row.queries[0]).not.toHaveProperty("notes");
+    expect(row.queryPreview[0]).not.toHaveProperty("contactMobile");
+    expect(row.queryPreview[0]).not.toHaveProperty("notes");
   });
 
   test("Proposal pricing edits preserve linked Queries outside the editor's scope", () => {

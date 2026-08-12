@@ -18,6 +18,7 @@ import {
 } from "./lib";
 import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildJobCardListSearchText } from "./listSearch";
+import { enqueueQueryCommercialProjections } from "./queryCommercialProjection";
 
 export async function handleJobCardUpdate(
   ctx: MutationCtx,
@@ -400,6 +401,9 @@ export async function handleJobCardRemove(
     initiatedByStaffId: access.staffId,
     jobCode: job.jobCode,
   });
+  if (job.queryId) {
+    await enqueueQueryCommercialProjections(ctx, [job.queryId]);
+  }
   return { id, operationId, status: "running" as const };
 }
 

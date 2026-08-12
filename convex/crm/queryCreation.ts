@@ -13,6 +13,7 @@ import {
 } from "./lib";
 import { insertWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildQueryListSearchText } from "./listSearch";
+import { QUERY_COMMERCIAL_PROJECTION_VERSION } from "./queryCommercialProjection";
 import { notifyQueryAssignmentHeads, notifyTicketingHeadOnQueryIntake } from "./queryNotifications";
 import { applyQueryTeamAssignments } from "./queryTeamAssignment";
 import type { QuerySource, QueryType, TravelType } from "./queryValidators";
@@ -123,6 +124,9 @@ export async function handleQueryCreate(
     budgetAmount: Math.max(args.budgetAmount ?? 0, 0),
     clientId,
     clientName: args.clientName.trim(),
+    commercialProjectionGeneration: 0,
+    commercialProjectionState: "ready" as const,
+    commercialProjectionVersion: QUERY_COMMERCIAL_PROJECTION_VERSION,
     contactMobile: args.contactMobile?.trim() || "",
     contactPerson: args.contactPerson?.trim() || "",
     contractingStatus: "Query Received" as const,

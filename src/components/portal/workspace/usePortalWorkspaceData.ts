@@ -7,7 +7,6 @@ import {
   shouldContinueCursorPage,
 } from "@/lib/portal/cursorPagination";
 import { fiscalYearForDate } from "@/lib/portal/leavePolicy";
-import { resolveLinkedProposalForQuery } from "@/lib/portal/modalLifecycle";
 import {
   measurePortalNavigationWorkload,
   type PortalPerformanceTarget,
@@ -231,6 +230,37 @@ export function usePortalWorkspaceData({
     api.crm.proposals.getDetail,
     shouldLoadProposals && focusedProposalId ? { proposalId: focusedProposalId } : "skip"
   );
+  const focusedProposalLinksPage = usePaginatedQuery(
+    api.crm.proposals.listLinkedQueriesPage,
+    shouldLoadProposals && focusedProposalId ? { proposalId: focusedProposalId } : "skip",
+    { initialNumItems: PAGE_SIZE }
+  );
+  const {
+    loadMore: loadMoreFocusedProposalLinks,
+    results: focusedProposalLinkedQueries,
+    status: focusedProposalLinksStatus,
+  } = focusedProposalLinksPage;
+  useEffect(() => {
+    if (focusedProposalId && focusedProposalLinksStatus === "CanLoadMore") {
+      loadMoreFocusedProposalLinks(PAGE_SIZE);
+    }
+  }, [focusedProposalId, focusedProposalLinksStatus, loadMoreFocusedProposalLinks]);
+  const hydratedFocusedProposal = (() => {
+    if (focusedProposal === undefined || focusedProposal === null) {
+      return focusedProposal;
+    }
+    if (focusedProposalId && focusedProposalLinksStatus !== "Exhausted") {
+      return;
+    }
+    const linkedQueries = focusedProposalLinkedQueries ?? [];
+    return {
+      ...focusedProposal,
+      queries: linkedQueries,
+      query: linkedQueries[0] ?? null,
+      queryId: linkedQueries[0]?.id ?? null,
+      queryIds: linkedQueries.map((query) => query.id),
+    };
+  })();
   const focusedJobCardProposalId = (() => {
     if (modal !== "jobCard" || form.entityId || !form.queryId) {
       return null;
@@ -238,10 +268,14 @@ export function usePortalWorkspaceData({
     if (form.proposalId) {
       return String(form.proposalId);
     }
-    const loadedProposals =
-      proposalPage.status === "LoadingFirstPage" ? [] : (proposalPage.results ?? []);
-    const linkedProposal = resolveLinkedProposalForQuery(loadedProposals, form.queryId);
-    return linkedProposal?.id ? String(linkedProposal.id) : null;
+    const linkedQuery = queryPage.results?.find(
+      (candidate) => String(candidate.id) === String(form.queryId)
+    );
+    const proposalId =
+      focusedQuery?.confirmedOffer?.proposalId ||
+      focusedQuery?.proposalPreview?.proposalId ||
+      linkedQuery?.proposalPreview?.proposalId;
+    return proposalId ? String(proposalId) : null;
   })();
   const focusedJobCardProposal = useQuery(
     api.crm.proposals.getDetail,
@@ -253,7 +287,7 @@ export function usePortalWorkspaceData({
     ? mergeFocusedRow(
         mergeFocusedRow(
           proposalPage.status === "LoadingFirstPage" ? undefined : proposalPage.results,
-          focusedProposal
+          hydratedFocusedProposal
         ),
         focusedJobCardProposal
       )
@@ -342,8 +376,14 @@ export function usePortalWorkspaceData({
       {
         active: shouldLoadProposals && Boolean(focusedProposalId),
         name: "crm.proposals.getDetail",
-        payload: focusedProposal,
-        ready: focusedProposal !== undefined,
+        payload: hydratedFocusedProposal,
+        ready: hydratedFocusedProposal !== undefined,
+      },
+      {
+        active: shouldLoadProposals && Boolean(focusedProposalId),
+        name: "crm.proposals.listLinkedQueriesPage",
+        payload: focusedProposalLinkedQueries,
+        ready: focusedProposalLinksStatus === "Exhausted",
       },
       {
         active: shouldLoadProposals && Boolean(focusedJobCardProposalId),
@@ -378,8 +418,10 @@ export function usePortalWorkspaceData({
     focusedJobCardId,
     focusedJobCardProposal,
     focusedJobCardProposalId,
-    focusedProposal,
     focusedProposalId,
+    focusedProposalLinkedQueries,
+    focusedProposalLinksStatus,
+    hydratedFocusedProposal,
     focusedQuery,
     focusedQueryId,
     jobCardDeletionOperations,
@@ -815,7 +857,7 @@ export function usePortalWorkspaceData({
     financeOverview,
     flightItinerary,
     focusedJobCard,
-    focusedProposal,
+    focusedProposal: hydratedFocusedProposal,
     focusedQuery,
     hotels,
     invoices,

@@ -1,16 +1,17 @@
 import { proposalLinkedQueryIds } from "@/lib/portal/proposalLinks";
 
-type ProposalLinkSource = {
+interface ProposalLinkSource {
   id?: string;
   queryId?: string;
   queryIds?: string[];
   status?: string;
-};
+}
 
-type QueryOptionSource = {
+interface QueryOptionSource {
+  acceptedProposalId?: string | null;
   id: string;
   salesStatus?: string;
-};
+}
 
 function isQueryLinkedToAcceptedProposal(
   queryId: string,
@@ -35,6 +36,9 @@ export function isProposalLinkedQueryEligible(
 ) {
   if (query.salesStatus !== "Order Confirmed") {
     return true;
+  }
+  if (query.acceptedProposalId) {
+    return String(query.acceptedProposalId) === String(editingProposalId ?? "");
   }
   return !isQueryLinkedToAcceptedProposal(query.id, proposals, editingProposalId);
 }

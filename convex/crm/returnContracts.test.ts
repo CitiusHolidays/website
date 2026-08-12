@@ -68,14 +68,17 @@ function buildQueryListRow(overrides: Record<string, unknown> = {}) {
   const row = buildQueryRecord(overrides);
   return {
     ...projectQueryListRow(row as never),
+    acceptedProposalId: null,
     attachmentCount: Number(row.attachmentCount),
     attachments: row.attachmentPreview.map((attachment: any) => ({
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
+    commercialProjectionState: "preparing",
     jobCardCode: null,
     jobCardId: null,
     proposalDocument: null,
+    proposalPreview: null,
   };
 }
 
@@ -83,15 +86,18 @@ function buildQueryDetailRow(overrides: Record<string, unknown> = {}) {
   const row = buildQueryRecord(overrides);
   return {
     ...publicQuery(row as never),
+    acceptedProposalId: null,
     attachmentCount: Number(row.attachmentCount),
     attachments: row.attachmentPreview.map((attachment: any) => ({
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
+    commercialProjectionState: "preparing",
     confirmedOffer: null,
     jobCardCode: null,
     jobCardId: null,
     proposalDocument: null,
+    proposalPreview: null,
   };
 }
 

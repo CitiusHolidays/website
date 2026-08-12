@@ -9,6 +9,7 @@ const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf
 const cursorRegistrations = [
   ["./queries.ts", "listPage"],
   ["./proposals.ts", "listPage"],
+  ["./proposals.ts", "listLinkedQueriesPage"],
   ["./jobCards.ts", "listPage"],
   ["./travellers.ts", "listPage"],
   ["./visa.ts", "list"],
@@ -65,6 +66,14 @@ describe("CRM cursor rollout", () => {
       expect(source, path).not.toContain('.query("invoices").collect()');
       expect(source, path).not.toContain('.query("expenseEntries").collect()');
     }
+  });
+
+  test("Query list and detail reads use bounded row projections instead of relationship scans", () => {
+    const source = read("./queryReads.ts");
+    expect(source).not.toContain('.query("proposalQueryLinks")');
+    expect(source).not.toContain('.query("proposals")');
+    expect(source).not.toContain('.query("jobCards")');
+    expect(source).toContain("queryCommercialProjection(row)");
   });
 
   test("portal load-more routing covers every migrated list surface", () => {

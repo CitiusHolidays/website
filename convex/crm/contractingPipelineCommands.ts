@@ -13,7 +13,7 @@ import {
   PERMISSIONS,
   requireAnyPermission,
 } from "./lib";
-import { handleSendProposalToSales } from "./proposals";
+import { handleSendProposalToSales } from "./proposalHandoffCommands";
 
 async function linkedDraftProposalIds(ctx: MutationCtx, queryId: Id<"queries">) {
   const [links, legacyProposals] = await Promise.all([

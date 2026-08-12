@@ -1,9 +1,43 @@
-import type { Id } from "../_generated/dataModel";
+import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { canSeeQueryRecord, PERMISSIONS, publicQuery, requireAnyPermission } from "./lib";
 import { assertListSearchReady } from "./listSearch";
 import { applyCrmCursorFilters, boundedPaginationOptions } from "./paginationPolicy";
-import { resolveProposalDocumentsByQueryId } from "./proposalDocument";
+import { QUERY_COMMERCIAL_PROJECTION_VERSION } from "./queryCommercialProjection";
+
+function queryCommercialProjection(
+  row: Parameters<typeof publicQuery>[0] &
+    Pick<
+      Doc<"queries">,
+      | "acceptedProposalId"
+      | "commercialProjectionState"
+      | "commercialProjectionVersion"
+      | "jobCardPreview"
+      | "proposalDocumentPreview"
+      | "proposalPreview"
+    >
+) {
+  const ready =
+    row.commercialProjectionState === "ready" &&
+    row.commercialProjectionVersion === QUERY_COMMERCIAL_PROJECTION_VERSION;
+  return {
+    acceptedProposalId: ready ? (row.acceptedProposalId ?? null) : null,
+    commercialProjectionState: ready ? ("ready" as const) : ("preparing" as const),
+    jobCardCode: ready ? (row.jobCardPreview?.jobCardCode ?? null) : null,
+    jobCardId: ready ? (row.jobCardPreview?.jobCardId ?? null) : null,
+    proposalDocument:
+      ready && row.proposalDocumentPreview
+        ? {
+            fileName: row.proposalDocumentPreview.fileName,
+            proposalId: row.proposalDocumentPreview.proposalId,
+            uploadedAt: row.proposalDocumentPreview.uploadedAt
+              ? new Date(row.proposalDocumentPreview.uploadedAt).toISOString()
+              : null,
+          }
+        : null,
+    proposalPreview: ready ? (row.proposalPreview ?? null) : null,
+  };
+}
 
 export function projectQueryListRow(row: Parameters<typeof publicQuery>[0]) {
   const query = publicQuery(row);
@@ -78,27 +112,6 @@ export async function handleQueryListPage(
   });
   const sourcePage = await filteredSource.paginate(boundedPaginationOptions(args.paginationOpts));
   const visibleRows = sourcePage.page.filter((row) => canSeeQueryRecord(access, row));
-  const proposalDocuments = await resolveProposalDocumentsByQueryId(
-    ctx,
-    visibleRows.map((row) => row._id)
-  );
-  const handoffRows = new Map(
-    await Promise.all(
-      visibleRows.map(async (row) => {
-        const jobCard = await ctx.db
-          .query("jobCards")
-          .withIndex("by_queryId", (q) => q.eq("queryId", row._id))
-          .first();
-        return [
-          String(row._id),
-          {
-            jobCardCode: jobCard?.jobCode ?? null,
-            jobCardId: jobCard?._id ?? null,
-          },
-        ] as const;
-      })
-    )
-  );
   const page = visibleRows.map((row) => ({
     ...projectQueryListRow(row),
     attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,
@@ -106,9 +119,7 @@ export async function handleQueryListPage(
       ...attachment,
       createdAt: new Date(attachment.createdAt).toISOString(),
     })),
-    jobCardCode: handoffRows.get(String(row._id))?.jobCardCode ?? null,
-    jobCardId: handoffRows.get(String(row._id))?.jobCardId ?? null,
-    proposalDocument: proposalDocuments.get(String(row._id)) ?? null,
+    ...queryCommercialProjection(row),
   }));
   return { ...sourcePage, page };
 }
@@ -132,14 +143,7 @@ export async function handleQueryGetListRow(
   if (!(row && canSeeQueryRecord(access, row))) {
     return null;
   }
-  const [proposalDocuments, jobCard, confirmedOffer] = await Promise.all([
-    resolveProposalDocumentsByQueryId(ctx, [row._id as Id<"queries">]),
-    ctx.db
-      .query("jobCards")
-      .withIndex("by_queryId", (q) => q.eq("queryId", row._id))
-      .first(),
-    row.confirmedOfferId ? ctx.db.get(row.confirmedOfferId) : null,
-  ]);
+  const confirmedOffer = row.confirmedOfferId ? await ctx.db.get(row.confirmedOfferId) : null;
   return {
     ...publicQuery(row),
     attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,
@@ -161,8 +165,6 @@ export async function handleQueryGetListRow(
           visaCostPerPax: confirmedOffer.visaCostPerPax,
         }
       : null,
-    jobCardCode: jobCard?.jobCode ?? null,
-    jobCardId: jobCard?._id ?? null,
-    proposalDocument: proposalDocuments.get(String(row._id)) ?? null,
+    ...queryCommercialProjection(row),
   };
 }

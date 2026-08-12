@@ -11,12 +11,14 @@ export interface PortalAttachmentSummary {
 }
 
 export interface PortalQueryListRow {
+  acceptedProposalId?: string | null;
   approxMargin?: number | null;
   attachmentCount?: number;
   attachments?: PortalAttachmentSummary[];
   batchingNotes?: string;
   budgetAmount?: number;
   clientName?: string;
+  commercialProjectionState?: "preparing" | "ready";
   confirmedAt?: string | null;
   confirmedOffer?: {
     airfarePerPax: number;
@@ -47,6 +49,13 @@ export interface PortalQueryListRow {
     fileName: string;
     proposalId: string;
     uploadedAt?: string | null;
+  } | null;
+  proposalPreview?: {
+    costPrice: number;
+    proposalCode: string;
+    proposalId: string;
+    status: string;
+    updatedAt: number;
   } | null;
   queryCode?: string;
   queryType?: string;
@@ -82,15 +91,9 @@ export interface PortalProposalListRow {
   lastEditedByName?: string | null;
   linkedQueryCount?: number;
   preparedBy?: string;
+  previewQueryIds?: string[];
   pricingEnteredAt?: string | null;
   proposalCode?: string;
-  queries?: Array<{
-    clientName?: string;
-    contractingOwnerId?: string | null;
-    id?: string;
-    paxCount?: number;
-    queryCode?: string;
-  }>;
   query?: {
     clientName?: string;
     contractingOwnerId?: string | null;
@@ -99,6 +102,13 @@ export interface PortalProposalListRow {
     queryCode?: string;
   } | null;
   queryId?: string;
+  queryPreview?: Array<{
+    clientName?: string;
+    contractingOwnerId?: string | null;
+    id?: string;
+    paxCount?: number;
+    queryCode?: string;
+  }>;
   sellingPrice?: number;
   sentToClientAt?: string | null;
   sentToSalesAt?: string | null;
@@ -157,7 +167,6 @@ export interface ContractingViewProps {
   getQueryAttachmentUrl: PortalWorkspaceState["getQueryAttachmentUrl"];
   has: PortalPermissionChecker;
   openModal: PortalModalOpener;
-  proposals: PortalProposalListRow[];
   removeQuery: PortalWorkspaceState["removeQuery"];
   rows: PortalQueryListRow[];
   team: PortalTeamMemberRow[];

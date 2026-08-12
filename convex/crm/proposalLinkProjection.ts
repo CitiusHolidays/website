@@ -2,11 +2,12 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
-import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { mapInBoundedBatches } from "./paginationPolicy";
 
 const PROJECTION_TABLE = "proposalQueryLinks";
-const PROJECTION_VERSION = 1;
+const PROJECTION_VERSION = 2;
+export const PROPOSAL_LINKED_QUERY_PREVIEW_LIMIT = 3;
+export const PROPOSAL_LINKED_QUERY_SUMMARY_VERSION = 1;
 const RECONCILE_PAGE_SIZE = 50;
 const RECONCILE_STALE_MS = 60 * 60 * 1000;
 
@@ -15,6 +16,7 @@ export function proposalLinkProjection(query: Doc<"queries">) {
     clientName: query.clientName,
     contractingOwnerId: query.contractingOwnerId ?? "",
     contractingOwnerName: query.contractingOwnerName ?? "",
+    contractingOwnerNameNormalized: normalizeOwnerName(query.contractingOwnerName),
     contractingStatus: query.contractingStatus,
     paxCount: query.paxCount ?? 0,
     queryCode: query.queryCode,
@@ -22,11 +24,19 @@ export function proposalLinkProjection(query: Doc<"queries">) {
     queryType: query.queryType,
     salesOwnerId: query.salesOwnerId ?? "",
     salesOwnerName: query.salesOwnerName ?? "",
+    salesOwnerNameNormalized: normalizeOwnerName(query.salesOwnerName),
     salesStatus: query.salesStatus,
     ticketingOwnerId: query.ticketingOwnerId ?? "",
     ticketingOwnerName: query.ticketingOwnerName ?? "",
+    ticketingOwnerNameNormalized: normalizeOwnerName(query.ticketingOwnerName),
     ticketingScope: query.ticketingScope ?? "",
   };
+}
+
+function normalizeOwnerName(value?: string | null) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase();
 }
 
 export function storedProposalQueryProjection(query: Doc<"queries">) {
@@ -36,15 +46,30 @@ export function storedProposalQueryProjection(query: Doc<"queries">) {
   };
 }
 
+export function proposalLinkedQuerySummary(linkedQueries: Doc<"queries">[]) {
+  return {
+    linkedQueryCount: linkedQueries.length,
+    linkedQueryPreview: linkedQueries
+      .slice(0, PROPOSAL_LINKED_QUERY_PREVIEW_LIMIT)
+      .map(storedProposalQueryProjection),
+    linkedQuerySummaryGeneration: 0,
+    linkedQuerySummaryState: "ready" as const,
+    linkedQuerySummaryVersion: PROPOSAL_LINKED_QUERY_SUMMARY_VERSION,
+  };
+}
+
 export function isProposalLinkProjectionComplete(link: Doc<"proposalQueryLinks">) {
   return (
     link.clientName !== undefined &&
+    link.contractingOwnerNameNormalized !== undefined &&
     link.contractingStatus !== undefined &&
     link.paxCount !== undefined &&
     link.queryCode !== undefined &&
     link.queryCreatedBy !== undefined &&
     link.queryType !== undefined &&
-    link.salesStatus !== undefined
+    link.salesOwnerNameNormalized !== undefined &&
+    link.salesStatus !== undefined &&
+    link.ticketingOwnerNameNormalized !== undefined
   );
 }
 
@@ -87,36 +112,42 @@ export function queryVisibilityFromProposalLink(link: ProposalQueryVisibilitySou
 }
 
 export async function refreshProposalLinkProjections(ctx: MutationCtx, queryId: Id<"queries">) {
-  const query = await ctx.db.get(queryId);
-  if (!query) {
-    return 0;
-  }
-  const links = await ctx.db
-    .query("proposalQueryLinks")
-    .withIndex("by_queryId", (builder) => builder.eq("queryId", queryId))
-    .collect();
-  const projection = proposalLinkProjection(query);
-  await mapInBoundedBatches(
-    links,
-    async (link) => await patchWithE2eOwnership(ctx, "proposalQueryLinks", link._id, projection)
+  await ctx.scheduler.runAfter(
+    0,
+    internal.crm.proposalLinkProjection.refreshProposalLinkProjectionPage,
+    { cursor: null, queryId }
   );
-  const proposalIds = Array.from(new Set(links.map((link) => String(link.proposalId))));
-  await mapInBoundedBatches(proposalIds, async (proposalIdString) => {
-    const proposalId = ctx.db.normalizeId("proposals", proposalIdString);
-    const proposal = proposalId ? await ctx.db.get(proposalId) : null;
-    if (!proposal) {
-      return;
-    }
-    const current = proposal.linkedQueryProjection ?? [];
-    await patchWithE2eOwnership(ctx, "proposals", proposal._id, {
-      linkedQueryProjection: [
-        ...current.filter((entry) => String(entry.queryId) !== String(queryId)),
-        storedProposalQueryProjection(query),
-      ],
-    });
-  });
-  return links.length;
+  return 0;
 }
+
+export const refreshProposalLinkProjectionPage = internalMutation({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    queryId: v.id("queries"),
+  },
+  handler: async (ctx, args) => {
+    const query = await ctx.db.get("queries", args.queryId);
+    if (!query) {
+      return { isDone: true, processed: 0 };
+    }
+    const page = await ctx.db
+      .query("proposalQueryLinks")
+      .withIndex("by_queryId", (builder) => builder.eq("queryId", args.queryId))
+      .paginate({ cursor: args.cursor, numItems: RECONCILE_PAGE_SIZE });
+    await mapInBoundedBatches(page.page, async (link) =>
+      ctx.db.patch("proposalQueryLinks", link._id, proposalLinkProjection(query))
+    );
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.crm.proposalLinkProjection.refreshProposalLinkProjectionPage,
+        { cursor: page.continueCursor, queryId: args.queryId }
+      );
+    }
+    return { isDone: page.isDone, processed: page.page.length };
+  },
+  returns: v.object({ isDone: v.boolean(), processed: v.number() }),
+});
 
 async function loadReadiness(ctx: MutationCtx) {
   return await ctx.db
@@ -186,35 +217,6 @@ export const reconcileProposalLinkPage = internalMutation({
     ).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
     await mapInBoundedBatches(hydratedLinks, async ({ link, query }) =>
       ctx.db.patch(link._id, proposalLinkProjection(query))
-    );
-    const projectionsByProposal = new Map<
-      string,
-      ReturnType<typeof storedProposalQueryProjection>[]
-    >();
-    for (const { link, query } of hydratedLinks) {
-      const key = String(link.proposalId);
-      const current = projectionsByProposal.get(key) ?? [];
-      current.push(storedProposalQueryProjection(query));
-      projectionsByProposal.set(key, current);
-    }
-    await mapInBoundedBatches(
-      Array.from(projectionsByProposal),
-      async ([proposalIdString, projections]) => {
-        const proposalId = ctx.db.normalizeId("proposals", proposalIdString);
-        const proposal = proposalId ? await ctx.db.get(proposalId) : null;
-        if (!proposal) {
-          return;
-        }
-        const updatedIds = new Set(projections.map((projection) => String(projection.queryId)));
-        await ctx.db.patch(proposal._id, {
-          linkedQueryProjection: [
-            ...(proposal.linkedQueryProjection ?? []).filter(
-              (projection) => !updatedIds.has(String(projection.queryId))
-            ),
-            ...projections,
-          ],
-        });
-      }
     );
     if (page.isDone) {
       await ctx.db.patch(state._id, {

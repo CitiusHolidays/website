@@ -5,6 +5,7 @@ interface ProposalAttentionInput {
   pricingEnteredAt?: string | null;
   queries?: Array<{ contractingOwnerId?: string | null }>;
   query?: { contractingOwnerId?: string | null } | null;
+  queryPreview?: Array<{ contractingOwnerId?: string | null }>;
   sentToClientAt?: string | null;
   status?: string;
   updatedAt?: string;
@@ -31,7 +32,7 @@ export function getProposalAttention(
   proposal: ProposalAttentionInput,
   now = Date.now()
 ): ProposalAttention {
-  let linkedQueries = proposal.queries ?? [];
+  let linkedQueries = proposal.queryPreview ?? proposal.queries ?? [];
   if (linkedQueries.length === 0 && proposal.query) {
     linkedQueries = [proposal.query];
   }

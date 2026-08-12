@@ -6,7 +6,11 @@ import { requireStaff } from "./lib/staffAccess";
 import { listSearchReadinessResultValidator } from "./miscReturnContracts";
 import { mapInBoundedBatches } from "./paginationPolicy";
 import { normalizePassportExpiryDate } from "./passportExpiry";
-import { proposalLinkProjection, storedProposalQueryProjection } from "./proposalLinkProjection";
+import {
+  PROPOSAL_LINKED_QUERY_PREVIEW_LIMIT,
+  PROPOSAL_LINKED_QUERY_SUMMARY_VERSION,
+  proposalLinkProjection,
+} from "./proposalLinkProjection";
 
 const SEARCH_RECONCILE_PAGE_SIZE = 50;
 export const LIST_SEARCH_PROJECTION_VERSION = 2;
@@ -301,7 +305,11 @@ async function buildJobCardProjection(ctx: any, row: any) {
 }
 
 interface ProposalProjectionPatch {
-  linkedQueryProjection?: NonNullable<Doc<"proposals">["linkedQueryProjection"]>;
+  linkedQueryCount?: number;
+  linkedQueryPreview?: NonNullable<Doc<"proposals">["linkedQueryPreview"]>;
+  linkedQuerySummaryGeneration?: number;
+  linkedQuerySummaryState?: "pending" | "ready" | "reconciling";
+  linkedQuerySummaryVersion?: number;
   listSearchText: string;
 }
 
@@ -325,12 +333,6 @@ export async function buildProposalProjection(
     ]);
     if (linkedQueryRecord) {
       const projection = proposalLinkProjection(linkedQueryRecord);
-      patch.linkedQueryProjection = [
-        ...(row.linkedQueryProjection ?? []).filter(
-          (entry) => String(entry.queryId) !== String(linkedQueryRecord._id)
-        ),
-        storedProposalQueryProjection(linkedQueryRecord),
-      ];
       if (existingLink) {
         await ctx.db.patch(existingLink._id, projection);
       } else {
@@ -343,6 +345,17 @@ export async function buildProposalProjection(
         });
       }
     }
+  }
+  if (
+    row.linkedQuerySummaryState !== "ready" ||
+    row.linkedQuerySummaryVersion !== PROPOSAL_LINKED_QUERY_SUMMARY_VERSION
+  ) {
+    const legacyProjection = row.linkedQueryProjection ?? [];
+    patch.linkedQueryCount = legacyProjection.length;
+    patch.linkedQueryPreview = legacyProjection.slice(0, PROPOSAL_LINKED_QUERY_PREVIEW_LIMIT);
+    patch.linkedQuerySummaryGeneration = 0;
+    patch.linkedQuerySummaryState = "pending";
+    patch.linkedQuerySummaryVersion = PROPOSAL_LINKED_QUERY_SUMMARY_VERSION;
   }
   return patch;
 }

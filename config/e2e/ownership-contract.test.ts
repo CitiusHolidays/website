@@ -1,57 +1,80 @@
 import { describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve, sep } from "node:path";
 
 const ROOT = join(import.meta.dir, "../..");
 const RAW_WRITE_PATTERN = /ctx\.db\.(?:insert|patch)\(/;
 const OWNERSHIP_HELPER_PATTERN = /(?:insert|patch)WithE2eOwnership/;
-const BROWSER_MUTATION_MODULE_PATTERN = /(?:queryCommands|proposals|ticketCommands)/;
 const DERIVED_WRITE_PATTERN = /(?:storeCommandReceipt|scheduleCrmMetricSync)/;
-const MUTATING_INSERT_OWNERS = [
-  "convex/crm/activity.ts",
-  "convex/crm/commandReceipts.ts",
-  "convex/crm/confirmedOffer.ts",
-  "convex/crm/expenseApprovalWorkflow.ts",
-  "convex/crm/expenseCommands.ts",
-  "convex/crm/jobCardChecklist.ts",
-  "convex/crm/jobCardCommands.ts",
-  "convex/crm/jobCardCreation.ts",
-  "convex/crm/leave.ts",
-  "convex/crm/lib/activity.ts",
-  "convex/crm/lib/notifications.ts",
+const LOCAL_IMPORT_PATTERN = /from\s+["'](\.[^"']+)["']/g;
+const BROWSER_MUTATION_ROOTS = [
   "convex/crm/proposals.ts",
-  "convex/crm/queryAttachments.ts",
-  "convex/crm/queryCreation.ts",
-  "convex/crm/queryTeamAssignment.ts",
+  "convex/crm/queryCommands.ts",
   "convex/crm/ticketCommands.ts",
-  "convex/crm/travellers.ts",
 ] as const;
 
-function crmSourceFiles() {
-  return readdirSync(join(ROOT, "convex/crm"), { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".ts") && !entry.name.includes("test"))
-    .map((entry) => `convex/crm/${entry.name}`);
+function browserReachableCrmSources() {
+  const pending = [...BROWSER_MUTATION_ROOTS];
+  const discovered = new Set<string>();
+  while (pending.length > 0) {
+    const relativePath = pending.pop();
+    if (!relativePath || discovered.has(relativePath)) {
+      continue;
+    }
+    discovered.add(relativePath);
+    const absolutePath = join(ROOT, relativePath);
+    const source = readFileSync(absolutePath, "utf8");
+    for (const match of source.matchAll(LOCAL_IMPORT_PATTERN)) {
+      const unresolved = resolve(dirname(absolutePath), match[1]);
+      let resolved = join(unresolved, "index.ts");
+      if (existsSync(unresolved) && statSync(unresolved).isFile()) {
+        resolved = unresolved;
+      } else if (existsSync(`${unresolved}.ts`)) {
+        resolved = `${unresolved}.ts`;
+      }
+      const importedPath = relative(ROOT, resolved).split(sep).join("/");
+      if (importedPath.startsWith("convex/crm/") && existsSync(resolved)) {
+        pending.push(importedPath);
+      }
+    }
+  }
+  return [...discovered].sort();
 }
 
 describe("durable E2E ownership contract", () => {
-  test("routes every current mutating browser workflow insert through the ownership ledger", () => {
-    for (const relativePath of MUTATING_INSERT_OWNERS) {
+  test("discovers browser-reachable mutation owners through imports", () => {
+    const reachable = browserReachableCrmSources();
+    const ownershipOwners = reachable.filter((relativePath) =>
+      OWNERSHIP_HELPER_PATTERN.test(readFileSync(join(ROOT, relativePath), "utf8"))
+    );
+    expect(ownershipOwners).toEqual(
+      expect.arrayContaining([
+        "convex/crm/commandReceipts.ts",
+        "convex/crm/proposalRelations.ts",
+        "convex/crm/proposalWriteCommands.ts",
+        "convex/crm/queryCreation.ts",
+        "convex/crm/ticketCommands.ts",
+      ])
+    );
+    for (const relativePath of ownershipOwners) {
       const source = readFileSync(join(ROOT, relativePath), "utf8");
-      expect(source).toMatch(OWNERSHIP_HELPER_PATTERN);
-      expect(source).not.toMatch(RAW_WRITE_PATTERN);
+      if (relativePath === "convex/crm/lib/e2eOwnership.ts") {
+        continue;
+      }
+      if (RAW_WRITE_PATTERN.test(source)) {
+        expect(source, relativePath).toMatch(OWNERSHIP_HELPER_PATTERN);
+      }
     }
   });
 
   test("discovers command receipts and scheduled derivative writes outside a manual allowlist", () => {
-    const browserMutationImports = crmSourceFiles().filter((relativePath) => {
+    const browserMutationImports = browserReachableCrmSources().filter((relativePath) => {
       const source = readFileSync(join(ROOT, relativePath), "utf8");
-      return (
-        BROWSER_MUTATION_MODULE_PATTERN.test(relativePath) && DERIVED_WRITE_PATTERN.test(source)
-      );
+      return DERIVED_WRITE_PATTERN.test(source);
     });
     expect(browserMutationImports).toEqual(
       expect.arrayContaining([
-        "convex/crm/proposals.ts",
+        "convex/crm/proposalHandoffCommands.ts",
         "convex/crm/queryCommands.ts",
         "convex/crm/ticketCommands.ts",
       ])

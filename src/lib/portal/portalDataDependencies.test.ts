@@ -12,7 +12,6 @@ describe("portal data dependency declarations", () => {
 
   test("loads only the active view primary and support data", () => {
     expect([...getPortalDataDependencies({ view: "contracting" })].sort()).toEqual([
-      "proposals",
       "queries",
       "team",
     ]);

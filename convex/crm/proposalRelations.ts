@@ -3,7 +3,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { canSeeQueryRecord, type PortalAccess } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
-import { proposalLinkProjection } from "./proposalLinkProjection";
+import { proposalLinkedQuerySummary, proposalLinkProjection } from "./proposalLinkProjection";
 
 type ProposalRelationCtx = MutationCtx | QueryCtx;
 
@@ -121,6 +121,18 @@ export async function syncProposalQueryLinks(
         queryId: linkedQuery._id,
       });
     })
+  );
+  await patchWithE2eOwnership(
+    ctx,
+    "proposals",
+    proposalId,
+    proposalLinkedQuerySummary(linkedQueries)
+  );
+  return Array.from(
+    new Set([
+      ...existingLinks.map((link) => String(link.queryId)),
+      ...linkedQueries.map((linkedQuery) => String(linkedQuery._id)),
+    ])
   );
 }
 

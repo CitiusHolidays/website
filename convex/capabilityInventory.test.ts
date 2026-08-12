@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "0dd2066aeafdd70126cdd1c302c5b4fc19118173b0ddd74a4a628e54503d4fff";
+const EXPECTED_CAPABILITY_HASH = "4bc69314101ca7d4dd44f021ae7142ae76853023f882c6ab069450f5fc480bf6";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -136,6 +136,18 @@ describe("Convex capability inventory", () => {
       });
     }
     for (const capability of [
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/proposals",
+        name: "listLinkedQueriesPage",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/queryCommercialProjection",
+        name: "reconcileQueryCommercialProjection",
+      },
       {
         classification: "public-product",
         kind: "query",
