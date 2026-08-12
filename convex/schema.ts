@@ -1204,6 +1204,7 @@ export default defineSchema({
     clientName: v.optional(v.string()),
     contractingOwnerId: v.optional(v.string()),
     contractingOwnerName: v.optional(v.string()),
+    contractingOwnerNameNormalized: v.optional(v.string()),
     contractingStatus: v.optional(v.string()),
     createdAt: v.number(),
     createdBy: v.string(),
@@ -1215,14 +1216,84 @@ export default defineSchema({
     queryType: v.optional(v.string()),
     salesOwnerId: v.optional(v.string()),
     salesOwnerName: v.optional(v.string()),
+    salesOwnerNameNormalized: v.optional(v.string()),
     salesStatus: v.optional(v.string()),
     ticketingOwnerId: v.optional(v.string()),
     ticketingOwnerName: v.optional(v.string()),
+    ticketingOwnerNameNormalized: v.optional(v.string()),
     ticketingScope: v.optional(v.string()),
   })
     .index("by_proposalId", ["proposalId"])
     .index("by_queryId", ["queryId"])
-    .index("by_proposalId_and_queryId", ["proposalId", "queryId"]),
+    .index("by_proposalId_and_queryId", ["proposalId", "queryId"])
+    .index("by_proposalId_and_queryType", {
+      fields: ["proposalId", "queryType"],
+      staged: true,
+    })
+    .index("by_proposalId_and_queryCreatedBy", {
+      fields: ["proposalId", "queryCreatedBy"],
+      staged: true,
+    })
+    .index("by_proposalId_and_salesOwnerId", {
+      fields: ["proposalId", "salesOwnerId"],
+      staged: true,
+    })
+    .index("by_proposalId_and_contractingOwnerId", {
+      fields: ["proposalId", "contractingOwnerId"],
+      staged: true,
+    })
+    .index("by_proposalId_and_ticketingOwnerId", {
+      fields: ["proposalId", "ticketingOwnerId"],
+      staged: true,
+    })
+    .index("by_proposalId_and_salesOwnerName", {
+      fields: ["proposalId", "salesOwnerNameNormalized"],
+      staged: true,
+    })
+    .index("by_proposalId_and_contractingOwnerName", {
+      fields: ["proposalId", "contractingOwnerNameNormalized"],
+      staged: true,
+    })
+    .index("by_proposalId_and_ticketingOwnerName", {
+      fields: ["proposalId", "ticketingOwnerNameNormalized"],
+      staged: true,
+    })
+    .index("by_proposalId_and_salesStatus", {
+      fields: ["proposalId", "salesStatus"],
+      staged: true,
+    })
+    .index("by_proposalId_and_contractingStatus", {
+      fields: ["proposalId", "contractingStatus"],
+      staged: true,
+    })
+    .index("by_proposal_type_createdBy", {
+      fields: ["proposalId", "queryType", "queryCreatedBy"],
+      staged: true,
+    })
+    .index("by_proposal_type_salesOwnerId", {
+      fields: ["proposalId", "queryType", "salesOwnerId"],
+      staged: true,
+    })
+    .index("by_proposal_type_contractingOwnerId", {
+      fields: ["proposalId", "queryType", "contractingOwnerId"],
+      staged: true,
+    })
+    .index("by_proposal_type_ticketingOwnerId", {
+      fields: ["proposalId", "queryType", "ticketingOwnerId"],
+      staged: true,
+    })
+    .index("by_proposal_type_salesOwnerName", {
+      fields: ["proposalId", "queryType", "salesOwnerNameNormalized"],
+      staged: true,
+    })
+    .index("by_proposal_type_contractingOwnerName", {
+      fields: ["proposalId", "queryType", "contractingOwnerNameNormalized"],
+      staged: true,
+    })
+    .index("by_proposal_type_ticketingOwnerName", {
+      fields: ["proposalId", "queryType", "ticketingOwnerNameNormalized"],
+      staged: true,
+    }),
 
   proposals: defineTable({
     airfarePerPax: v.optional(v.number()),
@@ -1257,6 +1328,28 @@ export default defineSchema({
     lastEditedAt: v.optional(v.number()),
     lastEditedBy: v.optional(v.string()),
     lastEditedByName: v.optional(v.string()),
+    linkedQueryCount: v.optional(v.number()),
+    linkedQueryPreview: v.optional(
+      v.array(
+        v.object({
+          clientName: v.string(),
+          contractingOwnerId: v.string(),
+          contractingOwnerName: v.string(),
+          contractingStatus: v.string(),
+          paxCount: v.number(),
+          queryCode: v.string(),
+          queryCreatedBy: v.string(),
+          queryId: v.id("queries"),
+          queryType: v.string(),
+          salesOwnerId: v.string(),
+          salesOwnerName: v.string(),
+          salesStatus: v.string(),
+          ticketingOwnerId: v.string(),
+          ticketingOwnerName: v.string(),
+          ticketingScope: v.string(),
+        })
+      )
+    ),
     linkedQueryProjection: v.optional(
       v.array(
         v.object({
@@ -1278,6 +1371,11 @@ export default defineSchema({
         })
       )
     ),
+    linkedQuerySummaryGeneration: v.optional(v.number()),
+    linkedQuerySummaryState: v.optional(
+      v.union(v.literal("pending"), v.literal("reconciling"), v.literal("ready"))
+    ),
+    linkedQuerySummaryVersion: v.optional(v.number()),
     listSearchText: v.optional(v.string()),
     preparedBy: v.string(),
     pricingEnteredAt: v.optional(v.number()),
@@ -1322,6 +1420,11 @@ export default defineSchema({
     budgetAmount: v.optional(v.number()),
     clientId: v.optional(v.id("clients")),
     clientName: v.string(),
+    commercialProjectionGeneration: v.optional(v.number()),
+    commercialProjectionState: v.optional(
+      v.union(v.literal("pending"), v.literal("reconciling"), v.literal("ready"))
+    ),
+    commercialProjectionVersion: v.optional(v.number()),
     confirmedAt: v.optional(v.number()),
     confirmedOfferId: v.optional(v.id("confirmedOffers")),
     contactMobile: v.optional(v.string()),
@@ -1338,12 +1441,34 @@ export default defineSchema({
     inboundIntentId: v.optional(v.id("inboundQueryIntents")),
     jobCardCreatorName: v.optional(v.string()),
     jobCardCreatorStaffId: v.optional(v.id("staffUsers")),
+    jobCardPreview: v.optional(
+      v.object({
+        jobCardCode: v.string(),
+        jobCardId: v.id("jobCards"),
+      })
+    ),
     leadStage: v.optional(leadStage),
     listSearchText: v.optional(v.string()),
     lostReason: v.optional(lostReason),
     lostReasonOther: v.optional(v.string()),
     notes: v.optional(v.string()),
     paxCount: v.number(),
+    proposalDocumentPreview: v.optional(
+      v.object({
+        fileName: v.string(),
+        proposalId: v.id("proposals"),
+        uploadedAt: v.optional(v.number()),
+      })
+    ),
+    proposalPreview: v.optional(
+      v.object({
+        costPrice: v.number(),
+        proposalCode: v.string(),
+        proposalId: v.id("proposals"),
+        status: v.string(),
+        updatedAt: v.number(),
+      })
+    ),
     queryCode: v.string(),
     queryType,
     reassignToTeams: v.optional(v.boolean()),
@@ -1373,6 +1498,45 @@ export default defineSchema({
     .index("by_queryType_createdAt", ["queryType", "createdAt"])
     .index("by_createdAt", ["createdAt"])
     .searchIndex("search_list", { searchField: "listSearchText" }),
+
+  queryCommercialProjectionReadiness: defineTable({
+    generation: v.number(),
+    key: v.string(),
+    ready: v.boolean(),
+    reconciling: v.boolean(),
+    schedulingComplete: v.boolean(),
+    startedAt: v.number(),
+    updatedAt: v.number(),
+    version: v.number(),
+  }).index("by_key", ["key"]),
+
+  queryCommercialProjectionWorkers: defineTable({
+    bestDocument: v.optional(
+      v.object({
+        fileName: v.string(),
+        proposalId: v.id("proposals"),
+        rank: v.number(),
+        updatedAt: v.number(),
+        uploadedAt: v.optional(v.number()),
+      })
+    ),
+    bestProposal: v.optional(
+      v.object({
+        costPrice: v.number(),
+        proposalCode: v.string(),
+        proposalId: v.id("proposals"),
+        status: v.string(),
+        updatedAt: v.number(),
+      })
+    ),
+    cursor: v.optional(v.string()),
+    generation: v.number(),
+    queryId: v.id("queries"),
+    status: v.union(v.literal("pending"), v.literal("running"), v.literal("complete")),
+    updatedAt: v.number(),
+  })
+    .index("by_queryId", ["queryId"])
+    .index("by_status", ["status"]),
 
   queryAttachments: defineTable({
     createdAt: v.number(),
