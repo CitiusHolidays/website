@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
 import type { E2eProvisioningTarget } from "./preflight";
+import { vercelProtectionHeaders } from "./vercel-protection";
 
 export interface ApprovedE2eTarget {
   convexSiteOrigin: string;
@@ -144,7 +145,7 @@ export async function verifyFrontendE2eIdentity(
   fetchIdentity: typeof fetch = fetch
 ) {
   const response = await fetchIdentity(`${approved.frontendOrigin}/api/e2e/identity`, {
-    headers: { accept: "application/json" },
+    headers: { accept: "application/json", ...vercelProtectionHeaders() },
     redirect: "error",
   });
   if (!response.ok) {

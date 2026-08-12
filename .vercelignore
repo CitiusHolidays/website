@@ -1,0 +1,24 @@
+# Local build, dependency, and test artifacts must never be uploaded by direct CLI deploys.
+.next/
+node_modules/
+.scratch/
+.convex/
+.git/
+.vercel/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+e2e/.auth/
+*.tsbuildinfo
+.env*
+
+# The Sanity Studio is a separate application and is not part of the website project build.
+citius-blog/
+
+# Local agent/editor state is not a deploy input.
+.agents/
+.claude/
+.cursor/
+.gstack/
+--help

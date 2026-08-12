@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { chromium, type FullConfig } from "@playwright/test";
 import { validateE2ePreflight } from "../config/e2e/preflight";
 import { readApprovedE2eTarget, verifyFrontendE2eIdentity } from "../config/e2e/target-identity";
+import { vercelProtectionHeaders } from "../config/e2e/vercel-protection";
 import { E2E_ROLE_PROFILE_KEYS } from "./fixtures/staffProfiles";
 import { cleanupE2eRun, seedE2eStaffProfiles } from "./helpers/seed";
 import { e2eStrictMode } from "./helpers/skip";
@@ -54,7 +55,7 @@ async function globalSetup(config: FullConfig) {
     browser = await chromium.launch();
     for (const role of E2E_ROLE_PROFILE_KEYS) {
       const email = e2eStaffEmail(role);
-      const context = await browser.newContext();
+      const context = await browser.newContext({ extraHTTPHeaders: vercelProtectionHeaders() });
       const page = await context.newPage();
 
       await page.goto(`${baseURL}/auth/connect`);
