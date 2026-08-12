@@ -76,7 +76,7 @@ async function completeSummaryReconciliation(ctx: MutationCtx, generation: numbe
   ) {
     return;
   }
-  await ctx.db.patch(readiness._id, {
+  await ctx.db.patch("proposalAttachmentSummaryReadiness", readiness._id, {
     ready: true,
     reconciling: false,
     updatedAt: Date.now(),
@@ -146,7 +146,7 @@ async function requireVisibleProposal(ctx: any, proposalId: Id<"proposals">) {
       PERMISSIONS.VIEW_QUERIES,
       PERMISSIONS.VIEW_JOB_CARDS,
     ]),
-    ctx.db.get(proposalId),
+    ctx.db.get("proposals", proposalId),
   ]);
   if (!proposal) {
     throw new ConvexError("Proposal not found");
@@ -155,7 +155,7 @@ async function requireVisibleProposal(ctx: any, proposalId: Id<"proposals">) {
     .query("proposalQueryLinks")
     .withIndex("by_proposalId", (q: any) => q.eq("proposalId", proposalId))
     .collect();
-  const queryIds = new Set<string>();
+  const queryIds = new Set<Id<"queries">>();
   if (proposal.queryId) {
     queryIds.add(proposal.queryId);
   }
@@ -163,8 +163,8 @@ async function requireVisibleProposal(ctx: any, proposalId: Id<"proposals">) {
     queryIds.add(link.queryId);
   }
   const linkedQueries = (
-    await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get(queryId)))
-  ).filter((linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery != null);
+    await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get("queries", queryId)))
+  ).filter((linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery !== null);
   const canSeeProposal = canSeeProposalRecord(access, proposal, linkedQueries);
   if (!canSeeProposal) {
     const jobs = await ctx.db
@@ -228,7 +228,7 @@ export const getAttachmentRecord = query({
     if (!attachmentId) {
       return null;
     }
-    const row = await ctx.db.get(attachmentId);
+    const row = await ctx.db.get("proposalAttachments", attachmentId);
     if (!row) {
       return null;
     }
@@ -253,7 +253,7 @@ export const resolveProposalId = internalMutation({
     if (!proposalId) {
       throw new ConvexError("Invalid proposal id");
     }
-    const proposal = await ctx.db.get(proposalId);
+    const proposal = await ctx.db.get("proposals", proposalId);
     if (!proposal) {
       throw new ConvexError("Proposal not found");
     }
@@ -335,7 +335,7 @@ export const startSummaryReconciliation = internalMutation({
       version: PROPOSAL_ATTACHMENT_SUMMARY_VERSION,
     };
     if (existing) {
-      await ctx.db.patch(existing._id, patch);
+      await ctx.db.patch("proposalAttachmentSummaryReadiness", existing._id, patch);
     } else {
       await ctx.db.insert("proposalAttachmentSummaryReadiness", patch);
     }
@@ -400,7 +400,7 @@ export const reconcileSummaryPage = internalMutation({
       });
       return null;
     }
-    const proposal = await ctx.db.get(args.currentProposalId);
+    const proposal = await ctx.db.get("proposals", args.currentProposalId);
     if (!proposal) {
       await continueWithNextProposal(ctx, {
         generation: args.generation,
@@ -422,7 +422,7 @@ export const reconcileSummaryPage = internalMutation({
     }
 
     if (args.attachmentCursor === null) {
-      await ctx.db.patch(proposal._id, {
+      await ctx.db.patch("proposals", proposal._id, {
         attachmentSummaryGeneration: args.generation,
         attachmentSummaryState: "reconciling",
       });
@@ -439,7 +439,9 @@ export const reconcileSummaryPage = internalMutation({
       attachmentPage.page.map((attachment) =>
         attachment.orderId === String(attachment._id)
           ? Promise.resolve()
-          : ctx.db.patch(attachment._id, { orderId: String(attachment._id) })
+          : ctx.db.patch("proposalAttachments", attachment._id, {
+              orderId: String(attachment._id),
+            })
       )
     );
     const attachmentCount = args.attachmentCount + attachmentPage.page.length;
@@ -447,7 +449,9 @@ export const reconcileSummaryPage = internalMutation({
       ...args.attachmentPreview,
       ...attachmentPage.page,
     ]);
-    await ctx.db.patch(readiness._id, { updatedAt: Date.now() });
+    await ctx.db.patch("proposalAttachmentSummaryReadiness", readiness._id, {
+      updatedAt: Date.now(),
+    });
 
     if (!attachmentPage.isDone) {
       await scheduleSummaryPage(ctx, {
@@ -464,7 +468,7 @@ export const reconcileSummaryPage = internalMutation({
       return null;
     }
 
-    await ctx.db.patch(proposal._id, {
+    await ctx.db.patch("proposals", proposal._id, {
       attachmentCount,
       attachmentPreview,
       attachmentSummaryGeneration: args.generation,
@@ -492,7 +496,7 @@ export const saveAttachment = internalMutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const proposal = await ctx.db.get(args.proposalId);
+    const proposal = await ctx.db.get("proposals", args.proposalId);
     if (!proposal) {
       throw new ConvexError("Proposal not found");
     }
@@ -507,7 +511,7 @@ export const saveAttachment = internalMutation({
       proposalId: args.proposalId,
       storageId: args.storageId,
     });
-    await ctx.db.patch(id, { orderId: String(id) });
+    await ctx.db.patch("proposalAttachments", id, { orderId: String(id) });
     const attachmentPreview = buildProposalAttachmentPreview([
       {
         createdAt,
@@ -518,7 +522,7 @@ export const saveAttachment = internalMutation({
       },
       ...(proposal.attachmentPreview ?? []),
     ]);
-    await ctx.db.patch(args.proposalId, {
+    await ctx.db.patch("proposals", args.proposalId, {
       attachmentCount: (proposal.attachmentCount ?? 0) + 1,
       attachmentPreview,
     });
@@ -532,15 +536,15 @@ export const deleteAttachmentRecord = internalMutation({
     attachmentId: v.id("proposalAttachments"),
   },
   handler: async (ctx, args) => {
-    const row = await ctx.db.get(args.attachmentId);
+    const row = await ctx.db.get("proposalAttachments", args.attachmentId);
     if (!row) {
       return { storageId: null as Id<"_storage"> | null };
     }
-    const proposal = await ctx.db.get(row.proposalId);
+    const proposal = await ctx.db.get("proposals", row.proposalId);
     if (proposal) {
       assertProposalAttachmentSummaryReady(proposal);
     }
-    await ctx.db.delete(args.attachmentId);
+    await ctx.db.delete("proposalAttachments", args.attachmentId);
     if (proposal) {
       const remaining = await ctx.db
         .query("proposalAttachments")
@@ -549,7 +553,7 @@ export const deleteAttachmentRecord = internalMutation({
         )
         .order("desc")
         .take(3);
-      await ctx.db.patch(row.proposalId, {
+      await ctx.db.patch("proposals", row.proposalId, {
         attachmentCount: Math.max(0, (proposal.attachmentCount ?? 0) - 1),
         attachmentPreview: buildProposalAttachmentPreview(remaining),
       });
@@ -569,7 +573,7 @@ export const deleteAllForProposal = internalMutation({
       .withIndex("by_proposalId", (q) => q.eq("proposalId", args.proposalId))
       .collect();
     const storageIds = rows.map((row) => row.storageId);
-    await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+    await Promise.all(rows.map((row) => ctx.db.delete("proposalAttachments", row._id)));
     return { storageIds };
   },
   returns: v.object({ storageIds: v.array(v.id("_storage")) }),

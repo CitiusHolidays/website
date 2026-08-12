@@ -38,10 +38,6 @@ crm/passport.ts:logViewActivity
 crm/passport.ts:savePassportDetailsOnly
 crm/passport.ts:savePassportMetadata
 crm/passportActions.ts:backfillPassportExpiryDates
-crm/proposalAttachments.ts:deleteAllForProposal
-crm/proposalAttachments.ts:deleteAttachmentRecord
-crm/proposalAttachments.ts:resolveProposalId
-crm/proposalAttachments.ts:saveAttachment
 crm/proposals.ts:clearFinalizedPdf
 crm/proposals.ts:saveFinalizedPdf
 crm/queryAttachments.ts:deleteAllForQuery
