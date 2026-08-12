@@ -90,7 +90,7 @@ Production state.
 ### CRM tables
 - Sales query, proposal, job-card, traveller, passport, visa, ticketing, operations, hotel/rooming, tour-manager, finance, expense, leave, saved-view, and notification data live in Convex CRM tables.
 - Attachments use Convex storage IDs and are served through authenticated same-origin portal file routes instead of browser-visible storage URLs.
-- Spreadsheet import flows are batch-oriented and do not cap total row count; parser and validator seams are under `src/lib/portal/spreadsheetImports.ts`, `convex/crm/importActions.ts`, and `convex/crm/imports.ts`.
+- Spreadsheet import flows are batch-oriented and do not cap total row count; parser and validator seams are under `src/lib/portal/spreadsheetImports.ts`, `convex/crm/importActions.ts`, and the stable `convex/crm/imports.ts` registration facade. Focused passenger import, export, and flight owners are documented in [`SPREADSHEET_OPERATIONS.md`](SPREADSHEET_OPERATIONS.md).
 - `commandReceipts`, `passengerImportOperations`, and `passengerExportOperations` persist replay
   identity and long-running import/export progress. `notificationEmailDeliveries` stores a
   privacy-safe, monotonic outcome ledger for CRM email sends.

@@ -171,6 +171,10 @@ Flight import/export uses a flight itinerary workbook grouped by job card and op
 Passenger-family exports run as durable operations. The UI shows running, completed, failed, or
 expired state and requests the private download only after the operation is complete.
 
+The maintained operation-state, retry, permission, download, expiry, and cleanup reference is
+[`SPREADSHEET_OPERATIONS.md`](SPREADSHEET_OPERATIONS.md). It includes separate editable import and
+export diagrams and the safe next action for every visible state.
+
 ## Dashboard and list views
 
 Portal dashboard summary data comes from `convex/crm/dashboard.ts` `getPortalSummary`. The dashboard uses role-aware persona slices, actionable KPI groups, drill-down links, and the shared period control.

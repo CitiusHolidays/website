@@ -77,6 +77,12 @@ so retries reconcile stable identities without retaining partial Traveller, Visa
 Ticketing, or metric state. Passenger exports create a durable operation, process rows in bounded
 pages, and expose a download only after the workbook is complete.
 
+The source chunk, cursor resume, external merge, streaming workbook, measured worker-memory budget,
+private download, expiry, and cleanup contracts are maintained in
+[`SPREADSHEET_OPERATIONS.md`](SPREADSHEET_OPERATIONS.md). Performance baselines may be refreshed only
+from a fresh authenticated non-production run after source-file and privacy review; measurements do
+not automatically justify increasing a budget.
+
 ## Notification delivery evidence
 
 CRM email sends write a privacy-safe delivery ledger with monotonic statuses:

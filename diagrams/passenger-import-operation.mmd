@@ -1,0 +1,25 @@
+graph TB
+  subgraph Browser["Browser workbook boundary"]
+    direction TB
+    P["Parse and map workbook"] -->|"uncapped total rows"| B["Send 50-row requests"]
+  end
+
+  subgraph Receipt["Server-owned identity and progress"]
+    direction TB
+    A["Authorize kinds and Job Card"] -->|"stable source digest"| O["Attach to durable operation"]
+    O -->|"batch index plus content digest"| C["Claim server batch position"]
+    C -->|"one transaction per row"| R["Write Traveller and dependents"]
+    R -->|"committed outcomes only"| G["Aggregate batch receipt"]
+    G --> U["Update operation totals"]
+  end
+
+  subgraph Outcome["User-visible outcomes"]
+    direction TB
+    U -->|"all positions terminal"| S["Completed or partial"]
+    G -->|"infrastructure failure"| Y["Retry same operation identity"]
+    G -->|"invalid row"| T["Terminal row failure"]
+  end
+
+  B --> A
+  Y --> C
+  T --> U

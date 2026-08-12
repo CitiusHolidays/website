@@ -136,6 +136,7 @@ describe("documentation authority", () => {
       "docs/BACKEND_INFRASTRUCTURE.md",
       "docs/E2E_TESTING.md",
       "docs/LOCAL_DEV.md",
+      "docs/SPREADSHEET_OPERATIONS.md",
       "docs/VERIFICATION.md",
     ]) {
       expect(read(sourcePath), sourcePath).not.toContain("`bun test`");
@@ -181,6 +182,62 @@ describe("documentation authority", () => {
     expect(deliveryGuide).toContain("Excalidraw scene");
   });
 
+  test("keeps spreadsheet operations bounded, editable, rendered, and source-linked", () => {
+    const operationBasenames = [
+      "diagrams/passenger-import-operation",
+      "diagrams/passenger-export-operation",
+    ];
+    for (const basename of operationBasenames) {
+      for (const extension of REQUIRED_DIAGRAM_EXTENSIONS) {
+        expect(existsSync(resolve(ROOT, `${basename}${extension}`))).toBe(true);
+      }
+      const mermaid = read(`${basename}.mmd`);
+      const nodeCount = [...mermaid.matchAll(/\w+\["[^"]+"\]/g)].length;
+      expect(nodeCount).toBeGreaterThanOrEqual(5);
+      expect(nodeCount).toBeLessThanOrEqual(15);
+    }
+
+    const guide = read("docs/SPREADSHEET_OPERATIONS.md");
+    for (const basename of operationBasenames) {
+      const relativeBasename = `../${basename}`;
+      expect(guide).toContain(`${relativeBasename}.svg`);
+      expect(guide).toContain(`${relativeBasename}.mmd`);
+      expect(guide).toContain(`${relativeBasename}.excalidraw`);
+    }
+    for (const contract of [
+      "50-row requests",
+      "There is no total workbook row cap",
+      "At most three batch requests run concurrently",
+      "15 minutes",
+      "Retry the same operation and batch identity",
+      "128 MiB worker RSS-growth budget",
+    ]) {
+      expect(guide).toContain(contract);
+    }
+
+    for (const sourcePath of [
+      "convex/crm/importActions.ts",
+      "convex/crm/imports.ts",
+      "convex/crm/importWorkerPolicy.ts",
+      "convex/crm/passengerExportPolicy.ts",
+      "convex/crm/passengerExportWorker.ts",
+      "src/app/api/portal/exports/[operationId]/route.ts",
+      "src/components/portal/workspace/modals/PortalWorkspaceSpreadsheetModals.tsx",
+    ]) {
+      expect(existsSync(resolve(ROOT, sourcePath)), sourcePath).toBe(true);
+      expect(guide).toContain(sourcePath);
+    }
+
+    for (const path of [
+      "docs/README.md",
+      "docs/PORTAL_CRM_WORKFLOWS.md",
+      "docs/BACKEND_INFRASTRUCTURE.md",
+      "docs/STAFF_WORKSPACE_PERFORMANCE.md",
+    ]) {
+      expect(read(path), path).toContain("SPREADSHEET_OPERATIONS.md");
+    }
+  });
+
   test("keeps protected deployment prose aligned with the machine contract", () => {
     const releaseContract = JSON.parse(read("config/release/release-contract.json")) as {
       convexAwareBuildCommand: string;
@@ -201,6 +258,7 @@ describe("documentation authority", () => {
       "docs/PORTAL_CRM_WORKFLOWS.md",
       "docs/PORTAL_PERMISSIONS_ARCHITECTURE.md",
       "docs/PORTAL_ROLES_AND_ACCESS.md",
+      "docs/SPREADSHEET_OPERATIONS.md",
       "docs/VERIFICATION.md",
     ];
     const reviewedGeneratedExceptions = new Set([
