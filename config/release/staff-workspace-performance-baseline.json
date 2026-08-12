@@ -4,60 +4,60 @@
     {
       "applicationPayloadBytes": 705,
       "duplicateSubscriptions": 0,
-      "firstContentMs": 1191.0999999940395,
+      "firstContentMs": 1354.0999999940395,
       "logicalSubscriptions": 1,
-      "routeReadyMs": 27.899999976158142,
-      "routeResourceTransferBytes": 30944,
+      "routeReadyMs": 27.599999994039536,
+      "routeResourceTransferBytes": 28770,
       "target": "job-cards",
       "warm": false
     },
     {
       "applicationPayloadBytes": 705,
       "duplicateSubscriptions": 0,
-      "firstContentMs": 1096.7999999821186,
+      "firstContentMs": 943.0999999940395,
       "logicalSubscriptions": 1,
-      "routeReadyMs": 10.900000005960464,
-      "routeResourceTransferBytes": 4847,
+      "routeReadyMs": 11.5,
+      "routeResourceTransferBytes": 7613,
       "target": "job-cards",
       "warm": true
     },
     {
       "applicationPayloadBytes": 1709,
       "duplicateSubscriptions": 0,
-      "firstContentMs": 981.9000000059605,
+      "firstContentMs": 731.9000000059605,
       "logicalSubscriptions": 2,
-      "routeReadyMs": 34.30000001192093,
-      "routeResourceTransferBytes": 25474,
+      "routeReadyMs": 37.599999994039536,
+      "routeResourceTransferBytes": 25549,
       "target": "proposals",
       "warm": false
     },
     {
       "applicationPayloadBytes": 1709,
       "duplicateSubscriptions": 0,
-      "firstContentMs": 1093.300000011921,
+      "firstContentMs": 1095.300000011921,
       "logicalSubscriptions": 2,
-      "routeReadyMs": 13.200000017881393,
-      "routeResourceTransferBytes": 2000,
+      "routeReadyMs": 12.300000011920929,
+      "routeResourceTransferBytes": 2994,
       "target": "proposals",
       "warm": true
     },
     {
       "applicationPayloadBytes": 1022,
       "duplicateSubscriptions": 0,
-      "firstContentMs": 848.3000000119209,
+      "firstContentMs": 1043.3999999761581,
       "logicalSubscriptions": 1,
-      "routeReadyMs": 417.40000000596046,
-      "routeResourceTransferBytes": 32094,
+      "routeReadyMs": 465.59999999403954,
+      "routeResourceTransferBytes": 39027,
       "target": "queries",
       "warm": false
     },
     {
       "applicationPayloadBytes": 1022,
       "duplicateSubscriptions": 0,
-      "firstContentMs": 941.8000000119209,
+      "firstContentMs": 1257,
       "logicalSubscriptions": 1,
-      "routeReadyMs": 12.200000017881393,
-      "routeResourceTransferBytes": 18939,
+      "routeReadyMs": 11.700000017881393,
+      "routeResourceTransferBytes": 5762,
       "target": "queries",
       "warm": true
     }
@@ -110,6 +110,7 @@
     "convex/crm/notificationCleanup.ts",
     "convex/crm/paginationPolicy.ts",
     "convex/crm/passportExpiry.ts",
+    "convex/crm/proposalAttachmentSummary.ts",
     "convex/crm/proposalAttachments.ts",
     "convex/crm/proposalDocument.ts",
     "convex/crm/proposalLinkProjection.ts",
@@ -402,5 +403,5 @@
     "src/lib/utils.js",
     "src/static/logos/citiusconnect.png"
   ],
-  "sourceHash": "065af074157de4dc9a5f635aac9e0e85d9e602d6ca4a216af651b236a2714fcf"
+  "sourceHash": "04f1dc9d4b9054a576ec3ee25898429d546eecfae9129d88e1adec5c406567f0"
 }
