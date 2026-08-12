@@ -488,6 +488,7 @@ export default defineSchema({
     sourceDigest: v.string(),
     startedAt: v.number(),
     status: v.union(v.literal("running"), v.literal("completed"), v.literal("partial")),
+    terminalBatches: v.optional(v.number()),
     total: v.number(),
     updated: v.number(),
     updatedAt: v.number(),
@@ -498,6 +499,7 @@ export default defineSchema({
   passengerImportOperationBatches: defineTable({
     accepted: v.number(),
     batchId: v.string(),
+    batchIndex: v.optional(v.number()),
     created: v.number(),
     createdAt: v.number(),
     errorSummary: v.object({ retryable: v.number(), terminal: v.number() }),
@@ -506,8 +508,13 @@ export default defineSchema({
     processed: v.number(),
     remaining: v.number(),
     roomSummary: importRoomSummaryValidator,
+    rowCount: v.optional(v.number()),
+    status: v.optional(
+      v.union(v.literal("processing"), v.literal("completed"), v.literal("retryable"))
+    ),
     updated: v.number(),
   })
+    .index("by_operationId_batchIndex", ["operationId", "batchIndex"])
     .index("by_operationId_batchId", ["operationId", "batchId"])
     .index("by_operationId", ["operationId"]),
 

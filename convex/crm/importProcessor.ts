@@ -569,6 +569,7 @@ export async function processImportRows(
     access: any;
     job: any;
     matchIndex: TravellerMatchIndex;
+    failFast?: boolean;
     logActivity?: boolean;
   }
 ) {
@@ -591,6 +592,8 @@ export async function processImportRows(
     sourceRowNumber?: number;
     sourceSheet?: string;
   }> = [];
+  const committedTravellerIds: Array<Id<"travellers">> = [];
+  const committedRows: Array<any> = [];
   const now = Date.now();
   const { jobCardId, rows, access, job, matchIndex } = args;
 
@@ -616,8 +619,6 @@ export async function processImportRows(
         }
         await ctx.db.patch(match._id, patch);
         travellerId = match._id;
-        updated += 1;
-        registerTravellerInIndex(matchIndex, { ...match, ...patch, _id: match._id });
       } else {
         const newTraveller = travellerCreateDefaults(
           row,
@@ -629,22 +630,6 @@ export async function processImportRows(
         );
         travellerId = await ctx.db.insert("travellers", newTraveller);
         isNewTraveller = true;
-        created += 1;
-        registerTravellerInIndex(matchIndex, {
-          _id: travellerId,
-          fullName: newTraveller.fullName,
-          importKey: newTraveller.importKey,
-          jobCardId,
-          visaStatus: newTraveller.visaStatus,
-        });
-        if (row.passportNumberHash) {
-          matchIndex.byPassportHash.set(row.passportNumberHash, {
-            _id: travellerId,
-            fullName: newTraveller.fullName,
-            importKey: newTraveller.importKey,
-            jobCardId,
-          });
-        }
       }
 
       if (isNewTraveller || importKind === "passenger" || importKind === "visa") {
@@ -744,7 +729,27 @@ export async function processImportRows(
           travellerId,
         });
       }
+      const committedTraveller: TravellerDoc = match
+        ? { ...match, ...travellerPatch, _id: match._id }
+        : {
+            _id: travellerId,
+            fullName: row.fullName.trim(),
+            importKey: row.importKey,
+            jobCardId,
+            visaStatus: row.visaStatus,
+          };
+      registerTravellerInIndex(matchIndex, committedTraveller);
+      if (row.passportNumberHash) {
+        matchIndex.byPassportHash.set(row.passportNumberHash, committedTraveller);
+      }
+      if (isNewTraveller) {
+        created += 1;
+      } else {
+        updated += 1;
+      }
       processed += 1;
+      committedRows.push(row);
+      committedTravellerIds.push(travellerId);
       rowResults.push({
         disposition: isNewTraveller ? "created" : "updated",
         fullName: String(row.fullName ?? "").trim(),
@@ -753,6 +758,9 @@ export async function processImportRows(
         sourceSheet: row.sourceSheet,
       });
     } catch (error) {
+      if (args.failFast) {
+        throw error;
+      }
       failed += 1;
       const kind = classifyImportError(error);
       if (kind === "terminal") {
@@ -799,12 +807,13 @@ export async function processImportRows(
 
   return {
     accepted: rows.length,
+    committedTravellerIds,
     created,
     errors,
     failed,
     processed,
     remaining: rows.length - processed,
-    roomSummary: summarizeRoomTypesFromRows(rows),
+    roomSummary: summarizeRoomTypesFromRows(committedRows),
     rowResults,
     total: rows.length,
     updated,

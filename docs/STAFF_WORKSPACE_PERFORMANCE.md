@@ -71,9 +71,11 @@ The current UUID-guarded operations include:
 
 Passenger imports keep the user-facing workbook uncapped, while each backend request is processed
 in 50-row batches. A durable import operation aggregates created, updated, failed, retryable, and
-remaining rows, and its source digest plus stable batch IDs make a retry reconcile the same rows
-without duplicating successful work. Passenger exports create a durable operation, process rows in
-bounded pages, and expose a download only after the workbook is complete.
+remaining rows. The browser digest only reattaches the UI; a server-computed prepared-content ID is
+claimed at each operation/batch position before row writes. Each row has an isolated transaction,
+so retries reconcile stable identities without retaining partial Traveller, Visa, Passport,
+Ticketing, or metric state. Passenger exports create a durable operation, process rows in bounded
+pages, and expose a download only after the workbook is complete.
 
 ## Notification delivery evidence
 

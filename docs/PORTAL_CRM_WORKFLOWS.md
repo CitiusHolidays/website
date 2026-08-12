@@ -149,8 +149,11 @@ Spreadsheet flows run through parser -> portal row mapper -> Convex validators -
 
 The client sends passenger preview and commit work in 50-row requests. The Convex operation record
 tracks completed batches, created/updated/failed rows, retryable versus terminal errors, remaining
-work, and room summaries. Stable batch IDs make a retry reconcile the same rows instead of creating
-duplicates. A partial operation remains visible until all retryable work completes.
+work, and room summaries. The browser source digest is only an operation reattachment hint. Before
+row writes, Convex computes the prepared-content batch identity and claims the declared operation
+position; a different payload cannot reuse that position. Each prepared row commits through its own
+transaction, so a later Visa, Passport, PNR, Vendor, Ticket, or metric-scheduling failure rolls the
+whole row back. A partial operation remains visible until all retryable work completes.
 
 Passenger import/export supports:
 

@@ -3,7 +3,9 @@ import { processImportRows } from "./importProcessor";
 import {
   beginPassengerExportOperation,
   beginPassengerImportOperation,
+  claimPassengerImportOperationBatch,
   commitFlightImportForTest,
+  commitPassengerImportRow,
   completePassengerImportOperation,
   getPassengerExportSourcePage,
   recordPassengerImportOperationBatch,
@@ -13,11 +15,21 @@ import { getRolePermissions } from "./lib/rolePolicy";
 type Row = { _id: string; [key: string]: unknown };
 type Tables = Record<string, Row[]>;
 
-function makeImportCtx(initialTables: Tables, options?: { failInsertNames?: Set<string> }) {
+function makeImportCtx(
+  initialTables: Tables,
+  options?: { failAtEffect?: number; failInsertNames?: Set<string> }
+) {
   const tables = Object.fromEntries(
     Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
   ) as Tables;
   const failInsertNames = options?.failInsertNames ?? new Set<string>();
+  const effects = { count: 0 };
+  const beforeEffect = (label: string) => {
+    effects.count += 1;
+    if (effects.count === options?.failAtEffect) {
+      throw new Error(`simulated ${label} failure`);
+    }
+  };
 
   const ctx = {
     auth: {
@@ -28,7 +40,8 @@ function makeImportCtx(initialTables: Tables, options?: { failInsertNames?: Set<
       }),
     },
     db: {
-      get: (id: string) => {
+      get: (tableOrId: string, maybeId?: string) => {
+        const id = maybeId ?? tableOrId;
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -38,6 +51,7 @@ function makeImportCtx(initialTables: Tables, options?: { failInsertNames?: Set<
         return null;
       },
       insert: (tableName: string, doc: Record<string, unknown>) => {
+        beforeEffect(`insert:${tableName}`);
         if (tableName === "travellers" && failInsertNames.has(String(doc.fullName))) {
           throw new Error("simulated insert failure");
         }
@@ -47,7 +61,14 @@ function makeImportCtx(initialTables: Tables, options?: { failInsertNames?: Set<
         return id;
       },
       normalizeId: (_tableName: string, id: string | null | undefined) => id ?? null,
-      patch: async (id: string, patch: Record<string, unknown>) => {
+      patch: async (
+        tableOrId: string,
+        idOrPatch: string | Record<string, unknown>,
+        maybePatch?: Record<string, unknown>
+      ) => {
+        const id = typeof idOrPatch === "string" ? idOrPatch : tableOrId;
+        const patch = typeof idOrPatch === "string" ? (maybePatch ?? {}) : idOrPatch;
+        beforeEffect(`patch:${id}`);
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -89,9 +110,40 @@ function makeImportCtx(initialTables: Tables, options?: { failInsertNames?: Set<
         };
       },
     },
+    scheduler: {
+      runAfter: async () => {
+        beforeEffect("schedule:metric-sync");
+      },
+    },
   };
 
-  return { ctx, tables };
+  return { ctx, effects, tables };
+}
+
+async function runMutationTransaction<T>(tables: Tables, work: () => Promise<T>) {
+  const snapshot = structuredClone(tables);
+  try {
+    return await work();
+  } catch (error) {
+    for (const key of Object.keys(tables)) {
+      delete tables[key];
+    }
+    Object.assign(tables, snapshot);
+    throw error;
+  }
+}
+
+const adminAccess = {
+  allowed: true,
+  authUserId: "user_1",
+  email: "user@example.com",
+  name: "Admin User",
+  permissions: getRolePermissions(["Admin"]),
+  roles: ["Admin"],
+};
+
+function passengerBatchId(jobCardId: string, batchIndex: number, digest = "0".repeat(16)) {
+  return `passenger:${jobCardId}:${batchIndex}:${digest}`;
 }
 
 describe("processImportRows failed count", () => {
@@ -150,6 +202,7 @@ describe("processImportRows failed count", () => {
       expect(result.failed).toBe(1);
       expect(result.processed).toBe(2);
       expect(result.remaining).toBe(0);
+      expect(result.roomSummary).toEqual({ Twin: 1 });
       expect(result.errors).toEqual([
         expect.objectContaining({
           id: "row-2",
@@ -164,7 +217,219 @@ describe("processImportRows failed count", () => {
   });
 });
 
+describe("passenger import row transactions", () => {
+  const jobCardId = "jobCards_1";
+  const row = {
+    encryptedPassportPayload: "encrypted-passport",
+    foodPreference: "Veg",
+    fullName: "Atomic Guest",
+    guestType: "Client",
+    id: "row-1",
+    importKey: "row-1",
+    importKind: "passenger",
+    passportExpiryDate: "2036-01-01",
+    passportLastFour: "1234",
+    passportNumberHash: "passport-hash",
+    paymentType: "Company Paid",
+    roomType: "Twin",
+    sourceRowNumber: 2,
+    sourceSheet: "Master list",
+    ticketing: {
+      domesticPnr: "PNR001",
+      domesticTicket: "TICKET001",
+      domesticVendor: "Air Vendor",
+    },
+    visaRequired: false,
+  };
+
+  function rowTables(): Tables {
+    return {
+      jobCards: [{ _id: jobCardId, jobCode: "JC-0001", travelStartDate: "2026-06-01" }],
+      passportDetails: [],
+      pnrs: [],
+      tickets: [],
+      travellers: [],
+      vendors: [],
+      visaRecords: [],
+    };
+  }
+
+  async function commitWithContext(ctx: unknown) {
+    return await (commitPassengerImportRow as any)._handler(ctx, {
+      access: adminAccess,
+      jobCardId,
+      row,
+    });
+  }
+
+  test("rolls back every row write when a later write or metric schedule fails", async () => {
+    const successful = makeImportCtx(rowTables());
+    await commitWithContext(successful.ctx);
+    const effectCount = successful.effects.count;
+    expect(effectCount).toBeGreaterThan(5);
+
+    for (let failAtEffect = 1; failAtEffect <= effectCount; failAtEffect += 1) {
+      const attempt = makeImportCtx(rowTables(), { failAtEffect });
+      const before = structuredClone(attempt.tables);
+      await expect(
+        runMutationTransaction(attempt.tables, () => commitWithContext(attempt.ctx))
+      ).rejects.toThrow("simulated");
+      expect(attempt.tables).toEqual(before);
+    }
+  });
+
+  test("rolls back an existing Traveller patch when a later stage fails", async () => {
+    const existingTables = rowTables();
+    existingTables.travellers.push({
+      _id: "travellers_1",
+      fullName: "Atomic Guest",
+      importKey: "row-1",
+      jobCardId,
+      visaStatus: "Not Required",
+    });
+    const successful = makeImportCtx(existingTables);
+    await commitWithContext(successful.ctx);
+
+    for (let failAtEffect = 2; failAtEffect <= successful.effects.count; failAtEffect += 1) {
+      const freshTables = rowTables();
+      freshTables.travellers.push({
+        _id: "travellers_1",
+        fullName: "Atomic Guest",
+        importKey: "row-1",
+        jobCardId,
+        visaStatus: "Not Required",
+      });
+      const attempt = makeImportCtx(freshTables, { failAtEffect });
+      const before = structuredClone(attempt.tables);
+      await expect(
+        runMutationTransaction(attempt.tables, () => commitWithContext(attempt.ctx))
+      ).rejects.toThrow("simulated");
+      expect(attempt.tables).toEqual(before);
+    }
+  });
+
+  test("counts room and row outcomes only after the whole row commits", async () => {
+    const { ctx } = makeImportCtx(rowTables());
+    const result = await commitWithContext(ctx);
+    expect(result).toMatchObject({
+      accepted: 1,
+      created: 1,
+      failed: 0,
+      processed: 1,
+      remaining: 0,
+      roomSummary: { Twin: 1 },
+      updated: 0,
+    });
+  });
+
+  test("retries a committed row without duplicating fanout records or PNR seats", async () => {
+    const attempt = makeImportCtx(rowTables());
+    await commitWithContext(attempt.ctx);
+    await commitWithContext(attempt.ctx);
+    expect(attempt.tables.travellers).toHaveLength(1);
+    expect(attempt.tables.visaRecords).toHaveLength(1);
+    expect(attempt.tables.passportDetails).toHaveLength(1);
+    expect(attempt.tables.vendors).toHaveLength(1);
+    expect(attempt.tables.pnrs).toHaveLength(1);
+    expect(attempt.tables.tickets).toHaveLength(1);
+    expect(attempt.tables.pnrs[0]).toMatchObject({ issuedSeats: 1, totalSeats: 1 });
+  });
+});
+
 describe("passenger import operation receipts", () => {
+  test("claims a server batch position idempotently and rejects different content without writes", async () => {
+    const jobCardId = "jobCards_1";
+    const { ctx, tables } = makeImportCtx({
+      jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
+      passengerImportOperationBatches: [],
+      passengerImportOperations: [],
+    });
+    const operationId = await (beginPassengerImportOperation as any)._handler(ctx, {
+      access: adminAccess,
+      batchTotal: 1,
+      importKinds: ["passenger"],
+      jobCardId,
+      sourceDigest: "browser-hint-only",
+      total: 12,
+    });
+    const claim = {
+      batchId: passengerBatchId(jobCardId, 0, "3".repeat(16)),
+      batchIndex: 0,
+      operationId,
+      rowCount: 12,
+    };
+    expect(await (claimPassengerImportOperationBatch as any)._handler(ctx, claim)).toEqual({
+      mode: "process",
+    });
+    expect(await (claimPassengerImportOperationBatch as any)._handler(ctx, claim)).toEqual({
+      mode: "process",
+    });
+    const beforeConflict = structuredClone(tables);
+    await expect(
+      (claimPassengerImportOperationBatch as any)._handler(ctx, {
+        ...claim,
+        batchId: passengerBatchId(jobCardId, 0, "4".repeat(16)),
+      })
+    ).rejects.toThrow("different content");
+    expect(tables).toEqual(beforeConflict);
+  });
+
+  test("accepts positions out of order and cannot complete with a missing position", async () => {
+    const jobCardId = "jobCards_1";
+    const { ctx, tables } = makeImportCtx({
+      jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
+      passengerImportOperationBatches: [],
+      passengerImportOperations: [],
+    });
+    const operationId = await (beginPassengerImportOperation as any)._handler(ctx, {
+      access: adminAccess,
+      batchTotal: 2,
+      importKinds: ["passenger"],
+      jobCardId,
+      sourceDigest: "out-of-order-browser-hint",
+      total: 100,
+    });
+    const recordPosition = async (batchIndex: number) => {
+      const batchId = passengerBatchId(jobCardId, batchIndex, String(batchIndex + 5).repeat(16));
+      await (claimPassengerImportOperationBatch as any)._handler(ctx, {
+        batchId,
+        batchIndex,
+        operationId,
+        rowCount: 50,
+      });
+      await (recordPassengerImportOperationBatch as any)._handler(ctx, {
+        accepted: 50,
+        batchId,
+        batchIndex,
+        created: 50,
+        errorSummary: { retryable: 0, terminal: 0 },
+        failed: 0,
+        operationId,
+        processed: 50,
+        remaining: 0,
+        roomSummary: { Twin: 50 },
+        status: "completed",
+        updated: 0,
+      });
+    };
+
+    await recordPosition(1);
+    expect(await (completePassengerImportOperation as any)._handler(ctx, { operationId })).toBe(
+      false
+    );
+    expect(tables.passengerImportOperations[0]).toMatchObject({ status: "running" });
+    await recordPosition(0);
+    expect(await (completePassengerImportOperation as any)._handler(ctx, { operationId })).toBe(
+      true
+    );
+    expect(tables.passengerImportOperations[0]).toMatchObject({
+      completedBatches: 2,
+      remaining: 0,
+      status: "completed",
+      terminalBatches: 2,
+    });
+  });
+
   test("resumes the same source and counts each completed batch once", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
@@ -173,13 +438,7 @@ describe("passenger import operation receipts", () => {
       passengerImportOperations: [],
     });
     const args = {
-      access: {
-        allowed: true,
-        authUserId: "user_1",
-        email: "user@example.com",
-        permissions: getRolePermissions(["Admin"]),
-        roles: ["Admin"],
-      },
+      access: adminAccess,
       batchTotal: 1,
       importKinds: ["passenger"],
       jobCardId,
@@ -190,10 +449,18 @@ describe("passenger import operation receipts", () => {
     const firstOperationId = await (beginPassengerImportOperation as any)._handler(ctx, args);
     const resumedOperationId = await (beginPassengerImportOperation as any)._handler(ctx, args);
     expect(resumedOperationId).toBe(firstOperationId);
+    const batchId = passengerBatchId(jobCardId, 0, "1".repeat(16));
+    await (claimPassengerImportOperationBatch as any)._handler(ctx, {
+      batchId,
+      batchIndex: 0,
+      operationId: firstOperationId,
+      rowCount: 50,
+    });
 
     const batch = {
       accepted: 50,
-      batchId: "batch-1",
+      batchId,
+      batchIndex: 0,
       created: 50,
       errorSummary: { retryable: 0, terminal: 0 },
       failed: 0,
@@ -201,6 +468,7 @@ describe("passenger import operation receipts", () => {
       processed: 50,
       remaining: 0,
       roomSummary: { Twin: 50 },
+      status: "completed",
       updated: 0,
     };
     await (recordPassengerImportOperationBatch as any)._handler(ctx, batch);
@@ -208,6 +476,19 @@ describe("passenger import operation receipts", () => {
     await (completePassengerImportOperation as any)._handler(ctx, {
       operationId: firstOperationId,
     });
+    expect(
+      await (claimPassengerImportOperationBatch as any)._handler(ctx, {
+        batchId,
+        batchIndex: 0,
+        operationId: firstOperationId,
+        rowCount: 50,
+      })
+    ).toEqual({ mode: "replay" });
+    expect(
+      await (completePassengerImportOperation as any)._handler(ctx, {
+        operationId: firstOperationId,
+      })
+    ).toBe(true);
 
     expect(tables.passengerImportOperationBatches).toHaveLength(1);
     expect(tables.passengerImportOperations[0]).toMatchObject({
@@ -219,6 +500,53 @@ describe("passenger import operation receipts", () => {
     });
   });
 
+  test("adopts a legacy server batch receipt without raw source data", async () => {
+    const jobCardId = "jobCards_1";
+    const batchId = passengerBatchId(jobCardId, 0, "7".repeat(16));
+    const { ctx, tables } = makeImportCtx({
+      jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
+      passengerImportOperationBatches: [],
+      passengerImportOperations: [],
+    });
+    const operationId = await (beginPassengerImportOperation as any)._handler(ctx, {
+      access: adminAccess,
+      batchTotal: 1,
+      importKinds: ["passenger"],
+      jobCardId,
+      sourceDigest: "legacy-browser-hint",
+      total: 12,
+    });
+    tables.passengerImportOperationBatches.push({
+      _id: "passengerImportOperationBatches_legacy",
+      accepted: 12,
+      batchId,
+      created: 12,
+      createdAt: 1,
+      errorSummary: { retryable: 0, terminal: 0 },
+      failed: 0,
+      operationId,
+      processed: 12,
+      remaining: 0,
+      roomSummary: { Twin: 12 },
+      updated: 0,
+    });
+
+    expect(
+      await (claimPassengerImportOperationBatch as any)._handler(ctx, {
+        batchId,
+        batchIndex: 0,
+        operationId,
+        rowCount: 12,
+      })
+    ).toEqual({ mode: "replay" });
+    expect(tables.passengerImportOperationBatches[0]).toMatchObject({
+      batchIndex: 0,
+      rowCount: 12,
+      status: "completed",
+    });
+    expect(JSON.stringify(tables.passengerImportOperationBatches[0])).not.toContain("Atomic Guest");
+  });
+
   test("reconciles a retryable batch with its later successful result", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
@@ -227,22 +555,24 @@ describe("passenger import operation receipts", () => {
       passengerImportOperations: [],
     });
     const operationId = await (beginPassengerImportOperation as any)._handler(ctx, {
-      access: {
-        allowed: true,
-        authUserId: "user_1",
-        email: "user@example.com",
-        permissions: getRolePermissions(["Admin"]),
-        roles: ["Admin"],
-      },
+      access: adminAccess,
       batchTotal: 1,
       importKinds: ["passenger"],
       jobCardId,
       sourceDigest: "digest-retry",
       total: 50,
     });
+    const batchId = passengerBatchId(jobCardId, 0, "2".repeat(16));
+    await (claimPassengerImportOperationBatch as any)._handler(ctx, {
+      batchId,
+      batchIndex: 0,
+      operationId,
+      rowCount: 50,
+    });
     await (recordPassengerImportOperationBatch as any)._handler(ctx, {
       accepted: 50,
-      batchId: "batch-1",
+      batchId,
+      batchIndex: 0,
       created: 0,
       errorSummary: { retryable: 1, terminal: 0 },
       failed: 0,
@@ -250,16 +580,26 @@ describe("passenger import operation receipts", () => {
       processed: 0,
       remaining: 50,
       roomSummary: {},
+      status: "retryable",
       updated: 0,
     });
     expect(tables.passengerImportOperations[0]).toMatchObject({
       completedBatches: 0,
       remaining: 50,
     });
+    expect(await (completePassengerImportOperation as any)._handler(ctx, { operationId })).toBe(
+      true
+    );
+    expect(tables.passengerImportOperations[0]).toMatchObject({
+      remaining: 50,
+      status: "partial",
+      terminalBatches: 1,
+    });
 
     await (recordPassengerImportOperationBatch as any)._handler(ctx, {
       accepted: 50,
-      batchId: "batch-1",
+      batchId,
+      batchIndex: 0,
       created: 50,
       errorSummary: { retryable: 0, terminal: 0 },
       failed: 0,
@@ -267,6 +607,7 @@ describe("passenger import operation receipts", () => {
       processed: 50,
       remaining: 0,
       roomSummary: { Twin: 50 },
+      status: "completed",
       updated: 0,
     });
     await (completePassengerImportOperation as any)._handler(ctx, { operationId });

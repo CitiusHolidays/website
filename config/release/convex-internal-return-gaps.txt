@@ -11,8 +11,6 @@ crm/commercialFiles.ts:purgeExpired
 crm/expenseAttachments.ts:deleteExpenseProof
 crm/expenseAttachments.ts:saveExpenseProof
 crm/expenseLifecycleMigration.ts:repairExpenseLifecycle
-crm/imports.ts:commitPassengerImportBatch
-crm/imports.ts:commitPassengerImportRows
 crm/imports.ts:logPassengerExport
 crm/imports.ts:previewPassengerImportRows
 crm/jobCardDeletion.ts:continueApprovalCleanup

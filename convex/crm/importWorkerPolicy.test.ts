@@ -123,7 +123,7 @@ describe("bounded import worker policy", () => {
         failed: 30,
         processed: 20,
         remaining: 30,
-        roomSummary: { Single: 50 },
+        roomSummary: { Single: 20 },
         status: "retryable",
         updated: 0,
       },
@@ -136,7 +136,7 @@ describe("bounded import worker policy", () => {
       processed: 70,
       remaining: 30,
     });
-    expect(summary.roomSummary).toEqual({ Single: 50, Twin: 50 });
+    expect(summary.roomSummary).toEqual({ Single: 20, Twin: 50 });
   });
 
   test("separates retryable infrastructure failures from terminal row failures", () => {

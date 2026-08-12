@@ -2,6 +2,7 @@
 
 import { encryptPassportDetails, hash } from "../lib/encryption";
 import { resolveRoomCategory } from "../lib/roomTypes";
+import { PASSENGER_IMPORT_BATCH_SIZE } from "./importBatchPolicy";
 import { normalizePassportExpiryDate } from "./passportExpiry";
 
 export {
@@ -10,7 +11,7 @@ export {
   publicPassengerImportRow,
 } from "./importRowValidators";
 
-export const IMPORT_BATCH_SIZE = 50;
+export const IMPORT_BATCH_SIZE = PASSENGER_IMPORT_BATCH_SIZE;
 
 export function chunkRows<T>(rows: T[], size: number): T[][] {
   const chunks: T[][] = [];

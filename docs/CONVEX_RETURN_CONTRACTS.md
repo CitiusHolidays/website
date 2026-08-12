@@ -154,6 +154,11 @@ validators in `convex/crm/importReturnContracts.ts` cover:
 Operation return contracts are intentionally separate from the row validators. They let the portal
 show partial or retryable work without treating a partial batch as a completed workbook.
 
+Passenger import receipts use `(operationId, batchIndex)` as the slot boundary. Receipt rows store
+only server batch IDs, positions, counts, safe summaries, and error classifications—never source
+passenger or passport rows. Legacy receipts are adopted from their existing server batch ID when an
+exact retry reaches that slot.
+
 ## Contract tests
 
 `convex/crm/returnContracts.test.ts` validates representative:

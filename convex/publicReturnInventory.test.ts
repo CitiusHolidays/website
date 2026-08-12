@@ -80,7 +80,7 @@ describe("Convex export return inventory", () => {
 
     expect(new Set(baseline).size).toBe(baseline.length);
     expect(currentGaps).toEqual(baseline);
-    expect(currentGaps).toHaveLength(58);
+    expect(currentGaps).toHaveLength(56);
   });
 
   test("validates every wrapped Commercial Files mutation response", () => {

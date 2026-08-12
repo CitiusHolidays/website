@@ -68,6 +68,7 @@ provider or production proof.
 - [Customer attribution backfill](migrations/customer-attribution-backfill.md).
 - [Expense lifecycle normalization](migrations/expense-lifecycle-normalization.md).
 - [Query lead-stage Closed-to-Lost migration](migrations/query-lead-stage-closed-to-lost.md).
+- [Passenger import receipt positions](migrations/passenger-import-receipt-positions.md).
 - [Import validator migration](IMPORT_VALIDATOR_MIGRATION.md).
 
 ## Architecture decisions

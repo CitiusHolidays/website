@@ -4,7 +4,11 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
-import { portalAccessArgumentValidator } from "../lib/importContractValidators";
+import {
+  importFailureValidator,
+  portalAccessArgumentValidator,
+} from "../lib/importContractValidators";
+import { passengerImportBatchRowCount } from "./importBatchPolicy";
 import {
   buildTravellerMatchIndex,
   findTravellerMatchInIndex,
@@ -32,6 +36,7 @@ import { canManagePassengerKinds, canViewPassengerKinds } from "./passengerKindP
 const PASSENGER_EXPORT_ARTIFACT_TTL_MS = 15 * 60 * 1000;
 const PASSENGER_EXPORT_CLEANUP_BATCH_SIZE = 50;
 const PASSENGER_EXPORT_LEASE_MS = 120_000;
+const SERVER_BATCH_DIGEST_PATTERN = /^[0-9a-f]{16}$/i;
 
 const passengerExportOperationDocumentValidator = v.object({
   _creationTime: v.number(),
@@ -262,21 +267,110 @@ export const previewPassengerImportRows = internalQuery({
   },
 });
 
-export const commitPassengerImportBatch = internalMutation({
+const importErrorResultValidator = v.object({
+  id: v.string(),
+  kind: v.union(v.literal("retryable"), v.literal("terminal")),
+  message: v.string(),
+  sourceRowNumber: v.optional(v.number()),
+  sourceSheet: v.optional(v.string()),
+});
+
+const importRowResultValidator = v.object({
+  disposition: v.union(v.literal("created"), v.literal("updated"), v.literal("failed")),
+  fullName: v.string(),
+  id: v.string(),
+  message: v.optional(v.string()),
+  sourceRowNumber: v.optional(v.number()),
+  sourceSheet: v.optional(v.string()),
+});
+
+const importBatchStatusValidator = v.union(
+  v.literal("processing"),
+  v.literal("completed"),
+  v.literal("retryable")
+);
+
+const passengerImportBatchResultValidator = v.object({
+  accepted: v.number(),
+  batchId: v.string(),
+  created: v.number(),
+  errors: v.array(importErrorResultValidator),
+  failed: v.number(),
+  processed: v.number(),
+  remaining: v.number(),
+  roomSummary: v.record(v.string(), v.number()),
+  rowResults: v.array(importRowResultValidator),
+  status: importBatchStatusValidator,
+  updated: v.number(),
+});
+
+function receiptBatchStatus(batch: {
+  remaining: number;
+  status?: "processing" | "completed" | "retryable";
+}) {
+  return batch.status ?? (batch.remaining === 0 ? "completed" : "retryable");
+}
+
+function batchIndexFromServerId(batchId: string) {
+  const parts = batchId.split(":");
+  // biome-ignore lint/style/useAtIndex: this Convex tsconfig targets an Array library without at().
+  const candidate = Number(parts[parts.length - 2]);
+  return Number.isSafeInteger(candidate) && candidate >= 0 ? candidate : null;
+}
+
+function assertServerBatchIdentity(
+  operation: Doc<"passengerImportOperations">,
+  batchIndex: number,
+  batchId: string
+) {
+  const prefix = `passenger:${String(operation.jobCardId)}:${batchIndex}:`;
+  const digest = batchId.slice(prefix.length);
+  if (!(batchId.startsWith(prefix) && SERVER_BATCH_DIGEST_PATTERN.test(digest))) {
+    throw new ConvexError("Invalid server passenger import batch identity");
+  }
+}
+
+async function resolveBoundedTravellerMatch(
+  ctx: MutationCtx,
+  jobCardId: Id<"jobCards">,
+  row: any,
+  expectedTravellerId?: Id<"travellers">
+) {
+  if (expectedTravellerId) {
+    const expected = await ctx.db.get("travellers", expectedTravellerId);
+    if (!(expected && String(expected.jobCardId) === String(jobCardId))) {
+      throw new ConvexError("Passenger import match no longer belongs to the selected Job Card");
+    }
+    return expected;
+  }
+  if (row.passportNumberHash) {
+    const passport = await ctx.db
+      .query("passportDetails")
+      .withIndex("by_passportNumberHash", (q) => q.eq("passportNumberHash", row.passportNumberHash))
+      .first();
+    const traveller = passport ? await ctx.db.get("travellers", passport.travellerId) : null;
+    if (traveller && String(traveller.jobCardId) === String(jobCardId)) {
+      return traveller;
+    }
+  }
+  return await ctx.db
+    .query("travellers")
+    .withIndex("by_jobCardId_importKey", (q) =>
+      q.eq("jobCardId", jobCardId).eq("importKey", row.importKey)
+    )
+    .unique();
+}
+
+export const commitPassengerImportRow = internalMutation({
   args: {
     access: portalAccessArgumentValidator,
-    batchId: v.string(),
+    expectedTravellerId: v.optional(v.id("travellers")),
     jobCardId: v.string(),
-    logActivity: v.optional(v.boolean()),
-    rows: v.array(internalPassengerImportRow),
+    row: internalPassengerImportRow,
   },
   handler: async (ctx, args) => {
-    if (
-      !canManagePassengerKinds(
-        args.access,
-        args.rows.map((row) => row.importKind ?? "passenger")
-      )
-    ) {
+    const importKind = args.row.importKind ?? "passenger";
+    if (!canManagePassengerKinds(args.access, [importKind])) {
       throw new ConvexError("FORBIDDEN");
     }
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
@@ -287,81 +381,224 @@ export const commitPassengerImportBatch = internalMutation({
     if (!job) {
       throw new ConvexError("FORBIDDEN");
     }
+    const match = await resolveBoundedTravellerMatch(
+      ctx,
+      jobCardId,
+      args.row,
+      args.expectedTravellerId
+    );
+    const matchIndex = {
+      byImportKey: new Map<string, any>(),
+      byNormalizedName: new Map<string, any>(),
+      byPassportHash: new Map<string, any>(),
+    };
+    if (match) {
+      if (match.importKey) {
+        matchIndex.byImportKey.set(match.importKey, match);
+      }
+      matchIndex.byNormalizedName.set(match.fullName.trim().toLowerCase(), match);
+      if (args.row.passportNumberHash) {
+        matchIndex.byPassportHash.set(args.row.passportNumberHash, match);
+      }
+    }
+    const result = await processImportRows(ctx, {
+      access: args.access,
+      failFast: true,
+      job,
+      jobCardId,
+      matchIndex,
+      rows: [args.row],
+    });
+    const [travellerId] = result.committedTravellerIds;
+    if (!travellerId) {
+      throw new ConvexError("Passenger import row did not commit");
+    }
+    const { committedTravellerIds: _committedTravellerIds, ...publicResult } = result;
+    return { ...publicResult, travellerId };
+  },
+  returns: v.object({
+    accepted: v.number(),
+    created: v.number(),
+    errors: v.array(importErrorResultValidator),
+    failed: v.number(),
+    processed: v.number(),
+    remaining: v.number(),
+    roomSummary: v.record(v.string(), v.number()),
+    rowResults: v.array(importRowResultValidator),
+    total: v.number(),
+    travellerId: v.id("travellers"),
+    updated: v.number(),
+  }),
+});
 
+export const claimPassengerImportOperationBatch = internalMutation({
+  args: {
+    batchId: v.string(),
+    batchIndex: v.number(),
+    operationId: v.id("passengerImportOperations"),
+    rowCount: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const operation = await ctx.db.get("passengerImportOperations", args.operationId);
+    if (!operation) {
+      throw new ConvexError("Import operation not found");
+    }
+    if (
+      !Number.isSafeInteger(args.batchIndex) ||
+      args.batchIndex < 0 ||
+      args.batchIndex >= operation.batchTotal ||
+      args.rowCount !== passengerImportBatchRowCount(operation.total, args.batchIndex)
+    ) {
+      throw new ConvexError("Invalid passenger import batch position");
+    }
+    assertServerBatchIdentity(operation, args.batchIndex, args.batchId);
+
+    const indexedBatch = await ctx.db
+      .query("passengerImportOperationBatches")
+      .withIndex("by_operationId_batchIndex", (q) =>
+        q.eq("operationId", args.operationId).eq("batchIndex", args.batchIndex)
+      )
+      .unique();
+    let existingBatch = indexedBatch;
+    if (!existingBatch) {
+      const legacyBatches = await ctx.db
+        .query("passengerImportOperationBatches")
+        .withIndex("by_operationId", (q) => q.eq("operationId", args.operationId))
+        .collect();
+      existingBatch =
+        legacyBatches.find(
+          (batch) => (batch.batchIndex ?? batchIndexFromServerId(batch.batchId)) === args.batchIndex
+        ) ?? null;
+    }
+    if (existingBatch) {
+      if (
+        existingBatch.batchId !== args.batchId ||
+        (existingBatch.rowCount !== undefined && existingBatch.rowCount !== args.rowCount) ||
+        existingBatch.accepted !== args.rowCount
+      ) {
+        throw new ConvexError("Passenger import batch position already has different content");
+      }
+      const status = receiptBatchStatus(existingBatch);
+      if (existingBatch.batchIndex === undefined || existingBatch.rowCount === undefined) {
+        await ctx.db.patch("passengerImportOperationBatches", existingBatch._id, {
+          batchIndex: args.batchIndex,
+          rowCount: args.rowCount,
+          status,
+        });
+      }
+      return { mode: status === "completed" ? ("replay" as const) : ("process" as const) };
+    }
+
+    const now = Date.now();
+    await ctx.db.insert("passengerImportOperationBatches", {
+      accepted: args.rowCount,
+      batchId: args.batchId,
+      batchIndex: args.batchIndex,
+      created: 0,
+      createdAt: now,
+      errorSummary: { retryable: 0, terminal: 0 },
+      failed: 0,
+      operationId: args.operationId,
+      processed: 0,
+      remaining: args.rowCount,
+      roomSummary: {},
+      rowCount: args.rowCount,
+      status: "processing",
+      updated: 0,
+    });
+    return { mode: "process" as const };
+  },
+  returns: v.object({ mode: v.union(v.literal("process"), v.literal("replay")) }),
+});
+
+export const getPassengerImportBatchResult = internalQuery({
+  args: { batchId: v.string(), jobCardId: v.string() },
+  handler: async (ctx, args) => {
+    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!jobCardId) {
+      throw new ConvexError("Invalid Job Card id");
+    }
+    const batch = await ctx.db
+      .query("crmImportBatches")
+      .withIndex("by_batchId", (q) => q.eq("batchId", args.batchId))
+      .unique();
+    if (!batch) {
+      return null;
+    }
+    if (String(batch.jobCardId) !== String(jobCardId)) {
+      throw new ConvexError("Passenger import batch belongs to a different Job Card");
+    }
+    return {
+      accepted: batch.accepted,
+      batchId: batch.batchId,
+      created: batch.created,
+      errors: batch.errors.map((error) => ({
+        ...error,
+        kind: error.kind ?? ("terminal" as const),
+      })),
+      failed: batch.failed,
+      processed: batch.processed,
+      remaining: batch.remaining,
+      roomSummary: batch.roomSummary,
+      rowResults: [],
+      status: batch.status,
+      updated: batch.updated,
+    };
+  },
+  returns: v.union(v.null(), passengerImportBatchResultValidator),
+});
+
+export const finalizePassengerImportBatch = internalMutation({
+  args: {
+    accepted: v.number(),
+    batchId: v.string(),
+    created: v.number(),
+    errors: v.array(importFailureValidator),
+    failed: v.number(),
+    jobCardId: v.string(),
+    processed: v.number(),
+    remaining: v.number(),
+    roomSummary: v.record(v.string(), v.number()),
+    status: v.union(v.literal("completed"), v.literal("retryable")),
+    updated: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
+    if (!jobCardId) {
+      throw new ConvexError("Invalid Job Card id");
+    }
     const existingBatch = await ctx.db
       .query("crmImportBatches")
       .withIndex("by_batchId", (q) => q.eq("batchId", args.batchId))
       .unique();
-    if (existingBatch?.status === "completed") {
-      return {
-        accepted: existingBatch.accepted,
-        batchId: existingBatch.batchId,
-        created: existingBatch.created,
-        errors: existingBatch.errors.map((error) => ({
-          ...error,
-          kind: error.kind ?? ("terminal" as const),
-        })),
-        failed: existingBatch.failed,
-        processed: existingBatch.processed,
-        remaining: existingBatch.remaining,
-        roomSummary: existingBatch.roomSummary,
-        status: existingBatch.status,
-        updated: existingBatch.updated,
-      };
+    if (existingBatch && String(existingBatch.jobCardId) !== String(jobCardId)) {
+      throw new ConvexError("Passenger import batch belongs to a different Job Card");
     }
-
     const now = Date.now();
-    const batchDocument = {
-      accepted: args.rows.length,
+    const document = {
+      accepted: args.accepted,
       attemptCount: (existingBatch?.attemptCount ?? 0) + 1,
       batchId: args.batchId,
-      completedAt: undefined,
-      created: 0,
-      errors: [],
-      failed: 0,
+      completedAt: args.status === "completed" ? now : undefined,
+      created: args.created,
+      errors: args.errors,
+      failed: args.failed,
       jobCardId,
-      processed: 0,
-      remaining: args.rows.length,
-      roomSummary: {},
-      status: "processing" as const,
-      updated: 0,
+      processed: args.processed,
+      remaining: args.remaining,
+      roomSummary: args.roomSummary,
+      status: args.status,
+      updated: args.updated,
       updatedAt: now,
     };
-    const ledgerId =
-      existingBatch?._id ??
-      (await ctx.db.insert("crmImportBatches", {
-        ...batchDocument,
-        createdAt: now,
-      }));
     if (existingBatch) {
-      await ctx.db.patch(existingBatch._id, batchDocument);
+      await ctx.db.patch("crmImportBatches", existingBatch._id, document);
+    } else {
+      await ctx.db.insert("crmImportBatches", { ...document, createdAt: now });
     }
-
-    const matchIndex = await buildTravellerMatchIndex(ctx, jobCardId);
-    const result = await processImportRows(ctx, {
-      access: args.access,
-      job,
-      jobCardId,
-      logActivity: args.logActivity ?? false,
-      matchIndex,
-      rows: args.rows,
-    });
-    const status = result.remaining > 0 ? ("retryable" as const) : ("completed" as const);
-    await ctx.db.patch(ledgerId, {
-      accepted: result.accepted,
-      completedAt: status === "completed" ? Date.now() : undefined,
-      created: result.created,
-      errors: result.errors,
-      failed: result.failed,
-      processed: result.processed,
-      remaining: result.remaining,
-      roomSummary: result.roomSummary,
-      status,
-      updated: result.updated,
-      updatedAt: Date.now(),
-    });
-    return { ...result, batchId: args.batchId, status };
+    return null;
   },
+  returns: v.null(),
 });
 
 export const beginPassengerImportOperation = internalMutation({
@@ -405,9 +642,6 @@ export const beginPassengerImportOperation = internalMutation({
       ) {
         throw new ConvexError("Passenger import source manifest conflicts with its receipt");
       }
-      if (existing.status !== "completed") {
-        await ctx.db.patch(existing._id, { status: "running", updatedAt: Date.now() });
-      }
       return existing._id;
     }
     const now = Date.now();
@@ -427,6 +661,7 @@ export const beginPassengerImportOperation = internalMutation({
       sourceDigest: args.sourceDigest,
       startedAt: now,
       status: "running",
+      terminalBatches: 0,
       total: args.total,
       updated: 0,
       updatedAt: now,
@@ -439,6 +674,7 @@ export const recordPassengerImportOperationBatch = internalMutation({
   args: {
     accepted: v.number(),
     batchId: v.string(),
+    batchIndex: v.number(),
     created: v.number(),
     errorSummary: v.object({ retryable: v.number(), terminal: v.number() }),
     failed: v.number(),
@@ -446,19 +682,42 @@ export const recordPassengerImportOperationBatch = internalMutation({
     processed: v.number(),
     remaining: v.number(),
     roomSummary: v.record(v.string(), v.number()),
+    status: v.union(v.literal("completed"), v.literal("retryable")),
     updated: v.number(),
   },
   handler: async (ctx, args) => {
-    const operation = await ctx.db.get(args.operationId);
+    const operation = await ctx.db.get("passengerImportOperations", args.operationId);
     if (!operation) {
       throw new ConvexError("Import operation not found");
     }
     const existingBatch = await ctx.db
       .query("passengerImportOperationBatches")
-      .withIndex("by_operationId_batchId", (q) =>
-        q.eq("operationId", args.operationId).eq("batchId", args.batchId)
+      .withIndex("by_operationId_batchIndex", (q) =>
+        q.eq("operationId", args.operationId).eq("batchIndex", args.batchIndex)
       )
       .unique();
+    if (!(existingBatch && existingBatch.batchId === args.batchId)) {
+      throw new ConvexError("Passenger import batch position was not claimed");
+    }
+    const expectedRows = passengerImportBatchRowCount(operation.total, args.batchIndex);
+    const counts = [
+      args.accepted,
+      args.created,
+      args.failed,
+      args.processed,
+      args.remaining,
+      args.updated,
+    ];
+    if (
+      !counts.every((count) => Number.isSafeInteger(count) && count >= 0) ||
+      args.accepted !== expectedRows ||
+      args.processed + args.remaining !== args.accepted ||
+      args.created + args.updated > args.processed ||
+      args.failed > args.accepted ||
+      (args.status === "completed") !== (args.remaining === 0)
+    ) {
+      throw new ConvexError("Invalid passenger import batch result");
+    }
     const roomSummary = { ...operation.roomSummary } as Record<string, number>;
     for (const [roomType, count] of Object.entries(existingBatch?.roomSummary ?? {})) {
       roomSummary[roomType] = Math.max(0, (roomSummary[roomType] ?? 0) - count);
@@ -469,11 +728,26 @@ export const recordPassengerImportOperationBatch = internalMutation({
     const now = Date.now();
     const previousResolved = existingBatch ? existingBatch.accepted - existingBatch.remaining : 0;
     const nextResolved = args.accepted - args.remaining;
-    const wasCompleted = existingBatch?.remaining === 0 ? 1 : 0;
-    const isCompleted = args.remaining === 0 ? 1 : 0;
+    const previousStatus = receiptBatchStatus(existingBatch);
+    const wasCompleted = previousStatus === "completed" ? 1 : 0;
+    const isCompleted = args.status === "completed" ? 1 : 0;
+    const wasTerminal = previousStatus === "completed" || previousStatus === "retryable" ? 1 : 0;
+    const isTerminal = 1;
+    let terminalBatches = operation.terminalBatches;
+    if (terminalBatches === undefined) {
+      const operationBatches = await ctx.db
+        .query("passengerImportOperationBatches")
+        .withIndex("by_operationId", (q) => q.eq("operationId", args.operationId))
+        .collect();
+      terminalBatches = operationBatches.filter((batch) => {
+        const status = receiptBatchStatus(batch);
+        return status === "completed" || status === "retryable";
+      }).length;
+    }
     const batchDocument = {
       accepted: args.accepted,
       batchId: args.batchId,
+      batchIndex: args.batchIndex,
       created: args.created,
       errorSummary: args.errorSummary,
       failed: args.failed,
@@ -481,16 +755,14 @@ export const recordPassengerImportOperationBatch = internalMutation({
       processed: args.processed,
       remaining: args.remaining,
       roomSummary: args.roomSummary,
+      rowCount: args.accepted,
+      status: args.status,
       updated: args.updated,
     };
     await Promise.all([
-      existingBatch
-        ? ctx.db.patch(existingBatch._id, batchDocument)
-        : ctx.db.insert("passengerImportOperationBatches", {
-            ...batchDocument,
-            createdAt: now,
-          }),
-      ctx.db.patch(args.operationId, {
+      ctx.db.patch("passengerImportOperationBatches", existingBatch._id, batchDocument),
+      ctx.db.patch("passengerImportOperations", args.operationId, {
+        completedAt: undefined,
         completedBatches: operation.completedBatches + isCompleted - wasCompleted,
         created: operation.created + args.created - (existingBatch?.created ?? 0),
         errorSummary: {
@@ -507,6 +779,8 @@ export const recordPassengerImportOperationBatch = internalMutation({
         processed: operation.processed + args.processed - (existingBatch?.processed ?? 0),
         remaining: Math.max(0, operation.remaining - (nextResolved - previousResolved)),
         roomSummary,
+        status: "running",
+        terminalBatches: terminalBatches + isTerminal - wasTerminal,
         updated: operation.updated + args.updated - (existingBatch?.updated ?? 0),
         updatedAt: now,
       }),
@@ -519,34 +793,51 @@ export const recordPassengerImportOperationBatch = internalMutation({
 export const completePassengerImportOperation = internalMutation({
   args: { operationId: v.id("passengerImportOperations") },
   handler: async (ctx, args) => {
-    const operation = await ctx.db.get(args.operationId);
+    const operation = await ctx.db.get("passengerImportOperations", args.operationId);
     if (!operation) {
       throw new ConvexError("Import operation not found");
     }
+    let terminalBatches = operation.terminalBatches;
+    if (terminalBatches === undefined) {
+      const operationBatches = await ctx.db
+        .query("passengerImportOperationBatches")
+        .withIndex("by_operationId", (q) => q.eq("operationId", args.operationId))
+        .collect();
+      const terminalIndexes = new Set(
+        operationBatches.flatMap((batch) => {
+          const index = batch.batchIndex ?? batchIndexFromServerId(batch.batchId);
+          const status = receiptBatchStatus(batch);
+          return index !== null && (status === "completed" || status === "retryable")
+            ? [index]
+            : [];
+        })
+      );
+      terminalBatches = terminalIndexes.size;
+    }
+    if (terminalBatches !== operation.batchTotal) {
+      return false;
+    }
     const now = Date.now();
-    await ctx.db.patch(args.operationId, {
+    await ctx.db.patch("passengerImportOperations", args.operationId, {
       completedAt: now,
       status: operation.failed > 0 || operation.remaining > 0 ? "partial" : "completed",
+      terminalBatches,
       updatedAt: now,
     });
-    return null;
+    return true;
   },
-  returns: v.null(),
+  returns: v.boolean(),
 });
 
-export const commitPassengerImportRows = internalMutation({
+export const logPassengerImportActivity = internalMutation({
   args: {
     access: portalAccessArgumentValidator,
+    importedCount: v.number(),
+    importKind: v.string(),
     jobCardId: v.string(),
-    rows: v.array(internalPassengerImportRow),
   },
   handler: async (ctx, args) => {
-    if (
-      !canManagePassengerKinds(
-        args.access,
-        args.rows.map((row) => row.importKind ?? "passenger")
-      )
-    ) {
+    if (!canManagePassengerKinds(args.access, [args.importKind])) {
       throw new ConvexError("FORBIDDEN");
     }
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
@@ -558,16 +849,21 @@ export const commitPassengerImportRows = internalMutation({
       throw new ConvexError("FORBIDDEN");
     }
 
-    const matchIndex = await buildTravellerMatchIndex(ctx, jobCardId);
-    return await processImportRows(ctx, {
-      access: args.access,
-      job,
-      jobCardId,
-      logActivity: true,
-      matchIndex,
-      rows: args.rows,
+    const importedLabel =
+      args.importKind === "passenger"
+        ? "passengers"
+        : args.importKind === "traveller"
+          ? "travellers"
+          : `${args.importKind} rows`;
+    await createActivity(ctx, args.access, {
+      action: "imported",
+      entityId: jobCardId,
+      entityType: "traveller",
+      message: `${args.importedCount} ${importedLabel} imported for ${job.jobCode}`,
     });
+    return null;
   },
+  returns: v.null(),
 });
 
 export async function commitFlightImportForTest(

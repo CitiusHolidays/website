@@ -1,6 +1,6 @@
 "use node";
 
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { PaginationOptions } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
@@ -24,14 +24,11 @@ import {
 import {
   classifyImportError,
   IMPORT_WORKER_CONCURRENCY,
-  type ImportBatchResult,
   mapWithConcurrency,
-  publicImportErrorMessage,
-  stableImportBatchId,
-  summarizeImportBatchResults,
 } from "./importWorkerPolicy";
 import { CRM_LIST_MAX_ROWS_READ } from "./paginationPolicy";
 import { buildPassengerExportFile } from "./passengerExportWorkbook";
+import { commitPassengerImportAction } from "./passengerImportCommit";
 import { canManagePassengerKinds, canViewPassengerKinds } from "./passengerKindPolicy";
 import { cleanPassportField } from "./passportExpiry";
 
@@ -236,119 +233,8 @@ export const commitPassengerImport = action({
     rows: v.array(publicPassengerImportRow),
   },
   handler: async (ctx, args): Promise<any> => {
-    if (args.rows.length > IMPORT_BATCH_SIZE) {
-      throw new ConvexError(`Passenger import batches cannot exceed ${IMPORT_BATCH_SIZE} rows`);
-    }
-    const operationKinds = Array.from(
-      new Set(args.rows.map((row) => String(row.importKind ?? "passenger")))
-    ).sort();
-    if (args.operation) {
-      const { batchIndex, batchTotal, complete, importKinds, sourceDigest, total } = args.operation;
-      const expectedBatchTotal = Math.ceil(total / IMPORT_BATCH_SIZE);
-      const expectedRows = Math.min(IMPORT_BATCH_SIZE, total - batchIndex * IMPORT_BATCH_SIZE);
-      const validIntegers = [batchIndex, batchTotal, total].every(Number.isSafeInteger);
-      const normalizedKinds = Array.from(new Set(importKinds.map(String))).sort();
-      if (
-        !validIntegers ||
-        total < 1 ||
-        batchTotal !== expectedBatchTotal ||
-        batchIndex < 0 ||
-        batchIndex >= batchTotal ||
-        complete !== (batchIndex === batchTotal - 1) ||
-        args.rows.length !== expectedRows ||
-        !/^[0-9a-f]{64}$/i.test(sourceDigest) ||
-        JSON.stringify(normalizedKinds) !== JSON.stringify(operationKinds)
-      ) {
-        throw new ConvexError("Invalid passenger import operation manifest");
-      }
-    }
     const access = await requireImportAccess(ctx, args.rows);
-    const preparedRows = preparePassengerRows(args.rows);
-    const batches = chunkRows(preparedRows, IMPORT_BATCH_SIZE);
-    const batchIds = batches.map((batch, index) =>
-      stableImportBatchId(args.jobCardId, (args.operation?.batchIndex ?? 0) + index, batch)
-    );
-    const sourceDigest =
-      args.operation?.sourceDigest ??
-      createHash("sha256")
-        .update(`${args.jobCardId}:${batchIds.join(":")}`)
-        .digest("hex");
-    const operationId = await ctx.runMutation(internal.crm.imports.beginPassengerImportOperation, {
-      access,
-      batchTotal: args.operation?.batchTotal ?? batches.length,
-      importKinds: operationKinds,
-      jobCardId: args.jobCardId,
-      sourceDigest,
-      total: args.operation?.total ?? preparedRows.length,
-    });
-    const batchResults = await mapWithConcurrency(
-      batches,
-      IMPORT_WORKER_CONCURRENCY,
-      async (batch, index) => {
-        const batchId = batchIds[index] ?? stableImportBatchId(args.jobCardId, index, batch);
-        let result: ImportBatchResult;
-        try {
-          result = await ctx.runMutation(internal.crm.imports.commitPassengerImportBatch, {
-            access,
-            batchId,
-            jobCardId: args.jobCardId,
-            logActivity: args.operation
-              ? args.operation.complete && index === batches.length - 1
-              : index === batches.length - 1,
-            rows: batch,
-          });
-        } catch (error) {
-          result = {
-            accepted: batch.length,
-            batchId,
-            created: 0,
-            errors: [
-              {
-                id: batchId,
-                kind: classifyImportError(error),
-                message: publicImportErrorMessage(error),
-              },
-            ],
-            failed: batch.length,
-            processed: 0,
-            remaining: batch.length,
-            roomSummary: {},
-            status: classifyImportError(error),
-            updated: 0,
-          };
-        }
-        await ctx.runMutation(internal.crm.imports.recordPassengerImportOperationBatch, {
-          accepted: result.accepted,
-          batchId,
-          created: result.created,
-          errorSummary: result.errors.reduce(
-            (errorCounts, error) => {
-              errorCounts[error.kind] += 1;
-              return errorCounts;
-            },
-            { retryable: 0, terminal: 0 }
-          ),
-          failed: result.failed,
-          operationId,
-          processed: result.processed,
-          remaining: result.remaining,
-          roomSummary: result.roomSummary,
-          updated: result.updated,
-        });
-        return result;
-      }
-    );
-    const summary = summarizeImportBatchResults(batchResults);
-    if (!args.operation || args.operation.complete) {
-      await ctx.runMutation(internal.crm.imports.completePassengerImportOperation, { operationId });
-    }
-
-    return {
-      ...summary,
-      batches: batchResults.map(({ batchId, errors, status }) => ({ batchId, errors, status })),
-      operationId,
-      total: preparedRows.length,
-    };
+    return await commitPassengerImportAction(ctx, access, args);
   },
   returns: passengerImportCommitResultValidator,
 });
