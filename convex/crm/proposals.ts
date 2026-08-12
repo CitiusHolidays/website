@@ -29,6 +29,7 @@ import {
   compactPageItems,
   mapInBoundedBatches,
 } from "./paginationPolicy";
+import { PROPOSAL_ATTACHMENT_SUMMARY_VERSION } from "./proposalAttachmentSummary";
 import { publicProposalAttachment } from "./proposalAttachments";
 import { notifyLinkedQuerySalesOwnersOfProposalDocument } from "./proposalDocument";
 import {
@@ -455,6 +456,11 @@ export const create = mutation({
     const clientName = primaryQuery?.clientName || args.clientName?.trim() || "Unlinked client";
     const id = await insertWithE2eOwnership(ctx, "proposals", {
       airfarePerPax,
+      attachmentCount: 0,
+      attachmentPreview: [],
+      attachmentSummaryGeneration: 0,
+      attachmentSummaryState: "ready",
+      attachmentSummaryVersion: PROPOSAL_ATTACHMENT_SUMMARY_VERSION,
       clientName,
       collaboratorStaffIds: [],
       costPrice,

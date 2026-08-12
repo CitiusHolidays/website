@@ -1187,10 +1187,7 @@ export default defineSchema({
     storageId: v.id("_storage"),
   })
     .index("by_proposalId", ["proposalId"])
-    .index("by_proposalId_and_createdAt_and_orderId", {
-      fields: ["proposalId", "createdAt", "orderId"],
-      staged: true,
-    })
+    .index("by_proposalId_and_createdAt_and_orderId", ["proposalId", "createdAt", "orderId"])
     .index("by_storageId", ["storageId"]),
 
   proposalAttachmentSummaryReadiness: defineTable({

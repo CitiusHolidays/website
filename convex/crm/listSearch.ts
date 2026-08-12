@@ -301,8 +301,6 @@ async function buildJobCardProjection(ctx: any, row: any) {
 }
 
 interface ProposalProjectionPatch {
-  attachmentCount?: number;
-  attachmentPreview?: NonNullable<Doc<"proposals">["attachmentPreview"]>;
   linkedQueryProjection?: NonNullable<Doc<"proposals">["linkedQueryProjection"]>;
   listSearchText: string;
 }
@@ -314,23 +312,6 @@ export async function buildProposalProjection(
   const patch: ProposalProjectionPatch = {
     listSearchText: buildProposalListSearchText(row),
   };
-  if (row.attachmentCount === undefined || row.attachmentPreview === undefined) {
-    const attachments = await ctx.db
-      .query("proposalAttachments")
-      .withIndex("by_proposalId", (q) => q.eq("proposalId", row._id))
-      .collect();
-    patch.attachmentCount = attachments.length;
-    patch.attachmentPreview = attachments
-      .sort((left, right) => right.createdAt - left.createdAt)
-      .slice(0, 3)
-      .map((attachment) => ({
-        createdAt: attachment.createdAt,
-        fileName: attachment.fileName,
-        fileSize: attachment.fileSize,
-        id: attachment._id,
-        mimeType: attachment.mimeType,
-      }));
-  }
   const { queryId } = row;
   if (queryId) {
     const [linkedQueryRecord, existingLink] = await Promise.all([

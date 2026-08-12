@@ -3,6 +3,7 @@ import { internalMutation, type MutationCtx } from "../_generated/server";
 import { assertE2eSecret } from "./lib/e2eAuth";
 import { insertE2eFixtureWithOwnership, patchE2eFixtureWithOwnership } from "./lib/e2eOwnership";
 import { buildProposalListSearchText, buildQueryListSearchText } from "./listSearch";
+import { PROPOSAL_ATTACHMENT_SUMMARY_VERSION } from "./proposalAttachmentSummary";
 
 const fixtureResultValidator = v.object({
   cementClientName: v.string(),
@@ -124,6 +125,9 @@ export const createIncompleteProposalHandoff = internalMutation({
     const proposalPayload = {
       attachmentCount: 0,
       attachmentPreview: [],
+      attachmentSummaryGeneration: 0,
+      attachmentSummaryState: "ready" as const,
+      attachmentSummaryVersion: PROPOSAL_ATTACHMENT_SUMMARY_VERSION,
       clientName,
       itinerarySummary: "Incomplete pricing fixture",
       listSearchText: buildProposalListSearchText({
