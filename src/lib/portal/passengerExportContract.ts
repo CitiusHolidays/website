@@ -32,6 +32,7 @@ export interface PassengerExportVisa {
 
 export interface PassengerExportRow {
   contactNo?: string;
+  createdAt?: number;
   foodPreference?: string;
   fullName?: string;
   gender?: string;

@@ -280,6 +280,33 @@ export async function buildPassengerExportFile(
   };
 }
 
+export async function writePassengerExportFile(
+  kind: PassengerExportKind,
+  jobCode: string,
+  rows: AsyncIterable<PassengerExportRow>,
+  outputPath: string
+) {
+  const config = CONFIG[kind];
+  const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({
+    filename: outputPath,
+    useSharedStrings: false,
+    useStyles: false,
+  });
+  const worksheet = workbook.addWorksheet(config.sheet);
+  worksheet.addRow(config.headers).commit();
+  let rowCount = 0;
+  for await (const row of rows) {
+    worksheet.addRow(config.row(row, rowCount)).commit();
+    rowCount += 1;
+  }
+  worksheet.commit();
+  await workbook.commit();
+  return {
+    fileName: `${jobCode}-${config.suffix}.xlsx`,
+    rowCount,
+  };
+}
+
 export function buildPassengerExportRows(
   kind: PassengerExportKind,
   rows: PassengerExportRow[]

@@ -92,6 +92,7 @@ function makeImportCtx(
               page,
             });
           },
+          take: async (limit: number) => rows.slice(0, limit),
           unique: async () => rows[0] ?? null,
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];
@@ -676,6 +677,9 @@ describe("passenger export operation receipts", () => {
       leaseId: "22222222-2222-4222-8222-222222222222",
     });
     tables.passengerExportOperations[0].leaseExpiresAt = 0;
+    tables.passengerExportOperations[0].rowsProcessed = 300;
+    tables.passengerExportOperations[0].sourceChunkCount = 3;
+    tables.passengerExportOperations[0].sourceCursor = "cursor-300";
     const takeover = await (beginPassengerExportOperation as any)._handler(ctx, {
       ...base,
       leaseId: "33333333-3333-4333-8333-333333333333",
@@ -685,6 +689,9 @@ describe("passenger export operation receipts", () => {
     expect(tables.passengerExportOperations[0]).toMatchObject({
       attemptCount: 2,
       leaseId: "33333333-3333-4333-8333-333333333333",
+      rowsProcessed: 300,
+      sourceChunkCount: 3,
+      sourceCursor: "cursor-300",
       status: "running",
     });
   });

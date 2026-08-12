@@ -529,9 +529,13 @@ export default defineSchema({
     initiatedBy: v.string(),
     initiatedByStaffId: v.optional(v.id("staffUsers")),
     jobCardId: v.id("jobCards"),
+    jobCode: v.optional(v.string()),
     leaseExpiresAt: v.optional(v.number()),
     leaseId: v.optional(v.string()),
     rowsProcessed: v.number(),
+    sourceChunkCount: v.optional(v.number()),
+    sourceCursor: v.optional(v.string()),
+    sourceDone: v.optional(v.boolean()),
     startedAt: v.number(),
     status: v.union(
       v.literal("running"),
@@ -550,6 +554,19 @@ export default defineSchema({
     ])
     .index("by_initiatedBy_updatedAt", ["initiatedBy", "updatedAt"])
     .index("by_status_expiresAt", ["status", "expiresAt"])
+    .index("by_storageId", ["storageId"]),
+
+  passengerExportSourceChunks: defineTable({
+    continueCursor: v.string(),
+    createdAt: v.number(),
+    cursorStart: v.string(),
+    isDone: v.boolean(),
+    operationId: v.id("passengerExportOperations"),
+    pageIndex: v.number(),
+    rowCount: v.number(),
+    storageId: v.id("_storage"),
+  })
+    .index("by_operationId_pageIndex", ["operationId", "pageIndex"])
     .index("by_storageId", ["storageId"]),
 
   crmListSearchReadiness: defineTable({

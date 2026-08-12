@@ -91,6 +91,9 @@ describe("durable E2E ownership contract", () => {
     const cleanup = readFileSync(join(ROOT, "convex/crm/e2eRunOwnership.ts"), "utf8");
     expect(ownership).toContain("E2E_CLEANUP_TABLE_ORDER");
     expect(ownership).toContain("patchWithE2eOwnership");
+    expect(ownership).toContain("passengerExportOperations: 90");
+    expect(ownership).toContain("passengerExportSourceChunks: 100");
+    expect(ownership).toContain("recordPatchedStorageIds");
     expect(cleanup).toContain("by_runId_cleanupOrder_createdAt");
     expect(cleanup).toContain("ctx.db.replace");
     expect(cleanup).not.toContain("record.tableName as TableNames");

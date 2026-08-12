@@ -49,6 +49,8 @@ describe("storage reference guard", () => {
       "passportDetails",
       "attachments",
       "proposals",
+      "passengerExportOperations",
+      "passengerExportSourceChunks",
     ];
     await Promise.all(
       tables.map((table) => {

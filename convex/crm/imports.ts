@@ -31,94 +31,24 @@ import {
   compactPageItems,
   mapInBoundedBatches,
 } from "./paginationPolicy";
-import { canManagePassengerKinds, canViewPassengerKinds } from "./passengerKindPolicy";
+import { purgePassengerExportSourceChunksRef } from "./passengerExportFunctionReferences";
+import {
+  beginPassengerExportOperationHandler,
+  completePassengerExportOperationHandler,
+  failPassengerExportOperationHandler,
+  getAuthorizedPassengerExportOperationHandler,
+  listMyPassengerExportOperationsHandler,
+  logPassengerExportHandler,
+  passengerExportOperationDocumentValidator,
+  stagePassengerExportArtifactHandler,
+  updatePassengerExportOperationHandler,
+} from "./passengerExportOperations";
+import { PASSENGER_EXPORT_CLEANUP_BATCH_SIZE } from "./passengerExportPolicy";
+import { getPassengerExportSourcePageHandler } from "./passengerExportSource";
+import { passengerExportSourcePageValidator } from "./passengerExportSourceContract";
+import { canManagePassengerKinds } from "./passengerKindPolicy";
 
-const PASSENGER_EXPORT_ARTIFACT_TTL_MS = 15 * 60 * 1000;
-const PASSENGER_EXPORT_CLEANUP_BATCH_SIZE = 50;
-const PASSENGER_EXPORT_LEASE_MS = 120_000;
 const SERVER_BATCH_DIGEST_PATTERN = /^[0-9a-f]{16}$/i;
-
-const passengerExportOperationDocumentValidator = v.object({
-  _creationTime: v.number(),
-  _id: v.id("passengerExportOperations"),
-  attemptCount: v.number(),
-  commandId: v.string(),
-  completedAt: v.optional(v.number()),
-  errorCode: v.optional(v.string()),
-  expiresAt: v.optional(v.number()),
-  exportKind: v.string(),
-  fileName: v.optional(v.string()),
-  initiatedBy: v.string(),
-  initiatedByStaffId: v.optional(v.id("staffUsers")),
-  jobCardId: v.id("jobCards"),
-  leaseExpiresAt: v.optional(v.number()),
-  leaseId: v.optional(v.string()),
-  rowsProcessed: v.number(),
-  startedAt: v.number(),
-  status: v.union(
-    v.literal("running"),
-    v.literal("completed"),
-    v.literal("failed"),
-    v.literal("expired")
-  ),
-  storageId: v.optional(v.id("_storage")),
-  updatedAt: v.number(),
-});
-
-const passengerExportSourceRowValidator = v.object({
-  cancellation: v.boolean(),
-  contactNo: v.string(),
-  createdAt: v.number(),
-  encryptedPassportPayload: v.string(),
-  foodPreference: v.string(),
-  fullName: v.string(),
-  gender: v.string(),
-  givenName: v.string(),
-  hotelAllocation: v.string(),
-  lastMinuteDrop: v.boolean(),
-  paymentType: v.string(),
-  roomType: v.string(),
-  sourceDealerCode: v.string(),
-  sourceDealerName: v.string(),
-  sourceDescription: v.string(),
-  sourceGroup: v.string(),
-  sourceRowNumber: v.union(v.number(), v.null()),
-  sourceRsoName: v.string(),
-  sourceSheet: v.string(),
-  sourceSoName: v.string(),
-  specialRequests: v.string(),
-  surname: v.string(),
-  tickets: v.array(
-    v.object({
-      airline: v.string(),
-      fareType: v.string(),
-      pnrCode: v.string(),
-      route: v.string(),
-      ticketNumber: v.string(),
-      ticketType: v.string(),
-    })
-  ),
-  travelBatchCode: v.string(),
-  travelBatchId: v.string(),
-  travelBatchReference: v.string(),
-  travelHub: v.string(),
-  travellerId: v.id("travellers"),
-  visa: v.object({ appointmentDate: v.string(), notes: v.string(), status: v.string() }),
-  visaRequired: v.boolean(),
-  visaStatus: v.string(),
-});
-
-const passengerExportSourcePageValidator = v.object({
-  clientName: v.string(),
-  continueCursor: v.string(),
-  isDone: v.boolean(),
-  jobCode: v.string(),
-  page: v.array(passengerExportSourceRowValidator),
-  pageStatus: v.optional(
-    v.union(v.literal("SplitRecommended"), v.literal("SplitRequired"), v.null())
-  ),
-  splitCursor: v.optional(v.union(v.string(), v.null())),
-});
 
 const flightSegmentInput = v.object({
   airline: v.string(),
@@ -1070,100 +1000,7 @@ export const getPassengerExportSourcePage = internalQuery({
     jobCardId: v.id("jobCards"),
     paginationOpts: paginationOptsValidator,
   },
-  handler: async (ctx, args) => {
-    if (!canViewPassengerKinds(args.access, [args.exportKind])) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
-    if (!jobCardId) {
-      throw new ConvexError("Invalid Job Card id");
-    }
-    const job = await getVisibleJob(ctx, args.access, jobCardId);
-    if (!job) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    const page = await ctx.db
-      .query("travellers")
-      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
-      .paginate(args.paginationOpts);
-    const rows = await mapInBoundedBatches(page.page, async (traveller) => {
-      const [passport, visaRecord, ticketRows, travelBatch] = await Promise.all([
-        ctx.db
-          .query("passportDetails")
-          .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-          .unique(),
-        ctx.db
-          .query("visaRecords")
-          .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-          .unique(),
-        ctx.db
-          .query("tickets")
-          .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
-          .collect(),
-        traveller.travelBatchId ? ctx.db.get(traveller.travelBatchId) : null,
-      ]);
-      const tickets = await mapInBoundedBatches(ticketRows, async (ticket) => {
-        const pnr = ticket.pnrId ? await ctx.db.get(ticket.pnrId) : null;
-        return {
-          airline: pnr?.airline ?? "",
-          fareType: pnr?.fareType ?? "",
-          pnrCode: pnr?.pnrCode ?? "",
-          route: pnr?.route ?? "",
-          ticketNumber: ticket.ticketNumber ?? "",
-          ticketType: ticket.ticketType ?? "",
-        };
-      });
-      return {
-        cancellation: traveller.cancellation ?? false,
-        contactNo: traveller.contactNo ?? "",
-        createdAt: traveller.createdAt,
-        encryptedPassportPayload: passport?.encryptedPayload ?? "",
-        foodPreference: traveller.foodPreference,
-        fullName: traveller.fullName,
-        gender: traveller.gender ?? "",
-        givenName: traveller.givenName ?? "",
-        hotelAllocation: traveller.hotelAllocation ?? "",
-        lastMinuteDrop: traveller.lastMinuteDrop ?? false,
-        paymentType: traveller.paymentType,
-        roomType: traveller.roomType,
-        sourceDealerCode: traveller.sourceDealerCode ?? "",
-        sourceDealerName: traveller.sourceDealerName ?? "",
-        sourceDescription: traveller.sourceDescription ?? "",
-        sourceGroup: traveller.sourceGroup ?? "",
-        sourceRowNumber: traveller.sourceRowNumber ?? null,
-        sourceRsoName: traveller.sourceRsoName ?? "",
-        sourceSheet: traveller.sourceSheet ?? "",
-        sourceSoName: traveller.sourceSoName ?? "",
-        specialRequests: traveller.specialRequests ?? "",
-        surname: traveller.surname ?? "",
-        tickets,
-        travelBatchCode: travelBatch?.batchCode ?? "",
-        travelBatchId: traveller.travelBatchId ?? "",
-        travelBatchReference: travelBatch?.batchReference ?? "",
-        travelHub: traveller.travelHub ?? "",
-        travellerId: traveller._id,
-        visa: visaRecord
-          ? {
-              appointmentDate: visaRecord.appointmentDate ?? "",
-              notes: visaRecord.notes ?? "",
-              status: visaRecord.status,
-            }
-          : {
-              appointmentDate: traveller.biometricAppointmentDate ?? "",
-              notes: "",
-              status: traveller.visaStatus,
-            },
-        visaRequired: traveller.visaRequired,
-        visaStatus: traveller.visaStatus,
-      };
-    });
-    return {
-      ...page,
-      clientName: job.clientName,
-      jobCode: job.jobCode,
-      page: rows,
-    };
-  },
+  handler: getPassengerExportSourcePageHandler,
   returns: passengerExportSourcePageValidator,
 });
 
@@ -1175,75 +1012,7 @@ export const beginPassengerExportOperation = internalMutation({
     jobCardId: v.id("jobCards"),
     leaseId: v.string(),
   },
-  handler: async (ctx, args) => {
-    if (!canViewPassengerKinds(args.access, [args.exportKind])) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
-    if (!jobCardId) {
-      throw new ConvexError("Invalid Job Card id");
-    }
-    const job = await getVisibleJob(ctx, args.access, jobCardId);
-    if (!job) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    const now = Date.now();
-    const initiatedBy = args.access.authUserId ?? args.access.email;
-    const existing = await ctx.db
-      .query("passengerExportOperations")
-      .withIndex("by_initiatedBy_exportKind_jobCardId_commandId", (indexQuery) =>
-        indexQuery
-          .eq("initiatedBy", initiatedBy)
-          .eq("exportKind", args.exportKind)
-          .eq("jobCardId", jobCardId)
-          .eq("commandId", args.commandId)
-      )
-      .unique();
-    if (existing) {
-      const canTakeOver =
-        existing.status === "failed" ||
-        (existing.status === "running" && (existing.leaseExpiresAt ?? 0) <= now);
-      if (canTakeOver) {
-        const rejectedStorageId = existing.storageId;
-        await ctx.db.patch(existing._id, {
-          attemptCount: (existing.attemptCount ?? 0) + 1,
-          completedAt: undefined,
-          errorCode: undefined,
-          expiresAt: undefined,
-          fileName: undefined,
-          leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
-          leaseId: args.leaseId,
-          rowsProcessed: 0,
-          startedAt: now,
-          status: "running",
-          storageId: undefined,
-          updatedAt: now,
-        });
-        if (rejectedStorageId) {
-          await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
-            storageId: rejectedStorageId,
-          });
-        }
-        return { operationId: existing._id, replayed: false };
-      }
-      return { operationId: existing._id, replayed: true };
-    }
-    const operationId = await ctx.db.insert("passengerExportOperations", {
-      attemptCount: 1,
-      commandId: args.commandId,
-      exportKind: args.exportKind,
-      initiatedBy,
-      ...(args.access.staffId ? { initiatedByStaffId: args.access.staffId } : {}),
-      jobCardId,
-      leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
-      leaseId: args.leaseId,
-      rowsProcessed: 0,
-      startedAt: now,
-      status: "running",
-      updatedAt: now,
-    });
-    return { operationId, replayed: false };
-  },
+  handler: beginPassengerExportOperationHandler,
   returns: v.object({
     operationId: v.id("passengerExportOperations"),
     replayed: v.boolean(),
@@ -1256,18 +1025,7 @@ export const updatePassengerExportOperation = internalMutation({
     operationId: v.id("passengerExportOperations"),
     rowsProcessed: v.number(),
   },
-  handler: async (ctx, args) => {
-    const operation = await ctx.db.get(args.operationId);
-    if (!operation || operation.leaseId !== args.leaseId || operation.status !== "running") {
-      throw new ConvexError("Export operation lease was superseded");
-    }
-    await ctx.db.patch(args.operationId, {
-      leaseExpiresAt: Date.now() + PASSENGER_EXPORT_LEASE_MS,
-      rowsProcessed: args.rowsProcessed,
-      updatedAt: Date.now(),
-    });
-    return null;
-  },
+  handler: updatePassengerExportOperationHandler,
   returns: v.null(),
 });
 
@@ -1277,27 +1035,7 @@ export const completePassengerExportOperation = internalMutation({
     operationId: v.id("passengerExportOperations"),
     rowsProcessed: v.number(),
   },
-  handler: async (ctx, args) => {
-    const operation = await ctx.db.get(args.operationId);
-    if (
-      !(operation?.storageId && operation.fileName) ||
-      operation.leaseId !== args.leaseId ||
-      operation.status !== "running"
-    ) {
-      throw new ConvexError("Export artifact was not staged");
-    }
-    const now = Date.now();
-    await ctx.db.patch(args.operationId, {
-      completedAt: now,
-      expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
-      leaseExpiresAt: undefined,
-      leaseId: undefined,
-      rowsProcessed: args.rowsProcessed,
-      status: "completed",
-      updatedAt: now,
-    });
-    return null;
-  },
+  handler: completePassengerExportOperationHandler,
   returns: v.null(),
 });
 
@@ -1308,21 +1046,7 @@ export const stagePassengerExportArtifact = internalMutation({
     operationId: v.id("passengerExportOperations"),
     storageId: v.id("_storage"),
   },
-  handler: async (ctx, args) => {
-    const operation = await ctx.db.get(args.operationId);
-    if (operation?.status !== "running" || operation.leaseId !== args.leaseId) {
-      throw new ConvexError("Export operation is not running");
-    }
-    const now = Date.now();
-    await ctx.db.patch(args.operationId, {
-      expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
-      fileName: args.fileName,
-      leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
-      storageId: args.storageId,
-      updatedAt: now,
-    });
-    return null;
-  },
+  handler: stagePassengerExportArtifactHandler,
   returns: v.null(),
 });
 
@@ -1333,23 +1057,7 @@ export const failPassengerExportOperation = internalMutation({
     leaseId: v.string(),
     operationId: v.id("passengerExportOperations"),
   },
-  handler: async (ctx, args) => {
-    const operation = await ctx.db.get(args.operationId);
-    if (!operation || operation.leaseId !== args.leaseId) {
-      return null;
-    }
-    const now = Date.now();
-    await ctx.db.patch(args.operationId, {
-      errorCode: args.errorCode,
-      expiresAt: args.artifactDeleted ? undefined : now,
-      status: "failed",
-      ...(args.artifactDeleted ? { storageId: undefined } : {}),
-      leaseExpiresAt: undefined,
-      leaseId: undefined,
-      updatedAt: now,
-    });
-    return null;
-  },
+  handler: failPassengerExportOperationHandler,
   returns: v.null(),
 });
 
@@ -1364,22 +1072,7 @@ export const getAuthorizedPassengerExportOperation = internalQuery({
     access: portalAccessArgumentValidator,
     operationId: v.string(),
   },
-  handler: async (ctx, args) => {
-    const operationId = ctx.db.normalizeId("passengerExportOperations", args.operationId);
-    const operation = operationId ? await ctx.db.get(operationId) : null;
-    if (
-      !operation ||
-      operation.initiatedBy !== (args.access.authUserId ?? args.access.email) ||
-      !canViewPassengerKinds(args.access, [operation.exportKind])
-    ) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    const job = await getVisibleJob(ctx, args.access, operation.jobCardId);
-    if (!job) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    return operation;
-  },
+  handler: getAuthorizedPassengerExportOperationHandler,
   returns: passengerExportOperationDocumentValidator,
 });
 
@@ -1410,6 +1103,9 @@ export const purgeExpiredPassengerExports = internalMutation({
           fileName: undefined,
           leaseExpiresAt: undefined,
           leaseId: undefined,
+          sourceChunkCount: 0,
+          sourceCursor: undefined,
+          sourceDone: undefined,
           status: "expired",
           storageId: undefined,
           updatedAt: now,
@@ -1419,6 +1115,10 @@ export const purgeExpiredPassengerExports = internalMutation({
             storageId: expiredStorageId,
           });
         }
+        await ctx.scheduler.runAfter(0, purgePassengerExportSourceChunksRef, {
+          expireOperation: false,
+          operationId: operation._id,
+        });
       })
     );
     const scheduled = expired.length === PASSENGER_EXPORT_CLEANUP_BATCH_SIZE;
@@ -1432,47 +1132,7 @@ export const purgeExpiredPassengerExports = internalMutation({
 
 export const listMyPassengerExportOperations = query({
   args: { referenceNow: v.optional(v.number()) },
-  handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
-    const initiatedBy = access.authUserId ?? access.email;
-    const referenceNow = args.referenceNow ?? Date.now();
-    const operations = await ctx.db
-      .query("passengerExportOperations")
-      .withIndex("by_initiatedBy_updatedAt", (q) => q.eq("initiatedBy", initiatedBy))
-      .order("desc")
-      .take(12);
-    const visibleOperations = await Promise.all(
-      operations.map(async (operation) => {
-        if (!canViewPassengerKinds(access, [operation.exportKind])) {
-          return null;
-        }
-        const job = await getVisibleJob(ctx, access, operation.jobCardId);
-        if (!job) {
-          return null;
-        }
-        return {
-          commandId: operation.commandId,
-          completedAt: operation.completedAt,
-          errorCode: operation.errorCode,
-          exportKind: operation.exportKind,
-          fileName: operation.fileName,
-          id: operation._id,
-          jobCardId: operation.jobCardId,
-          rowsProcessed: operation.rowsProcessed,
-          stalled: operation.status === "running" && referenceNow - operation.updatedAt > 120_000,
-          startedAt: operation.startedAt,
-          status:
-            operation.status === "completed" &&
-            operation.expiresAt !== undefined &&
-            operation.expiresAt <= referenceNow
-              ? ("expired" as const)
-              : operation.status,
-          updatedAt: operation.updatedAt,
-        };
-      })
-    );
-    return visibleOperations.filter((operation) => operation !== null);
-  },
+  handler: listMyPassengerExportOperationsHandler,
   returns: passengerExportOperationListValidator,
 });
 
@@ -1483,31 +1143,8 @@ export const logPassengerExport = internalMutation({
     jobCardId: v.id("jobCards"),
     rowCount: v.number(),
   },
-  handler: async (ctx, args) => {
-    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
-    if (!jobCardId) {
-      return;
-    }
-    const job = await ctx.db.get(jobCardId);
-    if (!job) {
-      return;
-    }
-
-    const exportedKind = args.exportKind ?? "passenger";
-    let exportedLabel = `${exportedKind} rows`;
-    if (exportedKind === "passenger") {
-      exportedLabel = "passengers";
-    } else if (exportedKind === "traveller") {
-      exportedLabel = "travellers";
-    }
-
-    await createActivity(ctx, args.access, {
-      action: "exported",
-      entityId: jobCardId,
-      entityType: "traveller",
-      message: `${args.rowCount} ${exportedLabel} exported for ${job.jobCode}`,
-    });
-  },
+  handler: logPassengerExportHandler,
+  returns: v.null(),
 });
 
 export const listFlightItinerary = query({

@@ -21,6 +21,8 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   jobCards: 50,
   notificationReads: 100,
   notifications: 100,
+  passengerExportOperations: 90,
+  passengerExportSourceChunks: 100,
   proposalQueryHandoffs: 95,
   proposalQueryLinks: 90,
   proposals: 50,
@@ -182,6 +184,34 @@ function recordOriginalValue<TableName extends TableNames>(
   return next;
 }
 
+async function recordPatchedStorageIds<TableName extends TableNames>(
+  ctx: MutationCtx,
+  runId: Id<"e2eRuns">,
+  tableName: TableName,
+  documentId: Id<TableName>,
+  value: PatchValue<TableName>
+) {
+  const storageIds = collectStorageIds(value);
+  if (storageIds.length === 0) {
+    return;
+  }
+  const run = await ctx.db.get("e2eRuns", runId);
+  if (!run) {
+    return;
+  }
+  const owned = await ctx.db
+    .query("e2eOwnedRecords")
+    .withIndex("by_runId_tableName_documentId", (q) =>
+      q.eq("runId", run.runId).eq("tableName", tableName).eq("documentId", String(documentId))
+    )
+    .unique();
+  if (owned) {
+    await ctx.db.patch("e2eOwnedRecords", owned._id, {
+      storageIds: Array.from(new Set([...owned.storageIds, ...storageIds])),
+    });
+  }
+}
+
 /**
  * Atomically records inserts made by an authenticated E2E actor. Production
  * users and internal workers take the ordinary insert path with no ledger IO.
@@ -209,6 +239,7 @@ export async function patchWithE2eOwnership<TableName extends TableNames>(
   const [runId, document] = await Promise.all([activeRun(ctx), ctx.db.get(tableName, documentId)]);
   if (runId && document) {
     await recordOriginalValue(ctx, runId, tableName, documentId, document);
+    await recordPatchedStorageIds(ctx, runId, tableName, documentId, value);
   }
   // Convex's distributive generic loses the TableName relationship inside this
   // wrapper; callers retain the table-specific PatchValue contract above.
