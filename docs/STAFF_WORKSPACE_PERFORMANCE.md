@@ -39,17 +39,18 @@ The limits are the same for cold and warm navigation except for resource transfe
 
 Every route has a duplicate-subscription limit of zero.
 
-The current authenticated local baseline is stored in
+The current authenticated non-production Preview baseline is stored in
 [`config/release/staff-workspace-performance-baseline.json`](../config/release/staff-workspace-performance-baseline.json).
 It records six samples from the latest source hash:
 
 | Route | Cold first content | Warm first content | Cold transfer | Warm transfer |
 | --- | ---: | ---: | ---: | ---: |
-| Queries | 576 ms | 714 ms | 172,318 bytes | 12,378 bytes |
-| Proposals | 544 ms | 764 ms | 167,009 bytes | 7,948 bytes |
-| Job Cards | 580 ms | 550 ms | 174,090 bytes | 1,612 bytes |
+| Queries | 848 ms | 942 ms | 32,094 bytes | 18,939 bytes |
+| Proposals | 982 ms | 1,093 ms | 25,474 bytes | 2,000 bytes |
+| Job Cards | 1,191 ms | 1,097 ms | 30,944 bytes | 4,847 bytes |
 
-These figures are an authenticated local development baseline, not a production latency promise.
+These figures are an authenticated synthetic baseline from a protected Vercel Preview bound to a
+dedicated Convex Preview, not a production latency promise.
 The source hash is derived from a checked import closure rooted at the measured views, shell, lazy
 registry, data readers, browser harness, dependency lockfile, and Next build configuration. The gate
 fails closed when either the file identity or content changes; unrelated documentation does not
