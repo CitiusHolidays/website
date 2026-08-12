@@ -5,9 +5,27 @@ function makeConfirmedOfferCtx(existingOffer: Record<string, unknown> | null = n
   let inserted: Record<string, unknown> | null = null;
   const proposal = {
     _id: "proposals_1",
+    proposalRevision: 3,
     queryId: "queries_1",
     status: "Sent",
     taxRate: 5,
+  };
+  const link = {
+    _id: "proposalQueryLinks_1",
+    handedOffRevision: 3,
+    proposalId: "proposals_1",
+    queryId: "queries_1",
+  };
+  const handoff = {
+    _id: "proposalQueryHandoffs_1",
+    airfarePerPax: 20_000,
+    landCostPerPax: 45_000,
+    proposalId: "proposals_1",
+    proposalRevision: 3,
+    queryId: "queries_1",
+    sellingPrice: 80_000,
+    taxRate: 5,
+    visaCostPerPax: 3000,
   };
   const ctx = {
     db: {
@@ -19,6 +37,15 @@ function makeConfirmedOfferCtx(existingOffer: Record<string, unknown> | null = n
       normalizeId: (_table: string, id: string) => id,
       query: (table: string) => ({
         first: async () => (table === "confirmedOffers" ? existingOffer : null),
+        unique: () => {
+          if (table === "proposalQueryLinks") {
+            return Promise.resolve(link);
+          }
+          if (table === "proposalQueryHandoffs") {
+            return Promise.resolve(handoff);
+          }
+          return Promise.resolve(null);
+        },
         withIndex() {
           return this;
         },
@@ -36,19 +63,17 @@ describe("Confirmed Offer snapshot", () => {
       ctx as never,
       { authUserId: "auth_sales" },
       {
-        airfarePerPax: 20_000,
+        confirmedAt: 1_786_123_456_000,
         confirmedPax: 18,
         destination: "Baku",
-        landCostPerPax: 45_000,
         proposalId: "proposals_1",
+        proposalRevision: 3,
         queryId: "queries_1",
-        sellingPricePerPax: 80_000,
         source: "Citius Concierge",
         sourceConsentAt: 1_786_123_456_000,
         sourceInboundIntentId: "inboundQueryIntents_1",
         travelEndDate: "2026-10-08",
         travelStartDate: "2026-10-02",
-        visaCostPerPax: 3000,
       }
     );
 
@@ -58,6 +83,8 @@ describe("Confirmed Offer snapshot", () => {
       confirmedPax: 18,
       landCostPerPax: 45_000,
       profitPerPax: 12_000,
+      proposalQueryHandoffId: "proposalQueryHandoffs_1",
+      proposalRevision: 3,
       sellingPricePerPax: 80_000,
       source: "Citius Concierge",
       sourceConsentAt: 1_786_123_456_000,
@@ -75,14 +102,12 @@ describe("Confirmed Offer snapshot", () => {
         ctx as never,
         { authUserId: "auth_sales" },
         {
-          airfarePerPax: 20_000,
+          confirmedAt: 1_786_123_456_000,
           confirmedPax: 18,
-          landCostPerPax: 45_000,
           proposalId: "proposals_1",
+          proposalRevision: 3,
           queryId: "queries_1",
-          sellingPricePerPax: 80_000,
           travelStartDate: "2026-10-02",
-          visaCostPerPax: 3000,
         }
       )
     ).rejects.toThrow("This query already has a confirmed offer snapshot.");

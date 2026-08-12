@@ -5,7 +5,7 @@ export const SALES_PIPELINE_BOARD_STAGES = ["Inquiry", "Proposal", "Negotiation"
 
 export type SalesPipelineBoardStage = (typeof SALES_PIPELINE_BOARD_STAGES)[number];
 
-const TERMINAL_PIPELINE_STAGES = new Set<LeadStage>(["Confirmation", "Lost", "Closed"]);
+const TERMINAL_PIPELINE_STAGES = new Set<LeadStage | "Closed">(["Confirmation", "Lost", "Closed"]);
 
 const SALES_PIPELINE_BOARD_LOCKED_STATUSES = new Set([
   "Order Confirmed",

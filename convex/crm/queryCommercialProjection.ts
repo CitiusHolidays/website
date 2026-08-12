@@ -6,7 +6,7 @@ import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnershi
 import { mapInBoundedBatches } from "./paginationPolicy";
 
 const PROJECTION_KEY = "queries";
-export const QUERY_COMMERCIAL_PROJECTION_VERSION = 2;
+export const QUERY_COMMERCIAL_PROJECTION_VERSION = 3;
 const RECONCILE_PAGE_SIZE = 50;
 const STALE_AFTER_MS = 60 * 60 * 1000;
 
@@ -242,12 +242,18 @@ export const reconcileQueryCommercialProjection = internalMutation({
       );
       return { complete: false, stale: false };
     }
-    const jobCard = await ctx.db
-      .query("jobCards")
-      .withIndex("by_queryId", (builder) => builder.eq("queryId", worker.queryId))
-      .first();
+    const [jobCard, queryRow] = await Promise.all([
+      ctx.db
+        .query("jobCards")
+        .withIndex("by_queryId", (builder) => builder.eq("queryId", worker.queryId))
+        .first(),
+      ctx.db.get("queries", worker.queryId),
+    ]);
+    const confirmedOffer = queryRow?.confirmedOfferId
+      ? await ctx.db.get("confirmedOffers", queryRow.confirmedOfferId)
+      : null;
     await ctx.db.patch("queries", worker.queryId, {
-      acceptedProposalId: bestAcceptedProposal?.proposalId,
+      acceptedProposalId: confirmedOffer?.proposalId ?? bestAcceptedProposal?.proposalId,
       commercialProjectionGeneration: args.generation,
       commercialProjectionState: "ready",
       commercialProjectionVersion: QUERY_COMMERCIAL_PROJECTION_VERSION,

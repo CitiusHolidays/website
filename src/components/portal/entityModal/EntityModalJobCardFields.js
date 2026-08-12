@@ -1,7 +1,6 @@
 "use client";
 
 import { Input, Select } from "@/components/portal/PortalModalForm";
-import { proposalLinkedQueryIds } from "@/lib/portal/proposalLinks";
 
 export function EntityModalJobCardFields({
   modal,
@@ -11,6 +10,9 @@ export function EntityModalJobCardFields({
   proposals,
   handleJobQuerySelect,
 }) {
+  const confirmedProposal = proposals.find(
+    (proposal) => String(proposal.id) === String(form.proposalId)
+  );
   return (
     <>
       {modal === "jobCard" && (
@@ -36,25 +38,26 @@ export function EntityModalJobCardFields({
             required={!form.entityId}
             value={form.queryId}
           />
-          <Select
-            label="Linked Proposal"
-            onChange={(v) => updateForm("proposalId", v)}
-            options={[
-              { label: "Select proposal…", value: "" },
-              ...proposals.reduce((options, proposal) => {
-                const linkedQueryIds = new Set(proposalLinkedQueryIds(proposal));
-                if (!form.queryId || linkedQueryIds.has(form.queryId)) {
-                  options.push({
-                    label: `${proposal.proposalCode} - ${proposal.status}`,
-                    value: proposal.id,
-                  });
-                }
-                return options;
-              }, []),
-            ]}
-            required={!form.entityId}
-            value={form.proposalId}
+          <Input
+            label="Confirmed Proposal"
+            readOnly
+            value={
+              confirmedProposal
+                ? `${confirmedProposal.proposalCode} - revision ${confirmedProposal.proposalRevision}`
+                : form.proposalId
+            }
           />
+          {!form.entityId && form.queryId && form._confirmedOfferState === "loading" && (
+            <div className="rounded-xl border border-brand-border bg-brand-light/60 px-4 py-3 text-brand-muted text-sm md:col-span-2">
+              Loading the immutable Confirmed Offer…
+            </div>
+          )}
+          {!form.entityId && form.queryId && form._confirmedOfferState === "missing" && (
+            <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-red-800 text-sm md:col-span-2">
+              This Query has no Confirmed Offer. Sales must confirm an exact handed-off Proposal
+              revision before Accounts can open a Job Card.
+            </div>
+          )}
           <Input
             label="Client"
             onChange={(v) => updateForm("clientName", v)}

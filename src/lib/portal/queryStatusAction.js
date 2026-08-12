@@ -28,7 +28,7 @@ export function buildQueryStatusInitial(row) {
 
 export function buildQueryStatusAction(row, has) {
   const isContractingOnly = has(P.MANAGE_CONTRACTING) && !has(P.MANAGE_QUERIES);
-  if (!isContractingOnly && row.salesStatus === "Order Confirmed") {
+  if (!isContractingOnly && ["Order Confirmed", "Order Lost"].includes(row.salesStatus)) {
     return null;
   }
   return {

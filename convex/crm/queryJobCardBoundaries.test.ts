@@ -143,9 +143,15 @@ describe("query/job card policy parity", () => {
     });
   });
 
-  test("Sales Decision patch behavior is unchanged through the facade", () => {
+  test("the facade preserves exact Sales Decision patch behavior", () => {
     const patch = facadeBuildQueryStatusPatch({
-      args: { queryId: "queries_1", salesStatus: "Order Confirmed" },
+      args: {
+        commandId: "66666666-6666-4666-8666-666666666666",
+        proposalId: "proposal_1",
+        proposalRevision: 1,
+        queryId: "queries_1",
+        salesStatus: "Order Confirmed",
+      },
       now: 42,
     });
     expect(patch).toMatchObject({

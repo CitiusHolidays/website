@@ -35,7 +35,8 @@ export function usePortalWorkspaceMutations() {
   const assignContractingOwner = useMutation(api.crm.jobCards.assignContractingOwner);
   const assignOperationsOwner = useMutation(api.crm.jobCards.assignOperationsOwner);
   const assignTicketingOwner = useMutation(api.crm.ticketing.assignTicketingOwner);
-  const updateQueryStatusMutation = useMutation(api.crm.queries.updateStatus);
+  const applySalesDecisionMutation = useMutation(api.crm.queries.applySalesDecision);
+  const updateContractingProgress = useMutation(api.crm.queries.updateContractingProgress);
   const moveContractingPipelineStageMutation = useMutation(
     api.crm.queries.moveContractingPipelineStage
   );
@@ -197,16 +198,15 @@ export function usePortalWorkspaceMutations() {
     return result;
   };
 
-  const updateQueryStatus = async (
-    args: Omit<Parameters<typeof updateQueryStatusMutation>[0], "commandId">
+  const applySalesDecision = async (
+    args: Omit<Parameters<typeof applySalesDecisionMutation>[0], "commandId">
   ) => {
-    const confirmationRequested =
-      args.salesStatus === "Order Confirmed" || args.contractingStatus === "Order Confirmed";
+    const confirmationRequested = args.salesStatus === "Order Confirmed";
     if (!confirmationRequested) {
-      return await updateQueryStatusMutation(args);
+      return await applySalesDecisionMutation(args);
     }
-    const signature = `query.order_confirmed:${args.queryId}:${JSON.stringify(args)}`;
-    const result = await updateQueryStatusMutation({
+    const signature = `query.order_confirmed.v2:${args.queryId}:${args.proposalId}:${args.proposalRevision}`;
+    const result = await applySalesDecisionMutation({
       ...args,
       commandId: replaySafeCommandId(signature),
     });
@@ -280,6 +280,7 @@ export function usePortalWorkspaceMutations() {
   return {
     addJobCardCollaborator,
     addProposalCollaborator,
+    applySalesDecision,
     assignContracting,
     assignContractingOwner,
     assignJobCardCreator,
@@ -363,6 +364,7 @@ export function usePortalWorkspaceMutations() {
     submitExpenseForApproval,
     submitToContractingMutation,
     updateCallingStatus,
+    updateContractingProgress,
     updateExpense,
     updateHotel,
     updateInvoice,
@@ -372,7 +374,6 @@ export function usePortalWorkspaceMutations() {
     updatePnr,
     updateProposal,
     updateQuery,
-    updateQueryStatus,
     updateSeatAllocation,
     updateTicket,
     updateTourManager,

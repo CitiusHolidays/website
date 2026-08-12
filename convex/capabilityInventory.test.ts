@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "4bc69314101ca7d4dd44f021ae7142ae76853023f882c6ab069450f5fc480bf6";
+const EXPECTED_CAPABILITY_HASH = "37bad72b860f32b6a671f597fcdc121402c73ad9df0d5b5231d082084d7e5783";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -195,6 +195,36 @@ describe("Convex capability inventory", () => {
         kind: "internalMutation",
         module: "crm/rateLimitMaintenance",
         name: "consumePortalFileDownload",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/closedLeadStageMigration",
+        name: "migrateClosedLeadStages",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/closedLeadStageMigration",
+        name: "verifyClosedLeadStages",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/closedLeadStageMigration",
+        name: "getClosedLeadStageMigrationStatus",
+      },
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/queries",
+        name: "applySalesDecision",
+      },
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/queries",
+        name: "updateContractingProgress",
       },
       {
         classification: "public-product",

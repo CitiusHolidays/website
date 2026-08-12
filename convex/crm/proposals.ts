@@ -12,7 +12,6 @@ import {
   editorPatch,
   PERMISSIONS,
   publishWorkflowNotification,
-  requireAnyPermission,
   requireStaff,
 } from "./lib";
 import { patchWithE2eOwnership } from "./lib/e2eOwnership";
@@ -138,44 +137,10 @@ export const markAccepted = mutation({
   args: {
     proposalId: v.string(),
   },
-  handler: async (ctx, args) => {
-    const access = await requireAnyPermission(ctx, [
-      PERMISSIONS.MANAGE_PROPOSALS,
-      PERMISSIONS.MANAGE_CONTRACTING,
-    ]);
-    const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
-    if (!proposalId) {
-      throw new ConvexError("Invalid proposal id");
-    }
-    const proposal = await ctx.db.get(proposalId);
-    if (!proposal) {
-      throw new ConvexError("Proposal not found");
-    }
-    const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
-    if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
-      throw new ConvexError("FORBIDDEN");
-    }
-    if (!canEditProposalRecord(access, proposal, linkedQueries)) {
-      throw new ConvexError(
-        "Only assigned Contracting or Ticketing SPOC, collaborators, and heads can accept this proposal"
-      );
-    }
-    const now = Date.now();
-    await patchWithE2eOwnership(ctx, "proposals", proposalId, {
-      status: "Accepted",
-      ...editorPatch(access, now),
-    });
-    await createActivity(ctx, access, {
-      action: "accepted",
-      entityId: proposalId,
-      entityType: "proposal",
-      message: `${proposal.proposalCode} marked as accepted`,
-    });
-    await enqueueQueryCommercialProjections(
-      ctx,
-      linkedQueries.map((linkedQuery) => linkedQuery._id)
+  handler: () => {
+    throw new ConvexError(
+      "Proposal acceptance is retired. Sales must confirm the exact handed-off revision through Sales Decision."
     );
-    return { id: proposalId };
   },
   returns: proposalIdResultValidator,
 });

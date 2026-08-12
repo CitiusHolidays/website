@@ -12,6 +12,7 @@ This doc records the current Citius Connect behavior implemented across recent p
 | Shared lists, actions, and pagination | `src/components/portal/SelectableDataTable.tsx`, `src/components/portal/PortalActionMenu.tsx`, `src/components/portal/QueryRowActions.tsx` |
 | Modal form lifecycle and submit routing | `src/lib/portal/modalLifecycle.js`, `src/lib/portal/modalCommandExecutor.ts` |
 | Query team assignment | `convex/crm/queryTeamAssignment.ts`, `src/lib/portal/permissions.js` |
+| Sales Decision and Confirmed Offer | `convex/crm/queryCommands.ts`, `convex/crm/queryStatusPolicy.ts`, `convex/crm/confirmedOffer.ts` |
 | Replay-safe command receipts | `convex/crm/commandReceipts.ts`, `src/components/portal/workspace/usePortalWorkspaceMutations.ts` |
 | Job cards and downstream operations | `convex/crm/jobCards.ts`, `src/components/portal/jobCard/JobCardCommandCenter.js` |
 | Spreadsheet import/export | `src/lib/portal/spreadsheetImports.ts`, `src/lib/portal/spreadsheetExports.ts`, `convex/crm/imports.ts`, `convex/crm/importActions.ts` |
@@ -35,6 +36,13 @@ Sales-facing decisions use Sales Decision values:
 
 Order Lost and lost reason are sales-only. Contracting users should not see or drive that sales-only lost flow through their contracting status dropdown.
 
+Sales Decision and Contracting Progress are separate server commands. Contracting Progress accepts
+only `Query Received`, `Proposal in progress`, or `Proposal sent`; it cannot confirm or lose an
+order. Sales Decision derives the matching lead/contracting projections on the server and rejects
+mixed or decision-incompatible fields before any write or notification. `Order Confirmed` and
+`Order Lost` are terminal. A confirmed Query clears lost-reason fields, and a lost Query cannot have
+a Confirmed Offer.
+
 Approx. margin stays empty until Order Confirmed and is entered manually by Sales. It must not be auto-calculated from budget or contracting costs.
 
 Contracting owner labels in portal UI read Contracting SPOC. The database fields remain `contractingOwnerId` and `contractingOwnerName`.
@@ -44,7 +52,7 @@ Contracting owner labels in portal UI read Contracting SPOC. The database fields
 Durable side-effect commands receive a UUID command ID. Convex stores the actor, operation, target,
 and canonical payload digest in a receipt. Repeating the same command returns the original result;
 reusing the command ID with a different target or payload is rejected. The current UUID-guarded
-flows are proposal handoff to Sales, Order Confirmed, and passenger export. Passenger import
+flows are proposal handoff to Sales, exact-revision Order Confirmed, and passenger export. Passenger import
 batches use a source digest and stable batch IDs under their durable operation manifest.
 
 ## Query team assignment
@@ -72,6 +80,11 @@ Email and bell delivery intentionally differ for query-team assignment:
 
 Contracting sends costing to Sales through Send to Sales. The query shows as With Sales, Sales receives an in-app notification, and Sales uses Sales Decision for confirm, revision, or lost.
 
+Send to Sales targets exactly one `{ proposalId, queryId, proposalRevision }` pair. It stores an
+immutable handoff snapshot before the command receipt. Sales can confirm only the current revision
+handed to that Query; editable browser prices and a newer unhanded Proposal revision are rejected.
+The retired `proposals.markAccepted` and generic `queries.updateStatus` capabilities fail closed.
+
 Proposal cost price is per person and auto-calculated from land, airfare, and visa cost per pax. Contracting enters `visaCostPerPax`; manual CP entry is not part of the workflow. Tax supports 5%, 18%, or a custom rate.
 
 Proposal Pricing Complete means ready for Proposal Handoff to Sales only. It does not authorize client delivery or Job Card creation; Sales must record Order Confirmed before Accounts can open a Job Card.
@@ -82,11 +95,32 @@ Proposal Doc is separate from the sales proposal handoff action. Query rows keep
 
 Order Confirmed alerts Accounts plus the assigned contracting, operations, and ticketing teams. Any Accounts team member can create a job card for a confirmed query, and Accounts Head/Admin/Directors/Director Cement can manage the job-card creator allowlist.
 
+The Confirmed Offer copies commercial amounts only from the exact immutable Proposal-Query handoff
+and records the same confirmation clock as the Query. The Accounts modal loads focused Query detail,
+locks the selected Proposal and commercial fields, and refuses Save while the offer is loading or
+missing. It hydrates each selected Query once, so a late reactive update does not overwrite an
+Accounts user's pax or date edits. Dashboard age for “needs Job Card creation” uses `confirmedAt`;
+missing confirmation time stays unknown rather than falling back to a later `updatedAt`.
+
 Job card numbers append the linked Assigned Sales Rep's initials after the
 sequence number, for example `JC-0001-NS`; they do not use the Accounts creator
 or approver.
 
 After Accounts opens a job card, downstream teams are notified to start traveller master, ticketing, passport, visa, hotel/rooming, tour manager, and finance work.
+
+![Query to Job Card authority flow](../diagrams/crm-query-to-job-card.svg)
+
+The editable source is `diagrams/crm-query-to-job-card.mmd`; the Excalidraw, SVG, and PNG renders
+are kept beside it.
+
+## Legacy lead-stage migration
+
+`Closed` remains accepted by storage only during the widening window. Public writer validators
+accept `Lost` and reject `Closed`; public reads normalize a legacy `Closed` row to `Lost`.
+`convex/crm/closedLeadStageMigration.ts` provides a bounded dry run, an apply pass with a
+server-owned registry cursor, an independent verifier, and a zero-residual status query. It touches
+only the Query `leadStage` field, never Job Card statuses. See
+`docs/migrations/query-lead-stage-closed-to-lost.md`; no target run is implied by source completion.
 
 ## Travel series and travel batches
 

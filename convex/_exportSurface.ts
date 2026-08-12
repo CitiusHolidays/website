@@ -7,6 +7,7 @@ import * as betterAuth_schema from "./betterAuth/schema";
 import * as bookings from "./bookings";
 import * as crm_activity from "./crm/activity";
 import * as crm_approvals from "./crm/approvals";
+import * as crm_closedLeadStageMigration from "./crm/closedLeadStageMigration";
 import * as crm_dashboard from "./crm/dashboard";
 import * as crm_expenseAttachments from "./crm/expenseAttachments";
 import * as crm_finance from "./crm/finance";
@@ -214,6 +215,8 @@ export const __convexExportSurface = [
   crm_queries.assignJobCardCreator,
   crm_queries.submitToContracting,
   crm_queries.moveSalesPipelineStage,
+  crm_queries.applySalesDecision,
+  crm_queries.updateContractingProgress,
   crm_queries.updateStatus,
   crm_queries.remove,
   crm_queryAttachments.publicQueryAttachment,
@@ -271,6 +274,9 @@ export const __convexExportSurface = [
   crm_visa.updateRecord,
   crm_visa.remove,
   crm_queries.assignQueryTicketing,
+  crm_closedLeadStageMigration.migrateClosedLeadStages,
+  crm_closedLeadStageMigration.verifyClosedLeadStages,
+  crm_closedLeadStageMigration.getClosedLeadStageMigrationStatus,
   crm_passport.listPassportDetailsForBackfill,
   crm_passport.backfillPassportExpiryDate,
   crm_visa.removeMany,

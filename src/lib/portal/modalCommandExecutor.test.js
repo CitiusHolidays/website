@@ -12,6 +12,7 @@ function makeDeps(overrides = {}) {
   const dependencies = {
     addJobCardCollaborator: record("addJobCardCollaborator"),
     addProposalCollaborator: record("addProposalCollaborator"),
+    applySalesDecision: record("applySalesDecision"),
     assignContracting: record("assignContracting"),
     assignContractingOwner: record("assignContractingOwner"),
     assignJobCardCreator: record("assignJobCardCreator"),
@@ -46,6 +47,7 @@ function makeDeps(overrides = {}) {
     removeProposalCollaborator: record("removeProposalCollaborator"),
     saveSeat: record("saveSeat"),
     team: [],
+    updateContractingProgress: record("updateContractingProgress"),
     updateExpense: record("updateExpense", { id: "expense_1" }),
     updateHotel: record("updateHotel"),
     updateInvoice: record("updateInvoice"),
@@ -54,7 +56,6 @@ function makeDeps(overrides = {}) {
     updatePnr: record("updatePnr"),
     updateProposal: record("updateProposal", { id: "proposal_1" }),
     updateQuery: record("updateQuery"),
-    updateQueryStatus: record("updateQueryStatus"),
     updateSeatAllocation: record("updateSeatAllocation"),
     updateTicket: record("updateTicket"),
     updateTourManager: record("updateTourManager"),
@@ -98,6 +99,7 @@ describe("executeModalCommand", () => {
         landCostPerPax: "12000",
         lostReason: "Price",
         proposalId: "proposal_1",
+        proposalRevision: 3,
         queryId: "query_1",
         salesDecision: "Order Confirmed",
         sellingPricePerPax: "25000",
@@ -110,21 +112,18 @@ describe("executeModalCommand", () => {
 
     expect(calls).toEqual([
       [
-        "updateQueryStatus",
+        "applySalesDecision",
         {
-          airfarePerPax: 8000,
           confirmedPax: 12,
           destination: "Ladakh",
-          landCostPerPax: 12_000,
-          leadStage: "Confirmation",
           lostReason: undefined,
+          lostReasonOther: undefined,
           proposalId: "proposal_1",
+          proposalRevision: 3,
           queryId: "query_1",
           salesStatus: "Order Confirmed",
-          sellingPricePerPax: 25_000,
           travelEndDate: "2026-08-10",
           travelStartDate: "2026-08-01",
-          visaCostPerPax: 1500,
         },
       ],
     ]);

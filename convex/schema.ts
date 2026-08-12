@@ -405,6 +405,9 @@ export default defineSchema({
   confirmedOffers: defineTable({
     airfarePerPax: v.number(),
     approxMargin: v.optional(v.number()),
+    // Optional only for the widening window. New offers always bind one
+    // confirmation clock to an immutable Proposal-Query revision handoff.
+    confirmedAt: v.optional(v.number()),
     confirmedPax: v.number(),
     createdAt: v.number(),
     createdBy: v.string(),
@@ -412,6 +415,8 @@ export default defineSchema({
     landCostPerPax: v.number(),
     profitPerPax: v.number(),
     proposalId: v.id("proposals"),
+    proposalQueryHandoffId: v.optional(v.id("proposalQueryHandoffs")),
+    proposalRevision: v.optional(v.number()),
     queryId: v.id("queries"),
     sellingPricePerPax: v.number(),
     source: v.optional(querySource),

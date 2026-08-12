@@ -67,6 +67,7 @@ provider or production proof.
 - [Sensitive migration rehearsal](migrations/rehearsal.md).
 - [Customer attribution backfill](migrations/customer-attribution-backfill.md).
 - [Expense lifecycle normalization](migrations/expense-lifecycle-normalization.md).
+- [Query lead-stage Closed-to-Lost migration](migrations/query-lead-stage-closed-to-lost.md).
 - [Import validator migration](IMPORT_VALIDATOR_MIGRATION.md).
 
 ## Architecture decisions

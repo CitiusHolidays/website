@@ -24,7 +24,7 @@ const initialForm = {
 };
 
 describe("createInitialModalForm", () => {
-  test("hydrates job card forms from linked query and latest linked proposal", () => {
+  test("hydrates job card forms only from the immutable Confirmed Offer", () => {
     const form = createInitialModalForm({
       access: { roles: [] },
       initial: { queryId: "query_1" },
@@ -101,17 +101,17 @@ describe("jobCardProposalLinkPatch", () => {
     { id: "proposal_new", queryIds: ["query_1"], updatedAt: "2026-02-01T00:00:00.000Z" },
   ];
 
-  test("links the latest proposal when a job card modal opens with a prefilled query", () => {
+  test("reports loading while focused Query detail is unavailable", () => {
     expect(
       jobCardProposalLinkPatch({
         form: { queryId: "query_1" },
         modal: "jobCard",
         proposals,
       })
-    ).toEqual({ proposalId: "proposal_new" });
+    ).toEqual({ _confirmedOfferState: "loading" });
   });
 
-  test("prefers the query-side bounded proposal projection over list fallback data", () => {
+  test("rejects a list projection as Job Card commercial authority", () => {
     expect(
       jobCardProposalLinkPatch({
         form: { queryId: "query_1" },
@@ -124,7 +124,7 @@ describe("jobCardProposalLinkPatch", () => {
           },
         ],
       })
-    ).toMatchObject({ proposalId: "proposal_projected" });
+    ).toEqual({ _confirmedOfferState: "missing", proposalId: "" });
   });
 
   test("hydrates immutable Confirmed Offer values when focused query detail arrives", () => {
@@ -152,13 +152,15 @@ describe("jobCardProposalLinkPatch", () => {
         ],
       })
     ).toMatchObject({
+      _confirmedOfferQueryId: "query_1",
+      _confirmedOfferState: "ready",
       confirmedPax: "18",
       proposalId: "proposal_old",
       sellingPricePerPax: "80000",
     });
   });
 
-  test("skips when the form already has a proposal or is editing an existing job card", () => {
+  test("skips existing Job Cards and does not trust a prefilled Proposal id", () => {
     expect(
       jobCardProposalLinkPatch({
         form: { entityId: "job_1", queryId: "query_1" },
@@ -171,6 +173,26 @@ describe("jobCardProposalLinkPatch", () => {
         form: { proposalId: "proposal_old", queryId: "query_1" },
         modal: "jobCard",
         proposals,
+      })
+    ).toEqual({ _confirmedOfferState: "loading" });
+  });
+
+  test("hydrates once per selected Query so later edits are preserved", () => {
+    expect(
+      jobCardProposalLinkPatch({
+        form: {
+          _confirmedOfferQueryId: "query_1",
+          _confirmedOfferState: "ready",
+          confirmedPax: "22",
+          queryId: "query_1",
+        },
+        modal: "jobCard",
+        queries: [
+          {
+            confirmedOffer: { confirmedPax: 18, proposalId: "proposal_old" },
+            id: "query_1",
+          },
+        ],
       })
     ).toBeNull();
   });

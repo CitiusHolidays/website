@@ -3,23 +3,22 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { profitPerPerson } from "./commercialRecordChain";
 import { insertWithE2eOwnership } from "./lib/e2eOwnership";
-import type { QuerySource, QueryStatusArgs } from "./queryValidators";
+import type { SalesDecisionCommand } from "./queryStatusPolicy";
+import type { QuerySource } from "./queryValidators";
 
 export interface ConfirmedOfferInput {
-  airfarePerPax: number;
   approxMargin?: number;
+  confirmedAt: number;
   confirmedPax: number;
   destination?: string;
-  landCostPerPax: number;
   proposalId: string;
+  proposalRevision: number;
   queryId: string;
-  sellingPricePerPax: number;
   source?: QuerySource;
   sourceConsentAt?: number;
   sourceInboundIntentId?: Id<"inboundQueryIntents">;
   travelEndDate?: string;
   travelStartDate: string;
-  visaCostPerPax: number;
 }
 
 export function calculateConfirmedOfferProfitPerPax(input: {
@@ -46,7 +45,8 @@ export async function loadConfirmedOfferForQuery(ctx: MutationCtx, queryId: Id<"
 export async function assertEligibleProposalForConfirmation(
   ctx: MutationCtx,
   queryId: Id<"queries">,
-  proposalIdRaw: string
+  proposalIdRaw: string,
+  proposalRevision: number
 ) {
   const proposalId = ctx.db.normalizeId("proposals", proposalIdRaw);
   if (!proposalId) {
@@ -56,24 +56,31 @@ export async function assertEligibleProposalForConfirmation(
   if (!proposal) {
     throw new ConvexError("Selected proposal was not found.");
   }
-  const directLink = proposal.queryId === queryId;
-  const linked = directLink
-    ? true
-    : Boolean(
-        await ctx.db
-          .query("proposalQueryLinks")
-          .withIndex("by_proposalId_and_queryId", (q) =>
-            q.eq("proposalId", proposalId).eq("queryId", queryId)
-          )
-          .first()
-      );
-  if (!linked) {
+  const link = await ctx.db
+    .query("proposalQueryLinks")
+    .withIndex("by_proposalId_and_queryId", (q) =>
+      q.eq("proposalId", proposalId).eq("queryId", queryId)
+    )
+    .unique();
+  if (!link) {
     throw new ConvexError("Select a proposal linked to this query.");
   }
-  if (!["Accepted", "Sent"].includes(proposal.status)) {
-    throw new ConvexError("The selected proposal must be sent to Sales before confirmation.");
+  const currentRevision = proposal.proposalRevision ?? 1;
+  if (currentRevision !== proposalRevision || link.handedOffRevision !== proposalRevision) {
+    throw new ConvexError(
+      "The selected Proposal revision is not the current revision handed to Sales. Refresh and try again."
+    );
   }
-  return proposal;
+  const handoff = await ctx.db
+    .query("proposalQueryHandoffs")
+    .withIndex("by_proposalId_queryId_revision", (q) =>
+      q.eq("proposalId", proposalId).eq("queryId", queryId).eq("proposalRevision", proposalRevision)
+    )
+    .unique();
+  if (!handoff) {
+    throw new ConvexError("The exact Proposal revision has no immutable Sales handoff.");
+  }
+  return { handoff, link, proposal };
 }
 
 export async function createConfirmedOfferSnapshot(
@@ -89,44 +96,58 @@ export async function createConfirmedOfferSnapshot(
   if (existing) {
     throw new ConvexError("This query already has a confirmed offer snapshot.");
   }
-  const proposal = await assertEligibleProposalForConfirmation(ctx, queryId, input.proposalId);
+  const { handoff, proposal } = await assertEligibleProposalForConfirmation(
+    ctx,
+    queryId,
+    input.proposalId,
+    input.proposalRevision
+  );
   if (input.confirmedPax < 1) {
     throw new ConvexError("Passenger count must be greater than zero.");
   }
   if (!input.travelStartDate.trim()) {
     throw new ConvexError("Travel start date is required.");
   }
-  if (input.sellingPricePerPax <= 0) {
+  if (handoff.sellingPrice <= 0) {
     throw new ConvexError("Selling Price per Person must be greater than zero.");
   }
   if (
-    [input.landCostPerPax, input.airfarePerPax, input.visaCostPerPax].some((value) => value < 0)
+    [handoff.landCostPerPax, handoff.airfarePerPax, handoff.visaCostPerPax].some(
+      (value) => value < 0
+    )
   ) {
     throw new ConvexError("Per-person costs cannot be negative.");
   }
 
-  const now = Date.now();
-  const profitPerPax = calculateConfirmedOfferProfitPerPax(input);
+  const profitPerPax = calculateConfirmedOfferProfitPerPax({
+    airfarePerPax: handoff.airfarePerPax,
+    landCostPerPax: handoff.landCostPerPax,
+    sellingPricePerPax: handoff.sellingPrice,
+    visaCostPerPax: handoff.visaCostPerPax,
+  });
   const offerId = await insertWithE2eOwnership(ctx, "confirmedOffers", {
-    airfarePerPax: Math.max(input.airfarePerPax, 0),
+    airfarePerPax: Math.max(handoff.airfarePerPax, 0),
     approxMargin: input.approxMargin === undefined ? undefined : Math.max(input.approxMargin, 0),
+    confirmedAt: input.confirmedAt,
     confirmedPax: input.confirmedPax,
-    createdAt: now,
+    createdAt: input.confirmedAt,
     createdBy: access.authUserId ?? "unknown",
     destination: input.destination?.trim() || "",
-    landCostPerPax: Math.max(input.landCostPerPax, 0),
+    landCostPerPax: Math.max(handoff.landCostPerPax, 0),
     profitPerPax,
     proposalId: proposal._id,
+    proposalQueryHandoffId: handoff._id,
+    proposalRevision: handoff.proposalRevision,
     queryId,
-    sellingPricePerPax: Math.max(input.sellingPricePerPax, 0),
+    sellingPricePerPax: Math.max(handoff.sellingPrice, 0),
     source: input.source,
     sourceConsentAt: input.sourceConsentAt,
     sourceInboundIntentId: input.sourceInboundIntentId,
-    taxRate: proposal.taxRate ?? 0,
+    taxRate: handoff.taxRate ?? 0,
     travelEndDate: input.travelEndDate || "",
     travelStartDate: input.travelStartDate,
-    updatedAt: now,
-    visaCostPerPax: Math.max(input.visaCostPerPax, 0),
+    updatedAt: input.confirmedAt,
+    visaCostPerPax: Math.max(handoff.visaCostPerPax, 0),
   });
 
   return { offerId, profitPerPax, proposal };
@@ -146,34 +167,34 @@ export async function snapshotNewlyConfirmedOffer(
     travelEndDate?: string;
     travelStartDate?: string;
   },
-  args: QueryStatusArgs
+  args: SalesDecisionCommand,
+  confirmedAt: number
 ): Promise<Id<"confirmedOffers"> | undefined> {
   const wasConfirmed =
     current.salesStatus === "Order Confirmed" || current.contractingStatus === "Order Confirmed";
-  const isNewlyConfirmed =
-    !wasConfirmed &&
-    (args.salesStatus === "Order Confirmed" || args.contractingStatus === "Order Confirmed");
+  const isNewlyConfirmed = !wasConfirmed && args.salesStatus === "Order Confirmed";
   if (!isNewlyConfirmed) {
     return;
   }
   if (!args.proposalId?.trim()) {
     throw new ConvexError("Select the accepted proposal before confirming the order.");
   }
+  if (!(Number.isSafeInteger(args.proposalRevision) && Number(args.proposalRevision) > 0)) {
+    throw new ConvexError("Select the exact handed-off proposal revision before confirming.");
+  }
   const { offerId } = await createConfirmedOfferSnapshot(ctx, access, {
-    airfarePerPax: args.airfarePerPax ?? 0,
     approxMargin: args.approxMargin,
+    confirmedAt,
     confirmedPax: args.confirmedPax ?? current.paxCount,
     destination: args.destination ?? current.destination,
-    landCostPerPax: args.landCostPerPax ?? 0,
     proposalId: args.proposalId,
+    proposalRevision: Number(args.proposalRevision),
     queryId: args.queryId,
-    sellingPricePerPax: args.sellingPricePerPax ?? 0,
     source: current.source,
     sourceConsentAt: current.sourceConsentAt,
     sourceInboundIntentId: current.inboundIntentId,
     travelEndDate: args.travelEndDate ?? current.travelEndDate,
     travelStartDate: args.travelStartDate ?? current.travelStartDate ?? "",
-    visaCostPerPax: args.visaCostPerPax ?? 0,
   });
   return offerId;
 }

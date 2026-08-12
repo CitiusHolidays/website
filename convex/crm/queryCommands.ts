@@ -9,12 +9,9 @@ import {
   assertMaxWordCount,
   canSeeQueryRecord,
   createActivity,
-  hasRole,
-  isDirectorOrAdmin,
   MAX_QUERY_NOTES_WORDS,
   PERMISSIONS,
   publishWorkflowNotification,
-  requireAnyPermission,
   requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
@@ -32,10 +29,13 @@ import {
 import {
   assertConfirmedQueryIsTerminal,
   assertRevisionHasActualChange,
+  assertSalesDecisionCommandShape,
+  buildContractingProgressPatch,
   buildQueryStatusNotificationPlan,
-  buildQueryStatusPatch,
+  buildSalesDecisionPatch,
+  type ContractingProgressCommand,
+  type SalesDecisionCommand,
 } from "./queryStatusPolicy";
-import type { QueryStatusArgs } from "./queryValidators";
 
 export { handleQueryCreate } from "./queryCreation";
 
@@ -275,35 +275,15 @@ export async function handleSubmitToContracting(
   return { id: queryId };
 }
 
-export async function handleQueryUpdateStatus(
+export async function handleUpdateContractingProgress(
   ctx: MutationCtx,
-  args: QueryStatusArgs & {
-    approxMargin?: number;
-    commandId?: string;
-    contractingAirlinesCost?: number;
-    contractingLandCost?: number;
-    contractingStatus?: string;
-    contractingVisaCost?: number;
-    leadStage?: string;
-    lostReason?: string;
-    lostReasonOther?: string;
-    salesStatus?: string;
-  }
+  args: ContractingProgressCommand
 ) {
-  const access = await requireAnyPermission(ctx, [
-    PERMISSIONS.MANAGE_QUERIES,
-    PERMISSIONS.MANAGE_CONTRACTING,
-  ]);
+  const access = await requireStaff(ctx, PERMISSIONS.MANAGE_CONTRACTING);
   const queryId = ctx.db.normalizeId("queries", args.queryId);
   if (!queryId) {
     throw new ConvexError("Invalid query id");
   }
-  const confirmationRequested =
-    args.salesStatus === "Order Confirmed" || args.contractingStatus === "Order Confirmed";
-  if (confirmationRequested && !args.commandId) {
-    throw new ConvexError("Command ID is required to confirm an order");
-  }
-  const { commandId: _commandId, ...commandPayload } = args;
   const current = await ctx.db.get(queryId);
   if (!current) {
     throw new ConvexError("Query not found");
@@ -312,26 +292,45 @@ export async function handleQueryUpdateStatus(
     throw new ConvexError("FORBIDDEN");
   }
 
-  const canSetSalesOutcome =
-    isDirectorOrAdmin(access) ||
-    hasRole(access, "Sales") ||
-    hasRole(access, "Sales Head") ||
-    access.permissions.includes(PERMISSIONS.MANAGE_QUERIES);
-  const salesOutcomeRequested =
-    args.salesStatus !== undefined ||
-    args.leadStage !== undefined ||
-    args.lostReason !== undefined ||
-    args.contractingStatus === "Order Confirmed" ||
-    args.contractingStatus === "Order Lost";
-  if (salesOutcomeRequested && !canSetSalesOutcome) {
-    throw new ConvexError("Only Sales can confirm or lose an order");
+  assertConfirmedQueryIsTerminal(current, args);
+  const now = Date.now();
+  const patch = buildContractingProgressPatch({ args, now });
+  await patchWithE2eOwnership(ctx, "queries", queryId, patch);
+  await Promise.all([
+    refreshProposalLinkProjections(ctx, queryId),
+    createActivity(ctx, access, {
+      action: "contracting_progress_updated",
+      entityId: queryId,
+      entityType: "query",
+      message: `${current.queryCode} contracting progress updated`,
+      metadata: patch,
+    }),
+  ]);
+  return { id: queryId };
+}
+
+export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDecisionCommand) {
+  const access = await requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES);
+  assertSalesDecisionCommandShape(args);
+  const queryId = ctx.db.normalizeId("queries", args.queryId);
+  if (!queryId) {
+    throw new ConvexError("Invalid query id");
   }
+  const { commandId: _commandId, ...commandPayload } = args;
+  const current = await ctx.db.get("queries", queryId);
+  if (!current) {
+    throw new ConvexError("Query not found");
+  }
+  if (!canSeeQueryRecord(access, current)) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  const confirmationRequested = args.salesStatus === "Order Confirmed";
   const receipt =
     confirmationRequested && args.commandId
       ? await resolveCommandReceipt(ctx, {
           access,
           commandId: args.commandId,
-          operation: "query.order_confirmed",
+          operation: "query.order_confirmed.v2",
           payload: commandPayload,
           targetId: String(queryId),
         })
@@ -352,38 +351,14 @@ export async function handleQueryUpdateStatus(
     "Travel start date",
     "Travel end date"
   );
-
   const now = Date.now();
-  const patch = buildQueryStatusPatch({
-    args,
-    now,
-  });
+  const patch = buildSalesDecisionPatch({ args, now });
+  const isNewlyConfirmed = args.salesStatus === "Order Confirmed";
 
-  const willBeConfirmed =
-    patch.salesStatus === "Order Confirmed" ||
-    patch.contractingStatus === "Order Confirmed" ||
-    current.salesStatus === "Order Confirmed" ||
-    current.contractingStatus === "Order Confirmed";
-
-  if (args.approxMargin !== undefined) {
-    if (!willBeConfirmed) {
-      throw new ConvexError("Approximate margin can only be entered after the query is confirmed");
-    }
-    if (!access.permissions.includes(PERMISSIONS.MANAGE_QUERIES)) {
-      throw new ConvexError("Only Sales can enter approximate margin");
-    }
-    patch.approxMargin = Math.max(args.approxMargin, 0);
-  }
-
-  const wasConfirmed =
-    current.salesStatus === "Order Confirmed" || current.contractingStatus === "Order Confirmed";
-  const isNewlyConfirmed =
-    !wasConfirmed &&
-    (args.salesStatus === "Order Confirmed" || args.contractingStatus === "Order Confirmed");
-
-  const confirmedOfferId = await snapshotNewlyConfirmedOffer(ctx, access, current, args);
+  const confirmedOfferId = await snapshotNewlyConfirmedOffer(ctx, access, current, args, now);
   if (confirmedOfferId) {
     patch.confirmedOfferId = confirmedOfferId;
+    patch.acceptedProposalId = ctx.db.normalizeId("proposals", args.proposalId ?? "") ?? undefined;
   }
 
   await patchWithE2eOwnership(ctx, "queries", queryId, patch);
@@ -394,7 +369,7 @@ export async function handleQueryUpdateStatus(
     args,
     current,
     isNewlyConfirmed,
-    wasConfirmed,
+    wasConfirmed: false,
   });
   let activityAction = "status_updated";
   if (isNewlyConfirmed) {
@@ -446,7 +421,7 @@ export async function handleQueryUpdateStatus(
     await storeCommandReceipt(ctx, {
       actorKey: receipt.actorKey,
       commandId: args.commandId,
-      operation: "query.order_confirmed",
+      operation: "query.order_confirmed.v2",
       payloadDigest: receipt.payloadDigest,
       resultId: String(queryId),
       targetId: String(queryId),
@@ -454,4 +429,10 @@ export async function handleQueryUpdateStatus(
   }
 
   return { id: queryId };
+}
+
+export async function handleQueryUpdateStatus(): Promise<never> {
+  throw new ConvexError(
+    "updateStatus is retired. Use applySalesDecision or updateContractingProgress."
+  );
 }

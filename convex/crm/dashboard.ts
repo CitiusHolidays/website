@@ -327,6 +327,7 @@ export function buildUrgentActions({
   }>;
   queries: Array<{
     _id: string;
+    confirmedAt?: number;
     salesStatus: string;
     queryCode: string;
     updatedAt?: number;
@@ -385,7 +386,7 @@ export function buildUrgentActions({
     }
     const entityId = query._id;
     actions.push({
-      createdAt: query.updatedAt ? new Date(query.updatedAt).toISOString() : undefined,
+      createdAt: query.confirmedAt ? new Date(query.confirmedAt).toISOString() : undefined,
       entityId,
       entityType: "query",
       href: getNotificationHref({

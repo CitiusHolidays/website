@@ -155,6 +155,9 @@ export function validateModalForm(modal, form, deps = {}) {
     if (!(form.entityId || String(form.queryId ?? "").trim())) {
       throw new Error("Select a confirmed query before opening a job card.");
     }
+    if (!form.entityId && form._confirmedOfferState !== "ready") {
+      throw new Error("A Confirmed Offer is required before opening a job card.");
+    }
     assertPositiveInt(form.confirmedPax, "Confirmed pax");
     if (form.roomCount !== "" && form.roomCount !== null && form.roomCount !== undefined) {
       assertNonNegativeNumber(form.roomCount, "Room count");
@@ -310,6 +313,23 @@ export function validateModalForm(modal, form, deps = {}) {
     const decision = form.salesDecision || form.salesStatus || "Proposal in discussion";
     if (decision === "Order Lost" && !String(form.lostReason ?? "").trim()) {
       throw new Error("Select a lost reason.");
+    }
+    if (
+      decision === "Order Lost" &&
+      form.lostReason === "Other" &&
+      !String(form.lostReasonOther ?? "").trim()
+    ) {
+      throw new Error("Enter the other lost reason.");
+    }
+    if (decision === "Order Confirmed") {
+      if (!String(form.proposalId ?? "").trim()) {
+        throw new Error("Select the handed-off Proposal revision.");
+      }
+      if (
+        !(Number.isSafeInteger(Number(form.proposalRevision)) && Number(form.proposalRevision) > 0)
+      ) {
+        throw new Error("Select the exact handed-off Proposal revision.");
+      }
     }
   }
 

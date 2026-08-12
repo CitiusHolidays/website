@@ -43,20 +43,26 @@ export function resolveLinkedProposalForQuery(proposals, queryId) {
 /**
  * @param {{ form: Record<string, any>, modal: string | null, proposals?: LinkedProposal[], queries?: Record<string, any>[] }} args
  */
-export function jobCardProposalLinkPatch({ form, modal, proposals = [], queries = [] }) {
+export function jobCardProposalLinkPatch({ form, modal, queries = [] }) {
   if (modal !== "jobCard" || form.entityId || !form.queryId) {
     return null;
   }
   const linkedQuery = queries.find((query) => query.id === form.queryId);
-  const patch = linkedQuery ? applyQueryLink(form, linkedQuery, { onlyEmpty: true }) : {};
-  if (!form.proposalId) {
-    const linkedProposal = resolveLinkedProposalForQuery(proposals, form.queryId);
-    patch.proposalId =
-      linkedQuery?.confirmedOffer?.proposalId ||
-      linkedQuery?.proposalPreview?.proposalId ||
-      linkedProposal?.id ||
-      "";
+  if (!linkedQuery) {
+    return form._confirmedOfferState === "loading" ? null : { _confirmedOfferState: "loading" };
   }
+  if (!linkedQuery.confirmedOffer) {
+    return form._confirmedOfferState === "missing"
+      ? null
+      : { _confirmedOfferState: "missing", proposalId: "" };
+  }
+  if (form._confirmedOfferQueryId === form.queryId) {
+    return null;
+  }
+  const patch = applyQueryLink(form, linkedQuery);
+  patch._confirmedOfferQueryId = form.queryId;
+  patch._confirmedOfferState = "ready";
+  patch.proposalId = linkedQuery.confirmedOffer.proposalId;
   const changedPatch = Object.fromEntries(
     Object.entries(patch).filter(([field, value]) => form[field] !== value)
   );
@@ -98,7 +104,8 @@ export function createFocusedEditModalForm(type, detail) {
       queryId: detail.queryId || "",
       queryIds: proposalLinkedQueryIds(detail),
       sellingPrice: String(detail.sellingPrice ?? ""),
-      taxRate: detail.taxRate == null ? "" : String(detail.taxRate),
+      taxRate:
+        detail.taxRate === null || detail.taxRate === undefined ? "" : String(detail.taxRate),
       visaCostPerPax: String(detail.visaCostPerPax ?? ""),
     };
   }
@@ -124,7 +131,6 @@ export function createInitialModalForm({
   initial = {},
   initialForm,
   queries = [],
-  proposals = [],
   jobCards = [],
   travellers = [],
   travellersWithoutVisa = [],
@@ -144,12 +150,10 @@ export function createInitialModalForm({
     if (linkedQuery) {
       Object.assign(next, applyQueryLink(next, linkedQuery, { onlyEmpty: true }));
     }
-    if (type === "jobCard" && !next.proposalId) {
-      next.proposalId =
-        linkedQuery?.confirmedOffer?.proposalId ||
-        linkedQuery?.proposalPreview?.proposalId ||
-        resolveLinkedProposalForQuery(proposals, next.queryId)?.id ||
-        "";
+    if (type === "jobCard" && linkedQuery?.confirmedOffer) {
+      next.proposalId = linkedQuery.confirmedOffer.proposalId;
+      next._confirmedOfferQueryId = next.queryId;
+      next._confirmedOfferState = "ready";
     }
   }
   if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {

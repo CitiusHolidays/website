@@ -268,13 +268,7 @@ export function usePortalWorkspaceData({
     if (form.proposalId) {
       return String(form.proposalId);
     }
-    const linkedQuery = queryPage.results?.find(
-      (candidate) => String(candidate.id) === String(form.queryId)
-    );
-    const proposalId =
-      focusedQuery?.confirmedOffer?.proposalId ||
-      focusedQuery?.proposalPreview?.proposalId ||
-      linkedQuery?.proposalPreview?.proposalId;
+    const proposalId = focusedQuery?.confirmedOffer?.proposalId;
     return proposalId ? String(proposalId) : null;
   })();
   const focusedJobCardProposal = useQuery(

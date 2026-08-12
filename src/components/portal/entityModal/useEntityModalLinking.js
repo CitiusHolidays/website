@@ -9,7 +9,6 @@ import {
   applyVisaRecordLink,
   reconcileLinkedSelections,
 } from "@/lib/portal/entityModalLinks";
-import { proposalLinkedQueryIds } from "@/lib/portal/proposalLinks";
 
 export function useEntityModalLinking({
   modal,
@@ -17,7 +16,6 @@ export function useEntityModalLinking({
   updateForm,
   patchForm,
   queries,
-  proposals,
   jobCards,
   travellers,
   travellersWithoutVisa,
@@ -35,7 +33,12 @@ export function useEntityModalLinking({
   };
 
   const handleProposalQuerySelect = (queryIds) => {
-    const nextQueryIds = Array.isArray(queryIds) ? queryIds : queryIds ? [queryIds] : [];
+    let nextQueryIds = [];
+    if (Array.isArray(queryIds)) {
+      nextQueryIds = queryIds;
+    } else if (queryIds) {
+      nextQueryIds = [queryIds];
+    }
     const primaryQueryId = nextQueryIds[0] || "";
     if (!primaryQueryId) {
       patchForm({ queryId: "", queryIds: [] });
@@ -51,23 +54,19 @@ export function useEntityModalLinking({
 
   const handleJobQuerySelect = (queryId) => {
     if (!queryId) {
-      patchForm({ proposalId: "", queryId: "" });
+      patchForm({
+        _confirmedOfferQueryId: "",
+        _confirmedOfferState: "missing",
+        proposalId: "",
+        queryId: "",
+      });
       return;
     }
     const linkedQuery = queries.find((query) => query.id === queryId);
     const patch = applyQueryLink(form, linkedQuery);
-    const confirmedProposalId = linkedQuery?.confirmedOffer?.proposalId;
-    const linkedProposal = proposals.reduce((latest, proposal) => {
-      const linkedQueryIds = new Set(proposalLinkedQueryIds(proposal));
-      if (!linkedQueryIds.has(queryId)) {
-        return latest;
-      }
-      if (!latest) {
-        return proposal;
-      }
-      return new Date(proposal.updatedAt) > new Date(latest.updatedAt) ? proposal : latest;
-    }, null);
-    patch.proposalId = confirmedProposalId || linkedProposal?.id || "";
+    patch._confirmedOfferQueryId = "";
+    patch._confirmedOfferState = "loading";
+    patch.proposalId = "";
     patchForm(patch);
   };
 

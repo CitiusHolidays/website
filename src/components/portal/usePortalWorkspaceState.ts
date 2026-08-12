@@ -93,6 +93,22 @@ function resolveFocusedDetail(
   }
 }
 
+function modalAuthorityBlocker(modal: string | null, form: AnyRecord) {
+  if (["loading", "missing"].includes(String(form._focusedDetailState ?? ""))) {
+    return "Wait for the current record to load before saving.";
+  }
+  if (modal !== "jobCard" || form.entityId) {
+    return null;
+  }
+  if (form._confirmedOfferState === "loading") {
+    return "Wait for the Confirmed Offer to load before opening the Job Card.";
+  }
+  if (form._confirmedOfferState !== "ready") {
+    return "This Query has no Confirmed Offer. A Job Card cannot be opened.";
+  }
+  return null;
+}
+
 function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchParams) {
   const router = useRouter();
   const pathname = usePathname();
@@ -274,6 +290,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     view,
   });
   const {
+    applySalesDecision,
     addJobCardCollaborator,
     addProposalCollaborator,
     assignContracting,
@@ -368,7 +385,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     updatePnr,
     updateProposal,
     updateQuery,
-    updateQueryStatus,
+    updateContractingProgress,
     updateSeatAllocation,
     updateTicket,
     updateTourManager,
@@ -573,15 +590,33 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
       focusedDetailType,
     };
   })();
-  const effectiveForm = (() => {
-    const patch = jobCardProposalLinkPatch({
-      form: focusedDetailForm,
-      modal,
-      proposals: compactRows(proposals),
-      queries: compactRows(queries),
+  const jobCardLinkPatch = jobCardProposalLinkPatch({
+    form: focusedDetailForm,
+    modal,
+    queries: compactRows(queries),
+  });
+  const jobCardLinkPatchSignature = JSON.stringify(jobCardLinkPatch);
+  useEffect(() => {
+    if (!jobCardLinkPatchSignature) {
+      return;
+    }
+    const persistedJobCardLinkPatch = JSON.parse(
+      jobCardLinkPatchSignature
+    ) as typeof jobCardLinkPatch;
+    if (!persistedJobCardLinkPatch) {
+      return;
+    }
+    dispatchWorkspace({
+      patch: { form: { ...form, ...persistedJobCardLinkPatch } },
+      type: "patch",
     });
-    return patch ? { ...focusedDetailForm, ...patch } : focusedDetailForm;
-  })();
+    // The serialized patch changes only when focused detail reaches a new
+    // authority state. Persisting its query marker prevents later renders
+    // from overwriting Accounts edits to pax or dates.
+  }, [dispatchWorkspace, form, jobCardLinkPatchSignature]);
+  const effectiveForm = jobCardLinkPatch
+    ? { ...focusedDetailForm, ...jobCardLinkPatch }
+    : focusedDetailForm;
 
   const submitToContracting = async ({ queryId }: { queryId: string }) => {
     try {
@@ -681,8 +716,9 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (["loading", "missing"].includes(String(effectiveForm._focusedDetailState ?? ""))) {
-      setError("Wait for the current record to load before saving.");
+    const authorityBlocker = modalAuthorityBlocker(modal, effectiveForm);
+    if (authorityBlocker) {
+      setError(authorityBlocker);
       return;
     }
     setError("");
@@ -732,6 +768,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
               commercial: {
                 addJobCardCollaborator,
                 addProposalCollaborator,
+                applySalesDecision,
                 assignContracting,
                 assignContractingOwner,
                 assignJobCardCreator,
@@ -749,10 +786,10 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
                 queries: queries || [],
                 removeJobCardCollaborator,
                 removeProposalCollaborator,
+                updateContractingProgress,
                 updateJobCard,
                 updateProposal,
                 updateQuery,
-                updateQueryStatus,
                 uploadQueryFiles,
               },
               operations: {
@@ -998,6 +1035,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     travellersWithoutVisa,
     travellersWithPassportExpiry,
     updateCallingStatus,
+    updateContractingProgress,
     updateExpense,
     updateForm,
     updateHotel,
@@ -1008,7 +1046,6 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     updatePnr,
     updateProposal,
     updateQuery,
-    updateQueryStatus,
     updateSeatAllocation,
     updateTicket,
     updateTourManager,

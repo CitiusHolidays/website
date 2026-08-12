@@ -59,12 +59,21 @@ export function createCommercialModalCommands(deps) {
       }
     },
     proposal: async (form) => {
-      const queryIds =
-        Array.isArray(form.queryIds) && form.queryIds.length > 0
-          ? form.queryIds
-          : form.queryId
-            ? [form.queryId]
-            : [];
+      const { queryIds: formQueryIds } = form;
+      let queryIds = [];
+      if (Array.isArray(formQueryIds) && formQueryIds.length > 0) {
+        queryIds = formQueryIds;
+      } else if (form.queryId) {
+        queryIds = [form.queryId];
+      }
+      let taxRatePatch = {};
+      if (form.taxRate === "") {
+        if (form.entityId) {
+          taxRatePatch = { taxRate: null };
+        }
+      } else {
+        taxRatePatch = { taxRate: toNumber(form.taxRate, 0) };
+      }
       const payload = {
         airfarePerPax: toNumber(form.airfarePerPax, 0),
         clientName: form.clientName,
@@ -73,11 +82,7 @@ export function createCommercialModalCommands(deps) {
         queryIds,
         sellingPrice: toNumber(form.sellingPrice, 0),
         visaCostPerPax: toNumber(form.visaCostPerPax, 0),
-        ...(form.taxRate === ""
-          ? form.entityId
-            ? { taxRate: null }
-            : {}
-          : { taxRate: toNumber(form.taxRate, 0) }),
+        ...taxRatePatch,
       };
       if (form.entityId) {
         await deps.updateProposal({ proposalId: form.entityId, ...payload });
@@ -131,7 +136,7 @@ export function createCommercialModalCommands(deps) {
         payload.contractingAirlinesCost = toNumber(form.contractingAirlinesCost, 0);
         payload.contractingVisaCost = toNumber(form.contractingVisaCost, 0);
       }
-      await deps.updateQueryStatus(payload);
+      await deps.updateContractingProgress(payload);
     },
     removeJobCardCollaborator: async (form) =>
       await deps.removeJobCardCollaborator({
@@ -146,15 +151,8 @@ export function createCommercialModalCommands(deps) {
     salesDecision: async (form) => {
       const decision = form.salesDecision || form.salesStatus || "Proposal in discussion";
       const payload = {
-        leadStage:
-          decision === "Order Confirmed"
-            ? "Confirmation"
-            : decision === "Order Lost"
-              ? "Lost"
-              : decision === "Date/Destination Change Required"
-                ? "Negotiation"
-                : "Proposal",
         lostReason: decision === "Order Lost" ? form.lostReason : undefined,
+        lostReasonOther: decision === "Order Lost" ? form.lostReasonOther : undefined,
         queryId: form.queryId,
         salesStatus: decision,
       };
@@ -164,15 +162,12 @@ export function createCommercialModalCommands(deps) {
         payload.travelStartDate = form.travelStartDate;
       }
       if (decision === "Order Confirmed") {
-        payload.airfarePerPax = toNumber(form.airfarePerPax, 0);
         payload.confirmedPax = toNumber(form.confirmedPax, 1);
         payload.destination = form.destination;
-        payload.landCostPerPax = toNumber(form.landCostPerPax, 0);
         payload.proposalId = form.proposalId;
-        payload.sellingPricePerPax = toNumber(form.sellingPricePerPax, 0);
+        payload.proposalRevision = Number(form.proposalRevision);
         payload.travelEndDate = form.travelEndDate;
         payload.travelStartDate = form.travelStartDate;
-        payload.visaCostPerPax = toNumber(form.visaCostPerPax, 0);
       }
       const queryRow = deps.queries.find((query) => query.id === form.queryId);
       const confirmed =
@@ -182,7 +177,7 @@ export function createCommercialModalCommands(deps) {
       if (confirmed && form.approxMargin !== "") {
         payload.approxMargin = toNumber(form.approxMargin, 0);
       }
-      await deps.updateQueryStatus(payload);
+      await deps.applySalesDecision(payload);
     },
   };
 }

@@ -1,0 +1,25 @@
+graph LR
+  subgraph Intake["Query and costing"]
+    direction TB
+    Q["Sales creates Query"] -->|"submit"| A["Heads assign SPOCs"]
+    A -->|"costing"| C["Contracting and Ticketing"]
+    C -->|"pricing gate"| P["Proposal revision"]
+  end
+
+  subgraph Decision["Handoff and terminal decision"]
+    direction TB
+    H["Send to Sales"] -->|"immutable pair snapshot"| S["Sales Decision"]
+    S -->|"revise"| V["Return for revision"]
+    S -->|"lost"| L["Order Lost"]
+    S -->|"confirm exact revision"| R["Replay receipt"]
+    R -->|"one terminal write"| O["Immutable Confirmed Offer"]
+  end
+
+  subgraph Delivery["Operational start"]
+    direction TB
+    J["Accounts opens Job Card"] -->|"Sales owner initials"| N["Job Card number"]
+    N -->|"notify teams"| W["Operations begin"]
+  end
+
+  P -->|"UUID command"| H
+  O -->|"commercial authority"| J

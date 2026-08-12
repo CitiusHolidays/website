@@ -35,7 +35,24 @@ export const salesStatusValidator = v.union(
   v.literal("Order Lost")
 );
 
+export const salesDecisionValidator = v.union(
+  v.literal("Proposal in discussion"),
+  v.literal("Date/Destination Change Required"),
+  v.literal("Order Confirmed"),
+  v.literal("Order Lost")
+);
+
 export const leadStageValidator = v.union(
+  v.literal("Inquiry"),
+  v.literal("Proposal"),
+  v.literal("Negotiation"),
+  v.literal("Confirmation"),
+  v.literal("Lost")
+);
+
+// Storage stays widened until the registry-backed Closed -> Lost migration is
+// verified on every deployment. Public writers must use leadStageValidator.
+export const leadStageStorageValidator = v.union(
   v.literal("Inquiry"),
   v.literal("Proposal"),
   v.literal("Negotiation"),
@@ -62,6 +79,12 @@ export const contractingStatusValidator = v.union(
   v.literal("Date/Destination Change Required"),
   v.literal("Order Confirmed"),
   v.literal("Order Lost")
+);
+
+export const contractingProgressValidator = v.union(
+  v.literal("Query Received"),
+  v.literal("Proposal in progress"),
+  v.literal("Proposal sent")
 );
 
 export const lostReasonValidator = v.union(
@@ -93,7 +116,8 @@ export type SalesStatus =
   | "Order Confirmed"
   | "Order Lost";
 
-export type LeadStage = "Inquiry" | "Proposal" | "Negotiation" | "Confirmation" | "Lost" | "Closed";
+export type LeadStage = "Inquiry" | "Proposal" | "Negotiation" | "Confirmation" | "Lost";
+export type LeadStageStorage = LeadStage | "Closed";
 
 export type ContractingStatus =
   | "Query Received"
@@ -105,6 +129,9 @@ export type ContractingStatus =
   | "Order Lost";
 
 export type LostReason = "Price" | "Competition" | "Not travelling" | "Other";
+
+export type SalesDecision = Infer<typeof salesDecisionValidator>;
+export type ContractingProgress = Infer<typeof contractingProgressValidator>;
 
 export type QueryStatusArgs = {
   queryId: string;
@@ -121,6 +148,7 @@ export type QueryStatusArgs = {
   travelStartDate?: string;
   travelEndDate?: string;
   proposalId?: string;
+  proposalRevision?: number;
   confirmedPax?: number;
   landCostPerPax?: number;
   airfarePerPax?: number;

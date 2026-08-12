@@ -167,6 +167,35 @@ describe("buildUrgentActions", () => {
 
     expect(actions).toEqual([]);
   });
+
+  test("ages Job Card creation from confirmation and never from later Query edits", () => {
+    const confirmedAt = Date.UTC(2026, 0, 2);
+    const actions = buildUrgentActions({
+      approvals: [],
+      invoices: [],
+      jobCards: [],
+      nowDate: "2026-02-01",
+      queries: [
+        {
+          _id: "query_1",
+          confirmedAt,
+          queryCode: "Q-1",
+          salesStatus: "Order Confirmed",
+          updatedAt: Date.UTC(2026, 0, 30),
+        },
+        {
+          _id: "query_2",
+          queryCode: "Q-2",
+          salesStatus: "Order Confirmed",
+          updatedAt: Date.UTC(2026, 0, 30),
+        },
+      ],
+      tickets: [],
+    });
+
+    expect(actions[0]?.createdAt).toBe(new Date(confirmedAt).toISOString());
+    expect(actions[1]?.createdAt).toBeUndefined();
+  });
 });
 
 describe("dashboard summary slices", () => {
