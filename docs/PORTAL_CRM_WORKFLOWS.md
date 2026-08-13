@@ -231,7 +231,7 @@ One approval must never complete both stages. HR does not approve the head stage
 
 Leave head approver defaults come from staff profile or leave matrix data, with a manual staff override still available. The Settings allowlist hides Sync leave approvers from matrix, but the matrix-backed column and manual override remain part of the model.
 
-Unused Casual/Sick leave lapses automatically on 31 March IST through `convex/crons.ts` -> `convex/crm/leaveLapse.ts`; HR can also run the lapse manually.
+Unused Casual/Sick leave lapses automatically on 31 March IST through `convex/crons.ts` -> `convex/crm/leaveLapse.ts`. The operation pages a fixed active-staff cutoff and reports queued/running/completed/failed state with processed/lapsed counts. An authorized manual start must supply the explicit consecutive fiscal year (for example, `2025-2026`); it never falls back to a historical year. Replays and overlapping automatic/manual starts reuse the current fiscal-year run.
 
 ## Expenses and files
 

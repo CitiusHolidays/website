@@ -194,6 +194,42 @@ export const staffWorkbookResultValidator = v.object({
 });
 
 export const leaveLapseResultValidator = v.object({
+  continuation: v.number(),
   fiscalYear: v.string(),
+  generation: v.number(),
   lapsedRows: v.number(),
+  processedStaff: v.number(),
+  runId: v.id("staffLeaveLapseRuns"),
+  scheduled: v.boolean(),
+  status: v.union(
+    v.literal("queued"),
+    v.literal("running"),
+    v.literal("completed"),
+    v.literal("failed")
+  ),
 });
+
+export const leaveLapseStatusResultValidator = v.union(v.null(), leaveLapseResultValidator);
+
+export const leaveLapseCheckResultValidator = v.union(
+  v.object({
+    reason: v.literal("not_lapse_day"),
+    skipped: v.literal(true),
+  }),
+  v.object({
+    continuation: v.number(),
+    fiscalYear: v.string(),
+    generation: v.number(),
+    lapsedRows: v.number(),
+    processedStaff: v.number(),
+    runId: v.id("staffLeaveLapseRuns"),
+    scheduled: v.boolean(),
+    skipped: v.literal(false),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+  })
+);

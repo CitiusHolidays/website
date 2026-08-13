@@ -13,7 +13,6 @@ crm/imports.ts:previewPassengerImportRows
 crm/jobCardDeletion.ts:continueApprovalCleanup
 crm/jobCardDeletion.ts:continueJobCardCascade
 crm/jobCardDeletion.ts:continueTravellerWorkerQueue
-crm/leaveLapse.ts:checkAndRunClSlLapse
 crm/listSearch.ts:reconcileAll
 crm/listSearch.ts:reconcilePage
 crm/metricAggregates.ts:reconcileAll
