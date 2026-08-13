@@ -43,6 +43,7 @@ provider or production proof.
 ## Change Convex, auth, payments, files, or security
 
 - [Auth domain cutover](AUTH_DOMAIN_CUTOVER.md) - origin and callback transition how-to.
+- [Auth email delivery](AUTH_EMAIL_DELIVERY.md) - privacy-safe reset and verification outcomes.
 - [Booking payment transitions](BOOKING_PAYMENT_TRANSITIONS.md) - server-capability payment policy.
 - [Server-secret inventory](SERVER_SECRET_INVENTORY.md) - secret comparison boundaries.
 - [API observability](API_OBSERVABILITY.md) - privacy-safe API logging.

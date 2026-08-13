@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "69b325a4ba1b7785b2de0d08b33836dfde85e7061d7c97a0077ebf6b1f056c10";
+const EXPECTED_CAPABILITY_HASH = "eefc6e722bd4d52c3c839fc486a66c22dae980d80d2f13df3e989a40b5bba0ed";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -283,9 +283,33 @@ describe("Convex capability inventory", () => {
         module: "crm/notificationUnreadProjectionMigration",
         name: "reconcilePage",
       },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "authEmailDeliveries",
+        name: "recordOutcome",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "authEmailDeliveries",
+        name: "getOutcome",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "authEmailDeliveries",
+        name: "listRecentOutcomes",
+      },
     ] satisfies Capability[]) {
       expect(capabilities).toContainEqual(capability);
     }
+    expect(capabilities).not.toContainEqual({
+      classification: "internal",
+      kind: "internalAction",
+      module: "email",
+      name: "send",
+    });
   });
 
   test("retires the unused pending approval counter from the public export surface", () => {

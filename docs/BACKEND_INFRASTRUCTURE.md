@@ -96,6 +96,9 @@ Production state.
   privacy-safe, monotonic outcome ledger for CRM email sends; `notificationEmailEventSummaries`
   and `notificationEmailSummaryReadiness` provide bounded exact-or-explicitly-partial Activity
   counts.
+- `authEmailDeliveries` stores a separate privacy-safe receipt for verification and password-reset
+  sends. It contains a one-way correlation digest and safe provider outcome only—never recipient,
+  token, URL, or message content. See [`AUTH_EMAIL_DELIVERY.md`](AUTH_EMAIL_DELIVERY.md).
 
 ## Auth and session flow
 
@@ -107,6 +110,10 @@ Production state.
 6. Client-side components use `authClient` (`useSession`, `signIn`, `signOut`, `requestPasswordReset`).
 
 Admin-provisioned staff sign in through Forgot password rather than sign-up. Google and email/password accounts are expected to autolink on the same email, and password reset must enable email/password login on Google-only accounts. Auth URL environment variables need full schemes, for example `http://localhost:3000`, and Next.js must be restarted after auth env changes because `src/lib/auth-server.js` reads those values at module load.
+
+Verification and reset callbacks use bounded provider retry with stable idempotency and write a
+dedicated privacy-safe receipt. Internal onboarding treats only a matching `sent` receipt as
+delivery evidence; Better Auth's generic reset response is deliberately not interpreted as sent.
 
 ## Portal authorization
 

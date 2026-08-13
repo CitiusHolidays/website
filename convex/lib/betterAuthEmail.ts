@@ -1,12 +1,35 @@
+import type { ActionCtx } from "../_generated/server";
 import type { createAuth } from "../betterAuth/auth";
+import {
+  type AuthEmailPurpose,
+  createAuthEmailCorrelation,
+  getAuthEmailDeliveryOutcome,
+} from "./authEmailDelivery";
 
 function getSiteUrl() {
   return process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 }
 
-export async function sendVerificationEmail(auth: ReturnType<typeof createAuth>, email: string) {
+function outcomeReason(
+  purpose: AuthEmailPurpose,
+  outcome: Awaited<ReturnType<typeof getAuthEmailDeliveryOutcome>>
+) {
+  if (outcome?.status === "sent") {
+    return purpose === "verification" ? ("verification" as const) : ("password_reset" as const);
+  }
+  return outcome?.failureCode ?? ("delivery_not_observed" as const);
+}
+
+export async function sendVerificationEmail(
+  ctx: ActionCtx,
+  auth: ReturnType<typeof createAuth>,
+  email: string
+) {
   const siteUrl = getSiteUrl();
-  const callbackURL = `${siteUrl}/auth/email-verified`;
+  const correlation = await createAuthEmailCorrelation(
+    "verification",
+    `${siteUrl}/auth/email-verified`
+  );
   const api = auth.api as {
     sendVerificationEmail?: (input: {
       body: { email: string; callbackURL?: string };
@@ -15,19 +38,35 @@ export async function sendVerificationEmail(auth: ReturnType<typeof createAuth>,
   if (!api.sendVerificationEmail) {
     return { reason: "verification_api_unavailable" as const, sent: false };
   }
-  const result = await api.sendVerificationEmail({
-    body: { callbackURL, email },
+  await api.sendVerificationEmail({
+    body: { callbackURL: correlation.callbackUrl, email },
   });
-  return { reason: "verification" as const, sent: Boolean(result?.status ?? true) };
+  const outcome = await getAuthEmailDeliveryOutcome(ctx, correlation.correlationDigest);
+  return {
+    reason: outcomeReason("verification", outcome),
+    sent: outcome?.status === "sent",
+  };
 }
 
-export async function sendPasswordSetupEmail(auth: ReturnType<typeof createAuth>, email: string) {
+export async function sendPasswordSetupEmail(
+  ctx: ActionCtx,
+  auth: ReturnType<typeof createAuth>,
+  email: string
+) {
   const siteUrl = getSiteUrl();
-  const resetResult = await auth.api.requestPasswordReset({
+  const correlation = await createAuthEmailCorrelation(
+    "password_reset",
+    `${siteUrl}/auth/reset-password`
+  );
+  await auth.api.requestPasswordReset({
     body: {
       email,
-      redirectTo: `${siteUrl}/auth/reset-password`,
+      redirectTo: correlation.callbackUrl,
     },
   });
-  return Boolean(resetResult?.status);
+  const outcome = await getAuthEmailDeliveryOutcome(ctx, correlation.correlationDigest);
+  return {
+    reason: outcomeReason("password_reset", outcome),
+    sent: outcome?.status === "sent",
+  };
 }

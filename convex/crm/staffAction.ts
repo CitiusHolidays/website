@@ -6,6 +6,7 @@ import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { type ActionCtx, action, internalAction } from "../_generated/server";
 import { authComponent, createAuth } from "../betterAuth/auth";
+import { createAuthEmailCorrelation, getAuthEmailDeliveryOutcome } from "../lib/authEmailDelivery";
 import { sendPasswordSetupEmail, sendVerificationEmail } from "../lib/betterAuthEmail";
 import { findAuthUserByEmail } from "../lib/betterAuthLookup";
 import {
@@ -14,12 +15,12 @@ import {
 } from "./staffSettingsReturnContracts";
 
 function isExistingUserError(err: unknown) {
-  const message =
-    err instanceof Error
-      ? err.message
-      : typeof err === "object" && err && "message" in err
-        ? String((err as { message?: string }).message)
-        : String(err);
+  let message = String(err);
+  if (err instanceof Error) {
+    ({ message } = err);
+  } else if (typeof err === "object" && err && "message" in err) {
+    message = String((err as { message?: string }).message);
+  }
   const lower = message.toLowerCase();
   return lower.includes("already") || lower.includes("exists") || lower.includes("duplicate");
 }
@@ -58,6 +59,44 @@ type ProvisionResult =
   | { ok: true; step: "verification_sent" | "password_setup_sent" }
   | { ok: false; step: "error"; message: string };
 
+const provisionResultValidator = v.union(
+  v.object({
+    ok: v.literal(true),
+    step: v.union(v.literal("verification_sent"), v.literal("password_setup_sent")),
+  }),
+  v.object({ message: v.string(), ok: v.literal(false), step: v.literal("error") })
+);
+
+async function recoverExistingStaffAuth(
+  ctx: ActionCtx,
+  args: { staffId: Id<"staffUsers">; email: string; name: string },
+  auth: ReturnType<typeof createAuth>
+): Promise<ProvisionResult | null> {
+  const [, , authUser] = await Promise.all([
+    ctx.runMutation(internal.crm.staff.markPendingOnboarding, {
+      staffId: args.staffId,
+    }),
+    ensureStaffAuthLink(ctx, args.staffId, args.email, args.name),
+    findAuthUserByEmail(ctx, args.email),
+  ]);
+  if (authUser?.emailVerified) {
+    const passwordDelivery = await sendPasswordSetupEmail(ctx, auth, args.email);
+    if (passwordDelivery.sent) {
+      await ctx.runMutation(internal.crm.staff.clearPendingPasswordSetup, {
+        staffId: args.staffId,
+      });
+      return { ok: true, step: "password_setup_sent" };
+    }
+  }
+
+  const verification = await sendVerificationEmail(ctx, auth, args.email);
+  if (verification.sent) {
+    return { ok: true, step: "verification_sent" };
+  }
+  const passwordDelivery = await sendPasswordSetupEmail(ctx, auth, args.email);
+  return passwordDelivery.sent ? { ok: true, step: "password_setup_sent" } : null;
+}
+
 async function provisionStaffCore(
   ctx: ActionCtx,
   args: { staffId: Id<"staffUsers">; email: string; name: string }
@@ -66,12 +105,15 @@ async function provisionStaffCore(
   const tempPassword = `${crypto.randomUUID()}A1!`;
   const siteUrl =
     process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const callbackURL = `${siteUrl}/auth/email-verified`;
+  const verificationCorrelation = await createAuthEmailCorrelation(
+    "verification",
+    `${siteUrl}/auth/email-verified`
+  );
 
   try {
     const result = await auth.api.signUpEmail({
       body: {
-        callbackURL,
+        callbackURL: verificationCorrelation.callbackUrl,
         email: args.email,
         name: args.name,
         password: tempPassword,
@@ -98,38 +140,30 @@ async function provisionStaffCore(
       staffId: args.staffId,
     });
 
+    const delivery = await getAuthEmailDeliveryOutcome(
+      ctx,
+      verificationCorrelation.correlationDigest
+    );
+    if (delivery?.status !== "sent") {
+      return { message: "Verification email delivery failed", ok: false, step: "error" };
+    }
+
     return { ok: true, step: "verification_sent" };
   } catch (err) {
     if (isExistingUserError(err)) {
-      const [, , authUser] = await Promise.all([
-        ctx.runMutation(internal.crm.staff.markPendingOnboarding, {
-          staffId: args.staffId,
-        }),
-        ensureStaffAuthLink(ctx, args.staffId, args.email, args.name),
-        findAuthUserByEmail(ctx, args.email),
-      ]);
-      if (authUser?.emailVerified) {
-        const passwordSent = await sendPasswordSetupEmail(auth, args.email);
-        if (passwordSent) {
-          await ctx.runMutation(internal.crm.staff.clearPendingPasswordSetup, {
-            staffId: args.staffId,
-          });
-          return { ok: true, step: "password_setup_sent" };
-        }
-      }
-
-      const verification = await sendVerificationEmail(auth, args.email);
-      if (verification.sent) {
-        return { ok: true, step: "verification_sent" };
-      }
-      const passwordSent = await sendPasswordSetupEmail(auth, args.email);
-      if (passwordSent) {
-        return { ok: true, step: "password_setup_sent" };
+      const recovery = await recoverExistingStaffAuth(ctx, args, auth);
+      if (recovery) {
+        return recovery;
       }
     }
-    console.error("Staff provision error:", err);
+    console.error(
+      JSON.stringify({
+        event: "staff_provision_failed",
+        failureCode: isExistingUserError(err) ? "existing_user_recovery_failed" : "auth_api_failed",
+      })
+    );
     return {
-      message: err instanceof Error ? err.message : "Provision failed",
+      message: "Authentication provisioning failed",
       ok: false,
       step: "error",
     };
@@ -143,6 +177,7 @@ export const provisionStaffUser = internalAction({
     staffId: v.id("staffUsers"),
   },
   handler: async (ctx, args) => provisionStaffCore(ctx, args),
+  returns: provisionResultValidator,
 });
 
 export const sendPasswordSetupAfterVerification = internalAction({
@@ -160,10 +195,12 @@ export const sendPasswordSetupAfterVerification = internalAction({
     await ensureStaffAuthLink(ctx, staff.staffId, staff.email, staff.name, staff.authUserId);
 
     const auth = createAuth(ctx);
-    const sent = await sendPasswordSetupEmail(auth, args.email);
-    if (!sent) {
-      console.error("Failed to send staff password setup email for", args.email);
-      return { reason: "email_send_failed" as const, sent: false };
+    const delivery = await sendPasswordSetupEmail(ctx, auth, args.email);
+    if (!delivery.sent) {
+      console.error(
+        JSON.stringify({ event: "staff_password_setup_delivery_failed", reason: delivery.reason })
+      );
+      return { reason: delivery.reason, sent: false };
     }
 
     await ctx.runMutation(internal.crm.staff.clearPendingPasswordSetup, {
@@ -172,6 +209,7 @@ export const sendPasswordSetupAfterVerification = internalAction({
 
     return { sent: true };
   },
+  returns: v.object({ reason: v.optional(v.string()), sent: v.boolean() }),
 });
 
 export const startStaffOnboarding = action({
@@ -233,8 +271,8 @@ export const startStaffOnboarding = action({
     }
 
     if (emailVerified) {
-      const passwordSent = await sendPasswordSetupEmail(auth, staff.email);
-      if (!passwordSent) {
+      const passwordDelivery = await sendPasswordSetupEmail(ctx, auth, staff.email);
+      if (!passwordDelivery.sent) {
         throw new ConvexError("Failed to send password setup email");
       }
       await ctx.runMutation(internal.crm.staff.clearPendingPasswordSetup, {
@@ -246,7 +284,7 @@ export const startStaffOnboarding = action({
       };
     }
 
-    const verification = await sendVerificationEmail(auth, staff.email);
+    const verification = await sendVerificationEmail(ctx, auth, staff.email);
     if (verification.sent) {
       return {
         message:
@@ -255,8 +293,8 @@ export const startStaffOnboarding = action({
       };
     }
 
-    const passwordSent = await sendPasswordSetupEmail(auth, staff.email);
-    if (!passwordSent) {
+    const passwordDelivery = await sendPasswordSetupEmail(ctx, auth, staff.email);
+    if (!passwordDelivery.sent) {
       throw new ConvexError("Failed to send onboarding email");
     }
 
@@ -285,8 +323,8 @@ export const adminSendResetEmail = action({
     }
 
     const auth = createAuth(ctx);
-    const sent = await sendPasswordSetupEmail(auth, args.email);
-    if (!sent) {
+    const delivery = await sendPasswordSetupEmail(ctx, auth, args.email);
+    if (!delivery.sent) {
       throw new ConvexError("Failed to send reset password email");
     }
 

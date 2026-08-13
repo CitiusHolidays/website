@@ -1,7 +1,6 @@
 # Known internal Convex registrations without exact returns validators.
 # Owner: #144 / P206. Remove an entry in the same change that adds its validator.
 aiRuntime.ts:cleanupExpired
-authAccountLinking.ts:handleExistingSignUpEmail
 authSync.ts:syncFromIdentity
 crm/commercialFiles.ts:claimUploadSession
 crm/commercialFiles.ts:createFile
@@ -11,7 +10,6 @@ crm/commercialFiles.ts:purgeExpired
 crm/expenseAttachments.ts:deleteExpenseProof
 crm/expenseAttachments.ts:saveExpenseProof
 crm/expenseLifecycleMigration.ts:repairExpenseLifecycle
-crm/imports.ts:logPassengerExport
 crm/imports.ts:previewPassengerImportRows
 crm/jobCardDeletion.ts:continueApprovalCleanup
 crm/jobCardDeletion.ts:continueJobCardCascade
@@ -47,11 +45,8 @@ crm/staff.ts:getStaffForOnboarding
 crm/staff.ts:getStaffPendingPasswordSetup
 crm/staff.ts:linkAuthUserId
 crm/staff.ts:markPendingOnboarding
-crm/staffAction.ts:provisionStaffUser
-crm/staffAction.ts:sendPasswordSetupAfterVerification
 crm/staffImport.ts:bulkImportStaff
 crm/storageReferences.ts:deleteIfUnreferenced
 crm/storageReferences.ts:isStorageReferenced
 crm/ticketing.ts:continuePnrCleanup
 crm/travellers.ts:continueTravellerCleanup
-email.ts:sendEmail

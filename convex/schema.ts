@@ -178,6 +178,30 @@ const reviewStatus = v.union(v.literal("Pending"), v.literal("Approved"), v.lite
 
 // biome-ignore assist/source/useSortedKeys: tables stay grouped by product domain and migration history
 export default defineSchema({
+  // Transactional auth-email receipts intentionally exclude recipient, token,
+  // URL, subject, and body data. The digest is a one-way correlation identity.
+  authEmailDeliveries: defineTable({
+    attempts: v.number(),
+    correlationDigest: v.string(),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+    failureCode: v.optional(v.string()),
+    providerStatus: v.optional(v.number()),
+    purpose: v.union(v.literal("password_reset"), v.literal("verification")),
+    sentAt: v.optional(v.number()),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("sending"),
+      v.literal("retrying"),
+      v.literal("sent"),
+      v.literal("skipped"),
+      v.literal("exhausted")
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_correlationDigest", ["correlationDigest"])
+    .index("by_updatedAt", ["updatedAt"]),
+
   activityLogs: defineTable({
     action: v.string(),
     actorId: v.string(),
