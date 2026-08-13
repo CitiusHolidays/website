@@ -149,6 +149,11 @@ describe("CommercialFilesModal", () => {
 
     const uploadNote = dialog.querySelector('input[aria-label="Upload note (optional)"]');
     expect(uploadNote?.type).toBe("text");
+    act(() => {
+      uploadNote.value = "Draft upload note";
+      uploadNote.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(uploadNote.value).toBe("Draft upload note");
 
     const editNoteButton = dialog.querySelector('button[aria-label="Edit note for itinerary.pdf"]');
     await act(async () => editNoteButton.click());
@@ -197,6 +202,14 @@ describe("CommercialFilesModal", () => {
     expect(closeCount).toBe(1);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(opener);
+
+    await act(async () => opener.click());
+    await flushDialog();
+    const reopenedDialog = document.querySelector('[role="dialog"]');
+    const reopenedUploadNote = reopenedDialog.querySelector(
+      'input[aria-label="Upload note (optional)"]'
+    );
+    expect(reopenedUploadNote.value).toBe("");
 
     await act(async () => root.unmount());
     container.remove();
