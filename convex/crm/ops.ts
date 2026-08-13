@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   assertBulkDeleteMutationBatch,
   assertDateRangeOrder,
@@ -410,6 +411,7 @@ export async function createTourManagerForTest(
       tourManagerName: name,
       updatedAt: now,
     });
+    await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   }
   await Promise.all([
     createActivity(ctx, access, {
@@ -593,6 +595,7 @@ export async function updateTourManagerForTest(
         tourManagerName: "",
         updatedAt: now,
       });
+      await scheduleCrmMetricSync(ctx, "jobCards", String(tourManager.jobCardId));
     }
   }
   if (jobCardId) {
@@ -601,6 +604,7 @@ export async function updateTourManagerForTest(
       tourManagerName: name,
       updatedAt: now,
     });
+    await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   }
 
   const notifyOnAllocation =
@@ -687,6 +691,7 @@ async function deleteTourManagerRecord(
         tourManagerName: "",
         updatedAt: Date.now(),
       });
+      await scheduleCrmMetricSync(ctx, "jobCards", String(tourManager.jobCardId));
     }
   }
   await Promise.all([

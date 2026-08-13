@@ -298,6 +298,7 @@ export async function deleteTicketRecord(
       ticketStatus: "Pending Issue",
       updatedAt: now,
     });
+    await scheduleCrmMetricSync(ctx, "travellers", String(ticket.travellerId));
   }
   await Promise.all([
     createActivity(ctx, access, {

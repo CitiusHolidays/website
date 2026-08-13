@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { mapInBoundedBatches } from "./paginationPolicy";
 
@@ -135,6 +136,7 @@ async function scheduleWorker(
   } else {
     await ctx.db.patch("queries", queryId, queryPatch);
   }
+  await scheduleCrmMetricSync(ctx, "queries", String(queryId));
   await ctx.scheduler.runAfter(
     0,
     internal.crm.queryCommercialProjection.reconcileQueryCommercialProjection,
@@ -269,6 +271,7 @@ export const reconcileQueryCommercialProjection = internalMutation({
         : undefined,
       proposalPreview: bestProposal,
     });
+    await scheduleCrmMetricSync(ctx, "queries", String(worker.queryId));
     await completeGlobalWorker(ctx, args.generation);
     await ctx.db.delete("queryCommercialProjectionWorkers", worker._id);
     return { complete: true, stale: false };

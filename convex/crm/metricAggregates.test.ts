@@ -68,13 +68,13 @@ describe("bounded CRM metric aggregates", () => {
           query: (table: string) => {
             queriedTables.push(table);
             return {
-              withIndex: (_name: string, callback: (q: any) => unknown) => {
+              withIndex: (_name: string, callback?: (q: any) => unknown) => {
                 const q = {
                   eq: () => q,
                   gte: () => q,
                   lte: () => q,
                 };
-                callback(q);
+                callback?.(q);
                 if (table === "crmMetricPublications") {
                   return {
                     unique: () => ({
@@ -87,6 +87,9 @@ describe("bounded CRM metric aggregates", () => {
                 }
                 if (table === "crmMetricBuckets") {
                   return { take: () => [] };
+                }
+                if (table === "crmMetricDirty") {
+                  return { first: () => null };
                 }
                 throw new Error(`Unexpected table ${table}`);
               },
@@ -113,9 +116,9 @@ describe("bounded CRM metric aggregates", () => {
           query: (table: string) => {
             queriedTables.push(table);
             return {
-              withIndex: (_name: string, callback: (q: any) => unknown) => {
+              withIndex: (_name: string, callback?: (q: any) => unknown) => {
                 const q = { eq: () => q, gte: () => q, lte: () => q };
-                callback(q);
+                callback?.(q);
                 if (table === "crmMetricPublications") {
                   return {
                     unique: () => ({
@@ -143,6 +146,9 @@ describe("bounded CRM metric aggregates", () => {
                 }
                 if (table === "crmMetricBuckets") {
                   return { take: () => [] };
+                }
+                if (table === "crmMetricDirty") {
+                  return { first: () => null };
                 }
                 throw new Error(`Unexpected table ${table}`);
               },

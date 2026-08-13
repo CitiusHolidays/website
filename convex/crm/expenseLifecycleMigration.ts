@@ -5,6 +5,7 @@ import {
   type ExpenseReimbursementStatus,
   normalizeExpenseLifecycle,
 } from "./expenseLifecycle";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 
 const PAGE_SIZE = 100;
 
@@ -35,6 +36,7 @@ export const repairExpenseLifecycle = internalMutation({
             ...normalized,
             updatedAt: Date.now(),
           });
+          await scheduleCrmMetricSync(ctx, "expenseEntries", String(expense._id));
         }
         return 1;
       })

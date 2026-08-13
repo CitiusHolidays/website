@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery, query } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { canSeeJobCardRecord, PERMISSIONS, requireStaff } from "./lib";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
 import { passportMetadataResultValidator } from "./operationsReturnContracts";
@@ -144,6 +145,7 @@ export const savePassportMetadata = internalMutation({
       })
     );
     await markListSearchDirty(ctx, "travellers", String(travellerId));
+    await scheduleCrmMetricSync(ctx, "travellers", String(travellerId));
 
     return displacedStorageId;
   },
@@ -206,6 +208,7 @@ export const savePassportDetailsOnly = internalMutation({
       })
     );
     await markListSearchDirty(ctx, "travellers", String(travellerId));
+    await scheduleCrmMetricSync(ctx, "travellers", String(travellerId));
     return null;
   },
   returns: v.null(),
@@ -243,6 +246,7 @@ export const deletePassportMetadata = internalMutation({
       })
     );
     await markListSearchDirty(ctx, "travellers", String(travellerIdNormalized));
+    await scheduleCrmMetricSync(ctx, "travellers", String(travellerIdNormalized));
 
     return existing?.storageId ?? null;
   },
@@ -298,6 +302,7 @@ export const backfillPassportExpiryDate = internalMutation({
     });
     if (passport) {
       await ctx.db.patch("travellers", passport.travellerId, { passportExpiryDate: expiryDate });
+      await scheduleCrmMetricSync(ctx, "travellers", String(passport.travellerId));
     }
     return null;
   },

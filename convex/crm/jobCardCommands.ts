@@ -1,6 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
-import { scheduleJobInvoiceMetricSync } from "./financeMetricSync";
+import { scheduleCrmMetricSync, scheduleJobInvoiceMetricSync } from "./financeMetricSync";
 import { JOB_CARD_STATUS } from "./jobCardConstants";
 import {
   assertDateRangeOrder,
@@ -88,6 +88,7 @@ export async function handleJobCardUpdate(
 
   await patchWithE2eOwnership(ctx, "jobCards", id, patch);
   await markListSearchDirty(ctx, "jobCards", String(id));
+  await scheduleCrmMetricSync(ctx, "jobCards", String(id));
   await createActivity(ctx, access, {
     action: "updated",
     entityId: id,
@@ -199,6 +200,7 @@ export async function handleAddCollaborator(
       emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   return { id: jobCardId };
 }
 
@@ -239,6 +241,7 @@ export async function handleRemoveCollaborator(
     ),
     ...editorPatch(access),
   });
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   return { id: jobCardId };
 }
 
@@ -298,6 +301,7 @@ export async function handleAssignOperationsOwner(
       emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   return { id: jobCardId };
 }
 
@@ -359,6 +363,7 @@ export async function handleAssignContractingOwner(
       emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   return { id: jobCardId };
 }
 

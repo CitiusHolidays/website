@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { resolveCommandReceipt, storeCommandReceipt } from "./commandReceipts";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import type { PortalAccess } from "./lib";
 import {
   canEditProposalRecord,
@@ -255,6 +256,10 @@ export async function handleSendProposalToSales(
       entityType: "proposal",
       message: `${proposal.proposalCode} revision ${currentRevision} sent to Sales for ${query.queryCode}`,
     }),
+  ]);
+  await Promise.all([
+    scheduleCrmMetricSync(ctx, "proposals", String(target.proposalId)),
+    scheduleCrmMetricSync(ctx, "queries", String(target.queryId)),
   ]);
 
   await publishProposalHandoffNotification(ctx, proposal, query);

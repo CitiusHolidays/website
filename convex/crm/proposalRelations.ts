@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { canSeeQueryRecord, type PortalAccess } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { proposalLinkedQuerySummary, proposalLinkProjection } from "./proposalLinkProjection";
@@ -130,6 +131,7 @@ export async function syncProposalQueryLinks(
     proposalId,
     proposalLinkedQuerySummary(linkedQueries)
   );
+  await scheduleCrmMetricSync(ctx, "proposals", String(proposalId));
   return Array.from(
     new Set([
       ...existingLinks.map((link) => String(link.queryId)),

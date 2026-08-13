@@ -2,6 +2,7 @@ import type { Infer } from "convex/values";
 import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
+import { scheduleCrmMetricSync } from "../financeMetricSync";
 import type { JobCardStatus } from "../jobCardConstants";
 import { markListSearchDirty } from "../listSearch";
 import type {
@@ -111,6 +112,7 @@ export async function deleteJobCardCascade(
     }),
   ]);
   await markListSearchDirty(ctx, "jobCards", String(jobCardId));
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   return operationId;
 }
 

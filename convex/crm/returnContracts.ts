@@ -448,6 +448,10 @@ export const aggregateCoverageValidator = v.object({
   complete: v.boolean(),
   completedSources: v.array(v.string()),
   detailRowLimit: v.number(),
+  dirty: v.object({
+    hasPending: v.boolean(),
+    oldestUpdatedAt: nullableIsoDateTimeValidator,
+  }),
   errorSummary: v.union(v.null(), v.string()),
   freshnessMinutes: v.number(),
   generation: v.number(),

@@ -6,6 +6,7 @@ import {
   queryAttachmentListPageResultValidator,
   queryAttachmentRecordResultValidator,
 } from "./fileReturnContracts";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeJobCardRecord,
   canSeeProposalRecord,
@@ -190,6 +191,7 @@ export const saveAttachment = internalMutation({
         ...(query.attachmentPreview ?? []),
       ].slice(0, 2),
     });
+    await scheduleCrmMetricSync(ctx, "queries", String(args.queryId));
     return null;
   },
   returns: v.null(),
@@ -231,6 +233,7 @@ export const deleteAttachmentRecord = internalMutation({
           mimeType: entry.mimeType,
         })),
       });
+      await scheduleCrmMetricSync(ctx, "queries", String(row.queryId));
     }
     return { storageId: row.storageId };
   },

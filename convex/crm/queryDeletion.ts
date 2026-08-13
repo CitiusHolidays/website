@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeQueryRecord,
   createActivity,
@@ -114,5 +115,6 @@ export async function handleQueryRemove(
     ctx.db.delete("queries", queryId),
   ]);
   await markListSearchDirty(ctx, "queries", String(queryId));
+  await scheduleCrmMetricSync(ctx, "queries", String(queryId));
   return { id: queryId };
 }

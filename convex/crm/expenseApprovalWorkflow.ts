@@ -6,7 +6,7 @@ import {
   matchesManagerApprovedSnapshot,
 } from "./expensePolicy";
 import { assertExpenseAccess, canApproveExpenseAsManager } from "./expenseScope";
-import { scheduleFinanceMetricSync } from "./financeMetricSync";
+import { scheduleCrmMetricSync, scheduleFinanceMetricSync } from "./financeMetricSync";
 import {
   createActivity,
   isDirectorOrAdmin,
@@ -92,6 +92,7 @@ async function createFinanceExpenseApproval(ctx: any, access: any, expenseId: an
     type: "Expense",
     updatedAt: now,
   });
+  await scheduleCrmMetricSync(ctx, "approvalRequests", String(approvalId));
   const recipientRoles = ["Finance", "Directors"];
   await publishWorkflowNotification(ctx, {
     bellTargets: { kind: "roles", roles: recipientRoles },
@@ -317,6 +318,11 @@ export async function handleDecideExpenseFinance(
         : []
     )
   );
+  await Promise.all(
+    approvalRows
+      .filter((approval: any) => approval.status === "Pending")
+      .map((approval: any) => scheduleCrmMetricSync(ctx, "approvalRequests", String(approval._id)))
+  );
   await createActivity(ctx, access, {
     action: `finance_${args.status.toLowerCase()}`,
     entityId: expenseId,
@@ -388,6 +394,11 @@ export async function handleUpdateExpenseStatus(
       }
       return [patchWithE2eOwnership(ctx, "approvalRequests", approval._id, approvalPatch)];
     })
+  );
+  await Promise.all(
+    approvalRows
+      .filter((approval: any) => approval.status === "Pending")
+      .map((approval: any) => scheduleCrmMetricSync(ctx, "approvalRequests", String(approval._id)))
   );
   await createActivity(ctx, access, {
     action: "status_updated",

@@ -8,6 +8,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "../_generated/server";
+import { scheduleCrmMetricSyncBatch } from "./financeMetricSync";
 import {
   hasOutstandingInvoiceBalance,
   INVOICE_OUTSTANDING_PROJECTION_KEY,
@@ -165,6 +166,7 @@ export const reconcileProjectionPage = internalMutation({
       .withIndex("by_createdAt")
       .paginate({ cursor: state.cursor, numItems: INVOICE_PROJECTION_PAGE_SIZE });
     let residuals = 0;
+    const repairedInvoiceIds: string[] = [];
     for (const invoice of page.page) {
       if (!invoiceOutstandingProjectionMismatch(invoice)) {
         continue;
@@ -174,10 +176,12 @@ export const reconcileProjectionPage = internalMutation({
         await ctx.db.patch("invoices", invoice._id, {
           hasOutstandingBalance: hasOutstandingInvoiceBalance(invoice.balanceAmount),
         });
+        repairedInvoiceIds.push(String(invoice._id));
       } else {
         residuals += 1;
       }
     }
+    await scheduleCrmMetricSyncBatch(ctx, "invoices", repairedInvoiceIds);
 
     const now = Date.now();
     const processed = state.processed + page.page.length;

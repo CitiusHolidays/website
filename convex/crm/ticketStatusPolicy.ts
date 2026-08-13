@@ -87,6 +87,7 @@ export async function syncTravellerTicketStatus(
       ticketStatus,
       updatedAt: now,
     });
+    await scheduleCrmMetricSync(ctx, "travellers", String(travellerId));
   }
 }
 

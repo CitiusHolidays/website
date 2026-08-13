@@ -38,6 +38,7 @@ function mutationContext(queryOverrides: Record<string, unknown> = {}) {
         patch: async (_table: string, _id: string, patch: Record<string, unknown>) =>
           patches.push(patch),
       },
+      scheduler: { runAfter: async () => undefined },
     },
     patches,
   };

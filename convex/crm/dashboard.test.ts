@@ -54,6 +54,7 @@ function makeCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]) {
 
   const orderedBuilder = (table: string, rows = getRows(table)) => ({
     collect: async () => rows,
+    first: async () => rows[0] ?? null,
     order: (direction: string) =>
       orderedBuilder(
         table,

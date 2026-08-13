@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeJobCardRecord,
   canSeeProposalRecord,
@@ -34,6 +35,7 @@ export async function handleSaveFinalizedPdf(
     finalizedPdfUploadedBy: args.uploadedBy,
     updatedAt: now,
   });
+  await scheduleCrmMetricSync(ctx, "proposals", String(args.proposalId));
   await notifyLinkedQuerySalesOwnersOfProposalDocument(ctx, {
     isReplacement: Boolean(previousStorageId),
     proposalCode: proposal.proposalCode,
@@ -63,6 +65,7 @@ export async function handleClearFinalizedPdf(
     finalizedPdfUploadedBy: undefined,
     updatedAt: Date.now(),
   });
+  await scheduleCrmMetricSync(ctx, "proposals", String(args.proposalId));
   const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
   await enqueueQueryCommercialProjections(
     ctx,

@@ -6,6 +6,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { resolveRoomCategory } from "../lib/roomTypes";
 import { roomTypeValidator } from "../lib/roomTypeValidators";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { completeJobCardDeletionWorker, failJobCardDeletionOperation } from "./jobCardDeletion";
 import {
   assertBulkDeleteMutationBatch,
@@ -505,8 +506,9 @@ export const create = mutation({
       visaStatus,
     });
     await markListSearchDirty(ctx, "travellers", String(id));
+    await scheduleCrmMetricSync(ctx, "travellers", String(id));
 
-    await Promise.all([
+    const [visaRecordId] = await Promise.all([
       insertWithE2eOwnership(ctx, "visaRecords", {
         createdAt: now,
         jobCardId,
@@ -522,6 +524,7 @@ export const create = mutation({
         message: `${args.fullName.trim()} added to ${job.jobCode}`,
       }),
     ]);
+    await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecordId));
     return { id };
   },
   returns: travellerIdResultValidator,
@@ -662,6 +665,7 @@ export const update = mutation({
 
     await patchWithE2eOwnership(ctx, "travellers", travellerId, patch);
     await markListSearchDirty(ctx, "travellers", String(travellerId));
+    await scheduleCrmMetricSync(ctx, "travellers", String(travellerId));
 
     if (args.visaRequired !== undefined || args.biometricAppointmentDate !== undefined) {
       const visaRecord = await ctx.db
@@ -680,6 +684,7 @@ export const update = mutation({
           visaPatch.appointmentDate = args.biometricAppointmentDate;
         }
         await patchWithE2eOwnership(ctx, "visaRecords", visaRecord._id, visaPatch);
+        await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecord._id));
       }
     }
 
@@ -763,6 +768,7 @@ export async function deleteTravellerRecord(
     }),
   ]);
   await markListSearchDirty(ctx, "travellers", String(travellerId));
+  await scheduleCrmMetricSync(ctx, "travellers", String(travellerId));
 }
 
 const travellerCleanupStageValidator = v.union(
@@ -826,6 +832,9 @@ export const continueTravellerCleanup = internalMutation({
             notifications.push({ entityId: String(row._id), entityType: "ticket" });
           }
           await ctx.db.delete(args.stage, row._id);
+          if (args.stage === "tickets" || args.stage === "visaRecords") {
+            await scheduleCrmMetricSync(ctx, args.stage, String(row._id));
+          }
         })
       );
       if (notifications.length > 0) {

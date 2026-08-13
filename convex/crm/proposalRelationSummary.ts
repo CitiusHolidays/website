@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { compactPageItems, mapInBoundedBatches } from "./paginationPolicy";
 import {
   PROPOSAL_LINKED_QUERY_PREVIEW_LIMIT,
@@ -67,6 +68,7 @@ export const reconcileProposalRelationSummary = internalMutation({
       linkedQuerySummaryState: "ready",
       linkedQuerySummaryVersion: PROPOSAL_LINKED_QUERY_SUMMARY_VERSION,
     });
+    await scheduleCrmMetricSync(ctx, "proposals", String(proposal._id));
     return { isDone: true, processed: page.page.length, stale: false };
   },
   returns: v.object({
@@ -94,6 +96,7 @@ export const reconcileProposalRelationSummaryPage = internalMutation({
         linkedQuerySummaryState: "reconciling",
         linkedQuerySummaryVersion: PROPOSAL_LINKED_QUERY_SUMMARY_VERSION,
       });
+      await scheduleCrmMetricSync(ctx, "proposals", String(proposal._id));
       await ctx.scheduler.runAfter(
         0,
         internal.crm.proposalRelationSummary.reconcileProposalRelationSummary,

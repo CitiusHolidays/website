@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeQueryRecord,
   createActivity,
@@ -64,6 +65,7 @@ export async function handleMoveSalesPipelineStage(
     leadStage: args.targetStage,
     updatedAt: now,
   });
+  await scheduleCrmMetricSync(ctx, "queries", String(queryId));
 
   await createActivity(ctx, access, {
     action: "pipeline_moved",

@@ -29,6 +29,7 @@ import {
   writableTeamAreasForSource,
 } from "./commercialFilePolicy";
 import { linkedQueriesForProposal, resolveCommercialChain } from "./commercialRecordChainReads";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeJobCardRecord,
   canSeeProposalRecord,
@@ -1183,6 +1184,7 @@ export const createFile = internalMutation({
         finalizedPdfUploadedAt: timestamp,
         finalizedPdfUploadedBy: args.createdBy,
       });
+      await scheduleCrmMetricSync(ctx, "proposals", String(source.proposal._id));
       await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
     }
     await createActivity(ctx, access, {
@@ -1263,6 +1265,7 @@ export const deleteFile = mutationWithAccess({
         finalizedPdfUploadedAt: undefined,
         finalizedPdfUploadedBy: undefined,
       });
+      await scheduleCrmMetricSync(ctx, "proposals", String(source.proposal._id));
       await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
     }
     await createActivity(ctx, access, {
@@ -1319,6 +1322,7 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
       finalizedPdfUploadedAt: undefined,
       finalizedPdfUploadedBy: undefined,
     });
+    await scheduleCrmMetricSync(ctx, "proposals", String(source.proposal._id));
     await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
     await createActivity(ctx, access, {
       action: "commercial_file_deleted",
@@ -1380,6 +1384,7 @@ export const restoreFile = mutationWithAccess({
         finalizedPdfUploadedAt: row.createdAt,
         finalizedPdfUploadedBy: row.createdBy,
       });
+      await scheduleCrmMetricSync(ctx, "proposals", String(source.proposal._id));
       await enqueueProposalQueryCommercialProjections(ctx, source.proposal);
     }
     await createActivity(ctx, access, {
@@ -1426,6 +1431,7 @@ export const restoreProposalHistory = mutationWithAccess({
       finalizedPdfUploadedAt: row.createdAt,
       finalizedPdfUploadedBy: row.createdBy,
     });
+    await scheduleCrmMetricSync(ctx, "proposals", String(proposalSource.proposal._id));
     await enqueueProposalQueryCommercialProjections(ctx, proposalSource.proposal);
     await createActivity(ctx, access, {
       action: "proposal_doc_history_restored",

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   deleteStorageFile,
   flushDeferredNotificationCleanup,
@@ -32,6 +33,13 @@ const stageDefinitions = [
 ] as const;
 
 type JobCardCascadeStage = (typeof stageDefinitions)[number][0];
+type CascadeMetricSource =
+  | "expenseEntries"
+  | "invoices"
+  | "pnrs"
+  | "tickets"
+  | "travellers"
+  | "visaRecords";
 const jobCardCascadeStageValidator = v.union(
   ...stageDefinitions.map(([stage]) => v.literal(stage))
 );
@@ -47,6 +55,20 @@ function stageDefinition(stage: JobCardCascadeStage) {
 function nextStage(stage: JobCardCascadeStage) {
   const index = stageDefinitions.findIndex(([candidate]) => candidate === stage);
   return stageDefinitions[index + 1]?.[0] ?? null;
+}
+
+function metricSourceForCascadeStage(stage: JobCardCascadeStage): CascadeMetricSource | null {
+  switch (stage) {
+    case "expenseEntries":
+    case "invoices":
+    case "pnrs":
+    case "tickets":
+    case "travellers":
+    case "visaRecords":
+      return stage;
+    default:
+      return null;
+  }
 }
 
 function safeFailureSummary(error: unknown) {
@@ -208,7 +230,12 @@ export const continueApprovalCleanup = internalMutation({
           q.eq("entityType", args.approvalEntityType).eq("entityId", args.approvalEntityId)
         )
         .take(JOB_CARD_CASCADE_PAGE_SIZE);
-      await Promise.all(rows.map((row) => ctx.db.delete("approvalRequests", row._id)));
+      await Promise.all(
+        rows.map(async (row) => {
+          await ctx.db.delete("approvalRequests", row._id);
+          await scheduleCrmMetricSync(ctx, "approvalRequests", String(row._id));
+        })
+      );
       await flushDeferredNotificationCleanup(
         ctx,
         rows.map((row) => ({ entityId: String(row._id), entityType: "approval" }))
@@ -263,6 +290,7 @@ export const continueJobCardCascade = internalMutation({
         .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", jobCardId))
         .take(JOB_CARD_CASCADE_PAGE_SIZE);
       const notifications: NotificationEntityIdentity[] = [];
+      const metricSource = metricSourceForCascadeStage(args.stage);
       await Promise.all(
         rows.map(async (row: any) => {
           if (args.stage === "travellers") {
@@ -300,6 +328,9 @@ export const continueJobCardCascade = internalMutation({
           }
           notifications.push({ entityId: String(row._id), entityType });
           await ctx.db.delete(args.stage, row._id);
+          if (metricSource) {
+            await scheduleCrmMetricSync(ctx, metricSource, String(row._id));
+          }
         })
       );
       await flushDeferredNotificationCleanup(ctx, notifications);

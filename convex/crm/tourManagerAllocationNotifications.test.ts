@@ -146,7 +146,9 @@ function makeTourManagerCtx(initialTables: Tables = {}) {
     },
     scheduler: {
       runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-        scheduledEmails.push({ args, fn });
+        if (args && typeof args === "object" && "recipients" in args) {
+          scheduledEmails.push({ args, fn });
+        }
       },
     },
   };

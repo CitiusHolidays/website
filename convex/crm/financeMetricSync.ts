@@ -9,11 +9,22 @@ export async function scheduleCrmMetricSync(
   sourceType: MetricSourceType,
   sourceId: string
 ) {
+  await scheduleCrmMetricSyncBatch(ctx, sourceType, [sourceId]);
+}
+
+export async function scheduleCrmMetricSyncBatch(
+  ctx: MutationCtx,
+  sourceType: MetricSourceType,
+  sourceIds: string[]
+) {
+  if (sourceIds.length === 0) {
+    return;
+  }
   if (await hasActiveE2eRun(ctx)) {
     return;
   }
-  await ctx.scheduler.runAfter(0, internal.crm.metricAggregates.syncEntity, {
-    sourceId,
+  await ctx.scheduler.runAfter(0, internal.crm.metricAggregates.enqueueDirtySources, {
+    sourceIds,
     sourceType,
   });
 }
@@ -27,11 +38,5 @@ export async function scheduleFinanceMetricSync(
 }
 
 export async function scheduleJobInvoiceMetricSync(ctx: MutationCtx, jobCardId: Id<"jobCards">) {
-  if (await hasActiveE2eRun(ctx)) {
-    return;
-  }
-  await ctx.scheduler.runAfter(0, (internal as any).crm.metricAggregates.syncJobInvoicePage, {
-    cursor: null,
-    jobCardId,
-  });
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
 }

@@ -152,6 +152,7 @@ function buildDashboardCtx(tables: Record<string, any[]>, staffRoles = ["Admin"]
   const getRows = (table: string) => (table === "staffUsers" ? [staff] : (tables[table] ?? []));
   const orderedBuilder = (table: string, rows = getRows(table)) => ({
     collect: async () => rows,
+    first: async () => rows[0] ?? null,
     order: (direction: string) =>
       orderedBuilder(
         table,
@@ -491,6 +492,7 @@ describe("dashboard return contracts", () => {
           complete: false,
           completedSources: [],
           detailRowLimit: 240,
+          dirty: { hasPending: false, oldestUpdatedAt: null },
           errorSummary: null,
           freshnessMinutes: 15,
           generation: 0,

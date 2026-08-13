@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   assertCementQueryTypeAllowed,
   assertDateRangeOrder,
@@ -160,6 +161,7 @@ export async function handleQueryCreate(
   };
   const id = await insertWithE2eOwnership(ctx, "queries", queryPayload);
   await markListSearchDirty(ctx, "queries", String(id));
+  await scheduleCrmMetricSync(ctx, "queries", String(id));
 
   await createActivity(ctx, access, {
     action: "created",

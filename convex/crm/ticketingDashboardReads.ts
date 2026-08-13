@@ -174,6 +174,12 @@ export async function handleDashboard(ctx: QueryCtx, args: DashboardArgs) {
     aggregateCoverage: {
       bucketCount: aggregate?.bucketCount ?? 0,
       complete: aggregate?.complete ?? false,
+      dirty: {
+        hasPending: aggregate?.readiness.dirty.hasPending ?? false,
+        oldestUpdatedAt: aggregate?.readiness.dirty.oldestUpdatedAt
+          ? new Date(aggregate.readiness.dirty.oldestUpdatedAt).toISOString()
+          : null,
+      },
       scope: scope ?? "unavailable",
       updatedAt: aggregate?.updatedAt ? new Date(aggregate.updatedAt).toISOString() : null,
     },

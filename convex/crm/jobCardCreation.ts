@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { loadConfirmedOfferForQuery } from "./confirmedOffer";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { materializeDefaultChecklistTasks } from "./jobCardChecklist";
 import { DEFAULT_CHECKLIST } from "./jobCardConstants";
 import {
@@ -161,9 +162,11 @@ export async function handleCreateFromQuery(
   };
   const id = await insertWithE2eOwnership(ctx, "jobCards", jobCardPayload);
   await markListSearchDirty(ctx, "jobCards", String(id));
+  await scheduleCrmMetricSync(ctx, "jobCards", String(id));
   await patchWithE2eOwnership(ctx, "queries", queryId, {
     jobCardPreview: { jobCardCode: jobCode, jobCardId: id },
   });
+  await scheduleCrmMetricSync(ctx, "queries", String(queryId));
   await materializeDefaultChecklistTasks(
     ctx,
     id,

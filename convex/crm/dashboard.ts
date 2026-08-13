@@ -41,6 +41,12 @@ function formatAggregateCoverage(aggregate: Awaited<ReturnType<typeof loadMetric
     complete: aggregate.complete,
     completedSources: aggregate.readiness.completedSources,
     detailRowLimit: OPERATIONAL_DETAIL_LIMIT,
+    dirty: {
+      hasPending: aggregate.readiness.dirty.hasPending,
+      oldestUpdatedAt: aggregate.readiness.dirty.oldestUpdatedAt
+        ? new Date(aggregate.readiness.dirty.oldestUpdatedAt).toISOString()
+        : null,
+    },
     errorSummary: aggregate.readiness.errorSummary,
     freshnessMinutes: 15,
     generation: aggregate.readiness.generation,

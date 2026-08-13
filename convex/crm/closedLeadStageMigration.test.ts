@@ -88,6 +88,7 @@ function makeCtx() {
       },
       query: queryBuilder,
     },
+    scheduler: { runAfter: async () => undefined },
   };
   return { ctx, tables };
 }

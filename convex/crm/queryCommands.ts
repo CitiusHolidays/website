@@ -3,6 +3,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { resolveCommandReceipt, storeCommandReceipt } from "./commandReceipts";
 import { snapshotNewlyConfirmedOffer } from "./confirmedOffer";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   assertCementQueryTypeAllowed,
   assertDateRangeOrder,
@@ -157,6 +158,7 @@ export async function handleQueryUpdate(
 
   await patchWithE2eOwnership(ctx, "queries", queryId, patch);
   await markListSearchDirty(ctx, "queries", String(queryId));
+  await scheduleCrmMetricSync(ctx, "queries", String(queryId));
   await refreshProposalLinkProjections(ctx, queryId);
   await createActivity(ctx, access, {
     action: "updated",
@@ -224,6 +226,7 @@ export async function handleAssignJobCardCreator(
       emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
+  await scheduleCrmMetricSync(ctx, "queries", String(queryId));
   return { id: queryId };
 }
 
@@ -252,6 +255,7 @@ export async function handleSubmitToContracting(
     submittedToContractingAt: now,
     updatedAt: now,
   });
+  await scheduleCrmMetricSync(ctx, "queries", String(queryId));
   await refreshProposalLinkProjections(ctx, queryId);
   const hasAssignedTeam = Boolean(
     current.contractingOwnerId || current.ticketingOwnerId || current.ticketingScope
@@ -297,6 +301,7 @@ export async function handleUpdateContractingProgress(
   const now = Date.now();
   const patch = buildContractingProgressPatch({ args, now });
   await patchWithE2eOwnership(ctx, "queries", queryId, patch);
+  await scheduleCrmMetricSync(ctx, "queries", String(queryId));
   await Promise.all([
     refreshProposalLinkProjections(ctx, queryId),
     createActivity(ctx, access, {
@@ -363,6 +368,7 @@ export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDeci
   }
 
   await patchWithE2eOwnership(ctx, "queries", queryId, patch);
+  await scheduleCrmMetricSync(ctx, "queries", String(queryId));
   await refreshProposalLinkProjections(ctx, queryId);
 
   const isLost = args.salesStatus === "Order Lost";

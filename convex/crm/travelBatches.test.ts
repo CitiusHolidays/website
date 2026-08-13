@@ -109,6 +109,7 @@ function makeTravelBatchCtx(initialTables: Tables = {}) {
       },
       query: (table: string) => queryBuilder(table),
     },
+    scheduler: { runAfter: async () => undefined },
   };
 
   return { ctx, tables };

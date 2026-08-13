@@ -11,6 +11,7 @@ function queryBuilder(rows: any[], counters: Record<string, number>, table: stri
     collect: async () => {
       throw new Error(`Unbounded collect is forbidden for ${table}`);
     },
+    first: async () => current[0] ?? null,
     order: (direction: "asc" | "desc") => {
       current.sort((left, right) =>
         direction === "desc"
@@ -26,7 +27,7 @@ function queryBuilder(rows: any[], counters: Record<string, number>, table: stri
       return current.slice(0, limit);
     },
     unique: async () => current[0] ?? null,
-    withIndex: (_name: string, configure: (q: any) => unknown) => {
+    withIndex: (_name: string, configure?: (q: any) => unknown) => {
       const predicates: Array<(row: any) => boolean> = [];
       const q: any = {
         eq(field: string, value: unknown) {
@@ -42,7 +43,7 @@ function queryBuilder(rows: any[], counters: Record<string, number>, table: stri
           return q;
         },
       };
-      configure(q);
+      configure?.(q);
       current = current.filter((row) => predicates.every((predicate) => predicate(row)));
       return builder;
     },

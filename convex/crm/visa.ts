@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   assertBulkDeleteMutationBatch,
   canSeeJobCardRecord,
@@ -159,6 +160,10 @@ export const updateStatus = mutation({
         message: `Visa status set to ${args.status}`,
       }),
     ]);
+    await Promise.all([
+      scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecordId)),
+      scheduleCrmMetricSync(ctx, "travellers", String(record.travellerId)),
+    ]);
     return { id: visaRecordId };
   },
   returns: visaIdResultValidator,
@@ -235,6 +240,10 @@ export const updateRecord = mutation({
         message: `Visa record updated${args.status ? ` (${args.status})` : ""}`,
       }),
     ]);
+    await Promise.all([
+      scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecordId)),
+      scheduleCrmMetricSync(ctx, "travellers", String(record.travellerId)),
+    ]);
     return { id: visaRecordId };
   },
   returns: visaIdResultValidator,
@@ -271,6 +280,10 @@ async function deleteVisaRecord(
     }),
     deleteEntityNotifications(ctx, "visaRecord", visaRecordId, deferredNotifications),
     ctx.db.delete("visaRecords", visaRecordId),
+  ]);
+  await Promise.all([
+    scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecordId)),
+    scheduleCrmMetricSync(ctx, "travellers", String(record.travellerId)),
   ]);
 }
 
@@ -371,6 +384,10 @@ export const create = mutation({
         entityType: "visaRecord",
         message: `Visa tracking record created for ${traveller.fullName}`,
       }),
+    ]);
+    await Promise.all([
+      scheduleCrmMetricSync(ctx, "visaRecords", String(recordId)),
+      scheduleCrmMetricSync(ctx, "travellers", String(travellerId)),
     ]);
 
     return { id: recordId };

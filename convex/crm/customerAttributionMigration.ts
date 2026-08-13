@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 
 const PAGE_SIZE = 100;
 const stageValidator = v.union(
@@ -89,6 +90,7 @@ export const backfillCustomerAttribution = internalMutation({
                 source: intent.source,
                 sourceConsentAt: intent.consentAt,
               });
+              await scheduleCrmMetricSync(ctx, "queries", String(queryId));
             }
             return 1;
           }

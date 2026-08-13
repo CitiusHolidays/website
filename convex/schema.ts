@@ -700,6 +700,43 @@ export default defineSchema({
     .index("by_key", ["key"])
     .index("by_updatedAt", ["updatedAt"]),
 
+  crmMetricDirty: defineTable({
+    createdAt: v.number(),
+    cursor: v.optional(v.string()),
+    key: v.string(),
+    kind: v.union(v.literal("source"), v.literal("jobContext"), v.literal("queryContext")),
+    sourceId: v.string(),
+    sourceType: v.optional(
+      v.union(
+        v.literal("approvalRequests"),
+        v.literal("expenseEntries"),
+        v.literal("invoices"),
+        v.literal("jobCards"),
+        v.literal("pnrs"),
+        v.literal("proposals"),
+        v.literal("queries"),
+        v.literal("tickets"),
+        v.literal("travellers"),
+        v.literal("visaRecords")
+      )
+    ),
+    stage: v.optional(
+      v.union(
+        v.literal("expenseEntries"),
+        v.literal("invoices"),
+        v.literal("jobCards"),
+        v.literal("pnrs"),
+        v.literal("proposals"),
+        v.literal("tickets"),
+        v.literal("travellers"),
+        v.literal("visaRecords")
+      )
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_updatedAt", ["updatedAt"]),
+
   crmMetricBuckets: defineTable({
     periodKey: v.string(),
     periodType: v.union(v.literal("day"), v.literal("month")),

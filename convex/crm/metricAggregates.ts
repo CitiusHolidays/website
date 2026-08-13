@@ -3,6 +3,11 @@ import { internal } from "../_generated/api";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation } from "../_generated/server";
 import { isCementQueryType, type PortalDateRange } from "./lib";
+import {
+  enqueueMetricContextDirty,
+  enqueueMetricSourceDirty,
+  scheduleMetricDirtyWorker,
+} from "./metricDirty";
 
 export const METRIC_SOURCE_TYPES = [
   "approvalRequests",
@@ -41,6 +46,8 @@ const sourceTypeValidator = v.union(
 );
 
 const RECONCILE_PAGE_SIZE = 20;
+const DIRTY_DEPENDENCY_PAGE_SIZE = 20;
+const DIRTY_SOURCE_BATCH_SIZE = 10;
 const MAX_MONTH_BUCKETS = 600;
 const MAX_DAY_BUCKETS = 64;
 const READINESS_KEY = "global";
@@ -60,7 +67,8 @@ interface MetricReadinessRow {
 
 export function summarizeMetricReadiness(
   row: MetricReadinessRow | null | undefined,
-  now = Date.now()
+  now = Date.now(),
+  oldestDirty?: { updatedAt: number } | null
 ) {
   const complete = Boolean(
     row?.lastCompletedGeneration && row?.lastCompletedMetricVersion === METRIC_VERSION
@@ -68,12 +76,17 @@ export function summarizeMetricReadiness(
   const reconciling = Boolean(row && row.generation !== row.lastCompletedGeneration);
   const stale = Boolean(
     row &&
+      !(complete && !reconciling) &&
       now - Number((complete ? row.lastCompletedAt : row.updatedAt) ?? row.startedAt ?? 0) >=
         METRIC_RECONCILIATION_STALE_MS
   );
   return {
     complete,
     completedSources: row?.completedSourceTypes ?? [],
+    dirty: {
+      hasPending: Boolean(oldestDirty),
+      oldestUpdatedAt: oldestDirty ? oldestDirty.updatedAt : null,
+    },
     errorSummary: null,
     generation: Number(row?.generation ?? 0),
     lastCompletedAt: row?.lastCompletedAt ?? null,
@@ -517,6 +530,182 @@ export const syncEntity = internalMutation({
   returns: v.object({ changed: v.boolean(), deleted: v.boolean() }),
 });
 
+const JOB_CONTEXT_STAGES = [
+  "expenseEntries",
+  "invoices",
+  "pnrs",
+  "tickets",
+  "travellers",
+  "visaRecords",
+] as const;
+const QUERY_CONTEXT_STAGES = ["jobCards", "proposals"] as const;
+type MetricDependencyStage =
+  | (typeof JOB_CONTEXT_STAGES)[number]
+  | (typeof QUERY_CONTEXT_STAGES)[number];
+
+function dependencyStages(kind: "jobContext" | "queryContext"): readonly MetricDependencyStage[] {
+  return kind === "jobContext" ? JOB_CONTEXT_STAGES : QUERY_CONTEXT_STAGES;
+}
+
+async function loadDependencyPage(
+  ctx: MutationCtx,
+  kind: "jobContext" | "queryContext",
+  sourceId: string,
+  stage: MetricDependencyStage,
+  cursor: string | null
+) {
+  const parentTable = kind === "jobContext" ? "jobCards" : "queries";
+  const parentId = ctx.db.normalizeId(parentTable, sourceId as never);
+  if (!parentId) {
+    return null;
+  }
+  const paginationOpts = { cursor, numItems: DIRTY_DEPENDENCY_PAGE_SIZE };
+  switch (stage) {
+    case "expenseEntries":
+      return await ctx.db
+        .query("expenseEntries")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", parentId as never))
+        .paginate(paginationOpts);
+    case "invoices":
+      return await ctx.db
+        .query("invoices")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", parentId as never))
+        .paginate(paginationOpts);
+    case "jobCards":
+      return await ctx.db
+        .query("jobCards")
+        .withIndex("by_queryId", (q) => q.eq("queryId", parentId as never))
+        .paginate(paginationOpts);
+    case "pnrs":
+      return await ctx.db
+        .query("pnrs")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", parentId as never))
+        .paginate(paginationOpts);
+    case "proposals":
+      return await ctx.db
+        .query("proposals")
+        .withIndex("by_queryId", (q) => q.eq("queryId", parentId as never))
+        .paginate(paginationOpts);
+    case "tickets":
+      return await ctx.db
+        .query("tickets")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", parentId as never))
+        .paginate(paginationOpts);
+    case "travellers":
+      return await ctx.db
+        .query("travellers")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", parentId as never))
+        .paginate(paginationOpts);
+    case "visaRecords":
+      return await ctx.db
+        .query("visaRecords")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", parentId as never))
+        .paginate(paginationOpts);
+  }
+}
+
+async function processMetricDependencyDirty(ctx: MutationCtx, dirty: any) {
+  const stages = dependencyStages(dirty.kind);
+  const stageIndex = Math.max(0, stages.indexOf(dirty.stage));
+  const stage = stages[stageIndex] as MetricDependencyStage;
+  const page = await loadDependencyPage(
+    ctx,
+    dirty.kind,
+    dirty.sourceId,
+    stage,
+    dirty.cursor ?? null
+  );
+  if (!page) {
+    await ctx.db.delete("crmMetricDirty", dirty._id);
+    return 0;
+  }
+  let changed = 0;
+  for (const source of page.page) {
+    const result = await syncProjection(ctx, stage, String(source._id), source);
+    changed += result.changed ? 1 : 0;
+    if (dirty.kind === "queryContext" && stage === "jobCards") {
+      await enqueueMetricContextDirty(ctx, "jobContext", String(source._id));
+    }
+  }
+  if (!page.isDone) {
+    await ctx.db.patch("crmMetricDirty", dirty._id, {
+      cursor: page.continueCursor,
+      stage,
+      updatedAt: Date.now(),
+    });
+    return changed;
+  }
+  const nextStage = stages[stageIndex + 1];
+  if (nextStage) {
+    await ctx.db.patch("crmMetricDirty", dirty._id, {
+      cursor: undefined,
+      stage: nextStage,
+      updatedAt: Date.now(),
+    });
+  } else {
+    await ctx.db.delete("crmMetricDirty", dirty._id);
+  }
+  return changed;
+}
+
+export const processDirtyUnit = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    let changed = 0;
+    let processed = 0;
+    while (processed < DIRTY_SOURCE_BATCH_SIZE) {
+      const dirty = await ctx.db.query("crmMetricDirty").withIndex("by_updatedAt").first();
+      if (!dirty) {
+        break;
+      }
+      if (dirty.kind === "source") {
+        if (dirty.sourceType) {
+          const source = await loadSourceDocument(ctx, dirty.sourceType, dirty.sourceId);
+          const result = await syncProjection(ctx, dirty.sourceType, dirty.sourceId, source);
+          changed += result.changed ? 1 : 0;
+        }
+        await ctx.db.delete("crmMetricDirty", dirty._id);
+        processed += 1;
+      } else {
+        changed += await processMetricDependencyDirty(ctx, dirty);
+        processed += 1;
+        break;
+      }
+    }
+    const next = await ctx.db.query("crmMetricDirty").withIndex("by_updatedAt").first();
+    if (next) {
+      await scheduleMetricDirtyWorker(ctx);
+    }
+    return { changed, processed, scheduled: Boolean(next) };
+  },
+  returns: v.object({ changed: v.number(), processed: v.number(), scheduled: v.boolean() }),
+});
+
+export const enqueueDirtySources = internalMutation({
+  args: { sourceIds: v.array(v.string()), sourceType: sourceTypeValidator },
+  handler: async (ctx, args) => {
+    if (args.sourceIds.length > 50) {
+      throw new Error("Metric dirty batches are limited to 50 sources");
+    }
+    const queueWasEmpty = !(await ctx.db.query("crmMetricDirty").withIndex("by_updatedAt").first());
+    const sourceIds = new Set(args.sourceIds);
+    for (const sourceId of sourceIds) {
+      await enqueueMetricSourceDirty(ctx, args.sourceType, sourceId);
+      if (args.sourceType === "jobCards") {
+        await enqueueMetricContextDirty(ctx, "jobContext", sourceId);
+      } else if (args.sourceType === "queries") {
+        await enqueueMetricContextDirty(ctx, "queryContext", sourceId);
+      }
+    }
+    const scheduled = queueWasEmpty && sourceIds.size > 0;
+    if (scheduled) {
+      await scheduleMetricDirtyWorker(ctx);
+    }
+    return { enqueued: sourceIds.size, scheduled };
+  },
+  returns: v.object({ enqueued: v.number(), scheduled: v.boolean() }),
+});
+
 export const syncJobInvoicePage = internalMutation({
   args: {
     cursor: v.union(v.string(), v.null()),
@@ -557,7 +746,7 @@ async function loadMetricPublication(ctx: QueryCtx | MutationCtx) {
     .unique();
 }
 
-async function startMetricReconciliation(ctx: MutationCtx) {
+async function startMetricReconciliation(ctx: MutationCtx, force = false) {
   const now = Date.now();
   const current = await loadMetricReadiness(ctx);
   const reconciliationActive = Boolean(
@@ -568,6 +757,12 @@ async function startMetricReconciliation(ctx: MutationCtx) {
   );
   if (reconciliationActive) {
     return { alreadyRunning: true, generation: current?.generation ?? 0, scheduled: 0 };
+  }
+  const currentComplete = Boolean(
+    current?.lastCompletedGeneration && current.lastCompletedMetricVersion === METRIC_VERSION
+  );
+  if (currentComplete && !force) {
+    return { alreadyRunning: false, generation: current?.generation ?? 0, scheduled: 0 };
   }
   const generation = (current?.generation ?? 0) + 1;
   const nextState = {
@@ -799,8 +994,18 @@ export const sweepProjectionPage = internalMutation({
 });
 
 export const reconcileAll = internalMutation({
-  args: {},
-  handler: async (ctx) => await startMetricReconciliation(ctx),
+  args: { force: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const dirty = await ctx.db.query("crmMetricDirty").withIndex("by_updatedAt").first();
+    const reconciliation = await startMetricReconciliation(ctx, args.force === true);
+    if (dirty) {
+      await scheduleMetricDirtyWorker(ctx);
+    }
+    return {
+      ...reconciliation,
+      scheduled: reconciliation.scheduled + Number(Boolean(dirty)),
+    };
+  },
   returns: v.object({ alreadyRunning: v.boolean(), generation: v.number(), scheduled: v.number() }),
 });
 
@@ -834,8 +1039,9 @@ export async function loadMetricTotals(
   dateRange: PortalDateRange | null | undefined,
   referenceNow?: number
 ) {
-  const [publication, rows] = await Promise.all([
+  const [publication, oldestDirty, rows] = await Promise.all([
     loadMetricPublication(ctx),
+    ctx.db.query("crmMetricDirty").withIndex("by_updatedAt").first(),
     Promise.all(
       buildAggregateSegments(dateRange).map((segment) => loadSegment(ctx, scope, segment))
     ).then((segments) => segments.flat()),
@@ -856,7 +1062,7 @@ export async function loadMetricTotals(
         updatedAt: publication.publishedAt,
       }
     : null;
-  const readinessSummary = summarizeMetricReadiness(stableReadiness, referenceNow);
+  const readinessSummary = summarizeMetricReadiness(stableReadiness, referenceNow, oldestDirty);
   return {
     bucketCount: rows.length,
     complete: readinessSummary.complete,
@@ -878,7 +1084,13 @@ export async function loadMetricCoverage(
   ]);
   return {
     ...totals,
-    readiness: summarizeMetricReadiness(readiness, referenceNow),
+    readiness: summarizeMetricReadiness(
+      readiness,
+      referenceNow,
+      totals.readiness.dirty.hasPending && totals.readiness.dirty.oldestUpdatedAt
+        ? { updatedAt: totals.readiness.dirty.oldestUpdatedAt }
+        : null
+    ),
   };
 }
 

@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canEditProposalRecord,
   canSeeProposalRecord,
@@ -116,6 +117,7 @@ export async function handleCreateProposal(ctx: MutationCtx, args: CreateProposa
     createdBy: access.authUserId ?? "unknown",
   });
   await markListSearchDirty(ctx, "proposals", String(id));
+  await scheduleCrmMetricSync(ctx, "proposals", String(id));
   await Promise.all([
     syncProposalQueryLinks(ctx, id, linkedQueries, access.authUserId ?? "unknown"),
     Promise.all(
@@ -137,6 +139,11 @@ export async function handleCreateProposal(ctx: MutationCtx, args: CreateProposa
       message: `${proposalCode} created for ${clientName}`,
     }),
   ]);
+  await Promise.all(
+    linkedQueries
+      .filter((linkedQuery) => linkedQuery.contractingStatus === "Query Received")
+      .map((linkedQuery) => scheduleCrmMetricSync(ctx, "queries", String(linkedQuery._id)))
+  );
   await Promise.all(
     linkedQueries.map((linkedQuery) => refreshProposalLinkProjections(ctx, linkedQuery._id))
   );
@@ -239,6 +246,7 @@ export async function handleUpdateProposal(ctx: MutationCtx, args: UpdateProposa
 
   await patchWithE2eOwnership(ctx, "proposals", proposalId, patch);
   await markListSearchDirty(ctx, "proposals", String(proposalId));
+  await scheduleCrmMetricSync(ctx, "proposals", String(proposalId));
   if (nextLinkedQueries !== null) {
     await syncProposalQueryLinks(
       ctx,

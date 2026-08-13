@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, mutation, query } from "../_generated/server";
 import { matchesExpenseApprovalRequest, matchesManagerApprovedSnapshot } from "./expensePolicy";
-import { scheduleFinanceMetricSync } from "./financeMetricSync";
+import { scheduleCrmMetricSync, scheduleFinanceMetricSync } from "./financeMetricSync";
 import {
   createActivity,
   PERMISSIONS,
@@ -179,6 +179,7 @@ export const decide = mutation({
       status: args.status,
       updatedAt: now,
     });
+    await scheduleCrmMetricSync(ctx, "approvalRequests", String(approvalId));
     if (expenseContext) {
       await ctx.db.patch(
         "expenseEntries",
@@ -230,6 +231,7 @@ export const remove = mutation({
       throw new ConvexError("Approval request not found");
     }
     await ctx.db.delete("approvalRequests", approvalId);
+    await scheduleCrmMetricSync(ctx, "approvalRequests", String(approvalId));
     await createActivity(ctx, access, {
       action: "deleted",
       entityId: approvalId,

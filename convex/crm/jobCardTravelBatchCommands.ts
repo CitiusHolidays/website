@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { DEFAULT_CHECKLIST } from "./jobCardConstants";
 import {
   assertDateRangeOrder,
@@ -106,6 +107,7 @@ export async function handleCreateTravelBatch(
   await ctx.db.patch("jobCards", jobCardId, {
     travelBatchCount: parseTravelBatchSequence(identity.batchCode),
   });
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   await createActivity(ctx, access, {
     action: "travel_batch_created",
     entityId: jobCardId,

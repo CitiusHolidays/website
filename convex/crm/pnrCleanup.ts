@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { flushDeferredNotificationCleanup, type NotificationEntityIdentity } from "./lib";
 
 export const pnrCleanupStageValidator = v.union(v.literal("seatAllocations"), v.literal("tickets"));
@@ -32,12 +33,16 @@ export async function handleContinuePnrCleanup(
           ticketStatus: "Pending Issue",
           updatedAt: Date.now(),
         });
+        await scheduleCrmMetricSync(ctx, "travellers", String(row.travellerId));
       }
       notifications.push({
         entityId: String(row._id),
         entityType: args.stage === "tickets" ? "ticket" : "seatAllocation",
       });
       await ctx.db.delete(args.stage, row._id);
+      if (args.stage === "tickets") {
+        await scheduleCrmMetricSync(ctx, "tickets", String(row._id));
+      }
     })
   );
   await flushDeferredNotificationCleanup(ctx, notifications);

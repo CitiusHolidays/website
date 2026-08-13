@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 
 export const CLOSED_LEAD_STAGE_MIGRATION_KEY = "query-lead-stage-closed-to-lost-v1";
 const DEFAULT_LIMIT = 100;
@@ -155,9 +156,10 @@ export const migrateClosedLeadStages = internalMutation({
     await Promise.all(
       args.dryRun
         ? []
-        : legacyQueries.map((query) =>
-            ctx.db.patch("queries", query._id, { leadStage: "Lost", updatedAt: now })
-          )
+        : legacyQueries.map(async (query) => {
+            await ctx.db.patch("queries", query._id, { leadStage: "Lost", updatedAt: now });
+            await scheduleCrmMetricSync(ctx, "queries", String(query._id));
+          })
     );
     const pageConverted = args.dryRun ? 0 : pageLegacy;
     const converted = registry.converted + pageConverted;

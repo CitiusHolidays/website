@@ -1,3 +1,5 @@
+import { scheduleCrmMetricSync } from "./financeMetricSync";
+
 export const MATERIAL_EXPENSE_FIELDS = [
   "amount",
   "cardAmount",
@@ -32,11 +34,14 @@ export async function invalidatePendingExpenseApprovals(ctx: any, expenseId: any
     approvalRows.flatMap((approval: any) =>
       approval.status === "Pending"
         ? [
-            ctx.db.patch("approvalRequests", approval._id, {
-              decisionNote: "Invalidated by a material expense or proof change",
-              status: "Needs Info",
-              updatedAt: now,
-            }),
+            (async () => {
+              await ctx.db.patch("approvalRequests", approval._id, {
+                decisionNote: "Invalidated by a material expense or proof change",
+                status: "Needs Info",
+                updatedAt: now,
+              });
+              await scheduleCrmMetricSync(ctx, "approvalRequests", String(approval._id));
+            })(),
           ]
         : []
     )

@@ -117,6 +117,12 @@ export async function handleGetFinanceOverview(
     aggregateCoverage: {
       bucketCount: aggregate.bucketCount,
       complete: aggregate.complete,
+      dirty: {
+        hasPending: aggregate.readiness.dirty.hasPending,
+        oldestUpdatedAt: aggregate.readiness.dirty.oldestUpdatedAt
+          ? new Date(aggregate.readiness.dirty.oldestUpdatedAt).toISOString()
+          : null,
+      },
       updatedAt: aggregate.updatedAt ? new Date(aggregate.updatedAt).toISOString() : null,
     },
     ...overview,

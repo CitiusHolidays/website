@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { finalizedPdfRecordResultValidator } from "./fileReturnContracts";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canEditProposalRecord,
   canSeeProposalRecord,
@@ -214,6 +215,7 @@ export const remove = mutation({
       ctx.db.delete("proposals", proposalId),
     ]);
     await markListSearchDirty(ctx, "proposals", String(proposalId));
+    await scheduleCrmMetricSync(ctx, "proposals", String(proposalId));
     await enqueueQueryCommercialProjections(
       ctx,
       linkedQueries.map((linkedQuery) => linkedQuery._id)
@@ -277,6 +279,7 @@ export const addCollaborator = mutation({
         emailTargets: { kind: "staff", staffIds: [staffId] },
       }),
     ]);
+    await scheduleCrmMetricSync(ctx, "proposals", String(proposalId));
     return { id: proposalId };
   },
   returns: proposalIdResultValidator,
@@ -316,6 +319,7 @@ export const removeCollaborator = mutation({
       ),
       ...editorPatch(access),
     });
+    await scheduleCrmMetricSync(ctx, "proposals", String(proposalId));
     return { id: proposalId };
   },
   returns: proposalIdResultValidator,

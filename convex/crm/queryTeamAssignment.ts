@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   CONTRACTING_TEAM_ROLES,
   canSeeQueryRecord,
@@ -214,6 +215,10 @@ export async function applyQueryTeamAssignments(
   }
 
   await Promise.all(writes);
+  await scheduleCrmMetricSync(ctx, "queries", String(queryId));
+  await Promise.all(
+    jobCards.map((jobCard) => scheduleCrmMetricSync(ctx, "jobCards", String(jobCard._id)))
+  );
   await refreshProposalLinkProjections(ctx, queryId);
 
   if (contracting) {

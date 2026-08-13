@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { assertJobCardChildRelations, normalizeOptionalChildId } from "./jobCardRelations";
 import { getVisibleJob } from "./jobCardVisibility";
 import {
@@ -37,12 +38,13 @@ export async function updateTravellerTicketSeats(
     throw new ConvexError("Traveller ticket relation crosses the selected Job Card");
   }
   await Promise.all(
-    tickets.map((ticket) =>
-      ctx.db.patch("tickets", ticket._id, {
+    tickets.map(async (ticket) => {
+      await ctx.db.patch("tickets", ticket._id, {
         seatNumber: args.seatNumber,
         updatedAt: args.updatedAt,
-      })
-    )
+      });
+      await scheduleCrmMetricSync(ctx, "tickets", String(ticket._id));
+    })
   );
   return tickets.length;
 }

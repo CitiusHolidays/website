@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeJobCardRecord,
   createActivity,
@@ -70,5 +71,6 @@ export async function handleAssignTicketingOwner(
       emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   return { id: jobCardId };
 }

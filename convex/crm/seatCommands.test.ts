@@ -20,11 +20,26 @@ function context(rows: ReturnType<typeof ticket>[]) {
   const patches: Array<{ id: Id<"tickets">; seatNumber: string }> = [];
   const ctx = {
     db: {
-      patch: (_table: "tickets", id: Id<"tickets">, value: { seatNumber: string }) => {
-        patches.push({ id, seatNumber: value.seatNumber });
+      insert: () => Promise.resolve("dirty:1"),
+      patch: (table: string, id: Id<"tickets">, value: { seatNumber: string }) => {
+        if (table === "tickets") {
+          patches.push({ id, seatNumber: value.seatNumber });
+        }
         return Promise.resolve();
       },
       query: (table: string) => {
+        if (table === "crmMetricDirty") {
+          return {
+            withIndex: (_name: string, apply?: (query: any) => unknown) => {
+              const query = { eq: () => query };
+              apply?.(query);
+              return {
+                first: () => Promise.resolve(null),
+                unique: () => Promise.resolve(null),
+              };
+            },
+          };
+        }
         expect(table).toBe("tickets");
         return {
           withIndex: (
@@ -43,6 +58,7 @@ function context(rows: ReturnType<typeof ticket>[]) {
         };
       },
     },
+    scheduler: { runAfter: () => Promise.resolve() },
   };
   return { ctx, indexCalls, patches };
 }

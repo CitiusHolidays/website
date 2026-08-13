@@ -94,6 +94,12 @@ export const overview = query({
         bucketCount: aggregate.bucketCount,
         complete: aggregate.complete,
         detailRowLimit: OPERATIONAL_DETAIL_LIMIT,
+        dirty: {
+          hasPending: aggregate.readiness.dirty.hasPending,
+          oldestUpdatedAt: aggregate.readiness.dirty.oldestUpdatedAt
+            ? new Date(aggregate.readiness.dirty.oldestUpdatedAt).toISOString()
+            : null,
+        },
         freshnessMinutes: 15,
         updatedAt: aggregate.updatedAt ? new Date(aggregate.updatedAt).toISOString() : null,
       },

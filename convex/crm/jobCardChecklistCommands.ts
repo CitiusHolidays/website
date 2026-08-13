@@ -1,5 +1,6 @@
 import { ConvexError } from "convex/values";
 import type { MutationCtx } from "../_generated/server";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canEditContractingRecord,
   canEditOperationsRecord,
@@ -43,6 +44,7 @@ export async function handleUpdateChecklist(
     preDepartureChecklist: args.checklist,
     ...editorPatch(access),
   });
+  await scheduleCrmMetricSync(ctx, "jobCards", String(id));
   await createActivity(ctx, access, {
     action: "checklist_updated",
     entityId: id,

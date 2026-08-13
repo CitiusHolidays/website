@@ -7,6 +7,7 @@ import {
   proposalAttachmentListResultValidator,
   proposalAttachmentRecordResultValidator,
 } from "./fileReturnContracts";
+import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeJobCardRecord,
   canSeeProposalRecord,
@@ -426,6 +427,7 @@ export const reconcileSummaryPage = internalMutation({
         attachmentSummaryGeneration: args.generation,
         attachmentSummaryState: "reconciling",
       });
+      await scheduleCrmMetricSync(ctx, "proposals", String(proposal._id));
     }
 
     const attachmentPage = await ctx.db
@@ -475,6 +477,7 @@ export const reconcileSummaryPage = internalMutation({
       attachmentSummaryState: "ready",
       attachmentSummaryVersion: PROPOSAL_ATTACHMENT_SUMMARY_VERSION,
     });
+    await scheduleCrmMetricSync(ctx, "proposals", String(proposal._id));
     await continueWithNextProposal(ctx, {
       generation: args.generation,
       lastProposal: args.lastProposal,
@@ -526,6 +529,7 @@ export const saveAttachment = internalMutation({
       attachmentCount: (proposal.attachmentCount ?? 0) + 1,
       attachmentPreview,
     });
+    await scheduleCrmMetricSync(ctx, "proposals", String(args.proposalId));
     return null;
   },
   returns: v.null(),
@@ -557,6 +561,7 @@ export const deleteAttachmentRecord = internalMutation({
         attachmentCount: Math.max(0, (proposal.attachmentCount ?? 0) - 1),
         attachmentPreview: buildProposalAttachmentPreview(remaining),
       });
+      await scheduleCrmMetricSync(ctx, "proposals", String(row.proposalId));
     }
     return { storageId: row.storageId };
   },

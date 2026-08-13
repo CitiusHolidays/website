@@ -641,7 +641,7 @@ export async function processImportRows(
           .collect();
         const authUserId = access.authUserId ?? "unknown";
         if (visaRecords.length === 0) {
-          await ctx.db.insert("visaRecords", {
+          const visaRecordId = await ctx.db.insert("visaRecords", {
             appointmentDate: row.biometricAppointmentDate?.trim() || "",
             createdAt: now,
             jobCardId,
@@ -651,9 +651,10 @@ export async function processImportRows(
             updatedAt: now,
             updatedBy: authUserId,
           });
+          await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecordId));
         } else {
           await Promise.all(
-            visaRecords.map((visaRecord: { _id: Id<"visaRecords">; status: string }) => {
+            visaRecords.map(async (visaRecord: { _id: Id<"visaRecords">; status: string }) => {
               const status =
                 importKind === "visa"
                   ? nextVisaStatus
@@ -662,7 +663,7 @@ export async function processImportRows(
                       ? "Not Started"
                       : visaRecord.status
                     : "Not Required";
-              return ctx.db.patch("visaRecords", visaRecord._id, {
+              await ctx.db.patch("visaRecords", visaRecord._id, {
                 status,
                 ...(importKind === "visa" && row.biometricAppointmentDate !== undefined
                   ? { appointmentDate: row.biometricAppointmentDate?.trim() || "" }
@@ -673,6 +674,7 @@ export async function processImportRows(
                 updatedAt: now,
                 updatedBy: authUserId,
               });
+              await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecord._id));
             })
           );
         }
@@ -730,6 +732,7 @@ export async function processImportRows(
         });
       }
       await markListSearchDirty(ctx, "travellers", String(travellerId));
+      await scheduleCrmMetricSync(ctx, "travellers", String(travellerId));
       const committedTraveller: TravellerDoc = match
         ? { ...match, ...travellerPatch, _id: match._id }
         : {
