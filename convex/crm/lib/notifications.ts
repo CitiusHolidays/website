@@ -2,6 +2,7 @@ import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { deleteNotificationPage, queueEntityNotificationCleanup } from "../notificationCleanup";
+import { projectNotificationInsert } from "../notificationUnreadProjection";
 import { hasActiveE2eRun, insertWithE2eOwnership } from "./e2eOwnership";
 import { normalizeEmail } from "./staffAccess";
 
@@ -234,7 +235,10 @@ export async function publishWorkflowNotification(
   const activeStaff = staffRows.filter((member) => member.active);
   const bellRows = notificationBellRows(activeStaff, plan.bellTargets, plan.content, createdAt);
   const notificationIds = await Promise.all(
-    bellRows.map((row) => insertWithE2eOwnership(ctx, "notifications", row))
+    bellRows.map(async (row) => {
+      const projection = await projectNotificationInsert(ctx, row);
+      return await insertWithE2eOwnership(ctx, "notifications", { ...row, ...projection });
+    })
   );
   const emailRecipients = notificationEmailRecipients(activeStaff, plan.emailTargets);
 

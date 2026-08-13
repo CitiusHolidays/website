@@ -9,6 +9,7 @@ import {
 function makeCtx() {
   const tables: Record<string, any[]> = {
     notificationReads: [],
+    notificationReadTargetCounts: [],
     notifications: [
       {
         _id: "notification_1",
@@ -18,6 +19,8 @@ function makeCtx() {
         title: "Sales action",
       },
     ],
+    notificationTargetCounts: [],
+    notificationUnreadProjectionReadiness: [],
     staffUsers: [
       {
         _id: "staff_a",
@@ -63,7 +66,7 @@ function makeCtx() {
       take: async (limit: number) => rows.slice(0, limit),
       unique: async () => rows[0] ?? null,
       withIndex: (_name: string, callback: (q: any) => unknown) => {
-        const filters: Array<[string, unknown]> = [];
+        const filters: [string, unknown][] = [];
         const q = {
           eq(field: string, value: unknown) {
             filters.push([field, value]);
@@ -87,19 +90,25 @@ function makeCtx() {
         },
       },
       db: {
-        delete: (id: string) => {
+        delete: (...args: string[]) => {
+          const id = args.at(-1);
           for (const [table, rows] of Object.entries(tables)) {
             tables[table] = rows.filter((row) => row._id !== id);
           }
         },
         get: (id: string) => find(id),
         insert: (table: string, value: Record<string, unknown>) => {
+          tables[table] ??= [];
           const id = `${table}_${tables[table].length + 1}`;
           tables[table].push({ _id: id, ...value });
           return id;
         },
         normalizeId: (_table: string, id: string) => id,
-        patch: (id: string, value: Record<string, unknown>) => {
+        patch: (
+          ...args: [string, Record<string, unknown>] | [string, string, Record<string, unknown>]
+        ) => {
+          const id = args.length === 2 ? args[0] : args[1];
+          const value = args.at(-1) as Record<string, unknown>;
           for (const [table, rows] of Object.entries(tables)) {
             const index = rows.findIndex((row) => row._id === id);
             if (index >= 0) {
@@ -123,10 +132,16 @@ describe("per-staff notification read receipts", () => {
     const { ctx, setSubject } = makeCtx();
 
     await (markNotificationRead as any)._handler(ctx, { notificationId: "notification_1" });
-    expect(await (notificationSummary as any)._handler(ctx, {})).toEqual({ unreadCount: 0 });
+    expect(await (notificationSummary as any)._handler(ctx, {})).toEqual({
+      coverage: "partial",
+      unreadCount: 0,
+    });
 
     setSubject("auth_b");
-    expect(await (notificationSummary as any)._handler(ctx, {})).toEqual({ unreadCount: 1 });
+    expect(await (notificationSummary as any)._handler(ctx, {})).toEqual({
+      coverage: "partial",
+      unreadCount: 1,
+    });
     expect((await (listNotifications as any)._handler(ctx, { limit: 20 }))[0].readAt).toBeNull();
   });
 

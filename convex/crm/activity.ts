@@ -1,4 +1,5 @@
 import { paginationOptsValidator } from "convex/server";
+import "./notificationUnreadProjectionMigration";
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
@@ -12,10 +13,16 @@ import {
   notificationReadTimesForAccess,
   notificationSummaryForAccessFromDb,
 } from "./notificationReads";
+import {
+  deleteNotificationWithProjection,
+  NOTIFICATION_UNREAD_PROJECTION_VERSION,
+  projectNotificationReceipt,
+} from "./notificationUnreadProjection";
 import { applyCrmCursorFilters, boundedPaginationOptions } from "./paginationPolicy";
 import {
   activityListPageResultValidator,
   markedNotificationsResultValidator,
+  notificationBellStateResultValidator,
   notificationIdResultValidator,
   notificationListResultValidator,
   notificationSummaryResultValidator,
@@ -50,29 +57,49 @@ export const listActivity = query({
   returns: activityListPageResultValidator,
 });
 
+async function notificationListForAccess(
+  ctx: Parameters<typeof fetchNotificationsForAccess>[0],
+  access: Awaited<ReturnType<typeof requireStaff>>,
+  limit: number
+) {
+  const rows = await fetchNotificationsForAccess(ctx, access, limit);
+  const receiptTimes = await notificationReadTimesForAccess(ctx, access, rows);
+  return rows.map((notification) => {
+    const readAt = notificationReadAtForAccess(notification, access, receiptTimes);
+    return {
+      body: notification.body,
+      createdAt: new Date(notification.createdAt).toISOString(),
+      entityId: notification.entityId ?? "",
+      entityType: notification.entityType ?? "",
+      id: notification._id,
+      readAt: readAt ? new Date(readAt).toISOString() : null,
+      title: notification.title,
+    };
+  });
+}
+
 export const listNotifications = query({
   args: {
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
-    const rows = await fetchNotificationsForAccess(ctx, access, args.limit ?? 20);
-    const receiptTimes = await notificationReadTimesForAccess(ctx, access, rows);
-    return rows.map((notification) => ({
-      body: notification.body,
-      createdAt: new Date(notification.createdAt).toISOString(),
-      entityId: notification.entityId ?? "",
-      entityType: notification.entityType ?? "",
-      id: notification._id,
-      readAt: notificationReadAtForAccess(notification, access, receiptTimes)
-        ? new Date(
-            notificationReadAtForAccess(notification, access, receiptTimes) as number
-          ).toISOString()
-        : null,
-      title: notification.title,
-    }));
+    return await notificationListForAccess(ctx, access, args.limit ?? 20);
   },
   returns: notificationListResultValidator,
+});
+
+export const notificationBellState = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx);
+    const [notifications, summary] = await Promise.all([
+      notificationListForAccess(ctx, access, Math.min(20, Math.max(1, args.limit ?? 8))),
+      notificationSummaryForAccessFromDb(ctx, access),
+    ]);
+    return { ...summary, notifications };
+  },
+  returns: notificationBellStateResultValidator,
 });
 
 export const notificationSummary = query({
@@ -116,14 +143,32 @@ export const markNotificationRead = mutation({
           .unique();
     const readAt = Date.now();
     if (existing) {
-      await patchWithE2eOwnership(ctx, "notificationReads", existing._id, { readAt });
+      if (
+        existing.projectionVersion === NOTIFICATION_UNREAD_PROJECTION_VERSION &&
+        existing.projectionIdentityKey &&
+        existing.projectionTargetKey
+      ) {
+        await patchWithE2eOwnership(ctx, "notificationReads", existing._id, { readAt });
+      } else {
+        const projection = await projectNotificationReceipt(ctx, notification, {
+          authUserId: access.staffId ? undefined : access.authUserId,
+          readAt,
+          staffId: access.staffId,
+        });
+        await patchWithE2eOwnership(ctx, "notificationReads", existing._id, {
+          ...projection,
+          readAt,
+        });
+      }
     } else {
-      await insertWithE2eOwnership(ctx, "notificationReads", {
+      const receipt = {
         authUserId: access.staffId ? undefined : access.authUserId,
         notificationId: id,
         readAt,
         staffId: access.staffId,
-      });
+      };
+      const projection = await projectNotificationReceipt(ctx, notification, receipt);
+      await insertWithE2eOwnership(ctx, "notificationReads", { ...receipt, ...projection });
     }
     return { id };
   },
@@ -140,16 +185,19 @@ export const markAllNotificationsRead = mutation({
     const toMark = visible.filter(
       (notification) => !notificationReadAtForAccess(notification, access, receiptTimes)
     );
-    await Promise.all(
-      toMark.map((notification) =>
-        insertWithE2eOwnership(ctx, "notificationReads", {
-          authUserId: access.staffId ? undefined : access.authUserId,
-          notificationId: notification._id,
-          readAt: now,
-          staffId: access.staffId,
-        })
-      )
-    );
+    for (const notification of toMark) {
+      const receipt = {
+        authUserId: access.staffId ? undefined : access.authUserId,
+        notificationId: notification._id,
+        readAt: now,
+        staffId: access.staffId,
+      };
+      // One identity may mark several rows from the same target, so read-counter
+      // updates are intentionally ordered inside this transaction.
+      // biome-ignore lint/performance/noAwaitInLoops: ordered projection updates prevent lost deltas
+      const projection = await projectNotificationReceipt(ctx, notification, receipt);
+      await insertWithE2eOwnership(ctx, "notificationReads", { ...receipt, ...projection });
+    }
 
     return { marked: toMark.length };
   },
@@ -170,12 +218,7 @@ export const removeNotification = mutation({
     if (!notification) {
       throw new ConvexError("Notification not found");
     }
-    const receipts = await ctx.db
-      .query("notificationReads")
-      .withIndex("by_notificationId", (q) => q.eq("notificationId", id))
-      .collect();
-    await Promise.all(receipts.map((receipt) => ctx.db.delete(receipt._id)));
-    await ctx.db.delete(id);
+    await deleteNotificationWithProjection(ctx, notification);
     return { id };
   },
   returns: notificationIdResultValidator,

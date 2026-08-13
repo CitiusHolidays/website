@@ -34,9 +34,10 @@ describe("usePortalWorkspaceData subscription gates", () => {
     const shell = read("src/components/portal/PortalShell.tsx");
 
     expect(shell).toMatch(
-      /api\.crm\.activity\.listNotifications,\s*isAuthenticated && access\.allowed \? \{ limit: 8 \}/
+      /api\.crm\.activity\.notificationBellState,\s*isAuthenticated && access\.allowed \? \{ limit: 8 \}/
     );
-    expect(shell).toContain("api.crm.activity.notificationSummary");
+    expect(shell).not.toContain("api.crm.activity.notificationSummary");
+    expect(shell).not.toContain("api.crm.activity.listNotifications");
   });
 
   test("loads focused query detail while creating a job card", () => {

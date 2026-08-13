@@ -114,6 +114,52 @@ describe("expandNotificationEmailRoles", () => {
   });
 });
 
+function makePublishNotificationCtx(tables: Record<string, any[]>, scheduled: any[]) {
+  const query = (table: string) => {
+    let rows = [...(tables[table] ?? [])];
+    const builder: any = {
+      collect: async () => rows,
+      unique: async () => rows[0] ?? null,
+      withIndex: (_name: string, callback: (q: any) => unknown) => {
+        const filters: [string, unknown][] = [];
+        const q = {
+          eq(field: string, value: unknown) {
+            filters.push([field, value]);
+            return q;
+          },
+        };
+        callback(q);
+        rows = rows.filter((row) => filters.every(([field, value]) => row[field] === value));
+        return builder;
+      },
+    };
+    return builder;
+  };
+  return {
+    db: {
+      insert: (table: string, doc: Record<string, unknown>) => {
+        if (!tables[table]) {
+          tables[table] = [];
+        }
+        const rows = tables[table];
+        const row = { _id: `${table}_${rows.length + 1}`, ...doc };
+        rows.push(row);
+        return row._id;
+      },
+      patch: (table: string, id: string, value: Record<string, unknown>) => {
+        const row = (tables[table] ?? []).find((candidate) => candidate._id === id);
+        Object.assign(row, value);
+      },
+      query,
+    },
+    scheduler: {
+      runAfter: (_delay: number, fn: unknown, args: unknown) => {
+        scheduled.push({ args, fn });
+      },
+    },
+  };
+}
+
 describe("publishWorkflowNotification", () => {
   test("keeps bell roles exact while expanding role email recipients", async () => {
     const tables: Record<string, any[]> = {
@@ -134,23 +180,7 @@ describe("publishWorkflowNotification", () => {
       ],
     };
     const scheduled: any[] = [];
-    const ctx = {
-      db: {
-        insert: async (table: string, doc: Record<string, unknown>) => {
-          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
-          tables[table].push(row);
-          return row._id;
-        },
-        query: (table: string) => ({
-          collect: async () => tables[table] ?? [],
-        }),
-      },
-      scheduler: {
-        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-          scheduled.push({ args, fn });
-        },
-      },
-    };
+    const ctx = makePublishNotificationCtx(tables, scheduled);
 
     await publishWorkflowNotification(ctx as never, {
       bellTargets: { kind: "roles", roles: ["Accounts"] },
@@ -210,23 +240,7 @@ describe("publishWorkflowNotification", () => {
       ],
     };
     const scheduled: any[] = [];
-    const ctx = {
-      db: {
-        insert: async (table: string, doc: Record<string, unknown>) => {
-          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
-          tables[table].push(row);
-          return row._id;
-        },
-        query: (table: string) => ({
-          collect: async () => tables[table] ?? [],
-        }),
-      },
-      scheduler: {
-        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-          scheduled.push({ args, fn });
-        },
-      },
-    };
+    const ctx = makePublishNotificationCtx(tables, scheduled);
 
     await publishWorkflowNotification(ctx as never, {
       bellTargets: { kind: "roles", roles: ["Operations Head"] },
@@ -271,23 +285,7 @@ describe("publishWorkflowNotification", () => {
       ],
     };
     const scheduled: any[] = [];
-    const ctx = {
-      db: {
-        insert: async (table: string, doc: Record<string, unknown>) => {
-          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
-          tables[table].push(row);
-          return row._id;
-        },
-        query: (table: string) => ({
-          collect: async () => tables[table] ?? [],
-        }),
-      },
-      scheduler: {
-        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-          scheduled.push({ args, fn });
-        },
-      },
-    };
+    const ctx = makePublishNotificationCtx(tables, scheduled);
 
     await publishWorkflowNotification(ctx as never, {
       bellTargets: { kind: "roles", roles: ["Admin", "Directors"] },
@@ -344,24 +342,7 @@ describe("publishWorkflowNotification", () => {
       ],
     };
     const scheduled: any[] = [];
-    const ctx = {
-      db: {
-        insert: (table: string, doc: Record<string, unknown>) => {
-          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
-          tables[table].push(row);
-          return Promise.resolve(row._id);
-        },
-        query: (table: string) => ({
-          collect: () => Promise.resolve(tables[table] ?? []),
-        }),
-      },
-      scheduler: {
-        runAfter: (_delay: number, fn: unknown, args: unknown) => {
-          scheduled.push({ args, fn });
-          return Promise.resolve();
-        },
-      },
-    };
+    const ctx = makePublishNotificationCtx(tables, scheduled);
 
     await publishWorkflowNotification(ctx as never, {
       bellTargets: { kind: "roles", roles: ["Contracting Head"] },
@@ -398,23 +379,7 @@ describe("publishWorkflowNotification", () => {
       ],
     };
     const scheduled: any[] = [];
-    const ctx = {
-      db: {
-        insert: async (table: string, doc: Record<string, unknown>) => {
-          const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
-          tables[table].push(row);
-          return row._id;
-        },
-        query: (table: string) => ({
-          collect: async () => tables[table] ?? [],
-        }),
-      },
-      scheduler: {
-        runAfter: async (_delay: number, fn: unknown, args: unknown) => {
-          scheduled.push({ args, fn });
-        },
-      },
-    };
+    const ctx = makePublishNotificationCtx(tables, scheduled);
 
     const salesMatcher = (staff: { roles: string[] }) => staff.roles.includes("Sales");
     await publishWorkflowNotification(ctx as never, {
@@ -460,8 +425,15 @@ describe("notificationReads bounded fetch", () => {
         query: (table: string) => {
           if (table === "notificationReads") {
             return {
-              withIndex: () => ({ collect: async () => [] }),
+              withIndex: () => ({ collect: async () => [], unique: async () => null }),
             };
+          }
+          if (
+            table === "notificationUnreadProjectionReadiness" ||
+            table === "notificationTargetCounts" ||
+            table === "notificationReadTargetCounts"
+          ) {
+            return { withIndex: () => ({ unique: async () => null }) };
           }
           if (table !== "notifications") {
             throw new Error(`Unexpected table ${table}`);
@@ -582,6 +554,6 @@ describe("notificationReads bounded fetch", () => {
       roles: [],
     });
     expect(summary.unreadCount).toBe(500);
-    expect(summary).toEqual({ hasMoreUnread: true, unreadCount: 500 });
+    expect(summary).toEqual({ coverage: "partial", hasMoreUnread: true, unreadCount: 500 });
   });
 });

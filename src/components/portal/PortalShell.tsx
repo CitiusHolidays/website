@@ -354,13 +354,9 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const sidebarTriggerRef = useRef<HTMLButtonElement>(null);
   const { isAuthenticated } = useConvexAuth();
-  const notifications = useQuery(
-    api.crm.activity.listNotifications,
+  const notificationBellState = useQuery(
+    api.crm.activity.notificationBellState,
     isAuthenticated && access.allowed ? { limit: 8 } : "skip"
-  );
-  const notificationSummary = useQuery(
-    api.crm.activity.notificationSummary,
-    isAuthenticated && access.allowed ? {} : "skip"
   );
   const navShortcuts = useQuery(
     api.crm.navShortcuts.list,
@@ -368,7 +364,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   ) as PortalNavShortcuts | undefined;
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
   const navGroups = getAccessibleNavGroups(access) as PortalNavGroup[];
-  const notificationRows = (notifications ?? []) as NotificationItem[];
+  const notificationRows = (notificationBellState?.notifications ?? []) as NotificationItem[];
   const roles = access.roles ? access.roles.filter(Boolean) : [];
   const roleLabel = roles.join(" / ") || "Staff";
   const compactRoleLabel = getCompactRoleLabel(roles);
@@ -376,7 +372,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   const accountEmail = access.email || user?.email;
   const accountImage = user?.image;
   const unreadCount =
-    notificationSummary?.unreadCount ?? notificationRows.filter((item) => !item.readAt).length;
+    notificationBellState?.unreadCount ?? notificationRows.filter((item) => !item.readAt).length;
   const drawerMotion = portalOverlayMotion(!!shouldReduceMotion, "left", 0.2, "snap");
   const drawerBackdropMotion = portalOverlayMotion(!!shouldReduceMotion, "static", 0.15, "snap");
 

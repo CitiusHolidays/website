@@ -70,7 +70,8 @@ describe("indexed notification cleanup", () => {
     const takeCalls: number[] = [];
     const ctx = {
       db: {
-        delete: async (id: string) => {
+        delete: async (...args: string[]) => {
+          const id = args.at(-1) as string;
           deleted.push(id);
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

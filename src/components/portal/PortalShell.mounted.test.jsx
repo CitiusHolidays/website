@@ -11,9 +11,8 @@ mock.module("@convex/_generated/api", () => ({
   api: {
     crm: {
       activity: {
-        listNotifications: "listNotifications",
         markNotificationRead: "markNotificationRead",
-        notificationSummary: "notificationSummary",
+        notificationBellState: "notificationBellState",
       },
       navShortcuts: { list: "navShortcuts" },
     },
@@ -27,20 +26,21 @@ mock.module("convex/react", () => ({
     return Promise.resolve();
   },
   useQuery: (query) => {
-    if (query === "listNotifications") {
-      return [
-        {
-          body: "Review the linked proposal",
-          entityId: "proposal-1",
-          entityType: "proposal",
-          id: "notification-1",
-          readAt: null,
-          title: "Proposal ready",
-        },
-      ];
-    }
-    if (query === "notificationSummary") {
-      return { unreadCount: 1 };
+    if (query === "notificationBellState") {
+      return {
+        coverage: "complete",
+        notifications: [
+          {
+            body: "Review the linked proposal",
+            entityId: "proposal-1",
+            entityType: "proposal",
+            id: "notification-1",
+            readAt: null,
+            title: "Proposal ready",
+          },
+        ],
+        unreadCount: 1,
+      };
     }
     return { recentJobCards: [], recentProposals: [], recentQueries: [], recentTickets: [] };
   },

@@ -159,6 +159,22 @@ Bell notifications and email notifications are separate channels:
   email targets resolve only the selected active staff records.
 - `{ kind: "none" }` suppresses email for a workflow event without changing its bell rows.
 - Notification read state should change only when the user clicks a notification, not merely when opening the bell dropdown or Activity panel.
+- The always-mounted shell uses one `notificationBellState` subscription. Its eight visible rows
+  resolve receipts through per-notification composite indexes; Activity's larger history remains
+  route-gated.
+- `notificationTargetCounts` stores total bell rows by exact role/staff/user target, while
+  `notificationReadTargetCounts` stores per-staff or per-auth read totals for those targets. Current
+  roles are summed at read time, direct+role rows have one composite target key, and staff-targeted
+  rows remain stable across auth relink.
+- Until `notificationUnreadProjectionReadiness` completes the notification, receipt, and two
+  verification scans, the shell returns `coverage: partial` from a bounded legacy fallback. It
+  returns `coverage: complete` only when the current projection version has zero marker residuals.
+
+The `convex/crm/notificationUnreadProjectionMigration.ts` `startReconciliation` function is the
+internal bounded backfill entrypoint. It processes 50 rows per scheduled mutation and converts legacy direct `readAt` state to
+staff/user receipts before verification. An active or complete current generation is idempotent;
+stale or failed generations can restart. Starting it and measuring the resulting shell query are
+target-bound operations and require an explicitly identified non-production deployment first.
 
 ## Payment flow
 

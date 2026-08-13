@@ -4,6 +4,10 @@ Portal list search and dashboard totals use bounded Convex projections. They are
 
 Portal workflow nudges use the same bounded-operation discipline. One daily generation advances through 50-row Query, Job Card, Traveller, Ticket, and Invoice pages with a stable reference clock and continuation token. Traveller paging makes visa, ticket, and canonical passport-expiry checks complete without a per-Job-Card row cap.
 
+The portal bell also has explicit projection readiness. Notification and receipt totals are
+backfilled in 50-row pages, then independently rescanned. Before all four stages complete, unread
+coverage is partial; the shell never labels the bounded legacy fallback as exact.
+
 ## Workflow nudge policy and recovery
 
 - `thresholdHours` is the detection boundary for the selected rule. It must be finite and between 0 and 720 hours. Saving a different threshold changes the Query or Job Card age comparison and its notification copy.
@@ -31,6 +35,8 @@ pages abort.
 - List search fails closed while its table projection is not current and preserves the entered filter with actionable preparing copy.
 - The dashboard shows a persistent partial/stale notice until a complete current aggregate exists. It includes the last full completion when available.
 - Readiness exposes only version, generation, completed sources/tables, timestamps, state, and a safe error summary. It never exposes row contents, secrets, or worker stack traces.
+- Bell unread state remains click-only and per staff identity. Role changes alter which exact target
+  counters are summed without rewriting history, and auth relink continues to use the staff key.
 
 ## Verification
 

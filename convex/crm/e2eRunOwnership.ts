@@ -1,7 +1,12 @@
 import { ConvexError, v } from "convex/values";
+import type { Doc } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
 import { assertE2eSecret, assertE2eTargetIdentity } from "./lib/e2eAuth";
 import { E2E_CLEANUP_TABLE_ORDER, type E2eCleanupTableName } from "./lib/e2eOwnership";
+import {
+  deleteNotificationReadWithProjection,
+  deleteNotificationWithProjection,
+} from "./notificationUnreadProjection";
 
 const RUN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i;
 const CLEANUP_PAGE_MAX = 50;
@@ -114,7 +119,16 @@ export const cleanupPage = internalMutation({
       // biome-ignore lint/performance/noAwaitInLoops: reviewed table order preserves dependencies
       const existingDocument = documentId ? await ctx.db.get(tableName, documentId) : null;
       if (documentId && existingDocument) {
-        await ctx.db.delete(tableName, documentId);
+        if (tableName === "notificationReads") {
+          await deleteNotificationReadWithProjection(
+            ctx,
+            existingDocument as Doc<"notificationReads">
+          );
+        } else if (tableName === "notifications") {
+          await deleteNotificationWithProjection(ctx, existingDocument as Doc<"notifications">);
+        } else {
+          await ctx.db.delete(tableName as never, documentId as never);
+        }
       }
       await Promise.all(
         record.storageIds.map(async (storageId) => {

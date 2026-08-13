@@ -1083,6 +1083,8 @@ export default defineSchema({
     createdAt: v.number(),
     entityId: v.optional(v.string()),
     entityType: v.optional(v.string()),
+    projectionTargetKey: v.optional(v.string()),
+    projectionVersion: v.optional(v.number()),
     readAt: v.optional(v.number()),
     recipientRole: v.optional(staffRole),
     recipientStaffId: v.optional(v.id("staffUsers")),
@@ -1101,6 +1103,9 @@ export default defineSchema({
   notificationReads: defineTable({
     authUserId: v.optional(v.string()),
     notificationId: v.id("notifications"),
+    projectionIdentityKey: v.optional(v.string()),
+    projectionTargetKey: v.optional(v.string()),
+    projectionVersion: v.optional(v.number()),
     readAt: v.number(),
     staffId: v.optional(v.id("staffUsers")),
   })
@@ -1109,6 +1114,44 @@ export default defineSchema({
     .index("by_notification_user", ["notificationId", "authUserId"])
     .index("by_staffId", ["staffId"])
     .index("by_authUserId", ["authUserId"]),
+
+  notificationTargetCounts: defineTable({
+    key: v.string(),
+    total: v.number(),
+    updatedAt: v.number(),
+    version: v.number(),
+  }).index("by_key", ["key"]),
+
+  notificationReadTargetCounts: defineTable({
+    identityKey: v.string(),
+    key: v.string(),
+    readCount: v.number(),
+    targetKey: v.string(),
+    updatedAt: v.number(),
+    version: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_identityKey", ["identityKey"]),
+
+  notificationUnreadProjectionReadiness: defineTable({
+    failureCode: v.optional(v.string()),
+    generation: v.number(),
+    key: v.string(),
+    ready: v.boolean(),
+    residuals: v.number(),
+    scanned: v.number(),
+    stage: v.union(
+      v.literal("notifications"),
+      v.literal("receipts"),
+      v.literal("verifyNotifications"),
+      v.literal("verifyReceipts"),
+      v.literal("complete")
+    ),
+    startedAt: v.number(),
+    status: v.union(v.literal("running"), v.literal("complete"), v.literal("failed")),
+    updatedAt: v.number(),
+    version: v.number(),
+  }).index("by_key", ["key"]),
 
   offices: defineTable({
     active: v.boolean(),
