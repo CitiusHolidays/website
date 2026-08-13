@@ -1017,6 +1017,7 @@ export default defineSchema({
     createdAt: v.number(),
     eventId: v.string(),
     failureCode: v.optional(v.string()),
+    failureCountedStartedAt: v.optional(v.number()),
     idempotencyKey: v.string(),
     providerStatus: v.optional(v.number()),
     recipientHash: v.string(),
@@ -1155,6 +1156,7 @@ export default defineSchema({
   // cron invocation from collecting every CRM table in one transaction.
   portalWorkflowNudgeRuns: defineTable({
     checked: v.number(),
+    consecutiveFailedRuns: v.optional(v.number()),
     continuationToken: v.optional(v.number()),
     cursor: v.union(v.string(), v.null()),
     failedAt: v.optional(v.number()),
@@ -1165,12 +1167,18 @@ export default defineSchema({
     failureMessage: v.optional(v.string()),
     key: v.string(),
     lastRetryAt: v.optional(v.number()),
+    previousFailedAt: v.optional(v.number()),
+    previousFailureCode: v.optional(v.string()),
+    previousFailureKind: v.optional(
+      v.union(v.literal("deterministic"), v.literal("stale"), v.literal("transient"))
+    ),
     referenceNow: v.number(),
     retryCount: v.optional(v.number()),
     sent: v.number(),
     stage: v.union(
       v.literal("queries"),
       v.literal("jobCards"),
+      v.literal("travellers"),
       v.literal("tickets"),
       v.literal("invoices"),
       v.literal("complete")

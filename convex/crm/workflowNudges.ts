@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { isDirectorOrAdmin, PERMISSIONS, publishWorkflowNotification, requireStaff } from "./lib";
 import { loadMetricTotals } from "./metricAggregates";
+import { classifyPassportExpiryUrgency } from "./passportExpiry";
 
 const HOUR_MS = 60 * 60 * 1000;
 const VISA_READY_STATUSES = new Set(["Approved", "Not Required"]);
@@ -16,10 +17,12 @@ const NUDGE_PAGE_SIZE = 50;
 const NUDGE_RUN_KEY = "scheduled";
 const NUDGE_RUN_STALE_MS = 15 * 60 * 1000;
 const MAX_NUDGE_RETRIES = 3;
+const MAX_WORKFLOW_THRESHOLD_HOURS = 30 * 24;
+export const WORKFLOW_NUDGE_REPEAT_HOURS = 24;
 const MAX_FAILURE_MESSAGE_LENGTH = 500;
 const TRANSIENT_FAILURE_PATTERN =
   /429|connection|fetch|network|rate.?limit|temporar|timeout|unavailable/i;
-const NUDGE_STAGES = ["queries", "jobCards", "tickets", "invoices"] as const;
+const NUDGE_STAGES = ["queries", "jobCards", "travellers", "tickets", "invoices"] as const;
 type NudgeStage = (typeof NUDGE_STAGES)[number];
 type NudgeRunStatus = "completed" | "failed" | "running" | "stale";
 interface NudgeRunPageResult {
@@ -44,13 +47,13 @@ export const WORKFLOW_RULE_CATALOG = [
   },
   {
     key: "query_without_contracting_owner_after_24h",
-    label: "Query without Contracting SPOC after 24h",
+    label: "Query without Contracting SPOC",
     recipientRole: "Contracting Head",
     thresholdHours: 24,
   },
   {
     key: "job_card_without_operations_owner_after_24h",
-    label: "Job Card without operations owner after 24h",
+    label: "Job Card without operations owner",
     recipientRole: "Operations Head",
     thresholdHours: 24,
   },
@@ -89,6 +92,16 @@ export const WORKFLOW_RULE_CATALOG = [
 const CATALOG_BY_KEY = new Map<string, (typeof WORKFLOW_RULE_CATALOG)[number]>(
   WORKFLOW_RULE_CATALOG.map((rule) => [rule.key, rule])
 );
+
+interface EffectiveWorkflowRule {
+  enabled: boolean;
+  key: string;
+  label: string;
+  lastConfiguredAt: number | null;
+  recipientRole: string;
+  thresholdHours: number;
+}
+type EffectiveWorkflowRuleMap = Map<string, EffectiveWorkflowRule>;
 
 const workflowRuleValidator = v.object({
   enabled: v.boolean(),
@@ -140,6 +153,7 @@ const nudgeRunResultValidator = v.object({
 
 const nudgeRunStateValidator = v.object({
   checked: v.number(),
+  consecutiveFailedRuns: v.number(),
   cursor: v.union(v.string(), v.null()),
   effectiveStatus: v.union(
     v.literal("running"),
@@ -156,14 +170,24 @@ const nudgeRunStateValidator = v.object({
     v.null()
   ),
   failureMessage: v.union(v.string(), v.null()),
+  healthStatus: v.union(v.literal("healthy"), v.literal("attention"), v.literal("degraded")),
   key: v.string(),
   lastRetryAt: v.union(v.number(), v.null()),
+  previousFailure: v.union(
+    v.object({
+      code: v.string(),
+      failedAt: v.number(),
+      kind: v.union(v.literal("deterministic"), v.literal("stale"), v.literal("transient")),
+    }),
+    v.null()
+  ),
   referenceNow: v.number(),
   retryCount: v.number(),
   sent: v.number(),
   stage: v.union(
     v.literal("queries"),
     v.literal("jobCards"),
+    v.literal("travellers"),
     v.literal("tickets"),
     v.literal("invoices"),
     v.literal("complete")
@@ -194,29 +218,65 @@ async function getRuleRow(ctx: any, key: string) {
     .first();
 }
 
-async function getEffectiveRule(ctx: any, key: string) {
-  const catalog = CATALOG_BY_KEY.get(key);
-  if (!catalog) {
-    return null;
+export function effectiveWorkflowRulesFromRows(
+  rows: Array<{
+    enabled?: boolean;
+    key: string;
+    recipientRole?: string;
+    thresholdHours?: number;
+    updatedAt?: number;
+  }>
+): EffectiveWorkflowRuleMap {
+  const rowsByKey = new Map(rows.map((row) => [row.key, row]));
+  return new Map(
+    WORKFLOW_RULE_CATALOG.map((catalog) => {
+      const row = rowsByKey.get(catalog.key);
+      return [
+        catalog.key,
+        {
+          ...catalog,
+          enabled: row?.enabled ?? true,
+          lastConfiguredAt: row?.updatedAt ?? null,
+          recipientRole: row?.recipientRole ?? catalog.recipientRole,
+          thresholdHours: validateWorkflowThresholdHours(
+            row?.thresholdHours ?? catalog.thresholdHours
+          ),
+        },
+      ];
+    })
+  );
+}
+
+async function loadEffectiveRules(ctx: any) {
+  const rows = await ctx.db.query("portalWorkflowRules").take(WORKFLOW_RULE_CATALOG.length);
+  return effectiveWorkflowRulesFromRows(rows);
+}
+
+function getEffectiveRule(rules: EffectiveWorkflowRuleMap, key: string) {
+  return rules.get(key) ?? null;
+}
+
+export function validateWorkflowThresholdHours(value: number) {
+  if (!(Number.isFinite(value) && value >= 0 && value <= MAX_WORKFLOW_THRESHOLD_HOURS)) {
+    throw new ConvexError({
+      code: "INVALID_WORKFLOW_THRESHOLD",
+      message: `Workflow threshold must be between 0 and ${MAX_WORKFLOW_THRESHOLD_HOURS} hours.`,
+    });
   }
-  const row = await getRuleRow(ctx, key);
-  return {
-    ...catalog,
-    enabled: row?.enabled ?? true,
-    lastConfiguredAt: row?.updatedAt ?? null,
-    recipientRole: row?.recipientRole ?? catalog.recipientRole,
-    thresholdHours: row?.thresholdHours ?? catalog.thresholdHours,
-  };
+  return value;
 }
 
 export const listRules = query({
   args: {},
   handler: async (ctx) => {
-    const [access, rows] = await Promise.all([
+    const [access, rulesByKey] = await Promise.all([
       requireStaff(ctx, PERMISSIONS.VIEW_DASHBOARD),
-      Promise.all(WORKFLOW_RULE_CATALOG.map((rule) => getEffectiveRule(ctx, rule.key))),
+      loadEffectiveRules(ctx),
     ]);
-    const rules = rows.flatMap((rule) => (rule ? [rule] : []));
+    const rules = WORKFLOW_RULE_CATALOG.flatMap((catalog) => {
+      const rule = rulesByKey.get(catalog.key);
+      return rule ? [rule] : [];
+    });
     return {
       canManage: isDirectorOrAdmin(access) || access.permissions.includes(PERMISSIONS.MANAGE_STAFF),
       rules,
@@ -239,12 +299,15 @@ export const updateRule = mutation({
     if (!catalog) {
       throw new ConvexError("Unknown workflow rule");
     }
+    const thresholdHours = validateWorkflowThresholdHours(
+      args.thresholdHours ?? catalog.thresholdHours
+    );
     const timestamp = Date.now();
     const existing = await getRuleRow(ctx, args.key);
     const patch = {
       enabled: args.enabled,
       recipientRole: (args.recipientRole ?? catalog.recipientRole) as any,
-      thresholdHours: args.thresholdHours ?? catalog.thresholdHours,
+      thresholdHours,
       updatedAt: timestamp,
     };
     if (existing) {
@@ -264,7 +327,7 @@ export const updateRule = mutation({
 export async function shouldTrigger(
   ctx: any,
   item: { ruleKey: string; entityType: string; entityId: string },
-  quietHours = 24,
+  quietHours = WORKFLOW_NUDGE_REPEAT_HOURS,
   referenceNow = Date.now()
 ) {
   const existing = await ctx.db
@@ -305,6 +368,8 @@ async function loadNudgePage(ctx: any, stage: NudgeStage, cursor: string | null)
       return await ctx.db.query("queries").order("asc").paginate(paginationOpts);
     case "jobCards":
       return await ctx.db.query("jobCards").order("asc").paginate(paginationOpts);
+    case "travellers":
+      return await ctx.db.query("travellers").order("asc").paginate(paginationOpts);
     case "tickets":
       return await ctx.db.query("tickets").order("asc").paginate(paginationOpts);
     case "invoices":
@@ -314,92 +379,179 @@ async function loadNudgePage(ctx: any, stage: NudgeStage, cursor: string | null)
   }
 }
 
-export async function collectRiskItemsPage(
+function enabledWorkflowRule(rules: EffectiveWorkflowRuleMap, key: string) {
+  const rule = getEffectiveRule(rules, key);
+  return rule?.enabled ? rule : null;
+}
+
+function formatThresholdHours(hours: number) {
+  return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+}
+
+async function collectQueryRisks(
   ctx: any,
-  stage: NudgeStage,
   rows: any[],
-  referenceNow: number
-): Promise<NudgeRisk[]> {
-  const today = new Date(referenceNow).toISOString().slice(0, 10);
-  const in14Days = new Date(referenceNow + 14 * 24 * HOUR_MS).toISOString().slice(0, 10);
-  const risks: NudgeRisk[] = [];
-
-  if (stage === "queries") {
-    for (const queryRow of rows) {
-      const hasJobCard = Boolean(
-        await ctx.db
-          .query("jobCards")
-          .withIndex("by_queryId", (q: any) => q.eq("queryId", queryRow._id))
-          .first()
-      );
-      if (queryRow.salesStatus === "Order Confirmed" && !hasJobCard) {
-        risks.push({
-          body: `${queryRow.queryCode} is confirmed but no Job Card has been opened.`,
-          entityId: String(queryRow._id),
-          entityType: "query",
-          ruleKey: "confirmed_query_without_job_card",
-          title: "Confirmed query needs Job Card",
-        });
-      }
-      if (
-        !(queryRow.contractingOwnerId || CLOSED_SALES_STATUSES.has(queryRow.salesStatus)) &&
-        referenceNow - queryRow.createdAt >= 24 * HOUR_MS
-      ) {
-        risks.push({
-          body: `${queryRow.queryCode} has no Contracting SPOC after 24 hours.`,
-          entityId: String(queryRow._id),
-          entityType: "query",
-          ruleKey: "query_without_contracting_owner_after_24h",
-          title: "Query needs Contracting SPOC",
-        });
-      }
-    }
-    return risks;
-  }
-
-  if (stage === "jobCards") {
-    for (const job of rows) {
-      if (!job.operationsOwnerId && referenceNow - job.createdAt >= 24 * HOUR_MS) {
-        risks.push({
-          body: `${job.jobCode} has no operations owner after 24 hours.`,
-          entityId: String(job._id),
-          entityType: "jobCard",
-          ruleKey: "job_card_without_operations_owner_after_24h",
-          title: "Job Card needs operations owner",
-        });
-      }
-      if (job.travelStartDate && job.travelStartDate >= today && job.travelStartDate <= in14Days) {
-        // A Job Card is the bounded parent for its travellers; the page never
-        // collects the entire traveller table.
-        const travellers = await ctx.db
-          .query("travellers")
-          .withIndex("by_jobCardId", (q: any) => q.eq("jobCardId", job._id))
-          .take(500);
-        if (travellers.some((row: any) => !VISA_READY_STATUSES.has(row.visaStatus))) {
+  referenceNow: number,
+  rules: EffectiveWorkflowRuleMap
+) {
+  return (
+    await Promise.all(
+      rows.map(async (queryRow) => {
+        const risks: NudgeRisk[] = [];
+        const hasJobCard = Boolean(
+          await ctx.db
+            .query("jobCards")
+            .withIndex("by_queryId", (q: any) => q.eq("queryId", queryRow._id))
+            .first()
+        );
+        if (
+          enabledWorkflowRule(rules, "confirmed_query_without_job_card") &&
+          queryRow.salesStatus === "Order Confirmed" &&
+          !hasJobCard
+        ) {
           risks.push({
-            body: `${job.jobCode} departs within 14 days and visa readiness is incomplete.`,
+            body: `${queryRow.queryCode} is confirmed but no Job Card has been opened.`,
+            entityId: String(queryRow._id),
+            entityType: "query",
+            ruleKey: "confirmed_query_without_job_card",
+            title: "Confirmed query needs Job Card",
+          });
+        }
+        const ownerRule = enabledWorkflowRule(rules, "query_without_contracting_owner_after_24h");
+        if (
+          ownerRule &&
+          !(queryRow.contractingOwnerId || CLOSED_SALES_STATUSES.has(queryRow.salesStatus)) &&
+          referenceNow - queryRow.createdAt >= ownerRule.thresholdHours * HOUR_MS
+        ) {
+          risks.push({
+            body: `${queryRow.queryCode} has no Contracting SPOC after ${formatThresholdHours(ownerRule.thresholdHours)}.`,
+            entityId: String(queryRow._id),
+            entityType: "query",
+            ruleKey: "query_without_contracting_owner_after_24h",
+            title: "Query needs Contracting SPOC",
+          });
+        }
+        return risks;
+      })
+    )
+  ).flat();
+}
+
+function collectJobCardRisks(rows: any[], referenceNow: number, rules: EffectiveWorkflowRuleMap) {
+  const ownerRule = enabledWorkflowRule(rules, "job_card_without_operations_owner_after_24h");
+  if (!ownerRule) {
+    return [];
+  }
+  return rows.flatMap((job) =>
+    !job.operationsOwnerId && referenceNow - job.createdAt >= ownerRule.thresholdHours * HOUR_MS
+      ? [
+          {
+            body: `${job.jobCode} has no operations owner after ${formatThresholdHours(ownerRule.thresholdHours)}.`,
             entityId: String(job._id),
             entityType: "jobCard",
+            ruleKey: "job_card_without_operations_owner_after_24h",
+            title: "Job Card needs operations owner",
+          },
+        ]
+      : []
+  );
+}
+
+function dedupeNudgeRisks(risks: NudgeRisk[]) {
+  const seen = new Set<string>();
+  return risks.filter((risk) => {
+    const key = `${risk.ruleKey}:${risk.entityType}:${risk.entityId}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+async function collectTravellerRisks(
+  ctx: any,
+  rows: any[],
+  referenceNow: number,
+  rules: EffectiveWorkflowRuleMap
+) {
+  const today = new Date(referenceNow).toISOString().slice(0, 10);
+  const in14Days = new Date(referenceNow + 14 * 24 * HOUR_MS).toISOString().slice(0, 10);
+  const risks = (
+    await Promise.all(
+      rows.map(async (traveller) => {
+        const job = await ctx.db.get(traveller.jobCardId);
+        if (!(job?.travelStartDate && job.travelStartDate >= today)) {
+          return [];
+        }
+        const common = { entityId: String(job._id), entityType: "jobCard" };
+        const travellerRisks: NudgeRisk[] = [];
+        if (
+          enabledWorkflowRule(rules, "departure_14d_visa_not_ready") &&
+          job.travelStartDate <= in14Days &&
+          !VISA_READY_STATUSES.has(traveller.visaStatus)
+        ) {
+          travellerRisks.push({
+            ...common,
+            body: `${job.jobCode} departs within 14 days and visa readiness is incomplete.`,
             ruleKey: "departure_14d_visa_not_ready",
             title: "Visa blockers before departure",
           });
         }
-        if (travellers.some((row: any) => row.ticketStatus !== "Issued")) {
-          risks.push({
+        if (
+          enabledWorkflowRule(rules, "departure_14d_ticket_not_ready") &&
+          job.travelStartDate <= in14Days &&
+          traveller.ticketStatus !== "Issued"
+        ) {
+          travellerRisks.push({
+            ...common,
             body: `${job.jobCode} departs within 14 days and tickets are not fully issued.`,
-            entityId: String(job._id),
-            entityType: "jobCard",
             ruleKey: "departure_14d_ticket_not_ready",
             title: "Ticket blockers before departure",
           });
         }
-      }
-    }
-    return risks;
-  }
+        const passportUrgency = classifyPassportExpiryUrgency({
+          expiryDate: traveller.passportExpiryDate,
+          referenceDate: today,
+          travelDate: job.travelStartDate,
+        });
+        if (
+          enabledWorkflowRule(rules, "passport_expiry_blocks_departure") &&
+          ["critical", "expired"].includes(passportUrgency)
+        ) {
+          travellerRisks.push({
+            ...common,
+            body: `${job.jobCode} has passport validity that blocks departure readiness.`,
+            ruleKey: "passport_expiry_blocks_departure",
+            title: "Passport validity blocks departure",
+          });
+        }
+        return travellerRisks;
+      })
+    )
+  ).flat();
+  return dedupeNudgeRisks(risks);
+}
 
+export async function collectRiskItemsPage(
+  ctx: any,
+  stage: NudgeStage,
+  rows: any[],
+  referenceNow: number,
+  effectiveRules = effectiveWorkflowRulesFromRows([])
+): Promise<NudgeRisk[]> {
+  if (stage === "queries") {
+    return await collectQueryRisks(ctx, rows, referenceNow, effectiveRules);
+  }
+  if (stage === "jobCards") {
+    return collectJobCardRisks(rows, referenceNow, effectiveRules);
+  }
+  if (stage === "travellers") {
+    return await collectTravellerRisks(ctx, rows, referenceNow, effectiveRules);
+  }
   if (stage === "tickets") {
     return rows.flatMap((ticket) =>
+      enabledWorkflowRule(effectiveRules, "ticket_attention_status") &&
       TICKET_ATTENTION_STATUSES.has(ticket.ticketStatus)
         ? [
             {
@@ -413,9 +565,12 @@ export async function collectRiskItemsPage(
         : []
     );
   }
-
+  const today = new Date(referenceNow).toISOString().slice(0, 10);
   return rows.flatMap((invoice) =>
-    (invoice.balanceAmount ?? 0) > 0 && invoice.dueDate && invoice.dueDate < today
+    enabledWorkflowRule(effectiveRules, "invoice_overdue_balance") &&
+    (invoice.balanceAmount ?? 0) > 0 &&
+    invoice.dueDate &&
+    invoice.dueDate < today
       ? [
           {
             body: `${invoice.invoiceNumber} has an overdue balance.`,
@@ -467,16 +622,21 @@ export const getCapacityOverview = query({
   returns: capacityOverviewResultValidator,
 });
 
-async function dispatchWorkflowNudges(ctx: any, risks: NudgeRisk[], referenceNow: number) {
-  const rules = new Map<string, Awaited<ReturnType<typeof getEffectiveRule>>>();
+async function dispatchWorkflowNudges(
+  ctx: any,
+  risks: NudgeRisk[],
+  referenceNow: number,
+  rules: EffectiveWorkflowRuleMap
+) {
   const results = await Promise.allSettled(
     risks.map(async (risk) => {
-      let rule = rules.get(risk.ruleKey);
-      if (rule === undefined) {
-        rule = await getEffectiveRule(ctx, risk.ruleKey);
-        rules.set(risk.ruleKey, rule);
-      }
-      if (!(rule?.enabled && (await shouldTrigger(ctx, risk, 24, referenceNow)))) {
+      const rule = getEffectiveRule(rules, risk.ruleKey);
+      if (
+        !(
+          rule?.enabled &&
+          (await shouldTrigger(ctx, risk, WORKFLOW_NUDGE_REPEAT_HOURS, referenceNow))
+        )
+      ) {
         return 0;
       }
       const recipientRoles = [rule.recipientRole];
@@ -512,11 +672,13 @@ async function dispatchWorkflowNudges(ctx: any, risks: NudgeRisk[], referenceNow
 }
 
 class WorkflowNudgeDispatchError extends Error {
+  cause: unknown;
   original: unknown;
   sent: number;
 
   constructor(original: unknown, sent: number) {
     super(errorMessage(original));
+    this.cause = original;
     this.name = "WorkflowNudgeDispatchError";
     this.original = original;
     this.sent = sent;
@@ -567,20 +729,43 @@ export function isNudgeRunStale(run: any, referenceNow = Date.now()) {
   return run?.status === "running" && referenceNow - run.updatedAt >= NUDGE_RUN_STALE_MS;
 }
 
-function presentNudgeRun(run: any, referenceNow = Date.now()) {
+function nudgeHealthStatus(consecutiveFailedRuns: number, effectiveStatus: string) {
+  if (consecutiveFailedRuns >= 2) {
+    return "degraded" as const;
+  }
+  if (["failed", "stale"].includes(effectiveStatus)) {
+    return "attention" as const;
+  }
+  return "healthy" as const;
+}
+
+export function presentNudgeRun(run: any, referenceNow = Date.now()) {
   if (!run) {
     return null;
   }
+  const effectiveStatus = isNudgeRunStale(run, referenceNow) ? "stale" : run.status;
+  const consecutiveFailedRuns = run.consecutiveFailedRuns ?? 0;
+  const previousFailure =
+    run.previousFailureCode && run.previousFailureKind && run.previousFailedAt
+      ? {
+          code: run.previousFailureCode,
+          failedAt: run.previousFailedAt,
+          kind: run.previousFailureKind,
+        }
+      : null;
   return {
     checked: run.checked,
+    consecutiveFailedRuns,
     cursor: run.cursor,
-    effectiveStatus: isNudgeRunStale(run, referenceNow) ? "stale" : run.status,
+    effectiveStatus,
     failedAt: run.failedAt ?? null,
     failureCode: run.failureCode ?? null,
     failureKind: run.failureKind ?? null,
     failureMessage: run.failureMessage ?? null,
+    healthStatus: nudgeHealthStatus(consecutiveFailedRuns, effectiveStatus),
     key: run.key,
     lastRetryAt: run.lastRetryAt ?? null,
+    previousFailure,
     referenceNow: run.referenceNow,
     retryCount: run.retryCount ?? 0,
     sent: run.sent,
@@ -593,8 +778,11 @@ function presentNudgeRun(run: any, referenceNow = Date.now()) {
 }
 
 async function persistStaleRun(ctx: any, run: any, referenceNow: number) {
+  const failureAlreadyCounted = run.failureCountedStartedAt === run.startedAt;
   const patch = {
+    consecutiveFailedRuns: (run.consecutiveFailedRuns ?? 0) + (failureAlreadyCounted ? 0 : 1),
     failureCode: "STALE_RUN",
+    failureCountedStartedAt: run.startedAt,
     failureKind: "stale" as const,
     failureMessage: "Workflow nudge progress exceeded the active-run timeout.",
     staleAt: referenceNow,
@@ -605,24 +793,58 @@ async function persistStaleRun(ctx: any, run: any, referenceNow: number) {
   return { ...run, ...patch };
 }
 
+export function isScheduledNudgeCadenceEligible(run: any, referenceNow = Date.now()) {
+  return (
+    run?.key === NUDGE_RUN_KEY &&
+    typeof run.startedAt === "number" &&
+    referenceNow >= run.startedAt + WORKFLOW_NUDGE_REPEAT_HOURS * HOUR_MS
+  );
+}
+
+function previousFailureFields(run: any) {
+  if (["failed", "stale"].includes(run?.status) && run?.failureCode && run?.failureKind) {
+    return {
+      previousFailedAt: run.failedAt ?? run.staleAt ?? run.updatedAt,
+      previousFailureCode: run.failureCode,
+      previousFailureKind: run.failureKind,
+    };
+  }
+  return {
+    previousFailedAt: run?.previousFailedAt,
+    previousFailureCode: run?.previousFailureCode,
+    previousFailureKind: run?.previousFailureKind,
+  };
+}
+
 async function loadOrStartNudgeRun(
   ctx: any,
   key: string,
   referenceNow: number,
   continuationToken?: number
 ) {
-  const existing = await getNudgeRunRow(ctx, key);
+  let existing = await getNudgeRunRow(ctx, key);
   if (existing?.status === "running") {
     if (isNudgeRunStale(existing, referenceNow)) {
-      return { canProcess: false, run: await persistStaleRun(ctx, existing, referenceNow) };
+      existing = await persistStaleRun(ctx, existing, referenceNow);
+      if (
+        continuationToken !== undefined ||
+        !isScheduledNudgeCadenceEligible(existing, referenceNow)
+      ) {
+        return { canProcess: false, run: existing };
+      }
+    } else {
+      return {
+        canProcess:
+          continuationToken !== undefined &&
+          continuationToken === (existing.continuationToken ?? 0),
+        run: existing,
+      };
     }
-    return {
-      canProcess:
-        continuationToken !== undefined && continuationToken === (existing.continuationToken ?? 0),
-      run: existing,
-    };
   }
-  if (existing && ["failed", "stale"].includes(existing.status)) {
+  if (existing?.key === NUDGE_RUN_KEY && !isScheduledNudgeCadenceEligible(existing, referenceNow)) {
+    return { canProcess: false, run: existing };
+  }
+  if (existing && existing.key !== NUDGE_RUN_KEY && ["failed", "stale"].includes(existing.status)) {
     return { canProcess: false, run: existing };
   }
   if (continuationToken !== undefined) {
@@ -630,6 +852,7 @@ async function loadOrStartNudgeRun(
   }
   const payload = {
     checked: 0,
+    consecutiveFailedRuns: existing?.consecutiveFailedRuns ?? 0,
     continuationToken: (existing?.continuationToken ?? 0) + 1,
     cursor: null,
     failedAt: undefined,
@@ -638,6 +861,7 @@ async function loadOrStartNudgeRun(
     failureMessage: undefined,
     key,
     lastRetryAt: undefined,
+    ...previousFailureFields(existing),
     referenceNow,
     retryCount: 0,
     sent: 0,
@@ -655,6 +879,89 @@ async function loadOrStartNudgeRun(
   return { canProcess: true, run: { _id: id, ...payload } };
 }
 
+async function advanceNudgeRunPage(ctx: any, key: string, referenceNow: number, run: any) {
+  const stage = run.stage as NudgeStage;
+  const page = await loadNudgePage(ctx, stage, run.cursor);
+  const effectiveRules = await loadEffectiveRules(ctx);
+  const risks = await collectRiskItemsPage(ctx, stage, page.page, run.referenceNow, effectiveRules);
+  const sent = await dispatchWorkflowNudges(ctx, risks, run.referenceNow, effectiveRules);
+  const checked = page.page.length;
+  try {
+    const nextStage = (
+      page.isDone ? (NUDGE_STAGES[NUDGE_STAGES.indexOf(stage) + 1] ?? "complete") : stage
+    ) as NudgeStage | "complete";
+    const nextCursor = page.isDone ? null : page.continueCursor;
+    const status: NudgeRunStatus = nextStage === "complete" ? "completed" : "running";
+    const nextToken = (run.continuationToken ?? 0) + 1;
+    await ctx.db.patch(run._id, {
+      checked: run.checked + checked,
+      consecutiveFailedRuns: status === "completed" ? 0 : (run.consecutiveFailedRuns ?? 0),
+      continuationToken: nextToken,
+      cursor: nextCursor,
+      failedAt: undefined,
+      failureCode: undefined,
+      failureKind: undefined,
+      failureMessage: undefined,
+      sent: run.sent + sent,
+      stage: nextStage,
+      status,
+      updatedAt: referenceNow,
+    });
+    if (status === "running") {
+      await ctx.scheduler.runAfter(0, internal.crm.workflowNudges.runScheduledNudges, {
+        continuationToken: nextToken,
+        runKey: key,
+      });
+    }
+    return { checked, sent, status };
+  } catch (error) {
+    const failure = new WorkflowNudgeDispatchError(error, sent);
+    throw failure;
+  }
+}
+
+async function recordNudgeRunFailure(
+  ctx: any,
+  key: string,
+  referenceNow: number,
+  run: any,
+  error: unknown
+): Promise<NudgeRunPageResult> {
+  const diagnostic = classifyNudgeFailure(error);
+  const sent = error instanceof WorkflowNudgeDispatchError ? error.sent : 0;
+  const retryCount = run.retryCount ?? 0;
+  const willRetry = diagnostic.kind === "transient" && retryCount < MAX_NUDGE_RETRIES;
+  const nextToken = (run.continuationToken ?? 0) + 1;
+  await ctx.db.patch(run._id, {
+    consecutiveFailedRuns: willRetry
+      ? (run.consecutiveFailedRuns ?? 0)
+      : (run.consecutiveFailedRuns ?? 0) + (run.failureCountedStartedAt === run.startedAt ? 0 : 1),
+    continuationToken: nextToken,
+    failedAt: referenceNow,
+    failureCode: diagnostic.code,
+    failureCountedStartedAt: willRetry ? run.failureCountedStartedAt : run.startedAt,
+    failureKind: diagnostic.kind,
+    failureMessage: diagnostic.message,
+    lastRetryAt: willRetry ? referenceNow : run.lastRetryAt,
+    retryCount: willRetry ? retryCount + 1 : retryCount,
+    sent: run.sent + sent,
+    status: willRetry ? "running" : "failed",
+    updatedAt: referenceNow,
+  });
+  if (willRetry) {
+    await ctx.scheduler.runAfter(
+      nudgeRetryDelayMs(retryCount),
+      internal.crm.workflowNudges.runScheduledNudges,
+      { continuationToken: nextToken, runKey: key }
+    );
+  }
+  return {
+    checked: 0,
+    sent,
+    status: willRetry ? ("running" as const) : ("failed" as const),
+  };
+}
+
 export async function runNudgePage(
   ctx: any,
   key: string,
@@ -669,53 +976,15 @@ export async function runNudgePage(
   if (!loaded.canProcess || run.stage === "complete" || run.status === "completed") {
     return { checked: 0, sent: 0, status: run.status as NudgeRunStatus };
   }
-  let durableChecked = 0;
-  let durableSent = 0;
   try {
-    const stage = run.stage as NudgeStage;
-    const page = await loadNudgePage(ctx, stage, run.cursor);
-    const risks = await collectRiskItemsPage(ctx, stage, page.page, run.referenceNow);
-    const sent = await dispatchWorkflowNudges(ctx, risks, run.referenceNow);
-    const checked = page.page.length;
-    durableSent = sent;
-    const nextStage = (
-      page.isDone ? (NUDGE_STAGES[NUDGE_STAGES.indexOf(stage) + 1] ?? "complete") : stage
-    ) as NudgeStage | "complete";
-    const nextCursor = page.isDone ? null : page.continueCursor;
-    const status: NudgeRunStatus = nextStage === "complete" ? "completed" : "running";
-    const nextToken = (run.continuationToken ?? 0) + 1;
-    await ctx.db.patch(run._id, {
-      checked: run.checked + checked,
-      continuationToken: nextToken,
-      cursor: nextCursor,
-      sent: run.sent + sent,
-      stage: nextStage,
-      status,
-      updatedAt: referenceNow,
-    });
-    durableChecked = checked;
-    if (status === "running") {
-      await ctx.scheduler.runAfter(0, internal.crm.workflowNudges.runScheduledNudges, {
-        continuationToken: nextToken,
-        runKey: key,
-      });
-    }
-    return { checked, sent, status };
+    return await advanceNudgeRunPage(ctx, key, referenceNow, run);
   } catch (error) {
-    const diagnostic = classifyNudgeFailure(error);
-    const sent = error instanceof WorkflowNudgeDispatchError ? error.sent : durableSent;
-    await ctx.db.patch(run._id, {
-      continuationToken: (run.continuationToken ?? 0) + 1,
-      failedAt: referenceNow,
-      failureCode: diagnostic.code,
-      failureKind: diagnostic.kind,
-      failureMessage: diagnostic.message,
-      sent: run.sent + sent,
-      status: "failed",
-      updatedAt: referenceNow,
-    });
-    return { checked: durableChecked, sent, status: "failed" as const };
+    return await recordNudgeRunFailure(ctx, key, referenceNow, run, error);
   }
+}
+
+export function nudgeRetryDelayMs(completedRetries: number) {
+  return 60_000 * 2 ** Math.max(0, Math.min(MAX_NUDGE_RETRIES - 1, completedRetries));
 }
 
 export const runScheduledNudges = internalMutation({

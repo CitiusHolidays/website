@@ -4,11 +4,17 @@ import {
   classifyNudgeFailure,
   classifyStaleNudgeRunState,
   collectRiskItemsPage,
+  effectiveWorkflowRulesFromRows,
   isNudgeRunStale,
+  isScheduledNudgeCadenceEligible,
+  nudgeRetryDelayMs,
+  presentNudgeRun,
   retryNudgeRun,
   retryNudgeRunState,
   runNudgePage,
   shouldTrigger,
+  validateWorkflowThresholdHours,
+  WORKFLOW_NUDGE_REPEAT_HOURS,
 } from "./workflowNudges";
 
 const referenceNow = Date.parse("2026-08-01T12:00:00.000Z");
@@ -17,10 +23,12 @@ function makeRunCtx({
   failure,
   initialRun,
   ruleRun,
+  tableRows,
 }: {
   failure?: { error: Error; table: string };
   initialRun?: Record<string, any>;
   ruleRun?: Record<string, any>;
+  tableRows?: Record<string, any[]>;
 } = {}) {
   let idSequence = 0;
   const scheduled: Array<{ args: any; delay: number }> = [];
@@ -30,10 +38,17 @@ function makeRunCtx({
     jobCards: [],
     portalWorkflowNudgeRuns: initialRun ? [{ _id: "run_1", ...initialRun }] : [],
     portalWorkflowRuleRuns: ruleRun ? [{ _id: "rule_run_1", ...ruleRun }] : [],
+    portalWorkflowRules: [],
     queries: [],
     tickets: [],
+    travellers: [],
+    ...tableRows,
   };
   const db = {
+    get: (id: string) =>
+      Object.values(tables)
+        .flat()
+        .find((row) => row._id === id) ?? null,
     insert: (table: string, value: Record<string, any>) => {
       idSequence += 1;
       const id = `${table}_${idSequence}`;
@@ -77,6 +92,7 @@ function makeRunCtx({
             page,
           };
         },
+        take: (limit: number) => (tables[table] ?? []).filter(matches).slice(0, limit),
         unique: () => {
           const matchesRows = (tables[table] ?? []).filter(matches);
           if (matchesRows.length > 1) {
@@ -114,6 +130,19 @@ function makeRunCtx({
     scheduled,
     tables,
   };
+}
+
+async function drainScheduledRun(
+  ctx: any,
+  scheduled: Array<{ args: any }>,
+  current: Awaited<ReturnType<typeof runNudgePage>>
+): Promise<Awaited<ReturnType<typeof runNudgePage>>> {
+  if (current.status !== "running") {
+    return current;
+  }
+  const continuationToken = scheduled.at(-1)?.args.continuationToken;
+  const next = await runNudgePage(ctx, "scheduled", referenceNow, continuationToken);
+  return await drainScheduledRun(ctx, scheduled, next);
 }
 
 describe("bounded workflow nudge pages", () => {
@@ -162,6 +191,118 @@ describe("bounded workflow nudge pages", () => {
     expect(queried).toEqual(["jobCards"]);
   });
 
+  test("uses the configured detection threshold and keeps repeat cadence separate", async () => {
+    const rules = effectiveWorkflowRulesFromRows([
+      {
+        enabled: true,
+        key: "query_without_contracting_owner_after_24h",
+        thresholdHours: 48,
+      },
+    ]);
+    const ctx = {
+      db: {
+        query: () => ({
+          withIndex: (_name: string, callback: (q: { eq: () => unknown }) => unknown) => {
+            const q = { eq: () => q };
+            callback(q);
+            return { first: () => null };
+          },
+        }),
+      },
+    };
+    const row = {
+      _id: "query_1",
+      contractingOwnerId: undefined,
+      createdAt: referenceNow - 47 * 60 * 60 * 1000,
+      queryCode: "Q-001",
+      salesStatus: "Proposal in discussion",
+    };
+
+    expect(await collectRiskItemsPage(ctx, "queries", [row], referenceNow, rules)).toEqual([]);
+    row.createdAt -= 60 * 60 * 1000;
+    expect(await collectRiskItemsPage(ctx, "queries", [row], referenceNow, rules)).toEqual([
+      expect.objectContaining({ body: "Q-001 has no Contracting SPOC after 48 hours." }),
+    ]);
+    expect(WORKFLOW_NUDGE_REPEAT_HOURS).toBe(24);
+  });
+
+  test("rejects invalid workflow thresholds with a named error", () => {
+    expect(validateWorkflowThresholdHours(0)).toBe(0);
+    expect(validateWorkflowThresholdHours(720)).toBe(720);
+    for (const value of [-1, 721, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => validateWorkflowThresholdHours(value)).toThrow("INVALID_WORKFLOW_THRESHOLD");
+    }
+  });
+
+  test("detects only canonical passport departure blockers without exposing traveller data", async () => {
+    const job = {
+      _id: "job_1",
+      jobCode: "JC-0001-NS",
+      travelStartDate: "2026-09-01",
+    };
+    const ctx = { db: { get: () => job } };
+    const risks = await collectRiskItemsPage(
+      ctx,
+      "travellers",
+      [
+        {
+          _id: "traveller_1",
+          fullName: "Private Name",
+          jobCardId: job._id,
+          passportExpiryDate: "2027-02-01",
+          ticketStatus: "Issued",
+          visaStatus: "Approved",
+        },
+        {
+          _id: "traveller_2",
+          fullName: "Another Private Name",
+          jobCardId: job._id,
+          passportExpiryDate: "2028-02-01",
+          ticketStatus: "Issued",
+          visaStatus: "Approved",
+        },
+      ],
+      referenceNow
+    );
+
+    expect(risks).toEqual([
+      {
+        body: "JC-0001-NS has passport validity that blocks departure readiness.",
+        entityId: "job_1",
+        entityType: "jobCard",
+        ruleKey: "passport_expiry_blocks_departure",
+        title: "Passport validity blocks departure",
+      },
+    ]);
+    expect(JSON.stringify(risks)).not.toContain("Private Name");
+    expect(JSON.stringify(risks)).not.toContain("2027-02-01");
+  });
+
+  test("drains more than 500 Travellers through bounded pages", async () => {
+    const job = {
+      _id: "job_1",
+      jobCode: "JC-0001-NS",
+      travelStartDate: "2026-09-01",
+    };
+    const travellers = Array.from({ length: 501 }, (_, index) => ({
+      _id: `traveller_${index}`,
+      jobCardId: job._id,
+      passportExpiryDate: "2028-01-01",
+      ticketStatus: "Issued",
+      visaStatus: "Approved",
+    }));
+    const { ctx, paginatedTables, scheduled, tables } = makeRunCtx({
+      tableRows: { jobCards: [job], travellers },
+    });
+
+    const started = await runNudgePage(ctx, "scheduled", referenceNow);
+    const result = await drainScheduledRun(ctx, scheduled, started);
+
+    expect(result.status).toBe("completed");
+    expect(paginatedTables.filter((table) => table === "travellers")).toHaveLength(11);
+    expect(tables.portalWorkflowNudgeRuns[0].checked).toBe(502);
+  });
+
   test("does not collect the entire CRM tables in the page evaluator", async () => {
     const source = await readFile(new URL("./workflowNudges.ts", import.meta.url), "utf8");
     expect(source).not.toContain('query("queries").collect()');
@@ -181,7 +322,7 @@ describe("bounded workflow nudge pages", () => {
       stage: "jobCards",
       status: "running",
     });
-    for (const expectedStage of ["tickets", "invoices", "complete"]) {
+    for (const expectedStage of ["travellers", "tickets", "invoices", "complete"]) {
       const continuationToken = scheduled.at(-1)?.args.continuationToken;
       // biome-ignore lint/performance/noAwaitInLoops: each page requires the prior durable token
       result = await runNudgePage(ctx, "scheduled", referenceNow, continuationToken);
@@ -244,11 +385,104 @@ describe("bounded workflow nudge pages", () => {
         table: "queries",
       },
     });
-    await runNudgePage(transient.ctx, "scheduled", referenceNow);
+    expect(await runNudgePage(transient.ctx, "scheduled", referenceNow)).toEqual({
+      checked: 0,
+      sent: 0,
+      status: "running",
+    });
     expect(transient.tables.portalWorkflowNudgeRuns[0].failureKind).toBe("transient");
     expect(transient.tables.portalWorkflowNudgeRuns[0].failureMessage.length).toBe(500);
+    expect(transient.scheduled).toEqual([
+      {
+        args: { continuationToken: 2, runKey: "scheduled" },
+        delay: nudgeRetryDelayMs(0),
+      },
+    ]);
     expect(classifyNudgeFailure(new Error("network timeout"))).toMatchObject({
       kind: "transient",
+    });
+  });
+
+  test("caps automatic transient backoff before exposing terminal failure", async () => {
+    const { ctx, scheduled, tables } = makeRunCtx({
+      failure: { error: new Error("network timeout"), table: "queries" },
+    });
+
+    let result = await runNudgePage(ctx, "scheduled", referenceNow);
+    for (let retry = 1; retry <= 3; retry += 1) {
+      const continuationToken = scheduled.at(-1)?.args.continuationToken;
+      // biome-ignore lint/performance/noAwaitInLoops: each retry requires the prior durable token
+      result = await runNudgePage(
+        ctx,
+        "scheduled",
+        referenceNow + nudgeRetryDelayMs(retry - 1),
+        continuationToken
+      );
+    }
+
+    expect(result.status).toBe("failed");
+    expect(scheduled.map((item) => item.delay)).toEqual([
+      nudgeRetryDelayMs(0),
+      nudgeRetryDelayMs(1),
+      nudgeRetryDelayMs(2),
+    ]);
+    expect(tables.portalWorkflowNudgeRuns[0]).toMatchObject({
+      consecutiveFailedRuns: 1,
+      failureKind: "transient",
+      retryCount: 3,
+      status: "failed",
+    });
+  });
+
+  test("starts a fresh scheduled generation on the next cadence and retains failure summary", async () => {
+    const initialRun = {
+      checked: 50,
+      consecutiveFailedRuns: 2,
+      continuationToken: 7,
+      cursor: "next-page",
+      failedAt: referenceNow + 1000,
+      failureCode: "Error",
+      failureKind: "deterministic",
+      failureMessage: "Poison item",
+      key: "scheduled",
+      referenceNow,
+      retryCount: 3,
+      sent: 2,
+      stage: "queries",
+      startedAt: referenceNow,
+      status: "failed",
+      updatedAt: referenceNow + 1000,
+    };
+    const { ctx, paginatedTables, tables } = makeRunCtx({ initialRun });
+
+    expect(
+      isScheduledNudgeCadenceEligible(initialRun, referenceNow + 24 * 60 * 60 * 1000 - 1)
+    ).toBe(false);
+    expect(await runNudgePage(ctx, "scheduled", referenceNow + 24 * 60 * 60 * 1000 - 1)).toEqual({
+      checked: 0,
+      sent: 0,
+      status: "failed",
+    });
+    expect(paginatedTables).toHaveLength(0);
+    expect(presentNudgeRun(tables.portalWorkflowNudgeRuns[0], referenceNow)).toMatchObject({
+      consecutiveFailedRuns: 2,
+      healthStatus: "degraded",
+    });
+
+    const nextReference = referenceNow + 24 * 60 * 60 * 1000;
+    expect(await runNudgePage(ctx, "scheduled", nextReference)).toMatchObject({
+      status: "running",
+    });
+    expect(tables.portalWorkflowNudgeRuns[0]).toMatchObject({
+      checked: 0,
+      consecutiveFailedRuns: 2,
+      previousFailedAt: referenceNow + 1000,
+      previousFailureCode: "Error",
+      previousFailureKind: "deterministic",
+      retryCount: 0,
+      stage: "jobCards",
+      startedAt: nextReference,
+      status: "running",
     });
   });
 
