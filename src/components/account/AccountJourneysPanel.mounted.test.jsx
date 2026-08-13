@@ -80,6 +80,22 @@ const pastJourney = {
 const loadUpcomingJourney = () => Promise.resolve(upcomingJourney);
 const loadPastJourney = () => Promise.resolve(pastJourney);
 
+function confirmedTrip(overrides = {}) {
+  return {
+    confirmedOfferId: "confirmedOffers_1",
+    confirmedPax: 3,
+    destination: "Kyoto",
+    entitlement: { role: "organizer", source: "crm_operator_grant" },
+    itinerary: { content: "Day 1: Arrival", title: "Confirmed itinerary", version: 2 },
+    jobCode: "JC-0001-AS",
+    jobStatus: "In Operations",
+    queryCode: "Q-0001",
+    travelEndDate: "2026-11-10",
+    travelStartDate: "2026-11-01",
+    ...overrides,
+  };
+}
+
 async function mount(element) {
   const container = document.createElement("div");
   document.body.append(container);
@@ -180,20 +196,7 @@ describe("customer Account journey composition", () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
-        confirmedTrips={[
-          {
-            confirmedOfferId: "confirmedOffers_1",
-            confirmedPax: 3,
-            destination: "Kyoto",
-            entitlement: { role: "organizer", source: "crm_operator_grant" },
-            itinerary: { content: "Day 1: Arrival", title: "Confirmed itinerary", version: 2 },
-            jobCode: "JC-0001-AS",
-            jobStatus: "In Operations",
-            queryCode: "Q-0001",
-            travelEndDate: "2026-11-10",
-            travelStartDate: "2026-11-01",
-          },
-        ]}
+        confirmedTrips={[confirmedTrip()]}
         pastBookings={[]}
         upcomingBookings={[]}
       />
@@ -204,6 +207,108 @@ describe("customer Account journey composition", () => {
     expect(view.container.textContent).toContain("JC-0001-AS");
     expect(view.container.textContent).toContain("cannot change staff, payment, passport, or visa");
     expect(view.container.querySelector("input, textarea, select")).toBeNull();
+    await view.unmount();
+  });
+
+  test("loads every confirmed-trip page without replacing the packets already shown", async () => {
+    const requestedCursors = [];
+    const loadConfirmedTripsPage = (cursor) => {
+      requestedCursors.push(cursor);
+      return Promise.resolve({
+        continueCursor: "",
+        isDone: true,
+        page: [
+          confirmedTrip({
+            confirmedOfferId: "confirmedOffers_2",
+            destination: "Lisbon",
+            queryCode: "Q-0002",
+            travelEndDate: "2027-06-08",
+            travelStartDate: "2027-06-01",
+          }),
+        ],
+      });
+    };
+    const view = await mount(
+      <AccountJourneysPanel
+        cancelledBookings={[]}
+        confirmedTrips={[confirmedTrip()]}
+        confirmedTripsCursor="cursor-1"
+        confirmedTripsDone={false}
+        loadConfirmedTripsPage={loadConfirmedTripsPage}
+        pastBookings={[]}
+        upcomingBookings={[]}
+      />
+    );
+
+    const loadMore = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Load more confirmed trips"
+    );
+    await act(async () => {
+      loadMore.click();
+      await Promise.resolve();
+    });
+
+    expect(requestedCursors).toEqual(["cursor-1"]);
+    expect(view.container.textContent).toContain("Kyoto");
+    expect(view.container.textContent).toContain("Lisbon");
+    expect(view.container.textContent).not.toContain("Load more confirmed trips");
+    expect(view.container.querySelector("input, textarea, select")).toBeNull();
+    await view.unmount();
+  });
+
+  test("keeps confirmed-trip pagination retryable after a stable failure message", async () => {
+    let attempts = 0;
+    const loadConfirmedTripsPage = () => {
+      attempts += 1;
+      if (attempts === 1) {
+        return Promise.reject(new Error("private provider details"));
+      }
+      return Promise.resolve({
+        continueCursor: "",
+        isDone: true,
+        page: [
+          confirmedTrip({
+            confirmedOfferId: "confirmedOffers_2",
+            destination: "Lisbon",
+            queryCode: "Q-0002",
+          }),
+        ],
+      });
+    };
+    const view = await mount(
+      <AccountJourneysPanel
+        cancelledBookings={[]}
+        confirmedTrips={[confirmedTrip()]}
+        confirmedTripsCursor="cursor-1"
+        confirmedTripsDone={false}
+        loadConfirmedTripsPage={loadConfirmedTripsPage}
+        pastBookings={[]}
+        upcomingBookings={[]}
+      />
+    );
+
+    let loadMore = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Load more confirmed trips"
+    );
+    await act(async () => {
+      loadMore.click();
+      await Promise.resolve();
+    });
+    expect(view.container.querySelector('[role="alert"]')?.textContent).toBe(
+      "More confirmed trips could not be loaded. Please try again."
+    );
+    expect(view.container.textContent).not.toContain("private provider details");
+
+    loadMore = [...view.container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Load more confirmed trips"
+    );
+    await act(async () => {
+      loadMore.click();
+      await Promise.resolve();
+    });
+    expect(attempts).toBe(2);
+    expect(view.container.textContent).toContain("Lisbon");
+    expect(view.container.querySelector('[role="alert"]')).toBeNull();
     await view.unmount();
   });
 

@@ -76,6 +76,39 @@ async function loadSelectedJourney(bookingId, referenceNow) {
   return await response.json();
 }
 
+async function loadNextConfirmedTripPage(cursor) {
+  const response = await fetch(
+    `/api/account/confirmed-trips?cursor=${encodeURIComponent(cursor)}`,
+    { headers: { accept: "application/json" } }
+  );
+  if (!response.ok) {
+    throw new Error("Confirmed trips could not be loaded");
+  }
+  const page = await response.json();
+  if (
+    !page ||
+    typeof page !== "object" ||
+    !Array.isArray(page.page) ||
+    typeof page.continueCursor !== "string" ||
+    typeof page.isDone !== "boolean"
+  ) {
+    throw new Error("Confirmed trip response was invalid");
+  }
+  return page;
+}
+
+export function mergeConfirmedTripPackets(current, incoming) {
+  const packetsByOffer = new Map();
+  for (const packet of [...current, ...incoming]) {
+    if (packet?.confirmedOfferId) {
+      packetsByOffer.set(packet.confirmedOfferId, packet);
+    }
+  }
+  return [...packetsByOffer.values()].sort((left, right) =>
+    right.travelStartDate.localeCompare(left.travelStartDate)
+  );
+}
+
 function JourneyDetailPending({ error, onBack }) {
   return (
     <div className="account-card rounded-2xl p-6 sm:p-8">
@@ -94,8 +127,8 @@ function JourneyDetailPending({ error, onBack }) {
   );
 }
 
-function ConfirmedTripPackets({ packets }) {
-  if (!packets.length) {
+function ConfirmedTripPackets({ hasMore, isLoadingMore, loadError, onLoadMore, packets }) {
+  if (!(packets.length || hasMore)) {
     return null;
   }
   return (
@@ -171,6 +204,23 @@ function ConfirmedTripPackets({ packets }) {
           </article>
         ))}
       </div>
+      {loadError ? (
+        <p className="mt-4 text-[#9b3d32] text-sm" role="alert">
+          {loadError}
+        </p>
+      ) : null}
+      {hasMore ? (
+        <Button
+          aria-busy={isLoadingMore}
+          className="mt-5 min-h-11 px-5 font-semibold text-sm"
+          disabled={isLoadingMore}
+          onClick={onLoadMore}
+          surface="account"
+          type="button"
+        >
+          {isLoadingMore ? "Loading confirmed trips…" : "Load more confirmed trips"}
+        </Button>
+      ) : null}
     </section>
   );
 }
@@ -178,6 +228,10 @@ function ConfirmedTripPackets({ packets }) {
 function JourneyOverview({
   cancelledBookings,
   confirmedTrips,
+  confirmedTripsHasMore,
+  confirmedTripsLoadError,
+  confirmedTripsLoading,
+  onLoadMoreConfirmedTrips,
   onOpenBooking,
   onOpenFirstBooking,
   pastBookings,
@@ -193,7 +247,13 @@ function JourneyOverview({
       key="journey-overview"
       variants={ACCOUNT_CONTAINER_VARIANTS}
     >
-      <ConfirmedTripPackets packets={confirmedTrips} />
+      <ConfirmedTripPackets
+        hasMore={confirmedTripsHasMore}
+        isLoadingMore={confirmedTripsLoading}
+        loadError={confirmedTripsLoadError}
+        onLoadMore={onLoadMoreConfirmedTrips}
+        packets={confirmedTrips}
+      />
       <section aria-labelledby="upcoming-journey-heading">
         <div className="mb-4 flex items-end justify-between gap-4">
           <h2
@@ -302,12 +362,22 @@ export function AccountJourneysPanel({
   pastBookings,
   cancelledBookings = [],
   confirmedTrips = [],
+  confirmedTripsCursor = "",
+  confirmedTripsDone = true,
   referenceNow,
   loadJourneyDetail = loadSelectedJourney,
+  loadConfirmedTripsPage = loadNextConfirmedTripPage,
 }) {
   const [selectedBookingId, setSelectedBookingId] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [detailError, setDetailError] = useState("");
+  const [loadedConfirmedTrips, setLoadedConfirmedTrips] = useState(() =>
+    mergeConfirmedTripPackets([], confirmedTrips)
+  );
+  const confirmedTripCursor = useRef(confirmedTripsCursor);
+  const [confirmedTripDone, setConfirmedTripDone] = useState(confirmedTripsDone);
+  const [confirmedTripsLoading, setConfirmedTripsLoading] = useState(false);
+  const [confirmedTripsLoadError, setConfirmedTripsLoadError] = useState("");
   const detailRequestId = useRef(0);
   const closeDetail = useCallback(() => {
     detailRequestId.current += 1;
@@ -342,21 +412,45 @@ export function AccountJourneysPanel({
     },
     [loadJourneyDetail, referenceNow]
   );
-  const openFirstBooking = () => {
+  const openFirstBooking = useCallback(() => {
     openBooking(upcomingBookings[0]?.booking.id);
-  };
-  const openBookingFromEvent = (event) => {
-    const { bookingId } = event.currentTarget.dataset;
-    if (bookingId) {
-      openBooking(bookingId);
+  }, [openBooking, upcomingBookings]);
+  const openBookingFromEvent = useCallback(
+    (event) => {
+      const { bookingId } = event.currentTarget.dataset;
+      if (bookingId) {
+        openBooking(bookingId);
+      }
+    },
+    [openBooking]
+  );
+  const loadMoreConfirmedTrips = useCallback(async () => {
+    const cursor = confirmedTripCursor.current;
+    if (confirmedTripsLoading || confirmedTripDone || !cursor) {
+      return;
     }
-  };
+    setConfirmedTripsLoading(true);
+    setConfirmedTripsLoadError("");
+    try {
+      const page = await loadConfirmedTripsPage(cursor);
+      setLoadedConfirmedTrips((current) => mergeConfirmedTripPackets(current, page.page));
+      confirmedTripCursor.current = page.continueCursor;
+      setConfirmedTripDone(page.isDone);
+    } catch {
+      setConfirmedTripsLoadError("More confirmed trips could not be loaded. Please try again.");
+    }
+    setConfirmedTripsLoading(false);
+  }, [confirmedTripDone, confirmedTripsLoading, loadConfirmedTripsPage]);
 
   let content = (
     <JourneyOverview
       cancelledBookings={cancelledBookings}
-      confirmedTrips={confirmedTrips}
+      confirmedTrips={loadedConfirmedTrips}
+      confirmedTripsHasMore={!confirmedTripDone}
+      confirmedTripsLoadError={confirmedTripsLoadError}
+      confirmedTripsLoading={confirmedTripsLoading}
       key="journey-overview"
+      onLoadMoreConfirmedTrips={loadMoreConfirmedTrips}
       onOpenBooking={openBookingFromEvent}
       onOpenFirstBooking={openFirstBooking}
       pastBookings={pastBookings}

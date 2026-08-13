@@ -1,12 +1,14 @@
+import type { PaginationOptions } from "convex/server";
+import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { canSeeQueryRecord, PERMISSIONS, requireStaff } from "./crm/lib";
-import {
-  authorizedCustomerIdentityIds,
-  upsertConfirmedJourneyEntitlement,
-} from "./lib/customerIdentityAccess";
+import { canonicalAuthUserId } from "./lib/authIdentity";
+import { upsertConfirmedJourneyEntitlement } from "./lib/customerIdentityAccess";
+
+const CONFIRMED_TRIP_PAGE_SIZE = 20;
 
 const confirmedTripPacketValidator = v.object({
   confirmedOfferId: v.id("confirmedOffers"),
@@ -89,27 +91,36 @@ async function packetForQuery(
   };
 }
 
-export async function loadConfirmedTripPackets(ctx: QueryCtx, authUserIds: string[]) {
-  const pages = await Promise.all(
-    authUserIds.map((authUserId) =>
-      ctx.db
-        .query("customerJourneyEntitlements")
-        .withIndex("by_authUserId_createdAt", (q) => q.eq("authUserId", authUserId))
-        .order("desc")
-        .take(100)
-    )
+function boundedPaginationOptions(options: PaginationOptions): PaginationOptions {
+  return {
+    ...options,
+    maximumRowsRead: CONFIRMED_TRIP_PAGE_SIZE,
+    numItems: Math.max(1, Math.min(options.numItems, CONFIRMED_TRIP_PAGE_SIZE)),
+  };
+}
+
+function isConfirmedTripEntitlement(row: Doc<"customerJourneyEntitlements">) {
+  return (
+    row.revokedAt === undefined &&
+    row.queryId !== undefined &&
+    row.confirmedOfferId !== undefined &&
+    row.capabilities.includes("view_confirmed_trip") &&
+    row.role !== "purchaser" &&
+    row.source !== "public_booking_owner"
   );
-  const entitlements = pages
-    .flat()
-    .filter(
-      (row) =>
-        row.revokedAt === undefined &&
-        row.queryId !== undefined &&
-        row.confirmedOfferId !== undefined &&
-        row.capabilities.includes("view_confirmed_trip") &&
-        row.role !== "purchaser" &&
-        row.source !== "public_booking_owner"
-    );
+}
+
+export async function loadConfirmedTripPacketPage(
+  ctx: QueryCtx,
+  authUserId: string,
+  paginationOpts: PaginationOptions
+) {
+  const entitlementPage = await ctx.db
+    .query("customerJourneyEntitlements")
+    .withIndex("by_authUserId_createdAt", (q) => q.eq("authUserId", authUserId))
+    .order("desc")
+    .paginate(boundedPaginationOptions(paginationOpts));
+  const entitlements = entitlementPage.page.filter(isConfirmedTripEntitlement);
   const queryRows = await Promise.all(
     entitlements.map((row) => ctx.db.get("queries", row.queryId!))
   );
@@ -119,22 +130,25 @@ export async function loadConfirmedTripPackets(ctx: QueryCtx, authUserIds: strin
       return queryRow ? packetForQuery(ctx, queryRow, entitlement) : null;
     })
   );
-  return packets
-    .filter((packet): packet is NonNullable<typeof packet> => packet !== null)
-    .sort((left, right) => right.travelStartDate.localeCompare(left.travelStartDate));
+  return {
+    ...entitlementPage,
+    page: packets
+      .filter((packet): packet is NonNullable<typeof packet> => packet !== null)
+      .sort((left, right) => right.travelStartDate.localeCompare(left.travelStartDate)),
+  };
 }
 
 export const getMyConfirmedTripPackets = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return [];
+    const authUserId = identity ? canonicalAuthUserId(identity) : null;
+    if (!authUserId) {
+      return { continueCursor: "", isDone: true, page: [] };
     }
-    const authUserIds = await authorizedCustomerIdentityIds(ctx, identity);
-    return await loadConfirmedTripPackets(ctx, authUserIds);
+    return await loadConfirmedTripPacketPage(ctx, authUserId, args.paginationOpts);
   },
-  returns: v.array(confirmedTripPacketValidator),
+  returns: paginationResultValidator(confirmedTripPacketValidator),
 });
 
 export const listAccountHolderOptions = query({

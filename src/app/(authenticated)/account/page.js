@@ -31,10 +31,14 @@ export default async function AccountPage() {
   }
   await fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}, authOptions);
   const referenceNow = captureRequestReferenceNow();
-  const [journeys, confirmedTrips] = await Promise.all([
+  const [journeys, confirmedTripPage] = await Promise.all([
     fetchAuthQuery(anyApi.bookings.getMyJourneySummaries, { referenceNow }, authOptions),
-    fetchAuthQuery(anyApi.customerConfirmedTrips.getMyConfirmedTripPackets, {}, authOptions),
+    fetchAuthQuery(
+      anyApi.customerConfirmedTrips.getMyConfirmedTripPackets,
+      { paginationOpts: { cursor: null, numItems: 20 } },
+      authOptions
+    ),
   ]);
 
-  return <AccountClient confirmedTrips={confirmedTrips} journeys={journeys} user={user} />;
+  return <AccountClient confirmedTripPage={confirmedTripPage} journeys={journeys} user={user} />;
 }

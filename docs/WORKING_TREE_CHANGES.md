@@ -231,9 +231,11 @@ is retained as historical evidence; it is not the current `main` checkpoint and 
 
 The implementation covers the review's correctness, authorization, bounded-read, account journey,
 public motion/accessibility, repository visibility, environment preflight, modal-command, and portal
-route-lifecycle work. The customer-attribution indexes remain a staged rollout: follow
-[`migrations/customer-attribution-backfill.md`](migrations/customer-attribution-backfill.md) before
-activating index-only reads in any deployment.
+route-lifecycle work. That snapshot's email-attribution indexes remain staged, but they are not a
+Customer Account authorization path. Current confirmed-trip reads follow
+[ADR 0013](adr/0013-explicit-customer-journey-entitlements.md); the
+[source-provenance backfill](migrations/customer-attribution-backfill.md) requires separate authority
+only if its historical normalization is still needed.
 
 | Gate | Result |
 | --- | --- |

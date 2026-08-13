@@ -70,7 +70,8 @@ provider or production proof.
 ## Migrations
 
 - [Sensitive migration rehearsal](migrations/rehearsal.md).
-- [Customer attribution backfill](migrations/customer-attribution-backfill.md).
+- [Customer attribution source-provenance backfill](migrations/customer-attribution-backfill.md) -
+  historical normalization only; not Customer Account authorization.
 - [Expense lifecycle normalization](migrations/expense-lifecycle-normalization.md).
 - [Query lead-stage Closed-to-Lost migration](migrations/query-lead-stage-closed-to-lost.md).
 - [Passenger import receipt positions](migrations/passenger-import-receipt-positions.md).

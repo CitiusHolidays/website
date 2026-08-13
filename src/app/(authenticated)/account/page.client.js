@@ -10,6 +10,7 @@ import { AccountHero } from "@/components/account/AccountUi";
 import { logout } from "@/lib/auth-client";
 
 const EMPTY_JOURNEYS = Object.freeze({ referenceNow: 0, summaries: [] });
+const EMPTY_CONFIRMED_TRIP_PAGE = Object.freeze({ continueCursor: "", isDone: true, page: [] });
 
 function splitJourneys(summaries) {
   return summaries.reduce(
@@ -27,7 +28,11 @@ function splitJourneys(summaries) {
   );
 }
 
-export default function AccountClient({ user, journeys = EMPTY_JOURNEYS, confirmedTrips = [] }) {
+export default function AccountClient({
+  user,
+  journeys = EMPTY_JOURNEYS,
+  confirmedTripPage = EMPTY_CONFIRMED_TRIP_PAGE,
+}) {
   const [activeTab, setActiveTab] = useState("journeys");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const groups = useMemo(() => splitJourneys(journeys.summaries), [journeys.summaries]);
@@ -64,7 +69,9 @@ export default function AccountClient({ user, journeys = EMPTY_JOURNEYS, confirm
             {activeTab === "journeys" && (
               <AccountJourneysPanel
                 cancelledBookings={groups.cancelled}
-                confirmedTrips={confirmedTrips}
+                confirmedTrips={confirmedTripPage.page}
+                confirmedTripsCursor={confirmedTripPage.continueCursor}
+                confirmedTripsDone={confirmedTripPage.isDone}
                 key="journeys"
                 pastBookings={groups.past}
                 referenceNow={journeys.referenceNow}

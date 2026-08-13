@@ -38,6 +38,22 @@ Retries resume from the registry cursor. Unique-key collisions create a privacy-
 instead of overwriting or merging records. A verified table may include quarantined rows only when
 the conflicting legacy identity is fail-closed and assigned for operator resolution.
 
+## Confirmed-trip reader cutover
+
+The Customer Account confirmed-trip reader is a narrow-only consumer of this migration:
+
+- it resolves the current canonical issuer-qualified identity;
+- it reads `customerJourneyEntitlements.by_authUserId_createdAt` in pages of at most 20;
+- it never falls back to Client, intent, Query, or offer email attribution;
+- the Account UI follows the opaque cursor with **Load more confirmed trips**, preserves packets
+  already shown, and keeps a failed page retryable.
+
+Do not deploy that narrow reader to a target until this migration reports zero legacy residual for
+its required identity and entitlement rows. Authenticated evidence must include more than one page
+for one account, a different issuer-qualified account that sees none of those packets, and a retry
+after an interrupted page request. Source tests prove the contract only; they do not prove stored
+target data is ready.
+
 ## Deployment stages
 
 - **Expand:** deploy identity links, quarantine/index schema, entitlements, canonical writers, and
@@ -45,7 +61,8 @@ the conflicting legacy identity is fail-closed and assigned for operator resolut
 - **Backfill and verify:** execute the sequence above on one named target at a time. Record separate
   Development, Preview, and Production evidence.
 - **Read audit:** prove Staff, Account, Sacred Bharat, notifications, payments, and guest merge keep
-  their visibility and replay contracts. Preview requires at least two customer issuers/identities.
+  their visibility and replay contracts. Preview requires at least two customer issuers/identities
+  plus a confirmed-trip account whose entitlement count crosses the page boundary.
 - **Narrow:** only after every table is verified, backup evidence is current, quarantines are
   resolved or explicitly isolated, and a separate deployment is approved. Remove legacy fallback
   in this later change; do not combine it with backfill.

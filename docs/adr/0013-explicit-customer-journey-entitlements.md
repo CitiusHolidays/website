@@ -24,6 +24,9 @@ Offer. Email, Client contact, Traveller name, and browser-supplied identity neve
   expose mutable Proposal state, Staff Workspace access, or Sensitive Travel Documents.
 - Each packet returns a narrow entitlement role and source so authorization provenance is visible
   without revealing issuer/provider identifiers.
+- Confirmed-trip entitlements are read through the issuer-qualified ownership index in bounded
+  cursor pages. The Account keeps prior packets visible while requesting another page and never
+  substitutes a fixed result cap for an honest completion state.
 - Revocation removes access without deleting the underlying CRM or Booking record.
 
 ## Migration and ambiguity

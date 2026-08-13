@@ -107,7 +107,24 @@ function makeContext(
       const chain = {
         collect: async () => rows,
         first: async () => rows[0] ?? null,
-        order: () => chain,
+        order: (direction: "asc" | "desc") => {
+          rows.sort((left, right) =>
+            direction === "desc"
+              ? (right.createdAt ?? 0) - (left.createdAt ?? 0)
+              : (left.createdAt ?? 0) - (right.createdAt ?? 0)
+          );
+          return chain;
+        },
+        paginate: ({ cursor, numItems }: { cursor: string | null; numItems: number }) => {
+          const start = cursor ? Number.parseInt(cursor, 10) : 0;
+          const page = rows.slice(start, start + numItems);
+          const next = start + page.length;
+          return {
+            continueCursor: next >= rows.length ? "" : String(next),
+            isDone: next >= rows.length,
+            page,
+          };
+        },
         take: async (limit: number) => rows.slice(0, limit),
         withIndex: (_index: string, callback: (q: any) => any) => {
           const q = {
@@ -131,30 +148,36 @@ function makeContext(
 
 describe("read-only Customer confirmed trip packets", () => {
   test("returns only explicitly entitled immutable offer and frozen itinerary facts", async () => {
-    const result = await (getMyConfirmedTripPackets as any)._handler(makeContext(), {});
-    expect(result).toEqual([
-      {
-        confirmedOfferId: "confirmedOffers_1",
-        confirmedPax: 3,
-        destination: "Kyoto",
-        entitlement: { role: "organizer", source: "crm_operator_grant" },
-        itinerary: {
-          content: "Day 1: Arrival",
-          title: "Confirmed Kyoto itinerary",
-          version: 2,
+    const result = await (getMyConfirmedTripPackets as any)._handler(makeContext(), {
+      paginationOpts: { cursor: null, numItems: 20 },
+    });
+    expect(result).toEqual({
+      continueCursor: "",
+      isDone: true,
+      page: [
+        {
+          confirmedOfferId: "confirmedOffers_1",
+          confirmedPax: 3,
+          destination: "Kyoto",
+          entitlement: { role: "organizer", source: "crm_operator_grant" },
+          itinerary: {
+            content: "Day 1: Arrival",
+            title: "Confirmed Kyoto itinerary",
+            version: 2,
+          },
+          jobCode: "JC-0001-AS",
+          jobStatus: "In Operations",
+          queryCode: "Q-0001",
+          readOnly: true,
+          sellingPricePerPax: 200_000,
+          source: "Citius Concierge",
+          taxRate: 5,
+          ticketingScope: "International",
+          travelEndDate: "2026-11-10",
+          travelStartDate: "2026-11-01",
         },
-        jobCode: "JC-0001-AS",
-        jobStatus: "In Operations",
-        queryCode: "Q-0001",
-        readOnly: true,
-        sellingPricePerPax: 200_000,
-        source: "Citius Concierge",
-        taxRate: 5,
-        ticketingScope: "International",
-        travelEndDate: "2026-11-10",
-        travelStartDate: "2026-11-01",
-      },
-    ]);
+      ],
+    });
     expect(JSON.stringify(result)).not.toContain("profit");
     expect(JSON.stringify(result)).not.toContain("landCost");
   });
@@ -167,9 +190,9 @@ describe("read-only Customer confirmed trip packets", () => {
           subject: "other-subject",
           tokenIdentifier: "issuer-a|other",
         }),
-        {}
+        { paginationOpts: { cursor: null, numItems: 20 } }
       )
-    ).toEqual([]);
+    ).toEqual({ continueCursor: "", isDone: true, page: [] });
   });
 
   test("does not let the same legacy subject under another issuer cross the boundary", async () => {
@@ -179,8 +202,77 @@ describe("read-only Customer confirmed trip packets", () => {
         subject: "legacy-traveller",
         tokenIdentifier: "issuer-b|traveller",
       }),
-      {}
+      { paginationOpts: { cursor: null, numItems: 20 } }
     );
-    expect(result).toEqual([]);
+    expect(result).toEqual({ continueCursor: "", isDone: true, page: [] });
+  });
+
+  test("pages through every indexed entitlement without a hidden result cap", async () => {
+    const context = makeContext(undefined, (tables) => {
+      tables.customerJourneyEntitlements = [];
+      tables.confirmedOffers = [];
+      tables.queries = [];
+      tables.jobCards = [];
+      tables.itineraries = [];
+      for (let index = 1; index <= 45; index += 1) {
+        const suffix = String(index).padStart(2, "0");
+        const confirmedOfferId = `confirmedOffers_${suffix}`;
+        const queryId = `queries_${suffix}`;
+        tables.customerJourneyEntitlements.push({
+          _id: `customerJourneyEntitlements_${suffix}`,
+          authUserId: "issuer-a|traveller",
+          capabilities: ["view_confirmed_trip"],
+          confirmedOfferId,
+          createdAt: index,
+          queryId,
+          role: "traveller",
+          source: "identity_migration",
+        });
+        tables.confirmedOffers.push({
+          _id: confirmedOfferId,
+          confirmedPax: index,
+          destination: `Destination ${suffix}`,
+          sellingPricePerPax: 1000 + index,
+          taxRate: 5,
+          travelEndDate: `2027-12-${suffix}`,
+          travelStartDate: `2027-11-${suffix}`,
+        });
+        tables.queries.push({
+          _id: queryId,
+          confirmedOfferId,
+          queryCode: `Q-${suffix}`,
+        });
+      }
+      for (let index = 1; index <= 2000; index += 1) {
+        tables.customerJourneyEntitlements.push({
+          _id: `customerJourneyEntitlements_unrelated_${index}`,
+          authUserId: "issuer-a|someone-else",
+          capabilities: ["view_confirmed_trip"],
+          confirmedOfferId: "confirmedOffers_unrelated",
+          createdAt: index,
+          queryId: "queries_unrelated",
+          role: "traveller",
+          source: "identity_migration",
+        });
+      }
+    });
+
+    const first = await (getMyConfirmedTripPackets as any)._handler(context, {
+      paginationOpts: { cursor: null, numItems: 20 },
+    });
+    const second = await (getMyConfirmedTripPackets as any)._handler(context, {
+      paginationOpts: { cursor: first.continueCursor, numItems: 20 },
+    });
+    const third = await (getMyConfirmedTripPackets as any)._handler(context, {
+      paginationOpts: { cursor: second.continueCursor, numItems: 20 },
+    });
+    const pages: Row[][] = [first.page, second.page, third.page];
+
+    expect(pages.map((page) => page.length)).toEqual([20, 20, 5]);
+    expect([first.isDone, second.isDone, third.isDone]).toEqual([false, false, true]);
+    const packets = pages.flat();
+    expect(packets).toHaveLength(45);
+    expect(new Set(packets.map((packet) => packet.confirmedOfferId)).size).toBe(45);
+    expect(JSON.stringify(packets)).not.toContain("unrelated");
   });
 });
