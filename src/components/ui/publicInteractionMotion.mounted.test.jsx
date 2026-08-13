@@ -140,6 +140,8 @@ describe("mounted public interaction states", () => {
     await view.rerender(<AnimatedSubmitButton isSubmitting={false} state="success" />);
     expect(view.container.textContent).toContain("Sent!");
     expect(view.container.querySelector("svg")).not.toBeNull();
+    await view.rerender(<AnimatedSubmitButton isSubmitting={false} state="error" />);
+    expect(view.container.textContent).toContain("Try sending again");
     await view.unmount();
   });
 });

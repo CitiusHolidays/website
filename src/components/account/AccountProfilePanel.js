@@ -4,6 +4,7 @@ import { m } from "motion/react";
 import { useReducer } from "react";
 import { Button } from "@/components/ui/application-button";
 import { formatDisplayDate } from "@/lib/formatDate";
+import { formatProfileUpdateError, readJsonError } from "@/lib/userFacingErrors";
 import { ACCOUNT_CONTAINER_VARIANTS, ProfileAlert, ProfileField, ProfileInput } from "./AccountUi";
 
 const PHONE_REGEX = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
@@ -119,14 +120,16 @@ export function AccountProfilePanel({ user }) {
         method: "PUT",
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
+        const message = formatProfileUpdateError({
+          message: await readJsonError(response),
+          status: response.status,
+        });
         dispatch({
           patch: {
             isSavingProfile: false,
             profileAlert: {
-              message: data?.error || "Unable to update profile.",
+              message,
               type: "error",
             },
           },
@@ -134,6 +137,8 @@ export function AccountProfilePanel({ user }) {
         });
         return;
       }
+
+      const data = await response.json();
 
       dispatch({
         patch: {
@@ -154,12 +159,12 @@ export function AccountProfilePanel({ user }) {
         },
         type: "patch",
       });
-    } catch (error) {
+    } catch {
       dispatch({
         patch: {
           isSavingProfile: false,
           profileAlert: {
-            message: error.message || "Unable to update profile.",
+            message: formatProfileUpdateError(),
             type: "error",
           },
         },

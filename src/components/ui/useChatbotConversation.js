@@ -8,6 +8,9 @@ import {
 } from "@/lib/ai/uiMessageStream";
 import { streamChatResponse } from "./chatbotStream";
 
+const CONCIERGE_REQUEST_FAILURE =
+  "Citius Concierge could not complete that response. Please try again.";
+
 const CHAT_HISTORY_KEY = "citius-chat-history:v4";
 const MAX_STORED_MESSAGES = 20;
 const MAX_STORED_PART_CHARS = 8000;
@@ -187,14 +190,14 @@ export function useChatbotConversation() {
               return markClientAiMessageTerminal(message, terminalState);
             }
             return applyClientAiStreamEvent(message, {
-              errorText: "Sorry, I encountered an error. Please try again.",
+              errorText: CONCIERGE_REQUEST_FAILURE,
               type: "error",
             });
           })
         );
         if (!abortController.signal.aborted) {
           console.error("Error sending message:", error);
-          setErrorMessage("Sorry, I encountered an error. Please try again.");
+          setErrorMessage(CONCIERGE_REQUEST_FAILURE);
         }
       }
       return null;
@@ -208,7 +211,7 @@ export function useChatbotConversation() {
       !result.streamHadError &&
       result.message.terminalState === "complete"
     ) {
-      setErrorMessage("Citius Concierge could not complete that response. Please try again.");
+      setErrorMessage(CONCIERGE_REQUEST_FAILURE);
     }
 
     finishRequest();

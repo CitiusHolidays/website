@@ -7,6 +7,7 @@ import {
   describeSacredBharatIntentContext,
   normalizeSacredBharatIntentContext,
 } from "@/lib/sacredBharat/inboundIntent";
+import { formatContactSubmissionError, readJsonError } from "@/lib/userFacingErrors";
 import TurnstileWidget from "./TurnstileWidget";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
@@ -177,17 +178,27 @@ function clearSacredSubmissionKey(context, key) {
 }
 
 async function sendInboundHandoff(payload, submissionKey) {
-  const response = await fetch("/api/inbound-intents", {
-    body: JSON.stringify(payload),
-    headers: {
-      "content-type": "application/json",
-      "Idempotency-Key": submissionKey,
-    },
-    method: "POST",
-  });
-  if (!response.ok) {
-    const result = await response.json().catch(() => null);
-    throw new Error(result?.error || "Request could not be sent.");
+  try {
+    const response = await fetch("/api/inbound-intents", {
+      body: JSON.stringify(payload),
+      headers: {
+        "content-type": "application/json",
+        "Idempotency-Key": submissionKey,
+      },
+      method: "POST",
+    });
+    if (!response.ok) {
+      return {
+        message: formatContactSubmissionError({
+          message: await readJsonError(response),
+          status: response.status,
+        }),
+        ok: false,
+      };
+    }
+    return { ok: true };
+  } catch {
+    return { message: formatContactSubmissionError(), ok: false };
   }
 }
 
@@ -273,7 +284,11 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
       : submissionKey.current || crypto.randomUUID();
     const activeSubmissionKey = submissionKey.current;
     return sendInboundHandoff(payload, activeSubmissionKey)
-      .then(() => {
+      .then((result) => {
+        if (!result.ok) {
+          setStatus({ message: result.message, state: "error" });
+          return;
+        }
         setForm(initialForm(defaultDestination));
         turnstileToken.current = "";
         formLoadedAt.current = Date.now();
@@ -289,9 +304,9 @@ function InboundContactHandoff({ sacredBharatContext, source, successMessage, tr
           state: "success",
         });
       })
-      .catch((error) => {
+      .catch(() => {
         setStatus({
-          message: error instanceof Error ? error.message : "Request could not be sent.",
+          message: formatContactSubmissionError(),
           state: "error",
         });
       })

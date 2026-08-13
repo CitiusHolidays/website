@@ -174,9 +174,14 @@ export async function POST(req) {
     });
   } catch (error) {
     console.error("Chat API error:", error);
-    return new Response(JSON.stringify({ error: "Failed to process chat request" }), {
-      headers: { "Content-Type": "application/json" },
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({
+        error: "Citius Concierge could not complete that response. Please try again.",
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+        status: 500,
+      }
+    );
   }
 }

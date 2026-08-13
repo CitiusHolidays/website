@@ -645,36 +645,16 @@ export function SettingRow({ title, description, action }) {
 
 export function Toggle({ disabled = false, label = "Account notifications" }) {
   const [isOn, setIsOn] = useState(true);
-  const handleToggle = useCallback(() => {
-    if (!disabled) {
-      setIsOn((value) => !value);
-    }
-  }, [disabled]);
-  let toggleClassName = "bg-[var(--account-border)]";
-  if (disabled) {
-    toggleClassName = "cursor-not-allowed bg-[var(--account-border)] opacity-60";
-  } else if (isOn) {
-    toggleClassName = "bg-[var(--account-night)]";
-  }
   return (
     <Switch
       aria-label={`${label}: ${isOn ? "On" : "Off"}${disabled ? ". Planned" : ""}`}
       checked={isOn}
-      className="account-focus grid min-h-11 min-w-11 place-items-center rounded-full"
+      className="account-focus relative h-6 w-11 rounded-full bg-[var(--account-border)] transition-colors duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] before:absolute before:-inset-y-2.5 before:content-[''] data-[disabled]:cursor-not-allowed data-[checked]:bg-[var(--account-night)] data-[disabled]:opacity-60 motion-reduce:transition-none"
       disabled={disabled}
-      onCheckedChange={handleToggle}
+      onCheckedChange={setIsOn}
       surface="account"
-    >
-      <span
-        aria-hidden="true"
-        className={`relative block h-6 w-11 rounded-full p-1 transition-colors ${toggleClassName}`}
-      >
-        <m.span
-          animate={{ transform: isOn ? "translateX(20px)" : "translateX(0)" }}
-          className="block size-4 rounded-full bg-white shadow-sm"
-        />
-      </span>
-    </Switch>
+      thumbClassName="absolute top-1 left-1 duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+    />
   );
 }
 

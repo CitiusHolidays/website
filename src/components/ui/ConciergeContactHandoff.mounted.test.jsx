@@ -323,9 +323,10 @@ describe("Concierge contact handoff", () => {
 
   test("reuses the Sacred Bharat UUID across a failed reload retry", async () => {
     const requests = [];
+    const privateFailure = "provider secret-value escaped";
     globalThis.fetch = (_url, options) => {
       requests.push(options);
-      return { json: () => ({ error: "Try again." }), ok: false };
+      return { json: () => ({ error: privateFailure }), ok: false, status: 502 };
     };
     const context = { entryPoint: "trail", trailSlug: "shiva-trail" };
 
@@ -355,6 +356,12 @@ describe("Concierge contact handoff", () => {
 
     const first = await mount(<SacredBharatContactHandoff context={context} />);
     await enterAndSubmit(first);
+    expect(first.container.querySelector('[role="status"]').textContent).toContain(
+      "Your details are still here"
+    );
+    expect(first.container.querySelector('[role="status"]').textContent).not.toContain(
+      privateFailure
+    );
     const replayRecord = dom.window.sessionStorage.getItem(
       "citius:sacred-intent:v1:trail:shiva-trail"
     );

@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import AuthRecoveryLayout from "@/components/auth/AuthRecoveryLayout";
 import { AuthRecoveryTransition } from "@/components/auth/AuthRecoveryTransition";
 import { authClient } from "@/lib/auth-client";
+import { formatAuthRecoveryError } from "@/lib/auth-errors";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -26,7 +27,7 @@ export default function ForgotPasswordPage() {
       });
 
       if (error) {
-        setStatus({ message: error.message || "Failed to send reset link.", type: "error" });
+        setStatus({ message: formatAuthRecoveryError(error.message, "request"), type: "error" });
       } else {
         setStatus({
           message:
@@ -35,7 +36,7 @@ export default function ForgotPasswordPage() {
         });
       }
     } catch (err) {
-      setStatus({ message: err.message || "An unexpected error occurred.", type: "error" });
+      setStatus({ message: formatAuthRecoveryError(err?.message, "request"), type: "error" });
     }
     setIsLoading(false);
   };

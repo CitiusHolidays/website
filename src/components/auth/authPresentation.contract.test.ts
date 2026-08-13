@@ -154,9 +154,15 @@ describe("auth presentation and recovery contract", () => {
     expect(globals).toMatch(PORTAL_DANGER_TARGET_PATTERN);
     expect(account).not.toContain("min-h-0");
     expect(account).toContain("min-h-11");
-    expect(read("src/components/account/AccountUi.js")).toContain(
-      "min-h-11 min-w-11 place-items-center"
+    const accountUi = read("src/components/account/AccountUi.js");
+    const accountToggle = accountUi.slice(
+      accountUi.indexOf("export function Toggle"),
+      accountUi.indexOf("export function AccountHero")
     );
+    expect(accountToggle).toContain("before:-inset-y-2.5");
+    expect(accountToggle).toContain('thumbClassName="absolute top-1 left-1 duration-150');
+    expect(accountToggle).not.toContain("<m.span");
+    expect(accountToggle).not.toContain("animate={{");
     expect(read("src/components/portal/QueryRowActions.tsx")).not.toContain("md:min-h-8");
   });
 });

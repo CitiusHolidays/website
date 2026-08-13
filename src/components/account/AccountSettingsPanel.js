@@ -1,8 +1,10 @@
 "use client";
 
 import { m } from "motion/react";
-import { Button } from "@/components/ui/application-button";
-import { ACCOUNT_CONTAINER_VARIANTS, SettingRow, Toggle } from "./AccountUi";
+import Link from "next/link";
+import { Status } from "@/components/ui/application-status";
+import { ACCOUNT_DELETION_CONTACT_HREF } from "@/lib/public/contactIntent";
+import { ACCOUNT_CONTAINER_VARIANTS, SettingRow } from "./AccountUi";
 
 export function AccountSettingsPanel() {
   return (
@@ -20,28 +22,32 @@ export function AccountSettingsPanel() {
 
       <div className="divide-y divide-[var(--account-border)]">
         <SettingRow
-          action={<Toggle disabled label="Email notifications" />}
+          action={
+            <Status aria-label="Email notifications. Planned" surface="account" tone="neutral">
+              Planned
+            </Status>
+          }
           description="Receive updates about your bookings and exclusive offers. This preference will be available when notification settings are connected."
           title="Email Notifications"
         />
         <SettingRow
           action={
-            <Button
-              aria-label="Two-step verification. Planned"
-              className="inline-flex min-h-11 cursor-not-allowed items-center font-medium text-[var(--account-muted)] text-sm disabled:opacity-100"
-              disabled
-              surface="account"
-              type="button"
-            >
+            <Status aria-label="Two-step verification. Planned" surface="account" tone="neutral">
               Planned
-            </Button>
+            </Status>
           }
           description="Add an extra layer of security to your account. Two-step verification is planned for a future account update."
           title="Two-step verification"
         />
         <SettingRow
           action={
-            <span className="font-medium text-[var(--account-muted)] text-sm">Contact team</span>
+            <Link
+              aria-label="Contact the Citius team about deleting your account"
+              className="account-focus inline-flex min-h-11 items-center rounded-full border border-[var(--account-night)] px-4 font-semibold text-[var(--account-night)] text-sm transition-colors hover:bg-[var(--account-night)] hover:text-white"
+              href={ACCOUNT_DELETION_CONTACT_HREF}
+            >
+              Contact team
+            </Link>
           }
           description="Account deletion is handled by the Citius travel team so we can confirm any active journeys first."
           title="Delete account"

@@ -203,7 +203,7 @@ const styles = {
 };
 
 const STATES = {
-  error: "Failed! Try again",
+  error: "Try sending again",
   idle: "Send Message",
   processing: "Sending…",
   success: "Sent!",

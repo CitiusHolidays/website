@@ -7,6 +7,7 @@ import { Suspense, useEffect, useReducer, useRef } from "react";
 import AuthRecoveryLayout from "@/components/auth/AuthRecoveryLayout";
 import { AuthRecoveryTransition } from "@/components/auth/AuthRecoveryTransition";
 import { authClient } from "@/lib/auth-client";
+import { formatAuthRecoveryError } from "@/lib/auth-errors";
 
 const initialFormState = {
   confirmPassword: "",
@@ -102,7 +103,7 @@ export function ResetPasswordForm() {
 
       if (error) {
         dispatch({
-          status: { message: error.message || "Failed to reset password.", type: "error" },
+          status: { message: formatAuthRecoveryError(error.message, "reset"), type: "error" },
           type: "status",
         });
       } else {
@@ -116,7 +117,7 @@ export function ResetPasswordForm() {
       }
     } catch (err) {
       dispatch({
-        status: { message: err.message || "An unexpected error occurred.", type: "error" },
+        status: { message: formatAuthRecoveryError(err?.message, "reset"), type: "error" },
         type: "status",
       });
     }

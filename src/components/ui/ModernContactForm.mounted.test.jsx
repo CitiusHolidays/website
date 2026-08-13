@@ -228,4 +228,39 @@ describe("mounted contact intent", () => {
 
     await act(async () => root.unmount());
   });
+
+  test("does not render an arbitrary enquiry error body", async () => {
+    const privateFailure = "gateway secret-value escaped";
+    globalThis.fetch = mock(() =>
+      Promise.resolve(Response.json({ error: privateFailure }, { status: 502 }))
+    );
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<ModernContactForm />));
+
+    await act(() => {
+      setInputValue(container.querySelector('input[name="name"]'), "A Traveller");
+      setInputValue(container.querySelector('input[name="email"]'), "traveller@example.com");
+      setInputValue(container.querySelector('input[name="subject"]'), "Kerala journey");
+      setInputValue(container.querySelector('textarea[name="message"]'), "Please contact me.");
+      container.querySelector('input[name="consent"]').click();
+    });
+    await act(async () => {
+      container
+        .querySelector("form")
+        .dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const status = container.querySelector('[role="status"]').textContent;
+    expect(status).toContain("Your details are still here");
+    expect(status).not.toContain(privateFailure);
+    expect(container.querySelector("button[type=submit]").textContent).toContain(
+      "Try sending again"
+    );
+
+    await act(async () => root.unmount());
+  });
 });

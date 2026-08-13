@@ -6,6 +6,7 @@ import { SacredBharatContactHandoff } from "@/components/ui/ConciergeContactHand
 import { markClientAiMessageTerminal } from "@/lib/ai/uiMessageStream";
 import { suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
 import { streamJourneyPlannerResponse } from "@/lib/sacredBharat/journeyPlannerStream";
+import { formatJourneyPlannerResponseError } from "@/lib/userFacingErrors";
 import { cn } from "@/lib/utils";
 import { useSacredBharatContext } from "./SacredBharatProvider";
 
@@ -142,7 +143,7 @@ export default function JourneyPlannerPanel() {
       wishlistTrailSlugs,
     }).catch(() => {
       if (mountedRef.current && !abortController.signal.aborted) {
-        setErrorMessage("Could not generate your journey plan. Please try again.");
+        setErrorMessage(formatJourneyPlannerResponseError());
       }
     });
 

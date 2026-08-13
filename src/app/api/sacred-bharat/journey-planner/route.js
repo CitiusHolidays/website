@@ -135,9 +135,14 @@ export async function POST(req) {
     });
   } catch (error) {
     console.error("Sacred Bharat journey planner error:", error);
-    return new Response(JSON.stringify({ error: "Failed to generate journey plan." }), {
-      headers: { "Content-Type": "application/json" },
-      status: 500,
-    });
+    return new Response(
+      JSON.stringify({
+        error: "Sacred Bharat Journey Planner could not complete that response. Please try again.",
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+        status: 500,
+      }
+    );
   }
 }

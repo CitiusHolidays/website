@@ -1,6 +1,7 @@
 "use client";
 import { AlertCircle, FileText, Mail, MessageSquare, Phone, User } from "lucide-react";
 import { useEffect, useReducer, useRef } from "react";
+import { formatContactSubmissionError, readJsonError } from "@/lib/userFacingErrors";
 import AnimatedSubmitButton from "./AnimatedSubmitButton";
 import TurnstileWidget from "./TurnstileWidget";
 
@@ -274,13 +275,15 @@ export default function ModernContactForm({ initialValues }) {
         submissionKeyRef.current = crypto.randomUUID();
         setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 2000);
       } else {
-        const errorData = await response.json();
-        const message = errorData.error || "Something went wrong.";
+        const message = formatContactSubmissionError({
+          message: await readJsonError(response),
+          status: response.status,
+        });
         dispatch({ announcement: message, errors: { form: message }, type: "SUBMIT_ERROR" });
         setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 3000);
       }
-    } catch (error) {
-      const message = error.message || "Something went wrong.";
+    } catch {
+      const message = formatContactSubmissionError();
       dispatch({ announcement: message, errors: { form: message }, type: "SUBMIT_ERROR" });
       setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 3000);
     }

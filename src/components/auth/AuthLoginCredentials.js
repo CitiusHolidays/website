@@ -141,7 +141,7 @@ export function AuthLoginCredentials({
       }
     } catch (err) {
       dispatch({
-        patch: { formError: err.message || "An unexpected error occurred", isLoading: false },
+        patch: { formError: formatAuthApiError(err?.message, err?.code), isLoading: false },
         type: "patch",
       });
     }
@@ -153,7 +153,10 @@ export function AuthLoginCredentials({
       await signInWithGoogle(variant.href);
     } catch {
       dispatch({
-        patch: { formError: "Failed to initialize Google sign in", isLoading: false },
+        patch: {
+          formError: "We could not start Google sign-in. Check your connection and try again.",
+          isLoading: false,
+        },
         type: "patch",
       });
     }
