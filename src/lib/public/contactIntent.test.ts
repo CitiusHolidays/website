@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   ACCOUNT_DELETION_CONTACT_HREF,
   getContactIntentPrefill,
+  MICE_PROPOSAL_CONTACT_HREF,
   PILGRIMAGE_CONTACT_HREFS,
   resolveContactIntent,
 } from "./contactIntent";
@@ -14,6 +15,16 @@ describe("public contact intent", () => {
       enquiry: "/contact?intent=pilgrimage-enquiry",
     });
     expect(PILGRIMAGE_CONTACT_HREFS.callback).not.toBe(PILGRIMAGE_CONTACT_HREFS.enquiry);
+  });
+
+  test("MICE proposal requests keep one explicit editable Website enquiry intent", () => {
+    expect(MICE_PROPOSAL_CONTACT_HREF).toBe("/contact?intent=mice-proposal");
+    expect(resolveContactIntent("mice-proposal")).toBe("mice-proposal");
+    expect(getContactIntentPrefill("mice-proposal")).toEqual({
+      message:
+        "Please contact me about a proposal for a meeting, incentive, conference, or exhibition programme.",
+      subject: "MICE proposal request",
+    });
   });
 
   test("prefills an actionable account deletion request", () => {

@@ -57,7 +57,8 @@ describe("Home discovery and qualified contact actions", () => {
   test("uses one semantic contact CTA with a decorative trailing island", () => {
     const contactCta = read("src/components/ui/PublicContactCta.js");
     expect(contactCta).toContain("<Link");
-    expect(contactCta).toContain('href="/contact"');
+    expect(contactCta).toContain('href = "/contact"');
+    expect(contactCta).toContain("href={href}");
     expect(contactCta).toContain("<span>{children}</span>");
     expect(contactCta).toContain('aria-hidden="true"');
     expect(contactCta).not.toContain("aria-label=");

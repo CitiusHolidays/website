@@ -1,6 +1,11 @@
-export type ContactIntent = "account-deletion" | "pilgrimage-callback" | "pilgrimage-enquiry";
+export type ContactIntent =
+  | "account-deletion"
+  | "mice-proposal"
+  | "pilgrimage-callback"
+  | "pilgrimage-enquiry";
 
 export const ACCOUNT_DELETION_CONTACT_HREF = "/contact?intent=account-deletion";
+export const MICE_PROPOSAL_CONTACT_HREF = "/contact?intent=mice-proposal";
 
 export const PILGRIMAGE_CONTACT_HREFS = {
   callback: "/contact?intent=pilgrimage-callback",
@@ -12,6 +17,11 @@ const CONTACT_INTENT_PREFILLS: Record<ContactIntent, { message: string; subject:
     message:
       "Please contact me about deleting my Citius account. I understand the team will first confirm any active journeys.",
     subject: "Account deletion request",
+  },
+  "mice-proposal": {
+    message:
+      "Please contact me about a proposal for a meeting, incentive, conference, or exhibition programme.",
+    subject: "MICE proposal request",
   },
   "pilgrimage-callback": {
     message: "Please contact me about a Citius pilgrimage programme.",
@@ -25,6 +35,7 @@ const CONTACT_INTENT_PREFILLS: Record<ContactIntent, { message: string; subject:
 
 export function resolveContactIntent(value: unknown): ContactIntent | null {
   return value === "account-deletion" ||
+    value === "mice-proposal" ||
     value === "pilgrimage-callback" ||
     value === "pilgrimage-enquiry"
     ? value

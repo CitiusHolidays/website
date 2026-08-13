@@ -24,7 +24,13 @@ const islandSizeClasses = {
   large: "size-10",
 };
 
-export default function PublicContactCta({ children, className, size = "large", tone = "light" }) {
+export default function PublicContactCta({
+  children,
+  className,
+  href = "/contact",
+  size = "large",
+  tone = "light",
+}) {
   return (
     <Link
       className={cn(
@@ -33,7 +39,7 @@ export default function PublicContactCta({ children, className, size = "large", 
         toneClasses[tone],
         className
       )}
-      href="/contact"
+      href={href}
     >
       <span>{children}</span>
       <span
