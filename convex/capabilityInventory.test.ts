@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "eefc6e722bd4d52c3c839fc486a66c22dae980d80d2f13df3e989a40b5bba0ed";
+const EXPECTED_CAPABILITY_HASH = "41fb5aa5572a6b5926af1ad7e07c142507723e46e8e8f61202c5eab7d646c4d6";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -300,6 +300,18 @@ describe("Convex capability inventory", () => {
         kind: "internalQuery",
         module: "authEmailDeliveries",
         name: "listRecentOutcomes",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/commercialFiles",
+        name: "continuePurgeExpired",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/commercialFiles",
+        name: "getPurgeStatus",
       },
     ] satisfies Capability[]) {
       expect(capabilities).toContainEqual(capability);

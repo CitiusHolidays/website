@@ -6,7 +6,6 @@ crm/commercialFiles.ts:claimUploadSession
 crm/commercialFiles.ts:createFile
 crm/commercialFiles.ts:createUploadSession
 crm/commercialFiles.ts:markFilesDeletedForSource
-crm/commercialFiles.ts:purgeExpired
 crm/expenseAttachments.ts:deleteExpenseProof
 crm/expenseAttachments.ts:saveExpenseProof
 crm/expenseLifecycleMigration.ts:repairExpenseLifecycle

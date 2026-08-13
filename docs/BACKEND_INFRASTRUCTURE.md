@@ -149,6 +149,9 @@ Key backend modules:
 - `convex/crm/imports.ts` and `importActions.ts`: spreadsheet preview/commit/export.
 - `convex/crm/commandReceipts.ts`: actor-scoped command IDs and canonical payload digests for
   replay-safe writes.
+- `convex/crm/commercialFiles.ts`: source/team-authorized file lifecycle plus the bounded,
+  continuation-fenced 14-day retention purge described in
+  [`COMMERCIAL_FILE_RETENTION.md`](COMMERCIAL_FILE_RETENTION.md).
 - `convex/crm/notificationEmailLedger.ts`: monotonic delivery outcomes, transactional event
   projections, two-pass readiness reconciliation, and permissioned summaries.
 - `convex/crm/savedViews.ts`: portal saved views, favorites, pinned sidebar links, and command-palette integration.

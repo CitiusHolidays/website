@@ -426,6 +426,43 @@ export default defineSchema({
     .index("by_storageId", ["storageId"])
     .index("by_expiresAt", ["expiresAt"]),
 
+  commercialFilePurgeRuns: defineTable({
+    completedAt: v.optional(v.number()),
+    continuation: v.number(),
+    createdAt: v.number(),
+    cursor: v.optional(v.string()),
+    cutoffAt: v.number(),
+    failedFiles: v.number(),
+    failedSessions: v.number(),
+    failureCode: v.optional(v.string()),
+    generation: v.number(),
+    key: v.literal("commercialFiles"),
+    leaseExpiresAt: v.number(),
+    processedFiles: v.number(),
+    processedSessions: v.number(),
+    purgedFiles: v.number(),
+    purgedSessions: v.number(),
+    stage: v.union(v.literal("upload_sessions"), v.literal("deleted_files")),
+    startedAt: v.optional(v.number()),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("completed_with_failures"),
+      v.literal("failed")
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_key_updatedAt", ["key", "updatedAt"])
+    .index("by_status_updatedAt", ["status", "updatedAt"]),
+
+  commercialFilePurgeState: defineTable({
+    activeRunId: v.optional(v.id("commercialFilePurgeRuns")),
+    generation: v.number(),
+    key: v.literal("commercialFiles"),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
+
   confirmedOffers: defineTable({
     airfarePerPax: v.number(),
     approxMargin: v.optional(v.number()),
