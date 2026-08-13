@@ -130,6 +130,9 @@ visibility filtering. Search gating (`assertListSearchReady`) remains in handler
 malformed search responses are still rejected at the args/handler layer via
 `SEARCH_INDEX_PREPARING`.
 
+List-search readiness also returns `dirty.hasPending` and nullable `dirty.oldestUpdatedAt`. These
+fields make delayed change-driven repair observable without exposing source IDs or row content.
+
 Dashboard responses include `aggregateCoverage`, which mirrors
 `summarizeMetricReadiness()`:
 

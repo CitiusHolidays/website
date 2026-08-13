@@ -10,6 +10,7 @@ import {
   PERMISSIONS,
   requireStaff,
 } from "./lib";
+import { markListSearchDirty } from "./listSearch";
 
 export async function handleQueryRemove(
   ctx: MutationCtx,
@@ -112,5 +113,6 @@ export async function handleQueryRemove(
     deleteEntityNotifications(ctx, "query", queryId),
     ctx.db.delete("queries", queryId),
   ]);
+  await markListSearchDirty(ctx, "queries", String(queryId));
   return { id: queryId };
 }

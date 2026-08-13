@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "f9858302410633835ea8bf822e4b65c2de733e94c838e0db6292fd537fc78a8b";
+const EXPECTED_CAPABILITY_HASH = "3ede4c9b51511e2f49cece45287e47baecaaafb2e29cc3a40f2a5bfc41836a3a";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -168,6 +168,12 @@ describe("Convex capability inventory", () => {
         kind: "internalMutation",
         module: "crm/metricAggregates",
         name: "syncJobInvoicePage",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/listSearch",
+        name: "reconcileDirtyPage",
       },
       {
         classification: "public-product",

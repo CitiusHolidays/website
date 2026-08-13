@@ -3,7 +3,7 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery, query } from "../_generated/server";
 import { canSeeJobCardRecord, PERMISSIONS, requireStaff } from "./lib";
-import { buildTravellerListSearchText } from "./listSearch";
+import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
 import { passportMetadataResultValidator } from "./operationsReturnContracts";
 import { normalizePassportExpiryDate } from "./passportExpiry";
 
@@ -143,6 +143,7 @@ export const savePassportMetadata = internalMutation({
         updatedAt: now,
       })
     );
+    await markListSearchDirty(ctx, "travellers", String(travellerId));
 
     return displacedStorageId;
   },
@@ -204,6 +205,7 @@ export const savePassportDetailsOnly = internalMutation({
         updatedAt: now,
       })
     );
+    await markListSearchDirty(ctx, "travellers", String(travellerId));
     return null;
   },
   returns: v.null(),
@@ -240,6 +242,7 @@ export const deletePassportMetadata = internalMutation({
         updatedAt: Date.now(),
       })
     );
+    await markListSearchDirty(ctx, "travellers", String(travellerIdNormalized));
 
     return existing?.storageId ?? null;
   },

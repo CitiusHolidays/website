@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   assertListSearchReady,
   buildJobCardListSearchText,
@@ -7,7 +9,9 @@ import {
   buildTravellerListSearchText,
   isCurrentListSearchReadiness,
   LIST_SEARCH_PROJECTION_VERSION,
+  markListSearchDirty,
   reconcileAll,
+  reconcileDirtyPage,
   reconcilePage,
   summarizeListSearchReadiness,
 } from "./listSearch";
@@ -44,7 +48,39 @@ describe("bounded portal list search projections", () => {
     expect(summary.details.queries).toMatchObject({ generation: 0, state: "pending" });
     expect(summary.details.jobCards).toMatchObject({ generation: 3, state: "stale" });
     expect(summary.details.travellers).toMatchObject({ generation: 4, state: "ready" });
+    expect(summary.dirty).toEqual({ hasPending: false, oldestUpdatedAt: null });
     expect(summary.errorSummary).toBeNull();
+  });
+
+  test("keeps every authoritative search writer on durable dirty coverage", () => {
+    const writerPaths = [
+      "queryCreation.ts",
+      "queryCommands.ts",
+      "queryDeletion.ts",
+      "jobCardCreation.ts",
+      "jobCardCommands.ts",
+      "lib/presentation.ts",
+      "proposalWriteCommands.ts",
+      "proposals.ts",
+      "travellers.ts",
+      "passport.ts",
+      "importProcessor.ts",
+    ];
+    for (const relativePath of writerPaths) {
+      expect(readFileSync(join(import.meta.dir, relativePath), "utf8"), relativePath).toContain(
+        "markListSearchDirty"
+      );
+    }
+
+    const listSearch = readFileSync(join(import.meta.dir, "listSearch.ts"), "utf8");
+    const schema = readFileSync(join(import.meta.dir, "../schema.ts"), "utf8");
+    expect(listSearch).not.toContain("PROPOSAL_ATTACHMENT_SUMMARY_VERSION");
+    expect(listSearch).not.toContain("proposalLinkProjection");
+    expect(listSearch).not.toContain("passportDetails");
+    expect(listSearch).not.toContain("travelBatches");
+    expect(schema).toContain("crmListSearchDirty: defineTable");
+    expect(schema).toContain('.index("by_key", ["key"])');
+    expect(schema).toContain('.index("by_updatedAt", ["updatedAt"])');
   });
 
   test("indexes operational identifiers and labels", () => {
@@ -105,7 +141,7 @@ describe("bounded portal list search projections", () => {
     ).toBe(false);
   });
 
-  test("routine reconciliation schedules bounded repairs without taking healthy search offline", async () => {
+  test("routine reconciliation returns without source traversal when readiness is current", async () => {
     const scheduled: Array<{ args: unknown; delay: number }> = [];
     const readinessByTable = new Map(
       ["queries", "jobCards", "proposals", "travellers"].map((table) => [
@@ -123,16 +159,22 @@ describe("bounded portal list search projections", () => {
       {
         db: {
           insert: () => {
-            throw new Error("existing healthy rows should be patched");
+            throw new Error("a healthy tick should not insert state");
           },
-          patch: (_table: string, id: string, patch: Record<string, unknown>) => {
-            const row = Array.from(readinessByTable.values()).find((item) => item._id === id);
-            if (row) {
-              Object.assign(row, patch);
-            }
+          patch: () => {
+            throw new Error("a healthy tick should not patch state");
           },
-          query: () => ({
+          query: (sourceTable: string) => ({
+            first: () => {
+              if (sourceTable !== "crmListSearchDirty") {
+                throw new Error("only the dirty queue may use first");
+              }
+              return null;
+            },
             withIndex: (_name: string, callback: (q: any) => unknown) => {
+              if (sourceTable === "crmListSearchDirty") {
+                return { first: () => null };
+              }
               let table = "";
               const q = {
                 eq: (_field: string, value: string) => {
@@ -154,23 +196,280 @@ describe("bounded portal list search projections", () => {
       {}
     );
 
-    expect(result).toEqual({ scheduled: 4 });
-    expect(scheduled).toHaveLength(4);
-    expect(scheduled.every((entry) => entry.delay === 0)).toBe(true);
-    expect(
-      scheduled
-        .map((entry) => (entry.args as { table: string }).table)
-        .sort((left, right) => left.localeCompare(right))
-    ).toEqual(["jobCards", "proposals", "queries", "travellers"]);
+    expect(result).toEqual({ scheduled: 0 });
+    expect(scheduled).toEqual([]);
     expect(Array.from(readinessByTable.values()).every((row) => row.ready)).toBe(true);
-    expect(
-      scheduled.every(
-        (entry) =>
-          (entry.args as { cursor: string | null }).cursor === null &&
-          (entry.args as { projectionVersion: number }).projectionVersion ===
-            LIST_SEARCH_PROJECTION_VERSION
-      )
-    ).toBe(true);
+  });
+
+  test("an explicit repair schedules all four current tables without dropping publication", async () => {
+    const scheduled: unknown[] = [];
+    const patched: unknown[] = [];
+    const readinessByTable = new Map(
+      ["queries", "jobCards", "proposals", "travellers"].map((table) => [
+        table,
+        {
+          _id: `ready_${table}`,
+          generation: 8,
+          ready: true,
+          reconciling: false,
+          table,
+          updatedAt: Date.now(),
+          version: LIST_SEARCH_PROJECTION_VERSION,
+        },
+      ])
+    );
+    const result = await (reconcileAll as any)._handler(
+      {
+        db: {
+          insert: () => {
+            throw new Error("current readiness rows should be patched");
+          },
+          patch: (_table: string, id: string, patch: Record<string, unknown>) => {
+            patched.push({ id, patch });
+          },
+          query: (sourceTable: string) => ({
+            withIndex: (_name: string, callback?: (q: any) => unknown) => {
+              if (sourceTable === "crmListSearchDirty") {
+                return { first: () => null };
+              }
+              let table = "";
+              const q = {
+                eq: (_field: string, value: string) => {
+                  table = value;
+                  return q;
+                },
+              };
+              callback?.(q);
+              return { unique: () => readinessByTable.get(table) ?? null };
+            },
+          }),
+        },
+        scheduler: {
+          runAfter: (_delay: number, _fn: unknown, args: unknown) => scheduled.push(args),
+        },
+      },
+      { force: true }
+    );
+
+    expect(result).toEqual({ scheduled: 4 });
+    expect(patched).toHaveLength(4);
+    expect(scheduled).toHaveLength(4);
+    expect(scheduled.every((args) => (args as { cursor: unknown }).cursor === null)).toBe(true);
+  });
+
+  test("coalesces dirty source identities and schedules only the first unit", async () => {
+    const rows = new Map<string, Record<string, any>>();
+    const scheduled: unknown[] = [];
+    const ctx = {
+      db: {
+        insert: (_table: string, row: Record<string, any>) => {
+          rows.set(row.key, { ...row, _id: `dirty_${rows.size + 1}` });
+        },
+        patch: (_table: string, id: string, patch: Record<string, unknown>) => {
+          const row = Array.from(rows.values()).find((candidate) => candidate._id === id);
+          if (row) {
+            Object.assign(row, patch);
+          }
+        },
+        query: () => ({
+          withIndex: (_name: string, callback: (q: any) => unknown) => {
+            let key = "";
+            const q = {
+              eq: (_field: string, value: string) => {
+                key = value;
+                return q;
+              },
+            };
+            callback(q);
+            return { unique: () => rows.get(key) ?? null };
+          },
+        }),
+      },
+      scheduler: {
+        runAfter: (_delay: number, _fn: unknown, args: unknown) => scheduled.push(args),
+      },
+    };
+
+    await markListSearchDirty(ctx as any, "travellers", "traveller_1");
+    await markListSearchDirty(ctx as any, "travellers", "traveller_1");
+
+    expect(rows.size).toBe(1);
+    expect(scheduled).toHaveLength(1);
+  });
+
+  test("repairs dirty rows in bounded batches and consumes deletion tombstones", async () => {
+    const dirtyRows = [
+      {
+        _id: "dirty_query",
+        sourceId: "query_1",
+        table: "queries",
+        updatedAt: 1,
+      },
+      {
+        _id: "dirty_deleted",
+        sourceId: "query_deleted",
+        table: "queries",
+        updatedAt: 2,
+      },
+    ];
+    const query = {
+      _id: "query_1",
+      clientName: "Acme",
+      destination: "Delhi",
+      listSearchText: "stale",
+      queryCode: "Q-1",
+      queryType: "MICE",
+      salesOwnerName: "Nina",
+    };
+    const deleted: string[] = [];
+    const patched: Array<{ id: string; patch: Record<string, unknown> }> = [];
+    const result = await (reconcileDirtyPage as any)._handler(
+      {
+        db: {
+          delete: (_table: string, id: string) => deleted.push(id),
+          get: (_table: string, id: string) => (id === "query_1" ? query : null),
+          normalizeId: (_table: string, id: string) => id,
+          patch: (_table: string, id: string, patch: Record<string, unknown>) => {
+            patched.push({ id, patch });
+          },
+          query: () => ({
+            withIndex: () => ({
+              order: () => ({ take: () => dirtyRows }),
+            }),
+          }),
+        },
+        scheduler: { runAfter: () => undefined },
+      },
+      {}
+    );
+
+    expect(result).toEqual({ changed: 1, processed: 2, scheduled: false });
+    expect(patched).toEqual([
+      {
+        id: "query_1",
+        patch: { listSearchText: "Q-1 Acme Delhi MICE Nina" },
+      },
+    ]);
+    expect(deleted.sort((left, right) => left.localeCompare(right))).toEqual([
+      "dirty_deleted",
+      "dirty_query",
+    ]);
+  });
+
+  test("full repair remains complete for every search table without unrelated relation reads", async () => {
+    const fixtures = [
+      {
+        expected: "Q-1 Acme Delhi MICE Nina",
+        row: {
+          _id: "query_1",
+          clientName: "Acme",
+          destination: "Delhi",
+          listSearchText: "stale",
+          queryCode: "Q-1",
+          queryType: "MICE",
+          salesOwnerName: "Nina",
+        },
+        table: "queries",
+      },
+      {
+        expected: "JC-1 Acme Delhi MICE",
+        row: {
+          _id: "job_1",
+          clientName: "Acme",
+          destination: "Delhi",
+          jobCode: "JC-1",
+          listSearchText: "stale",
+          queryType: "MICE",
+        },
+        table: "jobCards",
+      },
+      {
+        expected: "P-1 Acme Nina",
+        row: {
+          _id: "proposal_1",
+          clientName: "Acme",
+          listSearchText: "stale",
+          preparedBy: "Nina",
+          proposalCode: "P-1",
+        },
+        table: "proposals",
+      },
+      {
+        expected: "Anshika JC-1 Mumbai Received Twin JC-1 / B1",
+        row: {
+          _id: "traveller_1",
+          fullName: "Anshika",
+          jobCardId: "job_1",
+          listSearchText: "stale",
+          passportStatus: "Received",
+          roomType: "Twin",
+          travelBatchReference: "JC-1 / B1",
+          travelHub: "Mumbai",
+        },
+        table: "travellers",
+      },
+    ] as const;
+
+    await Promise.all(
+      fixtures.map(async (fixture) => {
+        const state: Record<string, any> = {
+          _id: `ready_${fixture.table}`,
+          generation: 3,
+          ready: true,
+          reconciling: true,
+          table: fixture.table,
+          updatedAt: Date.now(),
+          version: LIST_SEARCH_PROJECTION_VERSION,
+        };
+        const sourcePatches: Record<string, unknown>[] = [];
+        const result = await (reconcilePage as any)._handler(
+          {
+            db: {
+              get: (table: string, id: string) => {
+                if (fixture.table !== "travellers" || table !== "jobCards" || id !== "job_1") {
+                  throw new Error(`unexpected relation read ${table}:${id}`);
+                }
+                return { _id: "job_1", jobCode: "JC-1" };
+              },
+              patch: (table: string, id: string, patch: Record<string, unknown>) => {
+                if (id === state._id) {
+                  Object.assign(state, patch);
+                } else {
+                  expect(table).toBe(fixture.table);
+                  sourcePatches.push(patch);
+                }
+              },
+              query: (table: string) => {
+                if (table === "crmListSearchReadiness") {
+                  return {
+                    withIndex: () => ({ unique: () => state }),
+                  };
+                }
+                if (table !== fixture.table) {
+                  throw new Error(`unexpected source read ${table}`);
+                }
+                return {
+                  order: () => ({
+                    paginate: () => ({ continueCursor: "", isDone: true, page: [fixture.row] }),
+                  }),
+                };
+              },
+            },
+            scheduler: { runAfter: () => undefined },
+          },
+          {
+            cursor: null,
+            generation: 3,
+            projectionVersion: LIST_SEARCH_PROJECTION_VERSION,
+            table: fixture.table,
+          }
+        );
+
+        expect(result).toMatchObject({ changed: 1, isDone: true, processed: 1 });
+        expect(sourcePatches).toEqual([{ listSearchText: fixture.expected }]);
+        expect(state).toMatchObject({ ready: true, reconciling: false });
+      })
+    );
   });
 
   test("an old in-flight page aborts and restarts the current projection from cursor zero", async () => {

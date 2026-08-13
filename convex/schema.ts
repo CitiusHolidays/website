@@ -685,6 +685,21 @@ export default defineSchema({
     version: v.optional(v.number()),
   }).index("by_table", ["table"]),
 
+  crmListSearchDirty: defineTable({
+    createdAt: v.number(),
+    key: v.string(),
+    sourceId: v.string(),
+    table: v.union(
+      v.literal("queries"),
+      v.literal("jobCards"),
+      v.literal("proposals"),
+      v.literal("travellers")
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_updatedAt", ["updatedAt"]),
+
   crmMetricBuckets: defineTable({
     periodKey: v.string(),
     periodType: v.union(v.literal("day"), v.literal("month")),

@@ -3,7 +3,7 @@ import { resolveRoomCategory, resolveTravellerRoomFields } from "../lib/roomType
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { classifyImportError, publicImportErrorMessage } from "./importWorkerPolicy";
 import { canSeeJobCardRecord, createActivity } from "./lib";
-import { buildTravellerListSearchText } from "./listSearch";
+import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
 
 export type TravellerDoc = {
   _id: Id<"travellers">;
@@ -729,6 +729,7 @@ export async function processImportRows(
           travellerId,
         });
       }
+      await markListSearchDirty(ctx, "travellers", String(travellerId));
       const committedTraveller: TravellerDoc = match
         ? { ...match, ...travellerPatch, _id: match._id }
         : {

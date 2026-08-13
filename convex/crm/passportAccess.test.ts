@@ -108,6 +108,9 @@ function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
         };
       },
     },
+    scheduler: {
+      runAfter: async () => undefined,
+    },
   };
   return { ctx, staff, tables: allTables };
 }

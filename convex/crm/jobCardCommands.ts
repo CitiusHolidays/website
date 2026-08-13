@@ -17,7 +17,7 @@ import {
   requireStaff,
 } from "./lib";
 import { patchWithE2eOwnership } from "./lib/e2eOwnership";
-import { buildJobCardListSearchText } from "./listSearch";
+import { buildJobCardListSearchText, markListSearchDirty } from "./listSearch";
 import { enqueueQueryCommercialProjections } from "./queryCommercialProjection";
 
 export async function handleJobCardUpdate(
@@ -87,6 +87,7 @@ export async function handleJobCardUpdate(
   patch.listSearchText = buildJobCardListSearchText({ ...job, ...patch });
 
   await patchWithE2eOwnership(ctx, "jobCards", id, patch);
+  await markListSearchDirty(ctx, "jobCards", String(id));
   await createActivity(ctx, access, {
     action: "updated",
     entityId: id,

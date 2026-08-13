@@ -21,7 +21,7 @@ import {
   requireStaff,
 } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
-import { buildJobCardListSearchText } from "./listSearch";
+import { buildJobCardListSearchText, markListSearchDirty } from "./listSearch";
 
 export async function handleCreateFromQuery(
   ctx: MutationCtx,
@@ -160,6 +160,7 @@ export async function handleCreateFromQuery(
     visaCostPerPax: confirmedOffer.visaCostPerPax,
   };
   const id = await insertWithE2eOwnership(ctx, "jobCards", jobCardPayload);
+  await markListSearchDirty(ctx, "jobCards", String(id));
   await patchWithE2eOwnership(ctx, "queries", queryId, {
     jobCardPreview: { jobCardCode: jobCode, jobCardId: id },
   });

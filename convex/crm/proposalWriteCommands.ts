@@ -12,7 +12,7 @@ import {
   requireStaff,
 } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
-import { buildProposalListSearchText } from "./listSearch";
+import { buildProposalListSearchText, markListSearchDirty } from "./listSearch";
 import { PROPOSAL_ATTACHMENT_SUMMARY_VERSION } from "./proposalAttachmentSummary";
 import {
   proposalLinkedQuerySummary,
@@ -115,6 +115,7 @@ export async function handleCreateProposal(ctx: MutationCtx, args: CreateProposa
     createdAt: now,
     createdBy: access.authUserId ?? "unknown",
   });
+  await markListSearchDirty(ctx, "proposals", String(id));
   await Promise.all([
     syncProposalQueryLinks(ctx, id, linkedQueries, access.authUserId ?? "unknown"),
     Promise.all(
@@ -237,6 +238,7 @@ export async function handleUpdateProposal(ctx: MutationCtx, args: UpdateProposa
   patch.listSearchText = buildProposalListSearchText({ ...proposal, ...patch });
 
   await patchWithE2eOwnership(ctx, "proposals", proposalId, patch);
+  await markListSearchDirty(ctx, "proposals", String(proposalId));
   if (nextLinkedQueries !== null) {
     await syncProposalQueryLinks(
       ctx,

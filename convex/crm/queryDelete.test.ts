@@ -79,6 +79,9 @@ function makeDeleteCtx(initialTables: Tables) {
       },
     },
     runMutation: async () => ({ storageIds: [] }),
+    scheduler: {
+      runAfter: async () => undefined,
+    },
     storage: {
       delete: () => Promise.resolve(),
     },

@@ -16,7 +16,7 @@ import {
   requireStaff,
 } from "./lib";
 import { patchWithE2eOwnership } from "./lib/e2eOwnership";
-import { buildQueryListSearchText } from "./listSearch";
+import { buildQueryListSearchText, markListSearchDirty } from "./listSearch";
 import { refreshProposalLinkProjections } from "./proposalLinkProjection";
 import { resolveSalesOwnerSelection } from "./queryCreation";
 import {
@@ -156,6 +156,7 @@ export async function handleQueryUpdate(
   patch.listSearchText = buildQueryListSearchText({ ...current, ...patch });
 
   await patchWithE2eOwnership(ctx, "queries", queryId, patch);
+  await markListSearchDirty(ctx, "queries", String(queryId));
   await refreshProposalLinkProjections(ctx, queryId);
   await createActivity(ctx, access, {
     action: "updated",

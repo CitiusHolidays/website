@@ -58,6 +58,10 @@ export const listSearchReadinessResultValidator = v.object({
     queries: searchReadinessDetailValidator,
     travellers: searchReadinessDetailValidator,
   }),
+  dirty: v.object({
+    hasPending: v.boolean(),
+    oldestUpdatedAt: v.union(v.number(), v.null()),
+  }),
   errorSummary: v.null(),
   ready: v.boolean(),
   tables: v.object({

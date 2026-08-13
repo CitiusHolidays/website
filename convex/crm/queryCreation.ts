@@ -12,7 +12,7 @@ import {
   requireStaff,
 } from "./lib";
 import { insertWithE2eOwnership } from "./lib/e2eOwnership";
-import { buildQueryListSearchText } from "./listSearch";
+import { buildQueryListSearchText, markListSearchDirty } from "./listSearch";
 import { QUERY_COMMERCIAL_PROJECTION_VERSION } from "./queryCommercialProjection";
 import { notifyQueryAssignmentHeads, notifyTicketingHeadOnQueryIntake } from "./queryNotifications";
 import { applyQueryTeamAssignments } from "./queryTeamAssignment";
@@ -159,6 +159,7 @@ export async function handleQueryCreate(
     updatedAt: now,
   };
   const id = await insertWithE2eOwnership(ctx, "queries", queryPayload);
+  await markListSearchDirty(ctx, "queries", String(id));
 
   await createActivity(ctx, access, {
     action: "created",

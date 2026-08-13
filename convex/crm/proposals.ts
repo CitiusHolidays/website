@@ -15,6 +15,7 @@ import {
   requireStaff,
 } from "./lib";
 import { patchWithE2eOwnership } from "./lib/e2eOwnership";
+import { markListSearchDirty } from "./listSearch";
 import {
   handleClearFinalizedPdf,
   handleGetFinalizedPdfRecord,
@@ -212,6 +213,7 @@ export const remove = mutation({
       deleteProposalQueryLinks(ctx, proposalId),
       ctx.db.delete("proposals", proposalId),
     ]);
+    await markListSearchDirty(ctx, "proposals", String(proposalId));
     await enqueueQueryCommercialProjections(
       ctx,
       linkedQueries.map((linkedQuery) => linkedQuery._id)

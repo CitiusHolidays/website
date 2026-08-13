@@ -36,6 +36,7 @@ function makeCtx(initialTables: Tables) {
         return {
           collect: async () => [...rows],
           take: async (count: number) => rows.slice(0, count),
+          unique: async () => rows[0] ?? null,
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const q = {

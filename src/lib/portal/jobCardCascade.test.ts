@@ -84,6 +84,7 @@ function makeCtx(initialTables: Tables) {
             takeCalls.push({ count, tableName });
             return rows.slice(0, count);
           },
+          unique: async () => rows[0] ?? null,
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
             const filters: { field: string; value: unknown }[] = [];
             const q = {

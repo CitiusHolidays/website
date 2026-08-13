@@ -25,7 +25,11 @@ import {
   shouldApplyCementScope,
 } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
-import { assertListSearchReady, buildTravellerListSearchText } from "./listSearch";
+import {
+  assertListSearchReady,
+  buildTravellerListSearchText,
+  markListSearchDirty,
+} from "./listSearch";
 import { loadMetricTotals, type MetricValues } from "./metricAggregates";
 import {
   deletedCountResultValidator,
@@ -500,6 +504,7 @@ export const create = mutation({
       visaRequired: args.visaRequired,
       visaStatus,
     });
+    await markListSearchDirty(ctx, "travellers", String(id));
 
     await Promise.all([
       insertWithE2eOwnership(ctx, "visaRecords", {
@@ -656,6 +661,7 @@ export const update = mutation({
     );
 
     await patchWithE2eOwnership(ctx, "travellers", travellerId, patch);
+    await markListSearchDirty(ctx, "travellers", String(travellerId));
 
     if (args.visaRequired !== undefined || args.biometricAppointmentDate !== undefined) {
       const visaRecord = await ctx.db
@@ -756,6 +762,7 @@ export async function deleteTravellerRecord(
       travellerId: String(travellerId),
     }),
   ]);
+  await markListSearchDirty(ctx, "travellers", String(travellerId));
 }
 
 const travellerCleanupStageValidator = v.union(

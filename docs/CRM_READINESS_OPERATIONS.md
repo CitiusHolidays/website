@@ -45,9 +45,21 @@ deployment's readiness row as proof for another.
 
 ## Deployment behavior
 
-`convex/crons.ts` starts metric reconciliation every 15 minutes and list-search reconciliation hourly. After a first deployment or projection-version change, do not interpret an empty search result or sampled dashboard detail as authoritative until readiness is current.
+`convex/crons.ts` starts metric reconciliation every 15 minutes and list-search reconciliation
+hourly. List-search writers also coalesce durable dirty units by table and source ID. The hourly
+entry checks the indexed dirty queue and four readiness rows; when every table is current and the
+queue is empty, it traverses no source rows and schedules no page worker. Dirty workers process at
+most 50 units per transaction, retain the unit if a transaction fails, and consume a missing source
+as a deletion tombstone.
 
-Before release, run `bun run test -- convex/crons.test.ts` for the exact local nine-job registry and
+After the dirty table and indexes are installed on an identified target, a first deployment or
+projection-version change still runs the serialized full repair. Do not interpret an empty search
+result as authoritative until all four readiness rows are current. An operator may request an
+explicit integrity repair with the internal `crm/listSearch:reconcileAll` entrypoint and
+`{ "force": true }`; this keeps the last complete publication readable while all four source tables
+are traversed in bounded pages. Ordinary cron calls omit `force`.
+
+Before release, run `bun run test -- convex/crons.test.ts` for the exact local eleven-job registry and
 IST boundary contract. Local serialization does not prove installation. After an authorized
 deployment, confirm the names, internal targets, arguments, and schedules in that deployment's
 Convex dashboard. Operators may then invoke the internal reconciliation entrypoints through the
@@ -59,6 +71,8 @@ pages abort.
 
 - List search fails closed while its table projection is not current and preserves the entered filter with actionable preparing copy.
 - The dashboard shows a persistent partial/stale notice until a complete current aggregate exists. It includes the last full completion when available.
+- List-search readiness exposes a privacy-safe dirty-queue signal and oldest pending timestamp, not
+  source IDs, row contents, or an unbounded count.
 - Readiness exposes only version, generation, completed sources/tables, timestamps, state, and a safe error summary. It never exposes row contents, secrets, or worker stack traces.
 - Bell unread state remains click-only and per staff identity. Role changes alter which exact target
   counters are summed without rewriting history, and auth relink continues to use the staff key.

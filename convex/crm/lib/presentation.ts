@@ -3,6 +3,7 @@ import { internal } from "../../_generated/api";
 import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import type { JobCardStatus } from "../jobCardConstants";
+import { markListSearchDirty } from "../listSearch";
 import type {
   ContractingStatus,
   QuerySourceOutput,
@@ -109,6 +110,7 @@ export async function deleteJobCardCascade(
       stage: "travellers",
     }),
   ]);
+  await markListSearchDirty(ctx, "jobCards", String(jobCardId));
   return operationId;
 }
 
