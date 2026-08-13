@@ -16,7 +16,6 @@
       "!citius-blog/dist",
       "!citius-blog/.next",
       "!diagrams/citius-runtime-trust-boundaries.svg",
-      "!src/components/portal/dashboard/dashboard-deslop.prototype.html",
       "!tools"
     ]
   },

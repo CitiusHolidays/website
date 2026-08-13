@@ -22,10 +22,13 @@ describe("Pipeline dnd-kit ownership", () => {
     expect(PIPELINE_SOURCE).not.toContain("CSS.Transform.toString(transform)");
   });
 
-  test("shares an interruptible layout identity when a card settles into a new stage", () => {
+  test("keeps interruptible settling for small boards and bounds it before full pages", () => {
     expect(PIPELINE_SOURCE).toContain("<LayoutGroup id=");
     expect(PIPELINE_SOURCE).toMatch(PIPELINE_LAYOUT_GROUP_PATTERN);
-    expect(PIPELINE_SOURCE).toContain("layoutId=");
+    expect(PIPELINE_SOURCE).toContain("PIPELINE_SHARED_LAYOUT_CARD_LIMIT = 40");
+    expect(PIPELINE_SOURCE).toContain("shouldUsePipelineSharedLayout(rows.length)");
+    expect(PIPELINE_SOURCE).toContain('data-pipeline-layout={sharedLayout ? "shared" : "bounded"}');
+    expect(PIPELINE_SOURCE).toContain("layout={sharedLayout}");
     expect(PIPELINE_SOURCE).toMatch(PIPELINE_LAYOUT_ID_PATTERN);
   });
 

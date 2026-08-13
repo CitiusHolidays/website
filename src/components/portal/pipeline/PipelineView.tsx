@@ -85,6 +85,12 @@ export interface MoveContractingPipelineStageArgs {
   targetStage: "Proposal sent";
 }
 
+const PIPELINE_SHARED_LAYOUT_CARD_LIMIT = 40;
+
+function shouldUsePipelineSharedLayout(cardCount: number) {
+  return cardCount > 0 && cardCount <= PIPELINE_SHARED_LAYOUT_CARD_LIMIT;
+}
+
 const PIPELINE_MODES = [
   ["sales", "Sales pipeline"],
   ["contracting", "Contracting pipeline"],
@@ -319,6 +325,7 @@ interface PipelineCardProps {
   item: PipelineRow;
   moveTargets: string[];
   onMove: (item: PipelineRow, targetStage: string) => Promise<void>;
+  sharedLayout: boolean;
   stage: string;
 }
 
@@ -333,7 +340,14 @@ function isPipelineDragActivatorEvent(event: { currentTarget: EventTarget; targe
   return !(interactiveTarget && interactiveTarget !== event.currentTarget);
 }
 
-function PipelineCard({ canMove, item, moveTargets, onMove, stage }: PipelineCardProps) {
+function PipelineCard({
+  canMove,
+  item,
+  moveTargets,
+  onMove,
+  sharedLayout,
+  stage,
+}: PipelineCardProps) {
   const label = item.clientName || "Unnamed client";
   const draggable = canMove && moveTargets.length > 0;
   const cardTransition = useMotionUITransition("ui");
@@ -376,9 +390,10 @@ function PipelineCard({ canMove, item, moveTargets, onMove, stage }: PipelineCar
       className={`rounded-xl border border-brand-border bg-brand-light p-3 ${
         draggable ? "cursor-grab active:cursor-grabbing" : ""
       }`}
-      layout
-      layoutId={`pipeline-card-${item.id}`}
-      transition={cardTransition}
+      data-pipeline-layout={sharedLayout ? "shared" : "bounded"}
+      layout={sharedLayout}
+      layoutId={sharedLayout ? `pipeline-card-${item.id}` : undefined}
+      transition={sharedLayout ? cardTransition : undefined}
     >
       <article
         {...(draggable ? { ...attributes, "aria-pressed": undefined } : {})}
@@ -496,6 +511,7 @@ export function PipelineView({
     canMoveContractingPipeline && moveContractingPipelineStage && mode === "contracting"
   );
   const moveEnabled = salesMoveEnabled || contractingMoveEnabled;
+  const sharedLayout = shouldUsePipelineSharedLayout(rows.length);
 
   const activeOptimisticStages = useMemo(() => {
     const active: Record<string, string> = {};
@@ -655,6 +671,7 @@ export function PipelineView({
                         key={item.id}
                         moveTargets={moveTargets}
                         onMove={handleMove}
+                        sharedLayout={sharedLayout}
                         stage={cardStage}
                       />
                     );

@@ -60,6 +60,7 @@ export function DashboardCollapsibleSection({
     <div className="space-y-5">
       {showWorkflow && departmentWorkflow?.length > 0 ? (
         <DashboardPanel
+          ariaLabel="Department workflow"
           title={
             <Button
               aria-controls={workflowPanelId}
@@ -96,6 +97,7 @@ export function DashboardCollapsibleSection({
       ) : null}
       {showTeam && myTeam?.length > 0 ? (
         <DashboardPanel
+          ariaLabel="My team"
           title={
             <Button
               aria-controls={teamPanelId}

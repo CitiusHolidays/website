@@ -197,7 +197,36 @@ async function cancelActiveDrag(card) {
   });
 }
 
+function boundedPipelineRows(count) {
+  return Array.from({ length: count }, (_, index) => ({
+    clientName: `Terminal Group ${index + 1}`,
+    id: `query-bound-${count}-${index}`,
+    leadStage: "Confirmation",
+    queryCode: `Q-${count}-${index}`,
+    salesStatus: "Order Confirmed",
+  }));
+}
+
+function expectBoundedLayout(view, count) {
+  expect(view.container.querySelectorAll('[data-pipeline-layout="bounded"]')).toHaveLength(count);
+  expect(view.container.querySelectorAll('[data-pipeline-layout="shared"]')).toHaveLength(0);
+}
+
 describe("mounted Sales Pipeline movement", () => {
+  test("bounds shared layout participation at realistic 50- and 100-card pages", async () => {
+    const fifty = await mount(async () => undefined, boundedPipelineRows(50));
+    expectBoundedLayout(fifty, 50);
+    await fifty.unmount();
+
+    const hundred = await mount(async () => undefined, boundedPipelineRows(100));
+    expectBoundedLayout(hundred, 100);
+    await hundred.unmount();
+
+    const small = await mount(async () => undefined);
+    expect(small.container.querySelectorAll('[data-pipeline-layout="shared"]')).toHaveLength(2);
+    await small.unmount();
+  });
+
   test("moves one adjacent stage by keyboard, never scales, drops once, and cancels", async () => {
     const proposalRow = {
       clientName: "Keyboard Group",
