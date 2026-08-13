@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { normalizeEmail } from "../crm/lib/staffAccess";
+import { refreshExistingSacredBharatLeaderboardSummaries } from "./sacredBharatLeaderboard";
 
 export interface AuthSyncInput {
   authUserId: string;
@@ -197,6 +198,11 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
       patch.emailNormalized = emailNormalized;
     }
     await retireMergedProfiles(ctx, profileByAuth, mergeCandidates, patch, now);
+    await refreshExistingSacredBharatLeaderboardSummaries(
+      ctx,
+      [authUserId, input.legacyAuthUserId],
+      now
+    );
 
     return { linkedStaff: false, profileId: profileByAuth._id };
   }
@@ -209,6 +215,11 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
       emailNormalized,
     } satisfies Partial<Doc<"userProfiles">>;
     await retireMergedProfiles(ctx, orphanedProfile, adoptableProfiles, patch, now);
+    await refreshExistingSacredBharatLeaderboardSummaries(
+      ctx,
+      [authUserId, input.legacyAuthUserId, orphanedProfile.authUserId],
+      now
+    );
 
     return { linkedStaff: false, profileId: orphanedProfile._id };
   }

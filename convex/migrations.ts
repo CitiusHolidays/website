@@ -10,6 +10,7 @@ import {
   resolveTravellerRoomFields,
 } from "./lib/roomTypes";
 import {
+  refreshExistingSacredBharatLeaderboardSummaries,
   refreshSacredBharatLeaderboardSummary,
   SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY,
 } from "./lib/sacredBharatLeaderboard";
@@ -653,9 +654,15 @@ export const importUsers = internalMutation({
 
         if (existing) {
           await ctx.db.patch("userProfiles", existing._id, payload);
+          await refreshExistingSacredBharatLeaderboardSummaries(
+            ctx,
+            [authUserId],
+            payload.updatedAt
+          );
           return "updated";
         }
         await ctx.db.insert("userProfiles", payload);
+        await refreshExistingSacredBharatLeaderboardSummaries(ctx, [authUserId], payload.updatedAt);
         return "imported";
       })
     );

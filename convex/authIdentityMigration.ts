@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { NOTIFICATION_UNREAD_READINESS_KEY } from "./crm/notificationUnreadProjection";
@@ -13,6 +14,7 @@ import {
   recordIdentityQuarantine,
   upsertBookingEntitlement,
 } from "./lib/customerIdentityAccess";
+import { sacredBharatLeaderboardRanks } from "./lib/sacredBharatLeaderboardRank";
 
 const MAX_PAGE_SIZE = 50;
 
@@ -241,6 +243,20 @@ async function processRow(
     return { converted: 0, quarantined: classified.convertible, remaining: classified.remaining };
   }
   await db.patch(spec.table, row._id, classified.patch);
+  if (spec.table === "sacredBharatLeaderboardSummaries") {
+    const updated = await ctx.db.get(
+      "sacredBharatLeaderboardSummaries",
+      row._id as Id<"sacredBharatLeaderboardSummaries">
+    );
+    if (!updated) {
+      throw new ConvexError("SACRED_BHARAT_RANK_PROJECTION_UPDATE_FAILED");
+    }
+    await sacredBharatLeaderboardRanks.replaceOrInsert(
+      ctx,
+      row as Doc<"sacredBharatLeaderboardSummaries">,
+      updated
+    );
+  }
   if (spec.table === "bookings" && typeof classified.patch.userId === "string") {
     await upsertBookingEntitlement(ctx, {
       authUserId: classified.patch.userId,

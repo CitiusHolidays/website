@@ -41,7 +41,8 @@ Sacred sites or trails marked for a future journey — planning intent, not a vi
 _Avoid_: Cart, saved trip, CRM query
 
 **Private Group**:
-Family or friends leaderboard scoped by invite code — not the national leaderboard.
+Family or friends leaderboard scoped by invite code — not the national leaderboard. Private groups
+are exact and capped at 100 members so their complete ranking remains bounded.
 _Avoid_: Team, CRM group, portal role group
 
 **Challenge**:

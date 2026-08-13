@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "149b9fa35818ff70c8b1c16cb9c945186f783e0848cee5bd957358c3bd319190";
+const EXPECTED_CAPABILITY_HASH = "79901039445ce1eab9cb7a5800d958485911199738951f6fd9662bda343172a2";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -342,6 +342,42 @@ describe("Convex capability inventory", () => {
         kind: "internalAction",
         module: "crm/leaveLapse",
         name: "processClSlLapsePage",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "sacredBharatGroupMembershipMigration",
+        name: "backfillGroupMemberCounts",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "sacredBharatGroupMembershipMigration",
+        name: "verifyGroupMemberCounts",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "sacredBharatGroupMembershipMigration",
+        name: "getGroupMemberCountMigrationStatus",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "sacredBharatLeaderboardRankMigration",
+        name: "backfillLeaderboardRanks",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "sacredBharatLeaderboardRankMigration",
+        name: "verifyLeaderboardRanks",
+      },
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "sacredBharatLeaderboardRankMigration",
+        name: "getLeaderboardRankMigrationStatus",
       },
     ] satisfies Capability[]) {
       expect(capabilities).toContainEqual(capability);

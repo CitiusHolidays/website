@@ -12,6 +12,7 @@ import {
   publicAccountId,
 } from "./lib/customerIdentityAccess";
 import { stableProfileTimestamps } from "./lib/profileFallback";
+import { refreshExistingSacredBharatLeaderboardSummaries } from "./lib/sacredBharatLeaderboard";
 import {
   nullablePublicUserProfileValidator,
   publicUserProfileValidator,
@@ -159,6 +160,11 @@ export const updateMyProfile = mutation({
       phoneNumber: args.phoneNumber ?? "",
       updatedAt,
     });
+    await refreshExistingSacredBharatLeaderboardSummaries(
+      ctx,
+      [authUserId, current.authUserId],
+      updatedAt
+    );
 
     return {
       createdAt: new Date(current.createdAt).toISOString(),

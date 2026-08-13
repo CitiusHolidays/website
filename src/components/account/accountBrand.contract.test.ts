@@ -84,6 +84,7 @@ describe("customer Account brand contract", () => {
   test("uses a top account header instead of a persistent desktop sidebar", () => {
     expect(accountSidebar).toContain("export function AccountHeader");
     expect(accountSidebar).toContain('aria-label="Account navigation"');
+    expect(accountUi).toContain("min-w-16 flex-1 flex-col justify-center gap-1 px-3 py-2 text-xs");
     expect(accountSidebar).toContain("md:grid-cols-[1fr_auto_1fr]");
     expect(accountSidebar).toContain('className="justify-self-end"');
     expect(accountSidebar).not.toContain("fixed inset-y-0 left-0");

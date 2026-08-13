@@ -293,6 +293,7 @@ describe("Account navigation", () => {
     const profileButton = [...container.querySelectorAll("button")].find((button) =>
       button.textContent.includes("Profile")
     );
+    expect(profileButton.className).toContain("text-xs");
     await act(async () => profileButton.click());
     expect(tabChanges).toEqual(["profile"]);
 

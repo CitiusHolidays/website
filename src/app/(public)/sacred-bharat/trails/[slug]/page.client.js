@@ -7,6 +7,7 @@ import GuestSaveBanner from "@/components/sacredBharat/GuestSaveBanner";
 import LevelBadge from "@/components/sacredBharat/LevelBadge";
 import { useSacredBharatContext } from "@/components/sacredBharat/SacredBharatProvider";
 import TempleChecklist from "@/components/sacredBharat/TempleChecklist";
+import TrailCompletionReveal from "@/components/sacredBharat/TrailCompletionReveal";
 import { REGION_LABELS, REGIONS } from "@/data/sacredBharat/regions";
 import { TEMPLES } from "@/data/sacredBharat/temples";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,11 @@ export default function TrailDetailClient({ trail }) {
                 style={{ width: `${trailProgress?.percent ?? 0}%` }}
               />
             </div>
+            <TrailCompletionReveal
+              badgeName={trail.badgeName}
+              complete={trailProgress?.complete === true}
+              completionBonus={trail.completionBonus}
+            />
           </m.div>
         </div>
       </section>

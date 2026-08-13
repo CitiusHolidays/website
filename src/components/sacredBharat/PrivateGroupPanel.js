@@ -14,6 +14,8 @@ export default function PrivateGroupPanel() {
   const [name, setName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [joinMessage, setJoinMessage] = useState("");
+  const updateGroupName = (event) => setName(event.target.value);
+  const updateInviteCode = (event) => setInviteCode(event.target.value);
 
   if (!isAuthenticated) {
     return (
@@ -43,6 +45,8 @@ export default function PrivateGroupPanel() {
       setJoinMessage("Too many attempts. Please wait a few minutes and try again.");
     } else if (result?.notFound) {
       setJoinMessage("That invite code is not available. Check the code and try again.");
+    } else if (result?.full) {
+      setJoinMessage(`That group has reached its ${result.memberLimit}-member limit.`);
     } else {
       setJoinMessage("");
     }
@@ -59,7 +63,7 @@ export default function PrivateGroupPanel() {
           <input
             aria-label="Group name"
             className="w-full rounded-md border border-brand-light px-3 py-2 font-sans text-sm"
-            onChange={(event) => setName(event.target.value)}
+            onChange={updateGroupName}
             placeholder="Group name"
             value={name}
           />
@@ -74,7 +78,7 @@ export default function PrivateGroupPanel() {
           <input
             aria-label="Invite code"
             className="w-full rounded-md border border-brand-light px-3 py-2 font-sans text-sm uppercase"
-            onChange={(event) => setInviteCode(event.target.value)}
+            onChange={updateInviteCode}
             placeholder="Invite code"
             value={inviteCode}
           />
@@ -99,7 +103,10 @@ export default function PrivateGroupPanel() {
             key={group.id}
           >
             <span>{group.name}</span>
-            <span className="text-brand-muted text-xs">{group.inviteCode}</span>
+            <span className="text-brand-muted text-xs">
+              {group.memberCount} {group.memberCount === 1 ? "member" : "members"} ·{" "}
+              {group.inviteCode}
+            </span>
           </Link>
         ))}
       </div>

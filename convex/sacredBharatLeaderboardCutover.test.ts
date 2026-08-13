@@ -1,11 +1,16 @@
 import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
 import { assertMatchesRegisteredReturnContract } from "./crm/validateReturnContract";
+import { sacredBharatLeaderboardRanks } from "./lib/sacredBharatLeaderboardRank";
 import {
   backfillSacredBharatLeaderboard,
   getSacredBharatLeaderboardMigrationStatus,
   verifySacredBharatLeaderboard,
 } from "./migrations";
-import { getLeaderboard } from "./sacredBharat";
+import { getLeaderboard, getMyLeaderboardRank } from "./sacredBharat";
+import {
+  backfillLeaderboardRanks,
+  verifyLeaderboardRanks,
+} from "./sacredBharatLeaderboardRankMigration";
 
 interface Row {
   _id: string;
@@ -16,32 +21,34 @@ function queryContext(initial: Record<string, Row[]>) {
   const tables = Object.fromEntries(
     Object.entries(initial).map(([table, rows]) => [table, rows.map((row) => ({ ...row }))])
   ) as Record<string, Row[]>;
+  const componentMutations: Record<string, unknown>[] = [];
   const ctx = {
     auth: { getUserIdentity: async () => null },
     db: {
-      get: async (_table: string, id: string) => {
+      get: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((candidate) => candidate._id === id);
           if (row) {
-            return row;
+            return Promise.resolve(row);
           }
         }
-        return null;
+        return Promise.resolve(null);
       },
-      insert: async (table: string, value: Record<string, unknown>) => {
+      insert: (table: string, value: Record<string, unknown>) => {
         const id = `${table}_${(tables[table]?.length ?? 0) + 1}`;
         tables[table] ||= [];
         tables[table].push({ _creationTime: Date.now(), _id: id, ...value });
-        return id;
+        return Promise.resolve(id);
       },
-      patch: async (_table: string, id: string, value: Record<string, unknown>) => {
+      patch: (_table: string, id: string, value: Record<string, unknown>) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((candidate) => candidate._id === id);
           if (row) {
             Object.assign(row, value);
-            return;
+            return Promise.resolve();
           }
         }
+        return Promise.resolve();
       },
       query: (table: string) => {
         let rows = [...(tables[table] ?? [])];
@@ -56,15 +63,15 @@ function queryContext(initial: Record<string, Row[]>) {
             });
             return builder;
           },
-          paginate: async ({ cursor, numItems }: { cursor: string | null; numItems: number }) => {
+          paginate: ({ cursor, numItems }: { cursor: string | null; numItems: number }) => {
             const start = cursor ? Number(cursor) : 0;
             const page = rows.slice(start, start + numItems);
             const next = start + page.length;
-            return {
+            return Promise.resolve({
               continueCursor: String(next),
               isDone: next >= rows.length,
               page,
-            };
+            });
           },
           take: async (limit: number) => rows.slice(0, limit),
           unique: async () => rows[0] ?? null,
@@ -88,8 +95,12 @@ function queryContext(initial: Record<string, Row[]>) {
         return builder;
       },
     },
+    runMutation: (_reference: unknown, args: Record<string, unknown>) => {
+      componentMutations.push(args);
+      return Promise.resolve(null);
+    },
   };
-  return { ctx, tables };
+  return { componentMutations, ctx, tables };
 }
 
 afterEach(() => {
@@ -204,7 +215,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
   test("persists backfill progress and verifies in a separate residual scan", async () => {
     setSystemTime(new Date("2026-08-05T12:00:00.000Z"));
     process.env.MIGRATION_SECRET = "migration-secret";
-    const { ctx, tables } = queryContext({
+    const { componentMutations, ctx, tables } = queryContext({
       dataMigrationRegistry: [],
       sacredBharatLeaderboardSummaries: [],
       sacredBharatProfiles: [],
@@ -237,6 +248,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     assertMatchesRegisteredReturnContract(backfillSacredBharatLeaderboard, firstBackfill);
     expect(firstBackfill).toMatchObject({ cursor: "1", stage: "backfill", status: "running" });
     expect(tables.sacredBharatLeaderboardSummaries).toHaveLength(1);
+    expect(componentMutations).toHaveLength(1);
 
     const secondBackfill = await (backfillSacredBharatLeaderboard as any)._handler(ctx, {
       limit: 1,
@@ -245,6 +257,7 @@ describe("Sacred Bharat leaderboard cutover", () => {
     assertMatchesRegisteredReturnContract(backfillSacredBharatLeaderboard, secondBackfill);
     expect(secondBackfill).toMatchObject({ cursor: null, stage: "verify", status: "running" });
     expect(tables.sacredBharatLeaderboardSummaries).toHaveLength(2);
+    expect(componentMutations).toHaveLength(2);
 
     const firstVerification = await (verifySacredBharatLeaderboard as any)._handler(ctx, {
       limit: 1,
@@ -321,5 +334,158 @@ describe("Sacred Bharat leaderboard cutover", () => {
     });
     const fallback = await (getLeaderboard as any)._handler(ctx, { limit: 50 });
     expect(fallback[0].displayName).toBe("Missing Yatri");
+  });
+
+  test("uses the verified rank projection for bounded top and exact current rank reads", async () => {
+    const summaries = [
+      {
+        _id: "summary_a",
+        authUserId: "auth_a",
+        completedTrailCount: 3,
+        displayName: "A Yatri",
+        levelSlug: "seeker",
+        levelTitle: "Seeker",
+        optedOut: false,
+        passportSlug: null,
+        score: 900,
+        templeCount: 9,
+        updatedAt: 1,
+      },
+      {
+        _id: "summary_b",
+        authUserId: "auth_b",
+        completedTrailCount: 2,
+        displayName: "B Yatri",
+        levelSlug: "seeker",
+        levelTitle: "Seeker",
+        optedOut: false,
+        passportSlug: "b-yatri",
+        score: 800,
+        templeCount: 8,
+        updatedAt: 1,
+      },
+    ];
+    const { ctx } = queryContext({
+      authIdentityLinks: [],
+      dataMigrationRegistry: [
+        {
+          _id: "rank_registry",
+          converted: 2,
+          cursor: null,
+          key: "sacred-bharat-leaderboard-rank-v1",
+          legacyRemaining: 0,
+          processed: 2,
+          stage: "complete",
+          startedAt: 1,
+          status: "verified",
+          updatedAt: 1,
+          verifiedAt: 1,
+        },
+      ],
+      sacredBharatLeaderboardSummaries: summaries,
+    });
+    ctx.auth.getUserIdentity = async () => ({ subject: "auth_b" });
+    const aggregate = sacredBharatLeaderboardRanks as any;
+    const original = {
+      count: aggregate.count,
+      indexOfDoc: aggregate.indexOfDoc,
+      paginate: aggregate.paginate,
+    };
+    aggregate.paginate = async (_ctx: unknown, options: { pageSize: number }) => ({
+      cursor: "done",
+      isDone: true,
+      page: summaries
+        .slice(0, options.pageSize)
+        .map((summary) => ({ id: summary._id, key: [], sumValue: 0 })),
+    });
+    aggregate.count = async () => summaries.length;
+    aggregate.indexOfDoc = async (_ctx: unknown, summary: Row) =>
+      summaries.findIndex((candidate) => candidate._id === summary._id);
+
+    try {
+      const leaderboard = await (getLeaderboard as any)._handler(ctx, { limit: 2 });
+      expect(leaderboard.map(({ displayName }: Row) => displayName)).toEqual([
+        "A Yatri",
+        "B Yatri",
+      ]);
+      const myRank = await (getMyLeaderboardRank as any)._handler(ctx, {});
+      expect(myRank).toMatchObject({ rank: 2, totalPlayers: 2 });
+    } finally {
+      Object.assign(aggregate, original);
+    }
+  });
+
+  test("backfills and independently verifies the ordered rank component", async () => {
+    process.env.MIGRATION_SECRET = "rank-secret";
+    const summaries = [
+      {
+        _id: "summary_visible",
+        authUserId: "auth_visible",
+        displayName: "Visible",
+        optedOut: false,
+        score: 100,
+        templeCount: 1,
+      },
+      {
+        _id: "summary_hidden",
+        authUserId: "auth_hidden",
+        displayName: "Hidden",
+        optedOut: true,
+        score: 200,
+        templeCount: 2,
+      },
+    ];
+    const { ctx, tables } = queryContext({
+      dataMigrationRegistry: [
+        {
+          _id: "summary_registry",
+          converted: 2,
+          cursor: null,
+          key: "sacred-bharat-leaderboard-v1",
+          legacyRemaining: 0,
+          processed: 2,
+          stage: "complete",
+          startedAt: 1,
+          status: "verified",
+          updatedAt: 1,
+          verifiedAt: 1,
+        },
+      ],
+      sacredBharatLeaderboardSummaries: summaries,
+    });
+    const aggregate = sacredBharatLeaderboardRanks as any;
+    const original = {
+      at: aggregate.at,
+      count: aggregate.count,
+      indexOfDoc: aggregate.indexOfDoc,
+      insertIfDoesNotExist: aggregate.insertIfDoesNotExist,
+    };
+    const byNamespace: Record<string, Row[]> = {
+      eligible: [summaries[0]],
+      hidden: [summaries[1]],
+    };
+    aggregate.insertIfDoesNotExist = async () => undefined;
+    aggregate.indexOfDoc = async () => 0;
+    aggregate.at = async (_ctx: unknown, offset: number, options: { namespace: string }) => ({
+      id: byNamespace[options.namespace][offset]._id,
+      key: [],
+      sumValue: 0,
+    });
+    aggregate.count = async (_ctx: unknown, options: { namespace: string }) =>
+      byNamespace[options.namespace].length;
+
+    try {
+      await expect(
+        (backfillLeaderboardRanks as any)._handler(ctx, { secret: "rank-secret" })
+      ).resolves.toMatchObject({ stage: "verify", status: "running" });
+      await expect(
+        (verifyLeaderboardRanks as any)._handler(ctx, { secret: "rank-secret" })
+      ).resolves.toMatchObject({ legacyRemaining: 0, stage: "complete", status: "verified" });
+      expect(
+        tables.dataMigrationRegistry.find((row) => row.key === "sacred-bharat-leaderboard-rank-v1")
+      ).toMatchObject({ legacyRemaining: 0, status: "verified" });
+    } finally {
+      Object.assign(aggregate, original);
+    }
   });
 });

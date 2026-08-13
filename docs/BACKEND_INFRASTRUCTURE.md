@@ -225,7 +225,10 @@ target-neutral, deployment, and authenticated-production evidence.
 
 ## Migration tooling
 
-Reviewed Convex migration and parity helpers live in `convex/migrations.ts`.
+Reviewed Convex migration and parity helpers live in `convex/migrations.ts` and focused migration
+modules such as `convex/sacredBharatGroupMembershipMigration.ts`.
+Sacred Bharat global ranks use the mounted `@convex-dev/aggregate` component and remain behind the
+independently verified cutover in `docs/migrations/sacred-bharat-leaderboard-ranks.md`.
 Active migration runbooks live under `docs/migrations/`, and Better Auth schema
 generation is exposed as `bun run auth:schema:generate`. The earlier local
 Postgres export/import scripts are no longer in this checkout; do not follow

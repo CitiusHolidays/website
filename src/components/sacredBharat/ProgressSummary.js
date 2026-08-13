@@ -63,7 +63,7 @@ export default function ProgressSummary() {
             <p className="font-heading text-2xl text-brand-dark tabular-nums">{value}</p>
             <p className="mt-1 font-sans text-brand-muted text-sm">{label}</p>
             {hint ? (
-              <p className="mt-2 font-sans text-[11px] text-brand-muted leading-snug">{hint}</p>
+              <p className="mt-2 font-sans text-brand-muted text-xs leading-snug">{hint}</p>
             ) : null}
           </div>
         ))}

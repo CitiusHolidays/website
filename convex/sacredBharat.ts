@@ -7,6 +7,12 @@ import {
   ensureCanonicalIdentityLink,
 } from "./lib/customerIdentityAccess";
 import { resolveCanonicalTempleId } from "./lib/sacredBharatAliases";
+import {
+  groupCountProjectionIsVerified,
+  MAX_SACRED_BHARAT_GROUP_MEMBERS,
+  readBoundedGroupMemberCount,
+  verifiedGroupMemberCount,
+} from "./lib/sacredBharatGroups";
 import { applyGuestProgressMerge } from "./lib/sacredBharatGuestMerge";
 import {
   consumeInviteAttempt,
@@ -18,6 +24,12 @@ import {
   refreshSacredBharatLeaderboardSummary,
   SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY,
 } from "./lib/sacredBharatLeaderboard";
+import {
+  compareLeaderboardRows,
+  leaderboardRankProjectionIsVerified,
+  leaderboardSummaryIsEligible,
+  sacredBharatLeaderboardRanks,
+} from "./lib/sacredBharatLeaderboardRank";
 import {
   computeProgressSummary,
   computeScore,
@@ -526,15 +538,11 @@ async function buildLeaderboardEntries(ctx: QueryCtx) {
       score: entry.score,
       templeCount: entry.templeCount,
     }));
-  const sortEntries = <T extends { displayName: string; score: number; templeCount: number }>(
+  const sortEntries = <
+    T extends { authUserId: string; displayName: string; score: number; templeCount: number },
+  >(
     rowsToSort: T[]
-  ) =>
-    rowsToSort.sort(
-      (a, b) =>
-        b.score - a.score ||
-        b.templeCount - a.templeCount ||
-        a.displayName.localeCompare(b.displayName)
-    );
+  ) => rowsToSort.sort(compareLeaderboardRows);
   if (
     readiness?.status === "verified" &&
     readiness.stage === "complete" &&
@@ -601,12 +609,87 @@ async function buildLeaderboardEntries(ctx: QueryCtx) {
   return sortEntries([...merged.values()]);
 }
 
+function leaderboardEntryFromSummary(summary: Doc<"sacredBharatLeaderboardSummaries">) {
+  return {
+    authUserId: summary.authUserId,
+    completedTrailCount: summary.completedTrailCount,
+    displayName: summary.displayName,
+    levelSlug: summary.levelSlug,
+    levelTitle: summary.levelTitle,
+    passportSlug: summary.passportSlug,
+    score: summary.score,
+    templeCount: summary.templeCount,
+  };
+}
+
+async function buildRankProjectionSnapshot(
+  ctx: QueryCtx,
+  limit: number,
+  identityIds: string[] = []
+) {
+  const [{ page }, totalPlayers, identitySummaries] = await Promise.all([
+    sacredBharatLeaderboardRanks.paginate(ctx, {
+      namespace: "eligible",
+      order: "asc",
+      pageSize: limit,
+    }),
+    sacredBharatLeaderboardRanks.count(ctx, { namespace: "eligible" }),
+    Promise.all(
+      identityIds.map((authUserId) =>
+        ctx.db
+          .query("sacredBharatLeaderboardSummaries")
+          .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+          .unique()
+      )
+    ),
+  ]);
+  const summaries = await Promise.all(
+    page.map((item) => ctx.db.get("sacredBharatLeaderboardSummaries", item.id))
+  );
+  if (
+    summaries.some((summary) => !(summary && leaderboardSummaryIsEligible(summary))) ||
+    summaries.length !== Math.min(limit, totalPlayers)
+  ) {
+    throw new ConvexError("SACRED_BHARAT_RANK_PROJECTION_DRIFT");
+  }
+  const top = summaries.map((summary) =>
+    leaderboardEntryFromSummary(summary as Doc<"sacredBharatLeaderboardSummaries">)
+  );
+  const rankCandidates = await Promise.all(
+    identitySummaries
+      .filter(
+        (summary): summary is Doc<"sacredBharatLeaderboardSummaries"> =>
+          summary !== null && leaderboardSummaryIsEligible(summary)
+      )
+      .map(async (summary) => ({
+        rank: (await sacredBharatLeaderboardRanks.indexOfDoc(ctx, summary)) + 1,
+        summary,
+      }))
+  );
+  rankCandidates.sort((left, right) => left.rank - right.rank);
+  return { current: rankCandidates[0] ?? null, top, totalPlayers };
+}
+
+async function rankedLeaderboardSnapshot(ctx: QueryCtx, limit: number, identityIds: string[] = []) {
+  if (await leaderboardRankProjectionIsVerified(ctx)) {
+    return await buildRankProjectionSnapshot(ctx, limit, identityIds);
+  }
+  const entries = await buildLeaderboardEntries(ctx);
+  const identityIdSet = new Set(identityIds);
+  const index = entries.findIndex((candidate) => identityIdSet.has(candidate.authUserId));
+  return {
+    current: index >= 0 ? { rank: index + 1, summary: entries[index] } : null,
+    top: entries.slice(0, limit),
+    totalPlayers: entries.length,
+  };
+}
+
 export const getLeaderboard = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
-    const entries = await buildLeaderboardEntries(ctx);
-    return entries.slice(0, limit).map((entry, index) => ({
+    const snapshot = await rankedLeaderboardSnapshot(ctx, limit);
+    return snapshot.top.map((entry, index) => ({
       completedTrailCount: entry.completedTrailCount,
       displayName: entry.displayName,
       isCurrentUser: false,
@@ -628,9 +711,9 @@ export const getLeaderboardWithMe = query({
     const identityIds = identity ? await readIdentityIds(ctx, identity) : [];
     const identityIdSet = new Set(identityIds);
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
-    const entries = await buildLeaderboardEntries(ctx);
+    const snapshot = await rankedLeaderboardSnapshot(ctx, limit, identityIds);
 
-    const top = entries.slice(0, limit).map((entry, index) => ({
+    const top = snapshot.top.map((entry, index) => ({
       completedTrailCount: entry.completedTrailCount,
       displayName: entry.displayName,
       isCurrentUser: identityIdSet.has(entry.authUserId),
@@ -650,20 +733,19 @@ export const getLeaderboardWithMe = query({
       score: number;
       totalPlayers: number;
     } | null = null;
-    if (identity) {
-      const idx = entries.findIndex((candidate) => identityIdSet.has(candidate.authUserId));
-      if (idx >= 0) {
-        const currentEntry = entries[idx];
-        myRank = {
-          displayName: currentEntry.displayName,
-          levelTitle: currentEntry.levelTitle,
-          percentile:
-            entries.length <= 1 ? 100 : Math.round(((entries.length - idx) / entries.length) * 100),
-          rank: idx + 1,
-          score: currentEntry.score,
-          totalPlayers: entries.length,
-        };
-      }
+    if (identity && snapshot.current) {
+      const { rank, summary: currentEntry } = snapshot.current;
+      myRank = {
+        displayName: currentEntry.displayName,
+        levelTitle: currentEntry.levelTitle,
+        percentile:
+          snapshot.totalPlayers <= 1
+            ? 100
+            : Math.round(((snapshot.totalPlayers - rank + 1) / snapshot.totalPlayers) * 100),
+        rank,
+        score: currentEntry.score,
+        totalPlayers: snapshot.totalPlayers,
+      };
     }
 
     return { entries: top, myRank };
@@ -680,23 +762,23 @@ export const getMyLeaderboardRank = query({
     }
 
     const identityIds = await readIdentityIds(ctx, identity);
-    const identityIdSet = new Set(identityIds);
-    const entries = await buildLeaderboardEntries(ctx);
-    const idx = entries.findIndex((candidate) => identityIdSet.has(candidate.authUserId));
-    if (idx < 0) {
+    const snapshot = await rankedLeaderboardSnapshot(ctx, 1, identityIds);
+    if (!snapshot.current) {
       return null;
     }
 
-    const entry = entries[idx];
+    const { rank, summary: entry } = snapshot.current;
     return {
       displayName: entry.displayName,
       levelTitle: entry.levelTitle,
       passportSlug: entry.passportSlug,
       percentile:
-        entries.length <= 1 ? 100 : Math.round(((entries.length - idx) / entries.length) * 100),
-      rank: idx + 1,
+        snapshot.totalPlayers <= 1
+          ? 100
+          : Math.round(((snapshot.totalPlayers - rank + 1) / snapshot.totalPlayers) * 100),
+      rank,
       score: entry.score,
-      totalPlayers: entries.length,
+      totalPlayers: snapshot.totalPlayers,
     };
   },
   returns: myLeaderboardRankResultValidator,
@@ -794,6 +876,7 @@ export const createGroup = mutation({
       createdAt: timestamp,
       inviteCode,
       isArchived: false,
+      memberCount: 1,
       name: args.name.trim() || "Sacred Bharat Group",
       ownerAuthUserId: authUserId,
       updatedAt: timestamp,
@@ -904,11 +987,19 @@ export const joinGroupByInviteCode = mutation({
       )
     ).find(Boolean);
     if (!existing) {
+      const memberCount = await readBoundedGroupMemberCount(ctx, group._id);
+      if (memberCount >= MAX_SACRED_BHARAT_GROUP_MEMBERS) {
+        return { full: true as const, memberLimit: MAX_SACRED_BHARAT_GROUP_MEMBERS };
+      }
       await ctx.db.insert("sacredBharatGroupMembers", {
         authUserId,
         groupId: group._id,
         joinedAt: now(),
         role: "member",
+      });
+      await ctx.db.patch("sacredBharatGroups", group._id, {
+        memberCount: memberCount + 1,
+        updatedAt: now(),
       });
     }
     return { id: group._id };
@@ -924,6 +1015,7 @@ export const listMyGroups = query({
       return [];
     }
     const identityIds = await readIdentityIds(ctx, identity);
+    const countProjectionIsVerified = await groupCountProjectionIsVerified(ctx);
     const memberships = (
       await Promise.all(
         identityIds.map((identityId) =>
@@ -942,19 +1034,30 @@ export const listMyGroups = query({
     const groups = await Promise.all(
       memberships.map((membership) => ctx.db.get("sacredBharatGroups", membership.groupId))
     );
-    return groups.flatMap((group, index) =>
-      group && !group.isArchived
+    const memberCounts = await Promise.all(
+      groups.map(async (group) => {
+        if (!group || group.isArchived) {
+          return null;
+        }
+        return countProjectionIsVerified
+          ? verifiedGroupMemberCount(group)
+          : await readBoundedGroupMemberCount(ctx, group._id);
+      })
+    );
+    return groups.flatMap((group, index) => {
+      const memberCount = memberCounts[index];
+      return group && !group.isArchived && memberCount !== null
         ? [
             {
               id: group._id,
               inviteCode: group.inviteCode,
-              memberCount: memberships.length,
+              memberCount,
               name: group.name,
               role: memberships[index].role,
             },
           ]
-        : []
-    );
+        : [];
+    });
   },
   returns: myGroupsResultValidator,
 });
@@ -978,12 +1081,21 @@ export const getGroupLeaderboard = query({
       ctx.db
         .query("sacredBharatGroupMembers")
         .withIndex("by_groupId", (q) => q.eq("groupId", groupId))
-        .collect(),
+        .take(MAX_SACRED_BHARAT_GROUP_MEMBERS + 1),
     ]);
+    if (members.length > MAX_SACRED_BHARAT_GROUP_MEMBERS) {
+      throw new ConvexError("GROUP_MEMBER_LIMIT_REPAIR_REQUIRED");
+    }
     const summaries = await Promise.all(
       members.map((member) => buildGroupMemberSummary(ctx, member.authUserId))
     );
-    summaries.sort((a, b) => b.score - a.score || b.templeCount - a.templeCount);
+    summaries.sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.templeCount - a.templeCount ||
+        a.displayName.localeCompare(b.displayName) ||
+        a.authUserId.localeCompare(b.authUserId)
+    );
     return {
       entries: summaries.map((summary, index) => ({
         rank: index + 1,
@@ -993,6 +1105,7 @@ export const getGroupLeaderboard = query({
       group: {
         id: group._id,
         inviteCode: group.inviteCode,
+        memberCount: members.length,
         name: group.name,
         role: membership.role,
       },
@@ -1052,7 +1165,12 @@ export const leaveGroup = mutation({
     if (membership.role === "owner") {
       throw new ConvexError("Archive the group before leaving as owner");
     }
+    const memberCount = await readBoundedGroupMemberCount(ctx, groupId);
     await ctx.db.delete("sacredBharatGroupMembers", membership._id);
+    await ctx.db.patch("sacredBharatGroups", groupId, {
+      memberCount: Math.max(0, memberCount - 1),
+      updatedAt: now(),
+    });
     return { id: groupId };
   },
   returns: groupIdResultValidator,
@@ -1069,23 +1187,18 @@ export const getPublicPassportBySlug = query({
     if (!passport?.isPublic) {
       return null;
     }
-    const [progress, wishlist, leaderboardEntries, profile] = await Promise.all([
+    const [progress, wishlist, leaderboardSnapshot] = await Promise.all([
       buildProgressPayload(ctx, passport.authUserId),
       getWishlistForUser(ctx, passport.authUserId),
-      buildLeaderboardEntries(ctx),
-      ctx.db
-        .query("userProfiles")
-        .withIndex("by_authUserId", (q) => q.eq("authUserId", passport.authUserId))
-        .unique(),
+      rankedLeaderboardSnapshot(ctx, 1, [passport.authUserId]),
     ]);
-    const leaderboardIndex = profile?.sacredBharatLeaderboardOptOut
-      ? -1
-      : leaderboardEntries.findIndex((entry) => entry.authUserId === passport.authUserId);
     return {
-      leaderboardRank:
-        leaderboardIndex >= 0
-          ? { rank: leaderboardIndex + 1, totalPlayers: leaderboardEntries.length }
-          : null,
+      leaderboardRank: leaderboardSnapshot.current
+        ? {
+            rank: leaderboardSnapshot.current.rank,
+            totalPlayers: leaderboardSnapshot.totalPlayers,
+          }
+        : null,
       profile: {
         bio: passport.bio ?? "",
         displayName: passport.displayName,

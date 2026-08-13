@@ -90,6 +90,9 @@ describe("application UI primitives", () => {
         </Field>
         <Input aria-label="Departure date" surface="staff" type="date" />
         <Input aria-label="Passport file" surface="staff" type="file" />
+        <Field label="Account name" surface="account">
+          <Input aria-label="Account name" surface="account" />
+        </Field>
         <Textarea aria-label="Profile note" surface="account" />
       </div>
     );
@@ -103,6 +106,10 @@ describe("application UI primitives", () => {
     expect(view.container.textContent).toContain("Traveller name");
     expect(view.container.textContent).toContain("required");
     expect(view.container.querySelector('[role="alert"]')?.textContent).toBe("Name is required.");
+    const accountLabel = [...view.container.querySelectorAll("label")].find((label) =>
+      label.textContent?.includes("Account name")
+    );
+    expect(accountLabel?.className).toContain("text-xs");
     expect(view.container.querySelector("textarea")?.className).toContain("account-focus");
 
     await view.unmount();

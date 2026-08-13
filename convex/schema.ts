@@ -1981,6 +1981,8 @@ export default defineSchema({
     createdAt: v.number(),
     inviteCode: v.string(),
     isArchived: v.boolean(),
+    // Optional while sacred-bharat-group-count-v1 is backfilled and verified.
+    memberCount: v.optional(v.number()),
     name: v.string(),
     ownerAuthUserId: v.string(),
     updatedAt: v.number(),

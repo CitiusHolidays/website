@@ -621,7 +621,7 @@ export function ProfileInput({
 export function ProfileField({ label, value }) {
   return (
     <div>
-      <p className="mb-1 block font-semibold text-[10px] text-[var(--account-muted)] uppercase tracking-[0.14em]">
+      <p className="mb-1 block font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.1em]">
         {label}
       </p>
       <div className="border-[var(--account-border)] border-b pb-2 font-medium text-[var(--account-ink)]">

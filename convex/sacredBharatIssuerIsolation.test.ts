@@ -16,6 +16,7 @@ function makeContext(tokenIdentifier: string) {
         status: "linked",
       },
     ],
+    dataMigrationRegistry: [],
     sacredBharatGroupMembers: [
       {
         _id: "member_legacy",
@@ -68,6 +69,7 @@ function makeContext(tokenIdentifier: string) {
         const builder = {
           collect: async () => rows,
           take: async (limit: number) => rows.slice(0, limit),
+          unique: async () => rows[0] ?? null,
           withIndex: (_index: string, callback: (range: any) => unknown) => {
             const filters: [string, unknown][] = [];
             const range = {

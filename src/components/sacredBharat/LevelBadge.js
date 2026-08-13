@@ -7,7 +7,7 @@ export default function LevelBadge({ level, score, size = "md" }) {
     <div
       className={`material-decorative-glass inline-flex flex-col items-start rounded-full border border-citius-blue/20 bg-white/80 backdrop-blur-sm ${sizeClasses}`}
     >
-      <span className="font-heading text-[10px] text-public-orange-ink uppercase tabular-nums tracking-[0.15em]">
+      <span className="font-heading text-public-orange-ink text-xs uppercase tabular-nums tracking-[0.12em]">
         {score} pts
       </span>
       <span className="font-heading font-medium text-citius-blue leading-tight">

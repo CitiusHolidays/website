@@ -19,7 +19,7 @@ const labelVariants = cva("mb-1 block font-semibold", {
   defaultVariants: { surface: "staff" },
   variants: {
     surface: {
-      account: "text-[10px] text-[var(--account-muted)] uppercase tracking-[0.14em]",
+      account: "text-[var(--account-muted)] text-xs uppercase tracking-[0.1em]",
       staff: "text-brand-muted text-xs",
     },
   },

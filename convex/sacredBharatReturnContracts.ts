@@ -97,7 +97,8 @@ export const groupJoinResultValidator = v.union(
     rateLimited: v.literal(true),
     retryAfterMs: v.number(),
   }),
-  v.object({ notFound: v.literal(true) })
+  v.object({ notFound: v.literal(true) }),
+  v.object({ full: v.literal(true), memberLimit: v.number() })
 );
 const groupRoleValidator = v.union(v.literal("owner"), v.literal("member"));
 export const myGroupsResultValidator = v.array(
@@ -126,6 +127,7 @@ export const groupLeaderboardResultValidator = v.object({
   group: v.object({
     id: v.id("sacredBharatGroups"),
     inviteCode: v.string(),
+    memberCount: v.number(),
     name: v.string(),
     role: groupRoleValidator,
   }),

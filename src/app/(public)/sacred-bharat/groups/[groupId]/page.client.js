@@ -15,6 +15,7 @@ export default function SacredBharatGroupPageClient({ groupId }) {
             <section className="rounded-lg border border-brand-light bg-white p-5">
               <h1 className="font-heading text-2xl text-brand-dark">{data.group.name}</h1>
               <p className="mt-1 font-sans text-brand-muted text-sm">
+                {data.group.memberCount} {data.group.memberCount === 1 ? "member" : "members"} ·
                 Invite code: <span className="font-semibold">{data.group.inviteCode}</span>
               </p>
             </section>

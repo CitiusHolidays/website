@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { GuestMergeStatus } from "./GuestSaveBanner";
+import { GuestMergeStatus, guestMergeStatusMotion } from "./GuestSaveBanner";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/sacred-bharat",
@@ -16,6 +16,16 @@ beforeAll(() => {
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
   globalThis.MouseEvent = dom.window.MouseEvent;
+  const matchMedia = (query) => ({
+    addEventListener: () => undefined,
+    addListener: () => undefined,
+    matches: false,
+    media: String(query),
+    removeEventListener: () => undefined,
+    removeListener: () => undefined,
+  });
+  globalThis.matchMedia = matchMedia;
+  dom.window.matchMedia = matchMedia;
 });
 
 afterAll(() => dom.window.close());
@@ -24,22 +34,32 @@ async function mountStatus(props) {
   const container = document.createElement("div");
   const root = createRoot(container);
   await act(async () => root.render(<GuestMergeStatus {...props} />));
-  return { container, unmount: async () => act(async () => root.unmount()) };
+  return {
+    container,
+    rerender: async (nextProps) =>
+      act(async () => root.render(<GuestMergeStatus {...nextProps} />)),
+    unmount: async () => act(async () => root.unmount()),
+  };
 }
 
 describe("mounted Sacred Bharat guest merge status", () => {
   test("announces syncing and success without exposing identifiers", async () => {
-    const syncing = await mountStatus({ mergeStatus: "syncing" });
+    const syncing = await mountStatus({ hasGuestDraft: true, mergeStatus: "syncing" });
     expect(syncing.container.querySelector('[role="status"]')?.getAttribute("aria-busy")).toBe(
       "true"
     );
     expect(syncing.container.textContent).toContain("Saving your local pilgrimage");
     expect(syncing.container.textContent).not.toContain("authUserId");
-    await syncing.unmount();
+    const liveRegion = syncing.container.querySelector('[role="status"]');
 
-    const success = await mountStatus({ mergeStatus: "success" });
-    expect(success.container.textContent).toContain("saved to your account");
-    await success.unmount();
+    await syncing.rerender({ hasGuestDraft: true, mergeStatus: "success" });
+    expect(syncing.container.textContent).toContain("saved to your account");
+    expect(syncing.container.querySelector('[role="status"]')).toBe(liveRegion);
+
+    const visualState = liveRegion?.firstElementChild;
+    await syncing.rerender({ hasGuestDraft: true, mergeStatus: "success" });
+    expect(liveRegion?.firstElementChild).toBe(visualState);
+    await syncing.unmount();
   });
 
   test("shows a keyboard-native retry after failure", async () => {
@@ -59,5 +79,12 @@ describe("mounted Sacred Bharat guest merge status", () => {
     expect(retries).toBe(1);
     expect(view.container.textContent).not.toContain("private server detail");
     await view.unmount();
+  });
+
+  test("uses opacity-only motion when reduced motion is requested", () => {
+    const reduced = guestMergeStatusMotion(true);
+    expect(reduced.initial.y).toBe(0);
+    expect(reduced.exit.y).toBe(0);
+    expect(reduced.transition.duration).toBe(0.21);
   });
 });

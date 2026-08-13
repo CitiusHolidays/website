@@ -74,6 +74,8 @@ provider or production proof.
 - [Query lead-stage Closed-to-Lost migration](migrations/query-lead-stage-closed-to-lost.md).
 - [Passenger import receipt positions](migrations/passenger-import-receipt-positions.md).
 - [Auth identity ownership migration](migrations/auth-identity-ownership.md).
+- [Sacred Bharat private-group counts](migrations/sacred-bharat-group-counts.md).
+- [Sacred Bharat ordered leaderboard ranks](migrations/sacred-bharat-leaderboard-ranks.md).
 - [Import validator migration](IMPORT_VALIDATOR_MIGRATION.md).
 
 ## Architecture decisions

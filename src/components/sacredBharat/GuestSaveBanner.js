@@ -1,16 +1,29 @@
 "use client";
 
 import { CloudCheck, LoaderCircle, LogIn, RotateCcw, Trophy } from "lucide-react";
+import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useSacredBharatContext } from "./SacredBharatProvider";
 
+export function guestMergeStatusMotion(shouldReduceMotion) {
+  return {
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: shouldReduceMotion ? 0 : -3 },
+    initial: { opacity: 0, y: shouldReduceMotion ? 0 : 3 },
+    transition: { duration: 0.21, ease: [0.22, 1, 0.36, 1] },
+  };
+}
+
 export function GuestMergeStatus({ className = "", hasGuestDraft, mergeStatus, retryGuestMerge }) {
+  const shouldReduceMotion = !!useReducedMotion();
   if (mergeStatus === "idle") {
     return null;
   }
   const failed = mergeStatus === "error";
+  const motion = guestMergeStatusMotion(shouldReduceMotion);
   return (
     <div
+      aria-atomic="true"
       aria-busy={mergeStatus === "syncing"}
       aria-live="polite"
       className={`rounded-2xl border px-5 py-4 font-sans text-sm ${
@@ -20,31 +33,44 @@ export function GuestMergeStatus({ className = "", hasGuestDraft, mergeStatus, r
       } ${className}`}
       role={failed ? "alert" : "status"}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          {mergeStatus === "syncing" ? (
-            <LoaderCircle aria-hidden="true" className="animate-spin text-citius-blue" size={18} />
-          ) : (
-            <CloudCheck aria-hidden="true" className="text-citius-blue" size={18} />
-          )}
-          <p>
-            {mergeStatus === "syncing" && "Saving your local pilgrimage to your account…"}
-            {mergeStatus === "success" && "Your local pilgrimage is saved to your account."}
-            {failed &&
-              "We could not save your local pilgrimage. Your local copy is safe; try again when you are connected."}
-          </p>
-        </div>
-        {failed && hasGuestDraft ? (
-          <button
-            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-citius-blue px-5 py-2.5 font-medium text-sm text-white hover:bg-citius-blue/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
-            onClick={retryGuestMerge}
-            type="button"
-          >
-            <RotateCcw aria-hidden="true" size={16} />
-            Retry saving
-          </button>
-        ) : null}
-      </div>
+      <AnimatePresence initial={false}>
+        <m.div
+          animate={motion.animate}
+          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+          exit={motion.exit}
+          initial={motion.initial}
+          key={mergeStatus}
+          transition={motion.transition}
+        >
+          <div className="flex items-center gap-3">
+            {mergeStatus === "syncing" ? (
+              <LoaderCircle
+                aria-hidden="true"
+                className="animate-spin text-citius-blue"
+                size={18}
+              />
+            ) : (
+              <CloudCheck aria-hidden="true" className="text-citius-blue" size={18} />
+            )}
+            <p>
+              {mergeStatus === "syncing" && "Saving your local pilgrimage to your account…"}
+              {mergeStatus === "success" && "Your local pilgrimage is saved to your account."}
+              {failed &&
+                "We could not save your local pilgrimage. Your local copy is safe; try again when you are connected."}
+            </p>
+          </div>
+          {failed && hasGuestDraft ? (
+            <button
+              className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-citius-blue px-5 py-2.5 font-medium text-sm text-white hover:bg-citius-blue/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
+              onClick={retryGuestMerge}
+              type="button"
+            >
+              <RotateCcw aria-hidden="true" size={16} />
+              Retry saving
+            </button>
+          ) : null}
+        </m.div>
+      </AnimatePresence>
     </div>
   );
 }

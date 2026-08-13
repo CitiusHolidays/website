@@ -59,6 +59,7 @@ function makeCtx() {
         let rows = tables[table] ?? [];
         const builder = {
           first: async () => rows[0] ?? null,
+          take: async (limit: number) => rows.slice(0, limit),
           unique: async () => rows[0] ?? null,
           withIndex: (_name: string, callback: (query: any) => unknown) => {
             const filters: Array<{ field: string; value: unknown }> = [];

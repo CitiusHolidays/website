@@ -3,6 +3,7 @@ import { syncAuthRecords } from "./authSync";
 
 function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, any>[] = []) {
   const tables: Record<string, Record<string, any>[]> = {
+    sacredBharatLeaderboardSummaries: [],
     staffUsers: staffRows,
     userProfiles: profileRows,
   };
