@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { resolveAuthOrigin } from "@convex/lib/authOriginPolicy";
 import { convexBetterAuthNextJs } from "@convex-dev/better-auth/nextjs";
 import { fetchAction, fetchMutation, fetchQuery } from "convex/nextjs";
 import { anyApi } from "convex/server";
@@ -87,30 +88,14 @@ const betterAuth = convexBetterAuthNextJs({
 export const { handler, preloadAuthQuery } = betterAuth;
 
 export function resolveTrustedAppOrigin(env = process.env) {
-  const configuredUrl = env.BETTER_AUTH_URL ?? env.SITE_URL ?? env.NEXT_PUBLIC_APP_URL;
-  if (!configuredUrl) {
-    if (env.NODE_ENV === "production") {
-      throw configurationError("Configure a trusted application origin for server authentication");
-    }
-    return "http://localhost:3000";
-  }
-  let parsed;
   try {
-    parsed = new URL(configuredUrl);
-  } catch (cause) {
+    return resolveAuthOrigin(env);
+  } catch {
+    // biome-ignore lint/style/useErrorCause: authentication configuration errors must not retain raw environment values.
     throw configurationError(
-      "Configure a valid trusted application origin for server authentication",
-      {
-        cause,
-      }
+      "Configure a valid trusted application origin for server authentication"
     );
   }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw configurationError(
-      "Configure an HTTP(S) trusted application origin for server authentication"
-    );
-  }
-  return parsed.origin;
 }
 
 function authenticationCookieHeader(cookieHeader) {

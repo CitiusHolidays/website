@@ -24,6 +24,7 @@ const SPAM_KEYWORDS = [
 ];
 
 const URL_PATTERN = /https?:\/\/|www\./gi;
+const NUMERIC_EMAIL_LOCAL_PART_PATTERN = /^\d{8,}$/;
 const SPAM_KEYWORD_PATTERN = new RegExp(
   SPAM_KEYWORDS.map((keyword) => keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"),
   "i"
@@ -65,16 +66,9 @@ export function isAllowedSiteOrigin(request) {
     return true;
   }
 
-  const siteUrl =
-    process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL;
-
-  if (!siteUrl) {
-    return false;
-  }
-
   let allowedOrigin;
   try {
-    allowedOrigin = new URL(siteUrl).origin;
+    allowedOrigin = resolveAuthOrigin(process.env);
   } catch {
     return false;
   }
@@ -137,9 +131,11 @@ export function detectSpamContent({ name, email, subject, message }) {
   }
 
   const localPart = email.split("@")[0] || "";
-  if (/^\d{8,}$/.test(localPart)) {
+  if (NUMERIC_EMAIL_LOCAL_PART_PATTERN.test(localPart)) {
     return { reason: "numeric_email", spam: true };
   }
 
   return { spam: false };
 }
+
+import { resolveAuthOrigin } from "@convex/lib/authOriginPolicy";

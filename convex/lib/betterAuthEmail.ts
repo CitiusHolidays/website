@@ -5,9 +5,10 @@ import {
   createAuthEmailCorrelation,
   getAuthEmailDeliveryOutcome,
 } from "./authEmailDelivery";
+import { resolveAuthOrigin } from "./authOriginPolicy";
 
 function getSiteUrl() {
-  return process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  return resolveAuthOrigin(process.env);
 }
 
 function outcomeReason(

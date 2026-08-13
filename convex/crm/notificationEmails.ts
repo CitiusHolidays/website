@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { Resend } from "resend";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
+import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import { AUTH_EMAIL_FROM } from "../lib/emailConfig";
 import {
   LEGACY_RESEND_ENV_NAME,
@@ -38,12 +39,7 @@ function safeErrorCode(error: unknown) {
 }
 
 function siteUrl() {
-  return (
-    process.env.SITE_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    "http://localhost:3000"
-  ).replace(TRAILING_SLASH_RE, "");
+  return resolveAuthOrigin(process.env).replace(TRAILING_SLASH_RE, "");
 }
 
 function escapeHtml(value: string) {

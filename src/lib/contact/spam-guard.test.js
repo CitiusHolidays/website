@@ -18,6 +18,7 @@ function makeRequest(headers = {}) {
 
 describe("isAllowedSiteOrigin", () => {
   let prevNodeEnv;
+  let prevBetterAuthUrl;
   let prevSiteUrl;
   let prevPublicSiteUrl;
   let prevPublicAppUrl;
@@ -27,6 +28,11 @@ describe("isAllowedSiteOrigin", () => {
       delete process.env.NODE_ENV;
     } else {
       process.env.NODE_ENV = prevNodeEnv;
+    }
+    if (prevBetterAuthUrl === undefined) {
+      delete process.env.BETTER_AUTH_URL;
+    } else {
+      process.env.BETTER_AUTH_URL = prevBetterAuthUrl;
     }
     if (prevSiteUrl === undefined) {
       delete process.env.SITE_URL;
@@ -47,11 +53,13 @@ describe("isAllowedSiteOrigin", () => {
 
   function withProductionSiteUrl(run) {
     prevNodeEnv = process.env.NODE_ENV;
+    prevBetterAuthUrl = process.env.BETTER_AUTH_URL;
     prevSiteUrl = process.env.SITE_URL;
     prevPublicSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
     prevPublicAppUrl = process.env.NEXT_PUBLIC_APP_URL;
 
     process.env.NODE_ENV = "production";
+    process.env.BETTER_AUTH_URL = ALLOWED_SITE;
     process.env.SITE_URL = ALLOWED_SITE;
     delete process.env.NEXT_PUBLIC_SITE_URL;
     delete process.env.NEXT_PUBLIC_APP_URL;
@@ -94,6 +102,7 @@ describe("isAllowedSiteOrigin", () => {
   test("fails closed when site URL is missing in production", () => {
     withProductionSiteUrl(() => {
       delete process.env.SITE_URL;
+      delete process.env.BETTER_AUTH_URL;
       const request = makeRequest({ origin: ALLOWED_SITE });
       expect(isAllowedSiteOrigin(request)).toBe(false);
     });

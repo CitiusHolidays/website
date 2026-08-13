@@ -1,31 +1,49 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "targets": {
     "preview": {
-      "required": [
-        "BETTER_AUTH_URL",
-        "NEXT_PUBLIC_APP_URL",
-        "NEXT_PUBLIC_CONVEX_SITE_URL",
-        "NEXT_PUBLIC_CONVEX_URL",
-        "NEXT_PUBLIC_SANITY_DATASET",
-        "NEXT_PUBLIC_SANITY_PROJECT_ID",
-        "RESEND_API_KEY",
-        "SITE_URL"
-      ]
+      "scopes": {
+        "browser": {
+          "required": [
+            "NEXT_PUBLIC_APP_URL",
+            "NEXT_PUBLIC_CONVEX_SITE_URL",
+            "NEXT_PUBLIC_CONVEX_URL",
+            "NEXT_PUBLIC_SANITY_DATASET",
+            "NEXT_PUBLIC_SANITY_PROJECT_ID"
+          ]
+        },
+        "nextServer": {
+          "required": ["BETTER_AUTH_URL", "RESEND_API_KEY", "SITE_URL"]
+        },
+        "convexRuntime": {
+          "required": ["BETTER_AUTH_SECRET", "RESEND_API_KEY", "SITE_URL"]
+        },
+        "ciDeploy": {
+          "required": ["CONVEX_DEPLOYMENT"]
+        }
+      }
     },
     "production": {
-      "required": [
-        "BETTER_AUTH_URL",
-        "CONVEX_DEPLOYMENT",
-        "CONVEX_DEPLOY_KEY",
-        "NEXT_PUBLIC_APP_URL",
-        "NEXT_PUBLIC_CONVEX_SITE_URL",
-        "NEXT_PUBLIC_CONVEX_URL",
-        "NEXT_PUBLIC_SANITY_DATASET",
-        "NEXT_PUBLIC_SANITY_PROJECT_ID",
-        "RESEND_API_KEY",
-        "SITE_URL"
-      ]
+      "scopes": {
+        "browser": {
+          "required": [
+            "NEXT_PUBLIC_APP_URL",
+            "NEXT_PUBLIC_CONVEX_SITE_URL",
+            "NEXT_PUBLIC_CONVEX_URL",
+            "NEXT_PUBLIC_SANITY_DATASET",
+            "NEXT_PUBLIC_SANITY_PROJECT_ID"
+          ]
+        },
+        "nextServer": {
+          "required": ["BETTER_AUTH_URL", "RESEND_API_KEY", "SITE_URL"]
+        },
+        "convexRuntime": {
+          "required": ["BETTER_AUTH_SECRET", "RESEND_API_KEY", "SITE_URL"]
+        },
+        "ciDeploy": {
+          "required": ["CONVEX_DEPLOYMENT", "CONVEX_DEPLOY_KEY"]
+        }
+      }
     }
   }
 }

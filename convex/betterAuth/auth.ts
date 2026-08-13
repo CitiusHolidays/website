@@ -15,6 +15,7 @@ import {
   deliverTransactionalAuthEmail,
 } from "../lib/authEmailDelivery";
 import { AUTH_EMAIL_BRAND, buildAuthEmailHtml } from "../lib/authEmailHtml";
+import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import schema from "./schema";
 
 const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
@@ -44,11 +45,7 @@ export const authComponent = createClient<DataModel, typeof schema>(components.b
 });
 
 export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
-  const baseURL =
-    process.env.SITE_URL ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    "http://localhost:3000";
+  const baseURL = resolveAuthOrigin(process.env);
   const secret = process.env.BETTER_AUTH_SECRET ?? "";
   const googleClientId = process.env.GOOGLE_CLIENT_ID;
   const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;

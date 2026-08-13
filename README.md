@@ -138,7 +138,6 @@ Release activation, preview isolation, deploy-key scope, and rollback are docume
 # Convex
 NEXT_PUBLIC_CONVEX_URL=
 NEXT_PUBLIC_CONVEX_SITE_URL=
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 SITE_URL=http://localhost:3000
 BETTER_AUTH_URL=http://localhost:3000
