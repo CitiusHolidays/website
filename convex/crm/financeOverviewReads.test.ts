@@ -134,6 +134,7 @@ describe("bounded finance overview", () => {
       // biome-ignore lint/performance/noAwaitInLoops: each cursor depends on the preceding page
       const page = await handleListFinanceOutstanding(ctx, {
         paginationOpts: { cursor, numItems: 50 },
+        referenceDate: "2026-08-13",
       });
       expect(page.page).toHaveLength(expectedLength);
       pages.push(...page.page);

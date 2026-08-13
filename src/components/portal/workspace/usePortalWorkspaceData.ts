@@ -17,6 +17,10 @@ import { mergeFocusedRow } from "@/lib/portal/paginatedRows";
 import { endOfDateOnly, parseDateOnly } from "@/lib/portal/periodFilter";
 import { canUseTeamPicker } from "@/lib/portal/permissions";
 import { getPortalDataDependencies } from "@/lib/portal/portalDataDependencies";
+import {
+  useActiveLocalReferenceDate,
+  useActiveOperationReferenceNow,
+} from "./usePortalReferenceClock";
 import type { AnyRecord, ListFiltersState } from "./workspaceStateTypes";
 
 const P = PORTAL_PERMISSIONS;
@@ -39,6 +43,20 @@ interface UsePortalWorkspaceDataInput {
 
 const PAGE_SIZE = 50;
 const MAX_AUTOMATIC_CURSOR_LOADS = 2;
+const PASSENGER_IMPORT_MODALS = [
+  "passengerImport",
+  "passportImport",
+  "roomingImport",
+  "travellerImport",
+  "visaImport",
+];
+const PASSENGER_EXPORT_MODALS = [
+  "passengerExport",
+  "passportExport",
+  "roomingExport",
+  "travellerExport",
+  "visaExport",
+];
 
 function usePaginationControl(
   result: {
@@ -125,7 +143,28 @@ export function usePortalWorkspaceData({
   const needs = (dependency: Parameters<typeof dependencies.has>[0]) =>
     dependencies.has(dependency);
   const normalizedSearch = search.trim();
-  const [referenceNow] = useState(() => Date.now());
+  const [navigationReferenceNow] = useState(() => Date.now());
+  const passengerImportModalActive = Boolean(
+    canFetch && PASSENGER_IMPORT_MODALS.includes(modal ?? "")
+  );
+  const passengerExportModalActive = Boolean(
+    canFetch && PASSENGER_EXPORT_MODALS.includes(modal ?? "")
+  );
+  const jobCardDeletionClockActive = Boolean(
+    canFetch && needs("jobCardDeletionOperations") && has(P.MANAGE_JOB_CARDS)
+  );
+  const operationReferenceNow = useActiveOperationReferenceNow(
+    passengerImportModalActive || passengerExportModalActive || jobCardDeletionClockActive
+  );
+  const referenceDateActive = Boolean(
+    canFetch &&
+      ((needs("financeOverview") && has(P.VIEW_FINANCE)) ||
+        (needs("leaves") && has(P.VIEW_LEAVE)) ||
+        (view === "passport" &&
+          has(P.VIEW_TRAVELLERS) &&
+          Boolean(listFilters.passportExpiryUrgency)))
+  );
+  const referenceDate = useActiveLocalReferenceDate(referenceDateActive);
   const isQueryListView = ["accounts-job-cards", "contracting", "pipeline", "queries"].includes(
     view
   );
@@ -137,7 +176,7 @@ export function usePortalWorkspaceData({
   const shouldLoadSearchReadiness = Boolean(canFetch && normalizedSearch && isSearchableListView);
   const searchReadiness = useQuery(
     api.crm.listSearch.getReadiness,
-    shouldLoadSearchReadiness ? { referenceNow } : "skip"
+    shouldLoadSearchReadiness ? { referenceNow: navigationReferenceNow } : "skip"
   );
   const querySearchPreparing = Boolean(
     shouldLoadSearchReadiness && isQueryListView && searchReadiness?.tables.queries !== true
@@ -293,7 +332,7 @@ export function usePortalWorkspaceData({
   );
   const jobCardDeletionOperations = useQuery(
     api.crm.jobCards.listMyDeletionOperations,
-    shouldLoadJobCardDeletionOperations ? {} : "skip"
+    shouldLoadJobCardDeletionOperations ? { referenceNow: operationReferenceNow } : "skip"
   );
   const jobCardListArgs =
     view === "job-cards"
@@ -448,9 +487,7 @@ export function usePortalWorkspaceData({
           passportExpiryUrgency:
             view === "passport" ? listFilters.passportExpiryUrgency || undefined : undefined,
           passportReferenceDate:
-            view === "passport" && listFilters.passportExpiryUrgency
-              ? new Date().toISOString().slice(0, 10)
-              : undefined,
+            view === "passport" && listFilters.passportExpiryUrgency ? referenceDate : undefined,
           passportStatus: view === "passport" ? listFilters.passportStatus || undefined : undefined,
           roomType: view === "hotels" ? listFilters.roomType || undefined : undefined,
           search: ["hotels", "passport", "travellers"].includes(view)
@@ -508,7 +545,7 @@ export function usePortalWorkspaceData({
   const ticketDashboard = useQuery(
     api.crm.ticketing.dashboard,
     canFetch && needs("ticketDashboard") && has(P.VIEW_TICKETING)
-      ? { dateRange: dateRangeArg }
+      ? { dateRange: dateRangeArg, referenceNow: navigationReferenceNow }
       : "skip"
   );
   const pnrPage = usePaginatedQuery(
@@ -674,7 +711,7 @@ export function usePortalWorkspaceData({
   const financeOutstandingPage = usePaginatedQuery(
     api.crm.finance.listFinanceOutstanding,
     canFetch && has(P.VIEW_FINANCE) && needs("financeOverview") && financeDetailsReady
-      ? { dateRange: dateRangeArg }
+      ? { dateRange: dateRangeArg, referenceDate }
       : "skip",
     { initialNumItems: PAGE_SIZE }
   );
@@ -756,29 +793,11 @@ export function usePortalWorkspaceData({
   );
   const passengerImportOperations = useQuery(
     api.crm.imports.listMyPassengerImportOperations,
-    canFetch &&
-      [
-        "passengerImport",
-        "passportImport",
-        "roomingImport",
-        "travellerImport",
-        "visaImport",
-      ].includes(modal ?? "")
-      ? {}
-      : "skip"
+    passengerImportModalActive ? { referenceNow: operationReferenceNow } : "skip"
   );
   const passengerExportOperations = useQuery(
     api.crm.imports.listMyPassengerExportOperations,
-    canFetch &&
-      [
-        "passengerExport",
-        "passportExport",
-        "roomingExport",
-        "travellerExport",
-        "visaExport",
-      ].includes(modal ?? "")
-      ? {}
-      : "skip"
+    passengerExportModalActive ? { referenceNow: operationReferenceNow } : "skip"
   );
   const leavePage = usePaginatedQuery(
     api.crm.leave.list,
@@ -795,6 +814,7 @@ export function usePortalWorkspaceData({
   const leaveBalanceArgs =
     canFetch && needs("leaves") && has(P.VIEW_LEAVE)
       ? {
+          referenceDate,
           ...(has(P.MANAGE_LEAVE) && modal === "leave_create" && form.staffId
             ? { staffId: form.staffId }
             : {}),

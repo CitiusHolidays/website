@@ -3,6 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
+import { assertReferenceNow } from "./crm/referenceTimePolicy";
 import {
   projectCustomerJourneyDetail,
   projectCustomerJourneySummary,
@@ -343,10 +344,10 @@ export const getMyBookings = query({
 });
 
 export const getMyJourneySummaries = query({
-  args: { referenceNow: v.optional(v.number()) },
+  args: { referenceNow: v.number() },
   handler: async (ctx, args) => {
     const identity = await getIdentity(ctx);
-    const referenceNow = args.referenceNow ?? Date.now();
+    const referenceNow = assertReferenceNow(args.referenceNow);
     if (!identity) {
       return { referenceNow, summaries: [] };
     }
@@ -374,7 +375,7 @@ export const getMyJourneySummaries = query({
 });
 
 export const getMyJourneyDetail = query({
-  args: { bookingId: v.id("bookings"), referenceNow: v.optional(v.number()) },
+  args: { bookingId: v.id("bookings"), referenceNow: v.number() },
   handler: async (ctx, args) => {
     const identity = await getIdentity(ctx);
     if (!identity) {
@@ -393,7 +394,7 @@ export const getMyJourneyDetail = query({
     return projectCustomerJourneyDetail(
       booking,
       trip,
-      args.referenceNow ?? Date.now(),
+      assertReferenceNow(args.referenceNow),
       entitlement
     );
   },

@@ -4,8 +4,10 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { passengerImportBatchRowCount } from "./importBatchPolicy";
 import { getVisibleJob } from "./importProcessor";
 import { createActivity, type PortalAccess, requireStaff } from "./lib";
+import { isOperationStalled } from "./operationTimePolicy";
 import { batchIndexFromServerId, receiptBatchStatus } from "./passengerImportReceipts";
 import { canManagePassengerKinds } from "./passengerKindPolicy";
+import { assertReferenceNow } from "./referenceTimePolicy";
 
 export async function beginPassengerImportOperationHandler(
   ctx: MutationCtx,
@@ -268,11 +270,11 @@ export async function logPassengerImportActivityHandler(
 
 export async function listMyPassengerImportOperationsHandler(
   ctx: QueryCtx,
-  args: { referenceNow?: number }
+  args: { referenceNow: number }
 ) {
   const access = await requireStaff(ctx);
   const initiatedBy = access.authUserId ?? access.email;
-  const referenceNow = args.referenceNow ?? Date.now();
+  const referenceNow = assertReferenceNow(args.referenceNow);
   const operations = await ctx.db
     .query("passengerImportOperations")
     .withIndex("by_initiatedBy_updatedAt", (q) => q.eq("initiatedBy", initiatedBy))
@@ -299,7 +301,7 @@ export async function listMyPassengerImportOperationsHandler(
         processed: operation.processed,
         remaining: operation.remaining,
         roomSummary: operation.roomSummary,
-        stalled: operation.status === "running" && referenceNow - operation.updatedAt > 120_000,
+        stalled: isOperationStalled(operation.status, operation.updatedAt, referenceNow),
         startedAt: operation.startedAt,
         status: operation.status,
         total: operation.total,

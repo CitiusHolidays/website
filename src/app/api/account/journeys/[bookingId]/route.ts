@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { fetchAuthQuery, getToken } from "@/lib/auth-server";
 
 export async function GET(
-  request: Request,
+  _request: Request,
   context: RouteContext<"/api/account/journeys/[bookingId]">
 ) {
   const token = await getToken();
@@ -11,9 +11,7 @@ export async function GET(
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
   const { bookingId } = await context.params;
-  const rawReferenceNow = new URL(request.url).searchParams.get("referenceNow");
-  const parsedReferenceNow = rawReferenceNow ? Number(rawReferenceNow) : undefined;
-  const referenceNow = Number.isFinite(parsedReferenceNow) ? parsedReferenceNow : undefined;
+  const referenceNow = Date.now();
   const detail = await fetchAuthQuery(
     anyApi.bookings.getMyJourneyDetail,
     { bookingId, referenceNow },

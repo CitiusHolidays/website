@@ -174,9 +174,11 @@ describe("registered invoice outstanding projection migration", () => {
     const asDirector = await seedDirector(t);
     const firstPublicPage = await asDirector.query(api.crm.finance.listFinanceOutstanding, {
       paginationOpts: { cursor: null, numItems: 50 },
+      referenceDate: "2026-08-13",
     });
     const secondPublicPage = await asDirector.query(api.crm.finance.listFinanceOutstanding, {
       paginationOpts: { cursor: firstPublicPage.continueCursor, numItems: 50 },
+      referenceDate: "2026-08-13",
     });
     expect(firstPublicPage.page).toHaveLength(50);
     expect(secondPublicPage.page).toHaveLength(40);

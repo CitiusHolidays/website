@@ -20,6 +20,7 @@ import {
   compactPageItems,
   mapInBoundedBatches,
 } from "./paginationPolicy";
+import { assertReferenceDate } from "./referenceTimePolicy";
 
 function jobCardCreatedAtRangeQuery(ctx: QueryCtx, dateRange?: PortalDateRange) {
   const range = resolvePortalDateRange(dateRange);
@@ -165,14 +166,14 @@ export async function handleListFinancePnl(
 
 export async function handleListFinanceOutstanding(
   ctx: QueryCtx,
-  args: { dateRange?: PortalDateRange; paginationOpts: PaginationOptions }
+  args: { dateRange?: PortalDateRange; paginationOpts: PaginationOptions; referenceDate: string }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
   const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
   const page = await (await outstandingInvoiceQuery(ctx, dateRange)).paginate(
     boundedPaginationOptions(args.paginationOpts)
   );
-  const today = new Date().toISOString().slice(0, 10);
+  const referenceDate = assertReferenceDate(args.referenceDate);
   const rows = await mapInBoundedBatches(page.page, async (invoice: Doc<"invoices">) => {
     const job = await getVisibleJob(ctx, access, invoice.jobCardId);
     if (!job) {
@@ -184,7 +185,7 @@ export async function handleListFinanceOutstanding(
       dueDate: invoice.dueDate ?? "",
       id: invoice._id,
       jobCode: job.jobCode ?? "",
-      status: outstandingStatus(invoice.dueDate, today),
+      status: outstandingStatus(invoice.dueDate, referenceDate),
     };
   });
   return { ...page, page: compactPageItems(rows) };

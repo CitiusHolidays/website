@@ -176,7 +176,7 @@ export const commitFlightImport = mutation({
 });
 
 export const listMyPassengerImportOperations = query({
-  args: { referenceNow: v.optional(v.number()) },
+  args: { referenceNow: v.number() },
   handler: listMyPassengerImportOperationsHandler,
   returns: passengerImportOperationListValidator,
 });
@@ -268,7 +268,7 @@ export const purgeExpiredPassengerExports = internalMutation({
 });
 
 export const listMyPassengerExportOperations = query({
-  args: { referenceNow: v.optional(v.number()) },
+  args: { referenceNow: v.number() },
   handler: listMyPassengerExportOperationsHandler,
   returns: passengerExportOperationListValidator,
 });

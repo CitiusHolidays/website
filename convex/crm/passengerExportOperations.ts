@@ -7,6 +7,7 @@ import { getVisibleJob } from "./importProcessor";
 import type { PortalAccess } from "./lib";
 import { createActivity, requireStaff } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
+import { isOperationArtifactExpired, isOperationStalled } from "./operationTimePolicy";
 import { purgePassengerExportSourceChunksRef } from "./passengerExportFunctionReferences";
 import {
   PASSENGER_EXPORT_ARTIFACT_TTL_MS,
@@ -14,6 +15,7 @@ import {
   PASSENGER_EXPORT_LEASE_MS,
 } from "./passengerExportPolicy";
 import { canViewPassengerKinds } from "./passengerKindPolicy";
+import { assertReferenceNow } from "./referenceTimePolicy";
 
 export interface BeginPassengerExportOperationArgs {
   access: PortalAccess;
@@ -198,11 +200,11 @@ export async function getAuthorizedPassengerExportOperationHandler(
 
 export async function listMyPassengerExportOperationsHandler(
   ctx: QueryCtx,
-  args: { referenceNow?: number }
+  args: { referenceNow: number }
 ) {
   const access = await requireStaff(ctx);
   const initiatedBy = access.authUserId ?? access.email;
-  const referenceNow = args.referenceNow ?? Date.now();
+  const referenceNow = assertReferenceNow(args.referenceNow);
   const operations = await ctx.db
     .query("passengerExportOperations")
     .withIndex("by_initiatedBy_updatedAt", (q) => q.eq("initiatedBy", initiatedBy))
@@ -226,12 +228,11 @@ export async function listMyPassengerExportOperationsHandler(
         id: operation._id,
         jobCardId: operation.jobCardId,
         rowsProcessed: operation.rowsProcessed,
-        stalled: operation.status === "running" && referenceNow - operation.updatedAt > 120_000,
+        stalled: isOperationStalled(operation.status, operation.updatedAt, referenceNow),
         startedAt: operation.startedAt,
         status:
           operation.status === "completed" &&
-          operation.expiresAt !== undefined &&
-          operation.expiresAt <= referenceNow
+          isOperationArtifactExpired(operation.expiresAt, referenceNow)
             ? ("expired" as const)
             : operation.status,
         updatedAt: operation.updatedAt,

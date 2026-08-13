@@ -61,7 +61,7 @@ export { isTicketAttentionStatus, TICKET_ATTENTION_STATUSES } from "./ticketStat
 export const dashboard = query({
   args: {
     dateRange: portalDateRangeValidator,
-    referenceNow: v.optional(v.number()),
+    referenceNow: v.number(),
   },
   handler: async (ctx, args) => await handleDashboard(ctx, args),
   returns: ticketingDashboardResultValidator,

@@ -44,6 +44,7 @@ import {
   leaveIdResultValidator,
   leaveListPageResultValidator,
 } from "./peopleWorkflowReturnContracts";
+import { assertReferenceDate } from "./referenceTimePolicy";
 
 const leaveStatusValidator = v.union(
   v.literal("Pending"),
@@ -640,11 +641,13 @@ export const decide = mutation({
 export const balances = query({
   args: {
     fiscalYear: v.optional(v.string()),
+    referenceDate: v.string(),
     staffId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_LEAVE);
-    const fiscalYear = args.fiscalYear ?? fiscalYearForDate(new Date().toISOString().slice(0, 10));
+    const fiscalYear =
+      args.fiscalYear ?? fiscalYearForDate(assertReferenceDate(args.referenceDate));
     let staffId = access.staffId;
     if (args.staffId && isHrReviewer(access)) {
       const normalized = ctx.db.normalizeId("staffUsers", args.staffId);

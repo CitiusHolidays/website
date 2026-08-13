@@ -165,6 +165,7 @@ export const listFinanceOutstanding = query({
   args: {
     dateRange: portalDateRangeValidator,
     paginationOpts: paginationOptsValidator,
+    referenceDate: v.string(),
   },
   handler: handleListFinanceOutstanding,
   returns: financeOutstandingPageResultValidator,

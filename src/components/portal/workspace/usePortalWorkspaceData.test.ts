@@ -13,7 +13,9 @@ describe("usePortalWorkspaceData subscription gates", () => {
 
     expect(source).toContain("shouldLoadSearchReadiness");
     expect(source).toContain("isSearchableListView");
-    expect(source).toMatch(/shouldLoadSearchReadiness\s*\?\s*\{\s*referenceNow\s*\}\s*:\s*"skip"/);
+    expect(source).toMatch(
+      /shouldLoadSearchReadiness\s*\?\s*\{\s*referenceNow:\s*navigationReferenceNow\s*\}\s*:\s*"skip"/
+    );
     expect(source).not.toMatch(
       /useQuery\(\s*api\.crm\.listSearch\.getReadiness,\s*canFetch\s*\?\s*\{\s*referenceNow/
     );
@@ -46,5 +48,23 @@ describe("usePortalWorkspaceData subscription gates", () => {
     expect(source).toContain(
       '(modal === "jobCard" && !form.entityId ? String(form.queryId || "") : null)'
     );
+  });
+
+  test("owns time inputs at the narrow active surface", () => {
+    const source = read(DATA_HOOK_FILE);
+
+    expect(source).toContain(
+      "passengerImportModalActive || passengerExportModalActive || jobCardDeletionClockActive"
+    );
+    expect(source).toContain(
+      'passengerImportModalActive ? { referenceNow: operationReferenceNow } : "skip"'
+    );
+    expect(source).toContain(
+      'passengerExportModalActive ? { referenceNow: operationReferenceNow } : "skip"'
+    );
+    expect(source).toContain("{ dateRange: dateRangeArg, referenceNow: navigationReferenceNow }");
+    expect(source).toContain('? { referenceNow: operationReferenceNow } : "skip"');
+    expect(source).toContain("? { dateRange: dateRangeArg, referenceDate }");
+    expect(source).toContain("referenceDate,");
   });
 });

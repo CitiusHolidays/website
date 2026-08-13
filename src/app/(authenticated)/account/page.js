@@ -29,8 +29,9 @@ export default async function AccountPage() {
     throw new Error("Account identity requires support review");
   }
   await fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}, authOptions);
+  const referenceNow = Date.now();
   const [journeys, confirmedTrips] = await Promise.all([
-    fetchAuthQuery(anyApi.bookings.getMyJourneySummaries, {}, authOptions),
+    fetchAuthQuery(anyApi.bookings.getMyJourneySummaries, { referenceNow }, authOptions),
     fetchAuthQuery(anyApi.customerConfirmedTrips.getMyConfirmedTripPackets, {}, authOptions),
   ]);
 
