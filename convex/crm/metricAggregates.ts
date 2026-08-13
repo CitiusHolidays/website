@@ -518,6 +518,10 @@ async function loadSourcePage(
       return await ctx.db.query("travellers").order("asc").paginate(paginationOpts);
     case "visaRecords":
       return await ctx.db.query("visaRecords").order("asc").paginate(paginationOpts);
+    default: {
+      const unreachable: never = sourceType;
+      throw new Error(`Unsupported metric source: ${unreachable}`);
+    }
   }
 }
 
@@ -601,6 +605,10 @@ async function loadDependencyPage(
         .query("visaRecords")
         .withIndex("by_jobCardId", (q) => q.eq("jobCardId", parentId as never))
         .paginate(paginationOpts);
+    default: {
+      const unreachable: never = stage;
+      throw new Error(`Unsupported metric dependency stage: ${unreachable}`);
+    }
   }
 }
 

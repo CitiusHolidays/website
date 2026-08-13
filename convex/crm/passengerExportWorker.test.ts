@@ -1,16 +1,16 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import ExcelJS from "exceljs";
-import type { PassengerExportRow } from "../../src/lib/portal/passengerExportContract";
 import {
   PASSENGER_EXPORT_MAX_ROW_BYTES,
   PASSENGER_EXPORT_MERGE_FAN_IN,
   PASSENGER_EXPORT_WORKER_MEMORY_BUDGET_BYTES,
 } from "./passengerExportPolicy";
 import type { PassengerExportSortableRow } from "./passengerExportSourceContract";
-import { writePassengerExportFile } from "./passengerExportWorkbook";
 import {
   mergePassengerExportChunkFiles,
   passengerExportSourceOrder,
@@ -18,6 +18,7 @@ import {
 } from "./passengerExportWorker";
 
 const directories: string[] = [];
+const execFileAsync = promisify(execFile);
 
 async function temporaryDirectory() {
   const directory = await mkdtemp(join(tmpdir(), "passenger-export-test-"));
@@ -33,6 +34,42 @@ afterEach(async () => {
 
 function sortableRow(createdAt: number): PassengerExportSortableRow {
   return { createdAt, fullName: `Traveller ${String(createdAt).padStart(6, "0")}` };
+}
+
+const PASSENGER_EXPORT_MEMORY_PROBE = `
+  import { writePassengerExportFile } from "./passengerExportWorkbook.ts";
+
+  const outputPath = process.env.PASSENGER_EXPORT_TEST_OUTPUT;
+  if (!outputPath) throw new Error("PASSENGER_EXPORT_TEST_OUTPUT is required");
+  const baselineRss = process.memoryUsage().rss;
+  let peakRss = baselineRss;
+  async function* rows() {
+    for (let index = 0; index < 20_000; index += 1) {
+      peakRss = Math.max(peakRss, process.memoryUsage().rss);
+      yield { createdAt: index, fullName: "Traveller " + String(index).padStart(6, "0") };
+      if (index % 250 === 0) await Promise.resolve();
+    }
+  }
+  const result = await writePassengerExportFile("passenger", "JC-0042-NS", rows(), outputPath);
+  peakRss = Math.max(peakRss, process.memoryUsage().rss);
+  process.stdout.write(JSON.stringify({ memoryDelta: peakRss - baselineRss, result }));
+`;
+
+async function runPassengerExportMemoryProbe(outputPath: string) {
+  const { stdout } = await execFileAsync(
+    process.execPath,
+    ["--eval", PASSENGER_EXPORT_MEMORY_PROBE],
+    {
+      cwd: import.meta.dir,
+      env: { ...process.env, PASSENGER_EXPORT_TEST_OUTPUT: outputPath },
+      maxBuffer: 1024 * 1024,
+      timeout: 30_000,
+    }
+  );
+  return JSON.parse(stdout) as {
+    memoryDelta: number;
+    result: { fileName: string; rowCount: number };
+  };
 }
 
 describe("bounded passenger export worker", () => {
@@ -76,27 +113,15 @@ describe("bounded passenger export worker", () => {
   test("streams a representative 20,000-row workbook within the worker memory budget", async () => {
     const directory = await temporaryDirectory();
     const outputPath = join(directory, "large-passenger-export.xlsx");
-    const baselineRss = process.memoryUsage().rss;
-    let peakRss = baselineRss;
-    async function* rows(): AsyncGenerator<PassengerExportRow> {
-      for (let index = 0; index < 20_000; index += 1) {
-        peakRss = Math.max(peakRss, process.memoryUsage().rss);
-        yield sortableRow(index);
-        if (index % 250 === 0) {
-          // biome-ignore lint/performance/noAwaitInLoops: emulate cooperative worker yielding.
-          await Promise.resolve();
-        }
-      }
-    }
-
-    const result = await writePassengerExportFile("passenger", "JC-0042-NS", rows(), outputPath);
-    peakRss = Math.max(peakRss, process.memoryUsage().rss);
+    // RSS is process-wide. Run the measurement in an isolated process so other
+    // concurrently loaded test files cannot inflate the worker's memory delta.
+    const { memoryDelta, result } = await runPassengerExportMemoryProbe(outputPath);
 
     expect(result).toEqual({
       fileName: "JC-0042-NS-ticketing-passengers.xlsx",
       rowCount: 20_000,
     });
-    expect(peakRss - baselineRss).toBeLessThan(PASSENGER_EXPORT_WORKER_MEMORY_BUDGET_BYTES);
+    expect(memoryDelta).toBeLessThan(PASSENGER_EXPORT_WORKER_MEMORY_BUDGET_BYTES);
 
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.readFile(outputPath);

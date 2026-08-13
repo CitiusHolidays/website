@@ -14,6 +14,23 @@ describe("validateVerifyPaymentPayload", () => {
 });
 
 describe("verifyPaymentRequest", () => {
+  test("returns 400 before verification when the checkout payload is incomplete", async () => {
+    const result = await verifyPaymentRequest({
+      body: { razorpay_order_id: "order_1" },
+      confirmBooking: () => Promise.reject(new Error("confirmBooking should not be called")),
+      verifySignature: () => {
+        throw new Error("verifySignature should not be called");
+      },
+    });
+
+    expect(result).toEqual({
+      code: "invalid_payload",
+      error: "Missing payment verification parameters",
+      ok: false,
+      status: 400,
+    });
+  });
+
   test("confirms a valid checkout with a stable recovery event identity", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "server-secret";
@@ -127,6 +144,35 @@ describe("verifyPaymentRequest", () => {
       expect(result.status).toBe(500);
       expect(result.code).toBe("mutation_unavailable");
       expect(result.error).toBe("Payment confirmation failed. Please contact support.");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.PAYMENT_MUTATION_SECRET;
+      } else {
+        process.env.PAYMENT_MUTATION_SECRET = previous;
+      }
+    }
+  });
+
+  test("returns 404 when no booking matches the verified order", async () => {
+    const previous = process.env.PAYMENT_MUTATION_SECRET;
+    process.env.PAYMENT_MUTATION_SECRET = "server-secret";
+    try {
+      const result = await verifyPaymentRequest({
+        body: {
+          razorpay_order_id: "order_1",
+          razorpay_payment_id: "pay_1",
+          razorpay_signature: "good_sig",
+        },
+        confirmBooking: () => Promise.resolve({ success: false }),
+        verifySignature: () => true,
+      });
+
+      expect(result).toEqual({
+        code: "not_found",
+        error: "Booking not found for this order",
+        ok: false,
+        status: 404,
+      });
     } finally {
       if (previous === undefined) {
         delete process.env.PAYMENT_MUTATION_SECRET;

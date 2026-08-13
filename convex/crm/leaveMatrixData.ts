@@ -55,9 +55,7 @@ export const LEAVE_MATRIX_ALERT_BY_EMAIL: Record<string, string> = {
 };
 
 export function leaveAlertToken(alertLabel: string) {
-  const normalized = String(alertLabel ?? "")
-    .trim()
-    .toLowerCase();
+  const normalized = alertLabel.trim().toLowerCase();
   if (!normalized) {
     return "";
   }

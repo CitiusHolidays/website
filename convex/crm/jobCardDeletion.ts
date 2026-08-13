@@ -84,7 +84,7 @@ async function failOperation(
   error: unknown
 ) {
   const operation = await ctx.db.get("jobCardDeletionOperations", operationId);
-  if (!operation || operation.status !== "running") {
+  if (operation?.status !== "running") {
     return;
   }
   const now = Date.now();
@@ -98,7 +98,7 @@ async function failOperation(
 
 async function finalizeIfReady(ctx: any, operationId: Id<"jobCardDeletionOperations">) {
   const operation = await ctx.db.get("jobCardDeletionOperations", operationId);
-  if (!operation || operation.status !== "running" || operation.stage !== "finishingDescendants") {
+  if (operation?.status !== "running" || operation.stage !== "finishingDescendants") {
     return false;
   }
   const pendingWorker =
@@ -143,7 +143,7 @@ async function startNextTravellerWorker(ctx: any, operationId: Id<"jobCardDeleti
       q.eq("operationId", operationId).eq("status", "pending")
     )
     .first();
-  if (!worker || worker.kind !== "traveller" || !worker.workerKey.startsWith("traveller:")) {
+  if (worker?.kind !== "traveller" || !worker.workerKey.startsWith("traveller:")) {
     return false;
   }
   const travellerId = worker.workerKey.slice("traveller:".length);
@@ -278,7 +278,7 @@ export const continueJobCardCascade = internalMutation({
   handler: async (ctx, args) => {
     try {
       const operation = await ctx.db.get("jobCardDeletionOperations", args.operationId);
-      if (!operation || operation.status !== "running" || operation.stage !== args.stage) {
+      if (operation?.status !== "running" || operation.stage !== args.stage) {
         return { complete: operation?.status === "complete", deleted: 0 };
       }
       const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);

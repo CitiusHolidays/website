@@ -147,11 +147,12 @@ if (import.meta.main) {
       const baselinePath = resolve(root, "config/release/deadcode-baseline.json");
       const configPath = resolve(root, "knip.jsonc");
       const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")) as {
-        devDependencies: Record<string, string>;
+        devDependencies: Partial<Record<string, string>>;
       };
       const fingerprints = runKnip(root);
       const baseline = readBaseline(baselinePath);
-      const comparison = compareDeadcodeInventory(baseline?.fingerprints ?? [], fingerprints);
+      const baselineFingerprints = baseline ? baseline.fingerprints : [];
+      const comparison = compareDeadcodeInventory(baselineFingerprints, fingerprints);
 
       if (parsed.values["write-baseline"]) {
         if (baseline && comparison.newIssues.length > 0) {

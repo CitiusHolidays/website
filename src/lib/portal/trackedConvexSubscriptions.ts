@@ -4,7 +4,7 @@ import type {
   PaginatedQueryReference,
   UsePaginatedQueryReturnType,
 } from "convex/react";
-import * as ConvexReact from "convex/react";
+import { usePaginatedQuery, useQuery } from "convex/react";
 import { type FunctionReference, getFunctionName } from "convex/server";
 import { convexToJson } from "convex/values";
 import { useEffect, useId, useSyncExternalStore } from "react";
@@ -147,7 +147,7 @@ export function useTrackedQuery<Query extends FunctionReference<"query">>(
   ...args: OptionalRestArgsOrSkip<Query>
 ): Query["_returnType"] | undefined {
   useSubscriptionRegistration(query, args[0]);
-  return ConvexReact.useQuery(query, ...args);
+  return useQuery(query, ...args);
 }
 
 export function useTrackedPaginatedQuery<Query extends PaginatedQueryReference>(
@@ -156,5 +156,5 @@ export function useTrackedPaginatedQuery<Query extends PaginatedQueryReference>(
   options: { initialNumItems: number }
 ): UsePaginatedQueryReturnType<Query> {
   useSubscriptionRegistration(query, args);
-  return ConvexReact.usePaginatedQuery(query, args, options);
+  return usePaginatedQuery(query, args, options);
 }

@@ -281,7 +281,7 @@ export function canEditOperationsRecord(access: PortalAccess, record: Operations
 export function editorPatch(access: PortalAccess, timestamp = Date.now()) {
   return {
     lastEditedAt: timestamp,
-    lastEditedBy: access.authUserId ?? access.email ?? "unknown",
+    lastEditedBy: access.authUserId ?? access.email,
     lastEditedByName: access.name,
     updatedAt: timestamp,
   };

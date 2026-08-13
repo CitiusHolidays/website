@@ -58,6 +58,7 @@ describe("mounted portal operations views", () => {
   test("Job Cards preserves job code identity and status presentation", async () => {
     mock.module("convex/react", () => ({
       usePaginatedQuery: () => ({ results: [], status: "LoadingFirstPage" }),
+      useQuery: () => undefined,
     }));
     const { JobCardsView } = await import("./operations/JobCardsView");
     const view = await mount(

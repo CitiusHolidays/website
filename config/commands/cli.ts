@@ -15,7 +15,7 @@ export interface CliSpecification {
 export interface ParsedCliArguments {
   help: boolean;
   positionals: string[];
-  values: Record<string, boolean | string>;
+  values: Partial<Record<string, boolean | string>>;
 }
 
 function optionUsage(option: CliOption) {

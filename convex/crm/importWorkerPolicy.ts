@@ -115,7 +115,7 @@ export function summarizeImportBatchResults(batchResults: ImportBatchResult[]) {
     summary.processed += result.processed;
     summary.remaining += result.remaining;
     summary.rowResults = summary.rowResults.concat(result.rowResults ?? []);
-    for (const [roomType, count] of Object.entries(result.roomSummary ?? {})) {
+    for (const [roomType, count] of Object.entries(result.roomSummary)) {
       summary.roomSummary[roomType] = (summary.roomSummary[roomType] ?? 0) + count;
     }
   }

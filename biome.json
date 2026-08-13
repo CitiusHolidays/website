@@ -15,7 +15,7 @@
       "!convex/betterAuth/_generated",
       "!citius-blog/dist",
       "!citius-blog/.next",
-      "!diagrams/citius-runtime-trust-boundaries.svg",
+      "!diagrams/*.svg",
       "!tools"
     ]
   },

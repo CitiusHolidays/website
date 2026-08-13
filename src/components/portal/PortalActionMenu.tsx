@@ -58,7 +58,7 @@ function BaseMenuItems({ children }: { children: ReactNode }) {
     }
     const itemOptions =
       child.type === PortalActionMenuItem ? (child.props as PortalActionMenuItemProps) : undefined;
-    const item = itemOptions?.children ?? child;
+    const item = itemOptions ? itemOptions.children : child;
     const nativeButton =
       item.type === "button" || (item.props as { type?: unknown }).type === "button";
     return (

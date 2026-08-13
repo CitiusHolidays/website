@@ -46,6 +46,7 @@ const asyncNoop = async () => undefined;
 mock.module("convex/react", () => ({
   useAction: () => asyncNoop,
   useMutation: () => asyncNoop,
+  usePaginatedQuery: () => ({ results: [], status: "Exhausted" }),
   useQuery: () => queryResult,
 }));
 

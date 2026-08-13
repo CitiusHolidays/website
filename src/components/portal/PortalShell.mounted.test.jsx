@@ -25,6 +25,7 @@ mock.module("convex/react", () => ({
     readCalls.push(args);
     return Promise.resolve();
   },
+  usePaginatedQuery: () => ({ results: [], status: "Exhausted" }),
   useQuery: (query) => {
     if (query === "notificationBellState") {
       return {

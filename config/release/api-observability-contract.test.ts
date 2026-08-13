@@ -6,6 +6,8 @@ import { API_ROUTE_OBSERVABILITY } from "../../src/lib/observability/api-route-r
 const API_ROOT = join(process.cwd(), "src/app/api");
 const ROUTE_FILE = /\/route\.(?:js|ts)$/;
 const ROUTE_METHOD = /export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|OPTIONS)\s*\(/g;
+const ROUTE_TRAILING_SLASH = /\/$/;
+const compareText = (left: string, right: string) => left.localeCompare(right);
 
 function walk(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -16,14 +18,14 @@ function walk(directory: string): string[] {
 
 function routePattern(file: string) {
   const path = relative(API_ROOT, file).replace(/\\/g, "/").replace(ROUTE_FILE, "");
-  return `/api/${path}`.replace(/\/$/, "");
+  return `/api/${path}`.replace(ROUTE_TRAILING_SLASH, "");
 }
 
 describe("API observability inventory", () => {
   test("registers every route module with a closed category and response mode", () => {
     const files = walk(API_ROOT).filter((file) => ROUTE_FILE.test(file));
-    const discovered = files.map(routePattern).sort();
-    expect(Object.keys(API_ROUTE_OBSERVABILITY).sort()).toEqual(discovered);
+    const discovered = files.map(routePattern).sort(compareText);
+    expect(Object.keys(API_ROUTE_OBSERVABILITY).sort(compareText)).toEqual(discovered);
 
     const allowedFamilies = new Set([
       "account",
@@ -49,9 +51,9 @@ describe("API observability inventory", () => {
     for (const file of files) {
       const source = readFileSync(file, "utf8");
       const route = routePattern(file);
-      const methods = [...source.matchAll(ROUTE_METHOD)].map((match) => match[1]).sort();
+      const methods = [...source.matchAll(ROUTE_METHOD)].map((match) => match[1]).sort(compareText);
       const definition = API_ROUTE_OBSERVABILITY[route];
-      expect(methods, route).toEqual([...definition.methods].sort());
+      expect(methods, route).toEqual([...definition.methods].sort(compareText));
       expect(source.match(/withApiRequestLogging\s*\(/g)?.length ?? 0, route).toBe(methods.length);
       expect(source.includes(JSON.stringify(route)), route).toBe(true);
       expect(source.includes("logApiEvent"), route).toBe(false);

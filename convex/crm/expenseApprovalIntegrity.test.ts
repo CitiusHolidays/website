@@ -112,7 +112,7 @@ function makeExpenseCtx(initialTables: Tables, identitySubject: string) {
             }),
           take: (count: number) => Promise.resolve(rows.slice(0, count)),
           unique: () => Promise.resolve(rows[0] ?? null),
-          withIndex(_indexName: string, callback: (q: unknown) => unknown) {
+          withIndex(_indexName: string, callback?: (q: unknown) => unknown) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const q = {
               eq(field: string, value: unknown) {
