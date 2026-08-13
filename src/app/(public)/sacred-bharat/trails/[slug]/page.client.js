@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ExternalLink, Heart } from "lucide-react";
+import { ArrowLeft, Heart } from "lucide-react";
 import { m } from "motion/react";
 import Link from "next/link";
 import GuestSaveBanner from "@/components/sacredBharat/GuestSaveBanner";
@@ -8,6 +8,7 @@ import LevelBadge from "@/components/sacredBharat/LevelBadge";
 import { useSacredBharatContext } from "@/components/sacredBharat/SacredBharatProvider";
 import TempleChecklist from "@/components/sacredBharat/TempleChecklist";
 import TrailCompletionReveal from "@/components/sacredBharat/TrailCompletionReveal";
+import { SacredBharatContactHandoff } from "@/components/ui/ConciergeContactHandoff";
 import { REGION_LABELS, REGIONS } from "@/data/sacredBharat/regions";
 import { TEMPLES } from "@/data/sacredBharat/temples";
 import { cn } from "@/lib/utils";
@@ -17,8 +18,6 @@ export default function TrailDetailClient({ trail }) {
   const trailProgress = progress.trails.find((t) => t.slug === trail.slug);
   const isRegionTrail = trail.type === "region";
   const wishlisted = isWishlisted("trail", trail.slug);
-
-  const contactHref = `/contact?interest=sacred-bharat&trail=${encodeURIComponent(trail.slug)}`;
 
   return (
     <div className="min-h-screen bg-[#fdfcfb]">
@@ -83,14 +82,12 @@ export default function TrailDetailClient({ trail }) {
             <Heart className={cn("size-4", wishlisted && "fill-current")} />
             {wishlisted ? "On wishlist" : "Plan future journey"}
           </button>
-          <Link
-            className="inline-flex items-center gap-2 rounded-full bg-citius-blue px-4 py-2 font-medium text-sm text-white hover:bg-citius-blue/90"
-            href={contactHref}
-          >
-            Plan with Citius
-            <ExternalLink className="size-4" />
-          </Link>
         </div>
+
+        <SacredBharatContactHandoff
+          context={{ entryPoint: "trail", trailSlug: trail.slug }}
+          triggerLabel="Plan this trail with Citius"
+        />
 
         {isRegionTrail ? (
           <div className="space-y-8">

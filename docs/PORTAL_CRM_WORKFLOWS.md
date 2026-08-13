@@ -31,6 +31,14 @@ consent and use a stable browser idempotency key. The public surface reports suc
 server-only gateway has committed the intent; a retry of the same key reuses that intent and does
 not create another Sales alert.
 
+Sacred Bharat offers this handoff only from an explicit Trail action or after the Journey Planner
+reaches its completed state. Its bounded context stores one canonical trail slug or temple ID;
+contact fields, dates, pax, source, and consent may cross the boundary, but AI output, Soul Score,
+darshan history, wishlist contents, passport data, and hidden local state may not. Sales sees the
+catalog-derived planning label. Conversion preserves `Sacred Bharat`, the consent timestamp, and
+the inbound-intent link on the Query; confirmation carries the same attribution into the immutable
+Confirmed Offer.
+
 Sales, Sales Head, Admin, and Director roles can filter and open inbound leads. They can complete a
 pending lead in exactly one of two ways:
 

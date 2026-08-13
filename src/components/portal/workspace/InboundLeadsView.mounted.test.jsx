@@ -90,6 +90,20 @@ async function mount() {
 }
 
 describe("InboundLeadsView conversion", () => {
+  test("shows canonical Sacred Bharat context without generated plan or progress data", async () => {
+    selectedIntent = lead({
+      notes: undefined,
+      sacredBharatContext: { entryPoint: "journey_planner", templeId: "kashi-vishwanath" },
+      source: "Sacred Bharat",
+    });
+    const view = await mount();
+
+    expect(view.container.textContent).toContain("Sacred planning context");
+    expect(view.container.textContent).toContain("Journey Planner · Kashi Vishwanath & Varanasi");
+    expect(view.container.textContent).not.toContain("Soul Score");
+    await view.unmount();
+  });
+
   test("keeps over-limit source notes visible and requires compliant Query Notes", async () => {
     const longNotes = Array.from({ length: 31 }, (_, index) => `source${index + 1}`).join(" ");
     selectedIntent = lead({ notes: longNotes });

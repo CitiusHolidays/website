@@ -152,6 +152,17 @@ async function inboundIntentDetails(
   addRow(rows, "Pax", intent.paxCount);
   addRow(rows, "Travel date", formatDate(intent.travelStartDate));
   addRow(rows, "Source", intent.source);
+  addRow(
+    rows,
+    "Sacred planning action",
+    intent.sacredBharatContext?.entryPoint === "journey_planner"
+      ? "Completed Journey Planner"
+      : intent.sacredBharatContext?.entryPoint === "trail"
+        ? "Trail"
+        : undefined
+  );
+  addRow(rows, "Sacred temple", intent.sacredBharatContext?.templeId);
+  addRow(rows, "Sacred trail", intent.sacredBharatContext?.trailSlug);
   addRow(rows, "Notes", intent.notes);
   return { rows, title: "Inbound enquiry details" };
 }

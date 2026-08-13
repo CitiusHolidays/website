@@ -52,3 +52,10 @@ _Avoid_: Trail (when the full trail is meant), CRM task
 **AI Journey Planner**:
 Streaming pilgrimage itinerary generator on `/sacred-bharat` using the yatri's visited sites and catalog metadata. Premium-adjacent feature; leads to Citius contact for curated quotes.
 _Avoid_: Generic site chatbot, CRM query form
+
+**Sacred Planning Handoff**:
+An explicit, consented request to Citius from one Spiritual Trail or one completed AI Journey
+Planner result. It creates a Pending Sales inbound intent with a canonical trail slug or sacred-site
+ID; it is not a Query until Sales reviews and converts it. AI text, Soul Score, darshan history,
+wishlist contents, and local progress stay outside the handoff.
+_Avoid_: Automatic lead, progress sync, transcript handoff

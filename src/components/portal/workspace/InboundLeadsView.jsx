@@ -5,6 +5,7 @@ import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Select } from "@/components/ui/application-select";
+import { describeSacredBharatIntentContext } from "@/lib/sacredBharat/inboundIntent";
 
 const STATUS_OPTIONS = [
   ["pending", "Pending"],
@@ -140,6 +141,7 @@ export function InboundLeadsView({ allowed, canFetch }) {
   const notesWordCount = countWords(form.notes);
   const notesOverLimit = notesWordCount > MAX_QUERY_NOTES_WORDS;
   const sourceNotesOverLimit = countWords(selected?.notes) > MAX_QUERY_NOTES_WORDS;
+  const sacredContextDescription = describeSacredBharatIntentContext(selected?.sacredBharatContext);
   const setField = (field, value) => setForm((current) => ({ ...current, [field]: value }));
 
   async function handleConvert(event) {
@@ -307,6 +309,12 @@ export function InboundLeadsView({ allowed, canFetch }) {
                 <dt className="text-brand-muted text-xs">Mobile</dt>
                 <dd className="text-brand-dark">{selected.contactMobile || "Not provided"}</dd>
               </div>
+              {sacredContextDescription ? (
+                <div>
+                  <dt className="text-brand-muted text-xs">Sacred planning context</dt>
+                  <dd className="text-brand-dark">{sacredContextDescription.label}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-brand-muted text-xs">Notes</dt>
                 <dd className="whitespace-pre-wrap text-brand-dark">{selected.notes || "—"}</dd>

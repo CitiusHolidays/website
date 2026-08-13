@@ -1021,6 +1021,13 @@ export default defineSchema({
     listSearchText: v.optional(v.string()),
     notes: v.optional(v.string()),
     paxCount: v.optional(v.number()),
+    sacredBharatContext: v.optional(
+      v.object({
+        entryPoint: v.union(v.literal("journey_planner"), v.literal("trail")),
+        templeId: v.optional(v.string()),
+        trailSlug: v.optional(v.string()),
+      })
+    ),
     source: v.union(
       v.literal("Citius Concierge"),
       v.literal("Sacred Bharat"),

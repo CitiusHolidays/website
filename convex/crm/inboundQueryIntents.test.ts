@@ -333,6 +333,88 @@ describe("protected inbound intent Convex boundaries", () => {
     });
   });
 
+  test("creates one consented Sacred Bharat lead with bounded canonical context", async () => {
+    process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
+    const { ctx, scheduled, tables } = makeContext({
+      crmHandoffEvents: [],
+      inboundIntentRateLimits: [],
+      inboundQueryIntents: [],
+      notifications: [],
+      staffUsers: [salesStaff],
+    });
+    const sacredArgs = {
+      clientName: "Sacred Yatri",
+      consent: true,
+      contactEmail: "yatri@example.com",
+      destination: "Shiva Trail",
+      gatewaySecret: "expected-secret",
+      rateLimitKeyHash: "9".repeat(64),
+      sacredBharatContext: { entryPoint: "trail", trailSlug: "shiva-trail" },
+      source: "Sacred Bharat",
+      submissionKeyHash: "a".repeat(64),
+    };
+    const result = await (submitIntentGateway as any)._handler(ctx, sacredArgs);
+    const replay = await (submitIntentGateway as any)._handler(ctx, sacredArgs);
+
+    expect(result.status).toBe("created");
+    expect(replay.status).toBe("duplicate");
+    expect(tables.inboundQueryIntents).toHaveLength(1);
+    expect(tables.inboundQueryIntents[0]).toMatchObject({
+      consentAt: expect.any(Number),
+      sacredBharatContext: { entryPoint: "trail", trailSlug: "shiva-trail" },
+      source: "Sacred Bharat",
+      status: "pending",
+    });
+    expect(tables.inboundQueryIntents[0].notes).toBeUndefined();
+    expect(tables.crmHandoffEvents).toHaveLength(1);
+    expect(tables.notifications).toHaveLength(2);
+    expect(scheduled).toHaveLength(1);
+
+    const emailDetails = await (getNotificationEmailDetails as any)._handler(ctx, {
+      entityId: "inboundQueryIntents_1",
+      entityType: "inboundQueryIntent",
+    });
+    expect(emailDetails.rows).toEqual(
+      expect.arrayContaining([
+        { label: "Source", value: "Sacred Bharat" },
+        { label: "Sacred planning action", value: "Trail" },
+        { label: "Sacred trail", value: "shiva-trail" },
+      ])
+    );
+  });
+
+  test("rejects malformed or missing Sacred Bharat context before writes", async () => {
+    process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
+    const { ctx, tables } = makeContext({
+      inboundIntentRateLimits: [],
+      inboundQueryIntents: [],
+    });
+    const base = {
+      clientName: "Sacred Yatri",
+      consent: true,
+      gatewaySecret: "expected-secret",
+      rateLimitKeyHash: "b".repeat(64),
+      source: "Sacred Bharat",
+      submissionKeyHash: "c".repeat(64),
+    };
+
+    await expect((submitIntentGateway as any)._handler(ctx, base)).rejects.toThrow(
+      "Select one valid Sacred Bharat planning context"
+    );
+    await expect(
+      (submitIntentGateway as any)._handler(ctx, {
+        ...base,
+        sacredBharatContext: {
+          entryPoint: "journey_planner",
+          templeId: "kashi-vishwanath",
+          trailSlug: "shiva-trail",
+        },
+      })
+    ).rejects.toThrow("Select one valid Sacred Bharat planning context");
+    expect(tables.inboundQueryIntents).toEqual([]);
+    expect(tables.inboundIntentRateLimits).toEqual([]);
+  });
+
   test("deduplicates retries for twenty-four hours but accepts a later submission", async () => {
     const now = Date.parse("2026-08-05T12:00:00.000Z");
     setSystemTime(new Date(now));
@@ -559,5 +641,45 @@ describe("protected inbound intent Convex boundaries", () => {
       sourceConsentAt: 1,
     });
     expect(tables.clients[0].email).toBe("traveller@example.com");
+  });
+
+  test("preserves Sacred Bharat source and consent when Sales converts the lead", async () => {
+    const { ctx, tables } = makeContext({
+      activities: [],
+      clients: [],
+      crmHandoffEvents: [
+        {
+          _id: "crmHandoffEvents_1",
+          createdAt: 1,
+          inboundIntentId: "inboundQueryIntents_1",
+          source: "Sacred Bharat",
+        },
+      ],
+      inboundQueryIntents: [
+        inboundRow({
+          consentAt: 123,
+          destination: "Shiva Trail",
+          sacredBharatContext: { entryPoint: "trail", trailSlug: "shiva-trail" },
+          source: "Sacred Bharat",
+        }),
+      ],
+      notifications: [],
+      queries: [],
+      staffUsers: [salesStaff],
+    });
+
+    await (convertToQuery as any)._handler(ctx, {
+      intentId: "inboundQueryIntents_1",
+      paxCount: 4,
+      queryType: "Spiritual",
+      travelType: "Domestic Travel",
+    });
+
+    expect(tables.queries).toHaveLength(1);
+    expect(tables.queries[0]).toMatchObject({
+      inboundIntentId: "inboundQueryIntents_1",
+      source: "Sacred Bharat",
+      sourceConsentAt: 123,
+    });
   });
 });

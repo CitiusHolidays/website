@@ -15,6 +15,7 @@ import {
   verifyTurnstileToken,
 } from "@/lib/contact/turnstile";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
+import { normalizeSacredBharatIntentContext } from "@/lib/sacredBharat/inboundIntent";
 
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
@@ -72,8 +73,14 @@ function normalizeBody(body) {
   const contactMobile =
     typeof body.contactMobile === "string" ? body.contactMobile.trim() : undefined;
   const destination = typeof body.destination === "string" ? body.destination.trim() : undefined;
-  const notes = typeof body.notes === "string" ? body.notes.trim() : undefined;
   const source = typeof body.source === "string" ? body.source.trim() : "";
+  const notes =
+    source === "Sacred Bharat"
+      ? undefined
+      : typeof body.notes === "string"
+        ? body.notes.trim()
+        : undefined;
+  const sacredBharatContext = normalizeSacredBharatIntentContext(body.sacredBharatContext);
   const travelStartDate =
     typeof body.travelStartDate === "string" ? body.travelStartDate.trim() : undefined;
   const paxCount = body.paxCount === undefined ? undefined : Number(body.paxCount);
@@ -105,6 +112,12 @@ function normalizeBody(body) {
   if (!ALLOWED_SOURCES.has(source)) {
     return { error: "Invalid enquiry source." };
   }
+  if (source === "Sacred Bharat" && !sacredBharatContext) {
+    return { error: "Select a Sacred Bharat trail or completed journey plan." };
+  }
+  if (source !== "Sacred Bharat" && body.sacredBharatContext !== undefined) {
+    return { error: "Sacred Bharat context does not match this enquiry source." };
+  }
   if (
     paxCount !== undefined &&
     !(Number.isInteger(paxCount) && paxCount >= 1 && paxCount <= MAX_PAX_COUNT)
@@ -124,6 +137,7 @@ function normalizeBody(body) {
       ...(destination ? { destination } : {}),
       ...(notes ? { notes } : {}),
       ...(paxCount === undefined ? {} : { paxCount }),
+      ...(sacredBharatContext ? { sacredBharatContext } : {}),
       source,
       ...(travelStartDate ? { travelStartDate } : {}),
     },

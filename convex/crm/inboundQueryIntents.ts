@@ -13,6 +13,11 @@ const inboundSourceValidator = v.union(
   v.literal("Sacred Bharat"),
   v.literal("Website")
 );
+const sacredBharatContextValidator = v.object({
+  entryPoint: v.union(v.literal("journey_planner"), v.literal("trail")),
+  templeId: v.optional(v.string()),
+  trailSlug: v.optional(v.string()),
+});
 const inboundStatusValidator = v.union(
   v.literal("pending"),
   v.literal("converted"),
@@ -53,6 +58,7 @@ const inboundIntentPublicValidator = v.object({
   dismissedAt: v.optional(v.number()),
   notes: v.optional(v.string()),
   paxCount: v.optional(v.number()),
+  sacredBharatContext: v.optional(sacredBharatContextValidator),
   source: inboundSourceValidator,
   status: inboundStatusValidator,
   travelStartDate: v.optional(v.string()),
@@ -76,6 +82,9 @@ function presentInboundIntent(intent: Doc<"inboundQueryIntents">) {
     ...(intent.dismissedAt === undefined ? {} : { dismissedAt: intent.dismissedAt }),
     ...(intent.notes === undefined ? {} : { notes: intent.notes }),
     ...(intent.paxCount === undefined ? {} : { paxCount: intent.paxCount }),
+    ...(intent.sacredBharatContext === undefined
+      ? {}
+      : { sacredBharatContext: intent.sacredBharatContext }),
     source: intent.source,
     status: intent.status,
     ...(intent.triagedAt === undefined ? {} : { triagedAt: intent.triagedAt }),
@@ -119,6 +128,11 @@ type InboundIntentInput = {
   destination?: string;
   notes?: string;
   paxCount?: number;
+  sacredBharatContext?: {
+    entryPoint: "journey_planner" | "trail";
+    templeId?: string;
+    trailSlug?: string;
+  };
   source: "Citius Concierge" | "Sacred Bharat" | "Website";
   submissionKeyHash: string;
   travelStartDate?: string;
@@ -154,6 +168,28 @@ function validateIntentInput(args: InboundIntentInput) {
   if (!HASH_PATTERN.test(args.submissionKeyHash)) {
     throw new ConvexError("Invalid inbound submission key");
   }
+  const context = args.sacredBharatContext;
+  if (args.source !== "Sacred Bharat" && context !== undefined) {
+    throw new ConvexError("Sacred Bharat context does not match the inbound source");
+  }
+  if (args.source === "Sacred Bharat") {
+    const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+    const validPlanner =
+      context?.entryPoint === "journey_planner" &&
+      context.trailSlug === undefined &&
+      typeof context.templeId === "string" &&
+      context.templeId.length <= 100 &&
+      slugPattern.test(context.templeId);
+    const validTrail =
+      context?.entryPoint === "trail" &&
+      context.templeId === undefined &&
+      typeof context.trailSlug === "string" &&
+      context.trailSlug.length <= 100 &&
+      slugPattern.test(context.trailSlug);
+    if (!(validPlanner || validTrail)) {
+      throw new ConvexError("Select one valid Sacred Bharat planning context");
+    }
+  }
   return { clientName };
 }
 
@@ -164,6 +200,8 @@ function buildListSearchText(args: InboundIntentInput) {
     args.contactMobile,
     args.destination,
     args.notes,
+    args.sacredBharatContext?.templeId,
+    args.sacredBharatContext?.trailSlug,
     args.source,
   ]
     .filter(Boolean)
@@ -214,6 +252,7 @@ async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
     listSearchText: buildListSearchText({ ...args, clientName }),
     notes: normalizeOptional(args.notes),
     paxCount: args.paxCount,
+    sacredBharatContext: args.sacredBharatContext,
     source: args.source,
     status: "pending",
     submissionKeyHash: args.submissionKeyHash,
@@ -249,6 +288,7 @@ export const submitIntentInternal = internalMutation({
     destination: v.optional(v.string()),
     notes: v.optional(v.string()),
     paxCount: v.optional(v.number()),
+    sacredBharatContext: v.optional(sacredBharatContextValidator),
     source: inboundSourceValidator,
     submissionKeyHash: v.string(),
     travelStartDate: v.optional(v.string()),
@@ -275,6 +315,7 @@ export const submitIntentGateway = mutation({
     notes: v.optional(v.string()),
     paxCount: v.optional(v.number()),
     rateLimitKeyHash: v.string(),
+    sacredBharatContext: v.optional(sacredBharatContextValidator),
     source: inboundSourceValidator,
     submissionKeyHash: v.string(),
     travelStartDate: v.optional(v.string()),
@@ -326,6 +367,7 @@ export const submitIntentGateway = mutation({
         destination: args.destination,
         notes: args.notes,
         paxCount: args.paxCount,
+        sacredBharatContext: args.sacredBharatContext,
         source: args.source,
         submissionKeyHash: args.submissionKeyHash,
         travelStartDate: args.travelStartDate,

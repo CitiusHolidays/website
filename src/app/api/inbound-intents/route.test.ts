@@ -193,4 +193,64 @@ describe("protected inbound intent route", () => {
     expect(forwarded).toMatchObject({ consent: true, source: "Website" });
     expect(forwarded).not.toHaveProperty("authUserId");
   });
+
+  test("canonicalizes Sacred Bharat context and redacts progress and generated text", async () => {
+    configureGateway();
+    let forwarded: Record<string, unknown> | undefined;
+    const response = await handleInboundIntentRequest(
+      request(
+        {
+          ...validBody(),
+          generatedPlan: "private model output",
+          notes: "must not cross the Sacred Bharat boundary",
+          progress: { score: 900, visitedTempleIds: ["kedarnath"] },
+          sacredBharatContext: { entryPoint: "journey_planner", templeId: "varanasi" },
+          source: "Sacred Bharat",
+          wishlist: ["shiva-trail"],
+        },
+        { "idempotency-key": "sacred-plan-1" }
+      ),
+      {
+        fetchMutationImpl: fakeMutation(
+          { intentId: "inboundQueryIntents_sacred", status: "created" },
+          ([, args]) => {
+            forwarded = args as Record<string, unknown>;
+          }
+        ),
+      }
+    );
+
+    expect(response.status).toBe(201);
+    expect(forwarded).toMatchObject({
+      sacredBharatContext: {
+        entryPoint: "journey_planner",
+        templeId: "kashi-vishwanath",
+      },
+      source: "Sacred Bharat",
+    });
+    expect(forwarded).not.toHaveProperty("generatedPlan");
+    expect(forwarded).not.toHaveProperty("notes");
+    expect(forwarded).not.toHaveProperty("progress");
+    expect(forwarded).not.toHaveProperty("wishlist");
+  });
+
+  test("rejects Sacred Bharat requests without a known explicit planning context", async () => {
+    configureGateway();
+    let calls = 0;
+    const response = await handleInboundIntentRequest(
+      request({
+        ...validBody(),
+        sacredBharatContext: { entryPoint: "trail", trailSlug: "unknown" },
+        source: "Sacred Bharat",
+      }),
+      {
+        fetchMutationImpl: fakeMutation({ intentId: null, status: "created" }, () => {
+          calls += 1;
+        }),
+      }
+    );
+
+    expect(response.status).toBe(400);
+    expect(calls).toBe(0);
+  });
 });

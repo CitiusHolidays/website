@@ -112,4 +112,31 @@ describe("Confirmed Offer snapshot", () => {
       )
     ).rejects.toThrow("This query already has a confirmed offer snapshot.");
   });
+
+  test("preserves Sacred Bharat attribution on the immutable snapshot", async () => {
+    const { ctx, inserted } = makeConfirmedOfferCtx();
+
+    await createConfirmedOfferSnapshot(
+      ctx as never,
+      { authUserId: "auth_sales" },
+      {
+        confirmedAt: 1_786_123_456_000,
+        confirmedPax: 4,
+        destination: "Shiva Trail",
+        proposalId: "proposals_1",
+        proposalRevision: 3,
+        queryId: "queries_1",
+        source: "Sacred Bharat",
+        sourceConsentAt: 1_786_123_400_000,
+        sourceInboundIntentId: "inboundQueryIntents_1",
+        travelStartDate: "2026-11-01",
+      }
+    );
+
+    expect(inserted()).toMatchObject({
+      source: "Sacred Bharat",
+      sourceConsentAt: 1_786_123_400_000,
+      sourceInboundIntentId: "inboundQueryIntents_1",
+    });
+  });
 });

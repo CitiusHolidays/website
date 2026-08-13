@@ -2,16 +2,25 @@
 
 import { ChevronDown, PhoneCall } from "lucide-react";
 import { useRef, useState } from "react";
+import {
+  describeSacredBharatIntentContext,
+  normalizeSacredBharatIntentContext,
+} from "@/lib/sacredBharat/inboundIntent";
 import TurnstileWidget from "./TurnstileWidget";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 
-export function buildConciergeHandoffPayload(form, formLoadedAt, turnstileToken) {
+export function buildInboundHandoffPayload(
+  form,
+  formLoadedAt,
+  turnstileToken,
+  { sacredBharatContext, source }
+) {
   const payload = {
     clientName: form.clientName.trim(),
     consent: form.consent === true,
     formLoadedAt,
-    source: "Citius Concierge",
+    source,
   };
   const optional = {
     contactEmail: form.contactEmail.trim().toLowerCase(),
@@ -31,20 +40,100 @@ export function buildConciergeHandoffPayload(form, formLoadedAt, turnstileToken)
   if (turnstileToken) {
     payload.turnstileToken = turnstileToken;
   }
+  if (source === "Sacred Bharat") {
+    const context = normalizeSacredBharatIntentContext(sacredBharatContext);
+    if (context) {
+      payload.sacredBharatContext = context;
+    }
+  }
   return payload;
 }
 
-const INITIAL_FORM = {
-  clientName: "",
-  consent: false,
-  contactEmail: "",
-  contactMobile: "",
-  destination: "",
-  paxCount: "",
-  travelStartDate: "",
-};
+export function buildConciergeHandoffPayload(form, formLoadedAt, turnstileToken) {
+  return buildInboundHandoffPayload(form, formLoadedAt, turnstileToken, {
+    source: "Citius Concierge",
+  });
+}
 
-async function sendConciergeHandoff(payload, submissionKey) {
+export function buildSacredBharatHandoffPayload(
+  form,
+  formLoadedAt,
+  turnstileToken,
+  sacredBharatContext
+) {
+  return buildInboundHandoffPayload(form, formLoadedAt, turnstileToken, {
+    sacredBharatContext,
+    source: "Sacred Bharat",
+  });
+}
+
+function initialForm(destination = "") {
+  return {
+    clientName: "",
+    consent: false,
+    contactEmail: "",
+    contactMobile: "",
+    destination,
+    paxCount: "",
+    travelStartDate: "",
+  };
+}
+
+function sacredSubmissionStorageKey(context) {
+  if (context?.entryPoint === "journey_planner") {
+    return `citius:sacred-intent:v1:journey-planner:${context.templeId}`;
+  }
+  return `citius:sacred-intent:v1:trail:${context?.trailSlug ?? "unknown"}`;
+}
+
+async function sacredSubmissionFingerprint(payload) {
+  const {
+    formLoadedAt: _formLoadedAt,
+    turnstileToken: _turnstileToken,
+    ...boundedPayload
+  } = payload;
+  if (!crypto.subtle) {
+    return null;
+  }
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(JSON.stringify(boundedPayload))
+  );
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function replaySafeSacredSubmissionKey(context, payload) {
+  const storageKey = sacredSubmissionStorageKey(context);
+  const fingerprint = await sacredSubmissionFingerprint(payload);
+  if (!fingerprint) {
+    return crypto.randomUUID();
+  }
+  try {
+    const existing = JSON.parse(window.sessionStorage.getItem(storageKey) || "null");
+    if (existing?.fingerprint === fingerprint && typeof existing.key === "string") {
+      return existing.key;
+    }
+    const key = crypto.randomUUID();
+    window.sessionStorage.setItem(storageKey, JSON.stringify({ fingerprint, key }));
+    return key;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+function clearSacredSubmissionKey(context, key) {
+  const storageKey = sacredSubmissionStorageKey(context);
+  try {
+    const existing = JSON.parse(window.sessionStorage.getItem(storageKey) || "null");
+    if (existing?.key === key) {
+      window.sessionStorage.removeItem(storageKey);
+    }
+  } catch {
+    // Storage can be unavailable in hardened browsers; server dedupe still covers in-page retry.
+  }
+}
+
+async function sendInboundHandoff(payload, submissionKey) {
   const response = await fetch("/api/inbound-intents", {
     body: JSON.stringify(payload),
     headers: {
@@ -59,10 +148,13 @@ async function sendConciergeHandoff(payload, submissionKey) {
   }
 }
 
-export function ConciergeContactHandoff() {
+function InboundContactHandoff({ sacredBharatContext, source, successMessage, triggerLabel }) {
+  const contextDescription = describeSacredBharatIntentContext(sacredBharatContext);
+  const isSacredBharat = source === "Sacred Bharat";
+  const defaultDestination = contextDescription?.destination ?? "";
   const [expanded, setExpanded] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
-  const [form, setForm] = useState(INITIAL_FORM);
+  const [form, setForm] = useState(() => initialForm(defaultDestination));
   const [status, setStatus] = useState({ message: "", state: "idle" });
   const [turnstileGeneration, setTurnstileGeneration] = useState(0);
   const formLoadedAt = useRef(0);
@@ -75,7 +167,7 @@ export function ConciergeContactHandoff() {
     const nextExpanded = !expanded;
     if (nextExpanded) {
       formLoadedAt.current = Date.now();
-      if (!submissionKey.current) {
+      if (!(isSacredBharat || submissionKey.current)) {
         submissionKey.current = crypto.randomUUID();
       }
     }
@@ -98,7 +190,7 @@ export function ConciergeContactHandoff() {
       requestAnimationFrame(() => formRef.current?.elements.namedItem(firstName)?.focus());
     }
   };
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault();
     if (sending.current) {
       return;
@@ -126,18 +218,28 @@ export function ConciergeContactHandoff() {
     sending.current = true;
     setFieldErrors({});
     setStatus({ message: "Sending your request…", state: "sending" });
-    return sendConciergeHandoff(
-      buildConciergeHandoffPayload(form, formLoadedAt.current, turnstileToken.current),
-      submissionKey.current
-    )
+    const payload = buildInboundHandoffPayload(form, formLoadedAt.current, turnstileToken.current, {
+      sacredBharatContext,
+      source,
+    });
+    submissionKey.current = isSacredBharat
+      ? await replaySafeSacredSubmissionKey(sacredBharatContext, payload)
+      : submissionKey.current || crypto.randomUUID();
+    const activeSubmissionKey = submissionKey.current;
+    return sendInboundHandoff(payload, activeSubmissionKey)
       .then(() => {
-        setForm(INITIAL_FORM);
+        setForm(initialForm(defaultDestination));
         turnstileToken.current = "";
         formLoadedAt.current = Date.now();
-        submissionKey.current = crypto.randomUUID();
+        if (isSacredBharat) {
+          clearSacredSubmissionKey(sacredBharatContext, activeSubmissionKey);
+          submissionKey.current = "";
+        } else {
+          submissionKey.current = crypto.randomUUID();
+        }
         setTurnstileGeneration((current) => current + 1);
         setStatus({
-          message: "Request received. A Citius travel specialist will contact you.",
+          message: successMessage,
           state: "success",
         });
       })
@@ -154,8 +256,14 @@ export function ConciergeContactHandoff() {
 
   return (
     <div
-      className={`border-brand-border/50 border-t bg-white px-4 py-3 ${
-        expanded ? "max-h-[55dvh] min-h-0 shrink overflow-y-auto overscroll-contain" : "shrink-0"
+      className={`${
+        isSacredBharat
+          ? "rounded-2xl border border-brand-light bg-white p-4 shadow-sm"
+          : "border-brand-border/50 border-t bg-white px-4 py-3"
+      } ${
+        expanded && !isSacredBharat
+          ? "max-h-[55dvh] min-h-0 shrink overflow-y-auto overscroll-contain"
+          : "shrink-0"
       }`}
     >
       <button
@@ -165,7 +273,7 @@ export function ConciergeContactHandoff() {
         type="button"
       >
         <span className="inline-flex items-center gap-2">
-          <PhoneCall aria-hidden="true" size={16} /> Ask Citius to contact me
+          <PhoneCall aria-hidden="true" size={16} /> {triggerLabel}
         </span>
         <ChevronDown
           aria-hidden="true"
@@ -182,7 +290,9 @@ export function ConciergeContactHandoff() {
           ref={formRef}
         >
           <p className="text-brand-muted text-xs leading-5">
-            Citius receives only the fields below. Your Concierge conversation is not attached.
+            {isSacredBharat
+              ? `Citius receives only the fields below and ${contextDescription?.label ?? "this Sacred Bharat selection"}. Your Soul Score, progress, wishlist, and AI journey text are not attached.`
+              : "Citius receives only the fields below. Your Concierge conversation is not attached."}
           </p>
           <div className="grid grid-cols-2 gap-2">
             <label className="col-span-2 text-brand-dark text-xs">
@@ -317,10 +427,35 @@ export function ConciergeContactHandoff() {
             disabled={status.state === "sending"}
             type="submit"
           >
-            Send contact request
+            {isSacredBharat ? "Send planning request" : "Send contact request"}
           </button>
         </form>
       ) : null}
     </div>
+  );
+}
+
+export function ConciergeContactHandoff() {
+  return (
+    <InboundContactHandoff
+      source="Citius Concierge"
+      successMessage="Request received. A Citius travel specialist will contact you."
+      triggerLabel="Ask Citius to contact me"
+    />
+  );
+}
+
+export function SacredBharatContactHandoff({ context, triggerLabel = "Plan with Citius" }) {
+  const normalizedContext = normalizeSacredBharatIntentContext(context);
+  if (!normalizedContext) {
+    return null;
+  }
+  return (
+    <InboundContactHandoff
+      sacredBharatContext={normalizedContext}
+      source="Sacred Bharat"
+      successMessage="Planning request received. A Citius travel specialist will contact you."
+      triggerLabel={triggerLabel}
+    />
   );
 }

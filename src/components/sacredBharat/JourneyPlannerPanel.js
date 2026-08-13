@@ -2,6 +2,7 @@
 
 import { Loader2, Sparkles, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { SacredBharatContactHandoff } from "@/components/ui/ConciergeContactHandoff";
 import { markClientAiMessageTerminal } from "@/lib/ai/uiMessageStream";
 import { suggestNextJourneys } from "@/lib/sacredBharat/journeyPlanner";
 import { streamJourneyPlannerResponse } from "@/lib/sacredBharat/journeyPlannerStream";
@@ -91,6 +92,7 @@ export function JourneyPlanResponse({ message }) {
 export default function JourneyPlannerPanel() {
   const { progress, visitedTempleIds } = useSacredBharatContext();
   const [focusTempleId, setFocusTempleId] = useState(null);
+  const [completedPlanTempleId, setCompletedPlanTempleId] = useState(null);
   const [planMessage, setPlanMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -106,6 +108,7 @@ export default function JourneyPlannerPanel() {
     }
 
     setPlanMessage(null);
+    setCompletedPlanTempleId(null);
     setErrorMessage("");
     setIsLoading(true);
 
@@ -124,6 +127,9 @@ export default function JourneyPlannerPanel() {
       onMessage: (message) => {
         if (mountedRef.current && abortRef.current === abortController) {
           setPlanMessage(() => message);
+          if (message.terminalState === "complete") {
+            setCompletedPlanTempleId(activeFocus);
+          }
         }
       },
       onStreamError: (message) => {
@@ -255,6 +261,15 @@ export default function JourneyPlannerPanel() {
       ) : null}
 
       <JourneyPlanResponse message={planMessage} />
+      {planMessage?.terminalState === "complete" && completedPlanTempleId ? (
+        <div className="mt-6">
+          <SacredBharatContactHandoff
+            context={{ entryPoint: "journey_planner", templeId: completedPlanTempleId }}
+            key={completedPlanTempleId}
+            triggerLabel="Plan this journey with Citius"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
