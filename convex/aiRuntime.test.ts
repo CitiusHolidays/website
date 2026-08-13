@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { consumeRateLimit, recordTelemetry } from "./aiRuntime";
 
 interface Row {
@@ -20,7 +21,8 @@ function makeSharedCtx(nowRef: { value: number }) {
         }
       },
       insert: (table: string, value: Record<string, unknown>) => {
-        const id = `${table}_${nextId++}`;
+        const id = `${table}_${nextId}`;
+        nextId += 1;
         tables[table].push({ _id: id, ...value });
         return id;
       },
@@ -37,7 +39,7 @@ function makeSharedCtx(nowRef: { value: number }) {
         return {
           unique: async () => rows[0] ?? null,
           withIndex(_name: string, callback: (query: unknown) => unknown) {
-            const filters: Array<[string, unknown]> = [];
+            const filters: [string, unknown][] = [];
             const query = {
               eq(field: string, value: unknown) {
                 filters.push([field, value]);
@@ -71,6 +73,18 @@ async function withSecret<T>(run: () => Promise<T>) {
 }
 
 describe("shared AI runtime state", () => {
+  test("pins and mounts the reviewed component behind the app compatibility mutation", () => {
+    const packageJson = JSON.parse(
+      readFileSync(new URL("../package.json", import.meta.url), "utf8")
+    ) as { dependencies: Record<string, string> };
+    const config = readFileSync(new URL("./convex.config.ts", import.meta.url), "utf8");
+    const binding = readFileSync(new URL("./lib/rateLimiterComponent.ts", import.meta.url), "utf8");
+    expect(packageJson.dependencies["@convex-dev/rate-limiter"]).toBe("0.3.2");
+    expect(config).toContain('from "@convex-dev/rate-limiter/convex.config.js"');
+    expect(config).toContain("app.use(rateLimiter)");
+    expect(binding).toContain("components as unknown as InstalledComponents");
+  });
+
   test("enforces one atomic bucket across simulated instances and cold starts", async () => {
     await withSecret(async () => {
       const now = { value: 1000 };

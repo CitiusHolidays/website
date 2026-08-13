@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "019166f95223821e9adc724f547befe1ef44fb51e1ea051b54f4cc7eebb7d1f8";
+const EXPECTED_CAPABILITY_HASH = "f9858302410633835ea8bf822e4b65c2de733e94c838e0db6292fd537fc78a8b";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -312,6 +312,30 @@ describe("Convex capability inventory", () => {
         kind: "internalQuery",
         module: "crm/commercialFiles",
         name: "getPurgeStatus",
+      },
+      {
+        classification: "internal",
+        kind: "internalAction",
+        module: "crm/invoiceOutstandingProjection",
+        name: "processProjectionPage",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/invoiceOutstandingProjection",
+        name: "startProjectionReconciliation",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/leaveLapse",
+        name: "getClSlLapseStatus",
+      },
+      {
+        classification: "internal",
+        kind: "internalAction",
+        module: "crm/leaveLapse",
+        name: "processClSlLapsePage",
       },
     ] satisfies Capability[]) {
       expect(capabilities).toContainEqual(capability);

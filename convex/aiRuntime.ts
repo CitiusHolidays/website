@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalMutation, mutation } from "./_generated/server";
+import { consumeComponentAiRateLimit } from "./lib/aiRateLimit";
 import { aiRateLimitResultValidator, aiTelemetryIdResultValidator } from "./publicReturnContracts";
 
 const featureValidator = v.union(v.literal("concierge"), v.literal("journeyPlanner"));
@@ -10,9 +11,17 @@ const terminalStateValidator = v.union(
   v.literal("interrupted")
 );
 
+const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const RATE_LIMIT_RETENTION_MS = 24 * 60 * 60 * 1000;
 const TELEMETRY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 const CLEANUP_BATCH_SIZE = 200;
+
+function supportsComponentRateLimit(ctx: unknown) {
+  return (
+    typeof (ctx as { runMutation?: unknown }).runMutation === "function" &&
+    typeof (ctx as { runQuery?: unknown }).runQuery === "function"
+  );
+}
 
 function assertRuntimeSecret(secret: string) {
   const expected = process.env.AI_RUNTIME_SECRET;
@@ -36,7 +45,7 @@ export const consumeRateLimit = mutation({
   },
   handler: async (ctx, args) => {
     assertRuntimeSecret(args.secret);
-    if (!/^[a-f0-9]{64}$/.test(args.keyHash)) {
+    if (!HASH_PATTERN.test(args.keyHash)) {
       throw new Error("Invalid privacy-safe rate-limit key");
     }
     if (!(Number.isInteger(args.limit) && args.limit > 0 && args.limit <= 100)) {
@@ -49,6 +58,14 @@ export const consumeRateLimit = mutation({
     }
 
     const now = currentTime(ctx);
+    if (supportsComponentRateLimit(ctx)) {
+      return await consumeComponentAiRateLimit(ctx, args, now);
+    }
+
+    // Direct unit handlers retain the legacy in-memory DB seam. Real Convex
+    // mutation contexts always take the component path above; keeping this
+    // characterized seam also preserves an immediate source rollback while
+    // legacy rows remain during the staged pilot.
     const existing = await ctx.db
       .query("aiRateLimits")
       .withIndex("by_feature_key", (query) =>

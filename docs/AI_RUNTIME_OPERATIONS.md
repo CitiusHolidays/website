@@ -10,6 +10,20 @@ Run `bun run ai:config-check` before deployment. It verifies that key names are 
 boolean `allowed` plus finite non-negative `remaining` and `retryAfterSec` values. A malformed result
 fails closed; telemetry persistence remains best effort and cannot replace or break a user stream.
 
+The shared AI bucket is the first compatibility pilot for the exactly pinned
+`@convex-dev/rate-limiter@0.3.2` component. The app-owned `aiRuntime.consumeRateLimit` mutation keeps
+its secret, privacy-safe HMAC key, arguments, and return shape; browsers and Next.js never call the
+component directly. Its fixed window starts on first use so existing limit/reset/retry units remain
+stable. Target-neutral registered tests mount the real component and prove independent keys,
+concurrent consumption, reset timing, and fail-closed validation.
+
+Component rollout remains deployment-specific. Mount and pilot it first on an explicitly named
+non-production Convex deployment, generate the checked binding only for that classified target,
+and run an authorized burst smoke. Retain legacy AI bucket rows and cleanup through at least one
+full retention window; do not remove the old table/cron or migrate inbound intent, private-file, or
+Sacred Bharat invite lanes until the AI pilot has target evidence. Production adoption and legacy
+deletion are separate approvals.
+
 ## Canonical grounding and offline proof
 
 Concierge company, service, destination, contact, and published pilgrimage facts come through
