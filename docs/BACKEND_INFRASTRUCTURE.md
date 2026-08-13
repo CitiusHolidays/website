@@ -93,7 +93,9 @@ Production state.
 - Spreadsheet import flows are batch-oriented and do not cap total row count; parser and validator seams are under `src/lib/portal/spreadsheetImports.ts`, `convex/crm/importActions.ts`, and the stable `convex/crm/imports.ts` registration facade. Focused passenger import, export, and flight owners are documented in [`SPREADSHEET_OPERATIONS.md`](SPREADSHEET_OPERATIONS.md).
 - `commandReceipts`, `passengerImportOperations`, and `passengerExportOperations` persist replay
   identity and long-running import/export progress. `notificationEmailDeliveries` stores a
-  privacy-safe, monotonic outcome ledger for CRM email sends.
+  privacy-safe, monotonic outcome ledger for CRM email sends; `notificationEmailEventSummaries`
+  and `notificationEmailSummaryReadiness` provide bounded exact-or-explicitly-partial Activity
+  counts.
 
 ## Auth and session flow
 
@@ -140,7 +142,8 @@ Key backend modules:
 - `convex/crm/imports.ts` and `importActions.ts`: spreadsheet preview/commit/export.
 - `convex/crm/commandReceipts.ts`: actor-scoped command IDs and canonical payload digests for
   replay-safe writes.
-- `convex/crm/notificationEmailLedger.ts`: monotonic delivery outcomes and permissioned summaries.
+- `convex/crm/notificationEmailLedger.ts`: monotonic delivery outcomes, transactional event
+  projections, two-pass readiness reconciliation, and permissioned summaries.
 - `convex/crm/savedViews.ts`: portal saved views, favorites, pinned sidebar links, and command-palette integration.
 
 See `docs/PORTAL_CRM_WORKFLOWS.md` for the current operational workflow contract.

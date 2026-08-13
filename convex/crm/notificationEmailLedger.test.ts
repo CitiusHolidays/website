@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { PERMISSIONS } from "./lib/rolePolicy";
 import {
   canViewNotificationEmailDeliverySummary,
+  hasValidNotificationSummaryProjectionMarker,
   normalizeNotificationEmailFailure,
   notificationEmailRecipientHashFromIdempotencyKey,
+  notificationSummaryProjectionDeltas,
   shouldApplyDeliveryOutcome,
 } from "./notificationEmailLedger";
 
@@ -68,5 +70,82 @@ describe("notification email outcome ledger", () => {
         )
       ).toBe(false);
     }
+  });
+
+  test("projects inserts, status transitions, and event moves as exact deltas", () => {
+    expect(
+      notificationSummaryProjectionDeltas(null, { eventId: "event_1", status: "queued" })
+    ).toEqual([
+      {
+        counts: {
+          exhausted: 0,
+          queued: 1,
+          retrying: 0,
+          sending: 0,
+          sent: 0,
+          skipped: 0,
+        },
+        eventId: "event_1",
+        total: 1,
+      },
+    ]);
+    expect(
+      notificationSummaryProjectionDeltas(
+        {
+          eventId: "event_1",
+          status: "queued",
+          summaryProjectedEventId: "event_1",
+          summaryProjectedStatus: "queued",
+        },
+        { eventId: "event_1", status: "sent" }
+      )
+    ).toEqual([
+      {
+        counts: {
+          exhausted: 0,
+          queued: -1,
+          retrying: 0,
+          sending: 0,
+          sent: 1,
+          skipped: 0,
+        },
+        eventId: "event_1",
+        total: 0,
+      },
+    ]);
+    expect(
+      notificationSummaryProjectionDeltas(
+        {
+          eventId: "event_2",
+          status: "sent",
+          summaryProjectedEventId: "event_1",
+          summaryProjectedStatus: "sent",
+        },
+        { eventId: "event_2", status: "sent" }
+      ).map(({ eventId, total }) => ({ eventId, total }))
+    ).toEqual([
+      { eventId: "event_1", total: -1 },
+      { eventId: "event_2", total: 1 },
+    ]);
+  });
+
+  test("rejects half-written projection markers", () => {
+    expect(
+      hasValidNotificationSummaryProjectionMarker({
+        eventId: "event_1",
+        status: "queued",
+        summaryProjectedEventId: "event_1",
+      })
+    ).toBe(false);
+    expect(() =>
+      notificationSummaryProjectionDeltas(
+        {
+          eventId: "event_1",
+          status: "queued",
+          summaryProjectedEventId: "event_1",
+        },
+        { eventId: "event_1", status: "sent" }
+      )
+    ).toThrow("NOTIFICATION_EMAIL_PROJECTION_INVALID");
   });
 });

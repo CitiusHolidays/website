@@ -28,12 +28,27 @@ Resend currently retains idempotency keys for a provider-defined window. Schedul
 Each recipient outcome is recorded in `notificationEmailDeliveries` with one of these monotonic
 statuses: `queued`, `sending`, `retrying`, `sent`, `skipped`, or `exhausted`. A later scheduler replay
 cannot move a `sent` row back to `queued` or `sending`, and ledger writes retry with bounded
-backoff if the recording mutation is temporarily unavailable.
+backoff if the recording mutation is temporarily unavailable. Reusing one idempotency key with a
+different event ID fails closed rather than moving or double-counting the recipient.
+
+Every accepted insert or status transition updates `notificationEmailEventSummaries` in the same
+transaction and records the projected event/status marker on the delivery row. The Activity query
+reads this bounded projection instead of truncating recipient rows. It returns `coverage: complete`
+only after `notificationEmailSummaryReadiness` records a successful backfill and independent
+verification pass for the current projection version. Before that point—including an interrupted or
+failed reconciliation—it returns `coverage: partial`, and Activity labels the counts as partial.
+
+`startDeliverySummaryReconciliation` schedules 50-row pages. The backfill adds only unprojected or
+stale transitions, so restart and replay are idempotent. A second full scan must find zero residual
+markers before readiness becomes complete. Active/current runs do not schedule a competing
+generation; a stale or failed generation may be restarted. This entrypoint is target-bound: invoke
+and verify it separately on each approved non-production deployment before any production rollout.
 
 The Activity delivery summary is guarded by `view:emailDeliveryStatus` and returns grouped counts
-plus a permitted notification link. It never returns raw recipient addresses, message content, or
-provider response bodies. Department heads, Admin, Directors, and Director Cement receive this
-oversight permission; ordinary department roles do not.
+only when the caller can receive the originating bell notification. It never returns raw recipient
+addresses, recipient hashes, message content, provider status, or provider response bodies.
+Department heads, Admin, Directors, and Director Cement receive this oversight permission; ordinary
+department roles do not.
 
 ## Environment transition
 

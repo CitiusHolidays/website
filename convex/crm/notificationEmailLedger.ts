@@ -1,6 +1,8 @@
-import { ConvexError, v } from "convex/values";
+import { makeFunctionReference } from "convex/server";
+import { ConvexError, type Value, v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalAction, internalMutation, query } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
+import { internalAction, internalMutation, type MutationCtx, query } from "../_generated/server";
 import { canReceiveNotification } from "./lib/notifications";
 import { PERMISSIONS } from "./lib/rolePolicy";
 import { requireStaff } from "./lib/staffAccess";
@@ -24,7 +26,28 @@ const deliveryStatus = v.union(
   v.literal("exhausted")
 );
 
-type DeliveryStatus = (typeof NOTIFICATION_EMAIL_DELIVERY_STATUSES)[number];
+export type DeliveryStatus = (typeof NOTIFICATION_EMAIL_DELIVERY_STATUSES)[number];
+
+const DELIVERY_SUMMARY_VERSION = 1;
+const DELIVERY_SUMMARY_READINESS_KEY = "notificationEmailDeliveries";
+const DELIVERY_SUMMARY_PAGE_SIZE = 50;
+const DELIVERY_SUMMARY_RECONCILIATION_STALE_MS = 60 * 60 * 1000;
+
+type SummaryReconciliationStage = "backfill" | "verify";
+
+interface SummaryReconciliationPageArgs extends Record<string, Value> {
+  cursor: string | null;
+  generation: number;
+  residuals: number;
+  scanned: number;
+  stage: SummaryReconciliationStage;
+}
+
+const reconcileDeliverySummaryPageRef = makeFunctionReference<
+  "mutation",
+  SummaryReconciliationPageArgs,
+  null
+>("crm/notificationEmailLedger:reconcileDeliverySummaryPage");
 
 export function canViewNotificationEmailDeliverySummary(access: {
   roles: string[];
@@ -46,6 +69,146 @@ const DELIVERY_STATUS_RANK: Record<DeliveryStatus, number> = {
 };
 const RECIPIENT_HASH_PATTERN = /^[a-z0-9-]{8,128}$/i;
 const MAX_LEDGER_WRITE_ATTEMPTS = 5;
+
+type DeliverySummaryCounts = Record<DeliveryStatus, number>;
+
+interface DeliveryProjectionSource {
+  eventId: string;
+  status: DeliveryStatus;
+  summaryProjectedEventId?: string;
+  summaryProjectedStatus?: DeliveryStatus;
+}
+
+interface DeliverySummaryDelta {
+  counts: DeliverySummaryCounts;
+  eventId: string;
+  total: number;
+}
+
+function emptyDeliverySummaryCounts(): DeliverySummaryCounts {
+  return {
+    exhausted: 0,
+    queued: 0,
+    retrying: 0,
+    sending: 0,
+    sent: 0,
+    skipped: 0,
+  };
+}
+
+export function hasValidNotificationSummaryProjectionMarker(row: DeliveryProjectionSource) {
+  return (
+    (row.summaryProjectedEventId === undefined && row.summaryProjectedStatus === undefined) ||
+    (row.summaryProjectedEventId !== undefined && row.summaryProjectedStatus !== undefined)
+  );
+}
+
+/**
+ * Describe the aggregate transition separately from database I/O so replay,
+ * event moves, and status changes are independently testable.
+ */
+export function notificationSummaryProjectionDeltas(
+  existing: DeliveryProjectionSource | null,
+  incoming: Pick<DeliveryProjectionSource, "eventId" | "status">
+): DeliverySummaryDelta[] {
+  if (existing && !hasValidNotificationSummaryProjectionMarker(existing)) {
+    throw new ConvexError("NOTIFICATION_EMAIL_PROJECTION_INVALID");
+  }
+  const deltas = new Map<string, DeliverySummaryDelta>();
+  const add = (eventId: string, status: DeliveryStatus, count: number, total: number) => {
+    const delta = deltas.get(eventId) ?? {
+      counts: emptyDeliverySummaryCounts(),
+      eventId,
+      total: 0,
+    };
+    delta.counts[status] += count;
+    delta.total += total;
+    deltas.set(eventId, delta);
+  };
+
+  if (existing?.summaryProjectedEventId && existing.summaryProjectedStatus) {
+    add(existing.summaryProjectedEventId, existing.summaryProjectedStatus, -1, -1);
+  }
+  add(incoming.eventId, incoming.status, 1, 1);
+  return Array.from(deltas.values());
+}
+
+function summaryCountsFromRow(row: Doc<"notificationEmailEventSummaries"> | null) {
+  return Object.fromEntries(
+    NOTIFICATION_EMAIL_DELIVERY_STATUSES.map((status) => [status, row?.[status] ?? 0])
+  ) as DeliverySummaryCounts;
+}
+
+async function applyDeliverySummaryProjection(
+  ctx: MutationCtx,
+  existing: DeliveryProjectionSource | null,
+  incoming: Pick<DeliveryProjectionSource, "eventId" | "status">,
+  updatedAt: number
+) {
+  const alreadyProjected = Boolean(
+    existing?.summaryProjectedEventId === incoming.eventId &&
+      existing.summaryProjectedStatus === incoming.status
+  );
+  const deltas = alreadyProjected
+    ? [
+        {
+          counts: emptyDeliverySummaryCounts(),
+          eventId: incoming.eventId,
+          total: 0,
+        },
+      ]
+    : notificationSummaryProjectionDeltas(existing, incoming);
+
+  await Promise.all(
+    deltas.map(async (delta) => {
+      const summary = await ctx.db
+        .query("notificationEmailEventSummaries")
+        .withIndex("by_eventId", (q) => q.eq("eventId", delta.eventId))
+        .unique();
+      if (!summary && delta.total <= 0) {
+        throw new ConvexError("NOTIFICATION_EMAIL_SUMMARY_MISSING");
+      }
+      const counts = summaryCountsFromRow(summary);
+      for (const status of NOTIFICATION_EMAIL_DELIVERY_STATUSES) {
+        counts[status] += delta.counts[status];
+        if (!Number.isSafeInteger(counts[status]) || counts[status] < 0) {
+          throw new ConvexError("NOTIFICATION_EMAIL_SUMMARY_INVALID");
+        }
+      }
+      const total = (summary?.total ?? 0) + delta.total;
+      if (
+        !Number.isSafeInteger(total) ||
+        total < 0 ||
+        NOTIFICATION_EMAIL_DELIVERY_STATUSES.reduce((sum, status) => sum + counts[status], 0) !==
+          total
+      ) {
+        throw new ConvexError("NOTIFICATION_EMAIL_SUMMARY_INVALID");
+      }
+      const patch = {
+        ...counts,
+        eventId: delta.eventId,
+        total,
+        updatedAt: Math.max(summary?.updatedAt ?? 0, updatedAt),
+      };
+      if (summary) {
+        await ctx.db.patch("notificationEmailEventSummaries", summary._id, patch);
+      } else {
+        await ctx.db.insert("notificationEmailEventSummaries", patch);
+      }
+    })
+  );
+}
+
+async function loadDeliverySummaryReadiness(ctx: MutationCtx) {
+  return await ctx.db
+    .query("notificationEmailSummaryReadiness")
+    .withIndex("by_key", (q) => q.eq("key", DELIVERY_SUMMARY_READINESS_KEY))
+    .unique();
+}
+
+async function scheduleDeliverySummaryPage(ctx: MutationCtx, args: SummaryReconciliationPageArgs) {
+  await ctx.scheduler.runAfter(0, reconcileDeliverySummaryPageRef, args);
+}
 
 /**
  * Keep error data useful for operators without persisting provider response
@@ -134,6 +297,10 @@ export const recordDeliveryOutcome = internalMutation({
       .withIndex("by_deliveryKey", (q) => q.eq("idempotencyKey", args.idempotencyKey))
       .unique();
 
+    if (existing && existing.eventId !== args.eventId) {
+      throw new ConvexError("NOTIFICATION_EMAIL_EVENT_ID_MISMATCH");
+    }
+
     if (
       existing &&
       !shouldApplyDeliveryOutcome(existing, { attempts: args.attempts, status: args.status })
@@ -150,9 +317,12 @@ export const recordDeliveryOutcome = internalMutation({
       status: args.status,
       updatedAt: now,
       ...(args.status === "sent" ? { sentAt: existing?.sentAt ?? now } : {}),
+      summaryProjectedEventId: args.eventId,
+      summaryProjectedStatus: args.status,
     };
+    await applyDeliverySummaryProjection(ctx, existing, args, now);
     if (existing) {
-      await ctx.db.patch(existing._id, patch);
+      await ctx.db.patch("notificationEmailDeliveries", existing._id, patch);
       return existing._id;
     }
 
@@ -162,6 +332,7 @@ export const recordDeliveryOutcome = internalMutation({
       idempotencyKey: args.idempotencyKey,
     });
   },
+  returns: v.id("notificationEmailDeliveries"),
 });
 
 export const retryDeliveryOutcome = internalAction({
@@ -201,6 +372,159 @@ export const retryDeliveryOutcome = internalAction({
   returns: v.null(),
 });
 
+export const startDeliverySummaryReconciliation = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const existing = await loadDeliverySummaryReadiness(ctx);
+    const now = Date.now();
+    const active = Boolean(
+      existing?.status === "running" &&
+        existing.version === DELIVERY_SUMMARY_VERSION &&
+        now - existing.updatedAt < DELIVERY_SUMMARY_RECONCILIATION_STALE_MS
+    );
+    if (active || (existing?.ready && existing.version === DELIVERY_SUMMARY_VERSION)) {
+      return { generation: existing?.generation ?? 0, scheduled: false };
+    }
+    const generation = (existing?.generation ?? 0) + 1;
+    const readiness = {
+      failureCode: undefined,
+      generation,
+      key: DELIVERY_SUMMARY_READINESS_KEY,
+      ready: false,
+      residuals: 0,
+      scanned: 0,
+      stage: "backfill" as const,
+      startedAt: now,
+      status: "running" as const,
+      updatedAt: now,
+      version: DELIVERY_SUMMARY_VERSION,
+    };
+    if (existing) {
+      await ctx.db.patch("notificationEmailSummaryReadiness", existing._id, readiness);
+    } else {
+      await ctx.db.insert("notificationEmailSummaryReadiness", readiness);
+    }
+    await scheduleDeliverySummaryPage(ctx, {
+      cursor: null,
+      generation,
+      residuals: 0,
+      scanned: 0,
+      stage: "backfill",
+    });
+    return { generation, scheduled: true };
+  },
+  returns: v.object({ generation: v.number(), scheduled: v.boolean() }),
+});
+
+export const reconcileDeliverySummaryPage = internalMutation({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    generation: v.number(),
+    residuals: v.number(),
+    scanned: v.number(),
+    stage: v.union(v.literal("backfill"), v.literal("verify")),
+  },
+  handler: async (ctx, args) => {
+    const readiness = await loadDeliverySummaryReadiness(ctx);
+    if (
+      readiness?.generation !== args.generation ||
+      readiness.status !== "running" ||
+      readiness.version !== DELIVERY_SUMMARY_VERSION
+    ) {
+      return null;
+    }
+    const page = await ctx.db
+      .query("notificationEmailDeliveries")
+      .withIndex("by_updatedAt")
+      .paginate({ cursor: args.cursor, numItems: DELIVERY_SUMMARY_PAGE_SIZE });
+    const scanned = args.scanned + page.page.length;
+
+    if (args.stage === "backfill") {
+      if (page.page.some((row) => !hasValidNotificationSummaryProjectionMarker(row))) {
+        await ctx.db.patch("notificationEmailSummaryReadiness", readiness._id, {
+          failureCode: "invalid_projection_marker",
+          ready: false,
+          residuals: args.residuals + 1,
+          scanned,
+          status: "failed",
+          updatedAt: Date.now(),
+        });
+        return null;
+      }
+      for (const row of page.page) {
+        if (
+          row.summaryProjectedEventId === row.eventId &&
+          row.summaryProjectedStatus === row.status
+        ) {
+          continue;
+        }
+        // Rows sharing one event must update its aggregate in order so a page
+        // cannot race several read-modify-write transitions against itself.
+        // biome-ignore lint/performance/noAwaitInLoops: sequential projection is transactional
+        await applyDeliverySummaryProjection(ctx, row, row, row.updatedAt);
+        await ctx.db.patch("notificationEmailDeliveries", row._id, {
+          summaryProjectedEventId: row.eventId,
+          summaryProjectedStatus: row.status,
+        });
+      }
+    }
+
+    const residuals =
+      args.stage === "verify"
+        ? args.residuals +
+          page.page.filter(
+            (row) =>
+              row.summaryProjectedEventId !== row.eventId ||
+              row.summaryProjectedStatus !== row.status
+          ).length
+        : args.residuals;
+    const now = Date.now();
+    await ctx.db.patch("notificationEmailSummaryReadiness", readiness._id, {
+      residuals,
+      scanned,
+      stage: args.stage,
+      updatedAt: now,
+    });
+
+    if (!page.isDone) {
+      await scheduleDeliverySummaryPage(ctx, {
+        cursor: page.continueCursor,
+        generation: args.generation,
+        residuals,
+        scanned,
+        stage: args.stage,
+      });
+      return null;
+    }
+    if (args.stage === "backfill") {
+      await ctx.db.patch("notificationEmailSummaryReadiness", readiness._id, {
+        residuals: 0,
+        scanned: 0,
+        stage: "verify",
+        updatedAt: now,
+      });
+      await scheduleDeliverySummaryPage(ctx, {
+        cursor: null,
+        generation: args.generation,
+        residuals: 0,
+        scanned: 0,
+        stage: "verify",
+      });
+      return null;
+    }
+    await ctx.db.patch("notificationEmailSummaryReadiness", readiness._id, {
+      ...(residuals > 0 ? { failureCode: "projection_residuals" } : {}),
+      ready: residuals === 0,
+      residuals,
+      stage: "complete",
+      status: residuals === 0 ? "complete" : "failed",
+      updatedAt: now,
+    });
+    return null;
+  },
+  returns: v.null(),
+});
+
 const summaryValidator = v.object({
   eventId: v.string(),
   exhausted: v.number(),
@@ -212,6 +536,18 @@ const summaryValidator = v.object({
   skipped: v.number(),
   total: v.number(),
   updatedAt: v.number(),
+});
+
+const summaryResultValidator = v.object({
+  coverage: v.union(v.literal("complete"), v.literal("partial")),
+  readinessState: v.union(
+    v.literal("pending"),
+    v.literal("backfilling"),
+    v.literal("verifying"),
+    v.literal("ready"),
+    v.literal("failed")
+  ),
+  summaries: v.array(summaryValidator),
 });
 
 /**
@@ -229,68 +565,78 @@ export const listDeliverySummary = query({
       throw new ConvexError("FORBIDDEN");
     }
     const limit = Math.min(100, Math.max(1, Math.trunc(args.limit ?? 25)));
+    const readiness = await ctx.db
+      .query("notificationEmailSummaryReadiness")
+      .withIndex("by_key", (q) => q.eq("key", DELIVERY_SUMMARY_READINESS_KEY))
+      .unique();
+    const complete = Boolean(
+      readiness?.ready &&
+        readiness.status === "complete" &&
+        readiness.version === DELIVERY_SUMMARY_VERSION
+    );
+    let readinessState: "pending" | "backfilling" | "verifying" | "ready" | "failed" = "pending";
+    if (complete) {
+      readinessState = "ready";
+    } else if (readiness?.status === "failed") {
+      readinessState = "failed";
+    } else if (readiness?.status === "running" && readiness.stage === "verify") {
+      readinessState = "verifying";
+    } else if (readiness?.status === "running") {
+      readinessState = "backfilling";
+    }
+
     const { eventId } = args;
-    const rows = eventId
+    const candidates = eventId
       ? await ctx.db
-          .query("notificationEmailDeliveries")
+          .query("notificationEmailEventSummaries")
           .withIndex("by_eventId", (q) => q.eq("eventId", eventId))
-          .take(500)
+          .take(1)
       : await ctx.db
-          .query("notificationEmailDeliveries")
+          .query("notificationEmailEventSummaries")
           .withIndex("by_updatedAt")
           .order("desc")
-          .take(500);
-    const groups = new Map<string, (typeof rows)[number][]>();
-    for (const row of rows) {
-      const group = groups.get(row.eventId) ?? [];
-      group.push(row);
-      groups.set(row.eventId, group);
-    }
-    const selectedGroups = Array.from(groups.values())
-      .sort(
-        (left, right) =>
-          Math.max(...right.map((row) => row.updatedAt)) -
-          Math.max(...left.map((row) => row.updatedAt))
-      )
-      .slice(0, limit);
-    const origins = await Promise.all(
-      selectedGroups.map(async (group) => {
-        const originEventId = group[0]?.eventId ?? "";
-        const notificationId = ctx.db.normalizeId("notifications", originEventId);
-        const notification = notificationId ? await ctx.db.get(notificationId) : null;
+          .take(Math.min(100, limit * 4));
+    const authorizedCandidates = await Promise.all(
+      candidates.map(async (summary) => {
+        if (summary.total <= 0) {
+          return null;
+        }
+        const notificationId = ctx.db.normalizeId("notifications", summary.eventId);
+        const notification = notificationId
+          ? await ctx.db.get("notifications", notificationId)
+          : null;
         if (!(notification && canReceiveNotification(notification, access))) {
-          return;
+          return null;
         }
         return {
-          href: getNotificationHref({
-            entityId: notification.entityId,
-            entityType: notification.entityType,
-            title: notification.title,
-          }),
-          label: notification.title,
+          eventId: summary.eventId,
+          exhausted: summary.exhausted,
+          origin: {
+            href: getNotificationHref({
+              entityId: notification.entityId,
+              entityType: notification.entityType,
+              title: notification.title,
+            }),
+            label: notification.title,
+          },
+          queued: summary.queued,
+          retrying: summary.retrying,
+          sending: summary.sending,
+          sent: summary.sent,
+          skipped: summary.skipped,
+          total: summary.total,
+          updatedAt: summary.updatedAt,
         };
       })
     );
-    return selectedGroups.map((group, index) => {
-      const counts = Object.fromEntries(
-        NOTIFICATION_EMAIL_DELIVERY_STATUSES.map((status) => [
-          status,
-          group.filter((row) => row.status === status).length,
-        ])
-      ) as Record<DeliveryStatus, number>;
-      return {
-        eventId: group[0]?.eventId ?? "",
-        exhausted: counts.exhausted,
-        ...(origins[index] ? { origin: origins[index] } : {}),
-        queued: counts.queued,
-        retrying: counts.retrying,
-        sending: counts.sending,
-        sent: counts.sent,
-        skipped: counts.skipped,
-        total: group.length,
-        updatedAt: Math.max(...group.map((row) => row.updatedAt)),
-      };
-    });
+    const summaries = authorizedCandidates
+      .filter((summary): summary is NonNullable<typeof summary> => summary !== null)
+      .slice(0, limit);
+    return {
+      coverage: complete ? ("complete" as const) : ("partial" as const),
+      readinessState,
+      summaries,
+    };
   },
-  returns: v.array(summaryValidator),
+  returns: summaryResultValidator,
 });

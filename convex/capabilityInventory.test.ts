@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "83352bc9b32ddec129d84959ade46527d0dae2aa82227b73e0ab020a37c654a1";
+const EXPECTED_CAPABILITY_HASH = "24c8cdeb43c66b38698d3266b7eb593df0b3ed3a5ec9d9b0756c095927765e7d";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -246,6 +246,24 @@ describe("Convex capability inventory", () => {
         kind: "internalMutation",
         module: "crm/proposalAttachments",
         name: "reconcileSummaryPage",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/notificationEmailLedger",
+        name: "listDeliverySummary",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/notificationEmailLedger",
+        name: "startDeliverySummaryReconciliation",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/notificationEmailLedger",
+        name: "reconcileDeliverySummaryPage",
       },
     ] satisfies Capability[]) {
       expect(capabilities).toContainEqual(capability);

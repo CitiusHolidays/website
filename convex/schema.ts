@@ -1030,12 +1030,53 @@ export default defineSchema({
       v.literal("skipped"),
       v.literal("exhausted")
     ),
+    summaryProjectedEventId: v.optional(v.string()),
+    summaryProjectedStatus: v.optional(
+      v.union(
+        v.literal("queued"),
+        v.literal("sending"),
+        v.literal("retrying"),
+        v.literal("sent"),
+        v.literal("skipped"),
+        v.literal("exhausted")
+      )
+    ),
     updatedAt: v.number(),
   })
     .index("by_deliveryKey", ["idempotencyKey"])
     .index("by_eventId", ["eventId"])
     .index("by_status_updatedAt", ["status", "updatedAt"])
     .index("by_updatedAt", ["updatedAt"]),
+
+  // Exact, privacy-safe aggregate for Activity. Legacy delivery rows are
+  // projected by a bounded backfill before the readiness row becomes ready.
+  notificationEmailEventSummaries: defineTable({
+    eventId: v.string(),
+    exhausted: v.number(),
+    queued: v.number(),
+    retrying: v.number(),
+    sending: v.number(),
+    sent: v.number(),
+    skipped: v.number(),
+    total: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_updatedAt", ["updatedAt"]),
+
+  notificationEmailSummaryReadiness: defineTable({
+    failureCode: v.optional(v.string()),
+    generation: v.number(),
+    key: v.string(),
+    ready: v.boolean(),
+    residuals: v.number(),
+    scanned: v.number(),
+    stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+    startedAt: v.number(),
+    status: v.union(v.literal("running"), v.literal("complete"), v.literal("failed")),
+    updatedAt: v.number(),
+    version: v.number(),
+  }).index("by_key", ["key"]),
 
   notifications: defineTable({
     body: v.string(),

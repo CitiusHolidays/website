@@ -27,7 +27,6 @@ crm/metricAggregates.ts:syncJobInvoicePage
 crm/notificationCleanup.ts:continueEntityCleanup
 crm/notificationCleanup.ts:continueEntityGroupCleanup
 crm/notificationEmailDetails.ts:getNotificationEmailDetails
-crm/notificationEmailLedger.ts:recordDeliveryOutcome
 crm/notificationEmails.ts:sendNotificationEmail
 crm/passport.ts:backfillPassportExpiryDate
 crm/passport.ts:deletePassportMetadata

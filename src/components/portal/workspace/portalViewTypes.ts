@@ -866,18 +866,22 @@ export interface ActivityViewProps {
   activity: PortalActivityRow[];
   canViewActivityLog: boolean;
   deleteItem: PortalDeleteHandler;
-  emailDeliverySummaries?: Array<{
-    eventId: string;
-    exhausted: number;
-    origin?: { href: string; label: string };
-    queued: number;
-    retrying: number;
-    sending: number;
-    sent: number;
-    skipped: number;
-    total: number;
-    updatedAt: number;
-  }>;
+  emailDeliverySummaries?: {
+    coverage: "complete" | "partial";
+    readinessState: "backfilling" | "failed" | "pending" | "ready" | "verifying";
+    summaries: Array<{
+      eventId: string;
+      exhausted: number;
+      origin?: { href: string; label: string };
+      queued: number;
+      retrying: number;
+      sending: number;
+      sent: number;
+      skipped: number;
+      total: number;
+      updatedAt: number;
+    }>;
+  };
   markNotificationRead: PortalWorkspaceState["markNotificationRead"];
   notifications: PortalNotificationRow[];
   removeNotification: PortalWorkspaceState["removeNotification"];
