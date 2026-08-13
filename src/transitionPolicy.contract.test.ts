@@ -23,11 +23,6 @@ const PORTAL_GPU_MOTION_TARGETS = [
 const INTENTIONAL_RENDER_TIER_EXCEPTIONS = [
   "src/app/(public)/sacred-bharat/trails/[slug]/page.client.js::layout-transition::width",
   "src/components/auth/AuthLoginForm.js::layout-transition::width",
-  "src/components/layout/Header.js::layout-transition::height",
-  "src/components/layout/Header.js::layout-transition::padding",
-  "src/components/layout/Header.js::layout-transition::padding",
-  "src/components/layout/Header.js::layout-transition::width",
-  "src/components/layout/Header.js::layout-transition::width",
   "src/components/pilgrimage/SpiritualHero.js::layout-transition::width",
   "src/components/pilgrimage/TrailHeroSlideshow.js::layout-transition::width",
   "src/components/sacredBharat/TrailCardGrid.js::layout-transition::width",
@@ -36,9 +31,7 @@ const INTENTIONAL_RENDER_TIER_EXCEPTIONS = [
   "src/components/ui/AnimatedSubmitButton.js::layout-motion::position",
 ] as const;
 
-const TEMPORARY_RENDER_TIER_DEBT = [
-  "src/components/ui/TrendingDestinations.js::layout-transition::grid-template-rows",
-] as const;
+const TEMPORARY_RENDER_TIER_DEBT = [] as const;
 
 /** Motion x/y/scale/scaleY shorthand props — use transform strings instead. */
 const motionShorthandProp = /\b(?:^|[,{]\s*)(?:x|y|scaleY|scale)\s*:/m;

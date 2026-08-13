@@ -1,9 +1,9 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
 import { m, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 import { useRef } from "react";
+import PublicContactCta from "../ui/PublicContactCta";
 import PublicGrain from "../ui/PublicGrain";
 import HeroVideo from "./HeroVideo";
 
@@ -53,19 +53,7 @@ export default function HomeHeroClient() {
           initial={{ opacity: 0, y: 20 }}
           transition={{ delay: 0.5, duration: 0.6, ease: "easeOut" }}
         >
-          <Link
-            className="group relative overflow-hidden rounded-full bg-white px-8 py-4 font-semibold text-slate-900 text-sm shadow-xl transition-[translate,box-shadow] duration-300 fine-hover:hover:-translate-y-1 hover:shadow-2xl"
-            href="/contact"
-          >
-            <span className="relative z-10 flex items-center gap-2">
-              Plan Your Trip{" "}
-              <ArrowRight
-                className="transition-transform fine-hover:group-hover:translate-x-1"
-                size={16}
-              />
-            </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-white opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-          </Link>
+          <PublicContactCta>Plan Your Trip</PublicContactCta>
 
           <Link
             className="material-decorative-glass rounded-full border border-white/30 bg-transparent px-8 py-4 font-semibold text-sm text-white backdrop-blur-sm transition-colors duration-300 hover:bg-white/10"

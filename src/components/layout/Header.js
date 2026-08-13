@@ -2,13 +2,14 @@
 
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useQuery } from "convex/react";
-import { ArrowRight, Menu } from "lucide-react";
-import { m, useMotionValueEvent, useScroll } from "motion/react";
+import { Menu } from "lucide-react";
+import { useMotionValueEvent, useScroll } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { logout, useSession } from "@/lib/auth-client";
 import Logo from "@/static/logos/logo.webp";
+import PublicContactCta from "../ui/PublicContactCta";
 import { HeaderMobileMenu } from "./HeaderMobileMenu";
 import { HeaderSessionControl } from "./HeaderSessionControl";
 import { SpiritualTrailsDropdown } from "./HeaderSpiritualTrailsDropdown";
@@ -61,34 +62,26 @@ export default function Header() {
 
   return (
     <>
-      <m.header
-        animate={{ opacity: 1, y: 0 }}
-        className={`fixed top-0 right-0 left-0 z-50 flex justify-center transition-[background-color,box-shadow,padding] duration-300 ${
-          isScrolled ? "pt-4" : "pt-0"
-        }`}
-        initial={{ opacity: 0, y: -100 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-      >
-        <m.div
-          className={`relative flex items-center justify-between transition-[width,border-radius,background-color,padding,box-shadow] duration-500 ease-[0.16,1,0.3,1] ${
+      <header className="fixed top-0 right-0 left-0 z-50 flex justify-center pt-4">
+        <div
+          className={`relative flex w-[calc(100%-2rem)] max-w-[1200px] items-center justify-between rounded-full border px-4 py-3 transition-[background-color,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] sm:w-[calc(100%-3rem)] sm:px-6 ${
             isScrolled
-              ? "material-structural w-[calc(100%-2rem)] max-w-[1200px] rounded-full bg-slate-900/40 px-4 py-3 shadow-2xl backdrop-blur-xl sm:w-[calc(100%-3rem)] sm:px-6"
-              : "w-[calc(100%-2rem)] max-w-[1200px] bg-transparent px-0 py-4 sm:w-[calc(100%-3rem)]"
+              ? "material-structural border-white/10 bg-slate-900/40 shadow-2xl backdrop-blur-xl"
+              : "border-transparent bg-transparent"
           }`}
-          layout="position"
         >
           <Link className="group relative z-10 flex items-center gap-2" href="/">
             <div
-              className={`relative transition-transform duration-300 ${isScrolled ? "scale-90" : "scale-100"}`}
+              className={`relative h-10 w-[120px] origin-left transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none ${isScrolled ? "scale-90" : "scale-100"}`}
             >
-              <div className="rounded p-1">
+              <div className="size-full rounded p-1">
                 <Image
                   alt="Citius"
-                  className="object-contain transition-[width,height] duration-300"
+                  className="size-full object-contain"
                   height={40}
                   priority
                   src={Logo}
-                  width={isScrolled ? 100 : 120}
+                  width={120}
                 />
               </div>
             </div>
@@ -134,16 +127,13 @@ export default function Header() {
               userMenuRef={userMenuRef}
             />
 
-            <Link
-              className={`hidden items-center gap-2 rounded-full px-5 py-2.5 font-bold text-sm transition-[background-color,color,box-shadow] duration-300 sm:flex ${
-                isScrolled
-                  ? "bg-white text-slate-900 hover:bg-blue-50"
-                  : "material-floating border border-white/20 bg-white/10 text-white backdrop-blur-md hover:bg-white/20"
-              }`}
-              href="/contact"
+            <PublicContactCta
+              className="hidden sm:inline-flex"
+              size="compact"
+              tone={isScrolled ? "light" : "glass"}
             >
-              Let&apos;s Talk <ArrowRight size={14} />
-            </Link>
+              Let&apos;s Talk
+            </PublicContactCta>
 
             <button
               aria-controls="public-mobile-menu"
@@ -159,8 +149,8 @@ export default function Header() {
               <Menu size={24} />
             </button>
           </div>
-        </m.div>
-      </m.header>
+        </div>
+      </header>
 
       {isOpen ? (
         <HeaderMobileMenu
