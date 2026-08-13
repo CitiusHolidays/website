@@ -4,13 +4,21 @@ import { getMyConfirmedTripPackets } from "./customerConfirmedTrips";
 type Row = Record<string, any>;
 
 function makeContext(
-  email = "traveller@example.com",
+  identity = {
+    email: "traveller@example.com",
+    subject: "legacy-traveller",
+    tokenIdentifier: "issuer-a|traveller",
+  },
   setup: (tables: Record<string, Row[]>) => void = () => undefined
 ) {
   const tables: Record<string, Row[]> = {
-    clients: [
-      { _id: "clients_1", emailNormalized: "traveller@example.com" },
-      { _id: "clients_2", emailNormalized: "other@example.com" },
+    authIdentityLinks: [
+      {
+        _id: "authIdentityLinks_1",
+        canonicalAuthUserId: "issuer-a|traveller",
+        legacyAuthUserId: "legacy-traveller",
+        status: "linked",
+      },
     ],
     confirmedOffers: [
       {
@@ -32,7 +40,18 @@ function makeContext(
         travelStartDate: "2027-01-01",
       },
     ],
-    inboundQueryIntents: [],
+    customerJourneyEntitlements: [
+      {
+        _id: "customerJourneyEntitlements_1",
+        authUserId: "issuer-a|traveller",
+        capabilities: ["view_confirmed_trip"],
+        confirmedOfferId: "confirmedOffers_1",
+        createdAt: 10,
+        queryId: "queries_1",
+        role: "organizer",
+        source: "crm_operator_grant",
+      },
+    ],
     itineraries: [
       {
         _id: "itineraries_1",
@@ -64,7 +83,6 @@ function makeContext(
     queries: [
       {
         _id: "queries_1",
-        clientId: "clients_1",
         confirmedOfferId: "confirmedOffers_1",
         queryCode: "Q-0001",
         source: "Citius Concierge",
@@ -72,7 +90,6 @@ function makeContext(
       },
       {
         _id: "queries_other",
-        clientId: "clients_2",
         confirmedOfferId: "confirmedOffers_other",
         queryCode: "Q-PRIVATE",
       },
@@ -81,7 +98,8 @@ function makeContext(
   setup(tables);
   const allRows = () => Object.values(tables).flat();
   const db = {
-    get: async (id: string) => allRows().find((row) => row._id === id) ?? null,
+    get: async (tableOrId: string, maybeId?: string) =>
+      allRows().find((row) => row._id === (maybeId ?? tableOrId)) ?? null,
     normalizeId: (table: string, id: string) =>
       tables[table]?.some((row) => row._id === id) ? id : null,
     query: (table: string) => {
@@ -89,6 +107,7 @@ function makeContext(
       const chain = {
         collect: async () => rows,
         first: async () => rows[0] ?? null,
+        order: () => chain,
         take: async (limit: number) => rows.slice(0, limit),
         withIndex: (_index: string, callback: (q: any) => any) => {
           const q = {
@@ -105,19 +124,20 @@ function makeContext(
     },
   };
   return {
-    auth: { getUserIdentity: async () => ({ email, subject: "auth_traveller" }) },
+    auth: { getUserIdentity: async () => identity },
     db,
   };
 }
 
 describe("read-only Customer confirmed trip packets", () => {
-  test("returns only email-owned immutable offer and frozen itinerary facts", async () => {
+  test("returns only explicitly entitled immutable offer and frozen itinerary facts", async () => {
     const result = await (getMyConfirmedTripPackets as any)._handler(makeContext(), {});
     expect(result).toEqual([
       {
         confirmedOfferId: "confirmedOffers_1",
         confirmedPax: 3,
         destination: "Kyoto",
+        entitlement: { role: "organizer", source: "crm_operator_grant" },
         itinerary: {
           content: "Day 1: Arrival",
           title: "Confirmed Kyoto itinerary",
@@ -139,23 +159,28 @@ describe("read-only Customer confirmed trip packets", () => {
     expect(JSON.stringify(result)).not.toContain("landCost");
   });
 
-  test("does not expose packets to a different customer email", async () => {
+  test("does not expose packets to an identity without an entitlement", async () => {
     expect(
-      await (getMyConfirmedTripPackets as any)._handler(makeContext("unknown@example.com"), {})
+      await (getMyConfirmedTripPackets as any)._handler(
+        makeContext({
+          email: "traveller@example.com",
+          subject: "other-subject",
+          tokenIdentifier: "issuer-a|other",
+        }),
+        {}
+      )
     ).toEqual([]);
   });
 
-  test("does not silently drop a confirmed trip behind arbitrary customer lookup caps", async () => {
-    const ctx = makeContext("traveller@example.com", (tables) => {
-      tables.clients.unshift(
-        ...Array.from({ length: 20 }, (_, index) => ({
-          _id: `clients_shared_${index}`,
-          emailNormalized: "traveller@example.com",
-        }))
-      );
-    });
-
-    const result = await (getMyConfirmedTripPackets as any)._handler(ctx, {});
-    expect(result.map((packet: Row) => packet.queryCode)).toEqual(["Q-0001"]);
+  test("does not let the same legacy subject under another issuer cross the boundary", async () => {
+    const result = await (getMyConfirmedTripPackets as any)._handler(
+      makeContext({
+        email: "traveller@example.com",
+        subject: "legacy-traveller",
+        tokenIdentifier: "issuer-b|traveller",
+      }),
+      {}
+    );
+    expect(result).toEqual([]);
   });
 });

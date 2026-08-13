@@ -171,8 +171,15 @@ describe("registered notification email summary projection", () => {
         authUserId: string,
         email: string,
         roles: ["Sales"] | ["Sales Head"]
-      ) =>
-        await ctx.db.insert("staffUsers", {
+      ) => {
+        await ctx.db.insert("authIdentityLinks", {
+          canonicalAuthUserId: `https://auth.citius.test|${authUserId}`,
+          createdAt: FIXED_NOW.getTime(),
+          legacyAuthUserId: authUserId,
+          status: "linked",
+          updatedAt: FIXED_NOW.getTime(),
+        });
+        return await ctx.db.insert("staffUsers", {
           active: true,
           authUserId,
           createdAt: FIXED_NOW.getTime(),
@@ -182,6 +189,7 @@ describe("registered notification email summary projection", () => {
           roles,
           updatedAt: FIXED_NOW.getTime(),
         });
+      };
       const headId = await insertStaff("summary_head", "summary-head@citius.test", ["Sales Head"]);
       await insertStaff("summary_sales", "summary-sales@citius.test", ["Sales"]);
       const otherHeadId = await insertStaff("summary_other", "summary-other@citius.test", [

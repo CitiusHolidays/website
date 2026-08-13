@@ -7,7 +7,7 @@ relationships only; source modules and deployment topology belong in the
 | Bounded context | Language owner | Actors and invariant |
 | --- | --- | --- |
 | Citius Connect CRM | [Citius CRM context](CONTEXT.md) | Staff operate Queries, Proposals, Confirmed Offers, Job Cards, and delivery records. Staff identity and permissions remain internal. |
-| Customer Travel Account | [Customer Travel Account entry in the CRM context](CONTEXT.md#language) | Customers see their own journeys and account data. Customer Account identity grants no Staff Workspace authority. Add a separate glossary only when more account-specific terms are settled. |
+| Customer Travel Account | [Customer Travel Account context](docs/customer-account/CONTEXT.md) | Account Holders see only journeys granted by explicit entitlements. Account identity grants no Staff Workspace authority. |
 | Sacred Bharat | [Sacred Bharat context](docs/sacred-bharat/CONTEXT.md) | Guests and signed-in Yatris record Darshans, Soul Score, trails, and planning intent. Yatri identity and progress are not CRM staff state. |
 
 ## Relationships

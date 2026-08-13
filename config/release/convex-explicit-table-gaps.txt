@@ -2,7 +2,6 @@
 # Owner: #144 / P204. Removal condition: convert each call and its mocks to an exact table literal.
 aiRuntime.ts:delete=1
 aiRuntime.ts:patch=2
-bookings.ts:get=8
 bookings.ts:patch=5
 crm/activity.ts:get=2
 crm/approvals.ts:delete=1
@@ -131,7 +130,6 @@ crm/visa.ts:get=18
 crm/visa.ts:patch=6
 crm/workflowNudges.ts:get=1
 crm/workflowNudges.ts:patch=7
-customerConfirmedTrips.ts:get=1
 lib/authSync.ts:delete=1
 lib/authSync.ts:patch=3
 lib/sacredBharatGuestMerge.ts:delete=2
@@ -140,7 +138,6 @@ lib/sacredBharatLeaderboard.ts:patch=1
 lib/staffAuthRepair.ts:patch=1
 migrations.ts:get=5
 migrations.ts:patch=16
-sacredBharat.ts:delete=3
 sacredBharat.ts:get=3
 sacredBharat.ts:patch=6
 trips.ts:get=1

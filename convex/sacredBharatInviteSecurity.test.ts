@@ -40,7 +40,13 @@ function makeCtx() {
         tables[table].push({ _id: id, ...value });
         return id;
       },
-      patch: (id: string, value: Record<string, unknown>) => {
+      patch: (
+        tableOrId: string,
+        idOrValue: string | Record<string, unknown>,
+        maybeValue?: Record<string, unknown>
+      ) => {
+        const id = maybeValue ? (idOrValue as string) : tableOrId;
+        const value = maybeValue ?? (idOrValue as Record<string, unknown>);
         for (const rows of Object.values(tables)) {
           const row = rows.find((candidate) => candidate._id === id);
           if (row) {

@@ -157,6 +157,16 @@ function getItineraryIcon(entry) {
   return Compass;
 }
 
+function getJourneyAccessLabel(entitlement) {
+  if (entitlement?.role === "organizer") {
+    return "Organizer access";
+  }
+  if (entitlement?.role === "traveller") {
+    return "Traveller access";
+  }
+  return "Booked by you";
+}
+
 function normalizeGalleryImage(image, tripName) {
   if (typeof image === "string" && image.trim()) {
     return { alt: `${tripName || "Journey"} highlight`, src: image.trim() };
@@ -262,6 +272,9 @@ export function JourneyOverviewCard({ booking, onOpen }) {
           <h3 className="account-display mt-2 text-2xl text-[var(--account-ink)]">
             Itinerary preview
           </h3>
+          <p className="mt-2 text-[var(--account-muted)] text-xs">
+            {getJourneyAccessLabel(booking.entitlement)}
+          </p>
         </div>
 
         {itinerary.length ? (

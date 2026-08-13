@@ -29,6 +29,7 @@ const upcomingJourney = {
     status: "confirmed",
     travelers: 2,
   },
+  entitlement: { role: "purchaser", source: "public_booking_owner" },
   trip: {
     coverImage: "/gallery/spiritual/aerial-view.webp",
     destination: "Kailash and Mansarovar",
@@ -76,6 +77,9 @@ const pastJourney = {
   },
 };
 
+const loadUpcomingJourney = () => Promise.resolve(upcomingJourney);
+const loadPastJourney = () => Promise.resolve(pastJourney);
+
 async function mount(element) {
   const container = document.createElement("div");
   document.body.append(container);
@@ -103,7 +107,7 @@ describe("customer Account journey composition", () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
-        loadJourneyDetail={async () => upcomingJourney}
+        loadJourneyDetail={loadUpcomingJourney}
         pastBookings={[pastJourney]}
         upcomingBookings={[upcomingJourney]}
       />
@@ -141,7 +145,7 @@ describe("customer Account journey composition", () => {
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
-        loadJourneyDetail={async () => pastJourney}
+        loadJourneyDetail={loadPastJourney}
         pastBookings={[pastJourney]}
         upcomingBookings={[]}
       />
@@ -181,6 +185,7 @@ describe("customer Account journey composition", () => {
             confirmedOfferId: "confirmedOffers_1",
             confirmedPax: 3,
             destination: "Kyoto",
+            entitlement: { role: "organizer", source: "crm_operator_grant" },
             itinerary: { content: "Day 1: Arrival", title: "Confirmed itinerary", version: 2 },
             jobCode: "JC-0001-AS",
             jobStatus: "In Operations",
@@ -195,6 +200,7 @@ describe("customer Account journey composition", () => {
     );
     expect(view.container.textContent).toContain("Confirmed trip packet");
     expect(view.container.textContent).toContain("Kyoto");
+    expect(view.container.textContent).toContain("Organizer access");
     expect(view.container.textContent).toContain("JC-0001-AS");
     expect(view.container.textContent).toContain("cannot change staff, payment, passport, or visa");
     expect(view.container.querySelector("input, textarea, select")).toBeNull();
@@ -203,13 +209,14 @@ describe("customer Account journey composition", () => {
 
   test("loads only the selected journey detail and reports a recoverable failure", async () => {
     const requested = [];
+    const loadUnavailableJourney = (bookingId) => {
+      requested.push(bookingId);
+      return Promise.reject(new Error("offline"));
+    };
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
-        loadJourneyDetail={async (bookingId) => {
-          requested.push(bookingId);
-          throw new Error("offline");
-        }}
+        loadJourneyDetail={loadUnavailableJourney}
         pastBookings={[pastJourney]}
         referenceNow={123}
         upcomingBookings={[upcomingJourney]}
@@ -235,10 +242,11 @@ describe("customer Account journey composition", () => {
 
   test("does not reopen a journey when a pending detail request finishes after Back", async () => {
     const request = deferred();
+    const loadPendingJourney = () => request.promise;
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
-        loadJourneyDetail={() => request.promise}
+        loadJourneyDetail={loadPendingJourney}
         pastBookings={[]}
         upcomingBookings={[upcomingJourney]}
       />
@@ -265,12 +273,12 @@ describe("customer Account journey composition", () => {
   test("ignores an older detail response when two journey requests overlap", async () => {
     const upcomingRequest = deferred();
     const pastRequest = deferred();
+    const loadOverlappingJourney = (bookingId) =>
+      bookingId === "booking_upcoming" ? upcomingRequest.promise : pastRequest.promise;
     const view = await mount(
       <AccountJourneysPanel
         cancelledBookings={[]}
-        loadJourneyDetail={(bookingId) =>
-          bookingId === "booking_upcoming" ? upcomingRequest.promise : pastRequest.promise
-        }
+        loadJourneyDetail={loadOverlappingJourney}
         pastBookings={[pastJourney]}
         upcomingBookings={[upcomingJourney]}
       />
@@ -282,7 +290,7 @@ describe("customer Account journey composition", () => {
     const pastButton = view.container.querySelector(
       'button[aria-label="Open itinerary for Kathmandu Discovery"]'
     );
-    await act(async () => {
+    act(() => {
       upcomingButton.click();
       pastButton.click();
     });

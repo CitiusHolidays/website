@@ -179,10 +179,20 @@ const customerJourneyCategoryValidator = v.union(
   v.literal("past"),
   v.literal("upcoming")
 );
+const customerJourneyEntitlementValidator = v.object({
+  role: v.union(v.literal("purchaser"), v.literal("organizer"), v.literal("traveller")),
+  source: v.union(
+    v.literal("public_booking_owner"),
+    v.literal("crm_operator_grant"),
+    v.literal("identity_migration"),
+    v.literal("legacy_booking_owner")
+  ),
+});
 export const customerJourneySummaryValidator = v.object({
   booking: customerBookingOutputValidator,
   category: customerJourneyCategoryValidator,
   detailAvailable: v.boolean(),
+  entitlement: customerJourneyEntitlementValidator,
   trip: customerJourneySummaryTripValidator,
 });
 export const customerJourneySummariesResultValidator = v.object({
@@ -194,6 +204,7 @@ export const customerJourneyDetailResultValidator = v.union(
     booking: customerBookingOutputValidator,
     category: customerJourneyCategoryValidator,
     detailAvailable: v.boolean(),
+    entitlement: customerJourneyEntitlementValidator,
     trip: v.object({
       coverImage: v.string(),
       description: v.string(),

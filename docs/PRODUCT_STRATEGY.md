@@ -22,6 +22,17 @@ Evidence of success is operational: more confirmed queries managed end to end, s
 
 Public, AI, and Sacred Bharat investments therefore compete on how clearly they create demand, improve conversion, or deepen retention for the CRM-led business—not on novelty alone.
 
+The **Customer Travel Account** supports the CRM-led business after demand becomes a paid or
+confirmed journey: the public site and payments create an attributable Booking, the CRM projects
+immutable confirmed-trip facts, Concierge may help customers understand next steps, and Sacred
+Bharat may deepen repeat travel intent, but none of those surfaces grants Account or Staff authority.
+Account investment is limited to trustworthy journey visibility, service clarity, and repeat-travel
+continuity—not a parallel CRM or consumer marketplace. Through the next strategy review on
+**31 March 2027**, measure journey-packet access success, customer support contacts per confirmed
+journey, repeat signed-in journey views, and attributable repeat enquiries. Account and Staff
+Workspace remain separate canonical baselines; broad Client/Traveller sharing and Sensitive Travel
+Document intake are non-goals until explicit entitlements and ADR 0012 launch evidence exist.
+
 ## Protected product principles
 
 - Preserve settled workflow semantics: Sales Decision owns terminal query outcomes; Contracting hands proposals to Sales; Job Cards begin only after confirmation; role, assigned-team, Cement, leave, expense, notification, and document scopes stay server enforced.

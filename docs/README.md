@@ -38,6 +38,7 @@ provider or production proof.
 - [Brand visual-world board](BRAND_VISUAL_WORLD_BOARD.md) - composition reference.
 - [Sacred Bharat identity kit](SACRED_BHARAT_IDENTITY_KIT.md) - endorsed identity rules.
 - [Sacred Bharat context](sacred-bharat/CONTEXT.md) - Yatri domain language.
+- [Customer Travel Account context](customer-account/CONTEXT.md) - Account Holder and Journey Entitlement language.
 - [Trail modules](TRAIL_MODULES.md) - pilgrimage trail boundaries.
 - [Cache Components](CACHE_COMPONENTS.md) - public/request-sensitive caching policy.
 
@@ -72,6 +73,7 @@ provider or production proof.
 - [Expense lifecycle normalization](migrations/expense-lifecycle-normalization.md).
 - [Query lead-stage Closed-to-Lost migration](migrations/query-lead-stage-closed-to-lost.md).
 - [Passenger import receipt positions](migrations/passenger-import-receipt-positions.md).
+- [Auth identity ownership migration](migrations/auth-identity-ownership.md).
 - [Import validator migration](IMPORT_VALIDATOR_MIGRATION.md).
 
 ## Architecture decisions
@@ -86,6 +88,7 @@ provider or production proof.
 - [ADR 0010: Patched transitive dependency floors](adr/0010-pin-patched-transitive-security-floors.md).
 - [ADR 0011: Standalone Sanity Studio security](adr/0011-secure-the-standalone-sanity-studio.md).
 - [ADR 0012: Customer document intake security](adr/0012-customer-document-intake-security-contract.md).
+- [ADR 0013: Customer Journey Entitlements](adr/0013-explicit-customer-journey-entitlements.md).
 
 ## Agent and contribution references
 

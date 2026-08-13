@@ -7,6 +7,7 @@ mock.module("next/server", () => ({ connection: () => undefined }));
 mock.module("@/lib/auth-server", () => ({
   fetchAuthMutation: (_mutation, _args, options) => {
     authOptions.push(options);
+    return { status: "linked" };
   },
   fetchAuthQuery: (_query, _args, options) => {
     authOptions.push(options);
@@ -36,6 +37,7 @@ describe("Customer Travel Account request authentication", () => {
 
     expect(tokenAcquisitions).toBe(1);
     expect(authOptions).toEqual([
+      { token: "account-request-token" },
       { token: "account-request-token" },
       { token: "account-request-token" },
       { token: "account-request-token" },

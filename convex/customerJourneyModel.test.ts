@@ -57,9 +57,19 @@ function context({
 } = {}) {
   let indexedUserId = "";
   const db = {
-    get: async (id: string) =>
-      bookings.find((row) => row._id === id) ?? trips.find((row) => row._id === id) ?? null,
+    get: (tableOrId: string, maybeId?: string) => {
+      const id = maybeId ?? tableOrId;
+      return bookings.find((row) => row._id === id) ?? trips.find((row) => row._id === id) ?? null;
+    },
     query: (table: string) => {
+      if (table === "customerJourneyEntitlements") {
+        const emptyChain = {
+          order: () => emptyChain,
+          take: async () => [],
+          withIndex: () => emptyChain,
+        };
+        return emptyChain;
+      }
       if (table !== "bookings") {
         throw new Error(`Unexpected query: ${table}`);
       }

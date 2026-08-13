@@ -40,8 +40,19 @@ describe("registered notification unread projection", () => {
   test("keeps high-history role, direct, role-change, relink, click, and delete totals exact", async () => {
     const t = createHarness();
     const fixture = await t.run(async (ctx) => {
-      const insertStaff = async (authUserId: string, email: string, roles: ["Admin"] | ["Sales"]) =>
-        await ctx.db.insert("staffUsers", {
+      const insertStaff = async (
+        authUserId: string,
+        email: string,
+        roles: ["Admin"] | ["Sales"]
+      ) => {
+        await ctx.db.insert("authIdentityLinks", {
+          canonicalAuthUserId: `https://auth.citius.test|${authUserId}`,
+          createdAt: FIXED_NOW.getTime(),
+          legacyAuthUserId: authUserId,
+          status: "linked",
+          updatedAt: FIXED_NOW.getTime(),
+        });
+        return await ctx.db.insert("staffUsers", {
           active: true,
           authUserId,
           createdAt: FIXED_NOW.getTime(),
@@ -51,6 +62,7 @@ describe("registered notification unread projection", () => {
           roles,
           updatedAt: FIXED_NOW.getTime(),
         });
+      };
       const staffA = await insertStaff("auth_a", "a@citius.test", ["Sales"]);
       const staffB = await insertStaff("auth_b", "b@citius.test", ["Sales"]);
       await insertStaff("auth_admin", "admin@citius.test", ["Admin"]);
@@ -136,6 +148,13 @@ describe("registered notification unread projection", () => {
     });
 
     await t.run(async (ctx) => {
+      await ctx.db.insert("authIdentityLinks", {
+        canonicalAuthUserId: "https://auth.citius.test|auth_a_relinked",
+        createdAt: FIXED_NOW.getTime() + 2000,
+        legacyAuthUserId: "auth_a_relinked",
+        status: "linked",
+        updatedAt: FIXED_NOW.getTime() + 2000,
+      });
       await ctx.db.patch("staffUsers", fixture.staffA, {
         authUserId: "auth_a_relinked",
         roles: ["Operations"],

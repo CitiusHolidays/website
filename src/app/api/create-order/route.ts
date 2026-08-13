@@ -32,6 +32,7 @@ interface PreparedCheckout {
   };
   user: {
     email: string;
+    id: string;
     name: string;
     phoneNumber?: string | null;
   };
@@ -86,11 +87,6 @@ async function handleCreateOrder(request: Request) {
       return NextResponse.json({ error: "Trip ID is required" }, { status: 400 });
     }
 
-    const currentUser = await fetchAuthQuery(anyApi.auth.getCurrentUser, {});
-    if (!currentUser?.id) {
-      return NextResponse.json({ error: "You must be logged in to continue." }, { status: 401 });
-    }
-
     if (normalizedTravelers < 1 || normalizedTravelers > 10) {
       return NextResponse.json(
         { error: "Number of travelers must be between 1 and 10" },
@@ -98,6 +94,13 @@ async function handleCreateOrder(request: Request) {
       );
     }
 
+    const identityLink = await fetchAuthMutation(anyApi.userProfiles.establishMyIdentity, {});
+    if (identityLink.status !== "linked") {
+      return NextResponse.json(
+        { error: "Your account identity requires support review before checkout." },
+        { status: 403 }
+      );
+    }
     await fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {});
     const checkout = (await fetchAuthQuery(anyApi.bookings.prepareCheckout, {
       currency: normalizedCurrency,
@@ -118,7 +121,7 @@ async function handleCreateOrder(request: Request) {
             tripId: checkout.trip.id,
             tripName: checkout.trip.name,
             userEmail: checkout.user.email,
-            userId: currentUser.id,
+            userId: checkout.user.id,
           },
           receipt: receiptId,
         })

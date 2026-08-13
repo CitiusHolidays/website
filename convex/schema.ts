@@ -202,6 +202,27 @@ export default defineSchema({
     .index("by_correlationDigest", ["correlationDigest"])
     .index("by_updatedAt", ["updatedAt"]),
 
+  authIdentityLinks: defineTable({
+    canonicalAuthUserId: v.string(),
+    createdAt: v.number(),
+    legacyAuthUserId: v.string(),
+    status: v.union(v.literal("linked"), v.literal("quarantined")),
+    updatedAt: v.number(),
+  })
+    .index("by_legacyAuthUserId", ["legacyAuthUserId"])
+    .index("by_canonicalAuthUserId", ["canonicalAuthUserId"]),
+
+  authIdentityQuarantines: defineTable({
+    createdAt: v.number(),
+    legacyAuthUserIdHash: v.string(),
+    reason: v.union(v.literal("conflicting_canonical_link"), v.literal("ambiguous_owner")),
+    resolvedAt: v.optional(v.number()),
+    table: v.string(),
+  })
+    .index("by_reason_createdAt", ["reason", "createdAt"])
+    .index("by_hash_table", ["legacyAuthUserIdHash", "table"])
+    .index("by_table_createdAt", ["table", "createdAt"]),
+
   activityLogs: defineTable({
     action: v.string(),
     actorId: v.string(),
@@ -335,6 +356,29 @@ export default defineSchema({
     .index("by_status_createdAt", ["status", "createdAt"])
     .index("by_tripId", ["tripId"]),
 
+  customerJourneyEntitlements: defineTable({
+    accountHolderProfileId: v.optional(v.id("userProfiles")),
+    authUserId: v.string(),
+    bookingId: v.optional(v.id("bookings")),
+    capabilities: v.array(v.union(v.literal("view_booking"), v.literal("view_confirmed_trip"))),
+    confirmedOfferId: v.optional(v.id("confirmedOffers")),
+    createdAt: v.number(),
+    grantedByStaffId: v.optional(v.id("staffUsers")),
+    queryId: v.optional(v.id("queries")),
+    revokedAt: v.optional(v.number()),
+    role: v.union(v.literal("purchaser"), v.literal("organizer"), v.literal("traveller")),
+    source: v.union(
+      v.literal("public_booking_owner"),
+      v.literal("crm_operator_grant"),
+      v.literal("identity_migration")
+    ),
+    updatedAt: v.number(),
+  })
+    .index("by_authUserId_createdAt", ["authUserId", "createdAt"])
+    .index("by_bookingId_authUserId", ["bookingId", "authUserId"])
+    .index("by_confirmedOfferId_authUserId", ["confirmedOfferId", "authUserId"])
+    .index("by_queryId_authUserId", ["queryId", "authUserId"]),
+
   checklistTasks: defineTable({
     category: v.string(),
     completed: v.boolean(),
@@ -423,6 +467,7 @@ export default defineSchema({
     usedAt: v.optional(v.number()),
   })
     .index("by_token", ["token"])
+    .index("by_authUserId_createdAt", ["authUserId", "createdAt"])
     .index("by_storageId", ["storageId"])
     .index("by_expiresAt", ["expiresAt"]),
 
@@ -697,6 +742,7 @@ export default defineSchema({
     key: v.string(),
     legacyRemaining: v.number(),
     processed: v.number(),
+    quarantined: v.optional(v.number()),
     stage: v.string(),
     startedAt: v.number(),
     status: v.union(

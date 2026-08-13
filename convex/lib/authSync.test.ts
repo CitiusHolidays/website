@@ -10,15 +10,15 @@ function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, a
   return {
     ctx: {
       db: {
-        delete: async (id: string) => {
+        delete: (id: string) => {
           tables.userProfiles = tables.userProfiles.filter((row) => row._id !== id);
         },
-        insert: async (table: string, value: Record<string, unknown>) => {
+        insert: (table: string, value: Record<string, unknown>) => {
           const id = `${table}_new`;
           tables[table].push({ _id: id, ...value });
           return id;
         },
-        patch: async (id: string, value: Record<string, unknown>) => {
+        patch: (id: string, value: Record<string, unknown>) => {
           for (const table of Object.values(tables)) {
             const row = table.find((candidate) => candidate._id === id);
             if (row) {
@@ -30,13 +30,13 @@ function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, a
           let rows = [...tables[table]];
           let indexed = false;
           const query = {
-            collect: async () => {
+            collect: () => {
               if (table === "userProfiles" && !indexed) {
                 fullProfileScans += 1;
               }
               return rows;
             },
-            unique: async () => {
+            unique: () => {
               if (rows.length > 1) {
                 throw new Error("unique() query matched more than one document");
               }
@@ -44,7 +44,7 @@ function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, a
             },
             withIndex: (_name: string, callback: (q: any) => unknown) => {
               indexed = true;
-              const filters: Array<[string, unknown]> = [];
+              const filters: [string, unknown][] = [];
               const q = {
                 eq: (field: string, value: unknown) => {
                   filters.push([field, value]);
@@ -66,7 +66,7 @@ function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, a
 }
 
 describe("syncAuthRecords normalized email lookup", () => {
-  test("migrates and deduplicates legacy case variants, then uses the normalized index", async () => {
+  test("migrates only the authoritative legacy identity and leaves same-email owners separate", async () => {
     const { ctx, getFullProfileScans, tables } = makeCtx([
       { _id: "profile_1", authUserId: "legacy_1", email: "Foo@Example.com", name: "Foo" },
       { _id: "profile_2", authUserId: "legacy_2", email: "foo@example.com", name: "Duplicate" },
@@ -75,13 +75,15 @@ describe("syncAuthRecords normalized email lookup", () => {
     await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "Foo@Example.com",
+      legacyAuthUserId: "legacy_1",
       name: "Foo",
     });
-    expect(tables.userProfiles).toHaveLength(1);
-    expect(tables.userProfiles[0]).toMatchObject({
+    expect(tables.userProfiles).toHaveLength(2);
+    expect(tables.userProfiles.find((row) => row._id === "profile_1")).toMatchObject({
       authUserId: "auth_foo",
       emailNormalized: "foo@example.com",
     });
+    expect(tables.userProfiles.find((row) => row._id === "profile_2")?.authUserId).toBe("legacy_2");
     expect(getFullProfileScans()).toBe(0);
 
     tables.userProfiles.push({
@@ -96,7 +98,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       email: "foo@example.com",
       name: "Foo",
     });
-    expect(tables.userProfiles).toHaveLength(1);
+    expect(tables.userProfiles).toHaveLength(3);
     expect(getFullProfileScans()).toBe(0);
   });
 
@@ -163,6 +165,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "foo@example.com",
+      legacyAuthUserId: "legacy_foo",
     });
 
     expect(tables.userProfiles).toHaveLength(1);
@@ -180,7 +183,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     const { ctx, tables } = makeCtx([
       {
         _id: "profile_newer",
-        authUserId: "legacy_newer",
+        authUserId: undefined,
         createdAt: 200,
         email: "foo@example.com",
         emailNormalized: "foo@example.com",
@@ -188,7 +191,7 @@ describe("syncAuthRecords normalized email lookup", () => {
       },
       {
         _id: "profile_older",
-        authUserId: "legacy_older",
+        authUserId: undefined,
         createdAt: 100,
         email: "foo@example.com",
         emailNormalized: "foo@example.com",
@@ -231,6 +234,7 @@ describe("syncAuthRecords normalized email lookup", () => {
     await syncAuthRecords(ctx as any, {
       authUserId: "auth_foo",
       email: "foo@example.com",
+      legacyAuthUserId: "legacy_foo",
     });
 
     expect(tables.userProfiles).toHaveLength(2);

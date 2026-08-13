@@ -1,6 +1,7 @@
 import type { WithoutSystemFields } from "convex/server";
 import type { Doc, Id, TableNames } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
+import { authorizedCustomerIdentityIds } from "../../lib/customerIdentityAccess";
 
 type InsertValue<TableName extends TableNames> = WithoutSystemFields<Doc<TableName>>;
 type PatchValue<TableName extends TableNames> = Partial<InsertValue<TableName>>;
@@ -58,15 +59,21 @@ function collectStorageIds(value: unknown) {
 
 async function resolveActiveRun(ctx: MutationCtx) {
   const identity = await ctx.auth?.getUserIdentity?.();
-  if (!(identity?.subject && String(identity.email ?? "").endsWith("@citius-e2e.test"))) {
+  if (!(identity && String(identity.email ?? "").endsWith("@citius-e2e.test"))) {
     return null;
   }
-  const actor = await ctx.db
-    .query("e2eRunActors")
-    .withIndex("by_authUserId_status", (q) =>
-      q.eq("authUserId", identity.subject).eq("status", "active")
+  const identityIds = await authorizedCustomerIdentityIds(ctx, identity);
+  const actors = await Promise.all(
+    identityIds.map((authUserId) =>
+      ctx.db
+        .query("e2eRunActors")
+        .withIndex("by_authUserId_status", (q) =>
+          q.eq("authUserId", authUserId).eq("status", "active")
+        )
+        .unique()
     )
-    .unique();
+  );
+  const actor = actors.find(Boolean);
   if (!actor) {
     return null;
   }

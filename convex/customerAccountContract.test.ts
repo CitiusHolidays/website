@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { toCustomerBooking } from "./bookings";
+
+const RAW_TOKEN_ID_PROJECTION = /\bid:\s*(?:identity\.subject|authUserId|canonicalAuthUserId)\b/;
 
 describe("customer booking projection", () => {
   test("keeps payment, auth, notes, and traveler details off the account boundary", () => {
@@ -35,5 +39,12 @@ describe("customer booking projection", () => {
     expect(result).not.toHaveProperty("razorpayPaymentId");
     expect(result).not.toHaveProperty("travelerDetails");
     expect(result).not.toHaveProperty("userId");
+  });
+
+  test("public account projections never reuse an auth token as the user id", () => {
+    for (const file of ["auth.ts", "bookings.ts", "userProfiles.ts"]) {
+      const source = readFileSync(join(import.meta.dir, file), "utf8");
+      expect(source, file).not.toMatch(RAW_TOKEN_ID_PROJECTION);
+    }
   });
 });

@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "41fb5aa5572a6b5926af1ad7e07c142507723e46e8e8f61202c5eab7d646c4d6";
+const EXPECTED_CAPABILITY_HASH = "019166f95223821e9adc724f547befe1ef44fb51e1ea051b54f4cc7eebb7d1f8";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -375,6 +375,40 @@ describe("Convex capability inventory", () => {
     ] as const) {
       expect(capabilities).toContainEqual(capability);
     }
+  });
+
+  test("classifies identity migration and explicit Account Holder capabilities", () => {
+    const capabilities = discoverCapabilities();
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
+      module: "authIdentityMigration",
+      name: "runAuthIdentityMigrationPage",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalQuery",
+      module: "authIdentityMigration",
+      name: "getAuthIdentityMigrationStatus",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "query",
+      module: "customerConfirmedTrips",
+      name: "listAccountHolderOptions",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "customerConfirmedTrips",
+      name: "grantConfirmedTripEntitlement",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "userProfiles",
+      name: "establishMyIdentity",
+    });
   });
 
   test("includes wrapped Commercial Files mutations as public-product capabilities", () => {

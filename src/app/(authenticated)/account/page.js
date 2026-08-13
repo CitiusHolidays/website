@@ -18,8 +18,18 @@ export default async function AccountPage() {
   const token = await getToken();
   const authOptions = { token };
   const { user } = await requireAuth("/account", authOptions);
-  const [, journeys, confirmedTrips] = await Promise.all([
-    fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}, authOptions),
+  // Commit a conflict/quarantine result before any later mutation could throw
+  // and roll its transaction back.
+  const identityLink = await fetchAuthMutation(
+    anyApi.userProfiles.establishMyIdentity,
+    {},
+    authOptions
+  );
+  if (identityLink.status !== "linked") {
+    throw new Error("Account identity requires support review");
+  }
+  await fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}, authOptions);
+  const [journeys, confirmedTrips] = await Promise.all([
     fetchAuthQuery(anyApi.bookings.getMyJourneySummaries, {}, authOptions),
     fetchAuthQuery(anyApi.customerConfirmedTrips.getMyConfirmedTripPackets, {}, authOptions),
   ]);

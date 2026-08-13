@@ -11,8 +11,19 @@ function createHarness() {
   return convexTest({ modules, schema, transactionLimits: true });
 }
 
+async function seedActorIdentityLink(ctx: any) {
+  await ctx.db.insert("authIdentityLinks", {
+    canonicalAuthUserId: `https://auth.citius.test|${ACTOR}`,
+    createdAt: FIXED_NOW.getTime(),
+    legacyAuthUserId: ACTOR,
+    status: "linked",
+    updatedAt: FIXED_NOW.getTime(),
+  });
+}
+
 async function seedEditableJobCard(t: ReturnType<typeof createHarness>) {
   return await t.run(async (ctx) => {
+    await seedActorIdentityLink(ctx);
     await ctx.db.insert("staffUsers", {
       active: true,
       authUserId: ACTOR,
@@ -38,6 +49,7 @@ async function seedEditableJobCard(t: ReturnType<typeof createHarness>) {
 
 async function seedDeletionGraph(t: ReturnType<typeof createHarness>) {
   return await t.run(async (ctx) => {
+    await seedActorIdentityLink(ctx);
     const staffId = await ctx.db.insert("staffUsers", {
       active: true,
       authUserId: ACTOR,
@@ -153,7 +165,7 @@ describe("registered Job Card mutation boundary", () => {
       expect(activity).toHaveLength(1);
       expect(activity[0]).toMatchObject({
         action: "updated",
-        actorId: ACTOR,
+        actorId: `https://auth.citius.test|${ACTOR}`,
         entityId: jobCardId,
         entityType: "jobCard",
       });

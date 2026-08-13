@@ -2,10 +2,17 @@ import { describe, expect, test } from "bun:test";
 import { getPortalAccess } from "./lib/staffAccess";
 import { getMyPortalAccess } from "./staff";
 
-type Row = { _id: string; [key: string]: unknown };
+interface Row {
+  _id: string;
+  [key: string]: unknown;
+}
 
-function makeCtx(identity: Record<string, unknown> | null, staffRows: Row[]) {
-  const tables = { staffUsers: staffRows };
+function makeCtx(
+  identity: Record<string, unknown> | null,
+  staffRows: Row[],
+  identityLinks: Row[] = []
+) {
+  const tables = { authIdentityLinks: identityLinks, staffUsers: staffRows };
   const ctx = {
     auth: {
       getUserIdentity: async () => identity,
@@ -17,7 +24,7 @@ function makeCtx(identity: Record<string, unknown> | null, staffRows: Row[]) {
           take: async (count: number) => rows.slice(0, count),
           unique: async () => rows[0] ?? null,
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
+            const filters: { field: string; value: unknown }[] = [];
             const q = {
               eq(field: string, value: unknown) {
                 filters.push({ field, value });
@@ -92,7 +99,7 @@ describe("portal staff identity scope", () => {
     expect(access.permissions.length).toBeGreaterThan(0);
   });
 
-  test("allows a canonical-only explicit staff link while retaining legacy write identity", async () => {
+  test("allows a canonical-only explicit staff link and selects canonical write identity", async () => {
     const ctx = makeCtx(
       {
         email: "canonical@example.invalid",
@@ -117,7 +124,7 @@ describe("portal staff identity scope", () => {
 
     expect(access.allowed).toBe(true);
     expect(access.staffId).toBe("staff_canonical");
-    expect(access.authUserId).toBe("legacy-subject");
+    expect(access.authUserId).toBe("issuer|canonical-subject");
   });
 
   test("allows a legacy-only explicit staff link during the expansion window", async () => {
@@ -136,6 +143,14 @@ describe("portal staff identity scope", () => {
           emailNormalized: "legacy@example.invalid",
           name: "Legacy staff",
           roles: ["Sales"],
+        },
+      ],
+      [
+        {
+          _id: "identity_link",
+          canonicalAuthUserId: "issuer|canonical-subject",
+          legacyAuthUserId: "legacy-subject",
+          status: "linked",
         },
       ]
     );
@@ -222,5 +237,36 @@ describe("portal staff identity scope", () => {
 
     expect(access.allowed).toBe(false);
     expect(access.reason).toBe("NOT_STAFF");
+  });
+
+  test("does not let another issuer reuse a linked Staff subject or notification identity", async () => {
+    const ctx = makeCtx(
+      {
+        email: "legacy@example.invalid",
+        subject: "legacy-subject",
+        tokenIdentifier: "issuer-b|legacy-subject",
+      },
+      [
+        {
+          _id: "staff_legacy",
+          active: true,
+          authUserId: "legacy-subject",
+          email: "legacy@example.invalid",
+          name: "Legacy staff",
+          roles: ["Sales"],
+        },
+      ],
+      [
+        {
+          _id: "identity_link",
+          canonicalAuthUserId: "issuer-a|legacy-subject",
+          legacyAuthUserId: "legacy-subject",
+          status: "linked",
+        },
+      ]
+    );
+    const access = await getPortalAccess(ctx as never);
+    expect(access.allowed).toBe(false);
+    expect(access.authUserId).toBe("issuer-b|legacy-subject");
   });
 });

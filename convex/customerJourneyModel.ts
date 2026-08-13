@@ -1,4 +1,5 @@
 import type { Doc } from "./_generated/dataModel";
+import type { CustomerJourneyEntitlementProjection } from "./lib/customerIdentityAccess";
 
 export type CustomerJourneyCategory = "cancelled" | "past" | "upcoming";
 
@@ -17,12 +18,14 @@ interface JourneyItineraryEntry {
   title: string;
 }
 
+const DATE_ONLY_PREFIX_PATTERN = /^(\d{4}-\d{2}-\d{2})/;
+
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
 function dateOnly(value: unknown) {
-  const match = cleanText(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  const match = cleanText(value).match(DATE_ONLY_PREFIX_PATTERN);
   return match?.[1] ?? null;
 }
 
@@ -55,35 +58,36 @@ export function normalizeJourneyItinerary(value: unknown): JourneyItineraryEntry
   });
 }
 
+function normalizeGalleryImage(candidate: unknown, tripName: string): JourneyImage[] {
+  if (typeof candidate === "string") {
+    const src = cleanText(candidate);
+    return src ? [{ alt: `${tripName} highlight`, src }] : [];
+  }
+  if (!(candidate && typeof candidate === "object")) {
+    return [];
+  }
+  const image = candidate as Record<string, unknown>;
+  const src = cleanText(image.src);
+  return src ? [{ alt: cleanText(image.alt) || `${tripName} highlight`, src }] : [];
+}
+
 export function normalizeJourneyImages(trip: Doc<"trips"> | null): JourneyImage[] {
   if (!trip) {
     return [];
   }
   const tripName = cleanText(trip.name) || "Journey";
-  const candidates: JourneyImage[] = [];
   const coverImage = cleanText(trip.coverImage);
-  if (coverImage) {
-    candidates.push({ alt: tripName, src: coverImage });
-  }
-  if (Array.isArray(trip.gallery)) {
-    for (const candidate of trip.gallery) {
-      if (typeof candidate === "string") {
-        const src = cleanText(candidate);
-        if (src) {
-          candidates.push({ alt: `${tripName} highlight`, src });
-        }
-      } else if (candidate && typeof candidate === "object") {
-        const image = candidate as Record<string, unknown>;
-        const src = cleanText(image.src);
-        if (src) {
-          candidates.push({ alt: cleanText(image.alt) || `${tripName} highlight`, src });
-        }
-      }
+  const cover = coverImage ? [{ alt: tripName, src: coverImage }] : [];
+  const gallery = Array.isArray(trip.gallery)
+    ? trip.gallery.flatMap((candidate) => normalizeGalleryImage(candidate, tripName))
+    : [];
+  const uniqueImages = new Map<string, JourneyImage>();
+  for (const image of [...cover, ...gallery]) {
+    if (!uniqueImages.has(image.src)) {
+      uniqueImages.set(image.src, image);
     }
   }
-  return candidates.filter(
-    (candidate, index) => candidates.findIndex((other) => other.src === candidate.src) === index
-  );
+  return [...uniqueImages.values()];
 }
 
 export function classifyCustomerJourney(
@@ -117,8 +121,9 @@ function customerBooking(booking: Doc<"bookings">) {
 
 function summaryTrip(trip: Doc<"trips"> | null) {
   const images = normalizeJourneyImages(trip);
+  const [coverImage] = images;
   return {
-    coverImage: images[0]?.src ?? "",
+    coverImage: coverImage?.src || "",
     endDate: trip?.endDate ?? "",
     gallery: images.slice(1, 3),
     itinerary: normalizeJourneyItinerary(trip?.itinerary).slice(0, 4),
@@ -138,12 +143,17 @@ function cleanTextList(values: unknown[]): string[] {
 export function projectCustomerJourneySummary(
   booking: Doc<"bookings">,
   trip: Doc<"trips"> | null,
-  referenceNow: number
+  referenceNow: number,
+  entitlement: CustomerJourneyEntitlementProjection = {
+    role: "purchaser",
+    source: "legacy_booking_owner",
+  }
 ) {
   return {
     booking: customerBooking(booking),
     category: classifyCustomerJourney(booking, trip, referenceNow),
     detailAvailable: Boolean(trip),
+    entitlement,
     trip: summaryTrip(trip),
   };
 }
@@ -151,9 +161,10 @@ export function projectCustomerJourneySummary(
 export function projectCustomerJourneyDetail(
   booking: Doc<"bookings">,
   trip: Doc<"trips"> | null,
-  referenceNow: number
+  referenceNow: number,
+  entitlement?: CustomerJourneyEntitlementProjection
 ) {
-  const summary = projectCustomerJourneySummary(booking, trip, referenceNow);
+  const summary = projectCustomerJourneySummary(booking, trip, referenceNow, entitlement);
   if (!trip) {
     return {
       ...summary,

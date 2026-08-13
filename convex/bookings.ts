@@ -1,3 +1,4 @@
+import type { UserIdentity } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
@@ -7,6 +8,14 @@ import {
   projectCustomerJourneySummary,
   sortCustomerJourneySummaries,
 } from "./customerJourneyModel";
+import {
+  authorizedCustomerIdentityIds,
+  ensureCanonicalIdentityLink,
+  findBookingEntitlement,
+  projectJourneyEntitlement,
+  publicAccountId,
+  upsertBookingEntitlement,
+} from "./lib/customerIdentityAccess";
 import { assertPaymentMutationSecret } from "./lib/paymentMutationAuth";
 import {
   bookingTransitionResultValidator,
@@ -35,7 +44,7 @@ const resolveTrip = async (
 ): Promise<Doc<"trips"> | null> => {
   const normalizedTripId = ctx.db.normalizeId("trips", tripIdentifier);
   if (normalizedTripId) {
-    const trip = await ctx.db.get(normalizedTripId);
+    const trip = await ctx.db.get("trips", normalizedTripId);
     if (trip) {
       return trip;
     }
@@ -116,6 +125,73 @@ const getUserProfile = async (ctx: QueryCtx | MutationCtx, authUserId: string) =
     .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
     .unique();
 
+async function getAuthorizedUserProfile(ctx: QueryCtx | MutationCtx, identity: UserIdentity) {
+  const identityIds = await authorizedCustomerIdentityIds(ctx, identity);
+  const profiles = await Promise.all(
+    identityIds.map((authUserId) => getUserProfile(ctx, authUserId))
+  );
+  return profiles.find(Boolean) ?? null;
+}
+
+async function loadAuthorizedBookings(ctx: QueryCtx, identity: UserIdentity) {
+  const identityIds = await authorizedCustomerIdentityIds(ctx, identity);
+  const [legacyPages, entitlementPages] = await Promise.all([
+    Promise.all(
+      identityIds.map((authUserId) =>
+        ctx.db
+          .query("bookings")
+          .withIndex("by_userId_createdAt", (q) => q.eq("userId", authUserId))
+          .order("desc")
+          .take(100)
+      )
+    ),
+    Promise.all(
+      identityIds.map((authUserId) =>
+        ctx.db
+          .query("customerJourneyEntitlements")
+          .withIndex("by_authUserId_createdAt", (q) => q.eq("authUserId", authUserId))
+          .order("desc")
+          .take(100)
+      )
+    ),
+  ]);
+  const entitlementRows = entitlementPages
+    .flat()
+    .filter(
+      (row) =>
+        row.revokedAt === undefined &&
+        row.bookingId !== undefined &&
+        row.capabilities.includes("view_booking")
+    );
+  const entitledBookings = await Promise.all(
+    entitlementRows.map((entitlement) => ctx.db.get("bookings", entitlement.bookingId!))
+  );
+  const entitlementByBooking = new Map(
+    entitlementRows.map((entitlement) => [
+      String(entitlement.bookingId),
+      projectJourneyEntitlement(entitlement),
+    ])
+  );
+  const bookings = new Map<string, Doc<"bookings">>();
+  for (const booking of [...legacyPages.flat(), ...entitledBookings]) {
+    if (booking) {
+      bookings.set(String(booking._id), booking);
+    }
+  }
+  return [...bookings.values()]
+    .sort(
+      (left, right) =>
+        right.createdAt - left.createdAt || String(right._id).localeCompare(String(left._id))
+    )
+    .slice(0, 100)
+    .map((booking) => ({
+      booking,
+      entitlement:
+        entitlementByBooking.get(String(booking._id)) ??
+        ({ role: "purchaser", source: "legacy_booking_owner" } as const),
+    }));
+}
+
 const ensureValidCheckoutArgs = (travelers: number, currency: string) => {
   if (travelers < 1 || travelers > 10) {
     throw new ConvexError("Traveler count must be between 1 and 10");
@@ -159,7 +235,7 @@ export const prepareCheckout = query({
       throw new ConvexError(`Only ${trip.availableSeats} seats available`);
     }
 
-    const profile = await getUserProfile(ctx, identity.subject);
+    const profile = await getAuthorizedUserProfile(ctx, identity);
     const pricePerPerson = args.currency === "INR" ? trip.priceInr : trip.priceUsd;
 
     return {
@@ -170,7 +246,7 @@ export const prepareCheckout = query({
       trip: toApiTrip(trip),
       user: {
         email: profile?.email ?? identity.email ?? "",
-        id: identity.subject,
+        id: await publicAccountId(identity, profile?._id),
         name: profile?.name ?? identity.name ?? "Traveler",
         phoneNumber: profile?.phoneNumber ?? "",
       },
@@ -190,6 +266,7 @@ export const createPendingBooking = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const authUserId = await ensureCanonicalIdentityLink(ctx, identity);
     ensureValidCheckoutArgs(args.travelers, args.currency);
 
     const trip = await resolveTrip(ctx, args.tripIdentifier);
@@ -216,7 +293,12 @@ export const createPendingBooking = mutation({
       travelers: args.travelers,
       tripId: trip._id,
       updatedAt: timestamp,
-      userId: identity.subject,
+      userId: authUserId,
+    });
+    await upsertBookingEntitlement(ctx, {
+      authUserId,
+      bookingId,
+      source: "public_booking_owner",
     });
 
     return {
@@ -240,13 +322,10 @@ export const getMyBookings = query({
       return [];
     }
 
-    const rows = await ctx.db
-      .query("bookings")
-      .withIndex("by_userId_createdAt", (q) => q.eq("userId", identity.subject))
-      .order("desc")
-      .take(100);
+    const authorized = await loadAuthorizedBookings(ctx, identity);
+    const rows = authorized.map(({ booking }) => booking);
 
-    const trips = await Promise.all(rows.map((booking) => ctx.db.get(booking.tripId)));
+    const trips = await Promise.all(rows.map((booking) => ctx.db.get("trips", booking.tripId)));
     return rows.flatMap((booking, index) => {
       const trip = trips[index];
       if (!trip) {
@@ -271,17 +350,22 @@ export const getMyJourneySummaries = query({
     if (!identity) {
       return { referenceNow, summaries: [] };
     }
-    const rows = await ctx.db
-      .query("bookings")
-      .withIndex("by_userId_createdAt", (q) => q.eq("userId", identity.subject))
-      .order("desc")
-      .take(100);
-    const trips = await Promise.all(rows.map((booking) => ctx.db.get(booking.tripId)));
+    const authorized = await loadAuthorizedBookings(ctx, identity);
+    const rows = authorized.map(({ booking }) => booking);
+    const entitlementByBooking = new Map(
+      authorized.map(({ booking, entitlement }) => [String(booking._id), entitlement])
+    );
+    const trips = await Promise.all(rows.map((booking) => ctx.db.get("trips", booking.tripId)));
     return {
       referenceNow,
       summaries: sortCustomerJourneySummaries(
         rows.map((booking, index) =>
-          projectCustomerJourneySummary(booking, trips[index] ?? null, referenceNow)
+          projectCustomerJourneySummary(
+            booking,
+            trips[index] ?? null,
+            referenceNow,
+            entitlementByBooking.get(String(booking._id))!
+          )
         )
       ),
     };
@@ -296,12 +380,22 @@ export const getMyJourneyDetail = query({
     if (!identity) {
       return null;
     }
-    const booking = await ctx.db.get(args.bookingId);
-    if (!booking || booking.userId !== identity.subject) {
+    const booking = await ctx.db.get("bookings", args.bookingId);
+    if (!booking) {
       return null;
     }
-    const trip = await ctx.db.get(booking.tripId);
-    return projectCustomerJourneyDetail(booking, trip, args.referenceNow ?? Date.now());
+    const identityIds = await authorizedCustomerIdentityIds(ctx, identity);
+    const entitlement = await findBookingEntitlement(ctx, identityIds, booking);
+    if (!entitlement) {
+      return null;
+    }
+    const trip = await ctx.db.get("trips", booking.tripId);
+    return projectCustomerJourneyDetail(
+      booking,
+      trip,
+      args.referenceNow ?? Date.now(),
+      entitlement
+    );
   },
   returns: customerJourneyDetailResultValidator,
 });
@@ -450,7 +544,7 @@ async function applyConfirmedTransition(
     return { ...ignored, success: false };
   }
 
-  const trip = await ctx.db.get(booking.tripId);
+  const trip = await ctx.db.get("trips", booking.tripId);
   if (!trip) {
     throw new ConvexError("Trip not found for booking");
   }
@@ -474,7 +568,7 @@ async function applyConfirmedTransition(
     }),
   ]);
   await recordPaymentEvent(ctx, args, booking, booking.status, "confirmed", "accepted");
-  const updated = await ctx.db.get(booking._id);
+  const updated = await ctx.db.get("bookings", booking._id);
   return {
     alreadyConfirmed: false,
     booking: updated ? toApiBooking(updated) : null,
@@ -488,7 +582,7 @@ export async function applyBookingPaymentTransition(ctx: MutationCtx, args: Book
     if (existingEvent.transition !== args.transition) {
       throw new ConvexError("Provider event identity was already used for another transition");
     }
-    const existingBooking = await ctx.db.get(existingEvent.bookingId);
+    const existingBooking = await ctx.db.get("bookings", existingEvent.bookingId);
     return existingBooking
       ? duplicateTransitionResult(existingBooking, args.transition)
       : { duplicateEvent: true, status: existingEvent.statusAfter };

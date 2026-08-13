@@ -3,12 +3,13 @@ import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { normalizeEmail } from "../crm/lib/staffAccess";
 
-export type AuthSyncInput = {
+export interface AuthSyncInput {
   authUserId: string;
   email: string;
-  name?: string;
   image?: string;
-};
+  legacyAuthUserId?: string;
+  name?: string;
+}
 
 const getIdentityImage = (image?: string) => (typeof image === "string" ? image : "");
 
@@ -169,12 +170,20 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
   if (!profileByAuth && retiredIdentity) {
     throw new ConvexError("PROFILE_IDENTITY_CONFLICT");
   }
-  const orphanedProfile = matchingProfiles
-    .filter((profile) => profile.authUserId !== authUserId)
-    .sort(compareProfiles)[0];
+  const adoptableProfiles = matchingProfiles.filter(
+    (profile) =>
+      !profile.authUserId ||
+      profile.authUserId === authUserId ||
+      (input.legacyAuthUserId && profile.authUserId === input.legacyAuthUserId)
+  );
+  const [orphanedProfile] = adoptableProfiles.sort(compareProfiles);
 
   if (profileByAuth) {
-    const mergeCandidates = dedupeProfiles([profileByAuth, ...profilesByAuth, ...matchingProfiles]);
+    const mergeCandidates = dedupeProfiles([
+      profileByAuth,
+      ...profilesByAuth,
+      ...adoptableProfiles,
+    ]);
     const patch: Partial<Doc<"userProfiles">> = mergedProfilePatch(
       profileByAuth,
       mergeCandidates,
@@ -194,12 +203,12 @@ export async function syncAuthRecords(ctx: MutationCtx, input: AuthSyncInput) {
 
   if (orphanedProfile) {
     const patch = {
-      ...mergedProfilePatch(orphanedProfile, matchingProfiles, input, now),
+      ...mergedProfilePatch(orphanedProfile, adoptableProfiles, input, now),
       authUserId,
       email: email || orphanedProfile.email,
       emailNormalized,
     } satisfies Partial<Doc<"userProfiles">>;
-    await retireMergedProfiles(ctx, orphanedProfile, matchingProfiles, patch, now);
+    await retireMergedProfiles(ctx, orphanedProfile, adoptableProfiles, patch, now);
 
     return { linkedStaff: false, profileId: orphanedProfile._id };
   }

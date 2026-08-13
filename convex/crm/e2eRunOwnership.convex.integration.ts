@@ -23,6 +23,16 @@ function createHarness() {
   return convexTest({ modules, schema, transactionLimits: true });
 }
 
+async function seedActorIdentityLink(ctx: any) {
+  await ctx.db.insert("authIdentityLinks", {
+    canonicalAuthUserId: `https://auth.citius.test|${ACTOR}`,
+    createdAt: 1,
+    legacyAuthUserId: ACTOR,
+    status: "linked",
+    updatedAt: 1,
+  });
+}
+
 beforeEach(() => {
   vi.stubEnv("E2E_PROVISIONING_TARGET", "development");
   vi.stubEnv("E2E_SEED_SECRET", "integration-secret");
@@ -49,6 +59,7 @@ describe("durable E2E run ownership", () => {
   test("attributes authenticated inserts and cleans only owned rows in resumable pages", async () => {
     const t = createHarness();
     await t.run(async (ctx) => {
+      await seedActorIdentityLink(ctx);
       await ctx.db.insert("staffUsers", {
         active: true,
         authUserId: ACTOR,
@@ -130,6 +141,7 @@ describe("durable E2E run ownership", () => {
     const t = createHarness();
     let expenseId: Id<"expenseEntries"> | null = null;
     await t.run(async (ctx) => {
+      await seedActorIdentityLink(ctx);
       await ctx.db.insert("staffUsers", {
         active: true,
         authUserId: ACTOR,
@@ -207,6 +219,7 @@ describe("durable E2E run ownership", () => {
   test("cleans ledger rows for owned documents already deleted by the workflow", async () => {
     const t = createHarness();
     await t.run(async (ctx) => {
+      await seedActorIdentityLink(ctx);
       await ctx.db.insert("staffUsers", {
         active: true,
         authUserId: ACTOR,

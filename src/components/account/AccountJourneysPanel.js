@@ -120,6 +120,11 @@ function ConfirmedTripPackets({ packets }) {
                 <h3 className="account-display mt-1 text-2xl text-[var(--account-ink)]">
                   {packet.destination}
                 </h3>
+                <p className="mt-1 text-[var(--account-muted)] text-xs">
+                  {packet.entitlement?.role === "organizer"
+                    ? "Organizer access"
+                    : "Traveller access"}
+                </p>
               </div>
               <span className="rounded-full bg-[var(--account-success-bg)] px-3 py-1.5 font-semibold text-[var(--account-success)] text-xs">
                 Confirmed
@@ -170,6 +175,128 @@ function ConfirmedTripPackets({ packets }) {
   );
 }
 
+function JourneyOverview({
+  cancelledBookings,
+  confirmedTrips,
+  onOpenBooking,
+  onOpenFirstBooking,
+  pastBookings,
+  upcomingBookings,
+}) {
+  const [primaryJourney] = upcomingBookings;
+  return (
+    <m.div
+      animate="visible"
+      className="space-y-10 sm:space-y-12"
+      exit={{ opacity: 0, y: 8 }}
+      initial="hidden"
+      key="journey-overview"
+      variants={ACCOUNT_CONTAINER_VARIANTS}
+    >
+      <ConfirmedTripPackets packets={confirmedTrips} />
+      <section aria-labelledby="upcoming-journey-heading">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <h2
+            className="account-display text-2xl text-[var(--account-ink)] sm:text-3xl"
+            id="upcoming-journey-heading"
+          >
+            Upcoming journey
+          </h2>
+          {upcomingBookings.length > 1 ? (
+            <span className="text-[var(--account-muted)] text-xs">
+              {upcomingBookings.length} journeys
+            </span>
+          ) : null}
+        </div>
+
+        {primaryJourney ? (
+          <div className="space-y-4">
+            <JourneyOverviewCard booking={primaryJourney} onOpen={onOpenFirstBooking} />
+            {upcomingBookings.length > 1 ? (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {upcomingBookings.slice(1).map((booking) => (
+                  <PastJourneyCard
+                    booking={booking}
+                    bookingId={booking.booking.id}
+                    key={booking.booking.id}
+                    onOpen={onOpenBooking}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <EmptyInfoCard
+            icon={<Compass size={21} />}
+            text="When you book your next Citius journey, its dates and itinerary will live here."
+            title="No upcoming journeys"
+          />
+        )}
+      </section>
+
+      {primaryJourney ? (
+        <section aria-label="Upcoming journey travel details" className="grid gap-4 lg:grid-cols-2">
+          <TravelInfoCard eyebrow="Flights & PNR" icon={<Plane size={18} />} title="Travel details">
+            <TravelInfoPlaceholder kind="flight" trip={primaryJourney.trip} />
+          </TravelInfoCard>
+          <TravelInfoCard eyebrow="Stay" icon={<BedDouble size={18} />} title="Accommodation">
+            <TravelInfoPlaceholder kind="stay" trip={primaryJourney.trip} />
+          </TravelInfoCard>
+        </section>
+      ) : null}
+
+      <section aria-labelledby="past-journeys-heading">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <h2
+            className="account-display text-2xl text-[var(--account-ink)] sm:text-3xl"
+            id="past-journeys-heading"
+          >
+            Past journeys
+          </h2>
+          <span className="text-[var(--account-muted)] text-xs">{pastBookings.length}</span>
+        </div>
+        {pastBookings.length ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {pastBookings.map((booking) => (
+              <PastJourneyCard
+                booking={booking}
+                bookingId={booking.booking.id}
+                key={booking.booking.id}
+                onOpen={onOpenBooking}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="border-[var(--account-border)] border-t py-5 text-[var(--account-muted)] text-sm">
+            Your completed journeys will collect here.
+          </p>
+        )}
+      </section>
+
+      {cancelledBookings.length > 0 ? (
+        <section aria-labelledby="cancelled-journeys-heading">
+          <h2
+            className="mb-4 font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.16em]"
+            id="cancelled-journeys-heading"
+          >
+            Cancelled journeys
+          </h2>
+          <div className="grid gap-4 opacity-70 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {cancelledBookings.map((booking) => (
+              <PastJourneyCard
+                booking={booking}
+                bookingId={booking.booking.id}
+                key={booking.booking.id}
+                onOpen={onOpenBooking}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </m.div>
+  );
+}
+
 export function AccountJourneysPanel({
   upcomingBookings,
   pastBookings,
@@ -216,152 +343,47 @@ export function AccountJourneysPanel({
     [loadJourneyDetail, referenceNow]
   );
   const openFirstBooking = useCallback(() => {
-    void openBooking(upcomingBookings[0]?.booking.id);
+    openBooking(upcomingBookings[0]?.booking.id);
   }, [openBooking, upcomingBookings]);
   const openBookingFromEvent = useCallback(
     (event) => {
       const { bookingId } = event.currentTarget.dataset;
       if (bookingId) {
-        void openBooking(bookingId);
+        openBooking(bookingId);
       }
     },
     [openBooking]
   );
 
-  const [primaryJourney] = upcomingBookings;
+  let content = (
+    <JourneyOverview
+      cancelledBookings={cancelledBookings}
+      confirmedTrips={confirmedTrips}
+      key="journey-overview"
+      onOpenBooking={openBookingFromEvent}
+      onOpenFirstBooking={openFirstBooking}
+      pastBookings={pastBookings}
+      upcomingBookings={upcomingBookings}
+    />
+  );
+  if (selectedBookingId) {
+    content = (
+      <JourneyDetailPending error={detailError} key="journey-detail-pending" onBack={closeDetail} />
+    );
+  }
+  if (selectedBooking) {
+    content = (
+      <JourneyDetail
+        booking={selectedBooking}
+        key={selectedBooking.booking.id}
+        onBack={closeDetail}
+      />
+    );
+  }
 
   return (
     <AnimatePresence initial={false} mode="sync">
-      {selectedBooking ? (
-        <JourneyDetail
-          booking={selectedBooking}
-          key={selectedBooking.booking.id}
-          onBack={closeDetail}
-        />
-      ) : selectedBookingId ? (
-        <JourneyDetailPending
-          error={detailError}
-          key="journey-detail-pending"
-          onBack={closeDetail}
-        />
-      ) : (
-        <m.div
-          animate="visible"
-          className="space-y-10 sm:space-y-12"
-          exit={{ opacity: 0, y: 8 }}
-          initial="hidden"
-          key="journey-overview"
-          variants={ACCOUNT_CONTAINER_VARIANTS}
-        >
-          <ConfirmedTripPackets packets={confirmedTrips} />
-          <section aria-labelledby="upcoming-journey-heading">
-            <div className="mb-4 flex items-end justify-between gap-4">
-              <h2
-                className="account-display text-2xl text-[var(--account-ink)] sm:text-3xl"
-                id="upcoming-journey-heading"
-              >
-                Upcoming journey
-              </h2>
-              {upcomingBookings.length > 1 ? (
-                <span className="text-[var(--account-muted)] text-xs">
-                  {upcomingBookings.length} journeys
-                </span>
-              ) : null}
-            </div>
-
-            {primaryJourney ? (
-              <div className="space-y-4">
-                <JourneyOverviewCard booking={primaryJourney} onOpen={openFirstBooking} />
-                {upcomingBookings.length > 1 ? (
-                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {upcomingBookings.slice(1).map((booking) => (
-                      <PastJourneyCard
-                        booking={booking}
-                        bookingId={booking.booking.id}
-                        key={booking.booking.id}
-                        onOpen={openBookingFromEvent}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <EmptyInfoCard
-                icon={<Compass size={21} />}
-                text="When you book your next Citius journey, its dates and itinerary will live here."
-                title="No upcoming journeys"
-              />
-            )}
-          </section>
-
-          {primaryJourney ? (
-            <section
-              aria-label="Upcoming journey travel details"
-              className="grid gap-4 lg:grid-cols-2"
-            >
-              <TravelInfoCard
-                eyebrow="Flights & PNR"
-                icon={<Plane size={18} />}
-                title="Travel details"
-              >
-                <TravelInfoPlaceholder kind="flight" trip={primaryJourney.trip} />
-              </TravelInfoCard>
-              <TravelInfoCard eyebrow="Stay" icon={<BedDouble size={18} />} title="Accommodation">
-                <TravelInfoPlaceholder kind="stay" trip={primaryJourney.trip} />
-              </TravelInfoCard>
-            </section>
-          ) : null}
-
-          <section aria-labelledby="past-journeys-heading">
-            <div className="mb-4 flex items-end justify-between gap-4">
-              <h2
-                className="account-display text-2xl text-[var(--account-ink)] sm:text-3xl"
-                id="past-journeys-heading"
-              >
-                Past journeys
-              </h2>
-              <span className="text-[var(--account-muted)] text-xs">{pastBookings.length}</span>
-            </div>
-            {pastBookings.length ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {pastBookings.map((booking) => (
-                  <PastJourneyCard
-                    booking={booking}
-                    bookingId={booking.booking.id}
-                    key={booking.booking.id}
-                    onOpen={openBookingFromEvent}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="border-[var(--account-border)] border-t py-5 text-[var(--account-muted)] text-sm">
-                Your completed journeys will collect here.
-              </p>
-            )}
-          </section>
-
-          {cancelledBookings.length > 0 ? (
-            <section aria-labelledby="cancelled-journeys-heading">
-              <h2
-                className="mb-4 font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.16em]"
-                id="cancelled-journeys-heading"
-              >
-                Cancelled journeys
-              </h2>
-              <div className="grid gap-4 opacity-70 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {cancelledBookings.map((booking) => (
-                  <PastJourneyCard
-                    booking={booking}
-                    bookingId={booking.booking.id}
-                    key={booking.booking.id}
-                    onOpen={openBookingFromEvent}
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
-        </m.div>
-      )}
+      {content}
     </AnimatePresence>
   );
 }

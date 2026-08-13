@@ -1,4 +1,5 @@
 import { query } from "./_generated/server";
+import { authorizedCustomerIdentityIds, publicAccountId } from "./lib/customerIdentityAccess";
 import { stableProfileTimestamps } from "./lib/profileFallback";
 import { nullablePublicUserProfileValidator } from "./publicReturnContracts";
 
@@ -10,10 +11,16 @@ export const getCurrentUser = query({
       return null;
     }
 
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_authUserId", (q) => q.eq("authUserId", identity.subject))
-      .unique();
+    const identityIds = await authorizedCustomerIdentityIds(ctx, identity);
+    const profiles = await Promise.all(
+      identityIds.map((authUserId) =>
+        ctx.db
+          .query("userProfiles")
+          .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+          .unique()
+      )
+    );
+    const profile = profiles.find(Boolean) ?? null;
 
     const timestamps = stableProfileTimestamps(profile, identity);
 
@@ -21,7 +28,7 @@ export const getCurrentUser = query({
       createdAt: timestamps.createdAt,
       email: profile?.email ?? identity.email ?? "",
       hasPassportDetails: Boolean(profile?.passportDetailsEncrypted),
-      id: identity.subject,
+      id: await publicAccountId(identity, profile?._id),
       image: profile?.image ?? (typeof identity.picture === "string" ? identity.picture : null),
       name: profile?.name ?? identity.name ?? "Traveler",
       phoneNumber: profile?.phoneNumber ?? "",

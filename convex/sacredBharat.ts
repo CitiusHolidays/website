@@ -2,6 +2,10 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
+import {
+  authorizedCustomerIdentityIds,
+  ensureCanonicalIdentityLink,
+} from "./lib/customerIdentityAccess";
 import { resolveCanonicalTempleId } from "./lib/sacredBharatAliases";
 import { applyGuestProgressMerge } from "./lib/sacredBharatGuestMerge";
 import {
@@ -50,6 +54,21 @@ const getIdentityOrThrow = async (ctx: QueryCtx | MutationCtx) => {
   return identity;
 };
 
+async function readIdentityIds(
+  ctx: QueryCtx | MutationCtx,
+  identity: Awaited<ReturnType<typeof getIdentityOrThrow>>
+) {
+  return await authorizedCustomerIdentityIds(ctx, identity);
+}
+
+async function mutationIdentity(
+  ctx: MutationCtx,
+  identity: Awaited<ReturnType<typeof getIdentityOrThrow>>
+) {
+  const authUserId = await ensureCanonicalIdentityLink(ctx, identity);
+  return { authUserId, identityIds: await authorizedCustomerIdentityIds(ctx, identity) };
+}
+
 const getVisitsForUser = async (ctx: QueryCtx | MutationCtx, authUserId: string) =>
   await ctx.db
     .query("sacredBharatVisits")
@@ -81,12 +100,52 @@ const buildProgressPayload = async (ctx: QueryCtx | MutationCtx, authUserId: str
     getVisitsForUser(ctx, authUserId),
     getWishlistForUser(ctx, authUserId),
   ]);
-  const templeIds = visits.map((v) => v.templeId);
+  const templeIds = visits.map((visit) => visit.templeId);
   const summary = computeProgressSummary(templeIds);
 
   return {
     visitedTempleIds: [...normalizeVisitedSet(templeIds)],
     visits: visits.map(toVisitApi).sort((a, b) => b.visitedAt - a.visitedAt),
+    wishlist: wishlist.map(toWishlistApi),
+    ...summary,
+    level: getLevelForScore(computeScore(templeIds)),
+    score: computeScore(templeIds),
+  };
+};
+
+const buildProgressPayloadForIdentityIds = async (
+  ctx: QueryCtx | MutationCtx,
+  identityIds: string[]
+) => {
+  const [visitPages, wishlistPages] = await Promise.all([
+    Promise.all(identityIds.map((authUserId) => getVisitsForUser(ctx, authUserId))),
+    Promise.all(identityIds.map((authUserId) => getWishlistForUser(ctx, authUserId))),
+  ]);
+  const visits = [
+    ...new Map(
+      visitPages
+        .flat()
+        .sort((left, right) => right.visitedAt - left.visitedAt)
+        .map((visit) => [resolveCanonicalTempleId(visit.templeId), visit])
+    ).values(),
+  ];
+  const wishlist = [
+    ...new Map(
+      wishlistPages
+        .flat()
+        .map((item) => [
+          `${item.itemType}:${
+            item.itemType === "temple" ? resolveCanonicalTempleId(item.itemId) : item.itemId
+          }`,
+          item,
+        ])
+    ).values(),
+  ];
+  const templeIds = visits.map((visit) => resolveCanonicalTempleId(visit.templeId));
+  const summary = computeProgressSummary(templeIds);
+  return {
+    visitedTempleIds: [...normalizeVisitedSet(templeIds)],
+    visits: visits.map(toVisitApi).sort((left, right) => right.visitedAt - left.visitedAt),
     wishlist: wishlist.map(toWishlistApi),
     ...summary,
     level: getLevelForScore(computeScore(templeIds)),
@@ -114,6 +173,16 @@ async function getPassportProfileForUser(ctx: QueryCtx | MutationCtx, authUserId
     .query("sacredBharatProfiles")
     .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
     .unique();
+}
+
+async function getPassportProfileForIdentityIds(
+  ctx: QueryCtx | MutationCtx,
+  identityIds: string[]
+) {
+  const profiles = await Promise.all(
+    identityIds.map((authUserId) => getPassportProfileForUser(ctx, authUserId))
+  );
+  return profiles.find(Boolean) ?? null;
 }
 
 async function buildGroupMemberSummary(ctx: QueryCtx, authUserId: string) {
@@ -158,7 +227,7 @@ export const getMyProgress = query({
     if (!identity) {
       return null;
     }
-    return await buildProgressPayload(ctx, identity.subject);
+    return await buildProgressPayloadForIdentityIds(ctx, await readIdentityIds(ctx, identity));
   },
   returns: nullableSacredProgressValidator,
 });
@@ -171,22 +240,29 @@ export const markTempleVisited = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const { authUserId, identityIds } = await mutationIdentity(ctx, identity);
     const templeId = resolveCanonicalTempleId(args.templeId);
     const visitedSet = normalizeVisitedSet([templeId]);
     if (visitedSet.size === 0) {
       throw new ConvexError("INVALID_TEMPLE");
     }
 
-    const existing = await ctx.db
-      .query("sacredBharatVisits")
-      .withIndex("by_authUserId_templeId", (q) =>
-        q.eq("authUserId", identity.subject).eq("templeId", templeId)
+    const existing = (
+      await Promise.all(
+        identityIds.map((identityId) =>
+          ctx.db
+            .query("sacredBharatVisits")
+            .withIndex("by_authUserId_templeId", (q) =>
+              q.eq("authUserId", identityId).eq("templeId", templeId)
+            )
+            .unique()
+        )
       )
-      .unique();
+    ).find(Boolean);
 
     if (!existing) {
       await ctx.db.insert("sacredBharatVisits", {
-        authUserId: identity.subject,
+        authUserId,
         note: args.note,
         source: "self",
         templeId,
@@ -195,9 +271,9 @@ export const markTempleVisited = mutation({
       });
     }
 
-    await refreshSacredBharatLeaderboardSummary(ctx, identity.subject);
+    await refreshSacredBharatLeaderboardSummary(ctx, authUserId);
 
-    return await buildProgressPayload(ctx, identity.subject);
+    return await buildProgressPayloadForIdentityIds(ctx, identityIds);
   },
   returns: sacredProgressValidator,
 });
@@ -209,7 +285,10 @@ export const getMyPassportProfile = query({
     if (!identity) {
       return null;
     }
-    const profile = await getPassportProfileForUser(ctx, identity.subject);
+    const profile = await getPassportProfileForIdentityIds(
+      ctx,
+      await readIdentityIds(ctx, identity)
+    );
     return profile
       ? {
           bio: profile.bio ?? "",
@@ -238,15 +317,16 @@ export const upsertMyPassportProfile = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const { authUserId, identityIds } = await mutationIdentity(ctx, identity);
     const slug = normalizePassportSlug(args.slug);
     const [existingSlug, existing] = await Promise.all([
       ctx.db
         .query("sacredBharatProfiles")
         .withIndex("by_slug", (q) => q.eq("slug", slug))
         .unique(),
-      getPassportProfileForUser(ctx, identity.subject),
+      getPassportProfileForIdentityIds(ctx, identityIds),
     ]);
-    if (existingSlug && existingSlug.authUserId !== identity.subject) {
+    if (existingSlug && !identityIds.includes(existingSlug.authUserId)) {
       throw new ConvexError("PASSPORT_SLUG_TAKEN");
     }
     const timestamp = now();
@@ -262,15 +342,15 @@ export const upsertMyPassportProfile = mutation({
     };
     if (existing) {
       await ctx.db.patch(existing._id, patch);
-      await refreshSacredBharatLeaderboardSummary(ctx, identity.subject, timestamp);
+      await refreshSacredBharatLeaderboardSummary(ctx, authUserId, timestamp);
       return { id: existing._id, slug };
     }
     const id = await ctx.db.insert("sacredBharatProfiles", {
-      authUserId: identity.subject,
+      authUserId,
       ...patch,
       createdAt: timestamp,
     });
-    await refreshSacredBharatLeaderboardSummary(ctx, identity.subject, timestamp);
+    await refreshSacredBharatLeaderboardSummary(ctx, authUserId, timestamp);
     return { id, slug };
   },
   returns: passportProfileIdResultValidator,
@@ -280,21 +360,26 @@ export const unmarkTempleVisited = mutation({
   args: { templeId: v.string() },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const { authUserId, identityIds } = await mutationIdentity(ctx, identity);
     const templeId = resolveCanonicalTempleId(args.templeId);
-    const existing = await ctx.db
-      .query("sacredBharatVisits")
-      .withIndex("by_authUserId_templeId", (q) =>
-        q.eq("authUserId", identity.subject).eq("templeId", templeId)
+    const existing = (
+      await Promise.all(
+        identityIds.map((identityId) =>
+          ctx.db
+            .query("sacredBharatVisits")
+            .withIndex("by_authUserId_templeId", (q) =>
+              q.eq("authUserId", identityId).eq("templeId", templeId)
+            )
+            .unique()
+        )
       )
-      .unique();
+    ).filter((row): row is NonNullable<typeof row> => row !== null);
 
-    if (existing) {
-      await ctx.db.delete(existing._id);
-    }
+    await Promise.all(existing.map((row) => ctx.db.delete("sacredBharatVisits", row._id)));
 
-    await refreshSacredBharatLeaderboardSummary(ctx, identity.subject);
+    await refreshSacredBharatLeaderboardSummary(ctx, authUserId);
 
-    return await buildProgressPayload(ctx, identity.subject);
+    return await buildProgressPayloadForIdentityIds(ctx, identityIds);
   },
   returns: sacredProgressValidator,
 });
@@ -313,17 +398,18 @@ export const mergeGuestProgress = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const { authUserId, identityIds } = await mutationIdentity(ctx, identity);
     const timestamp = now();
     await applyGuestProgressMerge(
       ctx,
-      identity.subject,
+      authUserId,
       { templeIds: args.templeIds, wishlist: args.wishlist },
       { createdAt: timestamp, visitedAt: timestamp }
     );
 
-    await refreshSacredBharatLeaderboardSummary(ctx, identity.subject, timestamp);
+    await refreshSacredBharatLeaderboardSummary(ctx, authUserId, timestamp);
 
-    return await buildProgressPayload(ctx, identity.subject);
+    return await buildProgressPayloadForIdentityIds(ctx, identityIds);
   },
   returns: sacredProgressValidator,
 });
@@ -335,29 +421,36 @@ export const toggleWishlistItem = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const { authUserId, identityIds } = await mutationIdentity(ctx, identity);
     const itemId =
       args.itemType === "temple" ? resolveCanonicalTempleId(args.itemId) : args.itemId.trim();
-    const existing = await ctx.db
-      .query("sacredBharatWishlist")
-      .withIndex("by_authUserId_item", (q) =>
-        q.eq("authUserId", identity.subject).eq("itemType", args.itemType).eq("itemId", itemId)
+    const existing = (
+      await Promise.all(
+        identityIds.map((identityId) =>
+          ctx.db
+            .query("sacredBharatWishlist")
+            .withIndex("by_authUserId_item", (q) =>
+              q.eq("authUserId", identityId).eq("itemType", args.itemType).eq("itemId", itemId)
+            )
+            .unique()
+        )
       )
-      .unique();
+    ).filter((row): row is NonNullable<typeof row> => row !== null);
 
-    if (existing) {
-      await ctx.db.delete(existing._id);
+    if (existing.length > 0) {
+      await Promise.all(existing.map((row) => ctx.db.delete("sacredBharatWishlist", row._id)));
     } else {
       await ctx.db.insert("sacredBharatWishlist", {
-        authUserId: identity.subject,
+        authUserId,
         createdAt: now(),
         itemId,
         itemType: args.itemType,
       });
     }
 
-    await refreshSacredBharatLeaderboardSummary(ctx, identity.subject);
+    await refreshSacredBharatLeaderboardSummary(ctx, authUserId);
 
-    return await buildProgressPayload(ctx, identity.subject);
+    return await buildProgressPayloadForIdentityIds(ctx, identityIds);
   },
   returns: sacredProgressValidator,
 });
@@ -366,10 +459,16 @@ export const setLeaderboardOptOut = mutation({
   args: { optOut: v.boolean() },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
-    const profile = await ctx.db
-      .query("userProfiles")
-      .withIndex("by_authUserId", (q) => q.eq("authUserId", identity.subject))
-      .unique();
+    const { authUserId, identityIds } = await mutationIdentity(ctx, identity);
+    const profiles = await Promise.all(
+      identityIds.map((identityId) =>
+        ctx.db
+          .query("userProfiles")
+          .withIndex("by_authUserId", (q) => q.eq("authUserId", identityId))
+          .unique()
+      )
+    );
+    const profile = profiles.find(Boolean);
 
     if (!profile) {
       throw new ConvexError("PROFILE_NOT_FOUND");
@@ -380,7 +479,7 @@ export const setLeaderboardOptOut = mutation({
       sacredBharatLeaderboardOptOut: args.optOut,
       updatedAt,
     });
-    await refreshSacredBharatLeaderboardSummary(ctx, identity.subject, updatedAt);
+    await refreshSacredBharatLeaderboardSummary(ctx, authUserId, updatedAt);
 
     return { optOut: args.optOut };
   },
@@ -526,13 +625,15 @@ export const getLeaderboardWithMe = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     const identity = await getIdentity(ctx);
+    const identityIds = identity ? await readIdentityIds(ctx, identity) : [];
+    const identityIdSet = new Set(identityIds);
     const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
     const entries = await buildLeaderboardEntries(ctx);
 
     const top = entries.slice(0, limit).map((entry, index) => ({
       completedTrailCount: entry.completedTrailCount,
       displayName: entry.displayName,
-      isCurrentUser: identity?.subject === entry.authUserId,
+      isCurrentUser: identityIdSet.has(entry.authUserId),
       levelSlug: entry.levelSlug,
       levelTitle: entry.levelTitle,
       passportSlug: entry.passportSlug,
@@ -541,18 +642,25 @@ export const getLeaderboardWithMe = query({
       templeCount: entry.templeCount,
     }));
 
-    let myRank = null;
+    let myRank: {
+      displayName: string;
+      levelTitle: string;
+      percentile: number;
+      rank: number;
+      score: number;
+      totalPlayers: number;
+    } | null = null;
     if (identity) {
-      const idx = entries.findIndex((e) => e.authUserId === identity.subject);
+      const idx = entries.findIndex((candidate) => identityIdSet.has(candidate.authUserId));
       if (idx >= 0) {
-        const entry = entries[idx];
+        const currentEntry = entries[idx];
         myRank = {
-          displayName: entry.displayName,
-          levelTitle: entry.levelTitle,
+          displayName: currentEntry.displayName,
+          levelTitle: currentEntry.levelTitle,
           percentile:
             entries.length <= 1 ? 100 : Math.round(((entries.length - idx) / entries.length) * 100),
           rank: idx + 1,
-          score: entry.score,
+          score: currentEntry.score,
           totalPlayers: entries.length,
         };
       }
@@ -571,8 +679,10 @@ export const getMyLeaderboardRank = query({
       return null;
     }
 
+    const identityIds = await readIdentityIds(ctx, identity);
+    const identityIdSet = new Set(identityIds);
     const entries = await buildLeaderboardEntries(ctx);
-    const idx = entries.findIndex((e) => e.authUserId === identity.subject);
+    const idx = entries.findIndex((candidate) => identityIdSet.has(candidate.authUserId));
     if (idx < 0) {
       return null;
     }
@@ -630,32 +740,66 @@ async function requireGroupMember(ctx: QueryCtx | MutationCtx, groupId: any, aut
   return membership;
 }
 
+async function requireGroupMemberForIdentityIds(
+  ctx: QueryCtx | MutationCtx,
+  groupId: any,
+  identityIds: string[]
+) {
+  const memberships = await Promise.all(
+    identityIds.map(async (authUserId) => {
+      try {
+        return await requireGroupMember(ctx, groupId, authUserId);
+      } catch (error) {
+        if (error instanceof ConvexError && error.data === "FORBIDDEN") {
+          return null;
+        }
+        throw error;
+      }
+    })
+  );
+  const membership = memberships.find(Boolean);
+  if (!membership) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  return membership;
+}
+
+async function makeAvailableInviteCode(
+  ctx: MutationCtx,
+  currentGroupId?: Doc<"sacredBharatGroups">["_id"],
+  remainingChecks = 5
+): Promise<string> {
+  const inviteCode = makeInviteCode();
+  const existing = await ctx.db
+    .query("sacredBharatGroups")
+    .withIndex("by_inviteCode", (q) => q.eq("inviteCode", inviteCode))
+    .first();
+  if (!existing || existing._id === currentGroupId) {
+    return inviteCode;
+  }
+  if (remainingChecks <= 1) {
+    return makeInviteCode();
+  }
+  return await makeAvailableInviteCode(ctx, currentGroupId, remainingChecks - 1);
+}
+
 export const createGroup = mutation({
   args: { name: v.string() },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const { authUserId } = await mutationIdentity(ctx, identity);
     const timestamp = now();
-    let inviteCode = makeInviteCode();
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const existing = await ctx.db
-        .query("sacredBharatGroups")
-        .withIndex("by_inviteCode", (q) => q.eq("inviteCode", inviteCode))
-        .first();
-      if (!existing) {
-        break;
-      }
-      inviteCode = makeInviteCode();
-    }
+    const inviteCode = await makeAvailableInviteCode(ctx);
     const groupId = await ctx.db.insert("sacredBharatGroups", {
       createdAt: timestamp,
       inviteCode,
       isArchived: false,
       name: args.name.trim() || "Sacred Bharat Group",
-      ownerAuthUserId: identity.subject,
+      ownerAuthUserId: authUserId,
       updatedAt: timestamp,
     });
     await ctx.db.insert("sacredBharatGroupMembers", {
-      authUserId: identity.subject,
+      authUserId,
       groupId,
       joinedAt: timestamp,
       role: "owner",
@@ -669,6 +813,7 @@ export const rotateGroupInviteCode = mutation({
   args: { groupId: v.string() },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const { identityIds } = await mutationIdentity(ctx, identity);
     const groupId = ctx.db.normalizeId("sacredBharatGroups", args.groupId);
     if (!groupId) {
       throw new ConvexError("Invalid group id");
@@ -677,25 +822,12 @@ export const rotateGroupInviteCode = mutation({
     if (!group || group.isArchived) {
       throw new ConvexError("GROUP_NOT_FOUND");
     }
-    const membership = await requireGroupMember(ctx, groupId, identity.subject);
+    const membership = await requireGroupMemberForIdentityIds(ctx, groupId, identityIds);
     if (membership.role !== "owner") {
       throw new ConvexError("FORBIDDEN");
     }
 
-    let inviteCode = makeInviteCode();
-    // Invite collisions are cryptographically negligible; keep the bounded
-    // retry sequential so each candidate is checked before the next is used.
-    // biome-ignore lint/performance/noAwaitInLoops: bounded uniqueness check
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      const existing = await ctx.db
-        .query("sacredBharatGroups")
-        .withIndex("by_inviteCode", (q) => q.eq("inviteCode", inviteCode))
-        .first();
-      if (!existing || existing._id === groupId) {
-        break;
-      }
-      inviteCode = makeInviteCode();
-    }
+    const inviteCode = await makeAvailableInviteCode(ctx, groupId);
     await ctx.db.patch(groupId, { inviteCode, updatedAt: now() });
     return { id: groupId, inviteCode };
   },
@@ -706,7 +838,41 @@ export const joinGroupByInviteCode = mutation({
   args: { inviteCode: v.string() },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
-    const attempt = await consumeGroupInviteAttempt(ctx, identity.subject, now());
+    const { authUserId, identityIds } = await mutationIdentity(ctx, identity);
+    const attemptRows = await Promise.all(
+      identityIds.map((identityId) =>
+        ctx.db
+          .query("sacredBharatInviteAttempts")
+          .withIndex("by_authUserId", (q) => q.eq("authUserId", identityId))
+          .unique()
+      )
+    );
+    const [latestAttempt] = attemptRows
+      .filter((row): row is NonNullable<typeof row> => row !== null)
+      .sort((left, right) => right.updatedAt - left.updatedAt);
+    const attempt = latestAttempt
+      ? consumeInviteAttempt(
+          {
+            attemptCount: latestAttempt.attemptCount,
+            windowStartedAt: latestAttempt.windowStartedAt,
+          },
+          now()
+        )
+      : await consumeGroupInviteAttempt(ctx, authUserId, now());
+    if (latestAttempt) {
+      const canonicalAttempt = attemptRows.find((row) => row?.authUserId === authUserId);
+      const nextRow = {
+        attemptCount: attempt.nextState.attemptCount,
+        authUserId,
+        updatedAt: now(),
+        windowStartedAt: attempt.nextState.windowStartedAt,
+      };
+      if (canonicalAttempt) {
+        await ctx.db.patch("sacredBharatInviteAttempts", canonicalAttempt._id, nextRow);
+      } else {
+        await ctx.db.insert("sacredBharatInviteAttempts", nextRow);
+      }
+    }
     if (!attempt.allowed) {
       return { rateLimited: true as const, retryAfterMs: attempt.retryAfterMs };
     }
@@ -725,15 +891,21 @@ export const joinGroupByInviteCode = mutation({
     if (!isStrongInviteCode(group.inviteCode)) {
       throw new ConvexError("GROUP_INVITE_REQUIRES_ROTATION");
     }
-    const existing = await ctx.db
-      .query("sacredBharatGroupMembers")
-      .withIndex("by_groupId_authUserId", (q) =>
-        q.eq("groupId", group._id).eq("authUserId", identity.subject)
+    const existing = (
+      await Promise.all(
+        identityIds.map((identityId) =>
+          ctx.db
+            .query("sacredBharatGroupMembers")
+            .withIndex("by_groupId_authUserId", (q) =>
+              q.eq("groupId", group._id).eq("authUserId", identityId)
+            )
+            .unique()
+        )
       )
-      .unique();
+    ).find(Boolean);
     if (!existing) {
       await ctx.db.insert("sacredBharatGroupMembers", {
-        authUserId: identity.subject,
+        authUserId,
         groupId: group._id,
         joinedAt: now(),
         role: "member",
@@ -751,10 +923,22 @@ export const listMyGroups = query({
     if (!identity) {
       return [];
     }
-    const memberships = await ctx.db
-      .query("sacredBharatGroupMembers")
-      .withIndex("by_authUserId", (q) => q.eq("authUserId", identity.subject))
-      .collect();
+    const identityIds = await readIdentityIds(ctx, identity);
+    const memberships = (
+      await Promise.all(
+        identityIds.map((identityId) =>
+          ctx.db
+            .query("sacredBharatGroupMembers")
+            .withIndex("by_authUserId", (q) => q.eq("authUserId", identityId))
+            .collect()
+        )
+      )
+    )
+      .flat()
+      .filter(
+        (membership, index, rows) =>
+          rows.findIndex((row) => row.groupId === membership.groupId) === index
+      );
     const groups = await Promise.all(
       memberships.map((membership) => ctx.db.get(membership.groupId))
     );
@@ -779,6 +963,8 @@ export const getGroupLeaderboard = query({
   args: { groupId: v.string() },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const identityIds = await readIdentityIds(ctx, identity);
+    const identityIdSet = new Set(identityIds);
     const groupId = ctx.db.normalizeId("sacredBharatGroups", args.groupId);
     if (!groupId) {
       throw new ConvexError("Invalid group id");
@@ -788,7 +974,7 @@ export const getGroupLeaderboard = query({
       throw new ConvexError("GROUP_NOT_FOUND");
     }
     const [membership, members] = await Promise.all([
-      requireGroupMember(ctx, groupId, identity.subject),
+      requireGroupMemberForIdentityIds(ctx, groupId, identityIds),
       ctx.db
         .query("sacredBharatGroupMembers")
         .withIndex("by_groupId", (q) => q.eq("groupId", groupId))
@@ -802,7 +988,7 @@ export const getGroupLeaderboard = query({
       entries: summaries.map((summary, index) => ({
         rank: index + 1,
         ...summary,
-        isCurrentUser: summary.authUserId === identity.subject,
+        isCurrentUser: identityIdSet.has(summary.authUserId),
       })),
       group: {
         id: group._id,
@@ -819,11 +1005,12 @@ export const renameGroup = mutation({
   args: { groupId: v.string(), name: v.string() },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const { identityIds } = await mutationIdentity(ctx, identity);
     const groupId = ctx.db.normalizeId("sacredBharatGroups", args.groupId);
     if (!groupId) {
       throw new ConvexError("Invalid group id");
     }
-    const membership = await requireGroupMember(ctx, groupId, identity.subject);
+    const membership = await requireGroupMemberForIdentityIds(ctx, groupId, identityIds);
     if (membership.role !== "owner") {
       throw new ConvexError("FORBIDDEN");
     }
@@ -837,11 +1024,12 @@ export const archiveGroup = mutation({
   args: { groupId: v.string() },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const { identityIds } = await mutationIdentity(ctx, identity);
     const groupId = ctx.db.normalizeId("sacredBharatGroups", args.groupId);
     if (!groupId) {
       throw new ConvexError("Invalid group id");
     }
-    const membership = await requireGroupMember(ctx, groupId, identity.subject);
+    const membership = await requireGroupMemberForIdentityIds(ctx, groupId, identityIds);
     if (membership.role !== "owner") {
       throw new ConvexError("FORBIDDEN");
     }
@@ -855,15 +1043,16 @@ export const leaveGroup = mutation({
   args: { groupId: v.string() },
   handler: async (ctx, args) => {
     const identity = await getIdentityOrThrow(ctx);
+    const { identityIds } = await mutationIdentity(ctx, identity);
     const groupId = ctx.db.normalizeId("sacredBharatGroups", args.groupId);
     if (!groupId) {
       throw new ConvexError("Invalid group id");
     }
-    const membership = await requireGroupMember(ctx, groupId, identity.subject);
+    const membership = await requireGroupMemberForIdentityIds(ctx, groupId, identityIds);
     if (membership.role === "owner") {
       throw new ConvexError("Archive the group before leaving as owner");
     }
-    await ctx.db.delete(membership._id);
+    await ctx.db.delete("sacredBharatGroupMembers", membership._id);
     return { id: groupId };
   },
   returns: groupIdResultValidator,
