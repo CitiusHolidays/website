@@ -9,9 +9,12 @@ const HASH_PATTERN = /^[a-f0-9]{64}$/;
 const mutableEnv = process.env as Record<string, string | undefined>;
 
 const ENV_KEYS = [
+  "BETTER_AUTH_URL",
   "INBOUND_INTENT_GATEWAY_SECRET",
   "INBOUND_INTENT_RATE_LIMIT_SALT",
   "NEXT_PUBLIC_CONVEX_URL",
+  "NEXT_PUBLIC_APP_URL",
+  "NEXT_PUBLIC_SITE_URL",
   "SITE_URL",
   "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
@@ -71,10 +74,17 @@ function configureGateway() {
   mutableEnv.NEXT_PUBLIC_CONVEX_URL = "https://example.convex.cloud";
 }
 
+function configureProductionOrigin() {
+  mutableEnv.BETTER_AUTH_URL = undefined;
+  mutableEnv.NEXT_PUBLIC_APP_URL = undefined;
+  mutableEnv.NEXT_PUBLIC_SITE_URL = undefined;
+  mutableEnv.SITE_URL = "http://localhost";
+}
+
 describe("protected inbound intent route", () => {
   test("rejects when the gateway is not configured", async () => {
     mutableEnv.NODE_ENV = "production";
-    mutableEnv.SITE_URL = "http://localhost";
+    configureProductionOrigin();
     const response = await handleInboundIntentRequest(request(validBody()), {
       fetchMutationImpl: rejectingMutation(),
     });
@@ -85,7 +95,7 @@ describe("protected inbound intent route", () => {
   test("rejects a partially configured Turnstile deployment", async () => {
     configureGateway();
     mutableEnv.NODE_ENV = "production";
-    mutableEnv.SITE_URL = "http://localhost";
+    configureProductionOrigin();
     mutableEnv.NEXT_PUBLIC_TURNSTILE_SITE_KEY = "site-key";
     mutableEnv.TURNSTILE_SECRET_KEY = undefined;
 
