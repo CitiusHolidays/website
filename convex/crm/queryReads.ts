@@ -2,7 +2,11 @@ import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { canSeeQueryRecord, PERMISSIONS, publicQuery, requireAnyPermission } from "./lib";
 import { assertListSearchReady } from "./listSearch";
-import { applyCrmCursorFilters, boundedPaginationOptions } from "./paginationPolicy";
+import {
+  applyCrmCreatedAtIndexRange,
+  applyCrmCursorFilters,
+  boundedPaginationOptions,
+} from "./paginationPolicy";
 import { QUERY_COMMERCIAL_PROJECTION_VERSION } from "./queryCommercialProjection";
 
 function queryCommercialProjection(
@@ -82,6 +86,33 @@ export function projectQueryListRow(row: Parameters<typeof publicQuery>[0]) {
   };
 }
 
+export function buildQueryListSource(
+  ctx: QueryCtx,
+  args: { createdAtFrom?: number; createdAtTo?: number; queryType?: string },
+  search?: string
+) {
+  if (search) {
+    return ctx.db
+      .query("queries")
+      .withSearchIndex("search_list", (q) => q.search("listSearchText", search));
+  }
+  if (args.queryType) {
+    return ctx.db
+      .query("queries")
+      .withIndex("by_queryType_createdAt", (q) =>
+        applyCrmCreatedAtIndexRange(
+          q.eq("queryType", args.queryType as Doc<"queries">["queryType"]),
+          args
+        )
+      )
+      .order("desc");
+  }
+  return ctx.db
+    .query("queries")
+    .withIndex("by_createdAt", (q) => applyCrmCreatedAtIndexRange(q, args))
+    .order("desc");
+}
+
 export async function handleQueryListPage(
   ctx: QueryCtx,
   args: {
@@ -102,18 +133,14 @@ export async function handleQueryListPage(
   ]);
   const search = args.search?.trim();
   await assertListSearchReady(ctx, "queries", search);
-  const sourceQuery = search
-    ? ctx.db
-        .query("queries")
-        .withSearchIndex("search_list", (q) => q.search("listSearchText", search))
-    : ctx.db.query("queries").withIndex("by_createdAt").order("desc");
+  const sourceQuery = buildQueryListSource(ctx, args, search);
   const filteredSource = applyCrmCursorFilters(sourceQuery, {
-    createdAtFrom: args.createdAtFrom,
-    createdAtTo: args.createdAtTo,
+    createdAtFrom: search ? args.createdAtFrom : undefined,
+    createdAtTo: search ? args.createdAtTo : undefined,
     equals: {
       contractingStatus: args.contractingStatus,
       leadStage: args.leadStage,
-      queryType: args.queryType,
+      queryType: search ? args.queryType : undefined,
       salesStatus: args.salesStatus,
     },
   });

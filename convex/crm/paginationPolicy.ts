@@ -1,4 +1,4 @@
-import type { PaginationOptions } from "convex/server";
+import type { IndexRange, PaginationOptions } from "convex/server";
 import { ConvexError } from "convex/values";
 import type { Doc, Id, TableNames } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
@@ -11,6 +11,31 @@ export interface CrmCursorFilters {
   createdAtFrom?: number;
   createdAtTo?: number;
   equals?: Record<string, boolean | number | string | undefined>;
+}
+
+type CreatedAtUpperBoundBuilder = IndexRange & {
+  lte: (fieldName: "createdAt", value: number) => IndexRange;
+};
+
+export type CreatedAtIndexRangeBuilder = CreatedAtUpperBoundBuilder & {
+  gte: (fieldName: "createdAt", value: number) => CreatedAtUpperBoundBuilder;
+};
+
+/**
+ * Pushes the date window into a `createdAt` index range. Callers may first bind
+ * equality fields from a compound index, then pass the next-field builder here.
+ */
+export function applyCrmCreatedAtIndexRange(
+  range: CreatedAtIndexRangeBuilder,
+  filters: Pick<CrmCursorFilters, "createdAtFrom" | "createdAtTo">
+): IndexRange {
+  if (filters.createdAtFrom !== undefined) {
+    const lowerBound = range.gte("createdAt", filters.createdAtFrom);
+    return filters.createdAtTo === undefined
+      ? lowerBound
+      : lowerBound.lte("createdAt", filters.createdAtTo);
+  }
+  return filters.createdAtTo === undefined ? range : range.lte("createdAt", filters.createdAtTo);
 }
 
 /**

@@ -2,7 +2,7 @@ import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
+import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { resolveRoomCategory } from "../lib/roomTypes";
 import { roomTypeValidator } from "../lib/roomTypeValidators";
@@ -35,6 +35,7 @@ import {
   travellerListRowResultValidator,
 } from "./operationsReturnContracts";
 import {
+  applyCrmCreatedAtIndexRange,
   applyCrmCursorFilters,
   boundedPaginationOptions,
   loadRowsByIdInBatches,
@@ -60,6 +61,31 @@ const paymentTypeValidator = v.union(
 );
 
 const guestTypeValidator = v.union(v.literal("Employee"), v.literal("Client"), v.literal("VIP"));
+
+export function buildTravellerListSource(
+  ctx: QueryCtx,
+  args: { createdAtFrom?: number; createdAtTo?: number },
+  search: string | undefined,
+  normalizedJobCardId: Id<"jobCards"> | null
+) {
+  if (search) {
+    return ctx.db
+      .query("travellers")
+      .withSearchIndex("search_list", (q) => q.search("listSearchText", search));
+  }
+  if (normalizedJobCardId) {
+    return ctx.db
+      .query("travellers")
+      .withIndex("by_jobCardId_createdAt", (q) =>
+        applyCrmCreatedAtIndexRange(q.eq("jobCardId", normalizedJobCardId), args)
+      )
+      .order("desc");
+  }
+  return ctx.db
+    .query("travellers")
+    .withIndex("by_createdAt", (q) => applyCrmCreatedAtIndexRange(q, args))
+    .order("desc");
+}
 
 async function normalizeTravelBatchForJob(ctx: any, jobCardId: Id<"jobCards">, rawId?: string) {
   const value = String(rawId ?? "").trim();
@@ -157,19 +183,10 @@ export const listPage = query({
     }
     const search = args.search?.trim();
     await assertListSearchReady(ctx, "travellers", search);
-    const sourceQuery = search
-      ? ctx.db
-          .query("travellers")
-          .withSearchIndex("search_list", (q) => q.search("listSearchText", search))
-      : normalizedJobCardId
-        ? ctx.db
-            .query("travellers")
-            .withIndex("by_jobCardId_createdAt", (q) => q.eq("jobCardId", normalizedJobCardId))
-            .order("desc")
-        : ctx.db.query("travellers").withIndex("by_createdAt").order("desc");
+    const sourceQuery = buildTravellerListSource(ctx, args, search, normalizedJobCardId);
     const filteredSource = applyCrmCursorFilters(sourceQuery, {
-      createdAtFrom: args.createdAtFrom,
-      createdAtTo: args.createdAtTo,
+      createdAtFrom: search ? args.createdAtFrom : undefined,
+      createdAtTo: search ? args.createdAtTo : undefined,
       equals: {
         callingStatus: args.callingStatus,
         ...(search && normalizedJobCardId ? { jobCardId: String(normalizedJobCardId) } : {}),

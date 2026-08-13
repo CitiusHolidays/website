@@ -1,15 +1,69 @@
 import { describe, expect, test } from "bun:test";
 import {
+  applyCrmCreatedAtIndexRange,
   applyCrmCursorFilters,
   boundedPaginationOptions,
   CRM_LIST_MAX_PAGE_SIZE,
   CRM_LIST_MAX_ROWS_READ,
+  type CreatedAtIndexRangeBuilder,
   compactPageItems,
   loadRowsByIdInBatches,
   mapInBoundedBatches,
 } from "./paginationPolicy";
 
 describe("CRM list pagination policy", () => {
+  test("binds created-at limits to the storage range in index order", () => {
+    const calls: [operation: string, field: string, value: number][] = [];
+    const upper = {
+      lte(field: "createdAt", value: number) {
+        calls.push(["lte", field, value]);
+        return this;
+      },
+    };
+    const range = {
+      ...upper,
+      gte(field: "createdAt", value: number) {
+        calls.push(["gte", field, value]);
+        return upper;
+      },
+    };
+
+    applyCrmCreatedAtIndexRange(range as unknown as CreatedAtIndexRangeBuilder, {
+      createdAtFrom: 100,
+      createdAtTo: 200,
+    });
+
+    expect(calls).toEqual([
+      ["gte", "createdAt", 100],
+      ["lte", "createdAt", 200],
+    ]);
+  });
+
+  test("supports open-ended and empty created-at ranges", () => {
+    const calls: string[] = [];
+    const range = {
+      gte() {
+        calls.push("gte");
+        return this;
+      },
+      lte() {
+        calls.push("lte");
+        return this;
+      },
+    };
+
+    expect(applyCrmCreatedAtIndexRange(range as unknown as CreatedAtIndexRangeBuilder, {})).toBe(
+      range
+    );
+    applyCrmCreatedAtIndexRange(range as unknown as CreatedAtIndexRangeBuilder, {
+      createdAtFrom: 100,
+    });
+    applyCrmCreatedAtIndexRange(range as unknown as CreatedAtIndexRangeBuilder, {
+      createdAtTo: 200,
+    });
+    expect(calls).toEqual(["gte", "lte"]);
+  });
+
   test("caps requested page and scan sizes while preserving the cursor", () => {
     expect(
       boundedPaginationOptions({

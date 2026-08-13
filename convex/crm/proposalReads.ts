@@ -10,6 +10,7 @@ import {
 } from "./lib";
 import { assertListSearchReady } from "./listSearch";
 import {
+  applyCrmCreatedAtIndexRange,
   applyCrmCursorFilters,
   boundedPaginationOptions,
   compactPageItems,
@@ -207,10 +208,13 @@ export async function handleProposalListPage(
     ? ctx.db
         .query("proposals")
         .withSearchIndex("search_list", (query) => query.search("listSearchText", search))
-    : ctx.db.query("proposals").withIndex("by_createdAt").order("desc");
+    : ctx.db
+        .query("proposals")
+        .withIndex("by_createdAt", (query) => applyCrmCreatedAtIndexRange(query, args))
+        .order("desc");
   const page = await applyCrmCursorFilters(source, {
-    createdAtFrom: args.createdAtFrom,
-    createdAtTo: args.createdAtTo,
+    createdAtFrom: search ? args.createdAtFrom : undefined,
+    createdAtTo: search ? args.createdAtTo : undefined,
     equals: { status: args.status },
   }).paginate(boundedPaginationOptions(args.paginationOpts));
   const relationsByProposal = await projectedProposalListRelations(ctx, page.page);

@@ -10,6 +10,7 @@ import {
 } from "./lib";
 import { assertListSearchReady } from "./listSearch";
 import {
+  applyCrmCreatedAtIndexRange,
   applyCrmCursorFilters,
   boundedPaginationOptions,
   loadRowsByIdInBatches,
@@ -46,10 +47,13 @@ export async function handleJobCardListPage(
     ? ctx.db
         .query("jobCards")
         .withSearchIndex("search_list", (q) => q.search("listSearchText", search))
-    : ctx.db.query("jobCards").withIndex("by_createdAt").order("desc");
+    : ctx.db
+        .query("jobCards")
+        .withIndex("by_createdAt", (q) => applyCrmCreatedAtIndexRange(q, args))
+        .order("desc");
   const filteredSource = applyCrmCursorFilters(sourceQuery, {
-    createdAtFrom: args.createdAtFrom,
-    createdAtTo: args.createdAtTo,
+    createdAtFrom: search ? args.createdAtFrom : undefined,
+    createdAtTo: search ? args.createdAtTo : undefined,
     equals: { queryType: args.queryType, status: args.status },
   });
   const sourcePage = await filteredSource.paginate(boundedPaginationOptions(args.paginationOpts));
