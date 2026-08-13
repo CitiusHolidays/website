@@ -205,6 +205,10 @@ The maintained operation-state, retry, permission, download, expiry, and cleanup
 [`SPREADSHEET_OPERATIONS.md`](SPREADSHEET_OPERATIONS.md). It includes separate editable import and
 export diagrams and the safe next action for every visible state.
 
+The cross-surface user-visible state, action, accessibility, mobile, privacy, and evidence matrix is
+maintained in [`PORTAL_OPERATION_STATUS_UX.md`](PORTAL_OPERATION_STATUS_UX.md). It keeps current
+source-observed behavior separate from authenticated browser cells that have not yet been proven.
+
 ## Dashboard and list views
 
 Portal dashboard summary data comes from `convex/crm/dashboard.ts` `getPortalSummary`. The dashboard uses role-aware persona slices, actionable KPI groups, drill-down links, and the shared period control.

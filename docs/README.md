@@ -24,6 +24,7 @@ provider or production proof.
 - [Notification email delivery](NOTIFICATION_EMAIL_DELIVERY.md) - delivery semantics and ledger.
 - [Commercial File retention](COMMERCIAL_FILE_RETENTION.md) - bounded purge and retry operations.
 - [Spreadsheet operations](SPREADSHEET_OPERATIONS.md) - bounded import/export states, replay, and cleanup.
+- [Portal operation-status UX](PORTAL_OPERATION_STATUS_UX.md) - visible state, retry, accessibility, privacy, and evidence matrix.
 - [Import validator migration](IMPORT_VALIDATOR_MIGRATION.md) - Travel Batch migration contract.
 - [UI transition policy](TRANSITION_POLICY.md) - interaction and Motion constraints.
 
@@ -97,6 +98,9 @@ provider or production proof.
 - [Task routing](agents/task-routing.md) - trigger-to-authority map.
 - [Domain docs](agents/domain.md) - glossary/ADR consumption rules.
 - [Issue tracker](agents/issue-tracker.md) - canonical GitHub workflow.
+- [Specification handoff](agents/spec-handoff.md) - artifact kinds, readiness, authorization, and structural check.
+- [Specification template](agents/templates/spec.md) - reusable implementation handoff profile.
+- [UI change brief](agents/ui-change-brief.md) - preservation-first visible-state and accessibility extension.
 - [Change-program brief](agents/change-program-brief.md) - local multi-ticket brief how-to.
 - [Triage labels](agents/triage-labels.md) - repository label vocabulary.
 - [React Doctor triage](agents/react-doctor-triage.md) - pinned local frontend analyzer.

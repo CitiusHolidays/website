@@ -15,6 +15,18 @@ Infer the repo from `git remote -v` — `gh` does this automatically when run in
 
 Local `.scratch/` artifacts remain useful for audit evidence, handoffs, and working notes; GitHub Issues are the canonical issue and ticket records.
 
+Before calling work ready for an implementation agent, classify and validate its handoff using the
+[specification readiness contract](spec-handoff.md). Use the tracked
+[implementation template](../../.github/ISSUE_TEMPLATE/implementation-spec.md) at publication. A
+passing structural check does not supply user approval, semantic review, redaction, GitHub dedupe,
+or deployment evidence.
+
+UI-affecting tickets also complete the [UI change brief](ui-change-brief.md): owning baseline,
+information hierarchy, visible loading/empty/error/success/partial/retry states, viewport and
+coarse-pointer behavior, keyboard/focus/screen-reader/reduced-motion behavior, reuse targets,
+non-goals, provenance, and proof boundaries. Use `N/A: <reason>` for genuinely backend-only work;
+do not force a redesign or mockup for behavior-preserving maintenance.
+
 A local planning, documentation, or evidence request does not by itself
 authorize a GitHub write. Publish, edit, label, assign, or close issues only when
 the task grants that external authority.

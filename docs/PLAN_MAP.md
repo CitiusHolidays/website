@@ -14,6 +14,7 @@ actionable without recreating a second plan system.
 | Design authority | [`DESIGN.md`](../DESIGN.md) | Permanent router to scoped design owners |
 | Staff Workspace performance and replay-safety contract | [`STAFF_WORKSPACE_PERFORMANCE.md`](STAFF_WORKSPACE_PERFORMANCE.md) and `config/release/staff-workspace-performance-*.json` | Permanent, refreshed with monitored code |
 | Published specifications and implementation tickets | GitHub Issues following [`docs/agents/issue-tracker.md`](agents/issue-tracker.md) | Canonical live status |
+| Spec classification and readiness | [`docs/agents/spec-handoff.md`](agents/spec-handoff.md), its [`spec template`](agents/templates/spec.md), and the [`UI change brief`](agents/ui-change-brief.md) when applicable | Tracked structural contract before GitHub handoff |
 | Local briefs, evidence, handoffs, and working notes | `.scratch/<feature>/` following the [change-program brief](agents/change-program-brief.md) | Local and disposable after handoff |
 | Release and deployment contract | [`RELEASE.md`](../RELEASE.md) and [`config/release/`](../config/release/) | Permanent |
 

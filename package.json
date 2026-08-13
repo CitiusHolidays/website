@@ -49,6 +49,7 @@
     "smoke:browser": "bun scripts/browser-smoke.ts",
     "smoke:browser:authenticated": "bun scripts/browser-smoke.ts --profiles admin,sales,contracting,operations,ticketing,finance,hr --cases admin-dashboard,admin-team,sales-pipeline,sales-queries-pagination,contracting-proposals,operations-travellers,ticketing-list,finance-approvals,hr-leave --strict",
     "smoke:browser:public": "bun scripts/browser-smoke.ts --profiles public --cases public-home,public-home-mobile,pilgrimage,kailash-trail-mobile,sacred-bharat,staff-sign-in,account-redirect --strict",
+    "spec:check": "bun config/spec/spec-check.ts",
     "start": "next start",
     "test": "bun config/test/run-target-neutral-tests.ts",
     "test:bun": "bun test --isolate --path-ignore-patterns='e2e/specs/**' --path-ignore-patterns='e2e/public/**'",
