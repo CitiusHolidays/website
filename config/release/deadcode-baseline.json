@@ -108,7 +108,6 @@
     "exports|src/lib/auth-sign-in-targets.js|{\"name\":\"SIGN_IN_TARGETS\"}",
     "exports|src/lib/email/config.js|{\"name\":\"AUTH_EMAIL_FROM\"}",
     "exports|src/lib/formatDate.js|{\"name\":\"DISPLAY_DATE_LOCALE\"}",
-    "exports|src/lib/observability/api-log.js|{\"name\":\"logApiEvent\"}",
     "exports|src/lib/portal/capacity.js|{\"name\":\"CAPACITY_THRESHOLDS\"}",
     "exports|src/lib/portal/dashboardLinks.js|{\"name\":\"TICKET_ATTENTION_STATUSES\"}",
     "exports|src/lib/portal/fileUploads.js|{\"name\":\"uploadEntityFiles\"}",

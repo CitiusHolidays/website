@@ -1,11 +1,11 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { usePaginatedQuery } from "convex/react";
 import { useState } from "react";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { Button } from "@/components/ui/application-button";
 import { formatDisplayDate } from "@/lib/formatDate";
+import { useTrackedPaginatedQuery as usePaginatedQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import {
   buildTravelBatchModalInitial,
   formatTravelBatchOwnerSummary,

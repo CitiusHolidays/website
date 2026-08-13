@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 
 const TARGET_ID_PATTERNS = {
   development: /^development-[A-Za-z0-9._:+-]+$/,
   preview: /^preview-[A-Za-z0-9._:+-]+$/,
 } as const;
 
-export function GET() {
+function handleE2eIdentity() {
   const target = process.env.E2E_PROVISIONING_TARGET;
   const id = process.env.E2E_TARGET_ID;
   const siteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL;
@@ -27,5 +28,11 @@ export function GET() {
   return NextResponse.json(
     { convexSiteOrigin, id, target },
     { headers: { "Cache-Control": "private, no-store, max-age=0" } }
+  );
+}
+
+export async function GET(request: Request) {
+  return await withApiRequestLogging(request, "/api/e2e/identity", () =>
+    Promise.resolve(handleE2eIdentity())
   );
 }

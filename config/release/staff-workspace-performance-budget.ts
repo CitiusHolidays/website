@@ -1,10 +1,15 @@
-export type StaffWorkspacePerformanceTarget = "job-cards" | "proposals" | "queries";
-
 export const STAFF_WORKSPACE_PERFORMANCE_TARGETS = [
   "queries",
   "proposals",
   "job-cards",
-] as const satisfies readonly StaffWorkspacePerformanceTarget[];
+  "contracting",
+  "finance",
+  "tickets",
+  "hotels",
+  "visa",
+] as const;
+
+export type StaffWorkspacePerformanceTarget = (typeof STAFF_WORKSPACE_PERFORMANCE_TARGETS)[number];
 
 export interface StaffWorkspacePerformanceSample {
   applicationPayloadBytes: number;

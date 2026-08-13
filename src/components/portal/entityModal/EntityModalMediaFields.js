@@ -1,7 +1,6 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { usePaginatedQuery, useQuery } from "convex/react";
 import { FileText, Paperclip } from "lucide-react";
 import {
   FinalizedProposalPdfPanel,
@@ -10,6 +9,10 @@ import {
   QueryAttachmentsPanel,
 } from "@/components/portal/PortalModalForm";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import {
+  useTrackedPaginatedQuery as usePaginatedQuery,
+  useTrackedQuery as useQuery,
+} from "@/lib/portal/trackedConvexSubscriptions";
 
 function LinkedCommercialFiles({ files }) {
   if (!files?.length) {

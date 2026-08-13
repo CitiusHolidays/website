@@ -1,0 +1,10 @@
+{
+  "environment": "dedicated non-production authenticated target required",
+  "revision": null,
+  "samples": [],
+  "schemaVersion": 1,
+  "sourceFiles": [],
+  "sourceHash": null,
+  "status": "pending_target_measurement",
+  "target": null
+}

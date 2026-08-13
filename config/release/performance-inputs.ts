@@ -22,10 +22,16 @@ const STAFF_WORKSPACE_PERFORMANCE_ROOTS = [
   "src/lib/portal/portalRouteManifest.ts",
   "convex/crm/jobCardReads.ts",
   "convex/crm/jobCards.ts",
+  "convex/crm/finance.ts",
+  "convex/crm/imports.ts",
+  "convex/crm/ops.ts",
   "convex/crm/proposalLinkProjection.ts",
   "convex/crm/proposals.ts",
   "convex/crm/queryReads.ts",
   "convex/crm/queries.ts",
+  "convex/crm/ticketing.ts",
+  "convex/crm/travellers.ts",
+  "convex/crm/visa.ts",
 ] as const;
 
 const PUBLIC_RUNTIME_PERFORMANCE_ROOTS = [

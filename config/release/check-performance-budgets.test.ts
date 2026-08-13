@@ -129,8 +129,9 @@ describe("authenticated Staff Workspace performance budgets", () => {
   test("fails a committed baseline when measured source has changed", () => {
     const baseline = {
       environment: "authenticated local",
+      pendingTargets: [],
       samples: [],
-      schemaVersion: 1,
+      schemaVersion: 2,
       sourceFiles: ["convex/crm/queries.ts"],
       sourceHash: "measured-hash",
     };
@@ -175,8 +176,9 @@ describe("authenticated Staff Workspace performance budgets", () => {
     };
     const baseline = {
       environment: "authenticated local",
+      pendingTargets: [],
       samples: [],
-      schemaVersion: 1,
+      schemaVersion: 2,
       sourceFiles: ["convex/crm/queries.ts"],
       sourceHash: "hash",
     };
@@ -209,5 +211,18 @@ describe("authenticated Staff Workspace performance budgets", () => {
         ],
       })
     ).toThrow("job-cards warm");
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({
+        ...baseline,
+        pendingTargets: ["finance", "finance"],
+      })
+    ).toThrow("duplicates");
+    expect(() =>
+      parseStaffWorkspacePerformanceBaseline({
+        ...baseline,
+        pendingTargets: ["finance"],
+        samples: [{ ...sample, target: "finance" }],
+      })
+    ).toThrow("pending target");
   });
 });

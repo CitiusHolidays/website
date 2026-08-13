@@ -1,8 +1,8 @@
 # Staff Workspace performance and replay safety
 
-The Staff Workspace keeps the high-volume Queries, Proposals, and Job Cards routes bounded as
-CRM data grows. The release contract covers both what a staff member sees while navigating and
-what happens when a browser or provider retries a command.
+The Staff Workspace keeps eight representative commercial and operations routes bounded as CRM
+data grows. The release contract covers both what a staff member sees while navigating and what
+happens when a browser or provider retries a command.
 
 This document describes local evidence and release checks. It does not claim that a Vercel or
 Convex deployment has been activated. Use [`RELEASE.md`](../RELEASE.md) for deployment ownership
@@ -22,8 +22,14 @@ conditions:
 | First content | Milliseconds until the first empty-state or row content is rendered |
 | Resource transfer | Browser resource transfer bytes for the route navigation |
 
-Subscription names are limited to safe module/function labels. The snapshot never records query
-arguments, record IDs, URLs, email addresses, cookies, or provider payloads.
+Every active portal `useQuery` and `usePaginatedQuery` instance is registered at the shared wrapper.
+The browser registry distinguishes exact argument sets with an in-memory SHA-256 digest, but
+publishes only safe module/function labels and aggregate counts. Digests and arguments never enter
+the performance snapshot. React Strict Mode re-registration of the same instance is idempotent;
+two active instances of the same function and exact arguments increment the duplicate count.
+
+The snapshot never records query arguments, digests, record IDs, URLs, email addresses, cookies,
+or provider payloads.
 
 ## Current budgets
 
@@ -33,29 +39,67 @@ The limits are the same for cold and warm navigation except for resource transfe
 
 | Route | Application payload | Logical subscriptions | Route ready | First content | Resource transfer (cold / warm) |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Queries | 60,000 bytes | 1 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
-| Proposals | 100,000 bytes | 2 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
-| Job Cards | 30,000 bytes | 1 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
+| Queries | 60,000 bytes | 5 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
+| Proposals | 100,000 bytes | 6 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
+| Job Cards | 30,000 bytes | 6 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
+| Contracting | 100,000 bytes | 6 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
+| Finance | 180,000 bytes | 10 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
+| Tickets | 120,000 bytes | 6 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
+| Hotels / Rooming | 180,000 bytes | 9 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
+| Visa Tracking | 180,000 bytes | 9 | 500 ms | 2,000 ms | 225,000 / 25,000 bytes |
 
 Every route has a duplicate-subscription limit of zero.
 
-The current authenticated non-production Preview baseline is stored in
+The authenticated non-production browser baseline is stored in
 [`config/release/staff-workspace-performance-baseline.json`](../config/release/staff-workspace-performance-baseline.json).
-It records six samples from the latest source hash:
+The six historical Queries, Proposals, and Job Cards samples are retained without relabeling them
+as current evidence. Contracting, Finance, Tickets, Hotels, and Visa are explicitly listed as
+`pendingTargets`; therefore the gate remains stale until all eight routes are remeasured together
+from the current revision:
 
 | Route | Cold first content | Warm first content | Cold transfer | Warm transfer |
 | --- | ---: | ---: | ---: | ---: |
-| Queries | 848 ms | 942 ms | 32,094 bytes | 18,939 bytes |
-| Proposals | 982 ms | 1,093 ms | 25,474 bytes | 2,000 bytes |
-| Job Cards | 1,191 ms | 1,097 ms | 30,944 bytes | 4,847 bytes |
+| Queries | 1,043 ms | 1,257 ms | 39,027 bytes | 5,762 bytes |
+| Proposals | 732 ms | 1,095 ms | 25,549 bytes | 2,994 bytes |
+| Job Cards | 1,354 ms | 943 ms | 28,770 bytes | 7,613 bytes |
 
-These figures are an authenticated synthetic baseline from a protected Vercel Preview bound to a
-dedicated Convex Preview, not a production latency promise.
+These historical figures are authenticated synthetic evidence from an explicit non-production
+browser target, not a production latency promise and not proof for the five pending routes.
 The source hash is derived from a checked import closure rooted at the measured views, shell, lazy
 registry, data readers, browser harness, dependency lockfile, and Next build configuration. The gate
 fails closed when either the file identity or content changes; unrelated documentation does not
 invalidate it. A stale baseline may be replaced only from a fresh authenticated run against an
 explicit non-production target.
+
+## Backend Convex cost evidence
+
+Browser subscription and transfer measurements do not prove backend transaction cost. The separate
+backend manifest at
+[`config/release/staff-workspace-backend-cost-budgets.json`](../config/release/staff-workspace-backend-cost-budgets.json)
+budgets each route's cold and warm representative workload for bytes read, database ranges read,
+documents read, execution time, and OCC retries. The initial safety ceilings are 5,000,000 bytes,
+100 ranges, 500 documents, 5,000 ms, and zero OCC retries per sample. These are ceilings to detect a
+regression, not a measured claim or permission to widen a query.
+
+The checked-in backend baseline is honestly `pending_target_measurement`. It contains no invented
+sample, revision, target, or source hash, so `bun run performance:check` fails with an explicit
+pending-evidence message. Changing any covered UI data owner or any of the Queries, Proposals, Job
+Cards, Finance, Ticketing, Operations, Traveller, Import, or Visa readers also changes the shared
+source closure and makes measured evidence stale.
+
+When a supported Convex Insights, Health, or equivalent export is available for an approved target,
+place only its aggregated schema-v1 metrics below `.scratch/performance/`. With a clean checkout and
+the same approved E2E target manifest used by the browser harness, prepare a reviewable candidate:
+
+```bash
+bun run performance:backend:ingest -- .scratch/performance/<safe-metrics-export>.json
+```
+
+The ingestion command does not contact Convex. It rejects unknown fields, missing cold/warm routes,
+Production-like target IDs, a target not bound to the approved frontend/Convex origin pair, revision
+drift, and a dirty tracked tree. It writes a candidate below `.scratch/performance/`; review that
+aggregate before replacing the checked-in baseline. Raw arguments, CRM contents, identities,
+tokens, URLs, and deployment credentials are not valid export fields.
 
 ## Replay-safe commands
 
@@ -118,8 +162,9 @@ To collect authenticated cold/warm browser evidence, complete the E2E setup in
 bunx playwright test e2e/specs/staff-workspace-performance.spec.ts
 ```
 
-The spec covers Dashboard → All Sales Queries, Dashboard → Proposals, and Dashboard → Job Cards
-for Sales, Contracting, and Operations profiles. It skips when `E2E_STAFF_PASSWORD` is absent.
+The spec covers Dashboard navigation to All Sales Queries, Proposals, Job Cards, Contracting,
+Finance, All Tickets, Hotel / Rooming, and Visa Tracking with a least-privilege Sales, Contracting,
+Operations, Finance, or Ticketing profile. It skips when `E2E_STAFF_PASSWORD` is absent.
 
 When a monitored source changes, capture fresh authenticated samples, update the baseline source
 hash and samples together, and run `bun run performance:check`. Do not widen a limit just to make a

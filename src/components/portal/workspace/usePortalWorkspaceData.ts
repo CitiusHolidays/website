@@ -1,6 +1,5 @@
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
-import { usePaginatedQuery, useQuery } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
 import {
@@ -10,6 +9,7 @@ import {
 import { fiscalYearForDate } from "@/lib/portal/leavePolicy";
 import {
   measurePortalNavigationWorkload,
+  PORTAL_PERFORMANCE_TARGETS,
   type PortalPerformanceTarget,
   recordPortalNavigationWorkload,
 } from "@/lib/portal/navigationPerformance";
@@ -17,6 +17,11 @@ import { mergeFocusedRow } from "@/lib/portal/paginatedRows";
 import { endOfDateOnly, parseDateOnly } from "@/lib/portal/periodFilter";
 import { canUseTeamPicker } from "@/lib/portal/permissions";
 import { getPortalDataDependencies } from "@/lib/portal/portalDataDependencies";
+import {
+  useTrackedPaginatedQuery as usePaginatedQuery,
+  usePortalSubscriptionSummary,
+  useTrackedQuery as useQuery,
+} from "@/lib/portal/trackedConvexSubscriptions";
 import {
   useActiveLocalReferenceDate,
   useActiveOperationReferenceNow,
@@ -139,6 +144,7 @@ export function usePortalWorkspaceData({
   search,
   view,
 }: UsePortalWorkspaceDataInput) {
+  const portalSubscriptionSummary = usePortalSubscriptionSummary();
   const dependencies = getPortalDataDependencies({ deepLinkOpen, modal, view });
   const needs = (dependency: Parameters<typeof dependencies.has>[0]) =>
     dependencies.has(dependency);
@@ -372,110 +378,9 @@ export function usePortalWorkspaceData({
         focusedJobCard
       )
     : undefined;
-  const performanceTarget = (
-    ["job-cards", "proposals", "queries"] as PortalPerformanceTarget[]
-  ).includes(view as PortalPerformanceTarget)
+  const performanceTarget = PORTAL_PERFORMANCE_TARGETS.includes(view as PortalPerformanceTarget)
     ? (view as PortalPerformanceTarget)
     : null;
-
-  useEffect(() => {
-    if (!performanceTarget) {
-      return;
-    }
-    const workload = measurePortalNavigationWorkload([
-      {
-        active: shouldLoadSearchReadiness,
-        name: "crm.listSearch.getReadiness",
-        payload: searchReadiness,
-        ready: searchReadiness !== undefined,
-      },
-      {
-        active: shouldLoadQueries && !querySearchPreparing,
-        name: "crm.queries.listPage",
-        payload: queryPage.results,
-        ready: queryPage.status !== "LoadingFirstPage",
-      },
-      {
-        active: shouldLoadQueries && Boolean(focusedQueryId),
-        name: "crm.queries.getDetail",
-        payload: focusedQuery,
-        ready: focusedQuery !== undefined,
-      },
-      {
-        active: shouldLoadProposals && !proposalSearchPreparing,
-        name: "crm.proposals.listPage",
-        payload: proposalPage.results,
-        ready: proposalPage.status !== "LoadingFirstPage",
-      },
-      {
-        active: shouldLoadProposals && Boolean(focusedProposalId),
-        name: "crm.proposals.getDetail",
-        payload: hydratedFocusedProposal,
-        ready: hydratedFocusedProposal !== undefined,
-      },
-      {
-        active: shouldLoadProposals && Boolean(focusedProposalId),
-        name: "crm.proposals.listLinkedQueriesPage",
-        payload: focusedProposalLinkedQueries,
-        ready: focusedProposalLinksStatus === "Exhausted",
-      },
-      {
-        active: shouldLoadProposals && Boolean(focusedJobCardProposalId),
-        name: "crm.proposals.getDetail",
-        payload: focusedJobCardProposal,
-        ready: focusedJobCardProposal !== undefined,
-      },
-      {
-        active: shouldLoadJobCards && !jobCardSearchPreparing,
-        name: "crm.jobCards.listPage",
-        payload: jobCardPage.results,
-        ready: jobCardPage.status !== "LoadingFirstPage",
-      },
-      {
-        active: shouldLoadJobCards && Boolean(focusedJobCardId),
-        name: "crm.jobCards.getDetail",
-        payload: focusedJobCard,
-        ready: focusedJobCard !== undefined,
-      },
-      {
-        active: shouldLoadJobCardDeletionOperations,
-        name: "crm.jobCards.listMyDeletionOperations",
-        payload: jobCardDeletionOperations,
-        ready: jobCardDeletionOperations !== undefined,
-      },
-    ]);
-    if (workload) {
-      recordPortalNavigationWorkload({ ...workload, target: performanceTarget });
-    }
-  }, [
-    focusedJobCard,
-    focusedJobCardId,
-    focusedJobCardProposal,
-    focusedJobCardProposalId,
-    focusedProposalId,
-    focusedProposalLinkedQueries,
-    focusedProposalLinksStatus,
-    hydratedFocusedProposal,
-    focusedQuery,
-    focusedQueryId,
-    jobCardDeletionOperations,
-    jobCardPage.results,
-    jobCardPage.status,
-    jobCardSearchPreparing,
-    performanceTarget,
-    proposalPage.results,
-    proposalPage.status,
-    proposalSearchPreparing,
-    queryPage.results,
-    queryPage.status,
-    querySearchPreparing,
-    searchReadiness,
-    shouldLoadJobCardDeletionOperations,
-    shouldLoadJobCards,
-    shouldLoadProposals,
-    shouldLoadQueries,
-    shouldLoadSearchReadiness,
-  ]);
   const shouldLoadTravellers = Boolean(canFetch && needs("travellers") && has(P.VIEW_TRAVELLERS));
   const travellerPage = usePaginatedQuery(
     api.crm.travellers.listPage,
@@ -861,6 +766,170 @@ export function usePortalWorkspaceData({
     api.crm.visa.listTravellersWithoutVisa,
     canFetch && has(P.VIEW_VISA) && needs("travellersWithoutVisa") ? {} : "skip"
   );
+  const performanceWorkload = performanceTarget
+    ? measurePortalNavigationWorkload([
+        {
+          active: shouldLoadSearchReadiness,
+          name: "crm.listSearch.getReadiness",
+          payload: searchReadiness,
+          ready: searchReadiness !== undefined,
+        },
+        {
+          active: shouldLoadQueries && !querySearchPreparing,
+          name: "crm.queries.listPage",
+          payload: queryPage.results,
+          ready: queryPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: shouldLoadQueries && Boolean(focusedQueryId),
+          name: "crm.queries.getDetail",
+          payload: focusedQuery,
+          ready: focusedQuery !== undefined,
+        },
+        {
+          active: shouldLoadProposals && !proposalSearchPreparing,
+          name: "crm.proposals.listPage",
+          payload: proposalPage.results,
+          ready: proposalPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: shouldLoadProposals && Boolean(focusedProposalId),
+          name: "crm.proposals.getDetail",
+          payload: hydratedFocusedProposal,
+          ready: hydratedFocusedProposal !== undefined,
+        },
+        {
+          active: shouldLoadProposals && Boolean(focusedProposalId),
+          name: "crm.proposals.listLinkedQueriesPage",
+          payload: focusedProposalLinkedQueries,
+          ready: focusedProposalLinksStatus === "Exhausted",
+        },
+        {
+          active: shouldLoadProposals && Boolean(focusedJobCardProposalId),
+          name: "crm.proposals.getDetail",
+          payload: focusedJobCardProposal,
+          ready: focusedJobCardProposal !== undefined,
+        },
+        {
+          active: shouldLoadJobCards && !jobCardSearchPreparing,
+          name: "crm.jobCards.listPage",
+          payload: jobCardPage.results,
+          ready: jobCardPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: shouldLoadJobCards && Boolean(focusedJobCardId),
+          name: "crm.jobCards.getDetail",
+          payload: focusedJobCard,
+          ready: focusedJobCard !== undefined,
+        },
+        {
+          active: shouldLoadJobCardDeletionOperations,
+          name: "crm.jobCards.listMyDeletionOperations",
+          payload: jobCardDeletionOperations,
+          ready: jobCardDeletionOperations !== undefined,
+        },
+        {
+          active: shouldLoadTravellers && !travellerSearchPreparing,
+          name: "crm.travellers.listPage",
+          payload: travellerPage.results,
+          ready: travellerPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: shouldLoadTravellers && view === "hotels",
+          name: "crm.travellers.getRoomCountSummary",
+          payload: roomCountSummary,
+          ready: roomCountSummary !== undefined,
+        },
+        {
+          active: Boolean(canFetch && needs("visas") && has(P.VIEW_VISA)),
+          name: "crm.visa.list",
+          payload: visaPage.results,
+          ready: visaPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(canFetch && needs("tickets") && has(P.VIEW_TICKETING)),
+          name: "crm.ticketing.listTickets",
+          payload: ticketPage.results,
+          ready: ticketPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(canFetch && deepLinkOpen === "ticket" && deepLinkId),
+          name: "crm.ticketing.getTicketListRow",
+          payload: focusedTicket,
+          ready: focusedTicket !== undefined,
+        },
+        {
+          active: Boolean(canFetch && needs("hotels") && has(P.VIEW_OPERATIONS)),
+          name: "crm.ops.listHotels",
+          payload: hotelPage.results,
+          ready: hotelPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(canFetch && needs("invoices") && has(P.VIEW_FINANCE)),
+          name: "crm.finance.listInvoices",
+          payload: invoicePage.results,
+          ready: invoicePage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(canFetch && has(P.VIEW_FINANCE) && needs("financeOverview")),
+          name: "crm.finance.getFinanceOverview",
+          payload: financeOverviewSummary,
+          ready: financeOverviewSummary !== undefined,
+        },
+        {
+          active: Boolean(
+            canFetch && has(P.VIEW_FINANCE) && needs("financeOverview") && financeDetailsReady
+          ),
+          name: "crm.finance.listFinancePnl",
+          payload: financePnlPage.results,
+          ready: financePnlPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(
+            canFetch && has(P.VIEW_FINANCE) && needs("financeOverview") && financeDetailsReady
+          ),
+          name: "crm.finance.listFinanceOutstanding",
+          payload: financeOutstandingPage.results,
+          ready: financeOutstandingPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(canFetch && needs("team") && has(P.VIEW_TEAM)),
+          name: "crm.staff.listDirectory",
+          payload: teamDirectoryPage.results,
+          ready: teamDirectoryPage.status !== "LoadingFirstPage",
+        },
+        {
+          active: Boolean(
+            canFetch && needs("team") && !has(P.VIEW_TEAM) && canUseTeamPicker(access)
+          ),
+          name: "crm.staff.listTeamOptions",
+          payload: teamPicker,
+          ready: teamPicker !== undefined,
+        },
+        {
+          active: Boolean(canFetch && has(P.VIEW_VISA) && needs("travellersWithoutVisa")),
+          name: "crm.visa.listTravellersWithoutVisa",
+          payload: travellersWithoutVisa,
+          ready: travellersWithoutVisa !== undefined,
+        },
+      ])
+    : null;
+
+  useEffect(() => {
+    if (
+      !(performanceTarget && performanceWorkload) ||
+      portalSubscriptionSummary.logicalSubscriptions === 0
+    ) {
+      return;
+    }
+    recordPortalNavigationWorkload({
+      applicationPayloadBytes: performanceWorkload.applicationPayloadBytes,
+      duplicateSubscriptions: portalSubscriptionSummary.duplicateSubscriptions,
+      logicalSubscriptions: portalSubscriptionSummary.logicalSubscriptions,
+      subscriptions: [...portalSubscriptionSummary.subscriptions],
+      target: performanceTarget,
+    });
+  }, [performanceTarget, performanceWorkload, portalSubscriptionSummary]);
 
   return {
     accountsJobCardCreators,

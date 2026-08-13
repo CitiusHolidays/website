@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 import { PortalTabs } from "@/components/portal/PortalTabs";
+import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
 import { resolveTabId } from "@/lib/portal/portalTabs";
 import { HOTEL_ROOMING_TABS } from "../portalOperationsHelpers";
 import type { HotelRoomingViewProps } from "../portalViewTypes";
@@ -26,9 +28,19 @@ export function HotelRoomingView({
   removeTraveller,
   removeManyTravellers,
   jobCards,
+  loading = false,
   jobCardFilter,
   setJobCardFilter,
 }: HotelRoomingViewProps) {
+  useEffect(() => {
+    if (!loading) {
+      markPortalNavigationFirstContent(
+        "hotels",
+        hotels.length > 0 || roomingRows.length > 0 ? "row" : "empty"
+      );
+    }
+  }, [hotels, loading, roomingRows]);
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const tabIds = HOTEL_ROOMING_TABS.map((item: any) => item.id);

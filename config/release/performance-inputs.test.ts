@@ -68,6 +68,12 @@ describe("performance dependency inputs", () => {
       "src/components/portal/workspace/ProposalsView.tsx",
       "src/components/portal/workspace/operations/JobCardsView.tsx",
       "src/components/portal/workspace/usePortalWorkspaceData.ts",
+      "convex/crm/finance.ts",
+      "convex/crm/imports.ts",
+      "convex/crm/ops.ts",
+      "convex/crm/ticketing.ts",
+      "convex/crm/travellers.ts",
+      "convex/crm/visa.ts",
     ]) {
       expect(staff).toContain(path);
     }

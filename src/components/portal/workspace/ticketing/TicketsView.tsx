@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
 import { getTicketAttention } from "@/lib/portal/ticketListPresentation";
 import { travelBatchDisplayLabel } from "../portalOperationsHelpers";
 import type { PortalTicketListRow, TicketsViewProps } from "../portalViewTypes";
@@ -23,7 +25,14 @@ export function TicketsView({
   deleteSelected,
   removeTicket,
   removeManyTickets,
+  loading = false,
 }: TicketsViewProps) {
+  useEffect(() => {
+    if (!loading) {
+      markPortalNavigationFirstContent("tickets", rows.length > 0 ? "row" : "empty");
+    }
+  }, [loading, rows]);
+
   const canManage = has(P.MANAGE_TICKETING);
 
   return (

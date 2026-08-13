@@ -1,12 +1,26 @@
-export const PORTAL_PERFORMANCE_TARGETS = ["queries", "proposals", "job-cards"] as const;
+export const PORTAL_PERFORMANCE_TARGETS = [
+  "queries",
+  "proposals",
+  "job-cards",
+  "contracting",
+  "finance",
+  "tickets",
+  "hotels",
+  "visa",
+] as const;
 
 export type PortalPerformanceTarget = (typeof PORTAL_PERFORMANCE_TARGETS)[number];
 export type PortalFirstContent = "empty" | "row";
 
 const TARGET_BY_HREF: Record<string, PortalPerformanceTarget> = {
+  "/portal/contracting": "contracting",
+  "/portal/finance": "finance",
+  "/portal/hotels": "hotels",
   "/portal/job-cards": "job-cards",
   "/portal/proposals": "proposals",
   "/portal/queries": "queries",
+  "/portal/tickets": "tickets",
+  "/portal/visa": "visa",
 };
 
 const NAVIGATION_MARKS = {
@@ -116,10 +130,14 @@ export function markPortalNavigationRouteReady(target: PortalPerformanceTarget) 
 
 export function recordPortalNavigationWorkload({
   applicationPayloadBytes,
+  duplicateSubscriptions,
+  logicalSubscriptions,
   subscriptions,
   target,
 }: {
   applicationPayloadBytes: number;
+  duplicateSubscriptions?: number;
+  logicalSubscriptions?: number;
   subscriptions: string[];
   target: PortalPerformanceTarget;
 }) {
@@ -127,11 +145,23 @@ export function recordPortalNavigationWorkload({
     throw new Error("Portal performance metrics require privacy-safe subscription names");
   }
   const uniqueSubscriptions = new Set(subscriptions);
+  const measuredLogicalSubscriptions = logicalSubscriptions ?? subscriptions.length;
+  const measuredDuplicateSubscriptions =
+    duplicateSubscriptions ?? subscriptions.length - uniqueSubscriptions.size;
+  if (
+    !Number.isInteger(measuredLogicalSubscriptions) ||
+    measuredLogicalSubscriptions !== subscriptions.length ||
+    !Number.isInteger(measuredDuplicateSubscriptions) ||
+    measuredDuplicateSubscriptions < 0 ||
+    measuredDuplicateSubscriptions > measuredLogicalSubscriptions
+  ) {
+    throw new Error("Portal performance metrics require internally consistent subscription counts");
+  }
   updateActive(target, (snapshot) => ({
     ...snapshot,
     applicationPayloadBytes: Math.max(0, Math.round(applicationPayloadBytes)),
-    duplicateSubscriptions: subscriptions.length - uniqueSubscriptions.size,
-    logicalSubscriptions: subscriptions.length,
+    duplicateSubscriptions: measuredDuplicateSubscriptions,
+    logicalSubscriptions: measuredLogicalSubscriptions,
     subscriptions: [...subscriptions],
   }));
 }

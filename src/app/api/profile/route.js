@@ -1,10 +1,11 @@
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation, fetchAuthQuery } from "@/lib/auth-server";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 
 const phoneRegex = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
 
-export async function PUT(request) {
+async function handleProfileUpdate(request) {
   try {
     const sessionUser = await fetchAuthQuery(anyApi.auth.getCurrentUser, {});
 
@@ -75,4 +76,8 @@ export async function PUT(request) {
       { status: 500 }
     );
   }
+}
+
+export async function PUT(request) {
+  return await withApiRequestLogging(request, "/api/profile", () => handleProfileUpdate(request));
 }

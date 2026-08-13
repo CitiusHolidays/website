@@ -5,6 +5,7 @@ import {
   evaluateStaffWorkspacePerformanceBudget,
   type StaffWorkspacePerformanceBudgetManifest,
   type StaffWorkspacePerformanceSample,
+  type StaffWorkspacePerformanceTarget,
 } from "../../config/release/staff-workspace-performance-budget";
 import staffPerformanceBudgets from "../../config/release/staff-workspace-performance-budgets.json";
 import type { E2eRoleProfileKey } from "../fixtures/staffProfiles";
@@ -17,7 +18,7 @@ interface PerformanceScenario {
   href: string;
   link: string;
   role: E2eRoleProfileKey;
-  target: "job-cards" | "proposals" | "queries";
+  target: StaffWorkspacePerformanceTarget;
 }
 
 const FIRST_CONTENT_PATTERN = /^(empty|row)$/;
@@ -47,6 +48,46 @@ const SCENARIOS: PerformanceScenario[] = [
     link: "Job Cards",
     role: "operations",
     target: "job-cards",
+  },
+  {
+    group: "Enquiries",
+    heading: "Contracting Dashboard",
+    href: "/portal/contracting",
+    link: "Contracting",
+    role: "contracting",
+    target: "contracting",
+  },
+  {
+    group: "Finance",
+    heading: "Finance",
+    href: "/portal/finance",
+    link: "Finance",
+    role: "finance",
+    target: "finance",
+  },
+  {
+    group: "Ticketing",
+    heading: "All Tickets",
+    href: "/portal/tickets",
+    link: "All Tickets",
+    role: "ticketing",
+    target: "tickets",
+  },
+  {
+    group: "Operations",
+    heading: "Hotel / Rooming List",
+    href: "/portal/hotels",
+    link: "Hotel / Rooming",
+    role: "operations",
+    target: "hotels",
+  },
+  {
+    group: "Operations",
+    heading: "Visa Tracking",
+    href: "/portal/visa",
+    link: "Visa Tracking",
+    role: "operations",
+    target: "visa",
   },
 ];
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { usePathname, useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -34,6 +34,7 @@ import {
 } from "@/lib/portal/pipelineMovementAccess";
 import { canAccessPortalRoute, getPortalRouteDefinition } from "@/lib/portal/portalRouteManifest";
 import { runMutation } from "@/lib/portal/runMutation";
+import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { parseUrlFilterState } from "@/lib/portal/urlFilterState";
 import { INITIAL_FORM } from "@/lib/portal/workspaceContract";
 import { buildPortalWorkspaceFilters } from "./workspace/portalWorkspaceFilters";

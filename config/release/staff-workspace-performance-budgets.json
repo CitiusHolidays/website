@@ -6,7 +6,7 @@
         "maxApplicationPayloadBytes": 60000,
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
-        "maxLogicalSubscriptions": 1,
+        "maxLogicalSubscriptions": 5,
         "maxRouteReadyMs": 500,
         "maxRouteResourceTransferBytes": 225000
       },
@@ -14,7 +14,7 @@
         "maxApplicationPayloadBytes": 60000,
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
-        "maxLogicalSubscriptions": 1,
+        "maxLogicalSubscriptions": 5,
         "maxRouteReadyMs": 500,
         "maxRouteResourceTransferBytes": 25000
       }
@@ -24,7 +24,7 @@
         "maxApplicationPayloadBytes": 100000,
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
-        "maxLogicalSubscriptions": 2,
+        "maxLogicalSubscriptions": 6,
         "maxRouteReadyMs": 500,
         "maxRouteResourceTransferBytes": 225000
       },
@@ -32,7 +32,7 @@
         "maxApplicationPayloadBytes": 100000,
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
-        "maxLogicalSubscriptions": 2,
+        "maxLogicalSubscriptions": 6,
         "maxRouteReadyMs": 500,
         "maxRouteResourceTransferBytes": 25000
       }
@@ -42,7 +42,7 @@
         "maxApplicationPayloadBytes": 30000,
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
-        "maxLogicalSubscriptions": 1,
+        "maxLogicalSubscriptions": 6,
         "maxRouteReadyMs": 500,
         "maxRouteResourceTransferBytes": 225000
       },
@@ -50,7 +50,97 @@
         "maxApplicationPayloadBytes": 30000,
         "maxDuplicateSubscriptions": 0,
         "maxFirstContentMs": 2000,
-        "maxLogicalSubscriptions": 1,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 25000
+      }
+    },
+    "contracting": {
+      "cold": {
+        "maxApplicationPayloadBytes": 100000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 100000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 25000
+      }
+    },
+    "finance": {
+      "cold": {
+        "maxApplicationPayloadBytes": 180000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 10,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 180000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 10,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 25000
+      }
+    },
+    "tickets": {
+      "cold": {
+        "maxApplicationPayloadBytes": 120000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 120000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 6,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 25000
+      }
+    },
+    "hotels": {
+      "cold": {
+        "maxApplicationPayloadBytes": 180000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 9,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 180000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 9,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 25000
+      }
+    },
+    "visa": {
+      "cold": {
+        "maxApplicationPayloadBytes": 180000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 9,
+        "maxRouteReadyMs": 500,
+        "maxRouteResourceTransferBytes": 225000
+      },
+      "warm": {
+        "maxApplicationPayloadBytes": 180000,
+        "maxDuplicateSubscriptions": 0,
+        "maxFirstContentMs": 2000,
+        "maxLogicalSubscriptions": 9,
         "maxRouteReadyMs": 500,
         "maxRouteResourceTransferBytes": 25000
       }

@@ -1,10 +1,14 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Select } from "@/components/ui/application-select";
+import {
+  useTrackedPaginatedQuery as usePaginatedQuery,
+  useTrackedQuery as useQuery,
+} from "@/lib/portal/trackedConvexSubscriptions";
 import { describeSacredBharatIntentContext } from "@/lib/sacredBharat/inboundIntent";
 
 const STATUS_OPTIONS = [

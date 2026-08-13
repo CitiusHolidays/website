@@ -3,15 +3,17 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { computePerformanceSourceHash } from "../release/check-performance-budgets";
 import { staffWorkspacePerformanceInputs } from "../release/performance-inputs";
+import {
+  STAFF_WORKSPACE_PERFORMANCE_TARGETS,
+  type StaffWorkspacePerformanceTarget,
+} from "../release/staff-workspace-performance-budget";
 import { resolveWorkspaceRevision } from "../release/verify-local";
 import { validateE2ePreflight } from "./preflight";
-
-const TARGETS = ["job-cards", "proposals", "queries"] as const;
 
 interface RawPerformanceEvidence {
   cold: Record<string, unknown>;
   revision: string;
-  target: (typeof TARGETS)[number];
+  target: StaffWorkspacePerformanceTarget;
   warm: Record<string, unknown>;
 }
 
@@ -23,10 +25,10 @@ export function consolidateAuthenticatedPerformanceEvidence(
   createdAt = new Date().toISOString()
 ) {
   const byTarget = new Map(values.map((value) => [value.target, value]));
-  if (byTarget.size !== TARGETS.length) {
+  if (byTarget.size !== STAFF_WORKSPACE_PERFORMANCE_TARGETS.length) {
     throw new Error("Authenticated performance evidence is missing a required target");
   }
-  const samples = TARGETS.flatMap((target) => {
+  const samples = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) => {
     const value = byTarget.get(target);
     if (!value || value.revision !== revision) {
       throw new Error(`Authenticated performance evidence revision mismatch for ${target}`);
@@ -42,9 +44,10 @@ export function consolidateAuthenticatedPerformanceEvidence(
   return {
     createdAt,
     environment: "authenticated explicit non-production browser target",
+    pendingTargets: [],
     revision,
     samples,
-    schemaVersion: 1,
+    schemaVersion: 2,
     sourceFiles,
     sourceHash,
   };
@@ -75,7 +78,7 @@ if (import.meta.main) {
     if (result.status !== 0) {
       throw new Error("Strict authenticated performance browser run failed");
     }
-    const values = TARGETS.map((target) =>
+    const values = STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) =>
       JSON.parse(readFileSync(resolve(runDir, `${target}.json`), "utf8"))
     ) as RawPerformanceEvidence[];
     const sourceFiles = staffWorkspacePerformanceInputs(root);

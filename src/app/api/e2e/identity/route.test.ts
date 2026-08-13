@@ -24,7 +24,7 @@ describe("frontend E2E target identity", () => {
     process.env.E2E_TARGET_ID = "preview-branch-123";
     process.env.NEXT_PUBLIC_CONVEX_SITE_URL = "https://fixture-preview.convex.site/path";
     delete process.env.VERCEL_ENV;
-    const response = GET();
+    const response = await GET(new Request("https://preview.example.test/api/e2e/identity"));
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(await response.json()).toEqual({
@@ -34,14 +34,18 @@ describe("frontend E2E target identity", () => {
     });
   });
 
-  test("is undiscoverable in Production or without exact classification", () => {
+  test("is undiscoverable in Production or without exact classification", async () => {
     process.env.E2E_PROVISIONING_TARGET = "preview";
     process.env.E2E_TARGET_ID = "preview-branch-123";
     process.env.NEXT_PUBLIC_CONVEX_SITE_URL = "https://fixture-preview.convex.site";
     process.env.VERCEL_ENV = "production";
-    expect(GET().status).toBe(404);
+    expect((await GET(new Request("https://preview.example.test/api/e2e/identity"))).status).toBe(
+      404
+    );
     delete process.env.VERCEL_ENV;
     process.env.E2E_TARGET_ID = "production-live";
-    expect(GET().status).toBe(404);
+    expect((await GET(new Request("https://preview.example.test/api/e2e/identity"))).status).toBe(
+      404
+    );
   });
 });

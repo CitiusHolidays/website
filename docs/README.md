@@ -50,6 +50,7 @@ provider or production proof.
 - [Booking payment transitions](BOOKING_PAYMENT_TRANSITIONS.md) - server-capability payment policy.
 - [Server-secret inventory](SERVER_SECRET_INVENTORY.md) - secret comparison boundaries.
 - [API observability](API_OBSERVABILITY.md) - privacy-safe API logging.
+- [Error-monitoring readiness](ERROR_MONITORING_READINESS.md) - provider, privacy, Preview, and Production gates.
 - [CRM readiness operations](CRM_READINESS_OPERATIONS.md) - search/metric readiness states.
 - [Security and WAF runbook](SECURITY_WAF_RUNBOOK.md) - provider activation runbook.
 - [Privileged MFA step-up audit](security/privileged-mfa-step-up-audit.md) - security assessment.

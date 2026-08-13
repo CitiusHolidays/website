@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { CONTRACTING_TEAM_ROLES } from "@/lib/portal/constants";
 import { getContractingAttention } from "@/lib/portal/contractingListPresentation";
 import { buildContractingSurfaceStatusAction } from "@/lib/portal/contractingQueryActions";
+import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
 import { canDeleteQuery } from "@/lib/portal/queryDeletionAccess";
 import type {
   ContractingViewProps,
@@ -43,10 +45,17 @@ export function ContractingView({
   has,
   canAssign,
   deleteItem,
+  loading = false,
   removeQuery,
   getFinalizedPdfUrl,
   getQueryAttachmentUrl,
 }: ContractingViewProps) {
+  useEffect(() => {
+    if (!loading) {
+      markPortalNavigationFirstContent("contracting", rows.length > 0 ? "row" : "empty");
+    }
+  }, [loading, rows]);
+
   const contractingTeam = team.filter((member) =>
     member.roles.some((role) => CONTRACTING_TEAM_ROLES.includes(role))
   );

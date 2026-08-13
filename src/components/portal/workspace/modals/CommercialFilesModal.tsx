@@ -3,7 +3,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import { FileText, History, Paperclip, RotateCcw, Search, Trash2, X } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import { useReducer, useRef, useState } from "react";
@@ -16,6 +16,7 @@ import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/applica
 import { Input as StaffInput } from "@/components/ui/application-field";
 import { Select } from "@/components/ui/application-select";
 import { portalOverlayMotion } from "@/lib/portal/portalMotion";
+import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import { CommercialFileUploadEditor } from "./CommercialFileUploadEditor";
 import {

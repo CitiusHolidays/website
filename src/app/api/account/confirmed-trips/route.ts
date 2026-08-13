@@ -1,10 +1,11 @@
 import { anyApi } from "convex/server";
 import { fetchAuthQuery, getToken } from "@/lib/auth-server";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 
 const CONFIRMED_TRIP_PAGE_SIZE = 20;
 const MAX_CURSOR_LENGTH = 4096;
 
-export async function GET(request: Request) {
+async function handleConfirmedTrips(request: Request) {
   const token = await getToken();
   if (!token) {
     return Response.json({ error: "Authentication required" }, { status: 401 });
@@ -26,4 +27,10 @@ export async function GET(request: Request) {
       { status: 400 }
     );
   }
+}
+
+export async function GET(request: Request) {
+  return await withApiRequestLogging(request, "/api/account/confirmed-trips", () =>
+    handleConfirmedTrips(request)
+  );
 }

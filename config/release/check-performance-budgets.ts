@@ -13,6 +13,11 @@ import {
   parsePublicRuntimeBudgetManifest,
 } from "./public-runtime-performance";
 import {
+  evaluateStaffWorkspaceBackendCost,
+  parseStaffWorkspaceBackendCostBaseline,
+  parseStaffWorkspaceBackendCostBudgetManifest,
+} from "./staff-workspace-backend-cost";
+import {
   evaluateStaffWorkspacePerformanceBudget,
   parseStaffWorkspacePerformanceBudgetManifest,
   STAFF_WORKSPACE_PERFORMANCE_TARGETS,
@@ -54,6 +59,7 @@ export interface PerformanceBudgetFinding {
 
 export interface StaffWorkspacePerformanceBaseline {
   environment: string;
+  pendingTargets: StaffWorkspacePerformanceSample["target"][];
   samples: StaffWorkspacePerformanceSample[];
   schemaVersion: number;
   sourceFiles: string[];
@@ -152,9 +158,27 @@ export function parseStaffWorkspacePerformanceBaseline(
   value: unknown
 ): StaffWorkspacePerformanceBaseline {
   assertRecord(value, "baseline");
-  assertSchemaVersion(value, "baseline");
+  if (value.schemaVersion !== 2) {
+    throw new Error(
+      `baseline.schemaVersion must be 2; migrate unsupported version ${String(value.schemaVersion)}`
+    );
+  }
   const environment = readNonemptyString(value, "environment", "baseline");
   const sourceHash = readNonemptyString(value, "sourceHash", "baseline");
+  if (!Array.isArray(value.pendingTargets)) {
+    throw new Error("baseline.pendingTargets must be an array");
+  }
+  const knownTargets = new Set<string>(STAFF_WORKSPACE_PERFORMANCE_TARGETS);
+  const pendingTargets = value.pendingTargets.map((target, index) => {
+    if (typeof target !== "string" || !knownTargets.has(target)) {
+      throw new Error(`baseline.pendingTargets[${index}] must be a known target`);
+    }
+    return target as StaffWorkspacePerformanceSample["target"];
+  });
+  if (new Set(pendingTargets).size !== pendingTargets.length) {
+    throw new Error("baseline.pendingTargets must not contain duplicates");
+  }
+  const pendingTargetSet = new Set(pendingTargets);
   if (!Array.isArray(value.sourceFiles) || value.sourceFiles.length === 0) {
     throw new Error("baseline.sourceFiles must contain at least one source path");
   }
@@ -164,12 +188,15 @@ export function parseStaffWorkspacePerformanceBaseline(
     }
     return sourceFile;
   });
-  if (!Array.isArray(value.samples) || value.samples.length === 0) {
-    throw new Error("baseline.samples must contain exactly one cold and warm sample per target");
+  if (!Array.isArray(value.samples)) {
+    throw new Error("baseline.samples must be an array");
   }
   const seen = new Set<string>();
   const samples = value.samples.map((sample, index) => {
     const parsed = parseStaffWorkspaceSample(sample, index);
+    if (pendingTargetSet.has(parsed.target)) {
+      throw new Error(`baseline.samples contains pending target ${parsed.target}`);
+    }
     const key = `${parsed.target}:${parsed.warm ? "warm" : "cold"}`;
     if (seen.has(key)) {
       throw new Error(`baseline.samples contains duplicate ${parsed.target} ${key.split(":")[1]}`);
@@ -178,13 +205,16 @@ export function parseStaffWorkspacePerformanceBaseline(
     return parsed;
   });
   for (const target of STAFF_WORKSPACE_PERFORMANCE_TARGETS) {
+    if (pendingTargetSet.has(target)) {
+      continue;
+    }
     for (const mode of ["cold", "warm"] as const) {
       if (!seen.has(`${target}:${mode}`)) {
         throw new Error(`baseline.samples is missing ${target} ${mode}`);
       }
     }
   }
-  return { environment, samples, schemaVersion: 1, sourceFiles, sourceHash };
+  return { environment, pendingTargets, samples, schemaVersion: 2, sourceFiles, sourceHash };
 }
 
 export function computePerformanceSourceHash(root: string, sourceFiles: string[]) {
@@ -206,7 +236,8 @@ export function isStaffWorkspacePerformanceBaselineFresh(
   currentSourceFiles: readonly string[] = baseline.sourceFiles
 ) {
   return Boolean(
-    baseline.sourceFiles.length > 0 &&
+    baseline.pendingTargets.length === 0 &&
+      baseline.sourceFiles.length > 0 &&
       hasExactPerformanceInputs(baseline.sourceFiles, currentSourceFiles) &&
       baseline.sourceHash &&
       baseline.sourceHash === currentSourceHash
@@ -257,6 +288,16 @@ if (import.meta.main) {
       readFileSync(resolve(import.meta.dir, "staff-workspace-performance-baseline.json"), "utf8")
     )
   );
+  const staffBackendCostManifest = parseStaffWorkspaceBackendCostBudgetManifest(
+    JSON.parse(
+      readFileSync(resolve(import.meta.dir, "staff-workspace-backend-cost-budgets.json"), "utf8")
+    )
+  );
+  const staffBackendCostBaseline = parseStaffWorkspaceBackendCostBaseline(
+    JSON.parse(
+      readFileSync(resolve(import.meta.dir, "staff-workspace-backend-cost-baseline.json"), "utf8")
+    )
+  );
   const publicRuntimeManifest = parsePublicRuntimeBudgetManifest(
     JSON.parse(
       readFileSync(resolve(import.meta.dir, "public-runtime-performance-budgets.json"), "utf8")
@@ -299,9 +340,20 @@ if (import.meta.main) {
   const staffFindings = staffBaseline.samples.flatMap((sample) =>
     evaluateStaffWorkspacePerformanceBudget(staffManifest, sample)
   );
+  const staffBackendCostFindings = staffBackendCostBaseline.samples.flatMap((sample) =>
+    evaluateStaffWorkspaceBackendCost(staffBackendCostManifest, sample)
+  );
+  const staffBackendCostFresh = Boolean(
+    staffBackendCostBaseline.status === "measured" &&
+      staffBackendCostBaseline.sourceHash === currentStaffSourceHash &&
+      hasExactPerformanceInputs(staffBackendCostBaseline.sourceFiles, currentStaffSourceFiles)
+  );
   if (
     findings.length > 0 ||
     staffFindings.length > 0 ||
+    staffBackendCostFindings.length > 0 ||
+    !staffBackendCostFresh ||
+    staffBaseline.pendingTargets.length > 0 ||
     !staffBaselineFresh ||
     publicRuntimeFailures.length > 0 ||
     !publicRuntimeBaselineFresh
@@ -316,6 +368,23 @@ if (import.meta.main) {
     for (const finding of staffFindings) {
       console.error(
         `- ${finding.target} ${finding.warm ? "warm" : "cold"} ${finding.metric} is ${finding.actual}; budget is ${finding.maximum}`
+      );
+    }
+    for (const finding of staffBackendCostFindings) {
+      console.error(
+        `- backend ${finding.target} ${finding.warm ? "warm" : "cold"} ${finding.metric} is ${finding.actual}; budget is ${finding.maximum}`
+      );
+    }
+    if (!staffBackendCostFresh) {
+      console.error(
+        staffBackendCostBaseline.status === "pending_target_measurement"
+          ? "- authenticated Staff Workspace backend-cost evidence is pending an exact non-production target measurement"
+          : `- authenticated Staff Workspace backend-cost baseline is stale for source hash ${currentStaffSourceHash}`
+      );
+    }
+    if (staffBaseline.pendingTargets.length > 0) {
+      console.error(
+        `- authenticated Staff Workspace baseline is pending targets: ${staffBaseline.pendingTargets.join(", ")}`
       );
     }
     if (!staffBaselineFresh) {

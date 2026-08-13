@@ -6,6 +6,7 @@ import { AI_RUNTIME_POLICIES } from "@/lib/ai/runtimePolicy";
 import { consumeSharedAiRateLimit, recordAiTelemetry } from "@/lib/ai/runtimeService";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 
 export const maxDuration = 60;
 
@@ -56,7 +57,7 @@ const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY || "",
 });
 
-export async function POST(req) {
+async function handleChatRequest(req) {
   try {
     if (!isAllowedSiteOrigin(req)) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
@@ -184,4 +185,8 @@ export async function POST(req) {
       }
     );
   }
+}
+
+export async function POST(request) {
+  return await withApiRequestLogging(request, "/api/chat", () => handleChatRequest(request));
 }

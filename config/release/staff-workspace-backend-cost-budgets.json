@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "defaultBudget": {
+    "cold": {
+      "maxBytesRead": 5000000,
+      "maxDatabaseRangesRead": 100,
+      "maxDocumentsRead": 500,
+      "maxExecutionMs": 5000,
+      "maxOccRetries": 0
+    },
+    "warm": {
+      "maxBytesRead": 5000000,
+      "maxDatabaseRangesRead": 100,
+      "maxDocumentsRead": 500,
+      "maxExecutionMs": 5000,
+      "maxOccRetries": 0
+    }
+  },
+  "budgets": {
+    "queries": {},
+    "proposals": {},
+    "job-cards": {},
+    "contracting": {},
+    "finance": {},
+    "tickets": {},
+    "hotels": {},
+    "visa": {}
+  }
+}

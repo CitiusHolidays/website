@@ -1,4 +1,5 @@
 import { getToken } from "@/lib/auth-server";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 
 const TRAILING_SLASH = /\/$/;
 
@@ -82,8 +83,10 @@ export async function handlePortalExportDownload(
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: RouteContext<"/api/portal/exports/[operationId]">
 ) {
-  return await handlePortalExportDownload(params);
+  return await withApiRequestLogging(request, "/api/portal/exports/[operationId]", () =>
+    handlePortalExportDownload(params)
+  );
 }

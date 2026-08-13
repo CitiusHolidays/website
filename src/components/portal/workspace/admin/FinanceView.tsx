@@ -1,12 +1,14 @@
 "use client";
 
 import { CheckCircle2, CircleDollarSign, ClipboardList, FileText, RefreshCw } from "lucide-react";
+import { useEffect } from "react";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import {
   getInvoiceAttention,
   invoiceDueDatePresentation,
 } from "@/lib/portal/invoiceListPresentation";
+import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
 import type {
   FinanceViewProps,
   PortalFinanceOutstandingRow,
@@ -23,9 +25,16 @@ export function FinanceView({
   overview,
   openModal,
   has,
+  loading = false,
   deleteItem,
   removeInvoice,
 }: FinanceViewProps) {
+  useEffect(() => {
+    if (!loading) {
+      markPortalNavigationFirstContent("finance", rows.length > 0 || overview ? "row" : "empty");
+    }
+  }, [loading, overview, rows]);
+
   const aggregateReady = overview?.aggregateCoverage?.complete ?? true;
   return (
     <div className="space-y-5">

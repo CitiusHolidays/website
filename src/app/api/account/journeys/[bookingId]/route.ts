@@ -1,8 +1,9 @@
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthQuery, getToken } from "@/lib/auth-server";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 
-export async function GET(
+async function handleJourneyDetail(
   _request: Request,
   context: RouteContext<"/api/account/journeys/[bookingId]">
 ) {
@@ -23,4 +24,13 @@ export async function GET(
   return NextResponse.json(detail, {
     headers: { "cache-control": "private, no-store" },
   });
+}
+
+export async function GET(
+  request: Request,
+  context: RouteContext<"/api/account/journeys/[bookingId]">
+) {
+  return await withApiRequestLogging(request, "/api/account/journeys/[bookingId]", () =>
+    handleJourneyDetail(request, context)
+  );
 }

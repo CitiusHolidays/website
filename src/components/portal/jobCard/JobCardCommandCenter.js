@@ -1,13 +1,13 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useQuery } from "convex/react";
 import { ChevronDown, FileText, Paperclip } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { buildJobCardCommandCenter } from "@/lib/portal/jobCardCommandCenter";
 import { displayPortalTerm } from "@/lib/portal/productTerminology";
+import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import JobCardReadinessMap from "./JobCardReadinessMap";
 import JobCardTaskBoard from "./JobCardTaskBoard";
 

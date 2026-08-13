@@ -169,6 +169,7 @@ export interface ContractingViewProps {
   getFinalizedPdfUrl: PortalWorkspaceState["getFinalizedPdfUrl"];
   getQueryAttachmentUrl: PortalWorkspaceState["getQueryAttachmentUrl"];
   has: PortalPermissionChecker;
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeQuery: PortalWorkspaceState["removeQuery"];
   rows: PortalQueryListRow[];
@@ -498,6 +499,7 @@ export interface VisaTrackingViewProps {
   deleteSelected: PortalBulkDeleteHandler;
   filtersActive?: boolean;
   has: PortalPermissionChecker;
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeManyVisas: PortalWorkspaceState["removeManyVisas"];
   removeVisa: PortalWorkspaceState["removeVisa"];
@@ -512,6 +514,7 @@ export interface HotelRoomingViewProps {
   hotels: PortalHotelListRow[];
   jobCardFilter: string;
   jobCards: PortalJobCardOption[];
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeHotel: PortalWorkspaceState["removeHotel"];
   removeManyHotels: PortalWorkspaceState["removeManyHotels"];
@@ -656,6 +659,7 @@ export interface TicketsViewProps {
   deleteItem: PortalDeleteHandler;
   deleteSelected: PortalBulkDeleteHandler;
   has: PortalPermissionChecker;
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeManyTickets: PortalWorkspaceState["removeManyTickets"];
   removeTicket: PortalWorkspaceState["removeTicket"];
@@ -741,6 +745,7 @@ export interface PortalInvoiceListRow {
 export interface FinanceViewProps {
   deleteItem: PortalDeleteHandler;
   has: PortalPermissionChecker;
+  loading?: boolean;
   openModal: PortalModalOpener;
   overview?: PortalFinanceOverview;
   removeInvoice: PortalWorkspaceState["removeInvoice"];

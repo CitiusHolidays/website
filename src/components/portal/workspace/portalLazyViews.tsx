@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import type { ComponentProps, ComponentType } from "react";
+import type { PortalPerformanceTarget } from "@/lib/portal/navigationPerformance";
 import { PortalViewLoading } from "./portalAdminHelpers";
 
 type PreloadableComponent<Props> = ComponentType<Props> & {
@@ -69,12 +70,18 @@ export const VisaTrackingView = lazyView(
 );
 export const ProposalsView = lazyView(() => import("./ProposalsView"), "ProposalsView");
 export const QueriesView = lazyView(() => import("./QueriesView"), "QueriesView");
+export const TicketsView = lazyView(() => import("./ticketing/TicketsView"), "TicketsView");
 
 const PERFORMANCE_VIEW_PRELOADERS = {
+  contracting: () => ContractingView.preload?.(),
+  finance: () => FinanceView.preload?.(),
+  hotels: () => HotelRoomingView.preload?.(),
   "job-cards": () => JobCardsView.preload?.(),
   proposals: () => ProposalsView.preload?.(),
   queries: () => QueriesView.preload?.(),
-} as const;
+  tickets: () => TicketsView.preload?.(),
+  visa: () => VisaTrackingView.preload?.(),
+} as const satisfies Record<PortalPerformanceTarget, () => Promise<unknown> | undefined>;
 
 export function preloadPerformanceView(target: keyof typeof PERFORMANCE_VIEW_PRELOADERS) {
   return PERFORMANCE_VIEW_PRELOADERS[target]() ?? Promise.resolve();
@@ -86,4 +93,3 @@ export const TicketDashboardView = lazyView(
   () => import("./ticketing/TicketDashboardView"),
   "TicketDashboardView"
 );
-export const TicketsView = lazyView(() => import("./ticketing/TicketsView"), "TicketsView");

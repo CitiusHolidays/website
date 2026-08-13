@@ -15,6 +15,7 @@ import {
   verifyTurnstileToken,
 } from "@/lib/contact/turnstile";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { normalizeSacredBharatIntentContext } from "@/lib/sacredBharat/inboundIntent";
 
 const MAX_BODY_BYTES = 16 * 1024;
@@ -267,5 +268,7 @@ export async function handleInboundIntentRequest(
 }
 
 export async function POST(request) {
-  return await handleInboundIntentRequest(request);
+  return await withApiRequestLogging(request, "/api/inbound-intents", () =>
+    handleInboundIntentRequest(request)
+  );
 }

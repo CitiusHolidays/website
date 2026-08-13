@@ -10,13 +10,14 @@ import {
 } from "@/lib/ai/sacredBharatJourneyPlanner";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
+import { withApiRequestLogging } from "@/lib/observability/api-log";
 
 export const maxDuration = 60;
 
 const MAX_BODY_BYTES = 16 * 1024;
 const PLANNER_POLICY = AI_RUNTIME_POLICIES.journeyPlanner;
 
-export async function POST(req) {
+async function handleJourneyPlannerRequest(req) {
   try {
     if (!isAllowedSiteOrigin(req)) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
@@ -145,4 +146,10 @@ export async function POST(req) {
       }
     );
   }
+}
+
+export async function POST(request) {
+  return await withApiRequestLogging(request, "/api/sacred-bharat/journey-planner", () =>
+    handleJourneyPlannerRequest(request)
+  );
 }

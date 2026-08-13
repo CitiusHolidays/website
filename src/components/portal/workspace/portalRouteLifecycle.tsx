@@ -175,6 +175,7 @@ function selectPortalRouteContent(
           getFinalizedPdfUrl={workspace.getFinalizedPdfUrl}
           getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
           has={workspace.has}
+          loading={workspace.queries === undefined}
           openModal={workspace.openModal}
           removeQuery={workspace.removeQuery}
           rows={workspace.filteredContractingQueries}
@@ -228,6 +229,7 @@ function selectPortalRouteContent(
         <FinanceView
           deleteItem={workspace.deleteItem}
           has={workspace.has}
+          loading={workspace.invoices === undefined || workspace.financeOverview === undefined}
           openModal={workspace.openModal}
           overview={workspace.financeOverview}
           removeInvoice={workspace.removeInvoice}
@@ -257,6 +259,11 @@ function selectPortalRouteContent(
           hotels={workspace.filteredHotels}
           jobCardFilter={workspace.jobCardFilter}
           jobCards={workspace.jobCards || []}
+          loading={
+            workspace.hotels === undefined ||
+            workspace.travellers === undefined ||
+            workspace.roomCountSummary === undefined
+          }
           openModal={workspace.openModal}
           removeHotel={workspace.removeHotel}
           removeManyHotels={workspace.removeManyHotels}
@@ -389,6 +396,7 @@ function selectPortalRouteContent(
           deleteItem={workspace.deleteItem}
           deleteSelected={workspace.deleteSelected}
           has={workspace.has}
+          loading={workspace.tickets === undefined}
           openModal={workspace.openModal}
           removeManyTickets={workspace.removeManyTickets}
           removeTicket={workspace.removeTicket}
@@ -435,6 +443,7 @@ function selectPortalRouteContent(
           deleteSelected={workspace.deleteSelected}
           filtersActive={workspace.filtersActive}
           has={workspace.has}
+          loading={workspace.visas === undefined}
           openModal={workspace.openModal}
           removeManyVisas={workspace.removeManyVisas}
           removeVisa={workspace.removeVisa}

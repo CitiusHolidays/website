@@ -66,6 +66,11 @@ describe("portal navigation performance marks", () => {
     "queries",
     "proposals",
     "job-cards",
+    "contracting",
+    "finance",
+    "tickets",
+    "hotels",
+    "visa",
   ] as const)("records a privacy-safe lifecycle for %s", (target) => {
     markPortalNavigationStart(target);
     markPortalNavigationPending(target);
@@ -135,5 +140,30 @@ describe("portal navigation performance marks", () => {
         { active: true, name: "crm.queries.listPage", payload: undefined, ready: false },
       ])
     ).toBeNull();
+  });
+
+  test("accepts exact registry duplicate counts without treating distinct arguments as duplicates", () => {
+    markPortalNavigationStart("queries");
+    recordPortalNavigationWorkload({
+      applicationPayloadBytes: 100,
+      duplicateSubscriptions: 0,
+      logicalSubscriptions: 2,
+      subscriptions: ["crm.queries.getDetail", "crm.queries.getDetail"],
+      target: "queries",
+    });
+    expect(getPortalNavigationSnapshot()).toMatchObject({
+      duplicateSubscriptions: 0,
+      logicalSubscriptions: 2,
+    });
+
+    expect(() =>
+      recordPortalNavigationWorkload({
+        applicationPayloadBytes: 100,
+        duplicateSubscriptions: 3,
+        logicalSubscriptions: 2,
+        subscriptions: ["crm.queries.getDetail", "crm.queries.getDetail"],
+        target: "queries",
+      })
+    ).toThrow("internally consistent subscription counts");
   });
 });

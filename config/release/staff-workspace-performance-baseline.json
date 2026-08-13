@@ -1,5 +1,6 @@
 {
   "environment": "authenticated explicit non-production browser target",
+  "pendingTargets": ["contracting", "finance", "tickets", "hotels", "visa"],
   "samples": [
     {
       "applicationPayloadBytes": 705,
@@ -62,7 +63,7 @@
       "warm": true
     }
   ],
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "sourceFiles": [
     "bun.lock",
     "config/e2e-staff-profiles.json",

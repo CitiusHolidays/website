@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { useConvexAuth, useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import {
   Bell,
   ChevronDown,
@@ -61,6 +61,7 @@ import {
 } from "@/lib/portal/portalNavPersistence";
 import { getCompactRoleLabel, getMobileQuickNavigation } from "@/lib/portal/portalNavPresentation";
 import { useModShortcutLabel } from "@/lib/portal/shortcutLabels";
+import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
 import ConnectLogo from "@/static/logos/citiusconnect.png";
 

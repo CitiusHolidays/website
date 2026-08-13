@@ -1,5 +1,5 @@
 import { api } from "@convex/_generated/api";
-import { useQuery } from "convex/react";
+import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 
 export function useDashboardSummary(
   allowed: boolean | undefined,

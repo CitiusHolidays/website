@@ -1,19 +1,23 @@
 import { describe, expect, test } from "bun:test";
+import {
+  STAFF_WORKSPACE_PERFORMANCE_TARGETS,
+  type StaffWorkspacePerformanceTarget,
+} from "../release/staff-workspace-performance-budget";
 import { consolidateAuthenticatedPerformanceEvidence } from "./run-authenticated-performance";
 
-function sample(target: "job-cards" | "proposals" | "queries", warm: boolean) {
+function sample(target: StaffWorkspacePerformanceTarget, warm: boolean) {
   return { target, warm };
 }
 
 describe("revision-bound authenticated performance evidence", () => {
-  const values = ["job-cards", "proposals", "queries"].map((target) => ({
-    cold: sample(target as "job-cards", false),
+  const values = STAFF_WORKSPACE_PERFORMANCE_TARGETS.map((target) => ({
+    cold: sample(target, false),
     revision: "abc123+dirty.123456789abc",
-    target: target as "job-cards" | "proposals" | "queries",
-    warm: sample(target as "job-cards", true),
+    target,
+    warm: sample(target, true),
   }));
 
-  test("requires all three cold/warm scenarios at one exact revision", () => {
+  test("requires every cold/warm scenario at one exact revision", () => {
     const evidence = consolidateAuthenticatedPerformanceEvidence(
       "abc123+dirty.123456789abc",
       values,
@@ -21,10 +25,11 @@ describe("revision-bound authenticated performance evidence", () => {
       "source-hash",
       "2026-08-12T12:00:00.000Z"
     );
-    expect(evidence.samples).toHaveLength(6);
+    expect(evidence.samples).toHaveLength(STAFF_WORKSPACE_PERFORMANCE_TARGETS.length * 2);
     expect(evidence).toMatchObject({
+      pendingTargets: [],
       revision: "abc123+dirty.123456789abc",
-      schemaVersion: 1,
+      schemaVersion: 2,
       sourceHash: "source-hash",
     });
   });

@@ -393,6 +393,8 @@ export async function POST(request: Request) {
   );
 }
 
-export function OPTIONS() {
-  return NextResponse.json({}, { status: 200 });
+export async function OPTIONS(request: Request) {
+  return await withApiRequestLogging(request, "/api/create-order", () =>
+    Promise.resolve(NextResponse.json({}, { status: 200 }))
+  );
 }
