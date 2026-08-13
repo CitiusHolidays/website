@@ -1,6 +1,7 @@
 import { anyApi } from "convex/server";
 import { connection } from "next/server";
 import { fetchAuthMutation, fetchAuthQuery, getToken, requireAuth } from "@/lib/auth-server";
+import { captureRequestReferenceNow } from "@/lib/requestReferenceTime";
 import AccountClient from "./page.client.js";
 
 // Account data is identity-scoped and must be resolved from request headers on every request.
@@ -29,7 +30,7 @@ export default async function AccountPage() {
     throw new Error("Account identity requires support review");
   }
   await fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}, authOptions);
-  const referenceNow = Date.now();
+  const referenceNow = captureRequestReferenceNow();
   const [journeys, confirmedTrips] = await Promise.all([
     fetchAuthQuery(anyApi.bookings.getMyJourneySummaries, { referenceNow }, authOptions),
     fetchAuthQuery(anyApi.customerConfirmedTrips.getMyConfirmedTripPackets, {}, authOptions),
