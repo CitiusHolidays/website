@@ -3,7 +3,6 @@ import type { Id } from "../_generated/dataModel";
 import { query } from "../_generated/server";
 import type { JobCardStatus } from "./jobCardConstants";
 import {
-  applyPortalRecordScope,
   CEMENT_QUERY_TYPES,
   canSeeAllPortalRecords,
   filterRecordsByDateRange,
@@ -12,7 +11,6 @@ import {
   type PortalDateRange,
   portalDateRangeValidator,
   requireStaff,
-  resolvePortalDateRange,
   shouldApplyCementScope,
 } from "./lib";
 import {
@@ -22,6 +20,12 @@ import {
   type MetricValues,
 } from "./metricAggregates";
 import { getNotificationHref } from "./notificationPaths";
+import {
+  loadDashboardActivitySnapshot,
+  loadDashboardCapacitySnapshot,
+  loadDashboardSummarySnapshot,
+  OPERATIONAL_DETAIL_LIMIT,
+} from "./operationalSnapshots";
 import type { QueryType } from "./queryValidators";
 import {
   aggregateCoverageValidator,
@@ -31,16 +35,12 @@ import {
 } from "./returnContracts";
 import { queryNeedsTicketingHeadIntakeAlert } from "./ticketingIntakePolicy";
 
-const RECENT_ACTIVITY_LIMIT = 8;
-const DASHBOARD_DETAIL_LIMIT = 240;
-const DASHBOARD_RELATION_LIMIT = 480;
-
 function formatAggregateCoverage(aggregate: Awaited<ReturnType<typeof loadMetricCoverage>>) {
   return {
     bucketCount: aggregate.bucketCount,
     complete: aggregate.complete,
     completedSources: aggregate.readiness.completedSources,
-    detailRowLimit: DASHBOARD_DETAIL_LIMIT,
+    detailRowLimit: OPERATIONAL_DETAIL_LIMIT,
     errorSummary: aggregate.readiness.errorSummary,
     freshnessMinutes: 15,
     generation: aggregate.readiness.generation,
@@ -71,22 +71,6 @@ export const getPortalMetricCoverage = query({
   },
   returns: aggregateCoverageValidator,
 });
-
-export async function boundedDashboardRows(
-  ctx: any,
-  table: string,
-  dateRange?: PortalDateRange | null,
-  limit = DASHBOARD_DETAIL_LIMIT
-): Promise<any[]> {
-  const resolved = resolvePortalDateRange(dateRange);
-  const tableQuery = ctx.db.query(table);
-  const indexed = resolved
-    ? tableQuery.withIndex("by_createdAt", (q: any) =>
-        q.gte("createdAt", resolved.sinceMs).lte("createdAt", resolved.untilMs)
-      )
-    : tableQuery.withIndex("by_createdAt");
-  return (await indexed.order("desc").take(limit)) as any[];
-}
 
 function buildDashboardPeople(access: any, queries: any[], jobCards: any[], staff: any[]) {
   const closedSalesStatuses = new Set(["Order Confirmed", "Order Lost"]);
@@ -166,23 +150,8 @@ export const getPortalDashboardCapacity = query({
       return { capacity: [], myTeam: [] };
     }
     const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
-    const canViewQueries = access.permissions.includes(PERMISSIONS.VIEW_QUERIES);
-    const canViewJobCards = access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS);
-    const [queryRows, jobRows, staff] = await Promise.all([
-      canViewQueries ? boundedDashboardRows(ctx, "queries", dateRange) : Promise.resolve([]),
-      canViewJobCards ? boundedDashboardRows(ctx, "jobCards", dateRange) : Promise.resolve([]),
-      ctx.db.query("staffUsers").take(DASHBOARD_DETAIL_LIMIT),
-    ]);
-    const scoped = applyPortalRecordScope(access, {
-      invoices: [],
-      jobCards: jobRows,
-      proposals: [],
-      queries: queryRows,
-      tickets: [],
-      travellers: [],
-      visas: [],
-    });
-    return buildDashboardPeople(access, scoped.queries, scoped.jobCards, staff);
+    const snapshot = await loadDashboardCapacitySnapshot(ctx, access, dateRange);
+    return buildDashboardPeople(access, snapshot.queries, snapshot.jobCards, snapshot.staff);
   },
   returns: portalDashboardCapacityResultValidator,
 });
@@ -194,12 +163,7 @@ export const getPortalDashboardActivity = query({
     if (!access.permissions.includes(PERMISSIONS.VIEW_ACTIVITY)) {
       return [];
     }
-    const rows = await boundedDashboardRows(
-      ctx,
-      "activityLogs",
-      args.dateRange,
-      RECENT_ACTIVITY_LIMIT
-    );
+    const rows = await loadDashboardActivitySnapshot(ctx, access, args.dateRange ?? undefined);
     return rows.map((activity) => ({
       action: activity.action,
       actorName: activity.actorName,
@@ -678,83 +642,19 @@ export const getPortalSummary = query({
     const aggregate = await loadMetricTotals(ctx, aggregateScope, dateRange, args.referenceNow);
     const canUseOrganizationAggregates = canSeeAllPortalRecords(access) || isHead(access);
     const needsFallbackRows = !(aggregate.complete && canUseOrganizationAggregates);
-    const [
-      allQueriesRaw,
-      allProposalsRaw,
-      allJobCardsRaw,
-      allTicketsRaw,
-      travellerRows,
-      visaRows,
-      invoiceRows,
-      approvalRows,
-      proposalQueryLinks,
-    ] = await Promise.all([
-      canViewQueries ? boundedDashboardRows(ctx, "queries", dateRange) : Promise.resolve([]),
-      needsFallbackRows && canViewProposals
-        ? boundedDashboardRows(ctx, "proposals", dateRange)
-        : Promise.resolve([]),
-      canViewJobCards ? boundedDashboardRows(ctx, "jobCards", dateRange) : Promise.resolve([]),
-      canViewTickets ? boundedDashboardRows(ctx, "tickets", dateRange) : Promise.resolve([]),
-      needsFallbackRows && canViewTravellers
-        ? boundedDashboardRows(ctx, "travellers", dateRange)
-        : Promise.resolve([]),
-      needsFallbackRows && canViewVisa
-        ? boundedDashboardRows(ctx, "visaRecords", dateRange)
-        : Promise.resolve([]),
-      canViewFinance ? boundedDashboardRows(ctx, "invoices", dateRange) : Promise.resolve([]),
-      canViewApprovals
-        ? boundedDashboardRows(ctx, "approvalRequests", dateRange)
-        : Promise.resolve([]),
-      needsFallbackRows && canViewProposals && canViewQueries
-        ? ctx.db.query("proposalQueryLinks").take(DASHBOARD_RELATION_LIMIT)
-        : Promise.resolve([]),
-    ]);
+    const snapshot = await loadDashboardSummarySnapshot(ctx, access, dateRange, needsFallbackRows);
     const referenceNow =
       args.referenceNow ?? aggregate.updatedAt ?? aggregate.readiness.lastCompletedAt ?? 0;
-    let queries = filterRecordsByDateRange(allQueriesRaw, dateRange);
-    let proposals = filterRecordsByDateRange(allProposalsRaw, dateRange);
-    let jobCards = filterRecordsByDateRange(allJobCardsRaw, dateRange);
-    let travellers = filterRecordsByDateRange(travellerRows, dateRange);
-    let tickets = filterRecordsByDateRange(allTicketsRaw, dateRange);
-    let visas = filterRecordsByDateRange(visaRows, dateRange);
-    let invoices = filterRecordsByDateRange(invoiceRows, dateRange);
-    const approvals = canViewApprovals ? filterRecordsByDateRange(approvalRows, dateRange) : [];
-
-    const scopedRecords = applyPortalRecordScope(access, {
-      invoices,
-      jobCards,
-      proposalQueryLinks,
-      proposals,
-      queries,
-      tickets,
-      travellers,
-      visas,
-    });
-    queries = scopedRecords.queries;
-    proposals = scopedRecords.proposals;
-    jobCards = scopedRecords.jobCards;
-    travellers = scopedRecords.travellers;
-    tickets = scopedRecords.tickets;
-    visas = scopedRecords.visas;
-    invoices = scopedRecords.invoices;
+    const { approvals, invoices, jobCards, proposals, queries, tickets, travellers, visas } =
+      snapshot;
 
     const jobCardByIdForTravellers = new Map(jobCards.map((job) => [job._id, job]));
     const travellersByJobCard = groupByJobCardId(travellers);
 
-    const scopedAllRecords = applyPortalRecordScope(access, {
-      invoices: [],
-      jobCards: allJobCardsRaw,
-      proposalQueryLinks,
-      proposals: allProposalsRaw,
-      queries: allQueriesRaw,
-      tickets: allTicketsRaw,
-      travellers: [],
-      visas: [],
-    });
-    const scopedAllQueries = scopedAllRecords.queries;
-    const scopedAllProposals = scopedAllRecords.proposals;
-    const scopedAllJobCards = scopedAllRecords.jobCards;
-    const scopedAllTickets = scopedAllRecords.tickets;
+    const scopedAllQueries = snapshot.allQueries;
+    const scopedAllProposals = snapshot.allProposals;
+    const scopedAllJobCards = snapshot.allJobCards;
+    const scopedAllTickets = snapshot.allTickets;
 
     const queryTypesForCounts = shouldApplyCementScope(access)
       ? [...CEMENT_QUERY_TYPES]
@@ -1184,7 +1084,7 @@ export const getPortalSummary = query({
                 : "Ticketing") as "Ready" | "Docs pending" | "Ticketing",
             ticketingOwnerName: linkedQuery?.ticketingOwnerName ?? "",
             tourManagerName: job.tourManagerName ?? "",
-            travelStartDate: job.travelStartDate,
+            travelStartDate: job.travelStartDate ?? "",
           };
         }),
       urgentActions: visibleUrgentActions,

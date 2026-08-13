@@ -287,7 +287,9 @@ export function editorPatch(access: PortalAccess, timestamp = Date.now()) {
   };
 }
 
-type JobCardLinkedRecord = JobCardVisibilityRecord & { jobCardId?: Id<"jobCards"> | null };
+interface JobCardLinkedRecord {
+  jobCardId?: Id<"jobCards"> | null;
+}
 
 export type CementPortalRecords<
   TQuery extends QueryVisibilityRecord = QueryVisibilityRecord,

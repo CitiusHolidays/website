@@ -1,0 +1,137 @@
+import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import type { QueryCtx } from "../_generated/server";
+import { PERMISSIONS, type PortalAccess } from "./lib";
+import {
+  loadCreatedAtSnapshotRows,
+  loadDashboardCapacitySnapshot,
+  loadReportsSnapshot,
+} from "./operationalSnapshots";
+
+function portalAccess(permissions: string[], roles: string[] = ["Directors"]): PortalAccess {
+  return {
+    allowed: true,
+    authUserId: "auth_1",
+    email: "director@example.com",
+    name: "Director",
+    permissions,
+    roles,
+    staffId: "staff_1" as PortalAccess["staffId"],
+  };
+}
+
+function makeCtx(tables: Record<string, unknown[]> = {}) {
+  const indexCalls: Array<{ indexName: string; table: string }> = [];
+  const queryCalls: string[] = [];
+  const rangeCalls: Array<{ field: string; operation: "gte" | "lte"; value: number }> = [];
+  const takeCalls: Array<{ limit: number; table: string }> = [];
+
+  const builder = (table: string, rows = tables[table] ?? []) => {
+    const queryExpression = {
+      gte(field: string, value: number) {
+        rangeCalls.push({ field, operation: "gte", value });
+        return queryExpression;
+      },
+      lte(field: string, value: number) {
+        rangeCalls.push({ field, operation: "lte", value });
+        return queryExpression;
+      },
+    };
+
+    return {
+      order: (_direction: "asc" | "desc") => builder(table, rows),
+      take: (limit: number) => {
+        takeCalls.push({ limit, table });
+        return rows.slice(0, limit);
+      },
+      withIndex: (indexName: string, callback?: (q: typeof queryExpression) => unknown) => {
+        indexCalls.push({ indexName, table });
+        callback?.(queryExpression);
+        return builder(table, rows);
+      },
+    };
+  };
+
+  const ctx = {
+    db: {
+      query: (table: string) => {
+        queryCalls.push(table);
+        return builder(table);
+      },
+    },
+  } as unknown as QueryCtx;
+
+  return { ctx, indexCalls, queryCalls, rangeCalls, takeCalls };
+}
+
+describe("typed operational snapshots", () => {
+  test("short-circuits capacity reads without team permission", async () => {
+    const { ctx, queryCalls, takeCalls } = makeCtx();
+
+    const snapshot = await loadDashboardCapacitySnapshot(
+      ctx,
+      portalAccess([PERMISSIONS.VIEW_QUERIES])
+    );
+
+    expect(snapshot).toEqual({ jobCards: [], queries: [], staff: [] });
+    expect(queryCalls).toEqual([]);
+    expect(takeCalls).toEqual([]);
+  });
+
+  test("loads only permitted capacity collections", async () => {
+    const query = {
+      _id: "query_1",
+      createdAt: 1,
+      createdBy: "auth_1",
+      queryType: "MICE",
+    };
+    const staff = { _id: "staff_1", active: true, name: "Director" };
+    const { ctx, indexCalls, queryCalls } = makeCtx({ queries: [query], staffUsers: [staff] });
+
+    const snapshot = await loadDashboardCapacitySnapshot(
+      ctx,
+      portalAccess([PERMISSIONS.VIEW_QUERIES, PERMISSIONS.VIEW_TEAM])
+    );
+
+    expect(snapshot.queries).toEqual([query]);
+    expect(snapshot.jobCards).toEqual([]);
+    expect(snapshot.staff).toEqual([staff]);
+    expect(queryCalls).toEqual(["queries", "staffUsers"]);
+    expect(indexCalls).toContainEqual({ indexName: "by_createdAt", table: "queries" });
+    expect(queryCalls).not.toContain("jobCards");
+  });
+
+  test("avoids relationship reads for non-Cement reports", async () => {
+    const { ctx, queryCalls } = makeCtx();
+
+    await loadReportsSnapshot(ctx, portalAccess([PERMISSIONS.VIEW_REPORTS]));
+
+    expect(queryCalls).toEqual(["queries", "invoices", "staffUsers", "offices"]);
+    expect(queryCalls).not.toContain("proposalQueryLinks");
+    expect(queryCalls).not.toContain("jobCards");
+    expect(queryCalls).not.toContain("proposals");
+  });
+
+  test("uses the created-at index and binds both date limits", async () => {
+    const { ctx, indexCalls, rangeCalls, takeCalls } = makeCtx({ queries: [] });
+
+    await loadCreatedAtSnapshotRows(ctx, "queries", { from: "2026-08-01", to: "2026-08-12" }, 17);
+
+    expect(indexCalls).toEqual([{ indexName: "by_createdAt", table: "queries" }]);
+    expect(rangeCalls.map(({ field, operation }) => ({ field, operation }))).toEqual([
+      { field: "createdAt", operation: "gte" },
+      { field: "createdAt", operation: "lte" },
+    ]);
+    expect(takeCalls).toEqual([{ limit: 17, table: "queries" }]);
+  });
+
+  test("keeps operational readers closed and wrapper-independent", () => {
+    const snapshots = readFileSync(new URL("./operationalSnapshots.ts", import.meta.url), "utf8");
+    const reports = readFileSync(new URL("./reports.ts", import.meta.url), "utf8");
+
+    expect(snapshots).not.toContain("ctx: any");
+    expect(snapshots).not.toContain("Promise<any[]>");
+    expect(snapshots).not.toContain("tableName: string");
+    expect(reports).not.toContain('from "./dashboard"');
+  });
+});
