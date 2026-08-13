@@ -88,6 +88,25 @@ describe("mounted public interaction states", () => {
     await view.unmount();
   });
 
+  test("Concierge contact expansion keeps the composer and fixed-panel bounds reachable", async () => {
+    const openerRef = { current: document.createElement("button") };
+    const view = await mount(
+      <ChatbotWindow isOpen onClose={() => undefined} openerRef={openerRef} />
+    );
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 300)));
+
+    const handoff = document.body.querySelector('button[aria-expanded="false"]:not([aria-label])');
+    await act(async () => handoff.click());
+    expect(document.body.querySelector('[data-concierge-handoff-form=""] form')).not.toBeNull();
+    expect(document.body.querySelector('textarea[aria-label="Chat message"]')).not.toBeNull();
+
+    const panel = document.querySelector("#citius-concierge-dialog");
+    expect(panel.className).toContain("safe-area-fixed-panel");
+    expect(panel.className).toContain("overflow-hidden");
+    expect(panel.className).toContain("h-[min(650px,85dvh)]");
+    await view.unmount();
+  });
+
   test("password visibility keeps the input type and icon label synchronized", async () => {
     function Harness() {
       const [showPassword, setShowPassword] = useState(false);

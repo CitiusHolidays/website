@@ -4,7 +4,9 @@ import { act } from "react";
 import {
   buildConciergeHandoffPayload,
   buildSacredBharatHandoffPayload,
+  CONCIERGE_HANDOFF_LAYOUT_SPRING,
   ConciergeContactHandoff,
+  conciergeHandoffDisclosureMotion,
   SacredBharatContactHandoff,
 } from "./ConciergeContactHandoff";
 
@@ -14,15 +16,43 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/",
 });
 const originalFetch = globalThis.fetch;
+const PRIVATE_STATE_PATTERN = /messages|progress|score|wishlist|private model/;
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
 beforeAll(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
+  globalThis.Element = dom.window.Element;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
+  globalThis.getComputedStyle = dom.window.getComputedStyle;
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  globalThis.cancelAnimationFrame = (frame) => clearTimeout(frame);
+  dom.window.requestAnimationFrame = globalThis.requestAnimationFrame;
+  dom.window.cancelAnimationFrame = globalThis.cancelAnimationFrame;
+  dom.window.matchMedia = () => ({
+    addEventListener() {
+      // Motion subscribes to preference changes; this fixture stays non-reduced.
+    },
+    matches: false,
+    removeEventListener() {
+      // Motion cleanup mirrors the inert fixture subscription above.
+    },
+  });
+  globalThis.matchMedia = dom.window.matchMedia;
+  globalThis.ResizeObserver = class {
+    disconnect() {
+      // The fixture does not emit resize records.
+    }
+    observe() {
+      // The fixture does not emit resize records.
+    }
+    unobserve() {
+      // The fixture does not emit resize records.
+    }
+  };
   dom.window.HTMLElement.prototype.attachEvent = () => undefined;
   dom.window.HTMLElement.prototype.detachEvent = () => undefined;
   ({ createRoot } = await import("react-dom/client"));
@@ -44,6 +74,26 @@ async function mount(element) {
 }
 
 describe("Concierge contact handoff", () => {
+  test("uses the exact productive layout spring and reduced-motion disclosure recipe", () => {
+    expect(CONCIERGE_HANDOFF_LAYOUT_SPRING).toEqual({
+      damping: 33.161_255_787_892_26,
+      stiffness: 304.617_419_786_708_64,
+      type: "spring",
+    });
+    expect(conciergeHandoffDisclosureMotion(false)).toEqual({
+      animate: { opacity: 1, transform: "translateY(0)" },
+      exit: { opacity: 0, transform: "translateY(-4px)" },
+      initial: { opacity: 0, transform: "translateY(-4px)" },
+      transition: { duration: 0.18, ease: [0.22, 1, 0.36, 1] },
+    });
+    expect(conciergeHandoffDisclosureMotion(true)).toEqual({
+      animate: { opacity: 1, transform: "none" },
+      exit: { opacity: 0, transform: "none" },
+      initial: { opacity: 0, transform: "none" },
+      transition: { duration: 0.18, ease: "linear" },
+    });
+  });
+
   test("builds a bounded structured payload without conversation content", () => {
     const payload = buildConciergeHandoffPayload(
       {
@@ -101,7 +151,7 @@ describe("Concierge contact handoff", () => {
       source: "Sacred Bharat",
       travelStartDate: "2026-11-01",
     });
-    expect(JSON.stringify(payload)).not.toMatch(/messages|progress|score|wishlist|private model/);
+    expect(JSON.stringify(payload)).not.toMatch(PRIVATE_STATE_PATTERN);
   });
 
   test("requires explicit contact fields and affirmative consent in the mounted surface", async () => {
@@ -113,6 +163,7 @@ describe("Concierge contact handoff", () => {
     const view = await mount(<ConciergeContactHandoff />);
     const toggle = view.container.querySelector('button[aria-expanded="false"]');
     await act(async () => toggle.click());
+    expect(toggle.getAttribute("aria-controls")).toBe(view.container.querySelector("form").id);
     expect(view.container.textContent).toContain("Your Concierge conversation is not attached.");
     expect(view.container.firstElementChild.className).toContain("overflow-y-auto");
     expect(view.container.firstElementChild.className).toContain("max-h-[55dvh]");
@@ -134,6 +185,40 @@ describe("Concierge contact handoff", () => {
     );
     expect(view.container.querySelector('input[name="consent"][type="checkbox"]')).not.toBeNull();
     expect(view.container.querySelector("textarea")).toBeNull();
+
+    await act(async () => view.root.unmount());
+  });
+
+  test("retargets rapid disclosure changes while preserving form state and focus order", async () => {
+    const view = await mount(<ConciergeContactHandoff />);
+    let toggle = view.container.querySelector('button[aria-expanded="false"]');
+    await act(async () => toggle.click());
+    const name = view.container.querySelector('input[name="clientName"]');
+    const setter = Object.getOwnPropertyDescriptor(
+      dom.window.HTMLInputElement.prototype,
+      "value"
+    ).set;
+    await act(() => {
+      setter.call(name, "Traveller");
+      name.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    });
+    expect(view.container.querySelector("form")).not.toBeNull();
+
+    toggle = view.container.querySelector('button[aria-expanded="true"]');
+    toggle.focus();
+    await act(async () => toggle.click());
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    const exitingForm = view.container.querySelector('[data-concierge-handoff-form=""]');
+    expect(exitingForm === null || exitingForm.hasAttribute("inert")).toBe(true);
+    expect(exitingForm === null || exitingForm.getAttribute("aria-hidden") === "true").toBe(true);
+    expect(document.activeElement).toBe(toggle);
+
+    await act(async () => toggle.click());
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(view.container.querySelector('input[name="clientName"]').value).toBe("Traveller");
+    expect(
+      view.container.querySelector('[data-concierge-handoff-form=""]').hasAttribute("inert")
+    ).toBe(false);
 
     await act(async () => view.root.unmount());
   });
@@ -275,7 +360,7 @@ describe("Concierge contact handoff", () => {
     );
     expect(replayRecord).not.toContain("Yatri");
     expect(replayRecord).not.toContain("yatri@example.com");
-    expect(JSON.parse(replayRecord).fingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(JSON.parse(replayRecord).fingerprint).toMatch(SHA256_PATTERN);
     await act(async () => first.root.unmount());
     first.container.remove();
 
