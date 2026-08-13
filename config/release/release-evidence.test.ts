@@ -76,6 +76,11 @@ describe("revision-bound release evidence", () => {
     const malformed = [
       { ...local, checks: [{ ...local.checks[0], durationMs: -1 }] },
       { ...local, checks: [{ ...local.checks[0], artifactRefs: ["../secret.txt"] }] },
+      { ...local, checks: [{ ...local.checks[0], artifactRefs: ["https://example.test/log"] }] },
+      {
+        ...local,
+        checks: [local.checks[0], { ...local.checks[0] }],
+      },
       { ...local, checks: [{ ...local.checks[0], outcome: "skipped" }] },
       { ...local, finishedAt: "2020-01-01T00:00:00.000Z" },
       { ...local, target: { id: "preview-123", kind: "preview" } },
@@ -89,6 +94,58 @@ describe("revision-bound release evidence", () => {
         })
       ).toThrow();
     }
+  });
+
+  test("rejects blocked execution claims, Production-like Preview targets, and future completion", () => {
+    const evidence = createLocalReleaseEvidence(passedMetrics, "2026-08-12T10:01:00.000Z");
+    const blocked = {
+      ...evidence.scopes["preview-deploy"],
+      reason: "provider approval is pending",
+      status: "blocked",
+    };
+    expect(
+      parseReleaseEvidence({
+        ...evidence,
+        scopes: { ...evidence.scopes, "preview-deploy": blocked },
+      }).scopes["preview-deploy"]
+    ).toEqual(blocked);
+    expect(() =>
+      parseReleaseEvidence({
+        ...evidence,
+        scopes: {
+          ...evidence.scopes,
+          "preview-deploy": {
+            ...blocked,
+            command: "deploy preview",
+            startedAt: "2026-08-12T10:00:00.000Z",
+            target: { id: "preview-safe", kind: "preview" },
+          },
+        },
+      })
+    ).toThrow("while blocked");
+    expect(() =>
+      parseReleaseEvidence({
+        ...evidence,
+        scopes: {
+          ...evidence.scopes,
+          "preview-public-smoke": {
+            checks: [{ ...evidence.scopes.local.checks[0] }],
+            command: "preview smoke",
+            finishedAt: "2026-08-12T10:00:01.000Z",
+            reason: null,
+            startedAt: "2026-08-12T10:00:00.000Z",
+            status: "passed",
+            target: { id: "preview-production-copy", kind: "preview" },
+          },
+        },
+      })
+    ).toThrow("Production-like");
+    expect(() =>
+      parseReleaseEvidence({
+        ...evidence,
+        createdAt: "2026-08-12T10:00:00.000Z",
+      })
+    ).toThrow("cannot precede");
   });
 
   test("requires internally consistent passed and failed evidence", () => {

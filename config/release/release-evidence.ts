@@ -43,13 +43,12 @@ export interface ReleaseEvidenceBundle {
 }
 
 const SAFE_ID_PATTERN = /^[A-Za-z0-9._/+:-]+$/;
-const SAFE_ARTIFACT_REF_PATTERN = /^[A-Za-z0-9._/+:-]+$/;
+const SAFE_ARTIFACT_REF_PATTERN = /^[A-Za-z0-9._/+-]+$/;
+const PRODUCTION_LIKE_ID_PATTERN = /production|(^|[-_.])prod($|[-_.])/i;
 const SENSITIVE_VALUE_PATTERN = /(?:api[-_]?key|password|secret|token)\s*[:=]\s*\S+/i;
 const EXECUTED_STATUSES = new Set<ReleaseEvidenceStatus>(["failed", "passed"]);
-const SCOPE_TARGET_KINDS: Record<
-  ReleaseEvidenceScopeId,
-  readonly ReleaseEvidenceScope["target"] extends { kind: infer Kind } ? Kind[] : never
-> = {
+type ReleaseEvidenceTargetKind = NonNullable<ReleaseEvidenceScope["target"]>["kind"];
+const SCOPE_TARGET_KINDS: Record<ReleaseEvidenceScopeId, readonly ReleaseEvidenceTargetKind[]> = {
   "git-push": ["local"],
   local: ["local"],
   migration: ["preview", "production"],
@@ -155,6 +154,9 @@ function parseReleaseEvidenceCheck(raw: unknown, path: string): ReleaseEvidenceC
   const artifactRefs = raw.artifactRefs.map((value, index) =>
     parseArtifactRef(value, `${path}.artifactRefs[${index}]`)
   );
+  if (new Set(artifactRefs).size !== artifactRefs.length) {
+    throw new Error(`${path}.artifactRefs must not contain duplicates`);
+  }
   if (
     typeof raw.durationMs !== "number" ||
     !Number.isFinite(raw.durationMs) ||
@@ -204,6 +206,9 @@ function parseTarget(
   if (raw.kind === "preview" && !id.startsWith("preview-")) {
     throw new Error(`${path}.id must begin with preview- for Preview evidence`);
   }
+  if (raw.kind === "preview" && PRODUCTION_LIKE_ID_PATTERN.test(id)) {
+    throw new Error(`${path}.id cannot be Production-like for Preview evidence`);
+  }
   if (raw.kind === "production" && !id.startsWith("production-")) {
     throw new Error(`${path}.id must begin with production- for Production evidence`);
   }
@@ -226,17 +231,20 @@ function assertNonExecutionStatus(args: {
   status: ReleaseEvidenceStatus;
   target: ReleaseEvidenceScope["target"];
 }) {
-  if ((args.status === "blocked" || args.status === "failed") && !args.reason) {
+  if (
+    (args.status === "blocked" || args.status === "failed" || args.status === "not_run") &&
+    !args.reason
+  ) {
     throw new Error(`${args.path}.reason is required for ${args.status}`);
   }
   if (args.status === "passed" && args.reason) {
     throw new Error(`${args.path}.reason must be null for passed evidence`);
   }
   if (
-    args.status === "not_run" &&
+    (args.status === "blocked" || args.status === "not_run") &&
     (args.command || args.startedAt || args.finishedAt || args.target)
   ) {
-    throw new Error(`${args.path} cannot claim execution or a target while not_run`);
+    throw new Error(`${args.path} cannot claim execution or a target while ${args.status}`);
   }
 }
 
@@ -269,8 +277,8 @@ function assertScopeCheckOutcomes(
   checks: ReleaseEvidenceCheck[],
   path: string
 ) {
-  if (status === "not_run" && checks.length > 0) {
-    throw new Error(`${path}.checks must be empty while not_run`);
+  if ((status === "blocked" || status === "not_run") && checks.length > 0) {
+    throw new Error(`${path}.checks must be empty while ${status}`);
   }
   if (status === "passed" && checks.some((check) => check.outcome !== "passed")) {
     throw new Error(`${path} passed evidence may contain only passed checks`);
@@ -363,6 +371,9 @@ function parseReleaseEvidenceScope(raw: unknown, scopeId: ReleaseEvidenceScopeId
   const checks = rawChecks.map((check, index) =>
     parseReleaseEvidenceCheck(check, `${path}.checks[${index}]`)
   );
+  if (new Set(checks.map((check) => check.id)).size !== checks.length) {
+    throw new Error(`${path}.checks must use unique IDs`);
+  }
   assertExecutedScope({ checks, command, finishedAt, path, startedAt, status, target });
   assertScopeCheckOutcomes(status, checks, path);
   return { checks, command, finishedAt, reason, startedAt, status, target };
@@ -387,6 +398,13 @@ export function parseReleaseEvidence(value: unknown): ReleaseEvidenceBundle {
   const scopes = {} as Record<ReleaseEvidenceScopeId, ReleaseEvidenceScope>;
   for (const scopeId of RELEASE_EVIDENCE_SCOPES) {
     scopes[scopeId] = parseReleaseEvidenceScope(scopeRecord[scopeId], scopeId);
+  }
+  const createdAtMs = Date.parse(createdAt);
+  for (const scopeId of RELEASE_EVIDENCE_SCOPES) {
+    const { finishedAt } = scopes[scopeId];
+    if (finishedAt && Date.parse(finishedAt) > createdAtMs) {
+      throw new Error(`evidence.createdAt cannot precede evidence.scopes.${scopeId}.finishedAt`);
+    }
   }
   return { createdAt, revision, schemaVersion: 1, scopes };
 }
