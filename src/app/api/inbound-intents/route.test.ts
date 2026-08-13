@@ -173,4 +173,24 @@ describe("protected inbound intent route", () => {
     expect(throttled.status).toBe(429);
     expect(calls).toBe(0);
   });
+
+  test("accepts the consented Website source without trusting browser identity", async () => {
+    configureGateway();
+    let forwarded: Record<string, unknown> | undefined;
+    const response = await handleInboundIntentRequest(
+      request({ ...validBody(), source: "Website" }, { "idempotency-key": "website-form-1" }),
+      {
+        fetchMutationImpl: fakeMutation(
+          { intentId: "inboundQueryIntents_website", status: "created" },
+          ([, args]) => {
+            forwarded = args as Record<string, unknown>;
+          }
+        ),
+      }
+    );
+
+    expect(response.status).toBe(201);
+    expect(forwarded).toMatchObject({ consent: true, source: "Website" });
+    expect(forwarded).not.toHaveProperty("authUserId");
+  });
 });

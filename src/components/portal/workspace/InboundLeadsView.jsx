@@ -13,8 +13,14 @@ const STATUS_OPTIONS = [
 ];
 const SOURCE_OPTIONS = [
   ["", "All sources"],
+  ["Website", "Website"],
   ["Citius Concierge", "Citius Concierge"],
   ["Sacred Bharat", "Sacred Bharat"],
+];
+const DISMISSAL_OPTIONS = [
+  ["not_qualified", "Not qualified"],
+  ["duplicate_enquiry", "Duplicate enquiry"],
+  ["unable_to_reach", "Unable to reach"],
 ];
 const QUERY_TYPES = ["FIT", "Family Group", "MICE", "MICE Bidding", "B2B", "Spiritual"];
 const TRAVEL_TYPES = ["Domestic Travel", "International Travel"];
@@ -88,6 +94,7 @@ export function InboundLeadsView({ allowed, canFetch }) {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState(deepLinkedId);
   const [form, setForm] = useState(() => formFromIntent(null));
+  const [dismissalReason, setDismissalReason] = useState("not_qualified");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -108,6 +115,7 @@ export function InboundLeadsView({ allowed, canFetch }) {
     shouldFetch && selectedId ? { intentId: selectedId } : "skip"
   );
   const convert = useMutation(api.crm.inboundQueryIntents.convertToQuery);
+  const dismiss = useMutation(api.crm.inboundQueryIntents.dismiss);
 
   useEffect(() => {
     if (deepLinkedId) {
@@ -118,6 +126,7 @@ export function InboundLeadsView({ allowed, canFetch }) {
   useEffect(() => {
     if (selected && selected._id !== form.intentId) {
       setForm(formFromIntent(selected));
+      setDismissalReason("not_qualified");
       setError("");
       setMessage("");
     }
@@ -160,6 +169,23 @@ export function InboundLeadsView({ allowed, canFetch }) {
     });
     if (conversionError) {
       setError(conversionError);
+    }
+    setSaving(false);
+  }
+
+  async function handleDismiss() {
+    if (!selectedId || selected?.status !== "pending") {
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      await dismiss({ dismissalReason, intentId: selectedId });
+      setMessage("Lead dismissed. Its consent and source record remain available.");
+      router.replace("/portal/inbound-leads");
+    } catch (dismissError) {
+      setError(dismissError?.data || dismissError?.message || "Unable to dismiss this lead.");
     }
     setSaving(false);
   }
@@ -292,136 +318,168 @@ export function InboundLeadsView({ allowed, canFetch }) {
               </p>
             ) : null}
             {selected.status === "pending" ? (
-              <form className="mt-5 grid gap-3" onSubmit={handleConvert}>
-                <p className="font-semibold text-brand-dark">Convert to Sales Query</p>
-                {fieldLabel(
-                  "inbound-client-name",
-                  "Client name",
-                  <input
-                    className="portal-input"
-                    id="inbound-client-name"
-                    onChange={(event) => setField("clientName", event.target.value)}
-                    required
-                    value={form.clientName}
-                  />
-                )}
-                <div className="grid gap-3 sm:grid-cols-2">
+              <>
+                <form className="mt-5 grid gap-3" onSubmit={handleConvert}>
+                  <p className="font-semibold text-brand-dark">Convert to Sales Query</p>
                   {fieldLabel(
-                    "inbound-destination",
-                    "Destination",
+                    "inbound-client-name",
+                    "Client name",
                     <input
                       className="portal-input"
-                      id="inbound-destination"
-                      onChange={(event) => setField("destination", event.target.value)}
-                      value={form.destination}
-                    />
-                  )}
-                  {fieldLabel(
-                    "inbound-pax-count",
-                    "Pax",
-                    <input
-                      className="portal-input"
-                      id="inbound-pax-count"
-                      min="1"
-                      onChange={(event) => setField("paxCount", event.target.value)}
+                      id="inbound-client-name"
+                      onChange={(event) => setField("clientName", event.target.value)}
                       required
-                      type="number"
-                      value={form.paxCount}
+                      value={form.clientName}
                     />
                   )}
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {fieldLabel(
+                      "inbound-destination",
+                      "Destination",
+                      <input
+                        className="portal-input"
+                        id="inbound-destination"
+                        onChange={(event) => setField("destination", event.target.value)}
+                        value={form.destination}
+                      />
+                    )}
+                    {fieldLabel(
+                      "inbound-pax-count",
+                      "Pax",
+                      <input
+                        className="portal-input"
+                        id="inbound-pax-count"
+                        min="1"
+                        onChange={(event) => setField("paxCount", event.target.value)}
+                        required
+                        type="number"
+                        value={form.paxCount}
+                      />
+                    )}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {fieldLabel(
+                      "inbound-query-type",
+                      "Query type",
+                      <Select
+                        className="portal-input"
+                        id="inbound-query-type"
+                        onValueChange={(value) => setField("queryType", value)}
+                        options={QUERY_TYPES.map((option) => ({ label: option, value: option }))}
+                        value={form.queryType}
+                      />
+                    )}
+                    {fieldLabel(
+                      "inbound-travel-type",
+                      "Travel type",
+                      <Select
+                        className="portal-input"
+                        id="inbound-travel-type"
+                        onValueChange={(value) => setField("travelType", value)}
+                        options={TRAVEL_TYPES.map((option) => ({ label: option, value: option }))}
+                        value={form.travelType}
+                      />
+                    )}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {fieldLabel(
+                      "inbound-travel-start",
+                      "Travel start",
+                      <input
+                        className="portal-input"
+                        id="inbound-travel-start"
+                        onChange={(event) => setField("travelStartDate", event.target.value)}
+                        type="date"
+                        value={form.travelStartDate}
+                      />
+                    )}
+                    {fieldLabel(
+                      "inbound-travel-end",
+                      "Travel end",
+                      <input
+                        className="portal-input"
+                        id="inbound-travel-end"
+                        onChange={(event) => setField("travelEndDate", event.target.value)}
+                        type="date"
+                        value={form.travelEndDate}
+                      />
+                    )}
+                  </div>
                   {fieldLabel(
-                    "inbound-query-type",
-                    "Query type",
-                    <Select
-                      className="portal-input"
-                      id="inbound-query-type"
-                      onValueChange={(value) => setField("queryType", value)}
-                      options={QUERY_TYPES.map((option) => ({ label: option, value: option }))}
-                      value={form.queryType}
-                    />
-                  )}
-                  {fieldLabel(
-                    "inbound-travel-type",
-                    "Travel type",
-                    <Select
-                      className="portal-input"
-                      id="inbound-travel-type"
-                      onValueChange={(value) => setField("travelType", value)}
-                      options={TRAVEL_TYPES.map((option) => ({ label: option, value: option }))}
-                      value={form.travelType}
-                    />
-                  )}
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {fieldLabel(
-                    "inbound-travel-start",
-                    "Travel start",
-                    <input
-                      className="portal-input"
-                      id="inbound-travel-start"
-                      onChange={(event) => setField("travelStartDate", event.target.value)}
-                      type="date"
-                      value={form.travelStartDate}
-                    />
-                  )}
-                  {fieldLabel(
-                    "inbound-travel-end",
-                    "Travel end",
-                    <input
-                      className="portal-input"
-                      id="inbound-travel-end"
-                      onChange={(event) => setField("travelEndDate", event.target.value)}
-                      type="date"
-                      value={form.travelEndDate}
-                    />
-                  )}
-                </div>
-                {fieldLabel(
-                  "inbound-query-notes",
-                  "Notes",
-                  <>
-                    <textarea
-                      aria-describedby={`inbound-query-notes-help${notesOverLimit ? " inbound-query-notes-error" : ""}`}
-                      aria-invalid={notesOverLimit || undefined}
-                      className="portal-input min-h-24"
-                      id="inbound-query-notes"
-                      onChange={(event) => setField("notes", event.target.value)}
-                      value={form.notes}
-                    />
-                    <span className="text-brand-muted text-xs" id="inbound-query-notes-help">
-                      {sourceNotesOverLimit
-                        ? "Source notes exceed the 30-word Query Notes limit and remain available on this lead. Add a concise query note here."
-                        : `${notesWordCount}/${MAX_QUERY_NOTES_WORDS} words`}
-                    </span>
-                    {notesOverLimit ? (
-                      <span
-                        className="text-red-700 text-xs"
-                        id="inbound-query-notes-error"
-                        role="alert"
-                      >
-                        Query Notes must be 30 words or fewer.
+                    "inbound-query-notes",
+                    "Notes",
+                    <>
+                      <textarea
+                        aria-describedby={`inbound-query-notes-help${notesOverLimit ? " inbound-query-notes-error" : ""}`}
+                        aria-invalid={notesOverLimit || undefined}
+                        className="portal-input min-h-24"
+                        id="inbound-query-notes"
+                        onChange={(event) => setField("notes", event.target.value)}
+                        value={form.notes}
+                      />
+                      <span className="text-brand-muted text-xs" id="inbound-query-notes-help">
+                        {sourceNotesOverLimit
+                          ? "Source notes exceed the 30-word Query Notes limit and remain available on this lead. Add a concise query note here."
+                          : `${notesWordCount}/${MAX_QUERY_NOTES_WORDS} words`}
                       </span>
-                    ) : null}
-                  </>
-                )}
-                <button
-                  className="portal-primary-btn justify-center"
-                  disabled={saving}
-                  type="submit"
-                >
-                  {saving ? "Converting…" : "Convert to Query"}
-                </button>
-                {error && !notesOverLimit ? (
-                  <p aria-live="assertive" className="text-red-700 text-sm" role="alert">
-                    {error}
-                  </p>
-                ) : null}
-              </form>
+                      {notesOverLimit ? (
+                        <span
+                          className="text-red-700 text-xs"
+                          id="inbound-query-notes-error"
+                          role="alert"
+                        >
+                          Query Notes must be 30 words or fewer.
+                        </span>
+                      ) : null}
+                    </>
+                  )}
+                  <button
+                    className="portal-primary-btn justify-center"
+                    disabled={saving}
+                    type="submit"
+                  >
+                    {saving ? "Converting…" : "Convert to Query"}
+                  </button>
+                  {error && !notesOverLimit ? (
+                    <p aria-live="assertive" className="text-red-700 text-sm" role="alert">
+                      {error}
+                    </p>
+                  ) : null}
+                </form>
+                <div className="mt-5 grid gap-3 border-brand-border border-t pt-5">
+                  <p className="font-semibold text-brand-dark">Dismiss from Pending Sales</p>
+                  <label
+                    className="grid gap-1 text-brand-dark text-sm"
+                    htmlFor="inbound-dismissal-reason"
+                  >
+                    <span className="font-medium">Reason</span>
+                    <Select
+                      className="portal-input"
+                      id="inbound-dismissal-reason"
+                      onValueChange={setDismissalReason}
+                      options={DISMISSAL_OPTIONS.map(([value, label]) => ({ label, value }))}
+                      value={dismissalReason}
+                    />
+                  </label>
+                  <button
+                    className="portal-small-btn justify-center"
+                    disabled={saving}
+                    onClick={handleDismiss}
+                    type="button"
+                  >
+                    {saving ? "Saving…" : "Dismiss lead"}
+                  </button>
+                </div>
+              </>
             ) : (
               <p className="mt-5 text-brand-muted text-sm">
-                This lead is already {selected.status}. It cannot be converted again.
+                This lead is already {selected.status}. It cannot be triaged again.
+                {selected.dismissalReason
+                  ? ` Reason: ${DISMISSAL_OPTIONS.find(([value]) => value === selected.dismissalReason)?.[1] || selected.dismissalReason}.`
+                  : ""}
+                {selected.triagedAt
+                  ? ` Outcome recorded: ${formatCreatedAt(selected.triagedAt)}.`
+                  : " Outcome date unavailable for this legacy record."}
               </p>
             )}
           </>

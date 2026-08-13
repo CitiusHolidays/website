@@ -72,6 +72,7 @@ export type EmailNotificationTargets =
   | { kind: "matching"; matches: NotificationStaffMatcher };
 
 export interface WorkflowNotificationPlan {
+  additionalEmailRecipients?: string[];
   bellTargets: BellNotificationTargets;
   content: NotificationInput;
   emailDelayMs?: number;
@@ -241,6 +242,9 @@ export async function publishWorkflowNotification(
     })
   );
   const emailRecipients = notificationEmailRecipients(activeStaff, plan.emailTargets);
+  for (const email of plan.additionalEmailRecipients ?? []) {
+    addNotificationEmailRecipient(emailRecipients, email);
+  }
 
   await queueNotificationEmail(ctx, emailRecipients, notificationIds[0], plan.content, {
     emailDelayMs: plan.emailDelayMs,

@@ -23,6 +23,28 @@ This doc records the current Citius Connect behavior implemented across recent p
 | Saved views and command palette | `convex/crm/savedViews.ts`, `src/lib/portal/savedViews.js`, `src/components/portal/PortalCommandPalette.js`, `src/components/portal/PortalShell.tsx` |
 | Portal chrome and stacking | `src/lib/portal/zIndex.ts` |
 
+## Consented inbound enquiries
+
+The public Contact form, Citius Concierge contact handoff, and Sacred Bharat planning handoff all
+enter one durable `inboundQueryIntents` queue. Website submissions require affirmative contact
+consent and use a stable browser idempotency key. The public surface reports success only after the
+server-only gateway has committed the intent; a retry of the same key reuses that intent and does
+not create another Sales alert.
+
+Sales, Sales Head, Admin, and Director roles can filter and open inbound leads. They can complete a
+pending lead in exactly one of two ways:
+
+- Convert it to a Query, retaining the inbound intent ID, source, consent timestamp, accountable
+  staff member, and conversion time.
+- Dismiss it with one bounded reason: Not qualified, Duplicate enquiry, or Unable to reach. The
+  consent and provenance row remains available.
+
+Both terminal commands are replay-safe for the same outcome and reject a conflicting outcome.
+Legacy terminal rows keep an unknown outcome date rather than receiving an invented timestamp.
+Website enquiries send the normal Sales bell/email notification and queue the retained
+`info@citius.in` mailbox copy from the same durable workflow. Provider outcomes remain visible in
+the notification delivery ledger without exposing customer contact data in aggregate status reads.
+
 ## Query lifecycle
 
 Sales creates and manages enquiries from All Sales Queries. The query lead stage for a lost enquiry is `Lost`, not `Closed`.

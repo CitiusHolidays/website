@@ -4,14 +4,24 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation, query } from "../_generated/server";
 import { isDirectorOrAdmin, PERMISSIONS, publishWorkflowNotification, requireStaff } from "./lib";
+import { boundedPaginationOptions } from "./paginationPolicy";
 import { handleQueryCreate } from "./queryCreation";
-import { querySourceValidator, queryTypeValidator, travelTypeValidator } from "./queryValidators";
+import { queryTypeValidator, travelTypeValidator } from "./queryValidators";
 
-const inboundSourceValidator = v.union(v.literal("Citius Concierge"), v.literal("Sacred Bharat"));
+const inboundSourceValidator = v.union(
+  v.literal("Citius Concierge"),
+  v.literal("Sacred Bharat"),
+  v.literal("Website")
+);
 const inboundStatusValidator = v.union(
   v.literal("pending"),
   v.literal("converted"),
   v.literal("dismissed")
+);
+const dismissalReasonValidator = v.union(
+  v.literal("duplicate_enquiry"),
+  v.literal("not_qualified"),
+  v.literal("unable_to_reach")
 );
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/;
@@ -26,6 +36,7 @@ const INBOUND_RATE_WINDOW_MS = 15 * 60 * 1000;
 const INBOUND_RATE_RETENTION_MS = 24 * 60 * 60 * 1000;
 const INBOUND_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
 const INBOUND_SALES_ROLES = new Set(["Sales", "Sales Head"]);
+const WEBSITE_CONTACT_EMAIL = "info@citius.in";
 
 const inboundIntentPublicValidator = v.object({
   _creationTime: v.number(),
@@ -34,14 +45,19 @@ const inboundIntentPublicValidator = v.object({
   consentAt: v.number(),
   contactEmail: v.optional(v.string()),
   contactMobile: v.optional(v.string()),
+  convertedAt: v.optional(v.number()),
   convertedQueryId: v.optional(v.string()),
   createdAt: v.number(),
   destination: v.optional(v.string()),
+  dismissalReason: v.optional(dismissalReasonValidator),
+  dismissedAt: v.optional(v.number()),
   notes: v.optional(v.string()),
   paxCount: v.optional(v.number()),
   source: inboundSourceValidator,
   status: inboundStatusValidator,
   travelStartDate: v.optional(v.string()),
+  triagedAt: v.optional(v.number()),
+  triagedByStaffId: v.optional(v.id("staffUsers")),
 });
 
 function presentInboundIntent(intent: Doc<"inboundQueryIntents">) {
@@ -52,13 +68,18 @@ function presentInboundIntent(intent: Doc<"inboundQueryIntents">) {
     consentAt: intent.consentAt,
     ...(intent.contactEmail === undefined ? {} : { contactEmail: intent.contactEmail }),
     ...(intent.contactMobile === undefined ? {} : { contactMobile: intent.contactMobile }),
+    ...(intent.convertedAt === undefined ? {} : { convertedAt: intent.convertedAt }),
     ...(intent.convertedQueryId === undefined ? {} : { convertedQueryId: intent.convertedQueryId }),
     createdAt: intent.createdAt,
     ...(intent.destination === undefined ? {} : { destination: intent.destination }),
+    ...(intent.dismissalReason === undefined ? {} : { dismissalReason: intent.dismissalReason }),
+    ...(intent.dismissedAt === undefined ? {} : { dismissedAt: intent.dismissedAt }),
     ...(intent.notes === undefined ? {} : { notes: intent.notes }),
     ...(intent.paxCount === undefined ? {} : { paxCount: intent.paxCount }),
     source: intent.source,
     status: intent.status,
+    ...(intent.triagedAt === undefined ? {} : { triagedAt: intent.triagedAt }),
+    ...(intent.triagedByStaffId === undefined ? {} : { triagedByStaffId: intent.triagedByStaffId }),
     ...(intent.travelStartDate === undefined ? {} : { travelStartDate: intent.travelStartDate }),
   };
 }
@@ -76,6 +97,13 @@ const convertResultValidator = v.object({
   intentId: v.id("inboundQueryIntents"),
   queryCode: v.string(),
   queryId: v.id("queries"),
+  replayed: v.boolean(),
+});
+
+const dismissResultValidator = v.object({
+  intentId: v.id("inboundQueryIntents"),
+  replayed: v.boolean(),
+  status: v.literal("dismissed"),
 });
 
 type GatewayResult = {
@@ -91,7 +119,7 @@ type InboundIntentInput = {
   destination?: string;
   notes?: string;
   paxCount?: number;
-  source: "Citius Concierge" | "Sacred Bharat";
+  source: "Citius Concierge" | "Sacred Bharat" | "Website";
   submissionKeyHash: string;
   travelStartDate?: string;
 };
@@ -191,19 +219,21 @@ async function createIntent(ctx: MutationCtx, args: InboundIntentInput) {
     submissionKeyHash: args.submissionKeyHash,
     travelStartDate: normalizeOptional(args.travelStartDate),
   });
-  await ctx.db.insert("crmHandoffEvents", {
+  const handoffEventId = await ctx.db.insert("crmHandoffEvents", {
     createdAt: now,
     inboundIntentId: intentId,
     source: args.source,
   });
+  await ctx.db.patch("inboundQueryIntents", intentId, { handoffEventId });
   const recipientRoles = ["Sales", "Sales Head"];
   await publishWorkflowNotification(ctx, {
+    ...(args.source === "Website" ? { additionalEmailRecipients: [WEBSITE_CONTACT_EMAIL] } : {}),
     bellTargets: { kind: "roles", roles: recipientRoles },
     content: {
       body: `New inbound lead from ${args.source}: ${clientName}`,
       entityId: String(intentId),
       entityType: "inboundQueryIntent",
-      title: "Qualified inbound query",
+      title: args.source === "Website" ? "New website enquiry" : "Qualified inbound query",
     },
     emailTargets: { kind: "roles", roles: recipientRoles },
   });
@@ -320,6 +350,7 @@ export const list = query({
   },
   handler: async (ctx, args) => {
     await requireInboundSales(ctx);
+    const paginationOpts = boundedPaginationOptions(args.paginationOpts);
     const statusFilter = args.status ?? "pending";
     const sourceFilter = args.source;
     const searchTerm = args.search?.trim();
@@ -349,24 +380,19 @@ export const list = query({
               }
               return q.lte(q.field("createdAt"), args.createdAtTo as number);
             })
-            .paginate(args.paginationOpts)
+            .paginate(paginationOpts)
         );
       }
-      return presentInboundIntentPage(await searchable.paginate(args.paginationOpts));
+      return presentInboundIntentPage(await searchable.paginate(paginationOpts));
     }
 
-    let intentsQuery = ctx.db.query("inboundQueryIntents").order("desc");
-    if (
-      statusFilter ||
-      sourceFilter ||
-      args.createdAtFrom !== undefined ||
-      args.createdAtTo !== undefined
-    ) {
+    let intentsQuery = ctx.db
+      .query("inboundQueryIntents")
+      .withIndex("by_status", (q) => q.eq("status", statusFilter))
+      .order("desc");
+    if (sourceFilter || args.createdAtFrom !== undefined || args.createdAtTo !== undefined) {
       intentsQuery = intentsQuery.filter((q) => {
         const clauses = [];
-        if (statusFilter) {
-          clauses.push(q.eq(q.field("status"), statusFilter));
-        }
         if (sourceFilter) {
           clauses.push(q.eq(q.field("source"), sourceFilter));
         }
@@ -382,7 +408,7 @@ export const list = query({
         return q.and(...clauses);
       });
     }
-    return presentInboundIntentPage(await intentsQuery.paginate(args.paginationOpts));
+    return presentInboundIntentPage(await intentsQuery.paginate(paginationOpts));
   },
   returns: paginationResultValidator(inboundIntentPublicValidator),
 });
@@ -414,11 +440,36 @@ export const getPendingIntent = query({
   returns: v.union(inboundIntentPublicValidator, v.null()),
 });
 
-function markIntentConvertedPatch(intentId: Id<"inboundQueryIntents">, queryId: Id<"queries">) {
+function markIntentConvertedPatch(
+  queryId: Id<"queries">,
+  staffId: Id<"staffUsers">,
+  triagedAt: number
+) {
   return {
+    convertedAt: triagedAt,
     convertedQueryId: String(queryId),
     status: "converted" as const,
+    triagedAt,
+    triagedByStaffId: staffId,
   };
+}
+
+async function handoffEventForIntent(ctx: MutationCtx, intent: Doc<"inboundQueryIntents">) {
+  if (intent.handoffEventId) {
+    const event = await ctx.db.get("crmHandoffEvents", intent.handoffEventId);
+    if (event?.inboundIntentId === intent._id) {
+      return event;
+    }
+  }
+  // Compatibility path for rows created before handoffEventId was stored.
+  // The staged direct index replaces this bounded rollout fallback only after
+  // every target reports index readiness.
+  return await ctx.db
+    .query("crmHandoffEvents")
+    .withIndex("by_createdAt")
+    .order("desc")
+    .filter((q) => q.eq(q.field("inboundIntentId"), intent._id))
+    .first();
 }
 
 export const convertToQuery = mutation({
@@ -439,10 +490,25 @@ export const convertToQuery = mutation({
     travelType: travelTypeValidator,
   },
   handler: async (ctx, args) => {
-    await requireInboundSales(ctx);
+    const access = await requireInboundSales(ctx);
+    if (!access.staffId) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const intent = await ctx.db.get("inboundQueryIntents", args.intentId);
     if (!intent) {
       throw new ConvexError("Inbound intent not found");
+    }
+    if (intent.status === "converted" && intent.convertedQueryId) {
+      const existingQueryId = ctx.db.normalizeId("queries", intent.convertedQueryId);
+      const existingQuery = existingQueryId ? await ctx.db.get("queries", existingQueryId) : null;
+      if (existingQuery) {
+        return {
+          intentId: intent._id,
+          queryCode: existingQuery.queryCode,
+          queryId: existingQuery._id,
+          replayed: true,
+        };
+      }
     }
     if (intent.status !== "pending") {
       throw new ConvexError("Inbound intent has already been triaged");
@@ -468,53 +534,57 @@ export const convertToQuery = mutation({
       travelType: args.travelType,
     });
 
+    const triagedAt = Date.now();
     await ctx.db.patch(
       "inboundQueryIntents",
       args.intentId,
-      markIntentConvertedPatch(args.intentId, created.id)
+      markIntentConvertedPatch(created.id, access.staffId, triagedAt)
     );
-    const event = await ctx.db
-      .query("crmHandoffEvents")
-      .withIndex("by_createdAt")
-      .order("desc")
-      .filter((q) => q.eq(q.field("inboundIntentId"), args.intentId))
-      .first();
+    const event = await handoffEventForIntent(ctx, intent);
     if (event) {
       await ctx.db.patch("crmHandoffEvents", event._id, { convertedQueryId: String(created.id) });
     }
-    return { intentId: args.intentId, queryCode: created.queryCode, queryId: created.id };
+    return {
+      intentId: args.intentId,
+      queryCode: created.queryCode,
+      queryId: created.id,
+      replayed: false,
+    };
   },
   returns: convertResultValidator,
 });
 
-/** Legacy administrative mark; conversion should use convertToQuery. */
-export const markConverted = mutation({
+export const dismiss = mutation({
   args: {
+    dismissalReason: dismissalReasonValidator,
     intentId: v.id("inboundQueryIntents"),
-    queryId: v.string(),
-    source: querySourceValidator,
   },
   handler: async (ctx, args) => {
-    await requireInboundSales(ctx);
+    const access = await requireInboundSales(ctx);
+    if (!access.staffId) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const intent = await ctx.db.get("inboundQueryIntents", args.intentId);
     if (!intent) {
       throw new ConvexError("Inbound intent not found");
     }
+    if (intent.status === "dismissed" && intent.dismissalReason === args.dismissalReason) {
+      return { intentId: intent._id, replayed: true, status: "dismissed" as const };
+    }
     if (intent.status !== "pending") {
       throw new ConvexError("Inbound intent has already been triaged");
     }
-    const queryId = ctx.db.normalizeId("queries", args.queryId);
-    if (!queryId) {
-      throw new ConvexError("Query not found");
-    }
-    await ctx.db.patch(
-      "inboundQueryIntents",
-      args.intentId,
-      markIntentConvertedPatch(args.intentId, queryId)
-    );
-    return null;
+    const triagedAt = Date.now();
+    await ctx.db.patch("inboundQueryIntents", args.intentId, {
+      dismissalReason: args.dismissalReason,
+      dismissedAt: triagedAt,
+      status: "dismissed",
+      triagedAt,
+      triagedByStaffId: access.staffId,
+    });
+    return { intentId: intent._id, replayed: false, status: "dismissed" as const };
   },
-  returns: v.null(),
+  returns: dismissResultValidator,
 });
 
 export const handoffSummary = query({

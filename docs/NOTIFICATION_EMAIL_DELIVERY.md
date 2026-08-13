@@ -54,7 +54,11 @@ department roles do not.
 
 `RESEND_API_KEY` is canonical in both Next.js and Convex environments.
 
-`RESEND_KEY` is a temporary legacy fallback for Convex notifications and the Next.js contact form through **30 September 2026**. When the fallback is used, the action logs only the legacy variable name and migration deadline; it never logs the value. Remove the fallback after every environment has been checked and migrated.
+`RESEND_KEY` is a temporary legacy fallback for Convex notifications and the legacy Next.js contact
+email endpoint through **30 September 2026**. The consented Website enquiry form queues its Sales
+and `info@citius.in` delivery through Convex notification delivery. When the fallback is used, the
+action logs only the legacy variable name and migration deadline; it never logs the value. Remove
+the fallback after every environment has been checked and migrated.
 
 Operator checklist:
 

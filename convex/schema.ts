@@ -554,8 +554,17 @@ export default defineSchema({
     convertedQueryId: v.optional(v.string()),
     createdAt: v.number(),
     inboundIntentId: v.optional(v.id("inboundQueryIntents")),
-    source: v.union(v.literal("Citius Concierge"), v.literal("Sacred Bharat")),
-  }).index("by_createdAt", ["createdAt"]),
+    source: v.union(
+      v.literal("Citius Concierge"),
+      v.literal("Sacred Bharat"),
+      v.literal("Website")
+    ),
+  })
+    .index("by_createdAt", ["createdAt"])
+    .index("by_inboundIntentId_createdAt", {
+      fields: ["inboundIntentId", "createdAt"],
+      staged: true,
+    }),
 
   crmImportBatches: defineTable({
     accepted: v.number(),
@@ -996,19 +1005,43 @@ export default defineSchema({
     contactEmail: v.optional(v.string()),
     contactEmailNormalized: v.optional(v.string()),
     contactMobile: v.optional(v.string()),
+    convertedAt: v.optional(v.number()),
     convertedQueryId: v.optional(v.string()),
     createdAt: v.number(),
     destination: v.optional(v.string()),
+    dismissalReason: v.optional(
+      v.union(
+        v.literal("duplicate_enquiry"),
+        v.literal("not_qualified"),
+        v.literal("unable_to_reach")
+      )
+    ),
+    dismissedAt: v.optional(v.number()),
+    handoffEventId: v.optional(v.id("crmHandoffEvents")),
     listSearchText: v.optional(v.string()),
     notes: v.optional(v.string()),
     paxCount: v.optional(v.number()),
-    source: v.union(v.literal("Citius Concierge"), v.literal("Sacred Bharat")),
+    source: v.union(
+      v.literal("Citius Concierge"),
+      v.literal("Sacred Bharat"),
+      v.literal("Website")
+    ),
     status: v.union(v.literal("pending"), v.literal("converted"), v.literal("dismissed")),
     submissionKeyHash: v.optional(v.string()),
     travelStartDate: v.optional(v.string()),
+    triagedAt: v.optional(v.number()),
+    triagedByStaffId: v.optional(v.id("staffUsers")),
   })
     .index("by_status", ["status"])
     .index("by_createdAt", ["createdAt"])
+    .index("by_status_createdAt", {
+      fields: ["status", "createdAt"],
+      staged: true,
+    })
+    .index("by_status_source_createdAt", {
+      fields: ["status", "source", "createdAt"],
+      staged: true,
+    })
     .index("by_contactEmailNormalized", {
       fields: ["contactEmailNormalized"],
       staged: true,

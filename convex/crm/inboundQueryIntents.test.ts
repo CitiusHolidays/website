@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
 import {
   convertToQuery,
+  dismiss,
   getForSales,
   getPendingIntent,
   list,
   submitIntentGateway,
   submitIntentInternal,
 } from "./inboundQueryIntents";
+import { getNotificationEmailDetails } from "./notificationEmailDetails";
 import { assertInboundQuerySourceUnchanged } from "./queryCommands";
 import { assertMatchesRegisteredReturnContract } from "./validateReturnContract";
 
@@ -49,6 +51,9 @@ function makeContext(
   const tables = Object.fromEntries(
     Object.entries(initial).map(([name, rows]) => [name, rows.map((row) => ({ ...row }))])
   ) as Record<string, Row[]>;
+  const indexCalls: Array<{ index: string; table: string }> = [];
+  const paginationCalls: Array<{ maximumRowsRead?: number; numItems?: number }> = [];
+  const scheduled: Array<{ args: Record<string, unknown>; delay: number }> = [];
 
   const db = {
     get: (_table: string, id: string) => {
@@ -94,14 +99,18 @@ function makeContext(
           });
           return builder;
         },
-        paginate: async (opts: { numItems?: number }) => ({
-          continueCursor: "",
-          isDone: true,
-          page: rows.slice(0, opts.numItems ?? 50),
-        }),
+        paginate: async (opts: { maximumRowsRead?: number; numItems?: number }) => {
+          paginationCalls.push(opts);
+          return {
+            continueCursor: "",
+            isDone: true,
+            page: rows.slice(0, opts.numItems ?? 50),
+          };
+        },
         take: async (limit: number) => rows.slice(0, limit),
         unique: async () => rows[0] ?? null,
         withIndex: (_index: string, callback?: (q: any) => unknown) => {
+          indexCalls.push({ index: _index, table });
           if (callback) {
             const filters: Array<{ field: string; value: unknown }> = [];
             const queryBuilder = {
@@ -159,10 +168,14 @@ function makeContext(
     db,
     runMutation: async (_reference: unknown, args: Record<string, unknown>) =>
       await (submitIntentInternal as any)._handler(ctx, args),
-    scheduler: { runAfter: async () => undefined },
+    scheduler: {
+      runAfter: async (delay: number, _reference: unknown, args: Record<string, unknown>) => {
+        scheduled.push({ args, delay });
+      },
+    },
   };
 
-  return { ctx, tables };
+  return { ctx, indexCalls, paginationCalls, scheduled, tables };
 }
 
 function expression(row: Row) {
@@ -268,6 +281,58 @@ describe("protected inbound intent Convex boundaries", () => {
     expect(tables.inboundQueryIntents).toHaveLength(5);
   });
 
+  test("creates a durable Website lead before scheduling Sales and contact-inbox email", async () => {
+    process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
+    const { ctx, scheduled, tables } = makeContext({
+      crmHandoffEvents: [],
+      inboundIntentRateLimits: [],
+      inboundQueryIntents: [],
+      notifications: [],
+      notificationTargetCounts: [],
+      staffUsers: [salesStaff],
+    });
+    const result = await (submitIntentGateway as any)._handler(ctx, {
+      clientName: "Website Traveller",
+      consent: true,
+      contactEmail: "traveller@example.com",
+      gatewaySecret: "expected-secret",
+      notes: "Subject: Kerala\n\nPlease call me.",
+      rateLimitKeyHash: "7".repeat(64),
+      source: "Website",
+      submissionKeyHash: "8".repeat(64),
+    });
+
+    expect(result.status).toBe("created");
+    expect(tables.inboundQueryIntents[0]).toMatchObject({
+      consentAt: expect.any(Number),
+      handoffEventId: "crmHandoffEvents_1",
+      source: "Website",
+      status: "pending",
+    });
+    expect(tables.crmHandoffEvents[0]).toMatchObject({
+      inboundIntentId: "inboundQueryIntents_1",
+      source: "Website",
+    });
+    expect(scheduled).toHaveLength(1);
+    expect(scheduled[0].args.recipients).toEqual(
+      expect.arrayContaining(["info@citius.in", "sales@example.com"])
+    );
+
+    const emailDetails = await (getNotificationEmailDetails as any)._handler(ctx, {
+      entityId: "inboundQueryIntents_1",
+      entityType: "inboundQueryIntent",
+    });
+    expect(emailDetails).toMatchObject({
+      rows: expect.arrayContaining([
+        { label: "Name", value: "Website Traveller" },
+        { label: "Email", value: "traveller@example.com" },
+        { label: "Source", value: "Website" },
+        { label: "Notes", value: "Subject: Kerala\n\nPlease call me." },
+      ]),
+      title: "Inbound enquiry details",
+    });
+  });
+
   test("deduplicates retries for twenty-four hours but accepts a later submission", async () => {
     const now = Date.parse("2026-08-05T12:00:00.000Z");
     setSystemTime(new Date(now));
@@ -346,6 +411,57 @@ describe("protected inbound intent Convex boundaries", () => {
     ).rejects.toThrow("already been triaged");
   });
 
+  test("bounds list reads at the server and starts from the pending-status index", async () => {
+    const { ctx, indexCalls, paginationCalls } = makeContext({
+      inboundQueryIntents: [inboundRow()],
+      staffUsers: [salesStaff],
+    });
+    await (list as any)._handler(ctx, {
+      paginationOpts: { cursor: null, maximumRowsRead: 50_000, numItems: 5000 },
+    });
+    expect(indexCalls).toContainEqual({ index: "by_status", table: "inboundQueryIntents" });
+    expect(paginationCalls.at(-1)).toMatchObject({ maximumRowsRead: 400, numItems: 100 });
+  });
+
+  test("dismisses once with accountable terminal state and replays only the same outcome", async () => {
+    const at = Date.parse("2026-08-12T20:00:00.000Z");
+    setSystemTime(new Date(at));
+    const { ctx, tables } = makeContext({
+      inboundQueryIntents: [inboundRow()],
+      staffUsers: [salesStaff],
+    });
+
+    expect(
+      await (dismiss as any)._handler(ctx, {
+        dismissalReason: "not_qualified",
+        intentId: "inboundQueryIntents_1",
+      })
+    ).toEqual({
+      intentId: "inboundQueryIntents_1",
+      replayed: false,
+      status: "dismissed",
+    });
+    expect(tables.inboundQueryIntents[0]).toMatchObject({
+      dismissalReason: "not_qualified",
+      dismissedAt: at,
+      status: "dismissed",
+      triagedAt: at,
+      triagedByStaffId: "staff_sales",
+    });
+    expect(
+      await (dismiss as any)._handler(ctx, {
+        dismissalReason: "not_qualified",
+        intentId: "inboundQueryIntents_1",
+      })
+    ).toMatchObject({ replayed: true });
+    await expect(
+      (dismiss as any)._handler(ctx, {
+        dismissalReason: "duplicate_enquiry",
+        intentId: "inboundQueryIntents_1",
+      })
+    ).rejects.toThrow("already been triaged");
+  });
+
   test("unauthenticated and non-Sales staff cannot read the index", async () => {
     const unauthenticated = makeContext({ inboundQueryIntents: [] }, null);
     await expect(
@@ -412,15 +528,28 @@ describe("protected inbound intent Convex boundaries", () => {
       staffUsers: [salesStaff],
     });
 
-    await expect(
-      (convertToQuery as any)._handler(ctx, {
+    const converted = await (convertToQuery as any)._handler(ctx, {
+      intentId: "inboundQueryIntents_1",
+      notes: undefined,
+      paxCount: 2,
+      queryType: "FIT",
+      travelType: "International Travel",
+    });
+    expect(converted).toMatchObject({ queryCode: "Q-0001", replayed: false });
+    expect(
+      await (convertToQuery as any)._handler(ctx, {
         intentId: "inboundQueryIntents_1",
-        notes: undefined,
-        paxCount: 2,
-        queryType: "FIT",
-        travelType: "International Travel",
+        paxCount: 999,
+        queryType: "MICE",
+        travelType: "Domestic Travel",
       })
-    ).resolves.toMatchObject({ queryCode: "Q-0001" });
+    ).toMatchObject({ queryCode: "Q-0001", replayed: true });
+    expect(tables.queries).toHaveLength(1);
+    expect(tables.inboundQueryIntents[0]).toMatchObject({
+      convertedAt: expect.any(Number),
+      triagedAt: expect.any(Number),
+      triagedByStaffId: "staff_sales",
+    });
 
     expect(tables.inboundQueryIntents[0].notes).toBe(sourceNotes);
     expect(tables.queries[0].notes).toBe("");

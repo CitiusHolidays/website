@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import { getFunctionName } from "convex/server";
 import { JSDOM } from "jsdom";
 import { act } from "react";
 
@@ -10,6 +11,7 @@ let InboundLeadsView;
 let createRoot;
 let selectedIntent;
 const convert = mock(async () => ({ queryCode: "Q-0042" }));
+const dismiss = mock(async () => ({ status: "dismissed" }));
 const replace = mock(() => undefined);
 
 function lead(overrides = {}) {
@@ -42,7 +44,8 @@ beforeAll(async () => {
   ({ createRoot } = await import("react-dom/client"));
 
   mock.module("convex/react", () => ({
-    useMutation: () => convert,
+    useMutation: (reference) =>
+      getFunctionName(reference) === "crm/inboundQueryIntents:dismiss" ? dismiss : convert,
     usePaginatedQuery: () => ({
       loadMore: () => undefined,
       results: selectedIntent ? [selectedIntent] : [],
@@ -60,6 +63,7 @@ beforeAll(async () => {
 beforeEach(() => {
   selectedIntent = lead();
   convert.mockClear();
+  dismiss.mockClear();
   replace.mockClear();
 });
 
@@ -99,7 +103,7 @@ describe("InboundLeadsView conversion", () => {
     );
 
     const invalidNotes = Array.from({ length: 31 }, (_, index) => `query${index + 1}`).join(" ");
-    await act(async () => {
+    await act(() => {
       const valueSetter = Object.getOwnPropertyDescriptor(
         HTMLTextAreaElement.prototype,
         "value"
@@ -135,6 +139,35 @@ describe("InboundLeadsView conversion", () => {
     await view.rerender();
 
     expect(view.container.textContent).toContain("Q-0042 created and linked to this inbound lead.");
+    expect(replace).toHaveBeenCalledWith("/portal/inbound-leads");
+
+    await view.unmount();
+  });
+
+  test("dismisses a pending lead with the bounded default reason and preserves the outcome", async () => {
+    selectedIntent = lead({ source: "Website" });
+    const view = await mount();
+    const dismissButton = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent?.includes("Dismiss lead")
+    );
+
+    await act(async () => dismissButton?.click());
+    expect(dismiss).toHaveBeenCalledWith({
+      dismissalReason: "not_qualified",
+      intentId: "inboundQueryIntents_1",
+    });
+    expect(view.container.textContent).toContain(
+      "Lead dismissed. Its consent and source record remain available."
+    );
+
+    selectedIntent = lead({
+      dismissalReason: "not_qualified",
+      status: "dismissed",
+      triagedAt: Date.parse("2026-08-12T12:00:00.000Z"),
+    });
+    await view.rerender();
+    expect(view.container.textContent).toContain("Reason: Not qualified.");
+    expect(view.container.textContent).toContain("Outcome recorded: 12/08/2026.");
     expect(replace).toHaveBeenCalledWith("/portal/inbound-leads");
 
     await view.unmount();

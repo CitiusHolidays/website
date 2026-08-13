@@ -12,6 +12,28 @@ Outstanding invoices use `hasOutstandingBalance = balanceAmount > 0` as a writer
 projection. Finance reads retain the bounded legacy filter until version 1 readiness is complete
 with zero residuals; only then do they use `by_hasOutstandingBalance_and_createdAt`.
 
+## Inbound enquiry index rollout
+
+Inbound-list requests apply the shared server ceiling immediately and the default Pending branch
+starts from the existing `by_status` index. The more selective status/date, status/source/date, and
+direct handoff-event indexes are staged in source. Readers must not depend on those staged indexes
+until each named deployment reports them ready.
+
+For every approved non-production target, keep the rollout evidence separate:
+
+1. Deploy the widened optional terminal fields and staged indexes.
+2. Verify `by_status_createdAt`, `by_status_source_createdAt`, and
+   `by_inboundIntentId_createdAt` are backfilled and ready on that exact deployment.
+3. Inventory legacy handoff events for duplicate inbound-intent IDs and record the deterministic
+   newest-event rule before reader cutover.
+4. Switch filtered list branches and the legacy handoff fallback to the ready indexes, then run
+   sparse-match pagination and duplicate-event fixtures against that deployment.
+
+New intents store their direct handoff event ID, so conversion does not scan the event table. Rows
+created before that field was introduced retain the bounded compatibility lookup until the direct
+index cutover. Production activation is a separate later decision; local schema serialization is
+not target readiness proof.
+
 ## Outstanding invoice rollout
 
 Treat schema/index installation, reconciliation, and reader cutover as distinct evidence gates for

@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "0600b9503bc9d3179005fd6190a39575b37fad5153cac51e389c80b84c23cadc";
+const EXPECTED_CAPABILITY_HASH = "149b9fa35818ff70c8b1c16cb9c945186f783e0848cee5bd957358c3bd319190";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -367,6 +367,22 @@ describe("Convex capability inventory", () => {
     });
     expect(approvalsSource).not.toContain("pendingCount");
     expect(exportSurface).not.toContain("crm_approvals.pendingCount");
+  });
+
+  test("exposes bounded inbound dismissal without the unrelated-query conversion escape hatch", () => {
+    const capabilities = discoverCapabilities();
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "crm/inboundQueryIntents",
+      name: "dismiss",
+    });
+    expect(capabilities).not.toContainEqual(
+      expect.objectContaining({
+        module: "crm/inboundQueryIntents",
+        name: "markConverted",
+      })
+    );
   });
 
   test("classifies the reviewed customer and repair capabilities explicitly", () => {

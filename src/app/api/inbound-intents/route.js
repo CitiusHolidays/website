@@ -27,7 +27,7 @@ const MAX_PAX_COUNT = 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOBILE_PATTERN = /^[+()\d][\d\s().-]{5,49}$/;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const ALLOWED_SOURCES = new Set(["Citius Concierge", "Sacred Bharat"]);
+const ALLOWED_SOURCES = new Set(["Citius Concierge", "Sacred Bharat", "Website"]);
 
 function jsonResponse(payload, status, headers = {}) {
   return new Response(JSON.stringify(payload), {

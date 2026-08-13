@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, mock, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act } from "react";
 
@@ -9,6 +9,8 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   pretendToBeVisual: true,
   url: "https://citiusholidays.com/contact?intent=pilgrimage-callback",
 });
+const originalFetch = globalThis.fetch;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 beforeAll(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -20,11 +22,27 @@ beforeAll(async () => {
   globalThis.FocusEvent = dom.window.FocusEvent;
   globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  dom.window.HTMLElement.prototype.attachEvent = () => undefined;
+  dom.window.HTMLElement.prototype.detachEvent = () => undefined;
   ({ createRoot } = await import("react-dom/client"));
   ({ default: ModernContactForm } = await import("./ModernContactForm"));
 });
 
 afterAll(() => dom.window.close());
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+  document.body.replaceChildren();
+});
+
+function setInputValue(input, value) {
+  const prototype =
+    input instanceof dom.window.HTMLTextAreaElement
+      ? dom.window.HTMLTextAreaElement.prototype
+      : dom.window.HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(prototype, "value").set.call(input, value);
+  input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+}
 
 describe("mounted contact intent", () => {
   test("intent values are visible in the existing form and remain editable", async () => {
@@ -93,5 +111,121 @@ describe("mounted contact intent", () => {
     expect(messageLabel.style.transform).toBe("translate3d(-8px, -40px, 0) scale(0.85)");
     await act(async () => root.unmount());
     container.remove();
+  });
+
+  test("focuses and describes the first invalid field and announces one correction summary", async () => {
+    globalThis.fetch = mock(() => Promise.reject(new Error("must not submit invalid form")));
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<ModernContactForm />));
+
+    await act(async () => {
+      container
+        .querySelector("form")
+        .dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const name = container.querySelector('input[name="name"]');
+    expect(document.activeElement).toBe(name);
+    expect(name.getAttribute("aria-invalid")).toBe("true");
+    expect(name.getAttribute("aria-describedby")).toBe("name-error");
+    expect(container.querySelector('[role="status"]').textContent).toBe(
+      "Please correct the highlighted fields."
+    );
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+
+    await act(async () => root.unmount());
+  });
+
+  test("creates one consented Website intent with a stable idempotency key before success", async () => {
+    const calls = [];
+    globalThis.fetch = mock((url, options) => {
+      calls.push({ options, url });
+      return Promise.resolve(Response.json({ accepted: true }, { status: 201 }));
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<ModernContactForm />));
+
+    await act(() => {
+      setInputValue(container.querySelector('input[name="name"]'), "A Traveller");
+      setInputValue(container.querySelector('input[name="email"]'), "traveller@example.com");
+      setInputValue(container.querySelector('input[name="subject"]'), "Kerala journey");
+      setInputValue(container.querySelector('textarea[name="message"]'), "Please contact me.");
+      container.querySelector('input[name="consent"]').click();
+    });
+    await act(async () => {
+      container
+        .querySelector("form")
+        .dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+      container
+        .querySelector("form")
+        .dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe("/api/inbound-intents");
+    const body = JSON.parse(calls[0].options.body);
+    expect(body).toMatchObject({
+      clientName: "A Traveller",
+      consent: true,
+      contactEmail: "traveller@example.com",
+      notes: "Subject: Kerala journey\n\nPlease contact me.",
+      source: "Website",
+    });
+    expect(calls[0].options.headers["Idempotency-Key"]).toMatch(UUID_PATTERN);
+    expect(container.querySelector('[role="status"]').textContent).toContain(
+      "Your enquiry was received"
+    );
+
+    await act(async () => root.unmount());
+  });
+
+  test("preserves the enquiry and retry identity after a recoverable gateway failure", async () => {
+    const calls = [];
+    globalThis.fetch = mock((_url, options) => {
+      calls.push(options);
+      return Promise.resolve(
+        Response.json({ error: "Enquiry service is temporarily unavailable." }, { status: 503 })
+      );
+    });
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<ModernContactForm />));
+
+    await act(() => {
+      setInputValue(container.querySelector('input[name="name"]'), "A Traveller");
+      setInputValue(container.querySelector('input[name="email"]'), "traveller@example.com");
+      setInputValue(container.querySelector('input[name="subject"]'), "Kerala journey");
+      setInputValue(container.querySelector('textarea[name="message"]'), "Please contact me.");
+      container.querySelector('input[name="consent"]').click();
+    });
+    const submit = async () => {
+      await act(async () => {
+        container
+          .querySelector("form")
+          .dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+    };
+    await submit();
+
+    expect(container.querySelector('input[name="name"]').value).toBe("A Traveller");
+    expect(container.querySelector('textarea[name="message"]').value).toBe("Please contact me.");
+    expect(container.querySelector('[role="status"]').textContent).toContain(
+      "temporarily unavailable"
+    );
+    await submit();
+    expect(calls).toHaveLength(2);
+    expect(calls[1].headers["Idempotency-Key"]).toBe(calls[0].headers["Idempotency-Key"]);
+
+    await act(async () => root.unmount());
   });
 });

@@ -10,7 +10,8 @@ A full-stack travel platform for Citius Holidays: public marketing site, staff C
 - Pilgrimage content and spiritual trail pages
 - **Sacred Bharat** (`/sacred-bharat`) — temple check-ins, trails, badges, leaderboard, groups, and AI Journey Planner
 - **Citius Concierge** — on-site AI chatbot (OpenRouter)
-- Contact form with Resend email delivery and Cloudflare Turnstile bot protection
+- Consented Website enquiries with durable Sales triage, tracked Resend delivery to Sales and
+  `info@citius.in`, and Cloudflare Turnstile bot protection
 - Sanity CMS for blog and gallery content
 
 ### Authenticated experiences
@@ -168,6 +169,8 @@ GOOGLE_CLIENT_SECRET=
 # Contact form bot protection
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=
 TURNSTILE_SECRET_KEY=
+INBOUND_INTENT_GATEWAY_SECRET=
+INBOUND_INTENT_RATE_LIMIT_SALT=
 
 # AI chatbot and Sacred Bharat journey planner
 OPENROUTER_API_KEY=

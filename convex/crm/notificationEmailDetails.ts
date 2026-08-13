@@ -132,6 +132,30 @@ async function queryDetails(ctx: QueryCtx, entityId: string): Promise<DetailSect
   return { rows, title: "Query details" };
 }
 
+async function inboundIntentDetails(
+  ctx: QueryCtx,
+  entityId: string
+): Promise<DetailSection | null> {
+  const intentId = ctx.db.normalizeId("inboundQueryIntents", entityId);
+  if (!intentId) {
+    return null;
+  }
+  const intent = await ctx.db.get("inboundQueryIntents", intentId);
+  if (!intent) {
+    return null;
+  }
+  const rows: DetailRow[] = [];
+  addRow(rows, "Name", intent.clientName);
+  addRow(rows, "Email", intent.contactEmail);
+  addRow(rows, "Phone", intent.contactMobile);
+  addRow(rows, "Destination", intent.destination);
+  addRow(rows, "Pax", intent.paxCount);
+  addRow(rows, "Travel date", formatDate(intent.travelStartDate));
+  addRow(rows, "Source", intent.source);
+  addRow(rows, "Notes", intent.notes);
+  return { rows, title: "Inbound enquiry details" };
+}
+
 async function proposalDetails(ctx: QueryCtx, entityId: string): Promise<DetailSection | null> {
   const proposalId = ctx.db.normalizeId("proposals", entityId);
   if (!proposalId) {
@@ -574,6 +598,8 @@ export const getNotificationEmailDetails = internalQuery({
     switch (args.entityType) {
       case "query":
         return await queryDetails(ctx, args.entityId);
+      case "inboundQueryIntent":
+        return await inboundIntentDetails(ctx, args.entityId);
       case "proposal":
         return await proposalDetails(ctx, args.entityId);
       case "jobCard":
