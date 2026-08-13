@@ -87,6 +87,6 @@ describe("spreadsheet import contracts", () => {
     expect(imports).not.toContain("jobCardId: v.string()");
     expect(imports).not.toContain("jobCardId: v.optional(v.string())");
     expect(actions).not.toContain("jobCardId: v.string()");
-    expect(actions.match(/jobCardId: v\.id\("jobCards"\)/g)).toHaveLength(3);
+    expect(actions.match(/jobCardId: v\.id\("jobCards"\)/g)).toHaveLength(4);
   });
 });

@@ -19,7 +19,8 @@ function makeBookingsCtx(initialTables: Tables) {
 
   const ctx = {
     db: {
-      get: (id: string) => {
+      get: (tableOrId: string, maybeId?: string) => {
+        const id = maybeId ?? tableOrId;
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {

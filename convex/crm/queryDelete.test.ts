@@ -1,11 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { remove } from "./queries";
 
-type Row = { _id: string; [key: string]: unknown };
+interface Row {
+  _id: string;
+  [key: string]: unknown;
+}
 type Tables = Record<string, Row[]>;
-type QueryRemoveHandler = {
+interface QueryRemoveHandler {
   _handler: (ctx: unknown, args: { queryId: string }) => Promise<unknown>;
-};
+}
 
 const removeQuery = remove as never as QueryRemoveHandler;
 
@@ -23,7 +26,8 @@ function makeDeleteCtx(initialTables: Tables) {
       }),
     },
     db: {
-      delete: async (id: string) => {
+      delete: (tableOrId: string, maybeId?: string) => {
+        const id = maybeId ?? tableOrId;
         for (const [tableName, rows] of Object.entries(tables)) {
           const nextRows = rows.filter((row) => row._id !== id);
           if (nextRows.length !== rows.length) {
@@ -32,7 +36,8 @@ function makeDeleteCtx(initialTables: Tables) {
           }
         }
       },
-      get: async (id: string) => {
+      get: (tableOrId: string, maybeId?: string) => {
+        const id = maybeId ?? tableOrId;
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -41,7 +46,7 @@ function makeDeleteCtx(initialTables: Tables) {
         }
         return null;
       },
-      insert: async (tableName: string, doc: Record<string, unknown>) => {
+      insert: (tableName: string, doc: Record<string, unknown>) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };
         tables[tableName] = [...(tables[tableName] ?? []), row];
@@ -75,7 +80,7 @@ function makeDeleteCtx(initialTables: Tables) {
     },
     runMutation: async () => ({ storageIds: [] }),
     storage: {
-      delete: async () => {},
+      delete: () => Promise.resolve(),
     },
   };
 

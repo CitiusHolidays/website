@@ -131,7 +131,7 @@ function InteractiveNotificationItem({
   const handleClick = () => onNotificationClick(item);
   return (
     <Button
-      className="cursor-pointer rounded-md border border-brand-border bg-brand-light p-3 transition hover:bg-white"
+      className="cursor-pointer rounded-md border border-brand-border bg-brand-light p-3 transition-colors hover:bg-white"
       nativeButton={false}
       onClick={handleClick}
       render={<div />}

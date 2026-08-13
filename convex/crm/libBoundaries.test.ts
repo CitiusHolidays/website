@@ -222,7 +222,11 @@ describe("notification boundary parity", () => {
   });
 
   test("notifyStaffMember targets staff id for bell when auth relinks", async () => {
-    const tables: Record<string, unknown[]> = { notifications: [], staffUsers: [] };
+    const tables: Record<string, unknown[]> = {
+      notifications: [],
+      notificationTargetCounts: [],
+      staffUsers: [],
+    };
     const scheduled: unknown[] = [];
     const staffId = "staff_a" as Id<"staffUsers">;
     tables.staffUsers = [
@@ -238,15 +242,38 @@ describe("notification boundary parity", () => {
       db: {
         get: async (id: Id<"staffUsers">) =>
           tables.staffUsers.find((row) => (row as { _id: string })._id === id) ?? null,
-        insert: async (table: string, doc: Record<string, unknown>) => {
+        insert: (table: string, doc: Record<string, unknown>) => {
           const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
           tables[table].push(row);
           return row._id;
         },
-        query: (table: string) => ({ collect: async () => tables[table] ?? [] }),
+        query: (table: string) => {
+          let rows = tables[table] ?? [];
+          const builder = {
+            collect: async () => rows,
+            unique: async () => rows[0] ?? null,
+            withIndex: (_index: string, callback: (range: unknown) => unknown) => {
+              const filters: { field: string; value: unknown }[] = [];
+              const range = {
+                eq: (field: string, value: unknown) => {
+                  filters.push({ field, value });
+                  return range;
+                },
+              };
+              callback(range);
+              rows = rows.filter((row) =>
+                filters.every(
+                  ({ field, value }) => (row as Record<string, unknown>)[field] === value
+                )
+              );
+              return builder;
+            },
+          };
+          return builder;
+        },
       },
       scheduler: {
-        runAfter: async (_delay: number, _fn: unknown, args: unknown) => {
+        runAfter: (_delay: number, _fn: unknown, args: unknown) => {
           scheduled.push(args);
         },
       },
@@ -266,7 +293,11 @@ describe("notification boundary parity", () => {
   });
 
   test("notifyStaffMember keeps additional email roles compatible with role-default delivery", async () => {
-    const tables: Record<string, unknown[]> = { notifications: [], staffUsers: [] };
+    const tables: Record<string, unknown[]> = {
+      notifications: [],
+      notificationTargetCounts: [],
+      staffUsers: [],
+    };
     const scheduled: unknown[] = [];
     const staffId = "staff_email_opt_in" as Id<"staffUsers">;
     tables.staffUsers = [
@@ -283,15 +314,38 @@ describe("notification boundary parity", () => {
       db: {
         get: async (id: Id<"staffUsers">) =>
           tables.staffUsers.find((row) => (row as { _id: string })._id === id) ?? null,
-        insert: async (table: string, doc: Record<string, unknown>) => {
+        insert: (table: string, doc: Record<string, unknown>) => {
           const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
           tables[table].push(row);
           return row._id;
         },
-        query: (table: string) => ({ collect: async () => tables[table] ?? [] }),
+        query: (table: string) => {
+          let rows = tables[table] ?? [];
+          const builder = {
+            collect: async () => rows,
+            unique: async () => rows[0] ?? null,
+            withIndex: (_index: string, callback: (range: unknown) => unknown) => {
+              const filters: { field: string; value: unknown }[] = [];
+              const range = {
+                eq: (field: string, value: unknown) => {
+                  filters.push({ field, value });
+                  return range;
+                },
+              };
+              callback(range);
+              rows = rows.filter((row) =>
+                filters.every(
+                  ({ field, value }) => (row as Record<string, unknown>)[field] === value
+                )
+              );
+              return builder;
+            },
+          };
+          return builder;
+        },
       },
       scheduler: {
-        runAfter: async (_delay: number, _fn: unknown, args: unknown) => {
+        runAfter: (_delay: number, _fn: unknown, args: unknown) => {
           scheduled.push(args);
         },
       },

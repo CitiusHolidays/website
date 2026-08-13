@@ -1,13 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { updateTicket, updateTicketStatus } from "./ticketing";
 
-type Row = { _id: string; [key: string]: unknown };
+interface Row {
+  _id: string;
+  [key: string]: unknown;
+}
 
 function makeCtx() {
   const tables: Record<string, Row[]> = {
     activityLogs: [],
     jobCards: [{ _id: "job_1", jobCode: "JC-0001-NS" }],
     notifications: [],
+    notificationTargetCounts: [],
     pnrs: [
       { _id: "pnr_1", issuedSeats: 0, jobCardId: "job_1" },
       { _id: "pnr_2", issuedSeats: 0, jobCardId: "job_1" },
@@ -43,6 +47,7 @@ function makeCtx() {
     const builder = {
       collect: async () => rows,
       take: async (limit: number) => rows.slice(0, limit),
+      unique: async () => rows[0] ?? null,
       withIndex: (_name: string, callback: (q: unknown) => unknown) => {
         const filters: Array<{ field: string; value: unknown }> = [];
         const q = {

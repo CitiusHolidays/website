@@ -8,7 +8,10 @@ import { deleteJobCardCascade } from "../../../convex/crm/lib";
 import { deleteNotificationPage } from "../../../convex/crm/notificationCleanup";
 import { continueTravellerCleanup } from "../../../convex/crm/travellers";
 
-type Row = { _id: string; [key: string]: unknown };
+interface Row {
+  _id: string;
+  [key: string]: unknown;
+}
 type Tables = Record<string, Row[]>;
 
 function makeCtx(initialTables: Tables) {
@@ -22,7 +25,7 @@ function makeCtx(initialTables: Tables) {
   const recordWorkerConcurrency = () => {
     maxRunningTravellerWorkers = Math.max(
       maxRunningTravellerWorkers,
-      (tables.jobCardDeletionWorkers ?? []).filter(
+      ((tables as Partial<Tables>).jobCardDeletionWorkers ?? []).filter(
         (worker) => worker.kind === "traveller" && worker.status === "running"
       ).length
     );
@@ -30,12 +33,14 @@ function makeCtx(initialTables: Tables) {
 
   const ctx = {
     db: {
-      delete: async (id: string) => {
+      delete: (tableOrId: string, maybeId?: string) => {
+        const id = maybeId ?? tableOrId;
         for (const [table, rows] of Object.entries(tables)) {
           tables[table] = rows.filter((row) => row._id !== id);
         }
       },
-      get: async (id: string) => {
+      get: (tableOrId: string, maybeId?: string) => {
+        const id = maybeId ?? tableOrId;
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -44,7 +49,7 @@ function makeCtx(initialTables: Tables) {
         }
         return null;
       },
-      insert: async (tableName: string, value: Record<string, unknown>) => {
+      insert: (tableName: string, value: Record<string, unknown>) => {
         insertedId += 1;
         const id = `${tableName}_${insertedId}`;
         tables[tableName] = [...(tables[tableName] ?? []), { _id: id, ...value }];
@@ -52,7 +57,13 @@ function makeCtx(initialTables: Tables) {
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: async (id: string, value: Record<string, unknown>) => {
+      patch: (
+        tableOrId: string,
+        idOrValue: string | Record<string, unknown>,
+        maybeValue?: Record<string, unknown>
+      ) => {
+        const id = maybeValue ? (idOrValue as string) : tableOrId;
+        const value = maybeValue ?? (idOrValue as Record<string, unknown>);
         for (const [table, rows] of Object.entries(tables)) {
           tables[table] = rows.map((row) => (row._id === id ? { ...row, ...value } : row));
         }
@@ -69,12 +80,12 @@ function makeCtx(initialTables: Tables) {
             }
             return query;
           },
-          take: async (count: number) => {
+          take: (count: number) => {
             takeCalls.push({ count, tableName });
             return rows.slice(0, count);
           },
           withIndex(_indexName: string, callback: (q: unknown) => unknown) {
-            const filters: Array<{ field: string; value: unknown }> = [];
+            const filters: { field: string; value: unknown }[] = [];
             const q = {
               eq(field: string, value: unknown) {
                 filters.push({ field, value });
@@ -139,7 +150,7 @@ function makeCtx(initialTables: Tables) {
       },
     },
     storage: {
-      delete: async (storageId: string) => {
+      delete: (storageId: string) => {
         deletedStorageIds.push(storageId);
       },
     },

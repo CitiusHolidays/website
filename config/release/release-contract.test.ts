@@ -32,6 +32,7 @@ const atomicReplacements = JSON.parse(
 ) as AtomicReplacementManifest;
 const SOURCE_EXTENSIONS = new Set([".cjs", ".js", ".jsx", ".mjs", ".ts", ".tsx"]);
 const RELEASE_ONLY_KEYS = new Set(["CONVEX_DEPLOY_KEY", "CONVEX_DEPLOYMENT"]);
+const DYNAMIC_SOURCE_ENV_KEYS = new Set(["BETTER_AUTH_URL", "SITE_URL"]);
 const ENV_KEY_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const ENV_ENTRY_PATTERN = /^([A-Z][A-Z0-9_]*)=(.*)$/;
 const ENV_REFERENCE_PATTERN = /\b(?:process\.env|env)\.([A-Z][A-Z0-9_]*)\b/g;
@@ -81,7 +82,9 @@ describe("environment contract", () => {
       expect(scope.length).toBeGreaterThan(0);
     }
 
-    expect(manifestKeys()).toEqual(new Set([...sourceEnvironmentKeys(), ...RELEASE_ONLY_KEYS]));
+    expect(manifestKeys()).toEqual(
+      new Set([...sourceEnvironmentKeys(), ...DYNAMIC_SOURCE_ENV_KEYS, ...RELEASE_ONLY_KEYS])
+    );
   });
 
   test("keeps the checked-in example key-only and in parity with the manifest", () => {

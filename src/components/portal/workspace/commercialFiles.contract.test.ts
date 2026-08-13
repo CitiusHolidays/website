@@ -32,9 +32,9 @@ describe("Commercial Files in-flow access contract", () => {
     const source = read(REGISTRY_FILE);
 
     expect(source).toContain("export const purgeExpired = internalMutation");
-    expect(source).toContain("leaving it for retry");
-    expect(source).toContain("commercial_files_purged");
-    expect(source).toContain("files: purgedRows.map");
+    expect(source).toContain('failureCode: "storage_delete_failed"');
+    expect(source).toContain('action: "commercial_file_purge_page"');
+    expect(source).toContain("purgedFiles: args.purgedFileRows.map");
   });
 
   test("exposes the same Files entry point from every required table", () => {
