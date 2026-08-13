@@ -28,7 +28,7 @@ export function AccountSettingsPanel() {
           action={
             <Button
               aria-label="Two-step verification. Planned"
-              className="inline-block min-h-0 cursor-not-allowed font-medium text-[var(--account-muted)] text-sm disabled:opacity-100"
+              className="inline-flex min-h-11 cursor-not-allowed items-center font-medium text-[var(--account-muted)] text-sm disabled:opacity-100"
               disabled
               surface="account"
               type="button"

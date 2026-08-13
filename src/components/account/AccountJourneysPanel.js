@@ -29,7 +29,7 @@ function JourneyDetail({ booking, onBack }) {
       variants={ACCOUNT_CONTAINER_VARIANTS}
     >
       <Button
-        className="inline-flex min-h-0 items-center gap-2 font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.12em] hover:text-[var(--account-ink)]"
+        className="inline-flex min-h-11 items-center gap-2 font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.12em] hover:text-[var(--account-ink)]"
         onClick={onBack}
         surface="account"
         type="button"
@@ -80,7 +80,7 @@ function JourneyDetailPending({ error, onBack }) {
   return (
     <div className="account-card rounded-2xl p-6 sm:p-8">
       <Button
-        className="inline-flex min-h-0 items-center gap-2 font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.12em] hover:text-[var(--account-ink)]"
+        className="inline-flex min-h-11 items-center gap-2 font-semibold text-[var(--account-muted)] text-xs uppercase tracking-[0.12em] hover:text-[var(--account-ink)]"
         onClick={onBack}
         surface="account"
         type="button"
@@ -342,18 +342,15 @@ export function AccountJourneysPanel({
     },
     [loadJourneyDetail, referenceNow]
   );
-  const openFirstBooking = useCallback(() => {
+  const openFirstBooking = () => {
     openBooking(upcomingBookings[0]?.booking.id);
-  }, [openBooking, upcomingBookings]);
-  const openBookingFromEvent = useCallback(
-    (event) => {
-      const { bookingId } = event.currentTarget.dataset;
-      if (bookingId) {
-        openBooking(bookingId);
-      }
-    },
-    [openBooking]
-  );
+  };
+  const openBookingFromEvent = (event) => {
+    const { bookingId } = event.currentTarget.dataset;
+    if (bookingId) {
+      openBooking(bookingId);
+    }
+  };
 
   let content = (
     <JourneyOverview

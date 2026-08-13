@@ -27,42 +27,39 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
   const [isOpen, setIsOpen] = useState(false);
   const initials = (user?.name || user?.email || "T").slice(0, 1).toUpperCase();
   const closeMenu = useCallback(() => setIsOpen(false), []);
-  const renderTrigger = useCallback(
-    (props) => (
-      <Button
-        {...props}
-        aria-label={props["aria-expanded"] ? "Close account menu" : "Open account menu"}
-        className={`flex min-h-0 items-center gap-2 rounded-full ${compact ? "p-0.5" : "border border-[var(--account-border)] bg-[var(--account-surface)] px-2 py-1.5"}`}
-        surface="account"
-        type="button"
-      >
-        {user?.image ? (
-          <Image
-            alt={`${user.name || "Account"} profile photo`}
-            className="size-8 rounded-full object-cover"
-            height={32}
-            src={user.image}
-            width={32}
-          />
-        ) : (
-          <span className="flex size-8 items-center justify-center rounded-full bg-[var(--account-night)] font-medium text-sm text-white">
-            {initials}
-          </span>
-        )}
-        {!compact && (
-          <span className="hidden max-w-36 truncate text-[var(--account-ink)] text-xs sm:block">
-            {user?.name || user?.email || "Account"}
-          </span>
-        )}
-        <ChevronDown
-          aria-hidden="true"
-          className="text-[var(--account-muted)]"
-          size={14}
-          strokeWidth={1.6}
+  const renderTrigger = (props) => (
+    <Button
+      {...props}
+      aria-label={props["aria-expanded"] ? "Close account menu" : "Open account menu"}
+      className={`flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full ${compact ? "p-1.5" : "border border-[var(--account-border)] bg-[var(--account-surface)] px-2 py-1.5"}`}
+      surface="account"
+      type="button"
+    >
+      {user?.image ? (
+        <Image
+          alt={`${user.name || "Account"} profile photo`}
+          className="size-8 rounded-full object-cover"
+          height={32}
+          src={user.image}
+          width={32}
         />
-      </Button>
-    ),
-    [compact, initials, user]
+      ) : (
+        <span className="flex size-8 items-center justify-center rounded-full bg-[var(--account-night)] font-medium text-sm text-white">
+          {initials}
+        </span>
+      )}
+      {!compact && (
+        <span className="hidden max-w-36 truncate text-[var(--account-ink)] text-xs sm:block">
+          {user?.name || user?.email || "Account"}
+        </span>
+      )}
+      <ChevronDown
+        aria-hidden="true"
+        className="text-[var(--account-muted)]"
+        size={14}
+        strokeWidth={1.6}
+      />
+    </Button>
   );
 
   return (
@@ -87,7 +84,7 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
       trigger={renderTrigger}
     >
       <Link
-        className="account-focus mt-2 flex items-center gap-2 rounded-lg px-2 py-2 text-[var(--account-ink)] text-xs hover:bg-[var(--account-paper)]"
+        className="account-focus mt-2 flex min-h-11 items-center gap-2 rounded-lg px-2 py-2 text-[var(--account-ink)] text-xs hover:bg-[var(--account-paper)]"
         href="/"
         onClick={closeMenu}
         role="menuitem"
@@ -101,7 +98,7 @@ export function AccountControl({ user, onLogout, isLoggingOut, compact = false }
         label={isLoggingOut ? "Signing out…" : "Sign out"}
       >
         <Button
-          className="flex min-h-0 w-full items-center justify-start gap-2 rounded-lg px-2 py-2 text-left text-[var(--account-ink)] text-xs hover:bg-[var(--account-paper)] disabled:opacity-100"
+          className="flex min-h-11 w-full items-center justify-start gap-2 rounded-lg px-2 py-2 text-left text-[var(--account-ink)] text-xs hover:bg-[var(--account-paper)] disabled:opacity-100"
           loading={isLoggingOut}
           onClick={onLogout}
           role="menuitem"

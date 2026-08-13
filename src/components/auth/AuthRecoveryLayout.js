@@ -2,9 +2,27 @@
 
 import { Compass, Map as MapIcon, Shield, Sparkles } from "lucide-react";
 import { m } from "motion/react";
+import { AuthFeatureList } from "./AuthFeatureList";
 
 const BRAND_NAME = "Citius Holidays";
 const CURRENT_YEAR = new Date().getFullYear();
+const RECOVERY_FEATURES = [
+  {
+    description: "Your account stays protected with encrypted sign-in and verified recovery links.",
+    icon: Shield,
+    title: "Secure access",
+  },
+  {
+    description: `Pilgrimages and bespoke travel, crafted by the ${BRAND_NAME} team you already trust.`,
+    icon: Sparkles,
+    title: "Curated journeys",
+  },
+  {
+    description: "Questions about your trip or account? Our team is only a message away.",
+    icon: MapIcon,
+    title: "Account and trip help",
+  },
+];
 
 export default function AuthRecoveryLayout({
   panelHeading,
@@ -28,7 +46,7 @@ export default function AuthRecoveryLayout({
             className="absolute inset-0 bg-[url('/gallery/bgmice.webp')] bg-center bg-cover opacity-[0.18] mix-blend-overlay"
           />
           <div className="absolute bottom-[-20%] left-[-20%] size-[800px] rounded-full bg-[#1e293b] opacity-10 blur-3xl" />
-          <div className="absolute top-[20%] right-[-10%] size-[400px] rounded-full bg-[#d4af37] opacity-5 blur-[100px]" />
+          <div className="absolute top-[20%] right-[-10%] size-[400px] rounded-full bg-auth-accent-on-dark opacity-5 blur-[100px]" />
           <m.div
             aria-hidden
             className="absolute inset-0 bg-[url('/noise.svg')] opacity-[0.03] mix-blend-overlay"
@@ -42,8 +60,8 @@ export default function AuthRecoveryLayout({
             transition={{ delay: 0.35 }}
           >
             <div className="mb-2 flex items-center gap-3">
-              <Compass className="size-6 text-[#d4af37]" />
-              <span className="text-[#d4af37] text-sm uppercase tracking-[0.2em]">
+              <Compass className="size-6 text-auth-accent-on-dark" />
+              <span className="text-auth-accent-on-dark text-sm uppercase tracking-[0.2em]">
                 {BRAND_NAME}
               </span>
             </div>
@@ -51,7 +69,7 @@ export default function AuthRecoveryLayout({
               {panelHeading}
             </h1>
             {panelSubtext ? (
-              <p className="mt-5 max-w-md font-light text-brand-muted-on-dark text-sm leading-relaxed">
+              <p className="mt-5 max-w-md font-normal text-brand-muted-on-dark text-sm leading-relaxed">
                 {panelSubtext}
               </p>
             ) : null}
@@ -59,55 +77,16 @@ export default function AuthRecoveryLayout({
 
           <m.div
             animate={{ opacity: 1 }}
-            className="my-10 space-y-6"
+            className="my-10"
             initial={{ opacity: 0 }}
             transition={{ delay: 0.55 }}
           >
-            <div className="material-decorative-glass flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-              <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">
-                <Shield className="size-5" />
-              </div>
-              <div>
-                <h3 className="mb-1 font-heading font-medium text-lg text-white">Secure access</h3>
-                <p className="font-light text-brand-muted-on-dark text-sm leading-relaxed">
-                  Your account stays protected with encrypted sign-in and verified recovery links.
-                </p>
-              </div>
-            </div>
-
-            <div className="material-decorative-glass flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-              <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">
-                <Sparkles className="size-5" />
-              </div>
-              <div>
-                <h3 className="mb-1 font-heading font-medium text-lg text-white">
-                  Curated journeys
-                </h3>
-                <p className="font-light text-brand-muted-on-dark text-sm leading-relaxed">
-                  Pilgrimages and bespoke travel, crafted by the {BRAND_NAME} team you already
-                  trust.
-                </p>
-              </div>
-            </div>
-
-            <div className="material-decorative-glass flex items-start gap-4 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-              <div className="rounded-lg bg-[#d4af37]/20 p-2 text-[#d4af37]">
-                <MapIcon className="size-5" />
-              </div>
-              <div>
-                <h3 className="mb-1 font-heading font-medium text-lg text-white">
-                  Seamless support
-                </h3>
-                <p className="font-light text-brand-muted-on-dark text-sm leading-relaxed">
-                  Questions about your trip or account? Our team is only a message away.
-                </p>
-              </div>
-            </div>
+            <AuthFeatureList items={RECOVERY_FEATURES} />
           </m.div>
 
           <m.p
             animate={{ opacity: 1 }}
-            className="font-light text-brand-muted-on-dark text-xs"
+            className="font-normal text-brand-muted-on-dark text-xs"
             initial={{ opacity: 0 }}
             transition={{ delay: 0.75 }}
           >
@@ -133,7 +112,7 @@ export default function AuthRecoveryLayout({
           <div className="mb-8">
             <h2 className="mb-3 font-heading text-4xl text-[#0B1026] md:text-5xl">{formTitle}</h2>
             {formDescription ? (
-              <p className="font-light text-[#0B1026]/60 text-lg">{formDescription}</p>
+              <p className="font-normal text-[#0B1026]/70 text-lg">{formDescription}</p>
             ) : null}
           </div>
 

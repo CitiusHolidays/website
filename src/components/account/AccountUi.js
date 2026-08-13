@@ -63,7 +63,7 @@ export function AccountMark({ compact = false }) {
   return (
     <Link
       aria-label="Back to Citius Holidays home"
-      className={`account-focus inline-flex items-center rounded-sm transition-opacity hover:opacity-80 ${compact ? "p-1" : "py-1"}`}
+      className={`account-focus inline-flex min-h-11 items-center rounded-sm transition-opacity hover:opacity-80 ${compact ? "p-1" : "py-1"}`}
       href="/"
     >
       <Image
@@ -77,7 +77,7 @@ export function AccountMark({ compact = false }) {
 }
 
 export function NavButton({ active, onClick, icon, label, mobile = false, header = false }) {
-  let className = `min-w-16 flex-1 flex-col justify-center gap-1 px-3 py-2 text-[10px] ${
+  let className = `min-h-11 min-w-16 flex-1 flex-col justify-center gap-1 px-3 py-2 text-xs ${
     active ? "text-[var(--account-gold-on-night)]" : "text-white/55"
   }`;
   if (header) {
@@ -95,7 +95,7 @@ export function NavButton({ active, onClick, icon, label, mobile = false, header
   return (
     <Button
       aria-current={active ? "page" : undefined}
-      className={`flex min-h-0 items-center transition-colors ${className}`}
+      className={`flex items-center transition-colors ${className}`}
       onClick={onClick}
       surface="account"
       type="button"
@@ -660,16 +660,20 @@ export function Toggle({ disabled = false, label = "Account notifications" }) {
     <Switch
       aria-label={`${label}: ${isOn ? "On" : "Off"}${disabled ? ". Planned" : ""}`}
       checked={isOn}
-      className={`account-focus h-6 w-11 rounded-full p-1 transition-colors ${toggleClassName}`}
+      className="account-focus grid min-h-11 min-w-11 place-items-center rounded-full"
       disabled={disabled}
       onCheckedChange={handleToggle}
       surface="account"
     >
-      <m.div
-        animate={{ x: isOn ? 20 : 0 }}
-        className="size-4 rounded-full bg-white shadow-sm"
-        layout
-      />
+      <span
+        aria-hidden="true"
+        className={`relative block h-6 w-11 rounded-full p-1 transition-colors ${toggleClassName}`}
+      >
+        <m.span
+          animate={{ transform: isOn ? "translateX(20px)" : "translateX(0)" }}
+          className="block size-4 rounded-full bg-white shadow-sm"
+        />
+      </span>
     </Switch>
   );
 }

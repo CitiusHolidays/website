@@ -188,7 +188,7 @@ export function AccountProfilePanel({ user }) {
           {isEditingProfile ? (
             <div className="flex items-center gap-3">
               <Button
-                className="inline-block min-h-0 rounded-full border border-[var(--account-border)] px-4 py-2 font-medium text-[var(--account-muted)] text-sm transition-colors hover:bg-[var(--account-paper)]"
+                className="inline-flex min-h-11 items-center rounded-full border border-[var(--account-border)] px-4 py-2 font-medium text-[var(--account-muted)] text-sm transition-colors hover:bg-[var(--account-paper)]"
                 onClick={resetProfileForm}
                 surface="account"
                 type="button"
@@ -196,7 +196,7 @@ export function AccountProfilePanel({ user }) {
                 Cancel
               </Button>
               <Button
-                className={`inline-block min-h-0 rounded-full px-4 py-2 font-semibold text-sm transition-colors disabled:opacity-100 ${
+                className={`inline-flex min-h-11 items-center rounded-full px-4 py-2 font-semibold text-sm transition-colors disabled:opacity-100 ${
                   isSavingProfile
                     ? "cursor-not-allowed bg-[var(--account-night)]/60 text-white"
                     : "bg-[var(--account-night)] text-white hover:bg-[var(--account-ink)]"
@@ -211,7 +211,7 @@ export function AccountProfilePanel({ user }) {
             </div>
           ) : (
             <Button
-              className="inline-block min-h-0 rounded-full border border-[var(--account-night)] px-4 py-2 font-semibold text-[var(--account-night)] text-sm transition-colors hover:bg-[var(--account-night)] hover:text-white"
+              className="inline-flex min-h-11 items-center rounded-full border border-[var(--account-night)] px-4 py-2 font-semibold text-[var(--account-night)] text-sm transition-colors hover:bg-[var(--account-night)] hover:text-white"
               onClick={() => {
                 dispatch({
                   patch: { isEditingProfile: true, profileAlert: null },

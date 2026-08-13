@@ -21,7 +21,6 @@ export const AUTH_LOGIN_VARIANTS = {
           title: "Staff Access",
         },
       ],
-      mobileTitle: "Citius Connect",
       signInSubtitle: "Sign in with your staff credentials to access the internal CRM portal.",
       signInTitle: "Welcome to Citius Connect",
       signUpSubtitle: "Staff accounts are provisioned by your administrator.",
@@ -52,8 +51,8 @@ export const AUTH_LOGIN_VARIANTS = {
         },
         {
           description:
-            "Let us handle the details while you focus on the experience. Expert guides, luxury stays, peace of mind.",
-          title: "Seamless Exploration",
+            "Expert guides, considered stays, and trip details coordinated by the Citius team.",
+          title: "Expert trip planning",
         },
         {
           description:
@@ -61,7 +60,6 @@ export const AUTH_LOGIN_VARIANTS = {
           title: "Your Journeys",
         },
       ],
-      mobileTitle: "Welcome",
       signInSubtitle: "Enter your details to access your bookings and travel profile.",
       signInTitle: "Welcome Back",
       signUpSubtitle: "Create an account to book journeys and manage your travel profile.",
@@ -99,7 +97,6 @@ export const AUTH_LOGIN_VARIANTS = {
           title: "Invoices & Payments",
         },
       ],
-      mobileTitle: "Vendor Portal",
       signInSubtitle: "Sign in to manage supplier services, documents, and coordination.",
       signInTitle: "Vendor Sign In",
       signUpSubtitle: "Vendor accounts are provisioned by Citius Holidays.",

@@ -24,6 +24,10 @@
   --color-brand-light: oklch(0.984 0.003 247.858);
   --color-brand-border: oklch(0.929 0.013 255.508);
 
+  /* Auth keeps bright gold on navy and a measured ink role on paper/white. */
+  --color-auth-accent-on-dark: oklch(0.769 0.113 91.059);
+  --color-auth-accent-ink: oklch(0.55 0.101 91.059);
+
   --color-public-paper: oklch(0.989 0.006 84.566);
   --color-public-surface: oklch(1 0 0);
   --color-public-night: oklch(0.182 0.046 271.579);
@@ -298,7 +302,7 @@ body {
 }
 
 .portal-small-btn {
-  min-height: 2rem;
+  min-height: 2.5rem;
   padding: 0 0.85rem;
   font-size: 0.75rem;
   color: var(--color-citius-blue);
@@ -308,7 +312,7 @@ body {
 }
 
 .portal-danger-btn {
-  min-height: 2rem;
+  min-height: 2.5rem;
   padding: 0 0.85rem;
   font-size: 0.75rem;
   color: #b42318;

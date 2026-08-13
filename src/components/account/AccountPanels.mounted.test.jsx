@@ -153,14 +153,18 @@ describe("AccountSettingsPanel", () => {
     const view = await mount(<Toggle label="Trip alerts" />);
     const toggle = view.container.querySelector('[role="switch"]');
     expect(toggle.getAttribute("aria-label")).toBe("Trip alerts: On");
-    expect(toggle.className).toContain("h-6");
-    expect(toggle.className).toContain("w-11");
-    expect(toggle.querySelector("div")?.className).toContain("size-4");
+    expect(toggle.className).toContain("min-h-11");
+    expect(toggle.className).toContain("min-w-11");
+    expect(toggle.querySelector("span")?.className).toContain("h-6");
+    const thumb = [...toggle.querySelectorAll("span")].find((node) =>
+      node.className.includes("size-4")
+    );
+    expect(thumb?.className).toContain("size-4");
 
     await act(async () => toggle.click());
     expect(toggle.getAttribute("aria-label")).toBe("Trip alerts: Off");
     expect(toggle.getAttribute("aria-checked")).toBe("false");
-    expect(toggle.querySelector("div")?.className).toContain("rounded-full");
+    expect(thumb?.className).toContain("rounded-full");
 
     await view.unmount();
   });
