@@ -89,6 +89,7 @@ export const continueEntityCleanup = internalMutation({
     }
     return result;
   },
+  returns: v.object({ deleted: v.number(), hasMore: v.boolean() }),
 });
 
 export const continueEntityGroupCleanup = internalMutation({
@@ -123,4 +124,5 @@ export const continueEntityGroupCleanup = internalMutation({
     }
     return { deleted, remainingEntities: continuations.length };
   },
+  returns: v.object({ deleted: v.number(), remainingEntities: v.number() }),
 });

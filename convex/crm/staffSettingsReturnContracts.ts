@@ -132,6 +132,16 @@ export const staffOnboardingResultValidator = v.object({
   message: v.string(),
   step: v.union(v.literal("verification_sent"), v.literal("password_setup_sent")),
 });
+export const staffOnboardingRecordResultValidator = v.union(
+  v.null(),
+  v.object({
+    authUserId: v.optional(v.string()),
+    email: v.string(),
+    name: v.string(),
+    pendingPasswordSetup: v.boolean(),
+    staffId: v.id("staffUsers"),
+  })
+);
 export const successResultValidator = v.object({ success: v.literal(true) });
 
 const staffImportResultRowValidator = v.object({

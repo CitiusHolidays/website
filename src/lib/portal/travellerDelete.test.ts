@@ -13,33 +13,22 @@ function makeCtx(initialTables: Tables) {
 
   const ctx = {
     db: {
-      delete: async (id: string) => {
-        for (const [table, rows] of Object.entries(tables)) {
-          tables[table] = rows.filter((row) => row._id !== id);
-        }
+      delete: async (tableName: string, id: string) => {
+        tables[tableName] = (tables[tableName] ?? []).filter((row) => row._id !== id);
       },
-      get: async (id: string) => {
-        for (const rows of Object.values(tables)) {
-          const row = rows.find((entry) => entry._id === id);
-          if (row) {
-            return row;
-          }
-        }
-        return null;
-      },
+      get: async (tableName: string, id: string) =>
+        (tables[tableName] ?? []).find((entry) => entry._id === id) ?? null,
       insert: async (tableName: string, doc: Record<string, unknown>) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         tables[tableName] = [...(tables[tableName] ?? []), { _id: id, ...doc }];
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: async (id: string, patch: Record<string, unknown>) => {
-        for (const [table, rows] of Object.entries(tables)) {
-          const index = rows.findIndex((row) => row._id === id);
-          if (index >= 0) {
-            tables[table][index] = { ...rows[index], ...patch };
-            return;
-          }
+      patch: async (tableName: string, id: string, patch: Record<string, unknown>) => {
+        const rows = tables[tableName] ?? [];
+        const index = rows.findIndex((row) => row._id === id);
+        if (index >= 0) {
+          tables[tableName][index] = { ...rows[index], ...patch };
         }
       },
       query(tableName: string) {

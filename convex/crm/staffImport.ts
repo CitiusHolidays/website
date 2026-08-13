@@ -191,6 +191,7 @@ export const bulkImportStaff = internalMutation({
     provisionAuth: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => importStaffRows(ctx, args),
+  returns: staffImportResultValidator,
 });
 
 export const importStaffFromSpreadsheet = mutation({

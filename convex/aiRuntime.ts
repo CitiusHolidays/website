@@ -152,4 +152,5 @@ export const cleanupExpired = internalMutation({
     }
     return { deleted: rateLimits.length + telemetry.length };
   },
+  returns: v.object({ deleted: v.number() }),
 });

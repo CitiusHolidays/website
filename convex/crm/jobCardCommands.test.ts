@@ -178,7 +178,7 @@ describe("Job Card command replay contracts", () => {
     expect(tables.jobCardDeletionOperations).toHaveLength(1);
 
     const { operationId } = initialResult;
-    await ctx.db.patch(operationId, { status: "complete" });
+    await ctx.db.patch("jobCardDeletionOperations", operationId, { status: "complete" });
     const scheduledAfterInitialDelete = scheduled.length;
 
     const replayResult = await (remove as any)._handler(ctx, { jobCardId: "jobCards_1" });

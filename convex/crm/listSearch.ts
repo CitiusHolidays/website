@@ -448,6 +448,13 @@ export const reconcilePage = internalMutation({
     }
     return { changed, isDone: page.isDone, processed: page.page.length };
   },
+  returns: v.object({
+    changed: v.number(),
+    isDone: v.boolean(),
+    processed: v.number(),
+    restarted: v.optional(v.boolean()),
+    stale: v.optional(v.boolean()),
+  }),
 });
 
 export const reconcileAll = internalMutation({
@@ -460,4 +467,5 @@ export const reconcileAll = internalMutation({
     // only stale tables unready until their bounded pass reaches the end.
     return { scheduled: starts.filter((start) => start.scheduled).length };
   },
+  returns: v.object({ scheduled: v.number() }),
 });

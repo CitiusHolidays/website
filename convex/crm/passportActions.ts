@@ -389,4 +389,12 @@ export const backfillPassportExpiryDates = internalAction({
       updated,
     };
   },
+  returns: v.object({
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+    processed: v.number(),
+    scanned: v.number(),
+    skipped: v.number(),
+    updated: v.number(),
+  }),
 });

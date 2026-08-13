@@ -71,7 +71,7 @@ describe("Convex export return inventory", () => {
     }
   });
 
-  test("fails on new internal return gaps and names every existing exception", () => {
+  test("fails on any internal return gap", () => {
     const currentGaps = inventory()
       .filter((entry) => entry.kind.startsWith("internal") && !entry.block.includes("returns:"))
       .map((entry) => entry.id)
@@ -80,7 +80,7 @@ describe("Convex export return inventory", () => {
 
     expect(new Set(baseline).size).toBe(baseline.length);
     expect(currentGaps).toEqual(baseline);
-    expect(currentGaps).toHaveLength(48);
+    expect(currentGaps).toHaveLength(0);
   });
 
   test("validates every wrapped Commercial Files mutation response", () => {

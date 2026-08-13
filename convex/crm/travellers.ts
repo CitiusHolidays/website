@@ -769,6 +769,10 @@ const PRIVATE_TRAVELLER_CLEANUP_STAGES: TravellerCleanupStage[] = [
   "mealPreferences",
 ];
 const CASCADE_DELETE_PAGE_SIZE = 32;
+const travellerCleanupResultValidator = v.object({
+  complete: v.boolean(),
+  deleted: v.number(),
+});
 
 export const continueTravellerCleanup = internalMutation({
   args: {
@@ -825,6 +829,7 @@ export const continueTravellerCleanup = internalMutation({
       throw error;
     }
   },
+  returns: travellerCleanupResultValidator,
 });
 
 export const remove = mutation({

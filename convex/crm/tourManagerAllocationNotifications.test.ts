@@ -92,15 +92,8 @@ function makeTourManagerCtx(initialTables: Tables = {}) {
   const scheduledEmails: any[] = [];
 
   const getRows = (table: string) => tables[table] ?? [];
-  const findById = async (id: string) => {
-    for (const rows of Object.values(tables)) {
-      const row = rows.find((entry) => entry._id === id);
-      if (row) {
-        return row;
-      }
-    }
-    return null;
-  };
+  const findById = async (table: string, id: string) =>
+    getRows(table).find((entry) => entry._id === id) ?? null;
   const queryBuilder = (table: string) => {
     let rows = getRows(table);
     const builder = {

@@ -3,6 +3,10 @@ import { internal } from "../_generated/api";
 import { flushDeferredNotificationCleanup, type NotificationEntityIdentity } from "./lib";
 
 export const pnrCleanupStageValidator = v.union(v.literal("seatAllocations"), v.literal("tickets"));
+export const pnrCleanupResultValidator = v.object({
+  complete: v.boolean(),
+  deleted: v.number(),
+});
 export const PNR_CLEANUP_PAGE_SIZE = 32;
 
 export async function handleContinuePnrCleanup(

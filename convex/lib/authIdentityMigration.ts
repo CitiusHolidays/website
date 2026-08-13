@@ -154,6 +154,7 @@ export const AUTH_IDENTITY_FIELD_SPECS = [
   },
   { fields: ["createdBy"], indexes: [], table: "seatAllocations" },
   { fields: ["createdBy"], indexes: [], table: "staffLeaveLedger" },
+  { fields: ["initiatedBy"], indexes: [], table: "staffLeaveLapseRuns" },
   {
     fields: ["createdBy", "finalReviewedBy", "headReviewedBy", "hrReviewedBy"],
     indexes: [],

@@ -192,7 +192,10 @@ describe("durable E2E run ownership", () => {
         .withIndex("by_runId", (q) => q.eq("runId", RUN_ID))
         .unique();
       expect(run).toMatchObject({ mutatedCount: 1, ownedCount: 2 });
-      const expense = (await ctx.db.get(persistedExpenseId)) as Doc<"expenseEntries"> | null;
+      const expense = (await ctx.db.get(
+        "expenseEntries",
+        persistedExpenseId
+      )) as Doc<"expenseEntries"> | null;
       expect(expense?.category).toBe("Second patch");
     });
 
@@ -209,7 +212,10 @@ describe("durable E2E run ownership", () => {
       });
     }
     await t.run(async (ctx) => {
-      const expense = (await ctx.db.get(persistedExpenseId)) as Doc<"expenseEntries"> | null;
+      const expense = (await ctx.db.get(
+        "expenseEntries",
+        persistedExpenseId
+      )) as Doc<"expenseEntries"> | null;
       expect(expense?.category).toBe("Original");
       expect(await ctx.db.query("activityLogs").collect()).toEqual([]);
       expect(await ctx.db.query("e2eMutatedRecords").collect()).toEqual([]);
@@ -248,7 +254,7 @@ describe("durable E2E run ownership", () => {
       paidBy: "E2E actor",
     });
     await t.run(async (ctx) => {
-      await ctx.db.delete(expenseId);
+      await ctx.db.delete("expenseEntries", expenseId);
     });
 
     const result = await t.mutation(cleanupPage, {

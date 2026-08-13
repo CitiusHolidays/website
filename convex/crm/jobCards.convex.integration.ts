@@ -160,7 +160,7 @@ describe("registered Job Card mutation boundary", () => {
 
     expect(result).toEqual({ id: jobCardId });
     await t.run(async (ctx) => {
-      expect((await ctx.db.get(jobCardId))?.clientName).toBe("Updated client");
+      expect((await ctx.db.get("jobCards", jobCardId))?.clientName).toBe("Updated client");
       const activity = await ctx.db.query("activityLogs").collect();
       expect(activity).toHaveLength(1);
       expect(activity[0]).toMatchObject({
@@ -192,7 +192,7 @@ describe("registered Job Card mutation boundary", () => {
       subject: ACTOR,
       tokenIdentifier: `https://auth.citius.test|${ACTOR}`,
     });
-    await t.run(async (ctx) => ctx.db.delete(jobCardId));
+    await t.run(async (ctx) => ctx.db.delete("jobCards", jobCardId));
 
     await expect(
       asDirector.mutation(api.crm.jobCards.update, {
@@ -230,14 +230,14 @@ describe("registered Job Card mutation boundary", () => {
     await t.finishAllScheduledFunctions(() => vi.runAllTimers());
 
     await t.run(async (ctx) => {
-      expect(await ctx.db.get(fixture.jobCardId)).toBeNull();
-      expect(await ctx.db.get(fixture.travellerId)).toBeNull();
-      expect(await ctx.db.get(fixture.expenseId)).toBeNull();
-      expect(await ctx.db.get(fixture.approvalId)).toBeNull();
-      expect(await ctx.db.get(fixture.notificationId)).toBeNull();
+      expect(await ctx.db.get("jobCards", fixture.jobCardId)).toBeNull();
+      expect(await ctx.db.get("travellers", fixture.travellerId)).toBeNull();
+      expect(await ctx.db.get("expenseEntries", fixture.expenseId)).toBeNull();
+      expect(await ctx.db.get("approvalRequests", fixture.approvalId)).toBeNull();
+      expect(await ctx.db.get("notifications", fixture.notificationId)).toBeNull();
       expect(await ctx.db.query("passportDetails").collect()).toEqual([]);
       expect(await ctx.db.query("notificationReads").collect()).toEqual([]);
-      const operation = await ctx.db.get(started.operationId);
+      const operation = await ctx.db.get("jobCardDeletionOperations", started.operationId);
       expect(operation).toMatchObject({
         deletedCount: 2,
         stage: "complete",

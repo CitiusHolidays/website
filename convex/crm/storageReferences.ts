@@ -77,6 +77,7 @@ async function hasStorageReference(ctx: any, storageId: string) {
 export const isStorageReferenced = internalQuery({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => hasStorageReference(ctx, String(args.storageId)),
+  returns: v.boolean(),
 });
 
 /**
@@ -113,4 +114,5 @@ export const deleteIfUnreferenced = internalMutation({
       return { deleted: false };
     }
   },
+  returns: v.object({ deleted: v.boolean() }),
 });

@@ -123,6 +123,10 @@ export const saveExpenseProof = internalMutation({
     }
     return { attachmentId, previousStorageId };
   },
+  returns: v.object({
+    attachmentId: v.id("attachments"),
+    previousStorageId: v.union(v.id("_storage"), v.null()),
+  }),
 });
 
 export const deleteExpenseProof = internalMutation({
@@ -160,4 +164,5 @@ export const deleteExpenseProof = internalMutation({
     }
     return { storageId: row.storageId ?? null };
   },
+  returns: v.object({ storageId: v.union(v.string(), v.null()) }),
 });

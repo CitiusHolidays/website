@@ -64,7 +64,7 @@ describe("registered Proposal attachment summary migration", () => {
       .sort((left, right) => (String(left) > String(right) ? -1 : 1))
       .slice(0, 3);
     await t.run(async (ctx) => {
-      const proposal = await ctx.db.get(fixture.proposalId);
+      const proposal = await ctx.db.get("proposals", fixture.proposalId);
       expect(proposal).toMatchObject({
         attachmentCount: 123,
         attachmentSummaryGeneration: 1,
@@ -103,7 +103,7 @@ describe("registered Proposal attachment summary migration", () => {
         .order("desc")
         .take(1);
       newestId = rows[0]?._id ?? null;
-      const proposal = await ctx.db.get(fixture.proposalId);
+      const proposal = await ctx.db.get("proposals", fixture.proposalId);
       expect(proposal?.attachmentCount).toBe(124);
       expect(proposal?.attachmentPreview?.[0]?.id).toBe(newestId);
     });
@@ -115,7 +115,7 @@ describe("registered Proposal attachment summary migration", () => {
       attachmentId: newestId,
     });
     await t.run(async (ctx) => {
-      const proposal = await ctx.db.get(fixture.proposalId);
+      const proposal = await ctx.db.get("proposals", fixture.proposalId);
       expect(proposal?.attachmentCount).toBe(123);
       expect(proposal?.attachmentPreview?.map((row) => row.id)).toEqual(expectedInitialPreview);
     });
@@ -154,7 +154,9 @@ describe("registered Proposal attachment summary migration", () => {
     await t.finishAllScheduledFunctions(() => vi.runAllTimers());
 
     await t.run(async (ctx) => {
-      const proposals = await Promise.all(proposalIds.map((proposalId) => ctx.db.get(proposalId)));
+      const proposals = await Promise.all(
+        proposalIds.map((proposalId) => ctx.db.get("proposals", proposalId))
+      );
       expect(proposals).toHaveLength(57);
       expect(
         proposals.every(

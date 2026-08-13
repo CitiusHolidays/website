@@ -15,6 +15,7 @@ import {
   flightItineraryListPageResultValidator,
   passengerExportOperationListValidator,
   passengerImportOperationListValidator,
+  passengerImportPreviewResultValidator,
 } from "./importReturnContracts";
 import { exportKindValidator, internalPassengerImportRow } from "./importRowValidators";
 import { purgeExpiredPassengerExportsHandler } from "./passengerExportCleanup";
@@ -58,6 +59,7 @@ export const previewPassengerImportRows = internalQuery({
     rows: v.array(internalPassengerImportRow),
   },
   handler: previewPassengerImportRowsHandler,
+  returns: passengerImportPreviewResultValidator,
 });
 
 export const commitPassengerImportRow = internalMutation({

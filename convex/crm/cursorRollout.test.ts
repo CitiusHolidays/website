@@ -59,7 +59,8 @@ describe("CRM cursor rollout", () => {
       "./financeOverviewReads.ts",
     ]) {
       const source = read(path);
-      expect(source, path).toContain(".paginate(boundedPaginationOptions(");
+      expect(source, path).toContain(".paginate(");
+      expect(source, path).toContain("boundedPaginationOptions(args.paginationOpts)");
       expect(source, path).not.toContain('.query("pnrs").collect()');
       expect(source, path).not.toContain('.query("tickets").collect()');
       expect(source, path).not.toContain('.query("seatAllocations").collect()');

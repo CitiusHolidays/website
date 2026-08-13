@@ -143,6 +143,7 @@ export const resolveQueryId = internalMutation({
     }
     return queryId;
   },
+  returns: v.id("queries"),
 });
 
 export const saveAttachment = internalMutation({
@@ -189,7 +190,9 @@ export const saveAttachment = internalMutation({
         ...(query.attachmentPreview ?? []),
       ].slice(0, 2),
     });
+    return null;
   },
+  returns: v.null(),
 });
 
 export const deleteAttachmentRecord = internalMutation({
@@ -231,6 +234,7 @@ export const deleteAttachmentRecord = internalMutation({
     }
     return { storageId: row.storageId };
   },
+  returns: v.object({ storageId: v.union(v.id("_storage"), v.null()) }),
 });
 
 export const deleteAllForQuery = internalMutation({
@@ -246,4 +250,5 @@ export const deleteAllForQuery = internalMutation({
     await Promise.all(rows.map((row) => ctx.db.delete("queryAttachments", row._id)));
     return { storageIds };
   },
+  returns: v.object({ storageIds: v.array(v.id("_storage")) }),
 });

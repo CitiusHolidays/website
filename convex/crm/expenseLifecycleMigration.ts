@@ -47,4 +47,10 @@ export const repairExpenseLifecycle = internalMutation({
       scanned: page.page.length,
     };
   },
+  returns: v.object({
+    continueCursor: v.string(),
+    inconsistent: v.number(),
+    isDone: v.boolean(),
+    scanned: v.number(),
+  }),
 });

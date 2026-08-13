@@ -115,6 +115,7 @@ export const clearPortalPresetData = mutation({
 export const clearPortalPresetDataInternal = internalMutation({
   args: {},
   handler: async (ctx) => await deletePresetRows(ctx),
+  returns: clearPresetsResultValidator,
 });
 
 export const setDropdownOptionActive = mutation({

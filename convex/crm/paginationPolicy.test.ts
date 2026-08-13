@@ -148,6 +148,7 @@ describe("CRM list pagination policy", () => {
 
     const rows = await loadRowsByIdInBatches<any>(
       ctx,
+      "queries",
       Array.from({ length: 21 }, (_, index) => `query-${index}`),
       21
     );

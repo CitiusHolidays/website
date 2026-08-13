@@ -334,4 +334,5 @@ export const sendNotificationEmail = internalAction({
 
     return delivery;
   },
+  returns: v.object({ sent: v.number(), skipped: v.number() }),
 });

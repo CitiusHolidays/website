@@ -19,7 +19,11 @@ import {
   ticketListRowResultValidator,
 } from "./financeTicketingReturnContracts";
 import { portalDateRangeValidator } from "./lib";
-import { handleContinuePnrCleanup, pnrCleanupStageValidator } from "./pnrCleanup";
+import {
+  handleContinuePnrCleanup,
+  pnrCleanupResultValidator,
+  pnrCleanupStageValidator,
+} from "./pnrCleanup";
 import {
   handleCreatePnr,
   handleRemoveManyPnrs,
@@ -219,6 +223,7 @@ export const continuePnrCleanup = internalMutation({
     stage: pnrCleanupStageValidator,
   },
   handler: handleContinuePnrCleanup,
+  returns: pnrCleanupResultValidator,
 });
 
 export const removePnr = mutation({

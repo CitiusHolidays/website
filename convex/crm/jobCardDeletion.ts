@@ -227,6 +227,7 @@ export const continueApprovalCleanup = internalMutation({
       throw error;
     }
   },
+  returns: v.object({ complete: v.boolean(), deleted: v.number() }),
 });
 
 export const continueTravellerWorkerQueue = internalMutation({
@@ -238,6 +239,7 @@ export const continueTravellerWorkerQueue = internalMutation({
     }
     return { started };
   },
+  returns: v.object({ started: v.boolean() }),
 });
 
 export const continueJobCardCascade = internalMutation({
@@ -331,6 +333,7 @@ export const continueJobCardCascade = internalMutation({
       return { complete: false, deleted: 0 };
     }
   },
+  returns: v.object({ complete: v.boolean(), deleted: v.number() }),
 });
 
 export async function completeJobCardDeletionWorker(

@@ -1024,6 +1024,7 @@ export const createUploadSession = internalMutation({
     });
     return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const claimUploadSession = internalMutation({
@@ -1059,6 +1060,7 @@ export const claimUploadSession = internalMutation({
     });
     return { success: true as const };
   },
+  returns: successResultValidator,
 });
 
 export const createFile = internalMutation({
@@ -1192,6 +1194,7 @@ export const createFile = internalMutation({
     });
     return { id };
   },
+  returns: v.object({ id: v.id("commercialFiles") }),
 });
 
 async function loadMutableFile(ctx: MutationCtx, access: PortalAccess, fileId: string) {
@@ -1588,6 +1591,7 @@ export const markFilesDeletedForSource = internalMutation({
     }
     return { count: touchedFiles.length };
   },
+  returns: v.object({ count: v.number() }),
 });
 
 type CommercialFilePurgeRun = Doc<"commercialFilePurgeRuns">;

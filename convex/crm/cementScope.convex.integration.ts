@@ -86,7 +86,7 @@ describe("registered Cement query scope", () => {
     }
 
     await t.run(async (ctx) => {
-      expect((await ctx.db.get(fixture.queryId))?.destination).toBe("Goa");
+      expect((await ctx.db.get("queries", fixture.queryId))?.destination).toBe("Goa");
       expect(await ctx.db.query("activityLogs").collect()).toEqual([]);
     });
   });

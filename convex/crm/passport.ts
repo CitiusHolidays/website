@@ -146,6 +146,7 @@ export const savePassportMetadata = internalMutation({
 
     return displacedStorageId;
   },
+  returns: v.union(v.id("_storage"), v.null()),
 });
 
 export const savePassportDetailsOnly = internalMutation({
@@ -203,7 +204,9 @@ export const savePassportDetailsOnly = internalMutation({
         updatedAt: now,
       })
     );
+    return null;
   },
+  returns: v.null(),
 });
 
 export const deletePassportMetadata = internalMutation({
@@ -215,7 +218,7 @@ export const deletePassportMetadata = internalMutation({
 
     const travellerIdNormalized = ctx.db.normalizeId("travellers", args.travellerId);
     if (!travellerIdNormalized) {
-      return;
+      return null;
     }
 
     const existing = await ctx.db
@@ -240,6 +243,7 @@ export const deletePassportMetadata = internalMutation({
 
     return existing?.storageId ?? null;
   },
+  returns: v.union(v.id("_storage"), v.null()),
 });
 
 export const listPassportDetailsForBackfill = internalQuery({
@@ -269,6 +273,12 @@ export const listPassportDetailsForBackfill = internalQuery({
       scanned: page.page.length,
     };
   },
+  returns: v.object({
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+    page: v.array(v.object({ encryptedPayload: v.string(), id: v.id("passportDetails") })),
+    scanned: v.number(),
+  }),
 });
 
 export const backfillPassportExpiryDate = internalMutation({
@@ -286,7 +296,9 @@ export const backfillPassportExpiryDate = internalMutation({
     if (passport) {
       await ctx.db.patch("travellers", passport.travellerId, { passportExpiryDate: expiryDate });
     }
+    return null;
   },
+  returns: v.null(),
 });
 
 export const logViewActivity = internalMutation({
@@ -298,11 +310,11 @@ export const logViewActivity = internalMutation({
   handler: async (ctx, args) => {
     const travellerIdNormalized = ctx.db.normalizeId("travellers", args.travellerId);
     if (!travellerIdNormalized) {
-      return;
+      return null;
     }
     const traveller = await ctx.db.get("travellers", travellerIdNormalized);
     if (!traveller) {
-      return;
+      return null;
     }
 
     await ctx.db.insert("activityLogs", {
@@ -314,5 +326,7 @@ export const logViewActivity = internalMutation({
       entityType: "passport",
       message: `Passport scanned document of ${traveller.fullName} viewed by ${args.userName}`,
     });
+    return null;
   },
+  returns: v.null(),
 });

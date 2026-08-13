@@ -27,6 +27,7 @@ import {
   staffDirectoryListPageResultValidator,
   staffIdResultValidator,
   staffListPageResultValidator,
+  staffOnboardingRecordResultValidator,
   staffUpsertResultValidator,
 } from "./staffSettingsReturnContracts";
 
@@ -487,7 +488,7 @@ export const linkAuthUserId = internalMutation({
   handler: async (ctx, args) => {
     const staff = await ctx.db.get("staffUsers", args.staffId);
     if (!staff) {
-      return;
+      return null;
     }
 
     await ctx.db.patch("staffUsers", args.staffId, {
@@ -500,7 +501,9 @@ export const linkAuthUserId = internalMutation({
       email: args.email ?? staff.email,
       name: args.name ?? staff.name,
     });
+    return null;
   },
+  returns: v.null(),
 });
 
 export const getStaffForOnboarding = internalQuery({
@@ -520,6 +523,7 @@ export const getStaffForOnboarding = internalQuery({
       staffId: staff._id,
     };
   },
+  returns: staffOnboardingRecordResultValidator,
 });
 
 export const markPendingOnboarding = internalMutation({
@@ -531,7 +535,9 @@ export const markPendingOnboarding = internalMutation({
       pendingPasswordSetup: true,
       updatedAt: Date.now(),
     });
+    return null;
   },
+  returns: v.null(),
 });
 
 export const getStaffPendingPasswordSetup = internalQuery({
@@ -555,6 +561,7 @@ export const getStaffPendingPasswordSetup = internalQuery({
       staffId: staff._id,
     };
   },
+  returns: staffOnboardingRecordResultValidator,
 });
 
 export const clearPendingPasswordSetup = internalMutation({
@@ -566,5 +573,7 @@ export const clearPendingPasswordSetup = internalMutation({
       pendingPasswordSetup: false,
       updatedAt: Date.now(),
     });
+    return null;
   },
+  returns: v.null(),
 });

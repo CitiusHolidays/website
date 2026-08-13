@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { uniqueTableName } from "./convex-explicit-table-codemod";
-import { runExplicitTableMockCodemod } from "./convex-explicit-table-mock-codemod";
+import {
+  legacyExplicitTableMockRewritesInSource,
+  runExplicitTableMockCodemod,
+} from "./convex-explicit-table-mock-codemod";
 
 describe("Convex explicit-table codemod", () => {
   test("extracts one concrete table from generated Id types", () => {
@@ -19,5 +22,15 @@ describe("Convex explicit-table codemod", () => {
       rewrites: 0,
       write: false,
     });
+  });
+
+  test("finds legacy database mocks delegated to a local helper", () => {
+    const source = `
+      const findById = async (id: string) => rows.get(id);
+      const ctx = { db: { get: findById } };
+    `;
+    expect(legacyExplicitTableMockRewritesInSource(source, "fixture.test.ts")).toEqual([
+      expect.objectContaining({ file: "fixture.test.ts", method: "get" }),
+    ]);
   });
 });

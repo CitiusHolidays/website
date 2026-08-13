@@ -32,6 +32,7 @@ export const syncFromIdentity = internalMutation({
     name: v.optional(v.string()),
   },
   handler: async (ctx, args) => await syncAuthRecords(ctx, args),
+  returns: authSyncResultValidator,
 });
 
 export const syncMyAuthIdentity = mutation({

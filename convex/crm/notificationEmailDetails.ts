@@ -608,4 +608,11 @@ export const getNotificationEmailDetails = internalQuery({
         return null;
     }
   },
+  returns: v.union(
+    v.object({
+      rows: v.array(v.object({ label: v.string(), value: v.string() })),
+      title: v.string(),
+    }),
+    v.null()
+  ),
 });

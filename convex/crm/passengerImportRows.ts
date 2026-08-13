@@ -75,7 +75,7 @@ export async function previewPassengerImportRowsHandler(
   const results = args.rows.map((row) => {
     const match = findTravellerMatchInIndex(matchIndex, row);
     return {
-      action: match ? "update" : "create",
+      action: match ? ("update" as const) : ("create" as const),
       id: row.id,
       travellerId: match?._id ?? null,
       travellerName: match ? match.fullName : "",

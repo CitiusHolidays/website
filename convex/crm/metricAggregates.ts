@@ -514,6 +514,7 @@ export const syncEntity = internalMutation({
     const source = await loadSourceDocument(ctx, args.sourceType, args.sourceId);
     return await syncProjection(ctx, args.sourceType, args.sourceId, source);
   },
+  returns: v.object({ changed: v.boolean(), deleted: v.boolean() }),
 });
 
 export const syncJobInvoicePage = internalMutation({
@@ -539,6 +540,7 @@ export const syncJobInvoicePage = internalMutation({
     }
     return { changed, isDone: page.isDone, processed: page.page.length };
   },
+  returns: v.object({ changed: v.number(), isDone: v.boolean(), processed: v.number() }),
 });
 
 async function loadMetricReadiness(ctx: QueryCtx | MutationCtx) {
@@ -649,6 +651,13 @@ export const reconcileSourcePage = internalMutation({
     }
     return { changed, isDone: page.isDone, processed: page.page.length };
   },
+  returns: v.object({
+    changed: v.number(),
+    isDone: v.boolean(),
+    processed: v.number(),
+    restarted: v.optional(v.boolean()),
+    stale: v.optional(v.boolean()),
+  }),
 });
 
 async function markReconciliationSourceComplete(
@@ -780,11 +789,19 @@ export const sweepProjectionPage = internalMutation({
     }
     return { deleted, isDone: page.isDone, processed: page.page.length };
   },
+  returns: v.object({
+    deleted: v.number(),
+    isDone: v.boolean(),
+    processed: v.number(),
+    restarted: v.optional(v.boolean()),
+    stale: v.optional(v.boolean()),
+  }),
 });
 
 export const reconcileAll = internalMutation({
   args: {},
   handler: async (ctx) => await startMetricReconciliation(ctx),
+  returns: v.object({ alreadyRunning: v.boolean(), generation: v.number(), scheduled: v.number() }),
 });
 
 async function loadSegment(ctx: QueryCtx, scope: string, segment: AggregateSegment) {

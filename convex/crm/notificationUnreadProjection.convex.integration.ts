@@ -198,8 +198,8 @@ describe("registered notification unread projection", () => {
         stage: "complete",
         status: "complete",
       });
-      const direct = await ctx.db.get(fixture.directId);
-      const staffRole = await ctx.db.get(fixture.staffRoleId);
+      const direct = await ctx.db.get("notifications", fixture.directId);
+      const staffRole = await ctx.db.get("notifications", fixture.staffRoleId);
       const legacyReceipt = await ctx.db
         .query("notificationReads")
         .withIndex("by_notification_staff", (q) =>

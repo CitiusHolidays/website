@@ -327,6 +327,7 @@ export const saveFinalizedPdf = internalMutation({
     uploadedBy: v.string(),
   },
   handler: handleSaveFinalizedPdf,
+  returns: v.object({ previousStorageId: v.union(v.id("_storage"), v.null()) }),
 });
 
 export const clearFinalizedPdf = internalMutation({
@@ -334,6 +335,7 @@ export const clearFinalizedPdf = internalMutation({
     proposalId: v.id("proposals"),
   },
   handler: handleClearFinalizedPdf,
+  returns: v.object({ previousStorageId: v.union(v.id("_storage"), v.null()) }),
 });
 
 export const getFinalizedPdfRecord = query({
