@@ -8,6 +8,31 @@ The portal bell also has explicit projection readiness. Notification and receipt
 backfilled in 50-row pages, then independently rescanned. Before all four stages complete, unread
 coverage is partial; the shell never labels the bounded legacy fallback as exact.
 
+Outstanding invoices use `hasOutstandingBalance = balanceAmount > 0` as a writer-maintained
+projection. Finance reads retain the bounded legacy filter until version 1 readiness is complete
+with zero residuals; only then do they use `by_hasOutstandingBalance_and_createdAt`.
+
+## Outstanding invoice rollout
+
+Treat schema/index installation, reconciliation, and reader cutover as distinct evidence gates for
+each named deployment:
+
+1. Deploy the widened optional invoice field, readiness table, and compound index without making
+   the reader depend on the projection.
+2. Confirm that exact deployment's index is ready. Start the internal
+   `crm/invoiceOutstandingProjection:startProjectionReconciliation` operation through the approved
+   target-aware Convex workflow.
+3. Poll the internal `getProjectionStatus` result. It pages legacy invoices, writes the projection,
+   and then independently rescans every page. Do not claim readiness unless the result is
+   `status: complete`, `stage: complete`, `ready: true`, and `residuals: 0` for version 1.
+4. Release the reader cutover. During a mixed-version rollout, source retains the legacy bounded
+   query until the verified readiness row exists, so unprojected invoices are not hidden.
+
+Every invoice create/update writes the derived boolean in the same transaction as `balanceAmount`.
+A verification mismatch fails closed and requires investigating the missing writer before starting
+a new generation. Development, Preview, and Production evidence are separate; never reuse one
+deployment's readiness row as proof for another.
+
 ## Workflow nudge policy and recovery
 
 - `thresholdHours` is the detection boundary for the selected rule. It must be finite and between 0 and 720 hours. Saving a different threshold changes the Query or Job Card age comparison and its notification copy.
@@ -40,6 +65,6 @@ pages abort.
 
 ## Verification
 
-Use `bun run test -- convex/crm/listSearch.test.ts convex/crm/metricAggregates.test.ts convex/crm/dashboard.test.ts src/components/portal/dashboard/dashboardCoverageNotice.test.js` for search and metric readiness. Use `bun run test -- convex/crm/workflowNudges.test.ts convex/crm/passportExpiry.test.ts src/lib/portal/passportExpiry.parity.test.js convex/crons.test.ts` for nudge thresholds, complete Traveller paging, privacy-safe passport detection, retry exhaustion, next-cadence restart, quiet-period replay, and cron registration.
+Use `bun run test -- convex/crm/listSearch.test.ts convex/crm/metricAggregates.test.ts convex/crm/dashboard.test.ts src/components/portal/dashboard/dashboardCoverageNotice.test.js` for search and metric readiness. Use `bun run test -- convex/crm/workflowNudges.test.ts convex/crm/passportExpiry.test.ts src/lib/portal/passportExpiry.parity.test.js convex/crons.test.ts` for nudge thresholds, complete Traveller paging, privacy-safe passport detection, retry exhaustion, next-cadence restart, quiet-period replay, and cron registration. Run `bun test convex/crm/financeOverviewReads.test.ts` plus the registered Convex integration suite for invoice writer, multi-page backfill, residual verification, and indexed-read parity.
 
 These are target-neutral source checks. Cron installation and an actual daily restart require a separately identified non-production Convex deployment; do not infer them from local registry serialization.

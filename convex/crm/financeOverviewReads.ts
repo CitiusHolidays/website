@@ -1,6 +1,10 @@
 import type { PaginationOptions } from "convex/server";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import {
+  INVOICE_OUTSTANDING_PROJECTION_KEY,
+  isInvoiceOutstandingProjectionReady,
+} from "./invoiceOutstandingPolicy";
 import { getVisibleJob } from "./jobCardVisibility";
 import {
   PERMISSIONS,
@@ -29,7 +33,7 @@ function jobCardCreatedAtRangeQuery(ctx: QueryCtx, dateRange?: PortalDateRange) 
   return query.order("desc");
 }
 
-function invoiceCreatedAtRangeQuery(ctx: QueryCtx, dateRange?: PortalDateRange) {
+function legacyOutstandingInvoiceQuery(ctx: QueryCtx, dateRange?: PortalDateRange) {
   const range = resolvePortalDateRange(dateRange);
   const query = range
     ? ctx.db
@@ -38,7 +42,36 @@ function invoiceCreatedAtRangeQuery(ctx: QueryCtx, dateRange?: PortalDateRange) 
           q.gte("createdAt", range.sinceMs).lte("createdAt", range.untilMs)
         )
     : ctx.db.query("invoices").withIndex("by_createdAt");
+  return query.filter((q) => q.gt(q.field("balanceAmount"), 0)).order("desc");
+}
+
+function indexedOutstandingInvoiceQuery(ctx: QueryCtx, dateRange?: PortalDateRange) {
+  const range = resolvePortalDateRange(dateRange);
+  const query = range
+    ? ctx.db
+        .query("invoices")
+        .withIndex("by_hasOutstandingBalance_and_createdAt", (q) =>
+          q
+            .eq("hasOutstandingBalance", true)
+            .gte("createdAt", range.sinceMs)
+            .lte("createdAt", range.untilMs)
+        )
+    : ctx.db
+        .query("invoices")
+        .withIndex("by_hasOutstandingBalance_and_createdAt", (q) =>
+          q.eq("hasOutstandingBalance", true)
+        );
   return query.order("desc");
+}
+
+async function outstandingInvoiceQuery(ctx: QueryCtx, dateRange?: PortalDateRange) {
+  const readiness = await ctx.db
+    .query("invoiceOutstandingProjectionReadiness")
+    .withIndex("by_key", (q) => q.eq("key", INVOICE_OUTSTANDING_PROJECTION_KEY))
+    .unique();
+  return isInvoiceOutstandingProjectionReady(readiness)
+    ? indexedOutstandingInvoiceQuery(ctx, dateRange)
+    : legacyOutstandingInvoiceQuery(ctx, dateRange);
 }
 
 export function buildFinanceOverviewFromMetrics(values: MetricValues) {
@@ -130,9 +163,9 @@ export async function handleListFinanceOutstanding(
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_FINANCE);
   const dateRange = (args.dateRange ?? undefined) as PortalDateRange | undefined;
-  const page = await invoiceCreatedAtRangeQuery(ctx, dateRange)
-    .filter((q) => q.gt(q.field("balanceAmount"), 0))
-    .paginate(boundedPaginationOptions(args.paginationOpts));
+  const page = await (await outstandingInvoiceQuery(ctx, dateRange)).paginate(
+    boundedPaginationOptions(args.paginationOpts)
+  );
   const today = new Date().toISOString().slice(0, 10);
   const rows = await mapInBoundedBatches(page.page, async (invoice: Doc<"invoices">) => {
     const job = await getVisibleJob(ctx, access, invoice.jobCardId);

@@ -1,7 +1,25 @@
 import { ConvexError } from "convex/values";
 import { scheduleFinanceMetricSync } from "./financeMetricSync";
+import { hasOutstandingInvoiceBalance } from "./invoiceOutstandingPolicy";
 import { getVisibleJob } from "./jobCardVisibility";
 import { createActivity, deleteEntityNotifications, PERMISSIONS, requireStaff } from "./lib";
+
+function invoicePaymentStatus(
+  balanceAmount: number,
+  receivedAmount: number,
+  previousStatus?: string
+) {
+  if (balanceAmount === 0) {
+    return "Paid";
+  }
+  if (receivedAmount > 0) {
+    return "Part Paid";
+  }
+  if (previousStatus === "Draft") {
+    return "Draft";
+  }
+  return "Generated";
+}
 
 export async function handleCreateInvoice(
   ctx: any,
@@ -31,10 +49,11 @@ export async function handleCreateInvoice(
     dueDate: args.dueDate || "",
     expectedAmount: args.expectedAmount,
     generatedAt: now,
+    hasOutstandingBalance: hasOutstandingInvoiceBalance(balanceAmount),
     invoiceNumber: args.invoiceNumber.trim(),
     jobCardId,
     receivedAmount,
-    status: balanceAmount === 0 ? "Paid" : receivedAmount > 0 ? "Part Paid" : "Generated",
+    status: invoicePaymentStatus(balanceAmount, receivedAmount),
     updatedAt: now,
   });
   await Promise.all([
@@ -81,15 +100,9 @@ export async function handleUpdateInvoice(
   const patch: Record<string, unknown> = {
     balanceAmount,
     expectedAmount,
+    hasOutstandingBalance: hasOutstandingInvoiceBalance(balanceAmount),
     receivedAmount,
-    status:
-      balanceAmount === 0
-        ? "Paid"
-        : receivedAmount > 0
-          ? "Part Paid"
-          : invoice.status === "Draft"
-            ? "Draft"
-            : "Generated",
+    status: invoicePaymentStatus(balanceAmount, receivedAmount, invoice.status),
     updatedAt: Date.now(),
   };
   if (args.invoiceNumber !== undefined) {

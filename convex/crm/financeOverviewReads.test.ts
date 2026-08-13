@@ -94,6 +94,11 @@ describe("bounded finance overview", () => {
               withIndex: () => ({ take: () => [staff] }),
             };
           }
+          if (table === "invoiceOutstandingProjectionReadiness") {
+            return {
+              withIndex: () => ({ unique: () => null }),
+            };
+          }
           if (table !== "invoices") {
             throw new Error(`Unexpected table ${table}`);
           }
@@ -137,5 +142,14 @@ describe("bounded finance overview", () => {
 
     expect(pages).toHaveLength(135);
     expect(pages.map((row) => row.id)).toEqual(invoices.map((invoice) => invoice._id));
+  });
+
+  test("cuts over only after verified projection readiness and keeps writers atomic", () => {
+    const reads = readFileSync(new URL("./financeOverviewReads.ts", import.meta.url), "utf8");
+    const writers = readFileSync(new URL("./invoiceCommands.ts", import.meta.url), "utf8");
+    expect(reads).toContain('withIndex("by_hasOutstandingBalance_and_createdAt"');
+    expect(reads).toContain("isInvoiceOutstandingProjectionReady(readiness)");
+    expect(reads).toContain('q.gt(q.field("balanceAmount"), 0)');
+    expect(writers.match(/hasOutstandingBalance:\s*hasOutstandingInvoiceBalance/g)).toHaveLength(2);
   });
 });

@@ -12,6 +12,7 @@ import * as crm_dashboard from "./crm/dashboard";
 import * as crm_expenseAttachments from "./crm/expenseAttachments";
 import * as crm_finance from "./crm/finance";
 import * as crm_imports from "./crm/imports";
+import * as crm_invoiceOutstandingProjection from "./crm/invoiceOutstandingProjection";
 import * as crm_jobCards from "./crm/jobCards";
 import * as crm_leave from "./crm/leave";
 import * as crm_leaveApprovers from "./crm/leaveApprovers";
@@ -82,6 +83,11 @@ export const __convexExportSurface = [
   crm_finance.createInvoice,
   crm_finance.updateInvoice,
   crm_finance.removeInvoice,
+  crm_invoiceOutstandingProjection.startProjectionReconciliation,
+  crm_invoiceOutstandingProjection.reconcileProjectionPage,
+  crm_invoiceOutstandingProjection.recordProjectionFailure,
+  crm_invoiceOutstandingProjection.processProjectionPage,
+  crm_invoiceOutstandingProjection.getProjectionStatus,
   crm_finance.listExpenses,
   crm_finance.createExpense,
   crm_finance.updateExpense,
