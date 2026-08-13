@@ -43,7 +43,7 @@ skip rather than silently counted as executed action proof.
    | `E2E_SEED_SECRET` | Convex + `.env.local` | Any long random string you choose |
    | `E2E_STAFF_PASSWORD` | Convex + `.env.local` | Shared test password (min 8 chars) |
    | `E2E_PROVISIONING_TARGET` | Convex + `.env.local` | `development` locally; `preview` only for an isolated Preview |
-   | `E2E_TARGET_ID` | Convex + `.env.local` | Exact `development-*` or `preview-*` identity approved below `.scratch/e2e` |
+   | `E2E_TARGET_ID` | Convex + `.env.local` | `development-local*` for loopback, or `preview-<Convex deployment name>-*`, approved below `.scratch/e2e` |
    | `E2E_TARGET_MANIFEST` | Local shell only | Optional path below `.scratch/e2e`; defaults to `.scratch/e2e/approved-targets.json` |
    | `NEXT_PUBLIC_CONVEX_SITE_URL` | `.env.local` | Site URL for that same non-production Convex deployment |
    | `BROWSER_SMOKE_BASE_URL` | `.env.local` | Loopback URL for development; explicit non-loopback HTTPS URL for Preview |
@@ -152,6 +152,11 @@ Reusable staff accounts and deterministic workflow fixtures are target fixtures,
 records. Seed setup restores their documented preconditions before activating a run. A dedicated
 non-production target must deploy the ownership schema/functions before executing this lane;
 source tests alone are not cleanup-rehearsal evidence.
+
+Before the first seed write, the runner requires an ignored approved-target manifest that binds the
+frontend origin, Convex site origin, target class, and a target ID containing the Convex deployment
+name. It then verifies both the frontend identity endpoint and the protected read-only Convex
+identity endpoint. Cleanup repeats those checks and refuses to contact a different configured site.
 
 ## Failure artifacts
 

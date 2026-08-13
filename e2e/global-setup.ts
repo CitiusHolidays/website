@@ -3,7 +3,11 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium, type FullConfig } from "@playwright/test";
 import { validateE2ePreflight } from "../config/e2e/preflight";
-import { readApprovedE2eTarget, verifyFrontendE2eIdentity } from "../config/e2e/target-identity";
+import {
+  readApprovedE2eTarget,
+  verifyConvexE2eIdentity,
+  verifyFrontendE2eIdentity,
+} from "../config/e2e/target-identity";
 import { vercelProtectionHeaders } from "../config/e2e/vercel-protection";
 import { E2E_ROLE_PROFILE_KEYS } from "./fixtures/staffProfiles";
 import { cleanupE2eRun, seedE2eStaffProfiles } from "./helpers/seed";
@@ -33,6 +37,7 @@ async function globalSetup(config: FullConfig) {
     targetId: process.env.E2E_TARGET_ID,
   });
   await verifyFrontendE2eIdentity(approvedTarget);
+  await verifyConvexE2eIdentity(approvedTarget);
 
   await mkdir(AUTH_DIR, { recursive: true });
 
@@ -40,7 +45,7 @@ async function globalSetup(config: FullConfig) {
   let seed: Awaited<ReturnType<typeof seedE2eStaffProfiles>>;
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   try {
-    seed = await seedE2eStaffProfiles(runId, approvedTarget.id);
+    seed = await seedE2eStaffProfiles(runId, approvedTarget);
     await mkdir(join(process.cwd(), ".scratch", "e2e"), { recursive: true });
     await writeFile(
       RUN_STATE_PATH,
@@ -68,7 +73,7 @@ async function globalSetup(config: FullConfig) {
       await context.close();
     }
   } catch (error) {
-    await cleanupE2eRun(runId, approvedTarget.id).catch(() => undefined);
+    await cleanupE2eRun(runId, approvedTarget).catch(() => undefined);
     throw error;
   } finally {
     await browser?.close();

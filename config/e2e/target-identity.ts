@@ -48,6 +48,21 @@ function origin(value: unknown, path: string) {
   return parsed;
 }
 
+function assertTargetIdBindsConvexOrigin(
+  target: E2eProvisioningTarget,
+  targetId: string,
+  convex: URL,
+  path: string
+) {
+  const deployment = LOOPBACK_HOSTS.has(convex.hostname)
+    ? "local"
+    : (convex.hostname.split(".")[0] ?? "");
+  const expectedPrefix = `${target}-${deployment}`;
+  if (!(targetId === expectedPrefix || targetId.startsWith(`${expectedPrefix}-`))) {
+    throw new Error(`${path}.id must bind the ${deployment} Convex deployment identity`);
+  }
+}
+
 export function validateApprovedE2eTargetManifest(value: unknown): ApprovedE2eTargetManifest {
   if (!isRecord(value)) {
     throw new Error("E2E target manifest must be an object");
@@ -88,6 +103,7 @@ export function validateApprovedE2eTargetManifest(value: unknown): ApprovedE2eTa
     ) {
       throw new Error(`${path} Preview origins must use HTTPS`);
     }
+    assertTargetIdBindsConvexOrigin(entry.target, entry.id, convex, path);
     return {
       convexSiteOrigin: convex.origin,
       frontendOrigin: frontend.origin,
@@ -158,6 +174,36 @@ export async function verifyFrontendE2eIdentity(
     identity.convexSiteOrigin !== approved.convexSiteOrigin
   ) {
     throw new Error("Frontend E2E identity does not match the approved target manifest");
+  }
+  return approved;
+}
+
+export async function verifyConvexE2eIdentity(
+  approved: ApprovedE2eTarget,
+  seedSecret = process.env.E2E_SEED_SECRET,
+  fetchIdentity: typeof fetch = fetch
+) {
+  if (!seedSecret) {
+    throw new Error("E2E_SEED_SECRET is required to verify the Convex E2E identity");
+  }
+  const response = await fetchIdentity(`${approved.convexSiteOrigin}/e2e/identity`, {
+    headers: {
+      accept: "application/json",
+      "x-e2e-seed-secret": seedSecret,
+      "x-e2e-target-id": approved.id,
+    },
+    redirect: "error",
+  });
+  if (!response.ok) {
+    throw new Error(`Convex E2E identity returned HTTP ${response.status}`);
+  }
+  const identity = (await response.json()) as Record<string, unknown>;
+  if (
+    identity.id !== approved.id ||
+    identity.target !== approved.target ||
+    identity.convexSiteOrigin !== approved.convexSiteOrigin
+  ) {
+    throw new Error("Convex E2E identity does not match the approved target manifest");
   }
   return approved;
 }

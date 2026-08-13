@@ -1,3 +1,5 @@
+import type { ApprovedE2eTarget } from "../../config/e2e/target-identity";
+
 const TRAILING_SLASH_RE = /\/$/;
 
 export interface E2eSeedResult {
@@ -16,26 +18,29 @@ export interface E2eSeedResult {
   };
 }
 
-function e2eSiteUrl() {
+function e2eSiteUrl(approved: ApprovedE2eTarget) {
   const siteUrl = process.env.NEXT_PUBLIC_CONVEX_SITE_URL?.replace(TRAILING_SLASH_RE, "");
   if (!siteUrl) {
     throw new Error("NEXT_PUBLIC_CONVEX_SITE_URL is required for E2E provisioning.");
   }
-  return siteUrl;
+  if (new URL(siteUrl).origin !== approved.convexSiteOrigin) {
+    throw new Error("NEXT_PUBLIC_CONVEX_SITE_URL does not match the verified E2E target");
+  }
+  return approved.convexSiteOrigin;
 }
 
 export async function seedE2eStaffProfiles(
   runId: string,
-  targetId: string
+  approved: ApprovedE2eTarget
 ): Promise<E2eSeedResult> {
   if (!process.env.E2E_SEED_SECRET) {
     throw new Error("E2E_SEED_SECRET is required before E2E staff provisioning can run.");
   }
 
   try {
-    const siteUrl = e2eSiteUrl();
+    const siteUrl = e2eSiteUrl(approved);
     const response = await fetch(`${siteUrl}/e2e/seed`, {
-      body: JSON.stringify({ runId, targetId }),
+      body: JSON.stringify({ runId, targetId: approved.id }),
       headers: { "x-e2e-seed-secret": process.env.E2E_SEED_SECRET },
       method: "POST",
     });
@@ -61,12 +66,15 @@ export interface E2eCleanupResult {
   runId: string;
 }
 
-export async function cleanupE2eRun(runId: string, targetId: string): Promise<E2eCleanupResult> {
+export async function cleanupE2eRun(
+  runId: string,
+  approved: ApprovedE2eTarget
+): Promise<E2eCleanupResult> {
   if (!process.env.E2E_SEED_SECRET) {
     throw new Error("E2E_SEED_SECRET is required before E2E cleanup can run.");
   }
-  const response = await fetch(`${e2eSiteUrl()}/e2e/cleanup`, {
-    body: JSON.stringify({ runId, targetId }),
+  const response = await fetch(`${e2eSiteUrl(approved)}/e2e/cleanup`, {
+    body: JSON.stringify({ runId, targetId: approved.id }),
     headers: { "x-e2e-seed-secret": process.env.E2E_SEED_SECRET },
     method: "POST",
   });

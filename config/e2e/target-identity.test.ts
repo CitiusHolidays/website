@@ -5,13 +5,14 @@ import { resolve } from "node:path";
 import {
   readApprovedE2eTarget,
   validateApprovedE2eTargetManifest,
+  verifyConvexE2eIdentity,
   verifyFrontendE2eIdentity,
 } from "./target-identity";
 
 const preview = {
   convexSiteOrigin: "https://fixture-preview.convex.site",
   frontendOrigin: "https://branch.example.test",
-  id: "preview-branch-123",
+  id: "preview-fixture-preview-branch-123",
   target: "preview" as const,
 };
 
@@ -46,6 +47,22 @@ describe("approved E2E target identity", () => {
     ).rejects.toThrow("does not match");
   });
 
+  test("proves the Convex site identity before any provisioning write", async () => {
+    const fetchIdentity = ((url, init) => {
+      expect(url).toBe(`${preview.convexSiteOrigin}/e2e/identity`);
+      expect(new Headers(init?.headers).get("x-e2e-target-id")).toBe(preview.id);
+      expect(new Headers(init?.headers).get("x-e2e-seed-secret")).toBe("fixture-secret");
+      return Promise.resolve(Response.json(preview));
+    }) as typeof fetch;
+    await expect(
+      verifyConvexE2eIdentity(preview, "fixture-secret", fetchIdentity)
+    ).resolves.toEqual(preview);
+    await expect(
+      verifyConvexE2eIdentity(preview, "fixture-secret", (() =>
+        Promise.resolve(Response.json({ ...preview, id: "preview-other" }))) as typeof fetch)
+    ).rejects.toThrow("does not match");
+  });
+
   test("reads only an ignored-boundary manifest and binds both configured origins", () => {
     const root = mkdtempSync(resolve(tmpdir(), "citius-e2e-target-"));
     try {
@@ -72,6 +89,12 @@ describe("approved E2E target identity", () => {
           targetId: preview.id,
         })
       ).toThrow("approved Convex site origin");
+      expect(() =>
+        validateApprovedE2eTargetManifest({
+          schemaVersion: 1,
+          targets: [{ ...preview, id: "preview-unrelated-deployment" }],
+        })
+      ).toThrow("bind the fixture-preview Convex deployment identity");
       expect(() =>
         readApprovedE2eTarget({
           baseUrl: preview.frontendOrigin,

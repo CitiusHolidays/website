@@ -16,6 +16,25 @@ const cleanupE2eRun = makeFunctionReference<"action", { runId: string; targetId:
 
 authComponent.registerRoutes(http, createAuth);
 
+function e2eIdentityResponse(request: Request) {
+  try {
+    assertProvidedE2eSecret(request.headers.get("x-e2e-seed-secret"));
+    const identity = assertE2eTargetIdentity(request.headers.get("x-e2e-target-id"));
+    return Response.json(
+      {
+        convexSiteOrigin: new URL(request.url).origin,
+        id: identity.targetId,
+        target: identity.target,
+      },
+      { headers: { "Cache-Control": "private, no-store, max-age=0" } }
+    );
+  } catch {
+    return new Response(null, { status: 404 });
+  }
+}
+
+const e2eIdentity = httpAction((_ctx, request) => Promise.resolve(e2eIdentityResponse(request)));
+
 const e2eSeed = httpAction(async (ctx, request) => {
   const secret = request.headers.get("x-e2e-seed-secret") ?? undefined;
   try {
@@ -58,6 +77,12 @@ http.route({
   handler: e2eCleanup,
   method: "POST",
   path: "/e2e/cleanup",
+});
+
+http.route({
+  handler: e2eIdentity,
+  method: "GET",
+  path: "/e2e/identity",
 });
 
 http.route({

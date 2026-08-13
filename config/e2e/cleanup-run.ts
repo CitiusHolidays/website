@@ -3,7 +3,11 @@ import { cleanupE2eRun } from "../../e2e/helpers/seed";
 import { loadE2eEnv } from "../../e2e/loadEnv";
 import { formatCliHelp, parseCliArguments } from "../commands/cli";
 import { validateE2ePreflight } from "./preflight";
-import { readApprovedE2eTarget, verifyFrontendE2eIdentity } from "./target-identity";
+import {
+  readApprovedE2eTarget,
+  verifyConvexE2eIdentity,
+  verifyFrontendE2eIdentity,
+} from "./target-identity";
 
 const CLI = {
   command: "bun run test:e2e:cleanup --",
@@ -33,7 +37,8 @@ if (import.meta.main) {
         targetId: process.env.E2E_TARGET_ID,
       });
       await verifyFrontendE2eIdentity(approvedTarget);
-      const result = await cleanupE2eRun(runId, approvedTarget.id);
+      await verifyConvexE2eIdentity(approvedTarget);
+      const result = await cleanupE2eRun(runId, approvedTarget);
       console.log(
         JSON.stringify({
           complete: result.complete,
