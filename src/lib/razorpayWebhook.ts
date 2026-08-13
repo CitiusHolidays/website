@@ -1,7 +1,3 @@
-import { Effect } from "effect";
-import { buildExternalIoEffect, ExternalIoFailure } from "./effectAdoption";
-
-// Effect: external-io, typed-recoverable-errors (see effectAdoption.ts).
 export interface RazorpayPaymentEntity {
   error_description?: string;
   id?: string;
@@ -83,36 +79,72 @@ export class RazorpayWebhookPayloadError extends Error {
 export class RazorpayWebhookConfigurationError extends Error {
   readonly code = "webhook_not_configured";
 
-  constructor() {
-    super("Payment mutation secret is not configured");
+  constructor(cause?: unknown) {
+    super("Payment mutation secret is not configured", cause === undefined ? undefined : { cause });
     this.name = "RazorpayWebhookConfigurationError";
   }
 }
 
-export function mapRazorpayWebhookProcessingError(error: unknown): RazorpayWebhookErrorResponse {
+/** A payment-state mutation failed after a valid signed provider event. */
+export class RazorpayWebhookMutationError extends Error {
+  readonly code = "payment_mutation_unavailable";
+  readonly operation: string;
+
+  constructor(operation: string, cause: unknown) {
+    super("Payment mutation is temporarily unavailable", { cause });
+    this.name = "RazorpayWebhookMutationError";
+    this.operation = operation;
+  }
+}
+
+type RazorpayWebhookFailure =
+  | { detail: string; tag: "invalid_payload" }
+  | { tag: "invalid_configuration" }
+  | { tag: "mutation_unavailable" };
+
+function classifyRazorpayWebhookFailure(error: unknown): RazorpayWebhookFailure {
   if (error instanceof SyntaxError) {
-    return { body: { error: "Invalid webhook payload" }, status: 400 };
+    return { detail: "Invalid webhook payload", tag: "invalid_payload" };
   }
   if (error instanceof RazorpayWebhookPayloadError) {
-    return { body: { error: error.message }, status: 400 };
+    return { detail: error.message, tag: "invalid_payload" };
   }
   if (error instanceof RazorpayWebhookConfigurationError) {
-    return { body: { error: "Webhook not configured" }, status: 500 };
+    return { tag: "invalid_configuration" };
   }
-  if (
-    error instanceof ExternalIoFailure &&
-    String(error.cause).toLowerCase().includes("payment mutation secret")
-  ) {
-    // Convex rejects a server-secret mismatch inside the external mutation.
-    // Keep the response safe while preserving the configuration diagnosis in
-    // logs (the route logs the original error).
-    return { body: { error: "Webhook not configured" }, status: 500 };
+  return { tag: "mutation_unavailable" };
+}
+
+function assertNever(_value: never): never {
+  throw new Error("Unhandled Razorpay webhook failure");
+}
+
+export function mapRazorpayWebhookProcessingError(error: unknown): RazorpayWebhookErrorResponse {
+  const failure = classifyRazorpayWebhookFailure(error);
+  switch (failure.tag) {
+    case "invalid_payload":
+      return { body: { error: failure.detail }, status: 400 };
+    case "invalid_configuration":
+      return { body: { error: "Webhook not configured" }, status: 500 };
+    case "mutation_unavailable":
+      return { body: { error: "Webhook processing failed" }, status: 500 };
+    default:
+      return assertNever(failure);
   }
-  return { body: { error: "Webhook processing failed" }, status: 500 };
 }
 
 async function runPaymentMutation<Result>(operation: string, run: () => Promise<Result>) {
-  return await Effect.runPromise(buildExternalIoEffect(operation, run));
+  try {
+    return await run();
+  } catch (cause) {
+    const data = cause instanceof Object && "data" in cause ? cause.data : undefined;
+    if (data === "Invalid payment mutation secret") {
+      // biome-ignore lint/style/useErrorCause: the domain wrapper passes this value to ErrorOptions.cause.
+      throw new RazorpayWebhookConfigurationError(cause);
+    }
+    // biome-ignore lint/style/useErrorCause: the domain wrapper passes this value to ErrorOptions.cause.
+    throw new RazorpayWebhookMutationError(operation, cause);
+  }
 }
 
 function webhookEventMetadata(event: string, entityId: string) {

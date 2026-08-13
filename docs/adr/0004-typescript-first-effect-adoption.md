@@ -26,9 +26,16 @@ Citius Travel is moving toward a broad TypeScript migration across the Next.js, 
   state; wrapping only attempt startup would create a second lifecycle without owning those
   pressures. A shared typed attempt planner and deterministic cleanup tests provide the useful
   simplification without an Effect Stream conversion.
+- `src/app/api/create-order/route.ts`, `src/lib/paymentVerification.ts`, and
+  `src/lib/razorpayWebhook.ts` returned to plain TypeScript. Their prior generic wrapper was
+  immediately collapsed back into Promise/Exit handling and did not own retry, concurrency,
+  rollback, or a shared lifecycle. Module-owned discriminated errors now provide exhaustive safe
+  HTTP mapping while retaining original causes only for server diagnostics.
 
 ## Consequences
 
 - TypeScript migration can proceed independently of Effect adoption.
-- Effect use should concentrate around batch imports, notification email delivery, payment/API routes, external service calls, migrations, and other failure-prone workflow edges.
+- Effect use should concentrate around seams such as paced notification delivery, batch imports,
+  migrations, or external workflows where at least two pressures are present and one program owns
+  their lifecycle. External I/O alone, including a payment API call, is insufficient.
 - Code review can reject Effect in modules that do not meet the two-pressure threshold, even if the code is technically valid.

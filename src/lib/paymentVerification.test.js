@@ -119,11 +119,13 @@ describe("verifyPaymentRequest", () => {
           razorpay_signature: "good_sig",
         },
         confirmBooking: () => Promise.reject(new Error("Convex mutation unavailable")),
+        logFailure: () => undefined,
         verifySignature: () => true,
       });
 
       expect(result.ok).toBe(false);
       expect(result.status).toBe(500);
+      expect(result.code).toBe("mutation_unavailable");
       expect(result.error).toBe("Payment confirmation failed. Please contact support.");
     } finally {
       if (previous === undefined) {
@@ -132,5 +134,27 @@ describe("verifyPaymentRequest", () => {
         process.env.PAYMENT_MUTATION_SECRET = previous;
       }
     }
+  });
+
+  test("maps a missing Razorpay verification key to configuration without confirming", async () => {
+    const result = await verifyPaymentRequest({
+      body: {
+        razorpay_order_id: "order_1",
+        razorpay_payment_id: "pay_1",
+        razorpay_signature: "good_sig",
+      },
+      confirmBooking: () => Promise.reject(new Error("confirmBooking should not be called")),
+      logFailure: () => undefined,
+      verifySignature: () => {
+        throw new Error("Razorpay key secret not configured");
+      },
+    });
+
+    expect(result).toEqual({
+      code: "invalid_configuration",
+      error: "Payment confirmation is not configured",
+      ok: false,
+      status: 500,
+    });
   });
 });

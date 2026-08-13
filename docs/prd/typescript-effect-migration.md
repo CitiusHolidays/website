@@ -49,7 +49,11 @@ Land the migration using **Approach B — Guardrailed Completion**: commit TS re
 ## Implementation Decisions
 
 - **Approach:** Guardrailed Completion (B). Do not bulk-migrate ~356 remaining `src/**/*.js` files in this release.
-- **Effect boundaries:** Payment routes, `razorpayWebhook`, `notificationEmailDelivery`, and spreadsheet import orchestration only when adoption checklist passes. No Effect in React workspace hooks.
+- **Effect boundaries:** `notificationEmailDelivery` retains Effect because it owns retry, pacing,
+  typed failures, and injected delivery in one workflow. Payment routes and `razorpayWebhook` use
+  plain TypeScript domain errors after the executable adoption review found that their shallow
+  wrappers did not materially simplify orchestration. Spreadsheet imports may adopt Effect only
+  when the same checklist passes. No Effect in React workspace hooks.
 - **TypeScript scope:** Root `tsconfig.json` covers `src/**/*.ts(x)` with `strict: true`, `allowJs: true`. Convex remains on `convex/tsconfig.json` + `bunx convex codegen`.
 - **Workspace decomposition:** `usePortalWorkspaceState.ts` delegates to `usePortalWorkspaceData`, `portalWorkspaceFilters`, `portalWorkspaceRows`, `usePortalWorkspaceMutations`, and `workspaceStateTypes`.
 - **Payment seam:** Shared `paymentVerification.ts` and `razorpayWebhook.ts`; Next.js routes are thin wrappers.

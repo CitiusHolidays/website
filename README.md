@@ -83,7 +83,7 @@ Razorpay integration for trip bookings: create order, verify payment, webhook ha
 | AI | [OpenRouter](https://openrouter.ai/) via Vercel AI SDK (chatbot, Sacred Bharat journey planner) |
 | Lint / format | [Ultracite](https://www.ultracite.ai/) (Biome presets) |
 | Language | TypeScript migration in progress; JS and TS coexist in `src/` and `convex/` |
-| Orchestration | [Effect](https://effect.website/) at integration seams only (payments, email, imports) |
+| Orchestration | [Effect](https://effect.website/) only where multiple pressures materially simplify one workflow; payment boundaries use plain TypeScript |
 | Deploy | [Vercel](https://vercel.com/) (`bom1` region, Bun 1.x) |
 
 ## Folder structure

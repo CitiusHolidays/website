@@ -1,9 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { extname, join, relative, resolve } from "node:path";
-import { Effect, Exit } from "effect";
 import {
-  buildExternalIoEffect,
   EFFECT_ADOPTION_INVENTORY,
   EFFECT_ADOPTION_PRESSURES,
   evaluateEffectAdoption,
@@ -68,17 +66,14 @@ describe("evaluateEffectAdoption", () => {
     ]);
   });
 
-  test("documents approved migration seams with at least two pressures", () => {
+  test("keeps Effect only where the current implementation materially simplifies orchestration", () => {
     const seams = {
-      "create-order route": ["external-io", "typed-recoverable-errors"],
       "notification email delivery": [
         "external-io",
         "retry-or-throttle",
         "typed-recoverable-errors",
         "test-time-dependency-substitution",
       ],
-      "payment verification": ["external-io", "typed-recoverable-errors"],
-      "razorpay webhook": ["external-io", "typed-recoverable-errors"],
     } as const;
 
     for (const pressures of Object.values(seams)) {
@@ -117,20 +112,15 @@ describe("evaluateEffectAdoption", () => {
       ])
     ).toEqual(["src/new-seam.ts"]);
   });
-});
-
-describe("buildExternalIoEffect", () => {
-  test("wraps a project-style external I/O call with a typed recoverable error", async () => {
-    const program = buildExternalIoEffect("send notification email", () =>
-      Promise.reject(new Error("rate limited"))
-    );
-
-    const exit = await Effect.runPromiseExit(program);
-
-    expect(Exit.isFailure(exit)).toBe(true);
-    if (Exit.isFailure(exit)) {
-      expect(String(exit.cause)).toContain("send notification email");
-      expect(String(exit.cause)).toContain("rate limited");
+  test("keeps the three payment seams on plain TypeScript boundaries", () => {
+    for (const path of [
+      "src/app/api/create-order/route.ts",
+      "src/lib/paymentVerification.ts",
+      "src/lib/razorpayWebhook.ts",
+    ]) {
+      const source = readFileSync(resolve(root, path), "utf8");
+      expect(source, path).not.toMatch(effectImportPattern);
+      expect(source, path).not.toContain("buildExternalIoEffect");
     }
   });
 });

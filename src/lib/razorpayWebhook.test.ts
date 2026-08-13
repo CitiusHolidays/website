@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { ExternalIoFailure } from "./effectAdoption";
 import {
   mapRazorpayWebhookProcessingError,
   processRazorpayWebhookEvent,
   RazorpayWebhookConfigurationError,
+  RazorpayWebhookMutationError,
   RazorpayWebhookPayloadError,
 } from "./razorpayWebhook";
 
@@ -198,16 +198,41 @@ describe("mapRazorpayWebhookProcessingError", () => {
     });
   });
 
-  test("maps a Convex payment-secret rejection to a configuration response", () => {
-    const result = mapRazorpayWebhookProcessingError(
-      new ExternalIoFailure(
-        "confirm Razorpay booking",
-        new Error("Invalid payment mutation secret")
-      )
-    );
+  test("maps a structured Convex payment-secret rejection to a configuration response", async () => {
+    const payload = {
+      event: "payment.captured",
+      payload: { payment: { entity: { id: "pay_1", order_id: "order_1" } } },
+    };
+    const promise = processRazorpayWebhookEvent(payload, {
+      confirmBookingByOrderId: () => Promise.reject({ data: "Invalid payment mutation secret" }),
+      getServerSecret: () => "configured-but-mismatched",
+      markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+      markRefundedByPaymentId: () => Promise.resolve({}),
+      recordPaymentAuthorized: () => Promise.resolve({}),
+    });
+
+    await expect(promise).rejects.toBeInstanceOf(RazorpayWebhookConfigurationError);
+    let failure: unknown;
+    try {
+      await promise;
+    } catch (error) {
+      failure = error;
+    }
+    const result = mapRazorpayWebhookProcessingError(failure);
 
     expect(result).toEqual({
       body: { error: "Webhook not configured" },
+      status: 500,
+    });
+  });
+
+  test("keeps ordinary mutation transport failures distinct from configuration", () => {
+    const result = mapRazorpayWebhookProcessingError(
+      new RazorpayWebhookMutationError("confirm Razorpay booking", new Error("unavailable"))
+    );
+
+    expect(result).toEqual({
+      body: { error: "Webhook processing failed" },
       status: 500,
     });
   });
