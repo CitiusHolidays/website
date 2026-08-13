@@ -24,7 +24,7 @@ export async function handleContinuePnrCleanup(
   await Promise.all(
     rows.map(async (row: any) => {
       if (args.stage === "tickets" && row.travellerId) {
-        await ctx.db.patch(row.travellerId, {
+        await ctx.db.patch("travellers", row.travellerId, {
           ticketStatus: "Pending Issue",
           updatedAt: Date.now(),
         });
@@ -33,7 +33,7 @@ export async function handleContinuePnrCleanup(
         entityId: String(row._id),
         entityType: args.stage === "tickets" ? "ticket" : "seatAllocation",
       });
-      await ctx.db.delete(row._id);
+      await ctx.db.delete(args.stage, row._id);
     })
   );
   await flushDeferredNotificationCleanup(ctx, notifications);

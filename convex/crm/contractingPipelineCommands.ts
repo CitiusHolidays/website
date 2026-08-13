@@ -51,7 +51,7 @@ export async function handleMoveContractingPipelineStage(
   if (!queryId) {
     throw new ConvexError("Invalid query id");
   }
-  const current = await ctx.db.get(queryId);
+  const current = await ctx.db.get("queries", queryId);
   if (!current) {
     throw new ConvexError("Query not found");
   }

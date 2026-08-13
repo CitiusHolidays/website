@@ -48,7 +48,7 @@ function makeCtx(tables: Record<string, unknown[]>) {
         }),
       },
       db: {
-        get: async (id: string) => {
+        get: async (_table: string, id: string) => {
           for (const rows of Object.values(tables)) {
             const match = rows.find((row) => (row as { _id?: string })._id === id);
             if (match) {

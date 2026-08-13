@@ -40,7 +40,7 @@ async function findProfilesByEmail(ctx: MutationCtx, emailNormalized: string) {
     }
     matchingLegacyProfiles.push(profile);
     if (!profile.archivedAt) {
-      normalizationPatches.push(ctx.db.patch(profile._id, { emailNormalized }));
+      normalizationPatches.push(ctx.db.patch("userProfiles", profile._id, { emailNormalized }));
     }
   }
   await Promise.all(normalizationPatches);
@@ -115,7 +115,7 @@ async function retireMergedProfiles(
   merged: Partial<Doc<"userProfiles">>,
   now: number
 ) {
-  await ctx.db.patch(canonical._id, merged);
+  await ctx.db.patch("userProfiles", canonical._id, merged);
   const duplicates = profiles
     .filter((profile) => profile._id !== canonical._id)
     .sort(compareProfiles);
@@ -123,7 +123,7 @@ async function retireMergedProfiles(
     duplicates.map((duplicate) => {
       const conflicts = conflictFields(duplicate, merged);
       if (conflicts.length > 0) {
-        return ctx.db.patch(duplicate._id, {
+        return ctx.db.patch("userProfiles", duplicate._id, {
           archivedAt: now,
           archivedAuthUserId: duplicate.authUserId ?? duplicate.archivedAuthUserId,
           authUserId: undefined,
@@ -132,7 +132,7 @@ async function retireMergedProfiles(
           updatedAt: now,
         });
       }
-      return ctx.db.delete(duplicate._id);
+      return ctx.db.delete("userProfiles", duplicate._id);
     })
   );
 }

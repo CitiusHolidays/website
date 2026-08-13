@@ -40,7 +40,7 @@ export async function refreshSacredBharatLeaderboardSummary(
     updatedAt,
   };
   if (existing) {
-    await ctx.db.patch(existing._id, payload);
+    await ctx.db.patch("sacredBharatLeaderboardSummaries", existing._id, payload);
     return existing._id;
   }
   return await ctx.db.insert("sacredBharatLeaderboardSummaries", payload);

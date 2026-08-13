@@ -51,7 +51,7 @@ function makeContext(
   ) as Record<string, Row[]>;
 
   const db = {
-    get: (id: string) => {
+    get: (_table: string, id: string) => {
       for (const rows of Object.values(tables)) {
         const found = rows.find((row) => row._id === id);
         if (found) {
@@ -68,7 +68,7 @@ function makeContext(
     },
     normalizeId: (table: string, id: string) =>
       (tables[table] ?? []).some((row) => row._id === id) ? id : null,
-    patch: (id: string, patch: Record<string, unknown>) => {
+    patch: (_table: string, id: string, patch: Record<string, unknown>) => {
       for (const rows of Object.values(tables)) {
         const row = rows.find((entry) => entry._id === id);
         if (row) {

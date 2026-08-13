@@ -46,7 +46,7 @@ export async function resolveLinkedQueries(
 
   return await Promise.all(
     normalizedIds.map(async (queryId) => {
-      const linkedQuery = await ctx.db.get(queryId);
+      const linkedQuery = await ctx.db.get("queries", queryId);
       if (!linkedQuery) {
         throw new ConvexError("Linked query not found");
       }
@@ -78,7 +78,9 @@ export async function linkedQueriesForProposal(
     queryIds.add(link.queryId);
   }
 
-  const linkedQueries = await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get(queryId)));
+  const linkedQueries = await Promise.all(
+    Array.from(queryIds, (queryId) => ctx.db.get("queries", queryId))
+  );
   return linkedQueries.filter((linkedQuery): linkedQuery is Doc<"queries"> => linkedQuery !== null);
 }
 
@@ -102,7 +104,7 @@ export async function syncProposalQueryLinks(
             link._id,
             proposalLinkProjection(linkedQuery)
           )
-        : ctx.db.delete(link._id);
+        : ctx.db.delete("proposalQueryLinks", link._id);
     })
   );
 
@@ -138,5 +140,5 @@ export async function syncProposalQueryLinks(
 
 export async function deleteProposalQueryLinks(ctx: MutationCtx, proposalId: Id<"proposals">) {
   const links = await proposalQueryLinks(ctx, proposalId);
-  await Promise.all(links.map((link) => ctx.db.delete(link._id)));
+  await Promise.all(links.map((link) => ctx.db.delete("proposalQueryLinks", link._id)));
 }

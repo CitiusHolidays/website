@@ -100,7 +100,7 @@ export const getExpenseListRow = query({
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_EXPENSES);
     const expenseId = ctx.db.normalizeId("expenseEntries", args.expenseId);
-    const expense = expenseId ? await ctx.db.get(expenseId) : null;
+    const expense = expenseId ? await ctx.db.get("expenseEntries", expenseId) : null;
     return expense ? await presentExpenseListRow(ctx, access, expense) : null;
   },
   returns: expenseListRowResultValidator,

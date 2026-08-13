@@ -75,7 +75,7 @@ export async function handleQueryUpdate(
   if (!queryId) {
     throw new ConvexError("Invalid query id");
   }
-  const current = await ctx.db.get(queryId);
+  const current = await ctx.db.get("queries", queryId);
   if (!current) {
     throw new ConvexError("Query not found");
   }
@@ -178,7 +178,7 @@ export async function handleAssignJobCardCreator(
   if (!queryId) {
     throw new ConvexError("Invalid query id");
   }
-  const query = await ctx.db.get(queryId);
+  const query = await ctx.db.get("queries", queryId);
   if (!query) {
     throw new ConvexError("Query not found");
   }
@@ -192,7 +192,7 @@ export async function handleAssignJobCardCreator(
   if (!staffId) {
     throw new ConvexError("Invalid staff id");
   }
-  const staff = await ctx.db.get(staffId);
+  const staff = await ctx.db.get("staffUsers", staffId);
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
   }
@@ -237,7 +237,7 @@ export async function handleSubmitToContracting(
   if (!queryId) {
     throw new ConvexError("Invalid query id");
   }
-  const current = await ctx.db.get(queryId);
+  const current = await ctx.db.get("queries", queryId);
   if (!current) {
     throw new ConvexError("Query not found");
   }
@@ -284,7 +284,7 @@ export async function handleUpdateContractingProgress(
   if (!queryId) {
     throw new ConvexError("Invalid query id");
   }
-  const current = await ctx.db.get(queryId);
+  const current = await ctx.db.get("queries", queryId);
   if (!current) {
     throw new ConvexError("Query not found");
   }

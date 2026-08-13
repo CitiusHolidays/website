@@ -53,7 +53,7 @@ export async function handleCreateFromQuery(
   const queryId = ctx.db.normalizeId("queries", args.queryId);
   const [access, linkedQuery] = await Promise.all([
     requireStaff(ctx, PERMISSIONS.MANAGE_JOB_CARDS),
-    queryId ? ctx.db.get(queryId) : null,
+    queryId ? ctx.db.get("queries", queryId) : null,
   ]);
   if (!(queryId && linkedQuery)) {
     throw new ConvexError("Linked query not found");
@@ -61,7 +61,7 @@ export async function handleCreateFromQuery(
   if (!canSeeQueryRecord(access, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
-  const staff = access.staffId ? await ctx.db.get(access.staffId) : null;
+  const staff = access.staffId ? await ctx.db.get("staffUsers", access.staffId) : null;
   if (!canCreateJobCardFromConfirmedQuery(access, staff)) {
     throw new ConvexError("Only Accounts can create Job Cards after order confirmation");
   }
@@ -73,8 +73,9 @@ export async function handleCreateFromQuery(
     throw new ConvexError("Accounts can open a Job Card only after order confirmation");
   }
   const confirmedOffer =
-    (linkedQuery?.confirmedOfferId ? await ctx.db.get(linkedQuery.confirmedOfferId) : null) ??
-    (await loadConfirmedOfferForQuery(ctx, queryId));
+    (linkedQuery?.confirmedOfferId
+      ? await ctx.db.get("confirmedOffers", linkedQuery.confirmedOfferId)
+      : null) ?? (await loadConfirmedOfferForQuery(ctx, queryId));
   if (!confirmedOffer) {
     throw new ConvexError("A Confirmed Offer is required before opening a Job Card");
   }
@@ -94,7 +95,7 @@ export async function handleCreateFromQuery(
     }
     proposalId = requestedProposalId;
   }
-  const proposal = proposalId ? await ctx.db.get(proposalId) : null;
+  const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
   if (!proposal || proposal._id !== confirmedOffer.proposalId) {
     throw new ConvexError("Open the Job Card from the query's Confirmed Offer proposal");
   }

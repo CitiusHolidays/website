@@ -69,7 +69,7 @@ async function activeStaffById(
   if (!staffId) {
     return null;
   }
-  const staff = await ctx.db.get(staffId);
+  const staff = await ctx.db.get("staffUsers", staffId);
   return staff?.active ? (staff as StaffRow) : null;
 }
 
@@ -416,7 +416,7 @@ export const applyMatrixDefaults = mutation({
         if (staff.leaveHeadApproverId === approverId) {
           return "unchanged" as const;
         }
-        await ctx.db.patch(staff._id, {
+        await ctx.db.patch("staffUsers", staff._id, {
           leaveHeadApproverId: approverId,
           updatedAt: now,
         });

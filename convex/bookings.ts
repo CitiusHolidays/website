@@ -485,7 +485,7 @@ async function applyAuthorizedTransition(
   if (booking.status === "confirmed" || booking.status === "refunded") {
     return await ignorePaymentTransition(ctx, args, booking);
   }
-  await ctx.db.patch(booking._id, {
+  await ctx.db.patch("bookings", booking._id, {
     razorpayPaymentId: args.paymentId ?? booking.razorpayPaymentId,
     updatedAt: timestamp,
   });
@@ -502,7 +502,7 @@ async function applyFailedTransition(
   if (booking.status !== "pending") {
     return await ignorePaymentTransition(ctx, args, booking);
   }
-  await ctx.db.patch(booking._id, {
+  await ctx.db.patch("bookings", booking._id, {
     razorpayPaymentId: args.paymentId ?? booking.razorpayPaymentId,
     status: "failed",
     updatedAt: timestamp,
@@ -520,7 +520,7 @@ async function applyRefundedTransition(
   if (booking.status !== "confirmed") {
     return await ignorePaymentTransition(ctx, args, booking);
   }
-  await ctx.db.patch(booking._id, { status: "refunded", updatedAt: timestamp });
+  await ctx.db.patch("bookings", booking._id, { status: "refunded", updatedAt: timestamp });
   await recordPaymentEvent(ctx, args, booking, booking.status, "refunded", "accepted");
   return { id: booking._id, status: "refunded" as const };
 }
@@ -553,7 +553,7 @@ async function applyConfirmedTransition(
   }
 
   await Promise.all([
-    ctx.db.patch(booking._id, {
+    ctx.db.patch("bookings", booking._id, {
       confirmedAt: timestamp,
       inventoryDebitedAt: timestamp,
       inventoryDebitedEventId: args.providerEventId,
@@ -562,7 +562,7 @@ async function applyConfirmedTransition(
       status: "confirmed",
       updatedAt: timestamp,
     }),
-    ctx.db.patch(trip._id, {
+    ctx.db.patch("trips", trip._id, {
       availableSeats: trip.availableSeats - booking.travelers,
       updatedAt: timestamp,
     }),

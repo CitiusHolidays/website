@@ -87,7 +87,7 @@ describe("bounded finance overview", () => {
         getUserIdentity: () => ({ email: staff.email, subject: staff.authUserId }),
       },
       db: {
-        get: (id: string) => jobs.get(id) ?? null,
+        get: (_table: string, id: string) => jobs.get(id) ?? null,
         query: (table: string) => {
           if (table === "staffUsers") {
             return {

@@ -36,7 +36,7 @@ function makeBookingsCtx(initialTables: Tables) {
         rows.push({ _id: id, ...value });
         return Promise.resolve(id);
       },
-      patch: (id: string, patch: Record<string, unknown>) => {
+      patch: (_table: string, id: string, patch: Record<string, unknown>) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

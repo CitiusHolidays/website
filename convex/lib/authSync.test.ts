@@ -10,7 +10,7 @@ function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, a
   return {
     ctx: {
       db: {
-        delete: (id: string) => {
+        delete: (_table: string, id: string) => {
           tables.userProfiles = tables.userProfiles.filter((row) => row._id !== id);
         },
         insert: (table: string, value: Record<string, unknown>) => {
@@ -18,7 +18,7 @@ function makeCtx(profileRows: Record<string, any>[], staffRows: Record<string, a
           tables[table].push({ _id: id, ...value });
           return id;
         },
-        patch: (id: string, value: Record<string, unknown>) => {
+        patch: (_table: string, id: string, value: Record<string, unknown>) => {
           for (const table of Object.values(tables)) {
             const row = table.find((candidate) => candidate._id === id);
             if (row) {

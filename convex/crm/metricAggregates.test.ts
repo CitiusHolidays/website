@@ -330,7 +330,8 @@ describe("bounded CRM metric aggregates", () => {
           insert: () => {
             throw new Error("the existing metric readiness row should be patched");
           },
-          patch: (_id: string, patch: Record<string, unknown>) => Object.assign(state, patch),
+          patch: (_table: string, _id: string, patch: Record<string, unknown>) =>
+            Object.assign(state, patch),
           query: (table: string) => {
             if (table !== "crmMetricReadiness") {
               throw new Error("a stale metric page must not project source rows");
@@ -419,7 +420,8 @@ describe("bounded CRM metric aggregates", () => {
           insert: (_table: string, value: Record<string, unknown>) => {
             completions.push({ _id: `completion_${completions.length}`, ...value });
           },
-          patch: (_id: string, value: Record<string, unknown>) => patches.push(value),
+          patch: (_table: string, _id: string, value: Record<string, unknown>) =>
+            patches.push(value),
           query,
         },
         scheduler: {
@@ -482,7 +484,8 @@ describe("bounded CRM metric aggregates", () => {
               completions.push({ _id: "completion_final", ...value } as any);
             }
           },
-          patch: (_id: string, value: Record<string, unknown>) => patches.push(value),
+          patch: (_table: string, _id: string, value: Record<string, unknown>) =>
+            patches.push(value),
           query: (table: string) => ({
             withIndex: (_name: string, callback: (q: any) => unknown) => {
               const q = { eq: () => q };

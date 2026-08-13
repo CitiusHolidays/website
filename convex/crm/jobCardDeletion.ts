@@ -61,12 +61,12 @@ async function failOperation(
   operationId: Id<"jobCardDeletionOperations">,
   error: unknown
 ) {
-  const operation = await ctx.db.get(operationId);
+  const operation = await ctx.db.get("jobCardDeletionOperations", operationId);
   if (!operation || operation.status !== "running") {
     return;
   }
   const now = Date.now();
-  await ctx.db.patch(operationId, {
+  await ctx.db.patch("jobCardDeletionOperations", operationId, {
     failedAt: now,
     failureSummary: safeFailureSummary(error),
     lastProgressAt: now,
@@ -75,7 +75,7 @@ async function failOperation(
 }
 
 async function finalizeIfReady(ctx: any, operationId: Id<"jobCardDeletionOperations">) {
-  const operation = await ctx.db.get(operationId);
+  const operation = await ctx.db.get("jobCardDeletionOperations", operationId);
   if (!operation || operation.status !== "running" || operation.stage !== "finishingDescendants") {
     return false;
   }
@@ -96,7 +96,7 @@ async function finalizeIfReady(ctx: any, operationId: Id<"jobCardDeletionOperati
     return false;
   }
   const now = Date.now();
-  await ctx.db.patch(operationId, {
+  await ctx.db.patch("jobCardDeletionOperations", operationId, {
     completedAt: now,
     lastProgressAt: now,
     stage: "complete",
@@ -125,7 +125,7 @@ async function startNextTravellerWorker(ctx: any, operationId: Id<"jobCardDeleti
     return false;
   }
   const travellerId = worker.workerKey.slice("traveller:".length);
-  await ctx.db.patch(worker._id, { status: "running" });
+  await ctx.db.patch("jobCardDeletionWorkers", worker._id, { status: "running" });
   await ctx.scheduler.runAfter(0, internal.crm.travellers.continueTravellerCleanup, {
     mode: "private",
     operationId,
@@ -141,12 +141,12 @@ async function completeWorker(
   operationId: Id<"jobCardDeletionOperations">,
   workerId: Id<"jobCardDeletionWorkers">
 ) {
-  const worker = await ctx.db.get(workerId);
+  const worker = await ctx.db.get("jobCardDeletionWorkers", workerId);
   if (!worker || worker.operationId !== operationId || worker.status === "complete") {
     return;
   }
   const now = Date.now();
-  await ctx.db.patch(workerId, { completedAt: now, status: "complete" });
+  await ctx.db.patch("jobCardDeletionWorkers", workerId, { completedAt: now, status: "complete" });
   if (worker.kind === "traveller") {
     await ctx.scheduler.runAfter(0, internal.crm.jobCardDeletion.continueTravellerWorkerQueue, {
       operationId,
@@ -208,7 +208,7 @@ export const continueApprovalCleanup = internalMutation({
           q.eq("entityType", args.approvalEntityType).eq("entityId", args.approvalEntityId)
         )
         .take(JOB_CARD_CASCADE_PAGE_SIZE);
-      await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+      await Promise.all(rows.map((row) => ctx.db.delete("approvalRequests", row._id)));
       await flushDeferredNotificationCleanup(
         ctx,
         rows.map((row) => ({ entityId: String(row._id), entityType: "approval" }))
@@ -248,7 +248,7 @@ export const continueJobCardCascade = internalMutation({
   },
   handler: async (ctx, args) => {
     try {
-      const operation = await ctx.db.get(args.operationId);
+      const operation = await ctx.db.get("jobCardDeletionOperations", args.operationId);
       if (!operation || operation.status !== "running" || operation.stage !== args.stage) {
         return { complete: operation?.status === "complete", deleted: 0 };
       }
@@ -274,10 +274,13 @@ export const continueJobCardCascade = internalMutation({
           }
           if (args.stage === "expenseEntries") {
             if (row.proofAttachmentId) {
-              const attachment = await ctx.db.get(row.proofAttachmentId as Id<"attachments">);
+              const attachment = await ctx.db.get(
+                "attachments",
+                row.proofAttachmentId as Id<"attachments">
+              );
               if (attachment) {
                 await deleteStorageFile(ctx, attachment.storageId, "expense proof");
-                await ctx.db.delete(attachment._id);
+                await ctx.db.delete("attachments", attachment._id);
               }
             }
             const workerId = await registerWorker(
@@ -294,7 +297,7 @@ export const continueJobCardCascade = internalMutation({
             });
           }
           notifications.push({ entityId: String(row._id), entityType });
-          await ctx.db.delete(row._id);
+          await ctx.db.delete(args.stage, row._id);
         })
       );
       await flushDeferredNotificationCleanup(ctx, notifications);
@@ -307,7 +310,7 @@ export const continueJobCardCascade = internalMutation({
       const followingStage =
         rows.length === JOB_CARD_CASCADE_PAGE_SIZE ? args.stage : nextStage(args.stage);
       const now = Date.now();
-      await ctx.db.patch(args.operationId, {
+      await ctx.db.patch("jobCardDeletionOperations", args.operationId, {
         deletedCount: operation.deletedCount + rows.length,
         lastProgressAt: now,
         stage: followingStage ?? "finishingDescendants",

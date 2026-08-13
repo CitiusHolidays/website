@@ -121,7 +121,7 @@ export const markNotificationRead = mutation({
     if (!id) {
       return null;
     }
-    const notification = await ctx.db.get(id);
+    const notification = await ctx.db.get("notifications", id);
     if (!notification) {
       return null;
     }
@@ -214,7 +214,7 @@ export const removeNotification = mutation({
     if (!id) {
       throw new ConvexError("Invalid notification id");
     }
-    const notification = await ctx.db.get(id);
+    const notification = await ctx.db.get("notifications", id);
     if (!notification) {
       throw new ConvexError("Notification not found");
     }

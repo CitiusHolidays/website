@@ -49,7 +49,7 @@ async function requireCurrentExpenseApproval(ctx: MutationCtx, approval: Doc<"ap
   if (!expenseId) {
     throw new ConvexError("Expense not found");
   }
-  const expense = await ctx.db.get(expenseId);
+  const expense = await ctx.db.get("expenseEntries", expenseId);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
@@ -135,7 +135,7 @@ export const getListRow = query({
       PERMISSIONS.MANAGE_FINANCE,
     ]);
     const approvalId = ctx.db.normalizeId("approvalRequests", args.approvalId);
-    const approval = approvalId ? await ctx.db.get(approvalId) : null;
+    const approval = approvalId ? await ctx.db.get("approvalRequests", approvalId) : null;
     return approval ? publicApproval(approval) : null;
   },
   returns: approvalListRowResultValidator,
@@ -162,7 +162,7 @@ export const decide = mutation({
     if (!approvalId) {
       throw new ConvexError("Invalid approval id");
     }
-    const approval = await ctx.db.get(approvalId);
+    const approval = await ctx.db.get("approvalRequests", approvalId);
     if (!approval) {
       throw new ConvexError("Approval request not found");
     }
@@ -171,7 +171,7 @@ export const decide = mutation({
     }
     const expenseContext = await requireCurrentExpenseApproval(ctx, approval);
     const now = Date.now();
-    await ctx.db.patch(approvalId, {
+    await ctx.db.patch("approvalRequests", approvalId, {
       decidedAt: now,
       decidedBy: access.authUserId ?? "unknown",
       decidedByName: access.name,
@@ -181,6 +181,7 @@ export const decide = mutation({
     });
     if (expenseContext) {
       await ctx.db.patch(
+        "expenseEntries",
         expenseContext.expenseId as Id<"expenseEntries">,
         expenseDecisionPatch(args.status, access, now)
       );
@@ -224,11 +225,11 @@ export const remove = mutation({
     if (!approvalId) {
       throw new ConvexError("Invalid approval id");
     }
-    const approval = await ctx.db.get(approvalId);
+    const approval = await ctx.db.get("approvalRequests", approvalId);
     if (!approval) {
       throw new ConvexError("Approval request not found");
     }
-    await ctx.db.delete(approvalId);
+    await ctx.db.delete("approvalRequests", approvalId);
     await createActivity(ctx, access, {
       action: "deleted",
       entityId: approvalId,

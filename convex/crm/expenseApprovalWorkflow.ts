@@ -32,9 +32,9 @@ async function staffByAuthUserId(ctx: any, authUserId?: string) {
 async function resolveExpenseSubmitterAndManager(ctx: any, access: any, expense: any) {
   const submitter =
     (await staffByAuthUserId(ctx, expense.createdBy)) ??
-    (access.staffId ? await ctx.db.get(access.staffId) : null);
+    (access.staffId ? await ctx.db.get("staffUsers", access.staffId) : null);
   const managerId = submitter?.reportingManagerStaffId ?? null;
-  const manager = managerId ? await ctx.db.get(managerId) : null;
+  const manager = managerId ? await ctx.db.get("staffUsers", managerId) : null;
   if (!submitter) {
     throw new ConvexError("Expense submitter staff record not found");
   }
@@ -137,7 +137,7 @@ export async function handleSubmitExpenseForApproval(ctx: any, args: { expenseId
   if (!expenseId) {
     throw new ConvexError("Invalid expense id");
   }
-  const expense = await ctx.db.get(expenseId);
+  const expense = await ctx.db.get("expenseEntries", expenseId);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
@@ -211,7 +211,7 @@ export async function handleDecideExpenseManager(
   if (!expenseId) {
     throw new ConvexError("Invalid expense id");
   }
-  const expense = await ctx.db.get(expenseId);
+  const expense = await ctx.db.get("expenseEntries", expenseId);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
@@ -278,7 +278,7 @@ export async function handleDecideExpenseFinance(
   if (!expenseId) {
     throw new ConvexError("Invalid expense id");
   }
-  const expense = await ctx.db.get(expenseId);
+  const expense = await ctx.db.get("expenseEntries", expenseId);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
@@ -348,7 +348,7 @@ export async function handleUpdateExpenseStatus(
   if (!id) {
     throw new ConvexError("Invalid expense id");
   }
-  const expense = await ctx.db.get(id);
+  const expense = await ctx.db.get("expenseEntries", id);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }

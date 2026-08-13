@@ -83,7 +83,7 @@ export async function handleUpdateInvoice(
   if (!invoiceId) {
     throw new ConvexError("Invalid invoice id");
   }
-  const invoice = await ctx.db.get(invoiceId);
+  const invoice = await ctx.db.get("invoices", invoiceId);
   if (!invoice) {
     throw new ConvexError("Invoice not found");
   }
@@ -112,7 +112,7 @@ export async function handleUpdateInvoice(
     patch.dueDate = args.dueDate;
   }
 
-  await ctx.db.patch(invoiceId, patch);
+  await ctx.db.patch("invoices", invoiceId, patch);
   await Promise.all([
     createActivity(ctx, access, {
       action: "updated",
@@ -131,7 +131,7 @@ export async function handleRemoveInvoice(ctx: any, args: { invoiceId: string })
   if (!invoiceId) {
     throw new ConvexError("Invalid invoice id");
   }
-  const invoice = await ctx.db.get(invoiceId);
+  const invoice = await ctx.db.get("invoices", invoiceId);
   if (!invoice) {
     throw new ConvexError("Invoice not found");
   }
@@ -146,7 +146,7 @@ export async function handleRemoveInvoice(ctx: any, args: { invoiceId: string })
       message: `${invoice.invoiceNumber} invoice deleted`,
     }),
     deleteEntityNotifications(ctx, "invoice", invoiceId),
-    ctx.db.delete(invoiceId),
+    ctx.db.delete("invoices", invoiceId),
     scheduleFinanceMetricSync(ctx, "invoices", invoiceId),
   ]);
   return { id: invoiceId };

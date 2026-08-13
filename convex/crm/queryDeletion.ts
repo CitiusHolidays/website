@@ -25,7 +25,7 @@ export async function handleQueryRemove(
   if (!queryId) {
     throw new ConvexError("Invalid query id");
   }
-  const current = await ctx.db.get(queryId);
+  const current = await ctx.db.get("queries", queryId);
   if (!current) {
     throw new ConvexError("Query not found");
   }
@@ -70,7 +70,9 @@ export async function handleQueryRemove(
     .query("contractingAssignments")
     .withIndex("by_queryId", (q) => q.eq("queryId", queryId))
     .collect();
-  await Promise.all(assignments.map((assignment) => ctx.db.delete(assignment._id)));
+  await Promise.all(
+    assignments.map((assignment) => ctx.db.delete("contractingAssignments", assignment._id))
+  );
 
   await ctx.runMutation(internal.crm.commercialFiles.markFilesDeletedForSource, {
     sourceId: String(queryId),
@@ -108,7 +110,7 @@ export async function handleQueryRemove(
       message: `${current.queryCode} deleted`,
     }),
     deleteEntityNotifications(ctx, "query", queryId),
-    ctx.db.delete(queryId),
+    ctx.db.delete("queries", queryId),
   ]);
   return { id: queryId };
 }

@@ -41,11 +41,11 @@ export async function handleJobCardUpdate(
   if (!id) {
     throw new ConvexError("Invalid Job Card id");
   }
-  const job = await ctx.db.get(id);
+  const job = await ctx.db.get("jobCards", id);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -112,11 +112,11 @@ export async function handleJobCardUpdateStatus(
   if (!id) {
     throw new ConvexError("Invalid Job Card id");
   }
-  const job = await ctx.db.get(id);
+  const job = await ctx.db.get("jobCards", id);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -161,14 +161,17 @@ export async function handleAddCollaborator(
   if (!staffId) {
     throw new ConvexError("Invalid staff id");
   }
-  const [job, staff] = await Promise.all([ctx.db.get(jobCardId), ctx.db.get(staffId)]);
+  const [job, staff] = await Promise.all([
+    ctx.db.get("jobCards", jobCardId),
+    ctx.db.get("staffUsers", staffId),
+  ]);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -218,11 +221,11 @@ export async function handleRemoveCollaborator(
   if (!staffId) {
     throw new ConvexError("Invalid staff id");
   }
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -254,7 +257,7 @@ export async function handleAssignOperationsOwner(
   if (!staffId) {
     throw new ConvexError("Invalid staff id");
   }
-  const staff = await ctx.db.get(staffId);
+  const staff = await ctx.db.get("staffUsers", staffId);
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
   }
@@ -262,11 +265,11 @@ export async function handleAssignOperationsOwner(
   if (!isOpsTeam) {
     throw new ConvexError("Selected staff member is not on the operations team");
   }
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -313,7 +316,7 @@ export async function handleAssignContractingOwner(
   if (!staffId) {
     throw new ConvexError("Invalid staff id");
   }
-  const staff = await ctx.db.get(staffId);
+  const staff = await ctx.db.get("staffUsers", staffId);
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
   }
@@ -323,11 +326,11 @@ export async function handleAssignContractingOwner(
   if (!isContractingTeam) {
     throw new ConvexError("Selected staff member is not on the contracting team");
   }
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -369,7 +372,7 @@ export async function handleJobCardRemove(
   if (!id) {
     throw new ConvexError("Invalid Job Card id");
   }
-  const job = await ctx.db.get(id);
+  const job = await ctx.db.get("jobCards", id);
   if (!job) {
     const initiatedBy = access.authUserId ?? access.email;
     const existingOperation = await ctx.db
@@ -386,7 +389,7 @@ export async function handleJobCardRemove(
     }
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }

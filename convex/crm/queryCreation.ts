@@ -28,7 +28,7 @@ export async function resolveSalesOwnerSelection(
 ) {
   if (salesOwnerStaffId) {
     const staffId = ctx.db.normalizeId("staffUsers", salesOwnerStaffId);
-    const staff = staffId ? await ctx.db.get(staffId) : null;
+    const staff = staffId ? await ctx.db.get("staffUsers", staffId) : null;
     if (!(staff?.active && staff.roles.some((role) => SALES_REP_ROLES.has(role)))) {
       throw new ConvexError("Select an active Sales Rep");
     }
@@ -36,7 +36,7 @@ export async function resolveSalesOwnerSelection(
   }
   const requestedName = salesOwnerName?.trim();
   if (!requestedName && access.staffId) {
-    const currentStaff = await ctx.db.get(access.staffId);
+    const currentStaff = await ctx.db.get("staffUsers", access.staffId);
     if (currentStaff?.active) {
       return currentStaff;
     }

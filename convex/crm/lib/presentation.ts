@@ -102,7 +102,7 @@ export async function deleteJobCardCascade(
   });
   await Promise.all([
     deleteEntityNotifications(ctx, "jobCard", jobCardId),
-    ctx.db.delete(jobCardId),
+    ctx.db.delete("jobCards", jobCardId),
     ctx.scheduler.runAfter(0, internal.crm.jobCardDeletion.continueJobCardCascade, {
       jobCardId: String(jobCardId),
       operationId,

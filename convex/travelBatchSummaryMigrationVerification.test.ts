@@ -18,7 +18,7 @@ function migrationContext(initial: Record<string, Row[]>) {
   ) as Record<string, Row[]>;
   const ctx = {
     db: {
-      get: (id: string) =>
+      get: (_table: string, id: string) =>
         Promise.resolve(
           Object.values(tables)
             .flat()
@@ -30,7 +30,7 @@ function migrationContext(initial: Record<string, Row[]>) {
         tables[table].push({ _creationTime: Date.now(), _id: id, ...value });
         return Promise.resolve(id);
       },
-      patch: (id: string, value: Record<string, unknown>) => {
+      patch: (_table: string, id: string, value: Record<string, unknown>) => {
         const row = Object.values(tables)
           .flat()
           .find((candidate) => candidate._id === id);

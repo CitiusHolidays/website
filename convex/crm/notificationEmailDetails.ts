@@ -56,27 +56,27 @@ function formatPercent(value: unknown) {
 }
 
 async function getJob(ctx: QueryCtx, jobCardId?: Id<"jobCards">) {
-  return jobCardId ? await ctx.db.get(jobCardId) : null;
+  return jobCardId ? await ctx.db.get("jobCards", jobCardId) : null;
 }
 
 async function getTravelBatch(ctx: QueryCtx, travelBatchId?: Id<"travelBatches">) {
-  return travelBatchId ? await ctx.db.get(travelBatchId) : null;
+  return travelBatchId ? await ctx.db.get("travelBatches", travelBatchId) : null;
 }
 
 async function getQuery(ctx: QueryCtx, queryId?: Id<"queries">) {
-  return queryId ? await ctx.db.get(queryId) : null;
+  return queryId ? await ctx.db.get("queries", queryId) : null;
 }
 
 async function getTraveller(ctx: QueryCtx, travellerId?: Id<"travellers">) {
-  return travellerId ? await ctx.db.get(travellerId) : null;
+  return travellerId ? await ctx.db.get("travellers", travellerId) : null;
 }
 
 async function getPnr(ctx: QueryCtx, pnrId?: Id<"pnrs">) {
-  return pnrId ? await ctx.db.get(pnrId) : null;
+  return pnrId ? await ctx.db.get("pnrs", pnrId) : null;
 }
 
 async function getFlightGroup(ctx: QueryCtx, flightGroupId?: Id<"flightGroups">) {
-  return flightGroupId ? await ctx.db.get(flightGroupId) : null;
+  return flightGroupId ? await ctx.db.get("flightGroups", flightGroupId) : null;
 }
 
 async function linkedQueriesForProposal(ctx: QueryCtx, proposal: Doc<"proposals">) {
@@ -92,7 +92,9 @@ async function linkedQueriesForProposal(ctx: QueryCtx, proposal: Doc<"proposals"
     queryIds.add(link.queryId);
   }
 
-  const queryResults = await Promise.all([...queryIds].map((queryId) => ctx.db.get(queryId)));
+  const queryResults = await Promise.all(
+    [...queryIds].map((queryId) => ctx.db.get("queries", queryId))
+  );
   return queryResults.filter((query): query is Doc<"queries"> => Boolean(query));
 }
 
@@ -120,7 +122,7 @@ async function queryDetails(ctx: QueryCtx, entityId: string): Promise<DetailSect
   if (!queryId) {
     return null;
   }
-  const query = await ctx.db.get(queryId);
+  const query = await ctx.db.get("queries", queryId);
   if (!query) {
     return null;
   }
@@ -135,7 +137,7 @@ async function proposalDetails(ctx: QueryCtx, entityId: string): Promise<DetailS
   if (!proposalId) {
     return null;
   }
-  const proposal = await ctx.db.get(proposalId);
+  const proposal = await ctx.db.get("proposals", proposalId);
   if (!proposal) {
     return null;
   }
@@ -174,13 +176,13 @@ async function jobCardDetails(ctx: QueryCtx, entityId: string): Promise<DetailSe
   if (!jobCardId) {
     return null;
   }
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     return null;
   }
   const [query, proposal] = await Promise.all([
     getQuery(ctx, job.queryId),
-    job.proposalId ? ctx.db.get(job.proposalId) : null,
+    job.proposalId ? ctx.db.get("proposals", job.proposalId) : null,
   ]);
 
   const rows: DetailRow[] = [];
@@ -206,7 +208,7 @@ async function travellerDetails(ctx: QueryCtx, entityId: string): Promise<Detail
   if (!travellerId) {
     return null;
   }
-  const traveller = await ctx.db.get(travellerId);
+  const traveller = await ctx.db.get("travellers", travellerId);
   if (!traveller) {
     return null;
   }
@@ -232,7 +234,7 @@ async function ticketDetails(ctx: QueryCtx, entityId: string): Promise<DetailSec
   if (!ticketId) {
     return null;
   }
-  const ticket = await ctx.db.get(ticketId);
+  const ticket = await ctx.db.get("tickets", ticketId);
   if (!ticket) {
     return null;
   }
@@ -264,7 +266,7 @@ async function pnrDetails(ctx: QueryCtx, entityId: string): Promise<DetailSectio
   if (!pnrId) {
     return null;
   }
-  const pnr = await ctx.db.get(pnrId);
+  const pnr = await ctx.db.get("pnrs", pnrId);
   if (!pnr) {
     return null;
   }
@@ -290,7 +292,7 @@ async function passportDetails(ctx: QueryCtx, entityId: string): Promise<DetailS
   if (!passportId) {
     return null;
   }
-  const passport = await ctx.db.get(passportId);
+  const passport = await ctx.db.get("passportDetails", passportId);
   if (!passport) {
     return null;
   }
@@ -313,7 +315,7 @@ async function visaDetails(ctx: QueryCtx, entityId: string): Promise<DetailSecti
   if (!visaId) {
     return null;
   }
-  const visa = await ctx.db.get(visaId);
+  const visa = await ctx.db.get("visaRecords", visaId);
   if (!visa) {
     return null;
   }
@@ -352,7 +354,7 @@ async function flightGroupDetails(ctx: QueryCtx, entityId: string): Promise<Deta
   if (!flightGroupId) {
     return null;
   }
-  const flight = await ctx.db.get(flightGroupId);
+  const flight = await ctx.db.get("flightGroups", flightGroupId);
   if (!flight) {
     return null;
   }
@@ -376,7 +378,7 @@ async function seatDetails(ctx: QueryCtx, entityId: string): Promise<DetailSecti
   if (!seatId) {
     return null;
   }
-  const seat = await ctx.db.get(seatId);
+  const seat = await ctx.db.get("seatAllocations", seatId);
   if (!seat) {
     return null;
   }
@@ -403,7 +405,7 @@ async function invoiceDetails(ctx: QueryCtx, entityId: string): Promise<DetailSe
   if (!invoiceId) {
     return null;
   }
-  const invoice = await ctx.db.get(invoiceId);
+  const invoice = await ctx.db.get("invoices", invoiceId);
   if (!invoice) {
     return null;
   }
@@ -426,7 +428,7 @@ async function expenseDetails(ctx: QueryCtx, entityId: string): Promise<DetailSe
   if (!expenseId) {
     return null;
   }
-  const expense = await ctx.db.get(expenseId);
+  const expense = await ctx.db.get("expenseEntries", expenseId);
   if (!expense) {
     return null;
   }
@@ -452,7 +454,7 @@ async function approvalDetails(ctx: QueryCtx, entityId: string): Promise<DetailS
   if (!approvalId) {
     return null;
   }
-  const approval = await ctx.db.get(approvalId);
+  const approval = await ctx.db.get("approvalRequests", approvalId);
   if (!approval) {
     return null;
   }
@@ -474,11 +476,11 @@ async function leaveDetails(ctx: QueryCtx, entityId: string): Promise<DetailSect
   if (!leaveId) {
     return null;
   }
-  const leave = await ctx.db.get(leaveId);
+  const leave = await ctx.db.get("staffLeaveRecords", leaveId);
   if (!leave) {
     return null;
   }
-  const staff = await ctx.db.get(leave.staffId);
+  const staff = await ctx.db.get("staffUsers", leave.staffId);
 
   const rows: DetailRow[] = [];
   addRow(rows, "Staff member", staff?.name);
@@ -502,7 +504,7 @@ async function hotelDetails(ctx: QueryCtx, entityId: string): Promise<DetailSect
   if (!hotelId) {
     return null;
   }
-  const hotel = await ctx.db.get(hotelId);
+  const hotel = await ctx.db.get("hotels", hotelId);
   if (!hotel) {
     return null;
   }
@@ -524,7 +526,7 @@ async function tourManagerDetails(ctx: QueryCtx, entityId: string): Promise<Deta
   if (!tourManagerId) {
     return null;
   }
-  const tourManager = await ctx.db.get(tourManagerId);
+  const tourManager = await ctx.db.get("tourManagerAssignments", tourManagerId);
   if (!tourManager) {
     return null;
   }

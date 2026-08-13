@@ -25,7 +25,7 @@ async function loadVisibleQueryForAssignment(
   if (!queryId) {
     throw new ConvexError("Invalid query id");
   }
-  const query = await ctx.db.get(queryId);
+  const query = await ctx.db.get("queries", queryId);
   if (!query) {
     throw new ConvexError("Query not found");
   }
@@ -44,7 +44,7 @@ async function loadAssignableStaff(
   if (!staffId) {
     throw new ConvexError("Invalid staff id");
   }
-  const staff = await ctx.db.get(staffId);
+  const staff = await ctx.db.get("staffUsers", staffId);
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
   }

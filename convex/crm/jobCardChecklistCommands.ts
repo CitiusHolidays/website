@@ -26,11 +26,11 @@ export async function handleUpdateChecklist(
   if (!id) {
     throw new ConvexError("Invalid Job Card id");
   }
-  const job = await ctx.db.get(id);
+  const job = await ctx.db.get("jobCards", id);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -39,7 +39,7 @@ export async function handleUpdateChecklist(
       "Only assigned SPOCs, collaborators, and heads can update this checklist"
     );
   }
-  await ctx.db.patch(id, {
+  await ctx.db.patch("jobCards", id, {
     preDepartureChecklist: args.checklist,
     ...editorPatch(access),
   });
@@ -70,22 +70,22 @@ export async function handleUpdateChecklistTask(
   if (!taskId) {
     throw new ConvexError("Invalid checklist task id");
   }
-  const task = await ctx.db.get(taskId);
+  const task = await ctx.db.get("checklistTasks", taskId);
   if (!task) {
     throw new ConvexError("Checklist task not found");
   }
-  const job = await ctx.db.get(task.jobCardId);
+  const job = await ctx.db.get("jobCards", task.jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
   if (!(canEditOperationsRecord(access, job) || canEditContractingRecord(access, job))) {
     throw new ConvexError("Only assigned SPOCs, collaborators, and heads can update this task");
   }
-  await ctx.db.patch(taskId, {
+  await ctx.db.patch("checklistTasks", taskId, {
     completed: args.completed,
     completedAt: args.completed ? Date.now() : undefined,
     dueDate: args.dueDate,
@@ -114,11 +114,11 @@ export async function handleCreateChecklistTask(
   if (!jobCardId) {
     throw new ConvexError("Invalid Job Card id");
   }
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -155,21 +155,21 @@ export async function handleRemoveChecklistTask(
   if (!taskId) {
     throw new ConvexError("Invalid checklist task id");
   }
-  const task = await ctx.db.get(taskId);
+  const task = await ctx.db.get("checklistTasks", taskId);
   if (!task) {
     throw new ConvexError("Checklist task not found");
   }
-  const job = await ctx.db.get(task.jobCardId);
+  const job = await ctx.db.get("jobCards", task.jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
   if (!(canEditOperationsRecord(access, job) || canEditContractingRecord(access, job))) {
     throw new ConvexError("Only assigned SPOCs, collaborators, and heads can remove tasks");
   }
-  await ctx.db.delete(taskId);
+  await ctx.db.delete("checklistTasks", taskId);
   return { id: taskId };
 }

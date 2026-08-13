@@ -155,7 +155,7 @@ export const remove = mutation({
     if (!proposalId) {
       throw new ConvexError("Invalid proposal id");
     }
-    const proposal = await ctx.db.get(proposalId);
+    const proposal = await ctx.db.get("proposals", proposalId);
     if (!proposal) {
       throw new ConvexError("Proposal not found");
     }
@@ -210,7 +210,7 @@ export const remove = mutation({
       }),
       deleteEntityNotifications(ctx, "proposal", proposalId),
       deleteProposalQueryLinks(ctx, proposalId),
-      ctx.db.delete(proposalId),
+      ctx.db.delete("proposals", proposalId),
     ]);
     await enqueueQueryCommercialProjections(
       ctx,
@@ -236,7 +236,10 @@ export const addCollaborator = mutation({
     if (!staffId) {
       throw new ConvexError("Invalid staff id");
     }
-    const [proposal, staff] = await Promise.all([ctx.db.get(proposalId), ctx.db.get(staffId)]);
+    const [proposal, staff] = await Promise.all([
+      ctx.db.get("proposals", proposalId),
+      ctx.db.get("staffUsers", staffId),
+    ]);
     if (!proposal) {
       throw new ConvexError("Proposal not found");
     }
@@ -292,7 +295,7 @@ export const removeCollaborator = mutation({
     if (!staffId) {
       throw new ConvexError("Invalid staff id");
     }
-    const proposal = await ctx.db.get(proposalId);
+    const proposal = await ctx.db.get("proposals", proposalId);
     if (!proposal) {
       throw new ConvexError("Proposal not found");
     }

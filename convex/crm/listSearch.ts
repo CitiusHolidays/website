@@ -132,7 +132,7 @@ async function startTableReconciliation(ctx: any, table: SearchTable) {
     version: LIST_SEARCH_PROJECTION_VERSION,
   };
   if (existing) {
-    await ctx.db.patch(existing._id, patch);
+    await ctx.db.patch("crmListSearchReadiness", existing._id, patch);
   } else {
     await ctx.db.insert("crmListSearchReadiness", patch);
   }
@@ -177,7 +177,7 @@ async function completeTableReconciliation(
   ) {
     return false;
   }
-  await ctx.db.patch(state._id, {
+  await ctx.db.patch("crmListSearchReadiness", state._id, {
     ready: true,
     reconciling: false,
     updatedAt: Date.now(),
@@ -323,7 +323,7 @@ export async function buildProposalProjection(
   const { queryId } = row;
   if (queryId) {
     const [linkedQueryRecord, existingLink] = await Promise.all([
-      ctx.db.get(queryId),
+      ctx.db.get("queries", queryId),
       ctx.db
         .query("proposalQueryLinks")
         .withIndex("by_proposalId_and_queryId", (q) =>
@@ -334,7 +334,7 @@ export async function buildProposalProjection(
     if (linkedQueryRecord) {
       const projection = proposalLinkProjection(linkedQueryRecord);
       if (existingLink) {
-        await ctx.db.patch(existingLink._id, projection);
+        await ctx.db.patch("proposalQueryLinks", existingLink._id, projection);
       } else {
         await ctx.db.insert("proposalQueryLinks", {
           ...projection,
@@ -372,9 +372,9 @@ async function buildListProjection(ctx: any, table: SearchTable, row: any) {
   }
   const needsPassportProjection = row.hasPassportScan === undefined;
   const [job, batch, passport] = await Promise.all([
-    ctx.db.get(row.jobCardId as Id<"jobCards">),
+    ctx.db.get("jobCards", row.jobCardId as Id<"jobCards">),
     row.travelBatchId
-      ? ctx.db.get(row.travelBatchId as Id<"travelBatches">)
+      ? ctx.db.get("travelBatches", row.travelBatchId as Id<"travelBatches">)
       : Promise.resolve(null),
     needsPassportProjection
       ? ctx.db
@@ -431,7 +431,7 @@ export const reconcilePage = internalMutation({
         ([key, value]) => JSON.stringify((row as any)[key]) !== JSON.stringify(value)
       );
       if (hasChanges) {
-        await ctx.db.patch(row._id, projection);
+        await ctx.db.patch(args.table, row._id, projection);
       }
       return hasChanges;
     });

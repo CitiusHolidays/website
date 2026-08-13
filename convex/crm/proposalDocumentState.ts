@@ -21,7 +21,7 @@ export async function handleSaveFinalizedPdf(
     uploadedBy: string;
   }
 ) {
-  const proposal = await ctx.db.get(args.proposalId);
+  const proposal = await ctx.db.get("proposals", args.proposalId);
   if (!proposal) {
     throw new ConvexError("Proposal not found");
   }
@@ -51,7 +51,7 @@ export async function handleClearFinalizedPdf(
   ctx: MutationCtx,
   args: { proposalId: Id<"proposals"> }
 ) {
-  const proposal = await ctx.db.get(args.proposalId);
+  const proposal = await ctx.db.get("proposals", args.proposalId);
   if (!proposal) {
     throw new ConvexError("Proposal not found");
   }
@@ -76,7 +76,7 @@ export async function handleGetFinalizedPdfRecord(ctx: QueryCtx, args: { proposa
   if (!proposalId) {
     return null;
   }
-  const proposal = await ctx.db.get(proposalId);
+  const proposal = await ctx.db.get("proposals", proposalId);
   if (!proposal?.finalizedPdfStorageId) {
     return null;
   }

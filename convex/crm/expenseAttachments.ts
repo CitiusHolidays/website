@@ -52,7 +52,7 @@ export const getAttachmentRecord = query({
     if (!attachmentId) {
       return null;
     }
-    const row = await ctx.db.get(attachmentId);
+    const row = await ctx.db.get("attachments", attachmentId);
     if (row?.entityType !== "expense") {
       return null;
     }
@@ -85,10 +85,13 @@ export const saveExpenseProof = internalMutation({
     const { access, expense } = await requireMutableExpenseProof(ctx, args.expenseId);
     let previousStorageId: Id<"_storage"> | null = null;
     if (expense.proofAttachmentId) {
-      const previous = await ctx.db.get(expense.proofAttachmentId as Id<"attachments">);
+      const previous = await ctx.db.get(
+        "attachments",
+        expense.proofAttachmentId as Id<"attachments">
+      );
       previousStorageId = (previous?.storageId as Id<"_storage"> | undefined) ?? null;
       if (previous) {
-        await ctx.db.delete(previous._id);
+        await ctx.db.delete("attachments", previous._id);
       }
     }
     const attachmentId = await ctx.db.insert("attachments", {
@@ -106,7 +109,7 @@ export const saveExpenseProof = internalMutation({
     if (proofChanged) {
       await invalidatePendingExpenseApprovals(ctx, args.expenseId, now);
     }
-    await ctx.db.patch(args.expenseId, {
+    await ctx.db.patch("expenseEntries", args.expenseId, {
       ...(proofChanged ? proofChangeResetPatch(expense, args.contentDigest, now) : {}),
       proofAttachmentId: attachmentId,
       proofDigest: args.contentDigest,
@@ -127,7 +130,7 @@ export const deleteExpenseProof = internalMutation({
     attachmentId: v.id("attachments"),
   },
   handler: async (ctx, args) => {
-    const row = await ctx.db.get(args.attachmentId);
+    const row = await ctx.db.get("attachments", args.attachmentId);
     if (row?.entityType !== "expense") {
       return { storageId: null as string | null };
     }
@@ -140,7 +143,7 @@ export const deleteExpenseProof = internalMutation({
         if (proofChanged) {
           await invalidatePendingExpenseApprovals(ctx, expenseId, now);
         }
-        await ctx.db.patch(expenseId, {
+        await ctx.db.patch("expenseEntries", expenseId, {
           ...(proofChanged ? proofChangeResetPatch(expense, "", now) : {}),
           proofAttachmentId: undefined,
           proofDigest: "",
@@ -149,7 +152,7 @@ export const deleteExpenseProof = internalMutation({
         await scheduleFinanceMetricSync(ctx, "expenseEntries", expenseId);
       }
     }
-    await ctx.db.delete(args.attachmentId);
+    await ctx.db.delete("attachments", args.attachmentId);
     if (row.storageId) {
       await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
         storageId: row.storageId as Id<"_storage">,

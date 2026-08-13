@@ -45,7 +45,7 @@ function makeRunCtx({
     ...tableRows,
   };
   const db = {
-    get: (id: string) =>
+    get: (_table: string, id: string) =>
       Object.values(tables)
         .flat()
         .find((row) => row._id === id) ?? null,
@@ -56,7 +56,7 @@ function makeRunCtx({
       tables[table].push({ _id: id, ...value });
       return id;
     },
-    patch: (id: string, patch: Record<string, any>) => {
+    patch: (_table: string, id: string, patch: Record<string, any>) => {
       for (const rows of Object.values(tables)) {
         const row = rows.find((candidate) => candidate._id === id);
         if (row) {

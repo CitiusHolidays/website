@@ -59,7 +59,7 @@ describe("notifyLinkedQuerySalesOwnersOfProposalDocument", () => {
     ).mockImplementation(async () => {});
     const ctx = {
       db: {
-        get: async (id: string) =>
+        get: async (_table: string, id: string) =>
           id === "proposals_1"
             ? {
                 _id: "proposals_1",
@@ -128,7 +128,7 @@ describe("notifyLinkedQuerySalesOwnersOfProposalDocument", () => {
     ).mockImplementation(async () => {});
     const ctx = {
       db: {
-        get: async (id: string) =>
+        get: async (_table: string, id: string) =>
           id === "proposals_1"
             ? {
                 _id: "proposals_1",

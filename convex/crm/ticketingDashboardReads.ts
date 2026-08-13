@@ -139,11 +139,11 @@ async function buildTicketPreview(
   return await Promise.all(
     tickets.slice(0, PREVIEW_LIMIT).map(async (ticket) => {
       const [traveller, pnr] = await Promise.all([
-        ticket.travellerId ? ctx.db.get(ticket.travellerId) : null,
-        ticket.pnrId ? ctx.db.get(ticket.pnrId) : null,
+        ticket.travellerId ? ctx.db.get("travellers", ticket.travellerId) : null,
+        ticket.pnrId ? ctx.db.get("pnrs", ticket.pnrId) : null,
       ]);
       const travelBatch = traveller?.travelBatchId
-        ? await ctx.db.get(traveller.travelBatchId)
+        ? await ctx.db.get("travelBatches", traveller.travelBatchId)
         : null;
       return publicTicket(
         ticket,

@@ -146,11 +146,13 @@ export async function handleQueryGetListRow(
   if (!queryId) {
     return null;
   }
-  const row = await ctx.db.get(queryId);
+  const row = await ctx.db.get("queries", queryId);
   if (!(row && canSeeQueryRecord(access, row))) {
     return null;
   }
-  const confirmedOffer = row.confirmedOfferId ? await ctx.db.get(row.confirmedOfferId) : null;
+  const confirmedOffer = row.confirmedOfferId
+    ? await ctx.db.get("confirmedOffers", row.confirmedOfferId)
+    : null;
   return {
     ...publicQuery(row),
     attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,

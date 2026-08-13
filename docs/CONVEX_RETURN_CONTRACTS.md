@@ -178,14 +178,15 @@ contracts track presenter output rather than raw table documents.
 `mutationWithAccess` factory through the TypeScript AST. An exported registration factory that is not
 explicitly allowlisted fails closed. The same test compares internal registrations without `returns`
 against `config/release/convex-internal-return-gaps.txt`: additions fail immediately, and a validator
-change must remove its named exception. The current staged baseline is 62 after validating the 14
-import/export, notification-ledger, and proposal-projection functions introduced in `7fa38a0`.
+change must remove its named exception. The current staged baseline is 48; every workflow-sized
+validator tranche must lower that exact named inventory.
 
 The explicit-table database API migration follows the same no-new-debt rule in
 `convex/explicitTableApiInventory.test.ts`. Its file-and-method baseline lives in
-`config/release/convex-explicit-table-gaps.txt`; each entry is owned by #144 and is removed only when
-the source call and its direct database mocks use the exact table-name overload. The first typed
-finance/ticketing tranche reduced the baseline from 595 to 588 ID-only calls.
+`config/release/convex-explicit-table-gaps.txt`. The baseline is zero: every non-generated source call
+to `get`, `patch`, `replace`, or `delete` now supplies an exact table name, and any new ID-only call
+fails the inventory immediately. `config/release/convex-explicit-table-codemod.ts` is dry-run by
+default and rewrites only IDs whose generated TypeScript type resolves to one unambiguous table.
 
 ## Rollout checklist for new APIs
 

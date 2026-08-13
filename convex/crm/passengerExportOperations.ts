@@ -100,7 +100,7 @@ export async function beginPassengerExportOperationHandler(
       (existing.status === "running" && (existing.leaseExpiresAt ?? 0) <= now);
     if (canTakeOver) {
       const rejectedStorageId = existing.storageId;
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("passengerExportOperations", existing._id, {
         attemptCount: (existing.attemptCount ?? 0) + 1,
         completedAt: undefined,
         errorCode: undefined,
@@ -151,7 +151,7 @@ export async function completePassengerExportOperationHandler(
     rowsProcessed: number;
   }
 ) {
-  const operation = await ctx.db.get(args.operationId);
+  const operation = await ctx.db.get("passengerExportOperations", args.operationId);
   if (
     !(operation?.storageId && operation.fileName) ||
     operation.leaseId !== args.leaseId ||
@@ -181,7 +181,7 @@ export async function getAuthorizedPassengerExportOperationHandler(
   args: { access: PortalAccess; operationId: string }
 ) {
   const operationId = ctx.db.normalizeId("passengerExportOperations", args.operationId);
-  const operation = operationId ? await ctx.db.get(operationId) : null;
+  const operation = operationId ? await ctx.db.get("passengerExportOperations", operationId) : null;
   if (
     !operation ||
     operation.initiatedBy !== (args.access.authUserId ?? args.access.email) ||
@@ -254,7 +254,7 @@ export async function logPassengerExportHandler(
   if (!jobCardId) {
     return null;
   }
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     return null;
   }
@@ -282,12 +282,12 @@ export async function updatePassengerExportOperationHandler(
     rowsProcessed: number;
   }
 ) {
-  const operation = await ctx.db.get(args.operationId);
+  const operation = await ctx.db.get("passengerExportOperations", args.operationId);
   if (!operation || operation.leaseId !== args.leaseId || operation.status !== "running") {
     throw new ConvexError("Export operation lease was superseded");
   }
   const now = Date.now();
-  await ctx.db.patch(args.operationId, {
+  await ctx.db.patch("passengerExportOperations", args.operationId, {
     expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
     leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
     rowsProcessed: args.rowsProcessed,
@@ -305,7 +305,7 @@ export async function stagePassengerExportArtifactHandler(
     storageId: Doc<"passengerExportSourceChunks">["storageId"];
   }
 ) {
-  const operation = await ctx.db.get(args.operationId);
+  const operation = await ctx.db.get("passengerExportOperations", args.operationId);
   if (operation?.status !== "running" || operation.leaseId !== args.leaseId) {
     throw new ConvexError("Export operation is not running");
   }
@@ -329,11 +329,11 @@ export async function failPassengerExportOperationHandler(
     operationId: Doc<"passengerExportOperations">["_id"];
   }
 ) {
-  const operation = await ctx.db.get(args.operationId);
+  const operation = await ctx.db.get("passengerExportOperations", args.operationId);
   if (!operation || operation.leaseId !== args.leaseId) {
     return null;
   }
-  await ctx.db.patch(args.operationId, {
+  await ctx.db.patch("passengerExportOperations", args.operationId, {
     errorCode: args.errorCode,
     expiresAt: Date.now() + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
     status: "failed",
@@ -358,7 +358,7 @@ export const stagePassengerExportSourceChunk = internalMutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const operation = await ctx.db.get(args.operationId);
+    const operation = await ctx.db.get("passengerExportOperations", args.operationId);
     if (!operation || operation.status !== "running" || operation.leaseId !== args.leaseId) {
       throw new ConvexError("Export operation lease was superseded");
     }
@@ -390,7 +390,7 @@ export const stagePassengerExportSourceChunk = internalMutation({
       rowCount: args.rowCount,
       storageId: args.storageId,
     });
-    await ctx.db.patch(args.operationId, {
+    await ctx.db.patch("passengerExportOperations", args.operationId, {
       expiresAt: now + PASSENGER_EXPORT_ARTIFACT_TTL_MS,
       jobCode: operation.jobCode ?? args.jobCode,
       leaseExpiresAt: now + PASSENGER_EXPORT_LEASE_MS,
@@ -434,7 +434,7 @@ export const purgePassengerExportSourceChunks = internalMutation({
       .take(PASSENGER_EXPORT_CLEANUP_BATCH_SIZE)) as Doc<"passengerExportSourceChunks">[];
     await Promise.all(
       chunks.map(async (chunk) => {
-        await ctx.db.delete(chunk._id);
+        await ctx.db.delete("passengerExportSourceChunks", chunk._id);
         await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
           storageId: chunk.storageId,
         });
@@ -444,9 +444,9 @@ export const purgePassengerExportSourceChunks = internalMutation({
     if (scheduled) {
       await ctx.scheduler.runAfter(0, purgePassengerExportSourceChunksRef, args);
     } else if (args.expireOperation) {
-      const operation = await ctx.db.get(args.operationId);
+      const operation = await ctx.db.get("passengerExportOperations", args.operationId);
       if (operation && operation.status !== "completed") {
-        await ctx.db.patch(args.operationId, {
+        await ctx.db.patch("passengerExportOperations", args.operationId, {
           expiresAt: undefined,
           fileName: undefined,
           leaseExpiresAt: undefined,

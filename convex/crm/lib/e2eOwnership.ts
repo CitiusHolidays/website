@@ -250,7 +250,7 @@ export async function patchWithE2eOwnership<TableName extends TableNames>(
   }
   // Convex's distributive generic loses the TableName relationship inside this
   // wrapper; callers retain the table-specific PatchValue contract above.
-  await ctx.db.patch(documentId, value as never);
+  await ctx.db.patch(tableName, documentId, value as never);
 }
 
 export async function insertE2eFixtureWithOwnership<TableName extends TableNames>(
@@ -280,5 +280,5 @@ export async function patchE2eFixtureWithOwnership<TableName extends TableNames>
     throw new Error(`E2E fixture ${tableName}/${documentId} no longer exists`);
   }
   await recordOriginalValue(ctx, run._id, tableName, documentId, document);
-  await ctx.db.patch(documentId, value as never);
+  await ctx.db.patch(tableName, documentId, value as never);
 }

@@ -29,7 +29,7 @@ function makeConfirmedOfferCtx(existingOffer: Record<string, unknown> | null = n
   };
   const ctx = {
     db: {
-      get: async (id: string) => (id === "proposals_1" ? proposal : null),
+      get: async (_table: string, id: string) => (id === "proposals_1" ? proposal : null),
       insert: (_table: string, doc: Record<string, unknown>) => {
         inserted = doc;
         return Promise.resolve("confirmedOffers_1");

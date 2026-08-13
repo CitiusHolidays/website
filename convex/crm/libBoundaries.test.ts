@@ -240,7 +240,7 @@ describe("notification boundary parity", () => {
     ];
     const ctx = {
       db: {
-        get: async (id: Id<"staffUsers">) =>
+        get: async (_table: string, id: Id<"staffUsers">) =>
           tables.staffUsers.find((row) => (row as { _id: string })._id === id) ?? null,
         insert: (table: string, doc: Record<string, unknown>) => {
           const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };
@@ -312,7 +312,7 @@ describe("notification boundary parity", () => {
     ];
     const ctx = {
       db: {
-        get: async (id: Id<"staffUsers">) =>
+        get: async (_table: string, id: Id<"staffUsers">) =>
           tables.staffUsers.find((row) => (row as { _id: string })._id === id) ?? null,
         insert: (table: string, doc: Record<string, unknown>) => {
           const row = { _id: `${table}_${tables[table].length + 1}`, ...doc };

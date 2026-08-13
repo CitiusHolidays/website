@@ -30,7 +30,7 @@ async function passengerExportSourceRow(ctx: QueryCtx, traveller: Doc<"traveller
       .query("tickets")
       .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
       .take(PASSENGER_EXPORT_MAX_TICKETS_PER_TRAVELLER + 1),
-    traveller.travelBatchId ? ctx.db.get(traveller.travelBatchId) : null,
+    traveller.travelBatchId ? ctx.db.get("travelBatches", traveller.travelBatchId) : null,
   ]);
   if (ticketRows.length > PASSENGER_EXPORT_MAX_TICKETS_PER_TRAVELLER) {
     throw new ConvexError(
@@ -38,7 +38,7 @@ async function passengerExportSourceRow(ctx: QueryCtx, traveller: Doc<"traveller
     );
   }
   const tickets = await mapInBoundedBatches(ticketRows, async (ticket) => {
-    const pnr = ticket.pnrId ? await ctx.db.get(ticket.pnrId) : null;
+    const pnr = ticket.pnrId ? await ctx.db.get("pnrs", ticket.pnrId) : null;
     return {
       airline: pnr?.airline ?? "",
       fareType: pnr?.fareType ?? "",

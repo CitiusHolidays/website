@@ -15,7 +15,7 @@ function makeContext(initialTables: Record<string, Row[]>) {
 
   const ctx = {
     db: {
-      delete: (id: string) => {
+      delete: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -32,7 +32,7 @@ function makeContext(initialTables: Record<string, Row[]>) {
         rows.push({ _id: id, ...value });
         return Promise.resolve(id);
       },
-      patch: (id: string, value: Record<string, unknown>) => {
+      patch: (_table: string, id: string, value: Record<string, unknown>) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

@@ -119,7 +119,7 @@ export async function handleUpdateExpense(
   if (!id) {
     throw new ConvexError("Invalid expense id");
   }
-  const expense = await ctx.db.get(id);
+  const expense = await ctx.db.get("expenseEntries", id);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
@@ -213,7 +213,7 @@ export async function handleRemoveExpense(ctx: any, args: { expenseId: string })
   if (!id) {
     throw new ConvexError("Invalid expense id");
   }
-  const expense = await ctx.db.get(id);
+  const expense = await ctx.db.get("expenseEntries", id);
   if (!expense) {
     throw new ConvexError("Expense not found");
   }
@@ -232,16 +232,16 @@ export async function handleRemoveExpense(ctx: any, args: { expenseId: string })
   });
   let proofStorageId: Id<"_storage"> | null = null;
   if (expense.proofAttachmentId) {
-    const proof = await ctx.db.get(expense.proofAttachmentId);
+    const proof = await ctx.db.get("expenseAttachments", expense.proofAttachmentId);
     if (proof?.storageId) {
       proofStorageId = proof.storageId;
     }
     if (proof) {
-      await ctx.db.delete(proof._id);
+      await ctx.db.delete("expenseAttachments", proof._id);
     }
   }
   await deleteEntityNotifications(ctx, "expense", id);
-  await ctx.db.delete(id);
+  await ctx.db.delete("expenseEntries", id);
   await scheduleFinanceMetricSync(ctx, "expenseEntries", id);
   if (proofStorageId) {
     await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {

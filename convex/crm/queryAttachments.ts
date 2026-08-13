@@ -59,7 +59,7 @@ async function canSeeQueryCommercialFiles(
       .collect(),
   ]);
   const linkedProposals = await Promise.all(
-    proposalLinks.map((link) => ctx.db.get(link.proposalId))
+    proposalLinks.map((link) => ctx.db.get("proposals", link.proposalId))
   );
   return [...directProposals, ...linkedProposals].some(
     (proposal) => proposal && canSeeProposalRecord(access, proposal, [query])
@@ -81,7 +81,7 @@ export const listForQuery = query({
     if (!queryId) {
       return { continueCursor: "", isDone: true, page: [] };
     }
-    const query = await ctx.db.get(queryId);
+    const query = await ctx.db.get("queries", queryId);
     if (!(query && (await canSeeQueryCommercialFiles(ctx, access, query)))) {
       return { continueCursor: "", isDone: true, page: [] };
     }
@@ -109,11 +109,11 @@ export const getAttachmentRecord = query({
     if (!attachmentId) {
       return null;
     }
-    const row = await ctx.db.get(attachmentId);
+    const row = await ctx.db.get("queryAttachments", attachmentId);
     if (!row) {
       return null;
     }
-    const query = await ctx.db.get(row.queryId);
+    const query = await ctx.db.get("queries", row.queryId);
     if (!(query && (await canSeeQueryCommercialFiles(ctx, access, query)))) {
       return null;
     }
@@ -137,7 +137,7 @@ export const resolveQueryId = internalMutation({
     if (!queryId) {
       throw new ConvexError("Invalid query id");
     }
-    const query = await ctx.db.get(queryId);
+    const query = await ctx.db.get("queries", queryId);
     if (!query) {
       throw new ConvexError("Query not found");
     }
@@ -155,7 +155,7 @@ export const saveAttachment = internalMutation({
     storageId: v.id("_storage"),
   },
   handler: async (ctx, args) => {
-    const query = await ctx.db.get(args.queryId);
+    const query = await ctx.db.get("queries", args.queryId);
     if (!query) {
       throw new ConvexError("Query not found");
     }
@@ -197,12 +197,12 @@ export const deleteAttachmentRecord = internalMutation({
     attachmentId: v.id("queryAttachments"),
   },
   handler: async (ctx, args) => {
-    const row = await ctx.db.get(args.attachmentId);
+    const row = await ctx.db.get("queryAttachments", args.attachmentId);
     if (!row) {
       return { storageId: null as Id<"_storage"> | null };
     }
-    const query = await ctx.db.get(row.queryId);
-    await ctx.db.delete(args.attachmentId);
+    const query = await ctx.db.get("queries", row.queryId);
+    await ctx.db.delete("queryAttachments", args.attachmentId);
     if (query) {
       const remaining = await ctx.db
         .query("queryAttachments")
@@ -243,7 +243,7 @@ export const deleteAllForQuery = internalMutation({
       .withIndex("by_queryId", (q) => q.eq("queryId", args.queryId))
       .collect();
     const storageIds = rows.map((row) => row.storageId);
-    await Promise.all(rows.map((row) => ctx.db.delete(row._id)));
+    await Promise.all(rows.map((row) => ctx.db.delete("queryAttachments", row._id)));
     return { storageIds };
   },
 });

@@ -205,7 +205,7 @@ async function descriptorForSource(
 ): Promise<SourceDescriptor | null> {
   if (sourceType === "query") {
     const queryId = ctx.db.normalizeId("queries", sourceId);
-    const queryRow = queryId ? await ctx.db.get(queryId) : null;
+    const queryRow = queryId ? await ctx.db.get("queries", queryId) : null;
     return queryRow
       ? {
           code: queryRow.queryCode,
@@ -220,7 +220,7 @@ async function descriptorForSource(
 
   if (sourceType === "proposal") {
     const proposalId = ctx.db.normalizeId("proposals", sourceId);
-    const proposal = proposalId ? await ctx.db.get(proposalId) : null;
+    const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
     if (!proposal) {
       return null;
     }
@@ -235,11 +235,11 @@ async function descriptorForSource(
   }
 
   const jobCardId = ctx.db.normalizeId("jobCards", sourceId);
-  const jobCard = jobCardId ? await ctx.db.get(jobCardId) : null;
+  const jobCard = jobCardId ? await ctx.db.get("jobCards", jobCardId) : null;
   if (!jobCard) {
     return null;
   }
-  const linkedQuery = jobCard.queryId ? await ctx.db.get(jobCard.queryId) : null;
+  const linkedQuery = jobCard.queryId ? await ctx.db.get("queries", jobCard.queryId) : null;
   return {
     code: jobCard.jobCode,
     id: String(jobCard._id),
@@ -676,7 +676,10 @@ async function archiveCurrentProposalDoc(
     (row) => String(row.storageId) === String(currentStorageId) && row.category === "proposalDoc"
   );
   if (active) {
-    await ctx.db.patch(active._id, { lifecycle: "history", updatedAt: timestamp });
+    await ctx.db.patch("commercialFiles", active._id, {
+      lifecycle: "history",
+      updatedAt: timestamp,
+    });
     if (access) {
       await createActivity(ctx, access, {
         action: "proposal_doc_history_created",
@@ -705,7 +708,7 @@ async function archiveCurrentProposalDoc(
       source.proposal.finalizedPdfUploadedAt ?? timestamp
     )
   );
-  await ctx.db.patch(historyId, { lifecycle: "history", updatedAt: timestamp });
+  await ctx.db.patch("commercialFiles", historyId, { lifecycle: "history", updatedAt: timestamp });
   if (access) {
     await createActivity(ctx, access, {
       action: "proposal_doc_history_created",
@@ -729,7 +732,7 @@ async function materializeLegacyFile(
   }
   if (parsed.kind === "query") {
     const attachmentId = ctx.db.normalizeId("queryAttachments", parsed.id);
-    const row = attachmentId ? await ctx.db.get(attachmentId) : null;
+    const row = attachmentId ? await ctx.db.get("queryAttachments", attachmentId) : null;
     const source = row ? await descriptorForSource(ctx, "query", String(row.queryId)) : null;
     if (!(row && source && sourceCanManage(access, source, "sales"))) {
       throw new ConvexError("FORBIDDEN");
@@ -751,12 +754,12 @@ async function materializeLegacyFile(
         row.createdAt
       )
     );
-    await ctx.db.delete(row._id);
+    await ctx.db.delete("queryAttachments", row._id);
     return id;
   }
   if (parsed.kind === "proposal") {
     const attachmentId = ctx.db.normalizeId("proposalAttachments", parsed.id);
-    const row = attachmentId ? await ctx.db.get(attachmentId) : null;
+    const row = attachmentId ? await ctx.db.get("proposalAttachments", attachmentId) : null;
     const source = row ? await descriptorForSource(ctx, "proposal", String(row.proposalId)) : null;
     const teamArea = "contracting" as const;
     if (!(row && source && sourceCanManage(access, source, teamArea))) {
@@ -779,11 +782,11 @@ async function materializeLegacyFile(
         row.createdAt
       )
     );
-    await ctx.db.delete(row._id);
+    await ctx.db.delete("proposalAttachments", row._id);
     return id;
   }
   const proposalId = ctx.db.normalizeId("proposals", parsed.id);
-  const proposal = proposalId ? await ctx.db.get(proposalId) : null;
+  const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
   const source = proposal ? await descriptorForSource(ctx, "proposal", String(proposal._id)) : null;
   if (!(proposal && source && sourceCanManage(access, source, "contracting"))) {
     throw new ConvexError("FORBIDDEN");
@@ -959,7 +962,7 @@ export const getDownloadRecord = query({
       return null;
     }
     const id = ctx.db.normalizeId("commercialFiles", args.fileId);
-    const row = id ? await ctx.db.get(id) : null;
+    const row = id ? await ctx.db.get("commercialFiles", id) : null;
     if (!row || row.lifecycle === "deleted") {
       return null;
     }
@@ -1050,7 +1053,10 @@ export const claimUploadSession = internalMutation({
     ) {
       throw new ConvexError("Upload session is invalid or expired");
     }
-    await ctx.db.patch(session._id, { storageId: args.storageId, usedAt: Date.now() });
+    await ctx.db.patch("commercialFileUploadSessions", session._id, {
+      storageId: args.storageId,
+      usedAt: Date.now(),
+    });
     return { success: true as const };
   },
 });
@@ -1169,7 +1175,7 @@ export const createFile = internalMutation({
       )
     );
     if (source.sourceType === "proposal" && args.category === "proposalDoc") {
-      await ctx.db.patch(source.proposal._id, {
+      await ctx.db.patch("proposals", source.proposal._id, {
         finalizedPdfFileName: args.fileName,
         finalizedPdfStorageId: args.storageId,
         finalizedPdfUploadedAt: timestamp,
@@ -1191,7 +1197,7 @@ export const createFile = internalMutation({
 async function loadMutableFile(ctx: MutationCtx, access: PortalAccess, fileId: string) {
   const timestamp = Date.now();
   const id = await materializeLegacyFile(ctx, access, fileId, timestamp);
-  const row = id ? await ctx.db.get(id) : null;
+  const row = id ? await ctx.db.get("commercialFiles", id) : null;
   if (!row) {
     throw new ConvexError("Commercial file not found");
   }
@@ -1212,7 +1218,10 @@ export const updateNote = mutationWithAccess({
     if (!sourceCanManage(access, source, row.teamArea) || row.lifecycle !== "active") {
       throw new ConvexError("FORBIDDEN");
     }
-    await ctx.db.patch(row._id, { note: args.note?.trim() || undefined, updatedAt: timestamp });
+    await ctx.db.patch("commercialFiles", row._id, {
+      note: args.note?.trim() || undefined,
+      updatedAt: timestamp,
+    });
     await createActivity(ctx, access, {
       action: "commercial_file_note_updated",
       entityId: source.id,
@@ -1232,7 +1241,7 @@ export const deleteFile = mutationWithAccess({
     if (!sourceCanManage(access, source, row.teamArea) || row.lifecycle === "deleted") {
       throw new ConvexError("FORBIDDEN");
     }
-    await ctx.db.patch(row._id, {
+    await ctx.db.patch("commercialFiles", row._id, {
       deletedAt: timestamp,
       deletedBy: access.authUserId ?? access.email,
       lifecycle: "deleted",
@@ -1245,7 +1254,7 @@ export const deleteFile = mutationWithAccess({
       source.sourceType === "proposal" &&
       String(source.proposal.finalizedPdfStorageId) === String(row.storageId)
     ) {
-      await ctx.db.patch(source.proposal._id, {
+      await ctx.db.patch("proposals", source.proposal._id, {
         finalizedPdfFileName: undefined,
         finalizedPdfStorageId: undefined,
         finalizedPdfUploadedAt: undefined,
@@ -1288,12 +1297,12 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
         `legacy-proposal-doc:${source.proposal._id}`,
         timestamp
       );
-      row = id ? ((await ctx.db.get(id)) ?? undefined) : undefined;
+      row = id ? ((await ctx.db.get("commercialFiles", id)) ?? undefined) : undefined;
     }
     if (!row) {
       throw new ConvexError("Proposal document not found");
     }
-    await ctx.db.patch(row._id, {
+    await ctx.db.patch("commercialFiles", row._id, {
       deletedAt: timestamp,
       deletedBy: access.authUserId ?? access.email,
       lifecycle: "deleted",
@@ -1301,7 +1310,7 @@ export const deleteCurrentProposalDoc = mutationWithAccess({
       purgeAfter: timestamp + COMMERCIAL_FILE_RETENTION_MS,
       updatedAt: timestamp,
     });
-    await ctx.db.patch(source.proposal._id, {
+    await ctx.db.patch("proposals", source.proposal._id, {
       finalizedPdfFileName: undefined,
       finalizedPdfStorageId: undefined,
       finalizedPdfUploadedAt: undefined,
@@ -1324,7 +1333,7 @@ export const restoreFile = mutationWithAccess({
   args: { fileId: v.string() },
   handler: async (ctx, args, access) => {
     const id = ctx.db.normalizeId("commercialFiles", args.fileId);
-    const row = id ? await ctx.db.get(id) : null;
+    const row = id ? await ctx.db.get("commercialFiles", id) : null;
     if (row?.lifecycle !== "deleted") {
       throw new ConvexError("Deleted commercial file not found");
     }
@@ -1349,7 +1358,7 @@ export const restoreFile = mutationWithAccess({
     ) {
       await archiveCurrentProposalDoc(ctx, source, timestamp, access);
     }
-    await ctx.db.patch(row._id, {
+    await ctx.db.patch("commercialFiles", row._id, {
       deletedAt: undefined,
       deletedBy: undefined,
       lifecycle,
@@ -1362,7 +1371,7 @@ export const restoreFile = mutationWithAccess({
       source.sourceType === "proposal" &&
       lifecycle === "active"
     ) {
-      await ctx.db.patch(source.proposal._id, {
+      await ctx.db.patch("proposals", source.proposal._id, {
         finalizedPdfFileName: row.fileName,
         finalizedPdfStorageId: row.storageId,
         finalizedPdfUploadedAt: row.createdAt,
@@ -1386,7 +1395,7 @@ export const restoreProposalHistory = mutationWithAccess({
   args: { fileId: v.string() },
   handler: async (ctx, args, access) => {
     const id = ctx.db.normalizeId("commercialFiles", args.fileId);
-    const row = id ? await ctx.db.get(id) : null;
+    const row = id ? await ctx.db.get("commercialFiles", id) : null;
     if (!(row && row.lifecycle === "history" && row.category === "proposalDoc" && row.proposalId)) {
       throw new ConvexError("Proposal history entry not found");
     }
@@ -1403,12 +1412,12 @@ export const restoreProposalHistory = mutationWithAccess({
     }
     const timestamp = Date.now();
     await archiveCurrentProposalDoc(ctx, proposalSource, timestamp, access);
-    await ctx.db.patch(row._id, {
+    await ctx.db.patch("commercialFiles", row._id, {
       lifecycle: "active",
       restoredAt: timestamp,
       updatedAt: timestamp,
     });
-    await ctx.db.patch(proposalSource.proposal._id, {
+    await ctx.db.patch("proposals", proposalSource.proposal._id, {
       finalizedPdfFileName: row.fileName,
       finalizedPdfStorageId: row.storageId,
       finalizedPdfUploadedAt: row.createdAt,
@@ -1551,7 +1560,7 @@ export const markFilesDeletedForSource = internalMutation({
       .collect();
     for (const row of currentRows) {
       if (row.lifecycle === "active" || row.lifecycle === "history") {
-        await ctx.db.patch(row._id, {
+        await ctx.db.patch("commercialFiles", row._id, {
           deletedAt: now,
           lifecycle: "deleted",
           priorLifecycle: row.lifecycle,

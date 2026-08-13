@@ -33,7 +33,7 @@ function makeCtx(initial: { staffUsers: Row[]; userProfiles: Row[] }) {
   };
   const ctx = {
     db: {
-      patch: (id: string, patch: Record<string, unknown>) => {
+      patch: (_table: string, id: string, patch: Record<string, unknown>) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

@@ -130,7 +130,7 @@ export async function handleUpdateTicket(
   if (!ticketId) {
     throw new ConvexError("Invalid ticket id");
   }
-  const ticket = await ctx.db.get(ticketId);
+  const ticket = await ctx.db.get("tickets", ticketId);
   if (!ticket) {
     throw new ConvexError("Ticket not found");
   }
@@ -231,7 +231,7 @@ export async function handleUpdateTicketStatus(
   if (!ticketId) {
     throw new ConvexError("Invalid ticket id");
   }
-  const ticket = await ctx.db.get(ticketId);
+  const ticket = await ctx.db.get("tickets", ticketId);
   if (!ticket) {
     throw new ConvexError("Ticket not found");
   }
@@ -274,7 +274,7 @@ export async function deleteTicketRecord(
   ticketId: Id<"tickets">,
   deferredNotifications?: NotificationEntityIdentity[]
 ) {
-  const ticket = await ctx.db.get(ticketId);
+  const ticket = await ctx.db.get("tickets", ticketId);
   if (!ticket) {
     throw new ConvexError("Ticket not found");
   }
@@ -307,7 +307,7 @@ export async function deleteTicketRecord(
       message: `Ticket ${ticket.ticketNumber || ticketId} deleted`,
     }),
     deleteEntityNotifications(ctx, "ticket", ticketId, deferredNotifications),
-    ctx.db.delete(ticketId),
+    ctx.db.delete("tickets", ticketId),
     scheduleCrmMetricSync(ctx, "tickets", String(ticketId)),
   ]);
 }

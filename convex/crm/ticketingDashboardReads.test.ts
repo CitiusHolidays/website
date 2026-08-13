@@ -217,7 +217,7 @@ describe("ticketing dashboard read model", () => {
         },
       },
       db: {
-        get: async (id: string) => {
+        get: async (_table: string, id: string) => {
           counters[`get:${id}`] = (counters[`get:${id}`] ?? 0) + 1;
           return find(id);
         },

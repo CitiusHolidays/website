@@ -341,7 +341,7 @@ export const upsertMyPassportProfile = mutation({
       updatedAt: timestamp,
     };
     if (existing) {
-      await ctx.db.patch(existing._id, patch);
+      await ctx.db.patch("sacredBharatProfiles", existing._id, patch);
       await refreshSacredBharatLeaderboardSummary(ctx, authUserId, timestamp);
       return { id: existing._id, slug };
     }
@@ -475,7 +475,7 @@ export const setLeaderboardOptOut = mutation({
     }
 
     const updatedAt = now();
-    await ctx.db.patch(profile._id, {
+    await ctx.db.patch("userProfiles", profile._id, {
       sacredBharatLeaderboardOptOut: args.optOut,
       updatedAt,
     });
@@ -720,7 +720,7 @@ async function consumeGroupInviteAttempt(ctx: MutationCtx, authUserId: string, a
     windowStartedAt: result.nextState.windowStartedAt,
   };
   if (existing) {
-    await ctx.db.patch(existing._id, nextRow);
+    await ctx.db.patch("sacredBharatInviteAttempts", existing._id, nextRow);
   } else {
     await ctx.db.insert("sacredBharatInviteAttempts", nextRow);
   }
@@ -818,7 +818,7 @@ export const rotateGroupInviteCode = mutation({
     if (!groupId) {
       throw new ConvexError("Invalid group id");
     }
-    const group = await ctx.db.get(groupId);
+    const group = await ctx.db.get("sacredBharatGroups", groupId);
     if (!group || group.isArchived) {
       throw new ConvexError("GROUP_NOT_FOUND");
     }
@@ -828,7 +828,7 @@ export const rotateGroupInviteCode = mutation({
     }
 
     const inviteCode = await makeAvailableInviteCode(ctx, groupId);
-    await ctx.db.patch(groupId, { inviteCode, updatedAt: now() });
+    await ctx.db.patch("sacredBharatGroups", groupId, { inviteCode, updatedAt: now() });
     return { id: groupId, inviteCode };
   },
   returns: groupCreateResultValidator,
@@ -940,7 +940,7 @@ export const listMyGroups = query({
           rows.findIndex((row) => row.groupId === membership.groupId) === index
       );
     const groups = await Promise.all(
-      memberships.map((membership) => ctx.db.get(membership.groupId))
+      memberships.map((membership) => ctx.db.get("sacredBharatGroups", membership.groupId))
     );
     return groups.flatMap((group, index) =>
       group && !group.isArchived
@@ -969,7 +969,7 @@ export const getGroupLeaderboard = query({
     if (!groupId) {
       throw new ConvexError("Invalid group id");
     }
-    const group = await ctx.db.get(groupId);
+    const group = await ctx.db.get("sacredBharatGroups", groupId);
     if (!group || group.isArchived) {
       throw new ConvexError("GROUP_NOT_FOUND");
     }
@@ -1014,7 +1014,7 @@ export const renameGroup = mutation({
     if (membership.role !== "owner") {
       throw new ConvexError("FORBIDDEN");
     }
-    await ctx.db.patch(groupId, { name: args.name.trim(), updatedAt: now() });
+    await ctx.db.patch("sacredBharatGroups", groupId, { name: args.name.trim(), updatedAt: now() });
     return { id: groupId };
   },
   returns: groupIdResultValidator,
@@ -1033,7 +1033,7 @@ export const archiveGroup = mutation({
     if (membership.role !== "owner") {
       throw new ConvexError("FORBIDDEN");
     }
-    await ctx.db.patch(groupId, { isArchived: true, updatedAt: now() });
+    await ctx.db.patch("sacredBharatGroups", groupId, { isArchived: true, updatedAt: now() });
     return { id: groupId };
   },
   returns: groupIdResultValidator,

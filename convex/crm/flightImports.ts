@@ -154,7 +154,7 @@ export async function commitFlightImportForTest(
       updatedAt: now,
     };
     if (existingGroup) {
-      await ctx.db.patch(existingGroup._id, groupFields);
+      await ctx.db.patch("flightGroups", existingGroup._id, groupFields);
       flightGroupId = existingGroup._id;
       updatedGroups += 1;
     } else {
@@ -178,7 +178,7 @@ export async function commitFlightImportForTest(
     );
     await Promise.all(
       existingSegments.flatMap((segment) =>
-        incomingKeys.has(segment.importKey) ? [] : [ctx.db.delete(segment._id)]
+        incomingKeys.has(segment.importKey) ? [] : [ctx.db.delete("flightSegments", segment._id)]
       )
     );
     const segmentResults = await Promise.all(
@@ -205,7 +205,7 @@ export async function commitFlightImportForTest(
           updatedAt: now,
         };
         if (existingSegment) {
-          await ctx.db.patch(existingSegment._id, segmentPatch);
+          await ctx.db.patch("flightSegments", existingSegment._id, segmentPatch);
           return "updated";
         }
         await ctx.db.insert("flightSegments", {
@@ -264,7 +264,9 @@ export async function listFlightItineraryHandler(
       .query("flightSegments")
       .withIndex("by_flightGroupId", (q) => q.eq("flightGroupId", group._id))
       .take(64);
-    const travelBatch = group.travelBatchId ? await ctx.db.get(group.travelBatchId) : null;
+    const travelBatch = group.travelBatchId
+      ? await ctx.db.get("travelBatches", group.travelBatchId)
+      : null;
     return {
       airline: group.airline,
       arrivalDate: group.arrivalDate ?? "",

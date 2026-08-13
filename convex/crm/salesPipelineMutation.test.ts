@@ -35,7 +35,8 @@ function mutationContext(queryOverrides: Record<string, unknown> = {}) {
       db: {
         get: async () => query,
         normalizeId: (_table: string, id: string) => id,
-        patch: async (_id: string, patch: Record<string, unknown>) => patches.push(patch),
+        patch: async (_table: string, _id: string, patch: Record<string, unknown>) =>
+          patches.push(patch),
       },
     },
     patches,

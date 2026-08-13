@@ -311,7 +311,7 @@ export const updateRule = mutation({
       updatedAt: timestamp,
     };
     if (existing) {
-      await ctx.db.patch(existing._id, patch);
+      await ctx.db.patch("portalWorkflowRules", existing._id, patch);
       return { id: existing._id };
     }
     const id = await ctx.db.insert("portalWorkflowRules", {
@@ -352,7 +352,7 @@ async function markTriggered(
     .first();
   const timestamp = referenceNow;
   if (existing) {
-    await ctx.db.patch(existing._id, { lastTriggeredAt: timestamp });
+    await ctx.db.patch("portalWorkflowRuleRuns", existing._id, { lastTriggeredAt: timestamp });
     return existing._id;
   }
   return await ctx.db.insert("portalWorkflowRuleRuns", {
@@ -480,7 +480,7 @@ async function collectTravellerRisks(
   const risks = (
     await Promise.all(
       rows.map(async (traveller) => {
-        const job = await ctx.db.get(traveller.jobCardId);
+        const job = await ctx.db.get("jobCards", traveller.jobCardId);
         if (!(job?.travelStartDate && job.travelStartDate >= today)) {
           return [];
         }
@@ -789,7 +789,7 @@ async function persistStaleRun(ctx: any, run: any, referenceNow: number) {
     status: "stale" as const,
     updatedAt: referenceNow,
   };
-  await ctx.db.patch(run._id, patch);
+  await ctx.db.patch("portalWorkflowNudgeRuns", run._id, patch);
   return { ...run, ...patch };
 }
 
@@ -872,7 +872,7 @@ async function loadOrStartNudgeRun(
     updatedAt: referenceNow,
   };
   if (existing) {
-    await ctx.db.patch(existing._id, payload);
+    await ctx.db.patch("portalWorkflowNudgeRuns", existing._id, payload);
     return { canProcess: true, run: { ...existing, ...payload } };
   }
   const id = await ctx.db.insert("portalWorkflowNudgeRuns", payload);
@@ -893,7 +893,7 @@ async function advanceNudgeRunPage(ctx: any, key: string, referenceNow: number, 
     const nextCursor = page.isDone ? null : page.continueCursor;
     const status: NudgeRunStatus = nextStage === "complete" ? "completed" : "running";
     const nextToken = (run.continuationToken ?? 0) + 1;
-    await ctx.db.patch(run._id, {
+    await ctx.db.patch("portalWorkflowNudgeRuns", run._id, {
       checked: run.checked + checked,
       consecutiveFailedRuns: status === "completed" ? 0 : (run.consecutiveFailedRuns ?? 0),
       continuationToken: nextToken,
@@ -932,7 +932,7 @@ async function recordNudgeRunFailure(
   const retryCount = run.retryCount ?? 0;
   const willRetry = diagnostic.kind === "transient" && retryCount < MAX_NUDGE_RETRIES;
   const nextToken = (run.continuationToken ?? 0) + 1;
-  await ctx.db.patch(run._id, {
+  await ctx.db.patch("portalWorkflowNudgeRuns", run._id, {
     consecutiveFailedRuns: willRetry
       ? (run.consecutiveFailedRuns ?? 0)
       : (run.consecutiveFailedRuns ?? 0) + (run.failureCountedStartedAt === run.startedAt ? 0 : 1),
@@ -1061,7 +1061,7 @@ export async function retryNudgeRunState(ctx: any, runKey: string, referenceNow 
     status: "running" as const,
     updatedAt: referenceNow,
   };
-  await ctx.db.patch(run._id, patch);
+  await ctx.db.patch("portalWorkflowNudgeRuns", run._id, patch);
   await ctx.scheduler.runAfter(0, internal.crm.workflowNudges.runScheduledNudges, {
     continuationToken,
     runKey,

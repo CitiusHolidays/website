@@ -278,12 +278,12 @@ export const submitIntentGateway = mutation({
         resetAt: now + INBOUND_RATE_WINDOW_MS,
       };
       if (rateLimit) {
-        await ctx.db.patch(rateLimit._id, values);
+        await ctx.db.patch("inboundIntentRateLimits", rateLimit._id, values);
       } else {
         await ctx.db.insert("inboundIntentRateLimits", values);
       }
     } else {
-      await ctx.db.patch(rateLimit._id, { count: rateLimit.count + 1 });
+      await ctx.db.patch("inboundIntentRateLimits", rateLimit._id, { count: rateLimit.count + 1 });
     }
 
     const created: { duplicate: boolean; id: Id<"inboundQueryIntents"> } = await ctx.runMutation(
@@ -392,7 +392,7 @@ async function getSalesIntent(
   intentId: Id<"inboundQueryIntents">
 ) {
   await requireInboundSales(ctx);
-  return await ctx.db.get(intentId);
+  return await ctx.db.get("inboundQueryIntents", intentId);
 }
 
 export const getForSales = query({
@@ -440,7 +440,7 @@ export const convertToQuery = mutation({
   },
   handler: async (ctx, args) => {
     await requireInboundSales(ctx);
-    const intent = await ctx.db.get(args.intentId);
+    const intent = await ctx.db.get("inboundQueryIntents", args.intentId);
     if (!intent) {
       throw new ConvexError("Inbound intent not found");
     }
@@ -468,7 +468,11 @@ export const convertToQuery = mutation({
       travelType: args.travelType,
     });
 
-    await ctx.db.patch(args.intentId, markIntentConvertedPatch(args.intentId, created.id));
+    await ctx.db.patch(
+      "inboundQueryIntents",
+      args.intentId,
+      markIntentConvertedPatch(args.intentId, created.id)
+    );
     const event = await ctx.db
       .query("crmHandoffEvents")
       .withIndex("by_createdAt")
@@ -476,7 +480,7 @@ export const convertToQuery = mutation({
       .filter((q) => q.eq(q.field("inboundIntentId"), args.intentId))
       .first();
     if (event) {
-      await ctx.db.patch(event._id, { convertedQueryId: String(created.id) });
+      await ctx.db.patch("crmHandoffEvents", event._id, { convertedQueryId: String(created.id) });
     }
     return { intentId: args.intentId, queryCode: created.queryCode, queryId: created.id };
   },
@@ -492,7 +496,7 @@ export const markConverted = mutation({
   },
   handler: async (ctx, args) => {
     await requireInboundSales(ctx);
-    const intent = await ctx.db.get(args.intentId);
+    const intent = await ctx.db.get("inboundQueryIntents", args.intentId);
     if (!intent) {
       throw new ConvexError("Inbound intent not found");
     }
@@ -503,7 +507,11 @@ export const markConverted = mutation({
     if (!queryId) {
       throw new ConvexError("Query not found");
     }
-    await ctx.db.patch(args.intentId, markIntentConvertedPatch(args.intentId, queryId));
+    await ctx.db.patch(
+      "inboundQueryIntents",
+      args.intentId,
+      markIntentConvertedPatch(args.intentId, queryId)
+    );
     return null;
   },
   returns: v.null(),

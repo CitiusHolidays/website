@@ -103,7 +103,7 @@ export const list = query({
             queryIds.add(link.queryId);
           }
           const linkedQueries = (
-            await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get(queryId)))
+            await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get("queries", queryId)))
           ).filter(
             (linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery != null
           );
@@ -128,7 +128,7 @@ export const list = query({
       const rows = await takeNewestByCreatedAt(ctx, "jobCards", LIMIT * 3);
       const shortcuts = await Promise.all(
         rows.map(async (job) => {
-          const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+          const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
           if (!canSeeJobCardRecord(access, job, linkedQuery ?? undefined)) {
             return null;
           }
@@ -148,11 +148,11 @@ export const list = query({
       const rows = await takeNewestByCreatedAt(ctx, "tickets", LIMIT * 3);
       const shortcuts = await Promise.all(
         rows.map(async (ticket) => {
-          const job = await ctx.db.get(ticket.jobCardId);
+          const job = await ctx.db.get("jobCards", ticket.jobCardId);
           if (!job) {
             return null;
           }
-          const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+          const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
           if (!canSeeJobCardRecord(access, job, linkedQuery ?? undefined)) {
             return null;
           }

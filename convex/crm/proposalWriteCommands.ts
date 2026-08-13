@@ -154,7 +154,7 @@ export async function handleUpdateProposal(ctx: MutationCtx, args: UpdateProposa
   if (!proposalId) {
     throw new ConvexError("Invalid proposal id");
   }
-  const proposal = await ctx.db.get(proposalId);
+  const proposal = await ctx.db.get("proposals", proposalId);
   if (!proposal) {
     throw new ConvexError("Proposal not found");
   }

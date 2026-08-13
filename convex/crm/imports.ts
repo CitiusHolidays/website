@@ -249,7 +249,7 @@ export const failPassengerExportOperation = internalMutation({
 
 export const getPassengerExportOperation = internalQuery({
   args: { operationId: v.id("passengerExportOperations") },
-  handler: async (ctx, args) => await ctx.db.get(args.operationId),
+  handler: async (ctx, args) => await ctx.db.get("passengerExportOperations", args.operationId),
   returns: v.union(passengerExportOperationDocumentValidator, v.null()),
 });
 

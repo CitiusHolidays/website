@@ -19,7 +19,7 @@ function queryContext(initial: Record<string, Row[]>) {
   const ctx = {
     auth: { getUserIdentity: async () => null },
     db: {
-      get: async (id: string) => {
+      get: async (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((candidate) => candidate._id === id);
           if (row) {
@@ -34,7 +34,7 @@ function queryContext(initial: Record<string, Row[]>) {
         tables[table].push({ _creationTime: Date.now(), _id: id, ...value });
         return id;
       },
-      patch: async (id: string, value: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, value: Record<string, unknown>) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((candidate) => candidate._id === id);
           if (row) {

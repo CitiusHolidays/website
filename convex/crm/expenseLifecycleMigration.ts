@@ -31,7 +31,7 @@ export const repairExpenseLifecycle = internalMutation({
           return 0;
         }
         if (!args.dryRun) {
-          await ctx.db.patch(expense._id, {
+          await ctx.db.patch("expenseEntries", expense._id, {
             ...normalized,
             updatedAt: Date.now(),
           });

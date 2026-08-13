@@ -108,7 +108,7 @@ async function importStaffRows(
         };
 
         if (existing) {
-          await ctx.db.patch(existing._id, payload);
+          await ctx.db.patch("staffUsers", existing._id, payload);
           return {
             action: "updated" as const,
             email: row.email,
@@ -171,7 +171,7 @@ async function importStaffRows(
           return [];
         }
         return [
-          ctx.db.patch(staff._id, {
+          ctx.db.patch("staffUsers", staff._id, {
             reportingManagerName: manager.name,
             reportingManagerStaffId: manager._id,
             updatedAt: now,

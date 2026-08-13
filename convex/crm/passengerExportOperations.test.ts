@@ -19,7 +19,7 @@ function makeContext(initial: Record<string, Row[]>) {
   const deletedStorageIds: string[] = [];
   const ctx = {
     db: {
-      delete: (id: string) => {
+      delete: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -28,7 +28,7 @@ function makeContext(initial: Record<string, Row[]>) {
           }
         }
       },
-      get: async (id: string) =>
+      get: async (_table: string, id: string) =>
         Object.values(tables)
           .flat()
           .find((row) => row._id === id) ?? null,
@@ -40,7 +40,7 @@ function makeContext(initial: Record<string, Row[]>) {
         ];
         return id;
       },
-      patch: (id: string, patch: Record<string, unknown>) => {
+      patch: (_table: string, id: string, patch: Record<string, unknown>) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

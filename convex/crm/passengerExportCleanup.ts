@@ -24,7 +24,7 @@ export async function purgeExpiredPassengerExportsHandler(ctx: MutationCtx) {
   await Promise.all(
     expired.map(async (operation) => {
       const expiredStorageId = operation.storageId;
-      await ctx.db.patch(operation._id, {
+      await ctx.db.patch("passengerExportOperations", operation._id, {
         expiresAt: undefined,
         fileName: undefined,
         leaseExpiresAt: undefined,

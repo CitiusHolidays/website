@@ -75,7 +75,7 @@ export async function handleUpdatePnr(
   if (!pnrId) {
     throw new ConvexError("Invalid PNR id");
   }
-  const pnr = await ctx.db.get(pnrId);
+  const pnr = await ctx.db.get("pnrs", pnrId);
   if (!pnr) {
     throw new ConvexError("PNR not found");
   }
@@ -110,7 +110,7 @@ export async function handleUpdatePnr(
     patch.status = args.status.trim();
   }
 
-  await ctx.db.patch(pnrId, patch);
+  await ctx.db.patch("pnrs", pnrId, patch);
   await scheduleCrmMetricSync(ctx, "pnrs", String(pnrId));
   await createActivity(ctx, access, {
     action: "updated",
@@ -122,7 +122,7 @@ export async function handleUpdatePnr(
 }
 
 export async function deletePnrRecord(ctx: MutationCtx, access: PortalAccess, pnrId: Id<"pnrs">) {
-  const pnr = await ctx.db.get(pnrId);
+  const pnr = await ctx.db.get("pnrs", pnrId);
   if (!pnr) {
     throw new ConvexError("PNR not found");
   }
@@ -138,7 +138,7 @@ export async function deletePnrRecord(ctx: MutationCtx, access: PortalAccess, pn
       message: `${pnr.pnrCode} deleted`,
     }),
     deleteEntityNotifications(ctx, "pnr", pnrId),
-    ctx.db.delete(pnrId),
+    ctx.db.delete("pnrs", pnrId),
     scheduleCrmMetricSync(ctx, "pnrs", String(pnrId)),
     ctx.scheduler.runAfter(0, internal.crm.ticketing.continuePnrCleanup, {
       pnrId: String(pnrId),

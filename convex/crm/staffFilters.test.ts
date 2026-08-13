@@ -24,7 +24,7 @@ function makeStaffListCtx(sourceRows: StaffRow[]) {
       }),
     },
     db: {
-      get: async (id: string) => sourceRows.find((row) => row._id === id) ?? null,
+      get: async (_table: string, id: string) => sourceRows.find((row) => row._id === id) ?? null,
       query(table: string) {
         if (table !== "staffUsers") {
           throw new Error(`Unexpected table ${table}`);

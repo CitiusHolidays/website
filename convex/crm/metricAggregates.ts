@@ -324,7 +324,10 @@ async function applyBucketDelta(
     .unique();
   const nextValues = mergeValues({ ...(existing?.values ?? {}) }, values, multiplier);
   if (existing) {
-    await ctx.db.patch(existing._id, { updatedAt: Date.now(), values: nextValues });
+    await ctx.db.patch("crmMetricBuckets", existing._id, {
+      updatedAt: Date.now(),
+      values: nextValues,
+    });
   } else if (Object.keys(nextValues).length > 0) {
     await ctx.db.insert("crmMetricBuckets", {
       periodKey,
@@ -363,7 +366,7 @@ async function loadSourceDocument(
 ): Promise<Record<string, any> | null> {
   const normalized = ctx.db.normalizeId(sourceType, sourceId as never);
   return normalized
-    ? ((await ctx.db.get(normalized as never)) as Record<string, any> | null)
+    ? ((await ctx.db.get(sourceType, normalized as never)) as Record<string, any> | null)
     : null;
 }
 
@@ -383,14 +386,14 @@ async function resolveProjectionContext(
     )
   ) {
     job = source.jobCardId
-      ? ((await ctx.db.get(source.jobCardId)) as Record<string, any> | null)
+      ? ((await ctx.db.get("jobCards", source.jobCardId)) as Record<string, any> | null)
       : null;
   }
   if (!query && sourceType === "proposals" && source.queryId) {
-    query = (await ctx.db.get(source.queryId)) as Record<string, any> | null;
+    query = (await ctx.db.get("queries", source.queryId)) as Record<string, any> | null;
   }
   if (!query && job?.queryId) {
-    query = (await ctx.db.get(job.queryId)) as Record<string, any> | null;
+    query = (await ctx.db.get("queries", job.queryId)) as Record<string, any> | null;
   }
 
   return {
@@ -410,7 +413,7 @@ async function removeProjection(ctx: MutationCtx, projection: Record<string, any
     { day: projection.day, scopes: projection.scopes, values: projection.values },
     -1
   );
-  await ctx.db.delete(projection._id);
+  await ctx.db.delete("crmMetricProjections", projection._id);
 }
 
 async function syncProjection(
@@ -468,7 +471,7 @@ async function syncProjection(
     values,
   };
   if (existing) {
-    await ctx.db.patch(existing._id, payload);
+    await ctx.db.patch("crmMetricProjections", existing._id, payload);
   } else {
     await ctx.db.insert("crmMetricProjections", payload);
   }
@@ -574,7 +577,7 @@ async function startMetricReconciliation(ctx: MutationCtx) {
     updatedAt: now,
   };
   if (current) {
-    await ctx.db.patch(current._id, nextState);
+    await ctx.db.patch("crmMetricReadiness", current._id, nextState);
   } else {
     await ctx.db.insert("crmMetricReadiness", nextState);
   }
@@ -694,13 +697,13 @@ async function markReconciliationSourceComplete(
         publishedAt: now,
       });
     } else if (publication.metricVersion !== metricVersion) {
-      await ctx.db.patch(publication._id, {
+      await ctx.db.patch("crmMetricPublications", publication._id, {
         generation,
         metricVersion,
         publishedAt: now,
       });
     }
-    await ctx.db.patch(state._id, {
+    await ctx.db.patch("crmMetricReadiness", state._id, {
       completedSourceTypes,
       lastCompletedAt: now,
       lastCompletedGeneration: generation,
@@ -708,7 +711,7 @@ async function markReconciliationSourceComplete(
       updatedAt: now,
     });
   } else {
-    await ctx.db.patch(state._id, {
+    await ctx.db.patch("crmMetricReadiness", state._id, {
       completedSourceTypes,
       updatedAt: Date.now(),
     });

@@ -140,7 +140,7 @@ function makeOrderConfirmationCtx() {
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: (id: string, patch: Record<string, unknown>) => {
+      patch: (_table: string, id: string, patch: Record<string, unknown>) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

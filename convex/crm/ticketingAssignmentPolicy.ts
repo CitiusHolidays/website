@@ -8,7 +8,7 @@ import {
 } from "./lib";
 
 export async function assertTicketingTeamStaff(ctx: any, staffId: Id<"staffUsers">) {
-  const staff = await ctx.db.get(staffId);
+  const staff = await ctx.db.get("staffUsers", staffId);
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
   }
@@ -38,17 +38,17 @@ export async function handleAssignTicketingOwner(
     throw new ConvexError("Invalid staff id");
   }
   const staff = await assertTicketingTeamStaff(ctx, staffId);
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
   const ownerName = staff.name.trim();
   await Promise.all([
-    ctx.db.patch(jobCardId, {
+    ctx.db.patch("jobCards", jobCardId, {
       ticketingOwnerId: staffId,
       ticketingOwnerName: ownerName,
       updatedAt: Date.now(),

@@ -39,12 +39,12 @@ async function canonicalizeExistingVisits(ctx: MutationCtx, authUserId: string):
       continue;
     }
     if (seen.has(canonicalId)) {
-      operations.push(ctx.db.delete(visit._id));
+      operations.push(ctx.db.delete("sacredBharatVisits", visit._id));
       continue;
     }
     seen.add(canonicalId);
     if (visit.templeId !== canonicalId) {
-      operations.push(ctx.db.patch(visit._id, { templeId: canonicalId }));
+      operations.push(ctx.db.patch("sacredBharatVisits", visit._id, { templeId: canonicalId }));
     }
   }
   await Promise.all(operations);
@@ -61,12 +61,12 @@ async function canonicalizeExistingWishlist(ctx: MutationCtx, authUserId: string
     const itemId = item.itemType === "temple" ? resolveCanonicalTempleId(item.itemId) : item.itemId;
     const key = `${item.itemType}:${itemId}`;
     if (seen.has(key)) {
-      operations.push(ctx.db.delete(item._id));
+      operations.push(ctx.db.delete("sacredBharatWishlist", item._id));
       continue;
     }
     seen.add(key);
     if (item.itemId !== itemId) {
-      operations.push(ctx.db.patch(item._id, { itemId }));
+      operations.push(ctx.db.patch("sacredBharatWishlist", item._id, { itemId }));
     }
   }
   await Promise.all(operations);

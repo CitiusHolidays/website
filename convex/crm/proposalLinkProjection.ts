@@ -182,7 +182,7 @@ export const reconcileProposalLinkProjections = internalMutation({
       version: PROJECTION_VERSION,
     };
     if (existing) {
-      await ctx.db.patch(existing._id, patch);
+      await ctx.db.patch("crmListSearchReadiness", existing._id, patch);
     } else {
       await ctx.db.insert("crmListSearchReadiness", patch);
     }
@@ -211,15 +211,15 @@ export const reconcileProposalLinkPage = internalMutation({
       .paginate({ cursor: args.cursor, numItems: RECONCILE_PAGE_SIZE });
     const hydratedLinks = (
       await mapInBoundedBatches(page.page, async (link) => {
-        const query = await ctx.db.get(link.queryId);
+        const query = await ctx.db.get("queries", link.queryId);
         return query ? { link, query } : null;
       })
     ).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
     await mapInBoundedBatches(hydratedLinks, async ({ link, query }) =>
-      ctx.db.patch(link._id, proposalLinkProjection(query))
+      ctx.db.patch("proposalQueryLinks", link._id, proposalLinkProjection(query))
     );
     if (page.isDone) {
-      await ctx.db.patch(state._id, {
+      await ctx.db.patch("crmListSearchReadiness", state._id, {
         ready: true,
         reconciling: false,
         updatedAt: Date.now(),

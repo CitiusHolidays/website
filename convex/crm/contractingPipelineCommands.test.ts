@@ -119,14 +119,14 @@ function makeCtx({
       }),
     },
     db: {
-      get: (...args: string[]) => findById(args.at(-1) ?? ""),
+      get: (_table: string, ...args: string[]) => findById(args.at(-1) ?? ""),
       insert: (table: string, document: Record<string, unknown>) => {
         const id = `${table}_${rowsFor(table).length + 1}`;
         tables[table] = [...rowsFor(table), { _id: id, ...document }];
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: (id: string, document: Record<string, unknown>) => {
+      patch: (_table: string, id: string, document: Record<string, unknown>) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

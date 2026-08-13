@@ -79,18 +79,18 @@ export const list = query({
     ).paginate(boundedPaginationOptions(args.paginationOpts));
     const rows = await mapInBoundedBatches(page.page, async (record) => {
       const [traveller, job] = await Promise.all([
-        ctx.db.get(record.travellerId),
-        ctx.db.get(record.jobCardId),
+        ctx.db.get("travellers", record.travellerId),
+        ctx.db.get("jobCards", record.jobCardId),
       ]);
       if (!job) {
         return null;
       }
-      const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+      const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
       if (!canSeeJobCardRecord(access, job, linkedQuery)) {
         return null;
       }
       const travelBatch = traveller?.travelBatchId
-        ? await ctx.db.get(traveller.travelBatchId)
+        ? await ctx.db.get("travelBatches", traveller.travelBatchId)
         : null;
       return publicVisa(record, traveller, job, travelBatch);
     });
@@ -112,15 +112,15 @@ export const updateStatus = mutation({
     if (!visaRecordId) {
       throw new ConvexError("Invalid visa record id");
     }
-    const record = await ctx.db.get(visaRecordId);
+    const record = await ctx.db.get("visaRecords", visaRecordId);
     if (!record) {
       throw new ConvexError("Visa record not found");
     }
-    const job = await ctx.db.get(record.jobCardId);
+    const job = await ctx.db.get("jobCards", record.jobCardId);
     if (!job) {
       throw new ConvexError("FORBIDDEN");
     }
-    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
     if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -146,8 +146,8 @@ export const updateStatus = mutation({
     }
 
     await Promise.all([
-      ctx.db.patch(visaRecordId, patch),
-      ctx.db.patch(record.travellerId, {
+      ctx.db.patch("visaRecords", visaRecordId, patch),
+      ctx.db.patch("travellers", record.travellerId, {
         biometricAppointmentDate: args.appointmentDate || "",
         updatedAt: now,
         visaStatus: args.status,
@@ -177,15 +177,15 @@ export const updateRecord = mutation({
     if (!visaRecordId) {
       throw new ConvexError("Invalid visa record id");
     }
-    const record = await ctx.db.get(visaRecordId);
+    const record = await ctx.db.get("visaRecords", visaRecordId);
     if (!record) {
       throw new ConvexError("Visa record not found");
     }
-    const job = await ctx.db.get(record.jobCardId);
+    const job = await ctx.db.get("jobCards", record.jobCardId);
     if (!job) {
       throw new ConvexError("FORBIDDEN");
     }
-    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
     if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -220,8 +220,8 @@ export const updateRecord = mutation({
     }
 
     await Promise.all([
-      ctx.db.patch(visaRecordId, patch),
-      ctx.db.patch(record.travellerId, {
+      ctx.db.patch("visaRecords", visaRecordId, patch),
+      ctx.db.patch("travellers", record.travellerId, {
         visaStatus: nextStatus,
         ...(args.appointmentDate === undefined
           ? {}
@@ -246,20 +246,20 @@ async function deleteVisaRecord(
   visaRecordId: Id<"visaRecords">,
   deferredNotifications?: NotificationEntityIdentity[]
 ) {
-  const record = await ctx.db.get(visaRecordId);
+  const record = await ctx.db.get("visaRecords", visaRecordId);
   if (!record) {
     throw new ConvexError("Visa record not found");
   }
-  const job = await ctx.db.get(record.jobCardId);
+  const job = await ctx.db.get("jobCards", record.jobCardId);
   if (!job) {
     throw new ConvexError("FORBIDDEN");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
   await Promise.all([
-    ctx.db.patch(record.travellerId, {
+    ctx.db.patch("travellers", record.travellerId, {
       updatedAt: Date.now(),
       visaStatus: "Not Started",
     }),
@@ -270,7 +270,7 @@ async function deleteVisaRecord(
       message: "Visa record deleted",
     }),
     deleteEntityNotifications(ctx, "visaRecord", visaRecordId, deferredNotifications),
-    ctx.db.delete(visaRecordId),
+    ctx.db.delete("visaRecords", visaRecordId),
   ]);
 }
 
@@ -328,15 +328,15 @@ export const create = mutation({
     if (!travellerId) {
       throw new ConvexError("Invalid traveller id");
     }
-    const traveller = await ctx.db.get(travellerId);
+    const traveller = await ctx.db.get("travellers", travellerId);
     if (!traveller) {
       throw new ConvexError("Traveller not found");
     }
-    const job = await ctx.db.get(traveller.jobCardId);
+    const job = await ctx.db.get("jobCards", traveller.jobCardId);
     if (!job) {
       throw new ConvexError("FORBIDDEN");
     }
-    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
     if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -361,7 +361,7 @@ export const create = mutation({
     });
 
     await Promise.all([
-      ctx.db.patch(travellerId, {
+      ctx.db.patch("travellers", travellerId, {
         updatedAt: now,
         visaStatus: status,
       }),
@@ -396,11 +396,11 @@ export const listTravellersWithoutVisa = query({
     const result = await Promise.all(
       travellers.map(async (traveller) => {
         if (traveller.visaRequired && !travellerIdsWithVisa.has(traveller._id.toString())) {
-          const job = await ctx.db.get(traveller.jobCardId);
+          const job = await ctx.db.get("jobCards", traveller.jobCardId);
           if (!job) {
             return null;
           }
-          const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+          const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
           if (!canSeeJobCardRecord(access, job, linkedQuery)) {
             return null;
           }

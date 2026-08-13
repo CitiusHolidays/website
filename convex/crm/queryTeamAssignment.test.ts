@@ -39,7 +39,7 @@ function makeAssignmentCtx(initialTables: Tables) {
 
   const ctx = {
     db: {
-      get: async (id: string) => {
+      get: async (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -57,7 +57,7 @@ function makeAssignmentCtx(initialTables: Tables) {
       normalizeId(_table: string, id: string) {
         return id;
       },
-      patch: async (id: string, patch: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, patch: Record<string, unknown>) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

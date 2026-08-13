@@ -125,7 +125,7 @@ describe("bounded portal list search projections", () => {
           insert: () => {
             throw new Error("existing healthy rows should be patched");
           },
-          patch: (id: string, patch: Record<string, unknown>) => {
+          patch: (_table: string, id: string, patch: Record<string, unknown>) => {
             const row = Array.from(readinessByTable.values()).find((item) => item._id === id);
             if (row) {
               Object.assign(row, patch);
@@ -191,7 +191,8 @@ describe("bounded portal list search projections", () => {
           insert: () => {
             throw new Error("the existing generation row should be patched");
           },
-          patch: (_id: string, patch: Record<string, unknown>) => Object.assign(state, patch),
+          patch: (_table: string, _id: string, patch: Record<string, unknown>) =>
+            Object.assign(state, patch),
           query: (table: string) => {
             if (table !== "crmListSearchReadiness") {
               throw new Error("a stale page must not project source rows");

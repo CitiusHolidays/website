@@ -84,7 +84,7 @@ export const consumeRateLimit = mutation({
         updatedAt: now,
       };
       if (existing) {
-        await ctx.db.patch(existing._id, values);
+        await ctx.db.patch("aiRateLimits", existing._id, values);
       } else {
         await ctx.db.insert("aiRateLimits", values);
       }
@@ -97,7 +97,7 @@ export const consumeRateLimit = mutation({
     }
 
     const count = existing.count + 1;
-    await ctx.db.patch(existing._id, { count, updatedAt: now });
+    await ctx.db.patch("aiRateLimits", existing._id, { count, updatedAt: now });
     return { allowed: true, remaining: args.limit - count, retryAfterSec: 0 };
   },
   returns: aiRateLimitResultValidator,
@@ -143,7 +143,10 @@ export const cleanupExpired = internalMutation({
         .take(CLEANUP_BATCH_SIZE),
     ]);
 
-    await Promise.all([...rateLimits, ...telemetry].map((row) => ctx.db.delete(row._id)));
+    await Promise.all([
+      ...rateLimits.map((row) => ctx.db.delete("aiRateLimits", row._id)),
+      ...telemetry.map((row) => ctx.db.delete("aiTelemetry", row._id)),
+    ]);
     if (rateLimits.length === CLEANUP_BATCH_SIZE || telemetry.length === CLEANUP_BATCH_SIZE) {
       await ctx.scheduler.runAfter(0, internal.aiRuntime.cleanupExpired, {});
     }

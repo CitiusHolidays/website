@@ -32,11 +32,11 @@ import {
 } from "./paginationPolicy";
 
 async function getVisibleJob(ctx: any, access: any, jobCardId: any) {
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     return null;
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   return canSeeJobCardRecord(access, job, linkedQuery) ? job : null;
 }
 
@@ -52,7 +52,7 @@ async function getValidatedTravelBatch(
   if (!id) {
     throw new ConvexError("Invalid Travel Batch id");
   }
-  const batch = await ctx.db.get(id);
+  const batch = await ctx.db.get("travelBatches", id);
   if (!batch) {
     throw new ConvexError("Travel Batch not found");
   }
@@ -170,7 +170,7 @@ export const updateHotel = mutation({
     if (!hotelId) {
       throw new ConvexError("Invalid hotel id");
     }
-    const hotel = await ctx.db.get(hotelId);
+    const hotel = await ctx.db.get("hotels", hotelId);
     if (!hotel) {
       throw new ConvexError("Hotel not found");
     }
@@ -211,7 +211,7 @@ export const updateHotel = mutation({
       patch.specialInstructions = args.specialInstructions.trim();
     }
 
-    await ctx.db.patch(hotelId, patch);
+    await ctx.db.patch("hotels", hotelId, patch);
     await createActivity(ctx, access, {
       action: "updated",
       entityId: hotelId,
@@ -229,7 +229,7 @@ async function deleteHotelRecord(
   hotelId: Id<"hotels">,
   deferredNotifications?: NotificationEntityIdentity[]
 ) {
-  const hotel = await ctx.db.get(hotelId);
+  const hotel = await ctx.db.get("hotels", hotelId);
   if (!hotel) {
     throw new ConvexError("Hotel not found");
   }
@@ -245,7 +245,7 @@ async function deleteHotelRecord(
       message: `${hotel.name} hotel deleted`,
     }),
     deleteEntityNotifications(ctx, "hotel", hotelId, deferredNotifications),
-    ctx.db.delete(hotelId),
+    ctx.db.delete("hotels", hotelId),
   ]);
 }
 
@@ -364,7 +364,7 @@ export async function createTourManagerForTest(
     if (!staffId) {
       throw new ConvexError("Invalid staff id");
     }
-    const staff = await ctx.db.get(staffId);
+    const staff = await ctx.db.get("staffUsers", staffId);
     if (!staff?.active) {
       throw new ConvexError("Staff member not found");
     }
@@ -405,7 +405,7 @@ export async function createTourManagerForTest(
     updatedAt: now,
   });
   if (jobCardId) {
-    await ctx.db.patch(jobCardId, {
+    await ctx.db.patch("jobCards", jobCardId, {
       tourManagerId: id,
       tourManagerName: name,
       updatedAt: now,
@@ -423,7 +423,7 @@ export async function createTourManagerForTest(
           bellTargets: { kind: "staff", staffIds: [staffId] },
           content: {
             body: tourManagerNotificationBody(
-              await ctx.db.get(jobCardId),
+              await ctx.db.get("jobCards", jobCardId),
               travelBatch,
               args.reportingInstructions
             ),
@@ -478,7 +478,7 @@ export async function updateTourManagerForTest(
   if (!id) {
     throw new ConvexError("Invalid Tour Manager id");
   }
-  const tourManager = await ctx.db.get(id);
+  const tourManager = await ctx.db.get("tourManagerAssignments", id);
   if (!tourManager) {
     throw new ConvexError("Tour Manager not found");
   }
@@ -526,7 +526,7 @@ export async function updateTourManagerForTest(
       throw new ConvexError("Invalid staff id");
     }
     if (nextStaffId) {
-      const staff = await ctx.db.get(nextStaffId);
+      const staff = await ctx.db.get("staffUsers", nextStaffId);
       if (!staff?.active) {
         throw new ConvexError("Staff member not found");
       }
@@ -574,7 +574,7 @@ export async function updateTourManagerForTest(
   const travelBatch = shouldResolveTravelBatch
     ? args.travelBatchId === undefined
       ? existingTravelBatchId
-        ? await ctx.db.get(existingTravelBatchId)
+        ? await ctx.db.get("travelBatches", existingTravelBatchId)
         : null
       : await getValidatedTravelBatch(ctx, args.travelBatchId, jobCardId)
     : null;
@@ -583,12 +583,12 @@ export async function updateTourManagerForTest(
   }
 
   const name = String(patch.name ?? tourManager.name).trim();
-  await ctx.db.patch(id, patch);
+  await ctx.db.patch("tourManagerAssignments", id, patch);
 
   if (tourManager.jobCardId && tourManager.jobCardId !== jobCardId) {
-    const previousJob = await ctx.db.get(tourManager.jobCardId);
+    const previousJob = await ctx.db.get("jobCards", tourManager.jobCardId);
     if (previousJob?.tourManagerId === id) {
-      await ctx.db.patch(tourManager.jobCardId, {
+      await ctx.db.patch("jobCards", tourManager.jobCardId, {
         tourManagerId: undefined,
         tourManagerName: "",
         updatedAt: now,
@@ -596,7 +596,7 @@ export async function updateTourManagerForTest(
     }
   }
   if (jobCardId) {
-    await ctx.db.patch(jobCardId, {
+    await ctx.db.patch("jobCards", jobCardId, {
       tourManagerId: id,
       tourManagerName: name,
       updatedAt: now,
@@ -626,7 +626,7 @@ export async function updateTourManagerForTest(
           bellTargets: { kind: "staff", staffIds: [allocationStaffId] },
           content: {
             body: tourManagerNotificationBody(
-              await ctx.db.get(allocationJobCardId),
+              await ctx.db.get("jobCards", allocationJobCardId),
               travelBatch,
               args.reportingInstructions ?? tourManager.reportingInstructions
             ),
@@ -672,7 +672,7 @@ async function deleteTourManagerRecord(
   id: Id<"tourManagerAssignments">,
   deferredNotifications?: NotificationEntityIdentity[]
 ) {
-  const tourManager = await ctx.db.get(id);
+  const tourManager = await ctx.db.get("tourManagerAssignments", id);
   if (!tourManager) {
     throw new ConvexError("Tour Manager not found");
   }
@@ -680,9 +680,9 @@ async function deleteTourManagerRecord(
     throw new ConvexError("FORBIDDEN");
   }
   if (tourManager.jobCardId) {
-    const job = await ctx.db.get(tourManager.jobCardId);
+    const job = await ctx.db.get("jobCards", tourManager.jobCardId);
     if (job?.tourManagerId === id) {
-      await ctx.db.patch(tourManager.jobCardId, {
+      await ctx.db.patch("jobCards", tourManager.jobCardId, {
         tourManagerId: undefined,
         tourManagerName: "",
         updatedAt: Date.now(),
@@ -697,7 +697,7 @@ async function deleteTourManagerRecord(
       message: `${tourManager.name} deleted`,
     }),
     deleteEntityNotifications(ctx, "tourManager", id, deferredNotifications),
-    ctx.db.delete(id),
+    ctx.db.delete("tourManagerAssignments", id),
   ]);
 }
 

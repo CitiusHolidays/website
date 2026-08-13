@@ -12,7 +12,7 @@ function makeSharedCtx(nowRef: { value: number }) {
   let nextId = 1;
   const ctx = {
     db: {
-      delete: (id: string) => {
+      delete: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -26,7 +26,7 @@ function makeSharedCtx(nowRef: { value: number }) {
         tables[table].push({ _id: id, ...value });
         return id;
       },
-      patch: (id: string, value: Record<string, unknown>) => {
+      patch: (_table: string, id: string, value: Record<string, unknown>) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

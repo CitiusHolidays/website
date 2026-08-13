@@ -32,7 +32,7 @@ export async function invalidatePendingExpenseApprovals(ctx: any, expenseId: any
     approvalRows.flatMap((approval: any) =>
       approval.status === "Pending"
         ? [
-            ctx.db.patch(approval._id, {
+            ctx.db.patch("approvalRequests", approval._id, {
               decisionNote: "Invalidated by a material expense or proof change",
               status: "Needs Info",
               updatedAt: now,

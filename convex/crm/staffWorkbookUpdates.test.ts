@@ -15,7 +15,7 @@ function makeCtx(initialTables: Tables) {
 
   const ctx = {
     db: {
-      get: async (id: string) => {
+      get: async (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const match = rows.find((row) => row._id === id);
           if (match) {
@@ -30,7 +30,7 @@ function makeCtx(initialTables: Tables) {
         tables[tableName] = [...(tables[tableName] ?? []), row];
         return id;
       },
-      patch: async (id: string, patch: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, patch: Record<string, unknown>) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

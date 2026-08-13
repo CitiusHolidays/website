@@ -136,7 +136,7 @@ export const updateMyProfile = mutation({
       });
       const created = await getProfileByAuthUserId(ctx, authUserId);
       if (created) {
-        await ctx.db.patch(created._id, {
+        await ctx.db.patch("userProfiles", created._id, {
           name: args.name,
           phoneNumber: args.phoneNumber ?? "",
           updatedAt,
@@ -154,7 +154,7 @@ export const updateMyProfile = mutation({
       };
     }
 
-    await ctx.db.patch(current._id, {
+    await ctx.db.patch("userProfiles", current._id, {
       name: args.name,
       phoneNumber: args.phoneNumber ?? "",
       updatedAt,

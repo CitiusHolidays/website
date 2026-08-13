@@ -51,9 +51,9 @@ export async function adjustPnrIssuedSeatsOnStatusChange(
   }
 ) {
   const adjustPnr = async (pnrId: any, delta: 1 | -1) => {
-    const pnr = await ctx.db.get(pnrId);
+    const pnr = await ctx.db.get("pnrs", pnrId);
     if (pnr) {
-      await ctx.db.patch(pnrId, {
+      await ctx.db.patch("pnrs", pnrId, {
         issuedSeats: Math.max((pnr.issuedSeats ?? 0) + delta, 0),
         updatedAt: now,
       });
@@ -83,7 +83,7 @@ export async function syncTravellerTicketStatus(
   now: number
 ) {
   if (travellerId) {
-    await ctx.db.patch(travellerId, {
+    await ctx.db.patch("travellers", travellerId, {
       ticketStatus,
       updatedAt: now,
     });

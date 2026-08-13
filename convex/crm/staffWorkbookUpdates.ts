@@ -423,7 +423,7 @@ export async function applyStaffWorkbookRowsForTest(
 
       if (existing) {
         if (changes.length > 0) {
-          await ctx.db.patch(existing._id, {
+          await ctx.db.patch("staffUsers", existing._id, {
             ...patch,
             updatedAt: now,
           });
@@ -478,7 +478,7 @@ export async function applyStaffWorkbookRowsForTest(
         employee: { name: staff.name, staffId: staff._id },
         staffByName: resolvedByName,
       });
-      await ctx.db.patch(staff._id, {
+      await ctx.db.patch("staffUsers", staff._id, {
         leaveEscalationApproverStaffId: resolved.leaveEscalationApproverStaffId ?? undefined,
         leaveFinalAuthorityStaffId: resolved.leaveFinalAuthorityStaffId ?? undefined,
         leaveHrCopyStaffId: resolved.leaveHrCopyStaffId ?? undefined,

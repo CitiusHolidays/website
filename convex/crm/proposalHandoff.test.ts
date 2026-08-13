@@ -151,7 +151,7 @@ function makeProposalHandoffCtx() {
       getUserIdentity: async () => identity,
     },
     db: {
-      get: (...args: string[]) => findById(args.at(-1) ?? ""),
+      get: (_table: string, ...args: string[]) => findById(args.at(-1) ?? ""),
       insert: (table: string, doc: Record<string, unknown>) => {
         const id = `${table}_${getRows(table).length + 1}`;
         const row = { _id: id, ...doc };
@@ -159,7 +159,7 @@ function makeProposalHandoffCtx() {
         return id;
       },
       normalizeId: (_table: string, id: string | null | undefined) => id ?? null,
-      patch: (id: string, patch: Record<string, unknown>) => {
+      patch: (_table: string, id: string, patch: Record<string, unknown>) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

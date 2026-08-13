@@ -4,7 +4,7 @@ import { resolveSalesOwnerSelection } from "./queryCreation";
 function staffContext(staff: Array<Record<string, unknown>>) {
   return {
     db: {
-      get: async (id: string) => staff.find((member) => member._id === id) ?? null,
+      get: async (_table: string, id: string) => staff.find((member) => member._id === id) ?? null,
       normalizeId: (_table: string, id: string) => id,
       query: () => ({ collect: async () => staff }),
     },

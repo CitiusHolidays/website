@@ -42,7 +42,11 @@ export const backfillCustomerAttribution = internalMutation({
           const emailNormalized = normalizeEmail(client.email);
           if (emailNormalized && emailNormalized !== client.emailNormalized) {
             if (!args.dryRun) {
-              await ctx.db.patch(client._id, { emailNormalized });
+              const clientId = ctx.db.normalizeId("clients", String(client._id));
+              if (!clientId) {
+                throw new Error("Invalid client row in attribution migration");
+              }
+              await ctx.db.patch("clients", clientId, { emailNormalized });
             }
             return 1;
           }
@@ -54,7 +58,11 @@ export const backfillCustomerAttribution = internalMutation({
           const contactEmailNormalized = normalizeEmail(intent.contactEmail);
           if (contactEmailNormalized && contactEmailNormalized !== intent.contactEmailNormalized) {
             if (!args.dryRun) {
-              await ctx.db.patch(intent._id, { contactEmailNormalized });
+              const intentId = ctx.db.normalizeId("inboundQueryIntents", String(intent._id));
+              if (!intentId) {
+                throw new Error("Invalid inbound intent row in attribution migration");
+              }
+              await ctx.db.patch("inboundQueryIntents", intentId, { contactEmailNormalized });
             }
             return 1;
           }
@@ -67,13 +75,17 @@ export const backfillCustomerAttribution = internalMutation({
           const intentId = queryRow.inboundIntentId
             ? ctx.db.normalizeId("inboundQueryIntents", queryRow.inboundIntentId)
             : null;
-          const intent = intentId ? await ctx.db.get(intentId) : null;
+          const intent = intentId ? await ctx.db.get("inboundQueryIntents", intentId) : null;
           if (
             intent &&
             (queryRow.source !== intent.source || queryRow.sourceConsentAt !== intent.consentAt)
           ) {
             if (!args.dryRun) {
-              await ctx.db.patch(queryRow._id, {
+              const queryId = ctx.db.normalizeId("queries", String(queryRow._id));
+              if (!queryId) {
+                throw new Error("Invalid query row in attribution migration");
+              }
+              await ctx.db.patch("queries", queryId, {
                 source: intent.source,
                 sourceConsentAt: intent.consentAt,
               });
@@ -88,7 +100,7 @@ export const backfillCustomerAttribution = internalMutation({
             sourceInboundIntentId?: string;
           };
           const queryId = ctx.db.normalizeId("queries", offer.queryId);
-          const queryRow = queryId ? await ctx.db.get(queryId) : null;
+          const queryRow = queryId ? await ctx.db.get("queries", queryId) : null;
           if (
             queryRow &&
             (offer.source !== queryRow.source ||
@@ -96,7 +108,11 @@ export const backfillCustomerAttribution = internalMutation({
               offer.sourceInboundIntentId !== queryRow.inboundIntentId)
           ) {
             if (!args.dryRun) {
-              await ctx.db.patch(offer._id, {
+              const offerId = ctx.db.normalizeId("confirmedOffers", String(offer._id));
+              if (!offerId) {
+                throw new Error("Invalid confirmed offer row in attribution migration");
+              }
+              await ctx.db.patch("confirmedOffers", offerId, {
                 source: queryRow.source,
                 sourceConsentAt: queryRow.sourceConsentAt,
                 sourceInboundIntentId: queryRow.inboundIntentId,

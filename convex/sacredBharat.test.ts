@@ -18,7 +18,7 @@ function makeMergeCtx(initialTables: Tables = {}) {
 
   const ctx = {
     db: {
-      delete: (id: string) => {
+      delete: (_table: string, id: string) => {
         for (const [tableName, rows] of Object.entries(tables)) {
           tables[tableName] = rows.filter((row) => row._id !== id);
         }
@@ -29,7 +29,7 @@ function makeMergeCtx(initialTables: Tables = {}) {
         tables[tableName] = [...(tables[tableName] ?? []), row];
         return id;
       },
-      patch: (id: string, doc: Record<string, unknown>) => {
+      patch: (_table: string, id: string, doc: Record<string, unknown>) => {
         for (const [tableName, rows] of Object.entries(tables)) {
           tables[tableName] = rows.map((row) => (row._id === id ? { ...row, ...doc } : row));
         }

@@ -109,7 +109,7 @@ async function getOwnedSavedView(ctx: any, access: any, savedViewId: string) {
   if (!id) {
     throw new ConvexError("Invalid saved view id");
   }
-  const savedView = await ctx.db.get(id);
+  const savedView = await ctx.db.get("portalSavedViews", id);
   if (!savedView) {
     throw new ConvexError("Saved view not found");
   }
@@ -252,7 +252,7 @@ export const update = mutation({
         : (savedView.ownerAuthUserId ?? access.authUserId);
       patch.ownerStaffId = args.sharedRole ? undefined : (savedView.ownerStaffId ?? access.staffId);
     }
-    await ctx.db.patch(id, patch);
+    await ctx.db.patch("portalSavedViews", id, patch);
     return { id };
   },
   returns: savedViewIdResultValidator,
@@ -263,7 +263,7 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
     const { id } = await getOwnedSavedView(ctx, access, args.savedViewId);
-    await ctx.db.delete(id);
+    await ctx.db.delete("portalSavedViews", id);
     return { id };
   },
   returns: savedViewIdResultValidator,

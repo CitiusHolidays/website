@@ -69,7 +69,7 @@ function makeLeaveCtx(
       getUserIdentity: async () => currentIdentity,
     },
     db: {
-      delete: async (id: string) => {
+      delete: async (_table: string, id: string) => {
         for (const [table, rows] of Object.entries(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -78,7 +78,7 @@ function makeLeaveCtx(
           }
         }
       },
-      get: async (id: string) => {
+      get: async (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -96,7 +96,7 @@ function makeLeaveCtx(
       normalizeId(_tableName: string, id: string) {
         return id;
       },
-      patch: async (id: string, patch: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, patch: Record<string, unknown>) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

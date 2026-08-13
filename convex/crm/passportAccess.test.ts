@@ -43,7 +43,7 @@ function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
       }),
     },
     db: {
-      delete: async (id: string) => {
+      delete: async (_table: string, id: string) => {
         for (const rows of Object.values(allTables)) {
           const index = rows.findIndex((entry) => entry._id === id);
           if (index >= 0) {
@@ -53,7 +53,7 @@ function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
         }
         throw new Error(`Missing row: ${id}`);
       },
-      get: async (id: string) => {
+      get: async (_table: string, id: string) => {
         for (const rows of Object.values(allTables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -77,7 +77,7 @@ function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
         const rows = allTables[table] ?? [];
         return rows.some((row) => row._id === id) ? id : null;
       },
-      patch: async (id: string, value: Record<string, unknown>) => {
+      patch: async (_table: string, id: string, value: Record<string, unknown>) => {
         for (const rows of Object.values(allTables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {

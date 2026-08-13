@@ -26,12 +26,12 @@ function makeCommandCtx(initialTables: Tables, initialActor = "auth_admin") {
       }),
     },
     db: {
-      delete: (id: string) => {
+      delete: (_table: string, id: string) => {
         for (const [table, rows] of Object.entries(tables)) {
           tables[table] = rows.filter((row) => row._id !== id);
         }
       },
-      get: (id: string) => {
+      get: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -47,7 +47,7 @@ function makeCommandCtx(initialTables: Tables, initialActor = "auth_admin") {
         return id;
       },
       normalizeId: (_tableName: string, id: string | null | undefined) => id ?? null,
-      patch: (id: string, value: Record<string, unknown>) => {
+      patch: (_table: string, id: string, value: Record<string, unknown>) => {
         for (const [table, rows] of Object.entries(tables)) {
           tables[table] = rows.map((row) => (row._id === id ? { ...row, ...value } : row));
         }

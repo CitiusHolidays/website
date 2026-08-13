@@ -1,5 +1,7 @@
 import type { PaginationOptions } from "convex/server";
 import { ConvexError } from "convex/values";
+import type { Doc, Id, TableNames } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
 
 export const CRM_LIST_MAX_PAGE_SIZE = 100;
 export const CRM_LIST_MAX_ROWS_READ = 400;
@@ -68,12 +70,17 @@ export function compactPageItems<Item>(items: readonly (Item | null)[]): Item[] 
   return items.filter((item): item is Item => item !== null);
 }
 
-export async function loadRowsByIdInBatches<Row = Record<string, unknown>>(
-  ctx: any,
-  rawValues: readonly unknown[],
+export async function loadRowsByIdInBatches<TableName extends TableNames>(
+  ctx: QueryCtx,
+  tableName: TableName,
+  rawValues: readonly (Id<TableName> | null | undefined)[],
   maxRows: number
-): Promise<Row[]> {
-  const values = Array.from(new Set(rawValues.filter(Boolean)));
+): Promise<Doc<TableName>[]> {
+  const values = Array.from(
+    new Set(
+      rawValues.filter((value): value is Id<TableName> => value !== null && value !== undefined)
+    )
+  );
   if (values.length === 0) {
     return [];
   }
@@ -83,8 +90,8 @@ export async function loadRowsByIdInBatches<Row = Record<string, unknown>>(
   }
   const rows = await mapInBoundedBatches(
     values,
-    async (value) => await ctx.db.get(value),
+    async (value) => await ctx.db.get(tableName, value),
     CRM_RELATION_BATCH_SIZE
   );
-  return compactPageItems(rows) as Row[];
+  return compactPageItems(rows);
 }

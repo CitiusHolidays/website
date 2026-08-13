@@ -40,6 +40,6 @@ describe("Convex explicit-table database API inventory", () => {
   test("fails on every new ID-only call and records each owned file-method exception", () => {
     const calls = discoverLegacyDocumentCalls(CONVEX_ROOT);
     expect(summarizeLegacyDocumentCalls(calls)).toEqual(baseline());
-    expect(calls).toHaveLength(509);
+    expect(calls).toHaveLength(0);
   });
 });

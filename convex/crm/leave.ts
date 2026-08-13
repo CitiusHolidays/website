@@ -247,7 +247,7 @@ export const list = query({
     const approverCache = new Map<string, any>();
 
     const result = await mapInBoundedBatches(page.page, async (leave) => {
-      const staff = await ctx.db.get(leave.staffId);
+      const staff = await ctx.db.get("staffUsers", leave.staffId);
       if (!(staff && (await canSeeLeave(ctx, access, leave, staff, staffRows, approverCache)))) {
         return null;
       }
@@ -261,9 +261,11 @@ export const list = query({
         leave.hrCopyStaffId ??
         (await resolveLeaveHrCopyStaffId(ctx, staff, staffRows)) ??
         undefined;
-      const headApprover = headApproverId ? await ctx.db.get(headApproverId) : null;
-      const finalAuthority = finalAuthorityId ? await ctx.db.get(finalAuthorityId) : null;
-      const hrCopyStaff = hrCopyStaffId ? await ctx.db.get(hrCopyStaffId) : null;
+      const headApprover = headApproverId ? await ctx.db.get("staffUsers", headApproverId) : null;
+      const finalAuthority = finalAuthorityId
+        ? await ctx.db.get("staffUsers", finalAuthorityId)
+        : null;
+      const hrCopyStaff = hrCopyStaffId ? await ctx.db.get("staffUsers", hrCopyStaffId) : null;
       return {
         days: inclusiveLeaveDays(leave.startDate, leave.endDate),
         decisionNote: leave.decisionNote ?? "",
@@ -342,7 +344,7 @@ export async function createLeaveRequest(ctx: MutationCtx, args: CreateLeaveArgs
   }
 
   const [staff, staffRows] = await Promise.all([
-    ctx.db.get(staffId),
+    ctx.db.get("staffUsers", staffId),
     ctx.db.query("staffUsers").collect(),
   ]);
   if (!staff) {
@@ -359,9 +361,9 @@ export async function createLeaveRequest(ctx: MutationCtx, args: CreateLeaveArgs
   assertDateRangeOrder(args.startDate, args.endDate, "Leave start date", "Leave end date");
   const fiscalYear = fiscalYearForDate(args.startDate);
   const [headApprover, finalAuthority, hrCopyStaff, balances] = await Promise.all([
-    headApproverId ? ctx.db.get(headApproverId) : Promise.resolve(null),
-    finalAuthorityId ? ctx.db.get(finalAuthorityId) : Promise.resolve(null),
-    hrCopyStaffId ? ctx.db.get(hrCopyStaffId) : Promise.resolve(null),
+    headApproverId ? ctx.db.get("staffUsers", headApproverId) : Promise.resolve(null),
+    finalAuthorityId ? ctx.db.get("staffUsers", finalAuthorityId) : Promise.resolve(null),
+    hrCopyStaffId ? ctx.db.get("staffUsers", hrCopyStaffId) : Promise.resolve(null),
     balanceMapForStaff(ctx, staff, fiscalYear, args.startDate),
   ]);
   const headReviewerRole = headApprover
@@ -452,11 +454,11 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
   if (!leaveId) {
     throw new ConvexError("Invalid leave ID");
   }
-  const leave = await ctx.db.get(leaveId);
+  const leave = await ctx.db.get("staffLeaveRecords", leaveId);
   if (!leave) {
     throw new ConvexError("Leave record not found");
   }
-  const staff = await ctx.db.get(leave.staffId);
+  const staff = await ctx.db.get("staffUsers", leave.staffId);
   if (!staff) {
     throw new ConvexError("Staff member not found");
   }
@@ -580,7 +582,7 @@ export async function decideLeaveRequest(ctx: MutationCtx, args: DecideLeaveArgs
   }
 
   await patchWithE2eOwnership(ctx, "staffLeaveRecords", leaveId, patch);
-  const patchedLeave = await ctx.db.get(leaveId);
+  const patchedLeave = await ctx.db.get("staffLeaveRecords", leaveId);
   if (patchedLeave && patch.status === "Approved") {
     await ledgerUsageForApprovedLeave(ctx, access, patchedLeave, staff);
   }
@@ -654,7 +656,7 @@ export const balances = query({
     if (!staffId) {
       return [];
     }
-    const staff = await ctx.db.get(staffId);
+    const staff = await ctx.db.get("staffUsers", staffId);
     if (!staff) {
       return [];
     }
@@ -699,7 +701,7 @@ export const update = mutation({
     if (!leaveId) {
       throw new ConvexError("Invalid leave ID");
     }
-    const leave = await ctx.db.get(leaveId);
+    const leave = await ctx.db.get("staffLeaveRecords", leaveId);
     if (!leave) {
       throw new ConvexError("Leave record not found");
     }
@@ -756,12 +758,15 @@ export const remove = mutation({
       throw new ConvexError("Invalid leave ID");
     }
 
-    const leave = await ctx.db.get(leaveId);
+    const leave = await ctx.db.get("staffLeaveRecords", leaveId);
     if (!leave) {
       throw new ConvexError("Leave record not found");
     }
 
-    const [staff] = await Promise.all([ctx.db.get(leave.staffId), ctx.db.delete(leaveId)]);
+    const [staff] = await Promise.all([
+      ctx.db.get("staffUsers", leave.staffId),
+      ctx.db.delete("staffLeaveRecords", leaveId),
+    ]);
 
     await createActivity(ctx, access, {
       action: "deleted",

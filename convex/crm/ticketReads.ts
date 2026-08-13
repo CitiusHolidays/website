@@ -16,11 +16,13 @@ export async function handleListTickets(ctx: any, args: any) {
   ).paginate(boundedPaginationOptions(args.paginationOpts));
   const rows = await mapInBoundedBatches(page.page, async (ticket: any) => {
     const [traveller, pnr, job] = await Promise.all([
-      ticket.travellerId ? ctx.db.get(ticket.travellerId) : null,
-      ticket.pnrId ? ctx.db.get(ticket.pnrId) : null,
+      ticket.travellerId ? ctx.db.get("travellers", ticket.travellerId) : null,
+      ticket.pnrId ? ctx.db.get("pnrs", ticket.pnrId) : null,
       getVisibleJob(ctx, access, ticket.jobCardId),
     ]);
-    const travelBatch = traveller?.travelBatchId ? await ctx.db.get(traveller.travelBatchId) : null;
+    const travelBatch = traveller?.travelBatchId
+      ? await ctx.db.get("travelBatches", traveller.travelBatchId)
+      : null;
     return job ? publicTicket(ticket, traveller, pnr, job, travelBatch) : null;
   });
   return { ...page, page: compactPageItems(rows) };
@@ -29,18 +31,20 @@ export async function handleListTickets(ctx: any, args: any) {
 export async function handleGetTicketListRow(ctx: any, args: { ticketId: string }) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
   const ticketId = ctx.db.normalizeId("tickets", args.ticketId);
-  const ticket = ticketId ? await ctx.db.get(ticketId) : null;
+  const ticket = ticketId ? await ctx.db.get("tickets", ticketId) : null;
   if (!ticket) {
     return null;
   }
   const [traveller, pnr, job] = await Promise.all([
-    ticket.travellerId ? ctx.db.get(ticket.travellerId) : null,
-    ticket.pnrId ? ctx.db.get(ticket.pnrId) : null,
+    ticket.travellerId ? ctx.db.get("travellers", ticket.travellerId) : null,
+    ticket.pnrId ? ctx.db.get("pnrs", ticket.pnrId) : null,
     getVisibleJob(ctx, access, ticket.jobCardId),
   ]);
   if (!job) {
     return null;
   }
-  const travelBatch = traveller?.travelBatchId ? await ctx.db.get(traveller.travelBatchId) : null;
+  const travelBatch = traveller?.travelBatchId
+    ? await ctx.db.get("travelBatches", traveller.travelBatchId)
+    : null;
   return publicTicket(ticket, traveller, pnr, job, travelBatch);
 }

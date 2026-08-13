@@ -12,11 +12,11 @@ async function passportTravellerPatch(
   travellerId: Id<"travellers">,
   patch: Record<string, unknown>
 ) {
-  const traveller = await ctx.db.get(travellerId);
+  const traveller = await ctx.db.get("travellers", travellerId);
   if (!traveller) {
     throw new ConvexError("Invalid traveller id");
   }
-  const job = await ctx.db.get(traveller.jobCardId);
+  const job = await ctx.db.get("jobCards", traveller.jobCardId);
   const nextTraveller = { ...traveller, ...patch };
   return {
     ...patch,
@@ -37,15 +37,15 @@ export async function loadPassportMetadata(
   if (!travellerIdNormalized) {
     throw new ConvexError("FORBIDDEN");
   }
-  const traveller = await ctx.db.get(travellerIdNormalized);
+  const traveller = await ctx.db.get("travellers", travellerIdNormalized);
   if (!traveller) {
     throw new ConvexError("FORBIDDEN");
   }
-  const job = await ctx.db.get(traveller.jobCardId);
+  const job = await ctx.db.get("jobCards", traveller.jobCardId);
   if (!job) {
     throw new ConvexError("FORBIDDEN");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -105,7 +105,7 @@ export const savePassportMetadata = internalMutation({
     const displacedStorageId = existing?.storageId ?? null;
 
     if (existing) {
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("passportDetails", existing._id, {
         encryptedPayload: args.encryptedPayload,
         expiryDate,
         fileName: args.fileName,
@@ -134,6 +134,7 @@ export const savePassportMetadata = internalMutation({
     }
 
     await ctx.db.patch(
+      "travellers",
       travellerId,
       await passportTravellerPatch(ctx, travellerId, {
         hasPassportScan: true,
@@ -170,7 +171,7 @@ export const savePassportDetailsOnly = internalMutation({
       .unique();
 
     if (existing) {
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("passportDetails", existing._id, {
         encryptedPayload: args.encryptedPayload,
         expiryDate,
         lastFour: args.lastFour,
@@ -193,6 +194,7 @@ export const savePassportDetailsOnly = internalMutation({
     }
 
     await ctx.db.patch(
+      "travellers",
       travellerId,
       await passportTravellerPatch(ctx, travellerId, {
         hasPassportScan: Boolean(existing?.storageId),
@@ -222,10 +224,11 @@ export const deletePassportMetadata = internalMutation({
       .unique();
 
     if (existing) {
-      await ctx.db.delete(existing._id);
+      await ctx.db.delete("passportDetails", existing._id);
     }
 
     await ctx.db.patch(
+      "travellers",
       travellerIdNormalized,
       await passportTravellerPatch(ctx, travellerIdNormalized, {
         hasPassportScan: false,
@@ -274,14 +277,14 @@ export const backfillPassportExpiryDate = internalMutation({
     passportId: v.id("passportDetails"),
   },
   handler: async (ctx, args) => {
-    const passport = await ctx.db.get(args.passportId);
+    const passport = await ctx.db.get("passportDetails", args.passportId);
     const expiryDate = normalizePassportExpiryDate(args.expiryDate);
-    await ctx.db.patch(args.passportId, {
+    await ctx.db.patch("passportDetails", args.passportId, {
       expiryDate,
       updatedAt: Date.now(),
     });
     if (passport) {
-      await ctx.db.patch(passport.travellerId, { passportExpiryDate: expiryDate });
+      await ctx.db.patch("travellers", passport.travellerId, { passportExpiryDate: expiryDate });
     }
   },
 });
@@ -297,7 +300,7 @@ export const logViewActivity = internalMutation({
     if (!travellerIdNormalized) {
       return;
     }
-    const traveller = await ctx.db.get(travellerIdNormalized);
+    const traveller = await ctx.db.get("travellers", travellerIdNormalized);
     if (!traveller) {
       return;
     }

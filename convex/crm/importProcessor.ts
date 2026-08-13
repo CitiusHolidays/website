@@ -21,8 +21,8 @@ export type TravellerMatchIndex = {
 };
 
 export async function getVisibleJob(ctx: any, access: any, jobCardId: Id<"jobCards">) {
-  const job = await ctx.db.get(jobCardId);
-  const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+  const job = await ctx.db.get("jobCards", jobCardId);
+  const linkedQuery = job?.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
     return null;
   }
@@ -120,7 +120,7 @@ export async function resolveImportTravelBatchId(
     if (!travelBatchId) {
       throw new Error("Invalid Travel Batch id");
     }
-    const batch = await ctx.db.get(travelBatchId);
+    const batch = await ctx.db.get("travelBatches", travelBatchId);
     if (!batch || String(batch.jobCardId) !== String(jobCardId)) {
       throw new Error("Travel Batch must belong to the selected Job Card");
     }
@@ -210,7 +210,7 @@ async function upsertTicketingPnr(
       patch.fareType = fareType;
     }
     if (Object.keys(patch).length > 1) {
-      await ctx.db.patch(existing._id, patch);
+      await ctx.db.patch("pnrs", existing._id, patch);
       await scheduleCrmMetricSync(ctx, "pnrs", String(existing._id));
     }
     return existing;
@@ -230,7 +230,7 @@ async function upsertTicketingPnr(
     updatedAt: now,
   });
   await scheduleCrmMetricSync(ctx, "pnrs", String(pnrId));
-  return await ctx.db.get(pnrId);
+  return await ctx.db.get("pnrs", pnrId);
 }
 
 async function upsertTicketingVendor(
@@ -261,7 +261,7 @@ async function upsertTicketingVendor(
       row.name.trim().toLowerCase() === entry.vendor.trim().toLowerCase()
   );
   if (existing) {
-    await ctx.db.patch(existing._id, { updatedAt: now });
+    await ctx.db.patch("vendors", existing._id, { updatedAt: now });
     return;
   }
   await ctx.db.insert("vendors", {
@@ -302,12 +302,12 @@ async function patchPnrIssuedSeatsFromImport(
   addedTickets: number,
   now: number
 ) {
-  const pnr = await ctx.db.get(pnrKey as Id<"pnrs">);
+  const pnr = await ctx.db.get("pnrs", pnrKey as Id<"pnrs">);
   if (!pnr) {
     return;
   }
   const nextIssuedSeats = (pnr.issuedSeats ?? 0) + addedTickets;
-  await ctx.db.patch(pnr._id, {
+  await ctx.db.patch("pnrs", pnr._id, {
     issuedSeats: nextIssuedSeats,
     totalSeats: Math.max(pnr.totalSeats ?? 0, nextIssuedSeats),
     updatedAt: now,
@@ -353,7 +353,7 @@ async function upsertTicketingRowsForTraveller(
       const ticketKey = groupTicketLookupKey(pnrId, entry.ticketNumber);
       const existingTicket = ticketsByKey.get(ticketKey);
       if (existingTicket) {
-        await ctx.db.patch(existingTicket._id, {
+        await ctx.db.patch("tickets", existingTicket._id, {
           cabinClass: "Economy",
           mealPreference: row.foodPreference,
           paymentType: row.paymentType,
@@ -393,7 +393,7 @@ async function upsertTicketingRowsForTraveller(
     ...[...newTicketsByPnrId.entries()].map(([pnrKey, addedTickets]) =>
       patchPnrIssuedSeatsFromImport(ctx, pnrKey, addedTickets, now)
     ),
-    ctx.db.patch(travellerId, {
+    ctx.db.patch("travellers", travellerId, {
       ticketStatus: "Issued",
       updatedAt: now,
     }),
@@ -602,7 +602,7 @@ export async function processImportRows(
       const match = findTravellerMatchInIndex(matchIndex, row);
       const importKind = row.importKind ?? "passenger";
       const travelBatchId = await resolveImportTravelBatchId(ctx, jobCardId, row);
-      const travelBatch = travelBatchId ? await ctx.db.get(travelBatchId) : null;
+      const travelBatch = travelBatchId ? await ctx.db.get("travelBatches", travelBatchId) : null;
       const travellerPatch = travellerPatchForImport(row, job, now, travelBatchId, travelBatch);
 
       let travellerId: Id<"travellers">;
@@ -617,7 +617,7 @@ export async function processImportRows(
                 ? match.visaStatus
                 : "Not Required";
         }
-        await ctx.db.patch(match._id, patch);
+        await ctx.db.patch("travellers", match._id, patch);
         travellerId = match._id;
       } else {
         const newTraveller = travellerCreateDefaults(
@@ -662,7 +662,7 @@ export async function processImportRows(
                       ? "Not Started"
                       : visaRecord.status
                     : "Not Required";
-              return ctx.db.patch(visaRecord._id, {
+              return ctx.db.patch("visaRecords", visaRecord._id, {
                 status,
                 ...(importKind === "visa" && row.biometricAppointmentDate !== undefined
                   ? { appointmentDate: row.biometricAppointmentDate?.trim() || "" }
@@ -694,7 +694,7 @@ export async function processImportRows(
           passportPatch.expiryDate = row.passportExpiryDate;
         }
         if (existingPassport) {
-          await ctx.db.patch(existingPassport._id, passportPatch);
+          await ctx.db.patch("passportDetails", existingPassport._id, passportPatch);
         } else {
           await ctx.db.insert("passportDetails", {
             travellerId,
@@ -713,7 +713,7 @@ export async function processImportRows(
             };
           matchIndex.byPassportHash.set(row.passportNumberHash, travellerDoc);
         }
-        await ctx.db.patch(travellerId, {
+        await ctx.db.patch("travellers", travellerId, {
           passportExpiryDate: row.passportExpiryDate,
           passportStatus: "Received",
           updatedAt: now,

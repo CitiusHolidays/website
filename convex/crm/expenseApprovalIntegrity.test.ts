@@ -42,7 +42,7 @@ function makeExpenseCtx(initialTables: Tables, identitySubject: string) {
       },
     },
     db: {
-      delete: (id: string) => {
+      delete: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {
@@ -52,7 +52,7 @@ function makeExpenseCtx(initialTables: Tables, identitySubject: string) {
         }
         return Promise.resolve();
       },
-      get: (id: string) => {
+      get: (_table: string, id: string) => {
         for (const rows of Object.values(tables)) {
           const row = rows.find((entry) => entry._id === id);
           if (row) {
@@ -71,7 +71,7 @@ function makeExpenseCtx(initialTables: Tables, identitySubject: string) {
       normalizeId(table: string, id: string) {
         return (tables[table] ?? []).some((row) => row._id === id) ? id : null;
       },
-      patch: (id: string, value: Record<string, unknown>) => {
+      patch: (_table: string, id: string, value: Record<string, unknown>) => {
         for (const rows of Object.values(tables)) {
           const index = rows.findIndex((row) => row._id === id);
           if (index >= 0) {

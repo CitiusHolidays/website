@@ -70,14 +70,14 @@ function makeCtx() {
         getUserIdentity: async () => ({ email: "admin@example.com", subject: "auth_1" }),
       },
       db: {
-        get: async (id: string) => find(id),
+        get: async (_table: string, id: string) => find(id),
         insert: (table: string, value: Record<string, unknown>) => {
           const id = `${table}_${(tables[table] ?? []).length + 1}`;
           tables[table] = [...(tables[table] ?? []), { _id: id, ...value }];
           return id;
         },
         normalizeId: (_table: string, id: string) => id,
-        patch: (id: string, value: Record<string, unknown>) => {
+        patch: (_table: string, id: string, value: Record<string, unknown>) => {
           for (const [table, rows] of Object.entries(tables)) {
             const index = rows.findIndex((row) => row._id === id);
             if (index >= 0) {

@@ -178,9 +178,9 @@ export const backfillSacredBharatLeaderboard = internalMutation({
         status: "running",
         updatedAt: timestamp,
       });
-      registry = await ctx.db.get(id);
+      registry = await ctx.db.get("dataMigrationRegistry", id);
     } else if (registry.status === "failed") {
-      await ctx.db.patch(registry._id, {
+      await ctx.db.patch("dataMigrationRegistry", registry._id, {
         converted: 0,
         cursor: null,
         legacyRemaining: 0,
@@ -191,7 +191,7 @@ export const backfillSacredBharatLeaderboard = internalMutation({
         updatedAt: timestamp,
         verifiedAt: undefined,
       });
-      registry = await ctx.db.get(registry._id);
+      registry = await ctx.db.get("dataMigrationRegistry", registry._id);
     }
     if (!registry) {
       throw new ConvexError("Unable to initialize Sacred Bharat leaderboard migration");
@@ -210,7 +210,7 @@ export const backfillSacredBharatLeaderboard = internalMutation({
 
     const stage = page.isDone ? ("verify" as const) : ("backfill" as const);
     const cursor = page.isDone ? null : page.continueCursor;
-    await ctx.db.patch(registry._id, {
+    await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted: registry.converted + authUserIds.length,
       cursor,
       legacyRemaining: 0,
@@ -280,7 +280,7 @@ export const verifySacredBharatLeaderboard = internalMutation({
     }
     const stage = status === "verified" ? ("complete" as const) : ("verify" as const);
     const cursor = page.isDone ? null : page.continueCursor;
-    await ctx.db.patch(registry._id, {
+    await ctx.db.patch("dataMigrationRegistry", registry._id, {
       cursor,
       legacyRemaining,
       processed: registry.processed + page.page.length,
@@ -369,12 +369,12 @@ export const migrateTravelBatchSummaries = internalMutation({
     const duplicateCount = args.jobCardIds.length - uniqueJobCardIds.length;
     const outcomes = await Promise.all(
       uniqueJobCardIds.map(async (jobCardId) => {
-        const job = await ctx.db.get(jobCardId);
+        const job = await ctx.db.get("jobCards", jobCardId);
         const summaries = (job?.travelBatchSummaries ?? []) as TransitionalTravelBatchSummary[];
         if (!job || summaries.length === 0) {
           return "skipped" as const;
         }
-        await ctx.db.patch(jobCardId, {
+        await ctx.db.patch("jobCards", jobCardId, {
           travelBatchCount: Math.max(
             job.travelBatchCount ?? 0,
             travelBatchCountFromSummaries(summaries)
@@ -445,9 +445,9 @@ export const backfillTravelBatchSummaries = internalMutation({
         status: "running",
         updatedAt: now,
       });
-      registry = await ctx.db.get(id);
+      registry = await ctx.db.get("dataMigrationRegistry", id);
     } else if (registry.status === "failed") {
-      await ctx.db.patch(registry._id, {
+      await ctx.db.patch("dataMigrationRegistry", registry._id, {
         converted: 0,
         cursor: null,
         legacyRemaining: 0,
@@ -458,7 +458,7 @@ export const backfillTravelBatchSummaries = internalMutation({
         updatedAt: now,
         verifiedAt: undefined,
       });
-      registry = await ctx.db.get(registry._id);
+      registry = await ctx.db.get("dataMigrationRegistry", registry._id);
     }
     if (!registry) {
       throw new ConvexError("Unable to initialize Travel Batch summary migration");
@@ -488,11 +488,11 @@ export const backfillTravelBatchSummaries = internalMutation({
         },
       ];
     });
-    await Promise.all(patches.map(({ id, value }) => ctx.db.patch(id, value)));
+    await Promise.all(patches.map(({ id, value }) => ctx.db.patch("jobCards", id, value)));
     const converted = patches.length;
     const stage = page.isDone ? ("verify" as const) : ("backfill" as const);
     const cursor = page.isDone ? null : page.continueCursor;
-    await ctx.db.patch(registry._id, {
+    await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted: registry.converted + converted,
       cursor,
       legacyRemaining: 0,
@@ -556,7 +556,7 @@ export const verifyTravelBatchSummaries = internalMutation({
     const stage = status === "verified" ? ("complete" as const) : ("verify" as const);
     const cursor = page.isDone ? null : page.continueCursor;
     const now = Date.now();
-    await ctx.db.patch(registry._id, {
+    await ctx.db.patch("dataMigrationRegistry", registry._id, {
       cursor,
       legacyRemaining,
       processed: registry.processed + page.page.length,
@@ -652,7 +652,7 @@ export const importUsers = internalMutation({
         };
 
         if (existing) {
-          await ctx.db.patch(existing._id, payload);
+          await ctx.db.patch("userProfiles", existing._id, payload);
           return "updated";
         }
         await ctx.db.insert("userProfiles", payload);
@@ -712,7 +712,7 @@ export const importTrips = internalMutation({
         };
 
         if (existing) {
-          await ctx.db.patch(existing._id, payload);
+          await ctx.db.patch("trips", existing._id, payload);
           return "updated";
         }
         await ctx.db.insert("trips", payload);
@@ -777,7 +777,7 @@ export const importBookings = internalMutation({
         };
 
         if (existing) {
-          await ctx.db.patch(existing._id, payload);
+          await ctx.db.patch("bookings", existing._id, payload);
           return "updated";
         }
         await ctx.db.insert("bookings", payload);
@@ -867,7 +867,7 @@ export const migrateRoomTypes = internalMutation({
         updatedAt: now,
       });
     } else if (restarting || existing.status !== "running") {
-      await ctx.db.patch(existing._id, {
+      await ctx.db.patch("dataMigrationRegistry", existing._id, {
         ...(restarting
           ? {
               converted: 0,
@@ -921,7 +921,7 @@ export const migrateRoomTypes = internalMutation({
         }
         if (Object.keys(patch).length > 0) {
           patch.updatedAt = now;
-          await ctx.db.patch(traveller._id, patch);
+          await ctx.db.patch("travellers", traveller._id, patch);
           travellersUpdated += 1;
           if (patch.roomType !== undefined) {
             travellerRoomTypesUpdated += 1;
@@ -934,7 +934,7 @@ export const migrateRoomTypes = internalMutation({
         }
         const roomType = resolveRoomingEntryRoomType(entry.roomType);
         if (roomType && String(entry.roomType) !== roomType) {
-          await ctx.db.patch(entry._id, { roomType, updatedAt: now });
+          await ctx.db.patch("roomingListEntries", entry._id, { roomType, updatedAt: now });
           roomingEntriesUpdated += 1;
         }
       }
@@ -968,7 +968,7 @@ export const migrateRoomTypes = internalMutation({
       updatedAt: now,
     };
     if (registryId) {
-      await ctx.db.patch(registryId, registryPatch);
+      await ctx.db.patch("dataMigrationRegistry", registryId, registryPatch);
     }
 
     // A page is intentionally the unit of work. The next call resumes only
@@ -1089,7 +1089,7 @@ export const verifyRoomTypes = internalMutation({
       }
       cursor = null;
     }
-    await ctx.db.patch(registry._id, {
+    await ctx.db.patch("dataMigrationRegistry", registry._id, {
       cursor,
       legacyRemaining,
       processed: registry.processed + page.page.length,

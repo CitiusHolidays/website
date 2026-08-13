@@ -109,7 +109,7 @@ export async function resolveProposalDocumentsByQueryId(
     (proposalId) => !proposalsById.has(proposalId)
   );
   const loadedProposals = await Promise.all(
-    missingProposalIds.map((proposalId) => ctx.db.get(proposalId as Id<"proposals">))
+    missingProposalIds.map((proposalId) => ctx.db.get("proposals", proposalId as Id<"proposals">))
   );
   for (const proposal of loadedProposals) {
     if (proposal) {
@@ -155,14 +155,14 @@ export async function linkedQueriesForProposalDocument(
     queryIds.add(String(link.queryId));
   }
   const queries = await Promise.all(
-    [...queryIds].map((queryId) => ctx.db.get(queryId as Id<"queries">))
+    [...queryIds].map((queryId) => ctx.db.get("queries", queryId as Id<"queries">))
   );
   return queries.filter((query): query is NonNullable<typeof query> => Boolean(query));
 }
 
 async function resolveActiveSalesOwnerStaff(ctx: MutationCtx, rawSalesOwnerId: string) {
   const normalizedStaffId = ctx.db.normalizeId("staffUsers", rawSalesOwnerId);
-  const staffById = normalizedStaffId ? await ctx.db.get(normalizedStaffId) : null;
+  const staffById = normalizedStaffId ? await ctx.db.get("staffUsers", normalizedStaffId) : null;
   if (staffById?.active) {
     return staffById;
   }
@@ -182,7 +182,7 @@ export async function notifyLinkedQuerySalesOwnersOfProposalDocument(
     queryId?: Id<"queries">;
   }
 ) {
-  const proposal = await ctx.db.get(args.proposalId);
+  const proposal = await ctx.db.get("proposals", args.proposalId);
   if (!proposal) {
     return;
   }

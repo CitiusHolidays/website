@@ -90,13 +90,13 @@ function makeCtx() {
         },
       },
       db: {
-        delete: (...args: string[]) => {
+        delete: (_table: string, ...args: string[]) => {
           const id = args.at(-1);
           for (const [table, rows] of Object.entries(tables)) {
             tables[table] = rows.filter((row) => row._id !== id);
           }
         },
-        get: (id: string) => find(id),
+        get: (_table: string, id: string) => find(id),
         insert: (table: string, value: Record<string, unknown>) => {
           tables[table] ??= [];
           const id = `${table}_${tables[table].length + 1}`;

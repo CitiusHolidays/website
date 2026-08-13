@@ -70,7 +70,7 @@ async function normalizeTravelBatchForJob(ctx: any, jobCardId: Id<"jobCards">, r
   if (!travelBatchId) {
     throw new ConvexError("Invalid Travel Batch id");
   }
-  const batch = await ctx.db.get(travelBatchId);
+  const batch = await ctx.db.get("travelBatches", travelBatchId);
   if (!batch || String(batch.jobCardId) !== String(jobCardId)) {
     throw new ConvexError("Travel Batch must belong to the selected Job Card");
   }
@@ -180,14 +180,16 @@ export const listPage = query({
       },
     });
     const sourcePage = await filteredSource.paginate(boundedPaginationOptions(args.paginationOpts));
-    const jobs = await loadRowsByIdInBatches<any>(
+    const jobs = await loadRowsByIdInBatches(
       ctx,
+      "jobCards",
       sourcePage.page.map((traveller) => traveller.jobCardId),
       sourcePage.page.length
     );
     const jobById = new Map(jobs.map((job) => [String(job._id), job]));
-    const linkedQueries = await loadRowsByIdInBatches<any>(
+    const linkedQueries = await loadRowsByIdInBatches(
       ctx,
+      "queries",
       jobs.flatMap((job) => (job.queryId ? [job.queryId] : [])),
       jobs.length
     );
@@ -291,13 +293,15 @@ export const getRoomCountSummary = query({
       }
       return id;
     });
-    const jobs = await loadRowsByIdInBatches<any>(
+    const jobs = await loadRowsByIdInBatches(
       ctx,
+      "jobCards",
       normalizedIds,
       Math.max(1, normalizedIds.length)
     );
-    const linkedQueries = await loadRowsByIdInBatches<any>(
+    const linkedQueries = await loadRowsByIdInBatches(
       ctx,
+      "queries",
       jobs.flatMap((job) => (job.queryId ? [job.queryId] : [])),
       Math.max(1, jobs.length)
     );
@@ -369,15 +373,15 @@ export const getListRow = query({
     if (!travellerId) {
       return null;
     }
-    const traveller = await ctx.db.get(travellerId);
+    const traveller = await ctx.db.get("travellers", travellerId);
     if (!traveller) {
       return null;
     }
-    const job = await ctx.db.get(traveller.jobCardId);
+    const job = await ctx.db.get("jobCards", traveller.jobCardId);
     if (!job) {
       return null;
     }
-    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
     if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       return null;
     }
@@ -422,11 +426,11 @@ export const create = mutation({
     if (!jobCardId) {
       throw new ConvexError("Invalid Job Card id");
     }
-    const job = await ctx.db.get(jobCardId);
+    const job = await ctx.db.get("jobCards", jobCardId);
     if (!job) {
       throw new ConvexError("Job Card not found");
     }
-    const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+    const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
     if (!canSeeJobCardRecord(access, job, linkedQuery)) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -531,12 +535,14 @@ export const update = mutation({
     if (!travellerId) {
       throw new ConvexError("Invalid traveller id");
     }
-    const traveller = await ctx.db.get(travellerId);
+    const traveller = await ctx.db.get("travellers", travellerId);
     if (!traveller) {
       throw new ConvexError("Traveller not found");
     }
-    const job = await ctx.db.get(traveller.jobCardId);
-    const linkedQuery = await (job?.queryId ? ctx.db.get(job.queryId) : Promise.resolve(null));
+    const job = await ctx.db.get("jobCards", traveller.jobCardId);
+    const linkedQuery = await (job?.queryId
+      ? ctx.db.get("queries", job.queryId)
+      : Promise.resolve(null));
     if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -619,7 +625,9 @@ export const update = mutation({
     const nextTravelBatchId = (patch.travelBatchId ?? traveller.travelBatchId) as
       | Id<"travelBatches">
       | undefined;
-    const nextTravelBatch = nextTravelBatchId ? await ctx.db.get(nextTravelBatchId) : null;
+    const nextTravelBatch = nextTravelBatchId
+      ? await ctx.db.get("travelBatches", nextTravelBatchId)
+      : null;
     patch.travelBatchCode = nextTravelBatch?.batchCode ?? "";
     patch.travelBatchReference = nextTravelBatch?.batchReference ?? "";
     patch.listSearchText = buildTravellerListSearchText(
@@ -677,12 +685,12 @@ export const updateCallingStatus = mutation({
     if (!travellerId) {
       throw new ConvexError("Invalid traveller id");
     }
-    const traveller = await ctx.db.get(travellerId);
+    const traveller = await ctx.db.get("travellers", travellerId);
     if (!traveller) {
       throw new ConvexError("Traveller not found");
     }
-    const job = await ctx.db.get(traveller.jobCardId);
-    const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+    const job = await ctx.db.get("jobCards", traveller.jobCardId);
+    const linkedQuery = job?.queryId ? await ctx.db.get("queries", job.queryId) : null;
     if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -706,12 +714,12 @@ export async function deleteTravellerRecord(
   access: PortalAccess,
   travellerId: Id<"travellers">
 ) {
-  const traveller = await ctx.db.get(travellerId);
+  const traveller = await ctx.db.get("travellers", travellerId);
   if (!traveller) {
     throw new ConvexError("Traveller not found");
   }
-  const job = await ctx.db.get(traveller.jobCardId);
-  const linkedQuery = job?.queryId ? await ctx.db.get(job.queryId) : null;
+  const job = await ctx.db.get("jobCards", traveller.jobCardId);
+  const linkedQuery = job?.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -724,7 +732,7 @@ export async function deleteTravellerRecord(
       message: `${traveller.fullName} deleted`,
     }),
     deleteEntityNotifications(ctx, "traveller", travellerId),
-    ctx.db.delete(travellerId),
+    ctx.db.delete("travellers", travellerId),
     ctx.scheduler.runAfter(0, internal.crm.travellers.continueTravellerCleanup, {
       mode: "all",
       stage: "passportDetails",
@@ -789,7 +797,7 @@ export const continueTravellerCleanup = internalMutation({
           if (args.stage === "tickets") {
             notifications.push({ entityId: String(row._id), entityType: "ticket" });
           }
-          await ctx.db.delete(row._id);
+          await ctx.db.delete(args.stage, row._id);
         })
       );
       if (notifications.length > 0) {

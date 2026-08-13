@@ -136,7 +136,7 @@ describe("CRM list pagination policy", () => {
     let peak = 0;
     const ctx = {
       db: {
-        get: async (selected: string) => {
+        get: async (_table: string, selected: string) => {
           active += 1;
           peak = Math.max(peak, active);
           await Promise.resolve();

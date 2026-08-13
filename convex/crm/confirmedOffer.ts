@@ -52,7 +52,7 @@ export async function assertEligibleProposalForConfirmation(
   if (!proposalId) {
     throw new ConvexError("Select a linked proposal before confirming the order.");
   }
-  const proposal = await ctx.db.get(proposalId);
+  const proposal = await ctx.db.get("proposals", proposalId);
   if (!proposal) {
     throw new ConvexError("Selected proposal was not found.");
   }

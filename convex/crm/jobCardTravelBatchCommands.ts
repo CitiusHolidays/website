@@ -46,11 +46,11 @@ export async function handleCreateTravelBatch(
   if (!jobCardId) {
     throw new ConvexError("Invalid Job Card id");
   }
-  const job = await ctx.db.get(jobCardId);
+  const job = await ctx.db.get("jobCards", jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -103,7 +103,7 @@ export async function handleCreateTravelBatch(
     updatedAt: now,
   };
   const id = await ctx.db.insert("travelBatches", batchPayload);
-  await ctx.db.patch(jobCardId, {
+  await ctx.db.patch("jobCards", jobCardId, {
     travelBatchCount: parseTravelBatchSequence(identity.batchCode),
   });
   await createActivity(ctx, access, {
@@ -142,15 +142,15 @@ export async function handleUpdateTravelBatch(
   if (!travelBatchId) {
     throw new ConvexError("Invalid Travel Batch id");
   }
-  const batch = await ctx.db.get(travelBatchId);
+  const batch = await ctx.db.get("travelBatches", travelBatchId);
   if (!batch) {
     throw new ConvexError("Travel Batch not found");
   }
-  const job = await ctx.db.get(batch.jobCardId);
+  const job = await ctx.db.get("jobCards", batch.jobCardId);
   if (!job) {
     throw new ConvexError("Job Card not found");
   }
-  const linkedQuery = job.queryId ? await ctx.db.get(job.queryId) : null;
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -173,7 +173,7 @@ export async function handleUpdateTravelBatch(
     ...travelBatchPatchFromArgs(args),
     ...editorPatch(access),
   };
-  await ctx.db.patch(travelBatchId, patch);
+  await ctx.db.patch("travelBatches", travelBatchId, patch);
   await createActivity(ctx, access, {
     action: "travel_batch_updated",
     entityId: batch.jobCardId,

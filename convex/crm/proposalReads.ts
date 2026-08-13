@@ -64,7 +64,7 @@ async function projectedProposalListRelations(ctx: QueryCtx, proposals: Doc<"pro
     return queryId ? [queryId] : [];
   });
   const currentQueries = compactPageItems(
-    await mapInBoundedBatches(queryIds, async (queryId) => await ctx.db.get(queryId))
+    await mapInBoundedBatches(queryIds, async (queryId) => await ctx.db.get("queries", queryId))
   );
   const queryById = new Map(currentQueries.map((query) => [String(query._id), query]));
   return new Map<string, ProposalListLinkedQuery[]>(
@@ -256,7 +256,7 @@ export async function handleProposalGetDetail(ctx: QueryCtx, args: { proposalId:
     PERMISSIONS.MANAGE_JOB_CARDS,
   ]);
   const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
-  const proposal = proposalId ? await ctx.db.get(proposalId) : null;
+  const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
   if (!proposal) {
     return null;
   }
@@ -279,7 +279,7 @@ export async function handleProposalLinkedQueriesPage(
     PERMISSIONS.MANAGE_JOB_CARDS,
   ]);
   const proposalId = ctx.db.normalizeId("proposals", args.proposalId);
-  const proposal = proposalId ? await ctx.db.get(proposalId) : null;
+  const proposal = proposalId ? await ctx.db.get("proposals", proposalId) : null;
   if (!proposal) {
     return { continueCursor: "", isDone: true, page: [] };
   }
@@ -295,7 +295,10 @@ export async function handleProposalLinkedQueriesPage(
     canSeeQueryRecord(access, queryVisibilityFromProposalLink(link))
   );
   const queries = compactPageItems(
-    await mapInBoundedBatches(visibleLinks, async (link) => await ctx.db.get(link.queryId))
+    await mapInBoundedBatches(
+      visibleLinks,
+      async (link) => await ctx.db.get("queries", link.queryId)
+    )
   ).filter((linkedQuery) => canSeeQueryRecord(access, linkedQuery));
   return { ...page, page: queries.map(publicQuery) };
 }
