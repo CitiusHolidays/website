@@ -975,6 +975,10 @@ export default defineSchema({
     dueDate: v.optional(v.string()),
     expectedAmount: v.number(),
     generatedAt: v.optional(v.number()),
+    // Optional only for the widening window. Invoice writers always project
+    // this value and the bounded reconciliation verifies legacy rows before
+    // outstanding reads switch to the compound index.
+    hasOutstandingBalance: v.optional(v.boolean()),
     invoiceNumber: v.string(),
     jobCardId: v.id("jobCards"),
     receivedAmount: v.number(),
@@ -989,7 +993,23 @@ export default defineSchema({
   })
     .index("by_jobCardId", ["jobCardId"])
     .index("by_status", ["status"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .index("by_hasOutstandingBalance_and_createdAt", ["hasOutstandingBalance", "createdAt"]),
+
+  invoiceOutstandingProjectionReadiness: defineTable({
+    cursor: v.union(v.string(), v.null()),
+    failureCode: v.optional(v.string()),
+    generation: v.number(),
+    key: v.literal("invoices.outstanding.v1"),
+    processed: v.number(),
+    ready: v.boolean(),
+    residuals: v.number(),
+    stage: v.union(v.literal("backfill"), v.literal("verify"), v.literal("complete")),
+    startedAt: v.number(),
+    status: v.union(v.literal("running"), v.literal("complete"), v.literal("failed")),
+    updatedAt: v.number(),
+    version: v.number(),
+  }).index("by_key", ["key"]),
 
   itineraries: defineTable({
     content: v.optional(v.string()),
@@ -1987,7 +2007,45 @@ export default defineSchema({
     .index("by_staffId", ["staffId"])
     .index("by_staffId_and_fiscalYear", ["staffId", "fiscalYear"])
     .index("by_staffId_and_fiscalYear_and_leaveType", ["staffId", "fiscalYear", "leaveType"])
+    .index("by_staffId_and_fiscalYear_and_leaveType_and_entryType", [
+      "staffId",
+      "fiscalYear",
+      "leaveType",
+      "entryType",
+    ])
     .index("by_leaveRecordId", ["leaveRecordId"]),
+
+  staffLeaveLapseRuns: defineTable({
+    completedAt: v.optional(v.number()),
+    continuation: v.number(),
+    createdAt: v.number(),
+    cursor: v.optional(v.string()),
+    cutoffAt: v.number(),
+    failureCode: v.optional(v.string()),
+    fiscalYear: v.string(),
+    generation: v.number(),
+    initiatedBy: v.string(),
+    lapsedRows: v.number(),
+    processedStaff: v.number(),
+    startedAt: v.optional(v.number()),
+    status: v.union(
+      v.literal("queued"),
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed")
+    ),
+    trigger: v.union(v.literal("automatic"), v.literal("manual")),
+    updatedAt: v.number(),
+  })
+    .index("by_fiscalYear_generation", ["fiscalYear", "generation"])
+    .index("by_status_updatedAt", ["status", "updatedAt"]),
+
+  staffLeaveLapseState: defineTable({
+    activeRunId: v.optional(v.id("staffLeaveLapseRuns")),
+    fiscalYear: v.string(),
+    generation: v.number(),
+    updatedAt: v.number(),
+  }).index("by_fiscalYear", ["fiscalYear"]),
 
   staffLeaveRecords: defineTable({
     createdAt: v.number(),
@@ -2069,6 +2127,7 @@ export default defineSchema({
   })
     .index("by_emailNormalized", ["emailNormalized"])
     .index("by_active", ["active"])
+    .index("by_active_and_createdAt", ["active", "createdAt"])
     .index("by_authUserId", ["authUserId"])
     .index("by_name", ["name"]),
 
