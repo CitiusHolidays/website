@@ -3,18 +3,21 @@ import { readFile } from "node:fs/promises";
 import {
   classifyNudgeFailure,
   classifyStaleNudgeRunState,
-  collectRiskItemsPage,
-  effectiveWorkflowRulesFromRows,
   isNudgeRunStale,
   isScheduledNudgeCadenceEligible,
   nudgeRetryDelayMs,
   presentNudgeRun,
-  retryNudgeRun,
   retryNudgeRunState,
+  runNudgePage as runNudgeRunPage,
+  WORKFLOW_NUDGE_REPEAT_HOURS,
+} from "./workflowNudgeRun";
+import {
+  collectRiskItemsPage,
+  effectiveWorkflowRulesFromRows,
+  retryNudgeRun,
   runNudgePage,
   shouldTrigger,
   validateWorkflowThresholdHours,
-  WORKFLOW_NUDGE_REPEAT_HOURS,
 } from "./workflowNudges";
 
 const referenceNow = Date.parse("2026-08-01T12:00:00.000Z");
@@ -56,7 +59,13 @@ function makeRunCtx({
       tables[table].push({ _id: id, ...value });
       return id;
     },
-    patch: (_table: string, id: string, patch: Record<string, any>) => {
+    patch: (
+      tableOrId: string,
+      idOrPatch: string | Record<string, any>,
+      maybePatch?: Record<string, any>
+    ) => {
+      const id = maybePatch ? (idOrPatch as string) : tableOrId;
+      const patch = maybePatch ?? (idOrPatch as Record<string, any>);
       for (const rows of Object.values(tables)) {
         const row = rows.find((candidate) => candidate._id === id);
         if (row) {
@@ -560,6 +569,56 @@ describe("bounded workflow nudge pages", () => {
     await expect(retryNudgeRunState(ctx, "manual:operator", referenceNow + 2)).rejects.toThrow(
       "NUDGE_RETRY_LIMIT"
     );
+  });
+
+  test("counts a retried run generation at most once across successful pages", async () => {
+    const startedAt = referenceNow - 60_000;
+    const initialRun = {
+      checked: 25,
+      consecutiveFailedRuns: 1,
+      continuationToken: 5,
+      cursor: "cursor-25",
+      failureCountedStartedAt: startedAt,
+      key: "manual:operator",
+      referenceNow,
+      retryCount: 1,
+      sent: 1,
+      stage: "queries",
+      startedAt,
+      status: "running",
+      updatedAt: referenceNow - 1000,
+    };
+    const { ctx, scheduled, tables } = makeRunCtx({ initialRun });
+
+    expect(
+      await runNudgeRunPage(
+        ctx,
+        "manual:operator",
+        async () => ({ checked: 25, continueCursor: "", isDone: true, sent: 0 }),
+        referenceNow,
+        5
+      )
+    ).toMatchObject({ status: "running" });
+    expect(tables.portalWorkflowNudgeRuns[0]).toMatchObject({
+      consecutiveFailedRuns: 1,
+      failureCountedStartedAt: startedAt,
+      stage: "jobCards",
+    });
+
+    expect(
+      await runNudgeRunPage(
+        ctx,
+        "manual:operator",
+        () => Promise.reject(new Error("Invalid workflow rule payload")),
+        referenceNow + 1,
+        scheduled.at(-1)?.args.continuationToken
+      )
+    ).toMatchObject({ status: "failed" });
+    expect(tables.portalWorkflowNudgeRuns[0]).toMatchObject({
+      consecutiveFailedRuns: 1,
+      failureCountedStartedAt: startedAt,
+      status: "failed",
+    });
   });
 
   test("uses the persisted rule ledger to skip an already-emitted nudge on resume", async () => {

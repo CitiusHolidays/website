@@ -8,8 +8,8 @@ import {
   requireStaff,
   shouldApplyCementScope,
 } from "./lib";
-import type { MetricValues } from "./metricAggregates";
 import { aggregateMetric, loadMetricTotals } from "./metricAggregates";
+import type { MetricValues } from "./metricTypes";
 import { reportsOverviewResultValidator } from "./miscReturnContracts";
 import { loadReportsSnapshot, OPERATIONAL_DETAIL_LIMIT } from "./operationalSnapshots";
 

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
 const MODAL_FILE = "src/components/portal/workspace/modals/CommercialFilesModal.tsx";
+const PURGE_FILE = "convex/crm/commercialFilePurge.ts";
 const REGISTRY_FILE = "convex/crm/commercialFiles.ts";
 const TABLE_FILES = [
   "src/components/portal/workspace/QueriesView.tsx",
@@ -29,12 +30,13 @@ describe("Commercial Files in-flow access contract", () => {
   });
 
   test("keeps purge system-only, retryable, and summarized", () => {
-    const source = read(REGISTRY_FILE);
+    const registrySource = read(REGISTRY_FILE);
+    const purgeSource = read(PURGE_FILE);
 
-    expect(source).toContain("export const purgeExpired = internalMutation");
-    expect(source).toContain('failureCode: "storage_delete_failed"');
-    expect(source).toContain('action: "commercial_file_purge_page"');
-    expect(source).toContain("purgedFiles: args.purgedFileRows.map");
+    expect(registrySource).toContain("export const purgeExpired = internalMutation");
+    expect(purgeSource).toContain('failureCode: "storage_delete_failed"');
+    expect(purgeSource).toContain('action: "commercial_file_purge_page"');
+    expect(purgeSource).toContain("purgedFiles: args.purgedFileRows.map");
   });
 
   test("exposes the same Files entry point from every required table", () => {

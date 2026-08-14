@@ -13,12 +13,8 @@ import {
   requireStaff,
   shouldApplyCementScope,
 } from "./lib";
-import {
-  aggregateMetric,
-  loadMetricCoverage,
-  loadMetricTotals,
-  type MetricValues,
-} from "./metricAggregates";
+import { aggregateMetric, loadMetricCoverage, loadMetricTotals } from "./metricAggregates";
+import type { MetricValues } from "./metricTypes";
 import { getNotificationHref } from "./notificationPaths";
 import {
   loadDashboardActivitySnapshot,

@@ -3,12 +3,12 @@ import { readFile } from "node:fs/promises";
 import { Glob } from "bun";
 import {
   enqueueDirtySources,
-  METRIC_SOURCE_TYPES,
   METRIC_VERSION,
   processDirtyUnit,
   reconcileAll,
 } from "./metricAggregates";
 import { enqueueMetricSourceDirty } from "./metricDirty";
+import { METRIC_SOURCE_TYPES } from "./metricTypes";
 
 const METRIC_SOURCE_PATTERN =
   "approvalRequests|expenseEntries|invoices|jobCards|pnrs|proposals|queries|tickets|travellers|visaRecords";

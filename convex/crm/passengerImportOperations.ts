@@ -77,7 +77,7 @@ export async function beginPassengerImportOperationHandler(
   });
 }
 
-interface RecordPassengerImportBatchArgs {
+export interface RecordPassengerImportBatchArgs extends Record<string, unknown> {
   accepted: number;
   batchId: string;
   batchIndex: number;

@@ -1,9 +1,22 @@
 import { ConvexError, v } from "convex/values";
-import { internal } from "../_generated/api";
+import type { MutationCtx } from "../_generated/server";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { isDirectorOrAdmin, PERMISSIONS, publishWorkflowNotification, requireStaff } from "./lib";
 import { loadMetricTotals } from "./metricAggregates";
 import { classifyPassportExpiryUrgency } from "./passportExpiry";
+import {
+  classifyStaleNudgeRunState,
+  getNudgeRunRow,
+  nudgeRunResultValidator,
+  nudgeRunStateValidator,
+  nullableNudgeRunStateValidator,
+  presentNudgeRun,
+  retryNudgeRunState,
+  runNudgePage as runNudgeRunPage,
+  WORKFLOW_NUDGE_REPEAT_HOURS,
+  WorkflowNudgeDispatchError,
+  type WorkflowNudgeStage,
+} from "./workflowNudgeRun";
 
 const HOUR_MS = 60 * 60 * 1000;
 const VISA_READY_STATUSES = new Set(["Approved", "Not Required"]);
@@ -15,21 +28,7 @@ const TICKET_ATTENTION_STATUSES = new Set([
 const CLOSED_SALES_STATUSES = new Set(["Order Confirmed", "Order Lost"]);
 const NUDGE_PAGE_SIZE = 50;
 const NUDGE_RUN_KEY = "scheduled";
-const NUDGE_RUN_STALE_MS = 15 * 60 * 1000;
-const MAX_NUDGE_RETRIES = 3;
 const MAX_WORKFLOW_THRESHOLD_HOURS = 30 * 24;
-export const WORKFLOW_NUDGE_REPEAT_HOURS = 24;
-const MAX_FAILURE_MESSAGE_LENGTH = 500;
-const TRANSIENT_FAILURE_PATTERN =
-  /429|connection|fetch|network|rate.?limit|temporar|timeout|unavailable/i;
-const NUDGE_STAGES = ["queries", "jobCards", "travellers", "tickets", "invoices"] as const;
-type NudgeStage = (typeof NUDGE_STAGES)[number];
-type NudgeRunStatus = "completed" | "failed" | "running" | "stale";
-interface NudgeRunPageResult {
-  checked: number;
-  sent: number;
-  status: NudgeRunStatus;
-}
 interface NudgeRisk {
   body: string;
   entityId: string;
@@ -139,71 +138,6 @@ const capacityOverviewResultValidator = v.object({
   generatedAt: v.string(),
   staff: v.array(capacityStaffValidator),
 });
-
-const nudgeRunResultValidator = v.object({
-  checked: v.number(),
-  sent: v.number(),
-  status: v.union(
-    v.literal("running"),
-    v.literal("completed"),
-    v.literal("failed"),
-    v.literal("stale")
-  ),
-});
-
-const nudgeRunStateValidator = v.object({
-  checked: v.number(),
-  consecutiveFailedRuns: v.number(),
-  cursor: v.union(v.string(), v.null()),
-  effectiveStatus: v.union(
-    v.literal("running"),
-    v.literal("completed"),
-    v.literal("failed"),
-    v.literal("stale")
-  ),
-  failedAt: v.union(v.number(), v.null()),
-  failureCode: v.union(v.string(), v.null()),
-  failureKind: v.union(
-    v.literal("deterministic"),
-    v.literal("stale"),
-    v.literal("transient"),
-    v.null()
-  ),
-  failureMessage: v.union(v.string(), v.null()),
-  healthStatus: v.union(v.literal("healthy"), v.literal("attention"), v.literal("degraded")),
-  key: v.string(),
-  lastRetryAt: v.union(v.number(), v.null()),
-  previousFailure: v.union(
-    v.object({
-      code: v.string(),
-      failedAt: v.number(),
-      kind: v.union(v.literal("deterministic"), v.literal("stale"), v.literal("transient")),
-    }),
-    v.null()
-  ),
-  referenceNow: v.number(),
-  retryCount: v.number(),
-  sent: v.number(),
-  stage: v.union(
-    v.literal("queries"),
-    v.literal("jobCards"),
-    v.literal("travellers"),
-    v.literal("tickets"),
-    v.literal("invoices"),
-    v.literal("complete")
-  ),
-  staleAt: v.union(v.number(), v.null()),
-  startedAt: v.number(),
-  status: v.union(
-    v.literal("running"),
-    v.literal("completed"),
-    v.literal("failed"),
-    v.literal("stale")
-  ),
-  updatedAt: v.number(),
-});
-
-const nullableNudgeRunStateValidator = v.union(nudgeRunStateValidator, v.null());
 
 function assertCanManageRules(access: Awaited<ReturnType<typeof requireStaff>>) {
   if (!(isDirectorOrAdmin(access) || access.permissions.includes(PERMISSIONS.MANAGE_STAFF))) {
@@ -361,7 +295,7 @@ async function markTriggered(
   });
 }
 
-async function loadNudgePage(ctx: any, stage: NudgeStage, cursor: string | null) {
+async function loadNudgePage(ctx: MutationCtx, stage: WorkflowNudgeStage, cursor: string | null) {
   const paginationOpts = { cursor, numItems: NUDGE_PAGE_SIZE };
   switch (stage) {
     case "queries":
@@ -535,7 +469,7 @@ async function collectTravellerRisks(
 
 export async function collectRiskItemsPage(
   ctx: any,
-  stage: NudgeStage,
+  stage: WorkflowNudgeStage,
   rows: any[],
   referenceNow: number,
   effectiveRules = effectiveWorkflowRulesFromRows([])
@@ -671,320 +605,31 @@ async function dispatchWorkflowNudges(
   return sent;
 }
 
-class WorkflowNudgeDispatchError extends Error {
-  cause: unknown;
-  original: unknown;
-  sent: number;
-
-  constructor(original: unknown, sent: number) {
-    super(errorMessage(original));
-    this.cause = original;
-    this.name = "WorkflowNudgeDispatchError";
-    this.original = original;
-    this.sent = sent;
-  }
-}
-
-function errorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === "string") {
-    return error;
-  }
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return "Unknown workflow nudge failure";
-  }
-}
-
-export function classifyNudgeFailure(error: unknown) {
-  const original = error instanceof WorkflowNudgeDispatchError ? error.original : error;
-  const message = errorMessage(original).slice(0, MAX_FAILURE_MESSAGE_LENGTH);
-  const data = original instanceof ConvexError ? original.data : (original as any)?.data;
-  let rawCode = "WORKFLOW_NUDGE_FAILURE";
-  if (typeof data === "object" && data && "code" in data) {
-    rawCode = String((data as { code: unknown }).code);
-  } else if (original instanceof Error) {
-    rawCode = original.name;
-  }
-  const code = rawCode.slice(0, 80);
-  const transient = TRANSIENT_FAILURE_PATTERN.test(`${code} ${message}`);
-  return {
-    code,
-    kind: transient ? ("transient" as const) : ("deterministic" as const),
-    message,
-  };
-}
-
-async function getNudgeRunRow(ctx: any, key: string) {
-  return await ctx.db
-    .query("portalWorkflowNudgeRuns")
-    .withIndex("by_key", (q: any) => q.eq("key", key))
-    .unique();
-}
-
-export function isNudgeRunStale(run: any, referenceNow = Date.now()) {
-  return run?.status === "running" && referenceNow - run.updatedAt >= NUDGE_RUN_STALE_MS;
-}
-
-function nudgeHealthStatus(consecutiveFailedRuns: number, effectiveStatus: string) {
-  if (consecutiveFailedRuns >= 2) {
-    return "degraded" as const;
-  }
-  if (["failed", "stale"].includes(effectiveStatus)) {
-    return "attention" as const;
-  }
-  return "healthy" as const;
-}
-
-export function presentNudgeRun(run: any, referenceNow = Date.now()) {
-  if (!run) {
-    return null;
-  }
-  const effectiveStatus = isNudgeRunStale(run, referenceNow) ? "stale" : run.status;
-  const consecutiveFailedRuns = run.consecutiveFailedRuns ?? 0;
-  const previousFailure =
-    run.previousFailureCode && run.previousFailureKind && run.previousFailedAt
-      ? {
-          code: run.previousFailureCode,
-          failedAt: run.previousFailedAt,
-          kind: run.previousFailureKind,
-        }
-      : null;
-  return {
-    checked: run.checked,
-    consecutiveFailedRuns,
-    cursor: run.cursor,
-    effectiveStatus,
-    failedAt: run.failedAt ?? null,
-    failureCode: run.failureCode ?? null,
-    failureKind: run.failureKind ?? null,
-    failureMessage: run.failureMessage ?? null,
-    healthStatus: nudgeHealthStatus(consecutiveFailedRuns, effectiveStatus),
-    key: run.key,
-    lastRetryAt: run.lastRetryAt ?? null,
-    previousFailure,
-    referenceNow: run.referenceNow,
-    retryCount: run.retryCount ?? 0,
-    sent: run.sent,
-    stage: run.stage,
-    staleAt: run.staleAt ?? null,
-    startedAt: run.startedAt,
-    status: run.status,
-    updatedAt: run.updatedAt,
-  };
-}
-
-async function persistStaleRun(ctx: any, run: any, referenceNow: number) {
-  const failureAlreadyCounted = run.failureCountedStartedAt === run.startedAt;
-  const patch = {
-    consecutiveFailedRuns: (run.consecutiveFailedRuns ?? 0) + (failureAlreadyCounted ? 0 : 1),
-    failureCode: "STALE_RUN",
-    failureCountedStartedAt: run.startedAt,
-    failureKind: "stale" as const,
-    failureMessage: "Workflow nudge progress exceeded the active-run timeout.",
-    staleAt: referenceNow,
-    status: "stale" as const,
-    updatedAt: referenceNow,
-  };
-  await ctx.db.patch("portalWorkflowNudgeRuns", run._id, patch);
-  return { ...run, ...patch };
-}
-
-export function isScheduledNudgeCadenceEligible(run: any, referenceNow = Date.now()) {
-  return (
-    run?.key === NUDGE_RUN_KEY &&
-    typeof run.startedAt === "number" &&
-    referenceNow >= run.startedAt + WORKFLOW_NUDGE_REPEAT_HOURS * HOUR_MS
-  );
-}
-
-function previousFailureFields(run: any) {
-  if (["failed", "stale"].includes(run?.status) && run?.failureCode && run?.failureKind) {
-    return {
-      previousFailedAt: run.failedAt ?? run.staleAt ?? run.updatedAt,
-      previousFailureCode: run.failureCode,
-      previousFailureKind: run.failureKind,
-    };
-  }
-  return {
-    previousFailedAt: run?.previousFailedAt,
-    previousFailureCode: run?.previousFailureCode,
-    previousFailureKind: run?.previousFailureKind,
-  };
-}
-
-async function loadOrStartNudgeRun(
-  ctx: any,
-  key: string,
-  referenceNow: number,
-  continuationToken?: number
+async function processNudgeStagePage(
+  ctx: MutationCtx,
+  stage: WorkflowNudgeStage,
+  cursor: string | null,
+  referenceNow: number
 ) {
-  let existing = await getNudgeRunRow(ctx, key);
-  if (existing?.status === "running") {
-    if (isNudgeRunStale(existing, referenceNow)) {
-      existing = await persistStaleRun(ctx, existing, referenceNow);
-      if (
-        continuationToken !== undefined ||
-        !isScheduledNudgeCadenceEligible(existing, referenceNow)
-      ) {
-        return { canProcess: false, run: existing };
-      }
-    } else {
-      return {
-        canProcess:
-          continuationToken !== undefined &&
-          continuationToken === (existing.continuationToken ?? 0),
-        run: existing,
-      };
-    }
-  }
-  if (existing?.key === NUDGE_RUN_KEY && !isScheduledNudgeCadenceEligible(existing, referenceNow)) {
-    return { canProcess: false, run: existing };
-  }
-  if (existing && existing.key !== NUDGE_RUN_KEY && ["failed", "stale"].includes(existing.status)) {
-    return { canProcess: false, run: existing };
-  }
-  if (continuationToken !== undefined) {
-    return { canProcess: false, run: existing ?? null };
-  }
-  const payload = {
-    checked: 0,
-    consecutiveFailedRuns: existing?.consecutiveFailedRuns ?? 0,
-    continuationToken: (existing?.continuationToken ?? 0) + 1,
-    cursor: null,
-    failedAt: undefined,
-    failureCode: undefined,
-    failureKind: undefined,
-    failureMessage: undefined,
-    key,
-    lastRetryAt: undefined,
-    ...previousFailureFields(existing),
-    referenceNow,
-    retryCount: 0,
-    sent: 0,
-    stage: "queries" as const,
-    staleAt: undefined,
-    startedAt: referenceNow,
-    status: "running" as const,
-    updatedAt: referenceNow,
-  };
-  if (existing) {
-    await ctx.db.patch("portalWorkflowNudgeRuns", existing._id, payload);
-    return { canProcess: true, run: { ...existing, ...payload } };
-  }
-  const id = await ctx.db.insert("portalWorkflowNudgeRuns", payload);
-  return { canProcess: true, run: { _id: id, ...payload } };
-}
-
-async function advanceNudgeRunPage(ctx: any, key: string, referenceNow: number, run: any) {
-  const stage = run.stage as NudgeStage;
-  const page = await loadNudgePage(ctx, stage, run.cursor);
+  const page = await loadNudgePage(ctx, stage, cursor);
   const effectiveRules = await loadEffectiveRules(ctx);
-  const risks = await collectRiskItemsPage(ctx, stage, page.page, run.referenceNow, effectiveRules);
-  const sent = await dispatchWorkflowNudges(ctx, risks, run.referenceNow, effectiveRules);
-  const checked = page.page.length;
-  try {
-    const nextStage = (
-      page.isDone ? (NUDGE_STAGES[NUDGE_STAGES.indexOf(stage) + 1] ?? "complete") : stage
-    ) as NudgeStage | "complete";
-    const nextCursor = page.isDone ? null : page.continueCursor;
-    const status: NudgeRunStatus = nextStage === "complete" ? "completed" : "running";
-    const nextToken = (run.continuationToken ?? 0) + 1;
-    await ctx.db.patch("portalWorkflowNudgeRuns", run._id, {
-      checked: run.checked + checked,
-      consecutiveFailedRuns: status === "completed" ? 0 : (run.consecutiveFailedRuns ?? 0),
-      continuationToken: nextToken,
-      cursor: nextCursor,
-      failedAt: undefined,
-      failureCode: undefined,
-      failureKind: undefined,
-      failureMessage: undefined,
-      sent: run.sent + sent,
-      stage: nextStage,
-      status,
-      updatedAt: referenceNow,
-    });
-    if (status === "running") {
-      await ctx.scheduler.runAfter(0, internal.crm.workflowNudges.runScheduledNudges, {
-        continuationToken: nextToken,
-        runKey: key,
-      });
-    }
-    return { checked, sent, status };
-  } catch (error) {
-    const failure = new WorkflowNudgeDispatchError(error, sent);
-    throw failure;
-  }
-}
-
-async function recordNudgeRunFailure(
-  ctx: any,
-  key: string,
-  referenceNow: number,
-  run: any,
-  error: unknown
-): Promise<NudgeRunPageResult> {
-  const diagnostic = classifyNudgeFailure(error);
-  const sent = error instanceof WorkflowNudgeDispatchError ? error.sent : 0;
-  const retryCount = run.retryCount ?? 0;
-  const willRetry = diagnostic.kind === "transient" && retryCount < MAX_NUDGE_RETRIES;
-  const nextToken = (run.continuationToken ?? 0) + 1;
-  await ctx.db.patch("portalWorkflowNudgeRuns", run._id, {
-    consecutiveFailedRuns: willRetry
-      ? (run.consecutiveFailedRuns ?? 0)
-      : (run.consecutiveFailedRuns ?? 0) + (run.failureCountedStartedAt === run.startedAt ? 0 : 1),
-    continuationToken: nextToken,
-    failedAt: referenceNow,
-    failureCode: diagnostic.code,
-    failureCountedStartedAt: willRetry ? run.failureCountedStartedAt : run.startedAt,
-    failureKind: diagnostic.kind,
-    failureMessage: diagnostic.message,
-    lastRetryAt: willRetry ? referenceNow : run.lastRetryAt,
-    retryCount: willRetry ? retryCount + 1 : retryCount,
-    sent: run.sent + sent,
-    status: willRetry ? "running" : "failed",
-    updatedAt: referenceNow,
-  });
-  if (willRetry) {
-    await ctx.scheduler.runAfter(
-      nudgeRetryDelayMs(retryCount),
-      internal.crm.workflowNudges.runScheduledNudges,
-      { continuationToken: nextToken, runKey: key }
-    );
-  }
+  const risks = await collectRiskItemsPage(ctx, stage, page.page, referenceNow, effectiveRules);
+  const sent = await dispatchWorkflowNudges(ctx, risks, referenceNow, effectiveRules);
   return {
-    checked: 0,
+    checked: page.page.length,
+    continueCursor: page.continueCursor,
+    isDone: page.isDone,
     sent,
-    status: willRetry ? ("running" as const) : ("failed" as const),
   };
 }
 
 export async function runNudgePage(
-  ctx: any,
+  ctx: MutationCtx,
   key: string,
   referenceNow = Date.now(),
   continuationToken?: number
-): Promise<NudgeRunPageResult> {
-  const loaded = await loadOrStartNudgeRun(ctx, key, referenceNow, continuationToken);
-  const { run } = loaded;
-  if (!run) {
-    return { checked: 0, sent: 0, status: "completed" as const };
-  }
-  if (!loaded.canProcess || run.stage === "complete" || run.status === "completed") {
-    return { checked: 0, sent: 0, status: run.status as NudgeRunStatus };
-  }
-  try {
-    return await advanceNudgeRunPage(ctx, key, referenceNow, run);
-  } catch (error) {
-    return await recordNudgeRunFailure(ctx, key, referenceNow, run, error);
-  }
-}
-
-export function nudgeRetryDelayMs(completedRetries: number) {
-  return 60_000 * 2 ** Math.max(0, Math.min(MAX_NUDGE_RETRIES - 1, completedRetries));
+) {
+  return await runNudgeRunPage(ctx, key, processNudgeStagePage, referenceNow, continuationToken);
 }
 
 export const runScheduledNudges = internalMutation({
@@ -1007,24 +652,6 @@ export const getNudgeRun = query({
   returns: nullableNudgeRunStateValidator,
 });
 
-export async function classifyStaleNudgeRunState(
-  ctx: any,
-  runKey: string,
-  referenceNow = Date.now()
-) {
-  const run = await getNudgeRunRow(ctx, runKey);
-  if (!run) {
-    return null;
-  }
-  if (run.status !== "running") {
-    return run;
-  }
-  if (!isNudgeRunStale(run, referenceNow)) {
-    throw new ConvexError("NUDGE_RUN_ACTIVE");
-  }
-  return await persistStaleRun(ctx, run, referenceNow);
-}
-
 export const classifyStaleNudgeRun = mutation({
   args: { runKey: v.string() },
   handler: async (ctx, args) => {
@@ -1034,40 +661,6 @@ export const classifyStaleNudgeRun = mutation({
   },
   returns: nullableNudgeRunStateValidator,
 });
-
-export async function retryNudgeRunState(ctx: any, runKey: string, referenceNow = Date.now()) {
-  let run = await getNudgeRunRow(ctx, runKey);
-  if (!run) {
-    throw new ConvexError("Workflow nudge run not found");
-  }
-  if (run.status === "running") {
-    if (!isNudgeRunStale(run, referenceNow)) {
-      return run;
-    }
-    run = await persistStaleRun(ctx, run, referenceNow);
-  }
-  if (!["failed", "stale"].includes(run.status)) {
-    return run;
-  }
-  const retryCount = run.retryCount ?? 0;
-  if (retryCount >= MAX_NUDGE_RETRIES) {
-    throw new ConvexError("NUDGE_RETRY_LIMIT");
-  }
-  const continuationToken = (run.continuationToken ?? 0) + 1;
-  const patch = {
-    continuationToken,
-    lastRetryAt: referenceNow,
-    retryCount: retryCount + 1,
-    status: "running" as const,
-    updatedAt: referenceNow,
-  };
-  await ctx.db.patch("portalWorkflowNudgeRuns", run._id, patch);
-  await ctx.scheduler.runAfter(0, internal.crm.workflowNudges.runScheduledNudges, {
-    continuationToken,
-    runKey,
-  });
-  return { ...run, ...patch };
-}
 
 export const retryNudgeRun = mutation({
   args: { runKey: v.string() },

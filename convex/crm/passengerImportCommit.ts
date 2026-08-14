@@ -1,14 +1,18 @@
 "use node";
 
 import { createHash } from "node:crypto";
+import { makeFunctionReference } from "convex/server";
 import { ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import type { ActionCtx } from "../_generated/server";
 import { passengerImportBatchCount, passengerImportBatchRowCount } from "./importBatchPolicy";
 import {
   chunkRows,
   IMPORT_BATCH_SIZE,
+  type InternalPassengerImportRow,
   mergeRoomSummaries,
+  type PublicPassengerImportRow,
   preparePassengerRows,
 } from "./importRows";
 import {
@@ -18,8 +22,24 @@ import {
   stableImportBatchId,
   summarizeImportBatchResults,
 } from "./importWorkerPolicy";
+import type { PortalAccess } from "./lib";
+import type { RecordPassengerImportBatchArgs } from "./passengerImportOperations";
+import type {
+  claimPassengerImportOperationBatchHandler,
+  getPassengerImportBatchResultHandler,
+} from "./passengerImportReceipts";
+import type {
+  commitPassengerImportRowHandler,
+  previewPassengerImportRowsHandler,
+} from "./passengerImportRows";
 
 const SOURCE_DIGEST_PATTERN = /^[0-9a-f]{64}$/i;
+
+const recordPassengerImportOperationBatchRef = makeFunctionReference<
+  "mutation",
+  RecordPassengerImportBatchArgs,
+  null
+>("crm/imports:recordPassengerImportOperationBatch");
 
 interface PassengerImportOperationManifest {
   batchIndex: number;
@@ -33,8 +53,15 @@ interface PassengerImportOperationManifest {
 export interface PassengerImportCommitArgs {
   jobCardId: Id<"jobCards">;
   operation?: PassengerImportOperationManifest;
-  rows: any[];
+  rows: PublicPassengerImportRow[];
 }
+
+type CommittedPassengerRow = Awaited<ReturnType<typeof commitPassengerImportRowHandler>>;
+type PassengerImportPreview = Awaited<ReturnType<typeof previewPassengerImportRowsHandler>>;
+type PassengerImportBatchClaim = Awaited<
+  ReturnType<typeof claimPassengerImportOperationBatchHandler>
+>;
+type StoredPassengerImportBatch = Awaited<ReturnType<typeof getPassengerImportBatchResultHandler>>;
 
 interface RowMatchState {
   byImportKey: Map<string, Id<"travellers">>;
@@ -43,7 +70,7 @@ interface RowMatchState {
   preview: Map<string, Id<"travellers">>;
 }
 
-function operationKinds(rows: any[]) {
+function operationKinds(rows: PublicPassengerImportRow[]) {
   return Array.from(new Set(rows.map((row) => String(row.importKind ?? "passenger")))).sort();
 }
 
@@ -68,7 +95,7 @@ function assertOperationManifest(args: PassengerImportCommitArgs, kinds: string[
   }
 }
 
-function assertPreparedRowIdentities(rows: any[]) {
+function assertPreparedRowIdentities(rows: InternalPassengerImportRow[]) {
   const rowIds = new Set<string>();
   const importKeys = new Set<string>();
   const sourcePositions = new Set<string>();
@@ -127,7 +154,7 @@ function emptyBatchResult(batchId: string, accepted: number): ImportBatchResult 
   };
 }
 
-function expectedTravellerId(state: RowMatchState, row: any) {
+function expectedTravellerId(state: RowMatchState, row: InternalPassengerImportRow) {
   return (
     state.byPassportHash.get(row.passportNumberHash ?? "") ??
     state.byImportKey.get(row.importKey) ??
@@ -139,8 +166,8 @@ function expectedTravellerId(state: RowMatchState, row: any) {
 function recordSuccessfulRow(
   state: RowMatchState,
   result: ImportBatchResult,
-  row: any,
-  rowResult: any
+  row: InternalPassengerImportRow,
+  rowResult: CommittedPassengerRow
 ) {
   result.created += rowResult.created;
   result.updated += rowResult.updated;
@@ -159,7 +186,7 @@ function recordFailedRow(
   result: ImportBatchResult,
   batchId: string,
   rowIndex: number,
-  row: any,
+  row: InternalPassengerImportRow,
   error: unknown
 ) {
   const kind = classifyImportError(error);
@@ -182,23 +209,26 @@ function recordFailedRow(
 }
 
 async function commitPreparedRow(
-  ctx: any,
-  access: any,
+  ctx: ActionCtx,
+  access: PortalAccess,
   jobCardId: Id<"jobCards">,
   batchId: string,
   rowIndex: number,
-  row: any,
+  row: InternalPassengerImportRow,
   state: RowMatchState,
   result: ImportBatchResult
 ) {
   const matchId = expectedTravellerId(state, row);
   try {
-    const rowResult = await ctx.runMutation(internal.crm.imports.commitPassengerImportRow, {
-      access,
-      ...(matchId ? { expectedTravellerId: matchId } : {}),
-      jobCardId,
-      row,
-    });
+    const rowResult: CommittedPassengerRow = await ctx.runMutation(
+      internal.crm.imports.commitPassengerImportRow,
+      {
+        access,
+        ...(matchId ? { expectedTravellerId: matchId } : {}),
+        jobCardId,
+        row,
+      }
+    );
     recordSuccessfulRow(state, result, row, rowResult);
   } catch (error) {
     recordFailedRow(result, batchId, rowIndex, row, error);
@@ -206,7 +236,7 @@ async function commitPreparedRow(
 }
 
 async function recordBatchResult(
-  ctx: any,
+  ctx: ActionCtx,
   jobCardId: Id<"jobCards">,
   operationId: Id<"passengerImportOperations">,
   batchIndex: number,
@@ -226,7 +256,7 @@ async function recordBatchResult(
     status,
     updated: result.updated,
   });
-  await ctx.runMutation(internal.crm.imports.recordPassengerImportOperationBatch, {
+  await ctx.runMutation(recordPassengerImportOperationBatchRef, {
     accepted: result.accepted,
     batchId: result.batchId,
     batchIndex,
@@ -249,42 +279,44 @@ async function recordBatchResult(
 }
 
 async function processClaimedBatch(
-  ctx: any,
-  access: any,
+  ctx: ActionCtx,
+  access: PortalAccess,
   jobCardId: Id<"jobCards">,
   operationId: Id<"passengerImportOperations">,
   batchIndex: number,
   batchId: string,
-  batch: any[]
+  batch: InternalPassengerImportRow[]
 ) {
-  const claim = await ctx.runMutation(internal.crm.imports.claimPassengerImportOperationBatch, {
-    batchId,
-    batchIndex,
-    operationId,
-    rowCount: batch.length,
-  });
-  if (claim.mode === "replay") {
-    const replay = await ctx.runQuery(internal.crm.imports.getPassengerImportBatchResult, {
+  const claim: PassengerImportBatchClaim = await ctx.runMutation(
+    internal.crm.imports.claimPassengerImportOperationBatch,
+    {
       batchId,
-      jobCardId,
-    });
+      batchIndex,
+      operationId,
+      rowCount: batch.length,
+    }
+  );
+  if (claim.mode === "replay") {
+    const replay: StoredPassengerImportBatch = await ctx.runQuery(
+      internal.crm.imports.getPassengerImportBatchResult,
+      { batchId, jobCardId }
+    );
     if (replay?.status !== "completed") {
       throw new ConvexError("Completed passenger import receipt has no completed batch ledger");
     }
     return replay;
   }
 
-  const preview = await ctx.runQuery(internal.crm.imports.previewPassengerImportRows, {
-    access,
-    jobCardId,
-    rows: batch,
-  });
+  const preview: PassengerImportPreview = await ctx.runQuery(
+    internal.crm.imports.previewPassengerImportRows,
+    { access, jobCardId, rows: batch }
+  );
   const state: RowMatchState = {
     byImportKey: new Map(),
     byName: new Map(),
     byPassportHash: new Map(),
     preview: new Map(
-      preview.rows.flatMap((row: any) => (row.travellerId ? [[row.id, row.travellerId]] : []))
+      preview.rows.flatMap((row) => (row.travellerId ? [[row.id, row.travellerId]] : []))
     ),
   };
   const result = emptyBatchResult(batchId, batch.length);
@@ -298,8 +330,8 @@ async function processClaimedBatch(
 }
 
 async function logCompletedImport(
-  ctx: any,
-  access: any,
+  ctx: ActionCtx,
+  access: PortalAccess,
   args: PassengerImportCommitArgs,
   kinds: string[],
   importedCount: number
@@ -320,8 +352,8 @@ async function logCompletedImport(
 }
 
 export async function commitPassengerImportAction(
-  ctx: any,
-  access: any,
+  ctx: ActionCtx,
+  access: PortalAccess,
   args: PassengerImportCommitArgs
 ) {
   const { kinds, preparedRows } = preparePassengerImportCommit(args);

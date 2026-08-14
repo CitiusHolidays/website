@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildAggregateSegments,
-  buildMetricValues,
   loadMetricCoverage,
   loadMetricTotals,
-  METRIC_SOURCE_TYPES,
   METRIC_VERSION,
   reconcileSourcePage,
   summarizeMetricReadiness,
   sweepProjectionPage,
   syncJobInvoicePage,
 } from "./metricAggregates";
+import { buildMetricValues } from "./metricProjection";
+import { METRIC_SOURCE_TYPES } from "./metricTypes";
 
 describe("bounded CRM metric aggregates", () => {
   test("labels incomplete and stale aggregate generations as partial", () => {

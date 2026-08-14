@@ -82,30 +82,59 @@ function checkedCounter(current: number, delta: number) {
   return next;
 }
 
+const projectionUpdateQueues = new WeakMap<MutationCtx, Map<string, Promise<unknown>>>();
+
+async function serializeProjectionUpdate<Result>(
+  ctx: MutationCtx,
+  key: string,
+  operation: () => Promise<Result>
+) {
+  let queue = projectionUpdateQueues.get(ctx);
+  if (!queue) {
+    queue = new Map();
+    projectionUpdateQueues.set(ctx, queue);
+  }
+  const previous = queue.get(key) ?? Promise.resolve();
+  const current = previous.then(operation, operation);
+  queue.set(key, current);
+  try {
+    return await current;
+  } finally {
+    if (queue.get(key) === current) {
+      queue.delete(key);
+      if (queue.size === 0) {
+        projectionUpdateQueues.delete(ctx);
+      }
+    }
+  }
+}
+
 export async function adjustNotificationTargetCount(
   ctx: MutationCtx,
   targetKey: string,
   delta: number,
   updatedAt: number
 ) {
-  const existing = await ctx.db
-    .query("notificationTargetCounts")
-    .withIndex("by_key", (q) => q.eq("key", targetKey))
-    .unique();
-  if (!existing && delta <= 0) {
-    throw new ConvexError("NOTIFICATION_UNREAD_TARGET_MISSING");
-  }
-  const value = {
-    key: targetKey,
-    total: checkedCounter(existing?.total ?? 0, delta),
-    updatedAt: Math.max(existing?.updatedAt ?? 0, updatedAt),
-    version: NOTIFICATION_UNREAD_PROJECTION_VERSION,
-  };
-  if (existing) {
-    await ctx.db.patch("notificationTargetCounts", existing._id, value);
-  } else {
-    await ctx.db.insert("notificationTargetCounts", value);
-  }
+  await serializeProjectionUpdate(ctx, `target:${targetKey}`, async () => {
+    const existing = await ctx.db
+      .query("notificationTargetCounts")
+      .withIndex("by_key", (q) => q.eq("key", targetKey))
+      .unique();
+    if (!existing && delta <= 0) {
+      throw new ConvexError("NOTIFICATION_UNREAD_TARGET_MISSING");
+    }
+    const value = {
+      key: targetKey,
+      total: checkedCounter(existing?.total ?? 0, delta),
+      updatedAt: Math.max(existing?.updatedAt ?? 0, updatedAt),
+      version: NOTIFICATION_UNREAD_PROJECTION_VERSION,
+    };
+    if (existing) {
+      await ctx.db.patch("notificationTargetCounts", existing._id, value);
+    } else {
+      await ctx.db.insert("notificationTargetCounts", value);
+    }
+  });
 }
 
 export async function adjustNotificationReadTargetCount(
@@ -116,26 +145,28 @@ export async function adjustNotificationReadTargetCount(
   updatedAt: number
 ) {
   const key = notificationReadTargetProjectionKey(identityKey, targetKey);
-  const existing = await ctx.db
-    .query("notificationReadTargetCounts")
-    .withIndex("by_key", (q) => q.eq("key", key))
-    .unique();
-  if (!existing && delta <= 0) {
-    throw new ConvexError("NOTIFICATION_UNREAD_READ_TARGET_MISSING");
-  }
-  const value = {
-    identityKey,
-    key,
-    readCount: checkedCounter(existing?.readCount ?? 0, delta),
-    targetKey,
-    updatedAt: Math.max(existing?.updatedAt ?? 0, updatedAt),
-    version: NOTIFICATION_UNREAD_PROJECTION_VERSION,
-  };
-  if (existing) {
-    await ctx.db.patch("notificationReadTargetCounts", existing._id, value);
-  } else {
-    await ctx.db.insert("notificationReadTargetCounts", value);
-  }
+  await serializeProjectionUpdate(ctx, `read:${key}`, async () => {
+    const existing = await ctx.db
+      .query("notificationReadTargetCounts")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .unique();
+    if (!existing && delta <= 0) {
+      throw new ConvexError("NOTIFICATION_UNREAD_READ_TARGET_MISSING");
+    }
+    const value = {
+      identityKey,
+      key,
+      readCount: checkedCounter(existing?.readCount ?? 0, delta),
+      targetKey,
+      updatedAt: Math.max(existing?.updatedAt ?? 0, updatedAt),
+      version: NOTIFICATION_UNREAD_PROJECTION_VERSION,
+    };
+    if (existing) {
+      await ctx.db.patch("notificationReadTargetCounts", existing._id, value);
+    } else {
+      await ctx.db.insert("notificationReadTargetCounts", value);
+    }
+  });
 }
 
 export async function projectNotificationInsert(

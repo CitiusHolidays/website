@@ -14,7 +14,8 @@ import {
   shouldApplyCementScope,
 } from "./lib";
 import { canSeeJobCardRecord } from "./lib/recordScope";
-import { aggregateMetric, loadMetricTotals, type MetricValues } from "./metricAggregates";
+import { aggregateMetric, loadMetricTotals } from "./metricAggregates";
+import type { MetricValues } from "./metricTypes";
 import {
   boundedPaginationOptions,
   compactPageItems,

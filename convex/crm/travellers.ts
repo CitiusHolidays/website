@@ -31,7 +31,8 @@ import {
   buildTravellerListSearchText,
   markListSearchDirty,
 } from "./listSearch";
-import { loadMetricTotals, type MetricValues } from "./metricAggregates";
+import { loadMetricTotals } from "./metricAggregates";
+import type { MetricValues } from "./metricTypes";
 import {
   deletedCountResultValidator,
   roomCountSummaryResultValidator,

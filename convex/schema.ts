@@ -1464,6 +1464,7 @@ export default defineSchema({
     cursor: v.union(v.string(), v.null()),
     failedAt: v.optional(v.number()),
     failureCode: v.optional(v.string()),
+    failureCountedStartedAt: v.optional(v.number()),
     failureKind: v.optional(
       v.union(v.literal("deterministic"), v.literal("stale"), v.literal("transient"))
     ),

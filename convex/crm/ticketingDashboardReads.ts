@@ -12,7 +12,8 @@ import {
   resolvePortalDateRange,
   shouldApplyCementScope,
 } from "./lib";
-import { aggregateMetric, loadMetricTotals, type MetricValues } from "./metricAggregates";
+import { aggregateMetric, loadMetricTotals } from "./metricAggregates";
+import type { MetricValues } from "./metricTypes";
 import { assertReferenceNow } from "./referenceTimePolicy";
 import { publicTicket } from "./ticketingPresentation";
 

@@ -1,8 +1,10 @@
 "use node";
 
+import type { Infer } from "convex/values";
 import { encryptPassportDetails, hash } from "../lib/encryption";
 import { resolveRoomCategory } from "../lib/roomTypes";
 import { PASSENGER_IMPORT_BATCH_SIZE } from "./importBatchPolicy";
+import type { internalPassengerImportRow, publicPassengerImportRow } from "./importRowValidators";
 import { normalizePassportExpiryDate } from "./passportExpiry";
 
 export {
@@ -10,6 +12,9 @@ export {
   internalPassengerImportRow,
   publicPassengerImportRow,
 } from "./importRowValidators";
+
+export type InternalPassengerImportRow = Infer<typeof internalPassengerImportRow>;
+export type PublicPassengerImportRow = Infer<typeof publicPassengerImportRow>;
 
 export const IMPORT_BATCH_SIZE = PASSENGER_IMPORT_BATCH_SIZE;
 
@@ -36,27 +41,44 @@ function clean(value?: string) {
   return String(value ?? "").trim();
 }
 
-export function preparePassengerRows(rows: Array<any>) {
+function normalizePassengerGender(gender: PublicPassengerImportRow["gender"]) {
+  if (gender === "M" || gender === "male") {
+    return "Male" as const;
+  }
+  if (gender === "F" || gender === "female") {
+    return "Female" as const;
+  }
+  return gender;
+}
+
+function normalizePassport(passport: PublicPassengerImportRow["passport"], passportNumber: string) {
+  const hasPassportDetails = Boolean(
+    passportNumber ||
+      clean(passport?.dateOfBirth) ||
+      clean(passport?.issueDate) ||
+      clean(passport?.expiryDate) ||
+      clean(passport?.nationality)
+  );
+  if (!hasPassportDetails) {
+    return null;
+  }
+  return {
+    dateOfBirth: clean(passport?.dateOfBirth) || "UNKNOWN",
+    expiryDate: clean(passport?.expiryDate) || "UNKNOWN",
+    issueDate: clean(passport?.issueDate),
+    nationality: clean(passport?.nationality) || "UNKNOWN",
+    number: passportNumber || "UNKNOWN",
+  };
+}
+
+export function preparePassengerRows(
+  rows: PublicPassengerImportRow[]
+): InternalPassengerImportRow[] {
   return rows.map((row) => {
     const { passport, sourceStatus, ...rest } = row;
     const passportNumber = clean(passport?.number);
     const passportNumberHash = passportNumber ? hash(passportNumber.toUpperCase()) : undefined;
-    const hasPassportDetails = Boolean(
-      passportNumber ||
-        clean(passport?.dateOfBirth) ||
-        clean(passport?.issueDate) ||
-        clean(passport?.expiryDate) ||
-        clean(passport?.nationality)
-    );
-    const normalizedPassport = hasPassportDetails
-      ? {
-          dateOfBirth: clean(passport?.dateOfBirth) || "UNKNOWN",
-          expiryDate: clean(passport?.expiryDate) || "UNKNOWN",
-          issueDate: clean(passport?.issueDate),
-          nationality: clean(passport?.nationality) || "UNKNOWN",
-          number: passportNumber || "UNKNOWN",
-        }
-      : null;
+    const normalizedPassport = normalizePassport(passport, passportNumber);
 
     const roomType = row.roomType === undefined ? undefined : resolveRoomCategory(row.roomType);
     if (row.roomType !== undefined && !roomType) {
@@ -64,12 +86,7 @@ export function preparePassengerRows(rows: Array<any>) {
         `Unsupported room type for ${row.sourceSheet}:${row.sourceRowNumber}; use Single, Twin, Double, Triple, Child with Bed, or Family Room`
       );
     }
-    const normalizedGender =
-      row.gender === "M" || row.gender === "male"
-        ? "Male"
-        : row.gender === "F" || row.gender === "female"
-          ? "Female"
-          : row.gender;
+    const normalizedGender = normalizePassengerGender(row.gender);
 
     return {
       ...rest,
@@ -83,7 +100,7 @@ export function preparePassengerRows(rows: Array<any>) {
       passportExpiryDate: normalizePassportExpiryDate(clean(passport?.expiryDate)),
       passportLastFour: passportNumber ? passportNumber.slice(-4) : undefined,
       passportNumberHash,
-      roomType,
+      roomType: roomType as InternalPassengerImportRow["roomType"],
     };
   });
 }

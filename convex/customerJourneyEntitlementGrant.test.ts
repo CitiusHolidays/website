@@ -86,6 +86,16 @@ function makeContext() {
           );
           return builder;
         },
+        paginate: ({ cursor, numItems }: { cursor: string | null; numItems: number }) => {
+          const start = cursor ? Number.parseInt(cursor, 10) : 0;
+          const page = rows.slice(start, start + numItems);
+          const next = start + page.length;
+          return {
+            continueCursor: next >= rows.length ? "" : String(next),
+            isDone: next >= rows.length,
+            page,
+          };
+        },
         take: async (limit: number) => rows.slice(0, limit),
         withIndex: (_index: string, callback: (range: any) => unknown) => {
           const filters: [string, unknown][] = [];
@@ -121,13 +131,47 @@ describe("explicit Customer Journey Entitlement grant", () => {
   test("lists separate same-email Account Holders without exposing issuer IDs", async () => {
     const { ctx } = makeContext();
     const result = await (listAccountHolderOptions as any)._handler(ctx, {
+      paginationOpts: { cursor: null, numItems: 25 },
       search: "shared@example.com",
     });
-    expect(result).toEqual([
-      { email: "shared@example.com", id: "profile_1", name: "Asha Organizer" },
-      { email: "shared@example.com", id: "profile_2", name: "Ravi Traveller" },
-    ]);
+    expect(result).toEqual({
+      continueCursor: "",
+      isDone: true,
+      page: [
+        { email: "shared@example.com", id: "profile_1", name: "Asha Organizer" },
+        { email: "shared@example.com", id: "profile_2", name: "Ravi Traveller" },
+      ],
+    });
     expect(JSON.stringify(result)).not.toContain("issuer-a|");
+  });
+
+  test("continues searching beyond the newest profile page", async () => {
+    const { ctx, tables } = makeContext();
+    tables.userProfiles = Array.from({ length: 125 }, (_, index) => ({
+      _id: `profile_${index + 1}`,
+      authUserId: `issuer-a|customer-${index + 1}`,
+      createdAt: 125 - index,
+      email: index === 124 ? "older@example.com" : `newer-${index}@example.com`,
+      name: index === 124 ? "Older Account Holder" : `Newer Account Holder ${index}`,
+    }));
+
+    let cursor: string | null = null;
+    const matches: Row[] = [];
+    let isDone = false;
+    while (!isDone) {
+      // biome-ignore lint/performance/noAwaitInLoops: each page requires the prior server cursor
+      const result = await (listAccountHolderOptions as any)._handler(ctx, {
+        paginationOpts: { cursor, numItems: 25 },
+        search: "older@example.com",
+      });
+      matches.push(...result.page);
+      cursor = result.continueCursor || null;
+      ({ isDone } = result);
+    }
+
+    expect(matches).toEqual([
+      { email: "older@example.com", id: "profile_125", name: "Older Account Holder" },
+    ]);
   });
 
   test("resolves the selected profile server-side and grants only that confirmed journey", async () => {

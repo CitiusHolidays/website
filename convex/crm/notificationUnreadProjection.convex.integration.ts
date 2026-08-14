@@ -5,6 +5,8 @@ import { api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import schema from "../schema";
 import { modules } from "../test.setup";
+import { publishWorkflowNotification } from "./lib/notifications";
+import { notificationTargetProjectionKey } from "./notificationUnreadProjection";
 
 const FIXED_NOW = new Date("2026-08-12T18:00:00.000Z");
 
@@ -27,6 +29,12 @@ const startReconciliation = makeFunctionReference<
   { generation: number; scheduled: boolean }
 >("crm/notificationUnreadProjectionMigration:startReconciliation");
 
+const continueEntityGroupCleanup = makeFunctionReference<
+  "mutation",
+  { identities: Array<{ entityId: string; entityType: string }> },
+  { deleted: number; remainingEntities: number }
+>("crm/notificationCleanup:continueEntityGroupCleanup");
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(FIXED_NOW);
@@ -37,6 +45,91 @@ afterEach(() => {
 });
 
 describe("registered notification unread projection", () => {
+  test("keeps one target total exact when publishers run concurrently", async () => {
+    const t = createHarness();
+
+    await t.run(async (ctx) => {
+      const content = {
+        body: "Concurrent role alert",
+        entityType: "query",
+        title: "Concurrent role alert",
+      };
+      await Promise.all([
+        publishWorkflowNotification(ctx, {
+          bellTargets: { kind: "roles", roles: ["Sales"] },
+          content: { ...content, entityId: "query_1" },
+          emailTargets: { kind: "none" },
+        }),
+        publishWorkflowNotification(ctx, {
+          bellTargets: { kind: "roles", roles: ["Sales"] },
+          content: { ...content, entityId: "query_2" },
+          emailTargets: { kind: "none" },
+        }),
+      ]);
+    });
+
+    await t.run(async (ctx) => {
+      const targetKey = notificationTargetProjectionKey({ recipientRole: "Sales" });
+      const target = await ctx.db
+        .query("notificationTargetCounts")
+        .withIndex("by_key", (q) => q.eq("key", targetKey))
+        .unique();
+      expect(target?.total).toBe(2);
+      expect(await ctx.db.query("notifications").collect()).toHaveLength(2);
+    });
+  });
+
+  test("keeps one target total exact when grouped entity cleanup runs concurrently", async () => {
+    const t = createHarness();
+    const targetKey = notificationTargetProjectionKey({ recipientRole: "Sales" });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("notificationTargetCounts", {
+        key: targetKey,
+        total: 2,
+        updatedAt: FIXED_NOW.getTime(),
+        version: 1,
+      });
+      await ctx.db.insert("notifications", {
+        body: "Query alert",
+        createdAt: FIXED_NOW.getTime(),
+        entityId: "query_1",
+        entityType: "query",
+        projectionTargetKey: targetKey,
+        projectionVersion: 1,
+        recipientRole: "Sales",
+        title: "Query alert",
+      });
+      await ctx.db.insert("notifications", {
+        body: "Proposal alert",
+        createdAt: FIXED_NOW.getTime(),
+        entityId: "proposal_1",
+        entityType: "proposal",
+        projectionTargetKey: targetKey,
+        projectionVersion: 1,
+        recipientRole: "Sales",
+        title: "Proposal alert",
+      });
+    });
+
+    await expect(
+      t.mutation(continueEntityGroupCleanup, {
+        identities: [
+          { entityId: "query_1", entityType: "query" },
+          { entityId: "proposal_1", entityType: "proposal" },
+        ],
+      })
+    ).resolves.toEqual({ deleted: 2, remainingEntities: 0 });
+
+    await t.run(async (ctx) => {
+      const target = await ctx.db
+        .query("notificationTargetCounts")
+        .withIndex("by_key", (q) => q.eq("key", targetKey))
+        .unique();
+      expect(target?.total).toBe(0);
+      expect(await ctx.db.query("notifications").collect()).toHaveLength(0);
+    });
+  });
+
   test("keeps high-history role, direct, role-change, relink, click, and delete totals exact", async () => {
     const t = createHarness();
     const fixture = await t.run(async (ctx) => {

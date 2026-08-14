@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { COMMERCIAL_FILE_PURGE_PAGE_SIZE, purgeStorageRecord } from "./commercialFiles";
+import { COMMERCIAL_FILE_PURGE_PAGE_SIZE, purgeStorageRecord } from "./commercialFilePurge";
 
 describe("Commercial File purge record semantics", () => {
   test("keeps the metadata retryable when storage deletion fails", async () => {

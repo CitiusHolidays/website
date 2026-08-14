@@ -275,10 +275,10 @@ describe("Sacred Bharat private group bounds", () => {
       (getGroupLeaderboard as any)._handler(ctx, { groupId: "group_private" })
     ).rejects.toThrow();
 
-    const source = readFileSync(resolve(import.meta.dir, "sacredBharat.ts"), "utf8");
+    const source = readFileSync(resolve(import.meta.dir, "sacredBharatGroups.ts"), "utf8");
     const leaderboardSource = source.slice(
-      source.indexOf("export const getGroupLeaderboard"),
-      source.indexOf("export const renameGroup")
+      source.indexOf("export async function getGroupLeaderboardHandler"),
+      source.indexOf("async function requireOwnedGroup")
     );
     expect(leaderboardSource).toContain(".take(MAX_SACRED_BHARAT_GROUP_MEMBERS + 1)");
     expect(leaderboardSource).not.toContain(".collect()");

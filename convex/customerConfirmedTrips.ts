@@ -10,6 +10,12 @@ import { upsertConfirmedJourneyEntitlement } from "./lib/customerIdentityAccess"
 
 const CONFIRMED_TRIP_PAGE_SIZE = 20;
 
+const accountHolderOptionValidator = v.object({
+  email: v.string(),
+  id: v.id("userProfiles"),
+  name: v.string(),
+});
+
 const confirmedTripPacketValidator = v.object({
   confirmedOfferId: v.id("confirmedOffers"),
   confirmedPax: v.number(),
@@ -152,24 +158,26 @@ export const getMyConfirmedTripPackets = query({
 });
 
 export const listAccountHolderOptions = query({
-  args: { search: v.optional(v.string()) },
+  args: { paginationOpts: paginationOptsValidator, search: v.optional(v.string()) },
   handler: async (ctx, args) => {
     await requireStaff(ctx, PERMISSIONS.MANAGE_QUERIES);
     const search = args.search?.trim().toLowerCase() ?? "";
-    const rows = await ctx.db.query("userProfiles").order("desc").take(100);
-    return rows
-      .filter(
-        (profile) =>
-          !profile.archivedAt &&
-          profile.authUserId?.includes("|") &&
-          (!search ||
-            profile.name.toLowerCase().includes(search) ||
-            profile.email.toLowerCase().includes(search))
-      )
-      .slice(0, 25)
-      .map((profile) => ({ email: profile.email, id: profile._id, name: profile.name }));
+    const result = await ctx.db.query("userProfiles").order("desc").paginate(args.paginationOpts);
+    return {
+      ...result,
+      page: result.page
+        .filter(
+          (profile) =>
+            !profile.archivedAt &&
+            profile.authUserId?.includes("|") &&
+            (!search ||
+              profile.name.toLowerCase().includes(search) ||
+              profile.email.toLowerCase().includes(search))
+        )
+        .map((profile) => ({ email: profile.email, id: profile._id, name: profile.name })),
+    };
   },
-  returns: v.array(v.object({ email: v.string(), id: v.id("userProfiles"), name: v.string() })),
+  returns: paginationResultValidator(accountHolderOptionValidator),
 });
 
 export const grantConfirmedTripEntitlement = mutation({

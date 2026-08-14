@@ -2,7 +2,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { hasActiveE2eRun } from "./lib/e2eOwnership";
-import type { MetricSourceType } from "./metricAggregates";
+import type { MetricSourceType } from "./metricTypes";
 
 export async function scheduleCrmMetricSync(
   ctx: MutationCtx,

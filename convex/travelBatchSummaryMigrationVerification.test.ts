@@ -2,9 +2,9 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   backfillTravelBatchSummaries,
   getTravelBatchSummaryMigrationStatus,
-  TRAVEL_BATCH_SUMMARY_MIGRATION_KEY,
   verifyTravelBatchSummaries,
 } from "./migrations";
+import { TRAVEL_BATCH_SUMMARY_MIGRATION_KEY } from "./travelBatchSummaryMigration";
 
 interface Row {
   _creationTime: number;
