@@ -100,6 +100,12 @@ describe("portal route lifecycle manifest", () => {
       "team",
     ]);
     expect(
+      [...getPortalDataDependencies({ modal: "passengerImport", view: "ticketing" })].sort()
+    ).toEqual(["jobCards", "ticketDashboard"]);
+    expect(
+      [...getPortalDataDependencies({ modal: "passengerExport", view: "ticketing" })].sort()
+    ).toEqual(["jobCards", "ticketDashboard"]);
+    expect(
       [
         ...getPortalDataDependencies({
           deepLinkOpen: "approval",
