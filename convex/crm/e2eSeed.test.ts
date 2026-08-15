@@ -64,4 +64,11 @@ describe("e2e staff profile seeds", () => {
     expect(source).toContain("operationsOwnerId: operations.authUserId");
     expect(source).toContain('insertE2eFixtureWithOwnership(ctx, args.runId, "jobCards"');
   });
+
+  test("keeps the incomplete Proposal fixture relation projection current", () => {
+    const source = readFileSync(join(ROOT, "convex/crm/e2eFixtures.ts"), "utf8");
+
+    expect(source).toContain("...proposalLinkProjection(linkedQuery)");
+    expect(source).toContain("proposalLinkedQuerySummary([linkedQuery])");
+  });
 });

@@ -4,6 +4,7 @@ import { assertE2eSecret } from "./lib/e2eAuth";
 import { insertE2eFixtureWithOwnership, patchE2eFixtureWithOwnership } from "./lib/e2eOwnership";
 import { buildProposalListSearchText, buildQueryListSearchText } from "./listSearch";
 import { PROPOSAL_ATTACHMENT_SUMMARY_VERSION } from "./proposalAttachmentSummary";
+import { proposalLinkedQuerySummary, proposalLinkProjection } from "./proposalLinkProjection";
 
 const fixtureResultValidator = v.object({
   cementClientName: v.string(),
@@ -164,25 +165,16 @@ export const createIncompleteProposalHandoff = internalMutation({
         visaCostPerPax: undefined,
       });
     }
+    const linkedQuery = await ctx.db.get("queries", queryId);
+    if (!linkedQuery) {
+      throw new ConvexError("E2E proposal fixture query was not found");
+    }
     const linkPayload = {
-      clientName,
-      contractingOwnerId: contracting.authUserId,
-      contractingOwnerName: contracting.name,
-      contractingStatus: "Proposal in progress",
+      ...proposalLinkProjection(linkedQuery),
       createdAt: now,
       createdBy: contracting.authUserId,
-      paxCount: 2,
       proposalId,
-      queryCode,
-      queryCreatedBy: sales.authUserId,
       queryId,
-      queryType: "MICE",
-      salesOwnerId: sales.authUserId,
-      salesOwnerName: sales.name,
-      salesStatus: "Proposal in discussion",
-      ticketingOwnerId: "",
-      ticketingOwnerName: "",
-      ticketingScope: "Not required",
     };
     const existingLink = await ctx.db
       .query("proposalQueryLinks")
@@ -201,6 +193,13 @@ export const createIncompleteProposalHandoff = internalMutation({
     } else {
       await insertE2eFixtureWithOwnership(ctx, args.runId, "proposalQueryLinks", linkPayload);
     }
+    await patchE2eFixtureWithOwnership(
+      ctx,
+      args.runId,
+      "proposals",
+      proposalId,
+      proposalLinkedQuerySummary([linkedQuery])
+    );
 
     const cementClientName = "E2E Cement Visible";
     await upsertQuery(ctx, {
