@@ -117,7 +117,7 @@ test.describe("@workflow passenger import and export resume", () => {
     await openTicketingListAction(page, "Export Passengers");
     exportDialog = spreadsheetDialog(page, "Export Ticketing Passenger List");
     await chooseWorkflowJob(exportDialog);
-    await expect(exportDialog.getByText(`${ROW_COUNT} are ready to download.`)).toBeVisible({
+    await expect(exportDialog.getByText(`${ROW_COUNT} rows are ready to download.`)).toBeVisible({
       timeout: 90_000,
     });
 
