@@ -275,6 +275,13 @@ describe("mounted spreadsheet modal loading boundary", () => {
     const anchorClick = spyOn(dom.window.HTMLAnchorElement.prototype, "click").mockImplementation(
       () => undefined
     );
+    const fetchDownload = spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), { status: 200 })
+    );
+    const createObjectUrl = spyOn(URL, "createObjectURL").mockReturnValue(
+      "blob:https://citiusholidays.com/export"
+    );
+    const revokeObjectUrl = spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
     try {
       await act(async () =>
         root.render(
@@ -317,8 +324,17 @@ describe("mounted spreadsheet modal loading boundary", () => {
         button.textContent.includes("Download Spreadsheet")
       );
       await act(async () => download.click());
+      expect(fetchDownload).toHaveBeenCalledWith("https://example.com/export.xlsx", {
+        credentials: "same-origin",
+      });
+      expect(createObjectUrl).toHaveBeenCalledTimes(1);
       expect(anchorClick).toHaveBeenCalledTimes(1);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(revokeObjectUrl).toHaveBeenCalledWith("blob:https://citiusholidays.com/export");
     } finally {
+      revokeObjectUrl.mockRestore();
+      createObjectUrl.mockRestore();
+      fetchDownload.mockRestore();
       anchorClick.mockRestore();
       await act(async () => root.unmount());
       container.remove();

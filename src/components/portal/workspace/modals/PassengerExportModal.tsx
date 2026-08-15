@@ -43,14 +43,22 @@ export interface PassengerExportModalProps {
   title?: string;
 }
 
-function downloadExport(url: string, fileName: string) {
+async function downloadExport(url: string, fileName: string) {
+  const response = await fetch(url, { credentials: "same-origin" });
+  if (!response.ok) {
+    throw new Error(`Export download returned HTTP ${response.status}.`);
+  }
+  const objectUrl = URL.createObjectURL(await response.blob());
   const link = document.createElement("a");
-  link.href = url;
+  link.href = objectUrl;
   link.download = fileName;
   link.rel = "noopener noreferrer";
   document.body.append(link);
   link.click();
-  link.remove();
+  window.setTimeout(() => {
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  }, 0);
 }
 
 async function generatePassengerExport(
@@ -73,7 +81,7 @@ async function downloadPassengerExport(
 ) {
   try {
     const download = await getPassengerExportDownload({ operationId });
-    downloadExport(download.url, download.fileName);
+    await downloadExport(download.url, download.fileName);
     return "";
   } catch (error) {
     return formatConvexError(error, "Unable to download the export.");
