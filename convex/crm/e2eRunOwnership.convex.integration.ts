@@ -1,8 +1,10 @@
+import aggregateTest from "@convex-dev/aggregate/test";
 import { makeFunctionReference } from "convex/server";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
+import { sacredBharatLeaderboardRanks } from "../lib/sacredBharatLeaderboardRank";
 import schema from "../schema";
 import { modules } from "../test.setup";
 
@@ -20,7 +22,9 @@ const cleanupPage = makeFunctionReference<
 >("crm/e2eRunOwnership:cleanupPage");
 
 function createHarness() {
-  return convexTest({ modules, schema, transactionLimits: true });
+  const t = convexTest({ modules, schema, transactionLimits: true });
+  aggregateTest.register(t, "sacredBharatLeaderboardRanks");
+  return t;
 }
 
 async function seedActorIdentityLink(ctx: any) {
@@ -266,6 +270,51 @@ describe("durable E2E run ownership", () => {
     expect(result).toMatchObject({ complete: true, residualCount: 0 });
     await t.run(async (ctx) => {
       expect(await ctx.db.query("e2eOwnedRecords").collect()).toEqual([]);
+    });
+  });
+
+  test("removes authenticated Sacred Bharat rows and their aggregate rank", async () => {
+    const t = createHarness();
+    await t.run(seedActorIdentityLink);
+    await t.mutation(beginRun, {
+      authUserIds: [ACTOR],
+      runId: RUN_ID,
+      targetId: "development-integration",
+    });
+    const asCustomer = t.withIdentity({
+      email: "sacred-ownership@citius-e2e.test",
+      issuer: "https://auth.citius.test",
+      name: "Sacred Ownership Fixture",
+      subject: ACTOR,
+      tokenIdentifier: `https://auth.citius.test|${ACTOR}`,
+    });
+
+    await asCustomer.mutation(api.sacredBharat.mergeGuestProgress, {
+      templeIds: ["kedarnath"],
+      wishlist: [{ itemId: "shiva-trail", itemType: "trail" }],
+    });
+
+    await t.run(async (ctx) => {
+      expect(await ctx.db.query("sacredBharatVisits").collect()).toHaveLength(1);
+      expect(await ctx.db.query("sacredBharatWishlist").collect()).toHaveLength(1);
+      expect(await ctx.db.query("sacredBharatLeaderboardSummaries").collect()).toHaveLength(1);
+      expect(await ctx.db.query("e2eOwnedRecords").collect()).toHaveLength(3);
+      expect(await sacredBharatLeaderboardRanks.count(ctx, { namespace: "eligible" })).toBe(1);
+    });
+
+    const result = await t.mutation(cleanupPage, {
+      pageSize: 50,
+      runId: RUN_ID,
+      targetId: "development-integration",
+    });
+    expect(result).toMatchObject({ complete: true, deleted: 3, residualCount: 0 });
+
+    await t.run(async (ctx) => {
+      expect(await ctx.db.query("sacredBharatVisits").collect()).toEqual([]);
+      expect(await ctx.db.query("sacredBharatWishlist").collect()).toEqual([]);
+      expect(await ctx.db.query("sacredBharatLeaderboardSummaries").collect()).toEqual([]);
+      expect(await ctx.db.query("e2eOwnedRecords").collect()).toEqual([]);
+      expect(await sacredBharatLeaderboardRanks.count(ctx, { namespace: "eligible" })).toBe(0);
     });
   });
 });

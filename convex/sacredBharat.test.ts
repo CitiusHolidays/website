@@ -23,6 +23,15 @@ function makeMergeCtx(initialTables: Tables = {}) {
           tables[tableName] = rows.filter((row) => row._id !== id);
         }
       },
+      get: (_table: string, id: string) => {
+        for (const rows of Object.values(tables)) {
+          const row = rows.find((candidate) => candidate._id === id);
+          if (row) {
+            return row;
+          }
+        }
+        return null;
+      },
       insert: (tableName: string, doc: Record<string, unknown>) => {
         const id = `${tableName}_${(tables[tableName]?.length ?? 0) + 1}`;
         const row = { _id: id, ...doc };

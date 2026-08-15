@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
+import { sacredBharatLeaderboardRanks } from "../lib/sacredBharatLeaderboardRank";
 import { assertE2eSecret, assertE2eTargetIdentity } from "./lib/e2eAuth";
 import { E2E_CLEANUP_TABLE_ORDER, type E2eCleanupTableName } from "./lib/e2eOwnership";
 import {
@@ -126,6 +127,13 @@ export const cleanupPage = internalMutation({
           );
         } else if (tableName === "notifications") {
           await deleteNotificationWithProjection(ctx, existingDocument as Doc<"notifications">);
+        } else if (tableName === "sacredBharatLeaderboardSummaries") {
+          const summaryId = documentId as Id<"sacredBharatLeaderboardSummaries">;
+          await sacredBharatLeaderboardRanks.deleteIfExists(
+            ctx,
+            existingDocument as Doc<"sacredBharatLeaderboardSummaries">
+          );
+          await ctx.db.delete(tableName, summaryId);
         } else {
           await ctx.db.delete(tableName as never, documentId as never);
         }
@@ -161,7 +169,22 @@ export const cleanupPage = internalMutation({
         if (!(documentId && (await ctx.db.get(tableName, documentId)))) {
           throw new ConvexError(`Cannot restore missing E2E-mutated ${tableName} record`);
         }
-        await ctx.db.replace(tableName, documentId, snapshot.originalValue);
+        if (tableName === "sacredBharatLeaderboardSummaries") {
+          const summaryId = documentId as Id<"sacredBharatLeaderboardSummaries">;
+          const current = await ctx.db.get(tableName, summaryId);
+          await ctx.db.replace(tableName, summaryId, snapshot.originalValue);
+          const restoredSummary = await ctx.db.get(tableName, summaryId);
+          if (!(current && restoredSummary)) {
+            throw new ConvexError("Cannot restore Sacred Bharat leaderboard aggregate");
+          }
+          await sacredBharatLeaderboardRanks.replaceOrInsert(ctx, current, restoredSummary);
+        } else {
+          await ctx.db.replace(
+            tableName as never,
+            documentId as never,
+            snapshot.originalValue as never
+          );
+        }
         await ctx.db.delete("e2eMutatedRecords", snapshot._id);
         restored += 1;
       }

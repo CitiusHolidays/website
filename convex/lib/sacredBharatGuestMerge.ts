@@ -1,4 +1,5 @@
 import type { MutationCtx } from "../_generated/server";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "../crm/lib/e2eOwnership";
 import { resolveCanonicalTempleId } from "./sacredBharatAliases";
 import { normalizeVisitedSet } from "./sacredBharatScoring";
 
@@ -44,7 +45,11 @@ async function canonicalizeExistingVisits(ctx: MutationCtx, authUserId: string):
     }
     seen.add(canonicalId);
     if (visit.templeId !== canonicalId) {
-      operations.push(ctx.db.patch("sacredBharatVisits", visit._id, { templeId: canonicalId }));
+      operations.push(
+        patchWithE2eOwnership(ctx, "sacredBharatVisits", visit._id, {
+          templeId: canonicalId,
+        })
+      );
     }
   }
   await Promise.all(operations);
@@ -66,7 +71,7 @@ async function canonicalizeExistingWishlist(ctx: MutationCtx, authUserId: string
     }
     seen.add(key);
     if (item.itemId !== itemId) {
-      operations.push(ctx.db.patch("sacredBharatWishlist", item._id, { itemId }));
+      operations.push(patchWithE2eOwnership(ctx, "sacredBharatWishlist", item._id, { itemId }));
     }
   }
   await Promise.all(operations);
@@ -88,7 +93,7 @@ async function mergeGuestVisits(
         .unique();
 
       if (!existing) {
-        await ctx.db.insert("sacredBharatVisits", {
+        await insertWithE2eOwnership(ctx, "sacredBharatVisits", {
           authUserId,
           templeId,
           visitedAt,
@@ -115,7 +120,7 @@ export async function mergeGuestWishlist(
         .unique();
 
       if (!existing) {
-        await ctx.db.insert("sacredBharatWishlist", {
+        await insertWithE2eOwnership(ctx, "sacredBharatWishlist", {
           authUserId,
           createdAt,
           itemId: item.itemId,

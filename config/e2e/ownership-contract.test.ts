@@ -96,10 +96,24 @@ describe("durable E2E ownership contract", () => {
     expect(ownership).toContain("customerJourneyEntitlements: 100");
     expect(ownership).toContain("authIdentityLinks: 30");
     expect(ownership).toContain("userProfiles: 20");
+    expect(ownership).toContain("sacredBharatLeaderboardSummaries: 90");
+    expect(ownership).toContain("sacredBharatVisits: 100");
+    expect(ownership).toContain("sacredBharatWishlist: 100");
     expect(ownership).toContain("recordPatchedStorageIds");
     expect(cleanup).toContain("by_runId_cleanupOrder_createdAt");
     expect(cleanup).toContain("ctx.db.replace");
+    expect(cleanup).toContain("sacredBharatLeaderboardRanks.deleteIfExists");
+    expect(cleanup).toContain("sacredBharatLeaderboardRanks.replaceOrInsert");
     expect(cleanup).not.toContain("record.tableName as TableNames");
+  });
+
+  test("owns authenticated Sacred Bharat merge writes and aggregate cleanup", () => {
+    const merge = readFileSync(join(ROOT, "convex/lib/sacredBharatGuestMerge.ts"), "utf8");
+    const leaderboard = readFileSync(join(ROOT, "convex/lib/sacredBharatLeaderboard.ts"), "utf8");
+    expect(merge).toContain('insertWithE2eOwnership(ctx, "sacredBharatVisits"');
+    expect(merge).toContain('insertWithE2eOwnership(ctx, "sacredBharatWishlist"');
+    expect(leaderboard).toContain('insertWithE2eOwnership(ctx, "sacredBharatLeaderboardSummaries"');
+    expect(leaderboard).toContain('patchWithE2eOwnership(ctx, "sacredBharatLeaderboardSummaries"');
   });
 
   test("registers fail-closed setup, teardown, and interrupted-run cleanup", () => {

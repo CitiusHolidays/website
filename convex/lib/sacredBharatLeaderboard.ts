@@ -1,4 +1,5 @@
 import type { MutationCtx } from "../_generated/server";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "../crm/lib/e2eOwnership";
 import { sacredBharatLeaderboardRanks } from "./sacredBharatLeaderboardRank";
 import { computeProgressSummary } from "./sacredBharatScoring";
 
@@ -41,7 +42,7 @@ export async function refreshSacredBharatLeaderboardSummary(
     updatedAt,
   };
   if (existing) {
-    await ctx.db.patch("sacredBharatLeaderboardSummaries", existing._id, payload);
+    await patchWithE2eOwnership(ctx, "sacredBharatLeaderboardSummaries", existing._id, payload);
     const updated = await ctx.db.get("sacredBharatLeaderboardSummaries", existing._id);
     if (!updated) {
       throw new Error("Sacred Bharat leaderboard summary disappeared during refresh");
@@ -49,7 +50,7 @@ export async function refreshSacredBharatLeaderboardSummary(
     await sacredBharatLeaderboardRanks.replaceOrInsert(ctx, existing, updated);
     return existing._id;
   }
-  const id = await ctx.db.insert("sacredBharatLeaderboardSummaries", payload);
+  const id = await insertWithE2eOwnership(ctx, "sacredBharatLeaderboardSummaries", payload);
   const inserted = await ctx.db.get("sacredBharatLeaderboardSummaries", id);
   if (!inserted) {
     throw new Error("Sacred Bharat leaderboard summary was not readable after insert");
