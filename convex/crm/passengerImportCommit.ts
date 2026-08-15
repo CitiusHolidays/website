@@ -34,6 +34,8 @@ import type {
 } from "./passengerImportRows";
 
 const SOURCE_DIGEST_PATTERN = /^[0-9a-f]{64}$/i;
+const ACTIVE_BATCH_RETRY_INTERVAL_MS = 250;
+const ACTIVE_BATCH_RETRY_LIMIT = 80;
 
 const recordPassengerImportOperationBatchRef = makeFunctionReference<
   "mutation",
@@ -288,15 +290,26 @@ async function processClaimedBatch(
   batchId: string,
   batch: InternalPassengerImportRow[]
 ) {
-  const claim: PassengerImportBatchClaim = await ctx.runMutation(
-    internal.crm.imports.claimPassengerImportOperationBatch,
-    {
-      batchId,
-      batchIndex,
-      operationId,
-      rowCount: batch.length,
+  const claimBatch = async (attempt: number): Promise<PassengerImportBatchClaim> => {
+    const claim: PassengerImportBatchClaim = await ctx.runMutation(
+      internal.crm.imports.claimPassengerImportOperationBatch,
+      {
+        batchId,
+        batchIndex,
+        operationId,
+        rowCount: batch.length,
+      }
+    );
+    if (claim.mode !== "wait") {
+      return claim;
     }
-  );
+    if (attempt >= ACTIVE_BATCH_RETRY_LIMIT) {
+      throw new ConvexError("Passenger import batch is still processing");
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, ACTIVE_BATCH_RETRY_INTERVAL_MS));
+    return claimBatch(attempt + 1);
+  };
+  const claim = await claimBatch(1);
   if (claim.mode === "replay") {
     const replay: StoredPassengerImportBatch = await ctx.runQuery(
       internal.crm.imports.getPassengerImportBatchResult,

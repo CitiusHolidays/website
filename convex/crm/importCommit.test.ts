@@ -11,6 +11,7 @@ import {
   recordPassengerImportOperationBatch,
 } from "./imports";
 import { getRolePermissions } from "./lib/rolePolicy";
+import { OPERATION_STALL_THRESHOLD_MS } from "./operationTimePolicy";
 
 type Row = { _id: string; [key: string]: unknown };
 type Tables = Record<string, Row[]>;
@@ -338,7 +339,7 @@ describe("passenger import row transactions", () => {
 });
 
 describe("passenger import operation receipts", () => {
-  test("claims a server batch position idempotently and rejects different content without writes", async () => {
+  test("waits for an active batch, takes over a stalled batch, and rejects different content", async () => {
     const jobCardId = "jobCards_1";
     const { ctx, tables } = makeImportCtx({
       jobCards: [{ _id: jobCardId, clientName: "Acme", jobCode: "JC-0001" }],
@@ -362,6 +363,10 @@ describe("passenger import operation receipts", () => {
     expect(await (claimPassengerImportOperationBatch as any)._handler(ctx, claim)).toEqual({
       mode: "process",
     });
+    expect(await (claimPassengerImportOperationBatch as any)._handler(ctx, claim)).toEqual({
+      mode: "wait",
+    });
+    tables.passengerImportOperations[0].updatedAt = Date.now() - OPERATION_STALL_THRESHOLD_MS - 1;
     expect(await (claimPassengerImportOperationBatch as any)._handler(ctx, claim)).toEqual({
       mode: "process",
     });

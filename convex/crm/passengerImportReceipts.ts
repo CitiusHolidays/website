@@ -4,6 +4,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { importFailureValidator } from "../lib/importContractValidators";
 import { passengerImportBatchRowCount } from "./importBatchPolicy";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
+import { isOperationStalled } from "./operationTimePolicy";
 
 type ImportFailure = Infer<typeof importFailureValidator>;
 
@@ -98,7 +99,16 @@ export async function claimPassengerImportOperationBatchHandler(
         { authUserId: operation.initiatedBy }
       );
     }
-    return { mode: status === "completed" ? ("replay" as const) : ("process" as const) };
+    if (status === "completed") {
+      return { mode: "replay" as const };
+    }
+    if (
+      status === "processing" &&
+      !isOperationStalled(operation.status, operation.updatedAt, Date.now())
+    ) {
+      return { mode: "wait" as const };
+    }
+    return { mode: "process" as const };
   }
   const now = Date.now();
   await insertWithE2eOwnership(

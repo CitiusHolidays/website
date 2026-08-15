@@ -93,7 +93,9 @@ export const claimPassengerImportOperationBatch = internalMutation({
     rowCount: v.number(),
   },
   handler: claimPassengerImportOperationBatchHandler,
-  returns: v.object({ mode: v.union(v.literal("process"), v.literal("replay")) }),
+  returns: v.object({
+    mode: v.union(v.literal("process"), v.literal("replay"), v.literal("wait")),
+  }),
 });
 
 export const getPassengerImportBatchResult = internalQuery({
