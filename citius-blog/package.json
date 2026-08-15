@@ -21,6 +21,9 @@
     "semi": false,
     "singleQuote": true
   },
+  "overrides": {
+    "nanoid": "3.3.18"
+  },
   "dependencies": {
     "@sanity/sdk": "^2.19.0",
     "@sanity/vision": "6.9.1",
