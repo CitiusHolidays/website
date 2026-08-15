@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "d7fd084d56fc8555e5fa0e3f5b5fbfb9c68148a9c047a081ee0c642f83117632";
+const EXPECTED_CAPABILITY_HASH = "f86dd071ff605c0157309c0df5139b166e2e510e7629ba6b853ccacb16adcc57";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -527,10 +527,14 @@ describe("Convex capability inventory", () => {
   test("server-only E2E endpoints retain their secret guard", () => {
     const assertions = readFileSync(join(CONVEX_ROOT, "crm/e2eAssertions.ts"), "utf8");
     const fixtures = readFileSync(join(CONVEX_ROOT, "crm/e2eFixtures.ts"), "utf8");
+    const ownership = readFileSync(join(CONVEX_ROOT, "crm/e2eRunOwnership.ts"), "utf8");
     const seed = readFileSync(join(CONVEX_ROOT, "crm/e2eSeedActions.ts"), "utf8");
     expect(assertions).toContain("export const travellerExists = internalQuery");
     expect(fixtures).toContain("export const createCustomerAccountJourney = internalMutation");
     expect(fixtures).toContain("assertE2eSecret()");
+    expect(ownership).toContain("export const auditTarget = internalQuery");
+    expect(ownership).toContain("assertE2eSecret()");
+    expect(ownership).toContain("assertE2eTargetIdentity(args.targetId)");
     expect(seed).toContain("export const run = internalAction");
     expect(seed).toContain("assertE2eSecret()");
     expect(assertions).not.toContain("secret: v.string()");
