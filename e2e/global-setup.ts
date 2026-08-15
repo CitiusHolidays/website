@@ -8,7 +8,7 @@ import {
   verifyConvexE2eIdentity,
   verifyFrontendE2eIdentity,
 } from "../config/e2e/target-identity";
-import { vercelProtectionHeaders } from "../config/e2e/vercel-protection";
+import { vercelProtectionBrowserHeaders } from "../config/e2e/vercel-protection";
 import { E2E_ROLE_PROFILE_KEYS } from "./fixtures/staffProfiles";
 import { cleanupE2eRun, seedE2eStaffProfiles } from "./helpers/seed";
 import { e2eStrictMode } from "./helpers/skip";
@@ -60,7 +60,9 @@ async function globalSetup(config: FullConfig) {
     browser = await chromium.launch();
     for (const role of E2E_ROLE_PROFILE_KEYS) {
       const email = e2eStaffEmail(role);
-      const context = await browser.newContext({ extraHTTPHeaders: vercelProtectionHeaders() });
+      const context = await browser.newContext({
+        extraHTTPHeaders: vercelProtectionBrowserHeaders(),
+      });
       const page = await context.newPage();
 
       await page.goto(`${baseURL}/auth/connect`);
@@ -74,7 +76,7 @@ async function globalSetup(config: FullConfig) {
     }
 
     const customerContext = await browser.newContext({
-      extraHTTPHeaders: vercelProtectionHeaders(),
+      extraHTTPHeaders: vercelProtectionBrowserHeaders(),
     });
     const customerPage = await customerContext.newPage();
     await customerPage.goto(`${baseURL}/auth/guest`);

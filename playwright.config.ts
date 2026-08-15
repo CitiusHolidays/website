@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { vercelProtectionHeaders } from "./config/e2e/vercel-protection";
+import { vercelProtectionBrowserHeaders } from "./config/e2e/vercel-protection";
 import { loadE2eEnv } from "./e2e/loadEnv";
 
 loadE2eEnv();
@@ -36,7 +36,7 @@ export default defineConfig({
   timeout: 60_000,
   use: {
     baseURL,
-    extraHTTPHeaders: vercelProtectionHeaders(),
+    extraHTTPHeaders: vercelProtectionBrowserHeaders(),
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",
