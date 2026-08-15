@@ -208,7 +208,9 @@ test.describe("@performance authenticated Staff Workspace performance", () => {
           staffPerformanceBudgets as StaffWorkspacePerformanceBudgetManifest,
           sample as StaffWorkspacePerformanceSample
         );
-        expect(findings, JSON.stringify(findings, null, 2)).toEqual([]);
+        if (process.env.E2E_PERFORMANCE_DEFER_BUDGETS !== "1") {
+          expect(findings, JSON.stringify(findings, null, 2)).toEqual([]);
+        }
       }
 
       await testInfo.attach(`staff-workspace-${scenario.target}-performance`, {

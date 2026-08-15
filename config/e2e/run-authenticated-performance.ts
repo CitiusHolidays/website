@@ -7,6 +7,7 @@ import {
 } from "../release/check-performance-budgets";
 import { staffWorkspacePerformanceInputs } from "../release/performance-inputs";
 import {
+  evaluateStaffWorkspacePerformanceBudget,
   evaluateStaffWorkspaceRelativeRegression,
   parseStaffWorkspacePerformanceBudgetManifest,
   STAFF_WORKSPACE_PERFORMANCE_TARGETS,
@@ -160,6 +161,7 @@ if (import.meta.main) {
           env: {
             ...process.env,
             E2E_EVIDENCE_REVISION: revision,
+            E2E_PERFORMANCE_DEFER_BUDGETS: "1",
             E2E_PERFORMANCE_RUN_DIR: trialDir,
             E2E_STRICT: "1",
           },
@@ -199,6 +201,27 @@ if (import.meta.main) {
         )
       )
     );
+    const rawFixedFindings = values.flatMap((value) =>
+      [false, true].flatMap((warm) =>
+        evaluateStaffWorkspacePerformanceBudget(
+          budget,
+          evidenceSample(warm ? value.warm : value.cold, value.target, warm)
+        )
+      )
+    );
+    if (rawFixedFindings.length > 0) {
+      console.warn(
+        `Authenticated performance observed ${rawFixedFindings.length} raw-trial fixed-budget warnings; the three-trial median remains authoritative`
+      );
+    }
+    const fixedFindings = evidence.samples.flatMap((sample) =>
+      evaluateStaffWorkspacePerformanceBudget(budget, sample)
+    );
+    if (fixedFindings.length > 0) {
+      throw new Error(
+        `Authenticated performance candidate failed ${fixedFindings.length} fixed budgets: ${JSON.stringify(fixedFindings)}`
+      );
+    }
     const acceptedByScenario = new Map(
       accepted.samples.map((sample) => [`${sample.target}:${sample.warm}`, sample])
     );

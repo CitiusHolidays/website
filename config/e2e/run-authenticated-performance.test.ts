@@ -31,7 +31,7 @@ describe("revision-bound authenticated performance evidence", () => {
   };
   const values = STAFF_WORKSPACE_PERFORMANCE_TARGETS.flatMap((target) =>
     [1, 2, 3].map((trial) => ({
-      cold: { ...sample(target, false), routeReadyMs: trial * 10 },
+      cold: { ...sample(target, false), routeReadyMs: trial === 1 ? 1000 : trial * 10 },
       revision: approvedTarget.revision,
       target,
       warm: { ...sample(target, true), routeReadyMs: trial * 20 },
@@ -57,7 +57,7 @@ describe("revision-bound authenticated performance evidence", () => {
       targetBinding: approvedTarget,
       trialCount: 3,
     });
-    expect(evidence.samples[0]?.routeReadyMs).toBe(20);
+    expect(evidence.samples[0]?.routeReadyMs).toBe(30);
     expect(evidence.samples[1]?.routeReadyMs).toBe(40);
     expect(evidence.samples[0]).not.toHaveProperty("pendingMs");
     expect(evidence.samples[0]).not.toHaveProperty("subscriptions");

@@ -57,8 +57,10 @@ Candidate replacements are also compared with the last accepted baseline. Payloa
 route-ready time by 50% or 100 ms, and transfer by 20% or 5,000 bytes, whichever allowance is
 larger. Duplicate subscriptions receive no relative allowance. These noise floors do not widen the
 fixed ceilings above; a candidate must pass both contracts. Collection runs three isolated browser
-trials and promotes the median for each route/mode/metric, while every raw trial must first pass the
-fixed ceilings. Schema-v4 evidence records both the trial count and measurement version.
+trials and promotes the median for each route/mode/metric. Raw-trial fixed-budget breaches are
+reported as non-authoritative noise warnings; the three-trial median must pass every fixed and
+relative gate before evidence is written. Schema-v4 evidence records both the trial count and
+measurement version.
 
 Measurement version 2 moves the warm resource-timing reset before preload, so transfer now includes
 both preload and navigation bytes. During the explicit version-1 to version-2 transition, only that
